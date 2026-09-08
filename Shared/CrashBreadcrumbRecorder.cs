@@ -36,6 +36,7 @@ namespace Shared
         private readonly Timer timer;
         private long sequence;
         private long snapshotSequence;
+        private long lastPersistedBreadcrumbSequence = -1;
         private long nextSummaryTimestamp;
         private bool cleanShutdown;
         private bool persistenceDisabled;
@@ -247,6 +248,8 @@ namespace Shared
             }
         }
 
+        internal long SnapshotSequenceForTests => Interlocked.Read(ref snapshotSequence);
+
         internal string DirectoryForTests => directory;
 
         public void Dispose()
@@ -332,16 +335,32 @@ namespace Shared
         {
             if (!IsEnabled || persistenceDisabled || disposed && !finalSnapshot)
                 return;
+            if (!finalSnapshot &&
+                Interlocked.Read(ref sequence) == Interlocked.Read(ref lastPersistedBreadcrumbSequence))
+            {
+                return;
+            }
 
             lock (snapshotWriteRoot)
             {
                 try
                 {
+                    if (!finalSnapshot &&
+                        Interlocked.Read(ref sequence) == Interlocked.Read(ref lastPersistedBreadcrumbSequence))
+                    {
+                        return;
+                    }
+
                     Snapshot snapshot = CaptureSnapshot();
                     string text = FormatSnapshot(snapshot, finalSnapshot);
                     int slot = (int)(snapshot.SnapshotSequence & 1L);
                     string path = Path.Combine(directory, filePrefix + "-" + slot + ".txt");
                     File.WriteAllText(path, text, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+                    // Publish only the sequence captured in this file. A concurrent writer that
+                    // advances the ring remains dirty and is persisted by the next timer pass.
+                    Interlocked.Exchange(
+                        ref lastPersistedBreadcrumbSequence,
+                        snapshot.BreadcrumbSequence);
                     TryLogMinuteSummary(snapshot);
                 }
                 catch (Exception exception)

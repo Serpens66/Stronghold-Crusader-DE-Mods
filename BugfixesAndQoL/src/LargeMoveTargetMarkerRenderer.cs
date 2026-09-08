@@ -213,13 +213,16 @@ namespace BugfixesAndQoL
 
         private void RenderVisibleLargeMoveTarget(NativePointer<X64SmartCPUContext> context)
         {
-            if (!ReplacementAvailable || !featureEnabled() || context.Pointer == null)
+            if (!ReplacementAvailable || context.Pointer == null)
+                return;
+
+            Dictionary<int, int> markers = markerIdentityByTile;
+            if (markers.Count == 0 || !featureEnabled())
                 return;
             try
             {
                 X64SmartCPUContext* registers = context.Pointer;
                 int tileId = unchecked((int)(uint)registers->RBX);
-                Dictionary<int, int> markers = markerIdentityByTile;
                 if ((uint)tileId >= NativeTileCount ||
                     !markers.TryGetValue(tileId, out int identity))
                 {

@@ -23,6 +23,7 @@ if errorlevel 1 (
 if not exist "%MSBUILD%" goto build_failed
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto build_failed
 if not exist "%EXTENDER_DIR%\R3.dll" goto build_failed
+if not exist "%EXTENDER_DIR%\Iced.dll" goto build_failed
 if not exist "%EXTENDER_DIR%\RedBird.Abstractions.dll" goto build_failed
 if not exist "%EXTENDER_DIR%\RedBird.Core.dll" goto build_failed
 if not exist "%EXTENDER_DIR%\RedBird.X64.dll" goto build_failed
@@ -40,6 +41,7 @@ if not exist "%LOCAL_PLUGIN_DIR%\ElevatedMoatTest.pdb" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if exist "%LOCAL_PLUGIN_DIR%\SHCDESE.dll" goto package_failed
 if exist "%LOCAL_PLUGIN_DIR%\R3.dll" goto package_failed
+if exist "%LOCAL_PLUGIN_DIR%\Iced.dll" goto package_failed
 if exist "%LOCAL_PLUGIN_DIR%\RedBird.X64.dll" goto package_failed
 
 rem Updating this test mod replaces only its three validated package files.

@@ -2580,6 +2580,17 @@ internal static class Program
               SelectedUnitHealthPageLayout.GetPageCount(selectedTypes) == 5,
             "shared troop/health page slots were not contiguous or omitted the Lord");
 
+        var reusablePage = Enumerable.Repeat(999, SelectedUnitHealthPageLayout.SlotCount).ToArray();
+        SelectedUnitHealthPageLayout.FillVisibleTypes(selectedTypes, 4, reusablePage);
+        Check(reusablePage.SequenceEqual(page5),
+            "buffer-based selected-unit health paging differed from the compatible allocating path");
+
+        SelectedUnitHealthPageLayout.FillVisibleTypes(selectedTypes, 4, reusablePage, 55);
+        Check(reusablePage.SequenceEqual(new[] { 33, 34, 35, -1, -1, -1, -1, -1 }),
+            "buffer-based paging did not exclude the Lord without changing the source counts");
+        Check(selectedTypes[55] == 1,
+            "buffer-based Lord exclusion mutated the authoritative selected-type array");
+
         foreach (int typeCount in new[] { 7, 8, 9, 17 })
         {
             var boundary = new int[89];

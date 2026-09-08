@@ -2,6 +2,9 @@
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
+using R3;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Input;
 using System;
 using System.ComponentModel;
 using System.Globalization;
@@ -20,8 +23,9 @@ namespace BugfixesAndQoL
         private readonly MethodInfo updateGoodsMethod;
         private readonly Hook buttonClickedHook;
         private readonly ButtonClickedDelegate buttonClickedTrampoline;
+        private readonly IDisposable keyDownSubscription;
+        private readonly IDisposable keyUpSubscription;
         private DisplayMode displayMode;
-        private int lastDisplayFrame = -1;
         private bool failureLogged;
         private bool disposed;
 
@@ -49,19 +53,36 @@ namespace BugfixesAndQoL
                 throw new MissingFieldException(panelType.FullName, "selectedGoodsAmount");
 
             Hook installedHook = null;
+            IDisposable installedKeyDownSubscription = null;
+            IDisposable installedKeyUpSubscription = null;
+            bool focusChangedSubscribed = false;
             try
             {
                 installedHook = new Hook(buttonClickedMethod, (ButtonClickedDelegate)ButtonClickedHook);
                 buttonClickedTrampoline = installedHook.GenerateTrampoline<ButtonClickedDelegate>();
                 buttonClickedHook = installedHook;
+
+                installedKeyDownSubscription = InputR3EventHooks.OnKeyDown.Observable
+                    .Subscribe(OnModifierKeyChanged);
+                installedKeyUpSubscription = InputR3EventHooks.OnKeyUp.Observable
+                    .Subscribe(OnModifierKeyChanged);
+                keyDownSubscription = installedKeyDownSubscription;
+                keyUpSubscription = installedKeyUpSubscription;
+                Application.focusChanged += OnFocusChanged;
+                focusChangedSubscribed = true;
+                RefreshDisplayedAmounts();
             }
             catch
             {
+                if (focusChangedSubscribed)
+                    Application.focusChanged -= OnFocusChanged;
+                installedKeyUpSubscription?.Dispose();
+                installedKeyDownSubscription?.Dispose();
+                installedHook?.Undo();
                 installedHook?.Dispose();
                 throw;
             }
 
-            Application.onBeforeRender += RefreshDisplayedAmounts;
             Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL ally goods amount modifier hook installed.");
         }
 
@@ -71,10 +92,14 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            Application.onBeforeRender -= RefreshDisplayedAmounts;
+            Application.focusChanged -= OnFocusChanged;
+            keyUpSubscription?.Dispose();
+            keyDownSubscription?.Dispose();
             buttonClickedHook?.Undo();
             buttonClickedHook?.Dispose();
         }
+
+        internal void RefreshSetting() => RefreshDisplayedAmounts();
 
         internal static int CalculateAmount(int currentAmount, int buttonAmount, bool subtract, bool shift, bool control)
         {
@@ -133,11 +158,24 @@ namespace BugfixesAndQoL
         private static bool IsHeld(KeyCode left, KeyCode right) =>
             Input.GetKey(left) || Input.GetKey(right);
 
+        private void OnModifierKeyChanged(UnityInputEventArgs args)
+        {
+            if (args == null || args.Phase != EventHookPhase.Post || !IsModifierKey(args.Key))
+                return;
+
+            RefreshDisplayedAmounts();
+        }
+
+        private void OnFocusChanged(bool _) => RefreshDisplayedAmounts();
+
+        private static bool IsModifierKey(KeyCode key) =>
+            key == KeyCode.LeftShift || key == KeyCode.RightShift ||
+            key == KeyCode.LeftControl || key == KeyCode.RightControl;
+
         private void RefreshDisplayedAmounts()
         {
-            if (lastDisplayFrame == Time.frameCount)
+            if (disposed)
                 return;
-            lastDisplayFrame = Time.frameCount;
 
             DisplayMode newMode = DisplayMode.Normal;
             if (settings.EnableClientFeatures && settings.EnableAllyGoodsAmountModifiers)

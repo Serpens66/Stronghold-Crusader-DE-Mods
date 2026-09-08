@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Runtime.InteropServices;
 using ElevatedMoatTest;
+using RedBird.X64.Hooks;
 
 internal static class Program
 {
@@ -57,6 +59,36 @@ internal static class Program
             ElevatedMoatNativeContract.TileValidationResultLength == 14 &&
             ElevatedMoatNativeContract.TileValidationResultBytes.Length == 14,
             "audited 14-byte tile-result hook boundary");
+        Check(ElevatedMoatNativeContract.AivHeightGateRva == 0x59827 &&
+            ElevatedMoatNativeContract.AivHeightGateLength == 22 &&
+            ElevatedMoatNativeContract.AivHeightGateBytes.Length == 22,
+            "audited 22-byte AIV height-gate boundary");
+        Check(ElevatedMoatNativeContract.AivCreatePathRva == 0x599B3 &&
+            ElevatedMoatNativeContract.AivCreatePathLength == 16 &&
+            ElevatedMoatNativeContract.AivCreatePathBytes.Length == 16,
+            "audited 16-byte AIV creation-path boundary");
+        Check(ElevatedMoatNativeContract.HumanMoatWriterResultRva == 0x73B24 &&
+            ElevatedMoatNativeContract.HumanMoatWriterResultLength == 15 &&
+            ElevatedMoatNativeContract.HumanMoatWriterResultBytes.Length == 15,
+            "audited 15-byte human writer-result boundary");
+        Check(ElevatedMoatNativeContract.SharedHeightGateRva == 0x704CC &&
+            ElevatedMoatNativeContract.SharedHeightGateLength == 14 &&
+            ElevatedMoatNativeContract.SharedHeightGateBytes.Length == 14,
+            "audited shared editor/planning height gate");
+        Check(ElevatedMoatNativeContract.TileDefaultHeightGridOffset == 0xDCCAC0 &&
+            ElevatedMoatNativeContract.MoatDepth == 8,
+            "audited default-height grid and Vanilla moat depth");
+        foreach (int height in Enumerable.Range(0, 9))
+            Check(ElevatedMoatNativeContract.CalculateCompletedHeight((byte)height) == 0,
+                $"adaptive moat height clamps {height} to zero");
+        Check(ElevatedMoatNativeContract.CalculateCompletedHeight(12) == 4,
+            "adaptive moat height maps 12 to 4");
+        Check(ElevatedMoatNativeContract.CalculateCompletedHeight(13) == 5,
+            "adaptive moat height maps 13 to 5");
+        Check(ElevatedMoatNativeContract.CalculateCompletedHeight(80) == 72,
+            "adaptive moat height maps 80 to 72");
+        Check(ElevatedMoatNativeContract.CalculateCompletedHeight(130) == 122,
+            "adaptive moat height maps 130 to 122");
     }
 
     private static void TestNativeContractValidation()
@@ -107,6 +139,134 @@ internal static class Program
         ExpectNoThrow(() => ElevatedMoatNativeContract.ValidateTileValidationResultHook(
             image, ElevatedMoatNativeContract.TileValidationResultRva),
             "tile-result CALL target, branch target, and continuation");
+
+        List<int> aivGateMatches = FindAll(file, ElevatedMoatNativeContract.AivHeightGateBytes);
+        Check(aivGateMatches.Count == 1, "AIV height-gate pattern occurs exactly once");
+        if (aivGateMatches.Count == 1)
+            Check(FileOffsetToRva(file, aivGateMatches[0]) == ElevatedMoatNativeContract.AivHeightGateRva,
+                "unique AIV height gate maps to RVA 0x59827");
+
+        List<int> aivCreateMatches = FindAll(
+            file,
+            ElevatedMoatNativeContract.AivCreatePathResolutionBytes);
+        Check(aivCreateMatches.Count == 1, "AIV creation-path pattern occurs exactly once");
+        if (aivCreateMatches.Count == 1)
+            Check(FileOffsetToRva(file, aivCreateMatches[0]) == ElevatedMoatNativeContract.AivCreatePathRva,
+                "unique AIV creation path maps to RVA 0x599B3");
+        ExpectNoThrow(() => ElevatedMoatNativeContract.ValidateAivHooks(
+            image,
+            ElevatedMoatNativeContract.AivHeightGateRva,
+            ElevatedMoatNativeContract.AivCreatePathRva),
+            "AIV function boundaries and creation-path branch target");
+        byte[] changedAivImage = (byte[])image.Clone();
+        changedAivImage[ElevatedMoatNativeContract.AivHeightGateRva] ^= 1;
+        ExpectThrows(() => ElevatedMoatNativeContract.ValidateAivHooks(
+            changedAivImage,
+            ElevatedMoatNativeContract.AivHeightGateRva,
+            ElevatedMoatNativeContract.AivCreatePathRva),
+            "changed AIV height gate fails closed");
+
+        List<int> humanResultMatches = FindAll(
+            file,
+            ElevatedMoatNativeContract.HumanMoatWriterResultResolutionBytes);
+        Check(humanResultMatches.Count == 1, "human writer-result pattern occurs exactly once");
+        if (humanResultMatches.Count == 1)
+            Check(FileOffsetToRva(file, humanResultMatches[0]) ==
+                ElevatedMoatNativeContract.HumanMoatWriterResultRva,
+                "unique human writer result maps to RVA 0x73B24");
+        ExpectNoThrow(() => ElevatedMoatNativeContract.ValidateHumanMoatWriterResultHook(
+            image,
+            ElevatedMoatNativeContract.HumanMoatWriterResultRva),
+            "human writer CALL target, function boundary, and continuation");
+        byte[] changedHumanImage = (byte[])image.Clone();
+        changedHumanImage[ElevatedMoatNativeContract.HumanMoatWriterCallRva + 1] ^= 1;
+        ExpectThrows(() => ElevatedMoatNativeContract.ValidateHumanMoatWriterResultHook(
+            changedHumanImage,
+            ElevatedMoatNativeContract.HumanMoatWriterResultRva),
+            "changed human moat writer CALL target fails closed");
+
+        CheckUniquePattern(file, ElevatedMoatNativeContract.SharedHeightGatePattern,
+            ElevatedMoatNativeContract.SharedHeightGateRva, "shared editor/planning height gate");
+        CheckUniquePattern(file, ElevatedMoatNativeContract.AivCompletedHeightPattern,
+            ElevatedMoatNativeContract.AivCompletedHeightRva, "AIV completed-moat height");
+        CheckUniquePattern(file, ElevatedMoatNativeContract.ExcavationCompletedHeightPattern,
+            ElevatedMoatNativeContract.ExcavationCompletedHeightRva, "excavated-moat height");
+        CheckUniquePattern(file, ElevatedMoatNativeContract.RebuildCompletedHeightPattern,
+            ElevatedMoatNativeContract.RebuildCompletedHeightRva, "rebuilt-moat height");
+        CheckUniquePattern(file, ElevatedMoatNativeContract.DirectCompletedHeightPattern,
+            ElevatedMoatNativeContract.DirectCompletedHeightRva, "direct completed-moat height");
+        CheckUniquePattern(file, ElevatedMoatNativeContract.GenericCompletedHeightPattern,
+            ElevatedMoatNativeContract.GenericCompletedHeightRva, "generic completed-moat height");
+        CheckUniquePattern(file, ElevatedMoatNativeContract.DirectRemovalHeightPattern,
+            ElevatedMoatNativeContract.DirectRemovalHeightRva, "direct moat-removal height");
+        ExpectNoThrow(() => ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(image),
+            "adaptive-height function, byte, branch, and call contracts");
+        byte[] changedAdaptiveImage = (byte[])image.Clone();
+        changedAdaptiveImage[ElevatedMoatNativeContract.DirectCompletedHeightRva + 1] ^= 1;
+        ExpectThrows(() => ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(changedAdaptiveImage),
+            "changed adaptive-height block fails closed");
+        TestInstalledRedBirdDisplacement(image);
+    }
+
+    private static void TestInstalledRedBirdDisplacement(byte[] image)
+    {
+        CheckRedBirdDisplacement(
+            image,
+            ElevatedMoatNativeContract.AivHeightGateRva,
+            ElevatedMoatNativeContract.AivHeightGateLength,
+            "installed RedBird displaces exactly 22 bytes at the AIV height gate");
+        CheckRedBirdDisplacement(
+            image,
+            ElevatedMoatNativeContract.HumanMoatWriterResultRva,
+            ElevatedMoatNativeContract.HumanMoatWriterResultLength,
+            "installed RedBird displaces exactly 15 bytes at the human result hook");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.SharedHeightGateRva,
+            ElevatedMoatNativeContract.SharedHeightGateLength,
+            "installed RedBird displaces exactly 14 bytes at the shared height gate");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.AivCompletedHeightRva,
+            ElevatedMoatNativeContract.AivCompletedHeightLength,
+            "installed RedBird displaces exactly 17 bytes at the AIV height block");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.ExcavationCompletedHeightRva,
+            ElevatedMoatNativeContract.ExcavationCompletedHeightLength,
+            "installed RedBird displaces exactly 16 bytes at the excavation height block");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.RebuildCompletedHeightRva,
+            ElevatedMoatNativeContract.RebuildCompletedHeightLength,
+            "installed RedBird displaces exactly 15 bytes at the rebuild height block");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.DirectCompletedHeightRva,
+            ElevatedMoatNativeContract.DirectCompletedHeightLength,
+            "installed RedBird displaces exactly 22 bytes at the direct height block");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.GenericCompletedHeightRva,
+            ElevatedMoatNativeContract.GenericCompletedHeightLength,
+            "installed RedBird displaces exactly 17 bytes at the generic height block");
+        CheckRedBirdDisplacement(image, ElevatedMoatNativeContract.DirectRemovalHeightRva,
+            ElevatedMoatNativeContract.DirectRemovalHeightLength,
+            "installed RedBird displaces exactly 16 bytes at the removal height block");
+    }
+
+    private static void CheckRedBirdDisplacement(
+        byte[] image,
+        int rva,
+        int requestedLength,
+        string name)
+    {
+        IntPtr buffer = Marshal.AllocHGlobal(64);
+        try
+        {
+            Marshal.Copy(image, rva, buffer, 64);
+            using var hook = new X64InlineHook(
+                unchecked((ulong)buffer.ToInt64()),
+                requestedLength);
+            Check(hook.DisplacedByteCount == requestedLength, name);
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
+            Check(false, name);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
     }
 
     private static void TestSourceContracts(string modRoot)
@@ -124,6 +284,14 @@ internal static class Program
         Check(runtime.Contains("ObserveTileValidationResult") &&
             runtime.Contains("Placement = OverwrittenInstructionPlacement.AfterCallback"),
             "passive tile-validator result diagnostics");
+        Check(runtime.Contains("GenerateAivHeightBypass") &&
+            runtime.Contains("AddUnrestrictedJmp(createPathAddress)") &&
+            runtime.Contains("AIV_MOAT_CREATE_ATTEMPT"),
+            "AIV height gate jumps to its audited creation path with diagnostics");
+        Check(runtime.Contains("BuildingR3EventHooks.OnBuildStructure.Observable") &&
+            runtime.Contains("ObserveHumanMoatWriterResult") &&
+            runtime.Contains("MOAT_BUILD:"),
+            "human moat builder and writer result are diagnosed");
         Check(runtime.Contains("args.Mappers != eMappers.MAPPER_MOAT") &&
             !runtime.Contains("MAPPER_DRAWBRIDGE"),
             "diagnostics remain restricted to moat placement");
@@ -138,15 +306,34 @@ internal static class Program
         Check(!runtime.Contains("Marshal.Write") &&
             !runtime.Contains("CustomValidationRules =") &&
             !runtime.Contains("ForceBlockPlacementState ="),
-            "diagnostics write no game placement state");
-        Check(!runtime.Contains("AddDetour") && runtime.Contains("IsAIPlayer(trace.PlayerId)"),
-            "diagnostics use the public validator event without an overlapping function detour");
+            "no broad managed placement-state override is introduced");
+        Check(!runtime.Contains("AddDetour") && runtime.Contains("IsAIPlayer(playerId)"),
+            "diagnostics avoid an overlapping detour of the shared moat writer");
+        Check(runtime.Contains("RequireInstalledHookLength(") &&
+            runtime.Contains("ElevatedMoatNativeContract.AivHeightGateLength") &&
+            runtime.Contains("ElevatedMoatNativeContract.HumanMoatWriterResultLength"),
+            "all new installed hook lengths are checked before activation");
+        Check(runtime.Contains("SuppressSharedHeightGate") &&
+            runtime.Contains("MOAT_NATIVE_ACTION:") &&
+            runtime.Contains("OverwrittenInstructionPlacement.Suppress"),
+            "shared editor/planning height gate is suppressed with native diagnostics");
+        Check(runtime.Contains("ApplyCompletedHeight") &&
+            runtime.Contains("TileDefaultHeightGridOffset") &&
+            runtime.Contains("MOAT_HEIGHT_APPLIED:") &&
+            runtime.Contains("OverwrittenInstructionPlacement.BeforeCallback"),
+            "completed moats use post-Vanilla adaptive height correction");
+        Check(runtime.Contains("RestoreDirectRemovalHeight") &&
+            runtime.Contains("*current = defaultHeight"),
+            "direct moat removal restores the original terrain height");
         Check(plugin.Contains("requireCurrentVersion: true") &&
             plugin.Contains("if (!referenceHashMatches)"), "native hash mismatch fails closed");
         Check(project.Contains(@"$(GameDir)\BepInEx\plugins\000shcdese") &&
             !project.Contains("LocalScriptExtender"), "build targets only the installed Script Extender");
         Check(project.Contains("<Reference Include=\"R3\">") &&
             project.Contains("<Private>false</Private>"), "R3 event dependency is not privately packaged");
+        Check(project.Contains("<Reference Include=\"Iced\">") &&
+            project.Contains(@"$(ExtenderDir)\Iced.dll"),
+            "Iced instruction validation uses the installed Script Extender dependency");
     }
 
     private static void TestManifest(string modRoot)
@@ -188,6 +375,17 @@ internal static class Program
                 matches.Add(offset);
         }
         return matches;
+    }
+
+    private static void CheckUniquePattern(byte[] file, string pattern, int expectedRva, string name)
+    {
+        byte[] bytes = pattern.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Select(value => Convert.ToByte(value, 16)).ToArray();
+        List<int> matches = FindAll(file, bytes);
+        Check(matches.Count == 1, $"{name} contextual pattern occurs exactly once");
+        if (matches.Count == 1)
+            Check(FileOffsetToRva(file, matches[0]) == expectedRva,
+                $"{name} maps to RVA 0x{expectedRva:X}");
     }
 
     private static int FileOffsetToRva(byte[] pe, int fileOffset)

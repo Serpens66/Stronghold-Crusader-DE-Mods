@@ -29,6 +29,8 @@ namespace BugfixesAndQoL
         private readonly SurrenderFeature surrenderFeature;
         private readonly Func<bool> isMixedDisbandContractValidated;
         private readonly MethodInfo troopPanelMouseLeaveMethod;
+        private readonly int[] visibleTypes =
+            new int[SelectedUnitHealthPageLayout.SlotCount];
         private Hook setupSelectedTroopsHook;
         private SetupSelectedTroopsDelegate setupSelectedTroopsOriginal;
         private Hook disbandHook;
@@ -199,9 +201,10 @@ namespace BugfixesAndQoL
             lordSelectionButton.Visibility = Visibility.Collapsed;
             SetPageButtonVisibility(panel, currentPage, pages);
 
-            int[] visibleTypes = SelectedUnitHealthPageLayout.GetVisibleTypes(
+            SelectedUnitHealthPageLayout.FillVisibleTypes(
                 selectedTypeCounts,
-                currentPage);
+                currentPage,
+                visibleTypes);
             var positions = SelTroopPositionsField.GetValue(panel) as TranslateTransform[];
             if (positions == null || positions.Length < SelectedUnitHealthPageLayout.SlotCount)
                 throw new InvalidOperationException("HUD_Troops.SelTroopPositions has an unexpected layout.");

@@ -24,6 +24,11 @@ namespace BugfixesAndQoL
         private string currentText = string.Empty;
         private string maximumText = string.Empty;
         private Brush currentForeground = GreenBrush;
+        private long displayedCurrent = long.MinValue;
+        private long displayedMaximum = long.MinValue;
+        private int displayedType = -1;
+        private SelectedUnitHealthBand displayedBand;
+        private bool hasDisplayedSummary;
 
         internal static Brush GetBandBrush(SelectedUnitHealthBand band) =>
             band == SelectedUnitHealthBand.Green
@@ -68,15 +73,36 @@ namespace BugfixesAndQoL
             }
         }
 
-        public void Show(SelectedUnitHealthSummary summary)
+        public void Show(int type, SelectedUnitHealthSummary summary)
         {
-            CurrentText = summary.FormatCurrent();
-            MaximumText = summary.FormatMaximum();
-            CurrentForeground = GetBandBrush(summary.Band);
+            long current = SelectedUnitHealthSummary.ScaleForDisplay(summary.CurrentHealth);
+            long maximum = SelectedUnitHealthSummary.ScaleForDisplay(summary.MaximumHealth);
+            SelectedUnitHealthBand band = summary.Band;
+            if (hasDisplayedSummary && displayedType == type && displayedCurrent == current &&
+                displayedMaximum == maximum && displayedBand == band)
+            {
+                return;
+            }
+
+            displayedType = type;
+            displayedCurrent = current;
+            displayedMaximum = maximum;
+            displayedBand = band;
+            hasDisplayedSummary = true;
+            CurrentText = current.ToString();
+            MaximumText = maximum.ToString();
+            CurrentForeground = GetBandBrush(band);
         }
 
         public void Clear()
         {
+            if (!hasDisplayedSummary && currentText.Length == 0 && maximumText.Length == 0)
+                return;
+
+            hasDisplayedSummary = false;
+            displayedType = -1;
+            displayedCurrent = long.MinValue;
+            displayedMaximum = long.MinValue;
             CurrentText = string.Empty;
             MaximumText = string.Empty;
         }
@@ -122,7 +148,7 @@ namespace BugfixesAndQoL
                 int type = visibleTypes != null && slot < visibleTypes.Length ? visibleTypes[slot] : -1;
                 if (type >= 0 && type < summaries.Length && summaries[type].HasUnits)
                 {
-                    Slots[slot].Show(summaries[type]);
+                    Slots[slot].Show(type, summaries[type]);
                     anyVisible = true;
                 }
                 else
@@ -156,6 +182,10 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly SelectedUnitHealthSummary[] summaries =
+            new SelectedUnitHealthSummary[(int)eChimps.CHIMP_NUM_TYPES];
+        private readonly int[] visibleTypes =
+            new int[SelectedUnitHealthPageLayout.SlotCount];
         private int lastFrame = -1;
         private bool callbackErrorLogged;
         private bool disposed;
@@ -249,7 +279,7 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            var summaries = new SelectedUnitHealthSummary[(int)eChimps.CHIMP_NUM_TYPES];
+            Array.Clear(summaries, 0, summaries.Length);
             int count = Math.Min(selectedCount, state.selectedChimps.Length);
             int eligibleCount = 0;
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
@@ -279,6 +309,7 @@ namespace BugfixesAndQoL
 
             var selectedTypeCounts = SelectedChimpArrayField.GetValue(troopPanel) as int[];
             int displayedTypeCount = (int)NoSelectedChimpTypesField.GetValue(troopPanel);
+            int excludedType = -1;
             if (selectedTypeCounts != null &&
                 selectedTypeCounts.Length > (int)eChimps.CHIMP_TYPE_LORD &&
                 selectedTypeCounts[(int)eChimps.CHIMP_TYPE_LORD] > 0 &&
@@ -286,13 +317,14 @@ namespace BugfixesAndQoL
             {
                 // Vanilla excludes type 55. Only mirror it when the Lord-aware HUD hook
                 // has explicitly included it in the same authoritative type count.
-                selectedTypeCounts = (int[])selectedTypeCounts.Clone();
-                selectedTypeCounts[(int)eChimps.CHIMP_TYPE_LORD] = 0;
+                excludedType = (int)eChimps.CHIMP_TYPE_LORD;
             }
             int currentPage = (int)CurrentPageField.GetValue(troopPanel);
-            int[] visibleTypes = SelectedUnitHealthPageLayout.GetVisibleTypes(
+            SelectedUnitHealthPageLayout.FillVisibleTypes(
                 selectedTypeCounts,
-                currentPage);
+                currentPage,
+                visibleTypes,
+                excludedType);
             ViewModel.Show(summaries, visibleTypes);
             LogEditorVisibilityState(mapEditor, $"visible: selectedUnits={selectedCount}, eligibleOwnedUnits={eligibleCount}, playerId={controlledPlayerId}, page={currentPage}");
         }

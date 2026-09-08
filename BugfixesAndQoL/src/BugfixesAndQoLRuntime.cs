@@ -412,6 +412,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
+            TryApplyFeature("ally goods amount modifiers", () => allyGoodsAmountModifierHook?.RefreshSetting());
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryApplyFeature("Lord troop HUD", () => lordUnitControlsFeature?.RefreshSetting());
             TryInitializeFeature("selected-unit health display", InitializeSelectedUnitHealthFeature);

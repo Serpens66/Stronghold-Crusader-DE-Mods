@@ -144,6 +144,7 @@ internal static class Program
             CheckLordControlGroupTransactionModel(pe.Image);
             CheckLordControlGroupIconPolicy();
             CheckLordControlGroupUiContracts(workspace);
+            CheckHighFrequencyFastPathContracts(workspace);
             CheckUnknownHashPolicy(workspace);
             Console.WriteLine($"PASS: BugfixesAndQoL native tests ({assertions} assertions, {PatternRvas.Count} signatures).");
             return 0;
@@ -153,6 +154,60 @@ internal static class Program
             Console.Error.WriteLine("FAIL: " + ex);
             return 1;
         }
+    }
+
+    private static void CheckHighFrequencyFastPathContracts(string workspace)
+    {
+        string sourceRoot = Path.Combine(workspace, "BugfixesAndQoL", "src");
+        string allyGoods = File.ReadAllText(Path.Combine(sourceRoot, "AllyGoodsAmountModifierHook.cs"));
+        Check(!allyGoods.Contains("Application.onBeforeRender"),
+            "Ally-Goods no longer owns a per-render callback");
+        Check(allyGoods.Contains("InputR3EventHooks.OnKeyDown.Observable") &&
+              allyGoods.Contains("InputR3EventHooks.OnKeyUp.Observable") &&
+              allyGoods.Contains("Application.focusChanged += OnFocusChanged") &&
+              allyGoods.Contains("Application.focusChanged -= OnFocusChanged") &&
+              allyGoods.Contains("keyDownSubscription?.Dispose()") &&
+              allyGoods.Contains("keyUpSubscription?.Dispose()"),
+            "Ally-Goods key/focus subscriptions have complete lifecycle cleanup");
+        Check(allyGoods.Contains("Input.GetKey(left) || Input.GetKey(right)") &&
+              allyGoods.Contains("RefreshSetting() => RefreshDisplayedAmounts()"),
+            "Ally-Goods captures both modifier sides and supports settings refresh");
+
+        string runtime = File.ReadAllText(Path.Combine(sourceRoot, "BugfixesAndQoLRuntime.cs"));
+        Check(runtime.Contains("allyGoodsAmountModifierHook?.RefreshSetting()"),
+            "Ally-Goods settings application refresh is wired");
+
+        string health = File.ReadAllText(Path.Combine(sourceRoot, "SelectedUnitHealthFeature.cs"));
+        Check(health.Contains("readonly SelectedUnitHealthSummary[] summaries") &&
+              health.Contains("readonly int[] visibleTypes") &&
+              health.Contains("Array.Clear(summaries, 0, summaries.Length)") &&
+              health.Contains("displayedType == type") &&
+              !health.Contains("selectedTypeCounts.Clone()"),
+            "Selected-health uses reusable summary/page buffers without Lord cloning");
+
+        string cursor = File.ReadAllText(Path.Combine(sourceRoot, "CursorConnectivity.cs"));
+        int queryGuard = cursor.IndexOf("if (cursorQueries == cursorLastLogQueries)", StringComparison.Ordinal);
+        int cursorStopwatch = cursor.IndexOf("long now = Stopwatch.GetTimestamp();", queryGuard, StringComparison.Ordinal);
+        Check(queryGuard >= 0 && cursorStopwatch > queryGuard,
+            "Friendly-Moat diagnostics check query dirtiness before reading Stopwatch");
+
+        string marker = File.ReadAllText(Path.Combine(sourceRoot, "LargeMoveTargetMarkerRenderer.cs"));
+        int markerSnapshot = marker.IndexOf("Dictionary<int, int> markers = markerIdentityByTile;", StringComparison.Ordinal);
+        int emptyGuard = marker.IndexOf("markers.Count == 0", markerSnapshot, StringComparison.Ordinal);
+        int featureDelegate = marker.IndexOf("featureEnabled()", markerSnapshot, StringComparison.Ordinal);
+        int dictionaryLookup = marker.IndexOf("markers.TryGetValue", markerSnapshot, StringComparison.Ordinal);
+        Check(markerSnapshot >= 0 && emptyGuard > markerSnapshot && featureDelegate > emptyGuard &&
+              dictionaryLookup > featureDelegate,
+            "visible-tile callback checks the empty published snapshot before feature delegate and lookup");
+
+        string invite = File.ReadAllText(Path.Combine(sourceRoot, "SteamLobbyInvitePrompt.cs"));
+        int expireMethod = invite.IndexOf("private void ExpirePendingInvites", StringComparison.Ordinal);
+        int emptyInviteGuard = invite.IndexOf(
+            "pendingInvites.Count == 0 && recentInvites.Count == 0", expireMethod, StringComparison.Ordinal);
+        int expiredAllocation = invite.IndexOf("expired = new List<PendingInvite>()", expireMethod, StringComparison.Ordinal);
+        Check(expireMethod >= 0 && emptyInviteGuard > expireMethod && expiredAllocation > emptyInviteGuard &&
+              invite.Contains("new Timer(ExpirePendingInvites, null, 5000, 5000)"),
+            "Steam invite timer retains its anchor and avoids lists when fully idle");
     }
 
     private static void CheckGatehouseQueryUnitIdContract()

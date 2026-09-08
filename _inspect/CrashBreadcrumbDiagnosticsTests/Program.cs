@@ -17,6 +17,9 @@ internal static class Program
         Run("nested and incomplete scopes remain identifiable", NestedAndIncompleteScopes);
         Run("parallel writers retain valid records", ParallelWriters);
         Run("snapshots alternate and clean shutdown is marked", SnapshotsAlternate);
+        Run("unchanged snapshots do not rewrite files", UnchangedSnapshotsAreSkipped);
+        Run("records arriving after a snapshot remain dirty", LaterRecordsRemainDirty);
+        Run("concurrent records survive dirty snapshot clearing", ConcurrentRecordsSurviveDirtyClearing);
         Run("only three sessions are retained", RetentionKeepsThreeSessions);
         Run("persistence failure never escapes", PersistenceFailureIsContained);
         Run("summary output is rate-controlled", SummaryIsRateControlled);
@@ -106,6 +109,65 @@ internal static class Program
                 Directory.GetFiles(recorder.DirectoryForTests, "*.txt")
                     .Any(path => File.ReadAllText(path).Contains("state=clean-shutdown")),
                 "clean shutdown marker missing");
+        }
+    }
+
+    private static void UnchangedSnapshotsAreSkipped()
+    {
+        string root = NewRoot();
+        using (var recorder = NewRecorder(true, root, "Dirty"))
+        {
+            recorder.WriteSnapshotForTests();
+            long firstSnapshot = recorder.SnapshotSequenceForTests;
+            recorder.WriteSnapshotForTests();
+            Assert(firstSnapshot == 1, "the initial empty snapshot was not persisted");
+            Assert(recorder.SnapshotSequenceForTests == firstSnapshot,
+                "an unchanged recorder rewrote its snapshot");
+        }
+    }
+
+    private static void LaterRecordsRemainDirty()
+    {
+        string root = NewRoot();
+        using (var recorder = NewRecorder(true, root, "Later"))
+        {
+            recorder.Record("first");
+            recorder.WriteSnapshotForTests();
+            long firstSnapshot = recorder.SnapshotSequenceForTests;
+            recorder.Record("second");
+            recorder.WriteSnapshotForTests();
+            Assert(recorder.SnapshotSequenceForTests == firstSnapshot + 1,
+                "a later record did not trigger another snapshot");
+            Assert(ReadNewest(recorder.DirectoryForTests).Contains("breadcrumbSequence=2"),
+                "the later record was missing from the persisted snapshot");
+        }
+    }
+
+    private static void ConcurrentRecordsSurviveDirtyClearing()
+    {
+        string root = NewRoot();
+        using (var recorder = NewRecorder(true, root, "ConcurrentDirty"))
+        {
+            Task writer = Task.Run(() =>
+            {
+                for (int index = 0; index < 2000; index++)
+                    recorder.Record("concurrent", index);
+            });
+            Task snapshots = Task.Run(() =>
+            {
+                while (!writer.IsCompleted)
+                    recorder.WriteSnapshotForTests();
+            });
+            Task.WaitAll(writer, snapshots);
+
+            recorder.WriteSnapshotForTests();
+            long settledSnapshot = recorder.SnapshotSequenceForTests;
+            string text = ReadNewest(recorder.DirectoryForTests);
+            Assert(text.Contains("breadcrumbSequence=2000"),
+                "a record concurrent with snapshot persistence was treated as already clean");
+            recorder.WriteSnapshotForTests();
+            Assert(recorder.SnapshotSequenceForTests == settledSnapshot,
+                "the recorder did not become clean after persisting all concurrent records");
         }
     }
 

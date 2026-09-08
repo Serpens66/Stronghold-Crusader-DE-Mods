@@ -290,8 +290,11 @@ namespace BugfixesAndQoL
 
         private void ObserveCursorPerformance()
         {
+            if (cursorQueries == cursorLastLogQueries)
+                return;
+
             long now = Stopwatch.GetTimestamp();
-            if (cursorQueries == cursorLastLogQueries || now - cursorLastLogTime < Stopwatch.Frequency * 5L) return;
+            if (now - cursorLastLogTime < Stopwatch.Frequency * 5L) return;
             cursorLastLogTime = now; cursorLastLogQueries = cursorQueries;
             long nodes = 0, hits = 0;
             foreach (var entry in cursorTopologies)

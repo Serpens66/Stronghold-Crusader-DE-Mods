@@ -381,10 +381,14 @@ namespace BugfixesAndQoL
 
         private void ExpirePendingInvites(object state)
         {
-            var expired = new List<PendingInvite>();
             long now = Stopwatch.GetTimestamp();
+            List<PendingInvite> expired;
             lock (syncRoot)
             {
+                if (pendingInvites.Count == 0 && recentInvites.Count == 0)
+                    return;
+
+                expired = new List<PendingInvite>();
                 var expiredKeys = new List<string>();
                 foreach (KeyValuePair<string, PendingInvite> entry in pendingInvites)
                 {
@@ -444,6 +448,9 @@ namespace BugfixesAndQoL
 
         private void RemoveExpiredRecentLocked(long now)
         {
+            if (recentInvites.Count == 0)
+                return;
+
             var keys = new List<string>();
             foreach (KeyValuePair<string, long> entry in recentInvites)
             {

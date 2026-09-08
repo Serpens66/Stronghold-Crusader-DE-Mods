@@ -2,6 +2,52 @@
 
 Stand: 2026-09-08
 
+## Zusammenfassung
+
+- Der größte sichere Gewinn liegt beim gemeinsamen Lobby-Poller: dieselbe Roster-/Identitätsaufnahme kann bei gemeinsamer Installation derzeit aus zehn source-linked Assemblykopien erfolgen. Sie soll pro Prozess nur einmal aufgenommen und anschließend an alle eigenständigen Modinstanzen verteilt werden.
+- Die vier Noesis-Detours und zwei `HUD_Main.UpdateRollover`-Detours brauchen weiterhin einen Abschluss nach Vanillas letzter UI-Aktualisierung. Sie können voraussichtlich durch eine einmalige Post-`Director.Update`-Phase ersetzt werden; das darf erst nach den unten beschriebenen Reihenfolge- und UI-Regressionstests freigegeben werden.
+- Eingabe, Auswahl, Darstellung und einige native Zustände besitzen in Script Extender 2.3.0 kein vollständiges Ereignis. Diese Poller beziehungsweise nativen Hotpath-Hooks dürfen nicht entfernt oder willkürlich gedrosselt werden.
+- Mehrere Tickpfade sind fachlich notwendig, arbeiten aber auch im Leerlauf oder allozieren beim Abarbeiten. Dort sind Dirty-/Queue-Guards, bedarfsabhängige Abonnements und wiederverwendbare Puffer sicherer als eine Frequenzreduktion.
+- Ein ausdrücklich einmaliger oder zeitlich begrenzter Callback ist bereits korrekt und wird nicht durch komplexere Infrastruktur ersetzt.
+
+## Benutzerentscheidungen vor einer späteren API-Migration
+
+Diese Fragen sind absichtlich direkt oben platziert. In dieser Runde ist dafür noch keine Entscheidung erforderlich:
+
+1. **Abhängigkeitsumfang:** Soll `SerpNativeAPI` später eine Hard-Dependency aller zehn Mods werden oder nur der Mods, die tatsächlich mindestens eine ihrer Capabilities verwenden? Empfehlung: zunächst nur tatsächliche Nutzer; alle zehn erst dann, wenn jeder mindestens Lobby- oder Frame-Capabilities verwendet und Bundle-/Duplikatauflösung freigegeben ist.
+2. **Ereignismodell:** Soll die API primär typisierte Ereignisse wie `LobbyStateChanged` und `SelectionStateChanged` anbieten oder hauptsächlich einen allgemeinen Frame-Bus? Empfehlung: typisierte, immutable Zustandsereignisse als Normalfall; den Frame-Bus nur für nachweislich framegebundene Features.
+3. **Noesis-/Rollover-Phase:** Soll die API genau einen eigenen Post-`Director.Update`-Hook besitzen, über den Recruitment-, Markt- und Rollover-Nachbearbeitung läuft? Empfehlung: ja, sobald Reihenfolge und Abschluss nach dem letzten Noesis-Durchlauf in allen UI-Zuständen bewiesen sind.
+4. **Artefakt-Pin:** Soll es einen zentralen, für das Modpaket festgelegten API-Artefakt-Pin oder einen Pin pro Consumer geben? Empfehlung: ein zentral getesteter Pin mit expliziter Capability-/Vertragsversion, damit gemeinsam installierte Mods garantiert dieselbe Runtime laden.
+5. **Auswahlpoller:** Assassin-Climb, Lord-Unit-Controls und Gatehouse-Button benötigen derzeit Polling einmal pro gerendertem Frame in erlaubten aktiven Maps. Eine Drosselung auf 30/15 Hz spart Abfragen, kann die Anzeige aber um etwa 33/67 ms verzögern und kurze Auswahlzustände verpassen. Soll später dennoch gedrosselt werden?
+6. **Surrender:** Die Spectator-Promotion sollte für volle Gleichwertigkeit pro gerendertem Frame während geeigneter Matches geprüft werden. Tick- oder Zeitdrosselung kann Promotion und Game-over-/UI-Reihenfolge verschieben. Ist eine solche Verzögerung akzeptabel?
+7. **Lord Health:** Empfehlung ist Unit-Create als Dirty-Signal plus bestehender 10-Tick-Fallback für ungelöste Lords. Event-only ist billiger, kann aber einen Lord verpassen, falls die Player-Lord-ID erst nach dem Create-Callback gesetzt wird. Soll der sichere Fallback bleiben?
+
+Bis zu einer gegenteiligen Entscheidung gilt jeweils die funktionswahrende Empfehlung. Keine verlustbehaftete Drosselung oder Event-only-Variante wird stillschweigend umgesetzt.
+
+## Beitrag der SerpNativeAPI zum finalen Ergebnis
+
+`SerpNativeAPI` ist langfristig der klarere Prozessbesitzer für Beobachtungen, die mehrere Mods heute separat durchführen. Ein geladenes API-Plugin stellt eine echte prozessweite Instanz bereit und ersetzt damit den komplizierteren source-linked `AppDomain`-Vertrag. Die aktuelle API und ihre bestehende Migrationsplanung werden in dieser Runde nicht verändert; vor einer Consumer-Migration muss die Planung mit folgendem erweiterten Zielbild abgeglichen werden:
+
+- `ILobbyStateCapability` nimmt Roster, lokale Identität, Host-/Clientrolle und Slots einmal im bisherigen Rhythmus auf und veröffentlicht nur geänderte, unveränderliche Snapshots an alle Consumer.
+- `IPostUiUpdateCapability` besitzt genau einen `Director.Update`-Detour und benachrichtigt Subscriber nach dem letzten Noesis-Durchlauf. Sie ist das finale Ziel für Recruitment-, Markt- und Rollover-Nachbearbeitung.
+- `ISelectionStateCapability` pollt Unit- und Building-Auswahl zentral einmal pro gerendertem Frame und erzeugt typisierte Änderungsereignisse. Dadurch lesen Assassin-, Lord-, Health- und Gatehouse-Features denselben Snapshot, ohne kurze Zustände zu verlieren.
+- `IRenderFrameCapability` bleibt für Funktionen verfügbar, die tatsächlich jeden gerenderten Frame oder dessen genaue Reihenfolge benötigen. Ein typisiertes Ereignis ist vorzuziehen, sobald es die fachliche Information vollständig ausdrückt.
+- Simulationsticks werden vorerst nicht pauschal gebrokert: Script Extender 2.3.0 stellt mit `OnTick` bereits eine gemeinsame Quelle bereit, und fachliche Tickreihenfolge bleibt im jeweiligen Mod kontrollierbar.
+- Subscriber werden deterministisch nach Owner-GUID und einem stabilen lokalen Registrierungsschlüssel sortiert. Jeder Aufruf ist einzeln fehlerisoliert; registrierbare Handles erlauben Aktivierung, Deaktivierung und vollständige Abmeldung ohne globale Seiteneffekte.
+- Rein verwaltete Capabilities müssen bereits in `SerpNativeAPIPlugin.Awake()` verfügbar sein. Capabilities mit nativen Adressen oder Detours dürfen weiterhin auf `CrusaderLibrary.LibraryLoaded` warten und müssen ihren Nichtbereit-Zustand explizit melden.
+- Wenn später jeder der zehn Mods mindestens eine Lobby- oder Frame-Capability nutzt, ist eine gemeinsame Hard-Dependency sinnvoll. Vor Abschluss von Release-Pin, Bundleauflösung, Versionsvertrag und Duplikatschutz erfolgt keine Consumer-Migration.
+
+Die unten beschriebenen source-linked Broker mit `AppDomain`-Koordination bleiben nur eine mögliche Übergangslösung für Releases ohne API-Abhängigkeit. Das finale Ziel sind API-Capabilities mit vollständiger Standalone-Funktion jedes Consumers zusammen mit seiner deklarierten `SerpNativeAPI`-Version; kein Consumer darf dabei die Installation eines anderen Mods voraussetzen.
+
+## In dieser Runde direkt umgesetzt
+
+- **Ally-Goods:** Der dauerhafte `Application.onBeforeRender`-Callback wurde entfernt. Linkes/rechtes Shift und Ctrl werden über Script-Extender-KeyDown/KeyUp beobachtet; `Input.GetKey` bildet den tatsächlichen Gesamtzustand. Fokuswechsel und `ApplySettings()` lösen ebenfalls einen Refresh aus, und Initialisierungsfehler sowie Dispose melden alle Abonnements ab.
+- **Selected-Unit-Health und Lord-HUD:** Summary- und Visible-Type-Puffer werden wiederverwendet. Die kompatible allokierende Paging-Methode bleibt bestehen und delegiert an eine neue zielpufferbasierte Variante; der Lord-Ausschluss benötigt kein `Clone()` mehr. Texte und Brushes werden nur bei tatsächlich geändertem sichtbaren Wert oder Band publiziert. Das notwendige Framepolling bleibt unverändert.
+- **Hintergrunddiagnose:** Crash-Breadcrumbs überspringen unveränderte periodische Snapshots, garantieren aber den initialen und finalen Snapshot. Die erfolgreich persistierte Breadcrumb-Sequenz wird so veröffentlicht, dass gleichzeitig eintreffende Records dirty bleiben. Der Steam-Invite-Timer kehrt bei vollständig leeren Mengen vor Listenallokationen zurück; sein Fünf-Sekunden-Zeitanker ist unverändert.
+- **Kritische Fast-Paths:** Friendly-Moat prüft neue Queries vor dem `Stopwatch`-Zugriff. Der Visible-Tile-Marker prüft den veröffentlichten leeren Snapshot vor Featuredelegate und Dictionarylookup. Native Adressen, Hookgrenzen und Maschinenlogik wurden nicht geändert.
+- **Bewusst zurückgestellt:** Free-Castle-, Plague-, Quarry- und Queue-Abonnements wurden nicht dynamisiert. Diese größeren Lebenszyklusänderungen werden mit der späteren API-Architektur abgestimmt.
+- **Abnahme:** Host-/Client-Presets, Crash-Breadcrumb-Diagnose einschließlich konkurrierender Writer, 921 native Vertragsassertions, Extended-Shift, Friendly-Moat und die Bugfixes-Policy-/Native-Tests liefen erfolgreich. Die vorgesehenen Build-Treiber für `BugfixesAndQoL`, `ExtraFeatures` und `UnitLimit` endeten erfolgreich und installierten die neuen Artefakte. Die Gegensuche und CRLF-Prüfung waren ohne neuen Befund.
+
 ## Umfang und Beweisbasis
 
 Geprüft wurden die Runtime-Quellen und die jeweils eingebundenen `Shared`-Quellen von:
@@ -23,14 +69,6 @@ Die installierte `CrusaderDE.dll` und `_inspect/CrusaderDE-Native-Baseline/CURRE
 
 Wichtiger Frequenzbefund: `Director.Update()` kann `FatControler.NoesisGUIUpdateChecksInGame()` beim Leeren der UI-Puffer bis zu dreimal innerhalb eines gerenderten Frames aufrufen; ohne Pufferarbeit folgt zusätzlich der zeitgesteuerte Aufruf. Daher sind die vier modseitigen Noesis-Detours nicht bloß „einmal pro Frame“, sondern im Belastungsfall bis zu dreimal pro Frame aktiv. Vanilla setzt unter anderem Recruitment-Buttons und Markt-UI bei jedem dieser Durchläufe erneut. Ein lokales „nur beim ersten Aufruf des Frames“-Guard wäre deshalb nicht funktionsgleich, weil ein späterer Vanilla-Durchlauf die Modwerte wieder überschreiben könnte.
 
-## Gesamtergebnis
-
-- Der größte sichere Gewinn liegt beim gemeinsamen Lobby-Poller: dieselbe Roster-/Identitätsaufnahme kann bei gemeinsamer Installation derzeit aus zehn source-linked Assemblykopien erfolgen. Sie soll pro Prozess nur einmal aufgenommen und anschließend an alle eigenständigen Modinstanzen verteilt werden.
-- Die vier Noesis-Detours und zwei `HUD_Main.UpdateRollover`-Detours brauchen weiterhin einen Abschluss nach Vanillas letzter UI-Aktualisierung. Sie können voraussichtlich durch eine einmalige Post-`Director.Update`-Phase ersetzt werden; das darf erst nach den unten beschriebenen Reihenfolge- und UI-Regressionstests freigegeben werden.
-- Eingabe, Auswahl, Darstellung und einige native Zustände besitzen in Script Extender 2.3.0 kein vollständiges Ereignis. Diese Poller beziehungsweise nativen Hotpath-Hooks dürfen nicht entfernt oder willkürlich gedrosselt werden.
-- Mehrere Tickpfade sind fachlich notwendig, arbeiten aber auch im Leerlauf oder allozieren beim Abarbeiten. Dort sind Dirty-/Queue-Guards, bedarfsabhängige Abonnements und wiederverwendbare Puffer sicherer als eine Frequenzreduktion.
-- Ein ausdrücklich einmaliger oder zeitlich begrenzter Callback ist bereits korrekt und wird nicht durch komplexere Infrastruktur ersetzt.
-
 ## Direkte Frame- und Render-Callbacks
 
 | Mod/Feature | Quelle und Lebensdauer | Erkannte Zustände / Reaktionsbedarf | Urteil | Funktionswahrende Maßnahme |
@@ -40,7 +78,7 @@ Wichtiger Frequenzbefund: `Director.Update()` kann `FatControler.NoesisGUIUpdate
 | CastlePlanner: Blueprint-Steuerung | `BlueprintRuntimeController.cs`, dauerhaft registriert, teure Arbeit nur bei aktivem Blueprintmodus oder Hotkey-Capture | Maus-/Tastatureingabe, Kamera, Overlay, Workerabschluss; muss auch bei pausierter Simulation im aktuellen Renderframe reagieren | **notwendig** | Frame-Nähe behalten. Die vorhandenen Aktivitätsguards bleiben maßgeblich; eine Tickumstellung wäre bei Pause und Eingabereihenfolge nicht gleichwertig. |
 | CastlePlanner: Free-Castle-Preview | `FreeCastlePreviewRuntime.cs`, dauerhaft registriert, Arbeit nur bei ausstehendem/aktivem Preview | UI-Bereitschaft, asynchroner Katalogabschluss, Countdown, Netzwerk-Retry/Timeout | **nur bei Bedarf nötig** | Erst beim Eintritt in `pending`/`active` abonnieren und bei Erfolg, Abbruch, Lobbyverlassen, Mapstart, Fehler und Dispose abmelden. Zustandsübergänge stammen bereits aus eigenen Hooks/Packets, daher bleibt das Frameverhalten während der aktiven Phase unverändert. |
 | ExtraFeatures: Gatehouse-Automation-Button | `GatehouseAutomationRuntime.cs`, dauerhaft | aktuell selektiertes eigenes Gate, Noesis-Elementverfügbarkeit, Icon-Ladevorgang; sichtbare Reaktion im selben Frame | **notwendig** | Kein vollständiges Selection-Changed-Ereignis vorhanden. Polling nur in erlaubter Map und bei aktiviertem Feature ausführen; Icon-Laden als separat abgeschlossene Einmaloperation behandeln. Eine spätere gemeinsame Post-UI-Phase ist geeignet, reine Ereignisumstellung nicht. |
-| BugfixesAndQoL: Ally-Goods-Mengenanzeige | `AllyGoodsAmountModifierHook.cs`, dauerhaft | Shift/Ctrl gedrückt oder losgelassen, Fokusverlust; aktualisiert vier Bindings nur bei Moduswechsel | **ereignisbasiert ersetzbar** | `InputR3EventHooks.OnKeyDown`/`OnKeyUp` für linkes/rechtes Shift und Ctrl plus `Application.focusChanged` verwenden. Aus allen vier Tasten einen Modifierzustand bilden und nur bei Zustandsänderung Properties melden. Initialzustand bei Map/UI-Aktivierung einmal aufnehmen. |
+| BugfixesAndQoL: Ally-Goods-Mengenanzeige | `AllyGoodsAmountModifierHook.cs`, ereignisbasiert seit dieser Runde | Shift/Ctrl gedrückt oder losgelassen, Fokusverlust; aktualisiert vier Bindings nur bei Moduswechsel | **ereignisbasiert ersetzt** | Umgesetzt mit `InputR3EventHooks.OnKeyDown`/`OnKeyUp`, `Application.focusChanged`, Gesamtzustand aller vier Modifiertasten und explizitem Settingsrefresh. Kein `onBeforeRender` verbleibt in diesem Feature. |
 | BugfixesAndQoL: Assassin-Climb-Button | `AssassinClimbRuntime.cs`, dauerhaft nach Initialisierung | Auswahl genau eines steuerbaren Assassinen, UI-Neuerzeugung, Sichtbarkeit | **notwendig** | Script Extender 2.3.0 meldet keine vollständige Auswahländerung. Framepolling mit bestehendem Signaturcache behalten, aber nur in laufender erlaubter Map und bei aktivem Feature arbeiten. Post-UI-Broker ist möglich; Drosselung ist nicht funktionsgleich. |
 | BugfixesAndQoL: Auflösungswiederherstellung | `DisplayResolutionPersistenceHook.cs`, nur während Recovery, frame-dedupliziert, endet nach zwei gerenderten Frames oder Timeout | muss zwei tatsächlich gerenderte Frames und Fokus-/Auflösungszustand beobachten | **notwendig** | Unverändert behalten. Simulationsticks und Zeitdrosselung würden die Bedeutung „gerenderter Frame“ verändern. |
 | BugfixesAndQoL: Friendly-Moat-Performancebericht | `FriendlyMoatMovementRuntime.cs`, dauerhaft, Bericht höchstens alle fünf Sekunden und nur nach Queries | verschiebt Diagnoseausgabe aus nativen Callbacks auf sicheren Managed-Pfad | **leichter ausführbar** | Vor Stopwatch/Logging zuerst atomaren `queryCount == 0`-Guard verwenden. Eine Verlagerung auf `OnTick` würde Berichte während Pause verzögern und ist nur mit akzeptierter Diagnoseänderung zulässig. |
@@ -69,10 +107,10 @@ Wichtiger Frequenzbefund: `Director.Update()` kann `FatControler.NoesisGUIUpdate
 
 Für die sechs Noesis-/Rollover-Nachbearbeitungen ist folgende Architektur funktionswahrend, sofern die Regressionstests erfolgreich sind:
 
-1. Eine source-linked `SharedPostUiUpdateBroker`-Implementierung detourt pro Prozess genau einmal `Director.Update` und ruft Subscriber nach dem Original auf. Damit liegt die Phase garantiert nach allen Noesis-Durchläufen dieses Frames.
-2. Der zuerst geladene Mod veröffentlicht über `AppDomain` nur einen stabilen, BCL-basierten Vertrag mit expliziter Vertragsversion. Spätere Mods erkennen diese Version und registrieren ihren eigenen Delegate. Keine Assemblytypen eines Mods dürfen Vertragsbestandteil sein.
+1. Final besitzt `SerpNativeAPI.IPostUiUpdateCapability` pro Prozess genau einen `Director.Update`-Detour und ruft Subscriber nach dem Original auf. Damit liegt die Phase garantiert nach allen Noesis-Durchläufen dieses Frames.
+2. Ein source-linked, BCL-basierter `AppDomain`-Vertrag mit expliziter Vertragsversion bleibt höchstens eine Übergangslösung für Releases, die noch keine API-Abhängigkeit tragen.
 3. Subscriber werden in registrierter Reihenfolge einzeln mit `try/catch` aufgerufen; ein fehlerhafter Mod verhindert weder Vanilla noch andere Mods. Duplicate-IDs werden abgewehrt, Dispose meldet sauber ab.
-4. Bei fehlendem oder inkompatiblem Brokervertrag installiert jeder Mod seinen bisherigen eigenständigen Detour. Ein inkompatibler Prozessbroker führt also nicht zum Funktionsverlust. Der Broker besitzt den Hook prozessweit bis zum Spielende; Mod-Subscriber bleiben abmeldbar.
+4. Bis zur API-Migration installiert jeder Mod weiterhin seinen bisherigen eigenständigen Detour. Nach der Migration ist die kompatible API-Version eine deklarierte Hard-Dependency und ihr Capability-Bereitschaftsfehler wird fail-closed gemeldet; ein Mod darf keinen überlappenden Hook als stillen Runtime-Fallback daneben installieren.
 5. `UnitCosts` und `UnitLimit` dürfen ihre gegenseitige Reihenfolge nicht voraussetzen. Beide wenden nur zusätzliche Einschränkungen auf Vanillas aktuellen Zustand an, sodass das kombinierte Resultat unabhängig von ihrer Reihenfolge die Schnittmenge beider Regeln bleibt.
 
 Vor Freigabe muss bewiesen werden, dass `Director.Update` in allen Ingame-UI-Pfaden erreicht wird, der Callback nach dem letzten Noesis-Aufruf liegt und Pause, Fokusverlust, UI-Wechsel sowie Editor keine abweichende sichtbare Zwischen-/Endlage erzeugen. Bis dahin bleiben die existierenden Detours funktional maßgeblich.
@@ -135,27 +173,28 @@ Die übrigen gefundenen Managed-Hooks sind durch konkrete Nutzeraktionen oder se
 
 ### Phase A – sichere lokale Verbesserungen
 
-1. Ally-Goods auf KeyDown/KeyUp/Focus umstellen und Modifierzustand testen.
-2. Selected-Unit-Health-Array und Extended-Shift/CastlePlanner/Quarry-Arbeitspuffer wiederverwenden.
-3. Crash-Breadcrumb-Snapshots dirty-gesteuert schreiben und leere Steam-Invite-Timerdurchläufe allokationsfrei machen.
-4. Free-Castle-Preview, CastlePlanner Deferred Queue, Quarry und Plague-Tick nur in ihren exakt definierten aktiven Zuständen abonnieren; alle Terminalpfade zentral über idempotente `SetPollingRequired(bool)`-Methoden führen.
-5. Native sichtbare-Tile-, Gatehouse-, Path- und Disease-Callbacks mit billigstem Inaktivitätsguard beginnen; Callbackpfade auf null Allokationen prüfen.
-6. Keine Version erhöhen und keine README ändern, bis die Änderungen einzeln getestet und als final bestätigt sind.
+1. In dieser Runde umgesetzt: Ally-Goods auf KeyDown/KeyUp/Focus/Settingsrefresh umstellen und Modifierzustand testen.
+2. In dieser Runde umgesetzt: Selected-Unit-Health- und Lord-HUD-Puffer wiederverwenden und unveränderte Anzeigezustände nicht erneut formatieren/publizieren.
+3. In dieser Runde umgesetzt: Crash-Breadcrumb-Snapshots dirty-gesteuert schreiben und leere Steam-Invite-Timerdurchläufe allokationsfrei machen.
+4. In dieser Runde umgesetzt: Visible-Tile- und Friendly-Moat-Diagnosepfade mit billigeren Inaktivitätsguards beginnen.
+5. Später mit der API-Architektur abstimmen: Free-Castle-Preview, CastlePlanner Deferred Queue, Quarry und Plague-Tick nur in ihren exakt definierten aktiven Zuständen abonnieren; alle Terminalpfade zentral über idempotente `SetPollingRequired(bool)`-Methoden führen.
+6. Extended-Shift-/CastlePlanner-/Quarry-Arbeitspuffer separat implementieren und testen; sie sind nicht Teil der direkten Änderungen dieser Runde.
+7. Keine Version erhöhen und keine README ändern, bis die Änderungen einzeln getestet und als final bestätigt sind.
 
 ### Phase B – prozessweiter Lobby-Observer
 
-1. Source-linked, BCL-only AppDomain-Vertrag mit `ContractVersion`, `Register`, `Unregister`, unveränderlichem DTO und Fehlerisolation erstellen.
-2. Genau einen 15-Frame-Poller und sofortige Dirty-Anstöße bei Join, Mapstart/-ende und bekannten Lobbyaktionen installieren.
+1. Die vorhandene `SerpNativeAPI`-Migrationsplanung um `ILobbyStateCapability`, Release-Pin, Capability-Version und Duplikatschutz erweitern.
+2. Genau einen 15-Frame-Poller und sofortige Dirty-Anstöße bei Join, Mapstart/-ende und bekannten Lobbyaktionen in der API installieren.
 3. Snapshotaufnahme einmal ausführen; per Wertvergleich nur Änderungen veröffentlichen. Jede Modinstanz behält ihren eigenen fachlichen Coordinator und seine Host-/Clientlogik.
-4. Bei Vertragsinkompatibilität oder Brokerfehler lokalen bisherigen Poller verwenden. Niemals schweigend ohne Beobachter weiterlaufen.
-5. Last-subscriber-Abmeldung darf den Prozesshost nur entfernen, wenn dies nachweislich detoursicher ist; ansonsten bleibt der billige Host bis Prozessende und pollt ohne Subscriber nicht.
+4. Capability bereits in `SerpNativeAPIPlugin.Awake()` bereitstellen und Registrierung/Abmeldung mit stabilen Owner-GUIDs, Fehlerisolation und deterministischer Reihenfolge testen.
+5. Source-linked `AppDomain`-Koordination nur als ausdrücklich zeitlich begrenzte Übergangslösung erwägen. Im finalen Pfad ist die gepinnte API eine deklarierte Abhängigkeit; kein Mod fällt still auf einen zweiten Prozesspoller zurück.
 
 ### Phase C – gemeinsame Post-UI-Phase
 
-1. Broker zunächst in einem isolierten Testhost und danach einzeln mit UnitCosts, UnitLimit, BuildingCosts, BuildingLimit und BugfixesAndQoL validieren.
+1. `SerpNativeAPI.IPostUiUpdateCapability` zunächst in einem isolierten Testhost und danach einzeln mit UnitCosts, UnitLimit, BuildingCosts, BuildingLimit und BugfixesAndQoL validieren.
 2. Vanilla-Callzahl, Zeitpunkt des letzten Noesis-Aufrufs und finale Propertywerte instrumentieren, ohne im Release-Hotpath zu loggen.
 3. Erst Recruitment-Hooks migrieren; danach Markt- und Rolloverhooks. Jeder Schritt behält bis zur bewiesenen Gleichwertigkeit einen separat aktivierbaren alten Pfad für Tests, aber nicht dauerhaft als Releasefallback parallel.
-4. Gemeinsame Installation prüft beliebige Mod-Ladereihenfolgen, Brokervertragsversion und Subscriberfehler. Nach finaler Freigabe bleibt pro Prozess nur ein `Director.Update`-Detour.
+4. Gemeinsame Installation prüft beliebige Mod-Ladereihenfolgen, Capability-/Artefaktversion und Subscriberfehler. Nach finaler Freigabe bleibt pro Prozess nur ein `Director.Update`-Detour.
 
 ### Phase D – optionale Konsolidierung ohne Frequenzgewinn
 
@@ -168,8 +207,8 @@ Die drei `FRONT_Multiplayer.Update`-Detours könnten technisch denselben Broker 
 - jeden der zehn Mods einzeln nur mit seinen deklarierten harten Abhängigkeiten;
 - alle zehn gemeinsam;
 - relevante Paare: UnitCosts + UnitLimit, BuildingCosts + BuildingLimit, CastlePlanner + BugfixesAndQoL, ExtraFeatures + BugfixesAndQoL;
-- jede Broker-teilnehmende Mod als zuerst und zuletzt geladene Assembly;
-- fehlende optionale Mods sowie absichtlich inkompatible Brokervertragsversion im Testhost.
+- jede Capability-nutzende Mod als zuerst und zuletzt geladene Assembly;
+- fehlende optionale Mods sowie absichtlich inkompatible API-/Capability-Version im Testhost.
 
 ### Lebenszyklus- und Spielzustände
 
@@ -198,16 +237,6 @@ Die drei `FRONT_Multiplayer.Update`-Detours könnten technisch denselben Broker 
 - identische finale Noesis-/ViewModel-Werte nach dem letzten Update des Frames;
 - identische GameAction-/Chore-/Packetreihenfolge und identischer Ausführungstick;
 - vollständige Abmeldung nach Dispose, Mapende und Terminalzuständen, ohne doppelte Registrierung nach erneutem Mapstart.
-
-## Benutzerentscheidungen vor späterem Codeumbau
-
-Für drei Bereiche gibt es derzeit keine belegte eventbasierte Alternative mit voller Gleichwertigkeit:
-
-1. **Assassin-Climb, Lord-Unit-Controls und Gatehouse-Button:** Empfehlung ist Polling einmal pro gerendertem Frame in erlaubten aktiven Maps. Eine Drosselung auf 30/15 Hz spart Abfragen, kann die Anzeige aber um etwa 33/67 ms verzögern und kurze Auswahlzustände verpassen.
-2. **Surrender-Spectator-Promotion:** Empfehlung ist Prüfung pro gerendertem Frame während geeigneter Matches. Tick- oder Zeitdrosselung kann Promotion und Game-over-/UI-Reihenfolge verschieben.
-3. **ExtraFeatures Lord Health:** Empfehlung ist Unit-Create als Dirty-Signal plus bestehender 10-Tick-Fallback für ungelöste Lords. Reines Eventverhalten ist billiger, kann aber einen Lord verpassen, falls die Player-Lord-ID erst nach dem Create-Callback gesetzt wird.
-
-Ohne gegenteilige Entscheidung gilt in allen drei Bereichen die funktionswahrende Empfehlung; eine verlustbehaftete Drosselung beziehungsweise Event-only-Variante wird nicht umgesetzt.
 
 ## Abschließende Gegensuche
 

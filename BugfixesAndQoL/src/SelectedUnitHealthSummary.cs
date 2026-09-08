@@ -83,27 +83,38 @@ namespace BugfixesAndQoL
         internal static int[] GetVisibleTypes(int[] selectedTypeCounts, int currentPage)
         {
             var result = new int[SlotCount];
-            for (int i = 0; i < result.Length; i++)
-                result[i] = -1;
+            FillVisibleTypes(selectedTypeCounts, currentPage, result);
+            return result;
+        }
+
+        internal static void FillVisibleTypes(
+            int[] selectedTypeCounts,
+            int currentPage,
+            int[] destination,
+            int excludedType = -1)
+        {
+            if (destination == null || destination.Length < SlotCount)
+                throw new ArgumentException($"A destination with at least {SlotCount} slots is required.", nameof(destination));
+
+            for (int i = 0; i < destination.Length; i++)
+                destination[i] = -1;
 
             if (selectedTypeCounts == null)
-                return result;
+                return;
 
             int firstOrdinal = Math.Max(0, currentPage) * SlotCount;
             int selectedOrdinal = 0;
             int slot = 0;
             for (int type = 0; type < selectedTypeCounts.Length && slot < SlotCount; type++)
             {
-                if (selectedTypeCounts[type] <= 0)
+                if (type == excludedType || selectedTypeCounts[type] <= 0)
                     continue;
 
                 if (selectedOrdinal++ < firstOrdinal)
                     continue;
 
-                result[slot++] = type;
+                destination[slot++] = type;
             }
-
-            return result;
         }
     }
 }
