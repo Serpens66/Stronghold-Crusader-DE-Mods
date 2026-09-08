@@ -43,18 +43,19 @@ namespace BugfixesAndQoL
         private const string AIHovelDemolitionFunctionPattern =
             "48 89 5C 24 08 57 48 83 EC 20 48 63 FA 48 8D 15 ?? ?? ?? ?? 48 69 CF 3C 58 00 00 83 BC 11 C0 0E 13 00 00 74 ?? 8B 84 11 40 0D 13 00 3B 84 11 34 EC 12 00";
 
-        // c_game_ai_check_inaccessible_building:
-        // cmp inaccessibleChecks, 20; jl return; begin this helper's delete block.
-        // Lowering CX before this comparison skips only the unreachable-building deletion.
-        // Reference DLL SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2.
-        private const string InaccessibleBuildingComparisonPattern =
-            "66 83 F9 14 7C ?? 45 0F BF 84 31 4C 01 00 00 48 8D 0D ?? ?? ?? ?? 41 0F BF 94 31 4A 01 00 00";
+        // General AI accessibility sweep, immediately after c_game_building_is_accessible.
+        // Results 0 and 2 both enter Vanilla's state-3/heatmap path at this site.
+        private const string InaccessibleBuildingDecisionPattern =
+            "85 C0 75 06 66 44 89 3B EB 11 83 F8 02 75 06 66 44 89 3B EB 06 66 44 39 3B 75 52";
         private const int SleepStateComparisonRva = 0xC7DCB;
         private const int SleepStateSynchronizationFunctionRva = 0xC7D50;
         private const int EmergencyDemolitionComparisonRva = 0x2F454;
         private const int AIHovelDemolitionFunctionRva = 0x3B1D0;
-        private const int InaccessibleBuildingComparisonRva = 0x3B2FF;
-        private const ulong InaccessibleCounterOffsetFromR8 = 0x338;
+        private const int InaccessibleBuildingSweepRva = 0xC8F50;
+        private const int BuildingAccessibilityFunctionRva = 0xC90E0;
+        private const int BuildingAccessibilityCallRva = 0xC8FD2;
+        private const int InaccessibleBuildingDecisionRva = 0xC8FD7;
+        private const int InaccessibleBuildingDecisionLength = 15;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AIHovelDemolitionDelegate(IntPtr aiManager, int playerId);
@@ -124,13 +125,16 @@ namespace BugfixesAndQoL
             int aiHovelDemolitionRva = Resolve(
                 memory, AIHovelDemolitionFunctionPattern, AIHovelDemolitionFunctionRva,
                 referenceHashMatches, "AI hovel-demolition function");
-            int inaccessibleBuildingComparisonRva = referenceHashMatches
+            int inaccessibleBuildingDecisionRva = referenceHashMatches
                 ? Resolve(
-                    memory, InaccessibleBuildingComparisonPattern, InaccessibleBuildingComparisonRva,
-                    true, "AI inaccessible-building demolition comparison")
+                    memory, InaccessibleBuildingDecisionPattern, InaccessibleBuildingDecisionRva,
+                    true, "general AI inaccessible-building decision")
                 : -1;
 
-            temporaryAccessClassifier = new AIBuildingTemporaryAccessClassifier(log);
+            temporaryAccessClassifier = new AIBuildingTemporaryAccessClassifier(
+                log,
+                unchecked((IntPtr)(long)(libraryBase +
+                    AIBuildingTemporaryAccessClassifier.NativePathManagerRva)));
             if (!referenceHashMatches)
             {
                 log.LogWarning(
@@ -141,6 +145,21 @@ namespace BugfixesAndQoL
 
             synchronizeSleepStates = Marshal.GetDelegateForFunctionPointer<SynchronizeSleepStatesDelegate>(
                 unchecked((IntPtr)(long)(libraryBase + (ulong)synchronizationRva)));
+
+            if (inaccessibleBuildingProtectionSupported)
+            {
+                ValidateInaccessibleBuildingNativeContract(memory, inaccessibleBuildingDecisionRva);
+                using (var probe = new X64InlineHook(
+                    libraryBase + (ulong)inaccessibleBuildingDecisionRva,
+                    InaccessibleBuildingDecisionLength))
+                {
+                    if (probe.DisplacedByteCount != InaccessibleBuildingDecisionLength)
+                    {
+                        throw new InvalidOperationException(
+                            "Unexpected RedBird inaccessible-building decision span before installation.");
+                    }
+                }
+            }
 
             transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
 
@@ -161,9 +180,12 @@ namespace BugfixesAndQoL
             if (inaccessibleBuildingProtectionSupported)
             {
                 BugfixesHookInfrastructure.AddContextHook(transaction, inaccessibleBuildingDemolitionHook,
-                    libraryBase + unchecked((ulong)inaccessibleBuildingComparisonRva),
+                    libraryBase + unchecked((ulong)inaccessibleBuildingDecisionRva),
                     PreventInaccessibleBuildingDemolition,
-                    registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RDI,
+                    registers: X64SmartCPUContextRegs.Volatile |
+                        X64SmartCPUContextRegs.RBX | X64SmartCPUContextRegs.RSI |
+                        X64SmartCPUContextRegs.R14 | X64SmartCPUContextRegs.R15,
+                    hookSize: InaccessibleBuildingDecisionLength,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
             }
@@ -193,6 +215,14 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("The AI resource-shortage sleep planner hook was not installed.");
             if (inaccessibleBuildingProtectionSupported && !inaccessibleBuildingDemolitionHook.Success)
                 throw new InvalidOperationException("The AI inaccessible-building demolition AOB signature was not found.");
+            if (inaccessibleBuildingProtectionSupported &&
+                inaccessibleBuildingDemolitionHook.Hook.DisplacedByteCount !=
+                    InaccessibleBuildingDecisionLength)
+            {
+                transaction.Dispose();
+                throw new InvalidOperationException(
+                    "Unexpected actual inaccessible-building overwrite length; hook transaction rolled back.");
+            }
         }
 
         private int Resolve(
@@ -204,6 +234,83 @@ namespace BugfixesAndQoL
         {
             return Shared.NativePatternResolver.ResolveUnique(
                 memory, pattern, referenceRva, referenceHashMatches, name, log).Rva;
+        }
+
+        private static void ValidateInaccessibleBuildingNativeContract(
+            ReadOnlySpan<byte> memory,
+            int resolvedDecisionRva)
+        {
+            if (resolvedDecisionRva != InaccessibleBuildingDecisionRva)
+                throw new InvalidOperationException("The general AI accessibility decision resolved outside its audited RVA.");
+
+            ValidateExactBytes(memory, InaccessibleBuildingSweepRva, new byte[]
+            {
+                0x40, 0x56, 0x57, 0x41, 0x56, 0x48, 0x83, 0xEC,
+                0x20, 0xBE, 0x01, 0x00, 0x00, 0x00, 0x44, 0x8B,
+                0xF2, 0x48, 0x8B, 0xF9
+            }, "general AI accessibility sweep prologue");
+            ValidateExactBytes(memory, BuildingAccessibilityFunctionRva, new byte[]
+            {
+                0x44, 0x89, 0x44, 0x24, 0x18, 0x55, 0x41, 0x57,
+                0x48, 0x83, 0xEC, 0x58, 0x48, 0x63, 0xEA, 0x4C,
+                0x8B, 0xF9
+            }, "building accessibility function prologue");
+            ValidateExactBytes(memory, InaccessibleBuildingDecisionRva, new byte[]
+            {
+                0x85, 0xC0, 0x75, 0x06, 0x66, 0x44, 0x89, 0x3B,
+                0xEB, 0x11, 0x83, 0xF8, 0x02, 0x75, 0x06
+            }, "complete inaccessible-building decision hook span");
+
+            if ((uint)(BuildingAccessibilityCallRva + 5) > (uint)memory.Length ||
+                memory[BuildingAccessibilityCallRva] != 0xE8)
+            {
+                throw new InvalidOperationException("The audited building-accessibility CALL is missing.");
+            }
+            int displacement = memory[BuildingAccessibilityCallRva + 1] |
+                memory[BuildingAccessibilityCallRva + 2] << 8 |
+                memory[BuildingAccessibilityCallRva + 3] << 16 |
+                memory[BuildingAccessibilityCallRva + 4] << 24;
+            int callTargetRva = BuildingAccessibilityCallRva + 5 + displacement;
+            if (callTargetRva != BuildingAccessibilityFunctionRva ||
+                BuildingAccessibilityCallRva + 5 != InaccessibleBuildingDecisionRva)
+            {
+                throw new InvalidOperationException(
+                    "The general AI sweep no longer calls the audited accessibility function immediately before the hook.");
+            }
+
+            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_AliveState), 0xD0);
+            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_BuildingType), 0xD2);
+            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner), 0xD6);
+            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId), 0xD8);
+            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionXEnd), 0xFE);
+            ValidateStructFieldOffset(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionYEnd), 0x100);
+            ValidateStructFieldOffset(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId), 0xA0);
+        }
+
+        private static void ValidateExactBytes(
+            ReadOnlySpan<byte> memory,
+            int rva,
+            byte[] expected,
+            string description)
+        {
+            if (rva < 0 || expected == null || rva > memory.Length - expected.Length ||
+                !memory.Slice(rva, expected.Length).SequenceEqual(expected))
+            {
+                throw new InvalidOperationException($"Unexpected native bytes for {description} at RVA 0x{rva:X}.");
+            }
+        }
+
+        private static void ValidateStructFieldOffset(
+            Type structType,
+            string fieldName,
+            int expectedOffset)
+        {
+            int actualOffset = Marshal.OffsetOf(structType, fieldName).ToInt32();
+            if (actualOffset != expectedOffset)
+            {
+                throw new InvalidOperationException(
+                    $"Unexpected {structType.Name}.{fieldName} offset: 0x{actualOffset:X}, expected 0x{expectedOffset:X}.");
+            }
         }
 
         internal void SynchronizeSleepStatesNow()
@@ -354,6 +461,8 @@ namespace BugfixesAndQoL
 
         private void PreventInaccessibleBuildingDemolition(NativePointer<X64SmartCPUContext> context)
         {
+            X64SmartCPUContext* registers = context.Pointer;
+            ulong originalRax = registers->RAX;
             try
             {
                 int mode = settings.InaccessibleAIBuildingDemolitionProtection;
@@ -361,71 +470,59 @@ namespace BugfixesAndQoL
                     mode == TemporaryGateBlockagePolicy.VanillaMode)
                     return;
 
-                X64SmartCPUContext* registers = context.Pointer;
-                ushort vanillaCounter = (ushort)registers->RCX;
-                if (vanillaCounter < 20)
+                int vanillaResult = unchecked((int)(uint)registers->RAX);
+                if (vanillaResult != TemporaryGateBlockagePolicy.NoEntranceResult &&
+                    vanillaResult != TemporaryGateBlockagePolicy.DisconnectedEntranceResult)
                     return;
 
-                int buildingId = unchecked((int)(uint)registers->RDI);
+                int buildingId = unchecked((int)(uint)registers->RSI);
+                int playerId = unchecked((int)(uint)registers->R14);
                 GameBuilding* building = null;
                 bool isLivingAiBuilding =
                     buildingId > 0 &&
                     GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out building) &&
                     building != null &&
                     building->r_AliveState == AliveState.IsAlive &&
+                    building->r_PlayerIdOwner == playerId &&
                     GamePlayerManagerAPI.Instance.IsAIPlayer(building->r_PlayerIdOwner);
                 if (!isLivingAiBuilding)
                     return;
 
-                bool classificationAvailable = temporaryAccessClassifier.TryClassify(
-                    buildingId,
-                    out AIBuildingAccessDiagnostic diagnostic);
-                bool reachableUnderImprovedCheck =
-                    classificationAvailable && diagnostic.IsReachableUnderImprovedCheck;
-
-                bool suppressDemolition = TemporaryGateBlockagePolicy.ShouldSuppressDemolition(
-                    mode,
-                    isLivingAiBuilding,
-                    classificationAvailable,
-                    reachableUnderImprovedCheck);
-
-                ushort storedCounterBefore = vanillaCounter;
-                ushort storedCounterAfter = vanillaCounter;
-                bool counterReset = false;
-                if (suppressDemolition)
+                AIBuildingAccessDiagnostic diagnostic =
+                    AIBuildingAccessDiagnostic.Unavailable(int.MinValue, "classification-not-required");
+                bool classificationAvailable = false;
+                if (mode == TemporaryGateBlockagePolicy.ImprovedReachabilityMode &&
+                    vanillaResult == TemporaryGateBlockagePolicy.DisconnectedEntranceResult &&
+                    building->r_BuildingType != eStructs.STRUCT_STABLES)
                 {
-                    if (registers->R8 == 0)
-                        throw new InvalidOperationException("Vanilla inaccessible-building counter base register R8 is null.");
-
-                    ushort* storedCounter = (ushort*)(registers->R8 + InaccessibleCounterOffsetFromR8);
-                    storedCounterBefore = *storedCounter;
-                    if (storedCounterBefore != vanillaCounter)
-                    {
-                        throw new InvalidOperationException(
-                            $"Vanilla inaccessible-building counter mismatch: cx={vanillaCounter}, stored={storedCounterBefore}.");
-                    }
-
-                    // Reset the source value as well as CX so reopening a gate cannot expose a stale 20.
-                    *storedCounter = 0;
-                    storedCounterAfter = *storedCounter;
-                    registers->RCX &= ~0xFFFFUL;
-                    counterReset = true;
+                    classificationAvailable = temporaryAccessClassifier.TryClassify(
+                        buildingId,
+                        playerId,
+                        out diagnostic);
                 }
 
+                int effectiveResult = TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    mode,
+                    isLivingAiBuilding,
+                    building->r_BuildingType,
+                    vanillaResult,
+                    classificationAvailable,
+                    diagnostic.IsReachableUnderImprovedCheck);
                 LogInaccessibleBuildingComparison(
                     buildingId,
                     building,
-                    vanillaCounter,
-                    storedCounterBefore,
-                    storedCounterAfter,
-                    counterReset,
+                    playerId,
+                    vanillaResult,
+                    effectiveResult,
                     mode,
                     classificationAvailable,
-                    diagnostic,
-                    suppressDemolition);
+                    diagnostic);
+                if (effectiveResult != vanillaResult)
+                    registers->RAX = unchecked((uint)effectiveResult);
             }
             catch (Exception ex)
             {
+                registers->RAX = originalRax;
                 if (!inaccessibleDemolitionCallbackFailureLogged)
                 {
                     inaccessibleDemolitionCallbackFailureLogged = true;
@@ -437,14 +534,12 @@ namespace BugfixesAndQoL
         private void LogInaccessibleBuildingComparison(
             int buildingId,
             GameBuilding* building,
-            ushort vanillaCounter,
-            ushort storedCounterBefore,
-            ushort storedCounterAfter,
-            bool counterReset,
+            int playerId,
+            int vanillaResult,
+            int effectiveResult,
             int mode,
             bool classificationAvailable,
-            AIBuildingAccessDiagnostic diagnostic,
-            bool suppressDemolition)
+            AIBuildingAccessDiagnostic diagnostic)
         {
             int tick = diagnostic.Tick;
             if (tick < lastInaccessibleDiagnosticTick)
@@ -456,18 +551,22 @@ namespace BugfixesAndQoL
 
             string classification = classificationAvailable
                 ? diagnostic.Kind.ToString()
-                : "UnavailableFailOpen";
+                : effectiveResult != vanillaResult &&
+                    building->r_BuildingType == eStructs.STRUCT_STABLES
+                    ? "ExplicitStableException"
+                    : mode == TemporaryGateBlockagePolicy.AlwaysPreventMode &&
+                        effectiveResult != vanillaResult
+                        ? "AlwaysPreventMode"
+                        : "UnavailableFailOpen";
             string summary = string.IsNullOrEmpty(diagnostic.Details)
                 ? "failureReason=classification-data-unavailable"
                 : diagnostic.Details;
             var sampleKey = new InaccessibleDiagnosticKey(
                 mode,
                 classification,
-                diagnostic.HasDirectPclPath,
-                diagnostic.HasPathWithFriendlyGates,
-                diagnostic.NativePlayerAwareReachable,
-                counterReset,
-                suppressDemolition);
+                vanillaResult,
+                effectiveResult,
+                building->r_BuildingType);
             if (inaccessibleDiagnosticSamples.Contains(sampleKey))
                 return;
             if (inaccessibleDiagnosticSamples.Count >= MaximumInaccessibleDiagnosticSamplesPerMap)
@@ -488,20 +587,13 @@ namespace BugfixesAndQoL
                 log,
                 $"Bugfixes and QoL AI inaccessible-building sample: " +
                 $"tick={tick}, buildingId={buildingId}, buildingGlobalId={building->r_GlobalId}, " +
-                $"buildingType={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, " +
-                $"vanillaCounter={vanillaCounter}, " +
-                $"storedCounterBefore={storedCounterBefore}, storedCounterAfter={storedCounterAfter}, " +
-                $"counterReset={counterReset}, " +
-                $"nativePlayerAwareReachable={FormatNullableBoolean(diagnostic.NativePlayerAwareReachable)}, " +
-                $"directPclReachable={diagnostic.HasDirectPclPath}, " +
-                $"reachableWithAlwaysPassableFriendlyGates={diagnostic.HasPathWithFriendlyGates}, " +
+                $"buildingType={building->r_BuildingType}, owner={playerId}, " +
+                $"vanillaAccessibilityResult={vanillaResult}, effectiveAccessibilityResult={effectiveResult}, " +
+                $"buildingPcl={diagnostic.BuildingPcl}, keepPcl={diagnostic.KeepPcl}, " +
                 $"mode={mode}, modClassification={classification}, " +
-                $"modDecision={(suppressDemolition ? "SuppressDemolition" : "AllowVanilla")}, " +
+                $"modDecision={(effectiveResult != vanillaResult ? "SuppressAccessibilityDemolition" : "AllowVanilla")}, " +
                 summary);
         }
-
-        private static string FormatNullableBoolean(bool? value) =>
-            value.HasValue ? (value.Value ? "True" : "False") : "NotChecked";
 
         private void LogError(string message)
         {
@@ -518,36 +610,28 @@ namespace BugfixesAndQoL
             internal InaccessibleDiagnosticKey(
                 int mode,
                 string classification,
-                bool hasDirectPclPath,
-                bool hasPathWithFriendlyGates,
-                bool? nativePlayerAwareReachable,
-                bool counterReset,
-                bool suppressDemolition)
+                int vanillaResult,
+                int effectiveResult,
+                eStructs buildingType)
             {
                 Mode = mode;
                 Classification = classification ?? string.Empty;
-                HasDirectPclPath = hasDirectPclPath;
-                HasPathWithFriendlyGates = hasPathWithFriendlyGates;
-                NativePlayerAwareReachable = nativePlayerAwareReachable;
-                CounterReset = counterReset;
-                SuppressDemolition = suppressDemolition;
+                VanillaResult = vanillaResult;
+                EffectiveResult = effectiveResult;
+                BuildingType = buildingType;
             }
 
             private int Mode { get; }
             private string Classification { get; }
-            private bool HasDirectPclPath { get; }
-            private bool HasPathWithFriendlyGates { get; }
-            private bool? NativePlayerAwareReachable { get; }
-            private bool CounterReset { get; }
-            private bool SuppressDemolition { get; }
+            private int VanillaResult { get; }
+            private int EffectiveResult { get; }
+            private eStructs BuildingType { get; }
 
             public bool Equals(InaccessibleDiagnosticKey other) =>
                 Mode == other.Mode &&
-                HasDirectPclPath == other.HasDirectPclPath &&
-                HasPathWithFriendlyGates == other.HasPathWithFriendlyGates &&
-                NativePlayerAwareReachable == other.NativePlayerAwareReachable &&
-                CounterReset == other.CounterReset &&
-                SuppressDemolition == other.SuppressDemolition &&
+                VanillaResult == other.VanillaResult &&
+                EffectiveResult == other.EffectiveResult &&
+                BuildingType == other.BuildingType &&
                 string.Equals(Classification, other.Classification, StringComparison.Ordinal);
 
             public override bool Equals(object obj) =>
@@ -558,11 +642,9 @@ namespace BugfixesAndQoL
                 unchecked
                 {
                     int hash = Mode;
-                    hash = hash * 397 ^ HasDirectPclPath.GetHashCode();
-                    hash = hash * 397 ^ HasPathWithFriendlyGates.GetHashCode();
-                    hash = hash * 397 ^ NativePlayerAwareReachable.GetHashCode();
-                    hash = hash * 397 ^ CounterReset.GetHashCode();
-                    hash = hash * 397 ^ SuppressDemolition.GetHashCode();
+                    hash = hash * 397 ^ VanillaResult;
+                    hash = hash * 397 ^ EffectiveResult;
+                    hash = hash * 397 ^ (int)BuildingType;
                     return hash * 397 ^ StringComparer.Ordinal.GetHashCode(Classification);
                 }
             }

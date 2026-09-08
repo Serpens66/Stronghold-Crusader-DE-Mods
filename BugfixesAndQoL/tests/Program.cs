@@ -37,6 +37,8 @@ namespace BugfixesAndQoL
             TestAiRecruitmentHorseDemandContract();
             TestAIResourceShortageSleepPolicy();
             TestAIResourceShortageSleepIntegration();
+            TestTemporaryGateBlockagePolicy();
+            TestTemporaryGateBlockageIntegration();
             TestNativeContracts();
             if (failures == 0)
             {
@@ -482,6 +484,104 @@ namespace BugfixesAndQoL
                 "AI sleep title and help text describe the intended resource-shortage fix directly");
         }
 
+        private static void TestTemporaryGateBlockagePolicy()
+        {
+            const int improved = TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
+            Check(TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    TemporaryGateBlockagePolicy.VanillaMode, true, eStructs.STRUCT_STABLES,
+                    0, true, true) == 0 &&
+                TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    improved, true, eStructs.STRUCT_WOODCUTTERS_HUT,
+                    1, true, true) == 1,
+                "AI accessibility policy preserves Vanilla mode and accessible results");
+            Check(TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    improved, true, eStructs.STRUCT_STABLES, 0, false, false) == 1 &&
+                TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    improved, true, eStructs.STRUCT_STABLES, 2, false, false) == 1,
+                "AI accessibility policy exempts stables for both inaccessible results");
+            Check(TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    improved, true, eStructs.STRUCT_WOODCUTTERS_HUT, 2, true, true) == 1 &&
+                TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    improved, true, eStructs.STRUCT_WOODCUTTERS_HUT, 2, true, false) == 2 &&
+                TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    improved, true, eStructs.STRUCT_WOODCUTTERS_HUT, 2, false, true) == 2 &&
+                TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    improved, true, eStructs.STRUCT_WOODCUTTERS_HUT, 0, true, true) == 0,
+                "improved AI accessibility only relaxes result 2 with a proven friendly portal route");
+            Check(TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    TemporaryGateBlockagePolicy.AlwaysPreventMode, true,
+                    eStructs.STRUCT_WOODCUTTERS_HUT, 0, false, false) == 1 &&
+                TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    TemporaryGateBlockagePolicy.AlwaysPreventMode, true,
+                    eStructs.STRUCT_WOODCUTTERS_HUT, 2, false, false) == 1 &&
+                TemporaryGateBlockagePolicy.ResolveAccessibilityResult(
+                    TemporaryGateBlockagePolicy.AlwaysPreventMode, false,
+                    eStructs.STRUCT_STABLES, 2, true, true) == 2,
+                "always-prevent remains scoped to living AI buildings and results 0/2");
+
+            var portals = new List<PclPortalConnection>
+            {
+                new PclPortalConnection(10, 20, 30, ownerId: 2, buildingId: 100),
+                new PclPortalConnection(30, 40, ownerId: 3, buildingId: 200)
+            };
+            GateBlockageEvaluation throughThirdAndMultiple =
+                TemporaryGateBlockagePolicy.Evaluate(10, 40, portals);
+            Check(throughThirdAndMultiple.Kind == GateBlockageEvaluationKind.ReachableViaFriendlyGate &&
+                    throughThirdAndMultiple.UsedPortalIndices.Length == 2 &&
+                    throughThirdAndMultiple.UsedPortalIndices[0] == 0 &&
+                    throughThirdAndMultiple.UsedPortalIndices[1] == 1,
+                "friendly portal graph follows a third PCL and a multiple-gate chain");
+            Check(TemporaryGateBlockagePolicy.Evaluate(
+                    10, 99, portals).Kind ==
+                    GateBlockageEvaluationKind.UnreachableEvenWithFriendlyGates &&
+                TemporaryGateBlockagePolicy.Evaluate(
+                    10, 10, portals).Kind ==
+                    GateBlockageEvaluationKind.ReachableWithoutFriendlyGate,
+                "friendly portal graph distinguishes permanent separation and an existing PCL connection");
+
+            Func<int, bool> validPlayer = id => id >= 1 && id <= 8;
+            Func<int, int, bool> allied = (first, second) => first == 2 && second == 3;
+            Check(TemporaryGateBlockagePolicy.IsFriendlyPortalOwner(2, 2, validPlayer, allied) &&
+                    TemporaryGateBlockagePolicy.IsFriendlyPortalOwner(2, 3, validPlayer, allied) &&
+                    !TemporaryGateBlockagePolicy.IsFriendlyPortalOwner(2, 4, validPlayer, allied),
+                "portal ownership accepts own and allied gates but rejects enemy gates");
+            Check(TemporaryGateBlockagePolicy.IsGateOrDrawbridge(eStructs.STRUCT_GATE_MAIN) &&
+                    TemporaryGateBlockagePolicy.IsGateOrDrawbridge(eStructs.STRUCT_DRAWBRIDGE) &&
+                    !TemporaryGateBlockagePolicy.IsGateOrDrawbridge(eStructs.STRUCT_SIEGE_TOWER),
+                "portal type policy includes gates and drawbridges but excludes unrelated linkages");
+        }
+
+        private static void TestTemporaryGateBlockageIntegration()
+        {
+            string projectDirectory = FindProjectDirectory();
+            string hook = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "AIEconomyProtectionHook.cs"));
+            string classifier = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "AIBuildingTemporaryAccessClassifier.cs"));
+
+            Check(hook.Contains("InaccessibleBuildingDecisionRva = 0xC8FD7") &&
+                    hook.Contains("BuildingAccessibilityFunctionRva = 0xC90E0") &&
+                    hook.Contains("InaccessibleBuildingDecisionLength = 15") &&
+                    hook.Contains("OverwrittenInstructionPlacement.AfterCallback") &&
+                    hook.Contains("DisplacedByteCount") &&
+                    !hook.Contains("0x3B2FF") &&
+                    !hook.Contains("InaccessibleCounterOffsetFromR8"),
+                "AI accessibility hook replaces the woodcutter counter hook with the audited general sweep decision");
+            Check(hook.Contains("registers->RSI") && hook.Contains("registers->R14") &&
+                    hook.Contains("registers->RAX = unchecked((uint)effectiveResult)") &&
+                    hook.Contains("nameof(GameBuilding.r_TilePositionXEnd), 0xFE") &&
+                    hook.Contains("nameof(GamePlayerResources.r_KeepTileId), 0xA0"),
+                "AI accessibility hook uses the audited register and managed-layout contracts");
+            Check(classifier.Contains("r_TilePositionXEnd") &&
+                    classifier.Contains("r_TilePositionYEnd") &&
+                    classifier.Contains("r_KeepTileId") &&
+                    classifier.Contains("PortalThirdPclOffsetDwords = 0x883") &&
+                    classifier.Contains("IsPlayerAlliedTo") &&
+                    !classifier.Contains("GetGatehouseArray") &&
+                    !classifier.Contains("CollectAccessPcls"),
+                "AI accessibility classifier uses Vanilla entrance/keep PCLs and native three-sided portals only");
+        }
+
         private static void TestNativeContracts()
         {
             string root = Environment.GetEnvironmentVariable("SHCDE_GAME_DIR") ??
@@ -562,6 +662,24 @@ namespace BugfixesAndQoL
                 new byte[] { 0x41, 0xF7, 0x84, 0x87, 0x00, 0x84, 0x89, 0x00,
                     0x00, 0x01, 0x00, 0x10, 0x75, 0x1A },
                 "AI wall approach-tile validation remains separate and intact");
+            CheckBytes(image, 0xC8F50, new byte[] {
+                0x40, 0x56, 0x57, 0x41, 0x56, 0x48, 0x83, 0xEC,
+                0x20, 0xBE, 0x01, 0x00, 0x00, 0x00, 0x44, 0x8B,
+                0xF2, 0x48, 0x8B, 0xF9 }, "general AI accessibility sweep entry bytes");
+            CheckBytes(image, 0xC8FD7, new byte[] {
+                0x85, 0xC0, 0x75, 0x06, 0x66, 0x44, 0x89, 0x3B,
+                0xEB, 0x11, 0x83, 0xF8, 0x02, 0x75, 0x06 },
+                "general AI accessibility decision exact 15-byte hook span");
+            Check(image.CountNearCalls(0xC8FD2, 5, 0xC90E0) == 1,
+                "general AI sweep calls the audited building accessibility classifier immediately before the hook");
+            Check(Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_AliveState)).ToInt32() == 0xD0 &&
+                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_BuildingType)).ToInt32() == 0xD2 &&
+                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner)).ToInt32() == 0xD6 &&
+                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId)).ToInt32() == 0xD8 &&
+                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionXEnd)).ToInt32() == 0xFE &&
+                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionYEnd)).ToInt32() == 0x100 &&
+                    Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId)).ToInt32() == 0xA0,
+                "AI accessibility managed building and player-resource offsets match the native contract");
             Check(image.CountNearCalls(DispatcherRva, DispatcherSize, FindRva) >= 2 &&
                     image.CountNearCalls(DispatcherRva, DispatcherSize, ResolveRva) >= 3 &&
                     image.CountNearCalls(DispatcherRva, DispatcherSize, PlannerRva) >= 1,
