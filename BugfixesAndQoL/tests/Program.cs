@@ -52,20 +52,47 @@ namespace BugfixesAndQoL
 
         private static void TestTunnelPlacementDistancePolicy()
         {
-            Check(TunnelPlacementDistancePolicy.IsTargetMapper(eMappers.MAPPER_TUNNEL) &&
-                    TunnelPlacementDistancePolicy.IsTargetMapper(eMappers.MAPPER_TUNNEL_CONSTRUCTION) &&
-                    !TunnelPlacementDistancePolicy.IsTargetMapper(eMappers.MAPPER_IRON_MINE) &&
-                    !TunnelPlacementDistancePolicy.IsTargetMapper(eMappers.MAPPER_CAMP_FIRE),
-                "tunnel distance policy targets only tunnel and tunnel construction");
-            Check(TunnelPlacementDistancePolicy.ShouldApply(true, true, false, eMappers.MAPPER_TUNNEL, 3) &&
-                    TunnelPlacementDistancePolicy.ShouldApply(true, true, false, eMappers.MAPPER_TUNNEL_CONSTRUCTION, 3),
-                "tunnel distance policy accepts both supported 3x3 mappers");
-            Check(!TunnelPlacementDistancePolicy.ShouldApply(false, true, false, eMappers.MAPPER_TUNNEL, 3) &&
-                    !TunnelPlacementDistancePolicy.ShouldApply(true, false, false, eMappers.MAPPER_TUNNEL, 3) &&
-                    !TunnelPlacementDistancePolicy.ShouldApply(true, true, true, eMappers.MAPPER_TUNNEL, 3) &&
-                    !TunnelPlacementDistancePolicy.ShouldApply(true, true, false, eMappers.MAPPER_IRON_MINE, 3) &&
-                    !TunnelPlacementDistancePolicy.ShouldApply(true, true, false, eMappers.MAPPER_TUNNEL, 2),
-                "tunnel distance policy preserves disabled, editor, other-mapper and unexpected-scale placement");
+            Check(TunnelPlacementDistancePolicy.IsTunnelMapper(eMappers.MAPPER_TUNNEL) &&
+                    TunnelPlacementDistancePolicy.IsTunnelMapper(eMappers.MAPPER_TUNNEL_CONSTRUCTION) &&
+                    !TunnelPlacementDistancePolicy.IsTunnelMapper(eMappers.MAPPER_IRON_MINE) &&
+                    !TunnelPlacementDistancePolicy.IsTunnelMapper(eMappers.MAPPER_CATAPULT),
+                "placement clearance retains the tunnel-only structure rule");
+            Check(TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_IRON_MINE, 4) &&
+                    TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_TUNNEL, 3) &&
+                    TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_TUNNEL_CONSTRUCTION, 3) &&
+                    TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_CATAPULT, 3) &&
+                    TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_TREBUCHET, 3) &&
+                    TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_SIEGE_TOWER, 3) &&
+                    TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_BATTERING_RAM, 3) &&
+                    TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_PORTABLE_SHIELD, 3) &&
+                    TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_ARAB_BALLISTA, 3),
+                "placement clearance includes ordinary buildings, tunnels and every siege tent");
+            Check(!TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_WALL, 2) &&
+                    !TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_MOAT, 2) &&
+                    !TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_CAMP_FIRE, 1) &&
+                    !TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_PLACE_ASSEMBLY_POINT1, 0) &&
+                    !TunnelPlacementDistancePolicy.IsPlaceableBuildingMapper(eMappers.MAPPER_PEOPLE_ARCHERS, 0),
+                "placement clearance excludes walls, moats, map objects, markers and units");
+            Check(TunnelPlacementDistancePolicy.ShouldApply(
+                        true, true, false, false, eMappers.MAPPER_IRON_MINE, 4) &&
+                    TunnelPlacementDistancePolicy.ShouldApply(
+                        true, true, false, false, eMappers.MAPPER_TUNNEL, 3) &&
+                    TunnelPlacementDistancePolicy.ShouldApply(
+                        true, true, false, false, eMappers.MAPPER_CATAPULT, 3),
+                "placement clearance accepts human ordinary, tunnel and siege buildings");
+            Check(!TunnelPlacementDistancePolicy.ShouldApply(
+                        false, true, false, false, eMappers.MAPPER_TUNNEL, 3) &&
+                    !TunnelPlacementDistancePolicy.ShouldApply(
+                        true, false, false, false, eMappers.MAPPER_TUNNEL, 3) &&
+                    !TunnelPlacementDistancePolicy.ShouldApply(
+                        true, true, true, false, eMappers.MAPPER_TUNNEL, 3) &&
+                    !TunnelPlacementDistancePolicy.ShouldApply(
+                        true, true, false, true, eMappers.MAPPER_TUNNEL, 3) &&
+                    !TunnelPlacementDistancePolicy.ShouldApply(
+                        true, true, false, false, eMappers.MAPPER_WALL, 2) &&
+                    !TunnelPlacementDistancePolicy.ShouldApply(
+                        true, true, false, false, eMappers.MAPPER_TUNNEL, 0),
+                "placement clearance preserves disabled, editor, AI and non-building placement");
 
             var visited = new HashSet<string>();
             bool emptyRingBlocked = TunnelPlacementDistancePolicy.HasHostileOuterRingTile(
@@ -98,7 +125,19 @@ namespace BugfixesAndQoL
                 everyRingPositionDetected &= detected;
             }
             Check(everyRingPositionDetected,
-                "tunnel distance policy detects hostile structures on every side and corner");
+                "placement clearance detects hostile tiles on every side and corner");
+
+            bool allFootprintSizesCorrect = true;
+            foreach (int footprintSize in new[] { 1, 2, 3, 10 })
+            {
+                int inspected = 0;
+                bool blocked = TunnelPlacementDistancePolicy.HasHostileOuterRingTile(
+                    20, 30, footprintSize, (x, y) => true,
+                    (x, y) => { inspected++; return false; });
+                allFootprintSizesCorrect &= !blocked && inspected == 4 * footprintSize + 4;
+            }
+            Check(allFootprintSizesCorrect,
+                "placement clearance scans the complete outer ring for varied building sizes");
 
             int inspectedInsideTiles = 0;
             bool outOfBoundsBlocked = TunnelPlacementDistancePolicy.HasHostileOuterRingTile(
@@ -120,6 +159,22 @@ namespace BugfixesAndQoL
                     !TunnelPlacementDistancePolicy.IsHostileOwner(2, 3, (a, b) => true) &&
                     TunnelPlacementDistancePolicy.IsHostileOwner(2, 3, (a, b) => false),
                 "own and allied owners remain allowed while enemy owners block");
+
+            Func<int, bool> validPlayer = id => id >= 1 && id <= 8;
+            Check(TunnelPlacementDistancePolicy.TryResolveCompletedMoatOwner(
+                    500, 12, 20, 500, 3, validPlayer, out int moatOwner) && moatOwner == 3,
+                "completed moat ownership preserves the one-based record owner");
+            Check(!TunnelPlacementDistancePolicy.TryResolveCompletedMoatOwner(
+                        500, 0, 20, 500, 3, validPlayer, out _) &&
+                    !TunnelPlacementDistancePolicy.TryResolveCompletedMoatOwner(
+                        500, 20, 20, 500, 3, validPlayer, out _) &&
+                    !TunnelPlacementDistancePolicy.TryResolveCompletedMoatOwner(
+                        500, 12, 64001, 500, 3, validPlayer, out _) &&
+                    !TunnelPlacementDistancePolicy.TryResolveCompletedMoatOwner(
+                        500, 12, 20, 501, 3, validPlayer, out _) &&
+                    !TunnelPlacementDistancePolicy.TryResolveCompletedMoatOwner(
+                        500, 12, 20, 500, 9, validPlayer, out _),
+                "completed moat ownership rejects invalid IDs, counts, tile links and owners");
         }
 
         private static void TestTunnelPlacementDistanceIntegration()
@@ -139,9 +194,18 @@ namespace BugfixesAndQoL
                     feature.Contains("building->r_AliveState == AliveState.IsAlive") &&
                     feature.Contains("building->r_PlayerIdOwner") &&
                     feature.Contains("TilePropertyFlag.IsWall") &&
+                    feature.Contains("TilePropertyFlag.IsMoat") &&
                     feature.Contains("GetTilePlayerOwnerId(tileId)") &&
+                    feature.Contains("MoatIdGridOffset = 0x1EA23F0") &&
+                    feature.Contains("MoatRecordArrayOffset = 0x1F3EE30") &&
+                    feature.Contains("MoatRecordCountOffset = 0x2038E30") &&
+                    feature.Contains("MoatRecordSize = 0x10") &&
+                    feature.Contains("MoatRecordOwnerOffset = 0x0C") &&
+                    feature.Contains("recordTileId") &&
+                    feature.Contains("fixedNativeLayoutValidated") &&
+                    !feature.Contains("TilePropertyFlag.PlannedMoat") &&
                     feature.Contains("players.IsPlayerAlliedTo"),
-                "tunnel distance feature uses public placement, tile, building and alliance APIs");
+                "placement clearance uses public placement APIs and the validated moat record contract");
             Check(feature.Contains("args.CustomValidationRules = true;") &&
                     feature.Contains("args.ForceBlockPlacementState = true;") &&
                     !feature.Contains("args.CustomValidationRules = false;") &&
@@ -151,11 +215,12 @@ namespace BugfixesAndQoL
                     !feature.Contains("GetDelegateForFunctionPointer") &&
                     !feature.Contains("ResolveUnique") &&
                     !feature.Contains("buildingId - 1"),
-                "tunnel distance feature has no native resolver and preserves one-based building IDs");
+                "placement clearance has no extra native hook and preserves one-based IDs");
             Check(runtime.Contains("new TunnelPlacementDistanceFeature(log, settings)") &&
                     runtime.Contains("tunnelPlacementDistanceFeature.Initialize") &&
+                    runtime.Contains("tunnelPlacementDistanceFeature.SetFixedNativeLayoutValidated") &&
                     runtime.Contains("tunnelPlacementDistanceFeature.Dispose()"),
-                "tunnel distance feature is registered as a persistent runtime subscription");
+                "placement clearance is registered persistently and receives hash validation");
             Check(viewModel.Contains("[SyncHostOnly]") &&
                     viewModel.Contains("public bool EnableTunnelPlacementDistanceFix") &&
                     viewModel.Contains("enableTunnelPlacementDistanceFix = true"),

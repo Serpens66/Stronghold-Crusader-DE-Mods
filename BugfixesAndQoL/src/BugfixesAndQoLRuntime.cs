@@ -277,6 +277,8 @@ namespace BugfixesAndQoL
             nativeRegion = context.Region;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
+            tunnelPlacementDistanceFeature.SetFixedNativeLayoutValidated(
+                isFixedLayoutHashValidated);
             try
             {
                 LordControlGroupNativePatch.ValidateMixedDisbandContract(

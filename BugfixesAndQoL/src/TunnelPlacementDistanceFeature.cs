@@ -1,4 +1,4 @@
-// Feature: Prevent tunnels from touching hostile buildings or walls.
+// Feature: Keep human-placed buildings clear of hostile completed moats.
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -19,7 +19,19 @@ namespace BugfixesAndQoL
         private bool invalidPlayerLogged;
         private bool invalidBuildingLogged;
         private bool invalidWallOwnerLogged;
+        private bool invalidMoatRecordLogged;
+        private bool unavailableMoatLayoutLogged;
         private bool callbackFailureLogged;
+        private bool fixedNativeLayoutValidated;
+
+        // CrusaderDE.dll FBCB9319: completed-moat ownership is stored in the moat
+        // record, not in WallOwnerGrid. The record owner is already a game player ID.
+        private const int MoatIdGridOffset = 0x1EA23F0;
+        private const int MoatRecordArrayOffset = 0x1F3EE30;
+        private const int MoatRecordCountOffset = 0x2038E30;
+        private const int MoatRecordSize = 0x10;
+        private const int MoatRecordTileIdOffset = 0x00;
+        private const int MoatRecordOwnerOffset = 0x0C;
 
         internal TunnelPlacementDistanceFeature(
             ManualLogSource log,
@@ -39,8 +51,11 @@ namespace BugfixesAndQoL
                 .Subscribe(OnPlacementValidation);
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Bugfixes and QoL tunnel placement-distance validation subscribed.");
+                "Bugfixes and QoL hostile placement-clearance validation subscribed.");
         }
+
+        internal void SetFixedNativeLayoutValidated(bool validated) =>
+            fixedNativeLayoutValidated = validated;
 
         private void OnPlacementValidation(BuildingPlacementValidationEventArgs args)
         {
@@ -49,27 +64,8 @@ namespace BugfixesAndQoL
                 if (args == null ||
                     !settings.EnableMod ||
                     !settings.EnableTunnelPlacementDistanceFix ||
-                    Shared.GameModeHelper.IsMapEditor() ||
-                    !TunnelPlacementDistancePolicy.IsTargetMapper(args.Mappers))
+                    Shared.GameModeHelper.IsMapEditor())
                 {
-                    return;
-                }
-
-                int footprintSize = BuildingScales.GetScale(args.Mappers);
-                if (!TunnelPlacementDistancePolicy.ShouldApply(
-                        settings.EnableMod,
-                        settings.EnableTunnelPlacementDistanceFix,
-                        isMapEditor: false,
-                        args.Mappers,
-                        footprintSize))
-                {
-                    LogUnexpectedScaleOnce(args.Mappers, footprintSize, args.Unknown1);
-                    return;
-                }
-
-                if (args.Unknown1 != footprintSize)
-                {
-                    LogUnexpectedScaleOnce(args.Mappers, footprintSize, args.Unknown1);
                     return;
                 }
 
@@ -81,23 +77,41 @@ namespace BugfixesAndQoL
                         invalidPlayerLogged = true;
                         Shared.DebugLogHelper.LogWarning(
                             log,
-                            $"Tunnel placement-distance validation ignored invalid player ID {args.PlayerId}.");
+                            $"Building placement-clearance validation ignored invalid player ID {args.PlayerId}.");
                     }
                     return;
                 }
 
+                int footprintSize = BuildingScales.GetScale(args.Mappers);
+                if (!TunnelPlacementDistancePolicy.ShouldApply(
+                        settings.EnableMod,
+                        settings.EnableTunnelPlacementDistanceFix,
+                        isMapEditor: false,
+                        players.IsAIPlayer(args.PlayerId),
+                        args.Mappers,
+                        footprintSize))
+                {
+                    return;
+                }
+
+                if (args.Unknown1 != footprintSize)
+                {
+                    LogUnexpectedScaleOnce(args.Mappers, footprintSize, args.Unknown1);
+                    return;
+                }
+
                 GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+                bool isTunnel = TunnelPlacementDistancePolicy.IsTunnelMapper(args.Mappers);
                 bool blocked = TunnelPlacementDistancePolicy.HasHostileOuterRingTile(
                     args.TileX,
                     args.TileY,
                     footprintSize,
                     tiles.IsTileInsideMapBounds,
-                    (tileX, tileY) => IsHostileStructureTile(
-                        tiles,
-                        players,
-                        args.PlayerId,
-                        tileX,
-                        tileY));
+                    (tileX, tileY) =>
+                        (isTunnel && IsHostileStructureTile(
+                            tiles, players, args.PlayerId, tileX, tileY)) ||
+                        IsHostileCompletedMoatTile(
+                            tiles, players, args.PlayerId, tileX, tileY));
                 if (!blocked)
                     return;
 
@@ -112,8 +126,79 @@ namespace BugfixesAndQoL
                 callbackFailureLogged = true;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Tunnel placement-distance validation failed and left Vanilla behavior unchanged: {ex}");
+                    $"Building placement-clearance validation failed and left Vanilla behavior unchanged: {ex}");
             }
+        }
+
+        private unsafe bool IsHostileCompletedMoatTile(
+            GameTileManagerAPI tiles,
+            GamePlayerManagerAPI players,
+            int placingPlayerId,
+            int tileX,
+            int tileY)
+        {
+            int tileId = tiles.GetTileId(tileX, tileY);
+            if ((tiles.GetTilePropertyFlag(tileId) & TilePropertyFlag.IsMoat) == 0)
+                return false;
+
+            if (!fixedNativeLayoutValidated)
+            {
+                if (!unavailableMoatLayoutLogged)
+                {
+                    unavailableMoatLayoutLogged = true;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "Building placement-clearance validation cannot resolve completed-moat ownership because the native layout is not validated; Vanilla behavior remains unchanged for moat clearance.");
+                }
+                return false;
+            }
+
+            byte* tileManager = (byte*)tiles.GetTileManager().ToPointer();
+            if (tileManager == null)
+                return LogInvalidMoatRecordOnce(tileId, "tile manager unavailable");
+
+            int moatId = *(ushort*)(tileManager + MoatIdGridOffset + tileId * sizeof(ushort));
+            int moatRecordCount = *(int*)(tileManager + MoatRecordCountOffset);
+            if (moatId <= 0 || moatId > TunnelPlacementDistancePolicy.MaximumMoatRecordId ||
+                moatRecordCount <= 0 ||
+                moatRecordCount > TunnelPlacementDistancePolicy.MaximumMoatRecordId + 1 ||
+                moatId >= moatRecordCount)
+            {
+                return LogInvalidMoatRecordOnce(
+                    tileId, $"moatId={moatId}, moatRecordCount={moatRecordCount}");
+            }
+
+            byte* record = tileManager + MoatRecordArrayOffset + moatId * MoatRecordSize;
+            int recordTileId = *(int*)(record + MoatRecordTileIdOffset);
+            int recordOwnerId = record[MoatRecordOwnerOffset];
+            if (!TunnelPlacementDistancePolicy.TryResolveCompletedMoatOwner(
+                    tileId,
+                    moatId,
+                    moatRecordCount,
+                    recordTileId,
+                    recordOwnerId,
+                    players.IsPlayerIdValid,
+                    out int ownerId))
+            {
+                return LogInvalidMoatRecordOnce(
+                    tileId,
+                    $"moatId={moatId}, recordTileId={recordTileId}, ownerId={recordOwnerId}");
+            }
+
+            return TunnelPlacementDistancePolicy.IsHostileOwner(
+                placingPlayerId, ownerId, players.IsPlayerAlliedTo);
+        }
+
+        private bool LogInvalidMoatRecordOnce(int tileId, string reason)
+        {
+            if (!invalidMoatRecordLogged)
+            {
+                invalidMoatRecordLogged = true;
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Building placement-clearance validation ignored an invalid completed-moat record at tile {tileId}: {reason}. Vanilla behavior remains unchanged for that tile.");
+            }
+            return false;
         }
 
         private unsafe bool IsHostileStructureTile(
@@ -175,7 +260,7 @@ namespace BugfixesAndQoL
                     invalidBuildingLogged = true;
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Tunnel placement-distance validation ignored invalid building owner ID {ownerId}.");
+                        $"Building placement-clearance validation ignored invalid building owner ID {ownerId}.");
                 }
                 return false;
             }
@@ -192,7 +277,7 @@ namespace BugfixesAndQoL
             unexpectedScaleLogged = true;
             Shared.DebugLogHelper.LogWarning(
                 log,
-                "Tunnel placement-distance validation left Vanilla behavior unchanged because " +
+                "Building placement-clearance validation left Vanilla behavior unchanged because " +
                 $"the footprint contract was unexpected: mapper={mapper}, apiScale={apiScale}, eventScale={eventScale}.");
         }
 

@@ -32,6 +32,27 @@ internal static class Program
         Check(ElevatedMoatNativeContract.MapperMoat == 105, "MAPPER_MOAT value");
         Check(ElevatedMoatNativeContract.MaximumVanillaTerrainHeight == 12, "Vanilla height threshold");
         Check(ElevatedMoatNativeContract.PlacementFailureReason == 24, "Vanilla failure reason");
+        Check(BitConverter.ToInt32(ElevatedMoatNativeContract.HeightWriterBytes, 2) ==
+            ElevatedMoatNativeContract.PlacementBlockedOffset &&
+            BitConverter.ToInt32(ElevatedMoatNativeContract.HeightWriterBytes, 6) ==
+            ElevatedMoatNativeContract.PlacementBlockedValue,
+            "first 10-byte MOV writes blocked status 1");
+        Check(BitConverter.ToInt32(ElevatedMoatNativeContract.HeightWriterBytes, 12) ==
+            ElevatedMoatNativeContract.PlacementFailureReasonOffset &&
+            BitConverter.ToInt32(ElevatedMoatNativeContract.HeightWriterBytes, 16) ==
+            ElevatedMoatNativeContract.PlacementFailureReason,
+            "second 10-byte MOV writes failure reason 24");
+        Check(ElevatedMoatNativeContract.RequiredPrefix[8] == ElevatedMoatNativeContract.MapperMoat &&
+            BitConverter.ToInt32(ElevatedMoatNativeContract.RequiredPrefix, 13) ==
+            ElevatedMoatNativeContract.MaximumFootprintHeightOffset &&
+            ElevatedMoatNativeContract.RequiredPrefix[17] ==
+            ElevatedMoatNativeContract.MaximumVanillaTerrainHeight,
+            "prefix encodes MAPPER_MOAT and maxHeight comparison");
+        Check(ElevatedMoatNativeContract.RequiredPrefix[9] == 0x75 &&
+            ElevatedMoatNativeContract.RequiredPrefix[10] == 0x1D &&
+            ElevatedMoatNativeContract.RequiredPrefix[18] == 0x7E &&
+            ElevatedMoatNativeContract.RequiredPrefix[19] == 0x14,
+            "both comparison branches land after the 20-byte writer");
     }
 
     private static void TestNativeContractValidation()
@@ -85,6 +106,8 @@ internal static class Program
         Check(runtime.Contains("FailureMode = TransactionFailureMode.RollbackAndThrow") &&
             runtime.Contains("OwnsHooks = true") && runtime.Contains("pending.Dispose()"),
             "hook errors roll back the owned transaction");
+        Check(!runtime.Contains("Marshal.Write") && !runtime.Contains("IsAIPlayer"),
+            "callback writes no game state and applies no player filter");
         Check(plugin.Contains("requireCurrentVersion: true") &&
             plugin.Contains("if (!referenceHashMatches)"), "native hash mismatch fails closed");
         Check(project.Contains(@"$(GameDir)\BepInEx\plugins\000shcdese") &&

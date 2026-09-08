@@ -1,5 +1,6 @@
-// Feature: Pure placement policy for the one-tile tunnel clearance ring.
+// Feature: Pure placement policy for hostile one-tile clearance rings.
 using System;
+using SHCDESE.Extensions;
 using SHCDESE.Interop;
 
 namespace BugfixesAndQoL
@@ -7,22 +8,27 @@ namespace BugfixesAndQoL
     internal static class TunnelPlacementDistancePolicy
     {
         internal const int TunnelFootprintSize = 3;
+        internal const int MaximumMoatRecordId = 63999;
 
-        internal static bool IsTargetMapper(eMappers mapper) =>
+        internal static bool IsTunnelMapper(eMappers mapper) =>
             mapper == eMappers.MAPPER_TUNNEL ||
             mapper == eMappers.MAPPER_TUNNEL_CONSTRUCTION;
+
+        internal static bool IsPlaceableBuildingMapper(eMappers mapper, int footprintSize) =>
+            footprintSize > 0 && mapper.ConvertToEStructs() != eStructs.STRUCT_NULL;
 
         internal static bool ShouldApply(
             bool modEnabled,
             bool fixEnabled,
             bool isMapEditor,
+            bool isAiPlayer,
             eMappers mapper,
             int footprintSize) =>
             modEnabled &&
             fixEnabled &&
             !isMapEditor &&
-            IsTargetMapper(mapper) &&
-            footprintSize == TunnelFootprintSize;
+            !isAiPlayer &&
+            IsPlaceableBuildingMapper(mapper, footprintSize);
 
         internal static bool HasHostileOuterRingTile(
             int anchorX,
@@ -31,7 +37,7 @@ namespace BugfixesAndQoL
             Func<int, int, bool> isInsideMap,
             Func<int, int, bool> isHostileTile)
         {
-            if (footprintSize != TunnelFootprintSize)
+            if (footprintSize <= 0)
                 return false;
             if (isInsideMap == null)
                 throw new ArgumentNullException(nameof(isInsideMap));
@@ -60,6 +66,31 @@ namespace BugfixesAndQoL
 
         internal static int WallOwnerToGamePlayerId(byte zeroBasedWallOwner) =>
             zeroBasedWallOwner + 1;
+
+        internal static bool TryResolveCompletedMoatOwner(
+            int tileId,
+            int moatId,
+            int moatRecordCount,
+            int recordTileId,
+            int recordOwnerId,
+            Func<int, bool> isPlayerIdValid,
+            out int ownerId)
+        {
+            if (isPlayerIdValid == null)
+                throw new ArgumentNullException(nameof(isPlayerIdValid));
+
+            ownerId = 0;
+            if (moatId <= 0 || moatId > MaximumMoatRecordId ||
+                moatRecordCount <= 0 || moatRecordCount > MaximumMoatRecordId + 1 ||
+                moatId >= moatRecordCount || recordTileId != tileId ||
+                !isPlayerIdValid(recordOwnerId))
+            {
+                return false;
+            }
+
+            ownerId = recordOwnerId;
+            return true;
+        }
 
         internal static bool IsHostileOwner(
             int placingPlayerId,
