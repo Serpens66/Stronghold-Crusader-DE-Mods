@@ -323,7 +323,7 @@ namespace CustomCustomTrail
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/Mod%20Compatibilty%20CustomCustomTrail.md",
+                    FileName = "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/Guides/Mod%20Compatibilty%20CustomCustomTrail.md",
                     UseShellExecute = true,
                 });
             }
