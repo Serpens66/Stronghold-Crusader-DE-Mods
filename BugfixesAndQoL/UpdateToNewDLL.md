@@ -269,13 +269,14 @@ may run in every game mode when the mod and their individual settings are enable
 | Fast recruit rally movement | Script Extender unit events plus the mod-internal synchronized movement-cadence callbacks; no reflective cross-mod bridge |
 | Reachability-aware gate closing | `GatehouseQueryEventArgs`, the Script Extender 1.42.0 zero-based UnitId exception, gate entries and PCL reachability; exact-hash-only and fail-open |
 | Quarry-pile relocation | Helper `0xC0270..0xC04BE`, manager globals, `GameBuilding` size `0x32C`, pile link `0x192`, structure group `0x2A8`, and one-based building IDs; exact-hash-only |
-| AI economy protection | Handlers containing `0xC7DCB`, `0x2F454`, `0x3B1D0`, and `0x3B2FF`; owner/sleep fields, demolition callers, and the single-building manual override |
+| AI economy protection | Resource-shortage planner `0x2AA20`, handlers containing `0xC7DCB`, `0x2F454`, `0x3B1D0`, and `0x3B2FF`; sleep-output table, demolition callers, and the single-building manual override |
 
 The moved native address map is:
 
 | Source pattern | Reference RVA | Unknown-hash behavior |
 | --- | ---: | --- |
-| `SleepStateComparisonPattern` | `0xC7DCB` | Bounded scan; AI-owner suppression still requires the audited fixed layout |
+| `AIResourceShortageSleepNativeDefinition.FunctionPattern` | `0x2AA20` | Audited-hash-only detour and fixed player-manager sleep-output layout |
+| `SleepStateComparisonPattern` | `0xC7DCB` | Bounded scan used exclusively for the single-building manual override |
 | `SleepStateSynchronizationFunctionPattern` | `0xC7D50` | Bounded scan and validated delegate |
 | `EmergencyDemolitionComparisonPattern` | `0x2F454` | Bounded context-hook scan |
 | `AIHovelDemolitionFunctionPattern` | `0x3B1D0` | Bounded detour scan at the AI-only decision point |

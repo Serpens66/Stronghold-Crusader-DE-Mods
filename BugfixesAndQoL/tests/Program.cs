@@ -464,16 +464,22 @@ namespace BugfixesAndQoL
             Check(runtime.Contains("DetourHandle<AIResourceShortageSleepDelegate>") &&
                     runtime.Contains("AIResourceShortageSleepNativeDefinition.FunctionPattern") &&
                     originalCall >= 0 && clearCall > originalCall,
-                "AI resource-shortage hook runs Vanilla before clearing only its sleep outputs");
+                "AI resource-shortage hook runs Vanilla before clearing its sleep outputs");
             Check(runtime.Contains("ApplySingleBuildingSleepOverrideDuringSynchronization") &&
                     !runtime.Contains("requestedState != SleepingState") &&
                     !runtime.Contains("PlayerOwnerDistanceFromSleeping"),
-                "general sleep synchronization now handles only single-building overrides");
-            Check(english.Contains("resource-shortage routine") &&
-                    english.Contains("Other causes remain unchanged") &&
-                    german.Contains("Rohstoffmangel") &&
-                    german.Contains("Andere Ursachen bleiben unveraendert"),
-                "AI sleep help text documents the narrowed cause-level behavior");
+                "general sleep synchronization is limited to single-building overrides");
+            Check(english.Contains("AI sleep mode during resource shortages") &&
+                    english.Contains("required input resource is unavailable") &&
+                    english.Contains("production or transit") &&
+                    !english.Contains("Prevents only") &&
+                    !english.Contains("Other causes remain unchanged") &&
+                    german.Contains("KI-Schlafmodus bei Rohstoffmangel") &&
+                    german.Contains("benoetigter Rohstoff fehlt") &&
+                    german.Contains("Produktion oder auf dem Transportweg") &&
+                    !german.Contains("Verhindert nur") &&
+                    !german.Contains("Andere Ursachen bleiben unveraendert"),
+                "AI sleep title and help text describe the intended resource-shortage fix directly");
         }
 
         private static void TestNativeContracts()

@@ -82,6 +82,9 @@ Vanilla does not correctly enable automatic selling when the sell slider is set 
 ### Fix map-origin sorting
 The Origin column in singleplayer and multiplayer map selection now sorts maps into reversible Vanilla, local, and Steam Workshop groups. Unknown or malformed entries remain safely at the end of the list.
 
+### Restore host migration after an abrupt disconnect
+When the host leaves a running two-player match without Vanilla's normal leave packet, for example by using Alt+F4, the sole remaining human player is promoted to host. This allows the match paused by the connection error to continue and leaves Vanilla's normal player-removal flow unchanged.
+
 ## Quality-of-life features
 
 ### Pause a single production building
@@ -95,11 +98,17 @@ The enabled-by-default host option extends Shift queues so movement orders and a
 
 Outstanding destinations are displayed in stable pages of up to nine numbered entries. The current page shows its numbers, while later pages retain their destination flags without presenting repeated numbers as global queue positions. Queue state is synchronized in multiplayer and intentionally discarded when a map starts, loads, unloads, or the option is disabled.
 
+### Improve Move formations and target markers
+Pure player Move orders can use one consistent Manhattan-grid spacing for normal units and Assassins, selectable from **Very dense (1)** through **Very wide (4)**. The feature also keeps the complete animated Vanilla destination markers visible and records diagnostics for large groups. Disabling its synchronized host setting restores all Vanilla Move behavior.
+
 ### Make new recruits run to rally points
 Newly recruited human and AI units move to their rally points at their own normal fastest pace, with the matching animation. Terrain and other movement modifiers still apply.
 
 ### Close gates only for reachable enemies
 Gatehouses can ignore enemies that cannot reach either entrance instead of closing for every nearby enemy. If reachability cannot be checked safely, the normal game behavior is retained.
+
+### Restock siege ammunition fairly
+One reload click can restock every selected catapult and trebuchet from a shared ammunition package, distributing the ammunition evenly without reducing any unit's existing amount. Hold Shift for five times the normal package or Ctrl for one fifth; holding both uses the normal amount. If there is not enough stone for the requested package, all stone that can be converted is used.
 
 ### Move a quarry's stone pile
 Selected quarries receive a button that moves their linked stone pile clockwise to the next valid position. If no replacement can be placed safely, the existing pile remains untouched.
@@ -108,7 +117,7 @@ Selected quarries receive a button that moves their linked stone pile clockwise 
 New AI quarries automatically move their linked stone pile to the valid Vanilla position nearest to that AI player's Keep. The host can disable this behavior independently from the player-controlled quarry button.
 
 ### Protect the AI economy
-Four independent settings prevent AI production pauses, panic demolitions, direct deletion of living hovels, and demolitions caused solely by an inaccurate unreachable-building classification. The last setting can retain Vanilla behavior, use an improved reachability check that treats living friendly and allied gates and drawbridges as passable, or block every unreachability demolition. Other demolition causes and normal damage remain unchanged.
+Four independent settings prevent affected AI production buildings from entering sleep mode when required input resources are unavailable, panic demolitions, direct deletion of living hovels, and demolitions caused solely by an inaccurate unreachable-building classification. Preventing the resource-shortage sleep mode avoids losing goods already in production or transit. The last setting can retain Vanilla behavior, use an improved reachability check that treats living friendly and allied gates and drawbridges as passable, or block every unreachability demolition. Other demolition causes and normal damage remain unchanged.
 
 ### Open and safely manage Vanilla maps in the map editor
 The map editor's Load Map dialog includes a **Show Vanilla maps** checkbox. When enabled, it adds the editable built-in Skirmish, Free Build, and multiplayer maps to the normal list. Campaign and tutorial maps remain hidden. Saving a loaded Vanilla map always creates or overwrites a separate copy in your user `Maps` folder; the original game files are never changed.

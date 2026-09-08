@@ -1,4 +1,4 @@
-// Feature: Protect AI production buildings, hovels, and emergency economy structures.
+// Feature: Protect AI production buildings from resource-shortage sleep and selected demolitions.
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -67,7 +67,7 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly bool aiPauseProtectionSupported;
+        private readonly bool aiResourceShortageSleepProtectionSupported;
         private readonly bool inaccessibleBuildingProtectionSupported;
         private readonly HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> sleepStateHook = new HookHandle<X64InlineHook>();
@@ -100,7 +100,7 @@ namespace BugfixesAndQoL
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            aiPauseProtectionSupported = referenceHashMatches;
+            aiResourceShortageSleepProtectionSupported = referenceHashMatches;
             inaccessibleBuildingProtectionSupported = referenceHashMatches;
 
             ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
@@ -173,7 +173,7 @@ namespace BugfixesAndQoL
                 HookTarget.FromAddress(libraryBase + unchecked((ulong)aiHovelDemolitionRva)),
                 PreventAIHovelDemolition);
 
-            if (aiPauseProtectionSupported)
+            if (aiResourceShortageSleepProtectionSupported)
             {
                 transaction.AddDetour(
                     aiResourceShortageSleepHook,
@@ -189,7 +189,7 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!aiHovelDemolitionHook.Success)
                 throw new InvalidOperationException("The AI hovel-demolition AOB signature was not found.");
-            if (aiPauseProtectionSupported && !aiResourceShortageSleepHook.Success)
+            if (aiResourceShortageSleepProtectionSupported && !aiResourceShortageSleepHook.Success)
                 throw new InvalidOperationException("The AI resource-shortage sleep planner hook was not installed.");
             if (inaccessibleBuildingProtectionSupported && !inaccessibleBuildingDemolitionHook.Success)
                 throw new InvalidOperationException("The AI inaccessible-building demolition AOB signature was not found.");
@@ -229,15 +229,19 @@ namespace BugfixesAndQoL
         private void PreventAIResourceShortageSleep(IntPtr aiManager, int playerId)
         {
             // Preserve the complete Vanilla shortage counters, purchasing decisions,
-            // and recovery scheduling before changing only this routine's sleep outputs.
+            // and recovery scheduling before clearing this routine's sleep outputs.
             aiResourceShortageSleepHook.Original(aiManager, playerId);
 
             try
             {
-                GamePlayerManagerAPI playerManagerApi = GamePlayerManagerAPI.Instance;
                 if (!settings.EnableMod || !settings.PreventAIPause ||
-                    !aiPauseProtectionSupported ||
-                    !playerManagerApi.IsPlayerIdValid(playerId) ||
+                    !aiResourceShortageSleepProtectionSupported)
+                {
+                    return;
+                }
+
+                GamePlayerManagerAPI playerManagerApi = GamePlayerManagerAPI.Instance;
+                if (!playerManagerApi.IsPlayerIdValid(playerId) ||
                     !playerManagerApi.IsAIPlayer(playerId))
                 {
                     return;

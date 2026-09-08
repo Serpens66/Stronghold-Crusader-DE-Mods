@@ -1,3 +1,4 @@
+using SHCDESE.API;
 using SHCDESE.Interop;
 
 namespace BugfixesAndQoL
@@ -8,7 +9,7 @@ namespace BugfixesAndQoL
         internal const int SleepStateTableOffset = 0x130D54;
         internal const int PlannerEnabledOffset = 0x130EC0;
         internal const int MinimumPlayerId = 1;
-        internal const int MaximumPlayerId = 8;
+        internal const int MaximumPlayerId = GamePlayerManagerAPI.MAX_PLAYERS;
 
         internal static readonly eStructs[] AffectedBuildingTypes =
         {
