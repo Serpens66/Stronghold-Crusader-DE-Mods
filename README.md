@@ -3,6 +3,7 @@
 Preview Video: https://youtu.be/Jdz_aAA7CE4  
 
 ## Download:
+- Recommended Steam auto updates: https://steamcommunity.com/sharedfiles/filedetails/?id=3788821961  
 - Releases: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases (see this [table](#latest-mod-releases) for specific mods)   
 - Nexusmods: https://www.nexusmods.com/profile/Serpens66/mods?gameId=7959
 
