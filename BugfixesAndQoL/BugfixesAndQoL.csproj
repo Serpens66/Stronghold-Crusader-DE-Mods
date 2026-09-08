@@ -202,6 +202,7 @@
     <Compile Include="src\SteamInviteBlacklistStore.cs" />
     <Compile Include="src\StartupDiagnosticPolicy.cs" />
     <Compile Include="src\SingleBuildingPauseHook.cs" />
+    <Compile Include="src\SingleBuildingPauseOverrideStore.cs" />
     <Compile Include="src\SingleBuildingPausePacket.cs" />
     <Compile Include="src\ShiftRepairAllBuildingsHook.cs" />
     <Compile Include="src\ShiftRepairAllBuildingsPolicy.cs" />

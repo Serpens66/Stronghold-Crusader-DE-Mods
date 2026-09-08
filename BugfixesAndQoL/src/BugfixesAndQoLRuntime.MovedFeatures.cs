@@ -113,11 +113,7 @@ namespace BugfixesAndQoL
                 log,
                 settings,
                 multiplayerFeatureGate);
-            if (aiEconomyProtectionHook != null)
-            {
-                singleBuildingPauseHook.SetSleepStateSynchronizer(
-                    aiEconomyProtectionHook.SynchronizeSleepStatesNow);
-            }
+            WireSingleBuildingPauseNativeBridge();
         }
 
         private void InstallAIEconomyProtectionHook(
@@ -136,13 +132,23 @@ namespace BugfixesAndQoL
                     nativeLibraryHandle,
                     memory,
                     fixedLayoutHashValidated);
-                singleBuildingPauseHook?.SetSleepStateSynchronizer(
-                    aiEconomyProtectionHook.SynchronizeSleepStatesNow);
+                WireSingleBuildingPauseNativeBridge();
             }
             catch (Exception ex)
             {
                 LogMovedFeatureFailure("AI economy protection hook", ex);
             }
+        }
+
+        private void WireSingleBuildingPauseNativeBridge()
+        {
+            if (singleBuildingPauseHook == null || aiEconomyProtectionHook == null)
+                return;
+
+            aiEconomyProtectionHook.SetSingleBuildingPauseHook(singleBuildingPauseHook);
+            singleBuildingPauseHook.SetSleepStateBridge(
+                aiEconomyProtectionHook.SynchronizeSleepStatesNow,
+                aiEconomyProtectionHook.SetSingleBuildingOverrideInterceptionEnabled);
         }
 
         private void ApplyFastRecruitRallyMovementSetting()
@@ -178,8 +184,8 @@ namespace BugfixesAndQoL
         {
             reachableEnemyGatehouseRuntime?.Dispose();
             quarryPileRelocationRuntime?.Dispose();
-            singleBuildingPauseHook?.ClearOverrides("runtime disposed");
-            singleBuildingPauseHook?.UninstallLocalHooks();
+            singleBuildingPauseHook?.Dispose();
+            singleBuildingPauseHook = null;
             aiEconomyProtectionHook?.Dispose();
             aiEconomyProtectionHook = null;
             fastRecruitMovementBridge?.Dispose();

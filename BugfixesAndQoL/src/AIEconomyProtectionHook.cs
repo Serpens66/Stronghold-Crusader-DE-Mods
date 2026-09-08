@@ -48,6 +48,7 @@ namespace BugfixesAndQoL
         private const string InaccessibleBuildingDecisionPattern =
             "85 C0 75 06 66 44 89 3B EB 11 83 F8 02 75 06 66 44 89 3B EB 06 66 44 39 3B 75 52";
         private const int SleepStateComparisonRva = 0xC7DCB;
+        private const int SleepStateComparisonDisplacedLength = 20;
         private const int SleepStateSynchronizationFunctionRva = 0xC7D50;
         private const int EmergencyDemolitionComparisonRva = 0x2F454;
         private const int AIHovelDemolitionFunctionRva = 0x3B1D0;
@@ -79,6 +80,7 @@ namespace BugfixesAndQoL
             new DetourHandle<AIResourceShortageSleepDelegate>();
         private readonly SynchronizeSleepStatesDelegate synchronizeSleepStates;
         private readonly AIBuildingTemporaryAccessClassifier temporaryAccessClassifier;
+        private SingleBuildingPauseHook singleBuildingPauseHook;
         private bool resourceShortageSleepCallbackFailureLogged;
         private bool singleBuildingOverrideCallbackFailureLogged;
         private bool emergencyCallbackFailureLogged;
@@ -207,6 +209,12 @@ namespace BugfixesAndQoL
 
             if (!commitResult.IsCompleteSuccess || !sleepStateHook.Success)
                 throw new InvalidOperationException("The AI building sleep-state AOB signature was not found.");
+            if (sleepStateHook.Hook.DisplacedByteCount != SleepStateComparisonDisplacedLength)
+            {
+                transaction.Dispose();
+                throw new InvalidOperationException(
+                    "Unexpected actual building sleep-state overwrite length; hook transaction rolled back.");
+            }
             if (!emergencyDemolitionHook.Success)
                 throw new InvalidOperationException("The AI emergency-demolition AOB signature was not found.");
             if (!aiHovelDemolitionHook.Success)
@@ -222,6 +230,20 @@ namespace BugfixesAndQoL
                 transaction.Dispose();
                 throw new InvalidOperationException(
                     "Unexpected actual inaccessible-building overwrite length; hook transaction rolled back.");
+            }
+
+            // The callback is inside the manager loop and is only needed while at least
+            // one individual building override exists.
+            try
+            {
+                sleepStateHook.Hook.Disable();
+                if (sleepStateHook.IsInstalled)
+                    throw new InvalidOperationException("The building sleep-state hook remained active after preparation.");
+            }
+            catch
+            {
+                transaction.Dispose();
+                throw;
             }
         }
 
@@ -318,6 +340,33 @@ namespace BugfixesAndQoL
             synchronizeSleepStates(GameBuildingManagerAPI.Instance.GetBuildingManager());
         }
 
+        internal void SetSingleBuildingPauseHook(SingleBuildingPauseHook hook)
+        {
+            singleBuildingPauseHook = hook ?? throw new ArgumentNullException(nameof(hook));
+        }
+
+        internal void SetSingleBuildingOverrideInterceptionEnabled(bool enabled)
+        {
+            if (disposed)
+                throw new ObjectDisposedException(nameof(AIEconomyProtectionHook));
+            if (!sleepStateHook.Success)
+                throw new InvalidOperationException("The single-building sleep-state hook is unavailable.");
+
+            if (enabled)
+            {
+                if (!sleepStateHook.IsInstalled)
+                    sleepStateHook.Hook.Enable();
+                if (!sleepStateHook.IsInstalled)
+                    throw new InvalidOperationException("The single-building sleep-state hook did not become active.");
+            }
+            else if (sleepStateHook.IsInstalled)
+            {
+                sleepStateHook.Hook.Disable();
+                if (sleepStateHook.IsInstalled)
+                    throw new InvalidOperationException("The single-building sleep-state hook remained active.");
+            }
+        }
+
         public void Dispose()
         {
             if (disposed)
@@ -381,7 +430,11 @@ namespace BugfixesAndQoL
                     return false;
 
                 IntPtr sleepingAddress = unchecked((IntPtr)(long)registers->R8);
-                if (!SingleBuildingPauseHook.TryResolveManualOverrideForSleepingAddress(sleepingAddress, out SingleBuildingPauseHook.ManualSleepOverrideMatch match))
+                SingleBuildingPauseHook pauseHook = singleBuildingPauseHook;
+                if (pauseHook == null ||
+                    !pauseHook.TryResolveManualOverrideForSleepingAddress(
+                        sleepingAddress,
+                        out SingleBuildingPauseHook.ManualSleepOverrideMatch match))
                     return false;
 
                 byte desiredState = (byte)(match.IsSleeping ? 1 : 0);

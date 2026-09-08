@@ -35,6 +35,7 @@ namespace BugfixesAndQoL
             TestAiDefensePatrolIntegration();
             TestAiStoneReserveIntegration();
             TestAiWallTargetingIntegration();
+            TestSingleBuildingPauseOverrideStore();
             TestAIResourceShortageSleepPolicy();
             TestAIResourceShortageSleepIntegration();
             TestTemporaryGateBlockagePolicy();
@@ -486,6 +487,10 @@ namespace BugfixesAndQoL
             string projectDirectory = FindProjectDirectory();
             string runtime = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "AIEconomyProtectionHook.cs"));
+            string singlePause = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "SingleBuildingPauseHook.cs"));
+            string movedFeatures = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "BugfixesAndQoLRuntime.MovedFeatures.cs"));
             string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
             string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
 
@@ -498,9 +503,42 @@ namespace BugfixesAndQoL
                     originalCall >= 0 && clearCall > originalCall,
                 "AI resource-shortage hook runs Vanilla before clearing its sleep outputs");
             Check(runtime.Contains("ApplySingleBuildingSleepOverrideDuringSynchronization") &&
+                    runtime.Contains("SleepStateComparisonDisplacedLength = 20") &&
+                    runtime.Contains("sleepStateHook.Hook.DisplacedByteCount != SleepStateComparisonDisplacedLength") &&
+                    runtime.Contains("sleepStateHook.Hook.Disable()") &&
+                    runtime.Contains("SetSingleBuildingOverrideInterceptionEnabled") &&
                     !runtime.Contains("requestedState != SleepingState") &&
                     !runtime.Contains("PlayerOwnerDistanceFromSleeping"),
                 "general sleep synchronization is limited to single-building overrides");
+            Check(!singlePause.Contains("NoesisGUIUpdateChecksInGame") &&
+                    singlePause.Contains("addChimpActions") &&
+                    singlePause.Contains("addChimpActionsHook.Apply()") &&
+                    singlePause.Contains("addChimpActionsHook.Undo()") &&
+                    singlePause.Contains("buildingDeleteSubscription?.Dispose()") &&
+                    movedFeatures.Contains("singleBuildingPauseHook?.Dispose()") &&
+                    movedFeatures.Contains("singleBuildingPauseHook = null;"),
+                "single-building pause keeps its render correction dormant without overrides");
+            int nativeCommit = runtime.IndexOf("CommitResult commitResult = transaction.Commit()", StringComparison.Ordinal);
+            int initialNativeDisable = runtime.IndexOf("sleepStateHook.Hook.Disable()", StringComparison.Ordinal);
+            int activationBeforeStore = singlePause.IndexOf(
+                "overrides.Count == 0 && !TryActivateOverrideHooks()", StringComparison.Ordinal);
+            int activationMethod = singlePause.IndexOf(
+                "private bool TryActivateOverrideHooks()", StringComparison.Ordinal);
+            int uiActivationBeforeStore = singlePause.IndexOf(
+                "addChimpActionsHook.Apply()", activationMethod, StringComparison.Ordinal);
+            int nativeActivationBeforeStore = singlePause.IndexOf(
+                "setSleepOverrideInterceptionEnabled(true)", activationMethod, StringComparison.Ordinal);
+            int storeAfterActivation = singlePause.IndexOf(
+                "overrides.Set(new SingleBuildingPauseOverride", StringComparison.Ordinal);
+            Check(nativeCommit >= 0 && initialNativeDisable > nativeCommit &&
+                    activationBeforeStore >= 0 &&
+                    storeAfterActivation > activationBeforeStore &&
+                    activationMethod > storeAfterActivation &&
+                    uiActivationBeforeStore > activationMethod &&
+                    nativeActivationBeforeStore > uiActivationBeforeStore &&
+                    singlePause.Contains(
+                        "!settings.EnableMod || !settings.EnableSingleBuildingPause"),
+                "single-building native interception is dormant initially and activates before storing the first override");
             Check(english.Contains("AI sleep mode during resource shortages") &&
                     english.Contains("required input resource is unavailable") &&
                     english.Contains("production or transit") &&
@@ -512,6 +550,47 @@ namespace BugfixesAndQoL
                     !german.Contains("Verhindert nur") &&
                     !german.Contains("Andere Ursachen bleiben unveraendert"),
                 "AI sleep title and help text describe the intended resource-shortage fix directly");
+        }
+
+        private static void TestSingleBuildingPauseOverrideStore()
+        {
+            var store = new SingleBuildingPauseOverrideStore();
+            var first = new SingleBuildingPauseOverride(
+                5, true, new IntPtr(0x1000), eStructs.STRUCT_WOODCUTTERS_HUT, 1, 101);
+            var firstUpdated = new SingleBuildingPauseOverride(
+                5, false, new IntPtr(0x1000), eStructs.STRUCT_WOODCUTTERS_HUT, 1, 101);
+            var second = new SingleBuildingPauseOverride(
+                9, true, new IntPtr(0x2000), eStructs.STRUCT_QUARRY, 1, 202);
+
+            Check(store.Set(first) && store.Count == 1,
+                "single-building override store reports the first active override");
+            Check(!store.Set(firstUpdated) &&
+                    store.TryGet(5, out SingleBuildingPauseOverride updated) &&
+                    !updated.IsSleeping && store.Count == 1,
+                "single-building override store updates without a second activation transition");
+            Check(!store.Set(second) && store.Count == 2,
+                "single-building override store adds further entries without reactivation");
+
+            OverrideRemovalResult typeRemoval = store.RemoveForBuildingType(
+                1,
+                eStructs.STRUCT_WOODCUTTERS_HUT);
+            Check(typeRemoval.Count == 1 && !typeRemoval.BecameEmpty && store.Count == 1,
+                "single-building override type reset preserves unrelated entries");
+            Check(store.Remove(9) && store.Count == 0,
+                "single-building override deletion reports the last-entry transition");
+
+            store.Set(first);
+            OverrideRemovalResult lastTypeRemoval = store.RemoveForBuildingType(
+                1,
+                eStructs.STRUCT_WOODCUTTERS_HUT);
+            Check(lastTypeRemoval.Count == 1 && lastTypeRemoval.BecameEmpty && store.Count == 0,
+                "single-building override type reset reports the last-entry transition");
+
+            store.Set(first);
+            store.Set(second);
+            Check(store.Clear() == 2 && store.Count == 0 &&
+                    !store.TryGetBySleepingAddress(new IntPtr(0x1000), out _),
+                "single-building override clear removes id and address indexes");
         }
 
         private static void TestTemporaryGateBlockagePolicy()

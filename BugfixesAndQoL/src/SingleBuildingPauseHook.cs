@@ -7,11 +7,11 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.API.Components.Network;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Reflection;
@@ -22,32 +22,40 @@ namespace BugfixesAndQoL
     internal sealed class SingleBuildingPauseHook : IDisposable
     {
         private delegate void ButtonToggleZzzModeDelegate(MainViewModel self, object parameter);
-        private delegate void NoesisGuiUpdateChecksInGameDelegate(FatControler self);
+        private delegate bool AddChimpActionsDelegate(
+            FatControler self,
+            EngineInterface.PlayState state,
+            ref string line1,
+            ref string line2,
+            bool islamic);
 
-        private static readonly bool EnablePeriodicManualSleepOverrideRestore = false;
         private const long DuplicateToggleSuppressMilliseconds = 750;
         private const int ChoreProtocolVersion = 2;
         private const int SetSingleBuildingAction = 1;
         private const int ResetBuildingTypeAction = 2;
-        private static readonly object ManualSleepOverridesLock = new object();
-        private static readonly Dictionary<int, ManualSleepOverride> ManualSleepOverrides = new Dictionary<int, ManualSleepOverride>();
-        private static readonly Dictionary<IntPtr, int> ManualSleepOverrideIdsBySleepingAddress = new Dictionary<IntPtr, int>();
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
+        private readonly SingleBuildingPauseOverrideStore overrides = new SingleBuildingPauseOverrideStore();
         private Hook buttonHook;
-        private Hook guiUpdateHook;
+        private Hook addChimpActionsHook;
         private ButtonToggleZzzModeDelegate buttonTrampoline;
-        private NoesisGuiUpdateChecksInGameDelegate guiUpdateTrampoline;
+        private AddChimpActionsDelegate addChimpActionsTrampoline;
         private int lastManualToggleBuildingId;
         private long lastManualToggleTimestamp;
         private Action synchronizeSleepStates;
+        private Action<bool> setSleepOverrideInterceptionEnabled;
         private bool localHooksInstalled;
+        private bool overrideHooksActive;
+        private bool overrideHookActivationFailureLogged;
+        private bool overrideHookDeactivationFailureLogged;
+        private bool uiRefreshFailureLogged;
         private bool networkInitialized;
         private int nextOperationId;
         private R3PacketEventHook<SingleBuildingPausePacket> pausePacketHook;
         private IDisposable pausePacketSubscription;
+        private IDisposable buildingDeleteSubscription;
 
         public SingleBuildingPauseHook(
             ManualLogSource log,
@@ -66,26 +74,33 @@ namespace BugfixesAndQoL
                 return;
 
             MethodInfo buttonMethod = FindButtonToggleZzzModeMethod();
-            MethodInfo guiUpdateMethod = FindNoesisGuiUpdateChecksInGameMethod();
+            MethodInfo addChimpActionsMethod = FindAddChimpActionsMethod();
             Hook installedButtonHook = null;
-            Hook installedGuiUpdateHook = null;
+            Hook installedAddChimpActionsHook = null;
             try
             {
                 installedButtonHook = new Hook(buttonMethod, (ButtonToggleZzzModeDelegate)ButtonToggleZzzModeHook);
                 ButtonToggleZzzModeDelegate installedButtonTrampoline = installedButtonHook.GenerateTrampoline<ButtonToggleZzzModeDelegate>();
 
-                installedGuiUpdateHook = new Hook(guiUpdateMethod, (NoesisGuiUpdateChecksInGameDelegate)NoesisGuiUpdateChecksInGameHook);
-                NoesisGuiUpdateChecksInGameDelegate installedGuiUpdateTrampoline = installedGuiUpdateHook.GenerateTrampoline<NoesisGuiUpdateChecksInGameDelegate>();
+                installedAddChimpActionsHook = new Hook(
+                    addChimpActionsMethod,
+                    (AddChimpActionsDelegate)AddChimpActionsHook);
+                AddChimpActionsDelegate installedAddChimpActionsTrampoline =
+                    installedAddChimpActionsHook.GenerateTrampoline<AddChimpActionsDelegate>();
+                // Individual state does not exist yet, so keep the render-time correction dormant.
+                installedAddChimpActionsHook.Undo();
+                if (installedAddChimpActionsHook.IsApplied)
+                    throw new InvalidOperationException("The building-action UI hook remained active after preparation.");
 
                 buttonHook = installedButtonHook;
                 buttonTrampoline = installedButtonTrampoline;
-                guiUpdateHook = installedGuiUpdateHook;
-                guiUpdateTrampoline = installedGuiUpdateTrampoline;
+                addChimpActionsHook = installedAddChimpActionsHook;
+                addChimpActionsTrampoline = installedAddChimpActionsTrampoline;
                 localHooksInstalled = true;
             }
             catch
             {
-                installedGuiUpdateHook?.Dispose();
+                installedAddChimpActionsHook?.Dispose();
                 installedButtonHook?.Dispose();
                 throw;
             }
@@ -93,6 +108,12 @@ namespace BugfixesAndQoL
 
         public void Dispose()
         {
+            pausePacketSubscription?.Dispose();
+            pausePacketSubscription = null;
+            buildingDeleteSubscription?.Dispose();
+            buildingDeleteSubscription = null;
+            pausePacketHook = null;
+            networkInitialized = false;
             UninstallLocalHooks();
             ClearManualSleepOverrides();
         }
@@ -102,13 +123,13 @@ namespace BugfixesAndQoL
             if (!localHooksInstalled)
                 return;
 
-            // Clear the state first so a failed hook cleanup cannot leave gameplay overrides behind.
+            // Clear gameplay state before disposing the prepared managed hooks.
             localHooksInstalled = false;
             ClearManualSleepOverrides();
             ReleaseHook("button", ref buttonHook);
             buttonTrampoline = null;
-            ReleaseHook("GUI update", ref guiUpdateHook);
-            guiUpdateTrampoline = null;
+            ReleaseHook("building action UI", ref addChimpActionsHook);
+            addChimpActionsTrampoline = null;
         }
 
         private void ReleaseHook(string hookName, ref Hook hook)
@@ -144,6 +165,9 @@ namespace BugfixesAndQoL
 
             pausePacketHook = GameNetworkAPI.Instance.GetPacketEventFor<SingleBuildingPausePacket>();
             pausePacketSubscription = pausePacketHook.GetBaseHook().Observable.Subscribe(OnPausePacketReceived);
+            buildingDeleteSubscription = BuildingR3EventHooks.OnBuildingDelete.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnBuildingDeleting);
             networkInitialized = true;
             LogInfo($"Chore packet registered eagerly: packetId={pausePacketHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
         }
@@ -153,40 +177,41 @@ namespace BugfixesAndQoL
             ClearManualSleepOverrides();
         }
 
-        internal void SetSleepStateSynchronizer(Action synchronizer)
+        internal void SetSleepStateBridge(
+            Action synchronizer,
+            Action<bool> setInterceptionEnabled)
         {
             synchronizeSleepStates = synchronizer ?? throw new ArgumentNullException(nameof(synchronizer));
+            setSleepOverrideInterceptionEnabled =
+                setInterceptionEnabled ?? throw new ArgumentNullException(nameof(setInterceptionEnabled));
         }
 
-        internal unsafe static bool TryResolveManualOverrideForSleepingAddress(IntPtr sleepingAddress, out ManualSleepOverrideMatch match)
+        internal unsafe bool TryResolveManualOverrideForSleepingAddress(
+            IntPtr sleepingAddress,
+            out ManualSleepOverrideMatch match)
         {
             match = default;
             if (sleepingAddress == IntPtr.Zero)
                 return false;
 
-            ManualSleepOverride entry;
-            lock (ManualSleepOverridesLock)
-            {
-                if (!ManualSleepOverrideIdsBySleepingAddress.TryGetValue(sleepingAddress, out int buildingId) ||
-                    !ManualSleepOverrides.TryGetValue(buildingId, out entry))
-                {
-                    ManualSleepOverrideIdsBySleepingAddress.Remove(sleepingAddress);
-                    return false;
-                }
-
-                if (entry.SleepingAddress != sleepingAddress)
-                {
-                    ManualSleepOverrideIdsBySleepingAddress.Remove(sleepingAddress);
-                    return false;
-                }
-            }
+            if (!overrides.TryGetBySleepingAddress(sleepingAddress, out SingleBuildingPauseOverride entry))
+                return false;
 
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             if (!buildingApi.TryGetBuildingById(entry.BuildingId, out GameBuilding* building) ||
                 building->r_AliveState != AliveState.IsAlive ||
-                (IntPtr)(&building->r_IsSleeping) != sleepingAddress)
+                (IntPtr)(&building->r_IsSleeping) != sleepingAddress ||
+                (int)building->r_GlobalId != entry.GlobalId ||
+                building->r_PlayerIdOwner != entry.Owner ||
+                building->r_BuildingType != entry.BuildingType)
             {
-                RemoveManualSleepOverride(entry.BuildingId);
+                bool becameEmpty = overrides.Remove(entry.BuildingId);
+                if (becameEmpty)
+                {
+                    // This resolver runs inside the native hook. Never rewrite that hook's
+                    // target bytes until the callback has returned to the engine.
+                    UnityMainThreadDispatcher.EnqueueStatic(DeactivateOverrideHooksIfEmpty);
+                }
                 return false;
             }
 
@@ -216,17 +241,23 @@ namespace BugfixesAndQoL
             return method;
         }
 
-        private static MethodInfo FindNoesisGuiUpdateChecksInGameMethod()
+        private static MethodInfo FindAddChimpActionsMethod()
         {
             MethodInfo method = typeof(FatControler).GetMethod(
-                "NoesisGUIUpdateChecksInGame",
+                "addChimpActions",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null,
-                Type.EmptyTypes,
+                new[]
+                {
+                    typeof(EngineInterface.PlayState),
+                    typeof(string).MakeByRefType(),
+                    typeof(string).MakeByRefType(),
+                    typeof(bool)
+                },
                 null);
 
-            if (method == null)
-                throw new MissingMethodException(typeof(FatControler).FullName, "NoesisGUIUpdateChecksInGame");
+            if (method == null || method.ReturnType != typeof(bool))
+                throw new MissingMethodException(typeof(FatControler).FullName, "addChimpActions");
 
             return method;
         }
@@ -286,24 +317,34 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void NoesisGuiUpdateChecksInGameHook(FatControler self)
+        private bool AddChimpActionsHook(
+            FatControler self,
+            EngineInterface.PlayState state,
+            ref string line1,
+            ref string line2,
+            bool islamic)
         {
-            guiUpdateTrampoline(self);
-
-            if (!IsFeatureActive())
-                return;
+            bool result = addChimpActionsTrampoline(self, state, ref line1, ref line2, islamic);
 
             try
             {
-                if (EnablePeriodicManualSleepOverrideRestore)
-                    ApplyManualSleepOverrides();
-
-                RefreshSelectedBuildingSleepButton();
+                if (state != null &&
+                    state.in_structure > 0 &&
+                    overrides.TryGet(state.in_structure, out SingleBuildingPauseOverride entry))
+                {
+                    UpdateSleepButtonVisibility(MainViewModel.Instance, entry.IsSleeping);
+                }
             }
             catch (Exception ex)
             {
-                LogError($"single-building pause update failed: {ex}");
+                if (!uiRefreshFailureLogged)
+                {
+                    uiRefreshFailureLogged = true;
+                    LogError($"single-building pause UI correction failed; Vanilla visibility remains active: {ex}");
+                }
             }
+
+            return result;
         }
 
         private bool IsFeatureActive()
@@ -461,6 +502,11 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            // A packet queued just before a synchronized setting change must not
+            // recreate overrides after the feature was disabled and cleared.
+            if (!settings.EnableMod || !settings.EnableSingleBuildingPause)
+                return;
+
             try
             {
                 if (synchronizeSleepStates == null)
@@ -605,7 +651,7 @@ namespace BugfixesAndQoL
 
         private unsafe void ClearManualOverridesForSelectedBuildingType()
         {
-            if (GetManualSleepOverrideCount() == 0 ||
+            if (overrides.Count == 0 ||
                 GameData.Instance == null ||
                 GameData.Instance.lastGameState == null)
                 return;
@@ -623,78 +669,12 @@ namespace BugfixesAndQoL
                 selectedBuilding->r_BuildingType);
         }
 
-        private static int ClearManualOverridesForBuildingType(int owner, eStructs buildingType)
+        private int ClearManualOverridesForBuildingType(int owner, eStructs buildingType)
         {
-            List<int> idsToRemove = new List<int>();
-
-            lock (ManualSleepOverridesLock)
-            {
-                foreach (ManualSleepOverride entry in ManualSleepOverrides.Values)
-                {
-                    if (entry.Owner == owner && entry.BuildingType == buildingType)
-                        idsToRemove.Add(entry.BuildingId);
-                }
-
-                foreach (int buildingId in idsToRemove)
-                    RemoveManualSleepOverrideUnsafe(buildingId);
-            }
-
-            return idsToRemove.Count;
-        }
-
-        private unsafe void ApplyManualSleepOverrides()
-        {
-            if (GetManualSleepOverrideCount() == 0)
-                return;
-
-            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            List<int> idsToRemove = null;
-            List<ManualSleepOverride> overrides;
-
-            lock (ManualSleepOverridesLock)
-                overrides = new List<ManualSleepOverride>(ManualSleepOverrides.Values);
-
-            foreach (ManualSleepOverride entry in overrides)
-            {
-                if (!buildingApi.TryGetBuildingById(entry.BuildingId, out GameBuilding* building) ||
-                    building->r_AliveState != AliveState.IsAlive)
-                {
-                    if (idsToRemove == null)
-                        idsToRemove = new List<int>();
-
-                    idsToRemove.Add(entry.BuildingId);
-                    continue;
-                }
-
-                byte desired = (byte)(entry.IsSleeping ? 1 : 0);
-                if (building->r_IsSleeping == desired)
-                    continue;
-
-                building->r_IsSleeping = desired;
-            }
-
-            if (idsToRemove == null)
-                return;
-
-            lock (ManualSleepOverridesLock)
-            {
-                foreach (int buildingId in idsToRemove)
-                    RemoveManualSleepOverrideUnsafe(buildingId);
-            }
-
-        }
-
-        private void RefreshSelectedBuildingSleepButton()
-        {
-            if (GameData.Instance == null || GameData.Instance.lastGameState == null)
-                return;
-
-            int selectedBuildingId = GameData.Instance.lastGameState.in_structure;
-            if (selectedBuildingId <= 0)
-                return;
-
-            if (TryGetManualSleepOverride(selectedBuildingId, out bool isSleeping))
-                UpdateSleepButtonVisibility(MainViewModel.Instance, isSleeping);
+            OverrideRemovalResult result = overrides.RemoveForBuildingType(owner, buildingType);
+            if (result.BecameEmpty)
+                DeactivateOverrideHooks();
+            return result.Count;
         }
 
         private bool IsDuplicateManualToggle(int buildingId)
@@ -720,13 +700,7 @@ namespace BugfixesAndQoL
             lastManualToggleTimestamp = Stopwatch.GetTimestamp();
         }
 
-        private static int GetManualSleepOverrideCount()
-        {
-            lock (ManualSleepOverridesLock)
-                return ManualSleepOverrides.Count;
-        }
-
-        private unsafe static bool SetManualSleepOverride(int buildingId, bool isSleeping)
+        private unsafe bool SetManualSleepOverride(int buildingId, bool isSleeping)
         {
             if (buildingId <= 0)
                 return false;
@@ -738,74 +712,185 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            ManualSleepOverride entry = new ManualSleepOverride
-            {
-                BuildingId = buildingId,
-                IsSleeping = isSleeping,
-                SleepingAddress = (IntPtr)(&building->r_IsSleeping),
-                BuildingType = building->r_BuildingType,
-                Owner = building->r_PlayerIdOwner
-            };
+            if (overrides.Count == 0 && !TryActivateOverrideHooks())
+                return false;
 
-            lock (ManualSleepOverridesLock)
-            {
-                if (ManualSleepOverrides.TryGetValue(buildingId, out ManualSleepOverride oldEntry) &&
-                    ManualSleepOverrideIdsBySleepingAddress.TryGetValue(oldEntry.SleepingAddress, out int oldBuildingId) &&
-                    oldBuildingId == buildingId)
-                {
-                    ManualSleepOverrideIdsBySleepingAddress.Remove(oldEntry.SleepingAddress);
-                }
-
-                ManualSleepOverrides[buildingId] = entry;
-                ManualSleepOverrideIdsBySleepingAddress[entry.SleepingAddress] = buildingId;
-            }
+            overrides.Set(new SingleBuildingPauseOverride(
+                buildingId,
+                isSleeping,
+                (IntPtr)(&building->r_IsSleeping),
+                building->r_BuildingType,
+                building->r_PlayerIdOwner,
+                (int)building->r_GlobalId));
 
             return true;
         }
 
-        private static bool TryGetManualSleepOverride(int buildingId, out bool isSleeping)
+        private bool TryGetManualSleepOverride(int buildingId, out bool isSleeping)
         {
-            lock (ManualSleepOverridesLock)
+            if (overrides.TryGet(buildingId, out SingleBuildingPauseOverride entry))
             {
-                if (ManualSleepOverrides.TryGetValue(buildingId, out ManualSleepOverride entry))
-                {
-                    isSleeping = entry.IsSleeping;
-                    return true;
-                }
+                isSleeping = entry.IsSleeping;
+                return true;
             }
 
             isSleeping = false;
             return false;
         }
 
-        private static int ClearManualSleepOverrides()
+        private int ClearManualSleepOverrides()
         {
-            lock (ManualSleepOverridesLock)
-            {
-                int count = ManualSleepOverrides.Count;
-                ManualSleepOverrides.Clear();
-                ManualSleepOverrideIdsBySleepingAddress.Clear();
-                return count;
-            }
+            int count = overrides.Clear();
+            DeactivateOverrideHooks();
+            return count;
         }
 
-        private static void RemoveManualSleepOverride(int buildingId)
+        private void OnBuildingDeleting(BuildingDeleteEventArgs args)
         {
-            lock (ManualSleepOverridesLock)
-                RemoveManualSleepOverrideUnsafe(buildingId);
-        }
-
-        private static void RemoveManualSleepOverrideUnsafe(int buildingId)
-        {
-            if (!ManualSleepOverrides.TryGetValue(buildingId, out ManualSleepOverride entry))
+            if (args == null || args.BuildingId <= 0)
                 return;
 
-            ManualSleepOverrides.Remove(buildingId);
-            if (ManualSleepOverrideIdsBySleepingAddress.TryGetValue(entry.SleepingAddress, out int indexedBuildingId) &&
-                indexedBuildingId == buildingId)
+            if (overrides.Remove(args.BuildingId))
             {
-                ManualSleepOverrideIdsBySleepingAddress.Remove(entry.SleepingAddress);
+                // The event originates in a native detour. Defer code-patch changes
+                // until the engine has returned to Unity's main-thread update.
+                UnityMainThreadDispatcher.EnqueueStatic(DeactivateOverrideHooksIfEmpty);
             }
+        }
+
+        private bool TryActivateOverrideHooks()
+        {
+            if (overrideHooksActive)
+                return true;
+            if (setSleepOverrideInterceptionEnabled == null ||
+                synchronizeSleepStates == null ||
+                !localHooksInstalled ||
+                addChimpActionsHook == null)
+            {
+                LogOverrideHookActivationFailure(
+                    "the native bridge or prepared building-action UI hook is unavailable");
+                return false;
+            }
+
+            try
+            {
+                // Apply both dependencies before the store transition. If either
+                // activation fails, the caller discards the individual pause.
+                if (!addChimpActionsHook.IsApplied)
+                    addChimpActionsHook.Apply();
+                if (!addChimpActionsHook.IsApplied)
+                    throw new InvalidOperationException("The building-action UI hook did not become active.");
+                setSleepOverrideInterceptionEnabled(true);
+                overrideHooksActive = true;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    setSleepOverrideInterceptionEnabled(false);
+                }
+                catch (Exception rollbackEx)
+                {
+                    ex = new AggregateException(ex, rollbackEx);
+                }
+
+                try
+                {
+                    if (addChimpActionsHook.IsApplied)
+                        addChimpActionsHook.Undo();
+                }
+                catch (Exception rollbackEx)
+                {
+                    ex = new AggregateException(ex, rollbackEx);
+                }
+
+                overrideHooksActive = false;
+                LogOverrideHookActivationFailure(ex.ToString());
+                return false;
+            }
+        }
+
+        private void LogOverrideHookActivationFailure(string details)
+        {
+            if (overrideHookActivationFailureLogged)
+                return;
+
+            overrideHookActivationFailureLogged = true;
+            LogError(
+                $"single-building override hooks could not be activated; the action was discarded: {details}");
+        }
+
+        private void DeactivateOverrideHooksIfEmpty()
+        {
+            if (overrides.Count == 0)
+                DeactivateOverrideHooks();
+        }
+
+        private void DeactivateOverrideHooks()
+        {
+            Exception firstFailure = null;
+            try
+            {
+                if (overrideHooksActive)
+                    setSleepOverrideInterceptionEnabled?.Invoke(false);
+            }
+            catch (Exception ex)
+            {
+                if (firstFailure == null)
+                    firstFailure = ex;
+            }
+
+            if (firstFailure == null)
+            {
+                overrideHooksActive = false;
+                QueueOverrideUiHookRefresh();
+                return;
+            }
+
+            if (!overrideHookDeactivationFailureLogged)
+            {
+                overrideHookDeactivationFailureLogged = true;
+                LogError($"single-building override hooks could not be fully deactivated: {firstFailure}");
+            }
+        }
+
+        private void QueueOverrideUiHookRefresh()
+        {
+            UnityMainThreadDispatcher.EnqueueStatic(() =>
+            {
+                if (!localHooksInstalled || addChimpActionsHook == null)
+                    return;
+
+                bool shouldApply = overrides.Count > 0;
+                try
+                {
+                    if (shouldApply)
+                    {
+                        if (!addChimpActionsHook.IsApplied)
+                            addChimpActionsHook.Apply();
+                    }
+                    else if (addChimpActionsHook.IsApplied)
+                    {
+                        addChimpActionsHook.Undo();
+                        if (addChimpActionsHook.IsApplied)
+                            throw new InvalidOperationException("The building-action UI hook remained active.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (shouldApply && !overrideHookActivationFailureLogged)
+                    {
+                        overrideHookActivationFailureLogged = true;
+                        LogError($"single-building pause UI hook could not be activated: {ex}");
+                    }
+                    else if (!shouldApply && !overrideHookDeactivationFailureLogged)
+                    {
+                        overrideHookDeactivationFailureLogged = true;
+                        LogError($"single-building pause UI hook could not be deactivated: {ex}");
+                    }
+                }
+            });
         }
 
         private void UpdateSleepButtonVisibility(MainViewModel self, bool isSleeping)
@@ -840,15 +925,6 @@ namespace BugfixesAndQoL
         private static string TimestampNow()
         {
             return DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
-        }
-
-        private struct ManualSleepOverride
-        {
-            public int BuildingId;
-            public bool IsSleeping;
-            public IntPtr SleepingAddress;
-            public eStructs BuildingType;
-            public int Owner;
         }
 
         internal struct ManualSleepOverrideMatch
