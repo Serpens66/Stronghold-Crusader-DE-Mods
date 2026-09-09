@@ -1,27 +1,44 @@
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 
 project_root = Path(SPECPATH)
-unity_data, unity_binaries, unity_hidden = collect_all("UnityPy")
-pillow_data, pillow_binaries, pillow_hidden = collect_all("PIL")
+unity_data = collect_data_files("UnityPy", includes=["resources/*"])
+unity_binaries = collect_dynamic_libs("UnityPy")
 
 analysis = Analysis(
     [str(project_root / "run_atlas_builder.py")],
     pathex=[str(project_root)],
-    binaries=unity_binaries + pillow_binaries,
-    datas=unity_data + pillow_data + [
+    binaries=unity_binaries,
+    datas=unity_data + [
         (
             str(project_root / "atlas_builder" / "assets" / "supported_gm_groups.json"),
             "atlas_builder/assets",
         )
     ],
-    hiddenimports=unity_hidden + pillow_hidden,
-    hookspath=[],
+    hiddenimports=[],
+    hookspath=[str(project_root / "hooks")],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    # Optional fsspec/export integrations are irrelevant for local SHCDE metadata scans.
+    excludes=[
+        "cv2",
+        "IPython",
+        "jinja2",
+        "lxml",
+        "matplotlib",
+        "numexpr",
+        "openpyxl",
+        "pandas",
+        "scipy",
+        "sklearn",
+        "sympy",
+        "tables",
+        "tensorflow",
+        "torch",
+        "transformers",
+    ],
     noarchive=False,
     optimize=0,
 )

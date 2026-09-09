@@ -139,6 +139,10 @@ namespace PreplacedTest
         private readonly ManualLogSource log;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, PlayerSession> players = new Dictionary<int, PlayerSession>();
+        private readonly EarlyOwnerEventBuffer earlyOwnerEvents = new EarlyOwnerEventBuffer(1, MaxPlayablePlayerId);
+        private readonly Dictionary<int, List<InventoryRecord>> earlyOwnerInventories = new Dictionary<int, List<InventoryRecord>>();
+        private readonly Stack<DamageContext> pendingDamage = new Stack<DamageContext>();
+        private readonly DiagnosticCounterSet unattributedCounters = new DiagnosticCounterSet();
         private readonly DetourHandle<AllocateSpecDelegate> allocateHook = new DetourHandle<AllocateSpecDelegate>();
         private readonly DetourHandle<SetPlacementDelegate> setPlacementHook = new DetourHandle<SetPlacementDelegate>();
         private readonly DetourHandle<SelectBestFitDelegate> selectHook = new DetourHandle<SelectBestFitDelegate>();
@@ -166,6 +170,8 @@ namespace PreplacedTest
         private int nestedExecuteDepth;
         private ExecuteContext activeExecute;
         private int activeSelectionPlayerId;
+        private DateTime nextUnattributedFlushUtc = DateTime.UtcNow.AddSeconds(1);
+        private bool unattributedFinalized;
 
         public PreplacedTestRuntime(ManualLogSource log) => this.log = log ?? throw new ArgumentNullException(nameof(log));
 
@@ -285,7 +291,9 @@ namespace PreplacedTest
         private void SetPlacement(ulong state, int spec, int keepX, int keepY, int orientation)
         {
             setPlacementHook.Original(state, spec, keepX, keepY, orientation);
-            Safe(() => { int playerId = ReadSpec(state, spec, PlayerIdOffset); Session(playerId).Counters.Add("phase.set-placement");
+            Safe(() => { int playerId = ReadSpec(state, spec, PlayerIdOffset); PlayerSession session = Session(playerId);
+                session.Counters.Add("phase.set-placement");
+                SetAivArea(session, ReadSpec(state, spec, OriginXOffset), ReadSpec(state, spec, OriginYOffset));
                 Immediate(playerId, $"AIV_PLACEMENT_SET: spec={spec}, keep=({keepX},{keepY}), orientation={orientation}, {DescribeSpec(state, spec)}"); });
         }
 
@@ -314,7 +322,8 @@ namespace PreplacedTest
         private void ApplyRotation(ulong state, int orientation)
         {
             rotationHook.Original(state, orientation);
-            Session(activeSelectionPlayerId).Counters.Add("phase.apply-rotation orientation=" + orientation);
+            if (IsAi(activeSelectionPlayerId)) Session(activeSelectionPlayerId).Counters.Add("phase.apply-rotation orientation=" + orientation);
+            else RecordUnattributed("phase.apply-rotation orientation=" + orientation);
         }
 
         private int EvaluateCandidateFit(ulong state, int spec)
@@ -326,15 +335,16 @@ namespace PreplacedTest
 
         private void PrepareLayout(ulong state, int spec, int playerId)
         {
-            List<BuildingSnapshot> before = CaptureBuildings(playerId);
-            Session(playerId).Counters.Add("phase.prepare-layout");
-            EmitBuildingInventory(playerId, "PREPARE_BEFORE", before, null);
+            PlayerSession session = Session(playerId);
+            SetAivArea(session, ReadSpec(state, spec, OriginXOffset), ReadSpec(state, spec, OriginYOffset));
+            List<BuildingSnapshot> before = CaptureAndEmitInventory(session, "PREPARE_BEFORE");
+            session.Counters.Add("phase.prepare-layout");
             prepareHook.Original(state, spec, playerId);
             Safe(() =>
             {
                 int originX = ReadSpec(state, spec, OriginXOffset), originY = ReadSpec(state, spec, OriginYOffset);
-                EmitBuildingInventory(playerId, "PREPARE_TRANSLATED", before, b =>
-                    b.TileX >= originX && b.TileX < originX + AivGridSize && b.TileY >= originY && b.TileY < originY + AivGridSize);
+                SetAivArea(session, originX, originY);
+                EmitBuildingInventory(playerId, "PREPARE_TRANSLATED", before, session.IsInsideAivArea);
                 Immediate(playerId, "AIV_LAYOUT_PREPARED: " + DescribeSpec(state, spec));
             });
         }
@@ -342,6 +352,18 @@ namespace PreplacedTest
         private void Scheduler(ulong state, int playerId)
         {
             PlayerSession session = Session(playerId); SchedulerGateState before = ReadSchedulerState(state, playerId);
+            if (!session.HasAivArea && before.ActiveAivSlot > 0 && before.ActiveAivSlot <= MaxAivSpecIndex)
+                SetAivArea(session, ReadSpec(state, before.ActiveAivSlot, OriginXOffset), ReadSpec(state, before.ActiveAivSlot, OriginYOffset));
+            if (!session.FirstSchedulerSnapshotEmitted)
+            {
+                session.FirstSchedulerSnapshotEmitted = true;
+                CaptureAndEmitInventory(session, "FIRST_SCHEDULER");
+            }
+            if (before.CrushedCounter != 0 && !session.FirstActiveDelaySnapshotEmitted)
+            {
+                session.FirstActiveDelaySnapshotEmitted = true;
+                CaptureAndEmitInventory(session, "FIRST_ACTIVE_CRUSHED_DELAY");
+            }
             string predictedGate = SchedulerGateClassifier.ClassifyBeforeCall(before);
             int executeBefore = session.NestedExecuteCalls, alternateBefore = session.AlternativeCalls;
             session.Counters.Add("scheduler.call"); session.Counters.Add("scheduler.pre=" + predictedGate);
@@ -353,6 +375,8 @@ namespace PreplacedTest
                     session.AlternativeCalls != alternateBefore ? "alternative-execution" : "no-aiv-execution";
                 session.Counters.Add("scheduler.reached=" + reached);
                 session.Counters.Add("economy.phase=" + ReadPlayerGlobal(playerId, EconomyPhaseRelativeOffset));
+                if (before.CrushedDelay < 0)
+                    session.Counters.Add("aic.crushed-delay-unresolved slot=" + ReadPlayerGlobal(playerId, ActiveAicRelativeOffset));
                 if (before.CrushedCounter != after.CrushedCounter)
                     Immediate(playerId, $"CRUSHED_TIMER_CHANGE: {before.CrushedCounter}->{after.CrushedCounter}, configured={before.CrushedDelay}");
                 FlushIfDue(playerId, state, after);
@@ -392,7 +416,8 @@ namespace PreplacedTest
         private long PlacementHelper(ulong manager, int playerId, int x, int y, int mapperValue, int orientation)
         {
             long result = placementHook.Original(manager, playerId, x, y, mapperValue, orientation);
-            Session(playerId).Counters.Add($"placement-helper result={result} mapper={(eMappers)mapperValue} pos=({x},{y}) orientation={orientation}");
+            if (IsAi(playerId)) Session(playerId).Counters.Add($"placement-helper result={result} mapper={(eMappers)mapperValue} pos=({x},{y}) orientation={orientation}");
+            else RecordUnattributed($"placement-helper player={playerId} result={result} mapper={(eMappers)mapperValue} orientation={orientation}");
             if (activeExecute != null && activeExecute.PlayerId == playerId) activeExecute.PlacementResults.Add(result);
             return result;
         }
@@ -400,7 +425,11 @@ namespace PreplacedTest
         private int Validator(ulong state, int tileId, int playerId, int mapperValue, int mode)
         {
             int result = validatorHook.Original(state, tileId, playerId, mapperValue, mode);
-            Session(playerId).Counters.Add($"native-validator result={result} mapper={(eMappers)mapperValue} tileId={tileId} mode={mode}");
+            string outcome = PlacementValidatorResult.Classify(result);
+            if (IsAi(playerId))
+                Session(playerId).Counters.Add($"native-validator outcome={outcome} result={result} mapper={(eMappers)mapperValue} tileId={tileId} mode={mode}");
+            else
+                RecordUnattributed($"native-validator player={playerId} outcome={outcome} result={result} mapper={(eMappers)mapperValue} mode={mode}");
             if (activeExecute != null && activeExecute.PlayerId == playerId) activeExecute.ValidatorResults.Add(result);
             return result;
         }
@@ -408,7 +437,8 @@ namespace PreplacedTest
         private int ResourceGate(ulong manager, int mapperValue, int playerId, int mode)
         {
             int result = resourceGateHook.Original(manager, mapperValue, playerId, mode);
-            Session(playerId).Counters.Add($"resource-gate result={result} mapper={(eMappers)mapperValue} mode={mode}");
+            if (IsAi(playerId)) Session(playerId).Counters.Add($"resource-gate result={result} mapper={(eMappers)mapperValue} mode={mode}");
+            else RecordUnattributed($"resource-gate player={playerId} result={result} mapper={(eMappers)mapperValue} mode={mode}");
             if (activeExecute != null && activeExecute.PlayerId == playerId) activeExecute.ResourceResults.Add(result);
             return result;
         }
@@ -421,7 +451,8 @@ namespace PreplacedTest
         private int RecordMapperGate(DetourHandle<MapperGateDelegate> hook, string name, ulong manager, int playerId, int mapperValue)
         {
             int result = hook.Original(manager, playerId, mapperValue);
-            Session(playerId).Counters.Add($"{name} result={result} mapper={(eMappers)mapperValue}");
+            if (IsAi(playerId)) Session(playerId).Counters.Add($"{name} result={result} mapper={(eMappers)mapperValue}");
+            else RecordUnattributed($"{name} player={playerId} result={result} mapper={(eMappers)mapperValue}");
             if (activeExecute != null && activeExecute.PlayerId == playerId && result != 0) activeExecute.WaitRejectors.Add(name);
             return result;
         }
@@ -452,7 +483,7 @@ namespace PreplacedTest
                 before.Status != after.Status ? "success-frame-advanced-no-building" : "success-command-or-nonbuilding";
             if (context.ResourceResults.Any(v => v == 0)) return "insufficient-resources-or-resource-gate";
             if (context.WaitRejectors.Count != 0) return "mapper-wait-gate:" + string.Join(",", context.WaitRejectors);
-            if (context.ValidatorResults.Any(v => v == 0)) return "placement-validator-rejected";
+            if (context.ValidatorResults.Any(PlacementValidatorResult.IsRejected)) return "placement-validator-rejected";
             if (context.PlacementResults.Any(v => v == 0)) return "placement-helper-rejected";
             if (context.ValidatorResults.Count == 0 && context.PlacementResults.Count == 0) return "rejected-before-placement-helper";
             return "placement-failed-unspecified";
@@ -469,7 +500,27 @@ namespace PreplacedTest
             if (args.Phase == EventHookPhase.Post)
             {
                 for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
-                    if (IsAi(playerId)) Session(playerId).Counters.Add("lifecycle.map-start");
+                {
+                    string[] earlyEvents = earlyOwnerEvents.Drain(playerId);
+                    if (IsAi(playerId))
+                    {
+                        PlayerSession session = Session(playerId);
+                        session.Counters.Add("lifecycle.map-start");
+                        foreach (string earlyEvent in earlyEvents) session.Counters.Add("early." + earlyEvent);
+                        if (earlyEvents.Length != 0) Immediate(playerId, "EARLY_OWNER_EVENTS_REPLAYED: count=" + earlyEvents.Length);
+                        AdoptEarlyInventories(session);
+                        CaptureAndEmitInventory(session, "MAP_START_POST");
+                    }
+                    else
+                    {
+                        foreach (string earlyEvent in earlyEvents) RecordUnattributed("early-non-ai owner=" + playerId + " " + earlyEvent);
+                        if (earlyOwnerInventories.TryGetValue(playerId, out List<InventoryRecord> inventories))
+                        {
+                            unattributedCounters.Add("early-non-ai-inventories owner=" + playerId, inventories.Count);
+                            earlyOwnerInventories.Remove(playerId);
+                        }
+                    }
+                }
             }
             Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_MAP_START: phase={args.Phase}, sequence={mapSequence}.");
         }
@@ -478,6 +529,7 @@ namespace PreplacedTest
         {
             if (args.Phase != EventHookPhase.Pre) return;
             foreach (int playerId in players.Keys.ToArray()) FinalizePlayer(playerId, "map-unload");
+            FinalizeUnattributed("map-unload");
         }
 
         private void OnBuildStructure(BuildStructureEventArgs args)
@@ -503,8 +555,31 @@ namespace PreplacedTest
 
         private void OnBuildingDamage(BuildingTileTakeDamageEventArgs args)
         {
-            int playerId = activeExecute?.PlayerId ?? args.PlayerIdSource;
-            if (IsAi(playerId)) Session(playerId).Counters.Add($"event.damage phase={args.Phase} tile={args.TileId}@({args.TileX},{args.TileY}) amount={args.Damage} source={args.PlayerIdSource}");
+            Safe(() => ProcessBuildingDamage(args));
+        }
+
+        private void ProcessBuildingDamage(BuildingTileTakeDamageEventArgs args)
+        {
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                DamageContext context = CaptureDamageContext(args);
+                pendingDamage.Push(context);
+                RecordOwnerEvent(context.OwnerId, "damage.pre " + context.Describe(args));
+                return;
+            }
+
+            DamageContext completed = pendingDamage.Count == 0 ? DamageContext.Unmatched(args) : pendingDamage.Pop();
+            int afterCounter = IsValidOwner(completed.OwnerId) ? ReadPlayerGlobal(completed.OwnerId, CrushedCounterRelativeOffset) : -1;
+            string postTarget = completed.Building.HasValue && TryCaptureBuilding(completed.Building.Value.Id, out BuildingSnapshot afterBuilding)
+                ? afterBuilding.ToText(null) : "building=removed-or-unresolved";
+            RecordOwnerEvent(completed.OwnerId, "damage.post " + completed.Describe(args) +
+                $",postTarget={postTarget},delay={completed.DelayBefore}->{afterCounter}");
+            if (CrushedTimerTransition.IsActivation(completed.DelayBefore, afterCounter))
+            {
+                Shared.DebugLogHelper.LogWarning(log,
+                    $"PREPLACED_CRUSHED_TIMER_ACTIVATED_BY_DAMAGE: player={completed.OwnerId}; {completed.Describe(args)}; postTarget={postTarget}; delay=0->1.");
+                CaptureOwnerInventory(completed.OwnerId, "CRUSHED_ACTIVATION");
+            }
         }
 
         private void OnBuildingBulldoze(BuildingBulldozeEventArgs args) => RecordRemoval("bulldoze", args.Phase, args.BuildingId);
@@ -521,7 +596,11 @@ namespace PreplacedTest
         {
             if (players.Count != 0)
                 foreach (int playerId in players.Keys.ToArray()) FinalizePlayer(playerId, "map-transition");
+            FinalizeUnattributed("map-transition");
             players.Clear(); mapSequence++; activeExecute = null; activeSelectionPlayerId = 0;
+            earlyOwnerEvents.Clear(); earlyOwnerInventories.Clear(); pendingDamage.Clear(); unattributedCounters.Clear();
+            nextUnattributedFlushUtc = DateTime.UtcNow.AddSeconds(1);
+            unattributedFinalized = false;
             Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_SESSION_RESET: reason={reason}, sequence={mapSequence}.");
         }
 
@@ -583,13 +662,15 @@ namespace PreplacedTest
         private SchedulerGateState ReadSchedulerState(ulong state, int playerId)
         {
             int active = ReadPlayerGlobal(playerId, 0), crushed = ReadPlayerGlobal(playerId, CrushedCounterRelativeOffset);
-            int crushedDelay = 0;
+            int crushedDelay = -1;
             try
             {
                 int activeAic = ReadPlayerGlobal(playerId, ActiveAicRelativeOffset);
                 var aics = GameAIManagerAPI.Instance.GetAICArray();
-                if (activeAic >= 0 && activeAic < aics.Length)
-                    crushedDelay = aics.GetValue(activeAic).crushed_building_delay;
+                if (AicSlotIndexResolver.TryResolve(activeAic, aics.Length, out int aicIndex))
+                    crushedDelay = aics.GetValue(aicIndex).crushed_building_delay;
+                else
+                    crushedDelay = -1;
             }
             catch { }
             int gold = 0;
@@ -644,11 +725,137 @@ namespace PreplacedTest
             {
                 ref GameBuilding building = ref buildings[spanIndex];
                 if (building.r_PlayerIdOwner != playerId || (building.r_AliveState != AliveState.IsAlive && building.r_AliveState != AliveState.NeedsInit)) continue;
-                result.Add(new BuildingSnapshot(spanIndex + 1, building.r_GlobalId, building.r_BuildingType,
+                result.Add(new BuildingSnapshot(spanIndex + 1, building.r_GlobalId, building.r_PlayerIdOwner, building.r_BuildingType,
                     building.r_AliveState, building.r_TilePositionXBegin, building.r_TilePositionYBegin,
-                    building.r_TilePositionXEnd, building.r_TilePositionYEnd, building.r_WorldPositionX, building.r_WorldPositionY));
+                    building.r_TilePositionXEnd, building.r_TilePositionYEnd, building.r_WorldPositionX, building.r_WorldPositionY,
+                    building.r_CurrentHealth, building.r_MaxHealth));
             }
             return result;
+        }
+
+        private bool TryCaptureBuilding(int buildingId, out BuildingSnapshot snapshot)
+        {
+            snapshot = default;
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building)) return false;
+            snapshot = new BuildingSnapshot(buildingId, building->r_GlobalId, building->r_PlayerIdOwner, building->r_BuildingType,
+                building->r_AliveState, building->r_TilePositionXBegin, building->r_TilePositionYBegin,
+                building->r_TilePositionXEnd, building->r_TilePositionYEnd, building->r_WorldPositionX,
+                building->r_WorldPositionY, building->r_CurrentHealth, building->r_MaxHealth);
+            return true;
+        }
+
+        private DamageContext CaptureDamageContext(BuildingTileTakeDamageEventArgs args)
+        {
+            try
+            {
+                int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
+                if (buildingId > 0 && TryCaptureBuilding(buildingId, out BuildingSnapshot building))
+                    return new DamageContext(building, ReadPlayerGlobal(building.OwnerId, CrushedCounterRelativeOffset));
+            }
+            catch (Exception ex)
+            {
+                RecordUnattributed("damage-context-error type=" + ex.GetType().Name);
+            }
+            return DamageContext.Unmatched(args);
+        }
+
+        private void RecordOwnerEvent(int ownerId, string value)
+        {
+            if (!IsValidOwner(ownerId))
+            {
+                RecordUnattributed(value);
+                return;
+            }
+            if (IsAi(ownerId)) Session(ownerId).Counters.Add("event." + value);
+            else earlyOwnerEvents.Add(ownerId, value);
+        }
+
+        private void RecordUnattributed(string key)
+        {
+            if (unattributedFinalized) return;
+            unattributedCounters.Add(key);
+            if (DateTime.UtcNow >= nextUnattributedFlushUtc)
+            {
+                FlushUnattributed("interval");
+                nextUnattributedFlushUtc = DateTime.UtcNow.AddSeconds(1);
+            }
+        }
+
+        private void FlushUnattributed(string reason)
+        {
+            KeyValuePair<string, long>[] interval = unattributedCounters.DrainInterval();
+            if (interval.Length == 0) return;
+            string payload = "reason=" + reason + "; " + string.Join("; ", interval.Select(p => p.Key + "=" + p.Value));
+            EmitChunked("PREPLACED_UNATTRIBUTED: ", payload);
+        }
+
+        private void FinalizeUnattributed(string reason)
+        {
+            if (unattributedFinalized) return;
+            FlushUnattributed(reason);
+            KeyValuePair<string, long>[] total = unattributedCounters.SnapshotTotal();
+            if (total.Length != 0)
+            {
+                string payload = "reason=" + reason + "; " + string.Join("; ", total.Select(p => p.Key + "=" + p.Value));
+                EmitChunked("PREPLACED_UNATTRIBUTED_TOTAL: ", payload);
+            }
+            unattributedFinalized = true;
+            unattributedCounters.Stop();
+        }
+
+        private void CaptureOwnerInventory(int ownerId, string label)
+        {
+            if (!IsValidOwner(ownerId)) return;
+            if (IsAi(ownerId))
+            {
+                CaptureAndEmitInventory(Session(ownerId), label);
+                return;
+            }
+            List<BuildingSnapshot> buildings = CaptureBuildings(ownerId);
+            EmitBuildingInventory(ownerId, label, buildings, null);
+            if (!earlyOwnerInventories.TryGetValue(ownerId, out List<InventoryRecord> inventories))
+            {
+                inventories = new List<InventoryRecord>();
+                earlyOwnerInventories.Add(ownerId, inventories);
+            }
+            inventories.Add(new InventoryRecord(label, buildings));
+        }
+
+        private List<BuildingSnapshot> CaptureAndEmitInventory(PlayerSession session, string label)
+        {
+            List<BuildingSnapshot> buildings = CaptureBuildings(session.PlayerId);
+            if (session.HasAivArea)
+                EmitBuildingInventory(session.PlayerId, label, buildings, session.IsInsideAivArea);
+            else
+            {
+                EmitBuildingInventory(session.PlayerId, label, buildings, null);
+                session.PendingInventories.Add(new InventoryRecord(label, buildings));
+            }
+            return buildings;
+        }
+
+        private void AdoptEarlyInventories(PlayerSession session)
+        {
+            if (!earlyOwnerInventories.TryGetValue(session.PlayerId, out List<InventoryRecord> inventories)) return;
+            session.PendingInventories.AddRange(inventories);
+            earlyOwnerInventories.Remove(session.PlayerId);
+            ReclassifyPendingInventories(session);
+        }
+
+        private void SetAivArea(PlayerSession session, int originX, int originY)
+        {
+            session.AivOriginX = originX;
+            session.AivOriginY = originY;
+            session.HasAivArea = true;
+            ReclassifyPendingInventories(session);
+        }
+
+        private void ReclassifyPendingInventories(PlayerSession session)
+        {
+            if (!session.HasAivArea || session.PendingInventories.Count == 0) return;
+            foreach (InventoryRecord inventory in session.PendingInventories)
+                EmitBuildingInventory(session.PlayerId, inventory.Label + "_RECLASSIFIED", inventory.Buildings, session.IsInsideAivArea);
+            session.PendingInventories.Clear();
         }
 
         private bool TryBuildingOwner(int buildingId, out int playerId)
@@ -663,6 +870,8 @@ namespace PreplacedTest
             try { return playerId >= 1 && playerId <= MaxPlayablePlayerId && GamePlayerManagerAPI.Instance.IsAIPlayer(playerId); }
             catch { return false; }
         }
+
+        private static bool IsValidOwner(int playerId) => playerId >= 1 && playerId <= MaxPlayablePlayerId;
 
         private void Safe(Action action)
         {
@@ -682,6 +891,13 @@ namespace PreplacedTest
             public int PlayerId { get; } public DiagnosticCounterSet Counters { get; } = new DiagnosticCounterSet();
             public FirstBuildingWindow FirstBuilding { get; } public DateTime NextFlushUtc { get; set; }
             public int NestedExecuteCalls { get; set; } public int AlternativeCalls { get; set; } public bool Finalized { get; set; }
+            public bool FirstSchedulerSnapshotEmitted { get; set; } public bool FirstActiveDelaySnapshotEmitted { get; set; }
+            public bool HasAivArea { get; set; } public int AivOriginX { get; set; } public int AivOriginY { get; set; }
+            public List<InventoryRecord> PendingInventories { get; } = new List<InventoryRecord>();
+
+            public bool IsInsideAivArea(BuildingSnapshot building) =>
+                AivAreaClassifier.Intersects(AivOriginX, AivOriginY, AivGridSize,
+                    building.TileX, building.TileY, building.EndX, building.EndY);
         }
 
         private sealed class ExecuteContext
@@ -701,11 +917,43 @@ namespace PreplacedTest
 
         private readonly struct BuildingSnapshot
         {
-            public BuildingSnapshot(int id, uint globalId, eStructs type, AliveState alive, int x, int y, int endX, int endY, int worldX, int worldY)
-            { Id = id; GlobalId = globalId; Type = type; Alive = alive; TileX = x; TileY = y; EndX = endX; EndY = endY; WorldX = worldX; WorldY = worldY; }
-            public int Id { get; } public uint GlobalId { get; } public eStructs Type { get; } public AliveState Alive { get; }
+            public BuildingSnapshot(int id, uint globalId, int ownerId, eStructs type, AliveState alive, int x, int y,
+                int endX, int endY, int worldX, int worldY, int currentHealth, int maxHealth)
+            { Id = id; GlobalId = globalId; OwnerId = ownerId; Type = type; Alive = alive; TileX = x; TileY = y; EndX = endX; EndY = endY; WorldX = worldX; WorldY = worldY; CurrentHealth = currentHealth; MaxHealth = maxHealth; }
+            public int Id { get; } public uint GlobalId { get; } public int OwnerId { get; } public eStructs Type { get; } public AliveState Alive { get; }
             public int TileX { get; } public int TileY { get; } public int EndX { get; } public int EndY { get; } public int WorldX { get; } public int WorldY { get; }
-            public string ToText(bool? inArea) => $"id={Id},global={GlobalId},type={Type},alive={Alive},tile=({TileX},{TileY})-({EndX},{EndY}),world=({WorldX},{WorldY}),area={(inArea.HasValue ? (inArea.Value ? "inside" : "outside") : "pending")}";
+            public int CurrentHealth { get; } public int MaxHealth { get; }
+            public string ToText(bool? inArea) => $"id={Id},global={GlobalId},owner={OwnerId},type={Type},alive={Alive},health={CurrentHealth}/{MaxHealth},tile=({TileX},{TileY})-({EndX},{EndY}),world=({WorldX},{WorldY}),area={(inArea.HasValue ? (inArea.Value ? "inside" : "outside") : "pending")}";
+        }
+
+        private sealed class InventoryRecord
+        {
+            public InventoryRecord(string label, List<BuildingSnapshot> buildings) { Label = label; Buildings = buildings; }
+            public string Label { get; } public List<BuildingSnapshot> Buildings { get; }
+        }
+
+        private sealed class DamageContext
+        {
+            private DamageContext(BuildingSnapshot? building, int delayBefore)
+            {
+                Building = building;
+                DelayBefore = delayBefore;
+            }
+
+            public BuildingSnapshot? Building { get; }
+            public int OwnerId => Building.HasValue ? Building.Value.OwnerId : 0;
+            public int DelayBefore { get; }
+
+            public static DamageContext Unmatched(BuildingTileTakeDamageEventArgs args) => new DamageContext(null, -1);
+
+            public DamageContext(BuildingSnapshot building, int delayBefore) : this((BuildingSnapshot?)building, delayBefore) { }
+
+            public string Describe(BuildingTileTakeDamageEventArgs args)
+            {
+                string target = Building.HasValue ? Building.Value.ToText(null) : "building=unresolved";
+                string lethalCandidate = Building.HasValue ? DamageObservationModel.IsLethalInput(Building.Value.CurrentHealth, args.Damage).ToString() : "unknown";
+                return $"{target},damageTile={args.TileId}@({args.TileX},{args.TileY}),amount={args.Damage},lethalInput={lethalCandidate},unknown1={args.Unknown1},sourcePlayer={args.PlayerIdSource},activationMode={args.Unknown3},unknown4={args.Unknown4}";
+            }
         }
     }
 }

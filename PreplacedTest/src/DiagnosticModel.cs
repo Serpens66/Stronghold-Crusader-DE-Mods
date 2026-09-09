@@ -4,6 +4,76 @@ using System.Linq;
 
 namespace PreplacedTest
 {
+    internal static class AicSlotIndexResolver
+    {
+        public static bool TryResolve(int oneBasedSlot, int arrayLength, out int zeroBasedIndex)
+        {
+            zeroBasedIndex = oneBasedSlot - 1;
+            return oneBasedSlot > 0 && zeroBasedIndex < arrayLength;
+        }
+    }
+
+    internal static class PlacementValidatorResult
+    {
+        // Vanilla RVA 0x7B060 returns zero only for an allowed tile.
+        public static string Classify(int result) => result == 0 ? "allowed" :
+            result == 1 ? "rejected" : result == 2 ? "occupied-building" : "unknown-" + result;
+
+        public static bool IsRejected(int result) => result != 0;
+    }
+
+    internal static class CrushedTimerTransition
+    {
+        public static bool IsActivation(int before, int after) => before == 0 && after == 1;
+    }
+
+    internal static class DamageObservationModel
+    {
+        public static bool IsLethalInput(int currentHealth, int damage) => currentHealth > 0 && damage >= currentHealth;
+    }
+
+    internal static class AivAreaClassifier
+    {
+        public static bool Intersects(int originX, int originY, int size, int beginX, int beginY, int endX, int endY) =>
+            endX >= originX && beginX < originX + size && endY >= originY && beginY < originY + size;
+    }
+
+    internal sealed class EarlyOwnerEventBuffer
+    {
+        private readonly Dictionary<int, List<string>> events = new Dictionary<int, List<string>>();
+        private readonly int minimumOwnerId;
+        private readonly int maximumOwnerId;
+
+        public EarlyOwnerEventBuffer(int minimumOwnerId, int maximumOwnerId)
+        {
+            if (minimumOwnerId > maximumOwnerId) throw new ArgumentOutOfRangeException(nameof(minimumOwnerId));
+            this.minimumOwnerId = minimumOwnerId;
+            this.maximumOwnerId = maximumOwnerId;
+        }
+
+        public void Add(int ownerId, string value)
+        {
+            if (ownerId < minimumOwnerId || ownerId > maximumOwnerId) throw new ArgumentOutOfRangeException(nameof(ownerId));
+            if (!events.TryGetValue(ownerId, out List<string> ownerEvents))
+            {
+                ownerEvents = new List<string>();
+                events.Add(ownerId, ownerEvents);
+            }
+            ownerEvents.Add(value);
+        }
+
+        public string[] Drain(int ownerId)
+        {
+            if (!events.TryGetValue(ownerId, out List<string> ownerEvents)) return Array.Empty<string>();
+            events.Remove(ownerId);
+            return ownerEvents.ToArray();
+        }
+
+        public int CountFor(int ownerId) => events.TryGetValue(ownerId, out List<string> ownerEvents) ? ownerEvents.Count : 0;
+
+        public void Clear() => events.Clear();
+    }
+
     internal sealed class DiagnosticCounterSet
     {
         private readonly SortedDictionary<string, long> interval = new SortedDictionary<string, long>(StringComparer.Ordinal);
@@ -84,6 +154,8 @@ namespace PreplacedTest
         {
             if (state.ActiveAivSlot <= 0)
                 return "inactive-aiv-slot";
+            if (state.CrushedCounter != 0 && state.CrushedDelay <= 0)
+                return "crushed-building-delay-unresolved-threshold";
             if (state.CrushedCounter != 0 && state.CrushedCounter + 1 < state.CrushedDelay)
                 return "crushed-building-delay";
             if (state.Gold < NormalGoldThresholdExclusive && state.BuildCounter + 1 < state.BuildRate)

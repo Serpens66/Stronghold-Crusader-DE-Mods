@@ -22,13 +22,14 @@ namespace PreplacedTest
         private static PreplacedTestRuntime persistentRuntime;
         private static bool subscribed;
         private static bool handled;
+        private readonly HashSet<string> warnedConflicts = new HashSet<string>(StringComparer.Ordinal);
 
         private void Awake()
         {
             Shared.DebugLogHelper.LogInfo(Logger,
                 $"{PluginName} {PluginVersion} loaded; passive=true, NetworkMode=0, settings=false, " +
                 "targetScriptExtender=2.3.0, auditedCommit=a0cd52993b44a6909d4f7f6a92f82fa5888a8e63.");
-            WarnAboutConflicts();
+            WarnAboutConflicts("Awake");
             if (!handled && !subscribed)
             {
                 CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
@@ -36,15 +37,17 @@ namespace PreplacedTest
             }
         }
 
-        private void WarnAboutConflicts()
+        private void Start() => WarnAboutConflicts("Start");
+
+        private void WarnAboutConflicts(string phase)
         {
             List<string> loaded = new List<string>();
             foreach (string guid in ConflictingPluginGuids)
-                if (Chainloader.PluginInfos.ContainsKey(guid))
+                if (Chainloader.PluginInfos.ContainsKey(guid) && warnedConflicts.Add(guid))
                     loaded.Add(guid);
             if (loaded.Count != 0)
                 Shared.DebugLogHelper.LogWarning(Logger,
-                    "PREPLACED_CONFLICT: disable these plugins for a clean test because native hooks or AI behavior can overlap: " +
+                    "PREPLACED_CONFLICT: phase=" + phase + "; disable these plugins for a clean test because native hooks or AI behavior can overlap: " +
                     string.Join(",", loaded) + ".");
         }
 

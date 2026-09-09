@@ -1,0 +1,785 @@
+{
+  "sourceContract": "SHCDE Script Extender 2.3.0",
+  "groups": [
+    {
+      "name": "body_fighting_monk",
+      "dashFormat": true
+    },
+    {
+      "name": "body_temple_guard",
+      "dashFormat": true
+    },
+    {
+      "name": "body_knight",
+      "dashFormat": true
+    },
+    {
+      "name": "body_ladder_bearer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_pikeman",
+      "dashFormat": true
+    },
+    {
+      "name": "body_pitch_worker",
+      "dashFormat": true
+    },
+    {
+      "name": "body_tunnelor",
+      "dashFormat": true
+    },
+    {
+      "name": "body_armourer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_healer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_ballista",
+      "dashFormat": true
+    },
+    {
+      "name": "body_battering_ram",
+      "dashFormat": true
+    },
+    {
+      "name": "body_catapult",
+      "dashFormat": true
+    },
+    {
+      "name": "body_mangonel",
+      "dashFormat": true
+    },
+    {
+      "name": "body_siege_tower",
+      "dashFormat": true
+    },
+    {
+      "name": "body_trebutchet",
+      "dashFormat": true
+    },
+    {
+      "name": "body_lion",
+      "dashFormat": true
+    },
+    {
+      "name": "body_rabbit",
+      "dashFormat": true
+    },
+    {
+      "name": "body_fireman",
+      "dashFormat": true
+    },
+    {
+      "name": "body_animal_burning_big",
+      "dashFormat": true
+    },
+    {
+      "name": "body_animal_burning_small",
+      "dashFormat": true
+    },
+    {
+      "name": "body_archer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_baker",
+      "dashFormat": true
+    },
+    {
+      "name": "body_blacksmith",
+      "dashFormat": true
+    },
+    {
+      "name": "body_boy",
+      "dashFormat": true
+    },
+    {
+      "name": "body_brewer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_chicken",
+      "dashFormat": true
+    },
+    {
+      "name": "body_chicken_brown",
+      "dashFormat": true
+    },
+    {
+      "name": "body_crossbowman",
+      "dashFormat": true
+    },
+    {
+      "name": "body_cow",
+      "dashFormat": true
+    },
+    {
+      "name": "body_deer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_dog",
+      "dashFormat": true
+    },
+    {
+      "name": "body_drunkard",
+      "dashFormat": true
+    },
+    {
+      "name": "body_farmer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_fire_eater",
+      "dashFormat": true
+    },
+    {
+      "name": "body_fletcher",
+      "dashFormat": true
+    },
+    {
+      "name": "body_ghost",
+      "dashFormat": true
+    },
+    {
+      "name": "body_girl",
+      "dashFormat": true
+    },
+    {
+      "name": "body_horse_trader",
+      "dashFormat": true
+    },
+    {
+      "name": "body_hunter",
+      "dashFormat": true
+    },
+    {
+      "name": "body_innkeeper",
+      "dashFormat": true
+    },
+    {
+      "name": "body_iron_miner",
+      "dashFormat": true
+    },
+    {
+      "name": "body_jester",
+      "dashFormat": true
+    },
+    {
+      "name": "body_juggler",
+      "dashFormat": true
+    },
+    {
+      "name": "body_lady",
+      "dashFormat": true
+    },
+    {
+      "name": "body_lord",
+      "dashFormat": true
+    },
+    {
+      "name": "body_maceman",
+      "dashFormat": true
+    },
+    {
+      "name": "body_man_burning",
+      "dashFormat": true
+    },
+    {
+      "name": "body_miller",
+      "dashFormat": true
+    },
+    {
+      "name": "body_mother",
+      "dashFormat": true
+    },
+    {
+      "name": "body_ox",
+      "dashFormat": true
+    },
+    {
+      "name": "body_peasant",
+      "dashFormat": true
+    },
+    {
+      "name": "body_poleturner",
+      "dashFormat": true
+    },
+    {
+      "name": "body_priest",
+      "dashFormat": true
+    },
+    {
+      "name": "body_shield",
+      "dashFormat": true
+    },
+    {
+      "name": "body_siege_engineer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_spearman",
+      "dashFormat": true
+    },
+    {
+      "name": "body_stonemason",
+      "dashFormat": true
+    },
+    {
+      "name": "body_swordsman",
+      "dashFormat": true
+    },
+    {
+      "name": "body_tanner",
+      "dashFormat": true
+    },
+    {
+      "name": "body_trader",
+      "dashFormat": true
+    },
+    {
+      "name": "body_woodcutter",
+      "dashFormat": true
+    },
+    {
+      "name": "body_arab_shortbow",
+      "dashFormat": true
+    },
+    {
+      "name": "body_arab_assasin",
+      "dashFormat": true
+    },
+    {
+      "name": "body_horse_archer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_horse_archer_top",
+      "dashFormat": true
+    },
+    {
+      "name": "body_arab_grenadier",
+      "dashFormat": true
+    },
+    {
+      "name": "body_sapper",
+      "dashFormat": true
+    },
+    {
+      "name": "body_bedouin_healer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_eunuch",
+      "dashFormat": true
+    },
+    {
+      "name": "body_ambusher",
+      "dashFormat": true
+    },
+    {
+      "name": "body_arab_slave",
+      "dashFormat": true
+    },
+    {
+      "name": "body_arab_slinger",
+      "dashFormat": true
+    },
+    {
+      "name": "body_arab_swordsman",
+      "dashFormat": true
+    },
+    {
+      "name": "body_arab_ballista",
+      "dashFormat": true
+    },
+    {
+      "name": "body_wolf",
+      "dashFormat": true
+    },
+    {
+      "name": "body_saladin",
+      "dashFormat": true
+    },
+    {
+      "name": "body_camel",
+      "dashFormat": true
+    },
+    {
+      "name": "body_camel_lancer",
+      "dashFormat": true
+    },
+    {
+      "name": "body_skirmisher",
+      "dashFormat": true
+    },
+    {
+      "name": "body_heavy_camel",
+      "dashFormat": true
+    },
+    {
+      "name": "body_demolisher",
+      "dashFormat": true
+    },
+    {
+      "name": "body_goat",
+      "dashFormat": true
+    },
+    {
+      "name": "body_hyena",
+      "dashFormat": true
+    },
+    {
+      "name": "body_crocodile",
+      "dashFormat": true
+    },
+    {
+      "name": "body_bedouin_lord",
+      "dashFormat": true
+    },
+    {
+      "name": "body_imam",
+      "dashFormat": true
+    },
+    {
+      "name": "body_scribe_lord",
+      "dashFormat": true
+    },
+    {
+      "name": "body_lord_female",
+      "dashFormat": true
+    },
+    {
+      "name": "body_bessie",
+      "dashFormat": true
+    },
+    {
+      "name": "body_arab_lord_female",
+      "dashFormat": true
+    },
+    {
+      "name": "body_bedouin_lord_female",
+      "dashFormat": true
+    },
+    {
+      "name": "body_fire",
+      "dashFormat": true
+    },
+    {
+      "name": "body_fire2",
+      "dashFormat": true
+    },
+    {
+      "name": "body_crow",
+      "dashFormat": true
+    },
+    {
+      "name": "body_missile",
+      "dashFormat": true
+    },
+    {
+      "name": "body_missile_2",
+      "dashFormat": true
+    },
+    {
+      "name": "body_missile_cow",
+      "dashFormat": true
+    },
+    {
+      "name": "body_missile_firepot",
+      "dashFormat": true
+    },
+    {
+      "name": "body_seagull",
+      "dashFormat": true
+    },
+    {
+      "name": "body_splash",
+      "dashFormat": true
+    },
+    {
+      "name": "body_steam",
+      "dashFormat": true
+    },
+    {
+      "name": "body_gate",
+      "dashFormat": true
+    },
+    {
+      "name": "body_tent",
+      "dashFormat": true
+    },
+    {
+      "name": "body_disease",
+      "dashFormat": true
+    },
+    {
+      "name": "body_brazier",
+      "dashFormat": true
+    },
+    {
+      "name": "body_javelin",
+      "dashFormat": true
+    },
+    {
+      "name": "body_condor",
+      "dashFormat": true
+    },
+    {
+      "name": "body_info",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_crusader_flag",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_arab_flag",
+      "dashFormat": true
+    },
+    {
+      "name": "assasin_rope",
+      "dashFormat": false
+    },
+    {
+      "name": "tree_cactii",
+      "dashFormat": true
+    },
+    {
+      "name": "Tree_Oak",
+      "dashFormat": true
+    },
+    {
+      "name": "tree_pine",
+      "dashFormat": true
+    },
+    {
+      "name": "tree_shrub1",
+      "dashFormat": true
+    },
+    {
+      "name": "tree_shrub2",
+      "dashFormat": true
+    },
+    {
+      "name": "tree_apple",
+      "dashFormat": true
+    },
+    {
+      "name": "tree_birch",
+      "dashFormat": true
+    },
+    {
+      "name": "Tree_Chestnut",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_armourer",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_baker",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_blacksmith",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_boiled_oil",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_brewer",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_buildings2",
+      "dashFormat": false
+    },
+    {
+      "name": "anim_castle",
+      "dashFormat": false
+    },
+    {
+      "name": "anim_chopping_block",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_dancing_bear",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_dog_cage",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_drawbridge",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_ducking_stool",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_dungeon",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_farmer",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_flags",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_flag_small",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_fletcher",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_gallows",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_gibbet",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_goods",
+      "dashFormat": false
+    },
+    {
+      "name": "anim_heads",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_healer",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_hunter",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_inn",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_iron_miner",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_killing_pits",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_market",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_maypole",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_pitch_dugout",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_poleturner",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_quarry",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_rack",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_shields",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_stables",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_stake",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_stocks",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_tanner",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_tunnelors_guild",
+      "dashFormat": false
+    },
+    {
+      "name": "anim_tunnels",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_whitecaps_wave",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_windmill",
+      "dashFormat": true
+    },
+    {
+      "name": "anim_woodcutter",
+      "dashFormat": true
+    },
+    {
+      "name": "body_missile_fire",
+      "dashFormat": true
+    },
+    {
+      "name": "tile_land8",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_sea8",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_buildings1",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_buildings2",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_workshops",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_land3",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_farmland",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_goods",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_churches",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_castle",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_land_macros",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_rocks8",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_land_and_stones",
+      "dashFormat": false
+    },
+    {
+      "name": "killing_pits",
+      "dashFormat": false
+    },
+    {
+      "name": "pitch_ditches",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_ruins",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_sea_new_01",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_sea_shore",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_flatties",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_chevrons",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_cliffs",
+      "dashFormat": false
+    },
+    {
+      "name": "tile_walls",
+      "dashFormat": false
+    },
+    {
+      "name": "rock_chips",
+      "dashFormat": false
+    },
+    {
+      "name": "oil_dropped",
+      "dashFormat": false
+    },
+    {
+      "name": "cracks",
+      "dashFormat": false
+    },
+    {
+      "name": "puff of smoke",
+      "dashFormat": true
+    },
+    {
+      "name": "blast3",
+      "dashFormat": true
+    },
+    {
+      "name": "smoke-30x30",
+      "dashFormat": true
+    },
+    {
+      "name": "float_pop_circ-1",
+      "dashFormat": true
+    },
+    {
+      "name": "float_pop_circ-2",
+      "dashFormat": true
+    },
+    {
+      "name": "floats",
+      "dashFormat": false
+    },
+    {
+      "name": "floats_new",
+      "dashFormat": true
+    },
+    {
+      "name": "cursors",
+      "dashFormat": true
+    }
+  ]
+}

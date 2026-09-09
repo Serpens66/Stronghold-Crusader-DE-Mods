@@ -19,6 +19,11 @@ namespace PreplacedTest.Tests
                 TestCountersHaveNoCap();
                 TestChunkingIsLossless();
                 TestSchedulerModels();
+                TestAicSlotConversion();
+                TestValidatorResults();
+                TestDamageTransitions();
+                TestAivAreaClassification();
+                TestEarlyOwnerBuffer();
                 TestFirstBuildingWindow();
                 TestStaticNativeContracts();
                 TestNativeSignaturesAgainstCanonicalDll();
@@ -58,6 +63,7 @@ namespace PreplacedTest.Tests
         {
             Check(Classify(0, 0, 0, 10000, 0, 5, 0, 1, 2) == "inactive-aiv-slot", "inactive AIV model");
             Check(Classify(1, 1, 10, 10000, 9, 5, 0, 1, 2) == "crushed-building-delay", "crushed delay model");
+            Check(Classify(1, 1, -1, 10000, 9, 5, 0, 1, 2) == "crushed-building-delay-unresolved-threshold", "unresolved crushed delay model");
             Check(Classify(1, 0, 10, 1000, 0, 5, 0, 1, 2) == "build-rate", "build rate model");
             Check(Classify(1, 0, 10, 10000, 5, 5, 3, 1, 2) == "aiv-pause-countdown", "pause model");
             Check(Classify(1, 0, 10, 10000, 5, 5, 0, 1, 0) == "no-prepared-frames", "prepared frame model");
@@ -67,6 +73,52 @@ namespace PreplacedTest.Tests
 
         private static string Classify(int a, int c, int cd, int g, int bc, int br, int p, int goal, int high) =>
             SchedulerGateClassifier.ClassifyBeforeCall(new SchedulerGateState(a, c, cd, g, bc, br, p, goal, high));
+
+        private static void TestAicSlotConversion()
+        {
+            Check(AicSlotIndexResolver.TryResolve(1, 8, out int first) && first == 0, "first AIC slot conversion");
+            Check(AicSlotIndexResolver.TryResolve(8, 8, out int last) && last == 7, "last AIC slot conversion");
+            Check(!AicSlotIndexResolver.TryResolve(0, 8, out _), "zero AIC slot accepted");
+            Check(!AicSlotIndexResolver.TryResolve(9, 8, out _), "out-of-range AIC slot accepted");
+        }
+
+        private static void TestValidatorResults()
+        {
+            Check(PlacementValidatorResult.Classify(0) == "allowed" && !PlacementValidatorResult.IsRejected(0), "validator allowed contract");
+            Check(PlacementValidatorResult.Classify(1) == "rejected" && PlacementValidatorResult.IsRejected(1), "validator rejection contract");
+            Check(PlacementValidatorResult.Classify(2) == "occupied-building" && PlacementValidatorResult.IsRejected(2), "validator occupied-building contract");
+        }
+
+        private static void TestDamageTransitions()
+        {
+            Check(!DamageObservationModel.IsLethalInput(100, 99), "nonlethal input marked lethal");
+            Check(DamageObservationModel.IsLethalInput(100, 100), "lethal input not recognized");
+            Check(CrushedTimerTransition.IsActivation(0, 1), "damage activation not recognized");
+            Check(!CrushedTimerTransition.IsActivation(0, 0), "nonlethal damage marked as activation");
+            Check(!CrushedTimerTransition.IsActivation(7, 7), "active timer marked as activation");
+            Check(!CrushedTimerTransition.IsActivation(7, 8), "scheduler increment marked as activation");
+        }
+
+        private static void TestAivAreaClassification()
+        {
+            Check(AivAreaClassifier.Intersects(100, 200, 100, 110, 210, 112, 212), "inside building classified outside");
+            Check(AivAreaClassifier.Intersects(100, 200, 100, 98, 210, 101, 212), "overlapping building classified outside");
+            Check(!AivAreaClassifier.Intersects(100, 200, 100, 200, 210, 202, 212), "right-edge outside building classified inside");
+            Check(!AivAreaClassifier.Intersects(100, 200, 100, 90, 190, 99, 199), "outside building classified inside");
+        }
+
+        private static void TestEarlyOwnerBuffer()
+        {
+            EarlyOwnerEventBuffer buffer = new EarlyOwnerEventBuffer(1, 8);
+            for (int index = 0; index < 10000; index++) buffer.Add(8, "event-" + index);
+            Check(buffer.CountFor(8) == 10000, "early events were capped");
+            string[] events = buffer.Drain(8);
+            Check(events.Length == 10000 && events[0] == "event-0" && events[9999] == "event-9999", "early event order or content lost");
+            Check(buffer.CountFor(8) == 0, "early events survived drain");
+            buffer.Add(7, "old-map");
+            buffer.Clear();
+            Check(buffer.CountFor(7) == 0, "map reset retained early events");
+        }
 
         private static void TestFirstBuildingWindow()
         {
@@ -93,6 +145,10 @@ namespace PreplacedTest.Tests
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
             Check(source.Contains("players.Clear()"), "map transition does not reset sessions");
+            Check(source.Contains("activeAic - 1") || File.ReadAllText(Path.Combine("src", "DiagnosticModel.cs")).Contains("oneBasedSlot - 1"), "AIC slot is not converted from one-based exactly once");
+            Check(source.Contains("CRUSHED_TIMER_ACTIVATED_BY_DAMAGE"), "damage-triggered timer activation diagnostic missing");
+            Check(source.Contains("MAP_START_POST") && source.Contains("FIRST_SCHEDULER") && source.Contains("FIRST_ACTIVE_CRUSHED_DELAY"), "required building snapshots missing");
+            Check(source.Contains("PlacementValidatorResult.Classify"), "validator result contract not used");
             Check(!source.Contains("MaximumCapture") && !source.Contains("Take(100"), "fixed event cap found");
             Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.0.0\")") &&
                 assemblyInfo.Contains("AssemblyFileVersion(\"0.1.0.0\")") &&
