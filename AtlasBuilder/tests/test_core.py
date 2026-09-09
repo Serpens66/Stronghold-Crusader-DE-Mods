@@ -16,6 +16,7 @@ from atlas_builder.core import (
     SourceSpriteMetadata,
     TargetFrame,
     _parse_source_stem,
+    _split_target_name,
     build_group,
     build_project,
     choose_layout,
@@ -26,6 +27,7 @@ from atlas_builder.core import (
     validate_generated_group,
 )
 from atlas_builder.models import GroupConfig, PackingConfig, ProjectConfig
+from atlas_builder.gm_groups import GROUP_CONTRACTS
 
 
 TEST_TEMP = Path(__file__).resolve().parent / ".tmp"
@@ -52,6 +54,11 @@ class NameParsingTests(unittest.TestCase):
     def test_explicit_prefix_is_exact_but_case_insensitive(self) -> None:
         self.assertEqual(_parse_source_stem("RUIN 001", "ruin "), ("RUIN ", FrameKey(1)))
         self.assertIsNone(_parse_source_stem("other 001", "ruin "))
+
+    def test_target_names_with_numeric_group_suffixes_are_split_correctly(self) -> None:
+        self.assertEqual(_split_target_name("float_pop_circ-1-23"), ("float_pop_circ-1", True, FrameKey(23)))
+        self.assertEqual(_split_target_name("smoke-30x30-7x"), ("smoke-30x30", True, FrameKey(7, True)))
+        self.assertEqual(_split_target_name("tile_buildings1 007"), ("tile_buildings1", False, FrameKey(7)))
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -191,6 +198,23 @@ class BuildTests(unittest.TestCase):
         self.assertAlmostEqual(payload["frames"][0]["pivot"]["x"], 3.5 / 7)
         self.assertAlmostEqual(payload["frames"][0]["pivot"]["y"], 2.5 / 9)
 
+    def test_generated_json_accepts_negative_and_corner_pivots(self) -> None:
+        prepared, project = self.prepared()
+        first = prepared.target_frames[FrameKey(0)]
+        second = prepared.target_frames[FrameKey(1)]
+        prepared.target_frames[FrameKey(0)] = TargetFrame(
+            first.name, first.pivot_x, -0.25, first.pixels_per_unit, first.width, first.height
+        )
+        prepared.target_frames[FrameKey(1)] = TargetFrame(
+            second.name, second.pivot_x, 1.0, second.pixels_per_unit, second.width, second.height + 20
+        )
+        output = self.root / "out"
+        build_group(prepared, output, project)
+        validate_generated_group(prepared, output, project)
+        payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
+        self.assertEqual(payload["frames"][0]["pivot"]["y"], -0.25)
+        self.assertEqual(payload["frames"][1]["pivot"]["y"], 1.0)
+
     def test_texture_size_limit(self) -> None:
         prepared, _ = self.prepared()
         with self.assertRaisesRegex(AtlasBuilderError, "do not fit"):
@@ -303,6 +327,24 @@ class ProjectValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(AtlasBuilderError, "between 64 and 8192"):
             prepare_project(project)
 
+    def test_foliage_and_incomplete_group_warnings_are_reported(self) -> None:
+        write_png(self.root / "images" / "tree_apple-0.png")
+        write_png(self.root / "images" / "tree_apple-0_m.png")
+        project = ProjectConfig(
+            language="en",
+            target_game_data=str(self.root / "Data"),
+            output_mod_directory=str(self.root / "Mod"),
+            groups=[GroupConfig("tree_apple", str(self.root / "images"), "same-directory")],
+        )
+        metadata = {"tree_apple": {
+            FrameKey(0): TargetFrame("tree_apple-0", 0.5, 0.5, 64, 7, 9),
+            FrameKey(1): TargetFrame("tree_apple-1", 0.5, 0.5, 64, 7, 9),
+        }}
+        with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
+            warnings = prepare_project(project)[0].warnings
+        self.assertTrue(any("Unlit/Foliage" in warning for warning in warnings))
+        self.assertTrue(any("target frames are absent" in warning for warning in warnings))
+
 
 class ProjectFileTests(unittest.TestCase):
     def test_paths_below_project_are_saved_relative_and_crlf(self) -> None:
@@ -390,10 +432,45 @@ class PivotTests(unittest.TestCase):
         self.assertAlmostEqual(x * 64, 32.0, places=5)
         self.assertAlmostEqual(y * 196, 16.5, places=3)
 
-    def test_pixel_anchor_outside_replacement_is_rejected(self) -> None:
+    def test_pixel_anchor_may_lie_outside_replacement(self) -> None:
         small = SourceFrame(FrameKey(1), self.image, None, 16, 10)
-        with self.assertRaisesRegex(AtlasBuilderError, "add transparent canvas space"):
-            output_pivot(self.prepared("target-pixel-anchor"), small)
+        x, y = output_pivot(self.prepared("target-pixel-anchor"), small)
+        self.assertAlmostEqual(x, 2.0)
+        self.assertAlmostEqual(y, 1.65, places=4)
+
+    def test_exact_one_pivot_keeps_opposite_edge(self) -> None:
+        target = TargetFrame("anim_castle 001", 0.0, 1.0, 64, 183, 183)
+        source = SourceFrame(FrameKey(1), self.image, None, 183, 165)
+        prepared = PreparedGroup(
+            GroupConfig("anim_castle", str(self.root), pivot_mode="target-pixel-anchor"),
+            False,
+            [source],
+            {FrameKey(1): target},
+            {},
+            [],
+        )
+        self.assertEqual(output_pivot(prepared, source), (0.0, 1.0))
+
+    def test_negative_target_pivot_remains_valid(self) -> None:
+        target = TargetFrame("body_horse_archer_top-1", 0.5, -0.25, 64, 64, 80)
+        source = SourceFrame(FrameKey(1), self.image, None, 64, 100)
+        prepared = PreparedGroup(
+            GroupConfig("body_horse_archer_top", str(self.root), pivot_mode="target-pixel-anchor"),
+            True,
+            [source],
+            {FrameKey(1): target},
+            {},
+            [],
+        )
+        self.assertEqual(output_pivot(prepared, source), (0.5, -0.2))
+
+    def test_nonuniform_source_canvas_preserves_source_pixel_anchor(self) -> None:
+        metadata = {FrameKey(1): SourceSpriteMetadata(
+            "tile_land8 001", 0.5, 0.5, 64, 64, 40, self.root / "frame.json"
+        )}
+        x, y = output_pivot(self.prepared("source-metadata", metadata), self.source)
+        self.assertAlmostEqual(x, 0.5)
+        self.assertAlmostEqual(y, 20 / 196)
 
 
 class SourceMetadataTests(unittest.TestCase):
@@ -434,10 +511,52 @@ class SourceMetadataTests(unittest.TestCase):
         with self.assertRaisesRegex(AtlasBuilderError, "Duplicate source metadata"):
             read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})
 
-    def test_invalid_source_pivot_is_rejected(self) -> None:
-        self.write_metadata("tile_land8 001", 1.5)
-        with self.assertRaisesRegex(AtlasBuilderError, "pivot outside"):
+    def test_non_finite_source_pivot_is_rejected(self) -> None:
+        self.write_metadata("tile_land8 001", float("nan"))
+        with self.assertRaisesRegex(AtlasBuilderError, "non-finite pivot"):
             read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})
+
+    def test_source_pivot_outside_normalized_range_is_allowed(self) -> None:
+        self.write_metadata("tile_land8 001", -0.25)
+        self.assertEqual(read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})[FrameKey(1)].pivot_y, -0.25)
+
+
+class GroupContractTests(unittest.TestCase):
+    def test_current_contract_counts(self) -> None:
+        self.assertEqual(len(GROUP_CONTRACTS), 195)
+        self.assertEqual(
+            {name for name, group in GROUP_CONTRACTS.items() if not group.overridable_as_atlas},
+            {"tile_sea_new_01", "tile_sea_shore"},
+        )
+        self.assertEqual(sum(group.material == "plain" for group in GROUP_CONTRACTS.values()), 69)
+        self.assertEqual(sum(group.material == "foliage" for group in GROUP_CONTRACTS.values()), 7)
+
+    def test_unsafe_shared_sea_group_is_rejected(self) -> None:
+        project = ProjectConfig(
+            target_game_data="Data",
+            output_mod_directory="Mod",
+            groups=[GroupConfig("tile_sea_shore", "images")],
+        )
+        with self.assertRaisesRegex(AtlasBuilderError, "nicht sicher als Atlas"):
+            prepare_project(project)
+
+    def test_plain_group_rejects_mask_atlas(self) -> None:
+        project = ProjectConfig(
+            target_game_data="Data",
+            output_mod_directory="Mod",
+            groups=[GroupConfig("tile_ruins", "images", "same-directory")],
+        )
+        with self.assertRaisesRegex(AtlasBuilderError, "maskenlose Plain-Material"):
+            prepare_project(project)
+
+    def test_teamcolour_group_requires_mask_atlas(self) -> None:
+        project = ProjectConfig(
+            target_game_data="Data",
+            output_mod_directory="Mod",
+            groups=[GroupConfig("body_archer", "images")],
+        )
+        with self.assertRaisesRegex(AtlasBuilderError, "verwendet im Spiel eine Maske"):
+            prepare_project(project)
 
 
 if __name__ == "__main__":

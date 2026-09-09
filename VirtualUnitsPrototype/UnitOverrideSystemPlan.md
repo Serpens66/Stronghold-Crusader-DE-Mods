@@ -175,6 +175,7 @@ Die öffentliche API darf erst geschrieben werden, nachdem die konkreten Typen d
 - `BaseTypeMismatch`
 - `UnsupportedGameMode`
 - `InvalidPlacement`
+- `InitializationPending`
 - `SpawnFailed`
 - `VisualFeatureUnavailable`
 - `SaveDefinitionIncompatible`
@@ -323,13 +324,13 @@ Es gibt im PoC keine Geistervorschau. Das Menü ist nur auf vollständig geladen
 
 ### 10.1 Units
 
-`SpawnVirtualUnit` validiert Definition, Spielmodus, lokalen Spieler und Zielkachel, ruft `GameUnitManagerAPI.CreateUnitLocal` mit dem Vanilla-Basistyp auf und behandelt den Rückgabewert als 1-basierte Unit-ID. Nach Rücklesen von Global-ID und Basistyp wird die Instanz registriert und erst dann werden Werte angewendet. Schlägt die Nachprüfung fehl, bleibt die erzeugte Unit Vanilla und kein Teilzustand wird behalten.
+`SpawnVirtualUnit` validiert Definition, Spielmodus, lokalen Spieler und Zielkachel, ruft `GameUnitManagerAPI.CreateUnitLocal` mit dem Vanilla-Basistyp auf und behandelt den Rückgabewert als 1-basierte Unit-ID. Nach Rücklesen von Global-ID, Besitzer, Basistyp und unveränderten Ausgangswerten entsteht zunächst ein Pending-Eintrag. Erst nach dem Übergang zu `IsAlive`, plausibler Tileposition und bestätigter Rendererbindung wird die Instanz registriert und werden die Werte angewendet. Bis dahin liefert die API `InitializationPending`; ein Timeout wird nur bei weiterhin passender Global-ID über `DeleteUnitSafe` bereinigt.
 
 ### 10.2 Gebäude
 
 `SpawnVirtualBuilding` verwendet den definierten `eMappers`, den Wert aus `BuildingScales`, `GameBuildingManagerAPI.CreatePrefab`, `bIsFree=true` und `bypassPlacementRules=false`.
 
-Während des synchronen Aufrufs existiert ein eng begrenzter Pending-Spawn-Kontext. `OnBuildingSpawn` akzeptiert nur einen Post-Aufruf, dessen Spieler, Struct-Typ, Koordinate und Rückgabewert zum Kontext passen. Danach werden Building-ID, Global-ID und Basistyp geprüft und die Instanz sofort registriert.
+Während des synchronen Aufrufs existiert ein eng begrenzter Pending-Spawn-Kontext. `OnBuildingSpawn` akzeptiert nur einen Post-Aufruf, dessen Spieler, Struct-Typ, Koordinate und Rückgabewert zum Kontext passen. Danach werden Building-ID, Global-ID, Besitzer, Basistyp und Ausgangswerte erfasst. Die Registrierung und Wertänderung erfolgen erst nach `IsAlive` und einer bestätigten Footprint-Verknüpfung über `GetTileBuildingId`. Der rohe `CreatePrefab`-Wert wird zusätzlich hexadezimal und als vorzeichenbehafteter Low-32-Bit-Wert protokolliert, aber nicht als Building-ID interpretiert.
 
 Der PoC erlaubt nur einfache Gebäude mit genau einem erwarteten Kerngebäude. Mehrfachobjekt-Bauten, Farmen, Mauern, Tore und Stockpiles werden klar abgelehnt, bis eine atomare Mehrfachinstanztransaktion existiert.
 
@@ -341,11 +342,11 @@ Der PoC erlaubt nur einfache Gebäude mit genau einem erwarteten Kerngebäude. M
 - Basistyp `eChimps.CHIMP_TYPE_ARCHER`;
 - Ziel-GM `Enums.GM.GM_BODY_ARAB_BOW`;
 - maximale Lebenspunkte Basiswert × 2;
-- Geschwindigkeit Basiswert × 3 / 2;
+- 1,5-fache Bewegungsgeschwindigkeit durch den SHCDE-codierten Speedwert Basiswert × 2 / 3;
 - lokaler Besitzer und dessen Teamfarbe;
 - kostenloser Diagnose-Spawn.
 
-Beim Start wird die Verfügbarkeit normaler und alternativer Zielframes protokolliert. Im Spiel stehen ein Vanilla-Archer und ein Desert Archer zum direkten Vergleich nebeneinander.
+Beim ersten tatsächlichen Visualaufruf werden Rendererbindung, Vanilla- und Ziel-GM, Frame, Alt-Status und Spriteabmessungen protokolliert. Im Spiel stehen ein Vanilla-Archer und ein Desert Archer zum direkten Vergleich nebeneinander.
 
 ### 11.2 Desert Hovel
 

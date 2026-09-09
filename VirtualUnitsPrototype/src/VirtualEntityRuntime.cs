@@ -27,6 +27,8 @@ namespace VirtualUnitsPrototype
         private readonly Dictionary<string, VirtualBuildingDefinition> buildingDefinitions = new Dictionary<string, VirtualBuildingDefinition>(StringComparer.Ordinal);
         private readonly IdentityRegistry<StoredInstance> instances = new IdentityRegistry<StoredInstance>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
+        private readonly Dictionary<int, PendingSpawn> pendingUnits = new Dictionary<int, PendingSpawn>();
+        private readonly Dictionary<int, PendingSpawn> pendingBuildings = new Dictionary<int, PendingSpawn>();
         private List<SaveRecord> pendingRestore;
         private PendingBuildingSpawn pendingBuilding;
         private VisualRuntime visuals;
@@ -35,6 +37,7 @@ namespace VirtualUnitsPrototype
         private bool initialized;
         private bool mapActive;
         private bool modeAllowed;
+        private const int SpawnInitializationFrameBudget = 180;
 
         internal VirtualEntityRuntime(ManualLogSource log) { this.log = log ?? throw new ArgumentNullException(nameof(log)); }
         internal static VirtualEntityRuntime Current { get; set; }
@@ -106,8 +109,11 @@ namespace VirtualUnitsPrototype
             if (!CanMutate) return Result(VirtualApiResultCode.UnsupportedGameMode, "Assignments are allowed only in a loaded singleplayer skirmish.");
             if (!unitDefinitions.TryGetValue(typeId ?? string.Empty, out VirtualUnitDefinition definition)) return Result(VirtualApiResultCode.UnknownTypeId, "Unknown unit type ID.");
             if (!TryReadUnit(unitId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out int speed, out VirtualApiResult failure)) return failure;
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* assignedUnit) || assignedUnit == null || assignedUnit->r_AliveState != AliveState.IsAlive)
+                return Result(VirtualApiResultCode.EntityNotFound, "Unit is not fully initialized.");
             lock (sync)
             {
+                pendingUnits.Remove(unitId);
                 if (instances.TryGet(UnitKind, unitId, globalId, out StoredInstance existing) && existing.TypeId == typeId) { snapshot = existing.Snapshot; return VirtualApiResult.Success("Unit is already assigned."); }
                 RestoreExistingSlot(VirtualEntityKind.Unit, unitId);
                 var stored = new StoredInstance(VirtualEntityKind.Unit, unitId, globalId, typeId, definition.DefinitionVersion, maxHealth, speed);
@@ -123,8 +129,11 @@ namespace VirtualUnitsPrototype
             if (!CanMutate) return Result(VirtualApiResultCode.UnsupportedGameMode, "Assignments are allowed only in a loaded singleplayer skirmish.");
             if (!buildingDefinitions.TryGetValue(typeId ?? string.Empty, out VirtualBuildingDefinition definition)) return Result(VirtualApiResultCode.UnknownTypeId, "Unknown building type ID.");
             if (!TryReadBuilding(buildingId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out VirtualApiResult failure)) return failure;
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* assignedBuilding) || assignedBuilding == null || assignedBuilding->r_AliveState != AliveState.IsAlive)
+                return Result(VirtualApiResultCode.EntityNotFound, "Building is not fully initialized.");
             lock (sync)
             {
+                pendingBuildings.Remove(buildingId);
                 if (instances.TryGet(BuildingKind, buildingId, globalId, out StoredInstance existing) && existing.TypeId == typeId) { snapshot = existing.Snapshot; return VirtualApiResult.Success("Building is already assigned."); }
                 RestoreExistingSlot(VirtualEntityKind.Building, buildingId);
                 var stored = new StoredInstance(VirtualEntityKind.Building, buildingId, globalId, typeId, definition.DefinitionVersion, maxHealth, 0);
@@ -173,7 +182,23 @@ namespace VirtualUnitsPrototype
             {
                 long created = GameUnitManagerAPI.Instance.CreateUnitLocal(playerId, playerId, tileX, tileY, GameTileManagerAPI.Instance.GetTileHeight(tileId), definition.BaseType);
                 if (created <= 0 || created > int.MaxValue) return Result(VirtualApiResultCode.SpawnFailed, $"CreateUnitLocal returned invalid ID {created}.");
-                return AssignUnit((int)created, typeId, out snapshot);
+                int unitId = (int)created;
+                if (!TryReadUnit(unitId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out int speed, out VirtualApiResult failure))
+                {
+                    GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
+                    return failure;
+                }
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null || unit->r_ControllableForPlayerId != playerId)
+                {
+                    GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
+                    return Result(VirtualApiResultCode.SpawnFailed, $"Spawned unit {unitId} has an unexpected owner.");
+                }
+                var pending = PendingSpawn.ForUnit(unitId, globalId, typeId, definition.DefinitionVersion, playerId, tileX, tileY, maxHealth, currentHealth, speed, unit->r_AliveState, Time.frameCount + SpawnInitializationFrameBudget);
+                pending.RendererSeen = visuals.HasRendererBinding(unitId);
+                lock (sync) pendingUnits[unitId] = pending;
+                snapshot = pending.Snapshot;
+                LogPending(pending, $"CreateUnitLocal={created}, native=[{DescribeUnit(unit)}]");
+                return Result(VirtualApiResultCode.InitializationPending, $"Unit {unitId}/{globalId} is waiting for Vanilla initialization.");
             }
             catch (Exception ex) { LogError($"Unit spawn failed: {ex}"); return Result(VirtualApiResultCode.InternalError, "Unit spawn raised an internal error."); }
         }
@@ -194,8 +219,23 @@ namespace VirtualUnitsPrototype
                 finally { pendingBuilding.Active = false; }
                 int buildingId = pendingBuilding.CapturedBuildingId;
                 pendingBuilding = default(PendingBuildingSpawn);
-                if (buildingId <= 0 || result <= 0) return Result(VirtualApiResultCode.SpawnFailed, $"CreatePrefab did not produce a correlated building (result={result}, eventId={buildingId}).");
-                return AssignBuilding(buildingId, typeId, out snapshot);
+                string resultDiagnostic = FormatBuildingResult(result);
+                if (buildingId <= 0) return Result(VirtualApiResultCode.SpawnFailed, $"CreatePrefab did not produce a correlated building ({resultDiagnostic}, eventId={buildingId}).");
+                if (!TryReadBuilding(buildingId, definition.BaseType, out uint globalId, out int maxHealth, out int currentHealth, out VirtualApiResult failure))
+                {
+                    GameBuildingManagerAPI.Instance.DeleteBuildingSafe(buildingId);
+                    return failure;
+                }
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null || building->r_PlayerIdOwner != playerId)
+                {
+                    GameBuildingManagerAPI.Instance.DeleteBuildingSafe(buildingId);
+                    return Result(VirtualApiResultCode.SpawnFailed, $"Spawned building {buildingId} has an unexpected owner.");
+                }
+                var pending = PendingSpawn.ForBuilding(buildingId, globalId, typeId, definition.DefinitionVersion, playerId, tileX, tileY, maxHealth, currentHealth, building->r_AliveState, Time.frameCount + SpawnInitializationFrameBudget);
+                lock (sync) pendingBuildings[buildingId] = pending;
+                snapshot = pending.Snapshot;
+                LogPending(pending, $"{resultDiagnostic}, native=[{DescribeBuilding(building)}], linkedTiles={CountLinkedFootprintTiles(buildingId, building)}");
+                return Result(VirtualApiResultCode.InitializationPending, $"Building {buildingId}/{globalId} is waiting for Vanilla initialization.");
             }
             catch (Exception ex) { pendingBuilding = default(PendingBuildingSpawn); LogError($"Building spawn failed: {ex}"); return Result(VirtualApiResultCode.InternalError, "Building spawn raised an internal error."); }
         }
@@ -224,7 +264,178 @@ namespace VirtualUnitsPrototype
             }
         }
 
-        internal void Tick() { if (pendingRestore != null && CanMutate) RestorePending(); }
+        internal void Tick()
+        {
+            if (pendingRestore != null && CanMutate) RestorePending();
+            if (!CanMutate) return;
+            ProcessPendingUnits();
+            ProcessPendingBuildings();
+        }
+
+        internal void RecordUnitRendererBinding(int unitId)
+        {
+            if (unitId <= 0) return;
+            lock (sync)
+            {
+                if (!pendingUnits.TryGetValue(unitId, out PendingSpawn pending) || !PendingIdentityMatches(pending)) return;
+                pending.RendererSeen = true;
+                if (!pending.RendererLogged)
+                {
+                    pending.RendererLogged = true;
+                    Shared.DebugLogHelper.LogInfo(log, $"Pending unit renderer bound: unitId={unitId}, globalId={pending.GlobalId}, type={pending.TypeId}.");
+                }
+            }
+        }
+
+        private void ProcessPendingUnits()
+        {
+            PendingSpawn[] candidates;
+            lock (sync) candidates = pendingUnits.Values.ToArray();
+            foreach (PendingSpawn pending in candidates)
+            {
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(pending.GameId, out GameUnit* unit) || unit == null)
+                {
+                    FailPending(pending, "native unit slot is no longer available", false);
+                    continue;
+                }
+                bool identityMatches = unit->r_GlobalId == pending.GlobalId;
+                if (!identityMatches || unit->r_UnitChimp != unitDefinitions[pending.TypeId].BaseType || unit->r_ControllableForPlayerId != pending.PlayerId)
+                {
+                    FailPending(pending, $"identity changed: global={unit->r_GlobalId}, type={unit->r_UnitChimp}, owner={unit->r_ControllableForPlayerId}", identityMatches);
+                    continue;
+                }
+                LogStateTransition(pending, unit->r_AliveState, DescribeUnit(unit));
+                if (unit->r_AliveState == AliveState.IsAlive)
+                {
+                    pending.RendererSeen |= visuals.HasRendererBinding(pending.GameId);
+                    int currentTileId = unchecked((int)unit->r_CurrentPositionTileId);
+                    bool positionValid = GameTileManagerAPI.Instance.IsTileInsideMapBounds(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY) &&
+                        currentTileId == GameTileManagerAPI.Instance.GetTileId(unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY);
+                    if (SpawnInitializationPolicy.CanFinalize(identityMatches, true, positionValid, true, pending.RendererSeen))
+                    {
+                        FinalizeUnit(pending, unit);
+                        continue;
+                    }
+                }
+                else if (unit->r_AliveState != AliveState.NeedsInit)
+                {
+                    FailPending(pending, $"unexpected alive state {unit->r_AliveState}", true);
+                    continue;
+                }
+                if (SpawnInitializationPolicy.HasTimedOut(Time.frameCount, pending.DeadlineFrame))
+                {
+                    FailPending(pending, $"initialization timeout: {DescribeUnit(unit)}, rendererSeen={pending.RendererSeen}", true);
+                }
+            }
+        }
+
+        private void ProcessPendingBuildings()
+        {
+            PendingSpawn[] candidates;
+            lock (sync) candidates = pendingBuildings.Values.ToArray();
+            foreach (PendingSpawn pending in candidates)
+            {
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(pending.GameId, out GameBuilding* building) || building == null)
+                {
+                    FailPending(pending, "native building slot is no longer available", false);
+                    continue;
+                }
+                bool identityMatches = building->r_GlobalId == pending.GlobalId;
+                if (!identityMatches || building->r_BuildingType != buildingDefinitions[pending.TypeId].BaseType || building->r_PlayerIdOwner != pending.PlayerId)
+                {
+                    FailPending(pending, $"identity changed: global={building->r_GlobalId}, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}", identityMatches);
+                    continue;
+                }
+                LogStateTransition(pending, building->r_AliveState, $"{DescribeBuilding(building)}, linkedTiles={CountLinkedFootprintTiles(pending.GameId, building)}");
+                if (building->r_AliveState == AliveState.IsAlive)
+                {
+                    int linkedTiles = CountLinkedFootprintTiles(pending.GameId, building);
+                    if (SpawnInitializationPolicy.CanFinalize(identityMatches, true, linkedTiles > 0, false, false))
+                    {
+                        FinalizeBuilding(pending, building, linkedTiles);
+                        continue;
+                    }
+                }
+                else if (building->r_AliveState != AliveState.NeedsInit)
+                {
+                    FailPending(pending, $"unexpected alive state {building->r_AliveState}", true);
+                    continue;
+                }
+                if (SpawnInitializationPolicy.HasTimedOut(Time.frameCount, pending.DeadlineFrame))
+                {
+                    FailPending(pending, $"initialization timeout: {DescribeBuilding(building)}, linkedTiles={CountLinkedFootprintTiles(pending.GameId, building)}", true);
+                }
+            }
+        }
+
+        private void FinalizeUnit(PendingSpawn pending, GameUnit* unit)
+        {
+            VirtualUnitDefinition definition = unitDefinitions[pending.TypeId];
+            int currentHealth = GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId);
+            var stored = new StoredInstance(VirtualEntityKind.Unit, pending.GameId, pending.GlobalId, pending.TypeId, pending.DefinitionVersion, pending.OriginalMaxHealth, pending.OriginalSpeed);
+            ApplyUnitStats(pending.GameId, pending.OriginalMaxHealth, currentHealth, pending.OriginalSpeed, definition);
+            lock (sync) { pendingUnits.Remove(pending.GameId); instances.Set(UnitKind, pending.GameId, pending.GlobalId, stored); }
+            var success = VirtualApiResult.Success("Unit assignment finalized after Vanilla initialization.");
+            Shared.DebugLogHelper.LogInfo(log, $"Pending unit finalized: {DescribeUnit(unit)}, rendererSeen={pending.RendererSeen}, maxHealth={GameUnitManagerAPI.Instance.GetMaxHealth(pending.GameId)}, currentHealth={GameUnitManagerAPI.Instance.GetCurrentHealth(pending.GameId)}, speed={GameUnitManagerAPI.Instance.GetSpeed(pending.GameId)}.");
+            spawnController?.ReportRuntimeResult(success);
+            VirtualEntityApi.RaiseAssigned(stored.Snapshot, success);
+        }
+
+        private void FinalizeBuilding(PendingSpawn pending, GameBuilding* building, int linkedTiles)
+        {
+            VirtualBuildingDefinition definition = buildingDefinitions[pending.TypeId];
+            int currentHealth = GameBuildingManagerAPI.Instance.GetCurrentHealth(pending.GameId);
+            var stored = new StoredInstance(VirtualEntityKind.Building, pending.GameId, pending.GlobalId, pending.TypeId, pending.DefinitionVersion, pending.OriginalMaxHealth, 0);
+            ApplyBuildingStats(pending.GameId, pending.OriginalMaxHealth, currentHealth, definition);
+            lock (sync) { pendingBuildings.Remove(pending.GameId); instances.Set(BuildingKind, pending.GameId, pending.GlobalId, stored); }
+            RefreshBuilding(pending.GameId);
+            var success = VirtualApiResult.Success("Building assignment finalized after Vanilla initialization.");
+            Shared.DebugLogHelper.LogInfo(log, $"Pending building finalized: {DescribeBuilding(building)}, linkedTiles={linkedTiles}, maxHealth={GameBuildingManagerAPI.Instance.GetMaxHealth(pending.GameId)}, currentHealth={GameBuildingManagerAPI.Instance.GetCurrentHealth(pending.GameId)}.");
+            spawnController?.ReportRuntimeResult(success);
+            VirtualEntityApi.RaiseAssigned(stored.Snapshot, success);
+        }
+
+        private void FailPending(PendingSpawn pending, string reason, bool deleteIfIdentityStillMatches)
+        {
+            lock (sync) (pending.Kind == VirtualEntityKind.Unit ? pendingUnits : pendingBuildings).Remove(pending.GameId);
+            bool deleteIssued = false;
+            if (deleteIfIdentityStillMatches && PendingIdentityMatches(pending))
+                deleteIssued = pending.Kind == VirtualEntityKind.Unit ? GameUnitManagerAPI.Instance.DeleteUnitSafe(pending.GameId) : GameBuildingManagerAPI.Instance.DeleteBuildingSafe(pending.GameId);
+            var failure = Result(VirtualApiResultCode.SpawnFailed, $"{pending.Kind} {pending.GameId}/{pending.GlobalId} failed initialization: {reason}; safeDeleteIssued={deleteIssued}.");
+            LogWarning(failure.Message);
+            spawnController?.ReportRuntimeResult(failure);
+        }
+
+        private bool PendingIdentityMatches(PendingSpawn pending) => pending.Kind == VirtualEntityKind.Unit
+            ? GameUnitManagerAPI.Instance.GetGlobalId(pending.GameId) == unchecked((int)pending.GlobalId)
+            : GameBuildingManagerAPI.Instance.GetGlobalId(pending.GameId) == unchecked((int)pending.GlobalId);
+
+        private int CountLinkedFootprintTiles(int buildingId, GameBuilding* building)
+        {
+            if (building->r_TilePositionXBegin > building->r_TilePositionXEnd || building->r_TilePositionYBegin > building->r_TilePositionYEnd) return 0;
+            int linked = 0;
+            for (int y = building->r_TilePositionYBegin; y <= building->r_TilePositionYEnd; y++)
+            for (int x = building->r_TilePositionXBegin; x <= building->r_TilePositionXEnd; x++)
+            {
+                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(x, y)) return 0;
+                if (GameTileManagerAPI.Instance.GetTileBuildingId(GameTileManagerAPI.Instance.GetTileId(x, y)) == buildingId) linked++;
+            }
+            return linked;
+        }
+
+        private void LogStateTransition(PendingSpawn pending, AliveState state, string details)
+        {
+            if (pending.LastState == state) return;
+            pending.LastState = state;
+            Shared.DebugLogHelper.LogInfo(log, $"Pending {pending.Kind} state transition: gameId={pending.GameId}, globalId={pending.GlobalId}, state={state}, frame={Time.frameCount}, {details}.");
+        }
+
+        private void LogPending(PendingSpawn pending, string creationResult) => Shared.DebugLogHelper.LogInfo(log,
+            $"Pending {pending.Kind} created: gameId={pending.GameId}, globalId={pending.GlobalId}, owner={pending.PlayerId}, type={pending.TypeId}, requestedTile={pending.RequestedX},{pending.RequestedY}, originalMaxHealth={pending.OriginalMaxHealth}, originalCurrentHealth={pending.OriginalCurrentHealth}, originalSpeed={pending.OriginalSpeed}, state={pending.LastState}, deadlineFrame={pending.DeadlineFrame}, rendererSeen={pending.RendererSeen}, {creationResult}.");
+
+        private static string DescribeUnit(GameUnit* unit) => $"idGlobal={unit->r_GlobalId}, state={unit->r_AliveState}, type={unit->r_UnitChimp}, owner={unit->r_ControllableForPlayerId}, tile={unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}, tileId={unit->r_CurrentPositionTileId}, invisible={unit->r_IsInvisible}";
+        private static string DescribeBuilding(GameBuilding* building) => $"idGlobal={building->r_GlobalId}, state={building->r_AliveState}, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, footprint={building->r_TilePositionXBegin},{building->r_TilePositionYBegin}-{building->r_TilePositionXEnd},{building->r_TilePositionYEnd}, originTileId={building->r_TileIdBegin}";
+        internal static string FormatBuildingResult(long result) => $"result={result}, low32={VirtualMath.HexLow32(result)}, signedLow32={VirtualMath.SignedLow32(result)}";
         internal IEnumerable<VirtualUnitDefinition> VisibleUnits() => unitDefinitions.Values.Where(x => x.SpawnOptions.ShowInDiagnosticMenu).OrderBy(x => x.TypeId).ToArray();
         internal IEnumerable<VirtualBuildingDefinition> VisibleBuildings() => buildingDefinitions.Values.Where(x => x.SpawnOptions.ShowInDiagnosticMenu).OrderBy(x => x.TypeId).ToArray();
 
@@ -316,7 +527,7 @@ namespace VirtualUnitsPrototype
         {
             int newMax = VirtualMath.ScalePositive(max, definition.Stats.HealthFactor.Numerator, definition.Stats.HealthFactor.Denominator, int.MaxValue);
             int newCurrent = VirtualMath.ScaleHealth(current, max, newMax);
-            int newSpeed = VirtualMath.ScalePositive(speed, definition.Stats.SpeedFactor.Numerator, definition.Stats.SpeedFactor.Denominator, ushort.MaxValue);
+            int newSpeed = VirtualMath.ScaleMovementSpeed(speed, definition.Stats.SpeedFactor.Numerator, definition.Stats.SpeedFactor.Denominator, ushort.MaxValue);
             GameUnitManagerAPI.Instance.SetMaxHealth(id, newMax); GameUnitManagerAPI.Instance.SetCurrentHealth(id, newCurrent); GameUnitManagerAPI.Instance.SetSpeed(id, (ushort)newSpeed);
         }
         private void ApplyBuildingStats(int id, int max, int current, VirtualBuildingDefinition definition)
@@ -340,8 +551,8 @@ namespace VirtualUnitsPrototype
         }
         private void RestoreExistingSlot(VirtualEntityKind kind, int id) { if (instances.TryGetSlot((byte)kind, id, out uint g, out StoredInstance old)) { if (IdentityMatches(old)) Restore(old); instances.Remove((byte)kind, id); } }
         private bool IdentityMatches(StoredInstance stored) => stored.Kind == VirtualEntityKind.Unit ? GameUnitManagerAPI.Instance.GetGlobalId(stored.GameId) == unchecked((int)stored.GlobalId) : GameBuildingManagerAPI.Instance.GetGlobalId(stored.GameId) == unchecked((int)stored.GlobalId);
-        private void Forget(VirtualEntityKind kind, int id) { lock (sync) instances.Remove((byte)kind, id); }
-        private void ClearMapState() { lock (sync) { instances.Clear(); pendingRestore = null; pendingBuilding = default(PendingBuildingSpawn); } visuals?.ClearBindings(); mapActive = false; modeAllowed = false; spawnController?.SetAvailability(false); }
+        private void Forget(VirtualEntityKind kind, int id) { lock (sync) { instances.Remove((byte)kind, id); (kind == VirtualEntityKind.Unit ? pendingUnits : pendingBuildings).Remove(id); } }
+        private void ClearMapState() { lock (sync) { instances.Clear(); pendingUnits.Clear(); pendingBuildings.Clear(); pendingRestore = null; pendingBuilding = default(PendingBuildingSpawn); } visuals?.ClearBindings(); mapActive = false; modeAllowed = false; spawnController?.SetAvailability(false); }
 
         private bool TryValidateTile(int x, int y, bool requireFreeWalkable, out int tileId)
         {
@@ -379,6 +590,24 @@ namespace VirtualUnitsPrototype
             public StoredInstance(VirtualEntityKind kind, int gameId, uint globalId, string typeId, int definitionVersion, int originalMaxHealth, int originalSpeed)
             { Kind = kind; GameId = gameId; GlobalId = globalId; TypeId = typeId; DefinitionVersion = definitionVersion; OriginalMaxHealth = originalMaxHealth; OriginalSpeed = originalSpeed; Snapshot = new VirtualEntityInstance(new VirtualEntityKey(kind, gameId, globalId), typeId, definitionVersion, originalMaxHealth, originalSpeed); }
             public VirtualEntityKind Kind; public int GameId; public uint GlobalId; public string TypeId; public int DefinitionVersion; public int OriginalMaxHealth; public int OriginalSpeed; public VirtualEntityInstance Snapshot;
+        }
+
+        private sealed class PendingSpawn
+        {
+            private PendingSpawn(VirtualEntityKind kind, int gameId, uint globalId, string typeId, int definitionVersion, int playerId, int requestedX, int requestedY, int originalMaxHealth, int originalCurrentHealth, int originalSpeed, AliveState initialState, int deadlineFrame)
+            {
+                Kind = kind; GameId = gameId; GlobalId = globalId; TypeId = typeId; DefinitionVersion = definitionVersion; PlayerId = playerId;
+                RequestedX = requestedX; RequestedY = requestedY; OriginalMaxHealth = originalMaxHealth; OriginalCurrentHealth = originalCurrentHealth;
+                OriginalSpeed = originalSpeed; LastState = initialState; DeadlineFrame = deadlineFrame;
+                Snapshot = new VirtualEntityInstance(new VirtualEntityKey(kind, gameId, globalId), typeId, definitionVersion, originalMaxHealth, originalSpeed);
+            }
+            public static PendingSpawn ForUnit(int gameId, uint globalId, string typeId, int definitionVersion, int playerId, int x, int y, int maxHealth, int currentHealth, int speed, AliveState state, int deadlineFrame)
+                => new PendingSpawn(VirtualEntityKind.Unit, gameId, globalId, typeId, definitionVersion, playerId, x, y, maxHealth, currentHealth, speed, state, deadlineFrame);
+            public static PendingSpawn ForBuilding(int gameId, uint globalId, string typeId, int definitionVersion, int playerId, int x, int y, int maxHealth, int currentHealth, AliveState state, int deadlineFrame)
+                => new PendingSpawn(VirtualEntityKind.Building, gameId, globalId, typeId, definitionVersion, playerId, x, y, maxHealth, currentHealth, 0, state, deadlineFrame);
+            public VirtualEntityKind Kind; public int GameId; public uint GlobalId; public string TypeId; public int DefinitionVersion; public int PlayerId;
+            public int RequestedX; public int RequestedY; public int OriginalMaxHealth; public int OriginalCurrentHealth; public int OriginalSpeed;
+            public AliveState LastState; public int DeadlineFrame; public bool RendererSeen; public bool RendererLogged; public VirtualEntityInstance Snapshot;
         }
         private struct PendingBuildingSpawn
         {

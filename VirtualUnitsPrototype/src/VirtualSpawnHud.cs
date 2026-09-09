@@ -26,6 +26,7 @@ namespace VirtualUnitsPrototype
         public VirtualSpawnHudViewModel Hud { get; }
         public void Initialize() { Application.onBeforeRender += OnBeforeRender; SetAvailability(false); }
         public void SetAvailability(bool available) { if (!available) Cancel(); Hud.SetAvailability(available); }
+        public void ReportRuntimeResult(VirtualApiResult result) { Hud.SetResult(result.ToString()); }
 
         private void SelectUnit()
         {
@@ -66,7 +67,8 @@ namespace VirtualUnitsPrototype
             VirtualApiResult result = selection == SelectionKind.Unit
                 ? VirtualEntityApi.SpawnVirtualUnit(selectedTypeId, tileX, tileY, out VirtualEntityInstance unit)
                 : VirtualEntityApi.SpawnVirtualBuilding(selectedTypeId, tileX, tileY, out VirtualEntityInstance building);
-            Hud.SetTarget(tileX, tileY); Hud.SetResult(result.ToString());
+            Hud.SetTarget(tileX, tileY);
+            Hud.SetResult(result.Code == VirtualApiResultCode.InitializationPending ? $"Initialisierung läuft: {result.Message}" : result.ToString());
             Shared.DebugLogHelper.LogInfo(log, $"Diagnostic placement: selection={selection}, type={selectedTypeId}, tile={tileX},{tileY}, result={result}.");
         }
         private enum SelectionKind { None, Unit, Building }

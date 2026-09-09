@@ -19,5 +19,14 @@ namespace VirtualUnitsPrototype
             long scaled = ((long)current * newMaximum + oldMaximum / 2L) / oldMaximum;
             return (int)Math.Min(newMaximum, Math.Max(1L, scaled));
         }
+
+        public static int ScaleMovementSpeed(int encodedSpeed, int movementNumerator, int movementDenominator, int maximum)
+        {
+            // SHCDE encodes faster movement with a smaller delay value.
+            return ScalePositive(encodedSpeed, movementDenominator, movementNumerator, maximum);
+        }
+
+        public static int SignedLow32(long value) => unchecked((int)(uint)value);
+        public static string HexLow32(long value) => $"0x{unchecked((uint)value):X8}";
     }
 }

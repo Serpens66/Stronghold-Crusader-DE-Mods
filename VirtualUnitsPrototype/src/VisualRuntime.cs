@@ -49,6 +49,7 @@ namespace VirtualUnitsPrototype
         {
             if (args?.SpriteRenderer == null || args.UnitId <= 0) return;
             unitByRenderer[args.SpriteRenderer] = args.UnitId;
+            runtime.RecordUnitRendererBinding(args.UnitId);
         }
 
         public void OnUnitVisualRemove(UnitUnityVisualRemoveEventArgs args)
@@ -59,6 +60,14 @@ namespace VirtualUnitsPrototype
 
         public void ClearBindings() { unitByRenderer.Clear(); warnings.Clear(); }
 
+        public bool HasRendererBinding(int unitId)
+        {
+            if (unitId <= 0) return false;
+            foreach (KeyValuePair<SpriteRenderer, int> pair in unitByRenderer)
+                if (pair.Value == unitId && pair.Key != null) return true;
+            return false;
+        }
+
         private void SetBodySpriteHook(SpriteRenderer renderer, int file, int image, int colour, bool altFrame, int chopFeet, int transparency)
         {
             int effectiveFile = file;
@@ -68,7 +77,11 @@ namespace VirtualUnitsPrototype
                 {
                     int targetFile = (int)definition.SpriteProfile.TargetGm;
                     Sprite target = SpriteMapping.getBodyImage(targetFile, image, altFrame);
-                    if (target != null) effectiveFile = targetFile;
+                    if (IsUsableSprite(target))
+                    {
+                        effectiveFile = targetFile;
+                        LogOnce($"unit-hook:{unitId}", $"Unit visual hook matched: unitId={unitId}, globalId={GameUnitManagerAPI.Instance.GetGlobalId(unitId)}, vanillaGM={(Enums.GM)file}, targetGM={definition.SpriteProfile.TargetGm}, image={image}, alt={altFrame}, sprite={DescribeSprite(target)}.");
+                    }
                     else WarnOnce($"unit:{definition.TypeId}:{image}:{altFrame}", $"Missing target unit frame; using Vanilla. type={definition.TypeId}, targetGM={definition.SpriteProfile.TargetGm}, image={image}, alt={altFrame}.");
                 }
             }
@@ -87,13 +100,20 @@ namespace VirtualUnitsPrototype
                 if (buildingId <= 0 || !runtime.TryResolveBuildingVisual(buildingId, out VirtualBuildingDefinition definition)) return;
                 if (!definition.VisualProfile.TryMap((Enums.GM)file, out Enums.GM targetGm)) return;
                 Sprite target = spriteLoader.instance.GetGMSprite(targetGm, image);
-                if (target != null) tile.tileImage = target;
+                if (IsUsableSprite(target))
+                {
+                    tile.tileImage = target;
+                    LogOnce($"building-hook:{buildingId}", $"Building visual hook matched: buildingId={buildingId}, globalId={GameBuildingManagerAPI.Instance.GetGlobalId(buildingId)}, tileId={tileId}, tile={tile.gameMapX},{tile.gameMapY}, vanillaGM={(Enums.GM)file}, targetGM={targetGm}, image={image}, sprite={DescribeSprite(target)}.");
+                }
                 else WarnOnce($"building:{definition.TypeId}:{targetGm}:{image}", $"Missing target building frame; using Vanilla. type={definition.TypeId}, targetGM={targetGm}, image={image}.");
             }
             catch (Exception ex) { WarnOnce("building-hook-error", $"Building visual hook failed closed after Vanilla: {ex}"); }
         }
 
         private void WarnOnce(string key, string message) { if (warnings.Add(key)) Shared.DebugLogHelper.LogWarning(log, message); }
+        private void LogOnce(string key, string message) { if (warnings.Add(key)) Shared.DebugLogHelper.LogInfo(log, message); }
+        private static bool IsUsableSprite(Sprite sprite) => sprite != null && sprite.texture != null && sprite.rect.width > 0f && sprite.rect.height > 0f && sprite.bounds.size.x > 0f && sprite.bounds.size.y > 0f;
+        private static string DescribeSprite(Sprite sprite) => sprite == null ? "<null>" : $"name={sprite.name},rect={sprite.rect.width}x{sprite.rect.height},bounds={sprite.bounds.size.x}x{sprite.bounds.size.y}";
         public void Dispose()
         {
             Release(ref buildingHook); buildingTrampoline = null;

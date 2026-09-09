@@ -11,7 +11,7 @@ namespace VirtualUnitsPrototype.Tests
         {
             try
             {
-                TestIdentityRegistry(); TestHealthMath(); TestSaveRoundTrip(); TestStaticContracts();
+                TestIdentityRegistry(); TestHealthMath(); TestPendingPolicy(); TestSaveRoundTrip(); TestStaticContracts();
                 Console.WriteLine($"VirtualUnitsPrototype tests passed: {checks} checks."); return 0;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -30,10 +30,22 @@ namespace VirtualUnitsPrototype.Tests
         private static void TestHealthMath()
         {
             Check(VirtualMath.ScalePositive(100, 2, 1, int.MaxValue) == 200, "health factor");
-            Check(VirtualMath.ScalePositive(100, 3, 2, ushort.MaxValue) == 150, "speed factor");
+            Check(VirtualMath.ScaleMovementSpeed(100, 3, 2, ushort.MaxValue) == 67, "faster movement uses a smaller encoded speed");
             Check(VirtualMath.ScaleHealth(150, 200, 100) == 75, "damage ratio restoration");
             Check(VirtualMath.ScaleHealth(1, 100, 1) == 1, "living minimum health");
             Check(VirtualMath.ScalePositive(short.MaxValue, 2, 1, short.MaxValue) == short.MaxValue, "building health clamp");
+            Check(VirtualMath.SignedLow32(4294967262L) == -34, "building result signed low32");
+            Check(VirtualMath.HexLow32(4294967262L) == "0xFFFFFFDE", "building result hexadecimal low32");
+        }
+        private static void TestPendingPolicy()
+        {
+            Check(!SpawnInitializationPolicy.CanFinalize(true, false, true, false, false), "NeedsInit finalized");
+            Check(!SpawnInitializationPolicy.CanFinalize(false, true, true, false, false), "identity mismatch finalized");
+            Check(!SpawnInitializationPolicy.CanFinalize(true, true, false, false, false), "invalid placement finalized");
+            Check(!SpawnInitializationPolicy.CanFinalize(true, true, true, true, false), "unit without renderer finalized");
+            Check(SpawnInitializationPolicy.CanFinalize(true, true, true, true, true), "valid unit not finalized");
+            Check(SpawnInitializationPolicy.CanFinalize(true, true, true, false, false), "valid building not finalized");
+            Check(!SpawnInitializationPolicy.HasTimedOut(99, 100) && SpawnInitializationPolicy.HasTimedOut(100, 100), "timeout boundary");
         }
         private static void TestSaveRoundTrip()
         {
@@ -54,6 +66,9 @@ namespace VirtualUnitsPrototype.Tests
             Check(visual.Contains("GetTileBuildingId") && !visual.Contains("StructureGrid"), "building visual reads native grid directly");
             Check(runtime.Contains("IsSingleplayerSkirmish") && runtime.Contains("IsRealMultiplayer") && runtime.Contains("IsMapEditor"), "mode guard incomplete");
             Check(runtime.Contains("CreateUnitLocal") && runtime.Contains("CreatePrefab") && runtime.Contains("false);"), "spawn contracts missing");
+            Check(runtime.Contains("InitializationPending") && runtime.Contains("ProcessPendingUnits") && runtime.Contains("ProcessPendingBuildings"), "pending initialization flow missing");
+            Check(runtime.Contains("DeleteUnitSafe") && runtime.Contains("DeleteBuildingSafe") && runtime.Contains("PendingIdentityMatches"), "pending cleanup is not identity guarded");
+            Check(visual.Contains("Unit visual hook matched") && visual.Contains("Building visual hook matched") && visual.Contains("IsUsableSprite"), "visual diagnostics missing");
             Check(plan.Contains("SetBodySprite(SpriteRenderer,int,int,int,bool,int,int)") && plan.Contains("GetTileBuildingId"), "confirmed plan corrections missing");
         }
         private static int Count(string text, string value) { int count = 0, offset = 0; while ((offset = text.IndexOf(value, offset, StringComparison.Ordinal)) >= 0) { count++; offset += value.Length; } return count; }

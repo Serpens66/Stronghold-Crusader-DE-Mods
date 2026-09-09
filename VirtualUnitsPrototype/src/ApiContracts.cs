@@ -9,7 +9,7 @@ namespace VirtualUnitsPrototype.API
         Success, NotInitialized, DefinitionsSealed, InvalidDefinition, DuplicateTypeId,
         UnknownTypeId, InvalidGameId, EntityNotFound, GlobalIdMismatch, BaseTypeMismatch,
         UnsupportedGameMode, InvalidPlacement, SpawnFailed, VisualFeatureUnavailable,
-        SaveDefinitionIncompatible, InternalError
+        SaveDefinitionIncompatible, InternalError, InitializationPending
     }
 
     public readonly struct VirtualApiResult

@@ -145,7 +145,11 @@ Ein einzelner globaler Atlas für das ganze Spiel wird nicht unterstützt. Jede 
 
 # 6. Teamfarbenmaske
 
-`atlas_m.png` ist technisch optional, für Einheiten und teamgefärbte Gebäude aber normalerweise notwendig.
+`atlas_m.png` ist technisch optional, fachlich aber von der Zielgruppe abhängig. Der aktuelle Atlas Builder liest diesen Vertrag aus der gegen Script Extender 2.3.0 und den aktuellen SHCDE-Loader geprüften Tabelle aller 195 Gruppen:
+
+- Plain-Gruppen wie `tile_ruins`, `tile_buildings1` oder `tree_cactii` dürfen keine Maske enthalten.
+- TeamColour- und Foliage-Gruppen benötigen eine vollständige Maske.
+- Eine falsche Auswahl wird vor dem Build abgewiesen.
 
 Sie muss:
 
@@ -266,6 +270,11 @@ Der Script Extender übernimmt Pivot und `pixelsPerUnit` unverändert aus der JS
 
 Ein Pivot ist normalisiert. Derselbe Pivotwert zeigt deshalb auf unterschiedlichen Bildgrößen nicht auf denselben Pixel. Das unveränderte Kopieren des normalisierten SHCDE-Pivots ist nur korrekt, wenn Quell- und Zielbild dieselbe Leinwand besitzen oder bewusst relativ gleich ausgerichtet wurden.
 
+Zwei Sonderfälle sind dabei wichtig:
+
+- Ein Pivot von exakt `1,0` bezeichnet die obere beziehungsweise rechte Kante. Bei einer anderen Leinwandgröße muss er `1,0` bleiben; die normale Abstand-von-unten-/links-Formel würde beispielsweise Teile von `anim_castle` verschieben.
+- Pivots außerhalb von `0..1` sind gültig. Die aktuellen Spieldaten enthalten unter anderem negative Y-Pivots bei `body_horse_archer_top`. Eine Bereichsprüfung auf `0..1` wäre daher falsch; geprüft werden muss der resultierende Pixelanker.
+
 Für gewöhnliche Ersatzbilder sollte der räumliche SHCDE-Pixelanker bewahrt werden:
 
     ankerX = zielPivotX * zielBreite
@@ -274,6 +283,8 @@ Für gewöhnliche Ersatzbilder sollte der räumliche SHCDE-Pixelanker bewahrt we
     ausgabePivotY = ankerY / ersatzHöhe
 
 Soll dagegen die ursprüngliche Ausrichtung eines aus einem anderen Unity-Spiel exportierten Sprites reproduziert werden, kann dessen `m_Pivot` aus den AssetRipper-Metadaten übernommen werden. Das ist nur zuverlässig, wenn das Ersatzbild dieselbe Leinwand besitzt oder proportional zur dokumentierten `m_Rect` skaliert wurde. Trimming oder ein geänderter transparenter Rand muss ausdrücklich ausgeglichen werden.
+
+Bei proportionaler Skalierung bleibt der normalisierte Quellpivot erhalten. Wurde nur die Leinwand vergrößert oder verkleinert, wird der absolute Quellanker auf die neue Größe umgerechnet. Ändert sich das Seitenverhältnis, kann der Builder vor möglichem Trimming warnen, aber die inhaltlich richtige Position nicht ohne weitere Angaben beweisen.
 
 Bei den geprüften SH1DE-Gruppen `tile_land8`, `tile_buildings1`, `tile_churches` und `tile_ruins` beträgt der Pixelanker durchgehend `(32, 16,5)` bei 64 PPU:
 
@@ -450,12 +461,15 @@ Zuerst nur eine vollständige Gruppe wie `body_archer` umsetzen. Erst nach einem
 2. Preserved original sprites may use incorrect team masks when the replacement atlas has a different layout.
 3. The raw AssetRipper schema loads only one frame from the single discovered `atlas.json`; multiple raw frame files are not collected.
 4. Documentation says all sprite groups are supported, but automatic discovery is restricted to the hard-coded `_gmFileNameToEnum` table.
+5. `tile_sea_new_01` and `tile_sea_shore` share `GM_NEW_SEA` through `ID_Offset` and `additionalStorage`. `ApplySingle` ignores both fields, so an atlas override for either group corrupts the shared Sprite arrays.
 
 Until these issues are fixed, complete GM-group replacement with the multi-frame JSON format is the reliable workflow.
 
 ## Davon getrennter Builderfehler
 
 Der Extender wendet den normalisierten Pivot aus `atlas.json` unverändert an und kennt die ursprüngliche Leinwand des Ersatzbildes nicht. Das ist kein Parserfehler. Der frühere Atlas Builder erzeugte jedoch standardmäßig ungeeignete JSON-Pivots, indem er den normalisierten Zielwert unverändert auf anders große Bilder übertrug. Der aktuelle Builder korrigiert das über den SHCDE-Pixelanker beziehungsweise explizite Quellmetadaten.
+
+Der Builder sperrt außerdem die beiden nicht sicher atlasfähigen Meeresgruppen, erzwingt den gruppenspezifischen Maskenvertrag und warnt gezielt vor dem weiterhin ungefixten Foliage-Materialproblem.
 
 ---
 

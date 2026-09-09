@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import re
 import shutil
@@ -13,12 +14,14 @@ from typing import Callable, Iterable
 import UnityPy
 from PIL import Image, ImageChops
 
-from .gm_groups import SUPPORTED_GROUPS
+from .gm_groups import GROUP_CONTRACTS, SUPPORTED_GROUPS
 from .i18n import translate
 from .models import GroupConfig, MASK_MODES, PIVOT_MODES, ProjectConfig
 
 
 ProgressCallback = Callable[[str], None]
+CORNER_PIVOT_EPSILON = 1e-6
+ANCHOR_TOLERANCE_PX = 1e-4
 
 
 class AtlasBuilderError(RuntimeError):
@@ -218,8 +221,8 @@ def read_source_metadata(
             )
         if metadata.width <= 0 or metadata.height <= 0:
             raise AtlasBuilderError(f"Source metadata has an invalid Sprite rectangle: {path}")
-        if not 0 <= metadata.pivot_x <= 1 or not 0 <= metadata.pivot_y <= 1:
-            raise AtlasBuilderError(f"Source metadata has a pivot outside 0..1: {path}")
+        if not math.isfinite(metadata.pivot_x) or not math.isfinite(metadata.pivot_y):
+            raise AtlasBuilderError(f"Source metadata has a non-finite pivot: {path}")
         if metadata.pixels_per_unit <= 0:
             raise AtlasBuilderError(f"Source metadata has invalid pixels-per-unit: {path}")
         found[key] = metadata
@@ -235,6 +238,18 @@ def _target_key(name: str, gm_file_name: str, dash_format: bool) -> FrameKey | N
     if not match:
         return None
     return FrameKey(int(match.group(1)), bool(match.group(2)))
+
+
+def _split_target_name(name: str) -> tuple[str, bool, FrameKey] | None:
+    match = re.search(r"(\d+)(x?)$", name, flags=re.IGNORECASE)
+    if match is None or match.start() == 0:
+        return None
+    delimiter = name[match.start() - 1]
+    if delimiter not in "- ":
+        return None
+    return name[: match.start() - 1], delimiter == "-", FrameKey(
+        int(match.group(1)), bool(match.group(2))
+    )
 
 
 def read_target_metadata(
@@ -254,6 +269,7 @@ def read_target_metadata(
         raise AtlasBuilderError(f"No Unity .assets files found in: {game_data_directory}")
 
     result: dict[str, dict[FrameKey, TargetFrame]] = {name: {} for name in requested_groups}
+    requested_lookup = {name.casefold(): name for name in requested_groups}
     required_keys = required_keys or {name: set() for name in requested_groups}
     remaining = set(requested_groups)
     for asset_path in asset_files:
@@ -272,22 +288,25 @@ def read_target_metadata(
                 name = getattr(data, "m_Name", getattr(data, "name", ""))
             except Exception:
                 continue
-            for group_name in requested_groups:
-                key = _target_key(name, group_name, requested_groups[group_name])
-                if key is None:
-                    continue
-                target = TargetFrame(
-                    name=name,
-                    pivot_x=float(data.m_Pivot.x),
-                    pivot_y=float(data.m_Pivot.y),
-                    pixels_per_unit=float(data.m_PixelsToUnits),
-                    width=float(data.m_Rect.width),
-                    height=float(data.m_Rect.height),
-                )
-                existing = result[group_name].get(key)
-                if existing and existing != target:
-                    raise AtlasBuilderError(f"Conflicting target metadata for sprite: {name}")
-                result[group_name][key] = target
+            split = _split_target_name(name)
+            if split is None:
+                continue
+            parsed_group, dash_format, key = split
+            group_name = requested_lookup.get(parsed_group.casefold())
+            if group_name is None or requested_groups[group_name] != dash_format:
+                continue
+            target = TargetFrame(
+                name=name,
+                pivot_x=float(data.m_Pivot.x),
+                pivot_y=float(data.m_Pivot.y),
+                pixels_per_unit=float(data.m_PixelsToUnits),
+                width=float(data.m_Rect.width),
+                height=float(data.m_Rect.height),
+            )
+            existing = result[group_name].get(key)
+            if existing and existing != target:
+                raise AtlasBuilderError(f"Conflicting target metadata for sprite: {name}")
+            result[group_name][key] = target
         remaining = {
             name
             for name, frames in result.items()
@@ -332,6 +351,14 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
         if canonical is None:
             raise AtlasBuilderError(f"Unknown Script Extender 2.3.0 GM group: {config.gm_file_name}")
         config.gm_file_name = canonical
+        contract = GROUP_CONTRACTS[canonical]
+        if not contract.overridable_as_atlas:
+            raise AtlasBuilderError(translate(project.language, "unsafe_atlas_group", group=canonical))
+        has_mask = config.mask_mode != "none"
+        if contract.mask_policy == "forbidden" and has_mask:
+            raise AtlasBuilderError(translate(project.language, "mask_forbidden", group=canonical))
+        if contract.mask_policy == "required" and not has_mask:
+            raise AtlasBuilderError(translate(project.language, "mask_required", group=canonical))
         requested[canonical] = SUPPORTED_GROUPS[canonical]
         _progress(callback, translate(project.language, "progress_checking", group=canonical))
         discovered[canonical], detected_prefixes[canonical] = discover_source_group(project, config)
@@ -350,6 +377,8 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
             raise AtlasBuilderError(f"{group_name}: source indices not present in SHCDE: {unknown}")
 
         warnings: list[str] = []
+        if GROUP_CONTRACTS[group_name].material == "foliage":
+            warnings.append(translate(project.language, "foliage_warning", group=group_name))
         source_metadata: dict[FrameKey, SourceSpriteMetadata] = {}
         if config.pivot_mode == "source-metadata":
             source_metadata = read_source_metadata(
@@ -388,6 +417,14 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
                     target=max(target_indices),
                     source=max(source_indices),
                 ))
+        missing_keys = sorted(set(targets) - {source.key for source in sources})
+        if missing_keys:
+            warnings.append(translate(
+                project.language,
+                "incomplete_group_warning",
+                group=group_name,
+                count=len(missing_keys),
+            ))
         prepared.append(PreparedGroup(config, requested[group_name], sources, targets, source_metadata, warnings))
     return prepared
 
@@ -399,17 +436,34 @@ def output_pivot(prepared: PreparedGroup, source: SourceFrame) -> tuple[float, f
         return target.pivot_x, target.pivot_y
     if mode == "source-metadata":
         metadata = prepared.source_metadata[source.key]
-        return metadata.pivot_x, metadata.pivot_y
+        scale_x = source.width / metadata.width
+        scale_y = source.height / metadata.height
+        # Uniformly scaled images keep their normalized source pivot. If only
+        # the canvas changed, preserve the source sprite's absolute anchor.
+        if abs(scale_x - scale_y) <= 0.0001:
+            return metadata.pivot_x, metadata.pivot_y
+        return (
+            _reanchored_pivot(metadata.pivot_x, metadata.width, source.width),
+            _reanchored_pivot(metadata.pivot_y, metadata.height, source.height),
+        )
     if target.width <= 0 or target.height <= 0:
         raise AtlasBuilderError(f"{target.name}: target Sprite rectangle must be positive")
-    anchor_x = target.pivot_x * target.width
-    anchor_y = target.pivot_y * target.height
-    if anchor_x < 0 or anchor_y < 0 or anchor_x > source.width or anchor_y > source.height:
-        raise AtlasBuilderError(
-            f"{target.name}: target pixel anchor ({anchor_x:g}, {anchor_y:g}) lies outside the "
-            f"{source.width}x{source.height} replacement image; add transparent canvas space"
-        )
-    return anchor_x / source.width, anchor_y / source.height
+    return (
+        _reanchored_pivot(target.pivot_x, target.width, source.width),
+        _reanchored_pivot(target.pivot_y, target.height, source.height),
+    )
+
+
+def _reanchored_pivot(reference_pivot: float, reference_size: float, own_size: float) -> float:
+    if reference_size <= 0 or own_size <= 0:
+        raise AtlasBuilderError("Sprite dimensions must be positive for pivot conversion")
+    if not math.isfinite(reference_pivot):
+        raise AtlasBuilderError("Sprite pivot must be finite")
+    # A pivot of exactly one denotes the opposite edge. Its distance from that
+    # edge is zero, so it remains one on a differently sized canvas.
+    if abs(reference_pivot - 1.0) <= CORNER_PIVOT_EPSILON:
+        return 1.0
+    return reference_pivot * reference_size / own_size
 
 
 def _shelf_pack(frames: list[SourceFrame], width: int, gap: int, margin: int, limit: int):
@@ -527,16 +581,18 @@ def validate_generated_group(prepared: PreparedGroup, directory: Path, project: 
             raise AtlasBuilderError(f"{target.name}: generated pixels-per-unit differs")
         expected_pivot = output_pivot(prepared, source)
         actual_pivot = frame.get("pivot", {})
-        if abs(float(actual_pivot.get("x", -1)) - expected_pivot[0]) > 0.000001 or abs(
-            float(actual_pivot.get("y", -1)) - expected_pivot[1]
-        ) > 0.000001:
+        pivot_error_x = abs(float(actual_pivot.get("x", math.nan)) - expected_pivot[0]) * source.width
+        pivot_error_y = abs(float(actual_pivot.get("y", math.nan)) - expected_pivot[1]) * source.height
+        if not math.isfinite(pivot_error_x) or not math.isfinite(pivot_error_y) or (
+            pivot_error_x > ANCHOR_TOLERANCE_PX or pivot_error_y > ANCHOR_TOLERANCE_PX
+        ):
             raise AtlasBuilderError(f"{target.name}: generated pivot differs")
         rect = frame["rect"]
         x, y, width, height = (rect[key] for key in ("x", "y", "w", "h"))
         if x < 0 or y < 0 or width <= 0 or height <= 0 or x + width > atlas.width or y + height > atlas.height:
             raise AtlasBuilderError(f"{target.name}: generated rectangle is invalid")
-        if not 0 <= frame["pivot"]["x"] <= 1 or not 0 <= frame["pivot"]["y"] <= 1:
-            raise AtlasBuilderError(f"{target.name}: generated pivot is invalid")
+        if not math.isfinite(float(frame["pivot"]["x"])) or not math.isfinite(float(frame["pivot"]["y"])):
+            raise AtlasBuilderError(f"{target.name}: generated pivot is not finite")
         top_y = atlas.height - y - height
         with Image.open(source.colour_path) as image:
             original = image.convert("RGBA")

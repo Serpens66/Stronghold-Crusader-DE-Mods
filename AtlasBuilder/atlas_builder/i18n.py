@@ -67,6 +67,11 @@ TEXT = {
         "metadata_aspect_warning": "{count} Quellbilder haben ein anderes Seitenverhältnis als ihr AssetRipper-Rect. Trimming kann den Pivot verfälschen. Beispiele: {examples}",
         "legacy_schema_warning": "Dieses Schema-1-Projekt verwendet weiterhin den alten normalisierten SHCDE-Pivot. Bei abweichenden Bildgrößen können Sprites verrutschen. Wähle pro betroffener Gruppe den SHCDE-Pixelanker oder Quellmetadaten und speichere das Projekt erneut.",
         "pivot_modes_used": "Verwendete Pivotquellen:",
+        "unsafe_atlas_group": "{group} kann mit Script Extender 2.3.0 nicht sicher als Atlas überschrieben werden, weil die Gruppe ihr Sprite-Array mit einer anderen Ladegruppe teilt. Verwende dafür nur Einzelsprite-Overrides.",
+        "mask_forbidden": "{group} verwendet im Spiel das maskenlose Plain-Material. Für diese Gruppe darf keine atlas_m.png erzeugt werden.",
+        "mask_required": "{group} verwendet im Spiel eine Maske. Wähle _m-Dateien im Farbordner oder einen separaten Maskenordner.",
+        "foliage_warning": "{group}: Vanilla verwendet Unlit/Foliage. Script Extender 2.3.0 erzeugt für den Maskenatlas fälschlich Unlit/TeamColour; die Darstellung kann trotz korrekter Dateien falsch gefärbt sein.",
+        "incomplete_group_warning": "{group}: {count} SHCDE-Zielframes fehlen im Atlas. Bewahrte Vanilla-Sprites können mit der neuen Atlasmaske falsch aussehen; vollständige Gruppen sind für Extender 2.3.0 am sichersten.",
     },
     "en": {
         "title": "SHCDE Atlas Builder",
@@ -133,6 +138,11 @@ TEXT = {
         "metadata_aspect_warning": "{count} source images have a different aspect ratio than their AssetRipper rectangle. Trimming may invalidate the pivot. Examples: {examples}",
         "legacy_schema_warning": "This schema-1 project keeps the old normalized SHCDE pivot. Sprites can shift when image dimensions differ. Select the SHCDE pixel anchor or source metadata for each affected group, then save the project again.",
         "pivot_modes_used": "Pivot sources used:",
+        "unsafe_atlas_group": "{group} cannot safely be overridden as an atlas with Script Extender 2.3.0 because it shares its Sprite arrays with another loader group. Use individual Sprite overrides instead.",
+        "mask_forbidden": "{group} uses the maskless Plain material in the game. Do not generate atlas_m.png for this group.",
+        "mask_required": "{group} uses a mask in the game. Select _m files in the colour directory or a separate mask directory.",
+        "foliage_warning": "{group}: Vanilla uses Unlit/Foliage. Script Extender 2.3.0 incorrectly creates Unlit/TeamColour for the mask atlas, so colours may render incorrectly despite valid files.",
+        "incomplete_group_warning": "{group}: {count} SHCDE target frames are absent from the atlas. Preserved Vanilla Sprites may render incorrectly with the new atlas mask; complete groups are safest with Extender 2.3.0.",
     },
 }
 

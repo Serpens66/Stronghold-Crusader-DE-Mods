@@ -18,6 +18,7 @@
     <Compile Include="..\src\IdentityRegistry.cs"><Link>IdentityRegistry.cs</Link></Compile>
     <Compile Include="..\src\SaveCodec.cs"><Link>SaveCodec.cs</Link></Compile>
     <Compile Include="..\src\VirtualMath.cs"><Link>VirtualMath.cs</Link></Compile>
+    <Compile Include="..\src\SpawnInitializationPolicy.cs"><Link>SpawnInitializationPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
