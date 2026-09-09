@@ -261,6 +261,31 @@ namespace PreplacedTest
             validOwnedLivingRecord && !isWall;
     }
 
+    internal static class FirstAivSpawnCorrelation
+    {
+        public static bool Matches(int buildingBeginX, int buildingBeginY, int buildingEndX, int buildingEndY,
+            int buildingType, int signalX, int signalY, int signalType) =>
+            buildingType == signalType && signalX >= buildingBeginX && signalX <= buildingEndX &&
+            signalY >= buildingBeginY && signalY <= buildingEndY;
+    }
+
+    internal static class EconomyCooldownTransition
+    {
+        public static string Classify(int before, int after) =>
+            before < 0 || after < 0 ? "unavailable" :
+            before == 0 && after > 0 ? "armed" :
+            after < before ? "decremented" :
+            after == before ? "unchanged" : "increased";
+    }
+
+    internal static class EconomySearchOutcome
+    {
+        public static string Classify(int searchCount, bool candidateFound, int constructionCount) =>
+            constructionCount > 0 ? "construction-called" :
+            searchCount == 0 ? "rejected-before-search" :
+            candidateFound ? "candidate-without-construction" : "search-no-candidate";
+    }
+
     internal static class AivAreaClassifier
     {
         public static bool Intersects(int originX, int originY, int size, int beginX, int beginY, int endX, int endY) =>

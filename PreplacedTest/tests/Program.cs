@@ -24,6 +24,7 @@ namespace PreplacedTest.Tests
                 TestBuildingAccessibilityResults();
                 TestDamageTransitions();
                 TestFirstAivBuildingEligibility();
+                TestEconomyDiagnosticModels();
                 TestPreplacedIdentityAndCountProjection();
                 TestPortalRoutes();
                 TestAivAreaClassification();
@@ -120,6 +121,23 @@ namespace PreplacedTest.Tests
             Check(!FirstAivBuildingEligibility.IsEligible(true, true), "wall spawn accepted as first AIV building");
         }
 
+        private static void TestEconomyDiagnosticModels()
+        {
+            Check(FirstAivSpawnCorrelation.Matches(10, 20, 12, 23, 30, 11, 22, 30),
+                "matching spawn signal was rejected");
+            Check(!FirstAivSpawnCorrelation.Matches(10, 20, 12, 23, 30, 13, 22, 30),
+                "out-of-footprint spawn signal was accepted");
+            Check(!FirstAivSpawnCorrelation.Matches(10, 20, 12, 23, 30, 11, 22, 31),
+                "wrong-type spawn signal was accepted");
+            Check(EconomyCooldownTransition.Classify(0, 5) == "armed", "search cooldown arm transition");
+            Check(EconomyCooldownTransition.Classify(5, 4) == "decremented", "search cooldown decrement transition");
+            Check(EconomyCooldownTransition.Classify(4, 4) == "unchanged", "search cooldown unchanged transition");
+            Check(EconomySearchOutcome.Classify(0, false, 0) == "rejected-before-search", "pre-search rejection model");
+            Check(EconomySearchOutcome.Classify(1, false, 0) == "search-no-candidate", "no-candidate model");
+            Check(EconomySearchOutcome.Classify(1, true, 0) == "candidate-without-construction", "candidate-without-build model");
+            Check(EconomySearchOutcome.Classify(1, true, 1) == "construction-called", "construction model");
+        }
+
         private static void TestPreplacedIdentityAndCountProjection()
         {
             int structureIdentity = StringComparer.Ordinal.GetHashCode("preplaced-structure");
@@ -157,6 +175,18 @@ namespace PreplacedTest.Tests
                 "allied portal route");
             Check(PortalRouteModel.Evaluate(30, 40, portals, 8, owner => owner == 7).Kind == PortalRouteKind.MixedFriendlyPortals,
                 "mixed own/allied portal route");
+            var fourOwnGates = new List<PortalConnection>
+            {
+                new PortalConnection(201, 1, 2, 0, 8, 51),
+                new PortalConnection(202, 2, 3, 0, 8, 52),
+                new PortalConnection(203, 3, 4, 0, 8, 53),
+                new PortalConnection(204, 4, 5, 0, 8, 54)
+            };
+            Check(PortalRouteModel.Evaluate(1, 5, fourOwnGates, 8, owner => false).UsedPortalIds.Length == 4,
+                "four own gatehouses were not traversed");
+            fourOwnGates.RemoveAt(2);
+            Check(PortalRouteModel.Evaluate(1, 5, fourOwnGates, 8, owner => false).Kind == PortalRouteKind.Unreachable,
+                "destroyed gatehouse did not break the modeled portal chain");
         }
 
         private static void TestAivAreaClassification()
@@ -200,19 +230,27 @@ namespace PreplacedTest.Tests
             string manifest = File.ReadAllText("info.json");
             string helper = File.ReadAllText(Path.Combine("..", "Shared", "DebugLogHelper.cs"));
             Check(helper.Contains("FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"), "native hash contract missing");
-            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x60AD660" })
+            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
-            foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateSize(typeof(GameGatehouseEntry), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
+            foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateSize(typeof(GameGatehouseEntry), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
             foreach (string nativeDelegate in new[]
             {
                 "delegate int CountBuildingsDelegate(ulong manager, int playerId, int structureType, int mode)",
                 "delegate int PlacementReachabilityDelegate(ulong manager, int playerId, int structureType, int x, int y)",
                 "delegate void AccessibilitySweepDelegate(ulong manager, int playerId)",
-                "delegate int BuildingAccessibilityDelegate(ulong manager, int buildingId, int mode)"
+                "delegate int BuildingAccessibilityDelegate(ulong manager, int buildingId, int mode)",
+                "delegate long EconomyFarmDelegate(ulong state, int playerId, int desiredStructureType)",
+                "delegate void ResourceSearchDelegate(ulong state, int playerId, int mode)",
+                "delegate void ConstructBuildingDelegate(",
+                "delegate int RegionPairReachabilityDelegate("
             })
                 Check(source.Contains(nativeDelegate), "native delegate ABI missing: " + nativeDelegate);
+            Check(source.Contains("ulong pathManager, int playerId, int targetPcl, int sourcePcl, int routeMode"),
+                "Script Extender 2.3.0 E2610 parameter order is not preserved");
             Check(source.Contains("players.Clear()"), "map transition does not reset sessions");
+            Check(source.Contains("activeEconomyContexts?.Clear()") && source.Contains("lastRoutingSnapshot = null"),
+                "map transition retains economy or routing diagnostic state");
             Check(source.Contains("activeAic - 1") || File.ReadAllText(Path.Combine("src", "DiagnosticModel.cs")).Contains("oneBasedSlot - 1"), "AIC slot is not converted from one-based exactly once");
             Check(source.Contains("CRUSHED_TIMER_ACTIVATED_BY_DAMAGE"), "damage-triggered timer activation diagnostic missing");
             Check(source.Contains("MAP_START_POST") && source.Contains("FIRST_SCHEDULER") && source.Contains("FIRST_ACTIVE_CRUSHED_DELAY"), "required building snapshots missing");
@@ -221,9 +259,24 @@ namespace PreplacedTest.Tests
                 source.Contains("CapturePreplacedBaseline") && source.Contains("HasAnyNonZeroByte") &&
                 source.Contains("ReclassifyPendingRawInventories"), "raw building baseline diagnostics missing");
             Check(source.Contains("placement-pcl-unreachable") && source.Contains("PREPLACED_PORTAL_TOPOLOGY"), "placement reachability diagnostics missing");
+            Check(source.Contains("economyMode0Eligible=") &&
+                source.Contains("kind != NativePortalExcludedKindForEconomyModeZero"),
+                "mode-zero economy portal filtering is not explicit in the raw topology diagnostic");
             Check(source.Contains("observationContinues=true") && !source.Contains("FinalizePlayer(playerId, \"first-building-follow-up-complete\")"), "observation still stops after first AIV building");
             Check(source.Contains("BuildingCountModeFieldOffset = 0x2C8"), "building-count mode field contract missing");
             Check(source.Contains("PlacementValidatorResult.Classify"), "validator result contract not used");
+            Check(source.Contains("EconomyGridWidth = 160") && source.Contains("EconomyGridCellStride = 0x30") &&
+                source.Contains("EconomyGridBaseOffset = 0x5B830") && source.Contains("EconomyVisitGenerationOffset = 0x5B50C"),
+                "economy flood-fill layout contract missing");
+            Check(source.Contains("index / EconomyGridWidth, index % EconomyGridWidth") &&
+                source.Contains("x * EconomyGridWidth + y"), "economy grid x-major index contract is not preserved");
+            Check(source.Contains("PREPLACED_ROUTING_SNAPSHOT_FULL") && source.Contains("PREPLACED_ROUTING_CHANGE") &&
+                source.Contains("PREPLACED_ECONOMY_SEARCH"), "economy routing diagnostics missing");
+            Check(source.Contains("before, result != 0") && source.Contains("search.CandidateFound"),
+                "farm result is not used instead of stale shared result coordinates");
+            Check(source.Contains("CaptureOwnedIdentities") && source.Contains("FirstAivSpawnCorrelation.Matches"),
+                "first AIV building identity correlation missing");
+            Check(source.Contains("transaction?.DisableAll()"), "native diagnostic failure does not defensively disable committed hooks");
             Check(!source.Contains("MaximumCapture") && !source.Contains("Take(100"), "fixed event cap found");
             Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.0.0\")") &&
                 assemblyInfo.Contains("AssemblyFileVersion(\"0.1.0.0\")") &&
@@ -244,7 +297,7 @@ namespace PreplacedTest.Tests
             string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
             MatchCollection definitions = Regex.Matches(source,
                 @"private const string (?<name>\w+Pattern)\s*=\s*(?<body>.*?);", RegexOptions.Singleline);
-            Check(definitions.Count >= 26, "not all native signatures were discovered by the static test");
+            Check(definitions.Count >= 38, "not all native signatures were discovered by the static test");
             foreach (Match definition in definitions)
             {
                 string name = definition.Groups["name"].Value;
@@ -267,7 +320,7 @@ namespace PreplacedTest.Tests
             }
 
             string functions = File.ReadAllText(Path.Combine("..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
-            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0" })
+            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }
 

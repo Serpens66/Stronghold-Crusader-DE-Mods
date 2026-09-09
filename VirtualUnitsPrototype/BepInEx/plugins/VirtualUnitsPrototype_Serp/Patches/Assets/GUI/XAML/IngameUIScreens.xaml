@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:CrusaderDE">
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Grid x:Name="VirtualUnitsPrototypeHud" Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="4"
+            HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8,0,0,42" Panel.ZIndex="10020"
+            Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+        <StackPanel Orientation="Vertical">
+          <Button Width="42" Height="30" HorizontalAlignment="Left" Content="VU"
+                  Command="{Binding TogglePanelCommand}" ToolTip="Virtual Units Prototype"/>
+          <Border Width="690" Height="74" Margin="0,4,0,0" Padding="7" Background="#E51A140D"
+                  BorderBrush="#FFC8A45F" BorderThickness="2"
+                  Visibility="{Binding PanelVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="135"/><ColumnDefinition Width="135"/><ColumnDefinition Width="85"/>
+                <ColumnDefinition Width="110"/><ColumnDefinition Width="105"/><ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Button Grid.Column="0" Margin="2" Content="Desert Archer" Command="{Binding SelectUnitCommand}"/>
+              <Button Grid.Column="1" Margin="2" Content="Desert Hovel" Command="{Binding SelectBuildingCommand}"/>
+              <Button Grid.Column="2" Margin="2" Content="Abbruch" Command="{Binding CancelCommand}"/>
+              <TextBlock Grid.Column="3" Margin="6,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" Text="{Binding SelectionText}" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="4" Margin="6,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" Text="{Binding TargetText}" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="5" Margin="6,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" Text="{Binding ResultText}" TextWrapping="Wrap"/>
+            </Grid>
+          </Border>
+        </StackPanel>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

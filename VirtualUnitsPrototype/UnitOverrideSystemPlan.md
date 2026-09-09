@@ -15,16 +15,16 @@ Der erste spielbare Proof of Concept umfasst:
 - strikt gesperrte Multiplayer-Zuweisungen;
 - ausschließlich vorhandene Vanilla-Grafiken.
 
-Der Script Extender 2.3.0 bleibt unverändert. Dieses Dokument plant die spätere Mod-Implementierung, implementiert sie aber noch nicht.
+Der Script Extender 2.3.0 bleibt unverändert. Dieses Dokument beschreibt den inzwischen als Testversion `0.1.0` umgesetzten Prototyp und bleibt die maßgebliche Spezifikation für seine Ingame-Verifikation und Weiterentwicklung.
 
 ## 1.1 Übergabe an einen neuen Chat oder Implementierer
 
 ### Aktueller Stand
 
-- Im Ordner `VirtualUnitsPrototype` existiert gegenwärtig ausschließlich diese Planungsdatei.
-- Es gibt noch kein `.csproj`, keinen C#-Code, keinen XAML-Patch, keine `info.json`, keine Tests und keine `build.bat`.
-- Es wurde noch kein Mod gebaut oder im Spiel getestet.
-- Die beschriebenen PoC-Namen, Faktoren und Bedienungsentscheidungen sind festgelegt; technische Annahmen mit Verifikationskennzeichnung sind dagegen vor ihrer Nutzung zu prüfen.
+- Projekt, öffentliche API, Runtime, verwaltete Visual-Hooks, XAML-HUD, Saveformat, Tests, `info.json` und `build.bat` sind als Testversion `0.1.0` umgesetzt.
+- 19 automatisierte Checks sowie der .NET-Framework-4.8.1-Build laufen ohne Warnungen oder Fehler durch.
+- Das lokale Paket wurde durch die mod-eigene `build.bat` in den Spieleordner installiert und bytegenau gegen das lokale Paket geprüft.
+- Ein tatsächlicher Spielstart und die in Abschnitt 15.2 beschriebenen Ingame-Tests stehen noch aus; Laufzeitverträge bleiben bis dahin als diagnostisch zu bestätigen gekennzeichnet.
 
 ### Verbindlicher Arbeitsauftrag
 
@@ -154,7 +154,8 @@ Die öffentliche API darf erst geschrieben werden, nachdem die konkreten Typen d
 
 - Unit-Erzeugung liefert `Int64`, die bestätigte positive Game-ID wird vor Registrynutzung auf den zulässigen `int`-Bereich geprüft.
 - Building-Erzeugung über `CreatePrefab` liefert einen Ergebniswert, aber nicht verlässlich die gewünschte Building-ID; die ID stammt aus dem korrelierten Building-Spawn-Postereignis.
-- `SetSpeed` und Building-`SetMaxHealth` verwenden `UInt16`; Modberechnungen müssen vor dem Aufruf begrenzen.
+- Unit-`SetMaxHealth` und Unit-`SetCurrentHealth` verwenden `Int32`; `SetSpeed` verwendet `UInt16`.
+- Building-`SetMaxHealth` verwendet `UInt16`, Building-`SetCurrentHealth` dagegen `Int16`. Der effektive Building-Maximalwert wird deshalb auf `Int16.MaxValue` begrenzt.
 - API-Abfragen dürfen keine rohen Pointer in der öffentlichen Modoberfläche exponieren.
 - Öffentliche Ereignisse dürfen unveränderliche Snapshots liefern und nicht die interne Registry mutierbar machen.
 
@@ -197,7 +198,7 @@ Die folgenden Punkte wurden bei Erstellung dieses Dokuments im lokalen Fork `shc
 - `BuildingR3EventHooks.OnBuildingSpawn` und `OnBuildingDelete` sind vorhanden.
 - `OnBuildingSpawn` wird in Pre- und Postphase ausgelöst; das Postereignis übernimmt den nativen Rückgabewert in `ReturnValue`.
 - `ModSaveDataAPI.RegisterModDataHandler(...)` ist vorhanden.
-- `GameTileManagerAPI.GetTileId(...)` und `StructureGrid` sind im Extender verfügbar.
+- `GameTileManagerAPI.GetTileId(...)` und die öffentliche Abfrage `GetTileBuildingId(...)` sind im Extender verfügbar.
 - `eMappers.MAPPER_HOVEL` wird durch den Extender `eStructs.STRUCT_HOVEL` zugeordnet.
 - `BuildingScales` weist `MAPPER_HOVEL` einen gültigen Scale zu.
 
@@ -220,7 +221,7 @@ Diese Punkte sind verpflichtende Gates und dürfen nicht aus diesem Dokument all
 - Die installierte Spiel-Assembly enthält `SpriteMapping.setGenericBuildingTileGraphic(GameMapTile,int,int,int)` genau einmal und mit hookbarer statischer Signatur.
 - `GameMapTile.gameMapX`, `gameMapY`, `tileImage` und `light` haben in der installierten Managed-Assembly die erwarteten zugänglichen Typen.
 - `spriteLoader.instance`, GM-Normal-/Alt-Arrays, Materialarrays und die benötigten Getter sind in der tatsächlich referenzierten Assembly erreichbar.
-- Der genaue Weg zur Bestimmung von Quell-GM, Frameindex und Alt-Frame aus dem aktuellen Unit-Sprite ist eindeutig und kollisionsfrei. Eine bloße Sprite-Namensheuristik reicht nicht ohne Tests.
+- `SpriteMapping.SetBodySprite(SpriteRenderer,int,int,int,bool,int,int)` ist genau einmal vorhanden und kann verwaltet detourt werden. Das Extender-Event bindet unmittelbar davor den Haupt-Renderer an die Unit-ID; der Detour erhält GM, Frame und Alt-Status ohne Sprite-Namensheuristik.
 - Alle verwendeten Enumwerte, besonders `CHIMP_TYPE_ARCHER`, `STRUCT_HOVEL`, `MAPPER_HOVEL`, `GM_BODY_ARAB_BOW`, `GM_BUILDINGS1` und `GM_BUILDINGS2`, stimmen zwischen Quellcode und Assembly überein.
 - Die Callbacksignaturen und Zeitpunkte von `ModSaveDataAPI` passen zum vorgesehenen Pending-Restore.
 - Die für Map-Start und Map-Unload gewählten Events laufen in der benötigten Reihenfolge.
@@ -276,9 +277,9 @@ Faktoren werden als ganzzahlige Brüche gespeichert. Zwischenrechnungen verhinde
 
 ## 7. Unit-Darstellung
 
-Der Mod abonniert `UnitR3EventHooks.OnUnitUnityVisualSpawn`, das auch bei laufenden Spriteaktualisierungen und Object-Pooling ausgelöst wird.
+Der Mod abonniert `UnitR3EventHooks.OnUnitUnityVisualSpawn`, um den Haupt-`SpriteRenderer` unmittelbar vor dessen erster Vanilla-Aktualisierung an die 1-basierte Unit-ID zu binden. Das Event selbst ist kein geeigneter Overridepunkt: Es läuft vor `SpriteMapping.SetBodySprite`, sodass eine dort gesetzte Grafik sofort wieder überschrieben würde.
 
-Pro Aufruf werden Unit-ID und Global-ID validiert, das aktuelle Vanilla-Sprite im Quell-GM beziehungsweise Alt-Array lokalisiert und Frameindex sowie Alt-Kennzeichen übernommen. Existiert der entsprechende Zielframe, setzt der Mod Ziel-Sprite, passendes Zielmaterial und den Ziel-Farbvertrag aus `spriteLoader.instance`. Transparenz, Flip, Sortierung, Rendereraktivität und Fußabschneidung bleiben erhalten.
+Ein modlokaler verwalteter Detour auf `SpriteMapping.SetBodySprite(SpriteRenderer,int,int,int,bool,int,int)` prüft bei jeder normalen oder alternativen Frameaktualisierung die gebundene Unit-ID, Global-ID und Definition. Existiert der Zielframe, wird nur der GM-Dateiparameter ersetzt und danach das Original genau einmal aufgerufen. Dadurch setzt Vanilla Ziel-Sprite, passendes Material, Teamfarbe, Transparenz und Fußabschneidung gemeinsam. Ungebundene Renderer und ungültige Instanzen laufen unverändert durch das Original.
 
 Fehlt ein Zielframe, bleibt nur dieser Aufruf Vanilla. Die Kombination aus Typ-ID, Ziel-GM, Frameindex und Alt-Status wird nur einmal protokolliert. Ein fehlender Frame deaktiviert keine anderen Animationen.
 
@@ -292,7 +293,7 @@ Die erste Visualschicht verwendet einen modlokalen Managed-Detour auf:
 
 `SpriteMapping.setGenericBuildingTileGraphic(GameMapTile tile, int file, int image, int light)`
 
-Der Detour ruft immer zuerst das Original auf. Danach ermittelt er aus `tile.gameMapX` und `tile.gameMapY` über `GameTileManagerAPI.GetTileId` die Tile-ID und liest aus `StructureGrid[tileId]` die 1-basierte Building-ID. Nach Prüfung von Building-ID, Global-ID, Basistyp und Definition speichert er den Vanilla-Deskriptor `(file, image, light)` und ersetzt ausschließlich `tile.tileImage`, falls das Visualprofil einen vorhandenen Zielframe liefert.
+Der Detour ruft immer zuerst das Original auf. Danach ermittelt er aus `tile.gameMapX` und `tile.gameMapY` über `GameTileManagerAPI.GetTileId` die Tile-ID und liest über `GameTileManagerAPI.GetTileBuildingId` die 1-basierte Building-ID. Nach Prüfung von Building-ID, Global-ID, Basistyp und Definition speichert er den Vanilla-Deskriptor `(file, image, light)` und ersetzt ausschließlich `tile.tileImage`, falls das Visualprofil einen vorhandenen Zielframe liefert.
 
 `StructureGrid`, `AlphaGFXGrid`, Belegung, Wegfindung, Höhe, Building-Typ, Footprint und native Grafikdeskriptoren bleiben unangetastet. Der ursprüngliche `light`-Wert bleibt erhalten. Ungültige GMs und fehlende Frames fallen für das betreffende Tile auf Vanilla zurück.
 
