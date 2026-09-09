@@ -93,20 +93,22 @@ namespace PreplacedTest
     {
         Unreachable,
         Direct,
-        FriendlyPortal,
-        ForeignPortalOnly
+        OwnPortal,
+        AlliedPortal,
+        MixedFriendlyPortals,
+        RequiresForeignPortal
     }
 
     internal readonly struct PortalRouteResult
     {
-        public PortalRouteResult(PortalRouteKind kind, int[] usedPortalIndices)
+        public PortalRouteResult(PortalRouteKind kind, int[] usedPortalIds)
         {
             Kind = kind;
-            UsedPortalIndices = usedPortalIndices ?? Array.Empty<int>();
+            UsedPortalIds = usedPortalIds ?? Array.Empty<int>();
         }
 
         public PortalRouteKind Kind { get; }
-        public int[] UsedPortalIndices { get; }
+        public int[] UsedPortalIds { get; }
     }
 
     internal static class PortalRouteModel
@@ -115,7 +117,8 @@ namespace PreplacedTest
             int startPcl,
             int destinationPcl,
             IReadOnlyList<PortalConnection> portals,
-            Func<int, bool> isFriendlyOwner)
+            int playerId,
+            Func<int, bool> isAlliedOwner)
         {
             if (startPcl <= 0 || destinationPcl <= 0)
                 return new PortalRouteResult(PortalRouteKind.Unreachable, null);
@@ -123,15 +126,28 @@ namespace PreplacedTest
                 return new PortalRouteResult(PortalRouteKind.Direct, null);
 
             IReadOnlyList<PortalConnection> source = portals ?? Array.Empty<PortalConnection>();
+            PortalRouteResult own = Search(startPcl, destinationPcl, source,
+                portal => portal.OwnerId == playerId, PortalRouteKind.OwnPortal);
+            if (own.Kind == PortalRouteKind.OwnPortal) return own;
+
             PortalRouteResult friendly = Search(startPcl, destinationPcl, source,
-                portal => isFriendlyOwner != null && isFriendlyOwner(portal.OwnerId),
-                PortalRouteKind.FriendlyPortal);
-            if (friendly.Kind == PortalRouteKind.FriendlyPortal)
-                return friendly;
+                portal => portal.OwnerId == playerId ||
+                    (isAlliedOwner != null && isAlliedOwner(portal.OwnerId)),
+                PortalRouteKind.AlliedPortal);
+            if (friendly.Kind == PortalRouteKind.AlliedPortal)
+            {
+                var usedIds = new HashSet<int>(friendly.UsedPortalIds);
+                bool usesOwn = source.Any(portal => usedIds.Contains(portal.PortalId) && portal.OwnerId == playerId);
+                bool usesAllied = source.Any(portal => usedIds.Contains(portal.PortalId) && portal.OwnerId != playerId);
+                return new PortalRouteResult(usesOwn && usesAllied
+                    ? PortalRouteKind.MixedFriendlyPortals
+                    : usesOwn ? PortalRouteKind.OwnPortal : PortalRouteKind.AlliedPortal,
+                    friendly.UsedPortalIds);
+            }
 
             PortalRouteResult any = Search(startPcl, destinationPcl, source,
-                portal => true, PortalRouteKind.ForeignPortalOnly);
-            return any.Kind == PortalRouteKind.ForeignPortalOnly
+                portal => true, PortalRouteKind.RequiresForeignPortal);
+            return any.Kind == PortalRouteKind.RequiresForeignPortal
                 ? any
                 : new PortalRouteResult(PortalRouteKind.Unreachable, null);
         }
@@ -229,6 +245,20 @@ namespace PreplacedTest
     internal static class DamageObservationModel
     {
         public static bool IsLethalInput(int currentHealth, int damage) => currentHealth > 0 && damage >= currentHealth;
+    }
+
+    internal static class BuildingAccessibilityResult
+    {
+        public static string Classify(int result) => result == 0 ? "rejected-zero" :
+            result == 1 ? "accessible" : result == 2 ? "rejected-two" : "unknown-" + result;
+
+        public static bool IsRejected(int result) => result == 0 || result == 2;
+    }
+
+    internal static class FirstAivBuildingEligibility
+    {
+        public static bool IsEligible(bool validOwnedLivingRecord, bool isWall) =>
+            validOwnedLivingRecord && !isWall;
     }
 
     internal static class AivAreaClassifier

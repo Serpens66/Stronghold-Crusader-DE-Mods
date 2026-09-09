@@ -63,9 +63,6 @@ namespace PreplacedTest
         private const int PortalThirdPclOffsetDwords = 0x883;
         private const int NativePortalLiveState = 1;
         private const int NativePortalExcludedKind = 1;
-        private const int AccessibilityRejectedZeroResult = 0;
-        private const int AccessibilityAllowedResult = 1;
-        private const int AccessibilityRejectedTwoResult = 2;
 
         private const string AllocateSpecPattern =
             "48 89 74 24 10 57 48 83 EC 20 BF 01 00 00 00 48 8D 81 9C 6D 00 00";
@@ -175,6 +172,7 @@ namespace PreplacedTest
         private readonly Dictionary<int, PlayerSession> players = new Dictionary<int, PlayerSession>();
         private readonly EarlyOwnerEventBuffer earlyOwnerEvents = new EarlyOwnerEventBuffer(1, MaxPlayablePlayerId);
         private readonly Dictionary<int, List<InventoryRecord>> earlyOwnerInventories = new Dictionary<int, List<InventoryRecord>>();
+        private readonly List<InventoryRecord> pendingRawInventories = new List<InventoryRecord>();
         private readonly Stack<DamageContext> pendingDamage = new Stack<DamageContext>();
         private readonly DiagnosticCounterSet unattributedCounters = new DiagnosticCounterSet();
         private readonly DetourHandle<AllocateSpecDelegate> allocateHook = new DetourHandle<AllocateSpecDelegate>();
@@ -207,7 +205,6 @@ namespace PreplacedTest
         private ulong nativePathManagerBase;
         private ulong lastAivState;
         private int mapSequence;
-        private int nestedExecuteDepth;
         private ExecuteContext activeExecute;
         private int activeSelectionPlayerId;
         private int activeAccessibilityPlayerId;
@@ -217,6 +214,8 @@ namespace PreplacedTest
         private string lastObservedPhase = "plugin-start";
         private readonly Dictionary<int, int> lastCrushedCounters = new Dictionary<int, int>();
         private readonly Dictionary<int, PreplacedIdentity> preplacedBuildings = new Dictionary<int, PreplacedIdentity>();
+        private readonly Dictionary<long, List<PreplacedIdentity>> preplacedByOwnerAndType =
+            new Dictionary<long, List<PreplacedIdentity>>();
         private readonly Dictionary<int, BuildingSnapshot> lastRawBuildings = new Dictionary<int, BuildingSnapshot>();
         private DateTime nextUnattributedFlushUtc = DateTime.UtcNow.AddSeconds(1);
         private DateTime nextRawDeltaUtc = DateTime.UtcNow.AddSeconds(1);
@@ -250,8 +249,11 @@ namespace PreplacedTest
             {
                 Dictionary<string, int> rvas = ResolveAll(context.Memory);
                 ValidateManagedLayouts();
-                if (NativePathManagerRva < 0 || NativePathManagerRva >= context.Memory.Length)
-                    throw new InvalidOperationException("native path-manager RVA is outside the image");
+                long pathManagerEnd = NativePathManagerRva +
+                    ((long)(MaximumPortalRecordCount - 1) * PortalRecordStrideDwords +
+                    PortalThirdPclOffsetDwords + 1) * sizeof(int);
+                if (NativePathManagerRva < 0 || pathManagerEnd > context.Memory.Length)
+                    throw new InvalidOperationException("native path-manager range is outside the image");
                 activeLayoutIndexBase = ResolveRipAddress(context, rvas["active-layout-reference"] + 3, 3, 7);
                 ulong module = unchecked((ulong)context.ModuleHandle.ToInt64());
                 nativePathManagerBase = module + NativePathManagerRva;
@@ -338,12 +340,17 @@ namespace PreplacedTest
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId), 0xD8);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionXEnd), 0xFE);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionYEnd), 0x100);
+            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_IsSleeping), 0x296);
+            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_GatehouseId), 0x2D2);
             ValidateOffset(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId), 0xA0);
             ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_BuildingId), 0x00);
             ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_GlobalId), 0x08);
             ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_IsOpen), 0x0C);
             ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_EntryDoorTileId), 0x18);
             ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_ExitDoorTileId), 0x24);
+            ValidateSize(typeof(GameBuilding), 0x32C);
+            ValidateSize(typeof(GamePlayerResources), PlayerRuntimeStateStride);
+            ValidateSize(typeof(GameGatehouseEntry), 0x204);
         }
 
         private static void ValidateOffset(Type type, string field, int expected)
@@ -351,6 +358,13 @@ namespace PreplacedTest
             int actual = Marshal.OffsetOf(type, field).ToInt32();
             if (actual != expected)
                 throw new InvalidOperationException($"managed layout mismatch: {type.Name}.{field}=0x{actual:X}, expected=0x{expected:X}");
+        }
+
+        private static void ValidateSize(Type type, int expected)
+        {
+            int actual = Marshal.SizeOf(type);
+            if (actual != expected)
+                throw new InvalidOperationException($"managed layout mismatch: sizeof({type.Name})=0x{actual:X}, expected=0x{expected:X}");
         }
 
         private static ulong ResolveRipAddress(CrusaderLibraryLoadContext context, int instructionRva, int displacementOffset, int length)
@@ -404,9 +418,13 @@ namespace PreplacedTest
         private void SelectBestFit(ulong state, int spec, byte rotations)
         {
             MarkPhase("select-best-fit.pre");
-            int old = activeSelectionPlayerId; activeSelectionPlayerId = SafePlayerFromSpec(state, spec);
-            if (TryGetAiSession(activeSelectionPlayerId, "select-best-fit", out PlayerSession session))
-                session.Counters.Add("phase.select-best-fit");
+            int old = activeSelectionPlayerId;
+            Safe(() =>
+            {
+                activeSelectionPlayerId = SafePlayerFromSpec(state, spec);
+                if (TryGetAiSession(activeSelectionPlayerId, "select-best-fit", out PlayerSession session))
+                    session.Counters.Add("phase.select-best-fit");
+            });
             try { selectHook.Original(state, spec, rotations); }
             finally
             {
@@ -420,9 +438,13 @@ namespace PreplacedTest
         private uint TestSpecificCandidate(ulong state, int spec, int candidate)
         {
             MarkPhase("test-specific-candidate.pre");
-            int playerId = SafePlayerFromSpec(state, spec);
-            if (TryGetAiSession(playerId, "test-specific-candidate", out PlayerSession session))
-                session.Counters.Add("phase.test-specific-candidate candidate=" + candidate);
+            int playerId = 0;
+            Safe(() =>
+            {
+                playerId = SafePlayerFromSpec(state, spec);
+                if (TryGetAiSession(playerId, "test-specific-candidate", out PlayerSession session))
+                    session.Counters.Add("phase.test-specific-candidate candidate=" + candidate);
+            });
             uint result = specificHook.Original(state, spec, candidate);
             MarkPhase("test-specific-candidate.post");
             if (IsAi(playerId))
@@ -435,9 +457,12 @@ namespace PreplacedTest
             MarkPhase("load-candidate.pre");
             loadHook.Original(state, zeroBasedPlayerId, candidate);
             MarkPhase("load-candidate.post");
-            int playerId = zeroBasedPlayerId + 1;
-            if (TryGetAiSession(playerId, "load-candidate", out PlayerSession session))
-                session.Counters.Add("phase.load-candidate candidate=" + candidate);
+            Safe(() =>
+            {
+                int playerId = checked(zeroBasedPlayerId + 1);
+                if (TryGetAiSession(playerId, "load-candidate", out PlayerSession session))
+                    session.Counters.Add("phase.load-candidate candidate=" + candidate);
+            });
         }
 
         private void ApplyRotation(ulong state, int orientation)
@@ -445,36 +470,44 @@ namespace PreplacedTest
             MarkPhase("apply-rotation.pre");
             rotationHook.Original(state, orientation);
             MarkPhase("apply-rotation.post");
-            if (IsAi(activeSelectionPlayerId)) Session(activeSelectionPlayerId).Counters.Add("phase.apply-rotation orientation=" + orientation);
-            else RecordUnattributed("phase.apply-rotation orientation=" + orientation);
+            Safe(() =>
+            {
+                if (IsAi(activeSelectionPlayerId)) Session(activeSelectionPlayerId).Counters.Add("phase.apply-rotation orientation=" + orientation);
+                else RecordUnattributed("phase.apply-rotation orientation=" + orientation);
+            });
         }
 
         private int EvaluateCandidateFit(ulong state, int spec)
         {
             MarkPhase("evaluate-fit.pre");
-            int result = fitHook.Original(state, spec); int playerId = SafePlayerFromSpec(state, spec);
+            int result = fitHook.Original(state, spec);
             MarkPhase("evaluate-fit.post");
-            if (TryGetAiSession(playerId, "evaluate-fit", out PlayerSession session))
-                session.Counters.Add("candidate-fit result=" + result + " candidate=" + ReadSpec(state, spec, CandidateIdOffset));
+            Safe(() =>
+            {
+                int playerId = SafePlayerFromSpec(state, spec);
+                if (TryGetAiSession(playerId, "evaluate-fit", out PlayerSession session))
+                    session.Counters.Add("candidate-fit result=" + result + " candidate=" + ReadSpec(state, spec, CandidateIdOffset));
+            });
             return result;
         }
 
         private void PrepareLayout(ulong state, int spec, int playerId)
         {
             Safe(() => ObservePhase("prepare-layout.pre", true));
-            if (!TryGetAiSession(playerId, "prepare-layout", out PlayerSession session))
+            PlayerSession session = null;
+            List<BuildingSnapshot> before = null;
+            Safe(() =>
             {
-                prepareHook.Original(state, spec, playerId);
-                Safe(() => ObservePhase("prepare-layout.post", true));
-                return;
-            }
-            SetAivArea(session, ReadSpec(state, spec, OriginXOffset), ReadSpec(state, spec, OriginYOffset));
-            List<BuildingSnapshot> before = CaptureAndEmitInventory(session, "PREPARE_BEFORE");
-            session.Counters.Add("phase.prepare-layout");
+                if (!TryGetAiSession(playerId, "prepare-layout", out session)) return;
+                SetAivArea(session, ReadSpec(state, spec, OriginXOffset), ReadSpec(state, spec, OriginYOffset));
+                before = CaptureAndEmitInventory(session, "PREPARE_BEFORE");
+                session.Counters.Add("phase.prepare-layout");
+            });
             prepareHook.Original(state, spec, playerId);
             Safe(() =>
             {
                 ObservePhase("prepare-layout.post", true);
+                if (session == null || before == null) return;
                 int originX = ReadSpec(state, spec, OriginXOffset), originY = ReadSpec(state, spec, OriginYOffset);
                 SetAivArea(session, originX, originY);
                 EmitBuildingInventory(playerId, "PREPARE_TRANSLATED", before, session.IsInsideAivArea);
@@ -487,31 +520,36 @@ namespace PreplacedTest
             MarkPhase("scheduler.pre");
             Safe(() => ObserveCrushedCounters("scheduler.pre"));
             lastAivState = state;
-            if (!TryGetAiSession(playerId, "scheduler", out PlayerSession session))
+            PlayerSession session = null;
+            SchedulerGateState before = default;
+            int executeBefore = 0;
+            int alternateBefore = 0;
+            Safe(() =>
             {
-                schedulerHook.Original(state, playerId);
-                MarkPhase("scheduler.post");
-                return;
-            }
-            SchedulerGateState before = ReadSchedulerState(state, playerId);
-            if (!session.HasAivArea && before.ActiveAivSlot > 0 && before.ActiveAivSlot <= MaxAivSpecIndex)
-                SetAivArea(session, ReadSpec(state, before.ActiveAivSlot, OriginXOffset), ReadSpec(state, before.ActiveAivSlot, OriginYOffset));
-            if (!session.FirstSchedulerSnapshotEmitted)
-            {
-                session.FirstSchedulerSnapshotEmitted = true;
-                CaptureAndEmitInventory(session, "FIRST_SCHEDULER");
-            }
-            if (before.CrushedCounter != 0 && !session.FirstActiveDelaySnapshotEmitted)
-            {
-                session.FirstActiveDelaySnapshotEmitted = true;
-                CaptureAndEmitInventory(session, "FIRST_ACTIVE_CRUSHED_DELAY");
-            }
-            string predictedGate = SchedulerGateClassifier.ClassifyBeforeCall(before);
-            int executeBefore = session.NestedExecuteCalls, alternateBefore = session.AlternativeCalls;
-            session.Counters.Add("scheduler.call"); session.Counters.Add("scheduler.pre=" + predictedGate);
+                if (!TryGetAiSession(playerId, "scheduler", out session)) return;
+                before = ReadSchedulerState(state, playerId);
+                if (!session.HasAivArea && before.ActiveAivSlot > 0 && before.ActiveAivSlot <= MaxAivSpecIndex)
+                    SetAivArea(session, ReadSpec(state, before.ActiveAivSlot, OriginXOffset), ReadSpec(state, before.ActiveAivSlot, OriginYOffset));
+                if (!session.FirstSchedulerSnapshotEmitted)
+                {
+                    session.FirstSchedulerSnapshotEmitted = true;
+                    CaptureAndEmitInventory(session, "FIRST_SCHEDULER");
+                }
+                if (before.CrushedCounter != 0 && !session.FirstActiveDelaySnapshotEmitted)
+                {
+                    session.FirstActiveDelaySnapshotEmitted = true;
+                    CaptureAndEmitInventory(session, "FIRST_ACTIVE_CRUSHED_DELAY");
+                }
+                executeBefore = session.NestedExecuteCalls;
+                alternateBefore = session.AlternativeCalls;
+                session.Counters.Add("scheduler.call");
+                session.Counters.Add("scheduler.pre=" + SchedulerGateClassifier.ClassifyBeforeCall(before));
+            });
             schedulerHook.Original(state, playerId);
             Safe(() =>
             {
+                if (session == null)
+                    return;
                 SchedulerGateState after = ReadSchedulerState(state, playerId);
                 string reached = session.NestedExecuteCalls != executeBefore ? "execute-build-step" :
                     session.AlternativeCalls != alternateBefore ? "alternative-execution" : "no-aiv-execution";
@@ -522,29 +560,37 @@ namespace PreplacedTest
                 if (before.CrushedCounter != after.CrushedCounter)
                     Immediate(playerId, $"CRUSHED_TIMER_CHANGE: {before.CrushedCounter}->{after.CrushedCounter}, configured={before.CrushedDelay}");
                 FlushIfDue(playerId, state, after);
-                MarkPhase("scheduler.post");
             });
+            MarkPhase("scheduler.post");
         }
 
         private int ExecuteBuildStep(ulong state, int playerId, int frame, int restrictedMode, byte freeOrForced)
         {
             MarkPhase("execute-build-step.pre");
-            if (!TryGetAiSession(playerId, "execute-build-step", out PlayerSession session))
-            {
-                int unattributedResult = executeHook.Original(state, playerId, frame, restrictedMode, freeOrForced);
-                MarkPhase("execute-build-step.post");
-                return unattributedResult;
-            }
-            session.NestedExecuteCalls++; nestedExecuteDepth++;
-            FrameSnapshot before = ReadFrame(state, playerId, frame);
-            ExecuteContext previous = activeExecute;
-            ExecuteContext current = new ExecuteContext(playerId, frame, before.Status);
-            activeExecute = current;
-            int result;
-            try { result = executeHook.Original(state, playerId, frame, restrictedMode, freeOrForced); }
-            finally { activeExecute = previous; nestedExecuteDepth--; }
+            PlayerSession session = null;
+            FrameSnapshot before = default;
+            ExecuteContext current = null;
             Safe(() =>
             {
+                if (!TryGetAiSession(playerId, "execute-build-step", out session)) return;
+                session.NestedExecuteCalls++;
+                before = ReadFrame(state, playerId, frame);
+                current = new ExecuteContext(playerId, frame, before.Status);
+            });
+            ExecuteContext previous = activeExecute;
+            if (current != null)
+            {
+                activeExecute = current;
+            }
+            int result;
+            try { result = executeHook.Original(state, playerId, frame, restrictedMode, freeOrForced); }
+            finally
+            {
+                activeExecute = previous;
+            }
+            Safe(() =>
+            {
+                if (session == null || current == null) return;
                 FrameSnapshot after = ReadFrame(state, playerId, frame);
                 string reason = ClassifyExecuteResult(result, current, before, after);
                 session.Counters.Add($"execute.result={result} reason={reason} mapper={before.Mapper}");
@@ -562,11 +608,12 @@ namespace PreplacedTest
         {
             MarkPhase("alternative-execution.pre");
             PlayerSession session = null;
-            if (TryGetAiSession(playerId, "alternative-execution", out session))
+            Safe(() =>
             {
+                if (!TryGetAiSession(playerId, "alternative-execution", out session)) return;
                 session.AlternativeCalls++;
                 session.Counters.Add("phase.alternative-execution mode=" + pausedMode);
-            }
+            });
             long result = alternativeHook.Original(state, playerId, pausedMode);
             MarkPhase("alternative-execution.post");
             return result;
@@ -577,9 +624,12 @@ namespace PreplacedTest
             MarkPhase("placement-helper.pre");
             long result = placementHook.Original(manager, playerId, x, y, mapperValue, orientation);
             MarkPhase("placement-helper.post");
-            if (IsAi(playerId)) Session(playerId).Counters.Add($"placement-helper result={result} mapper={(eMappers)mapperValue} pos=({x},{y}) orientation={orientation}");
-            else RecordUnattributed($"placement-helper player={playerId} result={result} mapper={(eMappers)mapperValue} orientation={orientation}");
-            if (activeExecute != null && activeExecute.PlayerId == playerId) activeExecute.PlacementResults.Add(result);
+            Safe(() =>
+            {
+                if (IsAi(playerId)) Session(playerId).Counters.Add($"placement-helper result={result} mapper={(eMappers)mapperValue} pos=({x},{y}) orientation={orientation}");
+                else RecordUnattributed($"placement-helper player={playerId} result={result} mapper={(eMappers)mapperValue} orientation={orientation}");
+                if (activeExecute != null && activeExecute.PlayerId == playerId) activeExecute.PlacementResults.Add(result);
+            });
             return result;
         }
 
@@ -588,12 +638,15 @@ namespace PreplacedTest
             MarkPhase("validator.pre");
             int result = validatorHook.Original(state, tileId, playerId, mapperValue, mode);
             MarkPhase("validator.post");
-            string outcome = PlacementValidatorResult.Classify(result);
-            if (IsAi(playerId))
-                Session(playerId).Counters.Add($"native-validator outcome={outcome} result={result} mapper={(eMappers)mapperValue} tileId={tileId} mode={mode}");
-            else
-                RecordUnattributed($"native-validator player={playerId} outcome={outcome} result={result} mapper={(eMappers)mapperValue} mode={mode}");
-            if (activeExecute != null && activeExecute.PlayerId == playerId) activeExecute.ValidatorResults.Add(result);
+            Safe(() =>
+            {
+                string outcome = PlacementValidatorResult.Classify(result);
+                if (IsAi(playerId))
+                    Session(playerId).Counters.Add($"native-validator outcome={outcome} result={result} mapper={(eMappers)mapperValue} tileId={tileId} mode={mode}");
+                else
+                    RecordUnattributed($"native-validator player={playerId} outcome={outcome} result={result} mapper={(eMappers)mapperValue} mode={mode}");
+                if (activeExecute != null && activeExecute.PlayerId == playerId) activeExecute.ValidatorResults.Add(result);
+            });
             return result;
         }
 
@@ -602,9 +655,12 @@ namespace PreplacedTest
             MarkPhase("resource-gate.pre");
             int result = resourceGateHook.Original(manager, mapperValue, playerId, mode);
             MarkPhase("resource-gate.post");
-            if (IsAi(playerId)) Session(playerId).Counters.Add($"resource-gate result={result} mapper={(eMappers)mapperValue} mode={mode}");
-            else RecordUnattributed($"resource-gate player={playerId} result={result} mapper={(eMappers)mapperValue} mode={mode}");
-            if (activeExecute != null && activeExecute.PlayerId == playerId) activeExecute.ResourceResults.Add(result);
+            Safe(() =>
+            {
+                if (IsAi(playerId)) Session(playerId).Counters.Add($"resource-gate result={result} mapper={(eMappers)mapperValue} mode={mode}");
+                else RecordUnattributed($"resource-gate player={playerId} result={result} mapper={(eMappers)mapperValue} mode={mode}");
+                if (activeExecute != null && activeExecute.PlayerId == playerId) activeExecute.ResourceResults.Add(result);
+            });
             return result;
         }
 
@@ -618,9 +674,12 @@ namespace PreplacedTest
             MarkPhase(name + ".pre");
             int result = hook.Original(manager, playerId, mapperValue);
             MarkPhase(name + ".post");
-            if (IsAi(playerId)) Session(playerId).Counters.Add($"{name} result={result} mapper={(eMappers)mapperValue}");
-            else RecordUnattributed($"{name} player={playerId} result={result} mapper={(eMappers)mapperValue}");
-            if (activeExecute != null && activeExecute.PlayerId == playerId && result != 0) activeExecute.WaitRejectors.Add(name);
+            Safe(() =>
+            {
+                if (IsAi(playerId)) Session(playerId).Counters.Add($"{name} result={result} mapper={(eMappers)mapperValue}");
+                else RecordUnattributed($"{name} player={playerId} result={result} mapper={(eMappers)mapperValue}");
+                if (activeExecute != null && activeExecute.PlayerId == playerId && result != 0) activeExecute.WaitRejectors.Add(name);
+            });
             return result;
         }
 
@@ -629,11 +688,12 @@ namespace PreplacedTest
             MarkPhase("delete-hovel.pre");
             int result = deleteHovelHook.Original(manager, playerId);
             MarkPhase("delete-hovel.post");
-            if (TryGetAiSession(playerId, "delete-hovel", out PlayerSession session))
+            Safe(() =>
             {
+                if (!TryGetAiSession(playerId, "delete-hovel", out PlayerSession session)) return;
                 session.Counters.Add("hovel-delete result=" + result);
                 if (result != 0) Immediate(playerId, "HOVEL_DELETE_SUCCEEDED");
-            }
+            });
             return result;
         }
 
@@ -642,8 +702,11 @@ namespace PreplacedTest
             MarkPhase("maintenance-1.pre");
             maintenanceOneHook.Original(state, playerId);
             MarkPhase("maintenance-1.post");
-            if (TryGetAiSession(playerId, "maintenance-1", out PlayerSession session))
-                session.Counters.Add("maintenance.0x50340");
+            Safe(() =>
+            {
+                if (TryGetAiSession(playerId, "maintenance-1", out PlayerSession session))
+                    session.Counters.Add("maintenance.0x50340");
+            });
         }
 
         private void MaintenanceTwo(ulong state, int playerId)
@@ -651,8 +714,11 @@ namespace PreplacedTest
             MarkPhase("maintenance-2.pre");
             maintenanceTwoHook.Original(state, playerId);
             MarkPhase("maintenance-2.post");
-            if (TryGetAiSession(playerId, "maintenance-2", out PlayerSession session))
-                session.Counters.Add("maintenance.0x504F0");
+            Safe(() =>
+            {
+                if (TryGetAiSession(playerId, "maintenance-2", out PlayerSession session))
+                    session.Counters.Add("maintenance.0x504F0");
+            });
         }
 
         private int CountBuildings(ulong manager, int playerId, int structureType, int mode)
@@ -664,7 +730,7 @@ namespace PreplacedTest
             {
                 int preplaced = CountMatchingPreplaced(playerId, (eStructs)structureType, mode);
                 int hypothetical = PreplacedCountProjection.WithoutPreplaced(result, preplaced);
-                string key = $"global-count type={(eStructs)structureType} mode={mode} vanilla={result} preplaced={preplaced}/{result} hypothetical={hypothetical}";
+                string key = $"global-count type={(eStructs)structureType} mode={mode} vanilla={result} preplacedFraction={preplaced}/{result} hypothetical={hypothetical}";
                 if (IsAi(playerId)) Session(playerId).Counters.Add(key);
                 else RecordUnattributed($"{key} player={playerId}");
             });
@@ -726,20 +792,25 @@ namespace PreplacedTest
         private int BuildingAccessibility(ulong manager, int buildingId, int mode)
         {
             MarkPhase("building-accessibility.pre");
-            BuildingSnapshot? before = TryCaptureBuilding(buildingId, out BuildingSnapshot snapshot) ? snapshot : (BuildingSnapshot?)null;
+            BuildingSnapshot? before = null;
+            Safe(() =>
+            {
+                if (activeAccessibilityPlayerId != 0 &&
+                    TryCaptureBuilding(buildingId, out BuildingSnapshot snapshot)) before = snapshot;
+            });
             int result = buildingAccessibilityHook.Original(manager, buildingId, mode);
             Safe(() =>
             {
                 if (activeAccessibilityPlayerId == 0) return;
                 int playerId = activeAccessibilityPlayerId;
                 string identity = before.HasValue ? before.Value.ToText(TryGetArea(before.Value.OwnerId, before.Value)) : "building=unresolved";
-                string key = $"building-accessibility result={result} class={ClassifyBuildingAccessibility(result)} mode={mode} preplaced={IsCurrentPreplaced(buildingId)} {identity}";
+                string key = $"building-accessibility result={result} class={BuildingAccessibilityResult.Classify(result)} mode={mode} preplaced={IsCurrentPreplaced(buildingId)} {identity}";
                 activeAccessibilityCalls?.Add(new AccessibilityCallSnapshot(buildingId,
                     before.HasValue ? before.Value.Alive + "/sleep=" + before.Value.Sleeping : "unresolved", result));
                 if (IsAi(playerId))
                 {
                     Session(playerId).Counters.Add(key);
-                    if (result == AccessibilityRejectedZeroResult || result == AccessibilityRejectedTwoResult)
+                    if (BuildingAccessibilityResult.IsRejected(result))
                     {
                         ReachabilitySnapshot diagnostic = before.HasValue
                             ? CaptureReachability(playerId, before.Value.EndX, before.Value.EndY)
@@ -766,7 +837,9 @@ namespace PreplacedTest
             return "placement-failed-unspecified";
         }
 
-        private void OnMapLoad(MapLoadEventArgs args)
+        private void OnMapLoad(MapLoadEventArgs args) => Safe(() => ProcessMapLoad(args));
+
+        private void ProcessMapLoad(MapLoadEventArgs args)
         {
             if (args.Phase == EventHookPhase.Pre)
             {
@@ -778,7 +851,9 @@ namespace PreplacedTest
             Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_MAP_LOAD: phase={args.Phase}, sequence={mapSequence}.");
         }
 
-        private void OnMapStart(MapStartEventArgs args)
+        private void OnMapStart(MapStartEventArgs args) => Safe(() => ProcessMapStart(args));
+
+        private void ProcessMapStart(MapStartEventArgs args)
         {
             Safe(() => ObservePhase(args.Phase == EventHookPhase.Pre ? "map-start.pre" : "map-start.post", true));
             if (args.Phase == EventHookPhase.Post)
@@ -795,6 +870,7 @@ namespace PreplacedTest
                         foreach (string earlyEvent in earlyEvents) session.Counters.Add("early." + earlyEvent);
                         if (earlyEvents.Length != 0) Immediate(playerId, "EARLY_OWNER_EVENTS_REPLAYED: count=" + earlyEvents.Length);
                         AdoptEarlyInventories(session);
+                        if (session.HasAivArea) ReclassifyPendingRawInventories(session);
                         CaptureAndEmitInventory(session, "MAP_START_POST");
                         EmitPortalTopology(playerId, "MAP_START_POST", CaptureReachability(playerId, -1, -1));
                     }
@@ -812,7 +888,9 @@ namespace PreplacedTest
             Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_MAP_START: phase={args.Phase}, sequence={mapSequence}.");
         }
 
-        private void OnMapUnload(MapUnloadEventArgs args)
+        private void OnMapUnload(MapUnloadEventArgs args) => Safe(() => ProcessMapUnload(args));
+
+        private void ProcessMapUnload(MapUnloadEventArgs args)
         {
             if (args.Phase != EventHookPhase.Pre) return;
             mapActive = false;
@@ -839,32 +917,35 @@ namespace PreplacedTest
 
         private void OnBuildStructure(BuildStructureEventArgs args)
         {
-            RecordOwnerEvent(args.PlayerId,
-                $"build-structure phase={args.Phase} mapper={args.Mappers} pos=({args.TileX},{args.TileY}) free={args.IsFree}");
+            Safe(() => RecordOwnerEvent(args.PlayerId,
+                $"build-structure phase={args.Phase} mapper={args.Mappers} pos=({args.TileX},{args.TileY}) free={args.IsFree}"));
         }
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)
         {
-            if (args.Phase != EventHookPhase.Post) return;
-            RecordOwnerEvent(args.PlayerId,
-                $"spawn type={args.Building} pos=({args.TileX},{args.TileY}) result={args.ReturnValue}");
-            if (activeExecute != null && activeExecute.PlayerId == args.PlayerId &&
-                args.ReturnValue > 0 && args.ReturnValue <= int.MaxValue)
+            Safe(() =>
             {
+                if (args.Phase != EventHookPhase.Post) return;
+                RecordOwnerEvent(args.PlayerId,
+                    $"spawn type={args.Building} pos=({args.TileX},{args.TileY}) result={args.ReturnValue}");
+                if (activeExecute == null || activeExecute.PlayerId != args.PlayerId ||
+                    args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue) return;
                 int buildingId = (int)args.ReturnValue;
-                bool validAivBuilding = TryCaptureBuilding(buildingId, out BuildingSnapshot building) &&
+                bool validRecord = TryCaptureBuilding(buildingId, out BuildingSnapshot building) &&
                     building.OwnerId == args.PlayerId && building.Type.Equals(args.Building) &&
-                    building.Alive == AliveState.IsAlive && !IsWallStructure(building.Type);
+                    building.Alive == AliveState.IsAlive && building.GlobalId != 0;
+                bool validAivBuilding = FirstAivBuildingEligibility.IsEligible(
+                    validRecord, validRecord && IsWallStructure(building.Type));
                 if (validAivBuilding) activeExecute.SpawnedBuildingIds.Add(buildingId);
                 else RecordOwnerEvent(args.PlayerId,
                     $"spawn-not-first-aiv-building id={buildingId} requestedType={args.Building}");
-            }
+            });
         }
 
         private void OnPlacementValidation(BuildingPlacementValidationEventArgs args)
         {
-            RecordOwnerEvent(args.PlayerId,
-                $"placement-validation phase={args.Phase} mapper={args.Mappers} pos=({args.TileX},{args.TileY}) custom={args.CustomValidationRules} forceBlock={args.ForceBlockPlacementState}");
+            Safe(() => RecordOwnerEvent(args.PlayerId,
+                $"placement-validation phase={args.Phase} mapper={args.Mappers} pos=({args.TileX},{args.TileY}) custom={args.CustomValidationRules} forceBlock={args.ForceBlockPlacementState}"));
         }
 
         private void OnBuildingDamage(BuildingTileTakeDamageEventArgs args)
@@ -896,8 +977,8 @@ namespace PreplacedTest
             }
         }
 
-        private void OnBuildingBulldoze(BuildingBulldozeEventArgs args) => RecordRemoval("bulldoze", args.Phase, args.BuildingId);
-        private void OnBuildingDelete(BuildingDeleteEventArgs args) => RecordRemoval("delete", args.Phase, args.BuildingId);
+        private void OnBuildingBulldoze(BuildingBulldozeEventArgs args) => Safe(() => RecordRemoval("bulldoze", args.Phase, args.BuildingId));
+        private void OnBuildingDelete(BuildingDeleteEventArgs args) => Safe(() => RecordRemoval("delete", args.Phase, args.BuildingId));
 
         private void RecordRemoval(string kind, EventHookPhase phase, int buildingId)
         {
@@ -913,8 +994,8 @@ namespace PreplacedTest
                 foreach (int playerId in players.Keys.ToArray()) FinalizePlayer(playerId, "map-transition");
             FinalizeUnattributed("map-transition");
             players.Clear(); mapSequence++; activeExecute = null; activeSelectionPlayerId = 0;
-            earlyOwnerEvents.Clear(); earlyOwnerInventories.Clear(); pendingDamage.Clear(); unattributedCounters.Clear();
-            preplacedBuildings.Clear(); lastRawBuildings.Clear(); lastCrushedCounters.Clear();
+            earlyOwnerEvents.Clear(); earlyOwnerInventories.Clear(); pendingRawInventories.Clear(); pendingDamage.Clear(); unattributedCounters.Clear();
+            preplacedBuildings.Clear(); preplacedByOwnerAndType.Clear(); lastRawBuildings.Clear(); lastCrushedCounters.Clear();
             lastObservedPhase = "map-reset"; activeAccessibilityPlayerId = 0; mapActive = false;
             aiOwnershipResolved = false;
             activeAccessibilityCalls = null;
@@ -942,7 +1023,10 @@ namespace PreplacedTest
             if (!IsAi(playerId))
             {
                 session = null;
-                RecordUnattributed(source + " player=" + playerId);
+                if (IsValidOwner(playerId) && !aiOwnershipResolved)
+                    earlyOwnerEvents.Add(playerId, "native." + source);
+                else
+                    RecordUnattributed(source + " player=" + playerId);
                 return false;
             }
             session = Session(playerId);
@@ -1099,6 +1183,11 @@ namespace PreplacedTest
             string payload = $"allocatedSlots={span.Length}; nonEmpty={current.Count}; empty={span.Length - current.Count}; " +
                 string.Join("; ", current.Select(DescribeRawBuilding));
             EmitChunked($"PREPLACED_RAW_BUILDINGS: sequence={mapSequence}; label={label}; ", payload);
+            bool needsLaterAreaClassification = !aiOwnershipResolved || current.Any(building =>
+                IsAi(building.OwnerId) &&
+                (!players.TryGetValue(building.OwnerId, out PlayerSession session) || !session.HasAivArea));
+            if (needsLaterAreaClassification)
+                pendingRawInventories.Add(new InventoryRecord("RAW_" + label, current));
             if (lastRawBuildings.Count != 0)
             {
                 string[] changes = DescribeBuildingChanges(lastRawBuildings, currentById).ToArray();
@@ -1132,20 +1221,47 @@ namespace PreplacedTest
             for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
                 ref GameBuilding building = ref buildings[spanIndex];
-                BuildingSnapshot snapshot = Snapshot(spanIndex + 1, ref building);
-                if (snapshot.IsNonEmpty) result.Add(snapshot);
+                if (HasAnyNonZeroByte(ref building))
+                    result.Add(Snapshot(spanIndex + 1, ref building));
             }
             return result;
+        }
+
+        private static bool HasAnyNonZeroByte(ref GameBuilding building)
+        {
+            fixed (GameBuilding* buildingPointer = &building)
+            {
+                byte* bytes = (byte*)buildingPointer;
+                for (int offset = 0; offset < sizeof(GameBuilding); offset++)
+                    if (bytes[offset] != 0) return true;
+            }
+            return false;
         }
 
         private void CapturePreplacedBaseline()
         {
             preplacedBuildings.Clear();
-            foreach (BuildingSnapshot building in CaptureRawBuildings())
+            preplacedByOwnerAndType.Clear();
+            List<BuildingSnapshot> rawBuildings = CaptureRawBuildings();
+            foreach (BuildingSnapshot building in rawBuildings)
+            {
+                // A zero Global-ID cannot distinguish later reuse of the same native slot.
+                if (building.GlobalId == 0) continue;
                 preplacedBuildings[building.Id] = building.Identity;
-            EmitChunked($"PREPLACED_BASELINE: sequence={mapSequence}; count={preplacedBuildings.Count}; ",
+                long key = GetOwnerTypeKey(building.OwnerId, building.Type);
+                if (!preplacedByOwnerAndType.TryGetValue(key, out List<PreplacedIdentity> identities))
+                {
+                    identities = new List<PreplacedIdentity>();
+                    preplacedByOwnerAndType.Add(key, identities);
+                }
+                identities.Add(building.Identity);
+            }
+            string unstable = string.Join("; ", rawBuildings.Where(building => building.GlobalId == 0)
+                .Select(building => building.ToText(TryGetArea(building.OwnerId, building))));
+            EmitChunked($"PREPLACED_BASELINE: sequence={mapSequence}; stable={preplacedBuildings.Count}; unstableWithoutGlobalId={rawBuildings.Count - preplacedBuildings.Count}; ",
                 string.Join("; ", preplacedBuildings.Values.Select(p =>
-                    $"id={p.BuildingId},global={p.GlobalId},owner={p.OwnerId},type={(eStructs)p.StructureType}")));
+                    $"id={p.BuildingId},global={p.GlobalId},owner={p.OwnerId},type={(eStructs)p.StructureType}")) +
+                    (unstable.Length == 0 ? string.Empty : "; unstableRecords=" + unstable));
         }
 
         private static IEnumerable<string> DescribeBuildingChanges(
@@ -1166,7 +1282,10 @@ namespace PreplacedTest
         private int CountMatchingPreplaced(int playerId, eStructs structureType, int mode)
         {
             int count = 0;
-            foreach (PreplacedIdentity identity in preplacedBuildings.Values)
+            if (!preplacedByOwnerAndType.TryGetValue(GetOwnerTypeKey(playerId, structureType),
+                    out List<PreplacedIdentity> identities))
+                return 0;
+            foreach (PreplacedIdentity identity in identities)
             {
                 if (identity.OwnerId != playerId || identity.StructureType != (int)structureType ||
                     !GameBuildingManagerAPI.Instance.TryGetBuildingById(identity.BuildingId, out GameBuilding* building) ||
@@ -1178,6 +1297,9 @@ namespace PreplacedTest
             }
             return count;
         }
+
+        private static long GetOwnerTypeKey(int ownerId, eStructs structureType) =>
+            ((long)(uint)ownerId << 32) | (uint)(int)structureType;
 
         private bool IsCurrentPreplaced(int buildingId)
         {
@@ -1191,9 +1313,9 @@ namespace PreplacedTest
             int keepPcl = TryGetKeepPcl(playerId, out int capturedKeep) ? capturedKeep : 0;
             int targetPcl = TryGetPclAt(x, y, out int capturedTarget) ? capturedTarget : 0;
             List<PortalConnection> portals = CapturePortalConnections(out string details);
-            PortalRouteResult route = PortalRouteModel.Evaluate(keepPcl, targetPcl, portals,
-                owner => owner == playerId ||
-                    (GamePlayerManagerAPI.Instance.IsPlayerIdValid(owner) && GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(playerId, owner)));
+            PortalRouteResult route = PortalRouteModel.Evaluate(keepPcl, targetPcl, portals, playerId,
+                owner => GamePlayerManagerAPI.Instance.IsPlayerIdValid(owner) &&
+                    GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(playerId, owner));
             return new ReachabilitySnapshot(keepPcl, targetPcl, route, portals, details);
         }
 
@@ -1252,7 +1374,7 @@ namespace PreplacedTest
             session.Counters.Add($"portal-topology observation={label} route={snapshot.Route.Kind}");
             if (!session.EmittedPortalSignatures.Add(signature)) return;
             EmitChunked($"PREPLACED_PORTAL_TOPOLOGY: player={playerId}; label={label}; ",
-                $"keepPcl={snapshot.KeepPcl}; targetPcl={snapshot.TargetPcl}; route={snapshot.Route.Kind}; used=[{string.Join(",", snapshot.Route.UsedPortalIndices)}]; {snapshot.Details}; gatehouseEntries={gatehouseDetails}");
+                $"keepPcl={snapshot.KeepPcl}; targetPcl={snapshot.TargetPcl}; route={snapshot.Route.Kind}; usedPortalIds=[{string.Join(",", snapshot.Route.UsedPortalIds)}]; {snapshot.Details}; gatehouseEntries={gatehouseDetails}");
         }
 
         private string CaptureGatehouseEntries()
@@ -1266,8 +1388,9 @@ namespace PreplacedTest
                 if (entry == null || (entry->r_BuildingId == 0 && entry->r_GlobalId == 0)) continue;
                 bool idInRange = entry->r_BuildingId > 0 && entry->r_BuildingId <= int.MaxValue;
                 int buildingId = idInRange ? (int)entry->r_BuildingId : 0;
-                bool resolved = idInRange && TryCaptureBuilding(buildingId, out BuildingSnapshot building);
-                bool identityMatches = resolved && building.GlobalId == entry->r_GlobalId &&
+                BuildingSnapshot building = default;
+                bool resolved = idInRange && TryCaptureBuilding(buildingId, out building);
+                bool identityMatches = resolved && entry->r_GlobalId != 0 && building.GlobalId == entry->r_GlobalId &&
                     IsPortalStructure(building.Type) &&
                     (building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit);
                 if (identityMatches) linkedBuildings.Add(buildingId);
@@ -1327,9 +1450,6 @@ namespace PreplacedTest
             return building.ToText(TryGetArea(building.OwnerId, building)) + ",ownerKind=" + ownerKind;
         }
 
-        private static string ClassifyBuildingAccessibility(int result) => result == AccessibilityRejectedZeroResult ? "rejected-zero" :
-            result == AccessibilityAllowedResult ? "accessible" : result == AccessibilityRejectedTwoResult ? "rejected-two" : "unknown-" + result;
-
         private List<BuildingSnapshot> CaptureBuildings(int playerId)
         {
             List<BuildingSnapshot> result = new List<BuildingSnapshot>();
@@ -1337,8 +1457,8 @@ namespace PreplacedTest
             for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
                 ref GameBuilding building = ref buildings[spanIndex];
-                if (building.r_PlayerIdOwner != playerId || (building.r_AliveState != AliveState.IsAlive && building.r_AliveState != AliveState.NeedsInit)) continue;
-                result.Add(Snapshot(spanIndex + 1, ref building));
+                if (building.r_PlayerIdOwner == playerId && HasAnyNonZeroByte(ref building))
+                    result.Add(Snapshot(spanIndex + 1, ref building));
             }
             return result;
         }
@@ -1463,6 +1583,20 @@ namespace PreplacedTest
             session.AivOriginY = originY;
             session.HasAivArea = true;
             ReclassifyPendingInventories(session);
+            ReclassifyPendingRawInventories(session);
+        }
+
+        private void ReclassifyPendingRawInventories(PlayerSession session)
+        {
+            foreach (InventoryRecord inventory in pendingRawInventories)
+            {
+                if (!inventory.ReclassifiedPlayers.Add(session.PlayerId)) continue;
+                List<BuildingSnapshot> owned = inventory.Buildings
+                    .Where(building => building.OwnerId == session.PlayerId).ToList();
+                if (owned.Count != 0)
+                    EmitBuildingInventory(session.PlayerId, inventory.Label + "_RECLASSIFIED", owned,
+                        session.IsInsideAivArea);
+            }
         }
 
         private void ReclassifyPendingInventories(PlayerSession session)
@@ -1471,13 +1605,6 @@ namespace PreplacedTest
             foreach (InventoryRecord inventory in session.PendingInventories)
                 EmitBuildingInventory(session.PlayerId, inventory.Label + "_RECLASSIFIED", inventory.Buildings, session.IsInsideAivArea);
             session.PendingInventories.Clear();
-        }
-
-        private bool TryBuildingOwner(int buildingId, out int playerId)
-        {
-            playerId = 0;
-            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building)) return false;
-            playerId = building->r_PlayerIdOwner; return true;
         }
 
         private bool IsAi(int playerId)
@@ -1543,9 +1670,6 @@ namespace PreplacedTest
             public int CurrentHealth { get; } public int MaxHealth { get; }
             public byte Sleeping { get; } public int GatehouseId { get; }
             public PreplacedIdentity Identity => new PreplacedIdentity(Id, GlobalId, OwnerId, (int)Type);
-            public bool IsNonEmpty => GlobalId != 0 || OwnerId != 0 || Type != default || Alive != AliveState.None ||
-                TileX != 0 || TileY != 0 || EndX != 0 || EndY != 0 || WorldX != 0 || WorldY != 0 ||
-                CurrentHealth != 0 || MaxHealth != 0 || GatehouseId != 0;
             public bool DataEquals(BuildingSnapshot other) => Identity.Equals(other.Identity) && Alive == other.Alive &&
                 TileX == other.TileX && TileY == other.TileY && EndX == other.EndX && EndY == other.EndY &&
                 WorldX == other.WorldX && WorldY == other.WorldY && CurrentHealth == other.CurrentHealth &&
@@ -1646,6 +1770,7 @@ namespace PreplacedTest
         {
             public InventoryRecord(string label, List<BuildingSnapshot> buildings) { Label = label; Buildings = buildings; }
             public string Label { get; } public List<BuildingSnapshot> Buildings { get; }
+            public HashSet<int> ReclassifiedPlayers { get; } = new HashSet<int>();
         }
 
         private sealed class DamageContext

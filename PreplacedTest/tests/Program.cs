@@ -21,7 +21,9 @@ namespace PreplacedTest.Tests
                 TestSchedulerModels();
                 TestAicSlotConversion();
                 TestValidatorResults();
+                TestBuildingAccessibilityResults();
                 TestDamageTransitions();
+                TestFirstAivBuildingEligibility();
                 TestPreplacedIdentityAndCountProjection();
                 TestPortalRoutes();
                 TestAivAreaClassification();
@@ -101,13 +103,31 @@ namespace PreplacedTest.Tests
             Check(!CrushedTimerTransition.IsActivation(7, 8), "scheduler increment marked as activation");
         }
 
+        private static void TestBuildingAccessibilityResults()
+        {
+            Check(BuildingAccessibilityResult.Classify(0) == "rejected-zero" && BuildingAccessibilityResult.IsRejected(0),
+                "accessibility result zero contract");
+            Check(BuildingAccessibilityResult.Classify(1) == "accessible" && !BuildingAccessibilityResult.IsRejected(1),
+                "accessibility result one contract");
+            Check(BuildingAccessibilityResult.Classify(2) == "rejected-two" && BuildingAccessibilityResult.IsRejected(2),
+                "accessibility result two contract");
+        }
+
+        private static void TestFirstAivBuildingEligibility()
+        {
+            Check(FirstAivBuildingEligibility.IsEligible(true, false), "valid building spawn rejected");
+            Check(!FirstAivBuildingEligibility.IsEligible(false, false), "unresolved building spawn accepted");
+            Check(!FirstAivBuildingEligibility.IsEligible(true, true), "wall spawn accepted as first AIV building");
+        }
+
         private static void TestPreplacedIdentityAndCountProjection()
         {
-            var identity = new PreplacedIdentity(19, 1001, 8, 39);
-            Check(identity.Matches(19, 1001, 8, 39), "identical preplaced record was not recognized");
-            Check(!identity.Matches(19, 1002, 8, 39), "reused slot with another global ID was treated as preplaced");
-            Check(!identity.Matches(19, 1001, 7, 39), "changed owner was treated as preplaced");
-            Check(!identity.Matches(19, 1001, 8, 40), "changed structure type was treated as preplaced");
+            int structureIdentity = StringComparer.Ordinal.GetHashCode("preplaced-structure");
+            var identity = new PreplacedIdentity(19, 1001, 8, structureIdentity);
+            Check(identity.Matches(19, 1001, 8, structureIdentity), "identical preplaced record was not recognized");
+            Check(!identity.Matches(19, 1002, 8, structureIdentity), "reused slot with another global ID was treated as preplaced");
+            Check(!identity.Matches(19, 1001, 7, structureIdentity), "changed owner was treated as preplaced");
+            Check(!identity.Matches(19, 1001, 8, unchecked(structureIdentity + 1)), "changed structure type was treated as preplaced");
             Check(PreplacedCountProjection.WithoutPreplaced(5, 2) == 3, "preplaced count projection");
             Check(PreplacedCountProjection.WithoutPreplaced(1, 4) == 0, "preplaced count projection underflow");
         }
@@ -120,19 +140,23 @@ namespace PreplacedTest.Tests
                 new PortalConnection(102, 20, 30, 0, 8, 41),
                 new PortalConnection(103, 10, 40, 0, 7, 42)
             };
-            Check(PortalRouteModel.Evaluate(10, 10, portals, owner => owner == 8).Kind == PortalRouteKind.Direct,
+            Check(PortalRouteModel.Evaluate(10, 10, portals, 8, owner => owner == 7).Kind == PortalRouteKind.Direct,
                 "direct PCL route");
-            PortalRouteResult own = PortalRouteModel.Evaluate(10, 30, portals, owner => owner == 8);
-            Check(own.Kind == PortalRouteKind.FriendlyPortal && own.UsedPortalIndices.SequenceEqual(new[] { 101, 102 }),
-                "multi-gate friendly route");
-            Check(PortalRouteModel.Evaluate(10, 40, portals, owner => owner == 8).Kind == PortalRouteKind.ForeignPortalOnly,
+            PortalRouteResult own = PortalRouteModel.Evaluate(10, 30, portals, 8, owner => owner == 7);
+            Check(own.Kind == PortalRouteKind.OwnPortal && own.UsedPortalIds.SequenceEqual(new[] { 101, 102 }),
+                "multi-gate own route");
+            Check(PortalRouteModel.Evaluate(10, 40, portals, 8, owner => false).Kind == PortalRouteKind.RequiresForeignPortal,
                 "foreign-only portal route");
-            Check(PortalRouteModel.Evaluate(10, 50, portals, owner => owner == 8).Kind == PortalRouteKind.Unreachable,
+            Check(PortalRouteModel.Evaluate(10, 50, portals, 8, owner => owner == 7).Kind == PortalRouteKind.Unreachable,
                 "sealed destination route");
-            Check(PortalRouteModel.Evaluate(0, 30, portals, owner => owner == 8).Kind == PortalRouteKind.Unreachable,
+            Check(PortalRouteModel.Evaluate(10, 20, Array.Empty<PortalConnection>(), 8, owner => owner == 7).Kind == PortalRouteKind.Unreachable,
+                "missing gatehouse route");
+            Check(PortalRouteModel.Evaluate(0, 30, portals, 8, owner => owner == 7).Kind == PortalRouteKind.Unreachable,
                 "invalid start PCL route");
-            Check(PortalRouteModel.Evaluate(10, 40, portals, owner => owner == 7).Kind == PortalRouteKind.FriendlyPortal,
+            Check(PortalRouteModel.Evaluate(10, 40, portals, 8, owner => owner == 7).Kind == PortalRouteKind.AlliedPortal,
                 "allied portal route");
+            Check(PortalRouteModel.Evaluate(30, 40, portals, 8, owner => owner == 7).Kind == PortalRouteKind.MixedFriendlyPortals,
+                "mixed own/allied portal route");
         }
 
         private static void TestAivAreaClassification()
@@ -178,14 +202,24 @@ namespace PreplacedTest.Tests
             Check(helper.Contains("FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"), "native hash contract missing");
             foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x60AD660" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
-            foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
+            foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateSize(typeof(GameGatehouseEntry), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
+            foreach (string nativeDelegate in new[]
+            {
+                "delegate int CountBuildingsDelegate(ulong manager, int playerId, int structureType, int mode)",
+                "delegate int PlacementReachabilityDelegate(ulong manager, int playerId, int structureType, int x, int y)",
+                "delegate void AccessibilitySweepDelegate(ulong manager, int playerId)",
+                "delegate int BuildingAccessibilityDelegate(ulong manager, int buildingId, int mode)"
+            })
+                Check(source.Contains(nativeDelegate), "native delegate ABI missing: " + nativeDelegate);
             Check(source.Contains("players.Clear()"), "map transition does not reset sessions");
             Check(source.Contains("activeAic - 1") || File.ReadAllText(Path.Combine("src", "DiagnosticModel.cs")).Contains("oneBasedSlot - 1"), "AIC slot is not converted from one-based exactly once");
             Check(source.Contains("CRUSHED_TIMER_ACTIVATED_BY_DAMAGE"), "damage-triggered timer activation diagnostic missing");
             Check(source.Contains("MAP_START_POST") && source.Contains("FIRST_SCHEDULER") && source.Contains("FIRST_ACTIVE_CRUSHED_DELAY"), "required building snapshots missing");
             Check(source.Contains("PollFrame") && plugin.Contains("persistentRuntime?.PollFrame()"), "per-frame crushed timer observation missing");
-            Check(source.Contains("PREPLACED_RAW_BUILDINGS") && source.Contains("PREPLACED_RAW_DELTA") && source.Contains("CapturePreplacedBaseline"), "raw building baseline diagnostics missing");
+            Check(source.Contains("PREPLACED_RAW_BUILDINGS") && source.Contains("PREPLACED_RAW_DELTA") &&
+                source.Contains("CapturePreplacedBaseline") && source.Contains("HasAnyNonZeroByte") &&
+                source.Contains("ReclassifyPendingRawInventories"), "raw building baseline diagnostics missing");
             Check(source.Contains("placement-pcl-unreachable") && source.Contains("PREPLACED_PORTAL_TOPOLOGY"), "placement reachability diagnostics missing");
             Check(source.Contains("observationContinues=true") && !source.Contains("FinalizePlayer(playerId, \"first-building-follow-up-complete\")"), "observation still stops after first AIV building");
             Check(source.Contains("BuildingCountModeFieldOffset = 0x2C8"), "building-count mode field contract missing");
@@ -221,6 +255,9 @@ namespace PreplacedTest.Tests
                 Check(rvaMatch.Success, "reference RVA missing for " + name);
                 int rva = Convert.ToInt32(rvaMatch.Groups["rva"].Value, 16);
                 PatternByte[] parsed = ParsePattern(pattern);
+                Check(parsed.Length != 0 && parsed[0].Wildcard == false &&
+                    parsed[0].Value != 0xE8 && parsed[0].Value != 0xE9 && parsed[0].Value != 0xFF,
+                    name + " begins like a call/jump site instead of a function target");
                 int rawOffset = RvaToRaw(file, rva);
                 Check(Matches(image, rawOffset, parsed), name + " does not match its reference RVA");
                 int matches = 0;
