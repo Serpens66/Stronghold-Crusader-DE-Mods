@@ -23,7 +23,7 @@ namespace ElevatedMoatTest
         private void Awake()
         {
             persistentLog = Logger;
-            Shared.DebugLogHelper.LogWarning(
+            Shared.DebugLogHelper.LogInfo(
                 persistentLog,
                 $"{PluginName} {PluginVersion} loaded. This gameplay-affecting test applies to every player.");
 

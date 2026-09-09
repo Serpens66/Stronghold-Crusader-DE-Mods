@@ -1,0 +1,5492 @@
+{"frames": [
+
+{
+	"filename": "tree_apple-0.png",
+	"frame": {"x":634,"y":2081,"w":212,"h":209},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":212,"h":209},
+	"sourceSize": {"w":212,"h":209}
+},
+{
+	"filename": "tree_apple-1.png",
+	"frame": {"x":3830,"y":1873,"w":211,"h":206},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":211,"h":206},
+	"sourceSize": {"w":211,"h":206}
+},
+{
+	"filename": "tree_apple-2.png",
+	"frame": {"x":235,"y":1873,"w":211,"h":204},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":211,"h":204},
+	"sourceSize": {"w":211,"h":204}
+},
+{
+	"filename": "tree_apple-3.png",
+	"frame": {"x":448,"y":1873,"w":211,"h":204},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":211,"h":204},
+	"sourceSize": {"w":211,"h":204}
+},
+{
+	"filename": "tree_apple-4.png",
+	"frame": {"x":661,"y":1873,"w":212,"h":204},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":212,"h":204},
+	"sourceSize": {"w":212,"h":204}
+},
+{
+	"filename": "tree_apple-5.png",
+	"frame": {"x":1299,"y":1873,"w":212,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":212,"h":205},
+	"sourceSize": {"w":212,"h":205}
+},
+{
+	"filename": "tree_apple-6.png",
+	"frame": {"x":1513,"y":1873,"w":211,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":211,"h":205},
+	"sourceSize": {"w":211,"h":205}
+},
+{
+	"filename": "tree_apple-7.png",
+	"frame": {"x":875,"y":1873,"w":210,"h":204},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":210,"h":204},
+	"sourceSize": {"w":210,"h":204}
+},
+{
+	"filename": "tree_apple-8.png",
+	"frame": {"x":1087,"y":1873,"w":210,"h":204},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":210,"h":204},
+	"sourceSize": {"w":210,"h":204}
+},
+{
+	"filename": "tree_apple-9.png",
+	"frame": {"x":1726,"y":1873,"w":209,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":205},
+	"sourceSize": {"w":209,"h":205}
+},
+{
+	"filename": "tree_apple-10.png",
+	"frame": {"x":1,"y":2081,"w":209,"h":206},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":206},
+	"sourceSize": {"w":209,"h":206}
+},
+{
+	"filename": "tree_apple-11.png",
+	"frame": {"x":1937,"y":1873,"w":209,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":205},
+	"sourceSize": {"w":209,"h":205}
+},
+{
+	"filename": "tree_apple-12.png",
+	"frame": {"x":2148,"y":1873,"w":208,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":205},
+	"sourceSize": {"w":208,"h":205}
+},
+{
+	"filename": "tree_apple-13.png",
+	"frame": {"x":2358,"y":1873,"w":208,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":205},
+	"sourceSize": {"w":208,"h":205}
+},
+{
+	"filename": "tree_apple-14.png",
+	"frame": {"x":2568,"y":1873,"w":208,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":205},
+	"sourceSize": {"w":208,"h":205}
+},
+{
+	"filename": "tree_apple-15.png",
+	"frame": {"x":2778,"y":1873,"w":208,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":205},
+	"sourceSize": {"w":208,"h":205}
+},
+{
+	"filename": "tree_apple-16.png",
+	"frame": {"x":2988,"y":1873,"w":208,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":205},
+	"sourceSize": {"w":208,"h":205}
+},
+{
+	"filename": "tree_apple-17.png",
+	"frame": {"x":3198,"y":1873,"w":209,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":205},
+	"sourceSize": {"w":209,"h":205}
+},
+{
+	"filename": "tree_apple-18.png",
+	"frame": {"x":3409,"y":1873,"w":209,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":205},
+	"sourceSize": {"w":209,"h":205}
+},
+{
+	"filename": "tree_apple-19.png",
+	"frame": {"x":3620,"y":1873,"w":208,"h":205},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":205},
+	"sourceSize": {"w":208,"h":205}
+},
+{
+	"filename": "tree_apple-20.png",
+	"frame": {"x":212,"y":2081,"w":209,"h":206},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":206},
+	"sourceSize": {"w":209,"h":206}
+},
+{
+	"filename": "tree_apple-21.png",
+	"frame": {"x":423,"y":2081,"w":209,"h":206},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":206},
+	"sourceSize": {"w":209,"h":206}
+},
+{
+	"filename": "tree_apple-22.png",
+	"frame": {"x":1057,"y":2081,"w":209,"h":211},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":211},
+	"sourceSize": {"w":209,"h":211}
+},
+{
+	"filename": "tree_apple-23.png",
+	"frame": {"x":848,"y":2081,"w":207,"h":210},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":207,"h":210},
+	"sourceSize": {"w":207,"h":210}
+},
+{
+	"filename": "tree_apple-24.png",
+	"frame": {"x":1268,"y":2081,"w":207,"h":211},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":207,"h":211},
+	"sourceSize": {"w":207,"h":211}
+},
+{
+	"filename": "tree_apple-25.png",
+	"frame": {"x":2362,"y":2951,"w":216,"h":222},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":222},
+	"sourceSize": {"w":216,"h":222}
+},
+{
+	"filename": "tree_apple-26.png",
+	"frame": {"x":2580,"y":2951,"w":215,"h":222},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":222},
+	"sourceSize": {"w":215,"h":222}
+},
+{
+	"filename": "tree_apple-27.png",
+	"frame": {"x":2797,"y":2951,"w":217,"h":222},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":222},
+	"sourceSize": {"w":217,"h":222}
+},
+{
+	"filename": "tree_apple-28.png",
+	"frame": {"x":3016,"y":2951,"w":218,"h":222},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":222},
+	"sourceSize": {"w":218,"h":222}
+},
+{
+	"filename": "tree_apple-29.png",
+	"frame": {"x":1073,"y":2951,"w":218,"h":221},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":221},
+	"sourceSize": {"w":218,"h":221}
+},
+{
+	"filename": "tree_apple-30.png",
+	"frame": {"x":1293,"y":2951,"w":218,"h":221},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":221},
+	"sourceSize": {"w":218,"h":221}
+},
+{
+	"filename": "tree_apple-31.png",
+	"frame": {"x":1513,"y":2951,"w":217,"h":221},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":221},
+	"sourceSize": {"w":217,"h":221}
+},
+{
+	"filename": "tree_apple-32.png",
+	"frame": {"x":856,"y":2951,"w":215,"h":220},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":220},
+	"sourceSize": {"w":215,"h":220}
+},
+{
+	"filename": "tree_apple-33.png",
+	"frame": {"x":215,"y":2951,"w":213,"h":219},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":213,"h":219},
+	"sourceSize": {"w":213,"h":219}
+},
+{
+	"filename": "tree_apple-34.png",
+	"frame": {"x":430,"y":2951,"w":214,"h":219},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":214,"h":219},
+	"sourceSize": {"w":214,"h":219}
+},
+{
+	"filename": "tree_apple-35.png",
+	"frame": {"x":2296,"y":2731,"w":213,"h":218},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":213,"h":218},
+	"sourceSize": {"w":213,"h":218}
+},
+{
+	"filename": "tree_apple-36.png",
+	"frame": {"x":2511,"y":2731,"w":214,"h":218},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":214,"h":218},
+	"sourceSize": {"w":214,"h":218}
+},
+{
+	"filename": "tree_apple-37.png",
+	"frame": {"x":2956,"y":2512,"w":215,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":217},
+	"sourceSize": {"w":215,"h":217}
+},
+{
+	"filename": "tree_apple-38.png",
+	"frame": {"x":3173,"y":2512,"w":216,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":217},
+	"sourceSize": {"w":216,"h":217}
+},
+{
+	"filename": "tree_apple-39.png",
+	"frame": {"x":3391,"y":2512,"w":217,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":217},
+	"sourceSize": {"w":217,"h":217}
+},
+{
+	"filename": "tree_apple-40.png",
+	"frame": {"x":3610,"y":2512,"w":218,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":217},
+	"sourceSize": {"w":218,"h":217}
+},
+{
+	"filename": "tree_apple-41.png",
+	"frame": {"x":3830,"y":2512,"w":218,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":217},
+	"sourceSize": {"w":218,"h":217}
+},
+{
+	"filename": "tree_apple-42.png",
+	"frame": {"x":1,"y":2731,"w":219,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":219,"h":217},
+	"sourceSize": {"w":219,"h":217}
+},
+{
+	"filename": "tree_apple-43.png",
+	"frame": {"x":222,"y":2731,"w":219,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":219,"h":217},
+	"sourceSize": {"w":219,"h":217}
+},
+{
+	"filename": "tree_apple-44.png",
+	"frame": {"x":443,"y":2731,"w":219,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":219,"h":217},
+	"sourceSize": {"w":219,"h":217}
+},
+{
+	"filename": "tree_apple-45.png",
+	"frame": {"x":2727,"y":2731,"w":220,"h":218},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":220,"h":218},
+	"sourceSize": {"w":220,"h":218}
+},
+{
+	"filename": "tree_apple-46.png",
+	"frame": {"x":2949,"y":2731,"w":220,"h":218},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":220,"h":218},
+	"sourceSize": {"w":220,"h":218}
+},
+{
+	"filename": "tree_apple-47.png",
+	"frame": {"x":3171,"y":2731,"w":222,"h":218},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":222,"h":218},
+	"sourceSize": {"w":222,"h":218}
+},
+{
+	"filename": "tree_apple-48.png",
+	"frame": {"x":664,"y":2731,"w":221,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":221,"h":217},
+	"sourceSize": {"w":221,"h":217}
+},
+{
+	"filename": "tree_apple-49.png",
+	"frame": {"x":3395,"y":2731,"w":218,"h":218},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":218},
+	"sourceSize": {"w":218,"h":218}
+},
+{
+	"filename": "tree_apple-50.png",
+	"frame": {"x":3615,"y":2731,"w":215,"h":218},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":218},
+	"sourceSize": {"w":215,"h":218}
+},
+{
+	"filename": "tree_apple-51.png",
+	"frame": {"x":887,"y":2731,"w":215,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":217},
+	"sourceSize": {"w":215,"h":217}
+},
+{
+	"filename": "tree_apple-52.png",
+	"frame": {"x":1104,"y":2731,"w":215,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":217},
+	"sourceSize": {"w":215,"h":217}
+},
+{
+	"filename": "tree_apple-53.png",
+	"frame": {"x":1321,"y":2731,"w":217,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":217},
+	"sourceSize": {"w":217,"h":217}
+},
+{
+	"filename": "tree_apple-54.png",
+	"frame": {"x":1865,"y":2512,"w":218,"h":216},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":216},
+	"sourceSize": {"w":218,"h":216}
+},
+{
+	"filename": "tree_apple-55.png",
+	"frame": {"x":2588,"y":2295,"w":218,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":215},
+	"sourceSize": {"w":218,"h":215}
+},
+{
+	"filename": "tree_apple-56.png",
+	"frame": {"x":2085,"y":2512,"w":217,"h":216},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":216},
+	"sourceSize": {"w":217,"h":216}
+},
+{
+	"filename": "tree_apple-57.png",
+	"frame": {"x":2808,"y":2295,"w":216,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":215},
+	"sourceSize": {"w":216,"h":215}
+},
+{
+	"filename": "tree_apple-58.png",
+	"frame": {"x":3026,"y":2295,"w":216,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":215},
+	"sourceSize": {"w":216,"h":215}
+},
+{
+	"filename": "tree_apple-59.png",
+	"frame": {"x":867,"y":2295,"w":212,"h":214},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":212,"h":214},
+	"sourceSize": {"w":212,"h":214}
+},
+{
+	"filename": "tree_apple-60.png",
+	"frame": {"x":1081,"y":2295,"w":212,"h":214},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":212,"h":214},
+	"sourceSize": {"w":212,"h":214}
+},
+{
+	"filename": "tree_apple-61.png",
+	"frame": {"x":3244,"y":2295,"w":213,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":213,"h":215},
+	"sourceSize": {"w":213,"h":215}
+},
+{
+	"filename": "tree_apple-62.png",
+	"frame": {"x":3459,"y":2295,"w":215,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":215},
+	"sourceSize": {"w":215,"h":215}
+},
+{
+	"filename": "tree_apple-63.png",
+	"frame": {"x":3676,"y":2295,"w":214,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":214,"h":215},
+	"sourceSize": {"w":214,"h":215}
+},
+{
+	"filename": "tree_apple-64.png",
+	"frame": {"x":1,"y":2512,"w":213,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":213,"h":215},
+	"sourceSize": {"w":213,"h":215}
+},
+{
+	"filename": "tree_apple-65.png",
+	"frame": {"x":1295,"y":2295,"w":214,"h":214},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":214,"h":214},
+	"sourceSize": {"w":214,"h":214}
+},
+{
+	"filename": "tree_apple-66.png",
+	"frame": {"x":1511,"y":2295,"w":215,"h":214},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":214},
+	"sourceSize": {"w":215,"h":214}
+},
+{
+	"filename": "tree_apple-67.png",
+	"frame": {"x":216,"y":2512,"w":216,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":215},
+	"sourceSize": {"w":216,"h":215}
+},
+{
+	"filename": "tree_apple-68.png",
+	"frame": {"x":434,"y":2512,"w":216,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":215},
+	"sourceSize": {"w":216,"h":215}
+},
+{
+	"filename": "tree_apple-69.png",
+	"frame": {"x":652,"y":2512,"w":216,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":215},
+	"sourceSize": {"w":216,"h":215}
+},
+{
+	"filename": "tree_apple-70.png",
+	"frame": {"x":2304,"y":2512,"w":216,"h":216},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":216},
+	"sourceSize": {"w":216,"h":216}
+},
+{
+	"filename": "tree_apple-71.png",
+	"frame": {"x":1540,"y":2731,"w":215,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":217},
+	"sourceSize": {"w":215,"h":217}
+},
+{
+	"filename": "tree_apple-72.png",
+	"frame": {"x":3832,"y":2731,"w":215,"h":218},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":218},
+	"sourceSize": {"w":215,"h":218}
+},
+{
+	"filename": "tree_apple-73.png",
+	"frame": {"x":1,"y":2951,"w":212,"h":218},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":212,"h":218},
+	"sourceSize": {"w":212,"h":218}
+},
+{
+	"filename": "tree_apple-74.png",
+	"frame": {"x":646,"y":2951,"w":208,"h":219},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":219},
+	"sourceSize": {"w":208,"h":219}
+},
+{
+	"filename": "tree_apple-75.png",
+	"frame": {"x":2522,"y":2512,"w":215,"h":216},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":216},
+	"sourceSize": {"w":215,"h":216}
+},
+{
+	"filename": "tree_apple-76.png",
+	"frame": {"x":2739,"y":2512,"w":215,"h":216},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":216},
+	"sourceSize": {"w":215,"h":216}
+},
+{
+	"filename": "tree_apple-77.png",
+	"frame": {"x":1757,"y":2731,"w":215,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":217},
+	"sourceSize": {"w":215,"h":217}
+},
+{
+	"filename": "tree_apple-78.png",
+	"frame": {"x":870,"y":2512,"w":217,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":215},
+	"sourceSize": {"w":217,"h":215}
+},
+{
+	"filename": "tree_apple-79.png",
+	"frame": {"x":1089,"y":2512,"w":218,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":215},
+	"sourceSize": {"w":218,"h":215}
+},
+{
+	"filename": "tree_apple-80.png",
+	"frame": {"x":1728,"y":2295,"w":216,"h":214},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":214},
+	"sourceSize": {"w":216,"h":214}
+},
+{
+	"filename": "tree_apple-81.png",
+	"frame": {"x":1946,"y":2295,"w":217,"h":214},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":214},
+	"sourceSize": {"w":217,"h":214}
+},
+{
+	"filename": "tree_apple-82.png",
+	"frame": {"x":218,"y":2295,"w":216,"h":213},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":213},
+	"sourceSize": {"w":216,"h":213}
+},
+{
+	"filename": "tree_apple-83.png",
+	"frame": {"x":436,"y":2295,"w":215,"h":213},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":213},
+	"sourceSize": {"w":215,"h":213}
+},
+{
+	"filename": "tree_apple-84.png",
+	"frame": {"x":2997,"y":2081,"w":215,"h":212},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":212},
+	"sourceSize": {"w":215,"h":212}
+},
+{
+	"filename": "tree_apple-85.png",
+	"frame": {"x":3214,"y":2081,"w":214,"h":212},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":214,"h":212},
+	"sourceSize": {"w":214,"h":212}
+},
+{
+	"filename": "tree_apple-86.png",
+	"frame": {"x":1477,"y":2081,"w":214,"h":211},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":214,"h":211},
+	"sourceSize": {"w":214,"h":211}
+},
+{
+	"filename": "tree_apple-87.png",
+	"frame": {"x":3430,"y":2081,"w":215,"h":212},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":212},
+	"sourceSize": {"w":215,"h":212}
+},
+{
+	"filename": "tree_apple-88.png",
+	"frame": {"x":1693,"y":2081,"w":215,"h":211},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":211},
+	"sourceSize": {"w":215,"h":211}
+},
+{
+	"filename": "tree_apple-89.png",
+	"frame": {"x":1910,"y":2081,"w":215,"h":211},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":211},
+	"sourceSize": {"w":215,"h":211}
+},
+{
+	"filename": "tree_apple-90.png",
+	"frame": {"x":3647,"y":2081,"w":214,"h":212},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":214,"h":212},
+	"sourceSize": {"w":214,"h":212}
+},
+{
+	"filename": "tree_apple-91.png",
+	"frame": {"x":2127,"y":2081,"w":216,"h":211},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":211},
+	"sourceSize": {"w":216,"h":211}
+},
+{
+	"filename": "tree_apple-92.png",
+	"frame": {"x":2345,"y":2081,"w":215,"h":211},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":211},
+	"sourceSize": {"w":215,"h":211}
+},
+{
+	"filename": "tree_apple-93.png",
+	"frame": {"x":2562,"y":2081,"w":216,"h":211},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":211},
+	"sourceSize": {"w":216,"h":211}
+},
+{
+	"filename": "tree_apple-94.png",
+	"frame": {"x":2780,"y":2081,"w":215,"h":211},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":211},
+	"sourceSize": {"w":215,"h":211}
+},
+{
+	"filename": "tree_apple-95.png",
+	"frame": {"x":1,"y":2295,"w":215,"h":212},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":215,"h":212},
+	"sourceSize": {"w":215,"h":212}
+},
+{
+	"filename": "tree_apple-96.png",
+	"frame": {"x":653,"y":2295,"w":212,"h":213},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":212,"h":213},
+	"sourceSize": {"w":212,"h":213}
+},
+{
+	"filename": "tree_apple-97.png",
+	"frame": {"x":2165,"y":2295,"w":210,"h":214},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":210,"h":214},
+	"sourceSize": {"w":210,"h":214}
+},
+{
+	"filename": "tree_apple-98.png",
+	"frame": {"x":2377,"y":2295,"w":209,"h":214},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":214},
+	"sourceSize": {"w":209,"h":214}
+},
+{
+	"filename": "tree_apple-99.png",
+	"frame": {"x":1309,"y":2512,"w":211,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":211,"h":215},
+	"sourceSize": {"w":211,"h":215}
+},
+{
+	"filename": "tree_apple-100.png",
+	"frame": {"x":166,"y":1,"w":45,"h":40},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":45,"h":40},
+	"sourceSize": {"w":45,"h":40}
+},
+{
+	"filename": "tree_birch-0.png",
+	"frame": {"x":1591,"y":3663,"w":141,"h":250},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":250},
+	"sourceSize": {"w":141,"h":250}
+},
+{
+	"filename": "tree_birch-1.png",
+	"frame": {"x":1734,"y":3663,"w":141,"h":250},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":250},
+	"sourceSize": {"w":141,"h":250}
+},
+{
+	"filename": "tree_birch-2.png",
+	"frame": {"x":1877,"y":3663,"w":141,"h":250},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":250},
+	"sourceSize": {"w":141,"h":250}
+},
+{
+	"filename": "tree_birch-3.png",
+	"frame": {"x":2020,"y":3663,"w":141,"h":250},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":250},
+	"sourceSize": {"w":141,"h":250}
+},
+{
+	"filename": "tree_birch-4.png",
+	"frame": {"x":2934,"y":3663,"w":141,"h":251},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":251},
+	"sourceSize": {"w":141,"h":251}
+},
+{
+	"filename": "tree_birch-5.png",
+	"frame": {"x":2163,"y":3663,"w":141,"h":250},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":250},
+	"sourceSize": {"w":141,"h":250}
+},
+{
+	"filename": "tree_birch-6.png",
+	"frame": {"x":210,"y":3663,"w":140,"h":248},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":140,"h":248},
+	"sourceSize": {"w":140,"h":248}
+},
+{
+	"filename": "tree_birch-7.png",
+	"frame": {"x":2070,"y":3414,"w":139,"h":245},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":245},
+	"sourceSize": {"w":139,"h":245}
+},
+{
+	"filename": "tree_birch-8.png",
+	"frame": {"x":286,"y":3414,"w":139,"h":240},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":240},
+	"sourceSize": {"w":139,"h":240}
+},
+{
+	"filename": "tree_birch-9.png",
+	"frame": {"x":3702,"y":3176,"w":139,"h":233},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":233},
+	"sourceSize": {"w":139,"h":233}
+},
+{
+	"filename": "tree_birch-10.png",
+	"frame": {"x":887,"y":3176,"w":139,"h":227},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":227},
+	"sourceSize": {"w":139,"h":227}
+},
+{
+	"filename": "tree_birch-11.png",
+	"frame": {"x":3634,"y":2951,"w":138,"h":223},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":138,"h":223},
+	"sourceSize": {"w":138,"h":223}
+},
+{
+	"filename": "tree_birch-12.png",
+	"frame": {"x":3236,"y":2951,"w":138,"h":222},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":138,"h":222},
+	"sourceSize": {"w":138,"h":222}
+},
+{
+	"filename": "tree_birch-13.png",
+	"frame": {"x":3774,"y":2951,"w":138,"h":223},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":138,"h":223},
+	"sourceSize": {"w":138,"h":223}
+},
+{
+	"filename": "tree_birch-14.png",
+	"frame": {"x":526,"y":3176,"w":137,"h":224},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":137,"h":224},
+	"sourceSize": {"w":137,"h":224}
+},
+{
+	"filename": "tree_birch-15.png",
+	"frame": {"x":1028,"y":3176,"w":137,"h":227},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":137,"h":227},
+	"sourceSize": {"w":137,"h":227}
+},
+{
+	"filename": "tree_birch-16.png",
+	"frame": {"x":1677,"y":3176,"w":138,"h":229},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":138,"h":229},
+	"sourceSize": {"w":138,"h":229}
+},
+{
+	"filename": "tree_birch-17.png",
+	"frame": {"x":1817,"y":3176,"w":138,"h":230},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":138,"h":230},
+	"sourceSize": {"w":138,"h":230}
+},
+{
+	"filename": "tree_birch-18.png",
+	"frame": {"x":2420,"y":3176,"w":138,"h":231},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":138,"h":231},
+	"sourceSize": {"w":138,"h":231}
+},
+{
+	"filename": "tree_birch-19.png",
+	"frame": {"x":2990,"y":3176,"w":138,"h":232},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":138,"h":232},
+	"sourceSize": {"w":138,"h":232}
+},
+{
+	"filename": "tree_birch-20.png",
+	"frame": {"x":3130,"y":3176,"w":139,"h":232},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":232},
+	"sourceSize": {"w":139,"h":232}
+},
+{
+	"filename": "tree_birch-21.png",
+	"frame": {"x":3271,"y":3176,"w":139,"h":232},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":232},
+	"sourceSize": {"w":139,"h":232}
+},
+{
+	"filename": "tree_birch-22.png",
+	"frame": {"x":2560,"y":3176,"w":139,"h":231},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":231},
+	"sourceSize": {"w":139,"h":231}
+},
+{
+	"filename": "tree_birch-23.png",
+	"frame": {"x":1957,"y":3176,"w":139,"h":230},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":230},
+	"sourceSize": {"w":139,"h":230}
+},
+{
+	"filename": "tree_birch-24.png",
+	"frame": {"x":1535,"y":3176,"w":140,"h":228},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":140,"h":228},
+	"sourceSize": {"w":140,"h":228}
+},
+{
+	"filename": "tree_birch-25.png",
+	"frame": {"x":322,"y":1479,"w":101,"h":184},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":101,"h":184},
+	"sourceSize": {"w":101,"h":184}
+},
+{
+	"filename": "tree_birch-26.png",
+	"frame": {"x":425,"y":1479,"w":101,"h":184},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":101,"h":184},
+	"sourceSize": {"w":101,"h":184}
+},
+{
+	"filename": "tree_birch-27.png",
+	"frame": {"x":528,"y":1479,"w":101,"h":184},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":101,"h":184},
+	"sourceSize": {"w":101,"h":184}
+},
+{
+	"filename": "tree_birch-28.png",
+	"frame": {"x":631,"y":1479,"w":101,"h":184},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":101,"h":184},
+	"sourceSize": {"w":101,"h":184}
+},
+{
+	"filename": "tree_birch-29.png",
+	"frame": {"x":734,"y":1479,"w":101,"h":184},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":101,"h":184},
+	"sourceSize": {"w":101,"h":184}
+},
+{
+	"filename": "tree_birch-30.png",
+	"frame": {"x":837,"y":1479,"w":100,"h":184},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":100,"h":184},
+	"sourceSize": {"w":100,"h":184}
+},
+{
+	"filename": "tree_birch-31.png",
+	"frame": {"x":1248,"y":1479,"w":100,"h":185},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":100,"h":185},
+	"sourceSize": {"w":100,"h":185}
+},
+{
+	"filename": "tree_birch-32.png",
+	"frame": {"x":2400,"y":1294,"w":98,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":98,"h":182},
+	"sourceSize": {"w":98,"h":182}
+},
+{
+	"filename": "tree_birch-33.png",
+	"frame": {"x":1027,"y":1294,"w":98,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":98,"h":181},
+	"sourceSize": {"w":98,"h":181}
+},
+{
+	"filename": "tree_birch-34.png",
+	"frame": {"x":1401,"y":1112,"w":95,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":95,"h":180},
+	"sourceSize": {"w":95,"h":180}
+},
+{
+	"filename": "tree_birch-35.png",
+	"frame": {"x":758,"y":1112,"w":93,"h":179},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":93,"h":179},
+	"sourceSize": {"w":93,"h":179}
+},
+{
+	"filename": "tree_birch-36.png",
+	"frame": {"x":3231,"y":932,"w":93,"h":178},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":93,"h":178},
+	"sourceSize": {"w":93,"h":178}
+},
+{
+	"filename": "tree_birch-37.png",
+	"frame": {"x":1498,"y":1112,"w":94,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":94,"h":180},
+	"sourceSize": {"w":94,"h":180}
+},
+{
+	"filename": "tree_birch-38.png",
+	"frame": {"x":1594,"y":1112,"w":96,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":96,"h":180},
+	"sourceSize": {"w":96,"h":180}
+},
+{
+	"filename": "tree_birch-39.png",
+	"frame": {"x":2500,"y":1294,"w":96,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":96,"h":182},
+	"sourceSize": {"w":96,"h":182}
+},
+{
+	"filename": "tree_birch-40.png",
+	"frame": {"x":1127,"y":1294,"w":97,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":97,"h":181},
+	"sourceSize": {"w":97,"h":181}
+},
+{
+	"filename": "tree_birch-41.png",
+	"frame": {"x":2598,"y":1294,"w":98,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":98,"h":182},
+	"sourceSize": {"w":98,"h":182}
+},
+{
+	"filename": "tree_birch-42.png",
+	"frame": {"x":2698,"y":1294,"w":99,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":99,"h":182},
+	"sourceSize": {"w":99,"h":182}
+},
+{
+	"filename": "tree_birch-43.png",
+	"frame": {"x":2799,"y":1294,"w":100,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":100,"h":182},
+	"sourceSize": {"w":100,"h":182}
+},
+{
+	"filename": "tree_birch-44.png",
+	"frame": {"x":1226,"y":1294,"w":99,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":99,"h":181},
+	"sourceSize": {"w":99,"h":181}
+},
+{
+	"filename": "tree_birch-45.png",
+	"frame": {"x":1327,"y":1294,"w":99,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":99,"h":181},
+	"sourceSize": {"w":99,"h":181}
+},
+{
+	"filename": "tree_birch-46.png",
+	"frame": {"x":2901,"y":1294,"w":98,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":98,"h":182},
+	"sourceSize": {"w":98,"h":182}
+},
+{
+	"filename": "tree_birch-47.png",
+	"frame": {"x":3001,"y":1294,"w":97,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":97,"h":182},
+	"sourceSize": {"w":97,"h":182}
+},
+{
+	"filename": "tree_birch-48.png",
+	"frame": {"x":3933,"y":1294,"w":97,"h":183},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":97,"h":183},
+	"sourceSize": {"w":97,"h":183}
+},
+{
+	"filename": "tree_birch-49.png",
+	"frame": {"x":1428,"y":1294,"w":96,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":96,"h":181},
+	"sourceSize": {"w":96,"h":181}
+},
+{
+	"filename": "tree_birch-50.png",
+	"frame": {"x":3077,"y":3663,"w":141,"h":251},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":251},
+	"sourceSize": {"w":141,"h":251}
+},
+{
+	"filename": "tree_birch-51.png",
+	"frame": {"x":3220,"y":3663,"w":141,"h":251},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":251},
+	"sourceSize": {"w":141,"h":251}
+},
+{
+	"filename": "tree_birch-52.png",
+	"frame": {"x":1457,"y":3916,"w":160,"h":253},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":160,"h":253},
+	"sourceSize": {"w":160,"h":253}
+},
+{
+	"filename": "tree_birch-53.png",
+	"frame": {"x":352,"y":3663,"w":190,"h":248},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":190,"h":248},
+	"sourceSize": {"w":190,"h":248}
+},
+{
+	"filename": "tree_birch-54.png",
+	"frame": {"x":1,"y":3176,"w":214,"h":223},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":214,"h":223},
+	"sourceSize": {"w":214,"h":223}
+},
+{
+	"filename": "tree_birch-55.png",
+	"frame": {"x":3585,"y":443,"w":217,"h":150},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":150},
+	"sourceSize": {"w":217,"h":150}
+},
+{
+	"filename": "tree_birch-56.png",
+	"frame": {"x":3656,"y":183,"w":218,"h":125},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":125},
+	"sourceSize": {"w":218,"h":125}
+},
+{
+	"filename": "tree_birch-57.png",
+	"frame": {"x":1480,"y":310,"w":218,"h":128},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":218,"h":128},
+	"sourceSize": {"w":218,"h":128}
+},
+{
+	"filename": "tree_birch-58.png",
+	"frame": {"x":674,"y":310,"w":217,"h":127},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":127},
+	"sourceSize": {"w":217,"h":127}
+},
+{
+	"filename": "tree_birch-59.png",
+	"frame": {"x":893,"y":310,"w":217,"h":127},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":217,"h":127},
+	"sourceSize": {"w":217,"h":127}
+},
+{
+	"filename": "tree_birch-60.png",
+	"frame": {"x":1112,"y":310,"w":216,"h":127},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":216,"h":127},
+	"sourceSize": {"w":216,"h":127}
+},
+{
+	"filename": "tree_birch-61.png",
+	"frame": {"x":939,"y":1479,"w":102,"h":184},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":102,"h":184},
+	"sourceSize": {"w":102,"h":184}
+},
+{
+	"filename": "tree_birch-62.png",
+	"frame": {"x":1350,"y":1479,"w":100,"h":185},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":100,"h":185},
+	"sourceSize": {"w":100,"h":185}
+},
+{
+	"filename": "tree_birch-63.png",
+	"frame": {"x":1452,"y":1479,"w":114,"h":185},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":114,"h":185},
+	"sourceSize": {"w":114,"h":185}
+},
+{
+	"filename": "tree_birch-64.png",
+	"frame": {"x":2237,"y":757,"w":140,"h":171},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":140,"h":171},
+	"sourceSize": {"w":140,"h":171}
+},
+{
+	"filename": "tree_birch-65.png",
+	"frame": {"x":2338,"y":443,"w":157,"h":141},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":157,"h":141},
+	"sourceSize": {"w":157,"h":141}
+},
+{
+	"filename": "tree_birch-66.png",
+	"frame": {"x":998,"y":183,"w":162,"h":108},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":162,"h":108},
+	"sourceSize": {"w":162,"h":108}
+},
+{
+	"filename": "tree_birch-67.png",
+	"frame": {"x":3811,"y":86,"w":165,"h":95},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":165,"h":95},
+	"sourceSize": {"w":165,"h":95}
+},
+{
+	"filename": "tree_birch-68.png",
+	"frame": {"x":435,"y":183,"w":165,"h":100},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":165,"h":100},
+	"sourceSize": {"w":165,"h":100}
+},
+{
+	"filename": "tree_birch-69.png",
+	"frame": {"x":269,"y":183,"w":164,"h":99},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":99},
+	"sourceSize": {"w":164,"h":99}
+},
+{
+	"filename": "tree_birch-70.png",
+	"frame": {"x":103,"y":183,"w":164,"h":98},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":98},
+	"sourceSize": {"w":164,"h":98}
+},
+{
+	"filename": "tree_birch-71.png",
+	"frame": {"x":1167,"y":3176,"w":112,"h":227},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":112,"h":227},
+	"sourceSize": {"w":112,"h":227}
+},
+{
+	"filename": "tree_birch-72.png",
+	"frame": {"x":1,"y":1,"w":58,"h":31},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":58,"h":31},
+	"sourceSize": {"w":58,"h":31}
+},
+{
+	"filename": "tree_cactii-0.png",
+	"frame": {"x":661,"y":5605,"w":360,"h":310},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":360,"h":310},
+	"sourceSize": {"w":360,"h":310}
+},
+{
+	"filename": "tree_cactii-1.png",
+	"frame": {"x":1204,"y":6569,"w":360,"h":336},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":360,"h":336},
+	"sourceSize": {"w":360,"h":336}
+},
+{
+	"filename": "tree_cactii-2.png",
+	"frame": {"x":1566,"y":6569,"w":360,"h":340},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":360,"h":340},
+	"sourceSize": {"w":360,"h":340}
+},
+{
+	"filename": "tree_cactii-3.png",
+	"frame": {"x":1714,"y":595,"w":212,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":212,"h":154},
+	"sourceSize": {"w":212,"h":154}
+},
+{
+	"filename": "tree_cactii-4.png",
+	"frame": {"x":1436,"y":183,"w":156,"h":110},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":156,"h":110},
+	"sourceSize": {"w":156,"h":110}
+},
+{
+	"filename": "tree_cactii-5.png",
+	"frame": {"x":1746,"y":183,"w":139,"h":111},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":111},
+	"sourceSize": {"w":139,"h":111}
+},
+{
+	"filename": "tree_cactii-6.png",
+	"frame": {"x":1310,"y":443,"w":114,"h":135},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":114,"h":135},
+	"sourceSize": {"w":114,"h":135}
+},
+{
+	"filename": "tree_cactii-7.png",
+	"frame": {"x":1162,"y":183,"w":116,"h":108},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":116,"h":108},
+	"sourceSize": {"w":116,"h":108}
+},
+{
+	"filename": "tree_cactii-8.png",
+	"frame": {"x":1,"y":183,"w":100,"h":95},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":100,"h":95},
+	"sourceSize": {"w":100,"h":95}
+},
+{
+	"filename": "tree_cactii-9.png",
+	"frame": {"x":2299,"y":1,"w":87,"h":73},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":87,"h":73},
+	"sourceSize": {"w":87,"h":73}
+},
+{
+	"filename": "tree_cactii-10.png",
+	"frame": {"x":3361,"y":86,"w":92,"h":90},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":92,"h":90},
+	"sourceSize": {"w":92,"h":90}
+},
+{
+	"filename": "tree_cactii-11.png",
+	"frame": {"x":3455,"y":86,"w":86,"h":90},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":86,"h":90},
+	"sourceSize": {"w":86,"h":90}
+},
+{
+	"filename": "tree_cactii-12.png",
+	"frame": {"x":3876,"y":183,"w":98,"h":125},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":98,"h":125},
+	"sourceSize": {"w":98,"h":125}
+},
+{
+	"filename": "tree_cactii-13.png",
+	"frame": {"x":2150,"y":443,"w":99,"h":139},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":99,"h":139},
+	"sourceSize": {"w":99,"h":139}
+},
+{
+	"filename": "tree_cactii-14.png",
+	"frame": {"x":1,"y":1479,"w":127,"h":183},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":127,"h":183},
+	"sourceSize": {"w":127,"h":183}
+},
+{
+	"filename": "tree_cactii-15.png",
+	"frame": {"x":2251,"y":443,"w":85,"h":139},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":139},
+	"sourceSize": {"w":85,"h":139}
+},
+{
+	"filename": "tree_cactii-16.png",
+	"frame": {"x":2038,"y":183,"w":63,"h":113},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":63,"h":113},
+	"sourceSize": {"w":63,"h":113}
+},
+{
+	"filename": "Tree_Chestnut-0.png",
+	"frame": {"x":1023,"y":5605,"w":163,"h":310},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":310},
+	"sourceSize": {"w":163,"h":310}
+},
+{
+	"filename": "Tree_Chestnut-1.png",
+	"frame": {"x":1354,"y":5605,"w":163,"h":311},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":311},
+	"sourceSize": {"w":163,"h":311}
+},
+{
+	"filename": "Tree_Chestnut-2.png",
+	"frame": {"x":1519,"y":5605,"w":163,"h":311},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":311},
+	"sourceSize": {"w":163,"h":311}
+},
+{
+	"filename": "Tree_Chestnut-3.png",
+	"frame": {"x":2183,"y":5605,"w":164,"h":312},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":312},
+	"sourceSize": {"w":164,"h":312}
+},
+{
+	"filename": "Tree_Chestnut-4.png",
+	"frame": {"x":2349,"y":5605,"w":164,"h":312},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":312},
+	"sourceSize": {"w":164,"h":312}
+},
+{
+	"filename": "Tree_Chestnut-5.png",
+	"frame": {"x":2515,"y":5605,"w":164,"h":312},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":312},
+	"sourceSize": {"w":164,"h":312}
+},
+{
+	"filename": "Tree_Chestnut-6.png",
+	"frame": {"x":2681,"y":5605,"w":164,"h":312},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":312},
+	"sourceSize": {"w":164,"h":312}
+},
+{
+	"filename": "Tree_Chestnut-7.png",
+	"frame": {"x":2847,"y":5605,"w":164,"h":312},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":312},
+	"sourceSize": {"w":164,"h":312}
+},
+{
+	"filename": "Tree_Chestnut-8.png",
+	"frame": {"x":3013,"y":5605,"w":164,"h":312},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":312},
+	"sourceSize": {"w":164,"h":312}
+},
+{
+	"filename": "Tree_Chestnut-9.png",
+	"frame": {"x":3179,"y":5605,"w":165,"h":312},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":165,"h":312},
+	"sourceSize": {"w":165,"h":312}
+},
+{
+	"filename": "Tree_Chestnut-10.png",
+	"frame": {"x":3346,"y":5605,"w":165,"h":312},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":165,"h":312},
+	"sourceSize": {"w":165,"h":312}
+},
+{
+	"filename": "Tree_Chestnut-11.png",
+	"frame": {"x":3513,"y":5605,"w":165,"h":312},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":165,"h":312},
+	"sourceSize": {"w":165,"h":312}
+},
+{
+	"filename": "Tree_Chestnut-12.png",
+	"frame": {"x":1684,"y":5605,"w":165,"h":311},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":165,"h":311},
+	"sourceSize": {"w":165,"h":311}
+},
+{
+	"filename": "Tree_Chestnut-13.png",
+	"frame": {"x":1851,"y":5605,"w":164,"h":311},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":311},
+	"sourceSize": {"w":164,"h":311}
+},
+{
+	"filename": "Tree_Chestnut-14.png",
+	"frame": {"x":2017,"y":5605,"w":164,"h":311},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":311},
+	"sourceSize": {"w":164,"h":311}
+},
+{
+	"filename": "Tree_Chestnut-15.png",
+	"frame": {"x":1188,"y":5605,"w":164,"h":310},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":310},
+	"sourceSize": {"w":164,"h":310}
+},
+{
+	"filename": "Tree_Chestnut-16.png",
+	"frame": {"x":3532,"y":5294,"w":164,"h":309},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":309},
+	"sourceSize": {"w":164,"h":309}
+},
+{
+	"filename": "Tree_Chestnut-17.png",
+	"frame": {"x":3698,"y":5294,"w":163,"h":309},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":309},
+	"sourceSize": {"w":163,"h":309}
+},
+{
+	"filename": "Tree_Chestnut-18.png",
+	"frame": {"x":3863,"y":5294,"w":163,"h":309},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":309},
+	"sourceSize": {"w":163,"h":309}
+},
+{
+	"filename": "Tree_Chestnut-19.png",
+	"frame": {"x":3203,"y":5294,"w":163,"h":308},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":308},
+	"sourceSize": {"w":163,"h":308}
+},
+{
+	"filename": "Tree_Chestnut-20.png",
+	"frame": {"x":1,"y":5605,"w":163,"h":309},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":309},
+	"sourceSize": {"w":163,"h":309}
+},
+{
+	"filename": "Tree_Chestnut-21.png",
+	"frame": {"x":166,"y":5605,"w":163,"h":309},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":309},
+	"sourceSize": {"w":163,"h":309}
+},
+{
+	"filename": "Tree_Chestnut-22.png",
+	"frame": {"x":331,"y":5605,"w":163,"h":309},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":309},
+	"sourceSize": {"w":163,"h":309}
+},
+{
+	"filename": "Tree_Chestnut-23.png",
+	"frame": {"x":496,"y":5605,"w":163,"h":309},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":163,"h":309},
+	"sourceSize": {"w":163,"h":309}
+},
+{
+	"filename": "Tree_Chestnut-24.png",
+	"frame": {"x":3368,"y":5294,"w":162,"h":308},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":162,"h":308},
+	"sourceSize": {"w":162,"h":308}
+},
+{
+	"filename": "Tree_Chestnut-25.png",
+	"frame": {"x":1414,"y":4175,"w":158,"h":258},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":158,"h":258},
+	"sourceSize": {"w":158,"h":258}
+},
+{
+	"filename": "Tree_Chestnut-26.png",
+	"frame": {"x":2927,"y":3916,"w":158,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":158,"h":257},
+	"sourceSize": {"w":158,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-27.png",
+	"frame": {"x":1574,"y":4175,"w":157,"h":258},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":157,"h":258},
+	"sourceSize": {"w":157,"h":258}
+},
+{
+	"filename": "Tree_Chestnut-28.png",
+	"frame": {"x":3087,"y":3916,"w":156,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":156,"h":257},
+	"sourceSize": {"w":156,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-29.png",
+	"frame": {"x":1733,"y":4175,"w":154,"h":258},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":154,"h":258},
+	"sourceSize": {"w":154,"h":258}
+},
+{
+	"filename": "Tree_Chestnut-30.png",
+	"frame": {"x":3245,"y":3916,"w":152,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":152,"h":257},
+	"sourceSize": {"w":152,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-31.png",
+	"frame": {"x":3399,"y":3916,"w":151,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":151,"h":257},
+	"sourceSize": {"w":151,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-32.png",
+	"frame": {"x":3552,"y":3916,"w":150,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":150,"h":257},
+	"sourceSize": {"w":150,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-33.png",
+	"frame": {"x":3704,"y":3916,"w":150,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":150,"h":257},
+	"sourceSize": {"w":150,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-34.png",
+	"frame": {"x":1876,"y":3916,"w":149,"h":256},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":149,"h":256},
+	"sourceSize": {"w":149,"h":256}
+},
+{
+	"filename": "Tree_Chestnut-35.png",
+	"frame": {"x":2027,"y":3916,"w":149,"h":256},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":149,"h":256},
+	"sourceSize": {"w":149,"h":256}
+},
+{
+	"filename": "Tree_Chestnut-36.png",
+	"frame": {"x":2178,"y":3916,"w":148,"h":256},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":148,"h":256},
+	"sourceSize": {"w":148,"h":256}
+},
+{
+	"filename": "Tree_Chestnut-37.png",
+	"frame": {"x":3856,"y":3916,"w":148,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":148,"h":257},
+	"sourceSize": {"w":148,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-38.png",
+	"frame": {"x":1,"y":4175,"w":147,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":147,"h":257},
+	"sourceSize": {"w":147,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-39.png",
+	"frame": {"x":2328,"y":3916,"w":147,"h":256},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":147,"h":256},
+	"sourceSize": {"w":147,"h":256}
+},
+{
+	"filename": "Tree_Chestnut-40.png",
+	"frame": {"x":2477,"y":3916,"w":148,"h":256},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":148,"h":256},
+	"sourceSize": {"w":148,"h":256}
+},
+{
+	"filename": "Tree_Chestnut-41.png",
+	"frame": {"x":2627,"y":3916,"w":148,"h":256},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":148,"h":256},
+	"sourceSize": {"w":148,"h":256}
+},
+{
+	"filename": "Tree_Chestnut-42.png",
+	"frame": {"x":2777,"y":3916,"w":148,"h":256},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":148,"h":256},
+	"sourceSize": {"w":148,"h":256}
+},
+{
+	"filename": "Tree_Chestnut-43.png",
+	"frame": {"x":150,"y":4175,"w":149,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":149,"h":257},
+	"sourceSize": {"w":149,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-44.png",
+	"frame": {"x":301,"y":4175,"w":151,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":151,"h":257},
+	"sourceSize": {"w":151,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-45.png",
+	"frame": {"x":454,"y":4175,"w":151,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":151,"h":257},
+	"sourceSize": {"w":151,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-46.png",
+	"frame": {"x":607,"y":4175,"w":152,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":152,"h":257},
+	"sourceSize": {"w":152,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-47.png",
+	"frame": {"x":761,"y":4175,"w":154,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":154,"h":257},
+	"sourceSize": {"w":154,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-48.png",
+	"frame": {"x":917,"y":4175,"w":155,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":155,"h":257},
+	"sourceSize": {"w":155,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-49.png",
+	"frame": {"x":1074,"y":4175,"w":157,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":157,"h":257},
+	"sourceSize": {"w":157,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-50.png",
+	"frame": {"x":3899,"y":1479,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-51.png",
+	"frame": {"x":1,"y":1675,"w":107,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":194},
+	"sourceSize": {"w":107,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-52.png",
+	"frame": {"x":110,"y":1675,"w":107,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":194},
+	"sourceSize": {"w":107,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-53.png",
+	"frame": {"x":219,"y":1675,"w":107,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":194},
+	"sourceSize": {"w":107,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-54.png",
+	"frame": {"x":2843,"y":1675,"w":107,"h":195},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":195},
+	"sourceSize": {"w":107,"h":195}
+},
+{
+	"filename": "Tree_Chestnut-55.png",
+	"frame": {"x":328,"y":1675,"w":107,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":194},
+	"sourceSize": {"w":107,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-56.png",
+	"frame": {"x":2952,"y":1675,"w":107,"h":195},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":195},
+	"sourceSize": {"w":107,"h":195}
+},
+{
+	"filename": "Tree_Chestnut-57.png",
+	"frame": {"x":437,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-58.png",
+	"frame": {"x":547,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-59.png",
+	"frame": {"x":657,"y":1675,"w":107,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":194},
+	"sourceSize": {"w":107,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-60.png",
+	"frame": {"x":766,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-61.png",
+	"frame": {"x":876,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-62.png",
+	"frame": {"x":986,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-63.png",
+	"frame": {"x":1096,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-64.png",
+	"frame": {"x":1206,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-65.png",
+	"frame": {"x":1316,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-66.png",
+	"frame": {"x":1426,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-67.png",
+	"frame": {"x":1536,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-68.png",
+	"frame": {"x":1646,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-69.png",
+	"frame": {"x":1756,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-70.png",
+	"frame": {"x":1866,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-71.png",
+	"frame": {"x":1976,"y":1675,"w":108,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":108,"h":194},
+	"sourceSize": {"w":108,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-72.png",
+	"frame": {"x":2086,"y":1675,"w":107,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":194},
+	"sourceSize": {"w":107,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-73.png",
+	"frame": {"x":2195,"y":1675,"w":107,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":194},
+	"sourceSize": {"w":107,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-74.png",
+	"frame": {"x":3061,"y":1675,"w":107,"h":195},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":195},
+	"sourceSize": {"w":107,"h":195}
+},
+{
+	"filename": "Tree_Chestnut-75.png",
+	"frame": {"x":1,"y":595,"w":85,"h":151},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":151},
+	"sourceSize": {"w":85,"h":151}
+},
+{
+	"filename": "Tree_Chestnut-76.png",
+	"frame": {"x":3804,"y":443,"w":85,"h":150},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":150},
+	"sourceSize": {"w":85,"h":150}
+},
+{
+	"filename": "Tree_Chestnut-77.png",
+	"frame": {"x":3891,"y":443,"w":85,"h":150},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":150},
+	"sourceSize": {"w":85,"h":150}
+},
+{
+	"filename": "Tree_Chestnut-78.png",
+	"frame": {"x":88,"y":595,"w":85,"h":151},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":151},
+	"sourceSize": {"w":85,"h":151}
+},
+{
+	"filename": "Tree_Chestnut-79.png",
+	"frame": {"x":262,"y":595,"w":85,"h":152},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":152},
+	"sourceSize": {"w":85,"h":152}
+},
+{
+	"filename": "Tree_Chestnut-80.png",
+	"frame": {"x":349,"y":595,"w":85,"h":152},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":152},
+	"sourceSize": {"w":85,"h":152}
+},
+{
+	"filename": "Tree_Chestnut-81.png",
+	"frame": {"x":1108,"y":595,"w":85,"h":153},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":153},
+	"sourceSize": {"w":85,"h":153}
+},
+{
+	"filename": "Tree_Chestnut-82.png",
+	"frame": {"x":1195,"y":595,"w":85,"h":153},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":153},
+	"sourceSize": {"w":85,"h":153}
+},
+{
+	"filename": "Tree_Chestnut-83.png",
+	"frame": {"x":1282,"y":595,"w":85,"h":153},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":153},
+	"sourceSize": {"w":85,"h":153}
+},
+{
+	"filename": "Tree_Chestnut-84.png",
+	"frame": {"x":1369,"y":595,"w":85,"h":153},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":153},
+	"sourceSize": {"w":85,"h":153}
+},
+{
+	"filename": "Tree_Chestnut-85.png",
+	"frame": {"x":1928,"y":595,"w":85,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":154},
+	"sourceSize": {"w":85,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-86.png",
+	"frame": {"x":2015,"y":595,"w":84,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":154},
+	"sourceSize": {"w":84,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-87.png",
+	"frame": {"x":2101,"y":595,"w":84,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":154},
+	"sourceSize": {"w":84,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-88.png",
+	"frame": {"x":2187,"y":595,"w":85,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":154},
+	"sourceSize": {"w":85,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-89.png",
+	"frame": {"x":2274,"y":595,"w":85,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":154},
+	"sourceSize": {"w":85,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-90.png",
+	"frame": {"x":2361,"y":595,"w":84,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":154},
+	"sourceSize": {"w":84,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-91.png",
+	"frame": {"x":2447,"y":595,"w":85,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":154},
+	"sourceSize": {"w":85,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-92.png",
+	"frame": {"x":2534,"y":595,"w":84,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":154},
+	"sourceSize": {"w":84,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-93.png",
+	"frame": {"x":2620,"y":595,"w":84,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":154},
+	"sourceSize": {"w":84,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-94.png",
+	"frame": {"x":2706,"y":595,"w":84,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":154},
+	"sourceSize": {"w":84,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-95.png",
+	"frame": {"x":2792,"y":595,"w":84,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":154},
+	"sourceSize": {"w":84,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-96.png",
+	"frame": {"x":1456,"y":595,"w":84,"h":153},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":153},
+	"sourceSize": {"w":84,"h":153}
+},
+{
+	"filename": "Tree_Chestnut-97.png",
+	"frame": {"x":1542,"y":595,"w":84,"h":153},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":153},
+	"sourceSize": {"w":84,"h":153}
+},
+{
+	"filename": "Tree_Chestnut-98.png",
+	"frame": {"x":1628,"y":595,"w":84,"h":153},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":153},
+	"sourceSize": {"w":84,"h":153}
+},
+{
+	"filename": "Tree_Chestnut-99.png",
+	"frame": {"x":2878,"y":595,"w":84,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":154},
+	"sourceSize": {"w":84,"h":154}
+},
+{
+	"filename": "Tree_Chestnut-100.png",
+	"frame": {"x":3041,"y":5294,"w":160,"h":302},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":160,"h":302},
+	"sourceSize": {"w":160,"h":302}
+},
+{
+	"filename": "Tree_Chestnut-101.png",
+	"frame": {"x":3680,"y":5605,"w":178,"h":315},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":178,"h":315},
+	"sourceSize": {"w":178,"h":315}
+},
+{
+	"filename": "Tree_Chestnut-102.png",
+	"frame": {"x":1934,"y":5922,"w":196,"h":317},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":196,"h":317},
+	"sourceSize": {"w":196,"h":317}
+},
+{
+	"filename": "Tree_Chestnut-103.png",
+	"frame": {"x":978,"y":4711,"w":212,"h":271},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":212,"h":271},
+	"sourceSize": {"w":212,"h":271}
+},
+{
+	"filename": "Tree_Chestnut-104.png",
+	"frame": {"x":1281,"y":3176,"w":252,"h":227},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":252,"h":227},
+	"sourceSize": {"w":252,"h":227}
+},
+{
+	"filename": "Tree_Chestnut-105.png",
+	"frame": {"x":3129,"y":1479,"w":247,"h":188},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":247,"h":188},
+	"sourceSize": {"w":247,"h":188}
+},
+{
+	"filename": "Tree_Chestnut-106.png",
+	"frame": {"x":1759,"y":757,"w":242,"h":166},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":242,"h":166},
+	"sourceSize": {"w":242,"h":166}
+},
+{
+	"filename": "Tree_Chestnut-107.png",
+	"frame": {"x":436,"y":595,"w":222,"h":152},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":222,"h":152},
+	"sourceSize": {"w":222,"h":152}
+},
+{
+	"filename": "Tree_Chestnut-108.png",
+	"frame": {"x":660,"y":595,"w":222,"h":152},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":222,"h":152},
+	"sourceSize": {"w":222,"h":152}
+},
+{
+	"filename": "Tree_Chestnut-109.png",
+	"frame": {"x":884,"y":595,"w":222,"h":152},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":222,"h":152},
+	"sourceSize": {"w":222,"h":152}
+},
+{
+	"filename": "Tree_Chestnut-110.png",
+	"frame": {"x":3059,"y":443,"w":222,"h":149},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":222,"h":149},
+	"sourceSize": {"w":222,"h":149}
+},
+{
+	"filename": "Tree_Chestnut-111.png",
+	"frame": {"x":3283,"y":443,"w":204,"h":149},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":204,"h":149},
+	"sourceSize": {"w":204,"h":149}
+},
+{
+	"filename": "Tree_Chestnut-112.png",
+	"frame": {"x":2497,"y":443,"w":204,"h":144},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":204,"h":144},
+	"sourceSize": {"w":204,"h":144}
+},
+{
+	"filename": "Tree_Chestnut-113.png",
+	"frame": {"x":2703,"y":443,"w":188,"h":144},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":188,"h":144},
+	"sourceSize": {"w":188,"h":144}
+},
+{
+	"filename": "Tree_Chestnut-114.png",
+	"frame": {"x":2703,"y":310,"w":144,"h":130},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":144,"h":130},
+	"sourceSize": {"w":144,"h":130}
+},
+{
+	"filename": "Tree_Chestnut-115.png",
+	"frame": {"x":996,"y":86,"w":142,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":142,"h":85},
+	"sourceSize": {"w":142,"h":85}
+},
+{
+	"filename": "Tree_Chestnut-116.png",
+	"frame": {"x":3596,"y":1,"w":125,"h":81},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":125,"h":81},
+	"sourceSize": {"w":125,"h":81}
+},
+{
+	"filename": "Tree_Chestnut-117.png",
+	"frame": {"x":1889,"y":4175,"w":166,"h":258},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":166,"h":258},
+	"sourceSize": {"w":166,"h":258}
+},
+{
+	"filename": "Tree_Chestnut-118.png",
+	"frame": {"x":1233,"y":4175,"w":179,"h":257},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":179,"h":257},
+	"sourceSize": {"w":179,"h":257}
+},
+{
+	"filename": "Tree_Chestnut-119.png",
+	"frame": {"x":1890,"y":3414,"w":178,"h":243},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":178,"h":243},
+	"sourceSize": {"w":178,"h":243}
+},
+{
+	"filename": "Tree_Chestnut-120.png",
+	"frame": {"x":2304,"y":1675,"w":196,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":196,"h":194},
+	"sourceSize": {"w":196,"h":194}
+},
+{
+	"filename": "Tree_Chestnut-121.png",
+	"frame": {"x":2630,"y":183,"w":178,"h":117},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":178,"h":117},
+	"sourceSize": {"w":178,"h":117}
+},
+{
+	"filename": "Tree_Chestnut-122.png",
+	"frame": {"x":2810,"y":183,"w":188,"h":117},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":188,"h":117},
+	"sourceSize": {"w":188,"h":117}
+},
+{
+	"filename": "Tree_Chestnut-123.png",
+	"frame": {"x":2103,"y":183,"w":178,"h":114},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":178,"h":114},
+	"sourceSize": {"w":178,"h":114}
+},
+{
+	"filename": "Tree_Chestnut-124.png",
+	"frame": {"x":2283,"y":183,"w":175,"h":114},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":175,"h":114},
+	"sourceSize": {"w":175,"h":114}
+},
+{
+	"filename": "Tree_Chestnut-125.png",
+	"frame": {"x":2460,"y":183,"w":168,"h":114},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":168,"h":114},
+	"sourceSize": {"w":168,"h":114}
+},
+{
+	"filename": "Tree_Chestnut-126.png",
+	"frame": {"x":1887,"y":183,"w":149,"h":111},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":149,"h":111},
+	"sourceSize": {"w":149,"h":111}
+},
+{
+	"filename": "Tree_Chestnut-127.png",
+	"frame": {"x":870,"y":183,"w":126,"h":107},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":126,"h":107},
+	"sourceSize": {"w":126,"h":107}
+},
+{
+	"filename": "Tree_Chestnut-128.png",
+	"frame": {"x":1133,"y":1,"w":126,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":126,"h":72},
+	"sourceSize": {"w":126,"h":72}
+},
+{
+	"filename": "Tree_Chestnut-129.png",
+	"frame": {"x":3890,"y":1675,"w":105,"h":196},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":105,"h":196},
+	"sourceSize": {"w":105,"h":196}
+},
+{
+	"filename": "Tree_Chestnut-130.png",
+	"frame": {"x":3170,"y":1675,"w":121,"h":195},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":121,"h":195},
+	"sourceSize": {"w":121,"h":195}
+},
+{
+	"filename": "Tree_Chestnut-131.png",
+	"frame": {"x":1526,"y":1294,"w":132,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":132,"h":181},
+	"sourceSize": {"w":132,"h":181}
+},
+{
+	"filename": "Tree_Chestnut-132.png",
+	"frame": {"x":1426,"y":443,"w":150,"h":136},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":150,"h":136},
+	"sourceSize": {"w":150,"h":136}
+},
+{
+	"filename": "Tree_Chestnut-133.png",
+	"frame": {"x":3867,"y":1,"w":143,"h":83},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":143,"h":83},
+	"sourceSize": {"w":143,"h":83}
+},
+{
+	"filename": "Tree_Chestnut-134.png",
+	"frame": {"x":1,"y":86,"w":153,"h":84},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":153,"h":84},
+	"sourceSize": {"w":153,"h":84}
+},
+{
+	"filename": "Tree_Chestnut-135.png",
+	"frame": {"x":3723,"y":1,"w":142,"h":81},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":142,"h":81},
+	"sourceSize": {"w":142,"h":81}
+},
+{
+	"filename": "Tree_Chestnut-136.png",
+	"frame": {"x":3338,"y":1,"w":132,"h":80},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":132,"h":80},
+	"sourceSize": {"w":132,"h":80}
+},
+{
+	"filename": "Tree_Chestnut-137.png",
+	"frame": {"x":3472,"y":1,"w":122,"h":80},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":122,"h":80},
+	"sourceSize": {"w":122,"h":80}
+},
+{
+	"filename": "Tree_Chestnut-138.png",
+	"frame": {"x":495,"y":1,"w":93,"h":68},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":93,"h":68},
+	"sourceSize": {"w":93,"h":68}
+},
+{
+	"filename": "Tree_Chestnut-139.png",
+	"frame": {"x":175,"y":595,"w":85,"h":151},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":151},
+	"sourceSize": {"w":85,"h":151}
+},
+{
+	"filename": "Tree_Chestnut-140.png",
+	"frame": {"x":3489,"y":443,"w":94,"h":149},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":94,"h":149},
+	"sourceSize": {"w":94,"h":149}
+},
+{
+	"filename": "Tree_Chestnut-141.png",
+	"frame": {"x":1578,"y":443,"w":119,"h":136},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":119,"h":136},
+	"sourceSize": {"w":119,"h":136}
+},
+{
+	"filename": "Tree_Chestnut-142.png",
+	"frame": {"x":737,"y":183,"w":131,"h":106},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":131,"h":106},
+	"sourceSize": {"w":131,"h":106}
+},
+{
+	"filename": "Tree_Chestnut-143.png",
+	"frame": {"x":3198,"y":1,"w":138,"h":79},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":138,"h":79},
+	"sourceSize": {"w":138,"h":79}
+},
+{
+	"filename": "Tree_Chestnut-144.png",
+	"frame": {"x":590,"y":1,"w":107,"h":69},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":107,"h":69},
+	"sourceSize": {"w":107,"h":69}
+},
+{
+	"filename": "Tree_Chestnut-145.png",
+	"frame": {"x":414,"y":1,"w":79,"h":66},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":79,"h":66},
+	"sourceSize": {"w":79,"h":66}
+},
+{
+	"filename": "Tree_Chestnut-146.png",
+	"frame": {"x":3860,"y":5605,"w":144,"h":315},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":144,"h":315},
+	"sourceSize": {"w":144,"h":315}
+},
+{
+	"filename": "Tree_Chestnut-147.png",
+	"frame": {"x":61,"y":1,"w":47,"h":33},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":47,"h":33},
+	"sourceSize": {"w":47,"h":33}
+},
+{
+	"filename": "Tree_Oak-0.png",
+	"frame": {"x":1,"y":5922,"w":275,"h":315},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":275,"h":315},
+	"sourceSize": {"w":275,"h":315}
+},
+{
+	"filename": "Tree_Oak-1.png",
+	"frame": {"x":278,"y":5922,"w":275,"h":315},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":275,"h":315},
+	"sourceSize": {"w":275,"h":315}
+},
+{
+	"filename": "Tree_Oak-2.png",
+	"frame": {"x":555,"y":5922,"w":273,"h":315},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":273,"h":315},
+	"sourceSize": {"w":273,"h":315}
+},
+{
+	"filename": "Tree_Oak-3.png",
+	"frame": {"x":1106,"y":5922,"w":275,"h":316},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":275,"h":316},
+	"sourceSize": {"w":275,"h":316}
+},
+{
+	"filename": "Tree_Oak-4.png",
+	"frame": {"x":830,"y":5922,"w":274,"h":315},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":274,"h":315},
+	"sourceSize": {"w":274,"h":315}
+},
+{
+	"filename": "Tree_Oak-5.png",
+	"frame": {"x":1383,"y":5922,"w":274,"h":316},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":274,"h":316},
+	"sourceSize": {"w":274,"h":316}
+},
+{
+	"filename": "Tree_Oak-6.png",
+	"frame": {"x":1659,"y":5922,"w":273,"h":316},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":273,"h":316},
+	"sourceSize": {"w":273,"h":316}
+},
+{
+	"filename": "Tree_Oak-7.png",
+	"frame": {"x":2132,"y":5922,"w":272,"h":317},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":272,"h":317},
+	"sourceSize": {"w":272,"h":317}
+},
+{
+	"filename": "Tree_Oak-8.png",
+	"frame": {"x":2762,"y":5922,"w":271,"h":319},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":271,"h":319},
+	"sourceSize": {"w":271,"h":319}
+},
+{
+	"filename": "Tree_Oak-9.png",
+	"frame": {"x":3035,"y":5922,"w":270,"h":319},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":270,"h":319},
+	"sourceSize": {"w":270,"h":319}
+},
+{
+	"filename": "Tree_Oak-10.png",
+	"frame": {"x":3307,"y":5922,"w":270,"h":319},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":270,"h":319},
+	"sourceSize": {"w":270,"h":319}
+},
+{
+	"filename": "Tree_Oak-11.png",
+	"frame": {"x":3579,"y":5922,"w":270,"h":320},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":270,"h":320},
+	"sourceSize": {"w":270,"h":320}
+},
+{
+	"filename": "Tree_Oak-12.png",
+	"frame": {"x":274,"y":6244,"w":271,"h":321},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":271,"h":321},
+	"sourceSize": {"w":271,"h":321}
+},
+{
+	"filename": "Tree_Oak-13.png",
+	"frame": {"x":1,"y":6244,"w":271,"h":320},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":271,"h":320},
+	"sourceSize": {"w":271,"h":320}
+},
+{
+	"filename": "Tree_Oak-14.png",
+	"frame": {"x":547,"y":6244,"w":271,"h":321},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":271,"h":321},
+	"sourceSize": {"w":271,"h":321}
+},
+{
+	"filename": "Tree_Oak-15.png",
+	"frame": {"x":1406,"y":6244,"w":271,"h":322},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":271,"h":322},
+	"sourceSize": {"w":271,"h":322}
+},
+{
+	"filename": "Tree_Oak-16.png",
+	"frame": {"x":1679,"y":6244,"w":270,"h":322},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":270,"h":322},
+	"sourceSize": {"w":270,"h":322}
+},
+{
+	"filename": "Tree_Oak-17.png",
+	"frame": {"x":2225,"y":6244,"w":270,"h":323},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":270,"h":323},
+	"sourceSize": {"w":270,"h":323}
+},
+{
+	"filename": "Tree_Oak-18.png",
+	"frame": {"x":2497,"y":6244,"w":271,"h":323},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":271,"h":323},
+	"sourceSize": {"w":271,"h":323}
+},
+{
+	"filename": "Tree_Oak-19.png",
+	"frame": {"x":2770,"y":6244,"w":271,"h":323},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":271,"h":323},
+	"sourceSize": {"w":271,"h":323}
+},
+{
+	"filename": "Tree_Oak-20.png",
+	"frame": {"x":1951,"y":6244,"w":272,"h":322},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":272,"h":322},
+	"sourceSize": {"w":272,"h":322}
+},
+{
+	"filename": "Tree_Oak-21.png",
+	"frame": {"x":3043,"y":6244,"w":272,"h":323},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":272,"h":323},
+	"sourceSize": {"w":272,"h":323}
+},
+{
+	"filename": "Tree_Oak-22.png",
+	"frame": {"x":1,"y":6569,"w":271,"h":324},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":271,"h":324},
+	"sourceSize": {"w":271,"h":324}
+},
+{
+	"filename": "Tree_Oak-23.png",
+	"frame": {"x":3317,"y":6244,"w":271,"h":323},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":271,"h":323},
+	"sourceSize": {"w":271,"h":323}
+},
+{
+	"filename": "Tree_Oak-24.png",
+	"frame": {"x":3590,"y":6244,"w":272,"h":323},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":272,"h":323},
+	"sourceSize": {"w":272,"h":323}
+},
+{
+	"filename": "Tree_Oak-25.png",
+	"frame": {"x":2401,"y":4175,"w":244,"h":263},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":263},
+	"sourceSize": {"w":244,"h":263}
+},
+{
+	"filename": "Tree_Oak-26.png",
+	"frame": {"x":2647,"y":4175,"w":244,"h":263},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":263},
+	"sourceSize": {"w":244,"h":263}
+},
+{
+	"filename": "Tree_Oak-27.png",
+	"frame": {"x":2893,"y":4175,"w":244,"h":263},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":263},
+	"sourceSize": {"w":244,"h":263}
+},
+{
+	"filename": "Tree_Oak-28.png",
+	"frame": {"x":3139,"y":4175,"w":244,"h":263},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":263},
+	"sourceSize": {"w":244,"h":263}
+},
+{
+	"filename": "Tree_Oak-29.png",
+	"frame": {"x":3385,"y":4175,"w":243,"h":263},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":243,"h":263},
+	"sourceSize": {"w":243,"h":263}
+},
+{
+	"filename": "Tree_Oak-30.png",
+	"frame": {"x":1,"y":4440,"w":244,"h":264},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":264},
+	"sourceSize": {"w":244,"h":264}
+},
+{
+	"filename": "Tree_Oak-31.png",
+	"frame": {"x":247,"y":4440,"w":244,"h":264},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":264},
+	"sourceSize": {"w":244,"h":264}
+},
+{
+	"filename": "Tree_Oak-32.png",
+	"frame": {"x":493,"y":4440,"w":243,"h":264},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":243,"h":264},
+	"sourceSize": {"w":243,"h":264}
+},
+{
+	"filename": "Tree_Oak-33.png",
+	"frame": {"x":738,"y":4440,"w":243,"h":265},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":243,"h":265},
+	"sourceSize": {"w":243,"h":265}
+},
+{
+	"filename": "Tree_Oak-34.png",
+	"frame": {"x":983,"y":4440,"w":242,"h":265},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":242,"h":265},
+	"sourceSize": {"w":242,"h":265}
+},
+{
+	"filename": "Tree_Oak-35.png",
+	"frame": {"x":1227,"y":4440,"w":242,"h":266},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":242,"h":266},
+	"sourceSize": {"w":242,"h":266}
+},
+{
+	"filename": "Tree_Oak-36.png",
+	"frame": {"x":1471,"y":4440,"w":243,"h":266},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":243,"h":266},
+	"sourceSize": {"w":243,"h":266}
+},
+{
+	"filename": "Tree_Oak-37.png",
+	"frame": {"x":1716,"y":4440,"w":242,"h":267},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":242,"h":267},
+	"sourceSize": {"w":242,"h":267}
+},
+{
+	"filename": "Tree_Oak-38.png",
+	"frame": {"x":2206,"y":4440,"w":243,"h":268},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":243,"h":268},
+	"sourceSize": {"w":243,"h":268}
+},
+{
+	"filename": "Tree_Oak-39.png",
+	"frame": {"x":3004,"y":4440,"w":244,"h":269},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":269},
+	"sourceSize": {"w":244,"h":269}
+},
+{
+	"filename": "Tree_Oak-40.png",
+	"frame": {"x":3250,"y":4440,"w":244,"h":269},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":269},
+	"sourceSize": {"w":244,"h":269}
+},
+{
+	"filename": "Tree_Oak-41.png",
+	"frame": {"x":3496,"y":4440,"w":243,"h":269},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":243,"h":269},
+	"sourceSize": {"w":243,"h":269}
+},
+{
+	"filename": "Tree_Oak-42.png",
+	"frame": {"x":3741,"y":4440,"w":243,"h":269},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":243,"h":269},
+	"sourceSize": {"w":243,"h":269}
+},
+{
+	"filename": "Tree_Oak-43.png",
+	"frame": {"x":1,"y":4711,"w":242,"h":269},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":242,"h":269},
+	"sourceSize": {"w":242,"h":269}
+},
+{
+	"filename": "Tree_Oak-44.png",
+	"frame": {"x":245,"y":4711,"w":243,"h":269},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":243,"h":269},
+	"sourceSize": {"w":243,"h":269}
+},
+{
+	"filename": "Tree_Oak-45.png",
+	"frame": {"x":490,"y":4711,"w":242,"h":270},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":242,"h":270},
+	"sourceSize": {"w":242,"h":270}
+},
+{
+	"filename": "Tree_Oak-46.png",
+	"frame": {"x":734,"y":4711,"w":242,"h":270},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":242,"h":270},
+	"sourceSize": {"w":242,"h":270}
+},
+{
+	"filename": "Tree_Oak-47.png",
+	"frame": {"x":1192,"y":4711,"w":241,"h":271},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":241,"h":271},
+	"sourceSize": {"w":241,"h":271}
+},
+{
+	"filename": "Tree_Oak-48.png",
+	"frame": {"x":1435,"y":4711,"w":241,"h":271},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":241,"h":271},
+	"sourceSize": {"w":241,"h":271}
+},
+{
+	"filename": "Tree_Oak-49.png",
+	"frame": {"x":1678,"y":4711,"w":242,"h":271},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":242,"h":271},
+	"sourceSize": {"w":242,"h":271}
+},
+{
+	"filename": "Tree_Oak-50.png",
+	"frame": {"x":2211,"y":3414,"w":210,"h":245},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":210,"h":245},
+	"sourceSize": {"w":210,"h":245}
+},
+{
+	"filename": "Tree_Oak-51.png",
+	"frame": {"x":2423,"y":3414,"w":209,"h":245},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":245},
+	"sourceSize": {"w":209,"h":245}
+},
+{
+	"filename": "Tree_Oak-52.png",
+	"frame": {"x":2634,"y":3414,"w":208,"h":245},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":245},
+	"sourceSize": {"w":208,"h":245}
+},
+{
+	"filename": "Tree_Oak-53.png",
+	"frame": {"x":2844,"y":3414,"w":208,"h":245},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":245},
+	"sourceSize": {"w":208,"h":245}
+},
+{
+	"filename": "Tree_Oak-54.png",
+	"frame": {"x":3054,"y":3414,"w":209,"h":245},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":245},
+	"sourceSize": {"w":209,"h":245}
+},
+{
+	"filename": "Tree_Oak-55.png",
+	"frame": {"x":3265,"y":3414,"w":209,"h":246},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":246},
+	"sourceSize": {"w":209,"h":246}
+},
+{
+	"filename": "Tree_Oak-56.png",
+	"frame": {"x":3476,"y":3414,"w":208,"h":246},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":246},
+	"sourceSize": {"w":208,"h":246}
+},
+{
+	"filename": "Tree_Oak-57.png",
+	"frame": {"x":3686,"y":3414,"w":207,"h":247},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":207,"h":247},
+	"sourceSize": {"w":207,"h":247}
+},
+{
+	"filename": "Tree_Oak-58.png",
+	"frame": {"x":1,"y":3663,"w":207,"h":247},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":207,"h":247},
+	"sourceSize": {"w":207,"h":247}
+},
+{
+	"filename": "Tree_Oak-59.png",
+	"frame": {"x":544,"y":3663,"w":207,"h":248},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":207,"h":248},
+	"sourceSize": {"w":207,"h":248}
+},
+{
+	"filename": "Tree_Oak-60.png",
+	"frame": {"x":753,"y":3663,"w":207,"h":248},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":207,"h":248},
+	"sourceSize": {"w":207,"h":248}
+},
+{
+	"filename": "Tree_Oak-61.png",
+	"frame": {"x":962,"y":3663,"w":207,"h":248},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":207,"h":248},
+	"sourceSize": {"w":207,"h":248}
+},
+{
+	"filename": "Tree_Oak-62.png",
+	"frame": {"x":2306,"y":3663,"w":208,"h":250},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":250},
+	"sourceSize": {"w":208,"h":250}
+},
+{
+	"filename": "Tree_Oak-63.png",
+	"frame": {"x":2516,"y":3663,"w":208,"h":250},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":208,"h":250},
+	"sourceSize": {"w":208,"h":250}
+},
+{
+	"filename": "Tree_Oak-64.png",
+	"frame": {"x":2726,"y":3663,"w":206,"h":250},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":250},
+	"sourceSize": {"w":206,"h":250}
+},
+{
+	"filename": "Tree_Oak-65.png",
+	"frame": {"x":3363,"y":3663,"w":206,"h":251},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":251},
+	"sourceSize": {"w":206,"h":251}
+},
+{
+	"filename": "Tree_Oak-66.png",
+	"frame": {"x":3571,"y":3663,"w":206,"h":251},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":251},
+	"sourceSize": {"w":206,"h":251}
+},
+{
+	"filename": "Tree_Oak-67.png",
+	"frame": {"x":209,"y":3916,"w":206,"h":252},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":252},
+	"sourceSize": {"w":206,"h":252}
+},
+{
+	"filename": "Tree_Oak-68.png",
+	"frame": {"x":417,"y":3916,"w":206,"h":252},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":252},
+	"sourceSize": {"w":206,"h":252}
+},
+{
+	"filename": "Tree_Oak-69.png",
+	"frame": {"x":625,"y":3916,"w":206,"h":252},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":252},
+	"sourceSize": {"w":206,"h":252}
+},
+{
+	"filename": "Tree_Oak-70.png",
+	"frame": {"x":833,"y":3916,"w":206,"h":252},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":252},
+	"sourceSize": {"w":206,"h":252}
+},
+{
+	"filename": "Tree_Oak-71.png",
+	"frame": {"x":3779,"y":3663,"w":206,"h":251},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":251},
+	"sourceSize": {"w":206,"h":251}
+},
+{
+	"filename": "Tree_Oak-72.png",
+	"frame": {"x":1,"y":3916,"w":206,"h":251},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":251},
+	"sourceSize": {"w":206,"h":251}
+},
+{
+	"filename": "Tree_Oak-73.png",
+	"frame": {"x":1041,"y":3916,"w":206,"h":252},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":252},
+	"sourceSize": {"w":206,"h":252}
+},
+{
+	"filename": "Tree_Oak-74.png",
+	"frame": {"x":1249,"y":3916,"w":206,"h":252},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":206,"h":252},
+	"sourceSize": {"w":206,"h":252}
+},
+{
+	"filename": "Tree_Oak-75.png",
+	"frame": {"x":2379,"y":757,"w":129,"h":171},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":171},
+	"sourceSize": {"w":129,"h":171}
+},
+{
+	"filename": "Tree_Oak-76.png",
+	"frame": {"x":2510,"y":757,"w":129,"h":171},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":171},
+	"sourceSize": {"w":129,"h":171}
+},
+{
+	"filename": "Tree_Oak-77.png",
+	"frame": {"x":2641,"y":757,"w":129,"h":171},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":171},
+	"sourceSize": {"w":129,"h":171}
+},
+{
+	"filename": "Tree_Oak-78.png",
+	"frame": {"x":2772,"y":757,"w":129,"h":171},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":171},
+	"sourceSize": {"w":129,"h":171}
+},
+{
+	"filename": "Tree_Oak-79.png",
+	"frame": {"x":2903,"y":757,"w":129,"h":172},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":172},
+	"sourceSize": {"w":129,"h":172}
+},
+{
+	"filename": "Tree_Oak-80.png",
+	"frame": {"x":3034,"y":757,"w":129,"h":172},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":172},
+	"sourceSize": {"w":129,"h":172}
+},
+{
+	"filename": "Tree_Oak-81.png",
+	"frame": {"x":3165,"y":757,"w":129,"h":172},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":172},
+	"sourceSize": {"w":129,"h":172}
+},
+{
+	"filename": "Tree_Oak-82.png",
+	"frame": {"x":3296,"y":757,"w":129,"h":172},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":172},
+	"sourceSize": {"w":129,"h":172}
+},
+{
+	"filename": "Tree_Oak-83.png",
+	"frame": {"x":3427,"y":757,"w":129,"h":172},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":172},
+	"sourceSize": {"w":129,"h":172}
+},
+{
+	"filename": "Tree_Oak-84.png",
+	"frame": {"x":3558,"y":757,"w":129,"h":173},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":173},
+	"sourceSize": {"w":129,"h":173}
+},
+{
+	"filename": "Tree_Oak-85.png",
+	"frame": {"x":3689,"y":757,"w":128,"h":173},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":173},
+	"sourceSize": {"w":128,"h":173}
+},
+{
+	"filename": "Tree_Oak-86.png",
+	"frame": {"x":3819,"y":757,"w":127,"h":173},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":127,"h":173},
+	"sourceSize": {"w":127,"h":173}
+},
+{
+	"filename": "Tree_Oak-87.png",
+	"frame": {"x":1,"y":932,"w":128,"h":173},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":173},
+	"sourceSize": {"w":128,"h":173}
+},
+{
+	"filename": "Tree_Oak-88.png",
+	"frame": {"x":651,"y":932,"w":128,"h":174},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":174},
+	"sourceSize": {"w":128,"h":174}
+},
+{
+	"filename": "Tree_Oak-89.png",
+	"frame": {"x":781,"y":932,"w":128,"h":174},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":174},
+	"sourceSize": {"w":128,"h":174}
+},
+{
+	"filename": "Tree_Oak-90.png",
+	"frame": {"x":911,"y":932,"w":128,"h":174},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":174},
+	"sourceSize": {"w":128,"h":174}
+},
+{
+	"filename": "Tree_Oak-91.png",
+	"frame": {"x":1041,"y":932,"w":128,"h":174},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":174},
+	"sourceSize": {"w":128,"h":174}
+},
+{
+	"filename": "Tree_Oak-92.png",
+	"frame": {"x":131,"y":932,"w":128,"h":173},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":173},
+	"sourceSize": {"w":128,"h":173}
+},
+{
+	"filename": "Tree_Oak-93.png",
+	"frame": {"x":261,"y":932,"w":128,"h":173},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":173},
+	"sourceSize": {"w":128,"h":173}
+},
+{
+	"filename": "Tree_Oak-94.png",
+	"frame": {"x":391,"y":932,"w":128,"h":173},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":173},
+	"sourceSize": {"w":128,"h":173}
+},
+{
+	"filename": "Tree_Oak-95.png",
+	"frame": {"x":1171,"y":932,"w":128,"h":174},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":174},
+	"sourceSize": {"w":128,"h":174}
+},
+{
+	"filename": "Tree_Oak-96.png",
+	"frame": {"x":1301,"y":932,"w":129,"h":174},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":129,"h":174},
+	"sourceSize": {"w":129,"h":174}
+},
+{
+	"filename": "Tree_Oak-97.png",
+	"frame": {"x":1432,"y":932,"w":128,"h":174},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":174},
+	"sourceSize": {"w":128,"h":174}
+},
+{
+	"filename": "Tree_Oak-98.png",
+	"frame": {"x":1562,"y":932,"w":128,"h":174},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":174},
+	"sourceSize": {"w":128,"h":174}
+},
+{
+	"filename": "Tree_Oak-99.png",
+	"frame": {"x":521,"y":932,"w":128,"h":173},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":173},
+	"sourceSize": {"w":128,"h":173}
+},
+{
+	"filename": "Tree_Oak-100.png",
+	"frame": {"x":820,"y":6244,"w":273,"h":321},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":273,"h":321},
+	"sourceSize": {"w":273,"h":321}
+},
+{
+	"filename": "Tree_Oak-101.png",
+	"frame": {"x":573,"y":6569,"w":279,"h":328},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":279,"h":328},
+	"sourceSize": {"w":279,"h":328}
+},
+{
+	"filename": "Tree_Oak-102.png",
+	"frame": {"x":274,"y":6569,"w":297,"h":325},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":297,"h":325},
+	"sourceSize": {"w":297,"h":325}
+},
+{
+	"filename": "Tree_Oak-103.png",
+	"frame": {"x":2726,"y":5294,"w":313,"h":300},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":313,"h":300},
+	"sourceSize": {"w":313,"h":300}
+},
+{
+	"filename": "Tree_Oak-104.png",
+	"frame": {"x":3630,"y":4175,"w":319,"h":263},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":319,"h":263},
+	"sourceSize": {"w":319,"h":263}
+},
+{
+	"filename": "Tree_Oak-105.png",
+	"frame": {"x":2098,"y":3176,"w":320,"h":230},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":320,"h":230},
+	"sourceSize": {"w":320,"h":230}
+},
+{
+	"filename": "Tree_Oak-106.png",
+	"frame": {"x":1974,"y":2731,"w":320,"h":217},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":320,"h":217},
+	"sourceSize": {"w":320,"h":217}
+},
+{
+	"filename": "Tree_Oak-107.png",
+	"frame": {"x":1732,"y":2951,"w":313,"h":221},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":313,"h":221},
+	"sourceSize": {"w":313,"h":221}
+},
+{
+	"filename": "Tree_Oak-108.png",
+	"frame": {"x":2047,"y":2951,"w":313,"h":221},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":313,"h":221},
+	"sourceSize": {"w":313,"h":221}
+},
+{
+	"filename": "Tree_Oak-109.png",
+	"frame": {"x":3378,"y":1479,"w":313,"h":189},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":313,"h":189},
+	"sourceSize": {"w":313,"h":189}
+},
+{
+	"filename": "Tree_Oak-110.png",
+	"frame": {"x":464,"y":757,"w":299,"h":162},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":299,"h":162},
+	"sourceSize": {"w":299,"h":162}
+},
+{
+	"filename": "Tree_Oak-111.png",
+	"frame": {"x":765,"y":757,"w":299,"h":162},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":299,"h":162},
+	"sourceSize": {"w":299,"h":162}
+},
+{
+	"filename": "Tree_Oak-112.png",
+	"frame": {"x":1066,"y":757,"w":299,"h":162},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":299,"h":162},
+	"sourceSize": {"w":299,"h":162}
+},
+{
+	"filename": "Tree_Oak-113.png",
+	"frame": {"x":3157,"y":595,"w":264,"h":158},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":264,"h":158},
+	"sourceSize": {"w":264,"h":158}
+},
+{
+	"filename": "Tree_Oak-114.png",
+	"frame": {"x":3423,"y":595,"w":244,"h":158},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":158},
+	"sourceSize": {"w":244,"h":158}
+},
+{
+	"filename": "Tree_Oak-115.png",
+	"frame": {"x":2964,"y":595,"w":191,"h":154},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":191,"h":154},
+	"sourceSize": {"w":191,"h":154}
+},
+{
+	"filename": "Tree_Oak-116.png",
+	"frame": {"x":3000,"y":183,"w":134,"h":117},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":134,"h":117},
+	"sourceSize": {"w":134,"h":117}
+},
+{
+	"filename": "Tree_Oak-117.png",
+	"frame": {"x":2451,"y":4440,"w":242,"h":268},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":242,"h":268},
+	"sourceSize": {"w":242,"h":268}
+},
+{
+	"filename": "Tree_Oak-118.png",
+	"frame": {"x":1922,"y":4711,"w":239,"h":274},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":239,"h":274},
+	"sourceSize": {"w":239,"h":274}
+},
+{
+	"filename": "Tree_Oak-119.png",
+	"frame": {"x":1960,"y":4440,"w":244,"h":267},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":244,"h":267},
+	"sourceSize": {"w":244,"h":267}
+},
+{
+	"filename": "Tree_Oak-120.png",
+	"frame": {"x":1619,"y":3916,"w":255,"h":253},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":255,"h":253},
+	"sourceSize": {"w":255,"h":253}
+},
+{
+	"filename": "Tree_Oak-121.png",
+	"frame": {"x":3376,"y":2951,"w":256,"h":222},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":256,"h":222},
+	"sourceSize": {"w":256,"h":222}
+},
+{
+	"filename": "Tree_Oak-122.png",
+	"frame": {"x":3293,"y":1675,"w":253,"h":195},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":253,"h":195},
+	"sourceSize": {"w":253,"h":195}
+},
+{
+	"filename": "Tree_Oak-123.png",
+	"frame": {"x":3100,"y":1294,"w":249,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":249,"h":182},
+	"sourceSize": {"w":249,"h":182}
+},
+{
+	"filename": "Tree_Oak-124.png",
+	"frame": {"x":2877,"y":1479,"w":250,"h":186},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":250,"h":186},
+	"sourceSize": {"w":250,"h":186}
+},
+{
+	"filename": "Tree_Oak-125.png",
+	"frame": {"x":1568,"y":1479,"w":225,"h":185},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":225,"h":185},
+	"sourceSize": {"w":225,"h":185}
+},
+{
+	"filename": "Tree_Oak-126.png",
+	"frame": {"x":1795,"y":1479,"w":225,"h":185},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":225,"h":185},
+	"sourceSize": {"w":225,"h":185}
+},
+{
+	"filename": "Tree_Oak-127.png",
+	"frame": {"x":2022,"y":1479,"w":225,"h":185},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":225,"h":185},
+	"sourceSize": {"w":225,"h":185}
+},
+{
+	"filename": "Tree_Oak-128.png",
+	"frame": {"x":2249,"y":1479,"w":225,"h":185},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":225,"h":185},
+	"sourceSize": {"w":225,"h":185}
+},
+{
+	"filename": "Tree_Oak-129.png",
+	"frame": {"x":1171,"y":3663,"w":209,"h":248},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":209,"h":248},
+	"sourceSize": {"w":209,"h":248}
+},
+{
+	"filename": "Tree_Oak-130.png",
+	"frame": {"x":1382,"y":3663,"w":207,"h":248},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":207,"h":248},
+	"sourceSize": {"w":207,"h":248}
+},
+{
+	"filename": "Tree_Oak-131.png",
+	"frame": {"x":3843,"y":3176,"w":213,"h":236},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":213,"h":236},
+	"sourceSize": {"w":213,"h":236}
+},
+{
+	"filename": "Tree_Oak-132.png",
+	"frame": {"x":665,"y":3176,"w":220,"h":224},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":220,"h":224},
+	"sourceSize": {"w":220,"h":224}
+},
+{
+	"filename": "Tree_Oak-133.png",
+	"frame": {"x":1,"y":1873,"w":232,"h":196},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":232,"h":196},
+	"sourceSize": {"w":232,"h":196}
+},
+{
+	"filename": "Tree_Oak-134.png",
+	"frame": {"x":2003,"y":757,"w":232,"h":170},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":232,"h":170},
+	"sourceSize": {"w":232,"h":170}
+},
+{
+	"filename": "Tree_Oak-135.png",
+	"frame": {"x":3669,"y":595,"w":235,"h":160},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":235,"h":160},
+	"sourceSize": {"w":235,"h":160}
+},
+{
+	"filename": "Tree_Oak-136.png",
+	"frame": {"x":1526,"y":757,"w":231,"h":164},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":231,"h":164},
+	"sourceSize": {"w":231,"h":164}
+},
+{
+	"filename": "Tree_Oak-137.png",
+	"frame": {"x":1,"y":757,"w":230,"h":161},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":230,"h":161},
+	"sourceSize": {"w":230,"h":161}
+},
+{
+	"filename": "Tree_Oak-138.png",
+	"frame": {"x":233,"y":757,"w":229,"h":161},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":229,"h":161},
+	"sourceSize": {"w":229,"h":161}
+},
+{
+	"filename": "Tree_Oak-139.png",
+	"frame": {"x":1660,"y":1294,"w":133,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":133,"h":181},
+	"sourceSize": {"w":133,"h":181}
+},
+{
+	"filename": "Tree_Oak-140.png",
+	"frame": {"x":853,"y":1112,"w":147,"h":179},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":147,"h":179},
+	"sourceSize": {"w":147,"h":179}
+},
+{
+	"filename": "Tree_Oak-141.png",
+	"frame": {"x":1367,"y":757,"w":157,"h":162},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":157,"h":162},
+	"sourceSize": {"w":157,"h":162}
+},
+{
+	"filename": "Tree_Oak-142.png",
+	"frame": {"x":1699,"y":443,"w":158,"h":136},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":158,"h":136},
+	"sourceSize": {"w":158,"h":136}
+},
+{
+	"filename": "Tree_Oak-143.png",
+	"frame": {"x":3136,"y":183,"w":158,"h":120},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":158,"h":120},
+	"sourceSize": {"w":158,"h":120}
+},
+{
+	"filename": "Tree_Oak-144.png",
+	"frame": {"x":1280,"y":183,"w":154,"h":109},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":154,"h":109},
+	"sourceSize": {"w":154,"h":109}
+},
+{
+	"filename": "Tree_Oak-145.png",
+	"frame": {"x":3076,"y":1,"w":120,"h":77},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":120,"h":77},
+	"sourceSize": {"w":120,"h":77}
+},
+{
+	"filename": "Tree_Oak-146.png",
+	"frame": {"x":2470,"y":4711,"w":263,"h":285},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":263,"h":285},
+	"sourceSize": {"w":263,"h":285}
+},
+{
+	"filename": "Tree_Oak-147.png",
+	"frame": {"x":110,"y":1,"w":54,"h":33},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":54,"h":33},
+	"sourceSize": {"w":54,"h":33}
+},
+{
+	"filename": "tree_pine-0.png",
+	"frame": {"x":2720,"y":6914,"w":342,"h":346},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":342,"h":346},
+	"sourceSize": {"w":342,"h":346}
+},
+{
+	"filename": "tree_pine-1.png",
+	"frame": {"x":345,"y":7262,"w":342,"h":347},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":342,"h":347},
+	"sourceSize": {"w":342,"h":347}
+},
+{
+	"filename": "tree_pine-2.png",
+	"frame": {"x":689,"y":7262,"w":341,"h":347},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":341,"h":347},
+	"sourceSize": {"w":341,"h":347}
+},
+{
+	"filename": "tree_pine-3.png",
+	"frame": {"x":3300,"y":6569,"w":342,"h":342},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":342,"h":342},
+	"sourceSize": {"w":342,"h":342}
+},
+{
+	"filename": "tree_pine-4.png",
+	"frame": {"x":1687,"y":6914,"w":344,"h":345},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":344,"h":345},
+	"sourceSize": {"w":344,"h":345}
+},
+{
+	"filename": "tree_pine-5.png",
+	"frame": {"x":2033,"y":6914,"w":343,"h":345},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":343,"h":345},
+	"sourceSize": {"w":343,"h":345}
+},
+{
+	"filename": "tree_pine-6.png",
+	"frame": {"x":3644,"y":6569,"w":342,"h":343},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":342,"h":343},
+	"sourceSize": {"w":342,"h":343}
+},
+{
+	"filename": "tree_pine-7.png",
+	"frame": {"x":3064,"y":6914,"w":340,"h":346},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":346},
+	"sourceSize": {"w":340,"h":346}
+},
+{
+	"filename": "tree_pine-8.png",
+	"frame": {"x":1928,"y":6569,"w":343,"h":340},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":343,"h":340},
+	"sourceSize": {"w":343,"h":340}
+},
+{
+	"filename": "tree_pine-9.png",
+	"frame": {"x":2273,"y":6569,"w":341,"h":340},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":341,"h":340},
+	"sourceSize": {"w":341,"h":340}
+},
+{
+	"filename": "tree_pine-10.png",
+	"frame": {"x":1,"y":6914,"w":341,"h":343},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":341,"h":343},
+	"sourceSize": {"w":341,"h":343}
+},
+{
+	"filename": "tree_pine-11.png",
+	"frame": {"x":2616,"y":6569,"w":347,"h":340},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":347,"h":340},
+	"sourceSize": {"w":347,"h":340}
+},
+{
+	"filename": "tree_pine-12.png",
+	"frame": {"x":2378,"y":6914,"w":340,"h":345},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":345},
+	"sourceSize": {"w":340,"h":345}
+},
+{
+	"filename": "tree_pine-13.png",
+	"frame": {"x":3406,"y":6914,"w":338,"h":346},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":338,"h":346},
+	"sourceSize": {"w":338,"h":346}
+},
+{
+	"filename": "tree_pine-14.png",
+	"frame": {"x":2055,"y":7262,"w":338,"h":351},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":338,"h":351},
+	"sourceSize": {"w":338,"h":351}
+},
+{
+	"filename": "tree_pine-15.png",
+	"frame": {"x":344,"y":6914,"w":340,"h":343},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":343},
+	"sourceSize": {"w":340,"h":343}
+},
+{
+	"filename": "tree_pine-16.png",
+	"frame": {"x":1032,"y":7262,"w":338,"h":347},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":338,"h":347},
+	"sourceSize": {"w":338,"h":347}
+},
+{
+	"filename": "tree_pine-17.png",
+	"frame": {"x":1372,"y":7262,"w":340,"h":347},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":347},
+	"sourceSize": {"w":340,"h":347}
+},
+{
+	"filename": "tree_pine-18.png",
+	"frame": {"x":2395,"y":7262,"w":338,"h":351},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":338,"h":351},
+	"sourceSize": {"w":338,"h":351}
+},
+{
+	"filename": "tree_pine-19.png",
+	"frame": {"x":2735,"y":7262,"w":334,"h":351},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":334,"h":351},
+	"sourceSize": {"w":334,"h":351}
+},
+{
+	"filename": "tree_pine-20.png",
+	"frame": {"x":1714,"y":7262,"w":339,"h":348},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":339,"h":348},
+	"sourceSize": {"w":339,"h":348}
+},
+{
+	"filename": "tree_pine-21.png",
+	"frame": {"x":686,"y":6914,"w":333,"h":343},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":333,"h":343},
+	"sourceSize": {"w":333,"h":343}
+},
+{
+	"filename": "tree_pine-22.png",
+	"frame": {"x":1021,"y":6914,"w":332,"h":343},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":332,"h":343},
+	"sourceSize": {"w":332,"h":343}
+},
+{
+	"filename": "tree_pine-23.png",
+	"frame": {"x":2965,"y":6569,"w":333,"h":340},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":333,"h":340},
+	"sourceSize": {"w":333,"h":340}
+},
+{
+	"filename": "tree_pine-24.png",
+	"frame": {"x":1355,"y":6914,"w":330,"h":343},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":330,"h":343},
+	"sourceSize": {"w":330,"h":343}
+},
+{
+	"filename": "tree_pine-25.png",
+	"frame": {"x":2766,"y":5000,"w":299,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":299,"h":292},
+	"sourceSize": {"w":299,"h":292}
+},
+{
+	"filename": "tree_pine-26.png",
+	"frame": {"x":1,"y":5000,"w":302,"h":288},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":302,"h":288},
+	"sourceSize": {"w":302,"h":288}
+},
+{
+	"filename": "tree_pine-27.png",
+	"frame": {"x":3067,"y":5000,"w":300,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":300,"h":292},
+	"sourceSize": {"w":300,"h":292}
+},
+{
+	"filename": "tree_pine-28.png",
+	"frame": {"x":2424,"y":5294,"w":300,"h":293},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":300,"h":293},
+	"sourceSize": {"w":300,"h":293}
+},
+{
+	"filename": "tree_pine-29.png",
+	"frame": {"x":3671,"y":4711,"w":301,"h":287},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":301,"h":287},
+	"sourceSize": {"w":301,"h":287}
+},
+{
+	"filename": "tree_pine-30.png",
+	"frame": {"x":305,"y":5000,"w":306,"h":288},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":306,"h":288},
+	"sourceSize": {"w":306,"h":288}
+},
+{
+	"filename": "tree_pine-31.png",
+	"frame": {"x":2735,"y":4711,"w":310,"h":285},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":310,"h":285},
+	"sourceSize": {"w":310,"h":285}
+},
+{
+	"filename": "tree_pine-32.png",
+	"frame": {"x":2163,"y":4711,"w":305,"h":281},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":305,"h":281},
+	"sourceSize": {"w":305,"h":281}
+},
+{
+	"filename": "tree_pine-33.png",
+	"frame": {"x":3047,"y":4711,"w":312,"h":286},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":312,"h":286},
+	"sourceSize": {"w":312,"h":286}
+},
+{
+	"filename": "tree_pine-34.png",
+	"frame": {"x":1220,"y":5000,"w":313,"h":289},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":313,"h":289},
+	"sourceSize": {"w":313,"h":289}
+},
+{
+	"filename": "tree_pine-35.png",
+	"frame": {"x":613,"y":5000,"w":311,"h":288},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":311,"h":288},
+	"sourceSize": {"w":311,"h":288}
+},
+{
+	"filename": "tree_pine-36.png",
+	"frame": {"x":3369,"y":5000,"w":304,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":304,"h":292},
+	"sourceSize": {"w":304,"h":292}
+},
+{
+	"filename": "tree_pine-37.png",
+	"frame": {"x":3675,"y":5000,"w":314,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":314,"h":292},
+	"sourceSize": {"w":314,"h":292}
+},
+{
+	"filename": "tree_pine-38.png",
+	"frame": {"x":1,"y":5294,"w":305,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":305,"h":292},
+	"sourceSize": {"w":305,"h":292}
+},
+{
+	"filename": "tree_pine-39.png",
+	"frame": {"x":308,"y":5294,"w":306,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":306,"h":292},
+	"sourceSize": {"w":306,"h":292}
+},
+{
+	"filename": "tree_pine-40.png",
+	"frame": {"x":616,"y":5294,"w":311,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":311,"h":292},
+	"sourceSize": {"w":311,"h":292}
+},
+{
+	"filename": "tree_pine-41.png",
+	"frame": {"x":1535,"y":5000,"w":313,"h":289},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":313,"h":289},
+	"sourceSize": {"w":313,"h":289}
+},
+{
+	"filename": "tree_pine-42.png",
+	"frame": {"x":1850,"y":5000,"w":307,"h":289},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":307,"h":289},
+	"sourceSize": {"w":307,"h":289}
+},
+{
+	"filename": "tree_pine-43.png",
+	"frame": {"x":2159,"y":5000,"w":301,"h":291},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":301,"h":291},
+	"sourceSize": {"w":301,"h":291}
+},
+{
+	"filename": "tree_pine-44.png",
+	"frame": {"x":929,"y":5294,"w":301,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":301,"h":292},
+	"sourceSize": {"w":301,"h":292}
+},
+{
+	"filename": "tree_pine-45.png",
+	"frame": {"x":1232,"y":5294,"w":297,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":297,"h":292},
+	"sourceSize": {"w":297,"h":292}
+},
+{
+	"filename": "tree_pine-46.png",
+	"frame": {"x":1531,"y":5294,"w":301,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":301,"h":292},
+	"sourceSize": {"w":301,"h":292}
+},
+{
+	"filename": "tree_pine-47.png",
+	"frame": {"x":1834,"y":5294,"w":294,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":294,"h":292},
+	"sourceSize": {"w":294,"h":292}
+},
+{
+	"filename": "tree_pine-48.png",
+	"frame": {"x":926,"y":5000,"w":292,"h":288},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":292,"h":288},
+	"sourceSize": {"w":292,"h":288}
+},
+{
+	"filename": "tree_pine-49.png",
+	"frame": {"x":2130,"y":5294,"w":292,"h":292},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":292,"h":292},
+	"sourceSize": {"w":292,"h":292}
+},
+{
+	"filename": "tree_pine-50.png",
+	"frame": {"x":2476,"y":1479,"w":195,"h":185},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":195,"h":185},
+	"sourceSize": {"w":195,"h":185}
+},
+{
+	"filename": "tree_pine-51.png",
+	"frame": {"x":1043,"y":1479,"w":203,"h":184},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":203,"h":184},
+	"sourceSize": {"w":203,"h":184}
+},
+{
+	"filename": "tree_pine-52.png",
+	"frame": {"x":3351,"y":1294,"w":190,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":190,"h":182},
+	"sourceSize": {"w":190,"h":182}
+},
+{
+	"filename": "tree_pine-53.png",
+	"frame": {"x":1795,"y":1294,"w":193,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":193,"h":181},
+	"sourceSize": {"w":193,"h":181}
+},
+{
+	"filename": "tree_pine-54.png",
+	"frame": {"x":1990,"y":1294,"w":201,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":201,"h":181},
+	"sourceSize": {"w":201,"h":181}
+},
+{
+	"filename": "tree_pine-55.png",
+	"frame": {"x":2193,"y":1294,"w":205,"h":181},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":205,"h":181},
+	"sourceSize": {"w":205,"h":181}
+},
+{
+	"filename": "tree_pine-56.png",
+	"frame": {"x":3543,"y":1294,"w":192,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":192,"h":182},
+	"sourceSize": {"w":192,"h":182}
+},
+{
+	"filename": "tree_pine-57.png",
+	"frame": {"x":1002,"y":1112,"w":196,"h":179},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":196,"h":179},
+	"sourceSize": {"w":196,"h":179}
+},
+{
+	"filename": "tree_pine-58.png",
+	"frame": {"x":3326,"y":932,"w":193,"h":178},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":193,"h":178},
+	"sourceSize": {"w":193,"h":178}
+},
+{
+	"filename": "tree_pine-59.png",
+	"frame": {"x":1200,"y":1112,"w":199,"h":179},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":199,"h":179},
+	"sourceSize": {"w":199,"h":179}
+},
+{
+	"filename": "tree_pine-60.png",
+	"frame": {"x":3521,"y":932,"w":197,"h":178},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":197,"h":178},
+	"sourceSize": {"w":197,"h":178}
+},
+{
+	"filename": "tree_pine-61.png",
+	"frame": {"x":3720,"y":932,"w":190,"h":178},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":190,"h":178},
+	"sourceSize": {"w":190,"h":178}
+},
+{
+	"filename": "tree_pine-62.png",
+	"frame": {"x":2464,"y":932,"w":187,"h":177},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":187,"h":177},
+	"sourceSize": {"w":187,"h":177}
+},
+{
+	"filename": "tree_pine-63.png",
+	"frame": {"x":1,"y":1112,"w":195,"h":178},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":195,"h":178},
+	"sourceSize": {"w":195,"h":178}
+},
+{
+	"filename": "tree_pine-64.png",
+	"frame": {"x":198,"y":1112,"w":190,"h":178},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":190,"h":178},
+	"sourceSize": {"w":190,"h":178}
+},
+{
+	"filename": "tree_pine-65.png",
+	"frame": {"x":2653,"y":932,"w":190,"h":177},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":190,"h":177},
+	"sourceSize": {"w":190,"h":177}
+},
+{
+	"filename": "tree_pine-66.png",
+	"frame": {"x":1885,"y":932,"w":187,"h":176},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":187,"h":176},
+	"sourceSize": {"w":187,"h":176}
+},
+{
+	"filename": "tree_pine-67.png",
+	"frame": {"x":2845,"y":932,"w":191,"h":177},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":191,"h":177},
+	"sourceSize": {"w":191,"h":177}
+},
+{
+	"filename": "tree_pine-68.png",
+	"frame": {"x":2074,"y":932,"w":190,"h":176},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":190,"h":176},
+	"sourceSize": {"w":190,"h":176}
+},
+{
+	"filename": "tree_pine-69.png",
+	"frame": {"x":2266,"y":932,"w":196,"h":176},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":196,"h":176},
+	"sourceSize": {"w":196,"h":176}
+},
+{
+	"filename": "tree_pine-70.png",
+	"frame": {"x":1692,"y":932,"w":191,"h":174},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":191,"h":174},
+	"sourceSize": {"w":191,"h":174}
+},
+{
+	"filename": "tree_pine-71.png",
+	"frame": {"x":3737,"y":1294,"w":194,"h":182},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":194,"h":182},
+	"sourceSize": {"w":194,"h":182}
+},
+{
+	"filename": "tree_pine-72.png",
+	"frame": {"x":3038,"y":932,"w":191,"h":177},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":191,"h":177},
+	"sourceSize": {"w":191,"h":177}
+},
+{
+	"filename": "tree_pine-73.png",
+	"frame": {"x":390,"y":1112,"w":183,"h":178},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":183,"h":178},
+	"sourceSize": {"w":183,"h":178}
+},
+{
+	"filename": "tree_pine-74.png",
+	"frame": {"x":575,"y":1112,"w":181,"h":178},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":181,"h":178},
+	"sourceSize": {"w":181,"h":178}
+},
+{
+	"filename": "tree_pine-75.png",
+	"frame": {"x":1859,"y":443,"w":141,"h":136},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":136},
+	"sourceSize": {"w":141,"h":136}
+},
+{
+	"filename": "tree_pine-76.png",
+	"frame": {"x":2002,"y":443,"w":146,"h":136},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":146,"h":136},
+	"sourceSize": {"w":146,"h":136}
+},
+{
+	"filename": "tree_pine-77.png",
+	"frame": {"x":716,"y":443,"w":142,"h":133},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":142,"h":133},
+	"sourceSize": {"w":142,"h":133}
+},
+{
+	"filename": "tree_pine-78.png",
+	"frame": {"x":1169,"y":443,"w":139,"h":134},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":134},
+	"sourceSize": {"w":139,"h":134}
+},
+{
+	"filename": "tree_pine-79.png",
+	"frame": {"x":860,"y":443,"w":140,"h":133},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":140,"h":133},
+	"sourceSize": {"w":140,"h":133}
+},
+{
+	"filename": "tree_pine-80.png",
+	"frame": {"x":285,"y":443,"w":141,"h":132},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":132},
+	"sourceSize": {"w":141,"h":132}
+},
+{
+	"filename": "tree_pine-81.png",
+	"frame": {"x":428,"y":443,"w":141,"h":132},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":132},
+	"sourceSize": {"w":141,"h":132}
+},
+{
+	"filename": "tree_pine-82.png",
+	"frame": {"x":2849,"y":310,"w":139,"h":130},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":130},
+	"sourceSize": {"w":139,"h":130}
+},
+{
+	"filename": "tree_pine-83.png",
+	"frame": {"x":3562,"y":310,"w":144,"h":131},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":144,"h":131},
+	"sourceSize": {"w":144,"h":131}
+},
+{
+	"filename": "tree_pine-84.png",
+	"frame": {"x":3708,"y":310,"w":145,"h":131},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":145,"h":131},
+	"sourceSize": {"w":145,"h":131}
+},
+{
+	"filename": "tree_pine-85.png",
+	"frame": {"x":2990,"y":310,"w":138,"h":130},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":138,"h":130},
+	"sourceSize": {"w":138,"h":130}
+},
+{
+	"filename": "tree_pine-86.png",
+	"frame": {"x":3855,"y":310,"w":147,"h":131},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":147,"h":131},
+	"sourceSize": {"w":147,"h":131}
+},
+{
+	"filename": "tree_pine-87.png",
+	"frame": {"x":1,"y":443,"w":141,"h":131},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":131},
+	"sourceSize": {"w":141,"h":131}
+},
+{
+	"filename": "tree_pine-88.png",
+	"frame": {"x":3130,"y":310,"w":141,"h":130},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":130},
+	"sourceSize": {"w":141,"h":130}
+},
+{
+	"filename": "tree_pine-89.png",
+	"frame": {"x":1843,"y":310,"w":139,"h":129},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":129},
+	"sourceSize": {"w":139,"h":129}
+},
+{
+	"filename": "tree_pine-90.png",
+	"frame": {"x":1984,"y":310,"w":143,"h":129},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":143,"h":129},
+	"sourceSize": {"w":143,"h":129}
+},
+{
+	"filename": "tree_pine-91.png",
+	"frame": {"x":571,"y":443,"w":143,"h":132},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":143,"h":132},
+	"sourceSize": {"w":143,"h":132}
+},
+{
+	"filename": "tree_pine-92.png",
+	"frame": {"x":2129,"y":310,"w":142,"h":129},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":142,"h":129},
+	"sourceSize": {"w":142,"h":129}
+},
+{
+	"filename": "tree_pine-93.png",
+	"frame": {"x":3273,"y":310,"w":142,"h":130},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":142,"h":130},
+	"sourceSize": {"w":142,"h":130}
+},
+{
+	"filename": "tree_pine-94.png",
+	"frame": {"x":2273,"y":310,"w":143,"h":129},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":143,"h":129},
+	"sourceSize": {"w":143,"h":129}
+},
+{
+	"filename": "tree_pine-95.png",
+	"frame": {"x":2418,"y":310,"w":141,"h":129},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":129},
+	"sourceSize": {"w":141,"h":129}
+},
+{
+	"filename": "tree_pine-96.png",
+	"frame": {"x":1700,"y":310,"w":141,"h":128},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":128},
+	"sourceSize": {"w":141,"h":128}
+},
+{
+	"filename": "tree_pine-97.png",
+	"frame": {"x":2561,"y":310,"w":140,"h":129},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":140,"h":129},
+	"sourceSize": {"w":140,"h":129}
+},
+{
+	"filename": "tree_pine-98.png",
+	"frame": {"x":1330,"y":310,"w":148,"h":127},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":148,"h":127},
+	"sourceSize": {"w":148,"h":127}
+},
+{
+	"filename": "tree_pine-99.png",
+	"frame": {"x":531,"y":310,"w":141,"h":126},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":141,"h":126},
+	"sourceSize": {"w":141,"h":126}
+},
+{
+	"filename": "tree_pine-100.png",
+	"frame": {"x":3071,"y":7262,"w":339,"h":351},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":339,"h":351},
+	"sourceSize": {"w":339,"h":351}
+},
+{
+	"filename": "tree_pine-101.png",
+	"frame": {"x":1,"y":7262,"w":342,"h":346},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":342,"h":346},
+	"sourceSize": {"w":342,"h":346}
+},
+{
+	"filename": "tree_pine-102.png",
+	"frame": {"x":854,"y":6569,"w":348,"h":330},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":348,"h":330},
+	"sourceSize": {"w":348,"h":330}
+},
+{
+	"filename": "tree_pine-103.png",
+	"frame": {"x":2406,"y":5922,"w":354,"h":318},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":354,"h":318},
+	"sourceSize": {"w":354,"h":318}
+},
+{
+	"filename": "tree_pine-104.png",
+	"frame": {"x":2057,"y":4175,"w":342,"h":262},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":342,"h":262},
+	"sourceSize": {"w":342,"h":262}
+},
+{
+	"filename": "tree_pine-105.png",
+	"frame": {"x":2502,"y":1675,"w":339,"h":194},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":339,"h":194},
+	"sourceSize": {"w":339,"h":194}
+},
+{
+	"filename": "tree_pine-106.png",
+	"frame": {"x":1522,"y":2512,"w":341,"h":215},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":341,"h":215},
+	"sourceSize": {"w":341,"h":215}
+},
+{
+	"filename": "tree_pine-107.png",
+	"frame": {"x":3548,"y":1675,"w":340,"h":195},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":195},
+	"sourceSize": {"w":340,"h":195}
+},
+{
+	"filename": "tree_pine-108.png",
+	"frame": {"x":1692,"y":1112,"w":340,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":180},
+	"sourceSize": {"w":340,"h":180}
+},
+{
+	"filename": "tree_pine-109.png",
+	"frame": {"x":2034,"y":1112,"w":340,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":180},
+	"sourceSize": {"w":340,"h":180}
+},
+{
+	"filename": "tree_pine-110.png",
+	"frame": {"x":2376,"y":1112,"w":340,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":180},
+	"sourceSize": {"w":340,"h":180}
+},
+{
+	"filename": "tree_pine-111.png",
+	"frame": {"x":2718,"y":1112,"w":340,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":180},
+	"sourceSize": {"w":340,"h":180}
+},
+{
+	"filename": "tree_pine-112.png",
+	"frame": {"x":3060,"y":1112,"w":340,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":180},
+	"sourceSize": {"w":340,"h":180}
+},
+{
+	"filename": "tree_pine-113.png",
+	"frame": {"x":3402,"y":1112,"w":340,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":180},
+	"sourceSize": {"w":340,"h":180}
+},
+{
+	"filename": "tree_pine-114.png",
+	"frame": {"x":1,"y":1294,"w":340,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":180},
+	"sourceSize": {"w":340,"h":180}
+},
+{
+	"filename": "tree_pine-115.png",
+	"frame": {"x":343,"y":1294,"w":340,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":180},
+	"sourceSize": {"w":340,"h":180}
+},
+{
+	"filename": "tree_pine-116.png",
+	"frame": {"x":685,"y":1294,"w":340,"h":180},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":340,"h":180},
+	"sourceSize": {"w":340,"h":180}
+},
+{
+	"filename": "tree_pine-117.png",
+	"frame": {"x":2462,"y":5000,"w":302,"h":291},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":302,"h":291},
+	"sourceSize": {"w":302,"h":291}
+},
+{
+	"filename": "tree_pine-118.png",
+	"frame": {"x":3361,"y":4711,"w":308,"h":286},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":308,"h":286},
+	"sourceSize": {"w":308,"h":286}
+},
+{
+	"filename": "tree_pine-119.png",
+	"frame": {"x":2695,"y":4440,"w":307,"h":268},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":307,"h":268},
+	"sourceSize": {"w":307,"h":268}
+},
+{
+	"filename": "tree_pine-120.png",
+	"frame": {"x":217,"y":3176,"w":307,"h":223},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":307,"h":223},
+	"sourceSize": {"w":307,"h":223}
+},
+{
+	"filename": "tree_pine-121.png",
+	"frame": {"x":3412,"y":3176,"w":288,"h":232},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":288,"h":232},
+	"sourceSize": {"w":288,"h":232}
+},
+{
+	"filename": "tree_pine-122.png",
+	"frame": {"x":1,"y":3414,"w":283,"h":236},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":283,"h":236},
+	"sourceSize": {"w":283,"h":236}
+},
+{
+	"filename": "tree_pine-123.png",
+	"frame": {"x":2701,"y":3176,"w":287,"h":231},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":287,"h":231},
+	"sourceSize": {"w":287,"h":231}
+},
+{
+	"filename": "tree_pine-124.png",
+	"frame": {"x":427,"y":3414,"w":292,"h":241},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":292,"h":241},
+	"sourceSize": {"w":292,"h":241}
+},
+{
+	"filename": "tree_pine-125.png",
+	"frame": {"x":721,"y":3414,"w":292,"h":241},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":292,"h":241},
+	"sourceSize": {"w":292,"h":241}
+},
+{
+	"filename": "tree_pine-126.png",
+	"frame": {"x":1015,"y":3414,"w":292,"h":241},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":292,"h":241},
+	"sourceSize": {"w":292,"h":241}
+},
+{
+	"filename": "tree_pine-127.png",
+	"frame": {"x":1309,"y":3414,"w":292,"h":241},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":292,"h":241},
+	"sourceSize": {"w":292,"h":241}
+},
+{
+	"filename": "tree_pine-128.png",
+	"frame": {"x":1603,"y":3414,"w":285,"h":241},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":285,"h":241},
+	"sourceSize": {"w":285,"h":241}
+},
+{
+	"filename": "tree_pine-129.png",
+	"frame": {"x":2673,"y":1479,"w":202,"h":185},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":202,"h":185},
+	"sourceSize": {"w":202,"h":185}
+},
+{
+	"filename": "tree_pine-130.png",
+	"frame": {"x":3693,"y":1479,"w":204,"h":193},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":204,"h":193},
+	"sourceSize": {"w":204,"h":193}
+},
+{
+	"filename": "tree_pine-131.png",
+	"frame": {"x":130,"y":1479,"w":190,"h":183},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":190,"h":183},
+	"sourceSize": {"w":190,"h":183}
+},
+{
+	"filename": "tree_pine-132.png",
+	"frame": {"x":2893,"y":443,"w":164,"h":147},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":164,"h":147},
+	"sourceSize": {"w":164,"h":147}
+},
+{
+	"filename": "tree_pine-133.png",
+	"frame": {"x":1002,"y":443,"w":165,"h":133},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":165,"h":133},
+	"sourceSize": {"w":165,"h":133}
+},
+{
+	"filename": "tree_pine-134.png",
+	"frame": {"x":1,"y":310,"w":175,"h":125},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":175,"h":125},
+	"sourceSize": {"w":175,"h":125}
+},
+{
+	"filename": "tree_pine-135.png",
+	"frame": {"x":178,"y":310,"w":171,"h":125},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":171,"h":125},
+	"sourceSize": {"w":171,"h":125}
+},
+{
+	"filename": "tree_pine-136.png",
+	"frame": {"x":351,"y":310,"w":178,"h":125},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":178,"h":125},
+	"sourceSize": {"w":178,"h":125}
+},
+{
+	"filename": "tree_pine-137.png",
+	"frame": {"x":3476,"y":183,"w":178,"h":122},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":178,"h":122},
+	"sourceSize": {"w":178,"h":122}
+},
+{
+	"filename": "tree_pine-138.png",
+	"frame": {"x":3296,"y":183,"w":178,"h":120},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":178,"h":120},
+	"sourceSize": {"w":178,"h":120}
+},
+{
+	"filename": "tree_pine-139.png",
+	"frame": {"x":144,"y":443,"w":139,"h":131},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":139,"h":131},
+	"sourceSize": {"w":139,"h":131}
+},
+{
+	"filename": "tree_pine-140.png",
+	"frame": {"x":3417,"y":310,"w":143,"h":130},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":143,"h":130},
+	"sourceSize": {"w":143,"h":130}
+},
+{
+	"filename": "tree_pine-141.png",
+	"frame": {"x":1594,"y":183,"w":150,"h":110},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":150,"h":110},
+	"sourceSize": {"w":150,"h":110}
+},
+{
+	"filename": "tree_pine-142.png",
+	"frame": {"x":602,"y":183,"w":133,"h":100},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":133,"h":100},
+	"sourceSize": {"w":133,"h":100}
+},
+{
+	"filename": "tree_pine-143.png",
+	"frame": {"x":3677,"y":86,"w":132,"h":93},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":132,"h":93},
+	"sourceSize": {"w":132,"h":93}
+},
+{
+	"filename": "tree_pine-144.png",
+	"frame": {"x":3543,"y":86,"w":132,"h":91},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":132,"h":91},
+	"sourceSize": {"w":132,"h":91}
+},
+{
+	"filename": "tree_pine-145.png",
+	"frame": {"x":295,"y":1,"w":117,"h":59},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":117,"h":59},
+	"sourceSize": {"w":117,"h":59}
+},
+{
+	"filename": "tree_pine-146.png",
+	"frame": {"x":1095,"y":6244,"w":309,"h":321},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":309,"h":321},
+	"sourceSize": {"w":309,"h":321}
+},
+{
+	"filename": "tree_pine-147.png",
+	"frame": {"x":213,"y":1,"w":80,"h":40},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":80,"h":40},
+	"sourceSize": {"w":80,"h":40}
+},
+{
+	"filename": "tree_shrub1-0.png",
+	"frame": {"x":2861,"y":86,"w":123,"h":88},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":123,"h":88},
+	"sourceSize": {"w":123,"h":88}
+},
+{
+	"filename": "tree_shrub1-1.png",
+	"frame": {"x":2986,"y":86,"w":123,"h":88},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":123,"h":88},
+	"sourceSize": {"w":123,"h":88}
+},
+{
+	"filename": "tree_shrub1-2.png",
+	"frame": {"x":3111,"y":86,"w":123,"h":88},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":123,"h":88},
+	"sourceSize": {"w":123,"h":88}
+},
+{
+	"filename": "tree_shrub1-3.png",
+	"frame": {"x":3236,"y":86,"w":123,"h":88},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":123,"h":88},
+	"sourceSize": {"w":123,"h":88}
+},
+{
+	"filename": "tree_shrub1-4.png",
+	"frame": {"x":2362,"y":86,"w":123,"h":87},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":123,"h":87},
+	"sourceSize": {"w":123,"h":87}
+},
+{
+	"filename": "tree_shrub1-5.png",
+	"frame": {"x":2487,"y":86,"w":122,"h":87},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":122,"h":87},
+	"sourceSize": {"w":122,"h":87}
+},
+{
+	"filename": "tree_shrub1-6.png",
+	"frame": {"x":2611,"y":86,"w":123,"h":87},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":123,"h":87},
+	"sourceSize": {"w":123,"h":87}
+},
+{
+	"filename": "tree_shrub1-7.png",
+	"frame": {"x":2736,"y":86,"w":123,"h":87},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":123,"h":87},
+	"sourceSize": {"w":123,"h":87}
+},
+{
+	"filename": "tree_shrub1-8.png",
+	"frame": {"x":2115,"y":86,"w":122,"h":86},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":122,"h":86},
+	"sourceSize": {"w":122,"h":86}
+},
+{
+	"filename": "tree_shrub1-9.png",
+	"frame": {"x":2239,"y":86,"w":121,"h":86},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":121,"h":86},
+	"sourceSize": {"w":121,"h":86}
+},
+{
+	"filename": "tree_shrub1-10.png",
+	"frame": {"x":1140,"y":86,"w":120,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":120,"h":85},
+	"sourceSize": {"w":120,"h":85}
+},
+{
+	"filename": "tree_shrub1-11.png",
+	"frame": {"x":1262,"y":86,"w":120,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":120,"h":85},
+	"sourceSize": {"w":120,"h":85}
+},
+{
+	"filename": "tree_shrub1-12.png",
+	"frame": {"x":1384,"y":86,"w":120,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":120,"h":85},
+	"sourceSize": {"w":120,"h":85}
+},
+{
+	"filename": "tree_shrub1-13.png",
+	"frame": {"x":1506,"y":86,"w":120,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":120,"h":85},
+	"sourceSize": {"w":120,"h":85}
+},
+{
+	"filename": "tree_shrub1-14.png",
+	"frame": {"x":1628,"y":86,"w":121,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":121,"h":85},
+	"sourceSize": {"w":121,"h":85}
+},
+{
+	"filename": "tree_shrub1-15.png",
+	"frame": {"x":1751,"y":86,"w":121,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":121,"h":85},
+	"sourceSize": {"w":121,"h":85}
+},
+{
+	"filename": "tree_shrub1-16.png",
+	"frame": {"x":1874,"y":86,"w":119,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":119,"h":85},
+	"sourceSize": {"w":119,"h":85}
+},
+{
+	"filename": "tree_shrub1-17.png",
+	"frame": {"x":156,"y":86,"w":118,"h":84},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":118,"h":84},
+	"sourceSize": {"w":118,"h":84}
+},
+{
+	"filename": "tree_shrub1-18.png",
+	"frame": {"x":276,"y":86,"w":118,"h":84},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":118,"h":84},
+	"sourceSize": {"w":118,"h":84}
+},
+{
+	"filename": "tree_shrub1-19.png",
+	"frame": {"x":1995,"y":86,"w":118,"h":85},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":118,"h":85},
+	"sourceSize": {"w":118,"h":85}
+},
+{
+	"filename": "tree_shrub1-20.png",
+	"frame": {"x":396,"y":86,"w":118,"h":84},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":118,"h":84},
+	"sourceSize": {"w":118,"h":84}
+},
+{
+	"filename": "tree_shrub1-21.png",
+	"frame": {"x":516,"y":86,"w":117,"h":84},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":117,"h":84},
+	"sourceSize": {"w":117,"h":84}
+},
+{
+	"filename": "tree_shrub1-22.png",
+	"frame": {"x":635,"y":86,"w":117,"h":84},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":117,"h":84},
+	"sourceSize": {"w":117,"h":84}
+},
+{
+	"filename": "tree_shrub1-23.png",
+	"frame": {"x":754,"y":86,"w":119,"h":84},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":119,"h":84},
+	"sourceSize": {"w":119,"h":84}
+},
+{
+	"filename": "tree_shrub1-24.png",
+	"frame": {"x":875,"y":86,"w":119,"h":84},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":119,"h":84},
+	"sourceSize": {"w":119,"h":84}
+},
+{
+	"filename": "tree_shrub2-0.png",
+	"frame": {"x":1261,"y":1,"w":85,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":72},
+	"sourceSize": {"w":85,"h":72}
+},
+{
+	"filename": "tree_shrub2-1.png",
+	"frame": {"x":1348,"y":1,"w":85,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":72},
+	"sourceSize": {"w":85,"h":72}
+},
+{
+	"filename": "tree_shrub2-2.png",
+	"frame": {"x":1435,"y":1,"w":85,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":72},
+	"sourceSize": {"w":85,"h":72}
+},
+{
+	"filename": "tree_shrub2-3.png",
+	"frame": {"x":699,"y":1,"w":85,"h":71},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":71},
+	"sourceSize": {"w":85,"h":71}
+},
+{
+	"filename": "tree_shrub2-4.png",
+	"frame": {"x":786,"y":1,"w":84,"h":71},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":71},
+	"sourceSize": {"w":84,"h":71}
+},
+{
+	"filename": "tree_shrub2-5.png",
+	"frame": {"x":1522,"y":1,"w":84,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":72},
+	"sourceSize": {"w":84,"h":72}
+},
+{
+	"filename": "tree_shrub2-6.png",
+	"frame": {"x":872,"y":1,"w":87,"h":71},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":87,"h":71},
+	"sourceSize": {"w":87,"h":71}
+},
+{
+	"filename": "tree_shrub2-7.png",
+	"frame": {"x":1608,"y":1,"w":85,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":72},
+	"sourceSize": {"w":85,"h":72}
+},
+{
+	"filename": "tree_shrub2-8.png",
+	"frame": {"x":961,"y":1,"w":84,"h":71},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":71},
+	"sourceSize": {"w":84,"h":71}
+},
+{
+	"filename": "tree_shrub2-9.png",
+	"frame": {"x":1695,"y":1,"w":84,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":72},
+	"sourceSize": {"w":84,"h":72}
+},
+{
+	"filename": "tree_shrub2-10.png",
+	"frame": {"x":1047,"y":1,"w":84,"h":71},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":71},
+	"sourceSize": {"w":84,"h":71}
+},
+{
+	"filename": "tree_shrub2-11.png",
+	"frame": {"x":1781,"y":1,"w":84,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":72},
+	"sourceSize": {"w":84,"h":72}
+},
+{
+	"filename": "tree_shrub2-12.png",
+	"frame": {"x":1867,"y":1,"w":85,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":72},
+	"sourceSize": {"w":85,"h":72}
+},
+{
+	"filename": "tree_shrub2-13.png",
+	"frame": {"x":2388,"y":1,"w":85,"h":73},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":73},
+	"sourceSize": {"w":85,"h":73}
+},
+{
+	"filename": "tree_shrub2-14.png",
+	"frame": {"x":2475,"y":1,"w":84,"h":73},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":73},
+	"sourceSize": {"w":84,"h":73}
+},
+{
+	"filename": "tree_shrub2-15.png",
+	"frame": {"x":1954,"y":1,"w":84,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":72},
+	"sourceSize": {"w":84,"h":72}
+},
+{
+	"filename": "tree_shrub2-16.png",
+	"frame": {"x":2561,"y":1,"w":84,"h":73},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":73},
+	"sourceSize": {"w":84,"h":73}
+},
+{
+	"filename": "tree_shrub2-17.png",
+	"frame": {"x":2647,"y":1,"w":84,"h":73},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":73},
+	"sourceSize": {"w":84,"h":73}
+},
+{
+	"filename": "tree_shrub2-18.png",
+	"frame": {"x":2040,"y":1,"w":85,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":72},
+	"sourceSize": {"w":85,"h":72}
+},
+{
+	"filename": "tree_shrub2-19.png",
+	"frame": {"x":2991,"y":1,"w":83,"h":74},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":83,"h":74},
+	"sourceSize": {"w":83,"h":74}
+},
+{
+	"filename": "tree_shrub2-20.png",
+	"frame": {"x":2733,"y":1,"w":84,"h":73},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":84,"h":73},
+	"sourceSize": {"w":84,"h":73}
+},
+{
+	"filename": "tree_shrub2-21.png",
+	"frame": {"x":2819,"y":1,"w":83,"h":73},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":83,"h":73},
+	"sourceSize": {"w":83,"h":73}
+},
+{
+	"filename": "tree_shrub2-22.png",
+	"frame": {"x":2127,"y":1,"w":85,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":72},
+	"sourceSize": {"w":85,"h":72}
+},
+{
+	"filename": "tree_shrub2-23.png",
+	"frame": {"x":2904,"y":1,"w":85,"h":73},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":85,"h":73},
+	"sourceSize": {"w":85,"h":73}
+},
+{
+	"filename": "tree_shrub2-24.png",
+	"frame": {"x":2214,"y":1,"w":83,"h":72},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":83,"h":72},
+	"sourceSize": {"w":83,"h":72}
+}],
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "treesprites.png",
+	"format": "RGBA8888",
+	"size": {"w":4057,"h":7614},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:3152bf7f76680f3c40899a6b4f1dea06:68596f3036b2f186b28f227541a8d927:2f1b28c94ae71297acba709de228b1e4$"
+}
+}

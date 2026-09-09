@@ -49,10 +49,26 @@ namespace ElevatedMoatTest
         internal const int DirectCompletedHeightLength = 22;
         internal const int DrawbridgeCompletedHeightRva = 0x73B35;
         internal const int DrawbridgeCompletedHeightLength = 17;
-        internal const int PlannedFillRestoreRva = 0x70562;
-        internal const int PlannedFillRestoreLength = 15;
+        internal const int PlannedMoatCancellationRva = 0x70562;
+        internal const int PlannedMoatCancellationLength = 15;
         internal const int DirectRemovalHeightRva = 0x70621;
-        internal const int DirectRemovalHeightLength = 16;
+        internal const int DirectRemovalHeightLength = 23;
+        internal const int FootprintRemovalFunctionRva = 0x622D0;
+        internal const int FootprintRemovalFunctionLength = 0x185;
+        internal const int FootprintRemovalHeightRva = 0x623DA;
+        internal const int FootprintRemovalHeightLength = 15;
+        internal const int ObjectRemovalFunctionRva = 0x6CA30;
+        internal const int ObjectRemovalFunctionLength = 0xE8;
+        internal const int ObjectRemovalHeightRva = 0x6CAA1;
+        internal const int ObjectRemovalHeightLength = 19;
+        internal const int MoatWorkCompletionFunctionRva = 0x69470;
+        internal const int MoatWorkCompletionFunctionLength = 0xED;
+        internal const int MoatWorkCompletionHeightRva = 0x694BD;
+        internal const int MoatWorkCompletionHeightLength = 22;
+        internal const int AreaRemovalFunctionRva = 0xED2E0;
+        internal const int AreaRemovalFunctionLength = 0x8F5;
+        internal const int AreaRemovalHeightRva = 0xEDA77;
+        internal const int AreaRemovalHeightLength = 21;
         internal const int MoatDepth = 8;
         internal const int MaximumVanillaTerrainHeight = 12;
         internal const int PlacementBlockedValue = 1;
@@ -64,6 +80,10 @@ namespace ElevatedMoatTest
         internal const int EffectiveMinimumFootprintHeightOffset = 0x204E730;
         internal const int FootprintTileXOffset = 0x204E760;
         internal const int FootprintTileYOffset = 0x204E764;
+        internal const int TileFlagsOffset = 0x898400;
+        // Native tile protocol masks: planned MAPPER_MOAT and completed MAPPER_MOAT.
+        internal const uint PlannedMoatTileFlag = 0x00004000;
+        internal const uint CompletedMoatTileFlag = 0x40000000;
 
         internal const string DrawbridgeHeightFailureWriterPattern =
             "C7 83 FC E6 04 02 01 00 00 00 " +
@@ -108,13 +128,31 @@ namespace ElevatedMoatTest
         internal const string DrawbridgeCompletedHeightPattern =
             "48 8B CB E8 63 EA FF FF 41 C6 84 1E A0 E5 D7 00 00 EB 0C";
 
-        internal const string PlannedFillRestorePattern =
+        internal const string PlannedMoatCancellationPattern =
             "0F BA F2 0E 45 8B C4 41 89 16 48 8B CF 8B D6 " +
             "E8 5A 19 FF FF E9 C5 03 00 00";
 
         internal const string DirectRemovalHeightPattern =
             "48 8B CF E8 A7 18 FF FF C6 84 3B A0 E5 D7 00 08 " +
             "41 81 26 FF BF FF BF";
+
+        internal const string FootprintRemovalHeightPattern =
+            "C6 84 1E A0 E5 D7 00 08 8B 8C B3 00 84 89 00 " +
+            "EB 0D 8B CD 0F BA E9 1E 89";
+
+        internal const string ObjectRemovalHeightPattern =
+            "81 A4 B3 00 84 89 00 FF FF FF BF " +
+            "C6 84 1E A0 E5 D7 00 08 E8 A7 CA FF FF 85 C0 74";
+
+        internal const string MoatWorkCompletionHeightPattern =
+            "C6 84 08 A0 E5 D7 00 08 48 63 03 " +
+            "81 A4 81 00 84 89 00 FF FF FF BF " +
+            "48 8D 0D 86 41 04 06 44";
+
+        internal const string AreaRemovalHeightPattern =
+            "41 C6 84 0E A0 E5 D7 00 08 " +
+            "42 81 A4 B1 00 84 89 00 FF BF FF BF " +
+            "66 41 89 07 41 0F B7 C1";
 
         // The 0x69 immediate is the native representation of eMappers.MAPPER_DRAWBRIDGE.
         // These bytes prove that the writer is reached only after that mapper comparison
@@ -253,7 +291,7 @@ namespace ElevatedMoatTest
             0x41, 0xC6, 0x84, 0x1E, 0xA0, 0xE5, 0xD7, 0x00, 0x00
         };
 
-        internal static readonly byte[] PlannedFillRestoreBytes =
+        internal static readonly byte[] PlannedMoatCancellationBytes =
         {
             0x0F, 0xBA, 0xF2, 0x0E,
             0x45, 0x8B, 0xC4,
@@ -262,7 +300,7 @@ namespace ElevatedMoatTest
             0x8B, 0xD6
         };
 
-        internal static readonly byte[] PlannedFillPrefixBytes =
+        internal static readonly byte[] PlannedMoatCancellationPrefixBytes =
         {
             0x41, 0x83, 0xFF, 0x01,
             0x75, 0x23,
@@ -273,7 +311,40 @@ namespace ElevatedMoatTest
         internal static readonly byte[] DirectRemovalHeightBytes =
         {
             0x48, 0x8B, 0xCF, 0xE8, 0xA7, 0x18, 0xFF, 0xFF,
-            0xC6, 0x84, 0x3B, 0xA0, 0xE5, 0xD7, 0x00, 0x08
+            0xC6, 0x84, 0x3B, 0xA0, 0xE5, 0xD7, 0x00, 0x08,
+            0x41, 0x81, 0x26, 0xFF, 0xBF, 0xFF, 0xBF
+        };
+
+        internal static readonly byte[] FootprintRemovalHeightBytes =
+        {
+            0xC6, 0x84, 0x1E, 0xA0, 0xE5, 0xD7, 0x00, 0x08,
+            0x8B, 0x8C, 0xB3, 0x00, 0x84, 0x89, 0x00
+        };
+
+        internal static readonly byte[] FootprintRemovalPrefixBytes =
+        {
+            0x81, 0xA4, 0xB3, 0x00, 0x84, 0x89, 0x00, 0xFF, 0xFF, 0xFF, 0xBF,
+            0x80, 0x8C, 0x1E, 0x00, 0x25, 0x9D, 0x00, 0x02,
+            0xC6, 0x84, 0x1E, 0xE0, 0x86, 0xBA, 0x00, 0x00
+        };
+
+        internal static readonly byte[] ObjectRemovalHeightBytes =
+        {
+            0x81, 0xA4, 0xB3, 0x00, 0x84, 0x89, 0x00, 0xFF, 0xFF, 0xFF, 0xBF,
+            0xC6, 0x84, 0x1E, 0xA0, 0xE5, 0xD7, 0x00, 0x08
+        };
+
+        internal static readonly byte[] MoatWorkCompletionHeightBytes =
+        {
+            0xC6, 0x84, 0x08, 0xA0, 0xE5, 0xD7, 0x00, 0x08,
+            0x48, 0x63, 0x03,
+            0x81, 0xA4, 0x81, 0x00, 0x84, 0x89, 0x00, 0xFF, 0xFF, 0xFF, 0xBF
+        };
+
+        internal static readonly byte[] AreaRemovalHeightBytes =
+        {
+            0x41, 0xC6, 0x84, 0x0E, 0xA0, 0xE5, 0xD7, 0x00, 0x08,
+            0x42, 0x81, 0xA4, 0xB1, 0x00, 0x84, 0x89, 0x00, 0xFF, 0xBF, 0xFF, 0xBF
         };
 
         internal static void ValidateDrawbridgeHeightFailure(
@@ -403,24 +474,38 @@ namespace ElevatedMoatTest
             ValidateBlock(memory, DrawbridgeCompletedHeightRva, DrawbridgeCompletedHeightLength,
                 DrawbridgeFunctionRva, DrawbridgeFunctionLength, DrawbridgeCompletedHeightBytes,
                 "completed-drawbridge height block");
-            ValidateBlock(memory, PlannedFillRestoreRva, PlannedFillRestoreLength,
-                SharedTileFunctionRva, SharedTileFunctionLength, PlannedFillRestoreBytes,
-                "planned moat-fill restoration block");
-            AssertBytes(memory, PlannedFillRestoreRva - PlannedFillPrefixBytes.Length,
-                PlannedFillPrefixBytes, "planned moat-fill mode and moat-flag prefix");
+            ValidateBlock(memory, PlannedMoatCancellationRva, PlannedMoatCancellationLength,
+                SharedTileFunctionRva, SharedTileFunctionLength, PlannedMoatCancellationBytes,
+                "planned moat cancellation block");
+            AssertBytes(memory, PlannedMoatCancellationRva - PlannedMoatCancellationPrefixBytes.Length,
+                PlannedMoatCancellationPrefixBytes, "planned moat cancellation mode and moat-flag prefix");
             ValidateBlock(memory, DirectRemovalHeightRva, DirectRemovalHeightLength,
                 SharedTileFunctionRva, SharedTileFunctionLength, DirectRemovalHeightBytes,
                 "direct moat-removal height block");
+            ValidateBlock(memory, FootprintRemovalHeightRva, FootprintRemovalHeightLength,
+                FootprintRemovalFunctionRva, FootprintRemovalFunctionLength,
+                FootprintRemovalHeightBytes, "footprint moat-removal height block");
+            AssertBytes(memory, FootprintRemovalHeightRva - FootprintRemovalPrefixBytes.Length,
+                FootprintRemovalPrefixBytes, "footprint completed-moat flag removal prefix");
+            ValidateBlock(memory, ObjectRemovalHeightRva, ObjectRemovalHeightLength,
+                ObjectRemovalFunctionRva, ObjectRemovalFunctionLength,
+                ObjectRemovalHeightBytes, "object moat-removal height block");
+            ValidateBlock(memory, MoatWorkCompletionHeightRva, MoatWorkCompletionHeightLength,
+                MoatWorkCompletionFunctionRva, MoatWorkCompletionFunctionLength,
+                MoatWorkCompletionHeightBytes, "moat work-completion height block");
+            ValidateBlock(memory, AreaRemovalHeightRva, AreaRemovalHeightLength,
+                AreaRemovalFunctionRva, AreaRemovalFunctionLength,
+                AreaRemovalHeightBytes, "area moat-removal height block");
 
             int drawbridgeCallTarget = checked(DrawbridgeCompletedHeightRva + 8 +
                 ReadInt32(memory, DrawbridgeCompletedHeightRva + 4));
             if (drawbridgeCallTarget != 0x725A0)
                 throw new InvalidOperationException("The completed-drawbridge visual call target differs.");
-            int plannedFillCallRva = checked(PlannedFillRestoreRva + PlannedFillRestoreLength);
-            if (memory[plannedFillCallRva] != 0xE8 ||
-                checked(plannedFillCallRva + 5 + ReadInt32(memory, plannedFillCallRva + 1)) != 0x61ED0)
+            int cancellationCallRva = checked(PlannedMoatCancellationRva + PlannedMoatCancellationLength);
+            if (memory[cancellationCallRva] != 0xE8 ||
+                checked(cancellationCallRva + 5 + ReadInt32(memory, cancellationCallRva + 1)) != 0x61ED0)
             {
-                throw new InvalidOperationException("The planned moat-fill removal CALL target differs.");
+                throw new InvalidOperationException("The planned moat cancellation CALL target differs.");
             }
             int removalCallTarget = checked(DirectRemovalHeightRva + 8 +
                 ReadInt32(memory, DirectRemovalHeightRva + 4));
@@ -430,6 +515,8 @@ namespace ElevatedMoatTest
 
         internal static byte CalculateCompletedHeight(byte defaultHeight) =>
             defaultHeight > MoatDepth ? (byte)(defaultHeight - MoatDepth) : (byte)0;
+
+        internal static byte CalculateRestoredHeight(byte defaultHeight) => defaultHeight;
 
         private static void ValidateBlock(
             ReadOnlySpan<byte> memory,
