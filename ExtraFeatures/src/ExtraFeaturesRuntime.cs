@@ -39,6 +39,7 @@ namespace ExtraFeatures
         private readonly AIDefenseRepairRuntime aiDefenseRepairRuntime;
         private readonly LordHealthRuntime lordHealthRuntime;
         private readonly MarketTradeGuardBridge marketTradeGuardBridge;
+        private readonly ElevatedMoatRuntime elevatedMoatRuntime;
 
         private PendingStockpileRefund pendingStockpileRefund;
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
@@ -74,6 +75,7 @@ namespace ExtraFeatures
             aiDefenseRepairRuntime = new AIDefenseRepairRuntime(log, settings);
             lordHealthRuntime = new LordHealthRuntime(log, settings);
             marketTradeGuardBridge = new MarketTradeGuardBridge(log, this);
+            elevatedMoatRuntime = new ElevatedMoatRuntime(log);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -116,6 +118,7 @@ namespace ExtraFeatures
             nativeRegion = context.Region;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
+            elevatedMoatRuntime.InitializeNative(context, fixedLayoutHashValidated);
 
             try
             {
@@ -160,6 +163,7 @@ namespace ExtraFeatures
 
         public void ApplySettings()
         {
+            ReconcileElevatedMoatRuntime();
             TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
             TryRunFeature("AI defense repair configuration", ReconcileAIDefenseRepairRuntime);
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
@@ -229,6 +233,7 @@ namespace ExtraFeatures
             aiDefenseRepairRuntime.Dispose();
             marketTradeGuardBridge.Dispose();
             lordHealthRuntime.Dispose();
+            elevatedMoatRuntime.Dispose();
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;
@@ -325,6 +330,8 @@ namespace ExtraFeatures
 
         private void ReconcileFixedLayoutFeatures()
         {
+            ReconcileElevatedMoatRuntime();
+
             if (!nativeLibraryAvailable || !Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
@@ -338,6 +345,13 @@ namespace ExtraFeatures
             else
                 TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
 
+        }
+
+        private void ReconcileElevatedMoatRuntime()
+        {
+            TryRunFeature("elevated moat", () => elevatedMoatRuntime.Reconcile(
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.AllowElevatedMoatAI,
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) && settings.AllowElevatedMoatHuman));
         }
 
         private void ReconcileAIDefenseRepairRuntime()
@@ -373,6 +387,7 @@ namespace ExtraFeatures
                     TryRunFeature("Monks Always Run", ApplyMonkAlwaysRunSetting);
                     TryRunFeature("optional local hooks", UnsubscribeHooks);
                 }
+                ReconcileElevatedMoatRuntime();
                 return;
             }
 
@@ -383,6 +398,12 @@ namespace ExtraFeatures
             {
                 ReconcileFixedLayoutFeatures();
                 TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
+                return;
+            }
+            if (propertyName == nameof(ExtraFeaturesViewModel.AllowElevatedMoatAI) ||
+                propertyName == nameof(ExtraFeaturesViewModel.AllowElevatedMoatHuman))
+            {
+                ReconcileElevatedMoatRuntime();
                 return;
             }
             if (propertyName == nameof(ExtraFeaturesViewModel.HumanGateReopenDelaySeconds) ||

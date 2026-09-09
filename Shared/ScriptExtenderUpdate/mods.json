@@ -134,14 +134,14 @@
     "DependsOn": []
   },
   {
-    "Name": "EngineerSiegeFix",
-    "Guid": "EngineerSiegeFix_Serp",
-    "Manifest": "EngineerSiegeFix\\info.json",
-    "Plugin": "EngineerSiegeFix\\src\\EngineerSiegeFixPlugin.cs",
-    "Project": "EngineerSiegeFix\\EngineerSiegeFix.csproj",
-    "BuildDriver": "EngineerSiegeFix\\build.bat",
-    "Package": "EngineerSiegeFix\\BepInEx\\plugins\\EngineerSiegeFix_Serp",
-    "Install": "EngineerSiegeFix_Serp",
+    "Name": "EngineerSiegeFixTest",
+    "Guid": "EngineerSiegeFixTest_Serp",
+    "Manifest": "EngineerSiegeFixTest\\info.json",
+    "Plugin": "EngineerSiegeFixTest\\src\\EngineerSiegeFixTestPlugin.cs",
+    "Project": "EngineerSiegeFixTest\\EngineerSiegeFixTest.csproj",
+    "BuildDriver": "EngineerSiegeFixTest\\build.bat",
+    "Package": "EngineerSiegeFixTest\\BepInEx\\plugins\\EngineerSiegeFixTest_Serp",
+    "Install": "EngineerSiegeFixTest_Serp",
     "BuildOrder": 100,
     "DependsOn": []
   },

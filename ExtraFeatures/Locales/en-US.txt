@@ -98,3 +98,5 @@ Common.ModSettingsSearchClearHelp=Clear the settings filter.
 Common.ModSettingsSearchNoResults=No matching settings found.
 SomeSettings.EnableFearFactorNeutralization=Disable fear-factor effects on soldiers
 SomeSettings.EnableFearFactorNeutralizationHelp=Fear factor no longer has any effect on soldiers’ combat strength.
+SomeSettings.AllowElevatedMoat=Allow elevated moats
+SomeSettings.AllowElevatedMoatHelp=Allows new moats and drawbridges on elevated terrain separately for AI and human players. AI is enabled and Human is disabled by default. If either option is enabled, map-editor placement and filling, cancelling, or removing any moat are supported. Completed moats and drawbridges follow the local terrain height and removed moats restore the original terrain.

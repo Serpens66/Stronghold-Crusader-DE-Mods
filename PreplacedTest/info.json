@@ -1,0 +1,14 @@
+{
+  "GUID": "PreplacedTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Preplaced Test",
+  "Description": "Passive diagnosis of Vanilla AI AIV startup and interference from preplaced buildings.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.3.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0,
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ]
+}

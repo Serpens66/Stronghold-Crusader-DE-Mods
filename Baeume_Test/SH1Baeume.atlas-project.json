@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "language": "de",
+  "targetGameData": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data",
+  "outputModDirectory": "SH1Baeume",
+  "groups": [
+    {
+      "gmFileName": "Tree_Oak",
+      "colourDirectory": "Source\\Alle frames\\Oak png",
+      "maskMode": "separate-directory",
+      "maskDirectory": "Source\\Alle frames\\Oak mask png",
+      "sourcePrefix": "auto"
+    },
+    {
+      "gmFileName": "tree_pine",
+      "colourDirectory": "Source\\Alle frames\\Chestnut png",
+      "maskMode": "separate-directory",
+      "maskDirectory": "Source\\Alle frames\\Chestnut mask png",
+      "sourcePrefix": "auto"
+    },
+    {
+      "gmFileName": "tree_shrub1",
+      "colourDirectory": "Source\\Alle frames\\shrub1",
+      "maskMode": "separate-directory",
+      "maskDirectory": "Source\\Alle frames\\shrub1 mask",
+      "sourcePrefix": "auto"
+    },
+    {
+      "gmFileName": "tree_shrub2",
+      "colourDirectory": "Source\\Alle frames\\shrub2",
+      "maskMode": "separate-directory",
+      "maskDirectory": "Source\\Alle frames\\shrub2 - mask",
+      "sourcePrefix": "auto"
+    },
+    {
+      "gmFileName": "tree_apple",
+      "colourDirectory": "Source\\Alle frames\\tree_apple",
+      "maskMode": "separate-directory",
+      "maskDirectory": "Source\\Alle frames\\tree_apple - mask",
+      "sourcePrefix": "auto"
+    },
+    {
+      "gmFileName": "tree_birch",
+      "colourDirectory": "Source\\Alle frames\\birch png",
+      "maskMode": "separate-directory",
+      "maskDirectory": "Source\\Alle frames\\birch mask png",
+      "sourcePrefix": "auto"
+    },
+    {
+      "gmFileName": "Tree_Chestnut",
+      "colourDirectory": "Source\\Alle frames\\Pine normal png",
+      "maskMode": "separate-directory",
+      "maskDirectory": "Source\\Alle frames\\Pine mask png",
+      "sourcePrefix": "auto"
+    },
+    {
+      "gmFileName": "tree_cactii",
+      "colourDirectory": "Source\\Alle frames\\tree cacti",
+      "maskMode": "none",
+      "maskDirectory": null,
+      "sourcePrefix": "auto"
+    }
+  ],
+  "packing": {
+    "gap": 2,
+    "maximumTextureSize": 8192
+  },
+  "createManifestIfMissing": false,
+  "modInfo": {
+    "GUID": "SH1Baeume",
+    "Author": "LordSmokelot",
+    "Name": "SH1Baeume",
+    "Description": "SH1Baeume",
+    "Version": "1.0.0",
+    "Website": "",
+    "Manifest": 0,
+    "NetworkMode": 0
+  }
+}

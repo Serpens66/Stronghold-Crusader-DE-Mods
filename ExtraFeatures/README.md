@@ -6,6 +6,9 @@ ExtraFeatures adds configurable gameplay, economy, building, and AI options to S
 ### Disable fear-factor effects on soldiers
 An optional host setting removes both the fear-factor damage bonus and penalty for all human and AI soldiers, including ranged attacks. Fear symbols disappear while health bars remain visible. Fear values, popularity and productivity effects remain unchanged. Disabled by default; also works in the map editor when ExtraFeatures and this option are enabled.
 
+### Build moats on elevated terrain
+Separate host checkboxes allow AI and human players to create moats and drawbridges on elevated terrain. AI placement is enabled by default, while human placement is disabled. If either checkbox is enabled, direct placement in the map editor and filling, cancelling, or removing any moat remain available to everyone. Completed moats and drawbridges retain the local one-level terrain offset instead of creating deep trenches, and removing a moat restores the tile's original terrain height.
+
 ### Let monks run
 Fighting Monks and Temple Guards can use the normal troop running behavior and animation instead of always being restricted to walking.
 

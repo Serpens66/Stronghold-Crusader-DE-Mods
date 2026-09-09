@@ -98,3 +98,5 @@ Common.ModSettingsSearchClearHelp=Leert den Einstellungsfilter.
 Common.ModSettingsSearchNoResults=Keine passenden Einstellungen gefunden.
 SomeSettings.EnableFearFactorNeutralization=Angstfaktor-Einfluss auf Soldaten deaktivieren
 SomeSettings.EnableFearFactorNeutralizationHelp=Angstfaktor hat keinerlei Auswirkungen mehr auf die Kampfstärke von Soldaten.
+SomeSettings.AllowElevatedMoat=Erhöhten Burgraben erlauben
+SomeSettings.AllowElevatedMoatHelp=Erlaubt neue Gräben und Zugbrücken auf erhöhtem Terrain getrennt für KI- und menschliche Spieler. Standardmäßig ist KI aktiviert und Mensch deaktiviert. Sobald mindestens eine Option aktiv ist, funktionieren die Platzierung im Karteneditor sowie das Auffüllen, Abbrechen und Entfernen jedes Grabens. Fertige Gräben und Zugbrücken folgen der lokalen Geländehöhe; entfernte Gräben stellen die ursprüngliche Höhe wieder her.

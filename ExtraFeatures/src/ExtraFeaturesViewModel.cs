@@ -40,6 +40,8 @@ namespace ExtraFeatures
         private bool keepStorageContent = true;
         private bool enableMonksAlwaysRun;
         private bool enableFearFactorNeutralization;
+        private bool allowElevatedMoatAI = true;
+        private bool allowElevatedMoatHuman;
         private bool enableKnightDismount = true;
         private bool instantHorse;
         private bool enableExtraChurchPriests = true;
@@ -80,6 +82,8 @@ namespace ExtraFeatures
         public ImageSource KeepStorageBowsIcon => GetGoodIconImage(eGoods.STORED_BOWS);
         public string EnableFearFactorNeutralizationText => SerpLocalization.Get(SerpLocalization.EnableFearFactorNeutralization);
         public string EnableFearFactorNeutralizationHelpText => SerpLocalization.Get(SerpLocalization.EnableFearFactorNeutralizationHelp);
+        public string AllowElevatedMoatText => SerpLocalization.Get("SomeSettings.AllowElevatedMoat");
+        public string AllowElevatedMoatHelpText => SerpLocalization.Get("SomeSettings.AllowElevatedMoatHelp");
         public string EnableMonksAlwaysRunText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRun);
         public string EnableMonksAlwaysRunHelpText => SerpLocalization.Get(SerpLocalization.EnableMonksAlwaysRunHelp);
         public string EnableKnightDismountText => SerpLocalization.Get(SerpLocalization.EnableKnightDismount);
@@ -186,6 +190,8 @@ namespace ExtraFeatures
         [SyncHostOnly] public int HumanLordHealthPercent { get => humanLordHealthPercent; set => SetIntSetting(ref humanLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(HumanLordHealthPercent), nameof(HumanLordHealthPercentText)); }
         [SyncHostOnly] public int AILordHealthPercent { get => aiLordHealthPercent; set => SetIntSetting(ref aiLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(AILordHealthPercent), nameof(AILordHealthPercentText)); }
         [SyncHostOnly] public bool EnableFearFactorNeutralization { get => enableFearFactorNeutralization; set => SetSetting(ref enableFearFactorNeutralization, value, nameof(EnableFearFactorNeutralization)); }
+        [SyncHostOnly] public bool AllowElevatedMoatAI { get => allowElevatedMoatAI; set => SetSetting(ref allowElevatedMoatAI, value, nameof(AllowElevatedMoatAI)); }
+        [SyncHostOnly] public bool AllowElevatedMoatHuman { get => allowElevatedMoatHuman; set => SetSetting(ref allowElevatedMoatHuman, value, nameof(AllowElevatedMoatHuman)); }
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
@@ -261,6 +267,8 @@ namespace ExtraFeatures
                 AILordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 EnableMonksAlwaysRun = false;
                 EnableFearFactorNeutralization = false;
+                AllowElevatedMoatAI = true;
+                AllowElevatedMoatHuman = false;
                 EnableKnightDismount = true;
                 InstantHorse = false;
                 EnableExtraChurchPriests = true;

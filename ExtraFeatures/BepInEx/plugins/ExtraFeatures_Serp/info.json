@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.92",
+  "Version": "1.0.93",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.93",
+      "Changes": [
+        "Added separate AI and human settings for building adaptive moats and drawbridges on elevated terrain, including editor placement and correct terrain restoration when moats are filled or removed."
+      ]
+    },
     {
       "Version": "1.0.92",
       "Changes": [
