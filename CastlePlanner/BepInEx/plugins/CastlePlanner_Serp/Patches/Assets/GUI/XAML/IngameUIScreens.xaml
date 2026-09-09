@@ -6,239 +6,278 @@
       <!-- This root follows Vanilla's UIScaleValueWidth/Height and therefore
            provides the real draggable viewport at every resolution. -->
       <Grid x:Name="CastlePlannerBlueprintHud"
-            Grid.Row="0"
-            Grid.RowSpan="4"
-            Grid.Column="0"
-            Grid.ColumnSpan="4"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"
+            Grid.Row="0" Grid.RowSpan="4" Grid.Column="0" Grid.ColumnSpan="4"
+            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
             Panel.ZIndex="10000"
             Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}"
             Tag="IgnoreSelf">
-        <Border x:Name="CastlePlannerBlueprintPanel"
-                Width="{Binding PanelWidth}"
-                Height="{Binding PanelHeight}"
-                Padding="8"
-                HorizontalAlignment="Left"
-                VerticalAlignment="Top"
-                Panel.ZIndex="10000"
-                Background="#E614243A"
-                BorderBrush="#CC77AAFF"
-                BorderThickness="1"
-                Visibility="{Binding SettingsPanelVisible, Converter={StaticResource booleanToVisibilityConverter}}">
-          <Border.RenderTransform>
-            <TranslateTransform X="{Binding PanelLeft}"
-                                Y="{Binding PanelTop}"/>
-          </Border.RenderTransform>
-          <Grid>
+        <Grid.Resources>
+          <!-- The reference UI uses pale parchment actions. Keep their text
+               explicitly dark instead of inheriting the light HUD foreground. -->
+          <Style x:Key="CastlePlannerParchmentButton"
+                 TargetType="{x:Type Button}">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Foreground" Value="#FF2A1608"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                  <Border x:Name="ParchmentOuter"
+                          Background="#FFE1C58D"
+                          BorderBrush="#FF6C3514"
+                          BorderThickness="2"
+                          Padding="2">
+                    <Border x:Name="ParchmentInner"
+                            Background="#18FFFFFF"
+                            BorderBrush="#99F5DEAC"
+                            BorderThickness="1"
+                            Padding="8,2">
+                      <TextBlock Text="{TemplateBinding Content}"
+                                 Foreground="{TemplateBinding Foreground}"
+                                 FontSize="{TemplateBinding FontSize}"
+                                 FontWeight="{TemplateBinding FontWeight}"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center"
+                                 TextAlignment="Center"
+                                 TextTrimming="CharacterEllipsis"/>
+                    </Border>
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="ParchmentOuter"
+                              Property="Background" Value="#FFF0D8A5"/>
+                      <Setter TargetName="ParchmentOuter"
+                              Property="BorderBrush" Value="#FF8F4B1D"/>
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                      <Setter TargetName="ParchmentOuter"
+                              Property="Background" Value="#FFC8A66A"/>
+                      <Setter TargetName="ParchmentInner"
+                              Property="Background" Value="#22000000"/>
+                    </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                      <Setter TargetName="ParchmentOuter"
+                              Property="Opacity" Value="0.55"/>
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </Grid.Resources>
+        <Grid x:Name="CastlePlannerBlueprintPanel"
+              Width="{Binding PanelWidth}" Height="{Binding PanelHeight}"
+              HorizontalAlignment="Left" VerticalAlignment="Top"
+              Panel.ZIndex="10000"
+              Visibility="{Binding SettingsPanelVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+          <Grid.RenderTransform>
+            <TranslateTransform X="{Binding PanelLeft}" Y="{Binding PanelTop}"/>
+          </Grid.RenderTransform>
+
+          <!-- This is the exact translucent frame used by HUD_AlliesPanel. -->
+          <Button Width="{Binding PanelWidth}" Height="{Binding PanelHeight}"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                  IsHitTestVisible="False" Focusable="False"
+                  Style="{StaticResource BDR_SH1DE60}"/>
+
+          <Grid Margin="18,16,18,16">
             <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="30"/>
+              <RowDefinition Height="9"/>
               <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
+
+            <!-- The transparent header remains the complete drag target. -->
             <Border x:Name="CastlePlannerBlueprintDragHandle"
-                    Height="26"
-                    Margin="0,0,0,6"
-                    Padding="7,2"
-                    Background="#AA203A5A"
-                    BorderBrush="#8877AAFF"
-                    BorderThickness="0,0,0,1">
+                    Grid.Row="0" Padding="5,0" Background="#01000000">
               <TextBlock Text="{Binding SettingsTitleText}"
-                         FontSize="16"
-                         FontWeight="Bold"
-                         Foreground="#FFE8F2FF"
-                         VerticalAlignment="Center"
-                         IsHitTestVisible="False"/>
+                         FontSize="18" FontWeight="Bold"
+                         Foreground="#FFF1E2B7" VerticalAlignment="Center"
+                         IsHitTestVisible="False">
+                <TextBlock.Effect>
+                  <DropShadowEffect ShadowDepth="1" Direction="315"
+                                    Color="#DD000000" BlurRadius="0"/>
+                </TextBlock.Effect>
+              </TextBlock>
             </Border>
 
-            <ScrollViewer Grid.Row="1"
+            <Border Grid.Row="1" Height="5"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                    Background="#CC000000" BorderBrush="#FFC2240C"
+                    BorderThickness="0,1,0,1" IsHitTestVisible="False"/>
+
+            <ScrollViewer Grid.Row="2"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalScrollBarVisibility="Auto">
-            <StackPanel>
+              <StackPanel Margin="2,3,2,2">
+                <Button Height="31" HorizontalAlignment="Stretch"
+                        Content="{Binding StatusText}"
+                        Command="{Binding ToggleCommand}"
+                        IsEnabled="{Binding CanToggle}"
+                        Style="{StaticResource CastlePlannerParchmentButton}"/>
 
-            <Button Content="{Binding StatusText}"
-                    Command="{Binding ToggleCommand}"
-                    Height="30"
-                    Padding="8,2"
-                    FontSize="15"
-                    Foreground="#FFE8F2FF"
-                    Background="#AA14243A"
-                    BorderBrush="#CC77AAFF"
-                    BorderThickness="1"
-                    IsEnabled="{Binding CanToggle}"/>
+                <TextBlock Text="AIVJSON" Foreground="#FFF1E2B7"
+                           FontWeight="Bold" Margin="3,7,0,3"/>
 
-            <TextBlock Text="AIVJSON"
-                       Foreground="#FFE8F2FF"
-                       Margin="0,6,0,2"/>
-            <!-- Noesis has no searchable ComboBox. This Popup overlays the
-                 closed selector with its search field, so keyboard input and
-                 the result list remain in the same popup focus scope. -->
-            <Grid x:Name="CastlePlannerCastleSelector"
-                  Height="30"
-                  IsEnabled="{Binding CanSelectCastle}">
-              <!-- A transparent hit surface leaves the native ComboBox template
-                   untouched, so the closed selector looks exactly like before. -->
-              <ComboBox Height="30"
-                        IsEditable="True"
-                        IsReadOnly="True"
-                        IsHitTestVisible="False"
-                        Text="{Binding SelectedCastle}"/>
-              <Border x:Name="CastlePlannerCastleOpenSurface"
-                      Background="#01000000"/>
-              <Popup x:Name="CastlePlannerCastleSearchPopup"
-                     Placement="Bottom"
-                     PlacementTarget="{Binding ElementName=CastlePlannerCastleSelector}"
-                     StaysOpen="False"
-                     AllowsTransparency="True">
-                <Border Width="{Binding ActualWidth, ElementName=CastlePlannerCastleSelector}"
-                        Background="{StaticResource Brush.ComboBox.Normal}"
-                        BorderBrush="{StaticResource Brush.ComboBox.Pressed}"
-                        BorderThickness="1">
-                  <StackPanel>
-                    <TextBox x:Name="CastlePlannerCastleSearchTextBox"
-                             Height="30"
-                             Padding="6,2"
-                             Placeholder="{Binding SearchText}"/>
-                    <ListBox x:Name="CastlePlannerCastleSearchResults"
-                             ItemsSource="{Binding CastleOptions}"
-                             MaxHeight="390"
-                             ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             Background="{StaticResource Brush.ComboBox.Normal}"
-                             BorderThickness="0"/>
-                  </StackPanel>
-                </Border>
-              </Popup>
-            </Grid>
+                <!-- Noesis has no searchable ComboBox. This Popup overlays the
+                     closed selector with its search field, so keyboard input and
+                     the result list remain in the same popup focus scope. -->
+                <Grid x:Name="CastlePlannerCastleSelector" Height="30"
+                      IsEnabled="{Binding CanSelectCastle}">
+                  <!-- A transparent hit surface leaves the native ComboBox template
+                       untouched, so the closed selector retains Vanilla behavior. -->
+                  <ComboBox Height="30" IsEditable="True" IsReadOnly="True"
+                            IsHitTestVisible="False" Text="{Binding SelectedCastle}"
+                            Foreground="#FFF4E8C4" Background="#F01D1710"
+                            BorderBrush="#FF8F6B32"/>
+                  <Border x:Name="CastlePlannerCastleOpenSurface"
+                          Background="#01000000"/>
+                  <Popup x:Name="CastlePlannerCastleSearchPopup"
+                         Placement="Bottom"
+                         PlacementTarget="{Binding ElementName=CastlePlannerCastleSelector}"
+                         StaysOpen="False" AllowsTransparency="True">
+                    <Border Width="{Binding ActualWidth, ElementName=CastlePlannerCastleSelector}"
+                            Padding="3" Background="#F01D1710"
+                            BorderBrush="#FFC8A45F" BorderThickness="1">
+                      <StackPanel>
+                        <TextBox x:Name="CastlePlannerCastleSearchTextBox"
+                                 Height="30" Padding="6,2"
+                                 Foreground="#FFF4E8C4" Background="#E6120E09"
+                                 BorderBrush="#FF8F6B32" BorderThickness="1"
+                                 Placeholder="{Binding SearchText}"/>
+                        <ListBox x:Name="CastlePlannerCastleSearchResults"
+                                 ItemsSource="{Binding CastleOptions}" MaxHeight="390"
+                                 Foreground="#FFF4E8C4" Background="#F01D1710"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 BorderThickness="0" Margin="0,3,0,0"/>
+                      </StackPanel>
+                    </Border>
+                  </Popup>
+                </Grid>
 
-            <StackPanel Visibility="{Binding PreviewVisible, Converter={StaticResource booleanToVisibilityConverter}}">
-              <TextBlock Text="{Binding RotationText}"
-                         Foreground="#FFE8F2FF"
-                         Margin="0,6,0,2"/>
-              <ComboBox x:Name="CastlePlannerRotationComboBox"
-                        ItemsSource="{Binding RotationOptions}"
-                        SelectedItem="{Binding SelectedRotation, Mode=TwoWay}"
-                        IsEnabled="{Binding CanSelectRotation}"
-                        Height="30"/>
-              <Button Content="{Binding ConfirmCastleText}"
-                      Command="{Binding ConfirmCastleCommand}"
-                      IsEnabled="{Binding CanConfirmCastle}"
-                      Height="32"
-                      Margin="0,7,0,0"
-                      Padding="10,3"
-                      FontWeight="Bold"
-                      Foreground="#FFFFFFFF"
-                      Background="#CC2F6F42"
-                      BorderBrush="#FF77DD99"
-                      BorderThickness="1"/>
-            </StackPanel>
+                <StackPanel Visibility="{Binding PreviewVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+                  <TextBlock Text="{Binding RotationText}"
+                             Foreground="#FFF1E2B7" FontWeight="Bold"
+                             Margin="3,7,0,3"/>
+                  <ComboBox x:Name="CastlePlannerRotationComboBox"
+                            ItemsSource="{Binding RotationOptions}"
+                            SelectedItem="{Binding SelectedRotation, Mode=TwoWay}"
+                            IsEnabled="{Binding CanSelectRotation}" Height="30"
+                            Foreground="#FFF4E8C4" Background="#F01D1710"
+                            BorderBrush="#FF8F6B32"/>
+                  <Button Height="31" Margin="0,8,0,0"
+                          HorizontalAlignment="Stretch"
+                          Content="{Binding ConfirmCastleText}"
+                          Command="{Binding ConfirmCastleCommand}"
+                          IsEnabled="{Binding CanConfirmCastle}"
+                          Style="{StaticResource CastlePlannerParchmentButton}"/>
+                </StackPanel>
 
-            <StackPanel Margin="0,7,0,0"
-                        Visibility="{Binding NormalBlueprintSettingsVisible, Converter={StaticResource booleanToVisibilityConverter}}">
-              <CheckBox IsChecked="{Binding BlueprintShowFortifications, Mode=TwoWay}"
-                        Content="{Binding ShowFortificationsText}"
-                        ToolTip="{Binding ShowFortificationsHelpText}"
-                        ToolTipService.ShowDuration="60000"/>
-              <CheckBox IsChecked="{Binding BlueprintShowBuildings, Mode=TwoWay}"
-                        Content="{Binding ShowBuildingsText}"
-                        ToolTip="{Binding ShowBuildingsHelpText}"
-                        ToolTipService.ShowDuration="60000"
-                        Margin="0,3,0,0"/>
-              <CheckBox IsChecked="{Binding BlueprintShowDefensiveGroundFeatures, Mode=TwoWay}"
-                        Content="{Binding ShowDefensiveGroundFeaturesText}"
-                        ToolTip="{Binding ShowDefensiveGroundFeaturesHelpText}"
-                        ToolTipService.ShowDuration="60000"
-                        Margin="0,3,0,0"/>
-              <CheckBox IsChecked="{Binding BlueprintShowFearFactorBuildings, Mode=TwoWay}"
-                        Content="{Binding ShowFearFactorBuildingsText}"
-                        ToolTip="{Binding ShowFearFactorBuildingsHelpText}"
-                        ToolTipService.ShowDuration="60000"
-                        Margin="0,3,0,0"/>
-            </StackPanel>
+                <StackPanel Margin="3,8,0,0"
+                            Visibility="{Binding NormalBlueprintSettingsVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+                  <CheckBox IsChecked="{Binding BlueprintShowFortifications, Mode=TwoWay}"
+                            Content="{Binding ShowFortificationsText}"
+                            Foreground="#FFF4E8C4"
+                            ToolTip="{Binding ShowFortificationsHelpText}"
+                            ToolTipService.ShowDuration="60000"/>
+                  <CheckBox IsChecked="{Binding BlueprintShowBuildings, Mode=TwoWay}"
+                            Content="{Binding ShowBuildingsText}"
+                            Foreground="#FFF4E8C4"
+                            ToolTip="{Binding ShowBuildingsHelpText}"
+                            ToolTipService.ShowDuration="60000" Margin="0,3,0,0"/>
+                  <CheckBox IsChecked="{Binding BlueprintShowDefensiveGroundFeatures, Mode=TwoWay}"
+                            Content="{Binding ShowDefensiveGroundFeaturesText}"
+                            Foreground="#FFF4E8C4"
+                            ToolTip="{Binding ShowDefensiveGroundFeaturesHelpText}"
+                            ToolTipService.ShowDuration="60000" Margin="0,3,0,0"/>
+                  <CheckBox IsChecked="{Binding BlueprintShowFearFactorBuildings, Mode=TwoWay}"
+                            Content="{Binding ShowFearFactorBuildingsText}"
+                            Foreground="#FFF4E8C4"
+                            ToolTip="{Binding ShowFearFactorBuildingsHelpText}"
+                            ToolTipService.ShowDuration="60000" Margin="0,3,0,0"/>
+                </StackPanel>
 
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="105"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="42"/>
-              </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="0"
-                         Text="{Binding IconScaleText}"
-                         Foreground="#FFE8F2FF"
-                         VerticalAlignment="Center"/>
-              <Slider Grid.Column="1"
-                      Minimum="0.05"
-                      Maximum="1"
-                      Value="{Binding BlueprintIconScale, Mode=TwoWay}"
-                      TickFrequency="0.05"
-                      IsSnapToTickEnabled="True"
-                      Margin="4,0"/>
-              <TextBlock Grid.Column="2"
-                         Text="{Binding BlueprintIconScaleText}"
-                         Foreground="#FFE8F2FF"
-                         HorizontalAlignment="Right"
-                         VerticalAlignment="Center"/>
-            </Grid>
+                <Grid Margin="3,7,3,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="105"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="42"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{Binding IconScaleText}"
+                             Foreground="#FFF1E2B7" VerticalAlignment="Center"/>
+                  <Slider Grid.Column="1" Minimum="0.05" Maximum="1"
+                          Value="{Binding BlueprintIconScale, Mode=TwoWay}"
+                          TickFrequency="0.05" IsSnapToTickEnabled="True"
+                          Margin="4,0"/>
+                  <TextBlock Grid.Column="2" Text="{Binding BlueprintIconScaleText}"
+                             Foreground="#FFF4E8C4" HorizontalAlignment="Right"
+                             VerticalAlignment="Center"/>
+                </Grid>
 
-            <Grid Margin="0,5,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="105"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="42"/>
-              </Grid.ColumnDefinitions>
-              <TextBlock Grid.Column="0"
-                         Text="{Binding IconAlphaText}"
-                         Foreground="#FFE8F2FF"
-                         VerticalAlignment="Center"/>
-              <Slider Grid.Column="1"
-                      Minimum="0"
-                      Maximum="1"
-                      Value="{Binding BlueprintIconAlpha, Mode=TwoWay}"
-                      TickFrequency="0.05"
-                      IsSnapToTickEnabled="True"
-                      Margin="4,0"/>
-              <TextBlock Grid.Column="2"
-                         Text="{Binding BlueprintIconAlphaText}"
-                         Foreground="#FFE8F2FF"
-                         HorizontalAlignment="Right"
-                         VerticalAlignment="Center"/>
-            </Grid>
-            </StackPanel>
+                <Grid Margin="3,5,3,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="105"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="42"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="0" Text="{Binding IconAlphaText}"
+                             Foreground="#FFF1E2B7" VerticalAlignment="Center"/>
+                  <Slider Grid.Column="1" Minimum="0" Maximum="1"
+                          Value="{Binding BlueprintIconAlpha, Mode=TwoWay}"
+                          TickFrequency="0.05" IsSnapToTickEnabled="True"
+                          Margin="4,0"/>
+                  <TextBlock Grid.Column="2" Text="{Binding BlueprintIconAlphaText}"
+                             Foreground="#FFF4E8C4" HorizontalAlignment="Right"
+                             VerticalAlignment="Center"/>
+                </Grid>
+              </StackPanel>
             </ScrollViewer>
           </Grid>
-        </Border>
+        </Grid>
 
-        <Border Width="520"
-                Padding="18,12"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Top"
-                Margin="0,72,0,0"
-                Panel.ZIndex="10002"
-                Background="#E614243A"
-                BorderBrush="#FF77AAFF"
-                BorderThickness="2"
-                Visibility="{Binding PreviewVisible, Converter={StaticResource booleanToVisibilityConverter}}"
-                Tag="Ignore">
-          <StackPanel>
+        <Grid Width="520" Height="150"
+              HorizontalAlignment="Center" VerticalAlignment="Top"
+              Margin="0,72,0,0" Panel.ZIndex="10002"
+              Visibility="{Binding PreviewVisible, Converter={StaticResource booleanToVisibilityConverter}}"
+              Tag="Ignore">
+          <Button Width="520" Height="150"
+                  HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                  IsHitTestVisible="False" Focusable="False"
+                  Style="{StaticResource BDR_SH1DE60}"/>
+          <Grid Margin="24,18,24,18">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="36"/>
+              <RowDefinition Height="9"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
             <TextBlock Text="{Binding PreviewTitleText}"
-                       FontSize="26"
-                       FontWeight="Bold"
-                       Foreground="White"
-                       HorizontalAlignment="Center"/>
-            <TextBlock Text="{Binding PreviewTimerText}"
-                       FontSize="22"
-                       Foreground="#FFFFD27A"
-                       HorizontalAlignment="Center"
-                       Margin="0,3,0,0"/>
-            <TextBlock Text="{Binding PreviewStatusText}"
-                       FontSize="17"
-                       Foreground="#FFE8F2FF"
-                       TextWrapping="Wrap"
-                       TextAlignment="Center"
-                       HorizontalAlignment="Center"
-                       Margin="0,5,0,0"/>
-          </StackPanel>
-        </Border>
-
+                       FontSize="24" FontWeight="Bold"
+                       Foreground="#FFF1E2B7" HorizontalAlignment="Center"
+                       VerticalAlignment="Center">
+              <TextBlock.Effect>
+                <DropShadowEffect ShadowDepth="1" Direction="315"
+                                  Color="#DD000000" BlurRadius="0"/>
+              </TextBlock.Effect>
+            </TextBlock>
+            <Border Grid.Row="1" Height="5"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                    Background="#CC000000" BorderBrush="#FFC2240C"
+                    BorderThickness="0,1,0,1" IsHitTestVisible="False"/>
+            <StackPanel Grid.Row="2">
+              <TextBlock Text="{Binding PreviewTimerText}"
+                         FontSize="21" FontWeight="Bold"
+                         Foreground="#FFE4B85F" HorizontalAlignment="Center"
+                         Margin="0,2,0,0"/>
+              <TextBlock Text="{Binding PreviewStatusText}"
+                         FontSize="16" Foreground="#FFF4E8C4"
+                         TextWrapping="Wrap" TextAlignment="Center"
+                         HorizontalAlignment="Center" Margin="0,4,0,0"/>
+            </StackPanel>
+          </Grid>
+        </Grid>
       </Grid>
     </Content>
   </Operation>
@@ -248,11 +287,8 @@
   <Operation Type="Add" XPath="/n:UserControl/n:Grid/n:Grid[@Name='HUD_ObjectivesPanel']">
     <Content>
       <Button x:Name="CastlePlannerBlueprintSettingsButton"
-              Width="36"
-              Height="34"
-              Margin="0,0,0,34"
-              HorizontalAlignment="Left"
-              VerticalAlignment="Bottom"
+              Width="36" Height="34" Margin="0,0,0,34"
+              HorizontalAlignment="Left" VerticalAlignment="Bottom"
               Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}"
               local:PropEx.Sprite1="{StaticResource UI-Buildings A001}"
               local:PropEx.Sprite2="{StaticResource UI-Buildings A002}"

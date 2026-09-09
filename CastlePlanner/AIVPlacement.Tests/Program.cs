@@ -6,6 +6,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Xml.Linq;
 
 internal static class Program
 {
@@ -74,6 +75,7 @@ internal static class Program
             ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint),
             ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
             ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder),
+            ("preserves the Vanilla Blueprint HUD interaction contract", PreservesVanillaBlueprintHudContract),
             ("pins CastlePlanner to the manifest Script Extender range", PinsCastlePlannerToManifestExtenderRange)
         };
 
@@ -434,6 +436,95 @@ internal static class Program
         Assert(bridge.Contains("GetAssemblies()", StringComparison.Ordinal) &&
             bridge.Contains("ReplaceStatuses", StringComparison.Ordinal),
             "optional reflection status bridge is missing");
+    }
+
+    private static void PreservesVanillaBlueprintHudContract()
+    {
+        string root = FindCastlePlannerRoot();
+        string path = Path.Combine(
+            root, "BepInEx", "plugins", "CastlePlanner_Serp", "Patches",
+            "Assets", "GUI", "XAML", "IngameUIScreens.xaml");
+        string xaml = File.ReadAllText(path);
+        XDocument document = XDocument.Parse(xaml, LoadOptions.PreserveWhitespace);
+        XNamespace x = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        string[] requiredNames =
+        {
+            "CastlePlannerBlueprintHud",
+            "CastlePlannerBlueprintPanel",
+            "CastlePlannerBlueprintDragHandle",
+            "CastlePlannerCastleSelector",
+            "CastlePlannerCastleOpenSurface",
+            "CastlePlannerCastleSearchPopup",
+            "CastlePlannerCastleSearchTextBox",
+            "CastlePlannerCastleSearchResults",
+            "CastlePlannerRotationComboBox",
+            "CastlePlannerBlueprintSettingsButton"
+        };
+        HashSet<string> names = document.Descendants()
+            .Select(element => (string)element.Attribute(x + "Name"))
+            .Where(name => !string.IsNullOrEmpty(name))
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (string requiredName in requiredNames)
+        {
+            Assert(names.Contains(requiredName),
+                $"Blueprint HUD element '{requiredName}' is missing");
+        }
+
+        string[] requiredBindings =
+        {
+            "Command=\"{Binding ToggleCommand}\"",
+            "Command=\"{Binding ToggleSettingsPanelCommand}\"",
+            "Command=\"{Binding ConfirmCastleCommand}\"",
+            "Content=\"{Binding StatusText}\"",
+            "Content=\"{Binding ConfirmCastleText}\"",
+            "SelectedItem=\"{Binding SelectedRotation, Mode=TwoWay}\"",
+            "IsChecked=\"{Binding BlueprintShowFortifications, Mode=TwoWay}\"",
+            "IsChecked=\"{Binding BlueprintShowBuildings, Mode=TwoWay}\"",
+            "IsChecked=\"{Binding BlueprintShowDefensiveGroundFeatures, Mode=TwoWay}\"",
+            "IsChecked=\"{Binding BlueprintShowFearFactorBuildings, Mode=TwoWay}\"",
+            "Value=\"{Binding BlueprintIconScale, Mode=TwoWay}\"",
+            "Value=\"{Binding BlueprintIconAlpha, Mode=TwoWay}\""
+        };
+        foreach (string requiredBinding in requiredBindings)
+        {
+            Assert(xaml.Contains(requiredBinding, StringComparison.Ordinal),
+                $"Blueprint HUD binding '{requiredBinding}' is missing");
+        }
+
+        Assert(CountOccurrences(xaml, "Style=\"{StaticResource BDR_SH1DE60}\"") >= 2,
+            "Blueprint panel and preview banner do not both use the translucent Allies frame");
+        Assert(!xaml.Contains("Style=\"{StaticResource BDR_SH1DEa}\"", StringComparison.Ordinal) &&
+            !xaml.Contains("Style=\"{StaticResource BTN_SH_GlowS}\"", StringComparison.Ordinal),
+            "the opaque frame or light-text Vanilla button style is still active");
+        Assert(xaml.Contains("x:Key=\"CastlePlannerParchmentButton\"", StringComparison.Ordinal) &&
+            CountOccurrences(xaml, "Style=\"{StaticResource CastlePlannerParchmentButton}\"") >= 2,
+            "Blueprint actions do not both use the local parchment button style");
+        Assert(xaml.Contains("<Setter Property=\"Foreground\" Value=\"#FF2A1608\"/>", StringComparison.Ordinal) &&
+            xaml.Contains("Background=\"#FFE1C58D\"", StringComparison.Ordinal),
+            "the parchment button does not guarantee dark text on a light surface");
+        Assert(CountOccurrences(xaml, "BorderBrush=\"#FFC2240C\"") >= 2,
+            "the Blueprint panel and preview banner do not both use red-black dividers");
+        Assert(xaml.Contains("Background=\"#F01D1710\"", StringComparison.Ordinal) &&
+            xaml.Contains("Foreground=\"#FFF4E8C4\"", StringComparison.Ordinal),
+            "dark popup and panel controls do not retain a light foreground");
+        Assert(xaml.Contains("UI-Buildings A001", StringComparison.Ordinal) &&
+            xaml.Contains("UI-Buildings A002", StringComparison.Ordinal) &&
+            xaml.Contains("Style=\"{StaticResource BTN_Building}\"", StringComparison.Ordinal),
+            "the existing Vanilla-style HUD trigger icon changed");
+
+        string[] removedBluePalette =
+        {
+            "#E614243A",
+            "#CC77AAFF",
+            "#AA203A5A",
+            "#FFE8F2FF"
+        };
+        foreach (string color in removedBluePalette)
+        {
+            Assert(!xaml.Contains(color, StringComparison.OrdinalIgnoreCase),
+                $"legacy blue Blueprint HUD color '{color}' is still active");
+        }
     }
 
     private static void PinsCastlePlannerToManifestExtenderRange()
@@ -1737,6 +1828,19 @@ internal static class Program
     {
         if (!condition)
             throw new InvalidOperationException(message);
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        int count = 0;
+        int startIndex = 0;
+        while ((startIndex = text.IndexOf(value, startIndex, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            startIndex += value.Length;
+        }
+
+        return count;
     }
 
     private sealed class Fixture : IDisposable

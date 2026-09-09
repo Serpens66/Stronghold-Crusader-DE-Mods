@@ -27,6 +27,205 @@ namespace PreplacedTest
         public static bool IsActivation(int before, int after) => before == 0 && after == 1;
     }
 
+    internal readonly struct PreplacedIdentity : IEquatable<PreplacedIdentity>
+    {
+        public PreplacedIdentity(int buildingId, uint globalId, int ownerId, int structureType)
+        {
+            BuildingId = buildingId;
+            GlobalId = globalId;
+            OwnerId = ownerId;
+            StructureType = structureType;
+        }
+
+        public int BuildingId { get; }
+        public uint GlobalId { get; }
+        public int OwnerId { get; }
+        public int StructureType { get; }
+
+        public bool Matches(int buildingId, uint globalId, int ownerId, int structureType) =>
+            BuildingId == buildingId && GlobalId == globalId && OwnerId == ownerId &&
+            StructureType == structureType;
+
+        public bool Equals(PreplacedIdentity other) =>
+            Matches(other.BuildingId, other.GlobalId, other.OwnerId, other.StructureType);
+
+        public override bool Equals(object obj) => obj is PreplacedIdentity other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = BuildingId;
+                hash = hash * 397 ^ (int)GlobalId;
+                hash = hash * 397 ^ OwnerId;
+                return hash * 397 ^ StructureType;
+            }
+        }
+    }
+
+    internal static class PreplacedCountProjection
+    {
+        public static int WithoutPreplaced(int vanillaCount, int matchingPreplacedCount) =>
+            Math.Max(0, vanillaCount - Math.Max(0, matchingPreplacedCount));
+    }
+
+    internal readonly struct PortalConnection
+    {
+        public PortalConnection(int portalId, int first, int second, int third, int ownerId, int buildingId)
+        {
+            PortalId = portalId;
+            First = first;
+            Second = second;
+            Third = third;
+            OwnerId = ownerId;
+            BuildingId = buildingId;
+        }
+
+        public int PortalId { get; }
+        public int First { get; }
+        public int Second { get; }
+        public int Third { get; }
+        public int OwnerId { get; }
+        public int BuildingId { get; }
+    }
+
+    internal enum PortalRouteKind
+    {
+        Unreachable,
+        Direct,
+        FriendlyPortal,
+        ForeignPortalOnly
+    }
+
+    internal readonly struct PortalRouteResult
+    {
+        public PortalRouteResult(PortalRouteKind kind, int[] usedPortalIndices)
+        {
+            Kind = kind;
+            UsedPortalIndices = usedPortalIndices ?? Array.Empty<int>();
+        }
+
+        public PortalRouteKind Kind { get; }
+        public int[] UsedPortalIndices { get; }
+    }
+
+    internal static class PortalRouteModel
+    {
+        public static PortalRouteResult Evaluate(
+            int startPcl,
+            int destinationPcl,
+            IReadOnlyList<PortalConnection> portals,
+            Func<int, bool> isFriendlyOwner)
+        {
+            if (startPcl <= 0 || destinationPcl <= 0)
+                return new PortalRouteResult(PortalRouteKind.Unreachable, null);
+            if (startPcl == destinationPcl)
+                return new PortalRouteResult(PortalRouteKind.Direct, null);
+
+            IReadOnlyList<PortalConnection> source = portals ?? Array.Empty<PortalConnection>();
+            PortalRouteResult friendly = Search(startPcl, destinationPcl, source,
+                portal => isFriendlyOwner != null && isFriendlyOwner(portal.OwnerId),
+                PortalRouteKind.FriendlyPortal);
+            if (friendly.Kind == PortalRouteKind.FriendlyPortal)
+                return friendly;
+
+            PortalRouteResult any = Search(startPcl, destinationPcl, source,
+                portal => true, PortalRouteKind.ForeignPortalOnly);
+            return any.Kind == PortalRouteKind.ForeignPortalOnly
+                ? any
+                : new PortalRouteResult(PortalRouteKind.Unreachable, null);
+        }
+
+        private static PortalRouteResult Search(
+            int startPcl,
+            int destinationPcl,
+            IReadOnlyList<PortalConnection> portals,
+            Func<PortalConnection, bool> include,
+            PortalRouteKind successKind)
+        {
+            var adjacency = new Dictionary<int, List<PortalEdge>>();
+            for (int index = 0; index < portals.Count; index++)
+            {
+                PortalConnection portal = portals[index];
+                if (!include(portal)) continue;
+                AddPair(adjacency, portal.First, portal.Second, portal.PortalId);
+                AddPair(adjacency, portal.First, portal.Third, portal.PortalId);
+                AddPair(adjacency, portal.Second, portal.Third, portal.PortalId);
+            }
+
+            var visited = new HashSet<int> { startPcl };
+            var pending = new Queue<int>();
+            var previous = new Dictionary<int, PortalStep>();
+            pending.Enqueue(startPcl);
+            while (pending.Count != 0)
+            {
+                int current = pending.Dequeue();
+                if (!adjacency.TryGetValue(current, out List<PortalEdge> edges)) continue;
+                foreach (PortalEdge edge in edges)
+                {
+                    if (!visited.Add(edge.Destination)) continue;
+                    previous[edge.Destination] = new PortalStep(current, edge.PortalIndex);
+                    if (edge.Destination == destinationPcl)
+                        return new PortalRouteResult(successKind, Reconstruct(destinationPcl, previous));
+                    pending.Enqueue(edge.Destination);
+                }
+            }
+            return new PortalRouteResult(PortalRouteKind.Unreachable, null);
+        }
+
+        private static void AddPair(Dictionary<int, List<PortalEdge>> adjacency, int first, int second, int portalIndex)
+        {
+            if (first <= 0 || second <= 0 || first == second) return;
+            AddEdge(adjacency, first, new PortalEdge(second, portalIndex));
+            AddEdge(adjacency, second, new PortalEdge(first, portalIndex));
+        }
+
+        private static void AddEdge(Dictionary<int, List<PortalEdge>> adjacency, int pcl, PortalEdge edge)
+        {
+            if (!adjacency.TryGetValue(pcl, out List<PortalEdge> edges))
+            {
+                edges = new List<PortalEdge>();
+                adjacency.Add(pcl, edges);
+            }
+            edges.Add(edge);
+        }
+
+        private static int[] Reconstruct(int destination, IReadOnlyDictionary<int, PortalStep> previous)
+        {
+            var result = new List<int>();
+            int current = destination;
+            while (previous.TryGetValue(current, out PortalStep step))
+            {
+                result.Add(step.PortalIndex);
+                current = step.PreviousPcl;
+            }
+            result.Reverse();
+            return result.ToArray();
+        }
+
+        private readonly struct PortalEdge
+        {
+            public PortalEdge(int destination, int portalIndex)
+            {
+                Destination = destination;
+                PortalIndex = portalIndex;
+            }
+            public int Destination { get; }
+            public int PortalIndex { get; }
+        }
+
+        private readonly struct PortalStep
+        {
+            public PortalStep(int previousPcl, int portalIndex)
+            {
+                PreviousPcl = previousPcl;
+                PortalIndex = portalIndex;
+            }
+            public int PreviousPcl { get; }
+            public int PortalIndex { get; }
+        }
+    }
+
     internal static class DamageObservationModel
     {
         public static bool IsLethalInput(int currentHealth, int damage) => currentHealth > 0 && damage >= currentHealth;

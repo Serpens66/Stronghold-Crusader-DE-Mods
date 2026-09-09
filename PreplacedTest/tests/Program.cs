@@ -22,6 +22,8 @@ namespace PreplacedTest.Tests
                 TestAicSlotConversion();
                 TestValidatorResults();
                 TestDamageTransitions();
+                TestPreplacedIdentityAndCountProjection();
+                TestPortalRoutes();
                 TestAivAreaClassification();
                 TestEarlyOwnerBuffer();
                 TestFirstBuildingWindow();
@@ -99,6 +101,40 @@ namespace PreplacedTest.Tests
             Check(!CrushedTimerTransition.IsActivation(7, 8), "scheduler increment marked as activation");
         }
 
+        private static void TestPreplacedIdentityAndCountProjection()
+        {
+            var identity = new PreplacedIdentity(19, 1001, 8, 39);
+            Check(identity.Matches(19, 1001, 8, 39), "identical preplaced record was not recognized");
+            Check(!identity.Matches(19, 1002, 8, 39), "reused slot with another global ID was treated as preplaced");
+            Check(!identity.Matches(19, 1001, 7, 39), "changed owner was treated as preplaced");
+            Check(!identity.Matches(19, 1001, 8, 40), "changed structure type was treated as preplaced");
+            Check(PreplacedCountProjection.WithoutPreplaced(5, 2) == 3, "preplaced count projection");
+            Check(PreplacedCountProjection.WithoutPreplaced(1, 4) == 0, "preplaced count projection underflow");
+        }
+
+        private static void TestPortalRoutes()
+        {
+            var portals = new List<PortalConnection>
+            {
+                new PortalConnection(101, 10, 20, 0, 8, 40),
+                new PortalConnection(102, 20, 30, 0, 8, 41),
+                new PortalConnection(103, 10, 40, 0, 7, 42)
+            };
+            Check(PortalRouteModel.Evaluate(10, 10, portals, owner => owner == 8).Kind == PortalRouteKind.Direct,
+                "direct PCL route");
+            PortalRouteResult own = PortalRouteModel.Evaluate(10, 30, portals, owner => owner == 8);
+            Check(own.Kind == PortalRouteKind.FriendlyPortal && own.UsedPortalIndices.SequenceEqual(new[] { 101, 102 }),
+                "multi-gate friendly route");
+            Check(PortalRouteModel.Evaluate(10, 40, portals, owner => owner == 8).Kind == PortalRouteKind.ForeignPortalOnly,
+                "foreign-only portal route");
+            Check(PortalRouteModel.Evaluate(10, 50, portals, owner => owner == 8).Kind == PortalRouteKind.Unreachable,
+                "sealed destination route");
+            Check(PortalRouteModel.Evaluate(0, 30, portals, owner => owner == 8).Kind == PortalRouteKind.Unreachable,
+                "invalid start PCL route");
+            Check(PortalRouteModel.Evaluate(10, 40, portals, owner => owner == 7).Kind == PortalRouteKind.FriendlyPortal,
+                "allied portal route");
+        }
+
         private static void TestAivAreaClassification()
         {
             Check(AivAreaClassifier.Intersects(100, 200, 100, 110, 210, 112, 212), "inside building classified outside");
@@ -140,7 +176,7 @@ namespace PreplacedTest.Tests
             string manifest = File.ReadAllText("info.json");
             string helper = File.ReadAllText(Path.Combine("..", "Shared", "DebugLogHelper.cs"));
             Check(helper.Contains("FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"), "native hash contract missing");
-            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060" })
+            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x60AD660" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
@@ -148,6 +184,11 @@ namespace PreplacedTest.Tests
             Check(source.Contains("activeAic - 1") || File.ReadAllText(Path.Combine("src", "DiagnosticModel.cs")).Contains("oneBasedSlot - 1"), "AIC slot is not converted from one-based exactly once");
             Check(source.Contains("CRUSHED_TIMER_ACTIVATED_BY_DAMAGE"), "damage-triggered timer activation diagnostic missing");
             Check(source.Contains("MAP_START_POST") && source.Contains("FIRST_SCHEDULER") && source.Contains("FIRST_ACTIVE_CRUSHED_DELAY"), "required building snapshots missing");
+            Check(source.Contains("PollFrame") && plugin.Contains("persistentRuntime?.PollFrame()"), "per-frame crushed timer observation missing");
+            Check(source.Contains("PREPLACED_RAW_BUILDINGS") && source.Contains("PREPLACED_RAW_DELTA") && source.Contains("CapturePreplacedBaseline"), "raw building baseline diagnostics missing");
+            Check(source.Contains("placement-pcl-unreachable") && source.Contains("PREPLACED_PORTAL_TOPOLOGY"), "placement reachability diagnostics missing");
+            Check(source.Contains("observationContinues=true") && !source.Contains("FinalizePlayer(playerId, \"first-building-follow-up-complete\")"), "observation still stops after first AIV building");
+            Check(source.Contains("BuildingCountModeFieldOffset = 0x2C8"), "building-count mode field contract missing");
             Check(source.Contains("PlacementValidatorResult.Classify"), "validator result contract not used");
             Check(!source.Contains("MaximumCapture") && !source.Contains("Take(100"), "fixed event cap found");
             Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.0.0\")") &&
@@ -169,7 +210,7 @@ namespace PreplacedTest.Tests
             string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
             MatchCollection definitions = Regex.Matches(source,
                 @"private const string (?<name>\w+Pattern)\s*=\s*(?<body>.*?);", RegexOptions.Singleline);
-            Check(definitions.Count >= 22, "not all native signatures were discovered by the static test");
+            Check(definitions.Count >= 26, "not all native signatures were discovered by the static test");
             foreach (Match definition in definitions)
             {
                 string name = definition.Groups["name"].Value;
@@ -189,7 +230,7 @@ namespace PreplacedTest.Tests
             }
 
             string functions = File.ReadAllText(Path.Combine("..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
-            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0" })
+            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }
 
