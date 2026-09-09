@@ -83,6 +83,9 @@ namespace PreplacedTest
         private const int EconomyResultXOffset = 0x1B983C;
         private const int EconomyResultYOffset = 0x1B9840;
         private const int EconomyCoarseCellTileSize = 5;
+        // Signed comparison thresholds taken directly from the audited FBCB9319 pseudocode.
+        private const int WoodExpansionCellValueExclusive = 0x10;
+        private const int FarmExpansionCellValueExclusive = 0x11;
 
         private const string AllocateSpecPattern =
             "48 89 74 24 10 57 48 83 EC 20 BF 01 00 00 00 48 8D 81 9C 6D 00 00";
@@ -991,7 +994,8 @@ namespace PreplacedTest
                 if (!session.FirstEconomyRoutingSnapshotEmitted)
                 {
                     session.FirstEconomyRoutingSnapshotEmitted = true;
-                    CaptureRoutingSnapshot(state, "FIRST_ECONOMY_SEARCH_PLAYER_" + playerId, true);
+                    // Map-start already emitted the lossless baseline. A reference or delta is sufficient here.
+                    CaptureRoutingSnapshot(state, "FIRST_ECONOMY_SEARCH_PLAYER_" + playerId, false);
                 }
             });
             return context;
@@ -1045,8 +1049,8 @@ namespace PreplacedTest
             short cooldownBefore = cooldownOffset < 0 ? (short)-1 : ReadPlayerInt16(playerId, cooldownOffset, 0);
             resourceSearchHook.Original(state, playerId, mode);
             ObserveEconomySearch(state, playerId, "resource-search", CurrentEconomy(playerId)?.DesiredType,
-                "mode=" + mode + "/cooldown=" + DescribeCooldown(cooldownBefore,
-                    cooldownOffset < 0 ? -1 : ReadPlayerInt16(playerId, cooldownOffset, 0)), before);
+                "mode=" + mode + "/cooldown=" + (cooldownOffset < 0 ? "unavailable-invalid-mode" :
+                    DescribeCooldown(cooldownBefore, ReadPlayerInt16(playerId, cooldownOffset, 0))), before);
         }
 
         private void WoodSearch(ulong state, int playerId)
@@ -1142,7 +1146,10 @@ namespace PreplacedTest
                 {
                     PlayerSession session = Session(playerId);
                     session.Counters.Add(counter);
-                    if (session.EmittedSearchSignatures.Add(helper + "/" + observation.Signature))
+                    string emissionKey = helper + "/" + (desiredType?.ToString() ?? "unknown") + "/" +
+                        observation.Signature + "/afterBreach=" + session.FirstPossibleBreachObserved +
+                        "/candidate=" + observation.CandidateFound;
+                    if (session.EmittedSearchSignatures.Add(emissionKey))
                     {
                         EmitChunked($"PREPLACED_ECONOMY_SEARCH: player={playerId}; helper={helper}; ",
                             observation.FullText + "; routes=" + DescribeSearchRoutes(playerId, observation));
@@ -1194,15 +1201,58 @@ namespace PreplacedTest
                 AddFrontier(frontier, x, y - 1, memory, after.Generation);
                 AddFrontier(frontier, x, y + 1, memory, after.Generation);
             }
-            string visitedText = string.Join(",", visited.Select(c => c.ToString()));
-            string frontierText = string.Join(",", frontier.OrderBy(v => v).Select(EconomyCoordinate.FromIndex));
+            var frontierRawGroups = new SortedDictionary<string, List<int>>(StringComparer.Ordinal);
+            var frontierPredicateGroups = new SortedDictionary<string, List<int>>(StringComparer.Ordinal);
+            foreach (int index in frontier.OrderBy(value => value))
+            {
+                byte* cell = memory + EconomyGridBaseOffset + index * EconomyGridCellStride;
+                signature = Hash(signature, index);
+                for (int offset = sizeof(int); offset < EconomyGridCellStride; offset++)
+                    signature = Hash(signature, cell[offset]);
+                string raw = RawCellPayload(cell);
+                if (!frontierRawGroups.TryGetValue(raw, out List<int> rawGroup))
+                {
+                    rawGroup = new List<int>();
+                    frontierRawGroups.Add(raw, rawGroup);
+                }
+                rawGroup.Add(index);
+                string predicate = DescribeExpansionPredicate(helper, cell);
+                if (!frontierPredicateGroups.TryGetValue(predicate, out List<int> predicateGroup))
+                {
+                    predicateGroup = new List<int>();
+                    frontierPredicateGroups.Add(predicate, predicateGroup);
+                }
+                predicateGroup.Add(index);
+            }
+            string visitedText = LosslessGridCoordinateFormatter.Format(
+                visited.Select(c => c.X * EconomyGridWidth + c.Y), EconomyGridWidth);
+            string frontierText = LosslessGridCoordinateFormatter.Format(frontier, EconomyGridWidth);
             string groups = string.Join("; ", rawGroups.Select(pair =>
-                pair.Key + "=>[" + string.Join(",", pair.Value.Select(c => c.ToString())) + "]"));
+                pair.Key + "=>[" + LosslessGridCoordinateFormatter.Format(
+                    pair.Value.Select(c => c.X * EconomyGridWidth + c.Y), EconomyGridWidth) + "]"));
+            string frontierGroups = string.Join("; ", frontierRawGroups.Select(pair =>
+                pair.Key + "=>[" + LosslessGridCoordinateFormatter.Format(pair.Value, EconomyGridWidth) + "]"));
+            string predicateGroups = string.Join("; ", frontierPredicateGroups.Select(pair =>
+                pair.Key + "=>[" + LosslessGridCoordinateFormatter.Format(pair.Value, EconomyGridWidth) + "]"));
             bool candidateFound = candidateFoundOverride ?? (after.ResultX >= 0 && after.ResultY >= 0);
             return new EconomySearchObservation(helper, arguments, before, after, visited, frontier, signature,
                 candidateFound,
                 $"arguments={arguments}; before={before}; after={after}; visitedCount={visited.Count}; visited=[{visitedText}]; " +
-                $"unvisitedOrthogonalFrontierCount={frontier.Count}; unvisitedOrthogonalFrontier=[{frontierText}]; rawGroups=[{groups}]");
+                $"unvisitedOrthogonalFrontierCount={frontier.Count}; unvisitedOrthogonalFrontier=[{frontierText}]; " +
+                $"visitedRawGroups=[{groups}]; frontierRawGroups=[{frontierGroups}]; frontierExpansionPredicates=[{predicateGroups}]");
+        }
+
+        private static string DescribeExpansionPredicate(string helper, byte* cell)
+        {
+            if (helper == "wood-search")
+                return "rva58020(sbyte+04<16&&byte+13==0)=" +
+                    ((sbyte)cell[0x04] < WoodExpansionCellValueExclusive && cell[0x13] == 0 ? "pass" : "fail") +
+                    $"/byte+04={cell[0x04]}/byte+13={cell[0x13]}";
+            if (helper == "farm-search")
+                return "rva575B0(sbyte+04<17)=" +
+                    ((sbyte)cell[0x04] < FarmExpansionCellValueExclusive ? "pass" : "fail") +
+                    $"/byte+04={cell[0x04]}";
+            return "raw-only-no-confirmed-helper-predicate";
         }
 
         private static void AddFrontier(HashSet<int> frontier, int x, int y, byte* memory, int generation)
@@ -1238,8 +1288,8 @@ namespace PreplacedTest
         private string DescribeSearchRoutes(int playerId, EconomySearchObservation observation)
         {
             if (!TryGetKeepPcl(playerId, out int keepPcl)) return "keep-pcl-unavailable";
-            List<PortalConnection> portals = CapturePortalConnections(out string portalDetails);
-            var groups = new SortedDictionary<string, List<string>>(StringComparer.Ordinal);
+            List<PortalConnection> portals = CapturePortalConnections(out _);
+            var groups = new SortedDictionary<string, List<int>>(StringComparer.Ordinal);
             var visitedCoordinates = new HashSet<EconomyCoordinate>(observation.Visited);
             var routeCache = new Dictionary<int, PortalRouteKind>();
             IEnumerable<EconomyCoordinate> coordinates = observation.Visited.Concat(
@@ -1248,17 +1298,19 @@ namespace PreplacedTest
             {
                 int[] pcls = GetEconomyCellPcls(coordinate.X, coordinate.Y);
                 PortalRouteKind kind = BestRouteKind(keepPcl, pcls, portals, playerId, routeCache);
-                string key = (visitedCoordinates.Contains(coordinate) ? "vanilla-visited/" : "vanilla-frontier/") + kind;
-                if (!groups.TryGetValue(key, out List<string> values))
+                string key = (visitedCoordinates.Contains(coordinate) ? "vanilla-visited/" : "vanilla-frontier/") +
+                    kind + "/pcls=" + string.Join(",", pcls);
+                if (!groups.TryGetValue(key, out List<int> values))
                 {
-                    values = new List<string>();
+                    values = new List<int>();
                     groups.Add(key, values);
                 }
-                values.Add(coordinate + "(pcl=" + string.Join(",", pcls) + ")");
+                values.Add(coordinate.X * EconomyGridWidth + coordinate.Y);
             }
             return "keepPcl=" + keepPcl + "; " + string.Join("; ", groups.Select(pair =>
-                pair.Key + "=" + pair.Value.Count + "[" + string.Join(",", pair.Value) + "]")) +
-                "; portalRecords=" + portalDetails;
+                pair.Key + "=" + pair.Value.Count + "[" +
+                LosslessGridCoordinateFormatter.Format(pair.Value, EconomyGridWidth) + "]")) +
+                "; portalRecordCount=" + portals.Count + "; full records are emitted only by PREPLACED_PORTAL_TOPOLOGY";
         }
 
         private PortalRouteKind BestRouteKind(int keepPcl, int[] targetPcls, List<PortalConnection> portals, int playerId,
@@ -1483,7 +1535,7 @@ namespace PreplacedTest
             {
                 RecordOwnerEvent(args.PlayerId,
                     $"build-structure phase={args.Phase} mapper={args.Mappers} pos=({args.TileX},{args.TileY}) free={args.IsFree}");
-                if (args.Phase == EventHookPhase.Post && lastAivState != 0)
+                if (args.Phase == EventHookPhase.Post && lastAivState != 0 && aiOwnershipResolved)
                 {
                     CaptureRoutingSnapshot(lastAivState, "BUILD_STRUCTURE_POST_" + args.Mappers, false);
                     ObservePortalTopology("BUILD_STRUCTURE_POST_" + args.Mappers);
@@ -1522,7 +1574,7 @@ namespace PreplacedTest
             {
                 DamageContext context = CaptureDamageContext(args);
                 pendingDamage.Push(context);
-                RecordOwnerEvent(context.OwnerId, "damage.pre " + context.Describe(args));
+                RecordOwnerEvent(context.OwnerId, DescribeDamageAggregate("pre", context, args, null, context.DelayBefore));
                 return;
             }
 
@@ -1530,8 +1582,15 @@ namespace PreplacedTest
             int afterCounter = IsValidOwner(completed.OwnerId) ? ReadPlayerGlobal(completed.OwnerId, CrushedCounterRelativeOffset) : -1;
             string postTarget = completed.Building.HasValue && TryCaptureBuilding(completed.Building.Value.Id, out BuildingSnapshot afterBuilding)
                 ? afterBuilding.ToText(null) : "building=removed-or-unresolved";
-            RecordOwnerEvent(completed.OwnerId, "damage.post " + completed.Describe(args) +
-                $",postTarget={postTarget},delay={completed.DelayBefore}->{afterCounter}");
+            BuildingSnapshot? capturedAfter = completed.Building.HasValue && TryCaptureBuilding(completed.Building.Value.Id,
+                out BuildingSnapshot postBuilding) ? (BuildingSnapshot?)postBuilding : null;
+            RecordOwnerEvent(completed.OwnerId,
+                DescribeDamageAggregate("post", completed, args, capturedAfter, afterCounter));
+            bool lethalInput = completed.Building.HasValue &&
+                DamageObservationModel.IsLethalInput(completed.Building.Value.CurrentHealth, args.Damage);
+            if (lethalInput)
+                Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_LETHAL_DAMAGE: player={completed.OwnerId}; " +
+                    completed.Describe(args) + $"; postTarget={postTarget}; delay={completed.DelayBefore}->{afterCounter}.");
             if (CrushedTimerTransition.IsActivation(completed.DelayBefore, afterCounter))
             {
                 Shared.DebugLogHelper.LogWarning(log,
@@ -1556,6 +1615,22 @@ namespace PreplacedTest
                     MarkPossibleBreach(completed.OwnerId, "lethal-or-removed-damage", beforeBuilding);
                 }
             }
+        }
+
+        private string DescribeDamageAggregate(string phase, DamageContext context,
+            BuildingTileTakeDamageEventArgs args, BuildingSnapshot? after, int afterCounter)
+        {
+            if (!context.Building.HasValue)
+                return $"damage.{phase} target=unresolved amount={args.Damage} sourcePlayer={args.PlayerIdSource} " +
+                    $"activationMode={args.Unknown3} unknown1={args.Unknown1} unknown4={args.Unknown4}";
+            BuildingSnapshot building = context.Building.Value;
+            bool lethal = DamageObservationModel.IsLethalInput(building.CurrentHealth, args.Damage);
+            string postState = phase == "post" ?
+                "/postState=" + (after.HasValue ? after.Value.Alive.ToString() : "removed-or-unresolved") +
+                "/delay=" + context.DelayBefore + "->" + afterCounter : string.Empty;
+            return $"damage.{phase} type={building.Type} preplaced={context.WasPreplaced} " +
+                $"amount={args.Damage} lethalInput={lethal} sourcePlayer={args.PlayerIdSource} " +
+                $"activationMode={args.Unknown3} unknown1={args.Unknown1} unknown4={args.Unknown4}{postState}";
         }
 
         private void OnBuildingBulldoze(BuildingBulldozeEventArgs args) => Safe(() => RecordRemoval("bulldoze", args.Phase, args.BuildingId));
@@ -2131,7 +2206,8 @@ namespace PreplacedTest
             {
                 int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
                 if (buildingId > 0 && TryCaptureBuilding(buildingId, out BuildingSnapshot building))
-                    return new DamageContext(building, ReadPlayerGlobal(building.OwnerId, CrushedCounterRelativeOffset));
+                    return new DamageContext(building, ReadPlayerGlobal(building.OwnerId, CrushedCounterRelativeOffset),
+                        IsCurrentPreplaced(buildingId));
             }
             catch (Exception ex)
             {
@@ -2501,26 +2577,57 @@ namespace PreplacedTest
 
             public string DescribeAll()
             {
-                var rows = new string[EconomyGridCellCount];
-                for (int index = 0; index < rows.Length; index++)
-                    rows[index] = DescribeCell(index);
-                return "cellCount=" + rows.Length + "; cells=[" + string.Join("; ", rows) + "]";
+                var groups = new SortedDictionary<string, List<int>>(StringComparer.Ordinal);
+                for (int index = 0; index < EconomyGridCellCount; index++)
+                    AddToGroup(groups, DescribeCellState(index), index);
+                return "cellCount=" + EconomyGridCellCount + "; stateGroupCount=" + groups.Count +
+                    "; stateGroups=[" + string.Join("; ", groups.Select(pair =>
+                        "state{" + pair.Key + "}=>coordinates=[" +
+                        LosslessGridCoordinateFormatter.Format(pair.Value, EconomyGridWidth) + "]")) + "]";
             }
 
             public string DescribeDelta(EconomyRoutingSnapshot previous)
             {
-                var rows = new List<string>();
+                var groups = new SortedDictionary<string, List<int>>(StringComparer.Ordinal);
+                int changed = 0;
+                int rawChanged = 0;
+                int pclOnlyChanged = 0;
                 for (int index = 0; index < EconomyGridCellCount; index++)
                 {
                     if (previous.rawSignatures[index] == rawSignatures[index]) continue;
-                    rows.Add("before{" + previous.DescribeCell(index) + "}->after{" + DescribeCell(index) + "}");
+                    changed++;
+                    bool rawDiffers = !RawPayloadEquals(previous, index);
+                    if (rawDiffers) rawChanged++; else pclOnlyChanged++;
+                    string transition = "before{" + previous.DescribeCellState(index) + "}->after{" +
+                        DescribeCellState(index) + "}";
+                    AddToGroup(groups, transition, index);
                 }
-                return "changedCellCount=" + rows.Count + "; changedCells=[" + string.Join("; ", rows) + "]";
+                return "changedCellCount=" + changed + "; rawPayloadChanged=" + rawChanged +
+                    "; pclOnlyChanged=" + pclOnlyChanged + "; transitionGroupCount=" + groups.Count +
+                    "; transitionGroups=[" + string.Join("; ", groups.Select(pair => pair.Key +
+                        "=>coordinates=[" + LosslessGridCoordinateFormatter.Format(pair.Value, EconomyGridWidth) + "]")) + "]";
             }
 
-            private string DescribeCell(int index)
+            private static void AddToGroup(SortedDictionary<string, List<int>> groups, string key, int index)
             {
-                EconomyCoordinate coordinate = EconomyCoordinate.FromIndex(index);
+                if (!groups.TryGetValue(key, out List<int> values))
+                {
+                    values = new List<int>();
+                    groups.Add(key, values);
+                }
+                values.Add(index);
+            }
+
+            private bool RawPayloadEquals(EconomyRoutingSnapshot other, int index)
+            {
+                int rawBase = index * StoredRawBytesPerCell;
+                for (int offset = 0; offset < StoredRawBytesPerCell; offset++)
+                    if (rawPayloads[rawBase + offset] != other.rawPayloads[rawBase + offset]) return false;
+                return true;
+            }
+
+            private string DescribeCellState(int index)
+            {
                 var raw = new StringBuilder(StoredRawBytesPerCell * 2);
                 int rawBase = index * StoredRawBytesPerCell;
                 for (int offset = 0; offset < StoredRawBytesPerCell; offset++)
@@ -2528,9 +2635,7 @@ namespace PreplacedTest
                 int pclBase = index * EconomyCoarseCellTileSize * EconomyCoarseCellTileSize;
                 string pclText = string.Join(",", Enumerable.Range(0, pclCounts[index])
                     .Select(pclIndex => pclValues[pclBase + pclIndex].ToString()));
-                return $"coarse={coordinate},tiles=({coordinate.X * EconomyCoarseCellTileSize},{coordinate.Y * EconomyCoarseCellTileSize})-" +
-                    $"({coordinate.X * EconomyCoarseCellTileSize + EconomyCoarseCellTileSize - 1},{coordinate.Y * EconomyCoarseCellTileSize + EconomyCoarseCellTileSize - 1})," +
-                    $"raw+04-except+05={raw},pcls=[{pclText}]";
+                return $"raw+04-except+05={raw},pcls=[{pclText}]";
             }
         }
 
@@ -2655,19 +2760,22 @@ namespace PreplacedTest
 
         private sealed class DamageContext
         {
-            private DamageContext(BuildingSnapshot? building, int delayBefore)
+            private DamageContext(BuildingSnapshot? building, int delayBefore, bool wasPreplaced)
             {
                 Building = building;
                 DelayBefore = delayBefore;
+                WasPreplaced = wasPreplaced;
             }
 
             public BuildingSnapshot? Building { get; }
             public int OwnerId => Building.HasValue ? Building.Value.OwnerId : 0;
             public int DelayBefore { get; }
+            public bool WasPreplaced { get; }
 
-            public static DamageContext Unmatched(BuildingTileTakeDamageEventArgs args) => new DamageContext(null, -1);
+            public static DamageContext Unmatched(BuildingTileTakeDamageEventArgs args) => new DamageContext(null, -1, false);
 
-            public DamageContext(BuildingSnapshot building, int delayBefore) : this((BuildingSnapshot?)building, delayBefore) { }
+            public DamageContext(BuildingSnapshot building, int delayBefore, bool wasPreplaced) :
+                this((BuildingSnapshot?)building, delayBefore, wasPreplaced) { }
 
             public string Describe(BuildingTileTakeDamageEventArgs args)
             {

@@ -15,7 +15,7 @@ from PIL import Image, ImageChops
 
 from .gm_groups import SUPPORTED_GROUPS
 from .i18n import translate
-from .models import GroupConfig, MASK_MODES, ProjectConfig
+from .models import GroupConfig, MASK_MODES, PIVOT_MODES, ProjectConfig
 
 
 ProgressCallback = Callable[[str], None]
@@ -37,6 +37,19 @@ class TargetFrame:
     pivot_x: float
     pivot_y: float
     pixels_per_unit: float
+    width: float
+    height: float
+
+
+@dataclass(frozen=True)
+class SourceSpriteMetadata:
+    name: str
+    pivot_x: float
+    pivot_y: float
+    pixels_per_unit: float
+    width: float
+    height: float
+    path: Path
 
 
 @dataclass(frozen=True)
@@ -54,6 +67,7 @@ class PreparedGroup:
     dash_format: bool
     source_frames: list[SourceFrame]
     target_frames: dict[FrameKey, TargetFrame]
+    source_metadata: dict[FrameKey, SourceSpriteMetadata]
     warnings: list[str]
 
 
@@ -165,6 +179,56 @@ def discover_source_group(project: ProjectConfig, config: GroupConfig) -> tuple[
     return result, detected_prefix
 
 
+def read_source_metadata(
+    directory: Path,
+    configured_prefix: str,
+    required_keys: set[FrameKey],
+) -> dict[FrameKey, SourceSpriteMetadata]:
+    if not directory.is_dir():
+        raise AtlasBuilderError(f"Source metadata directory does not exist: {directory}")
+    found: dict[FrameKey, SourceSpriteMetadata] = {}
+    for path in directory.rglob("*.json"):
+        parsed_filename = _parse_source_stem(path.stem, configured_prefix)
+        if parsed_filename is None or parsed_filename[1] not in required_keys:
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+            name = str(payload["m_Name"])
+            parsed_name = _parse_source_stem(name, configured_prefix)
+            rect = payload["m_Rect"]
+            pivot = payload["m_Pivot"]
+            metadata = SourceSpriteMetadata(
+                name=name,
+                pivot_x=float(pivot["m_X"]),
+                pivot_y=float(pivot["m_Y"]),
+                pixels_per_unit=float(payload["m_PixelsToUnits"]),
+                width=float(rect["m_Width"]),
+                height=float(rect["m_Height"]),
+                path=path,
+            )
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise AtlasBuilderError(f"Invalid AssetRipper Sprite metadata: {path}: {exc}") from exc
+        if parsed_name is None or parsed_name[1] != parsed_filename[1]:
+            raise AtlasBuilderError(f"AssetRipper metadata name does not match its filename: {path}")
+        key = parsed_name[1]
+        if key in found:
+            raise AtlasBuilderError(
+                f"Duplicate source metadata for frame {key.index}{'x' if key.alternate else ''}: "
+                f"{found[key].path} and {path}"
+            )
+        if metadata.width <= 0 or metadata.height <= 0:
+            raise AtlasBuilderError(f"Source metadata has an invalid Sprite rectangle: {path}")
+        if not 0 <= metadata.pivot_x <= 1 or not 0 <= metadata.pivot_y <= 1:
+            raise AtlasBuilderError(f"Source metadata has a pivot outside 0..1: {path}")
+        if metadata.pixels_per_unit <= 0:
+            raise AtlasBuilderError(f"Source metadata has invalid pixels-per-unit: {path}")
+        found[key] = metadata
+    missing = sorted(required_keys - set(found))
+    if missing:
+        raise AtlasBuilderError(f"Missing source metadata for frames: {missing}")
+    return found
+
+
 def _target_key(name: str, gm_file_name: str, dash_format: bool) -> FrameKey | None:
     delimiter = "-" if dash_format else r"\s+"
     match = re.fullmatch(re.escape(gm_file_name) + delimiter + r"(\d+)(x?)", name, flags=re.IGNORECASE)
@@ -217,6 +281,8 @@ def read_target_metadata(
                     pivot_x=float(data.m_Pivot.x),
                     pivot_y=float(data.m_Pivot.y),
                     pixels_per_unit=float(data.m_PixelsToUnits),
+                    width=float(data.m_Rect.width),
+                    height=float(data.m_Rect.height),
                 )
                 existing = result[group_name].get(key)
                 if existing and existing != target:
@@ -251,19 +317,24 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
         raise AtlasBuilderError("Each GM group may only occur once in a project")
 
     discovered: dict[str, list[SourceFrame]] = {}
+    detected_prefixes: dict[str, str] = {}
     requested: dict[str, bool] = {}
     for config in project.groups:
         if not config.colour_directory.strip():
             raise AtlasBuilderError(f"{config.gm_file_name}: colourDirectory is required")
         if not config.source_prefix:
             raise AtlasBuilderError(f"{config.gm_file_name}: sourcePrefix must be 'auto' or an explicit prefix")
+        if config.pivot_mode not in PIVOT_MODES:
+            raise AtlasBuilderError(f"Unsupported pivotMode for {config.gm_file_name}: {config.pivot_mode}")
+        if config.pivot_mode == "source-metadata" and not config.source_metadata_directory:
+            raise AtlasBuilderError(f"{config.gm_file_name}: sourceMetadataDirectory is required")
         canonical = next((name for name in SUPPORTED_GROUPS if name.casefold() == config.gm_file_name.casefold()), None)
         if canonical is None:
             raise AtlasBuilderError(f"Unknown Script Extender 2.3.0 GM group: {config.gm_file_name}")
         config.gm_file_name = canonical
         requested[canonical] = SUPPORTED_GROUPS[canonical]
         _progress(callback, translate(project.language, "progress_checking", group=canonical))
-        discovered[canonical], _prefix = discover_source_group(project, config)
+        discovered[canonical], detected_prefixes[canonical] = discover_source_group(project, config)
 
     required_keys = {name: {source.key for source in sources} for name, sources in discovered.items()}
     metadata = read_target_metadata(
@@ -279,6 +350,32 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
             raise AtlasBuilderError(f"{group_name}: source indices not present in SHCDE: {unknown}")
 
         warnings: list[str] = []
+        source_metadata: dict[FrameKey, SourceSpriteMetadata] = {}
+        if config.pivot_mode == "source-metadata":
+            source_metadata = read_source_metadata(
+                project.resolve_path(config.source_metadata_directory or ""),
+                detected_prefixes[group_name],
+                {source.key for source in sources},
+            )
+            aspect_mismatches: list[str] = []
+            for source in sources:
+                item = source_metadata[source.key]
+                source_ratio = source.width / source.height
+                metadata_ratio = item.width / item.height
+                if abs(source_ratio - metadata_ratio) > 0.0001:
+                    aspect_mismatches.append(
+                        f"{item.name} ({source.width}x{source.height} vs {item.width:g}x{item.height:g})"
+                    )
+            if aspect_mismatches:
+                examples = ", ".join(aspect_mismatches[:5])
+                if len(aspect_mismatches) > 5:
+                    examples += ", ..."
+                warnings.append(translate(
+                    project.language,
+                    "metadata_aspect_warning",
+                    count=len(aspect_mismatches),
+                    examples=examples,
+                ))
         for alternate in (False, True):
             source_indices = [item.key.index for item in sources if item.key.alternate == alternate]
             target_indices = [key.index for key in targets if key.alternate == alternate]
@@ -291,8 +388,28 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
                     target=max(target_indices),
                     source=max(source_indices),
                 ))
-        prepared.append(PreparedGroup(config, requested[group_name], sources, targets, warnings))
+        prepared.append(PreparedGroup(config, requested[group_name], sources, targets, source_metadata, warnings))
     return prepared
+
+
+def output_pivot(prepared: PreparedGroup, source: SourceFrame) -> tuple[float, float]:
+    target = prepared.target_frames[source.key]
+    mode = prepared.config.pivot_mode
+    if mode == "target-normalized":
+        return target.pivot_x, target.pivot_y
+    if mode == "source-metadata":
+        metadata = prepared.source_metadata[source.key]
+        return metadata.pivot_x, metadata.pivot_y
+    if target.width <= 0 or target.height <= 0:
+        raise AtlasBuilderError(f"{target.name}: target Sprite rectangle must be positive")
+    anchor_x = target.pivot_x * target.width
+    anchor_y = target.pivot_y * target.height
+    if anchor_x < 0 or anchor_y < 0 or anchor_x > source.width or anchor_y > source.height:
+        raise AtlasBuilderError(
+            f"{target.name}: target pixel anchor ({anchor_x:g}, {anchor_y:g}) lies outside the "
+            f"{source.width}x{source.height} replacement image; add transparent canvas space"
+        )
+    return anchor_x / source.width, anchor_y / source.height
 
 
 def _shelf_pack(frames: list[SourceFrame], width: int, gap: int, margin: int, limit: int):
@@ -358,10 +475,11 @@ def build_group(prepared: PreparedGroup, output_directory: Path, project: Projec
             with Image.open(source.mask_path) as image:
                 mask_atlas.paste(image.convert("RGBA"), (x, top_y))
         target = prepared.target_frames[source.key]
+        pivot_x, pivot_y = output_pivot(prepared, source)
         frame = {
             "name": target.name,
             "rect": {"x": x, "y": height - top_y - frame_height, "w": frame_width, "h": frame_height},
-            "pivot": {"x": target.pivot_x, "y": target.pivot_y},
+            "pivot": {"x": pivot_x, "y": pivot_y},
         }
         if target.pixels_per_unit <= 0:
             raise AtlasBuilderError(f"{target.name}: target pixels-per-unit must be positive")
@@ -407,6 +525,12 @@ def validate_generated_group(prepared: PreparedGroup, directory: Path, project: 
         actual_ppu = float(frame.get("pixelsPerUnit", payload.get("pixelsPerUnit", 64)))
         if abs(actual_ppu - target.pixels_per_unit) > 0.0001:
             raise AtlasBuilderError(f"{target.name}: generated pixels-per-unit differs")
+        expected_pivot = output_pivot(prepared, source)
+        actual_pivot = frame.get("pivot", {})
+        if abs(float(actual_pivot.get("x", -1)) - expected_pivot[0]) > 0.000001 or abs(
+            float(actual_pivot.get("y", -1)) - expected_pivot[1]
+        ) > 0.000001:
+            raise AtlasBuilderError(f"{target.name}: generated pivot differs")
         rect = frame["rect"]
         x, y, width, height = (rect[key] for key in ("x", "y", "w", "h"))
         if x < 0 or y < 0 or width <= 0 or height <= 0 or x + width > atlas.width or y + height > atlas.height:

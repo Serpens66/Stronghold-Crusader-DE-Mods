@@ -50,7 +50,7 @@ Exportiere aus beiden Spielen:
 - `pixelsPerUnit`
 - vorhandene Teamfarbenmasken
 
-SHCDE bildet dabei immer die Zieldefinition. SH1DE liefert lediglich die neuen Bildpixel und gegebenenfalls Masken.
+SHCDE bildet die verbindliche Zielgruppe, Zielnamen und Indices. SH1DE liefert die neuen Bildpixel, gegebenenfalls Masken und – wenn die ursprüngliche Ausrichtung reproduziert werden soll – die Quellpivots. Ein normalisierter SHCDE-Pivot darf nicht ungeprüft auf eine anders große SH1DE-Leinwand kopiert werden.
 
 ---
 
@@ -264,7 +264,23 @@ Diese Umrechnung übernimmt der Script Extender nicht.
 
 Der Script Extender übernimmt Pivot und `pixelsPerUnit` unverändert aus der JSON.
 
-Deshalb sollten vorzugsweise die SHCDE-Zielwerte übernommen werden.
+Ein Pivot ist normalisiert. Derselbe Pivotwert zeigt deshalb auf unterschiedlichen Bildgrößen nicht auf denselben Pixel. Das unveränderte Kopieren des normalisierten SHCDE-Pivots ist nur korrekt, wenn Quell- und Zielbild dieselbe Leinwand besitzen oder bewusst relativ gleich ausgerichtet wurden.
+
+Für gewöhnliche Ersatzbilder sollte der räumliche SHCDE-Pixelanker bewahrt werden:
+
+    ankerX = zielPivotX * zielBreite
+    ankerY = zielPivotY * zielHöhe
+    ausgabePivotX = ankerX / ersatzBreite
+    ausgabePivotY = ankerY / ersatzHöhe
+
+Soll dagegen die ursprüngliche Ausrichtung eines aus einem anderen Unity-Spiel exportierten Sprites reproduziert werden, kann dessen `m_Pivot` aus den AssetRipper-Metadaten übernommen werden. Das ist nur zuverlässig, wenn das Ersatzbild dieselbe Leinwand besitzt oder proportional zur dokumentierten `m_Rect` skaliert wurde. Trimming oder ein geänderter transparenter Rand muss ausdrücklich ausgeglichen werden.
+
+Bei den geprüften SH1DE-Gruppen `tile_land8`, `tile_buildings1`, `tile_churches` und `tile_ruins` beträgt der Pixelanker durchgehend `(32, 16,5)` bei 64 PPU:
+
+    64x41:  Pivot (0,5; 0,40243897) -> Anker (32; 16,5)
+    64x196: Pivot (0,5; 0,08418399) -> Anker (32; 16,5)
+
+Würde der erste normalisierte Y-Pivot unverändert auf das 196 Pixel hohe Bild angewendet, läge der Anker bei ungefähr 78,88 statt 16,5 Pixeln. Bodenplatten, Gebäudegrundbilder und animierte Teile werden dadurch gegeneinander verschoben. Schwarze diagonale Spalten zwischen Tiles sind ein typisches Symptom.
 
 Wenn sich durch andere transparente Ränder die Position des sichtbaren Fußpunkts ändert:
 
@@ -274,6 +290,14 @@ Wenn sich durch andere transparente Ränder die Position des sichtbaren Fußpunk
 `pixelsPerUnit` ist nicht zwingend 64. Der Parser verwendet 64 nur als Standard, wenn kein Wert angegeben wurde. Verwende den Wert des entsprechenden SHCDE-Zielsprites.
 
 Die Ersatzbilder müssen technisch nicht dieselben Abmessungen wie die Originale besitzen. Bei abweichenden Größen müssen Pivot und gegebenenfalls PPU aber bewusst angepasst werden.
+
+Der Atlas Builder bietet dafür pro Gruppe drei Modi:
+
+- `target-pixel-anchor`: bewahrt den SHCDE-Pixelanker und ist der Standard
+- `source-metadata`: liest den individuellen Quellpivot aus AssetRipper-JSONs
+- `target-normalized`: altes Verhalten für absichtlich identische Leinwände
+
+Schema-1-Projekte des Builders werden aus Kompatibilitätsgründen als `target-normalized` geladen und deutlich gewarnt. Beim Speichern werden sie auf Schema 2 aktualisiert.
 
 ---
 
@@ -429,6 +453,10 @@ Zuerst nur eine vollständige Gruppe wie `body_archer` umsetzen. Erst nach einem
 
 Until these issues are fixed, complete GM-group replacement with the multi-frame JSON format is the reliable workflow.
 
+## Davon getrennter Builderfehler
+
+Der Extender wendet den normalisierten Pivot aus `atlas.json` unverändert an und kennt die ursprüngliche Leinwand des Ersatzbildes nicht. Das ist kein Parserfehler. Der frühere Atlas Builder erzeugte jedoch standardmäßig ungeeignete JSON-Pivots, indem er den normalisierten Zielwert unverändert auf anders große Bilder übertrug. Der aktuelle Builder korrigiert das über den SHCDE-Pixelanker beziehungsweise explizite Quellmetadaten.
+
 ---
 
 # Schlussfolgerung
@@ -441,6 +469,7 @@ Der Guide funktioniert zuverlässig, wenn folgende Regeln eingehalten werden:
 4. Farb- und Maskenatlas identisch packen.
 5. AssetRipper-Raw-JSONs zu einer gemeinsamen `frames`-Liste konvertieren.
 6. Keine partiellen Atlas-Overrides verwenden.
-7. Vor der Installation sämtliche Namen, Indices, Rechtecke, Pivots und Masken validieren.
+7. Bei unterschiedlichen Leinwandgrößen den SHCDE-Pixelanker bewahren oder belegte Quellmetadaten verwenden.
+8. Vor der Installation sämtliche Namen, Indices, Rechtecke, Pivots und Masken validieren.
 
 Der sinnvollste nächste Schritt wäre deshalb nicht die manuelle Erstellung tausender Dateien, sondern ein Konvertierungsprogramm, das die AssetRipper-Ausgaben beider Spiele einliest und daraus automatisch validierte SHCDE-Atlasordner erzeugt.

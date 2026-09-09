@@ -272,10 +272,42 @@ namespace PreplacedTest
     internal static class EconomyCooldownTransition
     {
         public static string Classify(int before, int after) =>
-            before < 0 || after < 0 ? "unavailable" :
+            before < -1 || after < -1 ? "unexpected-negative" :
+            before == -1 && after == -1 ? "ready-sentinel-unchanged" :
+            before == -1 && after > 0 ? "armed-from-ready-sentinel" :
+            before >= 0 && after == -1 ? "reset-to-ready-sentinel" :
             before == 0 && after > 0 ? "armed" :
             after < before ? "decremented" :
             after == before ? "unchanged" : "increased";
+    }
+
+    internal static class LosslessGridCoordinateFormatter
+    {
+        public static string Format(IEnumerable<int> indices, int width)
+        {
+            if (indices == null) throw new ArgumentNullException(nameof(indices));
+            if (width <= 0) throw new ArgumentOutOfRangeException(nameof(width));
+            int[] ordered = indices.Distinct().OrderBy(value => value).ToArray();
+            var result = new List<string>();
+            int position = 0;
+            while (position < ordered.Length)
+            {
+                int index = ordered[position];
+                if (index < 0) throw new ArgumentOutOfRangeException(nameof(indices));
+                int x = index / width;
+                int beginY = index % width;
+                int endY = beginY;
+                position++;
+                while (position < ordered.Length && ordered[position] / width == x &&
+                    ordered[position] % width == endY + 1)
+                {
+                    endY++;
+                    position++;
+                }
+                result.Add(beginY == endY ? $"({x},{beginY})" : $"({x},{beginY}-{endY})");
+            }
+            return string.Join(",", result);
+        }
     }
 
     internal static class EconomySearchOutcome

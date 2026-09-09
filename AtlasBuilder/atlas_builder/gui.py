@@ -12,7 +12,7 @@ from .core import AtlasBuilderError, build_project, existing_output_groups, prep
 from .gm_groups import SUPPORTED_GROUPS
 from .game_locator import find_game_data_directory
 from .i18n import translate
-from .models import GroupConfig, ModInfoConfig, ProjectConfig
+from .models import GroupConfig, ModInfoConfig, ProjectConfig, SCHEMA_VERSION
 
 
 DEFAULT_GAME_DATA = find_game_data_directory()
@@ -31,6 +31,11 @@ class GroupDialog(tk.Toplevel):
         self.colour_var = tk.StringVar(value=value.colour_directory)
         self.mask_var = tk.StringVar(value=value.mask_directory or "")
         self.prefix_var = tk.StringVar(value=value.source_prefix)
+        self.metadata_var = tk.StringVar(value=value.source_metadata_directory or "")
+        self.pivot_labels = {
+            parent.tr(mode): mode for mode in ("target-pixel-anchor", "source-metadata", "target-normalized")
+        }
+        self.pivot_mode_label_var = tk.StringVar(value=parent.tr(value.pivot_mode))
 
         frame = ttk.Frame(self, padding=12)
         frame.grid(sticky="nsew")
@@ -54,24 +59,46 @@ class GroupDialog(tk.Toplevel):
         self._row(frame, 2, parent.tr("mask_mode"), mode_box)
         self._path_row(frame, 3, parent.tr("mask_dir"), self.mask_var)
         self._row(frame, 4, parent.tr("source_prefix"), ttk.Entry(frame, textvariable=self.prefix_var, width=48))
+        pivot_box = ttk.Combobox(
+            frame,
+            values=tuple(self.pivot_labels),
+            textvariable=self.pivot_mode_label_var,
+            state="readonly",
+            width=38,
+        )
+        self._row(frame, 5, parent.tr("pivot_mode"), pivot_box)
+        pivot_box.bind("<<ComboboxSelected>>", lambda _event: self._update_metadata_state())
+        self._path_row(frame, 6, parent.tr("source_metadata_dir"), self.metadata_var, metadata=True)
         buttons = ttk.Frame(frame)
-        buttons.grid(row=5, column=0, columnspan=3, pady=(12, 0), sticky="e")
+        buttons.grid(row=7, column=0, columnspan=3, pady=(12, 0), sticky="e")
         ttk.Button(buttons, text="OK", command=self.accept).pack(side="left", padx=4)
         ttk.Button(buttons, text=parent.tr("cancel"), command=self.destroy).pack(side="left")
         self.bind("<Return>", lambda _event: self.accept())
         self.bind("<Escape>", lambda _event: self.destroy())
+        self._update_metadata_state()
 
     @staticmethod
     def _row(frame, row: int, label: str, widget) -> None:
         ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=4)
         widget.grid(row=row, column=1, columnspan=2, sticky="ew", pady=4)
 
-    def _path_row(self, frame, row: int, label: str, variable: tk.StringVar) -> None:
+    def _path_row(self, frame, row: int, label: str, variable: tk.StringVar, metadata: bool = False) -> None:
         ttk.Label(frame, text=label).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=4)
-        ttk.Entry(frame, textvariable=variable).grid(row=row, column=1, sticky="ew", pady=4)
-        ttk.Button(frame, text=self.parent.tr("browse"), command=lambda: self._browse(variable)).grid(
+        entry = ttk.Entry(frame, textvariable=variable)
+        entry.grid(row=row, column=1, sticky="ew", pady=4)
+        button = ttk.Button(frame, text=self.parent.tr("browse"), command=lambda: self._browse(variable))
+        button.grid(
             row=row, column=2, padx=(6, 0), pady=4
         )
+        if metadata:
+            self.metadata_entry = entry
+            self.metadata_button = button
+
+    def _update_metadata_state(self) -> None:
+        enabled = self.pivot_labels[self.pivot_mode_label_var.get()] == "source-metadata"
+        state = "normal" if enabled else "disabled"
+        self.metadata_entry.configure(state=state)
+        self.metadata_button.configure(state=state)
 
     def _browse(self, variable: tk.StringVar) -> None:
         selected = filedialog.askdirectory(parent=self)
@@ -82,12 +109,15 @@ class GroupDialog(tk.Toplevel):
         if not self.gm_var.get():
             messagebox.showerror(self.parent.tr("error"), self.parent.tr("select_group"), parent=self)
             return
+        pivot_mode = self.pivot_labels[self.pivot_mode_label_var.get()]
         self.result = GroupConfig(
             gm_file_name=self.gm_var.get(),
             colour_directory=self.colour_var.get().strip(),
             mask_mode=self.mask_labels[self.mask_mode_label_var.get()],
             mask_directory=self.mask_var.get().strip() or None,
             source_prefix=self.prefix_var.get() or "auto",
+            pivot_mode=pivot_mode,
+            source_metadata_directory=(self.metadata_var.get().strip() or None) if pivot_mode == "source-metadata" else None,
         )
         self.destroy()
 
@@ -171,8 +201,8 @@ class AtlasBuilderApp(tk.Tk):
         groups_frame.grid(row=5, column=0, columnspan=3, sticky="nsew")
         groups_frame.rowconfigure(0, weight=1)
         groups_frame.columnconfigure(0, weight=1)
-        self.group_tree = ttk.Treeview(groups_frame, columns=("gm", "colour", "mask", "prefix"), show="headings")
-        for name, width in (("gm", 180), ("colour", 360), ("mask", 170), ("prefix", 110)):
+        self.group_tree = ttk.Treeview(groups_frame, columns=("gm", "colour", "mask", "prefix", "pivot"), show="headings")
+        for name, width in (("gm", 160), ("colour", 300), ("mask", 150), ("prefix", 100), ("pivot", 180)):
             self.group_tree.heading(name, text=self.tr(name + "_column"))
             self.group_tree.column(name, width=width, stretch=True)
         self.group_tree.grid(row=0, column=0, sticky="nsew")
@@ -262,6 +292,8 @@ class AtlasBuilderApp(tk.Tk):
             self.project = ProjectConfig.load(Path(path))
             self._load_to_ui()
             self.status_var.set(path)
+            if self.project.loaded_schema_version < SCHEMA_VERSION:
+                messagebox.showwarning(self.tr("warning"), self.tr("legacy_schema_warning"), parent=self)
         except Exception as exc:
             messagebox.showerror(self.tr("error"), str(exc), parent=self)
 
@@ -295,7 +327,13 @@ class AtlasBuilderApp(tk.Tk):
                 "",
                 "end",
                 iid=str(index),
-                values=(group.gm_file_name, group.colour_directory, self.tr(group.mask_mode), group.source_prefix),
+                values=(
+                    group.gm_file_name,
+                    group.colour_directory,
+                    self.tr(group.mask_mode),
+                    group.source_prefix,
+                    self.tr(group.pivot_mode),
+                ),
             )
 
     def add_group(self) -> None:
@@ -372,6 +410,10 @@ class AtlasBuilderApp(tk.Tk):
         report = self.project.project_path.with_name(self.project.project_path.stem + ".last-build.txt")
         report.write_bytes(text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n").encode("utf-8"))
 
+    def _pivot_mode_summary(self) -> str:
+        lines = [f"{group.gm_file_name}: {self.tr(group.pivot_mode)}" for group in self.project.groups]
+        return self.tr("pivot_modes_used") + "\n" + "\n".join(lines)
+
     def _poll_queue(self) -> None:
         try:
             while True:
@@ -400,6 +442,7 @@ class AtlasBuilderApp(tk.Tk):
                     else:
                         warnings = result.warnings
                         message = self.tr("build_ok", frames=result.colour_frames, masks=result.mask_frames, output=result.output_mod_directory)
+                    message += "\n\n" + self._pivot_mode_summary()
                     if warnings:
                         message += "\n\n" + "\n".join(warnings)
                     self.status_var.set(self.tr("success"))

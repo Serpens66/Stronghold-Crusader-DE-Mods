@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+SUPPORTED_SCHEMA_VERSIONS = {1, SCHEMA_VERSION}
 MASK_MODES = {"none", "same-directory", "separate-directory"}
+PIVOT_MODES = {"target-pixel-anchor", "source-metadata", "target-normalized"}
 
 
 @dataclass
@@ -34,25 +36,34 @@ class GroupConfig:
     mask_mode: str = "none"
     mask_directory: str | None = None
     source_prefix: str = "auto"
+    pivot_mode: str = "target-pixel-anchor"
+    source_metadata_directory: str | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "GroupConfig":
+    def from_dict(cls, data: dict[str, Any], schema_version: int = SCHEMA_VERSION) -> "GroupConfig":
         return cls(
             gm_file_name=str(data["gmFileName"]),
             colour_directory=str(data["colourDirectory"]),
             mask_mode=str(data.get("maskMode", "none")),
             mask_directory=data.get("maskDirectory"),
             source_prefix=str(data.get("sourcePrefix", "auto")),
+            # Schema 1 implicitly copied the normalized target pivot.
+            pivot_mode=str(data.get("pivotMode", "target-normalized" if schema_version == 1 else "target-pixel-anchor")),
+            source_metadata_directory=data.get("sourceMetadataDirectory"),
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result = {
             "gmFileName": self.gm_file_name,
             "colourDirectory": self.colour_directory,
             "maskMode": self.mask_mode,
             "maskDirectory": self.mask_directory,
             "sourcePrefix": self.source_prefix,
+            "pivotMode": self.pivot_mode,
         }
+        if self.pivot_mode == "source-metadata" and self.source_metadata_directory:
+            result["sourceMetadataDirectory"] = self.source_metadata_directory
+        return result
 
 
 @dataclass
@@ -99,22 +110,24 @@ class ProjectConfig:
     create_manifest_if_missing: bool = True
     mod_info: ModInfoConfig = field(default_factory=ModInfoConfig)
     project_path: Path | None = field(default=None, repr=False)
+    loaded_schema_version: int = field(default=SCHEMA_VERSION, repr=False)
 
     @classmethod
     def load(cls, path: Path) -> "ProjectConfig":
         data = json.loads(path.read_text(encoding="utf-8-sig"))
         version = data.get("schemaVersion")
-        if version != SCHEMA_VERSION:
+        if version not in SUPPORTED_SCHEMA_VERSIONS:
             raise ValueError(f"Unsupported project schemaVersion: {version!r}")
         project = cls(
             language=str(data.get("language", "de")),
             target_game_data=str(data.get("targetGameData", "")),
             output_mod_directory=str(data.get("outputModDirectory", "")),
-            groups=[GroupConfig.from_dict(item) for item in data.get("groups", [])],
+            groups=[GroupConfig.from_dict(item, version) for item in data.get("groups", [])],
             packing=PackingConfig.from_dict(data.get("packing")),
             create_manifest_if_missing=bool(data.get("createManifestIfMissing", True)),
             mod_info=ModInfoConfig.from_dict(data.get("modInfo")),
             project_path=path.resolve(),
+            loaded_schema_version=version,
         )
         return project
 
@@ -136,6 +149,8 @@ class ProjectConfig:
             item["colourDirectory"] = portable(group.colour_directory)
             if group.mask_directory:
                 item["maskDirectory"] = portable(group.mask_directory)
+            if group.pivot_mode == "source-metadata" and group.source_metadata_directory:
+                item["sourceMetadataDirectory"] = portable(group.source_metadata_directory)
             groups.append(item)
         return {
             "schemaVersion": SCHEMA_VERSION,
@@ -153,6 +168,7 @@ class ProjectConfig:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
         self.project_path = path.resolve()
+        self.loaded_schema_version = SCHEMA_VERSION
 
     def resolve_path(self, raw: str) -> Path:
         path = Path(raw).expanduser()

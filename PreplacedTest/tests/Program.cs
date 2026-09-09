@@ -18,6 +18,7 @@ namespace PreplacedTest.Tests
             {
                 TestCountersHaveNoCap();
                 TestChunkingIsLossless();
+                TestLosslessGridCoordinateFormatting();
                 TestSchedulerModels();
                 TestAicSlotConversion();
                 TestValidatorResults();
@@ -62,6 +63,15 @@ namespace PreplacedTest.Tests
             Check(chunks.Length > 1, "long group was not split");
             Check(string.Concat(chunks) == input, "split output was truncated or reordered");
             Check(chunks.All(c => c.Length <= 137), "chunk exceeded limit");
+        }
+
+        private static void TestLosslessGridCoordinateFormatting()
+        {
+            string formatted = LosslessGridCoordinateFormatter.Format(
+                new[] { 0, 1, 2, 5, 160, 161, 163, 163 }, 160);
+            Check(formatted == "(0,0-2),(0,5),(1,0-1),(1,3)", "coordinate runs were not encoded losslessly");
+            Check(LosslessGridCoordinateFormatter.Format(Array.Empty<int>(), 160) == string.Empty,
+                "empty coordinate set was not preserved");
         }
 
         private static void TestSchedulerModels()
@@ -130,6 +140,12 @@ namespace PreplacedTest.Tests
             Check(!FirstAivSpawnCorrelation.Matches(10, 20, 12, 23, 30, 11, 22, 31),
                 "wrong-type spawn signal was accepted");
             Check(EconomyCooldownTransition.Classify(0, 5) == "armed", "search cooldown arm transition");
+            Check(EconomyCooldownTransition.Classify(-1, 5) == "armed-from-ready-sentinel",
+                "native -1 ready sentinel was treated as unavailable");
+            Check(EconomyCooldownTransition.Classify(-1, -1) == "ready-sentinel-unchanged",
+                "unchanged native ready sentinel classification");
+            Check(EconomyCooldownTransition.Classify(0, -1) == "reset-to-ready-sentinel",
+                "native ready sentinel reset classification");
             Check(EconomyCooldownTransition.Classify(5, 4) == "decremented", "search cooldown decrement transition");
             Check(EconomyCooldownTransition.Classify(4, 4) == "unchanged", "search cooldown unchanged transition");
             Check(EconomySearchOutcome.Classify(0, false, 0) == "rejected-before-search", "pre-search rejection model");
@@ -272,6 +288,17 @@ namespace PreplacedTest.Tests
                 source.Contains("x * EconomyGridWidth + y"), "economy grid x-major index contract is not preserved");
             Check(source.Contains("PREPLACED_ROUTING_SNAPSHOT_FULL") && source.Contains("PREPLACED_ROUTING_CHANGE") &&
                 source.Contains("PREPLACED_ECONOMY_SEARCH"), "economy routing diagnostics missing");
+            Check(source.Contains("stateGroupCount=") && source.Contains("transitionGroupCount=") &&
+                source.Contains("LosslessGridCoordinateFormatter.Format"),
+                "routing snapshots are not grouped losslessly");
+            Check(source.Contains("frontierRawGroups=") && source.Contains("frontierExpansionPredicates=") &&
+                source.Contains("rva58020(sbyte+04<16&&byte+13==0)") &&
+                source.Contains("rva575B0(sbyte+04<17)"),
+                "frontier rejection diagnostics are incomplete");
+            Check(source.Contains("PREPLACED_LETHAL_DAMAGE") && source.Contains("DescribeDamageAggregate"),
+                "damage logging does not combine compact aggregation with complete lethal evidence");
+            Check(source.Contains("FIRST_ECONOMY_SEARCH_PLAYER_\" + playerId, false"),
+                "first economy search still forces a duplicate full routing snapshot");
             Check(source.Contains("before, result != 0") && source.Contains("search.CandidateFound"),
                 "farm result is not used instead of stale shared result coordinates");
             Check(source.Contains("CaptureOwnedIdentities") && source.Contains("FirstAivSpawnCorrelation.Matches"),

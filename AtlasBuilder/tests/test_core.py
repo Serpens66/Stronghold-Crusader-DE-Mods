@@ -13,13 +13,16 @@ from atlas_builder.core import (
     FrameKey,
     PreparedGroup,
     SourceFrame,
+    SourceSpriteMetadata,
     TargetFrame,
     _parse_source_stem,
     build_group,
     build_project,
     choose_layout,
     discover_source_group,
+    output_pivot,
     prepare_project,
+    read_source_metadata,
     validate_generated_group,
 )
 from atlas_builder.models import GroupConfig, PackingConfig, ProjectConfig
@@ -138,14 +141,14 @@ class BuildTests(unittest.TestCase):
                 write_png(mask, size, (40 + index, 50, 60, 255))
             key = FrameKey(index)
             sources.append(SourceFrame(key, colour, mask, *size))
-            targets[key] = TargetFrame(f"tile_ruins {index}", 0.25, 0.75, 64.0)
+            targets[key] = TargetFrame(f"tile_ruins {index}", 0.25, 0.75, 64.0, *size)
         config = GroupConfig("tile_ruins", str(self.root / "source"), mask_mode)
         project = ProjectConfig(
             target_game_data=str(self.root / "Data"),
             output_mod_directory=str(self.root / "Mod"),
             packing=PackingConfig(2, 8192),
         )
-        return PreparedGroup(config, False, sources, targets, []), project
+        return PreparedGroup(config, False, sources, targets, {}, []), project
 
     def test_plain_ruins_output_has_no_mask_atlas(self) -> None:
         prepared, project = self.prepared()
@@ -167,13 +170,26 @@ class BuildTests(unittest.TestCase):
         prepared, project = self.prepared()
         first = prepared.target_frames[FrameKey(0)]
         prepared.target_frames[FrameKey(0)] = TargetFrame(
-            first.name, first.pivot_x, first.pivot_y, 32.0
+            first.name, first.pivot_x, first.pivot_y, 32.0, first.width, first.height
         )
         output = self.root / "out"
         build_group(prepared, output, project)
         validate_generated_group(prepared, output, project)
         payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
         self.assertEqual(payload["frames"][0]["pixelsPerUnit"], 32.0)
+
+    def test_generated_json_renormalizes_target_pixel_anchor(self) -> None:
+        prepared, project = self.prepared()
+        first = prepared.target_frames[FrameKey(0)]
+        prepared.target_frames[FrameKey(0)] = TargetFrame(
+            first.name, 0.5, 0.5, first.pixels_per_unit, 7, 5
+        )
+        output = self.root / "out"
+        build_group(prepared, output, project)
+        validate_generated_group(prepared, output, project)
+        payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
+        self.assertAlmostEqual(payload["frames"][0]["pivot"]["x"], 3.5 / 7)
+        self.assertAlmostEqual(payload["frames"][0]["pivot"]["y"], 2.5 / 9)
 
     def test_texture_size_limit(self) -> None:
         prepared, _ = self.prepared()
@@ -219,8 +235,10 @@ class BuildTests(unittest.TestCase):
         marker.write_text("unchanged", encoding="utf-8")
         broken_targets = dict(prepared.target_frames)
         first = broken_targets[FrameKey(0)]
-        broken_targets[FrameKey(0)] = TargetFrame(first.name, first.pivot_x, first.pivot_y, 0)
-        broken = PreparedGroup(prepared.config, False, prepared.source_frames, broken_targets, [])
+        broken_targets[FrameKey(0)] = TargetFrame(
+            first.name, first.pivot_x, first.pivot_y, 0, first.width, first.height
+        )
+        broken = PreparedGroup(prepared.config, False, prepared.source_frames, broken_targets, {}, [])
         with patch("atlas_builder.core.prepare_project", return_value=[broken]):
             with self.assertRaisesRegex(AtlasBuilderError, "pixels-per-unit"):
                 build_project(project, overwrite_existing=True)
@@ -267,8 +285,8 @@ class ProjectValidationTests(unittest.TestCase):
         )
         metadata = {
             "tile_ruins": {
-                FrameKey(0): TargetFrame("tile_ruins 0", 0.5, 0.5, 64),
-                FrameKey(3): TargetFrame("tile_ruins 3", 0.5, 0.5, 64),
+                FrameKey(0): TargetFrame("tile_ruins 0", 0.5, 0.5, 64, 64, 42),
+                FrameKey(3): TargetFrame("tile_ruins 3", 0.5, 0.5, 64, 64, 42),
             }
         }
         with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
@@ -302,6 +320,124 @@ class ProjectFileTests(unittest.TestCase):
             data = json.loads(raw)
             self.assertEqual(data["outputModDirectory"], "Mod")
             self.assertEqual(ProjectConfig.load(path).resolve_path("Mod"), (root / "Mod").resolve())
+
+    def test_schema_one_loads_with_legacy_pivot_and_saves_as_schema_two(self) -> None:
+        with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
+            root = Path(temporary)
+            path = root / "legacy.atlas-project.json"
+            path.write_text(json.dumps({
+                "schemaVersion": 1,
+                "groups": [{"gmFileName": "tile_ruins", "colourDirectory": "images"}],
+            }), encoding="utf-8")
+            project = ProjectConfig.load(path)
+            self.assertEqual(project.loaded_schema_version, 1)
+            self.assertEqual(project.groups[0].pivot_mode, "target-normalized")
+            project.save(path)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schemaVersion"], 2)
+            self.assertEqual(project.loaded_schema_version, 2)
+
+    def test_source_metadata_path_below_project_is_saved_relative(self) -> None:
+        with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
+            root = Path(temporary)
+            path = root / "sample.atlas-project.json"
+            project = ProjectConfig(groups=[GroupConfig(
+                "tile_ruins", str(root / "images"), pivot_mode="source-metadata",
+                source_metadata_directory=str(root / "ripped"),
+            )])
+            project.save(path)
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(data["groups"][0]["sourceMetadataDirectory"], "ripped")
+
+    def test_schema_two_group_defaults_to_target_pixel_anchor(self) -> None:
+        with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
+            path = Path(temporary) / "current.atlas-project.json"
+            path.write_text(json.dumps({
+                "schemaVersion": 2,
+                "groups": [{"gmFileName": "tile_ruins", "colourDirectory": "images"}],
+            }), encoding="utf-8")
+            self.assertEqual(ProjectConfig.load(path).groups[0].pivot_mode, "target-pixel-anchor")
+
+
+class PivotTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory(dir=TEST_TEMP)
+        self.root = Path(self.temporary.name)
+        self.image = self.root / "tile_land8 001.png"
+        write_png(self.image, (64, 196))
+        self.source = SourceFrame(FrameKey(1), self.image, None, 64, 196)
+        self.target = TargetFrame("tile_land8 001", 0.5, 0.40243897, 64, 64, 41)
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def prepared(self, mode: str, metadata=None) -> PreparedGroup:
+        config = GroupConfig("tile_land8", str(self.root), pivot_mode=mode)
+        return PreparedGroup(config, False, [self.source], {FrameKey(1): self.target}, metadata or {}, [])
+
+    def test_target_pixel_anchor_survives_different_image_height(self) -> None:
+        x, y = output_pivot(self.prepared("target-pixel-anchor"), self.source)
+        self.assertAlmostEqual(x * 64, 32.0, places=5)
+        self.assertAlmostEqual(y * 196, 16.5, places=3)
+
+    def test_legacy_mode_copies_normalized_target_pivot(self) -> None:
+        self.assertEqual(output_pivot(self.prepared("target-normalized"), self.source), (0.5, 0.40243897))
+
+    def test_source_metadata_mode_uses_individual_source_pivot(self) -> None:
+        metadata = {FrameKey(1): SourceSpriteMetadata(
+            "tile_land8 001", 0.5, 0.08418399, 64, 64, 196, self.root / "frame.json"
+        )}
+        x, y = output_pivot(self.prepared("source-metadata", metadata), self.source)
+        self.assertAlmostEqual(x * 64, 32.0, places=5)
+        self.assertAlmostEqual(y * 196, 16.5, places=3)
+
+    def test_pixel_anchor_outside_replacement_is_rejected(self) -> None:
+        small = SourceFrame(FrameKey(1), self.image, None, 16, 10)
+        with self.assertRaisesRegex(AtlasBuilderError, "add transparent canvas space"):
+            output_pivot(self.prepared("target-pixel-anchor"), small)
+
+
+class SourceMetadataTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory(dir=TEST_TEMP)
+        self.root = Path(self.temporary.name)
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def write_metadata(self, name: str, pivot_y: float = 0.40243897) -> Path:
+        path = self.root / f"{name}.json"
+        path.write_text(json.dumps({
+            "m_Name": name,
+            "m_Rect": {"m_Width": 64, "m_Height": 41},
+            "m_Pivot": {"m_X": 0.5, "m_Y": pivot_y},
+            "m_PixelsToUnits": 64,
+        }), encoding="utf-8")
+        return path
+
+    def test_reads_main_and_alternate_metadata_by_source_prefix(self) -> None:
+        self.write_metadata("tile_land8 001")
+        self.write_metadata("tile_land8 001x")
+        result = read_source_metadata(self.root, "tile_land8 ", {FrameKey(1), FrameKey(1, True)})
+        self.assertEqual(set(result), {FrameKey(1), FrameKey(1, True)})
+
+    def test_missing_metadata_is_rejected(self) -> None:
+        with self.assertRaisesRegex(AtlasBuilderError, "Missing source metadata"):
+            read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})
+
+    def test_duplicate_metadata_is_rejected(self) -> None:
+        self.write_metadata("tile_land8 001")
+        nested = self.root / "nested"
+        nested.mkdir()
+        (nested / "tile_land8 001.json").write_text(
+            (self.root / "tile_land8 001.json").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        with self.assertRaisesRegex(AtlasBuilderError, "Duplicate source metadata"):
+            read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})
+
+    def test_invalid_source_pivot_is_rejected(self) -> None:
+        self.write_metadata("tile_land8 001", 1.5)
+        with self.assertRaisesRegex(AtlasBuilderError, "pivot outside"):
+            read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})
 
 
 if __name__ == "__main__":
