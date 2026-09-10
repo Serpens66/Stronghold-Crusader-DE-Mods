@@ -108,6 +108,24 @@ namespace APISharedTests
                 unitHud.Contains("IsImageOverrideContextReady()") &&
                 !unitHud.Contains("main.UpdateUITroopSprites(lastSpriteColour"),
                 "image overrides lack startup, reentrancy, or refresh-loop protection");
+            int renderStart = unitHud.IndexOf("private void OnBeforeRender()", StringComparison.Ordinal);
+            int hoverStart = renderStart >= 0
+                ? unitHud.IndexOf("private void ApplyHover(", renderStart, StringComparison.Ordinal)
+                : -1;
+            string renderMethod = renderStart >= 0 && hoverStart > renderStart
+                ? unitHud.Substring(renderStart, hoverStart - renderStart)
+                : string.Empty;
+            int loadedGuard = renderMethod.IndexOf("if (!MainViewModel.viewModelLoaded) return;", StringComparison.Ordinal);
+            int singletonRead = renderMethod.IndexOf("MainViewModel main = MainViewModel.Instance;", StringComparison.Ordinal);
+            int hudGuard = renderMethod.IndexOf("if (main?.HUDmain == null) return;", StringComparison.Ordinal);
+            int refreshConsume = renderMethod.IndexOf("refreshRequested = false;", StringComparison.Ordinal);
+            Assert(loadedGuard >= 0 && loadedGuard < singletonRead &&
+                singletonRead < hudGuard && hudGuard < refreshConsume,
+                "render HUD readiness guards must precede the lazy singleton getter and refresh consumption");
+            Assert(renderMethod.Contains("ApplyHover(main);") && renderMethod.Contains("ApplyArmyReport(main);") &&
+                unitHud.Contains("private void ApplyHover(MainViewModel main)") &&
+                unitHud.Contains("private void ApplyArmyReport(MainViewModel main)"),
+                "render HUD helpers must reuse the readiness-checked view model");
             Assert(unitHud.Contains("UnitHudImageSlot.UIBuildingsO011") &&
                 unitHud.Contains("UnitHudImageSlot.UIBuildingsO012") &&
                 unitHud.Contains("UnitHudImageSlot.UIButtonsK007") &&

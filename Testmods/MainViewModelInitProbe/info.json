@@ -1,0 +1,12 @@
+{
+  "GUID": "MainViewModelInitProbe_Serp",
+  "Author": "Serpens66",
+  "Name": "MainViewModel Init Probe",
+  "Description": "Local diagnostic probe for APIShared-triggered MainViewModel initialization ordering.",
+  "Version": "0.1.0",
+  "Website": "",
+  "MinimumScriptExtenderVersion": "2.3.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0
+}

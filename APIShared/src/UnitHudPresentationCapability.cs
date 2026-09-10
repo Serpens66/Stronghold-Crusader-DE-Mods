@@ -522,6 +522,13 @@ namespace APIShared
             if (lastFrame == Time.frameCount) return;
             lastFrame = Time.frameCount;
             if (!refreshRequested && !HasCategories(UnitHudSurface.All)) return;
+
+            // Instance is a lazy constructor. Vanilla marks the view model loaded before
+            // HUD_Main assigns HUDmain, so both signals are required before HUD work starts.
+            if (!MainViewModel.viewModelLoaded) return;
+            MainViewModel main = MainViewModel.Instance;
+            if (main?.HUDmain == null) return;
+
             bool refresh;
             lock (sync)
             {
@@ -532,7 +539,6 @@ namespace APIShared
             {
                 if (refresh)
                 {
-                    MainViewModel main = MainViewModel.Instance;
                     if (main?.Show_HUD_Troops == true) main.HUDTroopPanel?.SetupSelectedTroops();
                     if (main?.Show_HUD_ControlGroups == true) main.HUDControlGroups?.Update();
                     if (main != null && hasSpriteContext && IsImageOverrideContextReady())
@@ -548,24 +554,22 @@ namespace APIShared
                         finally { updateSpritesActive = false; }
                     }
                 }
-                ApplyHover();
-                ApplyArmyReport();
+                ApplyHover(main);
+                ApplyArmyReport(main);
             }
             catch (Exception ex) { LogCallbackFailure("frame presentation", ex); }
         }
 
-        private void ApplyHover()
+        private void ApplyHover(MainViewModel main)
         {
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            MainViewModel main = MainViewModel.Instance;
             if (state == null || main == null || !TryCapture(state.in_chimp, out UnitHudUnitSnapshot unit)) return;
             CategoryRegistration category = Classify(unit, UnitHudSurface.UnitHover);
             if (category != null) main.ChimpTypeText = category.Definition.DisplayName;
         }
 
-        private void ApplyArmyReport()
+        private void ApplyArmyReport(MainViewModel main)
         {
-            MainViewModel main = MainViewModel.Instance;
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
             if (main == null || state == null || state.troop_counts == null || !HasCategories(UnitHudSurface.ArmyReport)) return;
             int local = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;

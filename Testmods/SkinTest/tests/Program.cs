@@ -275,7 +275,7 @@ internal static class Program
               Directory.GetFiles(castleAnimSource, "*_m.png").Length == 0 &&
               Directory.GetFiles(castleAnimMetadataRoot, "anim_castle *.json").Length == 122,
             "Castle animation source inventory or mask prohibition differs.");
-        var transparentIndices = new List<int>();
+        var castleAnimSourceAtlases = new HashSet<string>(StringComparer.Ordinal);
         foreach (string metadataPath in Directory.GetFiles(castleAnimMetadataRoot, "anim_castle *.json"))
         {
             var payload = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(File.ReadAllText(metadataPath));
@@ -291,7 +291,7 @@ internal static class Program
             int top = Convert.ToInt32(source["top"], CultureInfo.InvariantCulture);
             string colourPath = Path.Combine(castleAnimSource, (string)payload["m_Name"] + ".png");
             Check(width > 0 && height > 0 && right - left == width && top - bottom == height &&
-                  left >= 0 && bottom >= 0 && right <= 4096 && top <= 8192 &&
+                  left >= 0 && bottom >= 0 && right <= 8192 && top <= 8192 &&
                   ReadPngSize(colourPath) == (width, height) &&
                   Convert.ToSingle(payload["m_PixelsToUnits"], CultureInfo.InvariantCulture) == 64f &&
                   Convert.ToSingle(pivot["m_X"], CultureInfo.InvariantCulture) == 0f &&
@@ -299,11 +299,14 @@ internal static class Program
                    Convert.ToSingle(pivot["m_Y"], CultureInfo.InvariantCulture) == 1f) &&
                   string.Equals((string)source["colourSha256"], Sha256(colourPath), StringComparison.Ordinal),
                 $"Castle animation source provenance is invalid: {Path.GetFileName(metadataPath)}");
-            if (Convert.ToBoolean(source["fullyTransparent"], CultureInfo.InvariantCulture))
-                transparentIndices.Add(index);
+            Check(!Convert.ToBoolean(source["fullyTransparent"], CultureInfo.InvariantCulture),
+                $"Castle animation source frame is unexpectedly transparent: {index}");
+            castleAnimSourceAtlases.Add((string)source["sourceAtlasSha256"]);
         }
-        Check(transparentIndices.OrderBy(index => index).SequenceEqual(new[] { 55, 56, 57, 61 }),
-            "The verified fully transparent SH1DE castle-animation slots differ.");
+        Check(castleAnimSourceAtlases.SetEquals(new[] { "D72B2C1FCFE2A1D9EA0619B0B47852F46F3F631BC82D41F8F1A659A26053651E" }) &&
+              string.Equals(Sha256(Path.Combine(castleAnimSource, "anim_castle 004.png")),
+                  "23446F88BF6E4FCB8C487A3CA7C1C15173DE8D652088F45A82DC959795FBA08B", StringComparison.Ordinal),
+            "Castle animations must come from the verified SH1DE AllTileSprites texture, not anims1Sprites.");
         TestInvalidSparseAtlasDocument(castleAnimJson, castleAnimWidth, castleAnimHeight, "anim_castle ", 122, 138);
 
         string uiAssets = Path.Combine(root, "Assets", "CrusaderUI");
@@ -349,6 +352,7 @@ internal static class Program
         string testsProject = File.ReadAllText(Path.Combine(root, "tests", "SkinTest.Tests.csproj"));
         string atlasManifest = File.ReadAllText(Path.Combine(root, "src", "AtlasManifest.cs"));
         string tests = File.ReadAllText(Path.Combine(root, "tests", "Program.cs"));
+        string prepareAssets = File.ReadAllText(Path.Combine(root, "tools", "prepare_assets.py"));
         string manifest = File.ReadAllText(Path.Combine(root, "info.json"));
         Match extenderVersion = Regex.Match(plugin, @"ScriptExtenderVersion\s*=\s*""([^""]+)""");
         Check(extenderVersion.Success, "Plugin Script Extender version constant is missing.");
@@ -469,6 +473,10 @@ internal static class Program
               runtime.Contains("SH1DE round-tower animation applied") &&
               runtime.Contains("new Sprite[139]") && runtime.Contains("\"anim_castle \", 122, 138"),
             "Round-tower castle-animation hooks, direct indices or diagnostics are incomplete.");
+        Check(prepareAssets.Contains("atlas_path = metadata_root / \"AllTileSprites.png\"") &&
+              !prepareAssets.Contains("atlas_path = sprites / \"anims1Sprites.png\"") &&
+              prepareAssets.Contains("CASTLE_ANIM_SOURCE_TEXTURE_PATH_ID = 26"),
+            "anim_castle extraction must use its PathID-26 AllTileSprites texture.");
         Match castleAnimReplacement = Regex.Match(runtime,
             @"private void TryReplaceRoundTowerAnimation[\s\S]*?\n\s*}\r?\n\r?\n\s*private unsafe LordCulture ResolveOwnerCulture");
         Check(castleAnimReplacement.Success && castleAnimReplacement.Value.Contains("renderer.sprite = replacement") &&

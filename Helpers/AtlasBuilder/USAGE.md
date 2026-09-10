@@ -46,6 +46,8 @@ Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen g
 
 Der Atlas Builder erwartet bereits korrekt extrahierte Einzel-PNGs. Er schneidet keine Sprites aus einem Quellatlas aus und kann Verunreinigungen in den Eingabebildern nicht nachträglich reparieren.
 
+Bei AssetRipper-Daten darf die Quelltextur nicht aus dem Sprite- oder GM-Gruppennamen abgeleitet werden. Maßgeblich ist `m_RD.m_Texture` innerhalb der angegebenen `m_Collection`. Eine falsche Textur kann sämtliche Rechteck-, Pivot- und FullRect-Prüfungen bestehen und trotzdem gültige fremde Pixel liefern. Deshalb müssen der SHA-256 des verwendeten Quellatlas und mindestens ein bekannter Referenzframe geprüft werden. Bestätigtes SH1DE-Beispiel: `anim_castle` referenziert PathID `26` auf `alltiles/AllTileSprites.png`, nicht auf `anims1Sprites.png`.
+
 Bei Unity-Sprites mit **Tight Mesh** darf der gemeinsame Farb- oder Maskenatlas nicht einfach rechteckig anhand von `m_Rect` ausgeschnitten werden. Das Rechteck kann Pixel benachbarter Atlasobjekte enthalten; außerdem können die tatsächlichen UV-Vertices über einzelne `m_Rect`-Kanten hinausragen. Das wurde an den bereitgestellten SH1DE-Swordsman-Daten bestätigt: Alle 1.216 Frames besitzen Meshdaten, und einzelne UV-Meshes überschreiten eine `m_Rect`-Kante um bis zu ungefähr 27 Pixel.
 
 Ein geeigneter SH1DE-Extraktor muss daher:
@@ -204,6 +206,8 @@ Schema-1 projects open compatibly in legacy mode and display a warning. Schema-2
 #### Correctly extract Tight Mesh Sprites
 
 The Atlas Builder expects correctly extracted individual PNGs. It does not cut Sprites out of a source atlas and cannot repair contamination that is already present in its input images.
+
+With AssetRipper data, the source texture must not be inferred from the Sprite or GM-group name. The authoritative reference is `m_RD.m_Texture` within the specified `m_Collection`. A wrong texture can pass every rectangle, pivot and FullRect check while still returning valid pixels belonging to another asset. Therefore, verify the source atlas SHA-256 and at least one known reference frame. Confirmed SH1DE example: `anim_castle` references PathID `26` to `alltiles/AllTileSprites.png`, not `anims1Sprites.png`.
 
 For Unity Sprites using a **Tight Mesh**, do not crop the shared colour or mask atlas as a rectangle based only on `m_Rect`. That rectangle can contain pixels belonging to neighbouring atlas objects, and the actual UV vertices may extend beyond individual `m_Rect` edges. This was confirmed in the supplied SH1DE swordsman data: all 1,216 frames contain mesh data, and individual UV meshes extend beyond an `m_Rect` edge by up to approximately 27 pixels.
 

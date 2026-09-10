@@ -28,9 +28,8 @@ CASTLE_MAX_INDEX = 1569
 CASTLE_ANIM_FRAME_PREFIX = "anim_castle "
 CASTLE_ANIM_FRAME_COUNT = 122
 CASTLE_ANIM_MAX_INDEX = 138
-CASTLE_ANIM_SOURCE_ATLAS_SIZE = (4096, 8192)
+CASTLE_ANIM_SOURCE_ATLAS_SIZE = SOURCE_ATLAS_SIZE
 CASTLE_ANIM_SOURCE_TEXTURE_PATH_ID = 26
-CASTLE_ANIM_TRANSPARENT_INDICES = {55, 56, 57, 61}
 PRIVATE_CASTLE_ATLAS_WIDTH = 8192
 PACKING_PADDING = 2
 UI_SOURCE_RECTS = {
@@ -350,7 +349,9 @@ def castle_anim_frame_index(path: Path) -> int:
 def extract_castle_anim_frames(source_root: Path, skin_test: Path) -> None:
     sprites = source_root / "Assets" / "Resources" / "sprites"
     metadata_root = sprites / "alltiles"
-    atlas_path = sprites / "anims1Sprites.png"
+    # PathID 26 belongs to alltiles/AllTileSprites.png. Applying these rects to
+    # anims1Sprites.png still yields plausible dimensions but unrelated pixels.
+    atlas_path = metadata_root / "AllTileSprites.png"
     metadata_paths = sorted(metadata_root.glob("anim_castle *.json"), key=castle_anim_frame_index)
     indices = [castle_anim_frame_index(path) for path in metadata_paths]
     expected_indices = list(range(1, 19)) + list(range(24, 128))
@@ -389,8 +390,8 @@ def extract_castle_anim_frames(source_root: Path, skin_test: Path) -> None:
                 raise RuntimeError(f"{name}: castle animation mesh bounds or PPU differ")
             crop = atlas.crop((left, atlas.height - bottom - height, left + width, atlas.height - bottom))
             is_transparent = crop.getchannel("A").getbbox() is None
-            if is_transparent != (index in CASTLE_ANIM_TRANSPARENT_INDICES):
-                raise RuntimeError(f"{name}: unexpected castle animation alpha coverage")
+            if is_transparent:
+                raise RuntimeError(f"{name}: castle animation frame is unexpectedly transparent")
             pivot_x = (anchor[0] - left) / width
             pivot_y = (anchor[1] - bottom) / height
             source_pivot = payload["m_Pivot"]
