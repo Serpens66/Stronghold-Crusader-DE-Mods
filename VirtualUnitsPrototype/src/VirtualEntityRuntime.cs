@@ -38,6 +38,7 @@ namespace VirtualUnitsPrototype
         private List<SaveRecord> pendingRestore;
         private PendingBuildingSpawn pendingBuilding;
         private VisualRuntime visuals;
+        private VirtualUnitPresentationRuntime presentation;
         private VirtualSpawnController spawnController;
         private bool definitionsSealed;
         private bool initialized;
@@ -74,12 +75,18 @@ namespace VirtualUnitsPrototype
                 spawnController = new VirtualSpawnController(this, log);
                 spawnController.Initialize();
                 GameXAMLManagerAPI.Instance.RegisterBinding("VirtualUnitsPrototypeHud", spawnController.Hud);
+                presentation = new VirtualUnitPresentationRuntime(this, log);
+                presentation.Install();
+                GameXAMLManagerAPI.Instance.RegisterBinding("VirtualUnitsPrototypeTroopPresentation", presentation.ViewModel);
+                GameXAMLManagerAPI.Instance.RegisterBinding("VirtualUnitsPrototypeArmyPresentation", presentation.ViewModel);
+                GameXAMLManagerAPI.Instance.RegisterBinding("VirtualUnitsPrototypeControlGroupPresentation", presentation.ViewModel);
                 GameTimeManagerAPI.Instance.OnTick += OnSimulationTick;
                 lock (sync) initialized = true;
                 Shared.DebugLogHelper.LogInfo(log, $"Runtime initialized; unitDefinitions={unitDefinitions.Count}, buildingDefinitions={buildingDefinitions.Count}, definitions sealed.");
             }
             catch (Exception ex)
             {
+                presentation?.Dispose();
                 visuals?.Dispose();
                 Shared.DebugLogHelper.LogError(log, $"Runtime initialization failed closed: {ex}");
                 throw;
@@ -209,6 +216,60 @@ namespace VirtualUnitsPrototype
             }
         }
 
+        internal VirtualApiResult GetSelectedVirtualUnits(out IReadOnlyList<VirtualUnitSelectionSnapshot> selection)
+        {
+            selection = Array.Empty<VirtualUnitSelectionSnapshot>();
+            try
+            {
+                SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance?.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+                var grouped = new Dictionary<string, List<VirtualEntityInstance>>(StringComparer.Ordinal);
+                foreach (SelectedUnitInfo item in selected)
+                {
+                    if (!TryGetValidatedUnit(item.UnitId, out VirtualEntityInstance instance, out VirtualUnitDefinition definition) ||
+                        !definition.PresentationProfile.ShowAsDistinctCategory) continue;
+                    if (!grouped.TryGetValue(definition.TypeId, out List<VirtualEntityInstance> list))
+                        grouped.Add(definition.TypeId, list = new List<VirtualEntityInstance>());
+                    list.Add(instance);
+                }
+                selection = grouped.OrderBy(x => x.Key).Select(x => new VirtualUnitSelectionSnapshot(
+                    x.Key, unitDefinitions[x.Key].DisplayName, x.Value.ToArray())).ToArray();
+                return VirtualApiResult.Success();
+            }
+            catch (Exception ex) { return Result(VirtualApiResultCode.InternalError, $"Selection query failed: {ex.Message}"); }
+        }
+
+        internal bool TryGetValidatedUnit(int unitId, out VirtualEntityInstance instance, out VirtualUnitDefinition definition)
+        {
+            instance = null; definition = null;
+            if (unitId <= 0) return false;
+            lock (sync)
+            {
+                if (!instances.TryGetSlot(UnitKind, unitId, out uint globalId, out StoredInstance stored) || !stored.VisualValidated ||
+                    !unitDefinitions.TryGetValue(stored.TypeId, out definition)) return false;
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
+                    unit->r_GlobalId != globalId || unit->r_UnitChimp != definition.BaseType || unit->r_AliveState != AliveState.IsAlive)
+                { instances.Remove(UnitKind, unitId); instance = null; definition = null; return false; }
+                instance = stored.Snapshot; return true;
+            }
+        }
+
+        internal VirtualEntityInstance[] GetValidatedUnitsForPlayer(int playerId)
+        {
+            var result = new List<VirtualEntityInstance>();
+            StoredInstance[] candidates;
+            lock (sync) candidates = instances.Values.Where(x => x.Kind == VirtualEntityKind.Unit).ToArray();
+            foreach (StoredInstance candidate in candidates)
+            {
+                if (!TryGetValidatedUnit(candidate.GameId, out VirtualEntityInstance instance, out VirtualUnitDefinition ignored)) continue;
+                if (GameUnitManagerAPI.Instance.TryGetUnitById(candidate.GameId, out GameUnit* unit) && unit != null && unit->r_ControllableForPlayerId == playerId)
+                    result.Add(instance);
+            }
+            return result.ToArray();
+        }
+
+        internal bool TryGetUnitDefinitionForInstance(VirtualEntityInstance instance, out VirtualUnitDefinition definition)
+            => TryGetDefinition(instance?.TypeId, out definition).Succeeded;
+
         private VirtualApiResult ExecuteSpawnUnit(string typeId, int tileX, int tileY, VirtualOperationTicket ticket, out VirtualEntityInstance snapshot)
         {
             snapshot = null;
@@ -334,7 +395,7 @@ namespace VirtualUnitsPrototype
 
         internal void DrainMainThreadWork()
         {
-            while (visualResetQueue.TryDequeue(out bool ignoredReset)) visuals?.ClearBindings();
+            while (visualResetQueue.TryDequeue(out bool ignoredReset)) { visuals?.ClearBindings(); spawnController?.ResetForMapLifecycle(); presentation?.ResetForMapLifecycle(); }
             while (unitTintRestoreQueue.TryDequeue(out int unitId)) visuals?.RestoreUnitTint(unitId);
             while (availabilityQueue.TryDequeue(out bool available)) spawnController?.ApplyAvailability(available);
             while (completionQueue.TryDequeue(out OperationCompletion completion))
@@ -585,15 +646,18 @@ namespace VirtualUnitsPrototype
         private byte[] Save(SaveContext context)
         {
             if (!context.IsSaveFile || context.IsMapEditorSave) return null;
+            SaveRecord[] records;
             lock (sync)
             {
-                return SaveCodec.Encode(instances.Values.Select(x => new SaveRecord { Kind = (byte)x.Kind, GameId = x.GameId, GlobalId = x.GlobalId, TypeId = x.TypeId, DefinitionVersion = x.DefinitionVersion, OriginalMaxHealth = x.OriginalMaxHealth, OriginalSpeed = x.OriginalSpeed }));
+                records = instances.Values.Select(x => new SaveRecord { Kind = (byte)x.Kind, GameId = x.GameId, GlobalId = x.GlobalId, TypeId = x.TypeId, DefinitionVersion = x.DefinitionVersion, OriginalMaxHealth = x.OriginalMaxHealth, OriginalSpeed = x.OriginalSpeed }).ToArray();
             }
+            // Never hold the entity lock while taking the independent control-group snapshot.
+            return SaveCodec.Encode(records, presentation?.ExportControlGroups() ?? Array.Empty<ControlGroupSaveRecord>());
         }
         private void Load(byte[] data, LoadContext context)
         {
             if (!context.IsSaveFile) return;
-            try { pendingRestore = SaveCodec.Decode(data); Shared.DebugLogHelper.LogInfo(log, $"Loaded {pendingRestore.Count} pending virtual-entity records."); }
+            try { SavePayload payload = SaveCodec.DecodePayload(data); pendingRestore = payload.Records; presentation?.ImportControlGroups(payload.ControlGroups); Shared.DebugLogHelper.LogInfo(log, $"Loaded {pendingRestore.Count} pending virtual-entity records and {payload.ControlGroups.Count} control-group shadow records."); }
             catch (Exception ex) { pendingRestore = null; LogError($"Save data rejected: {ex}"); }
         }
         private void RestorePending()
@@ -613,6 +677,7 @@ namespace VirtualUnitsPrototype
                 if (kind == VirtualEntityKind.Building) RefreshBuilding(record.GameId);
                 VirtualEntityApi.RaiseAssigned(stored.Snapshot, VirtualApiResult.Success("Assignment restored without reapplying factors."));
             }
+            presentation?.FinishRestore();
         }
 
         private void ValidateActiveInstances()
@@ -744,7 +809,7 @@ namespace VirtualUnitsPrototype
 
         private static VirtualApiResult Validate(VirtualUnitDefinition d)
         {
-            if (d == null || !ValidId(d.TypeId) || string.IsNullOrWhiteSpace(d.DisplayName) || d.DefinitionVersion <= 0 || d.BaseType == eChimps.CHIMP_TYPE_NULL || !ValidTint(d.SpriteProfile) || d.Stats == null || d.SpawnOptions == null || !d.Stats.HealthFactor.IsValid || !d.Stats.SpeedFactor.IsValid) return Result(VirtualApiResultCode.InvalidDefinition, "Invalid unit definition.");
+            if (d == null || !ValidId(d.TypeId) || string.IsNullOrWhiteSpace(d.DisplayName) || d.DefinitionVersion <= 0 || d.BaseType == eChimps.CHIMP_TYPE_NULL || !ValidTint(d.SpriteProfile) || d.PresentationProfile == null || !ValidTint(d.PresentationProfile.IconTint) || d.Stats == null || d.SpawnOptions == null || !d.Stats.HealthFactor.IsValid || !d.Stats.SpeedFactor.IsValid) return Result(VirtualApiResultCode.InvalidDefinition, "Invalid unit definition.");
             return VirtualApiResult.Success();
         }
         private static VirtualApiResult Validate(VirtualBuildingDefinition d)

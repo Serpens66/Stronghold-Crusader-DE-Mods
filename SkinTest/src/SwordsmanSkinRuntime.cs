@@ -155,10 +155,18 @@ namespace SkinTest
             trampoline(renderer, file, image, colour, alternateFrame, chopFeet, transparency);
             try
             {
-                if (renderer == null || spriteLoader.instance == null ||
-                    file != (int)ExtenderGM.GM_BODY_SWORDSMAN ||
-                    !unitByRenderer.TryGetValue(renderer, out int unitId))
+                int unitId = 0;
+                bool rendererBound = !ReferenceEquals(renderer, null) && unitByRenderer.TryGetValue(renderer, out unitId);
+                LogOnce("set-body-sprite-confirmed",
+                    $"SetBodySprite detour confirmed: file={(ExtenderGM)file}, image={image}, alternate={alternateFrame}, rendererBound={rendererBound}, unitId={(rendererBound ? unitId : 0)}.");
+                if (renderer == null || spriteLoader.instance == null || file != (int)ExtenderGM.GM_BODY_SWORDSMAN)
                     return;
+                if (!rendererBound)
+                {
+                    WarnOnce("swordsman-renderer-unbound",
+                        $"Swordsman sprite callback has no renderer binding: image={image}, alternate={alternateFrame}.");
+                    return;
+                }
 
                 Sprite expected = spriteLoader.instance.GetGMSprite(GameGM.GM_BODY_SWORDSMAN, image, alternateFrame);
                 bool expectedVanillaSprite = ReferenceEquals(renderer.sprite, expected);
@@ -168,6 +176,7 @@ namespace SkinTest
                 bool europeanLord = false;
                 int ownerPlayerId = 0;
                 int lordUnitId = 0;
+                ExtenderGM lordMaterial = default;
 
                 unsafe
                 {
@@ -182,16 +191,31 @@ namespace SkinTest
                             if (lordUnitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(lordUnitId, out GameUnit* lord))
                             {
                                 lordFound = true;
-                                europeanLord = SkinSelectionPolicy.IsEuropeanLordMaterial(lord->r_GameMaterialIndex);
+                                lordMaterial = lord->r_GameMaterialIndex;
+                                europeanLord = SkinSelectionPolicy.IsEuropeanLordMaterial(lordMaterial);
                             }
                         }
                     }
                 }
 
+                if (!unitFound)
+                    WarnOnce("swordsman-unit-missing", $"Bound swordsman unit could not be resolved: unitId={unitId}.");
+                else if (isSwordsman && ownerPlayerId <= 0)
+                    WarnOnce("swordsman-owner-missing", $"Swordsman has no controllable owner: unitId={unitId}.");
+                else if (isSwordsman && lordUnitId <= 0)
+                    WarnOnce("swordsman-lord-id-missing",
+                        $"Swordsman owner has no lord unit ID: unitId={unitId}, ownerPlayerId={ownerPlayerId}.");
+                else if (isSwordsman && !lordFound)
+                    WarnOnce("swordsman-lord-missing",
+                        $"Swordsman lord unit could not be resolved: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}.");
+
                 bool normalAvailable = image >= 0 && image < normalSprites.Length && normalSprites[image] != null;
                 bool alternateAvailable = image >= 0 && image < alternateSprites.Length && alternateSprites[image] != null;
                 SkinFrameChoice choice = SkinSelectionPolicy.SelectFrame(alternateFrame, normalAvailable, alternateAvailable);
                 bool eligibleOwner = SkinSelectionPolicy.HasEligibleOwner(unitFound, ownerPlayerId, lordUnitId, lordFound, europeanLord);
+                if (isSwordsman && lordFound && !europeanLord)
+                    LogOnce($"vanilla-culture:{lordMaterial}",
+                        $"Vanilla retained for non-European lord culture: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, lordGM={lordMaterial}.");
                 if (!SkinSelectionPolicy.CanReplaceVanilla(isSwordsman, expectedVanillaSprite, eligibleOwner, choice))
                 {
                     if (isSwordsman && eligibleOwner && !expectedVanillaSprite)
@@ -202,6 +226,8 @@ namespace SkinTest
                 renderer.sprite = choice == SkinFrameChoice.Alternate ? alternateSprites[image] : normalSprites[image];
                 renderer.sharedMaterial = materials[ChopMaterialIndex(chopFeet)];
                 // renderer.color already contains Vanilla's player colour and transparency from the trampoline.
+                LogOnce("skin-applied",
+                    $"SH1DE skin applied: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, lordGM={lordMaterial}, image={image}, alternate={choice == SkinFrameChoice.Alternate}.");
             }
             catch (Exception ex)
             {
@@ -246,6 +272,12 @@ namespace SkinTest
         {
             if (warnings.Add(key))
                 log.LogWarning($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
+        }
+
+        private void LogOnce(string key, string message)
+        {
+            if (warnings.Add(key))
+                LogInfo(message);
         }
 
         private void LogInfo(string message) => log.LogInfo($"[{DateTime.Now:HH:mm:ss.fff}] {message}");

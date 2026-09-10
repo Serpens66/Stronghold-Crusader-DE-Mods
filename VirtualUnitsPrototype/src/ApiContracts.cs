@@ -53,6 +53,14 @@ namespace VirtualUnitsPrototype.API
         public byte Alpha { get; }
     }
 
+    public sealed class VirtualUnitPresentationProfile
+    {
+        public VirtualUnitPresentationProfile(bool showAsDistinctCategory, VirtualSpriteTintProfile iconTint)
+        { ShowAsDistinctCategory = showAsDistinctCategory; IconTint = iconTint ?? throw new ArgumentNullException(nameof(iconTint)); }
+        public bool ShowAsDistinctCategory { get; }
+        public VirtualSpriteTintProfile IconTint { get; }
+    }
+
     public sealed class VirtualSpawnOptions
     {
         public VirtualSpawnOptions(bool showInDiagnosticMenu, bool allowDiagnosticSpawn)
@@ -64,15 +72,28 @@ namespace VirtualUnitsPrototype.API
     public sealed class VirtualUnitDefinition
     {
         public VirtualUnitDefinition(string typeId, int definitionVersion, string displayName, eChimps baseType,
-            VirtualSpriteTintProfile spriteProfile, VirtualStatProfile stats, VirtualSpawnOptions spawnOptions)
-        { TypeId = typeId; DefinitionVersion = definitionVersion; DisplayName = displayName; BaseType = baseType; SpriteProfile = spriteProfile; Stats = stats; SpawnOptions = spawnOptions; }
+            VirtualSpriteTintProfile spriteProfile, VirtualUnitPresentationProfile presentationProfile,
+            VirtualStatProfile stats, VirtualSpawnOptions spawnOptions)
+        { TypeId = typeId; DefinitionVersion = definitionVersion; DisplayName = displayName; BaseType = baseType; SpriteProfile = spriteProfile; PresentationProfile = presentationProfile; Stats = stats; SpawnOptions = spawnOptions; }
         public string TypeId { get; }
         public int DefinitionVersion { get; }
         public string DisplayName { get; }
         public eChimps BaseType { get; }
         public VirtualSpriteTintProfile SpriteProfile { get; }
+        public VirtualUnitPresentationProfile PresentationProfile { get; }
         public VirtualStatProfile Stats { get; }
         public VirtualSpawnOptions SpawnOptions { get; }
+    }
+
+
+    public sealed class VirtualUnitSelectionSnapshot
+    {
+        public VirtualUnitSelectionSnapshot(string typeId, string displayName, VirtualEntityInstance[] instances)
+        { TypeId = typeId; DisplayName = displayName; Instances = Array.AsReadOnly(instances ?? Array.Empty<VirtualEntityInstance>()); }
+        public string TypeId { get; }
+        public string DisplayName { get; }
+        public System.Collections.ObjectModel.ReadOnlyCollection<VirtualEntityInstance> Instances { get; }
+        public int Count => Instances.Count;
     }
 
     public sealed class VirtualBuildingDefinition
@@ -160,6 +181,13 @@ namespace VirtualUnitsPrototype.API
         public static VirtualApiResult TryGetBuildingInstance(int buildingId, out VirtualEntityInstance instance) { instance = null; return RuntimeOrError(out VirtualEntityRuntime runtime, out VirtualApiResult error) ? runtime.TryGetInstance(VirtualEntityKind.Building, buildingId, out instance) : error; }
         public static VirtualApiResult SpawnVirtualUnit(string typeId, int tileX, int tileY, out VirtualEntityInstance instance) { instance = null; return QueueVirtualUnitSpawn(typeId, tileX, tileY, out _); }
         public static VirtualApiResult SpawnVirtualBuilding(string typeId, int tileX, int tileY, out VirtualEntityInstance instance) { instance = null; return QueueVirtualBuildingSpawn(typeId, tileX, tileY, out _); }
+        public static VirtualApiResult GetSelectedVirtualUnits(out System.Collections.Generic.IReadOnlyList<VirtualUnitSelectionSnapshot> selection)
+        {
+            selection = Array.Empty<VirtualUnitSelectionSnapshot>();
+            return RuntimeOrError(out VirtualEntityRuntime runtime, out VirtualApiResult error)
+                ? runtime.GetSelectedVirtualUnits(out selection)
+                : error;
+        }
 
         private static VirtualApiResult Queue(VirtualOperationKind kind, string typeId, int gameId, int tileX, int tileY, out VirtualOperationTicket ticket)
         {

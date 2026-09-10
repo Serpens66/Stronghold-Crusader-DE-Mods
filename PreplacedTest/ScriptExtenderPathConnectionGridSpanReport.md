@@ -1,4 +1,4 @@
-# `PathConnectionGrid` exposes twice Vanilla's audited element count
+# `PathConnectionGrid` exposes more elements than Vanilla's native PCL array
 
 ## Environment
 
@@ -7,18 +7,30 @@
 
 ## Finding
 
-`GameTileManager.PathConnectionGrid` starts at the correct native address. The public span is created with `MAX_WIDTH * MAX_HEIGHT` (`800 * 800 = 640,000`) `ushort` elements, however Vanilla's PCL selection routine at RVA `0x572B0` scans only:
+`GameTileManager.PathConnectionGrid` starts at the correct native address, but its public span uses `MAX_WIDTH * MAX_HEIGHT` (`800 * 800 = 640,000`) `ushort` elements. Multiple independent Vanilla paths use only 320,800 entries:
 
-- start RVA: `0x50EC690`
-- exclusive end RVA: `0x51890D0`
-- byte length: `641,600`
-- `ushort` element count: `320,800`
-- highest valid index for this native array: `320,799`
+| Evidence | RVA | FileOffset | Native behavior |
+| --- | ---: | ---: | --- |
+| Economy-grid update | `0x50720` | `0x4FB20` | Processes the PCL grid with the native diamond-map capacity. |
+| Dominant-PCL selection | `0x572B0` | `0x566B0` | Scans exactly `0x4E520`, or 320,800, `ushort` entries. |
+| PCL-array start | `0x50EC690` | N/A | Runtime address in the zero-filled virtual part of `.data`; it has no file-backed offset. |
+| PCL-array exclusive end | `0x51890D0` | N/A | Exactly 641,600 bytes after the start; a separate byte grid begins here. |
 
-The remaining 319,200 exposed elements are adjacent native memory, not part of the PCL array processed by this Vanilla routine. Iterating the complete public span therefore produces impossible distributions and values unrelated to tile PCLs.
+The valid native range is therefore:
+
+- byte length: 641,600;
+- `ushort` element count: 320,800;
+- valid indices: `0..320799`;
+- excess elements in the current public span: 319,200.
+
+The excess span does not address additional PCL entries. It reinterprets adjacent native grids and later memory as `ushort` PCL values. This can silently produce plausible-looking but invalid labels and distributions rather than an immediate access violation.
+
+## Practical impact
+
+Mods and analysis tools commonly use the PCL grid to count regions, classify map components, compare connectivity, or decide whether a destination is reachable. Iterating the current public span can feed unrelated native data into those calculations, leading to false topology or reachability conclusions. This use case does not depend on any particular consumer implementation.
 
 ## Suggested change
 
-Expose `PathConnectionGrid` with the audited native element count of 320,800 for this binary, or introduce a separately named view whose length contract matches the native diamond-tile array. `IsValidTileId` should not by itself be used to validate an index into this particular view unless both contracts are intentionally identical and tested.
+Introduce one audited native diamond-tile capacity of 320,800 entries for this binary and use it for `PathConnectionGrid`. Audit `IsValidTileId` and the other flattened tile-grid views against the same native layout instead of assuming that every native grid contains `800 * 800` entries.
 
-The start offset does not need correction. Consumers should still fail closed on an unsupported native hash.
+If changing the existing property's length is considered too disruptive, add a correctly bounded named view and deprecate the unsafe contract. The start offset does not need correction. Consumers and the Extender should continue to fail closed on unsupported native hashes.

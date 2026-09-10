@@ -1,5 +1,13 @@
 # Virtuelle Einheiten und Gebäude für SHCDE
 
+## Bestätigte Grenze zwischen Simulation und Präsentation
+
+Virtuelle Units behalten einen echten Vanilla-Simulationstyp. Eine zusätzliche Zahl darf weder in `r_UnitChimp` noch in den festen Arrays `selectedChimpTypes`, `troop_counts` oder den Kontrollgruppen-Typarrays abgelegt werden. Die öffentliche Identität besteht aus `TypeId` und der bei jedem Zugriff validierten Kombination aus 1-basierter Game-ID und Global-ID.
+
+Die eigenständige Präsentation wird an fünf verwalteten Stellen ergänzt: ausgewählte Truppentypen, ID-genaue Links-/Rechtsfilter, Einheiten-Hover, Armeereport und Kontrollgruppen. `EditorDirector.getSelectedChimpTypes()` wird nur nach dem einmaligen Vanilla-Aufruf für die Anzeige bereinigt. Eine Auswahländerung geht als validierte Liste 1-basierter IDs über `EngineInterface.TroopSelectionChanged(int[])` zurück an Vanilla. Kontrollgruppen speichern lediglich eine validierbare Schattenliste virtueller Mitgliedschaften; widersprüchliche Einträge werden verworfen.
+
+Das Diagnose-HUD behandelt Noesis-Eingaben getrennt von Weltklicks. Ein Weltklick wird erst im folgenden Unity-Frame ausgewertet, nachdem die ausdrücklich benannten interaktiven Flächen (`VirtualUnitsPrototypeHudToggle` und `VirtualUnitsPrototypeHudPanel`) ihre `PreviewMouseDown`-Route ausführen konnten. Der äußere HUD-Host darf nicht als Eingabefläche verwendet werden, weil sein Layout-Slot die Weltkarte überdecken kann. Zusätzlich müssen das eigentliche Karten-HUD aktiv, Blackout und Briefing geschlossen, Karte und Tile gültig sowie Vanillas `overGUI`-Prüfung frei sein. Dadurch kann ein physischer Klick höchstens einen Spawnauftrag erzeugen und ein Klick auf eine VUP-Fläche keinen.
+
 ## 1. Ziel und Ergebnis
 
 Diese Datei ist die entscheidungsvollständige Implementierungsspezifikation für den eigenständigen BepInEx-Mod `VirtualUnitsPrototype`. SHCDE simuliert weiterhin ausschließlich bekannte Vanilla-Einheiten und -Gebäude. Der Mod ordnet konkreten Instanzen zusätzliche virtuelle Typen zu und verändert Darstellung sowie ausgewählte Werte über belegte Script-Extender- und Managed-Verträge.

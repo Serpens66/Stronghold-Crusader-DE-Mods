@@ -33,6 +33,7 @@ namespace VirtualUnitsPrototype
             VirtualApiResult unit = VirtualEntityApi.RegisterUnitDefinition(new VirtualUnitDefinition(
                 DesertArcherId, 1, "Desert Archer", SHCDESE.Interop.eChimps.CHIMP_TYPE_ARCHER,
                 ArcherTint,
+                new VirtualUnitPresentationProfile(true, ArcherTint),
                 new VirtualStatProfile(new RationalFactor(2, 1), new RationalFactor(3, 2)),
                 new VirtualSpawnOptions(true, true)));
             int hovelScale = BuildingScales.GetScale(SHCDESE.Interop.eMappers.MAPPER_HOVEL);

@@ -29,7 +29,8 @@ namespace PreplacedTest.Tests
                 TestEconomyPclModels();
                 TestPreplacedIdentityAndCountProjection();
                 TestPortalRoutes();
-                TestPclComponentMerges();
+                TestPclConnectivityTransitions();
+                TestDynamicWallRolesAndSearchGates();
                 TestAivAreaClassification();
                 TestEarlyOwnerBuffer();
                 TestFirstBuildingWindow();
@@ -191,18 +192,24 @@ namespace PreplacedTest.Tests
         {
             var portals = new List<PortalConnection>
             {
-                new PortalConnection(101, 10, 20, 0, 8, 40),
-                new PortalConnection(102, 20, 30, 0, 8, 41),
-                new PortalConnection(103, 10, 40, 0, 7, 42)
+                new PortalConnection(101, 10, 20, 0, 88, 40, 2),
+                new PortalConnection(102, 20, 30, 0, 88, 41, 6),
+                new PortalConnection(103, 10, 40, 0, 77, 42, 5, false)
             };
             Check(PortalRouteModel.Evaluate(10, 10, portals).Kind == PortalRouteKind.Direct,
                 "direct PCL route");
             PortalRouteResult raw = PortalRouteModel.Evaluate(10, 30, portals);
             Check(raw.Kind == PortalRouteKind.RawPortalGraph && raw.UsedPortalIds.SequenceEqual(new[] { 101, 102 }),
                 "multi-gate raw portal route");
-            Check(portals[0].RawOwnerValue == 8, "raw portal owner value was reinterpreted or discarded");
+            Check(portals[0].RawOwnerValue == 88, "raw portal owner value was reinterpreted or discarded");
             Check(PortalRouteModel.Evaluate(10, 40, portals).Kind == PortalRouteKind.RawPortalGraph,
                 "raw portal owner field incorrectly filtered the graph");
+            Check(PortalRouteModel.EvaluateEconomyModeZero(10, 40, portals).Kind == PortalRouteKind.Unreachable,
+                "mode-zero-ineligible portal was not filtered");
+            Check(PortalRouteModel.EvaluateFriendly(10, 30, portals, 2, (first, second) => second == 6).Kind ==
+                PortalRouteKind.RawPortalGraph, "own plus allied portal route was not found");
+            Check(PortalRouteModel.EvaluateFriendly(10, 40, portals, 2, (first, second) => false).Kind ==
+                PortalRouteKind.Unreachable, "foreign portal was treated as friendly");
             Check(PortalRouteModel.Evaluate(10, 50, portals).Kind == PortalRouteKind.Unreachable,
                 "sealed destination route");
             Check(PortalRouteModel.Evaluate(10, 20, Array.Empty<PortalConnection>()).Kind == PortalRouteKind.Unreachable,
@@ -211,10 +218,10 @@ namespace PreplacedTest.Tests
                 "invalid start PCL route");
             var fourOwnGates = new List<PortalConnection>
             {
-                new PortalConnection(201, 1, 2, 0, 8, 51),
-                new PortalConnection(202, 2, 3, 0, 8, 52),
-                new PortalConnection(203, 3, 4, 0, 8, 53),
-                new PortalConnection(204, 4, 5, 0, 8, 54)
+                new PortalConnection(201, 1, 2, 0, 99, 51, 5),
+                new PortalConnection(202, 2, 3, 0, 99, 52, 5),
+                new PortalConnection(203, 3, 4, 0, 99, 53, 5),
+                new PortalConnection(204, 4, 5, 0, 99, 54, 5)
             };
             Check(PortalRouteModel.Evaluate(1, 5, fourOwnGates).UsedPortalIds.Length == 4,
                 "four own gatehouses were not traversed");
@@ -223,20 +230,41 @@ namespace PreplacedTest.Tests
                 "destroyed gatehouse did not break the modeled portal chain");
         }
 
-        private static void TestPclComponentMerges()
+        private static void TestPclConnectivityTransitions()
         {
             ushort[] before = { 3, 3, 7, 7, 9, 9 };
             ushort[] after = { 3, 3, 3, 3, 9, 9 };
-            IReadOnlyList<PclComponentMerge> merges = PclComponentMergeDetector.Detect(before, after);
-            Check(merges.Count == 1 && merges[0].NewPcl == 3 &&
-                merges[0].OldPcls.SequenceEqual(new[] { 3, 7 }) &&
-                merges[0].ChangedTileIds.SequenceEqual(new[] { 2, 3 }),
-                "canonical-label PCL merge was not detected");
-            Check(PclComponentMergeDetector.Detect(before, (ushort[])before.Clone()).Count == 0,
+            IReadOnlyList<PclConnectivityTransition> transitions =
+                PclConnectivityTransitionDetector.Detect(before, after, new[] { 0, 1 }, new[] { 2, 3 });
+            Check(transitions.Count == 4 && transitions.All(value => value.NewPcl == 3),
+                "local inside/outside connectivity transition was not detected");
+            Check(PclConnectivityTransitionDetector.Detect(before, (ushort[])before.Clone(),
+                new[] { 0, 1 }, new[] { 2, 3 }).Count == 0,
                 "unchanged closed topology was marked as a merge");
-            Check(PclComponentMergeDetector.Detect(new ushort[] { 3, 3, 7, 7 },
-                new ushort[] { 4, 4, 8, 8 }).Count == 0,
+            Check(PclConnectivityTransitionDetector.Detect(new ushort[] { 3, 3, 7, 7 },
+                new ushort[] { 4, 4, 8, 8 }, new[] { 0, 1 }, new[] { 2, 3 }).Count == 0,
                 "pure component relabeling was marked as a merge");
+        }
+
+        private static void TestDynamicWallRolesAndSearchGates()
+        {
+            foreach (int playerId in new[] { 1, 3, 6, 8 })
+            {
+                Check(WallTestRoleClassifier.Classify(40, 4) == WallTestRole.GatedWallCandidate,
+                    "gated role depended on a fixed player ID " + playerId);
+                Check(WallTestRoleClassifier.Classify(40, 0) == WallTestRole.ClosedWallCandidate,
+                    "closed role depended on a fixed player ID " + playerId);
+            }
+            Check(WallTestRoleClassifier.Classify(0, 4) == WallTestRole.None,
+                "portal without wall was assigned a wall-test role");
+            Check(EconomySearchGateClassifier.Classify(true, 9, 8, 0, 0) == "traversal-performed",
+                "performed traversal was hidden by cooldown state");
+            Check(EconomySearchGateClassifier.Classify(false, 5, 4, 0, 0) == "early-return-cooldown",
+                "cooldown early return classification");
+            Check(EconomySearchGateClassifier.Classify(false, -1, -1, 1, 1) ==
+                "early-return-shared-queue-state", "shared queue early return classification");
+            Check(EconomySearchGateClassifier.Classify(false, -1, -1, 0, 0) ==
+                "early-return-unresolved-mode-or-state", "unresolved early return classification");
         }
 
         private static void TestAivAreaClassification()
@@ -278,9 +306,19 @@ namespace PreplacedTest.Tests
             string assemblyInfo = File.ReadAllText(Path.Combine("src", "AssemblyInfo.cs"));
             string plugin = File.ReadAllText(Path.Combine("src", "PreplacedTestPlugin.cs"));
             string manifest = File.ReadAllText("info.json");
+            string spanReport = File.ReadAllText("ScriptExtenderPathConnectionGridSpanReport.md");
+            string updateGuide = File.ReadAllText("UpdateToNewDLL.md");
             string helper = File.ReadAllText(Path.Combine("..", "Shared", "DebugLogHelper.cs"));
             Check(helper.Contains("FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"), "native hash contract missing");
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
+            Check(spanReport.Contains("`0x50720` | `0x4FB20`") &&
+                spanReport.Contains("`0x572B0` | `0x566B0`") &&
+                spanReport.Contains("zero-filled virtual part of `.data`") &&
+                spanReport.Contains("## Practical impact"),
+                "Script Extender PCL span report lacks file offsets or practical impact");
+            Check(updateGuide.Contains("`0xD4290`") && updateGuide.Contains("`0x96CE`") &&
+                updateGuide.Contains("`0x37CC7EC`") && updateGuide.Contains("RollbackAndThrow"),
+                "native update guide does not cover the new timer-copy contract");
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateSize(typeof(GameGatehouseEntry), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
@@ -297,7 +335,8 @@ namespace PreplacedTest.Tests
                 "delegate void EconomyGridUpdateDelegate(ulong state, int mode)",
                 "delegate int SelectDominantPclDelegate(ulong state)",
                 "delegate void PlayerBuildingInitializationDelegate(ulong manager, int playerId)",
-                "delegate void BuildingInitializationDelegate(ulong manager, int buildingId)"
+                "delegate void BuildingInitializationDelegate(ulong manager, int buildingId)",
+                "delegate void LegacyPlayerStateCopyDelegate()"
             })
                 Check(source.Contains(nativeDelegate), "native delegate ABI missing: " + nativeDelegate);
             Check(source.Contains("ulong pathManager, int playerId, int targetPcl, int sourcePcl, int routeMode"),
@@ -353,6 +392,17 @@ namespace PreplacedTest.Tests
                 source.Contains("PREPLACED_CONFIRMED_WALL_BREACH") &&
                 source.Contains("PREPLACED_POST_BREACH_ECONOMY_SEARCH"),
                 "invalid PCL, wall-breach, or post-breach search diagnostics are missing");
+            Check(source.Contains("PREPLACED_CRUSHED_TIMER_BULK_COPY") &&
+                source.Contains("CaptureSerializedCrushedCounters") &&
+                source.Contains("legacyPlayerStateCopyHook.Original()"),
+                "legacy player-state timer copy diagnostic is incomplete");
+            Check(source.Contains("PREPLACED_DYNAMIC_WALL_ROLES") &&
+                source.Contains("WallTestRoleClassifier.Classify") &&
+                !source.Contains("PREPLACED_PCL_COMPONENT_MERGE"),
+                "dynamic wall roles or label-independent breach detection are incomplete");
+            Check(source.Contains("ReachableFriendlyPcls") && source.Contains("projected04=") &&
+                source.Contains("projected16=unchanged-unproven") && source.Contains("gate={observation.GateReason}"),
+                "player-specific counterfactual or early search gate diagnostic is incomplete");
             Check(source.Contains("PREPLACED_CRUSHED_TIMER_NATIVE_WRITE") &&
                 source.Contains("CrushedTimerWriterDisplacedLength = 15") &&
                 source.Contains("OverwrittenInstructionPlacement.BeforeCallback") &&
@@ -401,7 +451,7 @@ namespace PreplacedTest.Tests
             string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
             MatchCollection definitions = Regex.Matches(source,
                 @"private const string (?<name>\w+Pattern)\s*=\s*(?<body>.*?);", RegexOptions.Singleline);
-            Check(definitions.Count >= 43, "not all native signatures were discovered by the static test");
+            Check(definitions.Count >= 44, "not all native signatures were discovered by the static test");
             foreach (Match definition in definitions)
             {
                 string name = definition.Groups["name"].Value;
@@ -431,16 +481,33 @@ namespace PreplacedTest.Tests
             Check(0x7F074 >= 0x7EB00 && 0x7F074 + writerBytes.Length <= 0x7EB00 + 0xD7A,
                 "crushed timer writer is outside the audited damage function boundary");
             Check((0x51890D0 - 0x50EC690) / sizeof(ushort) == 320800 &&
-                RvaToRaw(file, 0x50EC690) >= 0 && RvaToRaw(file, 0x51890D0 - 1) >= 0,
+                !TryRvaToRaw(file, 0x50EC690, out _) && !TryRvaToRaw(file, 0x51890D0 - 1, out _),
                 "native PCL range length or PE bounds changed");
+            Check(RvaToRaw(file, 0x50720) == 0x4FB20 && RvaToRaw(file, 0x572B0) == 0x566B0 &&
+                RvaToRaw(file, 0xD4290) == 0xD3690 && RvaToRaw(file, 0x96CE) == 0x8ACE,
+                "audited code RVA to FileOffset mapping changed");
+            int copyCallRaw = RvaToRaw(file, 0x96CE);
+            Check(file[copyCallRaw] == 0xE8 && copyCallRaw + 5 + BitConverter.ToInt32(file, copyCallRaw + 1) ==
+                RvaToRaw(file, 0xD4290), "legacy player-state copy call target changed");
+            byte[] versionGate = { 0x81, 0xFA, 0xD5, 0x00, 0x00, 0x00, 0x7D, 0x0B };
+            Check(file.Skip(copyCallRaw - versionGate.Length).Take(versionGate.Length).SequenceEqual(versionGate) &&
+                source.Contains("LegacyPlayerStateCopyVersionExclusive = 0xD5"),
+                "legacy player-state copy map-version gate changed");
 
             string functions = File.ReadAllText(Path.Combine("..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xC3FA0", "0xC43A0", "0xB8310", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0xC3FA0", "0xC43A0", "0xB8310", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }
 
         private static int RvaToRaw(byte[] file, int rva)
         {
+            if (TryRvaToRaw(file, rva, out int rawOffset)) return rawOffset;
+            throw new InvalidOperationException("RVA is not backed by PE file data: 0x" + rva.ToString("X"));
+        }
+
+        private static bool TryRvaToRaw(byte[] file, int rva, out int result)
+        {
+            result = -1;
             int pe = BitConverter.ToInt32(file, 0x3C);
             int sections = BitConverter.ToUInt16(file, pe + 6);
             int optionalSize = BitConverter.ToUInt16(file, pe + 20);
@@ -450,13 +517,15 @@ namespace PreplacedTest.Tests
             {
                 int header = sectionTable + index * 40;
                 int virtualAddress = BitConverter.ToInt32(file, header + 12);
-                int virtualSize = BitConverter.ToInt32(file, header + 8);
                 int rawSize = BitConverter.ToInt32(file, header + 16);
                 int rawOffset = BitConverter.ToInt32(file, header + 20);
-                if (rva >= virtualAddress && rva < virtualAddress + Math.Max(virtualSize, rawSize))
-                    return rawOffset + rva - virtualAddress;
+                if (rva >= virtualAddress && rva < virtualAddress + rawSize)
+                {
+                    result = rawOffset + rva - virtualAddress;
+                    return result >= 0 && result < file.Length;
+                }
             }
-            throw new InvalidOperationException("RVA outside PE sections: 0x" + rva.ToString("X"));
+            return false;
         }
 
         private static PatternByte[] ParsePattern(string pattern) => pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)

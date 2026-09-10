@@ -6,9 +6,9 @@
             HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8,0,0,42" Panel.ZIndex="10020"
             Visibility="{Binding HudVisible, Converter={StaticResource booleanToVisibilityConverter}}">
         <StackPanel Orientation="Vertical">
-          <Button Width="42" Height="30" HorizontalAlignment="Left" Content="VU"
+          <Button x:Name="VirtualUnitsPrototypeHudToggle" Width="42" Height="30" HorizontalAlignment="Left" Content="VU"
                   Command="{Binding TogglePanelCommand}" ToolTip="Virtual Units Prototype"/>
-          <Border Width="690" Height="74" Margin="0,4,0,0" Padding="7" Background="#E51A140D"
+          <Border x:Name="VirtualUnitsPrototypeHudPanel" Width="690" Height="74" Margin="0,4,0,0" Padding="7" Background="#E51A140D"
                   BorderBrush="#FFC8A45F" BorderThickness="2"
                   Visibility="{Binding PanelVisible, Converter={StaticResource booleanToVisibilityConverter}}">
             <Grid>

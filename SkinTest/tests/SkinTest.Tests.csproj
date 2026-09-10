@@ -21,11 +21,11 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="System.Web.Extensions" />
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\src\AtlasManifest.cs"><Link>AtlasManifest.cs</Link></Compile>
     <Compile Include="..\src\SkinSelectionPolicy.cs"><Link>SkinSelectionPolicy.cs</Link></Compile>
   </ItemGroup>

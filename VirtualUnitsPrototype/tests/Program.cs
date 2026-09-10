@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace VirtualUnitsPrototype.Tests
 {
@@ -54,10 +55,24 @@ namespace VirtualUnitsPrototype.Tests
         private static void TestSaveRoundTrip()
         {
             var source = new[] { new SaveRecord { Kind = 1, GameId = 7, GlobalId = 99, TypeId = "mod:type", DefinitionVersion = 2, OriginalMaxHealth = 100, OriginalSpeed = 40 } };
-            SaveRecord record = SaveCodec.Decode(SaveCodec.Encode(source)).Single();
+            var groupSource = new[] { new ControlGroupSaveRecord { Group = 4, GameId = 7, GlobalId = 99, TypeId = "mod:type" } };
+            SavePayload payload = SaveCodec.DecodePayload(SaveCodec.Encode(source, groupSource));
+            SaveRecord record = payload.Records.Single();
             Check(record.Kind == 1 && record.GameId == 7 && record.GlobalId == 99, "save identity roundtrip");
             Check(record.TypeId == "mod:type" && record.DefinitionVersion == 2, "save definition roundtrip");
             Check(record.OriginalMaxHealth == 100 && record.OriginalSpeed == 40, "save baseline roundtrip");
+            ControlGroupSaveRecord group = payload.ControlGroups.Single();
+            Check(group.Group == 4 && group.GameId == 7 && group.GlobalId == 99 && group.TypeId == "mod:type", "control-group shadow roundtrip");
+            byte[] legacy;
+            using (var stream = new MemoryStream())
+            using (var writer = new BinaryWriter(stream))
+            {
+                writer.Write(1); writer.Write(1); writer.Write((byte)1); writer.Write(7); writer.Write((uint)99);
+                writer.Write("mod:type"); writer.Write(2); writer.Write(100); writer.Write(40); writer.Flush();
+                legacy = stream.ToArray();
+            }
+            SavePayload legacyPayload = SaveCodec.DecodePayload(legacy);
+            Check(legacyPayload.Records.Count == 1 && legacyPayload.ControlGroups.Count == 0, "legacy save without control groups is not readable");
         }
         private static void TestStaticContracts()
         {
@@ -66,6 +81,7 @@ namespace VirtualUnitsPrototype.Tests
             string runtime = File.ReadAllText(Path.Combine(root, "src", "VirtualEntityRuntime.cs"));
             string hud = File.ReadAllText(Path.Combine(root, "src", "VirtualSpawnHud.cs"));
             string api = File.ReadAllText(Path.Combine(root, "src", "ApiContracts.cs"));
+            string presentation = File.ReadAllText(Path.Combine(root, "src", "VirtualUnitPresentationRuntime.cs"));
             string plan = File.ReadAllText(Path.Combine(root, "UnitOverrideSystemPlan.md"));
             Check(Count(visual, "unitTrampoline(renderer,") == 1, "unit trampoline is not exactly once");
             Check(Count(visual, "buildingTrampoline(tile,") == 1, "building trampoline is not exactly once");
@@ -80,13 +96,26 @@ namespace VirtualUnitsPrototype.Tests
             Check(!runtime.Contains("Time.frameCount") && runtime.Contains("DeadlineTick") && runtime.Contains("currentSimulationTick"), "pending lifecycle still uses Unity render frames");
             Check(!hud.Contains("CreateUnitLocal") && !hud.Contains("CreatePrefab") && !hud.Contains("runtime.Tick()") && hud.Contains("DrainMainThreadWork"), "HUD still performs simulation work");
             Check(hud.Contains("getMouseMapTilePosition") && hud.Contains("getMapTile(internalX, internalY)") && hud.Contains("mapTile.gameMapX") && hud.Contains("mapTile.gameMapY"), "HUD does not convert rotated coordinates through the Vanilla map tile");
+            Check(hud.Contains("PreviewMouseDown") && hud.Contains("Time.frameCount <= candidate.Frame") && hud.Contains("Show_HUD_Main") && hud.Contains("Show_BlackOut"), "HUD click-through isolation is incomplete");
+            Check(!hud.Contains("hudHost.PreviewMouseDown") && hud.Contains("AttachInteractiveSurface(hudToggle)") && hud.Contains("AttachInteractiveSurface(hudPanel)"), "full-screen HUD host still intercepts world clicks");
+            Check(hud.Contains("World-click candidate rejected") && hud.Contains("Show_HUD_FrontEndBlackout"), "click rejection diagnostics or consolidated modal gate missing");
+            Check(Count(hud, "QueueVirtualUnitSpawn(candidate.TypeId") == 1 && Count(hud, "QueueVirtualBuildingSpawn(candidate.TypeId") == 1, "a physical HUD candidate can enqueue more than one operation per kind");
             Check(runtime.Contains("completionQueue") && api.Contains("VirtualOperationTicket") && api.Contains("OperationCompleted"), "thread-separated operation completion API missing");
+            Check(runtime.Contains("Never hold the entity lock while taking the independent control-group snapshot"), "save path can invert entity and control-group locks");
             Check(visual.Contains("OnUnitVisualInterpolate") && visual.Contains("unit-hook-entry") && visual.Contains("building-hook-entry") && visual.Contains("tile-colour-hook-entry"), "visual recovery or detour entry diagnostics missing");
             Check(runtime.Contains("pending.RendererSeen && pending.UnitHookSeen") && runtime.Contains("pending.BuildingHookSeen && pending.BuildingTintSeen"), "success does not require the complete visual path");
             Check(!visual.Contains("effectiveFile") && !visual.Contains("TargetGm") && !visual.Contains("TryMap("), "obsolete cross-GM frame replacement remains active");
             Check(visual.Contains("unitTrampoline(renderer, file, image, colour, altFrame, chopFeet, transparency)") && visual.Contains("vanilla.a"), "Vanilla unit frame or transparency is not preserved");
             Check(visual.Contains("tile.tilemapRef.GetColor(location)") && visual.Contains("tile.tilemapRef.SetColor(location, tinted)") && !visual.Contains("tile.tileImage = target"), "building tint does not preserve Vanilla tile sprites and lighting");
             Check(api.Contains("VirtualSpriteTintProfile") && api.Contains("public byte Alpha") && runtime.Contains("tint.Alpha == byte.MaxValue"), "immutable opaque tint profile contract missing");
+            Check(api.Contains("VirtualUnitPresentationProfile") && api.Contains("VirtualUnitSelectionSnapshot") && api.Contains("GetSelectedVirtualUnits"), "public distinct-presentation contracts missing");
+            Check(Count(presentation, "selectedTypesTrampoline(self)") == 1 && Count(presentation, "leftClickTrampoline(self, parameter)") == 1 && Count(presentation, "rightClickTrampoline(self, parameter)") == 1 && Count(presentation, "gameActionTrampoline(command, value1, value2, value3)") == 1, "a presentation detour does not invoke its trampoline exactly once");
+            Check(presentation.Contains("EngineInterface.TroopSelectionChanged(ids)") && presentation.Contains("item.UnitId > 0"), "ID-exact 1-based selection path missing");
+            Check(!Regex.IsMatch(presentation, @"r_UnitChimp\s*=(?!=)") &&
+                    !Regex.IsMatch(presentation, @"selectedChimpTypes\s*\[[^\]]+\]\s*=(?!=)") &&
+                    !Regex.IsMatch(presentation, @"troop_counts\s*\[[^\]]+\]\s*=(?!=)"),
+                "presentation mutates a fixed Vanilla type representation");
+            Check(presentation.Contains("GroupTroops0") && presentation.Contains("SelectClan0") && presentation.Contains("CaptureVirtualIdentities"), "control-group shadow path missing");
             Check(!File.ReadAllText(Path.Combine(root, "src", "VirtualUnitsPlugin.cs")).Contains("GM_BODY_ARAB_BOW"), "built-in Archer still selects Arab Bow frames");
             Check(plan.Contains("SetBodySprite(SpriteRenderer,int,int,int,bool,int,int)") && plan.Contains("GetTileBuildingId"), "confirmed plan corrections missing");
             Check(plan.Contains("gameMapX/gameMapY") && plan.Contains("Frameindizes") && plan.Contains("Farb"), "coordinate or tint plan correction missing");

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Web.Script.Serialization;
 
 namespace SkinTest
 {
@@ -51,11 +50,11 @@ namespace SkinTest
         {
             if (string.IsNullOrWhiteSpace(json))
                 throw new InvalidOperationException("Atlas JSON is empty.");
-            object rootObject = new JavaScriptSerializer().DeserializeObject(json);
+            object rootObject = Shared.DependencyFreeJson.Parse(json);
             var root = rootObject as Dictionary<string, object> ?? throw new InvalidOperationException("Atlas root must be an object.");
             float defaultPixelsPerUnit = ReadNumber(root, "pixelsPerUnit");
             var rawFrames = ReadArray(root, "frames");
-            var frames = new List<AtlasFrame>(rawFrames.Length);
+            var frames = new List<AtlasFrame>(rawFrames.Count);
             var normal = new bool[NormalFrameCount];
             var alternate = new bool[AlternateFrameCount];
 
@@ -116,9 +115,9 @@ namespace SkinTest
             return result;
         }
 
-        private static object[] ReadArray(Dictionary<string, object> source, string key)
+        private static List<object> ReadArray(Dictionary<string, object> source, string key)
         {
-            if (!source.TryGetValue(key, out object value) || !(value is object[] result))
+            if (!source.TryGetValue(key, out object value) || !(value is List<object> result))
                 throw new InvalidOperationException($"Atlas property '{key}' must be an array.");
             return result;
         }

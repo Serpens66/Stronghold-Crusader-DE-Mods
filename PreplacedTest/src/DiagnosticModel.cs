@@ -101,7 +101,8 @@ namespace PreplacedTest
 
     internal readonly struct PortalConnection
     {
-        public PortalConnection(int portalId, int first, int second, int third, int rawOwnerValue, int buildingId)
+        public PortalConnection(int portalId, int first, int second, int third, int rawOwnerValue, int buildingId,
+            int actualOwnerId = 0, bool economyModeZeroEligible = true)
         {
             PortalId = portalId;
             First = first;
@@ -109,6 +110,8 @@ namespace PreplacedTest
             Third = third;
             RawOwnerValue = rawOwnerValue;
             BuildingId = buildingId;
+            ActualOwnerId = actualOwnerId;
+            EconomyModeZeroEligible = economyModeZeroEligible;
         }
 
         public int PortalId { get; }
@@ -117,6 +120,8 @@ namespace PreplacedTest
         public int Third { get; }
         public int RawOwnerValue { get; }
         public int BuildingId { get; }
+        public int ActualOwnerId { get; }
+        public bool EconomyModeZeroEligible { get; }
     }
 
     internal enum PortalRouteKind
@@ -153,6 +158,55 @@ namespace PreplacedTest
             IReadOnlyList<PortalConnection> source = portals ?? Array.Empty<PortalConnection>();
             return Search(startPcl, destinationPcl, source,
                 portal => true, PortalRouteKind.RawPortalGraph);
+        }
+
+        public static PortalRouteResult EvaluateEconomyModeZero(
+            int startPcl, int destinationPcl, IReadOnlyList<PortalConnection> portals) =>
+            EvaluateFiltered(startPcl, destinationPcl, portals,
+                portal => portal.EconomyModeZeroEligible);
+
+        public static PortalRouteResult EvaluateFriendly(
+            int startPcl, int destinationPcl, IReadOnlyList<PortalConnection> portals,
+            int playerId, Func<int, int, bool> allied) =>
+            EvaluateFiltered(startPcl, destinationPcl, portals,
+                portal => portal.ActualOwnerId == playerId ||
+                    (portal.ActualOwnerId > 0 && allied != null && allied(playerId, portal.ActualOwnerId)));
+
+        public static HashSet<int> ReachableFriendlyPcls(
+            int startPcl, IReadOnlyList<PortalConnection> portals, int playerId,
+            Func<int, int, bool> allied)
+        {
+            var reachable = new HashSet<int>();
+            if (startPcl <= 0) return reachable;
+            reachable.Add(startPcl);
+            bool changed;
+            do
+            {
+                changed = false;
+                foreach (PortalConnection portal in portals ?? Array.Empty<PortalConnection>())
+                {
+                    bool friendly = portal.ActualOwnerId == playerId ||
+                        (portal.ActualOwnerId > 0 && allied != null && allied(playerId, portal.ActualOwnerId));
+                    if (!friendly) continue;
+                    int[] values = { portal.First, portal.Second, portal.Third };
+                    if (!values.Any(value => value > 0 && reachable.Contains(value))) continue;
+                    foreach (int value in values)
+                        if (value > 0 && reachable.Add(value)) changed = true;
+                }
+            } while (changed);
+            return reachable;
+        }
+
+        private static PortalRouteResult EvaluateFiltered(
+            int startPcl, int destinationPcl, IReadOnlyList<PortalConnection> portals,
+            Func<PortalConnection, bool> include)
+        {
+            if (startPcl <= 0 || destinationPcl <= 0)
+                return new PortalRouteResult(PortalRouteKind.Unreachable, null);
+            if (startPcl == destinationPcl)
+                return new PortalRouteResult(PortalRouteKind.Direct, null);
+            return Search(startPcl, destinationPcl, portals ?? Array.Empty<PortalConnection>(),
+                include, PortalRouteKind.RawPortalGraph);
         }
 
         private static PortalRouteResult Search(
@@ -245,50 +299,80 @@ namespace PreplacedTest
         }
     }
 
-    internal sealed class PclComponentMerge
+    internal readonly struct PclConnectivityTransition
     {
-        public PclComponentMerge(int newPcl, int[] oldPcls, int[] changedTileIds)
+        public PclConnectivityTransition(int insideTileId, int outsideTileId,
+            int oldInsidePcl, int oldOutsidePcl, int newPcl)
         {
+            InsideTileId = insideTileId;
+            OutsideTileId = outsideTileId;
+            OldInsidePcl = oldInsidePcl;
+            OldOutsidePcl = oldOutsidePcl;
             NewPcl = newPcl;
-            OldPcls = oldPcls ?? Array.Empty<int>();
-            ChangedTileIds = changedTileIds ?? Array.Empty<int>();
         }
 
+        public int InsideTileId { get; }
+        public int OutsideTileId { get; }
+        public int OldInsidePcl { get; }
+        public int OldOutsidePcl { get; }
         public int NewPcl { get; }
-        public int[] OldPcls { get; }
-        public int[] ChangedTileIds { get; }
     }
 
-    internal static class PclComponentMergeDetector
+    internal static class PclConnectivityTransitionDetector
     {
-        public static IReadOnlyList<PclComponentMerge> Detect(ushort[] before, ushort[] after)
+        public static IReadOnlyList<PclConnectivityTransition> Detect(
+            ushort[] before, ushort[] after, IEnumerable<int> insideTileIds,
+            IEnumerable<int> outsideTileIds)
         {
             if (before == null || after == null || before.Length != after.Length)
-                return Array.Empty<PclComponentMerge>();
-
-            var oldByNew = new Dictionary<int, HashSet<int>>();
-            var changedByNew = new Dictionary<int, List<int>>();
-            for (int tileId = 0; tileId < before.Length; tileId++)
+                return Array.Empty<PclConnectivityTransition>();
+            int[] inside = (insideTileIds ?? Array.Empty<int>()).Distinct().OrderBy(value => value).ToArray();
+            int[] outside = (outsideTileIds ?? Array.Empty<int>()).Distinct().OrderBy(value => value).ToArray();
+            var result = new List<PclConnectivityTransition>();
+            foreach (int insideTileId in inside)
             {
-                int oldPcl = before[tileId];
-                int newPcl = after[tileId];
-                if (oldPcl <= 0 || newPcl <= 0) continue;
-                if (!oldByNew.TryGetValue(newPcl, out HashSet<int> oldPcls))
+                if ((uint)insideTileId >= (uint)before.Length) continue;
+                foreach (int outsideTileId in outside)
                 {
-                    oldPcls = new HashSet<int>();
-                    oldByNew.Add(newPcl, oldPcls);
-                    changedByNew.Add(newPcl, new List<int>());
+                    if ((uint)outsideTileId >= (uint)before.Length) continue;
+                    int oldInside = before[insideTileId];
+                    int oldOutside = before[outsideTileId];
+                    int newInside = after[insideTileId];
+                    int newOutside = after[outsideTileId];
+                    // Label renumbering is irrelevant: only the equality relation may change.
+                    if (oldInside <= 0 || oldOutside <= 0 || oldInside == oldOutside ||
+                        newInside <= 0 || newInside != newOutside) continue;
+                    result.Add(new PclConnectivityTransition(insideTileId, outsideTileId,
+                        oldInside, oldOutside, newInside));
                 }
-                oldPcls.Add(oldPcl);
-                if (oldPcl != newPcl) changedByNew[newPcl].Add(tileId);
             }
+            return result;
+        }
+    }
 
-            return oldByNew
-                .Where(pair => pair.Value.Count > 1 && changedByNew[pair.Key].Count != 0)
-                .OrderBy(pair => pair.Key)
-                .Select(pair => new PclComponentMerge(pair.Key, pair.Value.OrderBy(value => value).ToArray(),
-                    changedByNew[pair.Key].ToArray()))
-                .ToArray();
+    internal enum WallTestRole
+    {
+        None,
+        GatedWallCandidate,
+        ClosedWallCandidate
+    }
+
+    internal static class WallTestRoleClassifier
+    {
+        public static WallTestRole Classify(int livingWallCount, int livingPortalCount) =>
+            livingWallCount <= 0 ? WallTestRole.None :
+            livingPortalCount > 0 ? WallTestRole.GatedWallCandidate : WallTestRole.ClosedWallCandidate;
+    }
+
+    internal static class EconomySearchGateClassifier
+    {
+        public static string Classify(bool generationChanged, int cooldownBefore, int cooldownAfter,
+            int queueDepthBefore, int queueDepthAfter)
+        {
+            if (generationChanged) return "traversal-performed";
+            if (cooldownBefore > 0 || cooldownAfter > 0) return "early-return-cooldown";
+            if (queueDepthBefore > 0 || queueDepthAfter > 0) return "early-return-shared-queue-state";
+            return "early-return-unresolved-mode-or-state";
         }
     }
 

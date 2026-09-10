@@ -42,6 +42,7 @@
     <Compile Include="src\SpawnInitializationPolicy.cs" />
     <Compile Include="src\VirtualUnitsPlugin.cs" /><Compile Include="src\VirtualEntityRuntime.cs" />
     <Compile Include="src\VisualRuntime.cs" /><Compile Include="src\VirtualSpawnHud.cs" />
+    <Compile Include="src\VirtualUnitPresentationRuntime.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Patches\**\*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>

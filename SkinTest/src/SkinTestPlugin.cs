@@ -1,4 +1,5 @@
 using BepInEx;
+using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 
@@ -13,39 +14,45 @@ namespace SkinTest
         public const string PluginGuid = "SkinTest_Serp";
         public const string PluginName = "SkinTest";
         public const string PluginVersion = "0.1.0";
-        private SwordsmanSkinRuntime runtime;
+
+        // SHCDE destroys the BepInEx component during normal startup. These static
+        // roots intentionally keep the visual runtime and hook alive for the process.
+        private static ManualLogSource persistentLog;
+        private static SwordsmanSkinRuntime runtime;
+        private static bool librarySubscriptionInstalled;
 
         private void Awake()
         {
-            CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
+            persistentLog = Logger;
             LogInfo($"{PluginName} {PluginVersion} loaded; waiting for Script Extender {ScriptExtenderVersion}.");
+            if (librarySubscriptionInstalled)
+                return;
+
+            librarySubscriptionInstalled = true;
+            CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 
-        private void OnLibraryLoaded(CrusaderLibraryLoadContext context)
+        private static void OnLibraryLoaded(CrusaderLibraryLoadContext context)
         {
-            CrusaderLibrary.Instance.LibraryLoaded -= OnLibraryLoaded;
+            if (runtime != null)
+                return;
+
+            SwordsmanSkinRuntime candidate = null;
             try
             {
-                runtime = new SwordsmanSkinRuntime(Logger);
-                runtime.Initialize();
+                candidate = new SwordsmanSkinRuntime(persistentLog);
+                candidate.Initialize();
+                runtime = candidate;
                 LogInfo("SH1DE European swordsman skin initialized.");
             }
             catch (System.Exception ex)
             {
-                runtime?.Dispose();
-                runtime = null;
+                candidate?.Dispose();
                 LogError($"Initialization failed closed; Vanilla sprites remain active: {ex}");
             }
         }
 
-        private void OnDestroy()
-        {
-            CrusaderLibrary.Instance.LibraryLoaded -= OnLibraryLoaded;
-            runtime?.Dispose();
-            runtime = null;
-        }
-
-        private void LogInfo(string message) => Logger.LogInfo($"[{System.DateTime.Now:HH:mm:ss.fff}] {message}");
-        private void LogError(string message) => Logger.LogError($"[{System.DateTime.Now:HH:mm:ss.fff}] {message}");
+        private static void LogInfo(string message) => persistentLog.LogInfo($"[{System.DateTime.Now:HH:mm:ss.fff}] {message}");
+        private static void LogError(string message) => persistentLog.LogError($"[{System.DateTime.Now:HH:mm:ss.fff}] {message}");
     }
 }

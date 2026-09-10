@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:b="http://schemas.microsoft.com/xaml/behaviors">
+  <Operation Type="Add" XPath="/n:UserControl/n:Grid">
+    <Content>
+      <Grid x:Name="VirtualUnitsPrototypeTroopPresentation" Width="58" Height="92" Margin="496,0,0,4"
+            HorizontalAlignment="Left" VerticalAlignment="Bottom" Panel.ZIndex="40"
+            Visibility="{Binding SelectedVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+        <Button Command="{Binding SelectDistinctCommand}" ToolTip="{Binding DisplayName}">
+          <Grid>
+            <Image Source="{Binding SelectedIcon}" Stretch="Uniform"/>
+            <Border Background="#553080FF" IsHitTestVisible="False"/>
+            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,3"
+                       Foreground="White" FontSize="18" Text="{Binding SelectedCount}"/>
+          </Grid>
+          <b:Interaction.Triggers>
+            <b:EventTrigger EventName="MouseRightButtonDown">
+              <b:InvokeCommandAction Command="{Binding RemoveDistinctCommand}"/>
+            </b:EventTrigger>
+          </b:Interaction.Triggers>
+        </Button>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>
