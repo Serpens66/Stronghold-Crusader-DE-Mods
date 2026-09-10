@@ -6,6 +6,16 @@
     "AIDefenseTest": "Testmods/AIDefenseTest",
     "VanillaAICExporter": "Helpers/VanillaAICExporter"
   },
+  "ApiShared": {
+    "Project": "APIShared",
+    "Guid": "APIShared_Serp",
+    "Version": "0.3.0",
+    "Consumers": {
+      "ActiveAIVDetector": "0.3.0",
+      "BugfixesAndQoL": "0.3.0",
+      "ExtraFeatures": "0.3.0"
+    }
+  },
   "Projects": [
     "APIShared",
     "ActiveAIVDetector",

@@ -38,6 +38,7 @@ namespace APISharedTests
             TestGatehouseDistanceOriginTransaction();
             TestGatehouseTransactionAndRounding();
             TestGatehouseRollbackAndPageCleanup();
+            TestAivBuildStepBroker();
             TestMigrationContracts();
             if (failures == 0)
             {
@@ -74,6 +75,19 @@ namespace APISharedTests
             string bugfixGatehouse = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "GatehouseDistanceOriginRegistration.cs"));
             string extraGatehouse = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "src", "GatehouseAutomationRuntime.cs"));
             string extraProject = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "ExtraFeatures.csproj"));
+            string extraAiv = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "src", "AIDefenseRepairRuntime.cs"));
+            string activeAiv = File.ReadAllText(Path.Combine(workspace, "Helpers", "ActiveAIVDetector", "src", "AivPlacementOracle.cs"));
+            string activeRuntime = File.ReadAllText(Path.Combine(workspace, "Helpers", "ActiveAIVDetector", "src", "ActiveAIVDetectionRuntime.cs"));
+            string activePlugin = File.ReadAllText(Path.Combine(workspace, "Helpers", "ActiveAIVDetector", "src", "ActiveAIVDetectorPlugin.cs"));
+            string activeProject = File.ReadAllText(Path.Combine(workspace, "Helpers", "ActiveAIVDetector", "ActiveAIVDetector.csproj"));
+            string bugfixControlGroups = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "ControlGroupDisbandCleanupRuntime.cs"));
+            string bugfixNativeDefinition = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "ControlGroupNativeDefinition.cs"));
+            string bugfixPlugin = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLPlugin.cs"));
+            string castlePlanner = File.ReadAllText(Path.Combine(workspace, "CastlePlanner", "src", "CastlePlannerRuntime.cs"));
+            string releaseConfig = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "release-projects.json"));
+            string releaseScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "Release-Mod.ps1"));
+            string nexusScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "NexusRelease.Common.ps1"));
+            string steamScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Steam", "Create-SteamModPack.ps1"));
             string randomRuntime = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "RandomEventsRuntime.cs"));
             string randomRegistry = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "ScenarioSignpostRegistry.cs"));
             string randomPlacement = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "SignpostPlacementService.cs"));
@@ -159,6 +173,44 @@ namespace APISharedTests
                 extraGatehouse.Contains("new GatehouseTimingSettings") &&
                 !extraProject.Contains("GatehouseTimingPatch.cs"),
                 "ExtraFeatures must exclusively apply gatehouse timing through APIShared");
+            Assert(extraAiv.Contains("TryGetAivBuildStep") && extraAiv.Contains("TryRegisterObserver") &&
+                !extraAiv.Contains("ExecuteBuildStepDelegate") && !extraAiv.Contains("executeBuildStepHook"),
+                "ExtraFeatures must consume the shared AIV build-step broker without a local fallback detour");
+            Assert(activeRuntime.Contains("TryGetAivBuildStep") && activeRuntime.Contains("TryRegisterObserver") &&
+                !activeAiv.Contains("ExecuteBuildStepDelegate") && !activeAiv.Contains("executeBuildStepHook") &&
+                activeProject.Contains("<Reference Include=\"APIShared\">") && activeProject.Contains("<Private>false</Private>") &&
+                activePlugin.Contains("[BepInDependency(ApiSharedGuid, \"0.3.0\")]"),
+                "ActiveAIVDetector prebuild tracing must use APIShared as a thin hard dependency");
+            Assert(bugfixControlGroups.Contains("TryRemoveUnitFromControlGroups") &&
+                !bugfixControlGroups.Contains("ControlGroupStorage") &&
+                !bugfixNativeDefinition.Contains("ControlGroupStorage") &&
+                bugfixPlugin.Contains("[BepInDependency(ApiSharedGuid, \"0.3.0\")]"),
+                "native control-group storage must only be resolved and mutated inside APIShared");
+            int bindStart = castlePlanner.IndexOf("private void BindNativeFunctions(", StringComparison.Ordinal);
+            int hookStart = castlePlanner.IndexOf("private void InstallHumanStartPreparationHook(", StringComparison.Ordinal);
+            string castleBindings = bindStart >= 0 && hookStart > bindStart
+                ? castlePlanner.Substring(bindStart, hookStart - bindStart)
+                : string.Empty;
+            Assert(castleBindings.Contains("selectBestFit = Bind<SelectBestFitDelegate>") &&
+                castleBindings.Contains("testSpecificCandidate = Bind<TestSpecificCandidateDelegate>") &&
+                castleBindings.Contains("prepareLayout = Bind<PrepareLayoutDelegate>") &&
+                !castleBindings.Contains("AddDetour") && !castleBindings.Contains("AddContextHook"),
+                "CastlePlanner AIV targets 0x54F60, 0x54DE0, and 0x53D00 must remain bind-only");
+            Assert(releaseConfig.Contains("\"ActiveAIVDetector\": \"0.3.0\"") &&
+                releaseConfig.Contains("\"BugfixesAndQoL\": \"0.3.0\"") &&
+                releaseConfig.Contains("\"ExtraFeatures\": \"0.3.0\""),
+                "release inventory must declare each consumer's actual APIShared minimum");
+            Assert(releaseScript.Contains("Profile = 'Thin'") &&
+                releaseScript.Contains("Profile = 'Bundle'") &&
+                releaseScript.Contains("APIShared.dll") && releaseScript.Contains("SHCDESE.dll") &&
+                releaseScript.Contains("RedBird"),
+                "release staging must distinguish thin and bundled APIShared artifacts and reject private runtime copies");
+            Assert(nexusScript.Contains("[ValidateSet('Thin','Bundle')]") &&
+                nexusScript.Contains("Bundle muss genau APIShared und einen Verbraucher enthalten."),
+                "Nexus validation must audit thin and bundle artifacts separately");
+            Assert(steamScript.Contains("Infrastructure") && steamScript.Contains("releaseConfig.ApiShared.Guid") &&
+                steamScript.Contains("APIShared.dll") && releaseConfig.Contains("\"Guid\": \"APIShared_Serp\""),
+                "Steam staging must model APIShared as one separately validated infrastructure dependency");
             string randomPathing = randomRuntime + "\n" + randomRegistry + "\n" + randomPlacement;
             Assert(Count(randomPathing, "GetPathComponentGrid()") == 5 &&
                 !randomPathing.Contains("TileManager.PathConnectionGrid") &&
@@ -215,6 +267,11 @@ namespace APISharedTests
                 "APIShared.IGatehouseDistanceOriginCapability",
                 "APIShared.IGatehouseTimingCapability",
                 "APIShared.IUnitHudPresentationCapability",
+                "APIShared.IAivBuildStepCapability",
+                "APIShared.IAivBuildStepObserver",
+                "APIShared.IAivBuildStepInvocation",
+                "APIShared.AivBuildStepContext",
+                "APIShared.AivBuildStepCompletion",
                 "APIShared.IApiShared",
                 "APIShared.NativeApiState",
                 "APIShared.NativeCapabilityDiagnostic",
@@ -268,7 +325,8 @@ namespace APISharedTests
             {
                 "TryGetGatehouseDistanceOrigin",
                 "TryGetGatehouseTiming",
-                "TryGetUnitHudPresentation"
+                "TryGetUnitHudPresentation",
+                "TryGetAivBuildStep"
             };
             foreach (MethodInfo method in typeof(IApiShared).GetMethods())
                 expectedAcquisitionMethods.Remove(method.Name);
@@ -281,6 +339,87 @@ namespace APISharedTests
                 "gatehouse-timing capability ID must remain stable");
             Assert(NativeCapabilityIds.UnitHudPresentation == "unit-hud-presentation",
                 "unit-HUD capability ID must remain stable");
+            Assert(NativeCapabilityIds.AivBuildStep == "aiv-build-step",
+                "AIV build-step capability ID must remain stable");
+        }
+
+        private static void TestAivBuildStepBroker()
+        {
+            var service = new AivBuildStepService(ApiSharedRuntime.SupportedHash, null);
+            var calls = new List<string>();
+            IAivBuildStepCapability zOwner = service.Bind("z.owner");
+            IAivBuildStepCapability aOwner = service.Bind("a.owner");
+            var zObserver = new RecordingAivObserver("z", calls);
+            var aSecondObserver = new RecordingAivObserver("a2", calls);
+            var aFirstObserver = new RecordingAivObserver("a1", calls);
+
+            Assert(zOwner.TryRegisterObserver("one", zObserver, out _), "AIV observer registration should succeed");
+            Assert(aOwner.TryRegisterObserver("two", aSecondObserver, out _), "AIV observer registration should succeed");
+            Assert(aOwner.TryRegisterObserver("one", aFirstObserver, out _), "AIV observer registration should succeed");
+            Assert(aOwner.TryRegisterObserver("one", aFirstObserver, out _), "identical AIV registration should be idempotent");
+            Assert(!aOwner.TryRegisterObserver("one", new RecordingAivObserver("conflict", calls), out NativeCapabilityDiagnostic conflict) &&
+                conflict.State == NativeCapabilityState.Conflict,
+                "a different observer under the same AIV registration identity must conflict");
+
+            int originals = 0;
+            var context = new AivBuildStepContext(0x1234, 4, 9, 2, 1);
+            int result = service.DispatchForTest(context, () => { calls.Add("vanilla"); originals++; return 77; });
+            Assert(result == 77 && originals == 1,
+                "AIV broker must return the unchanged result from exactly one Vanilla call");
+            AssertSequenceEqual(calls.ToArray(), new[]
+            {
+                "begin:a1", "begin:a2", "begin:z", "vanilla",
+                "complete:z:True:77", "complete:a2:True:77", "complete:a1:True:77"
+            }, "AIV observers must begin deterministically and unwind in reverse order");
+
+            calls.Clear();
+            var isolated = new AivBuildStepService(ApiSharedRuntime.SupportedHash, null);
+            isolated.Bind("a").TryRegisterObserver("begin-failure", new RecordingAivObserver("bad-begin", calls, true, false), out _);
+            isolated.Bind("b").TryRegisterObserver("complete-failure", new RecordingAivObserver("bad-complete", calls, false, true), out _);
+            isolated.Bind("c").TryRegisterObserver("healthy", new RecordingAivObserver("healthy", calls), out _);
+            originals = 0;
+            result = isolated.DispatchForTest(context, () => { calls.Add("vanilla"); originals++; return 12; });
+            Assert(result == 12 && originals == 1 && calls.Contains("complete:healthy:True:12"),
+                "observer exceptions must not suppress Vanilla or healthy AIV observers");
+
+            calls.Clear();
+            var reentrant = new AivBuildStepService(ApiSharedRuntime.SupportedHash, null);
+            reentrant.Bind("owner").TryRegisterObserver("observer", new RecordingAivObserver("observer", calls), out _);
+            originals = 0;
+            int outer = reentrant.DispatchForTest(context, () =>
+            {
+                originals++;
+                int inner = reentrant.DispatchForTest(context, () => { originals++; return 5; });
+                calls.Add("inner-result:" + inner);
+                return 6;
+            });
+            Assert(outer == 6 && originals == 2 && Count(string.Join("|", calls), "begin:observer") == 2,
+                "nested native calls must be dispatched reentrantly with one Original call per invocation");
+
+            calls.Clear();
+            var exceptional = new AivBuildStepService(ApiSharedRuntime.SupportedHash, null);
+            exceptional.Bind("owner").TryRegisterObserver("observer", new RecordingAivObserver("observer", calls), out _);
+            AssertThrows<InvalidOperationException>(
+                () => exceptional.DispatchForTest(context, () => throw new InvalidOperationException("injected Vanilla failure")),
+                "Vanilla exceptions must propagate through the AIV broker");
+            Assert(calls.Contains("complete:observer:False:0"),
+                "AIV completion must identify an Original call that did not complete");
+
+            Assert(!AivBuildStepService.TryCreate(
+                    "UNKNOWN", 0, ReadOnlySpan<byte>.Empty, null, null,
+                    out _, out NativeCapabilityDiagnostic unknown) &&
+                unknown.State == NativeCapabilityState.UnsupportedBuild,
+                "unknown builds must fail closed before resolving the AIV target");
+            Assert(!AivBuildStepService.TryCreate(
+                    ApiSharedRuntime.SupportedHash, 0, ReadOnlySpan<byte>.Empty, null, null,
+                    out _, out NativeCapabilityDiagnostic resolverFailure) &&
+                resolverFailure.State == NativeCapabilityState.ValidationFailed,
+                "missing native AIV resolver inputs must fail closed");
+
+            string source = File.ReadAllText(Path.Combine(FindWorkspaceRoot(), "APIShared", "src", "AivBuildStepCapability.cs"));
+            Assert(source.Contains("pending?.Dispose();") && source.Contains("candidate.transaction = pending;") &&
+                source.Contains("OwnsHooks = false"),
+                "AIV hook setup must roll back only unpublished candidates and retain the published transaction");
         }
 
         private static void AssertSafePublicType(Type type, string location)
@@ -840,6 +979,69 @@ namespace APISharedTests
             if (condition) return;
             failures++;
             Console.Error.WriteLine("FAIL: " + message);
+        }
+
+        private sealed class RecordingAivObserver : IAivBuildStepObserver
+        {
+            private readonly string name;
+            private readonly List<string> calls;
+            private readonly bool failBegin;
+            private readonly bool failComplete;
+
+            internal RecordingAivObserver(
+                string name,
+                List<string> calls,
+                bool failBegin = false,
+                bool failComplete = false)
+            {
+                this.name = name;
+                this.calls = calls;
+                this.failBegin = failBegin;
+                this.failComplete = failComplete;
+            }
+
+            public IAivBuildStepInvocation TryBegin(AivBuildStepContext context)
+            {
+                calls.Add("begin:" + name);
+                if (failBegin)
+                    throw new InvalidOperationException("injected begin failure");
+                return new RecordingAivInvocation(name, calls, failComplete);
+            }
+        }
+        private static void AssertSequenceEqual(string[] actual, string[] expected, string message)
+        {
+            if (actual.Length != expected.Length)
+            {
+                Assert(false, message + $" (length {actual.Length}, expected {expected.Length})");
+                return;
+            }
+            for (int index = 0; index < expected.Length; index++)
+                if (!string.Equals(actual[index], expected[index], StringComparison.Ordinal))
+                {
+                    Assert(false, message + $" (mismatch at index {index}: '{actual[index]}', expected '{expected[index]}')");
+                    return;
+                }
+        }
+
+        private sealed class RecordingAivInvocation : IAivBuildStepInvocation
+        {
+            private readonly string name;
+            private readonly List<string> calls;
+            private readonly bool fail;
+
+            internal RecordingAivInvocation(string name, List<string> calls, bool fail)
+            {
+                this.name = name;
+                this.calls = calls;
+                this.fail = fail;
+            }
+
+            public void Complete(AivBuildStepCompletion completion)
+            {
+                calls.Add($"complete:{name}:{completion.VanillaCompleted}:{completion.VanillaResult}");
+                if (fail)
+                    throw new InvalidOperationException("injected completion failure");
+            }
         }
 
         private sealed class FakeMemory : INativeMemory

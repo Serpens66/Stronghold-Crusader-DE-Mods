@@ -50,9 +50,11 @@ namespace SerpsModsHostDuplicateTests
                 throw new InvalidOperationException("A later child was allowed to replace the first GUID directory.");
 
             PackManifest parsedManifest = PackManifestJson.Read(
-                "{\"schemaversion\":1,\"packguid\":\"SerpsMods_Serp\",\"mods\":[{" +
-                "\"guid\":\"Test_GUID\",\"files\":[{\"path\":\"Test.dll\",\"size\":12}]}]}");
-            if (parsedManifest.SchemaVersion != 1 || parsedManifest.Mods.Count != 1 ||
+                "{\"schemaversion\":2,\"packguid\":\"SerpsMods_Serp\"," +
+                "\"infrastructure\":[{\"guid\":\"APIShared_Serp\",\"state\":\"Infrastructure\"}]," +
+                "\"mods\":[{\"guid\":\"Test_GUID\",\"files\":[{\"path\":\"Test.dll\",\"size\":12}]}]}");
+            if (parsedManifest.SchemaVersion != 2 || parsedManifest.Infrastructure.Count != 1 ||
+                parsedManifest.Infrastructure[0].Guid != "APIShared_Serp" || parsedManifest.Mods.Count != 1 ||
                 parsedManifest.Mods[0].Files.Count != 1 || parsedManifest.Mods[0].Files[0].Size != 12)
             {
                 throw new InvalidOperationException("Dependency-free pack manifest mapping failed.");

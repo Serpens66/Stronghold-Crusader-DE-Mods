@@ -10,6 +10,7 @@ namespace SerpsModsHost
         public string HostVersion { get; set; }
         public string CreatedUtc { get; set; }
         public string RepositoryCommit { get; set; }
+        public List<PackModRecord> Infrastructure { get; set; } = new List<PackModRecord>();
         public List<PackModRecord> Mods { get; set; } = new List<PackModRecord>();
     }
 

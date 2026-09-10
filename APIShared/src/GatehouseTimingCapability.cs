@@ -63,8 +63,7 @@ namespace APIShared
     }
 
     /// <summary>
-    /// Applies validated, transactional gatehouse timing values. The intended future consumer is
-    /// ExtraFeatures; this is documentation, not a runtime dependency.
+    /// Applies validated, transactional gatehouse timing values.
     /// </summary>
     public interface IGatehouseTimingCapability
     {

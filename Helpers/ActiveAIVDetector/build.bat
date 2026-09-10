@@ -4,18 +4,13 @@ setlocal EnableExtensions EnableDelayedExpansion
 set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
-set "LOCAL_SCRIPT_EXTENDER_ROOT=%PROJECT_DIR%..\..\shcde-script-extender"
-set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\000shcdese"
-set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
-set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
-set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "VANILLA_EXPORT_ROOT=%PROJECT_DIR%..\VanillaAICExporter\Exports"
 set "EDITOR_VANILLA_AIV_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition - Castle & CPU Lord Editor\CrusaderCastleEditorUnity_Data\StreamingAssets\Villages"
 set "CHAT10_TRACE_CONFIG=%PROJECT_DIR%Diagnostics\Chat10-Bow-Ridge-Trace.cfg"
-set "EXTENDER_DIR="
+set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 set "NO_PAUSE=0"
 set "INSTALL_CHAT10_TRACE=0"
 for %%A in (%*) do (
@@ -46,26 +41,6 @@ if not exist "%GAME_DIR%\BepInEx\core\BepInEx.dll" (
   echo.
   if "%NO_PAUSE%"=="0" pause
   exit /b 1
-)
-
-if exist "%LOCAL_SCRIPT_EXTENDER_ROOT%\" (
-  if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
-    set "EXTENDER_DIR=%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%"
-  ) else if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
-    set "EXTENDER_DIR=%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%"
-  ) else (
-    echo Lokaler Script Extender Nebenordner wurde gefunden:
-    echo !LOCAL_SCRIPT_EXTENDER_ROOT!
-    echo.
-    echo Aber es wurde keine lokale SHCDESE.dll gefunden.
-    echo Baue zuerst ..\shcde-script-extender\build.bat oder entferne den Nebenordner,
-    echo wenn gegen die installierte Spiel-DLL kompiliert werden soll.
-    echo.
-    if "%NO_PAUSE%"=="0" pause
-    exit /b 1
-  )
-) else (
-  set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 )
 
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" (

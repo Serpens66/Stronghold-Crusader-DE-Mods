@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using APIShared;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.X64.Hooks.Transaction;
@@ -11,7 +12,7 @@ using System.Runtime.InteropServices;
 
 namespace ActiveAIVDetector
 {
-    internal sealed unsafe class AivPlacementOracle
+    internal sealed unsafe class AivPlacementOracle : IAivBuildStepObserver
     {
         private const string SelectBestFitPattern =
             "44 88 44 24 18 89 54 24 10 55 56 41 54 41 55 41 56 41 57 48 83 EC 58";
@@ -31,8 +32,6 @@ namespace ActiveAIVDetector
         private const string BuildingPlacementValidatorInteriorPattern =
             "48 8D 35 ?? ?? ?? ?? 44 8B 81 28 E7 04 02 45 8B F1 " +
             "4C 63 CA 44 8B D0 44 0F 45 94 24 90 00 00 00";
-        private const string ExecuteBuildStepPattern =
-            "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2";
         private const string OrganismRecordTableReferencePattern =
             "48 8D 05 ?? ?? ?? ?? 41 B8 9C 00 00 00 48 03 D0";
         private const string ActiveLayoutIndexReferencePattern =
@@ -45,7 +44,6 @@ namespace ActiveAIVDetector
         private const int EvaluateCandidateFitRva = 0x57080;
         private const int BuildingPlacementValidatorInteriorRva = 0x7B078;
         private const int BuildingPlacementValidatorInteriorOffset = 0x18;
-        private const int ExecuteBuildStepRva = 0x51790;
         private const int OrganismRecordTableReferenceRva = 0x15A27;
         private const int ActiveLayoutIndexReferenceRva = 0x55F64;
 
@@ -112,14 +110,6 @@ namespace ActiveAIVDetector
             int mapperValue,
             int mode);
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int ExecuteBuildStepDelegate(
-            ulong aivStateAddress,
-            int playerId,
-            int frameIndex,
-            int restrictedMode,
-            byte freeOrForced);
-
         private readonly ManualLogSource log;
         private readonly Action<OracleSelectionSnapshot> onSelectionCompleted;
         private readonly Action<OraclePrebuildFrameTraceSnapshot> onPrebuildFrameCaptured;
@@ -135,7 +125,6 @@ namespace ActiveAIVDetector
         private readonly int applyRotationRva;
         private readonly int evaluateCandidateFitRva;
         private readonly int buildingPlacementValidatorRva;
-        private readonly int executeBuildStepRva;
         private readonly List<Action<ulong, int, int, int, int, int>>
             externalValidatorObservers =
                 new List<Action<ulong, int, int, int, int, int>>();
@@ -152,8 +141,6 @@ namespace ActiveAIVDetector
         private readonly DetourHandle<BuildingPlacementValidatorDelegate>
             buildingPlacementValidatorHook =
                 new DetourHandle<BuildingPlacementValidatorDelegate>();
-        private readonly DetourHandle<ExecuteBuildStepDelegate> executeBuildStepHook =
-            new DetourHandle<ExecuteBuildStepDelegate>();
 
         private OracleSelectionSession activeSession;
         private ValidatorTraceContext activeValidatorTrace;
@@ -212,8 +199,6 @@ namespace ActiveAIVDetector
                 throw new InvalidOperationException("The placement-validator signature cannot derive a module RVA.");
             buildingPlacementValidatorRva = checked(
                 buildingPlacementValidatorInteriorRva - BuildingPlacementValidatorInteriorOffset);
-            if (prebuildTraceOptions.Enabled)
-                executeBuildStepRva = ValidateReference(nativeLibraryMemory, ExecuteBuildStepPattern, ExecuteBuildStepRva, "execute build step");
             organismRecordTableAddress = ResolveUniqueRipRelativeAddress(
                 nativeLibraryHandle,
                 nativeLibraryMemory,
@@ -258,14 +243,6 @@ namespace ActiveAIVDetector
                 buildingPlacementValidatorHook,
                 HookTarget.FromAddress(nativeLibraryBase + unchecked((ulong)buildingPlacementValidatorRva)),
                 BuildingPlacementValidator);
-            if (prebuildTraceOptions.Enabled)
-            {
-                // Keep the extra native detour absent unless this one-run diagnostic is explicit.
-                transaction.AddDetour(
-                    executeBuildStepHook,
-                    HookTarget.FromAddress(nativeLibraryBase + unchecked((ulong)executeBuildStepRva)),
-                    ExecuteBuildStep);
-            }
         }
 
         public void RegisterExternalValidatorObserver(
@@ -289,9 +266,6 @@ namespace ActiveAIVDetector
                 missing,
                 buildingPlacementValidatorHook.Success,
                 "c_game_building_placement_validator");
-            if (prebuildTraceOptions.Enabled)
-                AddMissing(missing, executeBuildStepHook.Success, "c_game_aiv_execute_build_step");
-
             if (missing.Count != 0)
             {
                 throw new InvalidOperationException(
@@ -554,12 +528,7 @@ namespace ActiveAIVDetector
             return result;
         }
 
-        private int ExecuteBuildStep(
-            ulong aivStateAddress,
-            int playerId,
-            int frameIndex,
-            int restrictedMode,
-            byte freeOrForced)
+        public IAivBuildStepInvocation TryBegin(AivBuildStepContext context)
         {
             if (executeBuildStepDepth != 0)
             {
@@ -571,23 +540,14 @@ namespace ActiveAIVDetector
                         "Oracle prebuild trace rejected a nested ExecuteBuildStep capture; " +
                         "the nested Vanilla call still runs unchanged.");
                 }
-                return executeBuildStepHook.Original(
-                    aivStateAddress,
-                    playerId,
-                    frameIndex,
-                    restrictedMode,
-                    freeOrForced);
+                return null;
             }
 
+            ulong aivStateAddress = context.AivStateAddress;
+            int playerId = context.PlayerId;
+            int frameIndex = context.FrameIndex;
             if (!TryBeginOrContinuePrebuildCapture(aivStateAddress, playerId))
-            {
-                return executeBuildStepHook.Original(
-                    aivStateAddress,
-                    playerId,
-                    frameIndex,
-                    restrictedMode,
-                    freeOrForced);
-            }
+                return null;
 
             DateTimeOffset startedAtLocal = DateTimeOffset.Now;
             int activeLayoutIndex = -1;
@@ -638,98 +598,100 @@ namespace ActiveAIVDetector
             if (placementObservation != null)
                 activePrebuildPlacementStateObservation = placementObservation;
 
-            int result;
             executeBuildStepDepth++;
+            return new PrebuildInvocation(
+                this, context, startedAtLocal, activeLayoutIndex, status, helper,
+                mapper, positionCount, firstPositionIndex, captureError,
+                placementObservation, placementStateAddress, pointerWasConsistent,
+                previousObservation);
+
+        }
+
+        private void CompletePrebuild(
+            PrebuildInvocation invocation,
+            AivBuildStepCompletion completion)
+        {
             try
             {
-                result = executeBuildStepHook.Original(
-                    aivStateAddress,
-                    playerId,
-                    frameIndex,
-                    restrictedMode,
-                    freeOrForced);
-            }
-            finally
-            {
-                executeBuildStepDepth--;
-                if (ReferenceEquals(activePrebuildPlacementStateObservation, placementObservation))
-                    activePrebuildPlacementStateObservation = previousObservation;
-            }
+                if (!completion.VanillaCompleted)
+                    return;
 
-            DateTimeOffset completedAtLocal = DateTimeOffset.Now;
-            var changes = new List<OraclePrebuildBuildingGridChange>();
-            int addedCount = 0;
-            int removedCount = 0;
-            int replacedCount = 0;
-            ulong finalPlacementStateAddress = 0;
-            bool pointerIsConsistent = placementObservation != null &&
-                placementObservation.TryGetPlacementStateAddress(out finalPlacementStateAddress) &&
-                finalPlacementStateAddress == placementStateAddress;
-            if (pointerWasConsistent && pointerIsConsistent)
-            {
-                CopyBuildingGrid(finalPlacementStateAddress, prebuildAfterBuildingGrid);
-                for (int tileId = 0; tileId < FixedMapTileCount; tileId++)
+                DateTimeOffset completedAtLocal = DateTimeOffset.Now;
+                var changes = new List<OraclePrebuildBuildingGridChange>();
+                int addedCount = 0;
+                int removedCount = 0;
+                int replacedCount = 0;
+                ulong finalPlacementStateAddress = 0;
+                bool pointerIsConsistent = invocation.PlacementObservation != null &&
+                    invocation.PlacementObservation.TryGetPlacementStateAddress(out finalPlacementStateAddress) &&
+                    finalPlacementStateAddress == invocation.PlacementStateAddress;
+                if (invocation.PointerWasConsistent && pointerIsConsistent)
                 {
-                    ushort beforeId = prebuildBeforeBuildingGrid[tileId];
-                    ushort afterId = prebuildAfterBuildingGrid[tileId];
-                    if (beforeId == afterId)
-                        continue;
+                    CopyBuildingGrid(finalPlacementStateAddress, prebuildAfterBuildingGrid);
+                    for (int tileId = 0; tileId < FixedMapTileCount; tileId++)
+                    {
+                        ushort beforeId = prebuildBeforeBuildingGrid[tileId];
+                        ushort afterId = prebuildAfterBuildingGrid[tileId];
+                        if (beforeId == afterId)
+                           continue;
 
-                    if (beforeId == 0)
-                        addedCount++;
-                    else if (afterId == 0)
-                        removedCount++;
-                    else
-                        replacedCount++;
-                    changes.Add(new OraclePrebuildBuildingGridChange(
-                        tileId,
-                        beforeId,
-                        afterId));
+                        if (beforeId == 0)
+                            addedCount++;
+                        else if (afterId == 0)
+                            removedCount++;
+                        else
+                            replacedCount++;
+                        changes.Add(new OraclePrebuildBuildingGridChange(tileId, beforeId, afterId));
+                    }
                 }
-            }
-            else if (pointerWasConsistent)
-            {
-                LogPrebuildPointerProblemOnce(
-                    "the placement-state pointer changed or became inconsistent inside ExecuteBuildStep");
-            }
+                else if (invocation.PointerWasConsistent)
+                {
+                    LogPrebuildPointerProblemOnce(
+                        "the placement-state pointer changed or became inconsistent inside ExecuteBuildStep");
+                }
 
-            try
-            {
                 lastSelectionSequenceByPlayerId.TryGetValue(
-                    playerId,
+                    invocation.Context.PlayerId,
                     out long selectionSequence);
                 onPrebuildFrameCaptured(new OraclePrebuildFrameTraceSnapshot(
                     activePrebuildCaptureSequence,
                     ++activePrebuildCaptureFrameNumber,
-                    startedAtLocal,
+                    invocation.StartedAtLocal,
                     completedAtLocal,
                     selectionSequence,
-                    playerId,
-                    frameIndex,
-                    activeLayoutIndex,
-                    status,
-                    helper,
-                    mapper,
-                    positionCount,
-                    firstPositionIndex,
-                    restrictedMode,
-                    freeOrForced,
-                    result,
-                    placementStateAddress,
-                    pointerWasConsistent && pointerIsConsistent,
+                    invocation.Context.PlayerId,
+                    invocation.Context.FrameIndex,
+                    invocation.ActiveLayoutIndex,
+                    invocation.Status,
+                    invocation.Helper,
+                    invocation.Mapper,
+                    invocation.PositionCount,
+                    invocation.FirstPositionIndex,
+                    invocation.Context.RestrictedMode,
+                    invocation.Context.FreeOrForced,
+                    completion.VanillaResult,
+                    invocation.PlacementStateAddress,
+                    invocation.PointerWasConsistent && pointerIsConsistent,
                     addedCount,
                     removedCount,
                     replacedCount,
                     changes,
-                    captureError));
+                    invocation.CaptureError));
             }
             catch (Exception ex)
             {
                 LogCallbackFailure("prebuild frame capture", ex);
             }
-
-            // The diagnostic returns the exact native result after one trampoline call.
-            return result;
+            finally
+            {
+                executeBuildStepDepth--;
+                if (ReferenceEquals(
+                        activePrebuildPlacementStateObservation,
+                        invocation.PlacementObservation))
+                {
+                    activePrebuildPlacementStateObservation = invocation.PreviousObservation;
+                }
+            }
         }
 
         private bool TryBeginOrContinuePrebuildCapture(
@@ -1131,6 +1093,66 @@ namespace ActiveAIVDetector
         {
             if (!success)
                 missing.Add(name);
+        }
+
+        private sealed class PrebuildInvocation : IAivBuildStepInvocation
+        {
+            private readonly AivPlacementOracle owner;
+            private bool completed;
+
+            internal PrebuildInvocation(
+                AivPlacementOracle owner,
+                AivBuildStepContext context,
+                DateTimeOffset startedAtLocal,
+                int activeLayoutIndex,
+                byte status,
+                byte helper,
+                short mapper,
+                short positionCount,
+                int firstPositionIndex,
+                string captureError,
+                PlacementStateObservation placementObservation,
+                ulong placementStateAddress,
+                bool pointerWasConsistent,
+                PlacementStateObservation previousObservation)
+            {
+                this.owner = owner;
+                Context = context;
+                StartedAtLocal = startedAtLocal;
+                ActiveLayoutIndex = activeLayoutIndex;
+                Status = status;
+                Helper = helper;
+                Mapper = mapper;
+                PositionCount = positionCount;
+                FirstPositionIndex = firstPositionIndex;
+                CaptureError = captureError;
+                PlacementObservation = placementObservation;
+                PlacementStateAddress = placementStateAddress;
+                PointerWasConsistent = pointerWasConsistent;
+                PreviousObservation = previousObservation;
+            }
+
+            internal AivBuildStepContext Context { get; }
+            internal DateTimeOffset StartedAtLocal { get; }
+            internal int ActiveLayoutIndex { get; }
+            internal byte Status { get; }
+            internal byte Helper { get; }
+            internal short Mapper { get; }
+            internal short PositionCount { get; }
+            internal int FirstPositionIndex { get; }
+            internal string CaptureError { get; }
+            internal PlacementStateObservation PlacementObservation { get; }
+            internal ulong PlacementStateAddress { get; }
+            internal bool PointerWasConsistent { get; }
+            internal PlacementStateObservation PreviousObservation { get; }
+
+            public void Complete(AivBuildStepCompletion completion)
+            {
+                if (completed)
+                    return;
+                completed = true;
+                owner.CompletePrebuild(this, completion);
+            }
         }
 
         private sealed class OracleSelectionSession

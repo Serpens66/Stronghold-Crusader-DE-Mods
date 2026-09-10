@@ -74,9 +74,7 @@ internal static class Program
             ["FirstClassifierPattern"] = 0x11EBF5,
             ["SecondClassifierPattern"] = 0x11EF39,
             ["AddClassifierPattern"] = 0xCAEF2,
-            ["ReplaceClassifierPattern"] = 0xD0FF7,
-            ["SummaryClassifierPattern"] = 0x18645E,
-            ["ControlGroupStoragePattern"] = 0x186338
+            ["ReplaceClassifierPattern"] = 0xD0FF7
         };
 
     private static readonly FunctionContract[] Functions =
@@ -142,7 +140,6 @@ internal static class Program
             CheckMixedLordDisbandContract(pe.Image);
             CheckDisbandCleanupPolicyAndWiring(workspace);
             CheckLordControlGroupTransactionModel(pe.Image);
-            CheckLordControlGroupIconPolicy();
             CheckLordControlGroupUiContracts(workspace);
             CheckHighFrequencyFastPathContracts(workspace);
             CheckUnknownHashPolicy(workspace);
@@ -502,152 +499,6 @@ internal static class Program
             0xD1100,
             "Replace-control-group Lord exclusion target");
 
-        int typeTable = ReadInt32(
-            image,
-            LordControlGroupNativeDefinition.SummaryClassifierPatternRva +
-                LordControlGroupNativeDefinition.SummaryTypeTableDisplacementOffset);
-        int dispatchTable = ReadInt32(
-            image,
-            LordControlGroupNativeDefinition.SummaryClassifierPatternRva +
-                LordControlGroupNativeDefinition.SummaryDispatchTableDisplacementOffset);
-        Check(typeTable == LordControlGroupNativeDefinition.SummaryTypeTableRva,
-            "control-group summary resolves its audited unit-type table");
-        Check(dispatchTable == LordControlGroupNativeDefinition.SummaryDispatchTableRva,
-            "control-group summary resolves its audited dispatch table");
-        Check(typeTable + LordControlGroupNativeDefinition.LordUnitType -
-                LordControlGroupNativeDefinition.UnitTypeTableMinimum ==
-              LordControlGroupNativeDefinition.LordSummaryEntryRva,
-            "Lord summary entry RVA");
-        Check(typeTable + LordControlGroupNativeDefinition.EuropeanArcherUnitType -
-                LordControlGroupNativeDefinition.UnitTypeTableMinimum ==
-              LordControlGroupNativeDefinition.EuropeanArcherSummaryEntryRva,
-            "European Archer summary entry RVA");
-        Check(image[LordControlGroupNativeDefinition.LordSummaryEntryRva] ==
-              LordControlGroupNativeDefinition.VanillaUnmappedSummaryClass,
-            "Vanilla Lord uses the unmapped summary class");
-        Check(image[LordControlGroupNativeDefinition.EuropeanArcherSummaryEntryRva] ==
-              LordControlGroupNativeDefinition.EuropeanArcherSummaryClass,
-            "European Archer uses the placeholder summary class");
-        Check(ReadInt32(
-                image,
-                dispatchTable + LordControlGroupNativeDefinition.EuropeanArcherSummaryClass * sizeof(int)) ==
-              LordControlGroupNativeDefinition.EuropeanArcherSummaryTargetRva,
-            "European Archer summary class dispatch target");
-        Check(ReadInt32(
-                image,
-                dispatchTable + LordControlGroupNativeDefinition.VanillaUnmappedSummaryClass * sizeof(int)) ==
-              LordControlGroupNativeDefinition.UnmappedSummaryTargetRva,
-            "Vanilla unmapped summary class dispatch target");
-
-        int storageRva = checked(
-            LordControlGroupNativeDefinition.ControlGroupStoragePatternRva +
-            LordControlGroupNativeDefinition.ControlGroupStorageNextInstructionOffset +
-            ReadInt32(
-                image,
-                LordControlGroupNativeDefinition.ControlGroupStoragePatternRva +
-                LordControlGroupNativeDefinition.ControlGroupStorageDisplacementOffset));
-        Check(storageRva == LordControlGroupNativeDefinition.ControlGroupStorageRva,
-            "control-group storage reference resolves its audited global array");
-        Check(LordControlGroupNativeDefinition.ControlGroupCount == 10 &&
-              LordControlGroupNativeDefinition.ControlGroupCapacity == 10000 &&
-              LordControlGroupNativeDefinition.ControlGroupRecordIntCount == 2,
-            "control-group storage dimensions match the audited ten-by-10000 ID/global-ID layout");
-    }
-
-    private static void CheckLordControlGroupIconPolicy()
-    {
-        var expectedMappings = new Dictionary<int, int>
-        {
-            [5] = 33,
-            [0x25] = 9,
-            [0x37] = 0
-        };
-        for (int unitType = 0x16; unitType <= 0x1E; unitType++)
-            expectedMappings[unitType] = unitType - 0x16;
-        for (int unitType = 0x27; unitType <= 0x29; unitType++)
-            expectedMappings[unitType] = unitType - 0x27 + 10;
-        for (int unitType = 0x3A; unitType <= 0x3D; unitType++)
-            expectedMappings[unitType] = unitType - 0x3A + 13;
-        for (int unitType = 0x46; unitType <= 0x55; unitType++)
-            expectedMappings[unitType] = unitType - 0x46 + 17;
-        Check(expectedMappings.Count == LordControlGroupIconPolicy.SummaryTypeCount + 1,
-            "all 34 Vanilla summary classes plus the Lord alias are covered");
-        Check(expectedMappings.All(pair =>
-                LordControlGroupIconPolicy.TryGetSummaryType(pair.Key, out int summaryType) &&
-                summaryType == pair.Value),
-            "managed summary mapping mirrors every native dispatch range boundary including the Lord");
-        Check(Enumerable.Range(0, 256).All(unitType =>
-            {
-                bool mapped = LordControlGroupIconPolicy.TryGetSummaryType(unitType, out int summaryType);
-                return expectedMappings.TryGetValue(unitType, out int expectedType)
-                    ? mapped && summaryType == expectedType
-                    : !mapped && summaryType == LordControlGroupIconPolicy.EmptySummaryType;
-            }),
-            "managed summary mapping has no additional dispatch classes in the full byte range");
-        Check(new[] { 0, 6, 0x26, 0x36, 0x38, 0x56 }.All(unitType =>
-                !LordControlGroupIconPolicy.TryGetSummaryType(unitType, out int summaryType) &&
-                summaryType == LordControlGroupIconPolicy.EmptySummaryType),
-            "unsupported unit types remain part of the total but outside the visible class counts");
-
-        var categoryCounts = new int[LordControlGroupIconPolicy.SummaryTypeCount];
-        categoryCounts[8] = 5;
-        categoryCounts[2] = 7;
-        categoryCounts[4] = 7;
-        categoryCounts[1] = 3;
-        categoryCounts[20] = 1;
-        var visibleTypes = new int[LordControlGroupIconPolicy.VisibleSlotCount];
-        var visibleCounts = new int[LordControlGroupIconPolicy.VisibleSlotCount];
-        LordControlGroupIconPolicy.SelectVisibleSummary(categoryCounts, visibleTypes, visibleCounts);
-        Check(visibleTypes.SequenceEqual(new[] { 2, 4, 8, 1 }) &&
-              visibleCounts.SequenceEqual(new[] { 7, 7, 5, 3 }) &&
-              categoryCounts[2] == 7,
-            "Vanilla top-four ordering uses descending counts, lower-type ties, and no input mutation");
-
-        Array.Clear(categoryCounts, 0, categoryCounts.Length);
-        LordControlGroupIconPolicy.SelectVisibleSummary(categoryCounts, visibleTypes, visibleCounts);
-        Check(visibleTypes.All(type => type == LordControlGroupIconPolicy.EmptySummaryType) &&
-              visibleCounts.All(count => count == 0),
-            "empty summaries use Vanilla type 99 and zero counts in all four slots");
-
-        int[] lordOnlyTypes = { 0, 0, 0, 0 };
-        int[] lordOnlyCounts = { 1, 0, 0, 0 };
-        LordControlGroupIconPolicy.InsertLord(lordOnlyTypes, lordOnlyCounts);
-        Check(lordOnlyTypes[0] == LordControlGroupIconPolicy.LordVisualType &&
-              lordOnlyCounts.SequenceEqual(new[] { 1, 0, 0, 0 }) &&
-              LordControlGroupIconPolicy.CalculateExtraCount(1, lordOnlyCounts) == 0,
-            "Lord-only group replaces the internal Archer bridge without changing its count");
-
-        int[] mixedTypes = { 0, 4, 0, 0 };
-        int[] mixedCounts = { 6, 4, 0, 0 };
-        LordControlGroupIconPolicy.InsertLord(mixedTypes, mixedCounts);
-        Check(mixedTypes[0] == 0 && mixedCounts[0] == 5 &&
-              mixedTypes[2] == LordControlGroupIconPolicy.LordVisualType && mixedCounts[2] == 1 &&
-              LordControlGroupIconPolicy.CalculateExtraCount(10, mixedCounts) == 0,
-            "mixed Archer/Lord summary splits the Lord into a free visual slot");
-
-        int[] macemenTypes = { 4, 0, 0, 0 };
-        int[] macemenCounts = { 10, 1, 0, 0 };
-        LordControlGroupIconPolicy.InsertLord(macemenTypes, macemenCounts);
-        Check(macemenTypes[0] == 4 && macemenCounts[0] == 10 &&
-              macemenTypes[1] == LordControlGroupIconPolicy.LordVisualType && macemenCounts[1] == 1 &&
-              LordControlGroupIconPolicy.CalculateExtraCount(11, macemenCounts) == 0,
-            "fresh Lord and ten Macemen summary keeps both Vanilla counts visible");
-
-        int[] hiddenLordTypes = { 1, 2, 3, 4 };
-        int[] hiddenLordCounts = { 10, 9, 8, 7 };
-        LordControlGroupIconPolicy.InsertLord(hiddenLordTypes, hiddenLordCounts);
-        Check(hiddenLordTypes[3] == LordControlGroupIconPolicy.LordVisualType &&
-              hiddenLordCounts.SequenceEqual(new[] { 10, 9, 8, 1 }) &&
-              LordControlGroupIconPolicy.CalculateExtraCount(35, hiddenLordCounts) == 7,
-            "Lord hidden behind four larger classes takes the last slot and preserves displaced units in +N");
-
-        int[] fullMixedTypes = { 1, 2, 3, 0 };
-        int[] fullMixedCounts = { 10, 9, 8, 3 };
-        LordControlGroupIconPolicy.InsertLord(fullMixedTypes, fullMixedCounts);
-        Check(fullMixedTypes[3] == LordControlGroupIconPolicy.LordVisualType &&
-              fullMixedCounts.SequenceEqual(new[] { 10, 9, 8, 1 }) &&
-              LordControlGroupIconPolicy.CalculateExtraCount(30, fullMixedCounts) == 2,
-            "full mixed Archer/Lord summary keeps the dedicated Lord icon and moves Archers into +N");
     }
 
     private static void CheckDisbandCleanupPolicyAndWiring(string workspace)
@@ -658,39 +509,28 @@ internal static class Program
               !ControlGroupDisbandCleanupPolicy.ShouldClean(true, false),
             "disband cleanup respects both local switches");
 
-        int[] records =
-        {
-            7, 100,
-            -1, 0,
-            7, 200,
-            8, 300,
-            7, 100
-        };
-        Check(ControlGroupDisbandCleanupPolicy.RemoveUnit(records, 7) == 3,
-            "disband cleanup removes every membership for one unit ID");
-        Check(records[0] == -1 && records[4] == -1 && records[8] == -1 &&
-              records[1] == 100 && records[5] == 200 && records[6] == 8,
-            "disband cleanup invalidates only unit-ID fields and preserves other records");
-        Check(ControlGroupDisbandCleanupPolicy.RemoveUnit(records, 7) == 0 &&
-              ControlGroupDisbandCleanupPolicy.RemoveUnit(null, 7) == 0,
-            "disband cleanup is idempotent and rejects missing storage");
-
         string runtime = File.ReadAllText(Path.Combine(
             workspace, "BugfixesAndQoL", "src", "ControlGroupDisbandCleanupRuntime.cs"));
-        Check(runtime.IndexOf("detour.Original(unitManager, unitId, playSound)", StringComparison.Ordinal) <
-                   runtime.IndexOf("RemoveUnitFromAllGroups(unitId)", StringComparison.Ordinal) &&
+        int originalCall = runtime.IndexOf(
+            "detour.Original(unitManager, unitId, playSound)", StringComparison.Ordinal);
+        int sharedRemoval = runtime.IndexOf(
+            "unitHud.TryRemoveUnitFromControlGroups(", StringComparison.Ordinal);
+        Check(originalCall >= 0 && sharedRemoval > originalCall &&
               runtime.Contains("settings.EnableClientFeatures") &&
               runtime.Contains("settings.EnableDisbandedUnitControlGroupCleanup") &&
-              runtime.Contains("record[0] = -1;") &&
+              runtime.Contains("ApiShared.Current.TryGetUnitHudPresentation") &&
+              !runtime.Contains("ControlGroupStorage") &&
+              !runtime.Contains("record[0] = -1;") &&
               runtime.Contains("DetourHandle<DisbandUnitDelegate>") &&
               runtime.Contains("!commitResult.IsCompleteSuccess") &&
               runtime.Contains("DisbandCallRva") &&
               runtime.Contains("DisbandFunctionRva"),
-            "native cleanup calls Vanilla first, is locally gated, validates its target, and invalidates memberships");
+            "native cleanup calls Vanilla first, is locally gated, validates its target, and delegates membership mutation to APIShared");
 
         string viewModel = File.ReadAllText(Path.Combine(
             workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs"));
-        Check(viewModel.Contains("[Shared.PresetLocal]\r\n        public bool EnableDisbandedUnitControlGroupCleanup") &&
+        Check(viewModel.Contains("[Shared.PresetLocal]" + Environment.NewLine +
+              "        public bool EnableDisbandedUnitControlGroupCleanup") &&
               viewModel.Contains("EnableDisbandedUnitControlGroupCleanup = true;"),
             "disband cleanup setting is preset-local and enabled by default");
 
@@ -796,108 +636,43 @@ internal static class Program
 
         string troopPatch = File.ReadAllText(Path.Combine(
             modRoot, "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
-        Check(troopPatch.Contains("XPath=\"//n:Grid[@Name='TroopSelectionControls']\"") &&
-              troopPatch.Contains("x:Name=\"BugfixesAndQoLLordSelected\"") &&
-              troopPatch.Contains("Command=\"{Binding LeftClickSelectedTroopCommand}\"") &&
-              troopPatch.Contains("Command=\"{Binding RightClickSelectedTroopCommand}\"") &&
-              troopPatch.Contains("CommandParameter=\"CHIMP_TYPE_LORD\"") &&
-              troopPatch.Contains("bugfixes:TroopHudMiddleClickBehavior.IsEnabled=\"True\"") &&
-              troopPatch.Contains("<Trigger Property=\"IsMouseOver\" Value=\"True\">") &&
-              troopPatch.Contains("<Setter Property=\"Opacity\" Value=\"0.72\" />") &&
-              !troopPatch.Contains("ButtonTroopPanelMouseEnterCommand") &&
-              !troopPatch.Contains("ButtonTroopPanelMouseLeaveCommand") &&
-              troopPatch.Contains("local:PropEx.Sprite1=\"{StaticResource BugfixesAndQoL-LordIcon}\"") &&
-              !troopPatch.Contains("BugfixesAndQoLLordSelectionHost") &&
-              !troopPatch.Contains("BugfixesAndQoLLordHealthHost") &&
-              !troopPatch.Contains("LordHealthVisibility"),
-            "full troop HUD exposes one interactive Lord slot without compact or separate-health remnants");
+        Check(troopPatch.Contains("XPath=\"//n:Grid[@Name='TroopSelectionControls']//n:Button[@Command='{Binding LeftClickSelectedTroopCommand}']\"") &&
+              troopPatch.Contains("AttributeName=\"bugfixes:TroopHudMiddleClickBehavior.IsEnabled\"") &&
+              troopPatch.Contains("Value=\"True\"") &&
+              !troopPatch.Contains("BugfixesAndQoLLordSelected") &&
+              !troopPatch.Contains("CommandParameter=\"CHIMP_TYPE_LORD\"") &&
+              !troopPatch.Contains("BugfixesAndQoL-LordIcon"),
+            "the consumer patch augments Vanilla buttons without installing a private Lord presentation slot");
 
         string lordHudFeature = File.ReadAllText(Path.Combine(
             modRoot, "src", "LordUnitControlsFeature.cs"));
-        Check(lordHudFeature.IndexOf("setupSelectedTroopsOriginal(self);", StringComparison.Ordinal) <
-                  lordHudFeature.IndexOf("ApplyLordAwareLayout(self);", StringComparison.Ordinal) &&
-              lordHudFeature.Contains("panel.HideAllSelectedTroops();") &&
-              lordHudFeature.Contains("panel.ShowSelectedTroopsNumber(slot, selectedTypeCounts[type]);") &&
-              lordHudFeature.Contains("selectedTypeCounts[(int)eChimps.CHIMP_TYPE_LORD] = 1;") &&
-              lordHudFeature.Contains("Enums.eTextValues.BHELP_TEXT_SELECT_LORD") &&
-              lordHudFeature.Contains("lordSelectionButton.MouseEnter += OnLordSelectionMouseEnter;") &&
-              lordHudFeature.Contains("lordSelectionButton.MouseLeave += OnLordSelectionMouseLeave;") &&
-              lordHudFeature.Contains("ButtonTroopPanelMouseEnterHook(main, \"BugfixesAndQoLLordSelected\");") &&
-              lordHudFeature.Contains("troopPanelMouseLeaveMethod.Invoke(main, new object[] { null });") &&
-              lordHudFeature.IndexOf("if (!activeGameUi)", StringComparison.Ordinal) <
-                  lordHudFeature.IndexOf("MainViewModel main = MainViewModel.Instance;", StringComparison.Ordinal) &&
+        Check(lordHudFeature.Contains("shared troop presentation lives in APIShared") &&
+              lordHudFeature.Contains("ButtonUnitDisbandHook") &&
               lordHudFeature.Contains("LordDisbandAction.RejectUnsafeMixedSelection") &&
-              !lordHudFeature.Contains("CompactFrame") &&
-              !lordHudFeature.Contains("ApplyCompactHud"),
-            "Lord HUD hook preserves Vanilla first, shares slot counts, routes disband, and contains no compact layout");
+              !lordHudFeature.Contains("SetupSelectedTroops") &&
+              !lordHudFeature.Contains("ApplyLordAwareLayout") &&
+              !lordHudFeature.Contains("ShowSelectedTroopsNumber"),
+            "the consumer retains Lord-specific actions without a private troop-presentation hook");
 
-        string groupPatch = File.ReadAllText(Path.Combine(
-            modRoot, "Patches", "Assets", "GUI", "XAMLResources", "HUD_ControlGroups.xaml"));
-        Check(groupPatch.Contains("x:Name=\"BugfixesAndQoLLordControlGroupIconSource\"") &&
-              groupPatch.Contains("Source=\"{StaticResource BugfixesAndQoL-LordIcon}\""),
-            "control-group HUD exposes the resolved Lord ImageSource to the managed hook");
-
-        string iconFeature = File.ReadAllText(Path.Combine(
-            modRoot, "src", "LordControlGroupIconFeature.cs"));
-        int rebuildStart = iconFeature.IndexOf("private bool RebuildVanillaSummary()", StringComparison.Ordinal);
-        int rebuildEnd = iconFeature.IndexOf("private void ReportCallbackError", rebuildStart, StringComparison.Ordinal);
-        string rebuildFeature = rebuildStart >= 0 && rebuildEnd > rebuildStart
-            ? iconFeature.Substring(rebuildStart, rebuildEnd - rebuildStart)
-            : string.Empty;
-        string vanillaEngineInterface = File.ReadAllText(Path.Combine(
-            workspace, "_inspect", "AssemblyCSharp", "EngineInterface.cs"));
-        Check(vanillaEngineInterface.Contains("if (source.control_groups_total[0] < 0)") &&
-              vanillaEngineInterface.Contains("playState.control_groups_total = new short[1];") &&
-              vanillaEngineInterface.Contains("playState.control_groups_total = new short[40];") &&
-              vanillaEngineInterface.Contains("playState.control_groups_type = new byte[40];") &&
-              vanillaEngineInterface.Contains("playState.control_groups_count = new short[40];"),
-            "Vanilla managed conversion uses a one-entry sentinel outside troop mode and 40-entry group arrays inside it");
-        Check(iconFeature.Contains("BindingFlags.Instance | BindingFlags.NonPublic") &&
-              iconFeature.Contains("BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic") &&
-              iconFeature.Contains("RequirePrivateField(\"RefTroopImages\"") &&
-              iconFeature.Contains("RequirePrivateField(\"RefTroopValues\"") &&
-              iconFeature.Contains("RequirePrivateField(\"RefTroopExtraValues\"") &&
-              iconFeature.Contains("typeof(EngineInterface)") &&
-              iconFeature.Contains("\"GameAction\"") &&
-              !iconFeature.Contains("panel.RefTroop"),
-            "control-group UI hook validates Vanilla's HUD members and central key GameAction boundary");
-        Check(iconFeature.IndexOf("RebuildVanillaSummary();", StringComparison.Ordinal) <
-                  iconFeature.IndexOf("populateOriginal(self);", StringComparison.Ordinal) &&
-              iconFeature.IndexOf("populateOriginal(self);", StringComparison.Ordinal) <
-                   iconFeature.IndexOf("ApplyLordIcons(self);", StringComparison.Ordinal) &&
-              iconFeature.Split(new[] { "populateOriginal(self);" }, StringSplitOptions.None).Length == 2 &&
-              iconFeature.Contains("active = false;") && iconFeature.Contains("!active"),
-            "control-group UI hook rebuilds before Vanilla, decorates after Vanilla, and gates partial teardown");
-        Check(iconFeature.Contains("keyGameActionOriginal(command, value1, value2, value3);") &&
-              iconFeature.Split(
-                  new[] { "keyGameActionOriginal(command, value1, value2, value3);" },
-                  StringSplitOptions.None).Length == 2 &&
-              iconFeature.Contains("Enums.KeyFunctions.GroupTroops0") &&
-              iconFeature.Contains("Enums.KeyFunctions.GroupTroops9") &&
-              iconFeature.IndexOf("keyGameActionOriginal(command, value1, value2, value3);", StringComparison.Ordinal) <
-                  iconFeature.IndexOf("panel.Update();", StringComparison.Ordinal) &&
-              iconFeature.Contains("main.Show_HUD_ControlGroups") &&
-              iconFeature.Contains("TryDisposeHook(ref keyGameActionHook"),
-            "central Vanilla group commands run once before an immediate open-panel refresh and teardown cleanly");
-        Check(iconFeature.Contains("ControlGroupNativeDefinition.ControlGroupCapacity") &&
-              iconFeature.Contains("unitManager.TryGetUnitById(unitId, out GameUnit* unit)") &&
-              iconFeature.Contains("(int)unit->r_GlobalId != globalId") &&
-              iconFeature.Contains("TryGetSummaryType((int)unit->r_UnitChimp") &&
-              iconFeature.Contains("SelectVisibleSummary(") &&
-              iconFeature.Contains("private const int ManagedSummaryArrayLength = 40;") &&
-              iconFeature.Contains("var totals = new short[ManagedSummaryArrayLength]") &&
-              iconFeature.Contains("var types = new byte[ManagedSummaryArrayLength]") &&
-              iconFeature.Contains("var counts = new short[ManagedSummaryArrayLength]") &&
-              iconFeature.IndexOf("state.control_groups_total = totals;", StringComparison.Ordinal) >
-                  iconFeature.IndexOf("SelectVisibleSummary(", StringComparison.Ordinal) &&
-              iconFeature.Contains("state.control_groups_type = types;") &&
-              iconFeature.Contains("state.control_groups_count = counts;") &&
-              !rebuildFeature.Contains("state?.control_groups_total == null") &&
-              iconFeature.Contains("unitId == lordUnitId && globalId == lordGlobalId") &&
-              iconFeature.Contains("groupContainsControlledLord[group]") &&
-              iconFeature.Contains("types[slot] = state.control_groups_type[summaryOffset + slot]") &&
-              iconFeature.Contains("counts[slot] = state.control_groups_count[summaryOffset + slot]"),
-            "control-group UI replaces the sole-Lord sentinel transactionally from validated native records and only decorates the Lord");
+        string registration = File.ReadAllText(Path.Combine(
+            modRoot, "src", "LordUnitHudRegistration.cs"));
+        Check(registration.Contains("ApiShared.WhenReady(Register)") &&
+              registration.Contains("TryGetUnitHudPresentation") &&
+              registration.Contains("TryRegisterCategory") &&
+              registration.Contains("TryRegisterInteraction") &&
+              registration.Contains("TryRegisterImageOverride") &&
+              registration.Contains("capability.RequestRefresh()"),
+            "Lord HUD and control-group presentation must be registered through APIShared");
+        string sharedTroopPatch = File.ReadAllText(Path.Combine(
+            workspace, "APIShared", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
+        Check(sharedTroopPatch.Contains("APISharedUnitHudCategoryHost") &&
+              Enumerable.Range(1, 8).All(slot => sharedTroopPatch.Contains("APISharedUnitHudSlot" + slot)),
+            "APIShared owns the common eight-slot troop-presentation host");
+        Check(!File.Exists(Path.Combine(
+                  modRoot, "src", "LordControlGroupIconFeature.cs")) &&
+              !File.Exists(Path.Combine(
+                  modRoot, "Patches", "Assets", "GUI", "XAMLResources", "HUD_ControlGroups.xaml")),
+            "the obsolete local control-group HUD hook and patch must remain removed");
     }
 
     private static void CheckLordControlGroupTransactionModel(byte[] canonicalImage)
@@ -914,11 +689,7 @@ internal static class Program
             new BytePatch(
                 LordControlGroupNativeDefinition.ReplaceLordBranchRva,
                 replaceOriginal,
-                bypass),
-            new BytePatch(
-                LordControlGroupNativeDefinition.LordSummaryEntryRva,
-                new[] { LordControlGroupNativeDefinition.VanillaUnmappedSummaryClass },
-                new[] { LordControlGroupNativeDefinition.EuropeanArcherSummaryClass })
+                bypass)
         };
 
         byte[] applied = (byte[])canonicalImage.Clone();
@@ -1094,15 +865,13 @@ internal static class Program
             "Lord control-group unknown-hash gate");
         Check(lordControlGroups.Contains("addBranch.ValidateOriginal()") &&
               lordControlGroups.Contains("replaceBranch.ValidateOriginal()") &&
-              lordControlGroups.Contains("lordSummaryEntry.ValidateOriginal()") &&
-              lordControlGroups.IndexOf("lordSummaryEntry.ValidateOriginal()", StringComparison.Ordinal) <
+              lordControlGroups.IndexOf("replaceBranch.ValidateOriginal()", StringComparison.Ordinal) <
                   lordControlGroups.IndexOf("addBranch.Apply()", StringComparison.Ordinal),
-            "Lord control-group transaction validates all three sites before applying any site");
-        Check(lordControlGroups.Contains("RestoreSite(lordSummaryEntry") &&
-              lordControlGroups.Contains("RestoreSite(replaceBranch") &&
+            "Lord control-group transaction validates both remaining classifier sites before applying either site");
+        Check(lordControlGroups.Contains("RestoreSite(replaceBranch") &&
               lordControlGroups.Contains("RestoreSite(addBranch") &&
               lordControlGroups.Contains("applied = CurrentBytesMatch(replacement)"),
-            "Lord control-group transaction rolls back all sites in reverse order, including late write failures");
+            "Lord control-group transaction rolls back both classifier sites in reverse order, including late write failures");
         Check(runtime.Contains("settings.EnableMod && settings.EnableLordUnitControls") &&
               runtime.Contains("DisableLordControlGroupNativePatch()"),
             "Lord control-group patch follows the existing synchronized Lord-control setting reversibly");

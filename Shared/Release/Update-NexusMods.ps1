@@ -11,8 +11,10 @@ $NexusTargets = @(
     [PSCustomObject]@{ ModName='BuildingLimit'; NexusPageId='223'; NexusFileName='Building Limit'; AllowWrongTwoCorrection=$false },
     [PSCustomObject]@{ ModName='UnitCosts'; NexusPageId='224'; NexusFileName='Unit Costs'; AllowWrongTwoCorrection=$false },
     [PSCustomObject]@{ ModName='UnitLimit'; NexusPageId='225'; NexusFileName='Unit Limit'; AllowWrongTwoCorrection=$false },
-    [PSCustomObject]@{ ModName='BugfixesAndQoL'; NexusPageId='226'; NexusFileName='Bugfixes and QoL'; AllowWrongTwoCorrection=$true },
-    [PSCustomObject]@{ ModName='ExtraFeatures'; NexusPageId='226'; NexusFileName='Extra Features'; AllowWrongTwoCorrection=$true }
+    [PSCustomObject]@{ ModName='BugfixesAndQoL'; Artifact='Thin'; NexusPageId='226'; NexusFileName='Bugfixes and QoL'; AllowWrongTwoCorrection=$true },
+    [PSCustomObject]@{ ModName='BugfixesAndQoL'; Artifact='Bundle'; NexusPageId='226'; NexusFileName='Bugfixes and QoL - APIShared Bundle'; AllowWrongTwoCorrection=$false },
+    [PSCustomObject]@{ ModName='ExtraFeatures'; Artifact='Thin'; NexusPageId='226'; NexusFileName='Extra Features'; AllowWrongTwoCorrection=$true },
+    [PSCustomObject]@{ ModName='ExtraFeatures'; Artifact='Bundle'; NexusPageId='226'; NexusFileName='Extra Features - APIShared Bundle'; AllowWrongTwoCorrection=$false }
 )
 
 . (Join-Path $PSScriptRoot 'NexusRelease.Common.ps1')
@@ -37,7 +39,8 @@ try {
     $plans = [System.Collections.Generic.List[object]]::new()
 
     foreach ($target in $NexusTargets) {
-        $release = Get-LatestNexusLocalRelease -Root $root -ModName $target.ModName
+        $artifact = if ($null -ne $target.PSObject.Properties['Artifact']) { [string]$target.Artifact } else { 'Thin' }
+        $release = Get-LatestNexusLocalRelease -Root $root -ModName $target.ModName -Artifact $artifact
         $validated = Test-NexusLocalRelease -Release $release
         try {
             $changelog = Get-NexusReleaseChangelog -Release $release
@@ -64,7 +67,7 @@ try {
 
     $summary = @($plans | ForEach-Object {
         [PSCustomObject]@{
-            Mod=$_.Target.ModName
+            Mod="$($_.Target.ModName) [$($_.Release.Artifact)]"
             Lokal=$_.Release.Version
             Nexus=[string]$_.Decision.Current.version
             Aktion=$(switch ($_.Decision.Action) { 'Update' { 'UPDATE' } 'Correct' { 'KORREKTUR' } default { 'UEBERSPRUNGEN' } })

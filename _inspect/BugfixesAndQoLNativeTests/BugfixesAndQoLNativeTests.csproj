@@ -24,7 +24,6 @@
     <Compile Include="..\..\BugfixesAndQoL\src\ControlGroupDisbandCleanupPolicy.cs"><Link>ControlGroupDisbandCleanupPolicy.cs</Link></Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\ControlGroupNativeDefinition.cs"><Link>ControlGroupNativeDefinition.cs</Link></Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\LordControlGroupNativeDefinition.cs"><Link>LordControlGroupNativeDefinition.cs</Link></Compile>
-    <Compile Include="..\..\BugfixesAndQoL\src\LordControlGroupIconPolicy.cs"><Link>LordControlGroupIconPolicy.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

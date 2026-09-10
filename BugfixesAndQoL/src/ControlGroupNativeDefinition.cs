@@ -6,17 +6,6 @@ namespace BugfixesAndQoL
         public const string ReferenceSha256 =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
 
-        public const int ControlGroupStoragePatternRva = 0x186338;
-        public const string ControlGroupStoragePattern =
-            "48 8D 1D ? ? ? ? 48 8B F8 48 8B E9 48 8D 05 ? ? ? ? " +
-            "BE 0A 00 00 00 45 33 F6";
-        public const int ControlGroupStorageDisplacementOffset = 0x10;
-        public const int ControlGroupStorageNextInstructionOffset = 0x14;
-        public const int ControlGroupStorageRva = 0x36D78D0;
-        public const int ControlGroupCount = 10;
-        public const int ControlGroupCapacity = 10000;
-        public const int ControlGroupRecordIntCount = 2;
-
         public const int DisbandDispatcherRva = 0x1219BA;
         public const string DisbandDispatcherInstructions =
             "0F BF 84 18 E6 06 00 00 83 C0 FB 83 F8 50 0F 87 F6 00 00 00 " +

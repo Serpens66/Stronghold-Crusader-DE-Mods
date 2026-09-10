@@ -1,5 +1,6 @@
 // Remove a unit from local control groups immediately after Vanilla processes its disband.
 using BepInEx.Logging;
+using APIShared;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -16,7 +17,7 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly int* controlGroupRecords;
+        private readonly IUnitHudPresentationCapability unitHud;
         private HookTransaction transaction;
         private readonly DetourHandle<DisbandUnitDelegate> detour =
             new DetourHandle<DisbandUnitDelegate>();
@@ -41,20 +42,16 @@ namespace BugfixesAndQoL
             if (!referenceHashMatches)
                 throw new InvalidOperationException("The loaded CrusaderDE.dll does not match the audited native baseline.");
 
-            int storagePatternRva = ResolveUniquePattern(
-                memory,
-                ControlGroupNativeDefinition.ControlGroupStoragePattern,
-                ControlGroupNativeDefinition.ControlGroupStoragePatternRva,
-                "control-group storage reference");
-            int storageRva = checked(
-                storagePatternRva + ControlGroupNativeDefinition.ControlGroupStorageNextInstructionOffset +
-                Shared.NativePatternResolver.ReadInt32(
-                    memory,
-                    storagePatternRva + ControlGroupNativeDefinition.ControlGroupStorageDisplacementOffset));
-            ValidateStorage(memory.Length, storageRva);
             int disbandFunctionRva = ValidateDisbandTarget(memory);
+            if (!ApiShared.Current.TryGetUnitHudPresentation(
+                    BugfixesAndQoLPlugin.PluginGuid,
+                    out unitHud,
+                    out NativeCapabilityDiagnostic diagnostic))
+            {
+                throw new InvalidOperationException(
+                    "APIShared Unit HUD control-group access is unavailable: " + diagnostic?.Reason);
+            }
 
-            controlGroupRecords = (int*)(libraryBase + unchecked((ulong)storageRva));
             try
             {
                 transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
@@ -92,7 +89,14 @@ namespace BugfixesAndQoL
 
             try
             {
-                RemoveUnitFromAllGroups(unitId);
+                if (!unitHud.TryRemoveUnitFromControlGroups(
+                        unitId,
+                        out _,
+                        out NativeCapabilityDiagnostic diagnostic))
+                {
+                    throw new InvalidOperationException(diagnostic?.Reason ??
+                        "APIShared rejected the control-group cleanup.");
+                }
             }
             catch (Exception ex)
             {
@@ -105,26 +109,6 @@ namespace BugfixesAndQoL
                 }
             }
             return result;
-        }
-
-        private void RemoveUnitFromAllGroups(int unitId)
-        {
-            if (unitId < 0)
-                return;
-
-            int recordsPerGroup = checked(
-                ControlGroupNativeDefinition.ControlGroupCapacity *
-                ControlGroupNativeDefinition.ControlGroupRecordIntCount);
-            for (int group = 0; group < ControlGroupNativeDefinition.ControlGroupCount; group++)
-            {
-                int* records = controlGroupRecords + checked(group * recordsPerGroup);
-                for (int index = 0; index < ControlGroupNativeDefinition.ControlGroupCapacity; index++)
-                {
-                    int* record = records + index * ControlGroupNativeDefinition.ControlGroupRecordIntCount;
-                    if (record[0] == unitId)
-                        record[0] = -1;
-                }
-            }
         }
 
         private static int ValidateDisbandTarget(ReadOnlySpan<byte> memory)
@@ -151,20 +135,6 @@ namespace BugfixesAndQoL
                     $"The UIT_DISBAND call targets RVA 0x{targetRva:X}, expected RVA 0x{ControlGroupNativeDefinition.DisbandFunctionRva:X}.");
             }
             return targetRva;
-        }
-
-        private static void ValidateStorage(int imageLength, int storageRva)
-        {
-            long byteLength = checked(
-                (long)ControlGroupNativeDefinition.ControlGroupCount *
-                ControlGroupNativeDefinition.ControlGroupCapacity *
-                ControlGroupNativeDefinition.ControlGroupRecordIntCount * sizeof(int));
-            if (storageRva != ControlGroupNativeDefinition.ControlGroupStorageRva ||
-                storageRva < 0 || (long)storageRva + byteLength > imageLength)
-            {
-                throw new InvalidOperationException(
-                    $"The control-group storage differs from the audited layout: RVA 0x{storageRva:X}.");
-            }
         }
 
         private static int ResolveUniquePattern(

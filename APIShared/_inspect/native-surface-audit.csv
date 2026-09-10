@@ -1,12 +1,13 @@
 TargetGroup,ReferenceRva,Consumers,Mechanism,Overlap,Classification,Notes
 GatehouseDistanceOrigin,0xB73D0 function|[0xB7B70;0xB7BBB),BugfixesAndQoL,FixedHashByteTransaction,Exclusive 75-byte interval on shared 4 KiB page,APIShared,Production consumer migrated
 GatehouseTiming,0xB73D0 function|0xB7BC3|0xB7BCA|0xB7BD3|0xB7C35,ExtraFeatures,FixedHashImmediateTransaction,Four exclusive intervals on shared 4 KiB page,APIShared,Local ExtraFeatures patch removed
-UnitHudPresentation,Managed HUD methods,BugfixesAndQoL|Testmods/SkinTest|Testmods/VirtualUnitsPrototype,Managed hook broker,Identical managed entrypoints,APIShared,Three consumers migrated
+UnitHudPresentation,Managed HUD methods|0x36D78D0 control-group storage,BugfixesAndQoL|Testmods/SkinTest|Testmods/VirtualUnitsPrototype,Managed hook and typed mutation broker,Identical managed entrypoints and single native storage owner,APIShared,Three presentation consumers migrated; Bugfixes delegates control-group removal
 SelectedUnitCommand,SHCDESE OnTribeIssueOrderWithTarget,BugfixesAndQoL|Testmods,Script Extender event,No API-owned target,ScriptExtender2.4,Removed redundant API broker
 PathComponentGrid,GamePathingManagerAPI,RandomEvents|ImprovedHunters,Public Script Extender API,Correct 320800-element native view,ScriptExtender2.4,All consumers must guard span length
 PathConnectionRecords,GamePathingManagerAPI,ExtraFeatures|Testmods,Public Script Extender API,PathConnectionRecord replaces GameGatehouseEntry,ScriptExtender2.4,Do not add APIShared wrapper
 GatePathfinding,GamePathingManagerAPI,ExtraFeatures|Testmods/EnemyGatePathfindingTest,Public Script Extender API,Connection and route APIs are public,ScriptExtender2.4,Removed from API candidate list
-AivPlacement,0x53D00|0x54DE0|0x54F60,CastlePlanner|Helpers/ActiveAIVDetector,Native detours,Confirmed identical targets,FutureAPIShared,Do not co-load before one broker owns these targets
+AivBuildStep,0x51790,ExtraFeatures|Helpers/ActiveAIVDetector,Permanent native detour and immutable observer broker,Confirmed identical production target,APIShared,Only APIShared detours; Begin order is deterministic and Complete unwinds in reverse
+AivCallableBindings,0x53D00|0x54DE0|0x54F60,CastlePlanner,Marshal delegate bindings,No detours or shared hook ownership,ModLocal,Earlier overlap report corrected; ActiveAIVDetector hooks some related functions but CastlePlanner only calls them
 HunterState7Writer,0x12FEC1,Helpers/HunterQueryTargetDiagnostic,Context observer,No identical ImprovedHunters target,ModLocal,Diagnostic remains separate
 TroopMovement,Local catalogs,BugfixesAndQoL|ExtraFeatures,Native and managed integration,No identical entrypoint proven,ModLocal,Re-audit before proposing a broker
 Recruitment,Local catalogs,UnitCosts|UnitLimit,Hooks and policy,No current exact-target proof,ModLocal,Keep policy local

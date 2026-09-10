@@ -17,7 +17,8 @@ namespace SerpsModsHost
                 HostVersion = ReadString(root, "HostVersion"),
                 CreatedUtc = ReadString(root, "CreatedUtc"),
                 RepositoryCommit = ReadString(root, "RepositoryCommit"),
-                Mods = ReadMods(root)
+                Infrastructure = ReadRecords(root, "Infrastructure"),
+                Mods = ReadRecords(root, "Mods")
             };
         }
 
@@ -39,16 +40,16 @@ namespace SerpsModsHost
             secondValue = ReadString(root, secondPropertyName);
         }
 
-        private static List<PackModRecord> ReadMods(Dictionary<string, object> root)
+        private static List<PackModRecord> ReadRecords(Dictionary<string, object> root, string propertyName)
         {
-            if (!TryGet(root, "Mods", out object value) || value == null)
+            if (!TryGet(root, propertyName, out object value) || value == null)
                 return new List<PackModRecord>();
 
-            List<object> values = RequireArray(value, "Mods");
+            List<object> values = RequireArray(value, propertyName);
             var mods = new List<PackModRecord>(values.Count);
             for (int index = 0; index < values.Count; index++)
             {
-                Dictionary<string, object> mod = RequireObject(values[index], $"Mods[{index}]");
+                Dictionary<string, object> mod = RequireObject(values[index], $"{propertyName}[{index}]");
                 mods.Add(new PackModRecord
                 {
                     Name = ReadString(mod, "Name"),
@@ -61,22 +62,25 @@ namespace SerpsModsHost
                     SourceCommit = ReadString(mod, "SourceCommit"),
                     PackageSha256 = ReadString(mod, "PackageSha256"),
                     ExpectedSoftDependency = ReadString(mod, "ExpectedSoftDependency"),
-                    Files = ReadFiles(mod, index)
+                    Files = ReadFiles(mod, propertyName, index)
                 });
             }
             return mods;
         }
 
-        private static List<PackFileRecord> ReadFiles(Dictionary<string, object> mod, int modIndex)
+        private static List<PackFileRecord> ReadFiles(
+            Dictionary<string, object> mod,
+            string propertyName,
+            int modIndex)
         {
             if (!TryGet(mod, "Files", out object value) || value == null)
                 return new List<PackFileRecord>();
 
-            List<object> values = RequireArray(value, $"Mods[{modIndex}].Files");
+            List<object> values = RequireArray(value, $"{propertyName}[{modIndex}].Files");
             var files = new List<PackFileRecord>(values.Count);
             for (int index = 0; index < values.Count; index++)
             {
-                Dictionary<string, object> file = RequireObject(values[index], $"Mods[{modIndex}].Files[{index}]");
+                Dictionary<string, object> file = RequireObject(values[index], $"{propertyName}[{modIndex}].Files[{index}]");
                 files.Add(new PackFileRecord
                 {
                     Path = ReadString(file, "Path"),

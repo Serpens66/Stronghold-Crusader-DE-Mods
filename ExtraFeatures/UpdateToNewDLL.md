@@ -63,7 +63,7 @@ rollback and protection/cache-cleanup failures with a fake native-memory adapter
 
 | Source pattern | Reference RVA | Unknown-hash behavior / use |
 | --- | ---: | --- |
-| `ExecuteBuildStepPattern` | `0x51790` | audited-hash-only defense rebuild detour |
+| APIShared `AivBuildStep` target | `0x51790` | audited-hash-only shared detour; ExtraFeatures registers an immutable observer |
 | `PlacementPattern` | `0x5CD90` | audited-hash-only paired AIV placement detour |
 | AI buy-price helper (`49 63 C0 8B 8C C1 B8 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB10` | executable-section unique scan; managed function detour |
 | AI sell-price helper (`49 63 C0 8B 8C C1 BC 17 18 00 B8 67 66 66 66 F7 E9 D1 FA 8B C2 C1 E8 1F 03 C2 41 0F AF C1 C3`) | `0xCEB90` | executable-section unique scan; managed function detour |
@@ -228,9 +228,9 @@ The 2026-08-24 finished-castle trace disproved `0x52270` as the ongoing path
 for that game mode: the temporary hook received zero calls while later tower
 placement and rebuilds were observed. The dispatcher at `0x539B0` calls
 `0x52270` only when the current AIV entry field at `+0x14` is zero. Otherwise
-it iterates frames through `ExecuteBuildStep` at `0x51790`. Production code
-therefore hooks only `0x51790` and its synchronous placement helper at
-`0x5CD90`; the obsolete `0x52270` observer has been removed.
+it iterates frames through `ExecuteBuildStep` at `0x51790`. APIShared now owns
+the single `0x51790` detour, while ExtraFeatures keeps only its synchronous
+placement-helper detour at `0x5CD90`; the obsolete `0x52270` observer has been removed.
 
 The live trace also established that a permanently obstructed tower target is
 not discarded. It was retried 49 times with a median interval of 2690 ticks
@@ -247,18 +247,16 @@ and prepared-frame-status interpretation while still separating an AIV part
 that never fit from a genuine post-success retry. Short-lived damage-event
 identity is used only to anchor a later rebuild delay to the last confirmed hit.
 
-Both production detours use the same PolyHook2.NET managed-function hook type
-already live tested by ActiveAIVDetector. Its six-byte minimum covers complete
-prologue instructions: `0x51790..0x51797` is `2+1+1+1+2=7` bytes and
-`0x5CD90..0x5CD9A` is `5+5=10` bytes. The following instructions begin exactly
-at `0x51797` and `0x5CD9A`; neither span splits an instruction.
-Recheck direct incoming targets and any new detour overlap before accepting a
-future DLL.
+APIShared validates the complete `0x51790..0x52266` function and installs the
+permanent RedBird detour. ExtraFeatures validates and detours only
+`0x5CD90..0x5D1C5`; its prologue begins with two five-byte instructions and
+therefore has a complete ten-byte boundary at `0x5CD9A`. Recheck direct incoming
+targets and any new detour overlap before accepting a future DLL.
 
 Target-coordinate resolution reads the audited process-state origin fields
 at placement-state offsets `0x204E760` and `0x204E764`. Those fixed offsets are
-not proven by the function signatures. Consequently both native rebuild hooks
-are disabled together on an unknown DLL hash, while the independent
+not proven by the function signatures. Consequently the shared build-step
+capability and local placement helper are disabled on an unknown DLL hash, while the independent
 managed repair-radius behavior remains available. For a new DLL, revalidate
 the `ExecuteBuildStep` ABI `(aivState, playerId, frameIndex, restrictedMode,
 freeOrForced)`, the frame bound `0x922`, both origin fields, and the placement

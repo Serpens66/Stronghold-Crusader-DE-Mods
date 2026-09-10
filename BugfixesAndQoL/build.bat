@@ -39,6 +39,10 @@ if exist "%LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT%\SHCDESE.dll" (
 ) else goto build_failed
 
 pushd "%PROJECT_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLNativeTests\BugfixesAndQoLNativeTests.csproj" /p:Configuration=Release
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\BugfixesAndQoLNativeTests\bin\BugfixesAndQoLNativeTests.exe"
+if errorlevel 1 goto build_failed_popd
 "%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe"

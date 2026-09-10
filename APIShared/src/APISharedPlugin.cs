@@ -17,7 +17,7 @@ namespace APIShared
         /// <summary>Display name of the API plugin.</summary>
         public const string PluginName = "APIShared";
         /// <summary>Current API plugin version.</summary>
-        public const string PluginVersion = "0.2.1";
+        public const string PluginVersion = "0.3.0";
 
         private void Awake()
         {
@@ -44,7 +44,9 @@ namespace APIShared
                 context.Memory,
                 hash,
                 new ProcessNativeMemory(),
-                Logger);
+                Logger,
+                nativeRegion: context.Region,
+                installAivBuildStep: true);
         }
 
         private static string ComputeInstalledHash()

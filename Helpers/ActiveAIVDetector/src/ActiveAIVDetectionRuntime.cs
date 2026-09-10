@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using APIShared;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using R3;
@@ -173,6 +174,31 @@ namespace ActiveAIVDetector
                 throw new InvalidOperationException(
                     $"The active-AIV hook set was not installed atomically: {commitResult}.");
             placementOracle.ValidateHooks();
+
+            if (prebuildTraceOptions.Enabled)
+            {
+                NativeCapabilityDiagnostic diagnostic;
+                if (!ApiShared.Current.TryGetAivBuildStep(
+                        ActiveAIVDetectorPlugin.PluginGuid,
+                        out IAivBuildStepCapability capability,
+                        out diagnostic) ||
+                    !capability.TryRegisterObserver(
+                        "oracle-prebuild-trace",
+                        placementOracle,
+                        out diagnostic))
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "Oracle prebuild trace is disabled because APIShared AIV build-step " +
+                        $"registration failed: {diagnostic?.Reason ?? "unknown failure"}");
+                }
+                else
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        "Oracle prebuild trace registered through APIShared; no local ExecuteBuildStep detour was installed.");
+                }
+            }
 
             // From this point the validator detour is process-global and must be shared even if
             // a later lifecycle subscription unexpectedly fails.
@@ -603,7 +629,7 @@ namespace ActiveAIVDetector
 
                 using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
                 {
-                    writer.NewLine = "\r\n";
+                    writer.NewLine = Environment.NewLine;
                     writer.WriteLine($"# capturedAtLocal={trace.CapturedAtLocal:O}");
                     writer.WriteLine($"# mapName={currentMapName}");
                     writer.WriteLine($"# mapFile={currentMapFileName}");
@@ -735,7 +761,7 @@ namespace ActiveAIVDetector
 
                 using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
                 {
-                    writer.NewLine = "\r\n";
+                    writer.NewLine = Environment.NewLine;
                     writer.WriteLine($"# capturedAtLocal={trace.CapturedAtLocal:O}");
                     writer.WriteLine($"# mapName={currentMapName}");
                     writer.WriteLine($"# mapFile={currentMapFileName}");
@@ -846,7 +872,7 @@ namespace ActiveAIVDetector
 
                 using (var writer = new StreamWriter(path, false, new UTF8Encoding(false)))
                 {
-                    writer.NewLine = "\r\n";
+                    writer.NewLine = Environment.NewLine;
                     writer.WriteLine($"# capturedAtLocal={first.StartedAtLocal:O}");
                     writer.WriteLine($"# mapLoadSequence={mapLoadSequence}");
                     writer.WriteLine($"# mapName={currentMapName}");

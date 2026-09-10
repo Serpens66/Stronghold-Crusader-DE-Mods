@@ -621,9 +621,10 @@ function Get-NextPatchVersion {
 }
 
 function Get-HostContentSignature {
-    param([object[]]$Mods, [object[]]$RetiredMods = @())
+    param([object[]]$Mods, [object[]]$RetiredMods = @(), [AllowNull()]$Infrastructure)
     $lines = [Collections.Generic.List[string]]::new()
     foreach ($mod in @($Mods | Sort-Object PluginGuid)) { $lines.Add("MOD|$($mod.PluginGuid)|$($mod.TargetVersion)|$($mod.Package.Sha256)") }
+    if ($null -ne $Infrastructure) { $lines.Add("INFRA|$($Infrastructure.Guid)|$($Infrastructure.Version)|$($Infrastructure.DirectorySha256)") }
     foreach ($mod in @($RetiredMods | Sort-Object Guid)) { $lines.Add("RETIRED|$($mod.Guid)|$($mod.Version)|$($mod.TombstoneSha256)") }
     $hostRoot = Join-Path $script:Root 'SerpsModsHost'
     $files = @(Get-ChildItem -LiteralPath $hostRoot -Recurse -File | Where-Object {
@@ -862,6 +863,30 @@ try {
 
     $releaseConfigPath = Join-Path $script:Root 'Shared\Release\release-projects.json'
     $releaseConfig = Get-Content -LiteralPath $releaseConfigPath -Raw | ConvertFrom-Json
+    if ($null -eq $releaseConfig.ApiShared) { Fail-Pack 3 'Release configuration lacks the required APIShared infrastructure metadata.' }
+    $apiSharedDirectory = Join-Path $script:Root "$([string]$releaseConfig.ApiShared.Project)\BepInEx\plugins\$([string]$releaseConfig.ApiShared.Guid)"
+    $apiSharedInfoPath = Join-Path $apiSharedDirectory 'info.json'
+    $apiSharedDllPath = Join-Path $apiSharedDirectory 'APIShared.dll'
+    if (-not (Test-Path -LiteralPath $apiSharedInfoPath -PathType Leaf) -or -not (Test-Path -LiteralPath $apiSharedDllPath -PathType Leaf)) {
+        Fail-Pack 3 "APIShared infrastructure package is incomplete: $apiSharedDirectory"
+    }
+    $apiSharedInfo = Get-Content -LiteralPath $apiSharedInfoPath -Raw | ConvertFrom-Json
+    if ([string]$apiSharedInfo.GUID -cne [string]$releaseConfig.ApiShared.Guid -or
+        [string]$apiSharedInfo.Version -cne [string]$releaseConfig.ApiShared.Version) {
+        Fail-Pack 3 "APIShared infrastructure identity differs from the pinned release configuration."
+    }
+    $apiSharedAssembly = Get-CecilPluginMetadata -Directory $apiSharedDirectory
+    if ($apiSharedAssembly.Guid -cne [string]$releaseConfig.ApiShared.Guid -or
+        $apiSharedAssembly.Version -cne [string]$releaseConfig.ApiShared.Version) {
+        Fail-Pack 3 "Built APIShared infrastructure DLL differs from the pinned v$([string]$releaseConfig.ApiShared.Version)."
+    }
+    $apiSharedInfrastructure = [pscustomobject]@{
+        Name = [string]$apiSharedInfo.Name
+        Guid = [string]$apiSharedInfo.GUID
+        Version = [string]$apiSharedInfo.Version
+        Directory = $apiSharedDirectory
+        DirectorySha256 = Get-DirectorySignature $apiSharedDirectory
+    }
     $releaseResult = Invoke-Checked -FilePath 'gh' -Arguments @('release','list','--repo',$script:Repository,'--limit','1000','--json','tagName,isDraft,publishedAt') -FailureCode 2
     $parsedReleases = ($releaseResult.Output -join "`n") | ConvertFrom-Json
     $script:ReleaseList = @()
@@ -977,7 +1002,7 @@ try {
         if ($null -eq $mod.Package) { $mod.Package = Get-ReleasePackage -Mod $mod }
     }
 
-    $contentSignature = Get-HostContentSignature -Mods $mods -RetiredMods $retiredMods
+    $contentSignature = Get-HostContentSignature -Mods $mods -RetiredMods $retiredMods -Infrastructure $apiSharedInfrastructure
     if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature) {
         Write-RunLog "Pack content is unchanged from $($previousPack.Tag); reusing the published map." 'OK'
         $reuseDir = Join-Path $script:OutputRoot "cache\pack\v$($previousPack.Version)"
@@ -1009,12 +1034,36 @@ try {
     $hostStage = Join-Path $stage "BepInEx\plugins\$PackGuid"
     [void](New-Item -ItemType Directory -Path $hostStage -Force)
     Copy-DirectoryContents -Source (Join-Path $hostDir "BepInEx\plugins\$PackGuid") -Destination $hostStage
+    $commit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
+    $infrastructureRelative = "Infrastructure/$($apiSharedInfrastructure.Guid)"
+    $infrastructureStage = Join-Path $hostStage $infrastructureRelative
+    Copy-DirectoryContents -Source $apiSharedInfrastructure.Directory -Destination $infrastructureStage
+    $infrastructureForbidden = @(Get-ChildItem -LiteralPath $infrastructureStage -File -Recurse | Where-Object {
+        $_.Name -ieq 'SHCDESE.dll' -or $_.Name -like 'RedBird*.dll'
+    })
+    $infrastructureApiCopies = @(Get-ChildItem -LiteralPath $infrastructureStage -File -Recurse -Filter 'APIShared.dll')
+    if ($infrastructureForbidden.Count -ne 0 -or $infrastructureApiCopies.Count -ne 1) {
+        Fail-Pack 8 'Steam infrastructure must contain exactly one APIShared.dll and no private SHCDESE/RedBird DLLs.'
+    }
+    $infrastructureRecords = @([ordered]@{
+        Name = $apiSharedInfrastructure.Name; Guid = $apiSharedInfrastructure.Guid; Version = $apiSharedInfrastructure.Version
+        State = 'Infrastructure'; RelativePath = $infrastructureRelative
+        ReleaseUrl = "https://github.com/$($script:Repository)/releases/tag/$([Uri]::EscapeDataString("APIShared/v$($apiSharedInfrastructure.Version)"))"
+        ReleaseTag = "APIShared/v$($apiSharedInfrastructure.Version)"; SourceCommit = $commit
+        PackageSha256 = $apiSharedInfrastructure.DirectorySha256; ExpectedSoftDependency = ''; Files = @(Get-FileRecords $infrastructureStage)
+    })
     $packRecords = @()
     foreach ($mod in $mods) {
         $childRelative = "Mods/$($mod.PluginGuid)"
         $childStage = Join-Path $hostStage $childRelative
         [void](New-Item -ItemType Directory -Path $childStage -Force)
         Copy-DirectoryContents -Source $mod.Package.PackageDirectory -Destination $childStage
+        $privateRuntimeCopies = @(Get-ChildItem -LiteralPath $childStage -File -Recurse | Where-Object {
+            $_.Name -ieq 'APIShared.dll' -or $_.Name -ieq 'SHCDESE.dll' -or $_.Name -like 'RedBird*.dll'
+        })
+        if ($privateRuntimeCopies.Count -ne 0) {
+            Fail-Pack 8 "Steam consumer $($mod.Name) is not thin: $(@($privateRuntimeCopies.Name) -join ', ')"
+        }
         $packRecords += [ordered]@{
             Name = [string]$mod.Manifest.Name; Guid = $mod.PluginGuid; Version = $mod.TargetVersion; State = 'Active'; RelativePath = $childRelative
             ReleaseUrl = $mod.LatestUrl; ReleaseTag = "$($mod.Name)/v$($mod.TargetVersion)"; SourceCommit = [string]$mod.Package.Provenance.Commit
@@ -1031,13 +1080,12 @@ try {
             PackageSha256 = $mod.PackageSha256; ExpectedSoftDependency = $PackGuid; Files = @(Get-FileRecords $childStage)
         }
     }
-    $commit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
-    $manifest = [ordered]@{ SchemaVersion = 1; PackGuid = $PackGuid; PackVersion = $packVersion; HostVersion = $packVersion; CreatedUtc = [DateTime]::UtcNow.ToString('o'); RepositoryCommit = $commit; Mods = $packRecords }
+    $manifest = [ordered]@{ SchemaVersion = 2; PackGuid = $PackGuid; PackVersion = $packVersion; HostVersion = $packVersion; CreatedUtc = [DateTime]::UtcNow.ToString('o'); RepositoryCommit = $commit; Infrastructure = $infrastructureRecords; Mods = $packRecords }
     Write-JsonCrLf -Path (Join-Path $hostStage 'serps-modpack.json') -Value $manifest
     $inputProvenanceDir = Join-Path $hostStage 'Provenance'
     [void](New-Item -ItemType Directory -Path $inputProvenanceDir -Force)
     Write-JsonCrLf -Path (Join-Path $inputProvenanceDir 'pack-inputs.json') -Value ([ordered]@{
-        SchemaVersion = 1; PackGuid = $PackGuid; PackVersion = $packVersion; Commit = $commit; ContentSignature = $contentSignature; Mods = $packRecords
+        SchemaVersion = 2; PackGuid = $PackGuid; PackVersion = $packVersion; Commit = $commit; ContentSignature = $contentSignature; Infrastructure = $infrastructureRecords; Mods = $packRecords
     })
     Copy-Item -LiteralPath (Join-Path $hostDir 'info.json') -Destination (Join-Path $stage 'info.json')
     Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $stage 'preview.png')
@@ -1054,9 +1102,9 @@ try {
         Name = $_.Name; Guid = $_.Guid; Version = $_.Version; PreviousPack = $_.PreviousPack
     } })
     $provenance = [ordered]@{
-        SchemaVersion = 1; Pack = $PackName; PackGuid = $PackGuid; Version = $packVersion; Commit = $commit; ContentSignature = $contentSignature
+        SchemaVersion = 2; Pack = $PackName; PackGuid = $PackGuid; Version = $packVersion; Commit = $commit; ContentSignature = $contentSignature
         CreatedUtc = [DateTime]::UtcNow.ToString('o'); Map = [ordered]@{ File = 'SerpsMods.map'; Sha256 = $mapHash; Size = (Get-Item $mapPath).Length }
-        Packager = [ordered]@{ Path = $resolvedPackager; Sha256 = Get-Sha256 $resolvedPackager }; Mods = $packRecords
+        Packager = [ordered]@{ Path = $resolvedPackager; Sha256 = Get-Sha256 $resolvedPackager }; Infrastructure = $infrastructureRecords; Mods = $packRecords
         OmittedWithoutTombstone = $omittedWithoutTombstone
     }
     Write-JsonCrLf -Path $provenancePath -Value $provenance

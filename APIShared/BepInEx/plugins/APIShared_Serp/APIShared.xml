@@ -55,6 +55,9 @@
         <member name="F:APIShared.NativeCapabilityIds.UnitHudPresentation">
             <summary>Capability for shared unit HUD categories and image overrides.</summary>
         </member>
+        <member name="F:APIShared.NativeCapabilityIds.AivBuildStep">
+            <summary>Capability for observing the process-wide AIV build-step function.</summary>
+        </member>
         <member name="T:APIShared.NativeCapabilityDiagnostic">
             <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
         </member>
@@ -83,19 +86,16 @@
             <summary>Gets the global initialization state.</summary>
         </member>
         <member name="M:APIShared.IApiShared.TryGetGatehouseDistanceOrigin(System.String,APIShared.IGatehouseDistanceOriginCapability@,APIShared.NativeCapabilityDiagnostic@)">
-            <summary>
-            Attempts to acquire the gatehouse distance-origin capability for a stable owner GUID.
-            The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
-            </summary>
+            <summary>Attempts to acquire the gatehouse distance-origin capability for a stable owner GUID.</summary>
         </member>
         <member name="M:APIShared.IApiShared.TryGetGatehouseTiming(System.String,APIShared.IGatehouseTimingCapability@,APIShared.NativeCapabilityDiagnostic@)">
-            <summary>
-            Attempts to acquire the gatehouse timing capability for a stable owner GUID.
-            The intended future consumer is ExtraFeatures; this is documentation, not a runtime dependency.
-            </summary>
+            <summary>Attempts to acquire the gatehouse timing capability for a stable owner GUID.</summary>
         </member>
         <member name="M:APIShared.IApiShared.TryGetUnitHudPresentation(System.String,APIShared.IUnitHudPresentationCapability@,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to acquire the process-wide unit HUD presentation capability.</summary>
+        </member>
+        <member name="M:APIShared.IApiShared.TryGetAivBuildStep(System.String,APIShared.IAivBuildStepCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Attempts to acquire the process-wide AIV build-step observer capability.</summary>
         </member>
         <member name="T:APIShared.ApiShared">
             <summary>Static access to the process-wide API and its readiness notification.</summary>
@@ -108,6 +108,60 @@
             Registers a callback that runs when initialization reaches a terminal state. Late
             registrations run synchronously.
             </summary>
+        </member>
+        <member name="T:APIShared.AivBuildStepContext">
+            <summary>Immutable arguments of one native AIV build-step invocation.</summary>
+        </member>
+        <member name="M:APIShared.AivBuildStepContext.#ctor(System.UInt64,System.Int32,System.Int32,System.Int32,System.Byte)">
+            <summary>Creates an AIV build-step context.</summary>
+        </member>
+        <member name="P:APIShared.AivBuildStepContext.AivStateAddress">
+            <summary>Native AIV runtime-state address.</summary>
+        </member>
+        <member name="P:APIShared.AivBuildStepContext.PlayerId">
+            <summary>Player identifier supplied by Vanilla.</summary>
+        </member>
+        <member name="P:APIShared.AivBuildStepContext.FrameIndex">
+            <summary>Prepared AIV frame index.</summary>
+        </member>
+        <member name="P:APIShared.AivBuildStepContext.RestrictedMode">
+            <summary>Vanilla restricted-placement mode.</summary>
+        </member>
+        <member name="P:APIShared.AivBuildStepContext.FreeOrForced">
+            <summary>Vanilla free-or-forced placement selector.</summary>
+        </member>
+        <member name="T:APIShared.AivBuildStepCompletion">
+            <summary>Immutable completion state for one AIV build-step invocation.</summary>
+        </member>
+        <member name="M:APIShared.AivBuildStepCompletion.#ctor(APIShared.AivBuildStepContext,System.Boolean,System.Int32)">
+            <summary>Creates an AIV build-step completion.</summary>
+        </member>
+        <member name="P:APIShared.AivBuildStepCompletion.Context">
+            <summary>The corresponding immutable invocation context.</summary>
+        </member>
+        <member name="P:APIShared.AivBuildStepCompletion.VanillaCompleted">
+            <summary>Whether the single Vanilla call returned normally.</summary>
+        </member>
+        <member name="P:APIShared.AivBuildStepCompletion.VanillaResult">
+            <summary>The unchanged Vanilla result, or zero when Vanilla did not complete.</summary>
+        </member>
+        <member name="T:APIShared.IAivBuildStepInvocation">
+            <summary>Owner-created per-call state completed after Vanilla returns or aborts.</summary>
+        </member>
+        <member name="M:APIShared.IAivBuildStepInvocation.Complete(APIShared.AivBuildStepCompletion)">
+            <summary>Completes this invocation exactly once.</summary>
+        </member>
+        <member name="T:APIShared.IAivBuildStepObserver">
+            <summary>Observer called before the single Vanilla build-step invocation.</summary>
+        </member>
+        <member name="M:APIShared.IAivBuildStepObserver.TryBegin(APIShared.AivBuildStepContext)">
+            <summary>Returns per-call state to complete, or null when this call is not observed.</summary>
+        </member>
+        <member name="T:APIShared.IAivBuildStepCapability">
+            <summary>Owner-bound process-wide AIV build-step observer service.</summary>
+        </member>
+        <member name="M:APIShared.IAivBuildStepCapability.TryRegisterObserver(System.String,APIShared.IAivBuildStepObserver,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Registers one process-lifetime observer under an owner-local stable ID.</summary>
         </member>
         <member name="T:APIShared.UnitHudSurface">
             <summary>HUD surfaces on which a registered unit category may appear.</summary>
@@ -349,6 +403,9 @@
         <member name="M:APIShared.IUnitHudPresentationCapability.GetControlGroups">
             <summary>Gets all ten validated Vanilla control-group memberships, or an empty list when unavailable.</summary>
         </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.TryRemoveUnitFromControlGroups(System.Int32,System.Int32@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Removes a positive one-based unit game ID from all native control groups.</summary>
+        </member>
         <member name="M:APIShared.IUnitHudPresentationCapability.RequestRefresh">
             <summary>Requests a safe Unity-thread presentation refresh.</summary>
         </member>
@@ -363,8 +420,7 @@
         </member>
         <member name="T:APIShared.IGatehouseDistanceOriginCapability">
             <summary>
-            Applies a validated, transactional gatehouse distance origin. The intended future consumer
-            is BugfixesAndQoL; this is documentation, not a runtime dependency.
+            Applies a validated, transactional gatehouse distance origin.
             </summary>
         </member>
         <member name="M:APIShared.IGatehouseDistanceOriginCapability.TryApply(APIShared.GatehouseDistanceOrigin,APIShared.NativeCapabilityDiagnostic@)">
@@ -429,8 +485,7 @@
         </member>
         <member name="T:APIShared.IGatehouseTimingCapability">
             <summary>
-            Applies validated, transactional gatehouse timing values. The intended future consumer is
-            ExtraFeatures; this is documentation, not a runtime dependency.
+            Applies validated, transactional gatehouse timing values.
             </summary>
         </member>
         <member name="M:APIShared.IGatehouseTimingCapability.TryApply(APIShared.GatehouseTimingSettings,APIShared.NativeCapabilityDiagnostic@)">

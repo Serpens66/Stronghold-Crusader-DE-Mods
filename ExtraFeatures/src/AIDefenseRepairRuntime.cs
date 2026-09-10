@@ -7,6 +7,7 @@
 // attempt when no damage event was observed. Later retries never restart or extend that timer.
 // Tower-ruin cleanup is deliberately handled by BugfixesAndQoL and is independent of this gate.
 using BepInEx.Logging;
+using APIShared;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
@@ -32,24 +33,13 @@ namespace ExtraFeatures
         // Dispatcher 0x539B0 uses 0x52270 only for AIV entries whose +0x14 field is zero;
         // otherwise it iterates the finished-castle frames through 0x51790. The 2026-08-24
         // finished-castle trace consequently reached 0x51790 repeatedly and never 0x52270.
-        private const string ExecuteBuildStepPattern =
-            "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2";
         private const string PlacementPattern =
             "44 89 4C 24 20 44 89 44 24 18 89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 48 44 8B BC 24 B8 00 00 00";
-        private const int ExecuteBuildStepRva = 0x51790;
         private const int PlacementRva = 0x5CD90;
         private const int OriginXOffset = 0x204E760;
         private const int OriginYOffset = 0x204E764;
         private const int MaximumFrameCount = 0x922;
         private const int TicksPerSecond = 40;
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate int ExecuteBuildStepDelegate(
-            ulong aivStateAddress,
-            int playerId,
-            int frameIndex,
-            int restrictedMode,
-            byte freeOrForced);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int PlacementDelegate(
@@ -80,10 +70,9 @@ namespace ExtraFeatures
             new HashSet<DefenseTargetKey>();
         private readonly HashSet<string> callbackFailuresLogged = new HashSet<string>(StringComparer.Ordinal);
         private HookTransaction transaction;
-        private readonly DetourHandle<ExecuteBuildStepDelegate> executeBuildStepHook =
-            new DetourHandle<ExecuteBuildStepDelegate>();
         private readonly DetourHandle<PlacementDelegate> placementHook =
             new DetourHandle<PlacementDelegate>();
+        private readonly IAivBuildStepObserver buildStepObserver;
         private bool initialized;
         private bool nativeInitialized;
         private bool mapActive;
@@ -112,6 +101,7 @@ namespace ExtraFeatures
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            buildStepObserver = new BuildStepObserver(this);
         }
 
         public void Initialize()
@@ -161,9 +151,6 @@ namespace ExtraFeatures
                 throw new InvalidOperationException(
                     "AI defense rebuild timing requires the audited placement-origin layout for this CrusaderDE.dll.");
 
-            Shared.NativeResolution executeBuildStep = Shared.NativePatternResolver.ResolveUnique(
-                memory, ExecuteBuildStepPattern, ExecuteBuildStepRva, referenceHashMatches,
-                "AI ExecuteBuildStep defense path", log);
             Shared.NativeResolution placement = Shared.NativePatternResolver.ResolveUnique(
                 memory, PlacementPattern, PlacementRva, referenceHashMatches,
                 "AI AIV placement helper", log);
@@ -172,25 +159,44 @@ namespace ExtraFeatures
             {
                 transaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
                 transaction.AddDetour(
-                    executeBuildStepHook,
-                    HookTarget.FromAddress(libraryBase + unchecked((ulong)executeBuildStep.Rva)),
-                    ObserveExecuteBuildStep);
-                transaction.AddDetour(
                     placementHook,
                     HookTarget.FromAddress(libraryBase + unchecked((ulong)placement.Rva)),
                     ObservePlacement);
                 CommitResult commitResult = transaction.Commit();
-                if (!commitResult.IsCompleteSuccess || !executeBuildStepHook.Success || !placementHook.Success)
-                    throw new InvalidOperationException("One or more AI defense rebuild hooks were not installed.");
+                if (!commitResult.IsCompleteSuccess || !placementHook.Success)
+                    throw new InvalidOperationException("The AI defense placement hook was not installed.");
+                IApiShared api = ApiShared.Current;
+                NativeCapabilityDiagnostic failure;
+                if (!api.TryGetAivBuildStep(
+                        ExtraFeaturesPlugin.PluginGuid,
+                        out IAivBuildStepCapability capability,
+                        out failure))
+                {
+                    throw new InvalidOperationException(
+                        "APIShared AIV build-step registration failed: " +
+                        (failure?.Reason ?? "unknown failure"));
+                }
+                if (!capability.TryRegisterObserver(
+                        "ai-defense-rebuild",
+                        buildStepObserver,
+                        out failure))
+                {
+                    throw new InvalidOperationException(
+                        "APIShared AIV build-step registration failed: " +
+                        (failure?.Reason ?? "unknown failure"));
+                }
                 nativeInitialized = true;
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"AI defense rebuild hooks installed at RVAs 0x{executeBuildStep.Rva:X} and 0x{placement.Rva:X}.");
+                    $"AI defense rebuild registered through APIShared; placement hook installed at RVA 0x{placement.Rva:X}.");
             }
             catch
             {
-                transaction?.Dispose();
-                transaction = null;
+                if (!nativeInitialized)
+                {
+                    transaction?.Dispose();
+                    transaction = null;
+                }
                 throw;
             }
         }
@@ -204,8 +210,13 @@ namespace ExtraFeatures
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
-            transaction?.Dispose();
-            transaction = null;
+            // The published placement detour is process-wide because APIShared retains this
+            // observer. Dispose is only allowed to roll back an unpublished candidate.
+            if (!nativeInitialized)
+            {
+                transaction?.Dispose();
+                transaction = null;
+            }
             ResetMap();
         }
 
@@ -447,26 +458,13 @@ namespace ExtraFeatures
                 $"AI proximity overrides remain Vanilla for this map. Snapshot unavailable: {ex}");
         }
 
-        private int ObserveExecuteBuildStep(
-            ulong aivStateAddress,
-            int playerId,
-            int frameIndex,
-            int restrictedMode,
-            byte freeOrForced)
+        private IAivBuildStepInvocation TryBeginBuildStep(AivBuildStepContext invocation)
         {
-            using (Shared.CrashBreadcrumbScope diagnostic =
-                Shared.CrashBreadcrumbDiagnostics.Enter(
-                    "AiDefenseBuildStep",
-                    playerId,
-                    frameIndex,
-                    restrictedMode,
-                    freeOrForced))
-            {
-            if (!IsConfigured || !mapActive)
-            {
-                return executeBuildStepHook.Original(
-                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
-            }
+            if (disposed || !nativeInitialized || !IsConfigured || !mapActive)
+                return null;
+
+            int playerId = invocation.PlayerId;
+            int frameIndex = invocation.FrameIndex;
 
             bool isAi;
             try
@@ -476,14 +474,10 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 LogFailure("ExecuteBuildStep player classification", ex);
-                return executeBuildStepHook.Original(
-                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+                return null;
             }
             if (!isAi)
-            {
-                return executeBuildStepHook.Original(
-                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
-            }
+                return null;
 
             if (frameIndex < 0 || frameIndex >= MaximumFrameCount)
             {
@@ -495,8 +489,7 @@ namespace ExtraFeatures
                         $"AI defense rebuild received invalid frameIndex={frameIndex}; further invalid-frame " +
                         "warnings are suppressed for this map and affected calls remain Vanilla.");
                 }
-                return executeBuildStepHook.Original(
-                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+                return null;
             }
 
             BuildStepHistory history;
@@ -508,10 +501,7 @@ namespace ExtraFeatures
                 {
                     now = SafeCurrentTick();
                     if (now < 0)
-                    {
-                        return executeBuildStepHook.Original(
-                            aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
-                    }
+                        return null;
                 }
                 key = new BuildStepKey(playerId, frameIndex);
                 if (!buildStepHistory.TryGetValue(key, out history))
@@ -524,8 +514,7 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 LogFailure("ExecuteBuildStep preparation", ex);
-                return executeBuildStepHook.Original(
-                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+                return null;
             }
 
             BuildStepContext previous;
@@ -544,41 +533,62 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 LogFailure("ExecuteBuildStep context preparation", ex);
-                return executeBuildStepHook.Original(
-                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+                return null;
             }
-            int result;
+            Shared.CrashBreadcrumbScope breadcrumb;
             try
             {
-                result = executeBuildStepHook.Original(
-                    aivStateAddress, playerId, frameIndex, restrictedMode, freeOrForced);
+                breadcrumb = Shared.CrashBreadcrumbDiagnostics.Enter(
+                    "AiDefenseBuildStep",
+                    playerId,
+                    frameIndex,
+                    invocation.RestrictedMode,
+                    invocation.FreeOrForced);
             }
-            finally
+            catch (Exception ex)
             {
                 activeContext = previous;
                 if (previous == null)
                     reusableContext = context;
+                LogFailure("ExecuteBuildStep breadcrumb preparation", ex);
+                return null;
             }
+            return new BuildStepInvocation(this, previous, context, history, key, breadcrumb);
+        }
 
+        private void CompleteBuildStep(
+            BuildStepContext previous,
+            BuildStepContext context,
+            BuildStepHistory history,
+            BuildStepKey key,
+            AivBuildStepCompletion completion,
+            Shared.CrashBreadcrumbScope breadcrumb)
+        {
             try
             {
-                if (context.DefenseSpawned)
+                activeContext = previous;
+                if (previous == null)
+                    reusableContext = context;
+
+                if (!completion.VanillaCompleted || !context.DefenseSpawned)
+                    return;
+                if (context.DelayBlocked)
                 {
-                    if (context.DelayBlocked)
-                    {
-                        Shared.DebugLogHelper.LogError(log,
-                            $"AI defense spawned despite an active rebuild-delay block: " +
-                            $"player={playerId}, frameIndex={frameIndex}. The timer is cleared because the target now exists.");
-                    }
-                    history.EverSpawnedDefense = true;
-                    rebuildDelays.Remove(key);
+                    Shared.DebugLogHelper.LogError(log,
+                        $"AI defense spawned despite an active rebuild-delay block: " +
+                        $"player={completion.Context.PlayerId}, frameIndex={completion.Context.FrameIndex}. " +
+                        "The timer is cleared because the target now exists.");
                 }
+                history.EverSpawnedDefense = true;
+                rebuildDelays.Remove(key);
             }
             catch (Exception ex)
             {
                 LogFailure("ExecuteBuildStep completion", ex);
             }
-            return result;
+            finally
+            {
+                breadcrumb.Dispose();
             }
         }
 
@@ -898,6 +908,49 @@ namespace ExtraFeatures
         private static bool IsTowerRuin(eStructs type) =>
             type == eStructs.STRUCT_TOWER5_DESTROYED ||
             ((int)type >= (int)eStructs.STRUCT_TOWER1_DESTROYED && (int)type <= (int)eStructs.STRUCT_TOWER4_DESTROYED);
+
+        private sealed class BuildStepObserver : IAivBuildStepObserver
+        {
+            private readonly AIDefenseRepairRuntime owner;
+            internal BuildStepObserver(AIDefenseRepairRuntime owner) => this.owner = owner;
+            public IAivBuildStepInvocation TryBegin(AivBuildStepContext context) =>
+                owner.TryBeginBuildStep(context);
+        }
+
+        private sealed class BuildStepInvocation : IAivBuildStepInvocation
+        {
+            private readonly AIDefenseRepairRuntime owner;
+            private readonly BuildStepContext previous;
+            private readonly BuildStepContext context;
+            private readonly BuildStepHistory history;
+            private readonly BuildStepKey key;
+            private readonly Shared.CrashBreadcrumbScope breadcrumb;
+            private bool completed;
+
+            internal BuildStepInvocation(
+                AIDefenseRepairRuntime owner,
+                BuildStepContext previous,
+                BuildStepContext context,
+                BuildStepHistory history,
+                BuildStepKey key,
+                Shared.CrashBreadcrumbScope breadcrumb)
+            {
+                this.owner = owner;
+                this.previous = previous;
+                this.context = context;
+                this.history = history;
+                this.key = key;
+                this.breadcrumb = breadcrumb;
+            }
+
+            public void Complete(AivBuildStepCompletion completion)
+            {
+                if (completed)
+                    return;
+                completed = true;
+                owner.CompleteBuildStep(previous, context, history, key, completion, breadcrumb);
+            }
+        }
 
         private sealed class BuildStepContext
         {

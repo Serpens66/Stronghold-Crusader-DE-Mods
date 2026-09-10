@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.94",
+  "Version": "1.0.95",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.95",
+      "Changes": [
+        "Migrated AI defense rebuild observation to the shared APIShared AIV build-step broker."
+      ]
+    },
     {
       "Version": "1.0.94",
       "Changes": [

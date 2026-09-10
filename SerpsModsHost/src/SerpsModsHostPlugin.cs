@@ -25,7 +25,7 @@ namespace SerpsModsHost
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.10";
+        public const string PluginVersion = "1.0.11";
         public const bool CustomCustomTrailModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
@@ -92,7 +92,7 @@ namespace SerpsModsHost
                 throw new InvalidDataException($"H001: Missing pack manifest: {manifestPath}");
 
             manifest = PackManifestJson.Read(File.ReadAllText(manifestPath));
-            if (manifest == null || manifest.SchemaVersion != 1)
+            if (manifest == null || manifest.SchemaVersion != 2)
                 throw new InvalidDataException("H002: Unsupported or empty pack manifest.");
             if (!string.Equals(manifest.PackGuid, PluginGuid, StringComparison.Ordinal))
                 throw new InvalidDataException($"H002: Pack GUID '{manifest.PackGuid}' does not match '{PluginGuid}'.");
@@ -101,6 +101,13 @@ namespace SerpsModsHost
 
             HashSet<string> guids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             HashSet<string> paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (PackModRecord dependency in manifest.Infrastructure ?? new List<PackModRecord>())
+            {
+                ValidateRecord(root, dependency, guids, paths);
+                if (!string.Equals(dependency.State, "Infrastructure", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException($"H002: Invalid infrastructure state for {dependency.Guid}: {dependency.State}");
+                validatedCount++;
+            }
             foreach (PackModRecord mod in manifest.Mods ?? new List<PackModRecord>())
             {
                 ValidateRecord(root, mod, guids, paths);
@@ -303,7 +310,8 @@ namespace SerpsModsHost
             if (mod == null || string.IsNullOrWhiteSpace(mod.Guid) || string.IsNullOrWhiteSpace(mod.RelativePath))
                 throw new InvalidDataException("H002: A mod record is missing GUID or RelativePath.");
             if (!string.Equals(mod.State, "Active", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(mod.State, "Retired", StringComparison.OrdinalIgnoreCase))
+                !string.Equals(mod.State, "Retired", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(mod.State, "Infrastructure", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"H002: Invalid state for {mod.Guid}: {mod.State}");
             if (!guids.Add(mod.Guid))
                 throw new InvalidDataException($"H002: Duplicate mod GUID: {mod.Guid}");

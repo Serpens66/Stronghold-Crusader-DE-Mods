@@ -32,15 +32,21 @@
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.X64"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\Contracts.cs" />
+    <Compile Include="src\AivBuildStepContracts.cs" />
     <Compile Include="src\UnitHudContracts.cs" />
     <Compile Include="src\NativeInfrastructure.cs" />
     <Compile Include="src\GatehouseDistanceOriginCapability.cs" />
     <Compile Include="src\GatehouseTimingCapability.cs" />
     <Compile Include="src\UnitHudPresentationCapability.cs" />
+    <Compile Include="src\AivBuildStepCapability.cs" />
     <Compile Include="src\ApiSharedRuntime.cs" />
     <Compile Include="src\APISharedPlugin.cs" />
   </ItemGroup>
@@ -52,5 +58,9 @@
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\R3.dll')" Text="R3.dll was not found beside SHCDESE.dll: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll')" Text="Microsoft.Extensions.Logging.Abstractions.dll was not found beside SHCDESE.dll: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll was not found beside SHCDESE.dll: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll was not found beside SHCDESE.dll: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ExtenderDir)\RedBird.X64.dll')" Text="RedBird.X64.dll was not found beside SHCDESE.dll: $(ExtenderDir)" />
   </Target>
 </Project>

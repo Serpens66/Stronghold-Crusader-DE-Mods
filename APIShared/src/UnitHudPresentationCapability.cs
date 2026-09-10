@@ -55,6 +55,7 @@ namespace APIShared
         private readonly List<ImageRegistration> imageOverrides = new List<ImageRegistration>();
         private readonly HashSet<string> loggedCategoryConflicts = new HashSet<string>(StringComparer.Ordinal);
         private readonly ManualLogSource log;
+        private readonly string binaryHash;
         private readonly int* groupRecords;
         private readonly bool groupRecordsAvailable;
         private readonly List<UnitHudSlotSnapshot> visibleSlots = new List<UnitHudSlotSnapshot>();
@@ -81,8 +82,9 @@ namespace APIShared
         [ThreadStatic]
         private static bool updateSpritesActive;
 
-        private UnitHudPresentationService(ManualLogSource logger, int* records, bool recordsAvailable)
+        private UnitHudPresentationService(string hash, ManualLogSource logger, int* records, bool recordsAvailable)
         {
+            binaryHash = hash ?? string.Empty;
             log = logger;
             groupRecords = records;
             groupRecordsAvailable = recordsAvailable;
@@ -120,7 +122,7 @@ namespace APIShared
                     }
                 }
 
-                var candidate = new UnitHudPresentationService(log, records, recordAccess);
+                var candidate = new UnitHudPresentationService(hash, log, records, recordAccess);
                 candidate.Install(installed);
                 service = candidate;
                 diagnostic = new NativeCapabilityDiagnostic(
@@ -717,22 +719,75 @@ namespace APIShared
 
         private IReadOnlyList<UnitHudControlGroupSnapshot> CaptureControlGroups()
         {
-            if (!groupRecordsAvailable) return Array.Empty<UnitHudControlGroupSnapshot>();
-            var result = new List<UnitHudControlGroupSnapshot>(GroupCount);
-            for (int group = 0; group < GroupCount; group++)
+            lock (sync)
             {
-                var members = new List<UnitHudUnitSnapshot>();
-                int* start = groupRecords + group * GroupCapacity * GroupRecordWidth;
-                for (int index = 0; index < GroupCapacity; index++)
+                if (!groupRecordsAvailable) return Array.Empty<UnitHudControlGroupSnapshot>();
+                var result = new List<UnitHudControlGroupSnapshot>(GroupCount);
+                for (int group = 0; group < GroupCount; group++)
                 {
-                    int gameId = start[index * GroupRecordWidth];
-                    int globalId = start[index * GroupRecordWidth + 1];
-                    if (TryCapture(gameId, out UnitHudUnitSnapshot unit) && unchecked((int)unit.GlobalId) == globalId)
-                        members.Add(unit);
+                    var members = new List<UnitHudUnitSnapshot>();
+                    int* start = groupRecords + group * GroupCapacity * GroupRecordWidth;
+                    for (int index = 0; index < GroupCapacity; index++)
+                    {
+                        int gameId = start[index * GroupRecordWidth];
+                        int globalId = start[index * GroupRecordWidth + 1];
+                        if (TryCapture(gameId, out UnitHudUnitSnapshot unit) &&
+                            unchecked((int)unit.GlobalId) == globalId)
+                        {
+                            members.Add(unit);
+                        }
+                    }
+                    result.Add(new UnitHudControlGroupSnapshot(group, members.ToArray()));
                 }
-                result.Add(new UnitHudControlGroupSnapshot(group, members.ToArray()));
+                return result;
             }
-            return result;
+        }
+
+        private bool RemoveUnitFromControlGroups(
+            int unitId,
+            out int removedCount,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            removedCount = 0;
+            if (unitId <= 0)
+            {
+                diagnostic = new NativeCapabilityDiagnostic(
+                    NativeCapabilityIds.UnitHudPresentation,
+                    NativeCapabilityState.ValidationFailed,
+                    binaryHash,
+                    "A positive one-based unit game ID is required.");
+                return false;
+            }
+            lock (sync)
+            {
+                if (!groupRecordsAvailable)
+                {
+                    diagnostic = new NativeCapabilityDiagnostic(
+                        NativeCapabilityIds.UnitHudPresentation,
+                        NativeCapabilityState.UnsupportedBuild,
+                        binaryHash,
+                        "Native control-group storage is unavailable for this build.");
+                    return false;
+                }
+                for (int group = 0; group < GroupCount; group++)
+                {
+                    int* start = groupRecords + group * GroupCapacity * GroupRecordWidth;
+                    for (int index = 0; index < GroupCapacity; index++)
+                    {
+                        int* record = start + index * GroupRecordWidth;
+                        if (record[0] != unitId)
+                            continue;
+                        record[0] = -1;
+                        removedCount++;
+                    }
+                }
+            }
+            diagnostic = new NativeCapabilityDiagnostic(
+                NativeCapabilityIds.UnitHudPresentation,
+                NativeCapabilityState.Available,
+                binaryHash,
+                $"Removed unit ID {unitId} from {removedCount} native control-group records.");
+            return true;
         }
 
         private void NotifyInteraction(UnitHudInteractionContext context)
@@ -852,6 +907,8 @@ namespace APIShared
             public IReadOnlyList<UnitHudSlotSnapshot> GetVisibleTroopSlots() { lock (service.sync) return service.visibleSlots.ToArray(); }
             public IReadOnlyList<UnitHudCategorySnapshot> GetSelectedCategories() => service.CaptureSelectedCategories();
             public IReadOnlyList<UnitHudControlGroupSnapshot> GetControlGroups() => service.CaptureControlGroups();
+            public bool TryRemoveUnitFromControlGroups(int unitId, out int removedCount, out NativeCapabilityDiagnostic diagnostic) =>
+                service.RemoveUnitFromControlGroups(unitId, out removedCount, out diagnostic);
             public void RequestRefresh() { lock (service.sync) service.refreshRequested = true; }
         }
 

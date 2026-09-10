@@ -250,6 +250,11 @@ namespace APIShared
         IReadOnlyList<UnitHudCategorySnapshot> GetSelectedCategories();
         /// <summary>Gets all ten validated Vanilla control-group memberships, or an empty list when unavailable.</summary>
         IReadOnlyList<UnitHudControlGroupSnapshot> GetControlGroups();
+        /// <summary>Removes a positive one-based unit game ID from all native control groups.</summary>
+        bool TryRemoveUnitFromControlGroups(
+            int unitId,
+            out int removedCount,
+            out NativeCapabilityDiagnostic diagnostic);
         /// <summary>Requests a safe Unity-thread presentation refresh.</summary>
         void RequestRefresh();
     }

@@ -43,6 +43,8 @@ namespace APIShared
         public const string GatehouseTiming = "gatehouse-timing";
         /// <summary>Capability for shared unit HUD categories and image overrides.</summary>
         public const string UnitHudPresentation = "unit-hud-presentation";
+        /// <summary>Capability for observing the process-wide AIV build-step function.</summary>
+        public const string AivBuildStep = "aiv-build-step";
     }
 
     /// <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
@@ -80,18 +82,12 @@ namespace APIShared
     {
         /// <summary>Gets the global initialization state.</summary>
         NativeApiState State { get; }
-        /// <summary>
-        /// Attempts to acquire the gatehouse distance-origin capability for a stable owner GUID.
-        /// The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
-        /// </summary>
+        /// <summary>Attempts to acquire the gatehouse distance-origin capability for a stable owner GUID.</summary>
         bool TryGetGatehouseDistanceOrigin(
             string ownerGuid,
             out IGatehouseDistanceOriginCapability capability,
             out NativeCapabilityDiagnostic diagnostic);
-        /// <summary>
-        /// Attempts to acquire the gatehouse timing capability for a stable owner GUID.
-        /// The intended future consumer is ExtraFeatures; this is documentation, not a runtime dependency.
-        /// </summary>
+        /// <summary>Attempts to acquire the gatehouse timing capability for a stable owner GUID.</summary>
         bool TryGetGatehouseTiming(
             string ownerGuid,
             out IGatehouseTimingCapability capability,
@@ -100,6 +96,11 @@ namespace APIShared
         bool TryGetUnitHudPresentation(
             string ownerGuid,
             out IUnitHudPresentationCapability capability,
+            out NativeCapabilityDiagnostic diagnostic);
+        /// <summary>Attempts to acquire the process-wide AIV build-step observer capability.</summary>
+        bool TryGetAivBuildStep(
+            string ownerGuid,
+            out IAivBuildStepCapability capability,
             out NativeCapabilityDiagnostic diagnostic);
     }
 

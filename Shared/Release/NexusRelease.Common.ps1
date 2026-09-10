@@ -59,7 +59,11 @@ function Get-NexusSha256 {
 }
 
 function Get-LatestNexusLocalRelease {
-    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$ModName)
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$ModName,
+        [ValidateSet('Thin','Bundle')][string]$Artifact = 'Thin'
+    )
     $modOutput = Join-Path (Join-Path $Root '.release-output') $ModName
     if (-not (Test-Path -LiteralPath $modOutput -PathType Container)) { throw "Kein Release-Ordner fuer ${ModName}: $modOutput" }
     $candidates = [System.Collections.Generic.List[object]]::new()
@@ -67,13 +71,20 @@ function Get-LatestNexusLocalRelease {
         if ($directory.Name -notmatch '^v(.+)$') { continue }
         $version = $Matches[1]
         if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') { continue }
-        $zipName = "$ModName-v$version.zip"
-        $zipPath = Join-Path $directory.FullName $zipName
-        if (Test-Path -LiteralPath $zipPath -PathType Leaf) {
-            $candidates.Add([PSCustomObject]@{ ModName=$ModName; Version=$version; Directory=$directory.FullName; ZipName=$zipName; ZipPath=$zipPath })
+        $zipFiles = @(if ($Artifact -ceq 'Thin') {
+            Get-Item -LiteralPath (Join-Path $directory.FullName "$ModName-v$version.zip") -ErrorAction SilentlyContinue
+        } else {
+            Get-ChildItem -LiteralPath $directory.FullName -File -Filter "$ModName-v$version-with-APIShared-v*.zip"
+        })
+        if ($zipFiles.Count -gt 1) { throw "Mehrere $Artifact-Artefakte fuer $ModName v${version}: $(@($zipFiles.Name) -join ', ')" }
+        if ($zipFiles.Count -eq 1) {
+            $candidates.Add([PSCustomObject]@{
+                ModName=$ModName; Version=$version; Artifact=$Artifact; Directory=$directory.FullName
+                ZipName=$zipFiles[0].Name; ZipPath=$zipFiles[0].FullName
+            })
         }
     }
-    if ($candidates.Count -eq 0) { throw "Kein gueltiges lokales Release-ZIP fuer $ModName gefunden." }
+    if ($candidates.Count -eq 0) { throw "Kein gueltiges lokales $Artifact-Release-ZIP fuer $ModName gefunden. Release-Mod.ps1 muss beide APIShared-Profile erzeugen." }
     $latest = $candidates[0]
     for ($index = 1; $index -lt $candidates.Count; $index++) {
         if ((Compare-NexusSemanticVersion -Left $candidates[$index].Version -Right $latest.Version) -gt 0) { $latest = $candidates[$index] }
@@ -104,6 +115,11 @@ function Get-NexusReleaseChangelog {
 
 function Test-NexusLocalRelease {
     param([Parameter(Mandatory)]$Release)
+    $artifactProperty = $Release.PSObject.Properties['Artifact']
+    $artifact = if ($null -eq $artifactProperty) { 'Thin' } else { [string]$artifactProperty.Value }
+    if ($artifact -notin @('Thin', 'Bundle')) {
+        throw "Unbekanntes Nexus-Artefaktprofil '$artifact' fuer $($Release.ModName)."
+    }
     $hashPath = "$($Release.ZipPath).sha256"
     $provenancePath = Join-Path $Release.Directory "$($Release.ModName)-v$($Release.Version).provenance.json"
     if (-not (Test-Path -LiteralPath $hashPath -PathType Leaf)) { throw "Fehlende SHA-256-Datei: $hashPath" }
@@ -114,15 +130,30 @@ function Test-NexusLocalRelease {
     if ($Matches[1].ToLowerInvariant() -cne $actualHash -or $Matches[2] -cne $Release.ZipName) { throw "SHA-256-Pruefung fehlgeschlagen: $($Release.ZipName)" }
     $provenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
     if ([string]$provenance.Mod -cne $Release.ModName -or [string]$provenance.Version -cne $Release.Version) { throw "Provenance nennt einen anderen Mod oder eine andere Version: $provenancePath" }
-    if ([string]$provenance.Package.File -cne $Release.ZipName -or ([string]$provenance.Package.Sha256).ToLowerInvariant() -cne $actualHash) { throw "Provenance-Paketdaten stimmen nicht: $provenancePath" }
+    $artifactProvenance = if ($artifact -ceq 'Bundle') { $provenance.Bundle } else { $provenance.Package }
+    if ($null -eq $artifactProvenance -or [string]$artifactProvenance.File -cne $Release.ZipName -or
+        ([string]$artifactProvenance.Sha256).ToLowerInvariant() -cne $actualHash) {
+        throw "Provenance-Paketdaten fuer $artifact stimmen nicht: $provenancePath"
+    }
 
     $auditRoot = Join-Path ([IO.Path]::GetTempPath()) ("shcde-nexus-audit-" + [Guid]::NewGuid().ToString('N'))
     try {
         Expand-Archive -LiteralPath $Release.ZipPath -DestinationPath $auditRoot
         $infos = @(Get-ChildItem -LiteralPath $auditRoot -Filter info.json -File -Recurse)
-        if ($infos.Count -ne 1) { throw "Release-ZIP muss genau ein info.json enthalten, gefunden: $($infos.Count)" }
-        $manifest = Get-Content -LiteralPath $infos[0].FullName -Raw | ConvertFrom-Json
-        if ([string]$manifest.Version -cne $Release.Version) { throw "info.json-Version stimmt nicht mit dem Release ueberein: $($Release.ZipName)" }
+        $manifests = @($infos | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json })
+        if ($artifact -ceq 'Bundle') {
+            $api = @($manifests | Where-Object { [string]$_.GUID -ceq 'APIShared_Serp' })
+            $consumer = @($manifests | Where-Object { [string]$_.GUID -cne 'APIShared_Serp' })
+            if ($api.Count -ne 1 -or $consumer.Count -ne 1) { throw "Bundle muss genau APIShared und einen Verbraucher enthalten." }
+            if ([string]$consumer[0].Version -cne $Release.Version -or
+                [string]$api[0].Version -cne [string]$artifactProvenance.ApiShared.Version) {
+                throw "Bundle-Manifestversionen stimmen nicht mit der Provenance ueberein: $($Release.ZipName)"
+            }
+        } else {
+            if ($manifests.Count -ne 1 -or [string]$manifests[0].Version -cne $Release.Version) {
+                throw "Thin-Archiv muss genau ein passendes info.json enthalten: $($Release.ZipName)"
+            }
+        }
     } finally {
         if (Test-Path -LiteralPath $auditRoot) { Remove-Item -LiteralPath $auditRoot -Recurse -Force }
     }

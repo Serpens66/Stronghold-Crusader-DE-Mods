@@ -31,7 +31,7 @@ detour exists; the Bugfix observer runs after the unchanged Vanilla result.
 | `ApplyRotationPattern` | `0x56670` | oracle detour |
 | `EvaluateCandidateFitPattern` | `0x57080` | oracle detour |
 | `BuildingPlacementValidatorInteriorPattern` | `0x7B078` | stable body signature; subtract `0x18` to derive validator entry `0x7B060` |
-| `ExecuteBuildStepPattern` | `0x51790` | optional prebuild trace detour |
+| APIShared `AivBuildStep` target | `0x51790` | optional prebuild trace observer; APIShared owns the only detour |
 | `OrganismRecordTableReferencePattern` | `0x15A27` | RIP-relative organism table |
 | `ActiveLayoutIndexReferencePattern` | `0x55F64` | RIP-relative layout-index table (`LEA` at `+3`) |
 

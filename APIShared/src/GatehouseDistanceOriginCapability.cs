@@ -14,8 +14,7 @@ namespace APIShared
     }
 
     /// <summary>
-    /// Applies a validated, transactional gatehouse distance origin. The intended future consumer
-    /// is BugfixesAndQoL; this is documentation, not a runtime dependency.
+    /// Applies a validated, transactional gatehouse distance origin.
     /// </summary>
     public interface IGatehouseDistanceOriginCapability
     {

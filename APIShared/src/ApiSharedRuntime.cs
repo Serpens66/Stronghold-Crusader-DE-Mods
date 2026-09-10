@@ -2,6 +2,7 @@ using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
+using RedBird.Core.Memory;
 
 namespace APIShared
 {
@@ -16,9 +17,11 @@ namespace APIShared
         private GatehouseDistanceOriginService gatehouseDistanceOrigin;
         private GatehouseTimingService gatehouse;
         private UnitHudPresentationService unitHudPresentation;
+        private AivBuildStepService aivBuildStep;
         private NativeCapabilityDiagnostic gatehouseDistanceOriginDiagnostic = Pending(NativeCapabilityIds.GatehouseDistanceOrigin);
         private NativeCapabilityDiagnostic gatehouseDiagnostic = Pending(NativeCapabilityIds.GatehouseTiming);
         private NativeCapabilityDiagnostic unitHudDiagnostic = Pending(NativeCapabilityIds.UnitHudPresentation);
+        private NativeCapabilityDiagnostic aivBuildStepDiagnostic = Pending(NativeCapabilityIds.AivBuildStep);
         private ManualLogSource log;
 
         internal static ApiSharedRuntime ProcessInstance { get; } = new ApiSharedRuntime();
@@ -47,7 +50,9 @@ namespace APIShared
             INativeMemory nativeMemory,
             ManualLogSource logger,
             GatehouseBuildTarget gateTarget = null,
-            bool installUnitHudPresentation = true)
+            bool installUnitHudPresentation = true,
+            ScanRegion nativeRegion = null,
+            bool installAivBuildStep = false)
         {
             lock (sync)
             {
@@ -94,6 +99,26 @@ namespace APIShared
                     out gatehouseDistanceOriginDiagnostic,
                     out gatehouse,
                     out gatehouseDiagnostic);
+                if (installAivBuildStep)
+                {
+                    AivBuildStepService.TryCreate(
+                        binaryHash,
+                        moduleBase,
+                        memory,
+                        nativeRegion,
+                        log,
+                        out aivBuildStep,
+                        out aivBuildStepDiagnostic);
+                }
+                else
+                {
+                    aivBuildStep = null;
+                    aivBuildStepDiagnostic = new NativeCapabilityDiagnostic(
+                        NativeCapabilityIds.AivBuildStep,
+                        NativeCapabilityState.UnsupportedBuild,
+                        binaryHash,
+                        "The AIV build-step hook is intentionally disabled in this isolated test harness.");
+                }
             }
             catch (Exception ex)
             {
@@ -103,9 +128,11 @@ namespace APIShared
                 gatehouseDistanceOrigin = null;
                 gatehouse = null;
                 unitHudPresentation = null;
+                aivBuildStep = null;
                 gatehouseDistanceOriginDiagnostic = Faulted(NativeCapabilityIds.GatehouseDistanceOrigin, ex.Message);
                 gatehouseDiagnostic = Faulted(NativeCapabilityIds.GatehouseTiming, ex.Message);
                 unitHudDiagnostic = Faulted(NativeCapabilityIds.UnitHudPresentation, ex.Message);
+                aivBuildStepDiagnostic = Faulted(NativeCapabilityIds.AivBuildStep, ex.Message);
                 NativeApiLog.Error(log, $"APIShared initialization failed globally: build={binaryHash}, error={ex}");
             }
 
@@ -116,7 +143,7 @@ namespace APIShared
                 callbacks = readyCallbacks.ToArray();
                 readyCallbacks.Clear();
             }
-            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, unitHudPresentation={unitHudDiagnostic.State}.");
+            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, unitHudPresentation={unitHudDiagnostic.State}, aivBuildStep={aivBuildStepDiagnostic.State}.");
             foreach (Action<IApiShared> callback in callbacks)
             {
                 try { callback(this); }
@@ -177,6 +204,27 @@ namespace APIShared
                 }
                 capability = unitHudPresentation.Bind(ownerGuid);
                 diagnostic = unitHudDiagnostic;
+                return true;
+            }
+        }
+
+        public bool TryGetAivBuildStep(
+            string ownerGuid,
+            out IAivBuildStepCapability capability,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            capability = null;
+            if (!ValidateOwner(ownerGuid, NativeCapabilityIds.AivBuildStep, out diagnostic))
+                return false;
+            lock (sync)
+            {
+                if (aivBuildStep == null)
+                {
+                    diagnostic = aivBuildStepDiagnostic;
+                    return false;
+                }
+                capability = aivBuildStep.Bind(ownerGuid);
+                diagnostic = aivBuildStepDiagnostic;
                 return true;
             }
         }

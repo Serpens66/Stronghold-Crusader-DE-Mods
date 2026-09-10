@@ -39,6 +39,10 @@ if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\SerpsModsHostDuplicateTests.csproj" /p:Configuration=Release
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\bin\SerpsModsHostDuplicateTests.exe"
+if errorlevel 1 goto build_failed_popd
 "%MSBUILD%" SerpsModsHost.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd

@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "APIShared",
   "Description": "Shared typed and conflict-aware native patch and hook infrastructure for Serps mods.",
-  "Version": "0.2.1",
+  "Version": "0.3.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.3.0",
+      "Changes": [
+        "Added the shared deterministic AIV build-step observer broker and centralized control-group mutation."
+      ]
+    },
     {
       "Version": "0.2.1",
       "Changes": [

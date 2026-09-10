@@ -12,6 +12,11 @@ $draftCreated = $false
 try {
     $metadata = Get-PluginMetadata -ModName $ModName
     $config = $metadata.Config
+    $apiSharedConsumer = $null -ne $config.ApiShared -and
+        $null -ne $config.ApiShared.Consumers.PSObject.Properties[$ModName]
+    $apiSharedMinimum = if ($apiSharedConsumer) {
+        [string]$config.ApiShared.Consumers.PSObject.Properties[$ModName].Value
+    } else { $null }
     Write-Host "Preparing $($metadata.Manifest.Name) v$($metadata.Version)" -ForegroundColor Cyan
 
     $setup = @(Get-SetupReport -ModName $ModName)
@@ -94,6 +99,14 @@ try {
     if ($runtimeFiles.Count -gt 0) {
         throw "Package contains local runtime data:`r`n$(@($runtimeFiles.FullName) -join "`r`n")"
     }
+    if ($apiSharedConsumer) {
+        $privateRuntimeCopies = @($packageFiles | Where-Object {
+            $_.Name -ieq 'APIShared.dll' -or $_.Name -ieq 'SHCDESE.dll' -or $_.Name -like 'RedBird*.dll'
+        })
+        if ($privateRuntimeCopies.Count -gt 0) {
+            throw "Thin APIShared consumer contains private runtime DLLs:`r`n$(@($privateRuntimeCopies.FullName) -join "`r`n")"
+        }
+    }
     $fileRecords = @(foreach ($file in $packageFiles) { Get-FileHashRecord -Path $file.FullName -BasePath $stageRoot })
     $baseName = "$ModName-v$($metadata.Version)"
     $zipPath = Join-Path $outputRoot "$baseName.zip"
@@ -106,6 +119,62 @@ try {
     $auditRecords = @(foreach ($file in $auditFiles) { Get-FileHashRecord -Path $file.FullName -BasePath $auditRoot })
     if (($fileRecords | ConvertTo-Json -Depth 5 -Compress) -cne ($auditRecords | ConvertTo-Json -Depth 5 -Compress)) {
         throw 'ZIP audit failed: archive contents differ from the staged package.'
+    }
+
+    $bundle = $null
+    $bundlePath = $null
+    $bundleShaPath = $null
+    if ($apiSharedConsumer) {
+        $apiProject = [string]$config.ApiShared.Project
+        $apiVersion = [string]$config.ApiShared.Version
+        $apiPackage = Join-Path $config.Root "$apiProject\BepInEx\plugins\$([string]$config.ApiShared.Guid)"
+        $apiInfoPath = Join-Path $apiPackage 'info.json'
+        $apiDllPath = Join-Path $apiPackage 'APIShared.dll'
+        if (-not (Test-Path -LiteralPath $apiInfoPath -PathType Leaf) -or
+            -not (Test-Path -LiteralPath $apiDllPath -PathType Leaf)) {
+            throw "APIShared bundle input is incomplete. Build and validate $apiProject v$apiVersion first: $apiPackage"
+        }
+        $apiInfo = Get-Content -LiteralPath $apiInfoPath -Raw | ConvertFrom-Json
+        if ([string]$apiInfo.GUID -cne [string]$config.ApiShared.Guid -or [string]$apiInfo.Version -cne $apiVersion) {
+            throw "APIShared bundle input identity mismatch: expected $([string]$config.ApiShared.Guid) v$apiVersion."
+        }
+        if ((Compare-SemanticVersion -Left $apiVersion -Right $apiSharedMinimum) -lt 0) {
+            throw "Pinned APIShared v$apiVersion is below $ModName's minimum v$apiSharedMinimum."
+        }
+
+        $bundleRoot = Join-Path $outputRoot 'bundle-stage'
+        $bundlePlugins = Join-Path $bundleRoot 'BepInEx\plugins'
+        $bundleConsumer = Join-Path $bundlePlugins $metadata.PackageFolderName
+        $bundleApi = Join-Path $bundlePlugins ([string]$config.ApiShared.Guid)
+        [void](New-Item -ItemType Directory -Path $bundlePlugins -Force)
+        Copy-Item -LiteralPath $stagePackage -Destination $bundleConsumer -Recurse -Force
+        Copy-Item -LiteralPath $apiPackage -Destination $bundleApi -Recurse -Force
+        $bundleFiles = @(Get-ChildItem -LiteralPath $bundleRoot -File -Recurse | Sort-Object FullName)
+        $bundleApiCopies = @($bundleFiles | Where-Object { $_.Name -ieq 'APIShared.dll' })
+        $bundleForbidden = @($bundleFiles | Where-Object { $_.Name -ieq 'SHCDESE.dll' -or $_.Name -like 'RedBird*.dll' })
+        if ($bundleApiCopies.Count -ne 1 -or $bundleForbidden.Count -ne 0) {
+            throw "APIShared bundle must contain exactly one APIShared.dll and no private SHCDESE/RedBird DLLs."
+        }
+        $bundleRecords = @(foreach ($file in $bundleFiles) { Get-FileHashRecord -Path $file.FullName -BasePath $bundleRoot })
+        $bundleName = "$baseName-with-APIShared-v$apiVersion"
+        $bundlePath = Join-Path $outputRoot "$bundleName.zip"
+        Compress-Archive -LiteralPath (Join-Path $bundleRoot 'BepInEx') -DestinationPath $bundlePath -CompressionLevel Optimal
+        $bundleHash = Get-Sha256Hex -Path $bundlePath
+        $bundleShaPath = "$bundlePath.sha256"
+        Write-Utf8CrLfFile -Path $bundleShaPath -Text "$bundleHash  $bundleName.zip"
+        $bundle = [ordered]@{
+            Profile = 'Bundle'
+            File = [IO.Path]::GetFileName($bundlePath)
+            Sha256 = $bundleHash
+            Size = (Get-Item -LiteralPath $bundlePath).Length
+            ApiShared = [ordered]@{
+                Guid = [string]$config.ApiShared.Guid
+                Version = $apiVersion
+                MinimumRequired = $apiSharedMinimum
+                DllSha256 = Get-Sha256Hex -Path $apiDllPath
+            }
+            Files = $bundleRecords
+        }
     }
 
     $gitVersion = ((Invoke-CheckedCommand -FilePath 'git' -Arguments @('--version')).Output -join ' ').Trim()
@@ -125,7 +194,9 @@ try {
         Tag = $metadata.Tag
         BuildStartedUtc = $buildStart.ToString('o')
         BuildCompletedUtc = [DateTime]::UtcNow.ToString('o')
-        Package = [ordered]@{ File = [IO.Path]::GetFileName($zipPath); Sha256 = $zipHash; Size = (Get-Item -LiteralPath $zipPath).Length }
+        Package = [ordered]@{ Profile = 'Thin'; File = [IO.Path]::GetFileName($zipPath); Sha256 = $zipHash; Size = (Get-Item -LiteralPath $zipPath).Length }
+        ApiSharedRequirement = $(if ($apiSharedConsumer) { [ordered]@{ MinimumVersion = $apiSharedMinimum; BundledVersion = [string]$config.ApiShared.Version } } else { $null })
+        Bundle = $bundle
         Files = $fileRecords
         Dependencies = $dependencyRecords
         Tools = [ordered]@{ Git = $gitVersion; GitHubCli = $ghVersion; DotNet = $dotnetVersion; MSBuild = $msBuildVersion }
@@ -142,6 +213,11 @@ try {
     }
 
     $notesPath = Join-Path $outputRoot 'release-notes.md'
+    $bundleNoteLines = if ($null -ne $bundle) { @(
+        "Bundle SHA-256: ``$($bundle.Sha256)``",
+        "Bundled APIShared: v$($bundle.ApiShared.Version) (``$($bundle.ApiShared.DllSha256)``)",
+        ''
+    ) } else { @() }
     $noteLines = @(
         "# $($metadata.Manifest.Name) v$($metadata.Version)",
         '',
@@ -152,8 +228,9 @@ try {
         '## Source and verification',
         '',
         "Source commit: https://github.com/$($config.Repository)/commit/$commit",
-        "SHA-256: ``$zipHash``",
-        '',
+        "Thin SHA-256: ``$zipHash``",
+        ''
+    ) + $bundleNoteLines + @(
         'Verify on Windows:',
         '',
         "    Get-FileHash $baseName.zip -Algorithm SHA256",
@@ -162,12 +239,15 @@ try {
     )
     Write-Utf8CrLfFile -Path $notesPath -Text ($noteLines -join "`r`n")
 
+    $releaseAssets = @($zipPath, $shaPath, $provenancePath)
+    if ($null -ne $bundle) { $releaseAssets += @($bundlePath, $bundleShaPath) }
+
     if ($null -eq $existingDraft) {
-        [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'create', $metadata.Tag, '--repo', $config.Repository, '--draft', '--target', $commit, '--title', "$($metadata.Manifest.Name) v$($metadata.Version)", '--notes-file', $notesPath, $zipPath, $shaPath, $provenancePath))
+        [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments (@('release', 'create', $metadata.Tag, '--repo', $config.Repository, '--draft', '--target', $commit, '--title', "$($metadata.Manifest.Name) v$($metadata.Version)", '--notes-file', $notesPath) + $releaseAssets))
         $draftCreated = $true
     } else {
         [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'edit', $metadata.Tag, '--repo', $config.Repository, '--title', "$($metadata.Manifest.Name) v$($metadata.Version)", '--notes-file', $notesPath))
-        [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'upload', $metadata.Tag, '--repo', $config.Repository, '--clobber', $zipPath, $shaPath, $provenancePath))
+        [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments (@('release', 'upload', $metadata.Tag, '--repo', $config.Repository, '--clobber') + $releaseAssets))
     }
     [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'edit', $metadata.Tag, '--repo', $config.Repository, '--draft=false'))
     $published = ((Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'view', $metadata.Tag, '--repo', $config.Repository, '--json', 'url')).Output -join "`n") | ConvertFrom-Json
