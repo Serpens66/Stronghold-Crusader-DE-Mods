@@ -1189,7 +1189,7 @@ namespace StockpileAccessFixTest
                 ownedStockpile,
                 storageGenerationMatches,
                 unit == null ? (ushort)0 : unit->r_PathPlanStateBitFlags,
-                unit == null ? (ushort)0 : unit->r_PathPlanRelated3,
+                unit == null ? (ushort)0 : unit->r_SelectedConnectionRecordId,
                 unit == null ? (ushort)0 : unit->r_CurrentTilePositionX,
                 unit == null ? (ushort)0 : unit->r_CurrentTilePositionY,
                 unit == null ? (ushort)0 : unit->r_TargetTilePositionX2,
@@ -1263,7 +1263,7 @@ namespace StockpileAccessFixTest
                 throw new InvalidOperationException("GameBuilding layout differs from the audited 0x32C-byte contract.");
             if (Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIState)).ToInt32() != 0x2BC ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_PathPlanStateBitFlags)).ToInt32() != 0xF2 ||
-                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_PathPlanRelated3)).ToInt32() != 0x290 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_SelectedConnectionRecordId)).ToInt32() != 0x290 ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_GlobalId)).ToInt32() != 0x94 ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_CurrentTilePositionX)).ToInt32() != 0xC0 ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_TargetTilePositionX2)).ToInt32() != 0xE8 ||

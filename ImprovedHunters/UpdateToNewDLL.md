@@ -207,7 +207,7 @@ migration to the Script Extender Chore transport available since `1.41.0`.
 ### Native PCL reachability precheck calibration
 
 The canonical Script Extender exposes
-`GamePlayerManagerAPI.GetNextReachablePCLToDestinationForPlayer`. It forwards
+`GamePathingManagerAPI.FindNextComponentTowardDestination`. It forwards
 the pathfinding context, player ID, target PCL, source PCL and an undocumented
 mode to native function RVA `0xE2610` on Steam build `24651686`, SHA-256
 `33AA33457F7DFAAA6D316D1D5E4C5AB97094F2C73B68D349990ABF9D0EF3B469`.
@@ -224,7 +224,7 @@ managed A*.
 `c_game_unit_issueorder_movehere` at RVA `0x196230` calls this function at RVA
 `0x1964D3`. It passes public `GameUnit +0x92`
 (`r_ControllableForPlayerId`) as the player, target/source PCL in `R8D/R9D`,
-and public `GameUnit +0x35C` (`N000001CA`) as the fifth mode. The return is
+and public `GameUnit +0x35C` (`r_PathConnectionMode`) as the fifth mode. The return is
 stored into the unit's path-connection field and a zero value branches directly
 to MoveHere's failure path. Therefore zero is suitable as a conservative hard
 pre-filter; a nonzero result must still leave Vanilla's detailed path creation

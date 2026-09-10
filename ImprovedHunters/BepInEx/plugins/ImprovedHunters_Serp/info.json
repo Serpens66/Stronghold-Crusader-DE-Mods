@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Improved Hunters",
   "Description": "Adds configurable hunter prey and meat yield for deer, goats, rabbits, camels and chickens.",
-  "Version": "1.1.81",
+  "Version": "1.1.82",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.3.0",
+  "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.1.82",
+      "Changes": [
+        "Migrated PCL reachability queries and GameUnit fields to Script Extender 2.4.0."
+      ]
+    },
     {
       "Version": "1.1.81",
       "Changes": [

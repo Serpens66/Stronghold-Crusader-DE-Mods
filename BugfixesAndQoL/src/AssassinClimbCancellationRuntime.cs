@@ -120,7 +120,7 @@ namespace BugfixesAndQoL
         {
             // Keep Vanilla's current tile and occupancy registration together. During state 129
             // Current may already be the lower tile; teleporting it back desynchronizes the tile list.
-            unit->r_MovingRelevant = StoppedMovementState;
+            unit->r_MovementSubstep = StoppedMovementState;
             unit->r_AIState = NormalMovementState;
             unit->r_AnimationTimer = 0;
             unit->r_CurrentSpriteAnimationFrame = 0;

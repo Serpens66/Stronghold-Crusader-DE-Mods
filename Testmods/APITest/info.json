@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "APIShared Test",
   "Description": "Fixed-active runtime validation of the APIShared gatehouse and selected-unit command capabilities.",
-  "Version": "0.1.3",
+  "Version": "0.1.4",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.3.0",
+  "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.4",
+      "Changes": [
+        "Migrated the assassin movement-state probe to the Script Extender 2.4.0 GameUnit contract."
+      ]
+    },
     {
       "Version": "0.1.3",
       "Changes": [

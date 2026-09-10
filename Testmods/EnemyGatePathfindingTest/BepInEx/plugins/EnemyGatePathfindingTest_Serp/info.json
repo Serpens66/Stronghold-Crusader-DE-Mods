@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Enemy Gate Pathfinding Test",
   "Description": "Experimental test mod that treats enemy gatehouses and drawbridges as closed until captured by the querying player or an ally.",
-  "Version": "0.1.2",
+  "Version": "0.1.3",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.3.0",
+  "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.3",
+      "Changes": [
+        "Migrated gate topology diagnostics to Script Extender 2.4.0 path-connection records."
+      ]
+    },
     {
       "Version": "0.1.2",
       "Changes": [

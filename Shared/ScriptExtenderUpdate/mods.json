@@ -230,18 +230,6 @@
     "DependsOn": []
   },
   {
-    "Name": "ShieldTowerTest",
-    "Guid": "ShieldTowerTest_Serp",
-    "Manifest": "Testmods\\ShieldTowerTest\\info.json",
-    "Plugin": "Testmods\\ShieldTowerTest\\src\\ShieldTowerTestPlugin.cs",
-    "Project": "Testmods\\ShieldTowerTest\\ShieldTowerTest.csproj",
-    "BuildDriver": "Testmods\\ShieldTowerTest\\build.bat",
-    "Package": "Testmods\\ShieldTowerTest\\BepInEx\\plugins\\ShieldTowerTest_Serp",
-    "Install": "ShieldTowerTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": []
-  },
-  {
     "Name": "StartConditions",
     "Guid": "StartConditions_Serp",
     "Manifest": "StartConditions\\BepInEx\\plugins\\StartConditions_Serp\\info.json",
@@ -262,18 +250,6 @@
     "BuildDriver": "Testmods\\StockpileAccessFixTest\\build.bat",
     "Package": "Testmods\\StockpileAccessFixTest\\BepInEx\\plugins\\StockpileAccessFixTest_Serp",
     "Install": "StockpileAccessFixTest_Serp",
-    "BuildOrder": 100,
-    "DependsOn": []
-  },
-  {
-    "Name": "TooltipTest",
-    "Guid": "TooltipTest_Serp",
-    "Manifest": "TooltipTest\\BepInEx\\plugins\\TooltipTest_Serp\\info.json",
-    "Plugin": "TooltipTest\\src\\TooltipTestPlugin.cs",
-    "Project": "TooltipTest\\TooltipTest.csproj",
-    "BuildDriver": "TooltipTest\\build.bat",
-    "Package": "TooltipTest\\BepInEx\\plugins\\TooltipTest_Serp",
-    "Install": "TooltipTest_Serp",
     "BuildOrder": 100,
     "DependsOn": []
   },
@@ -324,6 +300,74 @@
     "Install": "BugfixesAndQoL_Serp",
     "BuildOrder": 999,
     "DependsOn": []
+  },
+  {
+    "Name": "MainViewModelInitProbe",
+    "Guid": "MainViewModelInitProbe_Serp",
+    "Manifest": "Testmods\\MainViewModelInitProbe\\info.json",
+    "Plugin": "Testmods\\MainViewModelInitProbe\\src\\MainViewModelInitProbePlugin.cs",
+    "Project": "Testmods\\MainViewModelInitProbe\\MainViewModelInitProbe.csproj",
+    "BuildDriver": "Testmods\\MainViewModelInitProbe\\build.bat",
+    "Package": "Testmods\\MainViewModelInitProbe\\BepInEx\\plugins\\MainViewModelInitProbe_Serp",
+    "Install": "MainViewModelInitProbe_Serp",
+    "BuildOrder": 20,
+    "DependsOn": [
+      "APIShared"
+    ]
+  },
+  {
+    "Name": "PreplacedTest",
+    "Guid": "PreplacedTest_Serp",
+    "Manifest": "Testmods\\PreplacedTest\\info.json",
+    "Plugin": "Testmods\\PreplacedTest\\src\\PreplacedTestPlugin.cs",
+    "Project": "Testmods\\PreplacedTest\\PreplacedTest.csproj",
+    "BuildDriver": "Testmods\\PreplacedTest\\build.bat",
+    "Package": "Testmods\\PreplacedTest\\BepInEx\\plugins\\PreplacedTest_Serp",
+    "Install": "PreplacedTest_Serp",
+    "BuildOrder": 100,
+    "DependsOn": []
+  },
+  {
+    "Name": "SkinTest",
+    "Guid": "SkinTest_Serp",
+    "Manifest": "Testmods\\SkinTest\\info.json",
+    "Plugin": "Testmods\\SkinTest\\src\\SkinTestPlugin.cs",
+    "Project": "Testmods\\SkinTest\\SkinTest.csproj",
+    "BuildDriver": "Testmods\\SkinTest\\build.bat",
+    "Package": "Testmods\\SkinTest\\BepInEx\\plugins\\SkinTest_Serp",
+    "Install": "SkinTest_Serp",
+    "BuildOrder": 20,
+    "DependsOn": [
+      "APIShared"
+    ]
+  },
+  {
+    "Name": "VirtualUnitsPrototype",
+    "Guid": "VirtualUnitsPrototype_Serp",
+    "Manifest": "Testmods\\VirtualUnitsPrototype\\info.json",
+    "Plugin": "Testmods\\VirtualUnitsPrototype\\src\\VirtualUnitsPlugin.cs",
+    "Project": "Testmods\\VirtualUnitsPrototype\\VirtualUnitsPrototype.csproj",
+    "BuildDriver": "Testmods\\VirtualUnitsPrototype\\build.bat",
+    "Package": "Testmods\\VirtualUnitsPrototype\\BepInEx\\plugins\\VirtualUnitsPrototype_Serp",
+    "Install": "VirtualUnitsPrototype_Serp",
+    "BuildOrder": 20,
+    "DependsOn": [
+      "APIShared"
+    ]
+  },
+  {
+    "Name": "KnightArmorAIBuyFixBackup",
+    "Guid": "KnightArmorAIBuyFixBackup_Serp",
+    "Manifest": "Testmods\\KnightArmorAIBuyFixBackup\\info.json",
+    "Plugin": "Testmods\\KnightArmorAIBuyFixBackup\\src\\KnightArmorAIBuyFixBackupPlugin.cs",
+    "Project": "Testmods\\KnightArmorAIBuyFixBackup\\KnightArmorAIBuyFixBackup.csproj",
+    "BuildDriver": "Testmods\\KnightArmorAIBuyFixBackup\\build.bat",
+    "Package": "Testmods\\KnightArmorAIBuyFixBackup\\BepInEx\\plugins\\KnightArmorAIBuyFixBackup_Serp",
+    "Install": "KnightArmorAIBuyFixBackup_Serp",
+    "BuildOrder": 100,
+    "DependsOn": [],
+    "Active": false,
+    "InactiveReason": "Private backup/test mod; intentionally excluded from workspace update builds."
   },
   {
     "Name": "TestMod LUA",

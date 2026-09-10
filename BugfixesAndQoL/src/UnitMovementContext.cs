@@ -164,7 +164,7 @@ namespace BugfixesAndQoL
 
         private static void GetNativeMovementStart(GameUnit* unit, out int startX, out int startY)
         {
-            bool current = unit->r_PathPlanStateBitFlags == 0 && unit->r_MovingRelevant == 8;
+            bool current = unit->r_PathPlanStateBitFlags == 0 && unit->r_MovementSubstep == 8;
             startX = current ? unit->r_CurrentTilePositionX : unit->r_NextTilePositionX2;
             startY = current ? unit->r_CurrentTilePositionY : unit->r_NextTilePositionY2;
         }

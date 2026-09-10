@@ -6,9 +6,9 @@ namespace OxTetherIdleFixTest
             !episodeActive &&
             (observation.State == 1 || observation.State == 3) &&
             observation.PathFlags == 2 &&
-            observation.PathSize > 0 &&
-            observation.PathSize <= ushort.MaxValue &&
-            observation.PathCursor < observation.PathSize &&
+            observation.PathPlanLength > 0 &&
+            observation.PathPlanLength <= ushort.MaxValue &&
+            observation.PathCursor < observation.PathPlanLength &&
             (observation.CurrentX != observation.RequestedX ||
              observation.CurrentY != observation.RequestedY);
 
@@ -65,8 +65,8 @@ namespace OxTetherIdleFixTest
             ushort requestedX,
             ushort requestedY,
             ushort pathCursor = 0,
-            uint pathSize = 0,
-            ushort movingRelevant = 0,
+            uint pathPlanLength = 0,
+            ushort movementSubstep = 0,
             ushort pathRelated1 = 0,
             ushort primaryX = 0,
             ushort primaryY = 0,
@@ -87,8 +87,8 @@ namespace OxTetherIdleFixTest
             RequestedX = requestedX;
             RequestedY = requestedY;
             PathCursor = pathCursor;
-            PathSize = pathSize;
-            MovingRelevant = movingRelevant;
+            PathPlanLength = pathPlanLength;
+            MovementSubstep = movementSubstep;
             PathRelated1 = pathRelated1;
             PrimaryX = primaryX;
             PrimaryY = primaryY;
@@ -110,8 +110,8 @@ namespace OxTetherIdleFixTest
         public ushort RequestedX { get; }
         public ushort RequestedY { get; }
         public ushort PathCursor { get; }
-        public uint PathSize { get; }
-        public ushort MovingRelevant { get; }
+        public uint PathPlanLength { get; }
+        public ushort MovementSubstep { get; }
         public ushort PathRelated1 { get; }
         public ushort PrimaryX { get; }
         public ushort PrimaryY { get; }
@@ -162,8 +162,8 @@ namespace OxTetherIdleFixTest
             RequestedX != previous.RequestedX ||
             RequestedY != previous.RequestedY ||
             PathCursor != previous.PathCursor ||
-            PathSize != previous.PathSize ||
-            MovingRelevant != previous.MovingRelevant ||
+            PathPlanLength != previous.PathPlanLength ||
+            MovementSubstep != previous.MovementSubstep ||
             PathRelated1 != previous.PathRelated1 ||
             CarryGoods != previous.CarryGoods ||
             WorkerTargetGlobalId != previous.WorkerTargetGlobalId ||

@@ -201,8 +201,9 @@ namespace BugfixesAndQoL
                 actualUnitGlobalIdOffset == QueueNativeContract.GameUnitGlobalIdOffset &&
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_CurrentTilePositionX)).ToInt32() == 0xC0 &&
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_NextTilePositionX2)).ToInt32() == 0xDC &&
-                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.p_CurrentPathPlanPosition)).ToInt32() == 0xF6 &&
-                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.p_PathPlanSize)).ToInt32() == 0xF8 &&
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_MovementSubstep)).ToInt32() == 0xF4 &&
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_CurrentPathPlanIndex)).ToInt32() == 0xF6 &&
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_PathPlanLength)).ToInt32() == 0xF8 &&
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_TribeId)).ToInt32() == 0x2D4 &&
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AttackMoveToTargetTileX)).ToInt32() == 0x2D8;
             int actualBuildingSize = Marshal.SizeOf(typeof(GameBuilding));

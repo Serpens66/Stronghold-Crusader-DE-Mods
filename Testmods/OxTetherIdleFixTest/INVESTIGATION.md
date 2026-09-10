@@ -10,7 +10,7 @@ Die Untersuchung soll drei voneinander getrennte Aussagen belegen:
 
 1. Die vermutete native Ursache kann im echten Vanilla-Ablauf entstehen.
 2. Der Diagnosecode erkennt ausschließlich diese echte Fehlersignatur.
-3. Das Löschen von `r_PathPlanRelated3` behebt eine bestätigte Episode, ohne AI-Zustand, Waren, Timer oder Gebäudezuordnung künstlich zu verändern.
+3. Das Löschen von `r_SelectedConnectionRecordId` behebt eine bestätigte Episode, ohne AI-Zustand, Waren, Timer oder Gebäudezuordnung künstlich zu verändern.
 
 ## Zielumgebung und Verträge
 
@@ -31,7 +31,7 @@ Die hashgleiche Baseline stützt folgende Fehlerkette:
 
 1. Ein Ochse erhält ein exaktes Ziel für eine Fahrt zum Steinbruch beziehungsweise Lager.
 2. Ist dieses exakte Feld beim Pathfinding blockiert, kann der Pathfinder ein alternatives, gültiges Endfeld wählen.
-3. Nach Erreichen dieses alternativen Endfelds ist kein Pfad mehr aktiv, `r_PathPlanRelated3` bleibt jedoch ungleich null.
+3. Nach Erreichen dieses alternativen Endfelds ist kein Pfad mehr aktiv, `r_SelectedConnectionRecordId` bleibt jedoch ungleich null.
 4. Die Vanilla-Ankunftsprüfung akzeptiert die Ankunft wegen dieses Markers nicht.
 5. Der Ochse bleibt dadurch in Reisezustand 1 oder 3, obwohl kein aktiver Pfad mehr vorliegt.
 6. Für diesen Zustand existiert kein ausreichender Vanilla-Watchdog. Schlafen und Aufwecken der Station stößt die Zustandsmaschine neu an und erklärt die Selbstheilung aus dem Spielerbericht.
@@ -48,13 +48,13 @@ Ein Ochse gilt erst nach 50 aufeinanderfolgenden Simulationsticks als bestätigt
 - identische Unit-ID und Global-ID
 - `r_AIState` ist 1 oder 3
 - `r_PathPlanStateBitFlags == 0`
-- `r_PathPlanRelated3 != 0`
+- `r_SelectedConnectionRecordId != 0`
 - aktuelle Position weicht vom angeforderten Ziel ab
 - Position, Ziel, Zustand und Alternativmarker bleiben unverändert
 
 Bei Bestätigung schreibt der Fix ausschließlich:
 
-    r_PathPlanRelated3 = 0
+    r_SelectedConnectionRecordId = 0
 
 Danach wird 20 Ticks lang auf die Vanilla-Folgereaktion gewartet:
 
@@ -105,8 +105,8 @@ Ein gesetzter Alternativmarker allein ist ebenfalls kein Fehler. In den Logs tra
 
 Eine frühe Injektorversion lief alle 30 Sekunden und erzeugte die Signatur direkt am Ziel-Ochsen:
 
-- `p_CurrentPathPlanPosition` wurde an das Ende des Pfads gesetzt.
-- `r_PathPlanRelated3` wurde beibehalten beziehungsweise künstlich gesetzt.
+- `r_CurrentPathPlanIndex` wurde an das Ende des Pfads gesetzt.
+- `r_SelectedConnectionRecordId` wurde beibehalten beziehungsweise künstlich gesetzt.
 - Vanilla setzte anschließend den Pfadstatus auf 0.
 - neu entstehende Vanilla-Replans wurden fortlaufend unterdrückt, damit die erzwungene Signatur 50 Ticks bestehen blieb.
 
@@ -229,7 +229,7 @@ Als belegt gelten inzwischen:
 
 - Die Runtime überlebt den SHCDE-Startup-Cleanup und tickt auf der Karte weiter.
 - Die Diagnose erkennt die erzwungene exakte Signatur.
-- Das alleinige Löschen von `r_PathPlanRelated3` führte bei erzwungenen Episoden zur erwarteten Vanilla-Zustandsänderung und wurde als `FIX_VERIFIED` bestätigt.
+- Das alleinige Löschen von `r_SelectedConnectionRecordId` führte bei erzwungenen Episoden zur erwarteten Vanilla-Zustandsänderung und wurde als `FIX_VERIFIED` bestätigt.
 - Ein umgeleiteter physischer Ochse kann das exakte Zielfeld über Vanilla erreichen und im echten `TileUnitIdGrid` eingetragen werden.
 - Der Fortschritts-Watchdog erlaubt auch sehr lange, aber funktionierende Anfahrten.
 - Dichte Stationen und eine schmale Gasse haben im bisherigen Lauf allein keine natürliche exakte Fehlersignatur erzeugt.

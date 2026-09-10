@@ -74,7 +74,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                if (!TryGetLiveGatehouse(args.BuildingId, out GameBuilding* building, out GameGatehouseEntry* gatehouse))
+                if (!TryGetLiveGatehouse(args.BuildingId, out GameBuilding* building, out PathConnectionRecord* gatehouse))
                     return;
 
                 int candidateUnitId = args.UnitId;
@@ -121,7 +121,7 @@ namespace BugfixesAndQoL
         private bool TryIsUnitReachableToGate(
             int unitId,
             GameUnit* unit,
-            GameGatehouseEntry* gatehouse,
+            PathConnectionRecord* gatehouse,
             out bool reachable)
         {
             reachable = true;
@@ -133,16 +133,17 @@ namespace BugfixesAndQoL
             }
 
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
+            GamePathingManagerAPI pathingApi = GamePathingManagerAPI.Instance;
             int sourceTileId = (int)unit->r_CurrentPositionTileId;
-            int entryTileId = (int)gatehouse->r_EntryDoorTileId;
-            int exitTileId = (int)gatehouse->r_ExitDoorTileId;
+            int entryTileId = (int)gatehouse->r_EntryTileId;
+            int exitTileId = (int)gatehouse->r_ExitTileId;
             if (!tileApi.IsValidTileId(sourceTileId) || !tileApi.IsValidTileId(entryTileId) ||
                 !tileApi.IsValidTileId(exitTileId))
             {
                 return false;
             }
 
-            Span<ushort> pathConnections = tileApi.TileManager.PathConnectionGrid;
+            Span<ushort> pathConnections = pathingApi.GetPathComponentGrid();
             if ((uint)sourceTileId >= (uint)pathConnections.Length ||
                 (uint)entryTileId >= (uint)pathConnections.Length ||
                 (uint)exitTileId >= (uint)pathConnections.Length)
@@ -161,24 +162,24 @@ namespace BugfixesAndQoL
             int sourcePcl = pathConnections[sourceTileId];
             int entryPcl = pathConnections[entryTileId];
             int exitPcl = pathConnections[exitTileId];
-            int mode = unit->N000001CA;
+            int mode = unit->r_PathConnectionMode;
             var key = new ReachabilityKey(playerId, sourcePcl, entryPcl, exitPcl, mode);
             if (reachabilityCache.TryGetValue(key, out reachable))
                 return true;
 
-            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            int entryResult = playerApi.GetNextReachablePCLToDestinationForPlayer(
+            PathConnectionQueryMode queryMode = (PathConnectionQueryMode)mode;
+            int entryResult = pathingApi.FindNextComponentTowardDestination(
                 playerId,
-                entryPcl,
                 sourcePcl,
-                mode);
+                entryPcl,
+                queryMode);
             int exitResult = entryResult != 0
                 ? entryResult
-                : playerApi.GetNextReachablePCLToDestinationForPlayer(
+                : pathingApi.FindNextComponentTowardDestination(
                     playerId,
-                    exitPcl,
                     sourcePcl,
-                    mode);
+                    exitPcl,
+                    queryMode);
             reachable = entryResult != 0 || exitResult != 0;
             reachabilityCache[key] = reachable;
             return true;
@@ -187,7 +188,7 @@ namespace BugfixesAndQoL
         private static bool TryGetLiveGatehouse(
             int buildingId,
             out GameBuilding* building,
-            out GameGatehouseEntry* gatehouse)
+            out PathConnectionRecord* gatehouse)
         {
             building = null;
             gatehouse = null;
@@ -195,9 +196,9 @@ namespace BugfixesAndQoL
             return buildingId > 0 &&
                 api.TryGetBuildingById(buildingId, out building) && building != null &&
                 building->r_AliveState == AliveState.IsAlive &&
-                api.TryGetGatehouseEntryById(buildingId, out gatehouse) && gatehouse != null &&
-                gatehouse->r_BuildingId == (uint)buildingId &&
-                gatehouse->r_GlobalId == building->r_GlobalId;
+                GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(buildingId, out gatehouse) &&
+                gatehouse != null && gatehouse->r_BuildingId == buildingId &&
+                gatehouse->r_SubjectGlobalId == building->r_GlobalId;
         }
 
         private void ClearCache()

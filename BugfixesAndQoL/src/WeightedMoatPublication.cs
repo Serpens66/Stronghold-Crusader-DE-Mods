@@ -59,7 +59,7 @@ namespace BugfixesAndQoL
 
                 // Exact 0x196280 start selection: unrelated shared-builder calls fail closed.
                 bool vanillaUsesCurrentTile = unit->r_PathPlanStateBitFlags == 0 &&
-                    unit->r_MovingRelevant == 8;
+                    unit->r_MovementSubstep == 8;
                 int expectedStartX = vanillaUsesCurrentTile
                     ? unit->r_CurrentTilePositionX
                     : unit->r_NextTilePositionX2;
@@ -174,7 +174,7 @@ namespace BugfixesAndQoL
                 bool publishedToUnit = nativePath == expectedPath;
                 bool vanillaStillUsesCurrentTile =
                     snapshotUnit->r_PathPlanStateBitFlags == 0 &&
-                    snapshotUnit->r_MovingRelevant == 8;
+                    snapshotUnit->r_MovementSubstep == 8;
                 int revalidatedStartX = vanillaStillUsesCurrentTile
                     ? snapshotUnit->r_CurrentTilePositionX
                     : snapshotUnit->r_NextTilePositionX2;

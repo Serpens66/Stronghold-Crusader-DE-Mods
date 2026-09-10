@@ -6,14 +6,14 @@ using System.Collections.Generic;
 
 namespace PreplacedTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class PreplacedTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "PreplacedTest_Serp";
         private const string PluginName = "Preplaced Test";
-        private const string PluginVersion = "0.1.0";
+        private const string PluginVersion = "0.1.1";
         private static readonly string[] ConflictingPluginGuids =
         {
             "ActiveAIVDetector_Serp", "ExtraFeatures_Serp", "BugfixesAndQoL_Serp", "CastlePlanner_Serp"
@@ -28,7 +28,7 @@ namespace PreplacedTest
         {
             Shared.DebugLogHelper.LogInfo(Logger,
                 $"{PluginName} {PluginVersion} loaded; passive=true, NetworkMode=0, settings=false, " +
-                "targetScriptExtender=2.3.0, auditedCommit=a0cd52993b44a6909d4f7f6a92f82fa5888a8e63.");
+                "targetScriptExtender=2.4.0, auditedCommit=5d5719c1002aec043d331162d72b2e7f3111b34b.");
             WarnAboutConflicts("Awake");
             if (!handled && !subscribed)
             {

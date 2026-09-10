@@ -3,12 +3,18 @@
   "Author": "Serpens66",
   "Name": "Stockpile Access Fix Test",
   "Description": "Diagnoses and repairs workers stranded by a stale stockpile access point.",
-  "Version": "0.1.2",
-  "MinimumScriptExtenderVersion": "2.3.0",
+  "Version": "0.1.3",
+  "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.3",
+      "Changes": [
+        "Migrated selected connection diagnostics to the Script Extender 2.4.0 GameUnit contract."
+      ]
+    },
     {
       "Version": "0.1.2",
       "Changes": [

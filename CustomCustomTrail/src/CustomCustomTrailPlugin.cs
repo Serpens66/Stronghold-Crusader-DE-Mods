@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace CustomCustomTrail
 {
-    [BepInDependency("000shcdese", "2.3.0")]
+    [BepInDependency("000shcdese", "2.4.0")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -16,7 +16,7 @@ namespace CustomCustomTrail
     {
         public const string PluginGuid = "CustomCustomTrail_Serp";
         public const string PluginName = "Custom Custom Trail";
-        public const string PluginVersion = "1.3.50";
+        public const string PluginVersion = "1.3.51";
         public const bool CustomCustomTrailModSettingsOptOut = true;
 
         private static CustomCustomTrailRuntime runtime;
@@ -44,8 +44,19 @@ namespace CustomCustomTrail
                     Settings,
                     "ScriptExtenderUI/CustomCustomTrailSettings.xaml");
                 string customTrailsRoot = ConfigSettings.GetUserCustomTrailsPath();
-                runtime = new CustomCustomTrailRuntime(Logger, customTrailsRoot, Settings);
-                runtime.Initialize();
+                var runtimeCandidate = new CustomCustomTrailRuntime(Logger, customTrailsRoot, Settings);
+                try
+                {
+                    runtimeCandidate.Initialize();
+                }
+                catch
+                {
+                    // Dispose is only valid while rolling back an unpublished candidate.
+                    runtimeCandidate.Dispose();
+                    throw;
+                }
+
+                runtime = runtimeCandidate;
                 ScheduleDeferredCompatibilityRefresh();
                 Settings.RuntimeActivationChanged += runtime.SetEnabled;
                 Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>
@@ -55,15 +66,6 @@ namespace CustomCustomTrail
             }
             catch (Exception ex)
             {
-                try
-                {
-                    runtime?.Dispose();
-                }
-                catch (Exception cleanupException)
-                {
-                    Shared.DebugLogHelper.LogWarning(Logger, "CustomCustomTrail partial initialization cleanup failed: " + cleanupException);
-                }
-                runtime = null;
                 Shared.DebugLogHelper.LogError(Logger, "CustomCustomTrail initialization failed: " + ex);
             }
         }
@@ -90,12 +92,5 @@ namespace CustomCustomTrail
             runtime?.RefreshModCompatibility();
         }
 
-        private void OnApplicationQuit()
-        {
-            Application.onBeforeRender -= RefreshCompatibilityAfterRegistrations;
-            deferredCompatibilityRefreshPending = false;
-            runtime?.Dispose();
-            runtime = null;
-        }
     }
 }

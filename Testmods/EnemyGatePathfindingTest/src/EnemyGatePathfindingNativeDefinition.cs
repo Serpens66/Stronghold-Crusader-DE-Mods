@@ -147,6 +147,6 @@ namespace EnemyGatePathfindingTest
 
         // UPDATE REVIEW (Script Extender): rebuild and re-test against this exact source.
         public const string AuditedScriptExtenderCommit =
-            "a0cd52993b44a6909d4f7f6a92f82fa5888a8e63";
+            "5d5719c1002aec043d331162d72b2e7f3111b34b";
     }
 }

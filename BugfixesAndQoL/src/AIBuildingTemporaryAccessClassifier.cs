@@ -192,7 +192,7 @@ namespace BugfixesAndQoL
         private static bool TryGetPcl(int tileId, out int pcl)
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            Span<ushort> pcls = tiles.TileManager.PathConnectionGrid;
+            Span<ushort> pcls = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             if (!tiles.IsValidTileId(tileId) || (uint)tileId >= (uint)pcls.Length)
             {
                 pcl = 0;

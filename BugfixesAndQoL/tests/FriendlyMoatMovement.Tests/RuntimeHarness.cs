@@ -29,7 +29,7 @@ namespace BugfixesAndQoL
         public int r_TribeId;
         public ushort r_AttackMoveToTargetTileX, r_AttackMoveToTargetTileY;
         public int r_ControllableForPlayerId, r_CurrentTilePositionX, r_CurrentTilePositionY;
-        public int r_NextTilePositionX2, r_NextTilePositionY2, r_PathPlanStateBitFlags, r_MovingRelevant;
+        public int r_NextTilePositionX2, r_NextTilePositionY2, r_PathPlanStateBitFlags, r_MovementSubstep;
         public int r_AI_LastIssuedTribeCommand;
         public int r_AIState;
         public AliveState r_AliveState;
@@ -340,7 +340,7 @@ namespace BugfixesAndQoL
                 for (int id = 1; id <= 1000; id++)
                     units[id] = new GameUnit { Digger = true, r_ControllableForPlayerId = 1,
                         r_CurrentTilePositionX = 10, r_CurrentTilePositionY = 10,
-                        r_NextTilePositionX2 = 10, r_NextTilePositionY2 = 10, r_MovingRelevant = 8 };
+                        r_NextTilePositionX2 = 10, r_NextTilePositionY2 = 10, r_MovementSubstep = 8 };
                 nativeUnitManager = (byte*)Alloc(NativeUnitPathBufferOffset + 1025 * NativeUnitPathBufferStride);
                 nativePathManager = Alloc(PathManagerOutputLengthOffset + 16);
                 moatPathMode = (int*)Alloc(sizeof(int));

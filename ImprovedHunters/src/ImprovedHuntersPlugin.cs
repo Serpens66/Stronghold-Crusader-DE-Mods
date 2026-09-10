@@ -4,7 +4,7 @@ using System;
 
 namespace ImprovedHunters
 {
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ImprovedHuntersPlugin : BaseUnityPlugin
     {
@@ -12,15 +12,11 @@ namespace ImprovedHunters
 
         public const string PluginGuid = "ImprovedHunters_Serp";
         public const string PluginName = "Improved Hunters";
-        public const string PluginVersion = "1.1.81";
+        public const string PluginVersion = "1.1.82";
 
         private static ImprovedHuntersRuntime persistentRuntime;
         private static ImprovedHuntersViewModel persistentSettings;
         private static bool libraryLoadedSubscriptionInstalled;
-        private static bool runtimeDisposed;
-
-        private bool applicationQuitting;
-
         private void Awake()
         {
             Shared.CrashBreadcrumbDiagnostics.Initialize(
@@ -36,8 +32,6 @@ namespace ImprovedHunters
             if (persistentRuntime == null)
                 persistentRuntime = new ImprovedHuntersRuntime(Logger, persistentSettings);
 
-            runtimeDisposed = false;
-
             if (!libraryLoadedSubscriptionInstalled)
             {
                 CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
@@ -47,19 +41,7 @@ namespace ImprovedHunters
 
         private void OnDestroy()
         {
-            if (applicationQuitting)
-            {
-                DisposeRuntime("OnDestroy during application quit");
-                return;
-            }
-
             Shared.DebugLogHelper.LogDebug(Logger, "Preserving persistent runtime across BepInEx manager destruction.");
-        }
-
-        private void OnApplicationQuit()
-        {
-            applicationQuitting = true;
-            DisposeRuntime("OnApplicationQuit");
         }
 
         private void OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)
@@ -103,21 +85,5 @@ namespace ImprovedHunters
             }
         }
 
-        private void DisposeRuntime(string reason)
-        {
-            if (runtimeDisposed)
-                return;
-
-            Shared.DebugLogHelper.LogInfo(Logger, $"Disposing runtime because of {reason}.");
-            if (libraryLoadedSubscriptionInstalled)
-            {
-                CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
-                libraryLoadedSubscriptionInstalled = false;
-            }
-
-            persistentRuntime?.Dispose();
-            persistentRuntime = null;
-            runtimeDisposed = true;
-        }
     }
 }

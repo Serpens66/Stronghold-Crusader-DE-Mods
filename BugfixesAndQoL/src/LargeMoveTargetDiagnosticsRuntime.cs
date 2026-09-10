@@ -162,8 +162,8 @@ namespace BugfixesAndQoL
                         continue;
                     }
 
-                    bool pathPending = unit.p_PathPlanSize != 0 &&
-                        unit.p_CurrentPathPlanPosition < unit.p_PathPlanSize;
+                    bool pathPending = unit.r_PathPlanLength != 0 &&
+                        unit.r_CurrentPathPlanIndex < unit.r_PathPlanLength;
                     bool tileTransitionPending = unit.r_NextTilePositionX2 != unit.r_CurrentTilePositionX ||
                         unit.r_NextTilePositionY2 != unit.r_CurrentTilePositionY;
                     if (pathPending || tileTransitionPending)

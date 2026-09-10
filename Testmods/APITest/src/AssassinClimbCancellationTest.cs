@@ -98,7 +98,7 @@ namespace APITest
         {
             // Preserve Vanilla's current tile and occupancy registration; only complete the
             // same transition fields that Vanilla clears at the end of climbing states.
-            unit->r_MovingRelevant = StoppedMovementState;
+            unit->r_MovementSubstep = StoppedMovementState;
             unit->r_AIState = NormalMovementState;
             unit->r_AnimationTimer = 0;
             unit->r_CurrentSpriteAnimationFrame = 0;

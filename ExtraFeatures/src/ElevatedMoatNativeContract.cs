@@ -577,7 +577,7 @@ namespace ExtraFeatures
         }
     }
 
-    // Native mode protocol from FUN_18006FE90; Script Extender 2.3.0 exposes no enum for it.
+    // Native mode protocol from FUN_18006FE90; Script Extender 2.4.0 still exposes no enum for this operation mode.
     internal enum ElevatedMoatNativeMode
     {
         Plan = 0,

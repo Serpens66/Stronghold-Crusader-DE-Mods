@@ -254,7 +254,7 @@ namespace BugfixesAndQoL
         private const int MoatRecordSize = 0x10;
         private const int MoatOwnerOffset = 0x0C;
 
-        // Script Extender 2.3.0 exposes PathConnectionGrid as UInt16. Large or
+        // Script Extender 2.4.0 exposes the native-sized PCL grid as UInt16. Large or
         // fragmented maps can legitimately use region IDs above Int16.MaxValue.
         private const int MaximumRegionId = ushort.MaxValue;
         private const int MaximumFloodFillStamp = 0x7D00;
@@ -1952,8 +1952,8 @@ namespace BugfixesAndQoL
                         $"{unit->r_AI_ContextTargetUnitGlobalId} " +
                         $"contextBuildingTile={unit->r_AI_ContextTargetBuildingTileId} " +
                         $"path={unit->r_PathPlanRelated1}/{unit->r_PathPlanStateBitFlags}/" +
-                        $"{unit->r_MovingRelevant}/{unit->p_CurrentPathPlanPosition}/" +
-                        $"{unit->p_PathPlanSize}");
+                        $"{unit->r_MovementSubstep}/{unit->r_CurrentPathPlanIndex}/" +
+                        $"{unit->r_PathPlanLength}");
                 }
             }
         }
@@ -2370,7 +2370,7 @@ namespace BugfixesAndQoL
                     builderResult,
                     unit->r_CurrentTilePositionX,
                     unit->r_CurrentTilePositionY,
-                    unit->p_CurrentPathPlanPosition,
+                    unit->r_CurrentPathPlanIndex,
                     IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)),
                     ReadUnitMoatPathConsumptionMode(unit),
                     CaptureCurrentGameTick());
@@ -2428,7 +2428,7 @@ namespace BugfixesAndQoL
                     mapEpoch, shadow.UnitId, shadow.TribeId, shadow.UnitType, shadow.PlayerId,
                     shadow.TargetX, shadow.TargetY,
                     builderResult, shadow.StartX, shadow.StartY,
-                    unit->p_CurrentPathPlanPosition,
+                    unit->r_CurrentPathPlanIndex,
                     IsCompletedMoatTile(unchecked((int)unit->r_CurrentPositionTileId)),
                     ReadUnitMoatPathConsumptionMode(unit),
                     CaptureCurrentGameTick());
@@ -2541,8 +2541,8 @@ namespace BugfixesAndQoL
                     bool reachedRequestedTarget =
                         unit->r_CurrentTilePositionX == tracker.TargetX &&
                         unit->r_CurrentTilePositionY == tracker.TargetY;
-                    bool pathConsumed = unit->p_PathPlanSize <= 0 ||
-                        unit->p_CurrentPathPlanPosition >= unit->p_PathPlanSize;
+                    bool pathConsumed = unit->r_PathPlanLength <= 0 ||
+                        unit->r_CurrentPathPlanIndex >= unit->r_PathPlanLength;
                     bool settledOnCurrentTile =
                         unit->r_TargetTilePositionX == unit->r_CurrentTilePositionX &&
                         unit->r_TargetTilePositionY == unit->r_CurrentTilePositionY &&
@@ -2563,7 +2563,7 @@ namespace BugfixesAndQoL
                     bool tileChanged = unit->r_CurrentTilePositionX != tracker.LastX ||
                         unit->r_CurrentTilePositionY != tracker.LastY;
                     bool progressed = tileChanged ||
-                        unit->p_CurrentPathPlanPosition != tracker.LastPathPosition;
+                        unit->r_CurrentPathPlanIndex != tracker.LastPathPosition;
                     int transitionTicks = -1;
                     bool firstObservation = tracker.FirstObservedTick < 0;
                     if (firstObservation)
@@ -2575,7 +2575,7 @@ namespace BugfixesAndQoL
                     if (tracker.WeightedPathPublished && !tracker.PublishedLengthChecked)
                     {
                         tracker.PublishedLengthChecked = true;
-                        tracker.ObservedPublishedPathSize = unchecked((int)unit->p_PathPlanSize);
+                        tracker.ObservedPublishedPathSize = unchecked((int)unit->r_PathPlanLength);
                         tracker.PublishedLengthVerified =
                             tracker.ObservedPublishedPathSize == tracker.BuilderResult;
                         if (!consumerContracts.TryGetValue(
@@ -2596,7 +2596,7 @@ namespace BugfixesAndQoL
                                     $"unit={unitId} commandSeq={tracker.WeightedCommandSequence} " +
                                     $"expectedLength={tracker.BuilderResult} " +
                                     $"observedLength={tracker.ObservedPublishedPathSize} " +
-                                    $"pathPosition={unit->p_CurrentPathPlanPosition}.");
+                                    $"pathPosition={unit->r_CurrentPathPlanIndex}.");
                             }
                             tracker.Calibratable = false;
                             tracker.CalibrationReason = "published-length-not-consumed";
@@ -2734,7 +2734,7 @@ namespace BugfixesAndQoL
 
                     tracker.LastX = unit->r_CurrentTilePositionX;
                     tracker.LastY = unit->r_CurrentTilePositionY;
-                    tracker.LastPathPosition = unit->p_CurrentPathPlanPosition;
+                    tracker.LastPathPosition = unit->r_CurrentPathPlanIndex;
                     tracker.WasOnMoat = currentMoat;
                 }
                 foreach (KeyValuePair<int, int[]> entry in consumerContracts)
@@ -3021,7 +3021,7 @@ namespace BugfixesAndQoL
                     $"workTargetTile={tracker.WorkTargetMoatTileId} " +
                     $"matchesWorkTarget={matchesWorkTarget} " +
                     $"requestedTarget=({tracker.TargetX},{tracker.TargetY}) " +
-                    $"path={unit->p_CurrentPathPlanPosition}/{unit->p_PathPlanSize}.");
+                    $"path={unit->r_CurrentPathPlanIndex}/{unit->r_PathPlanLength}.");
             }
         }
 
@@ -3070,7 +3070,7 @@ namespace BugfixesAndQoL
                 $"commandContext={tracker.WeightedCommandContext ?? "unresolved"} " +
                 $"current=({unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}) " +
                 $"requestedTarget=({tracker.TargetX},{tracker.TargetY}) " +
-                $"path={unit->p_CurrentPathPlanPosition}/{unit->p_PathPlanSize} " +
+                $"path={unit->r_CurrentPathPlanIndex}/{unit->r_PathPlanLength} " +
                 $"moatConsumerMode={ReadUnitMoatPathConsumptionMode(unit)} " +
                 $"cadence={cadenceSnapshot} " +
                 $"builderResult={tracker.BuilderResult}.");
@@ -3629,7 +3629,7 @@ namespace BugfixesAndQoL
                         $"Bugfixes and QoL stage=friendly-moat-movement-post-combat-repath-result unit={unitId} " +
                         $"target=({targetX},{targetY}) modeObserved={plan.ModeObserved} " +
                         $"friendlyRouteQualified={plan.FriendlyRouteQualified} " +
-                        $"path={unit->p_CurrentPathPlanPosition}/{unit->p_PathPlanSize} " +
+                        $"path={unit->r_CurrentPathPlanIndex}/{unit->r_PathPlanLength} " +
                         $"currentTarget=({unit->r_TargetTilePositionX},{unit->r_TargetTilePositionY}).");
                 }
                 catch (Exception ex)

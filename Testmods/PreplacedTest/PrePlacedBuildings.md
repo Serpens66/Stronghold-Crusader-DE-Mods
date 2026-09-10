@@ -2,7 +2,7 @@
 
 - Stand: 10. September 2026
 - Native Version: `CrusaderDE.dll`, SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
-- Script Extender: 2.3.0
+- Script Extender: 2.4.0
 
 Evidenz sind der aktuelle saubere Lauf im `BepInEx\LogOutput.log` vom 10. September 2026 ab 13:45:19, `Log_050.log` und der frühere Durchbruchlauf `BepInEx\logs\Log\_047.log`. Aktiv waren nur UU-ImGUI, Script Extender und `PreplacedTest`.
 
@@ -55,7 +55,7 @@ Reine PCL-Neunummerierungen, etwa nach gewöhnlichem Gebäudebau, sind kein Durc
 
 ### Korrektur des PCL-Span-Vertrags
 
-Vanilla verarbeitet RVA `0x50EC690` bis exklusiv `0x51890D0`: 320.800 `ushort`-Einträge mit gültigen Indizes `0..320799`. Script Extender 2.3.0 stellt ab derselben Adresse 640.000 Einträge bereit. Die zusätzlichen Einträge liegen in benachbarten nativen Rastern und sind keine PCL-Daten.
+Vanilla verarbeitet RVA `0x50EC690` bis exklusiv `0x51890D0`: 320.800 `ushort`-Einträge mit gültigen Indizes `0..320799`. Script Extender 2.4.0 bildet diesen nativen Vertrag nun korrekt ab; der frühere 2.3.0-Span mit 640.000 Einträgen reichte in benachbarte native Raster.
 
 Frühere vollständige Verteilungen über den öffentlichen überlangen Span sind ungültig. Lokale Werte gültiger Tile-IDs bleiben verwendbar. `PreplacedTest` begrenzt alle PCL-Auswertungen auf 320.800 Einträge.
 

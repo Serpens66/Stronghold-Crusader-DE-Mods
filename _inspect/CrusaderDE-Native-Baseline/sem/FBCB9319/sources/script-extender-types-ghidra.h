@@ -13555,6 +13555,15 @@ typedef struct LogicDebugInfo
 
 
 
+/* Derived from GatePathOverrideMode.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum GatePathOverrideMode
+{
+    GatePathOverrideMode_RestoreSaved = 0,
+	GatePathOverrideMode_ForceClosed = 1,
+	GatePathOverrideMode_ForceOpen = 2
+} GatePathOverrideMode;
+
+
 /* Derived from InternalAIC.h; C++ syntax normalized for Ghidra CParser. */
 // Created with ReClass.NET 1.2 by KN4CK3R
 
@@ -13957,6 +13966,20 @@ typedef struct MessageManager
 	uint32_t CurrentQueueCount; //0x094C
 	char pad_0950[904]; //0x0950
 }; //Size: 0x0CD8
+
+/* Derived from MoatTargetMode.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum MoatTargetMode
+{
+    TaskTile = 1,
+    AdjacentReachableTile = 2,
+} MoatTargetMode;
+
+/* Derived from MoatWorkType.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum MoatWorkType
+{
+    DigFriendlyPlannedMoat = 1,
+    FillHostileDugMoat = 2,
+} MoatWorkType;
 
 /* Derived from PlayerResources.h; C++ syntax normalized for Ghidra CParser. */
 typedef struct PlayerResources
@@ -19650,5 +19673,13 @@ typedef struct PlayerResources
 	uint32_t N00005B0C; //0x5838
 }; //Size: 0x583C
 
+
+/* Derived from SelectedRechargeablesResultType.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum SelectedRechargeablesResultType
+{
+    None = 0,
+	Single = 1,
+	Multile = 2
+} SelectedRechargeablesResultType;
 
 #endif

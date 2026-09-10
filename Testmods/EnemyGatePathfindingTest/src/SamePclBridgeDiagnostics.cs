@@ -560,17 +560,17 @@ namespace EnemyGatePathfindingTest
             TopologyRejections rejections = default;
             ulong fingerprint = 1469598103934665603UL;
 
-            // Script Extender contract: the native gatehouse array is
-            // authoritative for standalone gates and supplies the public building ID.
-            var gateEntries = buildingApi.GetGatehouseArray();
+            // Script Extender 2.4 exposes the authoritative macro-connection records.
+            // Record zero and inactive records are reserved and must be skipped.
+            var gateEntries = GamePathingManagerAPI.Instance.GetPathConnectionArray();
             for (int entryIndex = 0; entryIndex < gateEntries.Length; entryIndex++)
             {
-                GameGatehouseEntry* entryPointer = gateEntries.GetValuePointer(entryIndex);
-                if (entryPointer == null || entryPointer->r_BuildingId == 0 ||
-                    entryPointer->r_BuildingId > int.MaxValue)
+                PathConnectionRecord* entryPointer = gateEntries.GetValuePointer(entryIndex);
+                if (entryPointer == null || entryPointer->r_IsActive == 0 ||
+                    entryPointer->r_BuildingId <= 0)
                     continue;
                 rejections.ScannedGatehouses++;
-                int gateId = unchecked((int)entryPointer->r_BuildingId);
+                int gateId = entryPointer->r_BuildingId;
                 if (gateInfosById.ContainsKey(gateId) || !buildingApi.IsValidId(gateId) ||
                     !buildingApi.TryGetBuildingById(gateId, out GameBuilding* gate) || gate == null)
                 {
@@ -588,14 +588,14 @@ namespace EnemyGatePathfindingTest
                     continue;
                 }
                 GameBuilding gateSnapshot = *gate;
-                GameGatehouseEntry entry = *entryPointer;
-                if (entry.r_GlobalId != gateSnapshot.r_GlobalId)
+                PathConnectionRecord entry = *entryPointer;
+                if (entry.r_SubjectGlobalId != gateSnapshot.r_GlobalId)
                 {
                     rejections.Add(TopologyDiagnosticDisposition.InconsistentReread);
                     continue;
                 }
-                int entryTile = unchecked((int)entry.r_EntryDoorTileId);
-                int exitTile = unchecked((int)entry.r_ExitDoorTileId);
+                int entryTile = unchecked((int)entry.r_EntryTileId);
+                int exitTile = unchecked((int)entry.r_ExitTileId);
                 if (entryTile <= 0 || exitTile <= 0 ||
                     !tileApi.IsValidTileId(entryTile) || !tileApi.IsValidTileId(exitTile))
                 {
@@ -615,7 +615,7 @@ namespace EnemyGatePathfindingTest
                     gateSnapshot.r_PlayerIdOwner, gateSnapshot.r_CapturedByPlayerId);
                 var gateInfo = new GateBridgeInfo(
                     gateId, gateSnapshot.r_GlobalId, gateSnapshot.r_PlayerIdOwner,
-                    gateSnapshot.r_CapturedByPlayerId, entry.r_IsOpen != 0,
+                    gateSnapshot.r_CapturedByPlayerId, entry.r_IsEnabledOrOpen != 0,
                     (int)gateSnapshot.r_AliveState, entryPcl, exitPcl,
                     0, 0, 0, 0, relevantPcls, gateTiles, unrelatedByPlayer,
                     0, "standalone-gate");
@@ -627,8 +627,8 @@ namespace EnemyGatePathfindingTest
                 AppendTopologyDetail(detail, gateInfo.Format());
             }
 
-            // Script Extender contract: a newly placed editor gate may
-            // still be NeedsInit and absent from GetGatehouseArray(). Retain a clearly
+            // A newly placed editor gate may still be NeedsInit and absent from the
+            // active connection records. Retain a clearly
             // labelled footprint-only diagnostic record; it never changes game state.
             for (int buildingIndex = 0; buildingIndex < buildings.Length; buildingIndex++)
             {
@@ -1505,7 +1505,9 @@ namespace EnemyGatePathfindingTest
         }
 
         private static int ReadPcl(GameTileManagerAPI tiles, int tileId) =>
-            tileId >= 0 && tiles.IsValidTileId(tileId) ? tiles.TileManager.PathConnectionGrid[tileId] : -1;
+            tileId >= 0 && tiles.IsValidTileId(tileId)
+                ? GamePathingManagerAPI.Instance.GetPathComponentIdByTileId(tileId)
+                : -1;
 
         private static bool IsDiagnosticActive(AliveState aliveState) =>
             EnemyGatePathfindingPolicy.IsDiagnosticBuildingActive((int)aliveState);

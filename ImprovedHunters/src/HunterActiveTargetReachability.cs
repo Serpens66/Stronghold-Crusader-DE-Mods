@@ -59,12 +59,12 @@ namespace ImprovedHunters
                     }
                 }
 
-                int result = GamePlayerManagerAPI.Instance
-                    .GetNextReachablePCLToDestinationForPlayer(
+                int result = GamePathingManagerAPI.Instance
+                    .FindNextComponentTowardDestination(
                         inputs.PlayerId,
-                        inputs.TargetPcl,
                         inputs.SourcePcl,
-                        inputs.Mode);
+                        inputs.TargetPcl,
+                        (PathConnectionQueryMode)inputs.Mode);
                 reachable = result != 0;
                 bool logChangedObservation;
                 lock (cacheLock)

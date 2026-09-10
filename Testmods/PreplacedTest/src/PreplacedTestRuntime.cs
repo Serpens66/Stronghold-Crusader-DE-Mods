@@ -729,14 +729,15 @@ namespace PreplacedTest
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_IsSleeping), 0x296);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_GatehouseId), 0x2D2);
             ValidateOffset(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId), 0xA0);
-            ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_BuildingId), 0x00);
-            ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_GlobalId), 0x08);
-            ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_IsOpen), 0x0C);
-            ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_EntryDoorTileId), 0x18);
-            ValidateOffset(typeof(GameGatehouseEntry), nameof(GameGatehouseEntry.r_ExitDoorTileId), 0x24);
+            ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_RecordGlobalId), 0x08);
+            ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_BuildingId), 0x0C);
+            ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_SubjectGlobalId), 0x14);
+            ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_IsEnabledOrOpen), 0x18);
+            ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_EntryTileId), 0x24);
+            ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_ExitTileId), 0x30);
             ValidateSize(typeof(GameBuilding), 0x32C);
             ValidateSize(typeof(GamePlayerResources), PlayerRuntimeStateStride);
-            ValidateSize(typeof(GameGatehouseEntry), 0x204);
+            ValidateSize(typeof(PathConnectionRecord), 0x204);
         }
 
         private static void ValidateOffset(Type type, string field, int expected)
@@ -3481,25 +3482,25 @@ namespace PreplacedTest
 
         private string CaptureGatehouseEntries()
         {
-            var array = GameBuildingManagerAPI.Instance.GetGatehouseArray();
+            var array = GamePathingManagerAPI.Instance.GetPathConnectionArray();
             var rows = new List<string>();
             var linkedBuildings = new HashSet<int>();
             for (int index = 0; index < array.Length; index++)
             {
-                GameGatehouseEntry* entry = array.GetValuePointer(index);
-                if (entry == null || (entry->r_BuildingId == 0 && entry->r_GlobalId == 0)) continue;
-                bool idInRange = entry->r_BuildingId > 0 && entry->r_BuildingId <= int.MaxValue;
-                int buildingId = idInRange ? (int)entry->r_BuildingId : 0;
+                PathConnectionRecord* entry = array.GetValuePointer(index);
+                if (entry == null || entry->r_IsActive == 0) continue;
+                bool idInRange = entry->r_BuildingId > 0;
+                int buildingId = idInRange ? entry->r_BuildingId : 0;
                 BuildingSnapshot building = default;
                 bool resolved = idInRange && TryCaptureBuilding(buildingId, out building);
-                bool identityMatches = resolved && entry->r_GlobalId != 0 && building.GlobalId == entry->r_GlobalId &&
+                bool identityMatches = resolved && entry->r_SubjectGlobalId != 0 && building.GlobalId == entry->r_SubjectGlobalId &&
                     IsPortalStructure(building.Type) &&
                     (building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit);
                 if (identityMatches) linkedBuildings.Add(buildingId);
                 string buildingDetails = resolved ? building.ToText(TryGetArea(building.OwnerId, building)) : "unresolved";
-                string entryDiagnostic = DescribeGateEndpoint(entry->r_EntryDoorTilePositionX, entry->r_EntryDoorTilePositionY, entry->r_EntryDoorTileId);
-                string exitDiagnostic = DescribeGateEndpoint(entry->r_ExitDoorTilePositionX, entry->r_ExitDoorTilePositionY, entry->r_ExitDoorTileId);
-                rows.Add($"index={index},building={entry->r_BuildingId},global={entry->r_GlobalId},open={entry->r_IsOpen},entry={entryDiagnostic},exit={exitDiagnostic},identityMatches={identityMatches},buildingDetails={buildingDetails}");
+                string entryDiagnostic = DescribeGateEndpoint(entry->r_EntryTilePositionX, entry->r_EntryTilePositionY, entry->r_EntryTileId);
+                string exitDiagnostic = DescribeGateEndpoint(entry->r_ExitTilePositionX, entry->r_ExitTilePositionY, entry->r_ExitTileId);
+                rows.Add($"index={index},recordGlobal={entry->r_RecordGlobalId},building={entry->r_BuildingId},subjectGlobal={entry->r_SubjectGlobalId},enabledOrOpen={entry->r_IsEnabledOrOpen},entry={entryDiagnostic},exit={exitDiagnostic},identityMatches={identityMatches},buildingDetails={buildingDetails}");
             }
             string[] missing = CaptureRawBuildings().Where(b => IsPortalStructure(b.Type) &&
                 (b.Alive == AliveState.IsAlive || b.Alive == AliveState.NeedsInit) && !linkedBuildings.Contains(b.Id))
@@ -3508,11 +3509,11 @@ namespace PreplacedTest
                 missing.Length + "[" + string.Join("; ", missing) + "]";
         }
 
-        private string DescribeGateEndpoint(uint rawX, uint rawY, uint tileId)
+        private string DescribeGateEndpoint(int rawX, int rawY, int tileId)
         {
-            int x = checked((int)rawX);
-            int y = checked((int)rawY);
-            int pcl = TryGetPclByTileId(checked((int)tileId), out int value) ? value : 0;
+            int x = rawX;
+            int y = rawY;
+            int pcl = TryGetPclByTileId(tileId, out int value) ? value : 0;
             int coarseX = x / EconomyCoarseCellTileSize;
             int coarseY = y / EconomyCoarseCellTileSize;
             var neighborhood = new List<string>();

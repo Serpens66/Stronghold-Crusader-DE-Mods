@@ -395,7 +395,7 @@ namespace PreplacedTest.Tests
             string manifest = File.ReadAllText("info.json");
             string spanReport = File.ReadAllText("ScriptExtenderPathConnectionGridSpanReport.md");
             string updateGuide = File.ReadAllText("UpdateToNewDLL.md");
-            string helper = File.ReadAllText(Path.Combine("..", "Shared", "DebugLogHelper.cs"));
+            string helper = File.ReadAllText(Path.Combine("..", "..", "Shared", "DebugLogHelper.cs"));
             Check(helper.Contains("FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"), "native hash contract missing");
             Check(spanReport.Contains("`0x50720` | `0x4FB20`") &&
                 spanReport.Contains("`0x572B0` | `0x566B0`") &&
@@ -409,7 +409,7 @@ namespace PreplacedTest.Tests
                 "native update guide does not cover the new timer-copy contract");
             foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
-            foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateSize(typeof(GameGatehouseEntry), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
+            foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_BuildingId), 0x0C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_SubjectGlobalId), 0x14)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_EntryTileId), 0x24)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_ExitTileId), 0x30)", "ValidateSize(typeof(PathConnectionRecord), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
             foreach (string nativeDelegate in new[]
             {
@@ -555,10 +555,10 @@ namespace PreplacedTest.Tests
                 "first AIV building identity correlation missing");
             Check(source.Contains("transaction?.DisableAll()"), "native diagnostic failure does not defensively disable committed hooks");
             Check(!source.Contains("MaximumCapture") && !source.Contains("Take(100"), "fixed event cap found");
-            Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.0.0\")") &&
-                assemblyInfo.Contains("AssemblyFileVersion(\"0.1.0.0\")") &&
-                assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.0\")") &&
-                plugin.Contains("PluginVersion = \"0.1.0\"") && manifest.Contains("\"Version\": \"0.1.0\""),
+            Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.1.0\")") &&
+                assemblyInfo.Contains("AssemblyFileVersion(\"0.1.1.0\")") &&
+                assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.1\")") &&
+                plugin.Contains("PluginVersion = \"0.1.1\"") && manifest.Contains("\"Version\": \"0.1.1\""),
                 "active version declarations are inconsistent");
         }
 
@@ -645,7 +645,7 @@ namespace PreplacedTest.Tests
                 file[RvaToRaw(file, 0x1F68C)] == 0xC3,
                 "chore field-copy memcpy target or function boundary changed");
 
-            string functions = File.ReadAllText(Path.Combine("..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
+            string functions = File.ReadAllText(Path.Combine("..", "..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
             foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }

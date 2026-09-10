@@ -3,15 +3,15 @@
   "database": {
     "path": "sem/FBCB9319/CrusaderDE-semantic.sqlite",
     "schemaVersion": 3,
-    "referenceSize": 154923008,
-    "referenceSha256": "4A7084D5C0AC45C92697A803ED6E9FCCB175AA830A659BA85234DDD1A64820E7",
+    "referenceSize": 154918912,
+    "referenceSha256": "8B3349FFDB49B5894A7F82E82E61092D1286933146E3623644BC3841051A3F62",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
     "currentNativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
     "managedHash": "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789",
     "oldNativeHash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
-    "scriptExtenderCommit": "a0cd52993b44a6909d4f7f6a92f82fa5888a8e63"
+    "scriptExtenderCommit": "5d5719c1002aec043d331162d72b2e7f3111b34b"
   },
   "binaries": [
     {
@@ -60,12 +60,12 @@
       "pinvokes": 84,
       "managed_calls": 72559,
       "managed_native_links": 56123,
-      "patterns": 678,
-      "data_types": 259,
-      "source_types": 105,
-      "type_fields": 9492,
+      "patterns": 688,
+      "data_types": 263,
+      "source_types": 118,
+      "type_fields": 9405,
       "vtable_members": 345,
-      "delegates": 138,
+      "delegates": 141,
       "rtti_vtables": 142,
       "xaml_resources": 105,
       "xaml_links": 7860,
@@ -76,7 +76,7 @@
   "inputs": [
     {
       "path": "sem/FBCB9319/IDENTITY.json",
-      "sha256": "40B2BD17A453175FCAE124B7DF0AA3F6A233E1FD6AFC2901C8D6D37A12DF4E04",
+      "sha256": "1496B03555BAA2D62B84C001C94D3C87C7D84EC5507310404B609AC4BEDB267D",
       "bytes": 405
     },
     {
@@ -101,8 +101,8 @@
     },
     {
       "path": "sem/FBCB9319/exports/data-types.jsonl",
-      "sha256": "2F48CF922F1EA4A36CCB65C35C8ABC6213AB2B7D50887A57FB232B2D09F8FA0F",
-      "bytes": 701188
+      "sha256": "F46223595EAEF7E089C2294DE01EC0DD5B30E0993660C26655FC5767670F3800",
+      "bytes": 702717
     },
     {
       "path": "sem/FBCB9319/exports/rtti-vtables.jsonl",
@@ -111,7 +111,7 @@
     },
     {
       "path": "sem/FBCB9319/knowledge/function-claims.jsonl",
-      "sha256": "7CE200F8489BB406DDB6E7A02D135282E44FBB07F073848F5AD52AA6F68D90B7",
+      "sha256": "18C501F5E6F7FBE0B2CD5BBDFCF2A7C6C763C8FF34C034D7CB9AC2E0F074C127",
       "bytes": 42799
     },
     {
@@ -216,28 +216,28 @@
     },
     {
       "path": "sem/FBCB9319/sources/pattern-matches.jsonl",
-      "sha256": "5D27778E125027BE61293AA04F3F733FC45AEAC3DD1FD9F3B80A54230B8F6794",
-      "bytes": 379724
+      "sha256": "A807E3FC844F8AEE6ADCCD8A7C9E79EBDB9B70AD6210706DAF45A0DBDEC618EC",
+      "bytes": 385278
     },
     {
       "path": "sem/FBCB9319/sources/source-types.jsonl",
-      "sha256": "2F907ED80C61B8B40D7B6E2BB560D46CE0699AF30401D23AA0217D90EF526123",
-      "bytes": 602356
+      "sha256": "4FF5121A2AAD689A0A0F3B90E94F6AFD78FC645C1F0C7B4385850969EF83A695",
+      "bytes": 610587
     },
     {
       "path": "sem/FBCB9319/sources/type-fields.jsonl",
-      "sha256": "2CFC8B5F20EBF775B021853E4ADBDE78CA4F411F688B573A3F7FDF61CD0E3986",
-      "bytes": 3772810
+      "sha256": "EC3DB5DF68876B44FD07F7F3E17EAE0847BF1D6823650774159F438027340511",
+      "bytes": 3739948
     },
     {
       "path": "sem/FBCB9319/sources/vtable-members.jsonl",
-      "sha256": "F2CDE6847FCC3FB3BBB9CB515241624B8CAFB58342323A8E7FE2815B21AF7439",
+      "sha256": "7B2BAD29ADC0906F6E00F4367D81699EA9FA700894D59518D4E1D98C8B68671A",
       "bytes": 170249
     },
     {
       "path": "sem/FBCB9319/sources/delegates.jsonl",
-      "sha256": "605B878DCCB07064383F7DAE4B9363E2107E64F5270A6C25F9A694D7EDF52145",
-      "bytes": 88767
+      "sha256": "12365D4F1BEAC595C56DA00210D6A28EF941F65916501B0338E3C9E7E609A0F3",
+      "bytes": 90775
     },
     {
       "path": "sem/FBCB9319/resources/xaml-index.jsonl",

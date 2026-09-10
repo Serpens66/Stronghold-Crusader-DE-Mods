@@ -23,6 +23,57 @@ function Resolve-SEExtenderDirectory([string]$ExplicitPath, [string]$InstalledPa
     (Resolve-Path -LiteralPath $selected).Path
 }
 
+function Assert-SERuntimeModPreflight([object]$Mod, [string]$Workspace) {
+    if (-not $Mod.Plugin) { return }
+
+    $projectPath = Join-Path $Workspace $Mod.Project
+    $projectRoot = Split-Path -Parent $projectPath
+    $sources = [Collections.Generic.List[string]]::new()
+    foreach ($file in Get-ChildItem -LiteralPath $projectRoot -Recurse -File -Filter '*.cs' | Where-Object {
+        $_.FullName -notmatch '[\\/](BepInEx[\\/]plugins|bin|obj|tests|[^\\/]*\.Tests|\.inspect)[\\/]'
+    }) {
+        $sources.Add($file.FullName)
+    }
+
+    [xml]$project = [IO.File]::ReadAllText($projectPath)
+    foreach ($compile in @($project.Project.ItemGroup.Compile)) {
+        $include = [string]$compile.Include
+        if (-not $include -or $include.IndexOfAny([char[]]'*?') -ge 0) { continue }
+        $linkedPath = [IO.Path]::GetFullPath((Join-Path $projectRoot $include))
+        if ((Test-Path -LiteralPath $linkedPath -PathType Leaf) -and -not $sources.Contains($linkedPath)) {
+            $sources.Add($linkedPath)
+        }
+    }
+
+    $forbiddenJson = 'System\.Web\.Extensions|JavaScriptSerializer|System\.Text\.Json|Newtonsoft\.Json|DataContractJsonSerializer|JsonUtility'
+    $jsonHits = @($sources | Select-String -Pattern $forbiddenJson)
+    $projectHits = @(Select-String -LiteralPath $projectPath -Pattern $forbiddenJson)
+    if ($jsonHits -or $projectHits) {
+        throw "$($Mod.Name): forbidden runtime JSON dependency or serializer found."
+    }
+
+    foreach ($sourcePath in $sources) {
+        $text = [IO.File]::ReadAllText($sourcePath)
+        foreach ($match in [regex]::Matches($text, '\b(OnDestroy|OnDisable|OnApplicationQuit)\s*\([^)]*\)\s*\{')) {
+            $open = $text.IndexOf('{', $match.Index)
+            $depth = 0
+            $end = -1
+            for ($index = $open; $index -lt $text.Length; $index++) {
+                if ($text[$index] -eq '{') { $depth++ }
+                elseif ($text[$index] -eq '}') {
+                    $depth--
+                    if ($depth -eq 0) { $end = $index; break }
+                }
+            }
+            if ($end -lt 0) { throw "$($Mod.Name): unterminated Unity lifecycle method in $sourcePath." }
+            $body = $text.Substring($open, $end - $open + 1)
+            if ($body -match '\.Dispose\s*\(' -or $body -match 'DisposeRuntime\s*\(' -or $body -match '\.Stop\s*\(') {
+                throw "$($Mod.Name): Unity lifecycle method reaches Dispose/Stop in $sourcePath."
+            }
+        }
+    }
+}
+
 function Assert-SEManifestExtenderRange([object]$Manifest, [string]$TargetVersion, [string]$ModName) {
     $minimumText = [string]$Manifest.MinimumScriptExtenderVersion
     $maximumText = [string]$Manifest.MaximumScriptExtenderVersion
@@ -76,6 +127,7 @@ function Invoke-SECheckpointBuild(
     foreach ($mod in @(Get-SEBuildOrder $Mods)) {
         & $VerifyExtender
         if ($State.CompletedBuilds -contains $mod.Name) { continue }
+        Assert-SERuntimeModPreflight $mod $Workspace
         Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')] Building $($mod.Name)..."
         $log = Join-Path $LogDirectory ($mod.Name + '.build.log')
         $output = @(& (Join-Path $Workspace $mod.BuildDriver) /nopause 2>&1)

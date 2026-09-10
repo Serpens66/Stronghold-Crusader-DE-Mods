@@ -1029,16 +1029,16 @@ internal static class Program
 
         foreach (string mod in new[] { "OxTetherIdleFixTest", "StockpileAccessFixTest" })
         {
-            string manifest = Read(workspace, mod, "info.json");
+            string manifest = Read(workspace, "Testmods", mod, "info.json");
             Check(manifest.Contains("\"NetworkMode\": 1"), mod + " remains gameplay synchronized");
         }
 
         foreach (string mod in new[] { "OxTetherIdleFixTest", "StockpileAccessFixTest" })
         {
-            string plugin = Read(workspace, mod, "src", mod + "Plugin.cs");
-            string runtime = Read(workspace, mod, "src", mod + "Runtime.cs");
-            string project = Read(workspace, mod, mod + ".csproj");
-            string minimum = ReadManifestMinimum(workspace, mod);
+            string plugin = Read(workspace, "Testmods", mod, "src", mod + "Plugin.cs");
+            string runtime = Read(workspace, "Testmods", mod, "src", mod + "Runtime.cs");
+            string project = Read(workspace, "Testmods", mod, mod + ".csproj");
+            string minimum = ReadManifestMinimum(workspace, Path.Combine("Testmods", mod));
             Check((minimum.Length == 0 ||
                    plugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{minimum}\")")) &&
                 plugin.Contains("CrusaderLibraryLoadContext context"),

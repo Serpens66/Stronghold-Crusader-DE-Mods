@@ -2,14 +2,14 @@
 
 ## Ergebnis
 
-Das Atlas-System des Script Extenders 2.3.0 kann vollständige Einheiten- und Gebäudegruppen ersetzen. Für einen zuverlässigen Mod müssen jedoch **vollständige GM-Gruppen** erzeugt werden.
+Das Atlas-System des Script Extenders 2.4.0 kann vollständige und partielle Einheiten- und Gebäudegruppen ersetzen. Nicht ersetzte Main- und Alt-Frames behalten ihre Vanilla-Sprites, -Materialien und Masken.
 
-Partielle Atlanten sind wegen eines Fehlers im Script Extender derzeit nicht allgemein sicher. Außerdem müssen die einzelnen AssetRipper-Metadaten zu einer gemeinsamen `atlas.json` zusammengeführt werden. Dadurch wird die Erstellung unnötig aufwendiger, als der offizielle Guide vermuten lässt.
+Die einzelnen AssetRipper-Metadaten müssen weiterhin zu einer gemeinsamen `atlas.json` zusammengeführt werden. Partielle Atlanten sind ab 2.4.0 auch bei benannten Gruppen in gemeinsam genutzten GM-Arrays sicher; Zielindizes oberhalb des Vanilla-Bestands erweitern das Array gezielt.
 
 Geprüfte Version:
 
-- Script Extender `2.3.0`
-- Commit `a0cd52993b44a6909d4f7f6a92f82fa5888a8e63`
+- Script Extender `2.4.0`
+- Commit `5d5719c1002aec043d331162d72b2e7f3111b34b`
 
 ---
 
@@ -104,21 +104,21 @@ Der Atlasname wird dabei bewusst aus der Zielgruppe und dem Index erzeugt, beisp
 
 ---
 
-# 4. Immer die vollständige GM-Gruppe erzeugen
+# 4. Vollständige oder partielle GM-Gruppe erzeugen
 
-Für Script Extender 2.3.0 muss der Atlas enthalten:
+Für vollständige Ersatzatlanten sollte der Atlas enthalten:
 
 - alle verwendeten Main-Frames
 - alle verwendeten Alt-Frames
 - den höchsten originalen Frameindex
 - alle notwendigen Originalframes, für die kein SH1DE-Ersatz existiert
 
-Wenn beispielsweise nur ein bestimmtes Gebäude aus `tile_workshops` ersetzt werden soll, sollte der neue Atlas trotzdem die komplette Gruppe enthalten:
+Wenn beispielsweise nur ein bestimmtes Gebäude aus `tile_workshops` ersetzt werden soll, kann 2.4.0 entweder einen partiellen Atlas oder weiterhin eine komplette Gruppe verwenden:
 
 - gewünschtes Gebäude aus SH1DE
 - alle übrigen Frames aus SHCDE
 
-Alternativ können wenige einzelne Sprites über `Override/Sprites/` ersetzt werden. Für tausende Frames ist das aber weniger effizient, weil jedes Bild als eigene Textur und mit einem eigenen Material verarbeitet wird.
+Bei einem partiellen Atlas dürfen ausgelassene Frames nicht als leere Ersatzframes eingetragen werden; der Extender übernimmt sie direkt aus Vanilla. Alternativ können wenige einzelne Sprites über `Override/Sprites/` ersetzt werden. Für tausende Frames ist das weniger effizient, weil jedes Bild als eigene Textur verarbeitet wird.
 
 ---
 
@@ -153,7 +153,7 @@ Ein einzelner globaler Atlas für das ganze Spiel wird nicht unterstützt. Jede 
 
 # 6. Teamfarbenmaske
 
-`atlas_m.png` ist technisch optional, fachlich aber von der Zielgruppe abhängig. Der aktuelle Atlas Builder liest diesen Vertrag aus der gegen Script Extender 2.3.0 und den aktuellen SHCDE-Loader geprüften Tabelle aller 195 Gruppen:
+`atlas_m.png` ist technisch optional, fachlich aber von der Zielgruppe und dem `material`-Modus abhängig. Der aktuelle Atlas Builder liest diesen Vertrag aus der gegen Script Extender 2.4.0 und den aktuellen SHCDE-Loader geprüften Tabelle aller 195 Gruppen:
 
 - Plain-Gruppen wie `tile_ruins`, `tile_buildings1` oder `tree_cactii` dürfen keine Maske enthalten.
 - TeamColour- und Foliage-Gruppen benötigen eine vollständige Maske.
@@ -165,7 +165,7 @@ Sie muss:
 - dasselbe Packlayout verwenden
 - mit jedem Farbframe pixelgenau übereinstimmen
 
-Ohne `atlas_m.png` weist der Script Extender der gesamten GM-Gruppe die einfachen Materialien ohne Teamfarbenmaske zu.
+Das optionale root-level Feld `"material"` akzeptiert `Auto`, `Plain`, `TeamColour`/`TeamColor` oder `Foliage`. `Auto` übernimmt mit Maske den Vanilla-Materialtyp der GM-Gruppe und verwendet ohne Maske aus Kompatibilitätsgründen `Plain`. Explizites `TeamColour` oder `Foliage` erfordert eine verwendbare `atlas_m.png`; ungültige Werte oder fehlende Shader lassen das Override fail-closed aus.
 
 Die Bedeutung der Maskenkanäle ist im Script Extender nicht dokumentiert. Dafür sollten die originalen SHCDE-Masken im Sprite Previewer untersucht werden.
 
@@ -177,6 +177,7 @@ Für vollständige Gruppen muss das Mehrframeformat verwendet werden:
 
     {
       "pixelsPerUnit": 64,
+      "material": "Auto",
       "frames": [
         {
           "name": "body_archer-0",
@@ -392,7 +393,8 @@ Eine gepackte `.semod`-Datei funktioniert ebenfalls. Für Entwicklung und Fehler
 
 Der Konverter sollte je Gruppe prüfen:
 
-- Gruppenname wird von Script Extender 2.3.0 unterstützt
+- Gruppenname wird von Script Extender 2.4.0 unterstützt
+- `material` ist `Auto`, `Plain`, `TeamColour`/`TeamColor` oder `Foliage`, und explizit maskierte Modi besitzen `atlas_m.png`
 - jedes Frame beginnt mit dem richtigen Gruppenpräfix
 - jeder Name enthält einen gültigen numerischen Index
 - Alt-Frames enden ausschließlich auf kleinem `x`

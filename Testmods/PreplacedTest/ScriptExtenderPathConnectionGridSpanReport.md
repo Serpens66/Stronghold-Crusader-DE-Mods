@@ -5,6 +5,8 @@
 - Stronghold Crusader Definitive Edition native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - SHCDE Script Extender: 2.3.0, semantic baseline commit `a0cd52993b44a6909d4f7f6a92f82fa5888a8e63`
 
+> Resolved in Script Extender 2.4.0 (`5d5719c1002aec043d331162d72b2e7f3111b34b`): `PathConnectionGrid` and `GamePathingManagerAPI.GetPathComponentGrid()` now expose exactly 320,800 elements. This report remains as the historical 2.3.0 finding.
+
 ## Finding
 
 `GameTileManager.PathConnectionGrid` starts at the correct native address, but its public span uses `MAX_WIDTH * MAX_HEIGHT` (`800 * 800 = 640,000`) `ushort` elements. Multiple independent Vanilla paths use only 320,800 entries:

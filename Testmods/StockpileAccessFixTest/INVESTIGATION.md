@@ -21,7 +21,7 @@ Der Testmod soll den Zustand diagnostizieren, reproduzierbar hervorrufen und ans
 - `GameUnit` hat Größe `0x490`, `GameBuilding` Größe `0x32C`.
 - Verwendete Felder und Offsets werden vor Aktivierung statisch geprüft. Dazu gehören unter anderem:
   - `GameUnit.r_PathPlanStateBitFlags` bei `0xF2`
-  - `GameUnit.r_PathPlanRelated3` bei `0x290`
+  - `GameUnit.r_SelectedConnectionRecordId` bei `0x290`
   - `GameUnit.r_AIState` bei `0x2BC`
   - Stockpile-Building-ID bei Roh-Offset `0x332`
   - gespeicherte Building-Global-ID bei Roh-Offset `0x9C`
@@ -46,7 +46,7 @@ Der Fehlerdetektor deckt genau diese bestätigten Kombinationen ab:
 
 Die zugehörigen nativen Handler-Einträge werden durch Vertragstests gegen die installierte DLL geprüft.
 
-## Bedeutung von `r_PathPlanRelated3`
+## Bedeutung von `r_SelectedConnectionRecordId`
 
 Das Feld wurde anfangs im Log irreführend `pathMarker` genannt und ein Wert ungleich null wurde vorübergehend als Teil der Hängesignatur betrachtet. Das war falsch.
 
@@ -205,7 +205,7 @@ Erst nach 50 bestätigten stabilen Ticks führt der Mod die eigentliche Korrektu
 2. Vanillas Zugangswahl bei RVA `0xC90E0` mit demselben Stockpile und `requiredCandidate=1` ausführen.
 3. Neuen Zugang und nativen Rückgabewert protokollieren.
 4. Bei gültigem Zugang `GameUnitManagerAPI.MoveToTile(unitId, newX, newY, 0)` ausführen.
-5. AI-State, Fetch-Marker und `r_PathPlanRelated3` nicht direkt verändern.
+5. AI-State, Fetch-Marker und `r_SelectedConnectionRecordId` nicht direkt verändern.
 6. Bewegung, Erreichen des neuen Zugangs und späteres Verlassen des Fetch-Zustands separat verifizieren.
 
 Bei einem fehlgeschlagenen Recovery-Versuch gilt für denselben Worker ein Cooldown von 200 Ticks. Es gibt keine Teleport-Reparatur, keine Fernentnahme und kein vorgetäuschtes Erreichen des Ziels.

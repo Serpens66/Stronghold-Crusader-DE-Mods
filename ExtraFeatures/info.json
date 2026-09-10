@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.93",
+  "Version": "1.0.94",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.3.0",
+  "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.94",
+      "Changes": [
+        "Migrated gatehouse automation to Script Extender 2.4.0 path-connection records."
+      ]
+    },
     {
       "Version": "1.0.93",
       "Changes": [
@@ -24,7 +30,9 @@
     },
     {
       "Version": "1.0.91",
-      "Changes": ["Added an optional host setting to disable fear-factor effects on soldier combat strength and hide fear symbols."]
+      "Changes": [
+        "Added an optional host setting to disable fear-factor effects on soldier combat strength and hide fear symbols."
+      ]
     },
     {
       "Version": "1.0.90",

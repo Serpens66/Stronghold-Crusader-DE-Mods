@@ -4,14 +4,14 @@ using System;
 
 namespace OxTetherIdleFixTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class OxTetherIdleFixTestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "OxTetherIdleFixTest_Serp";
         private const string PluginName = "Ox Tether Idle Fix Test";
-        private const string PluginVersion = "0.1.2";
+        private const string PluginVersion = "0.1.3";
 
         // SHCDE destroys the early BepInEx manager component during normal startup.
         // Keep the non-Unity runtime alive independently for the process lifetime.
@@ -24,7 +24,7 @@ namespace OxTetherIdleFixTest
             Shared.DebugLogHelper.LogInfo(
                 Logger,
                 $"{PluginName} {PluginVersion} loaded; standaloneTestMod=true, gameplaySynchronized=true, " +
-                "Script Extender compatibility comes from info.json; auditedCommit=a0cd52993b44a6909d4f7f6a92f82fa5888a8e63.");
+                "Script Extender compatibility comes from info.json; auditedCommit=5d5719c1002aec043d331162d72b2e7f3111b34b.");
             if (!libraryLoadedHandled && !libraryLoadedSubscriptionInstalled)
             {
                 CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;

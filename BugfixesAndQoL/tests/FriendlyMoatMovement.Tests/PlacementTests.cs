@@ -47,7 +47,7 @@ namespace BugfixesAndQoL
                         r_TribeId = 1, r_ControllableForPlayerId = 1, r_AliveState = AliveState.IsAlive,
                         r_CurrentTilePositionX = id % 2 == 0 ? 13 : 10, r_CurrentTilePositionY = 10,
                         r_NextTilePositionX2 = id % 2 == 0 ? 13 : 10, r_NextTilePositionY2 = 10,
-                        r_CurrentPositionTileId = (uint)(id % 2 == 0 ? 1013 : 1010), r_MovingRelevant = 8 };
+                        r_CurrentPositionTileId = (uint)(id % 2 == 0 ? 1013 : 1010), r_MovementSubstep = 8 };
                 activeMoveCommand = new MoveCommandScope { TribeId = 1, TargetX = 13, TargetY = 10, UnitsOnMoatAtDispatch = count / 2 };
                 activePlan = pendingPlan = null; ClearUnitMoveFrames();
             }
@@ -166,7 +166,7 @@ namespace BugfixesAndQoL
                 placementRevision++; // A synchronous terrain callback invalidates searches, not committed slots.
                 var second=Pre(2);
                 Check(second.TileY*800+second.TileX!=used,"committed reservation survives a search revision");Post(2,1);
-                units[3].r_PathPlanStateBitFlags=1;units[3].r_MovingRelevant=0;
+                units[3].r_PathPlanStateBitFlags=1;units[3].r_MovementSubstep=0;
                 units[3].r_NextTilePositionX2=14;
                 var step=Pre(3);*moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,3);
                 GetNativeMovementStart(units+3,out int sx,out int sy);

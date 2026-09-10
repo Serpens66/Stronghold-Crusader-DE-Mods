@@ -29,7 +29,7 @@ namespace OxTetherIdleFixTest
 
         private static void TestBlockadeEligibility()
         {
-            OxObservation moving = Observation(state: 1, pathFlags: 2, pathCursor: 3, pathSize: 10);
+            OxObservation moving = Observation(state: 1, pathFlags: 2, pathCursor: 3, pathPlanLength: 10);
             Assert(OxTargetBlockadePolicy.IsEligible(moving, episodeActive: false), "moving Ox eligible");
             Assert(!OxTargetBlockadePolicy.IsEligible(moving, episodeActive: true), "active episode excluded");
             Assert(!OxTargetBlockadePolicy.IsEligible(Observation(state: 2, pathFlags: 2), false), "work state excluded");
@@ -103,7 +103,7 @@ namespace OxTetherIdleFixTest
             ushort requestedX = 20,
             ushort requestedY = 20,
             ushort pathCursor = 1,
-            uint pathSize = 10,
+            uint pathPlanLength = 10,
             uint globalId = 42,
             uint carryGoods = 0) =>
             new OxObservation(
@@ -117,7 +117,7 @@ namespace OxTetherIdleFixTest
                 requestedX,
                 requestedY,
                 pathCursor,
-                pathSize,
+                pathPlanLength,
                 carryGoods: carryGoods);
 
         private static void Assert(bool condition, string message)

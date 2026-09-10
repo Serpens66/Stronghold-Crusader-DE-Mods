@@ -333,7 +333,7 @@ is still immutable and rejected attempts still cannot restart the delay.
 
 Optional host setting `EnableFearFactorNeutralization`, default false. Both callbacks use one activation switch; disabled damage calls the original helper exactly once, disabled UI leaves context unchanged. Uses the shared ExtraFeatures mode gate, including the map editor. The owning runtime and persistent OnTick subscription root the hooks beyond startup cleanup.
 
-Reference SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. SE target 2.3.0; semantic extraction commit a0cd52993b44a6909d4f7f6a92f82fa5888a8e63. Validate installed hash against CURRENT.json and dataset binary_hash before reusing addresses.
+Reference SHA-256: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. SE target 2.4.0; semantic extraction commit 5d5719c1002aec043d331162d72b2e7f3111b34b. Validate installed hash against CURRENT.json and dataset binary_hash before reusing addresses.
 
 - Damage helper RVA 0x180560, length 47; full pattern in FearFactorNativeDefinition. Function entry detour replaces 10 bytes (MOVSXD + IMUL). Vanilla computes damage * (fear + 20) * 5 / 100; replacement returns base damage only when enabled. Melee caller RVA 0x199110 (2189 bytes), projectile caller RVA 0x192750 (4664 bytes), each calls this helper once. These labels correct the swapped names in the former test definition.
 - UI hook RVA 0x1A19F2, length 14 (IMUL RCX,R10,0x583C; MOV EAX,[RCX+RDI+0x379CF04]); return 0x1A1A00 before TEST EAX,EAX. Surrounding function RVA 0x1A13C0, length 5079. Validate all direct incoming targets and actual RedBird DisplacedByteCount. No interior entry is allowed.

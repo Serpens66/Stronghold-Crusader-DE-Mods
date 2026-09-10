@@ -781,11 +781,11 @@ namespace OxTetherIdleFixTest
                         blockade.LastBlockerPathCursor,
                         blockerUnit->r_CurrentTilePositionX,
                         blockerUnit->r_CurrentTilePositionY,
-                        blockerUnit->p_CurrentPathPlanPosition))
+                        blockerUnit->r_CurrentPathPlanIndex))
                 {
                     blockade.LastBlockerX = blockerUnit->r_CurrentTilePositionX;
                     blockade.LastBlockerY = blockerUnit->r_CurrentTilePositionY;
-                    blockade.LastBlockerPathCursor = blockerUnit->p_CurrentPathPlanPosition;
+                    blockade.LastBlockerPathCursor = blockerUnit->r_CurrentPathPlanIndex;
                     blockade.LastProgressTick = tick;
                 }
 
@@ -1113,8 +1113,8 @@ namespace OxTetherIdleFixTest
                     $"primaryTarget={previous.PrimaryX}/{previous.PrimaryY}->{observation.PrimaryX}/{observation.PrimaryY}, " +
                     $"next={previous.NextX}/{previous.NextY}->{observation.NextX}/{observation.NextY}, " +
                     $"requested={previous.RequestedX}/{previous.RequestedY}->{observation.RequestedX}/{observation.RequestedY}, " +
-                    $"pathCursor={previous.PathCursor}->{observation.PathCursor}, pathSize={previous.PathSize}->{observation.PathSize}, " +
-                    $"movingRelevant={previous.MovingRelevant}->{observation.MovingRelevant}, " +
+                    $"pathCursor={previous.PathCursor}->{observation.PathCursor}, pathPlanLength={previous.PathPlanLength}->{observation.PathPlanLength}, " +
+                    $"movementSubstep={previous.MovementSubstep}->{observation.MovementSubstep}, " +
                     $"pathRelated1={previous.PathRelated1}->{observation.PathRelated1}, " +
                     $"animationTimer={previous.AnimationTimer}->{observation.AnimationTimer}, " +
                     $"carryGoods={previous.CarryGoods}->{observation.CarryGoods}, " +
@@ -1133,13 +1133,13 @@ namespace OxTetherIdleFixTest
                 $"source={GetEpisodeSource(observation)}, " +
                 $"consecutiveTicks={OxIdleEpisodePolicy.RequiredConsecutiveTicks}.");
 
-            ushort markerBefore = unit->r_PathPlanRelated3;
-            unit->r_PathPlanRelated3 = 0;
+            ushort markerBefore = unit->r_SelectedConnectionRecordId;
+            unit->r_SelectedConnectionRecordId = 0;
             LogInfo(
                 $"OX_IDLE_FIX_APPLIED: tick={tick}, unitId={observation.UnitId}, globalId={observation.GlobalId}, " +
-                $"state={observation.State}, markerBefore={markerBefore}, markerAfter={unit->r_PathPlanRelated3}, " +
+                $"state={observation.State}, markerBefore={markerBefore}, markerAfter={unit->r_SelectedConnectionRecordId}, " +
                 $"expectedNextState={observation.ExpectedStateAfterRepair}, " +
-                $"source={GetEpisodeSource(observation)}, changedField=r_PathPlanRelated3.");
+                $"source={GetEpisodeSource(observation)}, changedField=r_SelectedConnectionRecordId.");
         }
 
         private void RecordVerified(int tick, in OxObservation observation)
@@ -1172,14 +1172,14 @@ namespace OxTetherIdleFixTest
                 unit->r_GlobalId,
                 unit->r_AIState,
                 unit->r_PathPlanStateBitFlags,
-                unit->r_PathPlanRelated3,
+                unit->r_SelectedConnectionRecordId,
                 unit->r_CurrentTilePositionX,
                 unit->r_CurrentTilePositionY,
                 unit->r_TargetTilePositionX2,
                 unit->r_TargetTilePositionY2,
-                unit->p_CurrentPathPlanPosition,
-                unit->p_PathPlanSize,
-                unit->r_MovingRelevant,
+                unit->r_CurrentPathPlanIndex,
+                unit->r_PathPlanLength,
+                unit->r_MovementSubstep,
                 unit->r_PathPlanRelated1,
                 unit->r_TargetTilePositionX,
                 unit->r_TargetTilePositionY,
@@ -1207,8 +1207,8 @@ namespace OxTetherIdleFixTest
             $"next={unit->r_NextTilePositionX2}/{unit->r_NextTilePositionY2}, " +
             $"requested={observation.RequestedX}/{observation.RequestedY}, " +
             $"pathFlags={observation.PathFlags}, pathRelated1={unit->r_PathPlanRelated1}, " +
-            $"pathCursor={unit->p_CurrentPathPlanPosition}, pathSize={unit->p_PathPlanSize}, " +
-            $"movingRelevant={unit->r_MovingRelevant}, " +
+            $"pathCursor={unit->r_CurrentPathPlanIndex}, pathPlanLength={unit->r_PathPlanLength}, " +
+            $"movementSubstep={unit->r_MovementSubstep}, " +
             $"alternateTargetMarker={observation.AlternateTargetMarker}, " +
             $"animationTimer={unit->r_AnimationTimer}, carryGoods={unit->r_CarryOverGoodsAmount}, " +
             $"workerTargetGlobalId={unit->r_WorkerTargetContextEntityGlobalId}, " +
@@ -1247,7 +1247,7 @@ namespace OxTetherIdleFixTest
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_CurrentTilePositionX)).ToInt32() != 0xC0 ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_TargetTilePositionX2)).ToInt32() != 0xE8 ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_PathPlanStateBitFlags)).ToInt32() != 0xF2 ||
-                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_PathPlanRelated3)).ToInt32() != 0x290 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_SelectedConnectionRecordId)).ToInt32() != 0x290 ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AIState)).ToInt32() != 0x2BC ||
                 Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_LinkedProductionBuildingId)).ToInt32() != 0x334)
             {
@@ -1391,7 +1391,7 @@ namespace OxTetherIdleFixTest
                 ushort pathFlags,
                 ushort pathMarker,
                 ushort pathCursor,
-                uint pathSize)
+                uint pathPlanLength)
             {
                 GlobalId = globalId;
                 UnitType = unitType;
@@ -1403,7 +1403,7 @@ namespace OxTetherIdleFixTest
                 PathFlags = pathFlags;
                 PathMarker = pathMarker;
                 PathCursor = pathCursor;
-                PathSize = pathSize;
+                PathPlanLength = pathPlanLength;
             }
 
             internal uint GlobalId { get; }
@@ -1416,7 +1416,7 @@ namespace OxTetherIdleFixTest
             internal ushort PathFlags { get; }
             internal ushort PathMarker { get; }
             internal ushort PathCursor { get; }
-            internal uint PathSize { get; }
+            internal uint PathPlanLength { get; }
 
             internal static BlockerSnapshot Capture(GameUnit* unit) =>
                 new BlockerSnapshot(
@@ -1428,14 +1428,14 @@ namespace OxTetherIdleFixTest
                     unit->r_TargetTilePositionX2,
                     unit->r_TargetTilePositionY2,
                     unit->r_PathPlanStateBitFlags,
-                    unit->r_PathPlanRelated3,
-                    unit->p_CurrentPathPlanPosition,
-                    unit->p_PathPlanSize);
+                    unit->r_SelectedConnectionRecordId,
+                    unit->r_CurrentPathPlanIndex,
+                    unit->r_PathPlanLength);
 
             public override string ToString() =>
                 $"globalId={GlobalId}, unitType={UnitType}, state={State}, " +
                 $"position={CurrentX}/{CurrentY}, requested={RequestedX}/{RequestedY}, " +
-                $"pathFlags={PathFlags}, marker={PathMarker}, pathCursor={PathCursor}, pathSize={PathSize}";
+                $"pathFlags={PathFlags}, marker={PathMarker}, pathCursor={PathCursor}, pathPlanLength={PathPlanLength}";
         }
 
         private readonly struct BlockadeOrigin

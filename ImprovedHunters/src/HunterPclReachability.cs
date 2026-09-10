@@ -61,7 +61,7 @@ namespace ImprovedHunters
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Improved Hunters native PCL reachability filter initialized: " +
-                "query=GamePlayerManagerAPI.GetNextReachablePCLToDestinationForPlayer, " +
+                "query=GamePathingManagerAPI.FindNextComponentTowardDestination, " +
                 "mode=live-GameUnit+0x35C, selectionCacheSeconds=1, " +
                 "activeTargetProbeSeconds=1, activeTargetSnapshotSeconds=2, zeroResultFilterOnly=True, " +
                 "positiveResultLeavesVanillaAuthoritative=True.");
@@ -117,12 +117,12 @@ namespace ImprovedHunters
                     }
                 }
 
-                int result = GamePlayerManagerAPI.Instance
-                    .GetNextReachablePCLToDestinationForPlayer(
+                int result = GamePathingManagerAPI.Instance
+                    .FindNextComponentTowardDestination(
                         inputs.PlayerId,
-                        inputs.TargetPcl,
                         inputs.SourcePcl,
-                        inputs.Mode);
+                        inputs.TargetPcl,
+                        (PathConnectionQueryMode)inputs.Mode);
                 reachable = result != 0;
                 lock (cacheLock)
                 {
@@ -283,7 +283,7 @@ namespace ImprovedHunters
                 return false;
             }
 
-            Span<ushort> pathConnections = tileApi.TileManager.PathConnectionGrid;
+            Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             if ((uint)sourceTileId >= (uint)pathConnections.Length ||
                 (uint)targetTileId >= (uint)pathConnections.Length)
             {
@@ -296,7 +296,7 @@ namespace ImprovedHunters
                 preyUnitId,
                 preyType,
                 hunter->r_ControllableForPlayerId,
-                hunter->N000001CA,
+                hunter->r_PathConnectionMode,
                 pathConnections[sourceTileId],
                 pathConnections[targetTileId]);
             return true;

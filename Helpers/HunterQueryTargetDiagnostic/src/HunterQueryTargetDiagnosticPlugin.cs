@@ -14,14 +14,14 @@ using System.Diagnostics;
 
 namespace HunterQueryTargetDiagnostic
 {
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class HunterQueryTargetDiagnosticPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "HunterQueryTargetDiagnostic_Serp";
         private const string PluginName = "Hunter Query Target Diagnostic";
-        private const string PluginVersion = "1.4.6";
+        private const string PluginVersion = "1.4.7";
 
         private const int BaselineDetailLimit = 12;
         private const int SuspiciousDetailLimit = 160;
@@ -399,9 +399,9 @@ namespace HunterQueryTargetDiagnostic
             private readonly ushort previousTileX;
             private readonly ushort previousTileY;
             private readonly ushort pathFlags;
-            private readonly ushort movingRelevant;
-            private readonly ushort currentPathPosition;
-            private readonly uint pathSize;
+            private readonly ushort movementSubstep;
+            private readonly ushort currentPathPlanIndex;
+            private readonly uint pathPlanLength;
             private readonly ushort contextTargetUnitId;
             private readonly uint contextTargetGlobalId;
             private readonly short unknown2A2;
@@ -443,9 +443,9 @@ namespace HunterQueryTargetDiagnostic
                 previousTileX = unit->r_PreviousTilePositionX;
                 previousTileY = unit->r_PreviousTilePositionY;
                 pathFlags = unit->r_PathPlanStateBitFlags;
-                movingRelevant = unit->r_MovingRelevant;
-                currentPathPosition = unit->p_CurrentPathPlanPosition;
-                pathSize = unit->p_PathPlanSize;
+                movementSubstep = unit->r_MovementSubstep;
+                currentPathPlanIndex = unit->r_CurrentPathPlanIndex;
+                pathPlanLength = unit->r_PathPlanLength;
                 contextTargetUnitId = unit->r_AI_ContextTargetUnitId;
                 contextTargetGlobalId = unit->r_AI_ContextTargetUnitGlobalId;
                 unknown2A2 = *(short*)((byte*)unit + 0x2A2);
@@ -524,8 +524,8 @@ namespace HunterQueryTargetDiagnostic
                     basic +
                     $"/targetTile={targetTileX},{targetTileY}" +
                     $"/previousTile={previousTileX},{previousTileY}" +
-                    $"/path=(flags={pathFlags}/moving={movingRelevant}/" +
-                    $"position={currentPathPosition}/size={pathSize})" +
+                    $"/path=(flags={pathFlags}/moving={movementSubstep}/" +
+                    $"position={currentPathPlanIndex}/size={pathPlanLength})" +
                     $"/contextTarget={contextTargetUnitId}:{contextTargetGlobalId}" +
                     $"/unknown2A2={unknown2A2}" +
                     $"/hunterPost=(id={linkedBuildingId}/idValid={linkedBuildingIdValid}/" +

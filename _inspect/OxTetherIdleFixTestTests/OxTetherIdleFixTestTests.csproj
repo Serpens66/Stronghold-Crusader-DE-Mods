@@ -17,7 +17,7 @@
     <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == ''">
-    <ExtenderDir>$(MSBuildThisFileDirectory)..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481</ExtenderDir>
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -28,7 +28,7 @@
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath></Reference>
     <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
-    <Reference Include="Zhuqiaomon"><HintPath>$(ExtenderDir)\Zhuqiaomon.dll</HintPath></Reference>
+    <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath></Reference>
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath></Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath></Reference>
   </ItemGroup>

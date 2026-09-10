@@ -257,7 +257,7 @@ namespace BugfixesAndQoL
                 unitId * NativeUnitPathBufferStride;
             length = *(int*)(manager + PathManagerOutputLengthOffset);
             bool currentTileStart = unit->r_PathPlanStateBitFlags == 0 &&
-                unit->r_MovingRelevant == 8;
+                unit->r_MovementSubstep == 8;
             int startX = currentTileStart ? unit->r_CurrentTilePositionX : unit->r_NextTilePositionX2;
             int startY = currentTileStart ? unit->r_CurrentTilePositionY : unit->r_NextTilePositionY2;
             if (path == null || path != expected || length < 0 ||

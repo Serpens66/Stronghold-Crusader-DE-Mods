@@ -98,7 +98,7 @@ internal static class Program
         CheckOffset<GameUnit>(nameof(GameUnit.r_TargetTilePositionX2), 0xE8);
         CheckOffset<GameUnit>(nameof(GameUnit.r_TargetTilePositionY2), 0xEA);
         CheckOffset<GameUnit>(nameof(GameUnit.r_PathPlanStateBitFlags), 0xF2);
-        CheckOffset<GameUnit>(nameof(GameUnit.r_PathPlanRelated3), 0x290);
+        CheckOffset<GameUnit>(nameof(GameUnit.r_SelectedConnectionRecordId), 0x290);
         CheckOffset<GameUnit>(nameof(GameUnit.r_AIState), 0x2BC);
         CheckOffset<GameUnit>(nameof(GameUnit.r_LinkedProductionBuildingId), 0x334);
         CheckOffset<GameBuilding>(nameof(GameBuilding.r_AliveState), 0xD0);
@@ -275,7 +275,7 @@ internal static class Program
             "test trigger does not mutate tile grids directly");
         Check(!runtime.Contains("HookTransaction") && !runtime.Contains("AddDetour"), "runtime installs no native inline hook");
         Check(!ContainsDirectAssignment(runtime, "r_AIState"), "runtime does not mutate AI state");
-        Check(!ContainsDirectAssignment(runtime, "r_PathPlanRelated3"),
+        Check(!ContainsDirectAssignment(runtime, "r_SelectedConnectionRecordId"),
             "runtime does not mutate the alternate path-connection ID");
         Check(!ContainsDirectAssignment(runtime, "r_CurrentTilePositionX") &&
             !ContainsDirectAssignment(runtime, "r_CurrentTilePositionY"),
@@ -285,7 +285,7 @@ internal static class Program
             "automatic test no longer creates or deletes a wall/building");
         Check(project.Contains(@"Shared\DebugLogHelper.cs") && project.Contains(@"Shared\NativePatternResolver.cs"), "required shared helpers are linked");
         Check(!project.Contains("UnityEngine.InputLegacyModule"), "automatic test has no input-module dependency");
-        Check(info.Contains("\"Version\": \"0.1.0\"") && info.Contains("\"NetworkMode\": 1"), "test version and network mode");
+        Check(info.Contains("\"Version\": \"0.1.3\"") && info.Contains("\"NetworkMode\": 1"), "test version and network mode");
 
         string[] markers =
         {

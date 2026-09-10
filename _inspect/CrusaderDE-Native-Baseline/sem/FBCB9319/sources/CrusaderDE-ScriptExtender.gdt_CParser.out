@@ -13558,6 +13558,15 @@ typedef struct LogicDebugInfo
 
 
 
+typedef enum GatePathOverrideMode
+{
+    GatePathOverrideMode_RestoreSaved = 0,
+	GatePathOverrideMode_ForceClosed = 1,
+	GatePathOverrideMode_ForceOpen = 2
+} GatePathOverrideMode;
+
+
+
 
 
 typedef struct InternalAIC
@@ -13959,6 +13968,20 @@ typedef struct MessageManager
 	uint32_t CurrentQueueCount; 
 	char pad_0950[904]; 
 }; 
+
+
+typedef enum MoatTargetMode
+{
+    TaskTile = 1,
+    AdjacentReachableTile = 2,
+} MoatTargetMode;
+
+
+typedef enum MoatWorkType
+{
+    DigFriendlyPlannedMoat = 1,
+    FillHostileDugMoat = 2,
+} MoatWorkType;
 
 
 typedef struct PlayerResources
@@ -19652,6 +19675,14 @@ typedef struct PlayerResources
 	uint32_t N00005B0C; 
 }; 
 
+
+
+typedef enum SelectedRechargeablesResultType
+{
+    None = 0,
+	Single = 1,
+	Multile = 2
+} SelectedRechargeablesResultType;
 
 ///+ #endif ===true
 

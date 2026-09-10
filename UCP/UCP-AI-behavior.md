@@ -12,7 +12,7 @@ Die UCP-Erweiterung selbst ist nicht binär mit SHCDE kompatibel. Übertragbar s
 
 - kanonische installierte `CrusaderDE.dll`, SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`;
 - `_inspect/CrusaderDE-Native-Baseline/CURRENT.md` und `CURRENT.json` als alleiniger Einstieg in die Native-Baseline;
-- Script Extender 2.3.0;
+- Script Extender 2.4.0;
 - lokale UCP-Quelle `D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\UCP_aiv-troops-behaviour-0.2.1` als Verhaltensreferenz.
 
 Vor jeder Native-Arbeit müssen DLL-Hash und `CURRENT.json` erneut übereinstimmen. Generische `FUN_...`-Namen und Callgraphnähe sind nur Suchanker.

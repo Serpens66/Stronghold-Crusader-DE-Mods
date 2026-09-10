@@ -27,7 +27,7 @@ Der erste spielbare Proof of Concept umfasst:
 - strikt gesperrte Multiplayer-Zuweisungen;
 - ausschließlich vorhandene Vanilla-Grafiken, die im PoC pro Instanz leicht eingefärbt werden.
 
-Der Script Extender 2.3.0 bleibt unverändert. Dieses Dokument beschreibt den inzwischen als Testversion `0.1.0` umgesetzten Prototyp und bleibt die maßgebliche Spezifikation für seine Ingame-Verifikation und Weiterentwicklung.
+Der Script Extender 2.4.0 bleibt unverändert. Dieses Dokument beschreibt den inzwischen als Testversion `0.1.0` umgesetzten Prototyp und bleibt die maßgebliche Spezifikation für seine Ingame-Verifikation und Weiterentwicklung.
 
 ## 1.1 Übergabe an einen neuen Chat oder Implementierer
 
@@ -64,15 +64,15 @@ Folgende Produktentscheidungen sind bereits getroffen und dürfen nicht ohne Rü
 - wiederholte Platzierung bleibt aktiv, bis Rechtsklick oder Escape abbricht;
 - Diagnose-Spawns sind kostenlos, Vanilla-Platzierungsregeln für Gebäude bleiben aktiv;
 - erster Build bleibt im Multiplayer vollständig gesperrt, verwendet aber `NetworkMode=1`;
-- keine Änderung am Script Extender 2.3.0;
+- keine Änderung am Script Extender 2.4.0;
 - keine README- oder Versionsänderung während der Testphase.
 
 ### Stop- und Rückfrageregeln
 
 Die Implementierung muss anhalten und den Benutzer mit konkreter Evidenz fragen, wenn:
 
-- Plan, kanonischer 2.3.0-Quellcode und installierte `SHCDESE.dll` einander widersprechen;
-- die installierte Zielversion nicht Script Extender 2.3.0 ist;
+- Plan, kanonischer 2.4.0-Quellcode und installierte `SHCDESE.dll` einander widersprechen;
+- die installierte Zielversion nicht Script Extender 2.4.0 ist;
 - ein benötigter fachlicher Enumwert im Quellcode und in der referenzierten Assembly nicht übereinstimmt;
 - für dieselbe Managed-Methode mehrere plausible Signaturen oder Hookziele existieren;
 - ein sicherer Building-ID-, Grafik- oder Refreshvertrag nicht belegt werden kann;
@@ -101,7 +101,7 @@ Die Game-ID ist immer 1-basiert. Die Global-ID verhindert, dass ein nach Löschu
 ## 3. Projekt- und Laufzeitstruktur
 
 - Eigenständiger BepInEx-Mod `VirtualUnitsPrototype` für `.NET Framework 4.8.1`.
-- Harte Abhängigkeiten ausschließlich von BepInEx, installierten Unity-/Spiel-Assemblies und Script Extender 2.3.0.
+- Harte Abhängigkeiten ausschließlich von BepInEx, installierten Unity-/Spiel-Assemblies und Script Extender 2.4.0.
 - Standardreferenz auf die installierte `BepInEx/plugins/000shcdese/SHCDESE.dll`; ein alternatives `ExtenderDir` ist nur als expliziter Buildparameter zulässig.
 - Keine automatische Bevorzugung lokaler `bin`-, `mod_output`- oder Extender-Buildartefakte.
 - Keine Abhängigkeit von CastlePlanner oder anderen Workspace-Mods; CastlePlanner dient nur als HUD-Referenz.
@@ -146,7 +146,7 @@ Typ-IDs verwenden `<Mod-GUID>:<lokaler-name>`, etwa `serp.virtual-units:desert-a
 
 `VirtualBuildingDefinition` enthält Typ-ID, positive Definitionsversion, Anzeigename, `eStructs`-Basistyp, zugehörigen `eMappers`, den über `BuildingScales` ermittelten Scale, Tile-Visualprofil, rationalen Gesundheitsfaktor, Diagnosemenü-Sichtbarkeit und PoC-Spawnfreigabe. Mapper und Struct werden über die Extender-Zuordnung gegengeprüft.
 
-Alle fachlichen Werte referenzieren unmittelbar die benannten Enums und Konstanten des Script Extenders 2.3.0. Eigene numerische Kopien von Unit-, Building-, Mapper-, Goods-, Chore- oder GM-Werten sind verboten.
+Alle fachlichen Werte referenzieren unmittelbar die benannten Enums und Konstanten des Script Extenders 2.4.0. Eigene numerische Kopien von Unit-, Building-, Mapper-, Goods-, Chore- oder GM-Werten sind verboten.
 
 ### 4.2 API-Operationen
 
@@ -233,7 +233,7 @@ Maßgebliche lokale Quellen sind insbesondere:
 
 Diese Punkte sind verpflichtende Gates und dürfen nicht aus diesem Dokument allein übernommen werden:
 
-- Die installierte `SHCDESE.dll` ist tatsächlich Version 2.3.0 und enthält dieselben Methodensignaturen und Enumzuordnungen wie der kanonische Fork.
+- Die installierte `SHCDESE.dll` ist tatsächlich Version 2.4.0 und enthält dieselben Methodensignaturen und Enumzuordnungen wie der kanonische Fork.
 - Die installierte Spiel-Assembly enthält `SpriteMapping.setGenericBuildingTileGraphic(GameMapTile,int,int,int)` genau einmal und mit hookbarer statischer Signatur.
 - `GameMapTile.gameMapX`, `gameMapY`, `tileImage` und `light` haben in der installierten Managed-Assembly die erwarteten zugänglichen Typen.
 - `spriteLoader.instance`, GM-Normal-/Alt-Arrays, Materialarrays und die benötigten Getter sind in der tatsächlich referenzierten Assembly erreichbar.
@@ -444,7 +444,7 @@ Eine spätere Multiplayerfreigabe verlangt identische Registrydefinitionen, tick
 
 ## 17. Festgelegte Grenzen und Annahmen
 
-- Keine Änderung am Script Extender; Version 2.3.0 bleibt alleinige Mindest- und Zielversion.
+- Keine Änderung am Script Extender; Version 2.4.0 ist die Zielversion, während dieser nachweislich rückwärtskompatible Mod 2.3.0 als Mindestversion behält.
 - Keine neuen nativen Enum- oder Arrayeinträge.
 - Keine geratenen RVAs, AOBs oder nativen Hooks.
 - Keine Runtime-FBX-Unterstützung oder dauerhaft als 3D-Mesh gerenderten Units.

@@ -54,8 +54,8 @@ namespace ImprovedHunters
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Improved Hunters PCL reachability diagnostic initialized: " +
-                "query=GamePlayerManagerAPI.GetNextReachablePCLToDestinationForPlayer, " +
-                "modeField=GameUnit+0x35C/N000001CA, stableProbeIntervalSeconds=2, " +
+                "query=GamePathingManagerAPI.FindNextComponentTowardDestination, " +
+                "modeField=GameUnit+0x35C/r_PathConnectionMode, stableProbeIntervalSeconds=2, " +
                 "observationOnly=True, targetSelectionChanged=False, movementOrdersIssued=False.");
         }
 
@@ -290,7 +290,7 @@ namespace ImprovedHunters
                 return false;
             }
 
-            Span<ushort> pathConnections = tileApi.TileManager.PathConnectionGrid;
+            Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             if ((uint)sourceTileId >= (uint)pathConnections.Length ||
                 (uint)targetTileId >= (uint)pathConnections.Length)
             {
@@ -305,7 +305,7 @@ namespace ImprovedHunters
                 preyGlobalId,
                 preyType,
                 hunter->r_ControllableForPlayerId,
-                hunter->N000001CA,
+                hunter->r_PathConnectionMode,
                 sourceTileX,
                 sourceTileY,
                 targetTileX,
@@ -318,17 +318,17 @@ namespace ImprovedHunters
         private static ProbeObservation InvokeProbe(ProbeContext context, long timestamp)
         {
             long startedAt = Stopwatch.GetTimestamp();
-            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            int mode0Result = playerApi.GetNextReachablePCLToDestinationForPlayer(
+            GamePathingManagerAPI pathingApi = GamePathingManagerAPI.Instance;
+            int mode0Result = pathingApi.FindNextComponentTowardDestination(
                 context.PlayerId,
-                context.TargetPcl,
                 context.SourcePcl,
-                0);
-            int mode2Result = playerApi.GetNextReachablePCLToDestinationForPlayer(
+                context.TargetPcl,
+                PathConnectionQueryMode.ExcludeLadderClimb);
+            int mode2Result = pathingApi.FindNextComponentTowardDestination(
                 context.PlayerId,
-                context.TargetPcl,
                 context.SourcePcl,
-                2);
+                context.TargetPcl,
+                PathConnectionQueryMode.LadderClimbOnly);
             int rawResult;
             if (context.RawMode == 0)
                 rawResult = mode0Result;
@@ -336,11 +336,11 @@ namespace ImprovedHunters
                 rawResult = mode2Result;
             else
             {
-                rawResult = playerApi.GetNextReachablePCLToDestinationForPlayer(
+                rawResult = pathingApi.FindNextComponentTowardDestination(
                     context.PlayerId,
-                    context.TargetPcl,
                     context.SourcePcl,
-                    context.RawMode);
+                    context.TargetPcl,
+                    (PathConnectionQueryMode)context.RawMode);
             }
 
             long elapsedTicks = Math.Max(0, Stopwatch.GetTimestamp() - startedAt);

@@ -819,15 +819,16 @@ namespace ExtraFeatures
             return true;
         }
 
-        private static bool TryGetLiveGatehouse(int buildingId, out GameBuilding* building, out GameGatehouseEntry* gatehouse)
+        private static bool TryGetLiveGatehouse(int buildingId, out GameBuilding* building, out PathConnectionRecord* gatehouse)
         {
             building = null;
             gatehouse = null;
             GameBuildingManagerAPI api = GameBuildingManagerAPI.Instance;
             return buildingId > 0 && api.TryGetBuildingById(buildingId, out building) && building != null &&
                 building->r_AliveState == AliveState.IsAlive &&
-                api.TryGetGatehouseEntryById(buildingId, out gatehouse) && gatehouse != null &&
-                gatehouse->r_BuildingId == (uint)buildingId && gatehouse->r_GlobalId == building->r_GlobalId;
+                GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(buildingId, out gatehouse) &&
+                gatehouse != null && gatehouse->r_BuildingId == buildingId &&
+                gatehouse->r_SubjectGlobalId == building->r_GlobalId;
         }
 
         private static bool TryFindGatehouseByGlobalId(int globalId, out GameBuilding* building, out int buildingId)
@@ -845,8 +846,9 @@ namespace ExtraFeatures
                     continue;
 
                 int candidateId = spanIndex + 1;
-                if (GameBuildingManagerAPI.Instance.TryGetGatehouseEntryById(candidateId, out GameGatehouseEntry* gatehouse) &&
-                    gatehouse != null && gatehouse->r_BuildingId == (uint)candidateId && gatehouse->r_GlobalId == candidate.r_GlobalId)
+                if (GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(candidateId, out PathConnectionRecord* gatehouse) &&
+                    gatehouse != null && gatehouse->r_BuildingId == candidateId &&
+                    gatehouse->r_SubjectGlobalId == candidate.r_GlobalId)
                 {
                     if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(candidateId, out building) || building == null)
                         continue;

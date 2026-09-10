@@ -30,7 +30,7 @@ namespace BugfixesAndQoL
                 tileFlags[1016] = CompletedMoatTileFlag; enemyTiles.Add(1016);
                 units[1] = new GameUnit { Digger=true,r_GlobalId=551,r_ControllableForPlayerId=1,
                     r_CurrentTilePositionX=10,r_CurrentTilePositionY=10,r_NextTilePositionX2=10,r_NextTilePositionY2=10,
-                    r_CurrentPositionTileId=1010,r_MovingRelevant=8,r_AI_LastIssuedTribeCommand=7 };
+                    r_CurrentPositionTileId=1010,r_MovementSubstep=8,r_AI_LastIssuedTribeCommand=7 };
                 Check(WeightedMovementCostProfile.TryCreate(1,1,0,0,0,0,false,out var comparisonProfile,out _), "comparison profile");
                 byte* oneEdge = stackalloc byte[1]; oneEdge[0] = 2;
                 nativeMovementMasks[1010] = 0;
@@ -179,7 +179,7 @@ namespace BugfixesAndQoL
                     {
                         int target=60+id%60;
                         units[id]=new GameUnit{Digger=true,r_GlobalId=(uint)(8000+id),r_ControllableForPlayerId=1,r_TribeId=1,
-                            r_CurrentTilePositionX=50,r_CurrentTilePositionY=10,r_NextTilePositionX2=50,r_NextTilePositionY2=10,r_MovingRelevant=8};
+                            r_CurrentTilePositionX=50,r_CurrentTilePositionY=10,r_NextTilePositionX2=50,r_NextTilePositionY2=10,r_MovementSubstep=8};
                         ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Pre,id,target,10,0));
                         *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
                         var bound=GetCurrentUnitMoveFrame().Plan;
@@ -246,7 +246,7 @@ namespace BugfixesAndQoL
                         int target=units[id].r_AttackMoveToTargetTileX;
                         units[id]=new GameUnit { Digger=true,r_GlobalId=(uint)(700+id),r_TribeId=1,r_ControllableForPlayerId=1,
                             r_CurrentTilePositionX=50,r_CurrentTilePositionY=10,r_NextTilePositionX2=50,r_NextTilePositionY2=10,
-                            r_CurrentPositionTileId=1050,r_MovingRelevant=8,r_AttackMoveToTargetTileX=(ushort)target,r_AttackMoveToTargetTileY=10 };
+                            r_CurrentPositionTileId=1050,r_MovementSubstep=8,r_AttackMoveToTargetTileX=(ushort)target,r_AttackMoveToTargetTileY=10 };
                         ObserveUnitMoveOrder(new UnitMoveHereEventArgs(EventHookPhase.Pre,id,target,10,0));
                         *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,id);
                         TryAllowUnitMoveRegion(nativePathManager,1,1,50,10,1,out _);
@@ -427,7 +427,7 @@ namespace BugfixesAndQoL
                 {
                     *(short*)(tribes+TribeRecordSize+TribeUnitCountOffset)=(short)count;
                     for(int id=1;id<=count;id++)units[id]=new GameUnit{Digger=true,r_GlobalId=(uint)(9000+id),r_TribeId=1,r_ControllableForPlayerId=1,
-                        r_AliveState=AliveState.IsAlive,r_CurrentTilePositionX=50,r_CurrentTilePositionY=10,r_NextTilePositionX2=50,r_NextTilePositionY2=10,r_MovingRelevant=8};
+                        r_AliveState=AliveState.IsAlive,r_CurrentTilePositionX=50,r_CurrentTilePositionY=10,r_NextTilePositionX2=50,r_NextTilePositionY2=10,r_MovementSubstep=8};
                     foreach(bool moat in new[]{false,true})
                     {
                         tileFlags[1055]=moat?CompletedMoatTileFlag:0x8000; tick++;InvalidateMovementSearchData();

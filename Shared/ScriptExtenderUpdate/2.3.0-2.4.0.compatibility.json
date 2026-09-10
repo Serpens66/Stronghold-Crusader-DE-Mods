@@ -1,0 +1,67 @@
+{
+  "OldVersion": "2.3.0",
+  "NewVersion": "2.4.0",
+  "TargetCommit": "5d5719c1002aec043d331162d72b2e7f3111b34b",
+  "Mods": {
+    "BugfixesAndQoL": {
+      "Version": "1.0.138",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Migrated pathing, connection records, and GameUnit fields to Script Extender 2.4.0."]
+    },
+    "ExtraFeatures": {
+      "Version": "1.0.94",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Migrated gatehouse automation to Script Extender 2.4.0 path-connection records."]
+    },
+    "ImprovedHunters": {
+      "Version": "1.1.82",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Migrated PCL reachability queries and GameUnit fields to Script Extender 2.4.0."]
+    },
+    "HunterQueryTargetDiagnostic": {
+      "Version": "1.4.7",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Migrated GameUnit path diagnostics to the Script Extender 2.4.0 field contract."]
+    },
+    "CustomCustomTrail": {
+      "Version": "1.3.51",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Requires Script Extender 2.4.0 custom-trail fixes and preserves its process-lifetime runtime."]
+    },
+    "AIDefenseTest": {
+      "Version": "1.2.10",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Requires the Script Extender 2.4.0 tribe-creation fix and preserves its process-lifetime runtime."]
+    },
+    "APITest": {
+      "Version": "0.1.4",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Migrated the assassin movement-state probe to the Script Extender 2.4.0 GameUnit contract."]
+    },
+    "EnemyGatePathfindingTest": {
+      "Version": "0.1.3",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Migrated gate topology diagnostics to Script Extender 2.4.0 path-connection records."]
+    },
+    "OxTetherIdleFixTest": {
+      "Version": "0.1.3",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Migrated path-plan diagnostics to the Script Extender 2.4.0 GameUnit field contract."]
+    },
+    "StockpileAccessFixTest": {
+      "Version": "0.1.3",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Migrated selected connection diagnostics to the Script Extender 2.4.0 GameUnit contract."]
+    },
+    "PreplacedTest": {
+      "Version": "0.1.1",
+      "MinimumScriptExtenderVersion": "2.4.0",
+      "Changes": ["Migrated PCL and portal diagnostics to Script Extender 2.4.0 pathing APIs."]
+    },
+    "SerpsModsHost": {
+      "Version": "1.0.10",
+      "MinimumScriptExtenderVersion": "2.3.0",
+      "Changes": ["Preserves the static lobby inventory publisher for the full process lifetime."]
+    }
+  }
+}
