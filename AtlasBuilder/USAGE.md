@@ -56,6 +56,12 @@ Ein geeigneter SH1DE-Extraktor muss daher:
 4. den Anker und den Pivot für die neue Ausgabeleinwand wie unten beschrieben neu berechnen;
 5. korrigierte Quellmetadaten mit tatsächlicher PNG-Größe und neu normalisiertem Pivot ausgeben.
 
+Beim Dekodieren von `m_VertexData` darf nicht angenommen werden, dass Positions- und UV-Werte beliebig oder nach einem universellen festen Schema verschachtelt sind. Der Extraktor muss alle aktiven Einträge in `m_Channels` auswerten und Kanalnummer, Stream, Offset, Format und Dimension gegen ein unterstütztes Layout prüfen. In den geprüften SH1DE-Tight-Mesh-Daten liegen Positionen als drei Floatwerte in Stream 0 und UVs als zwei Floatwerte in Stream 1; der UV-Block beginnt nach dem Positionsblock an der nächsten 16-Byte-Grenze:
+
+    uvStreamStart = align16(vertexCount * 3 * sizeof(float))
+
+Der berechnete Streamanfang und die erwartete Datenlänge müssen exakt zu `m_Data` passen. Abweichende oder unbekannte Kanal- und Streamlayouts müssen fail-closed abgelehnt werden, statt sie mit diesem bestätigten SH1DE-Schema zu dekodieren.
+
 Eine reine Rechteckextraktion kann farbige Fragmente anderer Sprites erzeugen. Der Builder packt solche bereits verunreinigten Pixel anschließend unverändert und besteht dabei zu Recht seinen Pixelvergleich, weil Quelle und gebauter Atlas identisch sind. Weder eine andere Pivotoption noch ein größerer Packabstand behebt diesen Eingabefehler.
 
 #### FullRect-Sprites ohne brauchbaren UV-Stream
@@ -102,6 +108,22 @@ Eine allgemeine automatische Tight-Mesh-Prüfung ist aus einem Einzel-PNG und de
 4. **Pivot aus Quellmetadaten** und den Ordner mit den korrigierten JSONs einstellen.
 5. Fehlende SHCDE-Zielslots grundsätzlich ablehnen und nur bei einem nachgewiesenen leeren Zielbereich die unten beschriebene Opt-in-Regel verwenden.
 6. Vorschau und Warnungen prüfen, den Atlas bauen und Ausrichtung sowie Animation im Spiel testen.
+
+#### Rundturm: `tile_castle` und `anim_castle` gemeinsam prüfen
+
+Der SHCDE-Rundturm wird nicht aus nur einer GM-Gruppe gezeichnet. `tile_castle` enthält den statischen Turmkörper; eine zusätzliche obere Ebene mit Aufbauten beziehungsweise Animationen stammt aus `GM_CASTLE_ANIMS` und der Sprite-Gruppe `anim_castle`. Beim untersuchten `SkinTest` wurde nur `tile_castle` ersetzt. Das Laufzeitlog belegt für die weiterhin braune Turmkrone einen unveränderten Aufruf von `anim_castle 047`. Der neue Pivotmodus kann Teile korrekt ausrichten, ersetzt aber keine Grafik aus einer nicht konfigurierten Gruppe.
+
+Ob die Quelldateien in SH1DE unter `alltiles` und in SHCDE unter `sprites` liegen, bestimmt nicht die Zielgruppe. Maßgeblich sind der tatsächliche Spritename und dessen SHCDE-GM-Zuordnung. Für einen allgemeinen, unbedingten Austausch müssen daher `tile_castle` und `anim_castle` untersucht und gegebenenfalls als getrennte Atlanten gebaut werden. Der Builder ordnet fehlende `anim_castle`-Frames niemals heuristisch `tile_castle` oder anderen Indizes zu.
+
+Auch `anim_castle` ist zwischen den geprüften Spielen nicht vollständig deckungsgleich:
+
+- SH1DE besitzt 122 Frames im lückenhaften Bereich `1–127`;
+- SHCDE besitzt 106 Frames im lückenhaften Bereich `1–138`;
+- 95 Frames sind gemeinsam;
+- 27 Frames gibt es nur in SH1DE: `15–18`, `25–26`, `36–43`, `84–89`, `91–93`, `122–125`;
+- 11 Frames gibt es nur in SHCDE: `128–138`.
+
+Ein globaler SH1DE-Atlas, der bei Index `127` endet, verkürzt unter Script Extender 2.3.0 das Zielarray und entfernt dadurch die SHCDE-Frames `128–138`. Fehlende direkte Entsprechungen müssen manuell vorbereitet werden; der Builder erfindet keine Ersatzgrafiken. Für einen kulturabhängigen Austausch wie `SkinTest` bleiben private Atlanten mit Runtime-Auswahl und ausdrücklichem Vanilla-Fallback erforderlich. Die unten beschriebene abweichende `tile_castle`-Indexmenge ist ein zusätzliches Kompatibilitätsproblem, aber nicht die belegte Hauptursache der braunen Turmkrone.
 
 #### Sonderfall `tile_castle`: unterschiedliche Framebereiche
 
@@ -193,6 +215,12 @@ A suitable SH1DE extractor must therefore:
 4. recalculate the anchor and pivot for the new output canvas as described below;
 5. emit corrected source metadata containing the actual PNG dimensions and newly normalized pivot.
 
+When decoding `m_VertexData`, position and UV values must not be assumed to be arbitrarily interleaved or to follow one universal fixed layout. The extractor must inspect every active `m_Channels` entry and validate channel number, stream, offset, format and dimension against a supported layout. In the examined SH1DE Tight Mesh data, positions are three float values in stream 0 and UVs are two float values in stream 1; the UV block begins after the position block at the next 16-byte boundary:
+
+    uvStreamStart = align16(vertexCount * 3 * sizeof(float))
+
+The calculated stream start and expected total data length must match `m_Data` exactly. Differing or unknown channel and stream layouts must be rejected fail-closed rather than decoded using this confirmed SH1DE layout.
+
 A rectangular crop can introduce coloured fragments from unrelated Sprites. The builder then preserves those already contaminated pixels exactly and correctly passes its pixel comparison because the input and generated atlas match. Changing the pivot mode or increasing the packing gap cannot fix this input defect.
 
 #### FullRect Sprites without a usable UV stream
@@ -239,6 +267,22 @@ A general Tight Mesh check cannot be derived unambiguously from an individual PN
 4. Select **Pivot from source metadata** and the directory containing the corrected JSON files.
 5. Reject absent SHCDE target slots by default; use the opt-in rule below only for a verified empty target range.
 6. Review the preview and warnings, build the atlas, then test alignment and animation in game.
+
+#### Round tower: inspect `tile_castle` and `anim_castle` together
+
+The SHCDE round tower is not drawn from a single GM group. `tile_castle` contains the static tower body, while an additional upper layer containing structures or animation comes from `GM_CASTLE_ANIMS` and the `anim_castle` Sprite group. The examined `SkinTest` replaced only `tile_castle`. Its runtime log confirms an unchanged call to `anim_castle 047` for the brown tower crown. The new pivot mode can align parts correctly, but it cannot replace artwork from a group that was never configured.
+
+Whether source files are stored below `alltiles` in SH1DE or below `sprites` in SHCDE does not determine the target group. The actual Sprite name and its SHCDE GM assignment do. A general unconditional replacement must therefore inspect and, where required, build `tile_castle` and `anim_castle` as separate atlases. The builder never heuristically maps missing `anim_castle` frames to `tile_castle` or other indices.
+
+The verified `anim_castle` sets are not identical either:
+
+- SH1DE has 122 frames in the sparse range `1–127`;
+- SHCDE has 106 frames in the sparse range `1–138`;
+- 95 frames are shared;
+- 27 frames exist only in SH1DE: `15–18`, `25–26`, `36–43`, `84–89`, `91–93`, `122–125`;
+- 11 frames exist only in SHCDE: `128–138`.
+
+A global SH1DE atlas ending at index `127` shortens the target array under Script Extender 2.3.0 and thereby removes SHCDE frames `128–138`. Missing direct counterparts must be prepared manually; the builder does not invent replacement artwork. Culture-dependent replacement such as `SkinTest` still requires private atlases, runtime selection and an explicit vanilla fallback. The differing `tile_castle` index set described below is an additional compatibility problem, but it is not the confirmed main cause of the brown crown.
 
 #### Special case `tile_castle`: differing frame ranges
 

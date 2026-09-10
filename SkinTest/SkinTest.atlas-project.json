@@ -13,6 +13,16 @@
       "pivotMode": "source-metadata",
       "sourceMetadataDirectory": "AtlasSource/Metadata",
       "missingTargetPolicy": "source-metadata"
+    },
+    {
+      "gmFileName": "anim_castle",
+      "colourDirectory": "AtlasSource/CastleAnimColour",
+      "maskMode": "none",
+      "maskDirectory": null,
+      "sourcePrefix": "anim_castle ",
+      "pivotMode": "source-metadata",
+      "sourceMetadataDirectory": "AtlasSource/CastleAnimMetadata",
+      "missingTargetPolicy": "source-metadata"
     }
   ],
   "packing": {

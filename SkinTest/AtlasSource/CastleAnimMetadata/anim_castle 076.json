@@ -1,0 +1,24 @@
+{
+  "m_Name": "anim_castle 076",
+  "m_Rect": {
+    "m_X": 0,
+    "m_Y": 0,
+    "m_Width": 64,
+    "m_Height": 234
+  },
+  "m_Pivot": {
+    "m_X": 0.0,
+    "m_Y": 0.0
+  },
+  "m_PixelsToUnits": 64,
+  "_SkinTestSource": {
+    "index": 76,
+    "left": 1430,
+    "bottom": 3113,
+    "right": 1494,
+    "top": 3347,
+    "sourceAtlasSha256": "13DB48E7AC7A2EAF15BD682A7959A979FCB84C9175FEECDA07B075341A81F27E",
+    "colourSha256": "37070E337C6AA9B5BFF98B480BCA3315817C46F1A45692A5852F316EB3F540E7",
+    "fullyTransparent": false
+  }
+}

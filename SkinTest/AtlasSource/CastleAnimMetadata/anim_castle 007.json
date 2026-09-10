@@ -1,0 +1,24 @@
+{
+  "m_Name": "anim_castle 007",
+  "m_Rect": {
+    "m_X": 0,
+    "m_Y": 0,
+    "m_Width": 108,
+    "m_Height": 174
+  },
+  "m_Pivot": {
+    "m_X": 0.0,
+    "m_Y": 1.0
+  },
+  "m_PixelsToUnits": 64,
+  "_SkinTestSource": {
+    "index": 7,
+    "left": 1593,
+    "bottom": 7705,
+    "right": 1701,
+    "top": 7879,
+    "sourceAtlasSha256": "13DB48E7AC7A2EAF15BD682A7959A979FCB84C9175FEECDA07B075341A81F27E",
+    "colourSha256": "7BD2AC1024D63389BA804A31CB3189C9FD14B2B24A232F1D081126B43B690BC1",
+    "fullyTransparent": false
+  }
+}

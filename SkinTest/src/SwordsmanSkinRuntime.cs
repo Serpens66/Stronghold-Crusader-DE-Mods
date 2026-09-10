@@ -1,3 +1,4 @@
+using APIShared;
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
 using R3;
@@ -25,11 +26,17 @@ namespace SkinTest
         private const string ManifestPath = "Assets/CrusaderSwordsman/atlas.json";
         private const string CastleAtlasPath = "Assets/CrusaderRoundTower/atlas.png";
         private const string CastleManifestPath = "Assets/CrusaderRoundTower/atlas.json";
+        private const string CastleAnimAtlasPath = "Assets/CrusaderRoundTowerAnimations/atlas.png";
+        private const string CastleAnimManifestPath = "Assets/CrusaderRoundTowerAnimations/atlas.json";
         private const string UiAssetRoot = "Assets/CrusaderUI/";
         private delegate void SetBodySpriteDelegate(SpriteRenderer renderer, int file, int image, int colour,
             bool alternateFrame, int chopFeet, int transparency);
         private delegate void SetBuildingTileSpriteDelegate(GameMapTile tile, int file, int image, int light);
-        private delegate void UpdateTroopSpritesDelegate(MainViewModel instance, int colour, bool arabic);
+        private delegate void AddUpdateBuildingAnimDelegate(GameMap gameMap, int objectId, int x, int y,
+            int tileX, int tileY, int animLayer, int file, int image, int colour, int transparency,
+            int layerDelay, bool hasSubSpecial, int halfPixelX, int halfPixelY);
+        private delegate void AddUpdateWallFillinDelegate(GameMap gameMap, int objectId, int x, int y,
+            float heightAboveGround, int image, int xOffset);
 
         private readonly ManualLogSource log;
         private readonly Dictionary<SpriteRenderer, int> unitByRenderer =
@@ -43,25 +50,28 @@ namespace SkinTest
         private Texture2D colourTexture;
         private Texture2D maskTexture;
         private Texture2D castleTexture;
+        private Texture2D castleAnimTexture;
         private Hook hook;
         private Hook buildingHook;
-        private Hook troopHudHook;
+        private Hook buildingAnimHook;
+        private Hook wallFillinHook;
         private SetBodySpriteDelegate trampoline;
         private SetBuildingTileSpriteDelegate buildingTrampoline;
-        private UpdateTroopSpritesDelegate troopHudTrampoline;
+        private AddUpdateBuildingAnimDelegate buildingAnimTrampoline;
+        private AddUpdateWallFillinDelegate wallFillinTrampoline;
         private Sprite[] castleSprites;
+        private Sprite[] castleAnimSprites;
+        private readonly Stack<CastleAnimContext> castleAnimContexts = new Stack<CastleAnimContext>();
         private readonly byte[,][] troopHudBytes = new byte[8, 4][];
         private readonly ImageSource[,] troopHudSources = new ImageSource[8, 4];
         private readonly byte[][] towerHudBytes = new byte[2][];
         private readonly ImageSource[] towerHudSources = new ImageSource[2];
-        private ImageSource[] vanillaTroopHud;
+        private IUnitHudPresentationCapability troopHudCapability;
         private UIElement towerButton;
         private object vanillaTowerSprite1;
         private object vanillaTowerSprite2;
         private bool activeMap;
-        private int lastHudColour;
-        private bool lastHudArabic;
-        private bool haveHudArguments;
+        private bool troopHudRegistrationAttempted;
         private bool disposed;
 
         public SwordsmanSkinRuntime(ManualLogSource log)
@@ -84,7 +94,7 @@ namespace SkinTest
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => ClearBindings()));
-                LogInfo($"Validated private atlases: swordsman normal={normalSprites.Length}, alternate={alternateSprites.Length}, mask=yes; castle sparse=1467.");
+                LogInfo($"Validated private atlases: swordsman normal={normalSprites.Length}, alternate={alternateSprites.Length}, mask=yes; castle sparse=1467; castle animations=122, mask=no.");
             }
             catch
             {
@@ -158,6 +168,24 @@ namespace SkinTest
                 castleSprites[frame.Index] = sprite;
             }
 
+            byte[] castleAnimBytes = ReadAssetBytes(assets, CastleAnimAtlasPath);
+            if (!assets.GetModFileTextContent(SkinTestPlugin.PluginGuid, CastleAnimManifestPath, out string castleAnimJson))
+                throw new InvalidOperationException($"Missing indexed mod asset: {CastleAnimManifestPath}");
+            castleAnimTexture = LoadTexture(castleAnimBytes, "SkinTest_SH1DE_CastleAnimations");
+            SparseAtlasManifest castleAnimManifest = SparseAtlasManifest.ParseAndValidate(
+                castleAnimJson, castleAnimTexture.width, castleAnimTexture.height, "anim_castle ", 122, 138);
+            castleAnimSprites = new Sprite[139];
+            foreach (AtlasFrame frame in castleAnimManifest.Frames)
+            {
+                Sprite sprite = Sprite.Create(castleAnimTexture,
+                    new Rect(frame.X, frame.Y, frame.Width, frame.Height),
+                    new Vector2(frame.PivotX, frame.PivotY), frame.PixelsPerUnit, 0, SpriteMeshType.FullRect);
+                sprite.name = "SkinTest_" + frame.Name;
+                sprite.hideFlags = HideFlags.HideAndDontSave;
+                UnityEngine.Object.DontDestroyOnLoad(sprite);
+                castleAnimSprites[frame.Index] = sprite;
+            }
+
             string[] troopNames = { "UIBuildingsO011", "UIBuildingsO012", "UIButtonsK007", "UIButtonsK008" };
             for (int colour = 1; colour <= 8; colour++)
                 for (int slot = 0; slot < troopNames.Length; slot++)
@@ -180,12 +208,84 @@ namespace SkinTest
                 ?? throw new MissingMethodException(nameof(SpriteMapping), nameof(SpriteMapping.setGenericBuildingTileGraphic));
             buildingHook = new Hook(buildingMethod, (SetBuildingTileSpriteDelegate)SetBuildingTileSpriteHook);
             buildingTrampoline = buildingHook.GenerateTrampoline<SetBuildingTileSpriteDelegate>();
-            MethodInfo hudMethod = typeof(MainViewModel).GetMethod(nameof(MainViewModel.UpdateUITroopSprites),
-                BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(int), typeof(bool) }, null)
-                ?? throw new MissingMethodException(nameof(MainViewModel), nameof(MainViewModel.UpdateUITroopSprites));
-            troopHudHook = new Hook(hudMethod, (UpdateTroopSpritesDelegate)UpdateTroopSpritesHook);
-            troopHudTrampoline = troopHudHook.GenerateTrampoline<UpdateTroopSpritesDelegate>();
-            LogInfo("Managed swordsman, round-tower and troop-HUD hooks installed after the existing hook chains.");
+            MethodInfo buildingAnimMethod = typeof(GameMap).GetMethod(nameof(GameMap.addUpdateBuildingAnim),
+                BindingFlags.Public | BindingFlags.Instance, null,
+                new[] { typeof(int), typeof(int), typeof(int), typeof(int), typeof(int), typeof(int), typeof(int),
+                    typeof(int), typeof(int), typeof(int), typeof(int), typeof(bool), typeof(int), typeof(int) }, null)
+                ?? throw new MissingMethodException(nameof(GameMap), nameof(GameMap.addUpdateBuildingAnim));
+            buildingAnimHook = new Hook(buildingAnimMethod, (AddUpdateBuildingAnimDelegate)AddUpdateBuildingAnimHook);
+            buildingAnimTrampoline = buildingAnimHook.GenerateTrampoline<AddUpdateBuildingAnimDelegate>();
+            MethodInfo wallFillinMethod = typeof(GameMap).GetMethod(nameof(GameMap.addUpdateWallFillin),
+                BindingFlags.Public | BindingFlags.Instance, null,
+                new[] { typeof(int), typeof(int), typeof(int), typeof(float), typeof(int), typeof(int) }, null)
+                ?? throw new MissingMethodException(nameof(GameMap), nameof(GameMap.addUpdateWallFillin));
+            wallFillinHook = new Hook(wallFillinMethod, (AddUpdateWallFillinDelegate)AddUpdateWallFillinHook);
+            wallFillinTrampoline = wallFillinHook.GenerateTrampoline<AddUpdateWallFillinDelegate>();
+            LogInfo("Managed swordsman, round-tower tile and castle-animation hooks installed after the existing hook chains.");
+        }
+
+        public void RegisterTroopHudWithApiShared()
+        {
+            if (troopHudRegistrationAttempted)
+                return;
+            troopHudRegistrationAttempted = true;
+            try
+            {
+                ApiShared.WhenReady(RegisterTroopHudOverrides);
+            }
+            catch (Exception ex)
+            {
+                WarnOnce("troop-hud-api-readiness-error",
+                    $"APIShared HUD readiness registration failed closed; world skins remain active: {ex}");
+            }
+        }
+
+        private void RegisterTroopHudOverrides(IApiShared api)
+        {
+            try
+            {
+                NativeCapabilityDiagnostic diagnostic = null;
+                if (api == null || !api.TryGetUnitHudPresentation(SkinTestPlugin.PluginGuid,
+                    out IUnitHudPresentationCapability capability, out diagnostic))
+                {
+                    WarnOnce("troop-hud-api-unavailable",
+                        $"APIShared unit-HUD capability is unavailable; world skins remain active: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                    return;
+                }
+
+                UnitHudImageSlot[] slots =
+                {
+                    UnitHudImageSlot.UIBuildingsO011,
+                    UnitHudImageSlot.UIBuildingsO012,
+                    UnitHudImageSlot.UIButtonsK007,
+                    UnitHudImageSlot.UIButtonsK008
+                };
+                bool complete = true;
+                foreach (UnitHudImageSlot slot in slots)
+                {
+                    UnitHudImageSlot capturedSlot = slot;
+                    var definition = new UnitHudImageOverrideDefinition(
+                        "sh1de-swordsman-" + capturedSlot.ToString(), capturedSlot);
+                    if (!capability.TryRegisterImageOverride(definition,
+                        context => ResolveTroopHudImage(context, capturedSlot), out diagnostic))
+                    {
+                        complete = false;
+                        WarnOnce("troop-hud-api-registration:" + capturedSlot,
+                            $"APIShared HUD override registration failed for {capturedSlot}: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                    }
+                }
+                troopHudCapability = capability;
+                if (activeMap)
+                    troopHudCapability.RequestRefresh();
+                LogInfo(complete
+                    ? "Four SH1DE swordsman HUD overrides registered with APIShared."
+                    : "APIShared accepted only part of the SH1DE swordsman HUD overrides; unavailable slots remain unchanged.");
+            }
+            catch (Exception ex)
+            {
+                WarnOnce("troop-hud-api-registration-error",
+                    $"APIShared HUD override registration failed closed; world skins remain active: {ex}");
+            }
         }
 
         private void OnUnitVisualSpawn(UnitUnityVisualSpawnEventArgs args)
@@ -226,7 +326,18 @@ namespace SkinTest
                 bool rendererBound = !ReferenceEquals(renderer, null) && unitByRenderer.TryGetValue(renderer, out unitId);
                 LogOnce("set-body-sprite-confirmed",
                     $"SetBodySprite detour confirmed: file={(ExtenderGM)file}, image={image}, alternate={alternateFrame}, rendererBound={rendererBound}, unitId={(rendererBound ? unitId : 0)}.");
-                if (renderer == null || file != (int)ExtenderGM.GM_BODY_SWORDSMAN)
+                if (renderer == null)
+                    return;
+                if (file == (int)ExtenderGM.GM_CASTLE_ANIMS)
+                {
+                    CastleAnimContext context = castleAnimContexts.Count == 0 ? null : castleAnimContexts.Peek();
+                    LogOnce("castle-anim-callback",
+                        $"GM_CASTLE_ANIMS callback observed: image={image}, roundTowerContext={context != null}.");
+                    if (context != null && context.Image == image)
+                        TryReplaceRoundTowerAnimation(renderer, image, context);
+                    return;
+                }
+                if (file != (int)ExtenderGM.GM_BODY_SWORDSMAN)
                     return;
 
                 int frameIndex = SkinSelectionPolicy.ToAtlasFrameIndex(image);
@@ -303,6 +414,153 @@ namespace SkinTest
             {
                 WarnOnce("hook-error", $"Sprite replacement failed closed; the prior result remains active: {ex}");
             }
+        }
+
+        private void AddUpdateBuildingAnimHook(GameMap gameMap, int objectId, int x, int y, int tileX,
+            int tileY, int animLayer, int file, int image, int colour, int transparency, int layerDelay,
+            bool hasSubSpecial, int halfPixelX, int halfPixelY)
+        {
+            CastleAnimContext context = file == (int)ExtenderGM.GM_CASTLE_ANIMS
+                ? ResolveRoundTowerAnimationContextSafely(gameMap, x, y, image)
+                : null;
+            if (context != null)
+                castleAnimContexts.Push(context);
+            try
+            {
+                buildingAnimTrampoline(gameMap, objectId, x, y, tileX, tileY, animLayer, file, image,
+                    colour, transparency, layerDelay, hasSubSpecial, halfPixelX, halfPixelY);
+                try
+                {
+                    if (context != null && gameMap != null && gameMap.buildingAnims.TryGetValue(objectId, out BuildingAnim visual))
+                        TryReplaceRoundTowerAnimation(visual.sprRenderer, image, context);
+                }
+                catch (Exception ex)
+                {
+                    WarnOnce("castle-building-anim-hook-error",
+                        $"Round-tower building animation replacement failed closed: {ex}");
+                }
+            }
+            finally
+            {
+                PopCastleAnimContext(context);
+            }
+        }
+
+        private void AddUpdateWallFillinHook(GameMap gameMap, int objectId, int x, int y,
+            float heightAboveGround, int image, int xOffset)
+        {
+            CastleAnimContext context = ResolveRoundTowerAnimationContextSafely(gameMap, x, y, image);
+            if (context != null)
+                castleAnimContexts.Push(context);
+            try
+            {
+                wallFillinTrampoline(gameMap, objectId, x, y, heightAboveGround, image, xOffset);
+                try
+                {
+                    if (context != null && gameMap != null && gameMap.wallFillins.TryGetValue(objectId, out WallFillin visual))
+                        TryReplaceRoundTowerAnimation(visual.sprRenderer, image, context);
+                }
+                catch (Exception ex)
+                {
+                    WarnOnce("castle-wall-fillin-hook-error",
+                        $"Round-tower wall-fillin replacement failed closed: {ex}");
+                }
+            }
+            finally
+            {
+                PopCastleAnimContext(context);
+            }
+        }
+
+        private CastleAnimContext ResolveRoundTowerAnimationContextSafely(GameMap gameMap, int x, int y, int image)
+        {
+            try
+            {
+                return TryResolveRoundTowerAnimationContext(gameMap, x, y, image);
+            }
+            catch (Exception ex)
+            {
+                WarnOnce("castle-anim-context-error",
+                    $"Round-tower animation context lookup failed closed: {ex}");
+                return null;
+            }
+        }
+
+        private void PopCastleAnimContext(CastleAnimContext context)
+        {
+            if (context == null)
+                return;
+            if (castleAnimContexts.Count == 0 || !ReferenceEquals(castleAnimContexts.Peek(), context))
+            {
+                castleAnimContexts.Clear();
+                WarnOnce("castle-anim-context-order", "Round-tower animation context order differed; contexts were cleared fail-closed.");
+                return;
+            }
+            castleAnimContexts.Pop();
+        }
+
+        private unsafe CastleAnimContext TryResolveRoundTowerAnimationContext(GameMap gameMap, int x, int y, int image)
+        {
+            if (gameMap == null)
+                return null;
+            GameMapTile tile = gameMap.getMapTile(x, y);
+            if (tile == null)
+            {
+                WarnOnce("castle-anim-map-tile-missing",
+                    $"Castle animation position could not be mapped to a tile: x={x}, y={y}, image={image}.");
+                return null;
+            }
+            int tileId = GameTileManagerAPI.Instance.GetTileId(tile.gameMapX, tile.gameMapY);
+            int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(tileId);
+            if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
+            {
+                WarnOnce("castle-anim-building-unresolved",
+                    $"Castle animation tile has no resolvable building: tileId={tileId}, buildingId={buildingId}, image={image}.");
+                return null;
+            }
+            if (building->r_BuildingType != eStructs.STRUCT_TOWER5 &&
+                building->r_BuildingType != eStructs.STRUCT_TOWER5_DESTROYED)
+                return null;
+            int ownerPlayerId = building->r_PlayerIdOwner;
+            LordCulture culture = ResolveOwnerCulture(ownerPlayerId, out int lordUnitId,
+                out ExtenderGM lordMaterial, out string source, out int value);
+            LogOnce("round-tower-animation-context",
+                $"Round-tower animation context resolved: buildingId={buildingId}, ownerPlayerId={ownerPlayerId}, image={image}, source={source}, value={value}, culture={culture}.");
+            return new CastleAnimContext(buildingId, ownerPlayerId, image, culture, lordUnitId,
+                lordMaterial, source, value);
+        }
+
+        private void TryReplaceRoundTowerAnimation(SpriteRenderer renderer, int image, CastleAnimContext context)
+        {
+            if (renderer == null || context == null || context.Image != image || spriteLoader.instance == null)
+                return;
+            if (context.Culture == LordCulture.NonEuropean)
+            {
+                LogOnce($"tower-animation-vanilla:{context.Source}:{context.Value}",
+                    $"Vanilla round-tower animation retained for non-European owner: buildingId={context.BuildingId}, ownerPlayerId={context.OwnerPlayerId}, image={image}, source={context.Source}, value={context.Value}.");
+                return;
+            }
+            if (context.Culture != LordCulture.European)
+                return;
+            if (image <= 0 || image >= castleAnimSprites.Length || castleAnimSprites[image] == null)
+            {
+                LogOnce($"tower-animation-frame-missing:{image}",
+                    $"No SH1DE round-tower animation frame exists for image={image}; Vanilla remains active.");
+                return;
+            }
+            Sprite replacement = castleAnimSprites[image];
+            if (ReferenceEquals(renderer.sprite, replacement))
+                return;
+            Sprite expected = spriteLoader.instance.GetGMSprite(GameGM.GM_CASTLE_ANIMS, image, false);
+            if (!ReferenceEquals(renderer.sprite, expected))
+            {
+                WarnOnce($"tower-animation-conflict:{image}",
+                    $"An earlier mod replaced the expected castle animation sprite; SkinTest leaves it untouched: image={image}, expected={DescribeSprite(expected)}, actual={DescribeSprite(renderer.sprite)}.");
+                return;
+            }
+            renderer.sprite = replacement;
+            LogOnce("tower-animation-skin-applied",
+                $"SH1DE round-tower animation applied: buildingId={context.BuildingId}, ownerPlayerId={context.OwnerPlayerId}, lordUnitId={context.LordUnitId}, lordGM={context.LordMaterial}, source={context.Source}, value={context.Value}, image={image}.");
         }
 
         private unsafe LordCulture ResolveOwnerCulture(int ownerPlayerId, out int lordUnitId,
@@ -427,59 +685,56 @@ namespace SkinTest
             return LordCulture.Unknown;
         }
 
-        private void UpdateTroopSpritesHook(MainViewModel instance, int colour, bool arabic)
+        private ImageSource ResolveTroopHudImage(UnitHudImageOverrideContext context, UnitHudImageSlot expectedSlot)
         {
-            troopHudTrampoline(instance, colour, arabic);
-            try
-            {
-                lastHudColour = colour;
-                lastHudArabic = arabic;
-                haveHudArguments = true;
-                vanillaTroopHud = new[]
-                {
-                    instance.UIBuildingsO011, instance.UIBuildingsO012,
-                    instance.UIButtonsK007, instance.UIButtonsK008
-                };
-                ApplyTroopHud(instance, colour, arabic);
-                ApplyTowerHud();
-            }
-            catch (Exception ex)
-            {
-                WarnOnce("troop-hud-error", $"Troop HUD replacement failed closed: {ex}");
-            }
-        }
+            if (context == null || context.Slot != expectedSlot)
+                return null;
+            bool currentIsVanilla = ReferenceEquals(context.CurrentImage, context.VanillaImage);
+            if (!SkinSelectionPolicy.CanInspectEuropeanHud(activeMap, context.Arabic, context.Colour,
+                currentIsVanilla))
+                return null;
 
-        private void ApplyTroopHud(MainViewModel instance, int colour, bool arabic)
-        {
-            if (instance == null || colour < 1 || colour > 8)
-                return;
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            if (!SkinSelectionPolicy.IsValidPlayerId(localPlayerId))
+                return null;
+
             LordCulture culture = ResolveOwnerCulture(localPlayerId, out _, out _, out string source, out int value);
-            if (!SkinSelectionPolicy.ShouldUseEuropeanHud(activeMap, arabic, colour, culture))
+            if (!SkinSelectionPolicy.ShouldUseEuropeanHud(activeMap, context.Arabic, context.Colour, culture))
             {
                 if (culture == LordCulture.NonEuropean)
                     LogOnce($"troop-hud-vanilla:{source}:{value}",
                         $"Vanilla troop HUD retained for non-European local lord culture: source={source}, value={value}.");
-                return;
+                return null;
             }
-            EnsureTroopHudSources(instance, colour);
-            instance.UIBuildingsO011 = troopHudSources[colour - 1, 0];
-            instance.UIBuildingsO012 = troopHudSources[colour - 1, 1];
-            instance.UIButtonsK007 = troopHudSources[colour - 1, 2];
-            instance.UIButtonsK008 = troopHudSources[colour - 1, 3];
-            LogOnce($"troop-hud-applied:{colour}",
-                $"SH1DE swordsman HUD activated for player colour {colour}: source={source}, value={value}.");
+
+            MainViewModel instance = MainViewModel.Instance;
+            if (instance == null)
+                return null;
+            int slot = TroopHudSlotIndex(expectedSlot);
+            EnsureTroopHudSource(instance, context.Colour, slot);
+            LogOnce($"troop-hud-applied:{context.Colour}",
+                $"SH1DE swordsman HUD activated through APIShared for player colour {context.Colour}: source={source}, value={value}.");
+            return troopHudSources[context.Colour - 1, slot];
         }
 
-        private void EnsureTroopHudSources(MainViewModel instance, int colour)
+        private void EnsureTroopHudSource(MainViewModel instance, int colour, int slot)
         {
-            for (int slot = 0; slot < 4; slot++)
+            if (troopHudSources[colour - 1, slot] != null)
+                return;
+            troopHudSources[colour - 1, slot] = instance.LoadImageFile(troopHudBytes[colour - 1, slot]);
+            if (troopHudSources[colour - 1, slot] == null)
+                throw new InvalidOperationException($"Noesis could not decode troop HUD colour={colour}, slot={slot}.");
+        }
+
+        private static int TroopHudSlotIndex(UnitHudImageSlot slot)
+        {
+            switch (slot)
             {
-                if (troopHudSources[colour - 1, slot] != null)
-                    continue;
-                troopHudSources[colour - 1, slot] = instance.LoadImageFile(troopHudBytes[colour - 1, slot]);
-                if (troopHudSources[colour - 1, slot] == null)
-                    throw new InvalidOperationException($"Noesis could not decode troop HUD colour={colour}, slot={slot}.");
+                case UnitHudImageSlot.UIBuildingsO011: return 0;
+                case UnitHudImageSlot.UIBuildingsO012: return 1;
+                case UnitHudImageSlot.UIButtonsK007: return 2;
+                case UnitHudImageSlot.UIButtonsK008: return 3;
+                default: throw new ArgumentOutOfRangeException(nameof(slot));
             }
         }
 
@@ -527,8 +782,7 @@ namespace SkinTest
         private void OnMapStarted()
         {
             activeMap = true;
-            if (haveHudArguments && MainViewModel.Instance != null)
-                ApplyTroopHud(MainViewModel.Instance, lastHudColour, lastHudArabic);
+            troopHudCapability?.RequestRefresh();
             ApplyTowerHud();
         }
 
@@ -538,6 +792,8 @@ namespace SkinTest
             if (!activeMap || viewModel == null || viewModel.HUDmain == null)
                 return;
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            if (!SkinSelectionPolicy.IsValidPlayerId(localPlayerId))
+                return;
             LordCulture culture = ResolveOwnerCulture(localPlayerId, out _, out _, out string source, out int value);
             UIElement button = viewModel.HUDmain.FindName("ButtonBuildTowerE") as UIElement;
             if (button == null)
@@ -632,16 +888,11 @@ namespace SkinTest
         private void ClearBindings()
         {
             activeMap = false;
-            if (vanillaTroopHud != null && MainViewModel.Instance != null)
-            {
-                MainViewModel.Instance.UIBuildingsO011 = vanillaTroopHud[0];
-                MainViewModel.Instance.UIBuildingsO012 = vanillaTroopHud[1];
-                MainViewModel.Instance.UIButtonsK007 = vanillaTroopHud[2];
-                MainViewModel.Instance.UIButtonsK008 = vanillaTroopHud[3];
-            }
+            troopHudCapability?.RequestRefresh();
             RestoreTowerHud();
             unitByRenderer.Clear();
             cultureByPlayer.Clear();
+            castleAnimContexts.Clear();
             warnings.Clear();
             LogInfo("Per-map renderer, culture and HUD bindings cleared for map unload.");
         }
@@ -671,20 +922,25 @@ namespace SkinTest
             ReleaseHook();
             unitByRenderer.Clear();
             cultureByPlayer.Clear();
+            castleAnimContexts.Clear();
             DestroyAll(alternateSprites);
             DestroyAll(normalSprites);
             DestroyAll(castleSprites);
+            DestroyAll(castleAnimSprites);
             DestroyAll(materials);
             if (maskTexture != null) UnityEngine.Object.Destroy(maskTexture);
             if (colourTexture != null) UnityEngine.Object.Destroy(colourTexture);
             if (castleTexture != null) UnityEngine.Object.Destroy(castleTexture);
+            if (castleAnimTexture != null) UnityEngine.Object.Destroy(castleAnimTexture);
             alternateSprites = null;
             normalSprites = null;
             castleSprites = null;
+            castleAnimSprites = null;
             materials = null;
             maskTexture = null;
             colourTexture = null;
             castleTexture = null;
+            castleAnimTexture = null;
             LogInfo("Hook, bindings and private graphics resources released.");
         }
 
@@ -702,10 +958,37 @@ namespace SkinTest
             }
         }
 
+        private sealed class CastleAnimContext
+        {
+            public int BuildingId { get; }
+            public int OwnerPlayerId { get; }
+            public int Image { get; }
+            public LordCulture Culture { get; }
+            public int LordUnitId { get; }
+            public ExtenderGM LordMaterial { get; }
+            public string Source { get; }
+            public int Value { get; }
+
+            public CastleAnimContext(int buildingId, int ownerPlayerId, int image, LordCulture culture,
+                int lordUnitId, ExtenderGM lordMaterial, string source, int value)
+            {
+                BuildingId = buildingId;
+                OwnerPlayerId = ownerPlayerId;
+                Image = image;
+                Culture = culture;
+                LordUnitId = lordUnitId;
+                LordMaterial = lordMaterial;
+                Source = source;
+                Value = value;
+            }
+        }
+
         private void ReleaseHook()
         {
-            ReleaseSingleHook(ref troopHudHook);
-            troopHudTrampoline = null;
+            ReleaseSingleHook(ref wallFillinHook);
+            wallFillinTrampoline = null;
+            ReleaseSingleHook(ref buildingAnimHook);
+            buildingAnimTrampoline = null;
             ReleaseSingleHook(ref buildingHook);
             buildingTrampoline = null;
             ReleaseSingleHook(ref hook);

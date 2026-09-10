@@ -20,6 +20,7 @@ from atlas_builder.core import (
     _split_target_name,
     build_group,
     build_project,
+    calculate_frame_coverage,
     choose_layout,
     discover_source_group,
     output_pivot,
@@ -31,7 +32,7 @@ from atlas_builder.models import GroupConfig, PackingConfig, ProjectConfig
 from atlas_builder.gm_groups import GROUP_CONTRACTS
 
 
-TEST_TEMP = Path(__file__).resolve().parent / ".tmp"
+TEST_TEMP = Path(tempfile.gettempdir()) / "AtlasBuilderTests"
 TEST_TEMP.mkdir(exist_ok=True)
 
 
@@ -64,6 +65,23 @@ class NameParsingTests(unittest.TestCase):
     def test_frame_ranges_are_compact_and_keep_alternate_suffixes(self) -> None:
         keys = {FrameKey(index) for index in range(416, 448)} | {FrameKey(0, True), FrameKey(1, True)}
         self.assertEqual(_format_frame_keys(keys), "416–447, 0x–1x")
+
+    def test_anim_castle_coverage_regression(self) -> None:
+        source_missing = {0, 19, 20, 21, 22, 23}
+        target_missing = set(range(0, 1)) | set(range(15, 24)) | {25, 26} | set(range(36, 44)) | set(range(84, 90)) | set(range(91, 94)) | set(range(122, 126))
+        source = {FrameKey(index) for index in range(128) if index not in source_missing}
+        target = {FrameKey(index) for index in range(139) if index not in target_missing}
+        coverage = calculate_frame_coverage(source, target)
+
+        self.assertEqual(len(source), 122)
+        self.assertEqual(len(target), 106)
+        self.assertEqual(len(coverage.shared), 95)
+        self.assertEqual(len(coverage.source_only), 27)
+        self.assertEqual(_format_frame_keys(coverage.source_only), "15–18, 25–26, 36–43, 84–89, 91–93, 122–125")
+        self.assertEqual(len(coverage.target_only), 11)
+        self.assertEqual(_format_frame_keys(coverage.target_only), "128–138")
+        self.assertEqual(coverage.source_maximum, "127")
+        self.assertEqual(coverage.target_maximum, "138")
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -349,7 +367,7 @@ class ProjectValidationTests(unittest.TestCase):
         }
         with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
             prepared = prepare_project(project)
-        self.assertIn("truncates trailing vanilla frames", prepared[0].warnings[0])
+        self.assertTrue(any("truncates trailing vanilla frames" in warning for warning in prepared[0].warnings))
 
     def test_texture_limit_above_8192_is_rejected(self) -> None:
         project = ProjectConfig(
@@ -387,6 +405,27 @@ class ProjectValidationTests(unittest.TestCase):
         with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
             with self.assertRaisesRegex(AtlasBuilderError, "source indices not present in SHCDE"):
                 prepare_project(self._swordsman_project())
+
+    def test_rejection_keeps_coverage_and_truncation_diagnostics(self) -> None:
+        write_png(self.root / "images" / "anim_castle 15.png")
+        write_png(self.root / "images" / "anim_castle 127.png")
+        project = ProjectConfig(
+            language="en",
+            target_game_data=str(self.root / "Data"),
+            output_mod_directory=str(self.root / "Mod"),
+            groups=[GroupConfig("anim_castle", str(self.root / "images"))],
+        )
+        target = {
+            FrameKey(index): TargetFrame(f"anim_castle {index}", 0.5, 0.5, 64, 7, 9)
+            for index in [127, *range(128, 139)]
+        }
+        with patch("atlas_builder.core.read_target_metadata", return_value={"anim_castle": target}):
+            with self.assertRaises(AtlasBuilderError) as raised:
+                prepare_project(project)
+        message = str(raised.exception)
+        self.assertIn("1 shared; 1 source-only (15); 11 SHCDE-only (128–138)", message)
+        self.assertIn("highest source index 127; highest SHCDE index 138", message)
+        self.assertIn("truncates trailing vanilla frames", message)
 
     def test_missing_target_fallback_requires_source_metadata_pivot(self) -> None:
         project = self._swordsman_project("source-metadata", "target-pixel-anchor")

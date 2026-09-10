@@ -96,6 +96,18 @@ internal static class Program
               !SkinSelectionPolicy.ShouldUseEuropeanHud(true, false, 4, LordCulture.NonEuropean) &&
               !SkinSelectionPolicy.ShouldUseEuropeanHud(false, false, 4, LordCulture.European),
             "Arabic, non-European and inactive-map HUD states must retain Vanilla.");
+        Check(SkinSelectionPolicy.CanInspectEuropeanHud(true, false, 1, true) &&
+              SkinSelectionPolicy.CanInspectEuropeanHud(true, false, 8, true),
+            "An active untouched European HUD candidate must accept both colour endpoints.");
+        Check(!SkinSelectionPolicy.CanInspectEuropeanHud(false, false, 4, true) &&
+              !SkinSelectionPolicy.CanInspectEuropeanHud(true, true, 4, true) &&
+              !SkinSelectionPolicy.CanInspectEuropeanHud(true, false, 0, true) &&
+              !SkinSelectionPolicy.CanInspectEuropeanHud(true, false, 9, true) &&
+              !SkinSelectionPolicy.CanInspectEuropeanHud(true, false, 4, false),
+            "Menu, Arabic, invalid colour and prior-override HUD states must fail before player lookup.");
+        Check(SkinSelectionPolicy.IsValidPlayerId(1) && SkinSelectionPolicy.IsValidPlayerId(8) &&
+              !SkinSelectionPolicy.IsValidPlayerId(0) && !SkinSelectionPolicy.IsValidPlayerId(9),
+            "Only one-based SHCDE player IDs 1 through 8 may reach culture lookup.");
         Check(SkinSelectionPolicy.CanReplaceBuilding(true, true, 1, LordCulture.European, true),
             "An untouched available European round-tower frame must be replaceable.");
         Check(!SkinSelectionPolicy.CanReplaceBuilding(false, true, 1, LordCulture.European, true) &&
@@ -234,7 +246,65 @@ internal static class Program
                     leftFrame.Y + leftFrame.Height > rightFrame.Y;
                 Check(!overlaps, $"Sparse castle atlas rectangles overlap: {leftFrame.Name} / {rightFrame.Name}");
             }
-        TestInvalidSparseAtlasDocument(castleJson, castleWidth, castleHeight);
+        TestInvalidSparseAtlasDocument(castleJson, castleWidth, castleHeight, "tile_castle ", 1467, 1569);
+
+        string castleAnimAssets = Path.Combine(root, "Assets", "CrusaderRoundTowerAnimations");
+        string castleAnimAtlas = Path.Combine(castleAnimAssets, "atlas.png");
+        string castleAnimJson = Path.Combine(castleAnimAssets, "atlas.json");
+        Check(File.Exists(castleAnimAtlas) && File.Exists(castleAnimJson) &&
+              !File.Exists(Path.Combine(castleAnimAssets, "atlas_m.png")),
+            "Private castle animation atlas must contain colour and JSON without a mask.");
+        (int castleAnimWidth, int castleAnimHeight) = ReadPngSize(castleAnimAtlas);
+        SparseAtlasManifest castleAnimManifest = SparseAtlasManifest.ParseAndValidate(
+            File.ReadAllText(castleAnimJson), castleAnimWidth, castleAnimHeight, "anim_castle ", 122, 138);
+        int[] castleAnimIndices = castleAnimManifest.Frames.Select(frame => frame.Index).OrderBy(index => index).ToArray();
+        int[] expectedCastleAnimIndices = Enumerable.Range(1, 18).Concat(Enumerable.Range(24, 104)).ToArray();
+        Check(castleAnimIndices.SequenceEqual(expectedCastleAnimIndices) &&
+              castleAnimManifest.Frames.Single(frame => frame.Index == 47).Name == "anim_castle 047",
+            "Castle animation indices or the direct 47-to-47 mapping differ.");
+        Check(castleAnimManifest.Frames.All(frame => frame.PixelsPerUnit == 64f &&
+              frame.PivotX == 0f && (frame.PivotY == 0f || frame.PivotY == 1f)),
+            "Castle animation PPU or edge-pivot contract differs.");
+        Check(castleAnimManifest.Frames.Single(frame => frame.Index == 47).Width == 63f &&
+              castleAnimManifest.Frames.Single(frame => frame.Index == 47).Height == 20f &&
+              castleAnimManifest.Frames.Single(frame => frame.Index == 47).PivotY == 1f,
+            "anim_castle 047 geometry differs from the verified SH1DE source.");
+        string castleAnimSource = Path.Combine(root, "AtlasSource", "CastleAnimColour");
+        string castleAnimMetadataRoot = Path.Combine(root, "AtlasSource", "CastleAnimMetadata");
+        Check(Directory.GetFiles(castleAnimSource, "anim_castle *.png").Length == 122 &&
+              Directory.GetFiles(castleAnimSource, "*_m.png").Length == 0 &&
+              Directory.GetFiles(castleAnimMetadataRoot, "anim_castle *.json").Length == 122,
+            "Castle animation source inventory or mask prohibition differs.");
+        var transparentIndices = new List<int>();
+        foreach (string metadataPath in Directory.GetFiles(castleAnimMetadataRoot, "anim_castle *.json"))
+        {
+            var payload = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(File.ReadAllText(metadataPath));
+            var rect = (Dictionary<string, object>)payload["m_Rect"];
+            var pivot = (Dictionary<string, object>)payload["m_Pivot"];
+            var source = (Dictionary<string, object>)payload["_SkinTestSource"];
+            int index = Convert.ToInt32(source["index"], CultureInfo.InvariantCulture);
+            int width = Convert.ToInt32(rect["m_Width"], CultureInfo.InvariantCulture);
+            int height = Convert.ToInt32(rect["m_Height"], CultureInfo.InvariantCulture);
+            int left = Convert.ToInt32(source["left"], CultureInfo.InvariantCulture);
+            int bottom = Convert.ToInt32(source["bottom"], CultureInfo.InvariantCulture);
+            int right = Convert.ToInt32(source["right"], CultureInfo.InvariantCulture);
+            int top = Convert.ToInt32(source["top"], CultureInfo.InvariantCulture);
+            string colourPath = Path.Combine(castleAnimSource, (string)payload["m_Name"] + ".png");
+            Check(width > 0 && height > 0 && right - left == width && top - bottom == height &&
+                  left >= 0 && bottom >= 0 && right <= 4096 && top <= 8192 &&
+                  ReadPngSize(colourPath) == (width, height) &&
+                  Convert.ToSingle(payload["m_PixelsToUnits"], CultureInfo.InvariantCulture) == 64f &&
+                  Convert.ToSingle(pivot["m_X"], CultureInfo.InvariantCulture) == 0f &&
+                  (Convert.ToSingle(pivot["m_Y"], CultureInfo.InvariantCulture) == 0f ||
+                   Convert.ToSingle(pivot["m_Y"], CultureInfo.InvariantCulture) == 1f) &&
+                  string.Equals((string)source["colourSha256"], Sha256(colourPath), StringComparison.Ordinal),
+                $"Castle animation source provenance is invalid: {Path.GetFileName(metadataPath)}");
+            if (Convert.ToBoolean(source["fullyTransparent"], CultureInfo.InvariantCulture))
+                transparentIndices.Add(index);
+        }
+        Check(transparentIndices.OrderBy(index => index).SequenceEqual(new[] { 55, 56, 57, 61 }),
+            "The verified fully transparent SH1DE castle-animation slots differ.");
+        TestInvalidSparseAtlasDocument(castleAnimJson, castleAnimWidth, castleAnimHeight, "anim_castle ", 122, 138);
 
         string uiAssets = Path.Combine(root, "Assets", "CrusaderUI");
         string uiSource = Path.Combine(root, "AtlasSource", "UI");
@@ -286,6 +356,8 @@ internal static class Program
               manifest.Contains("\"MinimumScriptExtenderVersion\": \"" + extenderVersion.Groups[1].Value + "\""),
             "Manifest must declare a visual client mod matching the plugin's Script Extender version.");
         Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, ScriptExtenderVersion)]") &&
+              plugin.Contains("[BepInDependency(ApiSharedGuid, ApiSharedVersion)]") &&
+              plugin.Contains("ApiSharedVersion = \"0.2.0\"") &&
               plugin.Contains("PluginVersion = \"0.1.0\""), "Plugin dependency/version contract differs.");
         Check(plugin.Contains("private static ManualLogSource persistentLog") &&
               plugin.Contains("private static SwordsmanSkinRuntime runtime") &&
@@ -301,6 +373,11 @@ internal static class Program
             "Runtime disposal must remain available only for failed initialization rollback.");
         Check(Regex.Matches(plugin, @"\.Dispose\s*\(").Count == 1,
             "The plugin may dispose only the unpublished failed initialization candidate.");
+        Check(plugin.IndexOf("runtime = candidate;", StringComparison.Ordinal) <
+              plugin.IndexOf("runtime.RegisterTroopHudWithApiShared();", StringComparison.Ordinal) &&
+              plugin.IndexOf("candidate?.Dispose();", StringComparison.Ordinal) <
+              plugin.IndexOf("runtime.RegisterTroopHudWithApiShared();", StringComparison.Ordinal),
+            "Process-lifetime APIShared registrations must occur only after runtime publication and rollback handling.");
         Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.0\")") &&
               assemblyInfo.Contains("AssemblyFileVersion(\"0.1.0\")") &&
               assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.0\")"),
@@ -329,6 +406,9 @@ internal static class Program
             "Safe pre-spawn culture sources for AI and the local player are incomplete.");
         Check(project.Contains("<Reference Include=\"RedBird.Core\"><HintPath>$(ExtenderDir)\\RedBird.Core.dll</HintPath><Private>false</Private></Reference>"),
             "The AIC array dependency must reference installed RedBird.Core without private packaging.");
+        Check(project.Contains("<Reference Include=\"APIShared\"><HintPath>$(ApiSharedDir)\\APIShared.dll</HintPath><Private>false</Private></Reference>") &&
+              project.Contains("APIShared.dll 0.2.0"),
+            "SkinTest must consume installed APIShared 0.2.0 without private packaging.");
         Check(runtime.Contains("cultureByPlayer") && runtime.Contains("Authoritative lord culture differs from early culture") &&
               runtime.Contains("Early culture resolved before lord spawn") &&
               runtime.Contains("ReconcileEarlyAndActualCulture") && runtime.Contains("unknown graphics material"),
@@ -359,16 +439,50 @@ internal static class Program
         Check(runtime.Contains("unitByRenderer[args.SpriteRenderer] = args.UnitId") &&
               runtime.Contains("SetBodySprite detour confirmed") && runtime.Contains("Early culture resolved before lord spawn"),
             "The renderer must be bound before the first early-culture sprite decision.");
-        Check(runtime.Contains("troopHudTrampoline(instance, colour, arabic);") &&
-              runtime.IndexOf("troopHudTrampoline(instance, colour, arabic);", StringComparison.Ordinal) < runtime.IndexOf("instance.UIBuildingsO011 =", StringComparison.Ordinal) &&
-              runtime.Contains("SH1DE swordsman HUD activated"),
-            "Troop HUD replacement must run after the existing hook chain and expose a runtime marker.");
+        Check(!runtime.Contains("UpdateUITroopSprites") && !runtime.Contains("UpdateTroopSpritesDelegate") &&
+              !runtime.Contains("troopHudHook") && !runtime.Contains("troopHudTrampoline") &&
+              runtime.Contains("ApiShared.WhenReady(RegisterTroopHudOverrides)") &&
+              Regex.Matches(runtime, @"new UnitHudImageOverrideDefinition\s*\(").Count == 1 &&
+              runtime.Contains("UnitHudImageSlot[] slots") &&
+              runtime.Contains("TryRegisterImageOverride") &&
+              runtime.Contains("ReferenceEquals(context.CurrentImage, context.VanillaImage)") &&
+              runtime.Contains("CanInspectEuropeanHud(activeMap") &&
+              runtime.Contains("IsValidPlayerId(localPlayerId)") &&
+              runtime.Contains("SH1DE swordsman HUD activated through APIShared"),
+            "Troop HUD must exclusively use four gated, conflict-friendly APIShared overrides.");
+        Match resolver = Regex.Match(runtime,
+            @"private ImageSource ResolveTroopHudImage[\s\S]*?\n\s*}\r?\n\r?\n\s*private void EnsureTroopHudSource");
+        Check(resolver.Success &&
+              resolver.Value.IndexOf("CanInspectEuropeanHud(activeMap", StringComparison.Ordinal) <
+              resolver.Value.IndexOf("GetLocalPlayerId()", StringComparison.Ordinal) &&
+              resolver.Value.IndexOf("IsValidPlayerId(localPlayerId)", StringComparison.Ordinal) <
+              resolver.Value.IndexOf("ResolveOwnerCulture(localPlayerId", StringComparison.Ordinal) &&
+              !resolver.Value.Contains("RequestRefresh") && !resolver.Value.Contains("UpdateUITroopSprites"),
+            "The APIShared resolver must gate context and player ID before culture lookup without recursive refresh.");
         Check(runtime.Contains("buildingTrampoline(tile, file, image, light);") &&
               runtime.Contains("GetTileBuildingId(tileId)") && runtime.Contains("TryGetBuildingById(buildingId") &&
               runtime.Contains("STRUCT_TOWER5_DESTROYED") && runtime.Contains("SH1DE round-tower skin applied"),
             "Round-tower replacement, one-based building resolution or diagnostics are incomplete.");
+        Check(runtime.Contains("AddUpdateBuildingAnimHook") && runtime.Contains("AddUpdateWallFillinHook") &&
+              runtime.Contains("castleAnimContexts.Push(context)") && runtime.Contains("PopCastleAnimContext(context)") &&
+              runtime.Contains("GetGMSprite(GameGM.GM_CASTLE_ANIMS, image, false)") &&
+              runtime.Contains("SH1DE round-tower animation applied") &&
+              runtime.Contains("new Sprite[139]") && runtime.Contains("\"anim_castle \", 122, 138"),
+            "Round-tower castle-animation hooks, direct indices or diagnostics are incomplete.");
+        Match castleAnimReplacement = Regex.Match(runtime,
+            @"private void TryReplaceRoundTowerAnimation[\s\S]*?\n\s*}\r?\n\r?\n\s*private unsafe LordCulture ResolveOwnerCulture");
+        Check(castleAnimReplacement.Success && castleAnimReplacement.Value.Contains("renderer.sprite = replacement") &&
+              !castleAnimReplacement.Value.Contains("sharedMaterial") &&
+              !castleAnimReplacement.Value.Contains("renderer.color"),
+            "Castle animations must replace only the sprite and preserve Vanilla plain material, colour and transparency.");
+        Check(runtime.IndexOf("buildingAnimTrampoline(gameMap", StringComparison.Ordinal) <
+              runtime.IndexOf("TryReplaceRoundTowerAnimation(visual.sprRenderer", StringComparison.Ordinal) &&
+              runtime.IndexOf("wallFillinTrampoline(gameMap", StringComparison.Ordinal) <
+              runtime.LastIndexOf("TryReplaceRoundTowerAnimation(visual.sprRenderer", StringComparison.Ordinal),
+            "Existing building-animation and wall-fillin hook chains must run before post replacement.");
         Check(runtime.Contains("FindName(\"ButtonBuildTowerE\")") && runtime.Contains("PropEx.SetSprite1") &&
-              runtime.Contains("PropEx.SetSprite2") && runtime.Contains("RestoreTowerHud"),
+              runtime.Contains("PropEx.SetSprite2") && runtime.Contains("RestoreTowerHud") &&
+              Regex.Matches(runtime, @"IsValidPlayerId\(localPlayerId\)").Count >= 2,
             "Round-tower build HUD replacement/restoration is incomplete.");
     }
 
@@ -399,20 +513,23 @@ internal static class Program
         rect["w"] = originalWidth;
     }
 
-    private static void TestInvalidSparseAtlasDocument(string atlasJson, int atlasWidth, int atlasHeight)
+    private static void TestInvalidSparseAtlasDocument(string atlasJson, int atlasWidth, int atlasHeight,
+        string prefix, int expectedCount, int maximumIndex)
     {
         var root = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(File.ReadAllText(atlasJson));
         var frames = (List<object>)root["frames"];
         var first = (Dictionary<string, object>)frames[0];
         var second = (Dictionary<string, object>)frames[1];
         object originalName = second["name"];
-        object originalIndex = second["index"];
+        bool hadExplicitIndex = second.TryGetValue("index", out object originalIndex);
         second["name"] = first["name"];
-        second["index"] = first["index"];
+        if (hadExplicitIndex)
+            second["index"] = first["index"];
         ExpectFailure(() => SparseAtlasManifest.ParseAndValidate(Shared.DependencyFreeJson.Serialize(root), atlasWidth, atlasHeight,
-            "tile_castle ", 1467, 1569), "A duplicated sparse castle frame must be rejected.");
+            prefix, expectedCount, maximumIndex), "A duplicated sparse frame must be rejected.");
         second["name"] = originalName;
-        second["index"] = originalIndex;
+        if (hadExplicitIndex)
+            second["index"] = originalIndex;
     }
 
     private static void TestRuntimeAssemblyDependencies(string assemblyPath)
@@ -426,6 +543,8 @@ internal static class Program
                 $"Compiled runtime assembly has a forbidden JSON dependency: {name}");
         Check(!references.Any(name => name.IndexOf("Json", StringComparison.OrdinalIgnoreCase) >= 0),
             "Compiled runtime assembly must not reference a JSON serializer assembly.");
+        Check(references.Contains("APIShared", StringComparer.OrdinalIgnoreCase),
+            "Compiled runtime assembly must reference APIShared.");
     }
 
     private static void ExpectFailure(Action action, string message)
@@ -438,8 +557,12 @@ internal static class Program
     private static void TestCrlf(string root)
     {
         string[] extensions = { ".cs", ".csproj", ".json", ".py", ".bat" };
-        foreach (string path in Directory.GetFiles(root, "*", SearchOption.AllDirectories)
-            .Where(path => extensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)))
+        string[] sourceRoots = { "src", "tests", "tools", "Properties", "Assets", "AtlasSource" };
+        IEnumerable<string> paths = Directory.GetFiles(root, "*", SearchOption.TopDirectoryOnly)
+            .Concat(sourceRoots.SelectMany(directory => Directory.GetFiles(
+                Path.Combine(root, directory), "*", SearchOption.AllDirectories)));
+        foreach (string path in paths.Where(path =>
+            extensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)))
         {
             byte[] bytes = File.ReadAllBytes(path);
             for (int index = 0; index < bytes.Length; index++)

@@ -1,0 +1,24 @@
+{
+  "m_Name": "anim_castle 080",
+  "m_Rect": {
+    "m_X": 0,
+    "m_Y": 0,
+    "m_Width": 64,
+    "m_Height": 14
+  },
+  "m_Pivot": {
+    "m_X": 0.0,
+    "m_Y": 1.0
+  },
+  "m_PixelsToUnits": 64,
+  "_SkinTestSource": {
+    "index": 80,
+    "left": 779,
+    "bottom": 7,
+    "right": 843,
+    "top": 21,
+    "sourceAtlasSha256": "13DB48E7AC7A2EAF15BD682A7959A979FCB84C9175FEECDA07B075341A81F27E",
+    "colourSha256": "075DE3CB10CF85F7C2565B19A497342C7666F0A8679E957309CAFDC5894A8FEC",
+    "fullyTransparent": false
+  }
+}

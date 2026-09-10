@@ -72,6 +72,15 @@ namespace SkinTest
             return activeMap && !arabicHud && colour >= 1 && colour <= 8 && culture == LordCulture.European;
         }
 
+        public static bool CanInspectEuropeanHud(bool activeMap, bool arabicHud, int colour,
+            bool currentIsVanilla)
+        {
+            return activeMap && !arabicHud && colour >= 1 && colour <= 8 &&
+                   currentIsVanilla;
+        }
+
+        public static bool IsValidPlayerId(int playerId) => playerId >= 1 && playerId <= 8;
+
         public static bool CanReplaceBuilding(bool expectedVanillaSprite, bool isRoundTower,
             int ownerPlayerId, LordCulture culture, bool frameAvailable)
         {

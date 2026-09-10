@@ -83,6 +83,15 @@ class BuildResult:
     warnings: list[str]
 
 
+@dataclass(frozen=True)
+class FrameCoverage:
+    shared: tuple[FrameKey, ...]
+    source_only: tuple[FrameKey, ...]
+    target_only: tuple[FrameKey, ...]
+    source_maximum: str
+    target_maximum: str
+
+
 def _progress(callback: ProgressCallback | None, message: str) -> None:
     if callback:
         callback(message)
@@ -278,6 +287,30 @@ def _format_frame_keys(keys: Iterable[FrameKey]) -> str:
     return ", ".join(parts)
 
 
+def _format_frame_maximum(keys: Iterable[FrameKey]) -> str:
+    values = set(keys)
+    parts: list[str] = []
+    for alternate in (False, True):
+        indices = [key.index for key in values if key.alternate == alternate]
+        if indices:
+            parts.append(f"{max(indices)}{'x' if alternate else ''}")
+    return ", ".join(parts) if parts else "-"
+
+
+def calculate_frame_coverage(
+    source_keys: Iterable[FrameKey], target_keys: Iterable[FrameKey]
+) -> FrameCoverage:
+    source = set(source_keys)
+    target = set(target_keys)
+    return FrameCoverage(
+        shared=tuple(sorted(source & target)),
+        source_only=tuple(sorted(source - target)),
+        target_only=tuple(sorted(target - source)),
+        source_maximum=_format_frame_maximum(source),
+        target_maximum=_format_frame_maximum(target),
+    )
+
+
 def read_target_metadata(
     game_data_directory: Path,
     requested_groups: dict[str, bool],
@@ -405,6 +438,42 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
         sources = discovered[group_name]
         targets = metadata[group_name]
         warnings: list[str] = []
+        coverage = calculate_frame_coverage((source.key for source in sources), targets)
+        coverage_message = ""
+        if coverage.source_only or coverage.target_only:
+            coverage_message = translate(
+                project.language,
+                "coverage_summary",
+                group=group_name,
+                shared=len(coverage.shared),
+                source_only_count=len(coverage.source_only),
+                source_only=_format_frame_keys(coverage.source_only) or translate(project.language, "none_indices"),
+                target_only_count=len(coverage.target_only),
+                target_only=_format_frame_keys(coverage.target_only) or translate(project.language, "none_indices"),
+                source_maximum=coverage.source_maximum,
+                target_maximum=coverage.target_maximum,
+            )
+            warnings.append(coverage_message)
+        truncation_warnings: list[str] = []
+        for alternate in (False, True):
+            source_indices = [item.key.index for item in sources if item.key.alternate == alternate]
+            target_indices = [key.index for key in targets if key.alternate == alternate]
+            if source_indices and target_indices and max(target_indices) > max(source_indices):
+                suffix = "x" if alternate else ""
+                truncated = [
+                    FrameKey(index, alternate)
+                    for index in target_indices
+                    if index > max(source_indices)
+                ]
+                truncation_warnings.append(translate(
+                    project.language,
+                    "partial_warning",
+                    group=f"{group_name}{suffix}",
+                    target=max(target_indices),
+                    source=max(source_indices),
+                    indices=_format_frame_keys(truncated),
+                ))
+        warnings.extend(truncation_warnings)
         if GROUP_CONTRACTS[group_name].material == "foliage":
             warnings.append(translate(project.language, "foliage_warning", group=group_name))
         source_metadata: dict[FrameKey, SourceSpriteMetadata] = {}
@@ -436,7 +505,18 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
         unknown = sorted(source.key for source in sources if source.key not in targets)
         if unknown:
             if config.missing_target_policy == "reject":
-                raise AtlasBuilderError(f"{group_name}: source indices not present in SHCDE: {unknown}")
+                rejection = translate(
+                    project.language,
+                    "source_only_rejected",
+                    group=group_name,
+                    count=len(unknown),
+                    indices=_format_frame_keys(unknown),
+                )
+                diagnostics = [rejection]
+                if coverage_message:
+                    diagnostics.append(coverage_message)
+                diagnostics.extend(truncation_warnings)
+                raise AtlasBuilderError("\n".join(diagnostics))
             contract = GROUP_CONTRACTS[group_name]
             outside_loader_range = [key for key in unknown if key.index > contract.maximum_frame_index]
             if outside_loader_range:
@@ -467,18 +547,6 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
                 count=len(unknown),
                 indices=_format_frame_keys(unknown),
             ))
-        for alternate in (False, True):
-            source_indices = [item.key.index for item in sources if item.key.alternate == alternate]
-            target_indices = [key.index for key in targets if key.alternate == alternate]
-            if source_indices and target_indices and max(target_indices) > max(source_indices):
-                suffix = "x" if alternate else ""
-                warnings.append(translate(
-                    project.language,
-                    "partial_warning",
-                    group=f"{group_name}{suffix}",
-                    target=max(target_indices),
-                    source=max(source_indices),
-                ))
         missing_keys = sorted(set(targets) - {source.key for source in sources})
         if missing_keys:
             warnings.append(translate(
@@ -486,6 +554,7 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
                 "incomplete_group_warning",
                 group=group_name,
                 count=len(missing_keys),
+                indices=_format_frame_keys(missing_keys),
             ))
         prepared.append(PreparedGroup(config, requested[group_name], sources, targets, source_metadata, warnings))
     return prepared

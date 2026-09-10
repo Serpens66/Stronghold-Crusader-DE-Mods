@@ -25,6 +25,12 @@ MESH_EPSILON = 0.001
 CASTLE_FRAME_PREFIX = "tile_castle "
 CASTLE_FRAME_COUNT = 1467
 CASTLE_MAX_INDEX = 1569
+CASTLE_ANIM_FRAME_PREFIX = "anim_castle "
+CASTLE_ANIM_FRAME_COUNT = 122
+CASTLE_ANIM_MAX_INDEX = 138
+CASTLE_ANIM_SOURCE_ATLAS_SIZE = (4096, 8192)
+CASTLE_ANIM_SOURCE_TEXTURE_PATH_ID = 26
+CASTLE_ANIM_TRANSPARENT_INDICES = {55, 56, 57, 61}
 PRIVATE_CASTLE_ATLAS_WIDTH = 8192
 PACKING_PADDING = 2
 UI_SOURCE_RECTS = {
@@ -334,6 +340,86 @@ def extract_frames(source_root: Path, skin_test: Path) -> None:
         raise RuntimeError("Alternate source indices are not exactly 0x..127x")
 
 
+def castle_anim_frame_index(path: Path) -> int:
+    name = path.stem
+    if not name.startswith(CASTLE_ANIM_FRAME_PREFIX):
+        raise RuntimeError(f"Unexpected castle animation frame name: {name}")
+    return int(name[len(CASTLE_ANIM_FRAME_PREFIX):])
+
+
+def extract_castle_anim_frames(source_root: Path, skin_test: Path) -> None:
+    sprites = source_root / "Assets" / "Resources" / "sprites"
+    metadata_root = sprites / "alltiles"
+    atlas_path = sprites / "anims1Sprites.png"
+    metadata_paths = sorted(metadata_root.glob("anim_castle *.json"), key=castle_anim_frame_index)
+    indices = [castle_anim_frame_index(path) for path in metadata_paths]
+    expected_indices = list(range(1, 19)) + list(range(24, 128))
+    if indices != expected_indices or len(indices) != CASTLE_ANIM_FRAME_COUNT:
+        raise RuntimeError(f"SH1DE anim_castle source indices differ: {indices}")
+
+    colour_dir = skin_test / "AtlasSource" / "CastleAnimColour"
+    metadata_dir = skin_test / "AtlasSource" / "CastleAnimMetadata"
+    reset_directory(colour_dir, skin_test)
+    reset_directory(metadata_dir, skin_test)
+    with Image.open(atlas_path) as atlas_image:
+        atlas = atlas_image.convert("RGBA")
+        if atlas.size != CASTLE_ANIM_SOURCE_ATLAS_SIZE:
+            raise RuntimeError(f"Unexpected anims1Sprites dimensions: {atlas.size}")
+        for metadata_path in metadata_paths:
+            payload = json.loads(metadata_path.read_text(encoding="utf-8-sig"))
+            name = str(payload["m_Name"])
+            index = castle_anim_frame_index(metadata_path)
+            if name != metadata_path.stem or bool(payload["m_IsPolygon"]):
+                raise RuntimeError(f"{name}: castle animation is not the expected FullRect sprite")
+            render_data = payload["m_RD"]
+            if int(render_data["m_Texture"]["m_PathID"]) != CASTLE_ANIM_SOURCE_TEXTURE_PATH_ID:
+                raise RuntimeError(f"{name}: unexpected anims1Sprites texture PathID")
+            if int(render_data["m_SettingsRaw"]) != 0:
+                raise RuntimeError(f"{name}: unexpected castle animation render settings")
+            vertices, triangles, bounds, anchor = decode_full_rect(payload, atlas.width, atlas.height)
+            if len(vertices) != 4 or len(triangles) != 6 or sorted(set(triangles)) != [0, 1, 2, 3]:
+                raise RuntimeError(f"{name}: castle animation is not a simple indexed quad")
+            rect = payload["m_Rect"]
+            values = [float(rect[key]) for key in ("m_X", "m_Y", "m_Width", "m_Height")]
+            if any(abs(value - rounded_pixel(value)) > MESH_EPSILON for value in values):
+                raise RuntimeError(f"{name}: castle animation rectangle is not integral")
+            left, bottom, width, height = map(rounded_pixel, values)
+            expected_bounds = (left, bottom, left + width, bottom + height)
+            if bounds != expected_bounds or float(payload["m_PixelsToUnits"]) != 64.0:
+                raise RuntimeError(f"{name}: castle animation mesh bounds or PPU differ")
+            crop = atlas.crop((left, atlas.height - bottom - height, left + width, atlas.height - bottom))
+            is_transparent = crop.getchannel("A").getbbox() is None
+            if is_transparent != (index in CASTLE_ANIM_TRANSPARENT_INDICES):
+                raise RuntimeError(f"{name}: unexpected castle animation alpha coverage")
+            pivot_x = (anchor[0] - left) / width
+            pivot_y = (anchor[1] - bottom) / height
+            source_pivot = payload["m_Pivot"]
+            if (
+                abs(pivot_x - float(source_pivot["m_X"])) > MESH_EPSILON
+                or abs(pivot_y - float(source_pivot["m_Y"])) > MESH_EPSILON
+                or (pivot_x, pivot_y) not in ((0.0, 0.0), (0.0, 1.0))
+            ):
+                raise RuntimeError(f"{name}: castle animation pivot contract differs")
+            output_path = colour_dir / f"{name}.png"
+            crop.save(output_path, optimize=True)
+            write_crlf_json(metadata_dir / metadata_path.name, {
+                "m_Name": name,
+                "m_Rect": {"m_X": 0, "m_Y": 0, "m_Width": width, "m_Height": height},
+                "m_Pivot": {"m_X": pivot_x, "m_Y": pivot_y},
+                "m_PixelsToUnits": 64,
+                "_SkinTestSource": {
+                    "index": index,
+                    "left": left,
+                    "bottom": bottom,
+                    "right": left + width,
+                    "top": bottom + height,
+                    "sourceAtlasSha256": sha256_file(atlas_path),
+                    "colourSha256": sha256_file(output_path),
+                    "fullyTransparent": is_transparent,
+                },
+            })
+
+
 def build_private_atlas(workspace: Path, skin_test: Path) -> None:
     atlas_builder = workspace / "AtlasBuilder"
     sys.path.insert(0, str(atlas_builder))
@@ -346,17 +432,29 @@ def build_private_atlas(workspace: Path, skin_test: Path) -> None:
     project = ProjectConfig.load(project_path)
     project.output_mod_directory = str(staging)
     result = build_project(project, overwrite_existing=True)
-    if result.colour_frames != NORMAL_COUNT + ALTERNATE_COUNT or result.mask_frames != NORMAL_COUNT + ALTERNATE_COUNT:
+    if result.colour_frames != NORMAL_COUNT + ALTERNATE_COUNT + CASTLE_ANIM_FRAME_COUNT or result.mask_frames != NORMAL_COUNT + ALTERNATE_COUNT:
         raise RuntimeError(f"AtlasBuilder returned unexpected counts: {result}")
     gap_warnings = [warning for warning in result.warnings if "32" in warning and "416" in warning and "447" in warning]
-    if len(gap_warnings) != 1:
+    if not gap_warnings:
         raise RuntimeError(f"AtlasBuilder did not report the expected SHCDE target gap: {result.warnings}")
+    castle_anim_warnings = [warning for warning in result.warnings if "anim_castle" in warning]
+    if not any("27" in warning and "15" in warning and "125" in warning for warning in castle_anim_warnings):
+        raise RuntimeError(f"AtlasBuilder did not report the expected SH1DE-only castle animation slots: {result.warnings}")
+    if not any("128" in warning and "138" in warning for warning in castle_anim_warnings):
+        raise RuntimeError(f"AtlasBuilder did not report the expected SHCDE-only castle animation tail: {result.warnings}")
 
     generated = staging / "Override" / "Atlas" / "body_swordsman"
     private_assets = skin_test / "Assets" / "CrusaderSwordsman"
     reset_directory(private_assets, skin_test)
     for name in ("atlas.png", "atlas_m.png", "atlas.json"):
         shutil.copy2(generated / name, private_assets / name)
+    generated_castle_anim = staging / "Override" / "Atlas" / "anim_castle"
+    private_castle_anim = skin_test / "Assets" / "CrusaderRoundTowerAnimations"
+    reset_directory(private_castle_anim, skin_test)
+    for name in ("atlas.png", "atlas.json"):
+        shutil.copy2(generated_castle_anim / name, private_castle_anim / name)
+    if (generated_castle_anim / "atlas_m.png").exists() or (private_castle_anim / "atlas_m.png").exists():
+        raise RuntimeError("Plain anim_castle output unexpectedly contains a mask")
     shutil.rmtree(staging)
 
 
@@ -566,10 +664,11 @@ def main() -> None:
     skin_test = Path(__file__).resolve().parents[1]
     workspace = skin_test.parent
     extract_frames(args.source_root.resolve(), skin_test)
+    extract_castle_anim_frames(args.source_root.resolve(), skin_test)
     build_private_atlas(workspace, skin_test)
     prepare_ui_assets(args.source_root.resolve(), skin_test)
     prepare_castle_assets(args.source_root.resolve(), skin_test)
-    print("Prepared swordsman world/HUD graphics and 1467 sparse SH1DE castle frames.")
+    print("Prepared swordsman world/HUD graphics, 1467 sparse SH1DE castle tiles and 122 castle animation frames.")
 
 
 if __name__ == "__main__":
