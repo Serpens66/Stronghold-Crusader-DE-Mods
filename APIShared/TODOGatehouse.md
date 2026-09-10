@@ -62,7 +62,7 @@ Der erste Mittelpunktblock verursachte beim Eintritt einer Unit in die Gatehouse
 - `VanillaBuildingBegin` stellt nachweislich alle 75 Originalbytes wieder her, ohne Timingwerte zu verändern;
 - Timing-Deaktivierung stellt nachweislich nur die vier Vanilla-Timingwerte wieder her, ohne den Distanzursprung zu verändern;
 - unterschiedliche Besitzer können Mittelpunkt und Timing wegen überschneidungsfreier Intervalle gleichzeitig verwenden;
-- APITest enthält weiterhin keine Gatehouse-RVAs, Scanner, Seitenschutzaufrufe oder eigene Detours.
+- `BugfixesAndQoL` und `ExtraFeatures` enthalten keine Gatehouse-Distanz-/Timing-RVAs, Scanner, Seitenschutzaufrufe oder parallelen Detours mehr.
 - beide Unit-Koordinaten werden vor der ersten überschreibenden Verwendung von `RDX` geladen.
 
-Der RDX-Liveness-Hotfix und die Trennung in zwei Gatehouse-Capabilities sind implementiert und automatisiert geprüft. Die aufgeführten Laufzeittests sind vor finaler Versionierung weiterhin offen.
+Der RDX-Liveness-Hotfix, die Trennung in zwei Gatehouse-Capabilities und beide Produktionsverbraucher sind implementiert und automatisiert geprüft. Die aufgeführten Laufzeittests sind vor finaler Versionierung weiterhin offen.

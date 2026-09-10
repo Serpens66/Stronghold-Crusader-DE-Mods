@@ -1,4 +1,5 @@
 // Feature: Lobby settings model for all Extra Features options.
+using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
 using Noesis;
@@ -45,10 +46,10 @@ namespace ExtraFeatures
         private bool enableKnightDismount = true;
         private bool instantHorse;
         private bool enableExtraChurchPriests = true;
-        private double humanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
-        private double aiGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
-        private double humanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
-        private double aiGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
+        private double humanGateReopenDelaySeconds = GatehouseTimingValues.VanillaHumanDelaySeconds;
+        private double aiGateReopenDelaySeconds = GatehouseTimingValues.VanillaAiDelaySeconds;
+        private double humanGateClosingDistanceTiles = GatehouseTimingValues.VanillaHumanDistanceTiles;
+        private double aiGateClosingDistanceTiles = GatehouseTimingValues.VanillaAiDistanceTiles;
         private int humanEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
         private int humanEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
         private int aiEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
@@ -196,10 +197,10 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
         [SyncHostOnly] public bool EnableExtraChurchPriests { get => enableExtraChurchPriests; set => SetSetting(ref enableExtraChurchPriests, value, nameof(EnableExtraChurchPriests)); }
-        [SyncHostOnly] public double HumanGateReopenDelaySeconds { get => humanGateReopenDelaySeconds; set => SetDoubleSetting(ref humanGateReopenDelaySeconds, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumHumanDelaySeconds, GatehouseTimingPatch.MaximumHumanDelaySeconds, nameof(HumanGateReopenDelaySeconds), nameof(HumanGateReopenDelayValueText)); }
-        [SyncHostOnly] public double AIGateReopenDelaySeconds { get => aiGateReopenDelaySeconds; set => SetDoubleSetting(ref aiGateReopenDelaySeconds, RoundToStep(value, 2.5), GatehouseTimingPatch.MinimumAiDelaySeconds, GatehouseTimingPatch.MaximumAiDelaySeconds, nameof(AIGateReopenDelaySeconds), nameof(AIGateReopenDelayValueText)); }
-        [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
-        [SyncHostOnly] public double AIGateClosingDistanceTiles { get => aiGateClosingDistanceTiles; set => SetDoubleSetting(ref aiGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingPatch.MinimumDistanceTiles, GatehouseTimingPatch.MaximumDistanceTiles, nameof(AIGateClosingDistanceTiles), nameof(AIGateClosingDistanceValueText)); }
+        [SyncHostOnly] public double HumanGateReopenDelaySeconds { get => humanGateReopenDelaySeconds; set => SetDoubleSetting(ref humanGateReopenDelaySeconds, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumHumanDelaySeconds, GatehouseTimingValues.MaximumHumanDelaySeconds, nameof(HumanGateReopenDelaySeconds), nameof(HumanGateReopenDelayValueText)); }
+        [SyncHostOnly] public double AIGateReopenDelaySeconds { get => aiGateReopenDelaySeconds; set => SetDoubleSetting(ref aiGateReopenDelaySeconds, RoundToStep(value, 2.5), GatehouseTimingValues.MinimumAiDelaySeconds, GatehouseTimingValues.MaximumAiDelaySeconds, nameof(AIGateReopenDelaySeconds), nameof(AIGateReopenDelayValueText)); }
+        [SyncHostOnly] public double HumanGateClosingDistanceTiles { get => humanGateClosingDistanceTiles; set => SetDoubleSetting(ref humanGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumDistanceTiles, GatehouseTimingValues.MaximumDistanceTiles, nameof(HumanGateClosingDistanceTiles), nameof(HumanGateClosingDistanceValueText)); }
+        [SyncHostOnly] public double AIGateClosingDistanceTiles { get => aiGateClosingDistanceTiles; set => SetDoubleSetting(ref aiGateClosingDistanceTiles, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumDistanceTiles, GatehouseTimingValues.MaximumDistanceTiles, nameof(AIGateClosingDistanceTiles), nameof(AIGateClosingDistanceValueText)); }
         [SyncHostOnly] public int HumanEnemyProximitySingleplayer { get => humanEnemyProximitySingleplayer; set => SetIntSetting(ref humanEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximitySingleplayer), nameof(HumanEnemyProximitySingleplayerValueText)); }
         [SyncHostOnly] public int HumanEnemyProximityMultiplayer { get => humanEnemyProximityMultiplayer; set => SetIntSetting(ref humanEnemyProximityMultiplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(HumanEnemyProximityMultiplayer), nameof(HumanEnemyProximityMultiplayerValueText)); }
         [SyncHostOnly] public int AIEnemyProximitySingleplayer { get => aiEnemyProximitySingleplayer; set => SetIntSetting(ref aiEnemyProximitySingleplayer, value, EnemyProximityPolicy.MinimumRadius, EnemyProximityPolicy.MaximumRadius, nameof(AIEnemyProximitySingleplayer), nameof(AIEnemyProximitySingleplayerValueText)); }
@@ -272,10 +273,10 @@ namespace ExtraFeatures
                 EnableKnightDismount = true;
                 InstantHorse = false;
                 EnableExtraChurchPriests = true;
-                HumanGateReopenDelaySeconds = GatehouseTimingPatch.VanillaHumanDelaySeconds;
-                AIGateReopenDelaySeconds = GatehouseTimingPatch.VanillaAiDelaySeconds;
-                HumanGateClosingDistanceTiles = GatehouseTimingPatch.VanillaHumanDistanceTiles;
-                AIGateClosingDistanceTiles = GatehouseTimingPatch.VanillaAiDistanceTiles;
+                HumanGateReopenDelaySeconds = GatehouseTimingValues.VanillaHumanDelaySeconds;
+                AIGateReopenDelaySeconds = GatehouseTimingValues.VanillaAiDelaySeconds;
+                HumanGateClosingDistanceTiles = GatehouseTimingValues.VanillaHumanDistanceTiles;
+                AIGateClosingDistanceTiles = GatehouseTimingValues.VanillaAiDistanceTiles;
                 HumanEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;
                 HumanEnemyProximityMultiplayer = EnemyProximityPolicy.VanillaMode;
                 AIEnemyProximitySingleplayer = EnemyProximityPolicy.VanillaMode;

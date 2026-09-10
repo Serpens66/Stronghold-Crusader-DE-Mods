@@ -1,6 +1,4 @@
 using APIShared;
-using SHCDESE.EventAPI;
-using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -40,8 +38,6 @@ namespace APISharedTests
             TestGatehouseDistanceOriginTransaction();
             TestGatehouseTransactionAndRounding();
             TestGatehouseRollbackAndPageCleanup();
-            TestSelectedBroker();
-            TestSelectedEventService();
             TestMigrationContracts();
             if (failures == 0)
             {
@@ -75,6 +71,18 @@ namespace APISharedTests
             string unitHud = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitHudPresentationCapability.cs"));
             string virtualRuntime = File.ReadAllText(Path.Combine(workspace, "Testmods", "VirtualUnitsPrototype", "src", "VirtualEntityRuntime.cs"));
             string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordUnitHudRegistration.cs"));
+            string bugfixGatehouse = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "GatehouseDistanceOriginRegistration.cs"));
+            string extraGatehouse = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "src", "GatehouseAutomationRuntime.cs"));
+            string extraProject = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "ExtraFeatures.csproj"));
+            string randomRuntime = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "RandomEventsRuntime.cs"));
+            string randomRegistry = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "ScenarioSignpostRegistry.cs"));
+            string randomPlacement = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "SignpostPlacementService.cs"));
+            string randomPlugin = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "RandomEventsPlugin.cs"));
+            string randomManifest = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "info.json"));
+            string hunterRoutes =
+                File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterPclReachability.cs")) + "\n" +
+                File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterActiveTargetReachability.cs")) + "\n" +
+                File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterPclReachabilityDiagnostic.cs"));
             string sourceManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "info.json"));
             string packageManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "info.json"));
             Match minimumMatch = Regex.Match(sourceManifest,
@@ -94,6 +102,12 @@ namespace APISharedTests
                 "old LibraryLoaded callback is absent");
             Assert(!project.Contains("Zhuqiaomon") && !project.Contains("PolyHook"),
                 "project has no obsolete native dependency");
+            Assert(!project.Contains("SelectedUnitCommandCapability") &&
+                typeof(IApiShared).GetMethod("TryGetSelectedUnitCommand", BindingFlags.Public | BindingFlags.Instance) == null,
+                "the redundant selected-unit broker must not remain in APIShared");
+            Assert(!project.Contains("LocalScriptExtenderBuildOutput") &&
+                !project.Contains("LocalScriptExtenderModOutput"),
+                "APIShared must default to the installed Script Extender without dead local fallbacks");
             Assert(Count(unitHud, "setupTroopsOriginal(panel)") == 1 &&
                 Count(unitHud, "populateGroupsOriginal(panel)") == 1 &&
                 Count(unitHud, "gameActionOriginal(command, value1, value2, value3)") == 1 &&
@@ -137,6 +151,27 @@ namespace APISharedTests
             Assert(virtualRuntime.Contains("TryRegisterCategory") && bugfixLord.Contains("TryRegisterCategory") &&
                 !virtualRuntime.Contains("new Hook"),
                 "consumer mods do not exclusively register with the central HUD API");
+            Assert(bugfixGatehouse.Contains("TryGetGatehouseDistanceOrigin") &&
+                bugfixGatehouse.Contains("GatehouseDistanceOrigin.BuildingBoundsCenter") &&
+                bugfixGatehouse.Contains("GatehouseDistanceOrigin.VanillaBuildingBegin"),
+                "BugfixesAndQoL must exclusively select the gatehouse distance origin through APIShared");
+            Assert(extraGatehouse.Contains("TryGetGatehouseTiming") &&
+                extraGatehouse.Contains("new GatehouseTimingSettings") &&
+                !extraProject.Contains("GatehouseTimingPatch.cs"),
+                "ExtraFeatures must exclusively apply gatehouse timing through APIShared");
+            string randomPathing = randomRuntime + "\n" + randomRegistry + "\n" + randomPlacement;
+            Assert(Count(randomPathing, "GetPathComponentGrid()") == 5 &&
+                !randomPathing.Contains("TileManager.PathConnectionGrid") &&
+                Count(randomPathing, "pathConnections[") == Count(randomPathing, "pathConnections.Length"),
+                "RandomEvents must use the 2.4.0 path-component grid and guard every indexed access by span length");
+            Assert(randomPlugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.4.0\")]") &&
+                randomManifest.Contains("\"MinimumScriptExtenderVersion\": \"2.4.0\""),
+                "RandomEvents source and manifest must require Script Extender 2.4.0");
+            MatchCollection orderedRouteCalls = Regex.Matches(
+                hunterRoutes,
+                @"FindNextComponentTowardDestination\s*\(\s*(?<root>inputs|context)\.PlayerId\s*,\s*\k<root>\.(?:SourcePcl)\s*,\s*\k<root>\.(?:TargetPcl)\s*,");
+            Assert(Count(hunterRoutes, "FindNextComponentTowardDestination(") == 5 && orderedRouteCalls.Count == 5,
+                "2.4.0 route queries must retain player, current component, destination component, mode argument order");
             Assert(modVersion.Length > 0 && sourceManifest.Contains("\"NetworkMode\": 1"),
                 "source manifest declares a version and gameplay mode");
             Assert(packageManifest.Contains($"\"Version\": \"{modVersion}\"") && packageManifest.Contains("\"NetworkMode\": 1"),
@@ -179,15 +214,12 @@ namespace APISharedTests
                 "APIShared.GatehouseTimingValues",
                 "APIShared.IGatehouseDistanceOriginCapability",
                 "APIShared.IGatehouseTimingCapability",
-                "APIShared.ISelectedUnitCommandCapability",
-                "APIShared.ISelectedUnitCommandRegistration",
                 "APIShared.IUnitHudPresentationCapability",
                 "APIShared.IApiShared",
                 "APIShared.NativeApiState",
                 "APIShared.NativeCapabilityDiagnostic",
                 "APIShared.NativeCapabilityIds",
                 "APIShared.NativeCapabilityState",
-                "APIShared.SelectedUnitCommandContext",
                 "APIShared.UnitHudSurface",
                 "APIShared.UnitHudMouseButton",
                 "APIShared.UnitHudImageSlot",
@@ -236,7 +268,6 @@ namespace APISharedTests
             {
                 "TryGetGatehouseDistanceOrigin",
                 "TryGetGatehouseTiming",
-                "TryGetSelectedUnitCommand",
                 "TryGetUnitHudPresentation"
             };
             foreach (MethodInfo method in typeof(IApiShared).GetMethods())
@@ -274,7 +305,7 @@ namespace APISharedTests
 
             byte[] nonExecutable = CreatePeImage(0x4000, false);
             GatehouseBuildTarget catalog = InstallTestGatehouse(nonExecutable);
-            var runtime = InitializeRuntime(nonExecutable, catalog, SeedRuntimeMemory(nonExecutable, catalog), new FakeEventSource());
+            var runtime = InitializeRuntime(nonExecutable, catalog, SeedRuntimeMemory(nonExecutable, catalog));
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic diagnostic) &&
                 diagnostic.State == NativeCapabilityState.ValidationFailed, "gatehouse function must be executable");
             Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out diagnostic) &&
@@ -286,7 +317,7 @@ namespace APISharedTests
             byte[] image = CreatePeImage(0x4000, true);
             GatehouseBuildTarget catalog = InstallTestGatehouse(image);
             FakeMemory memory = SeedRuntimeMemory(image, catalog);
-            ApiSharedRuntime runtime = InitializeRuntime(image, catalog, memory, new FakeEventSource());
+            ApiSharedRuntime runtime = InitializeRuntime(image, catalog, memory);
             Assert(runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic available) &&
                 available.State == NativeCapabilityState.Available && available.Reason.Contains("function SHA-256"),
                 "matching fixed catalog should validate with provenance");
@@ -298,7 +329,7 @@ namespace APISharedTests
 
             byte[] wrongHashImage = (byte[])image.Clone();
             var wrongHashCatalog = CloneCatalog(catalog, functionHash: new string('0', 64));
-            runtime = InitializeRuntime(wrongHashImage, wrongHashCatalog, SeedRuntimeMemory(wrongHashImage, wrongHashCatalog), new FakeEventSource());
+            runtime = InitializeRuntime(wrongHashImage, wrongHashCatalog, SeedRuntimeMemory(wrongHashImage, wrongHashCatalog));
             AssertBothGateValidationFailures(runtime, "wrong function hash must fail both gatehouse capabilities");
 
             byte[] wrongOpcode = (byte[])image.Clone();
@@ -306,7 +337,7 @@ namespace APISharedTests
             Copy(wrongOpcode, 0x1500, DecisionBytes); // A decoy must never be used as a fallback.
             GatehouseBuildTarget wrongOpcodeCatalog = CloneCatalog(catalog, functionHash: ApiSharedRuntime.ComputeSha256(
                 new ReadOnlySpan<byte>(wrongOpcode, FunctionRva, FunctionSize)));
-            runtime = InitializeRuntime(wrongOpcode, wrongOpcodeCatalog, SeedRuntimeMemory(wrongOpcode, wrongOpcodeCatalog), new FakeEventSource());
+            runtime = InitializeRuntime(wrongOpcode, wrongOpcodeCatalog, SeedRuntimeMemory(wrongOpcode, wrongOpcodeCatalog));
             AssertTimingValidationFailure(runtime, "wrong timing opcode must fail without accepting a decoy");
             Assert(runtime.TryGetGatehouseDistanceOrigin("owner", out _, out _),
                 "a timing-only opcode mismatch must not disable distance-origin capability");
@@ -315,7 +346,7 @@ namespace APISharedTests
             WriteInt32(wrongImmediate, DecisionRva + 8, 201);
             GatehouseBuildTarget wrongImmediateCatalog = CloneCatalog(catalog, functionHash: ApiSharedRuntime.ComputeSha256(
                 new ReadOnlySpan<byte>(wrongImmediate, FunctionRva, FunctionSize)));
-            runtime = InitializeRuntime(wrongImmediate, wrongImmediateCatalog, SeedRuntimeMemory(wrongImmediate, wrongImmediateCatalog), new FakeEventSource());
+            runtime = InitializeRuntime(wrongImmediate, wrongImmediateCatalog, SeedRuntimeMemory(wrongImmediate, wrongImmediateCatalog));
             AssertTimingValidationFailure(runtime, "wrong Vanilla immediate must fail timing");
             Assert(runtime.TryGetGatehouseDistanceOrigin("owner", out _, out _),
                 "a timing immediate mismatch must not disable distance-origin capability");
@@ -324,13 +355,13 @@ namespace APISharedTests
             wrongDistance[DistanceRva] ^= 1;
             GatehouseBuildTarget wrongDistanceCatalog = CloneCatalog(catalog, functionHash: ApiSharedRuntime.ComputeSha256(
                 new ReadOnlySpan<byte>(wrongDistance, FunctionRva, FunctionSize)));
-            runtime = InitializeRuntime(wrongDistance, wrongDistanceCatalog, SeedRuntimeMemory(wrongDistance, wrongDistanceCatalog), new FakeEventSource());
+            runtime = InitializeRuntime(wrongDistance, wrongDistanceCatalog, SeedRuntimeMemory(wrongDistance, wrongDistanceCatalog));
             AssertOriginValidationFailure(runtime, "wrong Vanilla distance block must fail distance origin");
             Assert(runtime.TryGetGatehouseTiming("owner", out _, out _),
                 "a distance-origin mismatch must not disable gatehouse timing");
 
             GatehouseBuildTarget outside = CloneCatalog(catalog, aiCloseDistanceRva: FunctionRva - 4);
-            runtime = InitializeRuntime(image, outside, SeedRuntimeMemory(image, catalog), new FakeEventSource());
+            runtime = InitializeRuntime(image, outside, SeedRuntimeMemory(image, catalog));
             AssertTimingValidationFailure(runtime, "catalogued immediate outside function must fail timing");
             Assert(runtime.TryGetGatehouseDistanceOrigin("owner", out _, out _),
                 "an invalid timing address must not disable distance origin");
@@ -347,26 +378,20 @@ namespace APISharedTests
             int readyBefore = 0;
             runtime.WhenReady(_ => readyBefore++);
             var memory = new FakeMemory();
-            var events = new FakeEventSource();
-            runtime.Initialize(ModuleBase, image, "UNKNOWN", memory, events, null, null, false);
+            runtime.Initialize(ModuleBase, image, "UNKNOWN", memory, null, null, false);
             Assert(runtime.State == NativeApiState.Ready && readyBefore == 1, "unknown build should still publish Ready");
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic gate) &&
                 gate.State == NativeCapabilityState.UnsupportedBuild, "unknown build should disable only gatehouse");
             Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out NativeCapabilityDiagnostic origin) &&
                 origin.State == NativeCapabilityState.UnsupportedBuild, "unknown build should disable distance origin without mutation");
-            Assert(runtime.TryGetSelectedUnitCommand("owner", out ISelectedUnitCommandCapability selected, out NativeCapabilityDiagnostic selectedDiagnostic) &&
-                selectedDiagnostic.State == NativeCapabilityState.Available, "event capability should support unknown native hashes");
-            Assert(memory.OperationCount == 0 && events.SubscribeCount == 0, "unknown build performs no native operation or eager subscription");
-            Assert(selected.TryRegisterBefore(_ => { }, out _, out _) && events.SubscribeCount == 1,
-                "event capability should subscribe lazily on unknown hashes");
+            Assert(memory.OperationCount == 0, "unknown build performs no native operation");
             int readyAfter = 0;
             runtime.WhenReady(_ => readyAfter++);
             Assert(readyAfter == 1, "post-initialization readiness callback should be synchronous");
 
             runtime = new ApiSharedRuntime();
-            runtime.Initialize(0, ReadOnlySpan<byte>.Empty, string.Empty, new FakeMemory(), new FakeEventSource(), null, null, false);
+            runtime.Initialize(0, ReadOnlySpan<byte>.Empty, string.Empty, new FakeMemory(), null, null, false);
             Assert(runtime.State == NativeApiState.Ready, "missing native module is a gate capability error, not a global failure");
-            Assert(runtime.TryGetSelectedUnitCommand("owner", out _, out _), "selected event survives missing native module");
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic missingHash) &&
                 missingHash.State == NativeCapabilityState.UnsupportedBuild, "missing hash is unsupported for gatehouse");
             Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out NativeCapabilityDiagnostic missingOriginHash) &&
@@ -596,71 +621,13 @@ namespace APISharedTests
                 "second owner receives conflict diagnostics");
         }
 
-        private static void TestSelectedBroker()
-        {
-            var broker = new SelectedUnitCommandBroker("hash", null);
-            var order = new List<string>();
-            ISelectedUnitCommandRegistration b = broker.Register("B", _ => order.Add("B"));
-            ISelectedUnitCommandRegistration a = broker.Register("A", _ => order.Add("A"));
-            broker.Register("C", _ => { order.Add("C"); throw new InvalidOperationException("expected"); });
-            var context = new SelectedUnitCommandContext(2, TribeAICommand.UnitStop, 4, 5, 6);
-            broker.Dispatch(context);
-            Assert(string.Join(string.Empty, order) == "ABC", "callbacks use ordinal owner order and continue after errors");
-            Assert(ReferenceEquals(b, broker.Register("B", _ => order.Add("replacement"))), "same owner registration is idempotent");
-            order.Clear();
-            a.Disable();
-            broker.Dispatch(context);
-            Assert(string.Join(string.Empty, order) == "BC", "disabled registration is omitted");
-        }
-
-        private static void TestSelectedEventService()
-        {
-            var source = new FakeEventSource();
-            var service = new SelectedUnitCommandService("hash", source, null);
-            ISelectedUnitCommandCapability capabilityA = service.Bind("A");
-            Assert(source.SubscribeCount == 0, "selected event subscription is lazy");
-            int callsA = 0;
-            Assert(capabilityA.TryRegisterBefore(_ => callsA++, out ISelectedUnitCommandRegistration registrationA, out _),
-                "first selected callback registration");
-            Assert(capabilityA.TryRegisterBefore(_ => callsA += 100, out ISelectedUnitCommandRegistration repeated, out _) &&
-                ReferenceEquals(registrationA, repeated), "same selected owner registration is idempotent");
-            int callsB = 0;
-            ISelectedUnitCommandRegistration registrationB = null;
-            Assert(service.Bind("B").TryRegisterBefore(_ => callsB++, out registrationB, out _), "second selected owner registration");
-            Assert(source.SubscribeCount == 1, "all selected callbacks share one event subscription");
-
-            var context = new SelectedUnitCommandContext(7, TribeAICommand.UnitStop, 1, 2, 3);
-            source.Publish(EventHookPhase.Post, context);
-            Assert(callsA == 0 && callsB == 0, "Post events are not exposed as Before callbacks");
-            source.Publish(EventHookPhase.Pre, context);
-            Assert(callsA == 1 && callsB == 1, "Pre event reaches both registrations");
-
-            registrationB.Disable();
-            service.Bind("0").TryRegisterBefore(_ => registrationB.Enable(), out _, out _);
-            source.Publish(EventHookPhase.Pre, context);
-            Assert(callsB == 1, "reentrant enable affects the next callback snapshot");
-            source.Publish(EventHookPhase.Pre, context);
-            Assert(callsB == 2, "reentrantly enabled callback runs on the next event");
-            registrationA.Dispose();
-            Assert(source.SubscribeCount == 1, "disposing registrations preserves the process subscription");
-
-            var failingSource = new FakeEventSource { FailNextSubscribe = true };
-            var failingService = new SelectedUnitCommandService("hash", failingSource, null);
-            ISelectedUnitCommandCapability retry = failingService.Bind("owner");
-            Assert(!retry.TryRegisterBefore(_ => { }, out _, out NativeCapabilityDiagnostic failed) &&
-                failed.State == NativeCapabilityState.Faulted, "subscription failure is reported");
-            Assert(retry.TryRegisterBefore(_ => { }, out _, out _) && failingSource.SubscribeCount == 2,
-                "failed first subscription leaves registration retryable");
-        }
-
         private static ApiSharedRuntime InitializeRuntime(
             byte[] image,
             GatehouseBuildTarget catalog,
-            FakeMemory memory,
-            FakeEventSource events)
+            FakeMemory memory)
         {
             var runtime = new ApiSharedRuntime();
-            runtime.Initialize(ModuleBase, image, catalog.BuildHash, memory, events, null, catalog, false);
+            runtime.Initialize(ModuleBase, image, catalog.BuildHash, memory, null, catalog, false);
             return runtime;
         }
 
@@ -938,25 +905,5 @@ namespace APISharedTests
             public uint Protection { get; }
         }
 
-        private sealed class FakeEventSource : ISelectedUnitCommandEventSource
-        {
-            private Action<SelectedUnitCommandEventData> callback;
-            public int SubscribeCount { get; private set; }
-            public bool FailNextSubscribe { get; set; }
-            public IDisposable Subscribe(Action<SelectedUnitCommandEventData> handler)
-            {
-                SubscribeCount++;
-                if (FailNextSubscribe)
-                {
-                    FailNextSubscribe = false;
-                    throw new InvalidOperationException("injected subscription failure");
-                }
-                callback = handler;
-                return new FakeSubscription();
-            }
-            public void Publish(EventHookPhase phase, SelectedUnitCommandContext context) =>
-                callback?.Invoke(new SelectedUnitCommandEventData(phase, context));
-            private sealed class FakeSubscription : IDisposable { public void Dispose() { } }
-        }
     }
 }

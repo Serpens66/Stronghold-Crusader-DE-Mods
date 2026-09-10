@@ -20,13 +20,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
-  <PropertyGroup>
-    <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\shcde-script-extender</LocalScriptExtenderRoot>
-    <LocalScriptExtenderBuildOutput>$(LocalScriptExtenderRoot)\src\SHCDESE.BepInEx\bin\net481</LocalScriptExtenderBuildOutput>
-    <LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup>
-  <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -47,7 +40,6 @@
     <Compile Include="src\NativeInfrastructure.cs" />
     <Compile Include="src\GatehouseDistanceOriginCapability.cs" />
     <Compile Include="src\GatehouseTimingCapability.cs" />
-    <Compile Include="src\SelectedUnitCommandCapability.cs" />
     <Compile Include="src\UnitHudPresentationCapability.cs" />
     <Compile Include="src\ApiSharedRuntime.cs" />
     <Compile Include="src\APISharedPlugin.cs" />

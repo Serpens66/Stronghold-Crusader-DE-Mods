@@ -178,7 +178,7 @@ namespace RandomEvents
             }
 
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
+            Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             HashSet<ushort> targetComponents = CollectTargetPlayerPathComponents(targetPlayerId, tiles, pathConnections);
             if (targetComponents.Count == 0)
             {
@@ -200,7 +200,9 @@ namespace RandomEvents
                         continue;
 
                     int tileId = tiles.GetTileId(x, y);
-                    if (!tiles.IsValidTileId(tileId) || !tiles.IsTileWalkableAndUnoccupied(tileId))
+                    if (!tiles.IsValidTileId(tileId) ||
+                        (uint)tileId >= (uint)pathConnections.Length ||
+                        !tiles.IsTileWalkableAndUnoccupied(tileId))
                         continue;
 
                     ushort component = pathConnections[tileId];
@@ -299,7 +301,8 @@ namespace RandomEvents
                         continue;
 
                     int tileId = tiles.GetTileId(x, y);
-                    if (!tiles.IsValidTileId(tileId))
+                    if (!tiles.IsValidTileId(tileId) ||
+                        (uint)tileId >= (uint)pathConnections.Length)
                         continue;
                     ushort component = pathConnections[tileId];
                     if (component != 0)

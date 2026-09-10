@@ -1,244 +1,435 @@
-# Complete Vanilla and Script Extender Custom Lord packages
+# Custom Lord packages with Script Extender
 
-A single Custom Lord Workshop item can support both an unmodded game and a game with the Script Extender. Vanilla loads the normal lord configuration, castles, avatar, and separately installed CustomMedia. The Script Extender treats `lordmeta.json` as a partial overlay and adds only configured, usable localized presentation, media, Lua, and asset values.
+This guide describes the Custom Lord support in **SHCDE Script Extender (at least) 2.3.0**. It starts with the smallest useful extension—a localized description—and then covers portraits, titles, media, Lua, asset overrides, and publishing.
 
-The extended files do not repair an invalid Vanilla lord. Always test the Vanilla base package independently.
+A Script Extender package extends a working Vanilla Custom Lord. It does not replace the normal `.lordjson` and `.aivjson` files or repair an invalid Vanilla lord. Test the Vanilla files independently before adding Script Extender metadata.
 
-## Required folder layout
+## Quick start: add only a custom description
 
-The Workshop upload contains one directory for the lord. Place the Vanilla and extended files together as follows:
+Use this section when the lord already works in Vanilla and you only want text in the existing lord-detail panel.
 
-    Workshop content/
-      My Lord/
-        one-or-more.lordjson
-        one-or-more.aivjson
-        avatar.png
-        info.json
-        lordmeta.json
-        init.lua
-        optional-lord-module.lua
-        Override/
-          Assets/GUI/Sprites/my-lord-face.png
-          Assets/GUI/Video/my-lord-message.webm
-          fx/speech/my-lord-neutral.ogg
-          Locales/en-US/fx/speech/my-lord-message.ogg
-          Locales/de-DE/fx/speech/my-lord-message.ogg
-        Locales/
-          en-US/crusader.txt
-        Scripts/
-          init.lua
+### 1. Add the two metadata files
 
-Example: `AppData\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\CustomLords\testlord_serp\Override\Locales\de-DE\fx\speech`  
-Only the `.lordjson`, `.aivjson`, and optional `avatar.png` are required by Vanilla:
+The lord directory must contain its existing Vanilla files plus a direct `info.json` and `lordmeta.json`:
 
-- At least one valid `.lordjson` and one valid `.aivjson` must be directly inside the lord directory. Vanilla does not scan its subdirectories for these files.
-- `avatar.png` is optional. Vanilla accepts it only when it is exactly 144x144 pixels and smaller than 80,000 bytes. Otherwise the question-mark portrait is used.
-- Vanilla ignores `info.json`, `lordmeta.json`, Lua files, and the extra subdirectories. They therefore do not prevent the same package from working without the Script Extender.
+```text
+My Lord/
+  one-or-more.lordjson
+  one-or-more.aivjson
+  avatar.png              # Optional Vanilla portrait
+  info.json
+  lordmeta.json
+```
 
-The Script Extender lets Vanilla process the lord first. A direct `lordmeta.json` can provide text-only metadata without `info.json`. A valid direct `info.json` registers the lord directory as an asset mod and enables `Override` assets and optional direct `init.lua`.
+At least one valid `.lordjson` and one valid `.aivjson` must remain directly inside the lord directory. Vanilla does not search subdirectories for them. `avatar.png` is optional; Vanilla accepts it only when it is exactly 144x144 pixels and smaller than 80,000 bytes.
 
-Every component inherits independently in this order: a valid Script Extender override, the matching official `CustomMedia/<lord name>` component, then Vanilla's default. A partial or broken media reference therefore does not silence an otherwise working official lord.
+Script Extender processes a Custom Lord as an extended lord only when it encounters a direct `info.json`. Both `info.json` and `lordmeta.json` must exist and parse as the expected JSON objects.
 
-## What the in-game uploader publishes
+Use a unique GUID in `info.json`:
 
-Vanilla first stages the direct `.lordjson`, `.aivjson`, and valid `avatar.png`. The Script Extender uploader hook leaves those files unchanged and adds every other regular file from the local lord directory, recursively.
+```json
+{
+  "GUID": "yourname.my-custom-lord",
+  "Author": "Your Name",
+  "Name": "My Custom Lord",
+  "Description": "Adds localized detail text to My Custom Lord.",
+  "Version": "1.0.0",
+  "Website": "",
+  "VersionCheckUrl": "",
+  "WorkshopUrl": "",
+  "Manifest": 0,
+  "NetworkMode": 0
+}
+```
 
-The only files deliberately not added by the hook are:
+For description-only metadata, `Manifest: 0` identifies an asset mod and `NetworkMode: 0` identifies it as client-side-only. Use an GUID that is globally unique to this package (ASCII).
 
-- direct `.lordjson`, `.aivjson`, and `avatar.png`, because Vanilla already owns them;
-- direct `.data` and `.ldata`, because these are local Workshop upload records rather than package content.
+### 2. Add Description
 
-There is no extension allowlist and the uploader does not reject a package merely because its metadata or an asset is invalid. The installed game and Script Extender remain responsible for interpreting the files. Unsafe paths, reparse points, symbolic links, path traversal, or conflicting staging files are rejected. If adding extras fails, Vanilla's base upload continues unchanged.
+The smallest useful `lordmeta.json` is:
 
-Before a `Custom Lord` upload starts, the Script Extender performs an advisory preflight against the documented package contract. It reports high-confidence problems such as malformed or missing direct metadata, a missing/empty asset GUID, an unusable version string, unsupported WAV data (including 48-kHz files), an invalid Vanilla avatar, special files in an obviously wrong folder, root-level media that is not indexed through `Override`, and recognizable development/archive material. All findings are shown together in a scrollable Vanilla-style confirmation. Choose **No** to cancel or **Yes** to upload the package unchanged despite the warnings. This preflight uses the same metadata models, version parser, message-key parsing, and relevant WAV constraints as the current runtime. It is deliberately not a complete duplicate of every Asset API schema, so a warning-free package must still be tested in the game.
+```json
+{
+  "LocalizedDisplayName": {
+    "en-US": "The Gatekeeper",
+    "de-DE": "Der Torwächter"
+  },
+  "LocalizedTitles": {
+    "en-US": [", Keeper of the Gate", ", The Resolute"],
+    "de-DE": [", Hüter des Tores", ", der Entschlossene"]
+  },
+  "LocalizedDescription": {
+    "en-US": "A patient defensive lord.",
+    "de-DE": "Ein geduldiger defensiver Burgherr."
+  },
+  "LocalizedDifficultyRating": {
+    "en-US": "Difficult",
+    "de-DE": "Schwierig"
+  },
+  "LocalizedFavouriteTroops": {
+    "en-US": "Archers and swordsmen",
+    "de-DE": "Bogenschützen und Schwertkämpfer"
+  },
+  "LocalizedCastles": {
+    "en-US": "Compact stone castles",
+    "de-DE": "Kompakte Steinburgen"
+  },
+  "LocalizedPlayStyle": {
+    "en-US": "Defensive",
+    "de-DE": "Defensiv"
+  },
+  "LocalizedFavouriteSaying": {
+    "en-US": "Patience wins wars.",
+    "de-DE": "Geduld gewinnt Kriege."
+  }
+}
+```
 
-Keep the publishable lord directory clean. Source recordings, conversion projects, archives, executables, DLLs, backups, and directories such as `_LegacyMediaSource` are uploaded if left inside it. The preflight warns about common examples but does not remove them; store such material outside the lord directory.
+Select the lord in the skirmish lobby to see the description in Vanilla's existing lord-detail panel.
 
-## `info.json`
+The lookup order is:
 
-`info.json` identifies the automatically registered asset mod. Use this canonical form:
+1. The exact current game-language key, such as `de-DE`.
+2. `en-US`.
+3. An empty description when neither entry contains usable text.
 
-    {
-      "GUID": "author.unique-custom-lord",
-      "Author": "Your Name",
-      "Name": "Your Lord",
-      "Description": "A Custom Lord for Stronghold Crusader Definitive Edition.",
-      "Version": "1.0.0",
-      "Website": "",
-      "Manifest": 0,
-      "NetworkMode": 0
-    }
-
-Use a non-empty GUID that is globally unique to this package. If two loaded asset mods use the same GUID, the later one is ignored by the asset-mod registry. `Manifest: 0`, a valid version, and meaningful name and author values are the recommended canonical format. Use `NetworkMode: 0` for cosmetic metadata/media and `NetworkMode: 1` for gameplay-affecting Lua.
-
-The version parser accepts a numeric .NET-style version core, optionally preceded by `v` or `V`. A bare major is expanded to `<major>.0`, and a suffix beginning with `-`, `+`, or a space is ignored for comparison. Consequently `1.0.0-test`, `v2.3.4`, `3`, and `1.4.0+build9` are valid. An absent or unusable version does not prevent initial asset registration, but is treated as `0.0.0.0` when duplicate GUIDs are compared and therefore produces a warning.
-
-`SupportedGameVersions` is not a property of the current runtime `ModInfo` model. If an older template includes it, the JSON deserializer ignores it; it neither restricts loading nor needs to be present.
-
-An absent or malformed `info.json`, or a blank/duplicate GUID, prevents registration of extended assets and Lua. Text-only fields from a valid `lordmeta.json` and the Vanilla `.lordjson`, `.aivjson`, avatar, and CustomMedia remain usable.
-
-## `lordmeta.json`
-
-`lordmeta.json` is read independently of `info.json`. Text-only fields work without a mod identity; asset, media, and Lua fields require a valid `info.json`. A complete example is:
-
-    {
-      "LocalizedDisplayName": {
-        "en-US": "The Gatekeeper",
-        "de-DE": "Der Torwächter"
-      },
-      "LocalizedTitles": {
-        "en-US": [", Keeper of the Gate", ", The Resolute"],
-        "de-DE": [", Hüter des Tores", ", der Entschlossene"]
-      },
-      "LocalizedDescription": {
-        "en-US": "A patient defensive lord.",
-        "de-DE": "Ein geduldiger defensiver Burgherr."
-      },
-      "LocalizedDifficultyRating": {
-        "en-US": "Difficult",
-        "de-DE": "Schwierig"
-      },
-      "LocalizedFavouriteTroops": {
-        "en-US": "Archers and swordsmen",
-        "de-DE": "Bogenschützen und Schwertkämpfer"
-      },
-      "LocalizedCastles": {
-        "en-US": "Compact stone castles",
-        "de-DE": "Kompakte Steinburgen"
-      },
-      "LocalizedPlayStyle": {
-        "en-US": "Defensive",
-        "de-DE": "Defensiv"
-      },
-      "LocalizedFavouriteSaying": {
-        "en-US": "Patience wins wars.",
-        "de-DE": "Geduld gewinnt Kriege."
-      },
-      "FacePath": "Assets/GUI/Sprites/my-lord-face",
-      "JoinAudioPath": "fx/speech/my-lord-join",
-      "LeaveAudioPath": "fx/speech/my-lord-leave",
-      "Messages": {
-        "IncomingMessage": [
-          {
-            "VideoPath": "my-lord-neutral",
-            "AudioPath": "my-lord-message",
-            "LocalizedText": {
-              "en-US": "A message from the Gatekeeper.",
-              "de-DE": "Eine Nachricht vom Torwächter."
-            }
-          }
-        ],
-        "WillAttack": [
-          {
-            "VideoPath": "my-lord-angry",
-            "AudioPath": "my-lord-attack",
-            "LocalizedText": {
-              "en-US": "Your walls will fall!",
-              "de-DE": "Eure Mauern werden fallen!"
-            }
-          }
-        ]
-      }
-    }
+Always provide `en-US` when the description should have a general fallback. Keys are matched against the game's current language string; they are not converted from similar keys such as `de` to `de-DE`.  
   
-Recommended tool to check for correct json syntax, since with wrong syntax the game won't load it: https://goonlinetools.com/json-validator/  
-All fields are optional at the C# model level, but `lordmeta.json` itself must deserialize as the expected object before the lord receives extended metadata. Missing optional fields are allowed. A field with the wrong JSON type can make deserialization of the entire document fail; it does not merely clear that one field.
+- German: `de-DE`
+- Polish: `pl-PL`
+- French: `fr-FR`
+- Spanish: `es-ES`
+- Brazilian Portuguese: `pt-BR`
+- Russian: `ru-RU`
+- Ukrainian: `uk-UA`
+- Simplified Chinese: `zh-CN`
+- Traditional Chinese: `zh-HK`
+  
+If the description does not appear, inspect `BepInEx/LogOutput.log` for a missing or malformed `info.json` or `lordmeta.json`, then validate both files with a JSON parser.
 
-| Field | Actual behavior |
-|---|---|
-| `LocalizedDisplayName` | Localized lord name. The detail panel falls back to Vanilla's custom-lord name if no usable extended name is available. |
-| `LocalizedTitles` | Lists of title suffixes. Any non-empty list length is accepted and duplicate strings are allowed. |
-| `LocalizedDescription` | Description in Vanilla's existing lord-detail panel. |
-| `LocalizedDifficultyRating` | Text displayed after the Vanilla lord-power value, for example `(8) Difficult`. |
-| `LocalizedFavouriteTroops` | Favourite troops field in the detail panel. |
-| `LocalizedCastles` | Castle description field in the detail panel. |
-| `LocalizedPlayStyle` | Play-style field in the detail panel. |
-| `LocalizedFavouriteSaying` | Favourite-saying field in the detail panel. |
-| `FacePath` | Logical Asset API texture path. An omitted extension can resolve `.png`, `.jpg`, or `.tga`. The valid Vanilla `avatar.png` remains the UI fallback. |
-| `JoinAudioPath` | Full logical audio path used when the lord joins the lobby, normally `fx/speech/name`. |
-| `LeaveAudioPath` | Full logical audio path used when the lord leaves the lobby. |
-| `Messages` | Object keyed case-insensitively by `AILordMessageType`; each value is a list from which one clip is selected. |
-| `IncomingMessage` | A legacy top-level model property that is not currently read by the runtime. Do not use it; use `Messages.IncomingMessage` instead. |
+## Advanced package
 
-### Text localization
+The following layout combines the Vanilla lord with every major Script Extender extension. Add only the parts you actually use.
 
-The localized dictionaries are looked up by the Script Extender's exact current game-language key, then `en-US`. Provide `en-US` for every text that should have a general fallback. Details and subtitles become empty if neither entry is usable. The extended UI falls back from a missing display name to Vanilla's lord name.
+```text
+My Lord/
+  one-or-more.lordjson
+  one-or-more.aivjson
+  avatar.png
+  info.json
+  lordmeta.json
+  init.lua                         # Optional isolated lord AI
+  optional-lord-module.lua
+  MapAreas/
+    keep-surroundings.sema
+  Override/
+    Assets/GUI/Sprites/my-lord-face.png
+    Assets/GUI/Video/my-lord-angry.webm
+    fx/speech/my-lord-join.ogg
+    fx/speech/my-lord-leave.ogg
+    fx/speech/my-lord-attack.ogg
+    Locales/en-US/fx/speech/my-lord-attack.ogg
+    Locales/de-DE/fx/speech/my-lord-attack.ogg
+  Locales/
+    en-US/crusader.txt             # Optional asset-mod translation file
+  Scripts/
+    init.lua                       # Optional normal asset-mod script
+```
 
-Dictionary keys are not restricted during JSON deserialization, but a key is useful only when it exactly matches the current language or `en-US`. Common game keys are:
+### Complete `lordmeta.json` example
+
+All properties are optional at the `LordInfo` model level. Omitting one does not disable the others. A wrong JSON type can, however, prevent the entire file from deserializing.
+
+```json
+{
+  "LocalizedDisplayName": {
+    "en-US": "The Gatekeeper",
+    "de-DE": "Der Torwächter"
+  },
+  "LocalizedTitles": {
+    "en-US": [
+      ", Keeper of the Gate",
+      ", The Resolute"
+    ],
+    "de-DE": [
+      ", Hüter des Tores",
+      ", der Entschlossene"
+    ]
+  },
+  "LocalizedDescription": {
+    "en-US": "A patient defensive lord.",
+    "de-DE": "Ein geduldiger defensiver Burgherr."
+  },
+  "LocalizedDifficultyRating": {
+    "en-US": "Difficult",
+    "de-DE": "Schwierig"
+  },
+  "LocalizedFavouriteTroops": {
+    "en-US": "Archers and swordsmen",
+    "de-DE": "Bogenschützen und Schwertkämpfer"
+  },
+  "LocalizedCastles": {
+    "en-US": "Compact stone castles",
+    "de-DE": "Kompakte Steinburgen"
+  },
+  "LocalizedPlayStyle": {
+    "en-US": "Defensive",
+    "de-DE": "Defensiv"
+  },
+  "LocalizedFavouriteSaying": {
+    "en-US": "Patience wins wars.",
+    "de-DE": "Geduld gewinnt Kriege."
+  },
+  "FacePath": "Assets/GUI/Sprites/my-lord-face",
+  "JoinAudioPath": "fx/speech/my-lord-join",
+  "LeaveAudioPath": "fx/speech/my-lord-leave",
+  "Messages": {
+    "IncomingMessage": [
+      {
+        "VideoPath": "my-lord-angry",
+        "AudioPath": "my-lord-attack",
+        "LocalizedText": {
+          "en-US": "A message from the Gatekeeper.",
+          "de-DE": "Eine Nachricht vom Torwächter."
+        }
+      }
+    ],
+    "AngryCastleDamaged": [
+      {
+        "VideoPath": "my-lord-angry",
+        "AudioPath": "my-lord-attack",
+        "LocalizedText": {
+          "en-US": "You will pay for that!",
+          "de-DE": "Das werdet Ihr mir büßen!"
+        }
+      }
+    ]
+  }
+}
+```
+
+`LuaInitPath` is **not** a property of `lordmeta.json` in 2.4.0. The lord-specific Lua entry point is detected from a physical `init.lua` directly in the lord directory.
+
+### `LordInfo` field reference
+
+| Field | JSON type | Behavior |
+|---|---|---|
+| `LocalizedDisplayName` | `{ locale: string }` | Localized name. The detail panel retains the Vanilla custom-lord name when no usable extended name is available. |
+| `LocalizedTitles` | `{ locale: string[] }` | Localized title suffixes selected by zero-based player-slot index. |
+| `LocalizedDescription` | `{ locale: string }` | Description in the skirmish-lobby detail panel. |
+| `LocalizedDifficultyRating` | `{ locale: string }` | Text displayed after the numeric lord power, for example `(8) Difficult`. |
+| `LocalizedFavouriteTroops` | `{ locale: string }` | Favourite-troops text in the detail panel. |
+| `LocalizedCastles` | `{ locale: string }` | Castle-design text in the detail panel. |
+| `LocalizedPlayStyle` | `{ locale: string }` | Play-style text in the detail panel. |
+| `LocalizedFavouriteSaying` | `{ locale: string }` | Favourite-saying text in the detail panel. |
+| `FacePath` | `string` | Logical Asset API texture path for the extended portrait. |
+| `JoinAudioPath` | `string` | Full logical audio path played when the lord joins the lobby. |
+| `LeaveAudioPath` | `string` | Full logical audio path played when the lord leaves the lobby. |
+| `Messages` | `{ messageName: clip[] }` | Message variants keyed case-insensitively by an exact `AILordMessageType` member name. |
+| `IncomingMessage` | `string` | Legacy model property that the 2.4.0 runtime does not read. Use `Messages.IncomingMessage` instead. |
+
+The six detail fields are resolved independently on every access. Missing or blank values become empty strings and do not affect another field. The display name and message subtitles use the same current-language then `en-US` lookup. A missing display name is filtered out so the Vanilla name remains; message subtitles have the 2.4.0 edge case described below.
+
+Common current game-language keys are:
 
 `ar`, `cs-CZ`, `de-DE`, `el-GR`, `en-US`, `es-ES`, `fr-FR`, `hu-HU`, `it-IT`, `ja-JP`, `ko-KR`, `nl-NL`, `pl-PL`, `pt-BR`, `ru-RU`, `sv-SE`, `th-TH`, `tr-TR`, `uk-UA`, `zh-CN`, and `zh-HK`.
 
 ### Titles
 
-Titles are suffixes, so include punctuation and spacing such as `", Keeper of the Gate"`. Title selection uses the player-slot-based index supplied by the game. When the index is at least the list length, it wraps modulo the list length. There is no requirement for eight titles and no requirement that they be distinct. If neither the current locale nor `en-US` provides a list on initial resolution, the Extender has no title suffix; it does not synthesize a Vanilla ordinal. In the current version, changing the language at runtime from a resolved locale to one with neither an exact nor `en-US` list can retain the previously cached title list until the lord data is reloaded. Provide `en-US` to avoid that edge case.
+Titles are suffixes appended to a lord name, so include the required punctuation and spacing, for example `", Keeper of the Gate"`.
+
+The Script Extender selects a title using the zero-based player-slot index. If the index is greater than or equal to the number of titles, it wraps with modulo. A non-empty list can have any length and entries do not have to be unique. Provide `en-US` as a fallback list.
+
+### Portraits and asset paths
+
+`FacePath` is a logical path below `Override`, not an absolute filesystem path. For this value:
+
+```text
+"FacePath": "Assets/GUI/Sprites/my-lord-face"
+```
+
+place the image at:
+
+```text
+Override/Assets/GUI/Sprites/my-lord-face.png
+```
+
+When the extension is omitted, the texture resolver probes supported image extensions including `.png`, `.jpg`, and `.tga`. If `FacePath` is absent or cannot be loaded, the detail panel falls back to Vanilla's validated `avatar.png`; without either image, Vanilla's question-mark portrait remains.
+
+Use lord-specific asset names. The registered asset index is shared, so generic paths can collide with another loaded asset mod.
+
+### Join and leave audio
+
+`JoinAudioPath` and `LeaveAudioPath` use full logical audio paths, normally beginning with `fx/speech/`:
+
+```text
+"JoinAudioPath": "fx/speech/my-lord-join"
+"LeaveAudioPath": "fx/speech/my-lord-leave"
+```
+
+An omitted extension allows the audio resolver to probe `.ogg` and `.wav`.
 
 ### Message clips
 
-`Messages` keys are parsed case-insensitively. They may use either the existing `AILordMessageType` names or official CustomMedia stems such as `taunt1`, `victory_good`, `cant_help`, and `will_attack_enemy`. Unknown keys are logged and skipped. Every configured message value should be a non-null JSON array containing non-null clip objects. Each clip supports:
+Each `Messages` property must use an actual `AILordMessageType` member name. Matching is case-insensitive. Unknown keys are logged and skipped. The value is a list of clip objects; when multiple clips are present, the runtime selects one through its deterministic random source.
 
-- `VideoPath`: the message-video name used by the native message system. The supported convention is a bare stem such as `my-lord-angry`, backed by `Override/Assets/GUI/Video/my-lord-angry.webm`.
-- `AudioPath`: the speech name without `fx/speech/`, because the native AI-message path adds that prefix. An extension may be omitted.
-- `LocalizedText`: optional subtitle dictionary with current-language then `en-US` fallback.
+Each `LordMessageClip` supports:
 
-Only usable components override the game. Missing audio retains the official WAV, missing video retains the official emotion video, and missing localized text retains the matching line from official `text.txt`. Components of the same message may therefore come from different systems.
+| Field | Behavior |
+|---|---|
+| `VideoPath` | Native message-video name, normally a bare stem such as `my-lord-angry`. Use an empty string to keep the original video. |
+| `AudioPath` | Native message-speech name without `fx/speech/`, normally a bare stem such as `my-lord-attack`. Use an empty string to keep the original audio. |
+| `LocalizedText` | Optional subtitle dictionary. It falls back from the current language to `en-US`. Always provide `en-US` to avoid the 2.4.0 `not-set` placeholder edge case. |
 
-Available message names are:
+The corresponding assets are normally:
 
-`IncomingMessage`, `WillAttack`, `TauntSiege2`, `TauntSiege3`, `TauntSiege4`, `AngerSiegeFailed`, `AngerFortressDamaged`, `PleadDeath`, `PleadOutsideWalls`, `NervousInsideWalls`, `Counterattack`, `Unk11`, `Won`, `Unk13`, `RequestGoods`, `ReceivedGoods`, `DefeatedAgain`, `AllyNotificationCongratulations`, `AllyNotificationHasDefeatedEnemy`, `AllyNotificationRequestReinforcements`, `AllyNotificationMerryChristmas`, `Unk21`, `Unk22`, `AllyNotificationWillSiegeEnemySoon`, `AllyNotificationCannotAttackEnemy`, `AllyNotificationWillNotAttackToday`, `AllyNotificationCannotNotHelp`, `AllyNotificationWillNotHelp`, `AllyNotificationWillNotSendRequestedGoods`, `AllyNotificationHasSentRequestedGoods`, `AllyNotificationConfidentInVictory`, `AllyNotificationConfidentInLosing`, `AllyNotificationSentReinforcements`, and `AllyNotificationAgree`.  
-See also: https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/extended-ai-modding.md#available-message-types-ailordmessagetype  
+```text
+Override/Assets/GUI/Video/my-lord-angry.webm
+Override/fx/speech/my-lord-attack.ogg
+```
 
-Values named `Unk` are mapped but their exact trigger is not yet documented.
+Empty video or audio values leave that original native component unchanged. This permits a text-only, audio-only, or video-only override for a message.
 
-## Media paths and formats
+In 2.4.0, an absent `LocalizedText` dictionary or one with neither the current language nor `en-US` resolves to the literal internal placeholder `not-set`, which can then be shown as the subtitle. Provide a non-empty `en-US` subtitle for every configured clip. If you deliberately want to retain the original subtitle, provide an empty string for the active locale or avoid configuring that message entry.
 
-The registered asset index treats paths below `Override` as logical game paths.
+### Message names in 2.4.0
 
-For locale-aware assets such as audio, resolution order is:
+Use these exact enum names; the names are case-insensitive but are otherwise not translated or normalized:
 
-1. `Override/Locales/<current-language>/<logical-path>`
-2. `Override/Locales/en-US/<logical-path>`
-3. `Override/<logical-path>`
+```text
+IncomingMessage
+Taunt1
+Taunt2
+Taunt3
+Taunt4
+AngrySiegeLost
+AngryCastleDamaged
+Defeat
+NervPreSiege
+NervWeak
+VictoryGood
+VictoryHarass
+KillPlayer
+KilNpc
+RequestGoods
+ThankGoods
+DieAlly
+CongratsOnKill
+BoastOfKill
+AllyNeedHelp
+MerryChristmas
+Unk21
+Unk22
+About2Siege
+CantAttack
+WontAttack
+CantHelp
+WontHelp
+NotSendingGoods
+SentGoods
+TeamWinning
+TeamLosing
+WillSendTroops
+WillAttackEnemy
+Nickname1
+Nickname2
+Nickname3
+Nickname4
+Nickname5
+Nickname6
+Nickname7
+Nickname8
+```
 
-For example, `JoinAudioPath: "fx/speech/my-lord-join"` can resolve any of:
+`KilNpc` is intentionally spelled with one `l` in the 2.4.0 enum. `Unk21` and `Unk22` are mapped names whose exact gameplay triggers are not documented. The `Nickname1` through `Nickname8` members exist, but this guide does not promise a normal AI-message trigger for them.
 
-    Override/Locales/de-DE/fx/speech/my-lord-join.ogg
-    Override/Locales/en-US/fx/speech/my-lord-join.ogg
-    Override/fx/speech/my-lord-join.ogg
+Names from other revisions such as `TauntSiege2`, `AngerSiegeFailed`, `AngerFortressDamaged`, `PleadDeath`, or `AllyNotificationAgree` do not match the 2.4.0 enum and are skipped.
 
-Both direct and localized `fx/speech` directories are supported. Use lord-specific asset names to avoid collisions with other packages.
+### Media localization and formats
 
-- OGG Vorbis is recommended. Its channel count and sample rate are read from the stream.
-- WAV must be RIFF/WAVE PCM format 1, mono or stereo, exactly 44.1 kHz (44,100 Hz), 16-bit, with a valid non-empty `data` chunk. The current loader reads the PCM format, channel count, sample rate, and bit depth from the standard fixed `fmt ` header offsets and advances through chunks without RIFF odd-byte padding. Export a conventional PCM WAV with the normal `fmt ` chunk directly after the WAVE header; avoid unusual leading metadata chunks and odd-sized chunks before `data`. The Script Extender does not resample other WAV rates: common legacy 48 kHz (48,000-Hz) speech files are rejected even though the uploader transports them successfully.
-- Message video should be WEBM with VP8 at 348x348, preferably without an audio track. The resolver currently also probes `.mp4`, but MP4 is not an officially guaranteed message format.
-- Texture resolution supports exact indexed paths and, when the extension is omitted, localized `.png`, `.jpg`, and `.tga` candidates.
+Audio resolution is locale-aware. For the logical path `fx/speech/my-lord-attack`, the lookup order is:
 
-Video resolution does not apply the locale-directory fallback used for audio. Keep message videos under the global `Override/Assets/GUI/Video` path.
+1. `Override/Locales/<current-language>/fx/speech/my-lord-attack.ogg`
+2. `Override/Locales/en-US/fx/speech/my-lord-attack.ogg`
+3. `Override/fx/speech/my-lord-attack.ogg`
 
-## Lua and inherited asset-mod features
+The resolver performs the same order for an exact extension and then probes `.ogg` followed by `.wav` when necessary.
 
-There are two different Lua entry points:
+Video resolution does not use that locale-folder fallback. Keep lord message videos at the global logical path under `Override/Assets/GUI/Video/`.
 
-- Direct `My Lord/init.lua` is the isolated Custom Lord AI script. It may define `ai_init(playerId)` and may load relative `.lua` modules from the lord directory.
-- `My Lord/Scripts/init.lua` is the normal automatically registered asset-mod script and uses the asset-mod lifecycle such as `mod_init`, `mod_load`, and `mod_unload`.
+- OGG Vorbis is recommended. The decoder reads its channel count and sample rate from the stream.
+- WAV must be RIFF/WAVE PCM format 1, mono or stereo, exactly 44,100 Hz, and 16-bit. Other WAV sample rates, including 48,000 Hz, are rejected.
+- Message video should be WEBM with VP8 at 348x348, preferably without an audio track. The resolver also probes `.mp4`, but WEBM is the documented safe choice.
 
-Because a valid extended lord is registered as an asset mod, it can also provide every file type supported by the normal Asset API under `Override`, including textures, sprites, audio, music, XAML, atlas definitions/textures, AssetBundles, and other indexed resources. Root `Locales/<locale>/crusader.txt` and `Scripts/init.lua` are likewise part of the asset-mod layout. Consult the Script Extender's `asset-api.md`, `translation-api.md`, and Lua documentation for the schema of those independent systems.
+### `info.json`, GUIDs, versions, and networking
 
-The uploader intentionally packages these files without trying to duplicate all current or future Asset API rules.
+The canonical `info.json` example from the quick start is also suitable for the advanced asset-only package.
 
-## Compatibility and testing checklist
+- `GUID` must be non-empty and unique for reliable asset registration. GUID comparison is case-insensitive.
+- `Manifest: 0` selects an asset/Lua mod without a BepInEx DLL.
+- `NetworkMode: 0` is appropriate for presentation-only text and media.
+- Use `NetworkMode: 1` when Lua or another package feature changes gameplay. Multiplayer participants must then use a matching mod setup.
+- `Version` should use a numeric .NET-style version core. The 2.4.0 parser also accepts a leading `v`/`V`, a bare major, and suffixes beginning with `-`, `+`, or a space. An unusable version is treated as `0.0.0.0` for duplicate resolution.
+- `VersionCheckUrl` optionally accepts the HTTPS root URL of a public GitHub or GitLab repository.
+- `WorkshopUrl` optionally identifies the package's Steam Workshop page.
 
-Before publishing:
+`SupportedGameVersions` is not a property of the 2.4.0 `ModInfo` model and is deliberately absent from the examples.
 
-1. Keep exactly one publishable lord directory and remove development-only material from it.
-2. Test its direct `.lordjson`, `.aivjson`, and optional `avatar.png` without the Script Extender.
-3. Test `info.json`, `lordmeta.json`, localization, media, and Lua with the current Script Extender.
-4. Upload with the exact `Custom Lord` Workshop tag.
-5. Subscribe to or download the resulting item and verify that it contains exactly one lord directory with both the Vanilla base and extended tree.
-6. Check the BepInEx log for JSON, GUID, asset, audio, video, Lua, and uploader warnings.
+If the same GUID is discovered more than once during normal asset-mod discovery, the highest parseable version wins. A duplicate encountered after another copy is already registered is ignored and logged. Do not deliberately reuse another package's GUID.
 
-One package is usable in separate Vanilla and Script Extender installations. This does not guarantee deterministic mixed multiplayer when only some participants run gameplay-changing Lua or other Extender features; multiplayer participants should use a consistent mod setup for such features.
+### Two different Lua entry points
 
-The `CustomLordExtendedPackageTemplate` directory beside this guide contains starter `info.json`, `lordmeta.json`, and asset-path notes. Replace every placeholder before publishing.
+The two `init.lua` locations have different contracts:
 
-## Official Script Extender guide
-https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/extended-ai-modding.md
+- `My Lord/init.lua` is the Custom Lord AI script. It is loaded into an isolated per-lord table environment and may define `ai_init(playerId, loadMode)`. It can access Script Extender APIs through the shared global fallback without placing its own variables in another lord's environment.
+- `My Lord/Scripts/init.lua` is the normal asset-mod script registered by `info.json`. It uses the asset-mod lifecycle, including `mod_init`, `mod_load`, and `mod_unload`.
+
+Do not put `LuaInitPath` in `lordmeta.json`. The Custom Lord entry checks only for direct root `init.lua`.
+
+Lua that changes resources, units, buildings, terrain, AI behavior, or other simulation state is gameplay-affecting and requires `NetworkMode: 1` plus matching multiplayer installations.
+
+### Other inherited asset-mod features
+
+Because the lord directory is registered as an asset mod, it can use the normal 2.4.0 Asset API layout. This includes indexed files below `Override`, root `Locales/<locale>/crusader.txt`, `Scripts/init.lua`, XAML patches, atlases, sprites, textures, audio, music, AssetBundles, and private mod resources.
+
+These systems have their own schemas and lifecycle rules. Do not infer them from `lordmeta.json`; use the linked API guides below.
+
+## Publishing and installation
+
+A Workshop item must install with the lord directory as an immediate child of the item's content directory, because Vanilla scans those child directories for Custom Lords:
+
+```text
+Workshop item content/
+  My Lord/
+    one-or-more.lordjson
+    one-or-more.aivjson
+    info.json
+    lordmeta.json
+    ...all optional extended files...
+```
+
+Script Extender 2.4.0 does **not** contain a hook that adds arbitrary extended files to Vanilla's Custom Lord upload, and it does not provide the package preflight described by some later or experimental documentation. Do not assume the in-game uploader included `info.json`, `lordmeta.json`, subdirectories, media, or Lua.
+
+Use a Steam UGC publishing workflow that uploads the complete prepared content directory when the Vanilla uploader does not preserve those files. After publishing, subscribe to or download the item and inspect the installed Workshop directory. Verify that there is exactly one intended lord directory and that every extended file is present at the same relative path.
+
+The Script Extender's generic `.map` Workshop packager installs mods through its separate map-archive system; do not substitute that layout for a Custom Lord package unless you intentionally build and test a separate installation design.
+
+## Test checklist
+
+1. Test the direct `.lordjson`, `.aivjson`, and optional valid `avatar.png` as a Vanilla Custom Lord.
+2. Add `info.json` and the minimal `lordmeta.json`; select the lord and confirm its description in at least `en-US` and one translated game language.
+3. Confirm that a missing translation falls back to `en-US` and that omitted detail fields stay empty.
+4. Add advanced fields one subsystem at a time: display name and titles, portrait, join/leave audio, then message clips and subtitles.
+5. Test both localized and global audio fallback paths and check that unsupported WAV files fail without breaking unrelated metadata.
+6. If Lua is present, test new-game and saved-game loading and verify the correct `NetworkMode` classification.
+7. Check `BepInEx/LogOutput.log` for JSON, GUID, duplicate, asset, media, message-key, and Lua errors.
+8. Publish, install the resulting Workshop item, inspect its actual files, and repeat the runtime tests from the installed copy.
+
+## Script Extender 2.4.0 references
+
+- [Extended AI Modding](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/v2.4.0/docs/guides/extended-ai-modding.md)
+- [Asset API](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/v2.4.0/docs/guides/asset-api.md)
+- [Translation API](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/v2.4.0/docs/guides/translation-api.md)
+- [Lua quick start](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/v2.4.0/docs/guides/lua-quick-start.md)
+- [Lua reference](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/v2.4.0/docs/guides/lua-reference.md)
+- [Workshop Mod Creation Guide](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/v2.4.0/docs/guides/workshop-mod-creation-guide.md)

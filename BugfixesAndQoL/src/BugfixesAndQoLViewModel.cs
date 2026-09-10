@@ -56,6 +56,7 @@ namespace BugfixesAndQoL
         private bool enableQuarryPileRelocation = true;
         private bool enableAIQuarryPileTowardsKeep = true;
         private bool requireReachableEnemyForAutomaticGateClosing = true;
+        private bool enableCenteredGatehouseDistanceFix = true;
         private bool preventAIPause = true;
         private bool preventEmergencyDemolition = true;
         private bool preventHovelDeletion = true;
@@ -206,6 +207,8 @@ namespace BugfixesAndQoL
         public string EnableQuarryPileRelocationHelpText => SerpLocalization.Get(SerpLocalization.EnableQuarryPileRelocationHelp);
         public string RequireReachableEnemyForAutomaticGateClosingText => SerpLocalization.Get("BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosing");
         public string RequireReachableEnemyForAutomaticGateClosingHelpText => SerpLocalization.Get("BugfixesAndQoL.RequireReachableEnemyForAutomaticGateClosingHelp");
+        public string EnableCenteredGatehouseDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCenteredGatehouseDistanceFix");
+        public string EnableCenteredGatehouseDistanceFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCenteredGatehouseDistanceFixHelp");
         public string MultiplayerTitleText => SerpLocalization.Get("BugfixesAndQoL.MultiplayerTitle");
         public string AllowFullAiMultiplayerLobbyText => SerpLocalization.Get("BugfixesAndQoL.AllowFullAiMultiplayerLobby");
         public string AllowFullAiMultiplayerLobbyHelpText => SerpLocalization.Get("BugfixesAndQoL.AllowFullAiMultiplayerLobbyHelp");
@@ -771,6 +774,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableCenteredGatehouseDistanceFix
+        {
+            get => enableCenteredGatehouseDistanceFix;
+            set => SetSetting(ref enableCenteredGatehouseDistanceFix, value, nameof(EnableCenteredGatehouseDistanceFix));
+        }
+
+        [SyncHostOnly]
         public bool PreventAIPause
         {
             get => preventAIPause;
@@ -977,6 +987,7 @@ namespace BugfixesAndQoL
                 EnableQuarryPileRelocation = true;
                 EnableAIQuarryPileTowardsKeep = true;
                 RequireReachableEnemyForAutomaticGateClosing = true;
+                EnableCenteredGatehouseDistanceFix = true;
                 PreventAIPause = true;
                 PreventEmergencyDemolition = true;
                 PreventHovelDeletion = true;

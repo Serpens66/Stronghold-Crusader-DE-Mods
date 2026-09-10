@@ -8,6 +8,7 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, "2.4.0")]
+    [BepInDependency(ApiSharedGuid, "0.2.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("FearFactorNeutralizationTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -15,6 +16,7 @@ namespace ExtraFeatures
     public sealed class ExtraFeaturesPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
+        private const string ApiSharedGuid = "APIShared_Serp";
         private const string LegacySomeSettingsGuid = "SomeSettings_Serp";
 
         public const string PluginGuid = "ExtraFeatures_Serp";

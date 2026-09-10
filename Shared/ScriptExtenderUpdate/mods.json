@@ -12,20 +12,6 @@
     "DependsOn": []
   },
   {
-    "Name": "APITest",
-    "Guid": "APITest_Serp",
-    "Manifest": "Testmods\\APITest\\info.json",
-    "Plugin": "Testmods\\APITest\\src\\APITestPlugin.cs",
-    "Project": "Testmods\\APITest\\APITest.csproj",
-    "BuildDriver": "Testmods\\APITest\\build.bat",
-    "Package": "Testmods\\APITest\\BepInEx\\plugins\\APITest_Serp",
-    "Install": "APITest_Serp",
-    "BuildOrder": 20,
-    "DependsOn": [
-      "APIShared"
-    ]
-  },
-  {
     "Name": "ActiveAIVDetector",
     "Guid": "ActiveAIVDetector_Serp",
     "Manifest": "Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\info.json",
@@ -155,7 +141,9 @@
     "Package": "ExtraFeatures\\BepInEx\\plugins\\ExtraFeatures_Serp",
     "Install": "ExtraFeatures_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": [
+      "APIShared"
+    ]
   },
   {
     "Name": "ExtremePowers",
@@ -299,7 +287,9 @@
     "Package": "BugfixesAndQoL\\BepInEx\\plugins\\BugfixesAndQoL_Serp",
     "Install": "BugfixesAndQoL_Serp",
     "BuildOrder": 999,
-    "DependsOn": []
+    "DependsOn": [
+      "APIShared"
+    ]
   },
   {
     "Name": "MainViewModelInitProbe",

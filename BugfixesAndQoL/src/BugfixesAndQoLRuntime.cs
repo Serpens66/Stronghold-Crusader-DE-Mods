@@ -26,6 +26,7 @@ namespace BugfixesAndQoL
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
         private readonly TroopHudMiddleClickCameraFeature troopHudMiddleClickCameraFeature;
         private readonly LordUnitHudRegistration lordUnitHudRegistration;
+        private readonly GatehouseDistanceOriginRegistration gatehouseDistanceOriginRegistration;
         private readonly TunnelPlacementDistanceFeature tunnelPlacementDistanceFeature;
         private readonly TrailCustomizationFeature trailCustomizationFeature;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
@@ -112,6 +113,7 @@ namespace BugfixesAndQoL
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
             troopHudMiddleClickCameraFeature = new TroopHudMiddleClickCameraFeature(log, settings);
             lordUnitHudRegistration = new LordUnitHudRegistration(log, settings, troopHudMiddleClickCameraFeature);
+            gatehouseDistanceOriginRegistration = new GatehouseDistanceOriginRegistration(log, settings);
             tunnelPlacementDistanceFeature = new TunnelPlacementDistanceFeature(log, settings);
             trailCustomizationFeature = new TrailCustomizationFeature(log, settings);
             InitializeMovedFeatures();

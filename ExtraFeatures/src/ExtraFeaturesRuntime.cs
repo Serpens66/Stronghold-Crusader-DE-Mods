@@ -140,15 +140,6 @@ namespace ExtraFeatures
             });
             try
             {
-                gatehouseAutomationRuntime.InitializeNative(newLibraryHandle, memory, fixedLayoutHashValidated);
-            }
-            catch (Exception ex)
-            {
-                LogFeatureFailure("gatehouse automation native timing", ex);
-            }
-
-            try
-            {
                 aiDefenseRepairRuntime.InitializeNative(newLibraryHandle, nativeRegion, memory, fixedLayoutHashValidated);
             }
             catch (Exception ex)

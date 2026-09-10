@@ -2047,7 +2047,7 @@ namespace RandomEvents
             targetTileX = 0;
             targetTileY = 0;
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
+            Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             long bestDistanceSquared = long.MaxValue;
             int centerX = (building.r_TilePositionXBegin + building.r_TilePositionXEnd) / 2;
             int centerY = (building.r_TilePositionYBegin + building.r_TilePositionYEnd) / 2;
@@ -2064,7 +2064,8 @@ namespace RandomEvents
                     }
 
                     int tileId = tiles.GetTileId(x, y);
-                    if (!tiles.IsTileWalkableAndUnoccupied(tileId) ||
+                    if ((uint)tileId >= (uint)pathConnections.Length ||
+                        !tiles.IsTileWalkableAndUnoccupied(tileId) ||
                         pathConnections[tileId] != sourcePathComponent)
                     {
                         continue;
@@ -2090,7 +2091,7 @@ namespace RandomEvents
             ushort sourcePathComponent)
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
+            Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             for (int y = building.r_TilePositionYBegin - 1; y <= building.r_TilePositionYEnd + 1; y++)
             {
                 for (int x = building.r_TilePositionXBegin - 1; x <= building.r_TilePositionXEnd + 1; x++)
@@ -2103,7 +2104,8 @@ namespace RandomEvents
                     }
 
                     int tileId = tiles.GetTileId(x, y);
-                    if (tiles.IsTileWalkableAndUnoccupied(tileId) &&
+                    if ((uint)tileId < (uint)pathConnections.Length &&
+                        tiles.IsTileWalkableAndUnoccupied(tileId) &&
                         pathConnections[tileId] == sourcePathComponent)
                     {
                         return true;
@@ -2143,7 +2145,7 @@ namespace RandomEvents
             }
 
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
+            Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             Dictionary<ushort, bool> reachableComponents = new Dictionary<ushort, bool>();
             long bestDistanceSquared = long.MaxValue;
 
@@ -2161,6 +2163,7 @@ namespace RandomEvents
 
                     int candidateTileId = tiles.GetTileId(x, y);
                     if (!tiles.IsValidTileId(candidateTileId) ||
+                        (uint)candidateTileId >= (uint)pathConnections.Length ||
                         !tiles.IsTileWalkableAndUnoccupied(candidateTileId))
                     {
                         continue;

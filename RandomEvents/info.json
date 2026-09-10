@@ -5,7 +5,7 @@
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
   "Version": "1.0.38",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.3.0",
+  "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,

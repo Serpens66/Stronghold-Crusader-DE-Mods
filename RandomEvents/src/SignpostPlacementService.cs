@@ -620,7 +620,7 @@ namespace RandomEvents
             bool includeFootprint = false)
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            Span<ushort> pathConnections = tiles.TileManager.PathConnectionGrid;
+            Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             for (int y = beginY - 1; y <= endY + 1; y++)
             {
                 for (int x = beginX - 1; x <= endX + 1; x++)
@@ -629,7 +629,8 @@ namespace RandomEvents
                     if ((!includeFootprint && inside) || !tiles.IsTileInsideMapBounds(x, y))
                         continue;
                     int tileId = tiles.GetTileId(x, y);
-                    if (!tiles.IsTileWalkableAndUnoccupied(tileId))
+                    if ((uint)tileId >= (uint)pathConnections.Length ||
+                        !tiles.IsTileWalkableAndUnoccupied(tileId))
                         continue;
                     ushort component = pathConnections[tileId];
                     if (component != 0)

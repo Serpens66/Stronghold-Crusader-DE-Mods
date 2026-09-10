@@ -44,7 +44,6 @@ namespace APIShared
                 context.Memory,
                 hash,
                 new ProcessNativeMemory(),
-                new ScriptExtenderSelectedUnitCommandEventSource(),
                 Logger);
         }
 

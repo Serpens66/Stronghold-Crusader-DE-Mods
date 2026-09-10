@@ -292,9 +292,9 @@ function Get-ExtenderDirectory {
     param([Parameter(Mandatory)]$Metadata)
     $localRoot = Join-Path $Metadata.Config.Root 'shcde-script-extender'
     $candidates = @(
+        (Join-Path $Metadata.Config.GameDir 'BepInEx\plugins\000shcdese'),
         (Join-Path $localRoot 'mod_output\000shcdese'),
-        (Join-Path $localRoot 'src\SHCDESE.BepInEx\bin\net481'),
-        (Join-Path $Metadata.Config.GameDir 'BepInEx\plugins\000shcdese')
+        (Join-Path $localRoot 'src\SHCDESE.BepInEx\bin\net481')
     )
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath (Join-Path $candidate 'SHCDESE.dll')) {
@@ -367,6 +367,7 @@ function Get-DependencyRecords {
             $candidate = [string]$node.InnerText
             $candidate = $candidate.Replace('$(GameDir)', $Metadata.Config.GameDir)
             $candidate = $candidate.Replace('$(ExtenderDir)', $ExtenderDir)
+            $candidate = $candidate.Replace('$(ApiSharedDir)', (Join-Path $Metadata.Config.GameDir 'BepInEx\plugins\APIShared_Serp'))
             $candidate = $candidate.Replace('$(MSBuildThisFileDirectory)', $projectFile.DirectoryName + '\')
             $candidate = $candidate.Replace('$(LocalScriptExtenderBuildOutput)', (Join-Path $Metadata.Config.Root 'shcde-script-extender\src\SHCDESE.BepInEx\bin\net481'))
             $candidate = $candidate.Replace('$(LocalScriptExtenderModOutput)', (Join-Path $Metadata.Config.Root 'shcde-script-extender\mod_output\000shcdese'))

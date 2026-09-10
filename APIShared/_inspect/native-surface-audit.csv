@@ -1,12 +1,14 @@
-TargetGroup,ReferenceRva,Consumers,Mechanism,Overlap,MigrationPriority,Notes
-GatehouseDistanceOrigin,0xB73D0 function|[0xB7B70;0xB7BBB),BugfixesAndQoL,FixedHashByteTransaction,Exclusive 75-byte interval on the shared 4 KiB page,DoneInAPI,Full function hash and exact vanilla/center bytes; explicit bidirectional switching; no AOB fallback; intended future consumer only
-GatehouseTiming,0xB73D0 function|0xB7BC3|0xB7BCA|0xB7BD3|0xB7C35,ExtraFeatures,FixedHashImmediateTransaction,Four exclusive immediate intervals on the shared 4 KiB page,DoneInAPI,Full function hash and exact opcodes; independent of distance origin; no AOB fallback; intended future consumer only
-SelectedUnitCommand,SHCDESE OnTribeIssueOrderWithTarget Pre event,BugfixesAndQoL,ManagedEventBroker,No API-owned native target,DoneInAPI,Script Extender owns the native detour; APITest is the V1 consumer
-AssassinPathfinding,local catalog,BugfixesAndQoL|AssassinCombatFix,NativeDetour|DataPatch,Related Assassin behavior,High,Audit both mods before centralizing
-HunterQuery,local catalog,ImprovedHunters|HunterQueryTargetDiagnostic,NativeDetour|Observer,Shared native query path,High,Prefer one broker with observer callbacks
-GatePathfinding,local catalog,EnemyGatePathfindingTest|ExtraFeatures,NativeDetour|PatternResolution,Gate behavior family,Medium,Keep semantic capabilities separate
-MoatCommands,local catalog,BugfixesAndQoL,RedBird|PatternResolution,Command processing family,Medium,Confirm exact target equality first
-AiEconomy,local catalog,ExtraFeatures|BugfixesAndQoL,NativeDetour|PatternResolution,Several adjacent targets,Medium,Group only identical entrypoints
-ExtremePowers,local catalog,ExtremePowers,NativeDetour|DataPatch,Single consumer,Low,Migrate after shared targets
-RandomEvents,local catalog,RandomEvents,DataPatch|NativeCalls,Single consumer,Low,Preserve persistent tick lifecycle
-TroopMovement,local catalog,BugfixesAndQoL|ExtraFeatures,NativeDetour|Integration,Existing cross-mod bridge,High,Strong candidate for typed broker
+TargetGroup,ReferenceRva,Consumers,Mechanism,Overlap,Classification,Notes
+GatehouseDistanceOrigin,0xB73D0 function|[0xB7B70;0xB7BBB),BugfixesAndQoL,FixedHashByteTransaction,Exclusive 75-byte interval on shared 4 KiB page,APIShared,Production consumer migrated
+GatehouseTiming,0xB73D0 function|0xB7BC3|0xB7BCA|0xB7BD3|0xB7C35,ExtraFeatures,FixedHashImmediateTransaction,Four exclusive intervals on shared 4 KiB page,APIShared,Local ExtraFeatures patch removed
+UnitHudPresentation,Managed HUD methods,BugfixesAndQoL|Testmods/SkinTest|Testmods/VirtualUnitsPrototype,Managed hook broker,Identical managed entrypoints,APIShared,Three consumers migrated
+SelectedUnitCommand,SHCDESE OnTribeIssueOrderWithTarget,BugfixesAndQoL|Testmods,Script Extender event,No API-owned target,ScriptExtender2.4,Removed redundant API broker
+PathComponentGrid,GamePathingManagerAPI,RandomEvents|ImprovedHunters,Public Script Extender API,Correct 320800-element native view,ScriptExtender2.4,All consumers must guard span length
+PathConnectionRecords,GamePathingManagerAPI,ExtraFeatures|Testmods,Public Script Extender API,PathConnectionRecord replaces GameGatehouseEntry,ScriptExtender2.4,Do not add APIShared wrapper
+GatePathfinding,GamePathingManagerAPI,ExtraFeatures|Testmods/EnemyGatePathfindingTest,Public Script Extender API,Connection and route APIs are public,ScriptExtender2.4,Removed from API candidate list
+AivPlacement,0x53D00|0x54DE0|0x54F60,CastlePlanner|Helpers/ActiveAIVDetector,Native detours,Confirmed identical targets,FutureAPIShared,Do not co-load before one broker owns these targets
+HunterState7Writer,0x12FEC1,Helpers/HunterQueryTargetDiagnostic,Context observer,No identical ImprovedHunters target,ModLocal,Diagnostic remains separate
+TroopMovement,Local catalogs,BugfixesAndQoL|ExtraFeatures,Native and managed integration,No identical entrypoint proven,ModLocal,Re-audit before proposing a broker
+Recruitment,Local catalogs,UnitCosts|UnitLimit,Hooks and policy,No current exact-target proof,ModLocal,Keep policy local
+AiEconomy,Local catalogs,ExtraFeatures|BugfixesAndQoL,Native detours,Adjacent targets only,ModLocal,Centralize only an identical entrypoint
+RandomEventDispatch,Local catalog,RandomEvents,Native calls and data mutation,Single consumer,ModLocal,Preserve persistent tick lifecycle

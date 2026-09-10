@@ -52,9 +52,6 @@
         <member name="F:APIShared.NativeCapabilityIds.GatehouseTiming">
             <summary>Capability for configuring gatehouse timing and closing distances.</summary>
         </member>
-        <member name="F:APIShared.NativeCapabilityIds.SelectedUnitCommand">
-            <summary>Capability for observing selected-unit commands before Vanilla handles them.</summary>
-        </member>
         <member name="F:APIShared.NativeCapabilityIds.UnitHudPresentation">
             <summary>Capability for shared unit HUD categories and image overrides.</summary>
         </member>
@@ -95,12 +92,6 @@
             <summary>
             Attempts to acquire the gatehouse timing capability for a stable owner GUID.
             The intended future consumer is ExtraFeatures; this is documentation, not a runtime dependency.
-            </summary>
-        </member>
-        <member name="M:APIShared.IApiShared.TryGetSelectedUnitCommand(System.String,APIShared.ISelectedUnitCommandCapability@,APIShared.NativeCapabilityDiagnostic@)">
-            <summary>
-            Attempts to acquire the selected-unit command capability for a stable owner GUID.
-            The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
             </summary>
         </member>
         <member name="M:APIShared.IApiShared.TryGetUnitHudPresentation(System.String,APIShared.IUnitHudPresentationCapability@,APIShared.NativeCapabilityDiagnostic@)">
@@ -444,48 +435,6 @@
         </member>
         <member name="M:APIShared.IGatehouseTimingCapability.TryApply(APIShared.GatehouseTimingSettings,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to apply and verify all four gatehouse timing values as one transaction.</summary>
-        </member>
-        <member name="T:APIShared.SelectedUnitCommandContext">
-            <summary>Immutable snapshot of a selected-unit command before Vanilla processes it.</summary>
-        </member>
-        <member name="M:APIShared.SelectedUnitCommandContext.#ctor(System.Int32,SHCDESE.Interop.Enums.TribeAICommand,System.Int32,System.Int32,System.Int32)">
-            <summary>Creates a selected-unit command snapshot.</summary>
-        </member>
-        <member name="P:APIShared.SelectedUnitCommandContext.TribeId">
-            <summary>Gets the issuing tribe identifier.</summary>
-        </member>
-        <member name="P:APIShared.SelectedUnitCommandContext.Command">
-            <summary>Gets the typed command.</summary>
-        </member>
-        <member name="P:APIShared.SelectedUnitCommandContext.TargetValue1">
-            <summary>Gets the first target value supplied by the Script Extender event.</summary>
-        </member>
-        <member name="P:APIShared.SelectedUnitCommandContext.TargetValue2">
-            <summary>Gets the second target value supplied by the Script Extender event.</summary>
-        </member>
-        <member name="P:APIShared.SelectedUnitCommandContext.Argument6">
-            <summary>Gets the sixth native argument exposed by the Script Extender event.</summary>
-        </member>
-        <member name="T:APIShared.ISelectedUnitCommandRegistration">
-            <summary>Controls the lifetime and enabled state of one owner registration.</summary>
-        </member>
-        <member name="P:APIShared.ISelectedUnitCommandRegistration.IsEnabled">
-            <summary>Gets whether the callback is currently enabled.</summary>
-        </member>
-        <member name="M:APIShared.ISelectedUnitCommandRegistration.Enable">
-            <summary>Enables future callback dispatch.</summary>
-        </member>
-        <member name="M:APIShared.ISelectedUnitCommandRegistration.Disable">
-            <summary>Disables future callback dispatch without releasing the registration.</summary>
-        </member>
-        <member name="T:APIShared.ISelectedUnitCommandCapability">
-            <summary>
-            Brokers selected-unit command callbacks through one process-wide subscription. The intended
-            future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
-            </summary>
-        </member>
-        <member name="M:APIShared.ISelectedUnitCommandCapability.TryRegisterBefore(System.Action{APIShared.SelectedUnitCommandContext},APIShared.ISelectedUnitCommandRegistration@,APIShared.NativeCapabilityDiagnostic@)">
-            <summary>Registers one idempotent before-callback for the capability owner.</summary>
         </member>
         <member name="T:APIShared.APISharedPlugin">
             <summary>BepInEx host for the process-wide APIShared.</summary>

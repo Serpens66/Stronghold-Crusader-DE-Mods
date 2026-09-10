@@ -5,7 +5,7 @@ using System;
 
 namespace RandomEvents
 {
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class RandomEventsPlugin : BaseUnityPlugin

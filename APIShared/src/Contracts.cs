@@ -41,8 +41,6 @@ namespace APIShared
         public const string GatehouseDistanceOrigin = "gatehouse-distance-origin";
         /// <summary>Capability for configuring gatehouse timing and closing distances.</summary>
         public const string GatehouseTiming = "gatehouse-timing";
-        /// <summary>Capability for observing selected-unit commands before Vanilla handles them.</summary>
-        public const string SelectedUnitCommand = "selected-unit-command";
         /// <summary>Capability for shared unit HUD categories and image overrides.</summary>
         public const string UnitHudPresentation = "unit-hud-presentation";
     }
@@ -97,14 +95,6 @@ namespace APIShared
         bool TryGetGatehouseTiming(
             string ownerGuid,
             out IGatehouseTimingCapability capability,
-            out NativeCapabilityDiagnostic diagnostic);
-        /// <summary>
-        /// Attempts to acquire the selected-unit command capability for a stable owner GUID.
-        /// The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
-        /// </summary>
-        bool TryGetSelectedUnitCommand(
-            string ownerGuid,
-            out ISelectedUnitCommandCapability capability,
             out NativeCapabilityDiagnostic diagnostic);
         /// <summary>Attempts to acquire the process-wide unit HUD presentation capability.</summary>
         bool TryGetUnitHudPresentation(

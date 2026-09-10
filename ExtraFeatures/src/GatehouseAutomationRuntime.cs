@@ -1,4 +1,5 @@
 // Feature: Reachability-aware and per-building manual gatehouse automation.
+using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
 using MessagePack;
@@ -86,7 +87,9 @@ namespace ExtraFeatures
         private IDisposable gatehouseQuerySubscription;
         private R3PacketEventHook<GatehouseAutomationPacket> packetHook;
         private IDisposable packetSubscription;
-        private GatehouseTimingPatch timingPatch;
+        private IGatehouseTimingCapability timingCapability;
+        private bool timingReadinessRegistered;
+        private string lastTimingFailure;
         private bool initialized;
         private bool networkInitialized;
         private bool saveHandlerRegistered;
@@ -120,9 +123,8 @@ namespace ExtraFeatures
             if (initialized)
                 return;
 
-            // SE-GATEHOUSE-UNIT-ID-COMPAT: Re-audit this subscription after every
-            // Script Extender update. The handler compensates for the 0-based
-            // UnitId emitted by the audited 1.42.0 implementation.
+            // Script Extender 2.4.0 supplies one-based game IDs here. Keep the
+            // boundary validation because index/ID confusion usually resolves a neighbour.
             gatehouseQuerySubscription = BuildingR3EventHooks.OnGatehouseQuery.Observable.Subscribe(OnGatehouseQuery);
             if (!ModSaveDataAPI.Instance.RegisterModDataHandler(
                     SaveDataIdentifier,
@@ -138,6 +140,11 @@ namespace ExtraFeatures
             saveHandlerRegistered = true;
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
             initialized = true;
+            if (!timingReadinessRegistered)
+            {
+                timingReadinessRegistered = true;
+                ApiShared.WhenReady(OnApiSharedReady);
+            }
             LogInfo("gatehouse automation initialized; savegames use global building IDs and editor maps use stable locators in save schema v2.");
         }
 
@@ -152,39 +159,9 @@ namespace ExtraFeatures
             LogInfo($"gatehouse Chore packet registered eagerly: packetId={packetHook.GetPacketId()}, protocolVersion={ChoreProtocolVersion}.");
         }
 
-        public void InitializeNative(
-            IntPtr libraryHandle,
-            ReadOnlySpan<byte> memory,
-            bool referenceHashMatches)
-        {
-            try
-            {
-                timingPatch = new GatehouseTimingPatch(log, libraryHandle, memory, referenceHashMatches);
-                ApplySettings();
-            }
-            catch (Exception ex)
-            {
-                try
-                {
-                    timingPatch?.Dispose();
-                }
-                catch (Exception restoreException)
-                {
-                    LogError($"gatehouse Vanilla-value restoration also failed: {restoreException}");
-                }
-                timingPatch = null;
-                LogError($"gatehouse distance/delay customization is disabled for this process: {ex}");
-            }
-        }
-
         public void ApplySettings()
         {
-            timingPatch?.Apply(
-                settings.HumanGateReopenDelaySeconds,
-                settings.AIGateReopenDelaySeconds,
-                settings.HumanGateClosingDistanceTiles,
-                settings.AIGateClosingDistanceTiles,
-                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod));
+            ApplyTimingSettings();
 
             if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
@@ -267,20 +244,62 @@ namespace ExtraFeatures
                 ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
                 saveHandlerRegistered = false;
             }
+            ReleaseManualGateTimers();
+            ResetMapState();
+        }
+
+        private void OnApiSharedReady(IApiShared api)
+        {
             try
             {
-                timingPatch?.Dispose();
+                NativeCapabilityDiagnostic diagnostic = null;
+                if (api == null || !api.TryGetGatehouseTiming(
+                        ExtraFeaturesPlugin.PluginGuid,
+                        out IGatehouseTimingCapability capability,
+                        out diagnostic))
+                {
+                    ReportTimingFailure(diagnostic, "APIShared did not publish gatehouse timing");
+                    return;
+                }
+
+                timingCapability = capability;
+                lastTimingFailure = null;
+                ApplyTimingSettings();
+                LogInfo("gatehouse timing is owned by APIShared; no local native timing patch is installed.");
             }
             catch (Exception ex)
             {
-                LogError($"gatehouse timing patch disposal failed: {ex}");
+                ReportTimingFailure(null, $"APIShared readiness callback failed: {ex}");
             }
-            finally
-            {
-                timingPatch = null;
-                ReleaseManualGateTimers();
-                ResetMapState();
-            }
+        }
+
+        private void ApplyTimingSettings()
+        {
+            IGatehouseTimingCapability capability = timingCapability;
+            if (capability == null)
+                return;
+
+            var desired = new GatehouseTimingSettings(
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod),
+                settings.HumanGateReopenDelaySeconds,
+                settings.AIGateReopenDelaySeconds,
+                settings.HumanGateClosingDistanceTiles,
+                settings.AIGateClosingDistanceTiles);
+            if (!capability.TryApply(desired, out NativeCapabilityDiagnostic diagnostic))
+                ReportTimingFailure(diagnostic, "APIShared rejected the requested gatehouse timing");
+            else
+                lastTimingFailure = null;
+        }
+
+        private void ReportTimingFailure(NativeCapabilityDiagnostic diagnostic, string fallback)
+        {
+            string failure = diagnostic == null
+                ? fallback
+                : $"{fallback}: state={diagnostic.State}, reason={diagnostic.Reason}, conflictOwner={diagnostic.ConflictOwnerGuid ?? "none"}";
+            if (string.Equals(lastTimingFailure, failure, StringComparison.Ordinal))
+                return;
+            lastTimingFailure = failure;
+            LogError(failure + ". Gatehouse timing customization remains disabled; other gatehouse automation stays active.");
         }
 
         private void OnBeforeRender()
