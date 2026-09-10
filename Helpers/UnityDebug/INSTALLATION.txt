@@ -1,0 +1,32 @@
+Unity debug runtime for Stronghold Crusader Definitive Edition
+=============================================================
+
+Unity version: 2021.3.45f2
+Unity changeset: 88f88f591b2e
+Unity installer SHA-256: AC7B45ED97D59F173D70A993362C84909C8C4B63280BD4CC30F9A5989ABF2596
+
+DebugGameFiles contains the minimal game-root overlay used for the test:
+- development WindowsPlayer.exe renamed to Stronghold Crusader Definitive Edition.exe
+- development UnityPlayer.dll
+- matching WindowsPlayer and UnityPlayer PDB files
+- development Data/Managed runtime assemblies
+- boot.config with player-connection-debug=1
+
+win64_player_development_mono contains the complete original Unity development-player variation.
+Its different MonoBleedingEdge runtime is retained for possible later use, but is not installed by the documented minimal setup.
+
+OriginalGameFiles contains the clean game files that were present immediately before enabling the debug runtime.
+Steam's Verify integrity of game files function can also restore the release player.
+
+One-click runtime switching:
+- Restore-NormalUnity.bat restores every backed-up release file and removes the two debug-only PDBs.
+- Enable-UnityDebug.bat reapplies the retained minimal debug overlay.
+- Both launch with an elevation prompt, refuse to run while the game is open, and verify every copied file with SHA-256.
+- Both fail closed if CrusaderDE.dll indicates that Steam has updated the game; review and refresh both saved file sets before using them with a new game build.
+- Keep this complete UnityDebug directory together; the scripts use its OriginalGameFiles and DebugGameFiles subdirectories.
+
+Logging verified for the test:
+- BepInEx Harmony LogChannels = All
+- BepInEx console and disk LogLevels = All
+- BepInEx WriteUnityLog = true
+- SHCDE-SE LogLevel = Debug
