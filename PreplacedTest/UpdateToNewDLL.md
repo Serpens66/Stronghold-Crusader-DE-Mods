@@ -28,6 +28,7 @@
 | Dominant PCL selection | `0x572B0` | `SelectDominantPclPattern` |
 | Building initialization | `0xC3FA0`, `0xC43A0`, `0xB8310` | `InitializePlayerBuildingsPattern`, `InitializeBuildingPattern`, `ClearBuildingRecordPattern` |
 | Legacy player-state conversion | `0xD4290` | `LegacyPlayerStateCopyPattern`; `void(void)`; copies nine old player records into the current layout |
+| Final map-start checkpoints | `0x115830`, `0x102C30`, `0x2A340` | `InitializeUnitSubsystemPattern`, `ResetMapObjectSubsystemPattern`, `InitializePlayerPathingPattern`; passive timer comparisons around the calls immediately surrounding the full economy-grid rebuild. In `0x94350`, call sites `0x96D2C`, `0x96D38`, `0x96D49`, and `0x96D55` must still target these functions and `0x50720` in that order. |
 
 ## Inline context hook and derived target
 

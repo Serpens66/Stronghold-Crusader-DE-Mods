@@ -76,7 +76,5 @@ namespace PreplacedTest
             }
         }
 
-        private void OnDestroy() => Shared.DebugLogHelper.LogInfo(Logger,
-            $"PREPLACED_PLUGIN_COMPONENT_DESTROYED: runtimePreserved={persistentRuntime != null}.");
     }
 }

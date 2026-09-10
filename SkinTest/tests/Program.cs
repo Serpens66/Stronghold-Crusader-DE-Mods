@@ -60,6 +60,12 @@ internal static class Program
         Check(!SkinSelectionPolicy.HasEligibleOwner(true, 1, 12, false, true), "A missing lord unit must fail closed.");
         Check(!SkinSelectionPolicy.HasEligibleOwner(true, 1, 12, true, false), "A non-European lord must fail closed.");
 
+        Check(SkinSelectionPolicy.ToAtlasFrameIndex(1) == 0, "Body image 1 must map to atlas frame 0.");
+        Check(SkinSelectionPolicy.ToAtlasFrameIndex(128) == 127, "Body image 128 must map to alternate atlas frame 127.");
+        Check(SkinSelectionPolicy.ToAtlasFrameIndex(1088) == 1087, "Body image 1088 must map to normal atlas frame 1087.");
+        Check(SkinSelectionPolicy.ToAtlasFrameIndex(0) == -1, "Body image 0 must fail closed.");
+        Check(SkinSelectionPolicy.ToAtlasFrameIndex(-1) == -1, "Negative body images must fail closed.");
+
         Check(SkinSelectionPolicy.SelectFrame(false, true, false) == SkinFrameChoice.Normal, "Normal request must select the normal frame.");
         Check(SkinSelectionPolicy.SelectFrame(true, true, true) == SkinFrameChoice.Alternate, "Available alternate frame must be selected.");
         Check(SkinSelectionPolicy.SelectFrame(true, true, false) == SkinFrameChoice.Normal, "Missing alternate frame must fall back to normal.");
@@ -167,6 +173,8 @@ internal static class Program
             "Assets must remain private and must not install a global Override/Atlas replacement.");
         Check(runtime.Contains("SetBodySprite detour confirmed") &&
               runtime.Contains("int unitId = 0;") &&
+              runtime.Contains("int frameIndex = SkinSelectionPolicy.ToAtlasFrameIndex(image);") &&
+              runtime.Contains("Swordsman SetBodySprite callback") &&
               runtime.Contains("Swordsman sprite callback has no renderer binding") &&
               runtime.Contains("Bound swordsman unit could not be resolved") &&
               runtime.Contains("Swordsman has no controllable owner") &&
@@ -175,6 +183,10 @@ internal static class Program
               runtime.Contains("Vanilla retained for non-European lord culture") &&
               runtime.Contains("SH1DE skin applied"),
             "Bounded culture decision diagnostics must remain present.");
+        Check(runtime.Contains("GetGMSprite(GameGM.GM_BODY_SWORDSMAN, frameIndex, alternateFrame)") &&
+              !Regex.IsMatch(runtime, @"(?:normalSprites|alternateSprites)\s*\[\s*image\s*\]") &&
+              runtime.Contains("expected={DescribeSprite(expected)}") && runtime.Contains("actual={DescribeSprite(renderer.sprite)}"),
+            "Swordsman sprite lookup, replacement and conflict diagnostics must use the zero-based atlas frame index.");
     }
 
     private static void TestInvalidAtlasDocuments(string atlasJson, int atlasWidth, int atlasHeight)

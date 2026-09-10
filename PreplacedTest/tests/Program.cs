@@ -31,6 +31,7 @@ namespace PreplacedTest.Tests
                 TestPortalRoutes();
                 TestPclConnectivityTransitions();
                 TestDynamicWallRolesAndSearchGates();
+                TestWallTileAndShadowSearchModels();
                 TestAivAreaClassification();
                 TestEarlyOwnerBuffer();
                 TestFirstBuildingWindow();
@@ -257,15 +258,77 @@ namespace PreplacedTest.Tests
             }
             Check(WallTestRoleClassifier.Classify(0, 4) == WallTestRole.None,
                 "portal without wall was assigned a wall-test role");
-            Check(EconomySearchGateClassifier.Classify(true, 9, 8, 0, 0) == "traversal-performed",
+            Check(EconomySearchGateClassifier.Classify(true, 9, 8, 0, 0, 0, 0, -1, -1, -1, -1) == "traversal-performed",
                 "performed traversal was hidden by cooldown state");
-            Check(EconomySearchGateClassifier.Classify(false, 5, 4, 0, 0) == "early-return-cooldown",
+            Check(EconomySearchGateClassifier.Classify(false, 5, 4, 0, 0, 0, 0, -1, -1, -1, -1) == "early-return-cooldown",
                 "cooldown early return classification");
-            Check(EconomySearchGateClassifier.Classify(false, -1, -1, 1, 1) ==
-                "early-return-shared-queue-state", "shared queue early return classification");
-            Check(EconomySearchGateClassifier.Classify(false, -1, -1, 0, 0) ==
+            Check(EconomySearchGateClassifier.Classify(false, -1, -1, 1, 2, 1, 2, -1, -1, -1, -1) ==
+                "early-return-shared-queue-pending", "shared queue early return classification");
+            Check(EconomySearchGateClassifier.Classify(false, -1, -1, 0, 0, 0, 0, 7, 8, 7, 8) ==
+                "early-return-cached-result", "cached result early return classification");
+            Check(EconomySearchGateClassifier.Classify(false, -1, -1, 0, 0, 0, 0, -1, -1, -1, -1) ==
                 "early-return-unresolved-mode-or-state", "unresolved early return classification");
         }
+
+        private static void TestWallTileAndShadowSearchModels()
+        {
+            Check(WallOwnerEncodingResolver.Resolve(12, 0) == WallOwnerEncoding.OneBased,
+                "one-based wall owner evidence was not resolved");
+            Check(WallOwnerEncodingResolver.Resolve(0, 12) == WallOwnerEncoding.ZeroBased,
+                "zero-based wall owner evidence was not resolved");
+            Check(WallOwnerEncodingResolver.Resolve(4, 4) == WallOwnerEncoding.Unresolved,
+                "ambiguous wall owner evidence was guessed");
+            Check(WallOwnerEncodingResolver.Decode(7, WallOwnerEncoding.OneBased) == 7 &&
+                WallOwnerEncodingResolver.Decode(7, WallOwnerEncoding.ZeroBased) == 8,
+                "wall owner decoding contract");
+            Check(WallBreachConfirmation.IsConfirmed(true, 3, 7, 9, 9),
+                "lost wall plus connected anchors was not confirmed");
+            Check(!WallBreachConfirmation.IsConfirmed(false, 3, 7, 9, 9),
+                "PCL relabeling without a lost wall was confirmed");
+            Check(!WallBreachConfirmation.IsConfirmed(true, 3, 7, 9, 10),
+                "lost wall without connected anchors was confirmed");
+
+            ShadowEconomyCell pass = Cell(0, 0, 1);
+            ShadowEconomyCell blocked = Cell(25, 0, 0);
+            ShadowEconomyCell[] sealedGrid = Enumerable.Repeat(blocked, 25).ToArray();
+            sealedGrid[12] = pass;
+            ShadowEconomySearchResult sealedResult = ShadowEconomySearch.Run(sealedGrid, 5, 12,
+                ShadowEconomySearchKind.Wood, 0);
+            Check(sealedResult.ReachableCount == 1 && sealedResult.BlockedIndices.Length == 4,
+                "closed wall shadow traversal escaped its start cell");
+            ShadowEconomyCell[] gatedGrid = Enumerable.Repeat(pass, 25).ToArray();
+            ShadowEconomySearchResult gatedResult = ShadowEconomySearch.Run(gatedGrid, 5, 12,
+                ShadowEconomySearchKind.Wood, 0);
+            Check(gatedResult.ReachableCount == 25 && gatedResult.CandidateIndices.Length != 0,
+                "friendly gate shadow traversal did not reach the open region");
+            ShadowEconomyCell[] farmGrid = Enumerable.Repeat(new ShadowEconomyCell(0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 25, 14, 0, 0), 9).ToArray();
+            Check(ShadowEconomySearch.Run(farmGrid, 3, 4, ShadowEconomySearchKind.Farm, 0)
+                .CandidateIndices.Length > 0, "farm raw candidate predicate was not replayed");
+            ShadowEconomyCell resource2 = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 0, 40,
+                0, 0, 0, 0, 0, 0);
+            ShadowEconomyCell resource3 = new ShadowEconomyCell(0, 0, 0, 0, 7, 0, 0, 0, 30,
+                0, 0, 0, 0, 0, 0);
+            ShadowEconomyCell resource4 = new ShadowEconomyCell(0, 0, 0, 0, 0, 3, 10, 0, 12,
+                0, 0, 0, 0, 0, 0);
+            Check(ShadowEconomySearch.Run(Enumerable.Repeat(resource2, 9).ToArray(), 3, 4,
+                ShadowEconomySearchKind.Resource, 2).CandidateIndices.Length > 0,
+                "quarry candidate predicate was not replayed");
+            Check(ShadowEconomySearch.Run(Enumerable.Repeat(resource3, 9).ToArray(), 3, 4,
+                ShadowEconomySearchKind.Resource, 3).CandidateIndices.Length > 0,
+                "iron candidate predicate was not replayed");
+            Check(ShadowEconomySearch.Run(Enumerable.Repeat(resource4, 9).ToArray(), 3, 4,
+                ShadowEconomySearchKind.Resource, 4).CandidateIndices.Length > 0,
+                "pitch candidate predicate was not replayed");
+            ShadowEconomyCell[] diagonalGrid = Enumerable.Repeat(blocked, 9).ToArray();
+            diagonalGrid[4] = pass;
+            diagonalGrid[0] = pass;
+            Check(ShadowEconomySearch.Run(diagonalGrid, 3, 4, ShadowEconomySearchKind.Nearby, 0)
+                .ReachableCount == 2, "nearby search did not preserve Vanilla's diagonal neighbor order/set");
+        }
+
+        private static ShadowEconomyCell Cell(int projected04, int raw16, byte wood) =>
+            new ShadowEconomyCell(projected04, raw16, wood, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
         private static void TestAivAreaClassification()
         {
@@ -318,7 +381,7 @@ namespace PreplacedTest.Tests
             Check(updateGuide.Contains("`0xD4290`") && updateGuide.Contains("`0x96CE`") &&
                 updateGuide.Contains("`0x37CC7EC`") && updateGuide.Contains("RollbackAndThrow"),
                 "native update guide does not cover the new timer-copy contract");
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateSize(typeof(GameGatehouseEntry), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
@@ -336,7 +399,8 @@ namespace PreplacedTest.Tests
                 "delegate int SelectDominantPclDelegate(ulong state)",
                 "delegate void PlayerBuildingInitializationDelegate(ulong manager, int playerId)",
                 "delegate void BuildingInitializationDelegate(ulong manager, int buildingId)",
-                "delegate void LegacyPlayerStateCopyDelegate()"
+                "delegate void LegacyPlayerStateCopyDelegate()",
+                "delegate void InitializationStateDelegate(ulong state)"
             })
                 Check(source.Contains(nativeDelegate), "native delegate ABI missing: " + nativeDelegate);
             Check(source.Contains("ulong pathManager, int playerId, int targetPcl, int sourcePcl, int routeMode"),
@@ -400,6 +464,13 @@ namespace PreplacedTest.Tests
                 source.Contains("WallTestRoleClassifier.Classify") &&
                 !source.Contains("PREPLACED_PCL_COMPONENT_MERGE"),
                 "dynamic wall roles or label-independent breach detection are incomplete");
+            Check(source.Contains("PREPLACED_WALL_BASELINE") && source.Contains("PREPLACED_WALL_TILE_CHANGE") &&
+                source.Contains("baseline-wall-tile-lost-and-anchor-connectivity") &&
+                source.Contains("WallOwnerEncodingResolver.Decode"),
+                "tile-based wall role or breach diagnostics are incomplete");
+            Check(source.Contains("PREPLACED_SHADOW_ECONOMY_SEARCH") &&
+                source.Contains("ShadowEconomySearch.Run") && source.Contains("CountPclTilesOutsideSet"),
+                "full player-specific shadow economy traversal is missing");
             Check(source.Contains("ReachableFriendlyPcls") && source.Contains("projected04=") &&
                 source.Contains("projected16=unchanged-unproven") && source.Contains("gate={observation.GateReason}"),
                 "player-specific counterfactual or early search gate diagnostic is incomplete");
@@ -416,8 +487,16 @@ namespace PreplacedTest.Tests
                 Check(source.Contains(writerRead), "crushed timer writer snapshot offset missing: " + writerRead);
             Check(source.Contains("if (args.Phase == EventHookPhase.Pre) initializationTracingActive = true"),
                 "initialization tracing does not start at OnStartMap Pre");
-            Check(source.Contains("Safe(() => before = EconomyGridBuildSnapshot.Capture") &&
-                source.Contains("if (before == null) return;"),
+            Check(source.Contains("ObserveCrushedCounters(\"economy-grid.entry\")") &&
+                source.Contains("0x115830-unit-subsystem") && source.Contains("0x102C30-map-object-reset") &&
+                source.Contains("0x2A340-player-pathing"),
+                "timer checkpoints around the final map initialization sequence are incomplete");
+            Check(!plugin.Contains("OnDestroy(") && !plugin.Contains("OnDisable(") &&
+                !plugin.Contains("OnApplicationQuit("), "forbidden Unity teardown callback found");
+            Check(source.Contains("before = EconomyGridBuildSnapshot.Capture") &&
+                source.Contains("economyGridUpdateHook.Original(state, mode);") &&
+                source.IndexOf("economyGridUpdateHook.Original(state, mode);", StringComparison.Ordinal) >
+                    source.IndexOf("before = EconomyGridBuildSnapshot.Capture", StringComparison.Ordinal),
                 "new pre-call diagnostics can prevent their Vanilla calls");
             Check(source.Contains("if (offset != 0x05) signature = Hash") &&
                 !source.Contains("Hash(Hash(1469598103934665603UL, after.Generation)"),
@@ -451,7 +530,7 @@ namespace PreplacedTest.Tests
             string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
             MatchCollection definitions = Regex.Matches(source,
                 @"private const string (?<name>\w+Pattern)\s*=\s*(?<body>.*?);", RegexOptions.Singleline);
-            Check(definitions.Count >= 44, "not all native signatures were discovered by the static test");
+            Check(definitions.Count >= 47, "not all native signatures were discovered by the static test");
             foreach (Match definition in definitions)
             {
                 string name = definition.Groups["name"].Value;
@@ -486,6 +565,14 @@ namespace PreplacedTest.Tests
             Check(RvaToRaw(file, 0x50720) == 0x4FB20 && RvaToRaw(file, 0x572B0) == 0x566B0 &&
                 RvaToRaw(file, 0xD4290) == 0xD3690 && RvaToRaw(file, 0x96CE) == 0x8ACE,
                 "audited code RVA to FileOffset mapping changed");
+            int[] finalSites = { 0x96D2C, 0x96D38, 0x96D49, 0x96D55 };
+            int[] finalTargets = { 0x115830, 0x102C30, 0x50720, 0x2A340 };
+            for (int index = 0; index < finalSites.Length; index++)
+            {
+                int raw = RvaToRaw(file, finalSites[index]);
+                Check(file[raw] == 0xE8 && finalSites[index] + 5 + BitConverter.ToInt32(file, raw + 1) ==
+                    finalTargets[index], "final map-start checkpoint call target changed");
+            }
             int copyCallRaw = RvaToRaw(file, 0x96CE);
             Check(file[copyCallRaw] == 0xE8 && copyCallRaw + 5 + BitConverter.ToInt32(file, copyCallRaw + 1) ==
                 RvaToRaw(file, 0xD4290), "legacy player-state copy call target changed");
@@ -495,7 +582,7 @@ namespace PreplacedTest.Tests
                 "legacy player-state copy map-version gate changed");
 
             string functions = File.ReadAllText(Path.Combine("..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0xC3FA0", "0xC43A0", "0xB8310", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }
 

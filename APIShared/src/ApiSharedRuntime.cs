@@ -3,14 +3,14 @@ using System;
 using System.Collections.Generic;
 using System.Security.Cryptography;
 
-namespace SerpNativeAPI
+namespace APIShared
 {
-    internal sealed class SerpNativeApiRuntime : ISerpNativeApi
+    internal sealed class ApiSharedRuntime : IApiShared
     {
         internal const string SupportedHash = "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
 
         private readonly object sync = new object();
-        private readonly List<Action<ISerpNativeApi>> readyCallbacks = new List<Action<ISerpNativeApi>>();
+        private readonly List<Action<IApiShared>> readyCallbacks = new List<Action<IApiShared>>();
         private NativeApiState state;
         private string binaryHash = string.Empty;
         private GatehouseDistanceOriginService gatehouseDistanceOrigin;
@@ -21,11 +21,11 @@ namespace SerpNativeAPI
         private NativeCapabilityDiagnostic selectedDiagnostic = Pending(NativeCapabilityIds.SelectedUnitCommand);
         private ManualLogSource log;
 
-        internal static SerpNativeApiRuntime ProcessInstance { get; } = new SerpNativeApiRuntime();
+        internal static ApiSharedRuntime ProcessInstance { get; } = new ApiSharedRuntime();
 
         public NativeApiState State { get { lock (sync) return state; } }
 
-        public void WhenReady(Action<ISerpNativeApi> callback)
+        public void WhenReady(Action<IApiShared> callback)
         {
             if (callback == null)
                 throw new ArgumentNullException(nameof(callback));
@@ -93,21 +93,21 @@ namespace SerpNativeAPI
                 gatehouseDistanceOriginDiagnostic = Faulted(NativeCapabilityIds.GatehouseDistanceOrigin, ex.Message);
                 gatehouseDiagnostic = Faulted(NativeCapabilityIds.GatehouseTiming, ex.Message);
                 selectedDiagnostic = Faulted(NativeCapabilityIds.SelectedUnitCommand, ex.Message);
-                NativeApiLog.Error(log, $"SerpNativeAPI initialization failed globally: build={binaryHash}, error={ex}");
+                NativeApiLog.Error(log, $"APIShared initialization failed globally: build={binaryHash}, error={ex}");
             }
 
-            Action<ISerpNativeApi>[] callbacks;
+            Action<IApiShared>[] callbacks;
             lock (sync)
             {
                 state = terminalState;
                 callbacks = readyCallbacks.ToArray();
                 readyCallbacks.Clear();
             }
-            NativeApiLog.Info(log, $"SerpNativeAPI initialized: state={terminalState}, build={binaryHash}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, selectedUnitCommand={selectedDiagnostic.State}.");
-            foreach (Action<ISerpNativeApi> callback in callbacks)
+            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, selectedUnitCommand={selectedDiagnostic.State}.");
+            foreach (Action<IApiShared> callback in callbacks)
             {
                 try { callback(this); }
-                catch (Exception ex) { NativeApiLog.Error(log, $"SerpNativeAPI readiness callback failed: build={binaryHash}, error={ex}"); }
+                catch (Exception ex) { NativeApiLog.Error(log, $"APIShared readiness callback failed: build={binaryHash}, error={ex}"); }
             }
         }
 
@@ -196,6 +196,6 @@ namespace SerpNativeAPI
         private NativeCapabilityDiagnostic Faulted(string capabilityId, string reason) =>
             new NativeCapabilityDiagnostic(capabilityId, NativeCapabilityState.Faulted, binaryHash, reason);
         private static NativeCapabilityDiagnostic Pending(string capabilityId) =>
-            new NativeCapabilityDiagnostic(capabilityId, NativeCapabilityState.Pending, string.Empty, "SerpNativeAPI has not completed native initialization.");
+            new NativeCapabilityDiagnostic(capabilityId, NativeCapabilityState.Pending, string.Empty, "APIShared has not completed native initialization.");
     }
 }

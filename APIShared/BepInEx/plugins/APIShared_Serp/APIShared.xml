@@ -1,253 +1,253 @@
 <?xml version="1.0"?>
 <doc>
     <assembly>
-        <name>SerpNativeAPI</name>
+        <name>APIShared</name>
     </assembly>
     <members>
-        <member name="T:SerpNativeAPI.NativeApiState">
+        <member name="T:APIShared.NativeApiState">
             <summary>Describes whether the process-wide API has completed initialization.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeApiState.Pending">
+        <member name="F:APIShared.NativeApiState.Pending">
             <summary>Initialization has not reached a terminal state.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeApiState.Ready">
+        <member name="F:APIShared.NativeApiState.Ready">
             <summary>The API is published; individual capabilities may still be unavailable.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeApiState.Unavailable">
+        <member name="F:APIShared.NativeApiState.Unavailable">
             <summary>The API could not be published safely.</summary>
         </member>
-        <member name="T:SerpNativeAPI.NativeCapabilityState">
+        <member name="T:APIShared.NativeCapabilityState">
             <summary>Describes the availability or failure state of one independent capability.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityState.Pending">
+        <member name="F:APIShared.NativeCapabilityState.Pending">
             <summary>The API has not resolved the capability yet.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityState.Available">
+        <member name="F:APIShared.NativeCapabilityState.Available">
             <summary>The capability is ready for use.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityState.UnsupportedBuild">
+        <member name="F:APIShared.NativeCapabilityState.UnsupportedBuild">
             <summary>The installed native game build is not catalogued.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityState.PatternMissing">
+        <member name="F:APIShared.NativeCapabilityState.PatternMissing">
             <summary>A required native target could not be found.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityState.Ambiguous">
+        <member name="F:APIShared.NativeCapabilityState.Ambiguous">
             <summary>A native target could not be identified uniquely.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityState.ValidationFailed">
+        <member name="F:APIShared.NativeCapabilityState.ValidationFailed">
             <summary>A target or runtime invariant failed validation.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityState.Conflict">
+        <member name="F:APIShared.NativeCapabilityState.Conflict">
             <summary>Another owner already controls an overlapping native target.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityState.Faulted">
+        <member name="F:APIShared.NativeCapabilityState.Faulted">
             <summary>An unexpected capability error occurred.</summary>
         </member>
-        <member name="T:SerpNativeAPI.NativeCapabilityIds">
+        <member name="T:APIShared.NativeCapabilityIds">
             <summary>Stable identifiers for capabilities exposed by this API version.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityIds.GatehouseDistanceOrigin">
+        <member name="F:APIShared.NativeCapabilityIds.GatehouseDistanceOrigin">
             <summary>Capability for selecting the native gatehouse distance origin.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityIds.GatehouseTiming">
+        <member name="F:APIShared.NativeCapabilityIds.GatehouseTiming">
             <summary>Capability for configuring gatehouse timing and closing distances.</summary>
         </member>
-        <member name="F:SerpNativeAPI.NativeCapabilityIds.SelectedUnitCommand">
+        <member name="F:APIShared.NativeCapabilityIds.SelectedUnitCommand">
             <summary>Capability for observing selected-unit commands before Vanilla handles them.</summary>
         </member>
-        <member name="T:SerpNativeAPI.NativeCapabilityDiagnostic">
+        <member name="T:APIShared.NativeCapabilityDiagnostic">
             <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
         </member>
-        <member name="M:SerpNativeAPI.NativeCapabilityDiagnostic.#ctor(System.String,SerpNativeAPI.NativeCapabilityState,System.String,System.String,System.String)">
+        <member name="M:APIShared.NativeCapabilityDiagnostic.#ctor(System.String,APIShared.NativeCapabilityState,System.String,System.String,System.String)">
             <summary>Creates a capability diagnostic.</summary>
         </member>
-        <member name="P:SerpNativeAPI.NativeCapabilityDiagnostic.CapabilityId">
+        <member name="P:APIShared.NativeCapabilityDiagnostic.CapabilityId">
             <summary>Gets the stable capability identifier.</summary>
         </member>
-        <member name="P:SerpNativeAPI.NativeCapabilityDiagnostic.State">
+        <member name="P:APIShared.NativeCapabilityDiagnostic.State">
             <summary>Gets the capability state.</summary>
         </member>
-        <member name="P:SerpNativeAPI.NativeCapabilityDiagnostic.BinaryHash">
+        <member name="P:APIShared.NativeCapabilityDiagnostic.BinaryHash">
             <summary>Gets the complete SHA-256 of the installed native game library, when available.</summary>
         </member>
-        <member name="P:SerpNativeAPI.NativeCapabilityDiagnostic.Reason">
+        <member name="P:APIShared.NativeCapabilityDiagnostic.Reason">
             <summary>Gets a human-readable explanation.</summary>
         </member>
-        <member name="P:SerpNativeAPI.NativeCapabilityDiagnostic.ConflictOwnerGuid">
+        <member name="P:APIShared.NativeCapabilityDiagnostic.ConflictOwnerGuid">
             <summary>Gets the BepInEx GUID owning a conflicting native interval, when applicable.</summary>
         </member>
-        <member name="T:SerpNativeAPI.ISerpNativeApi">
-            <summary>Public process-wide entry point for typed Serp native capabilities.</summary>
+        <member name="T:APIShared.IApiShared">
+            <summary>Public process-wide entry point for typed shared native capabilities.</summary>
         </member>
-        <member name="P:SerpNativeAPI.ISerpNativeApi.State">
+        <member name="P:APIShared.IApiShared.State">
             <summary>Gets the global initialization state.</summary>
         </member>
-        <member name="M:SerpNativeAPI.ISerpNativeApi.TryGetGatehouseDistanceOrigin(System.String,SerpNativeAPI.IGatehouseDistanceOriginCapability@,SerpNativeAPI.NativeCapabilityDiagnostic@)">
+        <member name="M:APIShared.IApiShared.TryGetGatehouseDistanceOrigin(System.String,APIShared.IGatehouseDistanceOriginCapability@,APIShared.NativeCapabilityDiagnostic@)">
             <summary>
             Attempts to acquire the gatehouse distance-origin capability for a stable owner GUID.
             The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
             </summary>
         </member>
-        <member name="M:SerpNativeAPI.ISerpNativeApi.TryGetGatehouseTiming(System.String,SerpNativeAPI.IGatehouseTimingCapability@,SerpNativeAPI.NativeCapabilityDiagnostic@)">
+        <member name="M:APIShared.IApiShared.TryGetGatehouseTiming(System.String,APIShared.IGatehouseTimingCapability@,APIShared.NativeCapabilityDiagnostic@)">
             <summary>
             Attempts to acquire the gatehouse timing capability for a stable owner GUID.
             The intended future consumer is ExtraFeatures; this is documentation, not a runtime dependency.
             </summary>
         </member>
-        <member name="M:SerpNativeAPI.ISerpNativeApi.TryGetSelectedUnitCommand(System.String,SerpNativeAPI.ISelectedUnitCommandCapability@,SerpNativeAPI.NativeCapabilityDiagnostic@)">
+        <member name="M:APIShared.IApiShared.TryGetSelectedUnitCommand(System.String,APIShared.ISelectedUnitCommandCapability@,APIShared.NativeCapabilityDiagnostic@)">
             <summary>
             Attempts to acquire the selected-unit command capability for a stable owner GUID.
             The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
             </summary>
         </member>
-        <member name="T:SerpNativeAPI.SerpNativeApi">
+        <member name="T:APIShared.ApiShared">
             <summary>Static access to the process-wide API and its readiness notification.</summary>
         </member>
-        <member name="P:SerpNativeAPI.SerpNativeApi.Current">
-            <summary>Gets the process-wide API instance. Inspect <see cref="P:SerpNativeAPI.ISerpNativeApi.State"/> before use.</summary>
+        <member name="P:APIShared.ApiShared.Current">
+            <summary>Gets the process-wide API instance. Inspect <see cref="P:APIShared.IApiShared.State"/> before use.</summary>
         </member>
-        <member name="M:SerpNativeAPI.SerpNativeApi.WhenReady(System.Action{SerpNativeAPI.ISerpNativeApi})">
+        <member name="M:APIShared.ApiShared.WhenReady(System.Action{APIShared.IApiShared})">
             <summary>
             Registers a callback that runs when initialization reaches a terminal state. Late
             registrations run synchronously.
             </summary>
         </member>
-        <member name="T:SerpNativeAPI.GatehouseDistanceOrigin">
+        <member name="T:APIShared.GatehouseDistanceOrigin">
             <summary>Selects the native coordinate used as the origin of gatehouse enemy distance checks.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseDistanceOrigin.VanillaBuildingBegin">
+        <member name="F:APIShared.GatehouseDistanceOrigin.VanillaBuildingBegin">
             <summary>Use Vanilla's begin coordinate at one corner of the gatehouse bounds.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseDistanceOrigin.BuildingBoundsCenter">
+        <member name="F:APIShared.GatehouseDistanceOrigin.BuildingBoundsCenter">
             <summary>Use the exact center of the complete gatehouse bounding box.</summary>
         </member>
-        <member name="T:SerpNativeAPI.IGatehouseDistanceOriginCapability">
+        <member name="T:APIShared.IGatehouseDistanceOriginCapability">
             <summary>
             Applies a validated, transactional gatehouse distance origin. The intended future consumer
             is BugfixesAndQoL; this is documentation, not a runtime dependency.
             </summary>
         </member>
-        <member name="M:SerpNativeAPI.IGatehouseDistanceOriginCapability.TryApply(SerpNativeAPI.GatehouseDistanceOrigin,SerpNativeAPI.NativeCapabilityDiagnostic@)">
+        <member name="M:APIShared.IGatehouseDistanceOriginCapability.TryApply(APIShared.GatehouseDistanceOrigin,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to apply and verify the requested process-wide gatehouse distance origin.</summary>
         </member>
-        <member name="T:SerpNativeAPI.GatehouseTimingValues">
+        <member name="T:APIShared.GatehouseTimingValues">
             <summary>Documented Vanilla values and supported UI ranges for gatehouse timing.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.MinimumHumanDelaySeconds">
+        <member name="F:APIShared.GatehouseTimingValues.MinimumHumanDelaySeconds">
             <summary>Minimum supported human reopening delay in seconds.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.MaximumHumanDelaySeconds">
+        <member name="F:APIShared.GatehouseTimingValues.MaximumHumanDelaySeconds">
             <summary>Maximum supported human reopening delay in seconds.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.MinimumAiDelaySeconds">
+        <member name="F:APIShared.GatehouseTimingValues.MinimumAiDelaySeconds">
             <summary>Minimum supported AI reopening delay in seconds.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.MaximumAiDelaySeconds">
+        <member name="F:APIShared.GatehouseTimingValues.MaximumAiDelaySeconds">
             <summary>Maximum supported AI reopening delay in seconds.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.MinimumDistanceTiles">
+        <member name="F:APIShared.GatehouseTimingValues.MinimumDistanceTiles">
             <summary>Minimum supported closing distance in tiles.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.MaximumDistanceTiles">
+        <member name="F:APIShared.GatehouseTimingValues.MaximumDistanceTiles">
             <summary>Maximum supported closing distance in tiles.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.VanillaHumanDelaySeconds">
+        <member name="F:APIShared.GatehouseTimingValues.VanillaHumanDelaySeconds">
             <summary>Vanilla human reopening delay in seconds.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.VanillaAiDelaySeconds">
+        <member name="F:APIShared.GatehouseTimingValues.VanillaAiDelaySeconds">
             <summary>Vanilla AI reopening delay in seconds.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.VanillaHumanDistanceTiles">
+        <member name="F:APIShared.GatehouseTimingValues.VanillaHumanDistanceTiles">
             <summary>Vanilla human closing distance in tiles.</summary>
         </member>
-        <member name="F:SerpNativeAPI.GatehouseTimingValues.VanillaAiDistanceTiles">
+        <member name="F:APIShared.GatehouseTimingValues.VanillaAiDistanceTiles">
             <summary>Vanilla AI closing distance in tiles.</summary>
         </member>
-        <member name="T:SerpNativeAPI.GatehouseTimingSettings">
+        <member name="T:APIShared.GatehouseTimingSettings">
             <summary>Immutable desired gatehouse timing and enemy-proximity settings.</summary>
         </member>
-        <member name="M:SerpNativeAPI.GatehouseTimingSettings.#ctor(System.Boolean,System.Double,System.Double,System.Double,System.Double)">
+        <member name="M:APIShared.GatehouseTimingSettings.#ctor(System.Boolean,System.Double,System.Double,System.Double,System.Double)">
             <summary>Creates gatehouse settings expressed in seconds and map tiles.</summary>
         </member>
-        <member name="P:SerpNativeAPI.GatehouseTimingSettings.Enabled">
+        <member name="P:APIShared.GatehouseTimingSettings.Enabled">
             <summary>
             Gets whether custom timing values should be applied. False restores only the four
             Vanilla timing values and does not change the independently owned distance origin.
             </summary>
         </member>
-        <member name="P:SerpNativeAPI.GatehouseTimingSettings.HumanReopenDelaySeconds">
+        <member name="P:APIShared.GatehouseTimingSettings.HumanReopenDelaySeconds">
             <summary>Gets the human gate reopening delay in seconds.</summary>
         </member>
-        <member name="P:SerpNativeAPI.GatehouseTimingSettings.AiReopenDelaySeconds">
+        <member name="P:APIShared.GatehouseTimingSettings.AiReopenDelaySeconds">
             <summary>Gets the AI gate reopening delay in seconds.</summary>
         </member>
-        <member name="P:SerpNativeAPI.GatehouseTimingSettings.HumanCloseDistanceTiles">
+        <member name="P:APIShared.GatehouseTimingSettings.HumanCloseDistanceTiles">
             <summary>Gets the human gate closing distance in tiles.</summary>
         </member>
-        <member name="P:SerpNativeAPI.GatehouseTimingSettings.AiCloseDistanceTiles">
+        <member name="P:APIShared.GatehouseTimingSettings.AiCloseDistanceTiles">
             <summary>Gets the AI gate closing distance in tiles.</summary>
         </member>
-        <member name="T:SerpNativeAPI.IGatehouseTimingCapability">
+        <member name="T:APIShared.IGatehouseTimingCapability">
             <summary>
             Applies validated, transactional gatehouse timing values. The intended future consumer is
             ExtraFeatures; this is documentation, not a runtime dependency.
             </summary>
         </member>
-        <member name="M:SerpNativeAPI.IGatehouseTimingCapability.TryApply(SerpNativeAPI.GatehouseTimingSettings,SerpNativeAPI.NativeCapabilityDiagnostic@)">
+        <member name="M:APIShared.IGatehouseTimingCapability.TryApply(APIShared.GatehouseTimingSettings,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to apply and verify all four gatehouse timing values as one transaction.</summary>
         </member>
-        <member name="T:SerpNativeAPI.SelectedUnitCommandContext">
+        <member name="T:APIShared.SelectedUnitCommandContext">
             <summary>Immutable snapshot of a selected-unit command before Vanilla processes it.</summary>
         </member>
-        <member name="M:SerpNativeAPI.SelectedUnitCommandContext.#ctor(System.Int32,SHCDESE.Interop.Enums.TribeAICommand,System.Int32,System.Int32,System.Int32)">
+        <member name="M:APIShared.SelectedUnitCommandContext.#ctor(System.Int32,SHCDESE.Interop.Enums.TribeAICommand,System.Int32,System.Int32,System.Int32)">
             <summary>Creates a selected-unit command snapshot.</summary>
         </member>
-        <member name="P:SerpNativeAPI.SelectedUnitCommandContext.TribeId">
+        <member name="P:APIShared.SelectedUnitCommandContext.TribeId">
             <summary>Gets the issuing tribe identifier.</summary>
         </member>
-        <member name="P:SerpNativeAPI.SelectedUnitCommandContext.Command">
+        <member name="P:APIShared.SelectedUnitCommandContext.Command">
             <summary>Gets the typed command.</summary>
         </member>
-        <member name="P:SerpNativeAPI.SelectedUnitCommandContext.TargetValue1">
+        <member name="P:APIShared.SelectedUnitCommandContext.TargetValue1">
             <summary>Gets the first target value supplied by the Script Extender event.</summary>
         </member>
-        <member name="P:SerpNativeAPI.SelectedUnitCommandContext.TargetValue2">
+        <member name="P:APIShared.SelectedUnitCommandContext.TargetValue2">
             <summary>Gets the second target value supplied by the Script Extender event.</summary>
         </member>
-        <member name="P:SerpNativeAPI.SelectedUnitCommandContext.Argument6">
+        <member name="P:APIShared.SelectedUnitCommandContext.Argument6">
             <summary>Gets the sixth native argument exposed by the Script Extender event.</summary>
         </member>
-        <member name="T:SerpNativeAPI.ISelectedUnitCommandRegistration">
+        <member name="T:APIShared.ISelectedUnitCommandRegistration">
             <summary>Controls the lifetime and enabled state of one owner registration.</summary>
         </member>
-        <member name="P:SerpNativeAPI.ISelectedUnitCommandRegistration.IsEnabled">
+        <member name="P:APIShared.ISelectedUnitCommandRegistration.IsEnabled">
             <summary>Gets whether the callback is currently enabled.</summary>
         </member>
-        <member name="M:SerpNativeAPI.ISelectedUnitCommandRegistration.Enable">
+        <member name="M:APIShared.ISelectedUnitCommandRegistration.Enable">
             <summary>Enables future callback dispatch.</summary>
         </member>
-        <member name="M:SerpNativeAPI.ISelectedUnitCommandRegistration.Disable">
+        <member name="M:APIShared.ISelectedUnitCommandRegistration.Disable">
             <summary>Disables future callback dispatch without releasing the registration.</summary>
         </member>
-        <member name="T:SerpNativeAPI.ISelectedUnitCommandCapability">
+        <member name="T:APIShared.ISelectedUnitCommandCapability">
             <summary>
             Brokers selected-unit command callbacks through one process-wide subscription. The intended
             future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
             </summary>
         </member>
-        <member name="M:SerpNativeAPI.ISelectedUnitCommandCapability.TryRegisterBefore(System.Action{SerpNativeAPI.SelectedUnitCommandContext},SerpNativeAPI.ISelectedUnitCommandRegistration@,SerpNativeAPI.NativeCapabilityDiagnostic@)">
+        <member name="M:APIShared.ISelectedUnitCommandCapability.TryRegisterBefore(System.Action{APIShared.SelectedUnitCommandContext},APIShared.ISelectedUnitCommandRegistration@,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Registers one idempotent before-callback for the capability owner.</summary>
         </member>
-        <member name="T:SerpNativeAPI.SerpNativeAPIPlugin">
-            <summary>BepInEx host for the process-wide Serp native API.</summary>
+        <member name="T:APIShared.APISharedPlugin">
+            <summary>BepInEx host for the process-wide APIShared.</summary>
         </member>
-        <member name="F:SerpNativeAPI.SerpNativeAPIPlugin.PluginGuid">
+        <member name="F:APIShared.APISharedPlugin.PluginGuid">
             <summary>Stable BepInEx plugin GUID.</summary>
         </member>
-        <member name="F:SerpNativeAPI.SerpNativeAPIPlugin.PluginName">
+        <member name="F:APIShared.APISharedPlugin.PluginName">
             <summary>Display name of the API plugin.</summary>
         </member>
-        <member name="F:SerpNativeAPI.SerpNativeAPIPlugin.PluginVersion">
+        <member name="F:APIShared.APISharedPlugin.PluginVersion">
             <summary>Current API plugin version.</summary>
         </member>
     </members>

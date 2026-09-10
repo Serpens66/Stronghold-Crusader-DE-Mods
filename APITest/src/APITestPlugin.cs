@@ -1,7 +1,7 @@
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
-using SerpNativeAPI;
+using APIShared;
 using System;
 
 namespace APITest
@@ -14,12 +14,12 @@ namespace APITest
     public sealed class APITestPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
-        private const string ApiGuid = "SerpNativeAPI_Serp";
+        private const string ApiGuid = "APIShared_Serp";
         private const string BugfixesGuid = "BugfixesAndQoL_Serp";
         private const string ExtraFeaturesGuid = "ExtraFeatures_Serp";
         public const string PluginGuid = "APITest_Serp";
-        public const string PluginName = "Serp Native API Test";
-        public const string PluginVersion = "0.1.2";
+        public const string PluginName = "APIShared Test";
+        public const string PluginVersion = "0.1.3";
 
         private static ManualLogSource rootedLog;
         private static ISelectedUnitCommandRegistration selectedRegistration;
@@ -39,10 +39,10 @@ namespace APITest
             }
 
             assassinTest = new AssassinClimbCancellationTest(Logger);
-            SerpNativeApi.WhenReady(OnApiReady);
+            ApiShared.WhenReady(OnApiReady);
         }
 
-        private static void OnApiReady(ISerpNativeApi api)
+        private static void OnApiReady(IApiShared api)
         {
             if (blocked)
                 return;
@@ -51,7 +51,7 @@ namespace APITest
             RegisterAssassin(api);
         }
 
-        private static void ApplyGatehouse(ISerpNativeApi api)
+        private static void ApplyGatehouse(IApiShared api)
         {
             if (!api.TryGetGatehouseTiming(PluginGuid, out IGatehouseTimingCapability capability, out NativeCapabilityDiagnostic diagnostic))
             {
@@ -69,7 +69,7 @@ namespace APITest
             Log("GATEHOUSE_TEST_ACTIVE: humanReopen=0s/0ticks, aiReopen=0s/0ticks, humanClose=5tiles/40units, aiClose=5tiles/40units.");
         }
 
-        private static void RegisterAssassin(ISerpNativeApi api)
+        private static void RegisterAssassin(IApiShared api)
         {
             if (!api.TryGetSelectedUnitCommand(PluginGuid, out ISelectedUnitCommandCapability capability, out NativeCapabilityDiagnostic diagnostic))
             {

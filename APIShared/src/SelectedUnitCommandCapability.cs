@@ -5,7 +5,7 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 
-namespace SerpNativeAPI
+namespace APIShared
 {
     /// <summary>Immutable snapshot of a selected-unit command before Vanilla processes it.</summary>
     public readonly struct SelectedUnitCommandContext
@@ -80,7 +80,7 @@ namespace SerpNativeAPI
                     NativeCapabilityIds.SelectedUnitCommand,
                     NativeCapabilityState.Available,
                     binaryHash,
-                    "Provided through the Script Extender OnTribeIssueOrderWithTarget Pre event; SerpNativeAPI installs no native detour.");
+                    "Provided through the Script Extender OnTribeIssueOrderWithTarget Pre event; APIShared installs no native detour.");
             }
             catch (NativeResolutionException ex)
             {

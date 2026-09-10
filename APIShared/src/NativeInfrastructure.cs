@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 
-namespace SerpNativeAPI
+namespace APIShared
 {
     internal enum NativeReservationMode
     {

@@ -2,7 +2,7 @@ using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
 
-namespace SerpNativeAPI
+namespace APIShared
 {
     /// <summary>Selects the native coordinate used as the origin of gatehouse enemy distance checks.</summary>
     public enum GatehouseDistanceOrigin

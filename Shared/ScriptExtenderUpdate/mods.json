@@ -1,13 +1,13 @@
 [
   {
-    "Name": "SerpNativeAPI",
-    "Guid": "SerpNativeAPI_Serp",
-    "Manifest": "SerpNativeAPI\\info.json",
-    "Plugin": "SerpNativeAPI\\src\\SerpNativeAPIPlugin.cs",
-    "Project": "SerpNativeAPI\\SerpNativeAPI.csproj",
-    "BuildDriver": "SerpNativeAPI\\build.bat",
-    "Package": "SerpNativeAPI\\BepInEx\\plugins\\SerpNativeAPI_Serp",
-    "Install": "SerpNativeAPI_Serp",
+    "Name": "APIShared",
+    "Guid": "APIShared_Serp",
+    "Manifest": "APIShared\\info.json",
+    "Plugin": "APIShared\\src\\APISharedPlugin.cs",
+    "Project": "APIShared\\APIShared.csproj",
+    "BuildDriver": "APIShared\\build.bat",
+    "Package": "APIShared\\BepInEx\\plugins\\APIShared_Serp",
+    "Install": "APIShared_Serp",
     "BuildOrder": 10,
     "DependsOn": []
   },
@@ -22,7 +22,7 @@
     "Install": "APITest_Serp",
     "BuildOrder": 20,
     "DependsOn": [
-      "SerpNativeAPI"
+      "APIShared"
     ]
   },
   {

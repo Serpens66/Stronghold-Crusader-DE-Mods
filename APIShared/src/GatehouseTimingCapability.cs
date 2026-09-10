@@ -2,7 +2,7 @@ using BepInEx.Logging;
 using System;
 using System.Collections.Generic;
 
-namespace SerpNativeAPI
+namespace APIShared
 {
     /// <summary>Documented Vanilla values and supported UI ranges for gatehouse timing.</summary>
     public static class GatehouseTimingValues
@@ -202,7 +202,7 @@ namespace SerpNativeAPI
                 NativePeImage pe = NativePeImage.Parse(memory);
                 functionSection = pe.RequireExecutableRange(target.FunctionRva, target.FunctionSize, "gatehouse handler function");
 
-                string actualFunctionHash = SerpNativeApiRuntime.ComputeSha256(memory.Slice(target.FunctionRva, target.FunctionSize));
+                string actualFunctionHash = ApiSharedRuntime.ComputeSha256(memory.Slice(target.FunctionRva, target.FunctionSize));
                 if (!string.Equals(actualFunctionHash, target.FunctionHash, StringComparison.OrdinalIgnoreCase))
                     throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, $"The gatehouse handler function hash changed: expected={target.FunctionHash}, actual={actualFunctionHash}.");
             }

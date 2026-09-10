@@ -364,14 +364,174 @@ namespace PreplacedTest
             livingPortalCount > 0 ? WallTestRole.GatedWallCandidate : WallTestRole.ClosedWallCandidate;
     }
 
+    internal enum WallOwnerEncoding
+    {
+        Unresolved,
+        OneBased,
+        ZeroBased
+    }
+
+    internal static class WallOwnerEncodingResolver
+    {
+        public static WallOwnerEncoding Resolve(int oneBasedMatches, int zeroBasedMatches)
+        {
+            if (oneBasedMatches <= 0 && zeroBasedMatches <= 0) return WallOwnerEncoding.Unresolved;
+            if (oneBasedMatches == zeroBasedMatches) return WallOwnerEncoding.Unresolved;
+            return oneBasedMatches > zeroBasedMatches ? WallOwnerEncoding.OneBased : WallOwnerEncoding.ZeroBased;
+        }
+
+        public static int Decode(byte rawOwner, WallOwnerEncoding encoding) =>
+            encoding == WallOwnerEncoding.OneBased ? rawOwner :
+            encoding == WallOwnerEncoding.ZeroBased ? rawOwner + 1 : 0;
+    }
+
+    internal static class WallBreachConfirmation
+    {
+        public static bool IsConfirmed(bool baselineWallLost, int oldInsidePcl, int oldOutsidePcl,
+            int newInsidePcl, int newOutsidePcl) =>
+            baselineWallLost && oldInsidePcl > 0 && oldOutsidePcl > 0 &&
+            oldInsidePcl != oldOutsidePcl && newInsidePcl > 0 && newInsidePcl == newOutsidePcl;
+    }
+
+    internal enum ShadowEconomySearchKind
+    {
+        Farm,
+        Resource,
+        Wood,
+        Nearby
+    }
+
+    internal readonly struct ShadowEconomyCell
+    {
+        public ShadowEconomyCell(int projected04, int raw16, byte raw07, byte raw08, byte raw09,
+            byte raw0A, byte raw0B, byte raw0C, byte raw0D, byte raw0E, byte raw0F,
+            byte raw11, byte raw12, byte raw13, byte raw15)
+        {
+            Projected04 = projected04; Raw16 = raw16; Raw07 = raw07; Raw08 = raw08;
+            Raw09 = raw09; Raw0A = raw0A; Raw0B = raw0B; Raw0C = raw0C; Raw0D = raw0D;
+            Raw0E = raw0E; Raw0F = raw0F; Raw11 = raw11; Raw12 = raw12;
+            Raw13 = raw13; Raw15 = raw15;
+        }
+
+        public int Projected04 { get; }
+        public int Raw16 { get; }
+        public byte Raw07 { get; }
+        public byte Raw08 { get; }
+        public byte Raw09 { get; }
+        public byte Raw0A { get; }
+        public byte Raw0B { get; }
+        public byte Raw0C { get; }
+        public byte Raw0D { get; }
+        public byte Raw0E { get; }
+        public byte Raw0F { get; }
+        public byte Raw11 { get; }
+        public byte Raw12 { get; }
+        public byte Raw13 { get; }
+        public byte Raw15 { get; }
+    }
+
+    internal sealed class ShadowEconomySearchResult
+    {
+        public ShadowEconomySearchResult(int reachableCount, int[] blockedIndices, int[] candidateIndices)
+        { ReachableCount = reachableCount; BlockedIndices = blockedIndices; CandidateIndices = candidateIndices; }
+        public int ReachableCount { get; }
+        public int[] BlockedIndices { get; }
+        public int[] CandidateIndices { get; }
+    }
+
+    internal static class ShadowEconomySearch
+    {
+        public static ShadowEconomySearchResult Run(ShadowEconomyCell[] cells, int width, int startIndex,
+            ShadowEconomySearchKind kind, int resourceMode)
+        {
+            if (cells == null) throw new ArgumentNullException(nameof(cells));
+            if (width <= 0 || cells.Length != width * width) throw new ArgumentOutOfRangeException(nameof(width));
+            if ((uint)startIndex >= (uint)cells.Length) throw new ArgumentOutOfRangeException(nameof(startIndex));
+            var visited = new bool[cells.Length];
+            var depths = new byte[cells.Length];
+            var queue = new Queue<int>();
+            var blocked = new HashSet<int>();
+            var candidates = new List<int>();
+            visited[startIndex] = true;
+            depths[startIndex] = 1;
+            queue.Enqueue(startIndex);
+            while (queue.Count != 0)
+            {
+                int current = queue.Dequeue();
+                if (depths[current] > 60) break;
+                int x = current / width;
+                int y = current % width;
+                foreach (int next in Neighbors(x, y, width, kind == ShadowEconomySearchKind.Nearby))
+                {
+                    if (visited[next]) continue;
+                    visited[next] = true;
+                    ShadowEconomyCell cell = cells[next];
+                    if (!CanExpand(cell, kind))
+                    {
+                        blocked.Add(next);
+                        continue;
+                    }
+                    depths[next] = checked((byte)(depths[current] + 1));
+                    queue.Enqueue(next);
+                    if (IsCandidate(cell, kind, resourceMode)) candidates.Add(next);
+                }
+            }
+            return new ShadowEconomySearchResult(visited.Count(value => value) - blocked.Count,
+                blocked.OrderBy(value => value).ToArray(), candidates.ToArray());
+        }
+
+        private static IEnumerable<int> Neighbors(int x, int y, int width, bool includeDiagonals)
+        {
+            if (y > 0) yield return x * width + y - 1;
+            if (includeDiagonals && x + 1 < width && y > 0) yield return (x + 1) * width + y - 1;
+            if (x + 1 < width) yield return (x + 1) * width + y;
+            if (includeDiagonals && x + 1 < width && y + 1 < width) yield return (x + 1) * width + y + 1;
+            if (y + 1 < width) yield return x * width + y + 1;
+            if (includeDiagonals && x > 0 && y + 1 < width) yield return (x - 1) * width + y + 1;
+            if (x > 0) yield return (x - 1) * width + y;
+            if (includeDiagonals && x > 0 && y > 0) yield return (x - 1) * width + y - 1;
+        }
+
+        private static bool CanExpand(ShadowEconomyCell cell, ShadowEconomySearchKind kind)
+        {
+            if (kind == ShadowEconomySearchKind.Farm) return cell.Projected04 < 17;
+            if (kind == ShadowEconomySearchKind.Wood) return cell.Projected04 < 16 && cell.Raw13 == 0;
+            if (kind == ShadowEconomySearchKind.Nearby) return cell.Projected04 < 15;
+            return cell.Projected04 - cell.Raw16 < 16;
+        }
+
+        private static bool IsCandidate(ShadowEconomyCell cell, ShadowEconomySearchKind kind, int resourceMode)
+        {
+            if (kind == ShadowEconomySearchKind.Wood)
+                return cell.Projected04 < 6 && cell.Raw07 > 0 && cell.Raw13 == 0;
+            if (kind == ShadowEconomySearchKind.Nearby)
+                return cell.Projected04 == 0 && cell.Raw0E == 0 && cell.Raw0F == 0 &&
+                    cell.Raw13 == 0 && cell.Raw07 == 0 && cell.Raw08 == 0;
+            if (kind == ShadowEconomySearchKind.Farm)
+                return cell.Projected04 == 0 && cell.Raw0F == 0 && cell.Raw07 == 0 &&
+                    cell.Raw13 == 0 && cell.Raw11 > 24 && cell.Raw12 > 13;
+            if (cell.Raw0F != 0 || cell.Raw13 != 0) return false;
+            int heightDifference = cell.Raw0D - cell.Raw0C;
+            if (resourceMode == 2) return cell.Raw08 > 7 && heightDifference >= 40;
+            if (resourceMode == 3) return cell.Raw09 > 6 && heightDifference >= 30;
+            if (resourceMode == 4) return cell.Raw0A > 2 && cell.Raw0B > 9 && heightDifference >= 12;
+            return false;
+        }
+    }
+
     internal static class EconomySearchGateClassifier
     {
         public static string Classify(bool generationChanged, int cooldownBefore, int cooldownAfter,
-            int queueDepthBefore, int queueDepthAfter)
+            int queueReadBefore, int queueWriteBefore, int queueReadAfter, int queueWriteAfter,
+            int resultXBefore, int resultYBefore, int resultXAfter, int resultYAfter)
         {
             if (generationChanged) return "traversal-performed";
             if (cooldownBefore > 0 || cooldownAfter > 0) return "early-return-cooldown";
-            if (queueDepthBefore > 0 || queueDepthAfter > 0) return "early-return-shared-queue-state";
+            if (queueReadBefore != queueWriteBefore || queueReadAfter != queueWriteAfter)
+                return "early-return-shared-queue-pending";
+            if (resultXAfter >= 0 && resultYAfter >= 0)
+                return resultXBefore == resultXAfter && resultYBefore == resultYAfter ?
+                    "early-return-cached-result" : "early-return-result-without-traversal";
             return "early-return-unresolved-mode-or-state";
         }
     }

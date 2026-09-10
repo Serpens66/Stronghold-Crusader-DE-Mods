@@ -4,20 +4,20 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 
-namespace SerpNativeAPI
+namespace APIShared
 {
-    /// <summary>BepInEx host for the process-wide Serp native API.</summary>
+    /// <summary>BepInEx host for the process-wide APIShared.</summary>
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
-    public sealed class SerpNativeAPIPlugin : BaseUnityPlugin
+    public sealed class APISharedPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
         /// <summary>Stable BepInEx plugin GUID.</summary>
-        public const string PluginGuid = "SerpNativeAPI_Serp";
+        public const string PluginGuid = "APIShared_Serp";
         /// <summary>Display name of the API plugin.</summary>
-        public const string PluginName = "Serp Native API";
+        public const string PluginName = "APIShared";
         /// <summary>Current API plugin version.</summary>
-        public const string PluginVersion = "0.1.2";
+        public const string PluginVersion = "0.2.0";
 
         private void Awake()
         {
@@ -39,7 +39,7 @@ namespace SerpNativeAPI
                 NativeApiLog.Error(Logger, $"Could not hash the installed CrusaderDE.dll: {ex}");
                 hash = string.Empty;
             }
-            SerpNativeApiRuntime.ProcessInstance.Initialize(
+            ApiSharedRuntime.ProcessInstance.Initialize(
                 context.ModuleHandle.ToInt64(),
                 context.Memory,
                 hash,

@@ -94,6 +94,7 @@ namespace PreplacedTest
         // Audited AI economy flood-fill layout for FBCB9319. These names intentionally
         // describe storage only; the individual cell bytes are not assigned semantics.
         private const int EconomyGridWidth = 160;
+        private const int NativeTileGridWidth = 800;
         private const int EconomyGridCellCount = EconomyGridWidth * EconomyGridWidth;
         private const int EconomyGridCellStride = 0x30;
         private const int EconomyGridBaseOffset = 0x5B830;
@@ -202,6 +203,12 @@ namespace PreplacedTest
             "4C 8D 15 ?? ?? ?? ?? 41 83 FD 01 75 1D 48 0F BF C2 48 69 C8 3C 58 00 00 42 39 B4 11 B0 D8 79 03 75 08 46 89 AC 11 B0 D8 79 03 4C 8D 2D ?? ?? ?? ??";
         private const string LegacyPlayerStateCopyPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 20 48 8D 2D ?? ?? ?? ?? BB 60 0D 03 00";
+        private const string InitializeUnitSubsystemPattern =
+            "48 83 EC 28 4C 8D 0D ?? ?? ?? ?? 45 33 C0 BA 5C 37 10 00 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ??";
+        private const string ResetMapObjectSubsystemPattern =
+            "40 53 48 83 EC 20 83 39 00 48 8B D9 74 15 E8 ?? ?? ?? ?? C7 83 4C 09 00 00 00 00 00 00";
+        private const string InitializePlayerPathingPattern =
+            "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 41 56 48 83 EC 30 BB 01 00 00 00 4C 8D 35 ?? ?? ?? ??";
 
         private const int AllocateSpecRva = 0x50680;
         private const int SetPlacementRva = 0x54EC0;
@@ -246,6 +253,13 @@ namespace PreplacedTest
         private const int InitializePlayerBuildingsRva = 0xC3FA0;
         private const int InitializeBuildingRva = 0xC43A0;
         private const int ClearBuildingRecordRva = 0xB8310;
+        private const int InitializeUnitSubsystemRva = 0x115830;
+        private const int ResetMapObjectSubsystemRva = 0x102C30;
+        private const int InitializePlayerPathingRva = 0x2A340;
+        private const int FinalMapStartUnitCallSiteRva = 0x96D2C;
+        private const int FinalMapStartObjectCallSiteRva = 0x96D38;
+        private const int FinalMapStartEconomyGridCallSiteRva = 0x96D49;
+        private const int FinalMapStartPathingCallSiteRva = 0x96D55;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int AllocateSpecDelegate(ulong state, int playerId);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SetPlacementDelegate(ulong state, int spec, int keepX, int keepY, int orientation);
@@ -283,6 +297,7 @@ namespace PreplacedTest
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void PlayerBuildingInitializationDelegate(ulong manager, int playerId);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void BuildingInitializationDelegate(ulong manager, int buildingId);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void LegacyPlayerStateCopyDelegate();
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void InitializationStateDelegate(ulong state);
 
         private readonly ManualLogSource log;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
@@ -335,6 +350,9 @@ namespace PreplacedTest
         private readonly DetourHandle<BuildingInitializationDelegate> initializeBuildingHook = new DetourHandle<BuildingInitializationDelegate>();
         private readonly DetourHandle<BuildingInitializationDelegate> clearBuildingRecordHook = new DetourHandle<BuildingInitializationDelegate>();
         private readonly DetourHandle<LegacyPlayerStateCopyDelegate> legacyPlayerStateCopyHook = new DetourHandle<LegacyPlayerStateCopyDelegate>();
+        private readonly DetourHandle<InitializationStateDelegate> initializeUnitSubsystemHook = new DetourHandle<InitializationStateDelegate>();
+        private readonly DetourHandle<InitializationStateDelegate> resetMapObjectSubsystemHook = new DetourHandle<InitializationStateDelegate>();
+        private readonly DetourHandle<InitializationStateDelegate> initializePlayerPathingHook = new DetourHandle<InitializationStateDelegate>();
         private readonly HookHandle<X64InlineHook> crushedTimerWriterHook = new HookHandle<X64InlineHook>();
         private readonly object crushedWriterSync = new object();
         private readonly Queue<CrushedWriterSignal> pendingCrushedWriterSignals = new Queue<CrushedWriterSignal>();
@@ -367,6 +385,8 @@ namespace PreplacedTest
         private readonly HashSet<string> emittedGridUpdateSignatures = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> emittedDominantPclSignatures = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> emittedInvalidPclAccesses = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> emittedShadowSearchSignatures = new HashSet<string>(StringComparer.Ordinal);
+        private readonly Dictionary<int, WallTileBaseline> wallBaselines = new Dictionary<int, WallTileBaseline>();
         private bool initializationTracingActive;
         private bool currentMapIsSave;
         private bool loadSaveEventObserved;
@@ -421,6 +441,7 @@ namespace PreplacedTest
                     (CrushedTimerWriterRva - CrushedTimerWriterBlockRva));
                 ValidateCrushedTimerWriterBytes(context.Memory, writerRva);
                 ValidateLegacyPlayerStateCopy(context.Memory, rvas["legacy-player-state-copy"]);
+                ValidateFinalMapStartSequence(context.Memory, rvas);
                 using (var probe = new X64InlineHook(module + (ulong)writerRva,
                     CrushedTimerWriterDisplacedLength))
                 {
@@ -474,6 +495,12 @@ namespace PreplacedTest
                 transaction.AddDetour(clearBuildingRecordHook, HookTarget.FromAddress(module + (ulong)rvas["clear-building-record"]), ClearBuildingRecord);
                 transaction.AddDetour(legacyPlayerStateCopyHook,
                     HookTarget.FromAddress(module + (ulong)rvas["legacy-player-state-copy"]), LegacyPlayerStateCopy);
+                transaction.AddDetour(initializeUnitSubsystemHook,
+                    HookTarget.FromAddress(module + (ulong)rvas["initialize-unit-subsystem"]), InitializeUnitSubsystem);
+                transaction.AddDetour(resetMapObjectSubsystemHook,
+                    HookTarget.FromAddress(module + (ulong)rvas["reset-map-object-subsystem"]), ResetMapObjectSubsystem);
+                transaction.AddDetour(initializePlayerPathingHook,
+                    HookTarget.FromAddress(module + (ulong)rvas["initialize-player-pathing"]), InitializePlayerPathing);
                 transaction.AddContextHook(crushedTimerWriterHook, HookTarget.FromAddress(module + (ulong)writerRva),
                     ObserveCrushedTimerWriter, new ContextHookOptions
                     {
@@ -489,7 +516,7 @@ namespace PreplacedTest
                 if (crushedTimerWriterHook.Hook.DisplacedByteCount != CrushedTimerWriterDisplacedLength)
                     throw new InvalidOperationException("installed crushed-timer writer hook displaced an unexpected byte range");
                 Shared.DebugLogHelper.LogInfo(log,
-                    $"PREPLACED_NATIVE_READY: 43 passive detours and one passive writer context hook installed atomically; activeLayoutBase=0x{activeLayoutIndexBase:X}, pathManagerBase=0x{nativePathManagerBase:X}, pclRange=0x{NativePclGridRva:X}-0x{NativePclGridEndRva:X} ({NativePclEntryCount} ushorts)." );
+                    $"PREPLACED_NATIVE_READY: 46 passive detours and one passive writer context hook installed atomically; activeLayoutBase=0x{activeLayoutIndexBase:X}, pathManagerBase=0x{nativePathManagerBase:X}, pclRange=0x{NativePclGridRva:X}-0x{NativePclGridEndRva:X} ({NativePclEntryCount} ushorts)." );
             }
             catch (Exception ex)
             {
@@ -544,6 +571,9 @@ namespace PreplacedTest
                 Def("initialize-building", InitializeBuildingPattern, InitializeBuildingRva),
                 Def("clear-building-record", ClearBuildingRecordPattern, ClearBuildingRecordRva),
                 Def("legacy-player-state-copy", LegacyPlayerStateCopyPattern, LegacyPlayerStateCopyRva),
+                Def("initialize-unit-subsystem", InitializeUnitSubsystemPattern, InitializeUnitSubsystemRva),
+                Def("reset-map-object-subsystem", ResetMapObjectSubsystemPattern, ResetMapObjectSubsystemRva),
+                Def("initialize-player-pathing", InitializePlayerPathingPattern, InitializePlayerPathingRva),
                 Def("crushed-timer-writer-block", CrushedTimerWriterBlockPattern, CrushedTimerWriterBlockRva),
                 Def("active-layout-reference", ActiveLayoutReferencePattern, ActiveLayoutReferenceRva)
             };
@@ -646,14 +676,21 @@ namespace PreplacedTest
             woodSearchHook.Success && nearbySearchHook.Success && constructBuildingHook.Success &&
             regionPairReachabilityHook.Success && economyGridUpdateHook.Success && selectDominantPclHook.Success &&
             initializePlayerBuildingsHook.Success && initializeBuildingHook.Success && clearBuildingRecordHook.Success &&
-            legacyPlayerStateCopyHook.Success && crushedTimerWriterHook.Success;
+            legacyPlayerStateCopyHook.Success && initializeUnitSubsystemHook.Success &&
+            resetMapObjectSubsystemHook.Success && initializePlayerPathingHook.Success && crushedTimerWriterHook.Success;
 
         private void EconomyGridUpdate(ulong state, int mode)
         {
             lastAivState = state;
             string phase = lastObservedPhase;
             EconomyGridBuildSnapshot before = null;
-            Safe(() => before = EconomyGridBuildSnapshot.Capture((byte*)state));
+            int[] timersBefore = null;
+            Safe(() =>
+            {
+                before = EconomyGridBuildSnapshot.Capture((byte*)state);
+                timersBefore = CaptureAllCrushedCounters();
+                ObserveCrushedCounters("economy-grid.entry");
+            });
             economyGridUpdateHook.Original(state, mode);
             Safe(() =>
             {
@@ -669,9 +706,41 @@ namespace PreplacedTest
                         after.DescribeDelta(before));
                 }
                 CaptureRoutingSnapshot(state, "economy-grid-" + kind, false);
+                EmitTimerCheckpointChanges("0x50720-economy-grid-" + kind, 0, 0, timersBefore,
+                    CaptureAllCrushedCounters());
                 ObserveCrushedCounters("economy-grid-" + kind + ".post");
             });
         }
+
+        private static void ValidateFinalMapStartSequence(ReadOnlySpan<byte> memory,
+            Dictionary<string, int> rvas)
+        {
+            int[] sites = { FinalMapStartUnitCallSiteRva, FinalMapStartObjectCallSiteRva,
+                FinalMapStartEconomyGridCallSiteRva, FinalMapStartPathingCallSiteRva };
+            int[] targets = { rvas["initialize-unit-subsystem"], rvas["reset-map-object-subsystem"],
+                rvas["economy-grid-update"], rvas["initialize-player-pathing"] };
+            for (int index = 0; index < sites.Length; index++)
+            {
+                int site = sites[index];
+                if (site < 0 || site + 5 > memory.Length || memory[site] != 0xE8)
+                    throw new InvalidOperationException("final map-start checkpoint call-site bytes differ");
+                int target = Shared.NativePatternResolver.ResolveRelativeTarget(memory, site + 1, site + 5);
+                if (target != targets[index])
+                    throw new InvalidOperationException("final map-start checkpoint call target differs");
+            }
+        }
+
+        private void InitializeUnitSubsystem(ulong state) =>
+            RunInitializationCheckpoint("0x115830-unit-subsystem", 0, 0,
+                () => initializeUnitSubsystemHook.Original(state));
+
+        private void ResetMapObjectSubsystem(ulong state) =>
+            RunInitializationCheckpoint("0x102C30-map-object-reset", 0, 0,
+                () => resetMapObjectSubsystemHook.Original(state));
+
+        private void InitializePlayerPathing(ulong state) =>
+            RunInitializationCheckpoint("0x2A340-player-pathing", 0, 0,
+                () => initializePlayerPathingHook.Original(state));
 
         private int SelectDominantPcl(ulong state)
         {
@@ -825,16 +894,23 @@ namespace PreplacedTest
             {
                 if (before == null) return;
                 int[] after = CaptureAllCrushedCounters();
-                for (int ownerId = 1; ownerId <= MaxPlayablePlayerId; ownerId++)
-                {
-                    if (before[ownerId] == after[ownerId]) continue;
-                    Shared.DebugLogHelper.LogWarning(log,
-                        $"PREPLACED_INIT_CHECKPOINT_TIMER_CHANGE: step={step}; argumentPlayer={playerId}; " +
-                        $"buildingId={buildingId}; building={building}; timerOwner={ownerId}; " +
-                        $"crushed={before[ownerId]}->{after[ownerId]}; phase={lastObservedPhase}.");
-                }
+                EmitTimerCheckpointChanges(step, playerId, buildingId, before, after, building);
                 ObserveCrushedCounters("init-checkpoint." + step + ".post");
             });
+        }
+
+        private void EmitTimerCheckpointChanges(string step, int playerId, int buildingId,
+            int[] before, int[] after, string building = "none")
+        {
+            if (before == null || after == null) return;
+            for (int ownerId = 1; ownerId <= MaxPlayablePlayerId; ownerId++)
+            {
+                if (before[ownerId] == after[ownerId]) continue;
+                Shared.DebugLogHelper.LogWarning(log,
+                    $"PREPLACED_INIT_CHECKPOINT_TIMER_CHANGE: step={step}; argumentPlayer={playerId}; " +
+                    $"buildingId={buildingId}; building={building}; timerOwner={ownerId}; " +
+                    $"crushed={before[ownerId]}->{after[ownerId]}; phase={lastObservedPhase}.");
+            }
         }
 
         private int[] CaptureAllCrushedCounters()
@@ -1444,7 +1520,7 @@ namespace PreplacedTest
             ObserveEconomySearch(state, playerId, "farm-search", (eStructs)desiredStructureType,
                 "desired=" + (eStructs)desiredStructureType + "/return=" + result +
                 "/cooldown=" + DescribeCooldown(cooldownBefore, cooldownAfter),
-                before, result != 0, cooldownBefore, cooldownAfter);
+                before, result != 0, cooldownBefore, cooldownAfter, 0);
             return result;
         }
 
@@ -1459,7 +1535,7 @@ namespace PreplacedTest
             short cooldownAfter = cooldownOffset < 0 ? (short)-1 : ReadPlayerInt16(playerId, cooldownOffset, 0);
             ObserveEconomySearch(state, playerId, "resource-search", CurrentEconomy(playerId)?.DesiredType,
                 "mode=" + mode + "/cooldown=" + (cooldownOffset < 0 ? "unavailable-invalid-mode" :
-                    DescribeCooldown(cooldownBefore, cooldownAfter)), before, null, cooldownBefore, cooldownAfter);
+                    DescribeCooldown(cooldownBefore, cooldownAfter)), before, null, cooldownBefore, cooldownAfter, mode);
         }
 
         private void WoodSearch(ulong state, int playerId)
@@ -1470,7 +1546,7 @@ namespace PreplacedTest
             short cooldownAfter = ReadPlayerInt16(playerId, WoodSearchCooldownRelativeOffset, 0);
             ObserveEconomySearch(state, playerId, "wood-search", eStructs.STRUCT_WOODCUTTERS_HUT,
                 "player=" + playerId + "/cooldown=" + DescribeCooldown(cooldownBefore, cooldownAfter),
-                before, null, cooldownBefore, cooldownAfter);
+                before, null, cooldownBefore, cooldownAfter, 0);
         }
 
         private void NearbySearch(ulong state, uint coarseX, uint coarseY)
@@ -1479,7 +1555,8 @@ namespace PreplacedTest
             EconomyGridState before = CaptureEconomyGridState(state);
             nearbySearchHook.Original(state, coarseX, coarseY);
             ObserveEconomySearch(state, context?.PlayerId ?? 0, "nearby-search", context?.DesiredType,
-                $"start=({coarseX},{coarseY})", before);
+                $"start=({coarseX},{coarseY})", before, null, -1, -1, 0,
+                checked((int)coarseX), checked((int)coarseY));
         }
 
         private void ConstructBuilding(ulong state, int playerId, int x, int y, short mapperValue,
@@ -1543,7 +1620,8 @@ namespace PreplacedTest
 
         private void ObserveEconomySearch(ulong state, int playerId, string helper, eStructs? desiredType,
             string arguments, EconomyGridState before, bool? candidateFoundOverride = null,
-            int cooldownBefore = -1, int cooldownAfter = -1)
+            int cooldownBefore = -1, int cooldownAfter = -1, int resourceMode = 0,
+            int explicitStartX = -1, int explicitStartY = -1)
         {
             Safe(() =>
             {
@@ -1575,6 +1653,7 @@ namespace PreplacedTest
                         EmitChunked($"PREPLACED_ECONOMY_SEARCH: player={playerId}; helper={helper}; ",
                             observation.FullText + "; counterfactual=" + DescribeSearchRoutes(playerId, observation));
                     }
+                    EmitShadowEconomySearch(state, playerId, helper, resourceMode, explicitStartX, explicitStartY);
                     if (session.ConfirmedWallBreach && observation.PerformedTraversal)
                     {
                         string postBreachKey = helper + "/" + (desiredType?.ToString() ?? "unknown");
@@ -1588,6 +1667,80 @@ namespace PreplacedTest
                 }
                 else RecordUnattributed(counter + " player=" + playerId);
             });
+        }
+
+        private void EmitShadowEconomySearch(ulong state, int playerId, string helper, int resourceMode,
+            int explicitStartX, int explicitStartY)
+        {
+            if (state == 0 || !IsAi(playerId) || !TryGetKeepPcl(playerId, out int keepPcl)) return;
+            ShadowEconomySearchKind kind = helper == "farm-search" ? ShadowEconomySearchKind.Farm :
+                helper == "resource-search" ? ShadowEconomySearchKind.Resource :
+                helper == "wood-search" ? ShadowEconomySearchKind.Wood : ShadowEconomySearchKind.Nearby;
+            int startX;
+            int startY;
+            if (explicitStartX >= 0 && explicitStartY >= 0)
+            { startX = explicitStartX; startY = explicitStartY; }
+            else
+            {
+                if (!TryGetKeepPosition(playerId, out int keepX, out int keepY)) return;
+                startX = keepX / EconomyCoarseCellTileSize;
+                startY = keepY / EconomyCoarseCellTileSize;
+            }
+            if ((uint)startX >= EconomyGridWidth || (uint)startY >= EconomyGridWidth) return;
+            List<PortalConnection> portals = CapturePortalConnections(out _);
+            HashSet<int> reachablePcls = PortalRouteModel.ReachableFriendlyPcls(keepPcl, portals,
+                playerId, IsAllied);
+            ulong routingSignature = lastRoutingSnapshot?.Signature ?? 0;
+            string inputSignature = playerId + "/" + helper + "/" + resourceMode + "/" + keepPcl + "/" +
+                string.Join(",", reachablePcls.OrderBy(value => value)) + "/" + routingSignature.ToString("X16") +
+                "/start=" + startX + "," + startY;
+            if (!emittedShadowSearchSignatures.Add(inputSignature))
+            {
+                Session(playerId).Counters.Add("shadow-economy-repeat helper=" + helper +
+                    " inputSignature=" + routingSignature.ToString("X16"));
+                return;
+            }
+            var cells = new ShadowEconomyCell[EconomyGridCellCount];
+            byte* memory = (byte*)state;
+            for (int index = 0; index < cells.Length; index++)
+            {
+                EconomyCoordinate coordinate = EconomyCoordinate.FromIndex(index);
+                int projected04 = CountPclTilesOutsideSet(coordinate.X, coordinate.Y, reachablePcls);
+                byte* cell = memory + EconomyGridBaseOffset + index * EconomyGridCellStride;
+                cells[index] = new ShadowEconomyCell(projected04, (sbyte)cell[0x16], cell[0x07],
+                    cell[0x08], cell[0x09], cell[0x0A], cell[0x0B], cell[0x0C], cell[0x0D],
+                    cell[0x0E], cell[0x0F], cell[0x11], cell[0x12], cell[0x13], cell[0x15]);
+            }
+            ShadowEconomySearchResult result = ShadowEconomySearch.Run(cells, EconomyGridWidth,
+                startX * EconomyGridWidth + startY, kind, resourceMode);
+            string firstCandidate = result.CandidateIndices.Length == 0 ? "none" :
+                EconomyCoordinate.FromIndex(result.CandidateIndices[0]).ToString();
+            EmitChunked($"PREPLACED_SHADOW_ECONOMY_SEARCH: player={playerId}; helper={helper}; ",
+                $"mode={resourceMode}; inputSignature={routingSignature:X16}; start=({startX},{startY}); keepPcl={keepPcl}; " +
+                $"friendlyReachablePcls=[{string.Join(",", reachablePcls.OrderBy(value => value))}]; " +
+                $"reachableCells={result.ReachableCount}; blockedBoundaryCells={result.BlockedIndices.Length}; " +
+                $"candidateCells={result.CandidateIndices.Length}; firstCandidate={firstCandidate}; " +
+                $"blocked=[{LosslessGridCoordinateFormatter.Format(result.BlockedIndices, EconomyGridWidth)}]; " +
+                $"candidates=[{LosslessGridCoordinateFormatter.Format(result.CandidateIndices, EconomyGridWidth)}]; " +
+                "raw non-PCL predicates are preserved; byte+16 remains unchanged because its player-specific meaning is not proven");
+        }
+
+        private int CountPclTilesOutsideSet(int coarseX, int coarseY, HashSet<int> reachablePcls)
+        {
+            int count = 0;
+            GameTileManagerAPI api = GameTileManagerAPI.Instance;
+            int beginX = coarseX * EconomyCoarseCellTileSize;
+            int beginY = coarseY * EconomyCoarseCellTileSize;
+            for (int dx = 0; dx < EconomyCoarseCellTileSize; dx++)
+                for (int dy = 0; dy < EconomyCoarseCellTileSize; dy++)
+                {
+                    int x = beginX + dx;
+                    int y = beginY + dy;
+                    if (!api.IsTileInsideMapBounds(x, y)) { count++; continue; }
+                    int tileId = api.GetTileId(x, y);
+                    if (!TryGetPclByTileId(tileId, out int pcl, "shadow-economy") || !reachablePcls.Contains(pcl)) count++;
+                }
+            return count;
         }
 
         private EconomyBarrierObservation CaptureEconomyBarrier(string helper, eStructs? desiredType,
@@ -1629,7 +1782,9 @@ namespace PreplacedTest
         {
             if (state == 0) return EconomySearchObservation.Unavailable(helper, arguments, before, after);
             string gateReason = EconomySearchGateClassifier.Classify(before.Generation != after.Generation,
-                cooldownBefore, cooldownAfter, before.Depth, after.Depth);
+                cooldownBefore, cooldownAfter, before.QueueRead, before.QueueWrite,
+                after.QueueRead, after.QueueWrite, before.ResultX, before.ResultY,
+                after.ResultX, after.ResultY);
             if (before.Generation == after.Generation)
             {
                 // The generation is a monotonic invocation counter, not part of the search
@@ -1929,39 +2084,27 @@ namespace PreplacedTest
             foreach (PlayerSession session in players.Values)
             {
                 if (session.ConfirmedWallBreach) continue;
-                foreach (EconomyBarrierObservation barrier in session.EconomyBarriers.AsEnumerable().Reverse())
+                if (!wallBaselines.TryGetValue(session.PlayerId, out WallTileBaseline baseline)) continue;
+                List<WallTileDelta> wallDeltas = CaptureWallTileDeltas(baseline);
+                if (wallDeltas.Count != 0)
                 {
-                    IReadOnlyList<PclConnectivityTransition> transitions =
-                        PclConnectivityTransitionDetector.Detect(lastPclTopology, current,
-                            barrier.VisitedTileIds, barrier.FrontierTileIds);
-                    if (transitions.Count == 0) continue;
-                    bool confirmedByLocalMultiplicity = transitions.Select(transition =>
-                        transition.InsideTileId + "/" + transition.OutsideTileId).Distinct().Take(2).Count() >= 2;
-                    bool confirmedByBuildingSignal = session.FirstPossibleBreachObserved;
-                    if (!confirmedByLocalMultiplicity && !confirmedByBuildingSignal) continue;
-                    session.ConfirmedWallBreach = true;
-                    session.WallBreachUtc = DateTime.UtcNow;
-                    session.Counters.Add("confirmed-wall-breach reason=" + reason);
-                    string transitionText = string.Join(";", transitions
-                        .GroupBy(transition => new
-                        {
-                            transition.OldInsidePcl,
-                            transition.OldOutsidePcl,
-                            transition.NewPcl
-                        })
-                        .Select(group => $"old={group.Key.OldInsidePcl}+{group.Key.OldOutsidePcl}" +
-                            $"->new={group.Key.NewPcl}/insideTiles=[{string.Join(",", group.Select(value => value.InsideTileId).Distinct().OrderBy(value => value))}]" +
-                            $"/outsideTiles=[{string.Join(",", group.Select(value => value.OutsideTileId).Distinct().OrderBy(value => value))}]"));
-                    EmitChunked($"PREPLACED_CONFIRMED_WALL_BREACH: player={session.PlayerId}; ",
-                        $"reason={reason}; helper={barrier.Helper}; desired={barrier.DesiredTypeText}; " +
-                        $"role={session.WallTestRole}; confirmation=" +
-                        $"{(confirmedByBuildingSignal ? "building-signal" : "multiple-local-anchor-pairs")}; " +
-                        $"visitedPcls=[{string.Join(",", barrier.VisitedPcls.OrderBy(value => value))}]; " +
-                        $"frontierPcls=[{string.Join(",", barrier.FrontierPcls.OrderBy(value => value))}]; " +
-                        $"connectivityTransitions=[{transitionText}]");
-                    break;
+                    EmitChunked($"PREPLACED_WALL_TILE_CHANGE: player={session.PlayerId}; ",
+                        $"reason={reason}; role={session.WallTestRole}; changes=[{string.Join(";", wallDeltas.Select(value => value.ToString()))}]");
                 }
-            }
+                WallAnchorPair confirmed = baseline.Anchors.FirstOrDefault(anchor =>
+                    baseline.LostWallTiles.Contains(anchor.WallTileId) &&
+                    WallBreachConfirmation.IsConfirmed(true,
+                        anchor.OldInsidePcl, anchor.OldOutsidePcl,
+                        current[anchor.InsideTileId], current[anchor.OutsideTileId]));
+                if (confirmed == null) continue;
+                session.ConfirmedWallBreach = true;
+                session.WallBreachUtc = DateTime.UtcNow;
+                session.Counters.Add("confirmed-wall-breach reason=" + reason);
+                EmitChunked($"PREPLACED_CONFIRMED_WALL_BREACH: player={session.PlayerId}; ",
+                    $"reason={reason}; role={session.WallTestRole}; confirmation=baseline-wall-tile-lost-and-anchor-connectivity; " +
+                    $"wallTile={confirmed.WallTileId}; insideTile={confirmed.InsideTileId}; outsideTile={confirmed.OutsideTileId}; " +
+                    $"pcl={confirmed.OldInsidePcl}+{confirmed.OldOutsidePcl}->{current[confirmed.InsideTileId]}");
+                }
             lastPclTopology = current;
         }
 
@@ -2265,26 +2408,184 @@ namespace PreplacedTest
         private void ResolveWallTestRoles()
         {
             List<BuildingSnapshot> buildings = CaptureRawBuildings();
+            WallOwnerEncoding encoding = ResolveWallOwnerEncoding(buildings, out int oneBasedMatches,
+                out int zeroBasedMatches, out string correlation);
             var rows = new List<string>();
             for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
             {
                 if (!IsAi(playerId)) continue;
-                int wallCount = buildings.Count(building => building.OwnerId == playerId &&
-                    IsLiving(building) && IsWallStructure(building.Type));
+                WallTileBaseline baseline = CaptureWallBaseline(playerId, encoding);
+                if (baseline != null) wallBaselines[playerId] = baseline;
+                int wallCount = baseline?.Tiles.Count ?? 0;
                 int portalCount = buildings.Count(building => building.OwnerId == playerId &&
                     IsLiving(building) && IsPortalStructure(building.Type));
                 WallTestRole role = WallTestRoleClassifier.Classify(wallCount, portalCount);
                 PlayerSession session = Session(playerId);
                 session.WallTestRole = role;
                 session.Counters.Add($"wall-test-role role={role} walls={wallCount} portals={portalCount}");
-                rows.Add($"player={playerId}/role={role}/walls={wallCount}/portals={portalCount}");
+                rows.Add($"player={playerId}/role={role}/wallTiles={wallCount}/portals={portalCount}" +
+                    $"/componentTiles={(baseline?.ComponentTiles.Count ?? 0)}/anchors={(baseline?.Anchors.Count ?? 0)}");
             }
             string ambiguity = rows.Count(row => row.Contains("role=GatedWallCandidate")) > 1 ||
                 rows.Count(row => row.Contains("role=ClosedWallCandidate")) > 1
                 ? "multiple-candidates-observed" : "none";
             EmitChunked("PREPLACED_DYNAMIC_WALL_ROLES: ",
-                $"sequence={mapSequence}; ambiguity={ambiguity}; roles=[{string.Join("; ", rows)}]; " +
-                "roles are derived anew from current living building owners and never from fixed player IDs or colors");
+                $"sequence={mapSequence}; wallOwnerEncoding={encoding}; oneBasedMatches={oneBasedMatches}; " +
+                $"zeroBasedMatches={zeroBasedMatches}; correlation=[{correlation}]; ambiguity={ambiguity}; " +
+                $"roles=[{string.Join("; ", rows)}]; roles are derived anew from tile walls and current portal-building owners");
+        }
+
+        private WallOwnerEncoding ResolveWallOwnerEncoding(List<BuildingSnapshot> buildings,
+            out int oneBasedMatches, out int zeroBasedMatches, out string correlation)
+        {
+            oneBasedMatches = 0;
+            zeroBasedMatches = 0;
+            var rows = new List<string>();
+            GameTileManagerAPI api = GameTileManagerAPI.Instance;
+            var tiles = api.TileManager;
+            foreach (BuildingSnapshot building in buildings.Where(value => IsLiving(value) && IsPortalStructure(value.Type)))
+            {
+                var rawCounts = new SortedDictionary<int, int>();
+                for (int x = building.TileX; x <= building.EndX; x++)
+                    for (int y = building.TileY; y <= building.EndY; y++)
+                    {
+                        if (!api.IsTileInsideMapBounds(x, y)) continue;
+                        int tileId = api.GetTileId(x, y);
+                        if ((tiles.LogicGrid[tileId] & (int)TilePropertyFlag.IsWall) == 0) continue;
+                        byte raw = tiles.WallOwnerGrid[tileId];
+                        rawCounts[raw] = rawCounts.TryGetValue(raw, out int count) ? count + 1 : 1;
+                        if (raw == building.OwnerId) oneBasedMatches++;
+                        if (raw + 1 == building.OwnerId) zeroBasedMatches++;
+                    }
+                rows.Add($"building={building.Id}/owner={building.OwnerId}/raw=[{string.Join(",", rawCounts.Select(pair => pair.Key + "=" + pair.Value))}]");
+            }
+            correlation = string.Join(";", rows);
+            return WallOwnerEncodingResolver.Resolve(oneBasedMatches, zeroBasedMatches);
+        }
+
+        private WallTileBaseline CaptureWallBaseline(int playerId, WallOwnerEncoding encoding)
+        {
+            if (encoding == WallOwnerEncoding.Unresolved) return null;
+            if (!TryGetKeepPosition(playerId, out int keepX, out int keepY)) return null;
+            GameTileManagerAPI api = GameTileManagerAPI.Instance;
+            var manager = api.TileManager;
+            var all = new Dictionary<int, WallTileState>();
+            for (int x = 0; x < NativeTileGridWidth; x++)
+                for (int y = 0; y < NativeTileGridWidth; y++)
+                {
+                    if (!api.IsTileInsideMapBounds(x, y)) continue;
+                    int tileId = api.GetTileId(x, y);
+                    if ((manager.LogicGrid[tileId] & (int)TilePropertyFlag.IsWall) == 0) continue;
+                    byte rawOwner = manager.WallOwnerGrid[tileId];
+                    if (WallOwnerEncodingResolver.Decode(rawOwner, encoding) != playerId) continue;
+                    all[tileId] = CaptureWallTileState(tileId, x, y);
+                }
+            if (all.Count == 0) return null;
+
+            HashSet<int> component = SelectKeepWallComponent(all, keepX, keepY, api);
+            var anchors = new List<WallAnchorPair>();
+            foreach (int wallTileId in component)
+            {
+                WallTileState wall = all[wallTileId];
+                int wallDistance = Math.Abs(wall.X - keepX) + Math.Abs(wall.Y - keepY);
+                int insideTile = -1;
+                int outsideTile = -1;
+                int insideDistance = int.MaxValue;
+                int outsideDistance = int.MinValue;
+                foreach (int neighbor in GetOrthogonalTileIds(wall.X, wall.Y, api))
+                {
+                    if (component.Contains(neighbor)) continue;
+                    var vector = api.GetTileVectorFromId(neighbor);
+                    int distance = Math.Abs((int)vector.X - keepX) + Math.Abs((int)vector.Y - keepY);
+                    if (distance < wallDistance && distance < insideDistance) { insideTile = neighbor; insideDistance = distance; }
+                    if (distance > wallDistance && distance > outsideDistance) { outsideTile = neighbor; outsideDistance = distance; }
+                }
+                if (insideTile < 0 || outsideTile < 0) continue;
+                int insidePcl = TryGetPclByTileId(insideTile, out int capturedInside, "wall-anchor-inside") ? capturedInside : 0;
+                int outsidePcl = TryGetPclByTileId(outsideTile, out int capturedOutside, "wall-anchor-outside") ? capturedOutside : 0;
+                if (insidePcl <= 0 || outsidePcl <= 0 || insidePcl == outsidePcl) continue;
+                anchors.Add(new WallAnchorPair(wallTileId, insideTile, outsideTile, insidePcl, outsidePcl));
+            }
+            EmitChunked($"PREPLACED_WALL_BASELINE: player={playerId}; ",
+                $"encoding={encoding}; keep=({keepX},{keepY}); ownedWallTiles={all.Count}; " +
+                $"selectedComponentTiles={component.Count}; anchors={anchors.Count}; tiles=[{string.Join(",", component.OrderBy(value => value))}]; " +
+                $"anchorPairs=[{string.Join(";", anchors.Select(value => value.ToString()))}]");
+            return new WallTileBaseline(playerId, encoding, keepX, keepY, all, component, anchors);
+        }
+
+        private static HashSet<int> SelectKeepWallComponent(Dictionary<int, WallTileState> all,
+            int keepX, int keepY, GameTileManagerAPI api)
+        {
+            var remaining = new HashSet<int>(all.Keys);
+            HashSet<int> best = new HashSet<int>();
+            int bestDistance = int.MaxValue;
+            bool bestEnclosesKeep = false;
+            while (remaining.Count != 0)
+            {
+                int seed = remaining.First();
+                remaining.Remove(seed);
+                var component = new HashSet<int> { seed };
+                var queue = new Queue<int>();
+                queue.Enqueue(seed);
+                int distance = int.MaxValue;
+                int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
+                while (queue.Count != 0)
+                {
+                    int tileId = queue.Dequeue();
+                    WallTileState tile = all[tileId];
+                    distance = Math.Min(distance, Math.Abs(tile.X - keepX) + Math.Abs(tile.Y - keepY));
+                    minX = Math.Min(minX, tile.X); maxX = Math.Max(maxX, tile.X);
+                    minY = Math.Min(minY, tile.Y); maxY = Math.Max(maxY, tile.Y);
+                    foreach (int neighbor in GetOrthogonalTileIds(tile.X, tile.Y, api))
+                        if (remaining.Remove(neighbor) && all.ContainsKey(neighbor))
+                        { component.Add(neighbor); queue.Enqueue(neighbor); }
+                }
+                bool enclosesKeep = minX < keepX && keepX < maxX && minY < keepY && keepY < maxY;
+                if (enclosesKeep && !bestEnclosesKeep || enclosesKeep == bestEnclosesKeep &&
+                    (distance < bestDistance || distance == bestDistance && component.Count > best.Count))
+                { bestDistance = distance; best = component; bestEnclosesKeep = enclosesKeep; }
+            }
+            return best;
+        }
+
+        private static IEnumerable<int> GetOrthogonalTileIds(int x, int y, GameTileManagerAPI api)
+        {
+            if (api.IsTileInsideMapBounds(x - 1, y)) yield return api.GetTileId(x - 1, y);
+            if (api.IsTileInsideMapBounds(x + 1, y)) yield return api.GetTileId(x + 1, y);
+            if (api.IsTileInsideMapBounds(x, y - 1)) yield return api.GetTileId(x, y - 1);
+            if (api.IsTileInsideMapBounds(x, y + 1)) yield return api.GetTileId(x, y + 1);
+        }
+
+        private WallTileState CaptureWallTileState(int tileId, int x, int y)
+        {
+            var manager = GameTileManagerAPI.Instance.TileManager;
+            return new WallTileState(tileId, x, y, manager.LogicGrid[tileId], manager.WallOwnerGrid[tileId],
+                manager.DamageGrid[tileId], manager.StructureWasGrid[tileId], manager.GatePathGrid[tileId],
+                TryGetPclByTileId(tileId, out int pcl, "wall-tile") ? pcl : 0);
+        }
+
+        private List<WallTileDelta> CaptureWallTileDeltas(WallTileBaseline baseline)
+        {
+            var result = new List<WallTileDelta>();
+            foreach (WallTileState original in baseline.Tiles.Values)
+            {
+                WallTileState before = baseline.LastObservedTiles[original.TileId];
+                WallTileState after = CaptureWallTileState(original.TileId, original.X, original.Y);
+                if (!before.DataEquals(after)) result.Add(new WallTileDelta(before, after));
+                if (original.IsWall && !after.IsWall) baseline.LostWallTiles.Add(original.TileId);
+                baseline.LastObservedTiles[original.TileId] = after;
+            }
+            return result;
+        }
+
+        private static bool TryGetKeepPosition(int playerId, out int x, out int y)
+        {
+            x = 0; y = 0;
+            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) || resources == null)
+                return false;
+            x = checked((int)resources->r_KeepTilePositionX);
+            y = checked((int)resources->r_KeepTilePositionY);
+            return GameTileManagerAPI.Instance.IsTileInsideMapBounds(x, y);
         }
 
         private static bool IsLiving(BuildingSnapshot building) =>
@@ -2312,6 +2613,8 @@ namespace PreplacedTest
             emittedGridUpdateSignatures.Clear();
             emittedDominantPclSignatures.Clear();
             emittedInvalidPclAccesses.Clear();
+            emittedShadowSearchSignatures.Clear();
+            wallBaselines.Clear();
             lock (crushedWriterSync) pendingCrushedWriterSignals.Clear();
             lastAivState = 0;
             nextUnattributedFlushUtc = DateTime.UtcNow.AddSeconds(1);
@@ -3469,6 +3772,77 @@ namespace PreplacedTest
                     .Select(pclIndex => pclValues[pclBase + pclIndex].ToString()));
                 return $"raw+04-except+05={raw},pcls=[{pclText}]";
             }
+        }
+
+        private sealed class WallTileBaseline
+        {
+            public WallTileBaseline(int playerId, WallOwnerEncoding encoding, int keepX, int keepY,
+                Dictionary<int, WallTileState> tiles, HashSet<int> componentTiles, List<WallAnchorPair> anchors)
+            {
+                PlayerId = playerId; Encoding = encoding; KeepX = keepX; KeepY = keepY;
+                Tiles = tiles; LastObservedTiles = new Dictionary<int, WallTileState>(tiles);
+                ComponentTiles = componentTiles; Anchors = anchors;
+            }
+            public int PlayerId { get; }
+            public WallOwnerEncoding Encoding { get; }
+            public int KeepX { get; }
+            public int KeepY { get; }
+            public Dictionary<int, WallTileState> Tiles { get; }
+            public Dictionary<int, WallTileState> LastObservedTiles { get; }
+            public HashSet<int> LostWallTiles { get; } = new HashSet<int>();
+            public HashSet<int> ComponentTiles { get; }
+            public List<WallAnchorPair> Anchors { get; }
+        }
+
+        private readonly struct WallTileState
+        {
+            public WallTileState(int tileId, int x, int y, int logic, byte rawOwner, byte damage,
+                byte structureWas, byte gatePath, int pcl)
+            {
+                TileId = tileId; X = x; Y = y; Logic = logic; RawOwner = rawOwner;
+                Damage = damage; StructureWas = structureWas; GatePath = gatePath; Pcl = pcl;
+            }
+            public int TileId { get; }
+            public int X { get; }
+            public int Y { get; }
+            public int Logic { get; }
+            public byte RawOwner { get; }
+            public byte Damage { get; }
+            public byte StructureWas { get; }
+            public byte GatePath { get; }
+            public int Pcl { get; }
+            public bool IsWall => (Logic & (int)TilePropertyFlag.IsWall) != 0;
+            public bool DataEquals(WallTileState other) => Logic == other.Logic && RawOwner == other.RawOwner &&
+                Damage == other.Damage && StructureWas == other.StructureWas && GatePath == other.GatePath && Pcl == other.Pcl;
+            public override string ToString() =>
+                $"tile={TileId}@({X},{Y})/logic=0x{Logic:X8}/rawOwner={RawOwner}/damage={Damage}/structureWas={StructureWas}/gatePath={GatePath}/pcl={Pcl}";
+        }
+
+        private sealed class WallAnchorPair
+        {
+            public WallAnchorPair(int wallTileId, int insideTileId, int outsideTileId,
+                int oldInsidePcl, int oldOutsidePcl)
+            {
+                WallTileId = wallTileId; InsideTileId = insideTileId; OutsideTileId = outsideTileId;
+                OldInsidePcl = oldInsidePcl; OldOutsidePcl = oldOutsidePcl;
+            }
+            public int WallTileId { get; }
+            public int InsideTileId { get; }
+            public int OutsideTileId { get; }
+            public int OldInsidePcl { get; }
+            public int OldOutsidePcl { get; }
+            public override string ToString() =>
+                $"wall={WallTileId}/inside={InsideTileId}:{OldInsidePcl}/outside={OutsideTileId}:{OldOutsidePcl}";
+        }
+
+        private readonly struct WallTileDelta
+        {
+            public WallTileDelta(WallTileState before, WallTileState after) { Before = before; After = after; }
+            public WallTileState Before { get; }
+            public WallTileState After { get; }
+            public int TileId => Before.TileId;
+            public bool WallLost => Before.IsWall && !After.IsWall;
+            public override string ToString() => $"{Before}->{After}/wallLost={WallLost}";
         }
 
         private readonly struct FrameSnapshot

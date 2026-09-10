@@ -1,4 +1,4 @@
-using SerpNativeAPI;
+using APIShared;
 using SHCDESE.EventAPI;
 using SHCDESE.Interop.Enums;
 using System;
@@ -7,7 +7,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
-namespace SerpNativeAPITests
+namespace APISharedTests
 {
     internal static class Program
     {
@@ -44,20 +44,20 @@ namespace SerpNativeAPITests
             TestMigrationContracts();
             if (failures == 0)
             {
-                Console.WriteLine("PASS: SerpNativeAPI baseline-hardened tests passed.");
+                Console.WriteLine("PASS: APIShared baseline-hardened tests passed.");
                 return 0;
             }
-            Console.Error.WriteLine($"FAIL: SerpNativeAPI tests reported {failures} failure(s).");
+            Console.Error.WriteLine($"FAIL: APIShared tests reported {failures} failure(s).");
             return 1;
         }
 
         private static void TestMigrationContracts()
         {
             string workspace = FindWorkspaceRoot();
-            string plugin = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "src", "SerpNativeAPIPlugin.cs"));
-            string project = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "SerpNativeAPI.csproj"));
-            string sourceManifest = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "info.json"));
-            string packageManifest = File.ReadAllText(Path.Combine(workspace, "SerpNativeAPI", "BepInEx", "plugins", "SerpNativeAPI_Serp", "info.json"));
+            string plugin = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "APISharedPlugin.cs"));
+            string project = File.ReadAllText(Path.Combine(workspace, "APIShared", "APIShared.csproj"));
+            string sourceManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "info.json"));
+            string packageManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "info.json"));
             Match minimumMatch = Regex.Match(sourceManifest,
                 @"""MinimumScriptExtenderVersion""\s*:\s*""([^""]*)""");
             string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
@@ -86,7 +86,7 @@ namespace SerpNativeAPITests
             DirectoryInfo directory = new DirectoryInfo(Directory.GetCurrentDirectory());
             while (directory != null)
             {
-                if (Directory.Exists(Path.Combine(directory.FullName, "SerpNativeAPI")) &&
+                if (Directory.Exists(Path.Combine(directory.FullName, "APIShared")) &&
                     File.Exists(Path.Combine(directory.FullName, "AGENTS.md")))
                 {
                     return directory.FullName;
@@ -100,25 +100,25 @@ namespace SerpNativeAPITests
         {
             var expected = new HashSet<string>(StringComparer.Ordinal)
             {
-                "SerpNativeAPI.GatehouseDistanceOrigin",
-                "SerpNativeAPI.GatehouseTimingSettings",
-                "SerpNativeAPI.GatehouseTimingValues",
-                "SerpNativeAPI.IGatehouseDistanceOriginCapability",
-                "SerpNativeAPI.IGatehouseTimingCapability",
-                "SerpNativeAPI.ISelectedUnitCommandCapability",
-                "SerpNativeAPI.ISelectedUnitCommandRegistration",
-                "SerpNativeAPI.ISerpNativeApi",
-                "SerpNativeAPI.NativeApiState",
-                "SerpNativeAPI.NativeCapabilityDiagnostic",
-                "SerpNativeAPI.NativeCapabilityIds",
-                "SerpNativeAPI.NativeCapabilityState",
-                "SerpNativeAPI.SelectedUnitCommandContext",
-                "SerpNativeAPI.SerpNativeApi",
+                "APIShared.GatehouseDistanceOrigin",
+                "APIShared.GatehouseTimingSettings",
+                "APIShared.GatehouseTimingValues",
+                "APIShared.IGatehouseDistanceOriginCapability",
+                "APIShared.IGatehouseTimingCapability",
+                "APIShared.ISelectedUnitCommandCapability",
+                "APIShared.ISelectedUnitCommandRegistration",
+                "APIShared.IApiShared",
+                "APIShared.NativeApiState",
+                "APIShared.NativeCapabilityDiagnostic",
+                "APIShared.NativeCapabilityIds",
+                "APIShared.NativeCapabilityState",
+                "APIShared.SelectedUnitCommandContext",
+                "APIShared.ApiShared",
                 // BepInEx discovers the plugin type; it is public but is not a consumer service.
-                "SerpNativeAPI.SerpNativeAPIPlugin"
+                "APIShared.APISharedPlugin"
             };
 
-            Type[] exported = typeof(ISerpNativeApi).Assembly.GetExportedTypes();
+            Type[] exported = typeof(IApiShared).Assembly.GetExportedTypes();
             foreach (Type type in exported)
             {
                 Assert(expected.Remove(type.FullName), $"unexpected exported API type: {type.FullName}");
@@ -146,10 +146,10 @@ namespace SerpNativeAPITests
                 "TryGetGatehouseTiming",
                 "TryGetSelectedUnitCommand"
             };
-            foreach (MethodInfo method in typeof(ISerpNativeApi).GetMethods())
+            foreach (MethodInfo method in typeof(IApiShared).GetMethods())
                 expectedAcquisitionMethods.Remove(method.Name);
             foreach (string missing in expectedAcquisitionMethods)
-                Assert(false, $"expected capability acquisition method is missing: ISerpNativeApi.{missing}");
+                Assert(false, $"expected capability acquisition method is missing: IApiShared.{missing}");
 
             Assert(NativeCapabilityIds.GatehouseDistanceOrigin == "gatehouse-distance-origin",
                 "distance-origin capability ID must remain stable");
@@ -191,7 +191,7 @@ namespace SerpNativeAPITests
             byte[] image = CreatePeImage(0x4000, true);
             GatehouseBuildTarget catalog = InstallTestGatehouse(image);
             FakeMemory memory = SeedRuntimeMemory(image, catalog);
-            SerpNativeApiRuntime runtime = InitializeRuntime(image, catalog, memory, new FakeEventSource());
+            ApiSharedRuntime runtime = InitializeRuntime(image, catalog, memory, new FakeEventSource());
             Assert(runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic available) &&
                 available.State == NativeCapabilityState.Available && available.Reason.Contains("function SHA-256"),
                 "matching fixed catalog should validate with provenance");
@@ -209,7 +209,7 @@ namespace SerpNativeAPITests
             byte[] wrongOpcode = (byte[])image.Clone();
             wrongOpcode[DecisionRva] ^= 1;
             Copy(wrongOpcode, 0x1500, DecisionBytes); // A decoy must never be used as a fallback.
-            GatehouseBuildTarget wrongOpcodeCatalog = CloneCatalog(catalog, functionHash: SerpNativeApiRuntime.ComputeSha256(
+            GatehouseBuildTarget wrongOpcodeCatalog = CloneCatalog(catalog, functionHash: ApiSharedRuntime.ComputeSha256(
                 new ReadOnlySpan<byte>(wrongOpcode, FunctionRva, FunctionSize)));
             runtime = InitializeRuntime(wrongOpcode, wrongOpcodeCatalog, SeedRuntimeMemory(wrongOpcode, wrongOpcodeCatalog), new FakeEventSource());
             AssertTimingValidationFailure(runtime, "wrong timing opcode must fail without accepting a decoy");
@@ -218,7 +218,7 @@ namespace SerpNativeAPITests
 
             byte[] wrongImmediate = (byte[])image.Clone();
             WriteInt32(wrongImmediate, DecisionRva + 8, 201);
-            GatehouseBuildTarget wrongImmediateCatalog = CloneCatalog(catalog, functionHash: SerpNativeApiRuntime.ComputeSha256(
+            GatehouseBuildTarget wrongImmediateCatalog = CloneCatalog(catalog, functionHash: ApiSharedRuntime.ComputeSha256(
                 new ReadOnlySpan<byte>(wrongImmediate, FunctionRva, FunctionSize)));
             runtime = InitializeRuntime(wrongImmediate, wrongImmediateCatalog, SeedRuntimeMemory(wrongImmediate, wrongImmediateCatalog), new FakeEventSource());
             AssertTimingValidationFailure(runtime, "wrong Vanilla immediate must fail timing");
@@ -227,7 +227,7 @@ namespace SerpNativeAPITests
 
             byte[] wrongDistance = (byte[])image.Clone();
             wrongDistance[DistanceRva] ^= 1;
-            GatehouseBuildTarget wrongDistanceCatalog = CloneCatalog(catalog, functionHash: SerpNativeApiRuntime.ComputeSha256(
+            GatehouseBuildTarget wrongDistanceCatalog = CloneCatalog(catalog, functionHash: ApiSharedRuntime.ComputeSha256(
                 new ReadOnlySpan<byte>(wrongDistance, FunctionRva, FunctionSize)));
             runtime = InitializeRuntime(wrongDistance, wrongDistanceCatalog, SeedRuntimeMemory(wrongDistance, wrongDistanceCatalog), new FakeEventSource());
             AssertOriginValidationFailure(runtime, "wrong Vanilla distance block must fail distance origin");
@@ -244,7 +244,7 @@ namespace SerpNativeAPITests
         private static void TestReadinessAndIndependentCapabilities()
         {
             byte[] image = CreatePeImage(0x4000, true);
-            var runtime = new SerpNativeApiRuntime();
+            var runtime = new ApiSharedRuntime();
             Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out NativeCapabilityDiagnostic originPending) &&
                 originPending.State == NativeCapabilityState.Pending, "pre-initialization origin query should be Pending");
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic pending) &&
@@ -268,7 +268,7 @@ namespace SerpNativeAPITests
             runtime.WhenReady(_ => readyAfter++);
             Assert(readyAfter == 1, "post-initialization readiness callback should be synchronous");
 
-            runtime = new SerpNativeApiRuntime();
+            runtime = new ApiSharedRuntime();
             runtime.Initialize(0, ReadOnlySpan<byte>.Empty, string.Empty, new FakeMemory(), new FakeEventSource(), null);
             Assert(runtime.State == NativeApiState.Ready, "missing native module is a gate capability error, not a global failure");
             Assert(runtime.TryGetSelectedUnitCommand("owner", out _, out _), "selected event survives missing native module");
@@ -558,26 +558,26 @@ namespace SerpNativeAPITests
                 "failed first subscription leaves registration retryable");
         }
 
-        private static SerpNativeApiRuntime InitializeRuntime(
+        private static ApiSharedRuntime InitializeRuntime(
             byte[] image,
             GatehouseBuildTarget catalog,
             FakeMemory memory,
             FakeEventSource events)
         {
-            var runtime = new SerpNativeApiRuntime();
+            var runtime = new ApiSharedRuntime();
             runtime.Initialize(ModuleBase, image, catalog.BuildHash, memory, events, null, catalog);
             return runtime;
         }
 
-        private static void AssertTimingValidationFailure(SerpNativeApiRuntime runtime, string message) =>
+        private static void AssertTimingValidationFailure(ApiSharedRuntime runtime, string message) =>
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic diagnostic) &&
                 diagnostic.State == NativeCapabilityState.ValidationFailed, message);
 
-        private static void AssertOriginValidationFailure(SerpNativeApiRuntime runtime, string message) =>
+        private static void AssertOriginValidationFailure(ApiSharedRuntime runtime, string message) =>
             Assert(!runtime.TryGetGatehouseDistanceOrigin("owner", out _, out NativeCapabilityDiagnostic diagnostic) &&
                 diagnostic.State == NativeCapabilityState.ValidationFailed, message);
 
-        private static void AssertBothGateValidationFailures(SerpNativeApiRuntime runtime, string message)
+        private static void AssertBothGateValidationFailures(ApiSharedRuntime runtime, string message)
         {
             AssertTimingValidationFailure(runtime, message + " (timing)");
             AssertOriginValidationFailure(runtime, message + " (origin)");
@@ -590,7 +590,7 @@ namespace SerpNativeAPITests
             Copy(image, HumanDelayRva, HumanDelayBytes);
             return new GatehouseBuildTarget(
                 "TESTHASH", FunctionRva, FunctionSize,
-                SerpNativeApiRuntime.ComputeSha256(new ReadOnlySpan<byte>(image, FunctionRva, FunctionSize)),
+                ApiSharedRuntime.ComputeSha256(new ReadOnlySpan<byte>(image, FunctionRva, FunctionSize)),
                 DistanceRva, VanillaDistanceBytes, CenteredDistanceBytes,
                 DecisionRva, DecisionBytes, HumanDelayRva, HumanDelayBytes,
                 DecisionRva + 8, DecisionRva + 15, DecisionRva + 24, HumanDelayRva + 3);

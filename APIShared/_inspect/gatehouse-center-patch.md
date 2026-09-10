@@ -57,4 +57,4 @@ The five trailing NOPs pad the replacement to the exact original boundary. `R8D`
 - A capability-specific target mismatch disables only that Gatehouse capability after common build/function provenance succeeds.
 - The regression test pins all 75 replacement bytes and verifies that the complete `unitY` load precedes the first `cdq` write to `RDX`.
 
-Automated coverage is in `_inspect/SerpNativeAPITests`. In-game acceptance for small and large gatehouses in every orientation remains required before release/versioning.
+Automated coverage is in `_inspect/APISharedTests`. In-game acceptance for small and large gatehouses in every orientation remains required before release/versioning.

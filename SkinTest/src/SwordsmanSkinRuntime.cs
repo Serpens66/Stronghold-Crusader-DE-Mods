@@ -159,16 +159,27 @@ namespace SkinTest
                 bool rendererBound = !ReferenceEquals(renderer, null) && unitByRenderer.TryGetValue(renderer, out unitId);
                 LogOnce("set-body-sprite-confirmed",
                     $"SetBodySprite detour confirmed: file={(ExtenderGM)file}, image={image}, alternate={alternateFrame}, rendererBound={rendererBound}, unitId={(rendererBound ? unitId : 0)}.");
-                if (renderer == null || spriteLoader.instance == null || file != (int)ExtenderGM.GM_BODY_SWORDSMAN)
+                if (renderer == null || file != (int)ExtenderGM.GM_BODY_SWORDSMAN)
                     return;
+
+                int frameIndex = SkinSelectionPolicy.ToAtlasFrameIndex(image);
+                LogOnce("swordsman-callback",
+                    $"Swordsman SetBodySprite callback: image={image}, frameIndex={frameIndex}, alternate={alternateFrame}, rendererBound={rendererBound}, unitId={(rendererBound ? unitId : 0)}.");
+                if (spriteLoader.instance == null)
+                {
+                    WarnOnce("sprite-loader-missing", "Swordsman sprite callback occurred before spriteLoader was available.");
+                    return;
+                }
                 if (!rendererBound)
                 {
                     WarnOnce("swordsman-renderer-unbound",
-                        $"Swordsman sprite callback has no renderer binding: image={image}, alternate={alternateFrame}.");
+                        $"Swordsman sprite callback has no renderer binding: image={image}, frameIndex={frameIndex}, alternate={alternateFrame}.");
                     return;
                 }
 
-                Sprite expected = spriteLoader.instance.GetGMSprite(GameGM.GM_BODY_SWORDSMAN, image, alternateFrame);
+                Sprite expected = frameIndex >= 0
+                    ? spriteLoader.instance.GetGMSprite(GameGM.GM_BODY_SWORDSMAN, frameIndex, alternateFrame)
+                    : null;
                 bool expectedVanillaSprite = ReferenceEquals(renderer.sprite, expected);
                 bool isSwordsman = false;
                 bool unitFound = false;
@@ -209,8 +220,8 @@ namespace SkinTest
                     WarnOnce("swordsman-lord-missing",
                         $"Swordsman lord unit could not be resolved: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}.");
 
-                bool normalAvailable = image >= 0 && image < normalSprites.Length && normalSprites[image] != null;
-                bool alternateAvailable = image >= 0 && image < alternateSprites.Length && alternateSprites[image] != null;
+                bool normalAvailable = frameIndex >= 0 && frameIndex < normalSprites.Length && normalSprites[frameIndex] != null;
+                bool alternateAvailable = frameIndex >= 0 && frameIndex < alternateSprites.Length && alternateSprites[frameIndex] != null;
                 SkinFrameChoice choice = SkinSelectionPolicy.SelectFrame(alternateFrame, normalAvailable, alternateAvailable);
                 bool eligibleOwner = SkinSelectionPolicy.HasEligibleOwner(unitFound, ownerPlayerId, lordUnitId, lordFound, europeanLord);
                 if (isSwordsman && lordFound && !europeanLord)
@@ -219,15 +230,16 @@ namespace SkinTest
                 if (!SkinSelectionPolicy.CanReplaceVanilla(isSwordsman, expectedVanillaSprite, eligibleOwner, choice))
                 {
                     if (isSwordsman && eligibleOwner && !expectedVanillaSprite)
-                        WarnOnce("conflict", "An earlier mod replaced the expected swordsman sprite; SkinTest leaves that result untouched.");
+                        WarnOnce("conflict",
+                            $"An earlier mod replaced the expected swordsman sprite; SkinTest leaves that result untouched: image={image}, frameIndex={frameIndex}, alternate={alternateFrame}, expected={DescribeSprite(expected)}, actual={DescribeSprite(renderer.sprite)}.");
                     return;
                 }
 
-                renderer.sprite = choice == SkinFrameChoice.Alternate ? alternateSprites[image] : normalSprites[image];
+                renderer.sprite = choice == SkinFrameChoice.Alternate ? alternateSprites[frameIndex] : normalSprites[frameIndex];
                 renderer.sharedMaterial = materials[ChopMaterialIndex(chopFeet)];
                 // renderer.color already contains Vanilla's player colour and transparency from the trampoline.
                 LogOnce("skin-applied",
-                    $"SH1DE skin applied: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, lordGM={lordMaterial}, image={image}, alternate={choice == SkinFrameChoice.Alternate}.");
+                    $"SH1DE skin applied: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, lordGM={lordMaterial}, image={image}, frameIndex={frameIndex}, alternate={choice == SkinFrameChoice.Alternate}.");
             }
             catch (Exception ex)
             {
@@ -241,6 +253,20 @@ namespace SkinTest
                 return 0;
             int index = chopFeet / 4;
             return index > 6 ? 6 : index;
+        }
+
+        private static string DescribeSprite(Sprite sprite)
+        {
+            if (ReferenceEquals(sprite, null))
+                return "<null>";
+            try
+            {
+                return sprite == null ? "<destroyed>" : $"{sprite.name}#{sprite.GetInstanceID()}";
+            }
+            catch
+            {
+                return "<unavailable>";
+            }
         }
 
         private static Texture2D LoadTexture(byte[] bytes, string name)

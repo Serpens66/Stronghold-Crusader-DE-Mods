@@ -24,6 +24,12 @@ namespace SkinTest
             return unitFound && ownerPlayerId > 0 && lordUnitId > 0 && lordFound && europeanLord;
         }
 
+        public static int ToAtlasFrameIndex(int gameImage)
+        {
+            // SpriteMapping.getBodyImage converts body-image IDs to zero-based atlas slots.
+            return gameImage > 0 ? gameImage - 1 : -1;
+        }
+
         public static SkinFrameChoice SelectFrame(bool alternateRequested, bool normalAvailable, bool alternateAvailable)
         {
             if (alternateRequested && alternateAvailable)

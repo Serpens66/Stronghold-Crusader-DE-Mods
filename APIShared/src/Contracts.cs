@@ -1,6 +1,6 @@
 using System;
 
-namespace SerpNativeAPI
+namespace APIShared
 {
     /// <summary>Describes whether the process-wide API has completed initialization.</summary>
     public enum NativeApiState
@@ -75,8 +75,8 @@ namespace SerpNativeAPI
         public string ConflictOwnerGuid { get; }
     }
 
-    /// <summary>Public process-wide entry point for typed Serp native capabilities.</summary>
-    public interface ISerpNativeApi
+    /// <summary>Public process-wide entry point for typed shared native capabilities.</summary>
+    public interface IApiShared
     {
         /// <summary>Gets the global initialization state.</summary>
         NativeApiState State { get; }
@@ -107,16 +107,16 @@ namespace SerpNativeAPI
     }
 
     /// <summary>Static access to the process-wide API and its readiness notification.</summary>
-    public static class SerpNativeApi
+    public static class ApiShared
     {
-        /// <summary>Gets the process-wide API instance. Inspect <see cref="ISerpNativeApi.State"/> before use.</summary>
-        public static ISerpNativeApi Current => SerpNativeApiRuntime.ProcessInstance;
+        /// <summary>Gets the process-wide API instance. Inspect <see cref="IApiShared.State"/> before use.</summary>
+        public static IApiShared Current => ApiSharedRuntime.ProcessInstance;
 
         /// <summary>
         /// Registers a callback that runs when initialization reaches a terminal state. Late
         /// registrations run synchronously.
         /// </summary>
-        public static void WhenReady(Action<ISerpNativeApi> callback) =>
-            SerpNativeApiRuntime.ProcessInstance.WhenReady(callback);
+        public static void WhenReady(Action<IApiShared> callback) =>
+            ApiSharedRuntime.ProcessInstance.WhenReady(callback);
     }
 }

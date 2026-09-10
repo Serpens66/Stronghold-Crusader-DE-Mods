@@ -12,8 +12,8 @@ rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit ove
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
-set "LOCAL_API_DIR=%PROJECT_DIR%..\SerpNativeAPI\BepInEx\plugins\SerpNativeAPI_Serp"
-set "GAME_API_DIR=%GAME_DIR%\BepInEx\plugins\SerpNativeAPI_Serp"
+set "LOCAL_API_DIR=%PROJECT_DIR%..\APIShared\BepInEx\plugins\APIShared_Serp"
+set "GAME_API_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
 set "PLUGIN_NAME=APITest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
@@ -37,9 +37,9 @@ if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
 ) else if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 ) else goto build_failed
-if exist "%LOCAL_API_DIR%\SerpNativeAPI.dll" (
+if exist "%LOCAL_API_DIR%\APIShared.dll" (
   set "API_DIR=%LOCAL_API_DIR%"
-) else if exist "%GAME_API_DIR%\SerpNativeAPI.dll" (
+) else if exist "%GAME_API_DIR%\APIShared.dll" (
   set "API_DIR=%GAME_API_DIR%"
 ) else goto api_missing
 
@@ -50,12 +50,12 @@ if errorlevel 1 goto build_failed_popd
 popd
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if not exist "%LOCAL_PLUGIN_DIR%\APITest.dll" goto package_failed
-if exist "%LOCAL_PLUGIN_DIR%\SerpNativeAPI.dll" goto package_failed
+if exist "%LOCAL_PLUGIN_DIR%\APIShared.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed
-echo Serp Native API Test built and installed successfully.
+echo APIShared Test built and installed successfully.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 
@@ -66,7 +66,7 @@ echo Build failed.
 if "%NO_PAUSE%"=="0" pause
 exit /b 1
 :api_missing
-echo SerpNativeAPI.dll was not found. Build SerpNativeAPI first.
+echo APIShared.dll was not found. Build APIShared first.
 if "%NO_PAUSE%"=="0" pause
 exit /b 1
 :package_failed

@@ -1,5 +1,5 @@
 using BepInEx.Logging;
-using SerpNativeAPI;
+using APIShared;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;

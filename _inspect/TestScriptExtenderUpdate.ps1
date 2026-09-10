@@ -11,8 +11,8 @@ $inventory = @(Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\Scrip
 Assert-True ($inventory.Count -eq 28) 'Expected 28 runtime mods.'
 Assert-True (@($inventory | Where-Object Plugin).Count -eq 27) 'Expected 27 C# runtime mods.'
 $order = @(Get-SEBuildOrder $inventory)
-Assert-True ($order[0].Name -eq 'SerpNativeAPI') 'SerpNativeAPI must build first.'
-Assert-True ([array]::IndexOf([string[]]$order.Name, 'APITest') -gt [array]::IndexOf([string[]]$order.Name, 'SerpNativeAPI')) 'APITest must follow SerpNativeAPI.'
+Assert-True ($order[0].Name -eq 'APIShared') 'APIShared must build first.'
+Assert-True ([array]::IndexOf([string[]]$order.Name, 'APITest') -gt [array]::IndexOf([string[]]$order.Name, 'APIShared')) 'APITest must follow APIShared.'
 Assert-True ($order[-1].Name -eq 'BugfixesAndQoL') 'BugfixesAndQoL must build last.'
 
 $categories = Get-SEChangeCategories @('src/SHCDESE.BepInEx/Detours/Test.cs','src/SHCDESE.BepInEx/Interop/Test.cs','ReverseEngineering/structs/test.h','src/SHCDESE.BepInEx/API/Test.cs','deps/Override/Test.xaml','docs/test.md')
@@ -100,7 +100,7 @@ $trackedAndNew=@(& git -C $workspace ls-files; & git -C $workspace ls-files --ot
 $versionedTestFiles=@($trackedAndNew|Where-Object{
     ($_ -match '(^|/)(tests?)/' -or $_ -match '^_inspect/[^/]*Tests/' -or $_ -eq '_inspect/TestScriptExtenderUpdate.ps1') -and
     $_ -match '\.(cs|ps1|sh|lua|csproj)$'
-}|Sort-Object -Unique)
+}|Where-Object{Test-Path -LiteralPath (Join-Path $workspace $_)}|Sort-Object -Unique)
 $hardcodedTestVersions=@(foreach($relative in $versionedTestFiles){
     $lineNumber=0
     foreach($line in [IO.File]::ReadLines((Join-Path $workspace $relative))){

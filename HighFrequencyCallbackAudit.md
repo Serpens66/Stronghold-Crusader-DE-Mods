@@ -14,7 +14,7 @@ Stand: 2026-09-08
 
 Diese Fragen sind absichtlich direkt oben platziert. In dieser Runde ist dafür noch keine Entscheidung erforderlich:
 
-1. **Abhängigkeitsumfang:** Soll `SerpNativeAPI` später eine Hard-Dependency aller zehn Mods werden oder nur der Mods, die tatsächlich mindestens eine ihrer Capabilities verwenden? Empfehlung: zunächst nur tatsächliche Nutzer; alle zehn erst dann, wenn jeder mindestens Lobby- oder Frame-Capabilities verwendet und Bundle-/Duplikatauflösung freigegeben ist.
+1. **Abhängigkeitsumfang:** Soll `APIShared` später eine Hard-Dependency aller zehn Mods werden oder nur der Mods, die tatsächlich mindestens eine ihrer Capabilities verwenden? Empfehlung: zunächst nur tatsächliche Nutzer; alle zehn erst dann, wenn jeder mindestens Lobby- oder Frame-Capabilities verwendet und Bundle-/Duplikatauflösung freigegeben ist.
 2. **Ereignismodell:** Soll die API primär typisierte Ereignisse wie `LobbyStateChanged` und `SelectionStateChanged` anbieten oder hauptsächlich einen allgemeinen Frame-Bus? Empfehlung: typisierte, immutable Zustandsereignisse als Normalfall; den Frame-Bus nur für nachweislich framegebundene Features.
 3. **Noesis-/Rollover-Phase:** Soll die API genau einen eigenen Post-`Director.Update`-Hook besitzen, über den Recruitment-, Markt- und Rollover-Nachbearbeitung läuft? Empfehlung: ja, sobald Reihenfolge und Abschluss nach dem letzten Noesis-Durchlauf in allen UI-Zuständen bewiesen sind.
 4. **Artefakt-Pin:** Soll es einen zentralen, für das Modpaket festgelegten API-Artefakt-Pin oder einen Pin pro Consumer geben? Empfehlung: ein zentral getesteter Pin mit expliziter Capability-/Vertragsversion, damit gemeinsam installierte Mods garantiert dieselbe Runtime laden.
@@ -24,9 +24,9 @@ Diese Fragen sind absichtlich direkt oben platziert. In dieser Runde ist dafür 
 
 Bis zu einer gegenteiligen Entscheidung gilt jeweils die funktionswahrende Empfehlung. Keine verlustbehaftete Drosselung oder Event-only-Variante wird stillschweigend umgesetzt.
 
-## Beitrag der SerpNativeAPI zum finalen Ergebnis
+## Beitrag der APIShared zum finalen Ergebnis
 
-`SerpNativeAPI` ist langfristig der klarere Prozessbesitzer für Beobachtungen, die mehrere Mods heute separat durchführen. Ein geladenes API-Plugin stellt eine echte prozessweite Instanz bereit und ersetzt damit den komplizierteren source-linked `AppDomain`-Vertrag. Die aktuelle API und ihre bestehende Migrationsplanung werden in dieser Runde nicht verändert; vor einer Consumer-Migration muss die Planung mit folgendem erweiterten Zielbild abgeglichen werden:
+`APIShared` ist langfristig der klarere Prozessbesitzer für Beobachtungen, die mehrere Mods heute separat durchführen. Ein geladenes API-Plugin stellt eine echte prozessweite Instanz bereit und ersetzt damit den komplizierteren source-linked `AppDomain`-Vertrag. Die aktuelle API und ihre bestehende Migrationsplanung werden in dieser Runde nicht verändert; vor einer Consumer-Migration muss die Planung mit folgendem erweiterten Zielbild abgeglichen werden:
 
 - `ILobbyStateCapability` nimmt Roster, lokale Identität, Host-/Clientrolle und Slots einmal im bisherigen Rhythmus auf und veröffentlicht nur geänderte, unveränderliche Snapshots an alle Consumer.
 - `IPostUiUpdateCapability` besitzt genau einen `Director.Update`-Detour und benachrichtigt Subscriber nach dem letzten Noesis-Durchlauf. Sie ist das finale Ziel für Recruitment-, Markt- und Rollover-Nachbearbeitung.
@@ -34,10 +34,10 @@ Bis zu einer gegenteiligen Entscheidung gilt jeweils die funktionswahrende Empfe
 - `IRenderFrameCapability` bleibt für Funktionen verfügbar, die tatsächlich jeden gerenderten Frame oder dessen genaue Reihenfolge benötigen. Ein typisiertes Ereignis ist vorzuziehen, sobald es die fachliche Information vollständig ausdrückt.
 - Simulationsticks werden vorerst nicht pauschal gebrokert: Script Extender 2.3.0 stellt mit `OnTick` bereits eine gemeinsame Quelle bereit, und fachliche Tickreihenfolge bleibt im jeweiligen Mod kontrollierbar.
 - Subscriber werden deterministisch nach Owner-GUID und einem stabilen lokalen Registrierungsschlüssel sortiert. Jeder Aufruf ist einzeln fehlerisoliert; registrierbare Handles erlauben Aktivierung, Deaktivierung und vollständige Abmeldung ohne globale Seiteneffekte.
-- Rein verwaltete Capabilities müssen bereits in `SerpNativeAPIPlugin.Awake()` verfügbar sein. Capabilities mit nativen Adressen oder Detours dürfen weiterhin auf `CrusaderLibrary.LibraryLoaded` warten und müssen ihren Nichtbereit-Zustand explizit melden.
+- Rein verwaltete Capabilities müssen bereits in `APISharedPlugin.Awake()` verfügbar sein. Capabilities mit nativen Adressen oder Detours dürfen weiterhin auf `CrusaderLibrary.LibraryLoaded` warten und müssen ihren Nichtbereit-Zustand explizit melden.
 - Wenn später jeder der zehn Mods mindestens eine Lobby- oder Frame-Capability nutzt, ist eine gemeinsame Hard-Dependency sinnvoll. Vor Abschluss von Release-Pin, Bundleauflösung, Versionsvertrag und Duplikatschutz erfolgt keine Consumer-Migration.
 
-Die unten beschriebenen source-linked Broker mit `AppDomain`-Koordination bleiben nur eine mögliche Übergangslösung für Releases ohne API-Abhängigkeit. Das finale Ziel sind API-Capabilities mit vollständiger Standalone-Funktion jedes Consumers zusammen mit seiner deklarierten `SerpNativeAPI`-Version; kein Consumer darf dabei die Installation eines anderen Mods voraussetzen.
+Die unten beschriebenen source-linked Broker mit `AppDomain`-Koordination bleiben nur eine mögliche Übergangslösung für Releases ohne API-Abhängigkeit. Das finale Ziel sind API-Capabilities mit vollständiger Standalone-Funktion jedes Consumers zusammen mit seiner deklarierten `APIShared`-Version; kein Consumer darf dabei die Installation eines anderen Mods voraussetzen.
 
 ## In dieser Runde direkt umgesetzt
 
@@ -107,7 +107,7 @@ Wichtiger Frequenzbefund: `Director.Update()` kann `FatControler.NoesisGUIUpdate
 
 Für die sechs Noesis-/Rollover-Nachbearbeitungen ist folgende Architektur funktionswahrend, sofern die Regressionstests erfolgreich sind:
 
-1. Final besitzt `SerpNativeAPI.IPostUiUpdateCapability` pro Prozess genau einen `Director.Update`-Detour und ruft Subscriber nach dem Original auf. Damit liegt die Phase garantiert nach allen Noesis-Durchläufen dieses Frames.
+1. Final besitzt `APIShared.IPostUiUpdateCapability` pro Prozess genau einen `Director.Update`-Detour und ruft Subscriber nach dem Original auf. Damit liegt die Phase garantiert nach allen Noesis-Durchläufen dieses Frames.
 2. Ein source-linked, BCL-basierter `AppDomain`-Vertrag mit expliziter Vertragsversion bleibt höchstens eine Übergangslösung für Releases, die noch keine API-Abhängigkeit tragen.
 3. Subscriber werden in registrierter Reihenfolge einzeln mit `try/catch` aufgerufen; ein fehlerhafter Mod verhindert weder Vanilla noch andere Mods. Duplicate-IDs werden abgewehrt, Dispose meldet sauber ab.
 4. Bis zur API-Migration installiert jeder Mod weiterhin seinen bisherigen eigenständigen Detour. Nach der Migration ist die kompatible API-Version eine deklarierte Hard-Dependency und ihr Capability-Bereitschaftsfehler wird fail-closed gemeldet; ein Mod darf keinen überlappenden Hook als stillen Runtime-Fallback daneben installieren.
@@ -183,15 +183,15 @@ Die übrigen gefundenen Managed-Hooks sind durch konkrete Nutzeraktionen oder se
 
 ### Phase B – prozessweiter Lobby-Observer
 
-1. Die vorhandene `SerpNativeAPI`-Migrationsplanung um `ILobbyStateCapability`, Release-Pin, Capability-Version und Duplikatschutz erweitern.
+1. Die vorhandene `APIShared`-Migrationsplanung um `ILobbyStateCapability`, Release-Pin, Capability-Version und Duplikatschutz erweitern.
 2. Genau einen 15-Frame-Poller und sofortige Dirty-Anstöße bei Join, Mapstart/-ende und bekannten Lobbyaktionen in der API installieren.
 3. Snapshotaufnahme einmal ausführen; per Wertvergleich nur Änderungen veröffentlichen. Jede Modinstanz behält ihren eigenen fachlichen Coordinator und seine Host-/Clientlogik.
-4. Capability bereits in `SerpNativeAPIPlugin.Awake()` bereitstellen und Registrierung/Abmeldung mit stabilen Owner-GUIDs, Fehlerisolation und deterministischer Reihenfolge testen.
+4. Capability bereits in `APISharedPlugin.Awake()` bereitstellen und Registrierung/Abmeldung mit stabilen Owner-GUIDs, Fehlerisolation und deterministischer Reihenfolge testen.
 5. Source-linked `AppDomain`-Koordination nur als ausdrücklich zeitlich begrenzte Übergangslösung erwägen. Im finalen Pfad ist die gepinnte API eine deklarierte Abhängigkeit; kein Mod fällt still auf einen zweiten Prozesspoller zurück.
 
 ### Phase C – gemeinsame Post-UI-Phase
 
-1. `SerpNativeAPI.IPostUiUpdateCapability` zunächst in einem isolierten Testhost und danach einzeln mit UnitCosts, UnitLimit, BuildingCosts, BuildingLimit und BugfixesAndQoL validieren.
+1. `APIShared.IPostUiUpdateCapability` zunächst in einem isolierten Testhost und danach einzeln mit UnitCosts, UnitLimit, BuildingCosts, BuildingLimit und BugfixesAndQoL validieren.
 2. Vanilla-Callzahl, Zeitpunkt des letzten Noesis-Aufrufs und finale Propertywerte instrumentieren, ohne im Release-Hotpath zu loggen.
 3. Erst Recruitment-Hooks migrieren; danach Markt- und Rolloverhooks. Jeder Schritt behält bis zur bewiesenen Gleichwertigkeit einen separat aktivierbaren alten Pfad für Tests, aber nicht dauerhaft als Releasefallback parallel.
 4. Gemeinsame Installation prüft beliebige Mod-Ladereihenfolgen, Capability-/Artefaktversion und Subscriberfehler. Nach finaler Freigabe bleibt pro Prozess nur ein `Director.Update`-Detour.

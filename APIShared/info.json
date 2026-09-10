@@ -1,15 +1,21 @@
 {
-  "GUID": "SerpNativeAPI_Serp",
+  "GUID": "APIShared_Serp",
   "Author": "Serpens66",
-  "Name": "Serp Native API",
+  "Name": "APIShared",
   "Description": "Shared typed and conflict-aware native patch and hook infrastructure for Serps mods.",
-  "Version": "0.1.2",
+  "Version": "0.2.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.2.0",
+      "Changes": [
+        "Renamed the shared API project, assembly, namespace, GUID, and public contract to APIShared."
+      ]
+    },
     {
       "Version": "0.1.2",
       "Changes": [

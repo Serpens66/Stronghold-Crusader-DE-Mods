@@ -1,8 +1,8 @@
-# SerpNativeAPI V1 – implementierter Übergabestand
+# APIShared V1 – implementierter Übergabestand
 
 ## Ergebnis
 
-`SerpNativeAPI` (`SerpNativeAPI_Serp`, Version `0.1.0`) stellt drei katalogisierte Capabilities bereit. `APITest` (`APITest_Serp`, Version `0.1.0`) bleibt in diesem Arbeitsschritt unverändert. `BugfixesAndQoL` und `ExtraFeatures` wurden nicht migriert; ihre spätere Zuordnung steht in `MIGRATION_PLAN.md`.
+`APIShared` (`APIShared_Serp`, Version `0.1.0`) stellt drei katalogisierte Capabilities bereit. `APITest` (`APITest_Serp`, Version `0.1.0`) bleibt in diesem Arbeitsschritt unverändert. `BugfixesAndQoL` und `ExtraFeatures` wurden nicht migriert; ihre spätere Zuordnung steht in `MIGRATION_PLAN.md`.
 
 Die kanonische Native-Basis ist `_inspect/CrusaderDE-Native-Baseline/CURRENT.json` mit DLL-SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
 
@@ -43,6 +43,6 @@ Die kanonische Native-Basis ist `_inspect/CrusaderDE-Native-Baseline/CURRENT.jso
 
 ## Tests und Laufzeitabnahme
 
-`_inspect/SerpNativeAPITests` verwendet Fake-PE-, Speicher-, Seitenschutz- und Eventadapter. Abgedeckt sind feste Hash-/RVA-/Opcodevalidierung ohne Decoy-Fallback, Mittelpunktarithmetik einschließlich Halbfeldern und umgekehrten Bounds, Symmetrie und Chebyshev-Diagonalen, getrennte Intervalle und Besitzer, explizite Rückkehr zu Vanilla, capabilityspezifische Fremdmutation, Code- und Werte-Rollback, Rundung und native Grenzen, Ein-/Mehrseiten-Transaktionen, kombinierte Cleanupfehler sowie Eventphase, Reihenfolge, Fehlerisolierung, Reentranz, Idempotenz und genau eine Subscription.
+`_inspect/APISharedTests` verwendet Fake-PE-, Speicher-, Seitenschutz- und Eventadapter. Abgedeckt sind feste Hash-/RVA-/Opcodevalidierung ohne Decoy-Fallback, Mittelpunktarithmetik einschließlich Halbfeldern und umgekehrten Bounds, Symmetrie und Chebyshev-Diagonalen, getrennte Intervalle und Besitzer, explizite Rückkehr zu Vanilla, capabilityspezifische Fremdmutation, Code- und Werte-Rollback, Rundung und native Grenzen, Ein-/Mehrseiten-Transaktionen, kombinierte Cleanupfehler sowie Eventphase, Reihenfolge, Fehlerisolierung, Reentranz, Idempotenz und genau eine Subscription.
 
 APITest aktiviert unverändert nur Gatehouse Timing mit 0 Sekunden und 5 Feldern für Human und AI; nach der Trennung aktiviert dieser Aufruf keinen Mittelpunkt mehr. Die Anpassung des Testverbrauchers und die erneute Laufzeitabnahme sind gemäß `MIGRATION_PLAN.md` erst in der späteren Pilotphase vorgesehen.

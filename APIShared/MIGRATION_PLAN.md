@@ -1,4 +1,4 @@
-# SerpNativeAPI-Migrations- und Releaseplan
+# APIShared-Migrations- und Releaseplan
 
 ## 0. Arbeitsstand und Übergabe zwischen Chats
 
@@ -41,31 +41,31 @@ Statuswerte: `ERLEDIGT`, `NÄCHSTES`, `OFFEN`, `WARTET AUF SPIELTEST`, `BLOCKIER
 
 Phase 1 aus Abschnitt 7 ist umgesetzt; nach ihrer Prüfung endet der aktuelle Umsetzungs-Chat. Erledigt sind:
 
-- Die öffentliche Vertragsgrenze ist explizit auf die fachlichen API-Typen begrenzt: `ISerpNativeApi`, `SerpNativeApi`, Capability-Interfaces, das Selected-Unit-Registrierungs-Handle, unveränderliche Settings-/Kontext-/Diagnosetypen, Capability-IDs und Zustände sowie die dokumentierten Gatehouse-Werte. `SerpNativeAPIPlugin` bleibt als technisch notwendiger BepInEx-Einstieg öffentlich, ist aber kein Consumer-Service.
-- Native Infrastruktur, Zielkataloge, RVAs, Adressen, PE-Auswertung, Ownership-Registry, Speicherzugriff, konkrete Services, Broker, Eventadapter und Resolver sind weiterhin `internal`. Tests greifen ausschließlich über `[InternalsVisibleTo("SerpNativeAPITests")]` darauf zu.
-- Alle öffentlichen Typen und Member besitzen XML-Dokumentation. `SerpNativeAPI.csproj` erzeugt `SerpNativeAPI.xml`; fehlende öffentliche XML-Dokumentation wird über Compilerfehler `CS1591` verhindert.
-- `_inspect/SerpNativeAPITests` enthält einen expliziten Allowlist-Audit aller exportierten Typen und lehnt Pointer, `IntPtr`/`UIntPtr` sowie nach RVA-, Pattern-, Detour- oder Memory-Writer-Implementierung benannte Signaturtypen ab.
+- Die öffentliche Vertragsgrenze ist explizit auf die fachlichen API-Typen begrenzt: `IApiShared`, `ApiShared`, Capability-Interfaces, das Selected-Unit-Registrierungs-Handle, unveränderliche Settings-/Kontext-/Diagnosetypen, Capability-IDs und Zustände sowie die dokumentierten Gatehouse-Werte. `APISharedPlugin` bleibt als technisch notwendiger BepInEx-Einstieg öffentlich, ist aber kein Consumer-Service.
+- Native Infrastruktur, Zielkataloge, RVAs, Adressen, PE-Auswertung, Ownership-Registry, Speicherzugriff, konkrete Services, Broker, Eventadapter und Resolver sind weiterhin `internal`. Tests greifen ausschließlich über `[InternalsVisibleTo("APISharedTests")]` darauf zu.
+- Alle öffentlichen Typen und Member besitzen XML-Dokumentation. `APIShared.csproj` erzeugt `APIShared.xml`; fehlende öffentliche XML-Dokumentation wird über Compilerfehler `CS1591` verhindert.
+- `_inspect/APISharedTests` enthält einen expliziten Allowlist-Audit aller exportierten Typen und lehnt Pointer, `IntPtr`/`UIntPtr` sowie nach RVA-, Pattern-, Detour- oder Memory-Writer-Implementierung benannte Signaturtypen ab.
 - Die Gatehouse-API trennt `IGatehouseDistanceOriginCapability` für den 75-Byte-Distanzblock von `IGatehouseTimingCapability` für die vier Immediates. Die Capabilities haben getrennte Diagnosen, Besitzer und Intervalle, verwenden wegen der gemeinsamen Speicherseite aber einen gemeinsamen Mutations-Lock. Diese Trennung darf nicht wieder zu einer monolithischen Capability zurückgebaut werden.
-- Phase 1 ist technisch geprüft: Rebuild von `_inspect/SerpNativeAPITests` erfolgreich, gesamte Testsuite einschließlich Surface-Audit erfolgreich, abschließender `SerpNativeAPI/build.bat /nopause` mit 0 Warnungen und 0 Fehlern erfolgreich und in den Spielordner installiert. Die erzeugte XML-Dokumentation liegt neben DLL und PDB.
+- Phase 1 ist technisch geprüft: Rebuild von `_inspect/APISharedTests` erfolgreich, gesamte Testsuite einschließlich Surface-Audit erfolgreich, abschließender `APIShared/build.bat /nopause` mit 0 Warnungen und 0 Fehlern erfolgreich und in den Spielordner installiert. Die erzeugte XML-Dokumentation liegt neben DLL und PDB.
 - Der CRLF-Audit der geänderten API-, Gatehouse-Dokumentations- und API-Testdateien meldet keine nackten LF und keine versehentlich ausgeschriebenen Zeilenumbruch-Ersatzsequenzen.
 - Es wurden keine Versionsnummern geändert und keine README-Datei bearbeitet.
 
 ### Bewusst noch nicht umgesetzt
 
-- Phase 2 (API-Releaseprojekt, Thin-/Bundle-Schema, Provenance, Duplikatschutz und Archiv-Audits) ist noch vollständig offen. Eine zwischenzeitlich angelegte `SerpNativeAPI/release.bat`, eine Registrierung in `Shared/Release/release-projects.json` und ein erster Installationswächter wurden wieder entfernt, damit Phase 2 atomar in einem eigenen Chat umgesetzt werden kann.
+- Phase 2 (API-Releaseprojekt, Thin-/Bundle-Schema, Provenance, Duplikatschutz und Archiv-Audits) ist noch vollständig offen. Eine zwischenzeitlich angelegte `APIShared/release.bat`, eine Registrierung in `Shared/Release/release-projects.json` und ein erster Installationswächter wurden wieder entfernt, damit Phase 2 atomar in einem eigenen Chat umgesetzt werden kann.
 - Die Pilotmigrationen aus Phase 3 sind noch nicht begonnen. `ExtraFeatures` verwendet weiterhin `GatehouseTimingPatch`; `BugfixesAndQoL` verwendet weiterhin seinen vorhandenen Selected-Unit-Code und besitzt noch keinen Mittelpunkt-Consumer. Es besteht noch keine API-HardDependency in diesen beiden Mods.
 - `APITest` bleibt unverändert als Vergleichs- und Smoke-Test bestehen. Es darf erst nach abgeschlossener Pilotintegration, automatisierten Tests und bestätigtem Spieltest entfernt werden.
 - Die weiteren Capability-Wellen, Shared-Migrationen sowie Steam-/Nexus-Anpassungen sind offen.
 
 ### Nächster Chat: Phase 2A
 
-Nach Beantwortung der offenen Artefakt-Pin-Entscheidung in Abschnitt 10 soll der nächste Chat ausschließlich Phase 2A aus Abschnitt 7 umsetzen. Er liest zuerst `SerpNativeAPI/build.bat`, `Shared/Release/Invoke-Release.bat`, `Shared/Release/Release-Mod.ps1`, `Shared/Release/Release.Common.ps1`, `Shared/Release/release-projects.json`, `_inspect/TestReleaseWrappers.ps1` und die aktuellen Diffs. Phase 2B und 2C bleiben danach getrennte Arbeitspakete; insbesondere werden in Phase 2A noch keine Consumer und keine Steam-/Nexus-Skripte geändert.
+Nach Beantwortung der offenen Artefakt-Pin-Entscheidung in Abschnitt 10 soll der nächste Chat ausschließlich Phase 2A aus Abschnitt 7 umsetzen. Er liest zuerst `APIShared/build.bat`, `Shared/Release/Invoke-Release.bat`, `Shared/Release/Release-Mod.ps1`, `Shared/Release/Release.Common.ps1`, `Shared/Release/release-projects.json`, `_inspect/TestReleaseWrappers.ps1` und die aktuellen Diffs. Phase 2B und 2C bleiben danach getrennte Arbeitspakete; insbesondere werden in Phase 2A noch keine Consumer und keine Steam-/Nexus-Skripte geändert.
 
 Unabhängige Änderungen in `AssassinCombatFix`, `MoveMoatTest` und `_inspect/HostClientPresetTests` gehören nicht zu diesem Plan und dürfen in den Folgephasen nicht verändert oder zurückgesetzt werden.
 
 ## 1. Zielbild und Architektur
 
-`SerpNativeAPI` wird als eigenständiger, von anderen Autoren nutzbarer BepInEx-Mod weiterentwickelt. Sie übernimmt:
+`APIShared` wird als eigenständiger, von anderen Autoren nutzbarer BepInEx-Mod weiterentwickelt. Sie übernimmt:
 
 - native Hooks, Detours, Speicherzugriffe und versionsgebundene Zielauflösung;
 - prozessweit eindeutige Broker und Besitzverwaltung;
@@ -76,7 +76,7 @@ Nicht in die API gehören modbezogene Regeln, Einstellungen, Netzwerkprotokolle,
 
 Jeder Verbraucher referenziert die API mit `<Private>false>` und deklariert eine Mindestversion:
 
-    [BepInDependency("SerpNativeAPI_Serp", "<Mindestversion>")]
+    [BepInDependency("APIShared_Serp", "<Mindestversion>")]
 
 Native Implementierungen werden vollständig aus Verbrauchermods entfernt, sobald ihre API-Capability getestet ist. Es gibt keinen parallelen Legacy-Fallback.
 
@@ -84,11 +84,11 @@ Native Implementierungen werden vollständig aus Verbrauchermods entfernt, sobal
 
 Gezielt `public` werden ausschließlich:
 
-- `ISerpNativeApi` und fachliche Capability-Interfaces;
+- `IApiShared` und fachliche Capability-Interfaces;
 - unveränderliche Settings-, Kontext-, Snapshot- und Ergebnisobjekte;
 - Registrierungs-Handles mit `Enable()`, `Disable()` und `Dispose()`;
 - Capability-IDs, Zustände und Diagnosen;
-- der dokumentierte Readiness-Einstieg `SerpNativeApi.WhenReady(...)`.
+- der dokumentierte Readiness-Einstieg `ApiShared.WhenReady(...)`.
 
 `internal` bleiben:
 
@@ -143,14 +143,14 @@ Ein späteres Zentralisieren der Settings-Infrastruktur wäre ein eigenes ABI-/X
 
 Test- und Diagnosemods ohne `release.bat` werden beim jeweiligen Zielaudit berücksichtigt, damit sie keinen migrierten Hook parallel installieren. Dazu gehören insbesondere `AssassinCombatFix`, `HunterQueryTargetDiagnostic`, `EnemyGatePathfindingTest`, `MoveMoatTest` und `APITest`.
 
-Der festgelegte Migrationsumfang umfasst die 16 Mods dieser Tabelle, die jeweils über eine `release.bat` verfügen. Zusätzliche Namen aus `Shared/Release/release-projects.json`, Hilfsprogramme und Projekte außerhalb dieser Tabelle werden nicht allein wegen eines Registry-Eintrags in die API-Migration aufgenommen. `SerpNativeAPI` selbst kommt in Phase 2 als separates Releaseprojekt hinzu, zählt aber nicht zu diesen 16 Verbrauchermods.
+Der festgelegte Migrationsumfang umfasst die 16 Mods dieser Tabelle, die jeweils über eine `release.bat` verfügen. Zusätzliche Namen aus `Shared/Release/release-projects.json`, Hilfsprogramme und Projekte außerhalb dieser Tabelle werden nicht allein wegen eines Registry-Eintrags in die API-Migration aufgenommen. `APIShared` selbst kommt in Phase 2 als separates Releaseprojekt hinzu, zählt aber nicht zu diesen 16 Verbrauchermods.
 
 ## 4. Integration der beiden Pilotfeatures
 
 ### `ExtraFeatures`
 
 - `GatehouseTimingPatch` durch `IGatehouseTimingCapability` ersetzen.
-- Settings erst nach `SerpNativeApi.WhenReady(...)` anwenden.
+- Settings erst nach `ApiShared.WhenReady(...)` anwenden.
 - Aktivieren, Ändern und Deaktivieren ausschließlich über `GatehouseTimingSettings`.
 - `Enabled=false` stellt ausschließlich die vier konfigurierbaren Vanilla-Distanz-/Delay-Werte über die API wieder her. ExtraFeatures fordert `IGatehouseDistanceOriginCapability` nicht an und verändert den Distanzursprung weder direkt noch indirekt.
 - Der Mod hält keine Adresse, keinen Scanner und keinen Memory-Writer mehr.
@@ -158,7 +158,7 @@ Der festgelegte Migrationsumfang umfasst die 16 Mods dieser Tabelle, die jeweils
 
 ### `BugfixesAndQoL`
 
-- `IGatehouseDistanceOriginCapability` über `SerpNativeApi.WhenReady(...)` beziehen und prozesslang halten.
+- `IGatehouseDistanceOriginCapability` über `ApiShared.WhenReady(...)` beziehen und prozesslang halten.
 - Einen standardmäßig aktiven `[SyncHostOnly]`-Schalter `EnableCenteredGatehouseDistanceFix` ergänzen. Der effektive Zustand ist `EnableMod && EnableCenteredGatehouseDistanceFix`.
 - Bei aktivem Zustand `BuildingBoundsCenter`, sonst `VanillaBuildingBegin` anwenden. Der Mod enthält hierfür keinen eigenen RVA, Scanner, Seitenschutzaufruf oder Memory-Writer.
 - Den eigenen Selected-Unit-NativeDetour durch `ISelectedUnitCommandCapability.TryRegisterBefore(...)` ersetzen.
@@ -173,7 +173,7 @@ Der festgelegte Migrationsumfang umfasst die 16 Mods dieser Tabelle, die jeweils
 - Erst in der späteren Pilot-/Laufzeitphase zusätzlich auf die getrennte `IGatehouseDistanceOriginCapability` umstellen; der aktuelle Timing-Aufruf aktiviert nach der API-Trennung keinen Mittelpunkt mehr.
 - Nach Integration, automatisierten Tests und bestätigtem Spieltest vollständig entfernen.
 - Es bleibt weder als veröffentlichter Mod noch als Produktions-Fallback bestehen.
-- Wiederverwendbare Assertions wandern nach `_inspect/SerpNativeAPITests`; fachlicher Verbrauchercode wandert in die beiden Hauptmods.
+- Wiederverwendbare Assertions wandern nach `_inspect/APISharedTests`; fachlicher Verbrauchercode wandert in die beiden Hauptmods.
 
 ## 5. Thin- und Bundle-Releases
 
@@ -189,18 +189,18 @@ Jeder API-abhängige Mod erzeugt:
 Das Bundle enthält genau zwei gleichrangige Pluginordner:
 
     ModGuid/
-    SerpNativeAPI_Serp/
+    APIShared_Serp/
 
 Beide sind zum Entpacken direkt nach `BepInEx/plugins` bestimmt. Die API wird niemals in `ModGuid/`, `Mods/ModGuid/Dependencies` oder einem anderen modbezogenen Unterordner dupliziert.
 
-Nicht von der API abhängige Mods behalten ihr einzelnes bisheriges ZIP. Das separate API-Release enthält ausschließlich `SerpNativeAPI_Serp`.
+Nicht von der API abhängige Mods behalten ihr einzelnes bisheriges ZIP. Das separate API-Release enthält ausschließlich `APIShared_Serp`.
 
 ### Versions- und Duplikatschutz
 
 - Jeder Verbraucher nennt die kleinste benötigte API-Version im `BepInDependency`-Attribut.
 - Ein Bundle enthält eine veröffentlichte API-Version, die diese Mindestversion erfüllt.
 - Der genaue API-Hash wird in Provenance und Release Notes festgehalten.
-- Die API prüft beim Start auf weitere physische `SerpNativeAPI.dll`- oder passende `info.json`-Kopien. Bei uneindeutigen Installationen werden native Capabilities fail-closed gesperrt und alle Fundorte geloggt.
+- Die API prüft beim Start auf weitere physische `APIShared.dll`- oder passende `info.json`-Kopien. Bei uneindeutigen Installationen werden native Capabilities fail-closed gesperrt und alle Fundorte geloggt.
 - Archive werden abgelehnt, wenn sie mehr als eine API-DLL, mehrere API-Manifeste oder eine API im Modunterordner enthalten.
 - Eine alte manuell über eine neuere API entpackte Bundle-Version kann durch ein statisches ZIP nicht zuverlässig verhindert werden. Die Mindestversionsprüfung sorgt in diesem Fall dafür, dass neuere Verbraucher nicht unsicher mit der herabgestuften API starten.
 
@@ -210,7 +210,7 @@ Der verlinkte Script-Extender-Commit dedupliziert Asset-Mod-Verzeichnisse nach `
 
 ### Einzelne `release.bat`
 
-- `SerpNativeAPI` erhält eine eigene `release.bat` und wird in `Shared/Release/release-projects.json` registriert.
+- `APIShared` erhält eine eigene `release.bat` und wird in `Shared/Release/release-projects.json` registriert.
 - Die vorhandenen Mod-Wrapper bleiben dünn; die zentrale Logik wird in `Invoke-Release.bat`, `Release-Mod.ps1` und `Release.Common.ps1` erweitert.
 - Die API muss vor Verbrauchern veröffentlicht sein.
 - Consumer-Releases beziehen das Bundle aus einem bereits veröffentlichten, hashgeprüften API-Artefakt und nicht aus einer möglicherweise veralteten lokalen DLL.
@@ -222,9 +222,9 @@ Der verlinkte Script-Extender-Commit dedupliziert Asset-Mod-Verzeichnisse nach `
 
 `CreateSteamModPack.bat` und `Shared/Steam/Create-SteamModPack.ps1` werden gemeinsam angepasst:
 
-- Die BAT-Konfiguration benennt `SerpNativeAPI` als einmalige Pack-Abhängigkeit.
+- Die BAT-Konfiguration benennt `APIShared` als einmalige Pack-Abhängigkeit.
 - Für Child-Mods werden Thin-Artefakte verwendet; Bundle-ZIPs dürfen nicht ungefiltert in den Pack übernommen werden.
-- `SerpNativeAPI_Serp` wird genau einmal unter `BepInEx/plugins/SerpNativeAPI_Serp` neben dem Host installiert.
+- `APIShared_Serp` wird genau einmal unter `BepInEx/plugins/APIShared_Serp` neben dem Host installiert.
 - Die API wird nicht unter jedem `SerpsModsHost/Mods/<GUID>` dupliziert.
 - Der Pack-Content-Hash und die Provenance schließen API-Version, Release-Tag, Hash und Dateiliste ein.
 - Validierung unterscheidet die Host-SoftDependency der Child-Mods von deren API-HardDependency.
@@ -262,7 +262,7 @@ Jede Capability wird als atomare Welle umgesetzt: API-Vertrag, Implementierung, 
 Eine Capability-Welle gilt nur dann als code-seitig abgeschlossen, wenn alle folgenden Punkte im selben Arbeitsstand erfüllt sind:
 
 - Öffentlicher Vertrag ist fachlich benannt, immutable beziehungsweise handle-basiert und vollständig XML-dokumentiert. Keine Adresse, RVA, Pointer, native Delegate-, Detour-, Patternscanner- oder Memory-Writer-Abstraktion ist öffentlich.
-- Native Zielauflösung ist hashgebunden, überprüft ausführbaren Bereich, Funktions-/Blockgrenzen, erwartete Bytes oder Werte und arbeitet bei jeder Abweichung fail-closed. Neue native Erkenntnisse nennen Hash, RVA, Quelle und Evidenz in `ARCHITECTURE.md` sowie `SerpNativeAPI/_inspect/native-surface-audit.csv`.
+- Native Zielauflösung ist hashgebunden, überprüft ausführbaren Bereich, Funktions-/Blockgrenzen, erwartete Bytes oder Werte und arbeitet bei jeder Abweichung fail-closed. Neue native Erkenntnisse nennen Hash, RVA, Quelle und Evidenz in `ARCHITECTURE.md` sowie `APIShared/_inspect/native-surface-audit.csv`.
 - Besitz-, Mehrfachregistrierungs-, Callbackreihenfolge-, Reentranz-, Ausnahme- und Lebenszeitverhalten ist ausdrücklich definiert und getestet. Prozesslang benötigte Handles werden statisch oder anderweitig nachweisbar dauerhaft verwurzelt.
 - Alle betroffenen Produktions-, Test- und Diagnoseverbraucher derselben Zielstelle wurden auditiert. Migrierte Produktionsmods enthalten anschließend weder den ersetzten Hook noch einen Legacy-Fallback. Ein Diagnosemod darf nur weiterbestehen, wenn es nicht parallel dieselbe Zielstelle besitzt.
 - API-Tests, betroffene Modtests, statischer Legacy-Audit, CRLF-Prüfung und die erforderlichen Builds sind erfolgreich. Noch fehlende Spieltests werden als `WARTET AUF SPIELTEST` dokumentiert und dürfen nicht durch Annahmen ersetzt werden.
@@ -274,14 +274,14 @@ Eingang: Phase 1 ist abgeschlossen; die Entscheidungen aus Abschnitt 10 sind bea
 
 Zu prüfen beziehungsweise zu bearbeiten:
 
-- `SerpNativeAPI/build.bat`, neu anzulegendes `SerpNativeAPI/release.bat` und `SerpNativeAPI/info.json`;
+- `APIShared/build.bat`, neu anzulegendes `APIShared/release.bat` und `APIShared/info.json`;
 - `Shared/Release/release-projects.json`, `Invoke-Release.bat`, `Release-Mod.ps1` und `Release.Common.ps1`;
 - `_inspect/TestReleaseWrappers.ps1`, `Shared/Release/Test-ReleaseSetup.ps1` und bei Bedarf ein neues fokussiertes Testskript unter `_inspect/ReleasePipelineTests`.
 
 Umfang:
 
 1. API als eigenes Releaseprojekt registrieren und denselben dünnen Wrappervertrag wie bei den Mods verwenden.
-2. API-Paket strikt auf einen Rootordner `SerpNativeAPI_Serp` mit DLL, PDB, XML-Dokumentation, `info.json` und einem kompakten Beispiel begrenzen. Das Beispiel ist Dokumentation, kein zweites Plugin.
+2. API-Paket strikt auf einen Rootordner `APIShared_Serp` mit DLL, PDB, XML-Dokumentation, `info.json` und einem kompakten Beispiel begrenzen. Das Beispiel ist Dokumentation, kein zweites Plugin.
 3. Ein Modell für ein explizit aufgelöstes veröffentlichtes API-Artefakt implementieren: Version, Tag, Release-URL, ZIP-Hash und Hash der enthaltenen API-DLL müssen gemeinsam vorliegen und gemeinsam validiert werden.
 4. Lokale API-Buildausgaben dürfen nur für Entwicklungsbuilds, nie als stiller Ersatz für ein fehlendes veröffentlichtes Release verwendet werden.
 5. Keine GitHub-Veröffentlichung und keine Versionserhöhung durchführen. Tests arbeiten mit lokalen Fixtures beziehungsweise bereits vorhandenen Metadaten, nicht mit einem neu erzeugten echten Release.
@@ -309,7 +309,7 @@ Eingang: Das Paketlayout aus Phase 2B ist festgelegt.
 
 Umfang:
 
-1. Die API durchsucht beim Start den kanonischen BepInEx-Pluginbaum nach physischen `SerpNativeAPI.dll`-Kopien und Manifesten mit GUID `SerpNativeAPI_Serp`.
+1. Die API durchsucht beim Start den kanonischen BepInEx-Pluginbaum nach physischen `APIShared.dll`-Kopien und Manifesten mit GUID `APIShared_Serp`.
 2. Wenn `info.json` in der Unity-Runtime geparst wird, muss `Shared/DependencyFreeJson.cs` source-linked oder intern gleichwertig integriert werden; `System.Text.Json`, Newtonsoft und Regex als JSON-Ersatz sind nicht zulässig.
 3. Nur genau eine zusammengehörige DLL-/Manifestinstallation am geladenen API-Standort ist gültig. Alle normalisierten Fundorte werden mit Zeitstempel protokolliert. Bei Mehrdeutigkeit erreicht die API einen terminalen unavailable-Zustand, benachrichtigt bereits registrierte `WhenReady`-Callbacks und führt keine native Mutation aus.
 4. Die Erkennung erhält eine intern testbare, pfadparametrisierte Kernfunktion. Tests verwenden temporäre Bäume für gültige Installation, doppelte DLL, doppeltes Manifest, GUID-Manifeste mit anderem Dateinamen, fehlendes Manifest und API im Consumerunterordner.
@@ -325,7 +325,7 @@ Primäre Dateien: `ExtraFeatures.csproj`, `src/ExtraFeaturesPlugin.cs`, `src/Ext
 Umfang:
 
 1. API-Referenz mit `<Private>false>` und HardDependency auf die kleinste tatsächlich benötigte API-Version hinzufügen.
-2. Ausschließlich `IGatehouseTimingCapability` über `SerpNativeApi.WhenReady(...)` beziehen. Pending, unavailable und capability-spezifische Fehler verständlich loggen; andere ExtraFeatures-Funktionen bleiben funktionsfähig.
+2. Ausschließlich `IGatehouseTimingCapability` über `ApiShared.WhenReady(...)` beziehen. Pending, unavailable und capability-spezifische Fehler verständlich loggen; andere ExtraFeatures-Funktionen bleiben funktionsfähig.
 3. Settings und UI-Grenzen aus den öffentlichen `GatehouseTimingValues` beziehen. Änderungen über ein einziges `GatehouseTimingSettings`-Objekt transaktional anwenden.
 4. Den alten `GatehouseTimingPatch`, seine Projektaufnahme und nur die dadurch überflüssigen nativen Abhängigkeiten entfernen. `Shared/NativePatternResolver.cs` noch nicht pauschal entlinken, solange andere ExtraFeatures-Komponenten ihn benötigen.
 5. Kein Cleanup im frühen BepInEx-`OnDestroy`/`Dispose`, das die prozesslange API-Nutzung beendet. Deaktivierung erfolgt durch Settings und stellt nur die vier dokumentierten Vanilla-Werte wieder her. ExtraFeatures fordert die Distance-Origin-Capability nie an.
@@ -341,7 +341,7 @@ Primäre Dateien: `BugfixesAndQoL.csproj`, `src/BugfixesAndQoLPlugin.cs`, `src/B
 Umfang:
 
 1. API-Referenz und HardDependency wie in Phase 3A hinzufügen.
-2. `IGatehouseDistanceOriginCapability` über `SerpNativeApi.WhenReady(...)` beziehen und prozesslang halten. Den standardmäßig aktiven `[SyncHostOnly]`-Schalter `EnableCenteredGatehouseDistanceFix` einschließlich Preset, Reset, XAML, Suche, Tooltip und aller Locales ergänzen.
+2. `IGatehouseDistanceOriginCapability` über `ApiShared.WhenReady(...)` beziehen und prozesslang halten. Den standardmäßig aktiven `[SyncHostOnly]`-Schalter `EnableCenteredGatehouseDistanceFix` einschließlich Preset, Reset, XAML, Suche, Tooltip und aller Locales ergänzen.
 3. Effektiv `EnableMod && EnableCenteredGatehouseDistanceFix` auswerten und explizit `BuildingBoundsCenter` beziehungsweise `VanillaBuildingBegin` anwenden. BugfixesAndQoL enthält dafür keinen eigenen RVA, Scanner, Seitenschutzaufruf oder Memory-Writer.
 4. `ISelectedUnitCommandCapability.TryRegisterBefore(...)` verwenden. Das Handle prozesslang statisch verwurzeln; der frühe BepInEx-Lifecycle darf es nicht disposen.
 5. Die API liefert nur den immutable Pre-Event-Kontext des Script Extenders. Assassinenzustände, Auswahlbitmap, Einheitenprüfung und Feldänderungen bleiben Modpolicy.
@@ -358,8 +358,8 @@ Diese Phase erfordert Benutzerinteraktion und darf nicht in einem unbeaufsichtig
 2. Einen Testbuild für API und beide Consumer bereitstellen, ohne Versionserhöhung.
 3. Der Benutzer führt die in Abschnitt 8 beschriebenen Singleplayer-/Host-/Client-Tests aus. Der Chat wertet Host- und, wenn erreichbar, Client-Log anhand des Startmarkers und der eigenen Millisekunden-Zeitstempel aus.
 4. Bei Fehlern werden API oder Consumer korrigiert; der alte Produktionshook wird nicht als Fallback wieder eingeführt.
-5. Erst nach ausdrücklicher Bestätigung beider Piloten wiederverwendbare Assertions nach `_inspect/SerpNativeAPITests` verschieben und `APITest` vollständig entfernen. Vor der Entfernung noch einmal workspaceweit prüfen, dass kein Test oder Build darauf verweist.
-6. `ARCHITECTURE.md`, `SerpNativeAPI/_inspect/native-surface-audit.csv` und dieser Übergabeabschnitt erhalten den bestätigten Laufzeitstand.
+5. Erst nach ausdrücklicher Bestätigung beider Piloten wiederverwendbare Assertions nach `_inspect/APISharedTests` verschieben und `APITest` vollständig entfernen. Vor der Entfernung noch einmal workspaceweit prüfen, dass kein Test oder Build darauf verweist.
+6. `ARCHITECTURE.md`, `APIShared/_inspect/native-surface-audit.csv` und dieser Übergabeabschnitt erhalten den bestätigten Laufzeitstand.
 
 Austritt: beide Piloten bestätigt, `APITest` entfernt, keine parallelen Alt-Hooks und keine offenen Pilotfehler. Danach Phase 5A.
 
@@ -430,7 +430,7 @@ Austritt: maschinenlesbarer Auditbericht ohne ungeklärten Treffer für bereits 
 ### Consumer-Tests
 
 - alle vorhandenen modbezogenen Testprojekte;
-- `_inspect/SerpNativeAPITests`;
+- `_inspect/APISharedTests`;
 - `_inspect/HostClientPresetTests` für jede berührte Settings-Mod;
 - XAML-Audit, Locale-Key-Parität, Tooltips und CRLF;
 - Build aller 16 Release-Mods mit fehlender, zu alter, passender und neuerer API;
@@ -462,11 +462,11 @@ Diese Liste ergänzt die capability-spezifischen Tests; ein Folgechat muss nicht
 
 | Arbeitspaket | Mindestens auszuführen |
 |---|---|
-| Phase 2A | API-Build; `_inspect/TestReleaseWrappers.ps1`; `Shared/Release/Test-ReleaseSetup.ps1 -ModName SerpNativeAPI`; fokussierte Metadaten-/API-Artefakt-Fixtures |
+| Phase 2A | API-Build; `_inspect/TestReleaseWrappers.ps1`; `Shared/Release/Test-ReleaseSetup.ps1 -ModName APIShared`; fokussierte Metadaten-/API-Artefakt-Fixtures |
 | Phase 2B | positive und negative Thin-/Bundle-/Provenance-Fixtures; bytegenauer Entpackaudit; unabhängiger Mod unverändert |
-| Phase 2C | `_inspect/SerpNativeAPITests`; Duplikatbaum-Fixtures; Public-Surface- und XML-Dokumentationsaudit |
-| Phase 3A | `_inspect/SerpNativeAPITests`; relevante ExtraFeatures-Tests; `_inspect/HostClientPresetTests` nach dessen README und erhöhtem EXE-Aufruf; Gatehouse-Legacy-Suche; API- und ExtraFeatures-Build |
-| Phase 3B | `_inspect/SerpNativeAPITests`; relevante Bugfixes-/Assassinen-Tests; `_inspect/HostClientPresetTests`; XAML-/Locale-Audit; Gatehouse-Origin- und Selected-Unit-Legacy-Suche; API- und Bugfixes-Build |
+| Phase 2C | `_inspect/APISharedTests`; Duplikatbaum-Fixtures; Public-Surface- und XML-Dokumentationsaudit |
+| Phase 3A | `_inspect/APISharedTests`; relevante ExtraFeatures-Tests; `_inspect/HostClientPresetTests` nach dessen README und erhöhtem EXE-Aufruf; Gatehouse-Legacy-Suche; API- und ExtraFeatures-Build |
+| Phase 3B | `_inspect/APISharedTests`; relevante Bugfixes-/Assassinen-Tests; `_inspect/HostClientPresetTests`; XAML-/Locale-Audit; Gatehouse-Origin- und Selected-Unit-Legacy-Suche; API- und Bugfixes-Build |
 | Phase 4 | dokumentierte manuelle Smoke-Tests und Logauswertung; danach Tests erneut, bevor `APITest` entfernt bleibt |
 | Phase 5–7 | API-Tests plus alle Tests jedes berührten Consumers/Diagnosemods, Surface-Audit, capability-spezifische Legacy-Suche und jeweilige Builds |
 | Phase 8 | workspaceweiter statischer Audit und Builds aller 16 festgelegten Release-Mods gegen fehlende, zu alte, passende und neuere API, soweit sie tatsächlich Consumer sind |
@@ -479,9 +479,9 @@ Für klassische .NET-Framework-Testprojekte nicht `dotnet run` verwenden. Der MS
 
 ## 9. Dokumentation und Annahmen
 
-- Der Plan selbst wird als `SerpNativeAPI/MIGRATION_PLAN.md` mit CRLF gespeichert.
-- `SerpNativeAPI/README.md` und Mod-READMEs werden während der Planung nicht verändert. Nach finaler Implementierung wird separat gefragt, ob Installation, öffentliche API und neue Abhängigkeiten dort dokumentiert werden sollen.
-- `SerpNativeAPI/ARCHITECTURE.md` und `SerpNativeAPI/_inspect/native-surface-audit.csv` werden bei jeder implementierten Capability aktualisiert.
+- Der Plan selbst wird als `APIShared/MIGRATION_PLAN.md` mit CRLF gespeichert.
+- `APIShared/README.md` und Mod-READMEs werden während der Planung nicht verändert. Nach finaler Implementierung wird separat gefragt, ob Installation, öffentliche API und neue Abhängigkeiten dort dokumentiert werden sollen.
+- `APIShared/ARCHITECTURE.md` und `APIShared/_inspect/native-surface-audit.csv` werden bei jeder implementierten Capability aktualisiert.
 - Die kanonische installierte `CrusaderDE.dll` und die Native-Baseline werden vor jeder neuen nativen Capability erneut hashgeprüft.
 - Ein Mod erhält nur dann eine API-HardDependency und Bundle-Artefakte, wenn er tatsächlich mindestens eine Capability verwendet.
 - Source-Linking bleibt für reine Helfer zulässig, aber niemals für API-Broker, native Besitzerregister oder mutierende Capabilities.

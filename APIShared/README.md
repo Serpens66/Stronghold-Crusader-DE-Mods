@@ -1,37 +1,37 @@
-# SerpNativeAPI
+# APIShared
 
-SerpNativeAPI stellt Mods typisierte, gemeinsam verwaltete Fähigkeiten für native SHCDE-Funktionen bereit. Verbraucher erhalten keine beliebigen Speicheradressen, Scanner, Zielpointer oder Detour-Objekte. Native Versionsprüfung, Besitz, Konflikterkennung, Mutation und Diagnosen bleiben in der API.
+APIShared stellt Mods typisierte, gemeinsam verwaltete Fähigkeiten für native SHCDE-Funktionen bereit. Verbraucher erhalten keine beliebigen Speicheradressen, Scanner, Zielpointer oder Detour-Objekte. Native Versionsprüfung, Besitz, Konflikterkennung, Mutation und Diagnosen bleiben in der API.
 
 Aktuelle Moddaten:
 
-- BepInEx-GUID: `SerpNativeAPI_Serp`
+- BepInEx-GUID: `APIShared_Serp`
 - Version: `0.1.0`
 - Ziel-Framework: .NET Framework 4.8.1
 - harte Laufzeitabhängigkeit: Script Extender `000shcdese`
 
 ## Installation und Projektreferenz
 
-SerpNativeAPI muss als eigener BepInEx-Mod installiert sein. Ein Verbrauchermod deklariert beide harten Abhängigkeiten:
+APIShared muss als eigener BepInEx-Mod installiert sein. Ein Verbrauchermod deklariert beide harten Abhängigkeiten:
 
     [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency("SerpNativeAPI_Serp", BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("APIShared_Serp", BepInDependency.DependencyFlags.HardDependency)]
 
 Die Assemblyreferenz darf nicht privat in den Verbraucherordner kopiert werden:
 
     <PropertyGroup>
-      <SerpNativeApiPath>$(GameDir)\BepInEx\plugins\SerpNativeAPI_Serp\SerpNativeAPI.dll</SerpNativeApiPath>
+      <ApiSharedPath>$(GameDir)\BepInEx\plugins\APIShared_Serp\APIShared.dll</ApiSharedPath>
     </PropertyGroup>
     <ItemGroup>
-      <Reference Include="SerpNativeAPI">
-        <HintPath>$(SerpNativeApiPath)</HintPath>
+      <Reference Include="APIShared">
+        <HintPath>$(ApiSharedPath)</HintPath>
         <Private>false</Private>
       </Reference>
     </ItemGroup>
-    <Target Name="ValidateSerpNativeApi" BeforeTargets="BeforeBuild">
-      <Error Condition="!Exists('$(SerpNativeApiPath)')" Text="SerpNativeAPI.dll wurde nicht gefunden: $(SerpNativeApiPath)" />
+    <Target Name="ValidateApiShared" BeforeTargets="BeforeBuild">
+      <Error Condition="!Exists('$(ApiSharedPath)')" Text="APIShared.dll wurde nicht gefunden: $(ApiSharedPath)" />
     </Target>
 
-Bei einer Workspace-Referenz kann der `HintPath` stattdessen auf `SerpNativeAPI/BepInEx/plugins/SerpNativeAPI_Serp/SerpNativeAPI.dll` zeigen. Auch dann bleibt `<Private>false>` zwingend. Im installierten Verbraucherordner darf keine zweite API-DLL liegen.
+Bei einer Workspace-Referenz kann der `HintPath` stattdessen auf `APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll` zeigen. Auch dann bleibt `<Private>false>` zwingend. Im installierten Verbraucherordner darf keine zweite API-DLL liegen.
 
 ## Readiness und Diagnosen
 
@@ -39,21 +39,21 @@ Native Initialisierung endet erst mit dem `CrusaderLibrary.LibraryLoaded`-Ereign
 
     private void Awake()
     {
-        SerpNativeApi.WhenReady(OnNativeApiReady);
+        ApiShared.WhenReady(OnNativeApiReady);
     }
 
-    private void OnNativeApiReady(ISerpNativeApi api)
+    private void OnNativeApiReady(IApiShared api)
     {
         if (api.State != NativeApiState.Ready)
         {
-            Logger.LogError("SerpNativeAPI ist global nicht verfügbar.");
+            Logger.LogError("APIShared ist global nicht verfügbar.");
             return;
         }
 
         // Capabilities werden anschließend unabhängig angefordert.
     }
 
-`SerpNativeApi.Current` ist für Statusabfragen verfügbar, ersetzt während `Pending` aber nicht die Readiness-Registrierung. `WhenReady` ruft spät registrierte Callbacks unmittelbar auf.
+`ApiShared.Current` ist für Statusabfragen verfügbar, ersetzt während `Pending` aber nicht die Readiness-Registrierung. `WhenReady` ruft spät registrierte Callbacks unmittelbar auf.
 
 Jede `TryGet...`- und Mutationsmethode liefert ein `NativeCapabilityDiagnostic` mit:
 
@@ -100,7 +100,7 @@ Das Handle muss für die gewünschte Lebensdauer verwurzelt bleiben, üblicherwe
 
     private static ISelectedUnitCommandRegistration selectedCommandRegistration;
 
-    private void RegisterSelectedCommand(ISerpNativeApi api)
+    private void RegisterSelectedCommand(IApiShared api)
     {
         if (!api.TryGetSelectedUnitCommand(
                 PluginGuid,
@@ -130,7 +130,7 @@ Das Handle muss für die gewünschte Lebensdauer verwurzelt bleiben, üblicherwe
 
 Pro Besitzer-GUID gibt es höchstens eine idempotente Registrierung. Eine spätere Registrierung desselben Besitzers liefert dasselbe Handle; sie ersetzt den ursprünglichen Callback nicht. `Disable()` pausiert, `Enable()` aktiviert wieder und `Dispose()` entfernt die Registrierung dauerhaft. Nach `Dispose()` kann derselbe Besitzer neu registrieren.
 
-Die API vermittelt ausschließlich `EventHookPhase.Pre` aus `TribeR3EventHooks.OnTribeIssueOrderWithTarget`. Verbraucher erhalten einen unveränderlichen Snapshot und nie die veränderlichen EventArgs. Callbackfehler werden je Besitzer isoliert; weitere Callbacks laufen in ordinaler Reihenfolge der Besitzer-GUID weiter. SerpNativeAPI setzt weder `SkipOriginalFunction` noch Argumente oder Rückgabewerte. Direkte fremde Abonnenten des zugrunde liegenden Extender-Events liegen außerhalb dieser Garantie.
+Die API vermittelt ausschließlich `EventHookPhase.Pre` aus `TribeR3EventHooks.OnTribeIssueOrderWithTarget`. Verbraucher erhalten einen unveränderlichen Snapshot und nie die veränderlichen EventArgs. Callbackfehler werden je Besitzer isoliert; weitere Callbacks laufen in ordinaler Reihenfolge der Besitzer-GUID weiter. APIShared setzt weder `SkipOriginalFunction` noch Argumente oder Rückgabewerte. Direkte fremde Abonnenten des zugrunde liegenden Extender-Events liegen außerhalb dieser Garantie.
 
 ## Eine neue Capability hinzufügen
 
@@ -142,7 +142,7 @@ Jede fachliche API gehört in eine eigene Datei unter `src`. Zusammengehörige O
 - Besitzer-/Broker- oder Mutationslogik;
 - capability-spezifische Diagnosen.
 
-`Contracts.cs` bleibt auf gemeinsame Zustände, Diagnosen, IDs und `ISerpNativeApi` beschränkt. `SerpNativeApiRuntime.cs` koordiniert nur Initialisierung, Readiness und Veröffentlichung. Allgemeine PE-, Speicher-, Seitenschutz-, Besitz- und Logging-Helfer gehören in `NativeInfrastructure.cs`. Eine Capability darf keine Implementierungsdetails einer anderen Capability voraussetzen.
+`Contracts.cs` bleibt auf gemeinsame Zustände, Diagnosen, IDs und `IApiShared` beschränkt. `ApiSharedRuntime.cs` koordiniert nur Initialisierung, Readiness und Veröffentlichung. Allgemeine PE-, Speicher-, Seitenschutz-, Besitz- und Logging-Helfer gehören in `NativeInfrastructure.cs`. Eine Capability darf keine Implementierungsdetails einer anderen Capability voraussetzen.
 
 Vorgehen für eine Erweiterung:
 
@@ -154,8 +154,8 @@ Vorgehen für eine Erweiterung:
 6. Native Intervalle vor Mutation reservieren. Wiederholungen desselben Besitzers sind idempotent, fremde Überschneidungen scheitern geschlossen mit Besitzerdiagnose.
 7. Zusammengehörige Writes transaktional ausführen: erwarteten Zustand prüfen, alte Werte und jeden Seitenschutz sichern, gemeinsam schreiben und verifizieren, vollständig zurückrollen, Schutzwerte einzeln restaurieren und den Instruction Cache leeren. Primär- und Cleanupfehler gemeinsam melden.
 8. Dauerhafte Events, Delegates, Trampolines und Subscriptions statisch oder anderweitig für den Prozess verwurzeln. Nicht auf `OnDisable`, `OnDestroy`, `Update` oder Coroutines der BepInEx-Plugininstanz vertrauen.
-9. Fake-Adapter und Tests unter `_inspect/SerpNativeAPITests` ergänzen. Mindestens unbekannte Builds, unabhängige Fehler, Konflikte, Idempotenz, externe Mutation, Rollback, Cleanupfehler, Reentranz und Callbackfehler abdecken.
-10. `SerpNativeAPI/_inspect/native-surface-audit.csv`, `ARCHITECTURE.md` und bei offenen Analysen eine eigene TODO-Datei aktualisieren. Erst nach statischen Prüfungen und Tests den vorgesehenen `build.bat`-Treiber einmal ausführen.
+9. Fake-Adapter und Tests unter `_inspect/APISharedTests` ergänzen. Mindestens unbekannte Builds, unabhängige Fehler, Konflikte, Idempotenz, externe Mutation, Rollback, Cleanupfehler, Reentranz und Callbackfehler abdecken.
+10. `APIShared/_inspect/native-surface-audit.csv`, `ARCHITECTURE.md` und bei offenen Analysen eine eigene TODO-Datei aktualisieren. Erst nach statischen Prüfungen und Tests den vorgesehenen `build.bat`-Treiber einmal ausführen.
 
 ## Projektunterlagen
 
