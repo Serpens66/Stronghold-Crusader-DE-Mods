@@ -14,6 +14,24 @@
 
 Das Quellpräfix `auto` erkennt den Text vor dem abschließenden numerischen Index. Akzeptiert werden beispielsweise `Tree_Oak-12.png`, `tile_ruins 012.png`, `012.png` und `body_name-12x.png`. Im selben Ordner müssen Masken auf `_m.png` enden. In einem separaten Maskenordner ist `_m` optional.
 
+### Wichtig: Tight-Mesh-Sprites korrekt aus Unity-Atlanten extrahieren
+
+Der Atlas Builder erwartet bereits korrekt extrahierte Einzel-PNGs. Er schneidet keine Sprites aus einem Quellatlas aus und kann Verunreinigungen in den Eingabebildern nicht nachträglich reparieren.
+
+Bei Unity-Sprites mit **Tight Mesh** darf der gemeinsame Farb- oder Maskenatlas nicht einfach rechteckig anhand von `m_Rect` ausgeschnitten werden. Das Rechteck kann Pixel benachbarter Atlasobjekte enthalten; außerdem können die tatsächlichen UV-Vertices über einzelne `m_Rect`-Kanten hinausragen. Das wurde an den bereitgestellten SH1DE-Swordsman-Daten bestätigt: Alle 1.216 Frames besitzen Meshdaten, und einzelne UV-Meshes überschreiten eine `m_Rect`-Kante um bis zu ungefähr 27 Pixel.
+
+Ein geeigneter Extraktor muss daher:
+
+1. Positionen und UVs aus `m_RD.m_VertexData` sowie die Dreiecke aus `m_RD.m_IndexBuffer` und `m_SubMeshes` lesen.
+2. den benötigten Ausschnitt aus den UV-Meshgrenzen bestimmen, nicht allein aus `m_Rect`;
+3. die indizierten Dreiecke für Farb- und Maskenatlas identisch rasterisieren und alle Pixel außerhalb der Dreiecksfläche transparent setzen;
+4. den Pivot für die neue Ausgabeleinwand aus Meshpositionen, UVs und PPU neu berechnen;
+5. korrigierte Quellmetadaten mit der tatsächlichen PNG-Größe und dem neu normalisierten Pivot ausgeben.
+
+Eine reine Rechteckextraktion kann farbige Fragmente anderer Sprites erzeugen. Der Builder packt solche bereits verunreinigten Pixel anschließend unverändert und besteht dabei zu Recht seinen Pixelvergleich, weil Quelle und gebauter Atlas identisch sind. Weder eine andere Pivotoption noch ein größerer Packabstand behebt diesen Eingabefehler.
+
+Eine allgemeine automatische Tight-Mesh-Prüfung ist aus einem Einzel-PNG und den normalen Basisfeldern `m_Rect`/`m_Pivot` nicht eindeutig möglich. Dafür müsste zusätzlich die genaue Extraktionstransformation oder ein vertrauenswürdiger Mesh-Sidecar mit lokalen Vertices und Dreiecken vorliegen. Bei eigenen Ersatzgrafiken können Pixel außerhalb des ursprünglichen Unity-Meshes außerdem beabsichtigt sein. Deshalb erzwingt der Builder derzeit keine solche Prüfung.
+
 Die Ausgabe einer Gruppe besteht aus:
 
     Override/Atlas/<GM-Gruppe>/atlas.png
@@ -70,6 +88,24 @@ Der ausgegebene Spritename wird aus der Ziel-GM-Gruppe erzeugt. Das ist wichtig,
 5. Save the project as `*.atlas-project.json`, validate it, then build the atlases.
 
 The `auto` source prefix detects the text before the trailing numeric index. Examples include `Tree_Oak-12.png`, `tile_ruins 012.png`, `012.png` and `body_name-12x.png`. Masks in the colour directory must end in `_m.png`; `_m` is optional in a separate mask directory.
+
+### Important: correctly extracting Tight Mesh Sprites from Unity atlases
+
+The Atlas Builder expects correctly extracted individual PNGs. It does not cut Sprites out of a source atlas and cannot repair contamination that is already present in its input images.
+
+For Unity Sprites using a **Tight Mesh**, do not crop the shared colour or mask atlas as a rectangle based only on `m_Rect`. That rectangle can contain pixels belonging to neighbouring atlas objects, and the actual UV vertices may extend beyond individual `m_Rect` edges. This was confirmed in the supplied SH1DE swordsman data: all 1,216 frames contain mesh data, and individual UV meshes extend beyond an `m_Rect` edge by up to approximately 27 pixels.
+
+A suitable extractor must therefore:
+
+1. read positions and UVs from `m_RD.m_VertexData`, and triangles from `m_RD.m_IndexBuffer` and `m_SubMeshes`;
+2. determine the required crop from the UV mesh bounds rather than from `m_Rect` alone;
+3. rasterize the indexed triangles identically for the colour and mask atlases, clearing every pixel outside the triangle area to transparency;
+4. recalculate the pivot for the new output canvas from mesh positions, UVs and PPU;
+5. emit corrected source metadata containing the actual PNG dimensions and newly normalized pivot.
+
+A rectangular crop can introduce coloured fragments from unrelated Sprites. The builder then preserves those already contaminated pixels exactly and correctly passes its pixel comparison because the input and generated atlas match. Changing the pivot mode or increasing the packing gap cannot fix this input defect.
+
+A general Tight Mesh check cannot be derived unambiguously from an individual PNG and the normal `m_Rect`/`m_Pivot` fields alone. It would additionally require the exact extraction transform or a trusted mesh sidecar containing local vertices and triangles. Pixels outside the historical Unity mesh may also be intentional in custom replacement artwork. The builder therefore does not currently enforce such a check.
 
 Each group produces:
 
