@@ -8,7 +8,7 @@
     <AssemblyName>AIVPlacement.Core</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\AIVParser\AIVParser.Core\AIVParser.Core.csproj" />
-    <ProjectReference Include="..\..\MapParser\MapParser.Core\MapParser.Core.csproj" />
+    <ProjectReference Include="..\..\Helpers\AIVParser\AIVParser.Core\AIVParser.Core.csproj" />
+    <ProjectReference Include="..\..\Helpers\MapParser\MapParser.Core\MapParser.Core.csproj" />
   </ItemGroup>
 </Project>

@@ -37,7 +37,7 @@ internal static class Program
             "ActiveAIVDetector", "EnemyGatePathfindingTest", "HunterQueryTargetDiagnostic"
         };
         string production = string.Join("\n", mods.SelectMany(mod =>
-            Directory.EnumerateFiles(Path.Combine(root, mod), "*", SearchOption.AllDirectories)
+            Directory.EnumerateFiles(GetModPath(root, mod), "*", SearchOption.AllDirectories)
                 .Where(path => path.EndsWith(".cs", StringComparison.OrdinalIgnoreCase) ||
                     path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase) ||
                     path.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
@@ -49,7 +49,7 @@ internal static class Program
         {
             string minimum = GetManifestMinimum(root, mod);
             if (minimum.Length == 0) continue;
-            string plugin = Directory.EnumerateFiles(Path.Combine(root, mod, "src"), "*Plugin.cs",
+            string plugin = Directory.EnumerateFiles(Path.Combine(GetModPath(root, mod), "src"), "*Plugin.cs",
                 SearchOption.TopDirectoryOnly).Select(File.ReadAllText).First();
             Assert(plugin.Contains($"[BepInDependency(ScriptExtenderGuid, \"{minimum}\")]",
                 StringComparison.Ordinal), mod + " dependency matches its manifest minimum");
@@ -76,7 +76,7 @@ internal static class Program
             "extender-owned context memory is never disposed");
 
         string selected = File.ReadAllText(Path.Combine(root,
-            "EnemyGatePathfindingTest", "src", "SamePclBridgeDiagnostics.cs"));
+            "Testmods", "EnemyGatePathfindingTest", "src", "SamePclBridgeDiagnostics.cs"));
         Assert(selected.Contains("SelectedUnitInfo[] selected =", StringComparison.Ordinal),
             "selected units use the manifest-selected result type");
         Assert(selected.Contains("selected[index].UnitId", StringComparison.Ordinal),
@@ -88,10 +88,11 @@ internal static class Program
 
     private static string GetManifestMinimum(string root, string mod)
     {
-        string direct = Path.Combine(root, mod, "info.json");
+        string modPath = GetModPath(root, mod);
+        string direct = Path.Combine(modPath, "info.json");
         string? path = File.Exists(direct)
             ? direct
-            : Directory.EnumerateFiles(Path.Combine(root, mod), "info.json", SearchOption.AllDirectories).FirstOrDefault();
+            : Directory.EnumerateFiles(modPath, "info.json", SearchOption.AllDirectories).FirstOrDefault();
         if (path == null) return string.Empty;
         Match match = Regex.Match(File.ReadAllText(path),
             "\\\"MinimumScriptExtenderVersion\\\"\\s*:\\s*\\\"([^\\\"]*)\\\"");
@@ -107,7 +108,7 @@ internal static class Program
 
     private static void VerifyMode(string root, string mod, int expected, bool packageOnly)
     {
-        string[] paths = Directory.EnumerateFiles(Path.Combine(root, mod), "info.json",
+        string[] paths = Directory.EnumerateFiles(GetModPath(root, mod), "info.json",
             SearchOption.AllDirectories).ToArray();
         Equal(packageOnly ? 1 : 2, paths.Length, mod + " manifest-copy count");
         foreach (string path in paths)
@@ -201,11 +202,17 @@ internal static class Program
         while (current != null)
         {
             if (File.Exists(Path.Combine(current, "AGENTS.md")) &&
-                Directory.Exists(Path.Combine(current, "EnemyGatePathfindingTest"))) return current;
+                Directory.Exists(Path.Combine(current, "Testmods", "EnemyGatePathfindingTest"))) return current;
             current = Directory.GetParent(current)?.FullName;
         }
         throw new DirectoryNotFoundException("Workspace root not found.");
     }
+
+    private static string GetModPath(string root, string mod) => mod switch
+    {
+        "ActiveAIVDetector" or "HunterQueryTargetDiagnostic" => Path.Combine(root, "Helpers", mod),
+        _ => Path.Combine(root, "Testmods", mod)
+    };
 
     private static int Count(string text, string value) =>
         Regex.Matches(text, Regex.Escape(value), RegexOptions.CultureInvariant).Count;

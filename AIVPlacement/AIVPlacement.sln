@@ -8,9 +8,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVPlacement.Tests", "AIVPl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVPlacement.OracleComparison", "AIVPlacement.OracleComparison\AIVPlacement.OracleComparison.csproj", "{EC835D3C-8F6F-40BE-8B7C-935037B02E41}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVParser.Core", "..\AIVParser\AIVParser.Core\AIVParser.Core.csproj", "{613C733B-21B8-48FD-BE84-B966E7E661B8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AIVParser.Core", "..\Helpers\AIVParser\AIVParser.Core\AIVParser.Core.csproj", "{613C733B-21B8-48FD-BE84-B966E7E661B8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MapParser.Core", "..\MapParser\MapParser.Core\MapParser.Core.csproj", "{C77B2E73-53A2-41B7-B989-FE40AD09DF42}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MapParser.Core", "..\Helpers\MapParser\MapParser.Core\MapParser.Core.csproj", "{C77B2E73-53A2-41B7-B989-FE40AD09DF42}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

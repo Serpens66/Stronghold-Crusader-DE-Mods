@@ -6,9 +6,9 @@ set "SOLUTION=%PROJECT_DIR%TrailEditor.sln"
 set "CLI_EXE=%PROJECT_DIR%TrailEditor.Cli\bin\Release\net10.0\TrailEditor.exe"
 
 if not defined TrailEditorDependencyRoot (
-    for %%I in ("%PROJECT_DIR%..") do set "TrailEditorDependencyRoot=%%~fI"
+    for %%I in ("%PROJECT_DIR%..\..") do set "TrailEditorDependencyRoot=%%~fI"
 )
-if not defined TrailEditorMapParserProject set "TrailEditorMapParserProject=%TrailEditorDependencyRoot%\MapParser\MapParser.Core\MapParser.Core.csproj"
+if not defined TrailEditorMapParserProject set "TrailEditorMapParserProject=%TrailEditorDependencyRoot%\Helpers\MapParser\MapParser.Core\MapParser.Core.csproj"
 if not defined TrailEditorAivDecoderSourceRoot set "TrailEditorAivDecoderSourceRoot=%TrailEditorDependencyRoot%\shcde-script-extender\src\SHCDESE.AIVDecoder\src\SHCDESE.AIVDecoder"
 if not defined TrailEditorAicDecoderSourceRoot set "TrailEditorAicDecoderSourceRoot=%TrailEditorDependencyRoot%\shcde-script-extender\src\SHCDESE.AICDecoder\src\SHCDESE.AICDecoder"
 

@@ -162,8 +162,8 @@ internal static class Program
     private static void CheckSourceContracts()
     {
         string workspace = FindWorkspace();
-        string plugin = File.ReadAllText(Path.Combine(workspace, "OxTetherIdleFixTest", "src", "OxTetherIdleFixTestPlugin.cs"));
-        string runtime = File.ReadAllText(Path.Combine(workspace, "OxTetherIdleFixTest", "src", "OxTetherIdleFixTestRuntime.cs"));
+        string plugin = File.ReadAllText(Path.Combine(workspace, "Testmods", "OxTetherIdleFixTest", "src", "OxTetherIdleFixTestPlugin.cs"));
+        string runtime = File.ReadAllText(Path.Combine(workspace, "Testmods", "OxTetherIdleFixTest", "src", "OxTetherIdleFixTestRuntime.cs"));
         string helper = File.ReadAllText(Path.Combine(workspace, "Shared", "DebugLogHelper.cs"));
         Check(plugin.Contains("requireCurrentVersion: true"), "native hash mismatch fails closed");
         Check(helper.Contains(ExpectedHash), "shared hash matches test contract");
@@ -234,7 +234,7 @@ internal static class Program
         DirectoryInfo current = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
         while (current != null)
         {
-            if (Directory.Exists(Path.Combine(current.FullName, "OxTetherIdleFixTest")))
+            if (Directory.Exists(Path.Combine(current.FullName, "Testmods", "OxTetherIdleFixTest")))
                 return current.FullName;
             current = current.Parent;
         }

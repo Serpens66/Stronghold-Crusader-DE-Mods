@@ -53,6 +53,7 @@ internal static class Program
     {
         string source = File.ReadAllText(Path.Combine(
             workspace,
+            "Testmods",
             "EngineerSiegeFixTest",
             "src",
             "EngineerSiegeFixTestNativeDefinition.cs"));
@@ -147,16 +148,19 @@ internal static class Program
     {
         string runtime = File.ReadAllText(Path.Combine(
             workspace,
+            "Testmods",
             "EngineerSiegeFixTest",
             "src",
             "EngineerSiegeFixTestRuntime.cs"));
         string plugin = File.ReadAllText(Path.Combine(
             workspace,
+            "Testmods",
             "EngineerSiegeFixTest",
             "src",
             "EngineerSiegeFixTestPlugin.cs"));
         string project = File.ReadAllText(Path.Combine(
             workspace,
+            "Testmods",
             "EngineerSiegeFixTest",
             "EngineerSiegeFixTest.csproj"));
         Check(!runtime.Contains("AddContextHook"),
@@ -570,7 +574,7 @@ internal static class Program
         DirectoryInfo directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
         while (directory != null)
         {
-            if (Directory.Exists(Path.Combine(directory.FullName, "EngineerSiegeFixTest")))
+            if (Directory.Exists(Path.Combine(directory.FullName, "Testmods", "EngineerSiegeFixTest")))
                 return directory.FullName;
             directory = directory.Parent;
         }

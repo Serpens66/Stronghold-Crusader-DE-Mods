@@ -73,7 +73,7 @@ namespace APISharedTests
             string plugin = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "APISharedPlugin.cs"));
             string project = File.ReadAllText(Path.Combine(workspace, "APIShared", "APIShared.csproj"));
             string unitHud = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitHudPresentationCapability.cs"));
-            string virtualRuntime = File.ReadAllText(Path.Combine(workspace, "VirtualUnitsPrototype", "src", "VirtualEntityRuntime.cs"));
+            string virtualRuntime = File.ReadAllText(Path.Combine(workspace, "Testmods", "VirtualUnitsPrototype", "src", "VirtualEntityRuntime.cs"));
             string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordUnitHudRegistration.cs"));
             string sourceManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "info.json"));
             string packageManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "info.json"));

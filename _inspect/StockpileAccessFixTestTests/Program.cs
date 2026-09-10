@@ -218,7 +218,7 @@ internal static class Program
     private static void CheckSourceContracts()
     {
         string workspace = FindWorkspace();
-        string mod = Path.Combine(workspace, "StockpileAccessFixTest");
+        string mod = Path.Combine(workspace, "Testmods", "StockpileAccessFixTest");
         string plugin = File.ReadAllText(Path.Combine(mod, "src", "StockpileAccessFixTestPlugin.cs"));
         string runtime = File.ReadAllText(Path.Combine(mod, "src", "StockpileAccessFixTestRuntime.cs"));
         string project = File.ReadAllText(Path.Combine(mod, "StockpileAccessFixTest.csproj"));
@@ -499,7 +499,7 @@ internal static class Program
         DirectoryInfo current = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
         while (current != null)
         {
-            if (Directory.Exists(Path.Combine(current.FullName, "StockpileAccessFixTest")))
+            if (Directory.Exists(Path.Combine(current.FullName, "Testmods", "StockpileAccessFixTest")))
                 return current.FullName;
             current = current.Parent;
         }

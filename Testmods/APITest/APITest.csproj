@@ -19,10 +19,10 @@
   <PropertyGroup Condition="'$(GameDir)' == ''"><GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <PropertyGroup>
-    <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\shcde-script-extender</LocalScriptExtenderRoot>
+    <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\..\shcde-script-extender</LocalScriptExtenderRoot>
     <LocalScriptExtenderBuildOutput>$(LocalScriptExtenderRoot)\src\SHCDESE.BepInEx\bin\net481</LocalScriptExtenderBuildOutput>
     <LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput>
-    <LocalApiOutput>$(MSBuildThisFileDirectory)..\APIShared\BepInEx\plugins\APIShared_Serp</LocalApiOutput>
+    <LocalApiOutput>$(MSBuildThisFileDirectory)..\..\APIShared\BepInEx\plugins\APIShared_Serp</LocalApiOutput>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir></PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderModOutput)\SHCDESE.dll')"><ExtenderDir>$(LocalScriptExtenderModOutput)</ExtenderDir></PropertyGroup>

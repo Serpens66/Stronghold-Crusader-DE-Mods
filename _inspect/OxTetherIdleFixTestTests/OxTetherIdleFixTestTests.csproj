@@ -34,9 +34,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\OxTetherIdleFixTest\src\OxIdleEpisodePolicy.cs"><Link>OxIdleEpisodePolicy.cs</Link></Compile>
-    <Compile Include="..\..\OxTetherIdleFixTest\src\OxTetherIdleFixTestPlugin.cs"><Link>OxTetherIdleFixTestPlugin.cs</Link></Compile>
-    <Compile Include="..\..\OxTetherIdleFixTest\src\OxTetherIdleFixTestRuntime.cs"><Link>OxTetherIdleFixTestRuntime.cs</Link></Compile>
+    <Compile Include="..\..\Testmods\OxTetherIdleFixTest\src\OxIdleEpisodePolicy.cs"><Link>OxIdleEpisodePolicy.cs</Link></Compile>
+    <Compile Include="..\..\Testmods\OxTetherIdleFixTest\src\OxTetherIdleFixTestPlugin.cs"><Link>OxTetherIdleFixTestPlugin.cs</Link></Compile>
+    <Compile Include="..\..\Testmods\OxTetherIdleFixTest\src\OxTetherIdleFixTestRuntime.cs"><Link>OxTetherIdleFixTestRuntime.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

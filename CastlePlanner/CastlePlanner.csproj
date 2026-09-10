@@ -44,8 +44,8 @@
     <LocalScriptExtenderBuildOutput>$(LocalScriptExtenderRoot)\src\SHCDESE.BepInEx\bin\net481</LocalScriptExtenderBuildOutput>
     <LobbyCoreOutput>$(MSBuildThisFileDirectory)AIVPlacement.Core\bin\Release\netstandard2.0</LobbyCoreOutput>
     <PlacementCoreOutput>$(MSBuildThisFileDirectory)..\AIVPlacement\AIVPlacement.Core\bin\Release\netstandard2.0</PlacementCoreOutput>
-    <AivParserCoreOutput>$(MSBuildThisFileDirectory)..\AIVParser\AIVParser.Core\bin\Release\netstandard2.0</AivParserCoreOutput>
-    <MapParserCoreOutput>$(MSBuildThisFileDirectory)..\MapParser\MapParser.Core\bin\Release\netstandard2.0</MapParserCoreOutput>
+    <AivParserCoreOutput>$(MSBuildThisFileDirectory)..\Helpers\AIVParser\AIVParser.Core\bin\Release\netstandard2.0</AivParserCoreOutput>
+    <MapParserCoreOutput>$(MSBuildThisFileDirectory)..\Helpers\MapParser\MapParser.Core\bin\Release\netstandard2.0</MapParserCoreOutput>
   </PropertyGroup>
   <PropertyGroup Condition="'$(ExtenderDir)' == '' and Exists('$(LocalScriptExtenderBuildOutput)\SHCDESE.dll')">
     <ExtenderDir>$(LocalScriptExtenderBuildOutput)</ExtenderDir>

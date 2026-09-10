@@ -36,10 +36,25 @@ function Get-ReleaseConfiguration {
         Repository = [string]$config.Repository
         Branch = [string]$config.Branch
         Projects = @($config.Projects | ForEach-Object { [string]$_ })
+        ProjectDirectories = $config.ProjectDirectories
         GameDir = $gameDir
         MSBuild = $msBuild
         LocalConfigPath = $localConfigPath
     }
+}
+
+function Get-ReleaseProjectDirectory {
+    param(
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][string]$Project
+    )
+    if ($null -ne $Config.ProjectDirectories) {
+        $mapping = $Config.ProjectDirectories.PSObject.Properties[$Project]
+        if ($null -ne $mapping -and -not [string]::IsNullOrWhiteSpace([string]$mapping.Value)) {
+            return ([string]$mapping.Value).Replace('/', [IO.Path]::DirectorySeparatorChar)
+        }
+    }
+    return $Project
 }
 
 function Resolve-ReleaseTool {
@@ -103,7 +118,7 @@ function Get-PluginMetadata {
     if ($ModName -notin $config.Projects) {
         throw "Project is not release-enabled: $ModName"
     }
-    $modDir = Join-Path $config.Root $ModName
+    $modDir = Join-Path $config.Root (Get-ReleaseProjectDirectory -Config $config -Project $ModName)
     $pluginRoot = Join-Path $modDir 'BepInEx\plugins'
     $infos = @(Get-ChildItem -LiteralPath $pluginRoot -Filter info.json -File -Recurse -ErrorAction Stop)
     if ($infos.Count -ne 1) {

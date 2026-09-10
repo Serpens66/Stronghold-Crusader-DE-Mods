@@ -1,6 +1,11 @@
 {
   "Repository": "Serpens66/Stronghold-Crusader-DE-Mods",
   "Branch": "main",
+  "ProjectDirectories": {
+    "ActiveAIVDetector": "Helpers/ActiveAIVDetector",
+    "AIDefenseTest": "Testmods/AIDefenseTest",
+    "VanillaAICExporter": "Helpers/VanillaAICExporter"
+  },
   "Projects": [
     "ActiveAIVDetector",
     "AIDefenseTest",

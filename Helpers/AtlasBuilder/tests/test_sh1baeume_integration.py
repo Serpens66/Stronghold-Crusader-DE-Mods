@@ -12,7 +12,7 @@ from atlas_builder.models import ProjectConfig
 @unittest.skipUnless(os.environ.get("ATLAS_BUILDER_INTEGRATION") == "1", "integration test not requested")
 class SH1BaeumeIntegrationTests(unittest.TestCase):
     def test_general_builder_reproduces_all_tree_mappings(self) -> None:
-        workspace = Path(__file__).resolve().parents[2]
+        workspace = Path(__file__).resolve().parents[3]
         project_path = workspace / "Baeume_Test" / "SH1Baeume.atlas-project.json"
         project = ProjectConfig.load(project_path)
         project.output_mod_directory = str(workspace / ".inspect" / "AtlasBuilderIntegration" / "SH1Baeume")

@@ -37,9 +37,10 @@ function Get-ChangedRepositoryPaths {
 function Test-RelevantProjectPath {
     param(
         [Parameter(Mandatory)][string]$Project,
+        [string]$ProjectDirectory = $Project,
         [Parameter(Mandatory)][string]$Path
     )
-    $prefix = "$Project/"
+    $prefix = $ProjectDirectory.TrimEnd('/', '\') + '/'
     if (-not $Path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { return $false }
     $relative = $Path.Substring($prefix.Length)
     if ($relative -match '(^|/)(?:bin|obj|\.inspect|\.tools|Docs?|Reference|packaging)(/|$)') { return $false }
@@ -56,13 +57,13 @@ function Test-RelevantProjectPath {
 
 function ConvertTo-RepositoryPath {
     param(
-        [Parameter(Mandatory)][string]$Project,
+        [Parameter(Mandatory)][string]$ProjectDirectory,
         [Parameter(Mandatory)][string]$Include
     )
     $value = $Include.Replace('\', '/')
     if ($value -match '^\$\(' -or [IO.Path]::IsPathRooted($value)) { return $null }
     $parts = [System.Collections.Generic.List[string]]::new()
-    foreach ($part in @($Project.Split('/') + $value.Split('/'))) {
+    foreach ($part in @($ProjectDirectory.Replace('\', '/').Split('/') + $value.Split('/'))) {
         if ([string]::IsNullOrWhiteSpace($part) -or $part -eq '.') { continue }
         if ($part -eq '..') {
             if ($parts.Count -eq 0) { return $null }
@@ -81,15 +82,16 @@ function Get-ExternalProjectInputs {
         [Parameter(Mandatory)][string]$HeadCommit,
         [Parameter(Mandatory)][string[]]$TrackedHeadPaths
     )
-    $projectPath = "$Project/$Project.csproj"
+    $projectDirectory = (Get-ReleaseProjectDirectory -Config $Config -Project $Project).Replace('\', '/')
+    $projectPath = "$projectDirectory/$Project.csproj"
     $projectText = Get-GitText -Config $Config -Revision $HeadCommit -Path $projectPath -AllowMissing
     if ([string]::IsNullOrWhiteSpace($projectText)) { return @() }
     [xml]$xml = $projectText
     $paths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $nodes = @($xml.SelectNodes('//*[local-name()="Compile" or local-name()="Content" or local-name()="None" or local-name()="EmbeddedResource" or local-name()="AdditionalFiles"][@Include]'))
     foreach ($node in $nodes) {
-        $normalized = ConvertTo-RepositoryPath -Project $Project -Include ([string]$node.Include)
-        if ([string]::IsNullOrWhiteSpace($normalized) -or $normalized.StartsWith("$Project/", [StringComparison]::OrdinalIgnoreCase)) { continue }
+        $normalized = ConvertTo-RepositoryPath -ProjectDirectory $projectDirectory -Include ([string]$node.Include)
+        if ([string]::IsNullOrWhiteSpace($normalized) -or $normalized.StartsWith("$projectDirectory/", [StringComparison]::OrdinalIgnoreCase)) { continue }
         if ($normalized.IndexOfAny([char[]]@('*', '?', '[')) -ge 0) {
             $pattern = [WildcardPattern]::new($normalized, [Management.Automation.WildcardOptions]::IgnoreCase)
             foreach ($candidate in $TrackedHeadPaths) {
@@ -299,7 +301,8 @@ function Get-ModStatusComparison {
 
     $relevantPaths = [System.Collections.Generic.List[string]]::new()
     foreach ($path in $allChanged) {
-        if (Test-RelevantProjectPath -Project $Project -Path $path) {
+        $projectDirectory = (Get-ReleaseProjectDirectory -Config $Config -Project $Project).Replace('\', '/')
+        if (Test-RelevantProjectPath -Project $Project -ProjectDirectory $projectDirectory -Path $path) {
             $relevantPaths.Add($path)
         } elseif ($path -ne 'Shared/SerpLocalization.cs' -and $externalSet.Contains($path)) {
             $relevantPaths.Add($path)

@@ -25,7 +25,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\src\AtlasManifest.cs"><Link>AtlasManifest.cs</Link></Compile>
     <Compile Include="..\src\SkinSelectionPolicy.cs"><Link>SkinSelectionPolicy.cs</Link></Compile>
   </ItemGroup>

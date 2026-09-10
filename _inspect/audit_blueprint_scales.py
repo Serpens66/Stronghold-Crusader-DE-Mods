@@ -5,7 +5,7 @@ import re
 
 
 ROOT = Path(__file__).resolve().parents[1]
-AIV_CATALOG = ROOT / "AIVParser/AIVParser.Core/AivCatalogs.cs"
+AIV_CATALOG = ROOT / "Helpers/AIVParser/AIVParser.Core/AivCatalogs.cs"
 ICON_CATALOG = ROOT / "CastlePlanner/src/BlueprintBuildingIconCatalog.cs"
 CALIBRATIONS = Path(
     r"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"

@@ -35,11 +35,11 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(GameDir)' == ''">
-    <GameDir>$(MSBuildThisFileDirectory)..\..\..\..\..\..\..\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <GameDir>$(MSBuildThisFileDirectory)..\..\..\..\..\..\..\..\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
   </PropertyGroup>
     <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
   <PropertyGroup>
-    <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\shcde-script-extender</LocalScriptExtenderRoot>
+    <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\..\shcde-script-extender</LocalScriptExtenderRoot>
     <LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput>
     <LocalScriptExtenderBuildOutput>$(LocalScriptExtenderRoot)\src\SHCDESE.BepInEx\bin\net481</LocalScriptExtenderBuildOutput>
   </PropertyGroup>
@@ -106,13 +106,13 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Shared\DependencyFreeJson.cs">
+    <Compile Include="..\..\Shared\DependencyFreeJson.cs">
       <Link>Shared\DependencyFreeJson.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\DebugLogHelper.cs">
+    <Compile Include="..\..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
-    <Compile Include="..\Shared\NativePatternResolver.cs">
+    <Compile Include="..\..\Shared\NativePatternResolver.cs">
       <Link>Shared\NativePatternResolver.cs</Link>
     </Compile>
     <Compile Include="src\AivPlacementOracle.cs" />

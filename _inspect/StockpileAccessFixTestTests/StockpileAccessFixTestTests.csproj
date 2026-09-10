@@ -32,10 +32,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\StockpileAccessFixTest\src\StockpileAccessEpisodePolicy.cs"><Link>StockpileAccessEpisodePolicy.cs</Link></Compile>
-    <Compile Include="..\..\StockpileAccessFixTest\src\StockpileAccessFixNativeDefinition.cs"><Link>StockpileAccessFixNativeDefinition.cs</Link></Compile>
-    <Compile Include="..\..\StockpileAccessFixTest\src\StockpileAccessFixTestPlugin.cs"><Link>StockpileAccessFixTestPlugin.cs</Link></Compile>
-    <Compile Include="..\..\StockpileAccessFixTest\src\StockpileAccessFixTestRuntime.cs"><Link>StockpileAccessFixTestRuntime.cs</Link></Compile>
+    <Compile Include="..\..\Testmods\StockpileAccessFixTest\src\StockpileAccessEpisodePolicy.cs"><Link>StockpileAccessEpisodePolicy.cs</Link></Compile>
+    <Compile Include="..\..\Testmods\StockpileAccessFixTest\src\StockpileAccessFixNativeDefinition.cs"><Link>StockpileAccessFixNativeDefinition.cs</Link></Compile>
+    <Compile Include="..\..\Testmods\StockpileAccessFixTest\src\StockpileAccessFixTestPlugin.cs"><Link>StockpileAccessFixTestPlugin.cs</Link></Compile>
+    <Compile Include="..\..\Testmods\StockpileAccessFixTest\src\StockpileAccessFixTestRuntime.cs"><Link>StockpileAccessFixTestRuntime.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
   </ItemGroup>

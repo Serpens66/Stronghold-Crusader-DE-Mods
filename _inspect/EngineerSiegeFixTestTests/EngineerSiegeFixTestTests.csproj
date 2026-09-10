@@ -18,13 +18,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\EngineerSiegeFixTest\src\EngineerCrewHandoffPolicy.cs">
+    <Compile Include="..\..\Testmods\EngineerSiegeFixTest\src\EngineerCrewHandoffPolicy.cs">
       <Link>EngineerCrewHandoffPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\EngineerSiegeFixTest\src\EngineerHandoffDiagnosticPolicy.cs">
+    <Compile Include="..\..\Testmods\EngineerSiegeFixTest\src\EngineerHandoffDiagnosticPolicy.cs">
       <Link>EngineerHandoffDiagnosticPolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\EngineerSiegeFixTest\src\EngineerHandoffRepairPolicy.cs">
+    <Compile Include="..\..\Testmods\EngineerSiegeFixTest\src\EngineerHandoffRepairPolicy.cs">
       <Link>EngineerHandoffRepairPolicy.cs</Link>
     </Compile>
   </ItemGroup>

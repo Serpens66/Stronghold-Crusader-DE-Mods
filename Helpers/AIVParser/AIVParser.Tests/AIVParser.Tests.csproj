@@ -11,22 +11,22 @@
   <ItemGroup>
     <ProjectReference Include="..\AIVParser.Core\AIVParser.Core.csproj" />
     <ProjectReference Include="..\AIVParser.Cli\AIVParser.Cli.csproj" />
-    <Compile Include="..\..\CastlePlanner\src\BlueprintBuildingIconCatalog.cs"
+    <Compile Include="..\..\..\CastlePlanner\src\BlueprintBuildingIconCatalog.cs"
              Link="CastlePlanner\BlueprintBuildingIconCatalog.cs" />
-    <Compile Include="..\..\CastlePlanner\src\BlueprintBuildingCaptureCatalog.cs"
+    <Compile Include="..\..\..\CastlePlanner\src\BlueprintBuildingCaptureCatalog.cs"
              Link="CastlePlanner\BlueprintBuildingCaptureCatalog.cs" />
-    <Compile Include="..\..\CastlePlanner\src\BlueprintMarkerVisibilityPolicy.cs"
+    <Compile Include="..\..\..\CastlePlanner\src\BlueprintMarkerVisibilityPolicy.cs"
              Link="CastlePlanner\BlueprintMarkerVisibilityPolicy.cs" />
-    <Compile Include="..\..\CastlePlanner\src\BlueprintSortingPolicy.cs"
+    <Compile Include="..\..\..\CastlePlanner\src\BlueprintSortingPolicy.cs"
              Link="CastlePlanner\BlueprintSortingPolicy.cs" />
-    <Compile Include="..\..\CastlePlanner\src\AivJsonModels.cs"
+    <Compile Include="..\..\..\CastlePlanner\src\AivJsonModels.cs"
              Link="CastlePlanner\AivJsonModels.cs" />
-    <Compile Include="..\..\CastlePlanner\src\AivWorldCoordinateTransform.cs"
+    <Compile Include="..\..\..\CastlePlanner\src\AivWorldCoordinateTransform.cs"
              Link="CastlePlanner\AivWorldCoordinateTransform.cs" />
-    <Compile Include="..\..\CastlePlanner\src\BlueprintLayout.cs"
+    <Compile Include="..\..\..\CastlePlanner\src\BlueprintLayout.cs"
              Link="CastlePlanner\BlueprintLayout.cs" />
     <Reference Include="SHCDESE">
-      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\SHCDESE.dll</HintPath>
+      <HintPath>..\..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\SHCDESE.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>

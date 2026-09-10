@@ -421,7 +421,7 @@ def extract_castle_anim_frames(source_root: Path, skin_test: Path) -> None:
 
 
 def build_private_atlas(workspace: Path, skin_test: Path) -> None:
-    atlas_builder = workspace / "AtlasBuilder"
+    atlas_builder = workspace / "Helpers" / "AtlasBuilder"
     sys.path.insert(0, str(atlas_builder))
     from atlas_builder.core import build_project
     from atlas_builder.models import ProjectConfig
@@ -662,7 +662,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     skin_test = Path(__file__).resolve().parents[1]
-    workspace = skin_test.parent
+    workspace = skin_test.parents[1]
     extract_frames(args.source_root.resolve(), skin_test)
     extract_castle_anim_frames(args.source_root.resolve(), skin_test)
     build_private_atlas(workspace, skin_test)
