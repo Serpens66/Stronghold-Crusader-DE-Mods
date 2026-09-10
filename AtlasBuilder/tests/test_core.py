@@ -15,6 +15,7 @@ from atlas_builder.core import (
     SourceFrame,
     SourceSpriteMetadata,
     TargetFrame,
+    _format_frame_keys,
     _parse_source_stem,
     _split_target_name,
     build_group,
@@ -59,6 +60,10 @@ class NameParsingTests(unittest.TestCase):
         self.assertEqual(_split_target_name("float_pop_circ-1-23"), ("float_pop_circ-1", True, FrameKey(23)))
         self.assertEqual(_split_target_name("smoke-30x30-7x"), ("smoke-30x30", True, FrameKey(7, True)))
         self.assertEqual(_split_target_name("tile_buildings1 007"), ("tile_buildings1", False, FrameKey(7)))
+
+    def test_frame_ranges_are_compact_and_keep_alternate_suffixes(self) -> None:
+        keys = {FrameKey(index) for index in range(416, 448)} | {FrameKey(0, True), FrameKey(1, True)}
+        self.assertEqual(_format_frame_keys(keys), "416–447, 0x–1x")
 
 
 class DiscoveryTests(unittest.TestCase):
@@ -277,6 +282,35 @@ class ProjectValidationTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
+    def _write_swordsman_source(self, indices=(0, 1)) -> None:
+        for index in indices:
+            write_png(self.root / "images" / f"source-{index}.png")
+            write_png(self.root / "images" / f"source-{index}_m.png")
+            payload = {
+                "m_Name": f"source-{index}",
+                "m_Rect": {"m_Width": 7, "m_Height": 9},
+                "m_Pivot": {"m_X": 0.25 + index / 10, "m_Y": 0.75},
+                "m_PixelsToUnits": 64,
+            }
+            path = self.root / "metadata" / f"source-{index}.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(payload), encoding="utf-8")
+
+    def _swordsman_project(self, missing_policy="reject", pivot_mode="source-metadata") -> ProjectConfig:
+        return ProjectConfig(
+            language="en",
+            target_game_data=str(self.root / "Data"),
+            output_mod_directory=str(self.root / "Mod"),
+            groups=[GroupConfig(
+                "body_swordsman",
+                str(self.root / "images"),
+                "same-directory",
+                pivot_mode=pivot_mode,
+                source_metadata_directory=str(self.root / "metadata") if pivot_mode == "source-metadata" else None,
+                missing_target_policy=missing_policy,
+            )],
+        )
+
     def test_unknown_group_is_rejected(self) -> None:
         write_png(self.root / "images" / "unknown-0.png")
         project = ProjectConfig(
@@ -345,6 +379,65 @@ class ProjectValidationTests(unittest.TestCase):
         self.assertTrue(any("Unlit/Foliage" in warning for warning in warnings))
         self.assertTrue(any("target frames are absent" in warning for warning in warnings))
 
+    def test_missing_target_default_policy_still_rejects(self) -> None:
+        self._write_swordsman_source()
+        metadata = {"body_swordsman": {
+            FrameKey(0): TargetFrame("body_swordsman-0", 0.5, 0.5, 64, 7, 9),
+        }}
+        with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
+            with self.assertRaisesRegex(AtlasBuilderError, "source indices not present in SHCDE"):
+                prepare_project(self._swordsman_project())
+
+    def test_missing_target_fallback_requires_source_metadata_pivot(self) -> None:
+        project = self._swordsman_project("source-metadata", "target-pixel-anchor")
+        with self.assertRaisesRegex(AtlasBuilderError, "only be filled when the pivot source"):
+            prepare_project(project)
+
+    def test_missing_target_fallback_adds_only_absent_slots_and_builds_them(self) -> None:
+        self._write_swordsman_source()
+        vanilla = TargetFrame("body_swordsman-0", 0.9, 0.8, 32, 11, 13)
+        metadata = {"body_swordsman": {FrameKey(0): vanilla}}
+        with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
+            prepared = prepare_project(self._swordsman_project("source-metadata"))[0]
+
+        self.assertIs(prepared.target_frames[FrameKey(0)], vanilla)
+        added = prepared.target_frames[FrameKey(1)]
+        self.assertEqual(added.name, "body_swordsman-1")
+        self.assertEqual((added.pivot_x, added.pivot_y, added.width, added.height), (0.35, 0.75, 7, 9))
+        self.assertTrue(any("validated source metadata is used for 1" in warning for warning in prepared.warnings))
+
+        output = self.root / "atlas"
+        build_group(prepared, output, self._swordsman_project("source-metadata"))
+        validate_generated_group(prepared, output, self._swordsman_project("source-metadata"))
+        payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
+        self.assertEqual([frame["name"] for frame in payload["frames"]], ["body_swordsman-0", "body_swordsman-1"])
+
+    def test_missing_target_fallback_rejects_mismatched_source_metadata_name(self) -> None:
+        self._write_swordsman_source((1,))
+        path = self.root / "metadata" / "source-1.json"
+        metadata = {"body_swordsman": {FrameKey(0): TargetFrame(
+            "body_swordsman-0", 0.5, 0.5, 64, 7, 9
+        )}}
+        for invalid_name in ("other-1", "source-2", "source-1x"):
+            with self.subTest(invalid_name=invalid_name):
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload["m_Name"] = invalid_name
+                path.write_text(json.dumps(payload), encoding="utf-8")
+                with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
+                    with self.assertRaisesRegex(AtlasBuilderError, "name does not match its filename"):
+                        prepare_project(self._swordsman_project("source-metadata"))
+                payload["m_Name"] = "source-1"
+                path.write_text(json.dumps(payload), encoding="utf-8")
+
+    def test_missing_target_fallback_rejects_index_outside_loader_array(self) -> None:
+        self._write_swordsman_source((1088,))
+        metadata = {"body_swordsman": {FrameKey(0): TargetFrame(
+            "body_swordsman-0", 0.5, 0.5, 64, 7, 9
+        )}}
+        with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
+            with self.assertRaisesRegex(AtlasBuilderError, "outside the SHCDE loader's declared range 0–1087"):
+                prepare_project(self._swordsman_project("source-metadata"))
+
 
 class ProjectFileTests(unittest.TestCase):
     def test_paths_below_project_are_saved_relative_and_crlf(self) -> None:
@@ -363,7 +456,7 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(data["outputModDirectory"], "Mod")
             self.assertEqual(ProjectConfig.load(path).resolve_path("Mod"), (root / "Mod").resolve())
 
-    def test_schema_one_loads_with_legacy_pivot_and_saves_as_schema_two(self) -> None:
+    def test_schema_one_loads_with_legacy_pivot_and_saves_as_schema_three(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
             root = Path(temporary)
             path = root / "legacy.atlas-project.json"
@@ -375,8 +468,8 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(project.loaded_schema_version, 1)
             self.assertEqual(project.groups[0].pivot_mode, "target-normalized")
             project.save(path)
-            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schemaVersion"], 2)
-            self.assertEqual(project.loaded_schema_version, 2)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schemaVersion"], 3)
+            self.assertEqual(project.loaded_schema_version, 3)
 
     def test_source_metadata_path_below_project_is_saved_relative(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
@@ -397,7 +490,26 @@ class ProjectFileTests(unittest.TestCase):
                 "schemaVersion": 2,
                 "groups": [{"gmFileName": "tile_ruins", "colourDirectory": "images"}],
             }), encoding="utf-8")
-            self.assertEqual(ProjectConfig.load(path).groups[0].pivot_mode, "target-pixel-anchor")
+            group = ProjectConfig.load(path).groups[0]
+            self.assertEqual(group.pivot_mode, "target-pixel-anchor")
+            self.assertEqual(group.missing_target_policy, "reject")
+
+    def test_schema_three_roundtrip_preserves_missing_target_policy(self) -> None:
+        with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
+            root = Path(temporary)
+            path = root / "current.atlas-project.json"
+            project = ProjectConfig(groups=[GroupConfig(
+                "body_swordsman",
+                "images",
+                pivot_mode="source-metadata",
+                source_metadata_directory="metadata",
+                missing_target_policy="source-metadata",
+            )])
+            project.save(path)
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["schemaVersion"], 3)
+            self.assertEqual(payload["groups"][0]["missingTargetPolicy"], "source-metadata")
+            self.assertEqual(ProjectConfig.load(path).groups[0].missing_target_policy, "source-metadata")
 
 
 class PivotTests(unittest.TestCase):
@@ -481,13 +593,19 @@ class SourceMetadataTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def write_metadata(self, name: str, pivot_y: float = 0.40243897) -> Path:
+    def write_metadata(
+        self,
+        name: str,
+        pivot_y: float = 0.40243897,
+        width: float = 64,
+        pixels_per_unit: float = 64,
+    ) -> Path:
         path = self.root / f"{name}.json"
         path.write_text(json.dumps({
             "m_Name": name,
-            "m_Rect": {"m_Width": 64, "m_Height": 41},
+            "m_Rect": {"m_Width": width, "m_Height": 41},
             "m_Pivot": {"m_X": 0.5, "m_Y": pivot_y},
-            "m_PixelsToUnits": 64,
+            "m_PixelsToUnits": pixels_per_unit,
         }), encoding="utf-8")
         return path
 
@@ -520,10 +638,21 @@ class SourceMetadataTests(unittest.TestCase):
         self.write_metadata("tile_land8 001", -0.25)
         self.assertEqual(read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})[FrameKey(1)].pivot_y, -0.25)
 
+    def test_non_finite_source_rect_and_ppu_are_rejected(self) -> None:
+        for width, ppu, message in (
+            (float("nan"), 64, "invalid Sprite rectangle"),
+            (64, float("inf"), "invalid pixels-per-unit"),
+        ):
+            with self.subTest(message=message):
+                self.write_metadata("tile_land8 001", width=width, pixels_per_unit=ppu)
+                with self.assertRaisesRegex(AtlasBuilderError, message):
+                    read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})
+
 
 class GroupContractTests(unittest.TestCase):
     def test_current_contract_counts(self) -> None:
         self.assertEqual(len(GROUP_CONTRACTS), 195)
+        self.assertEqual(GROUP_CONTRACTS["body_swordsman"].maximum_frame_index, 1087)
         self.assertEqual(
             {name for name, group in GROUP_CONTRACTS.items() if not group.overridable_as_atlas},
             {"tile_sea_new_01", "tile_sea_shore"},

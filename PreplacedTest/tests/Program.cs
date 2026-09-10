@@ -26,8 +26,10 @@ namespace PreplacedTest.Tests
                 TestDamageTransitions();
                 TestFirstAivBuildingEligibility();
                 TestEconomyDiagnosticModels();
+                TestEconomyPclModels();
                 TestPreplacedIdentityAndCountProjection();
                 TestPortalRoutes();
+                TestPclComponentMerges();
                 TestAivAreaClassification();
                 TestEarlyOwnerBuffer();
                 TestFirstBuildingWindow();
@@ -166,6 +168,25 @@ namespace PreplacedTest.Tests
             Check(PreplacedCountProjection.WithoutPreplaced(1, 4) == 0, "preplaced count projection underflow");
         }
 
+        private static void TestEconomyPclModels()
+        {
+            Check(EconomyPclModel.SelectMostFrequentPositive(new[] { 0, 2, 2, 4 }) == 2,
+                "dominant positive PCL selection");
+            Check(EconomyPclModel.SelectMostFrequentPositive(new[] { 1, 1, 3, 3 }) == 1,
+                "Vanilla equal-frequency PCL tie behavior");
+            Check(EconomyPclModel.SelectMostFrequentPositive(new[] { 0, -1 }) == 0,
+                "empty positive PCL selection");
+            Check(EconomyPclModel.CountDifferentFromReference(
+                Enumerable.Repeat(7, 20).Concat(Enumerable.Repeat(9, 5)), 7) == 5,
+                "5x5 non-reference PCL count");
+            Check(EconomyPclModel.CountDifferentFromReference(Enumerable.Repeat(9, 25), 7) == 25,
+                "fully separated coarse cell count");
+            Check(EconomyPclModel.ApplyPeriodicDecay(25) == 24 &&
+                EconomyPclModel.ApplyPeriodicDecay(0) == 0 &&
+                EconomyPclModel.ApplyPeriodicDecay(-1) == -1,
+                "periodic grid decay model");
+        }
+
         private static void TestPortalRoutes()
         {
             var portals = new List<PortalConnection>
@@ -174,23 +195,20 @@ namespace PreplacedTest.Tests
                 new PortalConnection(102, 20, 30, 0, 8, 41),
                 new PortalConnection(103, 10, 40, 0, 7, 42)
             };
-            Check(PortalRouteModel.Evaluate(10, 10, portals, 8, owner => owner == 7).Kind == PortalRouteKind.Direct,
+            Check(PortalRouteModel.Evaluate(10, 10, portals).Kind == PortalRouteKind.Direct,
                 "direct PCL route");
-            PortalRouteResult own = PortalRouteModel.Evaluate(10, 30, portals, 8, owner => owner == 7);
-            Check(own.Kind == PortalRouteKind.OwnPortal && own.UsedPortalIds.SequenceEqual(new[] { 101, 102 }),
-                "multi-gate own route");
-            Check(PortalRouteModel.Evaluate(10, 40, portals, 8, owner => false).Kind == PortalRouteKind.RequiresForeignPortal,
-                "foreign-only portal route");
-            Check(PortalRouteModel.Evaluate(10, 50, portals, 8, owner => owner == 7).Kind == PortalRouteKind.Unreachable,
+            PortalRouteResult raw = PortalRouteModel.Evaluate(10, 30, portals);
+            Check(raw.Kind == PortalRouteKind.RawPortalGraph && raw.UsedPortalIds.SequenceEqual(new[] { 101, 102 }),
+                "multi-gate raw portal route");
+            Check(portals[0].RawOwnerValue == 8, "raw portal owner value was reinterpreted or discarded");
+            Check(PortalRouteModel.Evaluate(10, 40, portals).Kind == PortalRouteKind.RawPortalGraph,
+                "raw portal owner field incorrectly filtered the graph");
+            Check(PortalRouteModel.Evaluate(10, 50, portals).Kind == PortalRouteKind.Unreachable,
                 "sealed destination route");
-            Check(PortalRouteModel.Evaluate(10, 20, Array.Empty<PortalConnection>(), 8, owner => owner == 7).Kind == PortalRouteKind.Unreachable,
+            Check(PortalRouteModel.Evaluate(10, 20, Array.Empty<PortalConnection>()).Kind == PortalRouteKind.Unreachable,
                 "missing gatehouse route");
-            Check(PortalRouteModel.Evaluate(0, 30, portals, 8, owner => owner == 7).Kind == PortalRouteKind.Unreachable,
+            Check(PortalRouteModel.Evaluate(0, 30, portals).Kind == PortalRouteKind.Unreachable,
                 "invalid start PCL route");
-            Check(PortalRouteModel.Evaluate(10, 40, portals, 8, owner => owner == 7).Kind == PortalRouteKind.AlliedPortal,
-                "allied portal route");
-            Check(PortalRouteModel.Evaluate(30, 40, portals, 8, owner => owner == 7).Kind == PortalRouteKind.MixedFriendlyPortals,
-                "mixed own/allied portal route");
             var fourOwnGates = new List<PortalConnection>
             {
                 new PortalConnection(201, 1, 2, 0, 8, 51),
@@ -198,11 +216,27 @@ namespace PreplacedTest.Tests
                 new PortalConnection(203, 3, 4, 0, 8, 53),
                 new PortalConnection(204, 4, 5, 0, 8, 54)
             };
-            Check(PortalRouteModel.Evaluate(1, 5, fourOwnGates, 8, owner => false).UsedPortalIds.Length == 4,
+            Check(PortalRouteModel.Evaluate(1, 5, fourOwnGates).UsedPortalIds.Length == 4,
                 "four own gatehouses were not traversed");
             fourOwnGates.RemoveAt(2);
-            Check(PortalRouteModel.Evaluate(1, 5, fourOwnGates, 8, owner => false).Kind == PortalRouteKind.Unreachable,
+            Check(PortalRouteModel.Evaluate(1, 5, fourOwnGates).Kind == PortalRouteKind.Unreachable,
                 "destroyed gatehouse did not break the modeled portal chain");
+        }
+
+        private static void TestPclComponentMerges()
+        {
+            ushort[] before = { 3, 3, 7, 7, 9, 9 };
+            ushort[] after = { 3, 3, 3, 3, 9, 9 };
+            IReadOnlyList<PclComponentMerge> merges = PclComponentMergeDetector.Detect(before, after);
+            Check(merges.Count == 1 && merges[0].NewPcl == 3 &&
+                merges[0].OldPcls.SequenceEqual(new[] { 3, 7 }) &&
+                merges[0].ChangedTileIds.SequenceEqual(new[] { 2, 3 }),
+                "canonical-label PCL merge was not detected");
+            Check(PclComponentMergeDetector.Detect(before, (ushort[])before.Clone()).Count == 0,
+                "unchanged closed topology was marked as a merge");
+            Check(PclComponentMergeDetector.Detect(new ushort[] { 3, 3, 7, 7 },
+                new ushort[] { 4, 4, 8, 8 }).Count == 0,
+                "pure component relabeling was marked as a merge");
         }
 
         private static void TestAivAreaClassification()
@@ -246,9 +280,9 @@ namespace PreplacedTest.Tests
             string manifest = File.ReadAllText("info.json");
             string helper = File.ReadAllText(Path.Combine("..", "Shared", "DebugLogHelper.cs"));
             Check(helper.Contains("FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"), "native hash contract missing");
-            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
-            foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateSize(typeof(GameGatehouseEntry), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
+            foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateSize(typeof(GameGatehouseEntry), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
             foreach (string nativeDelegate in new[]
             {
@@ -259,7 +293,11 @@ namespace PreplacedTest.Tests
                 "delegate long EconomyFarmDelegate(ulong state, int playerId, int desiredStructureType)",
                 "delegate void ResourceSearchDelegate(ulong state, int playerId, int mode)",
                 "delegate void ConstructBuildingDelegate(",
-                "delegate int RegionPairReachabilityDelegate("
+                "delegate int RegionPairReachabilityDelegate(",
+                "delegate void EconomyGridUpdateDelegate(ulong state, int mode)",
+                "delegate int SelectDominantPclDelegate(ulong state)",
+                "delegate void PlayerBuildingInitializationDelegate(ulong manager, int playerId)",
+                "delegate void BuildingInitializationDelegate(ulong manager, int buildingId)"
             })
                 Check(source.Contains(nativeDelegate), "native delegate ABI missing: " + nativeDelegate);
             Check(source.Contains("ulong pathManager, int playerId, int targetPcl, int sourcePcl, int routeMode"),
@@ -267,6 +305,12 @@ namespace PreplacedTest.Tests
             Check(source.Contains("players.Clear()"), "map transition does not reset sessions");
             Check(source.Contains("activeEconomyContexts?.Clear()") && source.Contains("lastRoutingSnapshot = null"),
                 "map transition retains economy or routing diagnostic state");
+            Check(source.Contains("lastPclTopology = null") &&
+                source.Contains("pendingCrushedWriterSignals.Clear()"),
+                "map transition retains PCL topology or native writer signals");
+            Check(source.Contains("emittedGridUpdateSignatures.Clear()") &&
+                source.Contains("emittedDominantPclSignatures.Clear()"),
+                "map transition retains grid/PCL signature aggregation state");
             Check(source.Contains("activeAic - 1") || File.ReadAllText(Path.Combine("src", "DiagnosticModel.cs")).Contains("oneBasedSlot - 1"), "AIC slot is not converted from one-based exactly once");
             Check(source.Contains("CRUSHED_TIMER_ACTIVATED_BY_DAMAGE"), "damage-triggered timer activation diagnostic missing");
             Check(source.Contains("MAP_START_POST") && source.Contains("FIRST_SCHEDULER") && source.Contains("FIRST_ACTIVE_CRUSHED_DELAY"), "required building snapshots missing");
@@ -293,8 +337,41 @@ namespace PreplacedTest.Tests
                 "routing snapshots are not grouped losslessly");
             Check(source.Contains("frontierRawGroups=") && source.Contains("frontierExpansionPredicates=") &&
                 source.Contains("rva58020(sbyte+04<16&&byte+13==0)") &&
-                source.Contains("rva575B0(sbyte+04<17)"),
+                source.Contains("rva575B0(sbyte+04<17)") &&
+                source.Contains("rva57B80(sbyte+04-sbyte+16<16)") &&
+                source.Contains("rva58950(sbyte+04<15)"),
                 "frontier rejection diagnostics are incomplete");
+            Check(source.Contains("PREPLACED_ECONOMY_GRID_UPDATE") &&
+                source.Contains("PREPLACED_DOMINANT_PCL") &&
+                source.Contains("PREPLACED_INIT_CHECKPOINT_TIMER_CHANGE"),
+                "new grid/PCL/initialization diagnostics are incomplete");
+            Check(source.Contains("NativePclEntryCount = (NativePclGridEndRva - NativePclGridRva) / NativePclEntrySize") &&
+                source.Contains("NativePclEntryCount != 320800") &&
+                !source.Contains("TileManager.PathConnectionGrid"),
+                "PCL diagnostics are not restricted to Vanilla's audited 320800-entry range");
+            Check(source.Contains("PREPLACED_INVALID_PCL_TILE_ACCESS") &&
+                source.Contains("PREPLACED_CONFIRMED_WALL_BREACH") &&
+                source.Contains("PREPLACED_POST_BREACH_ECONOMY_SEARCH"),
+                "invalid PCL, wall-breach, or post-breach search diagnostics are missing");
+            Check(source.Contains("PREPLACED_CRUSHED_TIMER_NATIVE_WRITE") &&
+                source.Contains("CrushedTimerWriterDisplacedLength = 15") &&
+                source.Contains("OverwrittenInstructionPlacement.BeforeCallback") &&
+                source.Contains("X64SmartCPUContextRegs.All") &&
+                source.Contains("crushedTimerWriterHook.Hook.DisplacedByteCount"),
+                "passive crushed-timer writer contract is incomplete");
+            foreach (string writerRead in new[] { "record + 0x12C", "record + 0x12E", "record + 0x132",
+                "record + 0x134", "record + 0x14A", "record + 0x14C", "record + 0x15A",
+                "record + 0x15C", "record + 0x168", "record + 0x16A", "stack + 0xC0",
+                "stack + 0xC8", "stack + 0xD0", "stack + 0xD8", "stack + 0xE0" })
+                Check(source.Contains(writerRead), "crushed timer writer snapshot offset missing: " + writerRead);
+            Check(source.Contains("if (args.Phase == EventHookPhase.Pre) initializationTracingActive = true"),
+                "initialization tracing does not start at OnStartMap Pre");
+            Check(source.Contains("Safe(() => before = EconomyGridBuildSnapshot.Capture") &&
+                source.Contains("if (before == null) return;"),
+                "new pre-call diagnostics can prevent their Vanilla calls");
+            Check(source.Contains("if (offset != 0x05) signature = Hash") &&
+                !source.Contains("Hash(Hash(1469598103934665603UL, after.Generation)"),
+                "transient search generation/distance still defeats aggregation");
             Check(source.Contains("PREPLACED_LETHAL_DAMAGE") && source.Contains("DescribeDamageAggregate"),
                 "damage logging does not combine compact aggregation with complete lethal evidence");
             Check(source.Contains("FIRST_ECONOMY_SEARCH_PLAYER_\" + playerId, false"),
@@ -324,7 +401,7 @@ namespace PreplacedTest.Tests
             string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
             MatchCollection definitions = Regex.Matches(source,
                 @"private const string (?<name>\w+Pattern)\s*=\s*(?<body>.*?);", RegexOptions.Singleline);
-            Check(definitions.Count >= 38, "not all native signatures were discovered by the static test");
+            Check(definitions.Count >= 43, "not all native signatures were discovered by the static test");
             foreach (Match definition in definitions)
             {
                 string name = definition.Groups["name"].Value;
@@ -346,8 +423,19 @@ namespace PreplacedTest.Tests
                 Check(matches == 1, name + " is not unique: " + matches);
             }
 
+            byte[] writerBytes = { 0x46, 0x89, 0xAC, 0x11, 0xB0, 0xD8, 0x79, 0x03,
+                0x4C, 0x8D, 0x2D, 0x2D, 0xDB, 0x44, 0x06 };
+            int writerRaw = RvaToRaw(file, 0x7F074);
+            Check(file.Skip(writerRaw).Take(writerBytes.Length).SequenceEqual(writerBytes),
+                "crushed timer writer does not cover the exact audited store-plus-LEA block");
+            Check(0x7F074 >= 0x7EB00 && 0x7F074 + writerBytes.Length <= 0x7EB00 + 0xD7A,
+                "crushed timer writer is outside the audited damage function boundary");
+            Check((0x51890D0 - 0x50EC690) / sizeof(ushort) == 320800 &&
+                RvaToRaw(file, 0x50EC690) >= 0 && RvaToRaw(file, 0x51890D0 - 1) >= 0,
+                "native PCL range length or PE bounds changed");
+
             string functions = File.ReadAllText(Path.Combine("..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
-            foreach (string rva in new[] { "0x50680", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xC3FA0", "0xC43A0", "0xB8310", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }
 

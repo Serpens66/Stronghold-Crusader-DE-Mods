@@ -1,0 +1,14 @@
+{
+  "m_Name": "body_swordsman-38x",
+  "m_Rect": {
+    "m_X": 0,
+    "m_Y": 0,
+    "m_Width": 56,
+    "m_Height": 105
+  },
+  "m_Pivot": {
+    "m_X": 0.5535713999999936,
+    "m_Y": 0.08571428999999799
+  },
+  "m_PixelsToUnits": 64.0
+}

@@ -15,6 +15,8 @@ namespace VirtualUnitsPrototype
         public const string PluginVersion = "0.1.0";
         internal const string DesertArcherId = "serp.virtual-units:desert-archer";
         internal const string DesertHovelId = "serp.virtual-units:desert-hovel";
+        private static readonly VirtualSpriteTintProfile ArcherTint = new VirtualSpriteTintProfile(220, 240, byte.MaxValue, byte.MaxValue);
+        private static readonly VirtualSpriteTintProfile HovelTint = new VirtualSpriteTintProfile(180, 220, byte.MaxValue, byte.MaxValue);
         private VirtualEntityRuntime runtime;
 
         private void Awake()
@@ -30,14 +32,14 @@ namespace VirtualUnitsPrototype
         {
             VirtualApiResult unit = VirtualEntityApi.RegisterUnitDefinition(new VirtualUnitDefinition(
                 DesertArcherId, 1, "Desert Archer", SHCDESE.Interop.eChimps.CHIMP_TYPE_ARCHER,
-                new UnitSpriteProfile(Enums.GM.GM_BODY_ARAB_BOW),
+                ArcherTint,
                 new VirtualStatProfile(new RationalFactor(2, 1), new RationalFactor(3, 2)),
                 new VirtualSpawnOptions(true, true)));
             int hovelScale = BuildingScales.GetScale(SHCDESE.Interop.eMappers.MAPPER_HOVEL);
             VirtualApiResult building = VirtualEntityApi.RegisterBuildingDefinition(new VirtualBuildingDefinition(
                 DesertHovelId, 1, "Desert Hovel", SHCDESE.Interop.eStructs.STRUCT_HOVEL,
                 SHCDESE.Interop.eMappers.MAPPER_HOVEL, hovelScale,
-                new BuildingTileVisualProfile(Enums.GM.GM_BUILDINGS1, Enums.GM.GM_BUILDINGS2),
+                HovelTint,
                 new VirtualStatProfile(new RationalFactor(2, 1), new RationalFactor(1, 1)),
                 new VirtualSpawnOptions(true, true)));
             if (!unit.Succeeded || !building.Succeeded)

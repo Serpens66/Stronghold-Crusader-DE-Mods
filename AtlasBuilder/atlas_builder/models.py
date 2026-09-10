@@ -6,10 +6,11 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = 2
-SUPPORTED_SCHEMA_VERSIONS = {1, SCHEMA_VERSION}
+SCHEMA_VERSION = 3
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, SCHEMA_VERSION}
 MASK_MODES = {"none", "same-directory", "separate-directory"}
 PIVOT_MODES = {"target-pixel-anchor", "source-metadata", "target-normalized"}
+MISSING_TARGET_POLICIES = {"reject", "source-metadata"}
 
 
 @dataclass
@@ -38,6 +39,7 @@ class GroupConfig:
     source_prefix: str = "auto"
     pivot_mode: str = "target-pixel-anchor"
     source_metadata_directory: str | None = None
+    missing_target_policy: str = "reject"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], schema_version: int = SCHEMA_VERSION) -> "GroupConfig":
@@ -50,6 +52,7 @@ class GroupConfig:
             # Schema 1 implicitly copied the normalized target pivot.
             pivot_mode=str(data.get("pivotMode", "target-normalized" if schema_version == 1 else "target-pixel-anchor")),
             source_metadata_directory=data.get("sourceMetadataDirectory"),
+            missing_target_policy=str(data.get("missingTargetPolicy", "reject")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -60,6 +63,7 @@ class GroupConfig:
             "maskDirectory": self.mask_directory,
             "sourcePrefix": self.source_prefix,
             "pivotMode": self.pivot_mode,
+            "missingTargetPolicy": self.missing_target_policy,
         }
         if self.pivot_mode == "source-metadata" and self.source_metadata_directory:
             result["sourceMetadataDirectory"] = self.source_metadata_directory

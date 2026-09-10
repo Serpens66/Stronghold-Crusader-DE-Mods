@@ -36,6 +36,12 @@ class GroupDialog(tk.Toplevel):
             parent.tr(mode): mode for mode in ("target-pixel-anchor", "source-metadata", "target-normalized")
         }
         self.pivot_mode_label_var = tk.StringVar(value=parent.tr(value.pivot_mode))
+        self.missing_policy_labels = {
+            parent.tr("reject"): "reject",
+            parent.tr("missing-source-metadata"): "source-metadata",
+        }
+        initial_policy_key = "missing-source-metadata" if value.missing_target_policy == "source-metadata" else "reject"
+        self.missing_policy_label_var = tk.StringVar(value=parent.tr(initial_policy_key))
 
         frame = ttk.Frame(self, padding=12)
         frame.grid(sticky="nsew")
@@ -69,8 +75,16 @@ class GroupDialog(tk.Toplevel):
         self._row(frame, 5, parent.tr("pivot_mode"), pivot_box)
         pivot_box.bind("<<ComboboxSelected>>", lambda _event: self._update_metadata_state())
         self._path_row(frame, 6, parent.tr("source_metadata_dir"), self.metadata_var, metadata=True)
+        self.missing_policy_box = ttk.Combobox(
+            frame,
+            values=tuple(self.missing_policy_labels),
+            textvariable=self.missing_policy_label_var,
+            state="readonly",
+            width=38,
+        )
+        self._row(frame, 7, parent.tr("missing_target_policy"), self.missing_policy_box)
         buttons = ttk.Frame(frame)
-        buttons.grid(row=7, column=0, columnspan=3, pady=(12, 0), sticky="e")
+        buttons.grid(row=8, column=0, columnspan=3, pady=(12, 0), sticky="e")
         ttk.Button(buttons, text="OK", command=self.accept).pack(side="left", padx=4)
         ttk.Button(buttons, text=parent.tr("cancel"), command=self.destroy).pack(side="left")
         self.bind("<Return>", lambda _event: self.accept())
@@ -99,6 +113,9 @@ class GroupDialog(tk.Toplevel):
         state = "normal" if enabled else "disabled"
         self.metadata_entry.configure(state=state)
         self.metadata_button.configure(state=state)
+        if not enabled:
+            self.missing_policy_label_var.set(self.parent.tr("reject"))
+        self.missing_policy_box.configure(state="readonly" if enabled else "disabled")
 
     def _browse(self, variable: tk.StringVar) -> None:
         selected = filedialog.askdirectory(parent=self)
@@ -110,6 +127,7 @@ class GroupDialog(tk.Toplevel):
             messagebox.showerror(self.parent.tr("error"), self.parent.tr("select_group"), parent=self)
             return
         pivot_mode = self.pivot_labels[self.pivot_mode_label_var.get()]
+        missing_target_policy = self.missing_policy_labels[self.missing_policy_label_var.get()]
         self.result = GroupConfig(
             gm_file_name=self.gm_var.get(),
             colour_directory=self.colour_var.get().strip(),
@@ -118,6 +136,7 @@ class GroupDialog(tk.Toplevel):
             source_prefix=self.prefix_var.get() or "auto",
             pivot_mode=pivot_mode,
             source_metadata_directory=(self.metadata_var.get().strip() or None) if pivot_mode == "source-metadata" else None,
+            missing_target_policy=missing_target_policy,
         )
         self.destroy()
 
@@ -142,7 +161,7 @@ class AtlasBuilderApp(tk.Tk):
         self.status_var = tk.StringVar(value=self.tr("ready"))
         self._build_ui()
         self.after(100, self._poll_queue)
-        self.minsize(920, 620)
+        self.minsize(1080, 620)
 
     def tr(self, key: str, **values) -> str:
         return translate(self.language_var.get(), key, **values)
@@ -201,8 +220,12 @@ class AtlasBuilderApp(tk.Tk):
         groups_frame.grid(row=5, column=0, columnspan=3, sticky="nsew")
         groups_frame.rowconfigure(0, weight=1)
         groups_frame.columnconfigure(0, weight=1)
-        self.group_tree = ttk.Treeview(groups_frame, columns=("gm", "colour", "mask", "prefix", "pivot"), show="headings")
-        for name, width in (("gm", 160), ("colour", 300), ("mask", 150), ("prefix", 100), ("pivot", 180)):
+        self.group_tree = ttk.Treeview(
+            groups_frame,
+            columns=("gm", "colour", "mask", "prefix", "pivot", "missing"),
+            show="headings",
+        )
+        for name, width in (("gm", 150), ("colour", 260), ("mask", 135), ("prefix", 90), ("pivot", 175), ("missing", 175)):
             self.group_tree.heading(name, text=self.tr(name + "_column"))
             self.group_tree.column(name, width=width, stretch=True)
         self.group_tree.grid(row=0, column=0, sticky="nsew")
@@ -292,8 +315,10 @@ class AtlasBuilderApp(tk.Tk):
             self.project = ProjectConfig.load(Path(path))
             self._load_to_ui()
             self.status_var.set(path)
-            if self.project.loaded_schema_version < SCHEMA_VERSION:
+            if self.project.loaded_schema_version == 1:
                 messagebox.showwarning(self.tr("warning"), self.tr("legacy_schema_warning"), parent=self)
+            elif self.project.loaded_schema_version < SCHEMA_VERSION:
+                messagebox.showwarning(self.tr("warning"), self.tr("schema_upgrade_warning"), parent=self)
         except Exception as exc:
             messagebox.showerror(self.tr("error"), str(exc), parent=self)
 
@@ -333,6 +358,9 @@ class AtlasBuilderApp(tk.Tk):
                     self.tr(group.mask_mode),
                     group.source_prefix,
                     self.tr(group.pivot_mode),
+                    self.tr("missing-source-metadata")
+                    if group.missing_target_policy == "source-metadata"
+                    else self.tr("reject"),
                 ),
             )
 
@@ -411,7 +439,11 @@ class AtlasBuilderApp(tk.Tk):
         report.write_bytes(text.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\r\n").encode("utf-8"))
 
     def _pivot_mode_summary(self) -> str:
-        lines = [f"{group.gm_file_name}: {self.tr(group.pivot_mode)}" for group in self.project.groups]
+        lines = [
+            f"{group.gm_file_name}: {self.tr(group.pivot_mode)}; "
+            f"{self.tr('missing-source-metadata') if group.missing_target_policy == 'source-metadata' else self.tr('reject')}"
+            for group in self.project.groups
+        ]
         return self.tr("pivot_modes_used") + "\n" + "\n".join(lines)
 
     def _poll_queue(self) -> None:

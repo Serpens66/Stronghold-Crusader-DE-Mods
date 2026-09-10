@@ -1,0 +1,11 @@
+{
+  "GUID": "SkinTest_Serp",
+  "Author": "Serp",
+  "Name": "SkinTest",
+  "Description": "Uses the SH1DE swordsman skin for units owned by European lords.",
+  "Version": "0.1.0",
+  "Website": "",
+  "Manifest": 0,
+  "NetworkMode": 0,
+  "MinimumScriptExtenderVersion": "2.3.0"
+}

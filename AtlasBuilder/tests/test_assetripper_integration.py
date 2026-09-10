@@ -4,10 +4,11 @@ import os
 import unittest
 from pathlib import Path
 
-from atlas_builder.core import FrameKey, read_source_metadata
+from atlas_builder.core import FrameKey, read_source_metadata, read_target_metadata
 
 
 RIP_ROOT = os.environ.get("ATLAS_BUILDER_SH1_RIP")
+SHC_DATA = os.environ.get("ATLAS_BUILDER_SHC_DATA")
 
 
 @unittest.skipUnless(RIP_ROOT, "ATLAS_BUILDER_SH1_RIP is not set")
@@ -25,6 +26,22 @@ class AssetRipperIntegrationTests(unittest.TestCase):
                 item = read_source_metadata(metadata_root, prefix, {key})[key]
                 self.assertAlmostEqual(item.pivot_x * item.width, expected_x, places=3)
                 self.assertAlmostEqual(item.pivot_y * item.height, expected_y, places=3)
+
+    @unittest.skipUnless(SHC_DATA, "ATLAS_BUILDER_SHC_DATA is not set")
+    def test_swordsman_source_metadata_fills_the_confirmed_shcde_gap(self) -> None:
+        expected_gap = {FrameKey(index) for index in range(416, 448)}
+        targets = read_target_metadata(
+            Path(SHC_DATA),
+            {"body_swordsman": True},
+            {"body_swordsman": {FrameKey(index) for index in range(1088)}},
+        )["body_swordsman"]
+        self.assertEqual(
+            {FrameKey(index) for index in range(1088)} - set(targets),
+            expected_gap,
+        )
+        metadata_root = Path(RIP_ROOT) / "Assets" / "Resources" / "sprites"
+        source = read_source_metadata(metadata_root, "body_swordsman-", expected_gap)
+        self.assertEqual(set(source), expected_gap)
 
 
 if __name__ == "__main__":

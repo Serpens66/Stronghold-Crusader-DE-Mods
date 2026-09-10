@@ -9,6 +9,7 @@ from importlib.resources import files
 class GroupContract:
     name: str
     dash_format: bool
+    maximum_frame_index: int
     overridable_as_atlas: bool
     material: str
     mask_policy: str
@@ -22,15 +23,21 @@ def load_group_contracts() -> dict[str, GroupContract]:
         name = str(item["name"])
         material = str(item["material"])
         mask_policy = str(item["maskPolicy"])
+        maximum_frame_index = int(item["declaredImageCount"])
         if name in contracts:
             raise ValueError(f"Duplicate GM group in bundled contract: {name}")
         if material not in {"plain", "teamcolour", "foliage"}:
             raise ValueError(f"Invalid material in bundled contract for {name}: {material}")
         if mask_policy not in {"forbidden", "required"}:
             raise ValueError(f"Invalid mask policy in bundled contract for {name}: {mask_policy}")
+        if maximum_frame_index < 0:
+            raise ValueError(f"Invalid maximum frame index in bundled contract for {name}: {maximum_frame_index}")
         contracts[name] = GroupContract(
             name=name,
             dash_format=bool(item["dashFormat"]),
+            # spriteLoader treats declaredImageCount as the inclusive maximum
+            # index and allocates maximum + 1 entries.
+            maximum_frame_index=maximum_frame_index,
             overridable_as_atlas=bool(item["overridableAsAtlas"]),
             material=material,
             mask_policy=mask_policy,

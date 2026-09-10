@@ -16,7 +16,7 @@ from PIL import Image, ImageChops
 
 from .gm_groups import GROUP_CONTRACTS, SUPPORTED_GROUPS
 from .i18n import translate
-from .models import GroupConfig, MASK_MODES, PIVOT_MODES, ProjectConfig
+from .models import GroupConfig, MASK_MODES, MISSING_TARGET_POLICIES, PIVOT_MODES, ProjectConfig
 
 
 ProgressCallback = Callable[[str], None]
@@ -219,11 +219,13 @@ def read_source_metadata(
                 f"Duplicate source metadata for frame {key.index}{'x' if key.alternate else ''}: "
                 f"{found[key].path} and {path}"
             )
-        if metadata.width <= 0 or metadata.height <= 0:
+        if not math.isfinite(metadata.width) or not math.isfinite(metadata.height) or (
+            metadata.width <= 0 or metadata.height <= 0
+        ):
             raise AtlasBuilderError(f"Source metadata has an invalid Sprite rectangle: {path}")
         if not math.isfinite(metadata.pivot_x) or not math.isfinite(metadata.pivot_y):
             raise AtlasBuilderError(f"Source metadata has a non-finite pivot: {path}")
-        if metadata.pixels_per_unit <= 0:
+        if not math.isfinite(metadata.pixels_per_unit) or metadata.pixels_per_unit <= 0:
             raise AtlasBuilderError(f"Source metadata has invalid pixels-per-unit: {path}")
         found[key] = metadata
     missing = sorted(required_keys - set(found))
@@ -250,6 +252,30 @@ def _split_target_name(name: str) -> tuple[str, bool, FrameKey] | None:
     return name[: match.start() - 1], delimiter == "-", FrameKey(
         int(match.group(1)), bool(match.group(2))
     )
+
+
+def _target_sprite_name(gm_file_name: str, dash_format: bool, key: FrameKey) -> str:
+    delimiter = "-" if dash_format else " "
+    suffix = "x" if key.alternate else ""
+    return f"{gm_file_name}{delimiter}{key.index}{suffix}"
+
+
+def _format_frame_keys(keys: Iterable[FrameKey]) -> str:
+    parts: list[str] = []
+    for alternate in (False, True):
+        indices = sorted({key.index for key in keys if key.alternate == alternate})
+        start = previous = None
+        for index in indices + [None]:
+            if start is None:
+                start = previous = index
+                continue
+            if index is not None and index == previous + 1:
+                previous = index
+                continue
+            suffix = "x" if alternate else ""
+            parts.append(f"{start}{suffix}" if start == previous else f"{start}{suffix}–{previous}{suffix}")
+            start = previous = index
+    return ", ".join(parts)
 
 
 def read_target_metadata(
@@ -345,6 +371,12 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
             raise AtlasBuilderError(f"{config.gm_file_name}: sourcePrefix must be 'auto' or an explicit prefix")
         if config.pivot_mode not in PIVOT_MODES:
             raise AtlasBuilderError(f"Unsupported pivotMode for {config.gm_file_name}: {config.pivot_mode}")
+        if config.missing_target_policy not in MISSING_TARGET_POLICIES:
+            raise AtlasBuilderError(
+                f"Unsupported missingTargetPolicy for {config.gm_file_name}: {config.missing_target_policy}"
+            )
+        if config.missing_target_policy == "source-metadata" and config.pivot_mode != "source-metadata":
+            raise AtlasBuilderError(translate(project.language, "missing_target_requires_source_metadata", group=config.gm_file_name))
         if config.pivot_mode == "source-metadata" and not config.source_metadata_directory:
             raise AtlasBuilderError(f"{config.gm_file_name}: sourceMetadataDirectory is required")
         canonical = next((name for name in SUPPORTED_GROUPS if name.casefold() == config.gm_file_name.casefold()), None)
@@ -372,10 +404,6 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
         group_name = config.gm_file_name
         sources = discovered[group_name]
         targets = metadata[group_name]
-        unknown = [source.key for source in sources if source.key not in targets]
-        if unknown:
-            raise AtlasBuilderError(f"{group_name}: source indices not present in SHCDE: {unknown}")
-
         warnings: list[str] = []
         if GROUP_CONTRACTS[group_name].material == "foliage":
             warnings.append(translate(project.language, "foliage_warning", group=group_name))
@@ -405,6 +433,40 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
                     count=len(aspect_mismatches),
                     examples=examples,
                 ))
+        unknown = sorted(source.key for source in sources if source.key not in targets)
+        if unknown:
+            if config.missing_target_policy == "reject":
+                raise AtlasBuilderError(f"{group_name}: source indices not present in SHCDE: {unknown}")
+            contract = GROUP_CONTRACTS[group_name]
+            outside_loader_range = [key for key in unknown if key.index > contract.maximum_frame_index]
+            if outside_loader_range:
+                raise AtlasBuilderError(translate(
+                    project.language,
+                    "missing_target_outside_loader_range",
+                    group=group_name,
+                    indices=_format_frame_keys(outside_loader_range),
+                    maximum=contract.maximum_frame_index,
+                ))
+            # The game loader can intentionally leave entries null inside its
+            # declared array. Source metadata supplies geometry for those
+            # slots, but the atlas name must remain in the target namespace.
+            for key in unknown:
+                item = source_metadata[key]
+                targets[key] = TargetFrame(
+                    name=_target_sprite_name(group_name, requested[group_name], key),
+                    pivot_x=item.pivot_x,
+                    pivot_y=item.pivot_y,
+                    pixels_per_unit=item.pixels_per_unit,
+                    width=item.width,
+                    height=item.height,
+                )
+            warnings.append(translate(
+                project.language,
+                "missing_target_source_warning",
+                group=group_name,
+                count=len(unknown),
+                indices=_format_frame_keys(unknown),
+            ))
         for alternate in (False, True):
             source_indices = [item.key.index for item in sources if item.key.alternate == alternate]
             target_indices = [key.index for key in targets if key.alternate == alternate]

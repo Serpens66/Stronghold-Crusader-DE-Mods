@@ -26,6 +26,12 @@ namespace VirtualUnitsPrototype
             return ScalePositive(encodedSpeed, movementDenominator, movementNumerator, maximum);
         }
 
+        public static float ScaleTintChannel(float vanillaChannel, byte tint)
+        {
+            if (vanillaChannel < 0f) throw new ArgumentOutOfRangeException(nameof(vanillaChannel));
+            return vanillaChannel * tint / byte.MaxValue;
+        }
+
         public static int SignedLow32(long value) => unchecked((int)(uint)value);
         public static string HexLow32(long value) => $"0x{unchecked((uint)value):X8}";
     }

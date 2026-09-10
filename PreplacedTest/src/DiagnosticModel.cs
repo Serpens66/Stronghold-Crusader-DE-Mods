@@ -4,6 +4,36 @@ using System.Linq;
 
 namespace PreplacedTest
 {
+    internal static class EconomyPclModel
+    {
+        internal static int SelectMostFrequentPositive(IEnumerable<int> pcls)
+        {
+            if (pcls == null) return 0;
+            var counts = new Dictionary<int, int>();
+            foreach (int pcl in pcls)
+            {
+                if (pcl <= 0) continue;
+                counts.TryGetValue(pcl, out int count);
+                counts[pcl] = count + 1;
+            }
+            int selected = 0;
+            int maximum = 0;
+            foreach (KeyValuePair<int, int> pair in counts.OrderBy(pair => pair.Key))
+            {
+                // Vanilla retains the earlier ID on equality while scanning IDs ascending.
+                if (pair.Value <= maximum) continue;
+                selected = pair.Key;
+                maximum = pair.Value;
+            }
+            return selected;
+        }
+
+        internal static int CountDifferentFromReference(IEnumerable<int> pcls, int referencePcl) =>
+            pcls == null ? 0 : pcls.Count(pcl => pcl != referencePcl);
+
+        internal static int ApplyPeriodicDecay(int value) => value > 0 ? value - 1 : value;
+    }
+
     internal static class AicSlotIndexResolver
     {
         public static bool TryResolve(int oneBasedSlot, int arrayLength, out int zeroBasedIndex)
@@ -71,13 +101,13 @@ namespace PreplacedTest
 
     internal readonly struct PortalConnection
     {
-        public PortalConnection(int portalId, int first, int second, int third, int ownerId, int buildingId)
+        public PortalConnection(int portalId, int first, int second, int third, int rawOwnerValue, int buildingId)
         {
             PortalId = portalId;
             First = first;
             Second = second;
             Third = third;
-            OwnerId = ownerId;
+            RawOwnerValue = rawOwnerValue;
             BuildingId = buildingId;
         }
 
@@ -85,7 +115,7 @@ namespace PreplacedTest
         public int First { get; }
         public int Second { get; }
         public int Third { get; }
-        public int OwnerId { get; }
+        public int RawOwnerValue { get; }
         public int BuildingId { get; }
     }
 
@@ -93,10 +123,7 @@ namespace PreplacedTest
     {
         Unreachable,
         Direct,
-        OwnPortal,
-        AlliedPortal,
-        MixedFriendlyPortals,
-        RequiresForeignPortal
+        RawPortalGraph
     }
 
     internal readonly struct PortalRouteResult
@@ -116,9 +143,7 @@ namespace PreplacedTest
         public static PortalRouteResult Evaluate(
             int startPcl,
             int destinationPcl,
-            IReadOnlyList<PortalConnection> portals,
-            int playerId,
-            Func<int, bool> isAlliedOwner)
+            IReadOnlyList<PortalConnection> portals)
         {
             if (startPcl <= 0 || destinationPcl <= 0)
                 return new PortalRouteResult(PortalRouteKind.Unreachable, null);
@@ -126,30 +151,8 @@ namespace PreplacedTest
                 return new PortalRouteResult(PortalRouteKind.Direct, null);
 
             IReadOnlyList<PortalConnection> source = portals ?? Array.Empty<PortalConnection>();
-            PortalRouteResult own = Search(startPcl, destinationPcl, source,
-                portal => portal.OwnerId == playerId, PortalRouteKind.OwnPortal);
-            if (own.Kind == PortalRouteKind.OwnPortal) return own;
-
-            PortalRouteResult friendly = Search(startPcl, destinationPcl, source,
-                portal => portal.OwnerId == playerId ||
-                    (isAlliedOwner != null && isAlliedOwner(portal.OwnerId)),
-                PortalRouteKind.AlliedPortal);
-            if (friendly.Kind == PortalRouteKind.AlliedPortal)
-            {
-                var usedIds = new HashSet<int>(friendly.UsedPortalIds);
-                bool usesOwn = source.Any(portal => usedIds.Contains(portal.PortalId) && portal.OwnerId == playerId);
-                bool usesAllied = source.Any(portal => usedIds.Contains(portal.PortalId) && portal.OwnerId != playerId);
-                return new PortalRouteResult(usesOwn && usesAllied
-                    ? PortalRouteKind.MixedFriendlyPortals
-                    : usesOwn ? PortalRouteKind.OwnPortal : PortalRouteKind.AlliedPortal,
-                    friendly.UsedPortalIds);
-            }
-
-            PortalRouteResult any = Search(startPcl, destinationPcl, source,
-                portal => true, PortalRouteKind.RequiresForeignPortal);
-            return any.Kind == PortalRouteKind.RequiresForeignPortal
-                ? any
-                : new PortalRouteResult(PortalRouteKind.Unreachable, null);
+            return Search(startPcl, destinationPcl, source,
+                portal => true, PortalRouteKind.RawPortalGraph);
         }
 
         private static PortalRouteResult Search(
@@ -239,6 +242,53 @@ namespace PreplacedTest
             }
             public int PreviousPcl { get; }
             public int PortalIndex { get; }
+        }
+    }
+
+    internal sealed class PclComponentMerge
+    {
+        public PclComponentMerge(int newPcl, int[] oldPcls, int[] changedTileIds)
+        {
+            NewPcl = newPcl;
+            OldPcls = oldPcls ?? Array.Empty<int>();
+            ChangedTileIds = changedTileIds ?? Array.Empty<int>();
+        }
+
+        public int NewPcl { get; }
+        public int[] OldPcls { get; }
+        public int[] ChangedTileIds { get; }
+    }
+
+    internal static class PclComponentMergeDetector
+    {
+        public static IReadOnlyList<PclComponentMerge> Detect(ushort[] before, ushort[] after)
+        {
+            if (before == null || after == null || before.Length != after.Length)
+                return Array.Empty<PclComponentMerge>();
+
+            var oldByNew = new Dictionary<int, HashSet<int>>();
+            var changedByNew = new Dictionary<int, List<int>>();
+            for (int tileId = 0; tileId < before.Length; tileId++)
+            {
+                int oldPcl = before[tileId];
+                int newPcl = after[tileId];
+                if (oldPcl <= 0 || newPcl <= 0) continue;
+                if (!oldByNew.TryGetValue(newPcl, out HashSet<int> oldPcls))
+                {
+                    oldPcls = new HashSet<int>();
+                    oldByNew.Add(newPcl, oldPcls);
+                    changedByNew.Add(newPcl, new List<int>());
+                }
+                oldPcls.Add(oldPcl);
+                if (oldPcl != newPcl) changedByNew[newPcl].Add(tileId);
+            }
+
+            return oldByNew
+                .Where(pair => pair.Value.Count > 1 && changedByNew[pair.Key].Count != 0)
+                .OrderBy(pair => pair.Key)
+                .Select(pair => new PclComponentMerge(pair.Key, pair.Value.OrderBy(value => value).ToArray(),
+                    changedByNew[pair.Key].ToArray()))
+                .ToArray();
         }
     }
 

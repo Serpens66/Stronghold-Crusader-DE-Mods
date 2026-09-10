@@ -13,7 +13,7 @@ Der erste spielbare Proof of Concept umfasst:
 - freie Platzierung per anschließendem Kartenklick;
 - persistente Zuordnungen im Spielstand;
 - strikt gesperrte Multiplayer-Zuweisungen;
-- ausschließlich vorhandene Vanilla-Grafiken.
+- ausschließlich vorhandene Vanilla-Grafiken, die im PoC pro Instanz leicht eingefärbt werden.
 
 Der Script Extender 2.3.0 bleibt unverändert. Dieses Dokument beschreibt den inzwischen als Testversion `0.1.0` umgesetzten Prototyp und bleibt die maßgebliche Spezifikation für seine Ingame-Verifikation und Weiterentwicklung.
 
@@ -22,9 +22,9 @@ Der Script Extender 2.3.0 bleibt unverändert. Dieses Dokument beschreibt den in
 ### Aktueller Stand
 
 - Projekt, öffentliche API, Runtime, verwaltete Visual-Hooks, XAML-HUD, Saveformat, Tests, `info.json` und `build.bat` sind als Testversion `0.1.0` umgesetzt.
-- 19 automatisierte Checks sowie der .NET-Framework-4.8.1-Build laufen ohne Warnungen oder Fehler durch.
-- Das lokale Paket wurde durch die mod-eigene `build.bat` in den Spieleordner installiert und bytegenau gegen das lokale Paket geprüft.
-- Ein tatsächlicher Spielstart und die in Abschnitt 15.2 beschriebenen Ingame-Tests stehen noch aus; Laufzeitverträge bleiben bis dahin als diagnostisch zu bestätigen gekennzeichnet.
+- Die automatisierten Checks decken Registry, Werte, Saveformat, Simulations-Queue, Threadgrenzen und Visual-Fallbacks ab.
+- Build und Installation erfolgen ausschließlich über die mod-eigene `build.bat`, die das installierte Paket bytegenau gegen das lokale Paket prüft.
+- Nach dem Sichtbarkeitsfix steht eine erneute Spielabnahme aus; Laufzeitverträge bleiben bis dahin als diagnostisch zu bestätigen gekennzeichnet.
 
 ### Verbindlicher Arbeitsauftrag
 
@@ -125,9 +125,10 @@ Typ-IDs verwenden `<Mod-GUID>:<lokaler-name>`, etwa `serp.virtual-units:desert-a
 - `VirtualEntityKey` mit Art, 1-basierter Game-ID und Global-ID;
 - `VirtualEntityInstance` mit Schlüssel, Typ-ID, Definitionsversion und Basiswerten;
 - `VirtualUnitDefinition` und `VirtualBuildingDefinition`;
-- `UnitSpriteProfile` und `BuildingTileVisualProfile`;
+- gemeinsames unveränderliches `VirtualSpriteTintProfile` mit RGBA-Bytes;
 - `VirtualStatProfile` und `VirtualSpawnOptions`;
 - `VirtualApiResult` mit Ergebniscode und lesbarer Fehlermeldung.
+- unveränderliche `VirtualOperationTicket`- und `VirtualOperationCompletedEventArgs`-Typen zur Korrelation asynchroner Mutationen.
 
 `VirtualUnitDefinition` enthält Typ-ID, positive Definitionsversion, Anzeigename, `eChimps`-Basistyp, Spriteprofil, rationale Gesundheits- und Geschwindigkeitsfaktoren sowie Diagnosemenü-Sichtbarkeit.
 
@@ -145,8 +146,9 @@ Alle fachlichen Werte referenzieren unmittelbar die benannten Enums und Konstant
 - `TryRemoveUnitAssignment`, `TryRemoveBuildingAssignment`;
 - `TryGetUnitInstance`, `TryGetBuildingInstance`;
 - `SpawnVirtualUnit`, `SpawnVirtualBuilding`.
+- `QueueVirtualUnitSpawn`, `QueueVirtualBuildingSpawn`, `QueueAssignUnit`, `QueueAssignBuilding`, `QueueRemoveUnitAssignment`, `QueueRemoveBuildingAssignment`.
 
-Ereignisse melden erfolgreiche Zuweisung, Entfernung und abgelehnte Wiederherstellung. Definitionen dürfen nur während der Initialisierung registriert werden; danach wird die Registry versiegelt. Leere oder doppelte IDs, unbekannte Enumwerte, unzulässige Faktoren, falsche Basistypen und widersprüchliche Mapper-/Struct-Paare werden mit `VirtualApiResult` abgelehnt und protokolliert.
+Mutierende API-Aufrufe legen ausschließlich einen Auftrag an und liefern zunächst `InitializationPending`; `OperationCompleted` liefert auf dem Unity-Thread Ticket, Ergebnis und gegebenenfalls die fertige Instanz. Die bisherigen Mutatornamen bleiben als korrelationslose Queue-Wrapper erhalten. Ereignisse melden außerdem erfolgreiche Zuweisung, Entfernung und abgelehnte Wiederherstellung. Definitionen dürfen nur während der Initialisierung registriert werden; danach wird die Registry versiegelt. Leere oder doppelte IDs, unbekannte Enumwerte, unzulässige Faktoren, falsche Basistypen und widersprüchliche Mapper-/Struct-Paare werden mit `VirtualApiResult` abgelehnt und protokolliert.
 
 ### 4.3 Festzulegende Signaturen vor Implementierungsbeginn
 
@@ -195,7 +197,8 @@ Die folgenden Punkte wurden bei Erstellung dieses Dokuments im lokalen Fork `shc
 - Building-APIs für aktuelle und maximale Gesundheit sind vorhanden; `SetMaxHealth` erwartet `UInt16`.
 - `BuildingScales.GetScale(eMappers)` ist öffentlich und liefert bei unbekanntem Mapper `-1`.
 - `GamePlayerManagerAPI.GetLocalPlayerId()` ist vorhanden.
-- `UnitR3EventHooks.OnUnitUnityVisualSpawn` und `OnUnitUnityVisualRemove` sind vorhanden.
+- `UnitR3EventHooks.OnUnitUnityVisualSpawn`, `OnUnitUnityVisualInterpolate` und `OnUnitUnityVisualRemove` sind vorhanden.
+- `GameTimeManagerAPI.OnTick` läuft im nativen Simulationspfad und ist der einzige Ausführungskontext für modseitige native Mutationen.
 - `BuildingR3EventHooks.OnBuildingSpawn` und `OnBuildingDelete` sind vorhanden.
 - `OnBuildingSpawn` wird in Pre- und Postphase ausgelöst; das Postereignis übernimmt den nativen Rückgabewert in `ReturnValue`.
 - `ModSaveDataAPI.RegisterModDataHandler(...)` ist vorhanden.
@@ -223,12 +226,12 @@ Diese Punkte sind verpflichtende Gates und dürfen nicht aus diesem Dokument all
 - `GameMapTile.gameMapX`, `gameMapY`, `tileImage` und `light` haben in der installierten Managed-Assembly die erwarteten zugänglichen Typen.
 - `spriteLoader.instance`, GM-Normal-/Alt-Arrays, Materialarrays und die benötigten Getter sind in der tatsächlich referenzierten Assembly erreichbar.
 - `SpriteMapping.SetBodySprite(SpriteRenderer,int,int,int,bool,int,int)` ist genau einmal vorhanden und kann verwaltet detourt werden. Das Extender-Event bindet unmittelbar davor den Haupt-Renderer an die Unit-ID; der Detour erhält GM, Frame und Alt-Status ohne Sprite-Namensheuristik.
-- Alle verwendeten Enumwerte, besonders `CHIMP_TYPE_ARCHER`, `STRUCT_HOVEL`, `MAPPER_HOVEL`, `GM_BODY_ARAB_BOW`, `GM_BUILDINGS1` und `GM_BUILDINGS2`, stimmen zwischen Quellcode und Assembly überein.
+- Alle verwendeten Enumwerte, besonders `CHIMP_TYPE_ARCHER`, `STRUCT_HOVEL` und `MAPPER_HOVEL`, stimmen zwischen Quellcode und Assembly überein.
 - Die Callbacksignaturen und Zeitpunkte von `ModSaveDataAPI` passen zum vorgesehenen Pending-Restore.
 - Die für Map-Start und Map-Unload gewählten Events laufen in der benötigten Reihenfolge.
 - `Shared/GameModeHelper.cs` kann als Quelllink ohne zusätzliche Modabhängigkeit eingebunden werden und seine benötigten Referenzen sind im neuen Projekt vollständig vorhanden.
 - Das XAML-Patchziel und alle Bindingnamen kollidieren weder mit Vanilla noch mit gemeinsam installierten Workspace-Mods.
-- Mauskoordinaten, Kartenkoordinaten und `CreateUnitLocal` verwenden dieselbe lokale Tilebasis; keine zusätzliche Achtfachskalierung darf modseitig erfolgen.
+- `MainControls.getMouseMapTilePosition` liefert die kamerarotierte interne Tilebasis. Wie Vanilla muss der Mod zuerst `GameMap.instance.getMapTile` aufrufen und danach `gameMapX/gameMapY` als lokale Koordinaten an `CreateUnitLocal` beziehungsweise `CreatePrefab` übergeben; eine zusätzliche Achtfachskalierung darf modseitig nicht erfolgen.
 
 #### Im Spiel diagnostisch zu verifizieren
 
@@ -238,9 +241,9 @@ Diese Verträge lassen sich nicht allein durch Kompilierung hinreichend belegen.
 - Der Pending-Kontext korreliert ein einfaches Hovel eindeutig mit genau einem passenden Building-Spawn-Postereignis.
 - Der Building-Spawn-Rückgabewert ist beim Hovel die 1-basierte Building-ID und stimmt mit dem gefundenen Struct/Global-ID-Paar überein.
 - Die Registrierung geschieht früh genug, dass der erste Building-Renderpass den virtuellen Typ sieht; andernfalls funktioniert der Cache-/Refreshpfad.
-- `StructureGrid[tileId]` liefert während des Managed-Grafikaufrufs die erwartete 1-basierte Building-ID.
-- Der Wechsel `GM_BUILDINGS1`/`GM_BUILDINGS2` bei gleichem Frameindex erzeugt beim Hovel vorhandene, sichtbare und technisch sichere Testframes. Falls nicht, wird vor einer alternativen Zuordnung die konkrete Framebelegung untersucht.
-- Der Unit-Frameindex zwischen Archer und `GM_BODY_ARAB_BOW` ist für Stand, Bewegung, Angriff, Treffer, Tod und alle Richtungen semantisch kompatibel.
+- `GameTileManagerAPI.GetTileBuildingId(tileId)` liefert während des Managed-Grafikaufrufs die erwartete 1-basierte Building-ID.
+- Frameindizes verschiedener Building-GMs sind nicht semantisch oder geometrisch austauschbar; der beobachtete Hovel-Quellframe und der gleichnummerige Ziel-Frame besitzen unterschiedliche Abmessungen und Pivots.
+- Frameindizes von Archer und Arab Bow sind wegen ihrer unterschiedlichen nativen Zustands- und Framebereiche nicht semantisch kompatibel. Der stabile PoC behält daher alle Vanilla-Archer-Frames bei.
 - Zielmaterial, Teamfarbe, Transparenz und Fußabschneidung bleiben bei Unit-Normal- und Alt-Frames korrekt.
 - Tilemap-Refresh aktualisiert nur Darstellung und verändert weder Nachbartiles noch logische Grids.
 - HUD-Klicks werden zuverlässig von Kartenklicks getrennt und das Panel bleibt wie beschlossen geöffnet.
@@ -266,23 +269,23 @@ Diese Punkte dürfen während des PoC nur diagnostisch untersucht werden. Sie si
 - Pro Instanz existiert höchstens ein virtueller Typ.
 - Eine Neuzuweisung entfernt kontrolliert den bisherigen Typ und übernimmt danach den neuen.
 
-`OnUnitDelete`, `OnBuildingDelete`, fehlgeschlagene Global-ID-Prüfungen und Map-Unload entfernen logische Zustände. `OnUnitUnityVisualRemove` entfernt nur Rendererbindungen, solange die native Unit weiterlebt. Map-Unload leert zusätzlich Tilecache, Pending-Spawns und Pending-Save-Daten.
+`OnUnitDelete`, `OnBuildingDelete`, fehlgeschlagene Global-ID-Prüfungen und Map-Unload entfernen logische Zustände. `OnUnitUnityVisualRemove` entfernt nur Rendererbindungen, solange die native Unit weiterlebt. Map-Unload leert zusätzlich Visualbindungen, Pending-Spawns und Pending-Save-Daten.
 
 ## 6. Werteänderungen
 
 Beim ersten Zuweisen speichert der Mod ursprüngliche Maximalwerte und aktuellen Zustand.
 
-Units erhalten im PoC geänderte maximale Lebenspunkte, proportional umgerechnete aktuelle Lebenspunkte und Geschwindigkeit. Gebäude erhalten geänderte maximale und proportional umgerechnete aktuelle Lebenspunkte. Kosten, Produktion, Arbeiter, Schaden und Fähigkeiten bleiben Vanilla.
+Units erhalten im PoC geänderte maximale Lebenspunkte, proportional umgerechnete aktuelle Lebenspunkte und – soweit im ganzzahligen `UInt16`-Delaywert darstellbar – Geschwindigkeit. Der beobachtete Archer-Basiswert `1` bleibt für den Faktor 3/2 unverändert, weil kein kleinerer positiver Ganzzahlwert existiert. Gebäude erhalten geänderte maximale und proportional umgerechnete aktuelle Lebenspunkte. Kosten, Produktion, Arbeiter, Schaden und Fähigkeiten bleiben Vanilla.
 
 Faktoren werden als ganzzahlige Brüche gespeichert. Zwischenrechnungen verhindern Überläufe und werden auf den API-Wertebereich begrenzt. Lebende Entitäten behalten mindestens einen Lebenspunkt. Beim Entfernen werden ursprüngliche Maximalwerte wiederhergestellt; der bis dahin erlittene Schadensanteil bleibt erhalten. Save/Load darf Faktoren niemals erneut auf bereits modifizierte Werte multiplizieren.
 
 ## 7. Unit-Darstellung
 
-Der Mod abonniert `UnitR3EventHooks.OnUnitUnityVisualSpawn`, um den Haupt-`SpriteRenderer` unmittelbar vor dessen erster Vanilla-Aktualisierung an die 1-basierte Unit-ID zu binden. Das Event selbst ist kein geeigneter Overridepunkt: Es läuft vor `SpriteMapping.SetBodySprite`, sodass eine dort gesetzte Grafik sofort wieder überschrieben würde.
+Der Mod abonniert `UnitR3EventHooks.OnUnitUnityVisualSpawn`, um den Haupt-`SpriteRenderer` bei der erstmaligen Erzeugung unmittelbar vor dessen erster Vanilla-Aktualisierung an die 1-basierte Unit-ID zu binden. Das Event wird nicht bei jeder Aktualisierung ausgelöst und ist selbst kein geeigneter Overridepunkt: Es läuft vor `SpriteMapping.SetBodySprite`, sodass eine dort gesetzte Grafik sofort wieder überschrieben würde. `OnUnitUnityVisualInterpolate` bindet bereits vorhandene oder beim Spawn verpasste `Chimp`-Renderer nach.
 
-Ein modlokaler verwalteter Detour auf `SpriteMapping.SetBodySprite(SpriteRenderer,int,int,int,bool,int,int)` prüft bei jeder normalen oder alternativen Frameaktualisierung die gebundene Unit-ID, Global-ID und Definition. Existiert der Zielframe, wird nur der GM-Dateiparameter ersetzt und danach das Original genau einmal aufgerufen. Dadurch setzt Vanilla Ziel-Sprite, passendes Material, Teamfarbe, Transparenz und Fußabschneidung gemeinsam. Ungebundene Renderer und ungültige Instanzen laufen unverändert durch das Original.
+Ein modlokaler verwalteter Detour auf `SpriteMapping.SetBodySprite(SpriteRenderer,int,int,int,bool,int,int)` prüft bei jeder normalen oder alternativen Frameaktualisierung die gebundene Unit-ID und die zuletzt im Simulationstick validierte Global-ID-/Typzuordnung. Er ruft das Original genau einmal mit unverändertem GM, Frame, Alt-Status, Material-, Teamfarben-, Transparenz- und Fußabschneidungsvertrag auf. Anschließend multipliziert er ausschließlich die RGB-Komponenten der von Vanilla gesetzten Rendererfarbe mit dem virtuellen Tint; Vanillas Alpha bleibt unverändert. Ungebundene Renderer und ungültige Instanzen laufen unverändert durch das Original.
 
-Fehlt ein Zielframe, bleibt nur dieser Aufruf Vanilla. Die Kombination aus Typ-ID, Ziel-GM, Frameindex und Alt-Status wird nur einmal protokolliert. Ein fehlender Frame deaktiviert keine anderen Animationen.
+Damit bleiben Stand, Bewegung, Angriff, Treffer, Tod und alle Richtungen exakt an die native Archer-Animation gekoppelt. Der erste brauchbare Vanilla-Sprite und die angewandte Farbe werden einmal je Instanz protokolliert.
 
 Der PoC verwendet keine partiellen benutzerdefinierten Atlanten und hängt daher nicht von den in [Script-Extender Work Item 162](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/work_items/162) dokumentierten Material- und Arraylängenproblemen ab.
 
@@ -294,7 +297,9 @@ Die erste Visualschicht verwendet einen modlokalen Managed-Detour auf:
 
 `SpriteMapping.setGenericBuildingTileGraphic(GameMapTile tile, int file, int image, int light)`
 
-Der Detour ruft immer zuerst das Original auf. Danach ermittelt er aus `tile.gameMapX` und `tile.gameMapY` über `GameTileManagerAPI.GetTileId` die Tile-ID und liest über `GameTileManagerAPI.GetTileBuildingId` die 1-basierte Building-ID. Nach Prüfung von Building-ID, Global-ID, Basistyp und Definition speichert er den Vanilla-Deskriptor `(file, image, light)` und ersetzt ausschließlich `tile.tileImage`, falls das Visualprofil einen vorhandenen Zielframe liefert.
+Der Detour ruft immer zuerst das Original auf. Danach ermittelt er aus `tile.gameMapX` und `tile.gameMapY` über `GameTileManagerAPI.GetTileId` die Tile-ID und liest über `GameTileManagerAPI.GetTileBuildingId` die 1-basierte Building-ID. Nach Abgleich mit der zuletzt im Simulationstick validierten Global-ID-/Typzuordnung protokolliert er den Vanilla-Deskriptor `(file, image, light)` und bestätigt einen brauchbaren Vanilla-Sprite; `tile.tileImage` wird nicht ersetzt.
+
+Ein zweiter verwalteter Detour auf `gameTile.setTileColour(GameMapTile,Vector3Int,int)` ruft Vanilla genau einmal auf und multipliziert danach für validierte virtuelle Buildings die bereits berechnete Tilefarbe mit dem RGB-Tint. Alpha, Licht- und Schattenabstufung bleiben erhalten. Mouse-over darf weiterhin Vanillas rote Hervorhebung verwenden.
 
 `StructureGrid`, `AlphaGFXGrid`, Belegung, Wegfindung, Höhe, Building-Typ, Footprint und native Grafikdeskriptoren bleiben unangetastet. Der ursprüngliche `light`-Wert bleibt erhalten. Ungültige GMs und fehlende Frames fallen für das betreffende Tile auf Vanilla zurück.
 
@@ -320,15 +325,17 @@ Eingabefluss:
 
 Es gibt im PoC keine Geistervorschau. Das Menü ist nur auf vollständig geladenen Einzelspieler-Gameplaykarten mit eindeutigem lokalen Spieler aktiv; Multiplayer, Lobby, Editor, Replay sowie Lade- und Entladephasen sind gesperrt.
 
+`Application.onBeforeRender` erfasst ausschließlich Unity-Eingaben und leert die Completion-Queue. Native Spawns, Zuweisungen, Entfernungen, Statusänderungen und Tile-Refreshes laufen nur in `GameTimeManagerAPI.OnTick`. Pending-Fristen verwenden Simulationsticks statt Unity-Renderframes; Noesis- und Unity-Objekte werden niemals vom Simulationsthread verändert.
+
 ## 10. Erzeugungstransaktionen
 
 ### 10.1 Units
 
-`SpawnVirtualUnit` validiert Definition, Spielmodus, lokalen Spieler und Zielkachel, ruft `GameUnitManagerAPI.CreateUnitLocal` mit dem Vanilla-Basistyp auf und behandelt den Rückgabewert als 1-basierte Unit-ID. Nach Rücklesen von Global-ID, Besitzer, Basistyp und unveränderten Ausgangswerten entsteht zunächst ein Pending-Eintrag. Erst nach dem Übergang zu `IsAlive`, plausibler Tileposition und bestätigter Rendererbindung wird die Instanz registriert und werden die Werte angewendet. Bis dahin liefert die API `InitializationPending`; ein Timeout wird nur bei weiterhin passender Global-ID über `DeleteUnitSafe` bereinigt.
+Ein HUD- oder API-Aufruf legt zunächst einen unveränderlichen Auftrag an. Ausschließlich `GameTimeManagerAPI.OnTick` validiert Definition, Spielmodus, lokalen Spieler und Zielkachel, ruft `GameUnitManagerAPI.CreateUnitLocal` mit dem Vanilla-Basistyp auf und behandelt den Rückgabewert als 1-basierte Unit-ID. Nach Rücklesen von Global-ID, Besitzer, Basistyp und unveränderten Ausgangswerten entsteht ein tickbasierter Pending-Eintrag. Erst nach `IsAlive`, plausibler Tileposition, Rendererbindung und passendem `SetBodySprite`-Hook wird die Instanz registriert und werden die Werte angewendet. Ein Timeout wird nur bei weiterhin passender Global-ID über `DeleteUnitSafe` bereinigt.
 
 ### 10.2 Gebäude
 
-`SpawnVirtualBuilding` verwendet den definierten `eMappers`, den Wert aus `BuildingScales`, `GameBuildingManagerAPI.CreatePrefab`, `bIsFree=true` und `bypassPlacementRules=false`.
+Der Simulationstick verarbeitet den Building-Auftrag mit dem definierten `eMappers`, dem Wert aus `BuildingScales`, `GameBuildingManagerAPI.CreatePrefab`, `bIsFree=true` und `bypassPlacementRules=false`.
 
 Während des synchronen Aufrufs existiert ein eng begrenzter Pending-Spawn-Kontext. `OnBuildingSpawn` akzeptiert nur einen Post-Aufruf, dessen Spieler, Struct-Typ, Koordinate und Rückgabewert zum Kontext passen. Danach werden Building-ID, Global-ID, Besitzer, Basistyp und Ausgangswerte erfasst. Die Registrierung und Wertänderung erfolgen erst nach `IsAlive` und einer bestätigten Footprint-Verknüpfung über `GetTileBuildingId`. Der rohe `CreatePrefab`-Wert wird zusätzlich hexadezimal und als vorzeichenbehafteter Low-32-Bit-Wert protokolliert, aber nicht als Building-ID interpretiert.
 
@@ -340,13 +347,13 @@ Der PoC erlaubt nur einfache Gebäude mit genau einem erwarteten Kerngebäude. M
 
 - Typ-ID `serp.virtual-units:desert-archer`;
 - Basistyp `eChimps.CHIMP_TYPE_ARCHER`;
-- Ziel-GM `Enums.GM.GM_BODY_ARAB_BOW`;
+- vollständige Vanilla-Archer-Grafik mit leicht kühlem, bläulichem Instanz-Tint;
 - maximale Lebenspunkte Basiswert × 2;
-- 1,5-fache Bewegungsgeschwindigkeit durch den SHCDE-codierten Speedwert Basiswert × 2 / 3;
+- angestrebte 1,5-fache Bewegungsgeschwindigkeit durch Basiswert × 2 / 3; beim realen Basiswert `1` fail-closed unverändert `1`;
 - lokaler Besitzer und dessen Teamfarbe;
 - kostenloser Diagnose-Spawn.
 
-Beim ersten tatsächlichen Visualaufruf werden Rendererbindung, Vanilla- und Ziel-GM, Frame, Alt-Status und Spriteabmessungen protokolliert. Im Spiel stehen ein Vanilla-Archer und ein Desert Archer zum direkten Vergleich nebeneinander.
+Beim ersten tatsächlichen Visualaufruf werden Rendererbindung, Vanilla-GM, Frame, Alt-Status, Spriteabmessungen sowie Vanilla- und Tintfarbe protokolliert. Im Spiel stehen ein Vanilla-Archer und ein Desert Archer zum direkten Vergleich nebeneinander.
 
 ### 11.2 Desert Hovel
 
@@ -357,7 +364,7 @@ Beim ersten tatsächlichen Visualaufruf werden Rendererbindung, Vanilla- und Zie
 - maximale Lebenspunkte Basiswert × 2;
 - kostenlos, aber mit aktiven Vanilla-Platzierungsregeln.
 
-Das diagnostische Visualprofil tauscht vorhandene statische Frames zwischen `Enums.GM.GM_BUILDINGS1` und `Enums.GM.GM_BUILDINGS2` bei gleichem Frameindex. Dies ist nur ein sichtbarer per-Instanz-Nachweis, kein endgültiges Artwork. Fehlende Zielframes bleiben Vanilla.
+Das diagnostische Visualprofil behält alle von Vanilla gewählten Hovel-Sprites und färbt ihre Tilefarben pro Instanz deutlich bläulich ein. So bleiben Abmessungen, Pivot, Footprint, Licht und Zustandsvarianten korrekt. Eine echte Bäckereidarstellung folgt erst nach separater Erfassung und Kalibrierung aller Hovel- und Workshop-Tiles; pauschale gleiche Frameindizes bleiben verboten.
 
 ## 12. Speichern und Laden
 
@@ -386,21 +393,23 @@ Eine getrennte Atlas-Baker-Pipeline folgt erst nach erfolgreichem Registry-, Sav
 - doppelte Typ-ID und falsche Mapper-/Struct-Kombination;
 - falscher Vanilla-Basistyp und unbekannte Definition;
 - proportionale Gesundheit ohne Heilung oder erneute Multiplikation;
-- Normalframe, Alt-Frame, fehlender Zielframe und Object-Pooling;
+- Normalframe, Alt-Frame, unveränderte Animationsframes, Tint und Object-Pooling;
+- Queue-Ausführung ausschließlich im Simulationstick, tickbasierter Timeout und getrennte Unity-Completion;
+- Erfolg erst nach Renderer plus Body-Hook beziehungsweise Footprint plus Building-Tile-Hook;
 - Building-Hook ruft das Original genau einmal auf;
 - Building-Override verändert keine nativen Grids;
-- Tilecache stellt Vanilla-Grafiken wieder her;
+- visueller Rückbau stellt Vanilla-Farben und -Grafiken wieder her;
 - Auswahlklick platziert noch nichts;
 - Rechtsklick und Escape brechen ab;
 - Multiplayeraufrufe scheitern vor jeder Mutation.
 
 ### 15.2 Spieltests
 
-Ein Vanilla-Archer und ein Desert Archer desselben Basistyps stehen nebeneinander. Nur der virtuelle Archer erhält dauerhaft alternative Grafik, doppelte Maximalgesundheit und 1,5-fache Geschwindigkeit. Bewegung, Angriff, Auswahl, Schaden, Tod und Object-Pooling funktionieren; ein wiederverwendeter Slot bleibt Vanilla.
+Ein Vanilla-Archer und ein Desert Archer desselben Basistyps stehen nebeneinander. Nur der virtuelle Archer erhält dauerhaft den leichten Tint und doppelte Maximalgesundheit; beide verwenden dieselben korrekten Vanilla-Frames. Die Geschwindigkeit bleibt beim nicht darstellbaren Vanilla-Delay `1` unverändert und wird diagnostisch gemeldet. Bewegung, Angriff, Auswahl, Schaden, Tod und Object-Pooling funktionieren; ein wiederverwendeter Slot bleibt Vanilla.
 
-Ein Vanilla-Hovel und ein Desert Hovel stehen nebeneinander. Nur das virtuelle Hovel erhält alternative Tilegrafik und doppelte Maximalgesundheit. Nachbartiles, Footprint, Wegfindung und Belegung bleiben unverändert. Ungültige Baupositionen erzeugen weder Registryeintrag noch Teilzustand.
+Ein Vanilla-Hovel und ein Desert Hovel stehen nebeneinander. Nur das virtuelle Hovel erhält den deutlicheren Tile-Tint und doppelte Maximalgesundheit. Vanilla-Sprites, Nachbartiles, Footprint, Wegfindung und Belegung bleiben unverändert. Ungültige Baupositionen erzeugen weder Registryeintrag noch Teilzustand.
 
-Save/Load stellt beide Zuordnungen genau einmal wieder her. Mapwechsel leert Registry, Tilecache, Rendererbindungen und Pending-Spawns. Inkompatible Save-Daten lassen die betreffende Vanilla-Entität unverändert.
+Save/Load stellt beide Zuordnungen genau einmal wieder her. Mapwechsel leert Registry, Visualbindungen und Pending-Spawns. Inkompatible Save-Daten lassen die betreffende Vanilla-Entität unverändert.
 
 Eine spätere Multiplayerfreigabe verlangt identische Registrydefinitionen, tickgleiche Verarbeitung, Join-/Load-Prüfungen und gezielte Desync-Tests mit mindestens zwei Teilnehmern.
 
@@ -411,7 +420,7 @@ Eine spätere Multiplayerfreigabe verlangt identische Registrydefinitionen, tick
 3. Instanzregistry mit ID-/Global-ID-Validierung.
 4. Unit-Zuweisung, Werteänderungen und Desert-Archer-Visual.
 5. Save-/Load-Lebenszyklus für Units.
-6. Managed-Building-Hook, Tilecache und Rückbau.
+6. Managed-Building-Hooks, Tint und Rückbau.
 7. Building-Zuweisung, Lebenspunkte und Desert-Hovel-Test.
 8. Kleines horizontales HUD und Kartenplatzierungszustand.
 9. Unit- und Building-Spawntransaktionen.

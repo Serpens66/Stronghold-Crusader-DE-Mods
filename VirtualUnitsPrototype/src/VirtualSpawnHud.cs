@@ -1,8 +1,10 @@
 using BepInEx.Logging;
+using SHCDESE.API;
 using SHCDESE.NoesisUtil;
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Windows.Input;
 using UnityEngine;
 using VirtualUnitsPrototype.API;
@@ -17,6 +19,7 @@ namespace VirtualUnitsPrototype
         private string selectedTypeId;
         private bool waitForRelease;
         private int lastFrame = -1;
+        private bool unityThreadLogged;
 
         public VirtualSpawnController(VirtualEntityRuntime runtime, ManualLogSource log)
         {
@@ -24,8 +27,8 @@ namespace VirtualUnitsPrototype
             Hud = new VirtualSpawnHudViewModel(SelectUnit, SelectBuilding, Cancel);
         }
         public VirtualSpawnHudViewModel Hud { get; }
-        public void Initialize() { Application.onBeforeRender += OnBeforeRender; SetAvailability(false); }
-        public void SetAvailability(bool available) { if (!available) Cancel(); Hud.SetAvailability(available); }
+        public void Initialize() { Application.onBeforeRender += OnBeforeRender; ApplyAvailability(false); }
+        public void ApplyAvailability(bool available) { if (!available) Cancel(); Hud.SetAvailability(available); }
         public void ReportRuntimeResult(VirtualApiResult result) { Hud.SetResult(result.ToString()); }
 
         private void SelectUnit()
@@ -51,7 +54,12 @@ namespace VirtualUnitsPrototype
         }
         private void Tick()
         {
-            runtime.Tick();
+            if (!unityThreadLogged)
+            {
+                unityThreadLogged = true;
+                Shared.DebugLogHelper.LogInfo(log, $"Unity input and completion context established: thread={Thread.CurrentThread.ManagedThreadId}.");
+            }
+            runtime.DrainMainThreadWork();
             if (!runtime.CanMutate || selection == SelectionKind.None) return;
             if (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1)) { Cancel(); Hud.SetResult("Platzierung abgebrochen."); return; }
             if (waitForRelease)
@@ -63,13 +71,23 @@ namespace VirtualUnitsPrototype
             if (MainControls.instance == null || MainControls.instance.overGUI || MainControls.instance.isOffWorld()) return;
             float mouseX = 0f, mouseY = 0f;
             MainControls.instance.getMouseMapTilePosition(ref mouseX, ref mouseY);
-            int tileX = (int)mouseX, tileY = (int)mouseY;
+            int internalX = (int)mouseX, internalY = (int)mouseY;
+            GameMapTile mapTile = GameMap.instance?.getMapTile(internalX, internalY);
+            if (mapTile == null || GameTileManagerAPI.Instance == null ||
+                !GameTileManagerAPI.Instance.IsTileInsideMapBounds(mapTile.gameMapX, mapTile.gameMapY))
+            {
+                Hud.SetResult("Ungültige Kartenposition.");
+                Shared.DebugLogHelper.LogWarning(log, $"Diagnostic placement rejected: screen={Input.mousePosition}, internalTile={internalX},{internalY}, localTile=<unresolved>.");
+                return;
+            }
+            int tileX = mapTile.gameMapX, tileY = mapTile.gameMapY;
+            int tileId = GameTileManagerAPI.Instance.GetTileId(tileX, tileY);
             VirtualApiResult result = selection == SelectionKind.Unit
-                ? VirtualEntityApi.SpawnVirtualUnit(selectedTypeId, tileX, tileY, out VirtualEntityInstance unit)
-                : VirtualEntityApi.SpawnVirtualBuilding(selectedTypeId, tileX, tileY, out VirtualEntityInstance building);
+                ? VirtualEntityApi.QueueVirtualUnitSpawn(selectedTypeId, tileX, tileY, out VirtualOperationTicket unitTicket)
+                : VirtualEntityApi.QueueVirtualBuildingSpawn(selectedTypeId, tileX, tileY, out VirtualOperationTicket buildingTicket);
             Hud.SetTarget(tileX, tileY);
             Hud.SetResult(result.Code == VirtualApiResultCode.InitializationPending ? $"Initialisierung läuft: {result.Message}" : result.ToString());
-            Shared.DebugLogHelper.LogInfo(log, $"Diagnostic placement: selection={selection}, type={selectedTypeId}, tile={tileX},{tileY}, result={result}.");
+            Shared.DebugLogHelper.LogInfo(log, $"Diagnostic placement: selection={selection}, type={selectedTypeId}, screen={Input.mousePosition}, internalTile={internalX},{internalY}, localTile={tileX},{tileY}, tileId={tileId}, result={result}.");
         }
         private enum SelectionKind { None, Unit, Building }
     }

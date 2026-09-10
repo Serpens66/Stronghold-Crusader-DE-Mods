@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 3,
+  "language": "de",
+  "targetGameData": "E:\\ProgrammeE\\Steam\\steamapps\\common\\Stronghold Crusader Definitive Edition\\Stronghold Crusader Definitive Edition_Data",
+  "outputModDirectory": ".atlas-build",
+  "groups": [
+    {
+      "gmFileName": "body_swordsman",
+      "colourDirectory": "AtlasSource/Colour",
+      "maskMode": "same-directory",
+      "maskDirectory": null,
+      "sourcePrefix": "body_swordsman-",
+      "pivotMode": "source-metadata",
+      "sourceMetadataDirectory": "AtlasSource/Metadata",
+      "missingTargetPolicy": "source-metadata"
+    }
+  ],
+  "packing": {
+    "gap": 2,
+    "maximumTextureSize": 8192
+  },
+  "createManifestIfMissing": true,
+  "modInfo": {
+    "GUID": "SkinTest_Serp",
+    "Author": "Serp",
+    "Name": "SkinTest",
+    "Description": "Visual test for the SH1DE European swordsman skin.",
+    "Version": "0.1.0",
+    "Website": ""
+  }
+}

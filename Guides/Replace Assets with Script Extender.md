@@ -94,6 +94,14 @@ Gleiche Namen oder Indices beweisen nicht, dass Richtung und Animationsphase ide
 
 Mehrdeutige Zuordnungen sollten nicht automatisch übernommen werden. Verwende in solchen Fällen zunächst das originale SHCDE-Bild.
 
+## Sonderfall: deklarierter, aber leerer SHCDE-Zielslot
+
+Ein fehlendes SHCDE-Sprite ist normalerweise ein Fehler und wird vom Atlas Builder abgewiesen. Es gibt jedoch belegte Lücken innerhalb eines vom Spiel ausdrücklich angelegten Arrays. Bei `body_swordsman` deklariert `spriteLoader.addGMFile(1087, ...)` die Slots `0–1087`; die installierten Ressourcen enthalten trotzdem keine normalen Sprites `416–447`. SH1DE enthält genau diese 32 Frames. Die Alt-Reihe `0x–127x` ist in beiden Spielen vollständig.
+
+Für einen solchen belegten Fall kann im Builder pro Gruppe **In SHCDE fehlende Zielslots → Aus validierten Quellmetadaten ergänzen** gewählt werden. Das setzt **Pivot aus Quellmetadaten** und vollständige AssetRipper-JSONs voraus. Der Builder akzeptiert nur Frames innerhalb des vom SHCDE-Loader deklarierten Bereichs, validiert Quelldateiname, `m_Name`, Präfix, Index und Alt-Suffix und überschreibt niemals vorhandene SHCDE-Zieldaten.
+
+Der Atlasname wird dabei bewusst aus der Zielgruppe und dem Index erzeugt, beispielsweise `body_swordsman-416`. `m_Name` der Quelle dient zur Validierung, darf aber wegen möglicher absichtlicher Präfixzuordnungen nicht ungeprüft zum Zielnamen werden. Ohne dieses ausdrückliche Opt-in bleibt die sichere Standardreaktion ein Abbruch.
+
 ---
 
 # 4. Immer die vollständige GM-Gruppe erzeugen

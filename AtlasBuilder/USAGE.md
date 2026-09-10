@@ -36,7 +36,15 @@ Bei Quellmetadaten bleiben normalisierte Pivots bei einer proportional skalierte
 
 Bei den geprüften SH1DE-Gruppen `tile_land8`, `tile_buildings1`, `tile_churches` und `tile_ruins` liegt der originale Pixelanker durchgehend bei `(32, 16,5)` und die PPU bei 64. Beispielsweise ergeben sowohl Pivot `(0,5; 0,40243897)` auf 64×41 Pixeln als auch `(0,5; 0,08418399)` auf 64×196 Pixeln denselben Anker. Schwarze Spalten zwischen Tiles sind ein typisches Zeichen dafür, dass stattdessen ein normalisierter Pivot von einer anders großen Leinwand kopiert wurde.
 
-Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen gewarnt. Nach Auswahl des gewünschten Modus werden sie beim Speichern als Schema 2 abgelegt.
+Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen gewarnt. Schema-2-Projekte behalten ihre bisherige strikte Zielprüfung. Beim nächsten Speichern werden ältere Projekte als Schema 3 abgelegt.
+
+### In SHCDE fehlende Zielslots
+
+Normalerweise muss **In SHCDE fehlende Zielslots** auf **Ablehnen** stehen. Manche vom Spiel deklarierten Arrays enthalten jedoch echte leere Slots. Bestätigtes Beispiel: `body_swordsman` besitzt den Bereich `0–1087`, aber SHCDE enthält keine Sprites für `416–447`, während SH1DE diese 32 Frames besitzt.
+
+Nur für einen belegten Fall kann pro Gruppe **Aus validierten Quellmetadaten ergänzen** gewählt werden. Das ist ausschließlich zusammen mit **Pivot aus Quellmetadaten** möglich. Der Builder prüft dann Quelldateiname, `m_Name`, Präfix, Index, Alt-Suffix, Rect, Pivot und PPU, lässt keine Nummer außerhalb des vom SHCDE-Loader deklarierten Arrays zu und ergänzt nur tatsächlich fehlende Zieldaten. Vorhandene SHCDE-Metadaten haben immer Vorrang.
+
+Der ausgegebene Spritename wird aus der Ziel-GM-Gruppe erzeugt. Das ist wichtig, wenn das Quellpräfix absichtlich anders lautet: Der Script Extender erkennt nur Zielnamen wie `body_swordsman-416`, nicht einen beliebigen Namen aus dem Quellspiel. Eine deutliche Buildwarnung nennt Anzahl und Bereiche aller ergänzten Slots.
 
 ### Wichtige Extender-2.3.0-Grenzen
 
@@ -85,7 +93,15 @@ With source metadata, normalized pivots remain unchanged when the canvas is scal
 
 In the verified SH1DE groups `tile_land8`, `tile_buildings1`, `tile_churches` and `tile_ruins`, the original pixel anchor is consistently `(32, 16.5)` with 64 PPU. For example, pivot `(0.5, 0.40243897)` on a 64×41 image and `(0.5, 0.08418399)` on a 64×196 image both produce the same anchor. Black gaps between tiles are a typical symptom of copying a normalized pivot from a differently sized canvas.
 
-Schema-1 projects open compatibly in legacy mode and display a warning. After selecting the desired mode, saving upgrades them to schema 2.
+Schema-1 projects open compatibly in legacy mode and display a warning. Schema-2 projects retain their previous strict target validation. Saving an older project upgrades it to schema 3.
+
+### Target slots absent from SHCDE
+
+Normally, **Target slots absent from SHCDE** must remain set to **Reject**. Some arrays declared by the game contain genuine empty slots. Confirmed example: `body_swordsman` declares the range `0–1087`, but SHCDE has no Sprites for `416–447`, while SH1DE contains those 32 frames.
+
+For a verified case only, select **Fill from validated source metadata** for that group. This option is available exclusively with **Pivot from source metadata**. The builder then validates the source filename, `m_Name`, prefix, index, alternate suffix, Rect, pivot and PPU, refuses indices outside the array declared by the SHCDE loader, and fills only target metadata that is genuinely absent. Existing SHCDE metadata always takes precedence.
+
+The emitted Sprite name is constructed from the target GM group. This matters when the source prefix intentionally differs: the Script Extender recognizes target names such as `body_swordsman-416`, not an arbitrary source-game name. A prominent build warning lists the number and ranges of all filled slots.
 
 ### Important Script Extender 2.3.0 limitations
 

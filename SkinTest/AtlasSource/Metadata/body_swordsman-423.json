@@ -1,0 +1,14 @@
+{
+  "m_Name": "body_swordsman-423",
+  "m_Rect": {
+    "m_X": 0,
+    "m_Y": 0,
+    "m_Width": 102,
+    "m_Height": 135
+  },
+  "m_Pivot": {
+    "m_X": 0.5784313700000002,
+    "m_Y": 0.029629658757146106
+  },
+  "m_PixelsToUnits": 64.0
+}
