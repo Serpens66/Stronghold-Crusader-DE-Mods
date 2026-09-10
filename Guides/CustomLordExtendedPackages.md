@@ -105,7 +105,7 @@ Always provide `en-US` when the description should have a general fallback. Keys
 - Simplified Chinese: `zh-CN`
 - Traditional Chinese: `zh-HK`
   
-If the description does not appear, inspect `BepInEx/LogOutput.log` for a missing or malformed `info.json` or `lordmeta.json`, then validate both files with a JSON parser.
+If the description does not appear, inspect `BepInEx/LogOutput.log` for a missing or malformed `info.json` or `lordmeta.json`, then validate both files with a JSON parser, eg. https://goonlinetools.com/json-validator/.
 
 ## Advanced package
 
