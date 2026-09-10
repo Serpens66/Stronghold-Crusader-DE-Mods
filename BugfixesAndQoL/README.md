@@ -22,11 +22,6 @@ With a normal synchronized movement order, every unit in a mixed group now uses 
 ### Improve hostile moat filling
 This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle. Excavating owned planned moats is unchanged. This option remains independent from friendly moat movement.
 
-### Move through friendly completed moats
-Vanilla moat-digging units can move through completed moats owned by their player or an ally without allowing passage through hostile or invalid moats. The synchronized host setting provides three modes: **Off**, **Individual routes - exact**, and **Required moat routes only - fast**. The fast mode is enabled by default and performs additional moat pathfinding only when Vanilla cannot reach the destination over normal ground; the exact mode may also select an optional faster friendly-moat route.
-
-The behavior applies to direct movement, unit and building attacks, queued and patrol movement, moat work, and movement resumed after combat. Every published route remains bound to the exact unit, owner, command, target, tick, terrain revision, and native path buffer and is rejected safely if those conditions change.
-
 ### Allow cavalry movement onto stockpiles
 Knights, Horse Archers, Bedouin Camel Lancers, and Heavy Camels can be ordered onto passable stockpile tiles, matching their existing ability to cross them. The fix does not change stockpile tile definitions or relax movement rules for walls, stairs, keeps, other buildings, occupied tiles, or unreachable destinations.
 
@@ -45,8 +40,8 @@ Each active plague outbreak now applies exactly one point of negative popularity
 ### Allow unrestricted rally-point placement
 Barracks, mercenary posts, engineer guilds, tunneler guilds, keeps, and Bedouin tents no longer reject a rally point merely because the game considers the destination unreachable. Their rally flags can be placed anywhere the normal rally-point controls allow.
 
-### Keep buildings away from enemy moats
-This enabled-by-default host fix requires a one-tile gap around every human-placed building when an enemy completed moat is nearby, including tunnels and siege tents. Own, allied, and merely planned moats do not trigger this restriction. Tunnels and tunnel construction sites additionally retain the same gap from enemy buildings and walls; own and allied structures remain allowed.
+### Keep buildings away from enemy buildings and moats
+This enabled-by-default host fix requires a one-tile gap around every human-placed building when an enemy completed moat is nearby. Tunnels and tunnel construction sites additionally retain the same gap from enemy buildings and walls.
 
 ### Fix tripled starting gold in Custom Crusader Trails
 The game can interpret the unusable `customisedExtremeTrail` value in a `.trail` file as a request to triple the mission's starting gold. The fix ignores that value when a trail is loaded through the Trail Maker or Customize screen and writes a safe value when a trail is newly saved or resaved; existing files are not modified until they are saved.
@@ -170,3 +165,8 @@ Selecting your own Lord opens the complete troop HUD with normal commands, healt
 
 ### Remove disbanded units from control groups
 An enabled-by-default local client fix immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership. The option is stored locally and is not synchronized in multiplayer.
+
+### Move through friendly completed moats
+Vanilla moat-digging units can move through completed moats owned by their player or an ally without allowing passage through hostile or invalid moats. The synchronized host setting provides three modes: **Off**, **Individual routes - exact**, and **Required moat routes only - fast**. The fast mode is enabled by default and performs additional moat pathfinding only when Vanilla cannot reach the destination over normal ground; the exact mode may also select an optional faster friendly-moat route.
+
+The behavior applies to direct movement, unit and building attacks, queued and patrol movement, moat work, and movement resumed after combat. Every published route remains bound to the exact unit, owner, command, target, tick, terrain revision, and native path buffer and is rejected safely if those conditions change.
