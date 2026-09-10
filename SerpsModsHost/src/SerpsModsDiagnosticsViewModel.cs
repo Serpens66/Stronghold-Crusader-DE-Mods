@@ -31,6 +31,7 @@ namespace SerpsModsHost
         public RelayCommand ClearErrorsCommand { get; }
         public ModSettingsSearchViewModel Search => search;
         public string TitleText => SerpLocalization.Get(SerpLocalization.SerpsModsStatusTitle);
+        public string GameModeNoticeText => SerpLocalization.Get(SerpLocalization.SerpsModsGameModeNotice);
         public string SummaryTitleText => SerpLocalization.Get(SerpLocalization.SerpsModsSummaryTitle);
         public string ErrorsTitleText => SerpLocalization.Get(SerpLocalization.SerpsModsErrorsTitle);
         public string RefreshText => SerpLocalization.Get(SerpLocalization.SerpsModsRefresh);

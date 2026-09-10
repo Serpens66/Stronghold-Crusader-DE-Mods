@@ -367,7 +367,7 @@ namespace BugfixesAndQoL
                     aiSettingsPatch.Contains("AttributeName=\"HorizontalAlignment\" Value=\"Right\"") &&
                     troopPatch.Contains("AttributeName=\"bugfixes:TroopHudMiddleClickBehavior.IsEnabled\"") &&
                     !troopPatch.Contains("AttributeName=\"{clr-namespace:"),
-                "XAML SetAttribute operations use the Script Extender 2.3.0 patch contract");
+                "XAML SetAttribute operations use the audited Script Extender patch contract");
             Check(moatWork.Contains("settings.EnableMod && settings.EnableImprovedMoatFilling") &&
                     moatWork.Contains("relationshipMode == 1 && !friendlyMovementEnabled") &&
                     moatWork.Contains("if (!ExtensionsEnabled)") &&

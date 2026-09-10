@@ -14,6 +14,9 @@
                 VerticalScrollBarVisibility="Auto">
       <StackPanel Margin="10">
         <TextBlock Text="{Binding TitleText}" Foreground="White" FontSize="22" FontWeight="Bold" Margin="0,0,0,10"/>
+        <Border Background="#55332112" BorderBrush="#FFB08A4A" BorderThickness="1" CornerRadius="3" Padding="10,7" Margin="0,0,0,12">
+          <TextBlock Text="{Binding GameModeNoticeText}" Foreground="#FFF2D48A" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap"/>
+        </Border>
         <Border Visibility="{Binding ScriptExtenderCompatibilityWarningVisibility}" Background="#DD4A160F" BorderBrush="#FFFFB347" BorderThickness="3" CornerRadius="4" Padding="14,10" Margin="0,0,0,14">
           <TextBlock Text="{Binding ScriptExtenderCompatibilityWarning}" Foreground="#FFFFE0A3" FontSize="20" FontWeight="Bold" TextWrapping="Wrap"/>
         </Border>

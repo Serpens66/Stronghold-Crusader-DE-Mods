@@ -10,5 +10,50 @@
     "m_X": 0.375,
     "m_Y": 0.16
   },
-  "m_PixelsToUnits": 64.0
+  "m_PixelsToUnits": 64.0,
+  "_SkinTestMesh": {
+    "sourceBounds": {
+      "left": 7008,
+      "bottom": 7532,
+      "right": 7088,
+      "top": 7657
+    },
+    "vertices": [
+      {
+        "x": 76.0,
+        "y": 83.0
+      },
+      {
+        "x": 80.0,
+        "y": 32.0
+      },
+      {
+        "x": 33.0,
+        "y": 0.0
+      },
+      {
+        "x": 0.0,
+        "y": 14.0
+      },
+      {
+        "x": 5.0,
+        "y": 125.0
+      }
+    ],
+    "triangles": [
+      1,
+      2,
+      3,
+      0,
+      1,
+      3,
+      0,
+      3,
+      4
+    ],
+    "removedColourAlphaPixels": 1187,
+    "removedMaskAlphaPixels": 1151,
+    "colourSha256": "2EEE2B99F232A15B557FE4311DBCCF9CD05DE4A37EFE4B9F4E00ED13F9722550",
+    "maskSha256": "F02F2D22A3DF38F5182B353D1064F42FF462790C5A5C1ADBFFC7B1E9C0E9D035"
+  }
 }

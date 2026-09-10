@@ -1,4 +1,5 @@
 SerpsModsHost.StatusTitle=Serps Mods diagnostics
+SerpsModsHost.GameModeNotice=Most mods are disabled in trails/sand of time/campaigns, use the 'customize' button to still use mods for most of them.
 SerpsModsHost.SearchLabel=Search settings
 SerpsModsHost.SearchHelp=Searches the localized setting titles of all registered mods.
 SerpsModsHost.SearchClearHelp=Clears the mod-settings search.

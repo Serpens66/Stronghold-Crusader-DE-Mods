@@ -26,6 +26,7 @@ namespace SkinTest
         private readonly ManualLogSource log;
         private readonly Dictionary<SpriteRenderer, int> unitByRenderer =
             new Dictionary<SpriteRenderer, int>(ReferenceComparer<SpriteRenderer>.Instance);
+        private readonly Dictionary<int, CachedCulture> cultureByPlayer = new Dictionary<int, CachedCulture>();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly HashSet<string> warnings = new HashSet<string>(StringComparer.Ordinal);
         private Sprite[] normalSprites;
@@ -183,11 +184,7 @@ namespace SkinTest
                 bool expectedVanillaSprite = ReferenceEquals(renderer.sprite, expected);
                 bool isSwordsman = false;
                 bool unitFound = false;
-                bool lordFound = false;
-                bool europeanLord = false;
                 int ownerPlayerId = 0;
-                int lordUnitId = 0;
-                ExtenderGM lordMaterial = default;
 
                 unsafe
                 {
@@ -196,16 +193,6 @@ namespace SkinTest
                         unitFound = true;
                         isSwordsman = unit->r_UnitChimp == eChimps.CHIMP_TYPE_SWORDSMAN;
                         ownerPlayerId = unit->r_ControllableForPlayerId;
-                        if (isSwordsman && ownerPlayerId > 0)
-                        {
-                            lordUnitId = GamePlayerManagerAPI.Instance.GetLordUnitId(ownerPlayerId);
-                            if (lordUnitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(lordUnitId, out GameUnit* lord))
-                            {
-                                lordFound = true;
-                                lordMaterial = lord->r_GameMaterialIndex;
-                                europeanLord = SkinSelectionPolicy.IsEuropeanLordMaterial(lordMaterial);
-                            }
-                        }
                     }
                 }
 
@@ -213,20 +200,25 @@ namespace SkinTest
                     WarnOnce("swordsman-unit-missing", $"Bound swordsman unit could not be resolved: unitId={unitId}.");
                 else if (isSwordsman && ownerPlayerId <= 0)
                     WarnOnce("swordsman-owner-missing", $"Swordsman has no controllable owner: unitId={unitId}.");
-                else if (isSwordsman && lordUnitId <= 0)
-                    WarnOnce("swordsman-lord-id-missing",
-                        $"Swordsman owner has no lord unit ID: unitId={unitId}, ownerPlayerId={ownerPlayerId}.");
-                else if (isSwordsman && !lordFound)
-                    WarnOnce("swordsman-lord-missing",
-                        $"Swordsman lord unit could not be resolved: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}.");
+
+                LordCulture culture = LordCulture.Unknown;
+                int lordUnitId = 0;
+                ExtenderGM lordMaterial = default;
+                string cultureSource = "unresolved";
+                int cultureValue = -1;
+                if (isSwordsman && ownerPlayerId > 0)
+                    culture = ResolveOwnerCulture(ownerPlayerId, out lordUnitId, out lordMaterial, out cultureSource, out cultureValue);
+                if (isSwordsman && culture == LordCulture.Unknown)
+                    WarnOnce($"swordsman-culture-unresolved:{ownerPlayerId}",
+                        $"Swordsman culture is not yet safely resolvable: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}.");
 
                 bool normalAvailable = frameIndex >= 0 && frameIndex < normalSprites.Length && normalSprites[frameIndex] != null;
                 bool alternateAvailable = frameIndex >= 0 && frameIndex < alternateSprites.Length && alternateSprites[frameIndex] != null;
                 SkinFrameChoice choice = SkinSelectionPolicy.SelectFrame(alternateFrame, normalAvailable, alternateAvailable);
-                bool eligibleOwner = SkinSelectionPolicy.HasEligibleOwner(unitFound, ownerPlayerId, lordUnitId, lordFound, europeanLord);
-                if (isSwordsman && lordFound && !europeanLord)
-                    LogOnce($"vanilla-culture:{lordMaterial}",
-                        $"Vanilla retained for non-European lord culture: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, lordGM={lordMaterial}.");
+                bool eligibleOwner = SkinSelectionPolicy.HasEligibleOwner(unitFound, ownerPlayerId, culture);
+                if (isSwordsman && culture == LordCulture.NonEuropean)
+                    LogOnce($"vanilla-culture:{cultureSource}:{cultureValue}",
+                        $"Vanilla retained for non-European lord culture: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, source={cultureSource}, value={cultureValue}.");
                 if (!SkinSelectionPolicy.CanReplaceVanilla(isSwordsman, expectedVanillaSprite, eligibleOwner, choice))
                 {
                     if (isSwordsman && eligibleOwner && !expectedVanillaSprite)
@@ -239,12 +231,94 @@ namespace SkinTest
                 renderer.sharedMaterial = materials[ChopMaterialIndex(chopFeet)];
                 // renderer.color already contains Vanilla's player colour and transparency from the trampoline.
                 LogOnce("skin-applied",
-                    $"SH1DE skin applied: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, lordGM={lordMaterial}, image={image}, frameIndex={frameIndex}, alternate={choice == SkinFrameChoice.Alternate}.");
+                    $"SH1DE skin applied: unitId={unitId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, source={cultureSource}, value={cultureValue}, lordGM={lordMaterial}, image={image}, frameIndex={frameIndex}, alternate={choice == SkinFrameChoice.Alternate}.");
             }
             catch (Exception ex)
             {
                 WarnOnce("hook-error", $"Sprite replacement failed closed; the prior result remains active: {ex}");
             }
+        }
+
+        private unsafe LordCulture ResolveOwnerCulture(int ownerPlayerId, out int lordUnitId,
+            out ExtenderGM lordMaterial, out string source, out int value)
+        {
+            lordUnitId = GamePlayerManagerAPI.Instance.GetLordUnitId(ownerPlayerId);
+            lordMaterial = default;
+            source = "unresolved";
+            value = -1;
+            if (lordUnitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(lordUnitId, out GameUnit* lord))
+            {
+                lordMaterial = lord->r_GameMaterialIndex;
+                LordCulture actual = SkinSelectionPolicy.ClassifyLordMaterial(lordMaterial);
+                source = "lord-unit";
+                value = (int)lordMaterial;
+                if (cultureByPlayer.TryGetValue(ownerPlayerId, out CachedCulture cached) &&
+                    cached.Culture != LordCulture.Unknown && actual != LordCulture.Unknown && cached.Culture != actual)
+                {
+                    WarnOnce($"culture-mismatch:{ownerPlayerId}",
+                        $"Authoritative lord culture differs from early culture: ownerPlayerId={ownerPlayerId}, earlySource={cached.Source}, earlyValue={cached.Value}, earlyCulture={cached.Culture}, lordUnitId={lordUnitId}, lordGM={lordMaterial}, actualCulture={actual}.");
+                }
+                cultureByPlayer[ownerPlayerId] = new CachedCulture(actual, source, value);
+                return actual;
+            }
+
+            if (cultureByPlayer.TryGetValue(ownerPlayerId, out CachedCulture known))
+            {
+                source = known.Source;
+                value = known.Value;
+                return known.Culture;
+            }
+
+            LordCulture early = TryResolveEarlyCulture(ownerPlayerId, out source, out value);
+            if (early != LordCulture.Unknown)
+            {
+                cultureByPlayer[ownerPlayerId] = new CachedCulture(early, source, value);
+                LogOnce($"early-culture:{ownerPlayerId}",
+                    $"Early culture resolved before lord spawn: ownerPlayerId={ownerPlayerId}, source={source}, value={value}, culture={early}.");
+            }
+            return early;
+        }
+
+        private static LordCulture TryResolveEarlyCulture(int ownerPlayerId, out string source, out int value)
+        {
+            source = "unresolved";
+            value = -1;
+            try
+            {
+                Enums.AILords aiLord = GamePlayerManagerAPI.Instance.GetAILord(ownerPlayerId);
+                int aicIndex = (int)aiLord;
+                if (aiLord != Enums.AILords.SK_NULL)
+                {
+                    var aics = GameAIManagerAPI.Instance.GetAICArray();
+                    if (aics.GetArrayAddress() != IntPtr.Zero && aicIndex > 0 && aicIndex < aics.Length)
+                    {
+                        value = aics.GetValue(aicIndex).lord_gfx_type;
+                        source = "ai-aic";
+                        return SkinSelectionPolicy.ClassifyLordGraphicsType(value);
+                    }
+                }
+
+                if (ownerPlayerId == GamePlayerManagerAPI.Instance.GetLocalPlayerId())
+                {
+                    if (GameData.Instance != null && GameData.Instance.lastGameState != null)
+                    {
+                        value = GameData.Instance.lastGameState.lord_Type;
+                        source = "local-game-state";
+                    }
+                    else
+                    {
+                        value = ConfigSettings.Settings_LordType;
+                        source = "local-settings";
+                    }
+                    return SkinSelectionPolicy.ClassifyLordGraphicsType(value);
+                }
+            }
+            catch
+            {
+                source = "unresolved";
+                value = -1;
+            }
+            return LordCulture.Unknown;
         }
 
         private static int ChopMaterialIndex(int chopFeet)
@@ -290,6 +364,7 @@ namespace SkinTest
         private void ClearBindings()
         {
             unitByRenderer.Clear();
+            cultureByPlayer.Clear();
             warnings.Clear();
             LogInfo("Renderer bindings cleared for map unload.");
         }
@@ -318,6 +393,7 @@ namespace SkinTest
             subscriptions.Clear();
             ReleaseHook();
             unitByRenderer.Clear();
+            cultureByPlayer.Clear();
             DestroyAll(alternateSprites);
             DestroyAll(normalSprites);
             DestroyAll(materials);
@@ -329,6 +405,20 @@ namespace SkinTest
             maskTexture = null;
             colourTexture = null;
             LogInfo("Hook, bindings and private graphics resources released.");
+        }
+
+        private readonly struct CachedCulture
+        {
+            public readonly LordCulture Culture;
+            public readonly string Source;
+            public readonly int Value;
+
+            public CachedCulture(LordCulture culture, string source, int value)
+            {
+                Culture = culture;
+                Source = source;
+                Value = value;
+            }
         }
 
         private void ReleaseHook()

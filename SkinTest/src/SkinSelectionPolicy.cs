@@ -9,6 +9,13 @@ namespace SkinTest
         Alternate
     }
 
+    internal enum LordCulture
+    {
+        Unknown,
+        European,
+        NonEuropean
+    }
+
     internal static class SkinSelectionPolicy
     {
         public static bool IsEuropeanLordMaterial(GM material)
@@ -19,9 +26,40 @@ namespace SkinTest
                    material == GM.GM_BODY_LORD_BESSY;
         }
 
-        public static bool HasEligibleOwner(bool unitFound, int ownerPlayerId, int lordUnitId, bool lordFound, bool europeanLord)
+        public static LordCulture ClassifyLordMaterial(GM material)
         {
-            return unitFound && ownerPlayerId > 0 && lordUnitId > 0 && lordFound && europeanLord;
+            if (IsEuropeanLordMaterial(material))
+                return LordCulture.European;
+            return material == GM.GM_BODY_ARABIC_LORD ||
+                   material == GM.GM_BODY_BEDOUIN_LORD ||
+                   material == GM.GM_BODY_ARABIC_LORD_FEMALE ||
+                   material == GM.GM_BODY_BEDOUIN_LORD_FEMALE
+                ? LordCulture.NonEuropean
+                : LordCulture.Unknown;
+        }
+
+        public static LordCulture ClassifyLordGraphicsType(int graphicsType)
+        {
+            switch (graphicsType)
+            {
+                case 0:
+                case 3:
+                case 4:
+                case 5:
+                    return LordCulture.European;
+                case 1:
+                case 2:
+                case 6:
+                case 7:
+                    return LordCulture.NonEuropean;
+                default:
+                    return LordCulture.Unknown;
+            }
+        }
+
+        public static bool HasEligibleOwner(bool unitFound, int ownerPlayerId, LordCulture culture)
+        {
+            return unitFound && ownerPlayerId > 0 && culture == LordCulture.European;
         }
 
         public static int ToAtlasFrameIndex(int gameImage)

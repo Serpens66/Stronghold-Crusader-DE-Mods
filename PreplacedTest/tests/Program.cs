@@ -404,7 +404,7 @@ namespace PreplacedTest.Tests
             })
                 Check(source.Contains(nativeDelegate), "native delegate ABI missing: " + nativeDelegate);
             Check(source.Contains("ulong pathManager, int playerId, int targetPcl, int sourcePcl, int routeMode"),
-                "Script Extender 2.3.0 E2610 parameter order is not preserved");
+                "The audited Script Extender E2610 parameter order is not preserved");
             Check(source.Contains("players.Clear()"), "map transition does not reset sessions");
             Check(source.Contains("activeEconomyContexts?.Clear()") && source.Contains("lastRoutingSnapshot = null"),
                 "map transition retains economy or routing diagnostic state");

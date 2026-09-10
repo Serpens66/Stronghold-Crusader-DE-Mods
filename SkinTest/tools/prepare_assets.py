@@ -1,19 +1,27 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import json
 import math
 import shutil
+import struct
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops, ImageDraw
 
 
 NORMAL_COUNT = 1088
 ALTERNATE_COUNT = 128
 SOURCE_ATLAS_SIZE = (8192, 8192)
 SOURCE_TEXTURE_PATH_ID = 37
+FLOAT_FORMAT = 0
+TRIANGLE_TOPOLOGY = 0
+POSITION_CHANNEL = 0
+UV_CHANNEL = 4
+MESH_EPSILON = 0.001
 
 
 def write_crlf_json(path: Path, payload: object) -> None:
@@ -23,6 +31,129 @@ def write_crlf_json(path: Path, payload: object) -> None:
 
 def rounded_pixel(value: float) -> int:
     return int(math.floor(value + 0.5))
+
+
+def aligned_16(value: int) -> int:
+    return (value + 15) & ~15
+
+
+def decode_mesh(payload: dict, atlas_width: int, atlas_height: int) -> tuple[list[tuple[float, float]], list[int], tuple[int, int, int, int], tuple[float, float]]:
+    name = str(payload["m_Name"])
+    render_data = payload["m_RD"]
+    vertex_data = render_data["m_VertexData"]
+    vertex_count = int(vertex_data["m_VertexCount"])
+    if vertex_count < 3:
+        raise RuntimeError(f"{name}: tight mesh has fewer than three vertices")
+
+    channels = vertex_data["m_Channels"]
+    active_channels = [
+        (index, int(channel["m_Stream"]), int(channel["m_Offset"]), int(channel["m_Format"]), int(channel["m_Dimension"]))
+        for index, channel in enumerate(channels)
+        if int(channel["m_Dimension"]) > 0
+    ]
+    expected_channels = [
+        (POSITION_CHANNEL, 0, 0, FLOAT_FORMAT, 3),
+        (UV_CHANNEL, 1, 0, FLOAT_FORMAT, 2),
+    ]
+    if active_channels != expected_channels:
+        raise RuntimeError(f"{name}: unsupported vertex channel layout: {active_channels}")
+
+    try:
+        raw_vertices = base64.b64decode(vertex_data["m_Data"], validate=True)
+        raw_indices = base64.b64decode(render_data["m_IndexBuffer"], validate=True)
+    except (ValueError, TypeError) as exc:
+        raise RuntimeError(f"{name}: invalid base64 mesh data") from exc
+
+    uv_offset = aligned_16(vertex_count * 12)
+    expected_vertex_bytes = uv_offset + vertex_count * 8
+    if len(raw_vertices) != expected_vertex_bytes:
+        raise RuntimeError(
+            f"{name}: vertex data length is {len(raw_vertices)}, expected {expected_vertex_bytes}"
+        )
+    if len(raw_indices) == 0 or len(raw_indices) % 6 != 0:
+        raise RuntimeError(f"{name}: index buffer is not a non-empty UInt16 triangle list")
+
+    positions = [struct.unpack_from("<3f", raw_vertices, index * 12) for index in range(vertex_count)]
+    uvs = [struct.unpack_from("<2f", raw_vertices, uv_offset + index * 8) for index in range(vertex_count)]
+    if any(abs(position[2]) > MESH_EPSILON for position in positions):
+        raise RuntimeError(f"{name}: sprite mesh contains a non-zero Z position")
+
+    indices = list(struct.unpack(f"<{len(raw_indices) // 2}H", raw_indices))
+    if any(index >= vertex_count for index in indices):
+        raise RuntimeError(f"{name}: mesh index exceeds vertex count")
+    submeshes = render_data["m_SubMeshes"]
+    if len(submeshes) != 1:
+        raise RuntimeError(f"{name}: expected exactly one sprite submesh")
+    submesh = submeshes[0]
+    if (
+        int(submesh["m_Topology"]) != TRIANGLE_TOPOLOGY
+        or int(submesh["m_FirstByte"]) != 0
+        or int(submesh["m_BaseVertex"]) != 0
+        or int(submesh["m_FirstVertex"]) != 0
+        or int(submesh["m_IndexCount"]) != len(indices)
+        or int(submesh["m_VertexCount"]) != vertex_count
+    ):
+        raise RuntimeError(f"{name}: unsupported sprite submesh contract")
+
+    atlas_vertices: list[tuple[float, float]] = []
+    for u, v in uvs:
+        atlas_x = u * atlas_width
+        atlas_y = v * atlas_height
+        if abs(atlas_x - rounded_pixel(atlas_x)) > MESH_EPSILON or abs(atlas_y - rounded_pixel(atlas_y)) > MESH_EPSILON:
+            raise RuntimeError(f"{name}: UV does not resolve to an integral atlas coordinate")
+        atlas_vertices.append((atlas_x, atlas_y))
+
+    left = rounded_pixel(min(point[0] for point in atlas_vertices))
+    bottom = rounded_pixel(min(point[1] for point in atlas_vertices))
+    right = rounded_pixel(max(point[0] for point in atlas_vertices))
+    top = rounded_pixel(max(point[1] for point in atlas_vertices))
+    if left < 0 or bottom < 0 or right > atlas_width or top > atlas_height or right <= left or top <= bottom:
+        raise RuntimeError(f"{name}: tight mesh bounds are outside the source atlas")
+
+    pixels_per_unit = float(payload["m_PixelsToUnits"])
+    if not math.isfinite(pixels_per_unit) or pixels_per_unit <= 0:
+        raise RuntimeError(f"{name}: invalid pixels-per-unit value")
+    anchor_x_values = [uv[0] - position[0] * pixels_per_unit for uv, position in zip(atlas_vertices, positions)]
+    anchor_y_values = [uv[1] - position[1] * pixels_per_unit for uv, position in zip(atlas_vertices, positions)]
+    if max(anchor_x_values) - min(anchor_x_values) > MESH_EPSILON or max(anchor_y_values) - min(anchor_y_values) > MESH_EPSILON:
+        raise RuntimeError(f"{name}: vertex positions and UVs do not share a stable pivot anchor")
+    anchor_x = sum(anchor_x_values) / vertex_count
+    anchor_y = sum(anchor_y_values) / vertex_count
+
+    transform = render_data["m_UvTransform"]
+    if (
+        abs(float(transform["m_X"]) - pixels_per_unit) > MESH_EPSILON
+        or abs(float(transform["m_Z"]) - pixels_per_unit) > MESH_EPSILON
+        or abs(float(transform["m_Y"]) - anchor_x) > MESH_EPSILON
+        or abs(float(transform["m_W"]) - anchor_y) > MESH_EPSILON
+    ):
+        raise RuntimeError(f"{name}: UV transform differs from the reconstructed pivot contract")
+
+    return atlas_vertices, indices, (left, bottom, right, top), (anchor_x, anchor_y)
+
+
+def apply_tight_mesh(image: Image.Image, atlas_vertices: list[tuple[float, float]], indices: list[int], bounds: tuple[int, int, int, int]) -> tuple[Image.Image, list[tuple[float, float]], int]:
+    left, bottom, right, top = bounds
+    top_origin_vertices = [(x - left, top - y) for x, y in atlas_vertices]
+    geometry_mask = Image.new("L", image.size, 0)
+    draw = ImageDraw.Draw(geometry_mask)
+    for offset in range(0, len(indices), 3):
+        draw.polygon(
+            [top_origin_vertices[indices[offset]], top_origin_vertices[indices[offset + 1]], top_origin_vertices[indices[offset + 2]]],
+            fill=255,
+        )
+    outside_before = ImageChops.multiply(image.getchannel("A"), ImageChops.invert(geometry_mask))
+    removed_alpha_pixels = sum(outside_before.histogram()[1:])
+    cleaned = Image.composite(image, Image.new("RGBA", image.size, (0, 0, 0, 0)), geometry_mask)
+    outside_alpha = ImageChops.multiply(cleaned.getchannel("A"), ImageChops.invert(geometry_mask))
+    if outside_alpha.getbbox() is not None or cleaned.getchannel("A").getbbox() is None:
+        raise RuntimeError("Tight-mesh cleanup produced invalid alpha coverage")
+    bottom_origin_vertices = [(x - left, y - bottom) for x, y in atlas_vertices]
+    return cleaned, bottom_origin_vertices, removed_alpha_pixels
+
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest().upper()
 
 
 def frame_key(name: str) -> tuple[int, bool]:
@@ -80,43 +211,46 @@ def extract_frames(source_root: Path, skin_test: Path) -> None:
             texture = render_data.get("m_Texture", {})
             if int(texture.get("m_PathID", -1)) != SOURCE_TEXTURE_PATH_ID:
                 raise RuntimeError(f"{name}: unexpected source texture PathID")
-            rect = payload["m_Rect"]
-            texture_rect = render_data.get("m_TextureRect", {})
-            for rect_key in ("m_X", "m_Y", "m_Width", "m_Height"):
-                if abs(float(rect[rect_key]) - float(texture_rect.get(rect_key, math.nan))) > 0.0001:
-                    raise RuntimeError(f"{name}: m_Rect and m_RD.m_TextureRect differ")
             if int(render_data.get("m_SettingsRaw", -1)) != 64:
                 raise RuntimeError(f"{name}: unexpected SpriteRenderData settings")
             if render_data.get("m_TextureRectOffset") != {"m_X": 0, "m_Y": 0}:
                 raise RuntimeError(f"{name}: unexpected texture rectangle offset")
             if render_data.get("m_AtlasRectOffset") != {"m_X": -1, "m_Y": -1}:
                 raise RuntimeError(f"{name}: unexpected atlas rectangle offset")
-            old_x = float(rect["m_X"])
-            old_y = float(rect["m_Y"])
-            old_width = float(rect["m_Width"])
-            old_height = float(rect["m_Height"])
-            left = rounded_pixel(old_x)
-            bottom = rounded_pixel(old_y)
-            right = rounded_pixel(old_x + old_width)
-            top = rounded_pixel(old_y + old_height)
+            atlas_vertices, indices, bounds, anchor = decode_mesh(payload, colour.width, colour.height)
+            left, bottom, right, top = bounds
             width = right - left
             height = top - bottom
-            if width <= 0 or height <= 0:
-                raise RuntimeError(f"{name}: rounded rectangle is empty")
-
             crop_box = (left, atlas_height - top, right, atlas_height - bottom)
             output_stem = metadata_path.stem
-            colour.crop(crop_box).save(colour_dir / f"{output_stem}.png", optimize=True)
-            mask.crop(crop_box).save(colour_dir / f"{output_stem}_m.png", optimize=True)
+            cleaned_colour, local_vertices, removed_colour_pixels = apply_tight_mesh(
+                colour.crop(crop_box), atlas_vertices, indices, bounds
+            )
+            cleaned_mask, mask_local_vertices, removed_mask_pixels = apply_tight_mesh(
+                mask.crop(crop_box), atlas_vertices, indices, bounds
+            )
+            if local_vertices != mask_local_vertices:
+                raise RuntimeError(f"{name}: colour and mask geometry differ")
+            colour_output = colour_dir / f"{output_stem}.png"
+            mask_output = colour_dir / f"{output_stem}_m.png"
+            cleaned_colour.save(colour_output, optimize=True)
+            cleaned_mask.save(mask_output, optimize=True)
 
-            pivot = payload["m_Pivot"]
-            anchor_x = float(pivot["m_X"]) * old_width + old_x - left
-            anchor_y = float(pivot["m_Y"]) * old_height + old_y - bottom
+            anchor_x, anchor_y = anchor
             corrected = {
                 "m_Name": name,
                 "m_Rect": {"m_X": 0, "m_Y": 0, "m_Width": width, "m_Height": height},
-                "m_Pivot": {"m_X": anchor_x / width, "m_Y": anchor_y / height},
+                "m_Pivot": {"m_X": (anchor_x - left) / width, "m_Y": (anchor_y - bottom) / height},
                 "m_PixelsToUnits": float(payload["m_PixelsToUnits"]),
+                "_SkinTestMesh": {
+                    "sourceBounds": {"left": left, "bottom": bottom, "right": right, "top": top},
+                    "vertices": [{"x": x, "y": y} for x, y in local_vertices],
+                    "triangles": indices,
+                    "removedColourAlphaPixels": removed_colour_pixels,
+                    "removedMaskAlphaPixels": removed_mask_pixels,
+                    "colourSha256": sha256_file(colour_output),
+                    "maskSha256": sha256_file(mask_output),
+                },
             }
             write_crlf_json(metadata_dir / metadata_path.name, corrected)
 

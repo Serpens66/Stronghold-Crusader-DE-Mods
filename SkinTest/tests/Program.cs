@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 internal static class Program
@@ -40,25 +41,36 @@ internal static class Program
         Check(SkinSelectionPolicy.IsEuropeanLordMaterial(GM.GM_BODY_LORD_BESSY), "Bessy lord must be eligible.");
         Check(!SkinSelectionPolicy.IsEuropeanLordMaterial(GM.GM_BODY_ARABIC_LORD), "Arabic lord must retain Vanilla.");
         Check(!SkinSelectionPolicy.IsEuropeanLordMaterial(GM.GM_BODY_BEDOUIN_LORD), "Bedouin lord must retain Vanilla.");
+        Check(SkinSelectionPolicy.ClassifyLordMaterial(GM.GM_BODY_LORD) == LordCulture.European,
+            "An actual European lord material must classify as European.");
+        Check(SkinSelectionPolicy.ClassifyLordMaterial(GM.GM_BODY_ARABIC_LORD_FEMALE) == LordCulture.NonEuropean,
+            "An actual Arabic female lord material must classify as non-European.");
+        Check(SkinSelectionPolicy.ClassifyLordMaterial(GM.GM_BODY_SWORDSMAN) == LordCulture.Unknown,
+            "An unrelated material must not be treated as a lord culture.");
+        foreach (int graphicsType in new[] { 0, 3, 4, 5 })
+            Check(SkinSelectionPolicy.ClassifyLordGraphicsType(graphicsType) == LordCulture.European,
+                $"Lord graphics type {graphicsType} must classify as European.");
+        foreach (int graphicsType in new[] { 1, 2, 6, 7 })
+            Check(SkinSelectionPolicy.ClassifyLordGraphicsType(graphicsType) == LordCulture.NonEuropean,
+                $"Lord graphics type {graphicsType} must classify as non-European.");
+        Check(SkinSelectionPolicy.ClassifyLordGraphicsType(-1) == LordCulture.Unknown &&
+              SkinSelectionPolicy.ClassifyLordGraphicsType(8) == LordCulture.Unknown,
+            "Unknown lord graphics types must fail closed.");
         Check(SkinSelectionPolicy.CanReplaceVanilla(true, true,
-                SkinSelectionPolicy.HasEligibleOwner(true, 1, 12, true,
-                    SkinSelectionPolicy.IsEuropeanLordMaterial(GM.GM_BODY_LORD)), SkinFrameChoice.Normal),
+                SkinSelectionPolicy.HasEligibleOwner(true, 1, LordCulture.European), SkinFrameChoice.Normal),
             "An European swordsman owned by an European lord must use the SH1DE skin.");
         Check(!SkinSelectionPolicy.CanReplaceVanilla(true, true,
-                SkinSelectionPolicy.HasEligibleOwner(true, 2, 13, true,
-                    SkinSelectionPolicy.IsEuropeanLordMaterial(GM.GM_BODY_ARABIC_LORD)), SkinFrameChoice.Normal),
+                SkinSelectionPolicy.HasEligibleOwner(true, 2, LordCulture.NonEuropean), SkinFrameChoice.Normal),
             "An European swordsman owned by an Arabic lord must retain Vanilla beside an eligible unit.");
         Check(!SkinSelectionPolicy.CanReplaceVanilla(true, true,
-                SkinSelectionPolicy.HasEligibleOwner(true, 3, 14, true,
-                    SkinSelectionPolicy.IsEuropeanLordMaterial(GM.GM_BODY_BEDOUIN_LORD)), SkinFrameChoice.Normal),
+                SkinSelectionPolicy.HasEligibleOwner(true, 3, LordCulture.NonEuropean), SkinFrameChoice.Normal),
             "An European swordsman owned by a Bedouin lord must retain Vanilla beside an eligible unit.");
 
-        Check(SkinSelectionPolicy.HasEligibleOwner(true, 1, 12, true, true), "A complete European owner chain must be eligible.");
-        Check(!SkinSelectionPolicy.HasEligibleOwner(false, 1, 12, true, true), "A missing unit must fail closed.");
-        Check(!SkinSelectionPolicy.HasEligibleOwner(true, 0, 12, true, true), "An ownerless unit must fail closed.");
-        Check(!SkinSelectionPolicy.HasEligibleOwner(true, 1, 0, true, true), "A missing lord ID must fail closed.");
-        Check(!SkinSelectionPolicy.HasEligibleOwner(true, 1, 12, false, true), "A missing lord unit must fail closed.");
-        Check(!SkinSelectionPolicy.HasEligibleOwner(true, 1, 12, true, false), "A non-European lord must fail closed.");
+        Check(SkinSelectionPolicy.HasEligibleOwner(true, 1, LordCulture.European), "A safely resolved European owner must be eligible.");
+        Check(!SkinSelectionPolicy.HasEligibleOwner(false, 1, LordCulture.European), "A missing unit must fail closed.");
+        Check(!SkinSelectionPolicy.HasEligibleOwner(true, 0, LordCulture.European), "An ownerless unit must fail closed.");
+        Check(!SkinSelectionPolicy.HasEligibleOwner(true, 1, LordCulture.Unknown), "An unresolved culture must fail closed.");
+        Check(!SkinSelectionPolicy.HasEligibleOwner(true, 1, LordCulture.NonEuropean), "A non-European culture must fail closed.");
 
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(1) == 0, "Body image 1 must map to atlas frame 0.");
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(128) == 127, "Body image 128 must map to alternate atlas frame 127.");
@@ -98,6 +110,8 @@ internal static class Program
         Check(colours.Length == 1216 && masks.Length == 1216 && metadata.Length == 1216,
             "AtlasSource must contain 1216 colour frames, masks and corrected metadata files.");
 
+        int removedColourPixels = 0;
+        int removedMaskPixels = 0;
         foreach (string metadataPath in metadata)
         {
             var payload = Shared.DependencyFreeJson.Parse(File.ReadAllText(metadataPath)) as Dictionary<string, object>;
@@ -114,7 +128,41 @@ internal static class Program
             string maskPath = Path.Combine(colourSource, name + "_m.png");
             Check(ReadPngSize(colourPath) == (width, height), $"Colour dimensions differ from metadata: {name}");
             Check(ReadPngSize(maskPath) == (width, height), $"Mask dimensions differ from metadata: {name}");
+
+            var mesh = payload["_SkinTestMesh"] as Dictionary<string, object>;
+            Check(mesh != null, $"Mesh reconstruction provenance is missing: {name}");
+            var bounds = (Dictionary<string, object>)mesh["sourceBounds"];
+            int left = Convert.ToInt32(bounds["left"], CultureInfo.InvariantCulture);
+            int bottom = Convert.ToInt32(bounds["bottom"], CultureInfo.InvariantCulture);
+            int right = Convert.ToInt32(bounds["right"], CultureInfo.InvariantCulture);
+            int top = Convert.ToInt32(bounds["top"], CultureInfo.InvariantCulture);
+            Check(right - left == width && top - bottom == height && left >= 0 && bottom >= 0 && right <= 8192 && top <= 8192,
+                $"Mesh-derived source bounds are invalid: {name}");
+            var vertices = (List<object>)mesh["vertices"];
+            var triangles = (List<object>)mesh["triangles"];
+            Check(vertices.Count >= 3 && triangles.Count >= 3 && triangles.Count % 3 == 0,
+                $"Mesh topology is invalid: {name}");
+            foreach (object vertexObject in vertices)
+            {
+                var vertex = (Dictionary<string, object>)vertexObject;
+                double x = Convert.ToDouble(vertex["x"], CultureInfo.InvariantCulture);
+                double y = Convert.ToDouble(vertex["y"], CultureInfo.InvariantCulture);
+                Check(x >= -0.001 && y >= -0.001 && x <= width + 0.001 && y <= height + 0.001,
+                    $"Mesh vertex is outside its reconstructed frame: {name}");
+            }
+            foreach (object indexObject in triangles)
+            {
+                int index = Convert.ToInt32(indexObject, CultureInfo.InvariantCulture);
+                Check(index >= 0 && index < vertices.Count, $"Mesh triangle index is invalid: {name}");
+            }
+            Check(string.Equals((string)mesh["colourSha256"], Sha256(colourPath), StringComparison.Ordinal) &&
+                  string.Equals((string)mesh["maskSha256"], Sha256(maskPath), StringComparison.Ordinal),
+                $"A reconstructed frame differs from its mesh-validated output: {name}");
+            removedColourPixels += Convert.ToInt32(mesh["removedColourAlphaPixels"], CultureInfo.InvariantCulture);
+            removedMaskPixels += Convert.ToInt32(mesh["removedMaskAlphaPixels"], CultureInfo.InvariantCulture);
         }
+        Check(removedColourPixels > 0 && removedMaskPixels > 0,
+            "Mesh reconstruction must remove foreign alpha pixels from both colour and mask sources.");
     }
 
     private static void TestStaticContracts(string root)
@@ -127,8 +175,11 @@ internal static class Program
         string atlasManifest = File.ReadAllText(Path.Combine(root, "src", "AtlasManifest.cs"));
         string tests = File.ReadAllText(Path.Combine(root, "tests", "Program.cs"));
         string manifest = File.ReadAllText(Path.Combine(root, "info.json"));
-        Check(manifest.Contains("\"NetworkMode\": 0") && manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.3.0\""),
-            "Manifest must declare a visual client mod for Script Extender 2.3.0.");
+        Match extenderVersion = Regex.Match(plugin, @"ScriptExtenderVersion\s*=\s*""([^""]+)""");
+        Check(extenderVersion.Success, "Plugin Script Extender version constant is missing.");
+        Check(manifest.Contains("\"NetworkMode\": 0") &&
+              manifest.Contains("\"MinimumScriptExtenderVersion\": \"" + extenderVersion.Groups[1].Value + "\""),
+            "Manifest must declare a visual client mod matching the plugin's Script Extender version.");
         Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, ScriptExtenderVersion)]") &&
               plugin.Contains("PluginVersion = \"0.1.0\""), "Plugin dependency/version contract differs.");
         Check(plugin.Contains("private static ManualLogSource persistentLog") &&
@@ -166,6 +217,16 @@ internal static class Program
             "One-based unit IDs must pass unchanged to TryGetUnitById.");
         Check(runtime.Contains("r_ControllableForPlayerId") && runtime.Contains("GetLordUnitId(ownerPlayerId)"),
             "Owner-to-lord resolution contract is missing.");
+        Check(runtime.Contains("GetAILord(ownerPlayerId)") && runtime.Contains("GetAICArray()") &&
+              runtime.Contains("GetValue(aicIndex).lord_gfx_type") &&
+              runtime.Contains("GameData.Instance.lastGameState.lord_Type") &&
+              runtime.Contains("ConfigSettings.Settings_LordType"),
+            "Safe pre-spawn culture sources for AI and the local player are incomplete.");
+        Check(project.Contains("<Reference Include=\"RedBird.Core\"><HintPath>$(ExtenderDir)\\RedBird.Core.dll</HintPath><Private>false</Private></Reference>"),
+            "The AIC array dependency must reference installed RedBird.Core without private packaging.");
+        Check(runtime.Contains("cultureByPlayer") && runtime.Contains("Authoritative lord culture differs from early culture") &&
+              runtime.Contains("Early culture resolved before lord spawn"),
+            "Per-map early culture caching and authoritative reconciliation are missing.");
         Check(!Regex.IsMatch(runtime, @"r_GameMaterialIndex\s*="), "The visual mod must not write r_GameMaterialIndex.");
         Check(runtime.IndexOf("trampoline(renderer", StringComparison.Ordinal) < runtime.IndexOf("renderer.sprite =", StringComparison.Ordinal),
             "Vanilla and the existing hook chain must run before replacement.");
@@ -178,8 +239,7 @@ internal static class Program
               runtime.Contains("Swordsman sprite callback has no renderer binding") &&
               runtime.Contains("Bound swordsman unit could not be resolved") &&
               runtime.Contains("Swordsman has no controllable owner") &&
-              runtime.Contains("Swordsman owner has no lord unit ID") &&
-              runtime.Contains("Swordsman lord unit could not be resolved") &&
+              runtime.Contains("Swordsman culture is not yet safely resolvable") &&
               runtime.Contains("Vanilla retained for non-European lord culture") &&
               runtime.Contains("SH1DE skin applied"),
             "Bounded culture decision diagnostics must remain present.");
@@ -265,6 +325,13 @@ internal static class Program
     private static int ReadBigEndian(byte[] bytes, int offset)
     {
         return (bytes[offset] << 24) | (bytes[offset + 1] << 16) | (bytes[offset + 2] << 8) | bytes[offset + 3];
+    }
+
+    private static string Sha256(string path)
+    {
+        using (var algorithm = SHA256.Create())
+        using (FileStream stream = File.OpenRead(path))
+            return BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-", string.Empty);
     }
 
     private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);

@@ -183,6 +183,7 @@ public static class SerpLocalization
     public const string InaccessibleAIBuildingDemolitionModeTemporary = "BugfixesAndQoL.InaccessibleAIBuildingDemolitionModeTemporary";
     public const string InaccessibleAIBuildingDemolitionModeAlways = "BugfixesAndQoL.InaccessibleAIBuildingDemolitionModeAlways";
     public const string SerpsModsStatusTitle = "SerpsModsHost.StatusTitle";
+    public const string SerpsModsGameModeNotice = "SerpsModsHost.GameModeNotice";
     public const string SerpsModsSummaryTitle = "SerpsModsHost.SummaryTitle";
     public const string SerpsModsErrorsTitle = "SerpsModsHost.ErrorsTitle";
     public const string SerpsModsRefresh = "SerpsModsHost.Refresh";
@@ -260,6 +261,7 @@ public static class SerpLocalization
     private static readonly Dictionary<string, string> EnglishFallbacks = new Dictionary<string, string>
     {
         { SerpsModsStatusTitle, "Serps Mods diagnostics" },
+        { SerpsModsGameModeNotice, "Most mods are disabled in trails/sand of time/campaigns, use the 'customize' button to still use mods for most of them." },
         { SerpsModsSummaryTitle, "PACK STATUS" },
         { SerpsModsErrorsTitle, "ERRORS" },
         { SerpsModsRefresh, "Refresh" },

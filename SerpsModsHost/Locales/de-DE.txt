@@ -1,4 +1,5 @@
 SerpsModsHost.StatusTitle=Serps-Mods-Diagnose
+SerpsModsHost.GameModeNotice=Die meisten Mods sind in Kreuzzügen, Sand der Zeit und Kampagnen deaktiviert. Nutze die Schaltfläche 'Anpassen', um Mods in den meisten davon trotzdem zu verwenden.
 SerpsModsHost.SearchLabel=Einstellungen durchsuchen
 SerpsModsHost.SearchHelp=Durchsucht die lokalisierten Einstellungstitel aller registrierten Mods.
 SerpsModsHost.SearchClearHelp=Leert die Modsettings-Suche.

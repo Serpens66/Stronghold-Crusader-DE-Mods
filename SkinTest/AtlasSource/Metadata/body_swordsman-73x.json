@@ -7,8 +7,53 @@
     "m_Height": 127
   },
   "m_Pivot": {
-    "m_X": 0.4431817999999959,
-    "m_Y": 0.19685039000000332
+    "m_X": 0.4431818181818182,
+    "m_Y": 0.1968503937007874
   },
-  "m_PixelsToUnits": 64.0
+  "m_PixelsToUnits": 64.0,
+  "_SkinTestMesh": {
+    "sourceBounds": {
+      "left": 4369,
+      "bottom": 7822,
+      "right": 4457,
+      "top": 7949
+    },
+    "vertices": [
+      {
+        "x": 82.0,
+        "y": 108.0
+      },
+      {
+        "x": 65.0,
+        "y": 61.0
+      },
+      {
+        "x": 88.0,
+        "y": 34.0
+      },
+      {
+        "x": 0.0,
+        "y": 0.0
+      },
+      {
+        "x": 19.0,
+        "y": 127.0
+      }
+    ],
+    "triangles": [
+      1,
+      2,
+      3,
+      1,
+      3,
+      4,
+      0,
+      1,
+      4
+    ],
+    "removedColourAlphaPixels": 971,
+    "removedMaskAlphaPixels": 925,
+    "colourSha256": "0167AC9871E3352F946C5491E09312D69620372861D2EEB5BBD6A567ADA0A4A8",
+    "maskSha256": "365B8B9AEA91C21F66759319DAE58192D9240EB03BF1AA78938C12FB4C5E7660"
+  }
 }
