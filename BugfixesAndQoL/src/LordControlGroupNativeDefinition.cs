@@ -3,17 +3,7 @@ namespace BugfixesAndQoL
 {
     internal static class LordControlGroupNativeDefinition
     {
-        // Compatibility aliases keep the Lord-specific validation concise while the
-        // authoritative storage and disband contracts live in the shared definition.
         public const string ReferenceSha256 = ControlGroupNativeDefinition.ReferenceSha256;
-        public const int ControlGroupStoragePatternRva = ControlGroupNativeDefinition.ControlGroupStoragePatternRva;
-        public const string ControlGroupStoragePattern = ControlGroupNativeDefinition.ControlGroupStoragePattern;
-        public const int ControlGroupStorageDisplacementOffset = ControlGroupNativeDefinition.ControlGroupStorageDisplacementOffset;
-        public const int ControlGroupStorageNextInstructionOffset = ControlGroupNativeDefinition.ControlGroupStorageNextInstructionOffset;
-        public const int ControlGroupStorageRva = ControlGroupNativeDefinition.ControlGroupStorageRva;
-        public const int ControlGroupCount = ControlGroupNativeDefinition.ControlGroupCount;
-        public const int ControlGroupCapacity = ControlGroupNativeDefinition.ControlGroupCapacity;
-        public const int ControlGroupRecordIntCount = ControlGroupNativeDefinition.ControlGroupRecordIntCount;
         public const int DisbandDispatcherRva = ControlGroupNativeDefinition.DisbandDispatcherRva;
         public const string DisbandDispatcherInstructions = ControlGroupNativeDefinition.DisbandDispatcherInstructions;
         public const int DisbandTargetTableRva = ControlGroupNativeDefinition.DisbandTargetTableRva;
@@ -46,23 +36,6 @@ namespace BugfixesAndQoL
         public const string VanillaAddLordBranch = "0F 84 F8 00 00 00";
         public const string VanillaReplaceLordBranch = "0F 84 DA 00 00 00";
         public const string BypassLordBranch = "90 90 90 90 90 90";
-
-        public const int SummaryClassifierPatternRva = 0x18645E;
-        public const string SummaryClassifierPattern =
-            "0F BF 84 29 E6 06 00 00 83 C0 FB 83 F8 50 0F 87 35 01 00 00 " +
-            "48 98 0F B6 84 07 38 67 18 00 8B 8C 87 AC 66 18 00";
-        public const int SummaryTypeTableDisplacementOffset = 0x1A;
-        public const int SummaryDispatchTableDisplacementOffset = 0x21;
-        public const int SummaryTypeTableRva = 0x186738;
-        public const int SummaryDispatchTableRva = 0x1866AC;
-        public const int LordSummaryEntryRva =
-            SummaryTypeTableRva + LordUnitType - UnitTypeTableMinimum;
-        public const int EuropeanArcherSummaryEntryRva =
-            SummaryTypeTableRva + EuropeanArcherUnitType - UnitTypeTableMinimum;
-        public const byte VanillaUnmappedSummaryClass = 0x22;
-        public const byte EuropeanArcherSummaryClass = 0x01;
-        public const int EuropeanArcherSummaryTargetRva = 0x186488;
-        public const int UnmappedSummaryTargetRva = 0x1865A7;
 
         // UIT_DISBAND (0x1E) dispatch contract. The Lord maps to the no-op/default
         // class while a European Archer maps to the normal disband block.

@@ -22,6 +22,29 @@ TRIANGLE_TOPOLOGY = 0
 POSITION_CHANNEL = 0
 UV_CHANNEL = 4
 MESH_EPSILON = 0.001
+CASTLE_FRAME_PREFIX = "tile_castle "
+CASTLE_FRAME_COUNT = 1467
+CASTLE_MAX_INDEX = 1569
+PRIVATE_CASTLE_ATLAS_WIDTH = 8192
+PACKING_PADDING = 2
+UI_SOURCE_RECTS = {
+    "UIButtonsK007": (3340, 2050, 100, 190),
+    "UIButtonsK008": (3376, 2251, 100, 162),
+    "UIBuildingsO011": (5828, 2012, 116, 217),
+    "UIBuildingsO012": (5956, 2012, 116, 217),
+    "UIBuildingsK009": (3490, 2594, 115, 156),
+    "UIBuildingsK010": (3605, 2594, 115, 156),
+}
+PLAYER_COLOURS = {
+    1: (184, 26, 32),
+    2: (224, 112, 24),
+    3: (226, 190, 20),
+    4: (24, 105, 190),
+    5: (42, 42, 46),
+    6: (116, 55, 157),
+    7: (42, 178, 210),
+    8: (48, 145, 58),
+}
 
 
 def write_crlf_json(path: Path, payload: object) -> None:
@@ -150,6 +173,57 @@ def apply_tight_mesh(image: Image.Image, atlas_vertices: list[tuple[float, float
         raise RuntimeError("Tight-mesh cleanup produced invalid alpha coverage")
     bottom_origin_vertices = [(x - left, y - bottom) for x, y in atlas_vertices]
     return cleaned, bottom_origin_vertices, removed_alpha_pixels
+
+
+def decode_full_rect(payload: dict, atlas_width: int, atlas_height: int) -> tuple[list[tuple[float, float, float]], list[int], tuple[int, int, int, int], tuple[float, float]]:
+    name = str(payload["m_Name"])
+    render_data = payload["m_RD"]
+    vertex_data = render_data["m_VertexData"]
+    vertex_count = int(vertex_data["m_VertexCount"])
+    if vertex_count != 4:
+        raise RuntimeError(f"{name}: FullRect sprite does not have four vertices")
+    channels = vertex_data["m_Channels"]
+    active_channels = [
+        (index, int(channel["m_Stream"]), int(channel["m_Offset"]), int(channel["m_Format"]), int(channel["m_Dimension"]))
+        for index, channel in enumerate(channels) if int(channel["m_Dimension"]) > 0
+    ]
+    if active_channels != [(POSITION_CHANNEL, 0, 0, FLOAT_FORMAT, 3), (UV_CHANNEL, 1, 0, FLOAT_FORMAT, 2)]:
+        raise RuntimeError(f"{name}: unsupported FullRect vertex channel layout: {active_channels}")
+    raw_vertices = base64.b64decode(vertex_data["m_Data"], validate=True)
+    raw_indices = base64.b64decode(render_data["m_IndexBuffer"], validate=True)
+    uv_offset = aligned_16(vertex_count * 12)
+    if len(raw_vertices) != uv_offset + vertex_count * 8 or len(raw_indices) != 12:
+        raise RuntimeError(f"{name}: FullRect vertex/index stream length differs")
+    positions = [struct.unpack_from("<3f", raw_vertices, index * 12) for index in range(vertex_count)]
+    uvs = [struct.unpack_from("<2f", raw_vertices, uv_offset + index * 8) for index in range(vertex_count)]
+    if any(abs(value) > MESH_EPSILON for uv in uvs for value in uv):
+        raise RuntimeError(f"{name}: expected AssetRipper's zeroed FullRect UV stream")
+    indices = list(struct.unpack("<6H", raw_indices))
+    if sorted(set(indices)) != [0, 1, 2, 3]:
+        raise RuntimeError(f"{name}: FullRect triangle indices differ")
+    submeshes = render_data["m_SubMeshes"]
+    if len(submeshes) != 1 or int(submeshes[0]["m_VertexCount"]) != 4 or int(submeshes[0]["m_IndexCount"]) != 6 or int(submeshes[0]["m_Topology"]) != TRIANGLE_TOPOLOGY:
+        raise RuntimeError(f"{name}: FullRect submesh contract differs")
+    rect = payload["m_Rect"]
+    values = [float(rect[key]) for key in ("m_X", "m_Y", "m_Width", "m_Height")]
+    if any(abs(value - rounded_pixel(value)) > MESH_EPSILON for value in values):
+        raise RuntimeError(f"{name}: FullRect source rectangle is not integral")
+    left, bottom, width, height = map(rounded_pixel, values)
+    right, top = left + width, bottom + height
+    if left < 0 or bottom < 0 or right > atlas_width or top > atlas_height or width <= 0 or height <= 0:
+        raise RuntimeError(f"{name}: FullRect source rectangle is outside the atlas")
+    ppu = float(payload["m_PixelsToUnits"])
+    xs = [position[0] for position in positions]
+    ys = [position[1] for position in positions]
+    if any(abs(position[2]) > MESH_EPSILON for position in positions) or abs((max(xs) - min(xs)) * ppu - width) > MESH_EPSILON or abs((max(ys) - min(ys)) * ppu - height) > MESH_EPSILON:
+        raise RuntimeError(f"{name}: FullRect vertex dimensions differ from m_Rect")
+    pivot = payload["m_Pivot"]
+    anchor_x = left + float(pivot["m_X"]) * width
+    anchor_y = bottom + float(pivot["m_Y"]) * height
+    transform = render_data["m_UvTransform"]
+    if abs(float(transform["m_X"]) - ppu) > MESH_EPSILON or abs(float(transform["m_Z"]) - ppu) > MESH_EPSILON or abs(float(transform["m_Y"]) - anchor_x) > MESH_EPSILON or abs(float(transform["m_W"]) - anchor_y) > MESH_EPSILON:
+        raise RuntimeError(f"{name}: FullRect UV transform differs from rectangle/pivot")
+    return positions, indices, (left, bottom, right, top), (anchor_x, anchor_y)
 
 
 def sha256_file(path: Path) -> str:
@@ -286,6 +360,201 @@ def build_private_atlas(workspace: Path, skin_test: Path) -> None:
     shutil.rmtree(staging)
 
 
+def create_team_mask(image: Image.Image) -> Image.Image:
+    rgba = image.convert("RGBA")
+    mask = Image.new("L", rgba.size, 0)
+    source = rgba.load()
+    target = mask.load()
+    selected = 0
+    for y in range(rgba.height):
+        for x in range(rgba.width):
+            red, green, blue, alpha = source[x, y]
+            maximum = max(red, green, blue)
+            minimum = min(red, green, blue)
+            saturation = 0 if maximum == 0 else (maximum - minimum) / maximum
+            if alpha > 0 and blue >= 52 and blue > red * 1.18 and blue > green * 1.04 and saturation >= 0.22:
+                target[x, y] = alpha
+                selected += 1
+    if selected < 50:
+        raise RuntimeError("UI team-colour mask contains too few pixels")
+    return mask
+
+
+def recolour_team_pixels(image: Image.Image, mask: Image.Image, target_colour: tuple[int, int, int]) -> Image.Image:
+    output = image.convert("RGBA")
+    pixels = output.load()
+    mask_pixels = mask.load()
+    target_luma = max(1.0, 0.2126 * target_colour[0] + 0.7152 * target_colour[1] + 0.0722 * target_colour[2])
+    for y in range(output.height):
+        for x in range(output.width):
+            strength = mask_pixels[x, y] / 255.0
+            if strength <= 0.0:
+                continue
+            red, green, blue, alpha = pixels[x, y]
+            luma = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+            scale = max(0.2, min(2.2, luma / target_luma))
+            tinted = tuple(min(255, rounded_pixel(channel * scale)) for channel in target_colour)
+            pixels[x, y] = (
+                rounded_pixel(red * (1.0 - strength) + tinted[0] * strength),
+                rounded_pixel(green * (1.0 - strength) + tinted[1] * strength),
+                rounded_pixel(blue * (1.0 - strength) + tinted[2] * strength),
+                alpha,
+            )
+    return output
+
+
+def prepare_ui_assets(source_root: Path, skin_test: Path) -> None:
+    atlas_path = source_root / "Assets" / "Texture2D" / "UI-MasterAtlas.png"
+    source_dir = skin_test / "AtlasSource" / "UI"
+    asset_dir = skin_test / "Assets" / "CrusaderUI"
+    reset_directory(source_dir, skin_test)
+    reset_directory(asset_dir, skin_test)
+    provenance = {
+        "source": str(atlas_path),
+        "sourceSha256": sha256_file(atlas_path),
+        "sourceDimensions": [8192, 4096],
+        "rectCoordinateOrigin": "top-left",
+        "rectangles": {},
+    }
+    with Image.open(atlas_path) as atlas_image:
+        atlas = atlas_image.convert("RGBA")
+        if atlas.size != (8192, 4096):
+            raise RuntimeError(f"Unexpected SH1DE UI atlas dimensions: {atlas.size}")
+        for name, (x, y, width, height) in UI_SOURCE_RECTS.items():
+            if x < 0 or y < 0 or x + width > atlas.width or y + height > atlas.height:
+                raise RuntimeError(f"UI source rectangle is outside the atlas: {name}")
+            crop = atlas.crop((x, y, x + width, y + height))
+            if crop.getchannel("A").getbbox() is None:
+                raise RuntimeError(f"UI source rectangle is empty: {name}")
+            source_path = source_dir / f"{name}.png"
+            crop.save(source_path, optimize=True)
+            record = {"x": x, "y": y, "width": width, "height": height, "sha256": sha256_file(source_path)}
+            if name.startswith("UIButtons") or name in ("UIBuildingsO011", "UIBuildingsO012"):
+                mask = create_team_mask(crop)
+                mask_path = source_dir / f"{name}_team-mask.png"
+                mask.save(mask_path, optimize=True)
+                record["teamMaskSha256"] = sha256_file(mask_path)
+                for colour, rgb in PLAYER_COLOURS.items():
+                    recoloured = recolour_team_pixels(crop, mask, rgb)
+                    recoloured.save(asset_dir / f"{name}_colour{colour}.png", optimize=True)
+            else:
+                crop.save(asset_dir / f"{name}.png", optimize=True)
+            provenance["rectangles"][name] = record
+    write_crlf_json(source_dir / "provenance.json", provenance)
+
+
+def castle_frame_index(path: Path) -> int:
+    name = path.stem
+    if not name.startswith(CASTLE_FRAME_PREFIX):
+        raise RuntimeError(f"Unexpected castle frame name: {name}")
+    return int(name[len(CASTLE_FRAME_PREFIX):])
+
+
+def prepare_castle_assets(source_root: Path, skin_test: Path) -> None:
+    source_dir = source_root / "Assets" / "Resources" / "sprites" / "alltiles"
+    atlas_path = source_dir / "AllTileSprites.png"
+    metadata_paths = sorted(source_dir.glob("tile_castle *.json"), key=castle_frame_index)
+    indices = [castle_frame_index(path) for path in metadata_paths]
+    if len(indices) != CASTLE_FRAME_COUNT or len(set(indices)) != CASTLE_FRAME_COUNT or min(indices) != 1 or max(indices) != CASTLE_MAX_INDEX:
+        raise RuntimeError("SH1DE tile_castle source index contract differs from the expected sparse set")
+    from atlas_builder.core import FrameKey, read_target_metadata
+    from atlas_builder.models import ProjectConfig
+    project = ProjectConfig.load(skin_test / "SkinTest.atlas-project.json")
+    required_keys = {"tile_castle": {FrameKey(index) for index in indices}}
+    target_frames = read_target_metadata(
+        Path(project.target_game_data), {"tile_castle": False}, required_keys=required_keys, language=project.language
+    )["tile_castle"]
+    source_only_indices = sorted(key.index for key in required_keys["tile_castle"].difference(target_frames))
+    if source_only_indices != list(range(812, 1072)):
+        raise RuntimeError(f"Unexpected SH1DE-only castle index set: {source_only_indices}")
+    for index in (index for index in indices if FrameKey(index) in target_frames):
+        target = target_frames[FrameKey(index)]
+        if target.name != f"{CASTLE_FRAME_PREFIX}{index:03d}" or target.pixels_per_unit != 64.0:
+            raise RuntimeError(f"SHCDE target contract differs for castle index {index}: {target}")
+
+    corrected_dir = skin_test / "AtlasSource" / "CastleMetadata"
+    asset_dir = skin_test / "Assets" / "CrusaderRoundTower"
+    reset_directory(corrected_dir, skin_test)
+    reset_directory(asset_dir, skin_test)
+    frames: list[tuple[int, Image.Image, float, float, float, str]] = []
+    with Image.open(atlas_path) as atlas_image:
+        atlas = atlas_image.convert("RGBA")
+        if atlas.size != SOURCE_ATLAS_SIZE:
+            raise RuntimeError(f"Unexpected AllTileSprites dimensions: {atlas.size}")
+        for metadata_path in metadata_paths:
+            payload = json.loads(metadata_path.read_text(encoding="utf-8-sig"))
+            index = castle_frame_index(metadata_path)
+            name = str(payload["m_Name"])
+            if name != metadata_path.stem or bool(payload["m_IsPolygon"]):
+                raise RuntimeError(f"{name}: castle frame is not the expected FullRect sprite")
+            vertices, triangles, bounds, anchor = decode_full_rect(payload, atlas.width, atlas.height)
+            if len(vertices) != 4 or len(triangles) != 6 or sorted(set(triangles)) != [0, 1, 2, 3]:
+                raise RuntimeError(f"{name}: castle frame is not a simple indexed quad")
+            left, bottom, right, top = bounds
+            rect = payload["m_Rect"]
+            expected_bounds = (
+                rounded_pixel(float(rect["m_X"])), rounded_pixel(float(rect["m_Y"])),
+                rounded_pixel(float(rect["m_X"]) + float(rect["m_Width"])),
+                rounded_pixel(float(rect["m_Y"]) + float(rect["m_Height"])),
+            )
+            if bounds != expected_bounds or float(payload["m_PixelsToUnits"]) != 64.0:
+                raise RuntimeError(f"{name}: castle FullRect bounds or PPU differ")
+            crop = atlas.crop((left, atlas.height - top, right, atlas.height - bottom))
+            if crop.getchannel("A").getbbox() is None:
+                raise RuntimeError(f"{name}: castle frame is empty")
+            width, height = crop.size
+            pivot_x = (anchor[0] - left) / width
+            pivot_y = (anchor[1] - bottom) / height
+            if not (math.isfinite(pivot_x) and math.isfinite(pivot_y)):
+                raise RuntimeError(f"{name}: castle pivot is invalid")
+            frames.append((index, crop.copy(), pivot_x, pivot_y, 64.0, name))
+            write_crlf_json(corrected_dir / metadata_path.name, {
+                "m_Name": name,
+                "m_Rect": {"m_X": 0, "m_Y": 0, "m_Width": width, "m_Height": height},
+                "m_Pivot": {"m_X": pivot_x, "m_Y": pivot_y},
+                "m_PixelsToUnits": 64,
+                "_SkinTestSource": {"left": left, "bottom": bottom, "right": right, "top": top},
+            })
+
+    placements: list[tuple[int, Image.Image, int, int, float, float, float, str]] = []
+    cursor_x = PACKING_PADDING
+    cursor_y = PACKING_PADDING
+    row_height = 0
+    for index, image, pivot_x, pivot_y, ppu, name in frames:
+        if cursor_x + image.width + PACKING_PADDING > PRIVATE_CASTLE_ATLAS_WIDTH:
+            cursor_x = PACKING_PADDING
+            cursor_y += row_height + PACKING_PADDING
+            row_height = 0
+        placements.append((index, image, cursor_x, cursor_y, pivot_x, pivot_y, ppu, name))
+        cursor_x += image.width + PACKING_PADDING
+        row_height = max(row_height, image.height)
+    atlas_height = cursor_y + row_height + PACKING_PADDING
+    if atlas_height > SOURCE_ATLAS_SIZE[1]:
+        raise RuntimeError(f"Private castle atlas does not fit 8192x8192: height={atlas_height}")
+    output_atlas = Image.new("RGBA", (PRIVATE_CASTLE_ATLAS_WIDTH, atlas_height), (0, 0, 0, 0))
+    manifest_frames = []
+    for index, image, x, top_y, pivot_x, pivot_y, ppu, name in placements:
+        output_atlas.alpha_composite(image, (x, top_y))
+        manifest_frames.append({
+            "name": name,
+            "index": index,
+            "rect": {"x": x, "y": atlas_height - top_y - image.height, "w": image.width, "h": image.height},
+            "pivot": {"x": pivot_x, "y": pivot_y},
+            "pixelsPerUnit": ppu,
+        })
+    output_atlas.save(asset_dir / "atlas.png", optimize=True)
+    write_crlf_json(asset_dir / "atlas.json", {
+        "pixelsPerUnit": 64,
+        "sourceSha256": sha256_file(atlas_path),
+        "sourceIndexCount": CASTLE_FRAME_COUNT,
+        "maximumSourceIndex": CASTLE_MAX_INDEX,
+        "sourceOnlyIndices": source_only_indices,
+        "targetFrameCount": len(target_frames),
+        "targetMaximumIndex": max(key.index for key in target_frames),
+        "frames": manifest_frames,
+    })
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Extract SH1DE swordsman frames and build SkinTest's private atlas.")
     parser.add_argument(
@@ -298,7 +567,9 @@ def main() -> None:
     workspace = skin_test.parent
     extract_frames(args.source_root.resolve(), skin_test)
     build_private_atlas(workspace, skin_test)
-    print("Prepared 1088 normal and 128 alternate SH1DE swordsman frames with complete masks.")
+    prepare_ui_assets(args.source_root.resolve(), skin_test)
+    prepare_castle_assets(args.source_root.resolve(), skin_test)
+    print("Prepared swordsman world/HUD graphics and 1467 sparse SH1DE castle frames.")
 
 
 if __name__ == "__main__":

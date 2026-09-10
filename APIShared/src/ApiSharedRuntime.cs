@@ -16,9 +16,11 @@ namespace APIShared
         private GatehouseDistanceOriginService gatehouseDistanceOrigin;
         private GatehouseTimingService gatehouse;
         private SelectedUnitCommandService selectedCommand;
+        private UnitHudPresentationService unitHudPresentation;
         private NativeCapabilityDiagnostic gatehouseDistanceOriginDiagnostic = Pending(NativeCapabilityIds.GatehouseDistanceOrigin);
         private NativeCapabilityDiagnostic gatehouseDiagnostic = Pending(NativeCapabilityIds.GatehouseTiming);
         private NativeCapabilityDiagnostic selectedDiagnostic = Pending(NativeCapabilityIds.SelectedUnitCommand);
+        private NativeCapabilityDiagnostic unitHudDiagnostic = Pending(NativeCapabilityIds.UnitHudPresentation);
         private ManualLogSource log;
 
         internal static ApiSharedRuntime ProcessInstance { get; } = new ApiSharedRuntime();
@@ -47,7 +49,8 @@ namespace APIShared
             INativeMemory nativeMemory,
             ISelectedUnitCommandEventSource eventSource,
             ManualLogSource logger,
-            GatehouseBuildTarget gateTarget = null)
+            GatehouseBuildTarget gateTarget = null,
+            bool installUnitHudPresentation = true)
         {
             lock (sync)
             {
@@ -66,6 +69,25 @@ namespace APIShared
                     log,
                     out selectedCommand,
                     out selectedDiagnostic);
+                if (installUnitHudPresentation)
+                {
+                    UnitHudPresentationService.TryCreate(
+                        binaryHash,
+                        moduleBase,
+                        memory,
+                        log,
+                        out unitHudPresentation,
+                        out unitHudDiagnostic);
+                }
+                else
+                {
+                    unitHudPresentation = null;
+                    unitHudDiagnostic = new NativeCapabilityDiagnostic(
+                        NativeCapabilityIds.UnitHudPresentation,
+                        NativeCapabilityState.UnsupportedBuild,
+                        binaryHash,
+                        "Managed HUD hooks are intentionally disabled in the isolated native test harness.");
+                }
                 var gatehouseOwnership = new NativeOwnershipRegistry();
                 var gatehouseMutationSync = new object();
                 GatehouseCapabilityResolver.Resolve(
@@ -90,9 +112,11 @@ namespace APIShared
                 gatehouseDistanceOrigin = null;
                 gatehouse = null;
                 selectedCommand = null;
+                unitHudPresentation = null;
                 gatehouseDistanceOriginDiagnostic = Faulted(NativeCapabilityIds.GatehouseDistanceOrigin, ex.Message);
                 gatehouseDiagnostic = Faulted(NativeCapabilityIds.GatehouseTiming, ex.Message);
                 selectedDiagnostic = Faulted(NativeCapabilityIds.SelectedUnitCommand, ex.Message);
+                unitHudDiagnostic = Faulted(NativeCapabilityIds.UnitHudPresentation, ex.Message);
                 NativeApiLog.Error(log, $"APIShared initialization failed globally: build={binaryHash}, error={ex}");
             }
 
@@ -103,7 +127,7 @@ namespace APIShared
                 callbacks = readyCallbacks.ToArray();
                 readyCallbacks.Clear();
             }
-            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, selectedUnitCommand={selectedDiagnostic.State}.");
+            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, selectedUnitCommand={selectedDiagnostic.State}, unitHudPresentation={unitHudDiagnostic.State}.");
             foreach (Action<IApiShared> callback in callbacks)
             {
                 try { callback(this); }
@@ -164,6 +188,24 @@ namespace APIShared
                 }
                 capability = selectedCommand.Bind(ownerGuid);
                 diagnostic = selectedDiagnostic;
+                return true;
+            }
+        }
+
+        public bool TryGetUnitHudPresentation(string ownerGuid, out IUnitHudPresentationCapability capability, out NativeCapabilityDiagnostic diagnostic)
+        {
+            capability = null;
+            if (!ValidateOwner(ownerGuid, NativeCapabilityIds.UnitHudPresentation, out diagnostic))
+                return false;
+            lock (sync)
+            {
+                if (unitHudPresentation == null)
+                {
+                    diagnostic = unitHudDiagnostic;
+                    return false;
+                }
+                capability = unitHudPresentation.Bind(ownerGuid);
+                diagnostic = unitHudDiagnostic;
                 return true;
             }
         }

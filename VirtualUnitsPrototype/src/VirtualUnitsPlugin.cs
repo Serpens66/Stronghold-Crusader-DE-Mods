@@ -6,10 +6,12 @@ using VirtualUnitsPrototype.API;
 namespace VirtualUnitsPrototype
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ApiSharedGuid, "0.2.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class VirtualUnitsPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
+        private const string ApiSharedGuid = "APIShared_Serp";
         public const string PluginGuid = "VirtualUnitsPrototype_Serp";
         public const string PluginName = "Virtual Units Prototype";
         public const string PluginVersion = "0.1.0";

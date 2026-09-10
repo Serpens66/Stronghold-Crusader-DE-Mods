@@ -17,6 +17,8 @@ if errorlevel 1 (
 if not exist "%MSBUILD%" ( echo MSBuild wurde nicht gefunden.& goto failed )
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" ( echo SHCDESE.dll wurde nicht gefunden: %EXTENDER_DIR%& goto failed )
 if not exist "%PROJECT_DIR%Assets\CrusaderSwordsman\atlas.png" ( echo Private Atlas-Assets fehlen.& goto failed )
+if not exist "%PROJECT_DIR%Assets\CrusaderRoundTower\atlas.png" ( echo Private Rundturm-Assets fehlen.& goto failed )
+if not exist "%PROJECT_DIR%Assets\CrusaderUI\UIBuildingsO011_colour1.png" ( echo Private HUD-Assets fehlen.& goto failed )
 
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" tests\SkinTest.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"

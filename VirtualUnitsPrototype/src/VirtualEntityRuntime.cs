@@ -1,4 +1,6 @@
+using APIShared;
 using BepInEx.Logging;
+using CrusaderDE;
 using R3;
 using SHCDESE.API;
 using SHCDESE.API.Components.SaveData;
@@ -38,7 +40,7 @@ namespace VirtualUnitsPrototype
         private List<SaveRecord> pendingRestore;
         private PendingBuildingSpawn pendingBuilding;
         private VisualRuntime visuals;
-        private VirtualUnitPresentationRuntime presentation;
+        private IUnitHudPresentationCapability unitHudPresentation;
         private VirtualSpawnController spawnController;
         private bool definitionsSealed;
         private bool initialized;
@@ -75,18 +77,13 @@ namespace VirtualUnitsPrototype
                 spawnController = new VirtualSpawnController(this, log);
                 spawnController.Initialize();
                 GameXAMLManagerAPI.Instance.RegisterBinding("VirtualUnitsPrototypeHud", spawnController.Hud);
-                presentation = new VirtualUnitPresentationRuntime(this, log);
-                presentation.Install();
-                GameXAMLManagerAPI.Instance.RegisterBinding("VirtualUnitsPrototypeTroopPresentation", presentation.ViewModel);
-                GameXAMLManagerAPI.Instance.RegisterBinding("VirtualUnitsPrototypeArmyPresentation", presentation.ViewModel);
-                GameXAMLManagerAPI.Instance.RegisterBinding("VirtualUnitsPrototypeControlGroupPresentation", presentation.ViewModel);
+                ApiShared.WhenReady(RegisterUnitHudPresentation);
                 GameTimeManagerAPI.Instance.OnTick += OnSimulationTick;
                 lock (sync) initialized = true;
                 Shared.DebugLogHelper.LogInfo(log, $"Runtime initialized; unitDefinitions={unitDefinitions.Count}, buildingDefinitions={buildingDefinitions.Count}, definitions sealed.");
             }
             catch (Exception ex)
             {
-                presentation?.Dispose();
                 visuals?.Dispose();
                 Shared.DebugLogHelper.LogError(log, $"Runtime initialization failed closed: {ex}");
                 throw;
@@ -253,6 +250,37 @@ namespace VirtualUnitsPrototype
             }
         }
 
+        private void RegisterUnitHudPresentation(IApiShared api)
+        {
+            if (!api.TryGetUnitHudPresentation(VirtualUnitsPlugin.PluginGuid, out IUnitHudPresentationCapability capability, out NativeCapabilityDiagnostic diagnostic))
+            {
+                Shared.DebugLogHelper.LogError(log, $"Central unit-HUD capability unavailable: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                return;
+            }
+            var category = new UnitHudCategoryDefinition(
+                VirtualUnitsPlugin.DesertArcherId,
+                "Desert Archer",
+                (int)eChimps.CHIMP_TYPE_ARCHER,
+                UnitHudSurface.All,
+                () => MainViewModel.Instance?.UIButtonsK023,
+                new UnitHudTint(220, 240, byte.MaxValue, byte.MaxValue));
+            if (!capability.TryRegisterCategory(category, snapshot =>
+            {
+                if (!TryGetValidatedUnit(snapshot.GameId, out VirtualEntityInstance instance, out VirtualUnitDefinition definition))
+                    return false;
+                return instance.Key.GlobalId == snapshot.GlobalId &&
+                    definition.TypeId == VirtualUnitsPlugin.DesertArcherId &&
+                    (int)definition.BaseType == snapshot.VanillaType;
+            }, out diagnostic))
+            {
+                Shared.DebugLogHelper.LogError(log, $"Desert Archer HUD registration failed: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                return;
+            }
+            unitHudPresentation = capability;
+            capability.RequestRefresh();
+            Shared.DebugLogHelper.LogInfo(log, "Desert Archer registered with APIShared unit-HUD presentation.");
+        }
+
         internal VirtualEntityInstance[] GetValidatedUnitsForPlayer(int playerId)
         {
             var result = new List<VirtualEntityInstance>();
@@ -395,7 +423,7 @@ namespace VirtualUnitsPrototype
 
         internal void DrainMainThreadWork()
         {
-            while (visualResetQueue.TryDequeue(out bool ignoredReset)) { visuals?.ClearBindings(); spawnController?.ResetForMapLifecycle(); presentation?.ResetForMapLifecycle(); }
+            while (visualResetQueue.TryDequeue(out bool ignoredReset)) { visuals?.ClearBindings(); spawnController?.ResetForMapLifecycle(); unitHudPresentation?.RequestRefresh(); }
             while (unitTintRestoreQueue.TryDequeue(out int unitId)) visuals?.RestoreUnitTint(unitId);
             while (availabilityQueue.TryDequeue(out bool available)) spawnController?.ApplyAvailability(available);
             while (completionQueue.TryDequeue(out OperationCompletion completion))
@@ -651,13 +679,12 @@ namespace VirtualUnitsPrototype
             {
                 records = instances.Values.Select(x => new SaveRecord { Kind = (byte)x.Kind, GameId = x.GameId, GlobalId = x.GlobalId, TypeId = x.TypeId, DefinitionVersion = x.DefinitionVersion, OriginalMaxHealth = x.OriginalMaxHealth, OriginalSpeed = x.OriginalSpeed }).ToArray();
             }
-            // Never hold the entity lock while taking the independent control-group snapshot.
-            return SaveCodec.Encode(records, presentation?.ExportControlGroups() ?? Array.Empty<ControlGroupSaveRecord>());
+            return SaveCodec.Encode(records);
         }
         private void Load(byte[] data, LoadContext context)
         {
             if (!context.IsSaveFile) return;
-            try { SavePayload payload = SaveCodec.DecodePayload(data); pendingRestore = payload.Records; presentation?.ImportControlGroups(payload.ControlGroups); Shared.DebugLogHelper.LogInfo(log, $"Loaded {pendingRestore.Count} pending virtual-entity records and {payload.ControlGroups.Count} control-group shadow records."); }
+            try { SavePayload payload = SaveCodec.DecodePayload(data); pendingRestore = payload.Records; Shared.DebugLogHelper.LogInfo(log, $"Loaded {pendingRestore.Count} pending virtual-entity records; ignored {payload.ControlGroups.Count} legacy control-group shadow records."); }
             catch (Exception ex) { pendingRestore = null; LogError($"Save data rejected: {ex}"); }
         }
         private void RestorePending()
@@ -677,7 +704,7 @@ namespace VirtualUnitsPrototype
                 if (kind == VirtualEntityKind.Building) RefreshBuilding(record.GameId);
                 VirtualEntityApi.RaiseAssigned(stored.Snapshot, VirtualApiResult.Success("Assignment restored without reapplying factors."));
             }
-            presentation?.FinishRestore();
+            unitHudPresentation?.RequestRefresh();
         }
 
         private void ValidateActiveInstances()

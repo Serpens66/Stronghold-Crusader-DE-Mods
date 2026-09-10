@@ -10,38 +10,6 @@
              XPath="//n:Grid[@Name='TroopSelectionControls']//n:Button[@Command='{Binding LeftClickSelectedTroopCommand}']"
              AttributeName="bugfixes:TroopHudMiddleClickBehavior.IsEnabled"
              Value="True" />
-  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionControls']">
-    <Content>
-      <!-- One shared Lord portrait is used for every selectable Lord variant. -->
-      <Button x:Name="BugfixesAndQoLLordSelected"
-              Width="45"
-              Height="86"
-              local:PropEx.Sprite1="{StaticResource BugfixesAndQoL-LordIcon}"
-              local:PropEx.Sprite2="{StaticResource BugfixesAndQoL-LordIcon}"
-              local:PropEx.Sprite3="{StaticResource BugfixesAndQoL-LordIcon}"
-              Command="{Binding LeftClickSelectedTroopCommand}"
-              CommandParameter="CHIMP_TYPE_LORD"
-              Visibility="Collapsed"
-              bugfixes:TroopHudMiddleClickBehavior.IsEnabled="True">
-        <Button.Style>
-          <Style TargetType="{x:Type Button}" BasedOn="{StaticResource BTN_Image}">
-            <!-- The shared Lord sprite has no separate hover frame. -->
-            <Style.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Opacity" Value="0.72" />
-              </Trigger>
-            </Style.Triggers>
-          </Style>
-        </Button.Style>
-        <b:Interaction.Triggers>
-          <b:EventTrigger EventName="MouseRightButtonDown">
-            <b:InvokeCommandAction Command="{Binding RightClickSelectedTroopCommand}"
-                                   CommandParameter="CHIMP_TYPE_LORD" />
-          </b:EventTrigger>
-        </b:Interaction.Triggers>
-      </Button>
-    </Content>
-  </Operation>
   <Operation Type="InsertAfter" XPath="//n:TextBlock[@x:Name='TroopsPanelRollover']">
     <Content>
       <Grid x:Name="BugfixesAndQoLSelectedUnitHealthHost"

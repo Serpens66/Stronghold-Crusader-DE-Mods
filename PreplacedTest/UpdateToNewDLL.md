@@ -28,6 +28,8 @@
 | Dominant PCL selection | `0x572B0` | `SelectDominantPclPattern` |
 | Building initialization | `0xC3FA0`, `0xC43A0`, `0xB8310` | `InitializePlayerBuildingsPattern`, `InitializeBuildingPattern`, `ClearBuildingRecordPattern` |
 | Legacy player-state conversion | `0xD4290` | `LegacyPlayerStateCopyPattern`; `void(void)`; copies nine old player records into the current layout |
+| Current player-state chore | `0x15B90` | `PlayerStateChorePattern`; `void(void)`; the complete-record call at `0x15C4A` passes base `0x379ADD0`, stride/size `0x583C`, and targets `0x1F5F0` |
+| Chore field copy | `0x1F5F0..0x1F68D` | `ChoreCopyFieldPattern`; `void(manager, fieldAddress, size, bufferMode, direction)`; the copy call at `0x1F65D` targets `0x7140`, advances cursor `+0x370BF8`, and diagnostics are emitted only for overlaps with the current player-record array |
 | Final map-start checkpoints | `0x115830`, `0x102C30`, `0x2A340` | `InitializeUnitSubsystemPattern`, `ResetMapObjectSubsystemPattern`, `InitializePlayerPathingPattern`; passive timer comparisons around the calls immediately surrounding the full economy-grid rebuild. In `0x94350`, call sites `0x96D2C`, `0x96D38`, `0x96D49`, and `0x96D55` must still target these functions and `0x50720` in that order. |
 
 ## Inline context hook and derived target
@@ -45,8 +47,10 @@ These locations do not have independent semantic byte patterns. Their offsets ar
 | --- | ---: | --- |
 | Native path manager | `0x60AD660` | Portal manager base; 200-record maximum and all accessed record fields are range-checked. |
 | PCL grid | `0x50EC690..0x51890D0` | Exactly 320,800 `ushort` entries; the range is virtual `.data` and is not file-backed. |
-| Legacy player source records | `0x37CC7EC` | Nine records with stride `0x39F4`; timer field at `+0x7E4`. |
-| Current player destination records | `0x379ADD0` | Nine records with stride `0x583C`; timer field at `+0x7E4`. |
+| Legacy player source records | `0x37CC7EC` | Nine records with stride `0x39F4`; the embedded `GamePlayerResources` begins at `+0x22FC`, so its timer at resources offset `+0x7E4` is record offset `+0x2AE0`. |
+| Current serialized player records | `0x379ADD0` | Nine records with stride `0x583C`; embedded `GamePlayerResources` begins at `+0x22FC`. |
+| Active player-resource records | `0x379D0CC` | RIP-relative base resolved through `0x55F64`; nine records with stride `0x583C`, timer at resources offset `+0x7E4`. |
+| Chore manager and field cursor | `0x8574320`, manager `+0x370BF8` | Current linear payload is at manager `+0x84CD8+cursor`; field transfers must retain the audited direction contract of `0x1F5F0`. |
 | Loaded map format version | `0x32DC084` | Read-only `int` used to describe the guarded legacy conversion. |
 | Legacy conversion call site | `0x96CE` | Validation only: must be an `E8 rel32` targeting `0xD4290`; it is not hooked. |
 

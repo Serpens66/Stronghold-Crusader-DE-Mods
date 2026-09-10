@@ -25,6 +25,7 @@ namespace BugfixesAndQoL
         private readonly MultiplayerAivSyncRuntime multiplayerAivSyncRuntime;
         private readonly SiegeAmmoRestockFeature siegeAmmoRestockFeature;
         private readonly TroopHudMiddleClickCameraFeature troopHudMiddleClickCameraFeature;
+        private readonly LordUnitHudRegistration lordUnitHudRegistration;
         private readonly TunnelPlacementDistanceFeature tunnelPlacementDistanceFeature;
         private readonly TrailCustomizationFeature trailCustomizationFeature;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
@@ -50,7 +51,6 @@ namespace BugfixesAndQoL
         private SurrenderFeature surrenderFeature;
         private LordUnitControlsFeature lordUnitControlsFeature;
         private LordControlGroupNativePatch lordControlGroupNativePatch;
-        private LordControlGroupIconFeature lordControlGroupIconFeature;
         private ControlGroupDisbandCleanupRuntime controlGroupDisbandCleanupRuntime;
         private SelectedUnitHealthFeature selectedUnitHealthFeature;
         private AssemblyPointPlacementPatch assemblyPointPlacementPatch;
@@ -111,6 +111,7 @@ namespace BugfixesAndQoL
             multiplayerAivSyncRuntime = new MultiplayerAivSyncRuntime(log, settings);
             siegeAmmoRestockFeature = new SiegeAmmoRestockFeature(log, settings, multiplayerFeatureGate);
             troopHudMiddleClickCameraFeature = new TroopHudMiddleClickCameraFeature(log, settings);
+            lordUnitHudRegistration = new LordUnitHudRegistration(log, settings, troopHudMiddleClickCameraFeature);
             tunnelPlacementDistanceFeature = new TunnelPlacementDistanceFeature(log, settings);
             trailCustomizationFeature = new TrailCustomizationFeature(log, settings);
             InitializeMovedFeatures();
@@ -244,7 +245,7 @@ namespace BugfixesAndQoL
             if (selectedUnitHealthFeature != null)
                 return;
 
-            selectedUnitHealthFeature = new SelectedUnitHealthFeature(log, settings);
+            selectedUnitHealthFeature = new SelectedUnitHealthFeature(log, settings, () => lordUnitHudRegistration.Capability);
             selectedUnitHealthFeature.RefreshSetting();
         }
 
@@ -415,6 +416,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("ally goods amount modifiers", () => allyGoodsAmountModifierHook?.RefreshSetting());
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryApplyFeature("Lord troop HUD", () => lordUnitControlsFeature?.RefreshSetting());
+            TryApplyFeature("shared unit HUD", () => lordUnitHudRegistration.Capability?.RequestRefresh());
             TryInitializeFeature("selected-unit health display", InitializeSelectedUnitHealthFeature);
             TryApplyFeature("selected-unit health display", () => selectedUnitHealthFeature?.RefreshSetting());
             TryApplyFeature("surrender", () => surrenderFeature?.RefreshButtonState());
@@ -508,8 +510,7 @@ namespace BugfixesAndQoL
             resyncHostKickFeature = null;
             abruptHostMigrationFix?.Dispose();
             abruptHostMigrationFix = null;
-            lordUnitControlsFeature?.Dispose();
-            lordUnitControlsFeature = null;
+            // Lord action hooks are process-lifetime registrations and are not torn down here.
             surrenderFeature?.Dispose();
             surrenderFeature = null;
             selectedUnitHealthFeature?.Dispose();
@@ -1359,39 +1360,15 @@ namespace BugfixesAndQoL
 
         private void InstallLordControlGroupNativePatch()
         {
-            if (lordControlGroupNativePatch != null || lordControlGroupIconFeature != null ||
-                lordControlGroupNativePatchUnavailable)
+            if (lordControlGroupNativePatch != null || lordControlGroupNativePatchUnavailable)
                 return;
 
             try
             {
-                var nativePatch = new LordControlGroupNativePatch(
+                lordControlGroupNativePatch = new LordControlGroupNativePatch(
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
-                try
-                {
-                    lordControlGroupIconFeature = new LordControlGroupIconFeature(
-                        log,
-                        settings,
-                        nativePatch.ControlGroupRecordsAddress);
-                    lordControlGroupNativePatch = nativePatch;
-                }
-                catch (Exception installError)
-                {
-                    try
-                    {
-                        nativePatch.Dispose();
-                    }
-                    catch (Exception rollbackError)
-                    {
-                        throw new AggregateException(
-                            "Installing the Lord control-group icon failed and native rollback also failed.",
-                            installError,
-                            rollbackError);
-                    }
-                    throw;
-                }
             }
             catch (Exception ex)
             {
@@ -1432,20 +1409,8 @@ namespace BugfixesAndQoL
 
         private void DisableLordControlGroupNativePatch()
         {
-            bool wasInstalled = lordControlGroupIconFeature != null || lordControlGroupNativePatch != null;
+            bool wasInstalled = lordControlGroupNativePatch != null;
             Exception firstFailure = null;
-            bool iconRemoved = false;
-            try
-            {
-                lordControlGroupIconFeature?.Dispose();
-                iconRemoved = true;
-            }
-            catch (Exception ex)
-            {
-                firstFailure = ex;
-            }
-            if (iconRemoved)
-                lordControlGroupIconFeature = null;
             bool nativeRemoved = false;
             try
             {

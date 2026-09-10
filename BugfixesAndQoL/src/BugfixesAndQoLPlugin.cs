@@ -10,6 +10,7 @@ using System;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ApiSharedGuid, "0.2.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInIncompatibility(LegacyTroopMovementFixGuid)]
@@ -22,6 +23,7 @@ namespace BugfixesAndQoL
     public sealed class BugfixesAndQoLPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
+        private const string ApiSharedGuid = "APIShared_Serp";
         private const string LegacyTroopMovementFixGuid = "TroopMovementFix_Serp";
         private const string TroopMovementFix2Guid = "TroopMovementFix2_Serp";
         private const string TroopMovementFix3Guid = "TroopMovementFix3_Serp";

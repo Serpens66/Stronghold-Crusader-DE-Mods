@@ -1,4 +1,5 @@
 // Feature: Show health totals for each visible selected troop type in the HUD.
+using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
 using Noesis;
@@ -160,6 +161,21 @@ namespace BugfixesAndQoL
             HealthVisibility = anyVisible ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        public void ShowSlots(SelectedUnitHealthSummary[] summaries)
+        {
+            bool anyVisible = false;
+            for (int slot = 0; slot < Slots.Length; slot++)
+            {
+                if (summaries != null && slot < summaries.Length && summaries[slot].HasUnits)
+                {
+                    Slots[slot].Show(int.MinValue + slot, summaries[slot]);
+                    anyVisible = true;
+                }
+                else Slots[slot].Clear();
+            }
+            HealthVisibility = anyVisible ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         public void Hide()
         {
             HealthVisibility = Visibility.Collapsed;
@@ -182,6 +198,7 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly Func<IUnitHudPresentationCapability> getPresentation;
         private readonly SelectedUnitHealthSummary[] summaries =
             new SelectedUnitHealthSummary[(int)eChimps.CHIMP_NUM_TYPES];
         private readonly int[] visibleTypes =
@@ -193,10 +210,12 @@ namespace BugfixesAndQoL
 
         public SelectedUnitHealthFeature(
             ManualLogSource log,
-            BugfixesAndQoLViewModel settings)
+            BugfixesAndQoLViewModel settings,
+            Func<IUnitHudPresentationCapability> getPresentation = null)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            this.getPresentation = getPresentation;
             ViewModel = new SelectedUnitHealthViewModel();
 
             // The BepInEx component is short-lived, but this static Unity event remains available in game.
@@ -320,6 +339,12 @@ namespace BugfixesAndQoL
                 excludedType = (int)eChimps.CHIMP_TYPE_LORD;
             }
             int currentPage = (int)CurrentPageField.GetValue(troopPanel);
+            IUnitHudPresentationCapability presentation = getPresentation?.Invoke();
+            if (presentation != null && TryShowApiSlots(presentation, state, count, mapEditor, controlledPlayerId))
+            {
+                LogEditorVisibilityState(mapEditor, $"visible via APIShared: selectedUnits={selectedCount}, playerId={controlledPlayerId}");
+                return;
+            }
             SelectedUnitHealthPageLayout.FillVisibleTypes(
                 selectedTypeCounts,
                 currentPage,
@@ -327,6 +352,41 @@ namespace BugfixesAndQoL
                 excludedType);
             ViewModel.Show(summaries, visibleTypes);
             LogEditorVisibilityState(mapEditor, $"visible: selectedUnits={selectedCount}, eligibleOwnedUnits={eligibleCount}, playerId={controlledPlayerId}, page={currentPage}");
+        }
+
+        private bool TryShowApiSlots(IUnitHudPresentationCapability presentation, EngineInterface.PlayState state, int count, bool mapEditor, int controlledPlayerId)
+        {
+            var slots = presentation.GetVisibleTroopSlots();
+            if (slots == null || slots.Count == 0) return false;
+            var customIds = new System.Collections.Generic.HashSet<int>();
+            foreach (UnitHudCategorySnapshot category in presentation.GetSelectedCategories())
+                foreach (UnitHudUnitSnapshot unit in category.Units) customIds.Add(unit.GameId);
+            var slotSummaries = new SelectedUnitHealthSummary[SelectedUnitHealthPageLayout.SlotCount];
+            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+            foreach (UnitHudSlotSnapshot slot in slots)
+            {
+                if (slot.Slot < 0 || slot.Slot >= slotSummaries.Length) continue;
+                if (slot.Category != null)
+                {
+                    foreach (UnitHudUnitSnapshot item in slot.Category.Units) AddHealth(item.GameId, ref slotSummaries[slot.Slot], unitApi, mapEditor, controlledPlayerId);
+                    continue;
+                }
+                for (int index = 0; index < count; index++)
+                {
+                    int unitId = state.selectedChimps[index];
+                    if (customIds.Contains(unitId)) continue;
+                    if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) && unit != null && (int)unit->r_UnitChimp == slot.VanillaType)
+                        AddHealth(unitId, ref slotSummaries[slot.Slot], unitApi, mapEditor, controlledPlayerId);
+                }
+            }
+            ViewModel.ShowSlots(slotSummaries);
+            return true;
+        }
+
+        private static void AddHealth(int unitId, ref SelectedUnitHealthSummary summary, GameUnitManagerAPI unitApi, bool mapEditor, int controlledPlayerId)
+        {
+            if (unitId <= 0 || unitApi == null || !unitApi.TryGetUnitById(unitId, out GameUnit* unit) || unit == null || unit->r_AliveState != AliveState.IsAlive || (mapEditor && unit->r_ControllableForPlayerId != controlledPlayerId)) return;
+            summary.Add(unit->r_CurrentHealth, unit->r_MaxHealth);
         }
 
         private void LogEditorVisibilityState(bool mapEditor, string state)

@@ -22,6 +22,7 @@ pushd "%PROJECT_DIR%"
 if errorlevel 1 ( popd& goto failed )
 "%PROJECT_DIR%tests\bin\VirtualUnitsPrototype.Tests.exe"
 if errorlevel 1 ( popd& goto failed )
+if exist "%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp\" rmdir /S /Q "%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp"
 "%MSBUILD%" VirtualUnitsPrototype.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
@@ -30,6 +31,7 @@ if not "%BUILD_EXIT_CODE%"=="0" goto failed
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\VirtualUnitsPrototype_Serp"
 if not exist "%LOCAL_PLUGIN_DIR%\VirtualUnitsPrototype.dll" goto failed
+if exist "%GAME_PLUGIN_DIR%\" rmdir /S /Q "%GAME_PLUGIN_DIR%"
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y
 if errorlevel 1 goto failed
 echo Build, Tests und Installation erfolgreich.

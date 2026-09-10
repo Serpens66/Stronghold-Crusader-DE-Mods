@@ -58,6 +58,24 @@ Ein geeigneter SH1DE-Extraktor muss daher:
 
 Eine reine Rechteckextraktion kann farbige Fragmente anderer Sprites erzeugen. Der Builder packt solche bereits verunreinigten Pixel anschließend unverändert und besteht dabei zu Recht seinen Pixelvergleich, weil Quelle und gebauter Atlas identisch sind. Weder eine andere Pivotoption noch ein größerer Packabstand behebt diesen Eingabefehler.
 
+#### FullRect-Sprites ohne brauchbaren UV-Stream
+
+AssetRipper kann bei **FullRect-Sprites** einen vorhandenen, aber vollständig genullten UV-Stream exportieren. Das wurde bei allen geprüften SH1DE-Frames von `tile_castle` beobachtet. Ein solcher Stream enthält keine verwertbaren Atlas-UVs und darf deshalb nicht für die oben beschriebene Tight-Mesh-Rekonstruktion verwendet werden.
+
+Ein FullRect-Sprite kann stattdessen als rechteckig extrahierbar akzeptiert werden, wenn alle folgenden Prüfungen erfüllt sind:
+
+- `m_IsPolygon == false`;
+- exakt vier Vertices und sechs Dreiecksindizes;
+- ein integrales `m_Rect`, das vollständig innerhalb des Quellatlas liegt;
+- Vertexausdehnung multipliziert mit `m_PixelsToUnits` entspricht Breite und Höhe von `m_Rect`;
+- die aus `m_Rect` und `m_Pivot` abgeleitete Lage stimmt mit `m_UvTransform` überein.
+
+Schlägt eine dieser Prüfungen fehl, darf ein genullter UV-Stream nicht stillschweigend als FullRect behandelt werden. Die Extraktion muss dann abbrechen oder durch eine separat belegte Metadatenquelle abgesichert werden.
+
+Unity-Rechtecke verwenden den Ursprung links unten. PNG-Bibliotheken verwenden häufig den Ursprung links oben. Für einen rechteckigen Crop muss die obere Y-Koordinate deshalb so umgerechnet werden:
+
+    topY = atlasHeight - (rectY + rectHeight)
+
 #### Ankerpunkte aus den gerippten Daten wiederherstellen
 
 Die ursprünglichen Ankerpunkte müssen nicht geschätzt werden. Bei einem korrekt gerippten Sprite lassen sie sich aus einer zusammengehörenden lokalen Meshposition `(vertexX, vertexY)`, deren Atlas-UV `(uvX, uvY)`, der Atlasgröße und `m_PixelsToUnits` (`PPU`) rekonstruieren:
@@ -84,6 +102,21 @@ Eine allgemeine automatische Tight-Mesh-Prüfung ist aus einem Einzel-PNG und de
 4. **Pivot aus Quellmetadaten** und den Ordner mit den korrigierten JSONs einstellen.
 5. Fehlende SHCDE-Zielslots grundsätzlich ablehnen und nur bei einem nachgewiesenen leeren Zielbereich die unten beschriebene Opt-in-Regel verwenden.
 6. Vorschau und Warnungen prüfen, den Atlas bauen und Ausrichtung sowie Animation im Spiel testen.
+
+#### Sonderfall `tile_castle`: unterschiedliche Framebereiche
+
+Die geprüften Versionen besitzen keine deckungsgleichen `tile_castle`-Indexmengen:
+
+- SH1DE enthält 1.467 Frames und reicht bis Index `1569`;
+- die SH1DE-Indizes `812–1071` existieren in SHCDE nicht;
+- SHCDE besitzt dafür zusätzliche Indizes `1570–1596`;
+- damit überlappen nur 1.207 Frames.
+
+Ein globaler `Override/Atlas/tile_castle` ist für diese Konvertierung mit Script Extender 2.3.0 nicht sicher: Ein Atlas kann die unterschiedlichen Indexmengen nicht vollständig abbilden, und Teilatlanten unterliegen zusätzlich der weiter unten beschriebenen Arrayverkürzung. Für diesen Sonderfall ist ein privater, von einem eigenen Runtime-Mod geladener Atlas mit ausdrücklichem Vanilla-Fallback für nicht ersetzte SHCDE-Frames die sicherere Lösung. Der Atlas Builder erzeugt diesen Runtime-Mechanismus nicht; die Gruppe sollte daher nicht als gewöhnlicher vollständiger Global-Override veröffentlicht werden.
+
+#### UI-Masteratlanten ohne Sprite-Metadaten
+
+Bei UI-Masteratlanten ohne einzelne Sprite-Metadaten lässt sich der Crop nicht über den normalen Spritevertrag verifizieren. Für jeden Ausschnitt sollten mindestens SHA-256 der Quelldatei, Atlasbreite und -höhe, Crop-Rechteck sowie verwendeter Koordinatenursprung gespeichert werden. Die Crop-Ränder müssen zusätzlich visuell oder durch eine Alpharandprüfung darauf kontrolliert werden, ob Fragmente benachbarter Motive enthalten sind. Diese Angaben machen den Export reproduzierbar, ersetzen aber keine fehlenden Pivot- oder Mesh-Metadaten.
 
 ### In SHCDE fehlende Zielslots
 
@@ -162,6 +195,24 @@ A suitable SH1DE extractor must therefore:
 
 A rectangular crop can introduce coloured fragments from unrelated Sprites. The builder then preserves those already contaminated pixels exactly and correctly passes its pixel comparison because the input and generated atlas match. Changing the pivot mode or increasing the packing gap cannot fix this input defect.
 
+#### FullRect Sprites without a usable UV stream
+
+AssetRipper can export a present but entirely zero-filled UV stream for **FullRect Sprites**. This was observed for every examined SH1DE `tile_castle` frame. Such a stream contains no usable atlas UVs and must not be used for the Tight Mesh reconstruction described above.
+
+A FullRect Sprite may instead be accepted for rectangular extraction when all of the following checks pass:
+
+- `m_IsPolygon == false`;
+- exactly four vertices and six triangle indices;
+- an integral `m_Rect` located completely within the source atlas;
+- vertex extent multiplied by `m_PixelsToUnits` equals the width and height of `m_Rect`;
+- the placement derived from `m_Rect` and `m_Pivot` agrees with `m_UvTransform`.
+
+If any check fails, a zero-filled UV stream must not silently be treated as FullRect. Extraction must stop or be supported by a separately verified metadata source.
+
+Unity rectangles use a bottom-left origin, while PNG libraries commonly use a top-left origin. Convert the upper Y coordinate for a rectangular crop as follows:
+
+    topY = atlasHeight - (rectY + rectHeight)
+
 #### Reconstructing anchors from ripped data
 
 The original anchors do not need to be guessed. For a correctly ripped Sprite, they can be reconstructed from a matching local mesh position `(vertexX, vertexY)`, its atlas UV `(uvX, uvY)`, the atlas dimensions, and `m_PixelsToUnits` (`PPU`):
@@ -188,6 +239,21 @@ A general Tight Mesh check cannot be derived unambiguously from an individual PN
 4. Select **Pivot from source metadata** and the directory containing the corrected JSON files.
 5. Reject absent SHCDE target slots by default; use the opt-in rule below only for a verified empty target range.
 6. Review the preview and warnings, build the atlas, then test alignment and animation in game.
+
+#### Special case `tile_castle`: differing frame ranges
+
+The examined game versions do not have matching `tile_castle` index sets:
+
+- SH1DE contains 1,467 frames and reaches index `1569`;
+- SH1DE indices `812–1071` are absent from SHCDE;
+- SHCDE instead has additional indices `1570–1596`;
+- only 1,207 frames therefore overlap.
+
+A global `Override/Atlas/tile_castle` is unsafe for this conversion with Script Extender 2.3.0: one atlas cannot represent both differing index sets completely, and partial atlases also trigger the array truncation described below. A private atlas loaded by a dedicated runtime mod, with an explicit vanilla fallback for SHCDE frames that are not replaced, is safer for this special case. Atlas Builder does not generate that runtime mechanism, so this group should not be released as an ordinary complete global override.
+
+#### UI master atlases without Sprite metadata
+
+For UI master atlases without individual Sprite metadata, the crop cannot be verified through the normal Sprite contract. Store at least the source file SHA-256, atlas width and height, crop rectangle, and coordinate origin used for every crop. Crop borders must also be inspected visually or with an alpha-border check for fragments belonging to adjacent artwork. This information makes extraction reproducible but does not replace missing pivot or mesh metadata.
 
 ### Target slots absent from SHCDE
 

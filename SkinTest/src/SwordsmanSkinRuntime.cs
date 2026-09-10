@@ -10,6 +10,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using UnityEngine;
+using CrusaderDE;
+using ImageSource = Noesis.ImageSource;
+using UIElement = Noesis.UIElement;
 using ExtenderGM = SHCDESE.Interop.GM;
 using GameGM = Enums.GM;
 
@@ -20,8 +23,13 @@ namespace SkinTest
         private const string AtlasPath = "Assets/CrusaderSwordsman/atlas.png";
         private const string MaskPath = "Assets/CrusaderSwordsman/atlas_m.png";
         private const string ManifestPath = "Assets/CrusaderSwordsman/atlas.json";
+        private const string CastleAtlasPath = "Assets/CrusaderRoundTower/atlas.png";
+        private const string CastleManifestPath = "Assets/CrusaderRoundTower/atlas.json";
+        private const string UiAssetRoot = "Assets/CrusaderUI/";
         private delegate void SetBodySpriteDelegate(SpriteRenderer renderer, int file, int image, int colour,
             bool alternateFrame, int chopFeet, int transparency);
+        private delegate void SetBuildingTileSpriteDelegate(GameMapTile tile, int file, int image, int light);
+        private delegate void UpdateTroopSpritesDelegate(MainViewModel instance, int colour, bool arabic);
 
         private readonly ManualLogSource log;
         private readonly Dictionary<SpriteRenderer, int> unitByRenderer =
@@ -34,8 +42,26 @@ namespace SkinTest
         private Material[] materials;
         private Texture2D colourTexture;
         private Texture2D maskTexture;
+        private Texture2D castleTexture;
         private Hook hook;
+        private Hook buildingHook;
+        private Hook troopHudHook;
         private SetBodySpriteDelegate trampoline;
+        private SetBuildingTileSpriteDelegate buildingTrampoline;
+        private UpdateTroopSpritesDelegate troopHudTrampoline;
+        private Sprite[] castleSprites;
+        private readonly byte[,][] troopHudBytes = new byte[8, 4][];
+        private readonly ImageSource[,] troopHudSources = new ImageSource[8, 4];
+        private readonly byte[][] towerHudBytes = new byte[2][];
+        private readonly ImageSource[] towerHudSources = new ImageSource[2];
+        private ImageSource[] vanillaTroopHud;
+        private UIElement towerButton;
+        private object vanillaTowerSprite1;
+        private object vanillaTowerSprite2;
+        private bool activeMap;
+        private int lastHudColour;
+        private bool lastHudArabic;
+        private bool haveHudArguments;
         private bool disposed;
 
         public SwordsmanSkinRuntime(ManualLogSource log)
@@ -52,10 +78,13 @@ namespace SkinTest
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualSpawn.Observable.Subscribe(OnUnitVisualSpawn));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(OnUnitVisualInterpolate));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualRemove.Observable.Subscribe(OnUnitVisualRemove));
+                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Subscribe(_ => OnMapStarted()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => ClearBindings()));
-                LogInfo($"Validated private atlas: normal={normalSprites.Length}, alternate={alternateSprites.Length}, mask=yes.");
+                LogInfo($"Validated private atlases: swordsman normal={normalSprites.Length}, alternate={alternateSprites.Length}, mask=yes; castle sparse=1467.");
             }
             catch
             {
@@ -109,6 +138,32 @@ namespace SkinTest
                 UnityEngine.Object.DontDestroyOnLoad(material);
                 materials[index] = material;
             }
+
+            if (!assets.GetModFileBinaryContent(SkinTestPlugin.PluginGuid, CastleAtlasPath, out byte[] castleBytes) || castleBytes == null)
+                throw new InvalidOperationException($"Missing indexed mod asset: {CastleAtlasPath}");
+            if (!assets.GetModFileTextContent(SkinTestPlugin.PluginGuid, CastleManifestPath, out string castleJson))
+                throw new InvalidOperationException($"Missing indexed mod asset: {CastleManifestPath}");
+            castleTexture = LoadTexture(castleBytes, "SkinTest_SH1DE_Castle");
+            SparseAtlasManifest castleManifest = SparseAtlasManifest.ParseAndValidate(
+                castleJson, castleTexture.width, castleTexture.height, "tile_castle ", 1467, 1569);
+            castleSprites = new Sprite[1570];
+            foreach (AtlasFrame frame in castleManifest.Frames)
+            {
+                Sprite sprite = Sprite.Create(castleTexture,
+                    new Rect(frame.X, frame.Y, frame.Width, frame.Height),
+                    new Vector2(frame.PivotX, frame.PivotY), frame.PixelsPerUnit, 0, SpriteMeshType.FullRect);
+                sprite.name = "SkinTest_" + frame.Name;
+                sprite.hideFlags = HideFlags.HideAndDontSave;
+                UnityEngine.Object.DontDestroyOnLoad(sprite);
+                castleSprites[frame.Index] = sprite;
+            }
+
+            string[] troopNames = { "UIBuildingsO011", "UIBuildingsO012", "UIButtonsK007", "UIButtonsK008" };
+            for (int colour = 1; colour <= 8; colour++)
+                for (int slot = 0; slot < troopNames.Length; slot++)
+                    troopHudBytes[colour - 1, slot] = ReadAssetBytes(assets, $"{UiAssetRoot}{troopNames[slot]}_colour{colour}.png");
+            towerHudBytes[0] = ReadAssetBytes(assets, UiAssetRoot + "UIBuildingsK009.png");
+            towerHudBytes[1] = ReadAssetBytes(assets, UiAssetRoot + "UIBuildingsK010.png");
         }
 
         private void InstallHook()
@@ -119,7 +174,18 @@ namespace SkinTest
                 ?? throw new MissingMethodException(nameof(SpriteMapping), nameof(SpriteMapping.SetBodySprite));
             hook = new Hook(method, (SetBodySpriteDelegate)SetBodySpriteHook);
             trampoline = hook.GenerateTrampoline<SetBodySpriteDelegate>();
-            LogInfo("Managed SpriteMapping.SetBodySprite hook installed after the existing hook chain.");
+            MethodInfo buildingMethod = typeof(SpriteMapping).GetMethod(nameof(SpriteMapping.setGenericBuildingTileGraphic),
+                BindingFlags.Public | BindingFlags.Static, null,
+                new[] { typeof(GameMapTile), typeof(int), typeof(int), typeof(int) }, null)
+                ?? throw new MissingMethodException(nameof(SpriteMapping), nameof(SpriteMapping.setGenericBuildingTileGraphic));
+            buildingHook = new Hook(buildingMethod, (SetBuildingTileSpriteDelegate)SetBuildingTileSpriteHook);
+            buildingTrampoline = buildingHook.GenerateTrampoline<SetBuildingTileSpriteDelegate>();
+            MethodInfo hudMethod = typeof(MainViewModel).GetMethod(nameof(MainViewModel.UpdateUITroopSprites),
+                BindingFlags.Public | BindingFlags.Instance, null, new[] { typeof(int), typeof(bool) }, null)
+                ?? throw new MissingMethodException(nameof(MainViewModel), nameof(MainViewModel.UpdateUITroopSprites));
+            troopHudHook = new Hook(hudMethod, (UpdateTroopSpritesDelegate)UpdateTroopSpritesHook);
+            troopHudTrampoline = troopHudHook.GenerateTrampoline<UpdateTroopSpritesDelegate>();
+            LogInfo("Managed swordsman, round-tower and troop-HUD hooks installed after the existing hook chains.");
         }
 
         private void OnUnitVisualSpawn(UnitUnityVisualSpawnEventArgs args)
@@ -258,8 +324,23 @@ namespace SkinTest
                     WarnOnce($"culture-mismatch:{ownerPlayerId}",
                         $"Authoritative lord culture differs from early culture: ownerPlayerId={ownerPlayerId}, earlySource={cached.Source}, earlyValue={cached.Value}, earlyCulture={cached.Culture}, lordUnitId={lordUnitId}, lordGM={lordMaterial}, actualCulture={actual}.");
                 }
-                cultureByPlayer[ownerPlayerId] = new CachedCulture(actual, source, value);
-                return actual;
+                LordCulture reconciled = SkinSelectionPolicy.ReconcileEarlyAndActualCulture(
+                    cultureByPlayer.TryGetValue(ownerPlayerId, out CachedCulture prior) ? prior.Culture : LordCulture.Unknown,
+                    actual);
+                if (actual != LordCulture.Unknown)
+                {
+                    cultureByPlayer[ownerPlayerId] = new CachedCulture(reconciled, source, value);
+                    return reconciled;
+                }
+                WarnOnce($"unknown-lord-material:{ownerPlayerId}:{value}",
+                    $"Actual lord has an unknown graphics material; a safely cached early culture remains valid: ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, lordGM={lordMaterial}.");
+                if (cultureByPlayer.TryGetValue(ownerPlayerId, out CachedCulture safeCached) &&
+                    safeCached.Culture != LordCulture.Unknown)
+                {
+                    source = safeCached.Source;
+                    value = safeCached.Value;
+                    return safeCached.Culture;
+                }
             }
 
             if (cultureByPlayer.TryGetValue(ownerPlayerId, out CachedCulture known))
@@ -279,7 +360,7 @@ namespace SkinTest
             return early;
         }
 
-        private static LordCulture TryResolveEarlyCulture(int ownerPlayerId, out string source, out int value)
+        private LordCulture TryResolveEarlyCulture(int ownerPlayerId, out string source, out int value)
         {
             source = "unresolved";
             value = -1;
@@ -294,31 +375,218 @@ namespace SkinTest
                     {
                         value = aics.GetValue(aicIndex).lord_gfx_type;
                         source = "ai-aic";
-                        return SkinSelectionPolicy.ClassifyLordGraphicsType(value);
-                    }
-                }
-
-                if (ownerPlayerId == GamePlayerManagerAPI.Instance.GetLocalPlayerId())
-                {
-                    if (GameData.Instance != null && GameData.Instance.lastGameState != null)
-                    {
-                        value = GameData.Instance.lastGameState.lord_Type;
-                        source = "local-game-state";
+                        LordCulture aiCulture = SkinSelectionPolicy.ClassifyLordGraphicsType(value);
+                        if (aiCulture != LordCulture.Unknown)
+                            return aiCulture;
+                        WarnOnce($"ai-culture-unknown:{ownerPlayerId}:{value}",
+                            $"AI AIC returned an unknown lord graphics type for ownerPlayerId={ownerPlayerId}: value={value}.");
                     }
                     else
-                    {
-                        value = ConfigSettings.Settings_LordType;
-                        source = "local-settings";
-                    }
-                    return SkinSelectionPolicy.ClassifyLordGraphicsType(value);
+                        WarnOnce($"ai-culture-unavailable:{ownerPlayerId}:{aicIndex}",
+                            $"AI AIC entry is unavailable for ownerPlayerId={ownerPlayerId}, aicIndex={aicIndex}.");
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                source = "unresolved";
-                value = -1;
+                WarnOnce($"ai-culture-error:{ownerPlayerId}",
+                    $"AI early-culture lookup failed closed for ownerPlayerId={ownerPlayerId}; local lookup remains eligible: {ex.GetType().Name}: {ex.Message}");
             }
+
+            try
+            {
+                if (ownerPlayerId != GamePlayerManagerAPI.Instance.GetLocalPlayerId())
+                    return LordCulture.Unknown;
+                if (GameData.Instance != null && GameData.Instance.lastGameState != null)
+                {
+                    value = GameData.Instance.lastGameState.lord_Type;
+                    source = "local-game-state";
+                    LordCulture gameStateCulture = SkinSelectionPolicy.ClassifyLordGraphicsType(value);
+                    if (gameStateCulture != LordCulture.Unknown)
+                        return gameStateCulture;
+                }
+            }
+            catch (Exception ex)
+            {
+                WarnOnce($"local-game-state-culture-error:{ownerPlayerId}",
+                    $"Local game-state culture lookup failed closed for ownerPlayerId={ownerPlayerId}; settings lookup remains eligible: {ex.GetType().Name}: {ex.Message}");
+            }
+
+            try
+            {
+                value = ConfigSettings.Settings_LordType;
+                source = "local-settings";
+                return SkinSelectionPolicy.ClassifyLordGraphicsType(value);
+            }
+            catch (Exception ex)
+            {
+                WarnOnce($"local-settings-culture-error:{ownerPlayerId}",
+                    $"Local settings culture lookup failed closed for ownerPlayerId={ownerPlayerId}: {ex.GetType().Name}: {ex.Message}");
+            }
+            source = "unresolved";
+            value = -1;
             return LordCulture.Unknown;
+        }
+
+        private void UpdateTroopSpritesHook(MainViewModel instance, int colour, bool arabic)
+        {
+            troopHudTrampoline(instance, colour, arabic);
+            try
+            {
+                lastHudColour = colour;
+                lastHudArabic = arabic;
+                haveHudArguments = true;
+                vanillaTroopHud = new[]
+                {
+                    instance.UIBuildingsO011, instance.UIBuildingsO012,
+                    instance.UIButtonsK007, instance.UIButtonsK008
+                };
+                ApplyTroopHud(instance, colour, arabic);
+                ApplyTowerHud();
+            }
+            catch (Exception ex)
+            {
+                WarnOnce("troop-hud-error", $"Troop HUD replacement failed closed: {ex}");
+            }
+        }
+
+        private void ApplyTroopHud(MainViewModel instance, int colour, bool arabic)
+        {
+            if (instance == null || colour < 1 || colour > 8)
+                return;
+            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            LordCulture culture = ResolveOwnerCulture(localPlayerId, out _, out _, out string source, out int value);
+            if (!SkinSelectionPolicy.ShouldUseEuropeanHud(activeMap, arabic, colour, culture))
+            {
+                if (culture == LordCulture.NonEuropean)
+                    LogOnce($"troop-hud-vanilla:{source}:{value}",
+                        $"Vanilla troop HUD retained for non-European local lord culture: source={source}, value={value}.");
+                return;
+            }
+            EnsureTroopHudSources(instance, colour);
+            instance.UIBuildingsO011 = troopHudSources[colour - 1, 0];
+            instance.UIBuildingsO012 = troopHudSources[colour - 1, 1];
+            instance.UIButtonsK007 = troopHudSources[colour - 1, 2];
+            instance.UIButtonsK008 = troopHudSources[colour - 1, 3];
+            LogOnce($"troop-hud-applied:{colour}",
+                $"SH1DE swordsman HUD activated for player colour {colour}: source={source}, value={value}.");
+        }
+
+        private void EnsureTroopHudSources(MainViewModel instance, int colour)
+        {
+            for (int slot = 0; slot < 4; slot++)
+            {
+                if (troopHudSources[colour - 1, slot] != null)
+                    continue;
+                troopHudSources[colour - 1, slot] = instance.LoadImageFile(troopHudBytes[colour - 1, slot]);
+                if (troopHudSources[colour - 1, slot] == null)
+                    throw new InvalidOperationException($"Noesis could not decode troop HUD colour={colour}, slot={slot}.");
+            }
+        }
+
+        private unsafe void SetBuildingTileSpriteHook(GameMapTile tile, int file, int image, int light)
+        {
+            buildingTrampoline(tile, file, image, light);
+            try
+            {
+                if (tile == null || file != (int)ExtenderGM.GM_CASTLES || image <= 0 ||
+                    image >= castleSprites.Length || castleSprites[image] == null || spriteLoader.instance == null)
+                    return;
+                Sprite expected = spriteLoader.instance.GetGMSprite(GameGM.GM_CASTLES, image);
+                if (!ReferenceEquals(tile.tileImage, expected))
+                    return;
+                int tileId = GameTileManagerAPI.Instance.GetTileId(tile.gameMapX, tile.gameMapY);
+                int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(tileId);
+                if (buildingId <= 0 || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building))
+                    return;
+                if (building->r_BuildingType != eStructs.STRUCT_TOWER5 &&
+                    building->r_BuildingType != eStructs.STRUCT_TOWER5_DESTROYED)
+                    return;
+                int ownerPlayerId = building->r_PlayerIdOwner;
+                LordCulture culture = ResolveOwnerCulture(ownerPlayerId, out int lordUnitId,
+                    out ExtenderGM lordMaterial, out string source, out int value);
+                if (culture == LordCulture.NonEuropean)
+                {
+                    LogOnce($"tower-vanilla:{source}:{value}",
+                        $"Vanilla round tower retained for non-European owner: buildingId={buildingId}, ownerPlayerId={ownerPlayerId}, source={source}, value={value}.");
+                    return;
+                }
+                bool isRoundTower = building->r_BuildingType == eStructs.STRUCT_TOWER5 ||
+                    building->r_BuildingType == eStructs.STRUCT_TOWER5_DESTROYED;
+                if (!SkinSelectionPolicy.CanReplaceBuilding(true, isRoundTower, ownerPlayerId, culture, castleSprites[image] != null))
+                    return;
+                tile.tileImage = castleSprites[image];
+                LogOnce("tower-skin-applied",
+                    $"SH1DE round-tower skin applied: buildingId={buildingId}, ownerPlayerId={ownerPlayerId}, lordUnitId={lordUnitId}, lordGM={lordMaterial}, source={source}, value={value}, image={image}, light={tile.light}.");
+            }
+            catch (Exception ex)
+            {
+                WarnOnce("tower-hook-error", $"Round-tower replacement failed closed; the prior result remains active: {ex}");
+            }
+        }
+
+        private void OnMapStarted()
+        {
+            activeMap = true;
+            if (haveHudArguments && MainViewModel.Instance != null)
+                ApplyTroopHud(MainViewModel.Instance, lastHudColour, lastHudArabic);
+            ApplyTowerHud();
+        }
+
+        private void ApplyTowerHud()
+        {
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (!activeMap || viewModel == null || viewModel.HUDmain == null)
+                return;
+            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            LordCulture culture = ResolveOwnerCulture(localPlayerId, out _, out _, out string source, out int value);
+            UIElement button = viewModel.HUDmain.FindName("ButtonBuildTowerE") as UIElement;
+            if (button == null)
+            {
+                WarnOnce("tower-hud-button-missing", "ButtonBuildTowerE was not found in the active HUD.");
+                return;
+            }
+            if (!ReferenceEquals(towerButton, button))
+            {
+                RestoreTowerHud();
+                towerButton = button;
+                vanillaTowerSprite1 = PropEx.GetSprite1(button);
+                vanillaTowerSprite2 = PropEx.GetSprite2(button);
+            }
+            if (culture != LordCulture.European)
+            {
+                PropEx.SetSprite1(button, vanillaTowerSprite1);
+                PropEx.SetSprite2(button, vanillaTowerSprite2);
+                return;
+            }
+            for (int index = 0; index < towerHudSources.Length; index++)
+            {
+                if (towerHudSources[index] == null)
+                    towerHudSources[index] = viewModel.LoadImageFile(towerHudBytes[index]);
+                if (towerHudSources[index] == null)
+                    throw new InvalidOperationException($"Noesis could not decode round-tower HUD slot {index}.");
+            }
+            PropEx.SetSprite1(button, towerHudSources[0]);
+            PropEx.SetSprite2(button, towerHudSources[1]);
+            LogOnce("tower-hud-applied", $"SH1DE round-tower build HUD activated: source={source}, value={value}.");
+        }
+
+        private void RestoreTowerHud()
+        {
+            if (towerButton != null)
+            {
+                PropEx.SetSprite1(towerButton, vanillaTowerSprite1);
+                PropEx.SetSprite2(towerButton, vanillaTowerSprite2);
+            }
+            towerButton = null;
+            vanillaTowerSprite1 = null;
+            vanillaTowerSprite2 = null;
+        }
+
+        private static byte[] ReadAssetBytes(GameAssetManagerAPI assets, string path)
+        {
+            if (!assets.GetModFileBinaryContent(SkinTestPlugin.PluginGuid, path, out byte[] bytes) || bytes == null)
+                throw new InvalidOperationException($"Missing indexed mod asset: {path}");
+            return bytes;
         }
 
         private static int ChopMaterialIndex(int chopFeet)
@@ -363,10 +631,19 @@ namespace SkinTest
 
         private void ClearBindings()
         {
+            activeMap = false;
+            if (vanillaTroopHud != null && MainViewModel.Instance != null)
+            {
+                MainViewModel.Instance.UIBuildingsO011 = vanillaTroopHud[0];
+                MainViewModel.Instance.UIBuildingsO012 = vanillaTroopHud[1];
+                MainViewModel.Instance.UIButtonsK007 = vanillaTroopHud[2];
+                MainViewModel.Instance.UIButtonsK008 = vanillaTroopHud[3];
+            }
+            RestoreTowerHud();
             unitByRenderer.Clear();
             cultureByPlayer.Clear();
             warnings.Clear();
-            LogInfo("Renderer bindings cleared for map unload.");
+            LogInfo("Per-map renderer, culture and HUD bindings cleared for map unload.");
         }
 
         private void WarnOnce(string key, string message)
@@ -396,14 +673,18 @@ namespace SkinTest
             cultureByPlayer.Clear();
             DestroyAll(alternateSprites);
             DestroyAll(normalSprites);
+            DestroyAll(castleSprites);
             DestroyAll(materials);
             if (maskTexture != null) UnityEngine.Object.Destroy(maskTexture);
             if (colourTexture != null) UnityEngine.Object.Destroy(colourTexture);
+            if (castleTexture != null) UnityEngine.Object.Destroy(castleTexture);
             alternateSprites = null;
             normalSprites = null;
+            castleSprites = null;
             materials = null;
             maskTexture = null;
             colourTexture = null;
+            castleTexture = null;
             LogInfo("Hook, bindings and private graphics resources released.");
         }
 
@@ -423,9 +704,18 @@ namespace SkinTest
 
         private void ReleaseHook()
         {
-            Hook current = hook;
-            hook = null;
+            ReleaseSingleHook(ref troopHudHook);
+            troopHudTrampoline = null;
+            ReleaseSingleHook(ref buildingHook);
+            buildingTrampoline = null;
+            ReleaseSingleHook(ref hook);
             trampoline = null;
+        }
+
+        private static void ReleaseSingleHook(ref Hook hookField)
+        {
+            Hook current = hookField;
+            hookField = null;
             if (current == null) return;
             try { current.Undo(); } catch { }
             try { current.Dispose(); } catch { }

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionControls']">
+    <Content>
+      <Grid x:Name="APISharedUnitHudCategoryHost">
+        <Button x:Name="APISharedUnitHudSlot1" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
+        <Button x:Name="APISharedUnitHudSlot2" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
+        <Button x:Name="APISharedUnitHudSlot3" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
+        <Button x:Name="APISharedUnitHudSlot4" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
+        <Button x:Name="APISharedUnitHudSlot5" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
+        <Button x:Name="APISharedUnitHudSlot6" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
+        <Button x:Name="APISharedUnitHudSlot7" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
+        <Button x:Name="APISharedUnitHudSlot8" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

@@ -132,5 +132,21 @@ namespace BugfixesAndQoL
             }
         }
 
+        internal void JumpToUnit(int unitId)
+        {
+            if (!settings.EnableClientFeatures || !settings.EnableTroopHudMiddleClickCameraJump || unitId <= 0)
+                return;
+            try
+            {
+                GamePlayerManagerAPI.Instance?.SetScreenCenterToUnit(unitId);
+            }
+            catch (Exception ex)
+            {
+                if (commandFailureLogged) return;
+                commandFailureLogged = true;
+                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL category middle-click camera jump failed: {ex}");
+            }
+        }
+
     }
 }

@@ -1,0 +1,57 @@
+{
+  "source": "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\SH1DE_RippedFiles\\Assets\\Texture2D\\UI-MasterAtlas.png",
+  "sourceSha256": "9AF9A7F9F57BD43A70BEFAE581F0A5C72E8CF968492A608B3997B765AE63DDEE",
+  "sourceDimensions": [
+    8192,
+    4096
+  ],
+  "rectCoordinateOrigin": "top-left",
+  "rectangles": {
+    "UIButtonsK007": {
+      "x": 3340,
+      "y": 2050,
+      "width": 100,
+      "height": 190,
+      "sha256": "367DD663692B2FA84B9E067379B199B6B4519980CA59011A7514869DC23C1E8C",
+      "teamMaskSha256": "03714D1339C711F9075D6C21DC3CB243422D6C7C2D7BB23EC810965B1DC611AF"
+    },
+    "UIButtonsK008": {
+      "x": 3376,
+      "y": 2251,
+      "width": 100,
+      "height": 162,
+      "sha256": "5F3F8748776E9765008E4140E2A75B33058C7EE959C63EFD0EA2B50EF08A0B73",
+      "teamMaskSha256": "0DDDD1C67396B06957F3FE60EBAAD3808C13618BB18FA5D43E8F8D1C123FCDDC"
+    },
+    "UIBuildingsO011": {
+      "x": 5828,
+      "y": 2012,
+      "width": 116,
+      "height": 217,
+      "sha256": "FFF84D691F4A14AD42C8F51F7111239C148ABF7E717EFA0D54D5CA3F0574838A",
+      "teamMaskSha256": "AB6308ECEA068D40559F57049DAE0964AB4E1D5137A91B8DA6E65926F72B3B17"
+    },
+    "UIBuildingsO012": {
+      "x": 5956,
+      "y": 2012,
+      "width": 116,
+      "height": 217,
+      "sha256": "79F3FDAE52E596C7BEDAE63B7B04C9471AB27DAEF62400A62100BA674D404E35",
+      "teamMaskSha256": "B77E57329F421F8A78E5973F3F2026BA795E0677B8D65E3613F4FC8A06F002D2"
+    },
+    "UIBuildingsK009": {
+      "x": 3490,
+      "y": 2594,
+      "width": 115,
+      "height": 156,
+      "sha256": "182326B19EC52B2AA6D938BF0E7CE50544888D9A3CB6C5A8C5388FFD0D5CC50F"
+    },
+    "UIBuildingsK010": {
+      "x": 3605,
+      "y": 2594,
+      "width": 115,
+      "height": 156,
+      "sha256": "7E4AD607D848AEA3A1BD678BBC5592DFD53481A080B5631B7CF9E0DDA63CE00E"
+    }
+  }
+}

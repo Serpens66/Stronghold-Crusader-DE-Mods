@@ -57,6 +57,15 @@ namespace PreplacedTest
         private const int QuarrySearchCooldownRelativeOffset = 0x1680;
         private const int IronSearchCooldownRelativeOffset = 0x1682;
         private const int PitchSearchCooldownRelativeOffset = 0x1684;
+        private const int FarmBuiltCountRelativeOffset = 0x162C;
+        private const int FarmDesiredCountRelativeOffset = 0x1688;
+        private const int QuarryDesiredCountRelativeOffset = 0x168A;
+        private const int IronDesiredCountRelativeOffset = 0x168C;
+        private const int PitchDesiredCountRelativeOffset = 0x168E;
+        private const int IronBuiltCountRelativeOffset = 0x1690;
+        private const int PitchBuiltCountRelativeOffset = 0x1694;
+        private const int QuarryBuiltCountRelativeOffset = 0x1698;
+        private const int FarmSearchMapGateRva = 0x64CCC04;
         private const int AivGridSize = 100;
         private const int LogPayloadLength = 1600;
         private const int BuildingCountModeFieldOffset = 0x2C8;
@@ -74,10 +83,29 @@ namespace PreplacedTest
         private const int LegacyPlayerStateCopyCallSiteRva = 0x96CE;
         private const int LegacyPlayerStateSourceRva = 0x37CC7EC;
         private const int CurrentPlayerStateDestinationRva = 0x379ADD0;
+        private const int ActivePlayerRuntimeStateBaseRva = 0x379D0CC;
+        private const int PlayerResourcesOffsetInSerializedRecord =
+            ActivePlayerRuntimeStateBaseRva - CurrentPlayerStateDestinationRva;
+        private const int SerializedCrushedCounterOffset =
+            PlayerResourcesOffsetInSerializedRecord + CrushedCounterRelativeOffset;
         private const int MapFormatVersionRva = 0x32DC084;
         private const int LegacyPlayerStateCopyVersionExclusive = 0xD5;
         private const int LegacyPlayerStateStride = 0x39F4;
         private const int SerializedPlayerRecordCount = 9;
+        private const int PlayerStateChoreRva = 0x15B90;
+        private const int PlayerStateRecordCopyCallSiteRva = 0x15C4A;
+        private const int ChoreCopyFieldRva = 0x1F5F0;
+        private const int ChoreCopyFieldMemcpyCallSiteRva = 0x1F65D;
+        private const int ChoreCopyFieldEndRva = 0x1F68D;
+        private const int NativeChoreManagerRva = 0x8574320;
+        private const int CurrentChoreRecordIndexRva = 0x86C132C;
+        private const int ChoreDirectionRva = 0x85F8FEC;
+        private const int ChoreBlockedRva = 0x8574CC0;
+        private const int ChoreCursorOffset = 0x370BF8;
+        private const int ChoreLinearBufferOffset = 0x84CD8;
+        private const int ChorePlayerIndexFieldSize = sizeof(int);
+        private const int ChoreBufferCapacity = 180000;
+        private const int PlayerClassTableRva = 0x37EDF3C;
         // Literal protocol/layout values of the audited PCL and accessibility functions.
         private const int MaximumPortalRecordCount = 200;
         private const int PortalRecordStrideDwords = 0x81;
@@ -203,6 +231,11 @@ namespace PreplacedTest
             "4C 8D 15 ?? ?? ?? ?? 41 83 FD 01 75 1D 48 0F BF C2 48 69 C8 3C 58 00 00 42 39 B4 11 B0 D8 79 03 75 08 46 89 AC 11 B0 D8 79 03 4C 8D 2D ?? ?? ?? ??";
         private const string LegacyPlayerStateCopyPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 20 48 8D 2D ?? ?? ?? ?? BB 60 0D 03 00";
+        private const string PlayerStateChorePattern =
+            "48 89 5C 24 08 57 48 83 EC 30 48 63 05 ?? ?? ?? ?? 48 8D 1D ?? ?? ?? ?? 33 FF 48 8D 0C 80 48 C1 E1 08 " +
+            "89 BC 19 F8 0B 0B 00 8B 05 ?? ?? ?? ?? C7 05 ?? ?? ?? ?? 40 58 00 00 83 F8 01 75 ?? 45 33 C9";
+        private const string ChoreCopyFieldPattern =
+            "45 85 C0 0F 8E ?? ?? ?? ?? 48 89 5C 24 08 57 48 83 EC 20 41 8B F8 48 8B D9 48 85 D2 74 ?? 4C 63 91 F8 0B 37 00";
         private const string InitializeUnitSubsystemPattern =
             "48 83 EC 28 4C 8D 0D ?? ?? ?? ?? 45 33 C0 BA 5C 37 10 00 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ??";
         private const string ResetMapObjectSubsystemPattern =
@@ -298,6 +331,9 @@ namespace PreplacedTest
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void BuildingInitializationDelegate(ulong manager, int buildingId);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void LegacyPlayerStateCopyDelegate();
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void InitializationStateDelegate(ulong state);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void PlayerStateChoreDelegate();
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void ChoreCopyFieldDelegate(
+            ulong manager, ulong fieldAddress, int size, int bufferMode, int direction);
 
         private readonly ManualLogSource log;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
@@ -353,6 +389,8 @@ namespace PreplacedTest
         private readonly DetourHandle<InitializationStateDelegate> initializeUnitSubsystemHook = new DetourHandle<InitializationStateDelegate>();
         private readonly DetourHandle<InitializationStateDelegate> resetMapObjectSubsystemHook = new DetourHandle<InitializationStateDelegate>();
         private readonly DetourHandle<InitializationStateDelegate> initializePlayerPathingHook = new DetourHandle<InitializationStateDelegate>();
+        private readonly DetourHandle<PlayerStateChoreDelegate> playerStateChoreHook = new DetourHandle<PlayerStateChoreDelegate>();
+        private readonly DetourHandle<ChoreCopyFieldDelegate> choreCopyFieldHook = new DetourHandle<ChoreCopyFieldDelegate>();
         private readonly HookHandle<X64InlineHook> crushedTimerWriterHook = new HookHandle<X64InlineHook>();
         private readonly object crushedWriterSync = new object();
         private readonly Queue<CrushedWriterSignal> pendingCrushedWriterSignals = new Queue<CrushedWriterSignal>();
@@ -386,6 +424,7 @@ namespace PreplacedTest
         private readonly HashSet<string> emittedDominantPclSignatures = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> emittedInvalidPclAccesses = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> emittedShadowSearchSignatures = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> emittedInitializationCheckpoints = new HashSet<string>(StringComparer.Ordinal);
         private readonly Dictionary<int, WallTileBaseline> wallBaselines = new Dictionary<int, WallTileBaseline>();
         private bool initializationTracingActive;
         private bool currentMapIsSave;
@@ -434,6 +473,8 @@ namespace PreplacedTest
                     throw new InvalidOperationException("audited native PCL-grid range is outside the image or has the wrong length");
                 activeLayoutIndexBase = ResolveRipAddress(context, rvas["active-layout-reference"] + 3, 3, 7);
                 ulong module = unchecked((ulong)context.ModuleHandle.ToInt64());
+                if (activeLayoutIndexBase != module + ActivePlayerRuntimeStateBaseRva)
+                    throw new InvalidOperationException("active player runtime-state base differs from the audited serialized-record offset");
                 nativeModuleBase = module;
                 nativePathManagerBase = module + NativePathManagerRva;
                 nativePclGrid = (ushort*)(module + NativePclGridRva);
@@ -441,6 +482,7 @@ namespace PreplacedTest
                     (CrushedTimerWriterRva - CrushedTimerWriterBlockRva));
                 ValidateCrushedTimerWriterBytes(context.Memory, writerRva);
                 ValidateLegacyPlayerStateCopy(context.Memory, rvas["legacy-player-state-copy"]);
+                ValidateChorePlayerStateRanges(context.Memory, rvas);
                 ValidateFinalMapStartSequence(context.Memory, rvas);
                 using (var probe = new X64InlineHook(module + (ulong)writerRva,
                     CrushedTimerWriterDisplacedLength))
@@ -501,6 +543,10 @@ namespace PreplacedTest
                     HookTarget.FromAddress(module + (ulong)rvas["reset-map-object-subsystem"]), ResetMapObjectSubsystem);
                 transaction.AddDetour(initializePlayerPathingHook,
                     HookTarget.FromAddress(module + (ulong)rvas["initialize-player-pathing"]), InitializePlayerPathing);
+                transaction.AddDetour(playerStateChoreHook,
+                    HookTarget.FromAddress(module + (ulong)rvas["player-state-chore"]), PlayerStateChore);
+                transaction.AddDetour(choreCopyFieldHook,
+                    HookTarget.FromAddress(module + (ulong)rvas["chore-copy-field"]), ChoreCopyField);
                 transaction.AddContextHook(crushedTimerWriterHook, HookTarget.FromAddress(module + (ulong)writerRva),
                     ObserveCrushedTimerWriter, new ContextHookOptions
                     {
@@ -516,7 +562,7 @@ namespace PreplacedTest
                 if (crushedTimerWriterHook.Hook.DisplacedByteCount != CrushedTimerWriterDisplacedLength)
                     throw new InvalidOperationException("installed crushed-timer writer hook displaced an unexpected byte range");
                 Shared.DebugLogHelper.LogInfo(log,
-                    $"PREPLACED_NATIVE_READY: 46 passive detours and one passive writer context hook installed atomically; activeLayoutBase=0x{activeLayoutIndexBase:X}, pathManagerBase=0x{nativePathManagerBase:X}, pclRange=0x{NativePclGridRva:X}-0x{NativePclGridEndRva:X} ({NativePclEntryCount} ushorts)." );
+                    $"PREPLACED_NATIVE_READY: 48 passive detours and one passive writer context hook installed atomically; activeLayoutBase=0x{activeLayoutIndexBase:X}, pathManagerBase=0x{nativePathManagerBase:X}, pclRange=0x{NativePclGridRva:X}-0x{NativePclGridEndRva:X} ({NativePclEntryCount} ushorts)." );
             }
             catch (Exception ex)
             {
@@ -574,6 +620,8 @@ namespace PreplacedTest
                 Def("initialize-unit-subsystem", InitializeUnitSubsystemPattern, InitializeUnitSubsystemRva),
                 Def("reset-map-object-subsystem", ResetMapObjectSubsystemPattern, ResetMapObjectSubsystemRva),
                 Def("initialize-player-pathing", InitializePlayerPathingPattern, InitializePlayerPathingRva),
+                Def("player-state-chore", PlayerStateChorePattern, PlayerStateChoreRva),
+                Def("chore-copy-field", ChoreCopyFieldPattern, ChoreCopyFieldRva),
                 Def("crushed-timer-writer-block", CrushedTimerWriterBlockPattern, CrushedTimerWriterBlockRva),
                 Def("active-layout-reference", ActiveLayoutReferencePattern, ActiveLayoutReferenceRva)
             };
@@ -616,8 +664,58 @@ namespace PreplacedTest
                 (long)SerializedPlayerRecordCount * PlayerRuntimeStateStride;
             if (sourceEnd > memory.Length || destinationEnd > memory.Length ||
                 MapFormatVersionRva + sizeof(int) > memory.Length ||
-                CrushedCounterRelativeOffset + sizeof(int) > LegacyPlayerStateStride)
+                SerializedCrushedCounterOffset + sizeof(int) > LegacyPlayerStateStride)
                 throw new InvalidOperationException("legacy player-state copy data ranges differ");
+        }
+
+        private static void ValidateChorePlayerStateRanges(ReadOnlySpan<byte> memory,
+            Dictionary<string, int> rvas)
+        {
+            long playerStateEnd = CurrentPlayerStateDestinationRva +
+                (long)SerializedPlayerRecordCount * PlayerRuntimeStateStride;
+            long choreLinearBufferEnd = NativeChoreManagerRva + ChoreLinearBufferOffset + ChoreBufferCapacity;
+            if (rvas["player-state-chore"] != PlayerStateChoreRva ||
+                rvas["chore-copy-field"] != ChoreCopyFieldRva ||
+                playerStateEnd > memory.Length || choreLinearBufferEnd > memory.Length ||
+                CurrentChoreRecordIndexRva + sizeof(int) > memory.Length ||
+                ChoreDirectionRva + sizeof(int) > memory.Length ||
+                ChoreBlockedRva + sizeof(int) > memory.Length ||
+                FarmSearchMapGateRva + sizeof(int) > memory.Length ||
+                PlayerClassTableRva + SerializedPlayerRecordCount * sizeof(int) > memory.Length ||
+                SerializedCrushedCounterOffset + sizeof(int) > PlayerRuntimeStateStride ||
+                PitchBuiltCountRelativeOffset + sizeof(int) > PlayerRuntimeStateStride ||
+                PlayerResourcesOffsetInSerializedRecord != 0x22FC ||
+                SerializedCrushedCounterOffset != 0x2AE0)
+                throw new InvalidOperationException("player-state chore/copy ranges differ from the audited FBCB9319 contract");
+
+            byte[] recordCopySetup =
+            {
+                0x48, 0x63, 0x05, 0xFF, 0xB6, 0x6A, 0x08, 0x45, 0x33, 0xC9,
+                0x48, 0x69, 0xD0, 0x3C, 0x58, 0x00, 0x00,
+                0x48, 0x8D, 0x05, 0x92, 0x51, 0x78, 0x03,
+                0x41, 0xB8, 0x3C, 0x58, 0x00, 0x00, 0x48, 0x03, 0xD0, 0x48, 0x8B, 0xCB, 0xE8
+            };
+            const int recordCopySetupRva = 0x15C26;
+            if (recordCopySetupRva + recordCopySetup.Length > memory.Length ||
+                !memory.Slice(recordCopySetupRva, recordCopySetup.Length).SequenceEqual(recordCopySetup) ||
+                Shared.NativePatternResolver.ResolveRelativeTarget(memory, recordCopySetupRva + 3,
+                    recordCopySetupRva + 7) != CurrentChoreRecordIndexRva ||
+                Shared.NativePatternResolver.ResolveRelativeTarget(memory, recordCopySetupRva + 20,
+                    recordCopySetupRva + 24) != CurrentPlayerStateDestinationRva ||
+                Shared.NativePatternResolver.ResolveRelativeTarget(memory, PlayerStateRecordCopyCallSiteRva + 1,
+                    PlayerStateRecordCopyCallSiteRva + 5) != ChoreCopyFieldRva)
+                throw new InvalidOperationException("player-state chore full-record call contract differs");
+
+            if (ChoreCopyFieldEndRva > memory.Length || memory[ChoreCopyFieldEndRva - 1] != 0xC3 ||
+                memory[ChoreCopyFieldMemcpyCallSiteRva] != 0xE8 ||
+                Shared.NativePatternResolver.ResolveRelativeTarget(memory, ChoreCopyFieldMemcpyCallSiteRva + 1,
+                    ChoreCopyFieldMemcpyCallSiteRva + 5) != 0x7140 ||
+                !memory.Slice(ChoreCopyFieldMemcpyCallSiteRva + 5, 18).SequenceEqual(new byte[]
+                {
+                    0x01, 0xBB, 0xF8, 0x0B, 0x37, 0x00, 0x8B, 0x93, 0xF8,
+                    0x0B, 0x37, 0x00, 0x81, 0xFA, 0x20, 0xBF, 0x02, 0x00
+                }))
+                throw new InvalidOperationException("chore field-copy direction/cursor/function-boundary contract differs");
         }
 
         private static void ValidateManagedLayouts()
@@ -677,7 +775,8 @@ namespace PreplacedTest
             regionPairReachabilityHook.Success && economyGridUpdateHook.Success && selectDominantPclHook.Success &&
             initializePlayerBuildingsHook.Success && initializeBuildingHook.Success && clearBuildingRecordHook.Success &&
             legacyPlayerStateCopyHook.Success && initializeUnitSubsystemHook.Success &&
-            resetMapObjectSubsystemHook.Success && initializePlayerPathingHook.Success && crushedTimerWriterHook.Success;
+            resetMapObjectSubsystemHook.Success && initializePlayerPathingHook.Success &&
+            playerStateChoreHook.Success && choreCopyFieldHook.Success && crushedTimerWriterHook.Success;
 
         private void EconomyGridUpdate(ulong state, int mode)
         {
@@ -840,9 +939,150 @@ namespace PreplacedTest
                     $"loadSaveEventObserved={loadSaveEventObserved}; loadingEditorMap={loadingEditorMap}; " +
                     $"sourceRva=0x{LegacyPlayerStateSourceRva:X}; sourceStride=0x{LegacyPlayerStateStride:X}; " +
                     $"destinationRva=0x{CurrentPlayerStateDestinationRva:X}; destinationStride=0x{PlayerRuntimeStateStride:X}; " +
-                    $"timerOffset=0x{CrushedCounterRelativeOffset:X}; records=[{string.Join("; ", rows)}]");
+                    $"playerResourcesOffset=0x{PlayerResourcesOffsetInSerializedRecord:X}; " +
+                    $"serializedTimerOffset=0x{SerializedCrushedCounterOffset:X}; records=[{string.Join("; ", rows)}]");
             });
         }
+
+        private void PlayerStateChore()
+        {
+            int recordIndex = -1;
+            int direction = -1;
+            int blocked = -1;
+            int cursorBefore = -1;
+            int bufferedPlayerBefore = -1;
+            int bufferedTimerBefore = int.MinValue;
+            int[] timersBefore = null;
+            Safe(() =>
+            {
+                recordIndex = *(int*)(nativeModuleBase + CurrentChoreRecordIndexRva);
+                direction = *(int*)(nativeModuleBase + ChoreDirectionRva);
+                blocked = *(int*)(nativeModuleBase + ChoreBlockedRva);
+                byte* manager = (byte*)(nativeModuleBase + NativeChoreManagerRva);
+                cursorBefore = *(int*)(manager + ChoreCursorOffset);
+                if (cursorBefore >= 0 && (long)cursorBefore + ChorePlayerIndexFieldSize +
+                    SerializedCrushedCounterOffset + sizeof(int) <= ChoreBufferCapacity)
+                {
+                    byte* payload = manager + ChoreLinearBufferOffset + cursorBefore;
+                    bufferedPlayerBefore = *(int*)payload;
+                    bufferedTimerBefore = *(int*)(payload + ChorePlayerIndexFieldSize + SerializedCrushedCounterOffset);
+                }
+                timersBefore = CaptureAllCrushedCounters();
+                EmitInitializationCheckpointReached("0x15B90-player-state-chore", "entry");
+            });
+
+            playerStateChoreHook.Original();
+
+            Safe(() =>
+            {
+                int cursorAfter = *(int*)(nativeModuleBase + NativeChoreManagerRva + ChoreCursorOffset);
+                int bufferedPlayerAfter = -1;
+                int bufferedTimerAfter = int.MinValue;
+                if (cursorBefore >= 0 && (long)cursorBefore + ChorePlayerIndexFieldSize +
+                    SerializedCrushedCounterOffset + sizeof(int) <= ChoreBufferCapacity)
+                {
+                    byte* payload = (byte*)(nativeModuleBase + NativeChoreManagerRva +
+                        ChoreLinearBufferOffset + (ulong)cursorBefore);
+                    bufferedPlayerAfter = *(int*)payload;
+                    bufferedTimerAfter = *(int*)(payload + ChorePlayerIndexFieldSize + SerializedCrushedCounterOffset);
+                }
+                int[] timersAfter = CaptureAllCrushedCounters();
+                EmitTimerCheckpointChanges("0x15B90-player-state-chore", recordIndex, 0,
+                    timersBefore, timersAfter);
+                string transfer = ChoreTransferDirection.Classify(direction);
+                string destroyed = string.Join(",", CaptureRawBuildings()
+                    .Where(value => value.OwnerId == recordIndex && !IsLiving(value))
+                    .Select(value => value.Id + "/" + value.GlobalId + "/" + value.Type));
+                EmitChunked("PREPLACED_PLAYER_STATE_CHORE: ",
+                    $"recordIndex={recordIndex}; bufferedPlayer={bufferedPlayerBefore}->{bufferedPlayerAfter}; directionRaw={direction}; " +
+                    $"transfer={transfer}; blocked={blocked}; cursor={cursorBefore}->{cursorAfter}; " +
+                    $"bufferTimer={FormatCapturedInt(bufferedTimerBefore)}->{FormatCapturedInt(bufferedTimerAfter)}; " +
+                    $"runtimeTimersBefore=[{FormatTimerArray(timersBefore)}]; " +
+                    $"runtimeTimersAfter=[{FormatTimerArray(timersAfter)}]; mapIsSave={currentMapIsSave}; " +
+                    $"loadSaveEventObserved={loadSaveEventObserved}; phase={lastObservedPhase}; " +
+                    $"nonLivingOwnedByRecord=[{destroyed}]");
+                EmitInitializationCheckpointReached("0x15B90-player-state-chore", "post");
+                ObserveCrushedCounters("player-state-chore.post");
+            });
+        }
+
+        private void ChoreCopyField(ulong managerAddress, ulong fieldAddress, int size,
+            int bufferMode, int direction)
+        {
+            bool overlapsPlayerState = RangesOverlap(fieldAddress, size,
+                nativeModuleBase + CurrentPlayerStateDestinationRva,
+                SerializedPlayerRecordCount * PlayerRuntimeStateStride);
+            int cursorBefore = -1;
+            ulong bufferAddress = 0;
+            int[] timersBefore = null;
+            int[] bufferTimersBefore = null;
+            bool diagnosticCaptureReady = false;
+            if (overlapsPlayerState)
+            {
+                Safe(() =>
+                {
+                    if (managerAddress != nativeModuleBase + NativeChoreManagerRva) return;
+                    byte* manager = (byte*)managerAddress;
+                    cursorBefore = *(int*)(manager + ChoreCursorOffset);
+                    bufferAddress = ResolveChoreBufferAddress(manager, cursorBefore, size, bufferMode);
+                    timersBefore = CaptureAllCrushedCounters();
+                    bufferTimersBefore = CaptureTimersFromIntersectingPayload(bufferAddress, size);
+                    diagnosticCaptureReady = true;
+                    EmitInitializationCheckpointReached("0x1F5F0-player-state-copy", "entry");
+                });
+            }
+
+            choreCopyFieldHook.Original(managerAddress, fieldAddress, size, bufferMode, direction);
+
+            if (!overlapsPlayerState || !diagnosticCaptureReady) return;
+            Safe(() =>
+            {
+                int cursorAfter = *(int*)((byte*)managerAddress + ChoreCursorOffset);
+                int[] timersAfter = CaptureAllCrushedCounters();
+                int[] bufferTimersAfter = CaptureTimersFromIntersectingPayload(bufferAddress, size);
+                EmitTimerCheckpointChanges("0x1F5F0-player-state-copy", 0, 0,
+                    timersBefore, timersAfter);
+                EmitChunked("PREPLACED_PLAYER_STATE_FIELD_COPY: ",
+                    $"field=0x{fieldAddress:X}; size=0x{size:X}; bufferMode={bufferMode}; directionRaw={direction}; " +
+                    $"transfer={ChoreTransferDirection.Classify(direction)}; " +
+                    $"buffer=0x{bufferAddress:X}; cursor={cursorBefore}->{cursorAfter}; " +
+                    $"runtimeTimers=[{FormatTimerArray(timersBefore)}]->[{FormatTimerArray(timersAfter)}]; " +
+                    $"bufferTimers=[{FormatTimerArray(bufferTimersBefore)}]->[{FormatTimerArray(bufferTimersAfter)}]; " +
+                    $"phase={lastObservedPhase}");
+                EmitInitializationCheckpointReached("0x1F5F0-player-state-copy", "post");
+                ObserveCrushedCounters("player-state-field-copy.post");
+            });
+        }
+
+        private static bool RangesOverlap(ulong address, int size, ulong expectedAddress, int expectedSize)
+        {
+            if (size <= 0 || expectedSize <= 0) return false;
+            ulong end = address + (ulong)size;
+            ulong expectedEnd = expectedAddress + (ulong)expectedSize;
+            return end >= address && expectedEnd >= expectedAddress && address < expectedEnd && expectedAddress < end;
+        }
+
+        private static ulong ResolveChoreBufferAddress(byte* manager, int cursor, int size, int bufferMode)
+        {
+            if (manager == null || cursor < 0 || size <= 0 ||
+                (long)cursor + size > ChoreBufferCapacity) return 0;
+            // The complete player-record handler is proven to use only the linear mode.
+            // Avoid interpreting the unrelated banked layout without a separate capacity contract.
+            return bufferMode == 0 ? (ulong)(manager + ChoreLinearBufferOffset + cursor) : 0;
+        }
+
+        private int[] CaptureTimersFromIntersectingPayload(ulong payloadAddress, int payloadSize)
+        {
+            if (payloadAddress == 0 || payloadSize < PlayerRuntimeStateStride) return null;
+            int records = Math.Min(SerializedPlayerRecordCount, payloadSize / PlayerRuntimeStateStride);
+            var result = new int[records];
+            for (int index = 0; index < records; index++)
+                result[index] = *(int*)(payloadAddress + (ulong)(index * PlayerRuntimeStateStride + SerializedCrushedCounterOffset));
+            return result;
+        }
+
+        private static string FormatTimerArray(int[] values) => values == null ? "unavailable" :
+            string.Join(",", values.Select((value, index) => index + "=" + value));
 
         private int[] CaptureSerializedCrushedCounters(int baseRva, int stride)
         {
@@ -850,7 +1090,7 @@ namespace PreplacedTest
             var result = new int[SerializedPlayerRecordCount];
             byte* baseAddress = (byte*)(nativeModuleBase + (ulong)baseRva);
             for (int playerIndex = 0; playerIndex < result.Length; playerIndex++)
-                result[playerIndex] = *(int*)(baseAddress + playerIndex * stride + CrushedCounterRelativeOffset);
+                result[playerIndex] = *(int*)(baseAddress + playerIndex * stride + SerializedCrushedCounterOffset);
             return result;
         }
 
@@ -886,6 +1126,7 @@ namespace PreplacedTest
             Safe(() =>
             {
                 before = CaptureAllCrushedCounters();
+                EmitInitializationCheckpointReached(step, "entry");
                 if (buildingId > 0 && TryCaptureBuilding(buildingId, out BuildingSnapshot snapshot))
                     building = snapshot.ToText(TryGetArea(snapshot.OwnerId, snapshot));
             });
@@ -895,8 +1136,18 @@ namespace PreplacedTest
                 if (before == null) return;
                 int[] after = CaptureAllCrushedCounters();
                 EmitTimerCheckpointChanges(step, playerId, buildingId, before, after, building);
+                EmitInitializationCheckpointReached(step, "post");
                 ObserveCrushedCounters("init-checkpoint." + step + ".post");
             });
+        }
+
+        private void EmitInitializationCheckpointReached(string step, string stage)
+        {
+            string key = step + "/" + stage;
+            if (!emittedInitializationCheckpoints.Add(key)) return;
+            Shared.DebugLogHelper.LogInfo(log,
+                $"PREPLACED_INIT_CHECKPOINT_REACHED: sequence={mapSequence}; step={step}; stage={stage}; " +
+                $"timers=[{FormatTimerArray(CaptureAllCrushedCounters())}]; phase={lastObservedPhase}.");
         }
 
         private void EmitTimerCheckpointChanges(string step, int playerId, int buildingId,
@@ -1515,11 +1766,12 @@ namespace PreplacedTest
         {
             EconomyGridState before = CaptureEconomyGridState(state);
             short cooldownBefore = ReadPlayerInt16(playerId, FarmSearchCooldownRelativeOffset, 0);
+            string entryGate = DescribeFarmEntryGate(playerId, cooldownBefore);
             long result = farmSearchHook.Original(state, playerId, desiredStructureType);
             short cooldownAfter = ReadPlayerInt16(playerId, FarmSearchCooldownRelativeOffset, 0);
             ObserveEconomySearch(state, playerId, "farm-search", (eStructs)desiredStructureType,
                 "desired=" + (eStructs)desiredStructureType + "/return=" + result +
-                "/cooldown=" + DescribeCooldown(cooldownBefore, cooldownAfter),
+                "/entryGate=" + entryGate + "/cooldown=" + DescribeCooldown(cooldownBefore, cooldownAfter),
                 before, result != 0, cooldownBefore, cooldownAfter, 0);
             return result;
         }
@@ -1531,10 +1783,11 @@ namespace PreplacedTest
             int cooldownOffset = mode == 2 ? QuarrySearchCooldownRelativeOffset :
                 mode == 3 ? IronSearchCooldownRelativeOffset : mode == 4 ? PitchSearchCooldownRelativeOffset : -1;
             short cooldownBefore = cooldownOffset < 0 ? (short)-1 : ReadPlayerInt16(playerId, cooldownOffset, 0);
+            string entryGate = DescribeResourceEntryGate(playerId, mode, cooldownBefore);
             resourceSearchHook.Original(state, playerId, mode);
             short cooldownAfter = cooldownOffset < 0 ? (short)-1 : ReadPlayerInt16(playerId, cooldownOffset, 0);
             ObserveEconomySearch(state, playerId, "resource-search", CurrentEconomy(playerId)?.DesiredType,
-                "mode=" + mode + "/cooldown=" + (cooldownOffset < 0 ? "unavailable-invalid-mode" :
+                "mode=" + mode + "/entryGate=" + entryGate + "/cooldown=" + (cooldownOffset < 0 ? "unavailable-invalid-mode" :
                     DescribeCooldown(cooldownBefore, cooldownAfter)), before, null, cooldownBefore, cooldownAfter, mode);
         }
 
@@ -1542,10 +1795,11 @@ namespace PreplacedTest
         {
             EconomyGridState before = CaptureEconomyGridState(state);
             short cooldownBefore = ReadPlayerInt16(playerId, WoodSearchCooldownRelativeOffset, 0);
+            string entryGate = cooldownBefore > 0 ? "cooldown-active" : "ready";
             woodSearchHook.Original(state, playerId);
             short cooldownAfter = ReadPlayerInt16(playerId, WoodSearchCooldownRelativeOffset, 0);
             ObserveEconomySearch(state, playerId, "wood-search", eStructs.STRUCT_WOODCUTTERS_HUT,
-                "player=" + playerId + "/cooldown=" + DescribeCooldown(cooldownBefore, cooldownAfter),
+                "player=" + playerId + "/entryGate=" + entryGate + "/cooldown=" + DescribeCooldown(cooldownBefore, cooldownAfter),
                 before, null, cooldownBefore, cooldownAfter, 0);
         }
 
@@ -1707,14 +1961,19 @@ namespace PreplacedTest
                 EconomyCoordinate coordinate = EconomyCoordinate.FromIndex(index);
                 int projected04 = CountPclTilesOutsideSet(coordinate.X, coordinate.Y, reachablePcls);
                 byte* cell = memory + EconomyGridBaseOffset + index * EconomyGridCellStride;
+                byte rawOwnerClass = cell[0x15];
                 cells[index] = new ShadowEconomyCell(projected04, (sbyte)cell[0x16], cell[0x07],
                     cell[0x08], cell[0x09], cell[0x0A], cell[0x0B], cell[0x0C], cell[0x0D],
-                    cell[0x0E], cell[0x0F], cell[0x11], cell[0x12], cell[0x13], cell[0x15]);
+                    cell[0x0E], cell[0x0F], cell[0x11], cell[0x12], cell[0x13], rawOwnerClass,
+                    PlayerClassMatches(playerId, rawOwnerClass));
             }
             ShadowEconomySearchResult result = ShadowEconomySearch.Run(cells, EconomyGridWidth,
                 startX * EconomyGridWidth + startY, kind, resourceMode);
-            string firstCandidate = result.CandidateIndices.Length == 0 ? "none" :
-                EconomyCoordinate.FromIndex(result.CandidateIndices[0]).ToString();
+            string firstCandidate = result.FirstCandidateIndex < 0 ? "none" :
+                EconomyCoordinate.FromIndex(result.FirstCandidateIndex).ToString();
+            string resourceAnalysis = kind == ShadowEconomySearchKind.Resource
+                ? DescribeResourceShadowAnalysis(cells, result, resourceMode)
+                : "not-resource-search";
             EmitChunked($"PREPLACED_SHADOW_ECONOMY_SEARCH: player={playerId}; helper={helper}; ",
                 $"mode={resourceMode}; inputSignature={routingSignature:X16}; start=({startX},{startY}); keepPcl={keepPcl}; " +
                 $"friendlyReachablePcls=[{string.Join(",", reachablePcls.OrderBy(value => value))}]; " +
@@ -1722,7 +1981,74 @@ namespace PreplacedTest
                 $"candidateCells={result.CandidateIndices.Length}; firstCandidate={firstCandidate}; " +
                 $"blocked=[{LosslessGridCoordinateFormatter.Format(result.BlockedIndices, EconomyGridWidth)}]; " +
                 $"candidates=[{LosslessGridCoordinateFormatter.Format(result.CandidateIndices, EconomyGridWidth)}]; " +
-                "raw non-PCL predicates are preserved; byte+16 remains unchanged because its player-specific meaning is not proven");
+                $"resourceAnalysis=[{resourceAnalysis}]; byte+16 remains byte-for-byte Vanilla because 0x50720 builds it from tile logic rather than the selected PCL");
+        }
+
+        private string DescribeFarmEntryGate(int playerId, short cooldown)
+        {
+            int mapGate = nativeModuleBase == 0 ? int.MinValue : *(int*)(nativeModuleBase + FarmSearchMapGateRva);
+            int built = ReadPlayerGlobal(playerId, FarmBuiltCountRelativeOffset);
+            short desired = ReadPlayerInt16(playerId, FarmDesiredCountRelativeOffset, 0);
+            if (mapGate <= 19) return $"map-gate mapValue={mapGate}";
+            if (built >= desired) return $"demand-satisfied built={built} desired={desired}";
+            if (cooldown > 0) return $"cooldown-active value={cooldown}";
+            return $"ready mapValue={mapGate} built={built} desired={desired}";
+        }
+
+        private string DescribeResourceEntryGate(int playerId, int mode, short cooldown)
+        {
+            int desiredOffset = mode == 2 ? QuarryDesiredCountRelativeOffset :
+                mode == 3 ? IronDesiredCountRelativeOffset : mode == 4 ? PitchDesiredCountRelativeOffset : -1;
+            int builtOffset = mode == 2 ? QuarryBuiltCountRelativeOffset :
+                mode == 3 ? IronBuiltCountRelativeOffset : mode == 4 ? PitchBuiltCountRelativeOffset : -1;
+            if (desiredOffset < 0) return "invalid-mode";
+            short desired = ReadPlayerInt16(playerId, desiredOffset, 0);
+            int built = ReadPlayerGlobal(playerId, builtOffset);
+            if (built >= desired) return $"demand-satisfied built={built} desired={desired}";
+            if (cooldown > 0) return $"cooldown-active value={cooldown}";
+            return $"ready built={built} desired={desired}";
+        }
+
+        private bool PlayerClassMatches(int playerId, byte rawOwnerClass)
+        {
+            if (rawOwnerClass == 0) return true;
+            if (nativeModuleBase == 0 || playerId < 0 || playerId >= SerializedPlayerRecordCount ||
+                rawOwnerClass >= SerializedPlayerRecordCount) return false;
+            int* classes = (int*)(nativeModuleBase + PlayerClassTableRva);
+            return classes[playerId] == classes[rawOwnerClass];
+        }
+
+        private static string DescribeResourceShadowAnalysis(ShadowEconomyCell[] cells,
+            ShadowEconomySearchResult result, int resourceMode)
+        {
+            var reached = new HashSet<int>(result.ReachedIndices);
+            var blocked = new HashSet<int>(result.BlockedIndices);
+            var groups = new SortedDictionary<string, List<int>>(StringComparer.Ordinal);
+            var nonResourceTerrain = new SortedDictionary<string, int>(StringComparer.Ordinal);
+            for (int index = 0; index < cells.Length; index++)
+            {
+                string terrain = ShadowEconomySearch.ResourceTerrainReason(cells[index], resourceMode);
+                if (terrain != "candidate")
+                {
+                    nonResourceTerrain[terrain] = nonResourceTerrain.TryGetValue(terrain, out int count)
+                        ? count + 1 : 1;
+                    continue;
+                }
+                string reason;
+                if (blocked.Contains(index)) reason = "pcl-expansion-boundary";
+                else if (!reached.Contains(index)) reason = "outside-depth-or-disconnected";
+                else reason = ShadowEconomySearch.ResourceCandidateRejectionReason(cells[index], resourceMode);
+                if (reason == "candidate") reason = "candidate/reached";
+                if (!groups.TryGetValue(reason, out List<int> indices))
+                {
+                    indices = new List<int>();
+                    groups.Add(reason, indices);
+                }
+                indices.Add(index);
+            }
+            return "nonResourceTerrainReasons=[" + string.Join(",", nonResourceTerrain.Select(pair => pair.Key + "=" + pair.Value)) + "];" +
+                string.Join(";", groups.Select(pair => pair.Key + "=" + pair.Value.Count + "[" +
+                LosslessGridCoordinateFormatter.Format(pair.Value, EconomyGridWidth) + "]"));
         }
 
         private int CountPclTilesOutsideSet(int coarseX, int coarseY, HashSet<int> reachablePcls)
@@ -1785,6 +2111,16 @@ namespace PreplacedTest
                 cooldownBefore, cooldownAfter, before.QueueRead, before.QueueWrite,
                 after.QueueRead, after.QueueWrite, before.ResultX, before.ResultY,
                 after.ResultX, after.ResultY);
+            if (before.Generation == after.Generation)
+            {
+                string entryGate = ExtractArgumentValue(arguments, "entryGate");
+                if (entryGate.StartsWith("demand-satisfied", StringComparison.Ordinal))
+                    gateReason = "early-return-demand-satisfied";
+                else if (entryGate.StartsWith("map-gate", StringComparison.Ordinal))
+                    gateReason = "early-return-map-gate";
+                else if (entryGate == "invalid-mode")
+                    gateReason = "early-return-invalid-mode";
+            }
             if (before.Generation == after.Generation)
             {
                 // The generation is a monotonic invocation counter, not part of the search
@@ -1988,7 +2324,7 @@ namespace PreplacedTest
                 helper == "nearby-search" ? outsideReachable < NearbyExpansionCellValueExclusive :
                 helper == "resource-search" ? outsideReachable - raw16 < ResourceExpansionDifferenceExclusive : false;
             return $"{(frontier ? "frontier" : "visited")}/validTiles={validTiles}/raw04={raw04}" +
-                $"/projected04={outsideReachable}/raw16={raw16}/projected16=unchanged-unproven" +
+                $"/projected04={outsideReachable}/raw16={raw16}/projected16=raw-vanilla-tile-logic" +
                 $"/projectedExpansion={(projectedPass ? "pass" : "fail")}";
         }
 
@@ -2086,26 +2422,65 @@ namespace PreplacedTest
                 if (session.ConfirmedWallBreach) continue;
                 if (!wallBaselines.TryGetValue(session.PlayerId, out WallTileBaseline baseline)) continue;
                 List<WallTileDelta> wallDeltas = CaptureWallTileDeltas(baseline);
-                if (wallDeltas.Count != 0)
+                WallTileDelta[] materialDeltas = wallDeltas.Where(value => value.MaterialChanged).ToArray();
+                int pclOnlyChanges = wallDeltas.Count(value => value.PclOnlyChanged);
+                if (materialDeltas.Length != 0)
                 {
                     EmitChunked($"PREPLACED_WALL_TILE_CHANGE: player={session.PlayerId}; ",
-                        $"reason={reason}; role={session.WallTestRole}; changes=[{string.Join(";", wallDeltas.Select(value => value.ToString()))}]");
+                        $"reason={reason}; role={session.WallTestRole}; materialChanges=[{string.Join(";", materialDeltas.Select(value => value.ToString()))}]");
                 }
+                if (pclOnlyChanges != 0)
+                    session.Counters.Add($"wall-pcl-relabel-only reason={reason} tiles={pclOnlyChanges}");
+                bool selectedWallLost = baseline.LostWallTiles.Any(baseline.ComponentTiles.Contains);
+                bool physicallyConnected = selectedWallLost && IsBaselineInteriorConnectedToExterior(baseline);
                 WallAnchorPair confirmed = baseline.Anchors.FirstOrDefault(anchor =>
-                    baseline.LostWallTiles.Contains(anchor.WallTileId) &&
                     WallBreachConfirmation.IsConfirmed(true,
                         anchor.OldInsidePcl, anchor.OldOutsidePcl,
                         current[anchor.InsideTileId], current[anchor.OutsideTileId]));
-                if (confirmed == null) continue;
+                if (!physicallyConnected || confirmed == null) continue;
                 session.ConfirmedWallBreach = true;
                 session.WallBreachUtc = DateTime.UtcNow;
                 session.Counters.Add("confirmed-wall-breach reason=" + reason);
                 EmitChunked($"PREPLACED_CONFIRMED_WALL_BREACH: player={session.PlayerId}; ",
-                    $"reason={reason}; role={session.WallTestRole}; confirmation=baseline-wall-tile-lost-and-anchor-connectivity; " +
-                    $"wallTile={confirmed.WallTileId}; insideTile={confirmed.InsideTileId}; outsideTile={confirmed.OutsideTileId}; " +
+                    $"reason={reason}; role={session.WallTestRole}; confirmation=selected-baseline-wall-lost+physical-flood+anchor-connectivity; " +
+                    $"lostWallTiles=[{string.Join(",", baseline.LostWallTiles.Where(baseline.ComponentTiles.Contains).OrderBy(value => value))}]; " +
+                    $"anchorWall={confirmed.WallTileId}; insideTile={confirmed.InsideTileId}; outsideTile={confirmed.OutsideTileId}; " +
                     $"pcl={confirmed.OldInsidePcl}+{confirmed.OldOutsidePcl}->{current[confirmed.InsideTileId]}");
-                }
+            }
             lastPclTopology = current;
+        }
+
+        private static string ExtractArgumentValue(string arguments, string name)
+        {
+            string marker = "/" + name + "=";
+            int start = arguments.IndexOf(marker, StringComparison.Ordinal);
+            if (start < 0) return string.Empty;
+            start += marker.Length;
+            int end = arguments.IndexOf('/', start);
+            return end < 0 ? arguments.Substring(start) : arguments.Substring(start, end - start);
+        }
+
+        private bool IsBaselineInteriorConnectedToExterior(WallTileBaseline baseline)
+        {
+            GameTileManagerAPI api = GameTileManagerAPI.Instance;
+            var currentBlockers = new HashSet<int>();
+            foreach (int tileId in baseline.ComponentTiles)
+                if (CaptureWallTileState(tileId,
+                    (int)api.GetTileVectorFromId(tileId).X,
+                    (int)api.GetTileVectorFromId(tileId).Y).IsWall)
+                    currentBlockers.Add(tileId);
+            foreach (BuildingSnapshot portal in CaptureRawBuildings().Where(value =>
+                value.OwnerId == baseline.PlayerId && IsLiving(value) && IsPortalStructure(value.Type)))
+                for (int x = portal.TileX; x <= portal.EndX; x++)
+                    for (int y = portal.TileY; y <= portal.EndY; y++)
+                        if (api.IsTileInsideMapBounds(x, y))
+                        {
+                            int tileId = api.GetTileId(x, y);
+                            if (baseline.ComponentBlockers.Contains(tileId)) currentBlockers.Add(tileId);
+                        }
+            HashSet<int> reached = FloodPassable(new[] { api.GetTileId(baseline.KeepX, baseline.KeepY) },
+                currentBlockers, api);
+            return reached.Overlaps(baseline.ExteriorTiles);
         }
 
         private static ulong Hash(ulong value, int data)
@@ -2414,11 +2789,13 @@ namespace PreplacedTest
             for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
             {
                 if (!IsAi(playerId)) continue;
-                WallTileBaseline baseline = CaptureWallBaseline(playerId, encoding);
+                WallTileBaseline baseline = CaptureWallBaseline(playerId, encoding, buildings);
                 if (baseline != null) wallBaselines[playerId] = baseline;
-                int wallCount = baseline?.Tiles.Count ?? 0;
-                int portalCount = buildings.Count(building => building.OwnerId == playerId &&
-                    IsLiving(building) && IsPortalStructure(building.Type));
+                int wallCount = baseline != null && baseline.GeometryClosed
+                    ? baseline.ComponentTiles.Count : 0;
+                int portalCount = baseline == null ? 0 : buildings.Count(building =>
+                    building.OwnerId == playerId && IsLiving(building) && IsPortalStructure(building.Type) &&
+                    BuildingFootprintOverlaps(building, baseline.ComponentBlockers));
                 WallTestRole role = WallTestRoleClassifier.Classify(wallCount, portalCount);
                 PlayerSession session = Session(playerId);
                 session.WallTestRole = role;
@@ -2463,7 +2840,18 @@ namespace PreplacedTest
             return WallOwnerEncodingResolver.Resolve(oneBasedMatches, zeroBasedMatches);
         }
 
-        private WallTileBaseline CaptureWallBaseline(int playerId, WallOwnerEncoding encoding)
+        private static bool BuildingFootprintOverlaps(BuildingSnapshot building, HashSet<int> tileIds)
+        {
+            GameTileManagerAPI api = GameTileManagerAPI.Instance;
+            for (int x = building.TileX; x <= building.EndX; x++)
+                for (int y = building.TileY; y <= building.EndY; y++)
+                    if (api.IsTileInsideMapBounds(x, y) && tileIds.Contains(api.GetTileId(x, y)))
+                        return true;
+            return false;
+        }
+
+        private WallTileBaseline CaptureWallBaseline(int playerId, WallOwnerEncoding encoding,
+            List<BuildingSnapshot> buildings)
         {
             if (encoding == WallOwnerEncoding.Unresolved) return null;
             if (!TryGetKeepPosition(playerId, out int keepX, out int keepY)) return null;
@@ -2482,24 +2870,35 @@ namespace PreplacedTest
                 }
             if (all.Count == 0) return null;
 
-            HashSet<int> component = SelectKeepWallComponent(all, keepX, keepY, api);
+            // Keeps expose wall flags themselves. They are not part of a surrounding
+            // player-built enclosure and previously caused the 25-tile false component.
+            foreach (BuildingSnapshot building in buildings.Where(value => value.OwnerId == playerId &&
+                IsLiving(value) && value.TileX <= keepX && keepX <= value.EndX &&
+                value.TileY <= keepY && keepY <= value.EndY))
+                for (int x = building.TileX; x <= building.EndX; x++)
+                    for (int y = building.TileY; y <= building.EndY; y++)
+                        if (api.IsTileInsideMapBounds(x, y)) all.Remove(api.GetTileId(x, y));
+            if (all.Count == 0) return null;
+
+            var blockers = new HashSet<int>(all.Keys);
+            foreach (BuildingSnapshot portal in buildings.Where(value => value.OwnerId == playerId &&
+                IsLiving(value) && IsPortalStructure(value.Type)))
+                for (int x = portal.TileX; x <= portal.EndX; x++)
+                    for (int y = portal.TileY; y <= portal.EndY; y++)
+                        if (api.IsTileInsideMapBounds(x, y)) blockers.Add(api.GetTileId(x, y));
+
+            int keepTileId = api.GetTileId(keepX, keepY);
+            HashSet<int> interior = FloodPassable(new[] { keepTileId }, blockers, api);
+            HashSet<int> exterior = FloodPassable(EnumerateMapBoundaryTiles(blockers, api), blockers, api);
+            HashSet<int> componentBlockers = SelectEnclosureBlockerComponent(blockers, all,
+                interior, exterior, api);
+            var component = new HashSet<int>(componentBlockers.Where(all.ContainsKey));
             var anchors = new List<WallAnchorPair>();
             foreach (int wallTileId in component)
             {
                 WallTileState wall = all[wallTileId];
-                int wallDistance = Math.Abs(wall.X - keepX) + Math.Abs(wall.Y - keepY);
-                int insideTile = -1;
-                int outsideTile = -1;
-                int insideDistance = int.MaxValue;
-                int outsideDistance = int.MinValue;
-                foreach (int neighbor in GetOrthogonalTileIds(wall.X, wall.Y, api))
-                {
-                    if (component.Contains(neighbor)) continue;
-                    var vector = api.GetTileVectorFromId(neighbor);
-                    int distance = Math.Abs((int)vector.X - keepX) + Math.Abs((int)vector.Y - keepY);
-                    if (distance < wallDistance && distance < insideDistance) { insideTile = neighbor; insideDistance = distance; }
-                    if (distance > wallDistance && distance > outsideDistance) { outsideTile = neighbor; outsideDistance = distance; }
-                }
+                int insideTile = FindNearestRegionTile(wall.X, wall.Y, interior, api);
+                int outsideTile = FindNearestRegionTile(wall.X, wall.Y, exterior, api);
                 if (insideTile < 0 || outsideTile < 0) continue;
                 int insidePcl = TryGetPclByTileId(insideTile, out int capturedInside, "wall-anchor-inside") ? capturedInside : 0;
                 int outsidePcl = TryGetPclByTileId(outsideTile, out int capturedOutside, "wall-anchor-outside") ? capturedOutside : 0;
@@ -2508,18 +2907,21 @@ namespace PreplacedTest
             }
             EmitChunked($"PREPLACED_WALL_BASELINE: player={playerId}; ",
                 $"encoding={encoding}; keep=({keepX},{keepY}); ownedWallTiles={all.Count}; " +
-                $"selectedComponentTiles={component.Count}; anchors={anchors.Count}; tiles=[{string.Join(",", component.OrderBy(value => value))}]; " +
+                $"geometryClosed={!interior.Overlaps(exterior)}; interiorTiles={interior.Count}; exteriorTiles={exterior.Count}; " +
+                $"selectedComponentTiles={component.Count}; selectedBlockers={componentBlockers.Count}; anchors={anchors.Count}; " +
+                $"tiles=[{string.Join(",", component.OrderBy(value => value))}]; " +
                 $"anchorPairs=[{string.Join(";", anchors.Select(value => value.ToString()))}]");
-            return new WallTileBaseline(playerId, encoding, keepX, keepY, all, component, anchors);
+            return new WallTileBaseline(playerId, encoding, keepX, keepY, all, component,
+                componentBlockers, interior, exterior, !interior.Overlaps(exterior), anchors);
         }
 
-        private static HashSet<int> SelectKeepWallComponent(Dictionary<int, WallTileState> all,
-            int keepX, int keepY, GameTileManagerAPI api)
+        private static HashSet<int> SelectEnclosureBlockerComponent(HashSet<int> blockers,
+            Dictionary<int, WallTileState> walls, HashSet<int> interior, HashSet<int> exterior,
+            GameTileManagerAPI api)
         {
-            var remaining = new HashSet<int>(all.Keys);
+            var remaining = new HashSet<int>(blockers);
             HashSet<int> best = new HashSet<int>();
-            int bestDistance = int.MaxValue;
-            bool bestEnclosesKeep = false;
+            int bestWallCount = 0;
             while (remaining.Count != 0)
             {
                 int seed = remaining.First();
@@ -2527,25 +2929,93 @@ namespace PreplacedTest
                 var component = new HashSet<int> { seed };
                 var queue = new Queue<int>();
                 queue.Enqueue(seed);
-                int distance = int.MaxValue;
-                int minX = int.MaxValue, maxX = int.MinValue, minY = int.MaxValue, maxY = int.MinValue;
+                bool touchesInterior = false;
+                bool touchesExterior = false;
                 while (queue.Count != 0)
                 {
                     int tileId = queue.Dequeue();
-                    WallTileState tile = all[tileId];
-                    distance = Math.Min(distance, Math.Abs(tile.X - keepX) + Math.Abs(tile.Y - keepY));
-                    minX = Math.Min(minX, tile.X); maxX = Math.Max(maxX, tile.X);
-                    minY = Math.Min(minY, tile.Y); maxY = Math.Max(maxY, tile.Y);
-                    foreach (int neighbor in GetOrthogonalTileIds(tile.X, tile.Y, api))
-                        if (remaining.Remove(neighbor) && all.ContainsKey(neighbor))
+                    var vector = api.GetTileVectorFromId(tileId);
+                    foreach (int neighbor in GetOrthogonalTileIds((int)vector.X, (int)vector.Y, api))
+                    {
+                        if (interior.Contains(neighbor)) touchesInterior = true;
+                        if (exterior.Contains(neighbor)) touchesExterior = true;
+                    }
+                    foreach (int neighbor in GetAdjacentTileIds((int)vector.X, (int)vector.Y, api, true))
+                        if (remaining.Remove(neighbor) && blockers.Contains(neighbor))
                         { component.Add(neighbor); queue.Enqueue(neighbor); }
                 }
-                bool enclosesKeep = minX < keepX && keepX < maxX && minY < keepY && keepY < maxY;
-                if (enclosesKeep && !bestEnclosesKeep || enclosesKeep == bestEnclosesKeep &&
-                    (distance < bestDistance || distance == bestDistance && component.Count > best.Count))
-                { bestDistance = distance; best = component; bestEnclosesKeep = enclosesKeep; }
+                int wallCount = component.Count(walls.ContainsKey);
+                if (touchesInterior && touchesExterior && wallCount > bestWallCount)
+                { bestWallCount = wallCount; best = component; }
             }
             return best;
+        }
+
+        private static HashSet<int> FloodPassable(IEnumerable<int> seeds, HashSet<int> blockers,
+            GameTileManagerAPI api)
+        {
+            var reached = new HashSet<int>();
+            var queue = new Queue<int>();
+            foreach (int seed in seeds)
+                if (!blockers.Contains(seed) && reached.Add(seed)) queue.Enqueue(seed);
+            while (queue.Count != 0)
+            {
+                int tileId = queue.Dequeue();
+                var vector = api.GetTileVectorFromId(tileId);
+                foreach (int neighbor in GetOrthogonalTileIds((int)vector.X, (int)vector.Y, api))
+                    if (!blockers.Contains(neighbor) && reached.Add(neighbor)) queue.Enqueue(neighbor);
+            }
+            return reached;
+        }
+
+        private static IEnumerable<int> EnumerateMapBoundaryTiles(HashSet<int> blockers,
+            GameTileManagerAPI api)
+        {
+            for (int x = 0; x < NativeTileGridWidth; x++)
+                for (int y = 0; y < NativeTileGridWidth; y++)
+                {
+                    if (!api.IsTileInsideMapBounds(x, y)) continue;
+                    int tileId = api.GetTileId(x, y);
+                    if (blockers.Contains(tileId)) continue;
+                    if (!api.IsTileInsideMapBounds(x - 1, y) || !api.IsTileInsideMapBounds(x + 1, y) ||
+                        !api.IsTileInsideMapBounds(x, y - 1) || !api.IsTileInsideMapBounds(x, y + 1))
+                        yield return tileId;
+                }
+        }
+
+        private static int FindNearestRegionTile(int x, int y, HashSet<int> region,
+            GameTileManagerAPI api)
+        {
+            for (int distance = 1; distance < NativeTileGridWidth; distance++)
+            {
+                for (int dx = -distance; dx <= distance; dx++)
+                {
+                    int dy = distance - Math.Abs(dx);
+                    if (api.IsTileInsideMapBounds(x + dx, y + dy))
+                    {
+                        int tileId = api.GetTileId(x + dx, y + dy);
+                        if (region.Contains(tileId)) return tileId;
+                    }
+                    if (dy != 0 && api.IsTileInsideMapBounds(x + dx, y - dy))
+                    {
+                        int tileId = api.GetTileId(x + dx, y - dy);
+                        if (region.Contains(tileId)) return tileId;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        private static IEnumerable<int> GetAdjacentTileIds(int x, int y, GameTileManagerAPI api,
+            bool includeDiagonals)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+                    if (!includeDiagonals && dx != 0 && dy != 0) continue;
+                    if (api.IsTileInsideMapBounds(x + dx, y + dy)) yield return api.GetTileId(x + dx, y + dy);
+                }
         }
 
         private static IEnumerable<int> GetOrthogonalTileIds(int x, int y, GameTileManagerAPI api)
@@ -2614,6 +3084,7 @@ namespace PreplacedTest
             emittedDominantPclSignatures.Clear();
             emittedInvalidPclAccesses.Clear();
             emittedShadowSearchSignatures.Clear();
+            emittedInitializationCheckpoints.Clear();
             wallBaselines.Clear();
             lock (crushedWriterSync) pendingCrushedWriterSignals.Clear();
             lastAivState = 0;
@@ -3777,11 +4248,15 @@ namespace PreplacedTest
         private sealed class WallTileBaseline
         {
             public WallTileBaseline(int playerId, WallOwnerEncoding encoding, int keepX, int keepY,
-                Dictionary<int, WallTileState> tiles, HashSet<int> componentTiles, List<WallAnchorPair> anchors)
+                Dictionary<int, WallTileState> tiles, HashSet<int> componentTiles,
+                HashSet<int> componentBlockers, HashSet<int> interiorTiles,
+                HashSet<int> exteriorTiles, bool geometryClosed, List<WallAnchorPair> anchors)
             {
                 PlayerId = playerId; Encoding = encoding; KeepX = keepX; KeepY = keepY;
                 Tiles = tiles; LastObservedTiles = new Dictionary<int, WallTileState>(tiles);
-                ComponentTiles = componentTiles; Anchors = anchors;
+                ComponentTiles = componentTiles; ComponentBlockers = componentBlockers;
+                InteriorTiles = interiorTiles; ExteriorTiles = exteriorTiles;
+                GeometryClosed = geometryClosed; Anchors = anchors;
             }
             public int PlayerId { get; }
             public WallOwnerEncoding Encoding { get; }
@@ -3791,6 +4266,10 @@ namespace PreplacedTest
             public Dictionary<int, WallTileState> LastObservedTiles { get; }
             public HashSet<int> LostWallTiles { get; } = new HashSet<int>();
             public HashSet<int> ComponentTiles { get; }
+            public HashSet<int> ComponentBlockers { get; }
+            public HashSet<int> InteriorTiles { get; }
+            public HashSet<int> ExteriorTiles { get; }
+            public bool GeometryClosed { get; }
             public List<WallAnchorPair> Anchors { get; }
         }
 
@@ -3842,6 +4321,10 @@ namespace PreplacedTest
             public WallTileState After { get; }
             public int TileId => Before.TileId;
             public bool WallLost => Before.IsWall && !After.IsWall;
+            public bool MaterialChanged => Before.Logic != After.Logic || Before.RawOwner != After.RawOwner ||
+                Before.Damage != After.Damage || Before.StructureWas != After.StructureWas ||
+                Before.GatePath != After.GatePath;
+            public bool PclOnlyChanged => !MaterialChanged && Before.Pcl != After.Pcl;
             public override string ToString() => $"{Before}->{After}/wallLost={WallLost}";
         }
 

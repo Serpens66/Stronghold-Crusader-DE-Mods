@@ -1,0 +1,20 @@
+{
+  "m_Name": "tile_castle 1191",
+  "m_Rect": {
+    "m_X": 0,
+    "m_Y": 0,
+    "m_Width": 64,
+    "m_Height": 626
+  },
+  "m_Pivot": {
+    "m_X": 0.5,
+    "m_Y": 0.026357997000000053
+  },
+  "m_PixelsToUnits": 64,
+  "_SkinTestSource": {
+    "left": 248,
+    "bottom": 6065,
+    "right": 312,
+    "top": 6691
+  }
+}

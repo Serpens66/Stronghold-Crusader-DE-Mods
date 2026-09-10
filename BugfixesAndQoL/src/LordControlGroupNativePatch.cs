@@ -1,4 +1,4 @@
-// Feature: Let Vanilla store and display the selected controlled Lord in control groups.
+// Feature: Let Vanilla store the selected controlled Lord in control groups.
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -19,10 +19,7 @@ namespace BugfixesAndQoL
 
         private readonly NativePatchSite addBranch;
         private readonly NativePatchSite replaceBranch;
-        private readonly NativePatchSite lordSummaryEntry;
         private bool disposed;
-
-        internal ulong ControlGroupRecordsAddress { get; }
 
         public LordControlGroupNativePatch(
             ReadOnlySpan<byte> memory,
@@ -51,35 +48,6 @@ namespace BugfixesAndQoL
                 LordControlGroupNativeDefinition.ReplaceClassifierPattern,
                 LordControlGroupNativeDefinition.ReplaceClassifierPatternRva,
                 "control-group replace classifier");
-            int summaryPatternRva = ResolveUniquePattern(
-                memory,
-                LordControlGroupNativeDefinition.SummaryClassifierPattern,
-                LordControlGroupNativeDefinition.SummaryClassifierPatternRva,
-                "control-group summary classifier");
-            int controlGroupStoragePatternRva = ResolveUniquePattern(
-                memory,
-                ControlGroupNativeDefinition.ControlGroupStoragePattern,
-                ControlGroupNativeDefinition.ControlGroupStoragePatternRva,
-                "control-group storage reference");
-
-            int summaryTypeTableRva = Shared.NativePatternResolver.ReadInt32(
-                memory,
-                checked(summaryPatternRva +
-                    LordControlGroupNativeDefinition.SummaryTypeTableDisplacementOffset));
-            int summaryDispatchTableRva = Shared.NativePatternResolver.ReadInt32(
-                memory,
-                checked(summaryPatternRva +
-                    LordControlGroupNativeDefinition.SummaryDispatchTableDisplacementOffset));
-            ValidateSummaryTables(memory, summaryTypeTableRva, summaryDispatchTableRva);
-            int controlGroupStorageRva = checked(
-                controlGroupStoragePatternRva +
-                ControlGroupNativeDefinition.ControlGroupStorageNextInstructionOffset +
-                Shared.NativePatternResolver.ReadInt32(
-                    memory,
-                    controlGroupStoragePatternRva +
-                    ControlGroupNativeDefinition.ControlGroupStorageDisplacementOffset));
-            ValidateControlGroupStorage(memory.Length, controlGroupStorageRva);
-            ControlGroupRecordsAddress = libraryBase + unchecked((ulong)controlGroupStorageRva);
 
             addBranch = new NativePatchSite(
                 libraryBase + unchecked((ulong)(addPatternRva +
@@ -93,21 +61,13 @@ namespace BugfixesAndQoL
                 VanillaReplaceBranch,
                 BypassBranch,
                 "control-group Replace Lord exclusion");
-            lordSummaryEntry = new NativePatchSite(
-                libraryBase + unchecked((ulong)LordControlGroupNativeDefinition.LordSummaryEntryRva),
-                new[] { LordControlGroupNativeDefinition.VanillaUnmappedSummaryClass },
-                new[] { LordControlGroupNativeDefinition.EuropeanArcherSummaryClass },
-                "control-group Lord summary icon mapping");
-
             try
             {
                 // Validate the whole transaction before changing any executable byte.
                 addBranch.ValidateOriginal();
                 replaceBranch.ValidateOriginal();
-                lordSummaryEntry.ValidateOriginal();
                 addBranch.Apply();
                 replaceBranch.Apply();
-                lordSummaryEntry.Apply();
             }
             catch (Exception installError)
             {
@@ -200,7 +160,6 @@ namespace BugfixesAndQoL
         {
             // Restore in reverse transaction order. Each site validates that it still owns its bytes.
             Exception firstFailure = null;
-            RestoreSite(lordSummaryEntry, ref firstFailure);
             RestoreSite(replaceBranch, ref firstFailure);
             RestoreSite(addBranch, ref firstFailure);
             if (firstFailure != null)
@@ -246,56 +205,6 @@ namespace BugfixesAndQoL
             {
                 throw new InvalidOperationException(
                     "The Script Extender unit-type enum differs from the audited control-group indexes.");
-            }
-        }
-
-        private static void ValidateSummaryTables(
-            ReadOnlySpan<byte> memory,
-            int typeTableRva,
-            int dispatchTableRva)
-        {
-            if (typeTableRva != LordControlGroupNativeDefinition.SummaryTypeTableRva ||
-                dispatchTableRva != LordControlGroupNativeDefinition.SummaryDispatchTableRva)
-            {
-                throw new InvalidOperationException(
-                    "The control-group summary tables differ from the audited native contract.");
-            }
-
-            ValidateByte(
-                memory,
-                LordControlGroupNativeDefinition.LordSummaryEntryRva,
-                LordControlGroupNativeDefinition.VanillaUnmappedSummaryClass,
-                "Lord summary class");
-            ValidateByte(
-                memory,
-                LordControlGroupNativeDefinition.EuropeanArcherSummaryEntryRva,
-                LordControlGroupNativeDefinition.EuropeanArcherSummaryClass,
-                "European Archer summary class");
-            ValidateInt32(
-                memory,
-                dispatchTableRva +
-                    LordControlGroupNativeDefinition.EuropeanArcherSummaryClass * sizeof(int),
-                LordControlGroupNativeDefinition.EuropeanArcherSummaryTargetRva,
-                "European Archer summary target");
-            ValidateInt32(
-                memory,
-                dispatchTableRva +
-                    LordControlGroupNativeDefinition.VanillaUnmappedSummaryClass * sizeof(int),
-                LordControlGroupNativeDefinition.UnmappedSummaryTargetRva,
-                "unmapped summary target");
-        }
-
-        private static void ValidateControlGroupStorage(int imageLength, int storageRva)
-        {
-            long byteLength = checked(
-                (long)ControlGroupNativeDefinition.ControlGroupCount *
-                ControlGroupNativeDefinition.ControlGroupCapacity *
-                ControlGroupNativeDefinition.ControlGroupRecordIntCount * sizeof(int));
-            if (storageRva != ControlGroupNativeDefinition.ControlGroupStorageRva ||
-                storageRva < 0 || (long)storageRva + byteLength > imageLength)
-            {
-                throw new InvalidOperationException(
-                    $"The control-group storage differs from the audited layout: RVA 0x{storageRva:X}.");
             }
         }
 

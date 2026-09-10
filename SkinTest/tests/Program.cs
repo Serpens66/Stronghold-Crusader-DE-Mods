@@ -85,6 +85,24 @@ internal static class Program
         Check(SkinSelectionPolicy.CanReplaceVanilla(true, true, true, SkinFrameChoice.Normal), "Untouched eligible swordsman must be replaceable.");
         Check(!SkinSelectionPolicy.CanReplaceVanilla(true, false, true, SkinFrameChoice.Normal), "A prior sprite replacement must win.");
         Check(!SkinSelectionPolicy.CanReplaceVanilla(false, true, true, SkinFrameChoice.Normal), "Other unit types must retain Vanilla.");
+        Check(SkinSelectionPolicy.ReconcileEarlyAndActualCulture(LordCulture.European, LordCulture.Unknown) == LordCulture.European,
+            "An unknown actual lord material must not erase a safely detected early culture.");
+        Check(SkinSelectionPolicy.ReconcileEarlyAndActualCulture(LordCulture.European, LordCulture.NonEuropean) == LordCulture.NonEuropean,
+            "A recognized actual lord culture must authoritatively replace the early culture.");
+        Check(SkinSelectionPolicy.ShouldUseEuropeanHud(true, false, 1, LordCulture.European) &&
+              SkinSelectionPolicy.ShouldUseEuropeanHud(true, false, 8, LordCulture.European),
+            "European gameplay HUD must support all eight valid colour endpoints.");
+        Check(!SkinSelectionPolicy.ShouldUseEuropeanHud(true, true, 4, LordCulture.European) &&
+              !SkinSelectionPolicy.ShouldUseEuropeanHud(true, false, 4, LordCulture.NonEuropean) &&
+              !SkinSelectionPolicy.ShouldUseEuropeanHud(false, false, 4, LordCulture.European),
+            "Arabic, non-European and inactive-map HUD states must retain Vanilla.");
+        Check(SkinSelectionPolicy.CanReplaceBuilding(true, true, 1, LordCulture.European, true),
+            "An untouched available European round-tower frame must be replaceable.");
+        Check(!SkinSelectionPolicy.CanReplaceBuilding(false, true, 1, LordCulture.European, true) &&
+              !SkinSelectionPolicy.CanReplaceBuilding(true, false, 1, LordCulture.European, true) &&
+              !SkinSelectionPolicy.CanReplaceBuilding(true, true, 2, LordCulture.NonEuropean, true) &&
+              !SkinSelectionPolicy.CanReplaceBuilding(true, true, 1, LordCulture.European, false),
+            "Tower replacement must fail closed for conflicts, other buildings, non-European owners and sparse gaps.");
     }
 
     private static void TestAssets(string root)
@@ -163,6 +181,93 @@ internal static class Program
         }
         Check(removedColourPixels > 0 && removedMaskPixels > 0,
             "Mesh reconstruction must remove foreign alpha pixels from both colour and mask sources.");
+
+        string castleAssets = Path.Combine(root, "Assets", "CrusaderRoundTower");
+        string castleAtlas = Path.Combine(castleAssets, "atlas.png");
+        string castleJson = Path.Combine(castleAssets, "atlas.json");
+        Check(File.Exists(castleAtlas) && File.Exists(castleJson), "Private sparse castle atlas is incomplete.");
+        (int castleWidth, int castleHeight) = ReadPngSize(castleAtlas);
+        SparseAtlasManifest castleManifest = SparseAtlasManifest.ParseAndValidate(
+            File.ReadAllText(castleJson), castleWidth, castleHeight, "tile_castle ", 1467, 1569);
+        int[] castleIndices = castleManifest.Frames.Select(frame => frame.Index).OrderBy(index => index).ToArray();
+        Check(castleIndices.Length == 1467 && castleIndices.Distinct().Count() == 1467 &&
+              castleIndices.First() == 1 && castleIndices.Last() == 1569,
+            "Sparse castle atlas source-index contract differs.");
+        Check(Enumerable.Range(1, 1569).Except(castleIndices).Count() == 102,
+            "Sparse castle atlas must retain exactly the expected 102 gaps inside 1..1569.");
+        var castleRoot = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(File.ReadAllText(castleJson));
+        Check(((List<object>)castleRoot["sourceOnlyIndices"]).Select(value => Convert.ToInt32(value, CultureInfo.InvariantCulture))
+              .SequenceEqual(Enumerable.Range(812, 260)) &&
+              Convert.ToInt32(castleRoot["targetFrameCount"], CultureInfo.InvariantCulture) == 1234 &&
+              Convert.ToInt32(castleRoot["targetMaximumIndex"], CultureInfo.InvariantCulture) == 1596,
+            "SH1DE-only and installed SHCDE castle-index provenance differs.");
+        string[] castleMetadata = Directory.GetFiles(Path.Combine(root, "AtlasSource", "CastleMetadata"), "tile_castle *.json");
+        Check(castleMetadata.Length == 1467,
+            "Corrected FullRect castle provenance is incomplete.");
+        foreach (string metadataPath in castleMetadata)
+        {
+            var payload = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(File.ReadAllText(metadataPath));
+            var rect = (Dictionary<string, object>)payload["m_Rect"];
+            var pivot = (Dictionary<string, object>)payload["m_Pivot"];
+            var sourceBounds = (Dictionary<string, object>)payload["_SkinTestSource"];
+            int width = Convert.ToInt32(rect["m_Width"], CultureInfo.InvariantCulture);
+            int height = Convert.ToInt32(rect["m_Height"], CultureInfo.InvariantCulture);
+            int left = Convert.ToInt32(sourceBounds["left"], CultureInfo.InvariantCulture);
+            int bottom = Convert.ToInt32(sourceBounds["bottom"], CultureInfo.InvariantCulture);
+            int right = Convert.ToInt32(sourceBounds["right"], CultureInfo.InvariantCulture);
+            int top = Convert.ToInt32(sourceBounds["top"], CultureInfo.InvariantCulture);
+            Check(width > 0 && height > 0 && right - left == width && top - bottom == height &&
+                  left >= 0 && bottom >= 0 && right <= 8192 && top <= 8192 &&
+                  Convert.ToSingle(payload["m_PixelsToUnits"], CultureInfo.InvariantCulture) == 64f &&
+                  Finite(Convert.ToSingle(pivot["m_X"], CultureInfo.InvariantCulture)) &&
+                  Finite(Convert.ToSingle(pivot["m_Y"], CultureInfo.InvariantCulture)),
+                $"Castle FullRect provenance is invalid: {Path.GetFileName(metadataPath)}");
+        }
+        for (int leftIndex = 0; leftIndex < castleManifest.Frames.Count; leftIndex++)
+            for (int rightIndex = leftIndex + 1; rightIndex < castleManifest.Frames.Count; rightIndex++)
+            {
+                AtlasFrame leftFrame = castleManifest.Frames[leftIndex];
+                AtlasFrame rightFrame = castleManifest.Frames[rightIndex];
+                bool overlaps = leftFrame.X < rightFrame.X + rightFrame.Width &&
+                    leftFrame.X + leftFrame.Width > rightFrame.X &&
+                    leftFrame.Y < rightFrame.Y + rightFrame.Height &&
+                    leftFrame.Y + leftFrame.Height > rightFrame.Y;
+                Check(!overlaps, $"Sparse castle atlas rectangles overlap: {leftFrame.Name} / {rightFrame.Name}");
+            }
+        TestInvalidSparseAtlasDocument(castleJson, castleWidth, castleHeight);
+
+        string uiAssets = Path.Combine(root, "Assets", "CrusaderUI");
+        string uiSource = Path.Combine(root, "AtlasSource", "UI");
+        string[] troopNames = { "UIBuildingsO011", "UIBuildingsO012", "UIButtonsK007", "UIButtonsK008" };
+        foreach (string name in troopNames)
+        {
+            string sourceImage = Path.Combine(uiSource, name + ".png");
+            string mask = Path.Combine(uiSource, name + "_team-mask.png");
+            Check(File.Exists(sourceImage) && File.Exists(mask) && ReadPngSize(sourceImage) == ReadPngSize(mask),
+                $"Explicit HUD team mask is missing or has wrong dimensions: {name}");
+            for (int colour = 1; colour <= 8; colour++)
+            {
+                string variant = Path.Combine(uiAssets, name + "_colour" + colour + ".png");
+                Check(File.Exists(variant) && ReadPngSize(variant) == ReadPngSize(sourceImage),
+                    $"HUD colour variant is missing or has wrong dimensions: {name}, colour={colour}");
+            }
+        }
+        foreach (string towerName in new[] { "UIBuildingsK009", "UIBuildingsK010" })
+            Check(File.Exists(Path.Combine(uiAssets, towerName + ".png")), $"Tower HUD asset is missing: {towerName}");
+        Check(Directory.GetFiles(uiAssets, "*.png").Length == 34,
+            "Private UI asset inventory must contain 32 troop variants and two tower images.");
+        var provenance = Shared.DependencyFreeJson.Parse(File.ReadAllText(Path.Combine(uiSource, "provenance.json"))) as Dictionary<string, object>;
+        Check(provenance != null && ((List<object>)provenance["sourceDimensions"])
+              .Select(value => Convert.ToInt32(value, CultureInfo.InvariantCulture)).SequenceEqual(new[] { 8192, 4096 }),
+            "UI source provenance or source dimensions are invalid.");
+        var provenanceRects = (Dictionary<string, object>)provenance["rectangles"];
+        foreach (string name in troopNames)
+        {
+            var record = (Dictionary<string, object>)provenanceRects[name];
+            Check(string.Equals((string)record["sha256"], Sha256(Path.Combine(uiSource, name + ".png")), StringComparison.Ordinal) &&
+                  string.Equals((string)record["teamMaskSha256"], Sha256(Path.Combine(uiSource, name + "_team-mask.png")), StringComparison.Ordinal),
+                $"UI source or explicit team mask differs from provenance: {name}");
+        }
     }
 
     private static void TestStaticContracts(string root)
@@ -225,8 +330,12 @@ internal static class Program
         Check(project.Contains("<Reference Include=\"RedBird.Core\"><HintPath>$(ExtenderDir)\\RedBird.Core.dll</HintPath><Private>false</Private></Reference>"),
             "The AIC array dependency must reference installed RedBird.Core without private packaging.");
         Check(runtime.Contains("cultureByPlayer") && runtime.Contains("Authoritative lord culture differs from early culture") &&
-              runtime.Contains("Early culture resolved before lord spawn"),
+              runtime.Contains("Early culture resolved before lord spawn") &&
+              runtime.Contains("ReconcileEarlyAndActualCulture") && runtime.Contains("unknown graphics material"),
             "Per-map early culture caching and authoritative reconciliation are missing.");
+        Check(runtime.Contains("ai-culture-error:") && runtime.Contains("local-game-state-culture-error:") &&
+              runtime.Contains("local-settings-culture-error:"),
+            "AI, local game-state and local settings fallbacks require separate diagnostic failure paths.");
         Check(!Regex.IsMatch(runtime, @"r_GameMaterialIndex\s*="), "The visual mod must not write r_GameMaterialIndex.");
         Check(runtime.IndexOf("trampoline(renderer", StringComparison.Ordinal) < runtime.IndexOf("renderer.sprite =", StringComparison.Ordinal),
             "Vanilla and the existing hook chain must run before replacement.");
@@ -247,6 +356,20 @@ internal static class Program
               !Regex.IsMatch(runtime, @"(?:normalSprites|alternateSprites)\s*\[\s*image\s*\]") &&
               runtime.Contains("expected={DescribeSprite(expected)}") && runtime.Contains("actual={DescribeSprite(renderer.sprite)}"),
             "Swordsman sprite lookup, replacement and conflict diagnostics must use the zero-based atlas frame index.");
+        Check(runtime.Contains("unitByRenderer[args.SpriteRenderer] = args.UnitId") &&
+              runtime.Contains("SetBodySprite detour confirmed") && runtime.Contains("Early culture resolved before lord spawn"),
+            "The renderer must be bound before the first early-culture sprite decision.");
+        Check(runtime.Contains("troopHudTrampoline(instance, colour, arabic);") &&
+              runtime.IndexOf("troopHudTrampoline(instance, colour, arabic);", StringComparison.Ordinal) < runtime.IndexOf("instance.UIBuildingsO011 =", StringComparison.Ordinal) &&
+              runtime.Contains("SH1DE swordsman HUD activated"),
+            "Troop HUD replacement must run after the existing hook chain and expose a runtime marker.");
+        Check(runtime.Contains("buildingTrampoline(tile, file, image, light);") &&
+              runtime.Contains("GetTileBuildingId(tileId)") && runtime.Contains("TryGetBuildingById(buildingId") &&
+              runtime.Contains("STRUCT_TOWER5_DESTROYED") && runtime.Contains("SH1DE round-tower skin applied"),
+            "Round-tower replacement, one-based building resolution or diagnostics are incomplete.");
+        Check(runtime.Contains("FindName(\"ButtonBuildTowerE\")") && runtime.Contains("PropEx.SetSprite1") &&
+              runtime.Contains("PropEx.SetSprite2") && runtime.Contains("RestoreTowerHud"),
+            "Round-tower build HUD replacement/restoration is incomplete.");
     }
 
     private static void TestInvalidAtlasDocuments(string atlasJson, int atlasWidth, int atlasHeight)
@@ -274,6 +397,22 @@ internal static class Program
         ExpectFailure(() => AtlasManifest.ParseAndValidate(Shared.DependencyFreeJson.Serialize(root), atlasWidth, atlasHeight),
             "An invalid atlas rectangle must be rejected.");
         rect["w"] = originalWidth;
+    }
+
+    private static void TestInvalidSparseAtlasDocument(string atlasJson, int atlasWidth, int atlasHeight)
+    {
+        var root = (Dictionary<string, object>)Shared.DependencyFreeJson.Parse(File.ReadAllText(atlasJson));
+        var frames = (List<object>)root["frames"];
+        var first = (Dictionary<string, object>)frames[0];
+        var second = (Dictionary<string, object>)frames[1];
+        object originalName = second["name"];
+        object originalIndex = second["index"];
+        second["name"] = first["name"];
+        second["index"] = first["index"];
+        ExpectFailure(() => SparseAtlasManifest.ParseAndValidate(Shared.DependencyFreeJson.Serialize(root), atlasWidth, atlasHeight,
+            "tile_castle ", 1467, 1569), "A duplicated sparse castle frame must be rejected.");
+        second["name"] = originalName;
+        second["index"] = originalIndex;
     }
 
     private static void TestRuntimeAssemblyDependencies(string assemblyPath)

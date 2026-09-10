@@ -30,6 +30,7 @@
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.ImageConversionModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Noesis.NoesisGUI"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="R3"><HintPath>$(ExtenderDir)\R3.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
@@ -52,5 +53,7 @@
     <Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)..\shcde-script-extender\deps\Assembly-CSharp-publicized.dll')" Text="Die kanonische publicized Assembly-CSharp.dll wurde nicht gefunden." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)Assets\CrusaderSwordsman\atlas.png')" Text="Der private SkinTest-Atlas fehlt. Zuerst tools\prepare_assets.py ausführen." />
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)Assets\CrusaderRoundTower\atlas.png')" Text="Der private Rundturm-Atlas fehlt. Zuerst tools\prepare_assets.py ausführen." />
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)Assets\CrusaderUI\UIBuildingsO011_colour1.png')" Text="Die privaten SkinTest-HUD-Assets fehlen. Zuerst tools\prepare_assets.py ausführen." />
   </Target>
 </Project>

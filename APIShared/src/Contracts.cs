@@ -43,6 +43,8 @@ namespace APIShared
         public const string GatehouseTiming = "gatehouse-timing";
         /// <summary>Capability for observing selected-unit commands before Vanilla handles them.</summary>
         public const string SelectedUnitCommand = "selected-unit-command";
+        /// <summary>Capability for shared unit HUD categories and image overrides.</summary>
+        public const string UnitHudPresentation = "unit-hud-presentation";
     }
 
     /// <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
@@ -103,6 +105,11 @@ namespace APIShared
         bool TryGetSelectedUnitCommand(
             string ownerGuid,
             out ISelectedUnitCommandCapability capability,
+            out NativeCapabilityDiagnostic diagnostic);
+        /// <summary>Attempts to acquire the process-wide unit HUD presentation capability.</summary>
+        bool TryGetUnitHudPresentation(
+            string ownerGuid,
+            out IUnitHudPresentationCapability capability,
             out NativeCapabilityDiagnostic diagnostic);
     }
 

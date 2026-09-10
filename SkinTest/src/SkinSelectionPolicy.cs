@@ -62,6 +62,23 @@ namespace SkinTest
             return unitFound && ownerPlayerId > 0 && culture == LordCulture.European;
         }
 
+        public static LordCulture ReconcileEarlyAndActualCulture(LordCulture earlyCulture, LordCulture actualCulture)
+        {
+            return actualCulture == LordCulture.Unknown ? earlyCulture : actualCulture;
+        }
+
+        public static bool ShouldUseEuropeanHud(bool activeMap, bool arabicHud, int colour, LordCulture culture)
+        {
+            return activeMap && !arabicHud && colour >= 1 && colour <= 8 && culture == LordCulture.European;
+        }
+
+        public static bool CanReplaceBuilding(bool expectedVanillaSprite, bool isRoundTower,
+            int ownerPlayerId, LordCulture culture, bool frameAvailable)
+        {
+            return expectedVanillaSprite && isRoundTower && ownerPlayerId > 0 &&
+                   culture == LordCulture.European && frameAvailable;
+        }
+
         public static int ToAtlasFrameIndex(int gameImage)
         {
             // SpriteMapping.getBodyImage converts body-image IDs to zero-based atlas slots.

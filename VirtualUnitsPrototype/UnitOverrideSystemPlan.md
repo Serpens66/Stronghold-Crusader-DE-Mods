@@ -4,7 +4,11 @@
 
 Virtuelle Units behalten einen echten Vanilla-Simulationstyp. Eine zusätzliche Zahl darf weder in `r_UnitChimp` noch in den festen Arrays `selectedChimpTypes`, `troop_counts` oder den Kontrollgruppen-Typarrays abgelegt werden. Die öffentliche Identität besteht aus `TypeId` und der bei jedem Zugriff validierten Kombination aus 1-basierter Game-ID und Global-ID.
 
-Die eigenständige Präsentation wird an fünf verwalteten Stellen ergänzt: ausgewählte Truppentypen, ID-genaue Links-/Rechtsfilter, Einheiten-Hover, Armeereport und Kontrollgruppen. `EditorDirector.getSelectedChimpTypes()` wird nur nach dem einmaligen Vanilla-Aufruf für die Anzeige bereinigt. Eine Auswahländerung geht als validierte Liste 1-basierter IDs über `EngineInterface.TroopSelectionChanged(int[])` zurück an Vanilla. Kontrollgruppen speichern lediglich eine validierbare Schattenliste virtueller Mitgliedschaften; widersprüchliche Einträge werden verworfen.
+Die eigenständige Präsentation wird zentral durch `APIShared` an fünf verwalteten Stellen ergänzt: ausgewählte Truppentypen, ID-genaue Links-/Rechtsfilter, Einheiten-Hover, Armeereport und Kontrollgruppen. Eine Auswahländerung geht als validierte Liste 1-basierter IDs über `EngineInterface.TroopSelectionChanged(int[])` zurück an Vanilla. Kontrollgruppen werden aus den wirklichen, hash- und layoutvalidierten Vanilla-Gruppeneinträgen rekonstruiert; eine modseitige Schattenliste wird nicht mehr geschrieben. Alte PoC-Saves mit Schattenmetadaten bleiben lesbar, die veralteten Einträge werden ignoriert.
+
+`APIShared` ist alleiniger Eigentümer der gemeinsamen Managed-Hooks auf `HUD_Troops.SetupSelectedTroops`, die Kategorie-Klickhandler, `HUD_ControlGroups.populate`, Kontrollgruppenaktionen und `MainViewModel.UpdateUITroopSprites`. Verbraucher registrieren unveränderliche Kategorien und Bildresolver über ihre Owner-GUID. Konkurrierende Matcher für dieselbe konkrete Unit fallen auf Vanilla zurück. Lord und Desert Archer durchlaufen dadurch dieselbe deterministische Hook-Kette, ohne synthetische `eChimps`-Werte oder Änderungen an festen nativen Arrays.
+
+Der separate Bildersetzungsvertrag startet nach jedem vollständigen Vanilla-Aufruf von `UpdateUITroopSprites(colour, arabic)` neu. Resolver laufen nach Priorität, Owner-GUID und Override-ID und dürfen zunächst ausschließlich `UIBuildingsO011`, `UIBuildingsO012`, `UIButtonsK007` und `UIButtonsK008` ersetzen. `null` und Resolverfehler behalten das bisherige Bild; ein späterer Vanilla-Aufruf entfernt deaktivierte Overrides automatisch.
 
 Das Diagnose-HUD behandelt Noesis-Eingaben getrennt von Weltklicks. Ein Weltklick wird erst im folgenden Unity-Frame ausgewertet, nachdem die ausdrücklich benannten interaktiven Flächen (`VirtualUnitsPrototypeHudToggle` und `VirtualUnitsPrototypeHudPanel`) ihre `PreviewMouseDown`-Route ausführen konnten. Der äußere HUD-Host darf nicht als Eingabefläche verwendet werden, weil sein Layout-Slot die Weltkarte überdecken kann. Zusätzlich müssen das eigentliche Karten-HUD aktiv, Blackout und Briefing geschlossen, Karte und Tile gültig sowie Vanillas `overGUI`-Prüfung frei sein. Dadurch kann ein physischer Klick höchstens einen Spawnauftrag erzeugen und ein Klick auf eine VUP-Fläche keinen.
 
@@ -434,8 +438,8 @@ Eine spätere Multiplayerfreigabe verlangt identische Registrydefinitionen, tick
 9. Unit- und Building-Spawntransaktionen.
 10. Automatisierte Tests und statische Vertragsprüfungen.
 11. Betroffene Textdateien auf CRLF und Code auf fachliche Zahlenwerte prüfen.
-12. Einmalig `VirtualUnitsPrototype/build.bat` über den vorgeschriebenen erhöhten PowerShell-Aufruf ausführen.
-13. Gemeinsamer Spieltest anhand der Abnahmekriterien.
+12. `APIShared`, `BugfixesAndQoL` und `VirtualUnitsPrototype` in dieser Reihenfolge jeweils einmalig über ihre erhöhten `build.bat /nopause`-Aufrufe bauen und installieren.
+13. Gemeinsamer Spieltest mit Lord und Desert Archer anhand der Abnahmekriterien.
 14. Erst nach finaler Bestätigung Version erhöhen und fragen, ob das Feature in die README soll.
 
 ## 17. Festgelegte Grenzen und Annahmen

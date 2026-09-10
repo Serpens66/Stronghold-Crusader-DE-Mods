@@ -405,12 +405,12 @@ namespace PreplacedTest
     {
         public ShadowEconomyCell(int projected04, int raw16, byte raw07, byte raw08, byte raw09,
             byte raw0A, byte raw0B, byte raw0C, byte raw0D, byte raw0E, byte raw0F,
-            byte raw11, byte raw12, byte raw13, byte raw15)
+            byte raw11, byte raw12, byte raw13, byte raw15, bool ownerClassMatches = true)
         {
             Projected04 = projected04; Raw16 = raw16; Raw07 = raw07; Raw08 = raw08;
             Raw09 = raw09; Raw0A = raw0A; Raw0B = raw0B; Raw0C = raw0C; Raw0D = raw0D;
             Raw0E = raw0E; Raw0F = raw0F; Raw11 = raw11; Raw12 = raw12;
-            Raw13 = raw13; Raw15 = raw15;
+            Raw13 = raw13; Raw15 = raw15; OwnerClassMatches = ownerClassMatches;
         }
 
         public int Projected04 { get; }
@@ -428,15 +428,22 @@ namespace PreplacedTest
         public byte Raw12 { get; }
         public byte Raw13 { get; }
         public byte Raw15 { get; }
+        public bool OwnerClassMatches { get; }
     }
 
     internal sealed class ShadowEconomySearchResult
     {
-        public ShadowEconomySearchResult(int reachableCount, int[] blockedIndices, int[] candidateIndices)
-        { ReachableCount = reachableCount; BlockedIndices = blockedIndices; CandidateIndices = candidateIndices; }
+        public ShadowEconomySearchResult(int reachableCount, int[] reachedIndices,
+            int[] blockedIndices, int[] candidateIndices)
+        {
+            ReachableCount = reachableCount; ReachedIndices = reachedIndices;
+            BlockedIndices = blockedIndices; CandidateIndices = candidateIndices;
+        }
         public int ReachableCount { get; }
+        public int[] ReachedIndices { get; }
         public int[] BlockedIndices { get; }
         public int[] CandidateIndices { get; }
+        public int FirstCandidateIndex => CandidateIndices.Length == 0 ? -1 : CandidateIndices[0];
     }
 
     internal static class ShadowEconomySearch
@@ -476,7 +483,9 @@ namespace PreplacedTest
                     if (IsCandidate(cell, kind, resourceMode)) candidates.Add(next);
                 }
             }
-            return new ShadowEconomySearchResult(visited.Count(value => value) - blocked.Count,
+            int[] reached = Enumerable.Range(0, visited.Length)
+                .Where(index => visited[index] && !blocked.Contains(index)).ToArray();
+            return new ShadowEconomySearchResult(reached.Length, reached,
                 blocked.OrderBy(value => value).ToArray(), candidates.ToArray());
         }
 
@@ -510,12 +519,41 @@ namespace PreplacedTest
             if (kind == ShadowEconomySearchKind.Farm)
                 return cell.Projected04 == 0 && cell.Raw0F == 0 && cell.Raw07 == 0 &&
                     cell.Raw13 == 0 && cell.Raw11 > 24 && cell.Raw12 > 13;
-            if (cell.Raw0F != 0 || cell.Raw13 != 0) return false;
+            if (ResourceCandidateRejectionReason(cell, resourceMode) != "candidate") return false;
+            return true;
+        }
+
+        public static string ResourceCandidateRejectionReason(ShadowEconomyCell cell, int resourceMode)
+        {
+            int pclDifference = cell.Projected04 - cell.Raw16;
+            if (cell.Projected04 != cell.Raw16 && (resourceMode != 3 || pclDifference >= 5))
+                return "pcl-difference";
+            if (cell.Raw0F != 0) return "occupied-or-reserved-byte+0F";
+            if (cell.Raw13 != 0) return "blocked-byte+13";
+            if (cell.Raw15 != 0 && !cell.OwnerClassMatches) return "owner-class-mismatch-byte+15";
+            return ResourceTerrainReason(cell, resourceMode);
+        }
+
+        public static string ResourceTerrainReason(ShadowEconomyCell cell, int resourceMode)
+        {
             int heightDifference = cell.Raw0D - cell.Raw0C;
-            if (resourceMode == 2) return cell.Raw08 > 7 && heightDifference >= 40;
-            if (resourceMode == 3) return cell.Raw09 > 6 && heightDifference >= 30;
-            if (resourceMode == 4) return cell.Raw0A > 2 && cell.Raw0B > 9 && heightDifference >= 12;
-            return false;
+            if (resourceMode == 2)
+            {
+                if ((sbyte)cell.Raw08 <= 7) return "quarry-density-byte+08";
+                return heightDifference >= 40 ? "candidate" : "quarry-height";
+            }
+            if (resourceMode == 3)
+            {
+                if ((sbyte)cell.Raw09 <= 6) return "iron-density-byte+09";
+                return heightDifference >= 30 ? "candidate" : "iron-height";
+            }
+            if (resourceMode == 4)
+            {
+                if ((sbyte)cell.Raw0A <= 2) return "pitch-density-byte+0A";
+                if ((sbyte)cell.Raw0B <= 9) return "pitch-density-byte+0B";
+                return heightDifference >= 12 ? "candidate" : "pitch-height";
+            }
+            return "unsupported-resource-mode";
         }
     }
 
@@ -534,6 +572,12 @@ namespace PreplacedTest
                     "early-return-cached-result" : "early-return-result-without-traversal";
             return "early-return-unresolved-mode-or-state";
         }
+    }
+
+    internal static class ChoreTransferDirection
+    {
+        public static string Classify(int direction) => direction == 0 ? "runtime-to-buffer" :
+            direction == 1 ? "buffer-to-runtime" : "no-transfer-or-unknown";
     }
 
     internal static class DamageObservationModel

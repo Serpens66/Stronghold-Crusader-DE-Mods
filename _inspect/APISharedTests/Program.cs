@@ -31,6 +31,7 @@ namespace APISharedTests
         private static int Main()
         {
             TestPublicSurface();
+            TestUnitHudSnapshotImmutability();
             TestPeValidation();
             TestFixedCatalogValidation();
             TestReadinessAndIndependentCapabilities();
@@ -51,11 +52,29 @@ namespace APISharedTests
             return 1;
         }
 
+        private static void TestUnitHudSnapshotImmutability()
+        {
+            var original = new List<UnitHudUnitSnapshot>
+            {
+                new UnitHudUnitSnapshot(1, 10, 2, 1, true)
+            };
+            var category = new UnitHudCategorySnapshot("owner", "category", "Category", original);
+            var group = new UnitHudControlGroupSnapshot(0, original);
+            original.Clear();
+            Assert(category.Units.Count == 1 && group.Units.Count == 1,
+                "unit-HUD snapshots defensively copy caller-owned membership lists");
+            Assert(!(category.Units is UnitHudUnitSnapshot[]) && !(group.Units is UnitHudUnitSnapshot[]),
+                "unit-HUD snapshot membership is not exposed as a mutable array");
+        }
+
         private static void TestMigrationContracts()
         {
             string workspace = FindWorkspaceRoot();
             string plugin = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "APISharedPlugin.cs"));
             string project = File.ReadAllText(Path.Combine(workspace, "APIShared", "APIShared.csproj"));
+            string unitHud = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitHudPresentationCapability.cs"));
+            string virtualRuntime = File.ReadAllText(Path.Combine(workspace, "VirtualUnitsPrototype", "src", "VirtualEntityRuntime.cs"));
+            string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordUnitHudRegistration.cs"));
             string sourceManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "info.json"));
             string packageManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "info.json"));
             Match minimumMatch = Regex.Match(sourceManifest,
@@ -75,6 +94,31 @@ namespace APISharedTests
                 "old LibraryLoaded callback is absent");
             Assert(!project.Contains("Zhuqiaomon") && !project.Contains("PolyHook"),
                 "project has no obsolete native dependency");
+            Assert(Count(unitHud, "setupTroopsOriginal(panel)") == 1 &&
+                Count(unitHud, "populateGroupsOriginal(panel)") == 1 &&
+                Count(unitHud, "gameActionOriginal(command, value1, value2, value3)") == 1 &&
+                Count(unitHud, "updateSpritesOriginal(self, colour, arabic)") == 1 &&
+                Count(unitHud, "updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") == 1,
+                "central HUD sprite handling retains one hook trampoline call plus one explicit refresh call");
+            Assert(unitHud.Contains("ManualApply = true") &&
+                unitHud.Contains("updateSpritesHook.Apply()") &&
+                unitHud.IndexOf("updateSpritesOriginal =", StringComparison.Ordinal) < unitHud.IndexOf("updateSpritesHook.Apply()", StringComparison.Ordinal),
+                "HUD hooks must not become callable before their trampolines are published");
+            Assert(unitHud.Contains("if (updateSpritesActive)") &&
+                unitHud.Contains("IsImageOverrideContextReady()") &&
+                !unitHud.Contains("main.UpdateUITroopSprites(lastSpriteColour"),
+                "image overrides lack startup, reentrancy, or refresh-loop protection");
+            Assert(unitHud.Contains("UnitHudImageSlot.UIBuildingsO011") &&
+                unitHud.Contains("UnitHudImageSlot.UIBuildingsO012") &&
+                unitHud.Contains("UnitHudImageSlot.UIButtonsK007") &&
+                unitHud.Contains("UnitHudImageSlot.UIButtonsK008"),
+                "typed image-override allowlist is incomplete");
+            Assert(unitHud.Contains("OpacityMask = source == null ? null : new ImageBrush(source)") &&
+                virtualRuntime.Contains("UIButtonsK023") && !virtualRuntime.Contains("UIButtonsK001"),
+                "custom category tint or Vanilla Archer icon mapping is incorrect");
+            Assert(virtualRuntime.Contains("TryRegisterCategory") && bugfixLord.Contains("TryRegisterCategory") &&
+                !virtualRuntime.Contains("new Hook"),
+                "consumer mods do not exclusively register with the central HUD API");
             Assert(modVersion.Length > 0 && sourceManifest.Contains("\"NetworkMode\": 1"),
                 "source manifest declares a version and gameplay mode");
             Assert(packageManifest.Contains($"\"Version\": \"{modVersion}\"") && packageManifest.Contains("\"NetworkMode\": 1"),
@@ -96,6 +140,18 @@ namespace APISharedTests
             throw new DirectoryNotFoundException("Workspace root was not found.");
         }
 
+        private static int Count(string text, string value)
+        {
+            int count = 0;
+            int offset = 0;
+            while ((offset = text.IndexOf(value, offset, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                offset += value.Length;
+            }
+            return count;
+        }
+
         private static void TestPublicSurface()
         {
             var expected = new HashSet<string>(StringComparer.Ordinal)
@@ -107,12 +163,29 @@ namespace APISharedTests
                 "APIShared.IGatehouseTimingCapability",
                 "APIShared.ISelectedUnitCommandCapability",
                 "APIShared.ISelectedUnitCommandRegistration",
+                "APIShared.IUnitHudPresentationCapability",
                 "APIShared.IApiShared",
                 "APIShared.NativeApiState",
                 "APIShared.NativeCapabilityDiagnostic",
                 "APIShared.NativeCapabilityIds",
                 "APIShared.NativeCapabilityState",
                 "APIShared.SelectedUnitCommandContext",
+                "APIShared.UnitHudSurface",
+                "APIShared.UnitHudMouseButton",
+                "APIShared.UnitHudImageSlot",
+                "APIShared.UnitHudTint",
+                "APIShared.UnitHudUnitSnapshot",
+                "APIShared.UnitHudCategoryMatcher",
+                "APIShared.UnitHudCategoryImageResolver",
+                "APIShared.UnitHudCategoryDefinition",
+                "APIShared.UnitHudCategorySnapshot",
+                "APIShared.UnitHudSlotSnapshot",
+                "APIShared.UnitHudControlGroupSnapshot",
+                "APIShared.UnitHudInteractionContext",
+                "APIShared.UnitHudInteractionHandler",
+                "APIShared.UnitHudImageOverrideContext",
+                "APIShared.UnitHudImageOverrideResolver",
+                "APIShared.UnitHudImageOverrideDefinition",
                 "APIShared.ApiShared",
                 // BepInEx discovers the plugin type; it is public but is not a consumer service.
                 "APIShared.APISharedPlugin"
@@ -128,9 +201,10 @@ namespace APISharedTests
                     foreach (ParameterInfo parameter in method.GetParameters())
                         AssertSafePublicType(parameter.ParameterType, $"{type.FullName}.{method.Name} parameter {parameter.Name}");
                 }
-                foreach (ConstructorInfo constructor in type.GetConstructors(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
-                    foreach (ParameterInfo parameter in constructor.GetParameters())
-                        AssertSafePublicType(parameter.ParameterType, $"{type.FullName} constructor parameter {parameter.Name}");
+                if (!typeof(Delegate).IsAssignableFrom(type))
+                    foreach (ConstructorInfo constructor in type.GetConstructors(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+                        foreach (ParameterInfo parameter in constructor.GetParameters())
+                            AssertSafePublicType(parameter.ParameterType, $"{type.FullName} constructor parameter {parameter.Name}");
                 foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
                     AssertSafePublicType(property.PropertyType, $"{type.FullName}.{property.Name} property type");
                 foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
@@ -144,7 +218,8 @@ namespace APISharedTests
             {
                 "TryGetGatehouseDistanceOrigin",
                 "TryGetGatehouseTiming",
-                "TryGetSelectedUnitCommand"
+                "TryGetSelectedUnitCommand",
+                "TryGetUnitHudPresentation"
             };
             foreach (MethodInfo method in typeof(IApiShared).GetMethods())
                 expectedAcquisitionMethods.Remove(method.Name);
@@ -155,6 +230,8 @@ namespace APISharedTests
                 "distance-origin capability ID must remain stable");
             Assert(NativeCapabilityIds.GatehouseTiming == "gatehouse-timing",
                 "gatehouse-timing capability ID must remain stable");
+            Assert(NativeCapabilityIds.UnitHudPresentation == "unit-hud-presentation",
+                "unit-HUD capability ID must remain stable");
         }
 
         private static void AssertSafePublicType(Type type, string location)
@@ -253,7 +330,7 @@ namespace APISharedTests
             runtime.WhenReady(_ => readyBefore++);
             var memory = new FakeMemory();
             var events = new FakeEventSource();
-            runtime.Initialize(ModuleBase, image, "UNKNOWN", memory, events, null);
+            runtime.Initialize(ModuleBase, image, "UNKNOWN", memory, events, null, null, false);
             Assert(runtime.State == NativeApiState.Ready && readyBefore == 1, "unknown build should still publish Ready");
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic gate) &&
                 gate.State == NativeCapabilityState.UnsupportedBuild, "unknown build should disable only gatehouse");
@@ -269,7 +346,7 @@ namespace APISharedTests
             Assert(readyAfter == 1, "post-initialization readiness callback should be synchronous");
 
             runtime = new ApiSharedRuntime();
-            runtime.Initialize(0, ReadOnlySpan<byte>.Empty, string.Empty, new FakeMemory(), new FakeEventSource(), null);
+            runtime.Initialize(0, ReadOnlySpan<byte>.Empty, string.Empty, new FakeMemory(), new FakeEventSource(), null, null, false);
             Assert(runtime.State == NativeApiState.Ready, "missing native module is a gate capability error, not a global failure");
             Assert(runtime.TryGetSelectedUnitCommand("owner", out _, out _), "selected event survives missing native module");
             Assert(!runtime.TryGetGatehouseTiming("owner", out _, out NativeCapabilityDiagnostic missingHash) &&
@@ -565,7 +642,7 @@ namespace APISharedTests
             FakeEventSource events)
         {
             var runtime = new ApiSharedRuntime();
-            runtime.Initialize(ModuleBase, image, catalog.BuildHash, memory, events, null, catalog);
+            runtime.Initialize(ModuleBase, image, catalog.BuildHash, memory, events, null, catalog, false);
             return runtime;
         }
 

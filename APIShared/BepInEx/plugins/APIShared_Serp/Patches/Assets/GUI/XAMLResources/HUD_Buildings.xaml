@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Operation Type="Add" XPath="//n:Grid[@Name='ReportsArmy1Panel']">
+    <Content>
+      <StackPanel x:Name="APISharedArmyCategoriesHost" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,8" Panel.ZIndex="30" IsHitTestVisible="False" />
+    </Content>
+  </Operation>
+</Patch>

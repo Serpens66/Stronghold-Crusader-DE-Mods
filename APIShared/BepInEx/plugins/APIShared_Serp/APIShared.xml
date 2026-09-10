@@ -55,6 +55,9 @@
         <member name="F:APIShared.NativeCapabilityIds.SelectedUnitCommand">
             <summary>Capability for observing selected-unit commands before Vanilla handles them.</summary>
         </member>
+        <member name="F:APIShared.NativeCapabilityIds.UnitHudPresentation">
+            <summary>Capability for shared unit HUD categories and image overrides.</summary>
+        </member>
         <member name="T:APIShared.NativeCapabilityDiagnostic">
             <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
         </member>
@@ -100,6 +103,9 @@
             The intended future consumer is BugfixesAndQoL; this is documentation, not a runtime dependency.
             </summary>
         </member>
+        <member name="M:APIShared.IApiShared.TryGetUnitHudPresentation(System.String,APIShared.IUnitHudPresentationCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Attempts to acquire the process-wide unit HUD presentation capability.</summary>
+        </member>
         <member name="T:APIShared.ApiShared">
             <summary>Static access to the process-wide API and its readiness notification.</summary>
         </member>
@@ -111,6 +117,249 @@
             Registers a callback that runs when initialization reaches a terminal state. Late
             registrations run synchronously.
             </summary>
+        </member>
+        <member name="T:APIShared.UnitHudSurface">
+            <summary>HUD surfaces on which a registered unit category may appear.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudSurface.None">
+            <summary>No surface.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudSurface.TroopSelection">
+            <summary>The selected-troops HUD.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudSurface.ControlGroups">
+            <summary>The control-group overview.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudSurface.UnitHover">
+            <summary>The hovered-unit name.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudSurface.ArmyReport">
+            <summary>The army report.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudSurface.All">
+            <summary>Every currently supported unit presentation surface.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudMouseButton">
+            <summary>Mouse buttons reported for a unit-category interaction.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudMouseButton.Left">
+            <summary>Left mouse button.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudMouseButton.Right">
+            <summary>Right mouse button.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudMouseButton.Middle">
+            <summary>Middle mouse button.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudImageSlot">
+            <summary>Typed image bindings reset by MainViewModel.UpdateUITroopSprites.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudImageSlot.UIBuildingsO011">
+            <summary>Main/recruitment/control-group swordsman image.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudImageSlot.UIBuildingsO012">
+            <summary>Main/recruitment/control-group swordsman hover image.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudImageSlot.UIButtonsK007">
+            <summary>Selected-swordsman troop HUD image.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudImageSlot.UIButtonsK008">
+            <summary>Selected-swordsman troop HUD hover image.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudTint">
+            <summary>Immutable RGBA tint used by shared category icons.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudTint.#ctor(System.Byte,System.Byte,System.Byte,System.Byte)">
+            <summary>Creates an RGBA tint.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudTint.Red">
+            <summary>Red channel.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudTint.Green">
+            <summary>Green channel.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudTint.Blue">
+            <summary>Blue channel.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudTint.Alpha">
+            <summary>Alpha channel.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudUnitSnapshot">
+            <summary>Immutable validated unit identity presented to category matchers.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudUnitSnapshot.#ctor(System.Int32,System.UInt32,System.Int32,System.Int32,System.Boolean)">
+            <summary>Creates a unit snapshot.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudUnitSnapshot.GameId">
+            <summary>Positive one-based game ID.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudUnitSnapshot.GlobalId">
+            <summary>Native identity used to reject reused slots.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudUnitSnapshot.VanillaType">
+            <summary>Unmodified Vanilla unit type.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudUnitSnapshot.OwnerPlayerId">
+            <summary>Controlling player ID.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudUnitSnapshot.IsAlive">
+            <summary>Whether the validated native unit is alive.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudCategoryMatcher">
+            <summary>Resolves whether a validated unit belongs to a custom HUD category.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudCategoryImageResolver">
+            <summary>Resolves an image for a category. Returning null requests the Vanilla base icon.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudCategoryDefinition">
+            <summary>Immutable custom unit-category definition.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudCategoryDefinition.#ctor(System.String,System.String,System.Int32,APIShared.UnitHudSurface,APIShared.UnitHudCategoryImageResolver,APIShared.UnitHudTint,System.Int32)">
+            <summary>Creates a custom presentation category.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategoryDefinition.CategoryId">
+            <summary>Stable owner-local category identifier.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategoryDefinition.DisplayName">
+            <summary>Displayed category name.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategoryDefinition.BaseUnitType">
+            <summary>Real Vanilla unit type retained by simulation.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategoryDefinition.Surfaces">
+            <summary>Enabled presentation surfaces.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategoryDefinition.ImageResolver">
+            <summary>Optional custom image resolver.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategoryDefinition.Tint">
+            <summary>Icon overlay tint.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategoryDefinition.Order">
+            <summary>Ordering after the Vanilla base category.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudCategorySnapshot">
+            <summary>Immutable category instance list used by interaction and health consumers.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudCategorySnapshot.#ctor(System.String,System.String,System.String,System.Collections.Generic.IReadOnlyList{APIShared.UnitHudUnitSnapshot})">
+            <summary>Creates a category snapshot.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategorySnapshot.OwnerGuid">
+            <summary>Registering BepInEx owner.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategorySnapshot.CategoryId">
+            <summary>Owner-local category ID.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategorySnapshot.DisplayName">
+            <summary>Displayed name.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategorySnapshot.Units">
+            <summary>Validated category members.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudSlotSnapshot">
+            <summary>Immutable one-of-eight selected-troop slot snapshot.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudSlotSnapshot.#ctor(System.Int32,System.Int32,APIShared.UnitHudCategorySnapshot)">
+            <summary>Creates a visible-slot snapshot.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudSlotSnapshot.Slot">
+            <summary>Zero-based visual slot.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudSlotSnapshot.VanillaType">
+            <summary>Vanilla type, or -1 for a custom category.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudSlotSnapshot.Category">
+            <summary>Custom category, or null for a Vanilla slot.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudControlGroupSnapshot">
+            <summary>Immutable validated membership snapshot of one Vanilla control group.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudControlGroupSnapshot.#ctor(System.Int32,System.Collections.Generic.IReadOnlyList{APIShared.UnitHudUnitSnapshot})">
+            <summary>Creates a control-group snapshot.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudControlGroupSnapshot.Group">
+            <summary>Zero-based Vanilla group number.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudControlGroupSnapshot.Units">
+            <summary>Validated concrete members with one-based game IDs.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudInteractionContext">
+            <summary>Immutable category mouse interaction.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudInteractionContext.#ctor(APIShared.UnitHudMouseButton,APIShared.UnitHudCategorySnapshot)">
+            <summary>Creates an interaction context.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudInteractionContext.Button">
+            <summary>Pressed mouse button.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudInteractionContext.Category">
+            <summary>Interacted custom category.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudInteractionHandler">
+            <summary>Observes category interactions after API selection handling.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudImageOverrideContext">
+            <summary>Immutable context for a post-Vanilla HUD image override.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudImageOverrideContext.#ctor(System.Int32,System.Boolean,APIShared.UnitHudImageSlot,Noesis.ImageSource,Noesis.ImageSource)">
+            <summary>Creates an image override context.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudImageOverrideContext.Colour">
+            <summary>Vanilla colour argument.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudImageOverrideContext.Arabic">
+            <summary>Vanilla culture argument.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudImageOverrideContext.Slot">
+            <summary>Target property.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudImageOverrideContext.VanillaImage">
+            <summary>Image produced by Vanilla.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudImageOverrideContext.CurrentImage">
+            <summary>Image produced by earlier API resolvers.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudImageOverrideResolver">
+            <summary>Resolves a post-Vanilla HUD image. Null preserves the current image.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudImageOverrideDefinition">
+            <summary>Immutable image override definition.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudImageOverrideDefinition.#ctor(System.String,APIShared.UnitHudImageSlot,System.Int32)">
+            <summary>Creates an image override definition.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudImageOverrideDefinition.OverrideId">
+            <summary>Stable owner-local ID.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudImageOverrideDefinition.Slot">
+            <summary>Typed target slot.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudImageOverrideDefinition.Priority">
+            <summary>Ascending pipeline priority.</summary>
+        </member>
+        <member name="T:APIShared.IUnitHudPresentationCapability">
+            <summary>Owner-bound shared Unit HUD service.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.TryRegisterCategory(APIShared.UnitHudCategoryDefinition,APIShared.UnitHudCategoryMatcher,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Registers one process-lifetime custom category.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.TryRegisterInteraction(System.String,APIShared.UnitHudInteractionHandler,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Registers one process-lifetime interaction observer.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.TryRegisterImageOverride(APIShared.UnitHudImageOverrideDefinition,APIShared.UnitHudImageOverrideResolver,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Registers one deterministic post-Vanilla image override.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.GetVisibleTroopSlots">
+            <summary>Gets immutable snapshots of the current visible troop slots.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.GetSelectedCategories">
+            <summary>Gets all custom categories represented by the current selected unit IDs.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.GetControlGroups">
+            <summary>Gets all ten validated Vanilla control-group memberships, or an empty list when unavailable.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.RequestRefresh">
+            <summary>Requests a safe Unity-thread presentation refresh.</summary>
         </member>
         <member name="T:APIShared.GatehouseDistanceOrigin">
             <summary>Selects the native coordinate used as the origin of gatehouse enemy distance checks.</summary>

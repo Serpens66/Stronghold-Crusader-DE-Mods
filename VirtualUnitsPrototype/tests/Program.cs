@@ -81,7 +81,9 @@ namespace VirtualUnitsPrototype.Tests
             string runtime = File.ReadAllText(Path.Combine(root, "src", "VirtualEntityRuntime.cs"));
             string hud = File.ReadAllText(Path.Combine(root, "src", "VirtualSpawnHud.cs"));
             string api = File.ReadAllText(Path.Combine(root, "src", "ApiContracts.cs"));
-            string presentation = File.ReadAllText(Path.Combine(root, "src", "VirtualUnitPresentationRuntime.cs"));
+            string project = File.ReadAllText(Path.Combine(root, "VirtualUnitsPrototype.csproj"));
+            string plugin = File.ReadAllText(Path.Combine(root, "src", "VirtualUnitsPlugin.cs"));
+            string sharedPresentation = File.ReadAllText(Path.Combine(root, "..", "APIShared", "src", "UnitHudPresentationCapability.cs"));
             string plan = File.ReadAllText(Path.Combine(root, "UnitOverrideSystemPlan.md"));
             Check(Count(visual, "unitTrampoline(renderer,") == 1, "unit trampoline is not exactly once");
             Check(Count(visual, "buildingTrampoline(tile,") == 1, "building trampoline is not exactly once");
@@ -101,7 +103,7 @@ namespace VirtualUnitsPrototype.Tests
             Check(hud.Contains("World-click candidate rejected") && hud.Contains("Show_HUD_FrontEndBlackout"), "click rejection diagnostics or consolidated modal gate missing");
             Check(Count(hud, "QueueVirtualUnitSpawn(candidate.TypeId") == 1 && Count(hud, "QueueVirtualBuildingSpawn(candidate.TypeId") == 1, "a physical HUD candidate can enqueue more than one operation per kind");
             Check(runtime.Contains("completionQueue") && api.Contains("VirtualOperationTicket") && api.Contains("OperationCompleted"), "thread-separated operation completion API missing");
-            Check(runtime.Contains("Never hold the entity lock while taking the independent control-group snapshot"), "save path can invert entity and control-group locks");
+            Check(runtime.Contains("SaveCodec.Encode(records)") && runtime.Contains("legacy control-group shadow records"), "legacy control-group metadata is not ignored safely");
             Check(visual.Contains("OnUnitVisualInterpolate") && visual.Contains("unit-hook-entry") && visual.Contains("building-hook-entry") && visual.Contains("tile-colour-hook-entry"), "visual recovery or detour entry diagnostics missing");
             Check(runtime.Contains("pending.RendererSeen && pending.UnitHookSeen") && runtime.Contains("pending.BuildingHookSeen && pending.BuildingTintSeen"), "success does not require the complete visual path");
             Check(!visual.Contains("effectiveFile") && !visual.Contains("TargetGm") && !visual.Contains("TryMap("), "obsolete cross-GM frame replacement remains active");
@@ -109,13 +111,14 @@ namespace VirtualUnitsPrototype.Tests
             Check(visual.Contains("tile.tilemapRef.GetColor(location)") && visual.Contains("tile.tilemapRef.SetColor(location, tinted)") && !visual.Contains("tile.tileImage = target"), "building tint does not preserve Vanilla tile sprites and lighting");
             Check(api.Contains("VirtualSpriteTintProfile") && api.Contains("public byte Alpha") && runtime.Contains("tint.Alpha == byte.MaxValue"), "immutable opaque tint profile contract missing");
             Check(api.Contains("VirtualUnitPresentationProfile") && api.Contains("VirtualUnitSelectionSnapshot") && api.Contains("GetSelectedVirtualUnits"), "public distinct-presentation contracts missing");
-            Check(Count(presentation, "selectedTypesTrampoline(self)") == 1 && Count(presentation, "leftClickTrampoline(self, parameter)") == 1 && Count(presentation, "rightClickTrampoline(self, parameter)") == 1 && Count(presentation, "gameActionTrampoline(command, value1, value2, value3)") == 1, "a presentation detour does not invoke its trampoline exactly once");
-            Check(presentation.Contains("EngineInterface.TroopSelectionChanged(ids)") && presentation.Contains("item.UnitId > 0"), "ID-exact 1-based selection path missing");
-            Check(!Regex.IsMatch(presentation, @"r_UnitChimp\s*=(?!=)") &&
-                    !Regex.IsMatch(presentation, @"selectedChimpTypes\s*\[[^\]]+\]\s*=(?!=)") &&
-                    !Regex.IsMatch(presentation, @"troop_counts\s*\[[^\]]+\]\s*=(?!=)"),
+            Check(!runtime.Contains("VirtualUnitPresentationRuntime") && project.Contains("APIShared.dll") && plugin.Contains("APIShared_Serp"), "VUP does not exclusively consume APIShared presentation");
+            Check(runtime.Contains("UIButtonsK023") && !runtime.Contains("UIButtonsK001"), "Desert Archer category does not use the Vanilla Archer HUD icon");
+            Check(sharedPresentation.Contains("EngineInterface.TroopSelectionChanged") && sharedPresentation.Contains("unitId <= 0"), "central ID-exact 1-based selection path missing");
+            Check(!Regex.IsMatch(sharedPresentation, @"r_UnitChimp\s*=(?!=)") &&
+                    !Regex.IsMatch(sharedPresentation, @"selectedChimpTypes\s*\[[^\]]+\]\s*=(?!=)") &&
+                    !Regex.IsMatch(sharedPresentation, @"troop_counts\s*\[[^\]]+\]\s*=(?!=)"),
                 "presentation mutates a fixed Vanilla type representation");
-            Check(presentation.Contains("GroupTroops0") && presentation.Contains("SelectClan0") && presentation.Contains("CaptureVirtualIdentities"), "control-group shadow path missing");
+            Check(sharedPresentation.Contains("GroupTroops0") && sharedPresentation.Contains("groupRecords") && sharedPresentation.Contains("GlobalId"), "central concrete control-group reconstruction missing");
             Check(!File.ReadAllText(Path.Combine(root, "src", "VirtualUnitsPlugin.cs")).Contains("GM_BODY_ARAB_BOW"), "built-in Archer still selects Arab Bow frames");
             Check(plan.Contains("SetBodySprite(SpriteRenderer,int,int,int,bool,int,int)") && plan.Contains("GetTileBuildingId"), "confirmed plan corrections missing");
             Check(plan.Contains("gameMapX/gameMapY") && plan.Contains("Frameindizes") && plan.Contains("Farb"), "coordinate or tint plan correction missing");

@@ -32,6 +32,7 @@ namespace PreplacedTest.Tests
                 TestPclConnectivityTransitions();
                 TestDynamicWallRolesAndSearchGates();
                 TestWallTileAndShadowSearchModels();
+                TestChoreTransferDirection();
                 TestAivAreaClassification();
                 TestEarlyOwnerBuffer();
                 TestFirstBuildingWindow();
@@ -270,6 +271,16 @@ namespace PreplacedTest.Tests
                 "early-return-unresolved-mode-or-state", "unresolved early return classification");
         }
 
+        private static void TestChoreTransferDirection()
+        {
+            Check(ChoreTransferDirection.Classify(0) == "runtime-to-buffer",
+                "chore save direction changed");
+            Check(ChoreTransferDirection.Classify(1) == "buffer-to-runtime",
+                "chore load direction changed");
+            Check(ChoreTransferDirection.Classify(2) == "no-transfer-or-unknown",
+                "unknown chore direction was guessed");
+        }
+
         private static void TestWallTileAndShadowSearchModels()
         {
             Check(WallOwnerEncodingResolver.Resolve(12, 0) == WallOwnerEncoding.OneBased,
@@ -320,6 +331,18 @@ namespace PreplacedTest.Tests
             Check(ShadowEconomySearch.Run(Enumerable.Repeat(resource4, 9).ToArray(), 3, 4,
                 ShadowEconomySearchKind.Resource, 4).CandidateIndices.Length > 0,
                 "pitch candidate predicate was not replayed");
+            ShadowEconomyCell wrongPclForQuarry = new ShadowEconomyCell(6, 0, 0, 8, 0, 0, 0, 0, 40,
+                0, 0, 0, 0, 0, 0);
+            Check(ShadowEconomySearch.ResourceCandidateRejectionReason(wrongPclForQuarry, 2) ==
+                "pcl-difference", "quarry PCL equality predicate was omitted");
+            ShadowEconomyCell ironTolerance = new ShadowEconomyCell(4, 0, 0, 0, 7, 0, 0, 0, 30,
+                0, 0, 0, 0, 0, 0);
+            Check(ShadowEconomySearch.ResourceCandidateRejectionReason(ironTolerance, 3) == "candidate",
+                "iron PCL difference tolerance was not preserved");
+            ShadowEconomyCell foreignOwnerClass = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 0, 40,
+                0, 0, 0, 0, 0, 2, false);
+            Check(ShadowEconomySearch.ResourceCandidateRejectionReason(foreignOwnerClass, 2) ==
+                "owner-class-mismatch-byte+15", "resource owner-class predicate was omitted");
             ShadowEconomyCell[] diagonalGrid = Enumerable.Repeat(blocked, 9).ToArray();
             diagonalGrid[4] = pass;
             diagonalGrid[0] = pass;
@@ -366,6 +389,7 @@ namespace PreplacedTest.Tests
         private static void TestStaticNativeContracts()
         {
             string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
+            string model = File.ReadAllText(Path.Combine("src", "DiagnosticModel.cs"));
             string assemblyInfo = File.ReadAllText(Path.Combine("src", "AssemblyInfo.cs"));
             string plugin = File.ReadAllText(Path.Combine("src", "PreplacedTestPlugin.cs"));
             string manifest = File.ReadAllText("info.json");
@@ -379,9 +403,11 @@ namespace PreplacedTest.Tests
                 spanReport.Contains("## Practical impact"),
                 "Script Extender PCL span report lacks file offsets or practical impact");
             Check(updateGuide.Contains("`0xD4290`") && updateGuide.Contains("`0x96CE`") &&
-                updateGuide.Contains("`0x37CC7EC`") && updateGuide.Contains("RollbackAndThrow"),
+                updateGuide.Contains("`0x37CC7EC`") && updateGuide.Contains("`0x15B90`") &&
+                updateGuide.Contains("`0x1F5F0..0x1F68D`") && updateGuide.Contains("`+0x2AE0`") &&
+                updateGuide.Contains("RollbackAndThrow"),
                 "native update guide does not cover the new timer-copy contract");
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateSize(typeof(GameGatehouseEntry), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
@@ -400,7 +426,9 @@ namespace PreplacedTest.Tests
                 "delegate void PlayerBuildingInitializationDelegate(ulong manager, int playerId)",
                 "delegate void BuildingInitializationDelegate(ulong manager, int buildingId)",
                 "delegate void LegacyPlayerStateCopyDelegate()",
-                "delegate void InitializationStateDelegate(ulong state)"
+                "delegate void InitializationStateDelegate(ulong state)",
+                "delegate void PlayerStateChoreDelegate()",
+                "delegate void ChoreCopyFieldDelegate("
             })
                 Check(source.Contains(nativeDelegate), "native delegate ABI missing: " + nativeDelegate);
             Check(source.Contains("ulong pathManager, int playerId, int targetPcl, int sourcePcl, int routeMode"),
@@ -465,15 +493,31 @@ namespace PreplacedTest.Tests
                 !source.Contains("PREPLACED_PCL_COMPONENT_MERGE"),
                 "dynamic wall roles or label-independent breach detection are incomplete");
             Check(source.Contains("PREPLACED_WALL_BASELINE") && source.Contains("PREPLACED_WALL_TILE_CHANGE") &&
-                source.Contains("baseline-wall-tile-lost-and-anchor-connectivity") &&
-                source.Contains("WallOwnerEncodingResolver.Decode"),
+                source.Contains("selected-baseline-wall-lost+physical-flood+anchor-connectivity") &&
+                source.Contains("WallOwnerEncodingResolver.Decode") &&
+                source.Contains("baseline.GeometryClosed") && source.Contains("BuildingFootprintOverlaps"),
                 "tile-based wall role or breach diagnostics are incomplete");
             Check(source.Contains("PREPLACED_SHADOW_ECONOMY_SEARCH") &&
                 source.Contains("ShadowEconomySearch.Run") && source.Contains("CountPclTilesOutsideSet"),
                 "full player-specific shadow economy traversal is missing");
             Check(source.Contains("ReachableFriendlyPcls") && source.Contains("projected04=") &&
-                source.Contains("projected16=unchanged-unproven") && source.Contains("gate={observation.GateReason}"),
+                source.Contains("projected16=raw-vanilla-tile-logic") && source.Contains("gate={observation.GateReason}"),
                 "player-specific counterfactual or early search gate diagnostic is incomplete");
+            Check(source.Contains("PREPLACED_PLAYER_STATE_CHORE") &&
+                source.Contains("PREPLACED_PLAYER_STATE_FIELD_COPY") &&
+                source.Contains("SerializedCrushedCounterOffset") &&
+                source.Contains("PlayerResourcesOffsetInSerializedRecord") &&
+                source.Contains("PlayerStateRecordCopyCallSiteRva") &&
+                source.Contains("ChoreCopyFieldMemcpyCallSiteRva") &&
+                source.Contains("ChoreCopyFieldEndRva"),
+                "current-format player-state timer transfer diagnostic is incomplete");
+            Check(source.Contains("PREPLACED_INIT_CHECKPOINT_REACHED") &&
+                source.Contains("emittedInitializationCheckpoints.Clear()"),
+                "initialization checkpoint reachability is not logged or reset");
+            Check(source.Contains("ResourceCandidateRejectionReason") &&
+                model.Contains("owner-class-mismatch-byte+15") &&
+                source.Contains("outside-depth-or-disconnected"),
+                "resource shadow rejection diagnostics are incomplete");
             Check(source.Contains("PREPLACED_CRUSHED_TIMER_NATIVE_WRITE") &&
                 source.Contains("CrushedTimerWriterDisplacedLength = 15") &&
                 source.Contains("OverwrittenInstructionPlacement.BeforeCallback") &&
@@ -530,7 +574,7 @@ namespace PreplacedTest.Tests
             string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
             MatchCollection definitions = Regex.Matches(source,
                 @"private const string (?<name>\w+Pattern)\s*=\s*(?<body>.*?);", RegexOptions.Singleline);
-            Check(definitions.Count >= 47, "not all native signatures were discovered by the static test");
+            Check(definitions.Count >= 49, "not all native signatures were discovered by the static test");
             foreach (Match definition in definitions)
             {
                 string name = definition.Groups["name"].Value;
@@ -581,8 +625,28 @@ namespace PreplacedTest.Tests
                 source.Contains("LegacyPlayerStateCopyVersionExclusive = 0xD5"),
                 "legacy player-state copy map-version gate changed");
 
+            int recordCopyCallRaw = RvaToRaw(file, 0x15C4A);
+            Check(file[recordCopyCallRaw] == 0xE8 && 0x15C4A + 5 +
+                BitConverter.ToInt32(file, recordCopyCallRaw + 1) == 0x1F5F0,
+                "current player-state chore no longer calls the audited field-copy helper");
+            byte[] recordCopySetup =
+            {
+                0x48, 0x63, 0x05, 0xFF, 0xB6, 0x6A, 0x08, 0x45, 0x33, 0xC9,
+                0x48, 0x69, 0xD0, 0x3C, 0x58, 0x00, 0x00,
+                0x48, 0x8D, 0x05, 0x92, 0x51, 0x78, 0x03,
+                0x41, 0xB8, 0x3C, 0x58, 0x00, 0x00, 0x48, 0x03, 0xD0, 0x48, 0x8B, 0xCB, 0xE8
+            };
+            int recordSetupRaw = RvaToRaw(file, 0x15C26);
+            Check(file.Skip(recordSetupRaw).Take(recordCopySetup.Length).SequenceEqual(recordCopySetup),
+                "current player-state record base, stride, size, or call setup changed");
+            int memcpyCallRaw = RvaToRaw(file, 0x1F65D);
+            Check(file[memcpyCallRaw] == 0xE8 && 0x1F65D + 5 +
+                BitConverter.ToInt32(file, memcpyCallRaw + 1) == 0x7140 &&
+                file[RvaToRaw(file, 0x1F68C)] == 0xC3,
+                "chore field-copy memcpy target or function boundary changed");
+
             string functions = File.ReadAllText(Path.Combine("..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }
 
