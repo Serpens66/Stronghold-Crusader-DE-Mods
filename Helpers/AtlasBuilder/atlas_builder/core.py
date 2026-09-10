@@ -14,7 +14,7 @@ from typing import Callable, Iterable
 import UnityPy
 from PIL import Image, ImageChops
 
-from .gm_groups import GROUP_CONTRACTS, SUPPORTED_GROUPS
+from .gm_groups import GROUP_CONTRACTS, SUPPORTED_GROUPS, atlas_material_name
 from .i18n import translate
 from .models import GroupConfig, MASK_MODES, MISSING_TARGET_POLICIES, PIVOT_MODES, ProjectConfig
 
@@ -414,7 +414,7 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
             raise AtlasBuilderError(f"{config.gm_file_name}: sourceMetadataDirectory is required")
         canonical = next((name for name in SUPPORTED_GROUPS if name.casefold() == config.gm_file_name.casefold()), None)
         if canonical is None:
-            raise AtlasBuilderError(f"Unknown Script Extender 2.3.0 GM group: {config.gm_file_name}")
+            raise AtlasBuilderError(f"Unknown Script Extender 2.4.0 GM group: {config.gm_file_name}")
         config.gm_file_name = canonical
         contract = GROUP_CONTRACTS[canonical]
         if not contract.overridable_as_atlas:
@@ -454,28 +454,6 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
                 target_maximum=coverage.target_maximum,
             )
             warnings.append(coverage_message)
-        truncation_warnings: list[str] = []
-        for alternate in (False, True):
-            source_indices = [item.key.index for item in sources if item.key.alternate == alternate]
-            target_indices = [key.index for key in targets if key.alternate == alternate]
-            if source_indices and target_indices and max(target_indices) > max(source_indices):
-                suffix = "x" if alternate else ""
-                truncated = [
-                    FrameKey(index, alternate)
-                    for index in target_indices
-                    if index > max(source_indices)
-                ]
-                truncation_warnings.append(translate(
-                    project.language,
-                    "partial_warning",
-                    group=f"{group_name}{suffix}",
-                    target=max(target_indices),
-                    source=max(source_indices),
-                    indices=_format_frame_keys(truncated),
-                ))
-        warnings.extend(truncation_warnings)
-        if GROUP_CONTRACTS[group_name].material == "foliage":
-            warnings.append(translate(project.language, "foliage_warning", group=group_name))
         source_metadata: dict[FrameKey, SourceSpriteMetadata] = {}
         if config.pivot_mode == "source-metadata":
             source_metadata = read_source_metadata(
@@ -515,7 +493,6 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
                 diagnostics = [rejection]
                 if coverage_message:
                     diagnostics.append(coverage_message)
-                diagnostics.extend(truncation_warnings)
                 raise AtlasBuilderError("\n".join(diagnostics))
             contract = GROUP_CONTRACTS[group_name]
             outside_loader_range = [key for key in unknown if key.index > contract.maximum_frame_index]
@@ -675,7 +652,15 @@ def build_group(prepared: PreparedGroup, output_directory: Path, project: Projec
     colour_atlas.save(output_directory / "atlas.png", format="PNG", optimize=True)
     if mask_atlas is not None:
         mask_atlas.save(output_directory / "atlas_m.png", format="PNG", optimize=True)
-    _write_crlf_json(output_directory / "atlas.json", {"pixelsPerUnit": 64, "frames": frames_json})
+    contract = GROUP_CONTRACTS[prepared.config.gm_file_name]
+    _write_crlf_json(
+        output_directory / "atlas.json",
+        {
+            "material": atlas_material_name(contract),
+            "pixelsPerUnit": 64,
+            "frames": frames_json,
+        },
+    )
 
 
 def validate_generated_group(prepared: PreparedGroup, directory: Path, project: ProjectConfig) -> None:
@@ -689,6 +674,11 @@ def validate_generated_group(prepared: PreparedGroup, directory: Path, project: 
     if b"\n" in raw_json.replace(b"\r\n", b""):
         raise AtlasBuilderError(f"{prepared.config.gm_file_name}: atlas.json is not CRLF")
     payload = json.loads(raw_json.decode("utf-8"))
+    expected_material = atlas_material_name(GROUP_CONTRACTS[prepared.config.gm_file_name])
+    if payload.get("material") != expected_material:
+        raise AtlasBuilderError(
+            f"{prepared.config.gm_file_name}: generated material must be {expected_material}"
+        )
     frames = payload.get("frames", [])
     if len(frames) != len(prepared.source_frames):
         raise AtlasBuilderError(f"{prepared.config.gm_file_name}: generated frame count differs")

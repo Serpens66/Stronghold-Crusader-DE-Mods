@@ -29,7 +29,7 @@ from atlas_builder.core import (
     validate_generated_group,
 )
 from atlas_builder.models import GroupConfig, PackingConfig, ProjectConfig
-from atlas_builder.gm_groups import GROUP_CONTRACTS
+from atlas_builder.gm_groups import GROUP_CONTRACTS, atlas_material_name
 
 
 TEST_TEMP = Path(tempfile.gettempdir()) / "AtlasBuilderTests"
@@ -187,6 +187,7 @@ class BuildTests(unittest.TestCase):
         validate_generated_group(prepared, output, project)
         self.assertEqual({item.name for item in output.iterdir()}, {"atlas.png", "atlas.json"})
         payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
+        self.assertEqual(payload["material"], "Plain")
         self.assertEqual([item["name"] for item in payload["frames"]], ["tile_ruins 0", "tile_ruins 1", "tile_ruins 2"])
 
     def test_mask_atlas_uses_identical_layout(self) -> None:
@@ -195,6 +196,27 @@ class BuildTests(unittest.TestCase):
         build_group(prepared, output, project)
         validate_generated_group(prepared, output, project)
         self.assertTrue((output / "atlas_m.png").is_file())
+
+    def test_foliage_material_is_written_explicitly(self) -> None:
+        prepared, project = self.prepared("separate-directory")
+        prepared.config.gm_file_name = "tree_apple"
+        output = self.root / "out"
+        build_group(prepared, output, project)
+        validate_generated_group(prepared, output, project)
+        payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
+        self.assertEqual(payload["material"], "Foliage")
+
+    def test_generated_validator_rejects_wrong_material(self) -> None:
+        prepared, project = self.prepared()
+        output = self.root / "out"
+        build_group(prepared, output, project)
+        payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
+        payload["material"] = "TeamColour"
+        (output / "atlas.json").write_bytes(
+            (json.dumps(payload, indent=2) + "\n").replace("\n", "\r\n").encode("utf-8")
+        )
+        with self.assertRaisesRegex(AtlasBuilderError, "generated material must be Plain"):
+            validate_generated_group(prepared, output, project)
 
     def test_non_default_ppu_is_written_per_frame(self) -> None:
         prepared, project = self.prepared()
@@ -351,7 +373,7 @@ class ProjectValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(AtlasBuilderError, "No target Sprite metadata"):
                 prepare_project(project)
 
-    def test_partial_group_warns_about_array_truncation(self) -> None:
+    def test_partial_group_reports_preserved_target_frames(self) -> None:
         write_png(self.root / "images" / "tile_ruins 0.png")
         project = ProjectConfig(
             language="en",
@@ -367,7 +389,9 @@ class ProjectValidationTests(unittest.TestCase):
         }
         with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
             prepared = prepare_project(project)
-        self.assertTrue(any("truncates trailing vanilla frames" in warning for warning in prepared[0].warnings))
+        self.assertTrue(any("1 SHCDE-only (3)" in warning for warning in prepared[0].warnings))
+        self.assertTrue(any("preserves these vanilla frames" in warning for warning in prepared[0].warnings))
+        self.assertFalse(any("truncat" in warning for warning in prepared[0].warnings))
 
     def test_texture_limit_above_8192_is_rejected(self) -> None:
         project = ProjectConfig(
@@ -379,7 +403,7 @@ class ProjectValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(AtlasBuilderError, "between 64 and 8192"):
             prepare_project(project)
 
-    def test_foliage_and_incomplete_group_warnings_are_reported(self) -> None:
+    def test_incomplete_foliage_group_reports_preserved_vanilla_frames(self) -> None:
         write_png(self.root / "images" / "tree_apple-0.png")
         write_png(self.root / "images" / "tree_apple-0_m.png")
         project = ProjectConfig(
@@ -394,8 +418,9 @@ class ProjectValidationTests(unittest.TestCase):
         }}
         with patch("atlas_builder.core.read_target_metadata", return_value=metadata):
             warnings = prepare_project(project)[0].warnings
-        self.assertTrue(any("Unlit/Foliage" in warning for warning in warnings))
         self.assertTrue(any("target frames are absent" in warning for warning in warnings))
+        self.assertTrue(any("preserves these vanilla frames" in warning for warning in warnings))
+        self.assertFalse(any("incorrectly creates" in warning for warning in warnings))
 
     def test_missing_target_default_policy_still_rejects(self) -> None:
         self._write_swordsman_source()
@@ -406,7 +431,7 @@ class ProjectValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(AtlasBuilderError, "source indices not present in SHCDE"):
                 prepare_project(self._swordsman_project())
 
-    def test_rejection_keeps_coverage_and_truncation_diagnostics(self) -> None:
+    def test_rejection_keeps_coverage_diagnostics_without_obsolete_truncation_warning(self) -> None:
         write_png(self.root / "images" / "anim_castle 15.png")
         write_png(self.root / "images" / "anim_castle 127.png")
         project = ProjectConfig(
@@ -425,7 +450,7 @@ class ProjectValidationTests(unittest.TestCase):
         message = str(raised.exception)
         self.assertIn("1 shared; 1 source-only (15); 11 SHCDE-only (128–138)", message)
         self.assertIn("highest source index 127; highest SHCDE index 138", message)
-        self.assertIn("truncates trailing vanilla frames", message)
+        self.assertNotIn("truncat", message)
 
     def test_missing_target_fallback_requires_source_metadata_pivot(self) -> None:
         project = self._swordsman_project("source-metadata", "target-pixel-anchor")
@@ -694,19 +719,19 @@ class GroupContractTests(unittest.TestCase):
         self.assertEqual(GROUP_CONTRACTS["body_swordsman"].maximum_frame_index, 1087)
         self.assertEqual(
             {name for name, group in GROUP_CONTRACTS.items() if not group.overridable_as_atlas},
-            {"tile_sea_new_01", "tile_sea_shore"},
+            set(),
         )
         self.assertEqual(sum(group.material == "plain" for group in GROUP_CONTRACTS.values()), 69)
         self.assertEqual(sum(group.material == "foliage" for group in GROUP_CONTRACTS.values()), 7)
 
-    def test_unsafe_shared_sea_group_is_rejected(self) -> None:
-        project = ProjectConfig(
-            target_game_data="Data",
-            output_mod_directory="Mod",
-            groups=[GroupConfig("tile_sea_shore", "images")],
-        )
-        with self.assertRaisesRegex(AtlasBuilderError, "nicht sicher als Atlas"):
-            prepare_project(project)
+    def test_shared_sea_groups_are_supported_by_extender_2_4_contract(self) -> None:
+        self.assertTrue(GROUP_CONTRACTS["tile_sea_new_01"].overridable_as_atlas)
+        self.assertTrue(GROUP_CONTRACTS["tile_sea_shore"].overridable_as_atlas)
+
+    def test_all_extender_material_names_are_emitted_exactly(self) -> None:
+        self.assertEqual(atlas_material_name(GROUP_CONTRACTS["tile_ruins"]), "Plain")
+        self.assertEqual(atlas_material_name(GROUP_CONTRACTS["body_archer"]), "TeamColour")
+        self.assertEqual(atlas_material_name(GROUP_CONTRACTS["tree_apple"]), "Foliage")
 
     def test_plain_group_rejects_mask_atlas(self) -> None:
         project = ProjectConfig(

@@ -2,7 +2,9 @@
 
 ## Deutsch
 
-`AtlasBuilder.exe` erzeugt Sprite-Atlanten im Format der Asset-API des SHCDE Script Extenders 2.3.0. Die portable Ausgabe benötigt kein installiertes Python.
+`AtlasBuilder.exe` erzeugt Sprite-Atlanten im Format der Asset-API des SHCDE Script Extenders. Die portable Ausgabe benötigt kein installiertes Python.
+
+**Alle Angaben und erzeugten Atlanten setzen Script Extender 2.4.0 oder neuer voraus.**
 
 ### Allgemeine Anwendung
 
@@ -125,7 +127,7 @@ Auch `anim_castle` ist zwischen den geprüften Spielen nicht vollständig deckun
 - 27 Frames gibt es nur in SH1DE: `15–18`, `25–26`, `36–43`, `84–89`, `91–93`, `122–125`;
 - 11 Frames gibt es nur in SHCDE: `128–138`.
 
-Ein globaler SH1DE-Atlas, der bei Index `127` endet, verkürzt unter Script Extender 2.3.0 das Zielarray und entfernt dadurch die SHCDE-Frames `128–138`. Fehlende direkte Entsprechungen müssen manuell vorbereitet werden; der Builder erfindet keine Ersatzgrafiken. Für einen kulturabhängigen Austausch wie `SkinTest` bleiben private Atlanten mit Runtime-Auswahl und ausdrücklichem Vanilla-Fallback erforderlich. Die unten beschriebene abweichende `tile_castle`-Indexmenge ist ein zusätzliches Kompatibilitätsproblem, aber nicht die belegte Hauptursache der braunen Turmkrone.
+Ein globaler SH1DE-Atlas, der bei Index `127` endet, bewahrt die nachfolgenden SHCDE-Frames `128–138` als Vanilla-Grafiken. Fehlende direkte Entsprechungen müssen weiterhin manuell vorbereitet werden, denn der Builder erfindet keine Ersatzgrafiken. Für einen kulturabhängigen Austausch wie `SkinTest` bleiben private Atlanten mit Runtime-Auswahl erforderlich. Die unten beschriebene abweichende `tile_castle`-Indexmenge ist ein zusätzliches Kompatibilitätsthema, aber nicht die belegte Hauptursache der braunen Turmkrone.
 
 #### Sonderfall `tile_castle`: unterschiedliche Framebereiche
 
@@ -136,7 +138,7 @@ Die geprüften Versionen besitzen keine deckungsgleichen `tile_castle`-Indexmeng
 - SHCDE besitzt dafür zusätzliche Indizes `1570–1596`;
 - damit überlappen nur 1.207 Frames.
 
-Ein globaler `Override/Atlas/tile_castle` ist für diese Konvertierung mit Script Extender 2.3.0 nicht sicher: Ein Atlas kann die unterschiedlichen Indexmengen nicht vollständig abbilden, und Teilatlanten unterliegen zusätzlich der weiter unten beschriebenen Arrayverkürzung. Für diesen Sonderfall ist ein privater, von einem eigenen Runtime-Mod geladener Atlas mit ausdrücklichem Vanilla-Fallback für nicht ersetzte SHCDE-Frames die sicherere Lösung. Der Atlas Builder erzeugt diesen Runtime-Mechanismus nicht; die Gruppe sollte daher nicht als gewöhnlicher vollständiger Global-Override veröffentlicht werden.
+Ein globaler `Override/Atlas/tile_castle` bewahrt ausgelassene SHCDE-Frames einschließlich der nachfolgenden Indizes `1570–1596`. SH1DE-only-Indizes dürfen dennoch nur mit nachgewiesener Zuordnung und validierten Quellmetadaten ergänzt oder müssen bewusst ausgelassen werden. Ein privater Atlas ist nötig, wenn ein Runtime-Mod beispielsweise kulturabhängig zwischen Grafiksätzen umschalten soll.
 
 #### UI-Masteratlanten ohne Sprite-Metadaten
 
@@ -150,20 +152,18 @@ Nur für einen belegten Fall kann pro Gruppe **Aus validierten Quellmetadaten er
 
 Der ausgegebene Spritename wird aus der Ziel-GM-Gruppe erzeugt. Das ist wichtig, wenn das Quellpräfix absichtlich anders lautet: Der Script Extender erkennt nur Zielnamen wie `body_swordsman-416`, nicht einen beliebigen Namen aus dem Quellspiel. Eine deutliche Buildwarnung nennt Anzahl und Bereiche aller ergänzten Slots.
 
-### Wichtige Extender-2.3.0-Grenzen
+### Material, Masken und Teilatlanten
 
-- Der Builder kennt den Material- und Maskenvertrag aller 195 registrierten Gruppen. Plain-Gruppen wie `tile_ruins` müssen ohne Maske gebaut werden; TeamColour- und Foliage-Gruppen benötigen eine vollständige Maske.
-- `tile_sea_new_01` und `tile_sea_shore` teilen sich dasselbe Sprite-Array mit Offset und Zusatzspeicher. Der Atlas-Loader berücksichtigt das nicht; der Builder sperrt deshalb Atlas-Ausgaben für beide Gruppen und verweist auf Einzelsprite-Overrides.
-- Bei Teilatlanten verkürzt 2.3.0 das Zielarray bis zum höchsten enthaltenen Index. Höhere Vanilla-Frames gehen deshalb verloren; der Builder warnt davor.
-- Auch Lücken unterhalb des höchsten Index werden gemeldet, weil erhaltene Vanilla-Sprites mit der neuen Atlasmaske falsch aussehen können.
-- Mit einer Maske erzeugt 2.3.0 immer TeamColour-Material. Foliage kann dadurch falsch dargestellt werden, und der Materialtyp ist modseitig nicht konfigurierbar.
-- Der Builder behebt diese Extender-Fehler nicht und mischt keine Vanilla-Sprites als versteckten Workaround ein.
-
-`*.last-build.txt` neben der Projektdatei enthält das Ergebnis oder die vollständigen technischen Fehlerdetails des letzten Prüf-/Buildlaufs.
+- Der Builder kennt den Material- und Maskenvertrag aller 195 registrierten Gruppen und schreibt `Plain`, `TeamColour` oder `Foliage` ausdrücklich in `atlas.json`.
+- Plain-Gruppen wie `tile_ruins` werden ohne Maske gebaut; TeamColour- und Foliage-Gruppen benötigen eine vollständige Maske.
+- Teilatlanten sind zulässig. Nicht enthaltene SHCDE-Frames bleiben einschließlich Lücken und nachfolgender Indizes als Vanilla-Grafiken erhalten.
+- `tile_sea_new_01` und `tile_sea_shore` werden trotz ihres gemeinsam genutzten Sprite-Arrays korrekt über ihre Gruppenoffsets zugeordnet.
 
 ## English
 
-`AtlasBuilder.exe` creates sprite atlases for the SHCDE Script Extender 2.3.0 Asset API. The portable package does not require Python to be installed.
+`AtlasBuilder.exe` creates sprite atlases for the SHCDE Script Extender Asset API. The portable package does not require Python to be installed.
+
+**All instructions and generated atlases require Script Extender 2.4.0 or newer.**
 
 ### General use
 
@@ -286,7 +286,7 @@ The verified `anim_castle` sets are not identical either:
 - 27 frames exist only in SH1DE: `15–18`, `25–26`, `36–43`, `84–89`, `91–93`, `122–125`;
 - 11 frames exist only in SHCDE: `128–138`.
 
-A global SH1DE atlas ending at index `127` shortens the target array under Script Extender 2.3.0 and thereby removes SHCDE frames `128–138`. Missing direct counterparts must be prepared manually; the builder does not invent replacement artwork. Culture-dependent replacement such as `SkinTest` still requires private atlases, runtime selection and an explicit vanilla fallback. The differing `tile_castle` index set described below is an additional compatibility problem, but it is not the confirmed main cause of the brown crown.
+A global SH1DE atlas ending at index `127` preserves the trailing SHCDE frames `128–138` as vanilla artwork. Missing direct counterparts must still be prepared manually because the builder does not invent replacement artwork. Culture-dependent replacement such as `SkinTest` continues to require private atlases and runtime selection. The differing `tile_castle` index set described below is an additional compatibility concern, but it is not the confirmed main cause of the brown crown.
 
 #### Special case `tile_castle`: differing frame ranges
 
@@ -297,7 +297,7 @@ The examined game versions do not have matching `tile_castle` index sets:
 - SHCDE instead has additional indices `1570–1596`;
 - only 1,207 frames therefore overlap.
 
-A global `Override/Atlas/tile_castle` is unsafe for this conversion with Script Extender 2.3.0: one atlas cannot represent both differing index sets completely, and partial atlases also trigger the array truncation described below. A private atlas loaded by a dedicated runtime mod, with an explicit vanilla fallback for SHCDE frames that are not replaced, is safer for this special case. Atlas Builder does not generate that runtime mechanism, so this group should not be released as an ordinary complete global override.
+A global `Override/Atlas/tile_castle` preserves omitted SHCDE frames, including trailing indices `1570–1596`. SH1DE-only indices must still be added only with a proven mapping and validated source metadata, or deliberately omitted. A private atlas is required when a runtime mod needs conditional selection, for example between culture-dependent artwork sets.
 
 #### UI master atlases without Sprite metadata
 
@@ -311,13 +311,9 @@ For a verified case only, select **Fill from validated source metadata** for tha
 
 The emitted Sprite name is constructed from the target GM group. This matters when the source prefix intentionally differs: the Script Extender recognizes target names such as `body_swordsman-416`, not an arbitrary source-game name. A prominent build warning lists the number and ranges of all filled slots.
 
-### Important Script Extender 2.3.0 limitations
+### Materials, masks and partial atlases
 
-- The builder knows the material and mask contract of all 195 registered groups. Plain groups such as `tile_ruins` must be built without a mask; TeamColour and Foliage groups require a complete mask.
-- `tile_sea_new_01` and `tile_sea_shore` share one Sprite array through an offset and additional storage. The atlas loader ignores that contract, so the builder blocks atlas output for both groups and directs users to individual Sprite overrides.
-- For partial atlases, 2.3.0 truncates the target array after the highest included index. Higher vanilla frames are lost, so the builder displays a warning.
-- Gaps below the highest index are also reported because preserved Vanilla Sprites can render incorrectly with the replacement atlas mask.
-- With a mask, 2.3.0 always creates TeamColour materials. Foliage may therefore render incorrectly, and mods cannot configure the material type.
-- The builder does not patch these Extender defects and does not mix in vanilla sprites as a hidden workaround.
-
-The `*.last-build.txt` file next to the project stores the result or complete technical error details from the latest validation/build operation.
+- The builder knows the material and mask contract of all 195 registered groups and writes `Plain`, `TeamColour` or `Foliage` explicitly to `atlas.json`.
+- Plain groups such as `tile_ruins` are built without a mask; TeamColour and Foliage groups require a complete mask.
+- Partial atlases are supported. Omitted SHCDE frames, including gaps and trailing indices, remain as vanilla artwork.
+- `tile_sea_new_01` and `tile_sea_shore` are assigned correctly through their group offsets despite sharing one Sprite array.

@@ -48,3 +48,12 @@ def load_group_contracts() -> dict[str, GroupContract]:
 GROUP_CONTRACTS = load_group_contracts()
 SUPPORTED_GROUPS = {name: contract.dash_format for name, contract in GROUP_CONTRACTS.items()}
 
+
+def atlas_material_name(contract: GroupContract) -> str:
+    """Return the exact root-level material value accepted by Extender 2.4.0."""
+    return {
+        "plain": "Plain",
+        "teamcolour": "TeamColour",
+        "foliage": "Foliage",
+    }[contract.material]
+

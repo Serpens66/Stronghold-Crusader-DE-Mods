@@ -629,6 +629,7 @@ class AtlasBuilderApp(tk.Tk):
                     else:
                         warnings = result.warnings
                         message = self.tr("build_ok", frames=result.colour_frames, masks=result.mask_frames, output=result.output_mod_directory)
+                    message += "\n\n" + self.tr("extender_recommendation")
                     message += "\n\n" + self._pivot_mode_summary()
                     if warnings:
                         message += "\n\n" + "\n".join(warnings)

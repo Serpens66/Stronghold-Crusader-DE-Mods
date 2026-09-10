@@ -1,5 +1,5 @@
 {
-  "sourceContract": "SHCDE Script Extender 2.3.0; verified against current SHCDE spriteLoader baseline FBCB9319",
+  "sourceContract": "SHCDE Script Extender 2.4.0; verified against current SHCDE spriteLoader baseline FBCB9319",
   "schema": 1,
   "groups": [
     {
@@ -2389,7 +2389,7 @@
       "declaredImageCount": 2167,
       "idOffset": 0,
       "additionalStorage": 816,
-      "overridableAsAtlas": false,
+      "overridableAsAtlas": true,
       "material": "plain",
       "maskPolicy": "forbidden",
       "customPalette": false
@@ -2402,7 +2402,7 @@
       "declaredImageCount": 816,
       "idOffset": 2167,
       "additionalStorage": -1,
-      "overridableAsAtlas": false,
+      "overridableAsAtlas": true,
       "material": "plain",
       "maskPolicy": "forbidden",
       "customPalette": false
