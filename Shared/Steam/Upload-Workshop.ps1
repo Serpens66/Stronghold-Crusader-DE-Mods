@@ -62,10 +62,82 @@ function Get-Sha256 {
     }
 }
 
+function Get-UploadedModVersions {
+    param([AllowNull()]$State)
+
+    $versions = @{}
+    if ($null -ne $State -and $null -ne $State.Mods) {
+        foreach ($mod in @($State.Mods)) {
+            $guid = [string]$mod.Guid
+            if (-not [string]::IsNullOrWhiteSpace($guid)) {
+                $versions[$guid] = [string]$mod.Version
+            }
+        }
+    }
+    return $versions
+}
+
+function Get-IncrementalChangesBody {
+    param(
+        [Parameter(Mandatory)][string]$Body,
+        [Parameter(Mandatory)][string]$CurrentVersion,
+        [AllowEmptyString()][string]$PreviousVersion,
+        [Parameter(Mandatory)][string]$ModName
+    )
+
+    if ([string]::IsNullOrWhiteSpace($PreviousVersion)) {
+        return $Body
+    }
+
+    $previousHeading = [regex]::Match(
+        $Body,
+        '(?m)^###[ \t]+v' + [regex]::Escape($PreviousVersion) + '[ \t]*$')
+    if ($previousHeading.Success) {
+        $incrementalBody = $Body.Substring(0, $previousHeading.Index).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($incrementalBody)) {
+            return $incrementalBody
+        }
+    }
+
+    # Release notes may have dropped the exact baseline while still containing
+    # several newer releases. Numeric versions can be compared safely so none
+    # of those intermediate changes are lost.
+    $parsedPreviousVersion = $null
+    if ([version]::TryParse($PreviousVersion, [ref]$parsedPreviousVersion)) {
+        $newerSections = [Collections.Generic.List[string]]::new()
+        $sectionMatches = [regex]::Matches(
+            $Body,
+            '(?ms)^###[ \t]+v(?<version>[^ \t\r\n]+)[ \t]*\r?\n.*?(?=^###[ \t]+v|\z)')
+        foreach ($sectionMatch in $sectionMatches) {
+            $parsedSectionVersion = $null
+            if ([version]::TryParse($sectionMatch.Groups['version'].Value, [ref]$parsedSectionVersion) -and
+                $parsedSectionVersion -gt $parsedPreviousVersion) {
+                $newerSections.Add($sectionMatch.Value.Trim())
+            }
+        }
+        if ($newerSections.Count -gt 0) {
+            Write-UploadLog "Previous version v$PreviousVersion is absent from the release notes for '$ModName'; selected $($newerSections.Count) newer numeric version section(s)." 'WARN'
+            return $newerSections -join "`r`n`r`n"
+        }
+    }
+
+    # Non-numeric versions cannot be ordered reliably without the baseline.
+    # The current section is the only one guaranteed not to be a duplicate.
+    $currentSection = [regex]::Match(
+        $Body,
+        '(?ms)^###[ \t]+v' + [regex]::Escape($CurrentVersion) + '[ \t]*\r?\n.*?(?=^###[ \t]+v|\z)')
+    if (-not $currentSection.Success -or [string]::IsNullOrWhiteSpace($currentSection.Value)) {
+        Stop-Upload 2 "Current version section v$CurrentVersion was not found for '$ModName'."
+    }
+    Write-UploadLog "Previous version v$PreviousVersion is absent from the release notes for '$ModName'; including only v$CurrentVersion to avoid duplicate entries." 'WARN'
+    return $currentSection.Value.Trim()
+}
+
 function Get-WorkshopChangeNote {
     param(
         [Parameter(Mandatory)][string]$ReleaseOutputRoot,
-        [Parameter(Mandatory)][IO.FileInfo]$MapFile
+        [Parameter(Mandatory)][IO.FileInfo]$MapFile,
+        [AllowNull()]$PreviousState
     )
 
     $packReleaseRoot = Join-Path $ReleaseOutputRoot 'SerpsMods'
@@ -106,6 +178,7 @@ function Get-WorkshopChangeNote {
 
     $sections = [Collections.Generic.List[string]]::new()
     $sources = [Collections.Generic.List[string]]::new()
+    $previousVersions = Get-UploadedModVersions -State $PreviousState
     foreach ($mod in $activeMods) {
         $releaseTag = [string]$mod.ReleaseTag
         $releaseTagMatch = [regex]::Match($releaseTag, '^([A-Za-z0-9._-]+)/v([A-Za-z0-9._-]+)$')
@@ -116,6 +189,17 @@ function Get-WorkshopChangeNote {
         $modVersion = [string]$mod.Version
         if ($releaseTagMatch.Groups[2].Value -cne $modVersion) {
             Stop-Upload 2 "Release tag/version mismatch for active mod '$($mod.Name)': '$releaseTag' versus '$modVersion'"
+        }
+
+        $modGuid = [string]$mod.Guid
+        $previousVersion = if ($previousVersions.ContainsKey($modGuid)) {
+            [string]$previousVersions[$modGuid]
+        } else {
+            ''
+        }
+        if ($previousVersion -ceq $modVersion) {
+            Write-UploadLog "Changelog unchanged: $($mod.Name) v$modVersion"
+            continue
         }
 
         $modReleaseRoot = Join-Path $ReleaseOutputRoot $releaseTagMatch.Groups[1].Value
@@ -132,18 +216,115 @@ function Get-WorkshopChangeNote {
             Stop-Upload 2 "A non-empty '## Changes' section was not found for active mod '$($mod.Name)' v${modVersion}: $notesPath"
         }
 
-        $body = $changesMatch.Groups['body'].Value.Trim()
+        $body = Get-IncrementalChangesBody `
+            -Body $changesMatch.Groups['body'].Value.Trim() `
+            -CurrentVersion $modVersion `
+            -PreviousVersion $previousVersion `
+            -ModName ([string]$mod.Name)
         $body = [regex]::Replace($body, "`r`n|`r|`n", "`r`n")
         $sections.Add("## $($mod.Name) v$modVersion`r`n`r`n$body")
         $sources.Add((Resolve-Path -LiteralPath $notesPath).Path)
     }
 
     return [pscustomobject]@{
-        Text = $sections -join "`r`n`r`n"
+        Text = if ($sections.Count -gt 0) {
+            $sections -join "`r`n`r`n"
+        } else {
+            'Workshop pack updated.'
+        }
         Sources = $sources.ToArray()
         PackReleaseDirectory = $release.Directory
+        PackVersion = [string]$release.Provenance.Version
         MapSha256 = $mapHash
+        Mods = @($activeMods | ForEach-Object {
+            [pscustomobject]@{
+                Guid = [string]$_.Guid
+                Name = [string]$_.Name
+                Version = [string]$_.Version
+            }
+        })
     }
+}
+
+function Read-ChangelogState {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $null
+    }
+    try {
+        return [IO.File]::ReadAllText($Path) | ConvertFrom-Json
+    } catch {
+        Stop-Upload 2 "Workshop changelog state is unreadable: $Path ($($_.Exception.Message))"
+    }
+}
+
+function Find-LegacyChangelogState {
+    param(
+        [Parameter(Mandatory)][string]$LogDirectory,
+        [Parameter(Mandatory)][string]$ItemId
+    )
+
+    $logs = @(Get-ChildItem -LiteralPath $LogDirectory -File -Filter '*.log' |
+        Sort-Object LastWriteTimeUtc -Descending)
+    foreach ($log in $logs) {
+        $text = [IO.File]::ReadAllText($log.FullName)
+        if ($text -notmatch '(?m)^.*Steam Workshop upload completed successfully\. Item ID: ' + [regex]::Escape($ItemId) + '[ \t]*\r?$') {
+            continue
+        }
+        $releaseMatch = [regex]::Match($text, '(?m)^.*Changelog pack release: (?<path>.+?)[ \t]*\r?$')
+        if (-not $releaseMatch.Success) {
+            continue
+        }
+        $provenancePath = Join-Path $releaseMatch.Groups['path'].Value.Trim() 'SerpsMods.provenance.json'
+        if (-not (Test-Path -LiteralPath $provenancePath -PathType Leaf)) {
+            continue
+        }
+        try {
+            $provenance = [IO.File]::ReadAllText($provenancePath) | ConvertFrom-Json
+            Write-UploadLog "Using last successful upload as initial changelog baseline: $($log.FullName)" 'OK'
+            return [pscustomobject]@{
+                SchemaVersion = 1
+                ItemId = $ItemId
+                PackVersion = [string]$provenance.Version
+                MapSha256 = [string]$provenance.Map.Sha256
+                Mods = @($provenance.Mods | Where-Object { [string]$_.State -ceq 'Active' } | ForEach-Object {
+                    [pscustomobject]@{
+                        Guid = [string]$_.Guid
+                        Name = [string]$_.Name
+                        Version = [string]$_.Version
+                    }
+                })
+            }
+        } catch {
+            Write-UploadLog "Ignoring unusable legacy changelog baseline ${provenancePath}: $($_.Exception.Message)" 'WARN'
+        }
+    }
+    return $null
+}
+
+function Save-ChangelogState {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)]$ChangeNoteInfo,
+        [Parameter(Mandatory)][string]$ItemId
+    )
+
+    $state = [ordered]@{
+        SchemaVersion = 1
+        ItemId = $ItemId
+        PackVersion = $ChangeNoteInfo.PackVersion
+        MapSha256 = $ChangeNoteInfo.MapSha256
+        UploadedUtc = [DateTime]::UtcNow.ToString('o')
+        Mods = @($ChangeNoteInfo.Mods)
+    }
+    $directory = Split-Path -Parent $Path
+    [void](New-Item -ItemType Directory -Path $directory -Force)
+    [IO.File]::WriteAllText(
+        $Path,
+        (($state | ConvertTo-Json -Depth 5) + "`r`n"),
+        [Text.UTF8Encoding]::new($false))
+    Write-UploadLog "Workshop changelog state saved: $Path" 'OK'
 }
 
 function Save-ItemId {
@@ -229,10 +410,6 @@ try {
         $ItemName = Split-Path -Leaf $resolvedFolder
     }
 
-    $changeNoteInfo = Get-WorkshopChangeNote `
-        -ReleaseOutputRoot (Join-Path $root '.release-output') `
-        -MapFile $mapFiles[0]
-
     $safeFolderName = ([regex]::Replace((Split-Path -Leaf $resolvedFolder), '[^A-Za-z0-9._-]', '_')).Trim('_')
     if ([string]::IsNullOrWhiteSpace($safeFolderName)) { $safeFolderName = 'workshop-item' }
     $itemIdPath = Join-Path $outputRoot "items\$AppId-$safeFolderName.item-id"
@@ -251,6 +428,27 @@ try {
     }
 
     $isUpdate = -not [string]::IsNullOrWhiteSpace($itemId)
+    $changelogStatePath = Join-Path $outputRoot "items\$AppId-$safeFolderName.changelog-state.json"
+    $previousChangelogState = if ($isUpdate) {
+        Read-ChangelogState -Path $changelogStatePath
+    } else {
+        $null
+    }
+    if ($isUpdate -and $null -eq $previousChangelogState) {
+        $previousChangelogState = Find-LegacyChangelogState `
+            -LogDirectory $logDirectory `
+            -ItemId $itemId
+    }
+    if ($null -ne $previousChangelogState -and
+        [string]$previousChangelogState.ItemId -cne $itemId) {
+        Stop-Upload 2 "Workshop changelog state belongs to item $($previousChangelogState.ItemId), not item $itemId`: $changelogStatePath"
+    }
+
+    $changeNoteInfo = Get-WorkshopChangeNote `
+        -ReleaseOutputRoot (Join-Path $root '.release-output') `
+        -MapFile $mapFiles[0] `
+        -PreviousState $previousChangelogState
+
     $uploadConfirmed = $false
     $missingSavedItem = $false
     if ($isUpdate) {
@@ -381,6 +579,10 @@ try {
     if ($isUpdate -and $ConfiguredItemId.Trim()) {
         Save-ItemId -Path $itemIdPath -ItemId $itemId
     }
+    Save-ChangelogState `
+        -Path $changelogStatePath `
+        -ChangeNoteInfo $changeNoteInfo `
+        -ItemId $itemId
 
     Write-UploadLog "Steam Workshop upload completed successfully. Item ID: $itemId" 'OK'
     Write-Host "Log: $logPath"

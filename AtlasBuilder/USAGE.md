@@ -4,7 +4,9 @@
 
 `AtlasBuilder.exe` erzeugt Sprite-Atlanten im Format der Asset-API des SHCDE Script Extenders 2.3.0. Die portable Ausgabe benötigt kein installiertes Python.
 
-### Schnellstart
+### Allgemeine Anwendung
+
+#### Schnellstart
 
 1. `AtlasBuilder.exe` starten und den Ordner `Stronghold Crusader Definitive Edition_Data` auswählen.
 2. Einen neuen, leeren Modordner festlegen oder einen vorhandenen Modordner auswählen.
@@ -14,24 +16,6 @@
 
 Das Quellpräfix `auto` erkennt den Text vor dem abschließenden numerischen Index. Akzeptiert werden beispielsweise `Tree_Oak-12.png`, `tile_ruins 012.png`, `012.png` und `body_name-12x.png`. Im selben Ordner müssen Masken auf `_m.png` enden. In einem separaten Maskenordner ist `_m` optional.
 
-### Wichtig: Tight-Mesh-Sprites korrekt aus Unity-Atlanten extrahieren
-
-Der Atlas Builder erwartet bereits korrekt extrahierte Einzel-PNGs. Er schneidet keine Sprites aus einem Quellatlas aus und kann Verunreinigungen in den Eingabebildern nicht nachträglich reparieren.
-
-Bei Unity-Sprites mit **Tight Mesh** darf der gemeinsame Farb- oder Maskenatlas nicht einfach rechteckig anhand von `m_Rect` ausgeschnitten werden. Das Rechteck kann Pixel benachbarter Atlasobjekte enthalten; außerdem können die tatsächlichen UV-Vertices über einzelne `m_Rect`-Kanten hinausragen. Das wurde an den bereitgestellten SH1DE-Swordsman-Daten bestätigt: Alle 1.216 Frames besitzen Meshdaten, und einzelne UV-Meshes überschreiten eine `m_Rect`-Kante um bis zu ungefähr 27 Pixel.
-
-Ein geeigneter Extraktor muss daher:
-
-1. Positionen und UVs aus `m_RD.m_VertexData` sowie die Dreiecke aus `m_RD.m_IndexBuffer` und `m_SubMeshes` lesen.
-2. den benötigten Ausschnitt aus den UV-Meshgrenzen bestimmen, nicht allein aus `m_Rect`;
-3. die indizierten Dreiecke für Farb- und Maskenatlas identisch rasterisieren und alle Pixel außerhalb der Dreiecksfläche transparent setzen;
-4. den Pivot für die neue Ausgabeleinwand aus Meshpositionen, UVs und PPU neu berechnen;
-5. korrigierte Quellmetadaten mit der tatsächlichen PNG-Größe und dem neu normalisierten Pivot ausgeben.
-
-Eine reine Rechteckextraktion kann farbige Fragmente anderer Sprites erzeugen. Der Builder packt solche bereits verunreinigten Pixel anschließend unverändert und besteht dabei zu Recht seinen Pixelvergleich, weil Quelle und gebauter Atlas identisch sind. Weder eine andere Pivotoption noch ein größerer Packabstand behebt diesen Eingabefehler.
-
-Eine allgemeine automatische Tight-Mesh-Prüfung ist aus einem Einzel-PNG und den normalen Basisfeldern `m_Rect`/`m_Pivot` nicht eindeutig möglich. Dafür müsste zusätzlich die genaue Extraktionstransformation oder ein vertrauenswürdiger Mesh-Sidecar mit lokalen Vertices und Dreiecken vorliegen. Bei eigenen Ersatzgrafiken können Pixel außerhalb des ursprünglichen Unity-Meshes außerdem beabsichtigt sein. Deshalb erzwingt der Builder derzeit keine solche Prüfung.
-
 Die Ausgabe einer Gruppe besteht aus:
 
     Override/Atlas/<GM-Gruppe>/atlas.png
@@ -40,7 +24,7 @@ Die Ausgabe einer Gruppe besteht aus:
 
 Der Builder übernimmt Zielnamen und Pixels-per-Unit direkt aus den installierten SHCDE-Sprite-Metadaten. Er trimmt und rotiert keine Bilder. Vorhandene Atlasgruppen werden nur nach Bestätigung ersetzt; ein vorhandenes `info.json` wird nie überschrieben.
 
-### Pivotquelle und korrekte Ausrichtung
+#### Pivotquelle und korrekte Ausrichtung
 
 Ein Unity-Pivot ist normalisiert. Derselbe Wert bezeichnet deshalb auf unterschiedlich großen Bildern einen anderen Pixel. Das kann Bodenplatten auseinanderziehen oder Gebäude- und Animationsteile gegeneinander verschieben.
 
@@ -55,6 +39,51 @@ Bei Quellmetadaten bleiben normalisierte Pivots bei einer proportional skalierte
 Bei den geprüften SH1DE-Gruppen `tile_land8`, `tile_buildings1`, `tile_churches` und `tile_ruins` liegt der originale Pixelanker durchgehend bei `(32, 16,5)` und die PPU bei 64. Beispielsweise ergeben sowohl Pivot `(0,5; 0,40243897)` auf 64×41 Pixeln als auch `(0,5; 0,08418399)` auf 64×196 Pixeln denselben Anker. Schwarze Spalten zwischen Tiles sind ein typisches Zeichen dafür, dass stattdessen ein normalisierter Pivot von einer anders großen Leinwand kopiert wurde.
 
 Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen gewarnt. Schema-2-Projekte behalten ihre bisherige strikte Zielprüfung. Beim nächsten Speichern werden ältere Projekte als Schema 3 abgelegt.
+
+### Grafiken aus Stronghold 1 DE übertragen
+
+#### Tight-Mesh-Sprites korrekt extrahieren
+
+Der Atlas Builder erwartet bereits korrekt extrahierte Einzel-PNGs. Er schneidet keine Sprites aus einem Quellatlas aus und kann Verunreinigungen in den Eingabebildern nicht nachträglich reparieren.
+
+Bei Unity-Sprites mit **Tight Mesh** darf der gemeinsame Farb- oder Maskenatlas nicht einfach rechteckig anhand von `m_Rect` ausgeschnitten werden. Das Rechteck kann Pixel benachbarter Atlasobjekte enthalten; außerdem können die tatsächlichen UV-Vertices über einzelne `m_Rect`-Kanten hinausragen. Das wurde an den bereitgestellten SH1DE-Swordsman-Daten bestätigt: Alle 1.216 Frames besitzen Meshdaten, und einzelne UV-Meshes überschreiten eine `m_Rect`-Kante um bis zu ungefähr 27 Pixel.
+
+Ein geeigneter SH1DE-Extraktor muss daher:
+
+1. Positionen und UVs aus `m_RD.m_VertexData` sowie die Dreiecke aus `m_RD.m_IndexBuffer` und `m_SubMeshes` lesen;
+2. den benötigten Ausschnitt aus den UV-Meshgrenzen bestimmen, nicht allein aus `m_Rect`;
+3. die indizierten Dreiecke für Farb- und Maskenatlas identisch rasterisieren und alle Pixel außerhalb der Dreiecksfläche transparent setzen;
+4. den Anker und den Pivot für die neue Ausgabeleinwand wie unten beschrieben neu berechnen;
+5. korrigierte Quellmetadaten mit tatsächlicher PNG-Größe und neu normalisiertem Pivot ausgeben.
+
+Eine reine Rechteckextraktion kann farbige Fragmente anderer Sprites erzeugen. Der Builder packt solche bereits verunreinigten Pixel anschließend unverändert und besteht dabei zu Recht seinen Pixelvergleich, weil Quelle und gebauter Atlas identisch sind. Weder eine andere Pivotoption noch ein größerer Packabstand behebt diesen Eingabefehler.
+
+#### Ankerpunkte aus den gerippten Daten wiederherstellen
+
+Die ursprünglichen Ankerpunkte müssen nicht geschätzt werden. Bei einem korrekt gerippten Sprite lassen sie sich aus einer zusammengehörenden lokalen Meshposition `(vertexX, vertexY)`, deren Atlas-UV `(uvX, uvY)`, der Atlasgröße und `m_PixelsToUnits` (`PPU`) rekonstruieren:
+
+    anchorX = uvX * atlasWidth  - vertexX * PPU
+    anchorY = uvY * atlasHeight - vertexY * PPU
+
+Mehrere Vertices desselben Sprites müssen bis auf kleine Rundungsabweichungen denselben Anker ergeben. Nach dem Tight-Mesh-Ausschnitt mit der linken unteren Ecke `(cropLeft, cropBottom)` wird dieser Pixelanker auf die neue PNG-Leinwand normalisiert:
+
+    newPivotX = (anchorX - cropLeft)   / newWidth
+    newPivotY = (anchorY - cropBottom) / newHeight
+
+Der Extraktor muss diese berechneten Werte zusammen mit der tatsächlichen PNG-Größe in korrigierte Sprite-JSONs schreiben. Im Atlas Builder wird anschließend **Pivot aus Quellmetadaten** gewählt und der Ordner mit diesen korrigierten JSONs angegeben. Die unveränderte AssetRipper-Datei beschreibt noch die ursprüngliche Atlas-/Rect-Geometrie; ihr `m_Pivot` darf nach einem anders zugeschnittenen Einzel-PNG nicht blind übernommen werden.
+
+Für Farb- und Maskenbild müssen exakt derselbe Ausschnitt, dieselbe Dreiecksmaske und derselbe Pivot verwendet werden. Stehen nur bereits falsch rechteckig ausgeschnittene PNGs ohne ursprünglichen Atlas und ohne Vertex-/UV-/Indexdaten zur Verfügung, lässt sich der exakte Anker normalerweise nicht mehr zuverlässig rekonstruieren.
+
+Eine allgemeine automatische Tight-Mesh-Prüfung ist aus einem Einzel-PNG und den normalen Basisfeldern `m_Rect`/`m_Pivot` nicht eindeutig möglich. Dafür müsste zusätzlich die genaue Extraktionstransformation oder ein vertrauenswürdiger Mesh-Sidecar mit lokalen Vertices und Dreiecken vorliegen. Bei eigenen Ersatzgrafiken können Pixel außerhalb des ursprünglichen Unity-Meshes außerdem beabsichtigt sein. Deshalb erzwingt der Builder derzeit keine solche Prüfung.
+
+#### Empfohlener SH1DE-Ablauf
+
+1. Den originalen SH1DE-Farb- und gegebenenfalls Maskenatlas sowie die Sprite-Metadaten vollständig rippen.
+2. Tight-Mesh-Frames dreiecksbasiert extrahieren und dabei korrigierte Einzel-PNGs und JSONs erzeugen.
+3. In Atlas Builder die passende SHCDE-GM-Gruppe und das gewünschte SH1DE-Quellpräfix auswählen.
+4. **Pivot aus Quellmetadaten** und den Ordner mit den korrigierten JSONs einstellen.
+5. Fehlende SHCDE-Zielslots grundsätzlich ablehnen und nur bei einem nachgewiesenen leeren Zielbereich die unten beschriebene Opt-in-Regel verwenden.
+6. Vorschau und Warnungen prüfen, den Atlas bauen und Ausrichtung sowie Animation im Spiel testen.
 
 ### In SHCDE fehlende Zielslots
 
@@ -79,7 +108,9 @@ Der ausgegebene Spritename wird aus der Ziel-GM-Gruppe erzeugt. Das ist wichtig,
 
 `AtlasBuilder.exe` creates sprite atlases for the SHCDE Script Extender 2.3.0 Asset API. The portable package does not require Python to be installed.
 
-### Quick start
+### General use
+
+#### Quick start
 
 1. Start `AtlasBuilder.exe` and select `Stronghold Crusader Definitive Edition_Data`.
 2. Select a new empty mod directory or an existing mod directory.
@@ -89,24 +120,6 @@ Der ausgegebene Spritename wird aus der Ziel-GM-Gruppe erzeugt. Das ist wichtig,
 
 The `auto` source prefix detects the text before the trailing numeric index. Examples include `Tree_Oak-12.png`, `tile_ruins 012.png`, `012.png` and `body_name-12x.png`. Masks in the colour directory must end in `_m.png`; `_m` is optional in a separate mask directory.
 
-### Important: correctly extracting Tight Mesh Sprites from Unity atlases
-
-The Atlas Builder expects correctly extracted individual PNGs. It does not cut Sprites out of a source atlas and cannot repair contamination that is already present in its input images.
-
-For Unity Sprites using a **Tight Mesh**, do not crop the shared colour or mask atlas as a rectangle based only on `m_Rect`. That rectangle can contain pixels belonging to neighbouring atlas objects, and the actual UV vertices may extend beyond individual `m_Rect` edges. This was confirmed in the supplied SH1DE swordsman data: all 1,216 frames contain mesh data, and individual UV meshes extend beyond an `m_Rect` edge by up to approximately 27 pixels.
-
-A suitable extractor must therefore:
-
-1. read positions and UVs from `m_RD.m_VertexData`, and triangles from `m_RD.m_IndexBuffer` and `m_SubMeshes`;
-2. determine the required crop from the UV mesh bounds rather than from `m_Rect` alone;
-3. rasterize the indexed triangles identically for the colour and mask atlases, clearing every pixel outside the triangle area to transparency;
-4. recalculate the pivot for the new output canvas from mesh positions, UVs and PPU;
-5. emit corrected source metadata containing the actual PNG dimensions and newly normalized pivot.
-
-A rectangular crop can introduce coloured fragments from unrelated Sprites. The builder then preserves those already contaminated pixels exactly and correctly passes its pixel comparison because the input and generated atlas match. Changing the pivot mode or increasing the packing gap cannot fix this input defect.
-
-A general Tight Mesh check cannot be derived unambiguously from an individual PNG and the normal `m_Rect`/`m_Pivot` fields alone. It would additionally require the exact extraction transform or a trusted mesh sidecar containing local vertices and triangles. Pixels outside the historical Unity mesh may also be intentional in custom replacement artwork. The builder therefore does not currently enforce such a check.
-
 Each group produces:
 
     Override/Atlas/<GM group>/atlas.png
@@ -115,7 +128,7 @@ Each group produces:
 
 The builder obtains exact target names and pixels per unit from the installed SHCDE Sprite metadata. Images are never trimmed or rotated. Existing atlas groups are replaced only after confirmation; an existing `info.json` is never overwritten.
 
-### Pivot source and correct alignment
+#### Pivot source and correct alignment
 
 A Unity pivot is normalized, so the same value points to a different pixel on images with different dimensions. This can separate ground tiles or shift building and animation parts relative to each other.
 
@@ -130,6 +143,51 @@ With source metadata, normalized pivots remain unchanged when the canvas is scal
 In the verified SH1DE groups `tile_land8`, `tile_buildings1`, `tile_churches` and `tile_ruins`, the original pixel anchor is consistently `(32, 16.5)` with 64 PPU. For example, pivot `(0.5, 0.40243897)` on a 64×41 image and `(0.5, 0.08418399)` on a 64×196 image both produce the same anchor. Black gaps between tiles are a typical symptom of copying a normalized pivot from a differently sized canvas.
 
 Schema-1 projects open compatibly in legacy mode and display a warning. Schema-2 projects retain their previous strict target validation. Saving an older project upgrades it to schema 3.
+
+### Transferring graphics from Stronghold 1 DE
+
+#### Correctly extract Tight Mesh Sprites
+
+The Atlas Builder expects correctly extracted individual PNGs. It does not cut Sprites out of a source atlas and cannot repair contamination that is already present in its input images.
+
+For Unity Sprites using a **Tight Mesh**, do not crop the shared colour or mask atlas as a rectangle based only on `m_Rect`. That rectangle can contain pixels belonging to neighbouring atlas objects, and the actual UV vertices may extend beyond individual `m_Rect` edges. This was confirmed in the supplied SH1DE swordsman data: all 1,216 frames contain mesh data, and individual UV meshes extend beyond an `m_Rect` edge by up to approximately 27 pixels.
+
+A suitable SH1DE extractor must therefore:
+
+1. read positions and UVs from `m_RD.m_VertexData`, and triangles from `m_RD.m_IndexBuffer` and `m_SubMeshes`;
+2. determine the required crop from the UV mesh bounds rather than from `m_Rect` alone;
+3. rasterize the indexed triangles identically for the colour and mask atlases, clearing every pixel outside the triangle area to transparency;
+4. recalculate the anchor and pivot for the new output canvas as described below;
+5. emit corrected source metadata containing the actual PNG dimensions and newly normalized pivot.
+
+A rectangular crop can introduce coloured fragments from unrelated Sprites. The builder then preserves those already contaminated pixels exactly and correctly passes its pixel comparison because the input and generated atlas match. Changing the pivot mode or increasing the packing gap cannot fix this input defect.
+
+#### Reconstructing anchors from ripped data
+
+The original anchors do not need to be guessed. For a correctly ripped Sprite, they can be reconstructed from a matching local mesh position `(vertexX, vertexY)`, its atlas UV `(uvX, uvY)`, the atlas dimensions, and `m_PixelsToUnits` (`PPU`):
+
+    anchorX = uvX * atlasWidth  - vertexX * PPU
+    anchorY = uvY * atlasHeight - vertexY * PPU
+
+Multiple vertices of the same Sprite must produce the same anchor apart from small rounding differences. After taking the Tight Mesh crop whose lower-left corner is `(cropLeft, cropBottom)`, normalize that pixel anchor for the new PNG canvas:
+
+    newPivotX = (anchorX - cropLeft)   / newWidth
+    newPivotY = (anchorY - cropBottom) / newHeight
+
+The extractor must write these calculated values and the actual PNG dimensions to corrected Sprite JSON files. Then select **Pivot from source metadata** in Atlas Builder and provide the directory containing those corrected JSON files. The unchanged AssetRipper file still describes the original atlas/Rect geometry; its `m_Pivot` must not be copied blindly after producing an individual PNG with a different crop.
+
+The colour and mask image must use exactly the same crop, triangle mask and pivot. If only incorrectly rectangular-cropped PNGs remain and the original atlas and vertex/UV/index data are unavailable, the exact anchor normally cannot be reconstructed reliably.
+
+A general Tight Mesh check cannot be derived unambiguously from an individual PNG and the normal `m_Rect`/`m_Pivot` fields alone. It would additionally require the exact extraction transform or a trusted mesh sidecar containing local vertices and triangles. Pixels outside the historical Unity mesh may also be intentional in custom replacement artwork. The builder therefore does not currently enforce such a check.
+
+#### Recommended SH1DE workflow
+
+1. Rip the original SH1DE colour atlas, optional mask atlas and complete Sprite metadata.
+2. Extract Tight Mesh frames by rasterizing their triangles, producing corrected individual PNGs and JSON files.
+3. In Atlas Builder, select the corresponding SHCDE GM group and the desired SH1DE source prefix.
+4. Select **Pivot from source metadata** and the directory containing the corrected JSON files.
+5. Reject absent SHCDE target slots by default; use the opt-in rule below only for a verified empty target range.
+6. Review the preview and warnings, build the atlas, then test alignment and animation in game.
 
 ### Target slots absent from SHCDE
 
