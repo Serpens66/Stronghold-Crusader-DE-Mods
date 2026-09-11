@@ -54,7 +54,7 @@ Current classification after the final overlap audit:
 - Runtime projects compile against the installed `BepInEx/plugins/000shcdese/SHCDESE.dll`. `ExtenderDir` is the explicit override; local Script Extender output is not an implicit fallback.
 - APIShared is referenced with `<Private>false>` and must never be copied privately beside a consumer DLL.
 - Consumers that call a surface first introduced in APIShared 0.3.0 require 0.3.0 themselves. This includes `BugfixesAndQoL` because control-group removal is new in 0.3.0; older Gatehouse/HUD consumers that use only the 0.2.0 surface may retain 0.2.0.
-- Release metadata identifies APIShared consumers and pins bundle contents to APIShared 0.3.0. Thin archives exclude APIShared; bundle archives contain one validated APIShared copy. The SerpsMods package stages APIShared once as infrastructure and keeps consumers thin.
+- Release metadata identifies APIShared consumers and pins bundle contents to APIShared 0.3.1. Thin archives exclude APIShared; bundle archives contain one validated APIShared copy. The SerpsMods package stages APIShared once as infrastructure and keeps consumers thin.
 - Version changes are atomic across active plugin and manifest metadata. Minimum Script Extender versions remain based on actual API use rather than the workspace-wide target.
 
 ## Required verification

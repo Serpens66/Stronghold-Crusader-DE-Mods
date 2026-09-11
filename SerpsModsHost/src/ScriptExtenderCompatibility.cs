@@ -25,8 +25,62 @@ namespace SerpsModsHost
         public bool HasMaximum => !string.IsNullOrWhiteSpace(MaximumVersion);
     }
 
+    internal sealed class ScriptExtenderCompatibilityRequirement
+    {
+        public string Name { get; set; }
+        public string MinimumVersion { get; set; }
+        public string MaximumVersion { get; set; }
+    }
+
+    internal sealed class ScriptExtenderCompatibilityIssue
+    {
+        public ScriptExtenderCompatibilityRequirement Requirement { get; set; }
+        public ScriptExtenderCompatibilityResult Result { get; set; }
+    }
+
     internal static class ScriptExtenderCompatibility
     {
+        public static List<ScriptExtenderCompatibilityIssue> EvaluateAll(
+            string installedVersion,
+            IEnumerable<ScriptExtenderCompatibilityRequirement> requirements)
+        {
+            var issues = new List<ScriptExtenderCompatibilityIssue>();
+            foreach (ScriptExtenderCompatibilityRequirement requirement in
+                requirements ?? Enumerable.Empty<ScriptExtenderCompatibilityRequirement>())
+            {
+                if (requirement == null)
+                    continue;
+
+                ScriptExtenderCompatibilityResult result = Evaluate(
+                    installedVersion,
+                    requirement.MinimumVersion,
+                    requirement.MaximumVersion);
+                if (!result.IsCompatible)
+                {
+                    issues.Add(new ScriptExtenderCompatibilityIssue
+                    {
+                        Requirement = requirement,
+                        Result = result
+                    });
+                }
+            }
+            return issues;
+        }
+
+        public static List<PackModRecord> SelectRuntimePackRecords(PackManifest manifest)
+        {
+            var records = new List<PackModRecord>();
+            if (manifest == null)
+                return records;
+
+            records.AddRange((manifest.Infrastructure ?? new List<PackModRecord>())
+                .Where(record => record != null));
+            records.AddRange((manifest.Mods ?? new List<PackModRecord>())
+                .Where(record => record != null &&
+                    string.Equals(record.State, "Active", StringComparison.OrdinalIgnoreCase)));
+            return records;
+        }
+
         public static ScriptExtenderCompatibilityResult Evaluate(
             string installedVersion,
             string minimumVersion,

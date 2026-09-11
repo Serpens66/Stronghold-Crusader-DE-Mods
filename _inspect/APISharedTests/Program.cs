@@ -157,7 +157,11 @@ namespace APISharedTests
             Assert(unitHud.Contains("UnitHudImageSlot.UIBuildingsO011") &&
                 unitHud.Contains("UnitHudImageSlot.UIBuildingsO012") &&
                 unitHud.Contains("UnitHudImageSlot.UIButtonsK007") &&
-                unitHud.Contains("UnitHudImageSlot.UIButtonsK008"),
+                unitHud.Contains("UnitHudImageSlot.UIButtonsK008") &&
+                unitHud.Contains("UnitHudImageSlot.UIButtonsO016") &&
+                unitHud.Contains("UnitHudImageSlot.UIButtonsO017") &&
+                unitHud.Contains("UnitHudImageSlot.UIButtonsO018") &&
+                Enum.GetValues(typeof(UnitHudImageSlot)).Length == 7,
                 "typed image-override allowlist is incomplete");
             Assert(unitHud.Contains("OpacityMask = source == null ? null : new ImageBrush(source)") &&
                 virtualRuntime.Contains("UIButtonsK023") && !virtualRuntime.Contains("UIButtonsK001"),
@@ -259,6 +263,16 @@ namespace APISharedTests
 
         private static void TestPublicSurface()
         {
+            var imageSlots = (UnitHudImageSlot[])Enum.GetValues(typeof(UnitHudImageSlot));
+            Assert(imageSlots.Length == 7 &&
+                imageSlots[0] == UnitHudImageSlot.UIBuildingsO011 &&
+                imageSlots[1] == UnitHudImageSlot.UIBuildingsO012 &&
+                imageSlots[2] == UnitHudImageSlot.UIButtonsK007 &&
+                imageSlots[3] == UnitHudImageSlot.UIButtonsK008 &&
+                imageSlots[4] == UnitHudImageSlot.UIButtonsO016 &&
+                imageSlots[5] == UnitHudImageSlot.UIButtonsO017 &&
+                imageSlots[6] == UnitHudImageSlot.UIButtonsO018,
+                "unit-HUD image slots must retain the four-slot prefix and deterministic seven-slot order");
             var expected = new HashSet<string>(StringComparer.Ordinal)
             {
                 "APIShared.GatehouseDistanceOrigin",

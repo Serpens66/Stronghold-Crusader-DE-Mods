@@ -25,7 +25,7 @@ namespace SerpsModsHost
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.10";
+        public const string PluginVersion = "1.0.11";
         public const bool CustomCustomTrailModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
@@ -86,7 +86,6 @@ namespace SerpsModsHost
         {
             string root = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             packRoot = root;
-            CheckScriptExtenderCompatibility(root);
             string manifestPath = Path.Combine(root, ManifestFileName);
             if (!File.Exists(manifestPath))
                 throw new InvalidDataException($"H001: Missing pack manifest: {manifestPath}");
@@ -106,6 +105,8 @@ namespace SerpsModsHost
                 ValidateRecord(root, dependency, guids, paths);
                 if (!string.Equals(dependency.State, "Infrastructure", StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException($"H002: Invalid infrastructure state for {dependency.Guid}: {dependency.State}");
+                expectedLogSources.Add(dependency.Guid);
+                expectedLogSources.Add(dependency.Name);
                 validatedCount++;
             }
             foreach (PackModRecord mod in manifest.Mods ?? new List<PackModRecord>())
@@ -119,6 +120,8 @@ namespace SerpsModsHost
                 }
                 validatedCount++;
             }
+
+            CheckScriptExtenderCompatibility(root, manifest);
 
             AuditDuplicateInstallations();
             diagnostics.SetStatus(manifest.PackVersion, activeMods.Count, validatedCount, 0);
@@ -146,86 +149,56 @@ namespace SerpsModsHost
                 $"[{PluginName}] pack={manifest.PackVersion}, expected={activeMods.Count}, validated={validatedCount}, registered={registeredCount}.");
         }
 
-        private void CheckScriptExtenderCompatibility(string root)
+        private void CheckScriptExtenderCompatibility(string root, PackManifest packManifest)
         {
             try
             {
-                string hostInfoPath = Path.Combine(root, InfoFileName);
-                if (!File.Exists(hostInfoPath))
-                    throw new FileNotFoundException("The Serps Mods info.json is missing.", hostInfoPath);
-
-                PackManifestJson.ReadStringProperties(
-                    File.ReadAllText(hostInfoPath),
-                    "MinimumScriptExtenderVersion",
-                    "MaximumScriptExtenderVersion",
-                    out string minimumVersion,
-                    out string maximumVersion);
-
-                if (string.IsNullOrWhiteSpace(minimumVersion) &&
-                    string.IsNullOrWhiteSpace(maximumVersion))
-                {
-                    diagnostics.SetScriptExtenderCompatibilityWarning(string.Empty);
-                    Shared.DebugLogHelper.LogDebug(
-                        Logger,
-                        $"[{PluginName}] Script Extender compatibility check skipped because info.json defines no version range.");
-                    return;
-                }
-
                 string scriptExtenderAssemblyPath = ResolveScriptExtenderAssemblyPath();
                 ScriptExtenderVersionResolution versionResolution = ResolveScriptExtenderVersion(
                     scriptExtenderAssemblyPath);
                 if (!versionResolution.IsResolved)
-                {
-                    if (versionResolution.ContainsOnlyPlaceholders)
-                    {
-                        diagnostics.SetScriptExtenderCompatibilityWarning(string.Empty);
-                        Shared.DebugLogHelper.LogWarning(
-                            Logger,
-                            $"[{PluginName}] Script Extender compatibility check skipped because all usable " +
-                            $"version values are the known 1.0.0 placeholder; {versionResolution.Diagnostic}.");
-                        return;
-                    }
                     throw new InvalidDataException(versionResolution.Diagnostic);
-                }
 
                 string installedVersion = versionResolution.Version;
-                ScriptExtenderCompatibilityResult result = ScriptExtenderCompatibility.Evaluate(
-                    installedVersion,
-                    minimumVersion,
-                    maximumVersion);
+                var requirements = new List<ScriptExtenderCompatibilityRequirement>();
+                var issueLines = new List<string>();
+                AddScriptExtenderRequirement(
+                    requirements,
+                    issueLines,
+                    PluginName,
+                    Path.Combine(root, InfoFileName));
+                foreach (PackModRecord record in ScriptExtenderCompatibility.SelectRuntimePackRecords(packManifest))
+                {
+                    string name = string.IsNullOrWhiteSpace(record.Name) ? record.Guid : record.Name;
+                    AddScriptExtenderRequirement(
+                        requirements,
+                        issueLines,
+                        name,
+                        Path.Combine(ResolveContainedPath(root, record.RelativePath), InfoFileName));
+                }
 
-                if (result.IsCompatible)
+                foreach (ScriptExtenderCompatibilityIssue issue in
+                    ScriptExtenderCompatibility.EvaluateAll(installedVersion, requirements))
+                {
+                    issueLines.Add(FormatScriptExtenderCompatibilityIssue(issue));
+                }
+
+                if (issueLines.Count == 0)
                 {
                     diagnostics.SetScriptExtenderCompatibilityWarning(string.Empty);
                     Shared.DebugLogHelper.LogDebug(
                         Logger,
-                        $"[{PluginName}] Script Extender {result.InstalledVersion} is within the supported range " +
-                        $"{result.MinimumVersion} to {(result.HasMaximum ? result.MaximumVersion : "unlimited")}; " +
-                        versionResolution.Diagnostic + ".");
+                        $"[{PluginName}] Script Extender {installedVersion} satisfies all {requirements.Count} " +
+                        $"runtime component requirements; {versionResolution.Diagnostic}.");
                     return;
                 }
 
-                if (result.Status == ScriptExtenderCompatibilityStatus.BelowMinimum ||
-                    result.Status == ScriptExtenderCompatibilityStatus.AboveMaximum)
-                {
-                    string warning = result.HasMaximum
-                        ? SerpLocalization.Get(
-                            SerpLocalization.SerpsModsScriptExtenderRangeWarning,
-                            "Installed", result.InstalledVersion,
-                            "Minimum", result.MinimumVersion,
-                            "Maximum", result.MaximumVersion)
-                        : SerpLocalization.Get(
-                            SerpLocalization.SerpsModsScriptExtenderMinimumWarning,
-                            "Installed", result.InstalledVersion,
-                            "Minimum", result.MinimumVersion);
-                    diagnostics.SetScriptExtenderCompatibilityWarning(warning);
-                    ReportError("H008", warning);
-                    return;
-                }
-
-                throw new InvalidDataException(
-                    $"Invalid Script Extender compatibility data ({result.Status}): installed='{result.InstalledVersion}', " +
-                    $"minimum='{result.MinimumVersion}', maximum='{result.MaximumVersion}'.");
+                string warning = SerpLocalization.Get(
+                    SerpLocalization.SerpsModsScriptExtenderIssuesHeader,
+                    "Installed", installedVersion) +
+                    Environment.NewLine + string.Join(Environment.NewLine, issueLines.ToArray());
+                diagnostics.SetScriptExtenderCompatibilityWarning(warning);
+                ReportError("H008", warning);
             }
             catch (Exception ex)
             {
@@ -234,6 +207,95 @@ namespace SerpsModsHost
                     "Reason", ex.Message);
                 diagnostics.SetScriptExtenderCompatibilityWarning(warning);
                 ReportError("H008", warning);
+            }
+        }
+
+        private static void AddScriptExtenderRequirement(
+            List<ScriptExtenderCompatibilityRequirement> requirements,
+            List<string> issueLines,
+            string name,
+            string infoPath)
+        {
+            try
+            {
+                if (!File.Exists(infoPath))
+                    throw new FileNotFoundException("info.json is missing.", infoPath);
+
+                PackManifestJson.ReadStringProperties(
+                    File.ReadAllText(infoPath),
+                    "MinimumScriptExtenderVersion",
+                    "MaximumScriptExtenderVersion",
+                    out string minimumVersion,
+                    out string maximumVersion);
+                requirements.Add(new ScriptExtenderCompatibilityRequirement
+                {
+                    Name = name,
+                    MinimumVersion = minimumVersion,
+                    MaximumVersion = maximumVersion
+                });
+            }
+            catch (Exception ex)
+            {
+                issueLines.Add(SerpLocalization.Get(
+                    SerpLocalization.SerpsModsScriptExtenderComponentCheckFailed,
+                    "Name", name,
+                    "Reason", ex.Message));
+            }
+        }
+
+        private static string FormatScriptExtenderCompatibilityIssue(
+            ScriptExtenderCompatibilityIssue issue)
+        {
+            ScriptExtenderCompatibilityResult result = issue.Result;
+            string name = issue.Requirement.Name;
+            switch (result.Status)
+            {
+                case ScriptExtenderCompatibilityStatus.BelowMinimum:
+                case ScriptExtenderCompatibilityStatus.AboveMaximum:
+                    if (!string.IsNullOrWhiteSpace(result.MinimumVersion) && result.HasMaximum)
+                    {
+                        return SerpLocalization.Get(
+                            SerpLocalization.SerpsModsScriptExtenderComponentRange,
+                            "Name", name,
+                            "Minimum", result.MinimumVersion,
+                            "Maximum", result.MaximumVersion);
+                    }
+                    if (result.Status == ScriptExtenderCompatibilityStatus.AboveMaximum)
+                    {
+                        return SerpLocalization.Get(
+                            SerpLocalization.SerpsModsScriptExtenderComponentMaximum,
+                            "Name", name,
+                            "Maximum", result.MaximumVersion);
+                    }
+                    return SerpLocalization.Get(
+                        SerpLocalization.SerpsModsScriptExtenderComponentMinimum,
+                        "Name", name,
+                        "Minimum", result.MinimumVersion);
+
+                case ScriptExtenderCompatibilityStatus.InvalidMinimumVersion:
+                    return SerpLocalization.Get(
+                        SerpLocalization.SerpsModsScriptExtenderInvalidMinimum,
+                        "Name", name,
+                        "Minimum", result.MinimumVersion);
+
+                case ScriptExtenderCompatibilityStatus.InvalidMaximumVersion:
+                    return SerpLocalization.Get(
+                        SerpLocalization.SerpsModsScriptExtenderInvalidMaximum,
+                        "Name", name,
+                        "Maximum", result.MaximumVersion);
+
+                case ScriptExtenderCompatibilityStatus.InvalidRange:
+                    return SerpLocalization.Get(
+                        SerpLocalization.SerpsModsScriptExtenderInvalidRange,
+                        "Name", name,
+                        "Minimum", result.MinimumVersion,
+                        "Maximum", result.MaximumVersion);
+
+                default:
+                    return SerpLocalization.Get(
+                        SerpLocalization.SerpsModsScriptExtenderComponentCheckFailed,
+                        "Name", name,
+                        "Reason", result.Status.ToString());
             }
         }
 
@@ -383,12 +445,18 @@ namespace SerpsModsHost
             if (reportMissing)
                 AuditDuplicateInstallations();
 
+            bool apiSharedAvailable = AuditInfrastructurePlugins(reportMissing);
             foreach (PackModRecord mod in activeMods)
             {
                 if (!Chainloader.PluginInfos.TryGetValue(mod.Guid, out PluginInfo pluginInfo))
                 {
                     if (reportMissing)
-                        ReportError("H005", $"Expected child plugin is not loaded: {mod.Guid} v{mod.Version}.");
+                    {
+                        string message = TryGetScriptExtenderMismatchMessage(mod, out string mismatchMessage)
+                            ? mismatchMessage
+                            : PackPluginDiagnosticMessages.MissingChild(mod, apiSharedAvailable);
+                        ReportError("H005", message);
+                    }
                     continue;
                 }
 
@@ -404,6 +472,91 @@ namespace SerpsModsHost
                         "H006",
                         $"Child plugin {mod.Guid} was loaded from a separate installation at '{loadedDirectory}' instead of the pack path '{expectedDirectory}'. Remove the separate Workshop/local installation.");
                 }
+            }
+        }
+
+        private bool AuditInfrastructurePlugins(bool reportMissing)
+        {
+            bool apiSharedAvailable = true;
+            foreach (PackModRecord dependency in manifest?.Infrastructure ?? new List<PackModRecord>())
+            {
+                bool isApiShared = PackPluginDiagnosticMessages.IsApiShared(dependency);
+                if (!Chainloader.PluginInfos.TryGetValue(dependency.Guid, out PluginInfo pluginInfo))
+                {
+                    if (isApiShared)
+                        apiSharedAvailable = false;
+                    if (reportMissing)
+                        ReportError("H009", PackPluginDiagnosticMessages.MissingInfrastructure(dependency));
+                    continue;
+                }
+
+                string actualVersion = pluginInfo.Metadata.Version?.ToString() ?? string.Empty;
+                if (!string.Equals(actualVersion, dependency.Version, StringComparison.Ordinal))
+                {
+                    if (isApiShared)
+                        apiSharedAvailable = false;
+                    ReportError(
+                        "H009",
+                        PackPluginDiagnosticMessages.InfrastructureVersionMismatch(dependency, actualVersion));
+                }
+
+                string expectedDirectory = ResolveContainedPath(packRoot, dependency.RelativePath);
+                string loadedDirectory = Path.GetDirectoryName(pluginInfo.Location);
+                if (!DuplicateInstallationDetector.PathsEqual(loadedDirectory, expectedDirectory))
+                {
+                    ReportError(
+                        "H006",
+                        $"Infrastructure plugin {dependency.Guid} was loaded from a separate installation at " +
+                        $"'{loadedDirectory}' instead of the pack path '{expectedDirectory}'. Remove the separate " +
+                        "Workshop/local installation.");
+                }
+            }
+
+            return apiSharedAvailable;
+        }
+
+        private bool TryGetScriptExtenderMismatchMessage(PackModRecord mod, out string message)
+        {
+            message = string.Empty;
+            try
+            {
+                string modDirectory = ResolveContainedPath(packRoot, mod.RelativePath);
+                string infoPath = Path.Combine(modDirectory, InfoFileName);
+                PackManifestJson.ReadStringProperties(
+                    File.ReadAllText(infoPath),
+                    "MinimumScriptExtenderVersion",
+                    "MaximumScriptExtenderVersion",
+                    out string minimumVersion,
+                    out string maximumVersion);
+
+                ScriptExtenderVersionResolution resolution = ResolveScriptExtenderVersion(
+                    ResolveScriptExtenderAssemblyPath());
+                if (!resolution.IsResolved)
+                    return false;
+
+                ScriptExtenderCompatibilityResult compatibility = ScriptExtenderCompatibility.Evaluate(
+                    resolution.Version,
+                    minimumVersion,
+                    maximumVersion);
+                if (compatibility.Status != ScriptExtenderCompatibilityStatus.BelowMinimum &&
+                    compatibility.Status != ScriptExtenderCompatibilityStatus.AboveMaximum)
+                {
+                    return false;
+                }
+
+                message = PackPluginDiagnosticMessages.MissingChildForScriptExtender(
+                    mod,
+                    compatibility.InstalledVersion,
+                    compatibility.MinimumVersion,
+                    compatibility.HasMaximum ? compatibility.MaximumVersion : string.Empty);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogDebug(
+                    Logger,
+                    $"[{PluginName}] Could not refine the load diagnostic for {mod.Guid}: {ex.Message}");
+                return false;
             }
         }
 

@@ -4,11 +4,13 @@
 
 Virtuelle Units behalten einen echten Vanilla-Simulationstyp. Eine zusätzliche Zahl darf weder in `r_UnitChimp` noch in den festen Arrays `selectedChimpTypes`, `troop_counts` oder den Kontrollgruppen-Typarrays abgelegt werden. Die öffentliche Identität besteht aus `TypeId` und der bei jedem Zugriff validierten Kombination aus 1-basierter Game-ID und Global-ID.
 
-Die eigenständige Präsentation wird zentral durch `APIShared` an fünf verwalteten Stellen ergänzt: ausgewählte Truppentypen, ID-genaue Links-/Rechtsfilter, Einheiten-Hover, Armeereport und Kontrollgruppen. Eine Auswahländerung geht als validierte Liste 1-basierter IDs über `EngineInterface.TroopSelectionChanged(int[])` zurück an Vanilla. Kontrollgruppen werden aus den wirklichen, hash- und layoutvalidierten Vanilla-Gruppeneinträgen rekonstruiert; eine modseitige Schattenliste wird nicht mehr geschrieben. Alte PoC-Saves mit Schattenmetadaten bleiben lesbar, die veralteten Einträge werden ignoriert.
+Die bereits umgesetzte eigenständige Präsentation wird zentral durch `APIShared` an fünf verwalteten Stellen ergänzt: ausgewählte Truppentypen, ID-genaue Links-/Rechtsfilter, Einheiten-Hover, Armeereport und Kontrollgruppen. Eine Auswahländerung geht als validierte Liste 1-basierter IDs über `EngineInterface.TroopSelectionChanged(int[])` zurück an Vanilla. Kontrollgruppen werden aus den wirklichen, hash- und layoutvalidierten Vanilla-Gruppeneinträgen rekonstruiert; eine modseitige Schattenliste wird nicht mehr geschrieben. Alte PoC-Saves mit Schattenmetadaten bleiben lesbar, die veralteten Einträge werden ignoriert.
 
 `APIShared` ist alleiniger Eigentümer der gemeinsamen Managed-Hooks auf `HUD_Troops.SetupSelectedTroops`, die Kategorie-Klickhandler, `HUD_ControlGroups.populate`, Kontrollgruppenaktionen und `MainViewModel.UpdateUITroopSprites`. Verbraucher registrieren unveränderliche Kategorien und Bildresolver über ihre Owner-GUID. Konkurrierende Matcher für dieselbe konkrete Unit fallen auf Vanilla zurück. Lord und Desert Archer durchlaufen dadurch dieselbe deterministische Hook-Kette, ohne synthetische `eChimps`-Werte oder Änderungen an festen nativen Arrays.
 
 Der separate Bildersetzungsvertrag startet nach jedem vollständigen Vanilla-Aufruf von `UpdateUITroopSprites(colour, arabic)` neu. Resolver laufen nach Priorität, Owner-GUID und Override-ID und dürfen zunächst ausschließlich `UIBuildingsO011`, `UIBuildingsO012`, `UIButtonsK007` und `UIButtonsK008` ersetzen. `null` und Resolverfehler behalten das bisherige Bild; ein späterer Vanilla-Aufruf entfernt deaktivierte Overrides automatisch.
+
+Als nächste Präsentationsebene ergänzt `APIShared` generische Rekrutierungsvarianten und die Einzelunit-Detailanzeige. Damit unterscheiden sich virtuelle Unit-Varianten künftig in Weltgrafik, Rekrutierung, Auswahl-HUD, Kontrollgruppen, Hover, Armeereport und Detailanzeige, ohne den zugrunde liegenden Vanilla-Simulationstyp zu verändern. Normale und virtuelle Units werden in den jeweiligen sichtbaren Kategorien strikt getrennt; Vanillas Gesamttruppenzahl bleibt unverändert.
 
 Das Diagnose-HUD behandelt Noesis-Eingaben getrennt von Weltklicks. Ein Weltklick wird erst im folgenden Unity-Frame ausgewertet, nachdem die ausdrücklich benannten interaktiven Flächen (`VirtualUnitsPrototypeHudToggle` und `VirtualUnitsPrototypeHudPanel`) ihre `PreviewMouseDown`-Route ausführen konnten. Der äußere HUD-Host darf nicht als Eingabefläche verwendet werden, weil sein Layout-Slot die Weltkarte überdecken kann. Zusätzlich müssen das eigentliche Karten-HUD aktiv, Blackout und Briefing geschlossen, Karte und Tile gültig sowie Vanillas `overGUI`-Prüfung frei sein. Dadurch kann ein physischer Klick höchstens einen Spawnauftrag erzeugen und ein Klick auf eine VUP-Fläche keinen.
 
@@ -27,7 +29,7 @@ Der erste spielbare Proof of Concept umfasst:
 - strikt gesperrte Multiplayer-Zuweisungen;
 - ausschließlich vorhandene Vanilla-Grafiken, die im PoC pro Instanz leicht eingefärbt werden.
 
-Der Script Extender 2.4.0 bleibt unverändert. Dieses Dokument beschreibt den inzwischen als Testversion `0.1.0` umgesetzten Prototyp und bleibt die maßgebliche Spezifikation für seine Ingame-Verifikation und Weiterentwicklung.
+Der kanonische Script Extender 2.5.0 bleibt unverändert. Der nachweislich rückwärtskompatible Mod behält 2.3.0 als Mindestversion, solange keine neuere API verwendet wird. Dieses Dokument beschreibt den inzwischen als Testversion `0.1.0` umgesetzten Prototyp und bleibt die maßgebliche Spezifikation für seine Ingame-Verifikation und Weiterentwicklung.
 
 ## 1.1 Übergabe an einen neuen Chat oder Implementierer
 
@@ -36,18 +38,18 @@ Der Script Extender 2.4.0 bleibt unverändert. Dieses Dokument beschreibt den in
 - Projekt, öffentliche API, Runtime, verwaltete Visual-Hooks, XAML-HUD, Saveformat, Tests, `info.json` und `build.bat` sind als Testversion `0.1.0` umgesetzt.
 - Die automatisierten Checks decken Registry, Werte, Saveformat, Simulations-Queue, Threadgrenzen und Visual-Fallbacks ab.
 - Build und Installation erfolgen ausschließlich über die mod-eigene `build.bat`, die das installierte Paket bytegenau gegen das lokale Paket prüft.
-- Nach dem Sichtbarkeitsfix steht eine erneute Spielabnahme aus; Laufzeitverträge bleiben bis dahin als diagnostisch zu bestätigen gekennzeichnet.
+- Platzierung, Vanilla-basierte Sichtbarkeit, Unit-/Building-Tint und die zentrale `APIShared`-Präsentation wurden im Spiel grundsätzlich bestätigt. Die generische Rekrutierungsvariante und Einzelunit-Detailfläche aus Abschnitt 4.7 sind noch nicht umgesetzt.
 
 ### Verbindlicher Arbeitsauftrag
 
-Ein neuer Chat soll nicht erneut die Architektur entwerfen, sondern die Abschnitte 3 bis 16 in der angegebenen Reihenfolge umsetzen. Vor dem ersten Code ist Abschnitt 4.5 vollständig abzuarbeiten und als kurze Verifikationsnotiz im Implementierungsfortschritt festzuhalten. Danach soll der Implementierer:
+Ein neuer Chat soll weder die Architektur neu entwerfen noch den bestehenden PoC erneut implementieren. Vor weiteren Runtime-Änderungen sind Abschnitt 4.5 und der für die konkrete Änderung relevante Teil des Vanilla-Audits erneut gegen die installierten Binärdateien abzugleichen und als kurze Verifikationsnotiz im Implementierungsfortschritt festzuhalten. Danach soll der Implementierer:
 
 1. die einschlägige `AGENTS.md` vollständig lesen;
 2. den aktuellen Inhalt dieses Ordners und passende vorhandene Workspace-Mods inventarisieren;
 3. die installierte Script-Extender-Version und alle tatsächlich referenzierten Assemblies prüfen;
-4. die mit `OFFEN` markierten Verträge durch Quellcode-, Assembly- oder kontrollierte Laufzeitdiagnose klären;
+4. den bestehenden PoC und die zentrale `APIShared`-Präsentation als Ausgangspunkt erhalten;
 5. nur bestätigte Verträge implementieren und alle anderen Teile fail-closed lassen;
-6. zunächst Registry und Unit-PoC, danach Building-PoC, HUD, Persistenz und Tests implementieren;
+6. die nächste Etappe in der Reihenfolge API-Vertrag, generischer Variantenwähler, VUP-Rekrutierungskorrelation, Detailanzeige und Tests umsetzen;
 7. vor dem ersten Build sämtliche statischen Prüfungen und CRLF-Kontrollen abschließen;
 8. anschließend genau einmal die mod-eigene `build.bat` nach den Workspace-Regeln ausführen;
 9. klar zwischen automatisiert bestanden, kompiliert und tatsächlich im Spiel verifiziert unterscheiden.
@@ -64,15 +66,15 @@ Folgende Produktentscheidungen sind bereits getroffen und dürfen nicht ohne Rü
 - wiederholte Platzierung bleibt aktiv, bis Rechtsklick oder Escape abbricht;
 - Diagnose-Spawns sind kostenlos, Vanilla-Platzierungsregeln für Gebäude bleiben aktiv;
 - erster Build bleibt im Multiplayer vollständig gesperrt, verwendet aber `NetworkMode=1`;
-- keine Änderung am Script Extender 2.4.0;
+- keine Änderung am Script Extender 2.5.0;
 - keine README- oder Versionsänderung während der Testphase.
 
 ### Stop- und Rückfrageregeln
 
 Die Implementierung muss anhalten und den Benutzer mit konkreter Evidenz fragen, wenn:
 
-- Plan, kanonischer 2.4.0-Quellcode und installierte `SHCDESE.dll` einander widersprechen;
-- die installierte Zielversion nicht Script Extender 2.4.0 ist;
+- Plan, kanonischer 2.5.0-Quellcode und installierte `SHCDESE.dll` einander widersprechen;
+- die installierte Zielversion nicht Script Extender 2.5.0 ist;
 - ein benötigter fachlicher Enumwert im Quellcode und in der referenzierten Assembly nicht übereinstimmt;
 - für dieselbe Managed-Methode mehrere plausible Signaturen oder Hookziele existieren;
 - ein sicherer Building-ID-, Grafik- oder Refreshvertrag nicht belegt werden kann;
@@ -101,7 +103,7 @@ Die Game-ID ist immer 1-basiert. Die Global-ID verhindert, dass ein nach Löschu
 ## 3. Projekt- und Laufzeitstruktur
 
 - Eigenständiger BepInEx-Mod `VirtualUnitsPrototype` für `.NET Framework 4.8.1`.
-- Harte Abhängigkeiten ausschließlich von BepInEx, installierten Unity-/Spiel-Assemblies und Script Extender 2.4.0.
+- Harte Abhängigkeiten ausschließlich von BepInEx, installierten Unity-/Spiel-Assemblies, `APIShared` und Script Extender. Geprüfte Zielversion ist 2.5.0; die deklarierte Mindestversion bleibt 2.3.0.
 - Standardreferenz auf die installierte `BepInEx/plugins/000shcdese/SHCDESE.dll`; ein alternatives `ExtenderDir` ist nur als expliziter Buildparameter zulässig.
 - Keine automatische Bevorzugung lokaler `bin`-, `mod_output`- oder Extender-Buildartefakte.
 - Keine Abhängigkeit von CastlePlanner oder anderen Workspace-Mods; CastlePlanner dient nur als HUD-Referenz.
@@ -146,7 +148,7 @@ Typ-IDs verwenden `<Mod-GUID>:<lokaler-name>`, etwa `serp.virtual-units:desert-a
 
 `VirtualBuildingDefinition` enthält Typ-ID, positive Definitionsversion, Anzeigename, `eStructs`-Basistyp, zugehörigen `eMappers`, den über `BuildingScales` ermittelten Scale, Tile-Visualprofil, rationalen Gesundheitsfaktor, Diagnosemenü-Sichtbarkeit und PoC-Spawnfreigabe. Mapper und Struct werden über die Extender-Zuordnung gegengeprüft.
 
-Alle fachlichen Werte referenzieren unmittelbar die benannten Enums und Konstanten des Script Extenders 2.4.0. Eigene numerische Kopien von Unit-, Building-, Mapper-, Goods-, Chore- oder GM-Werten sind verboten.
+Alle fachlichen Werte referenzieren unmittelbar die benannten Enums und Konstanten des Script Extenders 2.5.0. Eigene numerische Kopien von Unit-, Building-, Mapper-, Goods-, Chore- oder GM-Werten sind verboten.
 
 ### 4.2 API-Operationen
 
@@ -162,9 +164,9 @@ Alle fachlichen Werte referenzieren unmittelbar die benannten Enums und Konstant
 
 Mutierende API-Aufrufe legen ausschließlich einen Auftrag an und liefern zunächst `InitializationPending`; `OperationCompleted` liefert auf dem Unity-Thread Ticket, Ergebnis und gegebenenfalls die fertige Instanz. Die bisherigen Mutatornamen bleiben als korrelationslose Queue-Wrapper erhalten. Ereignisse melden außerdem erfolgreiche Zuweisung, Entfernung und abgelehnte Wiederherstellung. Definitionen dürfen nur während der Initialisierung registriert werden; danach wird die Registry versiegelt. Leere oder doppelte IDs, unbekannte Enumwerte, unzulässige Faktoren, falsche Basistypen und widersprüchliche Mapper-/Struct-Paare werden mit `VirtualApiResult` abgelehnt und protokolliert.
 
-### 4.3 Festzulegende Signaturen vor Implementierungsbeginn
+### 4.3 Bestätigte Signaturen und Gate für Erweiterungen
 
-Die öffentliche API darf erst geschrieben werden, nachdem die konkreten Typen der Extender-Methoden geprüft wurden. Danach sind die öffentlichen Modsignaturen einmalig festzulegen und durch API-Tests zu sichern. Insbesondere müssen Rückgabetypen, Wertebereiche und Null-/Fehlersemantik der folgenden Verträge berücksichtigt werden:
+Die vorhandene öffentliche API beruht auf den geprüften konkreten Typen der Extender-Methoden. Vor Erweiterungen sind diese Verträge gegen die tatsächlich referenzierte Assembly abzugleichen und weiterhin durch API-Tests zu sichern. Insbesondere müssen Rückgabetypen, Wertebereiche und Null-/Fehlersemantik der folgenden Verträge berücksichtigt werden:
 
 - Unit-Erzeugung liefert `Int64`, die bestätigte positive Game-ID wird vor Registrynutzung auf den zulässigen `int`-Bereich geprüft.
 - Building-Erzeugung über `CreatePrefab` liefert einen Ergebniswert, aber nicht verlässlich die gewünschte Building-ID; die ID stammt aus dem korrelierten Building-Spawn-Postereignis.
@@ -197,9 +199,9 @@ Die öffentliche API darf erst geschrieben werden, nachdem die konkreten Typen d
 
 Normale Validierungsfehler dürfen nicht als Exceptions aus der öffentlichen API austreten. Unerwartete interne Fehler werden abgefangen, zeitgestempelt protokolliert und als `InternalError` gemeldet, ohne einen halbfertigen Registryeintrag zu hinterlassen.
 
-### 4.5 Verifikationsmatrix vor dem ersten Code
+### 4.5 Verifikationsmatrix vor weiteren Runtime-Änderungen
 
-#### Bereits im kanonischen 2.3.0-Quellbaum belegt
+#### Im kanonischen 2.5.0-Quellbaum belegt und auf Mindestversion 2.3.0 geprüft
 
 Die folgenden Punkte wurden bei Erstellung dieses Dokuments im lokalen Fork `shcde-script-extender` geprüft. Sie sind vor dem Build zusätzlich gegen die tatsächlich referenzierte installierte Assembly zu bestätigen:
 
@@ -233,7 +235,7 @@ Maßgebliche lokale Quellen sind insbesondere:
 
 Diese Punkte sind verpflichtende Gates und dürfen nicht aus diesem Dokument allein übernommen werden:
 
-- Die installierte `SHCDESE.dll` ist tatsächlich Version 2.4.0 und enthält dieselben Methodensignaturen und Enumzuordnungen wie der kanonische Fork.
+- Die installierte `SHCDESE.dll` ist tatsächlich Version 2.5.0 und enthält dieselben Methodensignaturen und Enumzuordnungen wie der kanonische Fork.
 - Die installierte Spiel-Assembly enthält `SpriteMapping.setGenericBuildingTileGraphic(GameMapTile,int,int,int)` genau einmal und mit hookbarer statischer Signatur.
 - `GameMapTile.gameMapX`, `gameMapY`, `tileImage` und `light` haben in der installierten Managed-Assembly die erwarteten zugänglichen Typen.
 - `spriteLoader.instance`, GM-Normal-/Alt-Arrays, Materialarrays und die benötigten Getter sind in der tatsächlich referenzierten Assembly erreichbar.
@@ -270,6 +272,47 @@ Diese Verträge lassen sich nicht allein durch Kompilierung hinreichend belegen.
 - Runtime-Import oder Runtime-Baking von glTF, GLB oder FBX.
 
 Diese Punkte dürfen während des PoC nur diagnostisch untersucht werden. Sie sind kein Grund, Script Extender oder native Spielbibliothek zu verändern.
+
+### 4.6 Abgeschlossener Vanilla-Audit für Unit-Präsentation und Rekrutierung
+
+Der featurebezogene Audit wurde gegen die kanonisch installierte `CrusaderDE.dll` mit SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2` durchgeführt. Der Hash stimmt exakt mit `CURRENT.json` und den verwendeten semantischen Datensätzen überein. Die geprüfte Managed-Baseline verwendet `Assembly-CSharp` mit SHA-256 `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`. Ihre Verknüpfungen wurden gegen Script Extender 2.5.0, Tag `v2.5.0`, Commit `5f02af6d074af7c741ebdaaccb48add39eba1bf4`, validiert.
+
+Bestätigter Daten- und Kontrollfluss:
+
+- `DLL_GameAction` bei RVA `0x81870` ist ein bestätigter Export mit der verwalteten Signatur `Int32 DLL_GameAction(Int32 action, Int32 structureID, Int32 value, Int32 value2)`. `MakeTroop` verwendet den Aktionswert `0x3EF`; `structureID` enthält in diesem Pfad tatsächlich die angeforderte Menge und `value` den Vanilla-Unit-Typ.
+- Für europäische Units führt der menschliche Auftrag über `FUN_1800D5B40` bei RVA `0xD5B40` und die Vorprüfung `FUN_1800D69A0` bei RVA `0xD69A0` zur Chore 31. Deren Handler bei RVA `0x127A0` ruft `FUN_1800D5250` bei RVA `0xD5250` auf, die jede tatsächlich mögliche Unit einzeln über `FUN_180190CA0` bei RVA `0x190CA0` erzeugt. Die Funktionsnamen ohne Export sind `candidate`; Kontrollfluss, Tabellenzugriffe und Caller-/Callee-Kette sind für diesen Build strukturell belegt.
+- `FUN_180190CA0` liest Goldpreis und bis zu vier Güteranforderungen aus festen, nach Vanilla-Typ indizierten Tabellen. Die Funktion prüft Gold, Güter und einen verfügbaren Peasant, wandelt dessen Slot um, zieht Ressourcen ab, aktualisiert Zähler und meldet die konkrete 1-basierte Unit-ID an den nachgelagerten Unit-Übergang.
+- Die KI verwendet dieselbe Erzeugungs- und Kostenfunktion direkt. Geprüfte Rollenpfade sind Bodyguard bei RVA `0x40230`, Wirtschaftsschutz bei RVA `0x40430` sowie Verteidiger-, Harasser- und weitere Planrollen bei RVA `0x40740`. Die KI wählt ausschließlich Vanilla-Typen aus ihren festen Planfeldern und kennt keine virtuelle Unterkategorie.
+- `UnitR3EventHooks.OnUnitTransition` des Script Extenders liefert am tatsächlichen Übergang die 1-basierte Unit-ID, Besitzer, Zieltyp und Quelle. Für europäische Kasernen ist die Quelle `EuropeanBarracks`. Eine Variantenkorrelation darf dieses Ereignis beobachten, aber `NextUnitType` nicht auf einen erfundenen Typ ändern.
+- `DLL_TroopSelectionChanged` bei RVA `0x87B20` ist ein bestätigter Export. `FUN_18019A7E0` bei RVA `0x19A7E0` validiert jede übergebene 1-basierte ID anhand von Zustand, Besitzer und Selektierbarkeit und erzeugt anschließend Vanillas Auswahl-Chore `0x6C`. `APIShared` darf deshalb ausschließlich konkrete validierte IDs zurückgeben.
+- Vanillas ausgewählte Typen werden in einem festen Array mit 89 Einträgen gezählt. `HUD_Troops.SetupSelectedTroops` verteilt bekannte Typen auf Seiten mit jeweils acht sichtbaren Slots. Eine virtuelle Kategorie darf weder das Array verlängern noch einen synthetischen Typ hineinschreiben.
+- Der Kontrollgruppenspeicher beginnt beim geprüften Hash an RVA `0x36D78D0` und enthält zehn Gruppen mit je 10.000 Paaren aus 1-basierter Unit-ID und Global-ID. `FUN_180186300` bei RVA `0x186300` verwirft Global-ID-Abweichungen und erzeugt pro Gruppe vier nach Vanilla-Typ zusammengefasste sichtbare Kategorien plus Restzahl. Hinzufügen beziehungsweise Übertragen läuft unter anderem über RVA `0xCAE40`, Auswahl und Bereinigung über RVA `0x1915C0`, Laden über RVA `0xD4B60` beziehungsweise `0xD4C00`. Der Zugriff bleibt hash-, Pattern- und Layout-gebunden sowie außerhalb von Vanilla rein lesend.
+- Der Armeereport erhält ein festes `troop_counts[34]`; `MainViewModel.UpdateSHTroopsData` kopiert es nach `AllTroops[1..34]`. Eine virtuelle Kategorie wird aus lebenden, identitätsvalidierten Instanzen errechnet, vom sichtbaren Basistyp abgezogen und in einem separaten gemeinsamen Host dargestellt. Native Zähler und Gesamttruppenzahl bleiben unverändert.
+- `MainViewModel.UpdateUITroopSprites(int colour, bool arabic)` stellt bei jedem Farb- oder Kulturwechsel zunächst Vanillas Bilder wieder her. Der zentrale `APIShared`-Hook ruft Vanilla genau einmal auf und wendet danach geordnete Resolver an. Dadurch können deaktivierte oder fehlgeschlagene Overrides automatisch auf Vanilla zurückfallen.
+
+Verbleibende Grenzen:
+
+- Die aktuelle Chore 31 serialisiert zwei 16-Bit-Werte, während ein älterer Extender-Kommentar zwei `INT32`-Felder beschreibt. Der Mod baut deshalb keine eigene Chore-Payload nach und verwendet ausschließlich `EngineInterface.GameAction` sowie das öffentliche Transition-Ereignis.
+- Ein nur nachträglich verrechneter eigener Goldpreis ist einfacher als eigene Güterkosten, wird aber von der KI ebenso wenig bei ihrer Kaufentscheidung berücksichtigt. Vollständig korrekte eigene Kosten benötigen Vorprüfungen und konsistente Abzüge vor allen menschlichen und KI-Rekrutierungswegen.
+- Gleich teure KI-Varianten sind später möglich, wenn eine eigene deterministische Regel festlegt, welche von der KI erzeugten Vanilla-Units als Variante markiert werden. Diese Regel ist nicht Teil der ersten HUD-/Rekrutierungsetappe.
+
+### 4.7 Nächste API-Etappe: generische Rekrutierungsvarianten
+
+`APIShared` erweitert die vorhandene Präsentations-Capability um die Flächen Rekrutierung und Einzelunit-Details. Eine registrierte Variante definiert weiterhin Owner-GUID, stabile Category-ID, Vanilla-Basistyp, deterministische Position, Matcher und Icon-Tint. Zusätzlich liefert sie sprachabhängige Resolver für Anzeigename und Beschreibung sowie feste Fallbacktexte. Resolverfehler lassen den letzten sicheren beziehungsweise den definierten Fallbacktext bestehen.
+
+Bis eigene vollständige Grafiken vorliegen, verwendet jede Fläche das zum Basistyp gehörende Vanilla-Symbol und multipliziert ausschließlich dessen RGB-Werte mit dem registrierten Tint. Es wird kein zusätzliches Abzeichen eingeblendet. In der Einzelunit-Detailanzeige werden nur Typname, Bild und Beschreibung ersetzt; Lebensbalken, tatsächliche Werte, Besitzer, Befehle und übrige Vanilla-Daten bleiben erhalten.
+
+Pro Vanilla-Basistyp verwaltet `APIShared` eine deterministisch nach Priorität, Owner-GUID und Category-ID sortierte Folge:
+
+`Vanilla → Variante 1 → Variante 2 → … → Vanilla`
+
+Die Zahl registrierter Varianten wird nicht künstlich begrenzt. Ein kleiner Wähler am vorhandenen Vanilla-Rekrutierungsbutton schaltet mit Linksklick vorwärts und mit Rechtsklick rückwärts. Hauptsymbol, Tooltip und ein kurzes Label zeigen die aktive Auswahl. Die Auswahl wird je Basistyp bis zum Mapwechsel behalten; der Mapwechsel setzt alle Basistypen fail-closed auf Vanilla zurück.
+
+Ist Vanilla aktiv, läuft der bestehende Rekrutierungsbutton vollständig unverändert. Ist eine Variante aktiv, erzeugt `APIShared` einen unveränderlichen Rekrutierungsauftrag mit Owner-/Category-ID, Vanilla-Basistyp, lokalem Spieler und der von Vanilla bestimmten Menge. Normal-, Shift- und Ctrl-Verhalten sowie Verfügbarkeit, Bogenbedarf, Goldpreis und Fehlermeldungen entsprechen zunächst exakt dem Vanilla-Archer. `APIShared` führt keine native Mutation aus dem UI-Thread aus.
+
+`VirtualUnitsPrototype` nimmt den Auftrag an und reicht ihn über seine bestehende Operationsqueue in den Simulationstick. Dort wird `EngineInterface.GameAction(MakeTroop, amount, baseType, 0)` mit dem echten Basistyp ausgelöst. Ein eng begrenzter Pending-Kontext korreliert ausschließlich nachfolgende `OnUnitTransition`-Ereignisse mit passender Quelle, passendem Besitzer und unverändertem Basistyp. Jede tatsächlich entstandene Unit wird anhand von Game-ID, Global-ID, Alive-State, Besitzer und Basistyp erneut validiert und erst danach der virtuellen Definition zugeordnet. Gleichzeitig offene, nicht eindeutig unterscheidbare Rekrutierungsaufträge für denselben Besitzer und Basistyp werden abgelehnt; fremde oder überschüssige Übergänge bleiben Vanilla.
+
+Der Desert Archer verwendet in dieser Etappe exakt die Kosten und Güteranforderungen des Vanilla-Archers. Eigener Goldpreis, eigene Güterkosten, KI-Auswahl und Multiplayer-Rekrutierung bleiben gesonderte Gameplaymodule. Die UI-Registrierung allein darf niemals vortäuschen, dass die KI eine Variante strategisch oder wirtschaftlich berücksichtigt.
 
 ## 5. Registry und Lebenszyklus
 
@@ -392,7 +435,7 @@ Eine spätere Freigabe verwendet ausschließlich Chores: Die lokale Eingabe send
 
 ## 14. Spätere Erweiterungen
 
-Nach stabiler Registry folgen deterministische Module für Schaden, Angriffseffekte, Rekrutierungskosten, Fähigkeiten, Cooldowns, Building-Produktion, Building-Kosten und Ereignislogik. Module erhalten nur validierte `VirtualEntityKey`-Instanzen und dürfen keine globalen Vanilla-Typwerte ändern, wenn lediglich einzelne Instanzen betroffen sind. Persistenter Modulzustand benötigt ein eigenes versioniertes Saveformat; sonst müssen Module zustandslos sein.
+Nach stabiler Registry folgen deterministische Module für Schaden, Angriffseffekte, eigene Rekrutierungskosten, KI-Variantenwahl, Fähigkeiten, Cooldowns, Building-Produktion, Building-Kosten und Ereignislogik. Die vorherige gleich teure Rekrutierungsvariante ist ausschließlich eine Präsentations- und Instanzzuordnungsfunktion; sie ändert keine Vanilla-Kostentabelle. Module erhalten nur validierte `VirtualEntityKey`-Instanzen und dürfen keine globalen Vanilla-Typwerte ändern, wenn lediglich einzelne Instanzen betroffen sind. Persistenter Modulzustand benötigt ein eigenes versioniertes Saveformat; sonst müssen Module zustandslos sein.
 
 Eine getrennte Atlas-Baker-Pipeline folgt erst nach erfolgreichem Registry-, Save- und Building-PoC. Bevorzugte Eingabe ist glTF/GLB; FBX benötigt einen optionalen externen Konverter. Ausgabe sind vollständige Atlanten, Teamfarbenmasken und Metadaten für Kamera, Richtungen, Animationen, Framebereiche, Pivot, Fußpunkt und Transparenz. Der Baker arbeitet außerhalb des Spiels und ändert den Registryvertrag nicht.
 
@@ -413,7 +456,14 @@ Eine getrennte Atlas-Baker-Pipeline folgt erst nach erfolgreichem Registry-, Sav
 - visueller Rückbau stellt Vanilla-Farben und -Grafiken wieder her;
 - Auswahlklick platziert noch nichts;
 - Rechtsklick und Escape brechen ab;
-- Multiplayeraufrufe scheitern vor jeder Mutation.
+- Multiplayeraufrufe scheitern vor jeder Mutation;
+- strikt getrennte Vanilla-/Variantenanzahlen in Auswahl-HUD, Kontrollgruppen und Armeereport bei unveränderter Gesamttruppenzahl;
+- sprachabhängige Namens- und Beschreibungsresolver einschließlich Exception- und Fallbackpfad;
+- getöntes Basissymbol ohne Änderung des Vanilla-Sprites und korrektes Zurücksetzen nach Farb-, Kultur- und Mapwechsel;
+- beliebig viele Varianten eines Basistyps in deterministischer Reihenfolge sowie zyklisches Vorwärts-/Rückwärtsschalten;
+- Variantenwahl bleibt beim Schließen der Kaserne erhalten und wird beim Mapwechsel auf Vanilla zurückgesetzt;
+- Rekrutierung verwendet für Vanilla und Variante dieselben Verfügbarkeits-, Kosten- und Mengenpfade;
+- Pending-Rekrutierung akzeptiert nur passende `EuropeanBarracks`-Übergänge und lehnt mehrdeutige Aufträge ab.
 
 ### 15.2 Spieltests
 
@@ -422,6 +472,8 @@ Ein Vanilla-Archer und ein Desert Archer desselben Basistyps stehen nebeneinande
 Ein Vanilla-Hovel und ein Desert Hovel stehen nebeneinander. Nur das virtuelle Hovel erhält den deutlicheren Tile-Tint und doppelte Maximalgesundheit. Vanilla-Sprites, Nachbartiles, Footprint, Wegfindung und Belegung bleiben unverändert. Ungültige Baupositionen erzeugen weder Registryeintrag noch Teilzustand.
 
 Save/Load stellt beide Zuordnungen genau einmal wieder her. Mapwechsel leert Registry, Visualbindungen und Pending-Spawns. Inkompatible Save-Daten lassen die betreffende Vanilla-Entität unverändert.
+
+Für die nächste Rekrutierungsetappe stehen normaler Archer und Desert Archer am selben Kasernenbutton zur Auswahl. Der Variantenwähler schaltet in beide Richtungen, aktualisiert Symbol, Tooltip und Kurzlabel und behält seine Wahl bis zum Mapwechsel. Normal-, Shift- und Ctrl-Rekrutierung erzeugen exakt so viele Desert-Archer-Zuordnungen, wie Vanilla tatsächlich Archer erzeugt hat. Auswahl-HUD, Kontrollgruppen, Hover, Armeereport und Einzelunit-Detailansicht zeigen den eigenen Namen und strikt getrennte Anzahlen; das Icon bleibt ein ausschließlich getönter Vanilla-Archer.
 
 Eine spätere Multiplayerfreigabe verlangt identische Registrydefinitionen, tickgleiche Verarbeitung, Join-/Load-Prüfungen und gezielte Desync-Tests mit mindestens zwei Teilnehmern.
 
@@ -440,15 +492,18 @@ Eine spätere Multiplayerfreigabe verlangt identische Registrydefinitionen, tick
 11. Betroffene Textdateien auf CRLF und Code auf fachliche Zahlenwerte prüfen.
 12. `APIShared`, `BugfixesAndQoL` und `VirtualUnitsPrototype` in dieser Reihenfolge jeweils einmalig über ihre erhöhten `build.bat /nopause`-Aufrufe bauen und installieren.
 13. Gemeinsamer Spieltest mit Lord und Desert Archer anhand der Abnahmekriterien.
-14. Erst nach finaler Bestätigung Version erhöhen und fragen, ob das Feature in die README soll.
+14. `APIShared` um generische Rekrutierungsvarianten, Textresolver und Einzelunit-Details erweitern.
+15. Desert Archer am vorhandenen Archer-Button registrieren und Übergänge im Simulationstick korrelieren.
+16. Rekrutierungs-, Mehrvarianten- und Detailanzeigentests durchführen; danach gemeinsamer Spieltest mit Vanilla-Archer, Desert Archer und Lord.
+17. Erst nach finaler Bestätigung Version erhöhen und fragen, ob das Feature in die README soll.
 
 ## 17. Festgelegte Grenzen und Annahmen
 
-- Keine Änderung am Script Extender; Version 2.4.0 ist die Zielversion, während dieser nachweislich rückwärtskompatible Mod 2.3.0 als Mindestversion behält.
+- Keine Änderung am Script Extender; Version 2.5.0 ist die geprüfte Zielversion, während dieser nachweislich rückwärtskompatible Mod 2.3.0 als Mindestversion behält.
 - Keine neuen nativen Enum- oder Arrayeinträge.
 - Keine geratenen RVAs, AOBs oder nativen Hooks.
 - Keine Runtime-FBX-Unterstützung oder dauerhaft als 3D-Mesh gerenderten Units.
-- Keine Multiplayerfreigabe, Rekrutierungs- oder Vanilla-Baumenüintegration im ersten Build.
+- Keine Multiplayerfreigabe im ersten Build. Die geplante Kasernenintegration verwendet ausschließlich den vorhandenen Vanilla-Archer-Button mit generischem Variantenwähler; das Diagnose-Spawnmenü bleibt davon getrennt.
 - Keine komplexen Mehrfachobjekt-Gebäude im Diagnosemenü.
 - Keine Abhängigkeit von CastlePlanner.
 - Kein eigenes 3D-Modell und kein Unity Editor für den ersten Test.
@@ -459,4 +514,4 @@ Eine spätere Multiplayerfreigabe verlangt identische Registrydefinitionen, tick
 
 ## 18. Erwartetes Endergebnis
 
-Nach Umsetzung des PoC kann ein weiterer Mod über die öffentliche C#-API einen virtuellen Unit- oder Building-Typ registrieren, eine kompatible Vanilla-Entität erzeugen oder zuweisen und sie anhand von Game-ID plus Global-ID sicher wiedererkennen. Nur diese Instanz erhält ihre alternative Darstellung und Werte. Vanilla übernimmt weiterhin die Simulation; das virtuelle System kann anschließend um deterministische Verhaltensmodule, Chore-Synchronisierung und externe Atlas-Erzeugung erweitert werden.
+Nach Umsetzung des PoC kann ein weiterer Mod über die öffentliche C#-API einen virtuellen Unit- oder Building-Typ registrieren, eine kompatible Vanilla-Entität erzeugen oder zuweisen und sie anhand von Game-ID plus Global-ID sicher wiedererkennen. Nur diese Instanz erhält ihre alternative Darstellung und Werte. Die nächste API-Etappe lässt beliebig viele gleich teure Varianten am vorhandenen Rekrutierungsbutton auswählen und präsentiert sie in allen festgelegten HUD-Flächen als getrennte Kategorien. Vanilla übernimmt weiterhin die Simulation; das virtuelle System kann anschließend um deterministische Verhaltensmodule, KI-Auswahl, eigene Kosten, Chore-Synchronisierung und externe Atlas-Erzeugung erweitert werden.

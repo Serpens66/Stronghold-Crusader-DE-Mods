@@ -17,11 +17,12 @@ if errorlevel 1 (
 )
 if not exist "%MSBUILD%" ( echo MSBuild wurde nicht gefunden.& goto failed )
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" ( echo SHCDESE.dll wurde nicht gefunden: %EXTENDER_DIR%& goto failed )
-if not exist "%API_SHARED_DIR%\APIShared.dll" ( echo APIShared.dll 0.2.0 wurde nicht gefunden: %API_SHARED_DIR%& goto failed )
+if not exist "%API_SHARED_DIR%\APIShared.dll" ( echo APIShared.dll 0.3.1 wurde nicht gefunden: %API_SHARED_DIR%& goto failed )
 if not exist "%PROJECT_DIR%Assets\CrusaderSwordsman\atlas.png" ( echo Private Atlas-Assets fehlen.& goto failed )
 if not exist "%PROJECT_DIR%Assets\CrusaderRoundTower\atlas.png" ( echo Private Rundturm-Assets fehlen.& goto failed )
 if not exist "%PROJECT_DIR%Assets\CrusaderRoundTowerAnimations\atlas.png" ( echo Private Rundturm-Animationsassets fehlen.& goto failed )
 if not exist "%PROJECT_DIR%Assets\CrusaderUI\UIBuildingsO011_colour1.png" ( echo Private HUD-Assets fehlen.& goto failed )
+if not exist "%PROJECT_DIR%Assets\CrusaderUI\UIButtonsO018_colour8.png" ( echo Private Kasernen-HUD-Assets fehlen.& goto failed )
 
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" tests\SkinTest.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"

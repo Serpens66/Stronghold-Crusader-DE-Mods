@@ -29,6 +29,8 @@ namespace BugfixesAndQoL
             FileHeader selectedHeader,
             bool ignoreRefresh);
 
+        private delegate void MultiplayerShowSetupDelegate(FRONT_Multiplayer self);
+
         private delegate FileHeader GetFileInfoDelegate(
             MapFileManager self,
             string filePath,
@@ -52,18 +54,29 @@ namespace BugfixesAndQoL
             typeof(FRONT_Multiplayer),
             "sortByAscending");
 
+        private static readonly FieldInfo MultiplayerSelectedHeaderField = FindRequiredField(
+            typeof(FRONT_Multiplayer),
+            "selectedMPHeader");
+
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly Hook standaloneHeaderHook;
         private readonly Hook standalonePopulateHook;
         private readonly Hook multiplayerHeaderHook;
         private readonly Hook multiplayerPopulateHook;
+        private readonly Hook multiplayerShowSetupHook;
         private readonly Hook getFileInfoHook;
         private readonly StandaloneHeaderDelegate standaloneHeaderTrampoline;
         private readonly StandalonePopulateDelegate standalonePopulateTrampoline;
         private readonly MultiplayerHeaderDelegate multiplayerHeaderTrampoline;
         private readonly MultiplayerPopulateDelegate multiplayerPopulateTrampoline;
+        private readonly MultiplayerShowSetupDelegate multiplayerShowSetupTrampoline;
         private readonly GetFileInfoDelegate getFileInfoTrampoline;
+        private readonly LobbyMapSelectionStore lobbyMapSelectionStore;
+        private FRONT_Multiplayer trackedMultiplayerView;
+        private ListView trackedMultiplayerMapList;
+        private bool setupRestorePending;
+        private bool restoringSetup;
         private bool sortingFailureLogged;
         private bool disposed;
 
@@ -76,6 +89,7 @@ namespace BugfixesAndQoL
             Hook newStandalonePopulateHook = null;
             Hook newMultiplayerHeaderHook = null;
             Hook newMultiplayerPopulateHook = null;
+            Hook newMultiplayerShowSetupHook = null;
             Hook newGetFileInfoHook = null;
             try
             {
@@ -97,6 +111,9 @@ namespace BugfixesAndQoL
                     "populateMapList",
                     typeof(FileHeader),
                     typeof(bool));
+                MethodInfo multiplayerShowSetup = FindRequiredMethod(
+                    typeof(FRONT_Multiplayer),
+                    "ShowSetupScreen");
 
                 newStandaloneHeaderHook = new Hook(
                     standaloneHeader,
@@ -122,6 +139,12 @@ namespace BugfixesAndQoL
                 multiplayerPopulateTrampoline =
                     newMultiplayerPopulateHook.GenerateTrampoline<MultiplayerPopulateDelegate>();
 
+                newMultiplayerShowSetupHook = new Hook(
+                    multiplayerShowSetup,
+                    (MultiplayerShowSetupDelegate)MultiplayerShowSetupHook);
+                multiplayerShowSetupTrampoline =
+                    newMultiplayerShowSetupHook.GenerateTrampoline<MultiplayerShowSetupDelegate>();
+
                 MethodInfo getFileInfo = FindGetFileInfoMethod();
                 newGetFileInfoHook = new Hook(
                     getFileInfo,
@@ -133,11 +156,14 @@ namespace BugfixesAndQoL
                 standalonePopulateHook = newStandalonePopulateHook;
                 multiplayerHeaderHook = newMultiplayerHeaderHook;
                 multiplayerPopulateHook = newMultiplayerPopulateHook;
+                multiplayerShowSetupHook = newMultiplayerShowSetupHook;
                 getFileInfoHook = newGetFileInfoHook;
+                lobbyMapSelectionStore = new LobbyMapSelectionStore(log);
             }
             catch
             {
                 DisposeHook(newGetFileInfoHook);
+                DisposeHook(newMultiplayerShowSetupHook);
                 DisposeHook(newMultiplayerPopulateHook);
                 DisposeHook(newMultiplayerHeaderHook);
                 DisposeHook(newStandalonePopulateHook);
@@ -157,6 +183,7 @@ namespace BugfixesAndQoL
 
             disposed = true;
             DisposeHook(getFileInfoHook);
+            DisposeHook(multiplayerShowSetupHook);
             DisposeHook(multiplayerPopulateHook);
             DisposeHook(multiplayerHeaderHook);
             DisposeHook(standalonePopulateHook);
@@ -166,7 +193,9 @@ namespace BugfixesAndQoL
                 "Bugfixes and QoL map-origin sorting hooks disposed.");
         }
 
-        private bool IsActive => settings.EnableMod && settings.EnableCustomLordListEnhancements;
+        private bool IsActive => LobbyMapSelectionPolicy.IsFeatureEnabled(
+            settings.EnableMod,
+            settings.EnableCustomLordListEnhancements);
 
         private void StandaloneHeaderHook(
             FRONT_StandaloneMission self,
@@ -198,6 +227,7 @@ namespace BugfixesAndQoL
             }
 
             multiplayerHeaderTrampoline(self, sender, args);
+            TryRememberMultiplayerSort(self);
         }
 
         private void StandalonePopulateHook(FRONT_StandaloneMission self)
@@ -214,11 +244,43 @@ namespace BugfixesAndQoL
             FileHeader selectedHeader,
             bool ignoreRefresh)
         {
+            bool eligible = IsActive && IsEligibleMapMode(self);
+            if (!eligible)
+                setupRestorePending = false;
+
+            bool restoreThisPopulation = eligible && setupRestorePending && !restoringSetup;
+            if (restoreThisPopulation)
+                TryApplyRememberedSort(self);
+
             multiplayerPopulateTrampoline(self, selectedHeader, ignoreRefresh);
             TryApplyOriginSort(
                 self,
                 MultiplayerSortColumnField,
                 MultiplayerSortAscendingField);
+            TryAttachMultiplayerSelectionHandler(self);
+
+            if (restoreThisPopulation)
+            {
+                setupRestorePending = false;
+                if (selectedHeader == null && CanRememberMap(self))
+                    TrySelectRememberedMap(self);
+            }
+
+            TryRememberSelectedMap(self);
+        }
+
+        private void MultiplayerShowSetupHook(FRONT_Multiplayer self)
+        {
+            multiplayerShowSetupTrampoline(self);
+            if (!IsActive || !IsEligibleMapMode(self))
+            {
+                setupRestorePending = false;
+                return;
+            }
+
+            setupRestorePending = true;
+            if (self.panelActive)
+                TryRestoreEstablishedSetup(self);
         }
 
         private FileHeader GetFileInfoHook(
@@ -327,6 +389,221 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogError(
                 log,
                 $"Bugfixes and QoL map-origin sorting failed; the Vanilla map list remains usable: {exception}");
+        }
+
+        private void TryRestoreEstablishedSetup(FRONT_Multiplayer self)
+        {
+            if (restoringSetup)
+                return;
+
+            try
+            {
+                restoringSetup = true;
+                TryApplyRememberedSort(self);
+                ListView mapList = FindMapList(self);
+                FileHeader selectedHeader =
+                    MultiplayerSelectedHeaderField.GetValue(self) as FileHeader;
+                if (CanRememberMap(self))
+                    selectedHeader = FindRememberedHeader(mapList) ?? selectedHeader;
+
+                // Keep Vanilla's selection event active so hosts synchronize the restored map.
+                multiplayerPopulateTrampoline(self, selectedHeader, false);
+                TryApplyOriginSort(
+                    self,
+                    MultiplayerSortColumnField,
+                    MultiplayerSortAscendingField);
+                TryAttachMultiplayerSelectionHandler(self);
+                setupRestorePending = false;
+                TryRememberSelectedMap(self);
+            }
+            catch (Exception exception)
+            {
+                setupRestorePending = false;
+                LogMemoryFailure("restore the lobby map selection", exception);
+            }
+            finally
+            {
+                restoringSetup = false;
+            }
+        }
+
+        private void TryApplyRememberedSort(FRONT_Multiplayer self)
+        {
+            try
+            {
+                LobbyMapSelectionSnapshot snapshot = lobbyMapSelectionStore.Current;
+                if (!LobbyMapSelectionPolicy.IsValidSortColumn(snapshot.SortColumn))
+                    return;
+
+                MultiplayerSortColumnField.SetValue(self, snapshot.SortColumn);
+                MultiplayerSortAscendingField.SetValue(self, snapshot.SortAscending);
+            }
+            catch (Exception exception)
+            {
+                LogMemoryFailure("restore the lobby map sort order", exception);
+            }
+        }
+
+        private void TryRememberMultiplayerSort(FRONT_Multiplayer self)
+        {
+            if (!IsActive || !IsEligibleMapMode(self))
+                return;
+
+            try
+            {
+                lobbyMapSelectionStore.RememberSort(
+                    (int)MultiplayerSortColumnField.GetValue(self),
+                    (bool)MultiplayerSortAscendingField.GetValue(self));
+            }
+            catch (Exception exception)
+            {
+                LogMemoryFailure("remember the lobby map sort order", exception);
+            }
+        }
+
+        private void TryAttachMultiplayerSelectionHandler(FRONT_Multiplayer self)
+        {
+            try
+            {
+                ListView mapList = FindMapList(self);
+                if (mapList == null ||
+                    ReferenceEquals(mapList, trackedMultiplayerMapList) &&
+                    ReferenceEquals(self, trackedMultiplayerView))
+                {
+                    return;
+                }
+
+                trackedMultiplayerView = self;
+                trackedMultiplayerMapList = mapList;
+                mapList.SelectionChanged += MultiplayerMapSelectionChanged;
+            }
+            catch (Exception exception)
+            {
+                LogMemoryFailure("attach lobby map-selection memory", exception);
+            }
+        }
+
+        private void MultiplayerMapSelectionChanged(object sender, SelectionChangedEventArgs args)
+        {
+            TryRememberSelectedMap(trackedMultiplayerView);
+        }
+
+        private void TryRememberSelectedMap(FRONT_Multiplayer self)
+        {
+            if (!IsActive || !IsEligibleMapMode(self) || !CanRememberMap(self))
+                return;
+
+            try
+            {
+                ListView mapList = FindMapList(self);
+                FileHeader header = (mapList?.SelectedItem as FileRow)?.fileHeader;
+                LobbyMapIdentity identity = CreateIdentity(header);
+                if (identity != null)
+                    lobbyMapSelectionStore.RememberMap(identity);
+            }
+            catch (Exception exception)
+            {
+                LogMemoryFailure("remember the selected lobby map", exception);
+            }
+        }
+
+        private void TrySelectRememberedMap(FRONT_Multiplayer self)
+        {
+            try
+            {
+                ListView mapList = FindMapList(self);
+                FileHeader remembered = FindRememberedHeader(mapList);
+                if (remembered == null)
+                    return;
+
+                ObservableCollection<FileRow> rows =
+                    mapList.ItemsSource as ObservableCollection<FileRow>;
+                if (rows == null)
+                    return;
+
+                foreach (FileRow row in rows)
+                {
+                    if (ReferenceEquals(row?.fileHeader, remembered))
+                    {
+                        mapList.SelectedItem = row;
+                        mapList.ScrollIntoView(row);
+                        return;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                LogMemoryFailure("select the remembered lobby map", exception);
+            }
+        }
+
+        private FileHeader FindRememberedHeader(ListView mapList)
+        {
+            LobbyMapIdentity remembered = lobbyMapSelectionStore.Current.Map;
+            ObservableCollection<FileRow> rows =
+                mapList?.ItemsSource as ObservableCollection<FileRow>;
+            if (remembered == null || rows == null)
+                return null;
+
+            var candidates = new List<LobbyMapCandidate>(rows.Count);
+            foreach (FileRow row in rows)
+            {
+                FileHeader header = row?.fileHeader;
+                if (header == null)
+                    continue;
+
+                candidates.Add(new LobbyMapCandidate(
+                    MapOriginSortHook.GetOrigin(header),
+                    header.filePath,
+                    header.fileName,
+                    header));
+            }
+
+            return LobbyMapSelectionPolicy.FindMatch(remembered, candidates) as FileHeader;
+        }
+
+        private static LobbyMapIdentity CreateIdentity(FileHeader header) =>
+            header == null
+                ? null
+                : LobbyMapSelectionPolicy.CreateIdentity(
+                    header.builtinMap,
+                    header.userMap,
+                    header.workshopMap,
+                    header.filePath,
+                    header.fileName);
+
+        private static string GetOrigin(FileHeader header) =>
+            header == null
+                ? string.Empty
+                : LobbyMapSelectionPolicy.GetOrigin(
+                    header.builtinMap,
+                    header.userMap,
+                    header.workshopMap);
+
+        private static bool CanRememberMap(FRONT_Multiplayer self) =>
+            self != null &&
+            LobbyMapSelectionPolicy.HasMapAuthority(
+                FRONT_Multiplayer.skirmishGame,
+                self.currentLobby != null,
+                self.currentLobby?.isHost == true);
+
+        private static bool IsMapListVisible() =>
+            MainViewModel.Instance?.Show_MPGameCreation == true;
+
+        private static bool IsEligibleMapMode(FRONT_Multiplayer self) =>
+            self != null &&
+            !FRONT_Multiplayer.coopGame &&
+            !FRONT_Multiplayer.customCoopGame &&
+            IsMapListVisible();
+
+        private static ListView FindMapList(FrameworkElement view) =>
+            view?.FindName("MapList") as ListView;
+
+        private void LogMemoryFailure(string action, Exception exception)
+        {
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Bugfixes and QoL could not {action}; Vanilla behavior remains active: {exception}");
         }
 
         private static int CompareRows(IndexedRow left, IndexedRow right, bool ascending)

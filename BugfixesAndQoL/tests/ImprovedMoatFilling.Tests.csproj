@@ -39,6 +39,7 @@
     <Compile Include="..\src\AIResourceShortageSleepPolicy.cs"><Link>AIResourceShortageSleepPolicy.cs</Link></Compile>
     <Compile Include="..\src\AicDropdownPolicy.cs"><Link>AicDropdownPolicy.cs</Link></Compile>
     <Compile Include="..\src\ClassicMapSizeReader.cs"><Link>ClassicMapSizeReader.cs</Link></Compile>
+    <Compile Include="..\src\LobbyMapSelectionMemory.cs"><Link>LobbyMapSelectionMemory.cs</Link></Compile>
     <Compile Include="..\src\CoopCustomLordSelectionPolicy.cs"><Link>CoopCustomLordSelectionPolicy.cs</Link></Compile>
     <Compile Include="..\src\SingleBuildingPauseOverrideStore.cs"><Link>SingleBuildingPauseOverrideStore.cs</Link></Compile>
     <Compile Include="..\src\TemporaryGateBlockagePolicy.cs"><Link>TemporaryGateBlockagePolicy.cs</Link></Compile>
@@ -46,6 +47,7 @@
     <Compile Include="..\src\FriendlyMoatMovementPolicy.cs"><Link>FriendlyMoatMovementPolicy.cs</Link></Compile>
     <Compile Include="..\src\TunnelPlacementDistancePolicy.cs"><Link>TunnelPlacementDistancePolicy.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>NativePatternResolver.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -77,6 +77,23 @@ internal static class Program
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(1088) == 1087, "Body image 1088 must map to normal atlas frame 1087.");
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(0) == -1, "Body image 0 must fail closed.");
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(-1) == -1, "Negative body images must fail closed.");
+        Check(SkinSelectionPolicy.ToCastlePreviewAtlasIndex(1) == 0 &&
+              SkinSelectionPolicy.ToCastlePreviewAtlasIndex(280) == 279,
+            "GM_CASTLES mouse-preview images must map to image minus one.");
+        Check(SkinSelectionPolicy.ToCastlePreviewAtlasIndex(0) == -1 &&
+              SkinSelectionPolicy.ToCastlePreviewAtlasIndex(-1) == -1,
+            "Invalid GM_CASTLES preview images must fail closed.");
+        Check(SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, true, true,
+                LordCulture.European, true),
+            "An untouched European round-tower cursor preview must be replaceable.");
+        Check(!SkinSelectionPolicy.CanReplaceRoundTowerPreview(false, 5, 114, true, true, LordCulture.European, true) &&
+              !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 0, 114, true, true, LordCulture.European, true) &&
+              !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 113, true, true, LordCulture.European, true) &&
+              !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, false, true, LordCulture.European, true) &&
+              !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, true, false, LordCulture.European, true) &&
+              !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, true, true, LordCulture.NonEuropean, true) &&
+              !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, true, true, LordCulture.European, false),
+            "Inactive maps, wrong actions/mappers, foreign renderers, conflicts, cultures and sparse gaps must retain Vanilla previews.");
 
         Check(SkinSelectionPolicy.SelectFrame(false, true, false) == SkinFrameChoice.Normal, "Normal request must select the normal frame.");
         Check(SkinSelectionPolicy.SelectFrame(true, true, true) == SkinFrameChoice.Alternate, "Available alternate frame must be selected.");
@@ -311,7 +328,11 @@ internal static class Program
 
         string uiAssets = Path.Combine(root, "Assets", "CrusaderUI");
         string uiSource = Path.Combine(root, "AtlasSource", "UI");
-        string[] troopNames = { "UIBuildingsO011", "UIBuildingsO012", "UIButtonsK007", "UIButtonsK008" };
+        string[] troopNames =
+        {
+            "UIBuildingsO011", "UIBuildingsO012", "UIButtonsK007", "UIButtonsK008",
+            "UIButtonsO016", "UIButtonsO017", "UIButtonsO018"
+        };
         foreach (string name in troopNames)
         {
             string sourceImage = Path.Combine(uiSource, name + ".png");
@@ -327,19 +348,54 @@ internal static class Program
         }
         foreach (string towerName in new[] { "UIBuildingsK009", "UIBuildingsK010" })
             Check(File.Exists(Path.Combine(uiAssets, towerName + ".png")), $"Tower HUD asset is missing: {towerName}");
-        Check(Directory.GetFiles(uiAssets, "*.png").Length == 34,
-            "Private UI asset inventory must contain 32 troop variants and two tower images.");
+        Check(Directory.GetFiles(uiAssets, "*.png").Length == 58,
+            "Private UI asset inventory must contain 56 troop variants and two tower images.");
         var provenance = Shared.DependencyFreeJson.Parse(File.ReadAllText(Path.Combine(uiSource, "provenance.json"))) as Dictionary<string, object>;
         Check(provenance != null && ((List<object>)provenance["sourceDimensions"])
-              .Select(value => Convert.ToInt32(value, CultureInfo.InvariantCulture)).SequenceEqual(new[] { 8192, 4096 }),
+              .Select(value => Convert.ToInt32(value, CultureInfo.InvariantCulture)).SequenceEqual(new[] { 8192, 4096 }) &&
+              string.Equals((string)provenance["sourceSha256"],
+                  "9AF9A7F9F57BD43A70BEFAE581F0A5C72E8CF968492A608B3997B765AE63DDEE", StringComparison.Ordinal),
             "UI source provenance or source dimensions are invalid.");
         var provenanceRects = (Dictionary<string, object>)provenance["rectangles"];
         foreach (string name in troopNames)
         {
             var record = (Dictionary<string, object>)provenanceRects[name];
+            int width = Convert.ToInt32(record["width"], CultureInfo.InvariantCulture);
+            int height = Convert.ToInt32(record["height"], CultureInfo.InvariantCulture);
+            int[] alphaBounds = ((List<object>)record["alphaBounds"])
+                .Select(value => Convert.ToInt32(value, CultureInfo.InvariantCulture)).ToArray();
             Check(string.Equals((string)record["sha256"], Sha256(Path.Combine(uiSource, name + ".png")), StringComparison.Ordinal) &&
-                  string.Equals((string)record["teamMaskSha256"], Sha256(Path.Combine(uiSource, name + "_team-mask.png")), StringComparison.Ordinal),
+                  string.Equals((string)record["teamMaskSha256"], Sha256(Path.Combine(uiSource, name + "_team-mask.png")), StringComparison.Ordinal) &&
+                  Convert.ToInt32(record["alphaPixelCount"], CultureInfo.InvariantCulture) > 0 &&
+                  Convert.ToInt32(record["teamMaskPixelCount"], CultureInfo.InvariantCulture) > 0 &&
+                  alphaBounds.Length == 4 && alphaBounds[0] >= 0 && alphaBounds[1] >= 0 &&
+                  alphaBounds[2] <= width && alphaBounds[3] <= height &&
+                  alphaBounds[2] > alphaBounds[0] && alphaBounds[3] > alphaBounds[1],
                 $"UI source or explicit team mask differs from provenance: {name}");
+        }
+        var barracksRects = new Dictionary<string, int[]>
+        {
+            ["UIButtonsO016"] = new[] { 5586, 2024, 102, 205 },
+            ["UIButtonsO017"] = new[] { 5828, 2012, 116, 217 },
+            ["UIButtonsO018"] = new[] { 5956, 2012, 116, 217 }
+        };
+        var barracksHashes = new Dictionary<string, string>
+        {
+            ["UIButtonsO016"] = "32E869E799FCDA7920ABDAFB5CEDE37C08874FD6A4BF4D142BD6F8C5CAA71D07",
+            ["UIButtonsO017"] = "FFF84D691F4A14AD42C8F51F7111239C148ABF7E717EFA0D54D5CA3F0574838A",
+            ["UIButtonsO018"] = "79F3FDAE52E596C7BEDAE63B7B04C9471AB27DAEF62400A62100BA674D404E35"
+        };
+        foreach (KeyValuePair<string, int[]> expected in barracksRects)
+        {
+            var record = (Dictionary<string, object>)provenanceRects[expected.Key];
+            int[] actual = { Convert.ToInt32(record["x"], CultureInfo.InvariantCulture),
+                Convert.ToInt32(record["y"], CultureInfo.InvariantCulture),
+                Convert.ToInt32(record["width"], CultureInfo.InvariantCulture),
+                Convert.ToInt32(record["height"], CultureInfo.InvariantCulture) };
+            Check(actual.SequenceEqual(expected.Value) &&
+                  ReadPngSize(Path.Combine(uiSource, expected.Key + ".png")) == (expected.Value[2], expected.Value[3]) &&
+                  string.Equals((string)record["sha256"], barracksHashes[expected.Key], StringComparison.Ordinal),
+                $"Barracks source rectangle or dimensions differ: {expected.Key}");
         }
     }
 
@@ -361,7 +417,7 @@ internal static class Program
             "Manifest must declare a visual client mod matching the plugin's Script Extender version.");
         Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, ScriptExtenderVersion)]") &&
               plugin.Contains("[BepInDependency(ApiSharedGuid, ApiSharedVersion)]") &&
-              plugin.Contains("ApiSharedVersion = \"0.2.0\"") &&
+              plugin.Contains("ApiSharedVersion = \"0.3.1\"") &&
               plugin.Contains("PluginVersion = \"0.1.0\""), "Plugin dependency/version contract differs.");
         Check(plugin.Contains("private static ManualLogSource persistentLog") &&
               plugin.Contains("private static SwordsmanSkinRuntime runtime") &&
@@ -411,8 +467,8 @@ internal static class Program
         Check(project.Contains("<Reference Include=\"RedBird.Core\"><HintPath>$(ExtenderDir)\\RedBird.Core.dll</HintPath><Private>false</Private></Reference>"),
             "The AIC array dependency must reference installed RedBird.Core without private packaging.");
         Check(project.Contains("<Reference Include=\"APIShared\"><HintPath>$(ApiSharedDir)\\APIShared.dll</HintPath><Private>false</Private></Reference>") &&
-              project.Contains("APIShared.dll 0.2.0"),
-            "SkinTest must consume installed APIShared 0.2.0 without private packaging.");
+              project.Contains("APIShared.dll 0.3.1"),
+            "SkinTest must consume installed APIShared 0.3.1 without private packaging.");
         Check(runtime.Contains("cultureByPlayer") && runtime.Contains("Authoritative lord culture differs from early culture") &&
               runtime.Contains("Early culture resolved before lord spawn") &&
               runtime.Contains("ReconcileEarlyAndActualCulture") && runtime.Contains("unknown graphics material"),
@@ -452,8 +508,14 @@ internal static class Program
               runtime.Contains("ReferenceEquals(context.CurrentImage, context.VanillaImage)") &&
               runtime.Contains("CanInspectEuropeanHud(activeMap") &&
               runtime.Contains("IsValidPlayerId(localPlayerId)") &&
-              runtime.Contains("SH1DE swordsman HUD activated through APIShared"),
-            "Troop HUD must exclusively use four gated, conflict-friendly APIShared overrides.");
+              runtime.Contains("new byte[8, 7][]") &&
+              runtime.Contains("Seven SH1DE swordsman HUD overrides registered with APIShared") &&
+              runtime.Contains("SH1DE swordsman {surface} HUD activated through APIShared") &&
+              runtime.Contains("UnitHudImageSlot.UIButtonsO016") &&
+              runtime.Contains("UnitHudImageSlot.UIButtonsO017") &&
+              runtime.Contains("UnitHudImageSlot.UIButtonsO018") &&
+              !runtime.Contains("UISpritesZ006"),
+            "Troop HUD must exclusively use seven gated, conflict-friendly APIShared overrides.");
         Match resolver = Regex.Match(runtime,
             @"private ImageSource ResolveTroopHudImage[\s\S]*?\n\s*}\r?\n\r?\n\s*private void EnsureTroopHudSource");
         Check(resolver.Success &&
@@ -463,6 +525,25 @@ internal static class Program
               resolver.Value.IndexOf("ResolveOwnerCulture(localPlayerId", StringComparison.Ordinal) &&
               !resolver.Value.Contains("RequestRefresh") && !resolver.Value.Contains("UpdateUITroopSprites"),
             "The APIShared resolver must gate context and player ID before culture lookup without recursive refresh.");
+        Match preview = Regex.Match(runtime,
+            @"private void TryReplaceRoundTowerPlacementPreview[\s\S]*?\n\s*}\r?\n\r?\n\s*private void AddUpdateBuildingAnimHook");
+        Check(preview.Success &&
+              preview.Value.Contains("ReferenceEquals(rendererObject, gameMap.mouseCursorGO)") &&
+              preview.Value.Contains("ReferenceEquals(rendererObject, gameMap.mouseCursorGO2)") &&
+              preview.Value.Contains("controls.CurrentAction != 5") &&
+              preview.Value.Contains("Enums.eMappers.MAPPER_TOWER5") &&
+              preview.Value.Contains("ToCastlePreviewAtlasIndex(image)") &&
+              preview.Value.Contains("GetGMSprite(GameGM.GM_CASTLES, frameIndex)") &&
+              preview.Value.Contains("ReferenceEquals(renderer.sprite, expected)") &&
+              preview.Value.Contains("renderer.sprite = castleSprites[frameIndex]") &&
+              !preview.Value.Contains("sharedMaterial") && !preview.Value.Contains("renderer.color") &&
+              !preview.Value.Contains("sortingOrder") && !preview.Value.Contains(".transform") &&
+              preview.Value.IndexOf("if (!activeMap", StringComparison.Ordinal) <
+              preview.Value.IndexOf("GetLocalPlayerId()", StringComparison.Ordinal) &&
+              runtime.Contains("if (file == (int)ExtenderGM.GM_CASTLES)") &&
+              runtime.IndexOf("trampoline(renderer", StringComparison.Ordinal) <
+              runtime.IndexOf("TryReplaceRoundTowerPlacementPreview(renderer, image)", StringComparison.Ordinal),
+            "Round-tower placement preview must use both exact cursors, mapper 114, image-minus-one and conflict-friendly sprite-only replacement after state gates.");
         Check(runtime.Contains("buildingTrampoline(tile, file, image, light);") &&
               runtime.Contains("GetTileBuildingId(tileId)") && runtime.Contains("TryGetBuildingById(buildingId") &&
               runtime.Contains("STRUCT_TOWER5_DESTROYED") && runtime.Contains("SH1DE round-tower skin applied"),

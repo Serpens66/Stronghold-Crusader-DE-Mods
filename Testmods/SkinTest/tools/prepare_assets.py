@@ -37,6 +37,9 @@ UI_SOURCE_RECTS = {
     "UIButtonsK008": (3376, 2251, 100, 162),
     "UIBuildingsO011": (5828, 2012, 116, 217),
     "UIBuildingsO012": (5956, 2012, 116, 217),
+    "UIButtonsO016": (5586, 2024, 102, 205),
+    "UIButtonsO017": (5828, 2012, 116, 217),
+    "UIButtonsO018": (5956, 2012, 116, 217),
     "UIBuildingsK009": (3490, 2594, 115, 156),
     "UIBuildingsK010": (3605, 2594, 115, 156),
 }
@@ -527,12 +530,23 @@ def prepare_ui_assets(source_root: Path, skin_test: Path) -> None:
                 raise RuntimeError(f"UI source rectangle is empty: {name}")
             source_path = source_dir / f"{name}.png"
             crop.save(source_path, optimize=True)
-            record = {"x": x, "y": y, "width": width, "height": height, "sha256": sha256_file(source_path)}
+            alpha = crop.getchannel("A")
+            alpha_bounds = alpha.getbbox()
+            record = {
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+                "alphaBounds": list(alpha_bounds),
+                "alphaPixelCount": sum(alpha.histogram()[1:]),
+                "sha256": sha256_file(source_path),
+            }
             if name.startswith("UIButtons") or name in ("UIBuildingsO011", "UIBuildingsO012"):
                 mask = create_team_mask(crop)
                 mask_path = source_dir / f"{name}_team-mask.png"
                 mask.save(mask_path, optimize=True)
                 record["teamMaskSha256"] = sha256_file(mask_path)
+                record["teamMaskPixelCount"] = sum(mask.histogram()[1:])
                 for colour, rgb in PLAYER_COLOURS.items():
                     recoloured = recolour_team_pixels(crop, mask, rgb)
                     recoloured.save(asset_dir / f"{name}_colour{colour}.png", optimize=True)
@@ -661,9 +675,14 @@ def main() -> None:
         type=Path,
         default=Path(r"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\SH1DE_RippedFiles"),
     )
+    parser.add_argument("--ui-only", action="store_true", help="Regenerate only the private UI assets.")
     args = parser.parse_args()
     skin_test = Path(__file__).resolve().parents[1]
     workspace = skin_test.parents[1]
+    if args.ui_only:
+        prepare_ui_assets(args.source_root.resolve(), skin_test)
+        print("Prepared seven swordsman HUD graphics and two round-tower HUD graphics.")
+        return
     extract_frames(args.source_root.resolve(), skin_test)
     extract_castle_anim_frames(args.source_root.resolve(), skin_test)
     build_private_atlas(workspace, skin_test)

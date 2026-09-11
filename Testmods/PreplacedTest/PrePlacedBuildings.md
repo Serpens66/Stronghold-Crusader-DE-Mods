@@ -1,9 +1,9 @@
 # Vorplatzierte Gebäude und Vanilla-KI – aktueller Wissensstand
 
-- Stand: 11. September 2026
+- Stand: 12. September 2026
 - Native Version: `CrusaderDE.dll`, SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Getesteter Script Extender: 2.5.0
-- Wesentliche Laufzeitevidenz: `Log_057.log`, der aktive Ruinen-/Mauerlauf vom 11. September 2026 ab 20:25 Uhr sowie `SHCDESE-crash-2026-09-11-20-27-48-152-pid48388-tid50040.log`
+- Wesentliche Laufzeitevidenz: `Log_057.log`, `Log_058.log`, die aktiven Ruinen-/Mauerläufe vom 11. und 12. September 2026 sowie `SHCDESE-crash-2026-09-11-20-27-48-152-pid48388-tid50040.log`
 
 Aktiv waren bei den maßgeblichen Tests nur UU-ImGUI, Script Extender und `PreplacedTest`. Spieler-IDs und Farben sind keine festen Testrollen. Torhaus-KI und torlose Kontroll-KI werden bei jedem Kartenstart aus den aktuellen Gebäude- und Tile-Daten neu bestimmt.
 
@@ -19,6 +19,8 @@ Die zerstörten Turmtypen können entgegen der früheren Annahme mit `AliveState
 
 Während der Initialisierung kann der Building-Besitzer später umgeschrieben werden. Maßgeblich ist deshalb der Besitzer des stabil identifizierten Records zum Zeitpunkt des Altformattransfers, nicht dessen später sichtbarer Owner. Der aktive Testfix bleibt auf frische Altformatkarten ohne Save, Quellwert `1`, Zielwechsel `0→1`, bestätigte spätere KI-Zuordnung, weiterhin exakten Timerwert `1`, passende stabile Turmruinenidentitäten und das Ausbleiben eines echten Schadensschreibers begrenzt. Serialisierte Daten und Building-Records werden nicht verändert.
 
+Der anschließende Langzeittest bestätigte außerdem zwei echte spätere Gebäudeverluste im Kampf. Die normale Schadens- und Verlustverarbeitung blieb aktiv, und weder der frühere Sprungziel-Crash noch ein anderer Diagnosefehler trat auf. Der beobachtete Timer blieb in diesem Lauf bei `0`; der Lauf belegt daher die Crashfreiheit bei den beiden Verlusten, aber nicht zusätzlich eine konkrete spätere Timeraktivierung. Der eng begrenzte Ruinen-Startfix gilt damit als praktisch bestätigt; die weitere Arbeit betrifft das Wirtschaftsraster.
+
 ### Das Wirtschaftsraster ist global statt spielerspezifisch klassifiziert
 
 `FUN_1800572B0` wählt die häufigste positive PCL der gesamten Karte. `FUN_180050720` speichert sie beim Vollaufbau in `state+0x5B504`. `byte+04` jeder 5×5-Grobrasterzelle zählt danach die Tiles, deren PCL von dieser einen globalen Referenz abweicht. Freundliche, für Einheiten funktionierende Torportale ändern diese Klassifikation nicht.
@@ -32,9 +34,27 @@ Externe Wirtschaftsgebäude verwenden nicht je Gebäudetyp einen unabhängigen A
 
 `byte+16` ist kein zweiter frei ersetzbarer PCL-Wert. `0x50720` erzeugt es aus eigenen Tile-Eigenschaften; der aktive Testfix lässt es deshalb unverändert. Die Ressourcenfamilie verwendet die Differenz von `byte+04` und `byte+16` sowie danach Belegung, Blocker, Spielerklasse, Ressourcendichte und Höhe. Der Höhenvergleich ist `byte+0D - byte+0C` kleiner als 40, 30 oder 12 für Stein, Eisen oder Pech. Dichtebytes werden vorzeichenbehaftet verglichen.
 
-### Das aktive Overlay ermöglichte erstmals einen externen Holzfäller vor einem fremden Durchbruch
+### Die spätere Platzsuche ist nicht der erste betroffene Wirtschaftspfad
+
+Die vollständige Baselineprüfung zeigt vor den vier eigentlichen Suchfamilien einen entscheidenden weiteren Verbraucher. Der Kartenstart `0x94350` ruft nach dem vollständigen Rasteraufbau `0x50720` und der Spielerpfadinitialisierung `0x2A340` für jeden passenden Spieler `0x55FE0` auf. Diese Funktion beginnt ebenfalls exakt bei den Spielerfeldern `0x379AFA8/0x379AFAC`, traversiert bis Tiefe 60 über die vier orthogonalen Nachbarn und lässt eine Zelle nur bei der vorzeichenbehafteten Bedingung `byte+04 - byte+16 < 16` in die Queue.
+
+`0x55FE0` zählt während dieser Traversierung die Verfügbarkeit aller fünf externen Wirtschaftsgruppen. Die Ergebnisse stehen im aktuellen Spielerrecord bei `+0x1686` bis `+0x168E`; die zugehörigen Suchfreigaben beziehungsweise Cooldowns bei `+0x167C` bis `+0x1684` werden zunächst auf `-1` gesetzt und nur bei mindestens einem gefundenen Standort auf `0` freigegeben. Die später beobachteten Dispatcherwerte `desired=0` können daher bereits durch die globale PCL-Klassifikation dieses Start-Census entstehen. Ein Fix ausschließlich in `0x575B0`, `0x57B80`, `0x58020` und `0x58950` wäre unvollständig, weil diese Suchen bei fehlender vorgelagerter Verfügbarkeit gar nicht erst aufgerufen werden.
+
+Der Kartenstart-Census darf jedoch nicht sofort mit dem Overlay wiederholt werden: Im aktuellen Lauf war der native Portalgraph bei diesem Zeitpunkt noch nicht betriebsbereit. Die Torhaus-KI sah zunächst nur ihre Burg-PCL; erst rund 1,7 Sekunden später erkannte Vanillas `ExcludeLadderClimb`-Abfrage beim ersten Wirtschaftssuchaufruf die zusätzlichen Portal-PCLs. Der aktive Testfix bewahrt deshalb den frühen Vanilla-Census unverändert und wiederholt `0x55FE0` genau einmal, sobald eine spätere echte Wirtschaftssuche die belastbare Portalroute nachweist. Um diesen verzögerten Re-Census liegt das identische temporäre spielerspezifische `byte+04`-Overlay. Alle zehn Ergebnisfelder werden vor und nach dem Census korreliert; `byte+16`, Queue, Besuchsgeneration und sämtliche anderen Zellbytes bleiben unverändert, und `byte+04` wird im `finally`-Pfad bytegenau restauriert.
+
+Eine vollständige XRef-Prüfung der Baseline findet außer Rasteraufbau, Census und den vier Wirtschaftssuchen noch zwei Leser von `byte+04`: `0x583A0` wird ausschließlich aus dem alternativen AIV-Ausführungspfad `0x52270` aufgerufen und sucht eine freie 3×3-Fläche; `0x58BE0` wird ausschließlich aus `0x54CC0` aufgerufen und prüft freie AIV-Platzierungsflächen zusätzlich selbst über `0xE2610`. Beide gehören zur AIV-Layoutplatzierung, nicht zur externen Wirtschaftsentscheidung. Sie werden als separate Verträge überwacht, aber vom eng begrenzten Wirtschaftsfix bewusst nicht verändert.
+
+### Das aktive Overlay ermöglicht der Torhaus-KI externe Wirtschaftsbauten
 
 Im neuesten Mauerlauf war Spieler 7 die dynamisch ermittelte Torhaus-KI. Sie baute um `20:27:10.435` einen Holzfäller bei `(500,375)` und um `20:27:25.423` einen zweiten bei `(505,375)`. Der erste Holzfäller entstand etwa sieben Sekunden vor dem bestätigten Durchbruch der Einfassung von Spieler 8 ohne Torhäuser um `20:27:17.024`. Damit liegt erstmals positive Laufzeitevidenz vor, dass das spielerspezifische `byte+04`-Overlay die Holzsuche der Torhaus-KI über die vorplatzierten Portale hinaus erweitert.
+
+Der Mauerlauf vom 12. September bestätigt die praktische Wirkung erneut und deutlicher: Die visuell identifizierte KI mit den vier eigenen vorplatzierten Torhäusern platzierte bereits vor einem Durchbruch Wirtschaftsgebäude außerhalb ihrer Einfassung. Die Portalaktivierung und der verzögerte Re-Census funktionieren damit für den Torhausfall. Der Lauf war wegen der damaligen Diagnosemenge noch nicht lang genug, um den Durchbruchspfad der torlosen Kontrolle abzunehmen.
+
+Dabei wurde eine wichtige Abgrenzung korrigiert. `OnStartMap Post` ist zu spät, um die Herkunft eines Gebäudes festzulegen: Zu diesem Zeitpunkt können erste AIV-Torhäuser und Burgmauern bereits existieren. Im Lauf wurden solche AIV-Tore irrtümlich als vorplatziert klassifiziert, wodurch auch die eigentlich torlose KI einen Portalzustand erhalten konnte.
+
+Der erste Lauf mit der daraufhin zunächst nach `OnLoadMap Post` verschobenen Erfassung belegte eine unerwartete Extender-Ereignisreihenfolge: `OnStartMap Post` und damit die Profilauswertung liefen um `00:51:28.618`, `OnLoadMap Post` aber erst um `00:51:28.633`. Der Fix blieb deshalb vollständig inaktiv (`walledEconomy=False`, keine Fixzustände, kein Re-Census und kein Overlay). Sämtliche Wirtschaftszweige endeten trotz Nachfrage vor der eigentlichen Suche.
+
+Der native Diagnosepfad liefert den korrekten früheren Grenzpunkt. Beim ersten Eintritt in `0x50680` um `00:51:28.578` existierten genau die vier kartenplatzierten Torhäuser mit IDs `19..22`; die späteren AIV-Burggebäude waren noch nicht vorhanden. Baselineidentitäten und Wall-Tiles werden deshalb nun unmittelbar vor dem ersten Originalaufruf von `AllocateSpec` einmalig festgehalten. `OnLoadMap Post` ist nur ein fail-closed Fallback und darf eine vorhandene frühe Baseline nicht überschreiben. Bei `OnStartMap Post` werden die Records über stabile Game-ID, Global-ID und Typ mit dem aktuellen Besitzer abgeglichen. Spätere AIV-Bauten können den Vorplatzierungsfix damit nicht mehr aktivieren.
 
 Farm-, Steinbruch-, Eisen- und Pechsuche waren in diesem Lauf keine negativen Gegenproben: Die nativen Eintrittsdaten meldeten jeweils `built=0, desired=0`, weshalb Vanilla diese Suchen legitim vor der Traversierung beendete. Sie müssen bei einem Test mit echter Nachfrage oder über die proaktiven Modelle beurteilt werden.
 
@@ -63,11 +83,16 @@ Dieser Crash stammte ausschließlich aus der Diagnose. Weder die enge Ruinen-Tim
 ## Aktive Fixerprobung in PreplacedTest 0.1.1
 
 1. Der Ruinenfix normalisiert ausschließlich den eng belegten, aus einer passenden Altformat-Turmruinenbaseline übernommenen Startwert.
-2. Vor einer eindeutig einem KI-Spieler zugeordneten Suche wird nur `byte+04` der 25.600 Wirtschaftszellen temporär spielerspezifisch neu gebildet.
-3. Als erreichbar gelten nur PCLs, für die Vanillas eigene Routenabfrage vom Burg-PCL mit `ExcludeLadderClimb` einen positiven nächsten Schritt liefert. Eigene oder nach Vanilla zulässige verbündete Portale können die Menge erweitern; Leiterpfade, feindliche Tore und echte Isolation bleiben ausgeschlossen.
-4. Jede originale Suchfunktion läuft genau einmal. Noch vor der Restaurierung werden Treffer und Rohfelder gesichert; anschließend werden alle 25.600 `byte+04`-Werte bytegenau wiederhergestellt. Bei Vertrags- oder Restaurierungsfehler wird der Wirtschaftstestfix für den restlichen Prozess deaktiviert.
-5. Native Besuchsmarker, Tiefenbytes und Queue-Reihenfolge werden unmittelbar nach der Originalsuche gesichert und gegen denselben Shadow-Eingang verglichen. Große Portal- und Ankerinventare erscheinen einmal vollständig; danach werden nur semantische Änderungen mit verlustfreien Wiederholungszählern ausgegeben.
-6. `PreplacedTest` ist dadurch gameplayverändernd und verwendet `NetworkMode=1`. Eine Übernahme nach `BugfixesAndQoL` erfolgt erst nach erfolgreicher Laufzeitabnahme.
+2. Jede KI besitzt einen kartenlokalen Zustand `None`, `PendingPortal`, `PendingBreach`, `ActivePortal`, `ActiveBreach` oder `Suspended`. Saves und offene KIs bleiben `None`.
+3. Eine KI mit eigenem oder aktuell verbündetem vorplatziertem Tor bleibt zunächst `PendingPortal`. Erst eine spätere echte Wirtschaftssuche darf sie nach einer von Vanillas `ExcludeLadderClimb`-Route belegten Portalverbindung aktivieren.
+4. Eine torlos eingeschlossene KI bleibt als `PendingBreach` vollständig Vanilla. Erst wenn ein Baseline-Mauertile seinen blockierenden Zustand verliert, Innen- und Außenraum physisch verbunden sind und die spielerspezifische PCL-Reichweite die Außenseite erreicht, darf sie `ActiveBreach` werden. Eine dabei entstehende gemeinsame PCL ist ausdrücklich zulässig; bloße PCL-Neunummerierung, Schaden oder Toranimation reichen nicht.
+5. Bei der ersten Aktivierung wird `byte+04` temporär spielerspezifisch projiziert, `0x55FE0` genau einmal erneut ausgeführt und das Raster bytegenau restauriert. Erst danach läuft die bereits betretene Originalsuche genau einmal mit demselben normalen Overlay.
+6. Als erreichbar gelten nur PCLs, für die Vanillas eigene Routenabfrage vom Burg-PCL mit `ExcludeLadderClimb` einen positiven nächsten Schritt liefert. Leiterpfade, feindliche Tore, nur später von der AIV gebaute Tore und echte Isolation aktivieren den Portalpfad nicht.
+7. Verliert eine aktive Portal-KI ihre Route oder wird der bestätigte Durchbruch wieder unzugänglich, wird der Fix ausgesetzt. Eine später wieder gültige Topologie kann einen neuen Re-Census auslösen. Vertrags-, Verschachtelungs- oder Restaurierungsfehler deaktivieren den Wirtschaftstestfix prozessweit.
+8. Projektionen werden pro Spieler und Topologie-/Portalsignatur wiederverwendet. Vanillas aktuelles `byte+04` wird bei jedem Originalaufruf weiterhin separat gesichert und vollständig restauriert; gewöhnliche Abbauwerte erzwingen aber keine erneute 320.800-Tile-Analyse.
+9. `PreplacedTest` ist dadurch gameplayverändernd und verwendet `NetworkMode=1`. Eine Übernahme nach `BugfixesAndQoL` erfolgt erst nach erfolgreicher Laufzeitabnahme.
+
+Die frühere Vollanalyse jeder Wirtschaftssuche war für die Ursachenfindung nützlich, erzeugte auf der Mauerkarte aber erhebliche Last. Im aktuellen Testprofil werden vollständige Routing-, Portal-, Traversierungs- und Shadow-Ausgaben nicht mehr aus Hot Paths aufgerufen. AIV-Zuweisung und Platzierungsfestlegung erzeugen ebenfalls keine vollständigen Building-Inventare mehr. Such-, Validator-, Bau- und native Konstruktionsereignisse werden mit stabilen Schlüsseln ohne wechselnde Frame-, Tile- oder Positionswerte aggregiert; periodische Intervalle laufen im Mauerprofil alle fünf Sekunden. Die Durchbruchüberwachung prüft im Normalfall nur Baseline-Mauertiles und feste Anker. Der teurere physische Flood-Fill läuft erst, wenn sowohl echter Tileverlust als auch ein passender stabiler PCL-Anker eine mögliche Öffnung melden.
 
 ## Nicht als Ursache bestätigt
 
@@ -80,7 +105,6 @@ Dieser Crash stammte ausschließlich aus der Diagnose. Weder die enge Ruinen-Tim
 ## Nächste Laufzeitabnahme
 
 - Ruinenkarte: `LEGACY_TIMER_FIX_APPLIED` muss erscheinen und die betroffene KI ohne 49-Tick-Sperre beginnen.
-- Mauerkarte: Ein einzelner Start genügt; ein Durchbruch ist nicht erforderlich. Die dynamisch identifizierte Torhaus-KI muss in der nativen Routenmatrix Zugriff auf die relevanten äußeren Kandidaten-PCLs erhalten, die torlose Kontrolle nicht.
-- Der Lauf soll mindestens bis zu einer echten Holzsuche der Torhaus-KI reichen. Bei einem Widerspruch muss die Differentialdiagnose die erste abweichende Queuezelle, Besuchsmenge, Tiefe oder das Ergebnisverhältnis benennen.
-- Die proaktiven Snapshotmodelle müssen für Holz und Ressourcen Kandidaten oder den exakten ersten Vanilla-Ablehnungsgrund melden, auch wenn die AIC aktuell `desired=0` setzt. Für Farmen liefert der Snapshot einen ausdrücklich so benannten Präfilter; die vollständige Bestätigung erfolgt am korrelierten nativen Konstruktionsaufruf.
+- Mauerkarte: Die dynamisch identifizierte Torhaus-KI muss zunächst `PendingPortal` und beim ersten belastbaren späteren Routennachweis `ActivePortal` erreichen. `ECONOMY_CENSUS_RECONCILED` muss dabei die zehn Verfügbarkeits-/Cooldownfelder sowie eine exakte Rasterrestaurierung ausweisen. Die torlose Kontrolle bleibt davor Vanilla.
+- Nach einem sichtbaren Durchbruch der torlosen KI müssen Baseline-Tileverlust, physische Innen-/Außenverbindung und PCL-Reichweitengewinn gemeinsam `CONFIRMED_WALL_BREACH` und danach `ActiveBreach` auslösen. Der erneute Census muss externe Verfügbarkeiten freigeben; anschließend soll die KI außerhalb wirtschaftlich bauen.
 - Jede Overlaymeldung muss `restoredExactly=true` ausgeben. Erst danach sind Ruinen- und Wirtschaftskorrektur für eine getrennt schaltbare Übernahme nach `BugfixesAndQoL` freigegeben.

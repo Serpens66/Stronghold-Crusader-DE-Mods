@@ -7,10 +7,10 @@ using RedBird.X64.Assembly;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
+using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
 using System.Diagnostics;
-using System.Globalization;
 using System.Text;
 using System.Threading;
 
@@ -26,7 +26,6 @@ namespace EnemyGatePathfindingTest
 
         private readonly ManualLogSource log;
         private GateTopologySnapshotProvider topologyProvider;
-        private CursorGateRouteFilter cursorRouteFilter;
         private SamePclGateRouteRuntime samePclRouteRuntime;
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> pclGraphCapturedByFilterHook = new HookHandle<X64InlineHook>();
@@ -35,6 +34,7 @@ namespace EnemyGatePathfindingTest
         private volatile NativeGateAccessSnapshot previousStableGateAccess = NativeGateAccessSnapshot.Empty;
         private ulong libraryBase;
         private int mapActive;
+        private int implicitEpochSuppressed;
         private int callbackWarnings;
         private long nextDiagnosticAt;
         private readonly long[] siteCalls = new long[SiteCount];
@@ -88,32 +88,14 @@ namespace EnemyGatePathfindingTest
                 referenceHashMatches: true,
                 "builder-precheck hostile-gate captured-player comparison",
                 log);
-            Shared.NativeResolution cursorResolution = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                EnemyGatePathfindingNativeDefinition.CursorTargetPattern,
-                EnemyGatePathfindingNativeDefinition.CursorTargetSignatureRva,
-                referenceHashMatches: true,
-                "human cursor target coordinate loads",
-                log);
             int pclGraphFilterRva = pclGraphCompareResolution.Rva +
                 EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareOffsetInPattern;
             int builderPrecheckFilterRva = builderPrecheckCompareResolution.Rva +
                 EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareOffsetInPattern;
-            int cursorXRva = Shared.NativePatternResolver.ResolveRelativeTarget(
-                memory,
-                cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetXDisplacementOffset,
-                cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetXNextInstructionOffset);
-            int cursorYRva = Shared.NativePatternResolver.ResolveRelativeTarget(
-                memory,
-                cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetYDisplacementOffset,
-                cursorResolution.Rva + EnemyGatePathfindingNativeDefinition.CursorTargetYNextInstructionOffset);
             if (pclGraphFilterRva != EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterRva ||
                 builderPrecheckFilterRva !=
-                    EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterRva ||
-                cursorResolution.Rva != EnemyGatePathfindingNativeDefinition.CursorTargetSignatureRva ||
-                cursorXRva != EnemyGatePathfindingNativeDefinition.CursorTargetXRva ||
-                cursorYRva != EnemyGatePathfindingNativeDefinition.CursorTargetYRva)
-                throw new InvalidOperationException("native gate/cursor signatures resolved outside their audited RVAs");
+                    EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterRva)
+                throw new InvalidOperationException("native gate signatures resolved outside their audited RVAs");
 
             libraryBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             EnemyGatePathfindingNativeDefinition.ValidateNativeHookContracts(memory);
@@ -195,31 +177,8 @@ namespace EnemyGatePathfindingTest
                     "Active Same-PCL builder correction could not be initialized; " +
                     $"Vanilla remains active for that path: {ex.GetType().Name}: {ex.Message}");
             }
-            try
-            {
-                cursorRouteFilter = new CursorGateRouteFilter(
-                    log,
-                    memory,
-                    context.Region,
-                    libraryBase,
-                    (int*)(libraryBase + unchecked((ulong)cursorXRva)),
-                    (int*)(libraryBase + unchecked((ulong)cursorYRva)),
-                    installNativeHooks: !friendlyMoatHookOwnerLoaded);
-                cursorRouteFilter.SetTopologyEpochStarter(
-                    () => topologyProvider.BeginExplicitEpoch("first cursor query"));
-            }
-            catch (Exception ex)
-            {
-                cursorRouteFilter = null;
-                Shared.DebugLogHelper.LogWarning(log,
-                    "Crash-safe cursor correction could not be installed; the snapshot-based " +
-                    $"Different-PCL filter remains active: {ex.GetType().Name}: {ex.Message}");
-            }
             topologyProvider.SetRoutePolicyConsumer(updated =>
-            {
-                cursorRouteFilter?.UpdatePolicy(updated);
-                samePclRouteRuntime?.UpdatePolicy(updated);
-            });
+                samePclRouteRuntime?.UpdatePolicy(updated));
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe enemy-gate hooks installed: " +
@@ -231,10 +190,10 @@ namespace EnemyGatePathfindingTest
                 $"({builderPrecheckCompareResolution.Method}+0x" +
                 $"{EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareOffsetInPattern:X}), " +
                 $"builderPrecheckDisplaced={builderPrecheckCapturedByFilterHook.Hook.DisplacedByteCount}, " +
-                $"cursorTarget=0x{cursorResolution.Rva:X}, " +
                 $"redBird={redBirdVersion}, " +
                 $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}. " +
-                "The whole PCL detour and every global Direction-Grid write were removed.");
+                "Managed cursor searches, the whole PCL detour and every global " +
+                "Direction-Grid write were removed.");
             if (samePclRouteRuntime?.Installed != true && !friendlyMoatHookOwnerLoaded)
                 Shared.DebugLogHelper.LogInfo(log,
                     "Same-PCL hook publication is waiting for the first non-empty gate direction mask; " +
@@ -243,17 +202,21 @@ namespace EnemyGatePathfindingTest
 
         internal void BeginMap()
         {
+            Volatile.Write(ref implicitEpochSuppressed, 0);
             if (Volatile.Read(ref mapActive) != 0)
                 EndMap("implicit restart before OnStartMap(Post)");
-            if (Interlocked.CompareExchange(ref mapActive, 1, 0) != 0)
-                return;
+            StartMapEpoch("OnStartMap(Post)");
+        }
+
+        private void StartMapEpoch(string reason)
+        {
+            if (Interlocked.CompareExchange(ref mapActive, 1, 0) != 0) return;
             ResetMapCounters();
             samePclRouteRuntime?.ResetCounters();
-            topologyProvider?.BeginExplicitEpoch("OnStartMap(Post)");
-            cursorRouteFilter?.BeginEpoch("OnStartMap(Post)");
+            topologyProvider?.BeginExplicitEpoch(reason);
             Shared.DebugLogHelper.LogInfo(log,
-                "Enemy-gate map started: Different-PCL filter, causal cursor policy and " +
-                $"Same-PCL builder correction={(samePclRouteRuntime?.Installed == true ? "active" :
+                "Enemy-gate map started: Different-PCL filter and native Same-PCL " +
+                $"direction masks={(samePclRouteRuntime?.Installed == true ? "active" :
                     samePclRouteRuntime != null ? "pending-policy" : "inactive")}.");
         }
 
@@ -264,16 +227,23 @@ namespace EnemyGatePathfindingTest
                 return;
             LogDiagnosticCheckpoint("final", reason);
             topologyProvider?.EndEpoch(reason);
-            cursorRouteFilter?.EndEpoch(reason);
             gateAccess = NativeGateAccessSnapshot.Empty;
+            Volatile.Write(ref implicitEpochSuppressed, 1);
         }
 
         internal void ProcessDeferredDiagnostics()
         {
             try
             {
+                if (Volatile.Read(ref mapActive) == 0 && GameTileManagerAPI.Instance != null)
+                {
+                    int mapSize = GameTileManagerAPI.Instance.GetCurrentMapSize();
+                    if (mapSize <= 0)
+                        Volatile.Write(ref implicitEpochSuppressed, 0);
+                    else if (Volatile.Read(ref implicitEpochSuppressed) == 0)
+                        StartMapEpoch("implicit editor map-size probe");
+                }
                 topologyProvider?.ProcessDeferred();
-                cursorRouteFilter?.ProcessDeferred();
                 samePclRouteRuntime?.ProcessDeferred();
                 long now = Stopwatch.GetTimestamp();
                 if (Volatile.Read(ref mapActive) != 0 &&
@@ -547,7 +517,6 @@ namespace EnemyGatePathfindingTest
                 $"callbackWarnings={Volatile.Read(ref callbackWarnings)}.");
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate snapshot checkpoint: {topologyProvider?.DescribeState() ?? "unavailable"}.");
-            cursorRouteFilter?.LogCheckpoint(kind, reason);
             SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate Same-PCL checkpoint: kind={kind}, installed={same.Installed}," +
@@ -555,11 +524,14 @@ namespace EnemyGatePathfindingTest
                 $"nativeRoutePreserved={same.Preserved},edgeRejected={same.RejectedEdges}," +
                 $"vanillaDetours={same.Detours},policyNoRoute={same.NoRoutes}," +
                 $"humanBuilderDetour={same.HumanDetours},aiDetour={same.AiDetours}," +
-                $"attackDetour={same.AttackDetours},buildingApproachDetour={same.BuildingDetours}," +
-                $"cursorDetour={same.CursorDetours},missingContext={same.MissingContexts}," +
-                $"threadSlotConflict={same.SlotConflicts},exceptions={same.Exceptions}," +
-                $"elapsedMs={(same.ElapsedTicks * 1000.0 / Stopwatch.Frequency).ToString("F3", CultureInfo.InvariantCulture)}," +
-                $"managedReplacementSearches=0,directionGridWrites=0.");
+                $"attackEdgesFiltered={same.AttackEdges},buildingEdgesFiltered={same.BuildingEdges}," +
+                $"candidateEdgesFiltered={same.CandidateEdges},cursorCommandEdgesFiltered={same.CursorCommandEdges}," +
+                $"directCursorEdgesFiltered={same.DirectCursorEdges}," +
+                $"missingContext={same.MissingContexts},invalidPlayer={same.InvalidPlayers}," +
+                $"scopeMismatch={same.ScopeMismatches},threadSlotConflict={same.SlotConflicts}," +
+                $"snapshotPoolExhaustion={same.PoolExhaustions},exceptions={same.Exceptions}," +
+                $"scopeSamples=[{samePclRouteRuntime?.DescribeScopeSamples() ?? "none"}]," +
+                "managedCursorSearches=0,managedReplacementSearches=0,directionGridWrites=0.");
             LogNewCapturerSamples();
             if (string.Equals(kind, "final", StringComparison.Ordinal))
                 LogAcceptanceVerdict(reason);
@@ -568,7 +540,6 @@ namespace EnemyGatePathfindingTest
         private void LogAcceptanceVerdict(string reason)
         {
             TopologyCoverageSnapshot topology = topologyProvider?.GetCoverageSnapshot() ?? default;
-            CursorCoverageSnapshot cursor = cursorRouteFilter?.GetCoverageSnapshot() ?? default;
             SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
             long uncaptured = DecisionTotal(NativeGateSnapshotDecision.PreserveUncaptured);
             long ownCapturer = DecisionTotal(NativeGateSnapshotDecision.PreserveCapturer);
@@ -582,8 +553,9 @@ namespace EnemyGatePathfindingTest
                 DecisionTotal(NativeGateSnapshotDecision.Exception);
             bool hookActivity = Read(ref siteCalls[0]) > 0 && Read(ref siteCalls[1]) > 0;
             bool runtimeFailed = Volatile.Read(ref callbackWarnings) != 0 ||
-                topology.Errors != 0 || cursor.Errors != 0 || cursor.Failures != 0 ||
-                same.Exceptions != 0 || same.SlotConflicts != 0 ||
+                topology.Errors != 0 ||
+                same.Exceptions != 0 || same.SlotConflicts != 0 || same.ScopeMismatches != 0 ||
+                same.InvalidPlayers != 0 || same.PoolExhaustions != 0 ||
                 Read(ref untrackedUnexpectedGate) != 0 || policyFailures != 0;
             DiagnosticVerdict sameHookVerdict = same.OwnerConflict
                 ? DiagnosticVerdict.NOT_APPLICABLE
@@ -593,7 +565,7 @@ namespace EnemyGatePathfindingTest
             Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate acceptance verdict: " +
                 $"hookExecution={EnemyGatePathfindingPolicy.IntegrityVerdict(hookActivity, false)}," +
-                $"runtimeIntegrity={EnemyGatePathfindingPolicy.IntegrityVerdict(hookActivity || cursor.CheckedRoutes > 0, runtimeFailed)}," +
+                $"runtimeIntegrity={EnemyGatePathfindingPolicy.IntegrityVerdict(hookActivity || same.Queries > 0, runtimeFailed)}," +
                 $"uncapturedGate={EnemyGatePathfindingPolicy.ObservationVerdict(uncaptured)}," +
                 $"capturedGate={EnemyGatePathfindingPolicy.ObservationVerdict(topology.PeakCaptured)}," +
                 $"ownerAtHook={DiagnosticVerdict.NOT_APPLICABLE}," +
@@ -602,11 +574,8 @@ namespace EnemyGatePathfindingTest
                 $"alliedCapturer={EnemyGatePathfindingPolicy.ObservationVerdict(alliedCapturer)}," +
                 $"foreignCapturer={EnemyGatePathfindingPolicy.ObservationVerdict(foreignCapture)}," +
                 $"foreignCaptureBlock={EnemyGatePathfindingPolicy.ObservationVerdict(Read(ref foreignOriginalZf[0]))}," +
-                $"cursorReachable={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.Reachable)}," +
-                $"cursorVanillaNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.VanillaNoRoute)}," +
-                $"cursorPolicyBlocked={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.PolicyBlocked)}," +
-                $"cursorTargetBlocked={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.TargetBlocked)}," +
-                $"cursorForcedDetour={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.ForcedDetour)}," +
+                $"nativeCursorScope={EnemyGatePathfindingPolicy.ObservationVerdict(same.DirectCursorQueries)}," +
+                $"nativeCursorEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.DirectCursorEdges)}," +
                 $"samePclHookExecution={sameHookVerdict}," +
                 $"nativeRoutePreserved={EnemyGatePathfindingPolicy.ObservationVerdict(same.Preserved)}," +
                 $"edgeRejected={EnemyGatePathfindingPolicy.ObservationVerdict(same.RejectedEdges)}," +
@@ -614,9 +583,10 @@ namespace EnemyGatePathfindingTest
                 $"policyNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.NoRoutes)}," +
                 $"humanBuilderDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.HumanDetours)}," +
                 $"aiDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiDetours)}," +
-                $"attackDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.AttackDetours)}," +
-                $"buildingApproachDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.BuildingDetours)}," +
-                $"cursorDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorDetours)}," +
+                $"attackEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.AttackEdges)}," +
+                $"buildingEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.BuildingEdges)}," +
+                $"candidateEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.CandidateEdges)}," +
+                $"cursorCommandEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorCommandEdges)}," +
                 $"threadSlotIntegrity={EnemyGatePathfindingPolicy.IntegrityVerdict(same.Queries > 0, same.SlotConflicts > 0)}," +
                 $"drawbridgeTopology={(topology.DrawbridgeObserved ? DiagnosticVerdict.PASS : DiagnosticVerdict.NOT_OBSERVED)}," +
                 $"lifecycle={DiagnosticVerdict.PASS}," +

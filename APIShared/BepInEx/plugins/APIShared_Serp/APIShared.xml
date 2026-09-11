@@ -211,6 +211,15 @@
         <member name="F:APIShared.UnitHudImageSlot.UIButtonsK008">
             <summary>Selected-swordsman troop HUD hover image.</summary>
         </member>
+        <member name="F:APIShared.UnitHudImageSlot.UIButtonsO016">
+            <summary>Barracks swordsman recruitment image.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudImageSlot.UIButtonsO017">
+            <summary>Barracks swordsman recruitment hover image.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudImageSlot.UIButtonsO018">
+            <summary>Barracks swordsman recruitment disabled image.</summary>
+        </member>
         <member name="T:APIShared.UnitHudTint">
             <summary>Immutable RGBA tint used by shared category icons.</summary>
         </member>

@@ -52,6 +52,7 @@
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="src\PackManifest.cs" />
     <Compile Include="src\PackManifestJson.cs" />
+    <Compile Include="src\PackPluginDiagnosticMessages.cs" />
     <Compile Include="src\DuplicateInstallationDetector.cs" />
     <Compile Include="src\RegisteredAssetDirectoryPolicy.cs" />
     <Compile Include="src\LobbyModHashWarning.cs" />

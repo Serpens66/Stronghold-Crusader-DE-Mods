@@ -76,6 +76,9 @@ namespace PreplacedTest
             BuildingId == buildingId && GlobalId == globalId && OwnerId == ownerId &&
             StructureType == structureType;
 
+        public bool MatchesStableRecord(int buildingId, uint globalId, int structureType) =>
+            BuildingId == buildingId && GlobalId == globalId && StructureType == structureType;
+
         public bool Equals(PreplacedIdentity other) =>
             Matches(other.BuildingId, other.GlobalId, other.OwnerId, other.StructureType);
 
@@ -365,6 +368,44 @@ namespace PreplacedTest
             livingPortalCount > 0 ? WallTestRole.GatedWallCandidate : WallTestRole.ClosedWallCandidate;
     }
 
+    internal enum EconomyFixActivationState
+    {
+        None,
+        PendingPortal,
+        PendingBreach,
+        ActivePortal,
+        ActiveBreach,
+        Suspended
+    }
+
+    internal static class EconomyFixActivationModel
+    {
+        public static EconomyFixActivationState Initial(bool isSave, WallTestRole role,
+            bool hasFriendlyPreplacedPortal)
+        {
+            if (isSave || role == WallTestRole.None) return EconomyFixActivationState.None;
+            if (hasFriendlyPreplacedPortal) return EconomyFixActivationState.PendingPortal;
+            return role == WallTestRole.ClosedWallCandidate
+                ? EconomyFixActivationState.PendingBreach
+                : EconomyFixActivationState.None;
+        }
+
+        public static EconomyFixActivationState Activate(EconomyFixActivationState state) =>
+            state == EconomyFixActivationState.PendingPortal
+                ? EconomyFixActivationState.ActivePortal
+                : state == EconomyFixActivationState.PendingBreach
+                    ? EconomyFixActivationState.ActiveBreach
+                    : state;
+
+        public static EconomyFixActivationState Resume(bool confirmedBreach,
+            bool hasFriendlyPreplacedPortal, WallTestRole role) =>
+            confirmedBreach ? EconomyFixActivationState.PendingBreach :
+            role != WallTestRole.None && hasFriendlyPreplacedPortal ? EconomyFixActivationState.PendingPortal :
+            role == WallTestRole.ClosedWallCandidate
+                ? EconomyFixActivationState.PendingBreach
+                : EconomyFixActivationState.None;
+    }
+
     internal enum WallOwnerEncoding
     {
         Unresolved,
@@ -455,12 +496,14 @@ namespace PreplacedTest
     {
         public ShadowEconomyCell(int projected04, int raw16, byte raw07, byte raw08, byte raw09,
             byte raw0A, byte raw0B, byte raw0C, byte raw0D, byte raw0E, byte raw0F,
-            byte raw11, byte raw12, byte raw13, byte raw15, bool ownerClassMatches = true)
+            byte raw11, byte raw12, byte raw13, byte raw15, bool ownerClassMatches = true,
+            byte raw06 = 0)
         {
             Projected04 = projected04; Raw16 = raw16; Raw07 = raw07; Raw08 = raw08;
             Raw09 = raw09; Raw0A = raw0A; Raw0B = raw0B; Raw0C = raw0C; Raw0D = raw0D;
             Raw0E = raw0E; Raw0F = raw0F; Raw11 = raw11; Raw12 = raw12;
             Raw13 = raw13; Raw15 = raw15; OwnerClassMatches = ownerClassMatches;
+            Raw06 = raw06;
         }
 
         public int Projected04 { get; }
@@ -478,17 +521,20 @@ namespace PreplacedTest
         public byte Raw12 { get; }
         public byte Raw13 { get; }
         public byte Raw15 { get; }
+        public byte Raw06 { get; }
         public bool OwnerClassMatches { get; }
     }
 
     internal sealed class ShadowEconomySearchResult
     {
         public ShadowEconomySearchResult(int reachableCount, int[] reachedIndices,
-            int[] blockedIndices, int[] candidateIndices, int[] depths, int[] queueOrderIndices)
+            int[] blockedIndices, int[] candidateIndices, int[] depths, int[] queueOrderIndices,
+            int selectedCandidateIndex = -1)
         {
             ReachableCount = reachableCount; ReachedIndices = reachedIndices;
             BlockedIndices = blockedIndices; CandidateIndices = candidateIndices;
             Depths = depths; QueueOrderIndices = queueOrderIndices;
+            SelectedCandidateIndex = selectedCandidateIndex;
         }
         public int ReachableCount { get; }
         public int[] ReachedIndices { get; }
@@ -496,7 +542,9 @@ namespace PreplacedTest
         public int[] CandidateIndices { get; }
         public int[] Depths { get; }
         public int[] QueueOrderIndices { get; }
-        public int FirstCandidateIndex => CandidateIndices.Length == 0 ? -1 : CandidateIndices[0];
+        public int SelectedCandidateIndex { get; }
+        public int FirstCandidateIndex => SelectedCandidateIndex >= 0 ? SelectedCandidateIndex :
+            CandidateIndices.Length == 0 ? -1 : CandidateIndices[0];
     }
 
     internal static class ShadowEconomySearch
@@ -513,6 +561,9 @@ namespace PreplacedTest
             var blocked = new HashSet<int>();
             var candidates = new List<int>();
             var queueOrder = new List<int>();
+            int selectedCandidate = -1;
+            int bestWoodScore = -100;
+            int woodCandidateCount = 0;
             visited[startIndex] = true;
             depths[startIndex] = 1;
             queue.Enqueue(startIndex);
@@ -520,10 +571,10 @@ namespace PreplacedTest
             while (queue.Count != 0)
             {
                 int current = queue.Dequeue();
-                if (depths[current] > 60) break;
+                if (kind != ShadowEconomySearchKind.Nearby && depths[current] > 60) break;
                 int x = current / width;
                 int y = current % width;
-                foreach (int next in Neighbors(x, y, width, kind == ShadowEconomySearchKind.Nearby))
+                foreach (int next in Neighbors(x, y, width, kind))
                 {
                     if (visited[next]) continue;
                     visited[next] = true;
@@ -533,17 +584,46 @@ namespace PreplacedTest
                         blocked.Add(next);
                         continue;
                     }
+                    bool isCandidate = IsCandidate(cell, kind, resourceMode);
+                    if (isCandidate)
+                    {
+                        candidates.Add(next);
+                        if (kind == ShadowEconomySearchKind.Resource ||
+                            kind == ShadowEconomySearchKind.Nearby)
+                        {
+                            selectedCandidate = next;
+                            int[] immediateReached = Enumerable.Range(0, visited.Length)
+                                .Where(index => visited[index] && !blocked.Contains(index)).ToArray();
+                            return new ShadowEconomySearchResult(immediateReached.Length, immediateReached,
+                                blocked.OrderBy(value => value).ToArray(), candidates.ToArray(),
+                                depths.Select(value => (int)value).ToArray(), queueOrder.ToArray(), selectedCandidate);
+                        }
+                        if (kind == ShadowEconomySearchKind.Wood)
+                        {
+                            woodCandidateCount++;
+                            int score = unchecked((sbyte)cell.Raw07) * 5 - depths[current] * 3;
+                            if (cell.Raw06 != 0) score = score < 1 ? score * 2 : score / 2;
+                            if (score > bestWoodScore)
+                            {
+                                bestWoodScore = score;
+                                selectedCandidate = next;
+                            }
+                            if (woodCandidateCount > 10 ||
+                                woodCandidateCount > 5 && depths[current] > 20 ||
+                                woodCandidateCount > 0 && depths[current] > 30)
+                                break;
+                        }
+                    }
                     depths[next] = checked((byte)(depths[current] + 1));
                     queue.Enqueue(next);
                     queueOrder.Add(next);
-                    if (IsCandidate(cell, kind, resourceMode)) candidates.Add(next);
                 }
             }
             int[] reached = Enumerable.Range(0, visited.Length)
                 .Where(index => visited[index] && !blocked.Contains(index)).ToArray();
             return new ShadowEconomySearchResult(reached.Length, reached,
                 blocked.OrderBy(value => value).ToArray(), candidates.ToArray(),
-                depths.Select(value => (int)value).ToArray(), queueOrder.ToArray());
+                depths.Select(value => (int)value).ToArray(), queueOrder.ToArray(), selectedCandidate);
         }
 
         public static string ExpansionRejectionReason(ShadowEconomyCell cell, ShadowEconomySearchKind kind)
@@ -560,16 +640,24 @@ namespace PreplacedTest
             return cell.Projected04 - cell.Raw16 < 16 ? "pass" : "pcl-difference-expansion-threshold";
         }
 
-        private static IEnumerable<int> Neighbors(int x, int y, int width, bool includeDiagonals)
+        private static IEnumerable<int> Neighbors(int x, int y, int width, ShadowEconomySearchKind kind)
         {
+            bool includeDiagonals = kind == ShadowEconomySearchKind.Nearby;
+            // 0x575B0 uses unsigned <159 at its neighbor gate; the other three
+            // families use unsigned <160. The order is the table at RVA 0x2D2E50.
+            int exclusiveUpperBound = kind == ShadowEconomySearchKind.Farm ? width - 1 : width;
             if (y > 0) yield return x * width + y - 1;
-            if (includeDiagonals && x + 1 < width && y > 0) yield return (x + 1) * width + y - 1;
-            if (x + 1 < width) yield return (x + 1) * width + y;
-            if (includeDiagonals && x + 1 < width && y + 1 < width) yield return (x + 1) * width + y + 1;
-            if (y + 1 < width) yield return x * width + y + 1;
-            if (includeDiagonals && x > 0 && y + 1 < width) yield return (x - 1) * width + y + 1;
+            if (includeDiagonals && x + 1 < exclusiveUpperBound && y > 0)
+                yield return (x + 1) * width + y - 1;
+            if (x + 1 < exclusiveUpperBound) yield return (x + 1) * width + y;
+            if (includeDiagonals && x + 1 < exclusiveUpperBound && y + 1 < exclusiveUpperBound)
+                yield return (x + 1) * width + y + 1;
+            if (y + 1 < exclusiveUpperBound) yield return x * width + y + 1;
+            if (includeDiagonals && x > 0 && y + 1 < exclusiveUpperBound)
+                yield return (x - 1) * width + y + 1;
             if (x > 0) yield return (x - 1) * width + y;
-            if (includeDiagonals && x > 0 && y > 0) yield return (x - 1) * width + y - 1;
+            if (includeDiagonals && x > 0 && y > 0)
+                yield return (x - 1) * width + y - 1;
         }
 
         private static bool CanExpand(ShadowEconomyCell cell, ShadowEconomySearchKind kind)
@@ -719,7 +807,9 @@ namespace PreplacedTest
             int visit = FirstSetDifference(shadowVisited, nativeVisited);
             int queue = FirstSequenceDifference(shadow.QueueOrderIndices, nativeQueueOrderIndices);
             int depth = -1;
-            foreach (int index in shadow.ReachedIndices)
+            // Candidate cells can cause an immediate native return before byte+05 is
+            // written. Compare depths only for cells that actually entered the queue.
+            foreach (int index in shadow.QueueOrderIndices)
             {
                 if ((uint)index >= nativeDepths.Length || shadow.Depths[index] != nativeDepths[index])
                 { depth = index; break; }

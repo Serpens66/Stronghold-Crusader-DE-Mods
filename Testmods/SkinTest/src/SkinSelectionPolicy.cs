@@ -94,6 +94,21 @@ namespace SkinTest
             return gameImage > 0 ? gameImage - 1 : -1;
         }
 
+        public static int ToCastlePreviewAtlasIndex(int gameImage)
+        {
+            // SpriteMapping.getBodyImage applies the same one-based conversion to GM_CASTLES previews.
+            return gameImage > 0 ? gameImage - 1 : -1;
+        }
+
+        public static bool CanReplaceRoundTowerPreview(bool activeMap, int currentAction,
+            int currentSubAction, bool exactCursorRenderer, bool expectedVanillaSprite,
+            LordCulture culture, bool frameAvailable)
+        {
+            return activeMap && currentAction == 5 && currentSubAction == 114 &&
+                   exactCursorRenderer && expectedVanillaSprite &&
+                   culture == LordCulture.European && frameAvailable;
+        }
+
         public static SkinFrameChoice SelectFrame(bool alternateRequested, bool normalAvailable, bool alternateAvailable)
         {
             if (alternateRequested && alternateAvailable)

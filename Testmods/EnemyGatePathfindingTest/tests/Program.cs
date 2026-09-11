@@ -33,20 +33,25 @@ namespace EnemyGatePathfindingTest
                 RoutePolicyFingerprintIgnoresDynamicTileState();
                 DiagnosticLifecycleAndSamplesAreBounded();
                 AcceptanceVerdictsAreMachineReadable();
-                CausalCursorClassificationIsStrict();
                 StableDiagnosticBaselinesSurviveFailOpenClears();
                 CompactTopologyAndInvariantTimingAreEnforced();
                 SamePclCandidatePolicyIsFailOpenAndAllianceAware();
                 RectangleDistanceSupportsSpatialBridgeDiagnosis();
                 NativeHookByteContractsRejectMutation();
                 VanillaDirectionFilterContractsAreAtomic();
+                DirectionAdapterTileRegistersMatchNativeDataFlow();
+                CrashDumpRegisterRegressionsFailOpen();
                 DirectionAdaptersActuallyAssembleAndDecode();
+                BaselinePlayerScopesUseNativeArguments();
+                DirectCursorCallsiteContractIsExact();
+                NativeSnapshotPoolAcquisitionIsSynchronized();
                 PassageAxisEvidenceIsDeterministic();
                 TopologyRejectionClassificationIsDeterministic();
                 FootprintAdjacencyIgnoresBrokenEditorBounds();
                 UniqueSpatialGateAssociationFailsOpenWhenAmbiguous();
                 DirectionEdgesRequireBothNativeDirections();
                 DirectionMaskBlocksOnlyTheGatePassage();
+                GatehouseUsesBothOuterBoundaries();
                 TileRouteNativeContractIsPinned();
                 NativeRouteHotPathsRemainPrimitiveOnly();
                 UnsafeGlobalMutationAndWholePclDetourAreAbsent();
@@ -290,8 +295,6 @@ namespace EnemyGatePathfindingTest
         private static void NativeHookByteContractsRejectMutation()
         {
             var memory = new byte[EnemyGatePathfindingNativeDefinition.PathBuilderRva + 64];
-            WriteBytes(memory, EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
-                "85 C0 48 8D 3D E3 FB FC 03 B8 01 00 00 00");
             WriteBytes(memory, EnemyGatePathfindingNativeDefinition.PclGraphPredecessorJumpRva,
                 "74 16 49 63 49 F4 48 69 D1 2C 03 00 00 66 83 BC 02 D2 CE 4C 06 00 74 11 FF C3");
             WriteBytes(memory, EnemyGatePathfindingNativeDefinition.BuilderPrecheckPredecessorJumpRva,
@@ -422,8 +425,6 @@ namespace EnemyGatePathfindingTest
                 Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
             string runtime = File.ReadAllText(
                 Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
-            string cursor = File.ReadAllText(
-                Path.Combine("src", "CursorGateRouteFilter.cs"));
             Assert(plugin.IndexOf("args.Phase == EventHookPhase.Pre", StringComparison.Ordinal) >= 0,
                 "map summary uses reliable unload Pre phase");
             Assert(runtime.IndexOf("implicit restart before OnStartMap(Post)",
@@ -432,14 +433,10 @@ namespace EnemyGatePathfindingTest
             Assert(runtime.IndexOf("DiagnosticInterval = Stopwatch.Frequency * 10L",
                     StringComparison.Ordinal) >= 0,
                 "one central ten-second diagnostic cadence is used");
-            Assert(cursor.IndexOf("CursorSample[]", StringComparison.Ordinal) >= 0 &&
-                    cursor.IndexOf("CompareExchange(ref sample.State", StringComparison.Ordinal) >= 0,
-                "cursor samples are bounded and atomically published");
             Assert(runtime.IndexOf(":NOT_OBSERVED", StringComparison.Ordinal) >= 0,
                 "uncovered capturer cases are explicit");
-            Assert(cursor.IndexOf("players.Append(\"none:NOT_OBSERVED\")",
-                    StringComparison.Ordinal) >= 0,
-                "uncovered cursor player activity is explicit");
+            Assert(runtime.IndexOf("implicit editor map-size probe", StringComparison.Ordinal) >= 0,
+                "editor maps start the central diagnostic epoch without a cursor callback");
         }
 
         private static void AcceptanceVerdictsAreMachineReadable()
@@ -468,32 +465,10 @@ namespace EnemyGatePathfindingTest
                 "upstream owner short-circuit is not reported as missing coverage");
             Assert(runtime.IndexOf("untrackedTransitionCalls=", StringComparison.Ordinal) >= 0,
                 "transient untracked calls remain separately visible");
-            Assert(runtime.IndexOf("cursorPolicyBlocked=", StringComparison.Ordinal) >= 0 &&
-                    runtime.IndexOf("cursorForcedDetour=", StringComparison.Ordinal) >= 0 &&
+            Assert(runtime.IndexOf("nativeCursorScope=", StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("nativeCursorEdgesFiltered=", StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("samePclHookExecution=", StringComparison.Ordinal) >= 0,
-                "causal cursor and active Same-PCL verdicts are explicit");
-        }
-
-        private static void CausalCursorClassificationIsStrict()
-        {
-            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
-                    false, -1, false, -1, false, 0) == CausalRouteDecision.VanillaNoRoute,
-                "an unreproduced positive Vanilla result fails open");
-            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
-                    true, 5, false, -1, false, 0) == CausalRouteDecision.VanillaNoRoute,
-                "filtered no-route without a policy encounter fails open");
-            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
-                    true, 5, false, -1, false, 1) == CausalRouteDecision.PolicyBlocked,
-                "a reachable baseline cut by policy is causally blocked");
-            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
-                    true, 5, false, -1, true, 1) == CausalRouteDecision.TargetBlocked,
-                "a blocked target is classified separately");
-            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
-                    true, 5, true, 8, false, 2) == CausalRouteDecision.ForcedDetour,
-                "a longer filtered shortest path proves an actual detour");
-            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
-                    true, 5, true, 5, false, 2) == CausalRouteDecision.Reachable,
-                "an equally short filtered path is not overstated as a forced detour");
+                "native cursor scope and active Same-PCL verdicts are explicit");
         }
 
         private static void StableDiagnosticBaselinesSurviveFailOpenClears()
@@ -522,8 +497,6 @@ namespace EnemyGatePathfindingTest
         {
             string topology = File.ReadAllText(
                 Path.Combine("src", "GateTopologySnapshotProvider.cs"));
-            string cursor = File.ReadAllText(
-                Path.Combine("src", "CursorGateRouteFilter.cs"));
             Assert(topology.IndexOf("footprintTiles=[", StringComparison.Ordinal) < 0,
                 "topology logs no longer dump every footprint tile");
             Assert(topology.IndexOf("/tileRange=", StringComparison.Ordinal) >= 0 &&
@@ -532,26 +505,26 @@ namespace EnemyGatePathfindingTest
             Assert(topology.IndexOf("AppendTopologyDetail(detail, gateInfo.Format())",
                     StringComparison.Ordinal) < 0,
                 "initial accepted gate details are not duplicated");
-            Assert(cursor.IndexOf("CultureInfo.InvariantCulture", StringComparison.Ordinal) >= 0,
-                "cursor timing uses invariant decimal formatting");
-            Assert(cursor.IndexOf("forcedDetour", StringComparison.Ordinal) >= 0 &&
-                    cursor.IndexOf("vanillaNoRoute", StringComparison.Ordinal) >= 0,
-                "causal detours are distinguished from baseline-model misses");
+            Assert(!File.Exists(Path.Combine("src", "CursorGateRouteFilter.cs")),
+                "the managed cursor BFS implementation is removed");
         }
 
         private static void SnapshotRefreshPathsAreSeparatedAndBounded()
         {
             string source = File.ReadAllText(
                 Path.Combine("src", "GateTopologySnapshotProvider.cs"));
-            int accessCall = source.IndexOf("RefreshGateAccess();", StringComparison.Ordinal);
+            int accessCall = source.IndexOf("RefreshGateAccessIfDue(now);", StringComparison.Ordinal);
             int topologyCall = source.IndexOf("RefreshTopologyIfDue(now);", StringComparison.Ordinal);
             Assert(accessCall >= 0,
-                "per-frame deferred work refreshes the cheap access fingerprint");
+                "deferred work uses the bounded access refresh gate");
             Assert(topologyCall > accessCall,
                 "deferred work retains separately throttled topology rebuilding");
             Assert(source.IndexOf("TopologySafetyInterval = Math.Max(1, Stopwatch.Frequency)",
                     StringComparison.Ordinal) >= 0,
                 "expensive topology safety rebuild is capped at one per second");
+            Assert(source.IndexOf("AccessSafetyInterval = Math.Max(1, Stopwatch.Frequency)",
+                    StringComparison.Ordinal) >= 0,
+                "access safety scans are capped at one per second");
             string access = ExtractMethodBody(source, "RefreshGateAccess");
             Assert(access.IndexOf("ComputeGateAccessFingerprint", StringComparison.Ordinal) >= 0,
                 "access refresh probes a fingerprint before publishing");
@@ -663,10 +636,13 @@ namespace EnemyGatePathfindingTest
 
         private static void TileRouteNativeContractIsPinned()
         {
-            Assert(EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva == 0x8F1C4,
-                "ordinary cursor PCL decision RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.CursorPclDecisionHookLength == 14,
-                "ordinary cursor PCL decision span");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockRva == 0x8F251 &&
+                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength == 29,
+                "direct cursor DB650 call block and span");
+            Assert(EnemyGatePathfindingNativeDefinition.DirectCursorSearchCallRva == 0x8F269 &&
+                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchReturnRva == 0x8F26E &&
+                    EnemyGatePathfindingNativeDefinition.DirectTileSearchRva == 0xDB650,
+                "direct cursor call, target and return RVAs");
             Assert(EnemyGatePathfindingNativeDefinition.PathDirectionGridRva == 0x51890D0,
                 "native direction grid RVA");
             Assert(EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive == 320800,
@@ -681,7 +657,6 @@ namespace EnemyGatePathfindingTest
 
         private static void NativeRouteHotPathsRemainPrimitiveOnly()
         {
-            string tileSource = File.ReadAllText(Path.Combine("src", "CursorGateRouteFilter.cs"));
             string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             string samePclSource = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
             string emitterSource = File.ReadAllText(Path.Combine("src", "DirectionFilterAdapterEmitter.cs"));
@@ -691,13 +666,6 @@ namespace EnemyGatePathfindingTest
                 "Monitor.", "lock (", "StringBuilder", "Console.",
                 "new List", "new Dictionary", "new int[", "new byte[", "new string"
             };
-            foreach (string method in new[] { "FilterPositiveCursorPcl", "SearchCausally", "SearchCore" })
-            {
-                string body = ExtractMethodBody(tileSource, method);
-                foreach (string token in forbidden)
-                    Assert(body.IndexOf(token, StringComparison.Ordinal) < 0,
-                        method + " hot path excludes " + token);
-            }
             foreach (string method in new[]
             {
                 "FilterUnrelatedCapturedEnemyGatePclGraph",
@@ -719,23 +687,30 @@ namespace EnemyGatePathfindingTest
                 Assert(builderBody.IndexOf(token, StringComparison.Ordinal) < 0,
                     "native direction adapter excludes " + token);
             Assert(samePclSource.IndexOf("managedReplacementSearches=0", StringComparison.Ordinal) >= 0 &&
-                    samePclSource.IndexOf("GateGridRouteSearch", StringComparison.Ordinal) < 0,
-                "the old managed whole-map replacement search is absent");
+                    samePclSource.IndexOf("managedCursorSearches=0", StringComparison.Ordinal) >= 0 &&
+                    samePclSource.IndexOf("GateGridRouteSearch", StringComparison.Ordinal) < 0 &&
+                    !File.Exists(Path.Combine("src", "CursorGateRouteFilter.cs")),
+                "all managed whole-map and cursor searches are absent");
+            foreach (string wrapper in new[]
+            {
+                "FilterBuilder", "FilterAttack", "FilterBuilding", "FilterConsumer",
+                "FilterAlternateConsumer", "FilterCandidateSearch", "FilterCursor",
+                "FilterDirectCursorSearch"
+            })
+            {
+                string body = ExtractMethodBody(samePclSource, wrapper);
+                Assert(body.IndexOf("=>", StringComparison.Ordinal) < 0 &&
+                        body.IndexOf("new ", StringComparison.Ordinal) < 0,
+                    wrapper + " creates no closure or per-query object");
+            }
         }
 
         private static void UnsafeGlobalMutationAndWholePclDetourAreAbsent()
         {
-            string tileSource = File.ReadAllText(Path.Combine("src", "CursorGateRouteFilter.cs"));
             string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             string samePclSource = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
-            Assert(tileSource.IndexOf("ApplyOverlay", StringComparison.Ordinal) < 0,
-                "global Direction-Grid overlay is absent");
-            Assert(tileSource.IndexOf("RestoreOverlay", StringComparison.Ordinal) < 0,
-                "global Direction-Grid restoration path is absent");
-            Assert(tileSource.IndexOf("NativeDetour", StringComparison.Ordinal) < 0,
-                "builder and planner detours are absent");
-            Assert(tileSource.IndexOf("originalBuilder", StringComparison.Ordinal) < 0,
-                "second builder run is absent without a local edge filter");
+            Assert(!File.Exists(Path.Combine("src", "CursorGateRouteFilter.cs")),
+                "managed cursor filter and its overlay/search fallbacks are absent");
             Assert(runtimeSource.IndexOf("GetNextReachablePclDelegate", StringComparison.Ordinal) < 0,
                 "whole PCL function detour delegate is absent");
             Assert(runtimeSource.IndexOf("AddDetour", StringComparison.Ordinal) < 0,
@@ -771,11 +746,11 @@ namespace EnemyGatePathfindingTest
             int[] expectedRvas =
             {
                 0xD9EA6, 0xDA783, 0xDACB2, 0xDB242, 0xF31A8, 0xF33F5,
-                0xDB857, 0xDB947, 0xDBA36, 0xDBB26
+                0xDB857, 0xDB947, 0xDBA36, 0xDBB26, 0xDC536
             };
-            int[] expectedLengths = { 14, 18, 18, 17, 15, 14, 17, 17, 17, 17 };
-            Assert(EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length == 10,
-                "all ten native direction tests are represented");
+            int[] expectedLengths = { 14, 18, 18, 17, 15, 14, 17, 17, 17, 17, 16 };
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length == 11,
+                "all eleven player-aware native direction loads are represented");
             for (int index = 0; index < expectedRvas.Length; index++)
             {
                 Assert(EnemyGatePathfindingNativeDefinition.DirectionFilterRvas[index] == expectedRvas[index],
@@ -787,8 +762,10 @@ namespace EnemyGatePathfindingTest
             string source = File.ReadAllText(Path.Combine("src", "DirectionFilterAdapterEmitter.cs"));
             Assert(runtime.IndexOf("for (int index = 0; index < edgeHooks.Length; index++)",
                     StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("transaction.AddInline(directCursorHook",
+                        StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("transaction.Commit()", StringComparison.Ordinal) >= 0,
-                "all edge adapters share one atomic transaction");
+                "direct cursor callsite and all edge adapters share one atomic transaction");
             Assert(source.IndexOf("__dword_ptr.gs[0x48]", StringComparison.Ordinal) >= 0 &&
                     source.IndexOf("ThreadSlotCount", StringComparison.Ordinal) >= 0,
                 "native adapters validate the fixed TEB thread slot");
@@ -798,7 +775,8 @@ namespace EnemyGatePathfindingTest
                 "all native direction-load destination registers are masked");
             foreach (string method in new[]
             {
-                "EmitRaxDestination", "EmitR11Destination", "EmitRcxDestination"
+                "EmitRaxDestination", "EmitR11Destination", "EmitRcxDestination",
+                "EmitRcxR12Destination"
             })
             {
                 string body = ExtractMethodBody(source, method);
@@ -825,6 +803,74 @@ namespace EnemyGatePathfindingTest
                 "a missing subject global ID remains harmless and unclassified");
         }
 
+        private static void DirectionAdapterTileRegistersMatchNativeDataFlow()
+        {
+            Register[] expectedTiles =
+            {
+                Register.R8, Register.RDI, Register.RDI, Register.R10, Register.RAX,
+                Register.R8, Register.RDI, Register.RDI, Register.RDI, Register.RDI,
+                Register.R12
+            };
+            Register[] moduleBases =
+            {
+                Register.RDX, Register.RDX, Register.RDX, Register.RBX, Register.RDX,
+                Register.RCX, Register.R13, Register.R13, Register.R13, Register.R13,
+                Register.R9
+            };
+            Register[] zeroExtendedIndices =
+            {
+                Register.RAX, Register.R11, Register.R11, Register.RAX, Register.R9,
+                Register.R9, Register.RAX, Register.RAX, Register.RAX, Register.RAX,
+                Register.RAX
+            };
+            for (int site = 0; site < expectedTiles.Length; site++)
+            {
+                Register actual = DirectionFilterAdapterEmitter.GetTileRegister(site);
+                Assert(actual == expectedTiles[site],
+                    "direction adapter " + site + " uses its audited native tile register");
+                Assert(actual != moduleBases[site],
+                    "direction adapter " + site + " never indexes policy by its module base");
+                Register index = DirectionFilterAdapterEmitter.GetZeroExtendedIndexRegister(site);
+                Assert(index == zeroExtendedIndices[site] && index != moduleBases[site],
+                    "direction adapter " + site +
+                    " zero-extends through a scratch register that is not the native module base");
+
+                byte[] original = EnemyGatePathfindingNativeDefinition.GetDirectionFilterBytes(site);
+                ulong ip = 0x180000000UL + unchecked((ulong)
+                    EnemyGatePathfindingNativeDefinition.DirectionFilterRvas[site]);
+                Instruction directionRead = DecodeAt(original, ip,
+                    site >= 6 && site <= 9 ? 1 : 0);
+                bool containsTileAndBase =
+                    (directionRead.MemoryBase == actual && directionRead.MemoryIndex == moduleBases[site]) ||
+                    (directionRead.MemoryIndex == actual && directionRead.MemoryBase == moduleBases[site]);
+                Assert(containsTileAndBase,
+                    "direction adapter " + site +
+                    " mapping matches the native Direction-Grid memory operand");
+            }
+        }
+
+        private static void CrashDumpRegisterRegressionsFailOpen()
+        {
+            const long dumpModuleBase = 0x00007FFA80260000;
+            Assert(DirectionFilterAdapterEmitter.GetTileRegister(5) == Register.R8,
+                "21:59 crash regression: F33F5 uses R8 rather than RCX");
+            Assert(DirectionFilterAdapterEmitter.GetTileRegister(0) == Register.R8,
+                "D9EA6 uses R8 rather than RDX");
+            Assert(DirectionFilterAdapterEmitter.GetTileRegister(3) == Register.R10,
+                "DB242 uses R10 rather than RBX");
+            Assert(!DirectionFilterAdapterEmitter.IsTileIndexInRange(dumpModuleBase),
+                "the DLL base observed in the crash cannot index a policy mask");
+            Assert(!DirectionFilterAdapterEmitter.IsTileIndexInRange(-1),
+                "negative native tile indices fail open");
+            Assert(DirectionFilterAdapterEmitter.IsTileIndexInRange(0) &&
+                    DirectionFilterAdapterEmitter.IsTileIndexInRange(
+                        EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive - 1),
+                "both valid tile-grid boundaries are accepted");
+            Assert(!DirectionFilterAdapterEmitter.IsTileIndexInRange(
+                    EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive),
+                "the first tile beyond the native grid fails open");
+        }
+
         private static void DirectionAdaptersActuallyAssembleAndDecode()
         {
             const ulong library = 0x180000000UL;
@@ -844,15 +890,50 @@ namespace EnemyGatePathfindingTest
                 var decoder = Decoder.Create(64, new ByteArrayCodeReader(emitted));
                 decoder.IP = stubIp;
                 int matchingOriginalLoads = 0;
+                int matchingTileAdds = 0;
+                int matchingTileCopies = 0;
+                int matchingRangeGuards = 0;
+                Register expectedTile = DirectionFilterAdapterEmitter.GetTileRegister(site);
+                Register expectedMask = site == 1 || site == 2
+                    ? Register.RAX : site == 4 || site == 5 || site == 10
+                    ? Register.R10 : Register.R9;
+                Register expectedIndex = site == 1 || site == 2
+                    ? Register.R11 : site == 4 || site == 5 ? Register.R9 : Register.RAX;
                 while (decoder.IP < stubIp + (ulong)emitted.Length)
                 {
                     decoder.Decode(out Instruction instruction);
                     Assert(instruction.Code != Code.INVALID,
                         "direction adapter " + site + " disassembles without invalid opcodes");
                     if (SameMemoryInstruction(instruction, originalFirst)) matchingOriginalLoads++;
+                    if (instruction.Mnemonic == Mnemonic.Add &&
+                        instruction.Op0Kind == OpKind.Register &&
+                        instruction.Op0Register == expectedMask &&
+                        instruction.Op1Kind == OpKind.Register)
+                    {
+                        Assert(instruction.Op1Register == expectedIndex,
+                            "direction adapter " + site + " adds only its zero-extended tile index");
+                        matchingTileAdds++;
+                    }
+                    if (instruction.Mnemonic == Mnemonic.Mov &&
+                        instruction.Op0Kind == OpKind.Register &&
+                        instruction.Op0Register == ToRegister32(expectedIndex) &&
+                        instruction.Op1Kind == OpKind.Register &&
+                        instruction.Op1Register == ToRegister32(expectedTile))
+                        matchingTileCopies++;
+                    if (instruction.Mnemonic == Mnemonic.Cmp &&
+                        instruction.Op0Kind == OpKind.Register &&
+                        instruction.Op0Register == ToRegister32(expectedTile) &&
+                        instruction.Op1Kind == OpKind.Immediate32 &&
+                        instruction.Immediate32 ==
+                            EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive)
+                        matchingRangeGuards++;
                 }
                 Assert(matchingOriginalLoads == 1,
                     "direction adapter " + site + " contains exactly one original producer load");
+                Assert(matchingTileAdds == 1 && matchingTileCopies == 1 &&
+                        matchingRangeGuards == 1,
+                    "direction adapter " + site +
+                    " has one zero-extended tile add and one bounds guard");
 
                 byte[] probeBytes = new byte[64];
                 for (int index = 0; index < probeBytes.Length; index++) probeBytes[index] = 0x90;
@@ -889,6 +970,111 @@ namespace EnemyGatePathfindingTest
             }
             catch (ArgumentException) { rejected = true; }
             Assert(rejected, "Iced regression proves duplicate instruction IPs are rejected");
+        }
+
+        private static void BaselinePlayerScopesUseNativeArguments()
+        {
+            string source = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            string attack = ExtractMethodBody(source, "FilterAttack");
+            Assert(attack.IndexOf("QueryScope scope = Enter(player)", StringComparison.Ordinal) >= 0,
+                "DBC60 binds its explicit eighth player argument");
+            Assert(source.IndexOf("int tribePlayer = ResolveTribePlayer(tribe)",
+                        StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("ValidateExplicitPlayer(player, tribePlayer)",
+                        StringComparison.Ordinal) >= 0,
+                "DA020 validates its explicit sixth player argument against its tribe");
+            Assert(source.IndexOf("ActivePlayerIdRva", StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("GetLocalPlayerId", StringComparison.Ordinal) < 0,
+                "195E30 follows Vanilla's active native player rather than the editor local-player API");
+            Assert(source.IndexOf("FilterAlternateConsumer", StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("FilterCandidateSearch", StringComparison.Ordinal) >= 0,
+                "1232E0 and DC3C0 have explicit query scopes");
+            Assert(EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva == 0x88E3D70 &&
+                    EnemyGatePathfindingNativeDefinition.AlternateBuildingConsumerRva == 0x1232E0 &&
+                    EnemyGatePathfindingNativeDefinition.PlayerAwareCandidateSearchRva == 0xDC3C0,
+                "baseline-bound player globals and function entries are pinned");
+        }
+
+        private static void DirectCursorCallsiteContractIsExact()
+        {
+            const ulong library = 0x180000000UL;
+            const ulong wrapper = 0x7FFF12345678UL;
+            byte[] original = EnemyGatePathfindingNativeDefinition.GetDirectCursorSearchBlockBytes();
+            byte[] emitted = DirectCursorCallAdapterEmitter.AssembleAndValidate(
+                original,
+                library + (ulong)EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockRva,
+                wrapper,
+                library + 0x02200000UL);
+            Assert(emitted.Length > 0, "direct cursor call adapter assembles and disassembles");
+
+            byte[] probeBytes = new byte[64];
+            for (int index = 0; index < probeBytes.Length; index++) probeBytes[index] = 0x90;
+            Array.Copy(original, probeBytes, original.Length);
+            IntPtr probeMemory = Marshal.AllocHGlobal(probeBytes.Length);
+            try
+            {
+                Marshal.Copy(probeBytes, 0, probeMemory, probeBytes.Length);
+                using (var probe = new X64InlineHook(
+                    unchecked((ulong)probeMemory.ToInt64()),
+                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength))
+                    Assert(probe.DisplacedByteCount ==
+                            EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength,
+                        "installed RedBird decodes the exact 29-byte direct cursor block");
+            }
+            finally { Marshal.FreeHGlobal(probeMemory); }
+
+            string runtime = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            string wrapperBody = ExtractMethodBody(runtime, "FilterDirectCursorSearch");
+            Assert(wrapperBody.IndexOf("originalDirectTileSearch", StringComparison.Ordinal) >= 0 &&
+                    wrapperBody.IndexOf("Enter(player)", StringComparison.Ordinal) >= 0 &&
+                    wrapperBody.IndexOf("Complete(scope", StringComparison.Ordinal) >= 0,
+                "direct cursor wrapper scopes exactly the original DB650 call");
+            Assert(wrapperBody.IndexOf("new ", StringComparison.Ordinal) < 0 &&
+                    wrapperBody.IndexOf("GetPathComponentGrid", StringComparison.Ordinal) < 0,
+                "direct cursor wrapper performs no allocation or PCL work");
+        }
+
+        private static void GatehouseUsesBothOuterBoundaries()
+        {
+            string topology = File.ReadAllText(Path.Combine("src", "GateTopologySnapshotProvider.cs"));
+            string gate = ExtractMethodBody(topology, "ClearGatehouseOuterDirections");
+            Assert(gate.IndexOf("minY - 1, x, minY, 4", StringComparison.Ordinal) >= 0 &&
+                    gate.IndexOf("maxY, x, maxY + 1, 4", StringComparison.Ordinal) >= 0,
+                "vertical gatehouse blocks both outer entry/exit boundaries");
+            Assert(gate.IndexOf("minX - 1, y, minX, y, 2", StringComparison.Ordinal) >= 0 &&
+                    gate.IndexOf("maxX, y, maxX + 1, y, 2", StringComparison.Ordinal) >= 0,
+                "horizontal gatehouse blocks both outer entry/exit boundaries");
+            Assert(gate.IndexOf("Math.Min(info.EntryY, info.ExitY) != minY - 1",
+                        StringComparison.Ordinal) >= 0 &&
+                    gate.IndexOf("Math.Max(info.EntryY, info.ExitY) != maxY + 1",
+                        StringComparison.Ordinal) >= 0,
+                "logged 401/372 to 401/366 gate coordinates validate against 367..371 bounds");
+            string bridge = ExtractMethodBody(topology, "ClearDrawbridgePassageDirections");
+            Assert(bridge.IndexOf("(minY + maxY) >> 1", StringComparison.Ordinal) >= 0 &&
+                    bridge.IndexOf("(minX + maxX) >> 1", StringComparison.Ordinal) >= 0,
+                "drawbridge keeps its proven middle seam");
+            Assert(topology.IndexOf("entry-exit-outer", StringComparison.Ordinal) >= 0,
+                "snapshot diagnostics identify the gatehouse barrier contract");
+        }
+
+        private static void NativeSnapshotPoolAcquisitionIsSynchronized()
+        {
+            string source = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            string enter = ExtractMethodBody(source, "Enter");
+            string complete = ExtractMethodBody(source, "Complete");
+            Assert(source.IndexOf("NativeSnapshotPoolSize = 4", StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("Marshal.FreeHGlobal", StringComparison.Ordinal) < 0,
+                "four static mask slots are never freed while the runtime is published");
+            Assert(enter.IndexOf("lock (maskGate)", StringComparison.Ordinal) >= 0 &&
+                    complete.IndexOf("lock (maskGate)", StringComparison.Ordinal) >= 0,
+                "snapshot acquisition and release share one synchronization gate");
+            Assert(source.IndexOf("SlotDepthOffset", StringComparison.Ordinal) >= 0,
+                "nested zero-mask scopes use explicit depth rather than pointer nullness");
+            Assert(source.IndexOf("CompareExchange(ref samplePublished[index], 1, 0)",
+                        StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("Volatile.Write(ref samplePublished[index], 2)",
+                        StringComparison.Ordinal) >= 0,
+                "scope samples publish only after all primitive fields are written");
         }
 
         private static void PassageAxisEvidenceIsDeterministic()
@@ -937,6 +1123,31 @@ namespace EnemyGatePathfindingTest
             decoder.IP = ip;
             decoder.Decode(out Instruction instruction);
             return instruction;
+        }
+
+        private static Instruction DecodeAt(byte[] bytes, ulong ip, int requestedIndex)
+        {
+            var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+            decoder.IP = ip;
+            Instruction instruction = default;
+            for (int index = 0; index <= requestedIndex; index++)
+                decoder.Decode(out instruction);
+            return instruction;
+        }
+
+        private static Register ToRegister32(Register register)
+        {
+            switch (register)
+            {
+                case Register.RAX: return Register.EAX;
+                case Register.R8: return Register.R8D;
+                case Register.R9: return Register.R9D;
+                case Register.R10: return Register.R10D;
+                case Register.R11: return Register.R11D;
+                case Register.R12: return Register.R12D;
+                case Register.RDI: return Register.EDI;
+                default: throw new ArgumentOutOfRangeException(nameof(register));
+            }
         }
 
         private static bool SameMemoryInstruction(Instruction left, Instruction right) =>

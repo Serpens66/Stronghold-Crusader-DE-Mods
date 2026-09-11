@@ -852,6 +852,9 @@ namespace APIShared
                 case UnitHudImageSlot.UIBuildingsO012: return main.UIBuildingsO012;
                 case UnitHudImageSlot.UIButtonsK007: return main.UIButtonsK007;
                 case UnitHudImageSlot.UIButtonsK008: return main.UIButtonsK008;
+                case UnitHudImageSlot.UIButtonsO016: return main.UIButtonsO016;
+                case UnitHudImageSlot.UIButtonsO017: return main.UIButtonsO017;
+                case UnitHudImageSlot.UIButtonsO018: return main.UIButtonsO018;
                 default: return null;
             }
         }
@@ -864,6 +867,9 @@ namespace APIShared
                 case UnitHudImageSlot.UIBuildingsO012: main.UIBuildingsO012 = image; break;
                 case UnitHudImageSlot.UIButtonsK007: main.UIButtonsK007 = image; break;
                 case UnitHudImageSlot.UIButtonsK008: main.UIButtonsK008 = image; break;
+                case UnitHudImageSlot.UIButtonsO016: main.UIButtonsO016 = image; break;
+                case UnitHudImageSlot.UIButtonsO017: main.UIButtonsO017 = image; break;
+                case UnitHudImageSlot.UIButtonsO018: main.UIButtonsO018 = image; break;
             }
         }
 

@@ -54,12 +54,13 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll 2.3.0 wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
-    <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll 0.2.0 wurde im ApiSharedDir nicht gefunden: $(ApiSharedDir)" />
+    <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll 0.3.1 wurde im ApiSharedDir nicht gefunden: $(ApiSharedDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\RedBird.Core.dll')" Text="RedBird.Core.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)..\..\shcde-script-extender\deps\Assembly-CSharp-publicized.dll')" Text="Die kanonische publicized Assembly-CSharp.dll wurde nicht gefunden." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)Assets\CrusaderSwordsman\atlas.png')" Text="Der private SkinTest-Atlas fehlt. Zuerst tools\prepare_assets.py ausführen." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)Assets\CrusaderRoundTower\atlas.png')" Text="Der private Rundturm-Atlas fehlt. Zuerst tools\prepare_assets.py ausführen." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)Assets\CrusaderRoundTowerAnimations\atlas.png')" Text="Der private Rundturm-Animationsatlas fehlt. Zuerst tools\prepare_assets.py ausführen." />
     <Error Condition="!Exists('$(MSBuildThisFileDirectory)Assets\CrusaderUI\UIBuildingsO011_colour1.png')" Text="Die privaten SkinTest-HUD-Assets fehlen. Zuerst tools\prepare_assets.py ausführen." />
+    <Error Condition="!Exists('$(MSBuildThisFileDirectory)Assets\CrusaderUI\UIButtonsO018_colour8.png')" Text="Die privaten SkinTest-Kasernenassets fehlen. Zuerst tools\prepare_assets.py ausführen." />
   </Target>
 </Project>

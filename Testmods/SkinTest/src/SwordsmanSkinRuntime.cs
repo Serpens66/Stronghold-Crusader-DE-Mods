@@ -62,8 +62,8 @@ namespace SkinTest
         private Sprite[] castleSprites;
         private Sprite[] castleAnimSprites;
         private readonly Stack<CastleAnimContext> castleAnimContexts = new Stack<CastleAnimContext>();
-        private readonly byte[,][] troopHudBytes = new byte[8, 4][];
-        private readonly ImageSource[,] troopHudSources = new ImageSource[8, 4];
+        private readonly byte[,][] troopHudBytes = new byte[8, 7][];
+        private readonly ImageSource[,] troopHudSources = new ImageSource[8, 7];
         private readonly byte[][] towerHudBytes = new byte[2][];
         private readonly ImageSource[] towerHudSources = new ImageSource[2];
         private IUnitHudPresentationCapability troopHudCapability;
@@ -186,7 +186,11 @@ namespace SkinTest
                 castleAnimSprites[frame.Index] = sprite;
             }
 
-            string[] troopNames = { "UIBuildingsO011", "UIBuildingsO012", "UIButtonsK007", "UIButtonsK008" };
+            string[] troopNames =
+            {
+                "UIBuildingsO011", "UIBuildingsO012", "UIButtonsK007", "UIButtonsK008",
+                "UIButtonsO016", "UIButtonsO017", "UIButtonsO018"
+            };
             for (int colour = 1; colour <= 8; colour++)
                 for (int slot = 0; slot < troopNames.Length; slot++)
                     troopHudBytes[colour - 1, slot] = ReadAssetBytes(assets, $"{UiAssetRoot}{troopNames[slot]}_colour{colour}.png");
@@ -258,7 +262,10 @@ namespace SkinTest
                     UnitHudImageSlot.UIBuildingsO011,
                     UnitHudImageSlot.UIBuildingsO012,
                     UnitHudImageSlot.UIButtonsK007,
-                    UnitHudImageSlot.UIButtonsK008
+                    UnitHudImageSlot.UIButtonsK008,
+                    UnitHudImageSlot.UIButtonsO016,
+                    UnitHudImageSlot.UIButtonsO017,
+                    UnitHudImageSlot.UIButtonsO018
                 };
                 bool complete = true;
                 foreach (UnitHudImageSlot slot in slots)
@@ -278,7 +285,7 @@ namespace SkinTest
                 if (activeMap)
                     troopHudCapability.RequestRefresh();
                 LogInfo(complete
-                    ? "Four SH1DE swordsman HUD overrides registered with APIShared."
+                    ? "Seven SH1DE swordsman HUD overrides registered with APIShared."
                     : "APIShared accepted only part of the SH1DE swordsman HUD overrides; unavailable slots remain unchanged.");
             }
             catch (Exception ex)
@@ -335,6 +342,11 @@ namespace SkinTest
                         $"GM_CASTLE_ANIMS callback observed: image={image}, roundTowerContext={context != null}.");
                     if (context != null && context.Image == image)
                         TryReplaceRoundTowerAnimation(renderer, image, context);
+                    return;
+                }
+                if (file == (int)ExtenderGM.GM_CASTLES)
+                {
+                    TryReplaceRoundTowerPlacementPreview(renderer, image);
                     return;
                 }
                 if (file != (int)ExtenderGM.GM_BODY_SWORDSMAN)
@@ -414,6 +426,73 @@ namespace SkinTest
             {
                 WarnOnce("hook-error", $"Sprite replacement failed closed; the prior result remains active: {ex}");
             }
+        }
+
+        private void TryReplaceRoundTowerPlacementPreview(SpriteRenderer renderer, int image)
+        {
+            GameMap gameMap = GameMap.instance;
+            MainControls controls = MainControls.instance;
+            if (!activeMap || gameMap == null || controls == null)
+                return;
+
+            GameObject rendererObject = renderer.gameObject;
+            bool primaryCursor = ReferenceEquals(rendererObject, gameMap.mouseCursorGO);
+            bool overlayCursor = ReferenceEquals(rendererObject, gameMap.mouseCursorGO2);
+            bool exactCursor = primaryCursor || overlayCursor;
+            if (!exactCursor || controls.CurrentAction != 5 ||
+                controls.CurrentSubAction != (int)Enums.eMappers.MAPPER_TOWER5)
+                return;
+
+            int frameIndex = SkinSelectionPolicy.ToCastlePreviewAtlasIndex(image);
+            LogOnce($"tower-preview-callback:{(primaryCursor ? "primary" : "overlay")}",
+                $"Round-tower mouse preview observed: renderer={(primaryCursor ? "mouseCursorGO" : "mouseCursorGO2")}, image={image}, atlasIndex={frameIndex}.");
+            if (spriteLoader.instance == null)
+            {
+                WarnOnce("tower-preview-sprite-loader-missing",
+                    "Round-tower mouse preview occurred before spriteLoader was available; Vanilla remains active.");
+                return;
+            }
+
+            Sprite expected = frameIndex >= 0
+                ? spriteLoader.instance.GetGMSprite(GameGM.GM_CASTLES, frameIndex)
+                : null;
+            bool expectedVanilla = ReferenceEquals(renderer.sprite, expected);
+            bool frameAvailable = frameIndex >= 0 && frameIndex < castleSprites.Length &&
+                castleSprites[frameIndex] != null;
+            if (!frameAvailable)
+            {
+                LogOnce($"tower-preview-frame-missing:{frameIndex}",
+                    $"No SH1DE round-tower preview frame exists: image={image}, atlasIndex={frameIndex}; Vanilla remains active.");
+                return;
+            }
+            if (!expectedVanilla)
+            {
+                if (!ReferenceEquals(renderer.sprite, castleSprites[frameIndex]))
+                    WarnOnce($"tower-preview-conflict:{frameIndex}",
+                        $"An earlier mod replaced the expected round-tower preview sprite; SkinTest leaves it untouched: image={image}, atlasIndex={frameIndex}, expected={DescribeSprite(expected)}, actual={DescribeSprite(renderer.sprite)}.");
+                return;
+            }
+
+            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            if (!SkinSelectionPolicy.IsValidPlayerId(localPlayerId))
+            {
+                WarnOnce("tower-preview-local-player-invalid",
+                    $"Round-tower mouse preview has no valid local player: playerId={localPlayerId}; Vanilla remains active.");
+                return;
+            }
+            LordCulture culture = ResolveOwnerCulture(localPlayerId, out _, out _, out string source, out int value);
+            if (!SkinSelectionPolicy.CanReplaceRoundTowerPreview(activeMap, controls.CurrentAction,
+                controls.CurrentSubAction, exactCursor, expectedVanilla, culture, frameAvailable))
+            {
+                if (culture == LordCulture.NonEuropean)
+                    LogOnce($"tower-preview-vanilla-culture:{source}:{value}",
+                        $"Vanilla round-tower mouse preview retained for non-European local lord culture: source={source}, value={value}.");
+                return;
+            }
+
+            renderer.sprite = castleSprites[frameIndex];
+            LogOnce($"tower-preview-applied:{(primaryCursor ? "primary" : "overlay")}",
+                $"SH1DE round-tower mouse preview applied: renderer={(primaryCursor ? "mouseCursorGO" : "mouseCursorGO2")}, localPlayerId={localPlayerId}, source={source}, value={value}, image={image}, atlasIndex={frameIndex}.");
         }
 
         private void AddUpdateBuildingAnimHook(GameMap gameMap, int objectId, int x, int y, int tileX,
@@ -712,8 +791,9 @@ namespace SkinTest
                 return null;
             int slot = TroopHudSlotIndex(expectedSlot);
             EnsureTroopHudSource(instance, context.Colour, slot);
-            LogOnce($"troop-hud-applied:{context.Colour}",
-                $"SH1DE swordsman HUD activated through APIShared for player colour {context.Colour}: source={source}, value={value}.");
+            string surface = slot >= 4 ? "barracks" : "general";
+            LogOnce($"troop-hud-applied:{surface}:{context.Colour}",
+                $"SH1DE swordsman {surface} HUD activated through APIShared for player colour {context.Colour}: slot={expectedSlot}, source={source}, value={value}.");
             return troopHudSources[context.Colour - 1, slot];
         }
 
@@ -734,6 +814,9 @@ namespace SkinTest
                 case UnitHudImageSlot.UIBuildingsO012: return 1;
                 case UnitHudImageSlot.UIButtonsK007: return 2;
                 case UnitHudImageSlot.UIButtonsK008: return 3;
+                case UnitHudImageSlot.UIButtonsO016: return 4;
+                case UnitHudImageSlot.UIButtonsO017: return 5;
+                case UnitHudImageSlot.UIButtonsO018: return 6;
                 default: throw new ArgumentOutOfRangeException(nameof(slot));
             }
         }

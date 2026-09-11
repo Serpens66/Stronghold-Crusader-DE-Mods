@@ -29,6 +29,7 @@ namespace PreplacedTest.Tests
                 TestEconomyDiagnosticModels();
                 TestEconomyPclModels();
                 TestEconomyOverlayProjection();
+                TestEconomyFixActivationStates();
                 TestPreplacedIdentityAndCountProjection();
                 TestPortalRoutes();
                 TestPclConnectivityTransitions();
@@ -185,6 +186,11 @@ namespace PreplacedTest.Tests
             Check(!identity.Matches(19, 1002, 8, structureIdentity), "reused slot with another global ID was treated as preplaced");
             Check(!identity.Matches(19, 1001, 7, structureIdentity), "changed owner was treated as preplaced");
             Check(!identity.Matches(19, 1001, 8, unchecked(structureIdentity + 1)), "changed structure type was treated as preplaced");
+            Check(identity.MatchesStableRecord(19, 1001, structureIdentity),
+                "stable map-load identity was not recognized after owner resolution");
+            Check(!identity.MatchesStableRecord(19, 1002, structureIdentity) &&
+                !identity.MatchesStableRecord(20, 1001, structureIdentity),
+                "slot reuse was accepted as a stable map-load identity");
             Check(PreplacedCountProjection.WithoutPreplaced(5, 2) == 3, "preplaced count projection");
             Check(PreplacedCountProjection.WithoutPreplaced(1, 4) == 0, "preplaced count projection underflow");
         }
@@ -233,6 +239,32 @@ namespace PreplacedTest.Tests
             restored[25599]++;
             Check(!EconomyGridOverlayProjection.RestoredExactly(before, restored),
                 "last-cell restoration corruption was missed");
+        }
+
+        private static void TestEconomyFixActivationStates()
+        {
+            Check(EconomyFixActivationModel.Initial(true, WallTestRole.GatedWallCandidate, true) ==
+                EconomyFixActivationState.None, "savegame incorrectly entered the economy fix state machine");
+            Check(EconomyFixActivationModel.Initial(false, WallTestRole.GatedWallCandidate, true) ==
+                EconomyFixActivationState.PendingPortal, "preplaced friendly portal was not kept pending");
+            Check(EconomyFixActivationModel.Initial(false, WallTestRole.ClosedWallCandidate, false) ==
+                EconomyFixActivationState.PendingBreach, "closed torless AI was not kept pending for a breach");
+            Check(EconomyFixActivationModel.Initial(false, WallTestRole.None, false) ==
+                EconomyFixActivationState.None, "open map incorrectly entered the economy fix state machine");
+            Check(EconomyFixActivationModel.Initial(false, WallTestRole.None, true) ==
+                EconomyFixActivationState.None, "unrelated portal on an open map activated the economy fix");
+            Check(EconomyFixActivationModel.Activate(EconomyFixActivationState.PendingPortal) ==
+                EconomyFixActivationState.ActivePortal, "portal activation transition");
+            Check(EconomyFixActivationModel.Activate(EconomyFixActivationState.PendingBreach) ==
+                EconomyFixActivationState.ActiveBreach, "breach activation transition");
+            Check(EconomyFixActivationModel.Resume(true, false, WallTestRole.ClosedWallCandidate) ==
+                EconomyFixActivationState.PendingBreach, "confirmed breach was not preferred on resume");
+            Check(EconomyFixActivationModel.Resume(false, true, WallTestRole.GatedWallCandidate) ==
+                EconomyFixActivationState.PendingPortal, "friendly preplaced portal did not resume pending");
+            Check(EconomyFixActivationModel.Resume(false, false, WallTestRole.ClosedWallCandidate) ==
+                EconomyFixActivationState.PendingBreach, "closed control did not resume breach observation");
+            Check(EconomyFixActivationModel.Resume(false, false, WallTestRole.None) ==
+                EconomyFixActivationState.None, "open topology resumed an economy correction");
         }
 
         private static void TestPortalRoutes()
@@ -357,8 +389,9 @@ namespace PreplacedTest.Tests
             ShadowEconomyCell[] gatedGrid = Enumerable.Repeat(pass, 25).ToArray();
             ShadowEconomySearchResult gatedResult = ShadowEconomySearch.Run(gatedGrid, 5, 12,
                 ShadowEconomySearchKind.Wood, 0);
-            Check(gatedResult.ReachableCount == 25 && gatedResult.CandidateIndices.Length != 0,
-                "friendly gate shadow traversal did not reach the open region");
+            Check(gatedResult.ReachableCount > 1 && gatedResult.CandidateIndices.Length != 0 &&
+                gatedResult.FirstCandidateIndex >= 0,
+                "friendly gate shadow traversal did not reach and score the open region");
             ShadowEconomyCell[] farmGrid = Enumerable.Repeat(new ShadowEconomyCell(0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 25, 14, 0, 0), 9).ToArray();
             Check(ShadowEconomySearch.Run(farmGrid, 3, 4, ShadowEconomySearchKind.Farm, 0)
@@ -382,6 +415,12 @@ namespace PreplacedTest.Tests
             Check(ShadowEconomySearch.Run(Enumerable.Repeat(resource4, 9).ToArray(), 3, 4,
                 ShadowEconomySearchKind.Resource, 4).CandidateIndices.Length > 0,
                 "pitch candidate predicate was not replayed");
+            ShadowEconomySearchResult immediateResource = ShadowEconomySearch.Run(
+                Enumerable.Repeat(resource2, 9).ToArray(), 3, 4,
+                ShadowEconomySearchKind.Resource, 2);
+            Check(immediateResource.CandidateIndices.Length == 1 &&
+                immediateResource.QueueOrderIndices.Length == 1,
+                "resource search did not return at Vanilla's first accepted neighbor");
             ShadowEconomyCell wrongPclForQuarry = new ShadowEconomyCell(6, 0, 0, 8, 0, 0, 0, 0, 39,
                 0, 0, 0, 0, 0, 0);
             Check(ShadowEconomySearch.ResourceCandidateRejectionReason(wrongPclForQuarry, 2) ==
@@ -399,6 +438,14 @@ namespace PreplacedTest.Tests
             diagonalGrid[0] = pass;
             Check(ShadowEconomySearch.Run(diagonalGrid, 3, 4, ShadowEconomySearchKind.Nearby, 0)
                 .ReachableCount == 2, "nearby search did not preserve Vanilla's diagonal neighbor order/set");
+            ShadowEconomyCell[] nearbyImmediateGrid = Enumerable.Repeat(blocked, 9).ToArray();
+            nearbyImmediateGrid[4] = pass;
+            nearbyImmediateGrid[3] = Cell(0, 0, 0);
+            ShadowEconomySearchResult nearbyImmediate = ShadowEconomySearch.Run(
+                nearbyImmediateGrid, 3, 4, ShadowEconomySearchKind.Nearby, 0);
+            Check(nearbyImmediate.FirstCandidateIndex == 3 &&
+                nearbyImmediate.QueueOrderIndices.Length == 1,
+                "nearby search did not return at Vanilla's first free orthogonal neighbor");
             ShadowEconomyCell quarryHeightBoundary = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 0, 40,
                 0, 0, 0, 0, 0, 0);
             Check(ShadowEconomySearch.ResourceCandidateRejectionReason(quarryHeightBoundary, 2) == "quarry-height",
@@ -422,6 +469,13 @@ namespace PreplacedTest.Tests
                 ShadowEconomySearch.WoodCandidateRejectionReason(Cell(6, 0, 1)) == "pcl-threshold" &&
                 ShadowEconomySearch.WoodCandidateRejectionReason(Cell(0, 0, 0)) == "wood-density-byte+07",
                 "wood candidate rejection order diverges from Vanilla");
+            ShadowEconomyCell[] scoredWood = Enumerable.Repeat(Cell(0, 0, 1), 9).ToArray();
+            scoredWood[1] = new ShadowEconomyCell(0, 0, 10, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0);
+            ShadowEconomySearchResult scoredWoodResult = ShadowEconomySearch.Run(scoredWood, 3, 4,
+                ShadowEconomySearchKind.Wood, 0);
+            Check(scoredWoodResult.FirstCandidateIndex == 1,
+                "wood search did not retain Vanilla's highest-scoring candidate");
 
             int[] matchingDepths = (int[])gatedResult.Depths.Clone();
             ShadowNativeTraversalComparison match = ShadowNativeTraversalComparison.Compare(gatedResult,
@@ -443,7 +497,7 @@ namespace PreplacedTest.Tests
             Check(visitMismatch.Classification == "visited-set-divergence" &&
                 visitMismatch.FirstVisitDivergence >= 0, "visited-set divergence was not localized");
             int[] wrongDepths = (int[])matchingDepths.Clone();
-            wrongDepths[gatedResult.ReachedIndices.Last()]++;
+            wrongDepths[gatedResult.QueueOrderIndices.Last()]++;
             ShadowNativeTraversalComparison depthMismatch = ShadowNativeTraversalComparison.Compare(gatedResult,
                 gatedResult.ReachedIndices, wrongDepths, gatedResult.QueueOrderIndices,
                 gatedResult.FirstCandidateIndex);
@@ -540,9 +594,11 @@ namespace PreplacedTest.Tests
             Check(updateGuide.Contains("`0xD4290`") && updateGuide.Contains("`0x96CE`") &&
                 updateGuide.Contains("`0x37CC7EC`") && updateGuide.Contains("`0x15B90`") &&
                 updateGuide.Contains("`0x1F5F0..0x1F68D`") && updateGuide.Contains("`+0x2AE0`") &&
+                updateGuide.Contains("`0x55FE0`") && updateGuide.Contains("`0x96E30`") &&
+                updateGuide.Contains("`0x379AFA8`, `0x379AFAC`") &&
                 updateGuide.Contains("RollbackAndThrow"),
                 "native update guide does not cover the new timer-copy contract");
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC3C5D", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660", "0x60AD4AC", "0x2D13B0", "0x2D2E50" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x55FE0", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x379AFA8", "0x379AFAC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC3C5D", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x583A0", "0x58950", "0x58BE0", "0x6D580", "0xE2610", "0x60AD660", "0x60AD4AC", "0x2D13B0", "0x2D2E50" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_BuildingId), 0x0C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_SubjectGlobalId), 0x14)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_EntryTileId), 0x24)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_ExitTileId), 0x30)", "ValidateSize(typeof(PathConnectionRecord), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
@@ -557,6 +613,7 @@ namespace PreplacedTest.Tests
                 "delegate void ConstructBuildingDelegate(",
                 "delegate int RegionPairReachabilityDelegate(",
                 "delegate void EconomyGridUpdateDelegate(ulong state, int mode)",
+                "delegate void InitializeEconomyAvailabilityDelegate(ulong state, int playerId)",
                 "delegate int SelectDominantPclDelegate(ulong state)",
                 "delegate void PlayerBuildingInitializationDelegate(ulong manager, int playerId)",
                 "delegate void BuildingInitializationDelegate(ulong manager, int buildingId)",
@@ -571,14 +628,18 @@ namespace PreplacedTest.Tests
             Check(source.Contains("players.Clear()"), "map transition does not reset sessions");
             Check(source.Contains("activeEconomyContexts?.Clear()") && source.Contains("lastRoutingSnapshot = null"),
                 "map transition retains economy or routing diagnostic state");
-            Check(source.Contains("lastPclTopology = null"),
-                "map transition retains PCL topology state");
+            Check(source.Contains("mapLoadBuildingIdentities.Clear(); mapLoadWallTiles.Clear();") &&
+                source.Contains("wallBaselines.Clear()") && source.Contains("economyOverlayCaches.Clear()"),
+                "map transition retains preplaced wall or economy topology state");
             Check(source.Contains("emittedGridUpdateSignatures.Clear()") &&
                 source.Contains("emittedDominantPclSignatures.Clear()"),
                 "map transition retains grid/PCL signature aggregation state");
             Check(source.Contains("activeAic - 1") || File.ReadAllText(Path.Combine("src", "DiagnosticModel.cs")).Contains("oneBasedSlot - 1"), "AIC slot is not converted from one-based exactly once");
             Check(source.Contains("CRUSHED_TIMER_ACTIVATED_BY_DAMAGE"), "damage-triggered timer activation diagnostic missing");
-            Check(source.Contains("MAP_START_POST") && source.Contains("FIRST_SCHEDULER") && source.Contains("FIRST_ACTIVE_CRUSHED_DELAY"), "required building snapshots missing");
+            Check(source.Contains("MAP_START_POST") && source.Contains("FirstSchedulerSnapshotEmitted") &&
+                source.Contains("first-active-crushed-delay-observed") &&
+                !source.Contains("FIRST_ACTIVE_CRUSHED_DELAY_RAW"),
+                "compact map-start, scheduler, or active-delay observation is missing");
             Check(source.Contains("PollFrame") && plugin.Contains("persistentRuntime?.PollFrame()"), "per-frame crushed timer observation missing");
             Check(source.Contains("PREPLACED_RAW_BUILDINGS") && source.Contains("PREPLACED_RAW_DELTA") &&
                 source.Contains("CapturePreplacedBaseline") && source.Contains("HasAnyNonZeroByte") &&
@@ -587,7 +648,10 @@ namespace PreplacedTest.Tests
             Check(source.Contains("economyMode0Eligible=") &&
                 source.Contains("kind != NativePortalExcludedKindForEconomyModeZero"),
                 "mode-zero economy portal filtering is not explicit in the raw topology diagnostic");
-            Check(source.Contains("observationContinues=true") && !source.Contains("FinalizePlayer(playerId, \"first-building-follow-up-complete\")"), "observation still stops after first AIV building");
+            Check(source.Contains("observationContinues=") && source.Contains("session.Counters.Stop()") &&
+                source.Contains("session.DamageCounters") &&
+                !source.Contains("FinalizePlayer(playerId, \"first-building-follow-up-complete\")"),
+                "Ruins AIV-start shutdown or continuing damage observation is missing");
             Check(source.Contains("BuildingCountModeFieldOffset = 0x2C8"), "building-count mode field contract missing");
             Check(source.Contains("PlacementValidatorResult.Classify"), "validator result contract not used");
             Check(source.Contains("EconomyGridWidth = 160") && source.Contains("EconomyGridCellStride = 0x30") &&
@@ -607,10 +671,10 @@ namespace PreplacedTest.Tests
                 source.Contains("rva57B80(sbyte+04-sbyte+16<16)") &&
                 source.Contains("rva58950(sbyte+04<15)"),
                 "frontier rejection diagnostics are incomplete");
-            Check(source.Contains("PREPLACED_ECONOMY_GRID_UPDATE") &&
+            Check(source.Contains("PREPLACED_PRE_AIV_BASELINE") &&
                 source.Contains("PREPLACED_DOMINANT_PCL") &&
                 source.Contains("PREPLACED_INIT_CHECKPOINT_TIMER_CHANGE"),
-                "new grid/PCL/initialization diagnostics are incomplete");
+                "compact baseline/PCL/initialization diagnostics are incomplete");
             Check(source.Contains("NativePclEntryCount = (NativePclGridEndRva - NativePclGridRva) / NativePclEntrySize") &&
                 source.Contains("NativePclEntryCount != 320800") &&
                 !source.Contains("TileManager.PathConnectionGrid"),
@@ -657,6 +721,26 @@ namespace PreplacedTest.Tests
                 source.Contains("finally") && source.Contains("RestoreEconomyGridOverlay") &&
                 source.Contains("Not all 25,600 economy byte+04 values were restored"),
                 "active economy overlay or exact restoration guard is incomplete");
+            Check(source.Contains("InitializeEconomyAvailabilityRva = 0x55FE0") &&
+                source.Contains("InitializeEconomyAvailabilityPattern") &&
+                source.Contains("initializeEconomyAvailabilityHook.Original(state, playerId)") &&
+                source.Contains("economy-availability-init") &&
+                source.Contains("HasParticipatingFriendlyBaselinePortal") &&
+                source.Contains("NativeEconomyStartXRva = 0x379AFA8") &&
+                source.Contains("NativeEconomyStartYRva = 0x379AFAC") &&
+                source.Contains("ValidateNativeEconomyStartRanges") &&
+                source.Contains("FriendlyPortalEdge") &&
+                source.Contains("edge.Connects(currentPcl, nextPcl)"),
+                "startup economy availability census or exact native search origins are not covered");
+            Check(source.Contains("PREPLACED_MAP_PROFILE") && source.Contains("PREPLACED_RUINS_BASELINE") &&
+                source.Contains("lightweightRuins=") && source.Contains("economyFixEligiblePlayers") &&
+                source.Contains("economyOverlayCaches") && source.Contains("IsLikelyRuinsOnlyMap") &&
+                source.Contains("suppressDominantPclDiagnostics"),
+                "automatic lightweight ruins / walled-economy profiles or overlay cache are missing");
+            Check(!source.Contains("FIRST_ACTIVE_CRUSHED_DELAY_RAW") &&
+                !source.Contains("CRUSHED_ACTIVATION_RAW") &&
+                source.Contains("crushed-timer-step delta="),
+                "ruins timer ticks still force full building dumps or are not aggregated");
             Check(source.Contains("FarmPlacementOffsetTablePairCount = 32") &&
                 source.Contains("FarmPlacementSelectableOffsetCount = 31") &&
                 source.Contains("ValidateFarmPlacementOffsetTable") &&
@@ -672,11 +756,34 @@ namespace PreplacedTest.Tests
                 source.Contains("PlacementReachabilityRouteCallSiteRva = 0xC3C5D") &&
                 source.Contains("ValidatePlacementReachabilityRouteCall"),
                 "native gate route matrix or C3BF0-to-E2610 call contract is incomplete");
-            Check(Regex.Matches(source, @"farmSearchHook\.Original\(").Count == 1 &&
-                Regex.Matches(source, @"resourceSearchHook\.Original\(").Count == 1 &&
-                Regex.Matches(source, @"woodSearchHook\.Original\(").Count == 1 &&
-                Regex.Matches(source, @"nearbySearchHook\.Original\(").Count == 2,
-                "an economy search detour can invoke its Vanilla original an unexpected number of times");
+            Check(Regex.Matches(source, @"farmSearchHook\.Original\(").Count == 2 &&
+                Regex.Matches(source, @"resourceSearchHook\.Original\(").Count == 2 &&
+                Regex.Matches(source, @"woodSearchHook\.Original\(").Count == 2 &&
+                Regex.Matches(source, @"nearbySearchHook\.Original\(").Count == 3 &&
+                source.Contains("if (!walledEconomyProfile)"),
+                "profile passthrough and overlay branches do not preserve one Vanilla search call per invocation");
+            Check(Regex.Matches(source, @"initializeEconomyAvailabilityHook\.Original\(").Count == 2 &&
+                source.Contains("private bool ReconcileEconomyAvailability(") &&
+                source.Contains("reconcilingEconomyAvailability = true") &&
+                source.Contains("PREPLACED_ECONOMY_CENSUS_RECONCILED"),
+                "startup and delayed economy censuses do not each have one explicit Vanilla call");
+            Check(source.Contains("EconomyFixActivationState.PendingPortal") &&
+                source.Contains("EconomyFixActivationState.PendingBreach") &&
+                source.Contains("EconomyFixActivationState.ActivePortal") &&
+                source.Contains("EconomyFixActivationState.ActiveBreach") &&
+                source.Contains("EconomyFixActivationState.Suspended") &&
+                source.Contains("PREPLACED_ECONOMY_FIX_") &&
+                source.Contains("HasConfirmedBreachEconomyAccess") &&
+                source.Contains("IsBaselineInteriorConnectedToExterior") &&
+                source.Contains("baseline.LostWallTiles.Any(baseline.ComponentTiles.Contains)") &&
+                source.Contains("allowPendingActivation"),
+                "delayed portal/breach activation or its physical breach gates are incomplete");
+            Check(source.Contains("TryActivateOrRefreshEconomyFix(state, playerId, \"farm-search\")") &&
+                source.Contains("TryActivateOrRefreshEconomyFix(state, playerId, \"resource-search-mode-\"") &&
+                source.Contains("TryActivateOrRefreshEconomyFix(state, playerId, \"wood-search\")") &&
+                source.Contains("TryActivateOrRefreshEconomyFix(state, context.PlayerId, \"nearby-search-\"") &&
+                source.Contains("currentMapIsSave") && source.Contains("EconomyFixState = currentMapIsSave"),
+                "economy searches do not recheck pending activation or save/breach guards");
             Check(source.Contains("PREPLACED_LEGACY_TIMER_FIX_APPLIED") &&
                 source.Contains("PREPLACED_LEGACY_TIMER_FIX_SKIPPED") &&
                 source.Contains("damageActivatedTimerOwners") &&
@@ -713,23 +820,59 @@ namespace PreplacedTest.Tests
                 "baseline/runtime portals or compact topology transitions are not distinguished");
             Check(source.Contains("if (args.Phase == EventHookPhase.Pre) initializationTracingActive = true"),
                 "initialization tracing does not start at OnStartMap Pre");
-            Check(source.Contains("ObserveCrushedCounters(\"economy-grid.entry\")") &&
-                source.Contains("0x115830-unit-subsystem") && source.Contains("0x102C30-map-object-reset") &&
+            Check(source.Contains("0x115830-unit-subsystem") && source.Contains("0x102C30-map-object-reset") &&
                 source.Contains("0x2A340-player-pathing"),
                 "timer checkpoints around the final map initialization sequence are incomplete");
             Check(!plugin.Contains("OnDestroy(") && !plugin.Contains("OnDisable(") &&
                 !plugin.Contains("OnApplicationQuit("), "forbidden Unity teardown callback found");
-            Check(source.Contains("before = EconomyGridBuildSnapshot.Capture") &&
-                source.Contains("economyGridUpdateHook.Original(state, mode);") &&
-                source.IndexOf("economyGridUpdateHook.Original(state, mode);", StringComparison.Ordinal) >
-                    source.IndexOf("before = EconomyGridBuildSnapshot.Capture", StringComparison.Ordinal),
-                "new pre-call diagnostics can prevent their Vanilla calls");
+            Check(Regex.Matches(source, @"economyGridUpdateHook\.Original\(state, mode\)").Count == 2 &&
+                source.Contains("finally { suppressDominantPclDiagnostics = false; }") &&
+                !source.Contains("before = EconomyGridBuildSnapshot.Capture"),
+                "hot economy-grid updates still perform full diagnostic snapshots or lose the Vanilla call");
+            Check(Regex.Matches(source, @"CaptureRoutingSnapshot\(").Count == 1 &&
+                Regex.Matches(source, @"CaptureNativeTraversalSnapshot\(").Count == 1 &&
+                Regex.Matches(source, @"ObservePortalTopology\(").Count == 1 &&
+                source.Contains("AnalyzeEconomySearchCompact") &&
+                source.Contains("PREPLACED_ECONOMY_SEARCH_COMPACT"),
+                "wall-map hot paths still invoke full routing/traversal diagnostics");
+            Check(source.Contains("mapLoadBuildingIdentities") && source.Contains("mapLoadWallTiles") &&
+                source.Contains("preAivBaselineCaptured") && source.Contains("MatchesStableRecord") &&
+                source.Contains("IsCurrentPreplaced(value.Id)") && source.Contains("IsPortalStructure(value.Type)") &&
+                source.Contains("if (!mapLoadWallTiles.Contains(tileId)) continue;"),
+                "preplaced portal/wall roles are not constrained to the map-load baseline");
+            int baselineCapture = source.IndexOf(
+                "CaptureMapLoadBuildingIdentities(\"first-allocate-spec.pre\")", StringComparison.Ordinal);
+            int allocateOriginal = source.IndexOf(
+                "int result = allocateHook.Original(state, playerId);", StringComparison.Ordinal);
+            Check(baselineCapture >= 0 && allocateOriginal > baselineCapture &&
+                source.Contains("CaptureMapLoadBuildingIdentities(\"map-load.post-fallback\")") &&
+                source.Contains("if (preAivBaselineCaptured) return;") &&
+                source.Contains("preAivBaselineCaptured = false;") &&
+                !source.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Any(line => line.Contains("ObservePhase(") && line.Contains("true")),
+                "pre-AIV baseline is late, overwriteable, not reset, or still emits full phase inventories");
+            Check(!source.Contains("pos=({args.TileX},{args.TileY}) free={args.IsFree}") &&
+                !source.Contains("pos=({args.TileX},{args.TileY}) custom={args.CustomValidationRules}"),
+                "high-frequency placement counters still create one aggregation key per coordinate");
+            Check(!source.Contains("execute.frame={frame}") &&
+                !source.Contains("placement-helper result={result} mapper={(eMappers)mapperValue}{position}") &&
+                !source.Contains("native-validator outcome={outcome} result={result} mapper={(eMappers)mapperValue}{tile}") &&
+                !source.Contains("NativeByte04") && !source.Contains("cache.ChangedCells") &&
+                !source.Contains("Counters.Add(\"construct-building \" + call)") &&
+                source.Contains("construct-building context=") &&
+                source.Contains("economy-overlay helper={overlay.Helper} restored={restored}"),
+                "hot-path aggregates or overlay caching still depend on transient coordinates/frames/Vanilla decay values");
+            Check(source.Contains("confirmed == null || !physicallyConnected") &&
+                source.Contains("confirmed != null &&") &&
+                source.Contains("IsBaselineInteriorConnectedToExterior(baseline)"),
+                "breach activation is not gated by both stable PCL anchors and physical connectivity");
             Check(source.Contains("if (offset != 0x05) signature = Hash") &&
                 !source.Contains("Hash(Hash(1469598103934665603UL, after.Generation)"),
                 "transient search generation/distance still defeats aggregation");
             Check(source.Contains("PREPLACED_LETHAL_DAMAGE") && source.Contains("DescribeDamageAggregate"),
                 "damage logging does not combine compact aggregation with complete lethal evidence");
-            Check(source.Contains("FIRST_ECONOMY_SEARCH_PLAYER_\" + playerId, false"),
+            Check(source.Contains("CaptureAndAnalyzePclTopology(\"FIRST_ECONOMY_SEARCH_PLAYER_\" + playerId)") &&
+                !source.Contains("CaptureRoutingSnapshot(state, \"FIRST_ECONOMY_SEARCH_PLAYER_"),
                 "first economy search still forces a duplicate full routing snapshot");
             Check(source.Contains("before, result != 0") && source.Contains("search.CandidateFound"),
                 "farm result is not used instead of stale shared result coordinates");
@@ -839,11 +982,12 @@ namespace PreplacedTest.Tests
             Check(file.Skip(reachabilityCallRaw).Take(reachabilityCallBlock.Length).SequenceEqual(reachabilityCallBlock) &&
                 0xC3C5D + 5 + BitConverter.ToInt32(file, RvaToRaw(file, 0xC3C5D) + 1) == 0xE2610,
                 "C3BF0 no longer passes mode zero to E2610 with the audited source/target register contract");
-            Check(RvaToRaw(file, 0x50720) == 0x4FB20 && RvaToRaw(file, 0x572B0) == 0x566B0 &&
+            Check(RvaToRaw(file, 0x50720) == 0x4FB20 && RvaToRaw(file, 0x55FE0) == 0x553E0 &&
+                RvaToRaw(file, 0x96E30) == 0x96230 && RvaToRaw(file, 0x572B0) == 0x566B0 &&
                 RvaToRaw(file, 0xD4290) == 0xD3690 && RvaToRaw(file, 0x96CE) == 0x8ACE,
                 "audited code RVA to FileOffset mapping changed");
-            int[] finalSites = { 0x96D2C, 0x96D38, 0x96D49, 0x96D55 };
-            int[] finalTargets = { 0x115830, 0x102C30, 0x50720, 0x2A340 };
+            int[] finalSites = { 0x96D2C, 0x96D38, 0x96D49, 0x96D55, 0x96E30 };
+            int[] finalTargets = { 0x115830, 0x102C30, 0x50720, 0x2A340, 0x55FE0 };
             for (int index = 0; index < finalSites.Length; index++)
             {
                 int raw = RvaToRaw(file, finalSites[index]);
@@ -879,7 +1023,7 @@ namespace PreplacedTest.Tests
                 "chore field-copy memcpy target or function boundary changed");
 
             string functions = File.ReadAllText(Path.Combine("..", "..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x55FE0", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x583A0", "0x58950", "0x58BE0", "0x6D580", "0xE2610", "0x94350" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }
 

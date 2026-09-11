@@ -43,7 +43,13 @@ namespace APIShared
         /// <summary>Selected-swordsman troop HUD image.</summary>
         UIButtonsK007,
         /// <summary>Selected-swordsman troop HUD hover image.</summary>
-        UIButtonsK008
+        UIButtonsK008,
+        /// <summary>Barracks swordsman recruitment image.</summary>
+        UIButtonsO016,
+        /// <summary>Barracks swordsman recruitment hover image.</summary>
+        UIButtonsO017,
+        /// <summary>Barracks swordsman recruitment disabled image.</summary>
+        UIButtonsO018
     }
 
     /// <summary>Immutable RGBA tint used by shared category icons.</summary>

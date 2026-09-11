@@ -2,6 +2,7 @@ using SerpsModsHost;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace SerpsModsHostDuplicateTests
 {
@@ -11,6 +12,7 @@ namespace SerpsModsHostDuplicateTests
         {
             TestScriptExtenderCompatibility();
             TestModInventoryCompatibility();
+            TestPluginLoadDiagnostics();
             string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "runs", Guid.NewGuid().ToString("N"));
             string pluginRoot = Path.Combine(root, "BepInEx", "plugins");
             string expected = Path.Combine(pluginRoot, "SerpsMods_Serp", "Mods", "Test_GUID");
@@ -175,6 +177,62 @@ namespace SerpsModsHostDuplicateTests
             return 0;
         }
 
+        private static void TestPluginLoadDiagnostics()
+        {
+            var apiShared = new PackModRecord
+            {
+                Name = "APIShared",
+                Guid = "APIShared_Serp",
+                Version = "0.3.0"
+            };
+            var child = new PackModRecord
+            {
+                Name = "Bugfixes and QoL",
+                Guid = "BugfixesAndQoL_Serp",
+                Version = "1.0.142"
+            };
+
+            string missingApi = PackPluginDiagnosticMessages.MissingInfrastructure(apiShared);
+            if (!missingApi.Contains("APIShared is missing or was not loaded") ||
+                !missingApi.Contains("APIShared_Serp v0.3.0"))
+            {
+                throw new InvalidOperationException("Missing APIShared diagnostic is not explicit enough.");
+            }
+
+            string childWithoutApi = PackPluginDiagnosticMessages.MissingChild(child, false);
+            if (!childWithoutApi.Contains("Bugfixes and QoL (BugfixesAndQoL_Serp) v1.0.142") ||
+                !childWithoutApi.Contains("APIShared is missing or incompatible"))
+            {
+                throw new InvalidOperationException("Missing child diagnostic does not identify APIShared as a possible cause.");
+            }
+
+            string childWithApi = PackPluginDiagnosticMessages.MissingChild(child, true);
+            if (!childWithApi.Contains("APIShared is loaded") ||
+                childWithApi.Contains("APIShared is missing"))
+            {
+                throw new InvalidOperationException("Missing child diagnostic incorrectly blames an available APIShared.");
+            }
+
+            string oldExtender = PackPluginDiagnosticMessages.MissingChildForScriptExtender(
+                child,
+                "2.3.0",
+                "2.4.0",
+                string.Empty);
+            if (!oldExtender.Contains("installed Script Extender 2.3.0 is too old") ||
+                !oldExtender.Contains("requires version 2.4.0 or newer") ||
+                oldExtender.Contains("APIShared is missing"))
+            {
+                throw new InvalidOperationException("Outdated Script Extender diagnostic is incomplete or misleading.");
+            }
+
+            string wrongApiVersion = PackPluginDiagnosticMessages.InfrastructureVersionMismatch(apiShared, "0.2.1");
+            if (!wrongApiVersion.Contains("loaded APIShared version is incompatible") ||
+                !wrongApiVersion.Contains("expected 0.3.0, actual 0.2.1"))
+            {
+                throw new InvalidOperationException("APIShared version mismatch diagnostic is incomplete.");
+            }
+        }
+
         private static void TestModInventoryCompatibility()
         {
             var host = new List<ModInventoryEntry>
@@ -255,6 +313,84 @@ namespace SerpsModsHostDuplicateTests
             AssertCompatibility(installed, null, newer, ScriptExtenderCompatibilityStatus.Compatible);
             AssertCompatibility(VersionText(1, 44, 1), null, newer, ScriptExtenderCompatibilityStatus.AboveMaximum);
             AssertCompatibility(installed, installed, "latest", ScriptExtenderCompatibilityStatus.InvalidMaximumVersion);
+
+            AssertCompatibilityIssues(
+                installed,
+                0,
+                new ScriptExtenderCompatibilityRequirement
+                {
+                    Name = "Compatible",
+                    MinimumVersion = installed,
+                    MaximumVersion = newer
+                });
+            AssertCompatibilityIssues(
+                installed,
+                1,
+                new ScriptExtenderCompatibilityRequirement
+                {
+                    Name = "Single newer requirement",
+                    MinimumVersion = newer
+                });
+            AssertCompatibilityIssues(
+                installed,
+                2,
+                new ScriptExtenderCompatibilityRequirement
+                {
+                    Name = "Needs newer",
+                    MinimumVersion = newer
+                },
+                new ScriptExtenderCompatibilityRequirement
+                {
+                    Name = "Needs older",
+                    MaximumVersion = VersionText(1, 42, 9)
+                },
+                new ScriptExtenderCompatibilityRequirement
+                {
+                    Name = "Compatible",
+                    MinimumVersion = VersionText(1, 42, 0)
+                });
+            AssertCompatibilityIssues(
+                installed,
+                3,
+                new ScriptExtenderCompatibilityRequirement
+                {
+                    Name = "Invalid minimum",
+                    MinimumVersion = "preview"
+                },
+                new ScriptExtenderCompatibilityRequirement
+                {
+                    Name = "Invalid maximum",
+                    MaximumVersion = "latest"
+                },
+                new ScriptExtenderCompatibilityRequirement
+                {
+                    Name = "Invalid range",
+                    MinimumVersion = newer,
+                    MaximumVersion = installed
+                });
+
+            var manifest = new PackManifest
+            {
+                Infrastructure = new List<PackModRecord>
+                {
+                    new PackModRecord { Name = "Infrastructure", State = "Infrastructure" }
+                },
+                Mods = new List<PackModRecord>
+                {
+                    new PackModRecord { Name = "Active", State = "Active" },
+                    new PackModRecord { Name = "Retired", State = "Retired" },
+                    new PackModRecord { Name = "Case insensitive", State = "active" }
+                }
+            };
+            List<PackModRecord> runtimeRecords = ScriptExtenderCompatibility.SelectRuntimePackRecords(manifest);
+            if (runtimeRecords.Count != 3 ||
+                runtimeRecords.All(record => record.Name != "Infrastructure") ||
+                runtimeRecords.All(record => record.Name != "Active") ||
+                runtimeRecords.All(record => record.Name != "Case insensitive") ||
+                runtimeRecords.Any(record => record.Name == "Retired"))
+            {
+                throw new InvalidOperationException("Runtime compatibility inventory selection is incorrect.");
+            }
         }
 
         private static string VersionText(params int[] parts) => string.Join(".", parts);
@@ -287,6 +423,22 @@ namespace SerpsModsHostDuplicateTests
                 throw new InvalidOperationException(
                     $"Compatibility {installed}/{minimum}/{maximum}: expected {expected}, got {result.Status}.");
             }
+        }
+
+        private static void AssertCompatibilityIssues(
+            string installed,
+            int expectedCount,
+            params ScriptExtenderCompatibilityRequirement[] requirements)
+        {
+            List<ScriptExtenderCompatibilityIssue> issues =
+                ScriptExtenderCompatibility.EvaluateAll(installed, requirements);
+            if (issues.Count != expectedCount)
+            {
+                throw new InvalidOperationException(
+                    $"Expected {expectedCount} Script Extender compatibility issues, got {issues.Count}.");
+            }
+            if (issues.Any(issue => string.IsNullOrWhiteSpace(issue.Requirement.Name)))
+                throw new InvalidOperationException("A compatibility issue lost its component name.");
         }
 
         private static void WriteManifest(string directory, string guid)

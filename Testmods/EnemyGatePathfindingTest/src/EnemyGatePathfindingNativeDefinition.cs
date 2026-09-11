@@ -7,26 +7,27 @@ namespace EnemyGatePathfindingTest
         public const string ReferenceSha256 =
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
 
-        // Resolve both cursor-coordinate globals through their RIP-relative loads.
-        public const int CursorTargetSignatureRva = 0x8F3A8;
-        public const string CursorTargetPattern =
-            "44 8B 0D ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 44 8B 05 ?? ?? ?? ?? 41 8B D6 E8 ?? ?? ?? ?? 85 C0 74 11 44 8B BC 24 C0 00 00 00";
-        public const int CursorTargetYDisplacementOffset = 3;
-        public const int CursorTargetYNextInstructionOffset = 7;
-        public const int CursorTargetXDisplacementOffset = 17;
-        public const int CursorTargetXNextInstructionOffset = 21;
-        public const int CursorTargetXRva = 0x3A11E2C;
-        public const int CursorTargetYRva = 0x3A11E30;
+        // Exact argument-preparation block around the direct cursor call to DB650.
+        // The inline adapter retains the three loads and replaces only this call with
+        // a player-scope wrapper; execution resumes at the original TEST EAX,EAX.
+        public const int DirectCursorSearchBlockRva = 0x8F251;
+        public const int DirectCursorSearchBlockLength = 29;
+        public const int DirectCursorSearchCallRva = 0x8F269;
+        public const int DirectCursorSearchReturnRva = 0x8F26E;
+        public const int DirectTileSearchRva = 0xDB650;
+        private static readonly byte[] DirectCursorSearchBlockBytes =
+        {
+            0x44,0x0F,0xBF,0x84,0x31,0x1E,0x07,0x00,0x00,
+            0x0F,0xBF,0x94,0x31,0x1C,0x07,0x00,0x00,
+            0x48,0x8D,0x0D,0xF7,0xE3,0x01,0x06,
+            0xE8,0xE2,0xC3,0x04,0x00
+        };
 
-        // The cursor callback runs before this relocated integer-only block and may clear
-        // EAX before its TEST/CMOV flow. No XMM/SIMD value is live across the span.
-        public const int CursorPclDecisionRva = 0x8F1C4;
-        public const int CursorPclDecisionHookLength = 14;
-        public const string CursorPclDecisionPattern =
-            "E8 ?? ?? ?? ?? 85 C0 48 8D 3D E3 FB FC 03 B8 01 00 00 00";
-        public const int CursorPclDecisionOffsetInPattern = 5;
+        internal static byte[] GetDirectCursorSearchBlockBytes() =>
+            (byte[])DirectCursorSearchBlockBytes.Clone();
 
         public const int PathDirectionGridRva = 0x51890D0;
+        public const int ActivePlayerIdRva = 0x88E3D70;
         public const int MaximumTileIdExclusive = 320800;
         public const int MapGridWidth = 800;
 
@@ -40,18 +41,20 @@ namespace EnemyGatePathfindingTest
         public const int AttackApproachRva = 0xDBC60;
         public const int BuildingApproachRva = 0xDA020;
         public const int BuildingConsumerRva = 0x123090;
+        public const int AlternateBuildingConsumerRva = 0x1232E0;
         public const int CursorMoveStagerRva = 0x195E30;
+        public const int PlayerAwareCandidateSearchRva = 0xDC3C0;
 
         // The final four hooks begin at the direction-bit producer immediately before
         // the documented DB650 DirectionGrid tests (DB860/DB950/DBA3F/DBB2F).
         internal static readonly int[] DirectionFilterRvas =
         {
             0xD9EA6, 0xDA783, 0xDACB2, 0xDB242, 0xF31A8, 0xF33F5,
-            0xDB857, 0xDB947, 0xDBA36, 0xDBB26
+            0xDB857, 0xDB947, 0xDBA36, 0xDBB26, 0xDC536
         };
         internal static readonly int[] DirectionFilterLengths =
         {
-            14, 18, 18, 17, 15, 14, 17, 17, 17, 17
+            14, 18, 18, 17, 15, 14, 17, 17, 17, 17, 16
         };
         private static readonly byte[][] DirectionFilterBytes =
         {
@@ -64,7 +67,10 @@ namespace EnemyGatePathfindingTest
             new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x20,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 },
             new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x21,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 },
             new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x22,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 },
-            new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x23,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 }
+            new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x23,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 },
+            // DC3C0 loads the current tile's direction byte through R12, then scales
+            // its direction-table index. Both instructions form RedBird's 16-byte span.
+            new byte[] { 0x43,0x0F,0xB6,0x8C,0x0C,0xD0,0x90,0x18,0x05,0x8D,0x34,0xF5,0x00,0x00,0x00,0x00 }
         };
 
         internal static byte[] GetDirectionFilterBytes(int index)
@@ -121,11 +127,6 @@ namespace EnemyGatePathfindingTest
 
         internal static void ValidateNativeHookContracts(ReadOnlySpan<byte> memory)
         {
-            ValidateBytes(memory, CursorPclDecisionRva,
-                new byte[] { 0x85, 0xC0, 0x48, 0x8D, 0x3D, 0xE3, 0xFB, 0xFC,
-                    0x03, 0xB8, 0x01, 0x00, 0x00, 0x00 },
-                "cursor PCL decision block");
-
             ValidateBytes(memory, PclGraphPredecessorJumpRva,
                 new byte[] { 0x74, 0x16, 0x49, 0x63, 0x49, 0xF4, 0x48, 0x69,
                     0xD1, 0x2C, 0x03, 0x00, 0x00, 0x66, 0x83, 0xBC, 0x02, 0xD2,
@@ -167,6 +168,13 @@ namespace EnemyGatePathfindingTest
         internal static void ValidateSamePclNativeFilterContracts(ReadOnlySpan<byte> memory)
         {
             ValidateSamePclBuilderContract(memory);
+            ValidateBytes(memory, DirectCursorSearchBlockRva,
+                DirectCursorSearchBlockBytes, "direct cursor DB650 call block");
+            if (DirectCursorSearchBlockRva + DirectCursorSearchBlockLength !=
+                    DirectCursorSearchReturnRva ||
+                DirectCursorSearchCallRva != DirectCursorSearchBlockRva + 24 ||
+                DirectCursorSearchBlockBytes.Length != DirectCursorSearchBlockLength)
+                throw new InvalidOperationException("Direct cursor call-site boundaries are inconsistent.");
             ValidateBytes(memory, AttackApproachRva,
                 new byte[] { 0x44,0x89,0x4C,0x24,0x20,0x53,0x56,0x41,0x54,0x41,0x55,0x41,0x56,0x48 },
                 "attack-approach function entry");
@@ -176,9 +184,15 @@ namespace EnemyGatePathfindingTest
             ValidateBytes(memory, BuildingConsumerRva,
                 new byte[] { 0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xEC },
                 "building-candidate consumer entry");
+            ValidateBytes(memory, AlternateBuildingConsumerRva,
+                new byte[] { 0x48,0x89,0x5C,0x24,0x08,0x57,0x48,0x83,0xEC,0x40,0x48,0x63,0xC2,0x48 },
+                "alternate building-candidate consumer entry");
             ValidateBytes(memory, CursorMoveStagerRva,
                 new byte[] { 0x48,0x89,0x5C,0x24,0x10,0x48,0x89,0x6C,0x24,0x18,0x48,0x89,0x74,0x24 },
                 "cursor move-stager entry");
+            ValidateBytes(memory, PlayerAwareCandidateSearchRva,
+                new byte[] { 0x48,0x89,0x5C,0x24,0x20,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56 },
+                "player-aware candidate-search entry");
             if (DirectionFilterRvas.Length != DirectionFilterLengths.Length ||
                 DirectionFilterRvas.Length != DirectionFilterBytes.Length)
                 throw new InvalidOperationException("Direction-filter contract tables differ in length.");

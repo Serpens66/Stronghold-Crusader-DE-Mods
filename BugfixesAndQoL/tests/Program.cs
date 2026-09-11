@@ -48,6 +48,7 @@ namespace BugfixesAndQoL
             TestTemporaryGateBlockageIntegration();
             TestMapFileManagerContract();
             TestClassicMapSizeReader();
+            TestLobbyMapSelectionMemory();
             TestNativeContracts();
             if (failures == 0)
             {
@@ -364,6 +365,147 @@ namespace BugfixesAndQoL
                 Check(
                     ClassicMapSizeReader.TryRead(samplePath, out int sampleSize) && sampleSize == 400,
                     "Brother's Strife exposes its HD map size through section 1050");
+            }
+        }
+
+        private static void TestLobbyMapSelectionMemory()
+        {
+            Check(
+                LobbyMapSelectionPolicy.IsFeatureEnabled(true, true) &&
+                !LobbyMapSelectionPolicy.IsFeatureEnabled(false, true) &&
+                !LobbyMapSelectionPolicy.IsFeatureEnabled(true, false),
+                "lobby map memory is gated by the existing enhancement setting");
+
+            int[] validColumns = { 0, 1, 2, 3, 4, 5, 10, 11, 12, 13, 14, 15, 16 };
+            foreach (int column in validColumns)
+            {
+                Check(
+                    LobbyMapSelectionPolicy.IsValidSortColumn(column),
+                    $"lobby map memory accepts sort column {column}");
+            }
+            Check(
+                !LobbyMapSelectionPolicy.IsValidSortColumn(-1) &&
+                !LobbyMapSelectionPolicy.IsValidSortColumn(6) &&
+                !LobbyMapSelectionPolicy.IsValidSortColumn(9) &&
+                !LobbyMapSelectionPolicy.IsValidSortColumn(17),
+                "lobby map memory rejects unsupported sort columns");
+
+            Check(
+                LobbyMapSelectionPolicy.HasMapAuthority(true, false, false) &&
+                LobbyMapSelectionPolicy.HasMapAuthority(false, true, true) &&
+                !LobbyMapSelectionPolicy.HasMapAuthority(false, true, false) &&
+                !LobbyMapSelectionPolicy.HasMapAuthority(false, false, false),
+                "lobby map memory grants map authority only to local modes and multiplayer hosts");
+
+            var remembered = new LobbyMapIdentity
+            {
+                Origin = LobbyMapSelectionPolicy.UserOrigin,
+                FilePath = @"C:\Maps\Remembered.map",
+                FileName = "Remembered",
+            };
+            object exact = new object();
+            object sameNameElsewhere = new object();
+            var candidates = new[]
+            {
+                new LobbyMapCandidate(
+                    LobbyMapSelectionPolicy.UserOrigin,
+                    @"C:\Other\Remembered.map",
+                    "Remembered",
+                    sameNameElsewhere),
+                new LobbyMapCandidate(
+                    LobbyMapSelectionPolicy.UserOrigin,
+                    @"C:\Maps\Remembered.map",
+                    "Remembered",
+                    exact),
+            };
+            Check(
+                ReferenceEquals(LobbyMapSelectionPolicy.FindMatch(remembered, candidates), exact),
+                "lobby map memory prefers the exact origin and path match");
+
+            remembered.FilePath = @"D:\Moved\Remembered.map";
+            Check(
+                LobbyMapSelectionPolicy.FindMatch(remembered, candidates) == null,
+                "lobby map memory rejects an ambiguous origin and name fallback");
+            Check(
+                ReferenceEquals(
+                    LobbyMapSelectionPolicy.FindMatch(remembered, new[] { candidates[0] }),
+                    sameNameElsewhere),
+                "lobby map memory accepts one unambiguous origin and name fallback");
+
+            var snapshot = new LobbyMapSelectionSnapshot
+            {
+                SortColumn = 16,
+                SortAscending = false,
+                Map = new LobbyMapIdentity
+                {
+                    Origin = LobbyMapSelectionPolicy.WorkshopOrigin,
+                    FilePath = @"C:\Workshop\Example.map",
+                    FileName = "Example",
+                },
+            };
+            string json = LobbyMapSelectionCodec.Serialize(snapshot);
+            Check(
+                LobbyMapSelectionCodec.TryDeserialize(
+                    json,
+                    out LobbyMapSelectionSnapshot decoded,
+                    out _) &&
+                decoded.SortColumn == 16 &&
+                !decoded.SortAscending &&
+                decoded.Map?.Origin == LobbyMapSelectionPolicy.WorkshopOrigin &&
+                decoded.Map?.FileName == "Example",
+                "lobby map memory JSON roundtrip preserves map and special player sort mode");
+            Check(
+                !LobbyMapSelectionCodec.TryDeserialize(
+                    "{\"version\":1,\"sort\":{\"column\":7,\"ascending\":true}}",
+                    out _,
+                    out _),
+                "lobby map memory rejects invalid persisted sort data");
+            Check(
+                !LobbyMapSelectionCodec.TryDeserialize(
+                    "{\"version\":2,\"sort\":{\"column\":0,\"ascending\":true}}",
+                    out _,
+                    out _) &&
+                !LobbyMapSelectionCodec.TryDeserialize(
+                    "{\"version\":1.0,\"sort\":{\"column\":0,\"ascending\":true}}",
+                    out _,
+                    out _),
+                "lobby map memory rejects unknown schemas and non-integral schema values");
+
+            string directory = Path.Combine(
+                Path.GetTempPath(),
+                "BugfixesAndQoL-LobbyMapMemory-" + Guid.NewGuid().ToString("N"));
+            string storePath = Path.Combine(directory, "LobbyMapSelectionMemory.json");
+            try
+            {
+                var store = new LobbyMapSelectionStore(null, storePath);
+                store.RememberSort(snapshot.SortColumn, snapshot.SortAscending);
+                store.RememberMap(snapshot.Map);
+                LobbyMapSelectionSnapshot persisted =
+                    new LobbyMapSelectionStore(null, storePath).Current;
+                Check(
+                    persisted.SortColumn == snapshot.SortColumn &&
+                    persisted.SortAscending == snapshot.SortAscending &&
+                    persisted.Map?.FileName == snapshot.Map.FileName,
+                    "lobby map memory store persists state atomically across instances");
+
+                File.WriteAllText(storePath, "not json");
+                LobbyMapSelectionSnapshot malformed =
+                    new LobbyMapSelectionStore(null, storePath).Current;
+                Check(
+                    malformed.SortColumn == 0 && malformed.SortAscending && malformed.Map == null,
+                    "lobby map memory store ignores malformed data");
+
+                File.WriteAllBytes(storePath, new byte[64 * 1024 + 1]);
+                LobbyMapSelectionSnapshot oversized =
+                    new LobbyMapSelectionStore(null, storePath).Current;
+                Check(
+                    oversized.SortColumn == 0 && oversized.SortAscending && oversized.Map == null,
+                    "lobby map memory store ignores oversized data");
+            }
+            finally
+            {
+                if (Directory.Exists(directory))
+                    Directory.Delete(directory, recursive: true);
             }
         }
 

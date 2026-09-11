@@ -13,7 +13,7 @@ namespace SkinTest
         private const string ScriptExtenderGuid = "000shcdese";
         private const string ScriptExtenderVersion = "2.3.0";
         private const string ApiSharedGuid = "APIShared_Serp";
-        private const string ApiSharedVersion = "0.2.0";
+        private const string ApiSharedVersion = "0.3.1";
         public const string PluginGuid = "SkinTest_Serp";
         public const string PluginName = "SkinTest";
         public const string PluginVersion = "0.1.0";

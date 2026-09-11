@@ -195,6 +195,14 @@ public static class SerpLocalization
     public const string SerpsModsScriptExtenderRangeWarning = "SerpsModsHost.ScriptExtenderRangeWarning";
     public const string SerpsModsScriptExtenderMinimumWarning = "SerpsModsHost.ScriptExtenderMinimumWarning";
     public const string SerpsModsScriptExtenderCheckFailed = "SerpsModsHost.ScriptExtenderCheckFailed";
+    public const string SerpsModsScriptExtenderIssuesHeader = "SerpsModsHost.ScriptExtenderIssuesHeader";
+    public const string SerpsModsScriptExtenderComponentMinimum = "SerpsModsHost.ScriptExtenderComponentMinimum";
+    public const string SerpsModsScriptExtenderComponentMaximum = "SerpsModsHost.ScriptExtenderComponentMaximum";
+    public const string SerpsModsScriptExtenderComponentRange = "SerpsModsHost.ScriptExtenderComponentRange";
+    public const string SerpsModsScriptExtenderInvalidMinimum = "SerpsModsHost.ScriptExtenderInvalidMinimum";
+    public const string SerpsModsScriptExtenderInvalidMaximum = "SerpsModsHost.ScriptExtenderInvalidMaximum";
+    public const string SerpsModsScriptExtenderInvalidRange = "SerpsModsHost.ScriptExtenderInvalidRange";
+    public const string SerpsModsScriptExtenderComponentCheckFailed = "SerpsModsHost.ScriptExtenderComponentCheckFailed";
     public const string SerpsModsLobbyHashMismatch = "SerpsModsHost.LobbyHashMismatch";
     public const string SerpsModsLobbyHostOnly = "SerpsModsHost.LobbyHostOnly";
     public const string SerpsModsLobbyClientOnly = "SerpsModsHost.LobbyClientOnly";
@@ -273,6 +281,14 @@ public static class SerpLocalization
         { SerpsModsScriptExtenderRangeWarning, "WARNING: Script Extender {Installed} is not supported by this Serps Mods version. Install a Script Extender version between {Minimum} and {Maximum} (inclusive) to make sure all mods work correctly." },
         { SerpsModsScriptExtenderMinimumWarning, "WARNING: Script Extender {Installed} is not supported by this Serps Mods version. Install Script Extender {Minimum} or newer to make sure all mods work correctly." },
         { SerpsModsScriptExtenderCheckFailed, "WARNING: Script Extender compatibility could not be verified. Make sure a supported Script Extender version is installed. Reason: {Reason}" },
+        { SerpsModsScriptExtenderIssuesHeader, "WARNING: Script Extender {Installed} is incompatible with or could not be verified for these Serps Mods components:" },
+        { SerpsModsScriptExtenderComponentMinimum, "- {Name}: requires Script Extender {Minimum} or newer." },
+        { SerpsModsScriptExtenderComponentMaximum, "- {Name}: requires Script Extender {Maximum} or older." },
+        { SerpsModsScriptExtenderComponentRange, "- {Name}: supports Script Extender {Minimum} through {Maximum} (inclusive)." },
+        { SerpsModsScriptExtenderInvalidMinimum, "- {Name}: has an invalid minimum Script Extender version '{Minimum}'." },
+        { SerpsModsScriptExtenderInvalidMaximum, "- {Name}: has an invalid maximum Script Extender version '{Maximum}'." },
+        { SerpsModsScriptExtenderInvalidRange, "- {Name}: declares the invalid Script Extender range {Minimum} through {Maximum}." },
+        { SerpsModsScriptExtenderComponentCheckFailed, "- {Name}: compatibility metadata could not be read. Reason: {Reason}" },
         { SerpsModsLobbyHashMismatch, "ERROR: The installed mods of {Player} differ from lobby host {Host} ({Player}: {PlayerHash}, {Host}: {HostHash})." },
         { SerpsModsLobbyHostOnly, "Host only" },
         { SerpsModsLobbyClientOnly, "Only {Player}" },

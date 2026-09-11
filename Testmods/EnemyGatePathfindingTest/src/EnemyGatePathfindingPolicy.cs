@@ -40,15 +40,6 @@ namespace EnemyGatePathfindingTest
         NOT_APPLICABLE
     }
 
-    internal enum CausalRouteDecision
-    {
-        Reachable,
-        ForcedDetour,
-        TargetBlocked,
-        PolicyBlocked,
-        VanillaNoRoute
-    }
-
     internal enum CaptureTransitionKind
     {
         None,
@@ -312,29 +303,6 @@ namespace EnemyGatePathfindingTest
         internal static DiagnosticVerdict IntegrityVerdict(bool observed, bool failed) => failed
             ? DiagnosticVerdict.FAIL
             : observed ? DiagnosticVerdict.PASS : DiagnosticVerdict.NOT_OBSERVED;
-
-        internal static CausalRouteDecision ClassifyCausalRoute(
-            bool unrestrictedReachable,
-            int unrestrictedDistance,
-            bool filteredReachable,
-            int filteredDistance,
-            bool targetBlocked,
-            int blockedEncounters)
-        {
-            // The native cursor result was positive. If our read-only model cannot
-            // reproduce that baseline, it is not evidence that a gate caused failure.
-            if (!unrestrictedReachable)
-                return CausalRouteDecision.VanillaNoRoute;
-            if (targetBlocked)
-                return CausalRouteDecision.TargetBlocked;
-            if (!filteredReachable)
-                return blockedEncounters > 0
-                    ? CausalRouteDecision.PolicyBlocked
-                    : CausalRouteDecision.VanillaNoRoute;
-            return filteredDistance > unrestrictedDistance
-                ? CausalRouteDecision.ForcedDetour
-                : CausalRouteDecision.Reachable;
-        }
 
         internal static CaptureTransitionKind ClassifyCaptureTransition(
             bool previousValid,
