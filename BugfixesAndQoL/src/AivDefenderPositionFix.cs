@@ -1,9 +1,12 @@
-// Feature: Restore AIV defender positions that Vanilla excludes for three troop rows.
+// Feature: Restore defender positions excluded from game-provided AIV sets for three troop rows.
 //
 // CrusaderDE.dll SHA-256 FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
-// c_game_aiv_prepare_layout at RVA 0x53D00 skips rows 9, 11, and 18 through the
-// six-byte JB at RVA 0x5472A. Removing only that branch lets the existing native
-// loader process Pikeman, European Swordsman, and Arabian Swordsman positions.
+// c_game_aiv_prepare_layout at RVA 0x53D00 first uses the short JNE at RVA 0x5471F
+// to send custom != 0 AIVs directly to normal row decoding. For custom == 0 AIVs,
+// the six-byte JB at RVA 0x5472A still skips rows 9, 11, and 18. Removing only that
+// final branch preserves Vanilla DE's existing custom-AIV bypass while allowing the
+// game-provided Standard, Community, and Historical sets to decode Pikeman,
+// European Swordsman, and Arabian Swordsman positions as well.
 using BepInEx.Logging;
 using RedBird.Core.Memory;
 using System;
@@ -13,7 +16,7 @@ namespace BugfixesAndQoL
 {
     internal sealed class AivDefenderPositionFix : IDisposable
     {
-        private const string ContextPattern =
+        private const string AivDefenderPositionContextPattern =
             "42 83 BC 93 3C 40 8D 00 00 C7 01 00 00 00 00 75 " +
             "0F 83 F8 12 77 0A 41 0F A3 C3 0F 82 9D 03 00 00";
         private const int ReferencePatternRva = 0x54710;
@@ -49,7 +52,7 @@ namespace BugfixesAndQoL
             // The exact hash, unique full context, and fixed RVA are independent guards.
             int patternRva = Shared.NativePatternResolver.FindUniquePattern(
                 memory,
-                ContextPattern,
+                AivDefenderPositionContextPattern,
                 "AIV defender-position exclusion branch");
             if (patternRva != ReferencePatternRva)
             {

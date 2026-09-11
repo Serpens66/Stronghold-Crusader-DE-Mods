@@ -487,7 +487,7 @@ namespace APIShared
             this.ownership = ownership ?? throw new ArgumentNullException(nameof(ownership));
             this.mutationSync = mutationSync ?? throw new ArgumentNullException(nameof(mutationSync));
             this.log = log;
-            VerifyExpected();
+            VerifyInitialLayoutAndOwnedValues();
         }
 
         public IGatehouseTimingCapability Bind(string ownerGuid) => new OwnerCapability(this, ownerGuid);
@@ -545,7 +545,7 @@ namespace APIShared
 
                 try
                 {
-                    VerifyExpected();
+                    VerifyOwnedValues();
                     if (aiDistance == expectedAiDistance && aiDelay == expectedAiDelay &&
                         humanDistance == expectedHumanDistance && humanDelay == expectedHumanDelay)
                     {
@@ -557,7 +557,7 @@ namespace APIShared
                     expectedAiDelay = aiDelay;
                     expectedHumanDistance = humanDistance;
                     expectedHumanDelay = humanDelay;
-                    VerifyExpected();
+                    VerifyOwnedValues();
                     string values = FormatValues(aiDistance, aiDelay, humanDistance, humanDelay);
                     diagnostic = Diagnostic(NativeCapabilityState.Available, "Gatehouse timing values were applied and verified: " + values);
                     NativeApiLog.Info(log, $"capability={NativeCapabilityIds.GatehouseTiming}, build={binaryHash}, owner={ownerGuid}, enabled={settings.Enabled}, status=applied, {values}");
@@ -581,7 +581,7 @@ namespace APIShared
             GatehouseNativeMutation.Execute(
                 memory,
                 target.Intervals,
-                VerifyExpected,
+                VerifyOwnedValues,
                 () =>
                 {
                     memory.WriteInt32(target.AiDistance, aiDistance);
@@ -606,14 +606,28 @@ namespace APIShared
                 });
         }
 
-        private void VerifyExpected()
+        private void VerifyInitialLayoutAndOwnedValues()
         {
             foreach (NativeByteInvariant invariant in target.InstructionInvariants)
             {
                 byte actual = memory.ReadByte(invariant.Address);
                 if (actual != invariant.Value)
-                    throw new InvalidOperationException($"Gatehouse instruction byte changed unexpectedly at target offset: expected=0x{invariant.Value:X2}, actual=0x{actual:X2}.");
+                    throw new NativeResolutionException(
+                        NativeCapabilityState.ValidationFailed,
+                        $"Gatehouse instruction byte changed unexpectedly at target offset: expected=0x{invariant.Value:X2}, actual=0x{actual:X2}.");
             }
+            try
+            {
+                VerifyOwnedValues();
+            }
+            catch (InvalidOperationException ex)
+            {
+                throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, ex.Message);
+            }
+        }
+
+        private void VerifyOwnedValues()
+        {
             Verify(target.AiDistance, expectedAiDistance, "AI distance");
             Verify(target.AiDelay, expectedAiDelay, "AI delay");
             Verify(target.HumanDistance, expectedHumanDistance, "human distance");

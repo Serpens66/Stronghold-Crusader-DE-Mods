@@ -50,6 +50,7 @@ internal static class Program
             ["AivResourceShortageReturnPattern"] = 0x51842,
             ["AivFirstBuildSuccessPattern"] = 0x5216D,
             ["AivPlacementRetryPattern"] = 0x5217A,
+            ["AivDefenderPositionContextPattern"] = 0x54710,
             ["SleepStateComparisonPattern"] = 0xC7DCB,
             ["SleepStateSynchronizationFunctionPattern"] = 0xC7D50,
             ["EmergencyDemolitionComparisonPattern"] = 0x2F454,
@@ -134,6 +135,7 @@ internal static class Program
             CheckMountedStockpilePolicy();
             CheckFunctions(pe.Image);
             CheckProductionPatterns(workspace, pe);
+            CheckAivDefenderPositionContract(workspace, pe.Image);
             CheckCriticalSpans(pe.Image);
             CheckHealerAttackCommandContracts(pe.Image);
             CheckLordControlGroupContracts(pe.Image);
@@ -396,6 +398,48 @@ internal static class Program
                 $"ordinary troop type {ordinaryType} uses Vanilla movement class one");
         CheckBytes(image, 0x8F121, "81 E5 00 01 00 10", "cursor IsWall-or-IsElevated mask");
         CheckBytes(image, 0x195ED1, "41 81 E5 00 01 00 10", "command IsWall-or-IsElevated mask");
+    }
+
+    private static void CheckAivDefenderPositionContract(string workspace, byte[] image)
+    {
+        const int contextRva = 0x54710;
+        const int customBypassOffset = 15;
+        const int rejectJumpOffset = 26;
+        const int normalDecodeRva = 0x54730;
+        const int rejectedRowRva = 0x54ACD;
+
+        CheckBytes(image, contextRva,
+            "42 83 BC 93 3C 40 8D 00 00 C7 01 00 00 00 00 75 " +
+            "0F 83 F8 12 77 0A 41 0F A3 C3 0F 82 9D 03 00 00",
+            "AIV defender-position full custom/default context");
+
+        int customBypassRva = contextRva + customBypassOffset;
+        Check(image[customBypassRva] == 0x75, "AIV custom-path bypass uses short JNE");
+        sbyte customDisplacement = unchecked((sbyte)image[customBypassRva + 1]);
+        Check(customBypassRva + 2 + customDisplacement == normalDecodeRva,
+            "AIV custom-path bypass reaches normal row decoding");
+
+        int rejectJumpRva = contextRva + rejectJumpOffset;
+        CheckRelativeConditionalJump(
+            image,
+            rejectJumpRva,
+            0x82,
+            rejectedRowRva,
+            "AIV custom=0 row-9/11/18 rejection target");
+
+        string source = File.ReadAllText(Path.Combine(
+            workspace,
+            "BugfixesAndQoL",
+            "src",
+            "AivDefenderPositionFix.cs"));
+        Check(source.Contains("private const int RejectJumpOffset = 26;") &&
+              source.Contains("private const int ReferenceRejectJumpRva = 0x5472A;"),
+            "AIV production patch selects only the final six-byte rejection jump");
+        Check(source.Contains("{ 0x0F, 0x82, 0x9D, 0x03, 0x00, 0x00 }") &&
+              source.Contains("{ 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 }") &&
+              Regex.Matches(source, @"CodePatch\.Write\(patchAddress,").Count == 2 &&
+              !Regex.IsMatch(source, @"CodePatch\.Write\((?!patchAddress,)"),
+            "AIV production patch replaces only the audited JB with six NOPs");
     }
 
     private static void CheckHealerAttackCommandContracts(byte[] image)

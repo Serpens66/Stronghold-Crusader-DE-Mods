@@ -50,7 +50,7 @@ The game can interpret the unusable `customisedExtremeTrail` value in a `.trail`
 Vanilla can assign every newly recruited defender to the outer patrol after that patrol has first reached its target, even when later losses leave the AI short of wall defenders. This enabled-by-default host fix makes future defensive recruits refill the configured wall-defense count before the outer patrol grows again. It keeps Vanilla's existing assignment helpers and does not change units that were already assigned.
 
 ### Restore ignored AIV defender positions
-Vanilla skips the defensive positions stored in an AIV for Pikemen, European Swordsmen, and Arabian Swordsmen. This enabled-by-default host fix removes only that exclusion, allowing the existing AI defense logic to use those positions like every other supported troop row.
+Vanilla DE already reads these positions from user-supplied `.aivjson` files, including new AIVs for Extended Lords. Its `custom = 0` import path still skips the defensive positions in the game-provided Standard, Community, and Historical AIV sets for Pikemen, European Swordsmen, and Arabian Swordsmen. This enabled-by-default host fix removes only that remaining exclusion, allowing the existing AI defense logic to use those positions like every other supported troop row without changing the already-correct custom-AIV path.
 
 ### Improve AI wall targeting
 Vanilla reserves each reachable wall segment for only one attacker at a time, which can leave the rest of an AI attack force idle until additional targets become accessible. This enabled-by-default host fix allows multiple AI attackers to target the same reachable wall segment simultaneously. It works independently of the game's official Improved Sieging options.

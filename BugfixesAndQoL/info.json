@@ -89,7 +89,7 @@
     {
       "Version": "1.0.127",
       "Changes": [
-        "Added an enabled-by-default host fix that restores AIV defender positions for Pikemen, European Swordsmen, and Arabian Swordsmen that Vanilla incorrectly ignores."
+        "Added an enabled-by-default host fix that restores defender positions for Pikemen, European Swordsmen, and Arabian Swordsmen in game-provided Standard, Community, and Historical AIV sets; user-supplied and Extended-Lord AIVs are already handled correctly by Vanilla DE and remain functionally unchanged."
       ]
     },
     {

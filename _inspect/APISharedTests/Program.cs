@@ -466,6 +466,14 @@ namespace APISharedTests
             Assert(memory.WriteCount == 0,
                 "initialization and capability acquisition must not activate either gatehouse gameplay change");
 
+            FakeMemory preHookedMemory = SeedRuntimeMemory(image, catalog);
+            preHookedMemory.SetByte(ModuleBase + catalog.HumanReopenDelayRva + 4, 0xFF);
+            runtime = InitializeRuntime(image, catalog, preHookedMemory);
+            AssertTimingValidationFailure(runtime,
+                "an adjacent hook present before APIShared initialization must fail the one-time live layout validation");
+            Assert(runtime.TryGetGatehouseDistanceOrigin("owner", out _, out _),
+                "a timing-only live layout mismatch must not disable distance origin");
+
             byte[] wrongHashImage = (byte[])image.Clone();
             var wrongHashCatalog = CloneCatalog(catalog, functionHash: new string('0', 64));
             runtime = InitializeRuntime(wrongHashImage, wrongHashCatalog, SeedRuntimeMemory(wrongHashImage, wrongHashCatalog));
@@ -702,11 +710,12 @@ namespace APISharedTests
             Assert(!capability.TryApply(rounded, out NativeCapabilityDiagnostic changed) &&
                 changed.State == NativeCapabilityState.ValidationFailed, "external immediate mutation fails closed");
             memory.Set(ModuleBase + 0xB7BC3, 200);
-            memory.SetByte(ModuleBase + 0xB7BC0, 0x90);
-            Assert(!capability.TryApply(rounded, out changed) && changed.State == NativeCapabilityState.ValidationFailed,
-                "external opcode mutation fails closed before writing");
+            memory.SetByte(ModuleBase + 0xB7C39, 0xFF);
+            Assert(capability.TryApply(rounded, out changed),
+                "an adjacent hook beginning immediately after the owned human-delay immediate must remain compatible");
+            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 41 && memory.ReadRaw(ModuleBase + 0xB7C35) == 1,
+                "an adjacent hook must not prevent all four owned timing values from being applied and verified");
 
-            memory.SetByte(ModuleBase + 0xB7BC0, 0x41);
             memory.SetByte(ModuleBase + 0xB7B70, 0x90);
             Assert(capability.TryApply(rounded, out changed),
                 "timing capability ignores mutations outside its owned intervals");
