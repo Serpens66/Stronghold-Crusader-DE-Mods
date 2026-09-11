@@ -86,17 +86,7 @@ namespace EnemyGatePathfindingTest
             BridgeId != 0 ? BridgeId : bridgeId);
     }
 
-    internal readonly struct RoutePclCorrelation
-    {
-        internal RoutePclCorrelation(bool found, int sourcePcl, int targetPcl, long result)
-        { Found = found; SourcePcl = sourcePcl; TargetPcl = targetPcl; Result = result; }
-        internal bool Found { get; }
-        internal int SourcePcl { get; }
-        internal int TargetPcl { get; }
-        internal long Result { get; }
-    }
-
-    internal sealed unsafe class TileRouteDiagnostics
+    internal sealed unsafe class CursorGateRouteFilter
     {
         private static readonly long SummaryInterval = Stopwatch.Frequency * 10L;
         private static readonly long UnitRefreshInterval = Math.Max(1, Stopwatch.Frequency / 4);
@@ -142,7 +132,7 @@ namespace EnemyGatePathfindingTest
         private long cursorFailOpen;
         private long callbackErrors;
 
-        internal TileRouteDiagnostics(
+        internal CursorGateRouteFilter(
             ManualLogSource log,
             ReadOnlySpan<byte> memory,
             ScanRegion region,
@@ -177,8 +167,21 @@ namespace EnemyGatePathfindingTest
             if (cursorRva != EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva)
                 throw new InvalidOperationException("cursor PCL decision resolved outside its audited RVA");
 
+            using (var probe = new X64InlineHook(
+                libraryBase + unchecked((ulong)cursorRva),
+                EnemyGatePathfindingNativeDefinition.CursorPclDecisionHookLength))
+            {
+                if (probe.DisplacedByteCount !=
+                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionHookLength)
+                {
+                    throw new InvalidOperationException(
+                        "Unexpected RedBird cursor PCL decision span before installation.");
+                }
+            }
+
             // RedBird at this exact site:
             // AfterCallback executes the managed callback before relocating TEST/LEA/MOV.
+            // This audited integer-only span has no live XMM/SIMD state.
             cursorTransaction = new HookTransaction(
                 region,
                 SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
@@ -202,11 +205,19 @@ namespace EnemyGatePathfindingTest
             if (!commitResult.IsCompleteSuccess || !cursorHook.Success)
                 throw new InvalidOperationException(
                     $"read-only cursor PCL decision hook was not installed: {commitResult}");
+            if (cursorHook.Hook.DisplacedByteCount !=
+                EnemyGatePathfindingNativeDefinition.CursorPclDecisionHookLength)
+            {
+                cursorTransaction.DisableAll();
+                throw new InvalidOperationException(
+                    "RedBird committed an unexpected cursor PCL decision span; the hook was rolled back.");
+            }
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe cursor route hook installed: " +
                 $"cursorPclDecision=0x{cursorRva:X} ({cursor.Method}+0x" +
                 $"{EnemyGatePathfindingNativeDefinition.CursorPclDecisionOffsetInPattern:X}), " +
+                $"displaced={cursorHook.Hook.DisplacedByteCount}, " +
                 $"readOnlyDirectionGrid=0x{EnemyGatePathfindingNativeDefinition.PathDirectionGridRva:X}. " +
                 "No builder/planner detour and no Direction-Grid writer exists in this build.");
         }
@@ -505,3 +516,4 @@ namespace EnemyGatePathfindingTest
         }
     }
 }
+

@@ -9,35 +9,6 @@ namespace EnemyGatePathfindingTest
         internal int Y { get; }
     }
 
-    internal readonly struct QueryCorrelationCandidate
-    {
-        internal QueryCorrelationCandidate(
-            long timestamp,
-            int playerId,
-            int cursorX,
-            int cursorY,
-            int sourcePcl,
-            int targetPcl,
-            long result)
-        {
-            Timestamp = timestamp;
-            PlayerId = playerId;
-            CursorX = cursorX;
-            CursorY = cursorY;
-            SourcePcl = sourcePcl;
-            TargetPcl = targetPcl;
-            Result = result;
-        }
-
-        internal long Timestamp { get; }
-        internal int PlayerId { get; }
-        internal int CursorX { get; }
-        internal int CursorY { get; }
-        internal int SourcePcl { get; }
-        internal int TargetPcl { get; }
-        internal long Result { get; }
-    }
-
     internal enum CapturedGateFilterDecision
     {
         PreserveVanilla,
@@ -105,17 +76,8 @@ namespace EnemyGatePathfindingTest
             return (record.UnrelatedPlayers & playerBit) != 0
                 ? CapturedGateFilterDecision.ExcludeForeignCapture
                 : CapturedGateFilterDecision.PreserveVanilla;
-        }
     }
-
-    internal enum NativeQueryOrigin
-    {
-        Unavailable,
-        HumanCursorOrCommandValidation,
-        CommonUnitPathBuilder,
-        OtherNativeCaller
-    }
-
+}
     internal enum TopologyDiagnosticDisposition
     {
         Accepted,
@@ -131,9 +93,6 @@ namespace EnemyGatePathfindingTest
 
     internal static class EnemyGatePathfindingPolicy
     {
-        private static readonly int[] DirectionX = { 0, 1, 1, 1, 0, -1, -1, -1 };
-        private static readonly int[] DirectionY = { -1, -1, 0, 1, 1, 1, 0, -1 };
-
         // UPDATE REVIEW (CrusaderDE.dll): the direction-bit order is tied to the
         // eight native neighbor vectors and must be revalidated after a DLL update.
         internal static bool IsBidirectionalEdgeOpen(
@@ -147,12 +106,6 @@ namespace EnemyGatePathfindingTest
             return (sourceDirectionBits & (1 << direction)) != 0 &&
                 (targetDirectionBits & (1 << opposite)) != 0;
         }
-
-        internal const int NeedsInitAliveState = 1;
-        internal const int IsAliveAliveState = 2;
-
-        internal static bool IsDiagnosticBuildingActive(int aliveState) =>
-            aliveState == NeedsInitAliveState || aliveState == IsAliveAliveState;
 
         internal static TopologyDiagnosticDisposition ClassifyTopologyCandidate(
             bool bridgeActive,
@@ -204,23 +157,6 @@ namespace EnemyGatePathfindingTest
                 : CapturedGateFilterDecision.ExcludeForeignCapture;
         }
 
-        internal static NativeQueryOrigin ClassifyCallerRva(ulong callerRva)
-        {
-            if (callerRva == 0)
-                return NativeQueryOrigin.Unavailable;
-            if (callerRva >= EnemyGatePathfindingNativeDefinition.HumanCursorCommandStartRva &&
-                callerRva < EnemyGatePathfindingNativeDefinition.HumanCursorCommandEndRva)
-            {
-                return NativeQueryOrigin.HumanCursorOrCommandValidation;
-            }
-            if (callerRva >= EnemyGatePathfindingNativeDefinition.CommonPathBuilderStartRva &&
-                callerRva < EnemyGatePathfindingNativeDefinition.CommonPathBuilderEndRva)
-            {
-                return NativeQueryOrigin.CommonUnitPathBuilder;
-            }
-            return NativeQueryOrigin.OtherNativeCaller;
-        }
-
         internal static bool IsUnrelatedGateCombination(
             int queryPlayerId,
             int ownerPlayerId,
@@ -237,44 +173,6 @@ namespace EnemyGatePathfindingTest
                 return true;
             return isValidPlayer(capturedByPlayerId) &&
                 !isAllied(queryPlayerId, capturedByPlayerId);
-        }
-
-        internal static bool ShouldQueueDeferredDiagnostic(
-            int sourcePcl, int targetPcl, long result, int filterRecordCount) =>
-            sourcePcl == targetPcl || result == 0 || filterRecordCount > 0;
-
-        internal static bool IsTopologyRelevantToQuery(
-            int sourcePcl,
-            int targetPcl,
-            int entryPcl,
-            int exitPcl,
-            int[] footprintAndBorderPcls)
-        {
-            if (sourcePcl == targetPcl)
-            {
-                return ContainsPcl(footprintAndBorderPcls, sourcePcl);
-            }
-
-            // Editor NeedsInit gates can precede their authoritative gatehouse-array
-            // entry. Their footprint is useful for diagnosis, but never for a fix.
-            if (entryPcl < 0 || exitPcl < 0)
-                return ContainsPcl(footprintAndBorderPcls, sourcePcl) ||
-                    ContainsPcl(footprintAndBorderPcls, targetPcl);
-
-            return (entryPcl == sourcePcl && exitPcl == targetPcl) ||
-                (entryPcl == targetPcl && exitPcl == sourcePcl);
-        }
-
-        private static bool ContainsPcl(int[] values, int value)
-        {
-            if (values == null)
-                return false;
-            for (int index = 0; index < values.Length; index++)
-            {
-                if (values[index] == value)
-                    return true;
-            }
-            return false;
         }
 
         internal static int CalculateRectangleDistance(
@@ -295,44 +193,6 @@ namespace EnemyGatePathfindingTest
                 : secondEndY < firstBeginY ? firstBeginY - secondEndY : 0;
             return Math.Max(dx, dy);
         }
-
-        internal static int FindNearestPrecedingCorrelation(
-            QueryCorrelationCandidate[] candidates,
-            int count,
-            long commandTimestamp,
-            long maximumAge,
-            int playerId,
-            int targetX,
-            int targetY,
-            int targetPcl)
-        {
-            if (candidates == null || count <= 0 || maximumAge < 0)
-                return -1;
-
-            int boundedCount = Math.Min(count, candidates.Length);
-            int bestIndex = -1;
-            long bestAge = long.MaxValue;
-            for (int index = 0; index < boundedCount; index++)
-            {
-                QueryCorrelationCandidate candidate = candidates[index];
-                long age = commandTimestamp - candidate.Timestamp;
-                if (age < 0 || age > maximumAge || age >= bestAge ||
-                    candidate.PlayerId != playerId ||
-                    candidate.CursorX != targetX || candidate.CursorY != targetY ||
-                    candidate.SourcePcl != candidate.TargetPcl || candidate.Result == 0 ||
-                    candidate.TargetPcl != targetPcl)
-                {
-                    continue;
-                }
-
-                bestIndex = index;
-                bestAge = age;
-            }
-            return bestIndex;
-        }
-
-        internal static long CalculateUnknownRoleCount(long total, long human, long ai) =>
-            Math.Max(0, total - Math.Max(0, human) - Math.Max(0, ai));
 
         internal static bool AreFootprintsCardinallyAdjacent(
             RouteTilePoint[] first,
@@ -373,51 +233,5 @@ namespace EnemyGatePathfindingTest
             return match;
         }
 
-        internal static bool TrySelectPackedRouteDecoding(
-            byte[] packedDirections,
-            int pathLength,
-            int startX,
-            int startY,
-            int targetX,
-            int targetY,
-            out bool beginAtTarget,
-            out bool invertDirections)
-        {
-            beginAtTarget = false;
-            invertDirections = false;
-            if (packedDirections == null || pathLength <= 0 ||
-                pathLength > EnemyGatePathfindingNativeDefinition.MaximumDecodedPathLength ||
-                packedDirections.Length < (pathLength + 1) / 2)
-                return false;
-
-            for (int variant = 0; variant < 4; variant++)
-            {
-                bool fromTarget = (variant & 2) != 0;
-                bool invert = (variant & 1) != 0;
-                int x = fromTarget ? targetX : startX;
-                int y = fromTarget ? targetY : startY;
-                for (int step = 0; step < pathLength; step++)
-                {
-                    int direction = (packedDirections[step >> 1] >> ((step & 1) * 4)) & 0x0F;
-                    if (direction > 7)
-                        return false;
-                    int sign = invert ? -1 : 1;
-                    x += DirectionX[direction] * sign;
-                    y += DirectionY[direction] * sign;
-                    if (x < 0 || x >= EnemyGatePathfindingNativeDefinition.MapGridWidth ||
-                        y < 0 || y >= EnemyGatePathfindingNativeDefinition.MapGridWidth)
-                        break;
-                }
-                int expectedX = fromTarget ? startX : targetX;
-                int expectedY = fromTarget ? startY : targetY;
-                if (x == expectedX && y == expectedY)
-                {
-                    beginAtTarget = fromTarget;
-                    invertDirections = invert;
-                    return true;
-                }
-            }
-            return false;
-        }
     }
 }

@@ -18,22 +18,14 @@ namespace EnemyGatePathfindingTest
                 CaptureAndRecaptureApplyImmediately();
                 InvalidStateFailsOpen();
                 ImmutableGateSnapshotIsAllianceAwareAndFailOpen();
-                CallerRangesCoverHumanCursorAndCommonPathBuilder();
                 NativeContractIncludesDrawbridgePclAndExactFilterSite();
                 CapturerHooksCoverBothNativeSitesAtomically();
                 SamePclCandidatePolicyIsFailOpenAndAllianceAware();
-                DiagnosticNativeContractIsPinned();
-                DeferredDiagnosticQueuePolicyIsSelective();
-                TopologyQueryMatchingDistinguishesGateAndBridgeCases();
                 RectangleDistanceSupportsSpatialBridgeDiagnosis();
-                DiagnosticBuildingStatesAreEditorSafe();
+                NativeHookByteContractsRejectMutation();
                 TopologyRejectionClassificationIsDeterministic();
-                MoveCorrelationUsesNearestMatchingPredecessor();
-                MoveCorrelationRejectsMismatchesAndExpiredQueries();
-                MoveRoleAccountingAlwaysBalances();
                 FootprintAdjacencyIgnoresBrokenEditorBounds();
                 UniqueSpatialGateAssociationFailsOpenWhenAmbiguous();
-                PackedRouteDecodingValidatesEndpointAndLimits();
                 DirectionEdgesRequireBothNativeDirections();
                 TileRouteNativeContractIsPinned();
                 NativeRouteHotPathsRemainPrimitiveOnly();
@@ -122,40 +114,63 @@ namespace EnemyGatePathfindingTest
                 "next snapshot preserves Vanilla for an uncaptured enemy gate");
         }
 
-        private static void CallerRangesCoverHumanCursorAndCommonPathBuilder()
-        {
-            Assert(
-                EnemyGatePathfindingPolicy.ClassifyCallerRva(0x8D632) ==
-                    NativeQueryOrigin.HumanCursorOrCommandValidation,
-                "known human cursor return address classified");
-            Assert(
-                EnemyGatePathfindingPolicy.ClassifyCallerRva(0x196528) ==
-                    NativeQueryOrigin.CommonUnitPathBuilder,
-                "known common path-builder return address classified");
-            Assert(
-                EnemyGatePathfindingPolicy.ClassifyCallerRva(0x123456) ==
-                    NativeQueryOrigin.OtherNativeCaller,
-                "unclassified native caller retained");
-            Assert(
-                EnemyGatePathfindingPolicy.ClassifyCallerRva(0) == NativeQueryOrigin.Unavailable,
-                "missing stack attribution classified");
-        }
-
         private static void NativeContractIncludesDrawbridgePclAndExactFilterSite()
         {
             Assert(EnemyGatePathfindingNativeDefinition.NativeRecordStride == 0x204, "record stride");
             Assert(EnemyGatePathfindingNativeDefinition.RecordFirstPclOffset == -0x1E8, "first PCL");
             Assert(EnemyGatePathfindingNativeDefinition.RecordSecondPclOffset == -0x1E4, "second PCL");
             Assert(EnemyGatePathfindingNativeDefinition.RecordThirdPclOffset == -0x34, "drawbridge PCL");
-            Assert(EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareRva == 0xE2710,
+            Assert(EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterRva == 0xE2705,
                 "PCL-graph filter RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.PclGraphCapturedByCompareHookLength == 9,
+            Assert(EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterHookLength == 20,
                 "PCL-graph filter span");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareRva == 0xE302F,
+            Assert(EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterEndRva == 0xE2719,
+                "PCL-graph exclusive end");
+            Assert(EnemyGatePathfindingNativeDefinition.PclGraphAllowedRecordTargetRva == 0xE271B,
+                "PCL-graph branch target is outside the span");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterRva == 0xE3024,
                 "builder-precheck filter RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByCompareHookLength == 9,
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterHookLength == 20,
                 "builder-precheck filter span");
-            Assert(EnemyGatePathfindingNativeDefinition.AuditedDirectCallerCount == 84, "caller inventory");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterEndRva == 0xE3038,
+                "builder-precheck exclusive end");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderPrecheckAllowedRecordTargetRva == 0xE303A,
+                "builder-precheck branch target is outside the span");
+        }
+
+        private static void NativeHookByteContractsRejectMutation()
+        {
+            var memory = new byte[EnemyGatePathfindingNativeDefinition.BuilderPrecheckAllowedRecordTargetRva + 2];
+            WriteBytes(memory, EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
+                "85 C0 48 8D 3D E3 FB FC 03 B8 01 00 00 00");
+            WriteBytes(memory, EnemyGatePathfindingNativeDefinition.PclGraphPredecessorJumpRva,
+                "74 16 49 63 49 F4 48 69 D1 2C 03 00 00 66 83 BC 02 D2 CE 4C 06 00 74 11 FF C3");
+            WriteBytes(memory, EnemyGatePathfindingNativeDefinition.BuilderPrecheckPredecessorJumpRva,
+                "74 16 49 63 49 F4 48 69 D1 2C 03 00 00 66 42 39 84 2A D2 CE 4C 06 74 0D FF C3");
+
+            EnemyGatePathfindingNativeDefinition.ValidateNativeHookContracts(memory);
+            int pclMutation = EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterRva + 3;
+            memory[pclMutation] ^= 1;
+            AssertNativeContractRejected(memory, "mutated PCL-graph block fails closed");
+            memory[pclMutation] ^= 1;
+
+            int builderMutation = EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterRva + 15;
+            memory[builderMutation] ^= 1;
+            AssertNativeContractRejected(memory, "mutated builder-precheck block fails closed");
+        }
+
+        private static void AssertNativeContractRejected(byte[] memory, string message)
+        {
+            bool rejected = false;
+            try
+            {
+                EnemyGatePathfindingNativeDefinition.ValidateNativeHookContracts(memory);
+            }
+            catch (InvalidOperationException)
+            {
+                rejected = true;
+            }
+            Assert(rejected, message);
         }
 
         private static void CapturerHooksCoverBothNativeSitesAtomically()
@@ -191,6 +206,15 @@ namespace EnemyGatePathfindingTest
                 "transaction commit result is checked");
             Assert(runtimeSource.IndexOf("new ContextHookOptions", StringComparison.Ordinal) >= 0,
                 "context hook options are explicit");
+            Assert(runtimeSource.IndexOf("Placement = OverwrittenInstructionPlacement.BeforeCallback",
+                    StringComparison.Ordinal) >= 0,
+                "displaced comparisons execute before callbacks");
+            Assert(runtimeSource.IndexOf("ProbeExactHookLength", StringComparison.Ordinal) >= 0,
+                "RedBird spans are probed before publication");
+            Assert(runtimeSource.IndexOf("DisplacedByteCount", StringComparison.Ordinal) >= 0,
+                "committed RedBird spans are checked");
+            Assert(runtimeSource.IndexOf("transaction.DisableAll()", StringComparison.Ordinal) >= 0,
+                "unexpected committed spans roll back before publication");
         }
 
         private static void SamePclCandidatePolicyIsFailOpenAndAllianceAware()
@@ -211,58 +235,6 @@ namespace EnemyGatePathfindingTest
                 "invalid owner fails open");
         }
 
-        private static void DiagnosticNativeContractIsPinned()
-        {
-            Assert(EnemyGatePathfindingNativeDefinition.MoveHereRva == 0x196280, "MoveHere RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.CursorTargetSignatureRva == 0x8F3A8,
-                "cursor signature RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.CursorTargetXRva == 0x3A11E2C,
-                "cursor X RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.CursorTargetYRva == 0x3A11E30,
-                "cursor Y RVA");
-        }
-
-        private static void DeferredDiagnosticQueuePolicyIsSelective()
-        {
-            Assert(EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 7, 1, 0),
-                "Same-PCL query is deferred");
-            Assert(EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 8, 1, 1),
-                "capturer-filter query is deferred");
-            Assert(EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 8, 0, 0),
-                "negative different-PCL query is deferred for blocked-cursor diagnosis");
-            Assert(!EnemyGatePathfindingPolicy.ShouldQueueDeferredDiagnostic(7, 8, 1, 0),
-                "ordinary different-PCL query stays counter-only");
-        }
-
-        private static void TopologyQueryMatchingDistinguishesGateAndBridgeCases()
-        {
-            int[] footprintPcls = { 11, 12, 13 };
-            Assert(EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
-                12, 12, 20, 21, footprintPcls),
-                "Same-PCL bridge or gate footprint is relevant");
-            Assert(!EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
-                14, 14, 20, 21, footprintPcls),
-                "unrelated Same-PCL query is ignored");
-            Assert(EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
-                20, 21, 20, 21, footprintPcls),
-                "forward gate entry/exit query is relevant");
-            Assert(EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
-                21, 20, 20, 21, footprintPcls),
-                "reverse gate entry/exit query is relevant");
-            Assert(!EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
-                20, 22, 20, 21, footprintPcls),
-                "different unrelated PCL pair is ignored");
-            Assert(EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
-                12, 22, -1, -1, footprintPcls),
-                "NeedsInit gate fallback associates a touching source PCL");
-            Assert(!EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
-                14, 22, -1, -1, footprintPcls),
-                "NeedsInit gate fallback ignores an unrelated PCL pair");
-            Assert(!EnemyGatePathfindingPolicy.IsTopologyRelevantToQuery(
-                12, 12, 20, 21, null),
-                "missing footprint data fails open");
-        }
-
         private static void RectangleDistanceSupportsSpatialBridgeDiagnosis()
         {
             Assert(EnemyGatePathfindingPolicy.CalculateRectangleDistance(
@@ -274,20 +246,6 @@ namespace EnemyGatePathfindingTest
             Assert(EnemyGatePathfindingPolicy.CalculateRectangleDistance(
                 1, 1, 3, 3, 8, 9, 10, 11) == 6,
                 "Chebyshev rectangle distance uses the farther axis");
-        }
-
-        private static void DiagnosticBuildingStatesAreEditorSafe()
-        {
-            Assert(EnemyGatePathfindingPolicy.IsDiagnosticBuildingActive(1),
-                "NeedsInit is active for editor diagnostics");
-            Assert(EnemyGatePathfindingPolicy.IsDiagnosticBuildingActive(2),
-                "IsAlive is active for diagnostics");
-            Assert(!EnemyGatePathfindingPolicy.IsDiagnosticBuildingActive(0),
-                "empty building state is inactive");
-            Assert(!EnemyGatePathfindingPolicy.IsDiagnosticBuildingActive(3),
-                "marked-for-deletion building is inactive");
-            Assert(!EnemyGatePathfindingPolicy.IsDiagnosticBuildingActive(6),
-                "paused or unknown building state is inactive");
         }
 
         private static void TopologyRejectionClassificationIsDeterministic()
@@ -312,43 +270,6 @@ namespace EnemyGatePathfindingTest
                 true, true, true, true, true, true, true, true, true, false);
             AssertTopology(TopologyDiagnosticDisposition.Accepted,
                 true, true, true, true, true, true, true, true, true, true);
-        }
-
-        private static void MoveCorrelationUsesNearestMatchingPredecessor()
-        {
-            var candidates = new[]
-            {
-                new QueryCorrelationCandidate(100, 2, 400, 401, 7, 7, 1),
-                new QueryCorrelationCandidate(180, 2, 400, 401, 7, 7, 1),
-                new QueryCorrelationCandidate(190, 2, 400, 401, 8, 8, 1)
-            };
-            Assert(EnemyGatePathfindingPolicy.FindNearestPrecedingCorrelation(
-                    candidates, candidates.Length, 200, 150, 2, 400, 401, 7) == 1,
-                "nearest matching preceding query is selected");
-        }
-
-        private static void MoveCorrelationRejectsMismatchesAndExpiredQueries()
-        {
-            AssertNoCorrelation(new QueryCorrelationCandidate(10, 2, 400, 401, 7, 7, 1),
-                200, 100, 2, 400, 401, 7, "expired query");
-            AssertNoCorrelation(new QueryCorrelationCandidate(100, 3, 400, 401, 7, 7, 1),
-                200, 150, 2, 400, 401, 7, "different player");
-            AssertNoCorrelation(new QueryCorrelationCandidate(100, 2, 402, 401, 7, 7, 1),
-                200, 150, 2, 400, 401, 7, "different coordinates");
-            AssertNoCorrelation(new QueryCorrelationCandidate(100, 2, 400, 401, 7, 8, 1),
-                200, 150, 2, 400, 401, 8, "different source and target PCL");
-            AssertNoCorrelation(new QueryCorrelationCandidate(100, 2, 400, 401, 7, 7, 0),
-                200, 150, 2, 400, 401, 7, "negative PCL result");
-            AssertNoCorrelation(new QueryCorrelationCandidate(100, 2, 400, 401, 7, 7, 1),
-                90, 150, 2, 400, 401, 7, "future query");
-        }
-
-        private static void MoveRoleAccountingAlwaysBalances()
-        {
-            Assert(EnemyGatePathfindingPolicy.CalculateUnknownRoleCount(13, 8, 3) == 2,
-                "unclassified MoveHere calls remain unknown");
-            Assert(EnemyGatePathfindingPolicy.CalculateUnknownRoleCount(2, 4, 1) == 0,
-                "role accounting never becomes negative");
         }
 
         private static void FootprintAdjacencyIgnoresBrokenEditorBounds()
@@ -384,23 +305,6 @@ namespace EnemyGatePathfindingTest
                 "no eligible adjacent candidate fails open");
         }
 
-        private static void PackedRouteDecodingValidatesEndpointAndLimits()
-        {
-            Assert(EnemyGatePathfindingPolicy.TrySelectPackedRouteDecoding(
-                    new byte[] { 0x22 }, 2, 10, 10, 12, 10,
-                    out bool fromTarget, out bool invert) && !fromTarget && !invert,
-                "low nibble then high nibble decode an eastward route");
-            Assert(!EnemyGatePathfindingPolicy.TrySelectPackedRouteDecoding(
-                    new byte[] { 0x08 }, 1, 10, 10, 11, 10, out _, out _),
-                "invalid direction nibble is rejected");
-            Assert(!EnemyGatePathfindingPolicy.TrySelectPackedRouteDecoding(
-                    new byte[] { 0x22 }, 3, 10, 10, 13, 10, out _, out _),
-                "short packed buffer is rejected");
-            Assert(!EnemyGatePathfindingPolicy.TrySelectPackedRouteDecoding(
-                    new byte[1001], 2001, 10, 10, 10, 10, out _, out _),
-                "path length above native limit is rejected");
-        }
-
         private static void DirectionEdgesRequireBothNativeDirections()
         {
             Assert(EnemyGatePathfindingPolicy.IsBidirectionalEdgeOpen(0x04, 0x40, 2),
@@ -417,72 +321,21 @@ namespace EnemyGatePathfindingTest
 
         private static void TileRouteNativeContractIsPinned()
         {
-            Assert(EnemyGatePathfindingNativeDefinition.CentralMovementPlanRva == 0x18E1E0,
-                "central planner RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.MainPathBuilderRva == 0xF4930,
-                "main builder RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.AlternatePathBuilderRva == 0xE32B0,
-                "alternate builder RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.CursorReachabilityRva == 0xE9FF0,
-                "cursor reachability RVA");
             Assert(EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva == 0x8F1C4,
                 "ordinary cursor PCL decision RVA");
             Assert(EnemyGatePathfindingNativeDefinition.CursorPclDecisionHookLength == 14,
                 "ordinary cursor PCL decision span");
             Assert(EnemyGatePathfindingNativeDefinition.PathDirectionGridRva == 0x51890D0,
                 "native direction grid RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.CommandPclDecisionRva == 0x11B75A,
-                "shared command PCL decision RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.CommandPclDecisionHookLength == 14,
-                "shared command PCL decision audited span");
-            Assert(EnemyGatePathfindingNativeDefinition.PathDirectionBufferOffset == 0x155F60,
-                "path direction buffer offset");
-            Assert(EnemyGatePathfindingNativeDefinition.PathLengthOffset == 0x155F68,
-                "path length offset");
-            Assert(EnemyGatePathfindingNativeDefinition.MaximumDecodedPathLength == 2000,
-                "native path length limit");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantF32B0Rva == 0xF32B0,
-                "builder search F32B0");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantF3060Rva == 0xF3060,
-                "builder search F3060");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantDA590Rva == 0xDA590,
-                "builder search DA590");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantDAAC0Rva == 0xDAAC0,
-                "builder search DAAC0");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantD9C40Rva == 0xD9C40,
-                "builder search D9C40");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderSearchVariantDAFD0Rva == 0xDAFD0,
-                "builder search DAFD0");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderConditionalPostSearchDB650Rva == 0xDB650,
-                "conditional builder post-search DB650");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderRouteReconstructionE1640Rva == 0xE1640,
-                "builder route reconstruction E1640");
-            Assert(EnemyGatePathfindingNativeDefinition.BuilderDistanceHelper79C0Rva == 0x79C0,
-                "builder distance helper 79C0");
-            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadF32B0Rva == 0xF33F5,
-                "F32B0 direction-grid read");
-            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadF3060Rva == 0xF31A8,
-                "F3060 direction-grid read");
-            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadD9C40Rva == 0xD9EA6,
-                "D9C40 direction-grid read");
-            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadDA590Rva == 0xDA783,
-                "DA590 direction-grid read");
-            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadDAAC0Rva == 0xDACB2,
-                "DAAC0 direction-grid read");
-            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadDAFD0Rva == 0xDB242,
-                "DAFD0 direction-grid read");
-            Assert(EnemyGatePathfindingNativeDefinition.DirectionTestDB650FirstRva == 0xDB860 &&
-                EnemyGatePathfindingNativeDefinition.DirectionTestDB650SecondRva == 0xDB950 &&
-                EnemyGatePathfindingNativeDefinition.DirectionTestDB650ThirdRva == 0xDBA3F &&
-                EnemyGatePathfindingNativeDefinition.DirectionTestDB650FourthRva == 0xDBB2F,
-                "DB650 unrolled direction-grid tests");
-            Assert(EnemyGatePathfindingNativeDefinition.DirectionReadE1640Rva == 0xE1777,
-                "E1640 direction-grid read");
+            Assert(EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive == 320800,
+                "native tile-grid capacity");
+            Assert(EnemyGatePathfindingNativeDefinition.MapGridWidth == 800,
+                "native tile-grid width");
         }
 
         private static void NativeRouteHotPathsRemainPrimitiveOnly()
         {
-            string tileSource = File.ReadAllText(Path.Combine("src", "TileRouteDiagnostics.cs"));
+            string tileSource = File.ReadAllText(Path.Combine("src", "CursorGateRouteFilter.cs"));
             string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             string[] forbidden =
             {
@@ -513,7 +366,7 @@ namespace EnemyGatePathfindingTest
 
         private static void UnsafeGlobalMutationAndWholePclDetourAreAbsent()
         {
-            string tileSource = File.ReadAllText(Path.Combine("src", "TileRouteDiagnostics.cs"));
+            string tileSource = File.ReadAllText(Path.Combine("src", "CursorGateRouteFilter.cs"));
             string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             Assert(tileSource.IndexOf("ApplyOverlay", StringComparison.Ordinal) < 0,
                 "global Direction-Grid overlay is absent");
@@ -527,6 +380,13 @@ namespace EnemyGatePathfindingTest
                 "whole PCL function detour delegate is absent");
             Assert(runtimeSource.IndexOf("AddDetour", StringComparison.Ordinal) < 0,
                 "whole PCL function detour installation is absent");
+        }
+
+        private static void WriteBytes(byte[] destination, int offset, string hexadecimal)
+        {
+            string[] bytes = hexadecimal.Split(' ');
+            for (int index = 0; index < bytes.Length; index++)
+                destination[offset + index] = Convert.ToByte(bytes[index], 16);
         }
 
         private static string ExtractMethodBody(string source, string methodName)
@@ -557,16 +417,6 @@ namespace EnemyGatePathfindingTest
                     bridgeActive, bridgeGlobal, gateId, gateActive, gateGlobal,
                     entry, entryMatches, doors, reread, footprint) == expected,
                 "topology disposition " + expected);
-        }
-
-        private static void AssertNoCorrelation(QueryCorrelationCandidate candidate,
-            long commandTimestamp, long maximumAge, int player, int x, int y,
-            int pcl, string message)
-        {
-            Assert(EnemyGatePathfindingPolicy.FindNearestPrecedingCorrelation(
-                    new[] { candidate }, 1, commandTimestamp, maximumAge,
-                    player, x, y, pcl) == -1,
-                message + " does not correlate");
         }
 
         private static void AssertDecision(

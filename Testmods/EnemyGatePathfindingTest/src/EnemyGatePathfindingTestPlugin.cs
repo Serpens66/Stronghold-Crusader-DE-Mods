@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace EnemyGatePathfindingTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.5.0")]
     // Load after the hook owner when it exists, so PluginInfos can suppress
     // our overlapping observational route hooks while keeping the PCL hook active.
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -120,8 +120,8 @@ namespace EnemyGatePathfindingTest
         {
             try
             {
-                // UPDATE REVIEW (Script Extender): this identity check deliberately warns
-                // after any rebuild/update so every API/layout marker is re-audited.
+                // Official builds do not embed the Git commit in their informational
+                // version, so the assembly version is the enforceable runtime identity.
                 Assembly assembly = typeof(CrusaderLibrary).Assembly;
                 string informational = assembly
                     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
@@ -130,20 +130,18 @@ namespace EnemyGatePathfindingTest
                 string fileVersion = string.IsNullOrEmpty(location)
                     ? "unknown"
                     : FileVersionInfo.GetVersionInfo(location).FileVersion;
-                bool auditedCommit = informational.IndexOf(
-                    EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit,
-                    StringComparison.OrdinalIgnoreCase) >= 0;
+                bool auditedVersion = assembly.GetName().Version == new Version(2, 5, 0, 0);
                 Shared.DebugLogHelper.LogInfo(
                     persistentLog,
                     $"Script Extender identity: manifestVersionRange=true, " +
                     $"auditedCommit={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit}, " +
                     $"assembly={assembly.FullName}, fileVersion={fileVersion}, informationalVersion={informational}, " +
-                    $"auditedCommitMatch={auditedCommit}.");
-                if (!auditedCommit)
+                    $"auditedVersionMatch={auditedVersion}.");
+                if (!auditedVersion)
                 {
                     Shared.DebugLogHelper.LogWarning(
                         persistentLog,
-                        "Script Extender differs from the audited commit. Review every UPDATE REVIEW marker before accepting test results.");
+                        "Script Extender differs from audited version 2.5.0. Review native and API contracts before accepting test results.");
                 }
             }
             catch (Exception ex)

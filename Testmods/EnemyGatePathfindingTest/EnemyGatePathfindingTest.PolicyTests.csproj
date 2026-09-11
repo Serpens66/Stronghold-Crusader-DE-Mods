@@ -13,10 +13,20 @@
     <OutputPath>tests\bin\</OutputPath>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''">
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == ''">
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
+  <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />
+  </Target>
   <ItemGroup>
     <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs"><Link>EnemyGatePathfindingNativeDefinition.cs</Link></Compile>
     <Compile Include="src\EnemyGatePathfindingPolicy.cs"><Link>EnemyGatePathfindingPolicy.cs</Link></Compile>
