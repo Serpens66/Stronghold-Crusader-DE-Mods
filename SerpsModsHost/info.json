@@ -1,110 +1,110 @@
 {
-  "GUID": "SerpsMods_Serp",
-  "Author": "Serpens66",
-  "Name": "Serps Mods - Fully Customizable Collection",
-  "Description": "All included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit",
-  "Version": "1.0.11",
-  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
-  "MinimumScriptExtenderVersion": "2.3.0",
-  "MaximumScriptExtenderVersion": "",
-  "Manifest": 1,
-  "NetworkMode": 1,
-  "SerpChangelog": [
-    {
-      "Version": "1.0.11",
-      "Changes": [
-        "Separated validated APIShared infrastructure from activatable mods in the Workshop manifest."
-      ]
-    },
-    {
-      "Version": "1.0.10",
-      "Changes": [
-        "Preserves the static lobby inventory publisher for the full process lifetime."
-      ]
-    },
-    {
-      "Version": "1.1.2",
-      "Changes": [
-        "Added a Mod Settings notice explaining how to enable mods for trails, Sand of Time, and campaigns."
-      ]
-    },
-    {
-      "Version": "1.0.10",
-      "Changes": [
-        "Fixed the host package manifest version mismatch."
-      ]
-    },
-    {
-      "Version": "1.0.9",
-      "Changes": [
-        "Adjusted to Script Extender 2.3.0."
-      ]
-    },
-    {
-      "Version": "1.0.8",
-      "Changes": [
-        "Updated the mod for Script Extender 2.2.0."
-      ]
-    },
-    {
-      "Version": "1.0.7",
-      "Changes": [
-        "Updated unified Steam Workshop package contents."
-      ]
-    },
-    {
-      "Version": "1.1.1",
-      "Changes": [
-        "Ignore the Script Extender's known 1.0.0 placeholder when resolving its installed version and warn on genuinely conflicting version evidence."
-      ]
-    },
-    {
-      "Version": "1.1.0",
-      "Changes": [
-        "Check the installed Script Extender version against the supported range declared in info.json and show a prominent Mod Settings warning when it is incompatible."
-      ]
-    },
-    {
-      "Version": "1.0.6",
-      "Changes": [
-        "Add the global Mod Settings search with mod and tooltip filters plus safe handoff to supported local setting and section filters."
-      ]
-    },
-    {
-      "Version": "1.0.5",
-      "Changes": [
-        "Updated unified Steam Workshop package contents."
-      ]
-    },
-    {
-      "Version": "1.0.4",
-      "Changes": [
-        "fix game localization"
-      ]
-    },
-    {
-      "Version": "1.0.3",
-      "Changes": [
-        "Tooltip size test."
-      ]
-    },
-    {
-      "Version": "1.0.2",
-      "Changes": [
-        "Warns in lobby chat when a joining player's Script Extender mod hash differs from the host."
-      ]
-    },
-    {
-      "Version": "1.0.1",
-      "Changes": [
-        "Explicitly opts the diagnostic host settings out of CustomCustomTrail discovery."
-      ]
-    },
-    {
-      "Version": "1.0.0",
-      "Changes": [
-        "Initial unified Steam Workshop mod-pack host."
-      ]
-    }
-  ]
+    "GUID":  "SerpsMods_Serp",
+    "Author":  "Serpens66",
+    "Name":  "Serps Mods - Fully Customizable Collection",
+    "Description":  "All included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit",
+    "Version":  "1.0.10",
+    "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
+    "MinimumScriptExtenderVersion":  "2.3.0",
+    "MaximumScriptExtenderVersion":  "",
+    "Manifest":  1,
+    "NetworkMode":  1,
+    "SerpChangelog":  [
+                          {
+                              "Version":  "1.0.11",
+                              "Changes":  [
+                                              "Separated validated APIShared infrastructure from activatable mods in the Workshop manifest."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.10",
+                              "Changes":  [
+                                              "Preserves the static lobby inventory publisher for the full process lifetime."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.1.2",
+                              "Changes":  [
+                                              "Added a Mod Settings notice explaining how to enable mods for trails, Sand of Time, and campaigns."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.10",
+                              "Changes":  [
+                                              "Fixed the host package manifest version mismatch."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.9",
+                              "Changes":  [
+                                              "Adjusted to Script Extender 2.3.0."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.8",
+                              "Changes":  [
+                                              "Updated the mod for Script Extender 2.2.0."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.7",
+                              "Changes":  [
+                                              "Updated unified Steam Workshop package contents."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.1.1",
+                              "Changes":  [
+                                              "Ignore the Script Extender\u0027s known 1.0.0 placeholder when resolving its installed version and warn on genuinely conflicting version evidence."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.1.0",
+                              "Changes":  [
+                                              "Check the installed Script Extender version against the supported range declared in info.json and show a prominent Mod Settings warning when it is incompatible."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.6",
+                              "Changes":  [
+                                              "Add the global Mod Settings search with mod and tooltip filters plus safe handoff to supported local setting and section filters."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.5",
+                              "Changes":  [
+                                              "Updated unified Steam Workshop package contents."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.4",
+                              "Changes":  [
+                                              "fix game localization"
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.3",
+                              "Changes":  [
+                                              "Tooltip size test."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.2",
+                              "Changes":  [
+                                              "Warns in lobby chat when a joining player\u0027s Script Extender mod hash differs from the host."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.1",
+                              "Changes":  [
+                                              "Explicitly opts the diagnostic host settings out of CustomCustomTrail discovery."
+                                          ]
+                          },
+                          {
+                              "Version":  "1.0.0",
+                              "Changes":  [
+                                              "Initial unified Steam Workshop mod-pack host."
+                                          ]
+                          }
+                      ]
 }
