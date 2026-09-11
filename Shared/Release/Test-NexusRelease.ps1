@@ -143,6 +143,32 @@ Assert-True ($createBody.file_category -ceq 'main' -and -not $createBody.primary
 $createdVersions = @([PSCustomObject]@{ id='version-1'; version='1.2.3'; category='main'; position='1'; is_primary=$false })
 Assert-True (Test-NexusModFileVersionState -ModFile $existingBundle -Versions $createdVersions -ExpectedName $createTarget.NexusFileName -ExpectedVersion '1.2.3' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId 'bundle') 'Neu erstellte Dateikette muss exakt verifiziert werden.'
 Assert-True (-not (Test-NexusModFileVersionState -ModFile $existingBundle -Versions $createdVersions -ExpectedName $createTarget.NexusFileName -ExpectedVersion '1.2.3' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId 'other')) 'Abweichende Datei-ID muss die Wiederholungspruefung blockieren.'
+$observedBundle = [PSCustomObject]@{ id='7948587'; name='Bugfixes and QoL - APIShared Bundle'; is_active=$true }
+$observedVersions = @([PSCustomObject]@{ id='34183644709611'; version='1.0.142'; category='main'; position='1.0'; is_primary=$false })
+Assert-True (Test-NexusModFileVersionState -ModFile $observedBundle -Versions $observedVersions -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587') 'Der beobachtete Nexus-Bundlezustand muss akzeptiert werden.'
+
+$wrongName = Get-NexusModFileVersionStateDiagnostic -ModFile ([PSCustomObject]@{ id='7948587'; name='Wrong bundle' }) -Versions $observedVersions -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587'
+$wrongVersion = Get-NexusModFileVersionStateDiagnostic -ModFile $observedBundle -Versions @([PSCustomObject]@{ id='v'; version='1.0.141'; category='main'; position='1'; is_primary=$false }) -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587'
+$wrongCategory = Get-NexusModFileVersionStateDiagnostic -ModFile $observedBundle -Versions @([PSCustomObject]@{ id='v'; version='1.0.142'; category='optional'; position='1'; is_primary=$false }) -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587'
+$wrongPrimary = Get-NexusModFileVersionStateDiagnostic -ModFile $observedBundle -Versions @([PSCustomObject]@{ id='v'; version='1.0.142'; category='main'; position='1'; is_primary=$true }) -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587'
+Assert-True (-not $wrongName.IsValid -and $wrongName.Diagnostic -match 'Dateikettenname') 'Falscher Name muss mit Diagnose abgewiesen werden.'
+Assert-True (-not $wrongVersion.IsValid -and $wrongVersion.Diagnostic -match 'Aktive Version') 'Falsche Version muss mit Diagnose abgewiesen werden.'
+Assert-True (-not $wrongCategory.IsValid -and $wrongCategory.Diagnostic -match 'Kategorie') 'Falsche Kategorie muss mit Diagnose abgewiesen werden.'
+Assert-True (-not $wrongPrimary.IsValid -and $wrongPrimary.Diagnostic -match 'Primaerstatus') 'Falscher Primaerstatus muss mit Diagnose abgewiesen werden.'
+
+$delayedProbeCounter = [PSCustomObject]@{ Count=0 }
+$delayedResult = Wait-NexusCreatedFileVerification -MaxAttempts 20 -PollMilliseconds 0 -Probe {
+    $delayedProbeCounter.Count++
+    if ($delayedProbeCounter.Count -le 16) { return [PSCustomObject]@{ Found=$false; Diagnostic="noch nicht sichtbar $($delayedProbeCounter.Count)" } }
+    return [PSCustomObject]@{ Found=$true; Diagnostic='sichtbar'; ModFile=$observedBundle; Versions=$observedVersions }
+}
+Assert-True ($delayedResult.Found -and $delayedProbeCounter.Count -eq 17) 'Eine erst nach mehr als 15 Abfragen sichtbare Dateikette muss erfolgreich verifiziert werden.'
+$timeoutProbeCounter = [PSCustomObject]@{ Count=0 }
+$timeoutResult = Wait-NexusCreatedFileVerification -MaxAttempts 3 -PollMilliseconds 0 -Probe {
+    $timeoutProbeCounter.Count++
+    return [PSCustomObject]@{ Found=$false; Diagnostic="letzte Diagnose $($timeoutProbeCounter.Count)" }
+}
+Assert-True (-not $timeoutResult.Found -and $timeoutProbeCounter.Count -eq 3 -and $timeoutResult.Diagnostic -ceq 'letzte Diagnose 3') 'Timeout muss nach exakt den erlaubten Abfragen die letzte Diagnose liefern.'
 
 $thinPlan = [PSCustomObject]@{
     Target=[PSCustomObject]@{ Artifact='Thin'; PublishChangelog=$true }

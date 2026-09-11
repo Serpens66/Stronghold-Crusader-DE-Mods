@@ -40,18 +40,47 @@ function Find-NexusCreatedFile {
         [Parameter(Mandatory)][hashtable]$Headers,
         [string]$ExpectedFileId
     )
+    $directVersions = $null
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedFileId)) {
+        try {
+            $directResponse = Invoke-NexusApi -Method Get -Path "/mod-files/$ExpectedFileId" -Headers $Headers
+            $directFile = $directResponse.data
+            $directVersionsResponse = Invoke-NexusApi -Method Get -Path "/mod-files/$ExpectedFileId/versions" -Headers $Headers
+            $directVersions = @($directVersionsResponse.data.versions)
+            $directState = Get-NexusModFileVersionStateDiagnostic -ModFile $directFile -Versions $directVersions `
+                -ExpectedName $Plan.Target.NexusFileName -ExpectedVersion $Plan.Release.Version -ExpectedCategory 'main' `
+                -ExpectedPrimary $false -ExpectedFileId $ExpectedFileId
+            if (-not $directState.IsValid) {
+                return [PSCustomObject]@{ Found=$false; Diagnostic="Direktabruf der Create-ID ist noch nicht gueltig: $($directState.Diagnostic)"; ModFile=$null; Versions=@() }
+            }
+        } catch {
+            return [PSCustomObject]@{ Found=$false; Diagnostic="Direktabruf der Create-ID ist noch nicht verfuegbar: $($_.Exception.Message)"; ModFile=$null; Versions=@() }
+        }
+    }
+
     try {
         $filesResponse = Invoke-NexusApi -Method Get -Path "/mods/$($Plan.ModId)/files" -Headers $Headers
         $modFile = Resolve-NexusModFile -ModFiles @($filesResponse.data.mod_files) -ExpectedName $Plan.Target.NexusFileName
-        $versionsResponse = Invoke-NexusApi -Method Get -Path "/mod-files/$([string]$modFile.id)/versions" -Headers $Headers
-        $valid = Test-NexusModFileVersionState -ModFile $modFile -Versions @($versionsResponse.data.versions) `
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedFileId) -and [string]$modFile.id -cne $ExpectedFileId) {
+            return [PSCustomObject]@{ Found=$false; Diagnostic="Die erwartete Mod-Seite listet ID '$([string]$modFile.id)' statt Create-ID '$ExpectedFileId'."; ModFile=$null; Versions=@() }
+        }
+        $versions = if ($null -ne $directVersions -and [string]$modFile.id -ceq $ExpectedFileId) {
+            $directVersions
+        } else {
+            $versionsResponse = Invoke-NexusApi -Method Get -Path "/mod-files/$([string]$modFile.id)/versions" -Headers $Headers
+            @($versionsResponse.data.versions)
+        }
+        $state = Get-NexusModFileVersionStateDiagnostic -ModFile $modFile -Versions $versions `
             -ExpectedName $Plan.Target.NexusFileName -ExpectedVersion $Plan.Release.Version -ExpectedCategory 'main' `
             -ExpectedPrimary $false -ExpectedFileId $ExpectedFileId
-        if ($valid) { return [PSCustomObject]@{ ModFile=$modFile; Versions=@($versionsResponse.data.versions) } }
+        if (-not $state.IsValid) {
+            return [PSCustomObject]@{ Found=$false; Diagnostic="Mod-Dateiliste ist noch nicht gueltig: $($state.Diagnostic)"; ModFile=$null; Versions=@() }
+        }
+        return [PSCustomObject]@{ Found=$true; Diagnostic='Create-ID und Mod-Dateiliste sind konsistent.'; ModFile=$modFile; Versions=$versions }
     } catch {
-        Write-NexusLog "Erstellte Dateikette ist noch nicht eindeutig abrufbar: $($_.Exception.Message)" DarkGray
+        $prefix = if ($null -ne $directVersions) { 'Direktabruf ist gueltig, aber die Mod-Dateiliste ist noch nicht konsistent' } else { 'Erstellte Dateikette ist noch nicht eindeutig abrufbar' }
+        return [PSCustomObject]@{ Found=$false; Diagnostic="${prefix}: $($_.Exception.Message)"; ModFile=$null; Versions=@() }
     }
-    return $null
 }
 
 try {
@@ -194,15 +223,18 @@ try {
                 Write-NexusLog "Neuanlage lieferte kein eindeutiges Ergebnis; gleiche Dateikette wird vor jedem weiteren Schritt erneut gesucht." Yellow
             }
 
-            $createdState = $null
-            for ($attempt = 1; $attempt -le 15; $attempt++) {
-                $createdState = Find-NexusCreatedFile -Plan $plan -Headers $headers -ExpectedFileId $expectedFileId
-                if ($null -ne $createdState) { break }
-                Start-Sleep -Seconds 2
-            }
-            if ($null -eq $createdState) {
-                if ($null -ne $creationError) { throw "$creationError Die anschliessende Abgleichpruefung fand keine eindeutig passende Dateikette; es wird kein zweiter Erstellungsaufruf gesendet." }
-                throw "Nexus-Verifikation der neu erstellten Dateikette fuer $($plan.Target.ModName) ist fehlgeschlagen."
+            $createdState = Wait-NexusCreatedFileVerification `
+                -Probe { Find-NexusCreatedFile -Plan $plan -Headers $headers -ExpectedFileId $expectedFileId } `
+                -MaxAttempts 90 `
+                -PollMilliseconds 2000 `
+                -OnPending {
+                    param($attempt, $maxAttempts, $diagnostic)
+                    Write-NexusLog "Neuanlagenpruefung $attempt/${maxAttempts}: $diagnostic" DarkGray
+                }
+            if (-not $createdState.Found) {
+                $lastDiagnostic = [string]$createdState.Diagnostic
+                if ($null -ne $creationError) { throw "$creationError Die anschliessende Abgleichpruefung fand keine eindeutig passende Dateikette; es wird kein zweiter Erstellungsaufruf gesendet. Letzte Diagnose: $lastDiagnostic" }
+                throw "Nexus-Verifikation der neu erstellten Dateikette fuer $($plan.Target.ModName) ist nach 180 Sekunden fehlgeschlagen. Letzte Diagnose: $lastDiagnostic"
             }
             $plan.ModFile = $createdState.ModFile
             Write-NexusLog "$($plan.Target.NexusFileName) v$($plan.Release.Version) wurde neu angelegt und verifiziert." Green

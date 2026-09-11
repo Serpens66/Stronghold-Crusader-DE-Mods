@@ -290,6 +290,45 @@ function Get-NexusChangelogPublicationPlans {
     return @($selected)
 }
 
+function Get-NexusModFileVersionStateDiagnostic {
+    param(
+        [Parameter(Mandatory)]$ModFile,
+        [Parameter(Mandatory)][object[]]$Versions,
+        [Parameter(Mandatory)][string]$ExpectedName,
+        [Parameter(Mandatory)][string]$ExpectedVersion,
+        [Parameter(Mandatory)][string]$ExpectedCategory,
+        [Nullable[bool]]$ExpectedPrimary,
+        [string]$ExpectedFileId
+    )
+    if (-not (Test-NexusModFileName -CandidateName ([string]$ModFile.name) -ExpectedName $ExpectedName)) {
+        return [PSCustomObject]@{ IsValid=$false; Diagnostic="Dateikettenname '$([string]$ModFile.name)' entspricht nicht '$ExpectedName'."; ActiveVersion=$null }
+    }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedFileId) -and [string]$ModFile.id -cne $ExpectedFileId) {
+        return [PSCustomObject]@{ IsValid=$false; Diagnostic="Dateiketten-ID '$([string]$ModFile.id)' entspricht nicht der Create-ID '$ExpectedFileId'."; ActiveVersion=$null }
+    }
+    try {
+        $active = Get-NexusActiveVersion -Versions $Versions
+    } catch {
+        return [PSCustomObject]@{ IsValid=$false; Diagnostic="Kategorie oder aktiver Versionszustand ist ungueltig: $($_.Exception.Message)"; ActiveVersion=$null }
+    }
+    if ([string]$active.version -cne $ExpectedVersion) {
+        return [PSCustomObject]@{ IsValid=$false; Diagnostic="Aktive Version '$([string]$active.version)' entspricht nicht '$ExpectedVersion'."; ActiveVersion=$active }
+    }
+    if ([string]$active.category -cne $ExpectedCategory) {
+        return [PSCustomObject]@{ IsValid=$false; Diagnostic="Kategorie '$([string]$active.category)' entspricht nicht '$ExpectedCategory'."; ActiveVersion=$active }
+    }
+    if ($null -ne $ExpectedPrimary) {
+        $primaryProperty = $active.PSObject.Properties['is_primary']
+        if ($null -eq $primaryProperty) {
+            return [PSCustomObject]@{ IsValid=$false; Diagnostic="Die aktive Version enthaelt keinen is_primary-Status."; ActiveVersion=$active }
+        }
+        if ([bool]$primaryProperty.Value -ne [bool]$ExpectedPrimary) {
+            return [PSCustomObject]@{ IsValid=$false; Diagnostic="Primaerstatus '$([bool]$primaryProperty.Value)' entspricht nicht '$([bool]$ExpectedPrimary)'."; ActiveVersion=$active }
+        }
+    }
+    return [PSCustomObject]@{ IsValid=$true; Diagnostic='Dateikettenzustand ist korrekt.'; ActiveVersion=$active }
+}
+
 function Test-NexusModFileVersionState {
     param(
         [Parameter(Mandatory)]$ModFile,
@@ -300,15 +339,30 @@ function Test-NexusModFileVersionState {
         [Nullable[bool]]$ExpectedPrimary,
         [string]$ExpectedFileId
     )
-    if (-not (Test-NexusModFileName -CandidateName ([string]$ModFile.name) -ExpectedName $ExpectedName)) { return $false }
-    if (-not [string]::IsNullOrWhiteSpace($ExpectedFileId) -and [string]$ModFile.id -cne $ExpectedFileId) { return $false }
-    $active = Get-NexusActiveVersion -Versions $Versions
-    if ([string]$active.version -cne $ExpectedVersion -or [string]$active.category -cne $ExpectedCategory) { return $false }
-    if ($null -ne $ExpectedPrimary) {
-        $primaryProperty = $active.PSObject.Properties['is_primary']
-        if ($null -eq $primaryProperty -or [bool]$primaryProperty.Value -ne [bool]$ExpectedPrimary) { return $false }
+    $result = Get-NexusModFileVersionStateDiagnostic @PSBoundParameters
+    return [bool]$result.IsValid
+}
+
+function Wait-NexusCreatedFileVerification {
+    param(
+        [Parameter(Mandatory)][scriptblock]$Probe,
+        [ValidateRange(1, 10000)][int]$MaxAttempts = 90,
+        [ValidateRange(0, 60000)][int]$PollMilliseconds = 2000,
+        [scriptblock]$OnPending
+    )
+    $lastResult = $null
+    for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
+        $lastResult = & $Probe
+        if ($null -eq $lastResult -or $null -eq $lastResult.PSObject.Properties['Found']) {
+            throw 'Nexus-Neuanlagenpruefung lieferte kein gueltiges Probe-Ergebnis.'
+        }
+        if ([bool]$lastResult.Found) { return $lastResult }
+        if ($null -ne $OnPending) { & $OnPending $attempt $MaxAttempts ([string]$lastResult.Diagnostic) }
+        if ($attempt -lt $MaxAttempts -and $PollMilliseconds -gt 0) {
+            Start-Sleep -Milliseconds $PollMilliseconds
+        }
     }
-    return $true
+    return $lastResult
 }
 
 function Get-NexusActiveVersion {
