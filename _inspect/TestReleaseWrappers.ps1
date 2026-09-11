@@ -15,9 +15,16 @@ function Assert-True {
 }
 
 $workspaceRoot = Split-Path -Parent $PSScriptRoot
-$wrappers = @(Get-ChildItem -LiteralPath $workspaceRoot -Filter 'release.bat' -File -Recurse |
-    Where-Object { $_.FullName -notlike (Join-Path $workspaceRoot '_inspect\*') } |
-    Sort-Object FullName)
+$releaseConfig = Get-Content -LiteralPath (Join-Path $workspaceRoot 'Shared\Release\release-projects.json') -Raw | ConvertFrom-Json
+$wrapperCandidates = @(foreach ($modName in @($releaseConfig.Projects)) {
+    $directoryProperty = $releaseConfig.ProjectDirectories.PSObject.Properties[[string]$modName]
+    $relativeDirectory = if ($null -eq $directoryProperty) { [string]$modName } else { [string]$directoryProperty.Value }
+    $wrapperPath = Join-Path (Join-Path $workspaceRoot $relativeDirectory) 'release.bat'
+    if (Test-Path -LiteralPath $wrapperPath -PathType Leaf) {
+        [PSCustomObject]@{ ModName=[string]$modName; RelativeDirectory=$relativeDirectory; File=(Get-Item -LiteralPath $wrapperPath) }
+    }
+})
+$wrappers = @($wrapperCandidates | Sort-Object { $_.File.FullName })
 
 Assert-True ($wrappers.Count -gt 0) 'No release wrappers found.'
 
@@ -41,14 +48,15 @@ exit /b $expectedExitCode
         ($mock -replace "`r?`n", "`r`n"),
         [Text.Encoding]::ASCII)
 
-    foreach ($wrapper in $wrappers) {
-        $modName = Split-Path -Leaf $wrapper.DirectoryName
+    foreach ($entry in $wrappers) {
+        $modName = $entry.ModName
+        $wrapper = $entry.File
         $content = [IO.File]::ReadAllText($wrapper.FullName)
 
         Assert-True ($content -match [regex]::Escape("Invoke-Release.bat`" $modName /called %*")) "$modName does not forward all arguments."
         Assert-True ($content -match 'findstr\s+/I\s+/C:"/nopause"\s+>nul\s+\|\|\s+pause') "$modName does not suppress pause for /nopause."
 
-        $isolatedModDirectory = Join-Path $tempRoot $modName
+        $isolatedModDirectory = Join-Path $tempRoot $entry.RelativeDirectory
         [IO.Directory]::CreateDirectory($isolatedModDirectory) | Out-Null
         Copy-Item -LiteralPath $wrapper.FullName -Destination (Join-Path $isolatedModDirectory 'release.bat')
         Remove-Item -LiteralPath $argumentLog -Force -ErrorAction SilentlyContinue

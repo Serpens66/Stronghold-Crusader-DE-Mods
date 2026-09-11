@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using SHCDESE.Interop;
@@ -41,6 +42,8 @@ namespace BugfixesAndQoL
             TestAIResourceShortageSleepIntegration();
             TestTemporaryGateBlockagePolicy();
             TestTemporaryGateBlockageIntegration();
+            TestMapFileManagerContract();
+            TestClassicMapSizeReader();
             TestNativeContracts();
             if (failures == 0)
             {
@@ -49,6 +52,146 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestMapFileManagerContract()
+        {
+            Type[] parameterTypes =
+            {
+                typeof(string),
+                typeof(string),
+                typeof(int),
+                typeof(bool)
+            };
+            MethodInfo method = typeof(MapFileManager).GetMethod(
+                nameof(MapFileManager.GetFileInfoFromFileName),
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                parameterTypes,
+                null);
+
+            Check(
+                method != null &&
+                    method.IsPublic &&
+                    !method.IsStatic &&
+                    method.ReturnType == typeof(FileHeader),
+                "MapFileManager exposes the public GetFileInfoFromFileName hook contract");
+        }
+
+        private static void TestClassicMapSizeReader()
+        {
+            int[] directoryTags = { 2036, 3036, 4036 };
+            int[] mapSizes = { 160, 400, 800 };
+            for (int index = 0; index < directoryTags.Length; index++)
+            {
+                using (var stream = new MemoryStream(BuildClassicMapFixture(
+                    directoryTags[index], mapSizes[index])))
+                {
+                    Check(
+                        ClassicMapSizeReader.TryRead(stream, out int actual) &&
+                            actual == mapSizes[index],
+                        $"classic map size reader supports directory tag {directoryTags[index]}");
+                }
+            }
+
+            Check(
+                ClassicMapSizeReader.ShouldPopulate(true, true, -1, "classic.map") &&
+                    !ClassicMapSizeReader.ShouldPopulate(false, true, -1, "classic.map") &&
+                    !ClassicMapSizeReader.ShouldPopulate(true, false, -1, "classic.map") &&
+                    !ClassicMapSizeReader.ShouldPopulate(true, true, 400, "classic.map") &&
+                    !ClassicMapSizeReader.ShouldPopulate(true, true, -1, "classic.sav"),
+                "classic map size policy changes only missing enabled classic map metadata");
+
+            CheckClassicMapFixtureRejected(
+                BuildClassicMapFixture(3036, 400, sectionId: 1051),
+                "classic map size reader rejects a missing map-size section");
+            CheckClassicMapFixtureRejected(
+                BuildClassicMapFixture(3036, 400, compressionFlag: 1),
+                "classic map size reader rejects a compressed map-size section");
+            CheckClassicMapFixtureRejected(
+                BuildClassicMapFixture(3036, 400, unpackedSize: 8),
+                "classic map size reader rejects a wrongly sized map-size section");
+            CheckClassicMapFixtureRejected(
+                BuildClassicMapFixture(3036, 400, relativeOffset: 4),
+                "classic map size reader rejects a map-size offset outside the payload");
+            CheckClassicMapFixtureRejected(
+                BuildClassicMapFixture(3036, 0),
+                "classic map size reader rejects a zero map size");
+            CheckClassicMapFixtureRejected(
+                BuildClassicMapFixture(3036, SHCDESE.API.GameTileManagerAPI.MAX_WIDTH + 2),
+                "classic map size reader rejects a map size above the engine maximum");
+
+            byte[] truncated = BuildClassicMapFixture(3036, 400);
+            Array.Resize(ref truncated, truncated.Length - 1);
+            CheckClassicMapFixtureRejected(
+                truncated,
+                "classic map size reader rejects a truncated payload");
+
+            string samplePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "AppData",
+                "LocalLow",
+                "Firefly Studios",
+                "Stronghold Crusader Definitive Edition",
+                "Maps",
+                "Brother's Strife.map");
+            if (File.Exists(samplePath))
+            {
+                Check(
+                    ClassicMapSizeReader.TryRead(samplePath, out int sampleSize) && sampleSize == 400,
+                    "Brother's Strife exposes its HD map size through section 1050");
+            }
+        }
+
+        private static void CheckClassicMapFixtureRejected(byte[] bytes, string name)
+        {
+            using (var stream = new MemoryStream(bytes))
+                Check(!ClassicMapSizeReader.TryRead(stream, out _), name);
+        }
+
+        private static byte[] BuildClassicMapFixture(
+            int directoryTag,
+            int mapSize,
+            int sectionId = 1050,
+            int compressionFlag = 0,
+            int unpackedSize = sizeof(int),
+            int storedSize = sizeof(int),
+            int relativeOffset = 0)
+        {
+            int capacity = (directoryTag - 36) / 20;
+            byte[] directoryBody = new byte[directoryTag - sizeof(int)];
+            WriteInt32(directoryBody, 0, sizeof(int));
+            WriteInt32(directoryBody, 4, 1);
+            WriteInt32(directoryBody, 8, 172);
+            int arraysOffset = 28;
+            WriteInt32(directoryBody, arraysOffset, unpackedSize);
+            WriteInt32(directoryBody, arraysOffset + capacity * sizeof(int), storedSize);
+            WriteInt32(directoryBody, arraysOffset + capacity * sizeof(int) * 2, sectionId);
+            WriteInt32(directoryBody, arraysOffset + capacity * sizeof(int) * 3, compressionFlag);
+            WriteInt32(directoryBody, arraysOffset + capacity * sizeof(int) * 4, relativeOffset);
+
+            using (var stream = new MemoryStream())
+            using (var writer = new BinaryWriter(stream))
+            {
+                writer.Write(-1);
+                for (int blockIndex = 0; blockIndex < 5; blockIndex++)
+                    writer.Write(0);
+                writer.Write(80);
+                writer.Write(new byte[80]);
+                writer.Write(0);
+                writer.Write(directoryTag);
+                writer.Write(directoryBody);
+                writer.Write(mapSize);
+                return stream.ToArray();
+            }
+        }
+
+        private static void WriteInt32(byte[] bytes, int offset, int value)
+        {
+            bytes[offset] = (byte)value;
+            bytes[offset + 1] = (byte)(value >> 8);
+            bytes[offset + 2] = (byte)(value >> 16);
+            bytes[offset + 3] = (byte)(value >> 24);
         }
 
         private static void TestTrailCustomizationOwnership()

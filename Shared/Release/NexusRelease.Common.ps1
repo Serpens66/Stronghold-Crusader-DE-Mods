@@ -58,6 +58,21 @@ function Get-NexusSha256 {
     } finally { $stream.Dispose() }
 }
 
+function Get-NexusMd5 {
+    param([Parameter(Mandatory)][string]$Path)
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $md5 = [Security.Cryptography.MD5]::Create()
+        try {
+            $bytes = $md5.ComputeHash($stream)
+            return [PSCustomObject]@{
+                Hex = ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
+                Base64 = [Convert]::ToBase64String($bytes)
+            }
+        } finally { $md5.Dispose() }
+    } finally { $stream.Dispose() }
+}
+
 function Get-LatestNexusLocalRelease {
     param(
         [Parameter(Mandatory)][string]$Root,
@@ -165,9 +180,20 @@ function ConvertTo-NexusComparableName {
     return ([regex]::Replace($Name, '[^A-Za-z0-9]', '')).ToLowerInvariant()
 }
 
+function Test-NexusModFileName {
+    param(
+        [Parameter(Mandatory)][string]$CandidateName,
+        [Parameter(Mandatory)][string]$ExpectedName
+    )
+    $candidate = ConvertTo-NexusComparableName -Name $CandidateName
+    $expected = ConvertTo-NexusComparableName -Name $ExpectedName
+    return $candidate -ceq $expected -or
+        $candidate -ceq ($expected + 'serp') -or
+        $candidate -match ('^' + [regex]::Escape($expected) + 'v\d+[a-z0-9]*$')
+}
+
 function Resolve-NexusModFile {
     param([Parameter(Mandatory)][object[]]$ModFiles, [Parameter(Mandatory)][string]$ExpectedName)
-    $expected = ConvertTo-NexusComparableName -Name $ExpectedName
     # Only active file chains can be update targets. Archived companion and legacy
     # files must never become active again through this uploader.
     $activeFiles = @($ModFiles | Where-Object {
@@ -176,17 +202,113 @@ function Resolve-NexusModFile {
     })
     # Existing active files use either the author's suffix or their current version
     # in the persistent file name (for example BugfixesAndQoL V1.0.69).
-    $matches = @($activeFiles | Where-Object {
-        $candidate = ConvertTo-NexusComparableName -Name ([string]$_.name)
-        $candidate -ceq $expected -or
-        $candidate -ceq ($expected + 'serp') -or
-        $candidate -match ('^' + [regex]::Escape($expected) + 'v\d+[a-z0-9]*$')
-    })
+    $matches = @($activeFiles | Where-Object { Test-NexusModFileName -CandidateName ([string]$_.name) -ExpectedName $ExpectedName })
     if ($matches.Count -ne 1) {
         $candidates = @($activeFiles | ForEach-Object { "'$([string]$_.name)' (file_id $([string]$_.id))" }) -join ', '
         throw "Aktive Nexus-Main-Dateikette '$ExpectedName' ist nicht eindeutig zuordenbar. Aktive Dateien: $candidates"
     }
     return $matches[0]
+}
+
+function Resolve-NexusTargetFile {
+    param(
+        [Parameter(Mandatory)][object[]]$ModFiles,
+        [Parameter(Mandatory)]$Target
+    )
+    $expectedName = [string]$Target.NexusFileName
+    $matches = @($ModFiles | Where-Object { Test-NexusModFileName -CandidateName ([string]$_.name) -ExpectedName $expectedName })
+    $activeMatches = @($matches | Where-Object {
+        $activeProperty = $_.PSObject.Properties['is_active']
+        $null -ne $activeProperty -and [bool]$activeProperty.Value
+    })
+    if ($activeMatches.Count -eq 1) {
+        return [PSCustomObject]@{ Action='Existing'; ModFile=$activeMatches[0] }
+    }
+    if ($activeMatches.Count -gt 1) {
+        throw "Mehrere aktive Nexus-Dateiketten passen zu '$expectedName'. Manuelle Pruefung erforderlich."
+    }
+    $inactiveMatches = @($matches | Where-Object { $_ -notin $activeMatches })
+    if ($inactiveMatches.Count -gt 0) {
+        $details = @($inactiveMatches | ForEach-Object { "'$([string]$_.name)' (file_id $([string]$_.id))" }) -join ', '
+        throw "Fuer '$expectedName' existiert bereits eine inaktive oder archivierte Dateikette: $details. Manuelle Pruefung erforderlich."
+    }
+    $createProperty = $Target.PSObject.Properties['CreateIfMissing']
+    if ($null -eq $createProperty -or -not [bool]$createProperty.Value) {
+        throw "Die Nexus-Dateikette '$expectedName' fehlt und darf nicht automatisch erstellt werden."
+    }
+    return [PSCustomObject]@{ Action='Create'; ModFile=$null }
+}
+
+function New-NexusCreateModFileBody {
+    param(
+        [Parameter(Mandatory)]$Target,
+        [Parameter(Mandatory)]$Release,
+        [Parameter(Mandatory)][string]$ModId,
+        [Parameter(Mandatory)][string]$UploadId
+    )
+    $categoryProperty = $Target.PSObject.Properties['FileCategory']
+    $category = if ($null -eq $categoryProperty) { 'main' } else { [string]$categoryProperty.Value }
+    if ($category -notin @('main','optional','miscellaneous')) { throw "Ungueltige Nexus-Dateikategorie '$category'." }
+    $primaryProperty = $Target.PSObject.Properties['PrimaryModManagerDownload']
+    $primary = $null -ne $primaryProperty -and [bool]$primaryProperty.Value
+    $descriptionProperty = $Target.PSObject.Properties['NexusFileDescription']
+    $description = if ($null -eq $descriptionProperty) { $null } else { [string]$descriptionProperty.Value }
+    return @{
+        upload_id=$UploadId
+        mod_id=$ModId
+        name=[string]$Target.NexusFileName
+        version=[string]$Release.Version
+        description=$description
+        file_category=$category
+        primary_mod_manager_download=$primary
+        allow_mod_manager_download=$true
+        show_requirements_pop_up=$false
+        update_mod_version=$false
+    }
+}
+
+function Test-NexusTargetPublishesChangelog {
+    param([Parameter(Mandatory)]$Target)
+    $property = $Target.PSObject.Properties['PublishChangelog']
+    if ($null -ne $property) { return [bool]$property.Value }
+    $artifactProperty = $Target.PSObject.Properties['Artifact']
+    return $null -eq $artifactProperty -or [string]$artifactProperty.Value -cne 'Bundle'
+}
+
+function Get-NexusChangelogPublicationPlans {
+    param([Parameter(Mandatory)][object[]]$Plans)
+    $selected = [System.Collections.Generic.List[object]]::new()
+    foreach ($group in @($Plans | Where-Object { Test-NexusTargetPublishesChangelog -Target $_.Target } |
+        Group-Object { "$($_.ModId)|$($_.Release.Version)" })) {
+        $entries = @($group.Group)
+        $texts = @($entries | ForEach-Object { [string]$_.Changelog.Text } | Select-Object -Unique)
+        if ($texts.Count -gt 1) {
+            throw "Abweichende Changelogs fuer Nexus-Mod $($entries[0].ModId) v$($entries[0].Release.Version)."
+        }
+        $selected.Add($entries[0])
+    }
+    return @($selected)
+}
+
+function Test-NexusModFileVersionState {
+    param(
+        [Parameter(Mandatory)]$ModFile,
+        [Parameter(Mandatory)][object[]]$Versions,
+        [Parameter(Mandatory)][string]$ExpectedName,
+        [Parameter(Mandatory)][string]$ExpectedVersion,
+        [Parameter(Mandatory)][string]$ExpectedCategory,
+        [Nullable[bool]]$ExpectedPrimary,
+        [string]$ExpectedFileId
+    )
+    if (-not (Test-NexusModFileName -CandidateName ([string]$ModFile.name) -ExpectedName $ExpectedName)) { return $false }
+    if (-not [string]::IsNullOrWhiteSpace($ExpectedFileId) -and [string]$ModFile.id -cne $ExpectedFileId) { return $false }
+    $active = Get-NexusActiveVersion -Versions $Versions
+    if ([string]$active.version -cne $ExpectedVersion -or [string]$active.category -cne $ExpectedCategory) { return $false }
+    if ($null -ne $ExpectedPrimary) {
+        $primaryProperty = $active.PSObject.Properties['is_primary']
+        if ($null -eq $primaryProperty -or [bool]$primaryProperty.Value -ne [bool]$ExpectedPrimary) { return $false }
+    }
+    return $true
 }
 
 function Get-NexusActiveVersion {
@@ -284,11 +406,35 @@ function Get-NexusPresignedSignedHeaders {
     throw 'Die Nexus-Upload-URL enthaelt keine X-Amz-SignedHeaders-Angabe.'
 }
 
+function New-NexusUploadContent {
+    param(
+        [Parameter(Mandatory)][byte[]]$Bytes,
+        [Parameter(Mandatory)][string]$FileName,
+        [Parameter(Mandatory)][string[]]$SignedHeaders,
+        [Parameter(Mandatory)][string]$ContentMd5Base64
+    )
+    Add-Type -AssemblyName System.Net.Http
+    $content = [Net.Http.ByteArrayContent]::new($Bytes)
+    $content.Headers.ContentMD5 = [Convert]::FromBase64String($ContentMd5Base64)
+    if ('content-type' -in $SignedHeaders) {
+        [void]$content.Headers.TryAddWithoutValidation('Content-Type', 'application/octet-stream')
+    }
+    if ('content-disposition' -in $SignedHeaders) {
+        [void]$content.Headers.TryAddWithoutValidation('Content-Disposition', "attachment; filename=`"$FileName`"")
+    }
+    return $content
+}
+
 function Send-NexusUploadBytes {
-    param([Parameter(Mandatory)][string]$PresignedUrl, [Parameter(Mandatory)][string]$FilePath, [Parameter(Mandatory)][string]$FileName)
+    param(
+        [Parameter(Mandatory)][string]$PresignedUrl,
+        [Parameter(Mandatory)][string]$FilePath,
+        [Parameter(Mandatory)][string]$FileName,
+        [Parameter(Mandatory)][string]$ContentMd5Base64
+    )
     Add-Type -AssemblyName System.Net.Http
     $signedHeaders = @(Get-NexusPresignedSignedHeaders -PresignedUrl $PresignedUrl)
-    $supportedHeaders = @('host','content-length','content-type','content-disposition')
+    $supportedHeaders = @('host','content-length','content-type','content-disposition','content-md5')
     $unsupportedHeaders = @($signedHeaders | Where-Object { $_ -notin $supportedHeaders })
     if ($unsupportedHeaders.Count -gt 0) { throw "Nicht unterstuetzte signierte Upload-Header: $($unsupportedHeaders -join ', ')" }
 
@@ -297,13 +443,7 @@ function Send-NexusUploadBytes {
     try {
         # ByteArrayContent guarantees Content-Length and avoids chunked transfer,
         # which signed S3-compatible PUT endpoints reject.
-        $content = [Net.Http.ByteArrayContent]::new([IO.File]::ReadAllBytes($FilePath))
-        if ('content-type' -in $signedHeaders) {
-            [void]$content.Headers.TryAddWithoutValidation('Content-Type', 'application/octet-stream')
-        }
-        if ('content-disposition' -in $signedHeaders) {
-            [void]$content.Headers.TryAddWithoutValidation('Content-Disposition', "attachment; filename=`"$FileName`"")
-        }
+        $content = New-NexusUploadContent -Bytes ([IO.File]::ReadAllBytes($FilePath)) -FileName $FileName -SignedHeaders $signedHeaders -ContentMd5Base64 $ContentMd5Base64
         $request.Content = $content
         $response = $client.SendAsync($request).GetAwaiter().GetResult()
         if (-not $response.IsSuccessStatusCode) {

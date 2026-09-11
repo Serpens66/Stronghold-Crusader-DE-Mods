@@ -74,6 +74,9 @@ Vanilla does not correctly enable automatic selling when the sell slider is set 
 ### Fix map-origin sorting
 The Origin column in singleplayer and multiplayer map selection now sorts maps into reversible Vanilla, local, and Steam Workshop groups. Unknown or malformed entries remain safely at the end of the list.
 
+### Restore map sizes for classic HD maps
+Classic Stronghold Crusader HD maps remain playable in Definitive Edition, but their older metadata does not contain the newer map-size field used by the map-selection interface. The mod recovers the original size from the map's canonical map-size section, so supported classic maps display and sort by size normally without modifying the map file.
+
 ### Restore host migration after an abrupt disconnect
 When the host leaves a running two-player match without Vanilla's normal leave packet, for example by using Alt+F4, the sole remaining human player is promoted to host. This allows the match paused by the connection error to continue and leaves Vanilla's normal player-removal flow unchanged.
 

@@ -8,6 +8,22 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Assert-True ((Compare-NexusSemanticVersion -Left '1.0.95' -Right '1.0.9') -gt 0) '1.0.95 muss neuer als 1.0.9 sein.'
 Assert-True ((Compare-NexusSemanticVersion -Left '1.0.0' -Right '1.0.0-beta.1') -gt 0) 'Release muss neuer als Prerelease sein.'
 
+$updaterSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Update-NexusMods.ps1'))
+$previewGuardIndex = $updaterSource.IndexOf('if ($Preview)')
+$uploadMutationIndex = $updaterSource.IndexOf("Invoke-NexusApi -Method Post -Path '/uploads'")
+Assert-True ($previewGuardIndex -ge 0 -and $uploadMutationIndex -gt $previewGuardIndex) 'Preview muss vor dem ersten mutierenden Nexus-Aufruf enden.'
+Assert-True ([regex]::Matches($updaterSource, 'CreateIfMissing=\$true').Count -eq 2) 'Nur zwei explizite Bundle-Ziele duerfen automatisch erstellt werden.'
+Assert-True ([regex]::Matches($updaterSource, "Post -Path '/mod-files'").Count -eq 1) 'Die Neuanlage darf nur einen POST-Codepfad besitzen.'
+Assert-True ($updaterSource -match 'Find-NexusCreatedFile' -and $updaterSource -match 'kein zweiter Erstellungsaufruf') 'Unklare Neuanlagen muessen durch Abgleich statt Wiederholung behandelt werden.'
+Assert-True ([regex]::Matches($updaterSource, '/changelogs').Count -eq 1) 'Der additive Changelog-Endpunkt darf nur einen Publikationscodepfad besitzen.'
+
+$releaseSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release-Mod.ps1'))
+Assert-True ($releaseSource -match 'Thin APIShared consumer contains private runtime DLLs') 'Thin-Releases muessen private API-Laufzeitkopien ablehnen.'
+Assert-True ($releaseSource -match 'bundle must contain exactly one APIShared\.dll') 'Bundle-Releases muessen genau eine APIShared-Kopie erzwingen.'
+$steamSource = [IO.File]::ReadAllText((Join-Path $root 'Shared\Steam\Create-SteamModPack.ps1'))
+Assert-True ($steamSource -match 'Steam infrastructure must contain exactly one APIShared\.dll') 'Steam muss genau eine zentrale APIShared-Kopie erzwingen.'
+Assert-True ($steamSource -match 'Steam consumer .* is not thin') 'Steam muss private API-Kopien in Verbraucherpaketen ablehnen.'
+
 $mods = @('StartConditions','BuildingCosts','BuildingLimit','UnitCosts','UnitLimit','BugfixesAndQoL','ExtraFeatures')
 foreach ($mod in $mods) {
     $release = Get-LatestNexusLocalRelease -Root $root -ModName $mod
@@ -38,6 +54,43 @@ try {
     if (Test-Path -LiteralPath $notesTestRoot) { Remove-Item -LiteralPath $notesTestRoot -Recurse -Force }
 }
 
+$artifactTestRoot = Join-Path ([IO.Path]::GetTempPath()) ("nexus-artifact-test-" + [Guid]::NewGuid().ToString('N'))
+try {
+    $artifactReleaseDirectory = Join-Path $artifactTestRoot '.release-output\Synthetic\v1.2.3'
+    $thinStage = Join-Path $artifactTestRoot 'thin-stage\BepInEx\plugins\Synthetic_Serp'
+    $bundleConsumerStage = Join-Path $artifactTestRoot 'bundle-stage\BepInEx\plugins\Synthetic_Serp'
+    $bundleApiStage = Join-Path $artifactTestRoot 'bundle-stage\BepInEx\plugins\APIShared_Serp'
+    [void](New-Item -ItemType Directory -Path $artifactReleaseDirectory,$thinStage,$bundleConsumerStage,$bundleApiStage -Force)
+    $consumerInfo = @{ GUID='Synthetic_Serp'; Name='Synthetic'; Version='1.2.3' } | ConvertTo-Json
+    $apiInfo = @{ GUID='APIShared_Serp'; Name='APIShared'; Version='0.3.0' } | ConvertTo-Json
+    [IO.File]::WriteAllText((Join-Path $thinStage 'info.json'), $consumerInfo, [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $bundleConsumerStage 'info.json'), $consumerInfo, [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText((Join-Path $bundleApiStage 'info.json'), $apiInfo, [Text.UTF8Encoding]::new($false))
+    $thinName = 'Synthetic-v1.2.3.zip'
+    $bundleName = 'Synthetic-v1.2.3-with-APIShared-v0.3.0.zip'
+    $thinPath = Join-Path $artifactReleaseDirectory $thinName
+    $bundlePath = Join-Path $artifactReleaseDirectory $bundleName
+    Compress-Archive -LiteralPath (Join-Path $artifactTestRoot 'thin-stage\BepInEx') -DestinationPath $thinPath
+    Compress-Archive -LiteralPath (Join-Path $artifactTestRoot 'bundle-stage\BepInEx') -DestinationPath $bundlePath
+    $thinHash = Get-NexusSha256 -Path $thinPath
+    $bundleHash = Get-NexusSha256 -Path $bundlePath
+    [IO.File]::WriteAllText("$thinPath.sha256", "$thinHash  $thinName", [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText("$bundlePath.sha256", "$bundleHash  $bundleName", [Text.UTF8Encoding]::new($false))
+    $artifactProvenance = @{
+        Mod='Synthetic'; Version='1.2.3'
+        Package=@{ Profile='Thin'; File=$thinName; Sha256=$thinHash }
+        Bundle=@{ Profile='Bundle'; File=$bundleName; Sha256=$bundleHash; ApiShared=@{ Version='0.3.0' } }
+    } | ConvertTo-Json -Depth 8
+    [IO.File]::WriteAllText((Join-Path $artifactReleaseDirectory 'Synthetic-v1.2.3.provenance.json'), $artifactProvenance, [Text.UTF8Encoding]::new($false))
+
+    $syntheticThin = Get-LatestNexusLocalRelease -Root $artifactTestRoot -ModName 'Synthetic' -Artifact Thin
+    $syntheticBundle = Get-LatestNexusLocalRelease -Root $artifactTestRoot -ModName 'Synthetic' -Artifact Bundle
+    Assert-True ((Test-NexusLocalRelease -Release $syntheticThin).Sha256 -ceq $thinHash) 'Synthetisches Thin-Artefakt.'
+    Assert-True ((Test-NexusLocalRelease -Release $syntheticBundle).Sha256 -ceq $bundleHash) 'Synthetisches Bundle-Artefakt.'
+} finally {
+    if (Test-Path -LiteralPath $artifactTestRoot) { Remove-Item -LiteralPath $artifactTestRoot -Recurse -Force }
+}
+
 $files = @(
     [PSCustomObject]@{ id='a'; name='Bugfixes and QoL'; is_active=$true },
     [PSCustomObject]@{ id='b'; name='Extra Features'; is_active=$true }
@@ -57,6 +110,54 @@ $ambiguous = $false
 try { [void](Resolve-NexusModFile -ModFiles ($files + [PSCustomObject]@{ id='c'; name='BugfixesAndQoL'; is_active=$true }) -ExpectedName 'Bugfixes and QoL') }
 catch { $ambiguous = $true }
 Assert-True $ambiguous 'Mehrdeutige Dateizuordnung muss fehlschlagen.'
+$createTarget = [PSCustomObject]@{
+    NexusFileName='Bugfixes and QoL - APIShared Bundle'
+    CreateIfMissing=$true
+    FileCategory='main'
+    PrimaryModManagerDownload=$false
+    NexusFileDescription='Bundle description.'
+}
+$createResolution = Resolve-NexusTargetFile -ModFiles $files -Target $createTarget
+Assert-True ($createResolution.Action -ceq 'Create' -and $null -eq $createResolution.ModFile) 'Explizit freigegebene fehlende Dateikette muss CREATE planen.'
+$existingBundle = [PSCustomObject]@{ id='bundle'; name='Bugfixes and QoL - APIShared Bundle'; is_active=$true }
+$existingResolution = Resolve-NexusTargetFile -ModFiles ($files + $existingBundle) -Target $createTarget
+Assert-True ($existingResolution.Action -ceq 'Existing' -and $existingResolution.ModFile.id -ceq 'bundle') 'Vorhandene Bundle-Dateikette muss wiederverwendet werden.'
+$ambiguousTargetRejected = $false
+try { [void](Resolve-NexusTargetFile -ModFiles ($files + $existingBundle + [PSCustomObject]@{ id='bundle-2'; name='BugfixesAndQoL APIShared Bundle'; is_active=$true }) -Target $createTarget) }
+catch { $ambiguousTargetRejected = $true }
+Assert-True $ambiguousTargetRejected 'Mehrdeutige aktive Bundle-Dateiketten muessen die Planung blockieren.'
+$archivedRejected = $false
+try { [void](Resolve-NexusTargetFile -ModFiles ($files + [PSCustomObject]@{ id='archived-bundle'; name='Bugfixes and QoL - APIShared Bundle'; is_active=$false }) -Target $createTarget) }
+catch { $archivedRejected = $true }
+Assert-True $archivedRejected 'Archivierte passende Dateikette muss eine Neuanlage blockieren.'
+$notAllowedRejected = $false
+try { [void](Resolve-NexusTargetFile -ModFiles $files -Target ([PSCustomObject]@{ NexusFileName='Missing Thin' })) }
+catch { $notAllowedRejected = $true }
+Assert-True $notAllowedRejected 'Fehlende Dateikette ohne CreateIfMissing muss abgewiesen werden.'
+
+$createBody = New-NexusCreateModFileBody -Target $createTarget -Release ([PSCustomObject]@{ Version='1.2.3' }) -ModId 'mod-226' -UploadId 'upload-1'
+Assert-True ($createBody.mod_id -ceq 'mod-226' -and $createBody.upload_id -ceq 'upload-1') 'Create-Mod-File-Body muss Mod und Upload zuordnen.'
+Assert-True ($createBody.name -ceq $createTarget.NexusFileName -and $createBody.version -ceq '1.2.3') 'Create-Mod-File-Body muss Name und Version enthalten.'
+Assert-True ($createBody.file_category -ceq 'main' -and -not $createBody.primary_mod_manager_download) 'Bundle muss Main und nicht primaer sein.'
+
+$createdVersions = @([PSCustomObject]@{ id='version-1'; version='1.2.3'; category='main'; position='1'; is_primary=$false })
+Assert-True (Test-NexusModFileVersionState -ModFile $existingBundle -Versions $createdVersions -ExpectedName $createTarget.NexusFileName -ExpectedVersion '1.2.3' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId 'bundle') 'Neu erstellte Dateikette muss exakt verifiziert werden.'
+Assert-True (-not (Test-NexusModFileVersionState -ModFile $existingBundle -Versions $createdVersions -ExpectedName $createTarget.NexusFileName -ExpectedVersion '1.2.3' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId 'other')) 'Abweichende Datei-ID muss die Wiederholungspruefung blockieren.'
+
+$thinPlan = [PSCustomObject]@{
+    Target=[PSCustomObject]@{ Artifact='Thin'; PublishChangelog=$true }
+    ModId='mod-226'; Release=[PSCustomObject]@{ Version='1.2.3' }
+    Changelog=[PSCustomObject]@{ Text='One changelog.' }
+}
+$bundlePlan = [PSCustomObject]@{
+    Target=[PSCustomObject]@{ Artifact='Bundle'; PublishChangelog=$false }
+    ModId='mod-226'; Release=[PSCustomObject]@{ Version='1.2.3' }
+    Changelog=[PSCustomObject]@{ Text='One changelog.' }
+}
+$changelogPlans = @(Get-NexusChangelogPublicationPlans -Plans @($thinPlan,$bundlePlan))
+Assert-True ($changelogPlans.Count -eq 1 -and $changelogPlans[0] -eq $thinPlan) 'Thin plus Bundle duerfen nur einen Thin-Changelog planen.'
+Assert-True (@(Get-NexusChangelogPublicationPlans -Plans @($bundlePlan)).Count -eq 0) 'Ein reiner Bundle-Upload darf keinen Changelog planen.'
+
 $targetNormal = [PSCustomObject]@{ AllowWrongTwoCorrection=$false }
 $targetCorrection = [PSCustomObject]@{ AllowWrongTwoCorrection=$true }
 $release = [PSCustomObject]@{ Version='1.0.69' }
@@ -85,9 +186,23 @@ try { Wait-NexusUploadAvailable -GetState { return 'created' } -TimeoutSeconds 1
 catch { $timedOut = $true }
 Assert-True $timedOut 'Polling-Timeout muss fehlschlagen.'
 
-$signedHeaders = @(Get-NexusPresignedSignedHeaders -PresignedUrl 'https://upload.invalid/file?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-SignedHeaders=content-disposition%3Bcontent-type%3Bhost&X-Amz-Signature=hidden')
-Assert-True ($signedHeaders.Count -eq 3) 'Alle signierten Upload-Header muessen erkannt werden.'
-Assert-True ('content-disposition' -in $signedHeaders -and 'content-type' -in $signedHeaders -and 'host' -in $signedHeaders) 'Signierte Upload-Header muessen dekodiert werden.'
+$signedHeaders = @(Get-NexusPresignedSignedHeaders -PresignedUrl 'https://upload.invalid/file?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-SignedHeaders=content-disposition%3Bcontent-md5%3Bcontent-type%3Bhost&X-Amz-Signature=hidden')
+Assert-True ($signedHeaders.Count -eq 4) 'Alle signierten Upload-Header muessen erkannt werden.'
+Assert-True ('content-disposition' -in $signedHeaders -and 'content-md5' -in $signedHeaders -and 'content-type' -in $signedHeaders -and 'host' -in $signedHeaders) 'Signierte Upload-Header muessen dekodiert werden.'
+$md5Path = Join-Path ([IO.Path]::GetTempPath()) ("nexus-md5-" + [Guid]::NewGuid().ToString('N'))
+try {
+    [IO.File]::WriteAllBytes($md5Path, [Text.Encoding]::ASCII.GetBytes('abc'))
+    $md5 = Get-NexusMd5 -Path $md5Path
+    Assert-True ($md5.Hex -ceq '900150983cd24fb0d6963f7d28e17f72') 'MD5 muss als Hexwert berechnet werden.'
+    Assert-True ($md5.Base64 -ceq 'kAFQmDzST7DWlj99KOF/cg==') 'MD5 muss als Base64 fuer Content-MD5 berechnet werden.'
+    $uploadContent = New-NexusUploadContent -Bytes ([Text.Encoding]::ASCII.GetBytes('abc')) -FileName 'test.zip' -SignedHeaders $signedHeaders -ContentMd5Base64 $md5.Base64
+    try {
+        Assert-True ([Convert]::ToBase64String($uploadContent.Headers.ContentMD5) -ceq $md5.Base64) 'Content-MD5 muss am PUT-Inhalt gesetzt werden.'
+        Assert-True ([string]$uploadContent.Headers.ContentDisposition -match 'test\.zip') 'Content-Disposition muss den Dateinamen enthalten.'
+    } finally { $uploadContent.Dispose() }
+} finally {
+    if (Test-Path -LiteralPath $md5Path) { Remove-Item -LiteralPath $md5Path -Force }
+}
 $missingSignedHeadersRejected = $false
 try { [void](Get-NexusPresignedSignedHeaders -PresignedUrl 'https://upload.invalid/file?X-Amz-Signature=hidden') }
 catch { $missingSignedHeadersRejected = $true }
@@ -145,4 +260,5 @@ try {
     if (Test-Path -LiteralPath $tamperRoot) { Remove-Item -LiteralPath $tamperRoot -Recurse -Force }
 }
 
+$global:LASTEXITCODE = 0
 Write-Host 'Nexus-Release-Tests erfolgreich.' -ForegroundColor Green

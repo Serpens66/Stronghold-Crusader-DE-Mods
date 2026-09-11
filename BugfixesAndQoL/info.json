@@ -3,13 +3,25 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.139",
+  "Version": "1.0.141",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.141",
+      "Changes": [
+        "Fixed map-list hook initialization so map-origin sorting and classic HD map-size display are active again."
+      ]
+    },
+    {
+      "Version": "1.0.140",
+      "Changes": [
+        "Restored missing map-size values for classic Stronghold Crusader HD maps in singleplayer and multiplayer map selection."
+      ]
+    },
     {
       "Version": "1.0.139",
       "Changes": [

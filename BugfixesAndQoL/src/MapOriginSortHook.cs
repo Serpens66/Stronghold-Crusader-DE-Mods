@@ -29,6 +29,13 @@ namespace BugfixesAndQoL
             FileHeader selectedHeader,
             bool ignoreRefresh);
 
+        private delegate FileHeader GetFileInfoDelegate(
+            MapFileManager self,
+            string filePath,
+            string realFilePath,
+            int folderType,
+            bool loadRestartInfo);
+
         private static readonly FieldInfo StandaloneSortColumnField = FindRequiredField(
             typeof(FRONT_StandaloneMission),
             "sortByColumn");
@@ -51,10 +58,12 @@ namespace BugfixesAndQoL
         private readonly Hook standalonePopulateHook;
         private readonly Hook multiplayerHeaderHook;
         private readonly Hook multiplayerPopulateHook;
+        private readonly Hook getFileInfoHook;
         private readonly StandaloneHeaderDelegate standaloneHeaderTrampoline;
         private readonly StandalonePopulateDelegate standalonePopulateTrampoline;
         private readonly MultiplayerHeaderDelegate multiplayerHeaderTrampoline;
         private readonly MultiplayerPopulateDelegate multiplayerPopulateTrampoline;
+        private readonly GetFileInfoDelegate getFileInfoTrampoline;
         private bool sortingFailureLogged;
         private bool disposed;
 
@@ -67,6 +76,7 @@ namespace BugfixesAndQoL
             Hook newStandalonePopulateHook = null;
             Hook newMultiplayerHeaderHook = null;
             Hook newMultiplayerPopulateHook = null;
+            Hook newGetFileInfoHook = null;
             try
             {
                 MethodInfo standaloneHeader = FindRequiredMethod(
@@ -112,13 +122,22 @@ namespace BugfixesAndQoL
                 multiplayerPopulateTrampoline =
                     newMultiplayerPopulateHook.GenerateTrampoline<MultiplayerPopulateDelegate>();
 
+                MethodInfo getFileInfo = FindGetFileInfoMethod();
+                newGetFileInfoHook = new Hook(
+                    getFileInfo,
+                    (GetFileInfoDelegate)GetFileInfoHook);
+                getFileInfoTrampoline =
+                    newGetFileInfoHook.GenerateTrampoline<GetFileInfoDelegate>();
+
                 standaloneHeaderHook = newStandaloneHeaderHook;
                 standalonePopulateHook = newStandalonePopulateHook;
                 multiplayerHeaderHook = newMultiplayerHeaderHook;
                 multiplayerPopulateHook = newMultiplayerPopulateHook;
+                getFileInfoHook = newGetFileInfoHook;
             }
             catch
             {
+                DisposeHook(newGetFileInfoHook);
                 DisposeHook(newMultiplayerPopulateHook);
                 DisposeHook(newMultiplayerHeaderHook);
                 DisposeHook(newStandalonePopulateHook);
@@ -137,6 +156,7 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
+            DisposeHook(getFileInfoHook);
             DisposeHook(multiplayerPopulateHook);
             DisposeHook(multiplayerHeaderHook);
             DisposeHook(standalonePopulateHook);
@@ -199,6 +219,33 @@ namespace BugfixesAndQoL
                 self,
                 MultiplayerSortColumnField,
                 MultiplayerSortAscendingField);
+        }
+
+        private FileHeader GetFileInfoHook(
+            MapFileManager self,
+            string filePath,
+            string realFilePath,
+            int folderType,
+            bool loadRestartInfo)
+        {
+            FileHeader result = getFileInfoTrampoline(
+                self, filePath, realFilePath, folderType, loadRestartInfo);
+            string path = string.IsNullOrWhiteSpace(realFilePath) ? filePath : realFilePath;
+            if (!ClassicMapSizeReader.ShouldPopulate(
+                    IsActive,
+                    result?.classicSave == true,
+                    result?.world_size ?? default,
+                    path) ||
+                !ClassicMapSizeReader.TryRead(path, out int worldSize))
+            {
+                return result;
+            }
+
+            result.world_size = worldSize;
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Recovered classic map size {worldSize} from section 1050: {path}");
+            return result;
         }
 
         private static bool IsOriginHeader(RoutedEventArgs args)
@@ -327,6 +374,25 @@ namespace BugfixesAndQoL
                 null);
             if (method == null)
                 throw new MissingMethodException(type.FullName, name);
+            return method;
+        }
+
+        private static MethodInfo FindGetFileInfoMethod()
+        {
+            // Unlike the frontend population methods, this map-file API is public.
+            MethodInfo method = typeof(MapFileManager).GetMethod(
+                nameof(MapFileManager.GetFileInfoFromFileName),
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new[] { typeof(string), typeof(string), typeof(int), typeof(bool) },
+                null);
+            if (method == null)
+            {
+                throw new MissingMethodException(
+                    typeof(MapFileManager).FullName,
+                    nameof(MapFileManager.GetFileInfoFromFileName));
+            }
+
             return method;
         }
 

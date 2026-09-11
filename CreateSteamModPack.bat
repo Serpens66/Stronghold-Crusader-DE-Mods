@@ -3,6 +3,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 rem ==========================================================================
 rem Serps Mods Steam pack configuration. Add a mod by adding the next number.
+REM APIShared is included automatically as shared infrastructure.
 rem ==========================================================================
 set "PACK_NAME=SerpsMods"
 set "PACK_GUID=SerpsMods_Serp"
