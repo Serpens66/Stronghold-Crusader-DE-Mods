@@ -32,6 +32,8 @@ namespace BugfixesAndQoL
             TestTrailCustomizationOwnership();
             TestTunnelPlacementDistancePolicy();
             TestTunnelPlacementDistanceIntegration();
+            TestAicDropdownPolicy();
+            TestAicDropdownIntegration();
             TestFriendlyMoatMovementPolicy();
             TestFriendlyMoatMovementIntegration();
             TestMovementSafetyIntegration();
@@ -186,17 +188,10 @@ namespace BugfixesAndQoL
                     !patchText.Contains("LeaveCommand") &&
                     !patchText.Contains("ToolTip") &&
                     !patchText.Contains("ToolTipService");
-                for (int row = 1; row <= 8; row++)
-                {
-                    xamlContractsValid &= patchText.Contains(
-                        $"x:Name=\"CoopDeleteProgress{row}\" Width=\"29\" Height=\"29\" Margin=\"0,0,130,0\"") &&
-                        patchText.Contains("Visibility=\"Collapsed\"") &&
-                        patchText.Contains("local:PropEx.Sprite1=\"{StaticResource UI-Buttons L009}\"") &&
-                        patchText.Contains("local:PropEx.Sprite2=\"{StaticResource UI-Buttons L010}\"") &&
-                        !patchText.Contains($"CommandParameter=\"BugfixesAndQoL_CoopDelete{row}\"") &&
-                        patchText.Contains("Style=\"{StaticResource BTN_Building}\"");
-                }
-                xamlContractsValid &= !patchText.Contains("Command=\"{Binding MultiplayerMenuCommand}\"");
+                xamlContractsValid &=
+                    !patchText.Contains("CoopDeleteProgress") &&
+                    !patchText.Contains("BugfixesAndQoL_CoopDelete") &&
+                    !patchText.Contains("Command=\"{Binding MultiplayerMenuCommand}\"");
 
                 var document = new XmlDocument();
                 document.Load(baselinePath);
@@ -253,6 +248,9 @@ namespace BugfixesAndQoL
                 featureSource.Contains("AILords.SK_DLC4B") &&
                 featureSource.Contains("lord.configs[0].lordData.lord_power_display_level") &&
                 featureSource.Contains("HUD_ConfirmationPopup.ShowConfirmationMessage(") &&
+                featureSource.Contains("MPConf: true") &&
+                featureSource.Contains("ShowMultiplayerConfirmationOkMessage(") &&
+                featureSource.Contains("MainViewModel.Instance.Show_HUD_ConfirmationMP = true;") &&
                 featureSource.Contains("CoopInfoDictionaryField.GetValue(null) as IDictionary") &&
                 featureSource.Contains("CoopInfoListField.GetValue(null) as IList") &&
                 featureSource.Contains("ConfigSettings.SaveCoop();") &&
@@ -260,9 +258,18 @@ namespace BugfixesAndQoL
                 featureSource.Contains("FormatHistoryName(") &&
                 featureSource.Contains("button.Click += DeleteProgressButtonClicked;") &&
                 featureSource.Contains("button.Click -= DeleteProgressButtonClicked;") &&
-                featureSource.Contains("CollectDeleteButtonsRecursive(") &&
-                featureSource.Contains("VisualTreeHelper.GetChild(element, index)") &&
-                featureSource.Contains("RequestProgressDeletion(owner, row);") &&
+                featureSource.Contains("SetCoopRowHook(") &&
+                featureSource.Contains("page.TryFindResource(\"BTN_Building\") as Style") &&
+                featureSource.Contains("page.TryFindResource(\"UI-Buttons L009\") as ImageSource") &&
+                featureSource.Contains("page.TryFindResource(\"UI-Buttons L010\") as ImageSource") &&
+                featureSource.Contains("Name = DeleteProgressButtonPrefix + (row + 1)") &&
+                featureSource.Contains("Margin = new Thickness(0, 0, 130, 0)") &&
+                featureSource.Contains("PropEx.SetButtonVisibility(button, Visibility.Collapsed);") &&
+                featureSource.Contains("rowGrids[row].Children.Add(button);") &&
+                featureSource.Contains("UpdateDeleteButtonRow(row, steamId);") &&
+                featureSource.Contains("PropEx.SetButtonVisibility(button, visibility);") &&
+                featureSource.Contains("RequestProgressDeletion(self, row);") &&
+                !featureSource.Contains("CollectDeleteButtonsRecursive(") &&
                 !featureSource.Contains("BugfixesAndQoL_CoopDelete") &&
                 !featureSource.Contains("SelectVanilla") &&
                 !featureSource.Contains("EnterVanilla") &&
@@ -701,6 +708,92 @@ namespace BugfixesAndQoL
                     FriendlyMoatMovementPolicy.FromSliderValue(-1) == 0 &&
                     FriendlyMoatMovementPolicy.FromSliderValue(3) == 0,
                 "friendly-moat slider maps back to stable modes and fails closed");
+        }
+
+        private static void TestAicDropdownPolicy()
+        {
+            Check(AicDropdownPolicy.Compare(
+                    true, "Default", false, 0,
+                    false, "Alpha", false, 1) < 0,
+                "AIC dropdown pins Default before custom configurations");
+            Check(AicDropdownPolicy.Compare(
+                    false, "Alpha", true, 9,
+                    false, "beta", false, 1) < 0,
+                "AIC dropdown sorts custom configurations by name");
+            Check(AicDropdownPolicy.Compare(
+                    false, "Duplicate", false, 8,
+                    false, "duplicate", true, 2) < 0 &&
+                    AicDropdownPolicy.Compare(
+                        false, "Duplicate", false, 2,
+                        false, "duplicate", false, 8) < 0,
+                "AIC dropdown uses origin and power as deterministic name tie-breakers");
+            Check(AicDropdownPolicy.FormatDisplayName("Rat strong", 8, false, "Default") ==
+                    "Rat strong (8)" &&
+                    AicDropdownPolicy.FormatDisplayName(null, 0, true, "Default") == "Default",
+                "AIC dropdown formats custom power and Default labels");
+            Check(AicDropdownPolicy.Matches("Rat strong", 8, false, "Default", "rat") &&
+                    AicDropdownPolicy.Matches("Rat strong", 8, false, "Default", "8") &&
+                    AicDropdownPolicy.Matches(null, 0, true, "Default", "fault") &&
+                    !AicDropdownPolicy.Matches("Rat strong", 8, false, "Default", "snake"),
+                "AIC dropdown search matches names, power, and Default without changing case semantics");
+            Check(AicDropdownPolicy.GetOrigin(true, true) == AicDropdownOrigin.Default &&
+                    AicDropdownPolicy.GetOrigin(false, false) == AicDropdownOrigin.Local &&
+                    AicDropdownPolicy.GetOrigin(false, true) == AicDropdownOrigin.Workshop,
+                "AIC dropdown resolves Default, local, and Workshop icons explicitly");
+        }
+
+        private static void TestAicDropdownIntegration()
+        {
+            string projectDirectory = FindProjectDirectory();
+            string hook = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "AiCastleSettingsListEnhancementHook.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                projectDirectory, "Patches", "Assets", "GUI", "XAMLResources",
+                "FRONT_Multiplayer_AISettings.xaml"));
+            string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
+            string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
+
+            string[] requiredControls =
+            {
+                "BugfixesAndQoLAicDropdownHost",
+                "BugfixesAndQoLAicDropdownSelector",
+                "BugfixesAndQoLAicDropdownOpenSurface",
+                "BugfixesAndQoLAicDropdownPopup",
+                "BugfixesAndQoLAicDropdownSearchBox",
+                "BugfixesAndQoLAicDropdownResults"
+            };
+            foreach (string control in requiredControls)
+            {
+                Check(xaml.Contains("x:Name=\"" + control + "\""),
+                    $"AIC dropdown control '{control}' is present");
+            }
+
+            Check(xaml.Contains("ItemsSource=\"{Binding AicDropdownEntries}\"") &&
+                    xaml.Contains("MaxHeight=\"390\"") &&
+                    xaml.Contains("Source=\"{Binding Icon}\"") &&
+                    xaml.Contains("ToolTip=\"{Binding OriginHelp}\"") &&
+                    xaml.Contains("Text=\"{Binding DisplayText}\""),
+                "AIC dropdown exposes searchable, scrollable icon and power rows");
+            Check(xaml.Contains("Margin=\"120,40,0,0\"") &&
+                    xaml.Contains("Margin=\"240,40,0,0\"") &&
+                    xaml.Contains("Margin=\"120,70,0,0\"") &&
+                    xaml.Contains("Margin=\"240,70,0,0\""),
+                "rotation controls use the compact two-row layout");
+            Check(xaml.Contains("<Grid Width=\"340\" Height=\"34\" Margin=\"-40,289,-100,-100\"") &&
+                    xaml.Contains("BugfixesAndQoLAivPresetButtonHost\" Width=\"180\"") &&
+                    xaml.Contains("<Viewbox Width=\"150\" Height=\"34\" Margin=\"190,0,0,0\""),
+                "Save/Load keeps its width and sits ten units left of Clear");
+            Check(hook.Contains("info.builtInLord = true;") &&
+                    hook.Contains("info.lordConfig = null;") &&
+                    hook.Contains("info.builtInLord = false;") &&
+                    hook.Contains("selectionLoaded?.Invoke(info);") &&
+                    hook.Contains("aicListControl.SelectionChanged += AicListSelectionChanged;"),
+                "AIC dropdown updates Vanilla state, selection memory, and the legacy list");
+            Check(english.Contains("BugfixesAndQoL.AicDropdownLocal=Local") &&
+                    german.Contains("BugfixesAndQoL.AicDropdownLocal=Lokal") &&
+                    english.Contains("BugfixesAndQoL.AicDropdownSearchPlaceholder=Search AICs") &&
+                    german.Contains("BugfixesAndQoL.AicDropdownSearchPlaceholder=AICs durchsuchen"),
+                "AIC dropdown labels have English fallbacks and German translations");
         }
 
         private static void TestFriendlyMoatMovementIntegration()

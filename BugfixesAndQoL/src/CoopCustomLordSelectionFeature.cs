@@ -29,6 +29,9 @@ namespace BugfixesAndQoL
             out bool hidden, bool countHidden, out string coaString);
         private delegate bool GetCoopRowHiddenInfoDelegate(ulong steamId, out string userName);
         private delegate void CoopPopulateFriendsListDelegate(FRONT_Multiplayer self);
+        private delegate void SetCoopRowDelegate(
+            FRONT_Multiplayer self, int row, string name, ulong steamId,
+            ImageSource avatar, bool hidden);
         private delegate void AiLordEnterDelegate(FRONT_Multiplayer self, string parameter);
 
         private static readonly BindingFlags AllStatic =
@@ -78,8 +81,11 @@ namespace BugfixesAndQoL
         private readonly ObservableCollection<CoopLordChoice> choices =
             new ObservableCollection<CoopLordChoice>();
         private readonly HashSet<Button> hookedCustomButtons = new HashSet<Button>();
-        private readonly Dictionary<Button, int> hookedDeleteButtons =
+        private readonly Dictionary<UserControl, Button[]> deleteButtonsByPage =
+            new Dictionary<UserControl, Button[]>();
+        private readonly Dictionary<Button, int> deleteButtonRows =
             new Dictionary<Button, int>();
+        private readonly HashSet<Type> deleteButtonFailureTypes = new HashSet<Type>();
 
         // Published hooks are process-lifetime objects. These fields keep every delegate rooted.
         private Hook coopMissionChangedHook;
@@ -88,6 +94,7 @@ namespace BugfixesAndQoL
         private Hook getCoopRowInfoHook;
         private Hook getCoopRowHiddenInfoHook;
         private Hook coopPopulateFriendsListHook;
+        private Hook setCoopRowHook;
         private Hook aiLordEnterHook;
         private CoopMissionChangedDelegate coopMissionChangedOriginal;
         private UploadDefaultAivDelegate uploadDefaultAivOriginal;
@@ -95,6 +102,7 @@ namespace BugfixesAndQoL
         private GetCoopRowInfoDelegate getCoopRowInfoOriginal;
         private GetCoopRowHiddenInfoDelegate getCoopRowHiddenInfoOriginal;
         private CoopPopulateFriendsListDelegate coopPopulateFriendsListOriginal;
+        private SetCoopRowDelegate setCoopRowOriginal;
         private AiLordEnterDelegate aiLordEnterOriginal;
 
         private FRONT_Multiplayer owner;
@@ -126,6 +134,7 @@ namespace BugfixesAndQoL
             Hook pendingRow = null;
             Hook pendingHidden = null;
             Hook pendingPopulate = null;
+            Hook pendingSetCoopRow = null;
             Hook pendingEnter = null;
             try
             {
@@ -160,6 +169,10 @@ namespace BugfixesAndQoL
                     RequireMethod(typeof(FRONT_Multiplayer), "CoopPopulateFriendsList", AllInstance),
                     (CoopPopulateFriendsListDelegate)CoopPopulateFriendsListHook,
                     out coopPopulateFriendsListOriginal);
+                pendingSetCoopRow = InstallHook(
+                    SetCoopRowMethod,
+                    (SetCoopRowDelegate)SetCoopRowHook,
+                    out setCoopRowOriginal);
                 pendingEnter = InstallHook(
                     RequireMethod(typeof(FRONT_Multiplayer), nameof(FRONT_Multiplayer.AILordEnter),
                         AllInstance, typeof(string)),
@@ -172,6 +185,7 @@ namespace BugfixesAndQoL
                 getCoopRowInfoHook = pendingRow;
                 getCoopRowHiddenInfoHook = pendingHidden;
                 coopPopulateFriendsListHook = pendingPopulate;
+                setCoopRowHook = pendingSetCoopRow;
                 aiLordEnterHook = pendingEnter;
                 GameXAMLManagerAPI.Instance.RegisterBinding("CoopCustomLordSelectionHost", this);
                 current = this;
@@ -181,6 +195,7 @@ namespace BugfixesAndQoL
             {
                 // Only a not-yet-published installation candidate may be rolled back.
                 pendingEnter?.Dispose();
+                pendingSetCoopRow?.Dispose();
                 pendingPopulate?.Dispose();
                 pendingHidden?.Dispose();
                 pendingRow?.Dispose();
@@ -202,6 +217,7 @@ namespace BugfixesAndQoL
                 RefreshChoices(owner);
             else if (FRONT_Multiplayer.coopGame)
                 CoopPopulateFriendsListHook(owner);
+            RefreshDeleteButtonVisibility(owner);
         }
 
         internal static void OnMultiplayerButtonStarting(FRONT_Multiplayer self, string command)
@@ -255,12 +271,23 @@ namespace BugfixesAndQoL
                 $"Bugfixes and QoL Coop progress delete clicked: row={rowIndex + 1}, partnerId={partnerId}.");
             HUD_ConfirmationPopup.ShowConfirmationMessage(
                 SerpLocalization.Get("BugfixesAndQoL.CoopDeleteProgressTitle"),
-                () => DeleteProgressConfirmed(self, rowIndex, partnerId),
-                () => { },
+                () =>
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Bugfixes and QoL Coop progress deletion confirmed: row={rowIndex + 1}, partnerId={partnerId}.");
+                    DeleteProgressConfirmed(self, rowIndex, partnerId);
+                },
+                () => Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Bugfixes and QoL Coop progress deletion cancelled: row={rowIndex + 1}, partnerId={partnerId}."),
                 SerpLocalization.Get(
                     "BugfixesAndQoL.CoopDeleteProgressMessage",
                     "PartnerName",
-                    partnerName));
+                    partnerName),
+                // Coop Trails are hosted inside FRONT_Multiplayer. The normal confirmation
+                // layer is behind that page, so this dialog must use its MP overlay.
+                MPConf: true);
         }
 
         private void DeleteProgressConfirmed(FRONT_Multiplayer self, int rowIndex, ulong partnerId)
@@ -352,11 +379,20 @@ namespace BugfixesAndQoL
                 }
 
                 Shared.DebugLogHelper.LogError(log, "Could not delete Coop progress: " + ex);
-                HUD_ConfirmationPopup.ShowConfirmationOKMessage(
+                ShowMultiplayerConfirmationOkMessage(
                     SerpLocalization.Get("BugfixesAndQoL.CoopDeleteProgressErrorTitle"),
-                    () => { },
                     SerpLocalization.Get("BugfixesAndQoL.CoopDeleteProgressErrorMessage"));
             }
+        }
+
+        private static void ShowMultiplayerConfirmationOkMessage(string title, string message)
+        {
+            // Vanilla has no MPConf overload for its message-bearing OK dialog. Configure all
+            // popup instances first, then move visibility to FRONT_Multiplayer's overlay.
+            HUD_ConfirmationPopup.ShowConfirmationOKMessage(title, () => { }, message);
+            MainViewModel.Instance.Show_HUD_Confirmation = false;
+            MainViewModel.Instance.Show_HUD_ConfirmationMP = true;
+            MainViewModel.Instance.FrontEndMenu.UpdateFrontMenuPopupScale();
         }
 
         private static bool CoopFileContainsPartner(string path, ulong partnerId)
@@ -654,7 +690,7 @@ namespace BugfixesAndQoL
             bool[] hiddenRows = CoopFriendHiddenField.GetValue(self) as bool[];
             if (steamIds == null || hiddenRows == null)
             {
-                RefreshDeleteButtonHandlers(null);
+                RefreshDeleteButtonVisibility(self);
                 return;
             }
 
@@ -672,7 +708,28 @@ namespace BugfixesAndQoL
                     self,
                     new object[] { row, displayName, steamIds[row], portrait, hiddenRows[row] });
             }
-            RefreshDeleteButtonHandlers(steamIds);
+            RefreshDeleteButtonVisibility(self);
+        }
+
+        private void SetCoopRowHook(
+            FRONT_Multiplayer self,
+            int row,
+            string name,
+            ulong steamId,
+            ImageSource avatar,
+            bool hidden)
+        {
+            setCoopRowOriginal(self, row, name, steamId, avatar, hidden);
+            owner = self;
+            try
+            {
+                EnsureDeleteButtons();
+                UpdateDeleteButtonRow(row, steamId);
+            }
+            catch (Exception ex)
+            {
+                LogDeleteButtonFailure(self?.GetType(), "Could not update a Coop progress delete button", ex);
+            }
         }
 
         private void AiLordEnterHook(FRONT_Multiplayer self, string parameter)
@@ -719,97 +776,172 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        private void RefreshDeleteButtonHandlers(ulong[] steamIds)
+        private void EnsureDeleteButtons()
         {
-            var currentButtons = new Dictionary<Button, int>();
-            CollectDeleteButtons(FRONT_CoopTrail1.Instance, currentButtons);
-            CollectDeleteButtons(FRONT_CoopTrail2.Instance, currentButtons);
-            CollectDeleteButtons(FRONT_CoopTrail3.Instance, currentButtons);
-            CollectDeleteButtons(FRONT_CoopTrail4.Instance, currentButtons);
+            UserControl[] currentPages =
+            {
+                FRONT_CoopTrail1.Instance,
+                FRONT_CoopTrail2.Instance,
+                FRONT_CoopTrail3.Instance,
+                FRONT_CoopTrail4.Instance,
+            };
 
-            var staleButtons = new List<Button>();
-            foreach (KeyValuePair<Button, int> pair in hookedDeleteButtons)
+            var stalePages = new List<UserControl>();
+            foreach (UserControl registeredPage in deleteButtonsByPage.Keys)
             {
-                if (!currentButtons.ContainsKey(pair.Key))
-                    staleButtons.Add(pair.Key);
+                bool stillCurrent = false;
+                foreach (UserControl currentPage in currentPages)
+                    stillCurrent |= ReferenceEquals(registeredPage, currentPage);
+                if (!stillCurrent)
+                    stalePages.Add(registeredPage);
             }
-            foreach (Button button in staleButtons)
+            foreach (UserControl stalePage in stalePages)
+                DetachDeleteButtons(stalePage);
+
+            foreach (UserControl page in currentPages)
             {
-                button.Click -= DeleteProgressButtonClicked;
-                hookedDeleteButtons.Remove(button);
+                if (page != null && !deleteButtonsByPage.ContainsKey(page))
+                    InjectDeleteButtons(page);
+            }
+        }
+
+        private void InjectDeleteButtons(UserControl page)
+        {
+            Style style = page.TryFindResource("BTN_Building") as Style;
+            ImageSource normalSprite = page.TryFindResource("UI-Buttons L009") as ImageSource;
+            ImageSource hoverSprite = page.TryFindResource("UI-Buttons L010") as ImageSource;
+            if (style == null || normalSprite == null || hoverSprite == null)
+            {
+                LogDeleteButtonFailure(
+                    page.GetType(),
+                    "Could not resolve the Coop progress delete button resources",
+                    null);
+                return;
             }
 
-            foreach (KeyValuePair<Button, int> pair in currentButtons)
+            var rowGrids = new Grid[8];
+            for (int row = 0; row < rowGrids.Length; row++)
             {
-                Button button = pair.Key;
-                int row = pair.Value;
-                if (!hookedDeleteButtons.ContainsKey(button))
+                rowGrids[row] = page.FindName("Row" + (row + 1)) as Grid;
+                if (rowGrids[row] != null)
+                    continue;
+                LogDeleteButtonFailure(
+                    page.GetType(),
+                    "Could not find Vanilla Coop progress row " + (row + 1),
+                    null);
+                return;
+            }
+
+            var buttons = new Button[rowGrids.Length];
+            int addedCount = 0;
+            try
+            {
+                for (int row = 0; row < buttons.Length; row++)
                 {
-                    hookedDeleteButtons.Add(button, row);
+                    var button = new Button
+                    {
+                        Name = DeleteProgressButtonPrefix + (row + 1),
+                        Width = 29,
+                        Height = 29,
+                        Margin = new Thickness(0, 0, 130, 0),
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        Visibility = Visibility.Collapsed,
+                        Style = style,
+                    };
+                    PropEx.SetSprite1(button, normalSprite);
+                    PropEx.SetSprite2(button, hoverSprite);
+                    // BTN_Building renders through this attached property instead of the
+                    // control's normal Visibility property.
+                    PropEx.SetButtonVisibility(button, Visibility.Collapsed);
                     button.Click += DeleteProgressButtonClicked;
+                    rowGrids[row].Children.Add(button);
+                    buttons[row] = button;
+                    deleteButtonRows.Add(button, row);
+                    addedCount++;
                 }
+                deleteButtonsByPage.Add(page, buttons);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Bugfixes and QoL created {buttons.Length} Coop progress delete buttons for {page.GetType().Name}.");
             }
-
-            UpdateDeleteButtonVisibility(steamIds);
-        }
-
-        private void UpdateDeleteButtonVisibility(ulong[] steamIds)
-        {
-            foreach (KeyValuePair<Button, int> pair in hookedDeleteButtons)
+            catch (Exception ex)
             {
-                Button button = pair.Key;
-                int row = pair.Value;
-                ulong partnerId = steamIds != null && row < steamIds.Length ? steamIds[row] : 0UL;
-                button.Visibility = CoopCustomLordSelectionPolicy.ShouldShowDeleteButton(
-                    EnhancementsEnabled,
-                    partnerId)
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                for (int row = 0; row < addedCount; row++)
+                {
+                    Button button = buttons[row];
+                    if (button == null)
+                        continue;
+                    button.Click -= DeleteProgressButtonClicked;
+                    deleteButtonRows.Remove(button);
+                    rowGrids[row].Children.Remove(button);
+                }
+                LogDeleteButtonFailure(page.GetType(), "Could not create Coop progress delete buttons", ex);
             }
         }
 
-        private static void CollectDeleteButtons(
-            FrameworkElement trailView,
-            Dictionary<Button, int> result)
+        private void DetachDeleteButtons(UserControl page)
         {
-            if (trailView != null)
-                CollectDeleteButtonsRecursive(trailView, result);
-        }
-
-        private static void CollectDeleteButtonsRecursive(
-            DependencyObject element,
-            Dictionary<Button, int> result)
-        {
-            if (element is Button button &&
-                TryGetDeleteButtonRow(button.Name, out int row))
+            if (!deleteButtonsByPage.TryGetValue(page, out Button[] buttons))
+                return;
+            foreach (Button button in buttons)
             {
-                result[button] = row;
+                if (button == null)
+                    continue;
+                button.Click -= DeleteProgressButtonClicked;
+                deleteButtonRows.Remove(button);
             }
-
-            int childCount = VisualTreeHelper.GetChildrenCount(element);
-            for (int index = 0; index < childCount; index++)
-                CollectDeleteButtonsRecursive(VisualTreeHelper.GetChild(element, index), result);
+            deleteButtonsByPage.Remove(page);
         }
 
-        private static bool TryGetDeleteButtonRow(string buttonName, out int row)
+        private void RefreshDeleteButtonVisibility(FRONT_Multiplayer self)
         {
-            row = -1;
-            if (string.IsNullOrEmpty(buttonName) ||
-                !buttonName.StartsWith(DeleteProgressButtonPrefix, StringComparison.Ordinal) ||
-                !int.TryParse(buttonName.Substring(DeleteProgressButtonPrefix.Length), out int rowNumber) ||
-                rowNumber < 1 || rowNumber > 8)
+            EnsureDeleteButtons();
+            ulong[] steamIds = self == null
+                ? null
+                : CoopFriendSteamIdsField.GetValue(self) as ulong[];
+            for (int row = 0; row < 8; row++)
             {
-                return false;
+                ulong steamId = steamIds != null && row < steamIds.Length ? steamIds[row] : 0UL;
+                UpdateDeleteButtonRow(row, steamId);
             }
+        }
 
-            row = rowNumber - 1;
-            return true;
+        private void UpdateDeleteButtonRow(int row, ulong steamId)
+        {
+            if (row < 0 || row >= 8)
+                return;
+            Visibility visibility = CoopCustomLordSelectionPolicy.ShouldShowDeleteButton(
+                EnhancementsEnabled,
+                steamId)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            foreach (Button[] buttons in deleteButtonsByPage.Values)
+            {
+                Button button = buttons[row];
+                button.Visibility = visibility;
+                PropEx.SetButtonVisibility(button, visibility);
+            }
+        }
+
+        private void LogDeleteButtonFailure(Type pageType, string message, Exception exception)
+        {
+            Type key = pageType ?? typeof(FRONT_Multiplayer);
+            if (!deleteButtonFailureTypes.Add(key))
+                return;
+            string suffix = exception == null ? string.Empty : ": " + exception;
+            Shared.DebugLogHelper.LogError(log, message + suffix);
         }
 
         private void DeleteProgressButtonClicked(object sender, RoutedEventArgs args)
         {
-            if (sender is Button button && hookedDeleteButtons.TryGetValue(button, out int row))
-                RequestProgressDeletion(owner, row);
+            if (!(sender is Button button) || !deleteButtonRows.TryGetValue(button, out int row))
+                return;
+            args.Handled = true;
+            FRONT_Multiplayer self = MainViewModel.viewModelLoaded
+                ? MainViewModel.Instance.FRONTMultiplayer
+                : null;
+            RequestProgressDeletion(self, row);
         }
 
         private ImageSource ResolveHistoryPortrait(string displayName)
@@ -897,11 +1029,6 @@ namespace BugfixesAndQoL
             if (!ReferenceEquals(owner, self) || !MainViewModel.viewModelLoaded)
                 return;
 
-            ulong[] steamIds = CoopFriendSteamIdsField.GetValue(self) as ulong[];
-            if (hookedDeleteButtons.Count == 0)
-                RefreshDeleteButtonHandlers(steamIds);
-            else
-                UpdateDeleteButtonVisibility(steamIds);
             if (!MainViewModel.Instance.Show_CoopAIAllyPanel)
                 return;
 

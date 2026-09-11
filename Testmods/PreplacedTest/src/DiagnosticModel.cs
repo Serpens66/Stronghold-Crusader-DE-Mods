@@ -562,15 +562,23 @@ namespace PreplacedTest
         private static bool IsCandidate(ShadowEconomyCell cell, ShadowEconomySearchKind kind, int resourceMode)
         {
             if (kind == ShadowEconomySearchKind.Wood)
-                return cell.Projected04 < 6 && cell.Raw07 > 0 && cell.Raw13 == 0;
+                return WoodCandidateRejectionReason(cell) == "candidate";
             if (kind == ShadowEconomySearchKind.Nearby)
                 return cell.Projected04 == 0 && cell.Raw0E == 0 && cell.Raw0F == 0 &&
                     cell.Raw13 == 0 && cell.Raw07 == 0 && cell.Raw08 == 0;
             if (kind == ShadowEconomySearchKind.Farm)
                 return cell.Projected04 == 0 && cell.Raw0F == 0 && cell.Raw07 == 0 &&
-                    cell.Raw13 == 0 && cell.Raw11 > 24 && cell.Raw12 > 13;
+                    cell.Raw13 == 0 && (sbyte)cell.Raw11 > 24 && (sbyte)cell.Raw12 > 13;
             if (ResourceCandidateRejectionReason(cell, resourceMode) != "candidate") return false;
             return true;
+        }
+
+        public static string WoodCandidateRejectionReason(ShadowEconomyCell cell)
+        {
+            if (cell.Projected04 >= 6) return "pcl-threshold";
+            if ((sbyte)cell.Raw07 <= 0) return "wood-density-byte+07";
+            if (cell.Raw13 != 0) return "blocked-byte+13";
+            return "candidate";
         }
 
         public static string ResourceCandidateRejectionReason(ShadowEconomyCell cell, int resourceMode)

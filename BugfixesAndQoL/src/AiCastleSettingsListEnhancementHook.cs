@@ -48,6 +48,8 @@ namespace BugfixesAndQoL
         private readonly Action<FRONT_Multiplayer.MPAIVInfo> selectionLoaded;
         private readonly AivAicPresetStore presetStore;
         private readonly AivSelectionListViewModel selectionList = new AivSelectionListViewModel();
+        private readonly ObservableCollection<AicDropdownEntry> aicDropdownEntries =
+            new ObservableCollection<AicDropdownEntry>();
         private readonly Hook showHook;
         private readonly Hook buttonClickedHook;
         private readonly Hook addSelectedHook;
@@ -65,11 +67,19 @@ namespace BugfixesAndQoL
         private Grid aivHeaderPanel;
         private Grid aicHeaderPanel;
         private Grid aicSearchPanel;
+        private FrameworkElement aicDropdownOpenSurface;
+        private Popup aicDropdownPopup;
+        private TextBox aicDropdownSearchBox;
+        private ListBox aicDropdownResults;
         private ListView presetListControl;
         private TextBox presetNameBox;
         private Button okButton;
         private bool aivSearchHasFocus;
         private bool aicSearchHasFocus;
+        private bool aicDropdownSessionActive;
+        private bool suppressAicDropdownSelection;
+        private string aicDropdownSearchText = string.Empty;
+        private AicDropdownEntry selectedAicDropdownEntry;
         private bool disposed;
         private string aivSearchText = string.Empty;
         private string aicSearchText = string.Empty;
@@ -107,6 +117,7 @@ namespace BugfixesAndQoL
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivSearchPanel", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAicHeaderPanel", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAicSearchPanel", this);
+            GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAicDropdownHost", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivPresetButtonHost", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivPresetDialog", this);
             GameXAMLManagerAPI.Instance.RegisterBinding("BugfixesAndQoLAivSelectionListHost", selectionList);
@@ -169,6 +180,7 @@ namespace BugfixesAndQoL
         public RelayCommand DeletePresetCommand { get; }
         public ObservableCollection<AivAicPresetRow> PresetRows { get; } =
             new ObservableCollection<AivAicPresetRow>();
+        public ObservableCollection<AicDropdownEntry> AicDropdownEntries => aicDropdownEntries;
         public Visibility EnhancementVisibility => IsActive ? Visibility.Visible : Visibility.Collapsed;
         public Visibility PresetDialogVisibility =>
             IsActive && presetDialogOpen ? Visibility.Visible : Visibility.Collapsed;
@@ -206,6 +218,17 @@ namespace BugfixesAndQoL
         public string PresetLoadHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetLoadHelp");
         public string PresetDeleteHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetDeleteHelp");
         public string PresetCancelHelpText => SerpLocalization.Get("BugfixesAndQoL.AivAicPresetCancelHelp");
+        public string AicDropdownSearchPlaceholder =>
+            SerpLocalization.Get("BugfixesAndQoL.AicDropdownSearchPlaceholder");
+        public string SelectedAicDropdownText =>
+            selectedAicDropdownEntry?.DisplayText ?? AicDropdownDefaultText;
+        public ImageSource SelectedAicDropdownIcon =>
+            selectedAicDropdownEntry?.Icon;
+        public string SelectedAicDropdownOriginHelp =>
+            selectedAicDropdownEntry?.OriginHelp ?? AicDropdownDefaultText;
+
+        private string AicDropdownDefaultText =>
+            SerpLocalization.Get("BugfixesAndQoL.AicDropdownDefault");
 
         public string PresetName
         {
@@ -273,7 +296,10 @@ namespace BugfixesAndQoL
         {
             OnPropertyChanged(nameof(EnhancementVisibility));
             if (!IsActive)
+            {
                 ClosePresetDialog();
+                CloseAicDropdown();
+            }
             OnPropertyChanged(nameof(AivSearchPlaceholderVisibility));
             OnPropertyChanged(nameof(AicSearchPlaceholderVisibility));
             if (activeView == null || GetAivInfo(activeView) == null)
@@ -314,6 +340,7 @@ namespace BugfixesAndQoL
             bool mpMode)
         {
             ClosePresetDialog();
+            CloseAicDropdown();
             activeMpMode = mpMode;
             if (!IsActive)
                 TrimSelection(aivInfo, mpMode ? 1 : 8, "Vanilla dialog limit");
@@ -333,6 +360,11 @@ namespace BugfixesAndQoL
 
         private void ButtonClickedHook(FRONT_Multiplayer_AISettings self, string param)
         {
+            if (aicDropdownPopup?.IsOpen == true && string.Equals(param, "Back", StringComparison.Ordinal))
+            {
+                CloseAicDropdown();
+                return;
+            }
             if (presetDialogOpen && string.Equals(param, "Back", StringComparison.Ordinal))
             {
                 ClosePresetDialog();
@@ -436,13 +468,18 @@ namespace BugfixesAndQoL
             aivHeaderPanel = self.FindName("BugfixesAndQoLAivHeaderPanel") as Grid;
             aicHeaderPanel = self.FindName("BugfixesAndQoLAicHeaderPanel") as Grid;
             aicSearchPanel = self.FindName("BugfixesAndQoLAicSearchPanel") as Grid;
+            aicDropdownOpenSurface = self.FindName("BugfixesAndQoLAicDropdownOpenSurface") as FrameworkElement;
+            aicDropdownPopup = self.FindName("BugfixesAndQoLAicDropdownPopup") as Popup;
+            aicDropdownSearchBox = self.FindName("BugfixesAndQoLAicDropdownSearchBox") as TextBox;
+            aicDropdownResults = self.FindName("BugfixesAndQoLAicDropdownResults") as ListBox;
             presetListControl = self.FindName("BugfixesAndQoLAivPresetList") as ListView;
             presetNameBox = self.FindName("BugfixesAndQoLAivPresetNameBox") as TextBox;
             okButton = self.FindName("MP_OKSettings") as Button;
             if (aivListControl == null || aicListControl == null || aivSearchBox == null ||
                 aicSearchBox == null || aivHeaderPanel == null || aicHeaderPanel == null ||
-                aicSearchPanel == null || presetListControl == null || presetNameBox == null ||
-                okButton == null)
+                aicSearchPanel == null || aicDropdownOpenSurface == null || aicDropdownPopup == null ||
+                aicDropdownSearchBox == null || aicDropdownResults == null || presetListControl == null ||
+                presetNameBox == null || okButton == null)
                 throw new InvalidOperationException("The patched AI-settings controls were not found.");
 
             // Search focus must not disable Ctrl/Shift input used by Vanilla multi-selection.
@@ -462,6 +499,13 @@ namespace BugfixesAndQoL
             AttachHeader(self, "BugfixesAndQoLPresetSavedHeader", PresetHeaderClicked);
             aivSearchBox.IsKeyboardFocusedChanged += AivSearchFocusChanged;
             aicSearchBox.IsKeyboardFocusedChanged += AicSearchFocusChanged;
+            aicDropdownOpenSurface.MouseLeftButtonUp += AicDropdownOpenSurfaceMouseLeftButtonUp;
+            aicDropdownPopup.Opened += AicDropdownPopupOpened;
+            aicDropdownPopup.Closed += AicDropdownPopupClosed;
+            aicDropdownSearchBox.TextChanged += AicDropdownSearchTextChanged;
+            aicDropdownSearchBox.IsKeyboardFocusedChanged += AicDropdownSearchFocusChanged;
+            aicDropdownResults.SelectionChanged += AicDropdownResultSelected;
+            aicListControl.SelectionChanged += AicListSelectionChanged;
             presetNameBox.IsKeyboardFocusedChanged += PresetNameFocusChanged;
             self.IsVisibleChanged += DialogVisibilityChanged;
             // Vanilla registered its handler in the control constructor, so this runs after a
@@ -538,6 +582,7 @@ namespace BugfixesAndQoL
         {
             if (!IsActive || activeView == null)
                 return;
+            CloseAicDropdown();
             FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
             presetLordKey = AivAicPresetStore.BuildLordKey(info);
             if (string.IsNullOrEmpty(presetLordKey))
@@ -802,6 +847,7 @@ namespace BugfixesAndQoL
             aicListControl.ItemsSource = aicRows;
             if (info != null && !info.builtInLord)
                 SelectAic(aicRows, selectedAic);
+            RefreshAicDropdownEntries(canonicalAics, info);
 
             aivListControl.Margin = new Thickness(0f, 24f, 0f, 0f);
             aicListControl.Margin = new Thickness(0f, 24f, 0f, 0f);
@@ -953,6 +999,277 @@ namespace BugfixesAndQoL
             }
         }
 
+        private void RefreshAicDropdownEntries(
+            List<CustomisationFileManager.CustomLordConfig> canonicalAics,
+            FRONT_Multiplayer.MPAIVInfo info)
+        {
+            var ordered = new List<CustomisationFileManager.CustomLordConfig>(canonicalAics);
+            ordered.Sort((left, right) => AicDropdownPolicy.Compare(
+                false,
+                left?.name,
+                left?.workshop ?? false,
+                GetPower(left),
+                false,
+                right?.name,
+                right?.workshop ?? false,
+                GetPower(right)));
+
+            suppressAicDropdownSelection = true;
+            try
+            {
+                aicDropdownEntries.Clear();
+                AddAicDropdownEntry(null, true);
+                foreach (CustomisationFileManager.CustomLordConfig config in ordered)
+                    AddAicDropdownEntry(config, false);
+                if (aicDropdownResults != null)
+                    aicDropdownResults.SelectedIndex = -1;
+            }
+            finally
+            {
+                suppressAicDropdownSelection = false;
+            }
+
+            SelectCurrentAicDropdownEntry(info);
+        }
+
+        private void AddAicDropdownEntry(
+            CustomisationFileManager.CustomLordConfig config,
+            bool isDefault)
+        {
+            int power = GetPower(config);
+            if (!AicDropdownPolicy.Matches(
+                    config?.name,
+                    power,
+                    isDefault,
+                    AicDropdownDefaultText,
+                    aicDropdownSearchText))
+            {
+                return;
+            }
+
+            AicDropdownOrigin origin = AicDropdownPolicy.GetOrigin(
+                isDefault,
+                config?.workshop ?? false);
+            aicDropdownEntries.Add(new AicDropdownEntry(
+                config,
+                isDefault,
+                AicDropdownPolicy.FormatDisplayName(
+                    config?.name,
+                    power,
+                    isDefault,
+                    AicDropdownDefaultText),
+                GetAicDropdownIcon(origin),
+                GetAicDropdownOriginHelp(origin)));
+        }
+
+        private void SelectCurrentAicDropdownEntry(FRONT_Multiplayer.MPAIVInfo info)
+        {
+            AicDropdownEntry selected = null;
+            if (info == null || info.builtInLord || info.lordConfig == null)
+            {
+                selected = FindAicDropdownEntry(null, true);
+                if (selected == null)
+                    selected = CreateAicDropdownEntry(null, true);
+            }
+            else
+            {
+                selected = FindAicDropdownEntry(info.lordConfig, false) ??
+                    CreateAicDropdownEntry(info.lordConfig, false);
+            }
+
+            selectedAicDropdownEntry = selected;
+            OnPropertyChanged(nameof(SelectedAicDropdownText));
+            OnPropertyChanged(nameof(SelectedAicDropdownIcon));
+            OnPropertyChanged(nameof(SelectedAicDropdownOriginHelp));
+        }
+
+        private AicDropdownEntry FindAicDropdownEntry(
+            CustomisationFileManager.CustomLordConfig config,
+            bool isDefault)
+        {
+            foreach (AicDropdownEntry entry in aicDropdownEntries)
+            {
+                if (entry.IsDefault == isDefault &&
+                    (isDefault || ReferenceEquals(entry.Config, config) ||
+                     entry.Config?.checksum == config?.checksum))
+                {
+                    return entry;
+                }
+            }
+            return null;
+        }
+
+        private AicDropdownEntry CreateAicDropdownEntry(
+            CustomisationFileManager.CustomLordConfig config,
+            bool isDefault)
+        {
+            int power = GetPower(config);
+            AicDropdownOrigin origin = AicDropdownPolicy.GetOrigin(
+                isDefault,
+                config?.workshop ?? false);
+            return new AicDropdownEntry(
+                config,
+                isDefault,
+                AicDropdownPolicy.FormatDisplayName(
+                    config?.name,
+                    power,
+                    isDefault,
+                    AicDropdownDefaultText),
+                GetAicDropdownIcon(origin),
+                GetAicDropdownOriginHelp(origin));
+        }
+
+        private static ImageSource GetAicDropdownIcon(AicDropdownOrigin origin)
+        {
+            switch (origin)
+            {
+                case AicDropdownOrigin.Workshop:
+                    return MainViewModel.Instance.GameSprites[89];
+                case AicDropdownOrigin.Local:
+                    return MainViewModel.Instance.GameSprites[90];
+                default:
+                    return MainViewModel.Instance.GameSprites[88];
+            }
+        }
+
+        private string GetAicDropdownOriginHelp(AicDropdownOrigin origin)
+        {
+            switch (origin)
+            {
+                case AicDropdownOrigin.Workshop:
+                    return SerpLocalization.Get("BugfixesAndQoL.AicDropdownWorkshop");
+                case AicDropdownOrigin.Local:
+                    return SerpLocalization.Get("BugfixesAndQoL.AicDropdownLocal");
+                default:
+                    return AicDropdownDefaultText;
+            }
+        }
+
+        private void AicDropdownOpenSurfaceMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (!IsActive || aicDropdownPopup == null || aicDropdownPopup.IsOpen)
+                return;
+
+            aicDropdownSearchText = string.Empty;
+            List<CustomisationFileManager.CustomLordConfig> canonicalAics =
+                GetCanonicalAics(GetAivInfo(activeView));
+            if (canonicalAics == null)
+                return;
+            RefreshAicDropdownEntries(canonicalAics, GetAivInfo(activeView));
+            aicDropdownPopup.IsOpen = true;
+            if (e != null)
+                e.Handled = true;
+        }
+
+        private void AicDropdownPopupOpened(object sender, Noesis.EventArgs e)
+        {
+            aicDropdownSessionActive = true;
+            suppressAicDropdownSelection = true;
+            aicDropdownSearchBox.Text = SelectedAicDropdownText;
+            aicDropdownResults.SelectedIndex = -1;
+            suppressAicDropdownSelection = false;
+            aicDropdownSearchBox.Focus();
+            aicDropdownSearchBox.SelectAll();
+            UpdateDialogKeyboardState();
+        }
+
+        private void AicDropdownPopupClosed(object sender, Noesis.EventArgs e) =>
+            EndAicDropdownSession();
+
+        private void AicDropdownSearchTextChanged(object sender, Noesis.RoutedEventArgs e)
+        {
+            if (!aicDropdownSessionActive || suppressAicDropdownSelection)
+                return;
+
+            string query = aicDropdownSearchBox?.Text ?? string.Empty;
+            if (string.Equals(aicDropdownSearchText, query, StringComparison.Ordinal))
+                return;
+            aicDropdownSearchText = query;
+            List<CustomisationFileManager.CustomLordConfig> canonicalAics =
+                GetCanonicalAics(GetAivInfo(activeView));
+            if (canonicalAics != null)
+                RefreshAicDropdownEntries(canonicalAics, GetAivInfo(activeView));
+        }
+
+        private void AicDropdownResultSelected(object sender, SelectionChangedEventArgs e)
+        {
+            if (!aicDropdownSessionActive || suppressAicDropdownSelection ||
+                !(aicDropdownResults?.SelectedItem is AicDropdownEntry selected))
+            {
+                return;
+            }
+
+            ApplyAicDropdownSelection(selected);
+            CloseAicDropdown();
+        }
+
+        private void ApplyAicDropdownSelection(AicDropdownEntry selected)
+        {
+            FRONT_Multiplayer.MPAIVInfo info = GetAivInfo(activeView);
+            if (info == null || selected == null)
+                return;
+
+            if (selected.IsDefault)
+            {
+                info.builtInLord = true;
+                info.lordConfig = null;
+                MainViewModel.Instance.CustomLordName = string.Empty;
+            }
+            else if (selected.Config != null)
+            {
+                info.builtInLord = false;
+                info.lordConfig = selected.Config;
+                MainViewModel.Instance.CustomLordName = selected.Config.name ?? string.Empty;
+            }
+            else
+            {
+                return;
+            }
+
+            activeView.populateList(null, false);
+            AttachAndRefresh(activeView, $"AIC dropdown selection '{selected.DisplayText}'");
+            selectionLoaded?.Invoke(info);
+        }
+
+        private void AicListSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (IsActive)
+                SelectCurrentAicDropdownEntry(GetAivInfo(activeView));
+        }
+
+        private void AicDropdownSearchFocusChanged(
+            object sender,
+            DependencyPropertyChangedEventArgs e) => UpdateDialogKeyboardState();
+
+        private void CloseAicDropdown()
+        {
+            if (aicDropdownPopup?.IsOpen == true)
+                aicDropdownPopup.IsOpen = false;
+            if (aicDropdownSessionActive)
+                EndAicDropdownSession();
+        }
+
+        private void EndAicDropdownSession()
+        {
+            if (!aicDropdownSessionActive)
+                return;
+
+            aicDropdownSessionActive = false;
+            aicDropdownSearchText = string.Empty;
+            suppressAicDropdownSelection = true;
+            if (aicDropdownSearchBox != null)
+            {
+                bool wasFocused = aicDropdownSearchBox.IsKeyboardFocused;
+                aicDropdownSearchBox.Text = SelectedAicDropdownText;
+                if (wasFocused)
+                    aicDropdownSearchBox.Keyboard.ClearFocus();
+            }
+            if (aicDropdownResults != null)
+                aicDropdownResults.SelectedIndex = -1;
+            suppressAicDropdownSelection = false;
+            UpdateDialogKeyboardState();
+        }
+
         private void AivSearchFocusChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             aivSearchHasFocus = e.NewValue is bool focused && focused;
@@ -970,8 +1287,12 @@ namespace BugfixesAndQoL
         private void PresetNameFocusChanged(object sender, DependencyPropertyChangedEventArgs e) =>
             UpdateDialogKeyboardState();
 
-        private void DialogVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e) =>
+        private void DialogVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.NewValue is bool visible && !visible)
+                CloseAicDropdown();
             UpdateDialogKeyboardState();
+        }
 
         private void UpdateDialogKeyboardState()
         {
@@ -1139,5 +1460,28 @@ namespace BugfixesAndQoL
         public AivAicPresetDefinition Definition { get; }
         public string Name => Definition.Name;
         public string Saved => Definition.SavedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+    }
+
+    internal sealed class AicDropdownEntry
+    {
+        public AicDropdownEntry(
+            CustomisationFileManager.CustomLordConfig config,
+            bool isDefault,
+            string displayText,
+            ImageSource icon,
+            string originHelp)
+        {
+            Config = config;
+            IsDefault = isDefault;
+            DisplayText = displayText ?? string.Empty;
+            Icon = icon;
+            OriginHelp = originHelp ?? string.Empty;
+        }
+
+        public CustomisationFileManager.CustomLordConfig Config { get; }
+        public bool IsDefault { get; }
+        public string DisplayText { get; }
+        public ImageSource Icon { get; }
+        public string OriginHelp { get; }
     }
 }

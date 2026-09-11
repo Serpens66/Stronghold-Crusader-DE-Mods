@@ -66,6 +66,7 @@
     <Compile Include="src\AivCandidateSelectionPolicy.cs" />
     <Compile Include="src\AivAicPresetStore.cs" />
     <Compile Include="src\AivSelectionListViewModel.cs" />
+    <Compile Include="src\AicDropdownPolicy.cs" />
     <Compile Include="src\AiCastleSettingsListEnhancementHook.cs" />
     <Compile Include="src\AiDefensePatrolFix.cs" />
     <Compile Include="src\AiDefensePatrolNativeDefinition.cs" />
@@ -130,6 +131,8 @@
     <Compile Include="src\CoopCustomLordSelectionFeature.cs" />
     <Compile Include="src\CoopCustomLordSelectionPolicy.cs" />
     <Compile Include="src\CustomLordLobbyUtility.cs" />
+    <Compile Include="src\CustomLordJsonUploadHook.cs" />
+    <Compile Include="src\CustomLordJsonUploadPolicy.cs" />
     <Compile Include="src\CustomTrailExtremeGoldFixHook.cs" />
     <Compile Include="src\CustomLordListEnhancementHook.cs" />
     <Compile Include="src\DisplayResolutionPersistenceHook.cs" />

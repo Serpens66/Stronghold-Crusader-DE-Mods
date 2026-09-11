@@ -35,10 +35,12 @@ namespace EnemyGatePathfindingTest
                 SamePclCandidatePolicyIsFailOpenAndAllianceAware();
                 RectangleDistanceSupportsSpatialBridgeDiagnosis();
                 NativeHookByteContractsRejectMutation();
+                VanillaDirectionFilterContractsAreAtomic();
                 TopologyRejectionClassificationIsDeterministic();
                 FootprintAdjacencyIgnoresBrokenEditorBounds();
                 UniqueSpatialGateAssociationFailsOpenWhenAmbiguous();
                 DirectionEdgesRequireBothNativeDirections();
+                DirectionMaskBlocksOnlyTheGatePassage();
                 TileRouteNativeContractIsPinned();
                 NativeRouteHotPathsRemainPrimitiveOnly();
                 UnsafeGlobalMutationAndWholePclDetourAreAbsent();
@@ -667,8 +669,6 @@ namespace EnemyGatePathfindingTest
                 "native tile-grid width");
             Assert(EnemyGatePathfindingNativeDefinition.PathBuilderRva == 0xF4930,
                 "central tile builder function entry RVA");
-            Assert(EnemyGatePathfindingNativeDefinition.MaximumRouteEdges == 2000,
-                "two native direction nibbles fit each unit-buffer byte");
             Assert(EnemyGatePathfindingNativeDefinition.CapturedByPlayerTableDisplacement == 0x64CCED2,
                 "native capture-table displacement");
         }
@@ -703,15 +703,17 @@ namespace EnemyGatePathfindingTest
                     Assert(capturedBody.IndexOf(token, StringComparison.Ordinal) < 0,
                         method + " hot path excludes " + token);
             }
-            string builderBody = ExtractMethodBody(
-                samePclSource, "BuildPathWithEnemyGatePolicy");
+            string builderBody = ExtractMethodBody(samePclSource, "EmitDirectionFilter");
             foreach (string token in new[]
             {
                 "GameUnitManagerAPI", "GamePlayerManagerAPI", "DebugLogHelper",
                 "Monitor.", "lock (", "StringBuilder", "Console."
             })
                 Assert(builderBody.IndexOf(token, StringComparison.Ordinal) < 0,
-                    "active builder callback excludes " + token);
+                    "native direction adapter excludes " + token);
+            Assert(samePclSource.IndexOf("managedReplacementSearches=0", StringComparison.Ordinal) >= 0 &&
+                    samePclSource.IndexOf("GateGridRouteSearch", StringComparison.Ordinal) < 0,
+                "the old managed whole-map replacement search is absent");
         }
 
         private static void UnsafeGlobalMutationAndWholePclDetourAreAbsent()
@@ -734,13 +736,61 @@ namespace EnemyGatePathfindingTest
             Assert(samePclSource.IndexOf("PathBuilderRva =", StringComparison.Ordinal) < 0 &&
                     samePclSource.IndexOf("transaction.AddDetour", StringComparison.Ordinal) >= 0,
                 "Same-PCL uses the separately validated F4930 function detour");
-            Assert(samePclSource.IndexOf("directionGrid[from]", StringComparison.Ordinal) >= 0 &&
-                    samePclSource.IndexOf("directionGrid[from] =", StringComparison.Ordinal) < 0 &&
-                    samePclSource.IndexOf("directionGrid[to] =", StringComparison.Ordinal) < 0,
-                "Same-PCL reads the native direction grid without an overlay writer");
+            Assert(samePclSource.IndexOf("globalDirectionGridWrites=0", StringComparison.Ordinal) >= 0 &&
+                    samePclSource.IndexOf("PathDirectionGridRva", StringComparison.Ordinal) < 0,
+                "Same-PCL filters loaded bytes without addressing the global grid for writes");
             Assert(samePclSource.IndexOf("existingHookOwner", StringComparison.Ordinal) >= 0 &&
                     samePclSource.IndexOf("BugfixesAndQoL_Serp", StringComparison.Ordinal) >= 0,
                 "overlapping builder ownership is explicitly suppressed");
+        }
+
+        private static void DirectionMaskBlocksOnlyTheGatePassage()
+        {
+            string topology = File.ReadAllText(Path.Combine("src", "GateTopologySnapshotProvider.cs"));
+            string boundary = ExtractMethodBody(topology, "ClearBoundary");
+            Assert(boundary.IndexOf("1 << direction", StringComparison.Ordinal) >= 0 &&
+                    boundary.IndexOf("(direction + 4) & 7", StringComparison.Ordinal) >= 0,
+                "gate boundary clears both directions of the crossing edge");
+            Assert(boundary.IndexOf("direction - 1", StringComparison.Ordinal) >= 0 &&
+                    boundary.IndexOf("direction + 1", StringComparison.Ordinal) >= 0,
+                "gate boundary also rejects diagonal corner cuts");
+            string axis = ExtractMethodBody(topology, "TryResolvePassageAxis");
+            Assert(axis.IndexOf("EntryTile", StringComparison.Ordinal) >= 0 &&
+                    axis.IndexOf("ExitTile", StringComparison.Ordinal) >= 0,
+                "confirmed entry/exit geometry determines the passage first");
+            Assert(axis.IndexOf("return false", StringComparison.Ordinal) >= 0,
+                "ambiguous square geometry fails open");
+        }
+
+        private static void VanillaDirectionFilterContractsAreAtomic()
+        {
+            int[] expectedRvas =
+            {
+                0xD9EA6, 0xDA783, 0xDACB2, 0xDB242, 0xF31A8, 0xF33F5,
+                0xDB857, 0xDB947, 0xDBA36, 0xDBB26
+            };
+            int[] expectedLengths = { 14, 18, 18, 17, 15, 14, 17, 17, 17, 17 };
+            Assert(EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length == 10,
+                "all ten native direction tests are represented");
+            for (int index = 0; index < expectedRvas.Length; index++)
+            {
+                Assert(EnemyGatePathfindingNativeDefinition.DirectionFilterRvas[index] == expectedRvas[index],
+                    "direction-filter RVA " + index);
+                Assert(EnemyGatePathfindingNativeDefinition.DirectionFilterLengths[index] == expectedLengths[index],
+                    "direction-filter displaced length " + index);
+            }
+            string source = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            Assert(source.IndexOf("for (int index = 0; index < edgeHooks.Length; index++)",
+                    StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("transaction.Commit()", StringComparison.Ordinal) >= 0,
+                "all edge adapters share one atomic transaction");
+            Assert(source.IndexOf("__dword_ptr.gs[0x48]", StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("ThreadSlotCount", StringComparison.Ordinal) >= 0,
+                "native adapters validate the fixed TEB thread slot");
+            Assert(source.IndexOf("asm.and(al", StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("asm.and(r11b", StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("asm.and(cl", StringComparison.Ordinal) >= 0,
+                "all native direction-load destination registers are masked");
         }
 
         private static void WriteBytes(byte[] destination, int offset, string hexadecimal)

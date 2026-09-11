@@ -347,6 +347,10 @@ namespace PreplacedTest.Tests
                 0, 0, 0, 0, 0, 25, 14, 0, 0), 9).ToArray();
             Check(ShadowEconomySearch.Run(farmGrid, 3, 4, ShadowEconomySearchKind.Farm, 0)
                 .CandidateIndices.Length > 0, "farm raw candidate predicate was not replayed");
+            ShadowEconomyCell[] signedNegativeFarmDensity = Enumerable.Repeat(new ShadowEconomyCell(0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0xFF, 14, 0, 0), 9).ToArray();
+            Check(ShadowEconomySearch.Run(signedNegativeFarmDensity, 3, 4, ShadowEconomySearchKind.Farm, 0)
+                .CandidateIndices.Length == 0, "farm density was compared as unsigned");
             ShadowEconomyCell resource2 = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 0, 39,
                 0, 0, 0, 0, 0, 0);
             ShadowEconomyCell resource3 = new ShadowEconomyCell(0, 0, 0, 0, 7, 0, 0, 0, 29,
@@ -398,6 +402,10 @@ namespace PreplacedTest.Tests
             Check(ShadowEconomySearch.ResourceCandidateRejectionCode(resource2, 2) == 0 &&
                 ShadowEconomySearch.ResourceCandidateRejectionCode(quarryHeightBoundary, 2) == 6,
                 "allocation-free resource signature codes diverge from named decisions");
+            Check(ShadowEconomySearch.WoodCandidateRejectionReason(Cell(5, 0, 1)) == "candidate" &&
+                ShadowEconomySearch.WoodCandidateRejectionReason(Cell(6, 0, 1)) == "pcl-threshold" &&
+                ShadowEconomySearch.WoodCandidateRejectionReason(Cell(0, 0, 0)) == "wood-density-byte+07",
+                "wood candidate rejection order diverges from Vanilla");
         }
 
         private static void TestLegacyTimerFixEligibility()
@@ -487,7 +495,7 @@ namespace PreplacedTest.Tests
                 updateGuide.Contains("`0x1F5F0..0x1F68D`") && updateGuide.Contains("`+0x2AE0`") &&
                 updateGuide.Contains("RollbackAndThrow"),
                 "native update guide does not cover the new timer-copy contract");
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660", "0x60AD4AC", "0x2D13B0" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC3C5D", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660", "0x60AD4AC", "0x2D13B0", "0x2D2E50" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_BuildingId), 0x0C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_SubjectGlobalId), 0x14)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_EntryTileId), 0x24)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_ExitTileId), 0x30)", "ValidateSize(typeof(PathConnectionRecord), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
@@ -586,7 +594,7 @@ namespace PreplacedTest.Tests
                 "tile-based wall role or breach diagnostics are incomplete");
             Check(source.Contains("PREPLACED_SHADOW_ECONOMY_SEARCH") &&
                 source.Contains("ShadowEconomySearch.Run") && source.Contains("CountPclTilesOutsideSet") &&
-                source.Contains("EmitProactiveShadowSuite") && source.Contains("PREPLACED_SHADOW_NATIVE_RESULT_MISMATCH") &&
+                source.Contains("EmitProactiveShadowSuite") && source.Contains("PREPLACED_NATIVE_RESULT_PRE_RESTORE_MISMATCH") &&
                 model.Contains("heightDifference < 40") && model.Contains("heightDifference < 30") &&
                 model.Contains("heightDifference < 12"),
                 "full player-specific shadow economy traversal is missing");
@@ -601,6 +609,21 @@ namespace PreplacedTest.Tests
                 source.Contains("finally") && source.Contains("RestoreEconomyGridOverlay") &&
                 source.Contains("Not all 25,600 economy byte+04 values were restored"),
                 "active economy overlay or exact restoration guard is incomplete");
+            Check(source.Contains("FarmPlacementOffsetTablePairCount = 32") &&
+                source.Contains("FarmPlacementSelectableOffsetCount = 31") &&
+                source.Contains("ValidateFarmPlacementOffsetTable") &&
+                source.Contains("ValidateFarmPlacementOffsetRing") &&
+                source.Contains("ValidateEconomyNeighborOffsetTable") &&
+                source.Contains("nativeSearchTables=") &&
+                !source.Contains("FarmPlacementOffsetTableRva + 9 * 2") &&
+                source.Contains("capturedBeforeNativeConstruction"),
+                "the full 32-entry farm offset ring or pre-construction oracle is missing");
+            Check(source.Contains("PREPLACED_NATIVE_ECONOMY_ROUTE_MATRIX") &&
+                source.Contains("PathConnectionQueryMode.IncludeAll") &&
+                source.Contains("PathConnectionQueryMode.LadderClimbOnly") &&
+                source.Contains("PlacementReachabilityRouteCallSiteRva = 0xC3C5D") &&
+                source.Contains("ValidatePlacementReachabilityRouteCall"),
+                "native gate route matrix or C3BF0-to-E2610 call contract is incomplete");
             Check(Regex.Matches(source, @"farmSearchHook\.Original\(").Count == 1 &&
                 Regex.Matches(source, @"resourceSearchHook\.Original\(").Count == 1 &&
                 Regex.Matches(source, @"woodSearchHook\.Original\(").Count == 1 &&
@@ -611,6 +634,10 @@ namespace PreplacedTest.Tests
                 source.Contains("damageActivatedTimerOwners") &&
                 model.Contains("ClassifyAtApplication"),
                 "active legacy timer normalization is not narrowly guarded");
+            Check(source.Contains("building.OwnerId == playerId && building.Id > 0 &&") &&
+                source.Contains("IsDestroyedTower(building.Type)") &&
+                !Regex.IsMatch(source, @"building\.OwnerId == playerId\s*&&\s*!IsLiving\(building\)\s*&&\s*IsDestroyedTower"),
+                "destroyed tower types are still excluded by their misleading AliveState");
             Check(source.Contains("PREPLACED_FARM_NATIVE_ORACLE_MATCH") &&
                 source.Contains("PREPLACED_FARM_NATIVE_ORACLE_MISMATCH") &&
                 source.Contains("ConstructionObservations") && source.Contains("prefilter-candidate"),
@@ -725,12 +752,47 @@ namespace PreplacedTest.Tests
                 !TryRvaToRaw(file, 0x50EC690, out _) && !TryRvaToRaw(file, 0x51890D0 - 1, out _),
                 "native PCL range length or PE bounds changed");
             int farmOffsetTableRaw = RvaToRaw(file, 0x2D13B0);
-            int[] farmOffsets = Enumerable.Range(0, 18)
+            int[] farmOffsets = Enumerable.Range(0, 64)
                 .Select(index => BitConverter.ToInt32(file, farmOffsetTableRaw + index * sizeof(int))).ToArray();
             Check(farmOffsetTableRaw == 0x2CF9B0 && farmOffsets.SequenceEqual(new[]
-                { 0, 0, 0, -1, 1, -1, 1, 0, 1, 1, 0, 1, -1, 1, -1, 0, -1, -1 }) &&
+                {
+                    0, 0, 0, -1, 1, -1, 1, 0, 1, 1, 0, 1, -1, 1, -1, 0,
+                    -1, -1, 0, -2, 2, -2, 2, 0, 2, 2, 0, 2, -2, 2, -2, 0,
+                    -2, -2, 0, -3, 3, -3, 3, 0, 3, 3, 0, 3, -3, 3, -3, 0,
+                    -3, -3, 0, -4, 4, -4, 4, 0, 4, 4, 0, 4, -4, 4, -4, 0
+                }) &&
                 !TryRvaToRaw(file, 0x60AD4AC, out _),
                 "farm placement-offset table or construction-error storage contract changed");
+            byte[] farmRingWriter =
+            {
+                0xFF, 0x81, 0x08, 0xB5, 0x05, 0x00,
+                0x48, 0x8D, 0x1D, 0x25, 0xCC, 0x74, 0x03,
+                0x4C, 0x89, 0x60, 0xE8,
+                0x4C, 0x8D, 0x35, 0x7E, 0x4E, 0x61, 0x03,
+                0x8B, 0x81, 0x08, 0xB5, 0x05, 0x00,
+                0x44, 0x8D, 0x67, 0x04, 0x33, 0xF6, 0x8B, 0xEF,
+                0x83, 0xF8, 0x1F, 0x89, 0xB1, 0x64, 0xDA, 0x03, 0x00,
+                0x0F, 0x4D, 0xC6, 0x89, 0x81, 0x08, 0xB5, 0x05, 0x00
+            };
+            int farmRingRaw = RvaToRaw(file, 0x5737A);
+            Check(file.Skip(farmRingRaw).Take(farmRingWriter.Length).SequenceEqual(farmRingWriter),
+                "farm placement ring no longer selects only indices 0..30");
+            int neighborTableRaw = RvaToRaw(file, 0x2D2E50);
+            int[] neighborOffsets = Enumerable.Range(0, 16)
+                .Select(index => BitConverter.ToInt32(file, neighborTableRaw + index * sizeof(int))).ToArray();
+            Check(neighborOffsets.SequenceEqual(new[]
+                { 0, -1, 1, -1, 1, 0, 1, 1, 0, 1, -1, 1, -1, 0, -1, -1 }),
+                "economy search neighbor order or diagonal table changed");
+            byte[] reachabilityCallBlock =
+            {
+                0x48, 0x8D, 0x0D, 0x0B, 0x9A, 0xFE, 0x05,
+                0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,
+                0xE8, 0xAE, 0xE9, 0x01, 0x00, 0x85, 0xC0, 0x75, 0x05
+            };
+            int reachabilityCallRaw = RvaToRaw(file, 0xC3C4E);
+            Check(file.Skip(reachabilityCallRaw).Take(reachabilityCallBlock.Length).SequenceEqual(reachabilityCallBlock) &&
+                0xC3C5D + 5 + BitConverter.ToInt32(file, RvaToRaw(file, 0xC3C5D) + 1) == 0xE2610,
+                "C3BF0 no longer passes mode zero to E2610 with the audited source/target register contract");
             Check(RvaToRaw(file, 0x50720) == 0x4FB20 && RvaToRaw(file, 0x572B0) == 0x566B0 &&
                 RvaToRaw(file, 0xD4290) == 0xD3690 && RvaToRaw(file, 0x96CE) == 0x8ACE,
                 "audited code RVA to FileOffset mapping changed");
@@ -771,7 +833,7 @@ namespace PreplacedTest.Tests
                 "chore field-copy memcpy target or function boundary changed");
 
             string functions = File.ReadAllText(Path.Combine("..", "..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }
 

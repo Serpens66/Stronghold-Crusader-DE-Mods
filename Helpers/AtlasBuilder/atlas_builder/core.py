@@ -41,6 +41,16 @@ class FrameKey:
     alternate: bool = False
 
 
+@dataclass(frozen=True, order=True)
+class FrameRange:
+    start: int
+    end: int
+    alternate: bool = False
+
+    def contains(self, key: FrameKey) -> bool:
+        return key.alternate == self.alternate and self.start <= key.index <= self.end
+
+
 @dataclass(frozen=True)
 class TargetFrame:
     name: str
@@ -114,10 +124,62 @@ def _parse_source_stem(stem: str, configured_prefix: str) -> tuple[str, FrameKey
     return prefix, FrameKey(int(match.group(2)), bool(match.group(3)))
 
 
+def parse_source_frame_filter(value: str) -> tuple[FrameRange, ...]:
+    """Parse and merge an inclusive main/alternate frame selection."""
+    if not value.strip():
+        return ()
+    parsed: list[FrameRange] = []
+    for raw_token in value.split(","):
+        token = raw_token.strip()
+        if not token:
+            raise AtlasBuilderError("Empty item in source frame filter")
+        match = re.fullmatch(r"(\d+)(x?)\s*(?:-\s*(\d+)(x?))?", token, flags=re.IGNORECASE)
+        if match is None:
+            raise AtlasBuilderError(f"Invalid source frame filter item: {token!r}")
+        start = int(match.group(1))
+        start_alternate = bool(match.group(2))
+        if match.group(3) is None:
+            end = start
+            end_alternate = start_alternate
+        else:
+            end = int(match.group(3))
+            end_alternate = bool(match.group(4))
+        if start_alternate != end_alternate:
+            raise AtlasBuilderError(f"Mixed main/alternate source frame range: {token!r}")
+        if end < start:
+            raise AtlasBuilderError(f"Reversed source frame range: {token!r}")
+        parsed.append(FrameRange(start, end, start_alternate))
+
+    merged: list[FrameRange] = []
+    for item in sorted(parsed, key=lambda part: (part.alternate, part.start, part.end)):
+        if merged and merged[-1].alternate == item.alternate and item.start <= merged[-1].end + 1:
+            previous = merged[-1]
+            merged[-1] = FrameRange(previous.start, max(previous.end, item.end), item.alternate)
+        else:
+            merged.append(item)
+    return tuple(merged)
+
+
+def format_source_frame_filter(ranges: Iterable[FrameRange]) -> str:
+    parts: list[str] = []
+    for item in ranges:
+        suffix = "x" if item.alternate else ""
+        if item.start == item.end:
+            parts.append(f"{item.start}{suffix}")
+        else:
+            parts.append(f"{item.start}{suffix}-{item.end}{suffix}")
+    return ", ".join(parts)
+
+
+def normalize_source_frame_filter(value: str) -> str:
+    return format_source_frame_filter(parse_source_frame_filter(value))
+
+
 def _collect_pngs(
     directory: Path,
     configured_prefix: str,
     kind: str,
+    frame_ranges: tuple[FrameRange, ...] = (),
 ) -> tuple[dict[FrameKey, Path], str]:
     if not directory.is_dir():
         raise AtlasBuilderError(f"Source directory does not exist: {directory}")
@@ -136,6 +198,8 @@ def _collect_pngs(
         if parsed is None:
             continue
         prefix, key = parsed
+        if frame_ranges and not any(item.contains(key) for item in frame_ranges):
+            continue
         if key in found:
             raise AtlasBuilderError(f"Duplicate frame index {key.index}{'x' if key.alternate else ''}: {path}")
         prefixes.setdefault(prefix.casefold(), prefix)
@@ -153,17 +217,24 @@ def _collect_pngs(
 def discover_source_group(project: ProjectConfig, config: GroupConfig) -> tuple[list[SourceFrame], str]:
     if config.mask_mode not in MASK_MODES:
         raise AtlasBuilderError(f"Unsupported maskMode for {config.gm_file_name}: {config.mask_mode}")
+    frame_ranges = parse_source_frame_filter(config.source_frame_filter)
     colour_directory = project.resolve_path(config.colour_directory)
-    colours, detected_prefix = _collect_pngs(colour_directory, config.source_prefix, "colour")
+    colours, detected_prefix = _collect_pngs(
+        colour_directory, config.source_prefix, "colour", frame_ranges
+    )
 
     masks: dict[FrameKey, Path] = {}
     if config.mask_mode == "same-directory":
-        masks, _ = _collect_pngs(colour_directory, detected_prefix, "same-directory-mask")
+        masks, _ = _collect_pngs(
+            colour_directory, detected_prefix, "same-directory-mask", frame_ranges
+        )
     elif config.mask_mode == "separate-directory":
         if not config.mask_directory:
             raise AtlasBuilderError(f"{config.gm_file_name}: maskDirectory is required")
         # A dedicated mask directory is unambiguous, so both "12.png" and "12_m.png" are accepted.
-        masks, _ = _collect_pngs(project.resolve_path(config.mask_directory), config.source_prefix, "separate-mask")
+        masks, _ = _collect_pngs(
+            project.resolve_path(config.mask_directory), config.source_prefix, "separate-mask", frame_ranges
+        )
 
     if config.mask_mode != "none" and set(masks) != set(colours):
         missing = sorted(set(colours) - set(masks))

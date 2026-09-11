@@ -35,20 +35,37 @@ namespace EnemyGatePathfindingTest
         public const string PathBuilderPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 " +
             "48 63 41 0C 48 8B D9 41 8B F0 44 8B D2";
-        public const int NativePathManagerRva = 0x60AD660;
-        public const int NativeUnitManagerRva = 0x67E8400;
-        public const int PathManagerStartXOffset = 0x08;
-        public const int PathManagerStartYOffset = 0x0C;
-        public const int PathManagerTargetXOffset = 0x10;
-        public const int PathManagerTargetYOffset = 0x14;
-        public const int PathManagerOutputBufferOffset = 0x155F60;
-        public const int PathManagerOutputLengthOffset = 0x155F68;
-        public const int NativeUnitPathBufferOffset = 0xB4FE78;
-        public const int NativeUnitPathBufferStride = 1000;
-        public const int MaximumUnitId = 10000;
-        public const int MaximumRouteEdges = NativeUnitPathBufferStride * 2;
-        public const int NativeUnitStride = 0x490;
-        public const int NativeUnitSlotDataOffset = 0x65C;
+        // Player-aware query scopes. These are confirmed function entries for FBCB9319,
+        // never call-site addresses.
+        public const int AttackApproachRva = 0xDBC60;
+        public const int BuildingApproachRva = 0xDA020;
+        public const int BuildingConsumerRva = 0x123090;
+        public const int CursorMoveStagerRva = 0x195E30;
+
+        // The final four hooks begin at the direction-bit producer immediately before
+        // the documented DB650 DirectionGrid tests (DB860/DB950/DBA3F/DBB2F).
+        internal static readonly int[] DirectionFilterRvas =
+        {
+            0xD9EA6, 0xDA783, 0xDACB2, 0xDB242, 0xF31A8, 0xF33F5,
+            0xDB857, 0xDB947, 0xDBA36, 0xDBB26
+        };
+        internal static readonly int[] DirectionFilterLengths =
+        {
+            14, 18, 18, 17, 15, 14, 17, 17, 17, 17
+        };
+        private static readonly byte[][] DirectionFilterBytes =
+        {
+            new byte[] { 0x41,0x0F,0xB6,0x84,0x10,0xD0,0x90,0x18,0x05,0x84,0x45,0x00,0x75,0x77 },
+            new byte[] { 0x44,0x0F,0xBE,0x9C,0x17,0xD0,0x90,0x18,0x05,0x66,0x44,0x39,0x84,0x7A,0x4E,0x25,0x2C,0x05 },
+            new byte[] { 0x44,0x0F,0xBE,0x9C,0x17,0xD0,0x90,0x18,0x05,0x66,0x44,0x39,0x84,0x7A,0x4E,0x25,0x2C,0x05 },
+            new byte[] { 0x41,0x0F,0xB6,0x84,0x1A,0xD0,0x90,0x18,0x05,0x84,0x01,0x0F,0x85,0xD1,0x01,0x00,0x00 },
+            new byte[] { 0x0F,0xB6,0x8C,0x10,0xD0,0x90,0x18,0x05,0x41,0x3B,0xEF,0x7E,0x27,0x3B,0xDF },
+            new byte[] { 0x41,0x0F,0xB6,0x8C,0x08,0xD0,0x90,0x18,0x05,0x41,0x3B,0xEF,0x7E,0x27 },
+            new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x20,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 },
+            new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x21,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 },
+            new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x22,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 },
+            new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x23,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 }
+        };
 
         // Shared capture table addressed by both displaced CMP instructions. The
         // preceding IMUL has already converted the one-based building id to its stride.
@@ -137,6 +154,33 @@ namespace EnemyGatePathfindingTest
                     0xD2
                 },
                 "central tile path-builder entry");
+        }
+
+        internal static void ValidateSamePclNativeFilterContracts(ReadOnlySpan<byte> memory)
+        {
+            ValidateSamePclBuilderContract(memory);
+            ValidateBytes(memory, AttackApproachRva,
+                new byte[] { 0x44,0x89,0x4C,0x24,0x20,0x53,0x56,0x41,0x54,0x41,0x55,0x41,0x56,0x48 },
+                "attack-approach function entry");
+            ValidateBytes(memory, BuildingApproachRva,
+                new byte[] { 0x48,0x89,0x4C,0x24,0x08,0x53,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41 },
+                "building-approach function entry");
+            ValidateBytes(memory, BuildingConsumerRva,
+                new byte[] { 0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x74,0x24,0x10,0x57,0x48,0x83,0xEC },
+                "building-candidate consumer entry");
+            ValidateBytes(memory, CursorMoveStagerRva,
+                new byte[] { 0x48,0x89,0x5C,0x24,0x10,0x48,0x89,0x6C,0x24,0x18,0x48,0x89,0x74,0x24 },
+                "cursor move-stager entry");
+            if (DirectionFilterRvas.Length != DirectionFilterLengths.Length ||
+                DirectionFilterRvas.Length != DirectionFilterBytes.Length)
+                throw new InvalidOperationException("Direction-filter contract tables differ in length.");
+            for (int index = 0; index < DirectionFilterRvas.Length; index++)
+            {
+                if (DirectionFilterBytes[index].Length != DirectionFilterLengths[index])
+                    throw new InvalidOperationException($"Direction-filter span {index} has inconsistent length.");
+                ValidateBytes(memory, DirectionFilterRvas[index], DirectionFilterBytes[index],
+                    $"direction-filter block {index}");
+            }
         }
 
         private static void ValidateBytes(

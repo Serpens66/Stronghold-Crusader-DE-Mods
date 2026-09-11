@@ -3,6 +3,108 @@
        xmlns:local="clr-namespace:CrusaderDE"
        xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL"
        xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+  <Operation Type="Replace" XPath="//n:RadioButton[@Name='No_Rotation']/parent::n:Grid">
+    <Content>
+      <Grid Margin="490,115,0,0">
+        <Grid x:Name="BugfixesAndQoLAicDropdownHost" Width="360" Height="30"
+              HorizontalAlignment="Left" VerticalAlignment="Top"
+              Visibility="{Binding EnhancementVisibility}">
+          <Grid x:Name="BugfixesAndQoLAicDropdownSelector" Height="30">
+            <ComboBox Height="30" IsEditable="True" IsReadOnly="True"
+                      IsHitTestVisible="False" Text=""
+                      Foreground="Black" Background="#40FFFFFF"
+                      BorderBrush="#FF7B1A0C" />
+            <Image Width="24" Height="24" Margin="5,0,0,0"
+                   HorizontalAlignment="Left" VerticalAlignment="Center"
+                   Source="{Binding SelectedAicDropdownIcon}"
+                   ToolTip="{Binding SelectedAicDropdownOriginHelp}"
+                   ToolTipService.ShowDuration="60000" />
+            <TextBlock Margin="35,0,28,0" HorizontalAlignment="Stretch"
+                       VerticalAlignment="Center" Foreground="Black" FontSize="16"
+                       TextTrimming="CharacterEllipsis"
+                       Text="{Binding SelectedAicDropdownText}" />
+            <Border x:Name="BugfixesAndQoLAicDropdownOpenSurface"
+                    Background="#01000000" />
+            <Popup x:Name="BugfixesAndQoLAicDropdownPopup" Placement="Bottom"
+                   PlacementTarget="{Binding ElementName=BugfixesAndQoLAicDropdownSelector}"
+                   StaysOpen="False" AllowsTransparency="True">
+              <Border Width="{Binding ActualWidth, ElementName=BugfixesAndQoLAicDropdownSelector}"
+                      Padding="3" Background="#FFF0D39A"
+                      BorderBrush="#FF7B1A0C" BorderThickness="1">
+                <StackPanel>
+                  <TextBox x:Name="BugfixesAndQoLAicDropdownSearchBox"
+                           Height="30" MaxLength="64" Padding="6,2"
+                           Foreground="#FFEFF3C6" Background="#FF731C08"
+                           BorderBrush="#FF7B1A0C" BorderThickness="1"
+                           Placeholder="{Binding AicDropdownSearchPlaceholder}" />
+                  <ListBox x:Name="BugfixesAndQoLAicDropdownResults"
+                           ItemsSource="{Binding AicDropdownEntries}" MaxHeight="390"
+                           Foreground="Black" Background="#FFF0D39A"
+                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                           ScrollViewer.VerticalScrollBarVisibility="Auto"
+                           BorderThickness="0" Margin="0,3,0,0">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <Grid Width="340" Height="30">
+                          <Image Width="24" Height="24" Margin="3,0,0,0"
+                                 HorizontalAlignment="Left" VerticalAlignment="Center"
+                                 Source="{Binding Icon}" ToolTip="{Binding OriginHelp}"
+                                 ToolTipService.ShowDuration="60000" />
+                          <TextBlock Margin="34,0,5,0" HorizontalAlignment="Stretch"
+                                     VerticalAlignment="Center" Foreground="Black" FontSize="16"
+                                     TextTrimming="CharacterEllipsis"
+                                     Text="{Binding DisplayText}" />
+                        </Grid>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+                </StackPanel>
+              </Border>
+            </Popup>
+          </Grid>
+        </Grid>
+
+        <TextBlock Margin="0,40,0,0" Width="120" HorizontalAlignment="Left"
+                   VerticalAlignment="Top" Foreground="Black" FontSize="18"
+                   Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_013]}" />
+        <RadioButton Name="North_Rotation" GroupName="Rotation"
+                     Margin="120,40,0,0" Width="120" Height="23"
+                     HorizontalAlignment="Left" VerticalAlignment="Top"
+                     Command="{Binding MPAICommand}" CommandParameter="North">
+          <TextBlock Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_015]}"
+                     Margin="0,2,0,-2" FontSize="18" VerticalAlignment="Center" />
+        </RadioButton>
+        <RadioButton Name="East_Rotation" GroupName="Rotation"
+                     Margin="240,40,0,0" Width="120" Height="23"
+                     HorizontalAlignment="Left" VerticalAlignment="Top"
+                     Command="{Binding MPAICommand}" CommandParameter="East">
+          <TextBlock Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_016]}"
+                     Margin="0,2,0,-2" FontSize="18" VerticalAlignment="Center" />
+        </RadioButton>
+        <RadioButton Name="No_Rotation" GroupName="Rotation"
+                     Margin="0,70,0,0" Width="120" Height="23"
+                     HorizontalAlignment="Left" VerticalAlignment="Top"
+                     Command="{Binding MPAICommand}" CommandParameter="NoRot">
+          <TextBlock Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_014]}"
+                     Margin="0,2,0,-2" FontSize="18" VerticalAlignment="Center" />
+        </RadioButton>
+        <RadioButton Name="South_Rotation" GroupName="Rotation"
+                     Margin="120,70,0,0" Width="120" Height="23"
+                     HorizontalAlignment="Left" VerticalAlignment="Top"
+                     Command="{Binding MPAICommand}" CommandParameter="South">
+          <TextBlock Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_017]}"
+                     Margin="0,2,0,-2" FontSize="18" VerticalAlignment="Center" />
+        </RadioButton>
+        <RadioButton Name="West_Rotation" GroupName="Rotation"
+                     Margin="240,70,0,0" Width="120" Height="23"
+                     HorizontalAlignment="Left" VerticalAlignment="Top"
+                     Command="{Binding MPAICommand}" CommandParameter="West">
+          <TextBlock Text="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_CUSTOMISATION_018]}"
+                     Margin="0,2,0,-2" FontSize="18" VerticalAlignment="Center" />
+        </RadioButton>
+      </Grid>
+    </Content>
+  </Operation>
   <Operation Type="InsertBefore" XPath="//n:ListView[@Name='AIVList']">
     <Content>
       <Grid x:Name="BugfixesAndQoLAivHeaderPanel" Width="360" Height="24"
@@ -156,35 +258,27 @@
   <Operation Type="SetAttribute" XPath="//n:Button[@Name='MP_OKSettings']" AttributeName="Width" Value="100" />
   <Operation Type="SetAttribute" XPath="//n:Button[@Name='MP_OKSettings']" AttributeName="Margin" Value="0,0,20,20" />
   <Operation Type="SetAttribute" XPath="//n:Button[@Name='MP_OKSettings']" AttributeName="HorizontalAlignment" Value="Right" />
-  <Operation Type="InsertBefore" XPath="//n:Button[@Name='MP_Add']">
+  <Operation Type="Replace" XPath="//n:Button[@Name='MP_Clear']/parent::n:Viewbox">
     <Content>
-      <Grid x:Name="BugfixesAndQoLAivPresetButtonHost" Width="180" Height="34"
-            Margin="490,207,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"
-            Visibility="{Binding EnhancementVisibility}">
-        <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
-            <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </Grid.Resources>
-        <Button Width="180" Height="34" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                local:PropEx.TextCentre="{Binding PresetButtonText}"
-                local:PropEx.TextLeft="" local:PropEx.TextRight=""
-                Command="{Binding OpenPresetDialogCommand}" Style="{StaticResource BTN_SH_GlowS}"
-                ToolTip="{Binding PresetButtonHelpText}" ToolTipService.ShowDuration="60000" />
+      <Grid Width="340" Height="34" Margin="-40,289,-100,-100"
+            HorizontalAlignment="Left" VerticalAlignment="Top">
+        <Grid x:Name="BugfixesAndQoLAivPresetButtonHost" Width="180" Height="34"
+              HorizontalAlignment="Left" VerticalAlignment="Top"
+              Visibility="{Binding EnhancementVisibility}">
+          <Button Width="180" Height="34" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                  local:PropEx.TextCentre="{Binding PresetButtonText}"
+                  local:PropEx.TextLeft="" local:PropEx.TextRight=""
+                  Command="{Binding OpenPresetDialogCommand}" Style="{StaticResource BTN_SH_GlowS}"
+                  ToolTip="{Binding PresetButtonHelpText}" ToolTipService.ShowDuration="60000" />
+        </Grid>
+        <Viewbox Width="150" Height="34" Margin="190,0,0,0"
+                 HorizontalAlignment="Left" VerticalAlignment="Top">
+          <Button Name="MP_Clear" Width="200" HorizontalAlignment="Left" VerticalAlignment="Top"
+                  local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT_099]}"
+                  local:PropEx.TextLeft="" local:PropEx.TextRight=""
+                  Command="{Binding MPAICommand}" CommandParameter="Clear_Selected"
+                  Style="{StaticResource BTN_SH_GlowS}" />
+        </Viewbox>
       </Grid>
     </Content>
   </Operation>

@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = 4
-SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, SCHEMA_VERSION}
+SCHEMA_VERSION = 5
+SUPPORTED_SCHEMA_VERSIONS = {1, 2, 3, 4, SCHEMA_VERSION}
 MASK_MODES = {"none", "same-directory", "separate-directory"}
 PIVOT_MODES = {"target-pixel-anchor", "source-metadata", "target-normalized"}
 MISSING_TARGET_POLICIES = {"reject", "source-metadata"}
@@ -42,6 +42,7 @@ class GroupConfig:
     source_metadata_directory: str | None = None
     missing_target_policy: str = "reject"
     missing_source_metadata_policy: str = "reject"
+    source_frame_filter: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], schema_version: int = SCHEMA_VERSION) -> "GroupConfig":
@@ -56,6 +57,7 @@ class GroupConfig:
             source_metadata_directory=data.get("sourceMetadataDirectory"),
             missing_target_policy=str(data.get("missingTargetPolicy", "reject")),
             missing_source_metadata_policy=str(data.get("missingSourceMetadataPolicy", "reject")),
+            source_frame_filter=str(data.get("sourceFrameFilter", "") or ""),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -71,6 +73,8 @@ class GroupConfig:
         }
         if self.pivot_mode == "source-metadata" and self.source_metadata_directory:
             result["sourceMetadataDirectory"] = self.source_metadata_directory
+        if self.source_frame_filter.strip():
+            result["sourceFrameFilter"] = self.source_frame_filter.strip()
         return result
 
 

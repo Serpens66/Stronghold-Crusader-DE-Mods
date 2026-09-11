@@ -68,6 +68,7 @@ namespace PreplacedTest
         private const int FarmSearchMapGateRva = 0x64CCC04;
         private const int ConstructBuildingErrorRva = 0x60AD4AC;
         private const int FarmPlacementOffsetTableRva = 0x2D13B0;
+        private const int EconomyNeighborOffsetTableRva = 0x2D2E50;
         private const int AivGridSize = 100;
         private const int LogPayloadLength = 1600;
         private const int BuildingCountModeFieldOffset = 0x2C8;
@@ -136,6 +137,12 @@ namespace PreplacedTest
         private const int EconomyResultYOffset = 0x1B9840;
         private const int EconomyReferencePclOffset = 0x5B504;
         private const int EconomyOrientationOffset = 0x5B508;
+        private const int PlacementReachabilityRouteCallSiteRva = 0xC3C5D;
+        // RVA 0x57330 advances this shared ring index through 0..30. RVA 0x575B0
+        // uses it directly against a 32-pair table; pair 31 is not selected by this writer.
+        private const int FarmPlacementOffsetTablePairCount = 32;
+        private const int FarmPlacementSelectableOffsetCount = 31;
+        private const int EconomyNeighborOffsetCount = 8;
         private const int EconomyCoarseCellTileSize = 5;
         // Signed comparison thresholds taken directly from the audited FBCB9319 pseudocode.
         private const int WoodExpansionCellValueExclusive = 0x10;
@@ -485,7 +492,7 @@ namespace PreplacedTest
                     NativePclEntryCount != 320800)
                     throw new InvalidOperationException("audited native PCL-grid range is outside the image or has the wrong length");
                 if (FarmPlacementOffsetTableRva < 0 ||
-                    FarmPlacementOffsetTableRva + 9 * 2 * sizeof(int) > context.Memory.Length ||
+                    FarmPlacementOffsetTableRva + FarmPlacementOffsetTablePairCount * 2 * sizeof(int) > context.Memory.Length ||
                     ConstructBuildingErrorRva < 0 ||
                     ConstructBuildingErrorRva + sizeof(int) > context.Memory.Length)
                     throw new InvalidOperationException("farm placement-offset table or construction-error field is outside the audited image");
@@ -502,6 +509,10 @@ namespace PreplacedTest
                 ValidateLegacyPlayerStateCopy(context.Memory, rvas["legacy-player-state-copy"]);
                 ValidateChorePlayerStateRanges(context.Memory, rvas);
                 ValidateFinalMapStartSequence(context.Memory, rvas);
+                ValidateFarmPlacementOffsetTable(context.Memory);
+                ValidateFarmPlacementOffsetRing(context.Memory);
+                ValidateEconomyNeighborOffsetTable(context.Memory);
+                ValidatePlacementReachabilityRouteCall(context.Memory, rvas["region-pair-reachability"]);
                 using (var probe = new X64InlineHook(module + (ulong)writerRva,
                     CrushedTimerWriterDisplacedLength))
                 {
@@ -925,12 +936,16 @@ namespace PreplacedTest
             int mapVersion = -1;
             int[] sourceBefore = null;
             int[] destinationBefore = null;
+            List<BuildingSnapshot> buildingsAtTransfer = null;
             Safe(() =>
             {
                 mapVersion = *(int*)(nativeModuleBase + MapFormatVersionRva);
                 sourceBefore = CaptureSerializedCrushedCounters(LegacyPlayerStateSourceRva, LegacyPlayerStateStride);
                 destinationBefore = CaptureSerializedCrushedCounters(CurrentPlayerStateDestinationRva,
                     PlayerRuntimeStateStride);
+                // Owner and stable identity are captured before Vanilla can run later
+                // initialization passes that rewrite decorative ruin ownership.
+                buildingsAtTransfer = CaptureRawBuildings();
             });
 
             // Passive detour: Vanilla is always called exactly once, even if capture failed.
@@ -955,14 +970,18 @@ namespace PreplacedTest
                 lastLegacyCopyDestinationBefore = destinationBefore;
                 lastLegacyCopySource = sourceAfter;
                 lastLegacyCopyDestination = destinationAfter;
-                legacyCopyBuildings = CaptureRawBuildings();
+                legacyCopyBuildings = buildingsAtTransfer ?? new List<BuildingSnapshot>();
                 EmitChunked("PREPLACED_CRUSHED_TIMER_BULK_COPY: ",
                     $"mapVersion={mapVersion}; legacyThresholdExclusive=0x{LegacyPlayerStateCopyVersionExclusive:X}; mapIsSave={currentMapIsSave}; " +
                     $"loadSaveEventObserved={loadSaveEventObserved}; loadingEditorMap={loadingEditorMap}; " +
                     $"sourceRva=0x{LegacyPlayerStateSourceRva:X}; sourceStride=0x{LegacyPlayerStateStride:X}; " +
                     $"destinationRva=0x{CurrentPlayerStateDestinationRva:X}; destinationStride=0x{PlayerRuntimeStateStride:X}; " +
                     $"playerResourcesOffset=0x{PlayerResourcesOffsetInSerializedRecord:X}; " +
-                    $"serializedTimerOffset=0x{SerializedCrushedCounterOffset:X}; records=[{string.Join("; ", rows)}]");
+                    $"serializedTimerOffset=0x{SerializedCrushedCounterOffset:X}; " +
+                    $"destroyedTowerRecordsAtTransfer=[{string.Join(",", legacyCopyBuildings.Where(building =>
+                        IsDestroyedTower(building.Type)).Select(building => building.Id + "/" + building.GlobalId +
+                        "/" + building.Type + "/owner=" + building.OwnerId + "/alive=" + building.Alive))}]; " +
+                    $"records=[{string.Join("; ", rows)}]");
             });
         }
 
@@ -1013,7 +1032,7 @@ namespace PreplacedTest
                     timersBefore, timersAfter);
                 string transfer = ChoreTransferDirection.Classify(direction);
                 string destroyed = string.Join(",", CaptureRawBuildings()
-                    .Where(value => value.OwnerId == recordIndex && !IsLiving(value))
+                    .Where(value => value.OwnerId == recordIndex && IsDestroyedTower(value.Type))
                     .Select(value => value.Id + "/" + value.GlobalId + "/" + value.Type));
                 EmitChunked("PREPLACED_PLAYER_STATE_CHORE: ",
                     $"recordIndex={recordIndex}; bufferedPlayer={bufferedPlayerBefore}->{bufferedPlayerAfter}; directionRaw={direction}; " +
@@ -1022,7 +1041,7 @@ namespace PreplacedTest
                     $"runtimeTimersBefore=[{FormatTimerArray(timersBefore)}]; " +
                     $"runtimeTimersAfter=[{FormatTimerArray(timersAfter)}]; mapIsSave={currentMapIsSave}; " +
                     $"loadSaveEventObserved={loadSaveEventObserved}; phase={lastObservedPhase}; " +
-                    $"nonLivingOwnedByRecord=[{destroyed}]");
+                    $"destroyedTowerTypesOwnedByRecord=[{destroyed}]");
                 EmitInitializationCheckpointReached("0x15B90-player-state-chore", "post");
                 ObserveCrushedCounters("player-state-chore.post");
             });
@@ -1123,11 +1142,11 @@ namespace PreplacedTest
             var rows = new List<string>();
             for (int ownerId = 0; ownerId < SerializedPlayerRecordCount; ownerId++)
             {
-                string nonLiving = string.Join(",", buildings
-                    .Where(building => building.OwnerId == ownerId && !IsLiving(building))
+                string destroyedTowers = string.Join(",", buildings
+                    .Where(building => building.OwnerId == ownerId && IsDestroyedTower(building.Type))
                     .Select(building => $"{building.Id}/{building.GlobalId}/{building.Type}/{building.Alive}"));
                 rows.Add($"owner={ownerId}/sourceTimer={lastLegacyCopySource[ownerId]}" +
-                    $"/destinationTimer={lastLegacyCopyDestination[ownerId]}/nonLivingOwned=[{nonLiving}]");
+                    $"/destinationTimer={lastLegacyCopyDestination[ownerId]}/destroyedTowerTypesOwned=[{destroyedTowers}]");
             }
             EmitChunked("PREPLACED_CRUSHED_TIMER_BULK_COPY_BUILDING_CORRELATION: ",
                 $"mapVersion={lastLegacyCopyMapVersion}; sequence={mapSequence}; records=[{string.Join("; ", rows)}]");
@@ -1186,8 +1205,12 @@ namespace PreplacedTest
                     lastLegacyCopySourceBefore[playerId], lastLegacyCopySource[playerId],
                     lastLegacyCopyDestinationBefore[playerId], lastLegacyCopyDestination[playerId]);
                 BuildingSnapshot[] matchingTowers = legacyCopyBuildings
-                    .Where(building => building.OwnerId == playerId && !IsLiving(building) &&
+                    .Where(building => building.OwnerId == playerId && building.Id > 0 &&
                         IsDestroyedTower(building.Type))
+                    .GroupBy(building => building.GlobalId != 0
+                        ? "global=" + building.GlobalId
+                        : "game=" + building.Id + "/type=" + building.Type)
+                    .Select(group => group.First())
                     .ToArray();
                 int currentTimer = ReadPlayerGlobal(playerId, CrushedCounterRelativeOffset);
                 string decision = LegacyTimerFixEligibility.ClassifyAtApplication(transfer,
@@ -1900,7 +1923,9 @@ namespace PreplacedTest
             short cooldownBefore = cooldownOffset < 0 ? (short)-1 : ReadPlayerInt16(playerId, cooldownOffset, 0);
             string entryGate = DescribeResourceEntryGate(playerId, mode, cooldownBefore);
             RunWithEconomyOverlay(state, playerId, "resource-search-mode-" + mode,
-                () => resourceSearchHook.Original(state, playerId, mode));
+                () => resourceSearchHook.Original(state, playerId, mode),
+                overlay => EmitNativeResultBeforeOverlayRestore(state, playerId,
+                    "resource-search", mode, overlay));
             short cooldownAfter = cooldownOffset < 0 ? (short)-1 : ReadPlayerInt16(playerId, cooldownOffset, 0);
             ObserveEconomySearch(state, playerId, "resource-search", CurrentEconomy(playerId)?.DesiredType,
                 "mode=" + mode + "/entryGate=" + entryGate + "/cooldown=" + (cooldownOffset < 0 ? "unavailable-invalid-mode" :
@@ -1913,7 +1938,9 @@ namespace PreplacedTest
             short cooldownBefore = ReadPlayerInt16(playerId, WoodSearchCooldownRelativeOffset, 0);
             string entryGate = cooldownBefore > 0 ? "cooldown-active" : "ready";
             RunWithEconomyOverlay(state, playerId, "wood-search",
-                () => woodSearchHook.Original(state, playerId));
+                () => woodSearchHook.Original(state, playerId),
+                overlay => EmitNativeResultBeforeOverlayRestore(state, playerId,
+                    "wood-search", 0, overlay));
             short cooldownAfter = ReadPlayerInt16(playerId, WoodSearchCooldownRelativeOffset, 0);
             ObserveEconomySearch(state, playerId, "wood-search", eStructs.STRUCT_WOODCUTTERS_HUT,
                 "player=" + playerId + "/entryGate=" + entryGate + "/cooldown=" + DescribeCooldown(cooldownBefore, cooldownAfter),
@@ -1939,6 +1966,9 @@ namespace PreplacedTest
         {
             EconomyContext context = CurrentEconomy(playerId);
             Dictionary<int, PreplacedIdentity> before = null;
+            string preConstructionOracle = context != null && context.Phase == "farm"
+                ? CaptureFarmPreConstructionOracle(context.State, playerId, x, y)
+                : "not-farm-context";
             if (context != null)
                 Safe(() => before = CaptureOwnedIdentities(playerId));
             constructBuildingHook.Original(state, playerId, x, y, mapperValue, orientation, mode, suppressPostProcessing);
@@ -1952,7 +1982,7 @@ namespace PreplacedTest
                     context.ConstructionCalls.Add(call);
                     context.ConstructionObservations.Add(new ConstructionObservation(
                         (eMappers)(ushort)mapperValue, x, y, orientation, mode,
-                        suppressPostProcessing, error, delta));
+                        suppressPostProcessing, error, delta, preConstructionOracle));
                 }
                 if (IsAi(playerId)) Session(playerId).Counters.Add("construct-building " + call);
                 else RecordUnattributed("construct-building player=" + playerId + " " + call);
@@ -1991,16 +2021,97 @@ namespace PreplacedTest
             string.Equals(phase, "quarry", StringComparison.Ordinal) ||
             string.Equals(phase, "wood", StringComparison.Ordinal);
 
-        private void RunWithEconomyOverlay(ulong state, int playerId, string helper, Action original)
+        private void RunWithEconomyOverlay(ulong state, int playerId, string helper, Action original,
+            Action<EconomyGridOverlayScope> observeBeforeRestore = null)
         {
             RunWithEconomyOverlay<object>(state, playerId, helper, () =>
             {
                 original();
                 return null;
-            });
+            }, (_, overlay) => observeBeforeRestore?.Invoke(overlay));
         }
 
-        private T RunWithEconomyOverlay<T>(ulong state, int playerId, string helper, Func<T> original)
+        private static void ValidateFarmPlacementOffsetTable(ReadOnlySpan<byte> memory)
+        {
+            int[] expected =
+            {
+                0, 0, 0, -1, 1, -1, 1, 0, 1, 1, 0, 1, -1, 1, -1, 0,
+                -1, -1, 0, -2, 2, -2, 2, 0, 2, 2, 0, 2, -2, 2, -2, 0,
+                -2, -2, 0, -3, 3, -3, 3, 0, 3, 3, 0, 3, -3, 3, -3, 0,
+                -3, -3, 0, -4, 4, -4, 4, 0, 4, 4, 0, 4, -4, 4, -4, 0
+            };
+            if (expected.Length != FarmPlacementOffsetTablePairCount * 2)
+                throw new InvalidOperationException("farm placement-offset contract has the wrong element count");
+            for (int index = 0; index < expected.Length; index++)
+            {
+                int offset = FarmPlacementOffsetTableRva + index * sizeof(int);
+                int actual = memory[offset] | memory[offset + 1] << 8 |
+                    memory[offset + 2] << 16 | memory[offset + 3] << 24;
+                if (actual != expected[index])
+                    throw new InvalidOperationException("farm placement-offset table differs at element " + index);
+            }
+        }
+
+        private static void ValidateFarmPlacementOffsetRing(ReadOnlySpan<byte> memory)
+        {
+            const int ringWriterRva = 0x5737A;
+            byte[] expected =
+            {
+                0xFF, 0x81, 0x08, 0xB5, 0x05, 0x00,
+                0x48, 0x8D, 0x1D, 0x25, 0xCC, 0x74, 0x03,
+                0x4C, 0x89, 0x60, 0xE8,
+                0x4C, 0x8D, 0x35, 0x7E, 0x4E, 0x61, 0x03,
+                0x8B, 0x81, 0x08, 0xB5, 0x05, 0x00,
+                0x44, 0x8D, 0x67, 0x04, 0x33, 0xF6, 0x8B, 0xEF,
+                0x83, 0xF8, 0x1F, 0x89, 0xB1, 0x64, 0xDA, 0x03, 0x00,
+                0x0F, 0x4D, 0xC6, 0x89, 0x81, 0x08, 0xB5, 0x05, 0x00
+            };
+            if (ringWriterRva + expected.Length > memory.Length ||
+                !memory.Slice(ringWriterRva, expected.Length).SequenceEqual(expected))
+                throw new InvalidOperationException("farm placement-offset ring writer differs from the audited 0..30 contract");
+        }
+
+        private static void ValidateEconomyNeighborOffsetTable(ReadOnlySpan<byte> memory)
+        {
+            int[] expected =
+            {
+                0, -1, 1, -1, 1, 0, 1, 1,
+                0, 1, -1, 1, -1, 0, -1, -1
+            };
+            if (expected.Length != EconomyNeighborOffsetCount * 2 ||
+                EconomyNeighborOffsetTableRva + expected.Length * sizeof(int) > memory.Length)
+                throw new InvalidOperationException("economy neighbor-offset table lies outside the audited image");
+            for (int index = 0; index < expected.Length; index++)
+            {
+                int offset = EconomyNeighborOffsetTableRva + index * sizeof(int);
+                int actual = memory[offset] | memory[offset + 1] << 8 |
+                    memory[offset + 2] << 16 | memory[offset + 3] << 24;
+                if (actual != expected[index])
+                    throw new InvalidOperationException("economy neighbor-offset table differs at element " + index);
+            }
+        }
+
+        private static void ValidatePlacementReachabilityRouteCall(ReadOnlySpan<byte> memory,
+            int regionPairReachabilityRva)
+        {
+            const int blockStartRva = PlacementReachabilityRouteCallSiteRva - 0x0F;
+            byte[] expected =
+            {
+                0x48, 0x8D, 0x0D, 0x0B, 0x9A, 0xFE, 0x05,
+                0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00,
+                0xE8, 0xAE, 0xE9, 0x01, 0x00, 0x85, 0xC0, 0x75, 0x05
+            };
+            if (blockStartRva < 0 || blockStartRva + expected.Length > memory.Length ||
+                !memory.Slice(blockStartRva, expected.Length).SequenceEqual(expected))
+                throw new InvalidOperationException("C3BF0 route-call argument block differs from the audited instructions");
+            int target = Shared.NativePatternResolver.ResolveRelativeTarget(memory,
+                PlacementReachabilityRouteCallSiteRva + 1, PlacementReachabilityRouteCallSiteRva + 5);
+            if (target != regionPairReachabilityRva)
+                throw new InvalidOperationException("C3BF0 route-call target differs from E2610");
+        }
+
+        private T RunWithEconomyOverlay<T>(ulong state, int playerId, string helper, Func<T> original,
+            Action<T, EconomyGridOverlayScope> observeBeforeRestore = null)
         {
             EconomyGridOverlayScope overlay = null;
             try
@@ -2014,7 +2125,10 @@ namespace PreplacedTest
 
             try
             {
-                return original();
+                T result = original();
+                if (observeBeforeRestore != null)
+                    Safe(() => observeBeforeRestore(result, overlay));
+                return result;
             }
             finally
             {
@@ -2101,6 +2215,7 @@ namespace PreplacedTest
             }
 
             reachablePcls.Add(keepPcl);
+            bool wasResolvingRoutes = resolvingEconomyOverlayRoutes;
             resolvingEconomyOverlayRoutes = true;
             try
             {
@@ -2114,9 +2229,134 @@ namespace PreplacedTest
             }
             finally
             {
-                resolvingEconomyOverlayRoutes = false;
+                resolvingEconomyOverlayRoutes = wasResolvingRoutes;
             }
             return true;
+        }
+
+        private void EmitNativeEconomyRouteMatrices(ulong state, string trigger)
+        {
+            if (!aiOwnershipResolved || state == 0) return;
+            for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
+                if (IsAi(playerId)) EmitNativeEconomyRouteMatrix(state, playerId, trigger);
+        }
+
+        private void EmitNativeEconomyRouteMatrix(ulong state, int playerId, string trigger)
+        {
+            GamePathingManagerAPI pathing = GamePathingManagerAPI.Instance;
+            Span<ushort> pclGrid = pathing.GetPathComponentGrid();
+            Span<int> pclCounts = pathing.GetNativeComponentTileCounts();
+            if (pclGrid.Length != NativePclEntryCount || pclCounts.Length == 0 ||
+                !TryGetKeepPcl(playerId, out int keepPcl) || keepPcl >= pclCounts.Length ||
+                !TryGetKeepPosition(playerId, out int keepX, out int keepY))
+            {
+                Session(playerId).Counters.Add("native-route-matrix unavailable-invalid-contract");
+                return;
+            }
+
+            var presentPcls = new SortedSet<int>();
+            for (int tileId = 0; tileId < pclGrid.Length; tileId++)
+            {
+                int pcl = pclGrid[tileId];
+                if (pcl > 0 && pcl < pclCounts.Length) presentPcls.Add(pcl);
+            }
+
+            var rows = new List<string>();
+            var reachablePcls = new HashSet<int> { keepPcl };
+            bool wasResolvingRoutes = resolvingEconomyOverlayRoutes;
+            resolvingEconomyOverlayRoutes = true;
+            try
+            {
+                foreach (int pcl in presentPcls)
+                {
+                    if (pcl == keepPcl)
+                    {
+                        rows.Add($"pcl={pcl}/tiles={pclCounts[pcl]}/self");
+                        continue;
+                    }
+                    int forwardExclude = pathing.FindNextComponentTowardDestination(playerId, keepPcl, pcl,
+                        PathConnectionQueryMode.ExcludeLadderClimb);
+                    int forwardAll = pathing.FindNextComponentTowardDestination(playerId, keepPcl, pcl,
+                        PathConnectionQueryMode.IncludeAll);
+                    int forwardLadder = pathing.FindNextComponentTowardDestination(playerId, keepPcl, pcl,
+                        PathConnectionQueryMode.LadderClimbOnly);
+                    int reverseExclude = pathing.FindNextComponentTowardDestination(playerId, pcl, keepPcl,
+                        PathConnectionQueryMode.ExcludeLadderClimb);
+                    if (forwardExclude > 0) reachablePcls.Add(pcl);
+                    rows.Add($"pcl={pcl}/tiles={pclCounts[pcl]}/keep-to-pcl(exclude={forwardExclude},all={forwardAll},ladderOnly={forwardLadder})" +
+                        $"/pcl-to-keep(exclude={reverseExclude})");
+                }
+            }
+            finally
+            {
+                resolvingEconomyOverlayRoutes = wasResolvingRoutes;
+            }
+
+            string candidatePcls = DescribeSearchCandidatePcls(state, playerId, reachablePcls);
+            BuildingSnapshot[] ownedPortals = CaptureRawBuildings().Where(building => building.OwnerId == playerId &&
+                IsPortalStructure(building.Type) && (building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit)).ToArray();
+            string portalRows = string.Join(";", ownedPortals.Select(building =>
+                $"id={building.Id}/global={building.GlobalId}/owner={building.OwnerId}/type={building.Type}" +
+                $"/gatehouseId={building.GatehouseId}/footprint=({building.TileX},{building.TileY})-({building.EndX},{building.EndY})"));
+            string nativePortalRecords = CaptureGatehouseEntries();
+            string anchorRows = wallBaselines.TryGetValue(playerId, out WallTileBaseline baseline)
+                ? string.Join(";", baseline.Anchors.Select(anchor =>
+                    $"wall={anchor.WallTileId}/insideTile={anchor.InsideTileId}:pcl={CurrentPcl(anchor.InsideTileId)}" +
+                    $"/outsideTile={anchor.OutsideTileId}:pcl={CurrentPcl(anchor.OutsideTileId)}"))
+                : "none";
+            string matrix = string.Join(";", rows);
+            string signature = keepPcl + "/" + matrix + "/" + candidatePcls + "/" + portalRows +
+                "/" + nativePortalRecords + "/" + anchorRows;
+            PlayerSession session = Session(playerId);
+            if (!session.EmittedNativeRouteMatrices.Add(signature))
+            {
+                session.Counters.Add("native-route-matrix repeat trigger=" + trigger);
+                return;
+            }
+            EmitChunked($"PREPLACED_NATIVE_ECONOMY_ROUTE_MATRIX: player={playerId}; ",
+                $"trigger={trigger}; keep=({keepX},{keepY})/pcl={keepPcl}; wallRole={session.WallTestRole}; " +
+                $"contract=RVA-0x{PlacementReachabilityRouteCallSiteRva:X}-sourceKeep-targetCandidate-modeExcludeLadderClimb; " +
+                $"ownedPortals=[{portalRows}]; nativePortalRecords=[{nativePortalRecords}]; " +
+                $"wallAnchors=[{anchorRows}]; candidatePcls=[{candidatePcls}]; matrix=[{matrix}]");
+        }
+
+        private int CurrentPcl(int tileId) => TryGetPclByTileId(tileId, out int pcl, "route-matrix-anchor") ? pcl : 0;
+
+        private string DescribeSearchCandidatePcls(ulong state, int playerId, HashSet<int> reachablePcls)
+        {
+            if (reachablePcls == null || reachablePcls.Count == 0) return "unavailable";
+            var cells = new ShadowEconomyCell[EconomyGridCellCount];
+            byte* memory = (byte*)state;
+            for (int index = 0; index < cells.Length; index++)
+            {
+                EconomyCoordinate coordinate = EconomyCoordinate.FromIndex(index);
+                byte* raw = memory + EconomyGridBaseOffset + index * EconomyGridCellStride;
+                cells[index] = new ShadowEconomyCell(CountPclTilesOutsideSet(coordinate.X, coordinate.Y, reachablePcls),
+                    (sbyte)raw[0x16], raw[0x07], raw[0x08], raw[0x09], raw[0x0A], raw[0x0B], raw[0x0C], raw[0x0D],
+                    raw[0x0E], raw[0x0F], raw[0x11], raw[0x12], raw[0x13], raw[0x15],
+                    PlayerClassMatches(playerId, raw[0x15]));
+            }
+            if (!TryGetKeepPosition(playerId, out int keepX, out int keepY)) return "keep-unavailable";
+            int startIndex = keepX / EconomyCoarseCellTileSize * EconomyGridWidth + keepY / EconomyCoarseCellTileSize;
+            var specifications = new[]
+            {
+                ("farm-prefilter", ShadowEconomySearchKind.Farm, 0),
+                ("wood", ShadowEconomySearchKind.Wood, 0),
+                ("quarry", ShadowEconomySearchKind.Resource, 2),
+                ("iron", ShadowEconomySearchKind.Resource, 3),
+                ("pitch", ShadowEconomySearchKind.Resource, 4)
+            };
+            return string.Join(";", specifications.Select(specification =>
+            {
+                ShadowEconomySearchResult result = ShadowEconomySearch.Run(cells, EconomyGridWidth, startIndex,
+                    specification.Item2, specification.Item3);
+                int[] pcls = result.CandidateIndices.SelectMany(index =>
+                {
+                    EconomyCoordinate coordinate = EconomyCoordinate.FromIndex(index);
+                    return GetEconomyCellPcls(coordinate.X, coordinate.Y);
+                }).Where(pcl => pcl > 0).Distinct().OrderBy(pcl => pcl).ToArray();
+                return specification.Item1 + "=" + result.CandidateIndices.Length + "cells/pcls[" + string.Join(",", pcls) + "]";
+            }));
         }
 
         private void RestoreEconomyGridOverlay(EconomyGridOverlayScope overlay)
@@ -2224,7 +2464,6 @@ namespace PreplacedTest
                         EmitChunked($"PREPLACED_ECONOMY_SEARCH: player={playerId}; helper={helper}; ",
                             observation.FullText + "; counterfactual=" + DescribeSearchRoutes(playerId, observation));
                     }
-                    EmitShadowNativeResultOracle(state, playerId, helper, resourceMode, observation);
                     EmitShadowEconomySearch(state, playerId, helper, resourceMode, explicitStartX, explicitStartY);
                     if (session.WallLossStageEmitted && observation.PerformedTraversal)
                         EmitChunked($"PREPLACED_POST_WALL_LOSS_ECONOMY_SEARCH: player={playerId}; ",
@@ -2250,7 +2489,9 @@ namespace PreplacedTest
         private void EmitShadowEconomySearch(ulong state, int playerId, string helper, int resourceMode,
             int explicitStartX, int explicitStartY, string trigger = "vanilla-call")
         {
-            if (state == 0 || !IsAi(playerId) || !TryGetKeepPcl(playerId, out int keepPcl)) return;
+            if (state == 0 || !IsAi(playerId) ||
+                !TryResolveNativeReachablePcls(playerId, out int keepPcl,
+                    out HashSet<int> reachablePcls, out _)) return;
             ShadowEconomySearchKind kind = helper == "farm-search" ? ShadowEconomySearchKind.Farm :
                 helper == "resource-search" ? ShadowEconomySearchKind.Resource :
                 helper == "wood-search" ? ShadowEconomySearchKind.Wood : ShadowEconomySearchKind.Nearby;
@@ -2265,9 +2506,6 @@ namespace PreplacedTest
                 startY = keepY / EconomyCoarseCellTileSize;
             }
             if ((uint)startX >= EconomyGridWidth || (uint)startY >= EconomyGridWidth) return;
-            List<PortalConnection> portals = CapturePortalConnections(out _);
-            HashSet<int> reachablePcls = PortalRouteModel.ReachableFriendlyPcls(keepPcl, portals,
-                playerId, IsAllied);
             ulong routingSignature = lastRoutingSnapshot?.Signature ?? 0;
             var cells = new ShadowEconomyCell[EconomyGridCellCount];
             byte* memory = (byte*)state;
@@ -2314,6 +2552,7 @@ namespace PreplacedTest
             }
             string firstCandidate = result.FirstCandidateIndex < 0 ? "none" :
                 EconomyCoordinate.FromIndex(result.FirstCandidateIndex).ToString();
+            string candidateKind = kind == ShadowEconomySearchKind.Farm ? "farm-prefilter" : "native-predicate";
             string resourceAnalysis = kind == ShadowEconomySearchKind.Resource
                 ? DescribeResourceShadowAnalysis(cells, result, resourceMode)
                 : "not-resource-search";
@@ -2322,7 +2561,7 @@ namespace PreplacedTest
                 $"start=({startX},{startY}); keepPcl={keepPcl}; " +
                 $"friendlyReachablePcls=[{string.Join(",", reachablePcls.OrderBy(value => value))}]; " +
                 $"reachableCells={result.ReachableCount}; blockedBoundaryCells={result.BlockedIndices.Length}; " +
-                $"candidateCells={result.CandidateIndices.Length}; firstCandidate={firstCandidate}; " +
+                $"candidateKind={candidateKind}; candidateCells={result.CandidateIndices.Length}; firstCandidate={firstCandidate}; " +
                 $"blocked=[{LosslessGridCoordinateFormatter.Format(result.BlockedIndices, EconomyGridWidth)}]; " +
                 $"candidates=[{LosslessGridCoordinateFormatter.Format(result.CandidateIndices, EconomyGridWidth)}]; " +
                 $"resourceAnalysis=[{resourceAnalysis}]; byte+16 remains byte-for-byte Vanilla because 0x50720 builds it from tile logic rather than the selected PCL");
@@ -2362,35 +2601,6 @@ namespace PreplacedTest
             }
         }
 
-        private void EmitShadowNativeResultOracle(ulong state, int playerId, string helper, int resourceMode,
-            EconomySearchObservation observation)
-        {
-            if (state == 0 || !observation.PerformedTraversal || !observation.CandidateFound ||
-                (uint)observation.ResultX >= EconomyGridWidth || (uint)observation.ResultY >= EconomyGridWidth ||
-                !TryGetKeepPcl(playerId, out int keepPcl)) return;
-            HashSet<int> reachablePcls = PortalRouteModel.ReachableFriendlyPcls(keepPcl,
-                CapturePortalConnections(out _), playerId, IsAllied);
-            int index = observation.ResultX * EconomyGridWidth + observation.ResultY;
-            byte* raw = (byte*)state + EconomyGridBaseOffset + index * EconomyGridCellStride;
-            var cell = new ShadowEconomyCell(CountPclTilesOutsideSet(observation.ResultX, observation.ResultY, reachablePcls),
-                (sbyte)raw[0x16], raw[0x07], raw[0x08], raw[0x09], raw[0x0A], raw[0x0B], raw[0x0C], raw[0x0D],
-                raw[0x0E], raw[0x0F], raw[0x11], raw[0x12], raw[0x13], raw[0x15], PlayerClassMatches(playerId, raw[0x15]));
-            string checks;
-            string result;
-            if (helper == "resource-search")
-            {
-                checks = ShadowEconomySearch.DescribeResourceChecks(cell, resourceMode);
-                result = ShadowEconomySearch.ResourceCandidateRejectionReason(cell, resourceMode);
-            }
-            else return;
-            string key = helper + "/" + resourceMode + "/" + observation.ResultX + "/" + observation.ResultY + "/" + result;
-            if (!Session(playerId).EmittedOracleSignatures.Add(key)) return;
-            string label = result == "candidate" ? "PREPLACED_SHADOW_NATIVE_RESULT_MATCH: " :
-                "PREPLACED_SHADOW_NATIVE_RESULT_MISMATCH: ";
-            EmitChunked(label, $"player={playerId}; helper={helper}; nativeResult=({observation.ResultX},{observation.ResultY}); " +
-                $"nativeAccepted=true; shadowResult={result}; checks=[{checks}]");
-        }
-
         private void EmitFarmConstructionOracle(
             ulong state,
             int playerId,
@@ -2399,66 +2609,119 @@ namespace PreplacedTest
             int constructionStart)
         {
             if (state == 0 || context == null || constructionStart < 0 ||
-                constructionStart > context.ConstructionObservations.Count || farmReturn == 0)
+                constructionStart > context.ConstructionObservations.Count)
                 return;
 
             ConstructionObservation[] calls = context.ConstructionObservations.Skip(constructionStart).ToArray();
             if (calls.Length == 0)
             {
-                EmitChunked("PREPLACED_FARM_NATIVE_ORACLE_MISMATCH: ",
-                    $"player={playerId}; nativeReturn={farmReturn}; reason=success-without-correlated-construct-call");
+                if (farmReturn != 0)
+                    EmitChunked("PREPLACED_FARM_NATIVE_ORACLE_MISMATCH: ",
+                        $"player={playerId}; nativeReturn={farmReturn}; reason=success-without-correlated-construct-call");
                 return;
             }
-            if (!TryResolveNativeReachablePcls(playerId, out int keepPcl,
-                    out HashSet<int> reachablePcls, out int presentPcls))
-                return;
-
-            int orientationIndex = *(int*)((byte*)state + EconomyOrientationOffset);
-            int offsetX = int.MinValue;
-            int offsetY = int.MinValue;
-            if ((uint)orientationIndex < 9U)
+            ConstructionObservation[] successful = calls.Where(call =>
+                call.Error == 0 && call.Delta.StartsWith("added=[", StringComparison.Ordinal)).ToArray();
+            if (successful.Length == 0)
             {
-                int* offsets = (int*)(nativeModuleBase + (ulong)FarmPlacementOffsetTableRva +
-                    (ulong)(orientationIndex * 2 * sizeof(int)));
-                offsetX = offsets[0];
-                offsetY = offsets[1];
-            }
-            for (int callIndex = 0; callIndex < calls.Length; callIndex++)
-            {
-                ConstructionObservation call = calls[callIndex];
-                bool coordinateResolved = offsetX != int.MinValue &&
-                    (call.X - offsetX) % EconomyCoarseCellTileSize == 0 &&
-                    (call.Y - offsetY) % EconomyCoarseCellTileSize == 0;
-                int coarseX = coordinateResolved ? (call.X - offsetX) / EconomyCoarseCellTileSize : -1;
-                int coarseY = coordinateResolved ? (call.Y - offsetY) / EconomyCoarseCellTileSize : -1;
-                coordinateResolved = coordinateResolved && (uint)coarseX < EconomyGridWidth &&
-                    (uint)coarseY < EconomyGridWidth;
-                string prefilter = "unresolved-placement-offset";
-                string masks = "unavailable";
-                if (coordinateResolved)
+                Session(playerId).Counters.Add("farm-native-oracle rejected-attempts=" + calls.Length);
+                foreach (ConstructionObservation call in calls)
                 {
-                    int index = coarseX * EconomyGridWidth + coarseY;
-                    byte* raw = (byte*)state + EconomyGridBaseOffset + index * EconomyGridCellStride;
-                    int projected04 = CountPclTilesOutsideSet(coarseX, coarseY, reachablePcls);
-                    prefilter = projected04 != 0 ? "pcl-not-exact" : raw[0x0F] != 0 ? "occupied-or-reserved-byte+0F" :
-                        raw[0x07] != 0 ? "wood-density-byte+07" : raw[0x13] != 0 ? "blocked-byte+13" :
-                        raw[0x11] <= 24 ? "farm-density-byte+11" : raw[0x12] <= 13 ? "farm-density-byte+12" :
-                        "prefilter-candidate";
-                    int playerMask = 1 << (playerId - 1);
-                    masks = DescribeFarmAvailabilityMasks((byte*)state, coarseX, coarseY, playerMask);
+                    string rejectedKey = $"farm-rejected/{call.Mapper}/{call.X}/{call.Y}/{call.Error}/{call.Delta}/{call.PreConstructionOracle}";
+                    if (!Session(playerId).EmittedOracleSignatures.Add(rejectedKey)) continue;
+                    EmitChunked("PREPLACED_FARM_NATIVE_ORACLE_REJECTED: ",
+                        $"player={playerId}; nativeReturn={farmReturn}; mapper={call.Mapper}; construct=({call.X},{call.Y}); " +
+                        $"constructError={call.Error}; delta={call.Delta}; capturedBeforeNativeConstruction=[{call.PreConstructionOracle}]");
                 }
-                string key = $"farm-construct/{call.Mapper}/{call.X}/{call.Y}/{call.Error}/{prefilter}";
+                return;
+            }
+            for (int callIndex = 0; callIndex < successful.Length; callIndex++)
+            {
+                ConstructionObservation call = successful[callIndex];
+                bool matched = farmReturn != 0 &&
+                    call.PreConstructionOracle.Contains("prefilter=prefilter-candidate");
+                string key = $"farm-construct/{call.Mapper}/{call.X}/{call.Y}/{call.Error}/{call.PreConstructionOracle}";
                 if (!Session(playerId).EmittedOracleSignatures.Add(key)) continue;
-                string label = prefilter == "prefilter-candidate"
+                string label = matched
                     ? "PREPLACED_FARM_NATIVE_ORACLE_MATCH: "
                     : "PREPLACED_FARM_NATIVE_ORACLE_MISMATCH: ";
                 EmitChunked(label,
                     $"player={playerId}; nativeReturn={farmReturn}; callIndex={callIndex}; mapper={call.Mapper}; " +
                     $"construct=({call.X},{call.Y}); constructError={call.Error}; delta={call.Delta}; " +
-                    $"orientationIndex={orientationIndex}; placementOffset=({offsetX},{offsetY}); " +
-                    $"coarse=({coarseX},{coarseY}); coordinateResolved={coordinateResolved}; keepPcl={keepPcl}; " +
-                    $"presentPcls={presentPcls}; prefilterResult={prefilter}; availabilityMasks=[{masks}]");
+                    $"capturedBeforeNativeConstruction=[{call.PreConstructionOracle}]");
             }
+        }
+
+        private string CaptureFarmPreConstructionOracle(ulong state, int playerId, int x, int y)
+        {
+            if (state == 0 || nativeModuleBase == 0) return "state-unavailable";
+            int ringIndex = *(int*)((byte*)state + EconomyOrientationOffset);
+            if ((uint)ringIndex >= FarmPlacementSelectableOffsetCount)
+                return $"ringIndex={ringIndex}/invalid-native-range-0..{FarmPlacementSelectableOffsetCount - 1}";
+            int* offsets = (int*)(nativeModuleBase + (ulong)FarmPlacementOffsetTableRva +
+                (ulong)(ringIndex * 2 * sizeof(int)));
+            int offsetX = offsets[0];
+            int offsetY = offsets[1];
+            bool aligned = (x - offsetX) % EconomyCoarseCellTileSize == 0 &&
+                (y - offsetY) % EconomyCoarseCellTileSize == 0;
+            int coarseX = aligned ? (x - offsetX) / EconomyCoarseCellTileSize : -1;
+            int coarseY = aligned ? (y - offsetY) / EconomyCoarseCellTileSize : -1;
+            bool resolved = aligned && (uint)coarseX < EconomyGridWidth && (uint)coarseY < EconomyGridWidth;
+            if (!resolved)
+                return $"ringIndex={ringIndex}/offset=({offsetX},{offsetY})/construct=({x},{y})/coordinate-unresolved";
+
+            int index = coarseX * EconomyGridWidth + coarseY;
+            byte* raw = (byte*)state + EconomyGridBaseOffset + index * EconomyGridCellStride;
+            string prefilter = raw[0x04] != 0 ? "pcl-not-exact" :
+                raw[0x0F] != 0 ? "occupied-or-reserved-byte+0F" :
+                raw[0x07] != 0 ? "wood-density-byte+07" : raw[0x13] != 0 ? "blocked-byte+13" :
+                (sbyte)raw[0x11] <= 24 ? "farm-density-byte+11" :
+                (sbyte)raw[0x12] <= 13 ? "farm-density-byte+12" : "prefilter-candidate";
+            int playerMask = 1 << (playerId - 1);
+            return $"ringIndex={ringIndex}/offset=({offsetX},{offsetY})/coarse=({coarseX},{coarseY})/" +
+                $"prefilter={prefilter}/raw=[{RawCellPayload(raw)}]/" +
+                $"availabilityMasks=[{DescribeFarmAvailabilityMasks((byte*)state, coarseX, coarseY, playerMask)}]";
+        }
+
+        private string DescribeNativeSearchTables()
+        {
+            if (nativeModuleBase == 0) return "native-module-unavailable";
+            int* farmOffsets = (int*)(nativeModuleBase + (ulong)FarmPlacementOffsetTableRva);
+            int* neighborOffsets = (int*)(nativeModuleBase + (ulong)EconomyNeighborOffsetTableRva);
+            var farms = new List<string>(FarmPlacementOffsetTablePairCount);
+            for (int index = 0; index < FarmPlacementOffsetTablePairCount; index++)
+                farms.Add(index + "=(" + farmOffsets[index * 2] + "," + farmOffsets[index * 2 + 1] + ")");
+            var neighbors = new List<string>(EconomyNeighborOffsetCount);
+            for (int index = 0; index < EconomyNeighborOffsetCount; index++)
+                neighbors.Add(index + "=(" + neighborOffsets[index * 2] + "," + neighborOffsets[index * 2 + 1] + ")");
+            return "farmPlacementOffsets[" + string.Join(",", farms) +
+                "]/economyNeighborOffsets[" + string.Join(",", neighbors) + "]";
+        }
+
+        private void EmitNativeResultBeforeOverlayRestore(ulong state, int playerId, string helper,
+            int resourceMode, EconomyGridOverlayScope overlay)
+        {
+            if (state == 0 || overlay == null) return;
+            EconomyGridState resultState = CaptureEconomyGridState(state);
+            if ((uint)resultState.ResultX >= EconomyGridWidth || (uint)resultState.ResultY >= EconomyGridWidth)
+                return;
+            int index = resultState.ResultX * EconomyGridWidth + resultState.ResultY;
+            byte* raw = (byte*)state + EconomyGridBaseOffset + index * EconomyGridCellStride;
+            var cell = new ShadowEconomyCell((sbyte)raw[0x04], (sbyte)raw[0x16], raw[0x07],
+                raw[0x08], raw[0x09], raw[0x0A], raw[0x0B], raw[0x0C], raw[0x0D],
+                raw[0x0E], raw[0x0F], raw[0x11], raw[0x12], raw[0x13], raw[0x15],
+                PlayerClassMatches(playerId, raw[0x15]));
+            string decision = helper == "resource-search"
+                ? ShadowEconomySearch.ResourceCandidateRejectionReason(cell, resourceMode)
+                : ShadowEconomySearch.WoodCandidateRejectionReason(cell);
+            string key = $"pre-restore/{helper}/{resourceMode}/{index}/{decision}/{RawCellPayload(raw)}";
+            if (!Session(playerId).EmittedOracleSignatures.Add(key)) return;
+            string label = decision == "candidate" ? "PREPLACED_NATIVE_RESULT_PRE_RESTORE_MATCH: " :
+                "PREPLACED_NATIVE_RESULT_PRE_RESTORE_MISMATCH: ";
+            EmitChunked(label,
+                $"player={playerId}; helper={helper}; mode={resourceMode}; result=({resultState.ResultX},{resultState.ResultY}); " +
+                $"decision={decision}; originalByte04={overlay.Before[index]}; overlaidByte04={raw[0x04]}; " +
+                $"rawBeforeRestore=[{RawCellPayload(raw)}]");
         }
 
         private static string DescribeFarmAvailabilityMasks(byte* state, int x, int y, int playerMask)
@@ -2887,11 +3150,20 @@ namespace PreplacedTest
                 }
                 else
                 {
+                    EconomyGridState searchState = CaptureEconomyGridState(state);
+                    int orientationRing = *(int*)((byte*)state + EconomyOrientationOffset);
+                    int referencePcl = *(int*)((byte*)state + EconomyReferencePclOffset);
                     EmitChunked("PREPLACED_ROUTING_SNAPSHOT_FULL: ",
-                        $"reason={reason}; signature={current.Signature:X16}; " + current.DescribeSummary());
+                        $"reason={reason}; signature={current.Signature:X16}; " + current.DescribeSummary() +
+                        $"; searchState=[{searchState}]; referencePcl={referencePcl}; " +
+                        $"farmOffsetRing={orientationRing}/validatedSelectableRange=0..{FarmPlacementSelectableOffsetCount - 1}" +
+                        $"/tablePairs={FarmPlacementOffsetTablePairCount}; " +
+                        $"nativeSearchTables=[{DescribeNativeSearchTables()}]; " +
+                        "losslessSnapshot=" + current.DescribeAll());
                 }
                 lastRoutingSnapshot = current;
                 EmitProactiveShadowSuite(state, reason);
+                EmitNativeEconomyRouteMatrices(state, reason);
                 return;
             }
             if (lastRoutingSnapshot.Signature == current.Signature) return;
@@ -2904,6 +3176,7 @@ namespace PreplacedTest
             }
             lastRoutingSnapshot = current;
             EmitProactiveShadowSuite(state, reason);
+            EmitNativeEconomyRouteMatrices(state, reason);
         }
 
         private void CaptureAndAnalyzePclTopology(string reason)
@@ -3311,15 +3584,24 @@ namespace PreplacedTest
                 WallTileBaseline baseline = CaptureWallBaseline(playerId, encoding, buildings);
                 if (baseline != null) wallBaselines[playerId] = baseline;
                 int wallCount = baseline?.ComponentTiles.Count ?? 0;
-                int portalCount = baseline == null ? 0 : buildings.Count(building =>
-                    building.OwnerId == playerId && IsLiving(building) && IsPortalStructure(building.Type) &&
-                    BuildingFootprintOverlaps(building, baseline.ComponentBlockers));
+                BuildingSnapshot[] componentPortals = baseline == null ? Array.Empty<BuildingSnapshot>() : buildings.Where(building =>
+                    building.OwnerId == playerId && IsPortalStructure(building.Type) &&
+                    (building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit) &&
+                    BuildingFootprintOverlaps(building, baseline.ComponentBlockers)).ToArray();
+                int portalCount = componentPortals.Length;
                 WallTestRole role = WallTestRoleClassifier.Classify(wallCount, portalCount);
                 PlayerSession session = Session(playerId);
                 session.WallTestRole = role;
                 session.Counters.Add($"wall-test-role role={role} walls={wallCount} portals={portalCount}");
+                string gatehouseDetails = string.Join(",", componentPortals.Select(building =>
+                    building.Id + "/global=" + building.GlobalId + "/owner=" + building.OwnerId +
+                    "/type=" + building.Type + "/rawGatehouseId=" + building.GatehouseId +
+                    "/footprint=(" + building.TileX + "," + building.TileY + ")-(" +
+                    building.EndX + "," + building.EndY + ")"));
                 rows.Add($"player={playerId}/role={role}/wallTiles={wallCount}/portals={portalCount}" +
+                    $"/keep=({baseline?.KeepX.ToString() ?? "unknown"},{baseline?.KeepY.ToString() ?? "unknown"})" +
                     $"/componentTiles={(baseline?.ComponentTiles.Count ?? 0)}/anchors={(baseline?.Anchors.Count ?? 0)}" +
+                    $"/gatehouses=[{gatehouseDetails}]" +
                     $"/geometryClosed={baseline?.GeometryClosed}/confidence={(baseline != null && baseline.GeometryClosed ? "geometry+pcl" : "pcl-component-candidate")}");
             }
             string ambiguity = rows.Count(row => row.Contains("role=GatedWallCandidate")) > 1 ||
@@ -4413,6 +4695,7 @@ namespace PreplacedTest
             public HashSet<string> EmittedSearchSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedPostBreachSearchKinds { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedOracleSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
+            public HashSet<string> EmittedNativeRouteMatrices { get; } = new HashSet<string>(StringComparer.Ordinal);
 
             public bool IsInsideAivArea(BuildingSnapshot building) =>
                 AivAreaClassifier.Intersects(AivOriginX, AivOriginY, AivGridSize,
@@ -4485,7 +4768,8 @@ namespace PreplacedTest
         private readonly struct ConstructionObservation
         {
             public ConstructionObservation(eMappers mapper, int x, int y, int orientation,
-                int mode, byte suppressPostProcessing, int error, string delta)
+                int mode, byte suppressPostProcessing, int error, string delta,
+                string preConstructionOracle)
             {
                 Mapper = mapper;
                 X = x;
@@ -4495,6 +4779,7 @@ namespace PreplacedTest
                 SuppressPostProcessing = suppressPostProcessing;
                 Error = error;
                 Delta = delta ?? string.Empty;
+                PreConstructionOracle = preConstructionOracle ?? "unavailable";
             }
 
             public eMappers Mapper { get; }
@@ -4505,6 +4790,7 @@ namespace PreplacedTest
             public byte SuppressPostProcessing { get; }
             public int Error { get; }
             public string Delta { get; }
+            public string PreConstructionOracle { get; }
         }
 
         private sealed class EconomyBarrierObservation

@@ -26,6 +26,12 @@ Die Ausgabe einer Gruppe besteht aus:
 
 Der Builder übernimmt Zielnamen und Pixels-per-Unit direkt aus den installierten SHCDE-Sprite-Metadaten. Er trimmt und rotiert keine Bilder. Vorhandene Atlasgruppen werden nur nach Bestätigung ersetzt; ein vorhandenes `info.json` wird nie überschrieben.
 
+#### Erweiterter Quellframe-Filter
+
+Aktiviere im Gruppendialog **Erweiterte Optionen anzeigen**, wenn nur ein Teil der PNGs aus einem Quellordner gebaut werden soll. Der **Quellframe-Filter** ist eine Einschlussliste und akzeptiert einzelne Indizes (`12`, `12x`), inklusive Bereiche (`0-127`, `0x-127x`) sowie mehrere durch Kommas getrennte Angaben (`0-127, 416-447, 0x-127x`). Ein leeres Feld bedeutet **Alle Frames**.
+
+Nur ausgewählte Farbframes bestimmen das automatische Quellpräfix und werden auf Duplikate, PNG-Lesbarkeit, Masken, Metadaten und SHCDE-Zielslots geprüft. Alle anderen Quelldateien werden vollständig ignoriert; ihre vorhandenen SHCDE-Zielgrafiken bleiben unverändert. Der Filter ersetzt keine Indizes und erzeugt keine fehlenden Frames. Einklappen der erweiterten Optionen ändert einen gespeicherten Filter nicht; zum Entfernen muss das Feld geleert werden.
+
 #### Pivotquelle und korrekte Ausrichtung
 
 Ein Unity-Pivot ist normalisiert. Derselbe Wert bezeichnet deshalb auf unterschiedlich großen Bildern einen anderen Pixel. Das kann Bodenplatten auseinanderziehen oder Gebäude- und Animationsteile gegeneinander verschieben.
@@ -42,7 +48,7 @@ Bei Quellmetadaten bleiben normalisierte Pivots bei einer proportional skalierte
 
 Bei den geprüften SH1DE-Gruppen `tile_land8`, `tile_buildings1`, `tile_churches` und `tile_ruins` liegt der originale Pixelanker durchgehend bei `(32, 16,5)` und die PPU bei 64. Beispielsweise ergeben sowohl Pivot `(0,5; 0,40243897)` auf 64×41 Pixeln als auch `(0,5; 0,08418399)` auf 64×196 Pixeln denselben Anker. Schwarze Spalten zwischen Tiles sind ein typisches Zeichen dafür, dass stattdessen ein normalisierter Pivot von einer anders großen Leinwand kopiert wurde.
 
-Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen gewarnt. Schema-2- und Schema-3-Projekte behalten ihre bisherigen strikten Metadatenregeln. Beim nächsten Speichern werden ältere Projekte als Schema 4 abgelegt.
+Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen gewarnt. Schema-2- bis Schema-4-Projekte behalten ihre bisherigen strikten Metadatenregeln und verwenden alle Frames. Beim nächsten Speichern werden ältere Projekte als Schema 5 abgelegt.
 
 ### Grafiken aus Stronghold 1 DE übertragen
 
@@ -189,6 +195,12 @@ Each group produces:
 
 The builder obtains exact target names and pixels per unit from the installed SHCDE Sprite metadata. Images are never trimmed or rotated. Existing atlas groups are replaced only after confirmation; an existing `info.json` is never overwritten.
 
+#### Advanced source frame filter
+
+Enable **Show advanced options** in the group dialog when only part of a source directory should be built. The **Source frame filter** is an inclusion list accepting individual indices (`12`, `12x`), inclusive ranges (`0-127`, `0x-127x`) and multiple comma-separated entries (`0-127, 416-447, 0x-127x`). An empty field means **All frames**.
+
+Only selected colour frames determine the automatic source prefix and are checked for duplicates, PNG readability, masks, metadata and SHCDE target slots. Every other source file is ignored completely, leaving its existing SHCDE target graphics unchanged. The filter does not remap indices or create missing frames. Collapsing the advanced options does not change a stored filter; clear the field to remove it.
+
 #### Pivot source and correct alignment
 
 A Unity pivot is normalized, so the same value points to a different pixel on images with different dimensions. This can separate ground tiles or shift building and animation parts relative to each other.
@@ -205,7 +217,7 @@ With source metadata, normalized pivots remain unchanged when the canvas is scal
 
 In the verified SH1DE groups `tile_land8`, `tile_buildings1`, `tile_churches` and `tile_ruins`, the original pixel anchor is consistently `(32, 16.5)` with 64 PPU. For example, pivot `(0.5, 0.40243897)` on a 64×41 image and `(0.5, 0.08418399)` on a 64×196 image both produce the same anchor. Black gaps between tiles are a typical symptom of copying a normalized pivot from a differently sized canvas.
 
-Schema-1 projects open compatibly in legacy mode and display a warning. Schema-2 and schema-3 projects retain their previous strict metadata rules. Saving an older project upgrades it to schema 4.
+Schema-1 projects open compatibly in legacy mode and display a warning. Schema-2 through schema-4 projects retain their previous strict metadata rules and use all frames. Saving an older project upgrades it to schema 5.
 
 ### Transferring graphics from Stronghold 1 DE
 

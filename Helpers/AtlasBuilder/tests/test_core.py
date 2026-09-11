@@ -11,6 +11,7 @@ from PIL import Image
 from atlas_builder.core import (
     AtlasBuilderError,
     FrameKey,
+    FrameRange,
     PreparedGroup,
     SourceFrame,
     SourceSpriteMetadata,
@@ -23,7 +24,9 @@ from atlas_builder.core import (
     calculate_frame_coverage,
     choose_layout,
     discover_source_group,
+    normalize_source_frame_filter,
     output_pivot,
+    parse_source_frame_filter,
     prepare_project,
     read_source_metadata,
     validate_generated_group,
@@ -65,6 +68,25 @@ class NameParsingTests(unittest.TestCase):
     def test_frame_ranges_are_compact_and_keep_alternate_suffixes(self) -> None:
         keys = {FrameKey(index) for index in range(416, 448)} | {FrameKey(0, True), FrameKey(1, True)}
         self.assertEqual(_format_frame_keys(keys), "416–447, 0x–1x")
+
+    def test_source_frame_filter_supports_and_merges_main_and_alternate_ranges(self) -> None:
+        parsed = parse_source_frame_filter(" 12, 0 - 10, 9-20, 0x - 127x, 12x ")
+        self.assertEqual(parsed, (
+            FrameRange(0, 20),
+            FrameRange(0, 127, True),
+        ))
+        self.assertEqual(normalize_source_frame_filter("12, 0-10, 9-20, 0x-127x"), "0-20, 0x-127x")
+
+    def test_source_frame_filter_rejects_invalid_ranges(self) -> None:
+        cases = {
+            "-1": "Invalid",
+            "3-1": "Reversed",
+            "0-127x": "Mixed main/alternate",
+            "1,,2": "Empty item",
+        }
+        for value, message in cases.items():
+            with self.subTest(value=value), self.assertRaisesRegex(AtlasBuilderError, message):
+                parse_source_frame_filter(value)
 
     def test_anim_castle_coverage_regression(self) -> None:
         source_missing = {0, 19, 20, 21, 22, 23}
@@ -148,6 +170,37 @@ class DiscoveryTests(unittest.TestCase):
         path.write_bytes(b"not a png")
         group = GroupConfig("tile_ruins", "images")
         with self.assertRaisesRegex(AtlasBuilderError, "Invalid colour PNG"):
+            discover_source_group(self.project(group), group)
+
+    def test_filter_applies_before_prefix_duplicate_png_and_mask_validation(self) -> None:
+        write_png(self.root / "images" / "selected-0.png")
+        write_png(self.root / "images" / "selected-0_m.png")
+        write_png(self.root / "images" / "ignored-1.png")
+        write_png(self.root / "images" / "ignored-01.png")
+        write_png(self.root / "images" / "ignored-1_m.png", (8, 9))
+        corrupt = self.root / "images" / "ignored-2.png"
+        corrupt.write_bytes(b"not a png")
+        group = GroupConfig(
+            "tile_ruins", "images", "same-directory", source_frame_filter="0"
+        )
+        frames, prefix = discover_source_group(self.project(group), group)
+        self.assertEqual(prefix, "selected-")
+        self.assertEqual([frame.key for frame in frames], [FrameKey(0)])
+
+    def test_filter_requires_at_least_one_matching_colour_frame(self) -> None:
+        write_png(self.root / "images" / "body-0.png")
+        group = GroupConfig("tile_ruins", "images", source_frame_filter="1-2")
+        with self.assertRaisesRegex(AtlasBuilderError, "No matching colour PNG"):
+            discover_source_group(self.project(group), group)
+
+    def test_filter_still_requires_selected_masks(self) -> None:
+        write_png(self.root / "images" / "body-0.png")
+        write_png(self.root / "images" / "body-1.png")
+        write_png(self.root / "images" / "body-0_m.png")
+        group = GroupConfig(
+            "tile_ruins", "images", "same-directory", source_frame_filter="1"
+        )
+        with self.assertRaisesRegex(AtlasBuilderError, "No matching mask"):
             discover_source_group(self.project(group), group)
 
 
@@ -341,6 +394,7 @@ class ProjectValidationTests(unittest.TestCase):
         missing_policy="reject",
         pivot_mode="source-metadata",
         missing_source_policy="reject",
+        source_frame_filter="",
     ) -> ProjectConfig:
         return ProjectConfig(
             language="en",
@@ -354,6 +408,7 @@ class ProjectValidationTests(unittest.TestCase):
                 source_metadata_directory=str(self.root / "metadata") if pivot_mode == "source-metadata" else None,
                 missing_target_policy=missing_policy,
                 missing_source_metadata_policy=missing_source_policy,
+                source_frame_filter=source_frame_filter,
             )],
         )
 
@@ -493,6 +548,32 @@ class ProjectValidationTests(unittest.TestCase):
         self.assertTrue(any("1 frames have no source metadata" in warning for warning in prepared.warnings))
         self.assertTrue(any("(1x)" in warning for warning in prepared.warnings))
 
+        output = self.root / "hybrid-atlas"
+        build_group(prepared, output, project)
+        validate_generated_group(prepared, output, project)
+        payload = json.loads((output / "atlas.json").read_text(encoding="utf-8"))
+        pivots = {frame["name"]: frame["pivot"] for frame in payload["frames"]}
+        self.assertEqual(pivots["body_swordsman-0"], {"x": 0.25, "y": 0.75})
+        self.assertEqual(pivots["body_swordsman-1x"], {"x": 1.0, "y": 0.5})
+
+    def test_filter_limits_hybrid_metadata_and_target_checks_to_selected_frames(self) -> None:
+        self._write_swordsman_source((0, 1))
+        (self.root / "metadata" / "source-1.json").unlink()
+        targets = {"body_swordsman": {
+            FrameKey(0): TargetFrame("body_swordsman-0", 0.9, 0.8, 64, 11, 13),
+        }}
+        project = self._swordsman_project(
+            missing_source_policy="target-pixel-anchor",
+            source_frame_filter="0",
+        )
+        with patch("atlas_builder.core.read_target_metadata", return_value=targets):
+            prepared = prepare_project(project)[0]
+
+        self.assertEqual([frame.key for frame in prepared.source_frames], [FrameKey(0)])
+        self.assertEqual(set(prepared.source_metadata), {FrameKey(0)})
+        self.assertFalse(any("no source metadata" in warning for warning in prepared.warnings))
+        self.assertEqual(prepared.warnings, [])
+
     def test_hybrid_source_metadata_rejects_directory_without_any_match(self) -> None:
         self._write_swordsman_source((0,))
         (self.root / "metadata" / "source-0.json").unlink()
@@ -578,7 +659,7 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(data["outputModDirectory"], "Mod")
             self.assertEqual(ProjectConfig.load(path).resolve_path("Mod"), (root / "Mod").resolve())
 
-    def test_schema_one_loads_with_legacy_pivot_and_saves_as_schema_four(self) -> None:
+    def test_schema_one_loads_with_legacy_pivot_and_saves_as_schema_five(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
             root = Path(temporary)
             path = root / "legacy.atlas-project.json"
@@ -590,8 +671,8 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(project.loaded_schema_version, 1)
             self.assertEqual(project.groups[0].pivot_mode, "target-normalized")
             project.save(path)
-            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schemaVersion"], 4)
-            self.assertEqual(project.loaded_schema_version, 4)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schemaVersion"], 5)
+            self.assertEqual(project.loaded_schema_version, 5)
 
     def test_source_metadata_path_below_project_is_saved_relative(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
@@ -616,6 +697,7 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(group.pivot_mode, "target-pixel-anchor")
             self.assertEqual(group.missing_target_policy, "reject")
             self.assertEqual(group.missing_source_metadata_policy, "reject")
+            self.assertEqual(group.source_frame_filter, "")
 
     def test_schema_three_loads_with_strict_missing_source_metadata_policy(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
@@ -631,7 +713,16 @@ class ProjectFileTests(unittest.TestCase):
             }), encoding="utf-8")
             self.assertEqual(ProjectConfig.load(path).groups[0].missing_source_metadata_policy, "reject")
 
-    def test_schema_four_roundtrip_preserves_both_metadata_policies(self) -> None:
+    def test_schema_four_loads_without_source_frame_filter(self) -> None:
+        with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
+            path = Path(temporary) / "schema-four.atlas-project.json"
+            path.write_text(json.dumps({
+                "schemaVersion": 4,
+                "groups": [{"gmFileName": "tile_ruins", "colourDirectory": "images"}],
+            }), encoding="utf-8")
+            self.assertEqual(ProjectConfig.load(path).groups[0].source_frame_filter, "")
+
+    def test_schema_five_roundtrip_preserves_filter_and_metadata_policies(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
             root = Path(temporary)
             path = root / "current.atlas-project.json"
@@ -642,15 +733,18 @@ class ProjectFileTests(unittest.TestCase):
                 source_metadata_directory="metadata",
                 missing_target_policy="source-metadata",
                 missing_source_metadata_policy="target-pixel-anchor",
+                source_frame_filter="0-127, 416-447, 0x-127x",
             )])
             project.save(path)
             payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(payload["schemaVersion"], 4)
+            self.assertEqual(payload["schemaVersion"], 5)
             self.assertEqual(payload["groups"][0]["missingTargetPolicy"], "source-metadata")
             self.assertEqual(payload["groups"][0]["missingSourceMetadataPolicy"], "target-pixel-anchor")
+            self.assertEqual(payload["groups"][0]["sourceFrameFilter"], "0-127, 416-447, 0x-127x")
             loaded = ProjectConfig.load(path).groups[0]
             self.assertEqual(loaded.missing_target_policy, "source-metadata")
             self.assertEqual(loaded.missing_source_metadata_policy, "target-pixel-anchor")
+            self.assertEqual(loaded.source_frame_filter, "0-127, 416-447, 0x-127x")
 
 
 class PivotTests(unittest.TestCase):
@@ -784,7 +878,7 @@ class SourceMetadataTests(unittest.TestCase):
             (self.root / "tile_land8 001.json").read_text(encoding="utf-8"), encoding="utf-8"
         )
         with self.assertRaisesRegex(AtlasBuilderError, "Duplicate source metadata"):
-            read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})
+            read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)}, allow_missing=True)
 
     def test_non_finite_source_pivot_is_rejected(self) -> None:
         self.write_metadata("tile_land8 001", float("nan"))

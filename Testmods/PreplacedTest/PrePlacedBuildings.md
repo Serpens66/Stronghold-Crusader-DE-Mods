@@ -3,85 +3,72 @@
 - Stand: 11. September 2026
 - Native Version: `CrusaderDE.dll`, SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Getesteter Script Extender: 2.5.0
+- Wesentliche Laufzeitevidenz: `Log_057.log` sowie die nachfolgenden sauberen Ruinen- und Mauerläufe vom 11. September 2026
 
-Maßgebliche Evidenz ist der saubere Prozesslauf im `BepInEx\LogOutput.log` vom 11. September 2026 ab 14:54:01. Er enthält zwei Ruinenstarts und drei Mauerstarts. Frühere Läufe werden nur dort weiter berücksichtigt, wo sie mit diesem Stand vereinbar sind. Aktiv waren UU-ImGUI, Script Extender und `PreplacedTest`.
+Aktiv waren bei den maßgeblichen Tests nur UU-ImGUI, Script Extender und `PreplacedTest`. Spieler-IDs und Farben sind keine festen Testrollen. Torhaus-KI und torlose Kontroll-KI werden bei jedem Kartenstart aus den aktuellen Gebäude- und Tile-Daten neu bestimmt.
 
 ## Gesicherte Erkenntnisse
 
-### Der Ruinen-Delay wird aus dem serialisierten Altformat-Spielerrecord übernommen
+### Der Ruinen-Delay stammt aus einem serialisierten Altformat-Spielerrecord
 
-Auf der Ruinenkarte existieren fünf vorplatzierte zerstörte Turmrecords. Im aktuellen Lauf gehörten sie beim frühen Snapshot Spieler 8. Ausschließlich dessen `crushed_building_delay` wurde aktiv und blockierte den AIV-Scheduler, bis der Zähler den konfigurierten Grenzwert 50 erreicht hatte.
+Auf der Ruinenkarte existieren fünf vorplatzierte Records der benannten Typen `STRUCT_TOWER1_DESTROYED` bis `STRUCT_TOWER5_DESTROYED`. Der zugehörige Spieler erhält beim Start `crushed_building_delay=1`; der normale Scheduler wartet anschließend bis zum Vanilla-Grenzwert und beginnt dadurch ungefähr 49 Ticks später mit der AIV-Ausführung.
 
-Die korrigierte Diagnose von `FUN_1800D4290` belegt um 14:13:50.922:
+Der beobachtete Altformatpfad `FUN_1800D4290` erzeugt diesen Wert nicht. Er übernimmt ihn aus `record+0x2AE0` in den aktuellen `0x583C`-Laufzeitrecord. Im belegten frischen Kartenstart war der serialisierte Quellwert stabil `1`, das Zielfeld wechselte ausschließlich durch diesen Transfer von `0` auf `1`, und es gab zuvor keinen echten Schadensschreiber. `0x50720`, `0x15B90`, `0x1F5F0` und der spätere Schadenspfad bei `0x7F074` sind für diesen Lauf als Aktivierungsquelle ausgeschlossen.
 
-- Kartenformatversion 172, also Altformatkonvertierung;
-- kein geladener Spielstand;
-- serialisiertes Feld `record+0x2AE0` für Index 8 bereits vor dem Transfer `1`;
-- Laufzeitfeld vor dem Transfer `0` und danach `1`;
-- alle anderen Spielerrecords blieben `0`.
+Die zerstörten Turmtypen können entgegen der früheren Annahme mit `AliveState.IsAlive` im Building-Array stehen. `AliveState` beschreibt hier also nicht zuverlässig, ob der fachliche Record eine Ruine ist. Ein Ruinenfix muss die fünf expliziten `eStructs`-Typen und eine stabile Game-/Global-ID verwenden und darf diese Records nicht wegen `IsAlive` verwerfen.
 
-`FUN_1800D4290` erzeugt den Wert nicht, sondern kopiert den vollständigen alten Player-State einschließlich des bereits gespeicherten Timers in den aktuellen Laufzeitrecord. `0x50720`, `0x15B90`, `0x1F5F0` und der spätere Schadensschreiber `0x7F074` sind im beobachteten Lauf nicht die Aktivierungsquelle.
+Während der Initialisierung kann der Building-Besitzer später umgeschrieben werden. Maßgeblich ist deshalb der Besitzer des stabil identifizierten Records zum Zeitpunkt des Altformattransfers, nicht dessen später sichtbarer Owner. Der aktive Testfix bleibt auf frische Altformatkarten ohne Save, Quellwert `1`, Zielwechsel `0→1`, bestätigte spätere KI-Zuordnung, weiterhin exakten Timerwert `1`, passende stabile Turmruinenidentitäten und das Ausbleiben eines echten Schadensschreibers begrenzt. Serialisierte Daten und Building-Records werden nicht verändert.
 
-Während der weiteren Karteninitialisierung wurden die Besitzer der zerstörten Turmrecords von 8 auf 4 umgesetzt. Daher darf ein Fix die Zuordnung nicht allein aus dem späteren Building-Owner ableiten.
+### Das Wirtschaftsraster ist global statt spielerspezifisch klassifiziert
 
-Beide Ruinenstarts erfüllten dieselben engen Fixkriterien. Der aktive Testfix normalisiert den Laufzeitwert deshalb bei `OnStartMap Post` nur dann, wenn zusätzlich eine inzwischen bestätigte KI-Zuordnung, passende beim Transfer vorplatzierte zerstörte Turmrecords, ein weiterhin exakter Timerwert `1` und kein später beobachteter Schadensschreiber vorliegen. Geladene Spielstände, bereits aktive Laufzeitwerte, abweichende Quellwerte, andere zerstörte Gebäudetypen und spätere echte Verluste bleiben unverändert.
+`FUN_1800572B0` wählt die häufigste positive PCL der gesamten Karte. `FUN_180050720` speichert sie beim Vollaufbau in `state+0x5B504`. `byte+04` jeder 5×5-Grobrasterzelle zählt danach die Tiles, deren PCL von dieser einen globalen Referenz abweicht. Freundliche, für Einheiten funktionierende Torportale ändern diese Klassifikation nicht.
 
-### Das Wirtschaftsraster verwendet eine globale statt spielerspezifische PCL-Referenz
+Externe Wirtschaftsgebäude verwenden nicht je Gebäudetyp einen unabhängigen Algorithmus, sondern vier gemeinsame Suchfamilien:
 
-`FUN_1800572B0` wählt die häufigste positive PCL der gesamten Karte. `FUN_180050720` speichert sie bei einem Vollaufbau in `state+0x5B504`. `byte+04` jeder 5×5-Grobrasterzelle zählt anschließend die Tiles, deren PCL von dieser globalen Referenz abweicht.
+- Farmen: `0x575B0`
+- Steinbruch, Eisenmine und Pechgrube: `0x57B80` mit Modus 2, 3 beziehungsweise 4
+- Holzfäller: `0x58020`
+- Nahsuche für Holzfäller, Ochsenjoch und Steinbruch: `0x58950`
 
-Die Wirtschaftssuchen behandeln `byte+04` als Durchquerbarkeitswert:
+`byte+16` ist kein zweiter frei ersetzbarer PCL-Wert. `0x50720` erzeugt es aus eigenen Tile-Eigenschaften; der aktive Testfix lässt es deshalb unverändert. Die Ressourcenfamilie verwendet die Differenz von `byte+04` und `byte+16` sowie danach Belegung, Blocker, Spielerklasse, Ressourcendichte und Höhe. Der Höhenvergleich ist `byte+0D - byte+0C` kleiner als 40, 30 oder 12 für Stein, Eisen oder Pech. Dichtebytes werden vorzeichenbehaftet verglichen.
 
-- Farm (`0x575B0`): Expansion bei `signed byte+04 < 17`.
-- Holz (`0x58020`): Expansion bei `signed byte+04 < 16` und `byte+13 == 0`.
-- Nahbereich (`0x58950`): Expansion bei `signed byte+04 < 15`; Kandidaten verlangen `byte+04 == 0` und weitere Bedingungen.
-- Ressourcen (`0x57B80`): Expansion bei `signed byte+04 - signed byte+16 < 16`; Kandidaten verlangen Gleichheit beziehungsweise beim Eisenmodus eine Differenz kleiner 5 sowie weitere Vanilla-Bedingungen.
+### `Log_057.log` beweist noch keinen funktionierenden Torhausfix
 
-Die bisherige Shadow-Diagnose hatte den abschließenden Höhenvergleich für Stein, Eisen und Pech umgekehrt. Vanilla akzeptiert die Zelle bei ausreichender Dichte, wenn die vorzeichenbehaftete Differenz `byte+0D - byte+0C` kleiner als 40, 30 beziehungsweise 12 ist. Dieser Diagnosefehler ist im aktuellen Quellstand korrigiert; die vorher protokollierten null Rohstoffkandidaten sind deshalb nicht als Gegenbeleg verwendbar.
+Im Lauf aus `Log_057.log` wurde die Einfassung von Spieler 7 durchbrochen. Erst danach baute der zu diesem Zeitpunkt als Spieler 8 geführte Besitzer zwei Holzfäller. Vor dem Durchbruch erreichte die Torhaus-KI laut nativer Routenabfrage nur PCLs `[1,2,3]`; die später zugänglichen PCLs 4 und 5 waren zu diesem Zeitpunkt nicht erreichbar. Der Holzfällerbau darf daher nicht als Erfolg des Torhaus-Overlays gewertet werden.
 
-### Torhäuser funktionieren für Einheiten, aber nicht für die Wirtschafts-Rastersuche
+In drei weiteren Mauerstarts trat trotz bereitstehender Soldaten kein Mauerdurchbruch auf. Dabei wurden unterschiedliche AIV-Kandidaten gewählt. Das macht einen einzelnen zufälligen Burgplan als alleinige Erklärung unwahrscheinlich, ist für den Gebäudebaufehler aber nicht entscheidend.
 
-In den drei aktuellen Mauerstarts gehörten die vier intakten Torhäuser Spieler 7; Spieler 8 war die torlose Kontrolle. Diese IDs gelten nur für diese Sitzungen. Rollen werden bei jedem Kartenstart dynamisch bestimmt.
+Die bisherige Gegenrechnung mit einem manuell rekonstruierten Portalgraphen war nützlich, aber kein Beweis für Vanillas spielerspezifische Entscheidung. Der aktive Overlaypfad verwendet deshalb ausschließlich `GamePathingManagerAPI.FindNextComponentTowardDestination` mit `PathConnectionQueryMode.ExcludeLadderClimb`. Eine neue Routenmatrix vergleicht zusätzlich `IncludeAll`, `LadderClimbOnly` und die umgekehrte Richtung, ohne diese Vergleichswerte für den Fix zu verwenden.
 
-Die spielerspezifische Gegenrechnung war in allen drei Starts reproduzierbar:
+### Farmen benötigen ein eigenes Laufzeitorakel
 
-- Torhaus-KI: ungefähr 2.159 erreichbare Zellen, 425 Farm-, 47 Holz-, 93 Stein- und 39 Eisenkandidaten.
-- Torlose KI: ungefähr 909 eingeschlossene Zellen und keine Kandidaten dieser vier Arten.
+`0x575B0` schreibt eine gefundene Farmposition nicht in das gemeinsame Ergebnisfeld. Die früheren Farm-Mismatch-Meldungen mit diesem Feld waren ungültig. Ein akzeptierter Farmtreffer ist jetzt ausschließlich ein innerhalb desselben `0x575B0`-Aufrufs beobachteter `0x6D580`-Aufruf mit Vanilla-Fehlerwert `0` und passendem Building-Delta. Abgelehnte Konstruktionsversuche werden separat erhalten.
 
-In keinem der drei aktuellen Starts erfolgte ein sichtbarer oder in den Tile-Daten belegter Mauerdurchbruch. Die Torhaus-KI wählte dabei nacheinander die AIV-Kandidaten 0, 1 und 7; das Ausbleiben eines Angriffs lässt sich daher nicht auf eine einzige wiederholt gewählte AIV-Datei reduzieren. Für die Wirtschaftsursache ist ein Durchbruch nicht mehr nötig: Eigene beziehungsweise nach Vanillas Regeln erreichbare Portalverbindungen bilden für Farm, Holz, Stein und Eisen ein reproduzierbares spielerspezifisches Gegenmodell, während die zeitgleiche geschlossene Kontrolle gesperrt bleibt.
+Die Offsettabelle bei RVA `0x2D13B0` besitzt 32 Koordinatenpaare. Der einzige belegte Writer in `0x57330` erhöht den Ringindex in `state+0x5B508`, vergleicht ihn mit 31 und setzt ihn ab 31 auf 0; regulär auswählbar sind damit die Indizes `0..30`. Das letzte Tabellenpaar mit Index 31 wird durch diesen Pfad nicht gewählt. Die frühere Diagnosegrenze von neun Einträgen war ebenfalls falsch. Vor jedem korrelierten Farm-Konstruktionsaufruf werden Ringindex, tatsächliches Offset, Grobrasterzelle, Rohfelder und die vier Verfügbarkeitsmasken gesichert. Solange noch kein akzeptiertes Native-Orakel sämtliche Farmzweige bestätigt, heißen rein aus Rasterfeldern ermittelte Treffer ausdrücklich `farm-prefilter`.
 
-Ein früherer Lauf mit sichtbarem Durchbruch zeigte außerdem: Vanilla verwendete die danach erreichbare Verbindung weiterhin nicht. Echte Holzsuchen liefen regelmäßig, besuchten aber erneut nur fünf Zellen um die Burg, fanden keinen Kandidaten und aktivierten den Cooldown. Identische Vollausgaben wurden aggregiert; die Intervall- und Gesamtsummen belegen die späteren Traversierungen.
+### Ressourcen- und Holzergebnisse müssen vor der Overlay-Restaurierung geprüft werden
 
-Farm- und Rohstoffsuchen verließen die Funktion im relevanten Mauerabschnitt überwiegend mit `desired=0`. Die Diagnose führt deshalb weiterhin alle drei Ressourcen-Shadow-Suchen unabhängig von der aktuellen AIC-Nachfrage aus; der aktive Overlayfix selbst greift ausschließlich in einem echten, eindeutig zugeordneten Wirtschaftssuchkontext ein.
-
-### Der aktuelle Lauf enthielt keinen Mauerdurchbruch
-
-Die beobachteten Änderungen an Torhaustiles verloren kein Wall-Flag und waren Initialisierungs-, Öffnungs- oder Routingzustände. Es wurde weder `wallLost=true` noch ein bestätigter Durchbruch protokolliert. Ein früherer Lauf belegt weiterhin, dass die Shadow-Reichweite nach einem echten Tileverlust anwächst; der aktuelle Lauf liefert dafür keine neue Evidenz.
-
-### Das bisherige Farm-Laufzeitorakel verwendete veraltete Koordinaten
-
-`0x575B0` baut eine gefundene Farm direkt über `0x6D580` und schreibt ihre Koordinaten nicht in das gemeinsame Ergebnisfeld. Die zehn bisherigen Farm-`SHADOW_NATIVE_RESULT_MISMATCH`-Meldungen verglichen deshalb erfolgreiche Suchläufe mit alten Koordinaten. Sie widerlegen das PCL-Gegenmodell nicht.
-
-Der aktive Teststand korreliert Farmen nun mit den tatsächlichen `0x6D580`-Aufrufen desselben Suchkontexts. Bis Spieler-Verfügbarkeitsmasken und Orientierungs-/Offsetbedingungen vollständig bestätigt sind, werden einfache Zelltreffer ausdrücklich nur als `prefilter-candidate` bezeichnet. Die acht überprüfbaren erfolgreichen Stein-, Eisen- und Pechergebnisse des aktuellen offenen Laufs stimmten bereits mit den korrigierten Ressourcenprädikaten überein.
-
-## Nicht als Ursache bestätigt
-
-- Platzierungsvalidator oder `FUN_1800C3BF0`: Die fehlgeschlagenen Fünf-Zellen-Suchen erreichen diese Pfade nicht.
-- Fehlende oder funktionslose Torhäuser.
-- Der AIV-100×100-Bereich; externe Wirtschaftsbauten verwenden eine andere Suche.
-- Ein dauerhaft hängender Cooldown; nach seinem Ablauf scheitern neue Traversierungen erneut am Raster.
-- Eine feste Spieler-ID oder Farbe für die Torhausrolle.
-- Vorplatzierte Gebäude in globalen KI-Sollzählungen; diese Hypothese wurde noch nicht isoliert getestet.
+Das gemeinsame Ergebnisfeld von `0x57B80` und `0x58020` bezeichnet den nativen Treffer. Sein Zellzustand muss unmittelbar nach dem Originalaufruf gelesen werden, solange das temporäre `byte+04`-Overlay noch aktiv ist. Ein Vergleich nach Restaurierung oder nach einer Konstruktion kann ein anderes Raster abbilden und war deshalb nicht belastbar. Der Testmod erfasst diese Orakel nun vor dem `finally`-Restaurierungspfad und protokolliert den ersten abweichenden Vanilla-Zweig.
 
 ## Aktive Fixerprobung in PreplacedTest 0.1.1
 
-1. Der Ruinenfix normalisiert ausschließlich den oben beschriebenen streng belegten Startwert.
-2. Vor jeder synchronen KI-Wirtschaftssuche wird nur `byte+04` temporär aus den laut Vanillas eigener `ExcludeLadderClimb`-Routenabfrage für diesen Spieler erreichbaren PCLs gebildet.
-3. Nach dem Originalaufruf werden alle 25.600 Werte bytegenau restauriert. Alle übrigen Vanilla-Felder und Prüfungen bleiben bestehen.
-4. `PreplacedTest` ist während dieser Erprobung gameplayverändernd und verwendet deshalb `NetworkMode=1`. Eine Übernahme nach `BugfixesAndQoL` erfolgt erst nach erfolgreicher Laufzeitabnahme.
+1. Der Ruinenfix normalisiert ausschließlich den eng belegten, aus einer passenden Altformat-Turmruinenbaseline übernommenen Startwert.
+2. Vor einer eindeutig einem KI-Spieler zugeordneten Suche wird nur `byte+04` der 25.600 Wirtschaftszellen temporär spielerspezifisch neu gebildet.
+3. Als erreichbar gelten nur PCLs, für die Vanillas eigene Routenabfrage vom Burg-PCL mit `ExcludeLadderClimb` einen positiven nächsten Schritt liefert. Eigene oder nach Vanilla zulässige verbündete Portale können die Menge erweitern; Leiterpfade, feindliche Tore und echte Isolation bleiben ausgeschlossen.
+4. Jede originale Suchfunktion läuft genau einmal. Noch vor der Restaurierung werden Treffer und Rohfelder gesichert; anschließend werden alle 25.600 `byte+04`-Werte bytegenau wiederhergestellt. Bei Vertrags- oder Restaurierungsfehler wird der Wirtschaftstestfix für den restlichen Prozess deaktiviert.
+5. `PreplacedTest` ist dadurch gameplayverändernd und verwendet `NetworkMode=1`. Eine Übernahme nach `BugfixesAndQoL` erfolgt erst nach erfolgreicher Laufzeitabnahme.
 
-## Noch benötigte Bestätigung
+## Nicht als Ursache bestätigt
 
-- Auf der Ruinenkarte muss `LEGACY_TIMER_FIX_APPLIED` erscheinen und der bisherige 49-Tick-AIV-Startdelay ausbleiben.
-- Auf der Mauerkarte muss die Torhaus-KI außerhalb bauen können, während die torlose KI weiterhin eingeschlossen bleibt.
-- Jede Overlaymeldung muss `restoredExactly=true` ausgeben; ein Mauerdurchbruch oder militärischer Angriff ist für diese Abnahme nicht erforderlich.
+- Platzierungsvalidator oder `FUN_1800C3BF0` als primäre Ursache der frühen Fünf-Zellen-Abbrüche; diese Pfade werden häufig gar nicht erreicht.
+- Der AIV-100×100-Bereich; externe Wirtschaftsbauten verwenden die oben genannten 160×160-Suchen.
+- Ein dauerhaft hängender Cooldown; nach Ablauf scheitern neue Traversierungen mit demselben Rasterzustand erneut.
+- Eine feste Spieler-ID, Farbe oder Portal-Owner-Rohwertsemantik.
+- Vorplatzierte Gebäude in globalen KI-Sollzählungen; diese Hypothese wurde nicht isoliert belegt und wird nicht aktiv korrigiert.
+
+## Nächste Laufzeitabnahme
+
+- Ruinenkarte: `LEGACY_TIMER_FIX_APPLIED` muss erscheinen und die betroffene KI ohne 49-Tick-Sperre beginnen.
+- Mauerkarte: Ein einzelner Start genügt; ein Durchbruch ist nicht erforderlich. Die dynamisch identifizierte Torhaus-KI muss in der nativen Routenmatrix Zugriff auf die relevanten äußeren Kandidaten-PCLs erhalten, die torlose Kontrolle nicht.
+- Die proaktiven Snapshotmodelle müssen für Holz und Ressourcen Kandidaten oder den exakten ersten Vanilla-Ablehnungsgrund melden, auch wenn die AIC aktuell `desired=0` setzt. Für Farmen liefert der Snapshot einen ausdrücklich so benannten Präfilter; die vollständige Bestätigung erfolgt am korrelierten nativen Konstruktionsaufruf.
+- Jede Overlaymeldung muss `restoredExactly=true` ausgeben. Erst danach sind Ruinen- und Wirtschaftskorrektur für eine getrennt schaltbare Übernahme nach `BugfixesAndQoL` freigegeben.

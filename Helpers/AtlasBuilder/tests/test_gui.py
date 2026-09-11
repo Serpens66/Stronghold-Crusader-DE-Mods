@@ -40,7 +40,8 @@ class TooltipTests(unittest.TestCase):
             "de", "anim_castle", "none", "source-metadata", "source-metadata", "target-pixel-anchor"
         )
         english = group_context_text(
-            "en", "anim_castle", "none", "source-metadata", "source-metadata", "target-pixel-anchor"
+            "en", "anim_castle", "none", "source-metadata", "source-metadata",
+            "target-pixel-anchor", "0-10, 12x"
         )
         self.assertIn("Loader-Maximalindex 138", basic)
         self.assertIn("sichere Standard", basic)
@@ -48,6 +49,7 @@ class TooltipTests(unittest.TestCase):
         self.assertIn("Hybridmodus", advanced)
         self.assertIn("metadata validation", english)
         self.assertIn("Hybrid mode", english)
+        self.assertIn("0-10, 12x", english)
         self.assertNotEqual(basic, advanced)
         self.assertNotEqual(advanced, english)
 
@@ -71,6 +73,17 @@ class TooltipTests(unittest.TestCase):
 
             dialog = GroupDialog(app, GroupConfig("anim_castle", "", "none"))
             dialog.withdraw()
+            self.assertFalse(dialog.advanced_var.get())
+            self.assertEqual(dialog.source_filter_entry.winfo_manager(), "")
+            dialog.source_filter_var.set("12, 0-10, 10x - 12x")
+            dialog.advanced_var.set(True)
+            dialog._update_advanced_state()
+            self.assertEqual(dialog.source_filter_entry.winfo_manager(), "grid")
+            dialog.advanced_var.set(False)
+            dialog._update_advanced_state()
+            self.assertEqual(dialog.source_filter_var.get(), "12, 0-10, 10x - 12x")
+            dialog.advanced_var.set(True)
+            dialog._update_advanced_state()
             dialog.pivot_mode_label_var.set(app.tr("source-metadata"))
             dialog.missing_policy_label_var.set(app.tr("missing-source-metadata"))
             dialog.missing_source_policy_label_var.set(app.tr("fallback-target-pixel-anchor"))
@@ -78,7 +91,14 @@ class TooltipTests(unittest.TestCase):
             self.assertIn("AssetRipper JSON", dialog.context_var.get())
             self.assertIn("Hybrid mode", dialog.context_var.get())
             self.assertEqual(str(dialog.missing_source_policy_box.cget("state")), "readonly")
-            dialog.destroy()
+            dialog.accept()
+            self.assertEqual(dialog.result.missing_source_metadata_policy, "target-pixel-anchor")
+            self.assertEqual(dialog.result.source_frame_filter, "0-10, 12, 10x-12x")
+            app.project.groups = [dialog.result]
+            summary = app._pivot_mode_summary()
+            self.assertIn("frames: 0-10, 12, 10x-12x", summary)
+            self.assertIn("missing source metadata: Use SHCDE pixel anchor", summary)
+            self.assertIn("missing target slots: Fill from validated source metadata", summary)
         finally:
             app.destroy()
 

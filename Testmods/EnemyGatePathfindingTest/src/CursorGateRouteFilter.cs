@@ -52,7 +52,8 @@ namespace EnemyGatePathfindingTest
     {
         internal static readonly RouteTilePolicySnapshot Empty = new RouteTilePolicySnapshot(
             new ulong[9][], new ulong[9][], Array.Empty<int>(),
-            new Dictionary<int, RouteTileIdentity>(), new bool[9], 0);
+            new Dictionary<int, RouteTileIdentity>(), new bool[9], 0,
+            directionMasks: new byte[9][]);
 
         internal RouteTilePolicySnapshot(
             ulong[][] hostileGateBits,
@@ -61,7 +62,8 @@ namespace EnemyGatePathfindingTest
             Dictionary<int, RouteTileIdentity> identities,
             bool[] hasBlockedTiles,
             ulong topologyFingerprint,
-            RouteBlockedTile[][] blockedTiles = null)
+            RouteBlockedTile[][] blockedTiles = null,
+            byte[][] directionMasks = null)
         {
             HostileGateBits = hostileGateBits ?? new ulong[9][];
             HostileBridgeBits = hostileBridgeBits ?? new ulong[9][];
@@ -70,6 +72,7 @@ namespace EnemyGatePathfindingTest
             HasBlockedTiles = hasBlockedTiles ?? new bool[9];
             TopologyFingerprint = topologyFingerprint;
             BlockedTiles = blockedTiles ?? new RouteBlockedTile[9][];
+            DirectionMasks = directionMasks ?? new byte[9][];
         }
 
         internal ulong[][] HostileGateBits { get; }
@@ -78,6 +81,9 @@ namespace EnemyGatePathfindingTest
         internal Dictionary<int, RouteTileIdentity> Identities { get; }
         internal bool[] HasBlockedTiles { get; }
         internal RouteBlockedTile[][] BlockedTiles { get; }
+        // Each byte contains the eight Vanilla direction bits that remain legal
+        // when leaving this tile. A null player entry is the all-0xFF fast path.
+        internal byte[][] DirectionMasks { get; }
         internal ulong TopologyFingerprint { get; }
         internal bool IsGateBlocked(int playerId, int tileId) =>
             IsSet(HostileGateBits, playerId, tileId);
@@ -85,6 +91,15 @@ namespace EnemyGatePathfindingTest
             IsSet(HostileBridgeBits, playerId, tileId);
         internal bool IsBlocked(int playerId, int tileId) =>
             IsGateBlocked(playerId, tileId) || IsBridgeBlocked(playerId, tileId);
+        internal bool IsDirectionAllowed(int playerId, int tileId, int direction)
+        {
+            if (direction < 0 || direction > 7 || playerId <= 0 ||
+                playerId >= DirectionMasks.Length || tileId < 0)
+                return true;
+            byte[] masks = DirectionMasks[playerId];
+            return masks == null || tileId >= masks.Length ||
+                (masks[tileId] & (1 << direction)) != 0;
+        }
         internal bool TryGetIdentity(int tileId, out RouteTileIdentity identity) =>
             Identities.TryGetValue(tileId, out identity);
 
@@ -502,9 +517,6 @@ namespace EnemyGatePathfindingTest
                 if (start < 0 || target < 0)
                     return new CursorSearchResult(
                         CursorSearchOutcome.InvalidCoordinates, 0, 0, -1);
-                if (applyPolicy && current.IsBlocked(player, target))
-                    return new CursorSearchResult(
-                        CursorSearchOutcome.TargetBlocked, 0, 1, target, 0);
                 if (start == target)
                     return new CursorSearchResult(CursorSearchOutcome.Reachable, 1, 0, -1, 0);
 
@@ -548,26 +560,12 @@ namespace EnemyGatePathfindingTest
                         if (!EnemyGatePathfindingPolicy.IsBidirectionalEdgeOpen(
                                 sourceEdges, directionGrid[next], direction))
                             continue;
-                        bool escaping = applyPolicy && current.IsBlocked(player, tile);
-                        if (applyPolicy && current.IsBlocked(player, next) && !escaping)
+                        if (applyPolicy && !current.IsDirectionAllowed(player, tile, direction))
                         {
                             blockedEncounters++;
-                            if (firstBlockedTile < 0) firstBlockedTile = next;
+                            if (firstBlockedTile < 0)
+                                firstBlockedTile = current.TryGetIdentity(tile, out _) ? tile : next;
                             continue;
-                        }
-                        if (applyPolicy && (direction & 1) != 0 && !escaping)
-                        {
-                            int sideA = GetTileId(current.RowStarts, nextX, y);
-                            int sideB = GetTileId(current.RowStarts, x, nextY);
-                            if ((sideA >= 0 && current.IsBlocked(player, sideA)) ||
-                                (sideB >= 0 && current.IsBlocked(player, sideB)))
-                            {
-                                blockedEncounters++;
-                                if (firstBlockedTile < 0)
-                                    firstBlockedTile = sideA >= 0 && current.IsBlocked(player, sideA)
-                                        ? sideA : sideB;
-                                continue;
-                            }
                         }
                         if (next == target)
                             return new CursorSearchResult(

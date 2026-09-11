@@ -10,6 +10,7 @@ using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API.LowLevel;
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 
@@ -541,12 +542,15 @@ namespace EnemyGatePathfindingTest
             SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate Same-PCL checkpoint: kind={kind}, installed={same.Installed}," +
-                $"hookOwnerConflict={same.OwnerConflict},calls={same.Calls}," +
-                $"nativeRoutePreserved={same.Preserved},unsafeRouteDetected={same.UnsafeRoutes}," +
-                $"replacementPublished={same.Replacements},policyNoRoute={same.NoRoutes}," +
-                $"aiDetour={same.AiDetours},cursorlessDetour={same.CursorlessDetours}," +
-                $"publicationRollback={same.Rollbacks},contractFailOpen={same.ContractFailures}," +
-                $"exceptions={same.Exceptions},directionGridWrites=0.");
+                $"hookOwnerConflict={same.OwnerConflict},queries={same.Queries}," +
+                $"nativeRoutePreserved={same.Preserved},edgeRejected={same.RejectedEdges}," +
+                $"vanillaDetours={same.Detours},policyNoRoute={same.NoRoutes}," +
+                $"humanBuilderDetour={same.HumanDetours},aiDetour={same.AiDetours}," +
+                $"attackDetour={same.AttackDetours},buildingApproachDetour={same.BuildingDetours}," +
+                $"cursorDetour={same.CursorDetours},missingContext={same.MissingContexts}," +
+                $"threadSlotConflict={same.SlotConflicts},exceptions={same.Exceptions}," +
+                $"elapsedMs={(same.ElapsedTicks * 1000.0 / Stopwatch.Frequency).ToString("F3", CultureInfo.InvariantCulture)}," +
+                $"managedReplacementSearches=0,directionGridWrites=0.");
             LogNewCapturerSamples();
             if (string.Equals(kind, "final", StringComparison.Ordinal))
                 LogAcceptanceVerdict(reason);
@@ -570,11 +574,12 @@ namespace EnemyGatePathfindingTest
             bool hookActivity = Read(ref siteCalls[0]) > 0 && Read(ref siteCalls[1]) > 0;
             bool runtimeFailed = Volatile.Read(ref callbackWarnings) != 0 ||
                 topology.Errors != 0 || cursor.Errors != 0 || cursor.Failures != 0 ||
-                same.Exceptions != 0 || Read(ref untrackedUnexpected) != 0 || policyFailures != 0;
+                same.Exceptions != 0 || same.SlotConflicts != 0 ||
+                Read(ref untrackedUnexpected) != 0 || policyFailures != 0;
             DiagnosticVerdict sameHookVerdict = same.OwnerConflict
                 ? DiagnosticVerdict.NOT_APPLICABLE
                 : !same.Installed ? DiagnosticVerdict.FAIL
-                : EnemyGatePathfindingPolicy.IntegrityVerdict(same.Calls > 0, false);
+                : EnemyGatePathfindingPolicy.IntegrityVerdict(same.Queries > 0, false);
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate acceptance verdict: " +
@@ -595,12 +600,15 @@ namespace EnemyGatePathfindingTest
                 $"cursorForcedDetour={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.ForcedDetour)}," +
                 $"samePclHookExecution={sameHookVerdict}," +
                 $"nativeRoutePreserved={EnemyGatePathfindingPolicy.ObservationVerdict(same.Preserved)}," +
-                $"unsafeRouteDetected={EnemyGatePathfindingPolicy.ObservationVerdict(same.UnsafeRoutes)}," +
-                $"replacementPublished={EnemyGatePathfindingPolicy.ObservationVerdict(same.Replacements)}," +
+                $"edgeRejected={EnemyGatePathfindingPolicy.ObservationVerdict(same.RejectedEdges)}," +
+                $"vanillaDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.Detours)}," +
                 $"policyNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.NoRoutes)}," +
+                $"humanBuilderDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.HumanDetours)}," +
                 $"aiDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiDetours)}," +
-                $"cursorlessDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorlessDetours)}," +
-                $"publicationRollback={EnemyGatePathfindingPolicy.IntegrityVerdict(same.Installed, same.Rollbacks > 0)}," +
+                $"attackDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.AttackDetours)}," +
+                $"buildingApproachDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.BuildingDetours)}," +
+                $"cursorDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorDetours)}," +
+                $"threadSlotIntegrity={EnemyGatePathfindingPolicy.IntegrityVerdict(same.Queries > 0, same.SlotConflicts > 0)}," +
                 $"drawbridgeTopology={(topology.DrawbridgeObserved ? DiagnosticVerdict.PASS : DiagnosticVerdict.NOT_OBSERVED)}," +
                 $"lifecycle={DiagnosticVerdict.PASS}," +
                 $"captureTransitions={topology.CaptureTransitions},recaptureTransitions={topology.RecaptureTransitions}," +

@@ -140,6 +140,9 @@ Middle-clicking a selected troop-type icon centers the camera on one selected un
 ### Improve custom-lord and random-opponent selection
 The custom-lord picker gains name search, sortable Name, Lord Power, and Steam Workshop origin columns, and a button that adds a random lord from the currently visible list. Random-opponent dialogs can independently use Vanilla, local, or Steam Workshop lords. The singleplayer Coop Trail also gains a scrollable AI-partner picker containing both local and Steam Workshop custom lords; all custom-lord partners intentionally share one Coop progress record. Random-AI count buttons are also available in editable multiplayer skirmish lobbies and respect the lobby, map, and human-player limits. A host setting enabled by default can fill every available normal multiplayer slot with AI.
 
+### Include Lord JSON sidecars in Workshop uploads
+While the mod is enabled, uploading a local Custom Lord or Extended CPU Lord also includes every direct `.json` file from that Lord's source folder. This supports metadata such as `info.json` and `lordmeta.json`; Vanilla continues to handle `.lordjson`, `.aivjson`, and the normal Workshop files itself.
+
 ### Improve AIV and AIC selection
 AI castle lists can be searched and sorted by origin or name, while AI configuration lists can additionally be sorted by Lord Power. Each lord's last AIV list, AIC configuration, and castle rotation is remembered across singleplayer and multiplayer lobbies, and named presets can save and restore further setups. Up to 50 ordered AIV candidates may be selected per lord; in multiplayer, additional AIV data is validated and synchronized before the match starts. Missing files in a saved preset are handled safely.
 
