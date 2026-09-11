@@ -17,7 +17,7 @@ namespace UnitCosts
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "1.0.25";
+        public const string PluginVersion = "1.0.26";
 
         private UnitCostsRuntime runtime;
         private int libraryInitializationStarted;
