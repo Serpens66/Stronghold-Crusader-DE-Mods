@@ -16,24 +16,69 @@ namespace EnemyGatePathfindingTest
         FailOpen
     }
 
+    internal enum NativeGateSnapshotDecision
+    {
+        PreserveUncaptured,
+        PreserveOwner,
+        PreserveOwnerAlly,
+        PreserveCapturer,
+        PreserveCapturerAlly,
+        ExcludeForeignCapture,
+        InvalidQueryPlayer,
+        UntrackedConnection,
+        RecordIdMismatch,
+        OwnerMismatch,
+        CaptureMismatch,
+        Exception
+    }
+
+    internal enum DiagnosticVerdict
+    {
+        PASS,
+        FAIL,
+        NOT_OBSERVED,
+        NOT_APPLICABLE
+    }
+
+    internal enum CaptureTransitionKind
+    {
+        None,
+        Captured,
+        Recaptured
+    }
+
     internal readonly struct NativeGateAccessRecord
     {
         internal NativeGateAccessRecord(
             bool valid,
             int ownerPlayerId,
             int capturedByPlayerId,
+            ushort ownerRelatedPlayers,
+            ushort capturerRelatedPlayers,
             ushort unrelatedPlayers)
         {
             Valid = valid;
             OwnerPlayerId = ownerPlayerId;
             CapturedByPlayerId = capturedByPlayerId;
+            OwnerRelatedPlayers = ownerRelatedPlayers;
+            CapturerRelatedPlayers = capturerRelatedPlayers;
             UnrelatedPlayers = unrelatedPlayers;
         }
 
         internal bool Valid { get; }
         internal int OwnerPlayerId { get; }
         internal int CapturedByPlayerId { get; }
+        internal ushort OwnerRelatedPlayers { get; }
+        internal ushort CapturerRelatedPlayers { get; }
         internal ushort UnrelatedPlayers { get; }
+
+        internal bool PolicyEquals(NativeGateAccessRecord other) =>
+            Valid == other.Valid &&
+            OwnerPlayerId == other.OwnerPlayerId &&
+            CapturedByPlayerId == other.CapturedByPlayerId &&
+            OwnerRelatedPlayers == other.OwnerRelatedPlayers &&
+            CapturerRelatedPlayers == other.CapturerRelatedPlayers &&
+            UnrelatedPlayers == other.UnrelatedPlayers;
     }
 
     // Immutable data prepared outside native callbacks. The inline Capturer hook must
@@ -45,39 +90,113 @@ namespace EnemyGatePathfindingTest
 
         internal NativeGateAccessSnapshot(
             NativeGateAccessRecord[] recordsByBuildingId,
-            ulong topologyFingerprint)
+            ulong rawFingerprint)
         {
             RecordsByBuildingId = recordsByBuildingId ?? Array.Empty<NativeGateAccessRecord>();
-            TopologyFingerprint = topologyFingerprint;
+            RawFingerprint = rawFingerprint;
+            int tracked = 0;
+            int captured = 0;
+            int blockedPairs = 0;
+            ulong policyFingerprint = 1469598103934665603UL;
+            for (int index = 1; index < RecordsByBuildingId.Length; index++)
+            {
+                NativeGateAccessRecord record = RecordsByBuildingId[index];
+                if (!record.Valid)
+                    continue;
+                tracked++;
+                if (record.CapturedByPlayerId != 0)
+                    captured++;
+                for (int player = 1; player <= 8; player++)
+                    if ((record.UnrelatedPlayers & (1 << player)) != 0)
+                        blockedPairs++;
+                unchecked
+                {
+                    policyFingerprint = (policyFingerprint ^ (uint)index) * 1099511628211UL;
+                    policyFingerprint = (policyFingerprint ^ (uint)record.OwnerPlayerId) * 1099511628211UL;
+                    policyFingerprint = (policyFingerprint ^ (uint)record.CapturedByPlayerId) * 1099511628211UL;
+                    policyFingerprint = (policyFingerprint ^ record.OwnerRelatedPlayers) * 1099511628211UL;
+                    policyFingerprint = (policyFingerprint ^ record.CapturerRelatedPlayers) * 1099511628211UL;
+                    policyFingerprint = (policyFingerprint ^ record.UnrelatedPlayers) * 1099511628211UL;
+                }
+            }
+            TrackedRecords = tracked;
+            CapturedRecords = captured;
+            BlockedPlayerGatePairs = blockedPairs;
+            TopologyFingerprint = tracked == 0 ? 0 : policyFingerprint;
         }
 
         internal NativeGateAccessRecord[] RecordsByBuildingId { get; }
+        internal ulong RawFingerprint { get; }
         internal ulong TopologyFingerprint { get; }
+        internal int TrackedRecords { get; }
+        internal int CapturedRecords { get; }
+        internal int UncapturedRecords => TrackedRecords - CapturedRecords;
+        internal int BlockedPlayerGatePairs { get; }
 
-        internal CapturedGateFilterDecision Evaluate(
+        internal bool PolicyEquals(NativeGateAccessSnapshot other)
+        {
+            if (other == null || TrackedRecords != other.TrackedRecords)
+                return false;
+            int length = Math.Max(RecordsByBuildingId.Length, other.RecordsByBuildingId.Length);
+            for (int buildingId = 1; buildingId < length; buildingId++)
+            {
+                NativeGateAccessRecord left = buildingId < RecordsByBuildingId.Length
+                    ? RecordsByBuildingId[buildingId] : default;
+                NativeGateAccessRecord right = buildingId < other.RecordsByBuildingId.Length
+                    ? other.RecordsByBuildingId[buildingId] : default;
+                if (!left.PolicyEquals(right))
+                    return false;
+            }
+            return true;
+        }
+
+        internal NativeGateSnapshotDecision Evaluate(
             int queryPlayerId,
             int buildingId,
             int recordOwnerPlayerId,
-            bool vanillaSawUncaptured)
+            int nativeCapturedByPlayerId)
         {
-            if (queryPlayerId <= 0 || queryPlayerId > 8 || buildingId <= 0 ||
-                buildingId >= RecordsByBuildingId.Length)
-                return CapturedGateFilterDecision.FailOpen;
+            return Evaluate(queryPlayerId, buildingId, recordOwnerPlayerId,
+                nativeCapturedByPlayerId, out _);
+        }
 
-            NativeGateAccessRecord record = RecordsByBuildingId[buildingId];
-            if (!record.Valid || record.OwnerPlayerId != recordOwnerPlayerId ||
-                (record.CapturedByPlayerId == 0) != vanillaSawUncaptured)
-                return CapturedGateFilterDecision.FailOpen;
+        internal NativeGateSnapshotDecision Evaluate(
+            int queryPlayerId,
+            int buildingId,
+            int recordOwnerPlayerId,
+            int nativeCapturedByPlayerId,
+            out NativeGateAccessRecord record)
+        {
+            record = default;
+            if (queryPlayerId <= 0 || queryPlayerId > 8)
+                return NativeGateSnapshotDecision.InvalidQueryPlayer;
+            if (buildingId <= 0 || buildingId >= RecordsByBuildingId.Length)
+                return NativeGateSnapshotDecision.UntrackedConnection;
 
-            if (record.CapturedByPlayerId == 0)
-                return CapturedGateFilterDecision.PreserveVanilla;
+            record = RecordsByBuildingId[buildingId];
+            if (!record.Valid)
+                return NativeGateSnapshotDecision.UntrackedConnection;
+            if (record.OwnerPlayerId != recordOwnerPlayerId)
+                return NativeGateSnapshotDecision.OwnerMismatch;
+            if (record.CapturedByPlayerId != nativeCapturedByPlayerId)
+                return NativeGateSnapshotDecision.CaptureMismatch;
 
             ushort playerBit = unchecked((ushort)(1 << queryPlayerId));
+            if (queryPlayerId == record.OwnerPlayerId)
+                return NativeGateSnapshotDecision.PreserveOwner;
+            if ((record.OwnerRelatedPlayers & playerBit) != 0)
+                return NativeGateSnapshotDecision.PreserveOwnerAlly;
+            if (record.CapturedByPlayerId == 0)
+                return NativeGateSnapshotDecision.PreserveUncaptured;
+            if (queryPlayerId == record.CapturedByPlayerId)
+                return NativeGateSnapshotDecision.PreserveCapturer;
+            if ((record.CapturerRelatedPlayers & playerBit) != 0)
+                return NativeGateSnapshotDecision.PreserveCapturerAlly;
             return (record.UnrelatedPlayers & playerBit) != 0
-                ? CapturedGateFilterDecision.ExcludeForeignCapture
-                : CapturedGateFilterDecision.PreserveVanilla;
+                ? NativeGateSnapshotDecision.ExcludeForeignCapture
+                : NativeGateSnapshotDecision.UntrackedConnection;
+        }
     }
-}
     internal enum TopologyDiagnosticDisposition
     {
         Accepted,
@@ -93,6 +212,33 @@ namespace EnemyGatePathfindingTest
 
     internal static class EnemyGatePathfindingPolicy
     {
+        internal const ulong ZeroFlagMask = 1UL << 6;
+
+        internal static ulong SetZeroFlag(ulong flags, bool isEqual) => isEqual
+            ? flags | ZeroFlagMask
+            : flags & ~ZeroFlagMask;
+
+        internal static DiagnosticVerdict ObservationVerdict(long count) => count > 0
+            ? DiagnosticVerdict.PASS
+            : DiagnosticVerdict.NOT_OBSERVED;
+
+        internal static DiagnosticVerdict IntegrityVerdict(bool observed, bool failed) => failed
+            ? DiagnosticVerdict.FAIL
+            : observed ? DiagnosticVerdict.PASS : DiagnosticVerdict.NOT_OBSERVED;
+
+        internal static CaptureTransitionKind ClassifyCaptureTransition(
+            bool previousValid,
+            int previousCapturer,
+            bool currentValid,
+            int currentCapturer)
+        {
+            if (!previousValid || !currentValid || previousCapturer == currentCapturer)
+                return CaptureTransitionKind.None;
+            return previousCapturer == 0 && currentCapturer != 0
+                ? CaptureTransitionKind.Captured
+                : previousCapturer != 0 ? CaptureTransitionKind.Recaptured : CaptureTransitionKind.None;
+        }
+
         // UPDATE REVIEW (CrusaderDE.dll): the direction-bit order is tied to the
         // eight native neighbor vectors and must be revalidated after a DLL update.
         internal static bool IsBidirectionalEdgeOpen(

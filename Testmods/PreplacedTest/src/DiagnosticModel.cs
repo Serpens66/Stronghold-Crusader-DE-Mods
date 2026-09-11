@@ -393,6 +393,24 @@ namespace PreplacedTest
             oldInsidePcl != oldOutsidePcl && newInsidePcl > 0 && newInsidePcl == newOutsidePcl;
     }
 
+    internal static class LegacyTimerFixEligibility
+    {
+        public static string Classify(bool isAi, bool isSave, int mapVersion, int legacyVersionExclusive,
+            int sourceBefore, int sourceAfter, int destinationBefore, int destinationAfter)
+        {
+            if (!isAi) return "ineligible-non-ai";
+            if (isSave) return "ineligible-loaded-save";
+            if (mapVersion < 0 || mapVersion >= legacyVersionExclusive) return "ineligible-not-legacy-conversion";
+            if (destinationBefore != 0) return "ineligible-runtime-timer-already-active";
+            if (sourceBefore != 1 || sourceAfter != 1) return "ineligible-no-stable-single-activation-source";
+            if (destinationAfter != sourceAfter) return "ineligible-not-copied-exclusively-from-serialized-source";
+            return "eligible-fresh-map-legacy-transfer";
+        }
+
+        public static bool IsEligible(string classification) =>
+            string.Equals(classification, "eligible-fresh-map-legacy-transfer", StringComparison.Ordinal);
+    }
+
     internal enum ShadowEconomySearchKind
     {
         Farm,
@@ -525,35 +543,86 @@ namespace PreplacedTest
 
         public static string ResourceCandidateRejectionReason(ShadowEconomyCell cell, int resourceMode)
         {
+            switch (ResourceCandidateRejectionCode(cell, resourceMode))
+            {
+                case 0: return "candidate";
+                case 1: return "pcl-difference";
+                case 2: return "occupied-or-reserved-byte+0F";
+                case 3: return "blocked-byte+13";
+                case 4: return "owner-class-mismatch-byte+15";
+                case 5: return "quarry-density-byte+08";
+                case 6: return "quarry-height";
+                case 7: return "iron-density-byte+09";
+                case 8: return "iron-height";
+                case 9: return "pitch-density-byte+0A";
+                case 10: return "pitch-density-byte+0B";
+                case 11: return "pitch-height";
+                default: return "unsupported-resource-mode";
+            }
+        }
+
+        // Numeric codes keep full-grid signatures allocation-free while preserving the first native rejection branch.
+        public static int ResourceCandidateRejectionCode(ShadowEconomyCell cell, int resourceMode)
+        {
             int pclDifference = cell.Projected04 - cell.Raw16;
             if (cell.Projected04 != cell.Raw16 && (resourceMode != 3 || pclDifference >= 5))
-                return "pcl-difference";
-            if (cell.Raw0F != 0) return "occupied-or-reserved-byte+0F";
-            if (cell.Raw13 != 0) return "blocked-byte+13";
-            if (cell.Raw15 != 0 && !cell.OwnerClassMatches) return "owner-class-mismatch-byte+15";
-            return ResourceTerrainReason(cell, resourceMode);
+                return 1;
+            if (cell.Raw0F != 0) return 2;
+            if (cell.Raw13 != 0) return 3;
+            if (cell.Raw15 != 0 && !cell.OwnerClassMatches) return 4;
+            int heightDifference = unchecked((int)(uint)cell.Raw0D - (int)(uint)cell.Raw0C);
+            if (resourceMode == 2)
+            {
+                if ((sbyte)cell.Raw08 <= 7) return 5;
+                return heightDifference < 40 ? 0 : 6;
+            }
+            if (resourceMode == 3)
+            {
+                if ((sbyte)cell.Raw09 <= 6) return 7;
+                return heightDifference < 30 ? 0 : 8;
+            }
+            if (resourceMode == 4)
+            {
+                if ((sbyte)cell.Raw0A <= 2) return 9;
+                if ((sbyte)cell.Raw0B <= 9) return 10;
+                return heightDifference < 12 ? 0 : 11;
+            }
+            return 12;
         }
 
         public static string ResourceTerrainReason(ShadowEconomyCell cell, int resourceMode)
         {
-            int heightDifference = cell.Raw0D - cell.Raw0C;
+            int heightDifference = unchecked((int)(uint)cell.Raw0D - (int)(uint)cell.Raw0C);
             if (resourceMode == 2)
             {
                 if ((sbyte)cell.Raw08 <= 7) return "quarry-density-byte+08";
-                return heightDifference >= 40 ? "candidate" : "quarry-height";
+                return heightDifference < 40 ? "candidate" : "quarry-height";
             }
             if (resourceMode == 3)
             {
                 if ((sbyte)cell.Raw09 <= 6) return "iron-density-byte+09";
-                return heightDifference >= 30 ? "candidate" : "iron-height";
+                return heightDifference < 30 ? "candidate" : "iron-height";
             }
             if (resourceMode == 4)
             {
                 if ((sbyte)cell.Raw0A <= 2) return "pitch-density-byte+0A";
                 if ((sbyte)cell.Raw0B <= 9) return "pitch-density-byte+0B";
-                return heightDifference >= 12 ? "candidate" : "pitch-height";
+                return heightDifference < 12 ? "candidate" : "pitch-height";
             }
             return "unsupported-resource-mode";
+        }
+
+        public static string DescribeResourceChecks(ShadowEconomyCell cell, int resourceMode)
+        {
+            int difference = cell.Projected04 - cell.Raw16;
+            int heightDifference = unchecked((int)(uint)cell.Raw0D - (int)(uint)cell.Raw0C);
+            return $"mode={resourceMode}/projected04={cell.Projected04}/raw16={cell.Raw16}" +
+                $"/pclExact={cell.Projected04 == cell.Raw16}/ironTolerance={resourceMode == 3 && difference < 5}" +
+                $"/raw0F={cell.Raw0F}/raw13={cell.Raw13}/raw15={cell.Raw15}/ownerClassMatches={cell.OwnerClassMatches}" +
+                $"/density07={unchecked((sbyte)cell.Raw07)}/density08={unchecked((sbyte)cell.Raw08)}" +
+                $"/density09={unchecked((sbyte)cell.Raw09)}/density0A={unchecked((sbyte)cell.Raw0A)}" +
+                $"/density0B={unchecked((sbyte)cell.Raw0B)}/height={heightDifference}" +
+                $"/firstRejection={ResourceCandidateRejectionReason(cell, resourceMode)}";
         }
     }
 

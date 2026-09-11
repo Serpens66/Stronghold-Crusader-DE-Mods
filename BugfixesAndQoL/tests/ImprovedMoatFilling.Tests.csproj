@@ -22,6 +22,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>true</Private></Reference>
@@ -37,6 +38,7 @@
     <Compile Include="..\src\AIResourceShortageSleepNativeDefinition.cs"><Link>AIResourceShortageSleepNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AIResourceShortageSleepPolicy.cs"><Link>AIResourceShortageSleepPolicy.cs</Link></Compile>
     <Compile Include="..\src\ClassicMapSizeReader.cs"><Link>ClassicMapSizeReader.cs</Link></Compile>
+    <Compile Include="..\src\CoopCustomLordSelectionPolicy.cs"><Link>CoopCustomLordSelectionPolicy.cs</Link></Compile>
     <Compile Include="..\src\SingleBuildingPauseOverrideStore.cs"><Link>SingleBuildingPauseOverrideStore.cs</Link></Compile>
     <Compile Include="..\src\TemporaryGateBlockagePolicy.cs"><Link>TemporaryGateBlockagePolicy.cs</Link></Compile>
     <Compile Include="..\src\TrailCustomizationProviderHostApi.cs"><Link>TrailCustomizationProviderHostApi.cs</Link></Compile>

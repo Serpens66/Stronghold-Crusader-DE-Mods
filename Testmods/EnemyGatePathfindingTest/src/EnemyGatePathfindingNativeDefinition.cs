@@ -30,6 +30,10 @@ namespace EnemyGatePathfindingTest
         public const int MaximumTileIdExclusive = 320800;
         public const int MapGridWidth = 800;
 
+        // Shared capture table addressed by both displaced CMP instructions. The
+        // preceding IMUL has already converted the one-based building id to its stride.
+        public const int CapturedByPlayerTableDisplacement = 0x64CCED2;
+
         // Each capturer hook covers a complete MOVSXD/IMUL/CMP basic block. Both the
         // predecessor and successor branch targets remain outside the displaced span.
         public const int PclGraphPredecessorJumpRva = 0xE2703;
@@ -62,6 +66,13 @@ namespace EnemyGatePathfindingTest
 
         public const string AuditedScriptExtenderCommit =
             "5f02af6d074af7c741ebdaaccb48add39eba1bf4";
+
+        internal static bool PclGraphCaptureCompareIsEqual(ushort nativeCapturedByPlayerId) =>
+            nativeCapturedByPlayerId == 0;
+
+        internal static bool BuilderPrecheckCaptureCompareIsEqual(
+            ushort nativeCapturedByPlayerId,
+            ushort accumulatorValue) => nativeCapturedByPlayerId == accumulatorValue;
 
         internal static void ValidateNativeHookContracts(ReadOnlySpan<byte> memory)
         {

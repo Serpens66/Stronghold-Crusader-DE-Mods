@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Xml;
 using SHCDESE.Interop;
 
 namespace BugfixesAndQoL
@@ -27,6 +28,7 @@ namespace BugfixesAndQoL
 
         private static int Main()
         {
+            TestCoopCustomLordSelectionPolicy();
             TestTrailCustomizationOwnership();
             TestTunnelPlacementDistancePolicy();
             TestTunnelPlacementDistanceIntegration();
@@ -76,6 +78,114 @@ namespace BugfixesAndQoL
                     !method.IsStatic &&
                     method.ReturnType == typeof(FileHeader),
                 "MapFileManager exposes the public GetFileInfoFromFileName hook contract");
+        }
+
+        private static void TestCoopCustomLordSelectionPolicy()
+        {
+            int expectedLordType = checked((int)AILords.SK_X2 - 1);
+            Check(
+                CoopCustomLordSelectionPolicy.CustomPartnerLordType == expectedLordType &&
+                CoopCustomLordSelectionPolicy.SharedProgressId == (ulong)expectedLordType + 1000UL,
+                "Coop custom partner maps SK_X2 to the shared Vanilla progress ID");
+
+            Check(
+                CoopCustomLordSelectionPolicy.CanSelect(true, true, false, true, true, 1) &&
+                !CoopCustomLordSelectionPolicy.CanSelect(false, true, false, true, true, 1) &&
+                !CoopCustomLordSelectionPolicy.CanSelect(true, true, true, true, true, 1) &&
+                !CoopCustomLordSelectionPolicy.CanSelect(true, true, false, true, true, 2),
+                "Coop custom partner selection is gated to enabled singleplayer Coop");
+
+            Check(
+                CoopCustomLordSelectionPolicy.ShouldReplaceDefaultAiv(
+                    true, false, true, true, expectedLordType, expectedLordType, 2) &&
+                !CoopCustomLordSelectionPolicy.ShouldReplaceDefaultAiv(
+                    true, false, true, true, expectedLordType, expectedLordType, 3) &&
+                !CoopCustomLordSelectionPolicy.ShouldReplaceDefaultAiv(
+                    true, false, true, false, expectedLordType, expectedLordType, 2) &&
+                !CoopCustomLordSelectionPolicy.ShouldReplaceDefaultAiv(
+                    false, false, true, true, expectedLordType, expectedLordType, 2) &&
+                !CoopCustomLordSelectionPolicy.ShouldReplaceDefaultAiv(
+                    true, true, true, true, expectedLordType, expectedLordType, 2) &&
+                !CoopCustomLordSelectionPolicy.ShouldReplaceDefaultAiv(
+                    true, false, false, true, expectedLordType, expectedLordType, 2) &&
+                !CoopCustomLordSelectionPolicy.ShouldReplaceDefaultAiv(
+                    true, false, true, true, expectedLordType - 1, expectedLordType, 2),
+                "Coop custom AIV replacement is limited to the active player-2 partner");
+
+            const string targetXPath =
+                "//n:Grid[@Width='1080' and @Height='640']/n:Grid[@Margin='25,0,0,0']";
+            bool xamlContractsValid = true;
+            for (int trail = 1; trail <= 4; trail++)
+            {
+                string patchPath = Path.Combine(
+                    "Patches", "Assets", "GUI", "XAMLResources", $"FRONT_CoopTrail{trail}.xaml");
+                string baselinePath = Path.Combine(
+                    "..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319",
+                    "resources", "xaml", "Assets", "GUI", "XAMLResources",
+                    $"FRONT_CoopTrail{trail}.xaml");
+                string patchText = File.ReadAllText(patchPath);
+                xamlContractsValid &= patchText.Contains("Value=\"CoopLordPortraitGrid\"") &&
+                    patchText.Contains("x:Name=\"CoopCustomLordSelectionHost\"") &&
+                    patchText.Contains("<Canvas />") &&
+                    patchText.Contains("Property=\"Canvas.Left\"") &&
+                    patchText.Contains("Property=\"Canvas.Top\"") &&
+                    patchText.Contains("ItemsSource=\"{Binding Choices}\"") &&
+                    patchText.Contains("Width=\"110\" Height=\"110\"") &&
+                    patchText.Contains("Width=\"100\" Height=\"100\"") &&
+                    patchText.Contains("Style=\"{StaticResource BTN_Image}\"") &&
+                    !patchText.Contains("Type=\"Replace\"") &&
+                    !patchText.Contains("EnterCommand") &&
+                    !patchText.Contains("LeaveCommand") &&
+                    !patchText.Contains("ToolTip") &&
+                    !patchText.Contains("ToolTipService");
+
+                var document = new XmlDocument();
+                document.Load(baselinePath);
+                var namespaces = new XmlNamespaceManager(document.NameTable);
+                namespaces.AddNamespace("n", document.DocumentElement.NamespaceURI);
+                XmlNode portraitGrid = document.SelectSingleNode(targetXPath, namespaces);
+                int[] vanillaOrder =
+                    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 20, 21, 22, 23, 25, 26, 27, 28 };
+                XmlNodeList vanillaButtons = portraitGrid?.SelectNodes(
+                    "./n:Button[@Command='{Binding SkirmishAIAddClickCommand}']", namespaces);
+                bool vanillaOrderMatches = vanillaButtons?.Count == vanillaOrder.Length;
+                for (int index = 0; vanillaOrderMatches && index < vanillaOrder.Length; index++)
+                    vanillaOrderMatches &= vanillaButtons[index].Attributes?["CommandParameter"]?.Value == vanillaOrder[index].ToString();
+                bool dlcVisibilityMatches =
+                    portraitGrid?.SelectSingleNode("./n:Button[@CommandParameter='20' and @Visibility='{Binding NewAILordNotVisible[0]}']", namespaces) != null &&
+                    portraitGrid.SelectSingleNode("./n:Button[@CommandParameter='21' and @Visibility='{Binding NewAILordNotVisible[1]}']", namespaces) != null &&
+                    portraitGrid.SelectSingleNode("./n:Button[@CommandParameter='22' and @Visibility='{Binding NewAILordNotVisible[2]}']", namespaces) != null &&
+                    portraitGrid.SelectSingleNode("./n:Button[@CommandParameter='23' and @Visibility='{Binding NewAILordNotVisible[3]}']", namespaces) != null &&
+                    portraitGrid.SelectSingleNode("./n:Button[@CommandParameter='25' and @Visibility='{Binding NewAILordNotVisible[5]}']", namespaces) != null &&
+                    portraitGrid.SelectSingleNode("./n:Button[@CommandParameter='26' and @Visibility='{Binding NewAILordNotVisible[6]}']", namespaces) != null &&
+                    portraitGrid.SelectSingleNode("./n:Button[@CommandParameter='27' and @Visibility='{Binding NewAILordNotVisible[7]}']", namespaces) != null &&
+                    portraitGrid.SelectSingleNode("./n:Button[@CommandParameter='28' and @Visibility='{Binding NewAILordNotVisible[8]}']", namespaces) != null;
+                xamlContractsValid &= portraitGrid != null &&
+                    portraitGrid.SelectNodes("./n:Image", namespaces)?.Count == 29 &&
+                    vanillaOrderMatches && dlcVisibilityMatches &&
+                    portraitGrid.SelectNodes(".//n:TextBlock", namespaces)?.Count == 0 &&
+                    portraitGrid.SelectNodes(".//n:Button[@CommandParameter='CoopSinglePlayerBack']", namespaces)?.Count == 0 &&
+                    document.SelectNodes("//n:Grid[@Width='1080' and @Height='640']/n:TextBlock[@Text='{Binding SkirmishLordRolloverName}']", namespaces)?.Count == 1 &&
+                    document.SelectNodes("//n:Grid[@Width='1080' and @Height='640']/n:TextBlock[@Text='{Binding SkirmishLordRolloverDesc}']", namespaces)?.Count == 1 &&
+                    document.SelectNodes("//n:Grid[@Width='1080' and @Height='640']/n:Button[@CommandParameter='CoopSinglePlayerBack']", namespaces)?.Count == 1;
+            }
+            Check(
+                xamlContractsValid,
+                "all four Coop Trail patches preserve Vanilla portraits, order, hover and DLC visibility while adding custom slots");
+
+            string featureSource = File.ReadAllText(Path.Combine("src", "CoopCustomLordSelectionFeature.cs"));
+            Check(
+                featureSource.Contains("api.TryGetLordDetails(lord.lordName, out LordDetails details);") &&
+                featureSource.Contains("viewModel.SkirmishLordRolloverDesc = details?.Description ?? string.Empty;") &&
+                featureSource.Contains("button.MouseEnter += CustomButtonMouseEnter;") &&
+                featureSource.Contains("button.MouseLeave += CustomButtonMouseLeave;") &&
+                featureSource.Contains("VerticalScrollBarVisibility = ScrollBarVisibility.Auto") &&
+                featureSource.Contains("int portraitIndex = VanillaLordCount + choices.Count;") &&
+                !featureSource.Contains("SelectVanilla") &&
+                !featureSource.Contains("EnterVanilla") &&
+                !featureSource.Contains("lordmeta.json") &&
+                !featureSource.Contains("DependencyFreeJson"),
+                "Coop custom hover uses direct events and Script Extender LocalizedDescription while Vanilla UI remains native");
         }
 
         private static void TestClassicMapSizeReader()

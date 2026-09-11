@@ -215,6 +215,7 @@ namespace BugfixesAndQoL
             }
 
             updateTrampoline(self);
+            CoopCustomLordSelectionFeature.OnMultiplayerUpdated(self);
 
             if (direction != 0)
                 MoveCustomLordSelection(direction);

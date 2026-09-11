@@ -431,8 +431,13 @@ namespace PreplacedTest
         private bool loadSaveEventObserved;
         private bool loadingEditorMap;
         private int lastLegacyCopyMapVersion = -1;
+        private int[] lastLegacyCopySourceBefore;
+        private int[] lastLegacyCopyDestinationBefore;
         private int[] lastLegacyCopySource;
         private int[] lastLegacyCopyDestination;
+        private List<BuildingSnapshot> legacyCopyBuildings = new List<BuildingSnapshot>();
+        private readonly Dictionary<int, List<BuildingSnapshot>> crushedActivationBuildings =
+            new Dictionary<int, List<BuildingSnapshot>>();
 
         public PreplacedTestRuntime(ManualLogSource log) => this.log = log ?? throw new ArgumentNullException(nameof(log));
 
@@ -933,8 +938,11 @@ namespace PreplacedTest
                         $"/destination={FormatCapturedInt(destinationPre)}->{destinationAfter[playerIndex]}");
                 }
                 lastLegacyCopyMapVersion = mapVersion;
+                lastLegacyCopySourceBefore = sourceBefore;
+                lastLegacyCopyDestinationBefore = destinationBefore;
                 lastLegacyCopySource = sourceAfter;
                 lastLegacyCopyDestination = destinationAfter;
+                legacyCopyBuildings = CaptureRawBuildings();
                 EmitChunked("PREPLACED_CRUSHED_TIMER_BULK_COPY: ",
                     $"mapVersion={mapVersion}; legacyThresholdExclusive=0x{LegacyPlayerStateCopyVersionExclusive:X}; mapIsSave={currentMapIsSave}; " +
                     $"loadSaveEventObserved={loadSaveEventObserved}; loadingEditorMap={loadingEditorMap}; " +
@@ -1110,6 +1118,42 @@ namespace PreplacedTest
             }
             EmitChunked("PREPLACED_CRUSHED_TIMER_BULK_COPY_BUILDING_CORRELATION: ",
                 $"mapVersion={lastLegacyCopyMapVersion}; sequence={mapSequence}; records=[{string.Join("; ", rows)}]");
+        }
+
+        private void EmitLegacyTimerFixEligibility()
+        {
+            if (lastLegacyCopySourceBefore == null || lastLegacyCopyDestinationBefore == null ||
+                lastLegacyCopySource == null || lastLegacyCopyDestination == null) return;
+
+            List<BuildingSnapshot> current = CaptureRawBuildings();
+            var currentByGlobalId = current.Where(value => value.GlobalId != 0)
+                .GroupBy(value => value.GlobalId).ToDictionary(group => group.Key, group => group.First());
+            var currentByGameId = current.GroupBy(value => value.Id)
+                .ToDictionary(group => group.Key, group => group.First());
+            IEnumerable<BuildingSnapshot> earlyBuildings = legacyCopyBuildings.Concat(
+                crushedActivationBuildings.Values.SelectMany(value => value));
+            string ownerTransitions = string.Join("; ", earlyBuildings
+                .Where(value => IsDestroyedTower(value.Type))
+                .GroupBy(value => value.GlobalId != 0 ? "global=" + value.GlobalId :
+                    "game=" + value.Id + "/type=" + value.Type).Select(group => group.First())
+                .Select(value => (value.GlobalId != 0 && currentByGlobalId.TryGetValue(value.GlobalId, out BuildingSnapshot byGlobal)) ||
+                    currentByGameId.TryGetValue(value.Id, out byGlobal)
+                    ? $"game={value.Id}/global={value.GlobalId}/type={value.Type}/owner={value.OwnerId}->{byGlobal.OwnerId}"
+                    : $"game={value.Id}/global={value.GlobalId}/type={value.Type}/owner={value.OwnerId}->missing"));
+            var rows = new List<string>();
+            for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
+            {
+                string classification = LegacyTimerFixEligibility.Classify(IsAi(playerId), currentMapIsSave,
+                    lastLegacyCopyMapVersion, LegacyPlayerStateCopyVersionExclusive,
+                    lastLegacyCopySourceBefore[playerId], lastLegacyCopySource[playerId],
+                    lastLegacyCopyDestinationBefore[playerId], lastLegacyCopyDestination[playerId]);
+                rows.Add($"player={playerId}/isAi={IsAi(playerId)}/source={lastLegacyCopySourceBefore[playerId]}->{lastLegacyCopySource[playerId]}" +
+                    $"/destination={lastLegacyCopyDestinationBefore[playerId]}->{lastLegacyCopyDestination[playerId]}" +
+                    $"/decision={classification}/wouldNormalize={LegacyTimerFixEligibility.IsEligible(classification)}");
+            }
+            EmitChunked("PREPLACED_LEGACY_TIMER_FIX_ELIGIBILITY: ",
+                $"sequence={mapSequence}; passive=true; mapVersion={lastLegacyCopyMapVersion}; mapIsSave={currentMapIsSave}; " +
+                $"destroyedTowerOwnerTransitions=[{ownerTransitions}]; records=[{string.Join("; ", rows)}]");
         }
 
         private static string FormatCapturedInt(int value) =>
@@ -1758,7 +1802,12 @@ namespace PreplacedTest
                     $"searches=[{string.Join(",", context.Searches.Select(s => s.CompactText))}]; " +
                     $"reachability=[{string.Join(",", context.ReachabilityResults)}]; pclCalls=[{string.Join(",", context.PclCalls)}]; " +
                     $"constructs=[{string.Join(",", context.ConstructionCalls)}]; spawns=[{string.Join(",", context.SpawnSignals)}]";
-                if (IsAi(context.PlayerId)) Session(context.PlayerId).Counters.Add("economy-result " + detail);
+                if (IsAi(context.PlayerId))
+                {
+                    // Nested hooks already aggregate their complete observations. Keep the enclosing result key stable.
+                    Session(context.PlayerId).Counters.Add($"economy-result phase={context.Phase} desired={context.DesiredType} " +
+                        $"afterConfirmedBreach={context.AfterConfirmedBreach} outcome={outcome} return={returnText}");
+                }
                 else RecordUnattributed("economy-result player=" + context.PlayerId + " " + detail);
             });
         }
@@ -1908,7 +1957,14 @@ namespace PreplacedTest
                         EmitChunked($"PREPLACED_ECONOMY_SEARCH: player={playerId}; helper={helper}; ",
                             observation.FullText + "; counterfactual=" + DescribeSearchRoutes(playerId, observation));
                     }
+                    EmitShadowNativeResultOracle(state, playerId, helper, resourceMode, observation);
                     EmitShadowEconomySearch(state, playerId, helper, resourceMode, explicitStartX, explicitStartY);
+                    if (session.WallLossStageEmitted && observation.PerformedTraversal)
+                        EmitChunked($"PREPLACED_POST_WALL_LOSS_ECONOMY_SEARCH: player={playerId}; ",
+                            $"elapsedMs={(DateTime.UtcNow - session.WallLossUtc).TotalMilliseconds:F0}; helper={helper}; " +
+                            $"gate={observation.GateReason}; visited={observation.Visited.Count}; frontier={observation.Frontier.Count}; " +
+                            $"result=({observation.ResultX},{observation.ResultY}); candidate={observation.CandidateFound}; " +
+                            $"cooldown={cooldownBefore}->{cooldownAfter}; signature={observation.Signature:X16}");
                     if (session.ConfirmedWallBreach && observation.PerformedTraversal)
                     {
                         string postBreachKey = helper + "/" + (desiredType?.ToString() ?? "unknown");
@@ -1925,7 +1981,7 @@ namespace PreplacedTest
         }
 
         private void EmitShadowEconomySearch(ulong state, int playerId, string helper, int resourceMode,
-            int explicitStartX, int explicitStartY)
+            int explicitStartX, int explicitStartY, string trigger = "vanilla-call")
         {
             if (state == 0 || !IsAi(playerId) || !TryGetKeepPcl(playerId, out int keepPcl)) return;
             ShadowEconomySearchKind kind = helper == "farm-search" ? ShadowEconomySearchKind.Farm :
@@ -1946,15 +2002,6 @@ namespace PreplacedTest
             HashSet<int> reachablePcls = PortalRouteModel.ReachableFriendlyPcls(keepPcl, portals,
                 playerId, IsAllied);
             ulong routingSignature = lastRoutingSnapshot?.Signature ?? 0;
-            string inputSignature = playerId + "/" + helper + "/" + resourceMode + "/" + keepPcl + "/" +
-                string.Join(",", reachablePcls.OrderBy(value => value)) + "/" + routingSignature.ToString("X16") +
-                "/start=" + startX + "," + startY;
-            if (!emittedShadowSearchSignatures.Add(inputSignature))
-            {
-                Session(playerId).Counters.Add("shadow-economy-repeat helper=" + helper +
-                    " inputSignature=" + routingSignature.ToString("X16"));
-                return;
-            }
             var cells = new ShadowEconomyCell[EconomyGridCellCount];
             byte* memory = (byte*)state;
             for (int index = 0; index < cells.Length; index++)
@@ -1970,19 +2017,119 @@ namespace PreplacedTest
             }
             ShadowEconomySearchResult result = ShadowEconomySearch.Run(cells, EconomyGridWidth,
                 startX * EconomyGridWidth + startY, kind, resourceMode);
+            PlayerSession playerSession = Session(playerId);
+            string shadowKind = helper + "/" + resourceMode;
+            if (!playerSession.ShadowBaselines.ContainsKey(shadowKind))
+                playerSession.ShadowBaselines.Add(shadowKind,
+                    new ShadowSearchSummary(result.ReachableCount, result.CandidateIndices.Length));
+            if (!playerSession.ShadowExpansionStageEmitted &&
+                wallBaselines.TryGetValue(playerId, out WallTileBaseline wallBaseline) &&
+                wallBaseline.LostWallTiles.Any(wallBaseline.ComponentTiles.Contains))
+            {
+                ShadowSearchSummary baselineSummary = playerSession.ShadowBaselines[shadowKind];
+                if (result.ReachableCount > baselineSummary.Reachable && result.CandidateIndices.Length > baselineSummary.Candidates)
+                {
+                    playerSession.ShadowExpansionStageEmitted = true;
+                    EmitChunked($"PREPLACED_WALL_BREACH_STAGE: player={playerId}; ",
+                        $"stage=shadow-external-expansion; helper={helper}; mode={resourceMode}; " +
+                        $"reachable={baselineSummary.Reachable}->{result.ReachableCount}; " +
+                        $"candidates={baselineSummary.Candidates}->{result.CandidateIndices.Length}");
+                }
+            }
+            ulong semanticSignature = ComputeShadowSemanticSignature(kind, resourceMode, startX, startY,
+                cells, result);
+            string inputSignature = playerId + "/" + helper + "/" + resourceMode + "/" + semanticSignature.ToString("X16");
+            if (!emittedShadowSearchSignatures.Add(inputSignature))
+            {
+                Session(playerId).Counters.Add("shadow-economy-repeat helper=" + helper +
+                    " semanticSignature=" + semanticSignature.ToString("X16"));
+                return;
+            }
             string firstCandidate = result.FirstCandidateIndex < 0 ? "none" :
                 EconomyCoordinate.FromIndex(result.FirstCandidateIndex).ToString();
             string resourceAnalysis = kind == ShadowEconomySearchKind.Resource
                 ? DescribeResourceShadowAnalysis(cells, result, resourceMode)
                 : "not-resource-search";
             EmitChunked($"PREPLACED_SHADOW_ECONOMY_SEARCH: player={playerId}; helper={helper}; ",
-                $"mode={resourceMode}; inputSignature={routingSignature:X16}; start=({startX},{startY}); keepPcl={keepPcl}; " +
+                $"mode={resourceMode}; trigger={trigger}; semanticSignature={semanticSignature:X16}; routingSignature={routingSignature:X16}; " +
+                $"start=({startX},{startY}); keepPcl={keepPcl}; " +
                 $"friendlyReachablePcls=[{string.Join(",", reachablePcls.OrderBy(value => value))}]; " +
                 $"reachableCells={result.ReachableCount}; blockedBoundaryCells={result.BlockedIndices.Length}; " +
                 $"candidateCells={result.CandidateIndices.Length}; firstCandidate={firstCandidate}; " +
                 $"blocked=[{LosslessGridCoordinateFormatter.Format(result.BlockedIndices, EconomyGridWidth)}]; " +
                 $"candidates=[{LosslessGridCoordinateFormatter.Format(result.CandidateIndices, EconomyGridWidth)}]; " +
                 $"resourceAnalysis=[{resourceAnalysis}]; byte+16 remains byte-for-byte Vanilla because 0x50720 builds it from tile logic rather than the selected PCL");
+        }
+
+        private static ulong ComputeShadowSemanticSignature(ShadowEconomySearchKind kind, int resourceMode,
+            int startX, int startY, ShadowEconomyCell[] cells, ShadowEconomySearchResult result)
+        {
+            ulong signature = 1469598103934665603UL;
+            signature = Hash(signature, (int)kind);
+            signature = Hash(signature, resourceMode);
+            signature = Hash(signature, startX);
+            signature = Hash(signature, startY);
+            foreach (int index in result.ReachedIndices) signature = Hash(signature, index);
+            signature = Hash(signature, -1);
+            foreach (int index in result.BlockedIndices) signature = Hash(signature, index);
+            signature = Hash(signature, -2);
+            foreach (int index in result.CandidateIndices) signature = Hash(signature, index);
+            if (kind == ShadowEconomySearchKind.Resource)
+                for (int index = 0; index < cells.Length; index++)
+                    signature = Hash(signature,
+                        ShadowEconomySearch.ResourceCandidateRejectionCode(cells[index], resourceMode));
+            return signature;
+        }
+
+        private void EmitProactiveShadowSuite(ulong state, string trigger)
+        {
+            if (!aiOwnershipResolved || state == 0) return;
+            for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
+            {
+                if (!IsAi(playerId)) continue;
+                EmitShadowEconomySearch(state, playerId, "farm-search", 0, -1, -1, trigger);
+                EmitShadowEconomySearch(state, playerId, "wood-search", 0, -1, -1, trigger);
+                EmitShadowEconomySearch(state, playerId, "resource-search", 2, -1, -1, trigger);
+                EmitShadowEconomySearch(state, playerId, "resource-search", 3, -1, -1, trigger);
+                EmitShadowEconomySearch(state, playerId, "resource-search", 4, -1, -1, trigger);
+            }
+        }
+
+        private void EmitShadowNativeResultOracle(ulong state, int playerId, string helper, int resourceMode,
+            EconomySearchObservation observation)
+        {
+            if (state == 0 || !observation.PerformedTraversal || !observation.CandidateFound ||
+                (uint)observation.ResultX >= EconomyGridWidth || (uint)observation.ResultY >= EconomyGridWidth ||
+                !TryGetKeepPcl(playerId, out int keepPcl)) return;
+            HashSet<int> reachablePcls = PortalRouteModel.ReachableFriendlyPcls(keepPcl,
+                CapturePortalConnections(out _), playerId, IsAllied);
+            int index = observation.ResultX * EconomyGridWidth + observation.ResultY;
+            byte* raw = (byte*)state + EconomyGridBaseOffset + index * EconomyGridCellStride;
+            var cell = new ShadowEconomyCell(CountPclTilesOutsideSet(observation.ResultX, observation.ResultY, reachablePcls),
+                (sbyte)raw[0x16], raw[0x07], raw[0x08], raw[0x09], raw[0x0A], raw[0x0B], raw[0x0C], raw[0x0D],
+                raw[0x0E], raw[0x0F], raw[0x11], raw[0x12], raw[0x13], raw[0x15], PlayerClassMatches(playerId, raw[0x15]));
+            string checks;
+            string result;
+            if (helper == "resource-search")
+            {
+                checks = ShadowEconomySearch.DescribeResourceChecks(cell, resourceMode);
+                result = ShadowEconomySearch.ResourceCandidateRejectionReason(cell, resourceMode);
+            }
+            else if (helper == "farm-search")
+            {
+                result = cell.Projected04 != 0 ? "pcl-not-exact" : cell.Raw0F != 0 ? "occupied-or-reserved-byte+0F" :
+                    cell.Raw07 != 0 ? "wood-density-byte+07" : cell.Raw13 != 0 ? "blocked-byte+13" :
+                    cell.Raw11 <= 24 ? "farm-density-byte+11" : cell.Raw12 <= 13 ? "farm-density-byte+12" : "candidate";
+                checks = $"projected04={cell.Projected04}/raw07={cell.Raw07}/raw0F={cell.Raw0F}/raw11={cell.Raw11}" +
+                    $"/raw12={cell.Raw12}/raw13={cell.Raw13}/firstRejection={result}";
+            }
+            else return;
+            string key = helper + "/" + resourceMode + "/" + observation.ResultX + "/" + observation.ResultY + "/" + result;
+            if (!Session(playerId).EmittedOracleSignatures.Add(key)) return;
+            string label = result == "candidate" ? "PREPLACED_SHADOW_NATIVE_RESULT_MATCH: " :
+                "PREPLACED_SHADOW_NATIVE_RESULT_MISMATCH: ";
+            EmitChunked(label, $"player={playerId}; helper={helper}; nativeResult=({observation.ResultX},{observation.ResultY}); " +
+                $"nativeAccepted=true; shadowResult={result}; checks=[{checks}]");
         }
 
         private string DescribeFarmEntryGate(int playerId, short cooldown)
@@ -2394,6 +2541,7 @@ namespace PreplacedTest
                         $"reason={reason}; signature={current.Signature:X16}; " + current.DescribeSummary());
                 }
                 lastRoutingSnapshot = current;
+                EmitProactiveShadowSuite(state, reason);
                 return;
             }
             if (lastRoutingSnapshot.Signature == current.Signature) return;
@@ -2405,6 +2553,7 @@ namespace PreplacedTest
                 session.Counters.Add("routing-state-change reason=" + reason);
             }
             lastRoutingSnapshot = current;
+            EmitProactiveShadowSuite(state, reason);
         }
 
         private void CaptureAndAnalyzePclTopology(string reason)
@@ -2433,17 +2582,34 @@ namespace PreplacedTest
                 if (pclOnlyChanges != 0)
                     session.Counters.Add($"wall-pcl-relabel-only reason={reason} tiles={pclOnlyChanges}");
                 bool selectedWallLost = baseline.LostWallTiles.Any(baseline.ComponentTiles.Contains);
+                if (selectedWallLost && !session.WallLossStageEmitted)
+                {
+                    session.WallLossStageEmitted = true;
+                    session.WallLossUtc = DateTime.UtcNow;
+                    EmitChunked($"PREPLACED_WALL_BREACH_STAGE: player={session.PlayerId}; ",
+                        $"stage=baseline-wall-loss; reason={reason}; role={session.WallTestRole}; " +
+                        $"lostWallTiles=[{string.Join(",", baseline.LostWallTiles.Where(baseline.ComponentTiles.Contains).OrderBy(value => value))}]");
+                }
                 bool physicallyConnected = selectedWallLost && IsBaselineInteriorConnectedToExterior(baseline);
                 WallAnchorPair confirmed = baseline.Anchors.FirstOrDefault(anchor =>
                     WallBreachConfirmation.IsConfirmed(true,
                         anchor.OldInsidePcl, anchor.OldOutsidePcl,
                         current[anchor.InsideTileId], current[anchor.OutsideTileId]));
-                if (!physicallyConnected || confirmed == null) continue;
+                if (selectedWallLost && confirmed != null && !session.AnchorConnectionStageEmitted)
+                {
+                    session.AnchorConnectionStageEmitted = true;
+                    EmitChunked($"PREPLACED_WALL_BREACH_STAGE: player={session.PlayerId}; ",
+                        $"stage=stable-pcl-anchor-connected; reason={reason}; physicalFloodConnected={physicallyConnected}; " +
+                        $"anchorWall={confirmed.WallTileId}; insideTile={confirmed.InsideTileId}; outsideTile={confirmed.OutsideTileId}; " +
+                        $"pcl={confirmed.OldInsidePcl}+{confirmed.OldOutsidePcl}->{current[confirmed.InsideTileId]}");
+                }
+                if (!selectedWallLost || confirmed == null) continue;
                 session.ConfirmedWallBreach = true;
                 session.WallBreachUtc = DateTime.UtcNow;
                 session.Counters.Add("confirmed-wall-breach reason=" + reason);
                 EmitChunked($"PREPLACED_CONFIRMED_WALL_BREACH: player={session.PlayerId}; ",
-                    $"reason={reason}; role={session.WallTestRole}; confirmation=selected-baseline-wall-lost+physical-flood+anchor-connectivity; " +
+                    $"reason={reason}; role={session.WallTestRole}; confirmation=selected-baseline-wall-lost+stable-anchor-connectivity; " +
+                    $"physicalFloodConnected={physicallyConnected}; " +
                     $"lostWallTiles=[{string.Join(",", baseline.LostWallTiles.Where(baseline.ComponentTiles.Contains).OrderBy(value => value))}]; " +
                     $"anchorWall={confirmed.WallTileId}; insideTile={confirmed.InsideTileId}; outsideTile={confirmed.OutsideTileId}; " +
                     $"pcl={confirmed.OldInsidePcl}+{confirmed.OldOutsidePcl}->{current[confirmed.InsideTileId]}");
@@ -2470,10 +2636,10 @@ namespace PreplacedTest
                     (int)api.GetTileVectorFromId(tileId).X,
                     (int)api.GetTileVectorFromId(tileId).Y).IsWall)
                     currentBlockers.Add(tileId);
-            foreach (BuildingSnapshot portal in CaptureRawBuildings().Where(value =>
-                value.OwnerId == baseline.PlayerId && IsLiving(value) && IsPortalStructure(value.Type)))
-                for (int x = portal.TileX; x <= portal.EndX; x++)
-                    for (int y = portal.TileY; y <= portal.EndY; y++)
+            foreach (BuildingSnapshot enclosure in CaptureRawBuildings().Where(value =>
+                value.OwnerId == baseline.PlayerId && IsLiving(value) && IsEnclosureBuilding(value.Type)))
+                for (int x = enclosure.TileX; x <= enclosure.EndX; x++)
+                    for (int y = enclosure.TileY; y <= enclosure.EndY; y++)
                         if (api.IsTileInsideMapBounds(x, y))
                         {
                             int tileId = api.GetTileId(x, y);
@@ -2576,6 +2742,7 @@ namespace PreplacedTest
                 aiOwnershipResolved = true;
                 CapturePreplacedBaseline();
                 EmitLegacyCopyBuildingCorrelation();
+                EmitLegacyTimerFixEligibility();
                 ResolveWallTestRoles();
                 DrainCrushedWriterSignals();
                 for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
@@ -2792,8 +2959,7 @@ namespace PreplacedTest
                 if (!IsAi(playerId)) continue;
                 WallTileBaseline baseline = CaptureWallBaseline(playerId, encoding, buildings);
                 if (baseline != null) wallBaselines[playerId] = baseline;
-                int wallCount = baseline != null && baseline.GeometryClosed
-                    ? baseline.ComponentTiles.Count : 0;
+                int wallCount = baseline?.ComponentTiles.Count ?? 0;
                 int portalCount = baseline == null ? 0 : buildings.Count(building =>
                     building.OwnerId == playerId && IsLiving(building) && IsPortalStructure(building.Type) &&
                     BuildingFootprintOverlaps(building, baseline.ComponentBlockers));
@@ -2802,7 +2968,8 @@ namespace PreplacedTest
                 session.WallTestRole = role;
                 session.Counters.Add($"wall-test-role role={role} walls={wallCount} portals={portalCount}");
                 rows.Add($"player={playerId}/role={role}/wallTiles={wallCount}/portals={portalCount}" +
-                    $"/componentTiles={(baseline?.ComponentTiles.Count ?? 0)}/anchors={(baseline?.Anchors.Count ?? 0)}");
+                    $"/componentTiles={(baseline?.ComponentTiles.Count ?? 0)}/anchors={(baseline?.Anchors.Count ?? 0)}" +
+                    $"/geometryClosed={baseline?.GeometryClosed}/confidence={(baseline != null && baseline.GeometryClosed ? "geometry+pcl" : "pcl-component-candidate")}");
             }
             string ambiguity = rows.Count(row => row.Contains("role=GatedWallCandidate")) > 1 ||
                 rows.Count(row => row.Contains("role=ClosedWallCandidate")) > 1
@@ -2881,18 +3048,22 @@ namespace PreplacedTest
                         if (api.IsTileInsideMapBounds(x, y)) all.Remove(api.GetTileId(x, y));
             if (all.Count == 0) return null;
 
+            var wallOnlyBlockers = new HashSet<int>(all.Keys);
+            int keepTileId = api.GetTileId(keepX, keepY);
+            HashSet<int> wallOnlyInterior = FloodPassable(new[] { keepTileId }, wallOnlyBlockers, api);
+            HashSet<int> wallOnlyExterior = FloodPassable(EnumerateMapBoundaryTiles(wallOnlyBlockers, api), wallOnlyBlockers, api);
+
             var blockers = new HashSet<int>(all.Keys);
-            foreach (BuildingSnapshot portal in buildings.Where(value => value.OwnerId == playerId &&
-                IsLiving(value) && IsPortalStructure(value.Type)))
-                for (int x = portal.TileX; x <= portal.EndX; x++)
-                    for (int y = portal.TileY; y <= portal.EndY; y++)
+            foreach (BuildingSnapshot enclosure in buildings.Where(value => value.OwnerId == playerId &&
+                IsLiving(value) && IsEnclosureBuilding(value.Type)))
+                for (int x = enclosure.TileX; x <= enclosure.EndX; x++)
+                    for (int y = enclosure.TileY; y <= enclosure.EndY; y++)
                         if (api.IsTileInsideMapBounds(x, y)) blockers.Add(api.GetTileId(x, y));
 
-            int keepTileId = api.GetTileId(keepX, keepY);
             HashSet<int> interior = FloodPassable(new[] { keepTileId }, blockers, api);
             HashSet<int> exterior = FloodPassable(EnumerateMapBoundaryTiles(blockers, api), blockers, api);
             HashSet<int> componentBlockers = SelectEnclosureBlockerComponent(blockers, all,
-                interior, exterior, api);
+                interior, exterior, api, out List<HashSet<int>> candidateComponents);
             var component = new HashSet<int>(componentBlockers.Where(all.ContainsKey));
             var anchors = new List<WallAnchorPair>();
             foreach (int wallTileId in component)
@@ -2906,23 +3077,64 @@ namespace PreplacedTest
                 if (insidePcl <= 0 || outsidePcl <= 0 || insidePcl == outsidePcl) continue;
                 anchors.Add(new WallAnchorPair(wallTileId, insideTile, outsideTile, insidePcl, outsidePcl));
             }
+            AddPclAdjacencyAnchors(component, anchors, keepTileId, api);
             EmitChunked($"PREPLACED_WALL_BASELINE: player={playerId}; ",
                 $"encoding={encoding}; keep=({keepX},{keepY}); ownedWallTiles={all.Count}; " +
-                $"geometryClosed={!interior.Overlaps(exterior)}; interiorTiles={interior.Count}; exteriorTiles={exterior.Count}; " +
+                $"wallOnlyClosed={!wallOnlyInterior.Overlaps(wallOnlyExterior)}; wallAwareClosed={!interior.Overlaps(exterior)}; " +
+                $"interiorTiles={interior.Count}; exteriorTiles={exterior.Count}; " +
                 $"selectedComponentTiles={component.Count}; selectedBlockers={componentBlockers.Count}; anchors={anchors.Count}; " +
+                $"candidateComponents=[{string.Join(";", candidateComponents.Select((value, index) =>
+                    index + ":blockers=" + value.Count + "/walls=" + value.Count(all.ContainsKey) +
+                    "/selected=" + ReferenceEquals(value, componentBlockers)))}]; " +
                 $"tiles=[{string.Join(",", component.OrderBy(value => value))}]; " +
                 $"anchorPairs=[{string.Join(";", anchors.Select(value => value.ToString()))}]");
             return new WallTileBaseline(playerId, encoding, keepX, keepY, all, component,
-                componentBlockers, interior, exterior, !interior.Overlaps(exterior), anchors);
+                componentBlockers, candidateComponents, interior, exterior, !interior.Overlaps(exterior), anchors);
+        }
+
+        private void AddPclAdjacencyAnchors(HashSet<int> component, List<WallAnchorPair> anchors,
+            int keepTileId, GameTileManagerAPI api)
+        {
+            if (!TryGetPclByTileId(keepTileId, out int keepPcl, "wall-anchor-keep")) keepPcl = 0;
+            var known = new HashSet<string>(anchors.Select(value => value.InsideTileId + "/" + value.OutsideTileId));
+            int before = anchors.Count;
+            AddPclAdjacencyAnchors(component, anchors, known, api, keepPcl);
+            // Some enclosures fragment the keep-side label before the first snapshot. Preserve an unbiased fallback.
+            if (anchors.Count == before && keepPcl > 0)
+                AddPclAdjacencyAnchors(component, anchors, known, api, 0);
+        }
+
+        private void AddPclAdjacencyAnchors(HashSet<int> component, List<WallAnchorPair> anchors,
+            HashSet<string> known, GameTileManagerAPI api, int requiredInsidePcl)
+        {
+            foreach (int wallTileId in component)
+            {
+                var vector = api.GetTileVectorFromId(wallTileId);
+                var adjacent = new List<(int TileId, int Pcl)>();
+                foreach (int tileId in GetAdjacentTileIds((int)vector.X, (int)vector.Y, api, true))
+                    if (!component.Contains(tileId) && TryGetPclByTileId(tileId, out int pcl, "wall-anchor-adjacent") && pcl > 0)
+                        adjacent.Add((tileId, pcl));
+                foreach (var inside in adjacent)
+                    foreach (var outside in adjacent)
+                    {
+                        if (inside.TileId == outside.TileId || inside.Pcl == outside.Pcl) continue;
+                        if (requiredInsidePcl > 0 && inside.Pcl != requiredInsidePcl) continue;
+                        string key = inside.TileId + "/" + outside.TileId;
+                        if (!known.Add(key)) continue;
+                        anchors.Add(new WallAnchorPair(wallTileId, inside.TileId, outside.TileId,
+                            inside.Pcl, outside.Pcl));
+                    }
+            }
         }
 
         private static HashSet<int> SelectEnclosureBlockerComponent(HashSet<int> blockers,
             Dictionary<int, WallTileState> walls, HashSet<int> interior, HashSet<int> exterior,
-            GameTileManagerAPI api)
+            GameTileManagerAPI api, out List<HashSet<int>> candidateComponents)
         {
             var remaining = new HashSet<int>(blockers);
             HashSet<int> best = new HashSet<int>();
             int bestWallCount = 0;
+            candidateComponents = new List<HashSet<int>>();
             while (remaining.Count != 0)
             {
                 int seed = remaining.First();
@@ -2946,9 +3158,12 @@ namespace PreplacedTest
                         { component.Add(neighbor); queue.Enqueue(neighbor); }
                 }
                 int wallCount = component.Count(walls.ContainsKey);
+                if (wallCount != 0) candidateComponents.Add(component);
                 if (touchesInterior && touchesExterior && wallCount > bestWallCount)
                 { bestWallCount = wallCount; best = component; }
             }
+            if (best.Count == 0 && candidateComponents.Count != 0)
+                best = candidateComponents.OrderByDescending(value => value.Count(walls.ContainsKey)).First();
             return best;
         }
 
@@ -3078,8 +3293,12 @@ namespace PreplacedTest
             loadSaveEventObserved = false;
             loadingEditorMap = false;
             lastLegacyCopyMapVersion = -1;
+            lastLegacyCopySourceBefore = null;
+            lastLegacyCopyDestinationBefore = null;
             lastLegacyCopySource = null;
             lastLegacyCopyDestination = null;
+            legacyCopyBuildings.Clear();
+            crushedActivationBuildings.Clear();
             activeAccessibilityCalls = null;
             emittedGridUpdateSignatures.Clear();
             emittedDominantPclSignatures.Clear();
@@ -3264,7 +3483,11 @@ namespace PreplacedTest
                 lastCrushedCounters[playerId] = current;
                 Shared.DebugLogHelper.LogInfo(log,
                     $"PREPLACED_CRUSHED_TRANSITION: player={playerId}; {previous}->{current}; phase={lastObservedPhase}; source={source}.");
-                if (previous == 0 && current != 0) EmitRawBuildingInventory("CRUSHED_ACTIVATION_RAW");
+                if (previous == 0 && current != 0)
+                {
+                    crushedActivationBuildings[playerId] = CaptureRawBuildings();
+                    EmitRawBuildingInventory("CRUSHED_ACTIVATION_RAW");
+                }
             }
         }
 
@@ -3824,6 +4047,12 @@ namespace PreplacedTest
             public WallTestRole WallTestRole { get; set; }
             public bool ConfirmedWallBreach { get; set; }
             public DateTime WallBreachUtc { get; set; }
+            public bool WallLossStageEmitted { get; set; }
+            public DateTime WallLossUtc { get; set; }
+            public bool AnchorConnectionStageEmitted { get; set; }
+            public bool ShadowExpansionStageEmitted { get; set; }
+            public Dictionary<string, ShadowSearchSummary> ShadowBaselines { get; } =
+                new Dictionary<string, ShadowSearchSummary>(StringComparer.Ordinal);
             public EconomyBarrierObservation LastEconomyBarrier { get; set; }
             public List<EconomyBarrierObservation> EconomyBarriers { get; } = new List<EconomyBarrierObservation>();
             public bool HasAivArea { get; set; } public int AivOriginX { get; set; } public int AivOriginY { get; set; }
@@ -3831,6 +4060,7 @@ namespace PreplacedTest
             public HashSet<string> EmittedPortalSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedSearchSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedPostBreachSearchKinds { get; } = new HashSet<string>(StringComparer.Ordinal);
+            public HashSet<string> EmittedOracleSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
 
             public bool IsInsideAivArea(BuildingSnapshot building) =>
                 AivAreaClassifier.Intersects(AivOriginX, AivOriginY, AivGridSize,
@@ -3913,6 +4143,14 @@ namespace PreplacedTest
             public int ResultY { get; }
             public static EconomyGridState Unavailable => new EconomyGridState(-1, -1, -1, -1, -1, -1);
             public override string ToString() => $"generation={Generation}/depth={Depth}/queue={QueueRead}->{QueueWrite}/result=({ResultX},{ResultY})";
+        }
+
+        private readonly struct ShadowSearchSummary
+        {
+            public ShadowSearchSummary(int reachable, int candidates)
+            { Reachable = reachable; Candidates = candidates; }
+            public int Reachable { get; }
+            public int Candidates { get; }
         }
 
         private readonly struct EconomyCoordinate : IEquatable<EconomyCoordinate>
@@ -4069,6 +4307,7 @@ namespace PreplacedTest
             {
                 GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
                 var pclScratch = new int[EconomyCoarseCellTileSize * EconomyCoarseCellTileSize];
+                Dictionary<int, int> canonicalPcls = BuildCanonicalPclMap(tilePcls, tilePclCount);
                 ulong total = 1469598103934665603UL;
                 for (int index = 0; index < EconomyGridCellCount; index++)
                 {
@@ -4081,7 +4320,8 @@ namespace PreplacedTest
                     EconomyCoordinate coordinate = EconomyCoordinate.FromIndex(index);
                     int count = ReadDistinctPcls(tiles, tilePcls, tilePclCount,
                         coordinate.X, coordinate.Y, pclScratch, invalidTileId);
-                    for (int pclIndex = 0; pclIndex < count; pclIndex++) cellHash = Hash(cellHash, pclScratch[pclIndex]);
+                    for (int pclIndex = 0; pclIndex < count; pclIndex++)
+                        cellHash = Hash(cellHash, canonicalPcls[pclScratch[pclIndex]]);
                     total = Hash(total, unchecked((int)cellHash));
                     total = Hash(total, unchecked((int)(cellHash >> 32)));
                 }
@@ -4097,6 +4337,7 @@ namespace PreplacedTest
                 var flattenedPcls = new ushort[EconomyGridCellCount * EconomyCoarseCellTileSize * EconomyCoarseCellTileSize];
                 var pclScratch = new int[EconomyCoarseCellTileSize * EconomyCoarseCellTileSize];
                 GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+                Dictionary<int, int> canonicalPcls = BuildCanonicalPclMap(tilePcls, tilePclCount);
                 ulong total = 1469598103934665603UL;
                 for (int index = 0; index < EconomyGridCellCount; index++)
                 {
@@ -4119,13 +4360,26 @@ namespace PreplacedTest
                     {
                         int pcl = pclScratch[pclIndex];
                         flattenedPcls[pclBase + pclIndex] = checked((ushort)pcl);
-                        cellHash = Hash(cellHash, pcl);
+                        cellHash = Hash(cellHash, canonicalPcls[pcl]);
                     }
                     signatures[index] = cellHash;
                     total = Hash(total, unchecked((int)cellHash));
                     total = Hash(total, unchecked((int)(cellHash >> 32)));
                 }
                 return new EconomyRoutingSnapshot(total, signatures, payloads, counts, flattenedPcls);
+            }
+
+            private static Dictionary<int, int> BuildCanonicalPclMap(ushort* tilePcls, int tilePclCount)
+            {
+                var result = new Dictionary<int, int>();
+                if (tilePcls == null || tilePclCount <= 0) return result;
+                // First native tile occurrence is stable when Vanilla merely renumbers otherwise identical regions.
+                for (int tileId = 0; tileId < tilePclCount; tileId++)
+                {
+                    int pcl = tilePcls[tileId];
+                    if (pcl > 0 && !result.ContainsKey(pcl)) result.Add(pcl, result.Count + 1);
+                }
+                return result;
             }
 
             private static int ReadDistinctPcls(GameTileManagerAPI tiles, ushort* tilePcls, int tilePclCount,
@@ -4250,12 +4504,13 @@ namespace PreplacedTest
         {
             public WallTileBaseline(int playerId, WallOwnerEncoding encoding, int keepX, int keepY,
                 Dictionary<int, WallTileState> tiles, HashSet<int> componentTiles,
-                HashSet<int> componentBlockers, HashSet<int> interiorTiles,
+                HashSet<int> componentBlockers, List<HashSet<int>> candidateComponents, HashSet<int> interiorTiles,
                 HashSet<int> exteriorTiles, bool geometryClosed, List<WallAnchorPair> anchors)
             {
                 PlayerId = playerId; Encoding = encoding; KeepX = keepX; KeepY = keepY;
                 Tiles = tiles; LastObservedTiles = new Dictionary<int, WallTileState>(tiles);
                 ComponentTiles = componentTiles; ComponentBlockers = componentBlockers;
+                CandidateComponents = candidateComponents ?? new List<HashSet<int>>();
                 InteriorTiles = interiorTiles; ExteriorTiles = exteriorTiles;
                 GeometryClosed = geometryClosed; Anchors = anchors;
             }
@@ -4268,6 +4523,7 @@ namespace PreplacedTest
             public HashSet<int> LostWallTiles { get; } = new HashSet<int>();
             public HashSet<int> ComponentTiles { get; }
             public HashSet<int> ComponentBlockers { get; }
+            public List<HashSet<int>> CandidateComponents { get; }
             public HashSet<int> InteriorTiles { get; }
             public HashSet<int> ExteriorTiles { get; }
             public bool GeometryClosed { get; }
@@ -4379,6 +4635,12 @@ namespace PreplacedTest
         {
             switch (type)
             {
+                case eStructs.STRUCT_TOWER1_DESTROYED:
+                case eStructs.STRUCT_TOWER2_DESTROYED:
+                case eStructs.STRUCT_TOWER3_DESTROYED:
+                case eStructs.STRUCT_TOWER4_DESTROYED:
+                case eStructs.STRUCT_TOWER5_DESTROYED:
+                    return "ruin-destroyed-tower";
                 case eStructs.STRUCT_RUINS:
                 case eStructs.STRUCT_RUINS01:
                 case eStructs.STRUCT_RUINS02:
@@ -4440,6 +4702,17 @@ namespace PreplacedTest
         private static bool IsWallStructure(eStructs type) =>
             type == eStructs.STRUCT_WOOD_WALL || type == eStructs.STRUCT_STONE_WALL ||
             type == eStructs.STRUCT_CRENAL_WALL || type == eStructs.STRUCT_WAS_WALL;
+
+        private static bool IsDestroyedTower(eStructs type) =>
+            type == eStructs.STRUCT_TOWER1_DESTROYED || type == eStructs.STRUCT_TOWER2_DESTROYED ||
+            type == eStructs.STRUCT_TOWER3_DESTROYED || type == eStructs.STRUCT_TOWER4_DESTROYED ||
+            type == eStructs.STRUCT_TOWER5_DESTROYED;
+
+        private static bool IsEnclosureBuilding(eStructs type) =>
+            IsPortalStructure(type) || type == eStructs.STRUCT_TOWER ||
+            type == eStructs.STRUCT_TOWER1 || type == eStructs.STRUCT_TOWER2 ||
+            type == eStructs.STRUCT_TOWER3 || type == eStructs.STRUCT_TOWER4 ||
+            type == eStructs.STRUCT_TOWER5;
 
         private sealed class InventoryRecord
         {

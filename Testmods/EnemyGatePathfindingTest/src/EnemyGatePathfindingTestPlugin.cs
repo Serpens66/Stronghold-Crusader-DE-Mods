@@ -53,8 +53,8 @@ namespace EnemyGatePathfindingTest
             if (mapUnloadSubscription == null)
             {
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => runtime?.EndMap());
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(_ => runtime?.EndMap("OnUnloadMap(Pre)"));
             }
             if (!beforeRenderInstalled)
             {

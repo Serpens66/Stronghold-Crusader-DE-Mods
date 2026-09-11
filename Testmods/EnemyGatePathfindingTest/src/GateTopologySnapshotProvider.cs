@@ -10,29 +10,72 @@ using System.Threading;
 
 namespace EnemyGatePathfindingTest
 {
+    internal readonly struct TopologyCoverageSnapshot
+    {
+        internal TopologyCoverageSnapshot(int errors, long accessScans, long accessChanges,
+            long accessRepublishes, long suppressedRawChanges, int peakTracked,
+            int peakCaptured, int peakBlockedPairs, long captureTransitions,
+            long recaptureTransitions, bool drawbridgeObserved)
+        {
+            Errors = errors; AccessScans = accessScans; AccessChanges = accessChanges;
+            AccessRepublishes = accessRepublishes; SuppressedRawChanges = suppressedRawChanges;
+            PeakTracked = peakTracked; PeakCaptured = peakCaptured;
+            PeakBlockedPairs = peakBlockedPairs; CaptureTransitions = captureTransitions;
+            RecaptureTransitions = recaptureTransitions; DrawbridgeObserved = drawbridgeObserved;
+        }
+
+        internal int Errors { get; }
+        internal long AccessScans { get; }
+        internal long AccessChanges { get; }
+        internal long AccessRepublishes { get; }
+        internal long SuppressedRawChanges { get; }
+        internal int PeakTracked { get; }
+        internal int PeakCaptured { get; }
+        internal int PeakBlockedPairs { get; }
+        internal long CaptureTransitions { get; }
+        internal long RecaptureTransitions { get; }
+        internal bool DrawbridgeObserved { get; }
+    }
+
     // Builds immutable policy snapshots outside native callbacks.
     internal sealed unsafe class GateTopologySnapshotProvider
     {
-        private const int MaximumTopologyDetailLogs = 32;
         private const int MaximumErrorsPerCategory = 8;
-        private static readonly long SnapshotInterval = Math.Max(1, Stopwatch.Frequency / 4);
+        private static readonly long TopologySafetyInterval = Math.Max(1, Stopwatch.Frequency);
 
         private readonly ManualLogSource log;
         private readonly object snapshotLock = new object();
 
         private volatile TopologySnapshot snapshot = TopologySnapshot.Empty;
+        private volatile NativeGateAccessSnapshot accessSnapshot = NativeGateAccessSnapshot.Empty;
+        private TopologySnapshot lastStableTopologySnapshot = TopologySnapshot.Empty;
+        private NativeGateAccessSnapshot lastStableAccessSnapshot = NativeGateAccessSnapshot.Empty;
         private Action<RouteTilePolicySnapshot> routePolicyConsumer;
         private Action<NativeGateAccessSnapshot> gateAccessConsumer;
         private int epochActive;
         private int epochNumber;
         private int initializedDeferredEpoch;
+        private int accessRefreshRequired;
+        private int accessPolicyWasCleared;
+        private int routePolicyWasCleared;
         private string pendingEpochReason = "map start";
         private long nextSnapshotAt;
+        private ulong lastAccessFingerprint;
+        private ulong lastTopologySignature;
         private ulong lastTopologyFingerprint;
-        private int topologyDetailLogs;
         private int snapshotErrors;
+        private long accessScans;
+        private long accessChanges;
+        private long accessRepublishes;
+        private long suppressedRawAccessChanges;
         private long topologyBuilds;
         private long topologyChanges;
+        private long captureTransitions;
+        private long recaptureTransitions;
+        private long peakTrackedRecords;
+        private long peakCapturedRecords;
+        private long peakBlockedPairs;
+        private int drawbridgeObserved;
 
         internal GateTopologySnapshotProvider(ManualLogSource log)
         {
@@ -48,7 +91,7 @@ namespace EnemyGatePathfindingTest
         internal void SetGateAccessConsumer(Action<NativeGateAccessSnapshot> consumer)
         {
             gateAccessConsumer = consumer;
-            consumer?.Invoke(snapshot.GateAccessPolicy);
+            consumer?.Invoke(accessSnapshot);
         }
 
         internal void BeginExplicitEpoch(string reason)
@@ -66,9 +109,36 @@ namespace EnemyGatePathfindingTest
                 return;
             Shared.DebugLogHelper.LogInfo(log,
                 $"Gate topology epoch {epochNumber} ended ({reason ?? "unspecified"}): " +
+                $"accessScans={Read(ref accessScans)}, accessChanges={Read(ref accessChanges)}, " +
                 $"builds={Read(ref topologyBuilds)}, changes={Read(ref topologyChanges)}, " +
                 $"snapshotErrors={Volatile.Read(ref snapshotErrors)}.");
         }
+
+        internal string DescribeState()
+        {
+            NativeGateAccessSnapshot access = accessSnapshot;
+            TopologySnapshot topology = snapshot;
+            return $"access(fingerprint=0x{access.TopologyFingerprint:X16},raw=0x{access.RawFingerprint:X16}," +
+                $"tracked={access.TrackedRecords}," +
+                $"captured={access.CapturedRecords},uncaptured={access.UncapturedRecords}," +
+                $"blockedPairs={access.BlockedPlayerGatePairs},scans={Read(ref accessScans)}," +
+                $"changes={Read(ref accessChanges)},republishes={Read(ref accessRepublishes)}," +
+                $"suppressedRaw={Read(ref suppressedRawAccessChanges)}," +
+                $"peakTracked={Read(ref peakTrackedRecords)},peakCaptured={Read(ref peakCapturedRecords)}," +
+                $"peakBlockedPairs={Read(ref peakBlockedPairs)},captureTransitions={Read(ref captureTransitions)}," +
+                $"recaptureTransitions={Read(ref recaptureTransitions)}), " +
+                $"route(fingerprint=0x{topology.Fingerprint:X16}," +
+                $"combinations={topology.Combinations.Length},builds={Read(ref topologyBuilds)}," +
+                $"changes={Read(ref topologyChanges)},drawbridgeObserved={Volatile.Read(ref drawbridgeObserved)}), " +
+                $"errors={Volatile.Read(ref snapshotErrors)}";
+        }
+
+        internal TopologyCoverageSnapshot GetCoverageSnapshot() => new TopologyCoverageSnapshot(
+            Volatile.Read(ref snapshotErrors), Read(ref accessScans), Read(ref accessChanges),
+            Read(ref accessRepublishes), Read(ref suppressedRawAccessChanges),
+            unchecked((int)Read(ref peakTrackedRecords)), unchecked((int)Read(ref peakCapturedRecords)),
+            unchecked((int)Read(ref peakBlockedPairs)), Read(ref captureTransitions),
+            Read(ref recaptureTransitions), Volatile.Read(ref drawbridgeObserved) != 0);
 
         internal void ProcessDeferred()
         {
@@ -77,7 +147,9 @@ namespace EnemyGatePathfindingTest
             try
             {
                 InitializeDeferredEpochIfNeeded();
-                RefreshTopologyIfDue(Stopwatch.GetTimestamp());
+                long now = Stopwatch.GetTimestamp();
+                RefreshGateAccess();
+                RefreshTopologyIfDue(now);
             }
             catch (Exception ex)
             {
@@ -90,7 +162,7 @@ namespace EnemyGatePathfindingTest
         {
             // Script Extender contract: this is a cheap accepted-record
             // freshness probe only. Full topology/footprint rebuilding remains deferred
-            // to onBeforeRender and is still capped at four times per second.
+            // to onBeforeRender and is capped at once per second unless state changes.
             if (Volatile.Read(ref epochActive) == 0)
                 return;
             try
@@ -112,6 +184,11 @@ namespace EnemyGatePathfindingTest
                         Volatile.Write(ref nextSnapshotAt, 0);
                         // A capture/owner change invalidates both policies immediately.
                         // The next deferred scan rebuilds them outside native callbacks.
+                        snapshot = TopologySnapshot.Empty;
+                        accessSnapshot = NativeGateAccessSnapshot.Empty;
+                        Volatile.Write(ref routePolicyWasCleared, 1);
+                        Volatile.Write(ref accessPolicyWasCleared, 1);
+                        Volatile.Write(ref accessRefreshRequired, 1);
                         routePolicyConsumer?.Invoke(RouteTilePolicySnapshot.Empty);
                         gateAccessConsumer?.Invoke(NativeGateAccessSnapshot.Empty);
                         return;
@@ -149,8 +226,13 @@ namespace EnemyGatePathfindingTest
 
         private void ResetHotCounters()
         {
+            Reset(ref accessScans); Reset(ref accessChanges);
+            Reset(ref accessRepublishes); Reset(ref suppressedRawAccessChanges);
             Reset(ref topologyBuilds); Reset(ref topologyChanges);
-            Interlocked.Exchange(ref topologyDetailLogs, 0);
+            Reset(ref captureTransitions); Reset(ref recaptureTransitions);
+            Reset(ref peakTrackedRecords); Reset(ref peakCapturedRecords);
+            Reset(ref peakBlockedPairs);
+            Volatile.Write(ref drawbridgeObserved, 0);
             Interlocked.Exchange(ref snapshotErrors, 0);
         }
 
@@ -163,42 +245,120 @@ namespace EnemyGatePathfindingTest
             long now = Stopwatch.GetTimestamp();
             // Stay outside the native query/building mutation stack. NeedsInit is a
             // valid temporary editor state and is diagnosed after this deferred delay.
-            Volatile.Write(ref nextSnapshotAt, now + SnapshotInterval);
+            Volatile.Write(ref nextSnapshotAt, now);
             snapshot = TopologySnapshot.Empty;
+            accessSnapshot = NativeGateAccessSnapshot.Empty;
+            lastStableTopologySnapshot = TopologySnapshot.Empty;
+            lastStableAccessSnapshot = NativeGateAccessSnapshot.Empty;
             routePolicyConsumer?.Invoke(RouteTilePolicySnapshot.Empty);
             gateAccessConsumer?.Invoke(NativeGateAccessSnapshot.Empty);
+            lastAccessFingerprint = 0;
+            lastTopologySignature = 0;
             lastTopologyFingerprint = 0;
+            Volatile.Write(ref accessPolicyWasCleared, 0);
+            Volatile.Write(ref routePolicyWasCleared, 0);
+            Volatile.Write(ref accessRefreshRequired, 1);
             Shared.DebugLogHelper.LogInfo(log,
                 $"Gate topology epoch {currentEpoch} started ({pendingEpochReason}). " +
-                "Topology and immutable access snapshots are built only from onBeforeRender; " +
+                "Access changes are scanned allocation-free per rendered frame; expensive tile " +
+                "topology rebuilds run on signature changes or once per second; " +
                 "Same-PCL AI and cursorless command results remain unchanged.");
+        }
+
+        private void RefreshGateAccess()
+        {
+            ulong fingerprint = ComputeGateAccessFingerprint(out int recordCapacity);
+            Interlocked.Increment(ref accessScans);
+            bool forced = Volatile.Read(ref accessRefreshRequired) != 0;
+            if (!forced && fingerprint == lastAccessFingerprint)
+                return;
+
+            NativeGateAccessSnapshot rebuilt = BuildGateAccessSnapshot(fingerprint, recordCapacity);
+            NativeGateAccessSnapshot previous = lastStableAccessSnapshot;
+            bool policyChanged = !previous.PolicyEquals(rebuilt);
+            bool rawChanged = fingerprint != lastAccessFingerprint;
+            lastAccessFingerprint = fingerprint;
+            Volatile.Write(ref accessRefreshRequired, 0);
+            if (policyChanged)
+            {
+                RecordAccessCoverage(previous, rebuilt);
+                string changes = FormatAccessChanges(previous, rebuilt, 24);
+                lastStableAccessSnapshot = rebuilt;
+                accessSnapshot = rebuilt;
+                gateAccessConsumer?.Invoke(rebuilt);
+                Volatile.Write(ref accessPolicyWasCleared, 0);
+                Interlocked.Increment(ref accessChanges);
+                Volatile.Write(ref nextSnapshotAt, 0);
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"Gate access policy changed: fingerprint=0x{rebuilt.TopologyFingerprint:X16}, " +
+                    $"tracked={rebuilt.TrackedRecords}, captured={rebuilt.CapturedRecords}, " +
+                    $"uncaptured={rebuilt.UncapturedRecords}, blockedPairs={rebuilt.BlockedPlayerGatePairs}, " +
+                    $"records=[{changes}].");
+                return;
+            }
+
+            if (rawChanged)
+                Interlocked.Increment(ref suppressedRawAccessChanges);
+            if (Interlocked.Exchange(ref accessPolicyWasCleared, 0) != 0)
+            {
+                // Republish the freshly verified equivalent policy after a tick-side
+                // fail-open window without counting it as a semantic change.
+                lastStableAccessSnapshot = rebuilt;
+                accessSnapshot = rebuilt;
+                gateAccessConsumer?.Invoke(rebuilt);
+                Interlocked.Increment(ref accessRepublishes);
+            }
         }
 
         private void RefreshTopologyIfDue(long now)
         {
+            ulong signature = ComputeTopologySignature(lastStableAccessSnapshot.TopologyFingerprint);
             long due = Volatile.Read(ref nextSnapshotAt);
-            if (now < due || Interlocked.CompareExchange(ref nextSnapshotAt, now + SnapshotInterval, due) != due)
+            bool changed = signature != lastTopologySignature;
+            if (!changed && now < due)
+                return;
+            if (Interlocked.CompareExchange(
+                    ref nextSnapshotAt, now + TopologySafetyInterval, due) != due)
                 return;
             if (!Monitor.TryEnter(snapshotLock))
                 return;
             try
             {
-                TopologySnapshot rebuilt = BuildTopologySnapshot();
+                bool firstBuild = Read(ref topologyBuilds) == 0;
+                TopologySnapshot previous = lastStableTopologySnapshot;
+                bool policyWasCleared = changed;
+                if (policyWasCleared)
+                {
+                    // A structural transition must never expose stale blocked tiles,
+                    // even while the replacement snapshot is being assembled.
+                    snapshot = TopologySnapshot.Empty;
+                    Volatile.Write(ref routePolicyWasCleared, 1);
+                    routePolicyConsumer?.Invoke(RouteTilePolicySnapshot.Empty);
+                }
+                TopologySnapshot rebuilt = BuildTopologySnapshot(firstBuild, previous);
                 snapshot = rebuilt;
-                routePolicyConsumer?.Invoke(rebuilt.RoutePolicy);
-                gateAccessConsumer?.Invoke(rebuilt.GateAccessPolicy);
+                lastStableTopologySnapshot = rebuilt;
+                lastTopologySignature = signature;
                 Interlocked.Increment(ref topologyBuilds);
-                if (rebuilt.Fingerprint != lastTopologyFingerprint)
+                bool policyChanged = rebuilt.Fingerprint != lastTopologyFingerprint;
+                bool republishRequired = Interlocked.Exchange(ref routePolicyWasCleared, 0) != 0;
+                if (policyChanged || republishRequired)
+                    routePolicyConsumer?.Invoke(rebuilt.RoutePolicy);
+                RecordTopologyCoverage(rebuilt);
+                if (policyChanged)
                 {
                     lastTopologyFingerprint = rebuilt.Fingerprint;
                     Interlocked.Increment(ref topologyChanges);
-                    if (Interlocked.Increment(ref topologyDetailLogs) <= MaximumTopologyDetailLogs)
-                    {
-                        Shared.DebugLogHelper.LogInfo(log,
-                            $"Gate/drawbridge topology changed: epoch={epochNumber}, combinations={rebuilt.Combinations.Length}, " +
-                            $"fingerprint=0x{rebuilt.Fingerprint:X16}. {rebuilt.Detail}");
-                    }
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"Gate/drawbridge topology changed: epoch={epochNumber}, " +
+                        $"combinations={rebuilt.Combinations.Length}, " +
+                        $"fingerprint=0x{rebuilt.Fingerprint:X16}, " +
+                        $"entities=[{FormatTopologyChanges(previous, rebuilt, 24)}], " +
+                        $"{rebuilt.Rejections.Format()}.");
                 }
+                if (firstBuild && !string.IsNullOrEmpty(rebuilt.Detail))
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"Initial gate/drawbridge topology detail: {rebuilt.Detail}");
             }
             catch (Exception ex)
             {
@@ -210,7 +370,9 @@ namespace EnemyGatePathfindingTest
             }
         }
 
-        private TopologySnapshot BuildTopologySnapshot()
+        private TopologySnapshot BuildTopologySnapshot(
+            bool includeDetail,
+            TopologySnapshot previous)
         {
             GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
@@ -218,8 +380,11 @@ namespace EnemyGatePathfindingTest
             var gateInfosById = new Dictionary<int, GateBridgeInfo>();
             var gateBuildingsById = new Dictionary<int, GameBuilding>();
             var combinations = new List<GateBridgeInfo>();
-            var detail = new StringBuilder();
+            var detail = includeDetail ? new StringBuilder() : null;
             TopologyRejections rejections = default;
+            string[] rejectionSamples = includeDetail
+                ? new string[Enum.GetValues(typeof(TopologyDiagnosticDisposition)).Length]
+                : null;
             ulong fingerprint = 1469598103934665603UL;
 
             // Script Extender 2.4 exposes the authoritative macro-connection records.
@@ -236,24 +401,36 @@ namespace EnemyGatePathfindingTest
                 if (gateInfosById.ContainsKey(gateId) || !buildingApi.IsValidId(gateId) ||
                     !buildingApi.TryGetBuildingById(gateId, out GameBuilding* gate) || gate == null)
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidGatehouseId);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidGatehouseId,
+                        gateId, 0, 0, 0, 0, "connection-record lookup");
                     continue;
                 }
                 if (!IsDiagnosticActive(gate->r_AliveState))
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidGateState);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidGateState,
+                        gateId, gate->r_GlobalId, gate->r_PlayerIdOwner,
+                        gate->r_CapturedByPlayerId, (int)gate->r_AliveState, "connection-record gate");
                     continue;
                 }
                 if (gate->r_GlobalId == 0)
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidGlobalId);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidGlobalId,
+                        gateId, gate->r_GlobalId, gate->r_PlayerIdOwner,
+                        gate->r_CapturedByPlayerId, (int)gate->r_AliveState, "connection-record gate");
                     continue;
                 }
                 GameBuilding gateSnapshot = *gate;
                 PathConnectionRecord entry = *entryPointer;
                 if (entry.r_SubjectGlobalId != gateSnapshot.r_GlobalId)
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InconsistentReread);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InconsistentReread,
+                        gateId, gateSnapshot.r_GlobalId, gateSnapshot.r_PlayerIdOwner,
+                        gateSnapshot.r_CapturedByPlayerId, (int)gateSnapshot.r_AliveState,
+                        "record/building global mismatch");
                     continue;
                 }
                 int entryTile = unchecked((int)entry.r_EntryTileId);
@@ -261,7 +438,11 @@ namespace EnemyGatePathfindingTest
                 if (entryTile <= 0 || exitTile <= 0 ||
                     !tileApi.IsValidTileId(entryTile) || !tileApi.IsValidTileId(exitTile))
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidDoorTiles);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidDoorTiles,
+                        gateId, gateSnapshot.r_GlobalId, gateSnapshot.r_PlayerIdOwner,
+                        gateSnapshot.r_CapturedByPlayerId, (int)gateSnapshot.r_AliveState,
+                        $"entry={entryTile}/exit={exitTile}");
                     continue;
                 }
                 int entryPcl = ReadPcl(tileApi, entryTile);
@@ -269,7 +450,11 @@ namespace EnemyGatePathfindingTest
                 if (!TryCollectBuildingTiles(
                         tileApi, buildingApi, gateId, gateSnapshot, out TileDiagnostic[] gateTiles))
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidFootprint);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidFootprint,
+                        gateId, gateSnapshot.r_GlobalId, gateSnapshot.r_PlayerIdOwner,
+                        gateSnapshot.r_CapturedByPlayerId, (int)gateSnapshot.r_AliveState,
+                        "gate uses door-tile fallback");
                     gateTiles = CollectDoorTiles(tileApi, entryTile, exitTile);
                 }
                 int[] relevantPcls = CollectRelevantPcls(gateTiles);
@@ -285,8 +470,7 @@ namespace EnemyGatePathfindingTest
                 gateBuildingsById.Add(gateId, gateSnapshot);
                 combinations.Add(gateInfo);
                 rejections.AcceptedGatehouses++;
-                fingerprint = Mix(fingerprint, gateInfo);
-                AppendTopologyDetail(detail, gateInfo.Format());
+                fingerprint = MixRoutePolicy(fingerprint, gateInfo);
             }
 
             // A newly placed editor gate may still be NeedsInit and absent from the
@@ -302,18 +486,27 @@ namespace EnemyGatePathfindingTest
                 rejections.ScannedGatehouses++;
                 if (!IsDiagnosticActive(gate.r_AliveState))
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidGateState);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidGateState,
+                        gateId, gate.r_GlobalId, gate.r_PlayerIdOwner,
+                        gate.r_CapturedByPlayerId, (int)gate.r_AliveState, "fallback gate");
                     continue;
                 }
                 if (gate.r_GlobalId == 0)
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidGlobalId);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidGlobalId,
+                        gateId, gate.r_GlobalId, gate.r_PlayerIdOwner,
+                        gate.r_CapturedByPlayerId, (int)gate.r_AliveState, "fallback gate");
                     continue;
                 }
                 if (!TryCollectBuildingTiles(
                         tileApi, buildingApi, gateId, gate, out TileDiagnostic[] gateTiles))
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidFootprint);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidFootprint,
+                        gateId, gate.r_GlobalId, gate.r_PlayerIdOwner,
+                        gate.r_CapturedByPlayerId, (int)gate.r_AliveState, "fallback gate");
                     continue;
                 }
                 bool[] unrelatedByPlayer = BuildUnrelatedPlayers(
@@ -328,8 +521,7 @@ namespace EnemyGatePathfindingTest
                 combinations.Add(fallbackInfo);
                 rejections.AcceptedGatehouses++;
                 rejections.FallbackGatehouses++;
-                fingerprint = Mix(fingerprint, fallbackInfo);
-                AppendTopologyDetail(detail, fallbackInfo.Format());
+                fingerprint = MixRoutePolicy(fingerprint, fallbackInfo);
             }
 
             // Script Extender contract: the Span is zero-based and its
@@ -345,18 +537,27 @@ namespace EnemyGatePathfindingTest
                 rejections.ScannedDrawbridges++;
                 if (!IsDiagnosticActive(building.r_AliveState))
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidBridge);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidBridge,
+                        buildingId, building.r_GlobalId, building.r_PlayerIdOwner,
+                        building.r_CapturedByPlayerId, (int)building.r_AliveState, "drawbridge");
                     continue;
                 }
                 if (building.r_GlobalId == 0)
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidGlobalId);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidGlobalId,
+                        buildingId, building.r_GlobalId, building.r_PlayerIdOwner,
+                        building.r_CapturedByPlayerId, (int)building.r_AliveState, "drawbridge");
                     continue;
                 }
                 if (!TryCollectBuildingTiles(
                         tileApi, buildingApi, buildingId, building, out TileDiagnostic[] bridgeTiles))
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidFootprint);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidFootprint,
+                        buildingId, building.r_GlobalId, building.r_PlayerIdOwner,
+                        building.r_CapturedByPlayerId, (int)building.r_AliveState, "drawbridge");
                     continue;
                 }
                 int rawGatehouseId = building.r_GatehouseId;
@@ -366,7 +567,11 @@ namespace EnemyGatePathfindingTest
                     bridgeTiles, building.r_PlayerIdOwner, gateInfosById, out gateInfo);
                 if (!nativeLink && !spatialLink)
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InvalidGatehouseId);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InvalidGatehouseId,
+                        buildingId, building.r_GlobalId, building.r_PlayerIdOwner,
+                        building.r_CapturedByPlayerId, (int)building.r_AliveState,
+                        $"drawbridge rawGatehouseId={rawGatehouseId}");
                     var orphanInfo = new GateBridgeInfo(
                         0, 0, building.r_PlayerIdOwner, building.r_CapturedByPlayerId,
                         false, 0, -1, -1, buildingId, building.r_GlobalId,
@@ -376,13 +581,13 @@ namespace EnemyGatePathfindingTest
                         rawGatehouseId, "unlinked-bridge-diagnostic");
                     combinations.Add(orphanInfo);
                     rejections.OrphanBridgeCandidates++;
-                    fingerprint = Mix(fingerprint, orphanInfo);
-                    string orphan = FormatOrphanBridge(
-                        buildingId, building, rawGatehouseId, bridgeTiles,
-                        gateBuildingsById, gateInfosById);
-                    AppendTopologyDetail(detail, orphan);
-                    fingerprint = MixOrphanBridge(
-                        fingerprint, buildingId, building, rawGatehouseId, gateBuildingsById);
+                    if (detail != null)
+                    {
+                        string orphan = FormatOrphanBridge(
+                            buildingId, building, rawGatehouseId, bridgeTiles,
+                            gateBuildingsById, gateInfosById);
+                        AppendTopologyDetail(detail, orphan);
+                    }
                     continue;
                 }
                 if (!buildingApi.TryGetBuildingById(buildingId, out GameBuilding* reread) ||
@@ -390,7 +595,11 @@ namespace EnemyGatePathfindingTest
                     reread->r_GatehouseId != rawGatehouseId ||
                     !IsDiagnosticActive(reread->r_AliveState))
                 {
-                    rejections.Add(TopologyDiagnosticDisposition.InconsistentReread);
+                    RecordRejection(ref rejections, rejectionSamples,
+                        TopologyDiagnosticDisposition.InconsistentReread,
+                        buildingId, building.r_GlobalId, building.r_PlayerIdOwner,
+                        building.r_CapturedByPlayerId, (int)building.r_AliveState,
+                        $"drawbridge rawGatehouseId={rawGatehouseId}");
                     continue;
                 }
                 var bridgeInfo = new GateBridgeInfo(
@@ -401,58 +610,115 @@ namespace EnemyGatePathfindingTest
                     rawGatehouseId, nativeLink ? "native-building-id" : "unique-footprint-adjacency");
                 combinations.Add(bridgeInfo);
                 rejections.Add(TopologyDiagnosticDisposition.Accepted);
-                fingerprint = Mix(fingerprint, bridgeInfo);
-                AppendTopologyDetail(detail, bridgeInfo.Format());
+                fingerprint = MixRoutePolicy(fingerprint, bridgeInfo);
             }
-            if (detail.Length == 0)
-                detail.Append("no active gatehouse or drawbridge record");
-            detail.Append(" | ").Append(rejections.Format());
-            fingerprint = Mix(fingerprint, rejections);
+            if (detail != null)
+            {
+                if (detail.Length == 0)
+                    detail.Append("no rejection or orphan samples");
+                detail.Append(" | ").Append(rejections.Format());
+                for (int index = 0; index < rejectionSamples.Length; index++)
+                    if (!string.IsNullOrEmpty(rejectionSamples[index]))
+                        AppendTopologyDetail(detail,
+                            "firstReject(" + (TopologyDiagnosticDisposition)index + ")=" +
+                            rejectionSamples[index]);
+            }
             GateBridgeInfo[] combinationArray = combinations.ToArray();
-            TopologySnapshot previous = snapshot;
             RouteTilePolicySnapshot routePolicy = previous.Fingerprint == fingerprint
                 ? previous.RoutePolicy
                 : BuildRoutePolicySnapshot(tileApi, fingerprint, combinationArray);
-            NativeGateAccessSnapshot gateAccessPolicy = previous.Fingerprint == fingerprint
-                ? previous.GateAccessPolicy
-                : BuildGateAccessSnapshot(fingerprint, combinationArray);
             return new TopologySnapshot(
-                fingerprint, combinationArray, detail.ToString(), rejections,
-                routePolicy, gateAccessPolicy);
+                fingerprint, combinationArray, detail?.ToString(), rejections, routePolicy);
+        }
+
+        private static ulong ComputeGateAccessFingerprint(out int recordCapacity)
+        {
+            GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
+            recordCapacity = buildings.GetBuildingsAsSpan().Length + 1;
+            var entries = GamePathingManagerAPI.Instance.GetPathConnectionArray();
+            ulong fingerprint = 1469598103934665603UL;
+            for (int index = 0; index < entries.Length; index++)
+            {
+                PathConnectionRecord* entry = entries.GetValuePointer(index);
+                if (entry == null || entry->r_IsActive == 0 || entry->r_BuildingId <= 0)
+                    continue;
+                unchecked
+                {
+                    fingerprint = (fingerprint ^ (uint)entry->r_BuildingId) * 1099511628211UL;
+                    fingerprint = (fingerprint ^ entry->r_SubjectGlobalId) * 1099511628211UL;
+                    if (buildings.IsValidId(entry->r_BuildingId) &&
+                        buildings.TryGetBuildingById(entry->r_BuildingId, out GameBuilding* gate) &&
+                        gate != null)
+                    {
+                        fingerprint = (fingerprint ^ gate->r_GlobalId) * 1099511628211UL;
+                        fingerprint = (fingerprint ^ (uint)gate->r_PlayerIdOwner) * 1099511628211UL;
+                        fingerprint = (fingerprint ^ (uint)gate->r_CapturedByPlayerId) * 1099511628211UL;
+                        fingerprint = (fingerprint ^ (uint)gate->r_AliveState) * 1099511628211UL;
+                        fingerprint = (fingerprint ^ BuildRelatedPlayerMask(
+                            gate->r_PlayerIdOwner)) * 1099511628211UL;
+                        fingerprint = (fingerprint ^ BuildRelatedPlayerMask(
+                            gate->r_CapturedByPlayerId)) * 1099511628211UL;
+                        fingerprint = (fingerprint ^ BuildUnrelatedPlayerMask(
+                            gate->r_PlayerIdOwner, gate->r_CapturedByPlayerId)) * 1099511628211UL;
+                    }
+                }
+            }
+            return fingerprint;
         }
 
         private static NativeGateAccessSnapshot BuildGateAccessSnapshot(
-            ulong fingerprint,
-            GateBridgeInfo[] combinations)
+            ulong fingerprint, int recordCapacity)
         {
-            int maximumGateId = 0;
-            for (int index = 0; index < combinations.Length; index++)
-                if (combinations[index].GateId > maximumGateId)
-                    maximumGateId = combinations[index].GateId;
-            if (maximumGateId <= 0)
-                return NativeGateAccessSnapshot.Empty;
-
-            var records = new NativeGateAccessRecord[maximumGateId + 1];
-            for (int index = 0; index < combinations.Length; index++)
+            if (recordCapacity <= 1)
+                return new NativeGateAccessSnapshot(Array.Empty<NativeGateAccessRecord>(), fingerprint);
+            var records = new NativeGateAccessRecord[recordCapacity];
+            GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
+            var entries = GamePathingManagerAPI.Instance.GetPathConnectionArray();
+            for (int index = 0; index < entries.Length; index++)
             {
-                GateBridgeInfo info = combinations[index];
-                if (info.GateId <= 0 || info.GateId >= records.Length ||
-                    records[info.GateId].Valid)
+                PathConnectionRecord* entry = entries.GetValuePointer(index);
+                if (entry == null || entry->r_IsActive == 0 || entry->r_BuildingId <= 0 ||
+                    entry->r_BuildingId >= records.Length || records[entry->r_BuildingId].Valid ||
+                    !buildings.IsValidId(entry->r_BuildingId) ||
+                    !buildings.TryGetBuildingById(entry->r_BuildingId, out GameBuilding* gate) ||
+                    gate == null || !IsDiagnosticActive(gate->r_AliveState) ||
+                    gate->r_GlobalId == 0 || gate->r_GlobalId != entry->r_SubjectGlobalId)
                     continue;
-
-                ushort unrelatedPlayers = 0;
-                bool[] unrelated = info.UnrelatedByPlayer;
-                if (unrelated != null)
-                {
-                    int count = Math.Min(8, unrelated.Length - 1);
-                    for (int player = 1; player <= count; player++)
-                        if (unrelated[player])
-                            unrelatedPlayers |= unchecked((ushort)(1 << player));
-                }
-                records[info.GateId] = new NativeGateAccessRecord(
-                    true, info.Owner, info.CapturedBy, unrelatedPlayers);
+                records[entry->r_BuildingId] = new NativeGateAccessRecord(
+                    true, gate->r_PlayerIdOwner, gate->r_CapturedByPlayerId,
+                    BuildRelatedPlayerMask(gate->r_PlayerIdOwner),
+                    BuildRelatedPlayerMask(gate->r_CapturedByPlayerId),
+                    BuildUnrelatedPlayerMask(gate->r_PlayerIdOwner, gate->r_CapturedByPlayerId));
             }
             return new NativeGateAccessSnapshot(records, fingerprint);
+        }
+
+        private static ulong ComputeTopologySignature(ulong accessFingerprint)
+        {
+            ulong signature = accessFingerprint;
+            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+            for (int index = 0; index < buildings.Length; index++)
+            {
+                GameBuilding building = buildings[index];
+                if (!IsGatehouseBuildingType(building.r_BuildingType) &&
+                    building.r_BuildingType != eStructs.STRUCT_DRAWBRIDGE)
+                    continue;
+                unchecked
+                {
+                    signature = (signature ^ (uint)(index + 1)) * 1099511628211UL;
+                    signature = (signature ^ (uint)building.r_BuildingType) * 1099511628211UL;
+                    signature = (signature ^ building.r_GlobalId) * 1099511628211UL;
+                    signature = (signature ^ (uint)building.r_AliveState) * 1099511628211UL;
+                    signature = (signature ^ (uint)building.r_PlayerIdOwner) * 1099511628211UL;
+                    signature = (signature ^ (uint)building.r_CapturedByPlayerId) * 1099511628211UL;
+                    signature = (signature ^ (uint)building.r_GatehouseId) * 1099511628211UL;
+                    signature = (signature ^ building.r_TilePositionXBegin) * 1099511628211UL;
+                    signature = (signature ^ building.r_TilePositionYBegin) * 1099511628211UL;
+                    signature = (signature ^ building.r_TilePositionXEnd) * 1099511628211UL;
+                    signature = (signature ^ building.r_TilePositionYEnd) * 1099511628211UL;
+                }
+            }
+            return signature;
         }
 
         private static bool TryFindUniqueAdjacentGate(
@@ -640,10 +906,53 @@ namespace EnemyGatePathfindingTest
             return unrelated;
         }
 
+        private static ushort BuildUnrelatedPlayerMask(int owner, int captured)
+        {
+            ushort mask = 0;
+            for (int player = 1; player <= 8; player++)
+            {
+                if (EnemyGatePathfindingPolicy.IsUnrelatedGateCombination(
+                        player, owner, captured, IsValidPlayer, AreAllied))
+                    mask |= unchecked((ushort)(1 << player));
+            }
+            return mask;
+        }
+
+        private static ushort BuildRelatedPlayerMask(int subject)
+        {
+            if (!IsValidPlayer(subject))
+                return 0;
+            ushort mask = 0;
+            for (int player = 1; player <= 8; player++)
+                if (IsValidPlayer(player) && AreAllied(player, subject))
+                    mask |= unchecked((ushort)(1 << player));
+            return mask;
+        }
+
         private static void AppendTopologyDetail(StringBuilder detail, string value)
         {
             if (detail.Length > 0) detail.Append(" | ");
             detail.Append(value);
+        }
+
+        private static void RecordRejection(
+            ref TopologyRejections rejections,
+            string[] samples,
+            TopologyDiagnosticDisposition disposition,
+            int buildingId,
+            uint globalId,
+            int owner,
+            int captured,
+            int aliveState,
+            string note)
+        {
+            rejections.Add(disposition);
+            int index = (int)disposition;
+            if (samples == null || index < 0 || index >= samples.Length ||
+                samples[index] != null)
+                return;
+            samples[index] = $"building={buildingId}/global={globalId}/owner={owner}/" +
+                $"captured={captured}/alive={aliveState}/note={note}";
         }
 
         private static string FormatOrphanBridge(
@@ -792,40 +1101,198 @@ namespace EnemyGatePathfindingTest
             return result;
         }
 
-        private static ulong Mix(ulong hash, GateBridgeInfo info)
+        private static ulong MixRoutePolicy(ulong hash, GateBridgeInfo info)
         {
             unchecked
             {
                 hash = (hash ^ (uint)info.GateId) * 1099511628211UL;
                 hash = (hash ^ info.GateGlobal) * 1099511628211UL;
-                hash = (hash ^ (uint)info.Owner) * 1099511628211UL;
-                hash = (hash ^ (uint)info.CapturedBy) * 1099511628211UL;
-                hash = (hash ^ (info.IsOpen ? 1UL : 0UL)) * 1099511628211UL;
-                hash = (hash ^ (uint)info.GateAliveState) * 1099511628211UL;
-                hash = (hash ^ (uint)info.EntryPcl) * 1099511628211UL;
-                hash = (hash ^ (uint)info.ExitPcl) * 1099511628211UL;
                 hash = (hash ^ (uint)info.BridgeId) * 1099511628211UL;
                 hash = (hash ^ info.BridgeGlobal) * 1099511628211UL;
-                hash = (hash ^ (uint)info.LinkedGateId) * 1099511628211UL;
-                hash = (hash ^ (uint)info.BridgeAliveState) * 1099511628211UL;
-                hash = (hash ^ (uint)info.RawGatehouseId) * 1099511628211UL;
-                foreach (char character in info.LinkMethod)
-                    hash = (hash ^ character) * 1099511628211UL;
+                ushort blockedMask = 0;
+                for (int player = 1; player < info.UnrelatedByPlayer.Length && player <= 8; player++)
+                    if (info.UnrelatedByPlayer[player])
+                        blockedMask |= unchecked((ushort)(1 << player));
+                hash = (hash ^ blockedMask) * 1099511628211UL;
                 foreach (TileDiagnostic tile in info.Tiles)
                 {
-                    hash = (hash ^ (uint)tile.TileId) * 1099511628211UL;
-                    hash = (hash ^ (uint)tile.Pcl) * 1099511628211UL;
-                    hash = (hash ^ tile.GatePath) * 1099511628211UL;
-                    hash = (hash ^ (uint)tile.BuildingId) * 1099511628211UL;
-                    hash = (hash ^ (uint)tile.Flags) * 1099511628211UL;
-                    hash = (hash ^ (tile.Walkable ? 1UL : 0UL)) * 1099511628211UL;
+                    if (tile.Footprint)
+                        hash = (hash ^ (uint)tile.TileId) * 1099511628211UL;
                 }
                 return hash;
             }
         }
 
+        private static string FormatAccessChanges(
+            NativeGateAccessSnapshot previous,
+            NativeGateAccessSnapshot current,
+            int limit)
+        {
+            NativeGateAccessRecord[] oldRecords = previous?.RecordsByBuildingId ??
+                Array.Empty<NativeGateAccessRecord>();
+            NativeGateAccessRecord[] newRecords = current?.RecordsByBuildingId ??
+                Array.Empty<NativeGateAccessRecord>();
+            int length = Math.Max(oldRecords.Length, newRecords.Length);
+            var text = new StringBuilder();
+            int changed = 0;
+            for (int buildingId = 1; buildingId < length; buildingId++)
+            {
+                NativeGateAccessRecord oldRecord = buildingId < oldRecords.Length
+                    ? oldRecords[buildingId] : default;
+                NativeGateAccessRecord newRecord = buildingId < newRecords.Length
+                    ? newRecords[buildingId] : default;
+                if (oldRecord.Valid == newRecord.Valid &&
+                    oldRecord.OwnerPlayerId == newRecord.OwnerPlayerId &&
+                    oldRecord.CapturedByPlayerId == newRecord.CapturedByPlayerId &&
+                    oldRecord.OwnerRelatedPlayers == newRecord.OwnerRelatedPlayers &&
+                    oldRecord.CapturerRelatedPlayers == newRecord.CapturerRelatedPlayers &&
+                    oldRecord.UnrelatedPlayers == newRecord.UnrelatedPlayers)
+                    continue;
+                changed++;
+                if (changed > limit)
+                    continue;
+                if (text.Length > 0) text.Append(';');
+                text.Append('#').Append(buildingId).Append(':')
+                    .Append(FormatAccessRecord(oldRecord)).Append("->")
+                    .Append(FormatAccessRecord(newRecord));
+            }
+            if (changed == 0)
+                return "fingerprint-only/no-record-diff";
+            if (changed > limit)
+                text.Append(";+").Append(changed - limit);
+            return text.ToString();
+        }
+
+        private static string FormatAccessRecord(NativeGateAccessRecord record) => !record.Valid
+            ? "absent"
+            : $"o{record.OwnerPlayerId}/c{record.CapturedByPlayerId}/" +
+                $"om0x{record.OwnerRelatedPlayers:X}/cm0x{record.CapturerRelatedPlayers:X}/" +
+                $"bm0x{record.UnrelatedPlayers:X}";
+
+        private static string FormatTopologyChanges(
+            TopologySnapshot previous,
+            TopologySnapshot current,
+            int limit)
+        {
+            var oldByKey = new Dictionary<long, GateBridgeInfo>();
+            foreach (GateBridgeInfo info in previous.Combinations)
+                oldByKey[TopologyKey(info)] = info;
+            var text = new StringBuilder();
+            int changed = 0;
+            foreach (GateBridgeInfo info in current.Combinations)
+            {
+                long key = TopologyKey(info);
+                string kind;
+                if (!oldByKey.TryGetValue(key, out GateBridgeInfo old))
+                    kind = "added";
+                else
+                {
+                    oldByKey.Remove(key);
+                    if (RoutePolicyEquals(old, info))
+                        continue;
+                    kind = "changed";
+                }
+                changed++;
+                if (changed <= limit)
+                {
+                    if (text.Length > 0) text.Append(';');
+                    text.Append(kind).Append(':').Append(info.Format());
+                }
+            }
+            foreach (GateBridgeInfo info in oldByKey.Values)
+            {
+                changed++;
+                if (changed <= limit)
+                {
+                    if (text.Length > 0) text.Append(';');
+                    text.Append("removed:gate#").Append(info.GateId)
+                        .Append("/bridge#").Append(info.BridgeId);
+                }
+            }
+            if (changed == 0)
+                return "policy-fingerprint-only/no-entity-diff";
+            if (changed > limit)
+                text.Append(";+").Append(changed - limit);
+            return text.ToString();
+        }
+
+        private void RecordAccessCoverage(
+            NativeGateAccessSnapshot previous,
+            NativeGateAccessSnapshot current)
+        {
+            UpdateMaximum(ref peakTrackedRecords, current.TrackedRecords);
+            UpdateMaximum(ref peakCapturedRecords, current.CapturedRecords);
+            UpdateMaximum(ref peakBlockedPairs, current.BlockedPlayerGatePairs);
+            NativeGateAccessRecord[] oldRecords = previous?.RecordsByBuildingId ??
+                Array.Empty<NativeGateAccessRecord>();
+            NativeGateAccessRecord[] newRecords = current?.RecordsByBuildingId ??
+                Array.Empty<NativeGateAccessRecord>();
+            int length = Math.Max(oldRecords.Length, newRecords.Length);
+            for (int buildingId = 1; buildingId < length; buildingId++)
+            {
+                NativeGateAccessRecord oldRecord = buildingId < oldRecords.Length
+                    ? oldRecords[buildingId] : default;
+                NativeGateAccessRecord newRecord = buildingId < newRecords.Length
+                    ? newRecords[buildingId] : default;
+                CaptureTransitionKind transition =
+                    EnemyGatePathfindingPolicy.ClassifyCaptureTransition(
+                        oldRecord.Valid, oldRecord.CapturedByPlayerId,
+                        newRecord.Valid, newRecord.CapturedByPlayerId);
+                if (transition == CaptureTransitionKind.Captured)
+                    Interlocked.Increment(ref captureTransitions);
+                else if (transition == CaptureTransitionKind.Recaptured)
+                    Interlocked.Increment(ref recaptureTransitions);
+            }
+        }
+
+        private void RecordTopologyCoverage(TopologySnapshot current)
+        {
+            for (int index = 0; index < current.Combinations.Length; index++)
+            {
+                if (current.Combinations[index].BridgeId <= 0)
+                    continue;
+                Volatile.Write(ref drawbridgeObserved, 1);
+                return;
+            }
+        }
+
+        private static long TopologyKey(GateBridgeInfo info) =>
+            (unchecked((long)(uint)info.GateId) << 32) | unchecked((uint)info.BridgeId);
+
+        private static bool RoutePolicyEquals(GateBridgeInfo left, GateBridgeInfo right)
+        {
+            if (left.GateGlobal != right.GateGlobal || left.BridgeGlobal != right.BridgeGlobal ||
+                left.UnrelatedByPlayer.Length != right.UnrelatedByPlayer.Length)
+                return false;
+            for (int player = 1; player < left.UnrelatedByPlayer.Length; player++)
+                if (left.UnrelatedByPlayer[player] != right.UnrelatedByPlayer[player])
+                    return false;
+            var leftTiles = new List<int>();
+            var rightTiles = new List<int>();
+            foreach (TileDiagnostic tile in left.Tiles)
+                if (tile.Footprint) leftTiles.Add(tile.TileId);
+            foreach (TileDiagnostic tile in right.Tiles)
+                if (tile.Footprint) rightTiles.Add(tile.TileId);
+            leftTiles.Sort();
+            rightTiles.Sort();
+            if (leftTiles.Count != rightTiles.Count)
+                return false;
+            for (int index = 0; index < leftTiles.Count; index++)
+                if (leftTiles[index] != rightTiles[index])
+                    return false;
+            return true;
+        }
+
         private static void Reset(ref long value) => Interlocked.Exchange(ref value, 0);
         private static long Read(ref long value) => Interlocked.Read(ref value);
+
+        private static void UpdateMaximum(ref long target, long candidate)
+        {
+            long observed;
+            while (candidate > (observed = Interlocked.Read(ref target)) &&
+                Interlocked.CompareExchange(ref target, candidate, observed) != observed)
+            { }
+        }
 
         private static ulong Mix(ulong hash, TopologyRejections rejections)
         {
@@ -852,20 +1319,17 @@ namespace EnemyGatePathfindingTest
         {
             internal static readonly TopologySnapshot Empty = new TopologySnapshot(
                 0, Array.Empty<GateBridgeInfo>(), "not captured", default,
-                RouteTilePolicySnapshot.Empty, NativeGateAccessSnapshot.Empty);
+                RouteTilePolicySnapshot.Empty);
             internal TopologySnapshot(ulong fingerprint, GateBridgeInfo[] combinations,
                 string detail, TopologyRejections rejections,
-                RouteTilePolicySnapshot routePolicy,
-                NativeGateAccessSnapshot gateAccessPolicy)
+                RouteTilePolicySnapshot routePolicy)
             { Fingerprint = fingerprint; Combinations = combinations; Detail = detail;
-                Rejections = rejections; RoutePolicy = routePolicy ?? RouteTilePolicySnapshot.Empty;
-                GateAccessPolicy = gateAccessPolicy ?? NativeGateAccessSnapshot.Empty; }
+                Rejections = rejections; RoutePolicy = routePolicy ?? RouteTilePolicySnapshot.Empty; }
             internal ulong Fingerprint { get; }
             internal GateBridgeInfo[] Combinations { get; }
             internal string Detail { get; }
             internal TopologyRejections Rejections { get; }
             internal RouteTilePolicySnapshot RoutePolicy { get; }
-            internal NativeGateAccessSnapshot GateAccessPolicy { get; }
         }
 
         private readonly struct GateBridgeInfo
@@ -925,13 +1389,49 @@ namespace EnemyGatePathfindingTest
                         .Append(" linkedGate=").Append(LinkedGateId)
                         .Append(" rawGatehouseId=").Append(RawGatehouseId);
                 }
-                text.Append(" pcls=").Append(string.Join("/", RelevantPcls)).Append(" tiles=[");
+                ushort blockedMask = 0;
+                for (int player = 1; player < UnrelatedByPlayer.Length && player <= 8; player++)
+                    if (UnrelatedByPlayer[player])
+                        blockedMask |= unchecked((ushort)(1 << player));
+                int minX = int.MaxValue;
+                int minY = int.MaxValue;
+                int maxX = int.MinValue;
+                int maxY = int.MinValue;
+                int minimumTileId = int.MaxValue;
+                int maximumTileId = int.MinValue;
+                int footprintCount = 0;
+                ulong footprintHash = 1469598103934665603UL;
                 for (int index = 0; index < Tiles.Length; index++)
                 {
-                    if (index > 0) text.Append(';');
-                    text.Append(Tiles[index].Format());
+                    if (!Tiles[index].Footprint)
+                        continue;
+                    footprintCount++;
+                    minX = Math.Min(minX, Tiles[index].X);
+                    minY = Math.Min(minY, Tiles[index].Y);
+                    maxX = Math.Max(maxX, Tiles[index].X);
+                    maxY = Math.Max(maxY, Tiles[index].Y);
+                    minimumTileId = Math.Min(minimumTileId, Tiles[index].TileId);
+                    maximumTileId = Math.Max(maximumTileId, Tiles[index].TileId);
+                    unchecked
+                    {
+                        footprintHash = (footprintHash ^ (uint)Tiles[index].TileId) *
+                            1099511628211UL;
+                    }
                 }
-                return text.Append(']').ToString();
+                text.Append(" pcls=").Append(string.Join("/", RelevantPcls))
+                    .Append(" blockedMask=0x").Append(blockedMask.ToString("X"))
+                    .Append(" bounds=");
+                if (footprintCount == 0)
+                    text.Append("none");
+                else
+                    text.Append(minX).Append('/').Append(minY).Append('-')
+                        .Append(maxX).Append('/').Append(maxY);
+                text.Append(" footprint=").Append(footprintCount);
+                if (footprintCount > 0)
+                    text.Append("/tileRange=").Append(minimumTileId).Append('-')
+                        .Append(maximumTileId).Append("/hash=0x")
+                        .Append(footprintHash.ToString("X16"));
+                return text.ToString();
             }
         }
 

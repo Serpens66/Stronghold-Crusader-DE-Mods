@@ -11,10 +11,32 @@ using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Threading;
 
 namespace EnemyGatePathfindingTest
 {
+    internal readonly struct CursorCoverageSnapshot
+    {
+        internal CursorCoverageSnapshot(long checkedRoutes, long reachable, long targetBlocked,
+            long noRoute, long reachableWithBlockedEncounter, long blockedEncounters,
+            long failures, long errors)
+        {
+            CheckedRoutes = checkedRoutes; Reachable = reachable; TargetBlocked = targetBlocked;
+            NoRoute = noRoute; ReachableWithBlockedEncounter = reachableWithBlockedEncounter;
+            BlockedEncounters = blockedEncounters; Failures = failures; Errors = errors;
+        }
+
+        internal long CheckedRoutes { get; }
+        internal long Reachable { get; }
+        internal long TargetBlocked { get; }
+        internal long NoRoute { get; }
+        internal long ReachableWithBlockedEncounter { get; }
+        internal long BlockedEncounters { get; }
+        internal long Failures { get; }
+        internal long Errors { get; }
+    }
+
     internal readonly struct RouteBlockedTile
     {
         internal RouteBlockedTile(int tileId, int x, int y)
@@ -88,7 +110,6 @@ namespace EnemyGatePathfindingTest
 
     internal sealed unsafe class CursorGateRouteFilter
     {
-        private static readonly long SummaryInterval = Stopwatch.Frequency * 10L;
         private static readonly long UnitRefreshInterval = Math.Max(1, Stopwatch.Frequency / 4);
         private static readonly long CursorCacheInterval = Math.Max(1, Stopwatch.Frequency / 20);
         private static readonly int[] Dx = { 0, 1, 1, 1, 0, -1, -1, -1 };
@@ -113,7 +134,6 @@ namespace EnemyGatePathfindingTest
         private int epochActive;
         private int epochRequested;
         private int epochNumber;
-        private long nextSummaryAt;
         private long nextUnitRefreshAt;
         private long cursorCacheUntil;
         private ulong cursorCacheFingerprint;
@@ -129,7 +149,28 @@ namespace EnemyGatePathfindingTest
         private long cursorCacheHits;
         private long cursorAllowedDetour;
         private long cursorBlocked;
-        private long cursorFailOpen;
+        private long cursorEpochInactive;
+        private long cursorMissingUnit;
+        private long cursorInvalidPolicyOrPlayer;
+        private long cursorMissingPointer;
+        private long bfsFreshRuns;
+        private long bfsReachable;
+        private long bfsReachableWithBlockedEncounter;
+        private long bfsTargetBlocked;
+        private long bfsNoRoute;
+        private long bfsInvalidCoordinates;
+        private long bfsBusy;
+        private long bfsQueueOverflow;
+        private long bfsInvalidGrid;
+        private long bfsVisitedTotal;
+        private long bfsVisitedMaximum;
+        private long bfsBlockedEncounterTotal;
+        private long bfsBlockedEncounterMaximum;
+        private long bfsElapsedTicksTotal;
+        private long bfsElapsedTicksMaximum;
+        private readonly long[] cursorPlayers = new long[9];
+        private readonly CursorSample[] cursorSamples =
+            new CursorSample[Enum.GetValues(typeof(CursorSearchOutcome)).Length];
         private long callbackErrors;
 
         internal CursorGateRouteFilter(
@@ -244,9 +285,20 @@ namespace EnemyGatePathfindingTest
         {
             if (Interlocked.CompareExchange(ref epochActive, 0, 1) != 1)
                 return;
-            LogSummary("final", reason ?? "unspecified");
             policy = RouteTilePolicySnapshot.Empty;
             units = UnitSnapshot.Empty;
+        }
+
+        internal CursorCoverageSnapshot GetCoverageSnapshot()
+        {
+            long failures = Read(ref cursorEpochInactive) + Read(ref cursorMissingUnit) +
+                Read(ref cursorInvalidPolicyOrPlayer) + Read(ref cursorMissingPointer) +
+                Read(ref bfsInvalidCoordinates) + Read(ref bfsBusy) +
+                Read(ref bfsQueueOverflow) + Read(ref bfsInvalidGrid);
+            return new CursorCoverageSnapshot(
+                Read(ref cursorChecked), Read(ref bfsReachable), Read(ref bfsTargetBlocked),
+                Read(ref bfsNoRoute), Read(ref bfsReachableWithBlockedEncounter),
+                Read(ref bfsBlockedEncounterTotal), failures, Read(ref callbackErrors));
         }
 
         internal void ProcessDeferred()
@@ -261,12 +313,6 @@ namespace EnemyGatePathfindingTest
 
                 long now = Stopwatch.GetTimestamp();
                 RefreshUnits(now);
-                if (Volatile.Read(ref epochActive) != 0 &&
-                    now >= Volatile.Read(ref nextSummaryAt))
-                {
-                    Volatile.Write(ref nextSummaryAt, now + SummaryInterval);
-                    LogSummary("periodic", "10-second interval");
-                }
             }
             catch (Exception ex)
             {
@@ -288,38 +334,65 @@ namespace EnemyGatePathfindingTest
                 if (Volatile.Read(ref epochActive) == 0)
                 {
                     Volatile.Write(ref epochRequested, 1);
-                    Interlocked.Increment(ref cursorFailOpen);
+                    Interlocked.Increment(ref cursorEpochInactive);
+                    CaptureFailureSample(CursorSearchOutcome.EpochInactive,
+                        unchecked((int)(uint)registers->R14), 0, 0, 0, 0, 0,
+                        policy.TopologyFingerprint);
                     return;
                 }
 
                 int unitId = unchecked((int)(uint)registers->R14);
                 UnitSnapshot currentUnits = units;
                 RouteTilePolicySnapshot current = policy;
-                if (!currentUnits.TryGet(unitId, out int player, out int startX, out int startY) ||
-                    !CanApply(current, player) || cursorX == null || cursorY == null)
+                if (!currentUnits.TryGet(unitId, out int player, out int startX, out int startY))
                 {
-                    Interlocked.Increment(ref cursorFailOpen);
+                    Interlocked.Increment(ref cursorMissingUnit);
+                    CaptureFailureSample(CursorSearchOutcome.MissingUnit,
+                        unitId, 0, 0, 0, 0, 0, current.TopologyFingerprint);
                     return;
                 }
+                if (!CanApply(current, player))
+                {
+                    Interlocked.Increment(ref cursorInvalidPolicyOrPlayer);
+                    CaptureFailureSample(CursorSearchOutcome.InvalidPolicyOrPlayer,
+                        unitId, player, startX, startY, 0, 0,
+                        current.TopologyFingerprint);
+                    return;
+                }
+                if (cursorX == null || cursorY == null)
+                {
+                    Interlocked.Increment(ref cursorMissingPointer);
+                    CaptureFailureSample(CursorSearchOutcome.MissingPointer,
+                        unitId, player, startX, startY, 0, 0,
+                        current.TopologyFingerprint);
+                    return;
+                }
+                if (player > 0 && player < cursorPlayers.Length)
+                    Interlocked.Increment(ref cursorPlayers[player]);
 
                 int targetX = *cursorX;
                 int targetY = *cursorY;
                 Interlocked.Increment(ref cursorChecked);
                 long now = Stopwatch.GetTimestamp();
-                int reachable;
+                CursorSearchOutcome outcome;
                 if (now <= Volatile.Read(ref cursorCacheUntil) &&
                     cursorCacheFingerprint == current.TopologyFingerprint &&
                     cursorCacheUnit == unitId && cursorCachePlayer == player &&
                     cursorCacheStartX == startX && cursorCacheStartY == startY &&
                     cursorCacheTargetX == targetX && cursorCacheTargetY == targetY)
                 {
-                    reachable = cursorCacheResult;
+                    outcome = (CursorSearchOutcome)cursorCacheResult;
                     Interlocked.Increment(ref cursorCacheHits);
                 }
                 else
                 {
-                    reachable = SearchWithoutBlocked(
+                    long started = Stopwatch.GetTimestamp();
+                    CursorSearchResult result = SearchWithoutBlocked(
                         current, player, startX, startY, targetX, targetY);
+                    long elapsed = Stopwatch.GetTimestamp() - started;
+                    outcome = result.Outcome;
+                    RecordFreshSearch(result, elapsed, unitId, player,
+                        startX, startY, targetX, targetY, current);
                     cursorCacheFingerprint = current.TopologyFingerprint;
                     cursorCacheUnit = unitId;
                     cursorCachePlayer = player;
@@ -327,16 +400,17 @@ namespace EnemyGatePathfindingTest
                     cursorCacheStartY = startY;
                     cursorCacheTargetX = targetX;
                     cursorCacheTargetY = targetY;
-                    cursorCacheResult = reachable;
+                    cursorCacheResult = (int)outcome;
                     Volatile.Write(ref cursorCacheUntil, now + CursorCacheInterval);
                 }
 
-                if (reachable < 0)
+                if (outcome != CursorSearchOutcome.Reachable &&
+                    outcome != CursorSearchOutcome.TargetBlocked &&
+                    outcome != CursorSearchOutcome.NoRoute)
                 {
-                    Interlocked.Increment(ref cursorFailOpen);
                     return;
                 }
-                if (reachable != 0)
+                if (outcome == CursorSearchOutcome.Reachable)
                 {
                     Interlocked.Increment(ref cursorAllowedDetour);
                     return;
@@ -348,12 +422,13 @@ namespace EnemyGatePathfindingTest
             }
             catch
             {
-                Interlocked.Increment(ref cursorFailOpen);
                 Interlocked.Increment(ref callbackErrors);
+                CaptureFailureSample(CursorSearchOutcome.Exception,
+                    0, 0, 0, 0, 0, 0, policy.TopologyFingerprint);
             }
         }
 
-        private int SearchWithoutBlocked(
+        private CursorSearchResult SearchWithoutBlocked(
             RouteTilePolicySnapshot current,
             int player,
             int startX,
@@ -362,17 +437,19 @@ namespace EnemyGatePathfindingTest
             int targetY)
         {
             if (Interlocked.CompareExchange(ref bfsGate, 1, 0) != 0)
-                return -1;
+                return new CursorSearchResult(CursorSearchOutcome.Busy, 0, 0, -1);
             try
             {
                 int start = GetTileId(current.RowStarts, startX, startY);
                 int target = GetTileId(current.RowStarts, targetX, targetY);
                 if (start < 0 || target < 0)
-                    return -1;
+                    return new CursorSearchResult(
+                        CursorSearchOutcome.InvalidCoordinates, 0, 0, -1);
                 if (current.IsBlocked(player, target))
-                    return 0;
+                    return new CursorSearchResult(
+                        CursorSearchOutcome.TargetBlocked, 0, 1, target);
                 if (start == target)
-                    return 1;
+                    return new CursorSearchResult(CursorSearchOutcome.Reachable, 1, 0, -1);
 
                 int generation = unchecked(++bfsGeneration);
                 if (generation == 0)
@@ -382,6 +459,8 @@ namespace EnemyGatePathfindingTest
                 }
                 int read = 0;
                 int write = 0;
+                int blockedEncounters = 0;
+                int firstBlockedTile = -1;
                 bfsVisited[start] = generation;
                 bfsQueue[write++] = Pack(startX, startY);
                 while (read < write)
@@ -391,28 +470,40 @@ namespace EnemyGatePathfindingTest
                     int y = packed >> 10;
                     int tile = GetTileId(current.RowStarts, x, y);
                     if (tile < 0)
-                        return -1;
+                        return new CursorSearchResult(
+                            CursorSearchOutcome.InvalidGrid, read, blockedEncounters,
+                            firstBlockedTile);
                     byte sourceEdges = directionGrid[tile];
                     for (int direction = 0; direction < 8; direction++)
                     {
                         int nextX = x + Dx[direction];
                         int nextY = y + Dy[direction];
                         int next = GetTileId(current.RowStarts, nextX, nextY);
-                        if (next < 0 || bfsVisited[next] == generation ||
-                            current.IsBlocked(player, next))
+                        if (next < 0 || bfsVisited[next] == generation)
                             continue;
+                        if (current.IsBlocked(player, next))
+                        {
+                            blockedEncounters++;
+                            if (firstBlockedTile < 0) firstBlockedTile = next;
+                            continue;
+                        }
                         if (!EnemyGatePathfindingPolicy.IsBidirectionalEdgeOpen(
                                 sourceEdges, directionGrid[next], direction))
                             continue;
                         if (next == target)
-                            return 1;
+                            return new CursorSearchResult(
+                                CursorSearchOutcome.Reachable, read, blockedEncounters,
+                                firstBlockedTile);
                         if (write >= bfsQueue.Length)
-                            return -1;
+                            return new CursorSearchResult(
+                                CursorSearchOutcome.QueueOverflow, read, blockedEncounters,
+                                firstBlockedTile);
                         bfsVisited[next] = generation;
                         bfsQueue[write++] = Pack(nextX, nextY);
                     }
                 }
-                return 0;
+                return new CursorSearchResult(
+                    CursorSearchOutcome.NoRoute, read, blockedEncounters, firstBlockedTile);
             }
             finally
             {
@@ -440,15 +531,156 @@ namespace EnemyGatePathfindingTest
             units = new UnitSnapshot(owners, xs, ys);
         }
 
-        private void LogSummary(string kind, string reason)
+        private void RecordFreshSearch(
+            CursorSearchResult result,
+            long elapsedTicks,
+            int unitId,
+            int player,
+            int startX,
+            int startY,
+            int targetX,
+            int targetY,
+            RouteTilePolicySnapshot current)
         {
+            Interlocked.Increment(ref bfsFreshRuns);
+            Interlocked.Add(ref bfsVisitedTotal, result.Visited);
+            Interlocked.Add(ref bfsBlockedEncounterTotal, result.BlockedEncounters);
+            Interlocked.Add(ref bfsElapsedTicksTotal, elapsedTicks);
+            UpdateMaximum(ref bfsVisitedMaximum, result.Visited);
+            UpdateMaximum(ref bfsBlockedEncounterMaximum, result.BlockedEncounters);
+            UpdateMaximum(ref bfsElapsedTicksMaximum, elapsedTicks);
+            switch (result.Outcome)
+            {
+                case CursorSearchOutcome.Reachable:
+                    Interlocked.Increment(ref bfsReachable);
+                    if (result.BlockedEncounters > 0)
+                        Interlocked.Increment(ref bfsReachableWithBlockedEncounter);
+                    break;
+                case CursorSearchOutcome.TargetBlocked: Interlocked.Increment(ref bfsTargetBlocked); break;
+                case CursorSearchOutcome.NoRoute: Interlocked.Increment(ref bfsNoRoute); break;
+                case CursorSearchOutcome.InvalidCoordinates:
+                    Interlocked.Increment(ref bfsInvalidCoordinates); break;
+                case CursorSearchOutcome.Busy: Interlocked.Increment(ref bfsBusy); break;
+                case CursorSearchOutcome.QueueOverflow:
+                    Interlocked.Increment(ref bfsQueueOverflow); break;
+                case CursorSearchOutcome.InvalidGrid:
+                    Interlocked.Increment(ref bfsInvalidGrid); break;
+            }
+
+            ref CursorSample sample = ref cursorSamples[(int)result.Outcome];
+            if (Interlocked.CompareExchange(ref sample.State, 1, 0) != 0)
+                return;
+            sample.Outcome = (int)result.Outcome;
+            sample.UnitId = unitId;
+            sample.Player = player;
+            sample.StartX = startX;
+            sample.StartY = startY;
+            sample.TargetX = targetX;
+            sample.TargetY = targetY;
+            sample.Visited = result.Visited;
+            sample.BlockedEncounters = result.BlockedEncounters;
+            sample.FirstBlockedTile = result.FirstBlockedTile;
+            if (result.FirstBlockedTile >= 0 &&
+                current.TryGetIdentity(result.FirstBlockedTile, out RouteTileIdentity identity))
+            {
+                sample.GateId = identity.GateId;
+                sample.BridgeId = identity.BridgeId;
+            }
+            sample.ElapsedTicks = elapsedTicks;
+            sample.Fingerprint = current.TopologyFingerprint;
+            Volatile.Write(ref sample.State, 2);
+        }
+
+        private void CaptureFailureSample(
+            CursorSearchOutcome outcome,
+            int unitId,
+            int player,
+            int startX,
+            int startY,
+            int targetX,
+            int targetY,
+            ulong fingerprint)
+        {
+            ref CursorSample sample = ref cursorSamples[(int)outcome];
+            if (Interlocked.CompareExchange(ref sample.State, 1, 0) != 0)
+                return;
+            sample.Outcome = (int)outcome;
+            sample.UnitId = unitId;
+            sample.Player = player;
+            sample.StartX = startX;
+            sample.StartY = startY;
+            sample.TargetX = targetX;
+            sample.TargetY = targetY;
+            sample.FirstBlockedTile = -1;
+            sample.Fingerprint = fingerprint;
+            Volatile.Write(ref sample.State, 2);
+        }
+
+        private void LogNewSamples()
+        {
+            double tickToMicroseconds = 1000000.0 / Stopwatch.Frequency;
+            for (int index = 0; index < cursorSamples.Length; index++)
+            {
+                ref CursorSample sample = ref cursorSamples[index];
+                if (Volatile.Read(ref sample.State) != 2 ||
+                    Interlocked.CompareExchange(ref sample.Reported, 1, 0) != 0)
+                    continue;
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"Enemy-gate first cursor sample: outcome={(CursorSearchOutcome)sample.Outcome}, " +
+                    $"unit={sample.UnitId}, player={sample.Player}, " +
+                    $"start={sample.StartX}/{sample.StartY}, target={sample.TargetX}/{sample.TargetY}, " +
+                    $"visited={sample.Visited}, blockedEncounters={sample.BlockedEncounters}, " +
+                    $"firstBlockedTile={sample.FirstBlockedTile}, gate={sample.GateId}, bridge={sample.BridgeId}, " +
+                    $"elapsedUs={(sample.ElapsedTicks * tickToMicroseconds).ToString("F1", CultureInfo.InvariantCulture)}, " +
+                    $"policyFingerprint=0x{sample.Fingerprint:X16}.");
+            }
+        }
+
+        private static void UpdateMaximum(ref long target, long candidate)
+        {
+            long observed;
+            while (candidate > (observed = Interlocked.Read(ref target)) &&
+                Interlocked.CompareExchange(ref target, candidate, observed) != observed)
+            { }
+        }
+
+        private static string FormatCoverage(long value) => value == 0
+            ? "0:NOT_OBSERVED"
+            : value.ToString();
+
+        internal void LogCheckpoint(string kind, string reason)
+        {
+            var players = new System.Text.StringBuilder();
+            for (int player = 1; player <= 8; player++)
+            {
+                long count = Read(ref cursorPlayers[player]);
+                if (count == 0) continue;
+                if (players.Length > 0) players.Append(',');
+                players.Append('p').Append(player).Append('=').Append(count);
+            }
+            if (players.Length == 0) players.Append("none:NOT_OBSERVED");
+            double tickToMicroseconds = 1000000.0 / Stopwatch.Frequency;
             Shared.DebugLogHelper.LogInfo(log,
-                $"Crash-safe tile-route {kind} summary: epoch={epochNumber}, reason={reason}, " +
+                $"Enemy-gate cursor checkpoint: kind={kind}, epoch={epochNumber}, reason={reason}, " +
                 "builderFix=disabled-unvalidated-local-edge-coverage, directionGridWrites=0, " +
                 $"cursor(positiveSeen={Read(ref cursorPositiveSeen)},checked={Read(ref cursorChecked)}," +
                 $"cacheHits={Read(ref cursorCacheHits)},detourAllowed={Read(ref cursorAllowedDetour)}," +
-                $"blocked={Read(ref cursorBlocked)},failOpen={Read(ref cursorFailOpen)}), " +
+                $"blocked={Read(ref cursorBlocked)}), players({players}), " +
+                $"failOpen(epochInactive={Read(ref cursorEpochInactive)},missingUnit={Read(ref cursorMissingUnit)}," +
+                $"invalidPolicyOrPlayer={Read(ref cursorInvalidPolicyOrPlayer)},missingPointer={Read(ref cursorMissingPointer)}," +
+                $"invalidCoordinates={Read(ref bfsInvalidCoordinates)},busy={Read(ref bfsBusy)}," +
+                $"queueOverflow={Read(ref bfsQueueOverflow)},invalidGrid={Read(ref bfsInvalidGrid)}), " +
+                $"bfs(fresh={Read(ref bfsFreshRuns)},visitedTotal={Read(ref bfsVisitedTotal)}," +
+                $"reachable={FormatCoverage(Read(ref bfsReachable))}," +
+                $"reachableWithBlockedEncounter={FormatCoverage(Read(ref bfsReachableWithBlockedEncounter))}," +
+                $"targetBlocked={FormatCoverage(Read(ref bfsTargetBlocked))}," +
+                $"noRoute={FormatCoverage(Read(ref bfsNoRoute))}," +
+                $"visitedMax={Read(ref bfsVisitedMaximum)},blockedEncountersTotal={Read(ref bfsBlockedEncounterTotal)}," +
+                $"blockedEncountersMax={Read(ref bfsBlockedEncounterMaximum)},elapsedUsTotal=" +
+                $"{(Read(ref bfsElapsedTicksTotal) * tickToMicroseconds).ToString("F1", CultureInfo.InvariantCulture)}," +
+                $"elapsedUsMax={(Read(ref bfsElapsedTicksMaximum) * tickToMicroseconds).ToString("F1", CultureInfo.InvariantCulture)}), " +
                 $"errors={Read(ref callbackErrors)}, policyFingerprint=0x{policy.TopologyFingerprint:X16}.");
+            LogNewSamples();
         }
 
         private void ResetCounters()
@@ -458,14 +690,88 @@ namespace EnemyGatePathfindingTest
             Reset(ref cursorCacheHits);
             Reset(ref cursorAllowedDetour);
             Reset(ref cursorBlocked);
-            Reset(ref cursorFailOpen);
+            Reset(ref cursorEpochInactive);
+            Reset(ref cursorMissingUnit);
+            Reset(ref cursorInvalidPolicyOrPlayer);
+            Reset(ref cursorMissingPointer);
+            Reset(ref bfsFreshRuns);
+            Reset(ref bfsReachable);
+            Reset(ref bfsReachableWithBlockedEncounter);
+            Reset(ref bfsTargetBlocked);
+            Reset(ref bfsNoRoute);
+            Reset(ref bfsInvalidCoordinates);
+            Reset(ref bfsBusy);
+            Reset(ref bfsQueueOverflow);
+            Reset(ref bfsInvalidGrid);
+            Reset(ref bfsVisitedTotal);
+            Reset(ref bfsVisitedMaximum);
+            Reset(ref bfsBlockedEncounterTotal);
+            Reset(ref bfsBlockedEncounterMaximum);
+            Reset(ref bfsElapsedTicksTotal);
+            Reset(ref bfsElapsedTicksMaximum);
+            Array.Clear(cursorPlayers, 0, cursorPlayers.Length);
+            Array.Clear(cursorSamples, 0, cursorSamples.Length);
             Reset(ref callbackErrors);
             cursorCacheUntil = 0;
             cursorCacheFingerprint = 0;
             cursorCacheUnit = 0;
-            long now = Stopwatch.GetTimestamp();
-            nextSummaryAt = now + SummaryInterval;
             nextUnitRefreshAt = 0;
+        }
+
+        private enum CursorSearchOutcome
+        {
+            Reachable,
+            TargetBlocked,
+            NoRoute,
+            InvalidCoordinates,
+            Busy,
+            QueueOverflow,
+            InvalidGrid,
+            EpochInactive,
+            MissingUnit,
+            InvalidPolicyOrPlayer,
+            MissingPointer,
+            Exception
+        }
+
+        private readonly struct CursorSearchResult
+        {
+            internal CursorSearchResult(
+                CursorSearchOutcome outcome,
+                int visited,
+                int blockedEncounters,
+                int firstBlockedTile)
+            {
+                Outcome = outcome;
+                Visited = visited;
+                BlockedEncounters = blockedEncounters;
+                FirstBlockedTile = firstBlockedTile;
+            }
+
+            internal CursorSearchOutcome Outcome { get; }
+            internal int Visited { get; }
+            internal int BlockedEncounters { get; }
+            internal int FirstBlockedTile { get; }
+        }
+
+        private struct CursorSample
+        {
+            internal int State;
+            internal int Reported;
+            internal int Outcome;
+            internal int UnitId;
+            internal int Player;
+            internal int StartX;
+            internal int StartY;
+            internal int TargetX;
+            internal int TargetY;
+            internal int Visited;
+            internal int BlockedEncounters;
+            internal int FirstBlockedTile;
+            internal int GateId;
+            internal int BridgeId;
+            internal long ElapsedTicks;
+            internal ulong Fingerprint;
         }
 
         private static int GetTileId(int[] rows, int x, int y)

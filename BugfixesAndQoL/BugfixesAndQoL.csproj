@@ -127,6 +127,9 @@
     <Compile Include="src\ControlGroupDisbandCleanupPolicy.cs" />
     <Compile Include="src\ControlGroupDisbandCleanupRuntime.cs" />
     <Compile Include="src\ControlGroupNativeDefinition.cs" />
+    <Compile Include="src\CoopCustomLordSelectionFeature.cs" />
+    <Compile Include="src\CoopCustomLordSelectionPolicy.cs" />
+    <Compile Include="src\CustomLordLobbyUtility.cs" />
     <Compile Include="src\CustomTrailExtremeGoldFixHook.cs" />
     <Compile Include="src\CustomLordListEnhancementHook.cs" />
     <Compile Include="src\DisplayResolutionPersistenceHook.cs" />

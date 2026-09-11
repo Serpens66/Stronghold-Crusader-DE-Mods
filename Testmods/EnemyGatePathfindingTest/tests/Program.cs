@@ -18,8 +18,19 @@ namespace EnemyGatePathfindingTest
                 CaptureAndRecaptureApplyImmediately();
                 InvalidStateFailsOpen();
                 ImmutableGateSnapshotIsAllianceAwareAndFailOpen();
+                SnapshotDecisionDiagnosticsCoverEveryAccessClass();
+                SnapshotMetadataCountsTrackedPolicy();
+                AccessPolicyEqualityIgnoresRawScanOnlyChanges();
+                CaptureTransitionCoverageIsDeterministic();
+                CapturerComparisonAndFlagRestorationAreExact();
                 NativeContractIncludesDrawbridgePclAndExactFilterSite();
                 CapturerHooksCoverBothNativeSitesAtomically();
+                SnapshotRefreshPathsAreSeparatedAndBounded();
+                RoutePolicyFingerprintIgnoresDynamicTileState();
+                DiagnosticLifecycleAndSamplesAreBounded();
+                AcceptanceVerdictsAreMachineReadable();
+                StableDiagnosticBaselinesSurviveFailOpenClears();
+                CompactTopologyAndInvariantTimingAreEnforced();
                 SamePclCandidatePolicyIsFailOpenAndAllianceAware();
                 RectangleDistanceSupportsSpatialBridgeDiagnosis();
                 NativeHookByteContractsRejectMutation();
@@ -87,31 +98,160 @@ namespace EnemyGatePathfindingTest
 
         private static void ImmutableGateSnapshotIsAllianceAwareAndFailOpen()
         {
+            ushort ownerRelated = unchecked((ushort)(1 << 7));
+            ushort capturerRelated = unchecked((ushort)((1 << 1) | (1 << 2)));
             ushort unrelated = unchecked((ushort)((1 << 3) | (1 << 4)));
             var records = new NativeGateAccessRecord[8];
-            records[5] = new NativeGateAccessRecord(true, 7, 2, unrelated);
+            records[5] = new NativeGateAccessRecord(
+                true, 7, 2, ownerRelated, capturerRelated, unrelated);
             var snapshot = new NativeGateAccessSnapshot(records, 0x1234);
-            Assert(snapshot.Evaluate(3, 5, 7, false) ==
-                    CapturedGateFilterDecision.ExcludeForeignCapture,
+            Assert(snapshot.Evaluate(3, 5, 7, 2) ==
+                    NativeGateSnapshotDecision.ExcludeForeignCapture,
                 "snapshot excludes an unrelated foreign capturer");
-            Assert(snapshot.Evaluate(1, 5, 7, false) ==
-                    CapturedGateFilterDecision.PreserveVanilla,
+            Assert(snapshot.Evaluate(1, 5, 7, 2) ==
+                    NativeGateSnapshotDecision.PreserveCapturerAlly,
                 "snapshot allows a player allied to the capturer");
-            Assert(snapshot.Evaluate(3, 5, 7, true) ==
-                    CapturedGateFilterDecision.FailOpen,
+            Assert(snapshot.Evaluate(3, 5, 7, 0) ==
+                    NativeGateSnapshotDecision.CaptureMismatch,
                 "capture-state mismatch invalidates a stale snapshot");
-            Assert(snapshot.Evaluate(3, 5, 6, false) ==
-                    CapturedGateFilterDecision.FailOpen,
+            Assert(snapshot.Evaluate(3, 5, 6, 2) ==
+                    NativeGateSnapshotDecision.OwnerMismatch,
                 "owner mismatch fails open");
-            Assert(NativeGateAccessSnapshot.Empty.Evaluate(3, 5, 7, false) ==
-                    CapturedGateFilterDecision.FailOpen,
+            Assert(snapshot.Evaluate(0, 5, 7, 2) ==
+                    NativeGateSnapshotDecision.InvalidQueryPlayer,
+                "invalid query player is classified separately");
+            Assert(NativeGateAccessSnapshot.Empty.Evaluate(3, 5, 7, 2) ==
+                    NativeGateSnapshotDecision.UntrackedConnection,
                 "empty snapshot fails open");
 
-            records[5] = new NativeGateAccessRecord(true, 7, 0, unrelated);
+            records[5] = new NativeGateAccessRecord(
+                true, 7, 0, ownerRelated, 0, unrelated);
             var recaptured = new NativeGateAccessSnapshot(records, 0x1235);
-            Assert(recaptured.Evaluate(3, 5, 7, true) ==
-                    CapturedGateFilterDecision.PreserveVanilla,
+            Assert(recaptured.Evaluate(3, 5, 7, 0) ==
+                    NativeGateSnapshotDecision.PreserveUncaptured,
                 "next snapshot preserves Vanilla for an uncaptured enemy gate");
+        }
+
+        private static void SnapshotDecisionDiagnosticsCoverEveryAccessClass()
+        {
+            ushort ownerRelated = unchecked((ushort)((1 << 1) | (1 << 2)));
+            ushort capturerRelated = unchecked((ushort)((1 << 3) | (1 << 4)));
+            ushort unrelated = unchecked((ushort)((1 << 5) | (1 << 6)));
+            var records = new NativeGateAccessRecord[3];
+            records[2] = new NativeGateAccessRecord(
+                true, 1, 3, ownerRelated, capturerRelated, unrelated);
+            var snapshot = new NativeGateAccessSnapshot(records, 7);
+            Assert(snapshot.Evaluate(1, 2, 1, 3) == NativeGateSnapshotDecision.PreserveOwner,
+                "owner is classified separately");
+            Assert(snapshot.Evaluate(2, 2, 1, 3) == NativeGateSnapshotDecision.PreserveOwnerAlly,
+                "owner ally is classified separately");
+            Assert(snapshot.Evaluate(3, 2, 1, 3) == NativeGateSnapshotDecision.PreserveCapturer,
+                "capturer is classified separately");
+            Assert(snapshot.Evaluate(4, 2, 1, 3) == NativeGateSnapshotDecision.PreserveCapturerAlly,
+                "capturer ally is classified separately");
+            Assert(snapshot.Evaluate(5, 2, 1, 3) == NativeGateSnapshotDecision.ExcludeForeignCapture,
+                "foreign capturer is classified separately");
+        }
+
+        private static void SnapshotMetadataCountsTrackedPolicy()
+        {
+            var records = new NativeGateAccessRecord[4];
+            records[1] = new NativeGateAccessRecord(true, 1, 0, 0x0006, 0, 0x0018);
+            records[3] = new NativeGateAccessRecord(true, 3, 4, 0x0008, 0x0010, 0x0060);
+            var snapshot = new NativeGateAccessSnapshot(records, 9);
+            Assert(snapshot.TrackedRecords == 2, "snapshot counts tracked records");
+            Assert(snapshot.CapturedRecords == 1, "snapshot counts captured records");
+            Assert(snapshot.UncapturedRecords == 1, "snapshot counts uncaptured records");
+            Assert(snapshot.BlockedPlayerGatePairs == 4,
+                "snapshot counts blocked player/gate pairs");
+        }
+
+        private static void AccessPolicyEqualityIgnoresRawScanOnlyChanges()
+        {
+            var firstRecords = new NativeGateAccessRecord[4];
+            firstRecords[2] = new NativeGateAccessRecord(true, 3, 0, 0x0008, 0, 0x0006);
+            var sameRecordsWithDifferentCapacity = new NativeGateAccessRecord[8];
+            sameRecordsWithDifferentCapacity[2] = firstRecords[2];
+            var first = new NativeGateAccessSnapshot(firstRecords, 0x1000);
+            var rawOnlyChange = new NativeGateAccessSnapshot(
+                sameRecordsWithDifferentCapacity, 0x2000);
+            Assert(first.RawFingerprint != rawOnlyChange.RawFingerprint,
+                "raw scan fingerprints retain diagnostic changes");
+            Assert(first.PolicyEquals(rawOnlyChange),
+                "raw fingerprint and trailing capacity do not change access policy");
+            Assert(first.TopologyFingerprint == rawOnlyChange.TopologyFingerprint,
+                "semantic access fingerprint remains stable across raw-only changes");
+
+            sameRecordsWithDifferentCapacity[2] = new NativeGateAccessRecord(
+                true, 3, 4, 0x0008, 0x0010, 0x0006);
+            var captured = new NativeGateAccessSnapshot(sameRecordsWithDifferentCapacity, 0x3000);
+            Assert(!first.PolicyEquals(captured), "capture changes access policy");
+            Assert(first.TopologyFingerprint != captured.TopologyFingerprint,
+                "capture changes semantic access fingerprint");
+
+            var ownerChangedRecords = (NativeGateAccessRecord[])firstRecords.Clone();
+            ownerChangedRecords[2] = new NativeGateAccessRecord(true, 4, 0, 0x0010, 0, 0x0006);
+            Assert(!first.PolicyEquals(new NativeGateAccessSnapshot(ownerChangedRecords, 0x4000)),
+                "owner and owner-alliance mask changes access policy");
+            var maskChangedRecords = (NativeGateAccessRecord[])firstRecords.Clone();
+            maskChangedRecords[2] = new NativeGateAccessRecord(true, 3, 0, 0x0008, 0, 0x0020);
+            Assert(!first.PolicyEquals(new NativeGateAccessSnapshot(maskChangedRecords, 0x5000)),
+                "blocking-mask changes access policy");
+            var removedRecords = (NativeGateAccessRecord[])firstRecords.Clone();
+            removedRecords[2] = default;
+            Assert(!first.PolicyEquals(new NativeGateAccessSnapshot(removedRecords, 0x6000)),
+                "record validity changes access policy");
+        }
+
+        private static void CaptureTransitionCoverageIsDeterministic()
+        {
+            Assert(EnemyGatePathfindingPolicy.ClassifyCaptureTransition(true, 0, true, 3) ==
+                    CaptureTransitionKind.Captured,
+                "uncaptured to captured is a capture transition");
+            Assert(EnemyGatePathfindingPolicy.ClassifyCaptureTransition(true, 3, true, 4) ==
+                    CaptureTransitionKind.Recaptured,
+                "capturer replacement is a recapture transition");
+            Assert(EnemyGatePathfindingPolicy.ClassifyCaptureTransition(true, 3, true, 0) ==
+                    CaptureTransitionKind.Recaptured,
+                "capture removal is retained as a recapture transition");
+            Assert(EnemyGatePathfindingPolicy.ClassifyCaptureTransition(false, 0, true, 3) ==
+                    CaptureTransitionKind.None,
+                "initial snapshot population is not a runtime capture transition");
+            Assert(EnemyGatePathfindingPolicy.ClassifyCaptureTransition(true, 3, false, 0) ==
+                    CaptureTransitionKind.None,
+                "record removal is not misclassified as recapture");
+        }
+
+        private static void CapturerComparisonAndFlagRestorationAreExact()
+        {
+            Assert(EnemyGatePathfindingNativeDefinition.PclGraphCaptureCompareIsEqual(0),
+                "PCL-graph CMP is equal only for an uncaptured record");
+            Assert(!EnemyGatePathfindingNativeDefinition.PclGraphCaptureCompareIsEqual(3),
+                "PCL-graph CMP is unequal for a captured record");
+            Assert(EnemyGatePathfindingNativeDefinition.BuilderPrecheckCaptureCompareIsEqual(3, 3),
+                "builder CMP uses the actual AX operand");
+            Assert(!EnemyGatePathfindingNativeDefinition.BuilderPrecheckCaptureCompareIsEqual(3, 0),
+                "builder CMP detects unequal capture and AX values");
+
+            ulong flagsWithoutZero = 0x202UL & ~EnemyGatePathfindingPolicy.ZeroFlagMask;
+            ulong flagsWithZero = flagsWithoutZero | EnemyGatePathfindingPolicy.ZeroFlagMask;
+            Assert((EnemyGatePathfindingPolicy.SetZeroFlag(flagsWithoutZero, true) &
+                    EnemyGatePathfindingPolicy.ZeroFlagMask) != 0,
+                "reconstructed equality restores ZF");
+            Assert((EnemyGatePathfindingPolicy.SetZeroFlag(flagsWithZero, false) &
+                    EnemyGatePathfindingPolicy.ZeroFlagMask) == 0,
+                "reconstructed inequality clears stale callback ZF");
+            Assert((EnemyGatePathfindingPolicy.SetZeroFlag(flagsWithZero, false) &
+                    ~EnemyGatePathfindingPolicy.ZeroFlagMask) ==
+                    (flagsWithZero & ~EnemyGatePathfindingPolicy.ZeroFlagMask),
+                "ZF restoration preserves every unrelated flag bit");
+
+            string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            string body = ExtractMethodBody(runtimeSource, "FilterUnrelatedCapturedEnemyGate");
+            Assert(body.IndexOf("CapturedByPlayerTableDisplacement", StringComparison.Ordinal) >= 0,
+                "callback rereads the exact native capture-table operand");
+            Assert(body.IndexOf("(registers->Rflags &", StringComparison.Ordinal) < 0,
+                "callback never treats RedBird's saved flags as the displaced CMP result");
         }
 
         private static void NativeContractIncludesDrawbridgePclAndExactFilterSite()
@@ -215,6 +355,156 @@ namespace EnemyGatePathfindingTest
                 "committed RedBird spans are checked");
             Assert(runtimeSource.IndexOf("transaction.DisableAll()", StringComparison.Ordinal) >= 0,
                 "unexpected committed spans roll back before publication");
+            Assert(sharedBody.IndexOf("originalZeroKnown", StringComparison.Ordinal) >= 0 &&
+                    sharedBody.IndexOf("SetZeroFlag", StringComparison.Ordinal) >= 0,
+                "callback restores reconstructed Vanilla ZF on policy failures");
+            Assert(runtimeSource.IndexOf("NativeGateSnapshotDecision.RecordIdMismatch",
+                    StringComparison.Ordinal) >= 0,
+                "record-ID mismatch has a dedicated diagnostic outcome");
+            Assert(runtimeSource.IndexOf("CapturerSample[]", StringComparison.Ordinal) >= 0 &&
+                    runtimeSource.IndexOf("CompareExchange(ref sample.State", StringComparison.Ordinal) >= 0,
+                "capturer samples are preallocated and atomically published");
+            Assert(sharedBody.IndexOf("RecordFirstPclOffset", StringComparison.Ordinal) >= 0 &&
+                    sharedBody.IndexOf("RecordSecondPclOffset", StringComparison.Ordinal) >= 0 &&
+                    sharedBody.IndexOf("RecordThirdPclOffset", StringComparison.Ordinal) >= 0 &&
+                    runtimeSource.IndexOf("portalPcls=", StringComparison.Ordinal) >= 0,
+                "first samples identify all native portal components");
+        }
+
+        private static void RoutePolicyFingerprintIgnoresDynamicTileState()
+        {
+            string source = File.ReadAllText(
+                Path.Combine("src", "GateTopologySnapshotProvider.cs"));
+            string body = ExtractMethodBody(source, "MixRoutePolicy");
+            foreach (string dynamicField in new[]
+            {
+                "IsOpen", "EntryPcl", "ExitPcl", "GatePath", "Flags", "Walkable"
+            })
+                Assert(body.IndexOf(dynamicField, StringComparison.Ordinal) < 0,
+                    "route policy fingerprint ignores dynamic field " + dynamicField);
+            foreach (string policyField in new[]
+            {
+                "GateId", "GateGlobal", "BridgeId", "BridgeGlobal",
+                "UnrelatedByPlayer", "tile.TileId", "tile.Footprint"
+            })
+                Assert(body.IndexOf(policyField, StringComparison.Ordinal) >= 0,
+                    "route policy fingerprint includes " + policyField);
+        }
+
+        private static void DiagnosticLifecycleAndSamplesAreBounded()
+        {
+            string plugin = File.ReadAllText(
+                Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
+            string runtime = File.ReadAllText(
+                Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            string cursor = File.ReadAllText(
+                Path.Combine("src", "CursorGateRouteFilter.cs"));
+            Assert(plugin.IndexOf("args.Phase == EventHookPhase.Pre", StringComparison.Ordinal) >= 0,
+                "map summary uses reliable unload Pre phase");
+            Assert(runtime.IndexOf("implicit restart before OnStartMap(Post)",
+                    StringComparison.Ordinal) >= 0,
+                "new map defensively finalizes a missed unload");
+            Assert(runtime.IndexOf("DiagnosticInterval = Stopwatch.Frequency * 10L",
+                    StringComparison.Ordinal) >= 0,
+                "one central ten-second diagnostic cadence is used");
+            Assert(cursor.IndexOf("CursorSample[]", StringComparison.Ordinal) >= 0 &&
+                    cursor.IndexOf("CompareExchange(ref sample.State", StringComparison.Ordinal) >= 0,
+                "cursor samples are bounded and atomically published");
+            Assert(runtime.IndexOf(":NOT_OBSERVED", StringComparison.Ordinal) >= 0,
+                "uncovered capturer cases are explicit");
+            Assert(cursor.IndexOf("players.Append(\"none:NOT_OBSERVED\")",
+                    StringComparison.Ordinal) >= 0,
+                "uncovered cursor player activity is explicit");
+        }
+
+        private static void AcceptanceVerdictsAreMachineReadable()
+        {
+            Assert(EnemyGatePathfindingPolicy.ObservationVerdict(1) == DiagnosticVerdict.PASS,
+                "observed acceptance case passes");
+            Assert(EnemyGatePathfindingPolicy.ObservationVerdict(0) ==
+                    DiagnosticVerdict.NOT_OBSERVED,
+                "missing acceptance case is explicit");
+            Assert(EnemyGatePathfindingPolicy.IntegrityVerdict(true, false) ==
+                    DiagnosticVerdict.PASS,
+                "observed error-free runtime passes");
+            Assert(EnemyGatePathfindingPolicy.IntegrityVerdict(true, true) ==
+                    DiagnosticVerdict.FAIL,
+                "runtime error dominates observed activity");
+            Assert(EnemyGatePathfindingPolicy.IntegrityVerdict(false, false) ==
+                    DiagnosticVerdict.NOT_OBSERVED,
+                "unexercised integrity remains unobserved");
+
+            string runtime = File.ReadAllText(
+                Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            Assert(runtime.IndexOf("Enemy-gate acceptance verdict:", StringComparison.Ordinal) >= 0,
+                "final machine-readable verdict is logged");
+            Assert(runtime.IndexOf("ownerAtHook={DiagnosticVerdict.NOT_APPLICABLE}",
+                    StringComparison.Ordinal) >= 0,
+                "upstream owner short-circuit is not reported as missing coverage");
+            Assert(runtime.IndexOf("untrackedTransitionCalls=", StringComparison.Ordinal) >= 0,
+                "transient untracked calls remain separately visible");
+        }
+
+        private static void StableDiagnosticBaselinesSurviveFailOpenClears()
+        {
+            string source = File.ReadAllText(
+                Path.Combine("src", "GateTopologySnapshotProvider.cs"));
+            string tick = ExtractMethodBody(source, "OnGameTick");
+            Assert(source.IndexOf("lastStableAccessSnapshot", StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("lastStableTopologySnapshot", StringComparison.Ordinal) >= 0,
+                "diagnostic baselines are separate from live fail-open snapshots");
+            Assert(tick.IndexOf("lastStableAccessSnapshot = NativeGateAccessSnapshot.Empty",
+                    StringComparison.Ordinal) < 0 &&
+                    tick.IndexOf("lastStableTopologySnapshot = TopologySnapshot.Empty",
+                    StringComparison.Ordinal) < 0,
+                "tick-side fail-open clear preserves stable diagnostic baselines");
+            string access = ExtractMethodBody(source, "RefreshGateAccess");
+            Assert(access.IndexOf("previous.PolicyEquals(rebuilt)", StringComparison.Ordinal) >= 0,
+                "access publication uses semantic snapshot equality");
+            Assert(access.IndexOf("accessRepublishes", StringComparison.Ordinal) >= 0,
+                "equivalent policy is republished after a fail-open window");
+            Assert(access.IndexOf("suppressedRawAccessChanges", StringComparison.Ordinal) >= 0,
+                "raw-only changes are counted without policy churn");
+        }
+
+        private static void CompactTopologyAndInvariantTimingAreEnforced()
+        {
+            string topology = File.ReadAllText(
+                Path.Combine("src", "GateTopologySnapshotProvider.cs"));
+            string cursor = File.ReadAllText(
+                Path.Combine("src", "CursorGateRouteFilter.cs"));
+            Assert(topology.IndexOf("footprintTiles=[", StringComparison.Ordinal) < 0,
+                "topology logs no longer dump every footprint tile");
+            Assert(topology.IndexOf("/tileRange=", StringComparison.Ordinal) >= 0 &&
+                    topology.IndexOf("/hash=0x", StringComparison.Ordinal) >= 0,
+                "compact footprint range and hash are logged");
+            Assert(topology.IndexOf("AppendTopologyDetail(detail, gateInfo.Format())",
+                    StringComparison.Ordinal) < 0,
+                "initial accepted gate details are not duplicated");
+            Assert(cursor.IndexOf("CultureInfo.InvariantCulture", StringComparison.Ordinal) >= 0,
+                "cursor timing uses invariant decimal formatting");
+            Assert(cursor.IndexOf("reachableWithBlockedEncounter", StringComparison.Ordinal) >= 0,
+                "real detours are distinguished from unobstructed reachable routes");
+        }
+
+        private static void SnapshotRefreshPathsAreSeparatedAndBounded()
+        {
+            string source = File.ReadAllText(
+                Path.Combine("src", "GateTopologySnapshotProvider.cs"));
+            int accessCall = source.IndexOf("RefreshGateAccess();", StringComparison.Ordinal);
+            int topologyCall = source.IndexOf("RefreshTopologyIfDue(now);", StringComparison.Ordinal);
+            Assert(accessCall >= 0,
+                "per-frame deferred work refreshes the cheap access fingerprint");
+            Assert(topologyCall > accessCall,
+                "deferred work retains separately throttled topology rebuilding");
+            Assert(source.IndexOf("TopologySafetyInterval = Math.Max(1, Stopwatch.Frequency)",
+                    StringComparison.Ordinal) >= 0,
+                "expensive topology safety rebuild is capped at one per second");
+            string access = ExtractMethodBody(source, "RefreshGateAccess");
+            Assert(access.IndexOf("ComputeGateAccessFingerprint", StringComparison.Ordinal) >= 0,
+                "access refresh probes a fingerprint before publishing");
+            Assert(access.IndexOf("fingerprint == lastAccessFingerprint", StringComparison.Ordinal) >= 0,
+                "unchanged access state avoids snapshot allocation");
         }
 
         private static void SamePclCandidatePolicyIsFailOpenAndAllianceAware()
@@ -331,6 +621,8 @@ namespace EnemyGatePathfindingTest
                 "native tile-grid capacity");
             Assert(EnemyGatePathfindingNativeDefinition.MapGridWidth == 800,
                 "native tile-grid width");
+            Assert(EnemyGatePathfindingNativeDefinition.CapturedByPlayerTableDisplacement == 0x64CCED2,
+                "native capture-table displacement");
         }
 
         private static void NativeRouteHotPathsRemainPrimitiveOnly()
@@ -391,8 +683,7 @@ namespace EnemyGatePathfindingTest
 
         private static string ExtractMethodBody(string source, string methodName)
         {
-            string returnType = methodName == "SearchWithoutBlocked" ? "private int " : "private void ";
-            int name = source.IndexOf(returnType + methodName + "(", StringComparison.Ordinal);
+            int name = source.LastIndexOf(methodName + "(", StringComparison.Ordinal);
             if (name < 0)
                 throw new InvalidOperationException("Method not found for hot-path audit: " + methodName);
             int open = source.IndexOf('{', name);

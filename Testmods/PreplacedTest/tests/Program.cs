@@ -32,6 +32,7 @@ namespace PreplacedTest.Tests
                 TestPclConnectivityTransitions();
                 TestDynamicWallRolesAndSearchGates();
                 TestWallTileAndShadowSearchModels();
+                TestLegacyTimerFixEligibility();
                 TestChoreTransferDirection();
                 TestAivAreaClassification();
                 TestEarlyOwnerBuffer();
@@ -316,11 +317,11 @@ namespace PreplacedTest.Tests
                 0, 0, 0, 0, 0, 25, 14, 0, 0), 9).ToArray();
             Check(ShadowEconomySearch.Run(farmGrid, 3, 4, ShadowEconomySearchKind.Farm, 0)
                 .CandidateIndices.Length > 0, "farm raw candidate predicate was not replayed");
-            ShadowEconomyCell resource2 = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 0, 40,
+            ShadowEconomyCell resource2 = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 0, 39,
                 0, 0, 0, 0, 0, 0);
-            ShadowEconomyCell resource3 = new ShadowEconomyCell(0, 0, 0, 0, 7, 0, 0, 0, 30,
+            ShadowEconomyCell resource3 = new ShadowEconomyCell(0, 0, 0, 0, 7, 0, 0, 0, 29,
                 0, 0, 0, 0, 0, 0);
-            ShadowEconomyCell resource4 = new ShadowEconomyCell(0, 0, 0, 0, 0, 3, 10, 0, 12,
+            ShadowEconomyCell resource4 = new ShadowEconomyCell(0, 0, 0, 0, 0, 3, 10, 0, 11,
                 0, 0, 0, 0, 0, 0);
             Check(ShadowEconomySearch.Run(Enumerable.Repeat(resource2, 9).ToArray(), 3, 4,
                 ShadowEconomySearchKind.Resource, 2).CandidateIndices.Length > 0,
@@ -331,15 +332,15 @@ namespace PreplacedTest.Tests
             Check(ShadowEconomySearch.Run(Enumerable.Repeat(resource4, 9).ToArray(), 3, 4,
                 ShadowEconomySearchKind.Resource, 4).CandidateIndices.Length > 0,
                 "pitch candidate predicate was not replayed");
-            ShadowEconomyCell wrongPclForQuarry = new ShadowEconomyCell(6, 0, 0, 8, 0, 0, 0, 0, 40,
+            ShadowEconomyCell wrongPclForQuarry = new ShadowEconomyCell(6, 0, 0, 8, 0, 0, 0, 0, 39,
                 0, 0, 0, 0, 0, 0);
             Check(ShadowEconomySearch.ResourceCandidateRejectionReason(wrongPclForQuarry, 2) ==
                 "pcl-difference", "quarry PCL equality predicate was omitted");
-            ShadowEconomyCell ironTolerance = new ShadowEconomyCell(4, 0, 0, 0, 7, 0, 0, 0, 30,
+            ShadowEconomyCell ironTolerance = new ShadowEconomyCell(4, 0, 0, 0, 7, 0, 0, 0, 29,
                 0, 0, 0, 0, 0, 0);
             Check(ShadowEconomySearch.ResourceCandidateRejectionReason(ironTolerance, 3) == "candidate",
                 "iron PCL difference tolerance was not preserved");
-            ShadowEconomyCell foreignOwnerClass = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 0, 40,
+            ShadowEconomyCell foreignOwnerClass = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 0, 39,
                 0, 0, 0, 0, 0, 2, false);
             Check(ShadowEconomySearch.ResourceCandidateRejectionReason(foreignOwnerClass, 2) ==
                 "owner-class-mismatch-byte+15", "resource owner-class predicate was omitted");
@@ -348,6 +349,46 @@ namespace PreplacedTest.Tests
             diagonalGrid[0] = pass;
             Check(ShadowEconomySearch.Run(diagonalGrid, 3, 4, ShadowEconomySearchKind.Nearby, 0)
                 .ReachableCount == 2, "nearby search did not preserve Vanilla's diagonal neighbor order/set");
+            ShadowEconomyCell quarryHeightBoundary = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 0, 40,
+                0, 0, 0, 0, 0, 0);
+            Check(ShadowEconomySearch.ResourceCandidateRejectionReason(quarryHeightBoundary, 2) == "quarry-height",
+                "quarry signed height boundary was inverted");
+            ShadowEconomyCell negativeHeightDifference = new ShadowEconomyCell(0, 0, 0, 8, 0, 0, 0, 50, 10,
+                0, 0, 0, 0, 0, 0);
+            Check(ShadowEconomySearch.ResourceCandidateRejectionReason(negativeHeightDifference, 2) == "candidate",
+                "negative signed height difference was not accepted");
+            ShadowEconomyCell signedNegativeDensity = new ShadowEconomyCell(0, 0, 0, 0xFF, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0);
+            Check(ShadowEconomySearch.ResourceCandidateRejectionReason(signedNegativeDensity, 2) ==
+                "quarry-density-byte+08", "resource density was compared as unsigned");
+            ShadowEconomyCell orderedRejections = new ShadowEconomyCell(1, 0, 0, 8, 0, 0, 0, 0, 39,
+                0, 1, 0, 0, 0, 0);
+            Check(ShadowEconomySearch.ResourceCandidateRejectionReason(orderedRejections, 2) == "pcl-difference",
+                "resource first-rejection order diverges from Vanilla");
+            Check(ShadowEconomySearch.ResourceCandidateRejectionCode(resource2, 2) == 0 &&
+                ShadowEconomySearch.ResourceCandidateRejectionCode(quarryHeightBoundary, 2) == 6,
+                "allocation-free resource signature codes diverge from named decisions");
+        }
+
+        private static void TestLegacyTimerFixEligibility()
+        {
+            string eligible = LegacyTimerFixEligibility.Classify(true, false, 172, 0xD5, 1, 1, 0, 1);
+            Check(LegacyTimerFixEligibility.IsEligible(eligible), "fresh legacy timer transfer was not eligible");
+            Check(LegacyTimerFixEligibility.Classify(true, true, 172, 0xD5, 1, 1, 0, 1) ==
+                "ineligible-loaded-save", "loaded save timer was eligible");
+            Check(LegacyTimerFixEligibility.Classify(true, false, 172, 0xD5, 1, 1, 2, 1) ==
+                "ineligible-runtime-timer-already-active", "already-active runtime timer was eligible");
+            Check(LegacyTimerFixEligibility.Classify(true, false, 172, 0xD5, 0, 1, 0, 1) ==
+                "ineligible-no-stable-single-activation-source", "timer created during transfer was treated as stable source");
+            Check(LegacyTimerFixEligibility.Classify(true, false, 172, 0xD5, 2, 2, 0, 2) ==
+                "ineligible-no-stable-single-activation-source", "unexpected serialized timer value was eligible");
+            Check(LegacyTimerFixEligibility.Classify(true, false, 0xD5, 0xD5, 1, 1, 0, 1) ==
+                "ineligible-not-legacy-conversion", "current map format was treated as legacy conversion");
+            Check(LegacyTimerFixEligibility.Classify(true, false, 172, 0xD5, 1, 1, 0, 0) ==
+                "ineligible-not-copied-exclusively-from-serialized-source",
+                "a later activation outside the transfer could be normalized");
+            Check(LegacyTimerFixEligibility.Classify(false, false, 172, 0xD5, 1, 1, 0, 1) ==
+                "ineligible-non-ai", "non-AI record was eligible");
         }
 
         private static ShadowEconomyCell Cell(int projected04, int raw16, byte wood) =>
@@ -462,7 +503,8 @@ namespace PreplacedTest.Tests
             Check(source.Contains("index / EconomyGridWidth, index % EconomyGridWidth") &&
                 source.Contains("x * EconomyGridWidth + y"), "economy grid x-major index contract is not preserved");
             Check(source.Contains("PREPLACED_ROUTING_SNAPSHOT_FULL") && source.Contains("PREPLACED_ROUTING_CHANGE") &&
-                source.Contains("PREPLACED_ECONOMY_SEARCH"), "economy routing diagnostics missing");
+                source.Contains("PREPLACED_ECONOMY_SEARCH") && source.Contains("BuildCanonicalPclMap"),
+                "economy routing diagnostics or PCL-renumbering canonicalization missing");
             Check(source.Contains("stateGroupCount=") && source.Contains("transitionGroupCount=") &&
                 source.Contains("LosslessGridCoordinateFormatter.Format"),
                 "routing snapshots are not grouped losslessly");
@@ -482,23 +524,32 @@ namespace PreplacedTest.Tests
                 "PCL diagnostics are not restricted to Vanilla's audited 320800-entry range");
             Check(source.Contains("PREPLACED_INVALID_PCL_TILE_ACCESS") &&
                 source.Contains("PREPLACED_CONFIRMED_WALL_BREACH") &&
-                source.Contains("PREPLACED_POST_BREACH_ECONOMY_SEARCH"),
+                source.Contains("PREPLACED_POST_BREACH_ECONOMY_SEARCH") &&
+                source.Contains("PREPLACED_POST_WALL_LOSS_ECONOMY_SEARCH"),
                 "invalid PCL, wall-breach, or post-breach search diagnostics are missing");
             Check(source.Contains("PREPLACED_CRUSHED_TIMER_BULK_COPY") &&
                 source.Contains("CaptureSerializedCrushedCounters") &&
-                source.Contains("legacyPlayerStateCopyHook.Original()"),
+                source.Contains("legacyPlayerStateCopyHook.Original()") &&
+                source.Contains("PREPLACED_LEGACY_TIMER_FIX_ELIGIBILITY") &&
+                source.Contains("destroyedTowerOwnerTransitions") &&
+                model.Contains("LegacyTimerFixEligibility"),
                 "legacy player-state timer copy diagnostic is incomplete");
             Check(source.Contains("PREPLACED_DYNAMIC_WALL_ROLES") &&
                 source.Contains("WallTestRoleClassifier.Classify") &&
                 !source.Contains("PREPLACED_PCL_COMPONENT_MERGE"),
                 "dynamic wall roles or label-independent breach detection are incomplete");
             Check(source.Contains("PREPLACED_WALL_BASELINE") && source.Contains("PREPLACED_WALL_TILE_CHANGE") &&
-                source.Contains("selected-baseline-wall-lost+physical-flood+anchor-connectivity") &&
+                source.Contains("selected-baseline-wall-lost+stable-anchor-connectivity") &&
+                source.Contains("wallOnlyClosed=") && source.Contains("wallAwareClosed=") &&
+                source.Contains("AddPclAdjacencyAnchors") && source.Contains("IsEnclosureBuilding") &&
                 source.Contains("WallOwnerEncodingResolver.Decode") &&
                 source.Contains("baseline.GeometryClosed") && source.Contains("BuildingFootprintOverlaps"),
                 "tile-based wall role or breach diagnostics are incomplete");
             Check(source.Contains("PREPLACED_SHADOW_ECONOMY_SEARCH") &&
-                source.Contains("ShadowEconomySearch.Run") && source.Contains("CountPclTilesOutsideSet"),
+                source.Contains("ShadowEconomySearch.Run") && source.Contains("CountPclTilesOutsideSet") &&
+                source.Contains("EmitProactiveShadowSuite") && source.Contains("PREPLACED_SHADOW_NATIVE_RESULT_MISMATCH") &&
+                model.Contains("heightDifference < 40") && model.Contains("heightDifference < 30") &&
+                model.Contains("heightDifference < 12"),
                 "full player-specific shadow economy traversal is missing");
             Check(source.Contains("ReachableFriendlyPcls") && source.Contains("projected04=") &&
                 source.Contains("projected16=raw-vanilla-tile-logic") && source.Contains("gate={observation.GateReason}"),
@@ -560,6 +611,12 @@ namespace PreplacedTest.Tests
                 assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.1\")") &&
                 plugin.Contains("PluginVersion = \"0.1.1\"") && manifest.Contains("\"Version\": \"0.1.1\""),
                 "active version declarations are inconsistent");
+            Check(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.4.0\")") &&
+                plugin.Contains("testedScriptExtender=2.5.0") &&
+                plugin.Contains("5f02af6d074af7c741ebdaaccb48add39eba1bf4") &&
+                manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.4.0\"") &&
+                manifest.Contains("\"NetworkMode\": 0"),
+                "Script Extender compatibility or passive network contract is inconsistent");
         }
 
         private static void TestNativeSignaturesAgainstCanonicalDll()

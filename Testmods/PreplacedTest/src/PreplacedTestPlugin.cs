@@ -28,7 +28,8 @@ namespace PreplacedTest
         {
             Shared.DebugLogHelper.LogInfo(Logger,
                 $"{PluginName} {PluginVersion} loaded; passive=true, NetworkMode=0, settings=false, " +
-                "targetScriptExtender=2.4.0, auditedCommit=5d5719c1002aec043d331162d72b2e7f3111b34b.");
+                "minimumScriptExtender=2.4.0, testedScriptExtender=2.5.0, " +
+                "auditedCommit=5f02af6d074af7c741ebdaaccb48add39eba1bf4.");
             WarnAboutConflicts("Awake");
             if (!handled && !subscribed)
             {

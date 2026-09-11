@@ -245,6 +245,7 @@ namespace BugfixesAndQoL
 
         private void MultiplayerButtonClickedHook(FRONT_Multiplayer self, string param)
         {
+            CoopCustomLordSelectionFeature.OnMultiplayerButtonStarting(self, param);
             bool memoryActiveBefore = IsMemoryActive();
             bool mayAddAi = string.Equals(param, "AddCustomLord", StringComparison.Ordinal);
             Dictionary<int, string> before =
@@ -267,6 +268,8 @@ namespace BugfixesAndQoL
             {
                 multiplayerButtonClickedTrampoline(self, param);
             }
+
+            CoopCustomLordSelectionFeature.OnMultiplayerButtonCompleted(self, param);
 
             bool memoryActiveAfter = IsMemoryActive();
             if (!memoryActiveAfter || !mayAddAi)
@@ -384,6 +387,9 @@ namespace BugfixesAndQoL
 
         private void SkirmishAiAddClickHook(FRONT_Multiplayer self, string param)
         {
+            if (CoopCustomLordSelectionFeature.TryHandleSkirmishAiAddClick(self, param))
+                return;
+
             bool memoryActiveBefore = IsMemoryActive();
             Dictionary<int, string> before = memoryActiveBefore ? CaptureAiSlotKeys(self) : null;
             bool protectedRandomCommand =
@@ -838,17 +844,7 @@ namespace BugfixesAndQoL
             FRONT_Multiplayer self,
             Platform_Multiplayer.MPLobbyMember member)
         {
-            for (int slot = 0; slot < 8; slot++)
-            {
-                if (self.currentLobby.this_player_to_SteamID_mapping[slot] != member.GetSteamID())
-                    continue;
-
-                ulong previousSteamId = member.GetSteamID();
-                member.SetValidCustomLordType(slot, member.GetLordSubType());
-                self.currentLobby.this_player_to_SteamID_mapping[slot] = member.GetSteamID();
-                self.currentLobby.switchTeamID(previousSteamId, member.GetSteamID());
-                break;
-            }
+            CustomLordLobbyUtility.FinalizeIdentity(self, member);
         }
 
         private static void InitializeCustomLord(
@@ -857,12 +853,7 @@ namespace BugfixesAndQoL
             int playerId,
             CustomisationFileManager.CustomLord lord)
         {
-            FRONT_Multiplayer.MPAIVInfo info = self.AIVs[playerId - 1];
-            info.Init(member.GetLordType(), lord.lordName);
-            info.lordConfig = lord.configs[0];
-            info.aivs.Add(lord.aivs[0]);
-            info.imageData = lord.imageData;
-            info.image = lord.image;
+            CustomLordLobbyUtility.InitializeAivInfo(self.AIVs[playerId - 1], member, lord);
         }
 
         private void FinalizeRandomOpponentMutation(FRONT_Multiplayer self)
@@ -938,7 +929,7 @@ namespace BugfixesAndQoL
 
         private static void UpdateSteamMappings(FRONT_Multiplayer self)
         {
-            MultiplayerUpdateSteamMappingsMethod.Invoke(self, null);
+            CustomLordLobbyUtility.UpdateSteamMappings(self);
         }
 
         private void SetFilter(ref bool field, bool value, string propertyName)

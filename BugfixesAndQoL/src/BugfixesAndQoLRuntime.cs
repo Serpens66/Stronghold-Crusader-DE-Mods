@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
         private readonly GatehouseDistanceOriginRegistration gatehouseDistanceOriginRegistration;
         private readonly TunnelPlacementDistanceFeature tunnelPlacementDistanceFeature;
         private readonly TrailCustomizationFeature trailCustomizationFeature;
+        private readonly CoopCustomLordSelectionFeature coopCustomLordSelectionFeature;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
@@ -116,6 +117,7 @@ namespace BugfixesAndQoL
             gatehouseDistanceOriginRegistration = new GatehouseDistanceOriginRegistration(log, settings);
             tunnelPlacementDistanceFeature = new TunnelPlacementDistanceFeature(log, settings);
             trailCustomizationFeature = new TrailCustomizationFeature(log, settings);
+            coopCustomLordSelectionFeature = new CoopCustomLordSelectionFeature(log, settings);
             InitializeMovedFeatures();
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
@@ -129,6 +131,9 @@ namespace BugfixesAndQoL
 
         public void InitializeNetwork()
         {
+            TryInitializePersistentFeature(
+                "Coop custom-lord selection",
+                coopCustomLordSelectionFeature.Initialize);
             TryInitializePersistentFeature(
                 "Trail Customize buttons",
                 trailCustomizationFeature.Initialize);
@@ -409,6 +414,7 @@ namespace BugfixesAndQoL
         public void ApplySettings()
         {
             TryApplyFeature("Trail Customize buttons", trailCustomizationFeature.RefreshVisibility);
+            TryApplyFeature("Coop custom-lord selection", coopCustomLordSelectionFeature.ApplySetting);
             TryApplyFeature("moved feature settings", ApplyMovedFeatureSettings);
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
