@@ -24,6 +24,7 @@ namespace PreplacedTest.Tests
                 TestValidatorResults();
                 TestBuildingAccessibilityResults();
                 TestDamageTransitions();
+                TestInlineHookBranchSafety();
                 TestFirstAivBuildingEligibility();
                 TestEconomyDiagnosticModels();
                 TestEconomyPclModels();
@@ -119,6 +120,21 @@ namespace PreplacedTest.Tests
             Check(!CrushedTimerTransition.IsActivation(0, 0), "nonlethal damage marked as activation");
             Check(!CrushedTimerTransition.IsActivation(7, 7), "active timer marked as activation");
             Check(!CrushedTimerTransition.IsActivation(7, 8), "scheduler increment marked as activation");
+            int[] lethalLossTimerSequence = { 0, 1, 2, 3 };
+            Check(CrushedTimerTransition.IsActivation(lethalLossTimerSequence[0], lethalLossTimerSequence[1]) &&
+                !CrushedTimerTransition.IsActivation(lethalLossTimerSequence[1], lethalLossTimerSequence[2]) &&
+                !CrushedTimerTransition.IsActivation(lethalLossTimerSequence[2], lethalLossTimerSequence[3]),
+                "normal lethal-loss timer progression 0->1->2->3 was not preserved");
+        }
+
+        private static void TestInlineHookBranchSafety()
+        {
+            Check(InlineHookBranchSafety.HasInboundTargetInside(0x7F074, 15,
+                new[] { 0x7F07C }), "inbound branch into the removed writer-hook span was not rejected");
+            Check(!InlineHookBranchSafety.HasInboundTargetInside(0x7F074, 8,
+                new[] { 0x7F07C }), "branch to the exact end of a hook span was treated as interior");
+            Check(!InlineHookBranchSafety.HasInboundTargetInside(0x1000, 14,
+                new[] { 0x0FFF, 0x1000, 0x100E }), "non-interior branch target was rejected");
         }
 
         private static void TestBuildingAccessibilityResults()
@@ -406,6 +422,37 @@ namespace PreplacedTest.Tests
                 ShadowEconomySearch.WoodCandidateRejectionReason(Cell(6, 0, 1)) == "pcl-threshold" &&
                 ShadowEconomySearch.WoodCandidateRejectionReason(Cell(0, 0, 0)) == "wood-density-byte+07",
                 "wood candidate rejection order diverges from Vanilla");
+
+            int[] matchingDepths = (int[])gatedResult.Depths.Clone();
+            ShadowNativeTraversalComparison match = ShadowNativeTraversalComparison.Compare(gatedResult,
+                gatedResult.ReachedIndices, matchingDepths, gatedResult.QueueOrderIndices,
+                gatedResult.FirstCandidateIndex);
+            Check(match.Classification == "match", "matching shadow/native traversal was rejected");
+            ShadowNativeTraversalComparison noResult = ShadowNativeTraversalComparison.Compare(gatedResult,
+                gatedResult.ReachedIndices, matchingDepths, gatedResult.QueueOrderIndices, -1);
+            Check(noResult.Classification == "shadow-candidate-native-no-result",
+                "shadow candidate/native no-result mismatch was not detected");
+            int[] shorterQueue = gatedResult.QueueOrderIndices.Take(gatedResult.QueueOrderIndices.Length - 1).ToArray();
+            ShadowNativeTraversalComparison queueMismatch = ShadowNativeTraversalComparison.Compare(gatedResult,
+                gatedResult.ReachedIndices, matchingDepths, shorterQueue, gatedResult.FirstCandidateIndex);
+            Check(queueMismatch.Classification == "queue-order-divergence" &&
+                queueMismatch.FirstQueueDivergence >= 0, "queue-order divergence was not localized");
+            int[] missingVisit = gatedResult.ReachedIndices.Skip(1).ToArray();
+            ShadowNativeTraversalComparison visitMismatch = ShadowNativeTraversalComparison.Compare(gatedResult,
+                missingVisit, matchingDepths, gatedResult.QueueOrderIndices, gatedResult.FirstCandidateIndex);
+            Check(visitMismatch.Classification == "visited-set-divergence" &&
+                visitMismatch.FirstVisitDivergence >= 0, "visited-set divergence was not localized");
+            int[] wrongDepths = (int[])matchingDepths.Clone();
+            wrongDepths[gatedResult.ReachedIndices.Last()]++;
+            ShadowNativeTraversalComparison depthMismatch = ShadowNativeTraversalComparison.Compare(gatedResult,
+                gatedResult.ReachedIndices, wrongDepths, gatedResult.QueueOrderIndices,
+                gatedResult.FirstCandidateIndex);
+            Check(depthMismatch.Classification == "depth-divergence" &&
+                depthMismatch.FirstDepthDivergence >= 0, "depth divergence was not localized");
+            Check(ShadowNativeTraversalComparison.Compare(sealedResult, sealedResult.ReachedIndices
+                    .Concat(sealedResult.BlockedIndices).ToArray(), sealedResult.Depths,
+                    sealedResult.QueueOrderIndices, -1).Classification == "both-no-result",
+                "matching no-result traversal was rejected");
         }
 
         private static void TestLegacyTimerFixEligibility()
@@ -495,7 +542,7 @@ namespace PreplacedTest.Tests
                 updateGuide.Contains("`0x1F5F0..0x1F68D`") && updateGuide.Contains("`+0x2AE0`") &&
                 updateGuide.Contains("RollbackAndThrow"),
                 "native update guide does not cover the new timer-copy contract");
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC3C5D", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660", "0x60AD4AC", "0x2D13B0", "0x2D2E50" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC3C5D", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660", "0x60AD4AC", "0x2D13B0", "0x2D2E50" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_BuildingId), 0x0C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_SubjectGlobalId), 0x14)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_EntryTileId), 0x24)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_ExitTileId), 0x30)", "ValidateSize(typeof(PathConnectionRecord), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
@@ -524,9 +571,8 @@ namespace PreplacedTest.Tests
             Check(source.Contains("players.Clear()"), "map transition does not reset sessions");
             Check(source.Contains("activeEconomyContexts?.Clear()") && source.Contains("lastRoutingSnapshot = null"),
                 "map transition retains economy or routing diagnostic state");
-            Check(source.Contains("lastPclTopology = null") &&
-                source.Contains("pendingCrushedWriterSignals.Clear()"),
-                "map transition retains PCL topology or native writer signals");
+            Check(source.Contains("lastPclTopology = null"),
+                "map transition retains PCL topology state");
             Check(source.Contains("emittedGridUpdateSignatures.Clear()") &&
                 source.Contains("emittedDominantPclSignatures.Clear()"),
                 "map transition retains grid/PCL signature aggregation state");
@@ -595,6 +641,8 @@ namespace PreplacedTest.Tests
             Check(source.Contains("PREPLACED_SHADOW_ECONOMY_SEARCH") &&
                 source.Contains("ShadowEconomySearch.Run") && source.Contains("CountPclTilesOutsideSet") &&
                 source.Contains("EmitProactiveShadowSuite") && source.Contains("PREPLACED_NATIVE_RESULT_PRE_RESTORE_MISMATCH") &&
+                source.Contains("PREPLACED_SHADOW_NATIVE_NO_RESULT_MISMATCH") &&
+                source.Contains("CaptureNativeTraversalSnapshot") &&
                 model.Contains("heightDifference < 40") && model.Contains("heightDifference < 30") &&
                 model.Contains("heightDifference < 12"),
                 "full player-specific shadow economy traversal is missing");
@@ -657,17 +705,12 @@ namespace PreplacedTest.Tests
                 model.Contains("owner-class-mismatch-byte+15") &&
                 source.Contains("outside-depth-or-disconnected"),
                 "resource shadow rejection diagnostics are incomplete");
-            Check(source.Contains("PREPLACED_CRUSHED_TIMER_NATIVE_WRITE") &&
-                source.Contains("CrushedTimerWriterDisplacedLength = 15") &&
-                source.Contains("OverwrittenInstructionPlacement.BeforeCallback") &&
-                source.Contains("X64SmartCPUContextRegs.All") &&
-                source.Contains("crushedTimerWriterHook.Hook.DisplacedByteCount"),
-                "passive crushed-timer writer contract is incomplete");
-            foreach (string writerRead in new[] { "record + 0x12C", "record + 0x12E", "record + 0x132",
-                "record + 0x134", "record + 0x14A", "record + 0x14C", "record + 0x15A",
-                "record + 0x15C", "record + 0x168", "record + 0x16A", "stack + 0xC0",
-                "stack + 0xC8", "stack + 0xD0", "stack + 0xD8", "stack + 0xE0" })
-                Check(source.Contains(writerRead), "crushed timer writer snapshot offset missing: " + writerRead);
+            Check(!source.Contains("AddContextHook") && !source.Contains("X64InlineHook") &&
+                !source.Contains("CrushedTimerWriter") && model.Contains("InlineHookBranchSafety"),
+                "unsafe crushed-timer writer inline hook was not removed completely");
+            Check(source.Contains("origin={(IsCurrentPreplaced(building.Id) ? \"baseline\" : \"runtime-aiv\")}") &&
+                source.Contains("FullPortalTopologyEmitted") && source.Contains("FullNativeRouteMatrixEmitted"),
+                "baseline/runtime portals or compact topology transitions are not distinguished");
             Check(source.Contains("if (args.Phase == EventHookPhase.Pre) initializationTracingActive = true"),
                 "initialization tracing does not start at OnStartMap Pre");
             Check(source.Contains("ObserveCrushedCounters(\"economy-grid.entry\")") &&
@@ -741,13 +784,16 @@ namespace PreplacedTest.Tests
                 Check(matches == 1, name + " is not unique: " + matches);
             }
 
-            byte[] writerBytes = { 0x46, 0x89, 0xAC, 0x11, 0xB0, 0xD8, 0x79, 0x03,
-                0x4C, 0x8D, 0x2D, 0x2D, 0xDB, 0x44, 0x06 };
-            int writerRaw = RvaToRaw(file, 0x7F074);
-            Check(file.Skip(writerRaw).Take(writerBytes.Length).SequenceEqual(writerBytes),
-                "crushed timer writer does not cover the exact audited store-plus-LEA block");
-            Check(0x7F074 >= 0x7EB00 && 0x7F074 + writerBytes.Length <= 0x7EB00 + 0xD7A,
-                "crushed timer writer is outside the audited damage function boundary");
+            int firstWriterBranchRaw = RvaToRaw(file, 0x7F05D);
+            int secondWriterBranchRaw = RvaToRaw(file, 0x7F072);
+            Check(file[firstWriterBranchRaw] == 0x75 && file[secondWriterBranchRaw] == 0x75,
+                "audited damage-writer inbound branches changed opcode");
+            int firstWriterTarget = 0x7F05D + 2 + unchecked((sbyte)file[firstWriterBranchRaw + 1]);
+            int secondWriterTarget = 0x7F072 + 2 + unchecked((sbyte)file[secondWriterBranchRaw + 1]);
+            Check(firstWriterTarget == 0x7F07C && secondWriterTarget == 0x7F07C &&
+                InlineHookBranchSafety.HasInboundTargetInside(0x7F074, 15,
+                    new[] { firstWriterTarget, secondWriterTarget }),
+                "the known unsafe writer-hook span is no longer recognized as having an inbound branch");
             Check((0x51890D0 - 0x50EC690) / sizeof(ushort) == 320800 &&
                 !TryRvaToRaw(file, 0x50EC690, out _) && !TryRvaToRaw(file, 0x51890D0 - 1, out _),
                 "native PCL range length or PE bounds changed");

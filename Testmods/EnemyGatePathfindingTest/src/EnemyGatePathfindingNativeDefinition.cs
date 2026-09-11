@@ -67,6 +67,13 @@ namespace EnemyGatePathfindingTest
             new byte[] { 0x43,0x0F,0xB6,0x84,0x2A,0x23,0x26,0x31,0x00,0x42,0x84,0x84,0x2F,0xD0,0x90,0x18,0x05 }
         };
 
+        internal static byte[] GetDirectionFilterBytes(int index)
+        {
+            if ((uint)index >= (uint)DirectionFilterBytes.Length)
+                throw new ArgumentOutOfRangeException(nameof(index));
+            return (byte[])DirectionFilterBytes[index].Clone();
+        }
+
         // Shared capture table addressed by both displaced CMP instructions. The
         // preceding IMUL has already converted the one-based building id to its stride.
         public const int CapturedByPlayerTableDisplacement = 0x64CCED2;
@@ -96,6 +103,7 @@ namespace EnemyGatePathfindingTest
         // These offsets are relative to native R9 at the compare callback.
         public const int NativeRecordStride = 0x204;
         public const int RecordBuildingIdOffset = -0x0C;
+        public const int RecordSubjectGlobalIdOffset = -0x04;
         public const int RecordOwnerPlayerIdOffset = 0x1CC;
         public const int RecordFirstPclOffset = -0x1E8;
         public const int RecordSecondPclOffset = -0x1E4;

@@ -129,7 +129,10 @@ namespace EnemyGatePathfindingTest
                 $"recaptureTransitions={Read(ref recaptureTransitions)}), " +
                 $"route(fingerprint=0x{topology.Fingerprint:X16}," +
                 $"combinations={topology.Combinations.Length},builds={Read(ref topologyBuilds)}," +
-                $"changes={Read(ref topologyChanges)},drawbridgeObserved={Volatile.Read(ref drawbridgeObserved)}), " +
+                $"changes={Read(ref topologyChanges)},drawbridgeObserved={Volatile.Read(ref drawbridgeObserved)}," +
+                $"nonEmptyPlayerMasks={topology.RoutePolicy.NonEmptyPlayerMaskCount}," +
+                $"maskedDirectedEdges={topology.RoutePolicy.MaskedDirectedEdges}," +
+                $"ambiguousPassages={topology.RoutePolicy.AmbiguousPassages}), " +
                 $"errors={Volatile.Read(ref snapshotErrors)}";
         }
 
@@ -262,7 +265,7 @@ namespace EnemyGatePathfindingTest
                 $"Gate topology epoch {currentEpoch} started ({pendingEpochReason}). " +
                 "Access changes are scanned allocation-free per rendered frame; expensive tile " +
                 "topology rebuilds run on signature changes or once per second; " +
-                "Same-PCL AI and cursorless command results remain unchanged.");
+                "the native Same-PCL filter is published only after a non-empty direction mask exists.");
         }
 
         private void RefreshGateAccess()
@@ -353,8 +356,12 @@ namespace EnemyGatePathfindingTest
                         $"Gate/drawbridge topology changed: epoch={epochNumber}, " +
                         $"combinations={rebuilt.Combinations.Length}, " +
                         $"fingerprint=0x{rebuilt.Fingerprint:X16}, " +
+                        $"nonEmptyPlayerMasks={rebuilt.RoutePolicy.NonEmptyPlayerMaskCount}, " +
+                        $"maskedDirectedEdges={rebuilt.RoutePolicy.MaskedDirectedEdges}, " +
                         $"entities=[{FormatTopologyChanges(previous, rebuilt, 24)}], " +
                         $"{rebuilt.Rejections.Format()}.");
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"Gate passage axes: {rebuilt.RoutePolicy.DirectionMaskDiagnostics}.");
                 }
                 if (firstBuild && !string.IsNullOrEmpty(rebuilt.Detail))
                     Shared.DebugLogHelper.LogInfo(log,
@@ -435,18 +442,18 @@ namespace EnemyGatePathfindingTest
                 }
                 int entryTile = unchecked((int)entry.r_EntryTileId);
                 int exitTile = unchecked((int)entry.r_ExitTileId);
-                if (entryTile <= 0 || exitTile <= 0 ||
-                    !tileApi.IsValidTileId(entryTile) || !tileApi.IsValidTileId(exitTile))
+                bool doorTilesValid = entryTile > 0 && exitTile > 0 &&
+                    tileApi.IsValidTileId(entryTile) && tileApi.IsValidTileId(exitTile);
+                if (!doorTilesValid)
                 {
                     RecordRejection(ref rejections, rejectionSamples,
                         TopologyDiagnosticDisposition.InvalidDoorTiles,
                         gateId, gateSnapshot.r_GlobalId, gateSnapshot.r_PlayerIdOwner,
                         gateSnapshot.r_CapturedByPlayerId, (int)gateSnapshot.r_AliveState,
-                        $"entry={entryTile}/exit={exitTile}");
-                    continue;
+                        $"entry={entryTile}/exit={exitTile}; retaining coordinate/orientation evidence");
                 }
-                int entryPcl = ReadPcl(tileApi, entryTile);
-                int exitPcl = ReadPcl(tileApi, exitTile);
+                int entryPcl = doorTilesValid ? ReadPcl(tileApi, entryTile) : -1;
+                int exitPcl = doorTilesValid ? ReadPcl(tileApi, exitTile) : -1;
                 if (!TryCollectBuildingTiles(
                         tileApi, buildingApi, gateId, gateSnapshot, out TileDiagnostic[] gateTiles))
                 {
@@ -464,8 +471,11 @@ namespace EnemyGatePathfindingTest
                     gateId, gateSnapshot.r_GlobalId, gateSnapshot.r_PlayerIdOwner,
                     gateSnapshot.r_CapturedByPlayerId, entry.r_IsEnabledOrOpen != 0,
                     (int)gateSnapshot.r_AliveState, entryPcl, exitPcl, entryTile, exitTile,
+                    entry.r_EntryTilePositionX, entry.r_EntryTilePositionY,
+                    entry.r_ExitTilePositionX, entry.r_ExitTilePositionY,
+                    entry.r_SubtypeOrOrientation,
                     0, 0, 0, 0, relevantPcls, gateTiles, unrelatedByPlayer,
-                    0, "standalone-gate");
+                    0, doorTilesValid ? "standalone-gate" : "connection-record-coordinate-fallback");
                 gateInfosById.Add(gateId, gateInfo);
                 gateBuildingsById.Add(gateId, gateSnapshot);
                 combinations.Add(gateInfo);
@@ -514,7 +524,8 @@ namespace EnemyGatePathfindingTest
                 var fallbackInfo = new GateBridgeInfo(
                     gateId, gate.r_GlobalId, gate.r_PlayerIdOwner,
                     gate.r_CapturedByPlayerId, false, (int)gate.r_AliveState,
-                    -1, -1, -1, -1, 0, 0, 0, 0, CollectRelevantPcls(gateTiles),
+                    -1, -1, -1, -1, -1, -1, -1, -1, 0,
+                    0, 0, 0, 0, CollectRelevantPcls(gateTiles),
                     gateTiles, unrelatedByPlayer, 0, "building-footprint-fallback");
                 gateInfosById.Add(gateId, fallbackInfo);
                 gateBuildingsById.Add(gateId, gate);
@@ -574,7 +585,8 @@ namespace EnemyGatePathfindingTest
                         $"drawbridge rawGatehouseId={rawGatehouseId}");
                     var orphanInfo = new GateBridgeInfo(
                         0, 0, building.r_PlayerIdOwner, building.r_CapturedByPlayerId,
-                        false, 0, -1, -1, -1, -1, buildingId, building.r_GlobalId,
+                        false, 0, -1, -1, -1, -1, -1, -1, -1, -1, 0,
+                        buildingId, building.r_GlobalId,
                         0, (int)building.r_AliveState, CollectRelevantPcls(bridgeTiles),
                         bridgeTiles, BuildUnrelatedPlayers(
                             building.r_PlayerIdOwner, building.r_CapturedByPlayerId),
@@ -606,6 +618,8 @@ namespace EnemyGatePathfindingTest
                     gateInfo.GateId, gateInfo.GateGlobal, gateInfo.Owner, gateInfo.CapturedBy,
                     gateInfo.IsOpen, gateInfo.GateAliveState, gateInfo.EntryPcl, gateInfo.ExitPcl,
                     gateInfo.EntryTile, gateInfo.ExitTile,
+                    gateInfo.EntryX, gateInfo.EntryY, gateInfo.ExitX, gateInfo.ExitY,
+                    gateInfo.SubtypeOrOrientation,
                     buildingId, building.r_GlobalId, gateInfo.GateId, (int)building.r_AliveState,
                     CollectRelevantPcls(bridgeTiles), bridgeTiles, gateInfo.UnrelatedByPlayer,
                     rawGatehouseId, nativeLink ? "native-building-id" : "unique-footprint-adjacency");
@@ -671,9 +685,19 @@ namespace EnemyGatePathfindingTest
             ulong fingerprint, int recordCapacity)
         {
             if (recordCapacity <= 1)
-                return new NativeGateAccessSnapshot(Array.Empty<NativeGateAccessRecord>(), fingerprint);
+                return new NativeGateAccessSnapshot(Array.Empty<NativeGateAccessRecord>(), fingerprint,
+                    Array.Empty<uint>());
             var records = new NativeGateAccessRecord[recordCapacity];
+            var gateGlobals = new uint[recordCapacity];
             GameBuildingManagerAPI buildings = GameBuildingManagerAPI.Instance;
+            Span<GameBuilding> buildingSpan = buildings.GetBuildingsAsSpan();
+            for (int spanIndex = 0; spanIndex < buildingSpan.Length; spanIndex++)
+            {
+                GameBuilding building = buildingSpan[spanIndex];
+                if (IsGatehouseBuildingType(building.r_BuildingType) &&
+                    IsDiagnosticActive(building.r_AliveState) && building.r_GlobalId != 0)
+                    gateGlobals[spanIndex + 1] = building.r_GlobalId;
+            }
             var entries = GamePathingManagerAPI.Instance.GetPathConnectionArray();
             for (int index = 0; index < entries.Length; index++)
             {
@@ -683,6 +707,7 @@ namespace EnemyGatePathfindingTest
                     !buildings.IsValidId(entry->r_BuildingId) ||
                     !buildings.TryGetBuildingById(entry->r_BuildingId, out GameBuilding* gate) ||
                     gate == null || !IsDiagnosticActive(gate->r_AliveState) ||
+                    !IsGatehouseBuildingType(gate->r_BuildingType) ||
                     gate->r_GlobalId == 0 || gate->r_GlobalId != entry->r_SubjectGlobalId)
                     continue;
                 records[entry->r_BuildingId] = new NativeGateAccessRecord(
@@ -691,7 +716,7 @@ namespace EnemyGatePathfindingTest
                     BuildRelatedPlayerMask(gate->r_CapturedByPlayerId),
                     BuildUnrelatedPlayerMask(gate->r_PlayerIdOwner, gate->r_CapturedByPlayerId));
             }
-            return new NativeGateAccessSnapshot(records, fingerprint);
+            return new NativeGateAccessSnapshot(records, fingerprint, gateGlobals);
         }
 
         private static ulong ComputeTopologySignature(ulong accessFingerprint)
@@ -780,6 +805,20 @@ namespace EnemyGatePathfindingTest
                 blockedTileIds[player] = new HashSet<int>();
             }
             var identities = new Dictionary<int, RouteTileIdentity>();
+            var gatesById = new Dictionary<int, GateBridgeInfo>();
+            var bridgesByGateId = new Dictionary<int, GateBridgeInfo>();
+            for (int index = 0; index < combinations.Length; index++)
+            {
+                GateBridgeInfo candidate = combinations[index];
+                if (candidate.GateId > 0 && candidate.BridgeId == 0)
+                    gatesById[candidate.GateId] = candidate;
+                else if (candidate.GateId > 0 && candidate.BridgeId > 0 &&
+                    !bridgesByGateId.ContainsKey(candidate.GateId))
+                    bridgesByGateId.Add(candidate.GateId, candidate);
+            }
+            var axisDiagnostics = new StringBuilder();
+            int maskedDirectedEdges = 0;
+            int ambiguousPassages = 0;
             for (int infoIndex = 0; infoIndex < combinations.Length; infoIndex++)
             {
                 GateBridgeInfo info = combinations[infoIndex];
@@ -787,23 +826,44 @@ namespace EnemyGatePathfindingTest
                 bool isBridge = info.BridgeId > 0 && info.GateId > 0;
                 if (!isGate && !isBridge)
                     continue;
-                if (TryResolvePassageAxis(tiles, info, out bool horizontalPassage))
+                gatesById.TryGetValue(info.GateId, out GateBridgeInfo gateInfo);
+                bridgesByGateId.TryGetValue(info.GateId, out GateBridgeInfo linkedBridge);
+                if (TryResolvePassageAxis(info, gateInfo, linkedBridge,
+                        out bool horizontalPassage, out PassageAxisSource axisSource))
                 {
+                    int entityEdges = 0;
                     for (int player = 1; player <= 8; player++)
                     {
                         if (player >= info.UnrelatedByPlayer.Length ||
                             !info.UnrelatedByPlayer[player])
                             continue;
                         byte[] masks = directionMasks[player];
+                        bool created = masks == null;
                         if (masks == null)
                         {
                             masks = new byte[EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive];
                             for (int index = 0; index < masks.Length; index++) masks[index] = 0xFF;
                             directionMasks[player] = masks;
                         }
-                        ClearPassageDirections(tiles, info.Tiles, horizontalPassage, masks);
-                        hasBlockedTiles[player] = true;
+                        int changedEdges = ClearPassageDirections(
+                            tiles, info.Tiles, horizontalPassage, masks);
+                        if (changedEdges == 0 && created)
+                            directionMasks[player] = null;
+                        else if (changedEdges > 0)
+                        {
+                            entityEdges = Math.Max(entityEdges, changedEdges);
+                            hasBlockedTiles[player] = true;
+                        }
                     }
+                    maskedDirectedEdges += entityEdges;
+                    AppendAxisDiagnostic(axisDiagnostics, info, horizontalPassage,
+                        axisSource, entityEdges);
+                }
+                else
+                {
+                    ambiguousPassages++;
+                    AppendAxisDiagnostic(axisDiagnostics, info, false,
+                        PassageAxisSource.None, 0);
                 }
                 for (int tileIndex = 0; tileIndex < info.Tiles.Length; tileIndex++)
                 {
@@ -841,44 +901,74 @@ namespace EnemyGatePathfindingTest
                 blockedTiles[player] = blockedTileLists[player].ToArray();
             return new RouteTilePolicySnapshot(
                 gateBits, bridgeBits, rowStarts, identities, hasBlockedTiles, fingerprint,
-                blockedTiles, directionMasks);
+                blockedTiles, directionMasks, maskedDirectedEdges, ambiguousPassages,
+                axisDiagnostics.Length == 0 ? "none" : axisDiagnostics.ToString());
         }
 
         private static bool TryResolvePassageAxis(
-            GameTileManagerAPI tiles, GateBridgeInfo info, out bool horizontal)
+            GateBridgeInfo info,
+            GateBridgeInfo gate,
+            GateBridgeInfo linkedBridge,
+            out bool horizontal,
+            out PassageAxisSource source)
         {
-            horizontal = false;
-            if (info.EntryTile > 0 && info.ExitTile > 0 &&
-                tiles.IsValidTileId(info.EntryTile) && tiles.IsValidTileId(info.ExitTile))
+            GateBridgeInfo coordinateSource = gate.GateId > 0 ? gate : info;
+            if (!TryGetFootprintBounds(coordinateSource.Tiles,
+                    out int gateMinX, out int gateMinY, out int gateMaxX, out int gateMaxY))
             {
-                var entry = tiles.GetTileVectorFromId(info.EntryTile);
-                var exit = tiles.GetTileVectorFromId(info.ExitTile);
-                int dx = Math.Abs(exit.X - entry.X);
-                int dy = Math.Abs(exit.Y - entry.Y);
-                if (dx != dy)
-                {
-                    horizontal = dx > dy;
-                    return true;
-                }
+                horizontal = false;
+                source = PassageAxisSource.None;
+                return false;
             }
+            int bridgeMinX = 0, bridgeMinY = 0, bridgeMaxX = 0, bridgeMaxY = 0;
+            bool hasBridge = linkedBridge.BridgeId > 0 && TryGetFootprintBounds(
+                linkedBridge.Tiles, out bridgeMinX, out bridgeMinY,
+                out bridgeMaxX, out bridgeMaxY);
+            bool coordinatesAvailable =
+                coordinateSource.EntryX != coordinateSource.ExitX ||
+                coordinateSource.EntryY != coordinateSource.ExitY;
+            return PassageAxisResolver.TryResolve(
+                coordinatesAvailable,
+                coordinateSource.EntryX, coordinateSource.EntryY,
+                coordinateSource.ExitX, coordinateSource.ExitY,
+                gateMinX, gateMinY, gateMaxX, gateMaxY,
+                hasBridge, bridgeMinX, bridgeMinY, bridgeMaxX, bridgeMaxY,
+                out horizontal, out source);
+        }
 
-            int minX = int.MaxValue, minY = int.MaxValue;
-            int maxX = int.MinValue, maxY = int.MinValue;
-            for (int index = 0; index < info.Tiles.Length; index++)
+        private static bool TryGetFootprintBounds(
+            TileDiagnostic[] diagnostics,
+            out int minX, out int minY, out int maxX, out int maxY)
+        {
+            minX = minY = int.MaxValue;
+            maxX = maxY = int.MinValue;
+            for (int index = 0; index < diagnostics.Length; index++)
             {
-                TileDiagnostic tile = info.Tiles[index];
+                TileDiagnostic tile = diagnostics[index];
                 if (!tile.Footprint) continue;
                 minX = Math.Min(minX, tile.X); maxX = Math.Max(maxX, tile.X);
                 minY = Math.Min(minY, tile.Y); maxY = Math.Max(maxY, tile.Y);
             }
-            if (minX > maxX || minY > maxY || maxX - minX == maxY - minY)
-                return false;
-            // The passage runs perpendicular to the long wall/footprint axis.
-            horizontal = maxY - minY > maxX - minX;
-            return true;
+            return minX <= maxX && minY <= maxY;
         }
 
-        private static void ClearPassageDirections(
+        private static void AppendAxisDiagnostic(
+            StringBuilder text,
+            GateBridgeInfo info,
+            bool horizontal,
+            PassageAxisSource source,
+            int edges)
+        {
+            if (text.Length > 0) text.Append(';');
+            text.Append(info.BridgeId > 0 ? "bridge#" : "gate#")
+                .Append(info.BridgeId > 0 ? info.BridgeId : info.GateId)
+                .Append("/axis=").Append(source == PassageAxisSource.None
+                    ? "ambiguous" : horizontal ? "horizontal" : "vertical")
+                .Append("/axisSource=").Append(source)
+                .Append("/maskedEdges=").Append(edges);
+        }
+
+        private static int ClearPassageDirections(
             GameTileManagerAPI tiles, TileDiagnostic[] diagnostics,
             bool horizontalPassage, byte[] masks)
         {
@@ -891,30 +981,34 @@ namespace EnemyGatePathfindingTest
                 minX = Math.Min(minX, tile.X); maxX = Math.Max(maxX, tile.X);
                 minY = Math.Min(minY, tile.Y); maxY = Math.Max(maxY, tile.Y);
             }
-            if (minX > maxX || minY > maxY) return;
+            if (minX > maxX || minY > maxY) return 0;
 
+            int changed = 0;
             if (horizontalPassage)
             {
                 int left = (minX + maxX) >> 1;
                 for (int y = minY; y <= maxY; y++)
-                    ClearBoundary(tiles, masks, left, y, left + 1, y, 2);
+                    changed += ClearBoundary(tiles, masks, left, y, left + 1, y, 2);
             }
             else
             {
                 int top = (minY + maxY) >> 1;
                 for (int x = minX; x <= maxX; x++)
-                    ClearBoundary(tiles, masks, x, top, x, top + 1, 4);
+                    changed += ClearBoundary(tiles, masks, x, top, x, top + 1, 4);
             }
+            return changed;
         }
 
-        private static void ClearBoundary(
+        private static int ClearBoundary(
             GameTileManagerAPI tiles, byte[] masks,
             int fromX, int fromY, int toX, int toY, int direction)
         {
             int from = tiles.GetTileId(fromX, fromY);
             int to = tiles.GetTileId(toX, toY);
             if (from < 0 || to < 0 || from >= masks.Length || to >= masks.Length)
-                return;
+                return 0;
+            byte beforeFrom = masks[from];
+            byte beforeTo = masks[to];
             masks[from] = unchecked((byte)(masks[from] & ~(1 << direction)));
             int opposite = (direction + 4) & 7;
             masks[to] = unchecked((byte)(masks[to] & ~(1 << opposite)));
@@ -926,6 +1020,19 @@ namespace EnemyGatePathfindingTest
             masks[to] = unchecked((byte)(masks[to] &
                 ~(1 << ((sideDirectionA + 4) & 7)) &
                 ~(1 << ((sideDirectionB + 4) & 7))));
+            return CountBits(unchecked((byte)(beforeFrom ^ masks[from]))) +
+                CountBits(unchecked((byte)(beforeTo ^ masks[to])));
+        }
+
+        private static int CountBits(byte value)
+        {
+            int count = 0;
+            while (value != 0)
+            {
+                value = unchecked((byte)(value & (value - 1)));
+                count++;
+            }
+            return count;
         }
 
         private static int horizontalDirection(int direction) => (direction + 8) & 7;
@@ -1215,6 +1322,10 @@ namespace EnemyGatePathfindingTest
                 hash = (hash ^ info.GateGlobal) * 1099511628211UL;
                 hash = (hash ^ (uint)info.BridgeId) * 1099511628211UL;
                 hash = (hash ^ info.BridgeGlobal) * 1099511628211UL;
+                hash = (hash ^ (uint)info.EntryX) * 1099511628211UL;
+                hash = (hash ^ (uint)info.EntryY) * 1099511628211UL;
+                hash = (hash ^ (uint)info.ExitX) * 1099511628211UL;
+                hash = (hash ^ (uint)info.ExitY) * 1099511628211UL;
                 ushort blockedMask = 0;
                 for (int player = 1; player < info.UnrelatedByPlayer.Length && player <= 8; player++)
                     if (info.UnrelatedByPlayer[player])
@@ -1442,7 +1553,9 @@ namespace EnemyGatePathfindingTest
         {
             internal GateBridgeInfo(int gateId, uint gateGlobal, int owner, int capturedBy,
                 bool isOpen, int gateAliveState, int entryPcl, int exitPcl,
-                int entryTile, int exitTile, int bridgeId,
+                int entryTile, int exitTile,
+                int entryX, int entryY, int exitX, int exitY, int subtypeOrOrientation,
+                int bridgeId,
                 uint bridgeGlobal, int linkedGateId, int bridgeAliveState,
                 int[] relevantPcls, TileDiagnostic[] tiles, bool[] unrelatedByPlayer,
                 int rawGatehouseId, string linkMethod)
@@ -1450,6 +1563,8 @@ namespace EnemyGatePathfindingTest
                 GateId = gateId; GateGlobal = gateGlobal; Owner = owner; CapturedBy = capturedBy;
                 IsOpen = isOpen; GateAliveState = gateAliveState; EntryPcl = entryPcl;
                 ExitPcl = exitPcl; EntryTile = entryTile; ExitTile = exitTile;
+                EntryX = entryX; EntryY = entryY; ExitX = exitX; ExitY = exitY;
+                SubtypeOrOrientation = subtypeOrOrientation;
                 BridgeId = bridgeId; BridgeGlobal = bridgeGlobal;
                 LinkedGateId = linkedGateId; BridgeAliveState = bridgeAliveState;
                 RelevantPcls = relevantPcls; Tiles = tiles; UnrelatedByPlayer = unrelatedByPlayer;
@@ -1465,6 +1580,11 @@ namespace EnemyGatePathfindingTest
             internal int ExitPcl { get; }
             internal int EntryTile { get; }
             internal int ExitTile { get; }
+            internal int EntryX { get; }
+            internal int EntryY { get; }
+            internal int ExitX { get; }
+            internal int ExitY { get; }
+            internal int SubtypeOrOrientation { get; }
             internal int BridgeId { get; }
             internal uint BridgeGlobal { get; }
             internal int LinkedGateId { get; }
@@ -1484,7 +1604,10 @@ namespace EnemyGatePathfindingTest
                         .Append(" owner=").Append(Owner).Append(" captured=").Append(CapturedBy)
                         .Append(" state=").Append(GateAliveState).Append(" open=").Append(IsOpen)
                         .Append(" entryExitPcl=").Append(EntryPcl).Append('/')
-                        .Append(ExitPcl).Append(" linkMethod=").Append(LinkMethod);
+                        .Append(ExitPcl).Append(" entryExitXY=").Append(EntryX).Append('/')
+                        .Append(EntryY).Append('-').Append(ExitX).Append('/').Append(ExitY)
+                        .Append(" orientationRaw=").Append(SubtypeOrOrientation)
+                        .Append(" linkMethod=").Append(LinkMethod);
                 }
                 else
                 {

@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
+using Iced.Intel;
+using RedBird.X64.Hooks;
 
 namespace EnemyGatePathfindingTest
 {
@@ -20,6 +23,7 @@ namespace EnemyGatePathfindingTest
                 ImmutableGateSnapshotIsAllianceAwareAndFailOpen();
                 SnapshotDecisionDiagnosticsCoverEveryAccessClass();
                 SnapshotMetadataCountsTrackedPolicy();
+                SnapshotGateIdentityRequiresBothIds();
                 AccessPolicyEqualityIgnoresRawScanOnlyChanges();
                 CaptureTransitionCoverageIsDeterministic();
                 CapturerComparisonAndFlagRestorationAreExact();
@@ -36,6 +40,8 @@ namespace EnemyGatePathfindingTest
                 RectangleDistanceSupportsSpatialBridgeDiagnosis();
                 NativeHookByteContractsRejectMutation();
                 VanillaDirectionFilterContractsAreAtomic();
+                DirectionAdaptersActuallyAssembleAndDecode();
+                PassageAxisEvidenceIsDeterministic();
                 TopologyRejectionClassificationIsDeterministic();
                 FootprintAdjacencyIgnoresBrokenEditorBounds();
                 UniqueSpatialGateAssociationFailsOpenWhenAmbiguous();
@@ -678,6 +684,7 @@ namespace EnemyGatePathfindingTest
             string tileSource = File.ReadAllText(Path.Combine("src", "CursorGateRouteFilter.cs"));
             string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             string samePclSource = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            string emitterSource = File.ReadAllText(Path.Combine("src", "DirectionFilterAdapterEmitter.cs"));
             string[] forbidden =
             {
                 "GamePlayerManagerAPI", "GameUnitManagerAPI", "DebugLogHelper",
@@ -703,7 +710,7 @@ namespace EnemyGatePathfindingTest
                     Assert(capturedBody.IndexOf(token, StringComparison.Ordinal) < 0,
                         method + " hot path excludes " + token);
             }
-            string builderBody = ExtractMethodBody(samePclSource, "EmitDirectionFilter");
+            string builderBody = ExtractMethodBody(emitterSource, "Emit");
             foreach (string token in new[]
             {
                 "GameUnitManagerAPI", "GamePlayerManagerAPI", "DebugLogHelper",
@@ -755,11 +762,8 @@ namespace EnemyGatePathfindingTest
                     boundary.IndexOf("direction + 1", StringComparison.Ordinal) >= 0,
                 "gate boundary also rejects diagonal corner cuts");
             string axis = ExtractMethodBody(topology, "TryResolvePassageAxis");
-            Assert(axis.IndexOf("EntryTile", StringComparison.Ordinal) >= 0 &&
-                    axis.IndexOf("ExitTile", StringComparison.Ordinal) >= 0,
-                "confirmed entry/exit geometry determines the passage first");
-            Assert(axis.IndexOf("return false", StringComparison.Ordinal) >= 0,
-                "ambiguous square geometry fails open");
+            Assert(axis.IndexOf("PassageAxisResolver.TryResolve", StringComparison.Ordinal) >= 0,
+                "topology delegates axis selection to the tested evidence resolver");
         }
 
         private static void VanillaDirectionFilterContractsAreAtomic()
@@ -779,18 +783,177 @@ namespace EnemyGatePathfindingTest
                 Assert(EnemyGatePathfindingNativeDefinition.DirectionFilterLengths[index] == expectedLengths[index],
                     "direction-filter displaced length " + index);
             }
-            string source = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
-            Assert(source.IndexOf("for (int index = 0; index < edgeHooks.Length; index++)",
+            string runtime = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            string source = File.ReadAllText(Path.Combine("src", "DirectionFilterAdapterEmitter.cs"));
+            Assert(runtime.IndexOf("for (int index = 0; index < edgeHooks.Length; index++)",
                     StringComparison.Ordinal) >= 0 &&
-                    source.IndexOf("transaction.Commit()", StringComparison.Ordinal) >= 0,
+                    runtime.IndexOf("transaction.Commit()", StringComparison.Ordinal) >= 0,
                 "all edge adapters share one atomic transaction");
             Assert(source.IndexOf("__dword_ptr.gs[0x48]", StringComparison.Ordinal) >= 0 &&
                     source.IndexOf("ThreadSlotCount", StringComparison.Ordinal) >= 0,
                 "native adapters validate the fixed TEB thread slot");
-            Assert(source.IndexOf("asm.and(al", StringComparison.Ordinal) >= 0 &&
-                    source.IndexOf("asm.and(r11b", StringComparison.Ordinal) >= 0 &&
-                    source.IndexOf("asm.and(cl", StringComparison.Ordinal) >= 0,
+            Assert(source.IndexOf("assembler.and(al", StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("assembler.and(r11b", StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("assembler.and(cl", StringComparison.Ordinal) >= 0,
                 "all native direction-load destination registers are masked");
+            foreach (string method in new[]
+            {
+                "EmitRaxDestination", "EmitR11Destination", "EmitRcxDestination"
+            })
+            {
+                string body = ExtractMethodBody(source, method);
+                Assert(CountOccurrences(body, "AddInstruction(original[0])") == 1 &&
+                        body.IndexOf("for (int index = 0; index < original.Length", StringComparison.Ordinal) < 0,
+                    method + " emits its original load once and has no duplicate full replay");
+            }
+        }
+
+        private static void SnapshotGateIdentityRequiresBothIds()
+        {
+            var records = new NativeGateAccessRecord[5];
+            records[4] = new NativeGateAccessRecord(true, 1, 0, 0x0002, 0, 0x001C);
+            var gateGlobals = new uint[5];
+            gateGlobals[4] = 0x12345678;
+            var snapshot = new NativeGateAccessSnapshot(records, 9, gateGlobals);
+            Assert(snapshot.MatchesGateIdentity(4, 0x12345678),
+                "matching building and global IDs identify a tracked gate");
+            Assert(!snapshot.MatchesGateIdentity(4, 0x12345679),
+                "a stale global ID does not identify the current gate");
+            Assert(!snapshot.MatchesGateIdentity(3, 0x12345678),
+                "a neighboring building ID is not inferred to be the gate");
+            Assert(!snapshot.MatchesGateIdentity(4, 0),
+                "a missing subject global ID remains harmless and unclassified");
+        }
+
+        private static void DirectionAdaptersActuallyAssembleAndDecode()
+        {
+            const ulong library = 0x180000000UL;
+            const ulong slots = 0x123456789ABC0000UL;
+            for (int site = 0; site < EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length; site++)
+            {
+                byte[] originalBytes = EnemyGatePathfindingNativeDefinition.GetDirectionFilterBytes(site);
+                ulong originalIp = library + unchecked((ulong)
+                    EnemyGatePathfindingNativeDefinition.DirectionFilterRvas[site]);
+                ulong stubIp = library + 0x02000000UL + unchecked((ulong)(site * 0x1000));
+                byte[] emitted = DirectionFilterAdapterEmitter.AssembleAndValidate(
+                    originalBytes, originalIp, site, slots, stubIp);
+                Assert(emitted.Length > originalBytes.Length,
+                    "direction adapter " + site + " assembles to a validated native stub");
+
+                Instruction originalFirst = DecodeFirst(originalBytes, originalIp);
+                var decoder = Decoder.Create(64, new ByteArrayCodeReader(emitted));
+                decoder.IP = stubIp;
+                int matchingOriginalLoads = 0;
+                while (decoder.IP < stubIp + (ulong)emitted.Length)
+                {
+                    decoder.Decode(out Instruction instruction);
+                    Assert(instruction.Code != Code.INVALID,
+                        "direction adapter " + site + " disassembles without invalid opcodes");
+                    if (SameMemoryInstruction(instruction, originalFirst)) matchingOriginalLoads++;
+                }
+                Assert(matchingOriginalLoads == 1,
+                    "direction adapter " + site + " contains exactly one original producer load");
+
+                byte[] probeBytes = new byte[64];
+                for (int index = 0; index < probeBytes.Length; index++) probeBytes[index] = 0x90;
+                Array.Copy(originalBytes, probeBytes, originalBytes.Length);
+                IntPtr probeMemory = Marshal.AllocHGlobal(probeBytes.Length);
+                try
+                {
+                    Marshal.Copy(probeBytes, 0, probeMemory, probeBytes.Length);
+                    using (var probe = new X64InlineHook(
+                        unchecked((ulong)probeMemory.ToInt64()), 14))
+                    {
+                        Assert(probe.DisplacedByteCount ==
+                                EnemyGatePathfindingNativeDefinition.DirectionFilterLengths[site],
+                            "installed RedBird decodes the exact direction span " + site);
+                    }
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(probeMemory);
+                }
+            }
+
+            byte[] duplicateBytes = EnemyGatePathfindingNativeDefinition.GetDirectionFilterBytes(0);
+            Instruction duplicate = DecodeFirst(duplicateBytes,
+                library + unchecked((ulong)EnemyGatePathfindingNativeDefinition.DirectionFilterRvas[0]));
+            var invalid = new Assembler(64);
+            invalid.AddInstruction(duplicate);
+            invalid.AddInstruction(duplicate);
+            bool rejected = false;
+            try
+            {
+                using (var stream = new MemoryStream())
+                    invalid.Assemble(new StreamCodeWriter(stream), library + 0x03000000UL);
+            }
+            catch (ArgumentException) { rejected = true; }
+            Assert(rejected, "Iced regression proves duplicate instruction IPs are rejected");
+        }
+
+        private static void PassageAxisEvidenceIsDeterministic()
+        {
+            AssertAxis(true, 10, 10, 14, 10, 8, 8, 12, 12,
+                false, 0, 0, 0, 0, true, PassageAxisSource.EntryExitCoordinates,
+                "entry/exit coordinates resolve a horizontal passage even without an exit tile id");
+            AssertAxis(false, 0, 0, 0, 0, 20, 20, 24, 24,
+                true, 20, 25, 24, 29, false, PassageAxisSource.LinkedDrawbridge,
+                "south drawbridge resolves a vertical gate passage");
+            AssertAxis(false, 0, 0, 0, 0, 20, 20, 24, 24,
+                true, 20, 15, 24, 19, false, PassageAxisSource.LinkedDrawbridge,
+                "north drawbridge resolves a vertical gate passage");
+            AssertAxis(false, 0, 0, 0, 0, 20, 20, 24, 24,
+                true, 25, 20, 29, 24, true, PassageAxisSource.LinkedDrawbridge,
+                "east drawbridge resolves a horizontal gate passage");
+            AssertAxis(false, 0, 0, 0, 0, 20, 20, 24, 24,
+                true, 15, 20, 19, 24, true, PassageAxisSource.LinkedDrawbridge,
+                "west drawbridge resolves a horizontal gate passage");
+            AssertAxis(false, 0, 0, 0, 0, 30, 30, 32, 36,
+                false, 0, 0, 0, 0, true, PassageAxisSource.ElongatedFootprint,
+                "elongated fallback resolves perpendicular passage axis");
+            bool resolved = PassageAxisResolver.TryResolve(false, 0, 0, 0, 0,
+                325, 483, 329, 487, false, 0, 0, 0, 0,
+                out _, out PassageAxisSource ambiguous);
+            Assert(!resolved && ambiguous == PassageAxisSource.None,
+                "square gate without coordinate or bridge evidence remains fail-open");
+        }
+
+        private static void AssertAxis(bool coordinatesAvailable,
+            int entryX, int entryY, int exitX, int exitY,
+            int gateMinX, int gateMinY, int gateMaxX, int gateMaxY,
+            bool bridgeAvailable, int bridgeMinX, int bridgeMinY, int bridgeMaxX, int bridgeMaxY,
+            bool expectedHorizontal, PassageAxisSource expectedSource, string message)
+        {
+            bool resolved = PassageAxisResolver.TryResolve(coordinatesAvailable,
+                entryX, entryY, exitX, exitY, gateMinX, gateMinY, gateMaxX, gateMaxY,
+                bridgeAvailable, bridgeMinX, bridgeMinY, bridgeMaxX, bridgeMaxY,
+                out bool horizontal, out PassageAxisSource source);
+            Assert(resolved && horizontal == expectedHorizontal && source == expectedSource, message);
+        }
+
+        private static Instruction DecodeFirst(byte[] bytes, ulong ip)
+        {
+            var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+            decoder.IP = ip;
+            decoder.Decode(out Instruction instruction);
+            return instruction;
+        }
+
+        private static bool SameMemoryInstruction(Instruction left, Instruction right) =>
+            left.Code == right.Code && left.MemoryBase == right.MemoryBase &&
+            left.MemoryIndex == right.MemoryIndex && left.MemoryIndexScale == right.MemoryIndexScale &&
+            left.MemoryDisplacement64 == right.MemoryDisplacement64;
+
+        private static int CountOccurrences(string value, string token)
+        {
+            int count = 0;
+            int offset = 0;
+            while ((offset = value.IndexOf(token, offset, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                offset += token.Length;
+            }
+            return count;
         }
 
         private static void WriteBytes(byte[] destination, int offset, string hexadecimal)

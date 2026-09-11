@@ -46,7 +46,8 @@ namespace EnemyGatePathfindingTest
         private readonly long[] foreignOriginalZf = new long[2];
         private long untrackedPolicyClear;
         private long untrackedRemovedRecord;
-        private long untrackedUnexpected;
+        private long untrackedUnexpectedGate;
+        private long untrackedNonGate;
         private readonly CapturerSample[] samples =
             new CapturerSample[SiteCount * DecisionCount];
 
@@ -191,7 +192,7 @@ namespace EnemyGatePathfindingTest
             {
                 samePclRouteRuntime = null;
                 Shared.DebugLogHelper.LogWarning(log,
-                    "Active Same-PCL builder correction could not be installed; " +
+                    "Active Same-PCL builder correction could not be initialized; " +
                     $"Vanilla remains active for that path: {ex.GetType().Name}: {ex.Message}");
             }
             try
@@ -235,9 +236,9 @@ namespace EnemyGatePathfindingTest
                 $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}. " +
                 "The whole PCL detour and every global Direction-Grid write were removed.");
             if (samePclRouteRuntime?.Installed != true && !friendlyMoatHookOwnerLoaded)
-                Shared.DebugLogHelper.LogWarning(log,
-                    "Same-PCL builder rerouting is unavailable and remains fail-open. " +
-                    "Cursor causality and Different-PCL filtering remain active.");
+                Shared.DebugLogHelper.LogInfo(log,
+                    "Same-PCL hook publication is waiting for the first non-empty gate direction mask; " +
+                    "all searches remain fail-open until then.");
         }
 
         internal void BeginMap()
@@ -252,7 +253,8 @@ namespace EnemyGatePathfindingTest
             cursorRouteFilter?.BeginEpoch("OnStartMap(Post)");
             Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate map started: Different-PCL filter, causal cursor policy and " +
-                $"Same-PCL builder correction={(samePclRouteRuntime?.Installed == true ? "active" : "inactive")}.");
+                $"Same-PCL builder correction={(samePclRouteRuntime?.Installed == true ? "active" :
+                    samePclRouteRuntime != null ? "pending-policy" : "inactive")}.");
         }
 
         internal void EndMap(string reason = "OnUnloadMap(Pre)")
@@ -373,6 +375,8 @@ namespace EnemyGatePathfindingTest
                     EnemyGatePathfindingNativeDefinition.RecordBuildingIdOffset);
                 int ownerPlayerId = *(int*)(record +
                     EnemyGatePathfindingNativeDefinition.RecordOwnerPlayerIdOffset);
+                uint subjectGlobalId = *(uint*)(record +
+                    EnemyGatePathfindingNativeDefinition.RecordSubjectGlobalIdOffset);
                 int firstPcl = *(int*)(record +
                     EnemyGatePathfindingNativeDefinition.RecordFirstPclOffset);
                 int secondPcl = *(int*)(record +
@@ -386,7 +390,7 @@ namespace EnemyGatePathfindingTest
                         queryPlayerId, buildingId, recordBuildingId, ownerPlayerId,
                         nativeCapturedByPlayerId, firstPcl, secondPcl, thirdPcl, default,
                         unchecked((ushort)registers->RAX), originalZero,
-                        originalZero, gateAccess.TopologyFingerprint);
+                        originalZero, gateAccess.TopologyFingerprint, subjectGlobalId);
                     return;
                 }
 
@@ -405,7 +409,7 @@ namespace EnemyGatePathfindingTest
                     firstPcl, secondPcl, thirdPcl, snapshotRecord,
                     unchecked((ushort)registers->RAX), originalZero,
                     decision == NativeGateSnapshotDecision.ExcludeForeignCapture || originalZero,
-                    current.TopologyFingerprint);
+                    current.TopologyFingerprint, subjectGlobalId);
             }
             catch
             {
@@ -435,7 +439,8 @@ namespace EnemyGatePathfindingTest
             ushort compareValue,
             bool originalZero,
             bool finalZero,
-            ulong fingerprint)
+            ulong fingerprint,
+            uint subjectGlobalId = 0)
         {
             if (Volatile.Read(ref mapActive) == 0)
                 return;
@@ -455,8 +460,10 @@ namespace EnemyGatePathfindingTest
                     Interlocked.Increment(ref untrackedPolicyClear);
                 else if (HasStableRecord(previousStableGateAccess, buildingId))
                     Interlocked.Increment(ref untrackedRemovedRecord);
+                else if (live.MatchesGateIdentity(buildingId, subjectGlobalId))
+                    Interlocked.Increment(ref untrackedUnexpectedGate);
                 else
-                    Interlocked.Increment(ref untrackedUnexpected);
+                    Interlocked.Increment(ref untrackedNonGate);
             }
 
             ref CapturerSample sample = ref samples[(site * DecisionCount) + decisionIndex];
@@ -478,6 +485,7 @@ namespace EnemyGatePathfindingTest
             sample.OriginalZero = originalZero ? 1 : 0;
             sample.FinalZero = finalZero ? 1 : 0;
             sample.Fingerprint = fingerprint;
+            sample.SubjectGlobalId = subjectGlobalId;
             Volatile.Write(ref sample.State, 2);
         }
 
@@ -501,7 +509,8 @@ namespace EnemyGatePathfindingTest
             Array.Clear(foreignOriginalZf, 0, foreignOriginalZf.Length);
             Reset(ref untrackedPolicyClear);
             Reset(ref untrackedRemovedRecord);
-            Reset(ref untrackedUnexpected);
+            Reset(ref untrackedUnexpectedGate);
+            Reset(ref untrackedNonGate);
             Array.Clear(samples, 0, samples.Length);
             Interlocked.Exchange(ref callbackWarnings, 0);
             Volatile.Write(ref nextDiagnosticAt, Stopwatch.GetTimestamp() + DiagnosticInterval);
@@ -534,7 +543,7 @@ namespace EnemyGatePathfindingTest
                 $"preservedByOriginalZf(zf0={Read(ref preservedOriginalZf[0])},zf1={Read(ref preservedOriginalZf[1])}), " +
                 $"foreignBlocked(changedZf={Read(ref foreignOriginalZf[0])},alreadyExcluded={Read(ref foreignOriginalZf[1])}), " +
                 $"untracked(policyClear={Read(ref untrackedPolicyClear)},removedRecord={Read(ref untrackedRemovedRecord)}," +
-                $"unexpected={Read(ref untrackedUnexpected)}), " +
+                $"nonGate={Read(ref untrackedNonGate)},unexpectedGate={Read(ref untrackedUnexpectedGate)}), " +
                 $"callbackWarnings={Volatile.Read(ref callbackWarnings)}.");
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate snapshot checkpoint: {topologyProvider?.DescribeState() ?? "unavailable"}.");
@@ -575,7 +584,7 @@ namespace EnemyGatePathfindingTest
             bool runtimeFailed = Volatile.Read(ref callbackWarnings) != 0 ||
                 topology.Errors != 0 || cursor.Errors != 0 || cursor.Failures != 0 ||
                 same.Exceptions != 0 || same.SlotConflicts != 0 ||
-                Read(ref untrackedUnexpected) != 0 || policyFailures != 0;
+                Read(ref untrackedUnexpectedGate) != 0 || policyFailures != 0;
             DiagnosticVerdict sameHookVerdict = same.OwnerConflict
                 ? DiagnosticVerdict.NOT_APPLICABLE
                 : !same.Installed ? DiagnosticVerdict.FAIL
@@ -615,7 +624,8 @@ namespace EnemyGatePathfindingTest
                 $"untrackedTransitionCalls={DecisionTotal(NativeGateSnapshotDecision.UntrackedConnection)}," +
                 $"untrackedPolicyClear={Read(ref untrackedPolicyClear)}," +
                 $"untrackedRemovedRecord={Read(ref untrackedRemovedRecord)}," +
-                $"untrackedUnexpected={Read(ref untrackedUnexpected)}," +
+                $"untrackedNonGate={Read(ref untrackedNonGate)}," +
+                $"untrackedUnexpectedGate={Read(ref untrackedUnexpectedGate)}," +
                 $"reason={reason}.");
         }
 
@@ -664,6 +674,7 @@ namespace EnemyGatePathfindingTest
                     $"Enemy-gate first capturer sample: site={(sample.Site == 0 ? "pclGraph" : "builderPrecheck")}, " +
                     $"decision={(NativeGateSnapshotDecision)sample.Decision}, queryPlayer={sample.QueryPlayer}, " +
                     $"building={sample.BuildingId}, recordBuilding={sample.RecordBuildingId}, " +
+                    $"subjectGlobal={sample.SubjectGlobalId}, " +
                     $"nativeOwner={sample.NativeOwner}, snapshotOwner={sample.SnapshotOwner}, " +
                     $"nativeCaptured={sample.NativeCaptured}, snapshotCaptured={sample.SnapshotCaptured}, " +
                     $"portalPcls={sample.FirstPcl}/{sample.SecondPcl}/{sample.ThirdPcl}, " +
@@ -692,6 +703,7 @@ namespace EnemyGatePathfindingTest
             internal int OriginalZero;
             internal int FinalZero;
             internal ulong Fingerprint;
+            internal uint SubjectGlobalId;
         }
 
         private static void ProbeExactHookLength(

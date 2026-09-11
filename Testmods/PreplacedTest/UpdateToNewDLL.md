@@ -32,11 +32,11 @@
 | Chore field copy | `0x1F5F0..0x1F68D` | `ChoreCopyFieldPattern`; `void(manager, fieldAddress, size, bufferMode, direction)`; the copy call at `0x1F65D` targets `0x7140`, advances cursor `+0x370BF8`, and diagnostics are emitted only for overlaps with the current player-record array |
 | Final map-start checkpoints | `0x115830`, `0x102C30`, `0x2A340` | `InitializeUnitSubsystemPattern`, `ResetMapObjectSubsystemPattern`, `InitializePlayerPathingPattern`; passive timer comparisons around the calls immediately surrounding the full economy-grid rebuild. In `0x94350`, call sites `0x96D2C`, `0x96D38`, `0x96D49`, and `0x96D55` must still target these functions and `0x50720` in that order. |
 
-## Inline context hook and derived target
+## Forbidden former inline hook and branch-safety regression
 
-- `CrushedTimerWriterBlockPattern` resolves the surrounding damage block at reference RVA `0x7F052`.
-- The observed store target is derived by the invariant delta `0x7F074 - 0x7F052` and must resolve to RVA `0x7F074` inside damage function `0x7EB00..0x7F87A`.
-- The exact 15 displaced bytes, full instruction boundaries, RedBird displacement length, saved register mask, callback placement, and return path are validated before commit. Any difference aborts the transaction.
+- Do not restore the former inline context hook at RVA `0x7F074`. RedBird displaced 15 bytes, while native branches at `0x7F05D` and `0x7F072` target `0x7F07C` inside that span; the resulting mid-stub entry caused a verified access violation.
+- Any future inline hook must first pass the inbound-branch safety check for its complete actual displaced span. Damage observation currently uses Script Extender events and timer comparisons and needs no inline writer hook.
+- The regression test resolves both short-branch targets from the canonical DLL and proves that the former 15-byte span is unsafe. New inline instrumentation is forbidden unless its full backend-reported displaced span has no inbound target.
 - `ActiveLayoutReferencePattern` at reference RVA `0x55F64` provides a RIP-relative data address. The decoded target must remain inside the mapped image.
 
 ## Hash-bound data and validation-only locations

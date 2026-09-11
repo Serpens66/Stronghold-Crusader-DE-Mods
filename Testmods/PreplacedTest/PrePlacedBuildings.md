@@ -3,7 +3,7 @@
 - Stand: 11. September 2026
 - Native Version: `CrusaderDE.dll`, SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Getesteter Script Extender: 2.5.0
-- Wesentliche Laufzeitevidenz: `Log_057.log` sowie die nachfolgenden sauberen Ruinen- und Mauerläufe vom 11. September 2026
+- Wesentliche Laufzeitevidenz: `Log_057.log`, der aktive Ruinen-/Mauerlauf vom 11. September 2026 ab 20:25 Uhr sowie `SHCDESE-crash-2026-09-11-20-27-48-152-pid48388-tid50040.log`
 
 Aktiv waren bei den maßgeblichen Tests nur UU-ImGUI, Script Extender und `PreplacedTest`. Spieler-IDs und Farben sind keine festen Testrollen. Torhaus-KI und torlose Kontroll-KI werden bei jedem Kartenstart aus den aktuellen Gebäude- und Tile-Daten neu bestimmt.
 
@@ -32,11 +32,13 @@ Externe Wirtschaftsgebäude verwenden nicht je Gebäudetyp einen unabhängigen A
 
 `byte+16` ist kein zweiter frei ersetzbarer PCL-Wert. `0x50720` erzeugt es aus eigenen Tile-Eigenschaften; der aktive Testfix lässt es deshalb unverändert. Die Ressourcenfamilie verwendet die Differenz von `byte+04` und `byte+16` sowie danach Belegung, Blocker, Spielerklasse, Ressourcendichte und Höhe. Der Höhenvergleich ist `byte+0D - byte+0C` kleiner als 40, 30 oder 12 für Stein, Eisen oder Pech. Dichtebytes werden vorzeichenbehaftet verglichen.
 
-### `Log_057.log` beweist noch keinen funktionierenden Torhausfix
+### Das aktive Overlay ermöglichte erstmals einen externen Holzfäller vor einem fremden Durchbruch
 
-Im Lauf aus `Log_057.log` wurde die Einfassung von Spieler 7 durchbrochen. Erst danach baute der zu diesem Zeitpunkt als Spieler 8 geführte Besitzer zwei Holzfäller. Vor dem Durchbruch erreichte die Torhaus-KI laut nativer Routenabfrage nur PCLs `[1,2,3]`; die später zugänglichen PCLs 4 und 5 waren zu diesem Zeitpunkt nicht erreichbar. Der Holzfällerbau darf daher nicht als Erfolg des Torhaus-Overlays gewertet werden.
+Im neuesten Mauerlauf war Spieler 7 die dynamisch ermittelte Torhaus-KI. Sie baute um `20:27:10.435` einen Holzfäller bei `(500,375)` und um `20:27:25.423` einen zweiten bei `(505,375)`. Der erste Holzfäller entstand etwa sieben Sekunden vor dem bestätigten Durchbruch der Einfassung von Spieler 8 ohne Torhäuser um `20:27:17.024`. Damit liegt erstmals positive Laufzeitevidenz vor, dass das spielerspezifische `byte+04`-Overlay die Holzsuche der Torhaus-KI über die vorplatzierten Portale hinaus erweitert.
 
-In drei weiteren Mauerstarts trat trotz bereitstehender Soldaten kein Mauerdurchbruch auf. Dabei wurden unterschiedliche AIV-Kandidaten gewählt. Das macht einen einzelnen zufälligen Burgplan als alleinige Erklärung unwahrscheinlich, ist für den Gebäudebaufehler aber nicht entscheidend.
+Farm-, Steinbruch-, Eisen- und Pechsuche waren in diesem Lauf keine negativen Gegenproben: Die nativen Eintrittsdaten meldeten jeweils `built=0, desired=0`, weshalb Vanilla diese Suchen legitim vor der Traversierung beendete. Sie müssen bei einem Test mit echter Nachfrage oder über die proaktiven Modelle beurteilt werden.
+
+Nach dem Durchbruch der torlosen KI lief deren echte Holzsuche noch rund 30 Sekunden mehrfach mit Ergebnis `(-1,-1)` weiter. In dieser kurzen Zeit entstand kein Holzfäller. Das kann ein noch unvollständiges Modell, die native Kandidatenbewertung oder den Such-Cooldown betreffen und ist noch kein Beleg gegen die physische Öffnung.
 
 Die bisherige Gegenrechnung mit einem manuell rekonstruierten Portalgraphen war nützlich, aber kein Beweis für Vanillas spielerspezifische Entscheidung. Der aktive Overlaypfad verwendet deshalb ausschließlich `GamePathingManagerAPI.FindNextComponentTowardDestination` mit `PathConnectionQueryMode.ExcludeLadderClimb`. Eine neue Routenmatrix vergleicht zusätzlich `IncludeAll`, `LadderClimbOnly` und die umgekehrte Richtung, ohne diese Vergleichswerte für den Fix zu verwenden.
 
@@ -50,13 +52,22 @@ Die Offsettabelle bei RVA `0x2D13B0` besitzt 32 Koordinatenpaare. Der einzige be
 
 Das gemeinsame Ergebnisfeld von `0x57B80` und `0x58020` bezeichnet den nativen Treffer. Sein Zellzustand muss unmittelbar nach dem Originalaufruf gelesen werden, solange das temporäre `byte+04`-Overlay noch aktiv ist. Ein Vergleich nach Restaurierung oder nach einer Konstruktion kann ein anderes Raster abbilden und war deshalb nicht belastbar. Der Testmod erfasst diese Orakel nun vor dem `finally`-Restaurierungspfad und protokolliert den ersten abweichenden Vanilla-Zweig.
 
+Das bisherige Shadow-Modell meldete für beide KIs schon deutlich vor Vanillas erstem Treffer zahlreiche Holzkandidaten. Vanilla gab zu diesen Zeitpunkten dennoch `(-1,-1)` zurück. Die alte Diagnose prüfte nur, ob eine von Vanilla gelieferte Ergebniszelle das Shadow-Prädikat erfüllt, nicht den umgekehrten Widerspruch. Die neue Differentialdiagnose vergleicht deshalb native Besuchsmarker, Tiefenwerte und Queue-Reihenfolge mit der Shadow-Ausführung und meldet `SHADOW_NATIVE_NO_RESULT_MISMATCH`, sobald Shadow einen Kandidaten hat, Vanilla aber keinen auswählt.
+
+### Der Crash um 20:27:48 wurde durch einen unsicheren Diagnosehook verursacht
+
+Der tödliche Schaden am zweiten Holzfäller aktivierte für dessen Besitzer den normalen Verlusttimer. Der Crashdump endet exakt bei `CrusaderDE.dll+0x7F07C`. Unser damaliger RedBird-Context-Hook begann bei `0x7F074` und verdrängte 15 Byte bis einschließlich `0x7F082`. Vanilla besitzt jedoch bei `0x7F05D` und `0x7F072` zwei bedingte Sprünge direkt nach `0x7F07C`, also mitten in diesen überschriebenen Bereich. Ein genommener Originalzweig sprang dadurch in den Hookstub und verursachte den Nullzugriff.
+
+Dieser Crash stammte ausschließlich aus der Diagnose. Weder die enge Ruinen-Timernormalisierung noch das temporäre Wirtschaftsraster-Overlay lagen auf dem abstürzenden Kontrollflusspfad. Der Inline-Hook bei `0x7F074` ist vollständig entfernt. Schadensereignisse des Script Extenders und die bereits vorhandenen Timervergleiche bleiben als passive Verlustkontrolle erhalten. Ein statischer Regressionstest verwirft künftig jeden Inline-Hook-Span, in dessen Inneres ein nativer Sprung zielt.
+
 ## Aktive Fixerprobung in PreplacedTest 0.1.1
 
 1. Der Ruinenfix normalisiert ausschließlich den eng belegten, aus einer passenden Altformat-Turmruinenbaseline übernommenen Startwert.
 2. Vor einer eindeutig einem KI-Spieler zugeordneten Suche wird nur `byte+04` der 25.600 Wirtschaftszellen temporär spielerspezifisch neu gebildet.
 3. Als erreichbar gelten nur PCLs, für die Vanillas eigene Routenabfrage vom Burg-PCL mit `ExcludeLadderClimb` einen positiven nächsten Schritt liefert. Eigene oder nach Vanilla zulässige verbündete Portale können die Menge erweitern; Leiterpfade, feindliche Tore und echte Isolation bleiben ausgeschlossen.
 4. Jede originale Suchfunktion läuft genau einmal. Noch vor der Restaurierung werden Treffer und Rohfelder gesichert; anschließend werden alle 25.600 `byte+04`-Werte bytegenau wiederhergestellt. Bei Vertrags- oder Restaurierungsfehler wird der Wirtschaftstestfix für den restlichen Prozess deaktiviert.
-5. `PreplacedTest` ist dadurch gameplayverändernd und verwendet `NetworkMode=1`. Eine Übernahme nach `BugfixesAndQoL` erfolgt erst nach erfolgreicher Laufzeitabnahme.
+5. Native Besuchsmarker, Tiefenbytes und Queue-Reihenfolge werden unmittelbar nach der Originalsuche gesichert und gegen denselben Shadow-Eingang verglichen. Große Portal- und Ankerinventare erscheinen einmal vollständig; danach werden nur semantische Änderungen mit verlustfreien Wiederholungszählern ausgegeben.
+6. `PreplacedTest` ist dadurch gameplayverändernd und verwendet `NetworkMode=1`. Eine Übernahme nach `BugfixesAndQoL` erfolgt erst nach erfolgreicher Laufzeitabnahme.
 
 ## Nicht als Ursache bestätigt
 
@@ -70,5 +81,6 @@ Das gemeinsame Ergebnisfeld von `0x57B80` und `0x58020` bezeichnet den nativen T
 
 - Ruinenkarte: `LEGACY_TIMER_FIX_APPLIED` muss erscheinen und die betroffene KI ohne 49-Tick-Sperre beginnen.
 - Mauerkarte: Ein einzelner Start genügt; ein Durchbruch ist nicht erforderlich. Die dynamisch identifizierte Torhaus-KI muss in der nativen Routenmatrix Zugriff auf die relevanten äußeren Kandidaten-PCLs erhalten, die torlose Kontrolle nicht.
+- Der Lauf soll mindestens bis zu einer echten Holzsuche der Torhaus-KI reichen. Bei einem Widerspruch muss die Differentialdiagnose die erste abweichende Queuezelle, Besuchsmenge, Tiefe oder das Ergebnisverhältnis benennen.
 - Die proaktiven Snapshotmodelle müssen für Holz und Ressourcen Kandidaten oder den exakten ersten Vanilla-Ablehnungsgrund melden, auch wenn die AIC aktuell `desired=0` setzt. Für Farmen liefert der Snapshot einen ausdrücklich so benannten Präfilter; die vollständige Bestätigung erfolgt am korrelierten nativen Konstruktionsaufruf.
 - Jede Overlaymeldung muss `restoredExactly=true` ausgeben. Erst danach sind Ruinen- und Wirtschaftskorrektur für eine getrennt schaltbare Übernahme nach `BugfixesAndQoL` freigegeben.

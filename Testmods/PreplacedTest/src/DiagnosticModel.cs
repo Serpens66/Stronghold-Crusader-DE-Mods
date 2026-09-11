@@ -484,15 +484,18 @@ namespace PreplacedTest
     internal sealed class ShadowEconomySearchResult
     {
         public ShadowEconomySearchResult(int reachableCount, int[] reachedIndices,
-            int[] blockedIndices, int[] candidateIndices)
+            int[] blockedIndices, int[] candidateIndices, int[] depths, int[] queueOrderIndices)
         {
             ReachableCount = reachableCount; ReachedIndices = reachedIndices;
             BlockedIndices = blockedIndices; CandidateIndices = candidateIndices;
+            Depths = depths; QueueOrderIndices = queueOrderIndices;
         }
         public int ReachableCount { get; }
         public int[] ReachedIndices { get; }
         public int[] BlockedIndices { get; }
         public int[] CandidateIndices { get; }
+        public int[] Depths { get; }
+        public int[] QueueOrderIndices { get; }
         public int FirstCandidateIndex => CandidateIndices.Length == 0 ? -1 : CandidateIndices[0];
     }
 
@@ -509,9 +512,11 @@ namespace PreplacedTest
             var queue = new Queue<int>();
             var blocked = new HashSet<int>();
             var candidates = new List<int>();
+            var queueOrder = new List<int>();
             visited[startIndex] = true;
             depths[startIndex] = 1;
             queue.Enqueue(startIndex);
+            queueOrder.Add(startIndex);
             while (queue.Count != 0)
             {
                 int current = queue.Dequeue();
@@ -530,13 +535,29 @@ namespace PreplacedTest
                     }
                     depths[next] = checked((byte)(depths[current] + 1));
                     queue.Enqueue(next);
+                    queueOrder.Add(next);
                     if (IsCandidate(cell, kind, resourceMode)) candidates.Add(next);
                 }
             }
             int[] reached = Enumerable.Range(0, visited.Length)
                 .Where(index => visited[index] && !blocked.Contains(index)).ToArray();
             return new ShadowEconomySearchResult(reached.Length, reached,
-                blocked.OrderBy(value => value).ToArray(), candidates.ToArray());
+                blocked.OrderBy(value => value).ToArray(), candidates.ToArray(),
+                depths.Select(value => (int)value).ToArray(), queueOrder.ToArray());
+        }
+
+        public static string ExpansionRejectionReason(ShadowEconomyCell cell, ShadowEconomySearchKind kind)
+        {
+            if (kind == ShadowEconomySearchKind.Farm)
+                return cell.Projected04 < 17 ? "pass" : "pcl-expansion-threshold";
+            if (kind == ShadowEconomySearchKind.Wood)
+            {
+                if (cell.Projected04 >= 16) return "pcl-expansion-threshold";
+                return cell.Raw13 == 0 ? "pass" : "blocked-byte+13";
+            }
+            if (kind == ShadowEconomySearchKind.Nearby)
+                return cell.Projected04 < 15 ? "pass" : "pcl-expansion-threshold";
+            return cell.Projected04 - cell.Raw16 < 16 ? "pass" : "pcl-difference-expansion-threshold";
         }
 
         private static IEnumerable<int> Neighbors(int x, int y, int width, bool includeDiagonals)
@@ -663,6 +684,86 @@ namespace PreplacedTest
                 $"/density09={unchecked((sbyte)cell.Raw09)}/density0A={unchecked((sbyte)cell.Raw0A)}" +
                 $"/density0B={unchecked((sbyte)cell.Raw0B)}/height={heightDifference}" +
                 $"/firstRejection={ResourceCandidateRejectionReason(cell, resourceMode)}";
+        }
+    }
+
+    internal sealed class ShadowNativeTraversalComparison
+    {
+        private ShadowNativeTraversalComparison(string classification, int firstQueueDivergence,
+            int firstVisitDivergence, int firstDepthDivergence)
+        {
+            Classification = classification;
+            FirstQueueDivergence = firstQueueDivergence;
+            FirstVisitDivergence = firstVisitDivergence;
+            FirstDepthDivergence = firstDepthDivergence;
+        }
+
+        public string Classification { get; }
+        public int FirstQueueDivergence { get; }
+        public int FirstVisitDivergence { get; }
+        public int FirstDepthDivergence { get; }
+        public bool IsMismatch => Classification != "match" && Classification != "both-no-result";
+
+        public static ShadowNativeTraversalComparison Compare(ShadowEconomySearchResult shadow,
+            int[] nativeVisitedIndices, int[] nativeDepths, int[] nativeQueueOrderIndices,
+            int nativeResultIndex, bool compareResult = true)
+        {
+            if (shadow == null) throw new ArgumentNullException(nameof(shadow));
+            nativeVisitedIndices = nativeVisitedIndices ?? Array.Empty<int>();
+            nativeDepths = nativeDepths ?? Array.Empty<int>();
+            nativeQueueOrderIndices = nativeQueueOrderIndices ?? Array.Empty<int>();
+
+            int[] shadowVisited = shadow.ReachedIndices.Concat(shadow.BlockedIndices)
+                .Distinct().OrderBy(value => value).ToArray();
+            int[] nativeVisited = nativeVisitedIndices.Distinct().OrderBy(value => value).ToArray();
+            int visit = FirstSetDifference(shadowVisited, nativeVisited);
+            int queue = FirstSequenceDifference(shadow.QueueOrderIndices, nativeQueueOrderIndices);
+            int depth = -1;
+            foreach (int index in shadow.ReachedIndices)
+            {
+                if ((uint)index >= nativeDepths.Length || shadow.Depths[index] != nativeDepths[index])
+                { depth = index; break; }
+            }
+
+            bool shadowHasResult = compareResult && shadow.FirstCandidateIndex >= 0;
+            bool nativeHasResult = compareResult && nativeResultIndex >= 0;
+            string classification = compareResult && !nativeHasResult && shadowHasResult ? "shadow-candidate-native-no-result" :
+                compareResult && nativeHasResult && !shadowHasResult ? "native-result-shadow-no-candidate" :
+                compareResult && nativeHasResult && !shadow.CandidateIndices.Contains(nativeResultIndex) ? "native-result-not-shadow-candidate" :
+                queue >= 0 ? "queue-order-divergence" :
+                visit >= 0 ? "visited-set-divergence" :
+                depth >= 0 ? "depth-divergence" :
+                compareResult && !nativeHasResult ? "both-no-result" : "match";
+            return new ShadowNativeTraversalComparison(classification, queue, visit, depth);
+        }
+
+        private static int FirstSetDifference(int[] first, int[] second)
+        {
+            var secondSet = new HashSet<int>(second);
+            foreach (int value in first) if (!secondSet.Contains(value)) return value;
+            var firstSet = new HashSet<int>(first);
+            foreach (int value in second) if (!firstSet.Contains(value)) return value;
+            return -1;
+        }
+
+        private static int FirstSequenceDifference(int[] first, int[] second)
+        {
+            int common = Math.Min(first.Length, second.Length);
+            for (int index = 0; index < common; index++)
+                if (first[index] != second[index]) return first[index];
+            return first.Length == second.Length ? -1 : common < first.Length ? first[common] : second[common];
+        }
+    }
+
+    internal static class InlineHookBranchSafety
+    {
+        public static bool HasInboundTargetInside(int hookStartRva, int displacedLength,
+            IEnumerable<int> nativeBranchTargets)
+        {
+            if (displacedLength <= 0) throw new ArgumentOutOfRangeException(nameof(displacedLength));
+            int endExclusive = checked(hookStartRva + displacedLength);
+            return (nativeBranchTargets ?? Array.Empty<int>()).Any(target =>
+                target > hookStartRva && target < endExclusive);
         }
     }
 

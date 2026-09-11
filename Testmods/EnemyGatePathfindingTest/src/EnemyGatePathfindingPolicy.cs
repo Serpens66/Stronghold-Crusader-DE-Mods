@@ -95,14 +95,17 @@ namespace EnemyGatePathfindingTest
     internal sealed class NativeGateAccessSnapshot
     {
         internal static readonly NativeGateAccessSnapshot Empty =
-            new NativeGateAccessSnapshot(Array.Empty<NativeGateAccessRecord>(), 0);
+            new NativeGateAccessSnapshot(Array.Empty<NativeGateAccessRecord>(), 0,
+                Array.Empty<uint>());
 
         internal NativeGateAccessSnapshot(
             NativeGateAccessRecord[] recordsByBuildingId,
-            ulong rawFingerprint)
+            ulong rawFingerprint,
+            uint[] gateGlobalsByBuildingId = null)
         {
             RecordsByBuildingId = recordsByBuildingId ?? Array.Empty<NativeGateAccessRecord>();
             RawFingerprint = rawFingerprint;
+            GateGlobalsByBuildingId = gateGlobalsByBuildingId ?? Array.Empty<uint>();
             int tracked = 0;
             int captured = 0;
             int blockedPairs = 0;
@@ -136,11 +139,15 @@ namespace EnemyGatePathfindingTest
 
         internal NativeGateAccessRecord[] RecordsByBuildingId { get; }
         internal ulong RawFingerprint { get; }
+        internal uint[] GateGlobalsByBuildingId { get; }
         internal ulong TopologyFingerprint { get; }
         internal int TrackedRecords { get; }
         internal int CapturedRecords { get; }
         internal int UncapturedRecords => TrackedRecords - CapturedRecords;
         internal int BlockedPlayerGatePairs { get; }
+        internal bool MatchesGateIdentity(int buildingId, uint subjectGlobalId) =>
+            buildingId > 0 && buildingId < GateGlobalsByBuildingId.Length &&
+            subjectGlobalId != 0 && GateGlobalsByBuildingId[buildingId] == subjectGlobalId;
 
         internal bool PolicyEquals(NativeGateAccessSnapshot other)
         {
@@ -217,6 +224,77 @@ namespace EnemyGatePathfindingTest
         InvalidDoorTiles,
         InvalidFootprint,
         InconsistentReread
+    }
+
+    internal enum PassageAxisSource
+    {
+        None,
+        EntryExitCoordinates,
+        LinkedDrawbridge,
+        ElongatedFootprint
+    }
+
+    internal static class PassageAxisResolver
+    {
+        internal static bool TryResolve(
+            bool coordinatesAvailable,
+            int entryX, int entryY, int exitX, int exitY,
+            int gateMinX, int gateMinY, int gateMaxX, int gateMaxY,
+            bool linkedBridgeAvailable,
+            int bridgeMinX, int bridgeMinY, int bridgeMaxX, int bridgeMaxY,
+            out bool horizontal,
+            out PassageAxisSource source)
+        {
+            horizontal = false;
+            source = PassageAxisSource.None;
+            if (coordinatesAvailable && IsMapCoordinate(entryX, entryY) &&
+                IsMapCoordinate(exitX, exitY))
+            {
+                int dx = Math.Abs(exitX - entryX);
+                int dy = Math.Abs(exitY - entryY);
+                if (dx != dy)
+                {
+                    horizontal = dx > dy;
+                    source = PassageAxisSource.EntryExitCoordinates;
+                    return true;
+                }
+            }
+
+            if (linkedBridgeAvailable)
+            {
+                bool separatedX = bridgeMaxX < gateMinX || bridgeMinX > gateMaxX;
+                bool separatedY = bridgeMaxY < gateMinY || bridgeMinY > gateMaxY;
+                bool overlapsX = bridgeMinX <= gateMaxX && bridgeMaxX >= gateMinX;
+                bool overlapsY = bridgeMinY <= gateMaxY && bridgeMaxY >= gateMinY;
+                if (separatedX && overlapsY && !separatedY)
+                {
+                    horizontal = true;
+                    source = PassageAxisSource.LinkedDrawbridge;
+                    return true;
+                }
+                if (separatedY && overlapsX && !separatedX)
+                {
+                    horizontal = false;
+                    source = PassageAxisSource.LinkedDrawbridge;
+                    return true;
+                }
+            }
+
+            int width = gateMaxX - gateMinX;
+            int height = gateMaxY - gateMinY;
+            if (gateMinX <= gateMaxX && gateMinY <= gateMaxY && width != height)
+            {
+                // The passage is perpendicular to the long wall/footprint axis.
+                horizontal = height > width;
+                source = PassageAxisSource.ElongatedFootprint;
+                return true;
+            }
+            return false;
+        }
+
+        private static bool IsMapCoordinate(int x, int y) =>
+            x >= 0 && x < EnemyGatePathfindingNativeDefinition.MapGridWidth &&
+            y >= 0 && y < EnemyGatePathfindingNativeDefinition.MapGridWidth;
     }
 
     internal static class EnemyGatePathfindingPolicy
