@@ -7,6 +7,21 @@ function Assert-True {
 }
 
 $config = Get-ReleaseConfiguration
+Assert-True ([string]$config.ApiShared.Guid -ceq 'APIShared_Serp') 'The resolved release configuration must expose the APIShared GUID.'
+Assert-True ([string]$config.ApiShared.Version -ceq '0.3.0') 'The resolved release configuration must expose APIShared v0.3.0.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.3.0') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.3.0') 'ExtraFeatures must be recognized as an APIShared consumer.'
+Assert-True ($null -eq (Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts')) 'BuildingCosts must not be classified as an APIShared consumer.'
+foreach ($neverReleaseProject in @('ActiveAIVDetector', 'AIDefenseTest', 'CustomLordUpload', 'MultiplayerLeaveFix', 'VanillaAICExporter')) {
+    Assert-True ($neverReleaseProject -notin $config.Projects) "$neverReleaseProject must not be release-enabled."
+    $rejected = $false
+    try {
+        [void](Get-PluginMetadata -ModName $neverReleaseProject)
+    } catch {
+        $rejected = $_.Exception.Message -ceq "Project is not release-enabled: $neverReleaseProject"
+    }
+    Assert-True $rejected "$neverReleaseProject must be rejected explicitly as not release-enabled."
+}
 Assert-True (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/src/BuildingCostsRuntime.cs') 'Mod source must be relevant.'
 Assert-True (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/Locales/en-US.txt') 'Locale files must be relevant.'
 Assert-True (-not (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/UpdateToNewDLL.md')) 'Analysis documentation must be ignored.'
@@ -42,9 +57,9 @@ Assert-True ($logicDecision.IsRelevant -and $logicDecision.IsGlobal) 'General lo
 $head = ((Invoke-StatusGit -Config $config -Arguments @('rev-parse', 'HEAD^{commit}')).Output -join '').Trim()
 $trackedHead = @((Invoke-StatusGit -Config $config -Arguments @('ls-tree', '-r', '--name-only', $head)).Output | ForEach-Object { ([string]$_).Replace('\', '/') })
 $buildingInputs = @(Get-ExternalProjectInputs -Config $config -Project 'BuildingCosts' -HeadCommit $head -TrackedHeadPaths $trackedHead)
-$defenseInputs = @(Get-ExternalProjectInputs -Config $config -Project 'AIDefenseTest' -HeadCommit $head -TrackedHeadPaths $trackedHead)
+$apiSharedInputs = @(Get-ExternalProjectInputs -Config $config -Project 'APIShared' -HeadCommit $head -TrackedHeadPaths $trackedHead)
 Assert-True ($buildingInputs -contains 'Shared/SerpLocalization.cs') 'BuildingCosts must track its linked localization helper.'
-Assert-True (-not ($defenseInputs -contains 'Shared/SerpLocalization.cs')) 'AIDefenseTest must not track an unreferenced localization helper.'
+Assert-True (-not ($apiSharedInputs -contains 'Shared/SerpLocalization.cs')) 'APIShared must not track an unreferenced localization helper.'
 $sameCommitComparison = Get-ModStatusComparison -Config $config -Project 'BuildingCosts' -BaseCommit $head -HeadCommit $head
 Assert-True $sameCommitComparison.IsCurrent 'Identical source trees must be current.'
 $serpText = Get-GitText -Config $config -Revision $head -Path 'Shared/SerpLocalization.cs'

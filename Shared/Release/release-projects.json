@@ -1,11 +1,7 @@
 {
   "Repository": "Serpens66/Stronghold-Crusader-DE-Mods",
   "Branch": "main",
-  "ProjectDirectories": {
-    "ActiveAIVDetector": "Helpers/ActiveAIVDetector",
-    "AIDefenseTest": "Testmods/AIDefenseTest",
-    "VanillaAICExporter": "Helpers/VanillaAICExporter"
-  },
+  "ProjectDirectories": {},
   "ApiShared": {
     "Project": "APIShared",
     "Guid": "APIShared_Serp",
@@ -18,22 +14,17 @@
   },
   "Projects": [
     "APIShared",
-    "ActiveAIVDetector",
-    "AIDefenseTest",
     "BugfixesAndQoL",
     "BuildingCosts",
     "BuildingLimit",
     "CheatMod",
     "CustomCustomTrail",
-    "CustomLordUpload",
     "ExtraFeatures",
     "ImprovedHunters",
-    "MultiplayerLeaveFix",
     "RandomEvents",
     "CastlePlanner",
     "StartConditions",
     "UnitCosts",
-    "UnitLimit",
-    "VanillaAICExporter"
+    "UnitLimit"
   ]
 }

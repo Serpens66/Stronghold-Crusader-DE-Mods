@@ -12,11 +12,8 @@ $draftCreated = $false
 try {
     $metadata = Get-PluginMetadata -ModName $ModName
     $config = $metadata.Config
-    $apiSharedConsumer = $null -ne $config.ApiShared -and
-        $null -ne $config.ApiShared.Consumers.PSObject.Properties[$ModName]
-    $apiSharedMinimum = if ($apiSharedConsumer) {
-        [string]$config.ApiShared.Consumers.PSObject.Properties[$ModName].Value
-    } else { $null }
+    $apiSharedMinimum = Get-ApiSharedConsumerMinimum -Config $config -ModName $ModName
+    $apiSharedConsumer = -not [string]::IsNullOrWhiteSpace($apiSharedMinimum)
     Write-Host "Preparing $($metadata.Manifest.Name) v$($metadata.Version)" -ForegroundColor Cyan
 
     $setup = @(Get-SetupReport -ModName $ModName)

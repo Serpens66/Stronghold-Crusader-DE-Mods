@@ -31,16 +31,67 @@ function Get-ReleaseConfiguration {
         'C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe'
     }
 
+    $apiSharedProperty = $config.PSObject.Properties['ApiShared']
+    if ($null -eq $apiSharedProperty -or $null -eq $apiSharedProperty.Value) {
+        throw "Release configuration is missing the required 'ApiShared' object: $publicConfigPath"
+    }
+    $apiShared = $apiSharedProperty.Value
+    foreach ($propertyName in @('Project', 'Guid', 'Version', 'Consumers')) {
+        if ($null -eq $apiShared.PSObject.Properties[$propertyName]) {
+            throw "Release configuration ApiShared is missing '$propertyName': $publicConfigPath"
+        }
+    }
+    foreach ($propertyName in @('Project', 'Guid', 'Version')) {
+        if ([string]::IsNullOrWhiteSpace([string]$apiShared.PSObject.Properties[$propertyName].Value)) {
+            throw "Release configuration ApiShared.$propertyName must not be empty: $publicConfigPath"
+        }
+    }
+    if ([string]$apiShared.Version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+        throw "Release configuration contains invalid APIShared version '$([string]$apiShared.Version)': $publicConfigPath"
+    }
+    if ($null -eq $apiShared.Consumers) {
+        throw "Release configuration ApiShared.Consumers must be an object: $publicConfigPath"
+    }
+    foreach ($consumer in @($apiShared.Consumers.PSObject.Properties)) {
+        if ([string]::IsNullOrWhiteSpace($consumer.Name) -or
+            [string]$consumer.Value -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+            throw "Release configuration contains an invalid APIShared consumer minimum for '$($consumer.Name)': '$([string]$consumer.Value)'."
+        }
+    }
+    $projects = @($config.Projects | ForEach-Object { [string]$_ })
+    if ([string]$apiShared.Project -notin $projects) {
+        throw "APIShared project '$([string]$apiShared.Project)' is not release-enabled in $publicConfigPath"
+    }
+
     return [PSCustomObject]@{
         Root = $root
         Repository = [string]$config.Repository
         Branch = [string]$config.Branch
-        Projects = @($config.Projects | ForEach-Object { [string]$_ })
+        Projects = $projects
         ProjectDirectories = $config.ProjectDirectories
+        ApiShared = $apiShared
         GameDir = $gameDir
         MSBuild = $msBuild
         LocalConfigPath = $localConfigPath
     }
+}
+
+function Get-ApiSharedConsumerMinimum {
+    param(
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][string]$ModName
+    )
+    $apiSharedProperty = $Config.PSObject.Properties['ApiShared']
+    if ($null -eq $apiSharedProperty -or $null -eq $apiSharedProperty.Value) {
+        throw "Resolved release configuration is missing APIShared metadata."
+    }
+    $consumersProperty = $apiSharedProperty.Value.PSObject.Properties['Consumers']
+    if ($null -eq $consumersProperty -or $null -eq $consumersProperty.Value) {
+        throw "Resolved release configuration is missing APIShared consumer metadata."
+    }
+    $consumer = $consumersProperty.Value.PSObject.Properties[$ModName]
+    if ($null -eq $consumer) { return $null }
+    return [string]$consumer.Value
 }
 
 function Get-ReleaseProjectDirectory {

@@ -20,13 +20,24 @@ $wrapperCandidates = @(foreach ($modName in @($releaseConfig.Projects)) {
     $directoryProperty = $releaseConfig.ProjectDirectories.PSObject.Properties[[string]$modName]
     $relativeDirectory = if ($null -eq $directoryProperty) { [string]$modName } else { [string]$directoryProperty.Value }
     $wrapperPath = Join-Path (Join-Path $workspaceRoot $relativeDirectory) 'release.bat'
-    if (Test-Path -LiteralPath $wrapperPath -PathType Leaf) {
-        [PSCustomObject]@{ ModName=[string]$modName; RelativeDirectory=$relativeDirectory; File=(Get-Item -LiteralPath $wrapperPath) }
-    }
+    Assert-True (Test-Path -LiteralPath $wrapperPath -PathType Leaf) "Release-enabled project $modName has no release.bat at $wrapperPath."
+    [PSCustomObject]@{ ModName=[string]$modName; RelativeDirectory=$relativeDirectory; File=(Get-Item -LiteralPath $wrapperPath) }
 })
 $wrappers = @($wrapperCandidates | Sort-Object { $_.File.FullName })
 
 Assert-True ($wrappers.Count -gt 0) 'No release wrappers found.'
+$neverReleaseProjects = @(
+    [PSCustomObject]@{ ModName='ActiveAIVDetector'; RelativeDirectory='Helpers/ActiveAIVDetector' },
+    [PSCustomObject]@{ ModName='AIDefenseTest'; RelativeDirectory='Testmods/AIDefenseTest' },
+    [PSCustomObject]@{ ModName='CustomLordUpload'; RelativeDirectory='CustomLordUpload' },
+    [PSCustomObject]@{ ModName='MultiplayerLeaveFix'; RelativeDirectory='MultiplayerLeaveFix' },
+    [PSCustomObject]@{ ModName='VanillaAICExporter'; RelativeDirectory='Helpers/VanillaAICExporter' }
+)
+foreach ($entry in $neverReleaseProjects) {
+    Assert-True ($entry.ModName -notin @($releaseConfig.Projects)) "$($entry.ModName) is unexpectedly release-enabled."
+    $forbiddenWrapper = Join-Path (Join-Path $workspaceRoot $entry.RelativeDirectory) 'release.bat'
+    Assert-True (-not (Test-Path -LiteralPath $forbiddenWrapper)) "$($entry.ModName) must not expose a release.bat wrapper."
+}
 
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $tempRoot = [IO.Path]::GetFullPath((Join-Path $tempBase ('SHCDE-ReleaseWrapperTests-' + [Guid]::NewGuid().ToString('N'))))
@@ -82,4 +93,4 @@ finally {
 }
 
 $global:LASTEXITCODE = 0
-Write-Host "PASS: $($wrappers.Count) release wrappers forward arguments, preserve exit codes, and honor /nopause."
+Write-Host "PASS: $($wrappers.Count) release-enabled wrappers are complete, forward arguments, preserve exit codes, and honor /nopause."
