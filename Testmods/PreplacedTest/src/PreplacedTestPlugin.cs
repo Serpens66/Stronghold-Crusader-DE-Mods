@@ -27,7 +27,7 @@ namespace PreplacedTest
         private void Awake()
         {
             Shared.DebugLogHelper.LogInfo(Logger,
-                $"{PluginName} {PluginVersion} loaded; passive=true, NetworkMode=0, settings=false, " +
+                $"{PluginName} {PluginVersion} loaded; activeTestFixes=legacy-tower-timer+player-specific-economy-grid, NetworkMode=1, settings=false, " +
                 "minimumScriptExtender=2.4.0, testedScriptExtender=2.5.0, " +
                 "auditedCommit=5f02af6d074af7c741ebdaaccb48add39eba1bf4.");
             WarnAboutConflicts("Awake");

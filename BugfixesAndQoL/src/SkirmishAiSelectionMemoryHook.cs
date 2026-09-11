@@ -245,7 +245,8 @@ namespace BugfixesAndQoL
 
         private void MultiplayerButtonClickedHook(FRONT_Multiplayer self, string param)
         {
-            CoopCustomLordSelectionFeature.OnMultiplayerButtonStarting(self, param);
+            if (CoopCustomLordSelectionFeature.OnMultiplayerButtonStarting(self, param))
+                return;
             bool memoryActiveBefore = IsMemoryActive();
             bool mayAddAi = string.Equals(param, "AddCustomLord", StringComparison.Ordinal);
             Dictionary<int, string> before =

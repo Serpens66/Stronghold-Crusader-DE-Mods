@@ -4,7 +4,7 @@
 - Native Version: `CrusaderDE.dll`, SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Getesteter Script Extender: 2.5.0
 
-Maßgebliche Evidenz ist der saubere Prozesslauf im `BepInEx\LogOutput.log` vom 11. September 2026, 14:13:02 bis 14:16:44. Frühere Läufe werden nur dort weiter berücksichtigt, wo sie mit diesem Stand vereinbar sind. Aktiv waren UU-ImGUI, Script Extender und `PreplacedTest`.
+Maßgebliche Evidenz ist der saubere Prozesslauf im `BepInEx\LogOutput.log` vom 11. September 2026 ab 14:54:01. Er enthält zwei Ruinenstarts und drei Mauerstarts. Frühere Läufe werden nur dort weiter berücksichtigt, wo sie mit diesem Stand vereinbar sind. Aktiv waren UU-ImGUI, Script Extender und `PreplacedTest`.
 
 ## Gesicherte Erkenntnisse
 
@@ -24,7 +24,7 @@ Die korrigierte Diagnose von `FUN_1800D4290` belegt um 14:13:50.922:
 
 Während der weiteren Karteninitialisierung wurden die Besitzer der zerstörten Turmrecords von 8 auf 4 umgesetzt. Daher darf ein Fix die Zuordnung nicht allein aus dem späteren Building-Owner ableiten.
 
-Ein sicherer späterer Fix kann den übernommenen Wert auf einer frisch gestarteten Altformatkarte nach dem Transfer normalisieren, wenn das Laufzeitfeld vorher null war und ausschließlich durch den stabilen serialisierten Einzelaktivierungswert `1` aktiviert wurde. Geladene Spielstände, bereits aktive Laufzeitwerte, abweichende Quellwerte und spätere echte Verluste müssen unverändert bleiben.
+Beide Ruinenstarts erfüllten dieselben engen Fixkriterien. Der aktive Testfix normalisiert den Laufzeitwert deshalb bei `OnStartMap Post` nur dann, wenn zusätzlich eine inzwischen bestätigte KI-Zuordnung, passende beim Transfer vorplatzierte zerstörte Turmrecords, ein weiterhin exakter Timerwert `1` und kein später beobachteter Schadensschreiber vorliegen. Geladene Spielstände, bereits aktive Laufzeitwerte, abweichende Quellwerte, andere zerstörte Gebäudetypen und spätere echte Verluste bleiben unverändert.
 
 ### Das Wirtschaftsraster verwendet eine globale statt spielerspezifische PCL-Referenz
 
@@ -41,24 +41,28 @@ Die bisherige Shadow-Diagnose hatte den abschließenden Höhenvergleich für Ste
 
 ### Torhäuser funktionieren für Einheiten, aber nicht für die Wirtschafts-Rastersuche
 
-Im Mauerlauf gehörten die vier intakten Torhäuser Spieler 8; Spieler 7 war die torlose Kontrolle. Diese IDs gelten nur für diesen Lauf. Rollen werden bei jedem Kartenstart dynamisch bestimmt.
+In den drei aktuellen Mauerstarts gehörten die vier intakten Torhäuser Spieler 7; Spieler 8 war die torlose Kontrolle. Diese IDs gelten nur für diese Sitzungen. Rollen werden bei jedem Kartenstart dynamisch bestimmt.
 
-Die spielerspezifische Gegenrechnung zeigte vor dem Durchbruch:
+Die spielerspezifische Gegenrechnung war in allen drei Starts reproduzierbar:
 
-- Torhaus-KI: ungefähr 2.159 erreichbare Zellen, 425 Farm- und 47 Holzkandidaten.
-- Torlose KI: ungefähr 909 eingeschlossene Zellen und keine Farm- oder Holzkandidaten.
+- Torhaus-KI: ungefähr 2.159 erreichbare Zellen, 425 Farm-, 47 Holz-, 93 Stein- und 39 Eisenkandidaten.
+- Torlose KI: ungefähr 909 eingeschlossene Zellen und keine Kandidaten dieser vier Arten.
 
-Nach dem sichtbaren Durchbruch der torlosen KI sprang die Gegenrechnung zunächst auf ungefähr 2.244 erreichbare Zellen mit 388 Farm- und 84 Holzkandidaten und später auf rund 3.000 erreichbare Zellen. Eigene beziehungsweise nach Diplomatie verbündete Portalverbindungen sind damit für Farm und Holz ein stark belegtes spielerspezifisches Gegenmodell.
+In keinem der drei aktuellen Starts erfolgte ein sichtbarer oder in den Tile-Daten belegter Mauerdurchbruch. Die Torhaus-KI wählte dabei nacheinander die AIV-Kandidaten 0, 1 und 7; das Ausbleiben eines Angriffs lässt sich daher nicht auf eine einzige wiederholt gewählte AIV-Datei reduzieren. Für die Wirtschaftsursache ist ein Durchbruch nicht mehr nötig: Eigene beziehungsweise nach Vanillas Regeln erreichbare Portalverbindungen bilden für Farm, Holz, Stein und Eisen ein reproduzierbares spielerspezifisches Gegenmodell, während die zeitgleiche geschlossene Kontrolle gesperrt bleibt.
 
-Vanilla verwendete diese Verbindung weiterhin nicht. Auch nach dem Durchbruch liefen echte Holzsuchen regelmäßig, besuchten aber erneut nur fünf Zellen um die Burg, fanden keinen Kandidaten und aktivierten den Cooldown. Identische Vollausgaben wurden aggregiert; die Intervall- und Gesamtsummen belegen die späteren Traversierungen.
+Ein früherer Lauf mit sichtbarem Durchbruch zeigte außerdem: Vanilla verwendete die danach erreichbare Verbindung weiterhin nicht. Echte Holzsuchen liefen regelmäßig, besuchten aber erneut nur fünf Zellen um die Burg, fanden keinen Kandidaten und aktivierten den Cooldown. Identische Vollausgaben wurden aggregiert; die Intervall- und Gesamtsummen belegen die späteren Traversierungen.
 
-Farm- und Rohstoffsuchen verließen die Funktion im relevanten Mauerabschnitt überwiegend mit `desired=0`. Der nächste Diagnosebuild führt deshalb alle drei Ressourcen-Shadow-Suchen unabhängig von der aktuellen AIC-Nachfrage aus.
+Farm- und Rohstoffsuchen verließen die Funktion im relevanten Mauerabschnitt überwiegend mit `desired=0`. Die Diagnose führt deshalb weiterhin alle drei Ressourcen-Shadow-Suchen unabhängig von der aktuellen AIC-Nachfrage aus; der aktive Overlayfix selbst greift ausschließlich in einem echten, eindeutig zugeordneten Wirtschaftssuchkontext ein.
 
-### Der sichtbare Durchbruch ist in den Tile-Daten belegt
+### Der aktuelle Lauf enthielt keinen Mauerdurchbruch
 
-Bei Spieler 7 verloren mehrere Baseline-Mauertiles um 14:15:56 ihren Wall-Zustand. Die Shadow-Reichweite war bereits unmittelbar davor deutlich gewachsen. Dies stimmt mit dem sichtbaren einseitigen Durchbruch überein.
+Die beobachteten Änderungen an Torhaustiles verloren kein Wall-Flag und waren Initialisierungs-, Öffnungs- oder Routingzustände. Es wurde weder `wallLost=true` noch ein bestätigter Durchbruch protokolliert. Ein früherer Lauf belegt weiterhin, dass die Shadow-Reichweite nach einem echten Tileverlust anwächst; der aktuelle Lauf liefert dafür keine neue Evidenz.
 
-Die automatische Bestätigung blieb aus, weil das bisherige orthogonale Flood-Fill beide Seiten als verbunden bewertete und deshalb keine Anker erzeugte. Ein wahrscheinlicher konkreter Grund ist, dass Turmfootprints bislang nicht als Teile der Einfassung behandelt wurden. Der nächste Diagnosebuild vergleicht deshalb Wall-only- und wall-aware Flood-Fill, nimmt angrenzende Turm- und Portalfootprints auf und verwendet zusätzlich feste PCL-Ankertiles. Reine PCL-Neunummerierungen bleiben ausdrücklich kein Durchbruch.
+### Das bisherige Farm-Laufzeitorakel verwendete veraltete Koordinaten
+
+`0x575B0` baut eine gefundene Farm direkt über `0x6D580` und schreibt ihre Koordinaten nicht in das gemeinsame Ergebnisfeld. Die zehn bisherigen Farm-`SHADOW_NATIVE_RESULT_MISMATCH`-Meldungen verglichen deshalb erfolgreiche Suchläufe mit alten Koordinaten. Sie widerlegen das PCL-Gegenmodell nicht.
+
+Der aktive Teststand korreliert Farmen nun mit den tatsächlichen `0x6D580`-Aufrufen desselben Suchkontexts. Bis Spieler-Verfügbarkeitsmasken und Orientierungs-/Offsetbedingungen vollständig bestätigt sind, werden einfache Zelltreffer ausdrücklich nur als `prefilter-candidate` bezeichnet. Die acht überprüfbaren erfolgreichen Stein-, Eisen- und Pechergebnisse des aktuellen offenen Laufs stimmten bereits mit den korrigierten Ressourcenprädikaten überein.
 
 ## Nicht als Ursache bestätigt
 
@@ -69,15 +73,15 @@ Die automatische Bestätigung blieb aus, weil das bisherige orthogonale Flood-Fi
 - Eine feste Spieler-ID oder Farbe für die Torhausrolle.
 - Vorplatzierte Gebäude in globalen KI-Sollzählungen; diese Hypothese wurde noch nicht isoliert getestet.
 
-## Anforderungen an den späteren Gameplay-Fix
+## Aktive Fixerprobung in PreplacedTest 0.1.1
 
-1. Der Ruinenfix normalisiert ausschließlich einen auf einer frischen Karte aus dem serialisierten Altformatrecord übernommenen Startwert. Savegames und spätere echte Verluste bleiben unverändert.
-2. Der Mauerfix berücksichtigt pro aktueller KI direkt sowie über gültige eigene oder verbündete Portale erreichbare PCLs. Geschlossene Mauern, feindliche Tore und isolierte Regionen bleiben gesperrt.
-3. Ressourcen-, Gelände-, Besitzerklassen-, Belegungs-, Höhen-, Platzierungs- und nachgeschaltete Erreichbarkeitsprüfungen bleiben erhalten.
-4. Der Gameplay-Fix gehört mit `NetworkMode=1` in `BugfixesAndQoL`; `PreplacedTest` bleibt vollständig passiv.
+1. Der Ruinenfix normalisiert ausschließlich den oben beschriebenen streng belegten Startwert.
+2. Vor jeder synchronen KI-Wirtschaftssuche wird nur `byte+04` temporär aus den laut Vanillas eigener `ExcludeLadderClimb`-Routenabfrage für diesen Spieler erreichbaren PCLs gebildet.
+3. Nach dem Originalaufruf werden alle 25.600 Werte bytegenau restauriert. Alle übrigen Vanilla-Felder und Prüfungen bleiben bestehen.
+4. `PreplacedTest` ist während dieser Erprobung gameplayverändernd und verwendet deshalb `NetworkMode=1`. Eine Übernahme nach `BugfixesAndQoL` erfolgt erst nach erfolgreicher Laufzeitabnahme.
 
 ## Noch benötigte Bestätigung
 
-- Die passive Timer-Fixentscheidung muss auf Ruinenkarte und Nicht-Ruinenkarte erwartungsgemäß zwischen freigabefähig und unverändert unterscheiden.
-- Korrigierte Stein-, Eisen- und Pech-Shadow-Kandidaten müssen gegen erfolgreiche Vanilla-Ergebniszellen geprüft werden.
-- Wall-aware Flood-Fill und feste PCL-Anker müssen den sichtbaren Tileverlust als Durchbruch bestätigen, ohne Toranimationen oder PCL-Umlabelungen falsch zu melden.
+- Auf der Ruinenkarte muss `LEGACY_TIMER_FIX_APPLIED` erscheinen und der bisherige 49-Tick-AIV-Startdelay ausbleiben.
+- Auf der Mauerkarte muss die Torhaus-KI außerhalb bauen können, während die torlose KI weiterhin eingeschlossen bleibt.
+- Jede Overlaymeldung muss `restoredExactly=true` ausgeben; ein Mauerdurchbruch oder militärischer Angriff ist für diese Abnahme nicht erforderlich.

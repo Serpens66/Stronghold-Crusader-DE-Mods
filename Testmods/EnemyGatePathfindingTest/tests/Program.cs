@@ -29,6 +29,7 @@ namespace EnemyGatePathfindingTest
                 RoutePolicyFingerprintIgnoresDynamicTileState();
                 DiagnosticLifecycleAndSamplesAreBounded();
                 AcceptanceVerdictsAreMachineReadable();
+                CausalCursorClassificationIsStrict();
                 StableDiagnosticBaselinesSurviveFailOpenClears();
                 CompactTopologyAndInvariantTimingAreEnforced();
                 SamePclCandidatePolicyIsFailOpenAndAllianceAware();
@@ -280,15 +281,18 @@ namespace EnemyGatePathfindingTest
 
         private static void NativeHookByteContractsRejectMutation()
         {
-            var memory = new byte[EnemyGatePathfindingNativeDefinition.BuilderPrecheckAllowedRecordTargetRva + 2];
+            var memory = new byte[EnemyGatePathfindingNativeDefinition.PathBuilderRva + 64];
             WriteBytes(memory, EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
                 "85 C0 48 8D 3D E3 FB FC 03 B8 01 00 00 00");
             WriteBytes(memory, EnemyGatePathfindingNativeDefinition.PclGraphPredecessorJumpRva,
                 "74 16 49 63 49 F4 48 69 D1 2C 03 00 00 66 83 BC 02 D2 CE 4C 06 00 74 11 FF C3");
             WriteBytes(memory, EnemyGatePathfindingNativeDefinition.BuilderPrecheckPredecessorJumpRva,
                 "74 16 49 63 49 F4 48 69 D1 2C 03 00 00 66 42 39 84 2A D2 CE 4C 06 74 0D FF C3");
+            WriteBytes(memory, EnemyGatePathfindingNativeDefinition.PathBuilderRva,
+                "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 48 63 41 0C 48 8B D9 41 8B F0 44 8B D2");
 
             EnemyGatePathfindingNativeDefinition.ValidateNativeHookContracts(memory);
+            EnemyGatePathfindingNativeDefinition.ValidateSamePclBuilderContract(memory);
             int pclMutation = EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterRva + 3;
             memory[pclMutation] ^= 1;
             AssertNativeContractRejected(memory, "mutated PCL-graph block fails closed");
@@ -297,6 +301,19 @@ namespace EnemyGatePathfindingTest
             int builderMutation = EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterRva + 15;
             memory[builderMutation] ^= 1;
             AssertNativeContractRejected(memory, "mutated builder-precheck block fails closed");
+            memory[builderMutation] ^= 1;
+            int pathBuilderMutation = EnemyGatePathfindingNativeDefinition.PathBuilderRva + 24;
+            memory[pathBuilderMutation] ^= 1;
+            bool builderRejected = false;
+            try
+            {
+                EnemyGatePathfindingNativeDefinition.ValidateSamePclBuilderContract(memory);
+            }
+            catch (InvalidOperationException)
+            {
+                builderRejected = true;
+            }
+            Assert(builderRejected, "mutated F4930 function entry fails closed");
         }
 
         private static void AssertNativeContractRejected(byte[] memory, string message)
@@ -443,6 +460,32 @@ namespace EnemyGatePathfindingTest
                 "upstream owner short-circuit is not reported as missing coverage");
             Assert(runtime.IndexOf("untrackedTransitionCalls=", StringComparison.Ordinal) >= 0,
                 "transient untracked calls remain separately visible");
+            Assert(runtime.IndexOf("cursorPolicyBlocked=", StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("cursorForcedDetour=", StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("samePclHookExecution=", StringComparison.Ordinal) >= 0,
+                "causal cursor and active Same-PCL verdicts are explicit");
+        }
+
+        private static void CausalCursorClassificationIsStrict()
+        {
+            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
+                    false, -1, false, -1, false, 0) == CausalRouteDecision.VanillaNoRoute,
+                "an unreproduced positive Vanilla result fails open");
+            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
+                    true, 5, false, -1, false, 0) == CausalRouteDecision.VanillaNoRoute,
+                "filtered no-route without a policy encounter fails open");
+            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
+                    true, 5, false, -1, false, 1) == CausalRouteDecision.PolicyBlocked,
+                "a reachable baseline cut by policy is causally blocked");
+            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
+                    true, 5, false, -1, true, 1) == CausalRouteDecision.TargetBlocked,
+                "a blocked target is classified separately");
+            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
+                    true, 5, true, 8, false, 2) == CausalRouteDecision.ForcedDetour,
+                "a longer filtered shortest path proves an actual detour");
+            Assert(EnemyGatePathfindingPolicy.ClassifyCausalRoute(
+                    true, 5, true, 5, false, 2) == CausalRouteDecision.Reachable,
+                "an equally short filtered path is not overstated as a forced detour");
         }
 
         private static void StableDiagnosticBaselinesSurviveFailOpenClears()
@@ -483,8 +526,9 @@ namespace EnemyGatePathfindingTest
                 "initial accepted gate details are not duplicated");
             Assert(cursor.IndexOf("CultureInfo.InvariantCulture", StringComparison.Ordinal) >= 0,
                 "cursor timing uses invariant decimal formatting");
-            Assert(cursor.IndexOf("reachableWithBlockedEncounter", StringComparison.Ordinal) >= 0,
-                "real detours are distinguished from unobstructed reachable routes");
+            Assert(cursor.IndexOf("forcedDetour", StringComparison.Ordinal) >= 0 &&
+                    cursor.IndexOf("vanillaNoRoute", StringComparison.Ordinal) >= 0,
+                "causal detours are distinguished from baseline-model misses");
         }
 
         private static void SnapshotRefreshPathsAreSeparatedAndBounded()
@@ -621,6 +665,10 @@ namespace EnemyGatePathfindingTest
                 "native tile-grid capacity");
             Assert(EnemyGatePathfindingNativeDefinition.MapGridWidth == 800,
                 "native tile-grid width");
+            Assert(EnemyGatePathfindingNativeDefinition.PathBuilderRva == 0xF4930,
+                "central tile builder function entry RVA");
+            Assert(EnemyGatePathfindingNativeDefinition.MaximumRouteEdges == 2000,
+                "two native direction nibbles fit each unit-buffer byte");
             Assert(EnemyGatePathfindingNativeDefinition.CapturedByPlayerTableDisplacement == 0x64CCED2,
                 "native capture-table displacement");
         }
@@ -629,13 +677,14 @@ namespace EnemyGatePathfindingTest
         {
             string tileSource = File.ReadAllText(Path.Combine("src", "CursorGateRouteFilter.cs"));
             string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            string samePclSource = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
             string[] forbidden =
             {
                 "GamePlayerManagerAPI", "GameUnitManagerAPI", "DebugLogHelper",
                 "Monitor.", "lock (", "StringBuilder", "Console.",
                 "new List", "new Dictionary", "new int[", "new byte[", "new string"
             };
-            foreach (string method in new[] { "FilterPositiveCursorPcl", "SearchWithoutBlocked" })
+            foreach (string method in new[] { "FilterPositiveCursorPcl", "SearchCausally", "SearchCore" })
             {
                 string body = ExtractMethodBody(tileSource, method);
                 foreach (string token in forbidden)
@@ -654,12 +703,22 @@ namespace EnemyGatePathfindingTest
                     Assert(capturedBody.IndexOf(token, StringComparison.Ordinal) < 0,
                         method + " hot path excludes " + token);
             }
+            string builderBody = ExtractMethodBody(
+                samePclSource, "BuildPathWithEnemyGatePolicy");
+            foreach (string token in new[]
+            {
+                "GameUnitManagerAPI", "GamePlayerManagerAPI", "DebugLogHelper",
+                "Monitor.", "lock (", "StringBuilder", "Console."
+            })
+                Assert(builderBody.IndexOf(token, StringComparison.Ordinal) < 0,
+                    "active builder callback excludes " + token);
         }
 
         private static void UnsafeGlobalMutationAndWholePclDetourAreAbsent()
         {
             string tileSource = File.ReadAllText(Path.Combine("src", "CursorGateRouteFilter.cs"));
             string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            string samePclSource = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
             Assert(tileSource.IndexOf("ApplyOverlay", StringComparison.Ordinal) < 0,
                 "global Direction-Grid overlay is absent");
             Assert(tileSource.IndexOf("RestoreOverlay", StringComparison.Ordinal) < 0,
@@ -672,6 +731,16 @@ namespace EnemyGatePathfindingTest
                 "whole PCL function detour delegate is absent");
             Assert(runtimeSource.IndexOf("AddDetour", StringComparison.Ordinal) < 0,
                 "whole PCL function detour installation is absent");
+            Assert(samePclSource.IndexOf("PathBuilderRva =", StringComparison.Ordinal) < 0 &&
+                    samePclSource.IndexOf("transaction.AddDetour", StringComparison.Ordinal) >= 0,
+                "Same-PCL uses the separately validated F4930 function detour");
+            Assert(samePclSource.IndexOf("directionGrid[from]", StringComparison.Ordinal) >= 0 &&
+                    samePclSource.IndexOf("directionGrid[from] =", StringComparison.Ordinal) < 0 &&
+                    samePclSource.IndexOf("directionGrid[to] =", StringComparison.Ordinal) < 0,
+                "Same-PCL reads the native direction grid without an overlay writer");
+            Assert(samePclSource.IndexOf("existingHookOwner", StringComparison.Ordinal) >= 0 &&
+                    samePclSource.IndexOf("BugfixesAndQoL_Serp", StringComparison.Ordinal) >= 0,
+                "overlapping builder ownership is explicitly suppressed");
         }
 
         private static void WriteBytes(byte[] destination, int offset, string hexadecimal)

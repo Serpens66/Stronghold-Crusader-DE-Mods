@@ -26,10 +26,12 @@ namespace EnemyGatePathfindingTest
         private readonly ManualLogSource log;
         private GateTopologySnapshotProvider topologyProvider;
         private CursorGateRouteFilter cursorRouteFilter;
+        private SamePclGateRouteRuntime samePclRouteRuntime;
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> pclGraphCapturedByFilterHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> builderPrecheckCapturedByFilterHook = new HookHandle<X64InlineHook>();
         private volatile NativeGateAccessSnapshot gateAccess = NativeGateAccessSnapshot.Empty;
+        private volatile NativeGateAccessSnapshot previousStableGateAccess = NativeGateAccessSnapshot.Empty;
         private ulong libraryBase;
         private int mapActive;
         private int callbackWarnings;
@@ -41,6 +43,9 @@ namespace EnemyGatePathfindingTest
         private readonly long[] queryPlayers = new long[9];
         private readonly long[] preservedOriginalZf = new long[2];
         private readonly long[] foreignOriginalZf = new long[2];
+        private long untrackedPolicyClear;
+        private long untrackedRemovedRecord;
+        private long untrackedUnexpected;
         private readonly CapturerSample[] samples =
             new CapturerSample[SiteCount * DecisionCount];
 
@@ -178,6 +183,18 @@ namespace EnemyGatePathfindingTest
                 Chainloader.PluginInfos.ContainsKey("BugfixesAndQoL_Serp");
             try
             {
+                samePclRouteRuntime = new SamePclGateRouteRuntime(
+                    log, memory, context.Region, libraryBase, friendlyMoatHookOwnerLoaded);
+            }
+            catch (Exception ex)
+            {
+                samePclRouteRuntime = null;
+                Shared.DebugLogHelper.LogWarning(log,
+                    "Active Same-PCL builder correction could not be installed; " +
+                    $"Vanilla remains active for that path: {ex.GetType().Name}: {ex.Message}");
+            }
+            try
+            {
                 cursorRouteFilter = new CursorGateRouteFilter(
                     log,
                     memory,
@@ -186,7 +203,6 @@ namespace EnemyGatePathfindingTest
                     (int*)(libraryBase + unchecked((ulong)cursorXRva)),
                     (int*)(libraryBase + unchecked((ulong)cursorYRva)),
                     installNativeHooks: !friendlyMoatHookOwnerLoaded);
-                topologyProvider.SetRoutePolicyConsumer(cursorRouteFilter.UpdatePolicy);
                 cursorRouteFilter.SetTopologyEpochStarter(
                     () => topologyProvider.BeginExplicitEpoch("first cursor query"));
             }
@@ -197,6 +213,11 @@ namespace EnemyGatePathfindingTest
                     "Crash-safe cursor correction could not be installed; the snapshot-based " +
                     $"Different-PCL filter remains active: {ex.GetType().Name}: {ex.Message}");
             }
+            topologyProvider.SetRoutePolicyConsumer(updated =>
+            {
+                cursorRouteFilter?.UpdatePolicy(updated);
+                samePclRouteRuntime?.UpdatePolicy(updated);
+            });
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Crash-safe enemy-gate hooks installed: " +
@@ -212,11 +233,10 @@ namespace EnemyGatePathfindingTest
                 $"redBird={redBirdVersion}, " +
                 $"dllSha256={EnemyGatePathfindingNativeDefinition.ReferenceSha256}. " +
                 "The whole PCL detour and every global Direction-Grid write were removed.");
-            Shared.DebugLogHelper.LogWarning(log,
-                "Same-PCL AI tile rerouting is disabled fail-open: F4930 dispatches to six primary " +
-                "searches plus a conditional DB650 post-search, and no complete local edge filter " +
-                "is validated. 79C0 is distance-only. " +
-                "Cursor reachability remains read-only; no builder/planner hook is installed.");
+            if (samePclRouteRuntime?.Installed != true && !friendlyMoatHookOwnerLoaded)
+                Shared.DebugLogHelper.LogWarning(log,
+                    "Same-PCL builder rerouting is unavailable and remains fail-open. " +
+                    "Cursor causality and Different-PCL filtering remain active.");
         }
 
         internal void BeginMap()
@@ -226,11 +246,12 @@ namespace EnemyGatePathfindingTest
             if (Interlocked.CompareExchange(ref mapActive, 1, 0) != 0)
                 return;
             ResetMapCounters();
+            samePclRouteRuntime?.ResetCounters();
             topologyProvider?.BeginExplicitEpoch("OnStartMap(Post)");
             cursorRouteFilter?.BeginEpoch("OnStartMap(Post)");
             Shared.DebugLogHelper.LogInfo(log,
-                "Enemy-gate map started: snapshot Different-PCL filter and read-only cursor policy active; " +
-                "Same-PCL native builder correction disabled pending a complete local-edge proof.");
+                "Enemy-gate map started: Different-PCL filter, causal cursor policy and " +
+                $"Same-PCL builder correction={(samePclRouteRuntime?.Installed == true ? "active" : "inactive")}.");
         }
 
         internal void EndMap(string reason = "OnUnloadMap(Pre)")
@@ -250,6 +271,7 @@ namespace EnemyGatePathfindingTest
             {
                 topologyProvider?.ProcessDeferred();
                 cursorRouteFilter?.ProcessDeferred();
+                samePclRouteRuntime?.ProcessDeferred();
                 long now = Stopwatch.GetTimestamp();
                 if (Volatile.Read(ref mapActive) != 0 &&
                     now >= Volatile.Read(ref nextDiagnosticAt))
@@ -270,8 +292,15 @@ namespace EnemyGatePathfindingTest
             catch { topologyProvider?.RecordSnapshotFailure(); }
         }
 
-        private void UpdateGateAccess(NativeGateAccessSnapshot updated) =>
-            gateAccess = updated ?? NativeGateAccessSnapshot.Empty;
+        private void UpdateGateAccess(NativeGateAccessSnapshot updated)
+        {
+            NativeGateAccessSnapshot next = updated ?? NativeGateAccessSnapshot.Empty;
+            NativeGateAccessSnapshot current = gateAccess;
+            if (next.TrackedRecords != 0 && current.TrackedRecords != 0 &&
+                !ReferenceEquals(next, current))
+                previousStableGateAccess = current;
+            gateAccess = next;
+        }
 
         private void FilterUnrelatedCapturedEnemyGatePclGraph(
             NativePointer<X64SmartCPUContext> context)
@@ -418,6 +447,16 @@ namespace EnemyGatePathfindingTest
                 Interlocked.Increment(ref preservedOriginalZf[originalZero ? 1 : 0]);
             if (decision == NativeGateSnapshotDecision.ExcludeForeignCapture)
                 Interlocked.Increment(ref foreignOriginalZf[originalZero ? 1 : 0]);
+            if (decision == NativeGateSnapshotDecision.UntrackedConnection)
+            {
+                NativeGateAccessSnapshot live = gateAccess;
+                if (live.TrackedRecords == 0)
+                    Interlocked.Increment(ref untrackedPolicyClear);
+                else if (HasStableRecord(previousStableGateAccess, buildingId))
+                    Interlocked.Increment(ref untrackedRemovedRecord);
+                else
+                    Interlocked.Increment(ref untrackedUnexpected);
+            }
 
             ref CapturerSample sample = ref samples[(site * DecisionCount) + decisionIndex];
             if (Interlocked.CompareExchange(ref sample.State, 1, 0) != 0)
@@ -451,6 +490,7 @@ namespace EnemyGatePathfindingTest
 
         private void ResetMapCounters()
         {
+            previousStableGateAccess = NativeGateAccessSnapshot.Empty;
             Array.Clear(siteCalls, 0, siteCalls.Length);
             Array.Clear(lastSiteCalls, 0, lastSiteCalls.Length);
             Array.Clear(decisions, 0, decisions.Length);
@@ -458,6 +498,9 @@ namespace EnemyGatePathfindingTest
             Array.Clear(queryPlayers, 0, queryPlayers.Length);
             Array.Clear(preservedOriginalZf, 0, preservedOriginalZf.Length);
             Array.Clear(foreignOriginalZf, 0, foreignOriginalZf.Length);
+            Reset(ref untrackedPolicyClear);
+            Reset(ref untrackedRemovedRecord);
+            Reset(ref untrackedUnexpected);
             Array.Clear(samples, 0, samples.Length);
             Interlocked.Exchange(ref callbackWarnings, 0);
             Volatile.Write(ref nextDiagnosticAt, Stopwatch.GetTimestamp() + DiagnosticInterval);
@@ -489,10 +532,21 @@ namespace EnemyGatePathfindingTest
                 $"builderPrecheck=[{FormatSiteCoverage(1)}]), players({players}), " +
                 $"preservedByOriginalZf(zf0={Read(ref preservedOriginalZf[0])},zf1={Read(ref preservedOriginalZf[1])}), " +
                 $"foreignBlocked(changedZf={Read(ref foreignOriginalZf[0])},alreadyExcluded={Read(ref foreignOriginalZf[1])}), " +
+                $"untracked(policyClear={Read(ref untrackedPolicyClear)},removedRecord={Read(ref untrackedRemovedRecord)}," +
+                $"unexpected={Read(ref untrackedUnexpected)}), " +
                 $"callbackWarnings={Volatile.Read(ref callbackWarnings)}.");
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate snapshot checkpoint: {topologyProvider?.DescribeState() ?? "unavailable"}.");
             cursorRouteFilter?.LogCheckpoint(kind, reason);
+            SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
+            Shared.DebugLogHelper.LogInfo(log,
+                $"Enemy-gate Same-PCL checkpoint: kind={kind}, installed={same.Installed}," +
+                $"hookOwnerConflict={same.OwnerConflict},calls={same.Calls}," +
+                $"nativeRoutePreserved={same.Preserved},unsafeRouteDetected={same.UnsafeRoutes}," +
+                $"replacementPublished={same.Replacements},policyNoRoute={same.NoRoutes}," +
+                $"aiDetour={same.AiDetours},cursorlessDetour={same.CursorlessDetours}," +
+                $"publicationRollback={same.Rollbacks},contractFailOpen={same.ContractFailures}," +
+                $"exceptions={same.Exceptions},directionGridWrites=0.");
             LogNewCapturerSamples();
             if (string.Equals(kind, "final", StringComparison.Ordinal))
                 LogAcceptanceVerdict(reason);
@@ -502,6 +556,7 @@ namespace EnemyGatePathfindingTest
         {
             TopologyCoverageSnapshot topology = topologyProvider?.GetCoverageSnapshot() ?? default;
             CursorCoverageSnapshot cursor = cursorRouteFilter?.GetCoverageSnapshot() ?? default;
+            SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
             long uncaptured = DecisionTotal(NativeGateSnapshotDecision.PreserveUncaptured);
             long ownCapturer = DecisionTotal(NativeGateSnapshotDecision.PreserveCapturer);
             long alliedCapturer = DecisionTotal(NativeGateSnapshotDecision.PreserveCapturerAlly);
@@ -515,8 +570,11 @@ namespace EnemyGatePathfindingTest
             bool hookActivity = Read(ref siteCalls[0]) > 0 && Read(ref siteCalls[1]) > 0;
             bool runtimeFailed = Volatile.Read(ref callbackWarnings) != 0 ||
                 topology.Errors != 0 || cursor.Errors != 0 || cursor.Failures != 0 ||
-                policyFailures != 0;
-            long cursorBlocked = cursor.TargetBlocked + cursor.NoRoute;
+                same.Exceptions != 0 || Read(ref untrackedUnexpected) != 0 || policyFailures != 0;
+            DiagnosticVerdict sameHookVerdict = same.OwnerConflict
+                ? DiagnosticVerdict.NOT_APPLICABLE
+                : !same.Installed ? DiagnosticVerdict.FAIL
+                : EnemyGatePathfindingPolicy.IntegrityVerdict(same.Calls > 0, false);
 
             Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate acceptance verdict: " +
@@ -531,18 +589,38 @@ namespace EnemyGatePathfindingTest
                 $"foreignCapturer={EnemyGatePathfindingPolicy.ObservationVerdict(foreignCapture)}," +
                 $"foreignCaptureBlock={EnemyGatePathfindingPolicy.ObservationVerdict(Read(ref foreignOriginalZf[0]))}," +
                 $"cursorReachable={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.Reachable)}," +
-                $"cursorBlocked={EnemyGatePathfindingPolicy.ObservationVerdict(cursorBlocked)}," +
-                $"cursorRealDetour={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.ReachableWithBlockedEncounter)}," +
+                $"cursorVanillaNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.VanillaNoRoute)}," +
+                $"cursorPolicyBlocked={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.PolicyBlocked)}," +
+                $"cursorTargetBlocked={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.TargetBlocked)}," +
+                $"cursorForcedDetour={EnemyGatePathfindingPolicy.ObservationVerdict(cursor.ForcedDetour)}," +
+                $"samePclHookExecution={sameHookVerdict}," +
+                $"nativeRoutePreserved={EnemyGatePathfindingPolicy.ObservationVerdict(same.Preserved)}," +
+                $"unsafeRouteDetected={EnemyGatePathfindingPolicy.ObservationVerdict(same.UnsafeRoutes)}," +
+                $"replacementPublished={EnemyGatePathfindingPolicy.ObservationVerdict(same.Replacements)}," +
+                $"policyNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.NoRoutes)}," +
+                $"aiDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiDetours)}," +
+                $"cursorlessDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorlessDetours)}," +
+                $"publicationRollback={EnemyGatePathfindingPolicy.IntegrityVerdict(same.Installed, same.Rollbacks > 0)}," +
                 $"drawbridgeTopology={(topology.DrawbridgeObserved ? DiagnosticVerdict.PASS : DiagnosticVerdict.NOT_OBSERVED)}," +
                 $"lifecycle={DiagnosticVerdict.PASS}," +
                 $"captureTransitions={topology.CaptureTransitions},recaptureTransitions={topology.RecaptureTransitions}," +
                 $"untrackedTransitionCalls={DecisionTotal(NativeGateSnapshotDecision.UntrackedConnection)}," +
+                $"untrackedPolicyClear={Read(ref untrackedPolicyClear)}," +
+                $"untrackedRemovedRecord={Read(ref untrackedRemovedRecord)}," +
+                $"untrackedUnexpected={Read(ref untrackedUnexpected)}," +
                 $"reason={reason}.");
         }
 
         private long DecisionTotal(NativeGateSnapshotDecision decision) =>
             Read(ref decisions[(int)decision]) +
             Read(ref decisions[DecisionCount + (int)decision]);
+
+        private static bool HasStableRecord(NativeGateAccessSnapshot snapshot, int buildingId) =>
+            snapshot != null && buildingId > 0 &&
+            buildingId < snapshot.RecordsByBuildingId.Length &&
+            snapshot.RecordsByBuildingId[buildingId].Valid;
+
+        private static void Reset(ref long value) => Interlocked.Exchange(ref value, 0);
 
         private string FormatSiteCoverage(int site)
         {

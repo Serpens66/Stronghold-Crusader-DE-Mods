@@ -30,6 +30,26 @@ namespace EnemyGatePathfindingTest
         public const int MaximumTileIdExclusive = 320800;
         public const int MapGridWidth = 800;
 
+        // Central tile-path dispatcher. This is a function entry, not a call-site.
+        public const int PathBuilderRva = 0xF4930;
+        public const string PathBuilderPattern =
+            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 40 " +
+            "48 63 41 0C 48 8B D9 41 8B F0 44 8B D2";
+        public const int NativePathManagerRva = 0x60AD660;
+        public const int NativeUnitManagerRva = 0x67E8400;
+        public const int PathManagerStartXOffset = 0x08;
+        public const int PathManagerStartYOffset = 0x0C;
+        public const int PathManagerTargetXOffset = 0x10;
+        public const int PathManagerTargetYOffset = 0x14;
+        public const int PathManagerOutputBufferOffset = 0x155F60;
+        public const int PathManagerOutputLengthOffset = 0x155F68;
+        public const int NativeUnitPathBufferOffset = 0xB4FE78;
+        public const int NativeUnitPathBufferStride = 1000;
+        public const int MaximumUnitId = 10000;
+        public const int MaximumRouteEdges = NativeUnitPathBufferStride * 2;
+        public const int NativeUnitStride = 0x490;
+        public const int NativeUnitSlotDataOffset = 0x65C;
+
         // Shared capture table addressed by both displaced CMP instructions. The
         // preceding IMUL has already converted the one-based building id to its stride.
         public const int CapturedByPlayerTableDisplacement = 0x64CCED2;
@@ -103,6 +123,20 @@ namespace EnemyGatePathfindingTest
             {
                 throw new InvalidOperationException("Enemy-gate hook boundaries are inconsistent.");
             }
+        }
+
+        internal static void ValidateSamePclBuilderContract(ReadOnlySpan<byte> memory)
+        {
+            ValidateBytes(memory, PathBuilderRva,
+                new byte[]
+                {
+                    0x48, 0x89, 0x5C, 0x24, 0x08, 0x48, 0x89, 0x6C,
+                    0x24, 0x10, 0x48, 0x89, 0x74, 0x24, 0x18, 0x57,
+                    0x48, 0x83, 0xEC, 0x40, 0x48, 0x63, 0x41, 0x0C,
+                    0x48, 0x8B, 0xD9, 0x41, 0x8B, 0xF0, 0x44, 0x8B,
+                    0xD2
+                },
+                "central tile path-builder entry");
         }
 
         private static void ValidateBytes(

@@ -27,6 +27,7 @@ namespace PreplacedTest.Tests
                 TestFirstAivBuildingEligibility();
                 TestEconomyDiagnosticModels();
                 TestEconomyPclModels();
+                TestEconomyOverlayProjection();
                 TestPreplacedIdentityAndCountProjection();
                 TestPortalRoutes();
                 TestPclConnectivityTransitions();
@@ -191,6 +192,33 @@ namespace PreplacedTest.Tests
                 "periodic grid decay model");
         }
 
+        private static void TestEconomyOverlayProjection()
+        {
+            byte projected = EconomyGridOverlayProjection.ProjectOutsideCount(
+                Enumerable.Repeat(1, 9).Concat(Enumerable.Repeat(2, 8)).Concat(Enumerable.Repeat(3, 8)),
+                new HashSet<int> { 1, 2 });
+            Check(projected == 8, "portal-reachable PCLs were still counted as outside");
+            Check(EconomyGridOverlayProjection.ProjectOutsideCount(
+                Enumerable.Repeat(5, 25), new HashSet<int> { 1 }) == 25,
+                "closed-wall cells were made reachable");
+            Check(EconomyGridOverlayProjection.ProjectOutsideCount(
+                Enumerable.Repeat(0, 25), new HashSet<int> { 1 }) == 25,
+                "unlabelled tiles were made reachable");
+            byte[] before = Enumerable.Range(0, 25600).Select(index => (byte)(index % 26)).ToArray();
+            byte[] restored = (byte[])before.Clone();
+            Check(EconomyGridOverlayProjection.RestoredExactly(before, restored),
+                "exact full-grid restoration was rejected");
+            byte[] outerProjection = Enumerable.Repeat((byte)3, before.Length).ToArray();
+            byte[] innerBefore = (byte[])outerProjection.Clone();
+            byte[] innerRestored = (byte[])innerBefore.Clone();
+            Check(EconomyGridOverlayProjection.RestoredExactly(outerProjection, innerRestored) &&
+                EconomyGridOverlayProjection.RestoredExactly(before, restored),
+                "nested overlay restoration model did not preserve both parent states");
+            restored[25599]++;
+            Check(!EconomyGridOverlayProjection.RestoredExactly(before, restored),
+                "last-cell restoration corruption was missed");
+        }
+
         private static void TestPortalRoutes()
         {
             var portals = new List<PortalConnection>
@@ -209,6 +237,8 @@ namespace PreplacedTest.Tests
                 "raw portal owner field incorrectly filtered the graph");
             Check(PortalRouteModel.EvaluateEconomyModeZero(10, 40, portals).Kind == PortalRouteKind.Unreachable,
                 "mode-zero-ineligible portal was not filtered");
+            Check(!PortalRouteModel.ReachableFriendlyPcls(10, portals, 5, (first, second) => false).Contains(40),
+                "ladder-only portal leaked into the friendly economy reachability set");
             Check(PortalRouteModel.EvaluateFriendly(10, 30, portals, 2, (first, second) => second == 6).Kind ==
                 PortalRouteKind.RawPortalGraph, "own plus allied portal route was not found");
             Check(PortalRouteModel.EvaluateFriendly(10, 40, portals, 2, (first, second) => false).Kind ==
@@ -374,6 +404,15 @@ namespace PreplacedTest.Tests
         {
             string eligible = LegacyTimerFixEligibility.Classify(true, false, 172, 0xD5, 1, 1, 0, 1);
             Check(LegacyTimerFixEligibility.IsEligible(eligible), "fresh legacy timer transfer was not eligible");
+            string applicable = LegacyTimerFixEligibility.ClassifyAtApplication(eligible, true, false, 1);
+            Check(LegacyTimerFixEligibility.IsApplicationEligible(applicable),
+                "verified destroyed-tower transfer was not applicable");
+            Check(LegacyTimerFixEligibility.ClassifyAtApplication(eligible, false, false, 1) ==
+                "ineligible-no-matching-preplaced-destroyed-tower", "transfer without a tower ruin was applicable");
+            Check(LegacyTimerFixEligibility.ClassifyAtApplication(eligible, true, true, 1) ==
+                "ineligible-later-damage-activation", "later damage activation was applicable");
+            Check(LegacyTimerFixEligibility.ClassifyAtApplication(eligible, true, false, 2) ==
+                "ineligible-runtime-timer-changed-before-application", "changed timer was applicable");
             Check(LegacyTimerFixEligibility.Classify(true, true, 172, 0xD5, 1, 1, 0, 1) ==
                 "ineligible-loaded-save", "loaded save timer was eligible");
             Check(LegacyTimerFixEligibility.Classify(true, false, 172, 0xD5, 1, 1, 2, 1) ==
@@ -448,7 +487,7 @@ namespace PreplacedTest.Tests
                 updateGuide.Contains("`0x1F5F0..0x1F68D`") && updateGuide.Contains("`+0x2AE0`") &&
                 updateGuide.Contains("RollbackAndThrow"),
                 "native update guide does not cover the new timer-copy contract");
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x572B0", "0x7EB00", "0x7F052", "0x7F074", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x575B0", "0x57B80", "0x58020", "0x58950", "0x6D580", "0xE2610", "0x60AD660", "0x60AD4AC", "0x2D13B0" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_BuildingId), 0x0C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_SubjectGlobalId), 0x14)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_EntryTileId), 0x24)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_ExitTileId), 0x30)", "ValidateSize(typeof(PathConnectionRecord), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
@@ -554,6 +593,28 @@ namespace PreplacedTest.Tests
             Check(source.Contains("ReachableFriendlyPcls") && source.Contains("projected04=") &&
                 source.Contains("projected16=raw-vanilla-tile-logic") && source.Contains("gate={observation.GateReason}"),
                 "player-specific counterfactual or early search gate diagnostic is incomplete");
+            Check(source.Contains("PREPLACED_ECONOMY_FIX_OVERLAY") &&
+                source.Contains("FindNextComponentTowardDestination") &&
+                source.Contains("PathConnectionQueryMode.ExcludeLadderClimb") &&
+                source.Contains("context == null || context.State != state") &&
+                source.Contains("Even a partial write must leave Vanilla's shared grid byte-identical") &&
+                source.Contains("finally") && source.Contains("RestoreEconomyGridOverlay") &&
+                source.Contains("Not all 25,600 economy byte+04 values were restored"),
+                "active economy overlay or exact restoration guard is incomplete");
+            Check(Regex.Matches(source, @"farmSearchHook\.Original\(").Count == 1 &&
+                Regex.Matches(source, @"resourceSearchHook\.Original\(").Count == 1 &&
+                Regex.Matches(source, @"woodSearchHook\.Original\(").Count == 1 &&
+                Regex.Matches(source, @"nearbySearchHook\.Original\(").Count == 2,
+                "an economy search detour can invoke its Vanilla original an unexpected number of times");
+            Check(source.Contains("PREPLACED_LEGACY_TIMER_FIX_APPLIED") &&
+                source.Contains("PREPLACED_LEGACY_TIMER_FIX_SKIPPED") &&
+                source.Contains("damageActivatedTimerOwners") &&
+                model.Contains("ClassifyAtApplication"),
+                "active legacy timer normalization is not narrowly guarded");
+            Check(source.Contains("PREPLACED_FARM_NATIVE_ORACLE_MATCH") &&
+                source.Contains("PREPLACED_FARM_NATIVE_ORACLE_MISMATCH") &&
+                source.Contains("ConstructionObservations") && source.Contains("prefilter-candidate"),
+                "farm oracle is not correlated with the native construction call");
             Check(source.Contains("PREPLACED_PLAYER_STATE_CHORE") &&
                 source.Contains("PREPLACED_PLAYER_STATE_FIELD_COPY") &&
                 source.Contains("SerializedCrushedCounterOffset") &&
@@ -615,8 +676,8 @@ namespace PreplacedTest.Tests
                 plugin.Contains("testedScriptExtender=2.5.0") &&
                 plugin.Contains("5f02af6d074af7c741ebdaaccb48add39eba1bf4") &&
                 manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.4.0\"") &&
-                manifest.Contains("\"NetworkMode\": 0"),
-                "Script Extender compatibility or passive network contract is inconsistent");
+                manifest.Contains("\"NetworkMode\": 1"),
+                "Script Extender compatibility or active test-fix network contract is inconsistent");
         }
 
         private static void TestNativeSignaturesAgainstCanonicalDll()
@@ -663,6 +724,13 @@ namespace PreplacedTest.Tests
             Check((0x51890D0 - 0x50EC690) / sizeof(ushort) == 320800 &&
                 !TryRvaToRaw(file, 0x50EC690, out _) && !TryRvaToRaw(file, 0x51890D0 - 1, out _),
                 "native PCL range length or PE bounds changed");
+            int farmOffsetTableRaw = RvaToRaw(file, 0x2D13B0);
+            int[] farmOffsets = Enumerable.Range(0, 18)
+                .Select(index => BitConverter.ToInt32(file, farmOffsetTableRaw + index * sizeof(int))).ToArray();
+            Check(farmOffsetTableRaw == 0x2CF9B0 && farmOffsets.SequenceEqual(new[]
+                { 0, 0, 0, -1, 1, -1, 1, 0, 1, 1, 0, 1, -1, 1, -1, 0, -1, -1 }) &&
+                !TryRvaToRaw(file, 0x60AD4AC, out _),
+                "farm placement-offset table or construction-error storage contract changed");
             Check(RvaToRaw(file, 0x50720) == 0x4FB20 && RvaToRaw(file, 0x572B0) == 0x566B0 &&
                 RvaToRaw(file, 0xD4290) == 0xD3690 && RvaToRaw(file, 0x96CE) == 0x8ACE,
                 "audited code RVA to FileOffset mapping changed");

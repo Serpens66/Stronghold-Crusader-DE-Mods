@@ -185,6 +185,7 @@ namespace PreplacedTest
                 changed = false;
                 foreach (PortalConnection portal in portals ?? Array.Empty<PortalConnection>())
                 {
+                    if (!portal.EconomyModeZeroEligible) continue;
                     bool friendly = portal.ActualOwnerId == playerId ||
                         (portal.ActualOwnerId > 0 && allied != null && allied(playerId, portal.ActualOwnerId));
                     if (!friendly) continue;
@@ -409,6 +410,37 @@ namespace PreplacedTest
 
         public static bool IsEligible(string classification) =>
             string.Equals(classification, "eligible-fresh-map-legacy-transfer", StringComparison.Ordinal);
+
+        public static string ClassifyAtApplication(
+            string transferClassification,
+            bool hasMatchingDestroyedTower,
+            bool damageWriterObserved,
+            int currentTimer)
+        {
+            if (!IsEligible(transferClassification)) return transferClassification;
+            if (!hasMatchingDestroyedTower) return "ineligible-no-matching-preplaced-destroyed-tower";
+            if (damageWriterObserved) return "ineligible-later-damage-activation";
+            if (currentTimer != 1) return "ineligible-runtime-timer-changed-before-application";
+            return "eligible-verified-preplaced-tower-transfer";
+        }
+
+        public static bool IsApplicationEligible(string classification) =>
+            string.Equals(classification, "eligible-verified-preplaced-tower-transfer", StringComparison.Ordinal);
+    }
+
+    internal static class EconomyGridOverlayProjection
+    {
+        public static byte ProjectOutsideCount(IEnumerable<int> cellPcls, ISet<int> reachablePcls)
+        {
+            if (cellPcls == null) throw new ArgumentNullException(nameof(cellPcls));
+            if (reachablePcls == null) throw new ArgumentNullException(nameof(reachablePcls));
+            int outside = cellPcls.Count(pcl => pcl <= 0 || !reachablePcls.Contains(pcl));
+            if ((uint)outside > 25U) throw new InvalidOperationException("A 5x5 economy cell must contain at most 25 PCL samples.");
+            return checked((byte)outside);
+        }
+
+        public static bool RestoredExactly(byte[] expected, byte[] actual) =>
+            expected != null && actual != null && expected.SequenceEqual(actual);
     }
 
     internal enum ShadowEconomySearchKind

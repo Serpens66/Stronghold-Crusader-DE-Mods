@@ -112,6 +112,42 @@ namespace BugfixesAndQoL
                     true, false, true, true, expectedLordType - 1, expectedLordType, 2),
                 "Coop custom AIV replacement is limited to the active player-2 partner");
 
+            Check(
+                CoopCustomLordSelectionPolicy.CalculatePortraitContentHeight(-1) == 450 &&
+                CoopCustomLordSelectionPolicy.CalculatePortraitContentHeight(0) == 450 &&
+                CoopCustomLordSelectionPolicy.CalculatePortraitContentHeight(7) == 450 &&
+                CoopCustomLordSelectionPolicy.CalculatePortraitContentHeight(8) == 560,
+                "Coop portrait scrolling starts with the eighth custom lord");
+
+            Check(
+                CoopCustomLordSelectionPolicy.AppendLordPower("Rat", 1) == "Rat (1)" &&
+                CoopCustomLordSelectionPolicy.AppendLordPower("Rat (1)", 1) == "Rat (1)",
+                "Coop lord power is appended exactly once");
+
+            ulong sharedProgressId = CoopCustomLordSelectionPolicy.SharedProgressId;
+            Check(
+                CoopCustomLordSelectionPolicy.FormatHistoryName("Nox", sharedProgressId, true) ==
+                    "Nox (Custom Lord)" &&
+                CoopCustomLordSelectionPolicy.FormatHistoryName(
+                    "Nox (Custom Lord)", sharedProgressId, true) == "Nox (Custom Lord)" &&
+                CoopCustomLordSelectionPolicy.FormatHistoryName("Nox", sharedProgressId, false) == "Nox" &&
+                CoopCustomLordSelectionPolicy.FormatHistoryName("Rat", 1001UL, true) == "Rat" &&
+                CoopCustomLordSelectionPolicy.ShouldShowDeleteButton(true, 1001UL) &&
+                !CoopCustomLordSelectionPolicy.ShouldShowDeleteButton(false, 1001UL) &&
+                !CoopCustomLordSelectionPolicy.ShouldShowDeleteButton(true, 0UL),
+                "Coop history marker and delete visibility are display-only and setting-gated");
+
+            Check(
+                CoopCustomLordSelectionPolicy.CanConfirmProgressDeletion(
+                    1001UL, 1001UL, recordInDictionary: true, recordInOrderedList: true) &&
+                !CoopCustomLordSelectionPolicy.CanConfirmProgressDeletion(
+                    1001UL, 1002UL, recordInDictionary: true, recordInOrderedList: true) &&
+                !CoopCustomLordSelectionPolicy.CanConfirmProgressDeletion(
+                    1001UL, 1001UL, recordInDictionary: false, recordInOrderedList: true) &&
+                !CoopCustomLordSelectionPolicy.CanConfirmProgressDeletion(
+                    1001UL, 1001UL, recordInDictionary: true, recordInOrderedList: false),
+                "Coop progress deletion rejects changed or inconsistent rows at confirmation");
+
             const string targetXPath =
                 "//n:Grid[@Width='1080' and @Height='640']/n:Grid[@Margin='25,0,0,0']";
             bool xamlContractsValid = true;
@@ -138,12 +174,29 @@ namespace BugfixesAndQoL
                     !patchText.Contains("LeaveCommand") &&
                     !patchText.Contains("ToolTip") &&
                     !patchText.Contains("ToolTipService");
+                for (int row = 1; row <= 8; row++)
+                {
+                    xamlContractsValid &= patchText.Contains(
+                        $"x:Name=\"CoopDeleteProgress{row}\" Width=\"29\" Height=\"29\" Margin=\"0,0,130,0\"") &&
+                        patchText.Contains("Visibility=\"Collapsed\"") &&
+                        patchText.Contains("local:PropEx.Sprite1=\"{StaticResource UI-Buttons L009}\"") &&
+                        patchText.Contains("local:PropEx.Sprite2=\"{StaticResource UI-Buttons L010}\"") &&
+                        patchText.Contains($"CommandParameter=\"BugfixesAndQoL_CoopDelete{row}\"") &&
+                        patchText.Contains("Style=\"{StaticResource BTN_Building}\"");
+                }
 
                 var document = new XmlDocument();
                 document.Load(baselinePath);
                 var namespaces = new XmlNamespaceManager(document.NameTable);
                 namespaces.AddNamespace("n", document.DocumentElement.NamespaceURI);
+                namespaces.AddNamespace("x", "http://schemas.microsoft.com/winfx/2006/xaml");
                 XmlNode portraitGrid = document.SelectSingleNode(targetXPath, namespaces);
+                for (int row = 1; row <= 8; row++)
+                {
+                    xamlContractsValid &= document.SelectNodes(
+                        $"//n:Grid[@Name='HostInvitePane']//n:Grid[@x:Name='Row{row}']",
+                        namespaces)?.Count == 1;
+                }
                 int[] vanillaOrder =
                     { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 24, 20, 21, 22, 23, 25, 26, 27, 28 };
                 XmlNodeList vanillaButtons = portraitGrid?.SelectNodes(
@@ -181,11 +234,37 @@ namespace BugfixesAndQoL
                 featureSource.Contains("button.MouseLeave += CustomButtonMouseLeave;") &&
                 featureSource.Contains("VerticalScrollBarVisibility = ScrollBarVisibility.Auto") &&
                 featureSource.Contains("int portraitIndex = VanillaLordCount + choices.Count;") &&
+                featureSource.Contains("nameof(FRONT_Multiplayer.AILordEnter)") &&
+                featureSource.Contains("GameAIManagerAPI.Instance.GetAICArray()") &&
+                featureSource.Contains("AILords.SK_RAT") &&
+                featureSource.Contains("AILords.SK_DLC4B") &&
+                featureSource.Contains("lord.configs[0].lordData.lord_power_display_level") &&
+                featureSource.Contains("HUD_ConfirmationPopup.ShowConfirmationMessage(") &&
+                featureSource.Contains("CoopInfoDictionaryField.GetValue(null) as IDictionary") &&
+                featureSource.Contains("CoopInfoListField.GetValue(null) as IList") &&
+                featureSource.Contains("ConfigSettings.SaveCoop();") &&
+                featureSource.Contains("File.Delete(coopFilePath);") &&
+                featureSource.Contains("FormatHistoryName(") &&
                 !featureSource.Contains("SelectVanilla") &&
                 !featureSource.Contains("EnterVanilla") &&
                 !featureSource.Contains("lordmeta.json") &&
                 !featureSource.Contains("DependencyFreeJson"),
-                "Coop custom hover uses direct events and Script Extender LocalizedDescription while Vanilla UI remains native");
+                "Coop hover power and progress deletion preserve Vanilla UI and use Script Extender metadata");
+
+            int initHookStart = featureSource.IndexOf(
+                "private void InitCoopGameHook",
+                StringComparison.Ordinal);
+            int rowHookStart = featureSource.IndexOf(
+                "private int[] GetCoopRowInfoHook",
+                StringComparison.Ordinal);
+            string initHookSource = initHookStart >= 0 && rowHookStart > initHookStart
+                ? featureSource.Substring(initHookStart, rowHookStart - initHookStart)
+                : string.Empty;
+            Check(
+                initHookSource.Contains("userName = selectedDisplayName;") &&
+                initHookSource.Contains("initCoopGameOriginal(steamId, userName, coaString);") &&
+                !initHookSource.Contains("FormatHistoryName("),
+                "the Custom Lord history marker is not persisted to coop.cfg");
         }
 
         private static void TestClassicMapSizeReader()

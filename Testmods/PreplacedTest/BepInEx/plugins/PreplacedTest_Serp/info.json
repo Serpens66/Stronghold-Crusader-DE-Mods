@@ -2,12 +2,12 @@
   "GUID": "PreplacedTest_Serp",
   "Author": "Serpens66",
   "Name": "Preplaced Test",
-  "Description": "Passive diagnosis of Vanilla AI AIV startup and interference from preplaced buildings.",
+  "Description": "Diagnosis and active test fixes for Vanilla AI startup and economy interference from preplaced buildings.",
   "Version": "0.1.1",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
-  "NetworkMode": 0,
+  "NetworkMode": 1,
   "SupportedGameVersions": [
     "2.8.0.1"
   ],
@@ -15,7 +15,8 @@
     {
       "Version": "0.1.1",
       "Changes": [
-        "Migrated PCL and portal diagnostics to Script Extender 2.4.0 pathing APIs."
+        "Migrated PCL and portal diagnostics to Script Extender 2.4.0 pathing APIs.",
+        "Actively tests a guarded legacy tower-ruin timer normalization and a temporary player-specific AI economy-grid projection."
       ]
     }
   ]

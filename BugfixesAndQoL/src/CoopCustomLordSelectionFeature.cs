@@ -5,12 +5,14 @@ using MonoMod.RuntimeDetour;
 using Noesis;
 using SHCDESE.API;
 using SHCDESE.API.Components.AI;
+using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Reflection;
 
 namespace BugfixesAndQoL
@@ -27,6 +29,7 @@ namespace BugfixesAndQoL
             out bool hidden, bool countHidden, out string coaString);
         private delegate bool GetCoopRowHiddenInfoDelegate(ulong steamId, out string userName);
         private delegate void CoopPopulateFriendsListDelegate(FRONT_Multiplayer self);
+        private delegate void AiLordEnterDelegate(FRONT_Multiplayer self, string parameter);
 
         private static readonly BindingFlags AllStatic =
             BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -36,9 +39,9 @@ namespace BugfixesAndQoL
         private const float PortraitLeft = 20f;
         private const float PortraitTop = 20f;
         private const float PortraitStep = 110f;
-        private const float PortraitSize = 100f;
         private const float PortraitViewportHeight = 450f;
         private const float PortraitContentWidth = 1020f;
+        private const string DeleteProgressCommandPrefix = "BugfixesAndQoL_CoopDelete";
         private static int VanillaLordCount =>
             CoopCustomLordSelectionPolicy.CustomPartnerLordType - 1;
         private static readonly FieldInfo CoopInfoDictionaryField =
@@ -47,10 +50,18 @@ namespace BugfixesAndQoL
             CoopInfoDictionaryField.FieldType.GetGenericArguments()[1];
         private static readonly FieldInfo CoopRecordUserNameField =
             RequireField(CoopRecordType, "userName", AllInstance);
+        private static readonly FieldInfo CoopInfoListField =
+            RequireField(typeof(ConfigSettings), "coopInfoList", AllStatic);
+        private static readonly MethodInfo GetCoopFileNameMethod =
+            RequireMethod(typeof(ConfigSettings), "GetCoopFileName", AllStatic);
         private static readonly FieldInfo CoopFriendSteamIdsField =
             RequireField(typeof(FRONT_Multiplayer), "coopFriendsSteamIDs", AllInstance);
         private static readonly FieldInfo CoopFriendHiddenField =
             RequireField(typeof(FRONT_Multiplayer), "coopFriendsRowHidden", AllInstance);
+        private static readonly FieldInfo CoopFriendsPageField =
+            RequireField(typeof(FRONT_Multiplayer), "coopFriendsPage", AllInstance);
+        private static readonly FieldInfo CoopShowHiddenFriendsField =
+            RequireField(typeof(FRONT_Multiplayer), "coopShowHiddenFriends", AllInstance);
         private static readonly FieldInfo SinglePlayerCoopAllyField =
             RequireField(typeof(FRONT_Multiplayer), "singlePlayerCoopAlly", AllInstance);
         private static readonly MethodInfo SetCoopRowMethod =
@@ -75,12 +86,14 @@ namespace BugfixesAndQoL
         private Hook getCoopRowInfoHook;
         private Hook getCoopRowHiddenInfoHook;
         private Hook coopPopulateFriendsListHook;
+        private Hook aiLordEnterHook;
         private CoopMissionChangedDelegate coopMissionChangedOriginal;
         private UploadDefaultAivDelegate uploadDefaultAivOriginal;
         private InitCoopGameDelegate initCoopGameOriginal;
         private GetCoopRowInfoDelegate getCoopRowInfoOriginal;
         private GetCoopRowHiddenInfoDelegate getCoopRowHiddenInfoOriginal;
         private CoopPopulateFriendsListDelegate coopPopulateFriendsListOriginal;
+        private AiLordEnterDelegate aiLordEnterOriginal;
 
         private FRONT_Multiplayer owner;
         private string selectedLordName = string.Empty;
@@ -111,6 +124,7 @@ namespace BugfixesAndQoL
             Hook pendingRow = null;
             Hook pendingHidden = null;
             Hook pendingPopulate = null;
+            Hook pendingEnter = null;
             try
             {
                 pendingMission = InstallHook(
@@ -144,6 +158,11 @@ namespace BugfixesAndQoL
                     RequireMethod(typeof(FRONT_Multiplayer), "CoopPopulateFriendsList", AllInstance),
                     (CoopPopulateFriendsListDelegate)CoopPopulateFriendsListHook,
                     out coopPopulateFriendsListOriginal);
+                pendingEnter = InstallHook(
+                    RequireMethod(typeof(FRONT_Multiplayer), nameof(FRONT_Multiplayer.AILordEnter),
+                        AllInstance, typeof(string)),
+                    (AiLordEnterDelegate)AiLordEnterHook,
+                    out aiLordEnterOriginal);
 
                 coopMissionChangedHook = pendingMission;
                 uploadDefaultAivHook = pendingUpload;
@@ -151,6 +170,7 @@ namespace BugfixesAndQoL
                 getCoopRowInfoHook = pendingRow;
                 getCoopRowHiddenInfoHook = pendingHidden;
                 coopPopulateFriendsListHook = pendingPopulate;
+                aiLordEnterHook = pendingEnter;
                 GameXAMLManagerAPI.Instance.RegisterBinding("CoopCustomLordSelectionHost", this);
                 current = this;
                 initialized = true;
@@ -158,6 +178,7 @@ namespace BugfixesAndQoL
             catch
             {
                 // Only a not-yet-published installation candidate may be rolled back.
+                pendingEnter?.Dispose();
                 pendingPopulate?.Dispose();
                 pendingHidden?.Dispose();
                 pendingRow?.Dispose();
@@ -172,21 +193,30 @@ namespace BugfixesAndQoL
 
         internal void ApplySetting()
         {
-            if (owner != null && MainViewModel.viewModelLoaded && MainViewModel.Instance.Show_CoopAIAllyPanel)
+            if (owner == null || !MainViewModel.viewModelLoaded)
+                return;
+
+            if (MainViewModel.Instance.Show_CoopAIAllyPanel)
                 RefreshChoices(owner);
+            else if (FRONT_Multiplayer.coopGame)
+                CoopPopulateFriendsListHook(owner);
         }
 
-        internal static void OnMultiplayerButtonStarting(FRONT_Multiplayer self, string command)
+        internal static bool OnMultiplayerButtonStarting(FRONT_Multiplayer self, string command)
         {
             CoopCustomLordSelectionFeature feature = current;
             if (feature == null)
-                return;
+                return false;
+
+            if (feature.TryRequestProgressDeletion(self, command))
+                return true;
 
             if (string.Equals(command, "CoopSinglePlayer", StringComparison.Ordinal))
                 feature.ClearSelection("new Coop run");
             else if (string.Equals(command, "CoopKick", StringComparison.Ordinal) ||
                      string.Equals(command, "CoopLeave", StringComparison.Ordinal))
                 feature.ClearSelection(command);
+            return false;
         }
 
         internal static void OnMultiplayerButtonCompleted(FRONT_Multiplayer self, string command)
@@ -198,6 +228,175 @@ namespace BugfixesAndQoL
         internal static void OnMultiplayerUpdated(FRONT_Multiplayer self)
         {
             current?.UpdateCoopSelectionUi(self);
+        }
+
+        private bool TryRequestProgressDeletion(FRONT_Multiplayer self, string command)
+        {
+            if (string.IsNullOrEmpty(command) ||
+                !command.StartsWith(DeleteProgressCommandPrefix, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            // Always consume our private command, even if a stale hidden button fires after disabling the setting.
+            if (!EnhancementsEnabled || self == null || !FRONT_Multiplayer.coopGame ||
+                FRONT_Multiplayer.customCoopGame ||
+                !int.TryParse(command.Substring(DeleteProgressCommandPrefix.Length), out int rowNumber))
+            {
+                return true;
+            }
+
+            int rowIndex = rowNumber - 1;
+            ulong[] steamIds = CoopFriendSteamIdsField.GetValue(self) as ulong[];
+            if (steamIds == null || rowIndex < 0 || rowIndex >= steamIds.Length || steamIds[rowIndex] == 0UL)
+                return true;
+
+            ulong partnerId = steamIds[rowIndex];
+            string rawName;
+            if (partnerId == CoopCustomLordSelectionPolicy.SharedProgressId)
+                rawName = GetStoredCustomDisplayName();
+            else
+                getCoopRowHiddenInfoOriginal(partnerId, out rawName);
+            string partnerName = CoopCustomLordSelectionPolicy.FormatHistoryName(
+                rawName,
+                partnerId,
+                enhancementsEnabled: true);
+            HUD_ConfirmationPopup.ShowConfirmationMessage(
+                SerpLocalization.Get("BugfixesAndQoL.CoopDeleteProgressTitle"),
+                () => DeleteProgressConfirmed(self, rowIndex, partnerId),
+                () => { },
+                SerpLocalization.Get(
+                    "BugfixesAndQoL.CoopDeleteProgressMessage",
+                    "PartnerName",
+                    partnerName));
+            return true;
+        }
+
+        private void DeleteProgressConfirmed(FRONT_Multiplayer self, int rowIndex, ulong partnerId)
+        {
+            IDictionary dictionary = null;
+            IList orderedRecords = null;
+            object record = null;
+            int orderedIndex = -1;
+            string coopFilePath = null;
+            byte[] savedFile = null;
+            bool fileExisted = false;
+            try
+            {
+                ulong[] steamIds = CoopFriendSteamIdsField.GetValue(self) as ulong[];
+                if (steamIds == null || rowIndex < 0 || rowIndex >= steamIds.Length)
+                {
+                    throw new InvalidOperationException("The selected Coop history row changed before confirmation.");
+                }
+
+                dictionary = CoopInfoDictionaryField.GetValue(null) as IDictionary;
+                orderedRecords = CoopInfoListField.GetValue(null) as IList;
+                record = dictionary?[partnerId];
+                orderedIndex = orderedRecords?.IndexOf(record) ?? -1;
+                if (!CoopCustomLordSelectionPolicy.CanConfirmProgressDeletion(
+                    partnerId,
+                    steamIds[rowIndex],
+                    record != null,
+                    orderedIndex >= 0))
+                {
+                    throw new InvalidOperationException(
+                        "The selected Coop progress record changed before confirmation.");
+                }
+
+                coopFilePath = GetCoopFileNameMethod.Invoke(null, null) as string;
+                if (string.IsNullOrWhiteSpace(coopFilePath))
+                    throw new InvalidOperationException("Vanilla did not provide a Coop progress file path.");
+                fileExisted = File.Exists(coopFilePath);
+                if (fileExisted)
+                    savedFile = File.ReadAllBytes(coopFilePath);
+
+                dictionary.Remove(partnerId);
+                orderedRecords.RemoveAt(orderedIndex);
+                if (dictionary.Count == 0)
+                {
+                    if (File.Exists(coopFilePath))
+                        File.Delete(coopFilePath);
+                    if (File.Exists(coopFilePath))
+                        throw new IOException("The empty Coop progress file could not be removed.");
+                }
+                else
+                {
+                    ConfigSettings.SaveCoop();
+                    if (!File.Exists(coopFilePath) || CoopFileContainsPartner(coopFilePath, partnerId))
+                        throw new IOException("Vanilla did not persist the Coop progress deletion.");
+                }
+
+                ResetHistoryNavigation(self);
+                if (partnerId == CoopCustomLordSelectionPolicy.SharedProgressId)
+                    ClearSelection("shared Coop progress deleted");
+                CoopPopulateFriendsListHook(self);
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Bugfixes and QoL deleted Coop progress for partner ID {partnerId}.");
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    if (dictionary != null && record != null && !dictionary.Contains(partnerId))
+                        dictionary.Add(partnerId, record);
+                    if (orderedRecords != null && record != null && !orderedRecords.Contains(record))
+                    {
+                        int restoreIndex = Math.Max(0, Math.Min(orderedIndex, orderedRecords.Count));
+                        orderedRecords.Insert(restoreIndex, record);
+                    }
+                    if (!string.IsNullOrWhiteSpace(coopFilePath))
+                    {
+                        if (fileExisted && savedFile != null)
+                            File.WriteAllBytes(coopFilePath, savedFile);
+                        else if (!fileExisted && File.Exists(coopFilePath))
+                            File.Delete(coopFilePath);
+                    }
+                }
+                catch (Exception rollbackException)
+                {
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        "Could not roll back the failed Coop progress deletion: " + rollbackException);
+                }
+
+                Shared.DebugLogHelper.LogError(log, "Could not delete Coop progress: " + ex);
+                HUD_ConfirmationPopup.ShowConfirmationOKMessage(
+                    SerpLocalization.Get("BugfixesAndQoL.CoopDeleteProgressErrorTitle"),
+                    () => { },
+                    SerpLocalization.Get("BugfixesAndQoL.CoopDeleteProgressErrorMessage"));
+            }
+        }
+
+        private static bool CoopFileContainsPartner(string path, ulong partnerId)
+        {
+            string prefix = partnerId + ":";
+            foreach (string line in File.ReadLines(path))
+            {
+                if (line.StartsWith(prefix, StringComparison.Ordinal))
+                    return true;
+            }
+            return false;
+        }
+
+        private void ResetHistoryNavigation(FRONT_Multiplayer self)
+        {
+            CoopFriendsPageField.SetValue(self, 0);
+            CoopShowHiddenFriendsField.SetValue(self, false);
+            bool hasHidden = ConfigSettings.getCoopTrailCount(countHidden: true) !=
+                ConfigSettings.getCoopTrailCount(countHidden: false);
+            UpdateShowHiddenControl(FRONT_CoopTrail1.Instance, hasHidden);
+            UpdateShowHiddenControl(FRONT_CoopTrail2.Instance, hasHidden);
+            UpdateShowHiddenControl(FRONT_CoopTrail3.Instance, hasHidden);
+            UpdateShowHiddenControl(FRONT_CoopTrail4.Instance, hasHidden);
+        }
+
+        private static void UpdateShowHiddenControl(FrameworkElement trailView, bool hasHidden)
+        {
+            if (!(trailView?.FindName("ShowHidden") is ToggleButton toggle))
+                return;
+            toggle.IsChecked = false;
+            toggle.Visibility = hasHidden ? Visibility.Visible : Visibility.Hidden;
         }
 
         internal static bool TryHandleSkirmishAiAddClick(FRONT_Multiplayer self, string parameter)
@@ -439,7 +638,12 @@ namespace BugfixesAndQoL
             int[] result = getCoopRowInfoOriginal(
                 row, trailId, out steamId, out userName, out hidden, countHidden, out coaString);
             if (result != null && steamId == CoopCustomLordSelectionPolicy.SharedProgressId)
-                userName = GetStoredCustomDisplayName();
+            {
+                userName = CoopCustomLordSelectionPolicy.FormatHistoryName(
+                    GetStoredCustomDisplayName(),
+                    steamId,
+                    EnhancementsEnabled);
+            }
             return result;
         }
 
@@ -453,14 +657,22 @@ namespace BugfixesAndQoL
 
         private void CoopPopulateFriendsListHook(FRONT_Multiplayer self)
         {
+            owner = self;
             coopPopulateFriendsListOriginal(self);
             ulong[] steamIds = CoopFriendSteamIdsField.GetValue(self) as ulong[];
             bool[] hiddenRows = CoopFriendHiddenField.GetValue(self) as bool[];
             if (steamIds == null || hiddenRows == null)
+            {
+                UpdateDeleteButtonVisibility(null);
                 return;
+            }
 
-            string displayName = GetStoredCustomDisplayName();
-            ImageSource portrait = ResolveHistoryPortrait(displayName);
+            string storedDisplayName = GetStoredCustomDisplayName();
+            string displayName = CoopCustomLordSelectionPolicy.FormatHistoryName(
+                storedDisplayName,
+                CoopCustomLordSelectionPolicy.SharedProgressId,
+                EnhancementsEnabled);
+            ImageSource portrait = ResolveHistoryPortrait(storedDisplayName);
             for (int row = 0; row < steamIds.Length && row < hiddenRows.Length; row++)
             {
                 if (steamIds[row] != CoopCustomLordSelectionPolicy.SharedProgressId)
@@ -468,6 +680,77 @@ namespace BugfixesAndQoL
                 SetCoopRowMethod.Invoke(
                     self,
                     new object[] { row, displayName, steamIds[row], portrait, hiddenRows[row] });
+            }
+            UpdateDeleteButtonVisibility(steamIds);
+        }
+
+        private void AiLordEnterHook(FRONT_Multiplayer self, string parameter)
+        {
+            aiLordEnterOriginal(self, parameter);
+            try
+            {
+                if (!EnhancementsEnabled || !ReferenceEquals(owner, self) ||
+                    !FRONT_Multiplayer.coopGame || FRONT_Multiplayer.customCoopGame ||
+                    !MainViewModel.viewModelLoaded || !MainViewModel.Instance.Show_CoopAIAllyPanel ||
+                    !int.TryParse(parameter, out int zeroBasedLordType) ||
+                    !TryGetVanillaLordPower(zeroBasedLordType, out int lordPower))
+                {
+                    return;
+                }
+
+                MainViewModel.Instance.SkirmishLordRolloverName =
+                    CoopCustomLordSelectionPolicy.AppendLordPower(
+                        MainViewModel.Instance.SkirmishLordRolloverName,
+                        lordPower);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Could not append the Vanilla Coop lord power: " + ex.Message);
+            }
+        }
+
+        private static bool TryGetVanillaLordPower(int zeroBasedLordType, out int lordPower)
+        {
+            lordPower = 0;
+            int aicIndex = zeroBasedLordType + 1;
+            int firstVanillaIndex = checked((int)AILords.SK_RAT);
+            int lastVanillaIndex = checked((int)AILords.SK_DLC4B);
+            if (aicIndex < firstVanillaIndex || aicIndex > lastVanillaIndex)
+                return false;
+
+            var aics = GameAIManagerAPI.Instance.GetAICArray();
+            if (aicIndex < 0 || aicIndex >= aics.Length)
+                return false;
+
+            lordPower = aics[aicIndex].lord_power_display_level;
+            return true;
+        }
+
+        private void UpdateDeleteButtonVisibility(ulong[] steamIds)
+        {
+            UpdateDeleteButtons(FRONT_CoopTrail1.Instance, steamIds);
+            UpdateDeleteButtons(FRONT_CoopTrail2.Instance, steamIds);
+            UpdateDeleteButtons(FRONT_CoopTrail3.Instance, steamIds);
+            UpdateDeleteButtons(FRONT_CoopTrail4.Instance, steamIds);
+        }
+
+        private void UpdateDeleteButtons(FrameworkElement trailView, ulong[] steamIds)
+        {
+            if (trailView == null)
+                return;
+            for (int row = 0; row < 8; row++)
+            {
+                Button button = trailView.FindName("CoopDeleteProgress" + (row + 1)) as Button;
+                if (button == null)
+                    continue;
+                ulong partnerId = steamIds != null && row < steamIds.Length ? steamIds[row] : 0UL;
+                button.Visibility = CoopCustomLordSelectionPolicy.ShouldShowDeleteButton(
+                    EnhancementsEnabled,
+                    partnerId)
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
             }
         }
 
@@ -548,6 +831,9 @@ namespace BugfixesAndQoL
             (ulong)SinglePlayerCoopAllyField.GetValue(self) ==
                 (ulong)CoopCustomLordSelectionPolicy.CustomPartnerLordType;
 
+        private bool EnhancementsEnabled =>
+            settings.EnableMod && settings.EnableCustomLordListEnhancements;
+
         private void UpdateCoopSelectionUi(FRONT_Multiplayer self)
         {
             if (!ReferenceEquals(owner, self) || !MainViewModel.viewModelLoaded ||
@@ -600,9 +886,7 @@ namespace BugfixesAndQoL
 
         private float CalculatePortraitContentHeight()
         {
-            int totalPortraits = VanillaLordCount + choices.Count;
-            int rows = Math.Max(1, (totalPortraits + PortraitColumns - 1) / PortraitColumns);
-            return PortraitTop + (rows - 1) * PortraitStep + PortraitSize;
+            return CoopCustomLordSelectionPolicy.CalculatePortraitContentHeight(choices.Count);
         }
 
         private void RefreshCustomButtonHandlers()
@@ -687,7 +971,11 @@ namespace BugfixesAndQoL
             GameAIManagerAPI api = GameAIManagerAPI.Instance;
             api.TryGetLordDetails(lord.lordName, out LordDetails details);
             string name = lord.lordDisplayName ?? lord.lordName;
-            viewModel.SkirmishLordRolloverName = name;
+            int lordPower = lord.configs != null && lord.configs.Count > 0
+                ? lord.configs[0].lordData.lord_power_display_level
+                : 0;
+            viewModel.SkirmishLordRolloverName =
+                CoopCustomLordSelectionPolicy.AppendLordPower(name, lordPower);
             viewModel.SkirmishLordRolloverName2 = string.Empty;
             viewModel.SkirmishLordRolloverDesc = details?.Description ?? string.Empty;
             viewModel.SkirmishLordRolloverRating = details?.DifficultyRating ?? string.Empty;

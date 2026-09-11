@@ -13,4 +13,100 @@
       </ItemsControl>
     </Content>
   </Operation>
+  <Operation Type="Add"
+             XPath="//n:Grid[@Name='HostInvitePane']//n:Grid[@x:Name='Row1']">
+    <Content>
+      <Button x:Name="CoopDeleteProgress1" Width="29" Height="29" Margin="0,0,130,0"
+              HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
+              local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+              local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+              Command="{Binding MultiplayerMenuCommand}"
+              CommandParameter="BugfixesAndQoL_CoopDelete1"
+              Style="{StaticResource BTN_Building}" />
+    </Content>
+  </Operation>
+  <Operation Type="Add"
+             XPath="//n:Grid[@Name='HostInvitePane']//n:Grid[@x:Name='Row2']">
+    <Content>
+      <Button x:Name="CoopDeleteProgress2" Width="29" Height="29" Margin="0,0,130,0"
+              HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
+              local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+              local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+              Command="{Binding MultiplayerMenuCommand}"
+              CommandParameter="BugfixesAndQoL_CoopDelete2"
+              Style="{StaticResource BTN_Building}" />
+    </Content>
+  </Operation>
+  <Operation Type="Add"
+             XPath="//n:Grid[@Name='HostInvitePane']//n:Grid[@x:Name='Row3']">
+    <Content>
+      <Button x:Name="CoopDeleteProgress3" Width="29" Height="29" Margin="0,0,130,0"
+              HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
+              local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+              local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+              Command="{Binding MultiplayerMenuCommand}"
+              CommandParameter="BugfixesAndQoL_CoopDelete3"
+              Style="{StaticResource BTN_Building}" />
+    </Content>
+  </Operation>
+  <Operation Type="Add"
+             XPath="//n:Grid[@Name='HostInvitePane']//n:Grid[@x:Name='Row4']">
+    <Content>
+      <Button x:Name="CoopDeleteProgress4" Width="29" Height="29" Margin="0,0,130,0"
+              HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
+              local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+              local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+              Command="{Binding MultiplayerMenuCommand}"
+              CommandParameter="BugfixesAndQoL_CoopDelete4"
+              Style="{StaticResource BTN_Building}" />
+    </Content>
+  </Operation>
+  <Operation Type="Add"
+             XPath="//n:Grid[@Name='HostInvitePane']//n:Grid[@x:Name='Row5']">
+    <Content>
+      <Button x:Name="CoopDeleteProgress5" Width="29" Height="29" Margin="0,0,130,0"
+              HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
+              local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+              local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+              Command="{Binding MultiplayerMenuCommand}"
+              CommandParameter="BugfixesAndQoL_CoopDelete5"
+              Style="{StaticResource BTN_Building}" />
+    </Content>
+  </Operation>
+  <Operation Type="Add"
+             XPath="//n:Grid[@Name='HostInvitePane']//n:Grid[@x:Name='Row6']">
+    <Content>
+      <Button x:Name="CoopDeleteProgress6" Width="29" Height="29" Margin="0,0,130,0"
+              HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
+              local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+              local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+              Command="{Binding MultiplayerMenuCommand}"
+              CommandParameter="BugfixesAndQoL_CoopDelete6"
+              Style="{StaticResource BTN_Building}" />
+    </Content>
+  </Operation>
+  <Operation Type="Add"
+             XPath="//n:Grid[@Name='HostInvitePane']//n:Grid[@x:Name='Row7']">
+    <Content>
+      <Button x:Name="CoopDeleteProgress7" Width="29" Height="29" Margin="0,0,130,0"
+              HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
+              local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+              local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+              Command="{Binding MultiplayerMenuCommand}"
+              CommandParameter="BugfixesAndQoL_CoopDelete7"
+              Style="{StaticResource BTN_Building}" />
+    </Content>
+  </Operation>
+  <Operation Type="Add"
+             XPath="//n:Grid[@Name='HostInvitePane']//n:Grid[@x:Name='Row8']">
+    <Content>
+      <Button x:Name="CoopDeleteProgress8" Width="29" Height="29" Margin="0,0,130,0"
+              HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
+              local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
+              local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
+              Command="{Binding MultiplayerMenuCommand}"
+              CommandParameter="BugfixesAndQoL_CoopDelete8"
+              Style="{StaticResource BTN_Building}" />
+    </Content>
+  </Operation>
 </Patch>
