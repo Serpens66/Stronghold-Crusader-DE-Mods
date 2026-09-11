@@ -16,7 +16,14 @@ from PIL import Image, ImageChops
 
 from .gm_groups import GROUP_CONTRACTS, SUPPORTED_GROUPS, atlas_material_name
 from .i18n import translate
-from .models import GroupConfig, MASK_MODES, MISSING_TARGET_POLICIES, PIVOT_MODES, ProjectConfig
+from .models import (
+    GroupConfig,
+    MASK_MODES,
+    MISSING_SOURCE_METADATA_POLICIES,
+    MISSING_TARGET_POLICIES,
+    PIVOT_MODES,
+    ProjectConfig,
+)
 
 
 ProgressCallback = Callable[[str], None]
@@ -195,6 +202,7 @@ def read_source_metadata(
     directory: Path,
     configured_prefix: str,
     required_keys: set[FrameKey],
+    allow_missing: bool = False,
 ) -> dict[FrameKey, SourceSpriteMetadata]:
     if not directory.is_dir():
         raise AtlasBuilderError(f"Source metadata directory does not exist: {directory}")
@@ -238,7 +246,7 @@ def read_source_metadata(
             raise AtlasBuilderError(f"Source metadata has invalid pixels-per-unit: {path}")
         found[key] = metadata
     missing = sorted(required_keys - set(found))
-    if missing:
+    if missing and not allow_missing:
         raise AtlasBuilderError(f"Missing source metadata for frames: {missing}")
     return found
 
@@ -408,8 +416,19 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
             raise AtlasBuilderError(
                 f"Unsupported missingTargetPolicy for {config.gm_file_name}: {config.missing_target_policy}"
             )
+        if config.missing_source_metadata_policy not in MISSING_SOURCE_METADATA_POLICIES:
+            raise AtlasBuilderError(
+                f"Unsupported missingSourceMetadataPolicy for {config.gm_file_name}: "
+                f"{config.missing_source_metadata_policy}"
+            )
         if config.missing_target_policy == "source-metadata" and config.pivot_mode != "source-metadata":
             raise AtlasBuilderError(translate(project.language, "missing_target_requires_source_metadata", group=config.gm_file_name))
+        if config.missing_source_metadata_policy != "reject" and config.pivot_mode != "source-metadata":
+            raise AtlasBuilderError(translate(
+                project.language,
+                "missing_source_fallback_requires_source_metadata",
+                group=config.gm_file_name,
+            ))
         if config.pivot_mode == "source-metadata" and not config.source_metadata_directory:
             raise AtlasBuilderError(f"{config.gm_file_name}: sourceMetadataDirectory is required")
         canonical = next((name for name in SUPPORTED_GROUPS if name.casefold() == config.gm_file_name.casefold()), None)
@@ -456,14 +475,43 @@ def prepare_project(project: ProjectConfig, callback: ProgressCallback | None = 
             warnings.append(coverage_message)
         source_metadata: dict[FrameKey, SourceSpriteMetadata] = {}
         if config.pivot_mode == "source-metadata":
+            allow_metadata_fallback = config.missing_source_metadata_policy == "target-pixel-anchor"
             source_metadata = read_source_metadata(
                 project.resolve_path(config.source_metadata_directory or ""),
                 detected_prefixes[group_name],
                 {source.key for source in sources},
+                allow_missing=allow_metadata_fallback,
             )
+            if allow_metadata_fallback and not source_metadata:
+                raise AtlasBuilderError(translate(
+                    project.language,
+                    "no_source_metadata_matches",
+                    group=group_name,
+                ))
+            fallback_keys = sorted(
+                source.key for source in sources if source.key not in source_metadata
+            )
+            fallback_without_target = [key for key in fallback_keys if key not in targets]
+            if fallback_without_target:
+                raise AtlasBuilderError(translate(
+                    project.language,
+                    "source_metadata_fallback_without_target",
+                    group=group_name,
+                    indices=_format_frame_keys(fallback_without_target),
+                ))
+            if fallback_keys:
+                warnings.append(translate(
+                    project.language,
+                    "source_metadata_fallback_warning",
+                    group=group_name,
+                    count=len(fallback_keys),
+                    indices=_format_frame_keys(fallback_keys),
+                ))
             aspect_mismatches: list[str] = []
             for source in sources:
-                item = source_metadata[source.key]
+                item = source_metadata.get(source.key)
+                if item is None:
+                    continue
                 source_ratio = source.width / source.height
                 metadata_ratio = item.width / item.height
                 if abs(source_ratio - metadata_ratio) > 0.0001:
@@ -543,17 +591,18 @@ def output_pivot(prepared: PreparedGroup, source: SourceFrame) -> tuple[float, f
     if mode == "target-normalized":
         return target.pivot_x, target.pivot_y
     if mode == "source-metadata":
-        metadata = prepared.source_metadata[source.key]
-        scale_x = source.width / metadata.width
-        scale_y = source.height / metadata.height
-        # Uniformly scaled images keep their normalized source pivot. If only
-        # the canvas changed, preserve the source sprite's absolute anchor.
-        if abs(scale_x - scale_y) <= 0.0001:
-            return metadata.pivot_x, metadata.pivot_y
-        return (
-            _reanchored_pivot(metadata.pivot_x, metadata.width, source.width),
-            _reanchored_pivot(metadata.pivot_y, metadata.height, source.height),
-        )
+        metadata = prepared.source_metadata.get(source.key)
+        if metadata is not None:
+            scale_x = source.width / metadata.width
+            scale_y = source.height / metadata.height
+            # Uniformly scaled images keep their normalized source pivot. If only
+            # the canvas changed, preserve the source sprite's absolute anchor.
+            if abs(scale_x - scale_y) <= 0.0001:
+                return metadata.pivot_x, metadata.pivot_y
+            return (
+                _reanchored_pivot(metadata.pivot_x, metadata.width, source.width),
+                _reanchored_pivot(metadata.pivot_y, metadata.height, source.height),
+            )
     if target.width <= 0 or target.height <= 0:
         raise AtlasBuilderError(f"{target.name}: target Sprite rectangle must be positive")
     return (

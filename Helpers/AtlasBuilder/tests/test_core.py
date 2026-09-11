@@ -336,7 +336,12 @@ class ProjectValidationTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(payload), encoding="utf-8")
 
-    def _swordsman_project(self, missing_policy="reject", pivot_mode="source-metadata") -> ProjectConfig:
+    def _swordsman_project(
+        self,
+        missing_policy="reject",
+        pivot_mode="source-metadata",
+        missing_source_policy="reject",
+    ) -> ProjectConfig:
         return ProjectConfig(
             language="en",
             target_game_data=str(self.root / "Data"),
@@ -348,6 +353,7 @@ class ProjectValidationTests(unittest.TestCase):
                 pivot_mode=pivot_mode,
                 source_metadata_directory=str(self.root / "metadata") if pivot_mode == "source-metadata" else None,
                 missing_target_policy=missing_policy,
+                missing_source_metadata_policy=missing_source_policy,
             )],
         )
 
@@ -457,6 +463,58 @@ class ProjectValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(AtlasBuilderError, "only be filled when the pivot source"):
             prepare_project(project)
 
+    def test_missing_source_fallback_requires_source_metadata_pivot(self) -> None:
+        project = self._swordsman_project(
+            pivot_mode="target-pixel-anchor",
+            missing_source_policy="target-pixel-anchor",
+        )
+        with self.assertRaisesRegex(AtlasBuilderError, "only valid when the pivot source"):
+            prepare_project(project)
+
+    def test_hybrid_source_metadata_falls_back_per_target_backed_frame(self) -> None:
+        self._write_swordsman_source((0,))
+        write_png(self.root / "images" / "source-1x.png")
+        write_png(self.root / "images" / "source-1x_m.png")
+        source_target = TargetFrame("body_swordsman-0", 0.9, 0.8, 64, 11, 13)
+        crusader_target = TargetFrame("body_swordsman-1x", 0.5, 0.25, 64, 14, 18)
+        targets = {"body_swordsman": {
+            FrameKey(0): source_target,
+            FrameKey(1, True): crusader_target,
+        }}
+        project = self._swordsman_project(missing_source_policy="target-pixel-anchor")
+        with patch("atlas_builder.core.read_target_metadata", return_value=targets):
+            prepared = prepare_project(project)[0]
+
+        self.assertEqual(set(prepared.source_metadata), {FrameKey(0)})
+        source_frame = next(frame for frame in prepared.source_frames if frame.key == FrameKey(0))
+        fallback_frame = next(frame for frame in prepared.source_frames if frame.key == FrameKey(1, True))
+        self.assertEqual(output_pivot(prepared, source_frame), (0.25, 0.75))
+        self.assertEqual(output_pivot(prepared, fallback_frame), (1.0, 0.5))
+        self.assertTrue(any("1 frames have no source metadata" in warning for warning in prepared.warnings))
+        self.assertTrue(any("(1x)" in warning for warning in prepared.warnings))
+
+    def test_hybrid_source_metadata_rejects_directory_without_any_match(self) -> None:
+        self._write_swordsman_source((0,))
+        (self.root / "metadata" / "source-0.json").unlink()
+        targets = {"body_swordsman": {
+            FrameKey(0): TargetFrame("body_swordsman-0", 0.5, 0.5, 64, 7, 9),
+        }}
+        project = self._swordsman_project(missing_source_policy="target-pixel-anchor")
+        with patch("atlas_builder.core.read_target_metadata", return_value=targets):
+            with self.assertRaisesRegex(AtlasBuilderError, "No matching source-metadata JSON"):
+                prepare_project(project)
+
+    def test_hybrid_source_metadata_rejects_frame_without_either_metadata_source(self) -> None:
+        self._write_swordsman_source((0, 1))
+        (self.root / "metadata" / "source-1.json").unlink()
+        targets = {"body_swordsman": {
+            FrameKey(0): TargetFrame("body_swordsman-0", 0.5, 0.5, 64, 7, 9),
+        }}
+        project = self._swordsman_project(missing_source_policy="target-pixel-anchor")
+        with patch("atlas_builder.core.read_target_metadata", return_value=targets):
+            with self.assertRaisesRegex(AtlasBuilderError, "neither source metadata nor SHCDE target metadata"):
+                prepare_project(project)
+
     def test_missing_target_fallback_adds_only_absent_slots_and_builds_them(self) -> None:
         self._write_swordsman_source()
         vanilla = TargetFrame("body_swordsman-0", 0.9, 0.8, 32, 11, 13)
@@ -520,7 +578,7 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(data["outputModDirectory"], "Mod")
             self.assertEqual(ProjectConfig.load(path).resolve_path("Mod"), (root / "Mod").resolve())
 
-    def test_schema_one_loads_with_legacy_pivot_and_saves_as_schema_three(self) -> None:
+    def test_schema_one_loads_with_legacy_pivot_and_saves_as_schema_four(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
             root = Path(temporary)
             path = root / "legacy.atlas-project.json"
@@ -532,8 +590,8 @@ class ProjectFileTests(unittest.TestCase):
             self.assertEqual(project.loaded_schema_version, 1)
             self.assertEqual(project.groups[0].pivot_mode, "target-normalized")
             project.save(path)
-            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schemaVersion"], 3)
-            self.assertEqual(project.loaded_schema_version, 3)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["schemaVersion"], 4)
+            self.assertEqual(project.loaded_schema_version, 4)
 
     def test_source_metadata_path_below_project_is_saved_relative(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
@@ -557,8 +615,23 @@ class ProjectFileTests(unittest.TestCase):
             group = ProjectConfig.load(path).groups[0]
             self.assertEqual(group.pivot_mode, "target-pixel-anchor")
             self.assertEqual(group.missing_target_policy, "reject")
+            self.assertEqual(group.missing_source_metadata_policy, "reject")
 
-    def test_schema_three_roundtrip_preserves_missing_target_policy(self) -> None:
+    def test_schema_three_loads_with_strict_missing_source_metadata_policy(self) -> None:
+        with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
+            path = Path(temporary) / "schema-three.atlas-project.json"
+            path.write_text(json.dumps({
+                "schemaVersion": 3,
+                "groups": [{
+                    "gmFileName": "body_swordsman",
+                    "colourDirectory": "images",
+                    "pivotMode": "source-metadata",
+                    "sourceMetadataDirectory": "metadata",
+                }],
+            }), encoding="utf-8")
+            self.assertEqual(ProjectConfig.load(path).groups[0].missing_source_metadata_policy, "reject")
+
+    def test_schema_four_roundtrip_preserves_both_metadata_policies(self) -> None:
         with tempfile.TemporaryDirectory(dir=TEST_TEMP) as temporary:
             root = Path(temporary)
             path = root / "current.atlas-project.json"
@@ -568,12 +641,16 @@ class ProjectFileTests(unittest.TestCase):
                 pivot_mode="source-metadata",
                 source_metadata_directory="metadata",
                 missing_target_policy="source-metadata",
+                missing_source_metadata_policy="target-pixel-anchor",
             )])
             project.save(path)
             payload = json.loads(path.read_text(encoding="utf-8"))
-            self.assertEqual(payload["schemaVersion"], 3)
+            self.assertEqual(payload["schemaVersion"], 4)
             self.assertEqual(payload["groups"][0]["missingTargetPolicy"], "source-metadata")
-            self.assertEqual(ProjectConfig.load(path).groups[0].missing_target_policy, "source-metadata")
+            self.assertEqual(payload["groups"][0]["missingSourceMetadataPolicy"], "target-pixel-anchor")
+            loaded = ProjectConfig.load(path).groups[0]
+            self.assertEqual(loaded.missing_target_policy, "source-metadata")
+            self.assertEqual(loaded.missing_source_metadata_policy, "target-pixel-anchor")
 
 
 class PivotTests(unittest.TestCase):
@@ -682,6 +759,22 @@ class SourceMetadataTests(unittest.TestCase):
     def test_missing_metadata_is_rejected(self) -> None:
         with self.assertRaisesRegex(AtlasBuilderError, "Missing source metadata"):
             read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)})
+
+    def test_allow_missing_returns_only_available_main_and_alternate_metadata(self) -> None:
+        self.write_metadata("tile_land8 001")
+        result = read_source_metadata(
+            self.root,
+            "tile_land8 ",
+            {FrameKey(1), FrameKey(2), FrameKey(3, True)},
+            allow_missing=True,
+        )
+        self.assertEqual(set(result), {FrameKey(1)})
+
+    def test_allow_missing_does_not_hide_invalid_matching_metadata(self) -> None:
+        path = self.root / "tile_land8 001.json"
+        path.write_text("{invalid", encoding="utf-8")
+        with self.assertRaisesRegex(AtlasBuilderError, "Invalid AssetRipper Sprite metadata"):
+            read_source_metadata(self.root, "tile_land8 ", {FrameKey(1)}, allow_missing=True)
 
     def test_duplicate_metadata_is_rejected(self) -> None:
         self.write_metadata("tile_land8 001")

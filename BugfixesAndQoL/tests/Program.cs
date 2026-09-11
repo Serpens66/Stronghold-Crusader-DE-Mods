@@ -148,6 +148,18 @@ namespace BugfixesAndQoL
                     1001UL, 1001UL, recordInDictionary: true, recordInOrderedList: false),
                 "Coop progress deletion rejects changed or inconsistent rows at confirmation");
 
+            ulong[] sixOccupiedRows =
+                { 1001UL, 76561198000000001UL, 1008UL, 1002UL, sharedProgressId, 1003UL, 0UL, 0UL };
+            int visibleDeleteButtons = 0;
+            for (int row = 0; row < sixOccupiedRows.Length; row++)
+            {
+                if (CoopCustomLordSelectionPolicy.ShouldShowDeleteButton(true, sixOccupiedRows[row]))
+                    visibleDeleteButtons++;
+            }
+            Check(
+                visibleDeleteButtons == 6,
+                "six occupied Coop rows show exactly six delete buttons");
+
             const string targetXPath =
                 "//n:Grid[@Width='1080' and @Height='640']/n:Grid[@Margin='25,0,0,0']";
             bool xamlContractsValid = true;
@@ -181,9 +193,10 @@ namespace BugfixesAndQoL
                         patchText.Contains("Visibility=\"Collapsed\"") &&
                         patchText.Contains("local:PropEx.Sprite1=\"{StaticResource UI-Buttons L009}\"") &&
                         patchText.Contains("local:PropEx.Sprite2=\"{StaticResource UI-Buttons L010}\"") &&
-                        patchText.Contains($"CommandParameter=\"BugfixesAndQoL_CoopDelete{row}\"") &&
+                        !patchText.Contains($"CommandParameter=\"BugfixesAndQoL_CoopDelete{row}\"") &&
                         patchText.Contains("Style=\"{StaticResource BTN_Building}\"");
                 }
+                xamlContractsValid &= !patchText.Contains("Command=\"{Binding MultiplayerMenuCommand}\"");
 
                 var document = new XmlDocument();
                 document.Load(baselinePath);
@@ -245,11 +258,26 @@ namespace BugfixesAndQoL
                 featureSource.Contains("ConfigSettings.SaveCoop();") &&
                 featureSource.Contains("File.Delete(coopFilePath);") &&
                 featureSource.Contains("FormatHistoryName(") &&
+                featureSource.Contains("button.Click += DeleteProgressButtonClicked;") &&
+                featureSource.Contains("button.Click -= DeleteProgressButtonClicked;") &&
+                featureSource.Contains("CollectDeleteButtonsRecursive(") &&
+                featureSource.Contains("VisualTreeHelper.GetChild(element, index)") &&
+                featureSource.Contains("RequestProgressDeletion(owner, row);") &&
+                !featureSource.Contains("BugfixesAndQoL_CoopDelete") &&
                 !featureSource.Contains("SelectVanilla") &&
                 !featureSource.Contains("EnterVanilla") &&
                 !featureSource.Contains("lordmeta.json") &&
                 !featureSource.Contains("DependencyFreeJson"),
                 "Coop hover power and progress deletion preserve Vanilla UI and use Script Extender metadata");
+
+            string multiplayerHookSource = File.ReadAllText(
+                Path.Combine("src", "SkirmishAiSelectionMemoryHook.cs"));
+            Check(
+                multiplayerHookSource.Contains(
+                    "CoopCustomLordSelectionFeature.OnMultiplayerButtonStarting(self, param);") &&
+                !multiplayerHookSource.Contains(
+                    "if (CoopCustomLordSelectionFeature.OnMultiplayerButtonStarting(self, param))"),
+                "Coop delete buttons do not consume or reroute Vanilla multiplayer commands");
 
             int initHookStart = featureSource.IndexOf(
                 "private void InitCoopGameHook",

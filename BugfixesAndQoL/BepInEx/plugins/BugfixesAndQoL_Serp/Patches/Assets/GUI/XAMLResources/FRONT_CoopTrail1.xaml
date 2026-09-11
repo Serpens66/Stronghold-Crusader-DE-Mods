@@ -45,8 +45,6 @@
               HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
               local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
               local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-              Command="{Binding MultiplayerMenuCommand}"
-              CommandParameter="BugfixesAndQoL_CoopDelete1"
               Style="{StaticResource BTN_Building}" />
     </Content>
   </Operation>
@@ -57,8 +55,6 @@
               HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
               local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
               local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-              Command="{Binding MultiplayerMenuCommand}"
-              CommandParameter="BugfixesAndQoL_CoopDelete2"
               Style="{StaticResource BTN_Building}" />
     </Content>
   </Operation>
@@ -69,8 +65,6 @@
               HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
               local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
               local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-              Command="{Binding MultiplayerMenuCommand}"
-              CommandParameter="BugfixesAndQoL_CoopDelete3"
               Style="{StaticResource BTN_Building}" />
     </Content>
   </Operation>
@@ -81,8 +75,6 @@
               HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
               local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
               local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-              Command="{Binding MultiplayerMenuCommand}"
-              CommandParameter="BugfixesAndQoL_CoopDelete4"
               Style="{StaticResource BTN_Building}" />
     </Content>
   </Operation>
@@ -93,8 +85,6 @@
               HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
               local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
               local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-              Command="{Binding MultiplayerMenuCommand}"
-              CommandParameter="BugfixesAndQoL_CoopDelete5"
               Style="{StaticResource BTN_Building}" />
     </Content>
   </Operation>
@@ -105,8 +95,6 @@
               HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
               local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
               local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-              Command="{Binding MultiplayerMenuCommand}"
-              CommandParameter="BugfixesAndQoL_CoopDelete6"
               Style="{StaticResource BTN_Building}" />
     </Content>
   </Operation>
@@ -117,8 +105,6 @@
               HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
               local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
               local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-              Command="{Binding MultiplayerMenuCommand}"
-              CommandParameter="BugfixesAndQoL_CoopDelete7"
               Style="{StaticResource BTN_Building}" />
     </Content>
   </Operation>
@@ -129,8 +115,6 @@
               HorizontalAlignment="Right" VerticalAlignment="Center" Visibility="Collapsed"
               local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
               local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
-              Command="{Binding MultiplayerMenuCommand}"
-              CommandParameter="BugfixesAndQoL_CoopDelete8"
               Style="{StaticResource BTN_Building}" />
     </Content>
   </Operation>

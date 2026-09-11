@@ -36,12 +36,18 @@ class TooltipTests(unittest.TestCase):
 
     def test_context_help_changes_with_group_options_and_language(self) -> None:
         basic = group_context_text("de", "anim_castle", "none", "target-pixel-anchor", "reject")
-        advanced = group_context_text("de", "anim_castle", "none", "source-metadata", "source-metadata")
-        english = group_context_text("en", "anim_castle", "none", "source-metadata", "source-metadata")
+        advanced = group_context_text(
+            "de", "anim_castle", "none", "source-metadata", "source-metadata", "target-pixel-anchor"
+        )
+        english = group_context_text(
+            "en", "anim_castle", "none", "source-metadata", "source-metadata", "target-pixel-anchor"
+        )
         self.assertIn("Loader-Maximalindex 138", basic)
         self.assertIn("sichere Standard", basic)
         self.assertIn("AssetRipper-JSONs", advanced)
+        self.assertIn("Hybridmodus", advanced)
         self.assertIn("metadata validation", english)
+        self.assertIn("Hybrid mode", english)
         self.assertNotEqual(basic, advanced)
         self.assertNotEqual(advanced, english)
 
@@ -67,8 +73,11 @@ class TooltipTests(unittest.TestCase):
             dialog.withdraw()
             dialog.pivot_mode_label_var.set(app.tr("source-metadata"))
             dialog.missing_policy_label_var.set(app.tr("missing-source-metadata"))
+            dialog.missing_source_policy_label_var.set(app.tr("fallback-target-pixel-anchor"))
             dialog._update_metadata_state()
             self.assertIn("AssetRipper JSON", dialog.context_var.get())
+            self.assertIn("Hybrid mode", dialog.context_var.get())
+            self.assertEqual(str(dialog.missing_source_policy_box.cget("state")), "readonly")
             dialog.destroy()
         finally:
             app.destroy()

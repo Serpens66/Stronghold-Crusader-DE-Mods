@@ -34,13 +34,15 @@ Ein Unity-Pivot ist normalisiert. Derselbe Wert bezeichnet deshalb auf unterschi
 - **Pivot aus Quellmetadaten** reproduziert die ursprüngliche Ausrichtung eines mit AssetRipper extrahierten Sprites. Wähle zusätzlich den Ordner, der die einzelnen Sprite-JSONs enthält, oder einen übergeordneten AssetRipper-Exportordner. Der Builder liest nur JSON-Dateien, deren Namen zur gewählten Gruppe und zu den vorhandenen Frames passen.
 - **Normalisierten SHCDE-Pivot übernehmen (Legacy)** bildet das Verhalten älterer Builder-Projekte nach. Verwende es nur, wenn Quell- und Zielbilder dieselbe Leinwand besitzen oder die normalisierten Pivots absichtlich identisch sein sollen.
 
+Enthält eine Gruppe sowohl SH1DE- als auch unveränderte SHCDE-Frames, wähle **Pivot aus Quellmetadaten** und bei **Fehlende Quellmetadaten** ausdrücklich **SHCDE-Pixelanker verwenden**. Vorhandene Quellmetadaten haben dann pro Frame Vorrang; nur Frames ohne passendes Quell-JSON verwenden den SHCDE-Pixelanker. Der Builder erkennt damit nicht die Bildherkunft, sondern verlangt für den Fallback vorhandene SHCDE-Zielmetadaten und meldet alle betroffenen Indizes. Findet der gewählte Ordner überhaupt kein passendes Quell-JSON, bricht die Prüfung weiterhin ab.
+
 Ein Pivot von exakt `1,0` ist eine Kantenkonvention: Er bleibt bei einer anders großen Leinwand `1,0`, damit die obere beziehungsweise rechte Kante fest bleibt. Pivots außerhalb von `0..1` sind ebenfalls gültig und kommen in SHCDE tatsächlich vor; der Builder prüft daher den berechneten Pixelanker statt den Pivot künstlich auf diesen Bereich zu begrenzen.
 
 Bei Quellmetadaten bleiben normalisierte Pivots bei einer proportional skalierten Leinwand erhalten. Ändert sich nur die Leinwand beziehungsweise ihr Seitenverhältnis, bewahrt der Builder den absoluten Quellanker. Eine Warnung weist auf mögliches Trimming hin, weil dessen korrekter Ausgleich nicht allein aus Rect und PNG-Größe ableitbar ist.
 
 Bei den geprüften SH1DE-Gruppen `tile_land8`, `tile_buildings1`, `tile_churches` und `tile_ruins` liegt der originale Pixelanker durchgehend bei `(32, 16,5)` und die PPU bei 64. Beispielsweise ergeben sowohl Pivot `(0,5; 0,40243897)` auf 64×41 Pixeln als auch `(0,5; 0,08418399)` auf 64×196 Pixeln denselben Anker. Schwarze Spalten zwischen Tiles sind ein typisches Zeichen dafür, dass stattdessen ein normalisierter Pivot von einer anders großen Leinwand kopiert wurde.
 
-Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen gewarnt. Schema-2-Projekte behalten ihre bisherige strikte Zielprüfung. Beim nächsten Speichern werden ältere Projekte als Schema 3 abgelegt.
+Schema-1-Projekte werden kompatibel im Legacy-Modus geöffnet und beim Öffnen gewarnt. Schema-2- und Schema-3-Projekte behalten ihre bisherigen strikten Metadatenregeln. Beim nächsten Speichern werden ältere Projekte als Schema 4 abgelegt.
 
 ### Grafiken aus Stronghold 1 DE übertragen
 
@@ -150,6 +152,8 @@ Normalerweise muss **In SHCDE fehlende Zielslots** auf **Ablehnen** stehen. Manc
 
 Nur für einen belegten Fall kann pro Gruppe **Aus validierten Quellmetadaten ergänzen** gewählt werden. Das ist ausschließlich zusammen mit **Pivot aus Quellmetadaten** möglich. Der Builder prüft dann Quelldateiname, `m_Name`, Präfix, Index, Alt-Suffix, Rect, Pivot und PPU, lässt keine Nummer außerhalb des vom SHCDE-Loader deklarierten Arrays zu und ergänzt nur tatsächlich fehlende Zieldaten. Vorhandene SHCDE-Metadaten haben immer Vorrang.
 
+Diese Einstellung ist nicht der Hybridfallback für fehlende Quellmetadaten: Fehlt ein SHCDE-Zielsprite selbst, existiert auch kein SHCDE-Pixelanker als Ersatz. Für einen solchen Slot bleibt ein gültiges Quell-JSON zwingend erforderlich.
+
 Der ausgegebene Spritename wird aus der Ziel-GM-Gruppe erzeugt. Das ist wichtig, wenn das Quellpräfix absichtlich anders lautet: Der Script Extender erkennt nur Zielnamen wie `body_swordsman-416`, nicht einen beliebigen Namen aus dem Quellspiel. Eine deutliche Buildwarnung nennt Anzahl und Bereiche aller ergänzten Slots.
 
 ### Material, Masken und Teilatlanten
@@ -193,13 +197,15 @@ A Unity pivot is normalized, so the same value points to a different pixel on im
 - **Pivot from source metadata** reproduces the original alignment of a Sprite extracted with AssetRipper. Also select the directory containing the individual Sprite JSON files, or a parent AssetRipper export directory. Only JSON files whose names match the selected group and present frames are read.
 - **Copy normalized SHCDE pivot (legacy)** preserves the behavior of older builder projects. Use it only when source and target images have identical canvases or intentionally share normalized pivots.
 
+If one group contains both SH1DE frames and unchanged SHCDE frames, select **Pivot from source metadata**, then explicitly select **Use SHCDE pixel anchor** under **Missing source metadata**. Existing source metadata takes precedence per frame; only frames without matching source JSON use the SHCDE pixel anchor. This does not infer image provenance: the builder requires existing SHCDE target metadata for the fallback and reports every affected index. Validation still stops when the selected directory contains no matching source JSON at all.
+
 A pivot of exactly `1.0` is an edge convention: it remains `1.0` on a differently sized canvas so the top or right edge stays fixed. Pivots outside `0..1` are valid as well and occur in SHCDE itself; the builder therefore validates the calculated pixel anchor instead of artificially restricting the normalized value.
 
 With source metadata, normalized pivots remain unchanged when the canvas is scaled proportionally. If only the canvas or its aspect ratio changes, the builder preserves the absolute source anchor. A warning identifies possible trimming because its correct compensation cannot be inferred from the Rect and PNG dimensions alone.
 
 In the verified SH1DE groups `tile_land8`, `tile_buildings1`, `tile_churches` and `tile_ruins`, the original pixel anchor is consistently `(32, 16.5)` with 64 PPU. For example, pivot `(0.5, 0.40243897)` on a 64×41 image and `(0.5, 0.08418399)` on a 64×196 image both produce the same anchor. Black gaps between tiles are a typical symptom of copying a normalized pivot from a differently sized canvas.
 
-Schema-1 projects open compatibly in legacy mode and display a warning. Schema-2 projects retain their previous strict target validation. Saving an older project upgrades it to schema 3.
+Schema-1 projects open compatibly in legacy mode and display a warning. Schema-2 and schema-3 projects retain their previous strict metadata rules. Saving an older project upgrades it to schema 4.
 
 ### Transferring graphics from Stronghold 1 DE
 
@@ -308,6 +314,8 @@ For UI master atlases without individual Sprite metadata, the crop cannot be ver
 Normally, **Target slots absent from SHCDE** must remain set to **Reject**. Some arrays declared by the game contain genuine empty slots. Confirmed example: `body_swordsman` declares the range `0–1087`, but SHCDE has no Sprites for `416–447`, while SH1DE contains those 32 frames.
 
 For a verified case only, select **Fill from validated source metadata** for that group. This option is available exclusively with **Pivot from source metadata**. The builder then validates the source filename, `m_Name`, prefix, index, alternate suffix, Rect, pivot and PPU, refuses indices outside the array declared by the SHCDE loader, and fills only target metadata that is genuinely absent. Existing SHCDE metadata always takes precedence.
+
+This setting is not the hybrid fallback for missing source metadata: if the SHCDE target Sprite itself is absent, there is no SHCDE pixel anchor to use instead. Such a slot still requires valid source JSON.
 
 The emitted Sprite name is constructed from the target GM group. This matters when the source prefix intentionally differs: the Script Extender recognizes target names such as `body_swordsman-416`, not an arbitrary source-game name. A prominent build warning lists the number and ranges of all filled slots.
 

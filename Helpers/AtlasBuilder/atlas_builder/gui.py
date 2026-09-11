@@ -82,7 +82,14 @@ def attach_tooltip(widget, text: str) -> None:
     widget._atlas_builder_tooltip = Tooltip(widget, text)
 
 
-def group_context_text(language: str, gm_name: str, mask_mode: str, pivot_mode: str, missing_policy: str) -> str:
+def group_context_text(
+    language: str,
+    gm_name: str,
+    mask_mode: str,
+    pivot_mode: str,
+    missing_policy: str,
+    missing_source_policy: str = "reject",
+) -> str:
     tr = lambda key, **values: translate(language, key, **values)
     contract = GROUP_CONTRACTS.get(gm_name)
     if contract is None:
@@ -104,8 +111,10 @@ def group_context_text(language: str, gm_name: str, mask_mode: str, pivot_mode: 
     lines.extend((
         tr("context_mask_" + mask_mode),
         tr("context_pivot_" + pivot_mode),
-        tr("context_missing_source-metadata" if missing_policy == "source-metadata" else "context_missing_reject"),
     ))
+    if pivot_mode == "source-metadata":
+        lines.append(tr("context_source_fallback_" + missing_source_policy))
+    lines.append(tr("context_missing_source-metadata" if missing_policy == "source-metadata" else "context_missing_reject"))
     return "\n\n".join(lines)
 
 
@@ -133,6 +142,16 @@ class GroupDialog(tk.Toplevel):
         }
         initial_policy_key = "missing-source-metadata" if value.missing_target_policy == "source-metadata" else "reject"
         self.missing_policy_label_var = tk.StringVar(value=parent.tr(initial_policy_key))
+        self.missing_source_policy_labels = {
+            parent.tr("reject"): "reject",
+            parent.tr("fallback-target-pixel-anchor"): "target-pixel-anchor",
+        }
+        initial_source_policy_key = (
+            "fallback-target-pixel-anchor"
+            if value.missing_source_metadata_policy == "target-pixel-anchor"
+            else "reject"
+        )
+        self.missing_source_policy_label_var = tk.StringVar(value=parent.tr(initial_source_policy_key))
 
         frame = ttk.Frame(self, padding=12)
         frame.grid(sticky="nsew")
@@ -167,6 +186,14 @@ class GroupDialog(tk.Toplevel):
         self._row(frame, 5, "pivot_mode", pivot_box)
         pivot_box.bind("<<ComboboxSelected>>", lambda _event: self._update_metadata_state())
         self._path_row(frame, 6, "source_metadata_dir", self.metadata_var, metadata=True)
+        self.missing_source_policy_box = ttk.Combobox(
+            frame,
+            values=tuple(self.missing_source_policy_labels),
+            textvariable=self.missing_source_policy_label_var,
+            state="readonly",
+            width=38,
+        )
+        self._row(frame, 7, "missing_source_metadata_policy", self.missing_source_policy_box)
         self.missing_policy_box = ttk.Combobox(
             frame,
             values=tuple(self.missing_policy_labels),
@@ -174,16 +201,16 @@ class GroupDialog(tk.Toplevel):
             state="readonly",
             width=38,
         )
-        self._row(frame, 7, "missing_target_policy", self.missing_policy_box)
-        for box in (self.gm_box, mode_box, pivot_box, self.missing_policy_box):
+        self._row(frame, 8, "missing_target_policy", self.missing_policy_box)
+        for box in (self.gm_box, mode_box, pivot_box, self.missing_source_policy_box, self.missing_policy_box):
             box.bind("<<ComboboxSelected>>", lambda _event: self._update_context_help(), add="+")
         context = ttk.LabelFrame(frame, text=parent.tr("context_help"), padding=8)
-        context.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(10, 0))
+        context.grid(row=9, column=0, columnspan=3, sticky="ew", pady=(10, 0))
         context.columnconfigure(0, weight=1)
         self.context_var = tk.StringVar()
         ttk.Label(context, textvariable=self.context_var, justify="left", wraplength=720).grid(sticky="ew")
         buttons = ttk.Frame(frame)
-        buttons.grid(row=9, column=0, columnspan=3, pady=(12, 0), sticky="e")
+        buttons.grid(row=10, column=0, columnspan=3, pady=(12, 0), sticky="e")
         ok_button = ttk.Button(buttons, text="OK", command=self.accept)
         cancel_button = ttk.Button(buttons, text=parent.tr("cancel"), command=self.destroy)
         ok_button.pack(side="left", padx=4)
@@ -227,6 +254,8 @@ class GroupDialog(tk.Toplevel):
         self.metadata_button.configure(state=state)
         if not enabled:
             self.missing_policy_label_var.set(self.parent.tr("reject"))
+            self.missing_source_policy_label_var.set(self.parent.tr("reject"))
+        self.missing_source_policy_box.configure(state="readonly" if enabled else "disabled")
         self.missing_policy_box.configure(state="readonly" if enabled else "disabled")
         self._update_context_help()
 
@@ -235,9 +264,17 @@ class GroupDialog(tk.Toplevel):
             return
         pivot_mode = self.pivot_labels.get(self.pivot_mode_label_var.get(), "target-pixel-anchor")
         missing_policy = self.missing_policy_labels.get(self.missing_policy_label_var.get(), "reject")
+        missing_source_policy = self.missing_source_policy_labels.get(
+            self.missing_source_policy_label_var.get(), "reject"
+        )
         mask_mode = self.mask_labels.get(self.mask_mode_label_var.get(), "none")
         self.context_var.set(group_context_text(
-            self.parent.language_var.get(), self.gm_var.get(), mask_mode, pivot_mode, missing_policy
+            self.parent.language_var.get(),
+            self.gm_var.get(),
+            mask_mode,
+            pivot_mode,
+            missing_policy,
+            missing_source_policy,
         ))
 
     def _browse(self, variable: tk.StringVar) -> None:
@@ -251,6 +288,9 @@ class GroupDialog(tk.Toplevel):
             return
         pivot_mode = self.pivot_labels[self.pivot_mode_label_var.get()]
         missing_target_policy = self.missing_policy_labels[self.missing_policy_label_var.get()]
+        missing_source_metadata_policy = self.missing_source_policy_labels[
+            self.missing_source_policy_label_var.get()
+        ]
         self.result = GroupConfig(
             gm_file_name=self.gm_var.get(),
             colour_directory=self.colour_var.get().strip(),
@@ -260,6 +300,7 @@ class GroupDialog(tk.Toplevel):
             pivot_mode=pivot_mode,
             source_metadata_directory=(self.metadata_var.get().strip() or None) if pivot_mode == "source-metadata" else None,
             missing_target_policy=missing_target_policy,
+            missing_source_metadata_policy=missing_source_metadata_policy,
         )
         self.destroy()
 
@@ -364,10 +405,18 @@ class AtlasBuilderApp(tk.Tk):
         groups_frame.columnconfigure(0, weight=1)
         self.group_tree = ttk.Treeview(
             groups_frame,
-            columns=("gm", "colour", "mask", "prefix", "pivot", "missing"),
+            columns=("gm", "colour", "mask", "prefix", "pivot", "source_fallback", "missing"),
             show="headings",
         )
-        for name, width in (("gm", 150), ("colour", 260), ("mask", 135), ("prefix", 90), ("pivot", 175), ("missing", 175)):
+        for name, width in (
+            ("gm", 150),
+            ("colour", 260),
+            ("mask", 135),
+            ("prefix", 90),
+            ("pivot", 175),
+            ("source_fallback", 175),
+            ("missing", 175),
+        ):
             self.group_tree.heading(name, text=self.tr(name + "_column"))
             self.group_tree.column(name, width=width, stretch=True)
         self.group_tree.grid(row=0, column=0, sticky="nsew")
@@ -513,6 +562,9 @@ class AtlasBuilderApp(tk.Tk):
                     self.tr(group.mask_mode),
                     group.source_prefix,
                     self.tr(group.pivot_mode),
+                    self.tr("fallback-target-pixel-anchor")
+                    if group.missing_source_metadata_policy == "target-pixel-anchor"
+                    else self.tr("reject"),
                     self.tr("missing-source-metadata")
                     if group.missing_target_policy == "source-metadata"
                     else self.tr("reject"),
@@ -596,6 +648,7 @@ class AtlasBuilderApp(tk.Tk):
     def _pivot_mode_summary(self) -> str:
         lines = [
             f"{group.gm_file_name}: {self.tr(group.pivot_mode)}; "
+            f"{self.tr('fallback-target-pixel-anchor') if group.missing_source_metadata_policy == 'target-pixel-anchor' else self.tr('reject')}; "
             f"{self.tr('missing-source-metadata') if group.missing_target_policy == 'source-metadata' else self.tr('reject')}"
             for group in self.project.groups
         ]
