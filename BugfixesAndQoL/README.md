@@ -80,6 +80,9 @@ Classic Stronghold Crusader HD maps remain playable in Definitive Edition, but t
 ### Restore host migration after an abrupt disconnect
 When the host leaves a running two-player match without Vanilla's normal leave packet, for example by using Alt+F4, the sole remaining human player is promoted to host. This allows the match paused by the connection error to continue and leaves Vanilla's normal player-removal flow unchanged.
 
+### Remove disbanded units from control groups
+Fix immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership.
+
 ## Quality-of-life features
 
 ### Pause a single production building
@@ -172,10 +175,7 @@ When an owned Assassin is selected, a troop-action button allows or forbids clim
 ### Control the Lord through the troop HUD
 Selecting your own Lord opens the complete troop HUD with normal commands, health display, troop-type controls, and control-group support. Disband surrenders only when the Lord is selected alone; in mixed selections it affects only normal units.
 
-### Remove disbanded units from control groups
-An enabled-by-default local client fix immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership. The option is stored locally and is not synchronized in multiplayer.
-
-### Move through friendly completed moats
-Vanilla moat-digging units can move through completed moats owned by their player or an ally without allowing passage through hostile or invalid moats. The synchronized host setting provides three modes: **Off**, **Individual routes - exact**, and **Required moat routes only - fast**. The fast mode is enabled by default and performs additional moat pathfinding only when Vanilla cannot reach the destination over normal ground; the exact mode may also select an optional faster friendly-moat route.
+### Digging Units Get Stuck In Moat Pockets: allow units to move through allied moat
+Vanilla moat-digging units can now move through completed moats owned by their player or an ally.
 
 The behavior applies to direct movement, unit and building attacks, queued and patrol movement, moat work, and movement resumed after combat. Every published route remains bound to the exact unit, owner, command, target, tick, terrain revision, and native path buffer and is rejected safely if those conditions change.
