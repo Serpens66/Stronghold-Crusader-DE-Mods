@@ -175,7 +175,7 @@ When an owned Assassin is selected, a troop-action button allows or forbids clim
 ### Control the Lord through the troop HUD
 Selecting your own Lord opens the complete troop HUD with normal commands, health display, troop-type controls, and control-group support. Disband surrenders only when the Lord is selected alone; in mixed selections it affects only normal units.
 
-### Move through friendly completed moats
-Vanilla moat-digging units can move through completed moats owned by their player or an ally without allowing passage through hostile or invalid moats. The synchronized host setting provides three modes: **Off**, **Individual routes - exact**, and **Required moat routes only - fast**. The fast mode is enabled by default and performs additional moat pathfinding only when Vanilla cannot reach the destination over normal ground; the exact mode may also select an optional faster friendly-moat route.
+### Digging Units Get Stuck In Moat Pockets: allow units to move through allied moat
+Vanilla moat-digging units can now move through completed moats owned by their player or an ally.
 
 The behavior applies to direct movement, unit and building attacks, queued and patrol movement, moat work, and movement resumed after combat. Every published route remains bound to the exact unit, owner, command, target, tick, terrain revision, and native path buffer and is rejected safely if those conditions change.
