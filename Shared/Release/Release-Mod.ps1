@@ -63,14 +63,30 @@ try {
     }
 
     $extenderDir = Get-ExtenderDirectory -Metadata $metadata
-    $dependencyRecords = @(Get-DependencyRecords -Metadata $metadata -ExtenderDir $extenderDir)
+    $apiSharedPackage = if ($apiSharedConsumer) {
+        Get-ValidatedApiSharedPackage -Config $config -MinimumVersion $apiSharedMinimum
+    } else {
+        $null
+    }
+    $dependencyRecords = @(Get-DependencyRecords -Metadata $metadata -ExtenderDir $extenderDir `
+        -ApiSharedDir $(if ($null -ne $apiSharedPackage) { $apiSharedPackage.Directory } else { $null }))
     $buildStart = [DateTime]::UtcNow
     Write-Host 'Running the mod build once...' -ForegroundColor Cyan
     Push-Location $metadata.ModDir
+    $apiSharedEnvironmentWasDefined = Test-Path -LiteralPath 'Env:SHCDE_API_SHARED_DIR'
+    $previousApiSharedEnvironment = $env:SHCDE_API_SHARED_DIR
     try {
+        if ($null -ne $apiSharedPackage) {
+            $env:SHCDE_API_SHARED_DIR = $apiSharedPackage.Directory
+        }
         $buildOutput = @(& $metadata.BuildBat /nopause 2>&1)
         $buildExitCode = $LASTEXITCODE
     } finally {
+        if ($apiSharedEnvironmentWasDefined) {
+            $env:SHCDE_API_SHARED_DIR = $previousApiSharedEnvironment
+        } else {
+            Remove-Item -LiteralPath 'Env:SHCDE_API_SHARED_DIR' -ErrorAction SilentlyContinue
+        }
         Pop-Location
     }
     foreach ($buildLine in $buildOutput) { Write-Host ([string]$buildLine) }
@@ -122,22 +138,9 @@ try {
     $bundlePath = $null
     $bundleShaPath = $null
     if ($apiSharedConsumer) {
-        $apiProject = [string]$config.ApiShared.Project
-        $apiVersion = [string]$config.ApiShared.Version
-        $apiPackage = Join-Path $config.Root "$apiProject\BepInEx\plugins\$([string]$config.ApiShared.Guid)"
-        $apiInfoPath = Join-Path $apiPackage 'info.json'
-        $apiDllPath = Join-Path $apiPackage 'APIShared.dll'
-        if (-not (Test-Path -LiteralPath $apiInfoPath -PathType Leaf) -or
-            -not (Test-Path -LiteralPath $apiDllPath -PathType Leaf)) {
-            throw "APIShared bundle input is incomplete. Build and validate $apiProject v$apiVersion first: $apiPackage"
-        }
-        $apiInfo = Get-Content -LiteralPath $apiInfoPath -Raw | ConvertFrom-Json
-        if ([string]$apiInfo.GUID -cne [string]$config.ApiShared.Guid -or [string]$apiInfo.Version -cne $apiVersion) {
-            throw "APIShared bundle input identity mismatch: expected $([string]$config.ApiShared.Guid) v$apiVersion."
-        }
-        if ((Compare-SemanticVersion -Left $apiVersion -Right $apiSharedMinimum) -lt 0) {
-            throw "Pinned APIShared v$apiVersion is below $ModName's minimum v$apiSharedMinimum."
-        }
+        $apiVersion = $apiSharedPackage.Version
+        $apiPackage = $apiSharedPackage.Directory
+        $apiDllPath = $apiSharedPackage.DllPath
 
         $bundleRoot = Join-Path $outputRoot 'bundle-stage'
         $bundlePlugins = Join-Path $bundleRoot 'BepInEx\plugins'

@@ -254,6 +254,37 @@ function Compare-SemanticVersion {
     return 0
 }
 
+function Get-ValidatedApiSharedPackage {
+    param(
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][string]$MinimumVersion
+    )
+    $apiProject = [string]$Config.ApiShared.Project
+    $apiGuid = [string]$Config.ApiShared.Guid
+    $apiVersion = [string]$Config.ApiShared.Version
+    $apiPackage = Join-Path $Config.Root "$apiProject\BepInEx\plugins\$apiGuid"
+    $apiInfoPath = Join-Path $apiPackage 'info.json'
+    $apiDllPath = Join-Path $apiPackage 'APIShared.dll'
+    if (-not (Test-Path -LiteralPath $apiInfoPath -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $apiDllPath -PathType Leaf)) {
+        throw "APIShared package is incomplete. Build and validate $apiProject v$apiVersion first: $apiPackage"
+    }
+    $apiInfo = Get-Content -LiteralPath $apiInfoPath -Raw | ConvertFrom-Json
+    if ([string]$apiInfo.GUID -cne $apiGuid -or [string]$apiInfo.Version -cne $apiVersion) {
+        throw "APIShared package identity mismatch: expected $apiGuid v$apiVersion."
+    }
+    if ((Compare-SemanticVersion -Left $apiVersion -Right $MinimumVersion) -lt 0) {
+        throw "Pinned APIShared v$apiVersion is below the required minimum v$MinimumVersion."
+    }
+    return [PSCustomObject]@{
+        Directory = $apiPackage
+        InfoPath = $apiInfoPath
+        DllPath = $apiDllPath
+        Guid = $apiGuid
+        Version = $apiVersion
+    }
+}
+
 function Get-PreviousPublishedReleaseVersion {
     param([Parameter(Mandatory)]$Metadata)
     $result = Invoke-CheckedCommand -FilePath 'gh' -Arguments @(
@@ -407,7 +438,14 @@ function Get-FileHashRecord {
 }
 
 function Get-DependencyRecords {
-    param([Parameter(Mandatory)]$Metadata, [Parameter(Mandatory)][string]$ExtenderDir)
+    param(
+        [Parameter(Mandatory)]$Metadata,
+        [Parameter(Mandatory)][string]$ExtenderDir,
+        [string]$ApiSharedDir
+    )
+    if ([string]::IsNullOrWhiteSpace($ApiSharedDir)) {
+        $ApiSharedDir = Join-Path $Metadata.Config.GameDir 'BepInEx\plugins\APIShared_Serp'
+    }
     $paths = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     [void]$paths.Add((Join-Path $Metadata.Config.GameDir 'Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'))
     $projectFiles = @(Get-ChildItem -LiteralPath $Metadata.ModDir -Filter *.csproj -File -Recurse)
@@ -418,7 +456,7 @@ function Get-DependencyRecords {
             $candidate = [string]$node.InnerText
             $candidate = $candidate.Replace('$(GameDir)', $Metadata.Config.GameDir)
             $candidate = $candidate.Replace('$(ExtenderDir)', $ExtenderDir)
-            $candidate = $candidate.Replace('$(ApiSharedDir)', (Join-Path $Metadata.Config.GameDir 'BepInEx\plugins\APIShared_Serp'))
+            $candidate = $candidate.Replace('$(ApiSharedDir)', $ApiSharedDir)
             $candidate = $candidate.Replace('$(MSBuildThisFileDirectory)', $projectFile.DirectoryName + '\')
             $candidate = $candidate.Replace('$(LocalScriptExtenderBuildOutput)', (Join-Path $Metadata.Config.Root 'shcde-script-extender\src\SHCDESE.BepInEx\bin\net481'))
             $candidate = $candidate.Replace('$(LocalScriptExtenderModOutput)', (Join-Path $Metadata.Config.Root 'shcde-script-extender\mod_output\000shcdese'))

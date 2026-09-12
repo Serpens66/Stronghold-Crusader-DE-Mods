@@ -5,8 +5,10 @@ set "PROJECT_DIR=%~dp0"
 set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
 rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
+if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
 set "VANILLA_EXPORT_ROOT=%PROJECT_DIR%..\VanillaAICExporter\Exports"
 set "EDITOR_VANILLA_AIV_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition - Castle & CPU Lord Editor\CrusaderCastleEditorUnity_Data\StreamingAssets\Villages"
 set "CHAT10_TRACE_CONFIG=%PROJECT_DIR%Diagnostics\Chat10-Bow-Ridge-Trace.cfg"
@@ -51,12 +53,20 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" (
   exit /b 1
 )
 
+if not exist "%API_SHARED_DIR%\APIShared.dll" (
+  echo APIShared.dll wurde nicht gefunden:
+  echo !API_SHARED_DIR!\APIShared.dll
+  echo.
+  if "%NO_PAUSE%"=="0" pause
+  exit /b 1
+)
+
 echo Verwende Script Extender Referenzen:
 echo !EXTENDER_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
-"%MSBUILD%" ActiveAIVDetector.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" ActiveAIVDetector.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
 
