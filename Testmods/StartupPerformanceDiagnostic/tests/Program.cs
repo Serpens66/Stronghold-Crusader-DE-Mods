@@ -17,6 +17,8 @@ namespace StartupPerformanceDiagnostic.Tests
                 TestMissingMarkersFailVisible();
                 TestDuplicateAndOutOfOrderMarkers();
                 TestPercentageGuards();
+                TestStaticFieldReader();
+                TestStaticFieldReaderRejectsInvalidContracts();
                 Console.WriteLine("StartupPerformanceDiagnostic tests passed: " + checks + " checks.");
                 return 0;
             }
@@ -84,6 +86,33 @@ namespace StartupPerformanceDiagnostic.Tests
             Check(Math.Abs(TimingAnalysis.Milliseconds(500, 1000) - 500.0) < 0.0001, "milliseconds calculation");
         }
 
+        private static void TestStaticFieldReader()
+        {
+            bool created = StaticFieldReader<bool>.TryCreate(
+                typeof(FieldFixture),
+                "flag",
+                out StaticFieldReader<bool> reader,
+                out string error);
+            Check(created, "private static field was not resolved: " + error);
+            FieldFixture.SetFlag(false);
+            Check(!reader.Read(), "private static false value");
+            FieldFixture.SetFlag(true);
+            Check(reader.Read(), "private static true value");
+        }
+
+        private static void TestStaticFieldReaderRejectsInvalidContracts()
+        {
+            Check(!StaticFieldReader<bool>.TryCreate(
+                typeof(FieldFixture), "missing", out _, out string missingError) &&
+                missingError.Contains("was not found"), "missing field validation");
+            Check(!StaticFieldReader<bool>.TryCreate(
+                typeof(FieldFixture), "instanceFlag", out _, out string instanceError) &&
+                instanceError.Contains("not static"), "instance field validation");
+            Check(!StaticFieldReader<bool>.TryCreate(
+                typeof(FieldFixture), "wrongType", out _, out string typeError) &&
+                typeError.Contains("instead of"), "field type validation");
+        }
+
         private static TimelineEvent[] StandardEvents() => new[]
         {
             Event(200, "Preloader finished"),
@@ -101,6 +130,28 @@ namespace StartupPerformanceDiagnostic.Tests
             checks++;
             if (!condition)
                 throw new InvalidOperationException("Check failed: " + message);
+        }
+
+        private sealed class FieldFixture
+        {
+            private static bool flag;
+            private static int wrongType = 0;
+            private bool instanceFlag = false;
+
+            internal static void SetFlag(bool value)
+            {
+                flag = value;
+            }
+
+            internal static int ReadWrongType()
+            {
+                return wrongType;
+            }
+
+            internal bool ReadInstanceFlag()
+            {
+                return instanceFlag;
+            }
         }
     }
 }

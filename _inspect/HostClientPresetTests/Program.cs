@@ -27,6 +27,21 @@ internal static class Program
         try
         {
             if (args != null && args.Length == 1 &&
+                string.Equals(args[0], "fear-factor-preset", StringComparison.OrdinalIgnoreCase))
+            {
+                FearFactorPresetTests.Run();
+                return 0;
+            }
+
+            if (args != null && args.Length == 1 &&
+                string.Equals(args[0], "market-good-prices", StringComparison.OrdinalIgnoreCase))
+            {
+                TestMarketGoodPriceDefinition();
+                Console.WriteLine("PASS: current market-good price mapping and multiplier contract.");
+                return 0;
+            }
+
+            if (args != null && args.Length == 1 &&
                 string.Equals(args[0], "temporary-gate-blockage", StringComparison.OrdinalIgnoreCase))
             {
                 TestTemporaryGateBlockagePolicy();
@@ -2687,6 +2702,27 @@ internal static class Program
             .Select(MarketGoodPriceDefinition.GetGood)
             .ToArray();
         Check(goods.Distinct().Count() == goods.Length, "market price editor contains duplicate goods");
+        eGoods[] expectedGoods =
+        {
+            eGoods.STORED_FOOD_MEAT, eGoods.STORED_FOOD_CHEESE, eGoods.STORED_FOOD_FRUIT,
+            eGoods.STORED_FOOD_BREAD, eGoods.STORED_RAW_WHEAT, eGoods.STORED_FLOUR,
+            eGoods.STORED_WOOD_PLANKS, eGoods.STORED_STONE_BLOCKS, eGoods.STORED_IRON_INGOTS,
+            eGoods.STORED_PITCH_RAW, eGoods.STORED_SPEARS, eGoods.STORED_BOWS,
+            eGoods.STORED_MACES, eGoods.STORED_CROSSBOWS, eGoods.STORED_PIKES,
+            eGoods.STORED_SWORDS, eGoods.STORED_LEATHER_ARMOUR, eGoods.STORED_METAL_ARMOUR,
+            eGoods.STORED_FOOD_ALE, eGoods.STORED_RAW_HOPS
+        };
+        Check(goods.SequenceEqual(expectedGoods.Select(good => (int)good)),
+            "market price editor does not use the exact Vanilla trade-good enums and order");
+        Check(goods[9] == (int)eGoods.STORED_PITCH_RAW,
+            "saved pitch multiplier position does not target raw market pitch");
+        Check(MarketGoodPriceDefinition.FindGoodIndex((int)eGoods.STORED_PITCH_RAW) == 9 &&
+              MarketGoodPriceDefinition.FindGoodIndex((int)eGoods.STORED_PITCH_REFINED) == -1,
+            "pitch multiplier lookup targets refined pitch or misses raw market pitch");
+        Check(!goods.Contains((int)eGoods.STORED_WOOD_LOGS) &&
+              !goods.Contains((int)eGoods.STORED_COW_HIDES) &&
+              !goods.Contains((int)eGoods.STORED_PITCH_REFINED),
+            "market price editor exposes an intermediate good");
 
         double[] defaults = MarketGoodPriceDefinition.CreateDefaultMultipliers();
         Check(defaults.Length == 20 && defaults.All(value => value == 1.0),
@@ -6247,10 +6283,13 @@ namespace SHCDESE.Interop
 
     public enum eGoods : short
     {
+        STORED_WOOD_LOGS = 1,
         STORED_WOOD_PLANKS = 2,
         STORED_RAW_HOPS = 3,
         STORED_STONE_BLOCKS = 4,
+        STORED_COW_HIDES = 5,
         STORED_IRON_INGOTS = 6,
+        STORED_PITCH_RAW = 7,
         STORED_PITCH_REFINED = 8,
         STORED_RAW_WHEAT = 9,
         STORED_FOOD_BREAD = 10,
@@ -6691,6 +6730,7 @@ namespace Shared
 {
     internal static class DebugLogHelper
     {
+        public static void LogDebug(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogInfo(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogWarning(BepInEx.Logging.ManualLogSource log, string text) { }
         public static void LogError(BepInEx.Logging.ManualLogSource log, string text) { }

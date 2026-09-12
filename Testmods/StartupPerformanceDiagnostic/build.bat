@@ -26,6 +26,9 @@ if not exist "%GAME_DIR%\BepInEx\core\Mono.Cecil.dll" goto references_missing
 if not exist "%GAME_DIR%\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll" goto references_missing
 if not exist "%PROJECT_DIR%..\..\shcde-script-extender\deps\Assembly-CSharp-publicized.dll" goto references_missing
 
+powershell.exe -NoProfile -Command "$codeFiles = Get-ChildItem -LiteralPath '%PROJECT_DIR%src','%PROJECT_DIR%patcher' -Recurse -File -Include *.cs; $projectFiles = Get-ChildItem -LiteralPath '%PROJECT_DIR%' -File | Where-Object { $_.Extension -eq '.csproj' }; $runtimeFiles = @($codeFiles) + @($projectFiles); if ($runtimeFiles | Select-String -Pattern 'System\.Text\.Json|Newtonsoft|JavaScriptSerializer|System\.Web\.Extensions|DataContractJsonSerializer|JsonUtility') { exit 1 }; if ($codeFiles | Select-String -Pattern '\b(OnDestroy|OnDisable|OnApplicationQuit)\s*\(') { exit 1 }; $pluginSource = Get-Content -LiteralPath '%PROJECT_DIR%src\StartupPerformanceDiagnosticPlugin.cs' -Raw; if ($pluginSource -match 'MainViewModel\.instance|FrontendMenus\.loadingStill|\bvoid\s+Update\s*\(') { exit 1 }; exit 0"
+if errorlevel 1 goto preflight_failed
+
 if exist "%LOCAL_PATCHER_DIR%\" rmdir /S /Q "%LOCAL_PATCHER_DIR%"
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 if exist "%PROJECT_DIR%tests\bin\" rmdir /S /Q "%PROJECT_DIR%tests\bin"
@@ -71,6 +74,10 @@ if "%NO_PAUSE%"=="0" pause
 exit /b 1
 :references_missing
 echo Required BepInEx or game reference was not found.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
+:preflight_failed
+echo Static preflight failed: forbidden dependency, lifecycle method, or private direct field access found.
 if "%NO_PAUSE%"=="0" pause
 exit /b 1
 :package_failed

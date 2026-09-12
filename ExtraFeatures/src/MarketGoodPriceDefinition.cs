@@ -17,7 +17,7 @@ namespace ExtraFeatures
             (int)eGoods.STORED_WOOD_PLANKS,
             (int)eGoods.STORED_STONE_BLOCKS,
             (int)eGoods.STORED_IRON_INGOTS,
-            (int)eGoods.STORED_PITCH_REFINED,
+            (int)eGoods.STORED_PITCH_RAW,
             (int)eGoods.STORED_SPEARS,
             (int)eGoods.STORED_BOWS,
             (int)eGoods.STORED_MACES,

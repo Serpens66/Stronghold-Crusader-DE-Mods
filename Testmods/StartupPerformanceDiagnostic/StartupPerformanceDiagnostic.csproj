@@ -30,6 +30,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="src\StaticFieldReader.cs" />
     <Compile Include="src\StartupPerformanceDiagnosticPlugin.cs" />
     <Compile Include="src\TimingAnalysis.cs" />
   </ItemGroup>

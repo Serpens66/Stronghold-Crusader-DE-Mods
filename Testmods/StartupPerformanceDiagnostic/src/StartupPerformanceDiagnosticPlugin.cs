@@ -20,56 +20,71 @@ namespace StartupPerformanceDiagnostic
         public const string PluginName = "Startup Performance Diagnostic";
         public const string PluginVersion = "0.1.0";
 
-        private static StartupPerformanceDiagnosticPlugin instance;
         private static ManualLogSource rootedLog;
-        private static bool frontendReadyObserved;
-        private static bool reportEmitted;
-        private static bool readinessFailureLogged;
+        private static StaticFieldReader<MainViewModel> mainViewModelInstanceReader;
+        private static StaticFieldReader<bool> loadingStillReader;
+        private static bool reportAttempted;
+        private static bool callbackFailureLogged;
 
         private void Awake()
         {
-            instance = this;
             rootedLog = Logger;
+            InitializeReadinessProbe();
             Application.onBeforeRender += ObserveRenderedFrontend;
-        }
-
-        private void Update()
-        {
-            if (reportEmitted || frontendReadyObserved)
-                return;
-
-            try
-            {
-                MainViewModel viewModel = MainViewModel.instance;
-                frontendReadyObserved = viewModel != null &&
-                                        viewModel.FrontEndMenu != null &&
-                                        viewModel.Show_FrontMenus &&
-                                        !FrontendMenus.loadingStill;
-            }
-            catch (Exception ex)
-            {
-                if (readinessFailureLogged)
-                    return;
-                readinessFailureLogged = true;
-                rootedLog.LogWarning("Frontend readiness check failed once: " + ex);
-            }
         }
 
         private static void ObserveRenderedFrontend()
         {
-            if (!frontendReadyObserved || reportEmitted)
-                return;
-
-            reportEmitted = true;
-            long frontendRenderedTimestamp = Stopwatch.GetTimestamp();
             try
             {
+                if (reportAttempted || !IsFrontendReady())
+                    return;
+
+                reportAttempted = true;
+                long frontendRenderedTimestamp = Stopwatch.GetTimestamp();
                 WriteReport(frontendRenderedTimestamp);
             }
             catch (Exception ex)
             {
-                rootedLog?.LogError("Startup timing report failed: " + ex);
+                if (callbackFailureLogged)
+                    return;
+                callbackFailureLogged = true;
+                rootedLog?.LogError("[StartupTiming] Frontend render callback failed once: " + ex);
             }
+        }
+
+        private static void InitializeReadinessProbe()
+        {
+            bool instanceResolved = StaticFieldReader<MainViewModel>.TryCreate(
+                typeof(MainViewModel),
+                "instance",
+                out mainViewModelInstanceReader,
+                out string instanceError);
+            bool loadingResolved = StaticFieldReader<bool>.TryCreate(
+                typeof(FrontendMenus),
+                "loadingStill",
+                out loadingStillReader,
+                out string loadingError);
+            if (!instanceResolved || !loadingResolved)
+            {
+                reportAttempted = true;
+                rootedLog.LogError(
+                    "[StartupTiming] Frontend readiness probe could not be initialized. " +
+                    (instanceResolved ? string.Empty : instanceError + " ") +
+                    (loadingResolved ? string.Empty : loadingError));
+            }
+        }
+
+        private static bool IsFrontendReady()
+        {
+            if (mainViewModelInstanceReader == null || loadingStillReader == null)
+                return false;
+
+            MainViewModel viewModel = mainViewModelInstanceReader.Read();
+            return viewModel != null &&
+                   viewModel.FrontEndMenu != null &&
+                   viewModel.Show_FrontMenus &&
+                   !loadingStillReader.Read();
         }
 
         private static void WriteReport(long frontendRenderedTimestamp)

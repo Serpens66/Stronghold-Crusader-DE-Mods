@@ -18,6 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="..\src\StaticFieldReader.cs"><Link>StaticFieldReader.cs</Link></Compile>
     <Compile Include="..\src\TimingAnalysis.cs"><Link>TimingAnalysis.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
