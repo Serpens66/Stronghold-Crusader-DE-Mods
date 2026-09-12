@@ -56,10 +56,10 @@ namespace APIShared
         UIButtonsO018
     }
 
-    /// <summary>Immutable RGBA tint used by shared category icons.</summary>
+    /// <summary>Immutable RGB overlay tint used by shared category icons; alpha controls overlay opacity.</summary>
     public sealed class UnitHudTint
     {
-        /// <summary>Creates an RGBA tint.</summary>
+        /// <summary>Creates an RGB overlay tint with explicit opacity.</summary>
         public UnitHudTint(byte red, byte green, byte blue, byte alpha)
         {
             Red = red; Green = green; Blue = blue; Alpha = alpha;
@@ -70,7 +70,7 @@ namespace APIShared
         public byte Green { get; }
         /// <summary>Blue channel.</summary>
         public byte Blue { get; }
-        /// <summary>Alpha channel.</summary>
+        /// <summary>Overlay opacity; zero is transparent and 255 is fully opaque.</summary>
         public byte Alpha { get; }
     }
 

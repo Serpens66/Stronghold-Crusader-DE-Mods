@@ -344,11 +344,6 @@ namespace SkinTest
                         TryReplaceRoundTowerAnimation(renderer, image, context);
                     return;
                 }
-                if (file == (int)ExtenderGM.GM_CASTLES)
-                {
-                    TryReplaceRoundTowerPlacementPreview(renderer, image);
-                    return;
-                }
                 if (file != (int)ExtenderGM.GM_BODY_SWORDSMAN)
                     return;
 
@@ -426,73 +421,6 @@ namespace SkinTest
             {
                 WarnOnce("hook-error", $"Sprite replacement failed closed; the prior result remains active: {ex}");
             }
-        }
-
-        private void TryReplaceRoundTowerPlacementPreview(SpriteRenderer renderer, int image)
-        {
-            GameMap gameMap = GameMap.instance;
-            MainControls controls = MainControls.instance;
-            if (!activeMap || gameMap == null || controls == null)
-                return;
-
-            GameObject rendererObject = renderer.gameObject;
-            bool primaryCursor = ReferenceEquals(rendererObject, gameMap.mouseCursorGO);
-            bool overlayCursor = ReferenceEquals(rendererObject, gameMap.mouseCursorGO2);
-            bool exactCursor = primaryCursor || overlayCursor;
-            if (!exactCursor || controls.CurrentAction != 5 ||
-                controls.CurrentSubAction != (int)Enums.eMappers.MAPPER_TOWER5)
-                return;
-
-            int frameIndex = SkinSelectionPolicy.ToCastlePreviewAtlasIndex(image);
-            LogOnce($"tower-preview-callback:{(primaryCursor ? "primary" : "overlay")}",
-                $"Round-tower mouse preview observed: renderer={(primaryCursor ? "mouseCursorGO" : "mouseCursorGO2")}, image={image}, atlasIndex={frameIndex}.");
-            if (spriteLoader.instance == null)
-            {
-                WarnOnce("tower-preview-sprite-loader-missing",
-                    "Round-tower mouse preview occurred before spriteLoader was available; Vanilla remains active.");
-                return;
-            }
-
-            Sprite expected = frameIndex >= 0
-                ? spriteLoader.instance.GetGMSprite(GameGM.GM_CASTLES, frameIndex)
-                : null;
-            bool expectedVanilla = ReferenceEquals(renderer.sprite, expected);
-            bool frameAvailable = frameIndex >= 0 && frameIndex < castleSprites.Length &&
-                castleSprites[frameIndex] != null;
-            if (!frameAvailable)
-            {
-                LogOnce($"tower-preview-frame-missing:{frameIndex}",
-                    $"No SH1DE round-tower preview frame exists: image={image}, atlasIndex={frameIndex}; Vanilla remains active.");
-                return;
-            }
-            if (!expectedVanilla)
-            {
-                if (!ReferenceEquals(renderer.sprite, castleSprites[frameIndex]))
-                    WarnOnce($"tower-preview-conflict:{frameIndex}",
-                        $"An earlier mod replaced the expected round-tower preview sprite; SkinTest leaves it untouched: image={image}, atlasIndex={frameIndex}, expected={DescribeSprite(expected)}, actual={DescribeSprite(renderer.sprite)}.");
-                return;
-            }
-
-            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
-            if (!SkinSelectionPolicy.IsValidPlayerId(localPlayerId))
-            {
-                WarnOnce("tower-preview-local-player-invalid",
-                    $"Round-tower mouse preview has no valid local player: playerId={localPlayerId}; Vanilla remains active.");
-                return;
-            }
-            LordCulture culture = ResolveOwnerCulture(localPlayerId, out _, out _, out string source, out int value);
-            if (!SkinSelectionPolicy.CanReplaceRoundTowerPreview(activeMap, controls.CurrentAction,
-                controls.CurrentSubAction, exactCursor, expectedVanilla, culture, frameAvailable))
-            {
-                if (culture == LordCulture.NonEuropean)
-                    LogOnce($"tower-preview-vanilla-culture:{source}:{value}",
-                        $"Vanilla round-tower mouse preview retained for non-European local lord culture: source={source}, value={value}.");
-                return;
-            }
-
-            renderer.sprite = castleSprites[frameIndex];
-            LogOnce($"tower-preview-applied:{(primaryCursor ? "primary" : "overlay")}",
-                $"SH1DE round-tower mouse preview applied: renderer={(primaryCursor ? "mouseCursorGO" : "mouseCursorGO2")}, localPlayerId={localPlayerId}, source={source}, value={value}, image={image}, atlasIndex={frameIndex}.");
         }
 
         private void AddUpdateBuildingAnimHook(GameMap gameMap, int objectId, int x, int y, int tileX,
@@ -826,10 +754,13 @@ namespace SkinTest
             buildingTrampoline(tile, file, image, light);
             try
             {
-                if (tile == null || file != (int)ExtenderGM.GM_CASTLES || image <= 0 ||
-                    image >= castleSprites.Length || castleSprites[image] == null || spriteLoader.instance == null)
+                if (tile == null || file != (int)ExtenderGM.GM_CASTLES || image < 0 || spriteLoader.instance == null)
                     return;
                 Sprite expected = spriteLoader.instance.GetGMSprite(GameGM.GM_CASTLES, image);
+                if (TryReplaceRoundTowerTilePreview(tile, image, expected))
+                    return;
+                if (image <= 0 || image >= castleSprites.Length || castleSprites[image] == null)
+                    return;
                 if (!ReferenceEquals(tile.tileImage, expected))
                     return;
                 int tileId = GameTileManagerAPI.Instance.GetTileId(tile.gameMapX, tile.gameMapY);
@@ -860,6 +791,64 @@ namespace SkinTest
             {
                 WarnOnce("tower-hook-error", $"Round-tower replacement failed closed; the prior result remains active: {ex}");
             }
+        }
+
+        private bool TryReplaceRoundTowerTilePreview(GameMapTile tile, int image, Sprite expected)
+        {
+            MainControls controls = MainControls.instance;
+            bool hasConstructionOriginal = !ReferenceEquals(tile.constructionOrigImage, null);
+            if (!activeMap || controls == null || controls.CurrentAction != 5 ||
+                controls.CurrentSubAction != (int)Enums.eMappers.MAPPER_TOWER5 || !hasConstructionOriginal)
+            {
+                return false;
+            }
+
+            int frameIndex = SkinSelectionPolicy.ToCastleTileAtlasIndex(image);
+            LogOnce("tower-tile-preview-observed",
+                $"Round-tower tile preview observed: tile=({tile.gameMapX},{tile.gameMapY}), image={image}, atlasIndex={frameIndex}, constructionOriginal={DescribeSprite(tile.constructionOrigImage)}.");
+            bool frameAvailable = frameIndex >= 0 && frameIndex < castleSprites.Length &&
+                castleSprites[frameIndex] != null;
+            if (!frameAvailable)
+            {
+                LogOnce($"tower-tile-preview-frame-missing:{frameIndex}",
+                    $"No SH1DE round-tower tile-preview frame exists: image={image}, atlasIndex={frameIndex}; Vanilla remains active.");
+                return true;
+            }
+
+            bool expectedVanilla = ReferenceEquals(tile.tileImage, expected);
+            if (!expectedVanilla)
+            {
+                if (!ReferenceEquals(tile.tileImage, castleSprites[frameIndex]))
+                    WarnOnce($"tower-tile-preview-conflict:{frameIndex}",
+                        $"An earlier mod replaced the expected round-tower tile-preview sprite; SkinTest leaves it untouched: image={image}, atlasIndex={frameIndex}, expected={DescribeSprite(expected)}, actual={DescribeSprite(tile.tileImage)}.");
+                return true;
+            }
+
+            int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
+            if (!SkinSelectionPolicy.IsValidPlayerId(localPlayerId))
+            {
+                WarnOnce("tower-tile-preview-local-player-invalid",
+                    $"Round-tower tile preview has no valid local player: playerId={localPlayerId}; Vanilla remains active.");
+                return true;
+            }
+
+            LordCulture culture = ResolveOwnerCulture(localPlayerId, out _, out _, out string source, out int value);
+            if (!SkinSelectionPolicy.CanReplaceRoundTowerPreview(activeMap, controls.CurrentAction,
+                controls.CurrentSubAction, hasConstructionOriginal, expectedVanilla, culture, frameAvailable))
+            {
+                if (culture == LordCulture.NonEuropean)
+                    LogOnce($"tower-tile-preview-vanilla-culture:{source}:{value}",
+                        $"Vanilla round-tower tile preview retained for non-European local lord culture: source={source}, value={value}.");
+                else if (culture == LordCulture.Unknown)
+                    WarnOnce("tower-tile-preview-culture-unresolved",
+                        "Round-tower tile preview culture is not safely resolvable; Vanilla remains active.");
+                return true;
+            }
+
+            tile.tileImage = castleSprites[frameIndex];
+            LogOnce("tower-tile-preview-applied",
+                $"SH1DE round-tower tile preview applied: tile=({tile.gameMapX},{tile.gameMapY}), localPlayerId={localPlayerId}, source={source}, value={value}, image={image}, atlasIndex={frameIndex}.");
+            return true;
         }
 
         private void OnMapStarted()

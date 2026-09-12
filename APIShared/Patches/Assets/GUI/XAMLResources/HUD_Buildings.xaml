@@ -5,14 +5,39 @@
       <StackPanel x:Name="APISharedArmyCategoriesHost" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,8" Panel.ZIndex="30" IsHitTestVisible="False" />
     </Content>
   </Operation>
-  <Operation Type="Add" XPath="//n:ToggleButton[@Name='BarracksArcher']/..">
+  <Operation Type="Add" XPath="//n:Grid[@Name='BarracksPanel']">
     <Content>
-      <Border x:Name="APISharedArcherVariantTint" Width="53" Height="120" Margin="19,0,0,47" HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="20" />
-    </Content>
-  </Operation>
-  <Operation Type="Add" XPath="//n:ToggleButton[@Name='BarracksArcher']/..">
-    <Content>
-      <Button x:Name="APISharedArcherVariantSelector" Width="53" Height="22" Margin="19,0,0,23" HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed" Panel.ZIndex="21" FontSize="13" Content="A" />
+      <Grid x:Name="APISharedArcherVariantHost" Width="800" Height="195" HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed" Panel.ZIndex="30">
+        <Border x:Name="APISharedArcherVariantTint" Width="53" Height="120" Margin="19,0,0,47" HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed" IsHitTestVisible="False" />
+        <Button x:Name="APISharedArcherVariantPrevious" Width="22" Height="22" Margin="4,0,0,91" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+          <Button.Template>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Grid x:Name="ArrowVisual" Opacity="0.58">
+                <Ellipse Fill="#D98A00" />
+                <Path Width="14" Height="10" Fill="#E6000000" Stretch="Fill" Data="M 14,3 L 9,3 L 9,0 L 0,5 L 9,10 L 9,7 L 14,7 Z" />
+              </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ArrowVisual" Property="Opacity" Value="0.78" /></Trigger>
+                <Trigger Property="IsPressed" Value="True"><Setter TargetName="ArrowVisual" Property="Opacity" Value="0.90" /></Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Button.Template>
+        </Button>
+        <Button x:Name="APISharedArcherVariantNext" Width="22" Height="22" Margin="64,0,0,91" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+          <Button.Template>
+            <ControlTemplate TargetType="{x:Type Button}">
+              <Grid x:Name="ArrowVisual" Opacity="0.58">
+                <Ellipse Fill="#D98A00" />
+                <Path Width="14" Height="10" Fill="#E6000000" Stretch="Fill" Data="M 0,3 L 5,3 L 5,0 L 14,5 L 5,10 L 5,7 L 0,7 Z" />
+              </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ArrowVisual" Property="Opacity" Value="0.78" /></Trigger>
+                <Trigger Property="IsPressed" Value="True"><Setter TargetName="ArrowVisual" Property="Opacity" Value="0.90" /></Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Button.Template>
+        </Button>
+      </Grid>
     </Content>
   </Operation>
   <Operation Type="Add" XPath="//n:Grid[@Name='ChimpPanel']">

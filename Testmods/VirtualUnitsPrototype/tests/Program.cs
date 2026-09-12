@@ -122,7 +122,11 @@ namespace VirtualUnitsPrototype.Tests
             Check(api.Contains("VirtualUnitPresentationProfile") && api.Contains("VirtualUnitSelectionSnapshot") && api.Contains("GetSelectedVirtualUnits"), "public distinct-presentation contracts missing");
             Check(!runtime.Contains("VirtualUnitPresentationRuntime") && project.Contains("APIShared.dll") && plugin.Contains("APIShared_Serp"), "VUP does not exclusively consume APIShared presentation");
             Check(plugin.Contains("BepInDependency(ApiSharedGuid, \"0.3.2\")"), "VUP does not require the APIShared version that introduced recruitment contracts");
-            Check(runtime.Contains("UIButtonsK023") && !runtime.Contains("UIButtonsK001"), "Desert Archer category does not use the Vanilla Archer HUD icon");
+            Check(runtime.Contains("new UnitHudTint(64, 128, byte.MaxValue, 115)") &&
+                !runtime.Contains("() => MainViewModel.Instance?.UIButtonsK023") &&
+                sharedPresentation.Contains("source ?? main?.UIButtonsK023") &&
+                sharedPresentation.Contains("source ?? main?.UIButtonsO001"),
+                "Desert Archer category does not use the surface-specific tinted Vanilla Archer HUD icons");
             Check(runtime.Contains("TryRegisterRecruitment") && runtime.Contains("OnUnitTransition") && runtime.Contains("UnitTransitionSource.EuropeanBarracks"), "Desert Archer recruitment transition correlation is missing");
             Check(runtime.Contains("args.UnitId <= 0") && runtime.Contains("pending.PreserveOnFailure") && runtime.Contains("!pending.PreserveOnFailure"), "recruited units are not identity-based or protected from diagnostic deletion");
             Check(!runtime.Contains("GameAction(Enums.GameActionCommand.MakeTroop") && sharedPresentation.Contains("RecruitmentGameActionHook"), "VUP issues a second MakeTroop action instead of using APIShared's Vanilla hook");

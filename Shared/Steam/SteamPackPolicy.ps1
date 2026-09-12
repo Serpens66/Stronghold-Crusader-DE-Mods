@@ -20,6 +20,28 @@ function Resolve-SteamPackVersion {
     return $(if ($prepared -gt $minimum) { $prepared.ToString(3) } else { $minimum.ToString(3) })
 }
 
+function Get-MissingSteamPackPaths {
+    param(
+        [AllowEmptyCollection()][string[]]$PreviousPaths = @(),
+        [AllowEmptyCollection()][string[]]$CurrentPaths = @()
+    )
+
+    $current = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($path in @($CurrentPaths)) {
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+        [void]$current.Add($path.Replace('\','/').TrimStart('/'))
+    }
+
+    $missing = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($path in @($PreviousPaths)) {
+        if ([string]::IsNullOrWhiteSpace($path)) { continue }
+        $normalized = $path.Replace('\','/').TrimStart('/')
+        if (-not $current.Contains($normalized)) { [void]$missing.Add($normalized) }
+    }
+
+    return @($missing | Sort-Object)
+}
+
 function Assert-ScriptExtenderXamlPatchContract {
     param([Parameter(Mandatory)][string]$Directory)
     $patchRoot = Join-Path $Directory 'Patches'

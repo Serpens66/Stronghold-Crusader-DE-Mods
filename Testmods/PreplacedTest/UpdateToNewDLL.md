@@ -22,6 +22,8 @@
 | Building counts and reachability | `0xB8270`, `0xC3BF0`, `0xC8F50`, `0xC90E0` | `CountBuildingsPattern`, `PlacementReachabilityPattern`, `AccessibilitySweepPattern`, `BuildingAccessibilityPattern` |
 | Economy phases | `0x50D80`, `0x50E00`, `0x50F90`, `0x51190`, `0x51270`, `0x51540` | `EconomyFarmPattern` through `EconomyWoodPattern` |
 | Economy searches | `0x575B0`, `0x57B80`, `0x58020`, `0x58950` | `FarmSearchPattern`, `ResourceSearchPattern`, `WoodSearchPattern`, `NearbySearchPattern` |
+| Scoped wood-score floor | `0x58057..0x58065` | RedBird context hook with `BeforeCallback`; exact 15-byte block `48 63 C2 4C 69 C8 3C 58 00 00 B8 67 66 66 66`, return at `0x58066`. The displaced instructions sign-extend the player ID through `RAX`, compute the player stride in `R9`, and load the following constant in `EAX`; `RCX` remains the state pointer and `EDX` still contains the player ID. The callback may change only `EBX` from Vanilla's local best-score initializer `-100` to `INT_MIN`, and only inside an eligible active wood-search overlay. |
+| Inaccessible-building economy penalty | `0x3B270`, `0x3B360`, `0x55E10` | `InaccessibleBuildingCheckPattern`, `InaccessibleBuildingSelectionPattern`, `EconomyCellPenaltyPattern`; `0x55E10(state, worldX, worldY)` updates cell `byte+17` and `byte+13`, and its only audited callers are `0x3B270`, `0x3B360`, and `0xC8F50` |
 | Audited AIV-only `byte+04` consumers | `0x583A0`, `0x58BE0` | Called only from `0x52270` and `0x54CC0`; remain outside the external-economy overlay. Reconfirm these call relationships before changing that scope. |
 | Economy construction | `0x6D580` | `ConstructBuildingPattern` |
 | PCL pair reachability | `0xE2610` | `RegionPairReachabilityPattern` |
@@ -39,6 +41,7 @@
 - Do not restore the former inline context hook at RVA `0x7F074`. RedBird displaced 15 bytes, while native branches at `0x7F05D` and `0x7F072` target `0x7F07C` inside that span; the resulting mid-stub entry caused a verified access violation.
 - Any future inline hook must first pass the inbound-branch safety check for its complete actual displaced span. Damage observation currently uses Script Extender events and timer comparisons and needs no inline writer hook.
 - The regression test resolves both short-branch targets from the canonical DLL and proves that the former 15-byte span is unsafe. New inline instrumentation is forbidden unless its full backend-reported displaced span has no inbound target.
+- The scoped wood-score hook is separately permitted only at `0x58057` with a backend-reported `DisplacedByteCount` of exactly 15. The complete audited branch-target set of `0x58020` has no target in the interior `0x58058..0x58065`. At callback time `RCX` is the state pointer and `EDX` still contains the player ID; `EDX` is overwritten by Vanilla immediately after the callback return. No register except `RBX/EBX` may be changed by the callback.
 - `ActiveLayoutReferencePattern` at reference RVA `0x55F64` provides a RIP-relative data address. The decoded target must remain inside the mapped image.
 
 ## Hash-bound data and validation-only locations
@@ -53,6 +56,8 @@ These locations do not have independent semantic byte patterns. Their offsets ar
 | Current serialized player records | `0x379ADD0` | Nine records with stride `0x583C`; embedded `GamePlayerResources` begins at `+0x22FC`. |
 | Active player-resource records | `0x379D0CC` | RIP-relative base resolved through `0x55F64`; nine records with stride `0x583C`, timer at resources offset `+0x7E4`. |
 | Native economy-search origins | `0x379AFA8`, `0x379AFAC` | Per-player world X/Y with stride `0x583C`; `0x55FE0`, `0x575B0`, `0x57B80`, and `0x58020` divide both values by five for their exact 160×160 BFS origin. |
+| Wood frontier marker order | `0x58020` | Vanilla writes the current visit generation before testing `signed byte+04 < 16` and `byte+13 == 0`; rejected frontier cells therefore appear in the marker set but not in the queue. Preserve this ordering when auditing or patching the direct wood-search comparison. |
+| Wood candidate score | `0x581A5..0x581DD` | Formal candidates increment the candidate counter before scoring. Score is `signed(byte+07) * 5 - parentDepth * 3`; if `byte+06 != 0`, positive scores are halved and nonpositive scores doubled. Vanilla initializes the best score to `-100` and accepts only a strict improvement. The scoped fix changes only that initializer for eligible preplaced-portal/breach searches; traversal, candidate predicates, scoring, result storage, cooldowns and downstream placement remain Vanilla. |
 | Chore manager and field cursor | `0x8574320`, manager `+0x370BF8` | Current linear payload is at manager `+0x84CD8+cursor`; field transfers must retain the audited direction contract of `0x1F5F0`. |
 | Loaded map format version | `0x32DC084` | Read-only `int` used to describe the guarded legacy conversion. |
 | Legacy conversion call site | `0x96CE` | Validation only: must be an `E8 rel32` targeting `0xD4290`; it is not hooked. |

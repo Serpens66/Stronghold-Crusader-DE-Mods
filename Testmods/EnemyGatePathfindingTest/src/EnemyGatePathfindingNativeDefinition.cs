@@ -16,12 +16,14 @@ namespace EnemyGatePathfindingTest
         public const int DirectCursorSearchReturnRva = 0x8F26E;
         public const int DirectTileSearchRva = 0xDB650;
         // Normal movement-cursor PCL decision. RedBird displaces exactly CALL E2610,
-        // TEST EAX,EAX and the following RIP-relative LEA. The callback reconstructs
-        // that TEST's ZF before Vanilla consumes it at 0x8F1D2.
+        // TEST EAX,EAX and the following RIP-relative LEA. The inline adapter replaces
+        // only the call, then replays TEST/LEA before Vanilla consumes ZF at 0x8F1D2.
         public const int CursorPclDecisionRva = 0x8F1BF;
         public const int CursorPclDecisionLength = 14;
         public const int CursorPclDecisionReturnRva = 0x8F1CD;
         public const int CursorPclDecisionConsumerRva = 0x8F1D2;
+        public const int PclReachabilityRva = 0xE2610;
+        public const int NativeDirectionGridRva = 0x405EDB0;
         private static readonly byte[] CursorPclDecisionBytes =
         {
             0xE8,0x4C,0x34,0x05,0x00,

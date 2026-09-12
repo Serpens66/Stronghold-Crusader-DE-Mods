@@ -227,10 +227,10 @@
             <summary>Barracks swordsman recruitment disabled image.</summary>
         </member>
         <member name="T:APIShared.UnitHudTint">
-            <summary>Immutable RGBA tint used by shared category icons.</summary>
+            <summary>Immutable RGB overlay tint used by shared category icons; alpha controls overlay opacity.</summary>
         </member>
         <member name="M:APIShared.UnitHudTint.#ctor(System.Byte,System.Byte,System.Byte,System.Byte)">
-            <summary>Creates an RGBA tint.</summary>
+            <summary>Creates an RGB overlay tint with explicit opacity.</summary>
         </member>
         <member name="P:APIShared.UnitHudTint.Red">
             <summary>Red channel.</summary>
@@ -242,7 +242,7 @@
             <summary>Blue channel.</summary>
         </member>
         <member name="P:APIShared.UnitHudTint.Alpha">
-            <summary>Alpha channel.</summary>
+            <summary>Overlay opacity; zero is transparent and 255 is fully opaque.</summary>
         </member>
         <member name="T:APIShared.UnitHudUnitSnapshot">
             <summary>Immutable validated unit identity presented to category matchers.</summary>

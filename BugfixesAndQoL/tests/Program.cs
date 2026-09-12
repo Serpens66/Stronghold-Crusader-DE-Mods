@@ -809,6 +809,11 @@ namespace BugfixesAndQoL
                     !feature.Contains("args.CustomValidationRules = false;") &&
                     !feature.Contains("args.ForceBlockPlacementState = false;"),
                 "tunnel distance feature only adds a placement rejection");
+            Check(feature.IndexOf("if (args.PlayerId == 0)", StringComparison.Ordinal) >= 0 &&
+                    feature.IndexOf("if (args.PlayerId == 0)", StringComparison.Ordinal) <
+                    feature.IndexOf("if (!players.IsPlayerIdValid(args.PlayerId))", StringComparison.Ordinal) &&
+                    feature.Contains("Building placement-clearance validation ignored invalid player ID"),
+                "placement clearance silently ignores Nature while retaining diagnostics for other invalid player IDs");
             Check(!feature.Contains("NativePatternResolver") &&
                     !feature.Contains("GetDelegateForFunctionPointer") &&
                     !feature.Contains("ResolveUnique") &&

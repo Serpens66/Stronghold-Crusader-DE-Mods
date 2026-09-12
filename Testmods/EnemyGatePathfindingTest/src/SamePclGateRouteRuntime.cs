@@ -5,7 +5,6 @@ using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
 using RedBird.X64.Assembly;
 using RedBird.X64.Hooks;
-using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.Interop;
@@ -24,7 +23,10 @@ namespace EnemyGatePathfindingTest
             long humanDetours, long aiDetours, long attackEdges,
             long buildingEdges, long candidateEdges, long cursorCommandEdges,
             long directCursorQueries, long directCursorEdges,
-            long cursorPclChecks, long cursorNativeRefreshes, long cursorCacheHits,
+            long cursorPclChecks, long cursorPclWrapperCalls,
+            long cursorSamePclEligible, long cursorDifferentPcl,
+            long cursorRequestsPublished, long cursorResultForcedZero,
+            long cursorNativeRefreshes, long cursorCacheHits,
             long cursorThrottleDeferrals, long cursorPolicyBlocked,
             long cursorReachable, long cursorRejectedEdges, long cursorUnitPending,
             long cursorValidationTicks,
@@ -39,6 +41,11 @@ namespace EnemyGatePathfindingTest
             CandidateEdges = candidateEdges; CursorCommandEdges = cursorCommandEdges;
             DirectCursorQueries = directCursorQueries; DirectCursorEdges = directCursorEdges;
             CursorPclChecks = cursorPclChecks; CursorNativeRefreshes = cursorNativeRefreshes;
+            CursorPclWrapperCalls = cursorPclWrapperCalls;
+            CursorSamePclEligible = cursorSamePclEligible;
+            CursorDifferentPcl = cursorDifferentPcl;
+            CursorRequestsPublished = cursorRequestsPublished;
+            CursorResultForcedZero = cursorResultForcedZero;
             CursorCacheHits = cursorCacheHits; CursorThrottleDeferrals = cursorThrottleDeferrals;
             CursorPolicyBlocked = cursorPolicyBlocked; CursorReachable = cursorReachable;
             CursorRejectedEdges = cursorRejectedEdges;
@@ -64,6 +71,11 @@ namespace EnemyGatePathfindingTest
         internal long DirectCursorQueries { get; }
         internal long DirectCursorEdges { get; }
         internal long CursorPclChecks { get; }
+        internal long CursorPclWrapperCalls { get; }
+        internal long CursorSamePclEligible { get; }
+        internal long CursorDifferentPcl { get; }
+        internal long CursorRequestsPublished { get; }
+        internal long CursorResultForcedZero { get; }
         internal long CursorNativeRefreshes { get; }
         internal long CursorCacheHits { get; }
         internal long CursorThrottleDeferrals { get; }
@@ -116,6 +128,12 @@ namespace EnemyGatePathfindingTest
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int DirectTileSearchDelegate(IntPtr manager, int x, int y,
             int argument4, int argument5, int argument6);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int PclReachabilityDelegate(IntPtr manager, int player,
+            int targetPcl, int sourcePcl, int mode);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate int CursorPclDecisionDelegate(IntPtr manager, int player,
+            int targetPcl, int sourcePcl, int mode, int unitId);
 
         private sealed class DetourCandidate<T> where T : Delegate
         {
@@ -205,6 +223,8 @@ namespace EnemyGatePathfindingTest
         private CandidateSearchDelegate originalCandidateSearch, rootedCandidateSearch;
         private readonly DirectTileSearchDelegate originalDirectTileSearch;
         private readonly DirectTileSearchDelegate rootedDirectCursorSearch;
+        private readonly PclReachabilityDelegate originalPclReachability;
+        private readonly CursorPclDecisionDelegate rootedCursorPclDecision;
         private readonly HookHandle<X64InlineHook> directCursorHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> cursorPclDecisionHook =
             new HookHandle<X64InlineHook>();
@@ -213,7 +233,9 @@ namespace EnemyGatePathfindingTest
         private long queries, preserved, rejectedEdges, detours, noRoutes;
         private long humanDetours, aiDetours, attackEdges, buildingEdges, candidateEdges;
         private long cursorCommandEdges, directCursorQueries, directCursorEdges;
-        private long cursorPclChecks, cursorNativeRefreshes, cursorCacheHits;
+        private long cursorPclChecks, cursorPclWrapperCalls, cursorSamePclEligible,
+            cursorDifferentPcl, cursorRequestsPublished, cursorResultForcedZero;
+        private long cursorNativeRefreshes, cursorCacheHits;
         private long cursorThrottleDeferrals, cursorPolicyBlocked, cursorReachable,
             cursorRejectedEdges;
         private long cursorUnitPending, cursorValidationTicks, cursorValidationMaxTicks;
@@ -227,12 +249,14 @@ namespace EnemyGatePathfindingTest
         private readonly int[] sampleUsed = new int[9];
         private int cursorRequestSequence, cursorRequestWriter;
         private int cursorRequestPlayer, cursorRequestUnit, cursorRequestTargetX,
-            cursorRequestTargetY, cursorRequestTargetTile;
+            cursorRequestTargetY, cursorRequestTargetTile, cursorRequestTargetPcl,
+            cursorRequestSourcePcl;
         private long cursorRequestFingerprint;
         private int cursorCacheSequence;
         private int cursorCacheValid, cursorCachePlayer, cursorCacheUnit,
             cursorCacheGlobal, cursorCacheStartX, cursorCacheStartY,
-            cursorCacheTargetX, cursorCacheTargetY, cursorCacheAllowed;
+            cursorCacheTargetX, cursorCacheTargetY, cursorCacheTargetPcl,
+            cursorCacheSourcePcl, cursorCacheAllowed;
         private long cursorCacheFingerprint;
         private long nextCursorValidationAt;
         private int cursorSampleState, cursorSamplePlayer, cursorSampleUnit,
@@ -241,6 +265,10 @@ namespace EnemyGatePathfindingTest
             cursorSampleAllowed;
         private long cursorSampleFingerprint, cursorSampleRejectedEdges,
             cursorSampleElapsedTicks;
+        private int cursorDecisionSampleState, cursorDecisionSamplePlayer,
+            cursorDecisionSampleUnit, cursorDecisionSampleTargetPcl,
+            cursorDecisionSampleSourcePcl, cursorDecisionSampleVanillaResult,
+            cursorDecisionSampleFinalResult;
         private long nextPlayerRefresh;
         private int installAttempted;
 
@@ -265,7 +293,11 @@ namespace EnemyGatePathfindingTest
             originalDirectTileSearch = Marshal.GetDelegateForFunctionPointer<DirectTileSearchDelegate>(
                 new IntPtr(unchecked((long)(libraryBase +
                     EnemyGatePathfindingNativeDefinition.DirectTileSearchRva))));
+            originalPclReachability = Marshal.GetDelegateForFunctionPointer<PclReachabilityDelegate>(
+                new IntPtr(unchecked((long)(libraryBase +
+                    EnemyGatePathfindingNativeDefinition.PclReachabilityRva))));
             rootedDirectCursorSearch = FilterDirectCursorSearch;
+            rootedCursorPclDecision = FilterCursorPclDecision;
             threadSlots = Marshal.AllocHGlobal(
                 DirectionFilterAdapterEmitter.ThreadSlotCount * ThreadSlotStride);
             for (int index = 0;
@@ -315,6 +347,12 @@ namespace EnemyGatePathfindingTest
                 (asm, original, returnAddress) => DirectCursorCallAdapterEmitter.Emit(
                     asm, original, directCursorWrapper),
                 hookSize: EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength);
+            ulong cursorPclWrapper = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(
+                rootedCursorPclDecision).ToInt64());
+            CursorPclCallAdapterEmitter.AssembleAndValidate(
+                EnemyGatePathfindingNativeDefinition.GetCursorPclDecisionBytes(),
+                libraryBase + EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
+                cursorPclWrapper, libraryBase + 0x02200000UL);
             using (var probe = new X64InlineHook(
                 libraryBase + EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
                 EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength))
@@ -323,18 +361,12 @@ namespace EnemyGatePathfindingTest
                     throw new InvalidOperationException(
                         $"RedBird cursor-PCL span was {probe.DisplacedByteCount}, expected " +
                         EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength + ".");
-            transaction.AddContextHook(
-                cursorPclDecisionHook,
+            transaction.AddInline(cursorPclDecisionHook,
                 HookTarget.FromAddress(libraryBase +
                     EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva),
-                FilterNormalCursorPclDecision,
-                new ContextHookOptions
-                {
-                    Registers = X64SmartCPUContextRegs.All,
-                    HookSize = EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength,
-                    ErrorMode = CallbackErrorMode.LogAndContinue,
-                    Placement = OverwrittenInstructionPlacement.BeforeCallback
-                });
+                (asm, original, returnAddress) => CursorPclCallAdapterEmitter.Emit(
+                    asm, original, cursorPclWrapper),
+                hookSize: EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength);
             for (int index = 0; index < edgeHooks.Length; index++)
             {
                 edgeHooks[index] = new HookHandle<X64InlineHook>();
@@ -389,8 +421,8 @@ namespace EnemyGatePathfindingTest
             Shared.DebugLogHelper.LogInfo(log,
                 "Vanilla player-aware gate filter installed: " +
                 "scopes=builder/attack/building/consumer/alternateConsumer/candidateSearch/" +
-                "cursorCommand/directCursorDB650/cursorPclPreview, directionAdapters=11, " +
-                "cursorPclDecision=" +
+                "cursorCommand/directCursorDB650/cursorPclCallAdapter, directionAdapters=11, " +
+                "cursorPclCallAdapter=" +
                 $"0x{EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva:X}/" +
                 $"{EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength}, directCursorCallsite=" +
                 $"0x{EnemyGatePathfindingNativeDefinition.DirectCursorSearchCallRva:X}, " +
@@ -471,26 +503,23 @@ namespace EnemyGatePathfindingTest
             tribePlayers = new TribePlayerSnapshot(owners);
         }
 
-        private void FilterNormalCursorPclDecision(
-            NativePointer<X64SmartCPUContext> context)
+        private int FilterCursorPclDecision(IntPtr manager, int player,
+            int targetPcl, int sourcePcl, int mode, int unitId)
         {
-            X64SmartCPUContext* registers = context.Pointer;
-            if (registers == null) return;
-
-            // RedBird 1.1.0 changes flags while building the callback context. The
-            // displaced TEST EAX,EAX is therefore reconstructed from its operand.
-            bool originalZero = unchecked((int)(uint)registers->RAX) == 0;
-            bool finalZero = originalZero;
+            int vanillaResult = originalPclReachability(
+                manager, player, targetPcl, sourcePcl, mode);
+            int finalResult = vanillaResult;
+            Interlocked.Increment(ref cursorPclWrapperCalls);
             try
             {
-                if (!originalZero &&
-                    unchecked((int)(uint)registers->RSI) ==
-                    unchecked((int)(uint)registers->RDI))
+                if (targetPcl != sourcePcl)
+                {
+                    Interlocked.Increment(ref cursorDifferentPcl);
+                }
+                else if (vanillaResult > 0)
                 {
                     Interlocked.Increment(ref cursorPclChecks);
-                    int player = *(int*)(libraryBase +
-                        EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
-                    int unitId = unchecked((int)(uint)registers->R14);
+                    Interlocked.Increment(ref cursorSamePclEligible);
                     NativeMaskSnapshot snapshot = currentMasks;
                     int tileBefore = *(int*)(libraryBase +
                         EnemyGatePathfindingNativeDefinition.CursorMouseTileIdRva);
@@ -510,17 +539,20 @@ namespace EnemyGatePathfindingTest
                             unchecked((ulong)(targetY * 12))) + targetX == tileAfter;
                     if (valid)
                     {
-                        PublishCursorRequest(player, unitId, targetX, targetY,
-                            tileAfter, snapshot.Fingerprint);
+                        if (PublishCursorRequest(player, unitId, targetX, targetY,
+                                tileAfter, targetPcl, sourcePcl, snapshot.Fingerprint))
+                            Interlocked.Increment(ref cursorRequestsPublished);
                         bool allowed;
                         if (TryReadCursorCache(player, unitId, targetX, targetY,
-                                snapshot.Fingerprint, out allowed))
+                                targetPcl, sourcePcl, snapshot.Fingerprint, out allowed))
                         {
                             Interlocked.Increment(ref cursorCacheHits);
-                            if (!allowed)
+                            finalResult = EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
+                                vanillaResult, true, true, allowed);
+                            if (finalResult == 0 && vanillaResult != 0)
                             {
-                                finalZero = true;
                                 Interlocked.Increment(ref cursorPolicyBlocked);
+                                Interlocked.Increment(ref cursorResultForcedZero);
                             }
                         }
                         else
@@ -533,17 +565,19 @@ namespace EnemyGatePathfindingTest
             catch
             {
                 Interlocked.Increment(ref exceptions);
-                finalZero = originalZero;
+                finalResult = vanillaResult;
             }
-            registers->Rflags = EnemyGatePathfindingPolicy.SetZeroFlag(
-                registers->Rflags, finalZero);
+            CaptureCursorDecisionSample(player, unitId, targetPcl, sourcePcl,
+                vanillaResult, finalResult);
+            return finalResult;
         }
 
-        private void PublishCursorRequest(int player, int unitId, int targetX,
-            int targetY, int targetTile, ulong fingerprint)
+        private bool PublishCursorRequest(int player, int unitId, int targetX,
+            int targetY, int targetTile, int targetPcl, int sourcePcl,
+            ulong fingerprint)
         {
             if (Interlocked.CompareExchange(ref cursorRequestWriter, 1, 0) != 0)
-                return;
+                return false;
             try
             {
                 Interlocked.Increment(ref cursorRequestSequence);
@@ -552,8 +586,11 @@ namespace EnemyGatePathfindingTest
                 cursorRequestTargetX = targetX;
                 cursorRequestTargetY = targetY;
                 cursorRequestTargetTile = targetTile;
+                cursorRequestTargetPcl = targetPcl;
+                cursorRequestSourcePcl = sourcePcl;
                 cursorRequestFingerprint = unchecked((long)fingerprint);
                 Interlocked.Increment(ref cursorRequestSequence);
+                return true;
             }
             finally
             {
@@ -562,9 +599,10 @@ namespace EnemyGatePathfindingTest
         }
 
         private bool TryReadCursorRequest(out int player, out int unitId,
-            out int targetX, out int targetY, out int targetTile, out ulong fingerprint)
+            out int targetX, out int targetY, out int targetTile,
+            out int targetPcl, out int sourcePcl, out ulong fingerprint)
         {
-            player = unitId = targetX = targetY = targetTile = 0;
+            player = unitId = targetX = targetY = targetTile = targetPcl = sourcePcl = 0;
             fingerprint = 0;
             for (int attempt = 0; attempt < 3; attempt++)
             {
@@ -575,6 +613,8 @@ namespace EnemyGatePathfindingTest
                 targetX = cursorRequestTargetX;
                 targetY = cursorRequestTargetY;
                 targetTile = cursorRequestTargetTile;
+                targetPcl = cursorRequestTargetPcl;
+                sourcePcl = cursorRequestSourcePcl;
                 fingerprint = unchecked((ulong)cursorRequestFingerprint);
                 if (before == Volatile.Read(ref cursorRequestSequence)) return true;
             }
@@ -582,7 +622,8 @@ namespace EnemyGatePathfindingTest
         }
 
         private bool TryReadCursorCache(int player, int unitId, int targetX,
-            int targetY, ulong fingerprint, out bool allowed)
+            int targetY, int targetPcl, int sourcePcl, ulong fingerprint,
+            out bool allowed)
         {
             allowed = true;
             for (int attempt = 0; attempt < 3; attempt++)
@@ -594,13 +635,16 @@ namespace EnemyGatePathfindingTest
                 int cachedUnit = cursorCacheUnit;
                 int cachedTargetX = cursorCacheTargetX;
                 int cachedTargetY = cursorCacheTargetY;
+                int cachedTargetPcl = cursorCacheTargetPcl;
+                int cachedSourcePcl = cursorCacheSourcePcl;
                 ulong cachedFingerprint = unchecked((ulong)cursorCacheFingerprint);
                 int cachedAllowed = cursorCacheAllowed;
                 if (before != Volatile.Read(ref cursorCacheSequence)) continue;
                 if (!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
                         valid != 0, cachedPlayer, cachedUnit, cachedTargetX,
-                        cachedTargetY, cachedFingerprint, player, unitId,
-                        targetX, targetY, fingerprint)) return false;
+                        cachedTargetY, cachedTargetPcl, cachedSourcePcl,
+                        cachedFingerprint, player, unitId, targetX, targetY,
+                        targetPcl, sourcePcl, fingerprint)) return false;
                 allowed = cachedAllowed != 0;
                 return true;
             }
@@ -609,10 +653,11 @@ namespace EnemyGatePathfindingTest
 
         private void ProcessCursorPreview(long now)
         {
-            int player, unitId, targetX, targetY, targetTile;
+            int player, unitId, targetX, targetY, targetTile, targetPcl, sourcePcl;
             ulong fingerprint;
             if (!Installed || !TryReadCursorRequest(out player, out unitId,
-                    out targetX, out targetY, out targetTile, out fingerprint)) return;
+                    out targetX, out targetY, out targetTile, out targetPcl,
+                    out sourcePcl, out fingerprint)) return;
             if (now < Volatile.Read(ref nextCursorValidationAt))
             {
                 Interlocked.Increment(ref cursorThrottleDeferrals);
@@ -686,6 +731,8 @@ namespace EnemyGatePathfindingTest
             cursorCacheStartY = startY;
             cursorCacheTargetX = targetX;
             cursorCacheTargetY = targetY;
+            cursorCacheTargetPcl = targetPcl;
+            cursorCacheSourcePcl = sourcePcl;
             cursorCacheFingerprint = unchecked((long)fingerprint);
             cursorCacheAllowed = allowed ? 1 : 0;
             cursorCacheValid = 1;
@@ -707,6 +754,20 @@ namespace EnemyGatePathfindingTest
                 cursorSampleAllowed = allowed ? 1 : 0;
                 Volatile.Write(ref cursorSampleState, 2);
             }
+        }
+
+        private void CaptureCursorDecisionSample(int player, int unitId,
+            int targetPcl, int sourcePcl, int vanillaResult, int finalResult)
+        {
+            if (Interlocked.CompareExchange(ref cursorDecisionSampleState, 1, 0) != 0)
+                return;
+            cursorDecisionSamplePlayer = player;
+            cursorDecisionSampleUnit = unitId;
+            cursorDecisionSampleTargetPcl = targetPcl;
+            cursorDecisionSampleSourcePcl = sourcePcl;
+            cursorDecisionSampleVanillaResult = vanillaResult;
+            cursorDecisionSampleFinalResult = finalResult;
+            Volatile.Write(ref cursorDecisionSampleState, 2);
         }
 
         private void TryPublishPending(RouteTilePolicySnapshot policy, int generation)
@@ -757,7 +818,10 @@ namespace EnemyGatePathfindingTest
                 Read(ref humanDetours), Read(ref aiDetours), Read(ref attackEdges),
                 Read(ref buildingEdges), Read(ref candidateEdges), Read(ref cursorCommandEdges),
                 Read(ref directCursorQueries), Read(ref directCursorEdges),
-                Read(ref cursorPclChecks), Read(ref cursorNativeRefreshes),
+                Read(ref cursorPclChecks), Read(ref cursorPclWrapperCalls),
+                Read(ref cursorSamePclEligible), Read(ref cursorDifferentPcl),
+                Read(ref cursorRequestsPublished), Read(ref cursorResultForcedZero),
+                Read(ref cursorNativeRefreshes),
                 Read(ref cursorCacheHits), Read(ref cursorThrottleDeferrals),
                 Read(ref cursorPolicyBlocked), Read(ref cursorReachable),
                 Read(ref cursorRejectedEdges), Read(ref cursorUnitPending),
@@ -771,7 +835,10 @@ namespace EnemyGatePathfindingTest
             Reset(ref noRoutes); Reset(ref humanDetours); Reset(ref aiDetours);
             Reset(ref attackEdges); Reset(ref buildingEdges); Reset(ref candidateEdges);
             Reset(ref cursorCommandEdges); Reset(ref directCursorQueries); Reset(ref directCursorEdges);
-            Reset(ref cursorPclChecks); Reset(ref cursorNativeRefreshes); Reset(ref cursorCacheHits);
+            Reset(ref cursorPclChecks); Reset(ref cursorPclWrapperCalls);
+            Reset(ref cursorSamePclEligible); Reset(ref cursorDifferentPcl);
+            Reset(ref cursorRequestsPublished); Reset(ref cursorResultForcedZero);
+            Reset(ref cursorNativeRefreshes); Reset(ref cursorCacheHits);
             Reset(ref cursorThrottleDeferrals); Reset(ref cursorPolicyBlocked);
             Reset(ref cursorReachable); Reset(ref cursorRejectedEdges);
             Reset(ref cursorUnitPending);
@@ -784,6 +851,7 @@ namespace EnemyGatePathfindingTest
             Volatile.Write(ref cursorCacheSequence, 0);
             Volatile.Write(ref cursorCacheValid, 0);
             Volatile.Write(ref cursorSampleState, 0);
+            Volatile.Write(ref cursorDecisionSampleState, 0);
             Volatile.Write(ref nextCursorValidationAt, 0);
             for (int index = 0; index < samplePublished.Length; index++)
                 Volatile.Write(ref samplePublished[index], 0);
@@ -930,6 +998,17 @@ namespace EnemyGatePathfindingTest
                 ",rejectedEdges=" + cursorSampleRejectedEdges +
                 ",allowed=" + (cursorSampleAllowed != 0) +
                 ",elapsedTicks=" + cursorSampleElapsedTicks;
+        }
+
+        internal string DescribeCursorDecisionSample()
+        {
+            if (Volatile.Read(ref cursorDecisionSampleState) != 2) return "none";
+            return "player=" + cursorDecisionSamplePlayer +
+                ",unit=" + cursorDecisionSampleUnit +
+                ",targetPcl=" + cursorDecisionSampleTargetPcl +
+                ",sourcePcl=" + cursorDecisionSampleSourcePcl +
+                ",vanillaResult=" + cursorDecisionSampleVanillaResult +
+                ",finalResult=" + cursorDecisionSampleFinalResult;
         }
 
         private QueryScope Enter(int player)

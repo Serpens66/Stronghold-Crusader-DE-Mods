@@ -36,6 +36,13 @@ Nur ausgewählte Farbframes bestimmen das automatische Quellpräfix und werden a
 
 Ein Unity-Pivot ist normalisiert. Derselbe Wert bezeichnet deshalb auf unterschiedlich großen Bildern einen anderen Pixel. Das kann Bodenplatten auseinanderziehen oder Gebäude- und Animationsteile gegeneinander verschieben.
 
+Die Pivotachsen haben ihren Ursprung links unten: X verläuft horizontal nach rechts, Y vertikal nach oben. Der Pivot ist der Bildpunkt, der an der unveränderten Spiel- beziehungsweise Weltposition festgehalten wird. Deshalb verschiebt sich die sichtbare Grafik beim manuellen Ändern entgegengesetzt zur Pivotänderung:
+
+- Pivot-X erhöhen → Grafik nach links; Pivot-X verringern → Grafik nach rechts.
+- Pivot-Y erhöhen → Grafik nach unten; Pivot-Y verringern → Grafik nach oben.
+
+Die Verschiebung beträgt `|ΔPivotX| × Bildbreite` beziehungsweise `|ΔPivotY| × Bildhöhe` Pixel; in Weltkoordinaten wird zusätzlich durch PPU geteilt. Diese Richtungsregel gilt relativ zum bisherigen Pivot und bei unveränderter Spriteposition.
+
 - **SHCDE-Pixelanker beibehalten** ist der Standard und für eigene Ersatzbilder normalerweise richtig. Der Builder berechnet den Pixelanker des SHCDE-Ziels und normalisiert ihn für die tatsächliche Größe des Ersatzbildes neu.
 - **Pivot aus Quellmetadaten** reproduziert die ursprüngliche Ausrichtung eines mit AssetRipper extrahierten Sprites. Wähle zusätzlich den Ordner, der die einzelnen Sprite-JSONs enthält, oder einen übergeordneten AssetRipper-Exportordner. Der Builder liest nur JSON-Dateien, deren Namen zur gewählten Gruppe und zu den vorhandenen Frames passen.
 - **Normalisierten SHCDE-Pivot übernehmen (Legacy)** bildet das Verhalten älterer Builder-Projekte nach. Verwende es nur, wenn Quell- und Zielbilder dieselbe Leinwand besitzen oder die normalisierten Pivots absichtlich identisch sein sollen.
@@ -204,6 +211,13 @@ Only selected colour frames determine the automatic source prefix and are checke
 #### Pivot source and correct alignment
 
 A Unity pivot is normalized, so the same value points to a different pixel on images with different dimensions. This can separate ground tiles or shift building and animation parts relative to each other.
+
+The pivot axes originate at the bottom left: X runs horizontally to the right and Y vertically upwards. The pivot is the image point held at the unchanged game or world position. Therefore, manually changing it moves the visible graphic in the opposite direction:
+
+- Increasing pivot X moves the graphic left; decreasing it moves the graphic right.
+- Increasing pivot Y moves the graphic down; decreasing it moves the graphic up.
+
+The displacement is `|ΔPivotX| × image width` or `|ΔPivotY| × image height` pixels; divide by PPU for world units. This direction rule is relative to the previous pivot and assumes an unchanged Sprite position.
 
 - **Preserve SHCDE pixel anchor** is the default and is normally correct for custom replacements. The builder calculates the SHCDE target's pixel anchor and normalizes it for the replacement image's actual dimensions.
 - **Pivot from source metadata** reproduces the original alignment of a Sprite extracted with AssetRipper. Also select the directory containing the individual Sprite JSON files, or a parent AssetRipper export directory. Only JSON files whose names match the selected group and present frames are read.

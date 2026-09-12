@@ -92,8 +92,6 @@ Die API rundet mit `MidpointRounding.AwayFromZero`, verwendet 40 Ticks pro Sekun
 
 `Enabled=false` ignoriert die übrigen Werte des Settings-Objekts und stellt die katalogisierten Vanilla-Werte wieder her. Der einmal erworbene Prozessbesitz wird dabei absichtlich nicht freigegeben. Ein anderer Besitzer erhält bei überlappender exklusiver Mutation `Conflict`.
 
-Wichtig: Die derzeitige Capability verändert nur Distanzen und Wiederöffnungszeiten. Vanilla misst die Distanz noch von der Begin-Koordinate des Gebäudes. Der geplante Mittelpunkt-Fix und seine offene Analyse stehen in [TODOGatehouse.md](TODOGatehouse.md).
-
 ## Selected Unit Command verwenden
 
 Das Handle muss für die gewünschte Lebensdauer verwurzelt bleiben, üblicherweise in einem statischen Feld. Es darf nicht in `OnDisable` oder `OnDestroy` der kurzlebigen BepInEx-Komponente entsorgt werden.

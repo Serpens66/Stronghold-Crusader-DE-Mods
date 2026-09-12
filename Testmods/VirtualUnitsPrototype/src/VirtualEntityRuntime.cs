@@ -267,8 +267,8 @@ namespace VirtualUnitsPrototype
                 "Desert Archer",
                 (int)eChimps.CHIMP_TYPE_ARCHER,
                 UnitHudSurface.All,
-                () => MainViewModel.Instance?.UIButtonsK023,
-                new UnitHudTint(220, 240, byte.MaxValue, byte.MaxValue),
+                null,
+                new UnitHudTint(64, 128, byte.MaxValue, 115),
                 0,
                 new UnitHudTextProfile("Desert Archer", "DA", "A tougher variant of the European archer.", ResolveDesertArcherText));
             if (!capability.TryRegisterCategory(category, snapshot =>

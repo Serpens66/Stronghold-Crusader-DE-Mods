@@ -9,8 +9,16 @@ Assert-True ((Resolve-SteamPackVersion -PreviousVersion '1.0.10' -PreparedVersio
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion '1.0.11' -PreparedVersion '1.0.11') -ceq '1.0.12') 'an unchanged host version must advance past the published pack'
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion $null -PreparedVersion '0.9.0') -ceq '1.0.0') 'the first pack must start at least at 1.0.0'
 
+Assert-True (@(Get-MissingSteamPackPaths -PreviousPaths @('a.dll','folder/b.xaml') -CurrentPaths @('a.dll','folder/b.xaml')).Count -eq 0) 'identical file sets must not report removals'
+Assert-True (@(Get-MissingSteamPackPaths -PreviousPaths @('a.dll') -CurrentPaths @('a.dll','new.txt')).Count -eq 0) 'additional files must not report removals'
+Assert-True (@(Get-MissingSteamPackPaths -PreviousPaths @('same-path.bin') -CurrentPaths @('same-path.bin')).Count -eq 0) 'changed content at the same path must not report a removal'
+$removed = @(Get-MissingSteamPackPaths -PreviousPaths @('keep.dll','old/path.xaml') -CurrentPaths @('keep.dll'))
+Assert-True ($removed.Count -eq 1 -and $removed[0] -ceq 'old/path.xaml') 'a removed path must be reported'
+Assert-True (@(Get-MissingSteamPackPaths -PreviousPaths @('Folder\MixedCase.DLL') -CurrentPaths @('folder/mixedcase.dll')).Count -eq 0) 'path comparison must normalize separators and ignore case on Windows'
+
 $workspace = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Assert-True ((Assert-ScriptExtenderXamlPatchContract -Directory (Join-Path $workspace 'APIShared')) -gt 0) 'the delivered APIShared XAML patches must satisfy the single-root contract'
+Assert-True ((Assert-ScriptExtenderXamlPatchContract -Directory (Join-Path $workspace 'BugfixesAndQoL')) -gt 0) 'the delivered BugfixesAndQoL XAML patches, including empty tombstones, must satisfy the contract'
 
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('serps-steam-policy-' + [Guid]::NewGuid().ToString('N'))
 try {

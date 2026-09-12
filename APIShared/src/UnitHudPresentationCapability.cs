@@ -87,7 +87,11 @@ namespace APIShared
         private RecruitmentGameActionDelegate recruitmentGameActionOriginal;
         private IDisposable mapUnloadSubscription;
         private HUD_Troops activeTroopPanel;
+        private Grid[] categoryHosts;
         private Button[] categoryButtons;
+        private Border[] categoryTints;
+        private HUD_ControlGroups activeGroupPanel;
+        private Border[,] groupTints;
         private bool refreshRequested;
         private int lastFrame = -1;
         private int lastSpriteColour;
@@ -96,8 +100,11 @@ namespace APIShared
         private readonly Dictionary<int, string> activeRecruitment = new Dictionary<int, string>();
         private RecruitmentLease recruitmentLease;
         private long nextRecruitmentTicketId;
-        private Button archerVariantSelector;
+        private Grid archerVariantHost;
+        private Button archerVariantPrevious;
+        private Button archerVariantNext;
         private Border archerVariantTint;
+        private bool recruitmentControlsLogged;
         private Grid unitDetailHost;
         private Image unitDetailImage;
         private Border unitDetailTint;
@@ -380,14 +387,15 @@ namespace APIShared
                 }
                 else
                 {
+                    Grid host = categoryHosts[slot];
                     Button button = categoryButtons[slot];
                     button.Tag = entry.Category.Key;
                     button.ToolTip = ResolveText(entry.Category, UnitHudTextKind.DisplayName);
-                    button.RenderTransform = positions[slot];
-                    ImageSource source = ResolveCategoryImage(entry.Category, panel);
-                    ApplyButtonImage(button, source);
-                    button.Content = CreateTint(entry.Category.Definition.Tint, source);
-                    button.Visibility = Visibility.Visible;
+                    host.RenderTransform = positions[slot];
+                    ImageSource source = ResolveCategoryImage(entry.Category, UnitHudSurface.TroopSelection, panel);
+                    ApplyTroopButtonImages(button, entry.Category, panel, source);
+                    ApplyTint(categoryTints[slot], entry.Category.Definition.Tint, source);
+                    host.Visibility = Visibility.Visible;
                     UnitHudCategorySnapshot snapshot = Snapshot(entry.Category, entry.Units);
                     snapshots.Add(new UnitHudSlotSnapshot(slot, -1, snapshot));
                 }
@@ -400,27 +408,37 @@ namespace APIShared
             }
         }
 
-        private static Border CreateTint(UnitHudTint tint, ImageSource source) => new Border
+        private static void ApplyTint(Border target, UnitHudTint tint, ImageSource source)
         {
-            Background = new SolidColorBrush(Noesis.Color.FromArgb(byte.MaxValue, tint.Red, tint.Green, tint.Blue)),
-            OpacityMask = source == null ? null : new ImageBrush(source),
-            Opacity = tint.Alpha == 0 || tint.Red == byte.MaxValue && tint.Green == byte.MaxValue && tint.Blue == byte.MaxValue
+            if (target == null) return;
+            target.Background = new SolidColorBrush(Noesis.Color.FromArgb(byte.MaxValue, tint.Red, tint.Green, tint.Blue));
+            target.OpacityMask = source == null ? null : new ImageBrush(source);
+            target.Opacity = source == null || tint.Alpha == 0 ||
+                tint.Red == byte.MaxValue && tint.Green == byte.MaxValue && tint.Blue == byte.MaxValue
                 ? 0.0f
-                : 0.22f * tint.Alpha / byte.MaxValue,
-            IsHitTestVisible = false
-        };
+                : (float)tint.Alpha / byte.MaxValue;
+            target.IsHitTestVisible = false;
+        }
 
         private void EnsureCategoryButtons(HUD_Troops panel)
         {
-            if (ReferenceEquals(activeTroopPanel, panel) && categoryButtons != null)
+            if (ReferenceEquals(activeTroopPanel, panel) && categoryHosts != null && categoryButtons != null && categoryTints != null)
                 return;
 
+            var resolvedHosts = new Grid[TroopSlotCount];
             var resolvedButtons = new Button[TroopSlotCount];
+            var resolvedTints = new Border[TroopSlotCount];
             for (int i = 0; i < resolvedButtons.Length; i++)
             {
+                var host = panel.FindName("APISharedUnitHudSlotHost" + (i + 1)) as Grid;
                 var button = panel.FindName("APISharedUnitHudSlot" + (i + 1)) as Button;
+                var tint = panel.FindName("APISharedUnitHudSlotTint" + (i + 1)) as Border;
+                if (host == null) throw new MissingMemberException("APISharedUnitHudSlotHost" + (i + 1));
                 if (button == null) throw new MissingMemberException("APISharedUnitHudSlot" + (i + 1));
+                if (tint == null) throw new MissingMemberException("APISharedUnitHudSlotTint" + (i + 1));
+                resolvedHosts[i] = host;
                 resolvedButtons[i] = button;
+                resolvedTints[i] = tint;
             }
             foreach (Button button in resolvedButtons)
             {
@@ -428,14 +446,16 @@ namespace APIShared
                 button.PreviewMouseDown += OnCategoryMouseDown;
             }
             activeTroopPanel = panel;
+            categoryHosts = resolvedHosts;
             categoryButtons = resolvedButtons;
+            categoryTints = resolvedTints;
         }
 
         private void HideCategoryButtons()
         {
-            if (categoryButtons == null) return;
-            foreach (Button button in categoryButtons)
-                if (button != null) button.Visibility = Visibility.Collapsed;
+            if (categoryHosts == null) return;
+            foreach (Grid host in categoryHosts)
+                if (host != null) host.Visibility = Visibility.Collapsed;
         }
 
         private void OnCategoryMouseDown(object sender, MouseButtonEventArgs args)
@@ -605,7 +625,7 @@ namespace APIShared
             TextBlock[] extras = GroupExtraField.GetValue(panel) as TextBlock[];
             if (images == null || values == null || extras == null || images.GetLength(0) < GroupCount || images.GetLength(1) < GroupVisibleSlots)
                 throw new InvalidOperationException("Vanilla control-group HUD fields have an unexpected layout.");
-            GameUnitManagerAPI units = GameUnitManagerAPI.Instance;
+            EnsureGroupTints(panel, images);
             for (int group = 0; group < GroupCount; group++)
             {
                 var counts = new Dictionary<string, GroupEntry>(StringComparer.Ordinal);
@@ -631,18 +651,63 @@ namespace APIShared
                     if (slot < visible.Length)
                     {
                         GroupEntry entry = visible[slot];
-                        images[group, slot].Source = entry.Category != null ? ResolveCategoryImage(entry.Category, null) : GroupSpriteMethod.Invoke(panel, new object[] { entry.SummaryType }) as ImageSource;
+                        ImageSource source = entry.Category != null
+                            ? ResolveCategoryImage(entry.Category, UnitHudSurface.ControlGroups, null, panel)
+                            : GroupSpriteMethod.Invoke(panel, new object[] { entry.SummaryType }) as ImageSource;
+                        images[group, slot].Source = source;
                         images[group, slot].Visibility = Visibility.Visible;
+                        if (entry.Category != null)
+                        {
+                            ApplyTint(groupTints[group, slot], entry.Category.Definition.Tint, source);
+                            groupTints[group, slot].Visibility = Visibility.Visible;
+                        }
+                        else groupTints[group, slot].Visibility = Visibility.Hidden;
                         values[group, slot].Text = entry.Count.ToString();
                         values[group, slot].Visibility = Visibility.Visible;
                         shown += entry.Count;
                     }
-                    else { images[group, slot].Visibility = Visibility.Hidden; values[group, slot].Visibility = Visibility.Hidden; }
+                    else
+                    {
+                        images[group, slot].Visibility = Visibility.Hidden;
+                        groupTints[group, slot].Visibility = Visibility.Hidden;
+                        values[group, slot].Visibility = Visibility.Hidden;
+                    }
                 }
                 int remainder = Math.Max(0, total - shown);
                 extras[group].Text = remainder > 0 ? "+" + remainder : string.Empty;
                 extras[group].Visibility = remainder > 0 ? Visibility.Visible : Visibility.Hidden;
             }
+        }
+
+        private void EnsureGroupTints(HUD_ControlGroups panel, Image[,] images)
+        {
+            if (ReferenceEquals(activeGroupPanel, panel) && groupTints != null) return;
+            var resolved = new Border[GroupCount, GroupVisibleSlots];
+            for (int group = 0; group < GroupCount; group++)
+            {
+                for (int slot = 0; slot < GroupVisibleSlots; slot++)
+                {
+                    Image image = images[group, slot];
+                    Panel parent = image == null ? null : VisualTreeHelper.GetParent(image) as Panel;
+                    if (parent == null) throw new MissingMemberException($"CG{group}_TroopImage{slot + 1} parent");
+                    var tint = new Border
+                    {
+                        Width = image.Width,
+                        Height = image.Height,
+                        Margin = image.Margin,
+                        HorizontalAlignment = image.HorizontalAlignment,
+                        VerticalAlignment = image.VerticalAlignment,
+                        Visibility = Visibility.Hidden,
+                        IsHitTestVisible = false
+                    };
+                    int imageIndex = parent.Children.IndexOf(image);
+                    if (imageIndex < 0) throw new MissingMemberException($"CG{group}_TroopImage{slot + 1} child index");
+                    parent.Children.Insert(imageIndex + 1, tint);
+                    resolved[group, slot] = tint;
+                }
+            }
+            activeGroupPanel = panel;
+            groupTints = resolved;
         }
 
         private void UpdateSpritesHook(MainViewModel self, int colour, bool arabic)
@@ -766,21 +831,19 @@ namespace APIShared
             }
             RecruitmentRegistration active = GetActiveRecruitment((int)eChimps.CHIMP_TYPE_ARCHER);
             bool any = RecruitmentCopy((int)eChimps.CHIMP_TYPE_ARCHER).Length > 0;
-            archerVariantSelector.Visibility = any && main.Show_BarracksArcher ? Visibility.Visible : Visibility.Collapsed;
-            archerVariantSelector.Content = active == null ? "A" : ResolveText(active.Category, UnitHudTextKind.ShortLabel);
-            archerVariantSelector.ToolTip = active == null ? "Vanilla Archer" :
-                ResolveText(active.Category, UnitHudTextKind.DisplayName) + "\n" + ResolveText(active.Category, UnitHudTextKind.Description);
-            archerVariantSelector.IsEnabled = recruitmentLease == null;
+            archerVariantHost.Visibility = any && main.Show_BarracksArcher ? Visibility.Visible : Visibility.Collapsed;
+            string activeName = active == null ? "Vanilla Archer" : ResolveText(active.Category, UnitHudTextKind.DisplayName);
+            archerVariantPrevious.ToolTip = "Previous unit variant\n" + activeName;
+            archerVariantNext.ToolTip = "Next unit variant\n" + activeName;
+            archerVariantPrevious.IsEnabled = recruitmentLease == null;
+            archerVariantNext.IsEnabled = recruitmentLease == null;
             if (active == null)
             {
                 archerVariantTint.Visibility = Visibility.Collapsed;
                 return;
             }
-            ImageSource source = ResolveCategoryImage(active.Category, null);
-            archerVariantTint.OpacityMask = source == null ? null : new ImageBrush(source);
-            archerVariantTint.Background = new SolidColorBrush(Noesis.Color.FromArgb(byte.MaxValue,
-                active.Category.Definition.Tint.Red, active.Category.Definition.Tint.Green, active.Category.Definition.Tint.Blue));
-            archerVariantTint.Opacity = 0.22f * active.Category.Definition.Tint.Alpha / byte.MaxValue;
+            ImageSource source = ResolveCategoryImage(active.Category, UnitHudSurface.Recruitment);
+            ApplyTint(archerVariantTint, active.Category.Definition.Tint, source);
             archerVariantTint.Visibility = main.Show_BarracksArcher ? Visibility.Visible : Visibility.Collapsed;
             if (main.lastTroopBuildChimp == Enums.eChimps.CHIMP_TYPE_ARCHER) ApplyRecruitmentText(main, active);
         }
@@ -794,27 +857,51 @@ namespace APIShared
 
         private void EnsureRecruitmentControls(MainViewModel main)
         {
-            Button selector = main.HUDBuildingPanel.FindName("APISharedArcherVariantSelector") as Button;
-            Border tint = main.HUDBuildingPanel.FindName("APISharedArcherVariantTint") as Border;
-            if (selector == null || tint == null) throw new MissingMemberException("APIShared Archer recruitment controls");
-            if (!ReferenceEquals(archerVariantSelector, selector))
+            Grid host = RequireBuildingElement<Grid>(main, "APISharedArcherVariantHost");
+            Button previous = RequireBuildingElement<Button>(main, "APISharedArcherVariantPrevious");
+            Button next = RequireBuildingElement<Button>(main, "APISharedArcherVariantNext");
+            Border tint = RequireBuildingElement<Border>(main, "APISharedArcherVariantTint");
+            if (!ReferenceEquals(archerVariantPrevious, previous) || !ReferenceEquals(archerVariantNext, next))
             {
-                if (archerVariantSelector != null) archerVariantSelector.PreviewMouseDown -= OnRecruitmentSelectorMouseDown;
-                archerVariantSelector = selector;
-                archerVariantSelector.PreviewMouseDown += OnRecruitmentSelectorMouseDown;
+                if (archerVariantPrevious != null) archerVariantPrevious.PreviewMouseDown -= OnRecruitmentPreviousMouseDown;
+                if (archerVariantNext != null) archerVariantNext.PreviewMouseDown -= OnRecruitmentNextMouseDown;
+                archerVariantPrevious = previous;
+                archerVariantNext = next;
+                archerVariantPrevious.PreviewMouseDown += OnRecruitmentPreviousMouseDown;
+                archerVariantNext.PreviewMouseDown += OnRecruitmentNextMouseDown;
             }
+            archerVariantHost = host;
             archerVariantTint = tint;
+            if (!recruitmentControlsLogged)
+            {
+                recruitmentControlsLogged = true;
+                NativeApiLog.Info(log, "Unit HUD recruitment controls resolved: host, previous, next, tint.");
+            }
+        }
+
+        private static T RequireBuildingElement<T>(MainViewModel main, string name) where T : class
+        {
+            T element = main?.HUDBuildingPanel?.FindName(name) as T;
+            if (element == null) throw new MissingMemberException(name);
+            return element;
         }
 
         private void HideRecruitmentControls()
         {
-            if (archerVariantSelector != null) archerVariantSelector.Visibility = Visibility.Collapsed;
-            if (archerVariantTint != null) archerVariantTint.Visibility = Visibility.Collapsed;
+            if (archerVariantHost != null) archerVariantHost.Visibility = Visibility.Collapsed;
         }
 
-        private void OnRecruitmentSelectorMouseDown(object sender, MouseButtonEventArgs args)
+        private void OnRecruitmentPreviousMouseDown(object sender, MouseButtonEventArgs args) => ChangeRecruitmentVariant(args, -1);
+        private void OnRecruitmentNextMouseDown(object sender, MouseButtonEventArgs args) => ChangeRecruitmentVariant(args, 1);
+
+        private void ChangeRecruitmentVariant(MouseButtonEventArgs args, int direction)
         {
-            if (args == null || (args.ChangedButton != MouseButton.Left && args.ChangedButton != MouseButton.Right)) return;
+            if (args == null) return;
+            if (args.ChangedButton != MouseButton.Left)
+            {
+                if (args.ChangedButton == MouseButton.Right) args.Handled = true;
+                return;
+            }
             const int baseType = (int)eChimps.CHIMP_TYPE_ARCHER;
             RecruitmentRegistration[] choices = RecruitmentCopy(baseType);
             if (choices.Length == 0) return;
@@ -823,9 +910,7 @@ namespace APIShared
                 if (recruitmentLease != null) { args.Handled = true; return; }
                 int current = -1;
                 if (activeRecruitment.TryGetValue(baseType, out string key)) current = Array.FindIndex(choices, x => x.Category.Key == key);
-                int next = args.ChangedButton == MouseButton.Left
-                    ? current + 1
-                    : current < 0 ? choices.Length - 1 : current - 1;
+                int next = direction > 0 ? current + 1 : current < 0 ? choices.Length - 1 : current - 1;
                 if (next < 0 || next >= choices.Length) activeRecruitment.Remove(baseType);
                 else activeRecruitment[baseType] = choices[next].Category.Key;
                 refreshRequested = true;
@@ -851,12 +936,9 @@ namespace APIShared
                 unitDetailHost.Visibility = Visibility.Collapsed;
                 return;
             }
-            ImageSource source = ResolveCategoryImage(category, null);
+            ImageSource source = ResolveCategoryImage(category, UnitHudSurface.UnitDetails);
             unitDetailImage.Source = source;
-            unitDetailTint.OpacityMask = source == null ? null : new ImageBrush(source);
-            unitDetailTint.Background = new SolidColorBrush(Noesis.Color.FromArgb(byte.MaxValue,
-                category.Definition.Tint.Red, category.Definition.Tint.Green, category.Definition.Tint.Blue));
-            unitDetailTint.Opacity = 0.22f * category.Definition.Tint.Alpha / byte.MaxValue;
+            ApplyTint(unitDetailTint, category.Definition.Tint, source);
             unitDetailDescription.Text = ResolveText(category, UnitHudTextKind.Description);
             unitDetailHost.Visibility = Visibility.Visible;
         }
@@ -942,13 +1024,17 @@ namespace APIShared
                 if (!armyEntries.TryGetValue(category.Key, out Noesis.Grid grid))
                 {
                     grid = new Noesis.Grid { Width = 64, Height = 76, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom };
-                    var image = new Image { Width = 52, Height = 52, VerticalAlignment = VerticalAlignment.Top, Source = ResolveCategoryImage(category, null) };
+                    var image = new Image { Width = 52, Height = 52, VerticalAlignment = VerticalAlignment.Top };
+                    var tint = new Border { Width = 52, Height = 52, VerticalAlignment = VerticalAlignment.Top, IsHitTestVisible = false };
                     var count = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Foreground = new SolidColorBrush(Noesis.Color.FromArgb(byte.MaxValue, 174, 214, byte.MaxValue)), FontSize = 18 };
-                    grid.Children.Add(image); grid.Children.Add(count);
+                    grid.Children.Add(image); grid.Children.Add(tint); grid.Children.Add(count);
                     host.Children.Add(grid);
                     armyEntries[category.Key] = grid;
                 }
-                ((TextBlock)grid.Children[1]).Text = units.Count.ToString();
+                ImageSource source = ResolveCategoryImage(category, UnitHudSurface.ArmyReport);
+                ((Image)grid.Children[0]).Source = source;
+                ApplyTint((Border)grid.Children[1], category.Definition.Tint, source);
+                ((TextBlock)grid.Children[2]).Text = units.Count.ToString();
                 grid.Margin = new Thickness(4, 0, 4, 0);
                 grid.Visibility = Visibility.Visible;
             }
@@ -1125,7 +1211,11 @@ namespace APIShared
             foreach (InteractionRegistration item in copy) try { item.Handler(context); } catch (Exception ex) { LogCallbackFailure("interaction " + item.Owner + ":" + item.Id, ex); }
         }
 
-        private ImageSource ResolveCategoryImage(CategoryRegistration category, HUD_Troops panel)
+        private ImageSource ResolveCategoryImage(
+            CategoryRegistration category,
+            UnitHudSurface surface,
+            HUD_Troops troopPanel = null,
+            HUD_ControlGroups groupPanel = null)
         {
             try
             {
@@ -1133,15 +1223,52 @@ namespace APIShared
                 if (source != null) return source;
             }
             catch (Exception ex) { LogCallbackFailure("category image " + category.Key, ex); }
+            MainViewModel main = MainViewModel.Instance;
+            if (category.Definition.BaseUnitType == (int)eChimps.CHIMP_TYPE_ARCHER)
+            {
+                if (surface == UnitHudSurface.TroopSelection)
+                {
+                    Button vanillaButton = troopPanel?.FindName("ArchersSelected") as Button;
+                    ImageSource source = vanillaButton == null ? null : PropEx.GetSprite1(vanillaButton) as ImageSource;
+                    return source ?? main?.UIButtonsK023;
+                }
+                if (surface == UnitHudSurface.Recruitment)
+                {
+                    ToggleButton vanillaButton = main?.HUDBuildingPanel?.RefRecruitArcherButton;
+                    ImageSource source = vanillaButton == null ? null : PropEx.GetSprite1(vanillaButton) as ImageSource;
+                    return source ?? main?.UIButtonsO001;
+                }
+            }
             int summary = ToSummaryType(category.Definition.BaseUnitType);
-            if (summary >= 0 && MainViewModel.Instance?.HUDControlGroups != null)
-                return GroupSpriteMethod.Invoke(MainViewModel.Instance.HUDControlGroups, new object[] { summary }) as ImageSource;
-            return MainViewModel.Instance?.UIBuildingsO001;
+            HUD_ControlGroups resolver = groupPanel ?? main?.HUDControlGroups;
+            if (summary >= 0 && resolver != null)
+                return GroupSpriteMethod.Invoke(resolver, new object[] { summary }) as ImageSource;
+            return main?.UIBuildingsO001;
         }
 
         private static void ApplyButtonImage(Button button, ImageSource source)
         {
             PropEx.SetSprite1(button, source); PropEx.SetSprite2(button, source); PropEx.SetSprite3(button, source); PropEx.SetSprite4(button, source);
+        }
+
+        private static void ApplyTroopButtonImages(Button target, CategoryRegistration category, HUD_Troops panel, ImageSource fallback)
+        {
+            if (category.Definition.ImageResolver != null ||
+                category.Definition.BaseUnitType != (int)eChimps.CHIMP_TYPE_ARCHER)
+            {
+                ApplyButtonImage(target, fallback);
+                return;
+            }
+            Button vanilla = panel?.FindName("ArchersSelected") as Button;
+            if (vanilla == null)
+            {
+                ApplyButtonImage(target, fallback);
+                return;
+            }
+            PropEx.SetSprite1(target, PropEx.GetSprite1(vanilla) as ImageSource ?? fallback);
+            PropEx.SetSprite2(target, PropEx.GetSprite2(vanilla) as ImageSource ?? fallback);
+            PropEx.SetSprite3(target, PropEx.GetSprite3(vanilla) as ImageSource ?? fallback);
+            PropEx.SetSprite4(target, PropEx.GetSprite4(vanilla) as ImageSource ?? fallback);
         }
 
         private static void SetPageButtons(HUD_Troops panel, int page, int pages)

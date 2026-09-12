@@ -35,6 +35,7 @@ namespace PreplacedTest.Tests
                 TestPclConnectivityTransitions();
                 TestDynamicWallRolesAndSearchGates();
                 TestWallTileAndShadowSearchModels();
+                TestWoodScoreFloorModel();
                 TestLegacyTimerFixEligibility();
                 TestChoreTransferDirection();
                 TestAivAreaClassification();
@@ -544,6 +545,62 @@ namespace PreplacedTest.Tests
         private static ShadowEconomyCell Cell(int projected04, int raw16, byte wood) =>
             new ShadowEconomyCell(projected04, raw16, wood, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
+        private static void TestWoodScoreFloorModel()
+        {
+            ShadowEconomyCell[] close = Enumerable.Repeat(Cell(127, 0, 0), 9).ToArray();
+            close[4] = Cell(0, 0, 0);
+            close[5] = Cell(0, 0, 1);
+            ShadowEconomySearchResult vanillaClose = ShadowEconomySearch.Run(close, 3, 4,
+                ShadowEconomySearchKind.Wood, 0, -100);
+            ShadowEconomySearchResult fixedClose = ShadowEconomySearch.Run(close, 3, 4,
+                ShadowEconomySearchKind.Wood, 0, int.MinValue);
+            Check(vanillaClose.SelectedCandidateIndex == fixedClose.SelectedCandidateIndex &&
+                vanillaClose.WoodAcceptedCandidateCount == 1 && vanillaClose.BestWoodScore > -100,
+                "the score-floor fix changed a Vanilla-accepted wood result");
+
+            const int width = 70;
+            ShadowEconomyCell[] distant = Enumerable.Repeat(Cell(127, 0, 0), width * width).ToArray();
+            for (int y = 0; y <= 40; y++) distant[y] = Cell(0, 0, 0);
+            distant[40] = Cell(0, 0, 1);
+            ShadowEconomySearchResult vanillaDistant = ShadowEconomySearch.Run(distant, width, 0,
+                ShadowEconomySearchKind.Wood, 0, -100);
+            ShadowEconomySearchResult fixedDistant = ShadowEconomySearch.Run(distant, width, 0,
+                ShadowEconomySearchKind.Wood, 0, int.MinValue);
+            Check(vanillaDistant.WoodCandidateCount == 1 && vanillaDistant.WoodAcceptedCandidateCount == 0 &&
+                vanillaDistant.BestWoodScore <= -100 && vanillaDistant.SelectedCandidateIndex == -1,
+                "Vanilla's implicit -100 wood-score floor was not reproduced");
+            Check(fixedDistant.SelectedCandidateIndex == 40 && fixedDistant.WoodAcceptedCandidateCount == 1 &&
+                fixedDistant.BestWoodScore == vanillaDistant.BestWoodScore,
+                "the direct score-floor correction did not select Vanilla's best formal candidate");
+
+            const int branchWidth = 50;
+            ShadowEconomyCell[] multiple = Enumerable.Repeat(Cell(127, 0, 0), branchWidth * branchWidth).ToArray();
+            for (int y = 0; y <= 25; y++) multiple[20 * branchWidth + y] = Cell(0, 0, 0);
+            multiple[19 * branchWidth + 20] = new ShadowEconomyCell(0, 0, 1, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, true, 1);
+            multiple[19 * branchWidth + 21] = new ShadowEconomyCell(0, 0, 3, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, true, 1);
+            ShadowEconomySearchResult multipleFixed = ShadowEconomySearch.Run(multiple, branchWidth,
+                20 * branchWidth, ShadowEconomySearchKind.Wood, 0, int.MinValue);
+            Check(multipleFixed.WoodCandidateCount == 2 &&
+                multipleFixed.SelectedCandidateIndex == 19 * branchWidth + 21 &&
+                multipleFixed.BestWoodScore == -102,
+                "the corrected floor selected the first/last candidate instead of Vanilla's highest score");
+
+            ShadowEconomyCell penalized = new ShadowEconomyCell(0, 0, 1, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, true, 1);
+            Check(ShadowEconomySearch.CalculateWoodScore(Cell(0, 0, 3), 38) == -99 &&
+                ShadowEconomySearch.CalculateWoodScore(penalized, 40) == -230,
+                "wood score signedness, distance, or byte+06 adjustment diverges from 0x58020");
+
+            ShadowEconomyCell[] closed = Enumerable.Repeat(Cell(127, 0, 0), 9).ToArray();
+            closed[4] = Cell(0, 0, 0);
+            ShadowEconomySearchResult closedResult = ShadowEconomySearch.Run(closed, 3, 4,
+                ShadowEconomySearchKind.Wood, 0, int.MinValue);
+            Check(closedResult.WoodCandidateCount == 0 && closedResult.SelectedCandidateIndex == -1,
+                "the score correction escaped a closed economy region");
+        }
+
         private static void TestAivAreaClassification()
         {
             Check(AivAreaClassifier.Intersects(100, 200, 100, 110, 210, 112, 212), "inside building classified outside");
@@ -597,10 +654,12 @@ namespace PreplacedTest.Tests
                 updateGuide.Contains("`0x37CC7EC`") && updateGuide.Contains("`0x15B90`") &&
                 updateGuide.Contains("`0x1F5F0..0x1F68D`") && updateGuide.Contains("`+0x2AE0`") &&
                 updateGuide.Contains("`0x55FE0`") && updateGuide.Contains("`0x96E30`") &&
+                updateGuide.Contains("`0x3B270`, `0x3B360`, `0x55E10`") &&
+                updateGuide.Contains("marker set but not in the queue") &&
                 updateGuide.Contains("`0x379AFA8`, `0x379AFAC`") &&
                 updateGuide.Contains("RollbackAndThrow"),
                 "native update guide does not cover the new timer-copy contract");
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x55FE0", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x379AFA8", "0x379AFAC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC3C5D", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x583A0", "0x58950", "0x58BE0", "0x6D580", "0xE2610", "0x60AD660", "0x60AD4AC", "0x2D13B0", "0x2D2E50" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x55E10", "0x55FE0", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0x96CE", "0x37CC7EC", "0x379ADD0", "0x379D0CC", "0x379AFA8", "0x379AFAC", "0x8574320", "0x86C132C", "0x85F8FEC", "0x32DC084", "0x50EC690", "0x51890D0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x3B270", "0x3B360", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xB8270", "0xC3BF0", "0xC3C5D", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x58057", "0x583A0", "0x58950", "0x58BE0", "0x6D580", "0xE2610", "0x60AD660", "0x60AD4AC", "0x2D13B0", "0x2D2E50" })
                 Check(source.Contains(rva), "RVA missing: " + rva);
             foreach (string contract in new[] { "AivSpecStride = 0x6D98", "PlayerRuntimeStateStride = 0x583C", "PreparedLayoutFrameCount = 0x922", "PreparedEntrySize = 0x0C", "PauseTableEntryCount =", "pauseIndex < PauseTableEntryCount", "EconomyGridWidth = 160", "EconomyGridCellStride = 0x30", "EconomyGridBaseOffset = 0x5B830", "EconomyReferencePclOffset = 0x5B504", "EconomyVisitGenerationOffset = 0x5B50C", "WoodSearchCooldownRelativeOffset = 0x167C", "FarmSearchCooldownRelativeOffset = 0x167E", "QuarrySearchCooldownRelativeOffset = 0x1680", "IronSearchCooldownRelativeOffset = 0x1682", "PitchSearchCooldownRelativeOffset = 0x1684", "ValidateSize(typeof(GameBuilding), 0x32C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_BuildingId), 0x0C)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_SubjectGlobalId), 0x14)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_EntryTileId), 0x24)", "ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_ExitTileId), 0x30)", "ValidateSize(typeof(PathConnectionRecord), 0x204)", "UnmanagedFunctionPointer(CallingConvention.Cdecl)" })
                 Check(source.Contains(contract), "native ABI/offset contract missing: " + contract);
@@ -610,6 +669,9 @@ namespace PreplacedTest.Tests
                 "delegate int PlacementReachabilityDelegate(ulong manager, int playerId, int structureType, int x, int y)",
                 "delegate void AccessibilitySweepDelegate(ulong manager, int playerId)",
                 "delegate int BuildingAccessibilityDelegate(ulong manager, int buildingId, int mode)",
+                "delegate int InaccessibleBuildingCheckDelegate(ulong state, int buildingId)",
+                "delegate int InaccessibleBuildingSelectionDelegate(ulong state, int playerId)",
+                "delegate void EconomyCellPenaltyDelegate(ulong state, int x, int y)",
                 "delegate long EconomyFarmDelegate(ulong state, int playerId, int desiredStructureType)",
                 "delegate void ResourceSearchDelegate(ulong state, int playerId, int mode)",
                 "delegate void ConstructBuildingDelegate(",
@@ -630,6 +692,8 @@ namespace PreplacedTest.Tests
             Check(source.Contains("players.Clear()"), "map transition does not reset sessions");
             Check(source.Contains("activeEconomyContexts?.Clear()") && source.Contains("lastRoutingSnapshot = null"),
                 "map transition retains economy or routing diagnostic state");
+            Check(source.Contains("activeEconomyOverlayScopes?.Clear()"),
+                "map transition retains the nested active overlay context");
             Check(source.Contains("mapLoadBuildingIdentities.Clear(); mapLoadWallTiles.Clear();") &&
                 source.Contains("wallBaselines.Clear()") && source.Contains("economyOverlayCaches.Clear()"),
                 "map transition retains preplaced wall or economy topology state");
@@ -643,11 +707,24 @@ namespace PreplacedTest.Tests
                 source.Contains("baseline.LostWallTiles.Contains(anchor.WallTileId)") &&
                 !source.Contains("!IsBaselineInteriorConnectedToExterior(baseline)"),
                 "tile-based baseline wall damage or breach correlation is incomplete");
-            Check(source.Contains("PREPLACED_WOOD_SEARCH_PREDICATES") &&
+            Check(source.Contains("PREPLACED_WOOD_SCORE_DIAGNOSTIC") &&
+                source.Contains("PREPLACED_WOOD_SCORE_FIX_APPLIED") &&
+                source.Contains("PREPLACED_WOOD_SCORE_MODEL_MISMATCH") &&
                 source.Contains("PREPLACED_WOOD_DISPATCH_CORRELATION") &&
-                source.Contains("reachedEffectiveCandidates(byte04<6&&byte07>0 within expansion)") &&
-                source.Contains("CaptureWoodTraversalSnapshot"),
-                "compact full wood search correlation is missing");
+                source.Contains("vanillaAcceptedAboveMinus100") &&
+                source.Contains("correctedReplay") &&
+                model.Contains("WoodAcceptedCandidateCount") &&
+                model.Contains("CalculateWoodScore"),
+                "compact direct wood-score correlation is missing");
+            Check(source.Contains("InaccessibleBuildingCheckRva = 0x3B270") &&
+                source.Contains("InaccessibleBuildingSelectionRva = 0x3B360") &&
+                source.Contains("EconomyCellPenaltyRva = 0x55E10") &&
+                source.Contains("PREPLACED_ECONOMY_CELL_PENALTY") &&
+                source.Contains("economyCellPenaltyHook.Original(state, x, y)") &&
+                Regex.Matches(source, @"economyCellPenaltyHook\.Original\(").Count == 1 &&
+                Regex.Matches(source, @"inaccessibleBuildingCheckHook\.Original\(").Count == 1 &&
+                Regex.Matches(source, @"inaccessibleBuildingSelectionHook\.Original\(").Count == 1,
+                "byte+13 writer attribution is incomplete");
             Check(source.Contains("MAP_START_POST") && source.Contains("FirstSchedulerSnapshotEmitted") &&
                 source.Contains("first-active-crushed-delay-observed") &&
                 !source.Contains("FIRST_ACTIVE_CRUSHED_DELAY_RAW"),
@@ -718,7 +795,6 @@ namespace PreplacedTest.Tests
                 source.Contains("ShadowEconomySearch.Run") && source.Contains("CountPclTilesOutsideSet") &&
                 source.Contains("EmitProactiveShadowSuite") && source.Contains("PREPLACED_NATIVE_RESULT_PRE_RESTORE_MISMATCH") &&
                 source.Contains("PREPLACED_SHADOW_NATIVE_NO_RESULT_MISMATCH") &&
-                source.Contains("CaptureNativeTraversalSnapshot") &&
                 model.Contains("heightDifference < 40") && model.Contains("heightDifference < 30") &&
                 model.Contains("heightDifference < 12"),
                 "full player-specific shadow economy traversal is missing");
@@ -824,9 +900,12 @@ namespace PreplacedTest.Tests
                 model.Contains("owner-class-mismatch-byte+15") &&
                 source.Contains("outside-depth-or-disconnected"),
                 "resource shadow rejection diagnostics are incomplete");
-            Check(!source.Contains("AddContextHook") && !source.Contains("X64InlineHook") &&
+            Check(source.Contains("AddContextHook(woodScoreFloorHook") &&
+                source.Contains("WoodScoreFloorHookRva = 0x58057") &&
+                source.Contains("WoodScoreFloorHookLength = 15") &&
+                source.Contains("OverwrittenInstructionPlacement.BeforeCallback") &&
                 !source.Contains("CrushedTimerWriter") && model.Contains("InlineHookBranchSafety"),
-                "unsafe crushed-timer writer inline hook was not removed completely");
+                "the safe scoped wood-score hook or removed damage-writer contract is inconsistent");
             Check(source.Contains("origin={(IsCurrentPreplaced(building.Id) ? \"baseline\" : \"runtime-aiv\")}") &&
                 source.Contains("FullPortalTopologyEmitted") && source.Contains("FullNativeRouteMatrixEmitted"),
                 "baseline/runtime portals or compact topology transitions are not distinguished");
@@ -842,8 +921,10 @@ namespace PreplacedTest.Tests
                 !source.Contains("before = EconomyGridBuildSnapshot.Capture"),
                 "hot economy-grid updates still perform full diagnostic snapshots or lose the Vanilla call");
             Check(Regex.Matches(source, @"CaptureRoutingSnapshot\(").Count == 1 &&
-                Regex.Matches(source, @"CaptureNativeTraversalSnapshot\(").Count == 1 &&
+                Regex.Matches(source, @"CaptureNativeTraversalSnapshot\(").Count == 0 &&
                 Regex.Matches(source, @"ObservePortalTopology\(").Count == 1 &&
+                source.Contains("session.EmittedWoodDifferentialStates.Add(scoreState)") &&
+                source.Contains("wood-score compact-repeat") &&
                 source.Contains("AnalyzeEconomySearchCompact") &&
                 source.Contains("PREPLACED_ECONOMY_SEARCH_COMPACT"),
                 "wall-map hot paths still invoke full routing/traversal diagnostics");
@@ -918,7 +999,7 @@ namespace PreplacedTest.Tests
             string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
             MatchCollection definitions = Regex.Matches(source,
                 @"private const string (?<name>\w+Pattern)\s*=\s*(?<body>.*?);", RegexOptions.Singleline);
-            Check(definitions.Count >= 49, "not all native signatures were discovered by the static test");
+            Check(definitions.Count >= 52, "not all native signatures were discovered by the static test");
             foreach (Match definition in definitions)
             {
                 string name = definition.Groups["name"].Value;
@@ -950,6 +1031,24 @@ namespace PreplacedTest.Tests
                 InlineHookBranchSafety.HasInboundTargetInside(0x7F074, 15,
                     new[] { firstWriterTarget, secondWriterTarget }),
                 "the known unsafe writer-hook span is no longer recognized as having an inbound branch");
+            byte[] woodScoreHookBytes =
+            {
+                0x48, 0x63, 0xC2,
+                0x4C, 0x69, 0xC8, 0x3C, 0x58, 0x00, 0x00,
+                0xB8, 0x67, 0x66, 0x66, 0x66
+            };
+            int woodScoreHookRaw = RvaToRaw(file, 0x58057);
+            Check(file.Skip(woodScoreHookRaw).Take(woodScoreHookBytes.Length).SequenceEqual(woodScoreHookBytes) &&
+                woodScoreHookBytes.Length == 15 && 0x58057 + woodScoreHookBytes.Length == 0x58066,
+                "wood-score hook bytes or exact instruction boundary changed");
+            int[] woodSearchBranchTargets =
+            {
+                0x580DD, 0x5837D, 0x58348, 0x581CE, 0x58309, 0x58304, 0x582B9,
+                0x58265, 0x58263, 0x58318, 0x58297, 0x5831F, 0x582B2, 0x582B9,
+                0x581A0, 0x5831F, 0x5833C, 0x58150, 0x58378
+            };
+            Check(!InlineHookBranchSafety.HasInboundTargetInside(0x58057, 15, woodSearchBranchTargets),
+                "an audited 0x58020 branch enters the wood-score hook interior");
             Check((0x51890D0 - 0x50EC690) / sizeof(ushort) == 320800 &&
                 !TryRvaToRaw(file, 0x50EC690, out _) && !TryRvaToRaw(file, 0x51890D0 - 1, out _),
                 "native PCL range length or PE bounds changed");
@@ -1036,7 +1135,7 @@ namespace PreplacedTest.Tests
                 "chore field-copy memcpy target or function boundary changed");
 
             string functions = File.ReadAllText(Path.Combine("..", "..", "_inspect", "CrusaderDE-Native-Baseline", "sem", "FBCB9319", "exports", "semantic-functions.jsonl"));
-            foreach (string rva in new[] { "0x50680", "0x50720", "0x55FE0", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x583A0", "0x58950", "0x58BE0", "0x6D580", "0xE2610", "0x94350" })
+            foreach (string rva in new[] { "0x50680", "0x50720", "0x55E10", "0x55FE0", "0x572B0", "0x7EB00", "0xD4290", "0x15B90", "0x1F5F0", "0xC3FA0", "0xC43A0", "0xB8310", "0x115830", "0x102C30", "0x2A340", "0x3B270", "0x3B360", "0x54EC0", "0x54F60", "0x54DE0", "0x55320", "0x56670", "0x57080", "0x53D00", "0x539B0", "0x51790", "0x52270", "0x5CD90", "0x7B060", "0xCC420", "0x414A0", "0x41230", "0x41380", "0x41280", "0x3B1D0", "0x50340", "0x504F0", "0xB8270", "0xC3BF0", "0xC8F50", "0xC90E0", "0x50D80", "0x50E00", "0x50F90", "0x51190", "0x51270", "0x51540", "0x57330", "0x575B0", "0x57B80", "0x58020", "0x583A0", "0x58950", "0x58BE0", "0x6D580", "0xE2610", "0x94350" })
                 Check(functions.Contains("\"rva\":\"" + rva + "\""), "baseline function boundary missing: " + rva);
         }
 

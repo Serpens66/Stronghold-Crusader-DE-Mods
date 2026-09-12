@@ -2,6 +2,10 @@ using BepInEx.Logging;
 using R3;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
+using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
@@ -219,6 +223,12 @@ namespace PreplacedTest
             "41 54 41 55 48 83 EC 18 45 33 ED 48 C7 81 30 78 18 00 01 00 00 00";
         private const string WoodSearchPattern =
             "40 53 55 41 56 41 57 48 83 EC 18 33 C0 48 C7 81 30 78 18 00 01 00 00 00";
+        private const string InaccessibleBuildingCheckPattern =
+            "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8D 35 ?? ?? ?? ?? 48 63 FA 4C 69 CF 2C 03 00 00";
+        private const string InaccessibleBuildingSelectionPattern =
+            "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 63 FA 48 8D 05 ?? ?? ?? ?? 48 69 CF 3C 58 00 00";
+        private const string EconomyCellPenaltyPattern =
+            "4C 8B D1 B8 67 66 66 66 F7 EA B8 67 66 66 66 D1 FA 44 8B CA 41 C1 E9 1F 41 03 D1 48 63 D2";
         private const string NearbySearchPattern =
             "41 56 48 83 EC 10 48 C7 81 30 78 18 00 01 00 00 00 45 33 F6";
         private const string ConstructBuildingPattern =
@@ -286,6 +296,12 @@ namespace PreplacedTest
         private const int FarmSearchRva = 0x575B0;
         private const int ResourceSearchRva = 0x57B80;
         private const int WoodSearchRva = 0x58020;
+        private const int WoodScoreFloorHookRva = 0x58057;
+        private const int WoodScoreFloorHookLength = 15;
+        private const int VanillaWoodScoreFloor = -100;
+        private const int InaccessibleBuildingCheckRva = 0x3B270;
+        private const int InaccessibleBuildingSelectionRva = 0x3B360;
+        private const int EconomyCellPenaltyRva = 0x55E10;
         // Audited separately: this AIV open-area search also reads byte+04, but it
         // is not part of the external economy census/search pipeline fixed here.
         private const int AlternativeOpenAreaSearchRva = 0x583A0;
@@ -336,6 +352,9 @@ namespace PreplacedTest
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate long FarmSearchDelegate(ulong state, int playerId, int desiredStructureType);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void ResourceSearchDelegate(ulong state, int playerId, int mode);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void WoodSearchDelegate(ulong state, int playerId);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int InaccessibleBuildingCheckDelegate(ulong state, int buildingId);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int InaccessibleBuildingSelectionDelegate(ulong state, int playerId);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void EconomyCellPenaltyDelegate(ulong state, int x, int y);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void NearbySearchDelegate(ulong state, uint coarseX, uint coarseY);
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void ConstructBuildingDelegate(
             ulong state, int playerId, int x, int y, short mapperValue, int orientation, int mode, byte suppressPostProcessing);
@@ -394,6 +413,13 @@ namespace PreplacedTest
         private readonly DetourHandle<FarmSearchDelegate> farmSearchHook = new DetourHandle<FarmSearchDelegate>();
         private readonly DetourHandle<ResourceSearchDelegate> resourceSearchHook = new DetourHandle<ResourceSearchDelegate>();
         private readonly DetourHandle<WoodSearchDelegate> woodSearchHook = new DetourHandle<WoodSearchDelegate>();
+        private readonly HookHandle<X64InlineHook> woodScoreFloorHook = new HookHandle<X64InlineHook>();
+        private readonly DetourHandle<InaccessibleBuildingCheckDelegate> inaccessibleBuildingCheckHook =
+            new DetourHandle<InaccessibleBuildingCheckDelegate>();
+        private readonly DetourHandle<InaccessibleBuildingSelectionDelegate> inaccessibleBuildingSelectionHook =
+            new DetourHandle<InaccessibleBuildingSelectionDelegate>();
+        private readonly DetourHandle<EconomyCellPenaltyDelegate> economyCellPenaltyHook =
+            new DetourHandle<EconomyCellPenaltyDelegate>();
         private readonly DetourHandle<NearbySearchDelegate> nearbySearchHook = new DetourHandle<NearbySearchDelegate>();
         private readonly DetourHandle<ConstructBuildingDelegate> constructBuildingHook = new DetourHandle<ConstructBuildingDelegate>();
         private readonly DetourHandle<RegionPairReachabilityDelegate> regionPairReachabilityHook = new DetourHandle<RegionPairReachabilityDelegate>();
@@ -426,6 +452,10 @@ namespace PreplacedTest
         [ThreadStatic] private static bool resolvingEconomyOverlayRoutes;
         [ThreadStatic] private static bool reconcilingEconomyAvailability;
         [ThreadStatic] private static int economyOverlayDepth;
+        [ThreadStatic] private static Stack<EconomyGridOverlayScope> activeEconomyOverlayScopes;
+        [ThreadStatic] private static string economyCellPenaltySource;
+        [ThreadStatic] private static int economyCellPenaltyPlayerId;
+        [ThreadStatic] private static int economyCellPenaltyBuildingId;
         private bool mapActive;
         private bool aiOwnershipResolved;
         private string lastObservedPhase = "plugin-start";
@@ -472,6 +502,8 @@ namespace PreplacedTest
         private bool walledEconomyProfile;
         private int economyTopologyRevision;
         private bool suppressDominantPclDiagnostics;
+        private readonly HashSet<string> emittedEconomyCellPenaltySignatures =
+            new HashSet<string>(StringComparer.Ordinal);
 
         public PreplacedTestRuntime(ManualLogSource log) => this.log = log ?? throw new ArgumentNullException(nameof(log));
 
@@ -530,6 +562,13 @@ namespace PreplacedTest
                 ValidateEconomyNeighborOffsetTable(context.Memory);
                 ValidateNativeEconomyStartRanges(context.Memory);
                 ValidatePlacementReachabilityRouteCall(context.Memory, rvas["region-pair-reachability"]);
+                ValidateWoodScoreFloorHook(context.Memory, rvas["wood-search"]);
+                using (var probe = new X64InlineHook(module + WoodScoreFloorHookRva,
+                    WoodScoreFloorHookLength))
+                {
+                    if (probe.DisplacedByteCount != WoodScoreFloorHookLength)
+                        throw new InvalidOperationException("RedBird displaced an unexpected wood-score hook span");
+                }
                 transaction = new HookTransaction(context.Region,
                     SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
                     new HookTransactionOptions { FailureMode = TransactionFailureMode.RollbackAndThrow, OwnsHooks = false });
@@ -567,6 +606,21 @@ namespace PreplacedTest
                 transaction.AddDetour(farmSearchHook, HookTarget.FromAddress(module + (ulong)rvas["farm-search"]), FarmSearch);
                 transaction.AddDetour(resourceSearchHook, HookTarget.FromAddress(module + (ulong)rvas["resource-search"]), ResourceSearch);
                 transaction.AddDetour(woodSearchHook, HookTarget.FromAddress(module + (ulong)rvas["wood-search"]), WoodSearch);
+                transaction.AddContextHook(woodScoreFloorHook,
+                    HookTarget.FromAddress(module + WoodScoreFloorHookRva), ApplyWoodScoreFloor,
+                    new ContextHookOptions
+                    {
+                        Registers = X64SmartCPUContextRegs.All,
+                        HookSize = WoodScoreFloorHookLength,
+                        ErrorMode = CallbackErrorMode.LogAndContinue,
+                        Placement = OverwrittenInstructionPlacement.BeforeCallback
+                    });
+                transaction.AddDetour(inaccessibleBuildingCheckHook,
+                    HookTarget.FromAddress(module + (ulong)rvas["inaccessible-building-check"]), InaccessibleBuildingCheck);
+                transaction.AddDetour(inaccessibleBuildingSelectionHook,
+                    HookTarget.FromAddress(module + (ulong)rvas["inaccessible-building-selection"]), InaccessibleBuildingSelection);
+                transaction.AddDetour(economyCellPenaltyHook,
+                    HookTarget.FromAddress(module + (ulong)rvas["economy-cell-penalty"]), EconomyCellPenalty);
                 transaction.AddDetour(nearbySearchHook, HookTarget.FromAddress(module + (ulong)rvas["nearby-search"]), NearbySearch);
                 transaction.AddDetour(constructBuildingHook, HookTarget.FromAddress(module + (ulong)rvas["construct-building"]), ConstructBuilding);
                 transaction.AddDetour(regionPairReachabilityHook, HookTarget.FromAddress(module + (ulong)rvas["region-pair-reachability"]), RegionPairReachability);
@@ -590,10 +644,11 @@ namespace PreplacedTest
                 transaction.AddDetour(choreCopyFieldHook,
                     HookTarget.FromAddress(module + (ulong)rvas["chore-copy-field"]), ChoreCopyField);
                 CommitResult result = transaction.Commit();
-                if (!result.IsCompleteSuccess || !AllHooksSucceeded())
+                if (!result.IsCompleteSuccess || !AllHooksSucceeded() ||
+                    woodScoreFloorHook.Hook.DisplacedByteCount != WoodScoreFloorHookLength)
                     throw new InvalidOperationException("atomic native hook transaction was incomplete: " + result);
                 Shared.DebugLogHelper.LogInfo(log,
-                    $"PREPLACED_NATIVE_READY: 49 diagnostic detours and two active test fixes installed atomically; unsafe damage-writer inline hook removed; activeLayoutBase=0x{activeLayoutIndexBase:X}, pathManagerBase=0x{nativePathManagerBase:X}, pclRange=0x{NativePclGridRva:X}-0x{NativePclGridEndRva:X} ({NativePclEntryCount} ushorts)." );
+                    $"PREPLACED_NATIVE_READY: 52 diagnostic detours, one scoped wood-score context hook, and two active test fixes installed atomically; unsafe damage-writer inline hook removed; activeLayoutBase=0x{activeLayoutIndexBase:X}, pathManagerBase=0x{nativePathManagerBase:X}, pclRange=0x{NativePclGridRva:X}-0x{NativePclGridEndRva:X} ({NativePclEntryCount} ushorts)." );
             }
             catch (Exception ex)
             {
@@ -639,6 +694,9 @@ namespace PreplacedTest
                 Def("farm-search", FarmSearchPattern, FarmSearchRva),
                 Def("resource-search", ResourceSearchPattern, ResourceSearchRva),
                 Def("wood-search", WoodSearchPattern, WoodSearchRva),
+                Def("inaccessible-building-check", InaccessibleBuildingCheckPattern, InaccessibleBuildingCheckRva),
+                Def("inaccessible-building-selection", InaccessibleBuildingSelectionPattern, InaccessibleBuildingSelectionRva),
+                Def("economy-cell-penalty", EconomyCellPenaltyPattern, EconomyCellPenaltyRva),
                 Def("nearby-search", NearbySearchPattern, NearbySearchRva),
                 Def("construct-building", ConstructBuildingPattern, ConstructBuildingRva),
                 Def("region-pair-reachability", RegionPairReachabilityPattern, RegionPairReachabilityRva),
@@ -796,7 +854,10 @@ namespace PreplacedTest
             buildingAccessibilityHook.Success && economyFarmHook.Success && economyIronHook.Success &&
             economyOxenHook.Success && economyPitchHook.Success && economyQuarryHook.Success &&
             economyWoodHook.Success && farmSearchHook.Success && resourceSearchHook.Success &&
-            woodSearchHook.Success && nearbySearchHook.Success && constructBuildingHook.Success &&
+            woodSearchHook.Success && inaccessibleBuildingCheckHook.Success &&
+            woodScoreFloorHook.Success &&
+            inaccessibleBuildingSelectionHook.Success && economyCellPenaltyHook.Success &&
+            nearbySearchHook.Success && constructBuildingHook.Success &&
             regionPairReachabilityHook.Success && economyGridUpdateHook.Success &&
             initializeEconomyAvailabilityHook.Success && selectDominantPclHook.Success &&
             initializePlayerBuildingsHook.Success && initializeBuildingHook.Success && clearBuildingRecordHook.Success &&
@@ -1710,11 +1771,24 @@ namespace PreplacedTest
             MarkPhase("accessibility-sweep.pre");
             int previous = activeAccessibilityPlayerId;
             List<AccessibilityCallSnapshot> previousCalls = activeAccessibilityCalls;
+            string previousPenaltySource = economyCellPenaltySource;
+            int previousPenaltyPlayer = economyCellPenaltyPlayerId;
+            int previousPenaltyBuilding = economyCellPenaltyBuildingId;
             activeAccessibilityPlayerId = playerId;
             List<AccessibilityCallSnapshot> calls = new List<AccessibilityCallSnapshot>();
             activeAccessibilityCalls = calls;
+            economyCellPenaltySource = "0xC8F50-accessibility-sweep";
+            economyCellPenaltyPlayerId = playerId;
+            economyCellPenaltyBuildingId = 0;
             try { accessibilitySweepHook.Original(manager, playerId); }
-            finally { activeAccessibilityPlayerId = previous; activeAccessibilityCalls = previousCalls; }
+            finally
+            {
+                activeAccessibilityPlayerId = previous;
+                activeAccessibilityCalls = previousCalls;
+                economyCellPenaltySource = previousPenaltySource;
+                economyCellPenaltyPlayerId = previousPenaltyPlayer;
+                economyCellPenaltyBuildingId = previousPenaltyBuilding;
+            }
             Safe(() =>
             {
                 PlayerSession session = IsAi(playerId) ? Session(playerId) : null;
@@ -1735,6 +1809,118 @@ namespace PreplacedTest
             MarkPhase("accessibility-sweep.post");
         }
 
+        private int InaccessibleBuildingCheck(ulong state, int buildingId)
+        {
+            string previousSource = economyCellPenaltySource;
+            int previousPlayer = economyCellPenaltyPlayerId;
+            int previousBuilding = economyCellPenaltyBuildingId;
+            economyCellPenaltySource = "0x3B270-inaccessible-building-check";
+            economyCellPenaltyBuildingId = buildingId;
+            economyCellPenaltyPlayerId = 0;
+            Safe(() =>
+            {
+                if (TryCaptureBuilding(buildingId, out BuildingSnapshot building))
+                    economyCellPenaltyPlayerId = building.OwnerId;
+            });
+            try { return inaccessibleBuildingCheckHook.Original(state, buildingId); }
+            finally
+            {
+                economyCellPenaltySource = previousSource;
+                economyCellPenaltyPlayerId = previousPlayer;
+                economyCellPenaltyBuildingId = previousBuilding;
+            }
+        }
+
+        private int InaccessibleBuildingSelection(ulong state, int playerId)
+        {
+            string previousSource = economyCellPenaltySource;
+            int previousPlayer = economyCellPenaltyPlayerId;
+            int previousBuilding = economyCellPenaltyBuildingId;
+            economyCellPenaltySource = "0x3B360-inaccessible-building-selection";
+            economyCellPenaltyPlayerId = playerId;
+            economyCellPenaltyBuildingId = 0;
+            try { return inaccessibleBuildingSelectionHook.Original(state, playerId); }
+            finally
+            {
+                economyCellPenaltySource = previousSource;
+                economyCellPenaltyPlayerId = previousPlayer;
+                economyCellPenaltyBuildingId = previousBuilding;
+            }
+        }
+
+        private void EconomyCellPenalty(ulong state, int x, int y)
+        {
+            int coarseX = x / EconomyCoarseCellTileSize;
+            int coarseY = y / EconomyCoarseCellTileSize;
+            bool valid = state != 0 && x >= 0 && y >= 0 &&
+                (uint)coarseX < EconomyGridWidth && (uint)coarseY < EconomyGridWidth;
+            byte before13 = 0;
+            byte before17 = 0;
+            if (valid)
+            {
+                byte* cell = (byte*)state + EconomyGridBaseOffset +
+                    (coarseX * EconomyGridWidth + coarseY) * EconomyGridCellStride;
+                before13 = cell[0x13];
+                before17 = cell[0x17];
+            }
+
+            economyCellPenaltyHook.Original(state, x, y);
+
+            // The writer can run before OnStartMap Post resolves the map profile.
+            // Keep those early calls; discard only a map already proven unrelated.
+            if (!mapActive || diagnosticProfileResolved && !walledEconomyProfile) return;
+            Safe(() =>
+            {
+                int playerId = economyCellPenaltyPlayerId;
+                int buildingId = economyCellPenaltyBuildingId;
+                BuildingSnapshot? building = null;
+                if (buildingId > 0 && TryCaptureBuilding(buildingId, out BuildingSnapshot captured))
+                    building = captured;
+                else
+                {
+                    List<BuildingSnapshot> buildings = CaptureRawBuildings();
+                    BuildingSnapshot match = buildings.FirstOrDefault(value =>
+                        value.TileX == x && value.TileY == y);
+                    if (match.Id <= 0)
+                        match = buildings.FirstOrDefault(value => value.TileX <= x && value.EndX >= x &&
+                            value.TileY <= y && value.EndY >= y);
+                    if (match.Id > 0)
+                    {
+                        building = match;
+                        buildingId = match.Id;
+                        if (playerId == 0) playerId = match.OwnerId;
+                    }
+                }
+
+                byte after13 = 0;
+                byte after17 = 0;
+                if (valid)
+                {
+                    byte* cell = (byte*)state + EconomyGridBaseOffset +
+                        (coarseX * EconomyGridWidth + coarseY) * EconomyGridCellStride;
+                    after13 = cell[0x13];
+                    after17 = cell[0x17];
+                }
+                string source = economyCellPenaltySource ?? "unattributed";
+                string type = building.HasValue ? building.Value.Type.ToString() : "unresolved";
+                bool preplaced = buildingId > 0 &&
+                    (IsCurrentPreplaced(buildingId) || mapLoadBuildingIdentities.ContainsKey(buildingId));
+                uint globalId = building.HasValue ? building.Value.GlobalId : 0U;
+                string counter = $"economy-cell-penalty source={source} valid={valid} preplaced={preplaced} type={type}";
+                if (IsAi(playerId)) Session(playerId).Counters.Add(counter);
+                else RecordUnattributed(counter);
+
+                string signature = $"{mapSequence}/{playerId}/{source}/{buildingId}/{coarseX}/{coarseY}/" +
+                    $"{before13}/{after13}/{before17}/{after17}";
+                if (emittedEconomyCellPenaltySignatures.Add(signature))
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"PREPLACED_ECONOMY_CELL_PENALTY: player={playerId}; source={source}; " +
+                        $"building={buildingId}/global={globalId}/{type}/preplaced={preplaced}; world=({x},{y}); " +
+                        $"coarse=({coarseX},{coarseY}); valid={valid}; byte+13={before13}->{after13}; " +
+                        $"byte+17={before17}->{after17}.");
+            });
+        }
+
         private int BuildingAccessibility(ulong manager, int buildingId, int mode)
         {
             MarkPhase("building-accessibility.pre");
@@ -1745,6 +1931,12 @@ namespace PreplacedTest
                     TryCaptureBuilding(buildingId, out BuildingSnapshot snapshot)) before = snapshot;
             });
             int result = buildingAccessibilityHook.Original(manager, buildingId, mode);
+            if (activeAccessibilityPlayerId != 0)
+            {
+                economyCellPenaltySource = "0xC8F50-accessibility-sweep";
+                economyCellPenaltyPlayerId = activeAccessibilityPlayerId;
+                economyCellPenaltyBuildingId = BuildingAccessibilityResult.IsRejected(result) ? buildingId : 0;
+            }
             Safe(() =>
             {
                 if (activeAccessibilityPlayerId == 0) return;
@@ -1933,21 +2125,25 @@ namespace PreplacedTest
                 overlay =>
                 {
                     EconomyGridState observed = CaptureEconomyGridState(state);
-                    if (observed.Generation != before.Generation)
-                        nativeTraversal = CaptureWoodTraversalSnapshot(state);
-                    else
-                    {
-                        int resultIndex = (uint)observed.ResultX < EconomyGridWidth &&
-                            (uint)observed.ResultY < EconomyGridWidth
-                            ? observed.ResultX * EconomyGridWidth + observed.ResultY : -1;
-                        nativeTraversal = new NativeEconomyTraversalSnapshot(observed.Generation,
-                            Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), resultIndex,
-                            observed.QueueRead, observed.QueueWrite, observed.Depth);
-                    }
+                    int resultIndex = (uint)observed.ResultX < EconomyGridWidth &&
+                        (uint)observed.ResultY < EconomyGridWidth
+                        ? observed.ResultX * EconomyGridWidth + observed.ResultY : -1;
+                    PlayerSession session = IsAi(playerId) ? Session(playerId) : null;
+                    string differentialState = session == null ? null : WoodDifferentialStateKey(session, overlay);
+                    string scoreState = differentialState + "/floor=" +
+                        (overlay?.WoodScoreFloorApplied == true) + "/result=" + (resultIndex >= 0);
+                    bool captureScore = observed.Generation != before.Generation && session != null &&
+                        session.EmittedWoodDifferentialStates.Add(scoreState);
+                    nativeTraversal = new NativeEconomyTraversalSnapshot(observed.Generation,
+                        Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), resultIndex,
+                        observed.QueueRead, observed.QueueWrite, observed.Depth);
                     EmitNativeResultBeforeOverlayRestore(state, playerId,
                         "wood-search", 0, overlay);
-                    EmitWoodSearchPredicateSummary(state, playerId, before.Generation,
-                        cooldownBefore, overlay, nativeTraversal);
+                    if (captureScore)
+                        EmitWoodScoreSummary(state, playerId, cooldownBefore, overlay, nativeTraversal);
+                    else if (session != null)
+                        session.Counters.Add("wood-score compact-repeat state=" +
+                            (differentialState ?? "unresolved") + " result=" + FormatEconomyIndex(resultIndex));
                 }, cooldownBefore <= 0);
             short cooldownAfter = ReadPlayerInt16(playerId, WoodSearchCooldownRelativeOffset, 0);
             ObserveEconomySearch(state, playerId, "wood-search", eStructs.STRUCT_WOODCUTTERS_HUT,
@@ -2337,6 +2533,7 @@ namespace PreplacedTest
             Action<T, EconomyGridOverlayScope> observeBeforeRestore = null, bool applyOverlay = true)
         {
             EconomyGridOverlayScope overlay = null;
+            bool overlayContextPushed = false;
             try
             {
                 if (applyOverlay)
@@ -2349,6 +2546,13 @@ namespace PreplacedTest
 
             try
             {
+                if (overlay != null)
+                {
+                    if (activeEconomyOverlayScopes == null)
+                        activeEconomyOverlayScopes = new Stack<EconomyGridOverlayScope>();
+                    activeEconomyOverlayScopes.Push(overlay);
+                    overlayContextPushed = true;
+                }
                 T result = original();
                 if (observeBeforeRestore != null)
                     Safe(() => observeBeforeRestore(result, overlay));
@@ -2356,8 +2560,42 @@ namespace PreplacedTest
             }
             finally
             {
+                if (overlayContextPushed)
+                {
+                    if (activeEconomyOverlayScopes == null || activeEconomyOverlayScopes.Count == 0 ||
+                        !ReferenceEquals(activeEconomyOverlayScopes.Peek(), overlay))
+                    {
+                        DisableEconomyFix("overlay-context-restore",
+                            new InvalidOperationException("The nested economy-overlay context stack was corrupted."));
+                    }
+                    else activeEconomyOverlayScopes.Pop();
+                }
                 if (overlay != null)
                     RestoreEconomyGridOverlay(overlay);
+            }
+        }
+
+        private void ApplyWoodScoreFloor(NativePointer<X64SmartCPUContext> context)
+        {
+            try
+            {
+                if (!economyFixEnabled || activeEconomyOverlayScopes == null ||
+                    activeEconomyOverlayScopes.Count == 0) return;
+                X64SmartCPUContext* registers = context.Pointer;
+                EconomyGridOverlayScope overlay = activeEconomyOverlayScopes.Peek();
+                int playerId = unchecked((int)(uint)registers->RDX);
+                if (overlay.State != registers->RCX || overlay.PlayerId != playerId ||
+                    !string.Equals(overlay.Helper, "wood-search", StringComparison.Ordinal) ||
+                    !players.TryGetValue(playerId, out PlayerSession session) ||
+                    (session.EconomyFixState != EconomyFixActivationState.ActivePortal &&
+                     session.EconomyFixState != EconomyFixActivationState.ActiveBreach)) return;
+
+                registers->RBX = unchecked((ulong)(uint)int.MinValue);
+                overlay.WoodScoreFloorApplied = true;
+            }
+            catch (Exception ex)
+            {
+                DisableEconomyFix("wood-score-floor-context", ex);
             }
         }
 
@@ -2490,6 +2728,22 @@ namespace PreplacedTest
                 AlternativeOpenAreaSearchRva < 0 || AlternativeOpenAreaSearchRva >= memory.Length ||
                 AivReachableOpenAreaSearchRva < 0 || AivReachableOpenAreaSearchRva >= memory.Length)
                 throw new InvalidOperationException("native per-player economy-start coordinate range differs");
+        }
+
+        private static void ValidateWoodScoreFloorHook(ReadOnlySpan<byte> memory, int woodSearchRva)
+        {
+            byte[] expected =
+            {
+                0x48, 0x63, 0xC2,
+                0x4C, 0x69, 0xC8, 0x3C, 0x58, 0x00, 0x00,
+                0xB8, 0x67, 0x66, 0x66, 0x66
+            };
+            if (woodSearchRva != WoodSearchRva || expected.Length != WoodScoreFloorHookLength ||
+                WoodScoreFloorHookRva < WoodSearchRva ||
+                WoodScoreFloorHookRva + WoodScoreFloorHookLength > WoodSearchRva + 0x371 ||
+                WoodScoreFloorHookRva + WoodScoreFloorHookLength > memory.Length ||
+                !memory.Slice(WoodScoreFloorHookRva, WoodScoreFloorHookLength).SequenceEqual(expected))
+                throw new InvalidOperationException("wood-score hook bytes, boundary, or function contract differ");
         }
 
         private bool TryGetEconomyOverlayCache(int playerId, out EconomyOverlayCache cache)
@@ -2835,126 +3089,62 @@ namespace PreplacedTest
                 *(int*)(memory + EconomyResultYOffset));
         }
 
-        private NativeEconomyTraversalSnapshot CaptureNativeTraversalSnapshot(ulong state)
-        {
-            if (state == 0) return NativeEconomyTraversalSnapshot.Unavailable;
-            EconomyGridState gridState = CaptureEconomyGridState(state);
-            var visited = new List<int>();
-            var depths = Enumerable.Repeat(-1, EconomyGridCellCount).ToArray();
-            byte* memory = (byte*)state;
-            for (int index = 0; index < EconomyGridCellCount; index++)
-            {
-                byte* cell = memory + EconomyGridBaseOffset + index * EconomyGridCellStride;
-                if (*(int*)cell != gridState.Generation) continue;
-                visited.Add(index);
-                depths[index] = cell[0x05];
-            }
-
-            var queueOrder = new List<int>();
-            int queueWrite = gridState.QueueWrite;
-            if (queueWrite >= 0 && queueWrite <= EconomyGridCellCount)
-            {
-                for (int slot = 0; slot < queueWrite; slot++)
-                {
-                    int x = *(int*)(memory + EconomyQueueWriteOffset + sizeof(int) + slot * sizeof(int));
-                    int y = *(int*)(memory + EconomyQueueWriteOffset + sizeof(int) +
-                        EconomyGridCellCount * sizeof(int) + slot * sizeof(int));
-                    if ((uint)x >= EconomyGridWidth || (uint)y >= EconomyGridWidth) break;
-                    queueOrder.Add(x * EconomyGridWidth + y);
-                }
-            }
-            int resultIndex = (uint)gridState.ResultX < EconomyGridWidth &&
-                (uint)gridState.ResultY < EconomyGridWidth
-                ? gridState.ResultX * EconomyGridWidth + gridState.ResultY : -1;
-            return new NativeEconomyTraversalSnapshot(gridState.Generation, visited.ToArray(),
-                depths, queueOrder.ToArray(), resultIndex, gridState.QueueRead, gridState.QueueWrite,
-                gridState.Depth);
-        }
-
-        private NativeEconomyTraversalSnapshot CaptureWoodTraversalSnapshot(ulong state)
-        {
-            if (state == 0) return NativeEconomyTraversalSnapshot.Unavailable;
-            EconomyGridState gridState = CaptureEconomyGridState(state);
-            byte* memory = (byte*)state;
-            var queueOrder = new List<int>();
-            int queueWrite = gridState.QueueWrite;
-            if (queueWrite >= 0 && queueWrite <= EconomyGridCellCount)
-            {
-                for (int slot = 0; slot < queueWrite; slot++)
-                {
-                    int x = *(int*)(memory + EconomyQueueWriteOffset + sizeof(int) + slot * sizeof(int));
-                    int y = *(int*)(memory + EconomyQueueWriteOffset + sizeof(int) +
-                        EconomyGridCellCount * sizeof(int) + slot * sizeof(int));
-                    if ((uint)x >= EconomyGridWidth || (uint)y >= EconomyGridWidth) break;
-                    queueOrder.Add(x * EconomyGridWidth + y);
-                }
-            }
-            int resultIndex = (uint)gridState.ResultX < EconomyGridWidth &&
-                (uint)gridState.ResultY < EconomyGridWidth
-                ? gridState.ResultX * EconomyGridWidth + gridState.ResultY : -1;
-            var observed = new HashSet<int>(queueOrder);
-            if (resultIndex >= 0) observed.Add(resultIndex);
-            return new NativeEconomyTraversalSnapshot(gridState.Generation, observed.ToArray(),
-                Array.Empty<int>(), queueOrder.ToArray(), resultIndex, gridState.QueueRead,
-                gridState.QueueWrite, gridState.Depth);
-        }
-
-        private void EmitWoodSearchPredicateSummary(ulong state, int playerId, int generationBefore,
-            int cooldownBefore,
+        private void EmitWoodScoreSummary(ulong state, int playerId, int cooldownBefore,
             EconomyGridOverlayScope overlay, NativeEconomyTraversalSnapshot traversal)
         {
             if (state == 0 || !IsAi(playerId) || traversal == null || !traversal.IsAvailable) return;
             PlayerSession session = Session(playerId);
-            bool performedTraversal = traversal.Generation != generationBefore;
-            if (!performedTraversal)
-            {
-                string earlySignature = $"early/{cooldownBefore}/{traversal.ResultIndex}";
-                session.Counters.Add("wood-predicate traversal=false cooldown=" + cooldownBefore);
-                if (session.EmittedWoodPredicateSignatures.Add(earlySignature))
-                    Shared.DebugLogHelper.LogInfo(log,
-                        $"PREPLACED_WOOD_SEARCH_PREDICATES: player={playerId}; state={session.EconomyFixState}; " +
-                        $"traversal=false; cooldownBefore={cooldownBefore}; result={FormatEconomyIndex(traversal.ResultIndex)}; " +
-                        "cell predicates were not rescanned because Vanilla did not advance the visit generation.");
-                return;
-            }
+            if (!TryGetNativeEconomyStart(playerId, out int nativeStartX, out int nativeStartY)) return;
+            int startX = nativeStartX / EconomyCoarseCellTileSize;
+            int startY = nativeStartY / EconomyCoarseCellTileSize;
+            if ((uint)startX >= EconomyGridWidth || (uint)startY >= EconomyGridWidth) return;
+
             byte* memory = (byte*)state;
             int censusEligible = ReadPlayerInt16(playerId, WoodAvailabilityCountRelativeOffset, 0);
-            int expansionEligible = 0;
-            int effectiveCandidates = 0;
-            int rejectedPcl = 0;
-            int rejectedDensity = 0;
-            int rejectedBlocked = 0;
-            foreach (int index in traversal.VisitedIndices)
+            var cells = new ShadowEconomyCell[EconomyGridCellCount];
+            for (int index = 0; index < cells.Length; index++)
             {
                 byte* cell = memory + EconomyGridBaseOffset + index * EconomyGridCellStride;
-                bool expansion = (sbyte)cell[0x04] < WoodExpansionCellValueExclusive && cell[0x13] == 0;
-                bool pclCandidate = (sbyte)cell[0x04] < 6;
-                bool densityCandidate = (sbyte)cell[0x07] > 0;
-                bool candidate = expansion && pclCandidate && densityCandidate;
-                if (expansion) expansionEligible++;
-                if (candidate) effectiveCandidates++;
-                else if (!pclCandidate) rejectedPcl++;
-                else if (!densityCandidate) rejectedDensity++;
-                else if (cell[0x13] != 0) rejectedBlocked++;
+                byte rawOwnerClass = cell[0x15];
+                cells[index] = new ShadowEconomyCell((sbyte)cell[0x04], (sbyte)cell[0x16], cell[0x07],
+                    cell[0x08], cell[0x09], cell[0x0A], cell[0x0B], cell[0x0C], cell[0x0D],
+                    cell[0x0E], cell[0x0F], cell[0x11], cell[0x12], cell[0x13], rawOwnerClass,
+                    PlayerClassMatches(playerId, rawOwnerClass), cell[0x06]);
             }
 
-            string result = FormatEconomyIndex(traversal.ResultIndex);
-            string overlayText = overlay == null ? "vanilla" :
-                $"active/changed={overlay.ChangedCells}/keepPcl={overlay.KeepPcl}/reachable=[{string.Join(",", overlay.ReachablePcls)}]";
-            string semantic = $"{cooldownBefore}/{traversal.VisitedIndices.Length}/{traversal.QueueRead}/" +
-                $"{traversal.QueueWrite}/{traversal.ResultIndex}/{censusEligible}/{expansionEligible}/" +
-                $"{effectiveCandidates}/{rejectedPcl}/{rejectedDensity}/{rejectedBlocked}";
-            session.Counters.Add("wood-predicate result=" + result + " reachedCandidates=" + effectiveCandidates);
+            int startIndex = startX * EconomyGridWidth + startY;
+            ShadowEconomySearchResult vanilla = ShadowEconomySearch.Run(cells, EconomyGridWidth,
+                startIndex, ShadowEconomySearchKind.Wood, 0, VanillaWoodScoreFloor);
+            ShadowEconomySearchResult corrected = ShadowEconomySearch.Run(cells, EconomyGridWidth,
+                startIndex, ShadowEconomySearchKind.Wood, 0, int.MinValue);
+            bool floorApplied = overlay?.WoodScoreFloorApplied == true;
+            int expectedResult = floorApplied ? corrected.SelectedCandidateIndex : vanilla.SelectedCandidateIndex;
+            bool modelMatches = expectedResult == traversal.ResultIndex;
+            bool recoveredByFloor = floorApplied && vanilla.SelectedCandidateIndex < 0 &&
+                corrected.SelectedCandidateIndex >= 0 && traversal.ResultIndex >= 0;
+            string semantic = $"{session.EconomyFixState}/{cooldownBefore}/{floorApplied}/{traversal.ResultIndex}/" +
+                $"{vanilla.WoodCandidateCount}/{vanilla.WoodAcceptedCandidateCount}/{vanilla.BestWoodScore}/" +
+                $"{vanilla.SelectedCandidateIndex}/{corrected.SelectedCandidateIndex}/{modelMatches}";
+            session.Counters.Add("wood-score formal=" + vanilla.WoodCandidateCount +
+                " accepted=" + vanilla.WoodAcceptedCandidateCount + " recovered=" + recoveredByFloor);
             if (!session.EmittedWoodPredicateSignatures.Add(semantic)) return;
-            Shared.DebugLogHelper.LogInfo(log,
-                $"PREPLACED_WOOD_SEARCH_PREDICATES: player={playerId}; state={session.EconomyFixState}; " +
-                $"cooldownBefore={cooldownBefore}; generation={traversal.Generation}; depth={traversal.Depth}; " +
-                $"queue={traversal.QueueRead}->{traversal.QueueWrite}; visited={traversal.VisitedIndices.Length}; result={result}; " +
-                $"overlay={overlayText}; censusAvailabilityField(+1686)={censusEligible}; " +
-                $"reachedExpansionEligible(byte04<16&&byte13==0)={expansionEligible}; " +
-                $"reachedEffectiveCandidates(byte04<6&&byte07>0 within expansion)={effectiveCandidates}; " +
-                $"reachedFirstRejectCounts[pcl={rejectedPcl},density={rejectedDensity},blocked13={rejectedBlocked}].");
+            string label = recoveredByFloor ? "PREPLACED_WOOD_SCORE_FIX_APPLIED: " :
+                modelMatches ? "PREPLACED_WOOD_SCORE_DIAGNOSTIC: " : "PREPLACED_WOOD_SCORE_MODEL_MISMATCH: ";
+            Shared.DebugLogHelper.LogInfo(log, label +
+                $"player={playerId}; state={session.EconomyFixState}; cooldownBefore={cooldownBefore}; " +
+                $"generation={traversal.Generation}; nativeResult={FormatEconomyIndex(traversal.ResultIndex)}; " +
+                $"scoreFloorApplied={floorApplied}; formalCandidates={vanilla.WoodCandidateCount}; " +
+                $"vanillaAcceptedAboveMinus100={vanilla.WoodAcceptedCandidateCount}; " +
+                $"bestFormalScore={(vanilla.WoodCandidateCount == 0 ? "none" : vanilla.BestWoodScore.ToString())}; " +
+                $"vanillaReplay={FormatEconomyIndex(vanilla.SelectedCandidateIndex)}; " +
+                $"correctedReplay={FormatEconomyIndex(corrected.SelectedCandidateIndex)}; " +
+                $"modelMatches={modelMatches}; recoveredByFloor={recoveredByFloor}; " +
+                $"censusAvailabilityField(+1686)={censusEligible}.");
         }
+
+        private static string WoodDifferentialStateKey(PlayerSession session, EconomyGridOverlayScope overlay) =>
+            session.EconomyFixState + "/" +
+            (overlay == null ? "vanilla" : overlay.KeepPcl + "/" + string.Join(",", overlay.ReachablePcls));
 
         private void ObserveEconomySearch(ulong state, int playerId, string helper, eStructs? desiredType,
             string arguments, EconomyGridState before, bool? candidateFoundOverride = null,
@@ -4679,7 +4869,9 @@ namespace PreplacedTest
                 foreach (int playerId in players.Keys.ToArray()) FinalizePlayer(playerId, "map-transition");
             FinalizeUnattributed("map-transition");
             players.Clear(); mapSequence++; activeExecute = null; activeSelectionPlayerId = 0;
-            activeEconomyContexts?.Clear(); lastRoutingSnapshot = null;
+            activeEconomyContexts?.Clear();
+            activeEconomyOverlayScopes?.Clear();
+            lastRoutingSnapshot = null;
             earlyOwnerEvents.Clear(); earlyOwnerInventories.Clear(); pendingRawInventories.Clear(); pendingDamage.Clear(); unattributedCounters.Clear();
             mapLoadBuildingIdentities.Clear(); mapLoadWallTiles.Clear();
             preAivBaselineCaptured = false;
@@ -4702,6 +4894,7 @@ namespace PreplacedTest
             activeAccessibilityCalls = null;
             emittedGridUpdateSignatures.Clear();
             emittedDominantPclSignatures.Clear();
+            emittedEconomyCellPenaltySignatures.Clear();
             emittedInvalidPclAccesses.Clear();
             emittedShadowSearchSignatures.Clear();
             emittedOverlaySignatures.Clear();
@@ -4716,6 +4909,9 @@ namespace PreplacedTest
             reconcilingEconomyAvailability = false;
             economyOverlayDepth = 0;
             resolvingEconomyOverlayRoutes = false;
+            economyCellPenaltySource = null;
+            economyCellPenaltyPlayerId = 0;
+            economyCellPenaltyBuildingId = 0;
             economyTopologyRevision = 0;
             lastAivState = 0;
             nextUnattributedFlushUtc = DateTime.UtcNow.AddSeconds(1);
@@ -5512,6 +5708,7 @@ namespace PreplacedTest
             public HashSet<string> EmittedPostBreachSearchKinds { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedOracleSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedWoodPredicateSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
+            public HashSet<string> EmittedWoodDifferentialStates { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedWoodDispatchSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedNativeRouteMatrices { get; } = new HashSet<string>(StringComparer.Ordinal);
             public bool FullPortalTopologyEmitted { get; set; }
@@ -5620,6 +5817,7 @@ namespace PreplacedTest
             public int PresentPclCount { get; }
             public int ChangedCells { get; }
             public int Depth { get; }
+            public bool WoodScoreFloorApplied { get; set; }
         }
 
         private readonly struct ConstructionObservation

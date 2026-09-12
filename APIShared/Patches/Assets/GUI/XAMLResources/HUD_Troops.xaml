@@ -3,14 +3,14 @@
   <Operation Type="Add" XPath="//n:Grid[@Name='TroopSelectionControls']">
     <Content>
       <Grid x:Name="APISharedUnitHudCategoryHost">
-        <Button x:Name="APISharedUnitHudSlot1" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
-        <Button x:Name="APISharedUnitHudSlot2" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
-        <Button x:Name="APISharedUnitHudSlot3" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
-        <Button x:Name="APISharedUnitHudSlot4" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
-        <Button x:Name="APISharedUnitHudSlot5" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
-        <Button x:Name="APISharedUnitHudSlot6" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
-        <Button x:Name="APISharedUnitHudSlot7" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
-        <Button x:Name="APISharedUnitHudSlot8" Width="45" Height="86" Style="{StaticResource BTN_Image}" Visibility="Collapsed" />
+        <Grid x:Name="APISharedUnitHudSlotHost1" Width="45" Height="86" Visibility="Collapsed"><Button x:Name="APISharedUnitHudSlot1" Width="45" Height="86" Style="{StaticResource BTN_Image}" /><Border x:Name="APISharedUnitHudSlotTint1" IsHitTestVisible="False" /></Grid>
+        <Grid x:Name="APISharedUnitHudSlotHost2" Width="45" Height="86" Visibility="Collapsed"><Button x:Name="APISharedUnitHudSlot2" Width="45" Height="86" Style="{StaticResource BTN_Image}" /><Border x:Name="APISharedUnitHudSlotTint2" IsHitTestVisible="False" /></Grid>
+        <Grid x:Name="APISharedUnitHudSlotHost3" Width="45" Height="86" Visibility="Collapsed"><Button x:Name="APISharedUnitHudSlot3" Width="45" Height="86" Style="{StaticResource BTN_Image}" /><Border x:Name="APISharedUnitHudSlotTint3" IsHitTestVisible="False" /></Grid>
+        <Grid x:Name="APISharedUnitHudSlotHost4" Width="45" Height="86" Visibility="Collapsed"><Button x:Name="APISharedUnitHudSlot4" Width="45" Height="86" Style="{StaticResource BTN_Image}" /><Border x:Name="APISharedUnitHudSlotTint4" IsHitTestVisible="False" /></Grid>
+        <Grid x:Name="APISharedUnitHudSlotHost5" Width="45" Height="86" Visibility="Collapsed"><Button x:Name="APISharedUnitHudSlot5" Width="45" Height="86" Style="{StaticResource BTN_Image}" /><Border x:Name="APISharedUnitHudSlotTint5" IsHitTestVisible="False" /></Grid>
+        <Grid x:Name="APISharedUnitHudSlotHost6" Width="45" Height="86" Visibility="Collapsed"><Button x:Name="APISharedUnitHudSlot6" Width="45" Height="86" Style="{StaticResource BTN_Image}" /><Border x:Name="APISharedUnitHudSlotTint6" IsHitTestVisible="False" /></Grid>
+        <Grid x:Name="APISharedUnitHudSlotHost7" Width="45" Height="86" Visibility="Collapsed"><Button x:Name="APISharedUnitHudSlot7" Width="45" Height="86" Style="{StaticResource BTN_Image}" /><Border x:Name="APISharedUnitHudSlotTint7" IsHitTestVisible="False" /></Grid>
+        <Grid x:Name="APISharedUnitHudSlotHost8" Width="45" Height="86" Visibility="Collapsed"><Button x:Name="APISharedUnitHudSlot8" Width="45" Height="86" Style="{StaticResource BTN_Image}" /><Border x:Name="APISharedUnitHudSlotTint8" IsHitTestVisible="False" /></Grid>
       </Grid>
     </Content>
   </Operation>

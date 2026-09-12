@@ -529,12 +529,18 @@ namespace PreplacedTest
     {
         public ShadowEconomySearchResult(int reachableCount, int[] reachedIndices,
             int[] blockedIndices, int[] candidateIndices, int[] depths, int[] queueOrderIndices,
-            int selectedCandidateIndex = -1)
+            int selectedCandidateIndex = -1, int woodCandidateCount = 0,
+            int woodAcceptedCandidateCount = 0, int bestWoodScore = int.MinValue,
+            int woodScoreFloor = -100)
         {
             ReachableCount = reachableCount; ReachedIndices = reachedIndices;
             BlockedIndices = blockedIndices; CandidateIndices = candidateIndices;
             Depths = depths; QueueOrderIndices = queueOrderIndices;
             SelectedCandidateIndex = selectedCandidateIndex;
+            WoodCandidateCount = woodCandidateCount;
+            WoodAcceptedCandidateCount = woodAcceptedCandidateCount;
+            BestWoodScore = bestWoodScore;
+            WoodScoreFloor = woodScoreFloor;
         }
         public int ReachableCount { get; }
         public int[] ReachedIndices { get; }
@@ -543,6 +549,10 @@ namespace PreplacedTest
         public int[] Depths { get; }
         public int[] QueueOrderIndices { get; }
         public int SelectedCandidateIndex { get; }
+        public int WoodCandidateCount { get; }
+        public int WoodAcceptedCandidateCount { get; }
+        public int BestWoodScore { get; }
+        public int WoodScoreFloor { get; }
         public int FirstCandidateIndex => SelectedCandidateIndex >= 0 ? SelectedCandidateIndex :
             CandidateIndices.Length == 0 ? -1 : CandidateIndices[0];
     }
@@ -550,7 +560,7 @@ namespace PreplacedTest
     internal static class ShadowEconomySearch
     {
         public static ShadowEconomySearchResult Run(ShadowEconomyCell[] cells, int width, int startIndex,
-            ShadowEconomySearchKind kind, int resourceMode)
+            ShadowEconomySearchKind kind, int resourceMode, int woodScoreFloor = -100)
         {
             if (cells == null) throw new ArgumentNullException(nameof(cells));
             if (width <= 0 || cells.Length != width * width) throw new ArgumentOutOfRangeException(nameof(width));
@@ -562,8 +572,10 @@ namespace PreplacedTest
             var candidates = new List<int>();
             var queueOrder = new List<int>();
             int selectedCandidate = -1;
-            int bestWoodScore = -100;
+            int bestWoodScore = woodScoreFloor;
+            int bestFormalWoodScore = int.MinValue;
             int woodCandidateCount = 0;
+            int woodAcceptedCandidateCount = 0;
             visited[startIndex] = true;
             depths[startIndex] = 1;
             queue.Enqueue(startIndex);
@@ -601,8 +613,9 @@ namespace PreplacedTest
                         if (kind == ShadowEconomySearchKind.Wood)
                         {
                             woodCandidateCount++;
-                            int score = unchecked((sbyte)cell.Raw07) * 5 - depths[current] * 3;
-                            if (cell.Raw06 != 0) score = score < 1 ? score * 2 : score / 2;
+                            int score = CalculateWoodScore(cell, depths[current]);
+                            if (score > bestFormalWoodScore) bestFormalWoodScore = score;
+                            if (score > woodScoreFloor) woodAcceptedCandidateCount++;
                             if (score > bestWoodScore)
                             {
                                 bestWoodScore = score;
@@ -623,7 +636,8 @@ namespace PreplacedTest
                 .Where(index => visited[index] && !blocked.Contains(index)).ToArray();
             return new ShadowEconomySearchResult(reached.Length, reached,
                 blocked.OrderBy(value => value).ToArray(), candidates.ToArray(),
-                depths.Select(value => (int)value).ToArray(), queueOrder.ToArray(), selectedCandidate);
+                depths.Select(value => (int)value).ToArray(), queueOrder.ToArray(), selectedCandidate,
+                woodCandidateCount, woodAcceptedCandidateCount, bestFormalWoodScore, woodScoreFloor);
         }
 
         public static string ExpansionRejectionReason(ShadowEconomyCell cell, ShadowEconomySearchKind kind)
@@ -691,6 +705,13 @@ namespace PreplacedTest
             // before Vanilla can evaluate its wood score.
             if (cell.Raw13 != 0) return "blocked-byte+13";
             return "candidate";
+        }
+
+        public static int CalculateWoodScore(ShadowEconomyCell cell, int currentDepth)
+        {
+            int score = unchecked((sbyte)cell.Raw07) * 5 - currentDepth * 3;
+            if (cell.Raw06 != 0) score = score < 1 ? score * 2 : score / 2;
+            return score;
         }
 
         public static string ResourceCandidateRejectionReason(ShadowEconomyCell cell, int resourceMode)
@@ -948,6 +969,213 @@ namespace PreplacedTest
                 result.Add(beginY == endY ? $"({x},{beginY})" : $"({x},{beginY}-{endY})");
             }
             return string.Join(",", result);
+        }
+    }
+
+    internal readonly struct WoodTraversalCell
+    {
+        public WoodTraversalCell(byte raw04, byte raw07, byte raw13, byte raw16)
+        {
+            Raw04 = raw04;
+            Raw07 = raw07;
+            Raw13 = raw13;
+            Raw16 = raw16;
+        }
+
+        public byte Raw04 { get; }
+        public byte Raw07 { get; }
+        public byte Raw13 { get; }
+        public byte Raw16 { get; }
+        public int Signed04 => unchecked((sbyte)Raw04);
+        public int Signed16 => unchecked((sbyte)Raw16);
+        public int Difference => Signed04 - Signed16;
+    }
+
+    internal sealed class WoodTraversalDifferentialResult
+    {
+        public WoodTraversalDifferentialResult(string cause, int firstBoundaryIndex,
+            int targetIndex, int[] routeIndices, int[] markedNotQueuedIndices,
+            int[] pitchDifferenceFrontierIndices, int[] byte13FrontierIndices,
+            int[] depthLimitIndices, int vanillaReachableCount, int censusReachableCount,
+            int vanillaCandidateCount, int censusCandidateCount)
+        {
+            Cause = cause;
+            FirstBoundaryIndex = firstBoundaryIndex;
+            TargetIndex = targetIndex;
+            RouteIndices = routeIndices ?? Array.Empty<int>();
+            MarkedNotQueuedIndices = markedNotQueuedIndices ?? Array.Empty<int>();
+            PitchDifferenceFrontierIndices = pitchDifferenceFrontierIndices ?? Array.Empty<int>();
+            Byte13FrontierIndices = byte13FrontierIndices ?? Array.Empty<int>();
+            DepthLimitIndices = depthLimitIndices ?? Array.Empty<int>();
+            VanillaReachableCount = vanillaReachableCount;
+            CensusReachableCount = censusReachableCount;
+            VanillaCandidateCount = vanillaCandidateCount;
+            CensusCandidateCount = censusCandidateCount;
+        }
+
+        public string Cause { get; }
+        public int FirstBoundaryIndex { get; }
+        public int TargetIndex { get; }
+        public int[] RouteIndices { get; }
+        public int[] MarkedNotQueuedIndices { get; }
+        public int[] PitchDifferenceFrontierIndices { get; }
+        public int[] Byte13FrontierIndices { get; }
+        public int[] DepthLimitIndices { get; }
+        public int VanillaReachableCount { get; }
+        public int CensusReachableCount { get; }
+        public int VanillaCandidateCount { get; }
+        public int CensusCandidateCount { get; }
+    }
+
+    internal static class WoodTraversalDifferential
+    {
+        private const int MaximumProcessedDepth = 60;
+
+        public static WoodTraversalDifferentialResult Analyze(WoodTraversalCell[] cells, int width,
+            int startIndex, int[] nativeMarkedIndices, int[] nativeQueueIndices,
+            int[] nativeDepths, int nativeQueueRead)
+        {
+            if (cells == null) throw new ArgumentNullException(nameof(cells));
+            if (width <= 0 || cells.Length != width * width) throw new ArgumentOutOfRangeException(nameof(width));
+            if ((uint)startIndex >= (uint)cells.Length) throw new ArgumentOutOfRangeException(nameof(startIndex));
+
+            Traversal vanilla = Traverse(cells, width, startIndex, false, MaximumProcessedDepth);
+            Traversal census = Traverse(cells, width, startIndex, true, MaximumProcessedDepth);
+            Traversal unlimitedCensus = Traverse(cells, width, startIndex, true, int.MaxValue);
+            var nativeQueue = new HashSet<int>(nativeQueueIndices ?? Array.Empty<int>());
+            int[] markedNotQueued = (nativeMarkedIndices ?? Array.Empty<int>())
+                .Where(index => (uint)index < (uint)cells.Length && !nativeQueue.Contains(index))
+                .Distinct().OrderBy(index => index).ToArray();
+            int[] pitchFrontier = markedNotQueued.Where(index =>
+                cells[index].Signed04 >= 16 && cells[index].Difference < 16)
+                .ToArray();
+            int[] byte13Frontier = markedNotQueued.Where(index =>
+                cells[index].Signed04 < 16 && cells[index].Raw13 != 0)
+                .ToArray();
+            int queueRead = Math.Max(0, nativeQueueRead);
+            int[] depthLimit = nativeDepths != null && nativeDepths.Length == cells.Length
+                ? (nativeQueueIndices ?? Array.Empty<int>()).Where(index =>
+                    (uint)index < (uint)cells.Length && nativeDepths[index] > MaximumProcessedDepth)
+                    .Distinct().ToArray()
+                : (nativeQueueIndices ?? Array.Empty<int>()).Skip(queueRead)
+                    .Where(index => (uint)index < (uint)cells.Length).Distinct().ToArray();
+
+            int target = -1;
+            bool depthOnlyTarget = false;
+            if (vanilla.Candidates.Count == 0)
+            {
+                target = census.Candidates
+                    .OrderBy(index => census.Depths[index]).ThenBy(index => index)
+                    .DefaultIfEmpty(-1).First();
+                if (target < 0)
+                {
+                    target = unlimitedCensus.Candidates
+                        .Where(index => !census.Candidates.Contains(index))
+                        .OrderBy(index => unlimitedCensus.Depths[index]).ThenBy(index => index)
+                        .DefaultIfEmpty(-1).First();
+                    depthOnlyTarget = target >= 0;
+                }
+            }
+            string cause = vanilla.Candidates.Count == 0
+                ? "no-census-only-wood-candidate"
+                : "unresolved-native-no-result-despite-vanilla-model-candidate";
+            int firstBoundary = -1;
+            int[] route = Array.Empty<int>();
+            if (target >= 0)
+            {
+                Traversal targetTraversal = depthOnlyTarget ? unlimitedCensus : census;
+                route = ReconstructRoute(targetTraversal.Parents, target);
+                if (depthOnlyTarget)
+                {
+                    cause = "depth-limit-60";
+                    firstBoundary = route.Where(index => targetTraversal.Depths[index] > MaximumProcessedDepth)
+                        .DefaultIfEmpty(-1).First();
+                }
+                foreach (int index in route)
+                {
+                    if (depthOnlyTarget) break;
+                    WoodTraversalCell cell = cells[index];
+                    if (cell.Signed04 >= 16 && cell.Difference < 16)
+                    { cause = "byte+16-expansion-contract"; firstBoundary = index; break; }
+                    if (cell.Signed04 < 16 && cell.Raw13 != 0)
+                    { cause = "byte+13-writer-block"; firstBoundary = index; break; }
+                }
+                if (firstBoundary < 0 && vanilla.Reached[target] &&
+                    cells[target].Signed04 >= 6 && cells[target].Difference < 6)
+                { cause = "byte+16-candidate-contract"; firstBoundary = target; }
+                else if (firstBoundary < 0)
+                    cause = "unresolved-after-exact-predicates";
+            }
+
+            return new WoodTraversalDifferentialResult(cause, firstBoundary, target, route,
+                markedNotQueued, pitchFrontier, byte13Frontier, depthLimit,
+                vanilla.Reached.Count(value => value), census.Reached.Count(value => value),
+                vanilla.Candidates.Count, census.Candidates.Count);
+        }
+
+        private static Traversal Traverse(WoodTraversalCell[] cells, int width, int startIndex,
+            bool censusContract, int maximumProcessedDepth)
+        {
+            var reached = new bool[cells.Length];
+            var depths = Enumerable.Repeat(-1, cells.Length).ToArray();
+            var parents = Enumerable.Repeat(-1, cells.Length).ToArray();
+            var candidates = new HashSet<int>();
+            var queue = new Queue<int>();
+            reached[startIndex] = true;
+            depths[startIndex] = 1;
+            queue.Enqueue(startIndex);
+            while (queue.Count != 0)
+            {
+                int current = queue.Dequeue();
+                if (depths[current] > maximumProcessedDepth) break;
+                int x = current / width;
+                int y = current % width;
+                foreach (int next in OrthogonalNeighbors(x, y, width))
+                {
+                    if (reached[next]) continue;
+                    WoodTraversalCell cell = cells[next];
+                    bool expands = censusContract
+                        ? cell.Difference < 16
+                        : cell.Signed04 < 16 && cell.Raw13 == 0;
+                    if (!expands) continue;
+                    reached[next] = true;
+                    parents[next] = current;
+                    depths[next] = depths[current] + 1;
+                    bool candidate = censusContract
+                        ? cell.Difference < 6 && unchecked((sbyte)cell.Raw07) > 0
+                        : cell.Signed04 < 6 && unchecked((sbyte)cell.Raw07) > 0;
+                    if (candidate) candidates.Add(next);
+                    queue.Enqueue(next);
+                }
+            }
+            return new Traversal(reached, depths, parents, candidates);
+        }
+
+        private static IEnumerable<int> OrthogonalNeighbors(int x, int y, int width)
+        {
+            // Exact cardinal order from Vanilla's table at RVA 0x2D2E50.
+            if (y > 0) yield return x * width + y - 1;
+            if (x + 1 < width) yield return (x + 1) * width + y;
+            if (y + 1 < width) yield return x * width + y + 1;
+            if (x > 0) yield return (x - 1) * width + y;
+        }
+
+        private static int[] ReconstructRoute(int[] parents, int target)
+        {
+            var route = new List<int>();
+            for (int index = target; index >= 0; index = parents[index]) route.Add(index);
+            route.Reverse();
+            return route.ToArray();
+        }
+
+        private sealed class Traversal
+        {
+            public Traversal(bool[] reached, int[] depths, int[] parents, HashSet<int> candidates)
+            { Reached = reached; Depths = depths; Parents = parents; Candidates = candidates; }
+            public bool[] Reached { get; }
+            public int[] Depths { get; }
+            public int[] Parents { get; }
+            public HashSet<int> Candidates { get; }
         }
     }
 

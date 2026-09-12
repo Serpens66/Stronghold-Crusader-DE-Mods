@@ -121,6 +121,7 @@ namespace APISharedTests
             string buildingPatchPath = Path.Combine(workspace, "APIShared", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Buildings.xaml");
             string packagedBuildingPatchPath = Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Buildings.xaml");
             string buildingPatch = File.ReadAllText(buildingPatchPath);
+            string troopPatch = File.ReadAllText(Path.Combine(workspace, "APIShared", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
             Match minimumMatch = Regex.Match(sourceManifest,
                 @"""MinimumScriptExtenderVersion""\s*:\s*""([^""]*)""");
             string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
@@ -159,11 +160,13 @@ namespace APISharedTests
             string hideButtonsMethod = hideButtonsStart >= 0 && mouseDownStart > hideButtonsStart
                 ? unitHud.Substring(hideButtonsStart, mouseDownStart - hideButtonsStart)
                 : string.Empty;
-            Assert(ensureButtonsMethod.Contains("var resolvedButtons = new Button[TroopSlotCount]") &&
-                ensureButtonsMethod.IndexOf("categoryButtons = resolvedButtons", StringComparison.Ordinal) >
+            Assert(ensureButtonsMethod.Contains("var resolvedHosts = new Grid[TroopSlotCount]") &&
+                ensureButtonsMethod.Contains("var resolvedButtons = new Button[TroopSlotCount]") &&
+                ensureButtonsMethod.Contains("var resolvedTints = new Border[TroopSlotCount]") &&
+                ensureButtonsMethod.IndexOf("categoryHosts = resolvedHosts", StringComparison.Ordinal) >
                 ensureButtonsMethod.IndexOf("foreach (Button button in resolvedButtons)", StringComparison.Ordinal),
-                "troop category buttons must be resolved completely before the cache is published");
-            Assert(hideButtonsMethod.Contains("if (button != null)") &&
+                "troop category hosts, buttons, and tints must be resolved completely before the cache is published");
+            Assert(hideButtonsMethod.Contains("if (host != null)") &&
                 unitHud.Contains("lock (sync) visibleSlots.Clear();"),
                 "troop HUD failure cleanup must tolerate incomplete caches and clear stale slot snapshots");
             int armyStart = unitHud.IndexOf("private void ApplyArmyReport(", StringComparison.Ordinal);
@@ -214,8 +217,7 @@ namespace APISharedTests
             Assert(unitHud.Contains("private void HideArmyHosts()") &&
                 unitHud.Contains("private void HideRecruitmentControls()") &&
                 unitHud.Contains("private void HideUnitDetailControls()") &&
-                unitHud.Contains("if (archerVariantSelector != null)") &&
-                unitHud.Contains("if (archerVariantTint != null)") &&
+                unitHud.Contains("if (archerVariantHost != null)") &&
                 unitHud.Contains("if (unitDetailHost != null)"),
                 "HUD area cleanup must tolerate missing XAML controls");
             Assert(unitHud.Contains("loggedCallbackFailures.Add(area)") && !unitHud.Contains("callbackErrorLogged"),
@@ -240,7 +242,7 @@ namespace APISharedTests
                         if (child.NodeType == XmlNodeType.Element) contentRoots.Add(child);
                 Assert(contentNodes.Count == 1 && contentRoots.Count == 1,
                     "every structural XAML patch operation must expose exactly one Content root");
-                if (operation.Attributes?["XPath"]?.Value.Contains("BarracksArcher") == true && contentRoots.Count == 1)
+                if (operation.Attributes?["XPath"]?.Value == "//n:Grid[@Name='BarracksPanel']" && contentRoots.Count == 1)
                 {
                     // Simulate Script Extender 2.5.0: only the first direct Content element survives.
                     string xamlName = contentRoots[0].Attributes?["x:Name"]?.Value;
@@ -249,10 +251,25 @@ namespace APISharedTests
             }
             Assert(structuralOperations > 0 && recruitmentRoots.SetEquals(new[]
             {
-                "APISharedArcherVariantTint", "APISharedArcherVariantSelector"
-            }), "Script Extender merge simulation must retain both recruitment controls");
+                "APISharedArcherVariantHost"
+            }), "Script Extender merge simulation must retain the single recruitment host");
+            Assert(buildingPatch.Contains("APISharedArcherVariantPrevious") &&
+                buildingPatch.Contains("APISharedArcherVariantNext") &&
+                buildingPatch.Contains("Margin=\"4,0,0,91\"") &&
+                buildingPatch.Contains("Margin=\"64,0,0,91\"") &&
+                buildingPatch.Contains("Opacity=\"0.58\"") &&
+                buildingPatch.Contains("Value=\"0.78\"") &&
+                buildingPatch.Contains("Value=\"0.90\""),
+                "recruitment arrows lack the confirmed names, positions, or translucent states");
             Assert(buildingPatch == File.ReadAllText(packagedBuildingPatchPath),
                 "source and packaged APIShared building XAML patches must match");
+            for (int slot = 1; slot <= 8; slot++)
+            {
+                Assert(troopPatch.Contains("APISharedUnitHudSlotHost" + slot) &&
+                    troopPatch.Contains("APISharedUnitHudSlot" + slot) &&
+                    troopPatch.Contains("APISharedUnitHudSlotTint" + slot),
+                    "troop category slot " + slot + " lacks a colocated button and non-interactive tint overlay");
+            }
             Assert(unitHud.Contains("UnitHudImageSlot.UIBuildingsO011") &&
                 unitHud.Contains("UnitHudImageSlot.UIBuildingsO012") &&
                 unitHud.Contains("UnitHudImageSlot.UIButtonsK007") &&
@@ -262,9 +279,18 @@ namespace APISharedTests
                 unitHud.Contains("UnitHudImageSlot.UIButtonsO018") &&
                 Enum.GetValues(typeof(UnitHudImageSlot)).Length == 7,
                 "typed image-override allowlist is incomplete");
-            Assert(unitHud.Contains("OpacityMask = source == null ? null : new ImageBrush(source)") &&
-                virtualRuntime.Contains("UIButtonsK023") && !virtualRuntime.Contains("UIButtonsK001"),
-                "custom category tint or Vanilla Archer icon mapping is incorrect");
+            Assert(unitHud.Contains("target.OpacityMask = source == null ? null : new ImageBrush(source)") &&
+                unitHud.Contains(": (float)tint.Alpha / byte.MaxValue") &&
+                unitHud.Contains("troopPanel?.FindName(\"ArchersSelected\")") &&
+                unitHud.Contains("source ?? main?.UIButtonsK023") &&
+                unitHud.Contains("main?.HUDBuildingPanel?.RefRecruitArcherButton") &&
+                unitHud.Contains("source ?? main?.UIButtonsO001") &&
+                unitHud.Contains("PropEx.GetSprite2(vanilla)") &&
+                unitHud.Contains("parent.Children.Insert(imageIndex + 1, tint)") &&
+                !unitHud.Contains("button.Content = CreateTint") &&
+                virtualRuntime.Contains("new UnitHudTint(64, 128, byte.MaxValue, 115)") &&
+                !virtualRuntime.Contains("() => MainViewModel.Instance?.UIButtonsK023"),
+                "surface-specific Vanilla Archer icons or the 45-percent overlay tint are incorrect");
             Assert(virtualRuntime.Contains("TryRegisterCategory") && bugfixLord.Contains("TryRegisterCategory") &&
                 !virtualRuntime.Contains("new Hook"),
                 "consumer mods do not exclusively register with the central HUD API");

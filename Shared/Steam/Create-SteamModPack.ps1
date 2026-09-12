@@ -715,6 +715,28 @@ function Test-MapContents {
     }
 }
 
+function Get-MapFilePaths {
+    param([Parameter(Mandatory)][string]$MapPath)
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $offset = Find-MapZipOffset -MapPath $MapPath
+    $mapStream = [IO.File]::Open($MapPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    $zipStream = [IO.MemoryStream]::new()
+    $archive = $null
+    try {
+        [void]$mapStream.Seek($offset, [IO.SeekOrigin]::Begin)
+        $mapStream.CopyTo($zipStream)
+        $zipStream.Position = 0
+        $archive = [IO.Compression.ZipArchive]::new($zipStream, [IO.Compression.ZipArchiveMode]::Read, $true)
+        return @($archive.Entries | Where-Object { -not [string]::IsNullOrEmpty($_.Name) } | ForEach-Object {
+            $_.FullName.Replace('\','/').TrimStart('/')
+        } | Sort-Object -Unique)
+    } finally {
+        if ($null -ne $archive) { $archive.Dispose() }
+        $zipStream.Dispose()
+        $mapStream.Dispose()
+    }
+}
+
 function Set-HostVersion {
     param([string]$Version)
     $source = Join-Path $script:Root 'SerpsModsHost\src\SerpsModsHostPlugin.cs'
@@ -748,7 +770,29 @@ function Get-PackReleaseState {
     Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$tag,'--repo',$script:Repository,'--pattern','SerpsMods.provenance.json','--dir',$cache,'--clobber') -FailureCode 10 | Out-Null
     $path = Join-Path $cache 'SerpsMods.provenance.json'
     if (-not (Test-Path -LiteralPath $path)) { Fail-Pack 10 "Latest pack provenance is missing for $tag." }
-    return [pscustomobject]@{ Tag = $tag; Version = $version; Provenance = (Get-Content -LiteralPath $path -Raw | ConvertFrom-Json) }
+    $provenance = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+    $mapFileName = [string]$provenance.Map.File
+    if ([string]::IsNullOrWhiteSpace($mapFileName) -or [IO.Path]::GetFileName($mapFileName) -cne $mapFileName -or
+        -not $mapFileName.EndsWith('.map', [StringComparison]::OrdinalIgnoreCase)) {
+        Fail-Pack 10 "Latest pack provenance contains an invalid map filename for $tag."
+    }
+    Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$tag,'--repo',$script:Repository,'--pattern',"$mapFileName*",'--dir',$cache,'--clobber') -FailureCode 10 | Out-Null
+    $mapPath = Join-Path $cache $mapFileName
+    $mapShaPath = "$mapPath.sha256"
+    foreach ($required in @($mapPath,$mapShaPath)) {
+        if (-not (Test-Path -LiteralPath $required -PathType Leaf)) { Fail-Pack 10 "Latest pack release asset is missing for ${tag}: $required" }
+    }
+    $actualMapHash = Get-Sha256 $mapPath
+    $declaredMapHash = [string]$provenance.Map.Sha256
+    $shaText = [IO.File]::ReadAllText($mapShaPath)
+    $shaMatch = [regex]::Match($shaText, '(?i)\b([0-9a-f]{64})\b')
+    if (-not $shaMatch.Success -or
+        -not [string]::Equals($actualMapHash, $declaredMapHash, [StringComparison]::OrdinalIgnoreCase) -or
+        -not [string]::Equals($actualMapHash, $shaMatch.Groups[1].Value, [StringComparison]::OrdinalIgnoreCase) -or
+        [long]$provenance.Map.Size -ne (Get-Item -LiteralPath $mapPath).Length) {
+        Fail-Pack 10 "Latest pack map verification failed for $tag."
+    }
+    return [pscustomobject]@{ Tag = $tag; Version = $version; Provenance = $provenance; MapPath = $mapPath; MapShaPath = $mapShaPath }
 }
 
 function Get-RetiredModPlan {
@@ -1018,13 +1062,11 @@ try {
     $contentSignature = Get-HostContentSignature -Mods $mods -RetiredMods $retiredMods -Infrastructure $apiSharedInfrastructure
     if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature) {
         Write-RunLog "Pack content is unchanged from $($previousPack.Tag); reusing the published map." 'OK'
-        $reuseDir = Join-Path $script:OutputRoot "cache\pack\v$($previousPack.Version)"
-        Invoke-Checked -FilePath 'gh' -Arguments @('release','download',$previousPack.Tag,'--repo',$script:Repository,'--pattern','SerpsMods.map*','--dir',$reuseDir,'--clobber') -FailureCode 10 | Out-Null
         $finalDir = Join-Path $script:Root $PackName
         if (-not $finalDir.StartsWith($script:Root + '\', [StringComparison]::OrdinalIgnoreCase)) { Fail-Pack 8 'Unsafe final output path.' }
         if (Test-Path -LiteralPath $finalDir) { Remove-Item -LiteralPath $finalDir -Recurse -Force }
         [void](New-Item -ItemType Directory -Path $finalDir)
-        Copy-Item -LiteralPath (Join-Path $reuseDir 'SerpsMods.map') -Destination $finalDir
+        Copy-Item -LiteralPath $previousPack.MapPath -Destination $finalDir
         Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $finalDir 'preview.png')
         Write-RunLog "Reusable pack ready: $finalDir" 'OK'
         exit 0
@@ -1111,6 +1153,20 @@ try {
     })
     Copy-Item -LiteralPath (Join-Path $hostDir 'info.json') -Destination (Join-Path $stage 'info.json')
     Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $stage 'preview.png')
+
+    if ($null -ne $previousPack) {
+        $previousPaths = @(Get-MapFilePaths -MapPath $previousPack.MapPath)
+        $currentPaths = @(Get-ChildItem -LiteralPath $stage -File -Recurse | ForEach-Object {
+            $_.FullName.Substring($stage.Length).TrimStart('\').Replace('\','/')
+        })
+        $missingPaths = @(Get-MissingSteamPackPaths -PreviousPaths $previousPaths -CurrentPaths $currentPaths)
+        if ($missingPaths.Count -gt 0) {
+            Write-RunLog "Files from the last published pack $($previousPack.Tag) are missing from the new stage:" 'WARN'
+            foreach ($missingPath in $missingPaths) { Write-RunLog "  MISSING: $missingPath" 'WARN' }
+            Fail-Pack 11 'Steam does not reliably remove files during Workshop updates. Restore every missing path with its intended content or a format-appropriate tombstone before publishing.'
+        }
+        Write-RunLog "Verified that the new stage preserves all $($previousPaths.Count) paths from $($previousPack.Tag)." 'OK'
+    }
 
     $mapPath = Join-Path $runRoot 'SerpsMods.map'
     Invoke-Checked -FilePath $resolvedPackager -Arguments @('-s',$stage,'-o',$mapPath) -FailureCode 9 | Out-Null

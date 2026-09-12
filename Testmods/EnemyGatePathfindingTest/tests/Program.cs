@@ -711,7 +711,7 @@ namespace EnemyGatePathfindingTest
             {
                 "FilterBuilder", "FilterAttack", "FilterBuilding", "FilterConsumer",
                 "FilterAlternateConsumer", "FilterCandidateSearch", "FilterCursor",
-                "FilterDirectCursorSearch"
+                "FilterDirectCursorSearch", "FilterCursorPclDecision"
             })
             {
                 string body = ExtractMethodBody(samePclSource, wrapper);
@@ -780,7 +780,7 @@ namespace EnemyGatePathfindingTest
                     StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("transaction.AddInline(directCursorHook",
                         StringComparison.Ordinal) >= 0 &&
-                    runtime.IndexOf("transaction.AddContextHook(",
+                    runtime.IndexOf("transaction.AddInline(cursorPclDecisionHook",
                         StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("cursorPclDecisionHook",
                         StringComparison.Ordinal) >= 0 &&
@@ -1094,28 +1094,73 @@ namespace EnemyGatePathfindingTest
             }
             finally { Marshal.FreeHGlobal(probeMemory); }
 
+            const ulong wrapper = 0x7FFF76543210UL;
+            byte[] emitted = CursorPclCallAdapterEmitter.AssembleAndValidate(
+                original, imageBase +
+                    (ulong)EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
+                wrapper, imageBase + 0x02300000UL);
+            Assert(emitted.Length > original.Length,
+                "cursor PCL call adapter assembles and disassembles");
+
+            var emittedDecoder = Decoder.Create(64, new ByteArrayCodeReader(emitted));
+            emittedDecoder.IP = imageBase + 0x02300000UL;
+            int calls = 0, tests = 0, leas = 0, stackDelta = 0;
+            int modeCopies = 0, unitCopies = 0;
+            while (emittedDecoder.IP < imageBase + 0x02300000UL + (ulong)emitted.Length)
+            {
+                Instruction instruction = emittedDecoder.Decode();
+                Assert(instruction.Code != Code.INVALID,
+                    "cursor PCL adapter disassembles without invalid opcodes");
+                if (instruction.Mnemonic == Mnemonic.Call) calls++;
+                if (instruction.Mnemonic == Mnemonic.Test &&
+                    instruction.Op0Register == Register.EAX) tests++;
+                if (instruction.Mnemonic == Mnemonic.Lea &&
+                    instruction.Op0Register == Register.RDI) leas++;
+                if (instruction.Mnemonic == Mnemonic.Sub &&
+                    instruction.Op0Register == Register.RSP)
+                    stackDelta += unchecked((int)instruction.Immediate32);
+                if (instruction.Mnemonic == Mnemonic.Add &&
+                    instruction.Op0Register == Register.RSP)
+                    stackDelta -= unchecked((int)instruction.Immediate32);
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.Op0Kind == OpKind.Memory &&
+                    instruction.MemoryBase == Register.RSP &&
+                    instruction.MemoryDisplacement64 == 0x20 &&
+                    instruction.Op1Register == Register.R10D) modeCopies++;
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.Op0Kind == OpKind.Memory &&
+                    instruction.MemoryBase == Register.RSP &&
+                    instruction.MemoryDisplacement64 == 0x28 &&
+                    instruction.Op1Register == Register.R14D) unitCopies++;
+            }
+            Assert(calls == 1 && tests == 1 && leas == 1 && stackDelta == 0 &&
+                    modeCopies == 1 && unitCopies == 1,
+                "cursor PCL adapter has one wrapper call, balanced stack, both stack arguments, and one TEST/LEA replay");
+            Assert(lea.IPRelativeMemoryAddress == imageBase +
+                    (ulong)EnemyGatePathfindingNativeDefinition.NativeDirectionGridRva &&
+                    lea.IPRelativeMemoryAddress != 1UL,
+                "RedBird post-displacement RDI is the global grid base, not a small source PCL");
+
             string runtime = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
-            string callback = ExtractMethodBody(runtime, "FilterNormalCursorPclDecision");
+            string callback = ExtractMethodBody(runtime, "FilterCursorPclDecision");
             string deferred = ExtractMethodBody(runtime, "ProcessCursorPreview");
-            Assert(runtime.IndexOf("transaction.AddContextHook", StringComparison.Ordinal) >= 0 &&
-                    runtime.IndexOf("OverwrittenInstructionPlacement.BeforeCallback",
+            Assert(runtime.IndexOf("transaction.AddInline(cursorPclDecisionHook",
                         StringComparison.Ordinal) >= 0 &&
-                    runtime.IndexOf("X64SmartCPUContextRegs.All", StringComparison.Ordinal) >= 0,
-                "cursor decision hook preserves all registers and executes after displaced code");
+                    runtime.IndexOf("FilterNormalCursorPclDecision",
+                        StringComparison.Ordinal) < 0,
+                "cursor decision uses the ABI adapter and removes the stale post-LEA context callback");
             Assert(runtime.IndexOf("!cursorPclDecisionHook.Success", StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("cursorPclDecisionHook.Hook.DisplacedByteCount",
                         StringComparison.Ordinal) >= 0,
                 "cursor decision hook participates in the atomic committed-span contract");
-            Assert(callback.IndexOf("registers->RAX", StringComparison.Ordinal) >= 0 &&
-                    callback.IndexOf("registers->RSI", StringComparison.Ordinal) >= 0 &&
-                    callback.IndexOf("registers->RDI", StringComparison.Ordinal) >= 0 &&
-                    callback.IndexOf("registers->R14", StringComparison.Ordinal) >= 0 &&
-                    callback.IndexOf("SetZeroFlag", StringComparison.Ordinal) >= 0,
-                "callback reconstructs TEST ZF and captures Vanilla's representative unit");
+            Assert(callback.IndexOf("originalPclReachability", StringComparison.Ordinal) >= 0 &&
+                    callback.IndexOf("targetPcl != sourcePcl", StringComparison.Ordinal) >= 0 &&
+                    callback.IndexOf("ApplyCursorPreviewResult", StringComparison.Ordinal) >= 0,
+                "wrapper uses the real ABI PCL arguments and preserves Vanilla unless a cache blocks it");
             foreach (string forbidden in new[]
             {
                 "GameUnitManagerAPI", "originalDirectTileSearch", "lock (", "new ",
-                "DebugLogHelper", "GetSelectedChimps"
+                "DebugLogHelper", "GetSelectedChimps", "registers->"
             })
                 Assert(callback.IndexOf(forbidden, StringComparison.Ordinal) < 0,
                     "cursor callback hot path excludes " + forbidden);
@@ -1140,21 +1185,41 @@ namespace EnemyGatePathfindingTest
                 "a successful Vanilla detour remains green despite rejected direct edges");
 
             Assert(EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                    true, 2, 41, 300, 301, 0x1234UL,
-                    2, 41, 300, 301, 0x1234UL),
+                    true, 2, 41, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 300, 301, 7, 7, 0x1234UL),
                 "an identical cursor key reuses its stable decision");
             Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                    true, 2, 41, 300, 301, 0x1234UL,
-                    2, 41, 301, 301, 0x1234UL),
+                    true, 2, 41, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 301, 301, 7, 7, 0x1234UL),
                 "a changed target invalidates the cursor decision immediately");
             Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                    true, 2, 41, 300, 301, 0x1234UL,
-                    2, 41, 300, 301, 0x1235UL),
+                    true, 2, 41, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 300, 301, 7, 7, 0x1235UL),
                 "a changed gate policy invalidates the cursor decision immediately");
             Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
-                    false, 2, 41, 300, 301, 0x1234UL,
-                    2, 41, 300, 301, 0x1234UL),
+                    false, 2, 41, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 300, 301, 7, 7, 0x1234UL),
                 "an unpublished cache never changes Vanilla's cursor decision");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
+                    true, 2, 41, 300, 301, 7, 7, 0x1234UL,
+                    2, 41, 300, 301, 8, 8, 0x1234UL),
+                "changed source and target PCLs invalidate a cached cursor decision");
+
+            Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
+                    7, false, true, false) == 7,
+                "Different-PCL preserves Vanilla even with a blocking cache");
+            Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
+                    7, true, false, false) == 7,
+                "Same-PCL without a published cache preserves Vanilla");
+            Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
+                    7, true, true, true) == 7,
+                "an allowing Same-PCL cache preserves Vanilla");
+            Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
+                    7, true, true, false) == 0,
+                "a blocking Same-PCL cache changes a positive result to zero");
+            Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
+                    0, true, true, false) == 0,
+                "a Vanilla failure remains byte-equivalent zero");
         }
 
         private static void GatehouseUsesBothOuterBoundaries()

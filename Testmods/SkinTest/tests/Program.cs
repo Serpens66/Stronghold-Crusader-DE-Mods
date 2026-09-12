@@ -77,23 +77,23 @@ internal static class Program
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(1088) == 1087, "Body image 1088 must map to normal atlas frame 1087.");
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(0) == -1, "Body image 0 must fail closed.");
         Check(SkinSelectionPolicy.ToAtlasFrameIndex(-1) == -1, "Negative body images must fail closed.");
-        Check(SkinSelectionPolicy.ToCastlePreviewAtlasIndex(1) == 0 &&
-              SkinSelectionPolicy.ToCastlePreviewAtlasIndex(280) == 279,
-            "GM_CASTLES mouse-preview images must map to image minus one.");
-        Check(SkinSelectionPolicy.ToCastlePreviewAtlasIndex(0) == -1 &&
-              SkinSelectionPolicy.ToCastlePreviewAtlasIndex(-1) == -1,
-            "Invalid GM_CASTLES preview images must fail closed.");
+        Check(SkinSelectionPolicy.ToCastleTileAtlasIndex(0) == 0 &&
+              SkinSelectionPolicy.ToCastleTileAtlasIndex(279) == 279,
+            "GM_CASTLES tile-preview images must map directly to the same atlas index.");
+        Check(SkinSelectionPolicy.ToCastleTileAtlasIndex(-1) == -1,
+            "Negative GM_CASTLES tile-preview images must fail closed.");
         Check(SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, true, true,
                 LordCulture.European, true),
-            "An untouched European round-tower cursor preview must be replaceable.");
+            "An untouched European round-tower tile preview must be replaceable.");
         Check(!SkinSelectionPolicy.CanReplaceRoundTowerPreview(false, 5, 114, true, true, LordCulture.European, true) &&
               !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 0, 114, true, true, LordCulture.European, true) &&
               !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 113, true, true, LordCulture.European, true) &&
               !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, false, true, LordCulture.European, true) &&
               !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, true, false, LordCulture.European, true) &&
               !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, true, true, LordCulture.NonEuropean, true) &&
+              !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, true, true, LordCulture.Unknown, true) &&
               !SkinSelectionPolicy.CanReplaceRoundTowerPreview(true, 5, 114, true, true, LordCulture.European, false),
-            "Inactive maps, wrong actions/mappers, foreign renderers, conflicts, cultures and sparse gaps must retain Vanilla previews.");
+            "Inactive maps, wrong actions/mappers, non-preview tiles, conflicts, cultures and sparse gaps must retain Vanilla previews.");
 
         Check(SkinSelectionPolicy.SelectFrame(false, true, false) == SkinFrameChoice.Normal, "Normal request must select the normal frame.");
         Check(SkinSelectionPolicy.SelectFrame(true, true, true) == SkinFrameChoice.Alternate, "Available alternate frame must be selected.");
@@ -526,24 +526,26 @@ internal static class Program
               !resolver.Value.Contains("RequestRefresh") && !resolver.Value.Contains("UpdateUITroopSprites"),
             "The APIShared resolver must gate context and player ID before culture lookup without recursive refresh.");
         Match preview = Regex.Match(runtime,
-            @"private void TryReplaceRoundTowerPlacementPreview[\s\S]*?\n\s*}\r?\n\r?\n\s*private void AddUpdateBuildingAnimHook");
+            @"private bool TryReplaceRoundTowerTilePreview[\s\S]*?\n\s*}\r?\n\r?\n\s*private void OnMapStarted");
         Check(preview.Success &&
-              preview.Value.Contains("ReferenceEquals(rendererObject, gameMap.mouseCursorGO)") &&
-              preview.Value.Contains("ReferenceEquals(rendererObject, gameMap.mouseCursorGO2)") &&
+              preview.Value.Contains("tile.constructionOrigImage") &&
               preview.Value.Contains("controls.CurrentAction != 5") &&
               preview.Value.Contains("Enums.eMappers.MAPPER_TOWER5") &&
-              preview.Value.Contains("ToCastlePreviewAtlasIndex(image)") &&
-              preview.Value.Contains("GetGMSprite(GameGM.GM_CASTLES, frameIndex)") &&
-              preview.Value.Contains("ReferenceEquals(renderer.sprite, expected)") &&
-              preview.Value.Contains("renderer.sprite = castleSprites[frameIndex]") &&
-              !preview.Value.Contains("sharedMaterial") && !preview.Value.Contains("renderer.color") &&
-              !preview.Value.Contains("sortingOrder") && !preview.Value.Contains(".transform") &&
+              preview.Value.Contains("ToCastleTileAtlasIndex(image)") &&
+              preview.Value.Contains("ReferenceEquals(tile.tileImage, expected)") &&
+              preview.Value.Contains("tile.tileImage = castleSprites[frameIndex]") &&
+              !preview.Value.Contains("tile.constructionOrigImage =") &&
+              !preview.Value.Contains("tile.light =") &&
+              !preview.Value.Contains("GetTileBuildingId") &&
               preview.Value.IndexOf("if (!activeMap", StringComparison.Ordinal) <
               preview.Value.IndexOf("GetLocalPlayerId()", StringComparison.Ordinal) &&
-              runtime.Contains("if (file == (int)ExtenderGM.GM_CASTLES)") &&
-              runtime.IndexOf("trampoline(renderer", StringComparison.Ordinal) <
-              runtime.IndexOf("TryReplaceRoundTowerPlacementPreview(renderer, image)", StringComparison.Ordinal),
-            "Round-tower placement preview must use both exact cursors, mapper 114, image-minus-one and conflict-friendly sprite-only replacement after state gates.");
+              !runtime.Contains("TryReplaceRoundTowerPlacementPreview") &&
+              !runtime.Contains("mouseCursorGO") &&
+              runtime.IndexOf("buildingTrampoline(tile, file, image, light);", StringComparison.Ordinal) <
+              runtime.IndexOf("TryReplaceRoundTowerTilePreview(tile, image, expected)", StringComparison.Ordinal) &&
+              runtime.IndexOf("TryReplaceRoundTowerTilePreview(tile, image, expected)", StringComparison.Ordinal) <
+              runtime.IndexOf("GetTileBuildingId(tileId)", StringComparison.Ordinal),
+            "Round-tower placement preview must use Vanilla tile fragments, direct indices and conflict-friendly sprite-only replacement before building resolution.");
         Check(runtime.Contains("buildingTrampoline(tile, file, image, light);") &&
               runtime.Contains("GetTileBuildingId(tileId)") && runtime.Contains("TryGetBuildingById(buildingId") &&
               runtime.Contains("STRUCT_TOWER5_DESTROYED") && runtime.Contains("SH1DE round-tower skin applied"),

@@ -70,6 +70,9 @@ namespace BugfixesAndQoL
                 }
 
                 GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
+                if (args.PlayerId == 0)
+                    return;
+
                 if (!players.IsPlayerIdValid(args.PlayerId))
                 {
                     if (!invalidPlayerLogged)

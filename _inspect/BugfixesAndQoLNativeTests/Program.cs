@@ -712,11 +712,17 @@ internal static class Program
         Check(sharedTroopPatch.Contains("APISharedUnitHudCategoryHost") &&
               Enumerable.Range(1, 8).All(slot => sharedTroopPatch.Contains("APISharedUnitHudSlot" + slot)),
             "APIShared owns the common eight-slot troop-presentation host");
+        string controlGroupTombstone = Path.Combine(
+            modRoot, "Patches", "Assets", "GUI", "XAMLResources", "HUD_ControlGroups.xaml");
         Check(!File.Exists(Path.Combine(
                   modRoot, "src", "LordControlGroupIconFeature.cs")) &&
-              !File.Exists(Path.Combine(
-                  modRoot, "Patches", "Assets", "GUI", "XAMLResources", "HUD_ControlGroups.xaml")),
-            "the obsolete local control-group HUD hook and patch must remain removed");
+              File.Exists(controlGroupTombstone),
+            "the obsolete local control-group HUD hook must remain removed and its Steam tombstone must remain present");
+        Check(Regex.IsMatch(
+                File.ReadAllText(controlGroupTombstone),
+                @"\A\s*<\?xml[^?]*\?>\s*<Patch\s+xmlns:x=""http://schemas.microsoft.com/winfx/2006/xaml""\s*/>\s*\z",
+                RegexOptions.CultureInvariant),
+            "the control-group HUD Steam tombstone must remain an empty Patch document");
     }
 
     private static void CheckLordControlGroupTransactionModel(byte[] canonicalImage)

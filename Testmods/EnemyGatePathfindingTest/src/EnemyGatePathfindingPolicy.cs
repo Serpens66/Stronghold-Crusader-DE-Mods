@@ -310,15 +310,25 @@ namespace EnemyGatePathfindingTest
             int cachedUnitId,
             int cachedTargetX,
             int cachedTargetY,
+            int cachedTargetPcl,
+            int cachedSourcePcl,
             ulong cachedFingerprint,
             int player,
             int unitId,
             int targetX,
             int targetY,
+            int targetPcl,
+            int sourcePcl,
             ulong fingerprint) =>
             valid && cachedPlayer == player && cachedUnitId == unitId &&
             cachedTargetX == targetX && cachedTargetY == targetY &&
+            cachedTargetPcl == targetPcl && cachedSourcePcl == sourcePcl &&
             cachedFingerprint == fingerprint;
+
+        internal static int ApplyCursorPreviewResult(int vanillaResult,
+            bool samePcl, bool cacheValid, bool cacheAllowed) =>
+            vanillaResult > 0 && samePcl && cacheValid && !cacheAllowed
+                ? 0 : vanillaResult;
 
         // A failed Vanilla search is attributed to the gate policy only when the
         // native direction adapters actually rejected at least one masked edge.
