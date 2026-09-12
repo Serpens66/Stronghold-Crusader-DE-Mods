@@ -61,6 +61,7 @@ namespace APIShared
         private readonly List<ImageRegistration> imageOverrides = new List<ImageRegistration>();
         private readonly List<RecruitmentRegistration> recruitment = new List<RecruitmentRegistration>();
         private readonly HashSet<string> loggedCategoryConflicts = new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<string> loggedCallbackFailures = new HashSet<string>(StringComparer.Ordinal);
         private readonly ManualLogSource log;
         private readonly string binaryHash;
         private readonly int* groupRecords;
@@ -92,7 +93,6 @@ namespace APIShared
         private int lastSpriteColour;
         private bool lastSpriteArabic;
         private bool hasSpriteContext;
-        private bool callbackErrorLogged;
         private readonly Dictionary<int, string> activeRecruitment = new Dictionary<int, string>();
         private RecruitmentLease recruitmentLease;
         private long nextRecruitmentTicketId;
@@ -707,7 +707,7 @@ namespace APIShared
                 refresh = refreshRequested;
                 refreshRequested = false;
             }
-            try
+            TryApplyFrameArea("refresh", () =>
             {
                 if (refresh)
                 {
@@ -726,12 +726,22 @@ namespace APIShared
                         finally { updateSpritesActive = false; }
                     }
                 }
-                ApplyHover(main);
-                ApplyArmyReport(main);
-                ApplyRecruitmentPresentation(main);
-                ApplyUnitDetails(main);
+            });
+            TryApplyFrameArea("hover presentation", () => ApplyHover(main));
+            TryApplyFrameArea("army-report presentation", () => ApplyArmyReport(main), HideArmyHosts);
+            TryApplyFrameArea("recruitment presentation", () => ApplyRecruitmentPresentation(main), HideRecruitmentControls);
+            TryApplyFrameArea("unit-detail presentation", () => ApplyUnitDetails(main), HideUnitDetailControls);
+        }
+
+        private void TryApplyFrameArea(string area, Action action, Action failureCleanup = null)
+        {
+            try { action(); }
+            catch (Exception ex)
+            {
+                try { failureCleanup?.Invoke(); }
+                catch (Exception cleanupEx) { LogCallbackFailure(area + " cleanup", cleanupEx); }
+                LogCallbackFailure(area, ex);
             }
-            catch (Exception ex) { LogCallbackFailure("frame presentation", ex); }
         }
 
         private void ApplyHover(MainViewModel main)
@@ -796,6 +806,12 @@ namespace APIShared
             archerVariantTint = tint;
         }
 
+        private void HideRecruitmentControls()
+        {
+            if (archerVariantSelector != null) archerVariantSelector.Visibility = Visibility.Collapsed;
+            if (archerVariantTint != null) archerVariantTint.Visibility = Visibility.Collapsed;
+        }
+
         private void OnRecruitmentSelectorMouseDown(object sender, MouseButtonEventArgs args)
         {
             if (args == null || (args.ChangedButton != MouseButton.Left && args.ChangedButton != MouseButton.Right)) return;
@@ -855,6 +871,11 @@ namespace APIShared
             unitDetailHost = host; unitDetailImage = image; unitDetailTint = tint; unitDetailDescription = description;
         }
 
+        private void HideUnitDetailControls()
+        {
+            if (unitDetailHost != null) unitDetailHost.Visibility = Visibility.Collapsed;
+        }
+
         private string ResolveText(CategoryRegistration category, UnitHudTextKind kind)
         {
             UnitHudTextProfile profile = category.Definition.TextProfile;
@@ -878,11 +899,12 @@ namespace APIShared
             int local = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;
             var custom = new Dictionary<string, List<UnitHudUnitSnapshot>>(StringComparer.Ordinal);
             var reductions = new Dictionary<int, int>();
+            var desiredCounts = new Dictionary<int, int>();
             foreach (int baseType in CategoryCopy().Where(x => HasSurface(x, UnitHudSurface.ArmyReport)).Select(x => x.Definition.BaseUnitType).Distinct())
             {
                 int reportIndex = ToArmyReportIndex(baseType);
                 if (reportIndex > 0 && reportIndex < main.AllTroops.Count && reportIndex - 1 < state.troop_counts.Length)
-                    main.AllTroops[reportIndex] = state.troop_counts[reportIndex - 1];
+                    desiredCounts[reportIndex] = state.troop_counts[reportIndex - 1];
             }
             foreach (int unitId in GameUnitManagerAPI.Instance.GetAllAliveUnits())
             {
@@ -896,13 +918,21 @@ namespace APIShared
             foreach (KeyValuePair<int, int> reduction in reductions)
             {
                 int reportIndex = ToArmyReportIndex(reduction.Key);
-                if (reportIndex > 0 && reportIndex < main.AllTroops.Count && reportIndex - 1 < state.troop_counts.Length)
-                    main.AllTroops[reportIndex] = Math.Max(0, state.troop_counts[reportIndex - 1] - reduction.Value);
+                if (desiredCounts.TryGetValue(reportIndex, out int vanillaCount))
+                    desiredCounts[reportIndex] = Math.Max(0, vanillaCount - reduction.Value);
             }
             RenderArmyHosts(host, custom);
+            foreach (KeyValuePair<int, int> desired in desiredCounts)
+                main.AllTroops[desired.Key] = desired.Value;
         }
 
         private readonly Dictionary<string, Noesis.Grid> armyEntries = new Dictionary<string, Noesis.Grid>(StringComparer.Ordinal);
+        private void HideArmyHosts()
+        {
+            foreach (Noesis.Grid grid in armyEntries.Values)
+                if (grid != null) grid.Visibility = Visibility.Collapsed;
+        }
+
         private void RenderArmyHosts(Panel host, Dictionary<string, List<UnitHudUnitSnapshot>> custom)
         {
             foreach (Noesis.Grid grid in armyEntries.Values) grid.Visibility = Visibility.Collapsed;
@@ -1174,8 +1204,8 @@ namespace APIShared
 
         private void LogCallbackFailure(string area, Exception ex)
         {
-            if (callbackErrorLogged) return;
-            callbackErrorLogged = true;
+            lock (sync)
+                if (!loggedCallbackFailures.Add(area)) return;
             NativeApiLog.Error(log, $"Unit HUD {area} failed closed; unaffected Vanilla presentation remains active: {ex}");
         }
 

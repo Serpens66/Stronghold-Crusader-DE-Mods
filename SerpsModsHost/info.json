@@ -3,7 +3,7 @@
     "Author":  "Serpens66",
     "Name":  "Serps Mods - Fully Customizable Collection",
     "Description":  "All included mods can be freely configured in the in-game Mod Settings.\n\nIncluded mods:\n- Bugfixes and QoL\n- Building Costs\n- Building Limit\n- Extra Features\n- Random Events\n- CastlePlanner\n- Start Conditions\n- Unit Costs\n- Unit Limit",
-    "Version":  "1.0.11",
+    "Version":  "1.0.12",
     "Website":  "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods",
     "MinimumScriptExtenderVersion":  "2.3.0",
     "MaximumScriptExtenderVersion":  "",
@@ -13,7 +13,9 @@
                           {
                               "Version":  "1.0.12",
                               "Changes":  [
-                                              "Registers packaged infrastructure assets before active mod assets so APIShared HUD patches are applied."
+                                              "Registers packaged infrastructure assets before active mod assets so APIShared HUD patches are applied.",
+                                              "Validates packaged XAML patch content against the Script Extender single-root contract before publishing.",
+                                              "Preserves an explicitly prepared host version instead of lowering it during pack creation."
                                           ]
                           },
                           {

@@ -13,7 +13,9 @@
                           {
                               "Version":  "1.0.12",
                               "Changes":  [
-                                              "Registers packaged infrastructure assets before active mod assets so APIShared HUD patches are applied."
+                                              "Registers packaged infrastructure assets before active mod assets so APIShared HUD patches are applied.",
+                                              "Validates packaged XAML patch content against the Script Extender single-root contract before publishing.",
+                                              "Preserves an explicitly prepared host version instead of lowering it during pack creation."
                                           ]
                           },
                           {

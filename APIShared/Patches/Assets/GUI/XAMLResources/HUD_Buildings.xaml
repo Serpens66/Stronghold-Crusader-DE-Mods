@@ -8,6 +8,10 @@
   <Operation Type="Add" XPath="//n:ToggleButton[@Name='BarracksArcher']/..">
     <Content>
       <Border x:Name="APISharedArcherVariantTint" Width="53" Height="120" Margin="19,0,0,47" HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="20" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:ToggleButton[@Name='BarracksArcher']/..">
+    <Content>
       <Button x:Name="APISharedArcherVariantSelector" Width="53" Height="22" Margin="19,0,0,23" HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed" Panel.ZIndex="21" FontSize="13" Content="A" />
     </Content>
   </Operation>

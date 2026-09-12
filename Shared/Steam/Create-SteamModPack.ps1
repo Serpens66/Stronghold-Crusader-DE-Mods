@@ -9,6 +9,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
 
 class SteamPackFailure : System.Exception {
     [int]$ExitCode
@@ -483,6 +484,8 @@ function Get-ReleasePackage {
     Expand-Archive -LiteralPath $zip -DestinationPath $audit
     $roots = @(Get-ChildItem -LiteralPath $audit -Directory)
     if ($roots.Count -ne 1) { Fail-Pack 7 "Release ZIP for $($Mod.Name) must contain exactly one root directory." }
+    try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $roots[0].FullName) }
+    catch { Fail-Pack 7 "Release ZIP for $($Mod.Name) violates the XAML patch contract: $($_.Exception.Message)" }
     return [pscustomobject]@{ Zip = $zip; Sha256 = $actual; Provenance = $prov; PackageDirectory = $roots[0].FullName }
 }
 
@@ -600,6 +603,8 @@ function Invoke-ModBuild {
     param([Parameter(Mandatory)]$Mod)
     Write-RunLog "Building $($Mod.Name) for compatibility validation."
     Invoke-Checked -FilePath $Mod.BuildBat -Arguments @('/nopause') -FailureCode 4 -WorkingDirectory $Mod.Directory | Out-Null
+    try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $Mod.PackageDirectory) }
+    catch { Fail-Pack 4 "Built package for $($Mod.Name) violates the XAML patch contract: $($_.Exception.Message)" }
     $built = Get-CecilPluginMetadata -Directory $Mod.PackageDirectory
     if ($built.Guid -ne $Mod.PluginGuid -or $built.Version -ne $Mod.TargetVersion -or $built.HostDependencyCount -ne 1) {
         Fail-Pack 4 "Built DLL audit failed for $($Mod.Name): GUID=$($built.Guid), version=$($built.Version), host dependencies=$($built.HostDependencyCount)."
@@ -608,6 +613,8 @@ function Invoke-ModBuild {
 
 function Invoke-ModRelease {
     param([Parameter(Mandatory)]$Mod)
+    try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $Mod.PackageDirectory) }
+    catch { Fail-Pack 6 "Package for $($Mod.Name) violates the XAML patch contract before release: $($_.Exception.Message)" }
     Write-RunLog "Publishing required individual release $($Mod.Name) v$($Mod.TargetVersion)."
     Invoke-Checked -FilePath $Mod.ReleaseBat -Arguments @('/noprompt','/nopause') -FailureCode 6 -WorkingDirectory $Mod.Directory | Out-Null
     $Mod.LatestTag = "$($Mod.Name)/v$($Mod.TargetVersion)"
@@ -843,7 +850,11 @@ try {
     $mods = @(Get-ModNames | ForEach-Object { Get-PluginSourceMetadata $_ })
     $duplicateGuids = @($mods | Group-Object PluginGuid | Where-Object Count -gt 1)
     if ($duplicateGuids.Count -gt 0) { Fail-Pack 2 "Duplicate plugin GUIDs: $(@($duplicateGuids.Name) -join ', ')" }
-    foreach ($mod in $mods) { if ($mod.DependencyCount -gt 1) { Fail-Pack 3 "Duplicate host dependencies in $($mod.Name)." } }
+    foreach ($mod in $mods) {
+        if ($mod.DependencyCount -gt 1) { Fail-Pack 3 "Duplicate host dependencies in $($mod.Name)." }
+        try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $mod.Directory) }
+        catch { Fail-Pack 3 "$($mod.Name) violates the XAML patch contract: $($_.Exception.Message)" }
+    }
     if (-not (Test-Path -LiteralPath $PreviewPath -PathType Leaf)) { Fail-Pack 2 "Steam preview image not found: $PreviewPath" }
     [void](Resolve-CecilLoadPath)
     $resolvedPackager = Resolve-WorkshopPackager
@@ -887,6 +898,8 @@ try {
         Directory = $apiSharedDirectory
         DirectorySha256 = Get-DirectorySignature $apiSharedDirectory
     }
+    try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $apiSharedDirectory) }
+    catch { Fail-Pack 3 "APIShared infrastructure violates the XAML patch contract: $($_.Exception.Message)" }
     $releaseResult = Invoke-Checked -FilePath 'gh' -Arguments @('release','list','--repo',$script:Repository,'--limit','1000','--json','tagName,isDraft,publishedAt') -FailureCode 2
     $parsedReleases = ($releaseResult.Output -join "`n") | ConvertFrom-Json
     $script:ReleaseList = @()
@@ -1017,7 +1030,10 @@ try {
         exit 0
     }
 
-    $packVersion = if ($null -eq $previousPack) { '1.0.0' } else { Get-NextPatchVersion $previousPack.Version }
+    $preparedHostInfoPath = Join-Path $script:Root 'SerpsModsHost\info.json'
+    $preparedHostInfo = Get-Content -LiteralPath $preparedHostInfoPath -Raw | ConvertFrom-Json
+    $previousVersion = if ($null -eq $previousPack) { $null } else { [string]$previousPack.Version }
+    $packVersion = Resolve-SteamPackVersion -PreviousVersion $previousVersion -PreparedVersion ([string]$preparedHostInfo.Version)
     Set-HostVersion $packVersion
     Invoke-Git @('add','--','SerpsModsHost/src/SerpsModsHostPlugin.cs','SerpsModsHost/info.json','SerpsModsHost/serps-modpack.json') | Out-Null
     $hostStatus = (Invoke-Git @('status','--porcelain=v1','--','SerpsModsHost')).Output
@@ -1038,6 +1054,8 @@ try {
     $infrastructureRelative = "Infrastructure/$($apiSharedInfrastructure.Guid)"
     $infrastructureStage = Join-Path $hostStage $infrastructureRelative
     Copy-DirectoryContents -Source $apiSharedInfrastructure.Directory -Destination $infrastructureStage
+    try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $infrastructureStage) }
+    catch { Fail-Pack 8 "Staged APIShared infrastructure violates the XAML patch contract: $($_.Exception.Message)" }
     $infrastructureForbidden = @(Get-ChildItem -LiteralPath $infrastructureStage -File -Recurse | Where-Object {
         $_.Name -ieq 'SHCDESE.dll' -or $_.Name -like 'RedBird*.dll'
     })
@@ -1058,6 +1076,8 @@ try {
         $childStage = Join-Path $hostStage $childRelative
         [void](New-Item -ItemType Directory -Path $childStage -Force)
         Copy-DirectoryContents -Source $mod.Package.PackageDirectory -Destination $childStage
+        try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $childStage) }
+        catch { Fail-Pack 8 "Staged Steam consumer $($mod.Name) violates the XAML patch contract: $($_.Exception.Message)" }
         $privateRuntimeCopies = @(Get-ChildItem -LiteralPath $childStage -File -Recurse | Where-Object {
             $_.Name -ieq 'APIShared.dll' -or $_.Name -ieq 'SHCDESE.dll' -or $_.Name -like 'RedBird*.dll'
         })
@@ -1074,6 +1094,8 @@ try {
         $childRelative = "Mods/$($mod.Guid)"
         $childStage = Join-Path $hostStage $childRelative
         Copy-DirectoryContents -Source $mod.Directory -Destination $childStage
+        try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $childStage) }
+        catch { Fail-Pack 8 "Staged retired mod $($mod.Name) violates the XAML patch contract: $($_.Exception.Message)" }
         $packRecords += [ordered]@{
             Name = $mod.Name; Guid = $mod.Guid; Version = $mod.Version; State = 'Retired'; RelativePath = $childRelative
             ReleaseUrl = $mod.ReleaseUrl; ReleaseTag = $mod.ReleaseTag; SourceCommit = $mod.SourceCommit

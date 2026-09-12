@@ -17,6 +17,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(MSBuildThisFileDirectory)..\..\shcde-script-extender\deps\Assembly-CSharp-publicized.dll</HintPath></Reference>

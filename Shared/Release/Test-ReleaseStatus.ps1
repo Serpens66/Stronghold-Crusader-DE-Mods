@@ -8,7 +8,7 @@ function Assert-True {
 
 $config = Get-ReleaseConfiguration
 Assert-True ([string]$config.ApiShared.Guid -ceq 'APIShared_Serp') 'The resolved release configuration must expose the APIShared GUID.'
-Assert-True ([string]$config.ApiShared.Version -ceq '0.3.2') 'The resolved release configuration must expose APIShared v0.3.2.'
+Assert-True ([string]$config.ApiShared.Version -ceq '0.3.3') 'The resolved release configuration must expose APIShared v0.3.3.'
 Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.3.0') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
 Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.3.0') 'ExtraFeatures must be recognized as an APIShared consumer.'
 Assert-True ($null -eq (Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts')) 'BuildingCosts must not be classified as an APIShared consumer.'

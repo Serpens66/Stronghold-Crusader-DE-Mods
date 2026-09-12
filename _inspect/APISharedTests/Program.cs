@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Xml;
 
 namespace APISharedTests
 {
@@ -117,6 +118,9 @@ namespace APISharedTests
                 File.ReadAllText(Path.Combine(workspace, "ImprovedHunters", "src", "HunterPclReachabilityDiagnostic.cs"));
             string sourceManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "info.json"));
             string packageManifest = File.ReadAllText(Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "info.json"));
+            string buildingPatchPath = Path.Combine(workspace, "APIShared", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Buildings.xaml");
+            string packagedBuildingPatchPath = Path.Combine(workspace, "APIShared", "BepInEx", "plugins", "APIShared_Serp", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Buildings.xaml");
+            string buildingPatch = File.ReadAllText(buildingPatchPath);
             Match minimumMatch = Regex.Match(sourceManifest,
                 @"""MinimumScriptExtenderVersion""\s*:\s*""([^""]*)""");
             string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
@@ -169,7 +173,7 @@ namespace APISharedTests
                 : string.Empty;
             Assert(armyMethod.IndexOf("APISharedArmyCategoriesHost", StringComparison.Ordinal) >= 0 &&
                 armyMethod.IndexOf("APISharedArmyCategoriesHost", StringComparison.Ordinal) < armyMethod.IndexOf("main.AllTroops[", StringComparison.Ordinal) &&
-                unitHud.Contains("RenderArmyHosts(host, custom);"),
+                armyMethod.IndexOf("RenderArmyHosts(host, custom);", StringComparison.Ordinal) < armyMethod.IndexOf("main.AllTroops[desired.Key]", StringComparison.Ordinal),
                 "army HUD host must be resolved before Vanilla troop counts are changed");
             Assert(unitHud.Contains("ManualApply = true") &&
                 unitHud.Contains("updateSpritesHook.Apply()") &&
@@ -200,10 +204,55 @@ namespace APISharedTests
             Assert(loadedGuard >= 0 && loadedGuard < singletonRead &&
                 singletonRead < hudGuard && hudGuard < refreshConsume,
                 "render HUD readiness guards must precede the lazy singleton getter and refresh consumption");
-            Assert(renderMethod.Contains("ApplyHover(main);") && renderMethod.Contains("ApplyArmyReport(main);") &&
+            Assert(renderMethod.Contains("TryApplyFrameArea(\"hover presentation\", () => ApplyHover(main));") &&
+                renderMethod.Contains("TryApplyFrameArea(\"army-report presentation\", () => ApplyArmyReport(main), HideArmyHosts);") &&
+                renderMethod.Contains("TryApplyFrameArea(\"recruitment presentation\", () => ApplyRecruitmentPresentation(main), HideRecruitmentControls);") &&
+                renderMethod.Contains("TryApplyFrameArea(\"unit-detail presentation\", () => ApplyUnitDetails(main), HideUnitDetailControls);") &&
                 unitHud.Contains("private void ApplyHover(MainViewModel main)") &&
                 unitHud.Contains("private void ApplyArmyReport(MainViewModel main)"),
-                "render HUD helpers must reuse the readiness-checked view model");
+                "independent render HUD areas must reuse the readiness-checked view model and fail closed separately");
+            Assert(unitHud.Contains("private void HideArmyHosts()") &&
+                unitHud.Contains("private void HideRecruitmentControls()") &&
+                unitHud.Contains("private void HideUnitDetailControls()") &&
+                unitHud.Contains("if (archerVariantSelector != null)") &&
+                unitHud.Contains("if (archerVariantTint != null)") &&
+                unitHud.Contains("if (unitDetailHost != null)"),
+                "HUD area cleanup must tolerate missing XAML controls");
+            Assert(unitHud.Contains("loggedCallbackFailures.Add(area)") && !unitHud.Contains("callbackErrorLogged"),
+                "HUD callback failures must be deduplicated independently by area");
+
+            var patchDocument = new XmlDocument();
+            patchDocument.LoadXml(buildingPatch);
+            var recruitmentRoots = new HashSet<string>(StringComparer.Ordinal);
+            int structuralOperations = 0;
+            foreach (XmlNode operation in patchDocument.DocumentElement.ChildNodes)
+            {
+                if (operation.NodeType != XmlNodeType.Element || operation.LocalName != "Operation") continue;
+                string operationType = operation.Attributes?["Type"]?.Value;
+                if (operationType != "Add" && operationType != "InsertBefore" && operationType != "InsertAfter" && operationType != "Replace") continue;
+                structuralOperations++;
+                var contentNodes = new List<XmlNode>();
+                foreach (XmlNode child in operation.ChildNodes)
+                    if (child.NodeType == XmlNodeType.Element && child.LocalName == "Content") contentNodes.Add(child);
+                var contentRoots = new List<XmlNode>();
+                if (contentNodes.Count == 1)
+                    foreach (XmlNode child in contentNodes[0].ChildNodes)
+                        if (child.NodeType == XmlNodeType.Element) contentRoots.Add(child);
+                Assert(contentNodes.Count == 1 && contentRoots.Count == 1,
+                    "every structural XAML patch operation must expose exactly one Content root");
+                if (operation.Attributes?["XPath"]?.Value.Contains("BarracksArcher") == true && contentRoots.Count == 1)
+                {
+                    // Simulate Script Extender 2.5.0: only the first direct Content element survives.
+                    string xamlName = contentRoots[0].Attributes?["x:Name"]?.Value;
+                    if (!string.IsNullOrEmpty(xamlName)) recruitmentRoots.Add(xamlName);
+                }
+            }
+            Assert(structuralOperations > 0 && recruitmentRoots.SetEquals(new[]
+            {
+                "APISharedArcherVariantTint", "APISharedArcherVariantSelector"
+            }), "Script Extender merge simulation must retain both recruitment controls");
+            Assert(buildingPatch == File.ReadAllText(packagedBuildingPatchPath),
+                "source and packaged APIShared building XAML patches must match");
             Assert(unitHud.Contains("UnitHudImageSlot.UIBuildingsO011") &&
                 unitHud.Contains("UnitHudImageSlot.UIBuildingsO012") &&
                 unitHud.Contains("UnitHudImageSlot.UIButtonsK007") &&

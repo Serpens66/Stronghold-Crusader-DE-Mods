@@ -37,6 +37,9 @@ if exist "%LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 ) else goto build_failed
 
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\Shared\Steam\Test-SteamPackPolicy.ps1"
+if errorlevel 1 goto build_failed
+
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\SerpsModsHostDuplicateTests.csproj" /p:Configuration=Release
