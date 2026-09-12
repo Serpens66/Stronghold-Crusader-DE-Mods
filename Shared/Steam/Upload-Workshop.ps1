@@ -11,6 +11,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $outputRoot = Join-Path $root '.release-output\SteamWorkshop'
@@ -429,6 +430,14 @@ try {
 
     $isUpdate = -not [string]::IsNullOrWhiteSpace($itemId)
     $changelogStatePath = Join-Path $outputRoot "items\$AppId-$safeFolderName.changelog-state.json"
+    $uploadHistoryPath = Join-Path $outputRoot "items\$AppId-$safeFolderName.upload-history.json"
+    $uploadHistorySeedPath = Join-Path $PSScriptRoot "$safeFolderName.upload-history.seed.json"
+    try {
+        $uploadHistory = Get-SteamWorkshopUploadHistory -Path $uploadHistoryPath -SeedPath $uploadHistorySeedPath -AppId $AppId -StateName $safeFolderName
+        Write-UploadLog "Validated Workshop upload history with $(@($uploadHistory.Uploads).Count) confirmed upload(s): $uploadHistoryPath" 'OK'
+    } catch {
+        Stop-Upload 2 "Workshop upload history is not ready; no upload was attempted: $($_.Exception.Message)"
+    }
     $previousChangelogState = if ($isUpdate) {
         Read-ChangelogState -Path $changelogStatePath
     } else {
@@ -578,6 +587,25 @@ try {
     }
     if ($isUpdate -and $ConfiguredItemId.Trim()) {
         Save-ItemId -Path $itemIdPath -ItemId $itemId
+    }
+    $uploadedUtc = [DateTimeOffset]::UtcNow
+    try {
+        $historyAdded = Add-SteamWorkshopUploadHistoryEntry `
+            -Path $uploadHistoryPath `
+            -SeedPath $uploadHistorySeedPath `
+            -AppId $AppId `
+            -StateName $safeFolderName `
+            -ItemId $itemId `
+            -PackVersion $changeNoteInfo.PackVersion `
+            -MapSha256 $changeNoteInfo.MapSha256 `
+            -UploadedUtc $uploadedUtc
+        if ($historyAdded) {
+            Write-UploadLog "Confirmed upload appended to Workshop history: $uploadHistoryPath" 'OK'
+        } else {
+            Write-UploadLog "Confirmed upload already exists in Workshop history: $($changeNoteInfo.PackVersion)" 'OK'
+        }
+    } catch {
+        Stop-Upload 6 "Steam confirmed the upload, but the upload history could not be saved. Do not build another pack until this is repaired: $($_.Exception.Message)"
     }
     Save-ChangelogState `
         -Path $changelogStatePath `

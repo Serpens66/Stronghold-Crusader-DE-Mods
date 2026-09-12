@@ -3,13 +3,25 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.143",
+  "Version": "1.0.145",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.145",
+      "Changes": [
+        "Accelerated shared native signature searches without changing feature initialization or hook behavior."
+      ]
+    },
+    {
+      "Version": "1.0.144",
+      "Changes": [
+        "Stops persistent lobby observation from repeatedly triggering Script Extender warnings while the local Steam player slot is temporarily unavailable."
+      ]
+    },
     {
       "Version": "1.0.143",
       "Changes": [

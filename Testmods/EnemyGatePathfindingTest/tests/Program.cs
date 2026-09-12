@@ -1009,6 +1009,15 @@ namespace EnemyGatePathfindingTest
             Assert(source.IndexOf("FilterAlternateConsumer", StringComparison.Ordinal) >= 0 &&
                     source.IndexOf("FilterCandidateSearch", StringComparison.Ordinal) >= 0,
                 "1232E0 and DC3C0 have explicit query scopes");
+            Assert(source.IndexOf("Interlocked.Increment(ref aiQueries)",
+                        StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("Interlocked.Increment(ref aiNoRoutes)",
+                        StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("Interlocked.Increment(ref attackQueries)",
+                        StringComparison.Ordinal) >= 0 &&
+                    source.IndexOf("Interlocked.Increment(ref candidateQueries)",
+                        StringComparison.Ordinal) >= 0,
+                "AI builder, no-route, attack, and candidate coverage are independently observable");
             Assert(EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva == 0x88E3D70 &&
                     EnemyGatePathfindingNativeDefinition.AlternateBuildingConsumerRva == 0x1232E0 &&
                     EnemyGatePathfindingNativeDefinition.PlayerAwareCandidateSearchRva == 0xDC3C0,
@@ -1157,6 +1166,10 @@ namespace EnemyGatePathfindingTest
                     callback.IndexOf("targetPcl != sourcePcl", StringComparison.Ordinal) >= 0 &&
                     callback.IndexOf("ApplyCursorPreviewResult", StringComparison.Ordinal) >= 0,
                 "wrapper uses the real ABI PCL arguments and preserves Vanilla unless a cache blocks it");
+            Assert(callback.IndexOf("if (vanillaResult > 0)", StringComparison.Ordinal) >= 0 &&
+                    callback.IndexOf("else if (vanillaResult > 0)", StringComparison.Ordinal) < 0 &&
+                    callback.IndexOf("cursorDifferentPclEligible", StringComparison.Ordinal) >= 0,
+                "positive Same- and Different-PCL cursor decisions share the throttled tile validation");
             foreach (string forbidden in new[]
             {
                 "GameUnitManagerAPI", "originalDirectTileSearch", "lock (", "new ",
@@ -1205,20 +1218,45 @@ namespace EnemyGatePathfindingTest
                     2, 41, 300, 301, 8, 8, 0x1234UL),
                 "changed source and target PCLs invalidate a cached cursor decision");
 
+            Assert(EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
+                    true, false, 2, 41, 7, 7, 0x1234UL,
+                    2, 41, 7, 7, 0x1234UL),
+                "a confirmed block remains sticky across target-coordinate changes");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
+                    true, true, 2, 41, 7, 7, 0x1234UL,
+                    2, 41, 7, 7, 0x1234UL),
+                "an allowing result is never carried to a new cursor key");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
+                    true, false, 2, 41, 7, 7, 0x1234UL,
+                    2, 41, 8, 7, 0x1234UL),
+                "a target-PCL change invalidates a sticky block");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
+                    true, false, 2, 41, 7, 7, 0x1234UL,
+                    2, 42, 7, 7, 0x1234UL),
+                "a representative-unit change invalidates a sticky block");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
+                    true, false, 2, 41, 7, 7, 0x1234UL,
+                    3, 41, 7, 8, 0x1234UL),
+                "a player or source-PCL change invalidates a sticky block");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewStickyBlockMatches(
+                    true, false, 2, 41, 7, 7, 0x1234UL,
+                    2, 41, 7, 7, 0x1235UL),
+                "a policy change invalidates a sticky block");
+
             Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
-                    7, false, true, false) == 7,
-                "Different-PCL preserves Vanilla even with a blocking cache");
+                    7, true, false) == 0,
+                "a blocking Different-PCL cache can reject Vanilla for a gatehouse");
             Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
-                    7, true, false, false) == 7,
-                "Same-PCL without a published cache preserves Vanilla");
+                    7, false, false) == 7,
+                "without a published cache Vanilla remains unchanged");
             Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
-                    7, true, true, true) == 7,
-                "an allowing Same-PCL cache preserves Vanilla");
+                    7, true, true) == 7,
+                "an allowing cache preserves Vanilla");
             Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
-                    7, true, true, false) == 0,
-                "a blocking Same-PCL cache changes a positive result to zero");
+                    7, true, false) == 0,
+                "a blocking cache changes a positive result to zero");
             Assert(EnemyGatePathfindingPolicy.ApplyCursorPreviewResult(
-                    0, true, true, false) == 0,
+                    0, true, false) == 0,
                 "a Vanilla failure remains byte-equivalent zero");
         }
 

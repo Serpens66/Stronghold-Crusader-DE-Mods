@@ -43,6 +43,7 @@
     <Compile Include="src\AivBuildStepContracts.cs" />
     <Compile Include="src\UnitHudContracts.cs" />
     <Compile Include="src\NativeInfrastructure.cs" />
+    <Compile Include="src\UniquePatternSearch.cs" />
     <Compile Include="src\GatehouseDistanceOriginCapability.cs" />
     <Compile Include="src\GatehouseTimingCapability.cs" />
     <Compile Include="src\UnitHudPresentationCapability.cs" />

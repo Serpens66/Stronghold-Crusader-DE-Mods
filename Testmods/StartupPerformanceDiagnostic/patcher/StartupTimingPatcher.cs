@@ -122,6 +122,8 @@ namespace StartupPerformanceDiagnostic.Patcher
 
         private static bool IsRelevant(string source, string message)
         {
+            if (message.StartsWith("[StartupTiming.Detail] ", StringComparison.Ordinal))
+                return true;
             if (!string.Equals(source, BepInExSource, StringComparison.Ordinal))
                 return false;
             return string.Equals(message, "Preloader finished", StringComparison.Ordinal) ||

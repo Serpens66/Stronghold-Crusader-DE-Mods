@@ -49,6 +49,7 @@ namespace BugfixesAndQoL
             TestMapFileManagerContract();
             TestClassicMapSizeReader();
             TestLobbyMapSelectionMemory();
+            TestNativePatternSearch();
             TestNativeContracts();
             if (failures == 0)
             {
@@ -57,6 +58,77 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestNativePatternSearch()
+        {
+            var random = new Random(0x5E7A);
+            string[] patterns = { "AA", "AA BB CC", "? BB CC", "AA ? CC", "AA BB ?", "? ?", "10 ? ? 40" };
+            foreach (string pattern in patterns)
+            {
+                int length = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                for (int iteration = 0; iteration < 100; iteration++)
+                {
+                    var data = new byte[random.Next(0, 160)];
+                    random.NextBytes(data);
+                    if (iteration % 4 == 0 && data.Length >= length)
+                        StampNativePattern(data, random.Next(0, data.Length - length + 1), pattern, random);
+                    if (iteration % 11 == 0 && data.Length >= length * 2)
+                    {
+                        StampNativePattern(data, 0, pattern, random);
+                        StampNativePattern(data, data.Length - length, pattern, random);
+                    }
+
+                    string expected = FindNativePatternReference(data, pattern);
+                    string actual;
+                    try
+                    {
+                        actual = Shared.NativePatternResolver.FindUniquePattern(
+                            data, pattern, "randomized", Shared.NativePatternSearchScope.EntireImage).ToString();
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        actual = ex.Message.EndsWith("matched more than once.", StringComparison.Ordinal)
+                            ? "ambiguous"
+                            : "missing";
+                    }
+                    Check(actual == expected, "anchored native-pattern search retains reference semantics for " + pattern);
+                }
+            }
+        }
+
+        private static string FindNativePatternReference(byte[] data, string pattern)
+        {
+            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            int found = -1;
+            for (int offset = 0; offset <= data.Length - tokens.Length; offset++)
+            {
+                bool matches = true;
+                for (int index = 0; index < tokens.Length; index++)
+                {
+                    if (tokens[index] != "?" && tokens[index] != "??" &&
+                        data[offset + index] != Convert.ToByte(tokens[index], 16))
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+                if (!matches)
+                    continue;
+                if (found >= 0)
+                    return "ambiguous";
+                found = offset;
+            }
+            return found < 0 ? "missing" : found.ToString();
+        }
+
+        private static void StampNativePattern(byte[] data, int offset, string pattern, Random random)
+        {
+            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int index = 0; index < tokens.Length; index++)
+                data[offset + index] = tokens[index] == "?" || tokens[index] == "??"
+                    ? (byte)random.Next(0, 256)
+                    : Convert.ToByte(tokens[index], 16);
         }
 
         private static void TestMapFileManagerContract()

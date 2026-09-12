@@ -7,6 +7,8 @@ REM APIShared is included automatically as shared infrastructure.
 rem ==========================================================================
 set "PACK_NAME=SerpsMods"
 set "PACK_GUID=SerpsMods_Serp"
+set "STEAM_APP_ID=3024040"
+set "STEAM_STATE_NAME=SerpsMods"
 set "WORKSHOP_PACKAGER_PATH=AUTO"
 set "PREVIEW_PATH=%~dp0SerpsModsHost\steam-preview.png"
 
@@ -47,7 +49,7 @@ for %%A in (%*) do (
   if /I "%%~A"=="/validate" set "POWERSHELL_FLAGS=!POWERSHELL_FLAGS! -Validate"
   if /I "%%~A"=="/nopause" set "POWERSHELL_FLAGS=!POWERSHELL_FLAGS! -NoPause"
 )
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Shared\Steam\Create-SteamModPack.ps1" -PackName "%PACK_NAME%" -PackGuid "%PACK_GUID%" -WorkshopPackagerPath "%WORKSHOP_PACKAGER_PATH%" -PreviewPath "%PREVIEW_PATH%" !POWERSHELL_FLAGS!
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Shared\Steam\Create-SteamModPack.ps1" -PackName "%PACK_NAME%" -PackGuid "%PACK_GUID%" -SteamAppId "%STEAM_APP_ID%" -SteamStateName "%STEAM_STATE_NAME%" -WorkshopPackagerPath "%WORKSHOP_PACKAGER_PATH%" -PreviewPath "%PREVIEW_PATH%" !POWERSHELL_FLAGS!
 set "EXIT_CODE=%ERRORLEVEL%"
 
 if not "%EXIT_CODE%"=="0" (

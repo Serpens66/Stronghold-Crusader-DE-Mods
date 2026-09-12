@@ -325,9 +325,26 @@ namespace EnemyGatePathfindingTest
             cachedTargetPcl == targetPcl && cachedSourcePcl == sourcePcl &&
             cachedFingerprint == fingerprint;
 
+        internal static bool CursorPreviewStickyBlockMatches(
+            bool valid,
+            bool cachedAllowed,
+            int cachedPlayer,
+            int cachedUnitId,
+            int cachedTargetPcl,
+            int cachedSourcePcl,
+            ulong cachedFingerprint,
+            int player,
+            int unitId,
+            int targetPcl,
+            int sourcePcl,
+            ulong fingerprint) =>
+            valid && !cachedAllowed && cachedPlayer == player &&
+            cachedUnitId == unitId && cachedTargetPcl == targetPcl &&
+            cachedSourcePcl == sourcePcl && cachedFingerprint == fingerprint;
+
         internal static int ApplyCursorPreviewResult(int vanillaResult,
-            bool samePcl, bool cacheValid, bool cacheAllowed) =>
-            vanillaResult > 0 && samePcl && cacheValid && !cacheAllowed
+            bool cacheValid, bool cacheAllowed) =>
+            vanillaResult > 0 && cacheValid && !cacheAllowed
                 ? 0 : vanillaResult;
 
         // A failed Vanilla search is attributed to the gate policy only when the

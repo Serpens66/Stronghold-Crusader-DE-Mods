@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory)][string]$PackName,
     [Parameter(Mandatory)][string]$PackGuid,
+    [Parameter(Mandatory)][uint32]$SteamAppId,
+    [Parameter(Mandatory)][string]$SteamStateName,
     [Parameter(Mandatory)][string]$WorkshopPackagerPath,
     [Parameter(Mandatory)][string]$PreviewPath,
     [switch]$Validate,
@@ -10,6 +12,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'SteamPackPolicy.ps1')
+. (Join-Path $PSScriptRoot 'SteamWorkshopHistory.ps1')
 
 class SteamPackFailure : System.Exception {
     [int]$ExitCode
@@ -30,6 +33,8 @@ $script:CecilLoadPath = $null
 $script:BepInExCorePath = Split-Path -Parent $script:CecilSourcePath
 $script:ScriptExtenderOutputPath = Join-Path $script:Root 'shcde-script-extender\src\SHCDESE.BepInEx\bin\net481'
 $script:ReleaseList = @()
+$script:UploadHistoryPath = Join-Path $script:Root ".release-output\SteamWorkshop\items\$SteamAppId-$SteamStateName.upload-history.json"
+$script:UploadHistorySeedPath = Join-Path $PSScriptRoot "$SteamStateName.upload-history.seed.json"
 
 [void](New-Item -ItemType Directory -Path $script:LogDir -Force)
 
@@ -685,6 +690,7 @@ function Find-MapZipOffset {
 
 function Test-MapContents {
     param([Parameter(Mandatory)][string]$MapPath, [Parameter(Mandatory)][string]$StageDirectory)
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $offset = Find-MapZipOffset -MapPath $MapPath
     $mapStream = [IO.File]::Open($MapPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
@@ -717,6 +723,7 @@ function Test-MapContents {
 
 function Get-MapFilePaths {
     param([Parameter(Mandatory)][string]$MapPath)
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $offset = Find-MapZipOffset -MapPath $MapPath
     $mapStream = [IO.File]::Open($MapPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
@@ -735,6 +742,301 @@ function Get-MapFilePaths {
         $zipStream.Dispose()
         $mapStream.Dispose()
     }
+}
+
+function Get-MapFileRecords {
+    param(
+        [Parameter(Mandatory)][string]$MapPath,
+        [Parameter(Mandatory)][string]$SourcePack
+    )
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $offset = Find-MapZipOffset -MapPath $MapPath
+    $mapStream = [IO.File]::Open($MapPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    $zipStream = [IO.MemoryStream]::new()
+    $archive = $null
+    try {
+        [void]$mapStream.Seek($offset, [IO.SeekOrigin]::Begin)
+        $mapStream.CopyTo($zipStream)
+        $zipStream.Position = 0
+        $archive = [IO.Compression.ZipArchive]::new($zipStream, [IO.Compression.ZipArchiveMode]::Read, $true)
+        $records = @()
+        $paths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($entry in @($archive.Entries | Where-Object { -not [string]::IsNullOrEmpty($_.Name) })) {
+            $entryPath = $entry.FullName.Replace('\','/')
+            if ($entryPath.StartsWith('/', [StringComparison]::Ordinal) -or
+                $entryPath -match '^[A-Za-z]:' -or
+                @($entryPath.Split('/') | Where-Object { $_ -in @('','.', '..') }).Count -gt 0) {
+                Fail-Pack 11 "Unsafe archive path in $SourcePack`: $($entry.FullName)"
+            }
+            if (-not $paths.Add($entryPath)) { Fail-Pack 11 "Duplicate or case-ambiguous archive path in $SourcePack`: $entryPath" }
+            $entryStream = $entry.Open()
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try { $hash = [BitConverter]::ToString($sha.ComputeHash($entryStream)).Replace('-','').ToLowerInvariant() }
+            finally { $entryStream.Dispose(); $sha.Dispose() }
+            $records += [pscustomobject]@{
+                Path = $entryPath
+                Sha256 = $hash
+                Size = [long]$entry.Length
+                SourcePack = $SourcePack
+                MapPath = $MapPath
+            }
+        }
+        return @($records | Sort-Object Path)
+    } finally {
+        if ($null -ne $archive) { $archive.Dispose() }
+        $zipStream.Dispose()
+        $mapStream.Dispose()
+    }
+}
+
+function Export-MapEntry {
+    param(
+        [Parameter(Mandatory)][string]$MapPath,
+        [Parameter(Mandatory)][string]$EntryPath,
+        [Parameter(Mandatory)][string]$Destination
+    )
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $offset = Find-MapZipOffset -MapPath $MapPath
+    $mapStream = [IO.File]::Open($MapPath, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+    $zipStream = [IO.MemoryStream]::new()
+    $archive = $null
+    try {
+        [void]$mapStream.Seek($offset, [IO.SeekOrigin]::Begin)
+        $mapStream.CopyTo($zipStream)
+        $zipStream.Position = 0
+        $archive = [IO.Compression.ZipArchive]::new($zipStream, [IO.Compression.ZipArchiveMode]::Read, $true)
+        $matches = @($archive.Entries | Where-Object {
+            -not [string]::IsNullOrEmpty($_.Name) -and
+            [string]::Equals($_.FullName.Replace('\','/').TrimStart('/'), $EntryPath, [StringComparison]::OrdinalIgnoreCase)
+        })
+        if ($matches.Count -ne 1) { Fail-Pack 11 "Historical entry is missing or ambiguous in $MapPath`: $EntryPath" }
+        [void](New-Item -ItemType Directory -Path (Split-Path -Parent $Destination) -Force)
+        $input = $matches[0].Open()
+        $output = [IO.File]::Open($Destination, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::None)
+        try { $input.CopyTo($output) } finally { $output.Dispose(); $input.Dispose() }
+    } finally {
+        if ($null -ne $archive) { $archive.Dispose() }
+        $zipStream.Dispose()
+        $mapStream.Dispose()
+    }
+}
+
+function Get-HistoryMapPath {
+    param([Parameter(Mandatory)]$Upload)
+
+    $version = [string]$Upload.PackVersion
+    $localPath = Join-Path $script:OutputRoot "v$version\SerpsMods.map"
+    if (-not (Test-Path -LiteralPath $localPath -PathType Leaf)) {
+        $cache = Join-Path $script:OutputRoot "cache\history\v$version"
+        [void](New-Item -ItemType Directory -Path $cache -Force)
+        Invoke-Checked -FilePath 'gh' -Arguments @('release','download',"SerpsMods/v$version",'--repo',$script:Repository,'--pattern','SerpsMods.map','--dir',$cache,'--clobber') -FailureCode 10 | Out-Null
+        $localPath = Join-Path $cache 'SerpsMods.map'
+    }
+    if (-not (Test-Path -LiteralPath $localPath -PathType Leaf)) {
+        Fail-Pack 10 "Confirmed Steam pack v$version is unavailable for the historical path audit."
+    }
+    $actualHash = Get-Sha256 $localPath
+    if (-not [string]::Equals($actualHash, [string]$Upload.MapSha256, [StringComparison]::OrdinalIgnoreCase)) {
+        Fail-Pack 10 "Confirmed Steam pack v$version has SHA-256 $actualHash, expected $($Upload.MapSha256)."
+    }
+    return $localPath
+}
+
+function Get-HistoricalSteamFileIndex {
+    param([Parameter(Mandatory)]$History, [Parameter(Mandatory)][string]$PackGuid)
+
+    $index = [Collections.Generic.Dictionary[string,object]]::new([StringComparer]::OrdinalIgnoreCase)
+    $canonical = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($upload in @($History.Uploads | Sort-Object { [version]$_.PackVersion })) {
+        $sourcePack = "SerpsMods/v$([string]$upload.PackVersion)"
+        $mapPath = Get-HistoryMapPath -Upload $upload
+        foreach ($record in @(Get-MapFileRecords -MapPath $mapPath -SourcePack $sourcePack)) {
+            $pluginRoot = 'BepInEx/plugins/'
+            $packRoot = "BepInEx/plugins/$PackGuid/"
+            if ($record.Path.StartsWith($pluginRoot, [StringComparison]::OrdinalIgnoreCase) -and
+                -not $record.Path.StartsWith($packRoot, [StringComparison]::OrdinalIgnoreCase)) {
+                Fail-Pack 11 "Historical archive path is outside the configured pack root ${packRoot}: $($record.Path)"
+            }
+            if ($canonical.ContainsKey($record.Path) -and $canonical[$record.Path] -cne $record.Path) {
+                Fail-Pack 11 "Case-ambiguous historical archive path: '$($canonical[$record.Path])' and '$($record.Path)'."
+            }
+            $canonical[$record.Path] = $record.Path
+            $index[$record.Path] = $record
+        }
+    }
+    return $index
+}
+
+function Get-StageFileIndex {
+    param([Parameter(Mandatory)][string]$Stage)
+
+    $index = [Collections.Generic.Dictionary[string,object]]::new([StringComparer]::OrdinalIgnoreCase)
+    $stageRootItem = Get-Item -LiteralPath $Stage -Force
+    if (($stageRootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        Fail-Pack 11 "The Steam stage root must not be a reparse point: $Stage"
+    }
+    $reparsePoints = @(Get-ChildItem -LiteralPath $Stage -Recurse -Force | Where-Object {
+        ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+    })
+    if ($reparsePoints.Count -gt 0) { Fail-Pack 11 "Reparse points are forbidden in the Steam stage: $($reparsePoints[0].FullName)" }
+    foreach ($file in @(Get-ChildItem -LiteralPath $Stage -Recurse -File -Force)) {
+        $relative = $file.FullName.Substring($Stage.Length).TrimStart('\').Replace('\','/')
+        if ($index.ContainsKey($relative)) { Fail-Pack 11 "Case-ambiguous or duplicate staged path: $relative" }
+        $index[$relative] = [pscustomobject]@{ Path = $relative; Sha256 = Get-Sha256 $file.FullName; File = $file.FullName }
+    }
+    return $index
+}
+
+function Add-HistoricalSteamReplacements {
+    param(
+        [Parameter(Mandatory)][string]$Stage,
+        [Parameter(Mandatory)][string]$PackGuid,
+        [Parameter(Mandatory)]$HistoricalIndex
+    )
+
+    $overlayRoot = Join-Path $script:Root 'SerpsModsHost\SteamTombstones'
+    $overlayPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $stageIndex = Get-StageFileIndex -Stage $Stage
+    $missing = @(Get-MissingSteamPackPaths -PreviousPaths @($HistoricalIndex.Keys) -CurrentPaths @($stageIndex.Keys))
+    if (Test-Path -LiteralPath $overlayRoot -PathType Container) {
+        $overlayRootItem = Get-Item -LiteralPath $overlayRoot -Force
+        if (($overlayRootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { Fail-Pack 11 "Tombstone overlay root is a reparse point: $overlayRoot" }
+        $overlayReparsePoints = @(Get-ChildItem -LiteralPath $overlayRoot -Recurse -Force | Where-Object {
+            ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+        })
+        if ($overlayReparsePoints.Count -gt 0) { Fail-Pack 11 "Reparse point in tombstone overlay: $($overlayReparsePoints[0].FullName)" }
+        foreach ($file in @(Get-ChildItem -LiteralPath $overlayRoot -Recurse -File -Force | Where-Object { $_.Name -cne '.gitkeep' })) {
+            $relative = $file.FullName.Substring($overlayRoot.Length).TrimStart('\').Replace('\','/')
+            $relative = Assert-SteamArchivePath -Path $relative -PackGuid $PackGuid
+            if (-not $overlayPaths.Add($relative)) { Fail-Pack 11 "Duplicate tombstone overlay path: $relative" }
+            $destination = Join-Path $Stage $relative.Replace('/','\')
+            [void](New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force)
+            Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+        }
+    }
+
+    $stageIndex = Get-StageFileIndex -Stage $Stage
+    $records = @()
+    $noop = Get-SteamXamlTombstoneText
+    foreach ($path in $missing) {
+        $path = Assert-SteamArchivePath -Path $path -PackGuid $PackGuid
+        $old = $HistoricalIndex[$path]
+        $destination = Join-Path $Stage $path.Replace('/','\')
+        $action = Get-SteamMissingPathAction -Path $path -PackGuid $PackGuid
+        if ($overlayPaths.Contains($path)) {
+            $action = 'ExplicitTombstone'
+        } elseif ($action -ceq 'XamlTombstone') {
+            Write-SteamXamlTombstone -Path $destination
+        } elseif ($action -ceq 'Retain') {
+            Export-MapEntry -MapPath $old.MapPath -EntryPath $path -Destination $destination
+        } else {
+            $expected = Join-Path $overlayRoot $path.Replace('/','\')
+            Fail-Pack 11 "Unsafe automatic deletion for '$path'. Add a reviewed format-specific replacement at '$expected'. DLL removals require a verified inert assembly."
+        }
+        $replacementHash = Get-Sha256 $destination
+        $moveCandidates = @($stageIndex.Values | Where-Object { -not $HistoricalIndex.ContainsKey([string]$_.Path) })
+        $movedTo = Find-SteamMovedPath -OldPath $path -OldSha256 $old.Sha256 -CurrentRecords $moveCandidates
+        $status = if ($action -ceq 'Retain') { 'Retained' } elseif (-not [string]::IsNullOrWhiteSpace($movedTo)) { 'MovedSource' } else { 'Tombstone' }
+        $records += [ordered]@{
+            Path = $path
+            Status = $status
+            SourcePack = $old.SourcePack
+            OriginalSha256 = $old.Sha256
+            ReplacementSha256 = $replacementHash
+            MovedTo = $movedTo
+        }
+        Write-RunLog "Historical path $status`: $path (source $($old.SourcePack))." 'OK'
+        $stageIndex[$path] = [pscustomobject]@{ Path = $path; Sha256 = $replacementHash; File = $destination }
+    }
+    $noopPath = Join-Path $Stage '.serps-noop-hash.xaml'
+    [IO.File]::WriteAllText($noopPath, $noop, [Text.UTF8Encoding]::new($false))
+    $noopHash = Get-Sha256 $noopPath
+    Remove-Item -LiteralPath $noopPath -Force
+    $recordedPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($record in $records) { [void]$recordedPaths.Add([string]$record.Path) }
+    foreach ($path in @($HistoricalIndex.Keys)) {
+        if ($recordedPaths.Contains($path) -or -not $stageIndex.ContainsKey($path)) { continue }
+        $packageRoot = "BepInEx/plugins/$PackGuid/"
+        if (-not $path.StartsWith($packageRoot, [StringComparison]::OrdinalIgnoreCase)) { continue }
+        $current = $stageIndex[$path]
+        $old = $HistoricalIndex[$path]
+        $isNoopPatch = (Get-SteamMissingPathAction -Path $path -PackGuid $PackGuid) -ceq 'XamlTombstone' -and $current.Sha256 -ceq $noopHash
+        $isExplicitOverlay = $overlayPaths.Contains($path) -and $current.Sha256 -cne $old.Sha256
+        if (-not $isNoopPatch -and -not $isExplicitOverlay) { continue }
+        $records += [ordered]@{
+            Path = $path
+            Status = 'Tombstone'
+            SourcePack = $old.SourcePack
+            OriginalSha256 = $old.Sha256
+            ReplacementSha256 = $current.Sha256
+            MovedTo = $null
+        }
+        [void]$recordedPaths.Add($path)
+        Write-RunLog "Historical path Tombstone: $path (source $($old.SourcePack))." 'OK'
+    }
+    $remaining = @(Get-MissingSteamPackPaths -PreviousPaths @($HistoricalIndex.Keys) -CurrentPaths @($stageIndex.Keys))
+    if ($remaining.Count -gt 0) { Fail-Pack 11 "Final historical map audit still has missing paths: $($remaining -join ', ')" }
+    return @($records | Sort-Object Path)
+}
+
+function Assert-HistoricalDeletionPolicyPreflight {
+    param(
+        [Parameter(Mandatory)]$HistoricalIndex,
+        [Parameter(Mandatory)][string]$PackGuid,
+        [Parameter(Mandatory)][array]$Mods,
+        [Parameter(Mandatory)]$Infrastructure,
+        [AllowEmptyCollection()][array]$RetiredMods = @()
+    )
+
+    $planned = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $addDirectory = {
+        param([string]$Directory, [string]$Prefix)
+        if (-not (Test-Path -LiteralPath $Directory -PathType Container)) { return }
+        $directoryItem = Get-Item -LiteralPath $Directory -Force
+        if (($directoryItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { Fail-Pack 11 "Planned Steam content root is a reparse point: $Directory" }
+        $reparsePoints = @(Get-ChildItem -LiteralPath $Directory -Recurse -Force | Where-Object {
+            ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+        })
+        if ($reparsePoints.Count -gt 0) { Fail-Pack 11 "Reparse point in planned Steam content: $($reparsePoints[0].FullName)" }
+        foreach ($file in @(Get-ChildItem -LiteralPath $Directory -Recurse -File -Force)) {
+            $relative = $file.FullName.Substring($Directory.Length).TrimStart('\').Replace('\','/')
+            [void]$planned.Add(($Prefix.TrimEnd('/') + '/' + $relative).TrimEnd('/'))
+        }
+    }
+    & $addDirectory (Join-Path $script:Root "SerpsModsHost\BepInEx\plugins\$PackGuid") "BepInEx/plugins/$PackGuid"
+    & $addDirectory $Infrastructure.Directory "BepInEx/plugins/$PackGuid/Infrastructure/$($Infrastructure.Guid)"
+    foreach ($mod in $Mods) { & $addDirectory $mod.PackageDirectory "BepInEx/plugins/$PackGuid/Mods/$($mod.PluginGuid)" }
+    foreach ($mod in $RetiredMods) { & $addDirectory $mod.Directory "BepInEx/plugins/$PackGuid/Mods/$($mod.Guid)" }
+    foreach ($guaranteed in @('info.json','preview.png',"BepInEx/plugins/$PackGuid/serps-modpack.json","BepInEx/plugins/$PackGuid/Provenance/pack-inputs.json")) {
+        [void]$planned.Add($guaranteed)
+    }
+
+    $overlayRoot = Join-Path $script:Root 'SerpsModsHost\SteamTombstones'
+    $overlay = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    if (Test-Path -LiteralPath $overlayRoot -PathType Container) {
+        $overlayRootItem = Get-Item -LiteralPath $overlayRoot -Force
+        if (($overlayRootItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { Fail-Pack 11 "Tombstone overlay root is a reparse point: $overlayRoot" }
+        $overlayReparsePoints = @(Get-ChildItem -LiteralPath $overlayRoot -Recurse -Force | Where-Object {
+            ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+        })
+        if ($overlayReparsePoints.Count -gt 0) { Fail-Pack 11 "Reparse point in tombstone overlay: $($overlayReparsePoints[0].FullName)" }
+        foreach ($file in @(Get-ChildItem -LiteralPath $overlayRoot -Recurse -File -Force | Where-Object { $_.Name -cne '.gitkeep' })) {
+            $relative = Assert-SteamArchivePath -Path ($file.FullName.Substring($overlayRoot.Length).TrimStart('\').Replace('\','/')) -PackGuid $PackGuid
+            if (-not $overlay.Add($relative)) { Fail-Pack 11 "Duplicate tombstone overlay path: $relative" }
+        }
+    }
+
+    $safeMissing = 0
+    foreach ($path in @(Get-MissingSteamPackPaths -PreviousPaths @($HistoricalIndex.Keys) -CurrentPaths @($planned))) {
+        if ($overlay.Contains($path)) { $safeMissing++; continue }
+        $action = Get-SteamMissingPathAction -Path $path -PackGuid $PackGuid
+        if ($action -in @('XamlTombstone','Retain')) { $safeMissing++; continue }
+        $expected = Join-Path $overlayRoot $path.Replace('/','\')
+        Fail-Pack 11 "Historical path '$path' has no safe automatic deletion rule. Add a reviewed replacement at '$expected'. DLL removals require a verified inert assembly."
+    }
+    return $safeMissing
 }
 
 function Set-HostVersion {
@@ -891,6 +1193,8 @@ function Publish-PackRelease {
 
 try {
     Write-RunLog "Starting $PackName pack workflow; validate=$Validate."
+    $uploadHistory = Get-SteamWorkshopUploadHistory -Path $script:UploadHistoryPath -SeedPath $script:UploadHistorySeedPath -AppId $SteamAppId -StateName $SteamStateName
+    Write-RunLog "Loaded $(@($uploadHistory.Uploads).Count) confirmed Steam uploads from $script:UploadHistoryPath."
     $mods = @(Get-ModNames | ForEach-Object { Get-PluginSourceMetadata $_ })
     $duplicateGuids = @($mods | Group-Object PluginGuid | Where-Object Count -gt 1)
     if ($duplicateGuids.Count -gt 0) { Fail-Pack 2 "Duplicate plugin GUIDs: $(@($duplicateGuids.Name) -join ', ')" }
@@ -990,20 +1294,29 @@ try {
         Write-RunLog ("  {0}: dependency={1}, sourceEdit={2}, release={3}, target=v{4}" -f $mod.Name, $mod.HasDependency, $mod.NeedsSourceEdit, $mod.NeedsRelease, $mod.TargetVersion)
     }
     $previousPack = Get-PackReleaseState -Releases $script:ReleaseList
+    $historicalSteamFiles = Get-HistoricalSteamFileIndex -History $uploadHistory -PackGuid $PackGuid
+    Write-RunLog "Historical Steam audit indexed $($historicalSteamFiles.Count) unique paths from $(@($uploadHistory.Uploads).Count) confirmed uploads." 'OK'
     $retiredPlan = Get-RetiredModPlan -PreviousPack $previousPack -ActiveMods $mods
     $retiredMods = @($retiredPlan.RetiredMods)
     $missingTombstones = @($retiredPlan.MissingTombstones)
+    $safeHistoricalReplacements = Assert-HistoricalDeletionPolicyPreflight `
+        -HistoricalIndex $historicalSteamFiles `
+        -PackGuid $PackGuid `
+        -Mods $mods `
+        -Infrastructure $apiSharedInfrastructure `
+        -RetiredMods $retiredMods
+    Write-RunLog "Historical deletion preflight accepted $safeHistoricalReplacements missing path(s) with deterministic tombstone/retention rules." 'OK'
     foreach ($missing in $missingTombstones) {
         Write-RunLog ("  MISSING TOMBSTONE: {0} ({1}) v{2}, previously recorded by {3}; expected at {4}" -f `
             $missing.Name, $missing.Guid, $missing.Version, $missing.PreviousPack, $missing.ExpectedDirectory) 'WARN'
+    }
+    if ($missingTombstones.Count -gt 0) {
+        Fail-Pack 8 'A previously delivered mod has no verified inert tombstone assembly. The Steam workflow is fail-closed and cannot omit it.'
     }
     Write-RunLog "  Workshop packager: $resolvedPackager"
     Write-RunLog "  Preview: $PreviewPath"
 
     if ($Validate) {
-        if ($missingTombstones.Count -gt 0) {
-            Write-RunLog 'Validation found missing tombstones. Publishing will require the explicit TROTZDEM_BAUEN confirmation.' 'WARN'
-        }
         Write-RunLog 'Validation completed before all source edits, builds, commits, pushes and releases.' 'OK'
         Write-Host "Log: $($script:LogPath)"
         exit 0
@@ -1016,16 +1329,6 @@ try {
     if ($confirmedStatus.Count -gt 0) {
         Fail-Pack 2 "Git working tree changed while awaiting publishing confirmation. Commit or otherwise resolve these changes, then restart the workflow:`r`n$($confirmedStatus -join "`r`n")"
     }
-    if ($missingTombstones.Count -gt 0) {
-        $missingSummary = @($missingTombstones | ForEach-Object { "$($_.Name) ($($_.Guid)) v$($_.Version)" }) -join ', '
-        Write-RunLog "Publishing without tombstones would intentionally omit: $missingSummary" 'WARN'
-        $tombstoneConfirmation = Read-Host 'Type TROTZDEM_BAUEN to intentionally omit these previously recorded mods without tombstones'
-        if ($tombstoneConfirmation -cne 'TROTZDEM_BAUEN') {
-            Fail-Pack 8 'Publishing cancelled because the missing-tombstone override was not confirmed.'
-        }
-        Write-RunLog "Missing-tombstone override confirmed; intentionally omitting: $missingSummary" 'WARN'
-    }
-
     $journal = [ordered]@{ SchemaVersion = 1; RunId = $script:RunId; StartedUtc = [DateTime]::UtcNow.ToString('o'); CompletedReleases = @(); Status = 'source-preparation' }
     Write-JsonCrLf -Path $script:JournalPath -Value $journal
     foreach ($mod in @($mods | Where-Object NeedsSourceEdit)) { Set-ModCompatibility $mod }
@@ -1060,7 +1363,10 @@ try {
     }
 
     $contentSignature = Get-HostContentSignature -Mods $mods -RetiredMods $retiredMods -Infrastructure $apiSharedInfrastructure
-    if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature) {
+    $previousPackMissingHistory = if ($null -eq $previousPack) { @() } else {
+        @(Get-MissingSteamPackPaths -PreviousPaths @($historicalSteamFiles.Keys) -CurrentPaths @(Get-MapFilePaths -MapPath $previousPack.MapPath))
+    }
+    if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature -and $previousPackMissingHistory.Count -eq 0) {
         Write-RunLog "Pack content is unchanged from $($previousPack.Tag); reusing the published map." 'OK'
         $finalDir = Join-Path $script:Root $PackName
         if (-not $finalDir.StartsWith($script:Root + '\', [StringComparison]::OrdinalIgnoreCase)) { Fail-Pack 8 'Unsafe final output path.' }
@@ -1070,6 +1376,9 @@ try {
         Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $finalDir 'preview.png')
         Write-RunLog "Reusable pack ready: $finalDir" 'OK'
         exit 0
+    }
+    if ($null -ne $previousPack -and [string]$previousPack.Provenance.ContentSignature -eq $contentSignature -and $previousPackMissingHistory.Count -gt 0) {
+        Write-RunLog "The latest GitHub pack cannot be reused because it omits historical Steam paths: $($previousPackMissingHistory -join ', ')." 'WARN'
     }
 
     $preparedHostInfoPath = Join-Path $script:Root 'SerpsModsHost\info.json'
@@ -1144,29 +1453,34 @@ try {
             PackageSha256 = $mod.PackageSha256; ExpectedSoftDependency = $PackGuid; Files = @(Get-FileRecords $childStage)
         }
     }
-    $manifest = [ordered]@{ SchemaVersion = 2; PackGuid = $PackGuid; PackVersion = $packVersion; HostVersion = $packVersion; CreatedUtc = [DateTime]::UtcNow.ToString('o'); RepositoryCommit = $commit; Infrastructure = $infrastructureRecords; Mods = $packRecords }
+    $historicalReplacements = @()
+    $manifest = [ordered]@{ SchemaVersion = 2; PackGuid = $PackGuid; PackVersion = $packVersion; HostVersion = $packVersion; CreatedUtc = [DateTime]::UtcNow.ToString('o'); RepositoryCommit = $commit; Infrastructure = $infrastructureRecords; Mods = $packRecords; HistoricalReplacements = $historicalReplacements }
     Write-JsonCrLf -Path (Join-Path $hostStage 'serps-modpack.json') -Value $manifest
     $inputProvenanceDir = Join-Path $hostStage 'Provenance'
     [void](New-Item -ItemType Directory -Path $inputProvenanceDir -Force)
     Write-JsonCrLf -Path (Join-Path $inputProvenanceDir 'pack-inputs.json') -Value ([ordered]@{
-        SchemaVersion = 2; PackGuid = $PackGuid; PackVersion = $packVersion; Commit = $commit; ContentSignature = $contentSignature; Infrastructure = $infrastructureRecords; Mods = $packRecords
+        SchemaVersion = 2; PackGuid = $PackGuid; PackVersion = $packVersion; Commit = $commit; ContentSignature = $contentSignature; Infrastructure = $infrastructureRecords; Mods = $packRecords; HistoricalReplacements = $historicalReplacements
     })
     Copy-Item -LiteralPath (Join-Path $hostDir 'info.json') -Destination (Join-Path $stage 'info.json')
     Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $stage 'preview.png')
 
-    if ($null -ne $previousPack) {
-        $previousPaths = @(Get-MapFilePaths -MapPath $previousPack.MapPath)
-        $currentPaths = @(Get-ChildItem -LiteralPath $stage -File -Recurse | ForEach-Object {
-            $_.FullName.Substring($stage.Length).TrimStart('\').Replace('\','/')
-        })
-        $missingPaths = @(Get-MissingSteamPackPaths -PreviousPaths $previousPaths -CurrentPaths $currentPaths)
-        if ($missingPaths.Count -gt 0) {
-            Write-RunLog "Files from the last published pack $($previousPack.Tag) are missing from the new stage:" 'WARN'
-            foreach ($missingPath in $missingPaths) { Write-RunLog "  MISSING: $missingPath" 'WARN' }
-            Fail-Pack 11 'Steam does not reliably remove files during Workshop updates. Restore every missing path with its intended content or a format-appropriate tombstone before publishing.'
-        }
-        Write-RunLog "Verified that the new stage preserves all $($previousPaths.Count) paths from $($previousPack.Tag)." 'OK'
+    $historicalReplacements = @(Add-HistoricalSteamReplacements -Stage $stage -PackGuid $PackGuid -HistoricalIndex $historicalSteamFiles)
+    foreach ($record in $infrastructureRecords) {
+        $record['Files'] = @(Get-FileRecords (Join-Path $hostStage ([string]$record.RelativePath)))
     }
+    foreach ($record in $packRecords) {
+        $record['Files'] = @(Get-FileRecords (Join-Path $hostStage ([string]$record.RelativePath)))
+    }
+    $manifest['HistoricalReplacements'] = $historicalReplacements
+    Write-JsonCrLf -Path (Join-Path $hostStage 'serps-modpack.json') -Value $manifest
+    Write-JsonCrLf -Path (Join-Path $inputProvenanceDir 'pack-inputs.json') -Value ([ordered]@{
+        SchemaVersion = 2; PackGuid = $PackGuid; PackVersion = $packVersion; Commit = $commit; ContentSignature = $contentSignature; Infrastructure = $infrastructureRecords; Mods = $packRecords; HistoricalReplacements = $historicalReplacements
+    })
+    $finalStageIndex = Get-StageFileIndex -Stage $stage
+    $finalStagePaths = @($finalStageIndex.Keys)
+    $unresolvedHistoricalPaths = @(Get-MissingSteamPackPaths -PreviousPaths @($historicalSteamFiles.Keys) -CurrentPaths $finalStagePaths)
+    if ($unresolvedHistoricalPaths.Count -gt 0) { Fail-Pack 11 "Final map audit found unresolved historical paths: $($unresolvedHistoricalPaths -join ', ')" }
+    Write-RunLog "Final map audit preserves or neutralizes all $($historicalSteamFiles.Count) historically delivered Steam paths; replacements=$($historicalReplacements.Count)." 'OK'
 
     $mapPath = Join-Path $runRoot 'SerpsMods.map'
     Invoke-Checked -FilePath $resolvedPackager -Arguments @('-s',$stage,'-o',$mapPath) -FailureCode 9 | Out-Null
@@ -1183,6 +1497,7 @@ try {
         SchemaVersion = 2; Pack = $PackName; PackGuid = $PackGuid; Version = $packVersion; Commit = $commit; ContentSignature = $contentSignature
         CreatedUtc = [DateTime]::UtcNow.ToString('o'); Map = [ordered]@{ File = 'SerpsMods.map'; Sha256 = $mapHash; Size = (Get-Item $mapPath).Length }
         Packager = [ordered]@{ Path = $resolvedPackager; Sha256 = Get-Sha256 $resolvedPackager }; Infrastructure = $infrastructureRecords; Mods = $packRecords
+        HistoricalReplacements = $historicalReplacements
         OmittedWithoutTombstone = $omittedWithoutTombstone
     }
     Write-JsonCrLf -Path $provenancePath -Value $provenance

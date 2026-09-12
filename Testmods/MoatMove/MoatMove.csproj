@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{C1652144-F832-4C7A-81E6-E5851A0D240D}</ProjectGuid>
+    <OutputType>Library</OutputType><RootNamespace>MoatMove</RootNamespace><AssemblyName>MoatMove</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <OutputPath>BepInEx\plugins\MoatMove_Serp\</OutputPath><DebugSymbols>true</DebugSymbols><DebugType>portable</DebugType><WarningLevel>4</WarningLevel>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" />
+    <Reference Include="System.Core" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" />
+    <Reference Include="System.Xml" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" />
+    <Reference Include="System.Xml.Linq" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" />
+    <Reference Include="BepInEx" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.GridModule" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.GridModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.InputLegacyModule" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.TilemapModule" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.TilemapModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="com.rlabrecque.steamworks.net" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Noesis.NoesisGUI" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="SHCDESE" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="R3" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\R3.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="System.Memory" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Abstractions" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.Core" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="RedBird.X64" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Iced" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MessagePack" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MessagePack.Annotations" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="src\CursorConnectivity.cs" />
+    <Compile Include="src\CursorRegionGraph.cs" />
+    <Compile Include="src\DirectMoatCommandScopes.cs" />
+    <Compile Include="src\FastMoatBridge.cs" />
+    <Compile Include="src\FillWeightedRoutes.cs" />
+    <Compile Include="src\FriendlyMoatMovementPolicy.cs" />
+    <Compile Include="src\FriendlyMoatMovementRuntime.cs" />
+    <Compile Include="src\FriendlyMoatMovementRuntime.LadderAttackFix.cs" />
+    <Compile Include="src\MoatPlacement.cs" />
+    <Compile Include="src\MoatPlacementSearch.cs" />
+    <Compile Include="src\MoatSearchKernel.cs" />
+    <Compile Include="src\MoatWorkTargetSelection.cs" />
+    <Compile Include="src\MovementOptionsSnapshot.cs" />
+    <Compile Include="src\MovementPathPublication.cs" />
+    <Compile Include="src\MovementSearchContext.cs" />
+    <Compile Include="src\NativeFormationSlots.cs" />
+    <Compile Include="src\MoveFormationSpacingPolicy.cs" />
+    <Compile Include="src\NativeMovementCadenceResolver.cs" />
+    <Compile Include="src\NativeMovementRecovery.cs" />
+    <Compile Include="src\UnitMovementContext.cs" />
+    <Compile Include="src\WeightedMoatPublication.cs" />
+    <Compile Include="src\WeightedMoatRoutePlanner.cs" />
+    <Compile Include="src\MoatMovePlugin.cs" /><Compile Include="src\MoatMoveOptions.cs" /><Compile Include="src\MoatMoveConflictPolicy.cs" />
+    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="ValidateMoatMove" BeforeTargets="BeforeBuild">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tests\Test-Preflight.ps1&quot;" />
+    <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="Installed Script Extender required; set ExtenderDir explicitly to override." />
+  </Target>
+</Project>

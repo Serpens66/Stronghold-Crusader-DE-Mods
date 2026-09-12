@@ -672,10 +672,10 @@ namespace Shared
 
     internal static class PlayerIdentityHelper
     {
-        // SCRIPT EXTENDER BUG WORKAROUND: the GameNetworkAPI local/Steam-ID methods
-        // can expose provisional lobby order instead of Vanilla's final player slot.
-        // Remove this multi-source resolver only after the upstream behavior is
-        // demonstrably fixed. Revalidate all source semantics after every Extender update.
+        // Resolve the local player only from sources whose slot semantics are known.
+        // The GameNetworkAPI local-player getter reads the same managed rosters and logs a
+        // warning whenever they are still transitional, so it must not be used as an
+        // additional fallback from persistent lobby observers.
         private const int FirstPlayerId = 1;
         private const int LastPlayerId = 8;
 
@@ -684,13 +684,11 @@ namespace Shared
             bool hasInGameHumanRoster,
             int nativePlayerId,
             int gameMemberPlayerId,
-            int lobbyPlayerId,
-            int networkLobbyPlayerId)
+            int lobbyPlayerId)
         {
             bool nativeValid = IsValidPlayerId(nativePlayerId);
             bool gameMemberValid = IsValidPlayerId(gameMemberPlayerId);
             bool lobbyValid = IsValidPlayerId(lobbyPlayerId);
-            bool networkValid = IsValidPlayerId(networkLobbyPlayerId);
 
             if (realMultiplayer && hasInGameHumanRoster)
             {
@@ -698,7 +696,7 @@ namespace Shared
                 {
                     return Failure(
                         $"Authoritative local player ID mismatch: native={nativePlayerId}, gameMember={gameMemberPlayerId}, " +
-                        $"lobby={lobbyPlayerId}, networkLobby={networkLobbyPlayerId}.");
+                        $"lobby={lobbyPlayerId}.");
                 }
 
                 int authoritative = nativeValid ? nativePlayerId : gameMemberPlayerId;
@@ -706,40 +704,23 @@ namespace Shared
                 {
                     return Failure(
                         $"No authoritative local player ID is available in the active multiplayer roster: " +
-                        $"native={nativePlayerId}, gameMember={gameMemberPlayerId}, lobby={lobbyPlayerId}, " +
-                        $"networkLobby={networkLobbyPlayerId}.");
+                        $"native={nativePlayerId}, gameMember={gameMemberPlayerId}, lobby={lobbyPlayerId}.");
                 }
                 if (lobbyValid && lobbyPlayerId != authoritative)
                 {
                     return Failure(
                         $"Final lobby mapping disagrees with the authoritative local player ID: " +
-                        $"authoritative={authoritative}, lobby={lobbyPlayerId}, networkLobby={networkLobbyPlayerId}.");
+                        $"authoritative={authoritative}, lobby={lobbyPlayerId}.");
                 }
 
-                return Success(
-                    authoritative,
-                    networkValid && networkLobbyPlayerId != authoritative
-                        ? $"Lobby-order player ID differs from the final in-game slot: " +
-                          $"networkLobby={networkLobbyPlayerId}, final={authoritative}."
-                        : string.Empty);
+                return Success(authoritative, string.Empty);
             }
 
             if (realMultiplayer)
             {
                 if (lobbyValid)
-                {
-                    return Success(
-                        lobbyPlayerId,
-                        networkValid && networkLobbyPlayerId != lobbyPlayerId
-                            ? $"Script Extender lobby-order player ID differs from Vanilla's final lobby mapping: " +
-                              $"networkLobby={networkLobbyPlayerId}, finalLobby={lobbyPlayerId}."
-                            : string.Empty);
-                }
-                if (networkValid)
-                    return Success(networkLobbyPlayerId, "Only the provisional lobby-order player ID is available.");
-                return Failure(
-                    $"No local multiplayer player ID is available yet: lobby={lobbyPlayerId}, " +
-                    $"networkLobby={networkLobbyPlayerId}.");
+                    return Success(lobbyPlayerId, string.Empty);
+                return Failure($"No local multiplayer player ID is available yet: lobby={lobbyPlayerId}.");
             }
 
             if (nativeValid)
@@ -748,8 +729,6 @@ namespace Shared
                 return Success(gameMemberPlayerId, string.Empty);
             if (lobbyValid)
                 return Success(lobbyPlayerId, string.Empty);
-            if (networkValid)
-                return Success(networkLobbyPlayerId, string.Empty);
             return Failure("No valid local player ID is available.");
         }
 
@@ -849,23 +828,12 @@ namespace Shared
                 // The final lobby mapping can still be under construction.
             }
 
-            int networkLobbyPlayerId = 0;
-            try
-            {
-                networkLobbyPlayerId = GameNetworkAPI.GetLocalPlayerId();
-            }
-            catch
-            {
-                // This source is only a final fallback and may be unavailable early.
-            }
-
             return ResolveLocalPlayerId(
                 realMultiplayer,
                 preferInGameRoster && humanGameMembers.Length > 0,
                 nativePlayerId,
                 gameMemberPlayerId,
-                lobbyPlayerId,
-                networkLobbyPlayerId);
+                lobbyPlayerId);
         }
 
         internal static PlayerIdentityResolution CapturePlayerIdForSteamId(

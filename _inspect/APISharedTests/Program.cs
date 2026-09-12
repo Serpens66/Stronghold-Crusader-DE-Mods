@@ -30,6 +30,7 @@ namespace APISharedTests
         private static int Main()
         {
             TestPublicSurface();
+            TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestUnitHudVariantContracts();
             TestPeValidation();
@@ -49,6 +50,103 @@ namespace APISharedTests
             }
             Console.Error.WriteLine($"FAIL: APIShared tests reported {failures} failure(s).");
             return 1;
+        }
+
+        private static void TestCompiledPatternSearch()
+        {
+            const string aivPattern =
+                "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2";
+            const string hudPattern =
+                "48 8D 1D ? ? ? ? 48 8B F8 48 8B E9 48 8D 05 ? ? ? ? BE 0A 00 00 00 45 33 F6";
+
+            byte[] installedImage = MapPeImage(File.ReadAllBytes(Path.Combine(
+                @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
+                "Stronghold Crusader Definitive Edition_Data", "Plugins", "x86_64", "CrusaderDE.dll")));
+            Assert(CompiledBytePattern.Parse(aivPattern).FindUnique(installedImage) == 0x51790,
+                "compiled AIV pattern must retain its canonical RVA");
+            Assert(CompiledBytePattern.Parse(hudPattern).FindUnique(installedImage) == 0x186338,
+                "compiled HUD pattern must retain its canonical RVA");
+
+            var random = new Random(0x53E2);
+            string[] patterns =
+            {
+                "AA", "AA BB CC", "? BB CC", "AA ? CC", "AA BB ?", "? ?", "10 ? ? 40"
+            };
+            foreach (string pattern in patterns)
+            {
+                CompiledBytePattern compiled = CompiledBytePattern.Parse(pattern);
+                for (int iteration = 0; iteration < 100; iteration++)
+                {
+                    var data = new byte[random.Next(0, 160)];
+                    random.NextBytes(data);
+                    if (iteration % 4 == 0 && data.Length >= compiled.Length)
+                        StampPattern(data, random.Next(0, data.Length - compiled.Length + 1), pattern, random);
+                    if (iteration % 11 == 0 && data.Length >= compiled.Length * 2)
+                    {
+                        StampPattern(data, 0, pattern, random);
+                        StampPattern(data, data.Length - compiled.Length, pattern, random);
+                    }
+                    Assert(compiled.FindUnique(data) == FindUniqueReference(data, pattern),
+                        "compiled pattern search differs from reference semantics for " + pattern);
+                }
+            }
+        }
+
+        private static int FindUniqueReference(byte[] data, string pattern)
+        {
+            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            int found = -1;
+            for (int offset = 0; offset <= data.Length - tokens.Length; offset++)
+            {
+                bool matches = true;
+                for (int index = 0; index < tokens.Length; index++)
+                {
+                    if (tokens[index] != "?" && tokens[index] != "??" &&
+                        data[offset + index] != Convert.ToByte(tokens[index], 16))
+                    {
+                        matches = false;
+                        break;
+                    }
+                }
+                if (!matches)
+                    continue;
+                if (found >= 0)
+                    return -2;
+                found = offset;
+            }
+            return found;
+        }
+
+        private static void StampPattern(byte[] data, int offset, string pattern, Random random)
+        {
+            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            for (int index = 0; index < tokens.Length; index++)
+                data[offset + index] = tokens[index] == "?" || tokens[index] == "??"
+                    ? (byte)random.Next(0, 256)
+                    : Convert.ToByte(tokens[index], 16);
+        }
+
+        private static byte[] MapPeImage(byte[] file)
+        {
+            int peOffset = BitConverter.ToInt32(file, 0x3C);
+            int sectionCount = BitConverter.ToUInt16(file, peOffset + 6);
+            int optionalHeaderSize = BitConverter.ToUInt16(file, peOffset + 20);
+            int optionalHeader = peOffset + 24;
+            int imageSize = BitConverter.ToInt32(file, optionalHeader + 56);
+            int headersSize = BitConverter.ToInt32(file, optionalHeader + 60);
+            var mapped = new byte[imageSize];
+            Buffer.BlockCopy(file, 0, mapped, 0, Math.Min(headersSize, file.Length));
+            int sectionTable = optionalHeader + optionalHeaderSize;
+            for (int index = 0; index < sectionCount; index++)
+            {
+                int header = sectionTable + index * 40;
+                int virtualAddress = BitConverter.ToInt32(file, header + 12);
+                int rawSize = BitConverter.ToInt32(file, header + 16);
+                int rawOffset = BitConverter.ToInt32(file, header + 20);
+                if (rawSize > 0)
+                    Buffer.BlockCopy(file, rawOffset, mapped, virtualAddress, rawSize);
+            }
+            return mapped;
         }
 
         private static void TestUnitHudSnapshotImmutability()
@@ -179,8 +277,10 @@ namespace APISharedTests
                 armyMethod.IndexOf("RenderArmyHosts(host, custom);", StringComparison.Ordinal) < armyMethod.IndexOf("main.AllTroops[desired.Key]", StringComparison.Ordinal),
                 "army HUD host must be resolved before Vanilla troop counts are changed");
             Assert(unitHud.Contains("ManualApply = true") &&
-                unitHud.Contains("updateSpritesHook.Apply()") &&
-                unitHud.IndexOf("updateSpritesOriginal =", StringComparison.Ordinal) < unitHud.IndexOf("updateSpritesHook.Apply()", StringComparison.Ordinal),
+                unitHud.Contains("updateSpritesOriginal = updateSpritesHook.GenerateTrampoline") &&
+                unitHud.Contains("updateSpritesHook.Apply();") &&
+                unitHud.IndexOf("updateSpritesOriginal = updateSpritesHook.GenerateTrampoline", StringComparison.Ordinal) <
+                    unitHud.IndexOf("updateSpritesHook.Apply();", StringComparison.Ordinal),
                 "HUD hooks must not become callable before their trampolines are published");
             Assert(unitHud.Contains("ButtonCreateTroop") && unitHud.Contains("Enums.GameActionCommand.MakeTroop") &&
                 unitHud.Contains("recruitmentGameActionOriginal(command, structureId, state, value2)") &&

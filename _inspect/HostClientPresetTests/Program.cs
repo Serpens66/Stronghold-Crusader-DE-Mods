@@ -5008,22 +5008,27 @@ internal static class Program
 
     private static void TestFreeCastleProtocol()
     {
+        string workspaceRoot = Path.GetFullPath(
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
+        string identityHelperSource = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Shared", "GameModeHelper.cs"));
+        Check(!identityHelperSource.Contains("GameNetworkAPI.GetLocalPlayerId()"),
+            "Shared identity capture must not call the warning-producing network fallback");
+
         PlayerIdentityResolution identity = PlayerIdentityHelper.ResolveLocalPlayerId(
                 realMultiplayer: true,
                 hasInGameHumanRoster: true,
                 nativePlayerId: 3,
                 gameMemberPlayerId: 3,
-                lobbyPlayerId: 3,
-                networkLobbyPlayerId: 2);
-        Check(identity.IsResolved && identity.PlayerId == 3 && !string.IsNullOrEmpty(identity.Diagnostic),
-            "Shared identity must prefer matching native/game sources and diagnose transitional lobby order");
+                lobbyPlayerId: 3);
+        Check(identity.IsResolved && identity.PlayerId == 3 && string.IsNullOrEmpty(identity.Diagnostic),
+            "Shared identity must accept matching native, game-roster, and lobby sources");
         identity = PlayerIdentityHelper.ResolveLocalPlayerId(
                 realMultiplayer: true,
                 hasInGameHumanRoster: true,
                 nativePlayerId: 4,
                 gameMemberPlayerId: 3,
-                lobbyPlayerId: 3,
-                networkLobbyPlayerId: 2);
+                lobbyPlayerId: 3);
         Check(!identity.IsResolved && identity.Error.Contains("Authoritative"),
             "Shared identity must reject conflicting native and Steam-roster sources");
         identity = PlayerIdentityHelper.ResolveLocalPlayerId(
@@ -5031,8 +5036,7 @@ internal static class Program
                 hasInGameHumanRoster: false,
                 nativePlayerId: 4,
                 gameMemberPlayerId: 0,
-                lobbyPlayerId: 3,
-                networkLobbyPlayerId: 2);
+                lobbyPlayerId: 3);
         Check(identity.IsResolved && identity.PlayerId == 3,
             "Shared identity must ignore stale native state and use Vanilla's final mapping in the lobby phase");
         identity = PlayerIdentityHelper.ResolveLocalPlayerId(
@@ -5040,8 +5044,7 @@ internal static class Program
                 hasInGameHumanRoster: true,
                 nativePlayerId: 3,
                 gameMemberPlayerId: 3,
-                lobbyPlayerId: 2,
-                networkLobbyPlayerId: 2);
+                lobbyPlayerId: 2);
         Check(!identity.IsResolved && identity.Error.Contains("Final lobby mapping"),
             "Shared identity must reject a final lobby mapping that conflicts with the in-game slot");
         identity = PlayerIdentityHelper.ResolveLocalPlayerId(
@@ -5049,10 +5052,9 @@ internal static class Program
                 hasInGameHumanRoster: false,
                 nativePlayerId: 0,
                 gameMemberPlayerId: 0,
-                lobbyPlayerId: 0,
-                networkLobbyPlayerId: 2);
-        Check(identity.IsResolved && identity.PlayerId == 2 && !string.IsNullOrEmpty(identity.Diagnostic),
-            "Shared identity must retain the lobby-order ID only as a diagnosed provisional fallback");
+                lobbyPlayerId: 0);
+        Check(!identity.IsResolved && identity.Error.Contains("No local multiplayer player ID"),
+            "Shared identity must fail closed when no authoritative multiplayer source is available");
 
         var finalPlayers = new Dictionary<int, ulong>
         {

@@ -16,7 +16,10 @@ namespace StartupPerformanceDiagnostic.Tests
                 TestLastPluginEndsAtChainloaderCompletion();
                 TestMissingMarkersFailVisible();
                 TestDuplicateAndOutOfOrderMarkers();
+                TestDuplicatePreloaderMarkerIsTolerated();
                 TestPercentageGuards();
+                TestNestedDetailSpans();
+                TestBrokenDetailMarkers();
                 TestStaticFieldReader();
                 TestStaticFieldReaderRejectsInvalidContracts();
                 Console.WriteLine("StartupPerformanceDiagnostic tests passed: " + checks + " checks.");
@@ -86,6 +89,50 @@ namespace StartupPerformanceDiagnostic.Tests
             Check(Math.Abs(TimingAnalysis.Milliseconds(500, 1000) - 500.0) < 0.0001, "milliseconds calculation");
         }
 
+        private static void TestDuplicatePreloaderMarkerIsTolerated()
+        {
+            var events = new List<TimelineEvent>(StandardEvents())
+            {
+                Event(205, "Preloader finished")
+            };
+            StartupTimingAnalysis result = TimingAnalysis.Analyze(events, 0, 100, 1000);
+            Check(result.PreloaderFinishedTimestamp == 200, "first preloader marker was not preserved");
+            Check(!result.Warnings.Any(item => item.Contains("Preloader finished")), "duplicate preloader marker warning was not suppressed");
+        }
+
+        private static void TestNestedDetailSpans()
+        {
+            var events = new List<TimelineEvent>(StandardEvents())
+            {
+                Event(330, "[StartupTiming.Detail] BEGIN|APIShared|LibraryLoaded|", "APIShared"),
+                Event(340, "[StartupTiming.Detail] BEGIN|APIShared|Hash|LibraryLoaded", "APIShared"),
+                Event(360, "[StartupTiming.Detail] END|APIShared|Hash|LibraryLoaded", "APIShared"),
+                Event(400, "[StartupTiming.Detail] END|APIShared|LibraryLoaded|", "APIShared")
+            };
+            StartupTimingAnalysis result = TimingAnalysis.Analyze(events, 0, 100, 1000);
+            DetailTimingWindow root = result.Details.Single(item => item.Span == "LibraryLoaded");
+            DetailTimingWindow child = result.Details.Single(item => item.Span == "Hash");
+            Check(root.DurationTicks == 70 && root.ExclusiveTicks == 50, "nested detail inclusive/exclusive duration");
+            Check(child.DurationTicks == 20 && child.ExclusiveTicks == 20, "leaf detail duration");
+            Check(result.Warnings.Count == 0, "valid detail markers produced a warning");
+        }
+
+        private static void TestBrokenDetailMarkers()
+        {
+            var events = new List<TimelineEvent>(StandardEvents())
+            {
+                Event(330, "[StartupTiming.Detail] BEGIN|APIShared|Open|", "APIShared"),
+                Event(340, "[StartupTiming.Detail] BEGIN|APIShared|Open|", "APIShared"),
+                Event(350, "[StartupTiming.Detail] END|APIShared|Missing|", "APIShared"),
+                Event(360, "[StartupTiming.Detail] broken", "APIShared")
+            };
+            StartupTimingAnalysis result = TimingAnalysis.Analyze(events, 0, 100, 1000);
+            Check(result.Warnings.Any(item => item.Contains("Duplicate detail BEGIN")), "duplicate detail marker warning");
+            Check(result.Warnings.Any(item => item.Contains("no matching BEGIN")), "missing detail begin warning");
+            Check(result.Warnings.Any(item => item.Contains("Malformed detail marker")), "malformed detail marker warning");
+            Check(result.Warnings.Any(item => item.Contains("did not complete")), "incomplete detail marker warning");
+        }
+
         private static void TestStaticFieldReader()
         {
             bool created = StaticFieldReader<bool>.TryCreate(
@@ -123,7 +170,8 @@ namespace StartupPerformanceDiagnostic.Tests
             Event(620, "Chainloader startup complete")
         };
 
-        private static TimelineEvent Event(long timestamp, string message) => new TimelineEvent(timestamp, message);
+        private static TimelineEvent Event(long timestamp, string message, string source = "") =>
+            new TimelineEvent(timestamp, message, source);
 
         private static void Check(bool condition, string message)
         {

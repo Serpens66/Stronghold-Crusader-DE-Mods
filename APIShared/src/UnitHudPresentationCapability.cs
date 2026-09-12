@@ -35,6 +35,8 @@ namespace APIShared
         private const int ArabicTroopSummaryStart = 17;
         private const string ControlGroupStoragePattern =
             "48 8D 1D ? ? ? ? 48 8B F8 48 8B E9 48 8D 05 ? ? ? ? BE 0A 00 00 00 45 33 F6";
+        private static readonly CompiledBytePattern CompiledControlGroupStoragePattern =
+            CompiledBytePattern.Parse(ControlGroupStoragePattern);
 
         private delegate void SetupTroopsDelegate(HUD_Troops self);
         private delegate void TroopClickDelegate(MainViewModel self, object parameter);
@@ -139,7 +141,7 @@ namespace APIShared
                 string groupReason = "Native control-group records unavailable; that surface remains Vanilla.";
                 if (string.Equals(hash, ApiSharedRuntime.SupportedHash, StringComparison.OrdinalIgnoreCase) && moduleBase != 0)
                 {
-                    int match = FindUnique(memory, ControlGroupStoragePattern);
+                    int match = CompiledControlGroupStoragePattern.FindUnique(memory);
                     if (match == ControlGroupStoragePatternRva)
                     {
                         int displacement = BitConverter.ToInt32(memory.Slice(match + ControlGroupStorageDisplacementOffset, sizeof(int)).ToArray(), 0);
@@ -1338,25 +1340,6 @@ namespace APIShared
 
         private static FieldInfo RequireField(Type type, string name) => type.GetField(name, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ?? throw new MissingFieldException(type.FullName, name);
         private static MethodInfo RequireMethod(Type type, string name, Type[] parameters) => type.GetMethod(name, BindingFlags.Static | BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, parameters, null) ?? throw new MissingMethodException(type.FullName, name);
-
-        private static int FindUnique(ReadOnlySpan<byte> memory, string pattern)
-        {
-            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            int found = -1;
-            for (int offset = 0; offset <= memory.Length - tokens.Length; offset++)
-            {
-                bool match = true;
-                for (int i = 0; i < tokens.Length; i++)
-                {
-                    if (tokens[i] == "?") continue;
-                    if (memory[offset + i] != Convert.ToByte(tokens[i], 16)) { match = false; break; }
-                }
-                if (!match) continue;
-                if (found >= 0) return -2;
-                found = offset;
-            }
-            return found;
-        }
 
         private sealed class Binding : IUnitHudPresentationCapability
         {

@@ -156,16 +156,32 @@ namespace Shared
         {
             int match = -1;
             int count = 0;
+            int anchorIndex = FindPatternAnchor(pattern);
             foreach (NativeCodeRange range in GetSearchRanges(memory, searchScope))
             {
                 int end = range.Offset + range.Length - pattern.Length;
-                for (int offset = range.Offset; offset <= end; offset++)
+                int offset = range.Offset;
+                while (offset <= end)
                 {
+                    if (anchorIndex >= 0)
+                    {
+                        int anchorPosition = offset + anchorIndex;
+                        int maximumAnchorPosition = end + anchorIndex;
+                        int relative = memory.Slice(anchorPosition, maximumAnchorPosition - anchorPosition + 1)
+                            .IndexOf(pattern[anchorIndex].Value);
+                        if (relative < 0)
+                            break;
+                        offset += relative;
+                    }
                     if (!MatchesPatternAt(memory, offset, pattern))
+                    {
+                        offset++;
                         continue;
+                    }
                     match = offset;
                     if (++count > 1)
                         throw new InvalidOperationException($"{name} semantic AOB matched more than once.");
+                    offset++;
                 }
             }
 
@@ -182,16 +198,29 @@ namespace Shared
         {
             int match = -1;
             int count = 0;
+            int anchorIndex = pattern.Length - 1;
             foreach (NativeCodeRange range in GetSearchRanges(memory, searchScope))
             {
                 int end = range.Offset + range.Length - pattern.Length;
-                for (int offset = range.Offset; offset <= end; offset++)
+                int offset = range.Offset;
+                while (offset <= end)
                 {
+                    int anchorPosition = offset + anchorIndex;
+                    int maximumAnchorPosition = end + anchorIndex;
+                    int relative = memory.Slice(anchorPosition, maximumAnchorPosition - anchorPosition + 1)
+                        .IndexOf(pattern[anchorIndex]);
+                    if (relative < 0)
+                        break;
+                    offset += relative;
                     if (!MatchesBytesAt(memory, offset, pattern))
+                    {
+                        offset++;
                         continue;
+                    }
                     match = offset;
                     if (++count > 1)
                         throw new InvalidOperationException($"{name} byte pattern matched more than once.");
+                    offset++;
                 }
             }
 
@@ -217,6 +246,16 @@ namespace Shared
                     return false;
             }
             return true;
+        }
+
+        private static int FindPatternAnchor(PatternByte[] pattern)
+        {
+            for (int index = pattern.Length - 1; index >= 0; index--)
+            {
+                if (!pattern[index].Wildcard)
+                    return index;
+            }
+            return -1;
         }
 
         private static bool MatchesBytesAt(ReadOnlySpan<byte> memory, int offset, byte[] pattern)

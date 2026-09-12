@@ -16,6 +16,8 @@ namespace APIShared
         internal const string FunctionHash = "69731F77776995C9FC452A7A9A41408385B757B461F0E7FAB76E291BE64C3ECF";
         private const string FunctionPattern =
             "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2";
+        private static readonly CompiledBytePattern CompiledFunctionPattern =
+            CompiledBytePattern.Parse(FunctionPattern);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int ExecuteBuildStepDelegate(
@@ -64,7 +66,7 @@ namespace APIShared
                         "The native module or RedBird scan region is unavailable.");
                 NativePeImage image = NativePeImage.Parse(memory);
                 image.RequireExecutableRange(FunctionRva, FunctionSize, "AIV ExecuteBuildStep");
-                int match = FindUnique(memory, FunctionPattern);
+                int match = CompiledFunctionPattern.FindUnique(memory);
                 if (match < 0)
                     throw new NativeResolutionException(
                         match == -2 ? NativeCapabilityState.Ambiguous : NativeCapabilityState.PatternMissing,
@@ -238,30 +240,6 @@ namespace APIShared
             string reason,
             string conflictOwner = null) =>
             new NativeCapabilityDiagnostic(NativeCapabilityIds.AivBuildStep, state, hash, reason, conflictOwner);
-
-        private static int FindUnique(ReadOnlySpan<byte> memory, string pattern)
-        {
-            string[] tokens = pattern.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            int found = -1;
-            for (int offset = 0; offset <= memory.Length - tokens.Length; offset++)
-            {
-                bool matches = true;
-                for (int index = 0; index < tokens.Length; index++)
-                {
-                    if (tokens[index] != "?" && memory[offset + index] != Convert.ToByte(tokens[index], 16))
-                    {
-                        matches = false;
-                        break;
-                    }
-                }
-                if (!matches)
-                    continue;
-                if (found >= 0)
-                    return -2;
-                found = offset;
-            }
-            return found;
-        }
 
         private sealed class Binding : IAivBuildStepCapability
         {

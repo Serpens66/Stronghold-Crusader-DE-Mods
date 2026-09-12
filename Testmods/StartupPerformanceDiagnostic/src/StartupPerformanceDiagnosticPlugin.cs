@@ -91,7 +91,7 @@ namespace StartupPerformanceDiagnostic
         {
             StartupTimingSnapshot snapshot = StartupTimingBridge.Capture();
             TimelineEvent[] events = snapshot.Events
-                .Select(item => new TimelineEvent(item.Timestamp, item.Message))
+                .Select(item => new TimelineEvent(item.Timestamp, item.Message, item.Source))
                 .ToArray();
             StartupTimingAnalysis analysis = TimingAnalysis.Analyze(
                 events,
@@ -165,6 +165,25 @@ namespace StartupPerformanceDiagnostic
                 analysis.Warnings.Add("SHCDE-SE timing could not be mapped to GUID 000shcdese.");
             LogDuration("REST after Chainloader completion", postChainloaderTicks, totalTicks);
             LogLine("Plugin windows represent synchronous assembly load/constructor/Awake work; deferred work is part of REST.");
+
+            if (analysis.Details.Count > 0)
+            {
+                LogLine("-------------------- INTERNAL DETAILS ----------------------");
+                LogLine("Inclusive includes nested spans; exclusive subtracts direct nested spans.");
+                foreach (DetailTimingWindow detail in analysis.Details.OrderBy(item => item.StartedTimestamp))
+                {
+                    LogLine(string.Format(
+                        CultureInfo.InvariantCulture,
+                        "{0} | {1} | parent={2} | inclusive={3:F3} ms | exclusive={4:F3} ms | {5:F2}% total | source={6}",
+                        detail.Component,
+                        detail.Span,
+                        detail.Parent.Length == 0 ? "root" : detail.Parent,
+                        TimingAnalysis.Milliseconds(detail.DurationTicks, snapshot.Frequency),
+                        TimingAnalysis.Milliseconds(detail.ExclusiveTicks, snapshot.Frequency),
+                        TimingAnalysis.Percentage(detail.DurationTicks, totalTicks),
+                        detail.Source));
+                }
+            }
 
             if (analysis.Warnings.Count > 0)
             {

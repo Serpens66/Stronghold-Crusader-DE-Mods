@@ -537,10 +537,13 @@ namespace EnemyGatePathfindingTest
                 $"cursorWrapperCalls={same.CursorPclWrapperCalls}," +
                 $"cursorSamePclEligible={same.CursorSamePclEligible}," +
                 $"cursorDifferentPcl={same.CursorDifferentPcl}," +
+                $"cursorDifferentPclEligible={same.CursorDifferentPclEligible}," +
                 $"cursorRequestsPublished={same.CursorRequestsPublished}," +
                 $"cursorResultForcedZero={same.CursorResultForcedZero}," +
                 $"cursorNativeRefreshes={same.CursorNativeRefreshes}," +
                 $"cursorCacheHits={same.CursorCacheHits}," +
+                $"cursorExactCacheHits={same.CursorExactCacheHits}," +
+                $"cursorStickyBlockHits={same.CursorStickyBlockHits}," +
                 $"cursorThrottleDeferrals={same.CursorThrottleDeferrals}," +
                 $"cursorPolicyBlocked={same.CursorPolicyBlocked}," +
                 $"cursorReachable={same.CursorReachable}," +
@@ -551,6 +554,11 @@ namespace EnemyGatePathfindingTest
                 $"missingContext={same.MissingContexts},invalidPlayer={same.InvalidPlayers}," +
                 $"scopeMismatch={same.ScopeMismatches},threadSlotConflict={same.SlotConflicts}," +
                 $"snapshotPoolExhaustion={same.PoolExhaustions},exceptions={same.Exceptions}," +
+                $"aiQueries={same.AiQueries},aiNoRoute={same.AiNoRoutes}," +
+                $"attackQueries={same.AttackQueries},buildingApproachQueries={same.BuildingApproachQueries}," +
+                $"buildingConsumerQueries={same.BuildingConsumerQueries}," +
+                $"alternateBuildingConsumerQueries={same.AlternateBuildingConsumerQueries}," +
+                $"candidateQueries={same.CandidateQueries}," +
                 $"scopeSamples=[{samePclRouteRuntime?.DescribeScopeSamples() ?? "none"}]," +
                 $"cursorDecisionSample=[{samePclRouteRuntime?.DescribeCursorDecisionSample() ?? "none"}]," +
                 $"cursorPreviewSample=[{samePclRouteRuntime?.DescribeCursorPreviewSample() ?? "none"}]," +
@@ -601,6 +609,8 @@ namespace EnemyGatePathfindingTest
                 $"nativeCursorEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.DirectCursorEdges)}," +
                 $"cursorPreviewExecution={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorPclChecks)}," +
                 $"cursorWrapperExecution={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorPclWrapperCalls)}," +
+                $"cursorDifferentPclExecution={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorDifferentPclEligible)}," +
+                $"cursorStickyBlock={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorStickyBlockHits)}," +
                 $"cursorResultForcedZero={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorResultForcedZero)}," +
                 $"cursorPreviewRefresh={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorNativeRefreshes)}," +
                 $"cursorPreviewPolicyBlocked={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorPolicyBlocked)}," +
@@ -612,6 +622,8 @@ namespace EnemyGatePathfindingTest
                 $"policyNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.NoRoutes)}," +
                 $"humanBuilderDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.HumanDetours)}," +
                 $"aiDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiDetours)}," +
+                $"aiQuery={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiQueries)}," +
+                $"aiNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiNoRoutes)}," +
                 $"attackEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.AttackEdges)}," +
                 $"buildingEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.BuildingEdges)}," +
                 $"candidateEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.CandidateEdges)}," +
