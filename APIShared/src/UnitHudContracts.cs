@@ -18,8 +18,12 @@ namespace APIShared
         UnitHover = 4,
         /// <summary>The army report.</summary>
         ArmyReport = 8,
+        /// <summary>The Vanilla recruitment control for the category's base type.</summary>
+        Recruitment = 16,
+        /// <summary>The single-unit detail panel.</summary>
+        UnitDetails = 32,
         /// <summary>Every currently supported unit presentation surface.</summary>
-        All = TroopSelection | ControlGroups | UnitHover | ArmyReport
+        All = TroopSelection | ControlGroups | UnitHover | ArmyReport | Recruitment | UnitDetails
     }
 
     /// <summary>Mouse buttons reported for a unit-category interaction.</summary>
@@ -96,6 +100,41 @@ namespace APIShared
     /// <summary>Resolves an image for a category. Returning null requests the Vanilla base icon.</summary>
     public delegate ImageSource UnitHudCategoryImageResolver();
 
+    /// <summary>Text fields resolved for custom unit presentation.</summary>
+    public enum UnitHudTextKind
+    {
+        /// <summary>Full unit name.</summary>
+        DisplayName,
+        /// <summary>Compact recruitment-selector label.</summary>
+        ShortLabel,
+        /// <summary>Longer unit description.</summary>
+        Description
+    }
+
+    /// <summary>Resolves text in the game's currently active language. Null or empty results use the registered fallback.</summary>
+    public delegate string UnitHudTextResolver(UnitHudTextKind kind);
+
+    /// <summary>Immutable localized text presentation with deterministic fallbacks.</summary>
+    public sealed class UnitHudTextProfile
+    {
+        /// <summary>Creates a text profile.</summary>
+        public UnitHudTextProfile(string displayNameFallback, string shortLabelFallback, string descriptionFallback, UnitHudTextResolver resolver = null)
+        {
+            DisplayNameFallback = displayNameFallback ?? string.Empty;
+            ShortLabelFallback = shortLabelFallback ?? string.Empty;
+            DescriptionFallback = descriptionFallback ?? string.Empty;
+            Resolver = resolver;
+        }
+        /// <summary>Fallback full name.</summary>
+        public string DisplayNameFallback { get; }
+        /// <summary>Fallback compact label.</summary>
+        public string ShortLabelFallback { get; }
+        /// <summary>Fallback description.</summary>
+        public string DescriptionFallback { get; }
+        /// <summary>Optional current-language resolver.</summary>
+        public UnitHudTextResolver Resolver { get; }
+    }
+
     /// <summary>Immutable custom unit-category definition.</summary>
     public sealed class UnitHudCategoryDefinition
     {
@@ -116,6 +155,28 @@ namespace APIShared
             ImageResolver = imageResolver;
             Tint = tint ?? new UnitHudTint(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue);
             Order = order;
+            TextProfile = new UnitHudTextProfile(DisplayName, DisplayName, string.Empty);
+        }
+
+        /// <summary>Creates a custom presentation category with localized text fallbacks.</summary>
+        public UnitHudCategoryDefinition(
+            string categoryId,
+            string displayName,
+            int baseUnitType,
+            UnitHudSurface surfaces,
+            UnitHudCategoryImageResolver imageResolver,
+            UnitHudTint tint,
+            int order,
+            UnitHudTextProfile textProfile)
+        {
+            CategoryId = categoryId ?? string.Empty;
+            DisplayName = displayName ?? string.Empty;
+            BaseUnitType = baseUnitType;
+            Surfaces = surfaces;
+            ImageResolver = imageResolver;
+            Tint = tint ?? new UnitHudTint(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue);
+            Order = order;
+            TextProfile = textProfile ?? new UnitHudTextProfile(DisplayName, DisplayName, string.Empty);
         }
         /// <summary>Stable owner-local category identifier.</summary>
         public string CategoryId { get; }
@@ -131,7 +192,35 @@ namespace APIShared
         public UnitHudTint Tint { get; }
         /// <summary>Ordering after the Vanilla base category.</summary>
         public int Order { get; }
+        /// <summary>Localized text resolver and fallbacks.</summary>
+        public UnitHudTextProfile TextProfile { get; }
     }
+
+    /// <summary>Immutable owner-local ticket for one Vanilla recruitment action.</summary>
+    public sealed class UnitHudRecruitmentTicket
+    {
+        /// <summary>Creates a ticket.</summary>
+        public UnitHudRecruitmentTicket(long ticketId, string ownerGuid, string categoryId, int playerId, int baseUnitType, int requestedAmount)
+        {
+            TicketId = ticketId; OwnerGuid = ownerGuid; CategoryId = categoryId; PlayerId = playerId;
+            BaseUnitType = baseUnitType; RequestedAmount = requestedAmount;
+        }
+        /// <summary>Process-local positive ticket ID.</summary>
+        public long TicketId { get; }
+        /// <summary>Registering owner.</summary>
+        public string OwnerGuid { get; }
+        /// <summary>Owner-local category.</summary>
+        public string CategoryId { get; }
+        /// <summary>Local player that requested recruitment.</summary>
+        public int PlayerId { get; }
+        /// <summary>Unmodified Vanilla type passed to GameAction.</summary>
+        public int BaseUnitType { get; }
+        /// <summary>Vanilla amount argument, including Shift/Ctrl semantics.</summary>
+        public int RequestedAmount { get; }
+    }
+
+    /// <summary>Accepts or rejects a recruitment ticket before Vanilla's one GameAction call.</summary>
+    public delegate bool UnitHudRecruitmentHandler(UnitHudRecruitmentTicket ticket);
 
     /// <summary>Immutable category instance list used by interaction and health consumers.</summary>
     public sealed class UnitHudCategorySnapshot
@@ -250,6 +339,10 @@ namespace APIShared
         bool TryRegisterInteraction(string registrationId, UnitHudInteractionHandler handler, out NativeCapabilityDiagnostic diagnostic);
         /// <summary>Registers one deterministic post-Vanilla image override.</summary>
         bool TryRegisterImageOverride(UnitHudImageOverrideDefinition definition, UnitHudImageOverrideResolver resolver, out NativeCapabilityDiagnostic diagnostic);
+        /// <summary>Registers recruitment handling for an existing category. The first implementation supports the European Archer base type.</summary>
+        bool TryRegisterRecruitment(string categoryId, UnitHudRecruitmentHandler handler, out NativeCapabilityDiagnostic diagnostic);
+        /// <summary>Completes an owner-bound ticket and releases its recruitment lock.</summary>
+        bool TryCompleteRecruitment(UnitHudRecruitmentTicket ticket, int matchedCount, string reason, out NativeCapabilityDiagnostic diagnostic);
         /// <summary>Gets immutable snapshots of the current visible troop slots.</summary>
         IReadOnlyList<UnitHudSlotSnapshot> GetVisibleTroopSlots();
         /// <summary>Gets all custom categories represented by the current selected unit IDs.</summary>

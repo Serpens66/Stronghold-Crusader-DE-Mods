@@ -384,12 +384,12 @@ namespace SerpsModsHostDuplicateTests
             };
             List<PackModRecord> runtimeRecords = ScriptExtenderCompatibility.SelectRuntimePackRecords(manifest);
             if (runtimeRecords.Count != 3 ||
-                runtimeRecords.All(record => record.Name != "Infrastructure") ||
-                runtimeRecords.All(record => record.Name != "Active") ||
-                runtimeRecords.All(record => record.Name != "Case insensitive") ||
+                runtimeRecords[0].Name != "Infrastructure" ||
+                runtimeRecords[1].Name != "Active" ||
+                runtimeRecords[2].Name != "Case insensitive" ||
                 runtimeRecords.Any(record => record.Name == "Retired"))
             {
-                throw new InvalidOperationException("Runtime compatibility inventory selection is incorrect.");
+                throw new InvalidOperationException("Runtime asset selection did not preserve infrastructure-first order or exclude retired mods.");
             }
         }
 

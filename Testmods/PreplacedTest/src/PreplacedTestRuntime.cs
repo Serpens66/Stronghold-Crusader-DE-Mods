@@ -49,6 +49,7 @@ namespace PreplacedTest
         private const int PauseTableEntryCount =
             (PauseConfiguredRelativeOffset - PauseTableRelativeOffset) / sizeof(short);
         private const int WoodSearchCooldownRelativeOffset = 0x167C;
+        private const int WoodAvailabilityCountRelativeOffset = 0x1686;
         private const int FarmSearchCooldownRelativeOffset = 0x167E;
         private const int QuarrySearchCooldownRelativeOffset = 0x1680;
         private const int IronSearchCooldownRelativeOffset = 0x1682;
@@ -1849,6 +1850,8 @@ namespace PreplacedTest
                     // Nested hooks already aggregate their complete observations. Keep the enclosing result key stable.
                     Session(context.PlayerId).Counters.Add($"economy-result phase={context.Phase} desired={context.DesiredType} " +
                         $"afterConfirmedBreach={context.AfterConfirmedBreach} outcome={outcome} return={returnText}");
+                    if (string.Equals(context.Phase, "wood", StringComparison.Ordinal))
+                        EmitWoodDispatchCorrelation(context, outcome, returnText);
                 }
                 else
                 {
@@ -1924,19 +1927,50 @@ namespace PreplacedTest
             EconomyGridState before = CaptureEconomyGridState(state);
             short cooldownBefore = ReadPlayerInt16(playerId, WoodSearchCooldownRelativeOffset, 0);
             string entryGate = cooldownBefore > 0 ? "cooldown-active" : "ready";
+            NativeEconomyTraversalSnapshot nativeTraversal = null;
             RunWithEconomyOverlay(state, playerId, "wood-search",
                 () => woodSearchHook.Original(state, playerId),
                 overlay =>
                 {
+                    EconomyGridState observed = CaptureEconomyGridState(state);
+                    if (observed.Generation != before.Generation)
+                        nativeTraversal = CaptureWoodTraversalSnapshot(state);
+                    else
+                    {
+                        int resultIndex = (uint)observed.ResultX < EconomyGridWidth &&
+                            (uint)observed.ResultY < EconomyGridWidth
+                            ? observed.ResultX * EconomyGridWidth + observed.ResultY : -1;
+                        nativeTraversal = new NativeEconomyTraversalSnapshot(observed.Generation,
+                            Array.Empty<int>(), Array.Empty<int>(), Array.Empty<int>(), resultIndex,
+                            observed.QueueRead, observed.QueueWrite, observed.Depth);
+                    }
                     EmitNativeResultBeforeOverlayRestore(state, playerId,
                         "wood-search", 0, overlay);
-                });
+                    EmitWoodSearchPredicateSummary(state, playerId, before.Generation,
+                        cooldownBefore, overlay, nativeTraversal);
+                }, cooldownBefore <= 0);
             short cooldownAfter = ReadPlayerInt16(playerId, WoodSearchCooldownRelativeOffset, 0);
             ObserveEconomySearch(state, playerId, "wood-search", eStructs.STRUCT_WOODCUTTERS_HUT,
                 "player=" + playerId + "/demandContract=unconditional-0x58020/entryGate=" + entryGate +
                 "/" + DescribeSearchInvocation(state, playerId, before) +
                 "/cooldown=" + DescribeCooldown(cooldownBefore, cooldownAfter),
-                before, null, cooldownBefore, cooldownAfter);
+                before, null, cooldownBefore, cooldownAfter, 0, nativeTraversal);
+        }
+
+        private void EmitWoodDispatchCorrelation(EconomyContext context, string outcome, string returnText)
+        {
+            PlayerSession session = Session(context.PlayerId);
+            string searches = string.Join(",", context.Searches.Select(search =>
+                search.Helper + ":" + search.GateReason + ":(" + search.ResultX + "," + search.ResultY + ")"));
+            string constructions = string.Join(",", context.ConstructionObservations.Select(call =>
+                call.Mapper + "@(" + call.X + "," + call.Y + ")/error=" + call.Error));
+            string payload = $"player={context.PlayerId}; state={session.EconomyFixState}; outcome={outcome}; " +
+                $"return={returnText}; counts=[{string.Join(",", context.CountResults)}]; searches=[{searches}]; " +
+                $"pclCalls=[{string.Join(",", context.PclCalls)}]; constructions=[{constructions}]; spawns={context.SpawnSignals.Count}";
+            string signature = StableTextHash(payload).ToString("X16");
+            session.Counters.Add("wood-dispatch signature=" + signature + " outcome=" + outcome);
+            if (session.EmittedWoodDispatchSignatures.Add(signature))
+                Shared.DebugLogHelper.LogInfo(log, "PREPLACED_WOOD_DISPATCH_CORRELATION: " + payload + ".");
         }
 
         private void NearbySearch(ulong state, uint coarseX, uint coarseY)
@@ -2040,13 +2074,13 @@ namespace PreplacedTest
             string.Equals(phase, "wood", StringComparison.Ordinal);
 
         private void RunWithEconomyOverlay(ulong state, int playerId, string helper, Action original,
-            Action<EconomyGridOverlayScope> observeBeforeRestore = null)
+            Action<EconomyGridOverlayScope> observeBeforeRestore = null, bool applyOverlay = true)
         {
             RunWithEconomyOverlay<object>(state, playerId, helper, () =>
             {
                 original();
                 return null;
-            }, (_, overlay) => observeBeforeRestore?.Invoke(overlay));
+            }, (_, overlay) => observeBeforeRestore?.Invoke(overlay), applyOverlay);
         }
 
         private static void ValidateFarmPlacementOffsetTable(ReadOnlySpan<byte> memory)
@@ -2262,11 +2296,11 @@ namespace PreplacedTest
             if (!players.TryGetValue(playerId, out PlayerSession session) || !session.ConfirmedWallBreach ||
                 !wallBaselines.TryGetValue(playerId, out WallTileBaseline baseline) ||
                 !baseline.LostWallTiles.Any(baseline.ComponentTiles.Contains) ||
-                !IsBaselineInteriorConnectedToExterior(baseline) ||
                 !TryResolveNativeReachablePcls(playerId, out _, out HashSet<int> reachablePcls, out _))
                 return false;
             return baseline.Anchors.Any(anchor =>
             {
+                if (!baseline.LostWallTiles.Contains(anchor.WallTileId)) return false;
                 int insidePcl = CurrentPcl(anchor.InsideTileId);
                 int outsidePcl = CurrentPcl(anchor.OutsideTileId);
                 return insidePcl > 0 && outsidePcl > 0 &&
@@ -2300,12 +2334,13 @@ namespace PreplacedTest
         }
 
         private T RunWithEconomyOverlay<T>(ulong state, int playerId, string helper, Func<T> original,
-            Action<T, EconomyGridOverlayScope> observeBeforeRestore = null)
+            Action<T, EconomyGridOverlayScope> observeBeforeRestore = null, bool applyOverlay = true)
         {
             EconomyGridOverlayScope overlay = null;
             try
             {
-                overlay = TryApplyEconomyGridOverlay(state, playerId, helper, false);
+                if (applyOverlay)
+                    overlay = TryApplyEconomyGridOverlay(state, playerId, helper, false);
             }
             catch (Exception ex)
             {
@@ -2832,7 +2867,93 @@ namespace PreplacedTest
                 (uint)gridState.ResultY < EconomyGridWidth
                 ? gridState.ResultX * EconomyGridWidth + gridState.ResultY : -1;
             return new NativeEconomyTraversalSnapshot(gridState.Generation, visited.ToArray(),
-                depths, queueOrder.ToArray(), resultIndex);
+                depths, queueOrder.ToArray(), resultIndex, gridState.QueueRead, gridState.QueueWrite,
+                gridState.Depth);
+        }
+
+        private NativeEconomyTraversalSnapshot CaptureWoodTraversalSnapshot(ulong state)
+        {
+            if (state == 0) return NativeEconomyTraversalSnapshot.Unavailable;
+            EconomyGridState gridState = CaptureEconomyGridState(state);
+            byte* memory = (byte*)state;
+            var queueOrder = new List<int>();
+            int queueWrite = gridState.QueueWrite;
+            if (queueWrite >= 0 && queueWrite <= EconomyGridCellCount)
+            {
+                for (int slot = 0; slot < queueWrite; slot++)
+                {
+                    int x = *(int*)(memory + EconomyQueueWriteOffset + sizeof(int) + slot * sizeof(int));
+                    int y = *(int*)(memory + EconomyQueueWriteOffset + sizeof(int) +
+                        EconomyGridCellCount * sizeof(int) + slot * sizeof(int));
+                    if ((uint)x >= EconomyGridWidth || (uint)y >= EconomyGridWidth) break;
+                    queueOrder.Add(x * EconomyGridWidth + y);
+                }
+            }
+            int resultIndex = (uint)gridState.ResultX < EconomyGridWidth &&
+                (uint)gridState.ResultY < EconomyGridWidth
+                ? gridState.ResultX * EconomyGridWidth + gridState.ResultY : -1;
+            var observed = new HashSet<int>(queueOrder);
+            if (resultIndex >= 0) observed.Add(resultIndex);
+            return new NativeEconomyTraversalSnapshot(gridState.Generation, observed.ToArray(),
+                Array.Empty<int>(), queueOrder.ToArray(), resultIndex, gridState.QueueRead,
+                gridState.QueueWrite, gridState.Depth);
+        }
+
+        private void EmitWoodSearchPredicateSummary(ulong state, int playerId, int generationBefore,
+            int cooldownBefore,
+            EconomyGridOverlayScope overlay, NativeEconomyTraversalSnapshot traversal)
+        {
+            if (state == 0 || !IsAi(playerId) || traversal == null || !traversal.IsAvailable) return;
+            PlayerSession session = Session(playerId);
+            bool performedTraversal = traversal.Generation != generationBefore;
+            if (!performedTraversal)
+            {
+                string earlySignature = $"early/{cooldownBefore}/{traversal.ResultIndex}";
+                session.Counters.Add("wood-predicate traversal=false cooldown=" + cooldownBefore);
+                if (session.EmittedWoodPredicateSignatures.Add(earlySignature))
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"PREPLACED_WOOD_SEARCH_PREDICATES: player={playerId}; state={session.EconomyFixState}; " +
+                        $"traversal=false; cooldownBefore={cooldownBefore}; result={FormatEconomyIndex(traversal.ResultIndex)}; " +
+                        "cell predicates were not rescanned because Vanilla did not advance the visit generation.");
+                return;
+            }
+            byte* memory = (byte*)state;
+            int censusEligible = ReadPlayerInt16(playerId, WoodAvailabilityCountRelativeOffset, 0);
+            int expansionEligible = 0;
+            int effectiveCandidates = 0;
+            int rejectedPcl = 0;
+            int rejectedDensity = 0;
+            int rejectedBlocked = 0;
+            foreach (int index in traversal.VisitedIndices)
+            {
+                byte* cell = memory + EconomyGridBaseOffset + index * EconomyGridCellStride;
+                bool expansion = (sbyte)cell[0x04] < WoodExpansionCellValueExclusive && cell[0x13] == 0;
+                bool pclCandidate = (sbyte)cell[0x04] < 6;
+                bool densityCandidate = (sbyte)cell[0x07] > 0;
+                bool candidate = expansion && pclCandidate && densityCandidate;
+                if (expansion) expansionEligible++;
+                if (candidate) effectiveCandidates++;
+                else if (!pclCandidate) rejectedPcl++;
+                else if (!densityCandidate) rejectedDensity++;
+                else if (cell[0x13] != 0) rejectedBlocked++;
+            }
+
+            string result = FormatEconomyIndex(traversal.ResultIndex);
+            string overlayText = overlay == null ? "vanilla" :
+                $"active/changed={overlay.ChangedCells}/keepPcl={overlay.KeepPcl}/reachable=[{string.Join(",", overlay.ReachablePcls)}]";
+            string semantic = $"{cooldownBefore}/{traversal.VisitedIndices.Length}/{traversal.QueueRead}/" +
+                $"{traversal.QueueWrite}/{traversal.ResultIndex}/{censusEligible}/{expansionEligible}/" +
+                $"{effectiveCandidates}/{rejectedPcl}/{rejectedDensity}/{rejectedBlocked}";
+            session.Counters.Add("wood-predicate result=" + result + " reachedCandidates=" + effectiveCandidates);
+            if (!session.EmittedWoodPredicateSignatures.Add(semantic)) return;
+            Shared.DebugLogHelper.LogInfo(log,
+                $"PREPLACED_WOOD_SEARCH_PREDICATES: player={playerId}; state={session.EconomyFixState}; " +
+                $"cooldownBefore={cooldownBefore}; generation={traversal.Generation}; depth={traversal.Depth}; " +
+                $"queue={traversal.QueueRead}->{traversal.QueueWrite}; visited={traversal.VisitedIndices.Length}; result={result}; " +
+                $"overlay={overlayText}; censusAvailabilityField(+1686)={censusEligible}; " +
+                $"reachedExpansionEligible(byte04<16&&byte13==0)={expansionEligible}; " +
+                $"reachedEffectiveCandidates(byte04<6&&byte07>0 within expansion)={effectiveCandidates}; " +
+                $"reachedFirstRejectCounts[pcl={rejectedPcl},density={rejectedDensity},blocked13={rejectedBlocked}].");
         }
 
         private void ObserveEconomySearch(ulong state, int playerId, string helper, eStructs? desiredType,
@@ -3697,23 +3818,21 @@ namespace PreplacedTest
                         $"lostWallTiles=[{string.Join(",", baseline.LostWallTiles.Where(baseline.ComponentTiles.Contains).OrderBy(value => value))}]");
                 }
                 WallAnchorPair confirmed = baseline.Anchors.FirstOrDefault(anchor =>
+                    baseline.LostWallTiles.Contains(anchor.WallTileId) &&
                     WallBreachConfirmation.IsConfirmed(true,
                         anchor.OldInsidePcl, anchor.OldOutsidePcl,
                         CurrentPcl(anchor.InsideTileId), CurrentPcl(anchor.OutsideTileId)));
-                // The flood fill is expensive and only meaningful after a stable PCL
-                // anchor reports a possible opening. It is also a required confirmation:
-                // a relabelled PCL alone must never activate the breach fix.
-                bool physicallyConnected = selectedWallLost && confirmed != null &&
-                    IsBaselineInteriorConnectedToExterior(baseline);
+                bool nativeEconomyAccess = selectedWallLost && confirmed != null &&
+                    HasLostWallAnchorEconomyAccess(session.PlayerId, baseline, confirmed);
                 if (selectedWallLost && confirmed != null && !session.AnchorConnectionStageEmitted)
                 {
                     session.AnchorConnectionStageEmitted = true;
                     EmitChunked($"PREPLACED_WALL_BREACH_STAGE: player={session.PlayerId}; ",
-                        $"stage=stable-pcl-anchor-connected; reason={reason}; physicalFloodConnected={physicallyConnected}; " +
+                        $"stage=stable-pcl-anchor-connected; reason={reason}; nativeEconomyAccess={nativeEconomyAccess}; " +
                         $"anchorWall={confirmed.WallTileId}; insideTile={confirmed.InsideTileId}; outsideTile={confirmed.OutsideTileId}; " +
                         $"pcl={confirmed.OldInsidePcl}+{confirmed.OldOutsidePcl}->{CurrentPcl(confirmed.InsideTileId)}");
                 }
-                if (!selectedWallLost || confirmed == null || !physicallyConnected) continue;
+                if (!selectedWallLost || confirmed == null || !nativeEconomyAccess) continue;
                 session.ConfirmedWallBreach = true;
                 session.WallBreachUtc = DateTime.UtcNow;
                 economyFixEligiblePlayers.Remove(session.PlayerId);
@@ -3728,11 +3847,23 @@ namespace PreplacedTest
                 EmitEconomyFixState("PENDING", session, reason, "confirmed-wall-breach-awaiting-economy-search");
                 EmitChunked($"PREPLACED_CONFIRMED_WALL_BREACH: player={session.PlayerId}; ",
                     $"reason={reason}; role={session.WallTestRole}; confirmation=selected-baseline-wall-lost+stable-anchor-connectivity; " +
-                    $"physicalFloodConnected={physicallyConnected}; " +
+                    $"nativeEconomyAccess={nativeEconomyAccess}; " +
                     $"lostWallTiles=[{string.Join(",", baseline.LostWallTiles.Where(baseline.ComponentTiles.Contains).OrderBy(value => value))}]; " +
                     $"anchorWall={confirmed.WallTileId}; insideTile={confirmed.InsideTileId}; outsideTile={confirmed.OutsideTileId}; " +
                     $"pcl={confirmed.OldInsidePcl}+{confirmed.OldOutsidePcl}->{CurrentPcl(confirmed.InsideTileId)}");
             }
+        }
+
+        private bool HasLostWallAnchorEconomyAccess(int playerId, WallTileBaseline baseline,
+            WallAnchorPair anchor)
+        {
+            if (anchor == null || !baseline.LostWallTiles.Contains(anchor.WallTileId) ||
+                !TryResolveNativeReachablePcls(playerId, out _, out HashSet<int> reachablePcls, out _))
+                return false;
+            int insidePcl = CurrentPcl(anchor.InsideTileId);
+            int outsidePcl = CurrentPcl(anchor.OutsideTileId);
+            return insidePcl > 0 && outsidePcl > 0 && insidePcl == outsidePcl &&
+                reachablePcls.Contains(insidePcl);
         }
 
         private static string ExtractArgumentValue(string arguments, string name)
@@ -4009,6 +4140,24 @@ namespace PreplacedTest
                 out BuildingSnapshot postBuilding) ? (BuildingSnapshot?)postBuilding : null;
             RecordDamageEvent(completed.OwnerId,
                 DescribeDamageAggregate("post", completed, args, capturedAfter, afterCounter));
+            if (completed.WallBefore.HasValue)
+            {
+                WallTileState afterWall = CaptureWallTileState(completed.WallBefore.Value.TileId,
+                    completed.WallBefore.Value.X, completed.WallBefore.Value.Y);
+                WallTileDelta wallDelta = new WallTileDelta(completed.WallBefore.Value, afterWall);
+                if (wallDelta.WallLost)
+                {
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"PREPLACED_BASELINE_WALL_DAMAGE: player={completed.OwnerId}; terminal=true; damage={args.Damage}; " +
+                        $"sourcePlayer={args.PlayerIdSource}; {wallDelta}.");
+                    InvalidateEconomyOverlayCaches("baseline-wall-tile-lost-by-damage");
+                    CaptureAndAnalyzePclTopology("BASELINE_WALL_DAMAGE_POST");
+                }
+                else if (!wallDelta.Before.DataEquals(wallDelta.After) && IsAi(completed.OwnerId))
+                    Session(completed.OwnerId).Counters.Add(
+                        $"baseline-wall-damage terminal=false height={wallDelta.Before.Height}->{wallDelta.After.Height} " +
+                        $"damageGrid={wallDelta.Before.Damage}->{wallDelta.After.Damage}");
+            }
             bool lethalInput = completed.Building.HasValue &&
                 DamageObservationModel.IsLethalInput(completed.Building.Value.CurrentHealth, args.Damage);
             if (lethalInput)
@@ -4042,7 +4191,8 @@ namespace PreplacedTest
             BuildingTileTakeDamageEventArgs args, BuildingSnapshot? after, int afterCounter)
         {
             if (!context.Building.HasValue)
-                return $"damage.{phase} target=unresolved amount={args.Damage} sourcePlayer={args.PlayerIdSource} " +
+                return $"damage.{phase} target={(context.WallBefore.HasValue ? "baseline-wall-tile" : "unresolved")} " +
+                    $"tile={args.TileId}@({args.TileX},{args.TileY}) amount={args.Damage} sourcePlayer={args.PlayerIdSource} " +
                     $"activationMode={args.Unknown3} unknown1={args.Unknown1} unknown4={args.Unknown4}";
             BuildingSnapshot building = context.Building.Value;
             bool lethal = DamageObservationModel.IsLethalInput(building.CurrentHealth, args.Damage);
@@ -4492,6 +4642,7 @@ namespace PreplacedTest
             var manager = GameTileManagerAPI.Instance.TileManager;
             return new WallTileState(tileId, x, y, manager.LogicGrid[tileId], manager.WallOwnerGrid[tileId],
                 manager.DamageGrid[tileId], manager.StructureWasGrid[tileId], manager.GatePathGrid[tileId],
+                manager.HeightGrid[tileId], manager.DefaultHeightGrid[tileId],
                 TryGetPclByTileId(tileId, out int pcl, "wall-tile") ? pcl : 0);
         }
 
@@ -5176,6 +5327,13 @@ namespace PreplacedTest
                 if (buildingId > 0 && TryCaptureBuilding(buildingId, out BuildingSnapshot building))
                     return new DamageContext(building, ReadPlayerGlobal(building.OwnerId, CrushedCounterRelativeOffset),
                         IsCurrentPreplaced(buildingId));
+                foreach (WallTileBaseline baseline in wallBaselines.Values)
+                {
+                    if (!baseline.Tiles.ContainsKey(args.TileId)) continue;
+                    WallTileState wall = CaptureWallTileState(args.TileId, args.TileX, args.TileY);
+                    return DamageContext.ForBaselineWall(wall, baseline.PlayerId,
+                        ReadPlayerGlobal(baseline.PlayerId, CrushedCounterRelativeOffset));
+                }
             }
             catch (Exception ex)
             {
@@ -5353,6 +5511,8 @@ namespace PreplacedTest
             public HashSet<string> EmittedWallLossSearchKinds { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedPostBreachSearchKinds { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedOracleSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
+            public HashSet<string> EmittedWoodPredicateSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
+            public HashSet<string> EmittedWoodDispatchSignatures { get; } = new HashSet<string>(StringComparer.Ordinal);
             public HashSet<string> EmittedNativeRouteMatrices { get; } = new HashSet<string>(StringComparer.Ordinal);
             public bool FullPortalTopologyEmitted { get; set; }
             public bool FullNativeRouteMatrixEmitted { get; set; }
@@ -5540,13 +5700,17 @@ namespace PreplacedTest
         private sealed class NativeEconomyTraversalSnapshot
         {
             public NativeEconomyTraversalSnapshot(int generation, int[] visitedIndices,
-                int[] depths, int[] queueOrderIndices, int resultIndex)
+                int[] depths, int[] queueOrderIndices, int resultIndex, int queueRead,
+                int queueWrite, int depth)
             {
                 Generation = generation;
                 VisitedIndices = visitedIndices ?? Array.Empty<int>();
                 Depths = depths ?? Array.Empty<int>();
                 QueueOrderIndices = queueOrderIndices ?? Array.Empty<int>();
                 ResultIndex = resultIndex;
+                QueueRead = queueRead;
+                QueueWrite = queueWrite;
+                Depth = depth;
             }
 
             public int Generation { get; }
@@ -5554,10 +5718,13 @@ namespace PreplacedTest
             public int[] Depths { get; }
             public int[] QueueOrderIndices { get; }
             public int ResultIndex { get; }
+            public int QueueRead { get; }
+            public int QueueWrite { get; }
+            public int Depth { get; }
             public bool IsAvailable => Generation >= 0;
             public static NativeEconomyTraversalSnapshot Unavailable { get; } =
                 new NativeEconomyTraversalSnapshot(-1, Array.Empty<int>(), Array.Empty<int>(),
-                    Array.Empty<int>(), -1);
+                    Array.Empty<int>(), -1, -1, -1, -1);
         }
 
         private readonly struct ShadowSearchSummary
@@ -5948,10 +6115,11 @@ namespace PreplacedTest
         private readonly struct WallTileState
         {
             public WallTileState(int tileId, int x, int y, int logic, byte rawOwner, byte damage,
-                byte structureWas, byte gatePath, int pcl)
+                byte structureWas, byte gatePath, byte height, byte defaultHeight, int pcl)
             {
                 TileId = tileId; X = x; Y = y; Logic = logic; RawOwner = rawOwner;
-                Damage = damage; StructureWas = structureWas; GatePath = gatePath; Pcl = pcl;
+                Damage = damage; StructureWas = structureWas; GatePath = gatePath;
+                Height = height; DefaultHeight = defaultHeight; Pcl = pcl;
             }
             public int TileId { get; }
             public int X { get; }
@@ -5961,12 +6129,15 @@ namespace PreplacedTest
             public byte Damage { get; }
             public byte StructureWas { get; }
             public byte GatePath { get; }
+            public byte Height { get; }
+            public byte DefaultHeight { get; }
             public int Pcl { get; }
             public bool IsWall => (Logic & (int)TilePropertyFlag.IsWall) != 0;
             public bool DataEquals(WallTileState other) => Logic == other.Logic && RawOwner == other.RawOwner &&
-                Damage == other.Damage && StructureWas == other.StructureWas && GatePath == other.GatePath && Pcl == other.Pcl;
+                Damage == other.Damage && StructureWas == other.StructureWas && GatePath == other.GatePath &&
+                Height == other.Height && DefaultHeight == other.DefaultHeight && Pcl == other.Pcl;
             public override string ToString() =>
-                $"tile={TileId}@({X},{Y})/logic=0x{Logic:X8}/rawOwner={RawOwner}/damage={Damage}/structureWas={StructureWas}/gatePath={GatePath}/pcl={Pcl}";
+                $"tile={TileId}@({X},{Y})/logic=0x{Logic:X8}/rawOwner={RawOwner}/damage={Damage}/structureWas={StructureWas}/gatePath={GatePath}/height={Height}/defaultHeight={DefaultHeight}/pcl={Pcl}";
         }
 
         private sealed class WallAnchorPair
@@ -5995,7 +6166,8 @@ namespace PreplacedTest
             public bool WallLost => Before.IsWall && !After.IsWall;
             public bool MaterialChanged => Before.Logic != After.Logic || Before.RawOwner != After.RawOwner ||
                 Before.Damage != After.Damage || Before.StructureWas != After.StructureWas ||
-                Before.GatePath != After.GatePath;
+                Before.GatePath != After.GatePath || Before.Height != After.Height ||
+                Before.DefaultHeight != After.DefaultHeight;
             public bool PclOnlyChanged => !MaterialChanged && Before.Pcl != After.Pcl;
             public override string ToString() => $"{Before}->{After}/wallLost={WallLost}";
         }
@@ -6138,26 +6310,36 @@ namespace PreplacedTest
 
         private sealed class DamageContext
         {
-            private DamageContext(BuildingSnapshot? building, int delayBefore, bool wasPreplaced)
+            private DamageContext(BuildingSnapshot? building, WallTileState? wallBefore, int wallOwnerId,
+                int delayBefore, bool wasPreplaced)
             {
                 Building = building;
+                WallBefore = wallBefore;
+                WallOwnerId = wallOwnerId;
                 DelayBefore = delayBefore;
                 WasPreplaced = wasPreplaced;
             }
 
             public BuildingSnapshot? Building { get; }
-            public int OwnerId => Building.HasValue ? Building.Value.OwnerId : 0;
+            public WallTileState? WallBefore { get; }
+            public int WallOwnerId { get; }
+            public int OwnerId => Building.HasValue ? Building.Value.OwnerId : WallOwnerId;
             public int DelayBefore { get; }
             public bool WasPreplaced { get; }
 
-            public static DamageContext Unmatched(BuildingTileTakeDamageEventArgs args) => new DamageContext(null, -1, false);
+            public static DamageContext Unmatched(BuildingTileTakeDamageEventArgs args) =>
+                new DamageContext(null, null, 0, -1, false);
+
+            public static DamageContext ForBaselineWall(WallTileState wall, int ownerId, int delayBefore) =>
+                new DamageContext(null, wall, ownerId, delayBefore, true);
 
             public DamageContext(BuildingSnapshot building, int delayBefore, bool wasPreplaced) :
-                this((BuildingSnapshot?)building, delayBefore, wasPreplaced) { }
+                this((BuildingSnapshot?)building, null, 0, delayBefore, wasPreplaced) { }
 
             public string Describe(BuildingTileTakeDamageEventArgs args)
             {
-                string target = Building.HasValue ? Building.Value.ToText(null) : "building=unresolved";
+                string target = Building.HasValue ? Building.Value.ToText(null) :
+                    WallBefore.HasValue ? "baselineWall=" + WallBefore.Value : "building=unresolved";
                 string lethalCandidate = Building.HasValue ? DamageObservationModel.IsLethalInput(Building.Value.CurrentHealth, args.Damage).ToString() : "unknown";
                 return $"{target},damageTile={args.TileId}@({args.TileX},{args.TileY}),amount={args.Damage},lethalInput={lethalCandidate},unknown1={args.Unknown1},sourcePlayer={args.PlayerIdSource},activationMode={args.Unknown3},unknown4={args.Unknown4}";
             }

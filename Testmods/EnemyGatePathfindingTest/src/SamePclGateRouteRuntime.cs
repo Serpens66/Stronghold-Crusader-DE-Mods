@@ -3,10 +3,13 @@ using Iced.Intel;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
 using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -21,6 +24,11 @@ namespace EnemyGatePathfindingTest
             long humanDetours, long aiDetours, long attackEdges,
             long buildingEdges, long candidateEdges, long cursorCommandEdges,
             long directCursorQueries, long directCursorEdges,
+            long cursorPclChecks, long cursorNativeRefreshes, long cursorCacheHits,
+            long cursorThrottleDeferrals, long cursorPolicyBlocked,
+            long cursorReachable, long cursorRejectedEdges, long cursorUnitPending,
+            long cursorValidationTicks,
+            long cursorValidationMaxTicks,
             long missingContexts, long invalidPlayers, long scopeMismatches,
             long slotConflicts, long poolExhaustions, long exceptions)
         {
@@ -30,6 +38,12 @@ namespace EnemyGatePathfindingTest
             AttackEdges = attackEdges; BuildingEdges = buildingEdges;
             CandidateEdges = candidateEdges; CursorCommandEdges = cursorCommandEdges;
             DirectCursorQueries = directCursorQueries; DirectCursorEdges = directCursorEdges;
+            CursorPclChecks = cursorPclChecks; CursorNativeRefreshes = cursorNativeRefreshes;
+            CursorCacheHits = cursorCacheHits; CursorThrottleDeferrals = cursorThrottleDeferrals;
+            CursorPolicyBlocked = cursorPolicyBlocked; CursorReachable = cursorReachable;
+            CursorRejectedEdges = cursorRejectedEdges;
+            CursorUnitPending = cursorUnitPending; CursorValidationTicks = cursorValidationTicks;
+            CursorValidationMaxTicks = cursorValidationMaxTicks;
             MissingContexts = missingContexts; InvalidPlayers = invalidPlayers;
             ScopeMismatches = scopeMismatches; SlotConflicts = slotConflicts;
             PoolExhaustions = poolExhaustions; Exceptions = exceptions;
@@ -49,6 +63,16 @@ namespace EnemyGatePathfindingTest
         internal long CursorCommandEdges { get; }
         internal long DirectCursorQueries { get; }
         internal long DirectCursorEdges { get; }
+        internal long CursorPclChecks { get; }
+        internal long CursorNativeRefreshes { get; }
+        internal long CursorCacheHits { get; }
+        internal long CursorThrottleDeferrals { get; }
+        internal long CursorPolicyBlocked { get; }
+        internal long CursorReachable { get; }
+        internal long CursorRejectedEdges { get; }
+        internal long CursorUnitPending { get; }
+        internal long CursorValidationTicks { get; }
+        internal long CursorValidationMaxTicks { get; }
         internal long MissingContexts { get; }
         internal long InvalidPlayers { get; }
         internal long ScopeMismatches { get; }
@@ -64,10 +88,13 @@ namespace EnemyGatePathfindingTest
     {
         private const int ThreadSlotStride = 32;
         private const int NativeSnapshotPoolSize = 4;
+        private static readonly long CursorRefreshInterval = Math.Max(
+            1L, Stopwatch.Frequency / 5L);
         private enum QueryKind
         {
             HumanBuilder, AiBuilder, Attack, BuildingApproach,
-            AlternateBuildingApproach, CandidateSearch, CursorCommand, DirectCursor
+            AlternateBuildingApproach, CandidateSearch, CursorCommand, DirectCursor,
+            CursorPreview
         }
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
@@ -123,6 +150,7 @@ namespace EnemyGatePathfindingTest
             internal readonly IntPtr[] PlayerMasks = new IntPtr[9];
             internal int Readers;
             internal bool Filling;
+            internal ulong Fingerprint;
             private readonly IntPtr storage;
             private NativeMaskSnapshot() { }
             internal NativeMaskSnapshot(bool allocate)
@@ -144,6 +172,7 @@ namespace EnemyGatePathfindingTest
                     Marshal.Copy(mask, 0, target, mask.Length);
                     PlayerMasks[player] = target;
                 }
+                Fingerprint = source?.TopologyFingerprint ?? 0UL;
             }
         }
 
@@ -177,19 +206,41 @@ namespace EnemyGatePathfindingTest
         private readonly DirectTileSearchDelegate originalDirectTileSearch;
         private readonly DirectTileSearchDelegate rootedDirectCursorSearch;
         private readonly HookHandle<X64InlineHook> directCursorHook = new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> cursorPclDecisionHook =
+            new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook>[] edgeHooks =
             new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length];
         private long queries, preserved, rejectedEdges, detours, noRoutes;
         private long humanDetours, aiDetours, attackEdges, buildingEdges, candidateEdges;
         private long cursorCommandEdges, directCursorQueries, directCursorEdges;
+        private long cursorPclChecks, cursorNativeRefreshes, cursorCacheHits;
+        private long cursorThrottleDeferrals, cursorPolicyBlocked, cursorReachable,
+            cursorRejectedEdges;
+        private long cursorUnitPending, cursorValidationTicks, cursorValidationMaxTicks;
         private long missingContexts, invalidPlayers, scopeMismatches;
         private long slotConflicts, poolExhaustions, exceptions;
         private int lastPoolExhaustionGeneration = -1;
-        private readonly int[] samplePublished = new int[8];
-        private readonly int[] sampleRequested = new int[8];
-        private readonly int[] sampleNative = new int[8];
-        private readonly int[] sampleTribe = new int[8];
-        private readonly int[] sampleUsed = new int[8];
+        private readonly int[] samplePublished = new int[9];
+        private readonly int[] sampleRequested = new int[9];
+        private readonly int[] sampleNative = new int[9];
+        private readonly int[] sampleTribe = new int[9];
+        private readonly int[] sampleUsed = new int[9];
+        private int cursorRequestSequence, cursorRequestWriter;
+        private int cursorRequestPlayer, cursorRequestUnit, cursorRequestTargetX,
+            cursorRequestTargetY, cursorRequestTargetTile;
+        private long cursorRequestFingerprint;
+        private int cursorCacheSequence;
+        private int cursorCacheValid, cursorCachePlayer, cursorCacheUnit,
+            cursorCacheGlobal, cursorCacheStartX, cursorCacheStartY,
+            cursorCacheTargetX, cursorCacheTargetY, cursorCacheAllowed;
+        private long cursorCacheFingerprint;
+        private long nextCursorValidationAt;
+        private int cursorSampleState, cursorSamplePlayer, cursorSampleUnit,
+            cursorSampleGlobal, cursorSampleStartX, cursorSampleStartY,
+            cursorSampleTargetX, cursorSampleTargetY, cursorSampleTargetTile,
+            cursorSampleAllowed;
+        private long cursorSampleFingerprint, cursorSampleRejectedEdges,
+            cursorSampleElapsedTicks;
         private long nextPlayerRefresh;
         private int installAttempted;
 
@@ -264,6 +315,26 @@ namespace EnemyGatePathfindingTest
                 (asm, original, returnAddress) => DirectCursorCallAdapterEmitter.Emit(
                     asm, original, directCursorWrapper),
                 hookSize: EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength);
+            using (var probe = new X64InlineHook(
+                libraryBase + EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
+                EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength))
+                if (probe.DisplacedByteCount !=
+                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength)
+                    throw new InvalidOperationException(
+                        $"RedBird cursor-PCL span was {probe.DisplacedByteCount}, expected " +
+                        EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength + ".");
+            transaction.AddContextHook(
+                cursorPclDecisionHook,
+                HookTarget.FromAddress(libraryBase +
+                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva),
+                FilterNormalCursorPclDecision,
+                new ContextHookOptions
+                {
+                    Registers = X64SmartCPUContextRegs.All,
+                    HookSize = EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength,
+                    ErrorMode = CallbackErrorMode.LogAndContinue,
+                    Placement = OverwrittenInstructionPlacement.BeforeCallback
+                });
             for (int index = 0; index < edgeHooks.Length; index++)
             {
                 edgeHooks[index] = new HookHandle<X64InlineHook>();
@@ -290,8 +361,12 @@ namespace EnemyGatePathfindingTest
                 !cursor.Committed || !candidateSearch.Committed ||
                 !directCursorHook.Success || !directCursorHook.IsInstalled ||
                 directCursorHook.Failure != null ||
+                !cursorPclDecisionHook.Success || !cursorPclDecisionHook.IsInstalled ||
+                cursorPclDecisionHook.Failure != null ||
                 directCursorHook.Hook.DisplacedByteCount !=
-                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength)
+                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockLength ||
+                cursorPclDecisionHook.Hook.DisplacedByteCount !=
+                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength)
             {
                 transaction.DisableAll();
                 throw new InvalidOperationException($"Vanilla Gate-Filter was not installed atomically: {result}");
@@ -314,10 +389,13 @@ namespace EnemyGatePathfindingTest
             Shared.DebugLogHelper.LogInfo(log,
                 "Vanilla player-aware gate filter installed: " +
                 "scopes=builder/attack/building/consumer/alternateConsumer/candidateSearch/" +
-                "cursorCommand/directCursorDB650, directionAdapters=11, directCursorCallsite=" +
+                "cursorCommand/directCursorDB650/cursorPclPreview, directionAdapters=11, " +
+                "cursorPclDecision=" +
+                $"0x{EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva:X}/" +
+                $"{EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength}, directCursorCallsite=" +
                 $"0x{EnemyGatePathfindingNativeDefinition.DirectCursorSearchCallRva:X}, " +
                 "nativeSnapshotPool=4, managedNodeCallbacks=0, managedCursorSearches=0, " +
-                "managedReplacementSearches=0, " +
+                "managedReplacementSearches=0, cursorRefreshMs=200, representativeUnits=1, " +
                 "globalDirectionGridWrites=0, tileBounds=unsigned<" +
                 EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive + ", contracts=[" +
                 DirectionFilterAdapterEmitter.DescribeContracts() + "].");
@@ -379,6 +457,7 @@ namespace EnemyGatePathfindingTest
             }
             if (retry != null) TryPublishPending(retry, generation);
             long now = Stopwatch.GetTimestamp();
+            ProcessCursorPreview(now);
             if (now < Volatile.Read(ref nextPlayerRefresh)) return;
             Volatile.Write(ref nextPlayerRefresh, now + Stopwatch.Frequency);
             var ai = new bool[9];
@@ -390,6 +469,244 @@ namespace EnemyGatePathfindingTest
             for (int spanIndex = 0; spanIndex < tribes.Length; spanIndex++)
                 owners[spanIndex + 1] = tribes[spanIndex].r_PlayerIdOwner;
             tribePlayers = new TribePlayerSnapshot(owners);
+        }
+
+        private void FilterNormalCursorPclDecision(
+            NativePointer<X64SmartCPUContext> context)
+        {
+            X64SmartCPUContext* registers = context.Pointer;
+            if (registers == null) return;
+
+            // RedBird 1.1.0 changes flags while building the callback context. The
+            // displaced TEST EAX,EAX is therefore reconstructed from its operand.
+            bool originalZero = unchecked((int)(uint)registers->RAX) == 0;
+            bool finalZero = originalZero;
+            try
+            {
+                if (!originalZero &&
+                    unchecked((int)(uint)registers->RSI) ==
+                    unchecked((int)(uint)registers->RDI))
+                {
+                    Interlocked.Increment(ref cursorPclChecks);
+                    int player = *(int*)(libraryBase +
+                        EnemyGatePathfindingNativeDefinition.ActivePlayerIdRva);
+                    int unitId = unchecked((int)(uint)registers->R14);
+                    NativeMaskSnapshot snapshot = currentMasks;
+                    int tileBefore = *(int*)(libraryBase +
+                        EnemyGatePathfindingNativeDefinition.CursorMouseTileIdRva);
+                    int targetX = *(int*)(libraryBase +
+                        EnemyGatePathfindingNativeDefinition.CursorMouseTileXRva);
+                    int targetY = *(int*)(libraryBase +
+                        EnemyGatePathfindingNativeDefinition.CursorMouseTileYRva);
+                    int tileAfter = *(int*)(libraryBase +
+                        EnemyGatePathfindingNativeDefinition.CursorMouseTileIdRva);
+                    bool valid = player > 0 && player <= 8 && unitId > 0 &&
+                        snapshot.Fingerprint != 0 &&
+                        snapshot.PlayerMasks[player] != IntPtr.Zero &&
+                        tileBefore == tileAfter && targetX >= 0 && targetX < 800 &&
+                        targetY >= 0 && targetY < 800 && tileAfter >= 0 &&
+                        tileAfter < EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive &&
+                        *(int*)(libraryBase + EnemyGatePathfindingNativeDefinition.TileRowStartRva +
+                            unchecked((ulong)(targetY * 12))) + targetX == tileAfter;
+                    if (valid)
+                    {
+                        PublishCursorRequest(player, unitId, targetX, targetY,
+                            tileAfter, snapshot.Fingerprint);
+                        bool allowed;
+                        if (TryReadCursorCache(player, unitId, targetX, targetY,
+                                snapshot.Fingerprint, out allowed))
+                        {
+                            Interlocked.Increment(ref cursorCacheHits);
+                            if (!allowed)
+                            {
+                                finalZero = true;
+                                Interlocked.Increment(ref cursorPolicyBlocked);
+                            }
+                        }
+                        else
+                        {
+                            Interlocked.Increment(ref cursorUnitPending);
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                Interlocked.Increment(ref exceptions);
+                finalZero = originalZero;
+            }
+            registers->Rflags = EnemyGatePathfindingPolicy.SetZeroFlag(
+                registers->Rflags, finalZero);
+        }
+
+        private void PublishCursorRequest(int player, int unitId, int targetX,
+            int targetY, int targetTile, ulong fingerprint)
+        {
+            if (Interlocked.CompareExchange(ref cursorRequestWriter, 1, 0) != 0)
+                return;
+            try
+            {
+                Interlocked.Increment(ref cursorRequestSequence);
+                cursorRequestPlayer = player;
+                cursorRequestUnit = unitId;
+                cursorRequestTargetX = targetX;
+                cursorRequestTargetY = targetY;
+                cursorRequestTargetTile = targetTile;
+                cursorRequestFingerprint = unchecked((long)fingerprint);
+                Interlocked.Increment(ref cursorRequestSequence);
+            }
+            finally
+            {
+                Volatile.Write(ref cursorRequestWriter, 0);
+            }
+        }
+
+        private bool TryReadCursorRequest(out int player, out int unitId,
+            out int targetX, out int targetY, out int targetTile, out ulong fingerprint)
+        {
+            player = unitId = targetX = targetY = targetTile = 0;
+            fingerprint = 0;
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                int before = Volatile.Read(ref cursorRequestSequence);
+                if ((before & 1) != 0 || before == 0) continue;
+                player = cursorRequestPlayer;
+                unitId = cursorRequestUnit;
+                targetX = cursorRequestTargetX;
+                targetY = cursorRequestTargetY;
+                targetTile = cursorRequestTargetTile;
+                fingerprint = unchecked((ulong)cursorRequestFingerprint);
+                if (before == Volatile.Read(ref cursorRequestSequence)) return true;
+            }
+            return false;
+        }
+
+        private bool TryReadCursorCache(int player, int unitId, int targetX,
+            int targetY, ulong fingerprint, out bool allowed)
+        {
+            allowed = true;
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                int before = Volatile.Read(ref cursorCacheSequence);
+                if ((before & 1) != 0 || before == 0) continue;
+                int valid = cursorCacheValid;
+                int cachedPlayer = cursorCachePlayer;
+                int cachedUnit = cursorCacheUnit;
+                int cachedTargetX = cursorCacheTargetX;
+                int cachedTargetY = cursorCacheTargetY;
+                ulong cachedFingerprint = unchecked((ulong)cursorCacheFingerprint);
+                int cachedAllowed = cursorCacheAllowed;
+                if (before != Volatile.Read(ref cursorCacheSequence)) continue;
+                if (!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
+                        valid != 0, cachedPlayer, cachedUnit, cachedTargetX,
+                        cachedTargetY, cachedFingerprint, player, unitId,
+                        targetX, targetY, fingerprint)) return false;
+                allowed = cachedAllowed != 0;
+                return true;
+            }
+            return false;
+        }
+
+        private void ProcessCursorPreview(long now)
+        {
+            int player, unitId, targetX, targetY, targetTile;
+            ulong fingerprint;
+            if (!Installed || !TryReadCursorRequest(out player, out unitId,
+                    out targetX, out targetY, out targetTile, out fingerprint)) return;
+            if (now < Volatile.Read(ref nextCursorValidationAt))
+            {
+                Interlocked.Increment(ref cursorThrottleDeferrals);
+                return;
+            }
+            Volatile.Write(ref nextCursorValidationAt, now + CursorRefreshInterval);
+
+            NativeMaskSnapshot snapshot = currentMasks;
+            if (player <= 0 || player > 8 || fingerprint == 0 ||
+                snapshot.Fingerprint != fingerprint ||
+                snapshot.PlayerMasks[player] == IntPtr.Zero) return;
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                unit->r_ControllableForPlayerId != player)
+            {
+                Interlocked.Increment(ref cursorUnitPending);
+                return;
+            }
+            int startX = unit->r_CurrentTilePositionX;
+            int startY = unit->r_CurrentTilePositionY;
+            if (startX >= 800 || startY >= 800 ||
+                targetX < 0 || targetX >= 800 || targetY < 0 || targetY >= 800 ||
+                targetTile < 0 ||
+                targetTile >= EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive ||
+                *(int*)(libraryBase + EnemyGatePathfindingNativeDefinition.TileRowStartRva +
+                    unchecked((ulong)(targetY * 12))) + targetX != targetTile) return;
+
+            long started = Stopwatch.GetTimestamp();
+            int result = 0;
+            bool completed = false;
+            long touched = 0;
+            CaptureScopeSample(QueryKind.CursorPreview, player, player, -1, player);
+            QueryScope scope = Enter(player);
+            if (scope.Snapshot.Fingerprint != fingerprint)
+            {
+                Complete(scope, QueryKind.CursorPreview, true, false);
+                return;
+            }
+            try
+            {
+                result = originalDirectTileSearch(
+                    new IntPtr(unchecked((long)(libraryBase +
+                        EnemyGatePathfindingNativeDefinition.NativePathManagerRva))),
+                    startX, startY, targetX, targetY,
+                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchNodeLimit);
+                completed = true;
+            }
+            catch
+            {
+                Interlocked.Increment(ref exceptions);
+                return;
+            }
+            finally
+            {
+                touched = Complete(scope, QueryKind.CursorPreview, true,
+                    completed && result > 0);
+            }
+            long elapsed = Stopwatch.GetTimestamp() - started;
+            Interlocked.Increment(ref cursorNativeRefreshes);
+            Interlocked.Add(ref cursorValidationTicks, elapsed);
+            UpdateMaximum(ref cursorValidationMaxTicks, elapsed);
+            if (result > 0) Interlocked.Increment(ref cursorReachable);
+            bool allowed = !completed ||
+                !EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(result, touched);
+
+            Interlocked.Increment(ref cursorCacheSequence);
+            cursorCachePlayer = player;
+            cursorCacheUnit = unitId;
+            cursorCacheGlobal = unchecked((int)unit->r_GlobalId);
+            cursorCacheStartX = startX;
+            cursorCacheStartY = startY;
+            cursorCacheTargetX = targetX;
+            cursorCacheTargetY = targetY;
+            cursorCacheFingerprint = unchecked((long)fingerprint);
+            cursorCacheAllowed = allowed ? 1 : 0;
+            cursorCacheValid = 1;
+            Interlocked.Increment(ref cursorCacheSequence);
+
+            if (Interlocked.CompareExchange(ref cursorSampleState, 1, 0) == 0)
+            {
+                cursorSamplePlayer = player;
+                cursorSampleUnit = unitId;
+                cursorSampleGlobal = unchecked((int)unit->r_GlobalId);
+                cursorSampleStartX = startX;
+                cursorSampleStartY = startY;
+                cursorSampleTargetX = targetX;
+                cursorSampleTargetY = targetY;
+                cursorSampleTargetTile = targetTile;
+                cursorSampleFingerprint = unchecked((long)fingerprint);
+                cursorSampleRejectedEdges = touched;
+                cursorSampleElapsedTicks = elapsed;
+                cursorSampleAllowed = allowed ? 1 : 0;
+                Volatile.Write(ref cursorSampleState, 2);
+            }
         }
 
         private void TryPublishPending(RouteTilePolicySnapshot policy, int generation)
@@ -440,6 +757,12 @@ namespace EnemyGatePathfindingTest
                 Read(ref humanDetours), Read(ref aiDetours), Read(ref attackEdges),
                 Read(ref buildingEdges), Read(ref candidateEdges), Read(ref cursorCommandEdges),
                 Read(ref directCursorQueries), Read(ref directCursorEdges),
+                Read(ref cursorPclChecks), Read(ref cursorNativeRefreshes),
+                Read(ref cursorCacheHits), Read(ref cursorThrottleDeferrals),
+                Read(ref cursorPolicyBlocked), Read(ref cursorReachable),
+                Read(ref cursorRejectedEdges), Read(ref cursorUnitPending),
+                Read(ref cursorValidationTicks),
+                Read(ref cursorValidationMaxTicks),
                 Read(ref missingContexts), Read(ref invalidPlayers), Read(ref scopeMismatches),
                 Read(ref slotConflicts), Read(ref poolExhaustions), Read(ref exceptions));
         internal void ResetCounters()
@@ -448,9 +771,20 @@ namespace EnemyGatePathfindingTest
             Reset(ref noRoutes); Reset(ref humanDetours); Reset(ref aiDetours);
             Reset(ref attackEdges); Reset(ref buildingEdges); Reset(ref candidateEdges);
             Reset(ref cursorCommandEdges); Reset(ref directCursorQueries); Reset(ref directCursorEdges);
+            Reset(ref cursorPclChecks); Reset(ref cursorNativeRefreshes); Reset(ref cursorCacheHits);
+            Reset(ref cursorThrottleDeferrals); Reset(ref cursorPolicyBlocked);
+            Reset(ref cursorReachable); Reset(ref cursorRejectedEdges);
+            Reset(ref cursorUnitPending);
+            Reset(ref cursorValidationTicks); Reset(ref cursorValidationMaxTicks);
             Reset(ref missingContexts); Reset(ref invalidPlayers);
             Reset(ref scopeMismatches); Reset(ref slotConflicts); Reset(ref poolExhaustions);
             Reset(ref exceptions);
+            Volatile.Write(ref cursorRequestSequence, 0);
+            Volatile.Write(ref cursorRequestWriter, 0);
+            Volatile.Write(ref cursorCacheSequence, 0);
+            Volatile.Write(ref cursorCacheValid, 0);
+            Volatile.Write(ref cursorSampleState, 0);
+            Volatile.Write(ref nextCursorValidationAt, 0);
             for (int index = 0; index < samplePublished.Length; index++)
                 Volatile.Write(ref samplePublished[index], 0);
         }
@@ -583,6 +917,21 @@ namespace EnemyGatePathfindingTest
             return text.Length == 0 ? "none" : text.ToString();
         }
 
+        internal string DescribeCursorPreviewSample()
+        {
+            if (Volatile.Read(ref cursorSampleState) != 2) return "none";
+            return "player=" + cursorSamplePlayer +
+                ",unit=" + cursorSampleUnit +
+                ",global=" + cursorSampleGlobal +
+                ",start=" + cursorSampleStartX + "/" + cursorSampleStartY +
+                ",target=" + cursorSampleTargetX + "/" + cursorSampleTargetY +
+                ",tile=" + cursorSampleTargetTile +
+                ",fingerprint=0x" + unchecked((ulong)cursorSampleFingerprint).ToString("X16") +
+                ",rejectedEdges=" + cursorSampleRejectedEdges +
+                ",allowed=" + (cursorSampleAllowed != 0) +
+                ",elapsedTicks=" + cursorSampleElapsedTicks;
+        }
+
         private QueryScope Enter(int player)
         {
             Interlocked.Increment(ref queries);
@@ -621,7 +970,7 @@ namespace EnemyGatePathfindingTest
             return new QueryScope(snapshot, slot, previous, previousTouched);
         }
 
-        private void Complete(QueryScope scope, QueryKind kind, bool hasResultContract, bool success)
+        private long Complete(QueryScope scope, QueryKind kind, bool hasResultContract, bool success)
         {
             long touched = 0;
             if (scope.Slot != null)
@@ -634,8 +983,18 @@ namespace EnemyGatePathfindingTest
                     Volatile.Write(ref *(int*)(scope.Slot + DirectionFilterAdapterEmitter.SlotOwnerOffset), 0);
             }
             lock (maskGate) scope.Snapshot.Readers--;
-            if (touched == 0) { Interlocked.Increment(ref preserved); return; }
+            if (touched == 0)
+            {
+                if (kind != QueryKind.CursorPreview)
+                    Interlocked.Increment(ref preserved);
+                return 0;
+            }
             Interlocked.Add(ref rejectedEdges, touched);
+            if (kind == QueryKind.CursorPreview)
+            {
+                Interlocked.Add(ref cursorRejectedEdges, touched);
+                return touched;
+            }
             if (!hasResultContract)
             {
                 switch (kind)
@@ -647,17 +1006,18 @@ namespace EnemyGatePathfindingTest
                     case QueryKind.CandidateSearch: Interlocked.Add(ref candidateEdges, touched); break;
                     case QueryKind.CursorCommand: Interlocked.Add(ref cursorCommandEdges, touched); break;
                 }
-                return;
+                return touched;
             }
             if (kind == QueryKind.DirectCursor)
                 Interlocked.Add(ref directCursorEdges, touched);
-            if (!success) { Interlocked.Increment(ref noRoutes); return; }
+            if (!success) { Interlocked.Increment(ref noRoutes); return touched; }
             Interlocked.Increment(ref detours);
             switch (kind)
             {
                 case QueryKind.AiBuilder: Interlocked.Increment(ref aiDetours); break;
                 case QueryKind.HumanBuilder: Interlocked.Increment(ref humanDetours); break;
             }
+            return touched;
         }
 
         private readonly struct QueryScope
@@ -672,6 +1032,12 @@ namespace EnemyGatePathfindingTest
 
         [DllImport("kernel32.dll")]
         private static extern uint GetCurrentThreadId();
+        private static void UpdateMaximum(ref long target, long candidate)
+        {
+            long observed;
+            while (candidate > (observed = Interlocked.Read(ref target)) &&
+                Interlocked.CompareExchange(ref target, candidate, observed) != observed) { }
+        }
         private static long Read(ref long value) => Interlocked.Read(ref value);
         private static void Reset(ref long value) => Interlocked.Exchange(ref value, 0);
     }

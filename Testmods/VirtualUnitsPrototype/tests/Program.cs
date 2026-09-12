@@ -12,7 +12,7 @@ namespace VirtualUnitsPrototype.Tests
         {
             try
             {
-                TestIdentityRegistry(); TestHealthMath(); TestPendingPolicy(); TestSaveRoundTrip(); TestStaticContracts();
+                TestIdentityRegistry(); TestHealthMath(); TestPendingPolicy(); TestRecruitmentPolicy(); TestSaveRoundTrip(); TestStaticContracts();
                 Console.WriteLine($"VirtualUnitsPrototype tests passed: {checks} checks."); return 0;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -51,6 +51,15 @@ namespace VirtualUnitsPrototype.Tests
             Check(!SpawnInitializationPolicy.CanFinalize(true, true, true, true, false), "building without tile hook finalized");
             Check(SpawnInitializationPolicy.CanFinalize(true, true, true, true, true), "valid building not finalized");
             Check(!SpawnInitializationPolicy.HasTimedOut(99, 100) && SpawnInitializationPolicy.HasTimedOut(100, 100), "timeout boundary");
+        }
+        private static void TestRecruitmentPolicy()
+        {
+            Check(!RecruitmentCorrelationPolicy.ShouldComplete(0, 1, 0, 5, 0, 8, 1), "zero-production recruitment completed before its deadline");
+            Check(RecruitmentCorrelationPolicy.ShouldComplete(1, 1, 0, 5, 5, 8, 1), "complete recruitment count remained pending");
+            Check(!RecruitmentCorrelationPolicy.ShouldComplete(2, 5, 0, 5, 5, 8, 1), "partial recruitment ignored its quiet window");
+            Check(RecruitmentCorrelationPolicy.ShouldComplete(2, 5, 0, 6, 5, 8, 1), "partial recruitment did not complete after a quiet tick");
+            Check(RecruitmentCorrelationPolicy.ShouldComplete(0, 5, 0, 8, 0, 8, 1), "zero-production recruitment did not time out");
+            Check(!RecruitmentCorrelationPolicy.ShouldComplete(1, 5, 1, 6, 5, 8, 1), "unresolved transition was discarded by the quiet window");
         }
         private static void TestSaveRoundTrip()
         {
@@ -112,7 +121,12 @@ namespace VirtualUnitsPrototype.Tests
             Check(api.Contains("VirtualSpriteTintProfile") && api.Contains("public byte Alpha") && runtime.Contains("tint.Alpha == byte.MaxValue"), "immutable opaque tint profile contract missing");
             Check(api.Contains("VirtualUnitPresentationProfile") && api.Contains("VirtualUnitSelectionSnapshot") && api.Contains("GetSelectedVirtualUnits"), "public distinct-presentation contracts missing");
             Check(!runtime.Contains("VirtualUnitPresentationRuntime") && project.Contains("APIShared.dll") && plugin.Contains("APIShared_Serp"), "VUP does not exclusively consume APIShared presentation");
+            Check(plugin.Contains("BepInDependency(ApiSharedGuid, \"0.3.2\")"), "VUP does not require the APIShared version that introduced recruitment contracts");
             Check(runtime.Contains("UIButtonsK023") && !runtime.Contains("UIButtonsK001"), "Desert Archer category does not use the Vanilla Archer HUD icon");
+            Check(runtime.Contains("TryRegisterRecruitment") && runtime.Contains("OnUnitTransition") && runtime.Contains("UnitTransitionSource.EuropeanBarracks"), "Desert Archer recruitment transition correlation is missing");
+            Check(runtime.Contains("args.UnitId <= 0") && runtime.Contains("pending.PreserveOnFailure") && runtime.Contains("!pending.PreserveOnFailure"), "recruited units are not identity-based or protected from diagnostic deletion");
+            Check(!runtime.Contains("GameAction(Enums.GameActionCommand.MakeTroop") && sharedPresentation.Contains("RecruitmentGameActionHook"), "VUP issues a second MakeTroop action instead of using APIShared's Vanilla hook");
+            Check(sharedPresentation.Contains("createTroopOriginal(self, parameter)") && sharedPresentation.Contains("recruitmentGameActionOriginal(command, structureId, state, value2)"), "central recruitment hook does not preserve Vanilla execution");
             Check(sharedPresentation.Contains("EngineInterface.TroopSelectionChanged") && sharedPresentation.Contains("unitId <= 0"), "central ID-exact 1-based selection path missing");
             Check(!Regex.IsMatch(sharedPresentation, @"r_UnitChimp\s*=(?!=)") &&
                     !Regex.IsMatch(sharedPresentation, @"selectedChimpTypes\s*\[[^\]]+\]\s*=(?!=)") &&

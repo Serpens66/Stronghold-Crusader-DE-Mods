@@ -304,6 +304,27 @@ namespace EnemyGatePathfindingTest
             ? DiagnosticVerdict.FAIL
             : observed ? DiagnosticVerdict.PASS : DiagnosticVerdict.NOT_OBSERVED;
 
+        internal static bool CursorPreviewCacheMatches(
+            bool valid,
+            int cachedPlayer,
+            int cachedUnitId,
+            int cachedTargetX,
+            int cachedTargetY,
+            ulong cachedFingerprint,
+            int player,
+            int unitId,
+            int targetX,
+            int targetY,
+            ulong fingerprint) =>
+            valid && cachedPlayer == player && cachedUnitId == unitId &&
+            cachedTargetX == targetX && cachedTargetY == targetY &&
+            cachedFingerprint == fingerprint;
+
+        // A failed Vanilla search is attributed to the gate policy only when the
+        // native direction adapters actually rejected at least one masked edge.
+        internal static bool ShouldBlockCursorPreview(int nativeResult, long rejectedEdges) =>
+            nativeResult == 0 && rejectedEdges > 0;
+
         internal static CaptureTransitionKind ClassifyCaptureTransition(
             bool previousValid,
             int previousCapturer,

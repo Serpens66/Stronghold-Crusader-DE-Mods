@@ -38,7 +38,7 @@ Der kanonische Script Extender 2.5.0 bleibt unverändert. Der nachweislich rück
 - Projekt, öffentliche API, Runtime, verwaltete Visual-Hooks, XAML-HUD, Saveformat, Tests, `info.json` und `build.bat` sind als Testversion `0.1.0` umgesetzt.
 - Die automatisierten Checks decken Registry, Werte, Saveformat, Simulations-Queue, Threadgrenzen und Visual-Fallbacks ab.
 - Build und Installation erfolgen ausschließlich über die mod-eigene `build.bat`, die das installierte Paket bytegenau gegen das lokale Paket prüft.
-- Platzierung, Vanilla-basierte Sichtbarkeit, Unit-/Building-Tint und die zentrale `APIShared`-Präsentation wurden im Spiel grundsätzlich bestätigt. Die generische Rekrutierungsvariante und Einzelunit-Detailfläche aus Abschnitt 4.7 sind noch nicht umgesetzt.
+- Platzierung, Vanilla-basierte Sichtbarkeit, Unit-/Building-Tint und die zentrale `APIShared`-Präsentation wurden im Spiel grundsätzlich bestätigt. Die generische Archer-Rekrutierungsvariante und Einzelunit-Detailfläche aus Abschnitt 4.7 sind umgesetzt und warten auf die Spielabnahme.
 
 ### Verbindlicher Arbeitsauftrag
 
@@ -103,7 +103,7 @@ Die Game-ID ist immer 1-basiert. Die Global-ID verhindert, dass ein nach Löschu
 ## 3. Projekt- und Laufzeitstruktur
 
 - Eigenständiger BepInEx-Mod `VirtualUnitsPrototype` für `.NET Framework 4.8.1`.
-- Harte Abhängigkeiten ausschließlich von BepInEx, installierten Unity-/Spiel-Assemblies, `APIShared` und Script Extender. Geprüfte Zielversion ist 2.5.0; die deklarierte Mindestversion bleibt 2.3.0.
+- Harte Abhängigkeiten ausschließlich von BepInEx, installierten Unity-/Spiel-Assemblies, `APIShared` und Script Extender. Geprüfte Zielversion ist 2.5.0; die deklarierte Script-Extender-Mindestversion bleibt 2.3.0. Die neuen Rekrutierungsverträge erfordern `APIShared` mindestens 0.3.2.
 - Standardreferenz auf die installierte `BepInEx/plugins/000shcdese/SHCDESE.dll`; ein alternatives `ExtenderDir` ist nur als expliziter Buildparameter zulässig.
 - Keine automatische Bevorzugung lokaler `bin`-, `mod_output`- oder Extender-Buildartefakte.
 - Keine Abhängigkeit von CastlePlanner oder anderen Workspace-Mods; CastlePlanner dient nur als HUD-Referenz.
@@ -310,7 +310,7 @@ Die Zahl registrierter Varianten wird nicht künstlich begrenzt. Ein kleiner Wä
 
 Ist Vanilla aktiv, läuft der bestehende Rekrutierungsbutton vollständig unverändert. Ist eine Variante aktiv, erzeugt `APIShared` einen unveränderlichen Rekrutierungsauftrag mit Owner-/Category-ID, Vanilla-Basistyp, lokalem Spieler und der von Vanilla bestimmten Menge. Normal-, Shift- und Ctrl-Verhalten sowie Verfügbarkeit, Bogenbedarf, Goldpreis und Fehlermeldungen entsprechen zunächst exakt dem Vanilla-Archer. `APIShared` führt keine native Mutation aus dem UI-Thread aus.
 
-`VirtualUnitsPrototype` nimmt den Auftrag an und reicht ihn über seine bestehende Operationsqueue in den Simulationstick. Dort wird `EngineInterface.GameAction(MakeTroop, amount, baseType, 0)` mit dem echten Basistyp ausgelöst. Ein eng begrenzter Pending-Kontext korreliert ausschließlich nachfolgende `OnUnitTransition`-Ereignisse mit passender Quelle, passendem Besitzer und unverändertem Basistyp. Jede tatsächlich entstandene Unit wird anhand von Game-ID, Global-ID, Alive-State, Besitzer und Basistyp erneut validiert und erst danach der virtuellen Definition zugeordnet. Gleichzeitig offene, nicht eindeutig unterscheidbare Rekrutierungsaufträge für denselben Besitzer und Basistyp werden abgelehnt; fremde oder überschüssige Übergänge bleiben Vanilla.
+`APIShared` setzt während `MainViewModel.ButtonCreateTroop(object)` nur einen threadlokalen Basistyp-Kontext. Erst wenn Vanilla nach seinen Verfügbarkeitsprüfungen wirklich `EngineInterface.GameAction(GameActionCommand.MakeTroop, amount, baseType, 0)` aufruft, aktiviert der zentrale Detour unmittelbar vor dem exakt einmal ausgeführten Vanilla-Trampolin den unveränderlichen Auftrag. `VirtualUnitsPrototype` löst keinen zweiten `GameAction` aus. Ein eng begrenzter Pending-Kontext korreliert ausschließlich nachfolgende `OnUnitTransition`-Ereignisse mit passender Quelle, passendem Besitzer und unverändertem Basistyp. Jede tatsächlich entstandene Unit wird im Simulationstick anhand von Game-ID, Global-ID, Alive-State, Besitzer und Basistyp erneut validiert und erst danach der virtuellen Definition zugeordnet. Gleichzeitig offene Vorgänge für denselben Basistyp werden bis zum Abschluss oder Timeout gesperrt; fremde oder überschüssige Übergänge bleiben Vanilla. Bezahlte Rekruten werden bei einem Korrelations- oder Visualfehler niemals gelöscht, sondern bleiben fail-closed normale Vanilla-Archer.
 
 Der Desert Archer verwendet in dieser Etappe exakt die Kosten und Güteranforderungen des Vanilla-Archers. Eigener Goldpreis, eigene Güterkosten, KI-Auswahl und Multiplayer-Rekrutierung bleiben gesonderte Gameplaymodule. Die UI-Registrierung allein darf niemals vortäuschen, dass die KI eine Variante strategisch oder wirtschaftlich berücksichtigt.
 

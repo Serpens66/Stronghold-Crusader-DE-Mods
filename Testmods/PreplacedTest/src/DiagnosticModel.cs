@@ -686,6 +686,9 @@ namespace PreplacedTest
         {
             if (cell.Projected04 >= 6) return "pcl-threshold";
             if ((sbyte)cell.Raw07 <= 0) return "wood-density-byte+07";
+            // The candidate branch at RVA 0x581CE is nested inside the expansion
+            // branch at RVA 0x581A0. A non-zero +0x13 therefore excludes the cell
+            // before Vanilla can evaluate its wood score.
             if (cell.Raw13 != 0) return "blocked-byte+13";
             return "candidate";
         }

@@ -15,6 +15,22 @@ namespace EnemyGatePathfindingTest
         public const int DirectCursorSearchCallRva = 0x8F269;
         public const int DirectCursorSearchReturnRva = 0x8F26E;
         public const int DirectTileSearchRva = 0xDB650;
+        // Normal movement-cursor PCL decision. RedBird displaces exactly CALL E2610,
+        // TEST EAX,EAX and the following RIP-relative LEA. The callback reconstructs
+        // that TEST's ZF before Vanilla consumes it at 0x8F1D2.
+        public const int CursorPclDecisionRva = 0x8F1BF;
+        public const int CursorPclDecisionLength = 14;
+        public const int CursorPclDecisionReturnRva = 0x8F1CD;
+        public const int CursorPclDecisionConsumerRva = 0x8F1D2;
+        private static readonly byte[] CursorPclDecisionBytes =
+        {
+            0xE8,0x4C,0x34,0x05,0x00,
+            0x85,0xC0,
+            0x48,0x8D,0x3D,0xE3,0xFB,0xFC,0x03
+        };
+
+        internal static byte[] GetCursorPclDecisionBytes() =>
+            (byte[])CursorPclDecisionBytes.Clone();
         private static readonly byte[] DirectCursorSearchBlockBytes =
         {
             0x44,0x0F,0xBF,0x84,0x31,0x1E,0x07,0x00,0x00,
@@ -28,6 +44,13 @@ namespace EnemyGatePathfindingTest
 
         public const int PathDirectionGridRva = 0x51890D0;
         public const int ActivePlayerIdRva = 0x88E3D70;
+        public const int CursorManagerRva = 0x3A11DC0;
+        public const int CursorMouseTileXRva = CursorManagerRva + 0x6C;
+        public const int CursorMouseTileYRva = CursorManagerRva + 0x70;
+        public const int CursorMouseTileIdRva = CursorManagerRva + 0x78;
+        public const int TileRowStartRva = 0x402FF2C;
+        public const int NativePathManagerRva = 0x60AD660;
+        public const int DirectCursorSearchNodeLimit = 0x61A80;
         public const int MaximumTileIdExclusive = 320800;
         public const int MapGridWidth = 800;
 
@@ -170,10 +193,15 @@ namespace EnemyGatePathfindingTest
             ValidateSamePclBuilderContract(memory);
             ValidateBytes(memory, DirectCursorSearchBlockRva,
                 DirectCursorSearchBlockBytes, "direct cursor DB650 call block");
+            ValidateBytes(memory, CursorPclDecisionRva,
+                CursorPclDecisionBytes, "normal cursor PCL decision block");
             if (DirectCursorSearchBlockRva + DirectCursorSearchBlockLength !=
                     DirectCursorSearchReturnRva ||
                 DirectCursorSearchCallRva != DirectCursorSearchBlockRva + 24 ||
-                DirectCursorSearchBlockBytes.Length != DirectCursorSearchBlockLength)
+                DirectCursorSearchBlockBytes.Length != DirectCursorSearchBlockLength ||
+                CursorPclDecisionRva + CursorPclDecisionLength != CursorPclDecisionReturnRva ||
+                CursorPclDecisionBytes.Length != CursorPclDecisionLength ||
+                CursorPclDecisionConsumerRva <= CursorPclDecisionReturnRva)
                 throw new InvalidOperationException("Direct cursor call-site boundaries are inconsistent.");
             ValidateBytes(memory, AttackApproachRva,
                 new byte[] { 0x44,0x89,0x4C,0x24,0x20,0x53,0x56,0x41,0x54,0x41,0x55,0x41,0x56,0x48 },

@@ -181,6 +181,12 @@
         <member name="F:APIShared.UnitHudSurface.ArmyReport">
             <summary>The army report.</summary>
         </member>
+        <member name="F:APIShared.UnitHudSurface.Recruitment">
+            <summary>The Vanilla recruitment control for the category's base type.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudSurface.UnitDetails">
+            <summary>The single-unit detail panel.</summary>
+        </member>
         <member name="F:APIShared.UnitHudSurface.All">
             <summary>Every currently supported unit presentation surface.</summary>
         </member>
@@ -265,11 +271,47 @@
         <member name="T:APIShared.UnitHudCategoryImageResolver">
             <summary>Resolves an image for a category. Returning null requests the Vanilla base icon.</summary>
         </member>
+        <member name="T:APIShared.UnitHudTextKind">
+            <summary>Text fields resolved for custom unit presentation.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudTextKind.DisplayName">
+            <summary>Full unit name.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudTextKind.ShortLabel">
+            <summary>Compact recruitment-selector label.</summary>
+        </member>
+        <member name="F:APIShared.UnitHudTextKind.Description">
+            <summary>Longer unit description.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudTextResolver">
+            <summary>Resolves text in the game's currently active language. Null or empty results use the registered fallback.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudTextProfile">
+            <summary>Immutable localized text presentation with deterministic fallbacks.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudTextProfile.#ctor(System.String,System.String,System.String,APIShared.UnitHudTextResolver)">
+            <summary>Creates a text profile.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudTextProfile.DisplayNameFallback">
+            <summary>Fallback full name.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudTextProfile.ShortLabelFallback">
+            <summary>Fallback compact label.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudTextProfile.DescriptionFallback">
+            <summary>Fallback description.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudTextProfile.Resolver">
+            <summary>Optional current-language resolver.</summary>
+        </member>
         <member name="T:APIShared.UnitHudCategoryDefinition">
             <summary>Immutable custom unit-category definition.</summary>
         </member>
         <member name="M:APIShared.UnitHudCategoryDefinition.#ctor(System.String,System.String,System.Int32,APIShared.UnitHudSurface,APIShared.UnitHudCategoryImageResolver,APIShared.UnitHudTint,System.Int32)">
             <summary>Creates a custom presentation category.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudCategoryDefinition.#ctor(System.String,System.String,System.Int32,APIShared.UnitHudSurface,APIShared.UnitHudCategoryImageResolver,APIShared.UnitHudTint,System.Int32,APIShared.UnitHudTextProfile)">
+            <summary>Creates a custom presentation category with localized text fallbacks.</summary>
         </member>
         <member name="P:APIShared.UnitHudCategoryDefinition.CategoryId">
             <summary>Stable owner-local category identifier.</summary>
@@ -291,6 +333,36 @@
         </member>
         <member name="P:APIShared.UnitHudCategoryDefinition.Order">
             <summary>Ordering after the Vanilla base category.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudCategoryDefinition.TextProfile">
+            <summary>Localized text resolver and fallbacks.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudRecruitmentTicket">
+            <summary>Immutable owner-local ticket for one Vanilla recruitment action.</summary>
+        </member>
+        <member name="M:APIShared.UnitHudRecruitmentTicket.#ctor(System.Int64,System.String,System.String,System.Int32,System.Int32,System.Int32)">
+            <summary>Creates a ticket.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudRecruitmentTicket.TicketId">
+            <summary>Process-local positive ticket ID.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudRecruitmentTicket.OwnerGuid">
+            <summary>Registering owner.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudRecruitmentTicket.CategoryId">
+            <summary>Owner-local category.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudRecruitmentTicket.PlayerId">
+            <summary>Local player that requested recruitment.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudRecruitmentTicket.BaseUnitType">
+            <summary>Unmodified Vanilla type passed to GameAction.</summary>
+        </member>
+        <member name="P:APIShared.UnitHudRecruitmentTicket.RequestedAmount">
+            <summary>Vanilla amount argument, including Shift/Ctrl semantics.</summary>
+        </member>
+        <member name="T:APIShared.UnitHudRecruitmentHandler">
+            <summary>Accepts or rejects a recruitment ticket before Vanilla's one GameAction call.</summary>
         </member>
         <member name="T:APIShared.UnitHudCategorySnapshot">
             <summary>Immutable category instance list used by interaction and health consumers.</summary>
@@ -402,6 +474,12 @@
         </member>
         <member name="M:APIShared.IUnitHudPresentationCapability.TryRegisterImageOverride(APIShared.UnitHudImageOverrideDefinition,APIShared.UnitHudImageOverrideResolver,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Registers one deterministic post-Vanilla image override.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.TryRegisterRecruitment(System.String,APIShared.UnitHudRecruitmentHandler,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Registers recruitment handling for an existing category. The first implementation supports the European Archer base type.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudPresentationCapability.TryCompleteRecruitment(APIShared.UnitHudRecruitmentTicket,System.Int32,System.String,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Completes an owner-bound ticket and releases its recruitment lock.</summary>
         </member>
         <member name="M:APIShared.IUnitHudPresentationCapability.GetVisibleTroopSlots">
             <summary>Gets immutable snapshots of the current visible troop slots.</summary>

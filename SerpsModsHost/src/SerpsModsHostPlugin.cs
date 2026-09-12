@@ -25,7 +25,7 @@ namespace SerpsModsHost
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.11";
+        public const string PluginVersion = "1.0.12";
         public const bool CustomCustomTrailModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
@@ -124,8 +124,9 @@ namespace SerpsModsHost
             CheckScriptExtenderCompatibility(root, manifest);
 
             AuditDuplicateInstallations();
-            diagnostics.SetStatus(manifest.PackVersion, activeMods.Count, validatedCount, 0);
-            foreach (PackModRecord mod in activeMods)
+            List<PackModRecord> assetMods = ScriptExtenderCompatibility.SelectRuntimePackRecords(manifest);
+            diagnostics.SetStatus(manifest.PackVersion, assetMods.Count, validatedCount, 0);
+            foreach (PackModRecord mod in assetMods)
             {
                 string directory = ResolveContainedPath(root, mod.RelativePath);
                 try
@@ -143,10 +144,10 @@ namespace SerpsModsHost
                 }
             }
 
-            diagnostics.SetStatus(manifest.PackVersion, activeMods.Count, validatedCount, registeredCount);
+            diagnostics.SetStatus(manifest.PackVersion, assetMods.Count, validatedCount, registeredCount);
             Shared.DebugLogHelper.LogDebug(
                 Logger,
-                $"[{PluginName}] pack={manifest.PackVersion}, expected={activeMods.Count}, validated={validatedCount}, registered={registeredCount}.");
+                $"[{PluginName}] pack={manifest.PackVersion}, expected={assetMods.Count}, validated={validatedCount}, registered={registeredCount}.");
         }
 
         private void CheckScriptExtenderCompatibility(string root, PackManifest packManifest)

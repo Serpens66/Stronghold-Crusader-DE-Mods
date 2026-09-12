@@ -467,7 +467,9 @@ namespace PreplacedTest.Tests
                 "allocation-free resource signature codes diverge from named decisions");
             Check(ShadowEconomySearch.WoodCandidateRejectionReason(Cell(5, 0, 1)) == "candidate" &&
                 ShadowEconomySearch.WoodCandidateRejectionReason(Cell(6, 0, 1)) == "pcl-threshold" &&
-                ShadowEconomySearch.WoodCandidateRejectionReason(Cell(0, 0, 0)) == "wood-density-byte+07",
+                ShadowEconomySearch.WoodCandidateRejectionReason(Cell(0, 0, 0)) == "wood-density-byte+07" &&
+                ShadowEconomySearch.WoodCandidateRejectionReason(new ShadowEconomyCell(0, 0, 1, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 1, 0)) == "blocked-byte+13",
                 "wood candidate rejection order diverges from Vanilla");
             ShadowEconomyCell[] scoredWood = Enumerable.Repeat(Cell(0, 0, 1), 9).ToArray();
             scoredWood[1] = new ShadowEconomyCell(0, 0, 10, 0, 0, 0, 0, 0, 0,
@@ -636,6 +638,16 @@ namespace PreplacedTest.Tests
                 "map transition retains grid/PCL signature aggregation state");
             Check(source.Contains("activeAic - 1") || File.ReadAllText(Path.Combine("src", "DiagnosticModel.cs")).Contains("oneBasedSlot - 1"), "AIC slot is not converted from one-based exactly once");
             Check(source.Contains("CRUSHED_TIMER_ACTIVATED_BY_DAMAGE"), "damage-triggered timer activation diagnostic missing");
+            Check(source.Contains("PREPLACED_BASELINE_WALL_DAMAGE") &&
+                source.Contains("manager.HeightGrid[tileId]") && source.Contains("manager.DefaultHeightGrid[tileId]") &&
+                source.Contains("baseline.LostWallTiles.Contains(anchor.WallTileId)") &&
+                !source.Contains("!IsBaselineInteriorConnectedToExterior(baseline)"),
+                "tile-based baseline wall damage or breach correlation is incomplete");
+            Check(source.Contains("PREPLACED_WOOD_SEARCH_PREDICATES") &&
+                source.Contains("PREPLACED_WOOD_DISPATCH_CORRELATION") &&
+                source.Contains("reachedEffectiveCandidates(byte04<6&&byte07>0 within expansion)") &&
+                source.Contains("CaptureWoodTraversalSnapshot"),
+                "compact full wood search correlation is missing");
             Check(source.Contains("MAP_START_POST") && source.Contains("FirstSchedulerSnapshotEmitted") &&
                 source.Contains("first-active-crushed-delay-observed") &&
                 !source.Contains("FIRST_ACTIVE_CRUSHED_DELAY_RAW"),
@@ -862,10 +874,11 @@ namespace PreplacedTest.Tests
                 source.Contains("construct-building context=") &&
                 source.Contains("economy-overlay helper={overlay.Helper} restored={restored}"),
                 "hot-path aggregates or overlay caching still depend on transient coordinates/frames/Vanilla decay values");
-            Check(source.Contains("confirmed == null || !physicallyConnected") &&
-                source.Contains("confirmed != null &&") &&
-                source.Contains("IsBaselineInteriorConnectedToExterior(baseline)"),
-                "breach activation is not gated by both stable PCL anchors and physical connectivity");
+            Check(source.Contains("confirmed == null || !nativeEconomyAccess") &&
+                source.Contains("baseline.LostWallTiles.Contains(anchor.WallTileId)") &&
+                source.Contains("insidePcl == outsidePcl") &&
+                source.Contains("reachablePcls.Contains(insidePcl)"),
+                "breach activation is not gated by the lost tile's stable PCL anchor and native keep reachability");
             Check(source.Contains("if (offset != 0x05) signature = Hash") &&
                 !source.Contains("Hash(Hash(1469598103934665603UL, after.Generation)"),
                 "transient search generation/distance still defeats aggregation");

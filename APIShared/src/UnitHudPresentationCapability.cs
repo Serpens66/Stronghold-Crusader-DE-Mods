@@ -2,7 +2,10 @@ using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using Noesis;
+using R3;
 using SHCDESE.API;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -38,6 +41,9 @@ namespace APIShared
         private delegate void PopulateGroupsDelegate(HUD_ControlGroups self);
         private delegate void GameActionDelegate(Enums.KeyFunctions command, int value1, int value2, int value3);
         private delegate void UpdateSpritesDelegate(MainViewModel self, int colour, bool arabic);
+        private delegate void CreateTroopDelegate(MainViewModel self, object parameter);
+        private delegate void EnterCreateTroopDelegate(MainViewModel self, object parameter);
+        private delegate int RecruitmentGameActionDelegate(Enums.GameActionCommand command, int structureId, int state, int value2);
 
         private static readonly FieldInfo SelectedCountsField = RequireField(typeof(HUD_Troops), "SelectedChimpArray");
         private static readonly FieldInfo SelectedTypeCountField = RequireField(typeof(HUD_Troops), "NoSelectedChimpTypes");
@@ -53,6 +59,7 @@ namespace APIShared
         private readonly List<CategoryRegistration> categories = new List<CategoryRegistration>();
         private readonly List<InteractionRegistration> interactions = new List<InteractionRegistration>();
         private readonly List<ImageRegistration> imageOverrides = new List<ImageRegistration>();
+        private readonly List<RecruitmentRegistration> recruitment = new List<RecruitmentRegistration>();
         private readonly HashSet<string> loggedCategoryConflicts = new HashSet<string>(StringComparer.Ordinal);
         private readonly ManualLogSource log;
         private readonly string binaryHash;
@@ -65,12 +72,19 @@ namespace APIShared
         private Hook populateGroupsHook;
         private Hook gameActionHook;
         private Hook updateSpritesHook;
+        private Hook createTroopHook;
+        private Hook enterCreateTroopHook;
+        private Hook recruitmentGameActionHook;
         private SetupTroopsDelegate setupTroopsOriginal;
         private TroopClickDelegate leftClickOriginal;
         private TroopClickDelegate rightClickOriginal;
         private PopulateGroupsDelegate populateGroupsOriginal;
         private GameActionDelegate gameActionOriginal;
         private UpdateSpritesDelegate updateSpritesOriginal;
+        private CreateTroopDelegate createTroopOriginal;
+        private EnterCreateTroopDelegate enterCreateTroopOriginal;
+        private RecruitmentGameActionDelegate recruitmentGameActionOriginal;
+        private IDisposable mapUnloadSubscription;
         private HUD_Troops activeTroopPanel;
         private Button[] categoryButtons;
         private bool refreshRequested;
@@ -79,8 +93,19 @@ namespace APIShared
         private bool lastSpriteArabic;
         private bool hasSpriteContext;
         private bool callbackErrorLogged;
+        private readonly Dictionary<int, string> activeRecruitment = new Dictionary<int, string>();
+        private RecruitmentLease recruitmentLease;
+        private long nextRecruitmentTicketId;
+        private Button archerVariantSelector;
+        private Border archerVariantTint;
+        private Grid unitDetailHost;
+        private Image unitDetailImage;
+        private Border unitDetailTint;
+        private TextBlock unitDetailDescription;
         [ThreadStatic]
         private static bool updateSpritesActive;
+        [ThreadStatic]
+        private static int createTroopContextType;
 
         private UnitHudPresentationService(string hash, ManualLogSource logger, int* records, bool recordsAvailable)
         {
@@ -172,6 +197,16 @@ namespace APIShared
             updateSpritesHook = PrepareHook(RequireMethod(typeof(MainViewModel), "UpdateUITroopSprites", new[] { typeof(int), typeof(bool) }), (UpdateSpritesDelegate)UpdateSpritesHook, "APIShared.UnitHud.UpdateUITroopSprites", installed);
             updateSpritesOriginal = updateSpritesHook.GenerateTrampoline<UpdateSpritesDelegate>();
             updateSpritesHook.Apply();
+            createTroopHook = PrepareHook(RequireMethod(typeof(MainViewModel), "ButtonCreateTroop", new[] { typeof(object) }), (CreateTroopDelegate)CreateTroopHook, "APIShared.UnitHud.ButtonCreateTroop", installed);
+            createTroopOriginal = createTroopHook.GenerateTrampoline<CreateTroopDelegate>();
+            createTroopHook.Apply();
+            enterCreateTroopHook = PrepareHook(RequireMethod(typeof(MainViewModel), "ButtonEnterCreateTroop", new[] { typeof(object) }), (EnterCreateTroopDelegate)EnterCreateTroopHook, "APIShared.UnitHud.ButtonEnterCreateTroop", installed);
+            enterCreateTroopOriginal = enterCreateTroopHook.GenerateTrampoline<EnterCreateTroopDelegate>();
+            enterCreateTroopHook.Apply();
+            recruitmentGameActionHook = PrepareHook(RequireMethod(typeof(EngineInterface), "GameAction", new[] { typeof(Enums.GameActionCommand), typeof(int), typeof(int), typeof(int) }), (RecruitmentGameActionDelegate)RecruitmentGameActionHook, "APIShared.UnitHud.RecruitmentGameAction", installed);
+            recruitmentGameActionOriginal = recruitmentGameActionHook.GenerateTrampoline<RecruitmentGameActionDelegate>();
+            recruitmentGameActionHook.Apply();
+            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(x => x.Phase == EventHookPhase.Pre).Subscribe(_ => ResetRecruitment());
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
         }
 
@@ -235,6 +270,46 @@ namespace APIShared
             return true;
         }
 
+        private bool RegisterRecruitment(string owner, string categoryId, UnitHudRecruitmentHandler handler, out NativeCapabilityDiagnostic diagnostic)
+        {
+            if (string.IsNullOrWhiteSpace(categoryId) || handler == null)
+                return Fail("Recruitment category ID and handler are required.", out diagnostic);
+            lock (sync)
+            {
+                CategoryRegistration category = categories.FirstOrDefault(x => x.Owner == owner && x.Definition.CategoryId == categoryId);
+                if (category == null || !HasSurface(category, UnitHudSurface.Recruitment))
+                    return Fail("Recruitment requires an existing owner-local category with the Recruitment surface.", out diagnostic);
+                if (category.Definition.BaseUnitType != (int)eChimps.CHIMP_TYPE_ARCHER)
+                    return Fail("The current UI implementation supports recruitment variants only for the European Archer.", out diagnostic);
+                if (recruitment.Any(x => x.Category.Key == category.Key))
+                    return Fail("The owner already registered recruitment for this category.", out diagnostic);
+                recruitment.Add(new RecruitmentRegistration(category, handler));
+                recruitment.Sort((a, b) =>
+                {
+                    int result = a.Category.Definition.Order.CompareTo(b.Category.Definition.Order);
+                    return result != 0 ? result : StringComparer.Ordinal.Compare(a.Category.Key, b.Category.Key);
+                });
+                refreshRequested = true;
+            }
+            diagnostic = Available("Recruitment variant registered for the process lifetime.");
+            return true;
+        }
+
+        private bool CompleteRecruitment(string owner, UnitHudRecruitmentTicket ticket, int matchedCount, string reason, out NativeCapabilityDiagnostic diagnostic)
+        {
+            if (ticket == null || ticket.TicketId <= 0 || matchedCount < 0 || ticket.OwnerGuid != owner)
+                return Fail("A valid owner-bound recruitment ticket and non-negative matched count are required.", out diagnostic);
+            lock (sync)
+            {
+                if (recruitmentLease == null || recruitmentLease.Ticket.TicketId != ticket.TicketId || recruitmentLease.Ticket.OwnerGuid != owner)
+                    return Fail("The recruitment ticket is no longer active.", out diagnostic);
+                recruitmentLease = null;
+                refreshRequested = true;
+            }
+            diagnostic = Available($"Recruitment completed with {matchedCount} matched units: {reason ?? string.Empty}");
+            return true;
+        }
+
         private void SortRegistrations() => categories.Sort((a, b) =>
         {
             int result = a.Definition.BaseUnitType.CompareTo(b.Definition.BaseUnitType);
@@ -266,6 +341,7 @@ namespace APIShared
             catch (Exception ex)
             {
                 HideCategoryButtons();
+                lock (sync) visibleSlots.Clear();
                 LogCallbackFailure("troop HUD", ex);
             }
         }
@@ -306,7 +382,7 @@ namespace APIShared
                 {
                     Button button = categoryButtons[slot];
                     button.Tag = entry.Category.Key;
-                    button.ToolTip = entry.Category.Definition.DisplayName;
+                    button.ToolTip = ResolveText(entry.Category, UnitHudTextKind.DisplayName);
                     button.RenderTransform = positions[slot];
                     ImageSource source = ResolveCategoryImage(entry.Category, panel);
                     ApplyButtonImage(button, source);
@@ -338,22 +414,28 @@ namespace APIShared
         {
             if (ReferenceEquals(activeTroopPanel, panel) && categoryButtons != null)
                 return;
-            activeTroopPanel = panel;
-            categoryButtons = new Button[TroopSlotCount];
-            for (int i = 0; i < categoryButtons.Length; i++)
+
+            var resolvedButtons = new Button[TroopSlotCount];
+            for (int i = 0; i < resolvedButtons.Length; i++)
             {
                 var button = panel.FindName("APISharedUnitHudSlot" + (i + 1)) as Button;
                 if (button == null) throw new MissingMemberException("APISharedUnitHudSlot" + (i + 1));
+                resolvedButtons[i] = button;
+            }
+            foreach (Button button in resolvedButtons)
+            {
                 button.PreviewMouseDown -= OnCategoryMouseDown;
                 button.PreviewMouseDown += OnCategoryMouseDown;
-                categoryButtons[i] = button;
             }
+            activeTroopPanel = panel;
+            categoryButtons = resolvedButtons;
         }
 
         private void HideCategoryButtons()
         {
             if (categoryButtons == null) return;
-            foreach (Button button in categoryButtons) button.Visibility = Visibility.Collapsed;
+            foreach (Button button in categoryButtons)
+                if (button != null) button.Visibility = Visibility.Collapsed;
         }
 
         private void OnCategoryMouseDown(object sender, MouseButtonEventArgs args)
@@ -426,6 +508,94 @@ namespace APIShared
                 if (main?.Show_HUD_ControlGroups == true) main.HUDControlGroups?.Update();
             }
             catch (Exception ex) { LogCallbackFailure("control-group refresh", ex); }
+        }
+
+        private void CreateTroopHook(MainViewModel self, object parameter)
+        {
+            int type;
+            try { type = (int)self.getChimpEnum(parameter as string); }
+            catch { createTroopOriginal(self, parameter); return; }
+            lock (sync)
+            {
+                if (recruitmentLease != null && recruitmentLease.Ticket.BaseUnitType == type)
+                {
+                    refreshRequested = true;
+                    return;
+                }
+            }
+            int previous = createTroopContextType;
+            createTroopContextType = type;
+            try { createTroopOriginal(self, parameter); }
+            finally { createTroopContextType = previous; }
+        }
+
+        private void EnterCreateTroopHook(MainViewModel self, object parameter)
+        {
+            enterCreateTroopOriginal(self, parameter);
+            try
+            {
+                int type = (int)self.getChimpEnum("CHIMP_TYPE_" + ((parameter as string) ?? string.Empty).ToUpperInvariant());
+                ApplyRecruitmentText(self, GetActiveRecruitment(type));
+            }
+            catch (Exception ex) { LogCallbackFailure("recruitment tooltip", ex); }
+        }
+
+        private int RecruitmentGameActionHook(Enums.GameActionCommand command, int structureId, int state, int value2)
+        {
+            if (command == Enums.GameActionCommand.MakeTroop && createTroopContextType == state)
+                TryBeginRecruitment(state, structureId);
+            return recruitmentGameActionOriginal(command, structureId, state, value2);
+        }
+
+        private void TryBeginRecruitment(int baseType, int amount)
+        {
+            RecruitmentRegistration registration = GetActiveRecruitment(baseType);
+            if (registration == null || amount <= 0) return;
+            int playerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;
+            if (playerId <= 0) { ResetActiveRecruitment(baseType); return; }
+            UnitHudRecruitmentTicket ticket;
+            lock (sync)
+            {
+                if (recruitmentLease != null) return;
+                ticket = new UnitHudRecruitmentTicket(++nextRecruitmentTicketId, registration.Category.Owner,
+                    registration.Category.Definition.CategoryId, playerId, baseType, amount);
+            }
+            bool accepted = false;
+            try { accepted = registration.Handler(ticket); }
+            catch (Exception ex) { LogCallbackFailure("recruitment " + registration.Category.Key, ex); }
+            lock (sync)
+            {
+                if (accepted) recruitmentLease = new RecruitmentLease(ticket, Time.realtimeSinceStartup + 10f);
+                else
+                {
+                    activeRecruitment.Remove(baseType);
+                    refreshRequested = true;
+                }
+            }
+        }
+
+        private RecruitmentRegistration GetActiveRecruitment(int baseType)
+        {
+            lock (sync)
+            {
+                if (!activeRecruitment.TryGetValue(baseType, out string key)) return null;
+                return recruitment.FirstOrDefault(x => x.Category.Key == key);
+            }
+        }
+
+        private void ResetActiveRecruitment(int baseType)
+        {
+            lock (sync) { activeRecruitment.Remove(baseType); refreshRequested = true; }
+        }
+
+        private void ResetRecruitment()
+        {
+            lock (sync)
+            {
+                activeRecruitment.Clear();
+                recruitmentLease = null;
+                refreshRequested = true;
+            }
         }
 
         private void RenderGroups(HUD_ControlGroups panel)
@@ -558,6 +728,8 @@ namespace APIShared
                 }
                 ApplyHover(main);
                 ApplyArmyReport(main);
+                ApplyRecruitmentPresentation(main);
+                ApplyUnitDetails(main);
             }
             catch (Exception ex) { LogCallbackFailure("frame presentation", ex); }
         }
@@ -567,13 +739,142 @@ namespace APIShared
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
             if (state == null || main == null || !TryCapture(state.in_chimp, out UnitHudUnitSnapshot unit)) return;
             CategoryRegistration category = Classify(unit, UnitHudSurface.UnitHover);
-            if (category != null) main.ChimpTypeText = category.Definition.DisplayName;
+            if (category != null) main.ChimpTypeText = ResolveText(category, UnitHudTextKind.DisplayName);
+        }
+
+        private void ApplyRecruitmentPresentation(MainViewModel main)
+        {
+            if (!HasCategories(UnitHudSurface.Recruitment) || main?.HUDBuildingPanel == null) return;
+            EnsureRecruitmentControls(main);
+            lock (sync)
+            {
+                if (recruitmentLease != null && Time.realtimeSinceStartup >= recruitmentLease.ExpiresAt)
+                {
+                    NativeApiLog.Error(log, $"Unit HUD recruitment ticket {recruitmentLease.Ticket.TicketId} timed out; recruitment lock released.");
+                    recruitmentLease = null;
+                }
+            }
+            RecruitmentRegistration active = GetActiveRecruitment((int)eChimps.CHIMP_TYPE_ARCHER);
+            bool any = RecruitmentCopy((int)eChimps.CHIMP_TYPE_ARCHER).Length > 0;
+            archerVariantSelector.Visibility = any && main.Show_BarracksArcher ? Visibility.Visible : Visibility.Collapsed;
+            archerVariantSelector.Content = active == null ? "A" : ResolveText(active.Category, UnitHudTextKind.ShortLabel);
+            archerVariantSelector.ToolTip = active == null ? "Vanilla Archer" :
+                ResolveText(active.Category, UnitHudTextKind.DisplayName) + "\n" + ResolveText(active.Category, UnitHudTextKind.Description);
+            archerVariantSelector.IsEnabled = recruitmentLease == null;
+            if (active == null)
+            {
+                archerVariantTint.Visibility = Visibility.Collapsed;
+                return;
+            }
+            ImageSource source = ResolveCategoryImage(active.Category, null);
+            archerVariantTint.OpacityMask = source == null ? null : new ImageBrush(source);
+            archerVariantTint.Background = new SolidColorBrush(Noesis.Color.FromArgb(byte.MaxValue,
+                active.Category.Definition.Tint.Red, active.Category.Definition.Tint.Green, active.Category.Definition.Tint.Blue));
+            archerVariantTint.Opacity = 0.22f * active.Category.Definition.Tint.Alpha / byte.MaxValue;
+            archerVariantTint.Visibility = main.Show_BarracksArcher ? Visibility.Visible : Visibility.Collapsed;
+            if (main.lastTroopBuildChimp == Enums.eChimps.CHIMP_TYPE_ARCHER) ApplyRecruitmentText(main, active);
+        }
+
+        private void ApplyRecruitmentText(MainViewModel main, RecruitmentRegistration active)
+        {
+            if (active == null || main == null) return;
+            string suffix = main.lastTroopsAmountToMake > 1 ? " x" + main.lastTroopsAmountToMake : string.Empty;
+            main.TroopNameCostText = ResolveText(active.Category, UnitHudTextKind.DisplayName) + suffix;
+        }
+
+        private void EnsureRecruitmentControls(MainViewModel main)
+        {
+            Button selector = main.HUDBuildingPanel.FindName("APISharedArcherVariantSelector") as Button;
+            Border tint = main.HUDBuildingPanel.FindName("APISharedArcherVariantTint") as Border;
+            if (selector == null || tint == null) throw new MissingMemberException("APIShared Archer recruitment controls");
+            if (!ReferenceEquals(archerVariantSelector, selector))
+            {
+                if (archerVariantSelector != null) archerVariantSelector.PreviewMouseDown -= OnRecruitmentSelectorMouseDown;
+                archerVariantSelector = selector;
+                archerVariantSelector.PreviewMouseDown += OnRecruitmentSelectorMouseDown;
+            }
+            archerVariantTint = tint;
+        }
+
+        private void OnRecruitmentSelectorMouseDown(object sender, MouseButtonEventArgs args)
+        {
+            if (args == null || (args.ChangedButton != MouseButton.Left && args.ChangedButton != MouseButton.Right)) return;
+            const int baseType = (int)eChimps.CHIMP_TYPE_ARCHER;
+            RecruitmentRegistration[] choices = RecruitmentCopy(baseType);
+            if (choices.Length == 0) return;
+            lock (sync)
+            {
+                if (recruitmentLease != null) { args.Handled = true; return; }
+                int current = -1;
+                if (activeRecruitment.TryGetValue(baseType, out string key)) current = Array.FindIndex(choices, x => x.Category.Key == key);
+                int next = args.ChangedButton == MouseButton.Left
+                    ? current + 1
+                    : current < 0 ? choices.Length - 1 : current - 1;
+                if (next < 0 || next >= choices.Length) activeRecruitment.Remove(baseType);
+                else activeRecruitment[baseType] = choices[next].Category.Key;
+                refreshRequested = true;
+            }
+            args.Handled = true;
+        }
+
+        private RecruitmentRegistration[] RecruitmentCopy(int baseType)
+        {
+            lock (sync) return recruitment.Where(x => x.Category.Definition.BaseUnitType == baseType).ToArray();
+        }
+
+        private void ApplyUnitDetails(MainViewModel main)
+        {
+            if (main?.HUDBuildingPanel == null || !HasCategories(UnitHudSurface.UnitDetails)) return;
+            EnsureDetailControls(main);
+            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+            CategoryRegistration category = state != null && TryCapture(state.in_chimp, out UnitHudUnitSnapshot unit)
+                ? Classify(unit, UnitHudSurface.UnitDetails)
+                : null;
+            if (category == null)
+            {
+                unitDetailHost.Visibility = Visibility.Collapsed;
+                return;
+            }
+            ImageSource source = ResolveCategoryImage(category, null);
+            unitDetailImage.Source = source;
+            unitDetailTint.OpacityMask = source == null ? null : new ImageBrush(source);
+            unitDetailTint.Background = new SolidColorBrush(Noesis.Color.FromArgb(byte.MaxValue,
+                category.Definition.Tint.Red, category.Definition.Tint.Green, category.Definition.Tint.Blue));
+            unitDetailTint.Opacity = 0.22f * category.Definition.Tint.Alpha / byte.MaxValue;
+            unitDetailDescription.Text = ResolveText(category, UnitHudTextKind.Description);
+            unitDetailHost.Visibility = Visibility.Visible;
+        }
+
+        private void EnsureDetailControls(MainViewModel main)
+        {
+            Grid host = main.HUDBuildingPanel.FindName("APISharedUnitDetailHost") as Grid;
+            Image image = main.HUDBuildingPanel.FindName("APISharedUnitDetailImage") as Image;
+            Border tint = main.HUDBuildingPanel.FindName("APISharedUnitDetailTint") as Border;
+            TextBlock description = main.HUDBuildingPanel.FindName("APISharedUnitDetailDescription") as TextBlock;
+            if (host == null || image == null || tint == null || description == null) throw new MissingMemberException("APIShared unit detail controls");
+            unitDetailHost = host; unitDetailImage = image; unitDetailTint = tint; unitDetailDescription = description;
+        }
+
+        private string ResolveText(CategoryRegistration category, UnitHudTextKind kind)
+        {
+            UnitHudTextProfile profile = category.Definition.TextProfile;
+            try
+            {
+                string resolved = profile?.Resolver?.Invoke(kind);
+                if (!string.IsNullOrWhiteSpace(resolved)) return resolved;
+            }
+            catch (Exception ex) { LogCallbackFailure("text resolver " + category.Key, ex); }
+            if (kind == UnitHudTextKind.ShortLabel && !string.IsNullOrWhiteSpace(profile?.ShortLabelFallback)) return profile.ShortLabelFallback;
+            if (kind == UnitHudTextKind.Description) return profile?.DescriptionFallback ?? string.Empty;
+            return !string.IsNullOrWhiteSpace(profile?.DisplayNameFallback) ? profile.DisplayNameFallback : category.Definition.DisplayName;
         }
 
         private void ApplyArmyReport(MainViewModel main)
         {
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
             if (main == null || state == null || state.troop_counts == null || !HasCategories(UnitHudSurface.ArmyReport)) return;
+            Panel host = main.HUDBuildingPanel?.FindName("APISharedArmyCategoriesHost") as Panel;
+            if (host == null) throw new MissingMemberException("APISharedArmyCategoriesHost");
             int local = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? 0;
             var custom = new Dictionary<string, List<UnitHudUnitSnapshot>>(StringComparer.Ordinal);
             var reductions = new Dictionary<int, int>();
@@ -598,11 +899,11 @@ namespace APIShared
                 if (reportIndex > 0 && reportIndex < main.AllTroops.Count && reportIndex - 1 < state.troop_counts.Length)
                     main.AllTroops[reportIndex] = Math.Max(0, state.troop_counts[reportIndex - 1] - reduction.Value);
             }
-            RenderArmyHosts(main, custom);
+            RenderArmyHosts(host, custom);
         }
 
         private readonly Dictionary<string, Noesis.Grid> armyEntries = new Dictionary<string, Noesis.Grid>(StringComparer.Ordinal);
-        private void RenderArmyHosts(MainViewModel main, Dictionary<string, List<UnitHudUnitSnapshot>> custom)
+        private void RenderArmyHosts(Panel host, Dictionary<string, List<UnitHudUnitSnapshot>> custom)
         {
             foreach (Noesis.Grid grid in armyEntries.Values) grid.Visibility = Visibility.Collapsed;
             foreach (CategoryRegistration category in CategoryCopy().Where(x => HasSurface(x, UnitHudSurface.ArmyReport)))
@@ -614,8 +915,6 @@ namespace APIShared
                     var image = new Image { Width = 52, Height = 52, VerticalAlignment = VerticalAlignment.Top, Source = ResolveCategoryImage(category, null) };
                     var count = new TextBlock { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Foreground = new SolidColorBrush(Noesis.Color.FromArgb(byte.MaxValue, 174, 214, byte.MaxValue)), FontSize = 18 };
                     grid.Children.Add(image); grid.Children.Add(count);
-                    Panel host = main.HUDBuildingPanel.FindName("APISharedArmyCategoriesHost") as Panel;
-                    if (host == null) throw new MissingMemberException("APISharedArmyCategoriesHost");
                     host.Children.Add(grid);
                     armyEntries[category.Key] = grid;
                 }
@@ -702,7 +1001,7 @@ namespace APIShared
         private static bool HasSurface(CategoryRegistration category, UnitHudSurface surface) => (category.Definition.Surfaces & surface) != 0;
         private CategoryRegistration[] CategoryCopy() { lock (sync) return categories.ToArray(); }
         private CategoryRegistration GetCategory(string key) => CategoryCopy().FirstOrDefault(x => x.Key == key);
-        private static UnitHudCategorySnapshot Snapshot(CategoryRegistration category, IList<UnitHudUnitSnapshot> units) => new UnitHudCategorySnapshot(category.Owner, category.Definition.CategoryId, category.Definition.DisplayName, units.ToArray());
+        private UnitHudCategorySnapshot Snapshot(CategoryRegistration category, IList<UnitHudUnitSnapshot> units) => new UnitHudCategorySnapshot(category.Owner, category.Definition.CategoryId, ResolveText(category, UnitHudTextKind.DisplayName), units.ToArray());
 
         private IReadOnlyList<UnitHudCategorySnapshot> CaptureSelectedCategories()
         {
@@ -910,6 +1209,8 @@ namespace APIShared
             public bool TryRegisterCategory(UnitHudCategoryDefinition definition, UnitHudCategoryMatcher matcher, out NativeCapabilityDiagnostic diagnostic) => service.RegisterCategory(owner, definition, matcher, out diagnostic);
             public bool TryRegisterInteraction(string registrationId, UnitHudInteractionHandler handler, out NativeCapabilityDiagnostic diagnostic) => service.RegisterInteraction(owner, registrationId, handler, out diagnostic);
             public bool TryRegisterImageOverride(UnitHudImageOverrideDefinition definition, UnitHudImageOverrideResolver resolver, out NativeCapabilityDiagnostic diagnostic) => service.RegisterImage(owner, definition, resolver, out diagnostic);
+            public bool TryRegisterRecruitment(string categoryId, UnitHudRecruitmentHandler handler, out NativeCapabilityDiagnostic diagnostic) => service.RegisterRecruitment(owner, categoryId, handler, out diagnostic);
+            public bool TryCompleteRecruitment(UnitHudRecruitmentTicket ticket, int matchedCount, string reason, out NativeCapabilityDiagnostic diagnostic) => service.CompleteRecruitment(owner, ticket, matchedCount, reason, out diagnostic);
             public IReadOnlyList<UnitHudSlotSnapshot> GetVisibleTroopSlots() { lock (service.sync) return service.visibleSlots.ToArray(); }
             public IReadOnlyList<UnitHudCategorySnapshot> GetSelectedCategories() => service.CaptureSelectedCategories();
             public IReadOnlyList<UnitHudControlGroupSnapshot> GetControlGroups() => service.CaptureControlGroups();
@@ -935,6 +1236,16 @@ namespace APIShared
         {
             internal ImageRegistration(string owner, UnitHudImageOverrideDefinition definition, UnitHudImageOverrideResolver resolver) { Owner = owner; Definition = definition; Resolver = resolver; }
             internal string Owner { get; } internal UnitHudImageOverrideDefinition Definition { get; } internal UnitHudImageOverrideResolver Resolver { get; }
+        }
+        private sealed class RecruitmentRegistration
+        {
+            internal RecruitmentRegistration(CategoryRegistration category, UnitHudRecruitmentHandler handler) { Category = category; Handler = handler; }
+            internal CategoryRegistration Category { get; } internal UnitHudRecruitmentHandler Handler { get; }
+        }
+        private sealed class RecruitmentLease
+        {
+            internal RecruitmentLease(UnitHudRecruitmentTicket ticket, float expiresAt) { Ticket = ticket; ExpiresAt = expiresAt; }
+            internal UnitHudRecruitmentTicket Ticket { get; } internal float ExpiresAt { get; }
         }
         private sealed class DisplayEntry
         {

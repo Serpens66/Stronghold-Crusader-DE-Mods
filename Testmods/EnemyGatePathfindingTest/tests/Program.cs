@@ -44,6 +44,8 @@ namespace EnemyGatePathfindingTest
                 DirectionAdaptersActuallyAssembleAndDecode();
                 BaselinePlayerScopesUseNativeArguments();
                 DirectCursorCallsiteContractIsExact();
+                NormalCursorPreviewContractIsExact();
+                CursorPreviewDecisionIsCausalAndStable();
                 NativeSnapshotPoolAcquisitionIsSynchronized();
                 PassageAxisEvidenceIsDeterministic();
                 TopologyRejectionClassificationIsDeterministic();
@@ -643,6 +645,20 @@ namespace EnemyGatePathfindingTest
                     EnemyGatePathfindingNativeDefinition.DirectCursorSearchReturnRva == 0x8F26E &&
                     EnemyGatePathfindingNativeDefinition.DirectTileSearchRva == 0xDB650,
                 "direct cursor call, target and return RVAs");
+            Assert(EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva == 0x8F1BF &&
+                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength == 14 &&
+                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionReturnRva == 0x8F1CD &&
+                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionConsumerRva == 0x8F1D2,
+                "normal cursor PCL decision span and consumer RVAs");
+            Assert(EnemyGatePathfindingNativeDefinition.CursorManagerRva == 0x3A11DC0 &&
+                    EnemyGatePathfindingNativeDefinition.CursorMouseTileXRva == 0x3A11E2C &&
+                    EnemyGatePathfindingNativeDefinition.CursorMouseTileYRva == 0x3A11E30 &&
+                    EnemyGatePathfindingNativeDefinition.CursorMouseTileIdRva == 0x3A11E38 &&
+                    EnemyGatePathfindingNativeDefinition.TileRowStartRva == 0x402FF2C,
+                "cursor coordinates and row-start table RVAs");
+            Assert(EnemyGatePathfindingNativeDefinition.NativePathManagerRva == 0x60AD660 &&
+                    EnemyGatePathfindingNativeDefinition.DirectCursorSearchNodeLimit == 400000,
+                "Vanilla DB650 manager and node limit");
             Assert(EnemyGatePathfindingNativeDefinition.PathDirectionGridRva == 0x51890D0,
                 "native direction grid RVA");
             Assert(EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive == 320800,
@@ -764,8 +780,12 @@ namespace EnemyGatePathfindingTest
                     StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("transaction.AddInline(directCursorHook",
                         StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("transaction.AddContextHook(",
+                        StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("cursorPclDecisionHook",
+                        StringComparison.Ordinal) >= 0 &&
                     runtime.IndexOf("transaction.Commit()", StringComparison.Ordinal) >= 0,
-                "direct cursor callsite and all edge adapters share one atomic transaction");
+                "both cursor sites and all edge adapters share one atomic transaction");
             Assert(source.IndexOf("__dword_ptr.gs[0x48]", StringComparison.Ordinal) >= 0 &&
                     source.IndexOf("ThreadSlotCount", StringComparison.Ordinal) >= 0,
                 "native adapters validate the fixed TEB thread slot");
@@ -1032,6 +1052,109 @@ namespace EnemyGatePathfindingTest
             Assert(wrapperBody.IndexOf("new ", StringComparison.Ordinal) < 0 &&
                     wrapperBody.IndexOf("GetPathComponentGrid", StringComparison.Ordinal) < 0,
                 "direct cursor wrapper performs no allocation or PCL work");
+        }
+
+        private static void NormalCursorPreviewContractIsExact()
+        {
+            const ulong imageBase = 0x180000000UL;
+            byte[] original = EnemyGatePathfindingNativeDefinition.GetCursorPclDecisionBytes();
+            Assert(original.Length == EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength,
+                "normal cursor decision has the exact 14-byte baseline block");
+
+            var decoder = Decoder.Create(64, new ByteArrayCodeReader(original));
+            decoder.IP = imageBase +
+                (ulong)EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva;
+            Instruction call = decoder.Decode();
+            Instruction test = decoder.Decode();
+            Instruction lea = decoder.Decode();
+            Assert(call.Mnemonic == Mnemonic.Call &&
+                    call.NearBranchTarget == imageBase + 0xE2610UL,
+                "cursor decision calls the confirmed E2610 PCL reachability function");
+            Assert(test.Mnemonic == Mnemonic.Test && test.Op0Register == Register.EAX &&
+                    test.Op1Register == Register.EAX,
+                "cursor decision tests E2610's EAX result");
+            Assert(lea.Mnemonic == Mnemonic.Lea &&
+                    decoder.IP == imageBase +
+                        (ulong)EnemyGatePathfindingNativeDefinition.CursorPclDecisionReturnRva,
+                "cursor decision displacement ends exactly at 8F1CD");
+
+            byte[] probeBytes = new byte[64];
+            for (int index = 0; index < probeBytes.Length; index++) probeBytes[index] = 0x90;
+            Array.Copy(original, probeBytes, original.Length);
+            IntPtr probeMemory = Marshal.AllocHGlobal(probeBytes.Length);
+            try
+            {
+                Marshal.Copy(probeBytes, 0, probeMemory, probeBytes.Length);
+                using (var probe = new X64InlineHook(
+                    unchecked((ulong)probeMemory.ToInt64()),
+                    EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength))
+                    Assert(probe.DisplacedByteCount ==
+                            EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength,
+                        "installed RedBird decodes exactly the 14-byte cursor decision block");
+            }
+            finally { Marshal.FreeHGlobal(probeMemory); }
+
+            string runtime = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            string callback = ExtractMethodBody(runtime, "FilterNormalCursorPclDecision");
+            string deferred = ExtractMethodBody(runtime, "ProcessCursorPreview");
+            Assert(runtime.IndexOf("transaction.AddContextHook", StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("OverwrittenInstructionPlacement.BeforeCallback",
+                        StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("X64SmartCPUContextRegs.All", StringComparison.Ordinal) >= 0,
+                "cursor decision hook preserves all registers and executes after displaced code");
+            Assert(runtime.IndexOf("!cursorPclDecisionHook.Success", StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("cursorPclDecisionHook.Hook.DisplacedByteCount",
+                        StringComparison.Ordinal) >= 0,
+                "cursor decision hook participates in the atomic committed-span contract");
+            Assert(callback.IndexOf("registers->RAX", StringComparison.Ordinal) >= 0 &&
+                    callback.IndexOf("registers->RSI", StringComparison.Ordinal) >= 0 &&
+                    callback.IndexOf("registers->RDI", StringComparison.Ordinal) >= 0 &&
+                    callback.IndexOf("registers->R14", StringComparison.Ordinal) >= 0 &&
+                    callback.IndexOf("SetZeroFlag", StringComparison.Ordinal) >= 0,
+                "callback reconstructs TEST ZF and captures Vanilla's representative unit");
+            foreach (string forbidden in new[]
+            {
+                "GameUnitManagerAPI", "originalDirectTileSearch", "lock (", "new ",
+                "DebugLogHelper", "GetSelectedChimps"
+            })
+                Assert(callback.IndexOf(forbidden, StringComparison.Ordinal) < 0,
+                    "cursor callback hot path excludes " + forbidden);
+            Assert(CountOccurrences(deferred, "TryGetUnitById") == 1 &&
+                    CountOccurrences(deferred, "originalDirectTileSearch") == 1 &&
+                    deferred.IndexOf("GetSelectedChimps", StringComparison.Ordinal) < 0 &&
+                    deferred.IndexOf("for (", StringComparison.Ordinal) < 0 &&
+                    deferred.IndexOf("foreach", StringComparison.Ordinal) < 0,
+                "deferred preview validates exactly one unit with one Vanilla DB650 search");
+            Assert(runtime.IndexOf("Stopwatch.Frequency / 5L", StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("cursorRefreshMs=200", StringComparison.Ordinal) >= 0,
+                "cursor preview is globally throttled to five native validations per second");
+        }
+
+        private static void CursorPreviewDecisionIsCausalAndStable()
+        {
+            Assert(!EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(0, 0),
+                "ordinary Vanilla no-route without a rejected gate edge stays fail-open");
+            Assert(EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(0, 1),
+                "Vanilla no-route caused by a rejected gate edge blocks the cursor");
+            Assert(!EnemyGatePathfindingPolicy.ShouldBlockCursorPreview(1, 12),
+                "a successful Vanilla detour remains green despite rejected direct edges");
+
+            Assert(EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
+                    true, 2, 41, 300, 301, 0x1234UL,
+                    2, 41, 300, 301, 0x1234UL),
+                "an identical cursor key reuses its stable decision");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
+                    true, 2, 41, 300, 301, 0x1234UL,
+                    2, 41, 301, 301, 0x1234UL),
+                "a changed target invalidates the cursor decision immediately");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
+                    true, 2, 41, 300, 301, 0x1234UL,
+                    2, 41, 300, 301, 0x1235UL),
+                "a changed gate policy invalidates the cursor decision immediately");
+            Assert(!EnemyGatePathfindingPolicy.CursorPreviewCacheMatches(
+                    false, 2, 41, 300, 301, 0x1234UL,
+                    2, 41, 300, 301, 0x1234UL),
+                "an unpublished cache never changes Vanilla's cursor decision");
         }
 
         private static void GatehouseUsesBothOuterBoundaries()

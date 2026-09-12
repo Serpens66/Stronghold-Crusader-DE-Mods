@@ -30,6 +30,7 @@ namespace APISharedTests
         {
             TestPublicSurface();
             TestUnitHudSnapshotImmutability();
+            TestUnitHudVariantContracts();
             TestPeValidation();
             TestFixedCatalogValidation();
             TestReadinessAndIndependentCapabilities();
@@ -64,6 +65,22 @@ namespace APISharedTests
                 "unit-HUD snapshot membership is not exposed as a mutable array");
         }
 
+        private static void TestUnitHudVariantContracts()
+        {
+            var oldCategory = new UnitHudCategoryDefinition("old", "Old", 1, UnitHudSurface.TroopSelection);
+            Assert(oldCategory.TextProfile.DisplayNameFallback == "Old" && oldCategory.TextProfile.DescriptionFallback == string.Empty,
+                "legacy category constructor must retain deterministic text fallbacks");
+            var text = new UnitHudTextProfile("Desert Archer", "DA", "Description", kind => kind == UnitHudTextKind.DisplayName ? "Localized" : null);
+            var category = new UnitHudCategoryDefinition("desert", "Desert Archer", 1,
+                UnitHudSurface.All, null, new UnitHudTint(220, 240, 255, 255), 0, text);
+            Assert(category.TextProfile == text && (category.Surfaces & UnitHudSurface.Recruitment) != 0 &&
+                (category.Surfaces & UnitHudSurface.UnitDetails) != 0,
+                "variant category does not expose recruitment and unit-detail presentation");
+            var ticket = new UnitHudRecruitmentTicket(7, "owner", "desert", 1, 2, 5);
+            Assert(ticket.TicketId == 7 && ticket.PlayerId == 1 && ticket.BaseUnitType == 2 && ticket.RequestedAmount == 5,
+                "recruitment ticket does not preserve immutable Vanilla request data");
+        }
+
         private static void TestMigrationContracts()
         {
             string workspace = FindWorkspaceRoot();
@@ -88,6 +105,7 @@ namespace APISharedTests
             string releaseScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "Release-Mod.ps1"));
             string nexusScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "NexusRelease.Common.ps1"));
             string steamScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Steam", "Create-SteamModPack.ps1"));
+            string hostPlugin = File.ReadAllText(Path.Combine(workspace, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
             string randomRuntime = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "RandomEventsRuntime.cs"));
             string randomRegistry = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "ScenarioSignpostRegistry.cs"));
             string randomPlacement = File.ReadAllText(Path.Combine(workspace, "RandomEvents", "src", "SignpostPlacementService.cs"));
@@ -128,10 +146,42 @@ namespace APISharedTests
                 Count(unitHud, "updateSpritesOriginal(self, colour, arabic)") == 1 &&
                 Count(unitHud, "updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") == 1,
                 "central HUD sprite handling retains one hook trampoline call plus one explicit refresh call");
+            int ensureButtonsStart = unitHud.IndexOf("private void EnsureCategoryButtons(", StringComparison.Ordinal);
+            int hideButtonsStart = unitHud.IndexOf("private void HideCategoryButtons()", StringComparison.Ordinal);
+            int mouseDownStart = unitHud.IndexOf("private void OnCategoryMouseDown(", StringComparison.Ordinal);
+            string ensureButtonsMethod = ensureButtonsStart >= 0 && hideButtonsStart > ensureButtonsStart
+                ? unitHud.Substring(ensureButtonsStart, hideButtonsStart - ensureButtonsStart)
+                : string.Empty;
+            string hideButtonsMethod = hideButtonsStart >= 0 && mouseDownStart > hideButtonsStart
+                ? unitHud.Substring(hideButtonsStart, mouseDownStart - hideButtonsStart)
+                : string.Empty;
+            Assert(ensureButtonsMethod.Contains("var resolvedButtons = new Button[TroopSlotCount]") &&
+                ensureButtonsMethod.IndexOf("categoryButtons = resolvedButtons", StringComparison.Ordinal) >
+                ensureButtonsMethod.IndexOf("foreach (Button button in resolvedButtons)", StringComparison.Ordinal),
+                "troop category buttons must be resolved completely before the cache is published");
+            Assert(hideButtonsMethod.Contains("if (button != null)") &&
+                unitHud.Contains("lock (sync) visibleSlots.Clear();"),
+                "troop HUD failure cleanup must tolerate incomplete caches and clear stale slot snapshots");
+            int armyStart = unitHud.IndexOf("private void ApplyArmyReport(", StringComparison.Ordinal);
+            int armyEntriesStart = unitHud.IndexOf("private readonly Dictionary<string, Noesis.Grid> armyEntries", StringComparison.Ordinal);
+            string armyMethod = armyStart >= 0 && armyEntriesStart > armyStart
+                ? unitHud.Substring(armyStart, armyEntriesStart - armyStart)
+                : string.Empty;
+            Assert(armyMethod.IndexOf("APISharedArmyCategoriesHost", StringComparison.Ordinal) >= 0 &&
+                armyMethod.IndexOf("APISharedArmyCategoriesHost", StringComparison.Ordinal) < armyMethod.IndexOf("main.AllTroops[", StringComparison.Ordinal) &&
+                unitHud.Contains("RenderArmyHosts(host, custom);"),
+                "army HUD host must be resolved before Vanilla troop counts are changed");
             Assert(unitHud.Contains("ManualApply = true") &&
                 unitHud.Contains("updateSpritesHook.Apply()") &&
                 unitHud.IndexOf("updateSpritesOriginal =", StringComparison.Ordinal) < unitHud.IndexOf("updateSpritesHook.Apply()", StringComparison.Ordinal),
                 "HUD hooks must not become callable before their trampolines are published");
+            Assert(unitHud.Contains("ButtonCreateTroop") && unitHud.Contains("Enums.GameActionCommand.MakeTroop") &&
+                unitHud.Contains("recruitmentGameActionOriginal(command, structureId, state, value2)") &&
+                !virtualRuntime.Contains("GameAction(Enums.GameActionCommand.MakeTroop"),
+                "recruitment variants must observe Vanilla's one MakeTroop action instead of issuing a second action");
+            Assert(unitHud.Contains("MapLoaderR3EventHooks.OnUnloadMap") && unitHud.Contains("activeRecruitment.Clear()") &&
+                unitHud.Contains("APISharedUnitDetailHost"),
+                "recruitment map reset or unit-detail host is missing");
             Assert(unitHud.Contains("if (updateSpritesActive)") &&
                 unitHud.Contains("IsImageOverrideContextReady()") &&
                 !unitHud.Contains("main.UpdateUITroopSprites(lastSpriteColour"),
@@ -215,6 +265,10 @@ namespace APISharedTests
             Assert(steamScript.Contains("Infrastructure") && steamScript.Contains("releaseConfig.ApiShared.Guid") &&
                 steamScript.Contains("APIShared.dll") && releaseConfig.Contains("\"Guid\": \"APIShared_Serp\""),
                 "Steam staging must model APIShared as one separately validated infrastructure dependency");
+            Assert(hostPlugin.Contains("List<PackModRecord> assetMods = ScriptExtenderCompatibility.SelectRuntimePackRecords(manifest);") &&
+                hostPlugin.Contains("foreach (PackModRecord mod in assetMods)") &&
+                hostPlugin.Contains("expected={assetMods.Count}"),
+                "Steam host must register infrastructure assets before active child assets and include them in diagnostics");
             string randomPathing = randomRuntime + "\n" + randomRegistry + "\n" + randomPlacement;
             Assert(Count(randomPathing, "GetPathComponentGrid()") == 5 &&
                 !randomPathing.Contains("TileManager.PathConnectionGrid") &&
@@ -298,7 +352,12 @@ namespace APISharedTests
                 "APIShared.UnitHudUnitSnapshot",
                 "APIShared.UnitHudCategoryMatcher",
                 "APIShared.UnitHudCategoryImageResolver",
+                "APIShared.UnitHudTextKind",
+                "APIShared.UnitHudTextResolver",
+                "APIShared.UnitHudTextProfile",
                 "APIShared.UnitHudCategoryDefinition",
+                "APIShared.UnitHudRecruitmentTicket",
+                "APIShared.UnitHudRecruitmentHandler",
                 "APIShared.UnitHudCategorySnapshot",
                 "APIShared.UnitHudSlotSnapshot",
                 "APIShared.UnitHudControlGroupSnapshot",

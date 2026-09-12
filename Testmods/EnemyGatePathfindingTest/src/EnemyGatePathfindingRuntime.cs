@@ -11,6 +11,7 @@ using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 
@@ -518,6 +519,11 @@ namespace EnemyGatePathfindingTest
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate snapshot checkpoint: {topologyProvider?.DescribeState() ?? "unavailable"}.");
             SamePclCoverageSnapshot same = samePclRouteRuntime?.GetCoverageSnapshot() ?? default;
+            double cursorAverageMs = same.CursorNativeRefreshes == 0 ? 0.0 :
+                same.CursorValidationTicks * 1000.0 /
+                Stopwatch.Frequency / same.CursorNativeRefreshes;
+            double cursorMaximumMs = same.CursorValidationMaxTicks * 1000.0 /
+                Stopwatch.Frequency;
             Shared.DebugLogHelper.LogInfo(log,
                 $"Enemy-gate Same-PCL checkpoint: kind={kind}, installed={same.Installed}," +
                 $"hookOwnerConflict={same.OwnerConflict},queries={same.Queries}," +
@@ -527,10 +533,21 @@ namespace EnemyGatePathfindingTest
                 $"attackEdgesFiltered={same.AttackEdges},buildingEdgesFiltered={same.BuildingEdges}," +
                 $"candidateEdgesFiltered={same.CandidateEdges},cursorCommandEdgesFiltered={same.CursorCommandEdges}," +
                 $"directCursorEdgesFiltered={same.DirectCursorEdges}," +
+                $"cursorPclChecks={same.CursorPclChecks}," +
+                $"cursorNativeRefreshes={same.CursorNativeRefreshes}," +
+                $"cursorCacheHits={same.CursorCacheHits}," +
+                $"cursorThrottleDeferrals={same.CursorThrottleDeferrals}," +
+                $"cursorPolicyBlocked={same.CursorPolicyBlocked}," +
+                $"cursorReachable={same.CursorReachable}," +
+                $"cursorRejectedEdges={same.CursorRejectedEdges}," +
+                $"cursorUnitPending={same.CursorUnitPending}," +
+                $"cursorValidationMs(avg={cursorAverageMs.ToString("F3", CultureInfo.InvariantCulture)}," +
+                $"max={cursorMaximumMs.ToString("F3", CultureInfo.InvariantCulture)})," +
                 $"missingContext={same.MissingContexts},invalidPlayer={same.InvalidPlayers}," +
                 $"scopeMismatch={same.ScopeMismatches},threadSlotConflict={same.SlotConflicts}," +
                 $"snapshotPoolExhaustion={same.PoolExhaustions},exceptions={same.Exceptions}," +
                 $"scopeSamples=[{samePclRouteRuntime?.DescribeScopeSamples() ?? "none"}]," +
+                $"cursorPreviewSample=[{samePclRouteRuntime?.DescribeCursorPreviewSample() ?? "none"}]," +
                 "managedCursorSearches=0,managedReplacementSearches=0,directionGridWrites=0.");
             LogNewCapturerSamples();
             if (string.Equals(kind, "final", StringComparison.Ordinal))
@@ -576,6 +593,10 @@ namespace EnemyGatePathfindingTest
                 $"foreignCaptureBlock={EnemyGatePathfindingPolicy.ObservationVerdict(Read(ref foreignOriginalZf[0]))}," +
                 $"nativeCursorScope={EnemyGatePathfindingPolicy.ObservationVerdict(same.DirectCursorQueries)}," +
                 $"nativeCursorEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.DirectCursorEdges)}," +
+                $"cursorPreviewExecution={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorPclChecks)}," +
+                $"cursorPreviewRefresh={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorNativeRefreshes)}," +
+                $"cursorPreviewPolicyBlocked={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorPolicyBlocked)}," +
+                $"cursorPreviewReachable={EnemyGatePathfindingPolicy.ObservationVerdict(same.CursorReachable)}," +
                 $"samePclHookExecution={sameHookVerdict}," +
                 $"nativeRoutePreserved={EnemyGatePathfindingPolicy.ObservationVerdict(same.Preserved)}," +
                 $"edgeRejected={EnemyGatePathfindingPolicy.ObservationVerdict(same.RejectedEdges)}," +

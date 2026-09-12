@@ -42,6 +42,7 @@
     <Compile Include="src\ApiContracts.cs" /><Compile Include="src\IdentityRegistry.cs" />
     <Compile Include="src\SaveCodec.cs" /><Compile Include="src\VirtualMath.cs" />
     <Compile Include="src\SpawnInitializationPolicy.cs" />
+    <Compile Include="src\RecruitmentCorrelationPolicy.cs" />
     <Compile Include="src\VirtualUnitsPlugin.cs" /><Compile Include="src\VirtualEntityRuntime.cs" />
     <Compile Include="src\VisualRuntime.cs" /><Compile Include="src\VirtualSpawnHud.cs" />
   </ItemGroup>

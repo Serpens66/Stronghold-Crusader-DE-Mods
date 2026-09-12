@@ -5,4 +5,19 @@
       <StackPanel x:Name="APISharedArmyCategoriesHost" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,10,8" Panel.ZIndex="30" IsHitTestVisible="False" />
     </Content>
   </Operation>
+  <Operation Type="Add" XPath="//n:ToggleButton[@Name='BarracksArcher']/..">
+    <Content>
+      <Border x:Name="APISharedArcherVariantTint" Width="53" Height="120" Margin="19,0,0,47" HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed" IsHitTestVisible="False" Panel.ZIndex="20" />
+      <Button x:Name="APISharedArcherVariantSelector" Width="53" Height="22" Margin="19,0,0,23" HorizontalAlignment="Left" VerticalAlignment="Bottom" Visibility="Collapsed" Panel.ZIndex="21" FontSize="13" Content="A" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@Name='ChimpPanel']">
+    <Content>
+      <Grid x:Name="APISharedUnitDetailHost" Width="300" Height="126" Margin="0,26,16,0" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed" IsHitTestVisible="False">
+        <Image x:Name="APISharedUnitDetailImage" Width="64" Height="96" HorizontalAlignment="Left" VerticalAlignment="Top" Stretch="Uniform" />
+        <Border x:Name="APISharedUnitDetailTint" Width="64" Height="96" HorizontalAlignment="Left" VerticalAlignment="Top" />
+        <TextBlock x:Name="APISharedUnitDetailDescription" Width="220" Height="112" Margin="76,4,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" FontSize="16" TextWrapping="Wrap" />
+      </Grid>
+    </Content>
+  </Operation>
 </Patch>

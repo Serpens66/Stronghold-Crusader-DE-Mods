@@ -37,10 +37,12 @@ namespace VirtualUnitsPrototype
         private readonly ConcurrentQueue<bool> availabilityQueue = new ConcurrentQueue<bool>();
         private readonly ConcurrentQueue<bool> visualResetQueue = new ConcurrentQueue<bool>();
         private readonly ConcurrentQueue<int> unitTintRestoreQueue = new ConcurrentQueue<int>();
+        private readonly ConcurrentQueue<RecruitmentTransition> recruitmentTransitions = new ConcurrentQueue<RecruitmentTransition>();
         private List<SaveRecord> pendingRestore;
         private PendingBuildingSpawn pendingBuilding;
         private VisualRuntime visuals;
         private IUnitHudPresentationCapability unitHudPresentation;
+        private PendingRecruitment pendingRecruitment;
         private VirtualSpawnController spawnController;
         private bool definitionsSealed;
         private bool initialized;
@@ -51,6 +53,8 @@ namespace VirtualUnitsPrototype
         private int simulationThreadId;
         private bool unrepresentableSpeedLogged;
         private const int SpawnInitializationTickBudget = 180;
+        private const int RecruitmentCorrelationTickBudget = 8;
+        private const int RecruitmentQuietTickBudget = 1;
 
         internal VirtualEntityRuntime(ManualLogSource log) { this.log = log ?? throw new ArgumentNullException(nameof(log)); }
         internal static VirtualEntityRuntime Current { get; set; }
@@ -69,6 +73,7 @@ namespace VirtualUnitsPrototype
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualSpawn.Observable.Subscribe(visuals.OnUnitVisualSpawn));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(visuals.OnUnitVisualInterpolate));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualRemove.Observable.Subscribe(visuals.OnUnitVisualRemove));
+                subscriptions.Add(UnitR3EventHooks.OnUnitTransition.Observable.Where(x => x.Phase == EventHookPhase.Pre).Subscribe(OnUnitTransition));
                 subscriptions.Add(UnitR3EventHooks.OnUnitDelete.Observable.Where(x => x.Phase == EventHookPhase.Pre).Subscribe(x => Forget(VirtualEntityKind.Unit, checked((int)x.UnitId))));
                 subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
                 subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable.Where(x => x.Phase == EventHookPhase.Pre).Subscribe(x => Forget(VirtualEntityKind.Building, x.BuildingId)));
@@ -263,7 +268,9 @@ namespace VirtualUnitsPrototype
                 (int)eChimps.CHIMP_TYPE_ARCHER,
                 UnitHudSurface.All,
                 () => MainViewModel.Instance?.UIButtonsK023,
-                new UnitHudTint(220, 240, byte.MaxValue, byte.MaxValue));
+                new UnitHudTint(220, 240, byte.MaxValue, byte.MaxValue),
+                0,
+                new UnitHudTextProfile("Desert Archer", "DA", "A tougher variant of the European archer.", ResolveDesertArcherText));
             if (!capability.TryRegisterCategory(category, snapshot =>
             {
                 if (!TryGetValidatedUnit(snapshot.GameId, out VirtualEntityInstance instance, out VirtualUnitDefinition definition))
@@ -276,9 +283,56 @@ namespace VirtualUnitsPrototype
                 Shared.DebugLogHelper.LogError(log, $"Desert Archer HUD registration failed: state={diagnostic?.State}, reason={diagnostic?.Reason}");
                 return;
             }
+            if (!capability.TryRegisterRecruitment(VirtualUnitsPlugin.DesertArcherId, BeginRecruitment, out diagnostic))
+            {
+                Shared.DebugLogHelper.LogError(log, $"Desert Archer recruitment registration failed: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                return;
+            }
             unitHudPresentation = capability;
             capability.RequestRefresh();
             Shared.DebugLogHelper.LogInfo(log, "Desert Archer registered with APIShared unit-HUD presentation.");
+        }
+
+        private static string ResolveDesertArcherText(UnitHudTextKind kind)
+        {
+            string locale = string.Empty;
+            try
+            {
+                Type assetApiType = Type.GetType("SHCDESE.API.GameAssetManagerAPI, SHCDESE", false);
+                object assets = assetApiType?.GetProperty("Instance")?.GetValue(null, null);
+                locale = assetApiType?.GetProperty("CurrentLanguage")?.GetValue(assets, null) as string ?? string.Empty;
+            }
+            catch { }
+            bool german = locale.StartsWith("de", StringComparison.OrdinalIgnoreCase);
+            if (kind == UnitHudTextKind.ShortLabel) return "DA";
+            if (kind == UnitHudTextKind.Description) return german
+                ? "Eine widerstandsfähigere Variante des europäischen Bogenschützen."
+                : "A tougher variant of the European archer.";
+            return german ? "Wüstenbogenschütze" : "Desert Archer";
+        }
+
+        private bool BeginRecruitment(UnitHudRecruitmentTicket ticket)
+        {
+            if (ticket == null || !CanMutate || ticket.CategoryId != VirtualUnitsPlugin.DesertArcherId ||
+                ticket.BaseUnitType != (int)eChimps.CHIMP_TYPE_ARCHER || ticket.PlayerId <= 0 || ticket.RequestedAmount <= 0)
+                return false;
+            lock (sync)
+            {
+                if (pendingRecruitment != null) return false;
+                pendingRecruitment = new PendingRecruitment(ticket, currentSimulationTick + RecruitmentCorrelationTickBudget);
+            }
+            Shared.DebugLogHelper.LogInfo(log, $"Desert Archer recruitment armed: ticket={ticket.TicketId}, player={ticket.PlayerId}, requested={ticket.RequestedAmount}, tick={currentSimulationTick}.");
+            return true;
+        }
+
+        private void OnUnitTransition(UnitTransitionEventArgs args)
+        {
+            PendingRecruitment pending;
+            lock (sync) pending = pendingRecruitment;
+            if (pending == null || args.Source != UnitTransitionSource.EuropeanBarracks ||
+                args.PlayerOwnerId != pending.Ticket.PlayerId || args.NextUnitType != eChimps.CHIMP_TYPE_ARCHER || args.UnitId <= 0)
+                return;
+            recruitmentTransitions.Enqueue(new RecruitmentTransition(pending.Ticket.TicketId, args.UnitId));
         }
 
         internal VirtualEntityInstance[] GetValidatedUnitsForPlayer(int playerId)
@@ -416,9 +470,65 @@ namespace VirtualUnitsPrototype
             if (pendingRestore != null && CanMutate) RestorePending();
             if (!CanMutate) return;
             while (operationQueue.TryDequeue(out OperationRequest request)) ExecuteOperation(request);
+            ProcessRecruitmentTransitions();
             ValidateActiveInstances();
             ProcessPendingUnits();
             ProcessPendingBuildings();
+        }
+
+        private void ProcessRecruitmentTransitions()
+        {
+            PendingRecruitment active;
+            lock (sync)
+            {
+                active = pendingRecruitment;
+                while (recruitmentTransitions.TryDequeue(out RecruitmentTransition transition))
+                {
+                    if (active == null || transition.TicketId != active.Ticket.TicketId) continue;
+                    active.Candidates.Add(transition.UnitId);
+                    active.LastTransitionTick = currentSimulationTick;
+                }
+            }
+            if (active == null) return;
+
+            foreach (int unitId in active.Candidates.ToArray())
+            {
+                if (!TryReadUnit(unitId, eChimps.CHIMP_TYPE_ARCHER, out uint globalId, out int maxHealth,
+                    out int currentHealth, out int speed, out VirtualApiResult ignored)) continue;
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
+                    unit->r_ControllableForPlayerId != active.Ticket.PlayerId) continue;
+                lock (sync)
+                {
+                    if (!ReferenceEquals(active, pendingRecruitment) || pendingUnits.ContainsKey(unitId) ||
+                        instances.TryGetSlot(UnitKind, unitId, out uint ignoredGlobal, out StoredInstance ignoredStored))
+                        continue;
+                    var pending = PendingSpawn.ForUnit(unitId, globalId, VirtualUnitsPlugin.DesertArcherId, 1,
+                        active.Ticket.PlayerId, unit->r_CurrentTilePositionX, unit->r_CurrentTilePositionY,
+                        maxHealth, currentHealth, speed, unit->r_AliveState,
+                        currentSimulationTick + SpawnInitializationTickBudget, default(VirtualOperationTicket), true);
+                    pendingUnits[unitId] = pending;
+                    active.Candidates.Remove(unitId);
+                    active.MatchedUnitIds.Add(unitId);
+                    LogPending(pending, "correlated Vanilla EuropeanBarracks transition");
+                }
+            }
+
+            bool complete;
+            lock (sync)
+            {
+                complete = ReferenceEquals(active, pendingRecruitment) && RecruitmentCorrelationPolicy.ShouldComplete(
+                    active.MatchedUnitIds.Count, active.Ticket.RequestedAmount, active.Candidates.Count,
+                    currentSimulationTick, active.LastTransitionTick, active.DeadlineTick, RecruitmentQuietTickBudget);
+                if (complete) pendingRecruitment = null;
+            }
+            if (!complete) return;
+            string reason = active.MatchedUnitIds.Count >= active.Ticket.RequestedAmount
+                ? "expected transition count reached"
+                : currentSimulationTick >= active.DeadlineTick ? "bounded correlation window elapsed" : "transition batch became quiet";
+            if (unitHudPresentation != null && !unitHudPresentation.TryCompleteRecruitment(active.Ticket,
+                active.MatchedUnitIds.Count, reason, out NativeCapabilityDiagnostic diagnostic))
+                LogWarning($"Recruitment ticket completion was rejected: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+            Shared.DebugLogHelper.LogInfo(log, $"Desert Archer recruitment completed: ticket={active.Ticket.TicketId}, requested={active.Ticket.RequestedAmount}, matched={active.MatchedUnitIds.Count}, reason={reason}.");
         }
 
         internal void DrainMainThreadWork()
@@ -616,7 +726,7 @@ namespace VirtualUnitsPrototype
         {
             lock (sync) (pending.Kind == VirtualEntityKind.Unit ? pendingUnits : pendingBuildings).Remove(pending.GameId);
             bool deleteIssued = false;
-            if (deleteIfIdentityStillMatches && PendingIdentityMatches(pending))
+            if (!pending.PreserveOnFailure && deleteIfIdentityStillMatches && PendingIdentityMatches(pending))
                 deleteIssued = pending.Kind == VirtualEntityKind.Unit ? GameUnitManagerAPI.Instance.DeleteUnitSafe(pending.GameId) : GameBuildingManagerAPI.Instance.DeleteBuildingSafe(pending.GameId);
             var failure = Result(VirtualApiResultCode.SpawnFailed, $"{pending.Kind} {pending.GameId}/{pending.GlobalId} failed initialization: {reason}; safeDeleteIssued={deleteIssued}.");
             LogWarning(failure.Message);
@@ -809,11 +919,12 @@ namespace VirtualUnitsPrototype
             lock (sync)
             {
                 instances.Clear(); pendingUnits.Clear(); pendingBuildings.Clear(); pendingRestore = null;
-                pendingBuilding = default(PendingBuildingSpawn); mapActive = false; modeAllowed = false;
+                pendingBuilding = default(PendingBuildingSpawn); pendingRecruitment = null; mapActive = false; modeAllowed = false;
             }
             while (operationQueue.TryDequeue(out OperationRequest ignoredOperation)) { }
             while (completionQueue.TryDequeue(out OperationCompletion ignoredCompletion)) { }
             while (unitTintRestoreQueue.TryDequeue(out int ignoredUnitTint)) { }
+            while (recruitmentTransitions.TryDequeue(out RecruitmentTransition ignoredTransition)) { }
             visualResetQueue.Enqueue(true);
             availabilityQueue.Enqueue(false);
         }
@@ -859,20 +970,40 @@ namespace VirtualUnitsPrototype
 
         private sealed class PendingSpawn
         {
-            private PendingSpawn(VirtualEntityKind kind, int gameId, uint globalId, string typeId, int definitionVersion, int playerId, int requestedX, int requestedY, int originalMaxHealth, int originalCurrentHealth, int originalSpeed, AliveState initialState, int deadlineTick, VirtualOperationTicket ticket)
+            private PendingSpawn(VirtualEntityKind kind, int gameId, uint globalId, string typeId, int definitionVersion, int playerId, int requestedX, int requestedY, int originalMaxHealth, int originalCurrentHealth, int originalSpeed, AliveState initialState, int deadlineTick, VirtualOperationTicket ticket, bool preserveOnFailure)
             {
                 Kind = kind; GameId = gameId; GlobalId = globalId; TypeId = typeId; DefinitionVersion = definitionVersion; PlayerId = playerId;
                 RequestedX = requestedX; RequestedY = requestedY; OriginalMaxHealth = originalMaxHealth; OriginalCurrentHealth = originalCurrentHealth;
-                OriginalSpeed = originalSpeed; LastState = initialState; DeadlineTick = deadlineTick; Ticket = ticket;
+                OriginalSpeed = originalSpeed; LastState = initialState; DeadlineTick = deadlineTick; Ticket = ticket; PreserveOnFailure = preserveOnFailure;
                 Snapshot = new VirtualEntityInstance(new VirtualEntityKey(kind, gameId, globalId), typeId, definitionVersion, originalMaxHealth, originalSpeed);
             }
-            public static PendingSpawn ForUnit(int gameId, uint globalId, string typeId, int definitionVersion, int playerId, int x, int y, int maxHealth, int currentHealth, int speed, AliveState state, int deadlineTick, VirtualOperationTicket ticket)
-                => new PendingSpawn(VirtualEntityKind.Unit, gameId, globalId, typeId, definitionVersion, playerId, x, y, maxHealth, currentHealth, speed, state, deadlineTick, ticket);
+            public static PendingSpawn ForUnit(int gameId, uint globalId, string typeId, int definitionVersion, int playerId, int x, int y, int maxHealth, int currentHealth, int speed, AliveState state, int deadlineTick, VirtualOperationTicket ticket, bool preserveOnFailure = false)
+                => new PendingSpawn(VirtualEntityKind.Unit, gameId, globalId, typeId, definitionVersion, playerId, x, y, maxHealth, currentHealth, speed, state, deadlineTick, ticket, preserveOnFailure);
             public static PendingSpawn ForBuilding(int gameId, uint globalId, string typeId, int definitionVersion, int playerId, int x, int y, int maxHealth, int currentHealth, AliveState state, int deadlineTick, VirtualOperationTicket ticket)
-                => new PendingSpawn(VirtualEntityKind.Building, gameId, globalId, typeId, definitionVersion, playerId, x, y, maxHealth, currentHealth, 0, state, deadlineTick, ticket);
+                => new PendingSpawn(VirtualEntityKind.Building, gameId, globalId, typeId, definitionVersion, playerId, x, y, maxHealth, currentHealth, 0, state, deadlineTick, ticket, false);
             public VirtualEntityKind Kind; public int GameId; public uint GlobalId; public string TypeId; public int DefinitionVersion; public int PlayerId;
             public int RequestedX; public int RequestedY; public int OriginalMaxHealth; public int OriginalCurrentHealth; public int OriginalSpeed;
-            public AliveState LastState; public int DeadlineTick; public bool RendererSeen; public bool RendererLogged; public bool UnitHookSeen; public bool BuildingHookSeen; public bool BuildingTintSeen; public VirtualOperationTicket Ticket; public VirtualEntityInstance Snapshot;
+            public AliveState LastState; public int DeadlineTick; public bool RendererSeen; public bool RendererLogged; public bool UnitHookSeen; public bool BuildingHookSeen; public bool BuildingTintSeen; public bool PreserveOnFailure; public VirtualOperationTicket Ticket; public VirtualEntityInstance Snapshot;
+        }
+
+        private sealed class PendingRecruitment
+        {
+            internal PendingRecruitment(UnitHudRecruitmentTicket ticket, int deadlineTick)
+            {
+                Ticket = ticket; DeadlineTick = deadlineTick; LastTransitionTick = deadlineTick - RecruitmentCorrelationTickBudget;
+            }
+            internal UnitHudRecruitmentTicket Ticket { get; }
+            internal int DeadlineTick { get; }
+            internal int LastTransitionTick { get; set; }
+            internal HashSet<int> Candidates { get; } = new HashSet<int>();
+            internal HashSet<int> MatchedUnitIds { get; } = new HashSet<int>();
+        }
+
+        private readonly struct RecruitmentTransition
+        {
+            internal RecruitmentTransition(long ticketId, int unitId) { TicketId = ticketId; UnitId = unitId; }
+            internal long TicketId { get; }
+            internal int UnitId { get; }
         }
 
         private sealed class OperationRequest
