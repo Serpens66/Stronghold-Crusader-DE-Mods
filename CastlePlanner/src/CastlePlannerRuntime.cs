@@ -232,7 +232,7 @@ namespace CastlePlanner
             nativeCastleExecutionPlayerId = 0;
             nextHovelVisualStyle = 0;
             correctedHovelVisualCount = 0;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "OnUnloadMap(Post) received; the next new map may spawn a native AIV castle.");
         }
@@ -259,7 +259,7 @@ namespace CastlePlanner
             if (args.Phase != EventHookPhase.Post)
                 return;
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"OnStartMap(Post) received: handledCurrentMap={handledCurrentMap}, " +
                 $"preImports={pendingAivImports.Count}, " +
@@ -271,7 +271,7 @@ namespace CastlePlanner
 
             if (handledCurrentMap)
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "OnStartMap(Post) ignored because this map was already handled or is a loaded savegame.");
                 return;
@@ -280,7 +280,7 @@ namespace CastlePlanner
             handledCurrentMap = true;
             if (!preview.IsSpawnMapPass)
             {
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Native castle spawning skipped because this is not the committed restart pass.");
                 return;
@@ -342,7 +342,7 @@ namespace CastlePlanner
         {
             ClearDeferredCompoundPlacements("new-map-start");
             ClearMapSpawnState();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"OnStartMap(Pre) received: handledCurrentMap={handledCurrentMap}.");
 
@@ -427,7 +427,7 @@ namespace CastlePlanner
                 CaptureImportedCandidates(request.PlayerId - 1);
             pendingAivImports.Add(request.PlayerId, prepared);
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Native AIV pre-import completed: phase=OnStartMap(Pre), " +
                 $"playerId={request.PlayerId}, playerSlot={request.PlayerId - 1}, " +
@@ -485,7 +485,7 @@ namespace CastlePlanner
                 return;
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Vanilla human Keep reached BuildStructure with its final start data already active: " +
                 $"playerId={args.PlayerId}, requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
@@ -510,7 +510,7 @@ namespace CastlePlanner
             // The native AI path ignores AIV's value 15 and cycles Hovel styles 0..6.
             // The human path consumes that value directly, so mirror the AI cycle here.
             args.Unknown1 = correctedVisualStyle;
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Native Hovel visual style corrected: playerId={args.PlayerId}, " +
                 $"ordinal={correctedHovelVisualCount}, " +
@@ -570,7 +570,7 @@ namespace CastlePlanner
             if (count > 32)
                 return;
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Selected-player early UnitCreate diagnostic: phase={args.Phase}, " +
                 $"ordinal={count}, playerId={playerId}, colorId={args.PlayerColorId}, " +
@@ -611,7 +611,7 @@ namespace CastlePlanner
                     $"tile={building.r_TileIdBegin}:global={building.r_GlobalId}");
             }
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Vanilla start-state diagnostic: phase={phase}, playerId={castle.PlayerId}, " +
                 $"orientation={castle.Orientation}, requestedKeep=({castle.RequestedKeepX},{castle.RequestedKeepY}), " +
@@ -1979,7 +1979,7 @@ namespace CastlePlanner
 
         private void LogGameModeDiagnostics(GameModeSnapshot mode)
         {
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Game-mode diagnostics: campaignMapId={mode.CampaignMapId}, " +
                 $"bMultiplayerSave={mode.MultiplayerSave}, " +
@@ -2009,14 +2009,14 @@ namespace CastlePlanner
                 $"gameDataSkirmishGameType={mode.GameDataSkirmishGameType}, " +
                 $"gameDataGameType={mode.GameDataGameType}.");
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Shared game-mode diagnostics: {mode.SharedModeDetails}.");
 
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Game-member diagnostics: [{mode.GameMemberDetails}].");
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Active-player diagnostics (not used for multiplayer detection): " +
                 $"[{mode.ActivePlayerDetails}].");

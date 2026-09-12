@@ -62,7 +62,7 @@ namespace CastlePlanner
             LoadManifest(libraryDirectory);
             LoadDepthManifest(libraryDirectory);
             ReportStatus();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Blueprint image manifests loaded: composites={entries.Count}, " +
                 $"depthCaptures={depthCaptures.Count}, elapsedMs={stopwatch.Elapsed.TotalMilliseconds:F1}.");
@@ -134,7 +134,7 @@ namespace CastlePlanner
                 Object.DontDestroyOnLoad(sprite);
                 sprites.Add(loaded.FullPath, sprite);
                 alphaBounds = GetAlphaBounds(loaded.Entry);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Loaded exact Blueprint composite: key={request.Key}, bytes={pngBytes.Length}, " +
                     $"elapsedMs={stopwatch.Elapsed.TotalMilliseconds:F1}, file={loaded.FullPath}.");
@@ -326,7 +326,7 @@ namespace CastlePlanner
                     capture.MinimumRow,
                     capture.MaximumRow);
                 depthVisuals.Add(key, visual);
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Prepared Blueprint depth visual: key={key}, pages={pages.Count}, " +
                     $"fragments={capture.Fragments.Count}, layers={layers.Count}, " +

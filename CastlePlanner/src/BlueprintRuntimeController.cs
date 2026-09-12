@@ -132,7 +132,7 @@ namespace CastlePlanner
             {
                 if (Hud?.CloseSearchPopupForApplicationFocusLoss() == true)
                 {
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         "Blueprint AIVJSON search popup closed because the " +
                         "application lost focus.");
@@ -157,7 +157,7 @@ namespace CastlePlanner
             if (!beforeRenderCallbackObserved)
             {
                 beforeRenderCallbackObserved = true;
-                Shared.DebugLogHelper.LogInfo(
+                Shared.DebugLogHelper.LogDebug(
                     log,
                     "Persistent Application.onBeforeRender blueprint callback is active.");
             }
@@ -329,7 +329,7 @@ namespace CastlePlanner
                 TryPrepareBlueprint();
             }
             RefreshHud();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Blueprint map-start lifecycle received; visibility reset to hidden.");
         }
@@ -346,7 +346,7 @@ namespace CastlePlanner
                 TryPrepareBlueprint();
             }
             RefreshHud();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Blueprint save-load lifecycle received; visibility reset to hidden.");
         }
@@ -358,7 +358,7 @@ namespace CastlePlanner
             editorSessionActive = false;
             editorControlledPlayerId = -1;
             RefreshHud();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 "Blueprint overlay cleared for map unload.");
         }
@@ -612,7 +612,7 @@ namespace CastlePlanner
                 {
                     // The host AIV dropdown is irrelevant while Spawn Castle is disabled.
                     // A stale local Blueprint choice therefore disables only the optional overlay.
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         $"Blueprint preparation skipped because the local AIVJSON is unavailable and Spawn Castle is disabled: '{settings.SelectedCastle}'.");
                     return false;
@@ -945,7 +945,7 @@ namespace CastlePlanner
                     editorSessionActive = false;
                     editorControlledPlayerId = -1;
                     RefreshHud();
-                    Shared.DebugLogHelper.LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
                         log,
                         "Blueprint editor lifecycle ended after leaving the map editor.");
                 }
@@ -977,7 +977,7 @@ namespace CastlePlanner
                 TryPrepareBlueprint();
             }
             RefreshHud();
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
                 previousPlayerId > 0
                     ? $"Blueprint editor player changed: previousActivePlayerId={previousPlayerId}, activePlayerId={activePlayerId}, restoreVisibility={restoreVisibility}."

@@ -509,7 +509,9 @@ namespace ExtraFeatures
                 if (!firstQueryLogged)
                 {
                     firstQueryLogged = true;
-                    LogInfo($"gatehouse query hook confirmed: buildingId={args.BuildingId}, eventUnitId={eventUnitId}, validatedUnitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"Extra Features gatehouse query hook confirmed: buildingId={args.BuildingId}, eventUnitId={eventUnitId}, validatedUnitId={unitId}, globalId={globalId}, owner={building->r_PlayerIdOwner}, tileX={building->r_TilePositionXBegin}, tileY={building->r_TilePositionYBegin}.");
                 }
 
                 if (manualOnlyGateGlobalIds.Contains(globalId))

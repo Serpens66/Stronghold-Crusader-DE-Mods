@@ -44,7 +44,7 @@ namespace CastlePlanner
 
         private void OnDestroy()
         {
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 Logger,
                 "Plugin component destroyed during startup; keeping CastlePlanner lifecycle subscriptions rooted.");
         }

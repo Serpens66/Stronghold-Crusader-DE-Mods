@@ -11,7 +11,6 @@ using SHCDESE.API;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Diagnostics;
 
 namespace BugfixesAndQoL
 {
@@ -20,29 +19,17 @@ namespace BugfixesAndQoL
         // The current Script Extender does not name these two confirmed Vanilla roles.
         private const short CastleDefenseRole = 1;
         private const short OuterPatrolRole = 4;
-        private const int SummaryIntervalSeconds = 60;
-        private static readonly long SummaryIntervalStopwatchTicks =
-            Stopwatch.Frequency * SummaryIntervalSeconds;
-
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly object stateLock = new object();
-        private readonly bool[] fixEffectLoggedByOwner = new bool[byte.MaxValue + 1];
         private readonly HookHandle<X64InlineHook> assignmentDecisionHook =
             new HookHandle<X64InlineHook>();
         private readonly ulong hookAddress;
         private readonly byte[] originalHookBytes;
         private HookTransaction transaction;
         private bool correctionAvailable = true;
-        private bool firstDecisionLogged;
         private bool callbackFailureLogged;
         private bool disposed;
-        private long nextSummaryTimestamp;
-        private long intervalDecisionCount;
-        private long intervalCastleDecisionCount;
-        private long intervalPatrolDecisionCount;
-        private long intervalFixEffectDecisionCount;
-        private int ownersWithObservedFixEffect;
 
         public AiDefensePatrolFix(
             ManualLogSource log,
@@ -190,14 +177,6 @@ namespace BugfixesAndQoL
                         role1Count,
                         defensiveTriggerLevel);
                     registers->RAX = AiDefensePatrolPolicy.SelectComparisonValue(needsCastleDefender);
-                    RecordDecision(
-                        unitId,
-                        recruitedUnit->r_UnitChimp,
-                        ownerId,
-                        role1Count,
-                        role4Count,
-                        defensiveTriggerLevel,
-                        needsCastleDefender);
                 }
                 catch (Exception exception)
                 {
@@ -213,92 +192,6 @@ namespace BugfixesAndQoL
                 }
             }
         }
-
-        private void RecordDecision(
-            int unitId,
-            eChimps unitType,
-            byte ownerId,
-            int role1Count,
-            int role4Count,
-            int defensiveTriggerLevel,
-            bool needsCastleDefender)
-        {
-            intervalDecisionCount++;
-            if (needsCastleDefender)
-                intervalCastleDecisionCount++;
-            else
-                intervalPatrolDecisionCount++;
-
-            bool fixEffectObserved = needsCastleDefender && role4Count > 0;
-            if (fixEffectObserved)
-                intervalFixEffectDecisionCount++;
-
-            long now = Stopwatch.GetTimestamp();
-            if (nextSummaryTimestamp == 0)
-                nextSummaryTimestamp = now + SummaryIntervalStopwatchTicks;
-
-            string decision = needsCastleDefender ? "castleDefenseRole1" : "outerPatrolRole4";
-            if (!firstDecisionLogged)
-            {
-                firstDecisionLogged = true;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    "AI_DEFENSE_PATROL_FIRST_DECISION: " +
-                    DescribeDecision(
-                        unitId,
-                        unitType,
-                        ownerId,
-                        role1Count,
-                        role4Count,
-                        defensiveTriggerLevel,
-                        decision));
-            }
-
-            if (fixEffectObserved && !fixEffectLoggedByOwner[ownerId])
-            {
-                fixEffectLoggedByOwner[ownerId] = true;
-                ownersWithObservedFixEffect++;
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    "AI_DEFENSE_PATROL_FIX_EFFECT_OBSERVED: patrolSurvivedWhileCastleDefenseWasBelowTarget=true, " +
-                    DescribeDecision(
-                        unitId,
-                        unitType,
-                        ownerId,
-                        role1Count,
-                        role4Count,
-                        defensiveTriggerLevel,
-                        decision));
-            }
-
-            if (now < nextSummaryTimestamp)
-                return;
-
-            Shared.DebugLogHelper.LogInfo(
-                log,
-                $"AI_DEFENSE_PATROL_SUMMARY: intervalSeconds={SummaryIntervalSeconds}, " +
-                $"decisions={intervalDecisionCount}, castleDecisions={intervalCastleDecisionCount}, " +
-                $"patrolDecisions={intervalPatrolDecisionCount}, " +
-                $"fixEffectDecisions={intervalFixEffectDecisionCount}, " +
-                $"ownersWithObservedFixEffect={ownersWithObservedFixEffect}.");
-            intervalDecisionCount = 0;
-            intervalCastleDecisionCount = 0;
-            intervalPatrolDecisionCount = 0;
-            intervalFixEffectDecisionCount = 0;
-            nextSummaryTimestamp = now + SummaryIntervalStopwatchTicks;
-        }
-
-        private static string DescribeDecision(
-            int unitId,
-            eChimps unitType,
-            byte ownerId,
-            int role1Count,
-            int role4Count,
-            int defensiveTriggerLevel,
-            string decision) =>
-            $"unitId={unitId}, unitType={unitType}, ownerId={ownerId}, " +
-            $"role1Count={role1Count}, role4Count={role4Count}, " +
-            $"defWalls={defensiveTriggerLevel}, decision={decision}.";
 
         private static void CountDefenseRoles(byte ownerId, out int role1Count, out int role4Count)
         {

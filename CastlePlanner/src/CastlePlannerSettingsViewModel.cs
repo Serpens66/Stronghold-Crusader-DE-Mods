@@ -734,7 +734,7 @@ namespace CastlePlanner
 
         internal void LogBlueprintHudMessage(string message)
         {
-            Shared.DebugLogHelper.LogInfo(log, message);
+            Shared.DebugLogHelper.LogDebug(log, message);
         }
 
         internal bool TryResolveSelectedFile(out string fullPath)

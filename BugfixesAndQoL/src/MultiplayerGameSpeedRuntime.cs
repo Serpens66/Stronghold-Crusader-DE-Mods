@@ -335,7 +335,10 @@ namespace BugfixesAndQoL
             ConfigSettings.Settings_GameSpeed = resolvedSpeed;
             ConfigSettings.SaveSettings();
             RefreshOpenOptionsUi(resolvedSpeed);
-            LogInfo($"singleplayer Shift game-speed change executed: action={action}, previousSpeed={previousSpeed}, resolvedSpeed={resolvedSpeed}.");
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Bugfixes and QoL multiplayer game speed: singleplayer Shift game-speed change executed: " +
+                $"action={action}, previousSpeed={previousSpeed}, resolvedSpeed={resolvedSpeed}.");
         }
 
         private static bool IsSpeedFunction(Enums.KeyFunctions function) =>

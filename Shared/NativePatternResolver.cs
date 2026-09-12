@@ -41,7 +41,7 @@ namespace Shared
                     : "signature-fallback";
             }
 
-            DebugLogHelper.LogInfo(log, $"Native address resolved: name={name}, method={method}, rva=0x{rva:X}.");
+            DebugLogHelper.LogDebug(log, $"Native address resolved: name={name}, method={method}, rva=0x{rva:X}.");
             return new NativeResolution(rva, method);
         }
 
@@ -72,7 +72,7 @@ namespace Shared
                     : "signature-fallback";
             }
 
-            DebugLogHelper.LogInfo(log, $"Native address resolved: name={name}, method={method}, rva=0x{rva:X}.");
+            DebugLogHelper.LogDebug(log, $"Native address resolved: name={name}, method={method}, rva=0x{rva:X}.");
             return new NativeResolution(rva, method);
         }
 

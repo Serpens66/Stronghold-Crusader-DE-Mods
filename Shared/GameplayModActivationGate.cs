@@ -70,7 +70,7 @@ namespace Shared
             if (current.Kind == GameModeKind.MapEditor)
                 UpdateLoad(current, "initial-current-editor");
             else
-                LogTransition("initialization");
+                LogTransition("initialization", policyChanged: false);
         }
 
         private static void UpdateLoad(GameModeSnapshot next, string source)
@@ -131,7 +131,7 @@ namespace Shared
             snapshot = next;
             isAllowed = GameplayModModePolicy.IsAllowed(profile, next, out _);
             if (changed)
-                LogTransition(source);
+                LogTransition(source, previousAllowed != isAllowed);
             if (previousAllowed != isAllowed)
                 NotifyStateChanged(isAllowed);
         }
@@ -146,7 +146,7 @@ namespace Shared
             hasAuthoritativeLoadEvidence = false;
             authoritativeLoadSnapshot = default;
             if (changed)
-                LogTransition(source);
+                LogTransition(source, previousAllowed != isAllowed);
             if (previousAllowed)
                 NotifyStateChanged(false);
         }
@@ -169,7 +169,7 @@ namespace Shared
             }
         }
 
-        private static void LogTransition(string source)
+        private static void LogTransition(string source, bool policyChanged)
         {
             bool configuredEnabled = ReadConfiguredEnabled();
             bool effectiveEnabled = configuredEnabled && IsAllowed;
@@ -177,13 +177,16 @@ namespace Shared
             string action = effectiveEnabled
                 ? "enabled"
                 : !IsAllowed ? "disabled-by-mode" : "restriction-lifted-setting-disabled";
-            DebugLogHelper.LogInfo(
-                log,
+            string message =
                 $"[{profile.DisplayName}] gameplay-mod gate: modGuid={profile.ModGuid}, source={source}, " +
                 $"kind={snapshot.Kind}, launchVariant={snapshot.LaunchVariant}, " +
                 $"customized={snapshot.IsCustomized}, customizedOrigin={snapshot.CustomizedOriginKind}, " +
                 $"modeAllowed={IsAllowed}, configuredEnabled={configuredEnabled}, " +
-                $"effectiveEnabled={effectiveEnabled}, action={action}, reason={reason}.");
+                $"effectiveEnabled={effectiveEnabled}, action={action}, reason={reason}.";
+            if (policyChanged)
+                DebugLogHelper.LogInfo(log, message);
+            else
+                DebugLogHelper.LogDebug(log, message);
             GameplayFeatureModePolicy.LogDecisions(log, profile.ModGuid, snapshot, source);
         }
 

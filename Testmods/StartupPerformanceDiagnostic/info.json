@@ -1,0 +1,12 @@
+{
+  "GUID": "StartupPerformanceDiagnostic_Serp",
+  "Author": "Serpens66",
+  "Name": "Startup Performance Diagnostic",
+  "Description": "Local diagnostic for BepInEx, Script Extender, plugin, and frontend startup timings.",
+  "Version": "0.1.0",
+  "Website": "",
+  "MinimumScriptExtenderVersion": "2.5.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0
+}

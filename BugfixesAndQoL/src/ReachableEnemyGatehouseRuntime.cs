@@ -102,7 +102,8 @@ namespace BugfixesAndQoL
                 if (!firstQueryLogged)
                 {
                     firstQueryLogged = true;
-                    LogInfo(
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
                         $"gatehouse reachability query confirmed: buildingId={args.BuildingId}, " +
                         $"eventUnitId={candidateUnitId}, unitId={unitId}, globalId={building->r_GlobalId}.");
                 }
