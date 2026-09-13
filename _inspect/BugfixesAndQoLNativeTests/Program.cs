@@ -843,7 +843,7 @@ internal static class Program
               runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
               !production.Contains("context.Region.Dispose()"),
             "P6b borrows all native load-context values without disposing the ScanRegion");
-        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 36,
+        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 42,
             "BugfixesAndQoL owns the audited RedBird hook handles including friendly moat movement");
         Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 20,
             "BugfixesAndQoL performs one checked transaction commit for each audited hook group");

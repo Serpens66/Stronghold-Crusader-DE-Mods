@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:CrusaderDE">
+  <Operation Type="SetAttribute" XPath="//n:Grid[@Width='1080' and @Height='640']/n:Grid[@Margin='25,0,0,0']" AttributeName="x:Name" Value="CoopLordPortraitGrid" />
+  <Operation Type="Add" XPath="//n:Grid[@Width='1080' and @Height='640']/n:Grid[@x:Name='CoopLordPortraitGrid']">
+    <Content>
+      <ItemsControl x:Name="CoopCustomLordSelectionHost" ItemsSource="{Binding Choices}">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><Canvas /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemContainerStyle><Style TargetType="ContentPresenter"><Setter Property="Canvas.Left" Value="{Binding Left}" /><Setter Property="Canvas.Top" Value="{Binding Top}" /></Style></ItemsControl.ItemContainerStyle>
+        <ItemsControl.ItemTemplate><DataTemplate><Grid Width="110" Height="110">
+          <Image Width="100" Height="100" HorizontalAlignment="Left" VerticalAlignment="Top" Source="{StaticResource Face Background Generic}" />
+          <Button Width="100" Height="100" HorizontalAlignment="Left" VerticalAlignment="Top" local:PropEx.Sprite1="{Binding Portrait}" local:PropEx.Sprite2="{Binding Portrait}" local:PropEx.Sprite3="{Binding Portrait}" local:PropEx.Sprite4="{Binding Portrait}" Command="{Binding SelectCommand}" Style="{StaticResource BTN_Image}" />
+        </Grid></DataTemplate></ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </Content>
+  </Operation>
+</Patch>

@@ -353,7 +353,7 @@ namespace BugfixesAndQoL
                     unit->r_UnitChimp,
                     out AnimationTransitions animationTransitions);
 
-                uint animationState = unit->N000000F4;
+                uint animationState = unit->r_SpriteAnimationGroup;
                 if (cadence == SynchronizedMovementCadence.Running)
                 {
                     if (unit->r_SpeedBonus != runningSpeedBonus)
@@ -365,7 +365,7 @@ namespace BugfixesAndQoL
                             out uint runningState) &&
                         runningState != animationState)
                     {
-                        unit->N000000F4 = runningState;
+                        unit->r_SpriteAnimationGroup = runningState;
                     }
 
                     return;
@@ -380,7 +380,7 @@ namespace BugfixesAndQoL
                         out uint walkingState) &&
                     walkingState != animationState)
                 {
-                    unit->N000000F4 = walkingState;
+                    unit->r_SpriteAnimationGroup = walkingState;
                 }
             }
             catch (Exception ex)

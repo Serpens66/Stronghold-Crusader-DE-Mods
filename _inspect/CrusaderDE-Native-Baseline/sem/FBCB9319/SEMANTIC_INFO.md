@@ -2,11 +2,11 @@
 
 ## Identity and scope
 
-- Created: 2026-09-01; Script Extender knowledge refreshed for 2.3.0 on 2026-09-07, Europe/Berlin
+- Created: 2026-09-01; Script Extender knowledge refreshed for 2.6.0 on 2026-09-13, Europe/Berlin
 - Current native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Current `Assembly-CSharp.dll` SHA-256: `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`
 - Historical native DLL SHA-256: `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`
-- Script Extender commit: `a0cd52993b44a6909d4f7f6a92f82fa5888a8e63` (`v2.3.0`)
+- Script Extender commit: `2cee24e33b5a5d81d1c275efabc714ac59917b7b` (`v2.6.0`), Git tree `9cfb59b7b531553b23709b90b3cc3f10b0615cc1`
 - PE image base for both native DLLs: `0x180000000`
 - PDB GUID and missing Jenkins PDB path are documented in the parent `SCAN_INFO.md`.
 
@@ -32,10 +32,10 @@ Verified AssetStudio archive:
 
 `ghidra/CrusaderDE-Semantic.gpr` and its matching `.rep` directory are a copy of the raw current Ghidra baseline. Only this copy was enriched.
 
-- 3 confirmed curated claims received names and provenance comments; no 2.3.0 AOB was automatically classified as a direct function.
+- 3 confirmed curated claims received names and provenance comments; no 2.6.0 AOB was automatically classified as a direct function.
 - All 77 `CrusaderDE` exports received managed P/Invoke prototypes.
 - 119 Script Extender header types were imported into the project archive.
-- Ghidra exposes 259 data types after enrichment, including built-in/demangled types.
+- Ghidra exposes 263 data types after enrichment, including built-in/demangled types.
 - 4,478 non-external functions were exported and decompiled again.
 - Decompilation completed for 4,475 functions and failed for the same 3 explicitly recorded functions.
 - 82,610 referenced global/data symbols and 142 RTTI/vtable-related symbols were exported.
@@ -66,21 +66,21 @@ The previously observed `GatehouseQueryEventArgs.UnitId` index mismatch is delib
 
 ## Script Extender knowledge
 
-The Roslyn extractor scanned 485 source/header files and records the Script Extender 2.3.0 Git commit, relative path, source line and SHA-256 source-file hash with each derived fact.
+The Roslyn extractor scanned 509 source/header files and records the Script Extender 2.6.0 Git commit, relative path, source line and SHA-256 source-file hash with each derived fact.
 
-- AOB definitions: 337
-- Delegate signatures: 138
-- Struct/enum declarations: 105
-- Structured type fields/properties: 9,492
+- AOB definitions: 347
+- Delegate signatures: 143
+- Struct/enum declarations: 119
+- Structured type fields/properties: 9,462
 - Structured VTable members: 345
 
 AOB results for each native DLL:
 
-- 335 patterns produced exactly one match.
+- 345 patterns produced exactly one match.
 - 2 patterns produced two matches each; their four match records remain non-unique and were not applied.
 - No pattern produced zero matches.
-- No pattern was statically recognized as a direct native function under the 2.3.0 source shape.
-- All 337 patterns retain `unknown` resolution kind and were not automatically named or typed.
+- No pattern was statically recognized as a direct native function under the 2.6.0 source shape.
+- All 347 patterns retain `unknown` resolution kind and were not automatically named or typed.
 
 The conservative resolution-kind result is intentional: an exact byte match is not by itself evidence that the address is a function entry, global address, indirect target or VTable.
 
@@ -130,8 +130,8 @@ The external Dat2XAML copy has two documented container fixes: it stops before a
 | Referenced globals/data symbols | 82,610 |
 | Managed methods | 8,138 |
 | Managed-to-native callchains | 56,123 |
-| AOB match records | 678 |
-| Script Extender types / fields / VTable members | 105 / 9,492 / 345 |
+| AOB match records | 698 |
+| Script Extender types / fields / VTable members | 119 / 9,462 / 345 |
 | XAML resources | 105 |
 | Version matches | 3,818 |
 
@@ -139,12 +139,12 @@ Primary artifact integrity:
 
 | Artifact | Bytes | SHA-256 |
 |---|---:|---|
-| Local `CrusaderDE-semantic.sqlite` (reference recorded in `DATABASE_INFO.json`) | 154,923,008 | `4A7084D5C0AC45C92697A803ED6E9FCCB175AA830A659BA85234DDD1A64820E7` |
-| `exports/semantic-decompiled-functions.c` | 10,857,489 | `4B7048D0386C346606EF469B1B0C50499C44940F52529325646C860A9AEA1DAB` |
+| Local `CrusaderDE-semantic.sqlite` (reference recorded in `DATABASE_INFO.json`) | 154,927,104 | `C746F42FE9BE744B4CDEC4DE97B7D9BBFC7D8F7F5F1B4B4E87FA4CBC38E1497F` |
+| `exports/semantic-decompiled-functions.c` | 10,856,243 | `C083A04AF581DC7A4B906DCEBE11570D0CC752C7F8BCEC62AE7206016546B4F8` |
 | Current `semantic-functions.jsonl` | 3,574,616 | `58418AE6217520197158E41BC46E37ED16CAD230639393C684D099380696B447` |
 | Historical `semantic-functions.jsonl` | 3,553,531 | `9541067177CDAD5EAC47572CA32B23774526A156961F42FFBDC05908BD3355D7` |
 
-The semantic Ghidra project contains 10 files totaling 102,007,866 bytes. The historical Ghidra project contains 10 files totaling 97,354,813 bytes. Their internal project databases are validated by fresh read-only opens rather than treated as single-file archives.
+The semantic Ghidra project contains 10 files totaling 102,335,546 bytes. The historical Ghidra project contains 10 files totaling 97,354,813 bytes. Their internal project databases are validated by fresh read-only opens rather than treated as single-file archives.
 
 Deterministic subsystem classifications currently cover:
 

@@ -187,7 +187,7 @@ namespace BugfixesAndQoL
             bool hasRunningState =
                 movementPatch.TryGetNativeRunningState(
                     unit->r_UnitChimp,
-                    unit->N000000F4,
+                    unit->r_SpriteAnimationGroup,
                     out uint runningState);
 
             // Both values belong to the same decoded native fast-move case;
@@ -195,7 +195,7 @@ namespace BugfixesAndQoL
             if (hasRunningSpeedBonus && hasRunningState)
             {
                 unit->r_SpeedBonus = runningSpeedBonus;
-                unit->N000000F4 = runningState;
+                unit->r_SpriteAnimationGroup = runningState;
             }
 
             return true;

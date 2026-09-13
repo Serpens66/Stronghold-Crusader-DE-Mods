@@ -1,0 +1,14 @@
+{
+  "OldVersion": "2.5.0",
+  "NewVersion": "2.6.0",
+  "TargetCommit": "2cee24e33b5a5d81d1c275efabc714ac59917b7b",
+  "Mods": {
+    "BugfixesAndQoL": {
+      "Version": "1.0.147",
+      "MinimumScriptExtenderVersion": "2.6.0",
+      "Changes": [
+        "Made Friendly Moat Movement coexist with Script Extender 2.6.0's Assassin-selection override while preserving resolution-aware extended zoom compatibility."
+      ]
+    }
+  }
+}

@@ -98,7 +98,7 @@ namespace BugfixesAndQoL
         private AttackCommandScope activeAttackCommand;
         private object activeAttackApproachDiagnostic;
         private int* cursorTargetX, cursorTargetY;
-        private Func<IntPtr,int> originalCursorTilePairFallbackSelection, selectionCanDigMoat;
+        private Func<IntPtr,int> selectionCanDigMoat;
         private Func<IntPtr,int,int> getRepresentativeSelectedUnit;
         private bool TryResolveHostileLivingBuildingFromRawCursor(int p,uint b,uint h,uint m2,uint m,int x,int y,out int tx,out int ty,out int tile,out BuildingCursorTarget target)
         { tx=ty=tile=-1;target=default;return false; }

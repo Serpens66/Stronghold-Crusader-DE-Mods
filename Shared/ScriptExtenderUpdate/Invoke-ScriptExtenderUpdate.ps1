@@ -133,6 +133,12 @@ if ($missingInventory -or $staleInventory) {
     throw "Plugin inventory mismatch. Missing: $($missingInventory -join ', '); stale: $($staleInventory -join ', ')"
 }
 
+# Complete the runtime hard-gate before creating reports or mutating compatibility
+# metadata. Invoke-SECheckpointBuild repeats the same check immediately before each build.
+foreach ($mod in $activeMods) {
+    Assert-SERuntimeModPreflight $mod $workspace
+}
+
 $actualCommit = (& git -C $extenderRoot rev-parse HEAD).Trim()
 $tagCommit = (& git -C $extenderRoot rev-list -n 1 $NewTag).Trim()
 $treeHash = (& git -C $extenderRoot rev-parse 'HEAD^{tree}').Trim()

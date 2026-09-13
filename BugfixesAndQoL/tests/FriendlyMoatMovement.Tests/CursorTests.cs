@@ -106,7 +106,7 @@ namespace BugfixesAndQoL
             cursorTargetX=coordinates; cursorTargetY=coordinates+1; *cursorTargetX=17; *cursorTargetY=10;
             player.Cursor=cursor; *(int*)nativeUnitManager=1025;
             EngineInterface.Selection=new[]{1,0}; units[1].r_UnitSelected=1;
-            originalCursorTilePairFallbackSelection=_=>0;
+            int upstreamSelectionResult=0;
             getRepresentativeSelectedUnit=(_,kind)=>EngineInterface.Selection.Length==0?0:EngineInterface.Selection[0];
             selectionCanDigMoat=_=>{
                 for(int i=0;i<EngineInterface.Selection.Length;i+=2)
@@ -118,7 +118,8 @@ namespace BugfixesAndQoL
             int Hover(int pairTarget=1017)
             {
                 pendingAttackCursorPair=null;
-                int gate=ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager);
+                int gate=ObserveCursorTilePairFallbackSelection(
+                    (IntPtr)nativeUnitManager,upstreamSelectionResult);
                 return gate==0?0:AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,pairTarget,1010,1);
             }
             try
@@ -191,7 +192,8 @@ namespace BugfixesAndQoL
                 *cursorTargetX=18;
                 movementTargetAvailability[10*800+17]=0;
                 Check(Hover()==1,"unit attack uses physical target region despite sprite offset and occupied target");
-                ObserveCursorTilePairFallbackSelection((IntPtr)nativeUnitManager);
+                ObserveCursorTilePairFallbackSelection(
+                    (IntPtr)nativeUnitManager,upstreamSelectionResult);
                 var bound=pendingAttackCursorPair;
                 units[1001].r_GlobalId++;
                 Check(!TryProbeUnitApproachCursorRoute(bound,out _,out _,out _),"reused attack target ID rejected");
@@ -206,8 +208,12 @@ namespace BugfixesAndQoL
                 movementTargetAvailability[10*800+17]=1; *cursorTargetX=17;
                 units[2].Digger=false; EngineInterface.Selection=new[]{2,0,1,0};
                 Check(Hover()==1,"mixed selection resolves an eligible digger without granting a moat capability to others");
-                EngineInterface.Selection=new[]{2,0}; originalCursorTilePairFallbackSelection=_=>1;
+                EngineInterface.Selection=new[]{2,0}; upstreamSelectionResult=1;
                 Check(Hover()==7 && nativeCalls==1,"native special selection without diggers retains original pair behavior");
+                upstreamSelectionResult=7;
+                Check(ObserveCursorTilePairFallbackSelection(
+                        (IntPtr)nativeUnitManager,upstreamSelectionResult)==7,
+                    "positive Script Extender overrides remain authoritative");
             }
             finally
             {

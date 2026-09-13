@@ -346,6 +346,34 @@
     ]
   },
   {
+    "Name": "MoatMove",
+    "Guid": "MoatMove_Serp",
+    "Manifest": "Testmods\\MoatMove\\info.json",
+    "Plugin": "Testmods\\MoatMove\\src\\MoatMovePlugin.cs",
+    "Project": "Testmods\\MoatMove\\MoatMove.csproj",
+    "BuildDriver": "Testmods\\MoatMove\\build.bat",
+    "Package": "Testmods\\MoatMove\\BepInEx\\plugins\\MoatMove_Serp",
+    "Install": "MoatMove_Serp",
+    "BuildOrder": 100,
+    "DependsOn": [],
+    "Active": false,
+    "InactiveReason": "Unmodified comparison copy replaced by BugfixesAndQoL; intentionally excluded from update builds and installation."
+  },
+  {
+    "Name": "StartupPerformanceDiagnostic",
+    "Guid": "StartupPerformanceDiagnostic_Serp",
+    "Manifest": "Testmods\\StartupPerformanceDiagnostic\\info.json",
+    "Plugin": "Testmods\\StartupPerformanceDiagnostic\\src\\StartupPerformanceDiagnosticPlugin.cs",
+    "Project": "Testmods\\StartupPerformanceDiagnostic\\StartupPerformanceDiagnostic.csproj",
+    "BuildDriver": "Testmods\\StartupPerformanceDiagnostic\\build.bat",
+    "Package": "Testmods\\StartupPerformanceDiagnostic\\BepInEx\\plugins\\StartupPerformanceDiagnostic_Serp",
+    "Install": "StartupPerformanceDiagnostic_Serp",
+    "BuildOrder": 100,
+    "DependsOn": [],
+    "Active": false,
+    "InactiveReason": "One-shot startup diagnostic; intentionally excluded from production update builds and installation."
+  },
+  {
     "Name": "KnightArmorAIBuyFixBackup",
     "Guid": "KnightArmorAIBuyFixBackup_Serp",
     "Manifest": "Testmods\\KnightArmorAIBuyFixBackup\\info.json",

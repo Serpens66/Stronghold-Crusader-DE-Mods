@@ -2,6 +2,9 @@ using BepInEx.Logging;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
+using RedBird.X64.Assembly;
+using RedBird.X64.Hooks;
+using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using R3;
 using SHCDESE.API;
@@ -61,9 +64,6 @@ namespace BugfixesAndQoL
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int CursorReachabilityDelegate(
             IntPtr pathManager, int unitId, int targetX, int targetY);
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate int CursorTilePairFallbackSelectionDelegate(IntPtr selectionState);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int SelectionCanDigMoatDelegate(IntPtr selectionState);
@@ -157,6 +157,36 @@ namespace BugfixesAndQoL
         private const int RegionReachabilityRva = 0xE7C40;
         private const int CursorReachabilityRva = 0xE9FF0;
         private const int CursorTilePairFallbackSelectionRva = 0x196870;
+        private static readonly int[] CursorTilePairFallbackCallRvas =
+        {
+            0x8D724, 0x8E2B8, 0x8E550, 0x8F325, 0xB7161, 0xB7321
+        };
+        private static readonly int[] CursorTilePairFallbackResultHookRvas =
+        {
+            0x8D729, 0x8E2BD, 0x8E555, 0x8F32A, 0xB7166, 0xB7326
+        };
+        private static readonly int[] CursorTilePairFallbackResultHookLengths =
+        {
+            19, 14, 19, 20, 14, 16
+        };
+        private static readonly byte[][] CursorTilePairFallbackCallBytes =
+        {
+            new byte[] { 0xE8, 0x47, 0x91, 0x10, 0x00 },
+            new byte[] { 0xE8, 0xB3, 0x85, 0x10, 0x00 },
+            new byte[] { 0xE8, 0x1B, 0x83, 0x10, 0x00 },
+            new byte[] { 0xE8, 0x46, 0x75, 0x10, 0x00 },
+            new byte[] { 0xE8, 0x0A, 0xF7, 0x0D, 0x00 },
+            new byte[] { 0xE8, 0x4A, 0xF5, 0x0D, 0x00 }
+        };
+        private static readonly byte[][] CursorTilePairFallbackResultHookBytes =
+        {
+            new byte[] { 0x85, 0xC0, 0x74, 0x23, 0x46, 0x8B, 0x84, 0x26, 0x2C, 0x07, 0x00, 0x00, 0x48, 0x8D, 0x0D, 0x24, 0xFF, 0x01, 0x06 },
+            new byte[] { 0x48, 0x8D, 0x15, 0x3C, 0x1D, 0xF7, 0xFF, 0x85, 0xC0, 0x74, 0x63, 0x48, 0x63, 0xC7 },
+            new byte[] { 0x85, 0xC0, 0x74, 0x23, 0x45, 0x8B, 0x84, 0x2C, 0x2C, 0x07, 0x00, 0x00, 0x48, 0x8D, 0x0D, 0xF8, 0xF0, 0x01, 0x06 },
+            new byte[] { 0x49, 0x8B, 0xFE, 0x85, 0xC0, 0x74, 0x34, 0x8B, 0x15, 0xF1, 0x2A, 0x98, 0x03, 0x48, 0x8D, 0x0D, 0x22, 0xE3, 0x01, 0x06 },
+            new byte[] { 0x45, 0x33, 0xF6, 0xB9, 0x01, 0x00, 0x00, 0x00, 0x85, 0xC0, 0x44, 0x0F, 0x45, 0xF1 },
+            new byte[] { 0x85, 0xC0, 0x75, 0x7E, 0x48, 0x8B, 0xF3, 0x33, 0xDB, 0x90, 0x42, 0x0F, 0xB6, 0x4C, 0x3D, 0x00 }
+        };
         private const int SelectionCanDigMoatRva = 0x191C00;
         private const int SelectionCanDigMoatCallRva = 0x8D3CE;
         private const int CursorTilePairReachabilityRva = 0xE2CA0;
@@ -366,10 +396,6 @@ namespace BugfixesAndQoL
             "44 89 4C 24 20 44 89 44 24 18 53 55 56 57 41 54 41 55 41 56 " +
             "48 83 EC 50 48 63 F2 45 33 ED 33 D2 49 63 E8 49 63 C1 48 8B D9";
 
-        private const string CursorTilePairFallbackSelectionPattern =
-            "83 B9 BC 05 00 00 00 74 27 33 C0 48 81 C1 64 05 00 00 48 83 F8 16 " +
-            "74 05 83 39 00 75 13 48 FF C0 48 83 C1 04 48 83 F8 23 7C E8 B8 01 00 00 00 C3";
-
         private const string SelectionCanDigMoatPattern =
             "83 B9 80 05 00 00 00 75 54 83 B9 B4 05 00 00 00 75 4B " +
             "83 B9 68 05 00 00 00 75 42 83 B9 64 05 00 00 00 75 39 " +
@@ -506,8 +532,7 @@ namespace BugfixesAndQoL
         private GetTribeMovementModeDelegate getTribeMovementMode;
         private CursorReachabilityDelegate originalCursorReachability;
         private CursorReachabilityDelegate rootedCursorReachability;
-        private CursorTilePairFallbackSelectionDelegate originalCursorTilePairFallbackSelection;
-        private CursorTilePairFallbackSelectionDelegate rootedCursorTilePairFallbackSelection;
+        private ContextHookDelegate rootedCursorTilePairFallbackResultObserver;
         private SelectionCanDigMoatDelegate selectionCanDigMoat;
         private CursorTilePairReachabilityDelegate originalCursorTilePairReachability;
         private CursorTilePairReachabilityDelegate rootedCursorTilePairReachability;
@@ -538,7 +563,12 @@ namespace BugfixesAndQoL
         private RedBirdDetour<TribeFloodFillMembershipDelegate> tribeFloodFillMembershipDetour;
         private RedBirdDetour<FirstGroupUnitOnCompletedMoatDelegate> firstGroupUnitOnCompletedMoatDetour;
         private RedBirdDetour<CursorReachabilityDelegate> cursorReachabilityDetour;
-        private RedBirdDetour<CursorTilePairFallbackSelectionDelegate> cursorTilePairFallbackSelectionDetour;
+        private readonly HookHandle<X64InlineHook>[] cursorTilePairFallbackResultHooks =
+        {
+            new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>(),
+            new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>(),
+            new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>()
+        };
         private RedBirdDetour<CursorTilePairReachabilityDelegate> cursorTilePairReachabilityDetour;
         private RedBirdDetour<CursorRegionPrecheckDelegate> cursorRegionPrecheckDetour;
         private RedBirdDetour<AttackApproachFloodBuilderDelegate> attackApproachFloodBuilderDetour;
@@ -676,9 +706,6 @@ namespace BugfixesAndQoL
             Shared.NativeResolution cursorResolution = Resolve(
                 memory, CursorReachabilityFunctionPattern, CursorReachabilityRva,
                 "ordinary-movement cursor reachability function");
-            Shared.NativeResolution cursorModeResolution = Resolve(
-                memory, CursorTilePairFallbackSelectionPattern, CursorTilePairFallbackSelectionRva,
-                "cursor tile-pair fallback selection gate");
             Shared.NativeResolution selectionCanDigResolution = Resolve(
                 memory, SelectionCanDigMoatPattern, SelectionCanDigMoatRva,
                 "Vanilla selection-can-dig-moat helper");
@@ -703,6 +730,8 @@ namespace BugfixesAndQoL
                 "attack-building cursor tile-pair gate context");
             Resolve(memory, AttackAlternativePairGatePattern, AttackAlternativePairGateJumpRva - 0x0E,
                 "alternative attack cursor tile-pair gate context");
+
+            ValidateCursorTilePairFallbackResultHookContracts(memory, libraryBase);
 
             ValidateExactBytes(
                 memory,
@@ -1041,7 +1070,7 @@ namespace BugfixesAndQoL
             rootedUnitStandingOnCompletedMoat = EnableCompletedMoatModeForScopedMovement;
             rootedRegionReachability = AllowBuilderAfterFailedRegionSearch;
             rootedCursorReachability = AllowCursorReachabilityThroughCompletedMoat;
-            rootedCursorTilePairFallbackSelection = ObserveCursorTilePairFallbackSelection;
+            rootedCursorTilePairFallbackResultObserver = ObserveCursorTilePairFallbackSelectionContext;
             rootedCursorTilePairReachability = AllowAttackCursorTilePairThroughCompletedMoat;
             rootedCursorRegionPrecheck = AllowCursorRegionThroughCompletedMoat;
             rootedCombatFinishResume = ResumeMovementAfterCombatWithMoatContext;
@@ -1058,7 +1087,6 @@ namespace BugfixesAndQoL
             RedBirdDetour<UnitStandingOnCompletedMoatDelegate> pendingMode = null;
             RedBirdDetour<RegionReachabilityDelegate> pendingRegion = null;
             RedBirdDetour<CursorReachabilityDelegate> pendingCursor = null;
-            RedBirdDetour<CursorTilePairFallbackSelectionDelegate> pendingCursorMode = null;
             RedBirdDetour<CursorTilePairReachabilityDelegate> pendingCursorTilePair = null;
             RedBirdDetour<CursorRegionPrecheckDelegate> pendingCursorRegion = null;
             try
@@ -1096,10 +1124,18 @@ namespace BugfixesAndQoL
                     pendingTransaction,
                     libraryBase + unchecked((ulong)cursorResolution.Rva),
                     rootedCursorReachability);
-                pendingCursorMode = AddDetour(
-                    pendingTransaction,
-                    libraryBase + unchecked((ulong)cursorModeResolution.Rva),
-                    rootedCursorTilePairFallbackSelection);
+                for (int i = 0; i < cursorTilePairFallbackResultHooks.Length; i++)
+                {
+                    BugfixesHookInfrastructure.AddContextHook(
+                        pendingTransaction,
+                        cursorTilePairFallbackResultHooks[i],
+                        libraryBase + unchecked((ulong)CursorTilePairFallbackResultHookRvas[i]),
+                        rootedCursorTilePairFallbackResultObserver,
+                        registers: X64SmartCPUContextRegs.RAX,
+                        hookSize: CursorTilePairFallbackResultHookLengths[i],
+                        errorMode: CallbackErrorMode.LogAndContinue,
+                        placement: OverwrittenInstructionPlacement.AfterCallback);
+                }
                 pendingCursorTilePair = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)cursorTilePairResolution.Rva),
                     rootedCursorTilePairReachability);
@@ -1114,7 +1150,7 @@ namespace BugfixesAndQoL
                     !pendingCursorMoveStager.Committed || !pendingBuilder.Committed ||
                     !pendingReconstruction.Committed || !pendingFlood.Committed ||
                     !pendingGroupMoat.Committed || !pendingMode.Committed || !pendingRegion.Committed ||
-                    !pendingCursor.Committed || !pendingCursorMode.Committed ||
+                    !pendingCursor.Committed || !CursorTilePairFallbackResultHooksCommitted(libraryBase) ||
                     !pendingCursorTilePair.Committed || !pendingCursorRegion.Committed)
                 {
                     throw new InvalidOperationException(
@@ -1131,7 +1167,6 @@ namespace BugfixesAndQoL
                 originalUnitStandingOnCompletedMoat = pendingMode.Original;
                 originalRegionReachability = pendingRegion.Original;
                 originalCursorReachability = pendingCursor.Original;
-                originalCursorTilePairFallbackSelection = pendingCursorMode.Original;
                 originalCursorTilePairReachability = pendingCursorTilePair.Original;
                 originalCursorRegionPrecheck = pendingCursorRegion.Original;
 
@@ -1145,7 +1180,6 @@ namespace BugfixesAndQoL
                 unitStandingOnCompletedMoatDetour = pendingMode;
                 regionReachabilityDetour = pendingRegion;
                 cursorReachabilityDetour = pendingCursor;
-                cursorTilePairFallbackSelectionDetour = pendingCursorMode;
                 cursorTilePairReachabilityDetour = pendingCursorTilePair;
                 cursorRegionPrecheckDetour = pendingCursorRegion;
                 mainHookTransaction = pendingTransaction;
@@ -1167,7 +1201,8 @@ namespace BugfixesAndQoL
                     $"cursorRegion=0x{cursorRegionResolution.Rva:X}, cursorDirect=0x{cursorResolution.Rva:X}, " +
                     $"cursorPair=0x{cursorTilePairResolution.Rva:X}, representativeUnit=0x{representativeUnitResolution.Rva:X}, " +
                     $"attackPairGates=0x{AttackUnitPairGateJumpRva:X}/0x{AttackBuildingPairGateJumpRva:X}/" +
-                    $"0x{AttackAlternativePairGateJumpRva:X}(all-vanilla), semanticSelectionGate=true, " +
+                    $"0x{AttackAlternativePairGateJumpRva:X}(all-vanilla), " +
+                    "selectionGate=SE-owned/call-result-hooks=6, " +
                     $"plan=0x{planResolution.Rva:X}, mode=0x{modeResolution.Rva:X}, " +
                     $"region=0x{regionResolution.Rva:X}, builder=0x{builderResolution.Rva:X}, " +
                     $"postCombatResume=0x{combatFinishResumeResolution.Rva:X}->" +
@@ -6273,10 +6308,29 @@ namespace BugfixesAndQoL
             }
         }
 
-        private int ObserveCursorTilePairFallbackSelection(IntPtr selectionState)
+        private void ObserveCursorTilePairFallbackSelectionContext(
+            NativePointer<X64SmartCPUContext> context)
+        {
+            int upstreamResult = unchecked((int)(uint)context.Pointer->RAX);
+            try
+            {
+                int effectiveResult = ObserveCursorTilePairFallbackSelection(
+                    unchecked((IntPtr)nativeUnitManager), upstreamResult);
+                context.Pointer->RAX = unchecked((ulong)(uint)effectiveResult);
+            }
+            catch (Exception ex)
+            {
+                // The Script Extender/Vanilla result remains untouched if our observer fails.
+                pendingAttackCursorPair = null;
+                LogFailure("cursor-selection-context", ex);
+            }
+        }
+
+        private int ObserveCursorTilePairFallbackSelection(
+            IntPtr selectionState, int upstreamResult)
         {
             if (activeBuildingCursorConnectivity != null) return 1;
-            int vanillaResult = originalCursorTilePairFallbackSelection(selectionState);
+            int vanillaResult = upstreamResult;
             pendingAttackCursorPair = null;
             if (disposed || selectionState == IntPtr.Zero)
                 return vanillaResult;
@@ -8664,6 +8718,93 @@ namespace BugfixesAndQoL
                     $"Unexpected {structType.Name}.{fieldName} offset 0x{actualOffset:X}; " +
                     $"expected 0x{expectedOffset:X}.");
             }
+        }
+
+        private static void ValidateCursorTilePairFallbackResultHookContracts(
+            ReadOnlySpan<byte> memory, ulong libraryBase)
+        {
+            if (CursorTilePairFallbackCallRvas.Length != CursorTilePairFallbackResultHookRvas.Length ||
+                CursorTilePairFallbackResultHookRvas.Length != CursorTilePairFallbackResultHookLengths.Length ||
+                CursorTilePairFallbackResultHookLengths.Length != CursorTilePairFallbackCallBytes.Length ||
+                CursorTilePairFallbackCallBytes.Length != CursorTilePairFallbackResultHookBytes.Length)
+            {
+                throw new InvalidOperationException(
+                    "The cursor fallback result-hook contract tables are inconsistent.");
+            }
+
+            for (int i = 0; i < CursorTilePairFallbackResultHookRvas.Length; i++)
+            {
+                string label = $"cursor fallback result call site {i + 1}";
+                ValidateCallTarget(
+                    memory,
+                    CursorTilePairFallbackCallRvas[i],
+                    CursorTilePairFallbackSelectionRva,
+                    CursorTilePairFallbackCallBytes[i],
+                    label + " call");
+                ValidateExactBytes(
+                    memory,
+                    CursorTilePairFallbackResultHookRvas[i],
+                    CursorTilePairFallbackResultHookBytes[i],
+                    label + " displaced instructions");
+
+                using (var probe = new X64InlineHook(
+                    libraryBase + unchecked((ulong)CursorTilePairFallbackResultHookRvas[i]),
+                    CursorTilePairFallbackResultHookLengths[i]))
+                {
+                    if (probe.DisplacedByteCount != CursorTilePairFallbackResultHookLengths[i])
+                    {
+                        throw new InvalidOperationException(
+                            $"Unexpected RedBird instruction boundary for {label}: " +
+                            $"{probe.DisplacedByteCount} bytes instead of " +
+                            $"{CursorTilePairFallbackResultHookLengths[i]}.");
+                    }
+                }
+            }
+
+            ValidateShortBranchTarget(memory, 0x8D729, 2, 0x8D750, "primary move rejection");
+            ValidateShortBranchTarget(memory, 0x8E2BD, 9, 0x8E32B, "building attack rejection");
+            ValidateShortBranchTarget(memory, 0x8E555, 2, 0x8E57C, "alternative attack rejection");
+            ValidateShortBranchTarget(memory, 0x8F32A, 5, 0x8F365, "wall attack rejection");
+            ValidateShortBranchTarget(memory, 0xB7326, 2, 0xB73A8, "approach scan acceptance");
+        }
+
+        private static void ValidateShortBranchTarget(
+            ReadOnlySpan<byte> memory,
+            int instructionBlockRva,
+            int branchOffset,
+            int expectedTargetRva,
+            string label)
+        {
+            int opcodeRva = instructionBlockRva + branchOffset;
+            byte opcode = memory[opcodeRva];
+            if (opcode != 0x74 && opcode != 0x75)
+                throw new InvalidOperationException($"The validated {label} is not a short JZ/JNZ branch.");
+
+            int actualTargetRva = opcodeRva + 2 + unchecked((sbyte)memory[opcodeRva + 1]);
+            if (actualTargetRva != expectedTargetRva)
+            {
+                throw new InvalidOperationException(
+                    $"The validated {label} targets 0x{actualTargetRva:X} instead of " +
+                    $"0x{expectedTargetRva:X}.");
+            }
+        }
+
+        private bool CursorTilePairFallbackResultHooksCommitted(ulong libraryBase)
+        {
+            for (int i = 0; i < cursorTilePairFallbackResultHooks.Length; i++)
+            {
+                HookHandle<X64InlineHook> handle = cursorTilePairFallbackResultHooks[i];
+                ulong expectedAddress = libraryBase +
+                    unchecked((ulong)CursorTilePairFallbackResultHookRvas[i]);
+                if (!handle.Success || !handle.IsInstalled || handle.Failure != null ||
+                    handle.ResolvedAddress != expectedAddress || handle.Hook == null ||
+                    handle.Hook.DisplacedByteCount != CursorTilePairFallbackResultHookLengths[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void ValidateCallTarget(

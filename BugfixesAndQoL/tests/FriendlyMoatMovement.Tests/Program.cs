@@ -18,7 +18,7 @@ string[] runtimeSourceNames =
     "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
     "MoveFormationSpacingPolicy.cs",
     "NativeMovementCadenceResolver.cs", "NativeMovementRecovery.cs", "UnitMovementContext.cs",
-    "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs"
+    "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs", "BugfixesHookInfrastructure.cs"
 };
 var trees = runtimeSourceNames.Select(name => Path.Combine(sourceDir, name))
     .Select(p => CSharpSyntaxTree.ParseText(File.ReadAllText(p), path: p)).ToArray();

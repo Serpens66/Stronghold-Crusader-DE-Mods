@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Xml;
+using Iced.Intel;
 using SHCDESE.Interop;
 
 namespace BugfixesAndQoL
@@ -48,6 +49,7 @@ namespace BugfixesAndQoL
             TestTemporaryGateBlockageIntegration();
             TestResolutionAwareZoomPolicy();
             TestResolutionAwareZoomIntegration();
+            TestSpriteAnimationGroup26Contract();
             TestMapFileManagerContract();
             TestClassicMapSizeReader();
             TestLobbyMapSelectionMemory();
@@ -121,6 +123,28 @@ namespace BugfixesAndQoL
                     hook.Contains("settings.EnableResolutionAwareExtendedZoom") &&
                     hook.Contains("ResolutionAwareZoomPolicy.ResolvePosition"),
                 "zoom hook is fail-closed and dynamically setting-gated");
+            Type zoomType = typeof(PerfectPixelWithZoom);
+            string[] floatFields =
+                { "zoomPos", "pixelsPerUnitScale", "zoomCurrentValue", "zoomNextValue" };
+            bool managedContractMatches = true;
+            foreach (string fieldName in floatFields)
+            {
+                FieldInfo field = zoomType.GetField(
+                    fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+                managedContractMatches &= field != null && field.FieldType == typeof(float);
+            }
+            managedContractMatches &=
+                zoomType.GetMethod("adjustZoom", new[] { typeof(float), typeof(bool) })?.ReturnType == typeof(void) &&
+                zoomType.GetMethod("SetZoomImmediate", new[] { typeof(float) })?.ReturnType == typeof(void) &&
+                zoomType.GetMethod("Zoom", BindingFlags.Instance | BindingFlags.NonPublic,
+                    null, new[] { typeof(float) }, null)?.ReturnType == typeof(void) &&
+                zoomType.GetMethod("Update", BindingFlags.Instance | BindingFlags.NonPublic,
+                    null, Type.EmptyTypes, null)?.ReturnType == typeof(void);
+            Check(managedContractMatches,
+                "resolution-aware zoom reflection targets match the installed Vanilla managed contract");
+            Check(typeof(SHCDESE.API.GamePlayerManagerAPI).Assembly.GetName().Version ==
+                    new Version(2, 6, 0, 0),
+                "resolution-aware zoom is tested against installed Script Extender 2.6.0");
             Check(viewModel.Contains("public bool EnableResolutionAwareExtendedZoom") &&
                     viewModel.Contains("new LocalPerPlayerSetting<bool>(true)"),
                 "resolution-aware zoom is a default-on per-player setting");
@@ -135,6 +159,30 @@ namespace BugfixesAndQoL
                         text.Contains("BugfixesAndQoL.EnableResolutionAwareExtendedZoomHelp="),
                     "resolution-aware zoom localization exists in " + Path.GetFileName(locale));
             }
+        }
+
+        private static unsafe void TestSpriteAnimationGroup26Contract()
+        {
+            Check(Marshal.OffsetOf(
+                    typeof(GameUnit),
+                    nameof(GameUnit.r_SpriteAnimationGroup)).ToInt32() == 0x04,
+                "SE 2.6 sprite-animation group keeps the audited GameUnit offset");
+
+            GameUnit unit = default;
+            unit.r_SpriteAnimationGroup = 0x12345678u;
+            Check(unit.r_SpriteAnimationGroup == 0x12345678u,
+                "SE 2.6 sprite-animation group reads and writes the installed layout");
+
+            string projectDirectory = FindProjectDirectory();
+            string fastRecruit = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "FastRecruitRallyMovementRuntime.cs"));
+            string cadence = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
+            Check(fastRecruit.Contains("unit->r_SpriteAnimationGroup") &&
+                    cadence.Contains("unit->r_SpriteAnimationGroup") &&
+                    !fastRecruit.Contains("N000000F4") &&
+                    !cadence.Contains("unit->N000000F4"),
+                "movement features use the named SE 2.6 sprite-animation group field");
         }
 
         private static bool AlmostEqual(float left, float right) =>
@@ -1115,6 +1163,8 @@ namespace BugfixesAndQoL
         {
             string projectDirectory = FindProjectDirectory();
             string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            string friendlyRuntime = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "FriendlyMoatMovementRuntime.cs"));
             string moatWork = File.ReadAllText(Path.Combine(projectDirectory, "src", "MoatWorkTargetSelection.cs"));
             string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
@@ -1161,6 +1211,29 @@ namespace BugfixesAndQoL
                 "friendly moat tooltips start with the experimental warning and mention precise-mode group lag");
             Check(plugin.Contains("[BepInIncompatibility(LegacyMoveMoatGuid)]"),
                 "legacy standalone plugin is explicitly incompatible");
+            Check(!friendlyRuntime.Contains("RedBirdDetour<CursorTilePairFallbackSelectionDelegate>") &&
+                    friendlyRuntime.Contains("selectionGate=SE-owned/call-result-hooks=6") &&
+                    friendlyRuntime.Contains("X64SmartCPUContextRegs.RAX") &&
+                    friendlyRuntime.Contains("OverwrittenInstructionPlacement.AfterCallback") &&
+                    friendlyRuntime.Contains("CursorTilePairFallbackResultHooksCommitted"),
+                "friendly moat selection observes six RAX-only post-call results without detouring the SE-owned function");
+            Check(friendlyRuntime.Contains("The Script Extender/Vanilla result remains untouched") &&
+                    friendlyRuntime.Contains("int vanillaResult = upstreamResult;") &&
+                    friendlyRuntime.Contains("if (vanillaResult == 0 && functionalArmed)"),
+                "friendly moat selection preserves positive SE results and fails closed to the upstream result");
+            int contextStart = friendlyRuntime.IndexOf(
+                "private void ObserveCursorTilePairFallbackSelectionContext", StringComparison.Ordinal);
+            int observerStart = friendlyRuntime.IndexOf(
+                "private int ObserveCursorTilePairFallbackSelection(", contextStart, StringComparison.Ordinal);
+            string contextMethod = contextStart >= 0 && observerStart > contextStart
+                ? friendlyRuntime.Substring(contextStart, observerStart - contextStart)
+                : string.Empty;
+            int resultWrite = contextMethod.IndexOf("context.Pointer->RAX =", StringComparison.Ordinal);
+            int failureCatch = contextMethod.IndexOf("catch (Exception ex)", StringComparison.Ordinal);
+            Check(resultWrite > 0 && failureCatch > resultWrite &&
+                    contextMethod.IndexOf("context.Pointer->RAX =", resultWrite + 1,
+                        StringComparison.Ordinal) < 0,
+                "friendly moat callback writes RAX only after success and leaves it untouched on errors");
         }
 
         private static void TestAiDefensePatrolPolicy()
@@ -1670,6 +1743,31 @@ namespace BugfixesAndQoL
             CheckBytes(image, MovementPlannerStructureFlagGateRva,
                 new byte[] { 0xF7, 0x84, 0x8A, 0xB0, 0x71, 0x8F, 0x04,
                 0x00, 0x01, 0x00, 0x10 }, "movement structure-flag gate bytes");
+            int[] fallbackCalls = { 0x8D724, 0x8E2B8, 0x8E550, 0x8F325, 0xB7161, 0xB7321 };
+            int[] fallbackHooks = { 0x8D729, 0x8E2BD, 0x8E555, 0x8F32A, 0xB7166, 0xB7326 };
+            byte[][] fallbackSpans =
+            {
+                new byte[] { 0x85, 0xC0, 0x74, 0x23, 0x46, 0x8B, 0x84, 0x26, 0x2C, 0x07, 0x00, 0x00, 0x48, 0x8D, 0x0D, 0x24, 0xFF, 0x01, 0x06 },
+                new byte[] { 0x48, 0x8D, 0x15, 0x3C, 0x1D, 0xF7, 0xFF, 0x85, 0xC0, 0x74, 0x63, 0x48, 0x63, 0xC7 },
+                new byte[] { 0x85, 0xC0, 0x74, 0x23, 0x45, 0x8B, 0x84, 0x2C, 0x2C, 0x07, 0x00, 0x00, 0x48, 0x8D, 0x0D, 0xF8, 0xF0, 0x01, 0x06 },
+                new byte[] { 0x49, 0x8B, 0xFE, 0x85, 0xC0, 0x74, 0x34, 0x8B, 0x15, 0xF1, 0x2A, 0x98, 0x03, 0x48, 0x8D, 0x0D, 0x22, 0xE3, 0x01, 0x06 },
+                new byte[] { 0x45, 0x33, 0xF6, 0xB9, 0x01, 0x00, 0x00, 0x00, 0x85, 0xC0, 0x44, 0x0F, 0x45, 0xF1 },
+                new byte[] { 0x85, 0xC0, 0x75, 0x7E, 0x48, 0x8B, 0xF3, 0x33, 0xDB, 0x90, 0x42, 0x0F, 0xB6, 0x4C, 0x3D, 0x00 }
+            };
+            for (int index = 0; index < fallbackCalls.Length; index++)
+            {
+                Check(image.CountNearCalls(fallbackCalls[index], 5, 0x196870) == 1,
+                    $"cursor fallback call {index + 1} still targets the SE-owned selector");
+                CheckBytes(image, fallbackHooks[index], fallbackSpans[index],
+                    $"cursor fallback result hook {index + 1} exact displaced bytes");
+                CheckInstructionSpan(fallbackSpans[index], fallbackHooks[index],
+                    $"cursor fallback result hook {index + 1} instruction boundaries");
+            }
+            CheckShortBranch(image, 0x8D729, 2, 0x8D750, "primary move rejection branch");
+            CheckShortBranch(image, 0x8E2BD, 9, 0x8E32B, "building attack rejection branch");
+            CheckShortBranch(image, 0x8E555, 2, 0x8E57C, "alternative attack rejection branch");
+            CheckShortBranch(image, 0x8F32A, 5, 0x8F365, "wall attack rejection branch");
+            CheckShortBranch(image, 0xB7326, 2, 0xB73A8, "approach scan acceptance branch");
             const string aiWallTargetingPattern =
                 "8B D3 49 8B CC E8 ?? ?? ?? ?? 85 C0 75 63 8B 05 ?? ?? ?? ?? " +
                 "4C 8D 3D ?? ?? ?? ?? 41 8D 04 C6 48 98 41 8B 14 87 03 D3 " +
@@ -1781,6 +1879,28 @@ namespace BugfixesAndQoL
             for (int i = 0; equal && i < expected.Length; i++)
                 equal = actual[i] == expected[i];
             Check(equal, name);
+        }
+
+        private static void CheckInstructionSpan(byte[] bytes, int rva, string name)
+        {
+            var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+            decoder.IP = unchecked((ulong)rva);
+            ulong expectedEnd = unchecked((ulong)(rva + bytes.Length));
+            bool valid = true;
+            while (decoder.IP < expectedEnd)
+            {
+                decoder.Decode(out Instruction instruction);
+                valid &= instruction.Code != Code.INVALID && decoder.IP <= expectedEnd;
+            }
+            Check(valid && decoder.IP == expectedEnd, name);
+        }
+
+        private static void CheckShortBranch(
+            PeImage image, int blockRva, int branchOffset, int expectedTargetRva, string name)
+        {
+            byte[] bytes = image.ReadRva(blockRva + branchOffset, 2);
+            int target = blockRva + branchOffset + 2 + unchecked((sbyte)bytes[1]);
+            Check((bytes[0] == 0x74 || bytes[0] == 0x75) && target == expectedTargetRva, name);
         }
 
         private static void Check(bool condition, string name)
