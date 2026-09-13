@@ -416,6 +416,7 @@ namespace BugfixesAndQoL
             subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnBuildingDelete));
+            // SaveLifecycle: ResetOnly - save loading already enters OnUnloadMap(Pre).
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(_ => ResetConflictState()));

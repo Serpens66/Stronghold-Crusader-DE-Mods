@@ -6,6 +6,18 @@ function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw "Steam pack policy test failed: $Message" }
 }
 
+function Get-TestFileSha256([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString($sha256.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion '1.0.10' -PreparedVersion '1.0.12') -ceq '1.0.12') 'a prepared host version must not be lowered'
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion '1.0.11' -PreparedVersion '1.0.11') -ceq '1.0.12') 'an unchanged host version must advance past the published pack'
 Assert-True ((Resolve-SteamPackVersion -PreviousVersion $null -PreparedVersion '0.9.0') -ceq '1.0.0') 'the first pack must start at least at 1.0.0'
@@ -67,7 +79,7 @@ function Get-TestMapPaths([string]$MapPath) {
 foreach ($upload in $seed.Uploads) {
     $mapPath = Join-Path $workspace ".release-output\SerpsMods\v$($upload.PackVersion)\SerpsMods.map"
     Assert-True (Test-Path -LiteralPath $mapPath -PathType Leaf) "confirmed map v$($upload.PackVersion) must be locally available for the archive regression test"
-    Assert-True ((Get-FileHash -LiteralPath $mapPath -Algorithm SHA256).Hash.ToLowerInvariant() -ceq [string]$upload.MapSha256) "confirmed map v$($upload.PackVersion) hash must match history"
+    Assert-True ((Get-TestFileSha256 $mapPath) -ceq [string]$upload.MapSha256) "confirmed map v$($upload.PackVersion) hash must match history"
 }
 $allPublishedPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($upload in $seed.Uploads) {

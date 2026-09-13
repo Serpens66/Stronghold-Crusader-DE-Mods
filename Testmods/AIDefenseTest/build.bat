@@ -127,8 +127,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
       )
     )
   )
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName AIDefenseTest
-  if errorlevel 1 goto copy_failed
+  rem Test projects are deliberately not release-enabled and therefore have no release provenance manifest.
   echo Plugin kopiert.
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%

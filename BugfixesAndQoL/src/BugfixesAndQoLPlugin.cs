@@ -39,6 +39,7 @@ namespace BugfixesAndQoL
         private static CustomLordJsonUploadHook customLordJsonUploadHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private static SteamInviteBlacklistStore steamInviteBlacklist;
+        private static IDisposable gameplaySessionSubscription;
         private BugfixesAndQoLRuntime runtime;
         private bool marketGoodsVisualRefreshFailureLogged;
 
@@ -122,11 +123,12 @@ namespace BugfixesAndQoL
 
             try
             {
-                MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
+                if (gameplaySessionSubscription == null)
                 {
-                    if (args.Phase == EventHookPhase.Post)
-                        steamLobbyInvitePrompt?.TryInitialize();
-                });
+                    gameplaySessionSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
+                        Logger,
+                        _ => steamLobbyInvitePrompt?.TryInitialize());
+                }
             }
             catch (Exception ex)
             {

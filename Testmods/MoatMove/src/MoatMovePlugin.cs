@@ -80,9 +80,9 @@ namespace MoatMove
 
             try
             {
-                mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ObserveMapStart());
+                mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
+                    persistentLog,
+                    _ => ObserveMapStart());
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => ObserveMapUnload());

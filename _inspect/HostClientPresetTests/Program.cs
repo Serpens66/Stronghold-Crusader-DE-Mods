@@ -7,6 +7,7 @@ using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.Components.Network;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -53,6 +54,7 @@ internal static class Program
             TestLobbySettingsRouting();
             TestSharedPerPlayerLobbyConvergence();
             TestSharedLobbyLifecycle();
+            TestSharedGameplaySessionLifecycle();
             TestFailedRegistrationStopsPerPlayerCoordinator();
             TestThrowingRegistrationStopsPerPlayerCoordinator();
             TestModSettingsHorizontalFocusScrollGuardRegistration();
@@ -62,6 +64,7 @@ internal static class Program
             TestStartGoldPolicy();
             TestP2aMigrationContracts();
             TestGameplayGateSourceIntegration();
+            TestGameplaySessionSourceIntegration();
             TestLocalPerPlayerSetting();
             TestShiftRepairAllBuildingsPolicy();
             TestMarketGoodsOrderDefinition();
@@ -5619,6 +5622,118 @@ internal static class Program
         second.Dispose();
         LobbyLifecycle.System_TestReset();
     }
+
+    private static void TestGameplaySessionSourceIntegration()
+    {
+        string workspaceRoot = Path.GetFullPath(
+            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
+        var runtimeRoots = Directory.GetDirectories(workspaceRoot)
+            .Where(path => Directory.GetFiles(path, "*.csproj", SearchOption.TopDirectoryOnly).Any())
+            .Select(path => Path.Combine(path, "src"))
+            .Where(Directory.Exists)
+            .ToList();
+        runtimeRoots.Add(Path.Combine(workspaceRoot, "Shared"));
+        foreach (string groupName in new[] { "Helpers", "Testmods" })
+        {
+            string groupRoot = Path.Combine(workspaceRoot, groupName);
+            runtimeRoots.AddRange(Directory.GetDirectories(groupRoot)
+                .Select(path => Path.Combine(path, "src"))
+                .Where(Directory.Exists));
+        }
+
+        foreach (string root in runtimeRoots)
+        {
+            foreach (string path in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+            {
+                string source = File.ReadAllText(path);
+                if (!source.Contains("MapLoaderR3EventHooks.OnStartMap.Observable"))
+                    continue;
+
+                bool covered = source.Contains("GameplaySessionLifecycle.SubscribeStarted") ||
+                    source.Contains("MapLoaderR3EventHooks.OnLoadSave.Observable") ||
+                    source.Contains("SaveLifecycle:");
+                Check(covered,
+                    $"direct OnStartMap runtime lacks a save-load path or explicit lifecycle classification: {path}");
+            }
+        }
+
+        string lifecycle = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Shared", "GameplaySessionLifecycle.cs"));
+        Check(lifecycle.Contains("args.ReturnValue > 0") &&
+              lifecycle.Contains("EventHookPhase.Post") &&
+              !lifecycle.Contains("OnUnloadMap.Observable") &&
+              !lifecycle.Contains("RegisterModDataHandler"),
+            "Shared gameplay lifecycle no longer gates successful save Post, reacts to nested unloads, or introduced persistence");
+
+        string coordinator = File.ReadAllText(
+            Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
+        Check(coordinator.Contains("GameplaySessionLifecycle.SubscribeStarted") &&
+              coordinator.Contains("_ => mapStarted = true") &&
+              !coordinator.Contains("GameNetworkAPI.GetLocalPlayerId"),
+            "per-player lobby observation is not stopped by loaded sessions or restored the noisy identity call");
+    }
+
+    private static void TestSharedGameplaySessionLifecycle()
+    {
+        GameplaySessionLifecycle.System_TestReset();
+        var observed = new List<GameplaySessionStartKind>();
+        IDisposable subscription = GameplaySessionLifecycle.SubscribeStarted(
+            null,
+            context => observed.Add(context.Kind));
+
+        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(false)
+        {
+            Phase = EventHookPhase.Pre,
+            ReturnValue = 0
+        });
+        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(false)
+        {
+            Phase = EventHookPhase.Post,
+            ReturnValue = 0
+        });
+        Check(observed.Count == 0,
+            "Shared gameplay lifecycle started for save Pre or a failed save Post");
+
+        var notify = typeof(GameplaySessionLifecycle).GetMethod(
+            "Notify",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        Check(notify != null, "Shared gameplay lifecycle subscriber guard is missing");
+        notify.Invoke(
+            null,
+            new object[]
+            {
+                null,
+                new Action<GameplaySessionStartedContext>(
+                    _ => throw new InvalidOperationException("expected subscriber isolation test")),
+                GameplaySessionStartedContext.FromNewMap(new MapStartEventArgs())
+            });
+
+        var ordering = new List<string> { "mod-save-restored" };
+        IDisposable orderingSubscription = GameplaySessionLifecycle.SubscribeStarted(
+            null,
+            _ => ordering.Add("session-started"));
+        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(false)
+        {
+            Phase = EventHookPhase.Post,
+            ReturnValue = 1
+        });
+        Check(observed.SequenceEqual(new[] { GameplaySessionStartKind.LoadedSave }),
+            "successful save Post did not produce exactly one loaded-save start");
+        Check(ordering.SequenceEqual(new[] { "mod-save-restored", "session-started" }),
+            "gameplay session ran before restored mod-save state");
+
+        GameplaySessionLifecycle.System_TestRaiseNewMap(new MapStartEventArgs());
+        Check(observed.SequenceEqual(new[]
+            {
+                GameplaySessionStartKind.LoadedSave,
+                GameplaySessionStartKind.NewMap
+            }),
+            "new-map Post did not produce exactly one new-map start");
+
+        subscription.Dispose();
+        orderingSubscription.Dispose();
+        GameplaySessionLifecycle.System_TestReset();
+    }
 }
 
 [MessagePackObject]
@@ -6670,6 +6785,7 @@ namespace SHCDESE.EventAPI.MapLoader
 {
     internal sealed class MapStartEventArgs
     {
+        public EventHookPhase Phase { get; set; }
         public byte bMultiplayerSave { get; set; }
         public int CampaignMapId { get; set; }
     }
@@ -6684,6 +6800,9 @@ namespace SHCDESE.EventAPI.MapLoader
     internal sealed class LoadSaveGameEventArgs
     {
         public LoadSaveGameEventArgs(bool loadingEditorMap) => LoadingEditorMap = loadingEditorMap;
+        public EventHookPhase Phase { get; set; }
+        public long ReturnValue { get; set; }
+        public string FileName { get; set; }
         public bool LoadingEditorMap { get; }
     }
 }

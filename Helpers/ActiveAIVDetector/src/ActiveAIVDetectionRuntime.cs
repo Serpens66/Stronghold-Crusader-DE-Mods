@@ -422,9 +422,9 @@ namespace ActiveAIVDetector
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => ResetForMapTransition("map unload")));
 
-            lifecycleSubscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => OnMapStarted()));
+            lifecycleSubscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
+                log,
+                _ => OnMapStarted()));
         }
 
         private void ResetForMapTransition(string reason)

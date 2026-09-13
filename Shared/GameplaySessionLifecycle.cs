@@ -1,8 +1,13 @@
 using BepInEx.Logging;
+#if !SHARED_PRESET_TESTS
 using R3;
+#endif
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using System;
+#if SHARED_PRESET_TESTS
+using System.Collections.Generic;
+#endif
 
 namespace Shared
 {
@@ -58,6 +63,11 @@ namespace Shared
     /// </summary>
     internal static class GameplaySessionLifecycle
     {
+#if SHARED_PRESET_TESTS
+        private static readonly List<Action<GameplaySessionStartedContext>> TestSubscribers =
+            new List<Action<GameplaySessionStartedContext>>();
+#endif
+
         internal static IDisposable SubscribeStarted(
             ManualLogSource log,
             Action<GameplaySessionStartedContext> callback)
@@ -65,6 +75,10 @@ namespace Shared
             if (callback == null)
                 throw new ArgumentNullException(nameof(callback));
 
+#if SHARED_PRESET_TESTS
+            TestSubscribers.Add(callback);
+            return new TestSubscription(callback);
+#else
             IDisposable mapStartSubscription = null;
             IDisposable saveLoadSubscription = null;
             try
@@ -83,6 +97,7 @@ namespace Shared
                 saveLoadSubscription?.Dispose();
                 throw;
             }
+#endif
         }
 
         internal static bool IsSuccessfulSavePost(LoadSaveGameEventArgs args) =>
@@ -105,6 +120,41 @@ namespace Shared
             }
         }
 
+#if SHARED_PRESET_TESTS
+        internal static void System_TestRaiseNewMap(MapStartEventArgs args)
+        {
+            GameplaySessionStartedContext context = GameplaySessionStartedContext.FromNewMap(args);
+            foreach (Action<GameplaySessionStartedContext> callback in TestSubscribers.ToArray())
+                callback(context);
+        }
+
+        internal static void System_TestRaiseSave(LoadSaveGameEventArgs args)
+        {
+            if (!IsSuccessfulSavePost(args))
+                return;
+            GameplaySessionStartedContext context = GameplaySessionStartedContext.FromLoadedSave(args);
+            foreach (Action<GameplaySessionStartedContext> callback in TestSubscribers.ToArray())
+                callback(context);
+        }
+
+        internal static void System_TestReset() => TestSubscribers.Clear();
+
+        private sealed class TestSubscription : IDisposable
+        {
+            private Action<GameplaySessionStartedContext> callback;
+
+            internal TestSubscription(Action<GameplaySessionStartedContext> callback) =>
+                this.callback = callback;
+
+            public void Dispose()
+            {
+                Action<GameplaySessionStartedContext> removed = callback;
+                callback = null;
+                if (removed != null)
+                    TestSubscribers.Remove(removed);
+            }
+        }
+#else
         private sealed class Subscription : IDisposable
         {
             private IDisposable mapStartSubscription;
@@ -126,5 +176,6 @@ namespace Shared
                 saveLoad?.Dispose();
             }
         }
+#endif
     }
 }

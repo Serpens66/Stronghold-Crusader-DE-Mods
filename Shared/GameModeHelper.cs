@@ -153,8 +153,8 @@ namespace Shared
             bool directorMultiplayer = director != null && director.MultiplayerGame;
             // SCRIPT EXTENDER BUG WORKAROUND: IsMultiplayerGame() can become false
             // during a real multiplayer map transition. Remove the additional
-            // Vanilla/roster evidence only after an upstream fix is verified. After
-            // every Script Extender update, revalidate these sources and precedence.
+            // Vanilla/roster evidence only after an upstream fix is verified.
+            // Revalidate all source semantics after every Extender update.
             bool platformMultiplayer = GameNetworkAPI.IsMultiplayerGame();
             bool realMultiplayer =
                 multiplayerSave ||

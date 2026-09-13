@@ -155,8 +155,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
     if errorlevel 1 goto copy_failed
     echo Chat-10-Prebuild-Trace aktiviert.
   )
-  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%..\..\Shared\Release\Write-LocalBuildManifest.ps1" -ModName ActiveAIVDetector
-  if errorlevel 1 goto copy_failed
+  rem Internal helper projects are deliberately not release-enabled and therefore have no release provenance manifest.
 ) else (
   echo Build fehlgeschlagen. Exit Code: %BUILD_EXIT_CODE%
 )

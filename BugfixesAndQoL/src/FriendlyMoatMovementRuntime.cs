@@ -1154,6 +1154,7 @@ namespace BugfixesAndQoL
                 unitMoveSubscription = UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(ObserveUnitMoveOrder);
                 tribeTargetSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(ObserveTribeTargetOrder);
                 mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable.Subscribe(_ => ResetMapState());
+                // SaveLifecycle: ResetOnly - every save load also raises map unload.
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(_ => ResetMapState());
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(_ => ResetMapState());
                 GameTimeManagerAPI.Instance.OnTick += ObserveTrackedAttackStates;
