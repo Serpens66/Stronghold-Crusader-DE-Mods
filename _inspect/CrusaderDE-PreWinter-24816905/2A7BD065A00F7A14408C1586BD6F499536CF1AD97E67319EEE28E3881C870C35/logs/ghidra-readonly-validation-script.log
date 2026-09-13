@@ -1,0 +1,1 @@
+2026-09-13 23:08:06 INFO  ValidateCrusaderBaseline.java> VALIDATION_OK program=CrusaderDE.dll imageBase=180000000 minAddress=180000000 maxAddress=ff0000184f functions=4607 strings=4065 xrefs=236006 imageBaseFunction=none  

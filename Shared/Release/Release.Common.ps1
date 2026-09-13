@@ -36,18 +36,15 @@ function Get-ReleaseConfiguration {
         throw "Release configuration is missing the required 'ApiShared' object: $publicConfigPath"
     }
     $apiShared = $apiSharedProperty.Value
-    foreach ($propertyName in @('Project', 'Guid', 'Version', 'Consumers')) {
+    foreach ($propertyName in @('Project', 'Guid', 'Consumers')) {
         if ($null -eq $apiShared.PSObject.Properties[$propertyName]) {
             throw "Release configuration ApiShared is missing '$propertyName': $publicConfigPath"
         }
     }
-    foreach ($propertyName in @('Project', 'Guid', 'Version')) {
+    foreach ($propertyName in @('Project', 'Guid')) {
         if ([string]::IsNullOrWhiteSpace([string]$apiShared.PSObject.Properties[$propertyName].Value)) {
             throw "Release configuration ApiShared.$propertyName must not be empty: $publicConfigPath"
         }
-    }
-    if ([string]$apiShared.Version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
-        throw "Release configuration contains invalid APIShared version '$([string]$apiShared.Version)': $publicConfigPath"
     }
     if ($null -eq $apiShared.Consumers) {
         throw "Release configuration ApiShared.Consumers must be an object: $publicConfigPath"
@@ -261,23 +258,35 @@ function Get-ValidatedApiSharedPackage {
     )
     $apiProject = [string]$Config.ApiShared.Project
     $apiGuid = [string]$Config.ApiShared.Guid
-    $apiVersion = [string]$Config.ApiShared.Version
+    $apiSourceInfoPath = Join-Path $Config.Root "$apiProject\info.json"
     $apiPackage = Join-Path $Config.Root "$apiProject\BepInEx\plugins\$apiGuid"
     $apiInfoPath = Join-Path $apiPackage 'info.json'
     $apiDllPath = Join-Path $apiPackage 'APIShared.dll'
+    if (-not (Test-Path -LiteralPath $apiSourceInfoPath -PathType Leaf)) {
+        throw "APIShared source manifest is missing: $apiSourceInfoPath"
+    }
     if (-not (Test-Path -LiteralPath $apiInfoPath -PathType Leaf) -or
         -not (Test-Path -LiteralPath $apiDllPath -PathType Leaf)) {
-        throw "APIShared package is incomplete. Build and validate $apiProject v$apiVersion first: $apiPackage"
+        throw "APIShared package is incomplete. Build and validate $apiProject first: $apiPackage"
     }
+    $apiSourceInfo = Get-Content -LiteralPath $apiSourceInfoPath -Raw | ConvertFrom-Json
     $apiInfo = Get-Content -LiteralPath $apiInfoPath -Raw | ConvertFrom-Json
+    $apiVersion = [string]$apiSourceInfo.Version
+    if ([string]$apiSourceInfo.GUID -cne $apiGuid) {
+        throw "APIShared source manifest GUID mismatch: expected $apiGuid, found $([string]$apiSourceInfo.GUID)."
+    }
+    if ($apiVersion -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+        throw "APIShared source manifest contains invalid version '$apiVersion': $apiSourceInfoPath"
+    }
     if ([string]$apiInfo.GUID -cne $apiGuid -or [string]$apiInfo.Version -cne $apiVersion) {
-        throw "APIShared package identity mismatch: expected $apiGuid v$apiVersion."
+        throw "APIShared package identity mismatch: expected $apiGuid v$apiVersion from the source manifest."
     }
     if ((Compare-SemanticVersion -Left $apiVersion -Right $MinimumVersion) -lt 0) {
-        throw "Pinned APIShared v$apiVersion is below the required minimum v$MinimumVersion."
+        throw "APIShared v$apiVersion is below the required minimum v$MinimumVersion."
     }
     return [PSCustomObject]@{
         Directory = $apiPackage
+        SourceInfoPath = $apiSourceInfoPath
         InfoPath = $apiInfoPath
         DllPath = $apiDllPath
         Guid = $apiGuid

@@ -5,7 +5,6 @@
   "ApiShared": {
     "Project": "APIShared",
     "Guid": "APIShared_Serp",
-    "Version": "0.3.3",
     "Consumers": {
       "ActiveAIVDetector": "0.3.0",
       "BugfixesAndQoL": "0.3.0",

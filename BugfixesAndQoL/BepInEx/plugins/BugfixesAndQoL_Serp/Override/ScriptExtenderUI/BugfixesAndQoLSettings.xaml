@@ -85,6 +85,22 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding ShowSelectedUnitHealthText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.statistics-team-badge-mode" shared:ModSettingsSearch.Title="{Binding StatisticsTeamBadgeModeText}" shared:ModSettingsSearch.ToolTipText="{Binding StatisticsTeamBadgeModeHelpText}"
+            ToolTipService.ShowDuration="60000" ToolTip="{Binding StatisticsTeamBadgeModeHelpText}" Margin="0,0,0,8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding StatisticsTeamBadgeModeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+        <Slider Grid.Column="1" Minimum="0" Maximum="2" Value="{Binding StatisticsTeamBadgeMode, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding StatisticsTeamBadgeModeHelpText}"/>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="8,0,0,0">
+          <TextBlock Text="{Binding StatisticsTeamBadgeModeValueText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
+          <Grid Width="28" Height="32" Margin="8,0,0,0">
+            <Image Source="{Binding StatisticsTeamBadgeVanillaPreviewIcon}" Width="20" Height="20" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding StatisticsTeamBadgeVanillaPreviewVisibility}"/>
+            <Grid Width="24" Height="28" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding StatisticsTeamBadgeEasyReadPreviewVisibility}">
+              <Path Data="M 1,1 L 23,1 L 23,15 C 23,21 18,25 12,27 C 6,25 1,21 1,15 Z" Stretch="Fill" Fill="#FF508CCC" Stroke="#FF21190F" StrokeThickness="1.5" StrokeLineJoin="Round"/>
+              <TextBlock Text="3" Margin="0,2,0,0" HorizontalAlignment="Stretch" VerticalAlignment="Top" TextAlignment="Center" FontSize="15" FontWeight="Bold" Foreground="White"/>
+            </Grid>
+          </Grid>
+        </StackPanel>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.troop-hud-middle-click-camera-jump" shared:ModSettingsSearch.Title="{Binding EnableTroopHudMiddleClickCameraJumpText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTroopHudMiddleClickCameraJumpHelpText}"><CheckBox IsChecked="{Binding EnableTroopHudMiddleClickCameraJump, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTroopHudMiddleClickCameraJumpHelpText}"

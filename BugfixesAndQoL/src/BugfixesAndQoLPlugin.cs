@@ -111,6 +111,7 @@ namespace BugfixesAndQoL
                         // A hub change, including opening the settings, is the safe point to retry visuals.
                         try
                         {
+                            Settings.RefreshStatisticsTeamBadgePreviewVisual();
                             Settings.RefreshMarketGoodsOrderVisuals();
                         }
                         catch (Exception ex)

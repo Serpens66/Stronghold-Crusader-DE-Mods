@@ -78,6 +78,8 @@ namespace BugfixesAndQoL
         private readonly LocalPerPlayerSetting<bool> enableEnemyProximityBulldozeCursorFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableIngameSteamInvitePrompt = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> showSelectedUnitHealth = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<int> statisticsTeamBadgeMode =
+            new LocalPerPlayerSetting<int>(SurrenderPolicy.DefaultStatisticsTeamBadgeMode);
         private readonly LocalPerPlayerSetting<bool> enableTroopHudMiddleClickCameraJump =
             new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowMinimapWhilePlacingBuilding = new LocalPerPlayerSetting<bool>(true);
@@ -97,6 +99,7 @@ namespace BugfixesAndQoL
         private bool marketGoodsVisualsResolved;
         private bool marketGoodsVisualsDeferredLogged;
         private bool marketGoodsVisualsResolvedLogged;
+        private ImageSource statisticsTeamBadgeVanillaPreviewIcon;
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
             SerpLocalization.Get(key);
@@ -123,6 +126,9 @@ namespace BugfixesAndQoL
                 settings.ResetSlotsWith(propertyName, () => true);
 
             settings
+                .ResetSlotsWith(
+                    nameof(StatisticsTeamBadgeMode),
+                    () => SurrenderPolicy.DefaultStatisticsTeamBadgeMode)
                 .ResetSlotsWith(
                     nameof(MarketGoodsOrder),
                     () => MarketGoodsOrderDefinition.CreateHdOrder())
@@ -250,6 +256,35 @@ namespace BugfixesAndQoL
         public string ClearSteamInviteBlacklistHelpText => SerpLocalization.Get("BugfixesAndQoL.ClearSteamInviteBlacklistHelp");
         public string ShowSelectedUnitHealthText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealth");
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
+        public string StatisticsTeamBadgeModeText =>
+            SerpLocalization.Get("BugfixesAndQoL.StatisticsTeamBadgeMode");
+        public string StatisticsTeamBadgeModeHelpText =>
+            SerpLocalization.Get("BugfixesAndQoL.StatisticsTeamBadgeModeHelp");
+        public string StatisticsTeamBadgeModeValueText
+        {
+            get
+            {
+                switch (StatisticsTeamBadgeMode)
+                {
+                    case SurrenderPolicy.StatisticsTeamBadgesOff:
+                        return SerpLocalization.Get("BugfixesAndQoL.StatisticsTeamBadgeModeOff");
+                    case SurrenderPolicy.StatisticsTeamBadgesEasyReadIcons:
+                        return SerpLocalization.Get("BugfixesAndQoL.StatisticsTeamBadgeModeEasyReadIcons");
+                    default:
+                        return SerpLocalization.Get("BugfixesAndQoL.StatisticsTeamBadgeModeVanillaIcons");
+                }
+            }
+        }
+        public ImageSource StatisticsTeamBadgeVanillaPreviewIcon =>
+            statisticsTeamBadgeVanillaPreviewIcon;
+        public Visibility StatisticsTeamBadgeVanillaPreviewVisibility =>
+            StatisticsTeamBadgeMode == SurrenderPolicy.StatisticsTeamBadgesVanillaIcons
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        public Visibility StatisticsTeamBadgeEasyReadPreviewVisibility =>
+            StatisticsTeamBadgeMode == SurrenderPolicy.StatisticsTeamBadgesEasyReadIcons
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         public string EnableTroopHudMiddleClickCameraJumpText =>
             SerpLocalization.Get("BugfixesAndQoL.EnableTroopHudMiddleClickCameraJump");
         public string EnableTroopHudMiddleClickCameraJumpHelpText =>
@@ -375,6 +410,7 @@ namespace BugfixesAndQoL
         public bool[] EnableEnemyProximityBulldozeCursorFixData => enableEnemyProximityBulldozeCursorFix.Data;
         public bool[] EnableIngameSteamInvitePromptData => enableIngameSteamInvitePrompt.Data;
         public bool[] ShowSelectedUnitHealthData => showSelectedUnitHealth.Data;
+        public int[] StatisticsTeamBadgeModeData => statisticsTeamBadgeMode.Data;
         public bool[] EnableTroopHudMiddleClickCameraJumpData => enableTroopHudMiddleClickCameraJump.Data;
         public bool[] EnableClientFeaturesData => enableClientFeatures.Data;
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuilding.Data;
@@ -451,6 +487,24 @@ namespace BugfixesAndQoL
         {
             get => showSelectedUnitHealth.Value;
             set => SetPlayerSetting(showSelectedUnitHealth, value, nameof(ShowSelectedUnitHealth));
+        }
+
+        [SyncPerPlayer]
+        public int StatisticsTeamBadgeMode
+        {
+            get => SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(statisticsTeamBadgeMode.Value);
+            set
+            {
+                int normalized = SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(value);
+                if (!statisticsTeamBadgeMode.SetValue(normalized))
+                    return;
+
+                SettingChanged?.Invoke(nameof(StatisticsTeamBadgeMode));
+                OnPropertyChanged(nameof(StatisticsTeamBadgeMode));
+                OnPropertyChanged(nameof(StatisticsTeamBadgeModeValueText));
+                OnPropertyChanged(nameof(StatisticsTeamBadgeVanillaPreviewVisibility));
+                OnPropertyChanged(nameof(StatisticsTeamBadgeEasyReadPreviewVisibility));
+            }
         }
 
         [SyncPerPlayer]
@@ -1045,6 +1099,7 @@ namespace BugfixesAndQoL
             EnableEnemyProximityBulldozeCursorFix = true;
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
+            StatisticsTeamBadgeMode = SurrenderPolicy.DefaultStatisticsTeamBadgeMode;
             EnableTroopHudMiddleClickCameraJump = true;
             EnableDisbandedUnitControlGroupCleanup = true;
             EnableCustomTrailExtremeGoldFix = true;
@@ -1098,6 +1153,7 @@ namespace BugfixesAndQoL
             enableEnemyProximityBulldozeCursorFix.TrySetLocalPlayerId(playerId);
             enableIngameSteamInvitePrompt.TrySetLocalPlayerId(playerId);
             showSelectedUnitHealth.TrySetLocalPlayerId(playerId);
+            statisticsTeamBadgeMode.TrySetLocalPlayerId(playerId);
             allowMinimapWhilePlacingBuilding.TrySetLocalPlayerId(playerId);
             allowCameraMovementWithModifiers.TrySetLocalPlayerId(playerId);
             hdMarketView.TrySetLocalPlayerId(playerId);
@@ -1121,7 +1177,29 @@ namespace BugfixesAndQoL
                 MarketGoodsOrderItems.Add(new MarketGoodOrderItemViewModel(MoveMarketGood));
 
             RefreshMarketGoodsOrderItems();
+            RefreshStatisticsTeamBadgePreviewVisual();
             RefreshMarketGoodsOrderVisuals();
+        }
+
+        internal void RefreshStatisticsTeamBadgePreviewVisual()
+        {
+            if (statisticsTeamBadgeVanillaPreviewIcon != null || !MainViewModel.viewModelLoaded)
+                return;
+
+            try
+            {
+                MainViewModel viewModel = MainViewModel.Instance;
+                ImageSource icon = viewModel?.getTeamAlliesShield(3, large: false);
+                if ((BaseComponent)(object)icon == (BaseComponent)null)
+                    return;
+
+                statisticsTeamBadgeVanillaPreviewIcon = icon;
+                OnPropertyChanged(nameof(StatisticsTeamBadgeVanillaPreviewIcon));
+            }
+            catch
+            {
+                // The existing ModSettings hub callback retries after the game UI resources load.
+            }
         }
 
         internal void RefreshMarketGoodsOrderVisuals()

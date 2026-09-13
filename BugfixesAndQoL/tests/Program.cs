@@ -118,6 +118,32 @@ namespace BugfixesAndQoL
 
         private static void TestStatisticsTeamBadgePolicy()
         {
+            Check(SurrenderPolicy.StatisticsTeamBadgesOff == 0 &&
+                    SurrenderPolicy.StatisticsTeamBadgesVanillaIcons == 1 &&
+                    SurrenderPolicy.StatisticsTeamBadgesEasyReadIcons == 2 &&
+                    SurrenderPolicy.DefaultStatisticsTeamBadgeMode == 1,
+                "statistics team-badge modes use stable slider values and default to Vanilla icons");
+            Check(SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(0) == 0 &&
+                    SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(1) == 1 &&
+                    SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(2) == 2 &&
+                    SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(-1) == 1 &&
+                    SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(3) == 1,
+                "statistics team-badge mode normalization preserves valid values and restores the default");
+
+            var localMode = new LocalPerPlayerSetting<int>(
+                SurrenderPolicy.DefaultStatisticsTeamBadgeMode);
+            bool localSlotsWork = localMode.Value == 1 &&
+                localMode.TrySetLocalPlayerId(3) &&
+                localMode.SetValue(2) &&
+                localMode.Data[3] == 2 &&
+                localMode.Data[4] == 1 &&
+                localMode.TrySetLocalPlayerId(5) &&
+                localMode.SetValue(0) &&
+                localMode.Data[3] == 2 &&
+                localMode.Data[5] == 0;
+            Check(localSlotsWork,
+                "statistics team-badge preference keeps independent per-player values");
+
             int[] valid = new int[9];
             int[] ranking = new int[9];
             int[][] individualRanking = new int[16][];
@@ -198,6 +224,21 @@ namespace BugfixesAndQoL
                     SurrenderPolicy.ResolveStatisticsTeamShield(7, teamShields) == 0 &&
                     SurrenderPolicy.ResolveStatisticsTeamShield(0, teamShields) == 0,
                 "statistics solo and invalid team values remain badge-free");
+
+            bool stylesMatchLobby =
+                SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(1, out StatisticsTeamBadgeStyle team1) &&
+                team1.Red == 204 && team1.Green == 80 && team1.Blue == 80 && !team1.UseDarkText &&
+                SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(2, out StatisticsTeamBadgeStyle team2) &&
+                team2.Red == 204 && team2.Green == 204 && team2.Blue == 80 && team2.UseDarkText &&
+                SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(3, out StatisticsTeamBadgeStyle team3) &&
+                team3.Red == 80 && team3.Green == 140 && team3.Blue == 204 && !team3.UseDarkText &&
+                SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(4, out StatisticsTeamBadgeStyle team4) &&
+                team4.Red == 80 && team4.Green == 204 && team4.Blue == 80 && !team4.UseDarkText;
+            Check(stylesMatchLobby,
+                "statistics team badges use opaque Vanilla lobby colours and a contrasting number colour");
+            Check(!SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(0, out _) &&
+                    !SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(5, out _),
+                "statistics team-badge styles reject solo and invalid team IDs");
         }
 
         private static void TestStatisticsTeamBadgeIntegration(string featureSource)
@@ -214,15 +255,43 @@ namespace BugfixesAndQoL
             {
                 foreach (XmlElement operation in operations)
                 {
-                    XmlElement image = operation.SelectSingleNode("Content/Image") as XmlElement;
-                    string name = image?.GetAttribute(
+                    XmlElement host = operation.SelectSingleNode("Content/Grid") as XmlElement;
+                    XmlElement vanillaIcon = host?.SelectSingleNode("Image") as XmlElement;
+                    XmlElement easyReadIcon = host?.SelectSingleNode("Grid") as XmlElement;
+                    XmlElement shield = easyReadIcon?.SelectSingleNode("Path") as XmlElement;
+                    XmlElement number = easyReadIcon?.SelectSingleNode("TextBlock") as XmlElement;
+                    string name = host?.GetAttribute(
                         "Name", "http://schemas.microsoft.com/winfx/2006/xaml") ?? string.Empty;
-                    completeBadgeGrid &= image != null &&
+                    completeBadgeGrid &= host != null &&
+                        vanillaIcon != null &&
+                        easyReadIcon != null &&
+                        shield != null &&
+                        number != null &&
                         names.Add(name) &&
-                        image.GetAttribute("Grid.Column") == "0" &&
-                        image.GetAttribute("Width") == "20" &&
-                        image.GetAttribute("Height") == "20" &&
-                        image.GetAttribute("Panel.ZIndex") == "20";
+                        host.GetAttribute("Grid.Column") == "0" &&
+                        host.GetAttribute("Panel.ZIndex") == "20" &&
+                        host.GetAttribute("Visibility") == "Collapsed" &&
+                        vanillaIcon.GetAttribute("Width") == "20" &&
+                        vanillaIcon.GetAttribute("Height") == "20" &&
+                        vanillaIcon.GetAttribute("Margin") == "-22,22,0,0" &&
+                        vanillaIcon.GetAttribute("Visibility") == "Collapsed" &&
+                        easyReadIcon.GetAttribute("Width") == "24" &&
+                        easyReadIcon.GetAttribute("Height") == "28" &&
+                        easyReadIcon.GetAttribute("Margin") == "-26,30,0,0" &&
+                        easyReadIcon.GetAttribute("Visibility") == "Collapsed" &&
+                        shield.GetAttribute("Stroke") == "#FF21190F" &&
+                        shield.GetAttribute("StrokeThickness") == "1.5" &&
+                        !string.IsNullOrEmpty(shield.GetAttribute("Data")) &&
+                        number.GetAttribute("FontSize") == "15" &&
+                        number.GetAttribute("FontWeight") == "Bold" &&
+                        vanillaIcon.GetAttribute(
+                            "Name", "http://schemas.microsoft.com/winfx/2006/xaml").Equals(name + "VanillaIcon") &&
+                        easyReadIcon.GetAttribute(
+                            "Name", "http://schemas.microsoft.com/winfx/2006/xaml").Equals(name + "EasyReadIcon") &&
+                        shield.GetAttribute(
+                            "Name", "http://schemas.microsoft.com/winfx/2006/xaml").Equals(name + "Shield") &&
+                        number.GetAttribute(
+                            "Name", "http://schemas.microsoft.com/winfx/2006/xaml").Equals(name + "Number");
                 }
             }
             for (int page = 1; page <= 2; page++)
@@ -231,17 +300,59 @@ namespace BugfixesAndQoL
                     completeBadgeGrid &= names.Contains($"BugfixesAndQoLTeamBadgePage{page}Row{row}");
             }
             Check(completeBadgeGrid,
-                "HUD_MissionOver patch adds one named 20x20 overlay badge to every row on both pages");
+                "HUD_MissionOver patch adds lower-left Vanilla and Easy Read icons to every row on both pages");
 
             string patchSource = File.ReadAllText(patchPath);
             Check(featureSource.Contains("getTeamAlliesShield(teamId, large: false)") &&
                     featureSource.Contains("snapshot.team_shield") &&
-                    featureSource.Contains("ReferenceEquals(snapshot, statisticsTeamBadgeSnapshot)"),
-                "statistics team badges use Vanilla's small shield and update only for changed snapshots or sorting");
+                    featureSource.Contains("statisticsTeamBadgeShields[page, row].Fill") &&
+                    featureSource.Contains("number.Text = teamId.ToString();") &&
+                    featureSource.Contains("host.Visibility = Visibility.Visible;") &&
+                    featureSource.Contains("ReferenceEquals(snapshot, statisticsTeamBadgeSnapshot)") &&
+                    featureSource.Contains("badgeMode == statisticsTeamBadgeMode"),
+                "statistics team badges select Vanilla or Easy Read visuals and cache the chosen mode");
+            Check(featureSource.Contains(
+                        "private bool StatisticsTeamBadgesEnabled => settings.EnableMod && settings.EnableClientFeatures;") &&
+                    featureSource.Contains("!StatisticsTeamBadgesEnabled") &&
+                    featureSource.Contains("badgeMode == SurrenderPolicy.StatisticsTeamBadgesOff"),
+                "statistics team badges use the independent client gate and support Off mode");
             Check(!patchSource.Contains("Background=") &&
                     !patchSource.Contains("MO_MP_PlayersVisible") &&
                     !patchSource.Contains("MO_MP_PlayersShields0}\" />"),
                 "team-badge patch leaves Vanilla row backgrounds, visibility, and personal shield bindings unchanged");
+
+            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string settingsXaml = File.ReadAllText(Path.Combine(
+                "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+            string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
+            Check(viewModel.Contains("new LocalPerPlayerSetting<int>(SurrenderPolicy.DefaultStatisticsTeamBadgeMode)") &&
+                    viewModel.Contains("public int[] StatisticsTeamBadgeModeData") &&
+                    viewModel.Contains("statisticsTeamBadgeMode.TrySetLocalPlayerId(playerId)") &&
+                    viewModel.Contains("StatisticsTeamBadgeMode = SurrenderPolicy.DefaultStatisticsTeamBadgeMode;"),
+                "statistics team-badge mode is stored and reset as a per-player client preference");
+            Check(settingsXaml.Contains("Value=\"{Binding StatisticsTeamBadgeMode, Mode=TwoWay}\"") &&
+                    settingsXaml.Contains("Minimum=\"0\" Maximum=\"2\"") &&
+                    settingsXaml.Contains("StatisticsTeamBadgeVanillaPreviewVisibility") &&
+                    settingsXaml.Contains("StatisticsTeamBadgeEasyReadPreviewVisibility") &&
+                    settingsXaml.Contains("Fill=\"#FF508CCC\"") &&
+                    settingsXaml.Contains("Text=\"3\""),
+                "client slider exposes all three modes and previews Team 3 in both icon styles");
+            Check(viewModel.Contains("getTeamAlliesShield(3, large: false)") &&
+                    plugin.Contains("Settings.RefreshStatisticsTeamBadgePreviewVisual();"),
+                "Team 3 Vanilla preview resolves at the existing safe ModSettings visual refresh point");
+
+            bool allLocalesComplete = true;
+            foreach (string localePath in Directory.GetFiles("Locales", "*.txt"))
+            {
+                string locale = File.ReadAllText(localePath);
+                allLocalesComplete &= locale.Contains("BugfixesAndQoL.StatisticsTeamBadgeMode=") &&
+                    locale.Contains("BugfixesAndQoL.StatisticsTeamBadgeModeHelp=") &&
+                    locale.Contains("BugfixesAndQoL.StatisticsTeamBadgeModeOff=") &&
+                    locale.Contains("BugfixesAndQoL.StatisticsTeamBadgeModeVanillaIcons=") &&
+                    locale.Contains("BugfixesAndQoL.StatisticsTeamBadgeModeEasyReadIcons=");
+            }
+            Check(allLocalesComplete,
+                "all locales define the statistics team-badge slider and its three values");
         }
 
         private static bool RowsEqual(int[] rows, params int[] expected)

@@ -195,7 +195,7 @@ try {
         BuildStartedUtc = $buildStart.ToString('o')
         BuildCompletedUtc = [DateTime]::UtcNow.ToString('o')
         Package = [ordered]@{ Profile = 'Thin'; File = [IO.Path]::GetFileName($zipPath); Sha256 = $zipHash; Size = (Get-Item -LiteralPath $zipPath).Length }
-        ApiSharedRequirement = $(if ($apiSharedConsumer) { [ordered]@{ MinimumVersion = $apiSharedMinimum; BundledVersion = [string]$config.ApiShared.Version } } else { $null })
+        ApiSharedRequirement = $(if ($apiSharedConsumer) { [ordered]@{ MinimumVersion = $apiSharedMinimum; BundledVersion = [string]$apiSharedPackage.Version } } else { $null })
         Bundle = $bundle
         Files = $fileRecords
         Dependencies = $dependencyRecords

@@ -1223,21 +1223,30 @@ try {
     $releaseConfigPath = Join-Path $script:Root 'Shared\Release\release-projects.json'
     $releaseConfig = Get-Content -LiteralPath $releaseConfigPath -Raw | ConvertFrom-Json
     if ($null -eq $releaseConfig.ApiShared) { Fail-Pack 3 'Release configuration lacks the required APIShared infrastructure metadata.' }
+    $apiSharedSourceInfoPath = Join-Path $script:Root "$([string]$releaseConfig.ApiShared.Project)\info.json"
     $apiSharedDirectory = Join-Path $script:Root "$([string]$releaseConfig.ApiShared.Project)\BepInEx\plugins\$([string]$releaseConfig.ApiShared.Guid)"
     $apiSharedInfoPath = Join-Path $apiSharedDirectory 'info.json'
     $apiSharedDllPath = Join-Path $apiSharedDirectory 'APIShared.dll'
+    if (-not (Test-Path -LiteralPath $apiSharedSourceInfoPath -PathType Leaf)) {
+        Fail-Pack 3 "APIShared source manifest is missing: $apiSharedSourceInfoPath"
+    }
     if (-not (Test-Path -LiteralPath $apiSharedInfoPath -PathType Leaf) -or -not (Test-Path -LiteralPath $apiSharedDllPath -PathType Leaf)) {
         Fail-Pack 3 "APIShared infrastructure package is incomplete: $apiSharedDirectory"
     }
+    $apiSharedSourceInfo = Get-Content -LiteralPath $apiSharedSourceInfoPath -Raw | ConvertFrom-Json
     $apiSharedInfo = Get-Content -LiteralPath $apiSharedInfoPath -Raw | ConvertFrom-Json
-    if ([string]$apiSharedInfo.GUID -cne [string]$releaseConfig.ApiShared.Guid -or
-        [string]$apiSharedInfo.Version -cne [string]$releaseConfig.ApiShared.Version) {
-        Fail-Pack 3 "APIShared infrastructure identity differs from the pinned release configuration."
+    if ([string]$apiSharedSourceInfo.GUID -cne [string]$releaseConfig.ApiShared.Guid -or
+        [string]$apiSharedSourceInfo.Version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+        Fail-Pack 3 "APIShared source manifest identity is invalid."
+    }
+    if ([string]$apiSharedInfo.GUID -cne [string]$apiSharedSourceInfo.GUID -or
+        [string]$apiSharedInfo.Version -cne [string]$apiSharedSourceInfo.Version) {
+        Fail-Pack 3 "APIShared infrastructure identity differs from the source manifest."
     }
     $apiSharedAssembly = Get-CecilPluginMetadata -Directory $apiSharedDirectory
-    if ($apiSharedAssembly.Guid -cne [string]$releaseConfig.ApiShared.Guid -or
-        $apiSharedAssembly.Version -cne [string]$releaseConfig.ApiShared.Version) {
-        Fail-Pack 3 "Built APIShared infrastructure DLL differs from the pinned v$([string]$releaseConfig.ApiShared.Version)."
+    if ($apiSharedAssembly.Guid -cne [string]$apiSharedSourceInfo.GUID -or
+        $apiSharedAssembly.Version -cne [string]$apiSharedSourceInfo.Version) {
+        Fail-Pack 3 "Built APIShared infrastructure DLL differs from the source manifest v$([string]$apiSharedSourceInfo.Version)."
     }
     $apiSharedInfrastructure = [pscustomobject]@{
         Name = [string]$apiSharedInfo.Name

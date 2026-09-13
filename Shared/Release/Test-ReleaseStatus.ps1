@@ -8,16 +8,57 @@ function Assert-True {
 
 $config = Get-ReleaseConfiguration
 Assert-True ([string]$config.ApiShared.Guid -ceq 'APIShared_Serp') 'The resolved release configuration must expose the APIShared GUID.'
-Assert-True ([string]$config.ApiShared.Version -ceq '0.3.3') 'The resolved release configuration must expose APIShared v0.3.3.'
+Assert-True ($null -eq $config.ApiShared.PSObject.Properties['Version']) 'The release configuration must not duplicate the current APIShared version.'
 Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.3.0') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
 Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.3.0') 'ExtraFeatures must be recognized as an APIShared consumer.'
 Assert-True ($null -eq (Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts')) 'BuildingCosts must not be classified as an APIShared consumer.'
 $apiSharedPackage = Get-ValidatedApiSharedPackage -Config $config -MinimumVersion '0.3.0'
 Assert-True ($apiSharedPackage.Directory -ceq (Join-Path $config.Root 'APIShared\BepInEx\plugins\APIShared_Serp')) 'Release builds must resolve the validated workspace APIShared package.'
 Assert-True (Test-Path -LiteralPath $apiSharedPackage.DllPath -PathType Leaf) 'The resolved workspace APIShared package must contain APIShared.dll.'
+$apiSharedSourceInfo = Get-Content -LiteralPath $apiSharedPackage.SourceInfoPath -Raw | ConvertFrom-Json
+Assert-True ($apiSharedPackage.Version -ceq [string]$apiSharedSourceInfo.Version) 'The validated APIShared version must come from the source manifest.'
+
+function Assert-ApiSharedValidationFails {
+    param(
+        [Parameter(Mandatory)][string]$SourceGuid,
+        [Parameter(Mandatory)][string]$SourceVersion,
+        [Parameter(Mandatory)][string]$PackageGuid,
+        [Parameter(Mandatory)][string]$PackageVersion,
+        [Parameter(Mandatory)][string]$MinimumVersion,
+        [Parameter(Mandatory)][string]$ExpectedMessage
+    )
+    $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-api-release-' + [Guid]::NewGuid().ToString('N'))
+    try {
+        $fixturePackage = Join-Path $fixtureRoot 'APIShared\BepInEx\plugins\APIShared_Serp'
+        [void](New-Item -ItemType Directory -Path $fixturePackage -Force)
+        [IO.File]::WriteAllText((Join-Path $fixtureRoot 'APIShared\info.json'), "{`"GUID`":`"$SourceGuid`",`"Version`":`"$SourceVersion`"}")
+        [IO.File]::WriteAllText((Join-Path $fixturePackage 'info.json'), "{`"GUID`":`"$PackageGuid`",`"Version`":`"$PackageVersion`"}")
+        [IO.File]::WriteAllBytes((Join-Path $fixturePackage 'APIShared.dll'), [byte[]]@(0))
+        $fixtureConfig = [PSCustomObject]@{
+            Root = $fixtureRoot
+            ApiShared = [PSCustomObject]@{ Project = 'APIShared'; Guid = 'APIShared_Serp' }
+        }
+        $failed = $false
+        try {
+            [void](Get-ValidatedApiSharedPackage -Config $fixtureConfig -MinimumVersion $MinimumVersion)
+        } catch {
+            $failed = $_.Exception.Message -match $ExpectedMessage
+        }
+        Assert-True $failed "APIShared validation must reject the fixture with message '$ExpectedMessage'."
+    } finally {
+        if (Test-Path -LiteralPath $fixtureRoot) { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force }
+    }
+}
+
+Assert-ApiSharedValidationFails -SourceGuid 'Wrong_GUID' -SourceVersion '1.2.3' -PackageGuid 'Wrong_GUID' -PackageVersion '1.2.3' -MinimumVersion '1.0.0' -ExpectedMessage 'source manifest GUID mismatch'
+Assert-ApiSharedValidationFails -SourceGuid 'APIShared_Serp' -SourceVersion 'invalid' -PackageGuid 'APIShared_Serp' -PackageVersion 'invalid' -MinimumVersion '1.0.0' -ExpectedMessage 'source manifest contains invalid version'
+Assert-ApiSharedValidationFails -SourceGuid 'APIShared_Serp' -SourceVersion '1.2.3' -PackageGuid 'APIShared_Serp' -PackageVersion '1.2.2' -MinimumVersion '1.0.0' -ExpectedMessage 'package identity mismatch'
+Assert-ApiSharedValidationFails -SourceGuid 'APIShared_Serp' -SourceVersion '1.2.3' -PackageGuid 'APIShared_Serp' -PackageVersion '1.2.3' -MinimumVersion '2.0.0' -ExpectedMessage 'below the required minimum'
+
 $releaseModSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release-Mod.ps1'))
 Assert-True ($releaseModSource -match '\$env:SHCDE_API_SHARED_DIR = \$apiSharedPackage\.Directory') 'APIShared consumer releases must pass the workspace package to build.bat.'
 Assert-True ($releaseModSource -match "Remove-Item -LiteralPath 'Env:SHCDE_API_SHARED_DIR'") 'Release builds must restore an initially undefined APIShared environment override.'
+Assert-True ($releaseModSource -match 'BundledVersion = \[string\]\$apiSharedPackage\.Version') 'Release provenance must use the validated APIShared package version.'
 $bugfixMetadata = Get-PluginMetadata -ModName 'BugfixesAndQoL'
 $bugfixDependencies = @(Get-DependencyRecords -Metadata $bugfixMetadata -ExtenderDir (Get-ExtenderDirectory -Metadata $bugfixMetadata) -ApiSharedDir $apiSharedPackage.Directory)
 Assert-True (@($bugfixDependencies | Where-Object { $_.Path -ceq '$Repository/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll' }).Count -eq 1) 'Release provenance must hash the same workspace APIShared.dll used by the consumer build.'

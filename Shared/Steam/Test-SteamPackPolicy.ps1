@@ -99,6 +99,8 @@ $sourceTombstoneBytes = [IO.File]::ReadAllBytes($sourceTombstonePath)
 Assert-True ($sourceTombstoneBytes.Length -eq 106) 'the source HUD_ControlGroups tombstone must be 106 bytes'
 Assert-True ([Convert]::ToBase64String($sourceTombstoneBytes) -ceq [Convert]::ToBase64String($tombstoneBytes)) 'the source HUD_ControlGroups tombstone must equal the standard no-op patch'
 $createScriptText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Create-SteamModPack.ps1'))
+Assert-True ($createScriptText.Contains('$apiSharedAssembly.Version -cne [string]$apiSharedSourceInfo.Version')) 'Steam staging must compare the APIShared DLL version with the source manifest'
+Assert-True (-not $createScriptText.Contains('releaseConfig.ApiShared.Version')) 'Steam staging must not depend on a duplicated configured APIShared version'
 $outerPathGuard = $createScriptText.IndexOf('if (-not $path.StartsWith($packageRoot, [StringComparison]::OrdinalIgnoreCase)) { continue }', [StringComparison]::Ordinal)
 Assert-True ($outerPathGuard -ge 0) 'existing-tombstone detection must skip outer map files before applying the internal package path policy'
 $archiveTraversalGuard = $createScriptText.IndexOf("Where-Object { `$_ -in @('','.', '..') }", [StringComparison]::Ordinal)

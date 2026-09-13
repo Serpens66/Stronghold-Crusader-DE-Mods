@@ -23,8 +23,29 @@ namespace BugfixesAndQoL
         internal bool IsAlive { get; }
     }
 
+    internal readonly struct StatisticsTeamBadgeStyle
+    {
+        internal StatisticsTeamBadgeStyle(byte red, byte green, byte blue, bool useDarkText)
+        {
+            Red = red;
+            Green = green;
+            Blue = blue;
+            UseDarkText = useDarkText;
+        }
+
+        internal byte Red { get; }
+        internal byte Green { get; }
+        internal byte Blue { get; }
+        internal bool UseDarkText { get; }
+    }
+
     internal static class SurrenderPolicy
     {
+        internal const int StatisticsTeamBadgesOff = 0;
+        internal const int StatisticsTeamBadgesVanillaIcons = 1;
+        internal const int StatisticsTeamBadgesEasyReadIcons = 2;
+        internal const int DefaultStatisticsTeamBadgeMode = StatisticsTeamBadgesVanillaIcons;
+
         private static readonly int[] StatisticsSortRankingIndices =
         {
             -1, 0, 1, 10, 3, 2, 5, 6, 7, 8, 4, 11, 12, 13, 14, 15
@@ -165,6 +186,35 @@ namespace BugfixesAndQoL
 
             int teamId = teamShields[playerId];
             return teamId >= 1 && teamId <= 4 ? teamId : 0;
+        }
+
+        internal static int NormalizeStatisticsTeamBadgeMode(int mode) =>
+            mode >= StatisticsTeamBadgesOff && mode <= StatisticsTeamBadgesEasyReadIcons
+                ? mode
+                : DefaultStatisticsTeamBadgeMode;
+
+        internal static bool TryResolveStatisticsTeamBadgeStyle(
+            int teamId,
+            out StatisticsTeamBadgeStyle style)
+        {
+            switch (teamId)
+            {
+                case 1:
+                    style = new StatisticsTeamBadgeStyle(204, 80, 80, useDarkText: false);
+                    return true;
+                case 2:
+                    style = new StatisticsTeamBadgeStyle(204, 204, 80, useDarkText: true);
+                    return true;
+                case 3:
+                    style = new StatisticsTeamBadgeStyle(80, 140, 204, useDarkText: false);
+                    return true;
+                case 4:
+                    style = new StatisticsTeamBadgeStyle(80, 204, 80, useDarkText: false);
+                    return true;
+                default:
+                    style = default;
+                    return false;
+            }
         }
 
         internal static bool CanAcceptRequest(

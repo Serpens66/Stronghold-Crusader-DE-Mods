@@ -210,9 +210,17 @@ namespace BugfixesAndQoL
         private bool statisticsTeamBadgeErrorLogged;
         private HUD_MissionOver statisticsTeamBadgeView;
         private EngineInterface.MPScoreData statisticsTeamBadgeSnapshot;
-        private Image[,] statisticsTeamBadgeImages;
+        private Grid[,] statisticsTeamBadgeHosts;
+        private Image[,] statisticsTeamBadgeVanillaIcons;
+        private Grid[,] statisticsTeamBadgeEasyReadIcons;
+        private Path[,] statisticsTeamBadgeShields;
+        private TextBlock[,] statisticsTeamBadgeNumbers;
+        private readonly SolidColorBrush[] statisticsTeamBadgeFillBrushes = new SolidColorBrush[5];
+        private SolidColorBrush statisticsTeamBadgeLightTextBrush;
+        private SolidColorBrush statisticsTeamBadgeDarkTextBrush;
         private int statisticsTeamBadgeSortType = int.MinValue;
         private bool statisticsTeamBadgeSortReversed;
+        private int statisticsTeamBadgeMode = int.MinValue;
         private readonly int[] statisticsTeamBadgeRowPlayerIds = new int[8];
         private bool localPlayerHadLivingLord;
         private bool spectatorPromotionRequested;
@@ -388,6 +396,8 @@ namespace BugfixesAndQoL
         }
 
         private bool FeatureEnabled => settings.EnableMod && settings.EnableSurrenderAndStatistics;
+
+        private bool StatisticsTeamBadgesEnabled => settings.EnableMod && settings.EnableClientFeatures;
 
         private bool EliminatedPlayerSpectatorEnabled =>
             settings.EnableMod && settings.EnableEliminatedPlayersBecomeSpectators;
@@ -710,6 +720,24 @@ namespace BugfixesAndQoL
             individualRankingField = FindRequiredField(typeof(HUD_MissionOver), "individual_ranking", BindingFlags.Instance | BindingFlags.NonPublic);
             missionOverInstance1Field = FindRequiredField(typeof(HUD_MissionOver), "instance1", BindingFlags.Static | BindingFlags.NonPublic);
             missionOverInstance2Field = FindRequiredField(typeof(HUD_MissionOver), "instance2", BindingFlags.Static | BindingFlags.NonPublic);
+
+            for (int teamId = 1; teamId <= 4; teamId++)
+            {
+                if (!SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(
+                        teamId,
+                        out StatisticsTeamBadgeStyle style))
+                {
+                    throw new InvalidOperationException($"Statistics team-badge style {teamId} is unavailable.");
+                }
+
+                statisticsTeamBadgeFillBrushes[teamId] = new SolidColorBrush(
+                    Noesis.Color.FromArgb(byte.MaxValue, style.Red, style.Green, style.Blue));
+            }
+
+            statisticsTeamBadgeLightTextBrush = new SolidColorBrush(
+                Noesis.Color.FromArgb(byte.MaxValue, byte.MaxValue, byte.MaxValue, byte.MaxValue));
+            statisticsTeamBadgeDarkTextBrush = new SolidColorBrush(
+                Noesis.Color.FromArgb(byte.MaxValue, 20, 16, 10));
         }
 
         private void InitializeMissionOverHooks()
@@ -988,8 +1016,11 @@ namespace BugfixesAndQoL
         private void UpdateStatisticsTeamBadges()
         {
             MainViewModel viewModel = MainViewModel.Instance;
+            int badgeMode = SurrenderPolicy.NormalizeStatisticsTeamBadgeMode(
+                settings.StatisticsTeamBadgeMode);
             if (!statisticsTeamBadgesReady ||
-                !FeatureEnabled ||
+                !StatisticsTeamBadgesEnabled ||
+                badgeMode == SurrenderPolicy.StatisticsTeamBadgesOff ||
                 viewModel == null ||
                 !viewModel.Show_HUD_MissionOver ||
                 viewModel.MO_MP_Score != Visibility.Visible)
@@ -1012,12 +1043,13 @@ namespace BugfixesAndQoL
             if (ReferenceEquals(view, statisticsTeamBadgeView) &&
                 ReferenceEquals(snapshot, statisticsTeamBadgeSnapshot) &&
                 sortType == statisticsTeamBadgeSortType &&
-                sortReversed == statisticsTeamBadgeSortReversed)
+                sortReversed == statisticsTeamBadgeSortReversed &&
+                badgeMode == statisticsTeamBadgeMode)
             {
                 return;
             }
 
-            EnsureStatisticsTeamBadgeImages(view);
+            EnsureStatisticsTeamBadgeElements(view);
             int[] ranking = rankingField.GetValue(view) as int[];
             int[][] individualRanking = individualRankingField.GetValue(view) as int[][];
             if (!SurrenderPolicy.TryBuildStatisticsRowPlayerIds(
@@ -1028,7 +1060,7 @@ namespace BugfixesAndQoL
                     sortReversed,
                     statisticsTeamBadgeRowPlayerIds))
             {
-                ClearStatisticsTeamBadgeImages();
+                ClearStatisticsTeamBadgeElements();
             }
             else
             {
@@ -1037,48 +1069,110 @@ namespace BugfixesAndQoL
                     int teamId = SurrenderPolicy.ResolveStatisticsTeamShield(
                         statisticsTeamBadgeRowPlayerIds[row],
                         snapshot.team_shield);
-                    ImageSource source = teamId == 0
-                        ? null
-                        : viewModel.getTeamAlliesShield(teamId, large: false);
-                    statisticsTeamBadgeImages[0, row].Source = source;
-                    statisticsTeamBadgeImages[1, row].Source = source;
+                    ApplyStatisticsTeamBadge(0, row, teamId, badgeMode, viewModel);
+                    ApplyStatisticsTeamBadge(1, row, teamId, badgeMode, viewModel);
                 }
             }
 
             statisticsTeamBadgeSnapshot = snapshot;
             statisticsTeamBadgeSortType = sortType;
             statisticsTeamBadgeSortReversed = sortReversed;
+            statisticsTeamBadgeMode = badgeMode;
             statisticsTeamBadgeErrorLogged = false;
         }
 
-        private void EnsureStatisticsTeamBadgeImages(HUD_MissionOver view)
+        private void EnsureStatisticsTeamBadgeElements(HUD_MissionOver view)
         {
             if (ReferenceEquals(view, statisticsTeamBadgeView) &&
-                statisticsTeamBadgeImages != null)
+                statisticsTeamBadgeHosts != null)
             {
                 return;
             }
 
             ClearStatisticsTeamBadges();
-            var images = new Image[2, 8];
+            var hosts = new Grid[2, 8];
+            var vanillaIcons = new Image[2, 8];
+            var easyReadIcons = new Grid[2, 8];
+            var shields = new Path[2, 8];
+            var numbers = new TextBlock[2, 8];
             for (int page = 0; page < 2; page++)
             {
                 for (int row = 0; row < 8; row++)
                 {
-                    string name = $"BugfixesAndQoLTeamBadgePage{page + 1}Row{row + 1}";
-                    images[page, row] = view.FindName(name) as Image;
-                    if (images[page, row] == null)
-                        throw new InvalidOperationException($"HUD_MissionOver element '{name}' was not found.");
+                    string prefix = $"BugfixesAndQoLTeamBadgePage{page + 1}Row{row + 1}";
+                    hosts[page, row] = view.FindName(prefix) as Grid;
+                    vanillaIcons[page, row] = view.FindName(prefix + "VanillaIcon") as Image;
+                    easyReadIcons[page, row] = view.FindName(prefix + "EasyReadIcon") as Grid;
+                    shields[page, row] = view.FindName(prefix + "Shield") as Path;
+                    numbers[page, row] = view.FindName(prefix + "Number") as TextBlock;
+                    if (hosts[page, row] == null ||
+                        vanillaIcons[page, row] == null ||
+                        easyReadIcons[page, row] == null ||
+                        shields[page, row] == null ||
+                        numbers[page, row] == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"HUD_MissionOver team-badge elements for '{prefix}' were not found.");
+                    }
                 }
             }
 
             statisticsTeamBadgeView = view;
-            statisticsTeamBadgeImages = images;
+            statisticsTeamBadgeHosts = hosts;
+            statisticsTeamBadgeVanillaIcons = vanillaIcons;
+            statisticsTeamBadgeEasyReadIcons = easyReadIcons;
+            statisticsTeamBadgeShields = shields;
+            statisticsTeamBadgeNumbers = numbers;
         }
 
-        private void ClearStatisticsTeamBadgeImages()
+        private void ApplyStatisticsTeamBadge(
+            int page,
+            int row,
+            int teamId,
+            int badgeMode,
+            MainViewModel viewModel)
         {
-            if (statisticsTeamBadgeImages == null)
+            Grid host = statisticsTeamBadgeHosts[page, row];
+            if (!SurrenderPolicy.TryResolveStatisticsTeamBadgeStyle(
+                    teamId,
+                    out StatisticsTeamBadgeStyle style))
+            {
+                statisticsTeamBadgeVanillaIcons[page, row].Source = null;
+                statisticsTeamBadgeVanillaIcons[page, row].Visibility = Visibility.Collapsed;
+                statisticsTeamBadgeEasyReadIcons[page, row].Visibility = Visibility.Collapsed;
+                host.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            if (badgeMode == SurrenderPolicy.StatisticsTeamBadgesVanillaIcons)
+            {
+                Image vanillaIcon = statisticsTeamBadgeVanillaIcons[page, row];
+                vanillaIcon.Source = viewModel.getTeamAlliesShield(teamId, large: false);
+                vanillaIcon.Visibility = vanillaIcon.Source == null
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+                statisticsTeamBadgeEasyReadIcons[page, row].Visibility = Visibility.Collapsed;
+                host.Visibility = vanillaIcon.Source == null
+                    ? Visibility.Collapsed
+                    : Visibility.Visible;
+                return;
+            }
+
+            statisticsTeamBadgeVanillaIcons[page, row].Source = null;
+            statisticsTeamBadgeVanillaIcons[page, row].Visibility = Visibility.Collapsed;
+            statisticsTeamBadgeShields[page, row].Fill = statisticsTeamBadgeFillBrushes[teamId];
+            TextBlock number = statisticsTeamBadgeNumbers[page, row];
+            number.Text = teamId.ToString();
+            number.Foreground = style.UseDarkText
+                ? statisticsTeamBadgeDarkTextBrush
+                : statisticsTeamBadgeLightTextBrush;
+            statisticsTeamBadgeEasyReadIcons[page, row].Visibility = Visibility.Visible;
+            host.Visibility = Visibility.Visible;
+        }
+
+        private void ClearStatisticsTeamBadgeElements()
+        {
+            if (statisticsTeamBadgeHosts == null)
                 return;
 
             for (int page = 0; page < 2; page++)
@@ -1087,7 +1181,12 @@ namespace BugfixesAndQoL
                 {
                     try
                     {
-                        statisticsTeamBadgeImages[page, row].Source = null;
+                        statisticsTeamBadgeHosts[page, row].Visibility = Visibility.Collapsed;
+                        statisticsTeamBadgeVanillaIcons[page, row].Source = null;
+                        statisticsTeamBadgeVanillaIcons[page, row].Visibility = Visibility.Collapsed;
+                        statisticsTeamBadgeEasyReadIcons[page, row].Visibility = Visibility.Collapsed;
+                        statisticsTeamBadgeShields[page, row].Fill = null;
+                        statisticsTeamBadgeNumbers[page, row].Text = string.Empty;
                     }
                     catch
                     {
@@ -1099,12 +1198,17 @@ namespace BugfixesAndQoL
 
         private void ClearStatisticsTeamBadges()
         {
-            ClearStatisticsTeamBadgeImages();
+            ClearStatisticsTeamBadgeElements();
             statisticsTeamBadgeView = null;
-            statisticsTeamBadgeImages = null;
+            statisticsTeamBadgeHosts = null;
+            statisticsTeamBadgeVanillaIcons = null;
+            statisticsTeamBadgeEasyReadIcons = null;
+            statisticsTeamBadgeShields = null;
+            statisticsTeamBadgeNumbers = null;
             statisticsTeamBadgeSnapshot = null;
             statisticsTeamBadgeSortType = int.MinValue;
             statisticsTeamBadgeSortReversed = false;
+            statisticsTeamBadgeMode = int.MinValue;
         }
 
         private void CloseStatisticsPreview(string reason)
