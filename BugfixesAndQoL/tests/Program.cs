@@ -90,6 +90,28 @@ namespace BugfixesAndQoL
                         "setGameOverStateOriginal(self, state, screen, skirmishDate);"),
                 "game-over hook forwards the corrected state once and preserves screen and date");
 
+            const string correctedOstOriginalCall =
+                "addOnScreenTextEntryOriginal(self, ostID, presentedData1, data2, data3, data4, data5);";
+            int correctedOstOriginalCallCount = featureSource.Split(
+                new[] { correctedOstOriginalCall },
+                StringSplitOptions.None).Length - 1;
+            Check(featureSource.Contains(
+                        "int presentedData1 = ostID == Enums.eOnScreenText.OST_MP_GAME_OVER") &&
+                    featureSource.Contains(
+                        "SurrenderPolicy.ResolvePresentedGameOverState(data1, spectatorPromotionRequested)") &&
+                    correctedOstOriginalCallCount == 1 &&
+                    !featureSource.Contains(
+                        "addOnScreenTextEntryOriginal(self, ostID, data1, data2, data3, data4, data5);"),
+                "OST hook corrects only the game-over result and forwards all auxiliary data once");
+
+            Check(featureSource.Contains(
+                        "LogGameOverStateCorrectionOnce(data1, presentedData1, \"OST_MP_GAME_OVER\");") &&
+                    featureSource.Contains(
+                        "LogGameOverStateCorrectionOnce(state, presentedState, \"setGameOverState\");") &&
+                    featureSource.Contains(
+                        "if (presentedState == originalState || gameOverStateCorrectionLogged)"),
+                "both presentation boundaries share the one-shot correction diagnostic");
+
             TestStatisticsTeamBadgePolicy();
             TestStatisticsTeamBadgeIntegration(featureSource);
         }

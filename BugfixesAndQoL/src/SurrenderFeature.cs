@@ -782,14 +782,19 @@ namespace BugfixesAndQoL
             int data4,
             int data5)
         {
-            // Preserve Vanilla first, then react to the exact presentation signal used by
-            // Vanilla's Coop continuation path. The later setGameOver hook remains a fallback.
-            addOnScreenTextEntryOriginal(self, ostID, data1, data2, data3, data4, data5);
+            int presentedData1 = ostID == Enums.eOnScreenText.OST_MP_GAME_OVER
+                ? SurrenderPolicy.ResolvePresentedGameOverState(data1, spectatorPromotionRequested)
+                : data1;
+
+            // Preserve Vanilla's record and all auxiliary data. Only the result consumed by
+            // the game-over text, video and sound is corrected for our eliminated spectator.
+            addOnScreenTextEntryOriginal(self, ostID, presentedData1, data2, data3, data4, data5);
             if (ostID != Enums.eOnScreenText.OST_MP_GAME_OVER)
                 return;
 
             try
             {
+                LogGameOverStateCorrectionOnce(data1, presentedData1, "OST_MP_GAME_OVER");
                 lobbyReturnFeature.OnGameOverPresentation();
             }
             catch (Exception ex)
@@ -798,6 +803,20 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL early post-game lobby preparation failed; the later Game-over fallback remains available: {ex}");
             }
+        }
+
+        private void LogGameOverStateCorrectionOnce(
+            int originalState,
+            int presentedState,
+            string source)
+        {
+            if (presentedState == originalState || gameOverStateCorrectionLogged)
+                return;
+
+            gameOverStateCorrectionLogged = true;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Corrected Vanilla spectator game-over result for eliminated local player {spectatorPromotionPlayerId}: source={source}, originalState={originalState}, presentedState={presentedState}.");
         }
 
         private void MissionOverButtonClickedHook(HUD_MissionOver self, string parameter)
@@ -825,14 +844,7 @@ namespace BugfixesAndQoL
                 spectatorPromotionRequested);
             try
             {
-                if (presentedState != state && !gameOverStateCorrectionLogged)
-                {
-                    gameOverStateCorrectionLogged = true;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"Corrected Vanilla spectator game-over result for eliminated local player {spectatorPromotionPlayerId}: originalState={state}, presentedState={presentedState}.");
-                }
-
+                LogGameOverStateCorrectionOnce(state, presentedState, "setGameOverState");
                 lobbyReturnFeature.OnGameOverState(presentedState);
                 if (presentedState > 0 && statisticsPreviewActive)
                     CloseStatisticsPreview("vanilla-game-over");
