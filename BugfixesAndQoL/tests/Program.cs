@@ -82,6 +82,84 @@ namespace BugfixesAndQoL
                 ResolutionAwareZoomPolicy.GetEffectiveZoom(1f, 2160) * 64f);
             Check(AlmostEqual(worldHeight1080, worldHeight4K),
                 "resolution normalization preserves visible vertical world size");
+            float[] extendedFarZoomValues = { 0.175f, 0.125f };
+            bool matchingExtendedFarWorldHeights = true;
+            foreach (float farZoom in extendedFarZoomValues)
+            {
+                float farWorldHeight1080 = 1080f / (farZoom * 64f);
+                float farWorldHeight4K = 2160f / (
+                    ResolutionAwareZoomPolicy.GetEffectiveZoom(farZoom, 2160) * 64f);
+                matchingExtendedFarWorldHeights &=
+                    AlmostEqual(farWorldHeight1080, farWorldHeight4K);
+            }
+            Check(matchingExtendedFarWorldHeights,
+                "both extended distant positions preserve world height between 1080p and 4K");
+
+            int[] tilemapSizes = { 160, 200, 300, 400, 500, 600, 700, 800, 1000 };
+            bool matchingFullHdAnd4KPolicies = true;
+            foreach (int tilemapSize in tilemapSizes)
+            {
+                matchingFullHdAnd4KPolicies &=
+                    ResolutionAwareZoomPolicy.CanUserExtraZoom(1920, 1080, tilemapSize) ==
+                    ResolutionAwareZoomPolicy.CanUserExtraZoom(3840, 2160, tilemapSize);
+            }
+            Check(matchingFullHdAnd4KPolicies,
+                "1080p and 4K expose identical zoom positions for every Vanilla map size");
+            Check(ResolutionAwareZoomPolicy.CanUserExtraZoom(1920, 1080, 400) &&
+                    ResolutionAwareZoomPolicy.CanUserExtraZoom(3840, 2160, 400),
+                "standard maps keep the distant 1080p zoom positions at 4K");
+            Check(ResolutionAwareZoomPolicy.CanUserExtraZoom(1920, 1080, 300) &&
+                    !ResolutionAwareZoomPolicy.CanUserExtraZoom(1920, 1080, 200) &&
+                    !ResolutionAwareZoomPolicy.CanUserExtraZoom(1920, 1080, 160),
+                "normalized policy retains Vanilla's small-map limits");
+            Check(!ResolutionAwareZoomPolicy.CanUserExtraZoom(3440, 1440, 400),
+                "normalized policy retains Vanilla's horizontal ultrawide limit");
+            Check(ResolutionAwareZoomPolicy.CanUserExtraZoom(1280, 720, 160),
+                "sub-1080p resolutions retain their unscaled Vanilla policy");
+
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, false, true),
+                    0f) &&
+                AlmostEqual(
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(false, false, true),
+                    2f),
+                "extended far zoom only relaxes maps allowed by Vanilla's extra-zoom policy");
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, false, false),
+                    1f) &&
+                AlmostEqual(
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(false, false, false),
+                    2f) &&
+                AlmostEqual(
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, true, false),
+                    0f),
+                "disabled feature restores Vanilla's locked and editor minimum positions");
+
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(1f, -0.5f, true, true, false, false),
+                    0.5f) &&
+                AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(0.5f, -0.5f, true, true, false, false),
+                    0f),
+                "extra-zoom steps reach both added distant positions");
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(1f, -1f, true, true, false, false),
+                    0f) &&
+                AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(0f, 1f, true, true, false, false),
+                    1f),
+                "whole-step zoom reaches and leaves the extended distant limit directly");
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(0f, -0.5f, true, true, false, true),
+                    ResolutionAwareZoomPolicy.ExtendedLockedMaximumPosition) &&
+                AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(4f, 0.5f, true, true, false, true),
+                    0f),
+                "cyclic zoom wraps between both extended limits");
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(2f, -0.5f, true, false, false, false),
+                    2f),
+                "Vanilla-limited maps do not receive the additional distant positions");
 
             Check(AlmostEqual(
                     ResolutionAwareZoomPolicy.ResolvePosition(3f, 0.5f, true, true, false, false),
@@ -121,6 +199,10 @@ namespace BugfixesAndQoL
             Check(hook.Contains("RollbackFailedInitialization()") &&
                     hook.Contains("settings.EnableClientFeatures") &&
                     hook.Contains("settings.EnableResolutionAwareExtendedZoom") &&
+                    hook.Contains("CanUserExtraZoomDelegate") &&
+                    hook.Contains("ResolutionAwareZoomPolicy.CanUserExtraZoom") &&
+                    hook.Contains("canUserExtraZoomOriginal(self)") &&
+                    hook.Contains("ResolutionAwareZoomPolicy.GetLockedMinimumPosition") &&
                     hook.Contains("ResolutionAwareZoomPolicy.ResolvePosition"),
                 "zoom hook is fail-closed and dynamically setting-gated");
             Type zoomType = typeof(PerfectPixelWithZoom);
@@ -135,6 +217,7 @@ namespace BugfixesAndQoL
             }
             managedContractMatches &=
                 zoomType.GetMethod("adjustZoom", new[] { typeof(float), typeof(bool) })?.ReturnType == typeof(void) &&
+                zoomType.GetMethod(nameof(PerfectPixelWithZoom.CanUserExtraZoom), Type.EmptyTypes)?.ReturnType == typeof(bool) &&
                 zoomType.GetMethod("SetZoomImmediate", new[] { typeof(float) })?.ReturnType == typeof(void) &&
                 zoomType.GetMethod("Zoom", BindingFlags.Instance | BindingFlags.NonPublic,
                     null, new[] { typeof(float) }, null)?.ReturnType == typeof(void) &&

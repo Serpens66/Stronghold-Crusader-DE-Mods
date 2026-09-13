@@ -1,0 +1,52 @@
+{
+  "files": [
+    {
+      "file": "IFastRouteField.cs",
+      "sha256": "5C71BC31BD5C8C9AFE5BD3AA37B065F427326E0E14F6CD35FAE1752BFFA41A88"
+    },
+    {
+      "file": "FastNativeKernel.cs",
+      "sha256": "BB4EB325C42A7B438C7F5C63A2D78269EBA2842E5CDAD756FA57F0ABDE94F79E"
+    },
+    {
+      "file": "FastNativeRouteField.cs",
+      "sha256": "D0111C8B64F5176EDDB2715983E9996C43DFAF93AD62E71584F27C20A1BD5D33"
+    },
+    {
+      "file": "FastRouteField.cs",
+      "sha256": "25997E4B65B64C507723EA50BA9EF1D38372788FF5940289DA4BBE1662344DC2"
+    },
+    {
+      "file": "FastRoutePool.cs",
+      "sha256": "07E20A44FF85B4DB6C457BD2F715A011DA024708BEA3DD056F5CB5EF49CFA435"
+    },
+    {
+      "file": "FastMoatRouting.cs",
+      "sha256": "D7F7591DE1BA038DFFDB18DF24F8F5F73564C50A4F56D7B6BAC8A0030EA64FC3"
+    },
+    {
+      "file": "FastIntegration.cs",
+      "sha256": "64A5B93945B678F69B7EAAE90535FACAD227B41131D0903DF1ED0C698780DDB9"
+    },
+    {
+      "file": "FastMovementScheduler.cs",
+      "sha256": "6F6475ED523FA267415678AC70B17A0379BE45BDC8DA56DAEE5DD876CEDB1B3C"
+    },
+    {
+      "file": "MoatMoveOptions.cs",
+      "sha256": "E65511A5E83673A7E36107AC5A18AB8E29FE9D71FED513D7C9F4CAFB9A02AC84"
+    },
+    {
+      "file": "MoatMovePlugin.cs",
+      "sha256": "B39137F83C0C6F9505F1A4D0647DC7D7DD3E43A8E63069E374749FD2D6451344"
+    },
+    {
+      "file": "FriendlyMoatMovementRuntime.cs",
+      "sha256": "B38B011EBBA6927B3AA297E534F6B8212FA7059FB87B68D03C279F029E5B2786"
+    }
+  ],
+  "sourceLength": 1212,
+  "sourceRva": "DA590",
+  "schemaVersion": 1,
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"
+}

@@ -20,6 +20,7 @@ namespace UnitCosts
         private readonly ManualLogSource log;
         private readonly UnitCostsLobbyViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
+        private IDisposable unitTransitionSubscription;
         private readonly Dictionary<eChimps, UnitExtraCostValues> humanExtraCosts = new Dictionary<eChimps, UnitExtraCostValues>();
         private MakeTroopGameActionHook makeTroopGameActionHook;
         private CreateTroopHoverHook createTroopHoverHook;
@@ -72,6 +73,7 @@ namespace UnitCosts
         public void InitializeAfterLibraryLoaded()
         {
             SubscribeSettingsChanges();
+            TryInitializeFeature("horse-link lifecycle", SubscribeUnitTransition);
             TryInitializeFeature("Vanilla gold-cost capture", CaptureVanillaGoldCosts);
             libraryInitialized = true;
             if (!EffectsEnabled)
@@ -97,8 +99,6 @@ namespace UnitCosts
             TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnUnloadMap));
-
-            TrySubscribeFeature("unit transition", () => UnitR3EventHooks.OnUnitTransition.Observable.Subscribe(OnUnitTransition));
 
             TrySubscribeFeature("placement validation", () => BuildingR3EventHooks.OnPlacementValidation.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
@@ -156,6 +156,18 @@ namespace UnitCosts
 
             settings.SettingChanged += OnSettingChanged;
             settingsChangedSubscribed = true;
+        }
+
+        private void SubscribeUnitTransition()
+        {
+            if (unitTransitionSubscription != null)
+                return;
+
+            unitTransitionSubscription = UnitR3EventHooks.OnUnitTransition.Observable.Subscribe(OnUnitTransition);
+            if (unitTransitionSubscription == null)
+                throw new InvalidOperationException("Unit transition subscription returned null.");
+
+            Shared.DebugLogHelper.LogDebug(log, "UnitCosts horse-link lifecycle subscribed");
         }
 
         private void TrySubscribeFeature(string featureName, Func<IDisposable> subscribe)
@@ -763,10 +775,16 @@ namespace UnitCosts
         {
             try
             {
-                if (!IsUnitCostModeAllowed())
+                if (args.Phase != EventHookPhase.Pre)
                     return;
 
-                if (args.Phase != EventHookPhase.Pre)
+                if (args.Source == UnitTransitionSource.Disband)
+                {
+                    TryConsumeStableHorseForDisband(args.UnitId, args.PlayerOwnerId);
+                    return;
+                }
+
+                if (!IsUnitCostModeAllowed())
                     return;
 
                 if (args.Source != UnitTransitionSource.EuropeanBarracks &&
@@ -1187,6 +1205,286 @@ namespace UnitCosts
                 allocation.StableId,
                 allocation.Slot,
                 bidirectional: true);
+        }
+
+        private unsafe void TryConsumeStableHorseForDisband(int unitId, int playerId)
+        {
+            if (unitId <= 0 || unitId > ushort.MaxValue ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                GameUnitManagerAPI.Instance.GetOwner(unitId) != playerId ||
+                unit->r_GlobalId == 0)
+            {
+                LogDebug(
+                    "UnitCosts ignored invalid disband horse-link source:",
+                    "unitId", unitId,
+                    "player", playerId);
+                return;
+            }
+
+            int stableId = unit->r_LinkedStableBuildingId;
+            uint stableGlobalId = unit->r_LinkedStableGlobalId;
+            uint unitGlobalId = unit->r_GlobalId;
+            if (stableId <= 0 || stableId > ushort.MaxValue || stableGlobalId == 0)
+                return;
+
+            if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+                !IsUsableStable(stable, playerId) ||
+                stable->r_GlobalId != stableGlobalId)
+            {
+                LogDebug(
+                    "UnitCosts kept inconsistent disband horse link:",
+                    "unitId", unitId,
+                    "unitGlobalId", unitGlobalId,
+                    "stableId", stableId,
+                    "stableGlobalId", stableGlobalId,
+                    "reason", "stable validation failed");
+                return;
+            }
+
+            int matchingSlot = -1;
+            for (int slot = 0; slot < StableHorseSlotCount; slot++)
+            {
+                if (GetStableHorseSlotUnitId(stable, slot) != unitId ||
+                    unchecked((uint)GetStableHorseSlotGlobalId(stable, slot)) != unitGlobalId)
+                {
+                    continue;
+                }
+
+                if (matchingSlot >= 0)
+                {
+                    LogDebug(
+                        "UnitCosts kept ambiguous disband horse link:",
+                        "unitId", unitId,
+                        "unitGlobalId", unitGlobalId,
+                        "stableId", stableId,
+                        "firstSlot", matchingSlot,
+                        "secondSlot", slot);
+                    return;
+                }
+
+                matchingSlot = slot;
+            }
+
+            if (matchingSlot < 0)
+            {
+                LogDebug(
+                    "UnitCosts kept unmatched disband horse backlink:",
+                    "unitId", unitId,
+                    "unitGlobalId", unitGlobalId,
+                    "stableId", stableId);
+                return;
+            }
+
+            int totalBefore = stable->r_TotalHorses;
+            int usedBefore = stable->r_UsedHorses;
+            int rechargeBefore = stable->r_HorseRechargeTimer;
+            if (!TryCountOccupiedStableHorseSlots(stable, out int occupiedSlotsBefore) ||
+                !UnitExtraHorseCostPolicy.IsOccupiedStableHorseSlotCountValid(
+                    totalBefore,
+                    occupiedSlotsBefore) ||
+                !UnitExtraHorseCostPolicy.TryCalculateConsumedHorseTotal(
+                    totalBefore,
+                    usedBefore,
+                    out int totalAfter))
+            {
+                LogDebug(
+                    "UnitCosts kept invalid disband horse accounting:",
+                    "unitId", unitId,
+                    "stableId", stableId,
+                    "total", totalBefore,
+                    "used", usedBefore,
+                    "occupiedSlots", occupiedSlotsBefore,
+                    "recharge", rechargeBefore);
+                return;
+            }
+
+            stable->r_TotalHorses = (byte)totalAfter;
+            try
+            {
+                GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(
+                    stableId,
+                    matchingSlot,
+                    bidirectional: true);
+            }
+            catch
+            {
+                RollbackDisbandHorseConsumption(
+                    stableId,
+                    stableGlobalId,
+                    playerId,
+                    matchingSlot,
+                    unitId,
+                    unitGlobalId,
+                    totalBefore,
+                    totalAfter,
+                    usedBefore,
+                    rechargeBefore,
+                    occupiedSlotsBefore);
+                throw;
+            }
+
+            bool slotCleared = GetStableHorseSlotUnitId(stable, matchingSlot) == 0 &&
+                GetStableHorseSlotGlobalId(stable, matchingSlot) == 0;
+            bool backlinkCleared = unit->r_LinkedStableBuildingId == 0 &&
+                unit->r_LinkedStableGlobalId == 0;
+            bool slotTopologyMatches = TryCountOccupiedStableHorseSlots(stable, out int occupiedSlotsAfter) &&
+                occupiedSlotsAfter == occupiedSlotsBefore - 1 &&
+                UnitExtraHorseCostPolicy.IsOccupiedStableHorseSlotCountValid(
+                    totalAfter,
+                    occupiedSlotsAfter);
+            bool accountingMatches = stable->r_TotalHorses == totalAfter &&
+                stable->r_UsedHorses == usedBefore &&
+                stable->r_HorseRechargeTimer == rechargeBefore;
+            if (!slotCleared || !backlinkCleared || !slotTopologyMatches || !accountingMatches)
+            {
+                LogDebug(
+                    "UnitCosts disband horse consumption verification failed:",
+                    "unitId", unitId,
+                    "stableId", stableId,
+                    "slot", matchingSlot,
+                    "slotCleared", slotCleared,
+                    "backlinkCleared", backlinkCleared,
+                    "slotTopologyMatches", slotTopologyMatches,
+                    "occupiedSlotsBefore", occupiedSlotsBefore,
+                    "occupiedSlotsAfter", occupiedSlotsAfter,
+                    "accountingMatches", accountingMatches);
+                RollbackDisbandHorseConsumption(
+                    stableId,
+                    stableGlobalId,
+                    playerId,
+                    matchingSlot,
+                    unitId,
+                    unitGlobalId,
+                    totalBefore,
+                    totalAfter,
+                    usedBefore,
+                    rechargeBefore,
+                    occupiedSlotsBefore);
+                return;
+            }
+
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                "UnitCosts consumed stable horse on disband:",
+                "unitId", unitId,
+                "stableId", stableId,
+                "slot", matchingSlot,
+                "totalBefore", totalBefore,
+                "totalAfter", totalAfter);
+        }
+
+        private unsafe void RollbackDisbandHorseConsumption(
+            int stableId,
+            uint stableGlobalId,
+            int playerId,
+            int slot,
+            int unitId,
+            uint unitGlobalId,
+            int totalBefore,
+            int totalAfter,
+            int usedBefore,
+            int rechargeBefore,
+            int occupiedSlotsBefore)
+        {
+            if (slot < 0 || slot >= StableHorseSlotCount ||
+                !GameBuildingManagerAPI.Instance.TryGetBuildingById(stableId, out GameBuilding* stable) ||
+                !IsUsableStable(stable, playerId) ||
+                stable->r_GlobalId != stableGlobalId ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                unit->r_GlobalId != unitGlobalId)
+            {
+                LogDebug(
+                    "UnitCosts could not reacquire disband horse rollback objects:",
+                    "unitId", unitId,
+                    "stableId", stableId,
+                    "slot", slot);
+                return;
+            }
+
+            bool slotIsFree = IsStableHorseSlotFree(stable, slot);
+            bool slotAlreadyRestored = GetStableHorseSlotUnitId(stable, slot) == unitId &&
+                unchecked((uint)GetStableHorseSlotGlobalId(stable, slot)) == unitGlobalId;
+            bool backlinkIsFree = unit->r_LinkedStableBuildingId == 0 &&
+                unit->r_LinkedStableGlobalId == 0;
+            bool backlinkAlreadyRestored = unit->r_LinkedStableBuildingId == stableId &&
+                unit->r_LinkedStableGlobalId == stableGlobalId;
+            bool backlinkCanRestore = backlinkIsFree || backlinkAlreadyRestored;
+            bool totalCanRestore = stable->r_TotalHorses == totalAfter ||
+                stable->r_TotalHorses == totalBefore;
+            bool vanillaAccountingUnchanged = stable->r_UsedHorses == usedBefore &&
+                stable->r_HorseRechargeTimer == rechargeBefore;
+            bool slotTopologyCanRestore = TryCountOccupiedStableHorseSlots(stable, out int occupiedSlotsCurrent) &&
+                ((slotIsFree && occupiedSlotsCurrent == occupiedSlotsBefore - 1) ||
+                 (slotAlreadyRestored && occupiedSlotsCurrent == occupiedSlotsBefore));
+            if ((!slotIsFree && !slotAlreadyRestored) ||
+                !backlinkCanRestore || !totalCanRestore || !vanillaAccountingUnchanged ||
+                !slotTopologyCanRestore)
+            {
+                LogDebug(
+                    "UnitCosts skipped unsafe disband horse rollback:",
+                    "unitId", unitId,
+                    "stableId", stableId,
+                    "slot", slot,
+                    "slotIsFree", slotIsFree,
+                    "slotAlreadyRestored", slotAlreadyRestored,
+                    "backlinkCanRestore", backlinkCanRestore,
+                    "totalCanRestore", totalCanRestore,
+                    "vanillaAccountingUnchanged", vanillaAccountingUnchanged,
+                    "slotTopologyCanRestore", slotTopologyCanRestore,
+                    "occupiedSlotsCurrent", occupiedSlotsCurrent);
+                return;
+            }
+
+            stable->r_TotalHorses = (byte)totalBefore;
+            if (slotIsFree || !backlinkAlreadyRestored)
+            {
+                GameBuildingManagerAPI.Instance.SetStablesUnitIdLink(
+                    stableId,
+                    slot,
+                    unitId,
+                    unchecked((int)unitGlobalId),
+                    bidirectional: true);
+            }
+
+            bool rollbackMatches = GetStableHorseSlotUnitId(stable, slot) == unitId &&
+                unchecked((uint)GetStableHorseSlotGlobalId(stable, slot)) == unitGlobalId &&
+                unit->r_LinkedStableBuildingId == stableId &&
+                unit->r_LinkedStableGlobalId == stableGlobalId &&
+                stable->r_TotalHorses == totalBefore &&
+                stable->r_UsedHorses == usedBefore &&
+                stable->r_HorseRechargeTimer == rechargeBefore &&
+                TryCountOccupiedStableHorseSlots(stable, out int occupiedSlotsRestored) &&
+                occupiedSlotsRestored == occupiedSlotsBefore;
+            LogDebug(
+                rollbackMatches
+                    ? "UnitCosts rolled back disband horse consumption:"
+                    : "UnitCosts disband horse rollback verification failed:",
+                "unitId", unitId,
+                "stableId", stableId,
+                "slot", slot);
+        }
+
+        private static unsafe bool TryCountOccupiedStableHorseSlots(
+            GameBuilding* stable,
+            out int occupiedSlots)
+        {
+            occupiedSlots = 0;
+            for (int slot = 0; slot < StableHorseSlotCount; slot++)
+            {
+                int linkedUnitId = GetStableHorseSlotUnitId(stable, slot);
+                long linkedUnitGlobalId = GetStableHorseSlotGlobalId(stable, slot);
+                if (!UnitExtraHorseCostPolicy.IsStableHorseSlotPairComplete(
+                        linkedUnitId,
+                        linkedUnitGlobalId))
+                {
+                    return false;
+                }
+
+                if (linkedUnitId != 0)
+                    occupiedSlots++;
+            }
+
+            return true;
         }
 
         private const int StableHorseSlotCount = 4;

@@ -45,6 +45,8 @@ namespace ExtraFeatures
         private bool allowElevatedMoatHuman;
         private bool enableKnightDismount = true;
         private bool instantHorse;
+        private int knightTransformationGoldCost;
+        private int knightTransformationDelaySeconds = 10;
         private bool enableExtraChurchPriests = true;
         private double humanGateReopenDelaySeconds = GatehouseTimingValues.VanillaHumanDelaySeconds;
         private double aiGateReopenDelaySeconds = GatehouseTimingValues.VanillaAiDelaySeconds;
@@ -91,6 +93,10 @@ namespace ExtraFeatures
         public string EnableKnightDismountHelpText => SerpLocalization.Get(SerpLocalization.EnableKnightDismountHelp);
         public string InstantHorseText => SerpLocalization.Get(SerpLocalization.InstantHorse);
         public string InstantHorseHelpText => SerpLocalization.Get(SerpLocalization.InstantHorseHelp);
+        public string KnightTransformationGoldCostText => SerpLocalization.Get(SerpLocalization.KnightTransformationGoldCost);
+        public string KnightTransformationGoldCostHelpText => SerpLocalization.Get(SerpLocalization.KnightTransformationGoldCostHelp);
+        public string KnightTransformationDelayText => SerpLocalization.Get(SerpLocalization.KnightTransformationDelay);
+        public string KnightTransformationDelayHelpText => SerpLocalization.Get(SerpLocalization.KnightTransformationDelayHelp);
         public string EnableExtraChurchPriestsText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriests);
         public string EnableExtraChurchPriestsHelpText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriestsHelp);
         public string CampfirePeasantsText => SerpLocalization.Get(SerpLocalization.CampfirePeasants);
@@ -196,6 +202,10 @@ namespace ExtraFeatures
         [SyncHostOnly] public bool EnableMonksAlwaysRun { get => enableMonksAlwaysRun; set => SetSetting(ref enableMonksAlwaysRun, value, nameof(EnableMonksAlwaysRun)); }
         [SyncHostOnly] public bool EnableKnightDismount { get => enableKnightDismount; set => SetSetting(ref enableKnightDismount, value, nameof(EnableKnightDismount)); }
         [SyncHostOnly] public bool InstantHorse { get => instantHorse; set => SetSetting(ref instantHorse, value, nameof(InstantHorse)); }
+        [SyncHostOnly] public int KnightTransformationGoldCost { get => knightTransformationGoldCost; set => SetIntSetting(ref knightTransformationGoldCost, value, 0, 1000, nameof(KnightTransformationGoldCost), nameof(KnightTransformationGoldCostValueText)); }
+        [SyncHostOnly] public int KnightTransformationDelaySeconds { get => knightTransformationDelaySeconds; set => SetIntSetting(ref knightTransformationDelaySeconds, value, 0, 120, nameof(KnightTransformationDelaySeconds), nameof(KnightTransformationDelayValueText)); }
+        public string KnightTransformationGoldCostValueText { get => KnightTransformationGoldCost.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => KnightTransformationGoldCost = parsed, nameof(KnightTransformationGoldCostValueText)); }
+        public string KnightTransformationDelayValueText { get => KnightTransformationDelaySeconds.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => KnightTransformationDelaySeconds = parsed, nameof(KnightTransformationDelayValueText)); }
         [SyncHostOnly] public bool EnableExtraChurchPriests { get => enableExtraChurchPriests; set => SetSetting(ref enableExtraChurchPriests, value, nameof(EnableExtraChurchPriests)); }
         [SyncHostOnly] public double HumanGateReopenDelaySeconds { get => humanGateReopenDelaySeconds; set => SetDoubleSetting(ref humanGateReopenDelaySeconds, RoundToStep(value, 0.5), GatehouseTimingValues.MinimumHumanDelaySeconds, GatehouseTimingValues.MaximumHumanDelaySeconds, nameof(HumanGateReopenDelaySeconds), nameof(HumanGateReopenDelayValueText)); }
         [SyncHostOnly] public double AIGateReopenDelaySeconds { get => aiGateReopenDelaySeconds; set => SetDoubleSetting(ref aiGateReopenDelaySeconds, RoundToStep(value, 2.5), GatehouseTimingValues.MinimumAiDelaySeconds, GatehouseTimingValues.MaximumAiDelaySeconds, nameof(AIGateReopenDelaySeconds), nameof(AIGateReopenDelayValueText)); }
@@ -272,6 +282,8 @@ namespace ExtraFeatures
                 AllowElevatedMoatHuman = false;
                 EnableKnightDismount = true;
                 InstantHorse = false;
+                KnightTransformationGoldCost = 0;
+                KnightTransformationDelaySeconds = 10;
                 EnableExtraChurchPriests = true;
                 HumanGateReopenDelaySeconds = GatehouseTimingValues.VanillaHumanDelaySeconds;
                 AIGateReopenDelaySeconds = GatehouseTimingValues.VanillaAiDelaySeconds;

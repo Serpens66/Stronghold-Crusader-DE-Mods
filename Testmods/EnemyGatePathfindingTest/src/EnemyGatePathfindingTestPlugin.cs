@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace EnemyGatePathfindingTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.5.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.6.0")]
     // Load after the hook owner when it exists, so PluginInfos can suppress
     // our overlapping observational route hooks while keeping the PCL hook active.
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -130,7 +130,7 @@ namespace EnemyGatePathfindingTest
                 string fileVersion = string.IsNullOrEmpty(location)
                     ? "unknown"
                     : FileVersionInfo.GetVersionInfo(location).FileVersion;
-                bool auditedVersion = assembly.GetName().Version == new Version(2, 5, 0, 0);
+                bool auditedVersion = assembly.GetName().Version == new Version(2, 6, 0, 0);
                 Shared.DebugLogHelper.LogInfo(
                     persistentLog,
                     $"Script Extender identity: manifestVersionRange=true, " +
@@ -141,7 +141,7 @@ namespace EnemyGatePathfindingTest
                 {
                     Shared.DebugLogHelper.LogWarning(
                         persistentLog,
-                        "Script Extender differs from audited version 2.5.0. Review native and API contracts before accepting test results.");
+                        "Script Extender differs from audited version 2.6.0. Review native and API contracts before accepting test results.");
                 }
             }
             catch (Exception ex)

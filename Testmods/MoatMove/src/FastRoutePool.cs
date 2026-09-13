@@ -23,7 +23,7 @@ namespace MoatMove
         internal FastRoutePool.Entry Entry;
         internal FastFieldLease(FastRoutePool owner, FastRoutePool.Entry entry)
         { this.owner = owner; Entry = entry; entry.Pins++; }
-        internal FastRouteField Field => Entry?.Field;
+        internal IFastRouteField Field => Entry?.Field;
         public void Dispose()
         { if (Entry != null) { owner.Release(Entry); Entry = null; } }
     }
@@ -35,7 +35,7 @@ namespace MoatMove
         internal sealed class Entry
         {
             internal FastFieldKey Key;
-            internal FastRouteField Field;
+            internal IFastRouteField Field;
             internal MoatSearchEdge Resolve;
             internal int Pins;
             internal long Use;
@@ -44,15 +44,21 @@ namespace MoatMove
         private readonly Func<FastFieldKey, MoatSearchEdge> edges;
         private readonly List<Entry> entries = new List<Entry>();
         private long use;
-        internal FastRoutePool(int width, int height, long budget, Func<FastFieldKey, MoatSearchEdge> edges)
+        private readonly long fieldBytes;
+        private readonly Func<Func<FastFieldKey>, MoatSearchEdge, IFastRouteField> factory;
+        internal int PendingGroupCapacity => Math.Max(1, (capacity - 2) / 2);
+        internal FastRoutePool(int width, int height, long budget, Func<FastFieldKey, MoatSearchEdge> edges,
+            Func<Func<FastFieldKey>, MoatSearchEdge, IFastRouteField> factory = null, long fieldBytes = 0)
         {
             if (width <= 0 || height <= 0 || (long)width * height > int.MaxValue)
                 throw new ArgumentOutOfRangeException(nameof(width));
             this.width = width; this.height = height; this.edges = edges ?? throw new ArgumentNullException(nameof(edges));
-            capacity = (int)Math.Min(int.MaxValue, budget / ((long)width * height * 9));
+            this.fieldBytes = fieldBytes == 0 ? (long)width * height * 9 : fieldBytes;
+            this.factory = factory ?? ((key, edge) => new FastRouteField(width, height, edge));
+            capacity = (int)Math.Min(int.MaxValue, budget / this.fieldBytes);
             if (capacity < 1) throw new ArgumentOutOfRangeException(nameof(budget));
         }
-        internal long BufferBytes => (long)entries.Count * width * height * 9;
+        internal long BufferBytes => (long)entries.Count * fieldBytes;
         internal long Builds { get; private set; }
         internal long Hits { get; private set; }
         internal long Invalidations { get; private set; }
@@ -71,7 +77,7 @@ namespace MoatMove
                 oldest = new Entry();
                 // The delegate closes over its pooled entry, not a previous request key.
                 Entry captured = oldest;
-                oldest.Field = new FastRouteField(width, height,
+                oldest.Field = factory(() => captured.Key,
                     (int a, int b, int direction, out bool wet, out bool structure) =>
                         captured.Resolve(a, b, direction, out wet, out structure));
                 entries.Add(oldest);
@@ -84,12 +90,12 @@ namespace MoatMove
         internal void Release(Entry entry)
         { if (entry.Pins <= 0) throw new InvalidOperationException("Fast lease released twice."); entry.Pins--; }
 
-        internal void Invalidate(int player, IReadOnlyCollection<int> changed)
+        internal void Invalidate(int player, IReadOnlyCollection<int> changed, bool all = false)
         {
             foreach (Entry entry in entries)
             {
                 if (entry.Key.Player != player) continue;
-                bool affected = false;
+                bool affected = all;
                 foreach (int node in changed)
                 {
                     // A reverse expansion reads incoming edges from neighboring sources,

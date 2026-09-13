@@ -16,7 +16,7 @@ namespace MoatMove
     // One reverse, unweighted directed BFS serves every start for this destination.
     // The caller owns an immutable traversal revision until Reset/Cancel. No native
     // state, unit pointers, timers or publication side effects belong in this class.
-    internal sealed class FastRouteField
+    internal sealed class FastRouteField : IFastRouteField
     {
         private static readonly int[] Dx = { 0, 1, 1, 1, 0, -1, -1, -1 };
         private static readonly int[] Dy = { -1, -1, 0, 1, 1, 1, 0, -1 };
@@ -38,15 +38,16 @@ namespace MoatMove
             nextDirections = new byte[distances.Length];
         }
 
-        internal int Expanded => head;
+        public int Expanded => head;
+        public long Work => head;
         internal int Discovered => tail;
-        internal long BufferBytes => (long)distances.Length * 9;
-        internal bool HasDiscovered(int node) => (uint)node < distances.Length && distances[node] != 0;
-        internal int Distance(int node) => HasDiscovered(node) ? distances[node] - 1 : -1;
-        internal bool Exhausted => destination >= 0 && head == tail && !cancelled;
+        public long BufferBytes => (long)distances.Length * 9;
+        public bool HasDiscovered(int node) => (uint)node < distances.Length && distances[node] != 0;
+        public int Distance(int node) => HasDiscovered(node) ? distances[node] - 1 : -1;
+        public bool Exhausted => destination >= 0 && head == tail && !cancelled;
 
         // Native low-nibble-first format, without allocating an intermediate node path.
-        internal FastRouteStatus WritePacked(int start, byte[] buffer, out int count, int maximumEdges = 2000)
+        public FastRouteStatus WritePacked(int start, byte[] buffer, out int count, int maximumEdges = 2000)
         {
             count = 0;
             FastRouteStatus status = Status(start, maximumEdges);
@@ -67,7 +68,7 @@ namespace MoatMove
             return FastRouteStatus.Found;
         }
 
-        internal void Reset(int target)
+        public void Reset(int target)
         {
             if ((uint)target >= distances.Length) throw new ArgumentOutOfRangeException(nameof(target));
             // Clear only cells touched by the preceding command, including its frontier.
@@ -77,7 +78,7 @@ namespace MoatMove
             queue[tail++] = target;
         }
 
-        internal void ResetRoots(IEnumerable<int> roots)
+        public void ResetRoots(IEnumerable<int> roots)
         {
             if (roots == null) throw new ArgumentNullException(nameof(roots));
             for (int i = 0; i < tail; i++) distances[queue[i]] = 0;
@@ -91,9 +92,9 @@ namespace MoatMove
             }
         }
 
-        internal void Cancel() { cancelled = true; }
+        public void Cancel() { cancelled = true; }
 
-        internal FastRouteStatus Status(int start, int maximumEdges = 2000)
+        public FastRouteStatus Status(int start, int maximumEdges = 2000)
         {
             if ((uint)start >= distances.Length || maximumEdges < 0 || destination < 0)
                 return FastRouteStatus.InvalidQuery;
@@ -105,7 +106,7 @@ namespace MoatMove
 
         // Budget limits this slice, not the lifetime of a command. A zero slice never
         // claims that a still-unexplored start is unreachable. Ordering is tick-neutral.
-        internal FastRouteStatus Advance(int start, int maximumExpanded, int maximumEdges = 2000)
+        public FastRouteStatus Advance(int start, int maximumExpanded, int maximumEdges = 2000)
         {
             if (maximumExpanded < 0) throw new ArgumentOutOfRangeException(nameof(maximumExpanded));
             FastRouteStatus status = Status(start, maximumEdges);
@@ -135,7 +136,7 @@ namespace MoatMove
             return Status(start, maximumEdges);
         }
 
-        internal FastRouteStatus GetPath(int start, out int[] path, int maximumEdges = 2000)
+        public FastRouteStatus GetPath(int start, out int[] path, int maximumEdges = 2000)
         {
             path = null;
             FastRouteStatus status = Status(start, maximumEdges);

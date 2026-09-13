@@ -248,7 +248,7 @@ namespace MoatMove
                 int budget = 8192;
                 var active = new List<FastPendingCommand>();
                 foreach (FastPendingCommand command in fastCommands.Commands)
-                { active.Add(command); if (active.Count == 4) break; }
+                { active.Add(command); if (active.Count == (settings.NativeFast ? GetFastRouting(false).Pool.PendingGroupCapacity : 4)) break; }
                 int idle = 0;
                 while (budget > 0 && active.Count != 0 && idle < active.Count)
                 {
@@ -290,9 +290,9 @@ namespace MoatMove
                 FastRouteStatus ground = search.Ground?.Field.Status(start, int.MaxValue) ?? FastRouteStatus.Pending;
                 if (ground == FastRouteStatus.Pending)
                 {
-                    int before = search.Ground?.Field.Expanded ?? 0;
+                    long before = search.Ground?.Field.Work ?? 0;
                     ground = AdvanceFastField(search.Ground, start, Math.Min(1024, budget), int.MaxValue);
-                    budget -= (search.Ground?.Field.Expanded ?? 0) - before;
+                    budget -= (int)((search.Ground?.Field.Work ?? 0) - before);
                 }
                 if (ground == FastRouteStatus.Pending) { pending = true; break; }
                 if (ground == FastRouteStatus.Found) continue;
@@ -300,9 +300,9 @@ namespace MoatMove
                 FastRouteStatus friendly = search.Friendly?.Field.Status(start) ?? FastRouteStatus.Pending;
                 if (friendly == FastRouteStatus.Pending)
                 {
-                    int before = search.Friendly?.Field.Expanded ?? 0;
+                    long before = search.Friendly?.Field.Work ?? 0;
                     friendly = AdvanceFastField(search.Friendly, start, Math.Min(1024, budget));
-                    budget -= (search.Friendly?.Field.Expanded ?? 0) - before;
+                    budget -= (int)((search.Friendly?.Field.Work ?? 0) - before);
                 }
                 if (friendly == FastRouteStatus.Pending) { pending = true; break; }
             }

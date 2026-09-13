@@ -140,12 +140,12 @@ namespace ExtraFeatures
         }
     }
 
-    internal sealed unsafe class KnightDismountRuntime : IDisposable
+    internal sealed unsafe partial class KnightDismountRuntime : IDisposable
     {
         private const int StableHorseSlotCount = 4;
-        private const int ChoreProtocolVersion = 1;
-        private const int MountAction = 1;
-        private const int DismountAction = 2;
+        private const int ChoreProtocolVersion = 2;
+        private const int MountAction = KnightTransformationPacket.StartMountAction;
+        private const int DismountAction = KnightTransformationPacket.StartDismountAction;
         private const string MissingWeaponsSpeechFileName = "Other_Warning6.wav";
         private static readonly string[] MountSpeechFileNames = { "Knight_m1.wav", "Knight_m2.wav", "Knight_m3.wav" };
         private static readonly string[] DismountSpeechFileNames = { "Sword_s4.wav", "Sword_s5.wav", "Sword_s6.wav" };
@@ -187,8 +187,22 @@ namespace ExtraFeatures
             if (networkInitialized)
                 return;
 
-            transformationPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<KnightTransformationPacket>();
-            transformationPacketSubscription = transformationPacketHook.GetBaseHook().Observable.Subscribe(OnTransformationPacketReceived);
+            R3PacketEventHook<KnightTransformationPacket> packetHookCandidate =
+                GameNetworkAPI.Instance.GetPacketEventFor<KnightTransformationPacket>();
+            IDisposable packetSubscriptionCandidate = null;
+            try
+            {
+                packetSubscriptionCandidate = packetHookCandidate.GetBaseHook().Observable.Subscribe(OnTransformationPacketReceived);
+                InitializePersistentInfrastructure();
+            }
+            catch
+            {
+                packetSubscriptionCandidate?.Dispose();
+                throw;
+            }
+
+            transformationPacketHook = packetHookCandidate;
+            transformationPacketSubscription = packetSubscriptionCandidate;
             networkInitialized = true;
             LogDebug($"Knight transformation synchronization registered: protocolVersion={ChoreProtocolVersion}.");
         }
@@ -210,6 +224,7 @@ namespace ExtraFeatures
 
             disposed = true;
             initialized = false;
+            CancelAllPending("feature-disabled", refundGold: true, releaseReservedHorse: true);
             buttonViewModel.Hide();
             UnhookButtonEvents();
         }
@@ -249,8 +264,7 @@ namespace ExtraFeatures
 
                 if (HasSelectedOwnSwordsman(localPlayerId))
                 {
-                    bool hasHorse = CountAvailableHorseSlots(localPlayerId) > 0;
-                    buttonViewModel.ShowMount(hasHorse);
+                    buttonViewModel.ShowMount(enabled: true);
                     return;
                 }
 
@@ -340,7 +354,7 @@ namespace ExtraFeatures
         {
             ShowTooltip(
                 SerpLocalization.Get(SerpLocalization.KnightDismountTooltip),
-                SerpLocalization.Get(SerpLocalization.KnightDismountTooltipBody),
+                AppendTransformationCosts(SerpLocalization.Get(SerpLocalization.KnightDismountTooltipBody)),
                 "dismount");
         }
 
@@ -348,8 +362,28 @@ namespace ExtraFeatures
         {
             ShowTooltip(
                 SerpLocalization.Get(SerpLocalization.KnightMountTooltip),
-                SerpLocalization.Get(SerpLocalization.KnightMountTooltipBody),
+                AppendTransformationCosts(SerpLocalization.Get(SerpLocalization.KnightMountTooltipBody)),
                 "mount");
+        }
+
+        private string AppendTransformationCosts(string body)
+        {
+            var lines = new List<string> { body ?? string.Empty };
+            if (settings.KnightTransformationGoldCost > 0)
+            {
+                lines.Add(string.Format(
+                    CultureInfo.CurrentCulture,
+                    SerpLocalization.Get(SerpLocalization.KnightTransformationTooltipGold),
+                    settings.KnightTransformationGoldCost));
+            }
+            if (settings.KnightTransformationDelaySeconds > 0)
+            {
+                lines.Add(string.Format(
+                    CultureInfo.CurrentCulture,
+                    SerpLocalization.Get(SerpLocalization.KnightTransformationTooltipDelay),
+                    settings.KnightTransformationDelaySeconds));
+            }
+            return string.Join(Environment.NewLine, lines);
         }
 
         private void ShowTooltip(string title, string body, string label)
@@ -465,16 +499,23 @@ namespace ExtraFeatures
                     return;
                 }
 
+                int goldCost = Math.Max(0, Math.Min(1000, settings.KnightTransformationGoldCost));
+                if (goldCost > 0 && GamePlayerManagerAPI.Instance.GetPlayerGold(localPlayerId) < goldCost)
+                {
+                    PlayMissingGoldSpeech();
+                    RefreshButtonVisibility();
+                    return;
+                }
+
+                IssueInternalStop();
+
                 if (RequiresChoreTransport())
                 {
                     TrySendTransformationChore(localPlayerId, DismountAction, snapshots);
                 }
                 else
                 {
-                    List<UnitTransformSnapshot> appliedSnapshots = new List<UnitTransformSnapshot>(snapshots.Count);
-                    ApplyDismountBatch(snapshots, "local-click", appliedSnapshots);
-                    if (appliedSnapshots.Count > 0)
-                        PlayRandomLocalSpeech(DismountSpeechFileNames, "dismount");
+                    StartPendingBatch(localPlayerId, DismountAction, snapshots, localAction: true, "local-click");
                 }
 
                 RefreshButtonVisibility();
@@ -503,12 +544,22 @@ namespace ExtraFeatures
                     return;
                 }
 
-                if (FindHorseAllocations(localPlayerId, snapshots.Count).Count == 0)
+                int goldCost = Math.Max(0, Math.Min(1000, settings.KnightTransformationGoldCost));
+                if (goldCost > 0 && GamePlayerManagerAPI.Instance.GetPlayerGold(localPlayerId) < goldCost)
+                {
+                    PlayMissingGoldSpeech();
+                    RefreshButtonVisibility();
+                    return;
+                }
+
+                if (CountAvailableHorseSlots(localPlayerId) == 0)
                 {
                     PlayMissingWeaponsSpeech();
                     RefreshButtonVisibility();
                     return;
                 }
+
+                IssueInternalStop();
 
                 if (RequiresChoreTransport())
                 {
@@ -516,12 +567,7 @@ namespace ExtraFeatures
                 }
                 else
                 {
-                    List<HorseAllocation> allocations = FindHorseAllocations(localPlayerId, snapshots.Count);
-                    int applyCount = Math.Min(snapshots.Count, allocations.Count);
-                    List<AppliedMountSnapshot> appliedSnapshots = new List<AppliedMountSnapshot>(applyCount);
-                    ApplyMountBatch(snapshots, allocations, applyCount, "local-click", appliedSnapshots);
-                    if (appliedSnapshots.Count > 0)
-                        PlayRandomLocalSpeech(MountSpeechFileNames, "mount");
+                    StartPendingBatch(localPlayerId, MountAction, snapshots, localAction: true, "local-click");
                 }
 
                 RefreshButtonVisibility();
@@ -578,6 +624,11 @@ namespace ExtraFeatures
                 globalIds.Add(snapshots[index].GlobalId);
             }
 
+            return TrySendTransformationPacket(playerId, action, globalIds.ToArray());
+        }
+
+        private bool TrySendTransformationPacket(int playerId, int action, int[] unitGlobalIds)
+        {
             int operationId = nextOperationId == int.MaxValue ? 1 : nextOperationId + 1;
             nextOperationId = operationId;
             var packet = new KnightTransformationPacket
@@ -586,7 +637,7 @@ namespace ExtraFeatures
                 PlayerId = playerId,
                 OperationId = operationId,
                 Action = action,
-                UnitGlobalIds = globalIds.ToArray()
+                UnitGlobalIds = unitGlobalIds ?? Array.Empty<int>()
             };
 
             if (!KnightTransformationPacketValidation.HasValidMetadataAndTargets(packet, GamePlayerManagerAPI.MAX_PLAYERS))
@@ -620,7 +671,6 @@ namespace ExtraFeatures
 
             KnightTransformationPacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
-                (packet.Action != MountAction && packet.Action != DismountAction) ||
                 !KnightTransformationPacketValidation.HasValidMetadataAndTargets(packet, GamePlayerManagerAPI.MAX_PLAYERS))
             {
                 LogError("Rejected a Knight transformation Chore with an invalid payload.");
@@ -629,6 +679,21 @@ namespace ExtraFeatures
 
             try
             {
+                bool localAction = packet.PlayerId == GetControlledPlayerId();
+                if (packet.Action == KnightTransformationPacket.CancelAllAction)
+                {
+                    CancelAllPending("multiplayer-cancel-all", refundGold: true, releaseReservedHorse: true);
+                    if (localAction)
+                        ScheduleDeferredSaveCompletion();
+                    return;
+                }
+
+                if (packet.Action == KnightTransformationPacket.CancelSelectedAction)
+                {
+                    CancelPendingByGlobalIds(packet.PlayerId, packet.UnitGlobalIds, "multiplayer-stop");
+                    return;
+                }
+
                 eChimps expectedType = packet.Action == MountAction
                     ? eChimps.CHIMP_TYPE_SWORDSMAN
                     : eChimps.CHIMP_TYPE_KNIGHT;
@@ -639,27 +704,9 @@ namespace ExtraFeatures
                     return;
                 }
 
-                bool localAction = packet.PlayerId == GetControlledPlayerId();
-                if (packet.Action == DismountAction)
-                {
-                    var applied = new List<UnitTransformSnapshot>(snapshots.Count);
-                    ApplyDismountBatch(snapshots, "multiplayer-chore", applied);
-                    if (localAction && applied.Count > 0)
-                        PlayRandomLocalSpeech(DismountSpeechFileNames, "dismount");
-                }
-                else
-                {
-                    List<HorseAllocation> allocations = FindHorseAllocations(packet.PlayerId, snapshots.Count);
-                    int applyCount = Math.Min(snapshots.Count, allocations.Count);
-                    var applied = new List<AppliedMountSnapshot>(applyCount);
-                    ApplyMountBatch(snapshots, allocations, applyCount, "multiplayer-chore", applied);
-                    if (localAction && applied.Count > 0)
-                        PlayRandomLocalSpeech(MountSpeechFileNames, "mount");
-                    else if (localAction && allocations.Count == 0)
-                        PlayMissingWeaponsSpeech();
-                }
+                StartPendingBatch(packet.PlayerId, packet.Action, snapshots, localAction, "multiplayer-chore");
 
-                LogDebug($"Knight transformation executed: action={packet.Action}, unitCount={snapshots.Count}.");
+                LogDebug($"Knight transformation started: action={packet.Action}, unitCount={snapshots.Count}.");
             }
             catch (Exception ex)
             {
@@ -895,6 +942,9 @@ namespace ExtraFeatures
                 return false;
             }
 
+            LogDebug(
+                $"Knight dismount completed: reason={reason}, sourceGlobalId={currentSnapshot.GlobalId}, " +
+                $"swordsmanUnitId={swordsmanUnitId}, linkedHorseConsumed={consumedHorse.IsActive}.");
             return true;
         }
 
@@ -1191,6 +1241,38 @@ namespace ExtraFeatures
             return count;
         }
 
+        private static bool TryValidateStableHorseSlots(int stableId, GameBuilding* stable, out int occupiedSlotCount)
+        {
+            occupiedSlotCount = 0;
+            if (stable == null || stableId <= 0 || stable->r_GlobalId == 0)
+                return false;
+
+            var seenUnitIds = new HashSet<int>();
+            var seenGlobalIds = new HashSet<int>();
+            int stableGlobalId = (int)stable->r_GlobalId;
+            for (int slot = 0; slot < StableHorseSlotCount; slot++)
+            {
+                int unitId = GetStableHorseSlotUnitId(stable, slot);
+                int unitGlobalId = GetStableHorseSlotGlobalId(stable, slot);
+                if (unitId == 0 && unitGlobalId == 0)
+                    continue;
+
+                if (unitId <= 0 || unitGlobalId <= 0 ||
+                    !seenUnitIds.Add(unitId) || !seenGlobalIds.Add(unitGlobalId) ||
+                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* linkedUnit) ||
+                    (int)linkedUnit->r_GlobalId != unitGlobalId ||
+                    linkedUnit->r_LinkedStableBuildingId != stableId ||
+                    linkedUnit->r_LinkedStableGlobalId != (uint)stableGlobalId)
+                {
+                    return false;
+                }
+
+                occupiedSlotCount++;
+            }
+
+            return true;
+        }
+
         private static bool IsStableHorseSlotFree(GameBuilding* stable, int slot)
         {
             return GetStableHorseSlotUnitId(stable, slot) == 0 &&
@@ -1270,8 +1352,15 @@ namespace ExtraFeatures
             int totalBefore = stable->r_TotalHorses;
             int usedBefore = stable->r_UsedHorses;
             int rechargeBefore = stable->r_HorseRechargeTimer;
-            if (totalBefore <= 0 || totalBefore > StableHorseSlotCount ||
-                usedBefore <= 0 || usedBefore > StableHorseSlotCount || usedBefore > totalBefore)
+            bool slotsStructurallyValid =
+                TryValidateStableHorseSlots(linkedStableId, stable, out int occupiedSlotCount);
+            if (!StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(
+                    totalBefore,
+                    usedBefore,
+                    occupiedSlotCount,
+                    slotsStructurallyValid,
+                    settings.InstantHorse,
+                    out int totalAfter))
             {
                 LogError(
                     $"Knight dismount refused invalid stable accounting: reason={reason}, unitId={unitId}, " +
@@ -1297,7 +1386,6 @@ namespace ExtraFeatures
             // returns the horse immediately. Unless Instant Horse is enabled, decrementing
             // TotalHorses makes the existing stable recharge it. Vanilla owns UsedHorses and
             // HorseRechargeTimer, so never write them here.
-            int totalAfter = settings.InstantHorse ? totalBefore : totalBefore - 1;
             stable->r_TotalHorses = (byte)totalAfter;
             GameBuildingManagerAPI.Instance.UnlinkStablesUnitIdLink(linkedStableId, slot, bidirectional: true);
 

@@ -141,7 +141,7 @@ namespace EnemyGatePathfindingTest
         public const int RecordThirdPclOffset = -0x34;
 
         public const string AuditedScriptExtenderCommit =
-            "5f02af6d074af7c741ebdaaccb48add39eba1bf4";
+            "2cee24e33b5a5d81d1c275efabc714ac59917b7b";
 
         internal static bool PclGraphCaptureCompareIsEqual(ushort nativeCapturedByPlayerId) =>
             nativeCapturedByPlayerId == 0;

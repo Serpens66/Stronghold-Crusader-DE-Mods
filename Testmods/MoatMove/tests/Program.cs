@@ -6,11 +6,12 @@ using System.Reflection;
 // Compile actual runtime methods against an in-memory native-grid fixture. No game
 // assembly is produced or installed by this standalone regression runner.
 string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
+if (args.Contains("--native-only")) { FastNativeBackendTests.Validate(root); return; }
 string sourceDir = Path.Combine(root, "Testmods", "MoatMove", "src");
 string testDir = Path.Combine(root, "Testmods", "MoatMove", "tests");
 if (args.Contains("--fast-model-only"))
 {
-    var modelSources = new[] { "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs" }
+    var modelSources = new[] { "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs" }
         .Select(name => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, name)))).ToList();
     var edgeDeclaration = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs")))
         .GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single(d => d.Identifier.Text == "MoatSearchEdge");
@@ -36,8 +37,9 @@ if (args.Contains("--standalone-only"))
 }
 string[] runtimeSourceNames =
 {
+    "AssassinSelectionAdapters.cs",
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "FastIntegration.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "FastIntegration.cs", "IFastRouteField.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
     "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs", "FriendlyMoatMovementRuntime.LadderAttackFix.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
@@ -62,6 +64,7 @@ ValidateRuntimeSources();
 ValidateModeSettings();
 
 var methods = new HashSet<string>(new[] {
+    "EmitSelectionCallAdapter",
     "LogDetailedInfo",
     "EnsureMoveCommandGroupSummary",
     "TryApplyBuildingConsumerFallback", "IsLegalBuildingCandidate", "BuildingCandidateEdge", "TryCaptureOrderedActiveGroupUnits", "CaptureBuildingApproachCandidates", "CaptureBuildingApproachBuffer", "RestoreBuildingApproachBuffer", "WriteBuildingApproachCandidates", "WriteBuildingApproachCandidate", "PublishBuildingApproachPairs", "TryGetPublishedBuildingFootprint", "MatchesSynchronousAttackMovementContext", "TryGetUnitAttackMoveTile", "IsValidBuildingApproachPair", "IsWalkableBuildingApproachEndpoint", "IsExactBuildingContextTile", "TryValidateHostileBuildingTarget",
@@ -167,6 +170,10 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(extracted),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "WeightedMoatRoutePlanner.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastNativeKernel.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastNativeRouteField.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastNativeFixtures.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "IFastRouteField.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastRouteField.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastCommandQueue.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastRoutePool.cs"))),
@@ -200,7 +207,7 @@ if (!emitted.Success)
 var assembly = Assembly.Load(output.ToArray(), symbols.ToArray());
 try
 {
-    assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod("RunTests").Invoke(null, null);
+    assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod(args.Contains("--runtime-native") ? "RunNativeTests" : "RunTests").Invoke(null, null);
     assembly.GetType("MoatMove.SearchKernelTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FastRouteFieldTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FastStateTests").GetMethod("Run").Invoke(null, null);

@@ -155,6 +155,12 @@ public static class SerpLocalization
     public const string AssassinClimbingForbiddenTooltipBody = "BugfixesAndQoL.AssassinClimbingForbiddenTooltipBody";
     public const string InstantHorse = "SomeSettings.InstantHorse";
     public const string InstantHorseHelp = "SomeSettings.InstantHorseHelp";
+    public const string KnightTransformationGoldCost = "SomeSettings.KnightTransformationGoldCost";
+    public const string KnightTransformationGoldCostHelp = "SomeSettings.KnightTransformationGoldCostHelp";
+    public const string KnightTransformationDelay = "SomeSettings.KnightTransformationDelay";
+    public const string KnightTransformationDelayHelp = "SomeSettings.KnightTransformationDelayHelp";
+    public const string KnightTransformationTooltipGold = "SomeSettings.KnightTransformationTooltipGold";
+    public const string KnightTransformationTooltipDelay = "SomeSettings.KnightTransformationTooltipDelay";
     public const string KnightDismountTooltip = "SomeSettings.KnightDismountTooltip";
     public const string KnightDismountTooltipBody = "SomeSettings.KnightDismountTooltipBody";
     public const string KnightMountTooltip = "SomeSettings.KnightMountTooltip";
@@ -601,6 +607,12 @@ public static class SerpLocalization
         { AssassinClimbingForbiddenTooltipBody, "Is forbidden" },
         { InstantHorse, "Instant Horse" },
         { InstantHorseHelp, "Makes a horse immediately available again after a mounted knight dismounts, instead of requiring the stable to replenish it first." },
+        { KnightTransformationGoldCost, "Mount/dismount gold cost" },
+        { KnightTransformationGoldCostHelp, "Gold paid per unit when mounting or dismounting. The cost is reserved immediately and refunded if the delayed action is cancelled." },
+        { KnightTransformationDelay, "Mount/dismount delay" },
+        { KnightTransformationDelayHelp, "Game-time seconds before mounting or dismounting completes. Affected units cannot move during the delay but continue fighting in place." },
+        { KnightTransformationTooltipGold, "Gold cost per unit: {0}" },
+        { KnightTransformationTooltipDelay, "Delay: {0} seconds" },
         { KnightDismountTooltip, "Dismount" },
         { KnightDismountTooltipBody, "Turns selected mounted knights into swordsmen at the same position." },
         { KnightMountTooltip, "Mount" },

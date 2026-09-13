@@ -98,7 +98,7 @@ namespace MoatMove
         private AttackCommandScope activeAttackCommand;
         private object activeAttackApproachDiagnostic;
         private int* cursorTargetX, cursorTargetY;
-        private Func<IntPtr,int> originalCursorTilePairFallbackSelection, selectionCanDigMoat;
+        private Func<IntPtr,int> selectionCanDigMoat;
         private Func<IntPtr,int,int> getRepresentativeSelectedUnit;
         private bool TryResolveHostileLivingBuildingFromRawCursor(int p,uint b,uint h,uint m2,uint m,int x,int y,out int tx,out int ty,out int tile,out BuildingCursorTarget target)
         { tx=ty=tile=-1;target=default;return false; }
@@ -287,6 +287,18 @@ namespace MoatMove
         private static void Check(bool result, string message)
         { assertions++; if (!result) throw new Exception("FAIL: " + message); }
 
+        public static void RunNativeTests()
+        {
+            FastNativeFixtures.Initialize(); TestSettings.Settings.NativeFast = true;
+            long before = FastNativeRouteField.NativeCalls;
+            try
+            {
+                RunTests();
+                Check(FastNativeRouteField.NativeCalls > before, "Native runtime fixture did not execute the native backend");
+                Console.WriteLine($"NATIVE RUNTIME calls={FastNativeRouteField.NativeCalls - before} maskNodes={FastNativeMask.PreparedNodes} maskMs={FastNativeMask.PreparationTicks * 1000.0 / Stopwatch.Frequency:F3}");
+            }
+            finally { TestSettings.Settings.NativeFast = false; }
+        }
         public static void RunTests()
         {
             var f = new FriendlyMoatMovementRuntime();
@@ -1197,5 +1209,6 @@ namespace MoatMove {
   internal bool EnableImprovedMoatFilling=true;
   internal bool EnableLadderAttackPathfindingFix=true;
   internal int RouteMode=1;
+  internal bool NativeFast;
  }
 }

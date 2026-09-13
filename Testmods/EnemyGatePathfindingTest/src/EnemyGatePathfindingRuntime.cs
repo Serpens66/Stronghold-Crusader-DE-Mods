@@ -9,9 +9,12 @@ using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
 using System;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 
@@ -49,6 +52,7 @@ namespace EnemyGatePathfindingTest
         private long untrackedRemovedRecord;
         private long untrackedUnexpectedGate;
         private long untrackedNonGate;
+        private int pathfindingGlobalsCompared;
         private readonly CapturerSample[] samples =
             new CapturerSample[SiteCount * DecisionCount];
 
@@ -236,6 +240,7 @@ namespace EnemyGatePathfindingTest
         {
             try
             {
+                ComparePathfindingGlobalsOnce();
                 if (Volatile.Read(ref mapActive) == 0 && GameTileManagerAPI.Instance != null)
                 {
                     int mapSize = GameTileManagerAPI.Instance.GetCurrentMapSize();
@@ -258,6 +263,92 @@ namespace EnemyGatePathfindingTest
             {
                 TryLogDiagnosticFailure(ex);
             }
+        }
+
+        private void ComparePathfindingGlobalsOnce()
+        {
+            if (Interlocked.CompareExchange(ref pathfindingGlobalsCompared, 1, 0) != 0)
+                return;
+
+            try
+            {
+                GamePathingManagerAPI pathing = GamePathingManagerAPI.Instance;
+                Span<PathfindingProfile> nativeProfiles =
+                    pathing.GetUnitTypePathfindingProfiles();
+                Span<int> profiles = MemoryMarshal.Cast<PathfindingProfile, int>(nativeProfiles);
+                Span<int> permissions =
+                    pathing.GetUnitTypePathfindingConnectionClasses();
+                PathfindingGlobalsComparison comparison =
+                    PathfindingGlobalsBaseline.Compare(profiles, permissions);
+                string counts = FormatPathfindingGlobalCounts(comparison);
+                if (comparison.MatchesCanonical)
+                {
+                    Shared.DebugLogHelper.LogInfo(log,
+                        "Script Extender 2.6 pathfinding globals match the canonical " +
+                        $"FBCB9319 process-start tables: {counts}.");
+                    return;
+                }
+
+                Shared.DebugLogHelper.LogWarning(log,
+                    "Script Extender 2.6 pathfinding globals differ from the canonical " +
+                    "FBCB9319 process-start tables. Another component may have changed " +
+                    "process-wide unit-type behavior; the enemy-gate policy remains " +
+                    $"read-only and unchanged: {counts}, " +
+                    $"samples=[{FormatPathfindingGlobalSamples(comparison.Samples)}].");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogWarning(log,
+                    "Script Extender 2.6 pathfinding-global startup comparison failed; " +
+                    $"the enemy-gate policy remains active and read-only: {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        private static string FormatPathfindingGlobalCounts(
+            PathfindingGlobalsComparison comparison)
+        {
+            var builder = new StringBuilder(256);
+            builder.Append("profileLength=").Append(comparison.ProfileLength)
+                .Append('/').Append(PathfindingGlobalsBaseline.UnitTypeCount)
+                .Append(", permissionLength=").Append(comparison.PermissionLength)
+                .Append('/').Append(PathfindingGlobalsBaseline.PermissionCount)
+                .Append(", profileMismatches=").Append(comparison.ProfileMismatches)
+                .Append(", permissionMismatches=").Append(comparison.PermissionMismatches)
+                .Append(", invalidValues=").Append(comparison.InvalidValues)
+                .Append(", profilesLarge/Default=").Append(comparison.LargeProfiles)
+                .Append('/').Append(comparison.DefaultProfiles)
+                .Append(", classAllowed=");
+            for (int index = 0; index < comparison.AllowedByClass.Length; index++)
+            {
+                if (index != 0) builder.Append('/');
+                builder.Append(comparison.AllowedByClass[index]);
+            }
+            builder.Append(", fingerprint=0x")
+                .Append(comparison.ActualFingerprint.ToString("X16", CultureInfo.InvariantCulture))
+                .Append(", expected=0x")
+                .Append(comparison.ExpectedFingerprint.ToString("X16", CultureInfo.InvariantCulture));
+            return builder.ToString();
+        }
+
+        private static string FormatPathfindingGlobalSamples(
+            PathfindingGlobalMismatch[] samples)
+        {
+            if (samples == null || samples.Length == 0)
+                return "none";
+            var builder = new StringBuilder(samples.Length * 64);
+            for (int index = 0; index < samples.Length; index++)
+            {
+                if (index != 0) builder.Append("; ");
+                PathfindingGlobalMismatch sample = samples[index];
+                builder.Append(sample.Kind == PathfindingGlobalTableKind.Profile
+                        ? "profile"
+                        : "class=" + ((PathConnectionClass)sample.ConnectionClass).ToString())
+                    .Append("/unit=").Append(sample.UnitType).Append('/')
+                    .Append(((eChimps)sample.UnitType).ToString())
+                    .Append("/expected=").Append(sample.Expected)
+                    .Append("/actual=").Append(sample.Actual);
+            }
+            return builder.ToString();
         }
 
         internal void OnGameTick()

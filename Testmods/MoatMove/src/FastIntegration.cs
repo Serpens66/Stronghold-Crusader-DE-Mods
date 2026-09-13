@@ -7,7 +7,7 @@ namespace MoatMove
     internal sealed unsafe partial class FriendlyMoatMovementRuntime
     {
         private long fastVanillaBypasses;
-        private FastRouteField fastCandidateField;
+        private IFastRouteField fastCandidateField;
         private MoatSearchEdge fastCandidateEdge;
         private bool fastCandidateBusy;
         private long fastMaximumSynchronousTicks, fastMaximumQueueWaitTicks;
@@ -15,6 +15,10 @@ namespace MoatMove
         private static long StartFastMeasurement() => System.Diagnostics.Stopwatch.GetTimestamp();
         private void FinishFastMeasurement(long started)
         { fastMaximumSynchronousTicks = Math.Max(fastMaximumSynchronousTicks, System.Diagnostics.Stopwatch.GetTimestamp() - started); }
+
+        private IFastRouteField CreateFastCandidateField(MoatSearchEdge edge) => settings.NativeFast
+            ? (IFastRouteField)new FastNativeRouteField(MapWidth, MapWidth, edge)
+            : new FastRouteField(MapWidth, MapWidth, edge);
 
         private int[] ResolveMovementCandidates(MoatCandidateField precise, IList<int> starts,
             IList<int> targets, MoatSearchEdge edge, MoatSearchEdge terminal, out int expanded)
@@ -27,7 +31,7 @@ namespace MoatMove
             {
                 fastCandidateEdge = edge;
                 if (fastCandidateField == null)
-                    fastCandidateField = new FastRouteField(MapWidth, MapWidth,
+                    fastCandidateField = CreateFastCandidateField(
                         (int a, int b, int d, out bool wet, out bool structure) =>
                             fastCandidateEdge(b, a, (d + 4) & 7, out wet, out structure));
                 fastCandidateField.ResetRoots(starts);
@@ -88,6 +92,13 @@ namespace MoatMove
 
         private void LogAndResetFastMoatMetrics()
         {
+            if (settings.NativeFast)
+            {
+                long maskBytes = (fastCandidateField as FastNativeRouteField)?.PreparationMaskBytes ?? 0;
+                if (fastSimulationRouting != null) foreach (var mask in fastSimulationRouting.NativeMasks.Values) maskBytes += mask.Bytes.LongLength;
+                if (fastCursorRouting != null) foreach (var mask in fastCursorRouting.NativeMasks.Values) maskBytes += mask.Bytes.LongLength;
+                Shared.DebugLogHelper.LogInfo(log, $"MoatMove stage=fast-native-performance preparedNodes={FastNativeMask.PreparedNodes} preparationMs={FastNativeMask.PreparationTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F3} nativeCalls={FastNativeRouteField.NativeCalls} nativeMs={FastNativeRouteField.NativeTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency:F3} maskBytes={maskBytes}; cumulative=true.");
+            }
             if (fastNewQueries == 0 && fastQueuedCommands == 0 && fastExecutedCommands == 0 && fastCommands.Commands.Count == 0) return;
             Shared.DebugLogHelper.LogInfo(log, "MoatMove stage=fast-performance " +
                 $"queued={fastQueuedCommands} completed={fastExecutedCommands} pending={fastCommands.Commands.Count} " +

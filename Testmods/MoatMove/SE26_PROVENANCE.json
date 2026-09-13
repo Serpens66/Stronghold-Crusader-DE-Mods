@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "extenderCommit": "2cee24e33b5a5d81d1c275efabc714ac59917b7b",
+  "files": [
+    {
+      "file": "AssassinSelectionAdapters.cs",
+      "sha256": "AD5508AA4832E7ED7D125598DFB82CD580519F9C8348309831C8EBC70C7EF036"
+    },
+    {
+      "file": "FriendlyMoatMovementRuntime.cs",
+      "sha256": "D6BA2578531826E8EADF9EA467545229F38DA5A5CADE217EE2295D26076A46C0"
+    },
+    {
+      "file": "MoatMovePlugin.cs",
+      "sha256": "4A1E927737758ABAE08528D192B578A94FE173F5EA2BADA18793D70DB61800FC"
+    }
+  ],
+  "originalSourceCommit": "a64b82aae338d161928514ba30bfd332c7b41b3e"
+}

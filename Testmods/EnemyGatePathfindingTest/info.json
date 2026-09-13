@@ -5,7 +5,7 @@
   "Description": "Experimental test mod that treats enemy gatehouses and drawbridges as closed until captured by the querying player or an ally.",
   "Version": "0.1.4",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.5.0",
+  "MinimumScriptExtenderVersion": "2.6.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
@@ -15,7 +15,7 @@
       "Changes": [
         "Stabilized capturer filtering on safe native basic-block boundaries.",
         "Reduced route diagnostics to immutable gate-topology snapshots and the cursor policy.",
-        "Updated the test target to Script Extender 2.5.0."
+        "Updated the audited test target to Script Extender 2.6.0."
       ]
     },
     {

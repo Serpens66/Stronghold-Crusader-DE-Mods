@@ -57,6 +57,7 @@ namespace EnemyGatePathfindingTest
                 TileRouteNativeContractIsPinned();
                 NativeRouteHotPathsRemainPrimitiveOnly();
                 UnsafeGlobalMutationAndWholePclDetourAreAbsent();
+                ScriptExtender26PathfindingGlobalsAreComparedReadOnly();
                 Console.WriteLine("EnemyGatePathfindingPolicy: {0} assertions passed.", assertions);
                 return 0;
             }
@@ -65,6 +66,116 @@ namespace EnemyGatePathfindingTest
                 Console.Error.WriteLine(ex);
                 return 1;
             }
+        }
+
+        private static void ScriptExtender26PathfindingGlobalsAreComparedReadOnly()
+        {
+            var profiles = new int[PathfindingGlobalsBaseline.UnitTypeCount];
+            var permissions = new int[PathfindingGlobalsBaseline.PermissionCount];
+            for (int unitType = 0; unitType < profiles.Length; unitType++)
+            {
+                profiles[unitType] = PathfindingGlobalsBaseline.GetExpectedProfile(unitType);
+                for (int connectionClass = 1;
+                     connectionClass <= PathfindingGlobalsBaseline.ConnectionClassCount;
+                     connectionClass++)
+                {
+                    permissions[(connectionClass - 1) * profiles.Length + unitType] =
+                        PathfindingGlobalsBaseline.GetExpectedPermission(
+                            connectionClass, unitType);
+                }
+            }
+
+            PathfindingGlobalsComparison canonical =
+                PathfindingGlobalsBaseline.Compare(profiles, permissions);
+            Assert(canonical.MatchesCanonical,
+                "canonical SE 2.6 pathfinding globals compare without mismatches");
+            Assert(canonical.LargeProfiles == 13 && canonical.DefaultProfiles == 77,
+                "canonical profile counts remain pinned to FBCB9319");
+            Assert(canonical.AllowedByClass.Length == 6 &&
+                canonical.AllowedByClass[0] == 4 && canonical.AllowedByClass[1] == 16 &&
+                canonical.AllowedByClass[2] == 89 && canonical.AllowedByClass[3] == 89 &&
+                canonical.AllowedByClass[4] == 89 && canonical.AllowedByClass[5] == 83,
+                "canonical connection-class permission counts remain pinned to FBCB9319");
+            Assert(canonical.ActualFingerprint ==
+                    PathfindingGlobalsBaseline.CanonicalFingerprint &&
+                canonical.ExpectedFingerprint ==
+                    PathfindingGlobalsBaseline.CanonicalFingerprint,
+                "canonical aggregate fingerprint is independent of reconstructed counts");
+
+            Assert(PathfindingGlobalsBaseline.FirstPublicClassTableRva ==
+                    PathfindingGlobalsBaseline.UnknownClassTableRva +
+                    PathfindingGlobalsBaseline.ConnectionClassRowByteLength &&
+                PathfindingGlobalsBaseline.LastPublicClassTableRva ==
+                    PathfindingGlobalsBaseline.FirstPublicClassTableRva +
+                    5 * PathfindingGlobalsBaseline.ConnectionClassRowByteLength,
+                "public classes 1 through 6 exclude native class zero and end at class six");
+            Assert(PathfindingGlobalsBaseline.UnknownClassTableRva == 0x32BC48 &&
+                PathfindingGlobalsBaseline.FirstPublicClassTableRva == 0x32BDB0 &&
+                PathfindingGlobalsBaseline.LastPublicClassTableRva == 0x32C4B8,
+                "canonical class-zero, class-one and class-six RVAs are exact");
+
+            ulong classSixLow = 0;
+            ulong classSixHigh = 0;
+            for (int unitType = 0;
+                 unitType < PathfindingGlobalsBaseline.UnitTypeCount;
+                 unitType++)
+            {
+                if (PathfindingGlobalsBaseline.GetExpectedPermission(6, unitType) == 0)
+                    continue;
+                if (unitType < 64)
+                    classSixLow |= 1UL << unitType;
+                else
+                    classSixHigh |= 1UL << (unitType - 64);
+            }
+            Assert(classSixLow == 0xFFFC0FFFFFFFFFFEUL &&
+                classSixHigh == 0x0000000003FFFFFFUL,
+                "canonical class-six permission mask is complete");
+
+            for (int connectionClass = 1;
+                 connectionClass <= PathfindingGlobalsBaseline.ConnectionClassCount;
+                 connectionClass++)
+            {
+                int index = (connectionClass - 1) *
+                    PathfindingGlobalsBaseline.UnitTypeCount;
+                permissions[index] ^= 1;
+                PathfindingGlobalsComparison perClassChange =
+                    PathfindingGlobalsBaseline.Compare(profiles, permissions);
+                Assert(perClassChange.PermissionMismatches == 1 &&
+                    perClassChange.Samples.Length == 1 &&
+                    perClassChange.Samples[0].ConnectionClass == connectionClass,
+                    $"connection class {connectionClass} mutation retains its public class id");
+                permissions[index] ^= 1;
+            }
+
+            profiles[7] ^= 1;
+            permissions[2 * PathfindingGlobalsBaseline.UnitTypeCount + 22] ^= 1;
+            PathfindingGlobalsComparison changed =
+                PathfindingGlobalsBaseline.Compare(profiles, permissions);
+            Assert(!changed.MatchesCanonical && changed.ProfileMismatches == 1 &&
+                changed.PermissionMismatches == 1 && changed.Samples.Length == 2,
+                "one-time comparison identifies profile and permission changes");
+            Assert(changed.Samples[0].Kind == PathfindingGlobalTableKind.Profile &&
+                changed.Samples[0].UnitType == 7 &&
+                changed.Samples[1].Kind == PathfindingGlobalTableKind.ConnectionPermission &&
+                changed.Samples[1].ConnectionClass == 3 && changed.Samples[1].UnitType == 22,
+                "comparison samples retain exact table coordinates");
+
+            PathfindingGlobalsComparison truncated = PathfindingGlobalsBaseline.Compare(
+                new int[PathfindingGlobalsBaseline.UnitTypeCount - 1],
+                new int[PathfindingGlobalsBaseline.PermissionCount],
+                maximumSamples: 1);
+            Assert(!truncated.HasExpectedLengths && !truncated.MatchesCanonical,
+                "unexpected SE table lengths cannot pass the canonical comparison");
+
+            string runtimeSource = File.ReadAllText(
+                Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            Assert(runtimeSource.IndexOf(
+                    "GetUnitTypePathfindingConnectionClasses()", StringComparison.Ordinal) >= 0,
+                "startup comparison consumes the public SE 2.6 connection-class span");
+            Assert(runtimeSource.IndexOf(
+                    "PathfindingConnectionPermissionTableRva", StringComparison.Ordinal) < 0 &&
+                runtimeSource.IndexOf("new ReadOnlySpan<int>(", StringComparison.Ordinal) < 0,
+                "startup comparison contains no direct native connection-table view");
         }
 
         private static void UncapturedEnemyPreservesVanillaExclusion()

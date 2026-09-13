@@ -34,7 +34,13 @@ internal static class InstalledRedBirdContract
         foreach (var entry in new[] {
             ("196100", "4883EC484863C24C8D1D1206B307", 14),
             ("12BF0", "40534883EC308B05F0635E08C705EE635E080F000000", 22),
-            ("11C3A0", "4C635C24284C63D24969C2880600004969D2A2010000", 15) })
+            ("11C3A0", "4C635C24284C63D24969C2880600004969D2A2010000", 15),
+            ("8D724", "E84791100085C07423468B84262C070000", 17),
+            ("8E2B8", "E8B3851000488D153C1DF7FF85C0", 14),
+            ("8E550", "E81B83100085C07423458B842C2C070000", 17),
+            ("8F325", "E846751000498BFE85C074348B15F12A9803", 18),
+            ("B7161", "E80AF70D004533F6B90100000085C0", 15),
+            ("B7321", "E84AF50D0085C0757E488BF333DB", 14) })
         {
             byte[] prefix = Convert.FromHexString(entry.Item2);
             IntPtr fixture = Marshal.AllocHGlobal(64);
@@ -58,5 +64,6 @@ internal static class InstalledRedBirdContract
         }
         Console.WriteLine("PASS: installed RedBird decode-only candidate displaces exactly 14 bytes; no hook installed.");
         Console.WriteLine("PASS: installed RedBird Fast entry spans 14/22/15 bytes; decode-only, no hooks installed.");
+        Console.WriteLine("PASS: installed RedBird selection spans 17/14/17/18/15/14 bytes; no hooks installed.");
     }
 }

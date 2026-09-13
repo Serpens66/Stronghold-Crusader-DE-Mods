@@ -901,6 +901,7 @@ namespace UnitCosts
 
             public string Key { get; }
             public ImageSource IconImage => GetUnitIconImage(unitType);
+            public ImageSource HorseIcon => GetResourceImage("UI-Buttons M025");
             public ObservableCollection<ExtraCostCellViewModel> CostCells { get; }
             public bool HorseCostSupported { get; }
             public string HorseToolTip => FormatCellToolTip(DisplayName, SerpLocalization.Get(SerpLocalization.Horse));

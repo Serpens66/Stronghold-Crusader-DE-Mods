@@ -46,6 +46,7 @@
     <Compile Include="src\EnemyGatePathfindingPolicy.cs" />
     <Compile Include="src\GateTopologySnapshotProvider.cs" />
     <Compile Include="src\RouteTilePolicySnapshot.cs" />
+    <Compile Include="src\PathfindingGlobalsBaseline.cs" />
     <Compile Include="src\DirectCursorCallAdapterEmitter.cs" />
     <Compile Include="src\DirectionFilterAdapterEmitter.cs" />
     <Compile Include="src\SamePclGateRouteRuntime.cs" />

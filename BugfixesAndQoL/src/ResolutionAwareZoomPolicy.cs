@@ -20,6 +20,59 @@ namespace BugfixesAndQoL
         internal static float GetEffectiveZoom(float vanillaZoom, int screenHeight) =>
             vanillaZoom * GetResolutionScale(screenHeight);
 
+        internal static bool CanUserExtraZoom(
+            int screenWidth,
+            int screenHeight,
+            int tilemapSize)
+        {
+            float resolutionScale = GetResolutionScale(screenHeight);
+            float normalizedWidth = screenWidth / resolutionScale;
+            float normalizedHeight = screenHeight / resolutionScale;
+
+            if (normalizedWidth > 2560f || normalizedHeight > 1440f)
+                return false;
+
+            switch (tilemapSize)
+            {
+                case 400:
+                case 500:
+                case 600:
+                case 700:
+                case 800:
+                    if (normalizedWidth > 2560f || normalizedHeight > 1440f)
+                        return false;
+                    break;
+                case 300:
+                    if (normalizedWidth > 2300f || normalizedHeight > 1440f)
+                        return false;
+                    break;
+                case 200:
+                    if (normalizedWidth > 1500f || normalizedHeight > 900f)
+                        return false;
+                    break;
+                case 160:
+                    if (normalizedWidth > 1300f || normalizedHeight > 800f)
+                        return false;
+                    break;
+            }
+
+            return true;
+        }
+
+        internal static float GetLockedMinimumPosition(
+            bool canUserExtraZoom,
+            bool mapEditorMode,
+            bool allowExtendedFarZoom)
+        {
+            float minimum = canUserExtraZoom ? 1f : 2f;
+            if (allowExtendedFarZoom && canUserExtraZoom)
+                minimum = 0f;
+            if (mapEditorMode)
+                minimum -= 1f;
+
+            return Math.Max(0f, minimum);
+        }
+
         internal static float ResolvePosition(
             float currentPosition,
             float adjustment,
@@ -32,9 +85,10 @@ namespace BugfixesAndQoL
             if (!mapLocked)
                 return Math.Max(0f, Math.Min(5f, position));
 
-            float minimum = canUserExtraZoom ? 1f : 2f;
-            if (mapEditorMode)
-                minimum -= 1f;
+            float minimum = GetLockedMinimumPosition(
+                canUserExtraZoom,
+                mapEditorMode,
+                allowExtendedFarZoom: true);
 
             if (position > ExtendedLockedMaximumPosition)
                 return loop ? minimum : ExtendedLockedMaximumPosition;

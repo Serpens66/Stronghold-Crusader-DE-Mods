@@ -1,4 +1,4 @@
-// Feature: Resolution-normalized zoom and two additional close camera steps.
+// Feature: Resolution-normalized zoom with extended close and distant camera steps.
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -14,6 +14,7 @@ namespace BugfixesAndQoL
         private delegate void ZoomDelegate(PerfectPixelWithZoom self, float zoomTo);
         private delegate void SetZoomImmediateDelegate(PerfectPixelWithZoom self, float scale);
         private delegate void UpdateDelegate(PerfectPixelWithZoom self);
+        private delegate bool CanUserExtraZoomDelegate(PerfectPixelWithZoom self);
 
         private static readonly FieldInfo ZoomPositionField = FindFloatField("zoomPos");
         private static readonly FieldInfo PixelsPerUnitScaleField = FindFloatField("pixelsPerUnitScale");
@@ -26,10 +27,12 @@ namespace BugfixesAndQoL
         private Hook zoomHook;
         private Hook setZoomImmediateHook;
         private Hook updateHook;
+        private Hook canUserExtraZoomHook;
         private AdjustZoomDelegate adjustZoomOriginal;
         private ZoomDelegate zoomOriginal;
         private SetZoomImmediateDelegate setZoomImmediateOriginal;
         private UpdateDelegate updateOriginal;
+        private CanUserExtraZoomDelegate canUserExtraZoomOriginal;
         private PerfectPixelWithZoom trackedInstance;
         private float appliedResolutionScale = 1f;
         private bool appliedEnabled;
@@ -41,6 +44,11 @@ namespace BugfixesAndQoL
 
             try
             {
+                canUserExtraZoomHook = new Hook(
+                    FindBooleanMethod(nameof(PerfectPixelWithZoom.CanUserExtraZoom)),
+                    (CanUserExtraZoomDelegate)CanUserExtraZoomHook);
+                canUserExtraZoomOriginal =
+                    canUserExtraZoomHook.GenerateTrampoline<CanUserExtraZoomDelegate>();
                 zoomHook = new Hook(FindMethod("Zoom", typeof(float)), (ZoomDelegate)ZoomHook);
                 zoomOriginal = zoomHook.GenerateTrampoline<ZoomDelegate>();
                 setZoomImmediateHook = new Hook(
@@ -68,6 +76,17 @@ namespace BugfixesAndQoL
 
         private bool Enabled =>
             settings.EnableClientFeatures && settings.EnableResolutionAwareExtendedZoom;
+
+        private bool CanUserExtraZoomHook(PerfectPixelWithZoom self)
+        {
+            if (!Enabled)
+                return canUserExtraZoomOriginal(self);
+
+            return ResolutionAwareZoomPolicy.CanUserExtraZoom(
+                Screen.width,
+                Screen.height,
+                GameMap.tilemapSize);
+        }
 
         private void AdjustZoomHook(PerfectPixelWithZoom self, float adjustment, bool loop)
         {
@@ -163,14 +182,23 @@ namespace BugfixesAndQoL
                 ScaleField(ZoomNextValueField, self, ratio);
             }
 
-            if (!enabled && GetFloat(ZoomPositionField, self) >
-                ResolutionAwareZoomPolicy.VanillaLockedMaximumPosition)
+            if (!enabled)
             {
-                SetFloat(
-                    ZoomPositionField,
-                    self,
-                    ResolutionAwareZoomPolicy.VanillaLockedMaximumPosition);
-                zoomOriginal(self, ResolutionAwareZoomPolicy.VanillaLockedMaximumPosition);
+                float vanillaMinimum = ResolutionAwareZoomPolicy.GetLockedMinimumPosition(
+                    canUserExtraZoomOriginal(self),
+                    MainViewModel.Instance.IsMapEditorMode,
+                    allowExtendedFarZoom: false);
+                float currentPosition = GetFloat(ZoomPositionField, self);
+                float vanillaPosition = Math.Max(
+                    vanillaMinimum,
+                    Math.Min(
+                        ResolutionAwareZoomPolicy.VanillaLockedMaximumPosition,
+                        currentPosition));
+                if (Math.Abs(vanillaPosition - currentPosition) > 0.0001f)
+                {
+                    SetFloat(ZoomPositionField, self, vanillaPosition);
+                    zoomOriginal(self, vanillaPosition);
+                }
             }
 
             TrackState(self, enabled, targetScale);
@@ -222,12 +250,26 @@ namespace BugfixesAndQoL
             return method;
         }
 
+        private static MethodInfo FindBooleanMethod(string name)
+        {
+            MethodInfo method = typeof(PerfectPixelWithZoom).GetMethod(
+                name,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                Type.EmptyTypes,
+                null);
+            if (method == null || method.ReturnType != typeof(bool))
+                throw new MissingMethodException(typeof(PerfectPixelWithZoom).FullName, name);
+            return method;
+        }
+
         private void RollbackFailedInitialization()
         {
             RollbackHook(ref updateHook);
             RollbackHook(ref adjustZoomHook);
             RollbackHook(ref setZoomImmediateHook);
             RollbackHook(ref zoomHook);
+            RollbackHook(ref canUserExtraZoomHook);
         }
 
         private static void RollbackHook(ref Hook hook)

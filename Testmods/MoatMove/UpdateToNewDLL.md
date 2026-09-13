@@ -1,5 +1,9 @@
 # Updating MoatMove for another native DLL
 
+Current SE 2.6.0 integration supersedes the historical selection-detour entry below:
+see [SE26_COMPATIBILITY.md](SE26_COMPATIBILITY.md). RVA 0x196870 is owned exclusively
+by Script Extender; MoatMove uses six audited call-site inline adapters instead.
+
 ## Reference identity and scope
 
 Feature owner for every entry below: MoatMove precise friendly/allied moat movement.

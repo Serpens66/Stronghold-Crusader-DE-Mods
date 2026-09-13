@@ -114,6 +114,16 @@ for rva, body in re.findall(r'ValidateExactBytes\(\s*memory,\s*(\w+),\s*new byte
     exact_count += 1
 assert exact_count >= 10, exact_count
 for rva, array in re.findall(r'ValidateExactBytes\(\s*memory,\s*(\w+),\s*(\w+),', source):
+    if rva == 'rva' and array == 'bytes':
+        adapter = sources['AssassinSelectionAdapters.cs']
+        sites = [int(x, 16) for x in re.search(r'SelectionCallRvas = \{([^}]+)', adapter)[1].split(',')]
+        spans = [bytes.fromhex(x) for x in re.findall(r'"([0-9A-F]{28,})"', adapter)]
+        assert len(sites) == len(spans) == 6
+        for site, span in zip(sites, spans):
+            assert pe.get_data(site, len(span)) == span
+            assert site + 5 + struct.unpack_from('<i', span, 1)[0] == 0x196870
+            exact_count += 1
+        continue
     if rva == 'callRva':
         continue  # Helper's dynamic input; actual call sites checked below.
     if rva == 'rva' and array == 'expected':

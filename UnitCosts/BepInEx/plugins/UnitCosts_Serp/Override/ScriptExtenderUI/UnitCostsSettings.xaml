@@ -179,12 +179,18 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <StackPanel Width="74" Margin="3" VerticalAlignment="Center">
+              <StackPanel Width="74" Margin="3" VerticalAlignment="Center" Orientation="Horizontal" HorizontalAlignment="Center">
                 <CheckBox IsChecked="{Binding RequiresHorse, Mode=TwoWay}"
                           IsEnabled="{Binding HorseCostSupported}"
-                          HorizontalAlignment="Center"
                           ToolTipService.ShowDuration="60000"
                           ToolTip="{Binding HorseToolTip}"/>
+                <Image Source="{Binding HorseIcon}"
+                       Width="18"
+                       Height="18"
+                       Stretch="Uniform"
+                       Margin="5,0,0,0"
+                       ToolTipService.ShowDuration="60000"
+                       ToolTip="{Binding HorseToolTip}"/>
               </StackPanel>
             </StackPanel>
             </Grid>

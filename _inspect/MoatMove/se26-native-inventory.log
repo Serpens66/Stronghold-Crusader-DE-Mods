@@ -1,0 +1,34 @@
+NOTE groupMovementModeResolution: reference RVA 0x117C70 matches; existing fallback has 3 matches and must fail closed.
+PASS detour function 0x12BF0, whole-instruction 14-byte prefix ends 0x12C06
+PASS detour function 0x59210, whole-instruction 14-byte prefix ends 0x5921F
+PASS detour function 0x61E70, whole-instruction 14-byte prefix ends 0x61E80
+PASS detour function 0x69D60, whole-instruction 14-byte prefix ends 0x69D6E
+PASS detour function 0x6AF60, whole-instruction 14-byte prefix ends 0x6AF72
+PASS detour function 0x6C490, whole-instruction 14-byte prefix ends 0x6C4A0
+PASS detour function 0xB70C0, whole-instruction 14-byte prefix ends 0xB70CE
+PASS detour function 0xD90D0, whole-instruction 14-byte prefix ends 0xD90DF
+PASS detour function 0xDA020, whole-instruction 14-byte prefix ends 0xDA02F
+PASS detour function 0xDAA50, whole-instruction 14-byte prefix ends 0xDAA5F
+PASS detour function 0xDBC60, whole-instruction 14-byte prefix ends 0xDBC71
+PASS detour function 0xE0970, whole-instruction 14-byte prefix ends 0xE097F
+PASS detour function 0xE1D30, whole-instruction 14-byte prefix ends 0xE1D3F
+PASS detour function 0xE2610, whole-instruction 14-byte prefix ends 0xE2620
+PASS detour function 0xE2CA0, whole-instruction 14-byte prefix ends 0xE2CAF
+PASS detour function 0xE32B0, whole-instruction 14-byte prefix ends 0xE32C0
+PASS detour function 0xE7C40, whole-instruction 14-byte prefix ends 0xE7C4F
+PASS detour function 0xE9D90, whole-instruction 14-byte prefix ends 0xE9D9F
+PASS detour function 0xE9FF0, whole-instruction 14-byte prefix ends 0xE9FFE
+PASS detour function 0xF03C0, whole-instruction 14-byte prefix ends 0xF03D1
+PASS detour function 0xF4930, whole-instruction 14-byte prefix ends 0xF493F
+PASS detour function 0x117BC0, whole-instruction 14-byte prefix ends 0x117BCF
+PASS detour function 0x118E00, whole-instruction 14-byte prefix ends 0x118E0F
+PASS detour function 0x11C3A0, whole-instruction 14-byte prefix ends 0x11C3AF
+PASS detour function 0x123090, whole-instruction 14-byte prefix ends 0x12309F
+PASS detour function 0x124740, whole-instruction 14-byte prefix ends 0x12474F
+PASS detour function 0x181890, whole-instruction 14-byte prefix ends 0x18189F
+PASS detour function 0x1853F0, whole-instruction 14-byte prefix ends 0x185400
+PASS detour function 0x18E1E0, whole-instruction 14-byte prefix ends 0x18E1F4
+PASS detour function 0x195E30, whole-instruction 14-byte prefix ends 0x195E3F
+PASS detour function 0x196100, whole-instruction 14-byte prefix ends 0x19610E
+PASS detour function 0x196840, whole-instruction 14-byte prefix ends 0x196852
+PASS copied-hook inventory: 28 named reference resolutions (1 existing ambiguous fallbacks), 12 observers, 32 function targets, 42 exact-byte guards, 40 relative-call guards and inline incoming-edge check.

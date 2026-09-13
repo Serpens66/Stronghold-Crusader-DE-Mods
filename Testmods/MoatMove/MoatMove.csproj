@@ -39,11 +39,15 @@
     <Reference Include="MessagePack.Annotations" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="src\AssassinSelectionAdapters.cs" />
     <Compile Include="src\CursorConnectivity.cs" />
     <Compile Include="src\CursorRegionGraph.cs" />
     <Compile Include="src\DirectMoatCommandScopes.cs" />
     <Compile Include="src\FastIntegration.cs" />
     <Compile Include="src\FastRouteField.cs" />
+    <Compile Include="src\IFastRouteField.cs" />
+    <Compile Include="src\FastNativeKernel.cs" />
+    <Compile Include="src\FastNativeRouteField.cs" />
     <Compile Include="src\FastCommandQueue.cs" />
     <Compile Include="src\FastRoutePool.cs" />
     <Compile Include="src\FastTraversalCache.cs" />

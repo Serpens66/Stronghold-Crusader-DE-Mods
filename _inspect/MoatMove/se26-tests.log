@@ -1,0 +1,68 @@
+PASS installed metadata: Assembly-CSharp / global EngineInterface / selectedChimps static int[] (Private, Static).
+PASS: detailed movement and ladder diagnostics are disabled for production logging.
+PASS: UInt16 path regions; Fast identity ownership, deterministic budget and no expiring permit.
+PASS: integrated ownership, RedBird references, selection, atomic commits and rollbacks.
+SOURCE WARNING CS1701: 168 occurrences; warning CS1701: Es wird angenommen, dass der von "BepInEx" verwendete Assemblyverweis "mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" mit "mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" von "mscorlib" übereinstimmt. Möglicherweise müssen Sie eine Laufzeitrichtlinie bereitstellen.
+SOURCE WARNING CS1702: 1 occurrences; warning CS1702: Es wird angenommen, dass der von "RedBird.X64" verwendete Assemblyverweis "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.10, Culture=neutral, PublicKeyToken=adb9793829ddae60" mit "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.11, Culture=neutral, PublicKeyToken=adb9793829ddae60" von "Microsoft.Extensions.Logging.Abstractions" übereinstimmt. Möglicherweise müssen Sie eine Laufzeitrichtlinie bereitstellen.
+SOURCE WARNING CS0649: 12 occurrences; D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\src\FriendlyMoatMovementRuntime.cs(8760,38): warning CS0649: Dem Feld "FriendlyMoatMovementRuntime.RequiredRouteMetrics.GroundHits" wird nie etwas zugewiesen, und es hat immer seinen Standardwert von "0".
+PASS: installed Script Extender 2.6.0 assembly API surface matches all runtime sources.
+PASS: complete runtime semantic source check against Script Extender 2.6.0; no mod assembly emitted.
+CURSOR FULL CHAIN units=1 queries=100 ms=0,749 allocatedBytes=61600 pathSearches=0
+CURSOR FULL CHAIN units=120 queries=100 ms=6,269 allocatedBytes=347200 pathSearches=0
+CURSOR FULL CHAIN units=1000 queries=100 ms=42,526 allocatedBytes=2459200 pathSearches=0
+CURSOR PRODUCTION ADAPTER units=1 queries=1000 ms=1,456 allocatedBytes=32000 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=1 queries=100 allocatedBytes=24000
+CURSOR PRODUCTION ADAPTER units=120 queries=1000 ms=6,788 allocatedBytes=984000 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=120 queries=100 allocatedBytes=119200
+CURSOR PRODUCTION ADAPTER units=1000 queries=1000 ms=47,541 allocatedBytes=8024000 newNodes=0 pathSearches=0
+CURSOR GROUP ADAPTER units=1000 queries=100 allocatedBytes=823200
+PLACEMENT WORK units=1 candidates=0 connectivity=125
+PLACEMENT PRODUCTION units=1 unique=1 ms=5,801 allocatedBytes=24664
+PLACEMENT WORK units=5 candidates=3 connectivity=2
+PLACEMENT PRODUCTION units=5 unique=5 ms=0,705 allocatedBytes=12536
+PLACEMENT WORK units=20 candidates=19 connectivity=17
+PLACEMENT PRODUCTION units=20 unique=20 ms=0,654 allocatedBytes=59360
+PLACEMENT WORK units=27 candidates=26 connectivity=24
+PLACEMENT PRODUCTION units=27 unique=27 ms=0,818 allocatedBytes=84416
+PLACEMENT WORK units=29 candidates=28 connectivity=26
+PLACEMENT PRODUCTION units=29 unique=29 ms=0,845 allocatedBytes=89776
+PLACEMENT WORK units=120 candidates=119 connectivity=117
+PLACEMENT PRODUCTION units=120 unique=120 ms=9,283 allocatedBytes=491128
+PASS: placement kernel vs independent directed reachability and nearest-place reference (100 maps).
+GROUP PRODUCTION units=1 ms=0,059 nodes=14 bytes=3040
+GROUP PRODUCTION units=120 ms=3,357 nodes=2537 bytes=311928
+GROUP PRODUCTION units=680 ms=11,088 nodes=2537 bytes=1333368
+FORMATION units=1 nativeCalls=1 ms=0,959 bytes=72
+FORMATION units=20 nativeCalls=45 ms=0,004 bytes=40
+FORMATION units=120 nativeCalls=145 ms=0,017 bytes=40
+FORMATION units=128 nativeCalls=153 ms=0,012 bytes=40
+FORMATION units=156 nativeCalls=181 ms=0,015 bytes=40
+BUILDING PRODUCTION units=1 moat=False candidates=351 ms=2,599 nodes=0 bytes=261712
+BUILDING PRODUCTION units=1 moat=True candidates=351 ms=2,849 nodes=404 bytes=7974776
+BUILDING PRODUCTION units=120 moat=False candidates=351 ms=0,112 nodes=0 bytes=241536
+BUILDING PRODUCTION units=120 moat=True candidates=351 ms=0,528 nodes=404 bytes=281656
+BUILDING PRODUCTION units=680 moat=False candidates=351 ms=0,145 nodes=0 bytes=253256
+BUILDING PRODUCTION units=680 moat=True candidates=351 ms=12,684 nodes=404 bytes=300616
+PASS: 234338 assertions (unit plans, native buffers, real tile graph, work selection cache).
+PASS: 6480 independent building-field distances, directed terminal edges and fresh-state reuse.
+PRECISE COMPARISON units=1 oldMs=8,04 newMs=23,08 oldNodes=6862 newNodes=6862 edgeEvaluations=54629 edgeCacheHits=132
+PRECISE COMPARISON units=120 oldMs=937,22 newMs=926,64 oldNodes=909005 newNodes=909005 edgeEvaluations=70665 edgeCacheHits=7180765
+PRECISE COMPARISON units=680 oldMs=2490,09 newMs=1311,76 oldNodes=5150501 newNodes=5150501 edgeEvaluations=70665 edgeCacheHits=41016517
+ACTUAL PRECISE PLANNER units=1 oldMs=4,72 newMs=4,66 oldNodes=4433 newNodes=4433
+ACTUAL PRECISE PLANNER units=120 oldMs=421,98 newMs=205,50 oldNodes=626660 newNodes=626660
+ACTUAL PRECISE PLANNER units=680 oldMs=1442,36 newMs=1126,32 oldNodes=3550421 newNodes=3550421
+GROUP PIPELINE MODEL units=1 referenceMs=11,70 combinedMs=0,43 referenceNodes=4607 combinedNodes=1101 referenceBytes=422968 combinedBytes=203568
+GROUP PIPELINE MODEL units=120 referenceMs=250,49 combinedMs=63,44 referenceNodes=220133 combinedNodes=192008 referenceBytes=1161648 combinedBytes=835592
+GROUP PIPELINE MODEL units=680 referenceMs=404,54 combinedMs=362,62 referenceNodes=1213351 combinedNodes=1100866 referenceBytes=2387568 combinedBytes=1682312
+SEARCH MODEL units=1 independentNodes=8111 sharedNodes=7516 sharedRuns=1 cacheHits=1 independentMs=6,25 sharedMs=4,91 independentAllocBytes=3409336 sharedAllocBytes=1326848
+SEARCH MODEL units=5 independentNodes=40242 sharedNodes=38211 sharedRuns=5 cacheHits=5 independentMs=27,97 sharedMs=15,74 independentAllocBytes=3412088 sharedAllocBytes=1355024
+SEARCH MODEL units=20 independentNodes=164492 sharedNodes=156931 sharedRuns=20 cacheHits=20 independentMs=112,13 sharedMs=58,57 independentAllocBytes=3422408 sharedAllocBytes=1419472
+SEARCH MODEL units=27 independentNodes=224280 sharedNodes=214317 sharedRuns=27 cacheHits=27 independentMs=109,81 sharedMs=66,91 independentAllocBytes=3427224 sharedAllocBytes=1444064
+SEARCH MODEL units=29 independentNodes=241778 sharedNodes=230791 sharedRuns=29 cacheHits=29 independentMs=127,02 sharedMs=72,81 independentAllocBytes=3434048 sharedAllocBytes=1449904
+PASS: 84031 independent search assertions (directed edges, profile conflicts, length limits, terrain changes).
+PASS: 289388 new Fast field assertions; directed BFS oracle, shared groups, deterministic slices, cancellation and route limits.
+PASS: new Fast ownership/pool/topology/packed/save assertions=1092
+PASS: 1469340 independent cursor connectivity comparisons after edge additions/removals.
+PASS: actual recovery emitter assembled and decoded (73 bytes, no native code executed).
+PASS: six actual SE selection adapters assembled; live call, branches and RIP addresses preserved.
+PASS: syntax of 30 runtime files; 194 actual runtime members compiled and exercised.

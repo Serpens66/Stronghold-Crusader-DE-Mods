@@ -63,9 +63,6 @@ namespace MoatMove
             IntPtr pathManager, int unitId, int targetX, int targetY);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
-        private delegate int CursorTilePairFallbackSelectionDelegate(IntPtr selectionState);
-
-        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int SelectionCanDigMoatDelegate(IntPtr selectionState);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
@@ -156,7 +153,6 @@ namespace MoatMove
         private const int UnitStandingOnCompletedMoatRva = 0x196840;
         private const int RegionReachabilityRva = 0xE7C40;
         private const int CursorReachabilityRva = 0xE9FF0;
-        private const int CursorTilePairFallbackSelectionRva = 0x196870;
         private const int SelectionCanDigMoatRva = 0x191C00;
         private const int SelectionCanDigMoatCallRva = 0x8D3CE;
         private const int CursorTilePairReachabilityRva = 0xE2CA0;
@@ -366,10 +362,6 @@ namespace MoatMove
             "44 89 4C 24 20 44 89 44 24 18 53 55 56 57 41 54 41 55 41 56 " +
             "48 83 EC 50 48 63 F2 45 33 ED 33 D2 49 63 E8 49 63 C1 48 8B D9";
 
-        private const string CursorTilePairFallbackSelectionPattern =
-            "83 B9 BC 05 00 00 00 74 27 33 C0 48 81 C1 64 05 00 00 48 83 F8 16 " +
-            "74 05 83 39 00 75 13 48 FF C0 48 83 C1 04 48 83 F8 23 7C E8 B8 01 00 00 00 C3";
-
         private const string SelectionCanDigMoatPattern =
             "83 B9 80 05 00 00 00 75 54 83 B9 B4 05 00 00 00 75 4B " +
             "83 B9 68 05 00 00 00 75 42 83 B9 64 05 00 00 00 75 39 " +
@@ -506,8 +498,6 @@ namespace MoatMove
         private GetTribeMovementModeDelegate getTribeMovementMode;
         private CursorReachabilityDelegate originalCursorReachability;
         private CursorReachabilityDelegate rootedCursorReachability;
-        private CursorTilePairFallbackSelectionDelegate originalCursorTilePairFallbackSelection;
-        private CursorTilePairFallbackSelectionDelegate rootedCursorTilePairFallbackSelection;
         private SelectionCanDigMoatDelegate selectionCanDigMoat;
         private CursorTilePairReachabilityDelegate originalCursorTilePairReachability;
         private CursorTilePairReachabilityDelegate rootedCursorTilePairReachability;
@@ -538,7 +528,6 @@ namespace MoatMove
         private RedBirdDetour<TribeFloodFillMembershipDelegate> tribeFloodFillMembershipDetour;
         private RedBirdDetour<FirstGroupUnitOnCompletedMoatDelegate> firstGroupUnitOnCompletedMoatDetour;
         private RedBirdDetour<CursorReachabilityDelegate> cursorReachabilityDetour;
-        private RedBirdDetour<CursorTilePairFallbackSelectionDelegate> cursorTilePairFallbackSelectionDetour;
         private RedBirdDetour<CursorTilePairReachabilityDelegate> cursorTilePairReachabilityDetour;
         private RedBirdDetour<CursorRegionPrecheckDelegate> cursorRegionPrecheckDetour;
         private RedBirdDetour<AttackApproachFloodBuilderDelegate> attackApproachFloodBuilderDetour;
@@ -633,6 +622,12 @@ namespace MoatMove
                     "The friendly moat movement feature requires the validated CrusaderDE.dll layout.");
             }
 
+            if (settings.NativeFast)
+            {
+                FastNativeKernel.Initialize(memory.Slice(FastNativeKernel.SourceRva, FastNativeKernel.SourceLength).ToArray(), libraryBase);
+                FastNativeKernel.Get(MapWidth, MapWidth);
+            }
+
             Shared.NativeResolution floodResolution = Resolve(
                 memory, TribeFloodFillMembershipPattern, TribeFloodFillMembershipRva,
                 "Tribe flood-fill membership helper");
@@ -676,9 +671,6 @@ namespace MoatMove
             Shared.NativeResolution cursorResolution = Resolve(
                 memory, CursorReachabilityFunctionPattern, CursorReachabilityRva,
                 "ordinary-movement cursor reachability function");
-            Shared.NativeResolution cursorModeResolution = Resolve(
-                memory, CursorTilePairFallbackSelectionPattern, CursorTilePairFallbackSelectionRva,
-                "cursor tile-pair fallback selection gate");
             Shared.NativeResolution selectionCanDigResolution = Resolve(
                 memory, SelectionCanDigMoatPattern, SelectionCanDigMoatRva,
                 "Vanilla selection-can-dig-moat helper");
@@ -1041,7 +1033,6 @@ namespace MoatMove
             rootedUnitStandingOnCompletedMoat = EnableCompletedMoatModeForScopedMovement;
             rootedRegionReachability = AllowBuilderAfterFailedRegionSearch;
             rootedCursorReachability = AllowCursorReachabilityThroughCompletedMoat;
-            rootedCursorTilePairFallbackSelection = ObserveCursorTilePairFallbackSelection;
             rootedCursorTilePairReachability = AllowAttackCursorTilePairThroughCompletedMoat;
             rootedCursorRegionPrecheck = AllowCursorRegionThroughCompletedMoat;
             rootedCombatFinishResume = ResumeMovementAfterCombatWithMoatContext;
@@ -1058,7 +1049,6 @@ namespace MoatMove
             RedBirdDetour<UnitStandingOnCompletedMoatDelegate> pendingMode = null;
             RedBirdDetour<RegionReachabilityDelegate> pendingRegion = null;
             RedBirdDetour<CursorReachabilityDelegate> pendingCursor = null;
-            RedBirdDetour<CursorTilePairFallbackSelectionDelegate> pendingCursorMode = null;
             RedBirdDetour<CursorTilePairReachabilityDelegate> pendingCursorTilePair = null;
             RedBirdDetour<CursorRegionPrecheckDelegate> pendingCursorRegion = null;
             try
@@ -1096,10 +1086,7 @@ namespace MoatMove
                     pendingTransaction,
                     libraryBase + unchecked((ulong)cursorResolution.Rva),
                     rootedCursorReachability);
-                pendingCursorMode = AddDetour(
-                    pendingTransaction,
-                    libraryBase + unchecked((ulong)cursorModeResolution.Rva),
-                    rootedCursorTilePairFallbackSelection);
+                AddSelectionCallAdapters(pendingTransaction, memory, libraryBase);
                 pendingCursorTilePair = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)cursorTilePairResolution.Rva),
                     rootedCursorTilePairReachability);
@@ -1109,12 +1096,13 @@ namespace MoatMove
                     rootedCursorRegionPrecheck);
 
                 CommitResult commitResult = pendingTransaction.Commit();
+                ValidateSelectionCallAdapters(libraryBase);
                 if (!commitResult.IsCompleteSuccess ||
                     !pendingPlanDetour.Committed || !pendingCombatFinishResume.Committed ||
                     !pendingCursorMoveStager.Committed || !pendingBuilder.Committed ||
                     !pendingReconstruction.Committed || !pendingFlood.Committed ||
                     !pendingGroupMoat.Committed || !pendingMode.Committed || !pendingRegion.Committed ||
-                    !pendingCursor.Committed || !pendingCursorMode.Committed ||
+                    !pendingCursor.Committed ||
                     !pendingCursorTilePair.Committed || !pendingCursorRegion.Committed)
                 {
                     throw new InvalidOperationException(
@@ -1131,7 +1119,6 @@ namespace MoatMove
                 originalUnitStandingOnCompletedMoat = pendingMode.Original;
                 originalRegionReachability = pendingRegion.Original;
                 originalCursorReachability = pendingCursor.Original;
-                originalCursorTilePairFallbackSelection = pendingCursorMode.Original;
                 originalCursorTilePairReachability = pendingCursorTilePair.Original;
                 originalCursorRegionPrecheck = pendingCursorRegion.Original;
 
@@ -1145,7 +1132,6 @@ namespace MoatMove
                 unitStandingOnCompletedMoatDetour = pendingMode;
                 regionReachabilityDetour = pendingRegion;
                 cursorReachabilityDetour = pendingCursor;
-                cursorTilePairFallbackSelectionDetour = pendingCursorMode;
                 cursorTilePairReachabilityDetour = pendingCursorTilePair;
                 cursorRegionPrecheckDetour = pendingCursorRegion;
                 mainHookTransaction = pendingTransaction;
@@ -1167,7 +1153,7 @@ namespace MoatMove
                     $"cursorRegion=0x{cursorRegionResolution.Rva:X}, cursorDirect=0x{cursorResolution.Rva:X}, " +
                     $"cursorPair=0x{cursorTilePairResolution.Rva:X}, representativeUnit=0x{representativeUnitResolution.Rva:X}, " +
                     $"attackPairGates=0x{AttackUnitPairGateJumpRva:X}/0x{AttackBuildingPairGateJumpRva:X}/" +
-                    $"0x{AttackAlternativePairGateJumpRva:X}(all-vanilla), semanticSelectionGate=true, " +
+                    $"0x{AttackAlternativePairGateJumpRva:X}(original-branches), selectionCallAdapters=6, seSelectionResultPreserved=true, " +
                     $"plan=0x{planResolution.Rva:X}, mode=0x{modeResolution.Rva:X}, " +
                     $"region=0x{regionResolution.Rva:X}, builder=0x{builderResolution.Rva:X}, " +
                     $"postCombatResume=0x{combatFinishResumeResolution.Rva:X}->" +
@@ -6246,13 +6232,13 @@ namespace MoatMove
             }
         }
 
-        private int ObserveCursorTilePairFallbackSelection(IntPtr selectionState)
+        private long ObserveCursorTilePairFallbackSelection(IntPtr selectionState, long vanillaResult)
         {
-            if (activeBuildingCursorConnectivity != null) return 1;
-            int vanillaResult = originalCursorTilePairFallbackSelection(selectionState);
             pendingAttackCursorPair = null;
+            if (vanillaResult != 0) return vanillaResult;
             if (disposed || selectionState == IntPtr.Zero)
                 return vanillaResult;
+            if (activeBuildingCursorConnectivity != null) return 1;
 
             try
             {

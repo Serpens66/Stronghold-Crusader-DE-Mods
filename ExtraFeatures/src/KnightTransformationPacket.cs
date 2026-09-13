@@ -8,6 +8,10 @@ namespace ExtraFeatures
     [MessagePackFormatter(typeof(KnightTransformationPacketFormatter))]
     public sealed class KnightTransformationPacket
     {
+        public const int StartMountAction = 1;
+        public const int StartDismountAction = 2;
+        public const int CancelSelectedAction = 3;
+        public const int CancelAllAction = 4;
         public const int ChorePayloadByteLimit = 1200;
         public const int PacketIdPrefixByteCount = sizeof(short);
         public const int MaximumPacketBodyBytes = ChorePayloadByteLimit - PacketIdPrefixByteCount;
@@ -36,7 +40,8 @@ namespace ExtraFeatures
             }
 
             int[] ids = value.UnitGlobalIds;
-            if (ids == null || ids.Length < 1 || ids.Length > KnightTransformationPacket.MaximumEncodedTargetCount)
+            if (ids == null || ids.Length > KnightTransformationPacket.MaximumEncodedTargetCount ||
+                (value.Action == KnightTransformationPacket.CancelAllAction ? ids.Length != 0 : ids.Length == 0))
                 throw new MessagePackSerializationException("Knight transformation target count is outside the protocol limit.");
 
             writer.WriteArrayHeader(FieldCount);
@@ -71,7 +76,8 @@ namespace ExtraFeatures
             };
 
             int count = reader.ReadArrayHeader();
-            if (count < 1 || count > KnightTransformationPacket.MaximumEncodedTargetCount)
+            if (count < 0 || count > KnightTransformationPacket.MaximumEncodedTargetCount ||
+                (packet.Action == KnightTransformationPacket.CancelAllAction ? count != 0 : count == 0))
                 throw new MessagePackSerializationException("Knight transformation target count is outside the protocol limit.");
 
             packet.UnitGlobalIds = new int[count];
@@ -91,7 +97,10 @@ namespace ExtraFeatures
         public static bool HasValidMetadataAndTargets(KnightTransformationPacket packet, int maximumPlayers)
         {
             if (packet == null || maximumPlayers < 1 || packet.PlayerId < 1 || packet.PlayerId > maximumPlayers ||
-                packet.OperationId <= 0 || packet.UnitGlobalIds == null || packet.UnitGlobalIds.Length < 1 ||
+                packet.OperationId <= 0 || !IsKnownAction(packet.Action) || packet.UnitGlobalIds == null ||
+                (packet.Action == KnightTransformationPacket.CancelAllAction
+                    ? packet.UnitGlobalIds.Length != 0
+                    : packet.UnitGlobalIds.Length < 1) ||
                 packet.UnitGlobalIds.Length > KnightTransformationPacket.MaximumEncodedTargetCount)
                 return false;
 
@@ -105,6 +114,12 @@ namespace ExtraFeatures
 
             return true;
         }
+
+        private static bool IsKnownAction(int action) =>
+            action == KnightTransformationPacket.StartMountAction ||
+            action == KnightTransformationPacket.StartDismountAction ||
+            action == KnightTransformationPacket.CancelSelectedAction ||
+            action == KnightTransformationPacket.CancelAllAction;
 
         public static bool DoesSerializedBodyFitChore(int bodyLength)
         {

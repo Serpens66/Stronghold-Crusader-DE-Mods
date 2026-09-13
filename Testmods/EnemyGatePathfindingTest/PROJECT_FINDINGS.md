@@ -1,6 +1,6 @@
 # EnemyGatePathfindingTest – konsolidierte Erkenntnisse
 
-Stand: 11. September 2026
+Stand: 13. September 2026
 
 ## Ziel und aktueller Umfang
 
@@ -13,9 +13,9 @@ Same-PCL-KI-Routen und cursorlose Befehle verwenden in der isolierten Testkonfig
 ## Referenzumgebung
 
 - Kanonische `CrusaderDE.dll`: SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
-- Script Extender 2.5.0: Commit `5f02af6d074af7c741ebdaaccb48add39eba1bf4`
+- Script Extender 2.6.0: Commit `2cee24e33b5a5d81d1c275efabc714ac59917b7b`
 - RedBird.X64 1.1.0
-- Modversion während des Tests: `0.1.3`
+- Modversion während des Tests: `0.1.4`
 
 Der Runtime-Mod verweigert die Installation bei einem abweichenden nativen Hash oder einer abweichenden Bytefolge. Die Projektdatei verwendet standardmäßig ausschließlich die installierte Extender-Assembly unter `BepInEx\plugins\000shcdese`; ein anderer Pfad muss ausdrücklich über `ExtenderDir` beziehungsweise `SHCDESE_EXTENDER_DIR` gesetzt werden.
 
@@ -72,7 +72,7 @@ Der Cursor-Hook bleibt bei `0x8F1C4`. Sein vollständiger Block ist exakt 14 Byt
 
 - `EnemyGatePathfindingRuntime` besitzt die beiden Capturer-Hooks und veröffentlicht sich erst nach erfolgreicher Initialisierung.
 - `GateTopologySnapshotProvider` erzeugt außerhalb nativer Callbacks unveränderliche Gate-Zugriffs- und Cursor-Policy-Snapshots. Der kleine Access-Fingerprint wird pro gerendertem Frame ohne Snapshot-Allokation geprüft und nur bei Änderungen neu veröffentlicht. Die teure Tile-/Footprint-Topologie wird bei Signaturänderungen sofort und ansonsten höchstens einmal pro Sekunde als Sicherheitsabgleich neu aufgebaut.
-- `CursorGateRouteFilter` führt die begrenzte Cursor-BFS aus, ohne das globale Richtungsraster zu verändern.
+- Der Cursor verwendet keine verwaltete BFS. Ein ABI-genauer Inlineadapter prüft eine repräsentative Einheit gedrosselt mit Vanillas eigener `DB650`-Suche und derselben nativen Richtungsmaske wie der Befehlsweg.
 - Prozessweit benötigte Runtimeobjekte, Logger, Delegates und Eventabonnements sind statisch verwurzelt.
 - Kartenwechsel beenden nur Diagnoseepochen und leeren Snapshots. Es gibt keinen normalen Dispose-/Unhook-Pfad.
 - JSON wird weder gelesen noch geschrieben und ist keine Runtime-Abhängigkeit.
@@ -100,7 +100,7 @@ Ein fester 64-Slot-Pool wird über die Windows-x64-Thread-ID aus `GS:[0x48]` adr
 
 ## Abnahme
 
-Die Maschinentests prüfen die beiden 20-Byte-Blöcke, ihre exklusiven Endadressen, umgebenden Sprünge und eine absichtlich mutierte Bytefolge. Insbesondere liegen `0xE271B` und `0xE303A` außerhalb der Hookspannen. Zusätzlich prüfen sie beide CMP-Rekonstruktionen, Setzen und Löschen von ZF ohne Veränderung anderer Flags sowie die getrennten Snapshot-Fehlerursachen. Policytests decken Besitzer, Verbündete, eigenen/verbündeten Eroberer, fremden Eroberer, ungültige Snapshots und die Cursor-BFS ab.
+Die Maschinentests prüfen die beiden 20-Byte-Blöcke, ihre exklusiven Endadressen, umgebenden Sprünge und eine absichtlich mutierte Bytefolge. Insbesondere liegen `0xE271B` und `0xE303A` außerhalb der Hookspannen. Zusätzlich prüfen sie beide CMP-Rekonstruktionen, Setzen und Löschen von ZF ohne Veränderung anderer Flags sowie die getrennten Snapshot-Fehlerursachen. Policytests decken Besitzer, Verbündete, eigenen/verbündeten Eroberer, fremden Eroberer, ungültige Snapshots und die native Cursorvalidierung ab.
 
 Für den noch ausstehenden Laufzeittest:
 
@@ -234,3 +234,13 @@ Der Context-Hook ist deshalb vollständig durch einen Inline-Callsite-Adapter er
 - Positive Same- und Different-PCL-Cursorentscheidungen werden gleich behandelt. Eine bestätigte Blockade bleibt für denselben Spieler-, Unit-, PCL- und Policykontext bis zur nächsten Aktualisierung rot, sodass Cursorbewegungen keine Grün-Blitze mehr erzeugen.
 
 Der Editorlauf vom 12. September 2026 ab 13:53:11 belegte die technische Grundlage: sieben Spielermasken, 150 maskierte Kanten, 3.468 ABI-korrekte Cursorwrapper-Aufrufe, 508 native Cursoraktualisierungen mit durchschnittlich etwa 0,1 ms und 841 erzwungene Rot-Ergebnisse ohne Exceptions oder Slotkonflikte. Das Torhaus blieb nur deshalb grün, weil die damalige Cursorprüfung Different-PCL-Fälle ausließ; diese Einschränkung ist nun entfernt. Die auditierten KI-Suchscopes sind implementiert, ihre praktische Abnahme bleibt anhand der getrennten AI-/Angriffs-/Gebäude-/Kandidatenzähler nachzuweisen.
+
+## Einordnung der neuen Pathfinding-APIs aus Script Extender 2.6.0
+
+Der vollständige featurebezogene Audit gegen `FBCB9319` zeigt, dass die neuen schreibbaren Tabellen keine Alternative zur querylokalen Gatepolicy sind. Die Profil-Tabelle bei RVA `0x322540` wird von `0x18E1E0`, `0x196280` und `0x198ED0` gelesen. Über das dritte Argument von `0xF4930` wählt sie Such- und Oberflächenvarianten für einen gesamten Einheitentyp. Der öffentliche Verbindungsklassenbereich beginnt mit Klasse 1 bei RVA `0x32BDB0`; `0x181E00(manager, unitId, connectionClass)` liest ihn für `0xDF720` und `0x182750`. Beide Tabellen besitzen weder Spieler- noch Besitzer-, Capture- oder Building-ID-Dimensionen. Ein modseitiges Umschalten würde deshalb eigene, verbündete und fremde Tore gemeinsam verändern und ist für dieses Ziel ungeeignet.
+
+Der neue Next-Tile-Override detourt `0xDCD60`, das im Bewegungsnachlauf `0x1855A0` eine bestimmte Wand-/Hochflächenablehnung ausführt. Der Override kann diese Ablehnung ausschließlich in Erfolg ändern und daher kein feindliches Tor sperren. Der Assassin-Auswahl-Override erweitert das positive Ergebnis von `0x196870`; dessen Caller `0x8C5F0`, `0xB70C0` und `0xB72C0` verwenden es in Sonderpfaden um Erreichbarkeit und Kandidatenauswahl. Der Testmod setzt keinen dieser globalen Overrides und installiert insbesondere keinen konkurrierenden Hook auf `0x196870`.
+
+Zur Konfliktdiagnose liest der Mod beide neuen Tabellen genau einmal im ersten deferred Runtime-Durchlauf über die öffentlichen SE-2.6.0-APIs. Die Adressrechnung des nativen Readers lautet `0x32BDB0 + (unitType + connectionClass * 90) * 4 - 0x168`. Weil `0x168 = 90 * 4`, beginnt Klasse 1 weiterhin bei `0x32BDB0`; die davorliegende Zeile bei `0x32BC48` ist Klasse 0 (`Unknown`) und gehört nicht zum öffentlichen Span für Klassen 1 bis 6. Der zuvor behauptete Extender-Zeilenversatz war ein Analysefehler des Testmods und wurde vollständig zurückgenommen; es wird kein Fehlerbericht an den Extender-Autor gesendet.
+
+Die kanonische DLL enthält 13 `Large`- und 77 `Default`-Profile; die echten Klassen 1 bis 6 erlauben `4/16/89/89/89/83` Einheitentypen. Ein kompakter Bitvergleich meldet Abweichungsanzahl, Fingerprint und höchstens zwölf konkrete Tabellenpositionen. Diese Prüfung schreibt nichts, läuft nur einmal beim Start, liegt nie im Pathfinding-Hotpath und beeinflusst weder PCLs, Richtungsmasken noch bestehende Einheitspfade. Sie dient ausschließlich dazu, globale Änderungen anderer Mods sichtbar zu machen.

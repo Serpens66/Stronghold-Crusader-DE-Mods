@@ -17,5 +17,29 @@ namespace UnitCosts
 
         public static int ApplyHorseAffordabilityLimit(int currentLimit, int availableHorses) =>
             Math.Min(currentLimit, Math.Max(0, availableHorses));
+
+        public static bool TryCalculateConsumedHorseTotal(
+            int totalHorses,
+            int usedHorses,
+            out int totalAfterConsumption)
+        {
+            totalAfterConsumption = totalHorses;
+            if (totalHorses < 1 || totalHorses > 4 ||
+                usedHorses < 0 || usedHorses > 4)
+            {
+                return false;
+            }
+
+            totalAfterConsumption = totalHorses - 1;
+            return true;
+        }
+
+        public static bool IsStableHorseSlotPairComplete(int unitId, long unitGlobalId) =>
+            (unitId == 0) == (unitGlobalId == 0);
+
+        public static bool IsOccupiedStableHorseSlotCountValid(int totalHorses, int occupiedSlots) =>
+            totalHorses >= 0 && totalHorses <= 4 &&
+            occupiedSlots >= 0 && occupiedSlots <= 4 &&
+            occupiedSlots <= totalHorses;
     }
 }

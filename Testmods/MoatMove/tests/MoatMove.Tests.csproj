@@ -13,6 +13,7 @@
     <Compile Remove="SearchKernelTests.cs" />
     <Compile Remove="FastRouteFieldTests.cs" />
     <Compile Remove="FastStateTests.cs" />
+    <Compile Remove="FastNativeFixtures.cs" />
     <Reference Include="Microsoft.CodeAnalysis">
       <HintPath>$(MSBuildSDKsPath)\..\Roslyn\bincore\Microsoft.CodeAnalysis.dll</HintPath>
     </Reference>

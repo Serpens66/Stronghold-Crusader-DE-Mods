@@ -14,6 +14,8 @@ namespace ExtraFeatures
             TestValidPackets();
             TestFormatterBounds();
             TestReceiverValidation();
+            TestProtocolActions();
+            TestStableHorseAccounting();
             Console.WriteLine($"PASS: Knight transformation packet tests ({assertions} assertions).");
         }
 
@@ -57,6 +59,10 @@ namespace ExtraFeatures
                 () => MessagePackSerializer.Deserialize<KnightTransformationPacket>(new byte[] { 0x95, 1, 1, 1, 1, 0xDD, 0x7F, 0xFF, 0xFF, 0xFF }),
                 "int.MaxValue array header without payload must fail before allocation");
             ExpectFailure(() => MessagePackSerializer.Serialize(CreatePacket(Array.Empty<int>())), "serializer must reject zero targets");
+            RoundTrip(CreatePacket(Array.Empty<int>(), KnightTransformationPacket.CancelAllAction));
+            ExpectFailure(
+                () => MessagePackSerializer.Serialize(CreatePacket(new[] { 1 }, KnightTransformationPacket.CancelAllAction)),
+                "cancel-all serializer must reject targets");
             ExpectFailure(
                 () => MessagePackSerializer.Serialize(CreatePacket(new int[KnightTransformationPacket.MaximumEncodedTargetCount + 1])),
                 "serializer must reject maximum plus one targets");
@@ -84,6 +90,66 @@ namespace ExtraFeatures
             Assert(!IsValid(packet), "operation zero");
         }
 
+        private static void TestProtocolActions()
+        {
+            Assert(IsValid(CreatePacket(new[] { 1 }, KnightTransformationPacket.StartMountAction)), "start mount action");
+            Assert(IsValid(CreatePacket(new[] { 1 }, KnightTransformationPacket.StartDismountAction)), "start dismount action");
+            Assert(IsValid(CreatePacket(new[] { 1 }, KnightTransformationPacket.CancelSelectedAction)), "cancel selected action");
+            Assert(IsValid(CreatePacket(Array.Empty<int>(), KnightTransformationPacket.CancelAllAction)), "cancel all action");
+            Assert(!IsValid(CreatePacket(new[] { 1 }, KnightTransformationPacket.CancelAllAction)), "cancel all rejects targets");
+            Assert(!IsValid(CreatePacket(Array.Empty<int>(), KnightTransformationPacket.StartMountAction)), "start mount requires targets");
+            Assert(!IsValid(CreatePacket(new[] { 1 }, 99)), "unknown action");
+        }
+
+        private static void TestStableHorseAccounting()
+        {
+            int total = 4;
+            const int staleUsed = 4;
+            int occupied = 4;
+            for (int expectedTotal = 3; expectedTotal >= 0; expectedTotal--)
+            {
+                Assert(
+                    StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(
+                        total, staleUsed, occupied, true, false, out int totalAfter),
+                    $"sequential dismount from total {total} must succeed without recount");
+                Assert(totalAfter == expectedTotal, $"sequential total must become {expectedTotal}");
+                total = totalAfter;
+                occupied--;
+            }
+
+            Assert(total == 0 && occupied == 0 && staleUsed == 4, "used remains stale until Vanilla recount");
+            int recountedUsed = occupied;
+            Assert(total == 0 && recountedUsed == 0, "Vanilla recount normalizes used to zero");
+
+            Assert(StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(4, 2, 2, true, false, out int freeHorseAfter) && freeHorseAfter == 3,
+                "stable with free horses consumes exactly one total horse");
+            Assert(StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(1, 0, 1, true, false, out int freshReservationAfter) && freshReservationAfter == 0,
+                "fresh reservation with stale used zero is valid");
+            Assert(StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(4, 4, 4, true, true, out int instantAfter) && instantAfter == 4,
+                "instant horse preserves total");
+            Assert(!StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(0, 0, 0, true, false, out _), "total zero rejected");
+            Assert(!StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(5, 4, 4, true, false, out _), "total above cap rejected");
+            Assert(!StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(1, -1, 1, true, false, out _), "negative used rejected");
+            Assert(!StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(4, 5, 4, true, false, out _), "used above cap rejected");
+            Assert(!StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(2, 4, 3, true, false, out _), "occupied slots above total rejected");
+            Assert(!StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(4, 4, 4, false, false, out _), "partial or contradictory slots rejected");
+
+            int completed = 0;
+            for (int stable = 0; stable < 25; stable++)
+            {
+                int stableTotal = 4;
+                for (int stableOccupied = 4; stableOccupied > 0; stableOccupied--)
+                {
+                    Assert(StableHorseConsumptionPolicy.TryGetTotalAfterConsumption(
+                            stableTotal, 4, stableOccupied, true, false, out int stableAfter),
+                        "large same-tick selection must not wait for an intermediate recount");
+                    stableTotal = stableAfter;
+                    completed++;
+                }
+            }
+            Assert(completed == 100, "100 dismounts complete in one synchronous pass");
+        }
+
         private static int FindMaximumFittingSequentialTargetCount()
         {
             int maximum = 0;
@@ -99,14 +165,16 @@ namespace ExtraFeatures
             return maximum;
         }
 
-        private static KnightTransformationPacket CreatePacket(int[] ids)
+        private static KnightTransformationPacket CreatePacket(
+            int[] ids,
+            int action = KnightTransformationPacket.StartMountAction)
         {
             return new KnightTransformationPacket
             {
-                ProtocolVersion = 1,
+                ProtocolVersion = 2,
                 PlayerId = 1,
                 OperationId = 1,
-                Action = 1,
+                Action = action,
                 UnitGlobalIds = ids
             };
         }
