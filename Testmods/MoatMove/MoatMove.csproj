@@ -15,6 +15,7 @@
   <ItemGroup>
     <Reference Include="System" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" />
     <Reference Include="System.Core" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" />
+    <Reference Include="com.rlabrecque.steamworks.net"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Xml" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" />
     <Reference Include="System.Xml.Linq" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" />
     <Reference Include="BepInEx" xmlns="http://schemas.microsoft.com/developer/msbuild/2003"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
@@ -41,8 +42,14 @@
     <Compile Include="src\CursorConnectivity.cs" />
     <Compile Include="src\CursorRegionGraph.cs" />
     <Compile Include="src\DirectMoatCommandScopes.cs" />
-    <Compile Include="src\FastMoatBridge.cs" />
+    <Compile Include="src\FastIntegration.cs" />
     <Compile Include="src\FastRouteField.cs" />
+    <Compile Include="src\FastCommandQueue.cs" />
+    <Compile Include="src\FastRoutePool.cs" />
+    <Compile Include="src\FastTraversalCache.cs" />
+    <Compile Include="src\FastMoatRouting.cs" />
+    <Compile Include="src\FastMovementScheduler.cs" />
+    <Compile Include="src\FastGroupDistribution.cs" />
     <Compile Include="src\FillWeightedRoutes.cs" />
     <Compile Include="src\FriendlyMoatMovementPolicy.cs" />
     <Compile Include="src\FriendlyMoatMovementRuntime.cs" />
@@ -64,6 +71,8 @@
     <Compile Include="src\MoatMovePlugin.cs" /><Compile Include="src\MoatMoveOptions.cs" /><Compile Include="src\MoatMoveConflictPolicy.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
+    <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
+    <Compile Include="..\..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateMoatMove" BeforeTargets="BeforeBuild">

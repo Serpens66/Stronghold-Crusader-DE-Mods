@@ -269,11 +269,9 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL spectator statistics initialization failed closed; surrender remains available: {ex}");
             }
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
-            {
-                if (args.Phase == EventHookPhase.Post)
-                    ResetSession("map-start");
-            }));
+            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
+                log,
+                context => ResetSession("session-start:" + context.Kind)));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
             {
                 if (args.Phase == EventHookPhase.Post)

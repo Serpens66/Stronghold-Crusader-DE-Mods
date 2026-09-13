@@ -54,7 +54,7 @@ namespace Shared
             mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable
                 .Subscribe(args => UpdateLoad(GameModeHelper.Capture(args), $"OnLoadMap({args.Phase})"));
             loadSaveSubscription = MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+                .Where(GameplaySessionLifecycle.IsSuccessfulSavePost)
                 .Subscribe(args => UpdateLoad(GameModeHelper.Capture(args), $"OnLoadSave({args.Phase})"));
             mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
                 .Subscribe(args => UpdateStart(GameModeHelper.Capture(args), $"OnStartMap({args.Phase})"));

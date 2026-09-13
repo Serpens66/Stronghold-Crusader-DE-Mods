@@ -31,6 +31,32 @@ internal static class InstalledRedBirdContract
             if (!after.SequenceEqual(bytes)) throw new Exception("Decode-only probe modified fixture bytes.");
         }
         finally { Marshal.FreeHGlobal(memory); }
+        foreach (var entry in new[] {
+            ("196100", "4883EC484863C24C8D1D1206B307", 14),
+            ("12BF0", "40534883EC308B05F0635E08C705EE635E080F000000", 22),
+            ("11C3A0", "4C635C24284C63D24969C2880600004969D2A2010000", 15) })
+        {
+            byte[] prefix = Convert.FromHexString(entry.Item2);
+            IntPtr fixture = Marshal.AllocHGlobal(64);
+            try
+            {
+                for (int i = 0; i < 64; i++) Marshal.WriteByte(fixture, i, 0x90);
+                Marshal.Copy(prefix, 0, fixture, prefix.Length);
+                object candidate = Activator.CreateInstance(type,
+                    new object[] { unchecked((ulong)fixture.ToInt64()), 14, null!, "MoatMove Fast " + entry.Item1 })!;
+                try
+                {
+                    if ((int)type.GetProperty("DisplacedByteCount")!.GetValue(candidate)! != entry.Item3 ||
+                        (bool)type.GetProperty("IsInstalled")!.GetValue(candidate)!)
+                        throw new Exception("Installed RedBird Fast entry span changed: " + entry.Item1);
+                }
+                finally { ((IDisposable)candidate).Dispose(); }
+                byte[] after = new byte[prefix.Length]; Marshal.Copy(fixture, after, 0, after.Length);
+                if (!after.SequenceEqual(prefix)) throw new Exception("Fast decode probe modified memory.");
+            }
+            finally { Marshal.FreeHGlobal(fixture); }
+        }
         Console.WriteLine("PASS: installed RedBird decode-only candidate displaces exactly 14 bytes; no hook installed.");
+        Console.WriteLine("PASS: installed RedBird Fast entry spans 14/22/15 bytes; decode-only, no hooks installed.");
     }
 }

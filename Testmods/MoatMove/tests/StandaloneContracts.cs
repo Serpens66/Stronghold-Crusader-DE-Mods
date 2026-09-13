@@ -12,6 +12,14 @@ internal static class StandaloneContracts
         string modDir = Path.GetDirectoryName(sourceDir)!;
         using var provenance = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "SOURCE_PROVENANCE.json")));
         using var optimization = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "OPTIMIZATION_PROVENANCE.json")));
+        using var fast = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "FAST_PROVENANCE.json")));
+        var fastChanges = fast.RootElement.GetProperty("files").EnumerateArray().ToDictionary(
+            item => item.GetProperty("file").GetString()!, item => item.GetProperty("sha256").GetString()!);
+        var removed = fast.RootElement.GetProperty("deleted").EnumerateArray().Select(item => item.GetString()!).ToHashSet();
+        Check(removed.SetEquals(new[] { "FastMoatBridge.cs" }), "Unexpected removed copy source");
+        foreach (var entry in fastChanges)
+            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(sourceDir, entry.Key)))) == entry.Value,
+                "Unreviewed Fast source change: " + entry.Key);
         int count = 0;
         foreach (var item in provenance.RootElement.GetProperty("files").EnumerateArray())
         {
@@ -19,12 +27,14 @@ internal static class StandaloneContracts
             string original = Path.Combine(root, "BugfixesAndQoL", "src", name);
             string copied = Path.Combine(sourceDir, name);
             Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(original))) == item.GetProperty("sourceSha256").GetString(), "Source changed since extraction: " + name);
+            if (removed.Contains(name)) { Check(!File.Exists(copied), "Legacy Fast source retained"); count++; continue; }
             bool optimized = name == "MoatSearchKernel.cs";
-            string expectedHash = optimized ? optimization.RootElement.GetProperty("kernelSha256").GetString()! : item.GetProperty("copySha256").GetString()!;
+            string expectedHash = fastChanges.TryGetValue(name, out string? reviewed) ? reviewed :
+                optimized ? optimization.RootElement.GetProperty("kernelSha256").GetString()! : item.GetProperty("copySha256").GetString()!;
             Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(copied))) == expectedHash, "Unreviewed source change: " + name);
             string expected = File.ReadAllText(original).Replace("BugfixesAndQoLViewModel", "MoatMoveOptions")
                 .Replace("BugfixesAndQoL", "MoatMove").Replace("Bugfixes and QoL", "MoatMove");
-            if (!optimized) Check(expected == File.ReadAllText(copied), "Unexpected behavioral edit: " + name);
+            if (!optimized && !fastChanges.ContainsKey(name)) Check(expected == File.ReadAllText(copied), "Unexpected behavioral edit: " + name);
             count++;
         }
         Check(count == 22, "Incomplete source closure");
@@ -74,7 +84,7 @@ internal static class StandaloneContracts
         Check(libraryInit.IndexOf("ReportConflict()", StringComparison.Ordinal) < libraryInit.IndexOf("new FriendlyMoatMovementRuntime", StringComparison.Ordinal), "Conflict checked after hook installation");
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "info.json")));
         Check(manifest.RootElement.GetProperty("GUID").GetString() == "MoatMove_Serp" && manifest.RootElement.GetProperty("Version").GetString() == "0.1.0" && manifest.RootElement.GetProperty("NetworkMode").GetInt32() == 1, "Wrong plugin identity/network contract");
-        Console.WriteLine("PASS: 21 unchanged copied sources, hash-pinned optimized kernel, startup config for precise/fast, immutable snapshots, unrelated-feature gates, conflict policy, process lifetime and manifest.");
+        Console.WriteLine("PASS: original source hashes, explicit Fast replacement inventory, pinned Precise kernel, startup config, unrelated-feature gates, conflicts, process lifetime and manifest.");
     }
 
     private static void Check(bool ok, string message)

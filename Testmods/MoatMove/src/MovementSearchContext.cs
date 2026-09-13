@@ -41,7 +41,7 @@ namespace MoatMove
                 int y = contact.Y - WeightedMoatRoutePlanner.DirectionY[d];
                 if ((uint)x >= MapWidth || (uint)y >= MapWidth ||
                     !IsTerminalFillEdgeValid(plan.PlayerId, x, y, contact.X, contact.Y, d) ||
-                    !weightedMoatRoutePlanner.TryBuildReachabilityEncoded(plan.PlayerId, startX, startY, x, y, false,
+                    !TryBuildMovementReachabilityEncoded(plan.PlayerId, startX, startY, x, y, false,
                         out WeightedMoatRouteSummary candidate, out WeightedMoatEncodedRoute prefix) ||
                     !prefix.IsValid || candidate.MoatEdges <= 0 || prefix.DirectionCount + 2 > 2000 ||
                     prefix.DirectionCount + 2 >= bestLength) continue;

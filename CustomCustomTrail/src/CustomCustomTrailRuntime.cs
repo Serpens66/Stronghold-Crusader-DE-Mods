@@ -108,9 +108,7 @@ namespace CustomCustomTrail
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => OnMapUnloaded()));
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => OnMapStarted()));
+            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => OnMapStarted()));
 
             MethodInfo initMethod = RequireMethod("InitCoopMissions");
             initHook = new Hook(initMethod, (InitCoopMissionsDelegate)InitCoopMissionsHook);

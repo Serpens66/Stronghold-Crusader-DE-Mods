@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "nativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "extenderCommit": "5f02af6d074af7c741ebdaaccb48add39eba1bf4",
+  "deleted": [
+    "FastMoatBridge.cs"
+  ],
+  "files": [
+    {
+      "file": "FriendlyMoatMovementRuntime.cs",
+      "sha256": "96339BEBAF706C05AAC096064B1D59EAC4021885E84CE7384F0B24C12A33FA9C",
+      "reason": "Fast routing dispatch, removal of legacy Fast branches, pending scheduler initialization and group distribution retention; Precise branch preserved."
+    },
+    {
+      "file": "NativeMovementRecovery.cs",
+      "sha256": "B0CD9E6941C36B84D339A4EEC15E8BBC53186D5DA97679E77D1FD24D7B04DFA3",
+      "reason": "Actual topology observers and identity-bound native recovery without the expiring legacy permit."
+    },
+    {
+      "file": "NativeFormationSlots.cs",
+      "sha256": "E916281D6986E1B25F7DB57E9D9E88384C9A4830C53AD2E53E7C5A80AF8E3A15",
+      "reason": "Fast-only coarse selector before unchanged Precise selection."
+    },
+    {
+      "file": "MovementPathPublication.cs",
+      "sha256": "ACB290AFE1F63BFEC663C7D5EDB167F0134E9FA9A227A9DBFECC89536C977A3B",
+      "reason": "Ready Fast paths publish directly with the same native mode/variant, audit and rollback contracts."
+    },
+    {
+      "file": "MovementSearchContext.cs",
+      "sha256": "E76570FB6EC5F196ADBBD76D0D8DE04764B1673E7572C8A681CFE518566DC687",
+      "reason": "Fast terminal work prefixes use the new field; Precise delegate remains unchanged."
+    },
+    {
+      "file": "FastRouteField.cs",
+      "sha256": "15D4A5743314D67A1A424DC85B807FA376C972B064C4C76CCDEBDD15B0F499E8",
+      "reason": "New directed unweighted field with resumable frontier, multiple roots and direct packed encoding."
+    },
+    {
+      "file": "FastCommandQueue.cs",
+      "sha256": "7AFA42B9600599BC8423E07C3201BD1AC2A283C360830D684D210B7D92172284",
+      "reason": "New per-unit identity ownership and versioned binary save format."
+    },
+    {
+      "file": "FastRoutePool.cs",
+      "sha256": "45C87C33BF06CD69E14E9AFDC1F9DBD333FCA75D92E1680E803D2225F481E0A2",
+      "reason": "New bounded pinned-field pool and dependency invalidation."
+    },
+    {
+      "file": "FastTraversalCache.cs",
+      "sha256": "3C7D51D2177E16AC0302204B96F5A1E1A61C3466E2A74AB4337822ECB186FB60",
+      "reason": "New actual-transition cache independent of native search stamps."
+    },
+    {
+      "file": "FastMoatRouting.cs",
+      "sha256": "A66773F55331C105C5A448EC4785109E579EB570EECA87740E8A6F2A3715356A",
+      "reason": "New ground-first shared Fast route integration."
+    },
+    {
+      "file": "FastMovementScheduler.cs",
+      "sha256": "93AD46C04EA116EE857DDAA6D3B043440E5098D9C7016CFE3861B6774AB029AC",
+      "reason": "New deterministic pending commands, native replay, grouping and save/load integration."
+    },
+    {
+      "file": "FastGroupDistribution.cs",
+      "sha256": "32EB83F8390100348E20BB884564E423D448A81B8D31B17E04DFE6953621AD80",
+      "reason": "New shared anchor, radius-eight distribution and identity-bound suffix retention."
+    },
+    {
+      "file": "FastIntegration.cs",
+      "sha256": "DE900FEC13573ACBFCDA568F9295D3FF222F353460FE683925240F0C37C26BF9",
+      "reason": "New directed attack fields, separate cursor state and metrics; replaces FastMoatBridge.cs."
+    },
+    {
+      "file": "MoatMovePlugin.cs",
+      "sha256": "4866B6579125A7A7DFC8254879A7B0B15EFBACA7C45037BFCAC0B6A3B479A150",
+      "reason": "Preserved concurrent user-owned GameplaySessionLifecycle integration."
+    }
+  ]
+}

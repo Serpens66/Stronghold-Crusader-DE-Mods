@@ -1,0 +1,28 @@
+PASS entry 0x118E00..0x118E0F: 48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18
+  118E00 mov qword ptr [rsp + 8], rbx
+  118E05 mov qword ptr [rsp + 0x10], rbp
+  118E0A mov qword ptr [rsp + 0x18], rsi
+  calls: 118E30->0x117820, 118ED8->0x119f90, 118FB9->0x196280
+PASS entry 0x181890..0x18189F: 48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 30
+  181890 mov qword ptr [rsp + 8], rbx
+  181895 mov qword ptr [rsp + 0x10], rsi
+  18189A push rdi
+  18189B sub rsp, 0x30
+  calls: 1818E0->0xe8ac0, 18190F->0x19ba40, 181957->0xf0710, 18195E->0xf03c0, 18198E->0x196280
+PASS entry 0xF03C0..0xF03D1: 89 54 24 10 53 56 57 48 83 EC 40 FF 81 A0 00 00 00
+  F03C0 mov dword ptr [rsp + 0x10], edx
+  F03C4 push rbx
+  F03C5 push rsi
+  F03C6 push rdi
+  F03C7 sub rsp, 0x40
+  F03CB inc dword ptr [rcx + 0xa0]
+  calls: F0459->0x7490, F05B5->0x107160
+PASS entry 0xE1D30..0xE1D3F: 48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20
+  E1D30 mov qword ptr [rsp + 8], rbx
+  E1D35 mov qword ptr [rsp + 0x18], rbp
+  E1D3A mov qword ptr [rsp + 0x20], rsi
+  calls: 
+PASS formation ABI: void(RCX manager, EDX spacing, R8D x, R9D y); only X/Y/index outputs, full return and register reads verified.
+PASS canonical hash, native chore dispatch, Unit target fields, collision and free-place output contracts.
+PASS attack native pool: one depth-limited flood, 50..500 result limit, unchanged three-int consumer records.
+PASS building native ABI: leader/current start, all three consumer variants, paired-prefix sorting, staging records and first-word termination.

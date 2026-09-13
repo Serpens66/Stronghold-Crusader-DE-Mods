@@ -91,9 +91,8 @@ namespace UnitCosts
             if (hooksSubscribed)
                 return;
 
-            TrySubscribeFeature("map start", () => MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(OnStartMap));
+            TrySubscribeFeature("gameplay session start", () =>
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
 
             TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
@@ -230,7 +229,7 @@ namespace UnitCosts
                 TryInitializeFeature("human extra costs", ApplyHumanExtraUnitCosts);
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
             try
             {
@@ -240,7 +239,7 @@ namespace UnitCosts
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogDebug(log, "UnitCosts OnStartMap failed:", ex);
+                Shared.DebugLogHelper.LogDebug(log, "UnitCosts gameplay-session initialization failed:", ex);
             }
         }
 

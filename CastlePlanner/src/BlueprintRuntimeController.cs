@@ -96,14 +96,15 @@ namespace CastlePlanner
             settings.HotkeyCaptureRequested += OnHotkeyCaptureRequested;
             preview.SelectionVisualChanged += OnPreviewSelectionChanged;
             Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
-            subscriptions.Add(
-                MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(OnStartMap));
-            subscriptions.Add(
-                MapLoaderR3EventHooks.OnLoadSave.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(OnLoadSave));
+            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
+                log,
+                context =>
+                {
+                    if (context.IsLoadedSave)
+                        OnLoadSave(context.SaveLoad);
+                    else
+                        OnStartMap(context.MapStart);
+                }));
             subscriptions.Add(
                 MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)

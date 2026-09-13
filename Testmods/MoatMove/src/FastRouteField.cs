@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MoatMove
 {
@@ -39,7 +40,32 @@ namespace MoatMove
 
         internal int Expanded => head;
         internal int Discovered => tail;
+        internal long BufferBytes => (long)distances.Length * 9;
+        internal bool HasDiscovered(int node) => (uint)node < distances.Length && distances[node] != 0;
+        internal int Distance(int node) => HasDiscovered(node) ? distances[node] - 1 : -1;
         internal bool Exhausted => destination >= 0 && head == tail && !cancelled;
+
+        // Native low-nibble-first format, without allocating an intermediate node path.
+        internal FastRouteStatus WritePacked(int start, byte[] buffer, out int count, int maximumEdges = 2000)
+        {
+            count = 0;
+            FastRouteStatus status = Status(start, maximumEdges);
+            if (status != FastRouteStatus.Found) return status;
+            int length = distances[start] - 1;
+            if (buffer == null || buffer.Length < (length + 1) / 2)
+                return FastRouteStatus.InvalidQuery;
+            Array.Clear(buffer, 0, (length + 1) / 2);
+            int node = start;
+            for (int i = 0; i < length; i++)
+            {
+                int direction = nextDirections[node];
+                buffer[i >> 1] |= (byte)(direction << ((i & 1) * 4));
+                node += Dy[direction] * width + Dx[direction];
+            }
+            if (distances[node] != 1) throw new InvalidOperationException("Fast packed chain changed.");
+            count = length;
+            return FastRouteStatus.Found;
+        }
 
         internal void Reset(int target)
         {
@@ -49,6 +75,20 @@ namespace MoatMove
             head = tail = 0; cancelled = false; destination = target;
             distances[target] = 1;
             queue[tail++] = target;
+        }
+
+        internal void ResetRoots(IEnumerable<int> roots)
+        {
+            if (roots == null) throw new ArgumentNullException(nameof(roots));
+            for (int i = 0; i < tail; i++) distances[queue[i]] = 0;
+            head = tail = 0; cancelled = false; destination = -1;
+            foreach (int root in roots)
+            {
+                if ((uint)root >= distances.Length) throw new ArgumentOutOfRangeException(nameof(roots));
+                if (distances[root] != 0) continue;
+                if (destination < 0) destination = root;
+                distances[root] = 1; queue[tail++] = root;
+            }
         }
 
         internal void Cancel() { cancelled = true; }
@@ -112,7 +152,7 @@ namespace MoatMove
                     node += Dy[d] * width + Dx[d];
                 }
             }
-            if (node != destination) throw new InvalidOperationException("Fast field parent chain changed.");
+            if (distances[node] != 1) throw new InvalidOperationException("Fast field parent chain changed.");
             path = result;
             return FastRouteStatus.Found;
         }

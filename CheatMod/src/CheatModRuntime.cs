@@ -42,9 +42,7 @@ namespace CheatMod
             if (initialized)
                 return;
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => BeginMap()));
+            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => BeginMap()));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => EndMap()));

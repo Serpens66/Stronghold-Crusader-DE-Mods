@@ -86,6 +86,51 @@ namespace MoatMove
             bool owned = TryCaptureUnitFallbackPathBuffer(pathManager, plan, unit,
                 out byte* path, out int beforeLength, out byte[] backup);
             bool qualified = plan.FriendlyRouteQualified && plan.ModeObserved;
+            bool groundReconstruction = false;
+            if (RequiredOnlyMode && reconstruction && owned && (originalVariant == 0 || originalVariant == 1))
+            {
+                // E32B0's existing field may belong to another group member on moat.
+                GetNativeMovementStart(unit, out int sx, out int sy);
+                FastRoutingState state = GetFastRouting(false); RefreshFastRouting(state);
+                groundReconstruction = FastGroundReachable(state, plan.PlayerId,
+                    sy * MapWidth + sx, plan.TargetY * MapWidth + plan.TargetX, plan.UnitId);
+                if (groundReconstruction)
+                {
+                    plan.QualifiedRoute = null; plan.QualifiedTerminalRoute = default;
+                    if (TryFastEncoded(plan.PlayerId, sx, sy, plan.TargetX, plan.TargetY, false,
+                        out WeightedMoatRouteSummary groundSummary, out WeightedMoatEncodedRoute groundRoute,
+                        plan.UnitId, groundOnly: true))
+                        plan.QualifiedRoute = new QualifiedMovementRoute(sx, sy, plan.TargetX, plan.TargetY,
+                            plan.PlayerId, mapEpoch, CaptureCurrentGameTick(), placementRevision,
+                            groundRoute, groundSummary, default, false);
+                }
+            }
+            if (RequiredOnlyMode && owned && (qualified || groundReconstruction) && (originalVariant == 0 || originalVariant == 1))
+            {
+                // 196280 has already bound its real unit buffer. A ready shared field
+                // supplies the route without running F4930 again for this member.
+                if (TryReplaceUnsafeFallbackPath(pathManager, path, backup, beforeLength, plan, unit,
+                    out int ready, out _, requireMoat: !groundReconstruction))
+                {
+                    // Same terminal publication state as the shared fallback below:
+                    // the native consumer latches this mode after the builder returns.
+                    *variant = 0; *moatPathMode = plan.PublishedUsesMoat ? 1 : 0;
+                    (command?.Required ?? activeAttackCommand?.Required)?.RecordFastPublication();
+                    try
+                    {
+                        if (plan.PublishedUsesMoat) StartOrRefreshMoatMoveTracker(plan,
+                            new RouteProbeSummary(plan.PlayerId) { RouteFound = true, ReachedWithMoat = true, RouteDistance = ready }, ready);
+                    }
+                    catch (Exception ex) { TryLogDiagnosticFailure("fast-publication-tracker", ex); }
+                    RecordBuilderResult(command, ready); return ready;
+                }
+                if (groundReconstruction)
+                {
+                    RestoreFallbackPathBuffer(pathManager, path, backup, beforeLength);
+                    *variant = originalVariant; *moatPathMode = mode;
+                    RecordBuilderResult(command, 0); return 0;
+                }
+            }
             int vanilla;
             if (plan.ModeObserved) *moatPathMode = plan.VanillaModeDetected ? 1 : 0;
             AttackCommandScope measuredBuilderCommand = activeAttackCommand;

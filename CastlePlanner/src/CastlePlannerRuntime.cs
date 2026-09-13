@@ -186,6 +186,7 @@ namespace CastlePlanner
             BindNativeFunctions(context.ModuleHandle, context.Memory);
             InstallHumanStartPreparationHook(context);
 
+            // SaveLifecycle: NewMapOnly - Pre/Post encloses native free-castle creation.
             subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
                 .Subscribe(OnStartMap));
             subscriptions.Add(BuildingR3EventHooks.OnBuildStructure.Observable
@@ -200,7 +201,7 @@ namespace CastlePlanner
             subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable
                 .Subscribe(OnUnitCreateDiagnostic));
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+                .Where(args => args.Phase == EventHookPhase.Post && args.ReturnValue > 0)
                 .Subscribe(OnLoadSave));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)

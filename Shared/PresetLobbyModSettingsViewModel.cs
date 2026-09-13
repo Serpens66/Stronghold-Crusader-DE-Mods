@@ -59,6 +59,7 @@ namespace Shared
         private float nextErrorLogTime;
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
+        private IDisposable gameplaySessionSubscription;
         private bool mapStarted;
         private string lastIdentityDiagnostic = string.Empty;
 #endif
@@ -93,17 +94,18 @@ namespace Shared
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
                 {
                     if (args.Phase == EventHookPhase.Pre)
-                    {
                         FinalizeRosterForMapTransition(args.bMultiplayerSave != 0);
-                        mapStarted = true;
-                    }
                 });
+                gameplaySessionSubscription = GameplaySessionLifecycle.SubscribeStarted(
+                    log,
+                    _ => mapStarted = true);
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
                 {
                     if (args.Phase == EventHookPhase.Post)
                         mapStarted = false;
                 });
-                if (mapStartSubscription == null || mapUnloadSubscription == null)
+                if (mapStartSubscription == null || mapUnloadSubscription == null ||
+                    gameplaySessionSubscription == null)
                     throw new InvalidOperationException("The persistent map lifecycle subscriptions could not be created.");
 #endif
                 active = true;
@@ -128,8 +130,10 @@ namespace Shared
             Application.onBeforeRender -= OnBeforeRender;
             mapStartSubscription?.Dispose();
             mapUnloadSubscription?.Dispose();
+            gameplaySessionSubscription?.Dispose();
             mapStartSubscription = null;
             mapUnloadSubscription = null;
+            gameplaySessionSubscription = null;
             mapStarted = false;
 #endif
             active = false;

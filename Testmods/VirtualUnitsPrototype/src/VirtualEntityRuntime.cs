@@ -68,7 +68,7 @@ namespace VirtualUnitsPrototype
                 visuals = new VisualRuntime(this, log);
                 visuals.Install();
                 subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Where(x => x.Phase == EventHookPhase.Post).Subscribe(OnStartMap));
-                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable.Where(x => x.Phase == EventHookPhase.Post).Subscribe(OnLoadSave));
+                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable.Where(x => x.Phase == EventHookPhase.Post && x.ReturnValue > 0).Subscribe(OnLoadSave));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(x => x.Phase == EventHookPhase.Pre).Subscribe(_ => ClearMapState()));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualSpawn.Observable.Subscribe(visuals.OnUnitVisualSpawn));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(visuals.OnUnitVisualInterpolate));

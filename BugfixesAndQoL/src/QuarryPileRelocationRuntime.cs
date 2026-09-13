@@ -215,14 +215,14 @@ namespace BugfixesAndQoL
             Hook installedHook = null;
             try
             {
-                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => BeginMapState()));
+                subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
+                    log,
+                    _ => BeginMapState()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => OnMapContentLoaded()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
+                    .Where(Shared.GameplaySessionLifecycle.IsSuccessfulSavePost)
                     .Subscribe(_ => OnMapContentLoaded()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)

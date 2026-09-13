@@ -34,7 +34,6 @@ namespace BugfixesAndQoL
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapLoadSubscription;
-        private IDisposable loadSaveSubscription;
         private IDisposable mapUnloadSubscription;
         private MinimapPlacementClickHook minimapPlacementClickHook;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
@@ -184,19 +183,10 @@ namespace BugfixesAndQoL
             if (mapStartSubscription == null)
             {
                 TryInitializePersistentFeature(
-                    "multiplayer map-start subscription",
-                    () => mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
-                        .Where(args => args.Phase == EventHookPhase.Post)
-                        .Subscribe(args =>
-                        {
-                            multiplayerFeatureGate.CaptureMapMode(args.bMultiplayerSave != 0);
-                            // Capture while LaunchPending still identifies a customized setup
-                            // whose Vanilla runtime signals temporarily look like Custom Game.
-                            TrailCustomizationLaunchOriginApi.MarkMapStarted();
-                            assassinPathfindingRuntime.BeginMap();
-                            assassinClimbRuntime.BeginMap();
-                            multiplayerGameSpeedRuntime.ApplySetting();
-                        }));
+                    "gameplay-session start subscription",
+                    () => mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
+                        log,
+                        BeginGameplaySession));
             }
 
             if (mapLoadSubscription == null)
@@ -204,15 +194,6 @@ namespace BugfixesAndQoL
                 TryInitializePersistentFeature(
                     "map-editor load subscription",
                     () => mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable
-                        .Where(args => args.Phase == EventHookPhase.Post)
-                        .Subscribe(args => BeginEditorMapIfApplicable(Shared.GameModeHelper.Capture(args))));
-            }
-
-            if (loadSaveSubscription == null)
-            {
-                TryInitializePersistentFeature(
-                    "map-editor save-load subscription",
-                    () => loadSaveSubscription = MapLoaderR3EventHooks.OnLoadSave.Observable
                         .Where(args => args.Phase == EventHookPhase.Post)
                         .Subscribe(args => BeginEditorMapIfApplicable(Shared.GameModeHelper.Capture(args))));
             }
@@ -244,6 +225,18 @@ namespace BugfixesAndQoL
             multiplayerFeatureGate.CaptureMapMode(multiplayerSave: false);
             assassinPathfindingRuntime.BeginMap();
             assassinClimbRuntime.BeginMap();
+            troopActionHudCoordinator.Refresh();
+        }
+
+        private void BeginGameplaySession(Shared.GameplaySessionStartedContext context)
+        {
+            multiplayerFeatureGate.CaptureMapMode(
+                context.MapStart != null && context.MapStart.bMultiplayerSave != 0);
+            // Restored customized-save origins are pending until the destination session exists.
+            TrailCustomizationLaunchOriginApi.MarkMapStarted();
+            assassinPathfindingRuntime.BeginMap();
+            assassinClimbRuntime.BeginMap();
+            multiplayerGameSpeedRuntime.ApplySetting();
             troopActionHudCoordinator.Refresh();
         }
 
@@ -569,8 +562,6 @@ namespace BugfixesAndQoL
             mapStartSubscription = null;
             mapLoadSubscription?.Dispose();
             mapLoadSubscription = null;
-            loadSaveSubscription?.Dispose();
-            loadSaveSubscription = null;
             mapUnloadSubscription?.Dispose();
             mapUnloadSubscription = null;
             nativeLibraryAvailable = false;

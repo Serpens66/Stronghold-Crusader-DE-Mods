@@ -197,6 +197,7 @@ namespace CastlePlanner
         {
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<FreeCastlePacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacket);
+            // SaveLifecycle: NewMapOnly - preview pause must surround a newly committed launch.
             mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap);
             mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)

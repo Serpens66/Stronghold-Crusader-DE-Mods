@@ -46,9 +46,9 @@ namespace EnemyGatePathfindingTest
             // the BaseUnityPlugin component itself is intentionally not the runtime owner.
             if (mapStartSubscription == null)
             {
-                mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => runtime?.BeginMap());
+                mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
+                    persistentLog,
+                    _ => runtime?.BeginMap());
             }
             if (mapUnloadSubscription == null)
             {

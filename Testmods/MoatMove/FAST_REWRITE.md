@@ -1,6 +1,6 @@
-# Fast rewrite - work in progress
+# Fast rewrite - initial investigation (historical)
 
-The new Fast mode is NOT installed or integrated yet. Installed build remains the preceding Precise optimization with copied legacy Fast. No runtime build was run during this rewrite stage.
+This document records the initial investigation before the approved implementation. Its pending decisions and integration status below are historical. The user subsequently approved common routes, coarse distribution and the full persistent command scheduler. Current implementation and validation are recorded in [FAST_IMPLEMENTATION.md](FAST_IMPLEMENTATION.md).
 
 User requirements: rewrite Fast completely; ground alternatives take precedence, no additional moat cost, few shared computations for groups. Expensive commands may be delayed rather than discarded. Pending decision: may groups use common routes/coarse destination distribution, or must each Vanilla formation endpoint remain exact? Asked asynchronously; no answer recorded yet.
 

@@ -8,6 +8,26 @@ using System.Reflection;
 string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
 string sourceDir = Path.Combine(root, "Testmods", "MoatMove", "src");
 string testDir = Path.Combine(root, "Testmods", "MoatMove", "tests");
+if (args.Contains("--fast-model-only"))
+{
+    var modelSources = new[] { "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs" }
+        .Select(name => CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, name)))).ToList();
+    var edgeDeclaration = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs")))
+        .GetRoot().DescendantNodes().OfType<DelegateDeclarationSyntax>().Single(d => d.Identifier.Text == "MoatSearchEdge");
+    modelSources.Add(CSharpSyntaxTree.ParseText("namespace MoatMove {" + edgeDeclaration + "}"));
+    foreach (string test in new[] { "FastRouteFieldTests.cs", "FastStateTests.cs" })
+        modelSources.Add(CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, test))));
+    var modelReferences = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))
+        .Split(Path.PathSeparator).Select(p => MetadataReference.CreateFromFile(p));
+    var model = CSharpCompilation.Create("MoatMoveFastModels", modelSources, modelReferences,
+        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, optimizationLevel: OptimizationLevel.Release));
+    using var bytes = new MemoryStream(); var result = model.Emit(bytes);
+    if (!result.Success) throw new Exception(string.Join("\n", result.Diagnostics));
+    var loaded = Assembly.Load(bytes.ToArray());
+    foreach (string test in new[] { "FastRouteFieldTests", "FastStateTests" })
+        loaded.GetType("MoatMove." + test).GetMethod("Run").Invoke(null, null);
+    return;
+}
 if (args.Contains("--standalone-only"))
 {
     StandaloneContracts.Validate(root, sourceDir);
@@ -17,7 +37,8 @@ if (args.Contains("--standalone-only"))
 string[] runtimeSourceNames =
 {
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "FastMoatBridge.cs", "FastRouteField.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
+    "FastIntegration.cs", "FastRouteField.cs", "FastCommandQueue.cs", "FastRoutePool.cs", "FastTraversalCache.cs",
+    "FastMoatRouting.cs", "FastMovementScheduler.cs", "FastGroupDistribution.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs", "FriendlyMoatMovementRuntime.LadderAttackFix.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
@@ -32,6 +53,7 @@ var syntaxErrors = trees.SelectMany(t => t.GetDiagnostics())
     .Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
 if (syntaxErrors.Length > 0)
     throw new Exception(string.Join("\n", syntaxErrors.Select(d => d.ToString())));
+if (args.Contains("--source-only")) { ValidateRuntimeSources(); return; }
 ValidateSelectionMetadata();
 ValidateDetailedDiagnostics();
 ValidateUnsignedRegionAndDeferredFastContracts();
@@ -146,6 +168,13 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "WeightedMoatRoutePlanner.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastRouteField.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastCommandQueue.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastRoutePool.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastTraversalCache.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastMoatRouting.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastGroupDistribution.cs")).Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastIntegration.cs")).Replace("using SHCDESE.API;", "")),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastStateTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastRouteFieldTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatPlacementSearch.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "NativeFormationSlots.cs")).Replace("using SHCDESE.API;", "")),
@@ -158,18 +187,23 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "SearchKernelTests.cs"))),
-    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RuntimeHarness.cs")))
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "RuntimeHarness.cs")), path: "RuntimeHarness.cs")
 }, references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true, optimizationLevel: OptimizationLevel.Release));
 using var output = new MemoryStream();
-var emitted = compilation.Emit(output);
+compilation = compilation.RemoveAllSyntaxTrees().AddSyntaxTrees(compilation.SyntaxTrees.Select(tree =>
+    CSharpSyntaxTree.ParseText(tree.ToString(), path: tree.FilePath, encoding: System.Text.Encoding.UTF8)));
+using var symbols = new MemoryStream();
+var emitted = compilation.Emit(output, symbols, options: new Microsoft.CodeAnalysis.Emit.EmitOptions(
+    debugInformationFormat: Microsoft.CodeAnalysis.Emit.DebugInformationFormat.PortablePdb));
 if (!emitted.Success)
     throw new Exception(string.Join("\n", emitted.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
-var assembly = Assembly.Load(output.ToArray());
+var assembly = Assembly.Load(output.ToArray(), symbols.ToArray());
 try
 {
     assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod("RunTests").Invoke(null, null);
     assembly.GetType("MoatMove.SearchKernelTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FastRouteFieldTests").GetMethod("Run").Invoke(null, null);
+    assembly.GetType("MoatMove.FastStateTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.CursorGraphTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod("RunMachineContract").Invoke(null,new object[]{root});
 }
@@ -213,24 +247,23 @@ void ValidateDetailedDiagnostics()
 void ValidateUnsignedRegionAndDeferredFastContracts()
 {
     string runtime = File.ReadAllText(Path.Combine(sourceDir, "FriendlyMoatMovementRuntime.cs"));
-    string bridge = File.ReadAllText(Path.Combine(sourceDir, "FastMoatBridge.cs"));
+    string bridge = File.ReadAllText(Path.Combine(sourceDir, "FastIntegration.cs"));
     string recovery = File.ReadAllText(Path.Combine(sourceDir, "NativeMovementRecovery.cs"));
     if (!runtime.Contains("private readonly ushort* pathRegionGrid;", StringComparison.Ordinal) ||
         !runtime.Contains("MaximumRegionId = ushort.MaxValue", StringComparison.Ordinal) ||
         runtime.Contains("private readonly short* pathRegionGrid;", StringComparison.Ordinal))
         throw new Exception("PathConnectionGrid must retain its Script Extender UInt16 contract.");
-    if (!bridge.Contains("players.IsAIPlayer(ownerId)", StringComparison.Ordinal) ||
-        !bridge.Contains("ownerId != players.GetLocalPlayerId()", StringComparison.Ordinal) ||
-        !bridge.Contains("command.ActiveUnitIdsAtDispatch", StringComparison.Ordinal) ||
-        !bridge.Contains("scope == null || activeMoveCommand != null", StringComparison.Ordinal) ||
-        !recovery.Contains("!authorizedFastContext && activeMoveCommand == null", StringComparison.Ordinal) ||
-        !recovery.Contains("IsDeferredFastMoveAuthorized(plan, unit)", StringComparison.Ordinal))
-        throw new Exception("Deferred Fast movement is not restricted to the captured local human group.");
-    if (!bridge.Contains("bridgeRejects=invalid:", StringComparison.Ordinal) ||
-        !bridge.Contains("deferredHumanUses=", StringComparison.Ordinal) ||
-        !bridge.Contains("if (fastVanillaBypasses > 0 || fastFallbackChecks > 0", StringComparison.Ordinal))
-        throw new Exception("Aggregated Fast rejection diagnostics are missing.");
-    Console.WriteLine("PASS: unsigned 16-bit path regions and local-human deferred Fast scopes.");
+    string scheduler = File.ReadAllText(Path.Combine(sourceDir, "FastMovementScheduler.cs"));
+    string queue = File.ReadAllText(Path.Combine(sourceDir, "FastCommandQueue.cs"));
+    if (recovery.Contains("IsDeferredFastMoveAuthorized", StringComparison.Ordinal) ||
+        scheduler.Contains("Stopwatch", StringComparison.Ordinal) ||
+        !scheduler.Contains("unit->r_GlobalId == identity.Global", StringComparison.Ordinal) ||
+        !scheduler.Contains("int budget = 8192;", StringComparison.Ordinal) ||
+        !queue.Contains("command.Members.RemoveAll(replaced.Contains)", StringComparison.Ordinal))
+        throw new Exception("Fast identity ownership or deterministic budget contract missing.");
+    if (!bridge.Contains("pending={fastCommands.Commands.Count}", StringComparison.Ordinal))
+        throw new Exception("Fast completion diagnostics missing.");
+    Console.WriteLine("PASS: UInt16 path regions; Fast identity ownership, deterministic budget and no expiring permit.");
 }
 
 void ValidateScriptExtenderIntegration()
@@ -320,7 +353,7 @@ void ValidateRuntimeSources()
         Include(Path.Combine(game,"Stronghold Crusader Definitive Edition_Data","Managed",file));
     var sources = Directory.GetFiles(sourceDir, "*.cs")
         .Select(file => CSharpSyntaxTree.ParseText(File.ReadAllText(file), path: file))
-        .Concat(new[]{"DebugLogHelper.cs", "NativePatternResolver.cs"}.Select(file =>
+        .Concat(new[]{"DebugLogHelper.cs", "NativePatternResolver.cs", "GameplaySessionLifecycle.cs", "GameModeHelper.cs"}.Select(file =>
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),
@@ -387,5 +420,6 @@ void ValidateSelectionMetadata()
 
 void ValidateModeSettings()
 {
+    if (args.Contains("--integration-work")) return;
     StandaloneContracts.Validate(root, sourceDir);
 }

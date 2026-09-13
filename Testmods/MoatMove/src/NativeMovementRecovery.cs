@@ -55,13 +55,13 @@ namespace MoatMove
                     "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 20 4C 63 F2 45 8B F8 41 8B D6 48 8B E9",
                     (TileUpdateDelegate)((manager, y, tile) => {
                         originalTileUpdate(manager, y, tile);
-                        try { InvalidateMovementSearchData(); DirtyCursorTile(tile); } catch (Exception ex) { InvalidateConnectivity(ex); }
+                        try { InvalidateMovementSearchData(); DirtyCursorTile(tile); MarkFastTopologyTile(tile); } catch (Exception ex) { InvalidateConnectivity(ex); }
                     }));
                 moatWriteDetour = InstallConnectivityObserver(pendingTransaction, memory, libraryBase, 0x59210,
                     "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 20 49 63 F8 8B EA 49 63 F1 48 8B D9 81 FF 1F",
                     (MoatWriteDelegate)((manager, owner, x, y, mode, replace) => {
                         ulong result = originalMoatWrite(manager, owner, x, y, mode, replace);
-                        try { InvalidateMovementSearchData(); if (x < MapWidth && y < MapWidth) DirtyCursorTile(GameTileManagerAPI.Instance.GetTileId((int)x, (int)y)); }
+                        try { InvalidateMovementSearchData(); if (x < MapWidth && y < MapWidth) { int tile = GameTileManagerAPI.Instance.GetTileId((int)x, (int)y); DirtyCursorTile(tile); MarkFastTopologyTile(tile); } }
                         catch (Exception ex) { InvalidateConnectivity(ex); }
                         return result;
                     }));
@@ -70,13 +70,13 @@ namespace MoatMove
                     (MoatDeleteDelegate)((manager, id) => {
                         int tile = id > 0 && id <= MaximumMoatRecordId ? *(int*)((byte*)manager + MoatRecordArrayOffset + id * MoatRecordSize) : -1;
                         originalMoatDelete(manager, id);
-                        try { InvalidateMovementSearchData(); DirtyCursorTile(tile); } catch (Exception ex) { InvalidateConnectivity(ex); }
+                        try { InvalidateMovementSearchData(); DirtyCursorTile(tile); MarkFastTopologyTile(tile); } catch (Exception ex) { InvalidateConnectivity(ex); }
                     }));
                 maskRebuildDetour = InstallConnectivityObserver(pendingTransaction, memory, libraryBase, 0xDAA50,
                     "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 33 DB 48 8D 3D 3C 38 9D 03 89 99 34 5F 15 00 48 8B F1 0F BF 17 44 8B C3 48",
                     (MaskRebuildDelegate)(manager => {
                         originalMaskRebuild(manager);
-                        try { InvalidateMovementSearchData(); cursorTopologies.Clear(); } catch (Exception ex) { InvalidateConnectivity(ex); }
+                        try { InvalidateMovementSearchData(); cursorTopologies.Clear(); MarkFastTopologyAll(); } catch (Exception ex) { InvalidateConnectivity(ex); }
                     }));
 
                 const int failureRva = 0x19664B;
@@ -173,7 +173,6 @@ namespace MoatMove
         private void InvalidateMovementSearchData()
         {
             placementRevision++;
-            InvalidateFastMoatData();
             weightedMoatRoutePlanner.SetSearchSession(null, -1, mapEpoch, CaptureCurrentGameTick());
             nativeGroundDecisions.Clear(); activeMoveCommand?.TargetedRouteDecisions.Clear();
             cacheMapEpoch = -1;
@@ -182,6 +181,7 @@ namespace MoatMove
         private void InvalidateConnectivity(Exception ex)
         {
             cursorTopologies.Clear();
+            MarkFastTopologyAll();
             TryLogDiagnosticFailure("connectivity-invalidation", ex);
         }
 
@@ -204,13 +204,8 @@ namespace MoatMove
                     movementTargetAvailability[targetY * MapWidth + targetX] == 0) return RejectPreBuilder(frame, "start-or-unavailable-target");
                 int target = GameTileManagerAPI.Instance.GetTileId(targetX, targetY);
                 if (!IsValidTileId(target) || HasDownstreamMovementBlockingFlags(tileFlags[target])) return RejectPreBuilder(frame, "blocked-target");
-                bool authorizedFastContext = activeMoveCommand?.MoatRelevant == true ||
-                    activeAttackCommand != null ||
-                    plan.MoatWorkMovement || plan.PostCombatRepath || plan.FriendlyRouteQualified;
-                if (RequiredOnlyMode && !authorizedFastContext && activeMoveCommand == null)
-                    authorizedFastContext = IsDeferredFastMoveAuthorized(plan, unit);
-                if (RequiredOnlyMode && !authorizedFastContext)
-                    return RejectPreBuilder(frame, "unbound-fast-unit-move");
+                // This frame binds the actual unit identity and exact native start/target.
+                // AI and later native repaths use the same search; no wall-clock permit.
                 plan.VanillaFailureProven = true;
                 plan.ExactRouteEndpoints = true;
                 if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(plan, out _))

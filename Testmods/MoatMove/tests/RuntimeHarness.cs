@@ -144,8 +144,8 @@ namespace MoatMove
         private int nativeGroundEpoch, nativeGroundTick, nativeGroundPlayer;
         private bool nativeGroundProbeBusy;
         private long nativeGroundQueries, nativeGroundCacheHits;
-        private const int FastSearchNodeBudget = 16384;
-        private long fastVanillaBypasses, fastSearches;
+        private readonly FastCommandQueue fastCommands = new FastCommandQueue();
+        private long fastQueuedCommands, fastExecutedCommands, fastCommandRetries;
         private bool deferredFastMoveAuthorized;
         private int cachedReachabilityExpandedNodes, cachedTraversedRegionCount, cachedReachabilityMapHits;
         private RouteProbeSummary cachedRouteSummary;
@@ -154,6 +154,7 @@ namespace MoatMove
         private class Performance { public int ReachabilityCacheHits, ReachabilityMapsBuilt; }
         private class MoveCommandScope
         {
+            public int ActiveUnitsAtDispatch, DiggersAtDispatch;
             public bool GroupSummaryCaptured;
             internal MovementOptionsSnapshot Options = MovementOptionsSnapshot.Capture();
             internal RequiredRouteMetrics Required = new RequiredRouteMetrics();
@@ -177,18 +178,6 @@ namespace MoatMove
         }
         private void CaptureMoveCommandGroupSummary(MoveCommandScope command)
         { if (command != null) command.GroupSummaryCaptured = true; }
-        private bool HasFastFriendlyMoatBridge(int player, int start, int target) => true;
-        private bool HasFastFriendlyMoatBridgeForCells(int player,
-            System.Collections.Generic.IList<int> starts,
-            System.Collections.Generic.IList<int> targets) => true;
-        private bool TryProbeFastCursorRoute(int player, int start, int target, out RouteProbeSummary summary)
-        { summary = new RouteProbeSummary(player); return false; }
-        private void RecordFastSearch(WeightedMoatRouteSummary summary, long started, long nodes) { }
-        private void RecordFastFieldSearch(MoatCandidateField field, long started) { }
-        private bool IsDeferredFastMoveAuthorized(PlanScope plan, GameUnit* unit) =>
-            deferredFastMoveAuthorized;
-        private void InvalidateFastMoatData() { }
-        private void LogAndResetFastMoatMetrics() { }
         private static void EnsureAttackCommandCandidates(AttackCommandScope scope)
         { if (scope != null) scope.CandidatesCaptured = true; }
         private Func<IntPtr,int,int,int> originalBuildingCursorReachability = (m,b,u)=>0;
@@ -451,11 +440,9 @@ namespace MoatMove
                     RestoreFallbackPathBuffer(nativePathManager, captured, backup, length);
                     Check(path[0] == 0, "rollback bytes");
                 }
-                Check(activeMoveCommand.TargetedRouteSearches == 1, "one qualification search for ordinary group");
-                Check(activeMoveCommand.TargetedRouteCacheHits == 26, "remaining members reuse decision");
-                Check(activeMoveCommand.Required.GroundChecks == 1 && activeMoveCommand.Required.GroundHits == 0 &&
-                    activeMoveCommand.Required.Searches == 1,
-                    "required-only caches one ground proof and one necessary moat search");
+                Check(fastSimulationRouting.Pool.Builds == 1, "one new Fast field for ordinary group");
+                Check(fastSimulationRouting.Pool.Hits >= 26, "remaining members reuse new Fast field");
+                Check(weightedMoatRoutePlanner.SearchRuns == 0, "Fast does not enter weighted planner");
 
                 activeAttackCommand = new AttackCommandScope();
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10,
@@ -466,12 +453,11 @@ namespace MoatMove
                     Required = activeAttackCommand.Required, RequiredCache = activeAttackCommand.RequiredCache };
                 Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 2) == 1,
                     "second nested attack move reuses command-bound route decision");
-                Check(activeAttackCommand.Required.GroundChecks == 1 &&
-                    activeAttackCommand.Required.Searches == 1 &&
-                    activeAttackCommand.Required.DecisionCacheHits == 1,
-                    "nested attack moves share one bound required decision cache");
+                Check(fastSimulationRouting.Pool.Builds == 1 && fastSimulationRouting.Pool.Hits >= 28,
+                    "nested exact attack moves share the same new Fast field");
                 activeAttackCommand = null;
                 tileFlags[1010] = OrdinaryWalkableTileFlag;
+                MarkFastTopologyAll();
 
                 var trackerSample = new RequiredRouteMetrics();
                 for (int id = 1; id <= 680; id++)
@@ -481,36 +467,31 @@ namespace MoatMove
                     "680-unit command starts exactly eight follow-tick trackers");
 
                 tileFlags[1013] = OrdinaryWalkableTileFlag;
-                placementRevision++;
+                MarkFastTopologyAll();
+                placementRevision++; MarkFastTopologyAll();
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
                 long distinctRegionRunsBefore = weightedMoatRoutePlanner.SearchRuns;
                 Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1) == 0,
                     "unknown fast-mode ground connection stays entirely with vanilla");
-                Check(activeMoveCommand.Required.GroundChecks == 1 && activeMoveCommand.Required.GroundHits == 0 &&
-                    activeMoveCommand.Required.Searches == 0 && activeMoveCommand.WeightedDecisions == 0 &&
-                    activeMoveCommand.WeightedPublished == 0 && activeMoveCommand.Required.SamePclHits == 0 &&
-                    activeMoveCommand.Required.ExactGroundSearches == 0 &&
-                    weightedMoatRoutePlanner.SearchRuns == distinctRegionRunsBefore,
-                    "fast mode performs no grid search when ground separation is unproven");
+                Check(weightedMoatRoutePlanner.SearchRuns == distinctRegionRunsBefore &&
+                    fastSimulationRouting.Pool.Builds == 2,
+                    "ambiguous ground answer uses one shared unweighted ground field");
                 for (int x = 13; x <= 18; x++) pathRegionGrid[1000 + x] = 1;
-                placementRevision++;
+                placementRevision++; MarkFastTopologyAll();
                 activeMoveCommand = new MoveCommandScope { TargetX = 17, TargetY = 10 };
                 long samePclRunsBefore = weightedMoatRoutePlanner.SearchRuns;
                 Check(EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager, 1) == 0,
                     "same positive PCL region stays entirely with vanilla");
-                Check(activeMoveCommand.Required.GroundChecks == 1 && activeMoveCommand.Required.GroundHits == 1 &&
-                    activeMoveCommand.Required.SamePclHits == 1 &&
-                    activeMoveCommand.Required.ExactGroundSearches == 0 &&
-                    activeMoveCommand.Required.Searches == 0 &&
-                    weightedMoatRoutePlanner.SearchRuns == samePclRunsBefore,
-                    "same positive PCL proof performs no grid or moat search");
+                Check(weightedMoatRoutePlanner.SearchRuns == samePclRunsBefore &&
+                    fastSimulationRouting.Pool.Builds == 2,
+                    "ground proof reuses the common field without a new search");
                 Check(activeMoveCommand.Options.RequiredOnly, "command captures required-only mode");
                 TestSettings.Settings.RouteMode = 0;
                 Check(activeMoveCommand.Options.RequiredOnly, "command snapshot survives nested settings change");
                 TestSettings.Settings.RouteMode = 1;
                 for (int x = 13; x <= 18; x++) pathRegionGrid[1000 + x] = 2;
                 tileFlags[1013] = CompletedMoatTileFlag;
-                placementRevision++;
+                placementRevision++; MarkFastTopologyAll();
                 cursorTopologies[1] = new CursorTopology
                 {
                     Ready = true,
@@ -737,10 +718,12 @@ namespace MoatMove
                     int result = TestSettings.Settings.RouteMode==1 && id%2==0
                         ? BuildReconstructedUnitPath(nativePathManager)
                         : BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1);
-                    Check(result == target - 10 && nativeCalls == before + 1,
-                        "every group unit gets vanilla-first and successful fallback");
+                    Check(result == target - 10 && nativeCalls == before + (RequiredOnlyMode ? 0 : 1),
+                        "ready Fast route publishes without another native flood; Precise retains native-first behavior");
                     Check(TryAuditFallbackPath(nativePathManager, Buffer(id), result, request, units + id, out _),
                         "published path bytes pass actual owner and endpoint audit");
+                    Check(*moatPathMode == 1 && *(int*)(manager + PathManagerRouteVariantOffset) == 0,
+                        "published moat route sets native consumer mode and normal route variant");
                     Post(id, target, 1);
                     Check(unitMoveFrame == null && pendingPlan == null && activePlan == null,
                         "unit Post leaves no plan for next group member");
@@ -748,15 +731,15 @@ namespace MoatMove
                 Check(activeMoveCommand.UnitMoveCalls == count && activeMoveCommand.UnitMoveCompleted == count &&
                     activeMoveCommand.UnitMovePositive == count && activeMoveCommand.BuilderCalls == count &&
                     activeMoveCommand.FallbackContractRejections == 0, "all eligible formation members accounted for");
-                Check(activeMoveCommand.TargetedRouteSearches == (formation ? Math.Min(count, 5) : 1), "only exact endpoint decisions are cached");
+                Check(RequiredOnlyMode || activeMoveCommand.TargetedRouteSearches == (formation ? Math.Min(count, 5) : 1),
+                    "Precise exact endpoint decision cache unchanged");
                 if (TestSettings.Settings.RouteMode == 1)
                 {
                     Check(activeMoveCommand.WeightedDecisions == 0 && activeMoveCommand.WeightedPublished == 0,
                         "required-only group performs no weighted decisions or publications");
-                    Check(activeMoveCommand.Required.GroundChecks == activeMoveCommand.TargetedRouteSearches &&
-                        activeMoveCommand.Required.Searches == activeMoveCommand.TargetedRouteSearches &&
-                        activeMoveCommand.Required.Published > 0,
-                        "required-only group measures cached ground proof, necessary searches and publications");
+                    Check(fastSimulationRouting.Pool.Hits > 0 &&
+                        fastSimulationRouting.Pool.BufferBytes + (fastCandidateField?.BufferBytes ?? 0) <= 64L * 1024 * 1024,
+                        "Fast groups reuse bounded fields");
                 }
             }
 
@@ -966,10 +949,9 @@ namespace MoatMove
                     (IntPtr)nativeUnitManager, 1);
                 long fastRecruitRuns = weightedMoatRoutePlanner.SearchRuns;
                 Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1,
-                    10, 10, 17, 10) == 0 &&
-                    weightedMoatRoutePlanner.SearchRuns == fastRecruitRuns &&
-                    unitMoveFrame.RecoveryRejection == "unbound-fast-unit-move",
-                    "Fast-Recruit-style scoped move cannot start a moat search");
+                    10, 10, 17, 10) == 1 &&
+                    weightedMoatRoutePlanner.SearchRuns == fastRecruitRuns,
+                    "internal scoped move uses the new unweighted Fast field");
                 Post(1, 17, 0);
             }
 
@@ -980,10 +962,9 @@ namespace MoatMove
             if (TestSettings.Settings.RouteMode == 1)
             {
                 long unboundSearchRuns = weightedMoatRoutePlanner.SearchRuns;
-                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 10, 10, 17, 10) == 0 &&
-                    weightedMoatRoutePlanner.SearchRuns == unboundSearchRuns &&
-                    unitMoveFrame.RecoveryRejection == "unbound-fast-unit-move",
-                    "unbound Fast-Recruit-style move cannot start a moat search");
+                Check(TryRecoverBeforeBuilder((IntPtr)nativeUnitManager, 1, 10, 10, 17, 10) == 1 &&
+                    weightedMoatRoutePlanner.SearchRuns == unboundSearchRuns,
+                    "later native unit move uses its bound frame without expiring authority");
             }
             int beforeStandalone = nativeCalls;
             Check(BuildPathWithCompletedMoatRouteVariant(nativePathManager, 1, 1) == 0 && nativeCalls == beforeStandalone + 1,
@@ -1069,6 +1050,19 @@ namespace MoatMove
             Check(BuildReconstructedUnitPath(nativePathManager)==7 && reconstructionCalls==1 && nativeCalls==oldNativeCalls,
                 "E32B0 positive path uses its own audited adapter without F4930");
             Post(1,17,1,1);
+            if (TestSettings.Settings.RouteMode == 1)
+            {
+                tileFlags[1013] = 0x8000; placementRevision++; MarkFastTopologyAll();
+                NewCommand(); Pre(1,17,1);
+                *moatPathMode = EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
+                SetBuilder(1,17);
+                int beforeGroundReconstruction = reconstructionCalls;
+                Check(BuildReconstructedUnitPath(nativePathManager) == 7 &&
+                    reconstructionCalls == beforeGroundReconstruction && *moatPathMode == 0,
+                    "Fast reconstruction publishes shared ground alternative instead of consuming another member's moat field");
+                Post(1,17,1,1);
+                tileFlags[1013] = CompletedMoatTileFlag; placementRevision++; MarkFastTopologyAll();
+            }
             NewCommand(); Pre(1,17,1);
             *moatPathMode=EnableCompletedMoatModeForScopedMovement((IntPtr)nativeUnitManager,1);
             SetBuilder(1,17); originalPathReconstruction=m=>0;

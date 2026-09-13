@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -33,7 +34,7 @@ namespace MoatMove
                 movementTargetAvailability[10 * 800 + x] = 1;
             }
             nativeMovementMasks[1010] = 0x04; nativeMovementMasks[1180] = 0x40;
-            cursorTopologies.Clear(); placementRevision++; tick++;
+            cursorTopologies.Clear(); placementRevision++; MarkFastTopologyAll(); tick++;
             nativeTribeManager = (IntPtr)91;
             EnsureCursorTopology(1);
             originalPathBuilder = (m, c, p) => 0;
@@ -96,6 +97,40 @@ namespace MoatMove
                 originalFirstGroupUnitOnCompletedMoat = (m,t) => 2;
                 Check(SelectOwnerSafeGroupMoatMode(nativeTribeManager,1) == 2,
                     "unqualified later moat member preserves the original Vanilla result");
+
+                *(ushort*)(tribeRecords + TribeRecordSize + 0x2C) = 1;
+                foreach (int count in new[] { 1, 100, 680 })
+                {
+                    ResetUnits(count);
+                    var command = activeMoveCommand;
+                    command.TargetX = 150; command.MoatRelevant = true;
+                    command.GroupSummaryCaptured = true;
+                    command.ActiveUnitsAtDispatch = command.DiggersAtDispatch = count;
+                    command.ActiveUnitIdsAtDispatch = System.Linq.Enumerable.Range(1, count).ToArray();
+                    long fieldsBefore = GetFastRouting(false).Pool.Builds;
+                    long weightedBefore = weightedMoatRoutePlanner.SearchRuns;
+                    for (int id = 1; id <= count; id++)
+                    {
+                        Check(TryChooseFastFormation(nativePathManager, 150, 10, out int tile), "new Fast coarse selector");
+                        int targetX = *(int*)(tribeRecords + 0x0C), targetY = *(int*)(tribeRecords + 0x10);
+                        Check(Math.Abs(targetX - 150) <= 8 && targetY == 10 && !IsCompletedMoatTile(tile),
+                            "coarse ground slots stay within radius and on ground");
+                        Check(TryFastEncoded(1, 10, 10, targetX, targetY, false, out var routeSummary, out var packed, id) &&
+                            packed.DirectionCount >= targetX - 10 && routeSummary.MoatEdges > 0,
+                            "coarse suffix connects the common route to the assigned slot");
+                    }
+                    Check(GetFastRouting(false).Pool.Builds - fieldsBefore <= 1 && weightedMoatRoutePlanner.SearchRuns == weightedBefore,
+                        "680 coarse endpoints use one large unweighted field");
+                    RetainFastDistribution(command); activeMoveCommand = null;
+                    int lastX = *(int*)(tribeRecords + 0x0C);
+                    Check(TryFastGroupSuffix(1, 10 * MapWidth + lastX, out int anchor, out _, count) && anchor == 10 * MapWidth + 150,
+                        "later native builders retain the identity-bound common route");
+                    units[count].r_GlobalId++;
+                    Check(!TryFastGroupSuffix(1, 10 * MapWidth + lastX, out _, out _, count),
+                        "reused unit slot cannot inherit coarse route ownership");
+                    units[count].r_GlobalId--;
+                }
+                fastUnitDistributions.Clear(); fastDistribution = null;
             }
             finally
             {
@@ -163,7 +198,7 @@ namespace MoatMove
             ResetUnits(3);
             originalCommonGroupMove = (m,t,x,y,p,n) => {
                 var first=Pre(1);int used=first.TileY*800+first.TileX;Post(1,1);
-                placementRevision++; // A synchronous terrain callback invalidates searches, not committed slots.
+                placementRevision++; MarkFastTopologyAll(); // A synchronous terrain callback invalidates searches, not committed slots.
                 var second=Pre(2);
                 Check(second.TileY*800+second.TileX!=used,"committed reservation survives a search revision");Post(2,1);
                 units[3].r_PathPlanStateBitFlags=1;units[3].r_MovementSubstep=0;
@@ -214,7 +249,7 @@ namespace MoatMove
             originalUnstack=(m,id)=> { FindUnstackPlace(nativePathManager,-1,13,10);return 0; };
             ObserveNativeUnstack((IntPtr)nativeUnitManager,2);
             Check(ordinaryCalls==1,"nonoverlapping native behavior preserved");
-            api.Occupants[1013]=1; enemyTiles.Add(1013); placementRevision++;
+            api.Occupants[1013]=1; enemyTiles.Add(1013); placementRevision++; MarkFastTopologyAll();
             ObserveNativeUnstack((IntPtr)nativeUnitManager,2);
             Check(ordinaryCalls==2,"enemy moat never receives idle extension");
             enemyTiles.Clear(); api.Occupants.Clear();

@@ -1189,9 +1189,11 @@ namespace MoatMove
                 TryInstallMoatWorkTargetSelection(memory, libraryBase);
                 InstallConnectivityAndRecovery(memory, libraryBase);
                 UnityEngine.Application.onBeforeRender += ObserveCursorPerformance;
+                InstallFastCommandRuntime(memory, libraryBase);
             }
             catch
             {
+                UnityEngine.Application.onBeforeRender -= ObserveCursorPerformance;
                 tribeMoveSubscription?.Dispose();
                 unitMoveSubscription?.Dispose();
                 tribeTargetSubscription?.Dispose();
@@ -1242,7 +1244,6 @@ namespace MoatMove
             mainHookTransaction = null;
             ClearUnitMoveFrames();
             activeMoveCommand = null;
-            ClearDeferredFastMoveScope();
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;
@@ -1692,16 +1693,8 @@ namespace MoatMove
                 {
                     // Diagnostics must not escape into the synchronous command event.
                 }
-                try
-                {
-                    CaptureDeferredFastMoveScope(command);
-                }
-                catch (Exception ex)
-                {
-                    // This scope is optional and must fail closed without affecting Vanilla.
-                    ClearDeferredFastMoveScope();
-                    TryLogDiagnosticFailure("deferred-fast-move-scope", ex);
-                }
+                try { RetainFastDistribution(command); }
+                catch (Exception ex) { TryLogDiagnosticFailure("fast-group-retention", ex); }
                 activeMoveCommand = null;
                 activePlan = null;
                 pendingPlan = null;
@@ -4500,7 +4493,8 @@ namespace MoatMove
                     PlanScope probe = new PlanScope(unitId, command.TargetX, command.TargetY)
                     {
                         PlayerId = unit->r_ControllableForPlayerId,
-                        VanillaFailureProven = RequiredOnlyMode && vanillaResult == 0
+                        // 117BC0 reports a moat-standing member, not ground failure.
+                        VanillaFailureProven = false
                     };
                     if (!TryFindRequiredFriendlyCompletedMoatRouteForPlan(
                             probe, out RouteProbeSummary route))
@@ -5128,14 +5122,7 @@ namespace MoatMove
             }
             if (pending.Count != 0)
             {
-                if (RequiredOnlyMode &&
-                    !HasFastFriendlyMoatBridgeForCells(playerId, leaderStarts, targets) &&
-                    !HasFastFriendlyMoatBridgeForCells(playerId, otherStarts, targets))
-                {
-                    return BuildingConsumerFallbackResult.Rejected(
-                        "no-friendly-moat-bridge");
-                }
-                MoatCandidateField field = buildingCandidateFields.Count != 0
+                MoatCandidateField field = RequiredOnlyMode ? null : buildingCandidateFields.Count != 0
                     ? buildingCandidateFields.Pop() : new MoatCandidateField(MapWidth, MapWidth);
                 MoatSearchEdge normal = (int from, int to, int d, out bool moat, out bool structure) =>
                     BuildingCandidateEdge(playerId,from,to,d,false,false,out moat,out structure);
@@ -5145,11 +5132,8 @@ namespace MoatMove
                 try
                 {
                     long fieldStarted = Stopwatch.GetTimestamp();
-                    int[] distances = field.Resolve(leaderStarts, targets, normal, terminal,
-                        RequiredOnlyMode ? FastSearchNodeBudget : int.MaxValue,
-                        RequiredOnlyMode ? 2000 : int.MaxValue);
-                    if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
-                    if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += field.Expanded; }
+                    int[] distances = ResolveMovementCandidates(field, leaderStarts, targets, normal, terminal, out int expanded);
+                    if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += expanded; }
                     var remaining = new List<int>(); var remainingIndices = new List<int>();
                     for (int i=0;i<distances.Length;i++)
                     {
@@ -5162,16 +5146,13 @@ namespace MoatMove
                         int supplementBase=0;
                         foreach(var c in candidates) if(c.Score<VanillaUnreachableCandidateScore) supplementBase=Math.Max(supplementBase,c.Score);
                         fieldStarted = Stopwatch.GetTimestamp();
-                        distances = field.Resolve(otherStarts, remaining, normal, terminal,
-                            RequiredOnlyMode ? FastSearchNodeBudget : int.MaxValue,
-                            RequiredOnlyMode ? 2000 : int.MaxValue);
-                        if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
-                        if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += field.Expanded; }
+                        distances = ResolveMovementCandidates(field, otherStarts, remaining, normal, terminal, out expanded);
+                        if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += expanded; }
                         for (int i=0;i<distances.Length;i++) if (distances[i]>=0)
                         { var c=candidates[remainingIndices[i]]; c.Score=supplementBase+distances[i]+1; candidates[remainingIndices[i]]=c; }
                     }
                 }
-                finally { weightedMoatRoutePlanner.EndReachabilityProbe(); buildingCandidateFields.Push(field); }
+                finally { weightedMoatRoutePlanner.EndReachabilityProbe(); if (field != null) buildingCandidateFields.Push(field); }
             }
             // 123090 only sorts the paired prefix; null-footprint staging entries keep producer order.
             int prefix=0;
@@ -5579,32 +5560,24 @@ namespace MoatMove
             { var p=GameTileManagerAPI.Instance.GetTileVectorFromId(tile); targets.Add(p.Y*MapWidth+p.X); }
             if(targets.Count!=0)
             {
-                if (RequiredOnlyMode &&
-                    !HasFastFriendlyMoatBridgeForCells(playerId, starts, targets))
-                {
-                    return AttackRegionFallbackDecision.Reject(
-                        "no-friendly-moat-bridge", observed);
-                }
-                var field=buildingCandidateFields.Count!=0?buildingCandidateFields.Pop():new MoatCandidateField(MapWidth,MapWidth);
+                var field=RequiredOnlyMode?null:buildingCandidateFields.Count!=0?buildingCandidateFields.Pop():new MoatCandidateField(MapWidth,MapWidth);
                 weightedMoatRoutePlanner.BeginReachabilityProbe();
                 try
                 {
                     long fieldStarted = Stopwatch.GetTimestamp();
-                    int[] distances=field.Resolve(starts,targets,
+                    int[] distances=ResolveMovementCandidates(field,starts,targets,
                         (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,false,false,out m,out st),
                         (int f,int t,int d,out bool m,out bool st)=>BuildingCandidateEdge(playerId,f,t,d,true,true,out m,out st),
-                        RequiredOnlyMode ? FastSearchNodeBudget : int.MaxValue,
-                        RequiredOnlyMode ? 2000 : int.MaxValue);
-                    if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
+                        out int expanded);
                     if(activeBuildingApproachPerformance!=null)
-                    { activeBuildingApproachPerformance.ReachabilityMapsBuilt++; activeBuildingApproachPerformance.SharedNodes+=field.Expanded; }
+                    { activeBuildingApproachPerformance.ReachabilityMapsBuilt++; activeBuildingApproachPerformance.SharedNodes+=expanded; }
                     for(int i=0;i<distances.Length;i++) if(distances[i]>=0)
                     {
                         observed.RouteFound=true; observed.RouteDistance=distances[i];
                         return AttackRegionFallbackDecision.Allow(observed,targets[i]%MapWidth,targets[i]/MapWidth,"shared-friendly-building-reachability");
                     }
                 }
-                finally { weightedMoatRoutePlanner.EndReachabilityProbe(); buildingCandidateFields.Push(field); }
+                finally { weightedMoatRoutePlanner.EndReachabilityProbe(); if (field != null) buildingCandidateFields.Push(field); }
             }
 
             return AttackRegionFallbackDecision.Reject(
@@ -6551,6 +6524,8 @@ namespace MoatMove
             out RouteProbeSummary summary,
             bool evaluateMissing = true)
         {
+            if (RequiredOnlyMode)
+                return TryFindFastRequiredRoute(plan, allowReservedTarget, evaluateMissing, out summary);
             summary = default;
             if (plan == null || plan.TargetX < 0 || plan.TargetX >= MapWidth ||
                 plan.TargetY < 0 || plan.TargetY >= MapWidth ||
@@ -6594,24 +6569,19 @@ namespace MoatMove
 
             int startRegion = pathRegionGrid[startTileId];
             int targetRegion = pathRegionGrid[targetTileId];
-            // Required-only deliberately proves ground reachability before doing any moat work.
-            // Exact mode retains the per-unit movement profile and its weighted route choice.
-            bool requiredOnly = RequiredOnlyMode;
+            // Precise retains its existing per-unit profile, cache and route choice.
             WeightedMovementCostProfile routeCost = default;
-            bool hasCost = !requiredOnly && TryCaptureWeightedMovementCostProfile(
+            bool hasCost = TryCaptureWeightedMovementCostProfile(
                 unit, out routeCost, out _);
             if (!hasCost) routeCost = default;
             var cacheKey = new RouteDecisionKey(mapEpoch, CaptureCurrentGameTick(), playerId, startTileId,
                 targetTileId, allowReservedTarget, plan.MoatWorkTargetTileId, placementRevision, routeCost);
             MoveCommandScope command = activeMoveCommand;
-            RequiredRouteCache requiredCache = requiredOnly
-                ? command?.RequiredCache ?? activeAttackCommand?.RequiredCache
-                : command?.RequiredCache;
+            RequiredRouteCache requiredCache = command?.RequiredCache;
             if (requiredCache != null && requiredCache.Decisions.TryGetValue(
                     cacheKey, out TargetedRouteDecision cached))
             {
                 if (command != null) command.TargetedRouteCacheHits++;
-                if (requiredOnly) (command?.Required ?? activeAttackCommand?.Required)?.RecordDecisionCacheHit(cached);
                 summary = cached.Summary;
                 plan.QualifiedRoute = cached.Route;
                 return cached.RequiredFriendlyMoat;
@@ -6629,98 +6599,38 @@ namespace MoatMove
             long runsBefore = weightedMoatRoutePlanner.SearchRuns;
             bool groundReachable;
             bool friendlyReachable = false;
-            bool fastBridgeProven = false;
             GroundConnectionDecision groundDecision = GroundConnectionDecision.Unknown;
-            RequiredRouteMetrics requiredMetrics = requiredOnly
-                ? activeMoveCommand?.Required ?? activeAttackCommand?.Required
-                : null;
             targetedRouteProbeBusy = true;
             try
             {
-                long groundStarted = Stopwatch.GetTimestamp();
-                bool samePclProof = requiredOnly && !plan.VanillaFailureProven &&
-                    IsSamePositiveGroundRegion(startTileId, targetTileId);
-                groundDecision = requiredOnly && plan.VanillaFailureProven
-                    ? GroundConnectionDecision.Excluded
-                    : samePclProof
-                        ? GroundConnectionDecision.Reachable
-                        : ProbeGroundConnection(playerId, startTileId, targetTileId);
-                // Fast mode is deliberately fail-closed. An unknown topology result must
-                // never turn a routine AI order into one or two full-map searches.
-                bool exactGroundSearch = !requiredOnly &&
-                    groundDecision == GroundConnectionDecision.Unknown;
-                long exactNodesBefore = weightedMoatRoutePlanner.SearchNodes;
-                long exactFieldHitsBefore = weightedMoatRoutePlanner.CachedFieldHits;
+                groundDecision = ProbeGroundConnection(playerId, startTileId, targetTileId);
+                bool exactGroundSearch = groundDecision == GroundConnectionDecision.Unknown;
                 groundReachable = groundDecision == GroundConnectionDecision.Reachable ||
                     (exactGroundSearch && weightedMoatRoutePlanner.TryProbeReachability(
                         playerId, startX, startY, plan.TargetX, plan.TargetY,
                         allowReservedTarget, MoatTraversalPolicy.GroundOnly, out ground));
-                long groundElapsed = Stopwatch.GetTimestamp() - groundStarted;
-                if (requiredMetrics != null)
+                if (!groundReachable)
                 {
-                    requiredMetrics.GroundChecks++;
-                    if (groundReachable) requiredMetrics.GroundHits++;
-                    if (samePclProof) requiredMetrics.SamePclHits++;
-                    if (groundDecision == GroundConnectionDecision.Excluded &&
-                        !IsCompletedMoatTile(startTileId) && !IsCompletedMoatTile(targetTileId))
-                        requiredMetrics.TopologyExclusions++;
-                    if (exactGroundSearch)
-                    {
-                        requiredMetrics.ExactGroundSearches++;
-                        requiredMetrics.ExactGroundNodes += (int)Math.Min(
-                            int.MaxValue, Math.Max(
-                                0, weightedMoatRoutePlanner.SearchNodes - exactNodesBefore));
-                        requiredMetrics.ExactGroundFieldCacheHits += (int)Math.Max(
-                            0, weightedMoatRoutePlanner.CachedFieldHits - exactFieldHitsBefore);
-                        requiredMetrics.ExactGroundTicks += groundElapsed;
-                    }
-                    requiredMetrics.GroundTicks += groundElapsed;
-                    requiredMetrics.RecordNestedGroundTicks(groundElapsed);
-                }
-                bool groundSeparationProven =
-                    groundDecision == GroundConnectionDecision.Excluded ||
-                    requiredOnly && plan.VanillaFailureProven;
-                fastBridgeProven = !requiredOnly || groundSeparationProven &&
-                    HasFastFriendlyMoatBridge(playerId, startTileId, targetTileId);
-                if (!groundReachable && (!requiredOnly || fastBridgeProven))
-                {
-                    long requiredSearchStarted = Stopwatch.GetTimestamp();
-                    if (requiredMetrics != null) requiredMetrics.Searches++;
                     WeightedMoatEncodedRoute encoded = default;
-                    if (requiredOnly) fastSearches++;
-                    long fastSearchStarted = requiredOnly ? Stopwatch.GetTimestamp() : 0;
-                    long fastNodesBefore = requiredOnly ? weightedMoatRoutePlanner.SearchNodes : 0;
-                    friendlyReachable = requiredOnly
-                        ? weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY,
-                            plan.TargetX, plan.TargetY, allowReservedTarget, out friendly, out encoded,
-                            FastSearchNodeBudget)
-                        : hasCost
-                            ? weightedMoatRoutePlanner.TryBuildEncoded(playerId, startX, startY,
-                                plan.TargetX, plan.TargetY, routeCost, allowReservedTarget,
-                                out friendly, out encoded)
-                            : weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY,
-                                plan.TargetX, plan.TargetY, allowReservedTarget, out friendly, out encoded);
-                    if (requiredOnly)
-                        RecordFastSearch(friendly, fastSearchStarted, fastNodesBefore);
+                    friendlyReachable = hasCost
+                        ? weightedMoatRoutePlanner.TryBuildEncoded(playerId, startX, startY,
+                            plan.TargetX, plan.TargetY, routeCost, allowReservedTarget,
+                            out friendly, out encoded)
+                        : weightedMoatRoutePlanner.TryBuildReachabilityEncoded(playerId, startX, startY,
+                            plan.TargetX, plan.TargetY, allowReservedTarget, out friendly, out encoded);
                     if (friendlyReachable)
                         plan.QualifiedRoute = new QualifiedMovementRoute(startX, startY, plan.TargetX, plan.TargetY,
                             playerId, mapEpoch, CaptureCurrentGameTick(), placementRevision, encoded, friendly, routeCost, hasCost);
                     // Reachability is not limited by the native output buffer.
-                    if (!friendlyReachable && !requiredOnly)
+                    if (!friendlyReachable)
                         friendlyReachable = weightedMoatRoutePlanner.TryProbeReachability(playerId, startX, startY,
                             plan.TargetX, plan.TargetY, allowReservedTarget, MoatTraversalPolicy.FriendlyOnly, out friendly);
-                    if (!friendlyReachable && !requiredOnly && plan.MoatWorkMovement &&
+                    if (!friendlyReachable && plan.MoatWorkMovement &&
                         TryBuildTerminalFillRoute(plan, unit, startX, startY, out friendly, out WeightedMoatEncodedRoute terminal))
                     {
                         plan.QualifiedTerminalRoute = terminal;
                         plan.QualifiedTerminalSummary = friendly;
                         friendlyReachable = true;
-                    }
-                    if (requiredMetrics != null)
-                    {
-                        long searchElapsed = Stopwatch.GetTimestamp() - requiredSearchStarted;
-                        requiredMetrics.SearchTicks += searchElapsed;
-                        requiredMetrics.RecordNestedSearchTicks(searchElapsed);
                     }
                 }
             }
@@ -6731,19 +6641,6 @@ namespace MoatMove
 
             bool requiredFriendly = !groundReachable && friendlyReachable &&
                 friendly.MoatEdges > 0;
-            if (requiredMetrics != null && requiredFriendly)
-                requiredMetrics.Qualified++;
-            if (requiredMetrics != null && !groundReachable && !requiredFriendly)
-            {
-                string reason = requiredOnly &&
-                    groundDecision == GroundConnectionDecision.Unknown && !plan.VanillaFailureProven
-                        ? "ground-unproven-fast"
-                        : requiredOnly && !fastBridgeProven
-                            ? "no-friendly-moat-bridge"
-                        : friendlyReachable ? "no-moat-edge" :
-                    friendly.Reason ?? "route-not-encodable";
-                requiredMetrics.Reject(reason);
-            }
             summary = new RouteProbeSummary(playerId)
             {
                 StartRegion = startRegion,
@@ -8185,7 +8082,7 @@ namespace MoatMove
             LogAndResetFastMoatMetrics();
             ClearUnitMoveFrames();
             mapEpoch++;
-            InvalidateFastMoatData();
+            ResetFastCommandMap();
             cursorTopologies.Clear(); noBuilderDetails = 0; preBuilderRejections.Clear();
             cursorDecisionCounts.Clear(); cursorDecisionDetails.Clear();
             fillRouteDecisions.Clear(); fillRouteLogTick = -1; fillRouteLogCount = 0; formationOwner = null;
@@ -8203,7 +8100,6 @@ namespace MoatMove
             lastAttackCommandCandidates.Clear();
             trackedAttackUnits.Clear();
             activeMoveCommand = null;
-            ClearDeferredFastMoveScope();
             activePlan = null;
             pendingPlan = null;
             pendingAttackCursorPair = null;
@@ -8877,6 +8773,7 @@ namespace MoatMove
 
         private sealed class RequiredRouteMetrics
         {
+            internal void RecordFastPublication() { Published++; }
             private const int MaximumTrackedUnits = 8;
             private readonly HashSet<int> trackedUnitIds = new HashSet<int>();
             public int GroundChecks, GroundHits, SamePclHits, TopologyExclusions;

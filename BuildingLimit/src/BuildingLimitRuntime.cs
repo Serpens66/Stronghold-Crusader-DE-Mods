@@ -82,13 +82,8 @@ namespace BuildingLimit
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnBuildingPlacementValidation));
 
-            TrySubscribeFeature("map start", () => MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap));
-
-            TrySubscribeFeature("save load", () => MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnLoadSave));
+            TrySubscribeFeature("gameplay session start", () =>
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
 
             TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -151,25 +146,18 @@ namespace BuildingLimit
             activeBuildingLimitRulesByStructure.Clear();
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
             try
             {
-                LogDebug("OnStartMap");
+                LogDebug("Gameplay session started: " + context.Kind);
                 ResetBuildingLimitTooltipCache();
                 ApplyBuildingLimits();
             }
             catch (Exception ex)
             {
-                LogDebug("OnStartMap failed:", ex);
+                LogDebug("Gameplay session initialization failed:", ex);
             }
-        }
-
-        private void OnLoadSave(LoadSaveGameEventArgs args)
-        {
-            LogDebug("OnLoadSave");
-            ResetBuildingLimitTooltipCache();
-            ApplyBuildingLimits();
         }
 
         private void OnUnloadMap(MapUnloadEventArgs args)

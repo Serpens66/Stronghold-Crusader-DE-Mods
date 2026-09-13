@@ -88,7 +88,7 @@ namespace AIDefenseTest
                 .Subscribe(OnStartMap));
 
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+                .Where(args => args.Phase == EventHookPhase.Post && args.ReturnValue > 0)
                 .Subscribe(OnLoadSave));
 
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable

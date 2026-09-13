@@ -331,7 +331,7 @@ namespace BugfixesAndQoL
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(args => ResetMapState()));
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+                .Where(Shared.GameplaySessionLifecycle.IsSuccessfulSavePost)
                 .Subscribe(args => RefreshMapContext()));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)

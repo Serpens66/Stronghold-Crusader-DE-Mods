@@ -56,7 +56,13 @@ namespace BugfixesAndQoL
 
         internal void Initialize()
         {
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnMapStart));
+            // SaveLifecycle: NewMapOnly - lobby state is captured before Vanilla leaves the setup.
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnMapStart));
+            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
+                log,
+                OnSessionStarted));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
             {
                 if (args.Phase == EventHookPhase.Post)
@@ -215,13 +221,18 @@ namespace BugfixesAndQoL
         private void OnMapStart(MapStartEventArgs args)
         {
             int coopTrailId = GameData.Instance?.coopTrailID ?? 0;
-            if (args.Phase == EventHookPhase.Pre)
-                Reset("map-start", clearContinuationId: coopTrailId <= 0);
+            Reset("map-start", clearContinuationId: coopTrailId <= 0);
+            CaptureSession(Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0), coopTrailId, "map-start-pre");
+        }
 
-            if (args.Phase != EventHookPhase.Pre && args.Phase != EventHookPhase.Post)
-                return;
+        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
+        {
+            int coopTrailId = GameData.Instance?.coopTrailID ?? 0;
+            CaptureSession(context.Mode, coopTrailId, "session-start:" + context.Kind);
+        }
 
-            Shared.GameModeSnapshot mode = Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0);
+        private void CaptureSession(Shared.GameModeSnapshot mode, int coopTrailId, string source)
+        {
             supportedSession = MultiplayerLobbyReturnPolicy.IsSupportedSession(
                 settings.EnableMod,
                 settings.EnableReturnToMultiplayerLobby,
@@ -235,9 +246,9 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Captured multiplayer lobby for post-game return: phase={args.Phase}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}, mode={mode.ToDiagnosticString()}.");
+                    $"Captured multiplayer lobby for post-game return: source={source}, name='{snapshot.GameName}', map='{snapshot.MapFileName}', maxPlayers={snapshot.MaxPlayers}, lobbyMode={snapshot.LobbyMode}, mode={mode.ToDiagnosticString()}.");
             }
-            else if (args.Phase == EventHookPhase.Post)
+            else if (source.StartsWith("session-start", StringComparison.Ordinal))
             {
                 Shared.DebugLogHelper.LogError(
                     log,

@@ -69,9 +69,7 @@ namespace BuildingCosts
 
             try
             {
-                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(OnStartMap));
+                subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
             }
             catch (Exception ex)
             {
@@ -202,17 +200,17 @@ namespace BuildingCosts
                 TryRunFeature("building costs", ApplyBuildingCosts);
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
             try
             {
-                LogDebug("OnStartMap");
+                LogDebug("Gameplay session started: " + context.Kind);
                 ApplyBuildingCosts();
                 ResetTooltipCache();
             }
             catch (Exception ex)
             {
-                LogDebug("OnStartMap failed:", ex);
+                LogDebug("Gameplay session initialization failed:", ex);
             }
         }
 

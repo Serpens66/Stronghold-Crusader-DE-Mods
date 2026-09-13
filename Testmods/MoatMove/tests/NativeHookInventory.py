@@ -63,8 +63,8 @@ def address_value(expression):
 for pattern, expression in re.findall(r'(?<![\w])Resolve\(\s*memory,\s*(\w+),\s*([^,]+),', source):
     if address_value(expression) not in resolved.values():
         unique_pattern(address_value(expression), patterns[pattern], pattern)
-observer_sites = re.findall(r'InstallConnectivityObserver\(\s*(?:pendingTransaction|transaction),\s*memory,\s*libraryBase,\s*(0x[0-9A-F]+),\s*"([0-9A-F ]+)"', source)
-assert len(observer_sites) == 9, ('Observer coverage changed', len(observer_sites))
+observer_sites = re.findall(r'InstallConnectivityObserver\(\s*(?:pendingTransaction|transaction|pending),\s*memory,\s*libraryBase,\s*(0x[0-9A-F]+),\s*"([0-9A-F ]+)"', source)
+assert len(observer_sites) == 12, ('Observer coverage changed', len(observer_sites))
 for rva, pattern in observer_sites:
     before = len(ambiguous_fallbacks)
     unique_pattern(int(rva, 16), pattern, 'observer')
@@ -96,6 +96,9 @@ for rva in sorted(targets):
         if sum(i.size for i in copied) >= 14:
             break
     end = copied[-1].address + copied[-1].size
+    fast_spans = {0x196100: 14, 0x12BF0: 22, 0x11C3A0: 15}
+    if rva in fast_spans:
+        assert end == rva + fast_spans[rva], ('Fast entry span changed', hex(rva), hex(end))
     for instruction in whole:
         if (instruction.mnemonic.startswith('j') or instruction.mnemonic == 'call') and instruction.op_str.startswith('0x'):
             target = int(instruction.op_str, 16)

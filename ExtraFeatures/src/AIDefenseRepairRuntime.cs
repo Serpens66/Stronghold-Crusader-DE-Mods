@@ -113,7 +113,13 @@ namespace ExtraFeatures
             subscriptions.Add(AIR3EventHooks.OnAIBuildWall.Observable.Subscribe(OnAIBuildWall));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnDefenseDamage));
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap));
+            // SaveLifecycle: NewMapOnly - Pre surrounds Vanilla's initial finished-castle spawns.
+            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(OnStartMap));
+            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
+                log,
+                OnSessionStarted));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMap()));
             initialized = true;
@@ -231,8 +237,18 @@ namespace ExtraFeatures
                 return;
             }
 
-            if (args.Phase == EventHookPhase.Post)
-                BeginMap();
+        }
+
+        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
+        {
+            if (context.IsLoadedSave)
+            {
+                CaptureGameMode(multiplayerSave: context.Mode.IsRealMultiplayer);
+                // Nested unloads already cleared the old session. Building-spawn callbacks during
+                // native restore have reconstructed the set of defenses that previously existed.
+                mapPrepared = true;
+            }
+            BeginMap();
         }
 
         private void BeginMap()

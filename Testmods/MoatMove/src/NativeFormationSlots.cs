@@ -57,6 +57,7 @@ namespace MoatMove
             int effectiveSpacing = spacing;
             try
             {
+                if (TryChooseFastFormation(manager, x, y, out _)) return;
                 effectiveSpacing = ResolveMoveFormationSpacing(
                     manager, spacing, x, y, MoveFormationSelector.Standard);
             }
@@ -91,6 +92,7 @@ namespace MoatMove
             int effectiveSpacing = spacing;
             try
             {
+                if (TryChooseFastFormation(manager, x, y, out int fastTile)) return fastTile;
                 effectiveSpacing = ResolveMoveFormationSpacing(
                     manager, spacing, x, y, MoveFormationSelector.AssassinGround);
             }

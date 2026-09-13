@@ -36,12 +36,9 @@ namespace BuildingLimit
 
             try
             {
-                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ResyncAll(true)));
-                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ResyncAll(true)));
+                subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
+                    log,
+                    _ => ResyncAll(true)));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => Clear()));

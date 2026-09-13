@@ -40,6 +40,7 @@
     <Compile Include="..\Shared\ActivePlayerHelper.cs"><Link>Shared\ActivePlayerHelper.cs</Link></Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
     <Compile Include="..\Shared\GameplayModActivationGate.cs"><Link>Shared\GameplayModActivationGate.cs</Link></Compile>
     <Compile Include="..\Shared\GameplayModModePolicy.cs"><Link>Shared\GameplayModModePolicy.cs</Link></Compile>
     <Compile Include="..\Shared\GameplayFeatureModePolicy.cs"><Link>Shared\GameplayFeatureModePolicy.cs</Link></Compile>

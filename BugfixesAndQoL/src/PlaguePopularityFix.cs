@@ -112,9 +112,7 @@ namespace BugfixesAndQoL
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileDelete.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnProjectileDelete));
-                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(OnStartMap));
+                subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
                 GameTimeManagerAPI.Instance.OnTick += OnGameTick;
 
                 if (!ModSaveDataAPI.Instance.RegisterModDataHandler(
@@ -276,14 +274,14 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
             mapActive = true;
             Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Plague popularity diagnostics armed: modEnabled={settings.EnableMod}, " +
                 $"fixEnabled={settings.EnablePlaguePopularityFix}, " +
-                $"mode={Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0).ToDiagnosticString()}.");
+                $"source={context.Kind}, mode={context.Mode.ToDiagnosticString()}.");
         }
 
         private void OnGameTick(int _)

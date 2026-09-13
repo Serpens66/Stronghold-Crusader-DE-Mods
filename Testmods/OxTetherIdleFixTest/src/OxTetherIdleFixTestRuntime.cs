@@ -78,7 +78,7 @@ namespace OxTetherIdleFixTest
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(args => BeginMap($"new map campaignMapId={args.CampaignMapId}")));
             subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+                .Where(args => args.Phase == EventHookPhase.Post && args.ReturnValue > 0)
                 .Subscribe(args => BeginMap($"loaded save file={args.FileName ?? "<null>"}")));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)

@@ -40,12 +40,12 @@ namespace ExtremePowers
             Settings = rootedSettings = new Settings.ExtremePowersSettings();
             client = LocalExtremePowersApiClient.Create(dll, context.ModuleHandle, context.Memory, GetProtocolReadiness, message => Shared.DebugLogHelper.LogDebug(rootedLogger, message));
             Settings.ApiProtocolReport = client.CompatibilityToken;
-            mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Where(args => args.Phase == EventHookPhase.Pre).Subscribe(args => OnStartMap(args));
+            mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(rootedLogger, OnSessionStarted);
             mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMapSession());
             Shared.LobbyModSettingsPresetRegistration.Register(this, Logger, PluginGuid, Settings, "ScriptExtenderUI/ExtremePowersSettings.xaml");
             Settings.PropertyChanged += (_, __) => ApplySettings(); ApplySettings(); Shared.DebugLogHelper.LogDebug(Logger, client.Status);
         }
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
             Shared.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
             capturedRealMultiplayer = mode.IsRealMultiplayer;
