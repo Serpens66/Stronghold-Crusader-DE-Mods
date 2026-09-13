@@ -1,5 +1,80 @@
 Set-StrictMode -Version Latest
 
+function Get-SteamPackFileSha256 {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $stream = [IO.File]::OpenRead($Path)
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        return ([BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        $algorithm.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function New-SteamPackReleaseZip {
+    param(
+        [Parameter(Mandatory)][string]$PackageDirectory,
+        [Parameter(Mandatory)][string]$DestinationPath
+    )
+
+    if (-not (Test-Path -LiteralPath $PackageDirectory -PathType Container)) {
+        throw "Pack release directory is missing: $PackageDirectory"
+    }
+    if (Test-Path -LiteralPath $DestinationPath) {
+        throw "Pack release ZIP destination already exists: $DestinationPath"
+    }
+    Compress-Archive -LiteralPath $PackageDirectory -DestinationPath $DestinationPath -CompressionLevel Optimal
+
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $rootName = (Get-Item -LiteralPath $PackageDirectory).Name
+    $expected = @(Get-ChildItem -LiteralPath $PackageDirectory -Recurse -File | ForEach-Object {
+        $relative = $_.FullName.Substring($PackageDirectory.Length).TrimStart('\').Replace('\', '/')
+        "$rootName/$relative|$(Get-SteamPackFileSha256 -Path $_.FullName)|$($_.Length)"
+    } | Sort-Object)
+    if ($expected.Count -eq 0) { throw 'Pack release directory is empty.' }
+    $actual = [System.Collections.Generic.List[string]]::new()
+    $fileRecords = [System.Collections.Generic.List[object]]::new()
+    $stream = [IO.File]::OpenRead($DestinationPath)
+    $archive = $null
+    try {
+        $archive = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Read)
+        foreach ($entry in @($archive.Entries | Where-Object { -not [string]::IsNullOrEmpty($_.Name) })) {
+            $path = $entry.FullName.Replace('\', '/')
+            if (-not $path.StartsWith("$rootName/", [StringComparison]::Ordinal) -or
+                @($path.Split('/') | Where-Object { $_ -in @('', '.', '..') }).Count -gt 0) {
+                throw "Pack release ZIP contains an invalid path: $path"
+            }
+            $entryStream = $entry.Open()
+            $algorithm = [Security.Cryptography.SHA256]::Create()
+            try {
+                $hash = ([BitConverter]::ToString($algorithm.ComputeHash($entryStream))).Replace('-', '').ToLowerInvariant()
+            } finally {
+                $algorithm.Dispose()
+                $entryStream.Dispose()
+            }
+            $actual.Add("$path|$hash|$([long]$entry.Length)")
+            $fileRecords.Add([PSCustomObject]@{ Path = $path; Sha256 = $hash; Size = [long]$entry.Length })
+        }
+    } finally {
+        if ($null -ne $archive) { $archive.Dispose() }
+        $stream.Dispose()
+    }
+    $actualRecords = @($actual | Sort-Object)
+    if (($expected -join "`n") -cne ($actualRecords -join "`n")) {
+        throw 'Pack release ZIP audit failed: archive contents differ from the staged package.'
+    }
+    return [PSCustomObject]@{
+        File = [IO.Path]::GetFileName($DestinationPath)
+        RootDirectory = $rootName
+        Sha256 = Get-SteamPackFileSha256 -Path $DestinationPath
+        Size = (Get-Item -LiteralPath $DestinationPath).Length
+        Files = @($fileRecords | Sort-Object Path)
+    }
+}
+
 function Resolve-SteamPackVersion {
     param(
         [AllowNull()][string]$PreviousVersion,

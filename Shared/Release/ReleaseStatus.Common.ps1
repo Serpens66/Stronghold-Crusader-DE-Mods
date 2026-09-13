@@ -46,10 +46,7 @@ function Test-RelevantProjectPath {
     if ($relative -match '(^|/)(?:bin|obj|\.inspect|\.tools|Docs?|Reference|packaging)(/|$)') { return $false }
     if ($relative -match '(^|/)[^/]*\.Tests?(/|$)') { return $false }
     if ($relative -ieq 'release.bat') { return $false }
-    if ($relative -match '(?i)(^|/)UpdateToNewDLL\.md$') { return $false }
-    if ($relative -match '(?i)\.md$') {
-        return ($Project -eq 'CustomCustomTrail' -and $relative -ieq 'README.md')
-    }
+    if ($relative -match '(?i)\.md$') { return $false }
     if ($relative -match '(?i)\.(?:log|tmp|msgpack)$') { return $false }
     if ($relative -match '(?i)(^|/)LobbyModSettings(/|$)') { return $false }
     return $true

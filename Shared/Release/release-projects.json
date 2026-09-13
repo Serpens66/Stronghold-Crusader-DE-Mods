@@ -11,6 +11,16 @@
       "ExtraFeatures": "0.3.0"
     }
   },
+  "AdditionalReleaseIndexEntries": [
+    {
+      "Project": "SerpsMods",
+      "DisplayName": "SerpsMods (Modpack)",
+      "AssetNameTemplate": "SerpsMods-v{version}.zip",
+      "HashLabel": "ZIP SHA-256",
+      "ShowCodeStatus": false,
+      "Position": "First"
+    }
+  ],
   "Projects": [
     "APIShared",
     "BugfixesAndQoL",

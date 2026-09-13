@@ -864,7 +864,6 @@ internal static class Program
             "BugfixesAndQoL",
             "src",
             "NativeFormationSlots.cs");
-        string queueContract = Read(workspace, "BugfixesAndQoL", "QueueTest.md");
         string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
         string settingsXaml = Read(
             workspace,

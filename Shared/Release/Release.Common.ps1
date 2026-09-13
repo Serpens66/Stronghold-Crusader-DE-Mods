@@ -60,6 +60,30 @@ function Get-ReleaseConfiguration {
         throw "APIShared project '$([string]$apiShared.Project)' is not release-enabled in $publicConfigPath"
     }
 
+    $additionalReleaseIndexEntries = @()
+    $releaseIndexProperty = $config.PSObject.Properties['AdditionalReleaseIndexEntries']
+    if ($null -ne $releaseIndexProperty -and $null -ne $releaseIndexProperty.Value) {
+        $additionalReleaseIndexEntries = @($releaseIndexProperty.Value)
+    }
+    foreach ($entry in $additionalReleaseIndexEntries) {
+        foreach ($propertyName in @('Project', 'DisplayName', 'AssetNameTemplate', 'HashLabel', 'ShowCodeStatus', 'Position')) {
+            if ($null -eq $entry.PSObject.Properties[$propertyName]) {
+                throw "Release index entry is missing '$propertyName': $publicConfigPath"
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$entry.Project) -or
+            [string]::IsNullOrWhiteSpace([string]$entry.DisplayName) -or
+            [string]::IsNullOrWhiteSpace([string]$entry.AssetNameTemplate) -or
+            -not ([string]$entry.AssetNameTemplate).Contains('{version}') -or
+            [string]::IsNullOrWhiteSpace([string]$entry.HashLabel) -or
+            [string]$entry.Position -notin @('First', 'Last')) {
+            throw "Release index entry for '$([string]$entry.Project)' is invalid: $publicConfigPath"
+        }
+        if ([string]$entry.Project -in $projects) {
+            throw "Additional release index project '$([string]$entry.Project)' must not duplicate a release-enabled project."
+        }
+    }
+
     return [PSCustomObject]@{
         Root = $root
         Repository = [string]$config.Repository
@@ -67,10 +91,86 @@ function Get-ReleaseConfiguration {
         Projects = $projects
         ProjectDirectories = $config.ProjectDirectories
         ApiShared = $apiShared
+        AdditionalReleaseIndexEntries = $additionalReleaseIndexEntries
         GameDir = $gameDir
         MSBuild = $msBuild
         LocalConfigPath = $localConfigPath
     }
+}
+
+function Get-ReleaseIndexEntries {
+    param([Parameter(Mandatory)]$Config)
+
+    $entries = [System.Collections.Generic.List[object]]::new()
+    foreach ($entry in @($Config.AdditionalReleaseIndexEntries | Where-Object { [string]$_.Position -ceq 'First' })) {
+        $entries.Add($entry)
+    }
+    foreach ($project in $Config.Projects) {
+        $entries.Add([PSCustomObject]@{
+            Project = [string]$project
+            DisplayName = [string]$project
+            AssetNameTemplate = $null
+            HashLabel = 'SHA-256'
+            ShowCodeStatus = $true
+            Position = 'Default'
+        })
+    }
+    foreach ($entry in @($Config.AdditionalReleaseIndexEntries | Where-Object { [string]$_.Position -ceq 'Last' })) {
+        $entries.Add($entry)
+    }
+    return @($entries)
+}
+
+function Get-ReleaseIndexAssetName {
+    param(
+        [Parameter(Mandatory)]$Entry,
+        [Parameter(Mandatory)][string]$Version
+    )
+
+    if ([string]::IsNullOrWhiteSpace([string]$Entry.AssetNameTemplate)) { return $null }
+    return ([string]$Entry.AssetNameTemplate).Replace('{version}', $Version)
+}
+
+function Get-ReleaseIndexSha256 {
+    param(
+        [Parameter(Mandatory)]$Entry,
+        [AllowNull()][string]$ReleaseBody
+    )
+
+    $labels = [System.Collections.Generic.List[string]]::new()
+    $labels.Add([string]$Entry.HashLabel)
+    if ([bool]$Entry.ShowCodeStatus -and [string]$Entry.HashLabel -cne 'Thin SHA-256') {
+        $labels.Add('Thin SHA-256')
+    }
+    foreach ($label in $labels) {
+        $pattern = '(?im)^' + [regex]::Escape($label) + ':\s*`?([0-9a-f]{64})`?'
+        $match = [regex]::Match([string]$ReleaseBody, $pattern)
+        if ($match.Success) { return $match.Groups[1].Value.ToLowerInvariant() }
+    }
+    return 'see release'
+}
+
+function New-ReleaseIndexRow {
+    param(
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)]$Entry,
+        [Parameter(Mandatory)][string]$Version,
+        [Parameter(Mandatory)][string]$Url,
+        [Parameter(Mandatory)][string]$Commit,
+        [Parameter(Mandatory)][string]$Sha256
+    )
+
+    $shortCommit = if ($Commit.Length -ge 7) { $Commit.Substring(0, 7) } else { $Commit }
+    $commitUrl = "https://github.com/$($Config.Repository)/commit/$Commit"
+    $status = [char]0x2014
+    if ([bool]$Entry.ShowCodeStatus) {
+        $project = [string]$Entry.Project
+        $badgeJsonUrl = "https://raw.githubusercontent.com/$($Config.Repository)/release-status/badges/$project.json"
+        $badgeUrl = "https://img.shields.io/endpoint?url=$([Uri]::EscapeDataString($badgeJsonUrl))&cacheSeconds=300"
+        $reportUrl = "https://github.com/$($Config.Repository)/blob/release-status/reports/$project.md"
+        $status = "[![release status]($badgeUrl)]($reportUrl)"
+    }
+    return "| $([string]$Entry.DisplayName) | [$Version]($Url) | $status | [$shortCommit]($commitUrl) | ``$Sha256`` |"
 }
 
 function Get-ApiSharedConsumerMinimum {

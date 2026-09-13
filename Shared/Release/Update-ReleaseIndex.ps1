@@ -14,8 +14,9 @@ $config = Get-ReleaseConfiguration
 $result = Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'list', '--repo', $config.Repository, '--limit', '1000', '--json', 'tagName,name,isDraft,publishedAt')
 $releases = @((($result.Output -join "`n") | ConvertFrom-Json) | Where-Object { -not $_.isDraft })
 $rows = [System.Collections.Generic.List[string]]::new()
-foreach ($project in $config.Projects) {
-    $release = @($releases | Where-Object { [string]$_.tagName -like "$project/v*" } | Sort-Object publishedAt -Descending | Select-Object -First 1)
+foreach ($entry in @(Get-ReleaseIndexEntries -Config $config)) {
+    $project = [string]$entry.Project
+    $matchingReleases = @($releases | Where-Object { ([string]$_.tagName).StartsWith("$project/v", [StringComparison]::Ordinal) } | Sort-Object publishedAt -Descending)
     $version = $null
     $url = $null
     $commit = $null
@@ -25,23 +26,28 @@ foreach ($project in $config.Projects) {
         $url = $CurrentUrl
         $commit = $CurrentCommit
         $sha256 = $CurrentSha256
-    } elseif ($release.Count -eq 1) {
-        $version = ([string]$release[0].tagName).Substring($project.Length + 2)
-        $view = Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'view', [string]$release[0].tagName, '--repo', $config.Repository, '--json', 'targetCommitish,body,url')
-        $details = ($view.Output -join "`n") | ConvertFrom-Json
-        $url = [string]$details.url
-        $commit = [string]$details.targetCommitish
-        $hashMatch = [regex]::Match([string]$details.body, '(?im)^SHA-256:\s*`?([0-9a-f]{64})`?')
-        $sha256 = if ($hashMatch.Success) { $hashMatch.Groups[1].Value.ToLowerInvariant() } else { 'see release' }
+    } else {
+        foreach ($release in $matchingReleases) {
+            $candidateVersion = ([string]$release.tagName).Substring($project.Length + 2)
+            $view = Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'view', [string]$release.tagName, '--repo', $config.Repository, '--json', 'targetCommitish,body,url,assets')
+            $details = ($view.Output -join "`n") | ConvertFrom-Json
+            $assetName = Get-ReleaseIndexAssetName -Entry $entry -Version $candidateVersion
+            if ([string]::IsNullOrWhiteSpace($assetName)) {
+                $candidateUrl = [string]$details.url
+            } else {
+                $asset = @($details.assets | Where-Object { [string]$_.name -ceq $assetName })
+                if ($asset.Count -ne 1) { continue }
+                $candidateUrl = [string]$asset[0].url
+            }
+            $version = $candidateVersion
+            $url = $candidateUrl
+            $commit = [string]$details.targetCommitish
+            $sha256 = Get-ReleaseIndexSha256 -Entry $entry -ReleaseBody ([string]$details.body)
+            break
+        }
     }
     if ($url) {
-        $shortCommit = if ($commit.Length -ge 7) { $commit.Substring(0, 7) } else { $commit }
-        $commitUrl = "https://github.com/$($config.Repository)/commit/$commit"
-        $badgeJsonUrl = "https://raw.githubusercontent.com/$($config.Repository)/release-status/badges/$project.json"
-        $badgeUrl = "https://img.shields.io/endpoint?url=$([Uri]::EscapeDataString($badgeJsonUrl))&cacheSeconds=300"
-        $reportUrl = "https://github.com/$($config.Repository)/blob/release-status/reports/$project.md"
-        $statusBadge = "[![release status]($badgeUrl)]($reportUrl)"
-        $rows.Add("| $project | [$version]($url) | $statusBadge | [$shortCommit]($commitUrl) | ``$sha256`` |")
+        $rows.Add((New-ReleaseIndexRow -Config $config -Entry $entry -Version $version -Url $url -Commit $commit -Sha256 $sha256))
     }
 }
 
@@ -56,7 +62,7 @@ $sectionLines = @(
     '',
     'These archives are produced by the repository release scripts from the linked public commit. The provenance file records the exact package, tool, and dependency hashes. This is a documented statement by the repository owner, not an independently executed build.',
     '',
-    'The code-status badge compares each release with the current relevant mod sources on `main`. Click it to open the mod-specific filtered diff report.',
+    'Where shown, the code-status badge compares a release with the current relevant mod sources on `main`. Click it to open the mod-specific filtered diff report.',
     '',
     '| Mod | Latest release | Code status | Source commit | ZIP SHA-256 |',
     '| --- | --- | --- | --- | --- |'

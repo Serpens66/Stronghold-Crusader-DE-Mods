@@ -12,6 +12,15 @@ Assert-True ($null -eq $config.ApiShared.PSObject.Properties['Version']) 'The re
 Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.3.0') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
 Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.3.0') 'ExtraFeatures must be recognized as an APIShared consumer.'
 Assert-True ($null -eq (Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts')) 'BuildingCosts must not be classified as an APIShared consumer.'
+$releaseIndexEntries = @(Get-ReleaseIndexEntries -Config $config)
+Assert-True ([string]$releaseIndexEntries[0].Project -ceq 'SerpsMods') 'The SerpsMods release-index entry must be first.'
+Assert-True ([string]$releaseIndexEntries[0].DisplayName -ceq 'SerpsMods (Modpack)') 'The SerpsMods release-index display name must identify the modpack.'
+Assert-True (-not [bool]$releaseIndexEntries[0].ShowCodeStatus) 'The SerpsMods release-index entry must not expose a code-status badge.'
+Assert-True ((Get-ReleaseIndexAssetName -Entry $releaseIndexEntries[0] -Version '1.2.3') -ceq 'SerpsMods-v1.2.3.zip') 'The SerpsMods release-index entry must target the versioned ZIP asset.'
+Assert-True ((Get-ReleaseIndexSha256 -Entry $releaseIndexEntries[0] -ReleaseBody "ZIP SHA-256: ``$('a' * 64)``") -ceq ('a' * 64)) 'The SerpsMods release-index entry must read the ZIP hash from release notes.'
+Assert-True ((Get-ReleaseIndexSha256 -Entry $releaseIndexEntries[1] -ReleaseBody "Thin SHA-256: ``$('b' * 64)``") -ceq ('b' * 64)) 'Normal release-index entries must retain support for thin-package hash labels.'
+$samplePackRow = New-ReleaseIndexRow -Config $config -Entry $releaseIndexEntries[0] -Version '1.2.3' -Url 'https://example.invalid/SerpsMods-v1.2.3.zip' -Commit '1234567890abcdef' -Sha256 ('a' * 64)
+Assert-True ($samplePackRow.StartsWith('| SerpsMods (Modpack) | [1.2.3](https://example.invalid/SerpsMods-v1.2.3.zip) | — | [1234567]')) 'The SerpsMods release-index row must link the ZIP directly and render no status badge.'
 $apiSharedPackage = Get-ValidatedApiSharedPackage -Config $config -MinimumVersion '0.3.0'
 Assert-True ($apiSharedPackage.Directory -ceq (Join-Path $config.Root 'APIShared\BepInEx\plugins\APIShared_Serp')) 'Release builds must resolve the validated workspace APIShared package.'
 Assert-True (Test-Path -LiteralPath $apiSharedPackage.DllPath -PathType Leaf) 'The resolved workspace APIShared package must contain APIShared.dll.'
@@ -67,7 +76,7 @@ foreach ($consumerBuild in @('BugfixesAndQoL\build.bat', 'ExtraFeatures\build.ba
     Assert-True ($consumerBuildSource -match 'if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"') "$consumerBuild must honor the release APIShared override."
     Assert-True ($consumerBuildSource -match '/p:ApiSharedDir="%API_SHARED_DIR%"') "$consumerBuild must forward the APIShared directory to MSBuild."
 }
-foreach ($neverReleaseProject in @('ActiveAIVDetector', 'AIDefenseTest', 'CustomLordUpload', 'MultiplayerLeaveFix', 'VanillaAICExporter')) {
+foreach ($neverReleaseProject in @('ActiveAIVDetector', 'AIDefenseTest', 'CustomLordUpload', 'MultiplayerLeaveFix', 'SerpsMods', 'VanillaAICExporter')) {
     Assert-True ($neverReleaseProject -notin $config.Projects) "$neverReleaseProject must not be release-enabled."
     $rejected = $false
     try {
@@ -79,9 +88,16 @@ foreach ($neverReleaseProject in @('ActiveAIVDetector', 'AIDefenseTest', 'Custom
 }
 Assert-True (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/src/BuildingCostsRuntime.cs') 'Mod source must be relevant.'
 Assert-True (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/Locales/en-US.txt') 'Locale files must be relevant.'
+Assert-True (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/Override/ScriptExtenderUI/BuildingCostsSettings.xaml') 'Packaged XAML files must be relevant.'
 Assert-True (-not (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/UpdateToNewDLL.md')) 'Analysis documentation must be ignored.'
+Assert-True (-not (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/README.md')) 'Project README files must be ignored.'
+Assert-True (-not (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/Findings/NativeNotes.md')) 'Nested Markdown files must be ignored.'
 Assert-True (-not (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/release.bat')) 'Release automation must be ignored.'
-Assert-True (Test-RelevantProjectPath -Project 'CustomCustomTrail' -Path 'CustomCustomTrail/README.md') 'The packaged CustomCustomTrail README must be relevant.'
+Assert-True (-not (Test-RelevantProjectPath -Project 'CustomCustomTrail' -Path 'CustomCustomTrail/README.md')) 'CustomCustomTrail README must be ignored.'
+Assert-True (-not (Test-RelevantProjectPath -Project 'CustomCustomTrail' -Path 'CustomCustomTrail/BepInEx/plugins/CustomCustomTrail_Serp/README.md')) 'Package-tree Markdown files must be ignored.'
+$customTrailBuildSource = [IO.File]::ReadAllText((Join-Path $config.Root 'CustomCustomTrail\build.bat'))
+Assert-True ($customTrailBuildSource -notmatch '(?i)README\.md') 'CustomCustomTrail build must not copy or require README.md.'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $config.Root 'CustomCustomTrail\BepInEx\plugins\CustomCustomTrail_Serp\README.md') -PathType Leaf)) 'CustomCustomTrail package must not contain README.md.'
 
 $sample = @'
 public const string BuildingCostsTitle = "BuildingCosts.Title";

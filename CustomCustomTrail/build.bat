@@ -70,12 +70,10 @@ popd
 
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 if errorlevel 1 goto package_failed
-copy /Y "%PROJECT_DIR%README.md" "%LOCAL_PLUGIN_DIR%\README.md" >nul
-if errorlevel 1 goto package_failed
 xcopy "%PROJECT_DIR%Examples" "%LOCAL_PLUGIN_DIR%\Examples\" /E /I /Q /Y
 if errorlevel 1 goto package_failed
 
-for %%F in (CustomCustomTrail.dll CustomCustomTrail.Core.dll info.json README.md) do (
+for %%F in (CustomCustomTrail.dll CustomCustomTrail.Core.dll info.json) do (
   if not exist "%LOCAL_PLUGIN_DIR%\%%F" (
     echo Paketdatei fehlt: %%F
     goto package_failed

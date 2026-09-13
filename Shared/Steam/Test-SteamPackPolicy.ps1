@@ -101,6 +101,9 @@ Assert-True ([Convert]::ToBase64String($sourceTombstoneBytes) -ceq [Convert]::To
 $createScriptText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Create-SteamModPack.ps1'))
 Assert-True ($createScriptText.Contains('$apiSharedAssembly.Version -cne [string]$apiSharedSourceInfo.Version')) 'Steam staging must compare the APIShared DLL version with the source manifest'
 Assert-True (-not $createScriptText.Contains('releaseConfig.ApiShared.Version')) 'Steam staging must not depend on a duplicated configured APIShared version'
+Assert-True ($createScriptText.Contains('$assets = @($ZipPath,$ZipShaPath,$MapPath,$MapShaPath,$ProvenancePath)')) 'pack releases must publish ZIP, ZIP hash, map, map hash and provenance together'
+Assert-True ($createScriptText.Contains('Package = [ordered]@{ File = $zipPackage.File; RootDirectory = $zipPackage.RootDirectory; Sha256 = $zipPackage.Sha256; Size = $zipPackage.Size; Files = $zipPackage.Files }')) 'pack provenance must describe the audited ZIP package'
+Assert-True ($createScriptText.Contains("-CurrentMod 'SerpsMods'")) 'pack publication must update the README release index through the SerpsMods special entry'
 $outerPathGuard = $createScriptText.IndexOf('if (-not $path.StartsWith($packageRoot, [StringComparison]::OrdinalIgnoreCase)) { continue }', [StringComparison]::Ordinal)
 Assert-True ($outerPathGuard -ge 0) 'existing-tombstone detection must skip outer map files before applying the internal package path policy'
 $archiveTraversalGuard = $createScriptText.IndexOf("Where-Object { `$_ -in @('','.', '..') }", [StringComparison]::Ordinal)
@@ -117,6 +120,18 @@ Assert-True ((Assert-ScriptExtenderXamlPatchContract -Directory (Join-Path $work
 
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('serps-steam-policy-' + [Guid]::NewGuid().ToString('N'))
 try {
+    $zipPackage = Join-Path $testRoot 'zip-stage\SerpsMods_Serp'
+    [void](New-Item -ItemType Directory -Path (Join-Path $zipPackage 'Mods\Example_Serp') -Force)
+    [IO.File]::WriteAllText((Join-Path $zipPackage 'SerpsModsHost.dll'), 'host')
+    [IO.File]::WriteAllText((Join-Path $zipPackage 'Mods\Example_Serp\Example.dll'), 'example')
+    $zipPath = Join-Path $testRoot 'SerpsMods-v9.8.7.zip'
+    $zipRecord = New-SteamPackReleaseZip -PackageDirectory $zipPackage -DestinationPath $zipPath
+    Assert-True ($zipRecord.File -ceq 'SerpsMods-v9.8.7.zip') 'the release ZIP must retain its versioned filename'
+    Assert-True ($zipRecord.RootDirectory -ceq 'SerpsMods_Serp') 'the release ZIP must contain the pack directory as its single root'
+    Assert-True ($zipRecord.Sha256 -ceq (Get-TestFileSha256 $zipPath)) 'the release ZIP record must contain the archive SHA-256'
+    Assert-True ($zipRecord.Files.Count -eq 2) 'the release ZIP audit must record every staged pack file'
+    Assert-True (@($zipRecord.Files | Where-Object { [string]$_.Path -ceq 'SerpsMods_Serp/Mods/Example_Serp/Example.dll' }).Count -eq 1) 'the release ZIP must preserve nested pack paths below its root directory'
+
     $validRoot = Join-Path $testRoot 'valid\Patches'
     $invalidRoot = Join-Path $testRoot 'invalid\Patches'
     [void](New-Item -ItemType Directory -Path $validRoot,$invalidRoot -Force)

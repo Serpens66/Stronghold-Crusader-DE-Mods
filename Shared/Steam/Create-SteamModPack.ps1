@@ -1176,19 +1176,36 @@ function Resolve-WorkshopPackager {
 }
 
 function Publish-PackRelease {
-    param([string]$Version, [string]$MapPath, [string]$ShaPath, [string]$ProvenancePath, [string]$NotesPath)
+    param(
+        [string]$Version,
+        [string]$ZipPath,
+        [string]$ZipShaPath,
+        [string]$MapPath,
+        [string]$MapShaPath,
+        [string]$ProvenancePath,
+        [string]$NotesPath
+    )
     $tag = "SerpsMods/v$Version"
     $commit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
+    $assets = @($ZipPath,$ZipShaPath,$MapPath,$MapShaPath,$ProvenancePath)
     $existing = Invoke-Checked -FilePath 'gh' -Arguments @('release','view',$tag,'--repo',$script:Repository,'--json','isDraft,targetCommitish') -FailureCode 10 -AllowFailure
     if ($existing.ExitCode -eq 0) {
         $details = ($existing.Output -join "`n") | ConvertFrom-Json
         if (-not $details.isDraft -or [string]$details.targetCommitish -ne $commit) { Fail-Pack 10 "Pack release tag already exists and cannot be resumed: $tag" }
-        Invoke-Checked -FilePath 'gh' -Arguments @('release','upload',$tag,'--repo',$script:Repository,'--clobber',$MapPath,$ShaPath,$ProvenancePath) -FailureCode 10 | Out-Null
+        Invoke-Checked -FilePath 'gh' -Arguments (@('release','upload',$tag,'--repo',$script:Repository,'--clobber') + $assets) -FailureCode 10 | Out-Null
         Invoke-Checked -FilePath 'gh' -Arguments @('release','edit',$tag,'--repo',$script:Repository,'--notes-file',$NotesPath) -FailureCode 10 | Out-Null
     } else {
-        Invoke-Checked -FilePath 'gh' -Arguments @('release','create',$tag,'--repo',$script:Repository,'--draft','--target',$commit,'--title',"$PackName v$Version",'--notes-file',$NotesPath,$MapPath,$ShaPath,$ProvenancePath) -FailureCode 10 | Out-Null
+        Invoke-Checked -FilePath 'gh' -Arguments (@('release','create',$tag,'--repo',$script:Repository,'--draft','--target',$commit,'--title',"$PackName v$Version",'--notes-file',$NotesPath) + $assets) -FailureCode 10 | Out-Null
     }
     Invoke-Checked -FilePath 'gh' -Arguments @('release','edit',$tag,'--repo',$script:Repository,'--draft=false') -FailureCode 10 | Out-Null
+    $published = Invoke-Checked -FilePath 'gh' -Arguments @('release','view',$tag,'--repo',$script:Repository,'--json','assets') -FailureCode 10
+    $publishedDetails = ($published.Output -join "`n") | ConvertFrom-Json
+    $zipName = [IO.Path]::GetFileName($ZipPath)
+    $zipAsset = @($publishedDetails.assets | Where-Object { [string]$_.name -ceq $zipName })
+    if ($zipAsset.Count -ne 1) { Fail-Pack 10 "Published pack release does not expose exactly one ZIP asset named $zipName." }
+    & (Join-Path $script:Root 'Shared\Release\Update-ReleaseIndex.ps1') `
+        -CurrentTag $tag -CurrentUrl ([string]$zipAsset[0].url) -CurrentVersion $Version -CurrentMod 'SerpsMods' `
+        -CurrentCommit $commit -CurrentSha256 (Get-Sha256 $ZipPath) -CommitAndPush
 }
 
 try {
@@ -1491,40 +1508,53 @@ try {
     if ($unresolvedHistoricalPaths.Count -gt 0) { Fail-Pack 11 "Final map audit found unresolved historical paths: $($unresolvedHistoricalPaths -join ', ')" }
     Write-RunLog "Final map audit preserves or neutralizes all $($historicalSteamFiles.Count) historically delivered Steam paths; replacements=$($historicalReplacements.Count)." 'OK'
 
+    $zipPath = Join-Path $runRoot "SerpsMods-v$packVersion.zip"
+    $zipPackage = New-SteamPackReleaseZip -PackageDirectory $hostStage -DestinationPath $zipPath
+    $zipShaPath = "$zipPath.sha256"
+    Write-Utf8CrLf -Path $zipShaPath -Text "$($zipPackage.Sha256)  $($zipPackage.File)"
+
     $mapPath = Join-Path $runRoot 'SerpsMods.map'
     Invoke-Checked -FilePath $resolvedPackager -Arguments @('-s',$stage,'-o',$mapPath) -FailureCode 9 | Out-Null
     if (-not (Test-Path -LiteralPath $mapPath -PathType Leaf) -or (Get-Item -LiteralPath $mapPath).Length -lt 1024) { Fail-Pack 9 'Workshop packager did not produce a plausible map file.' }
     Test-MapContents -MapPath $mapPath -StageDirectory $stage
     $mapHash = Get-Sha256 $mapPath
-    $shaPath = Join-Path $runRoot 'SerpsMods.map.sha256'
-    Write-Utf8CrLf -Path $shaPath -Text "$mapHash  SerpsMods.map"
+    $mapShaPath = Join-Path $runRoot 'SerpsMods.map.sha256'
+    Write-Utf8CrLf -Path $mapShaPath -Text "$mapHash  SerpsMods.map"
     $provenancePath = Join-Path $runRoot 'SerpsMods.provenance.json'
     $omittedWithoutTombstone = @($missingTombstones | ForEach-Object { [ordered]@{
         Name = $_.Name; Guid = $_.Guid; Version = $_.Version; PreviousPack = $_.PreviousPack
     } })
     $provenance = [ordered]@{
-        SchemaVersion = 2; Pack = $PackName; PackGuid = $PackGuid; Version = $packVersion; Commit = $commit; ContentSignature = $contentSignature
-        CreatedUtc = [DateTime]::UtcNow.ToString('o'); Map = [ordered]@{ File = 'SerpsMods.map'; Sha256 = $mapHash; Size = (Get-Item $mapPath).Length }
+        SchemaVersion = 3; Pack = $PackName; PackGuid = $PackGuid; Version = $packVersion; Commit = $commit; ContentSignature = $contentSignature
+        CreatedUtc = [DateTime]::UtcNow.ToString('o')
+        Package = [ordered]@{ File = $zipPackage.File; RootDirectory = $zipPackage.RootDirectory; Sha256 = $zipPackage.Sha256; Size = $zipPackage.Size; Files = $zipPackage.Files }
+        Map = [ordered]@{ File = 'SerpsMods.map'; Sha256 = $mapHash; Size = (Get-Item $mapPath).Length }
         Packager = [ordered]@{ Path = $resolvedPackager; Sha256 = Get-Sha256 $resolvedPackager }; Infrastructure = $infrastructureRecords; Mods = $packRecords
         HistoricalReplacements = $historicalReplacements
         OmittedWithoutTombstone = $omittedWithoutTombstone
     }
     Write-JsonCrLf -Path $provenancePath -Value $provenance
     $notesPath = Join-Path $runRoot 'release-notes.md'
-    $noteLines = @("# $PackName v$packVersion",'', '## Included mods','') + @($mods | Sort-Object Name | ForEach-Object { "- $($_.Name) v$($_.TargetVersion)" }) + @('',"SHA-256: ``$mapHash``")
+    $noteLines = @("# $PackName v$packVersion",'', '## Included mods','') + @($mods | Sort-Object Name | ForEach-Object { "- $($_.Name) v$($_.TargetVersion)" }) + @(
+        '',
+        '## Download and verification',
+        '',
+        "ZIP SHA-256: ``$($zipPackage.Sha256)``",
+        "Map SHA-256: ``$mapHash``"
+    )
     if ($missingTombstones.Count -gt 0) {
         $noteLines += @('', '## Intentionally omitted without tombstone', '')
         $noteLines += @($missingTombstones | Sort-Object Guid | ForEach-Object { "- $($_.Name) ($($_.Guid)) v$($_.Version)" })
     }
     Write-Utf8CrLf -Path $notesPath -Text ($noteLines -join "`r`n")
 
-    Publish-PackRelease -Version $packVersion -MapPath $mapPath -ShaPath $shaPath -ProvenancePath $provenancePath -NotesPath $notesPath
+    Publish-PackRelease -Version $packVersion -ZipPath $zipPath -ZipShaPath $zipShaPath -MapPath $mapPath -MapShaPath $mapShaPath -ProvenancePath $provenancePath -NotesPath $notesPath
     $finalDir = Join-Path $script:Root $PackName
     if (-not $finalDir.StartsWith($script:Root + '\', [StringComparison]::OrdinalIgnoreCase)) { Fail-Pack 8 'Unsafe final output path.' }
     if (Test-Path -LiteralPath $finalDir) { Remove-Item -LiteralPath $finalDir -Recurse -Force }
     [void](New-Item -ItemType Directory -Path $finalDir)
     Copy-Item -LiteralPath $mapPath -Destination $finalDir
-    Copy-Item -LiteralPath $shaPath -Destination $finalDir
+    Copy-Item -LiteralPath $mapShaPath -Destination $finalDir
     Copy-Item -LiteralPath $PreviewPath -Destination (Join-Path $finalDir 'preview.png')
     $journal.Status = 'complete'; $journal.CompletedUtc = [DateTime]::UtcNow.ToString('o'); Write-JsonCrLf -Path $script:JournalPath -Value $journal
     Write-RunLog "Steam upload folder ready: $finalDir" 'OK'
