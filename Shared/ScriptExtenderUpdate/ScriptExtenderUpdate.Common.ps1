@@ -103,6 +103,104 @@ function Assert-SEManifestExtenderRange([object]$Manifest, [string]$TargetVersio
     }
 }
 
+function Assert-SEMetadataMutationArguments(
+    [bool]$HasCompatibilityPlan,
+    [string]$VersionMode,
+    [bool]$VersionsFileSpecified,
+    [bool]$ChangelogSpecified
+) {
+    $legacyMutationRequested = $VersionMode -ne 'Existing' -or $VersionsFileSpecified -or $ChangelogSpecified
+    if ($legacyMutationRequested) {
+        throw 'Mod metadata mutations must be declared per mod in a compatibility plan; VersionMode, VersionsFile and Changelog cannot request bulk updates.'
+    }
+}
+
+function Get-SEReleaseNativeHookFingerprint([string]$Workspace, [string[]]$Projects) {
+    $rows = [Collections.Generic.List[string]]::new()
+    $operationCount = 0
+    $nativeMutationPattern = '\.(AddDetour|AddInline|AddContextHook)\s*\(|\bCodePatch\.Write\s*\('
+    foreach ($project in @($Projects)) {
+        $projectRoot = Join-Path $Workspace $project
+        if (-not (Test-Path -LiteralPath $projectRoot -PathType Container)) {
+            throw "Release project is missing: $project"
+        }
+        foreach ($file in Get-ChildItem -LiteralPath $projectRoot -Recurse -File -Filter '*.cs' | Where-Object {
+            $_.FullName -notmatch '[\\/](BepInEx[\\/]plugins|bin|obj|tests|[^\\/]*\.Tests|\.inspect)[\\/]'
+        }) {
+            $text = [IO.File]::ReadAllText($file.FullName)
+            $matches = [regex]::Matches($text, $nativeMutationPattern)
+            if ($matches.Count -eq 0) { continue }
+            $relative = $file.FullName.Substring($Workspace.Length).TrimStart([char[]]'\/').Replace('\', '/')
+            $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash
+            $rows.Add("$relative|$hash")
+            $operationCount += $matches.Count
+        }
+    }
+    $orderedRows = @($rows | Sort-Object)
+    $payload = ($orderedRows -join "`n") + "`n"
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [Text.Encoding]::UTF8.GetBytes($payload)
+        $fingerprint = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '')
+    }
+    finally {
+        $sha.Dispose()
+    }
+    [pscustomobject]@{
+        SourceFileCount = $orderedRows.Count
+        OperationCount = $operationCount
+        Fingerprint = $fingerprint
+        Sources = @($orderedRows | ForEach-Object { ($_ -split '\|', 2)[0] })
+    }
+}
+
+function Assert-SEReleaseHookAudit(
+    [string]$AuditPath,
+    [string]$Workspace,
+    [string]$ExtenderRoot,
+    [string]$NativePath
+) {
+    if (-not (Test-Path -LiteralPath $AuditPath -PathType Leaf)) {
+        throw "Release hook audit is required for native Script Extender changes: $AuditPath"
+    }
+    $audit = Get-Content -Raw -LiteralPath $AuditPath | ConvertFrom-Json
+    $releaseInventoryPath = Join-Path $Workspace 'Shared\Release\release-projects.json'
+    $releaseProjects = @((Get-Content -Raw -LiteralPath $releaseInventoryPath | ConvertFrom-Json).Projects | ForEach-Object { [string]$_ })
+    $auditedProjects = @($audit.ReleaseProjects | ForEach-Object { [string]$_ })
+    if (($releaseProjects -join "`n") -cne ($auditedProjects -join "`n")) {
+        throw 'Release hook audit project inventory is stale.'
+    }
+
+    $commit = (& git -C $ExtenderRoot rev-parse HEAD).Trim()
+    $tree = (& git -C $ExtenderRoot rev-parse 'HEAD^{tree}').Trim()
+    $nativeHash = (Get-FileHash -LiteralPath $NativePath -Algorithm SHA256).Hash
+    if ($commit -ne [string]$audit.ExtenderCommit -or
+        $tree -ne [string]$audit.ExtenderTree -or
+        $nativeHash -ne [string]$audit.NativeHash) {
+        throw 'Release hook audit identity does not match the current extender tree and native DLL.'
+    }
+
+    $fingerprint = Get-SEReleaseNativeHookFingerprint $Workspace $releaseProjects
+    if ($fingerprint.SourceFileCount -ne [int]$audit.SourceFileCount -or
+        $fingerprint.OperationCount -ne [int]$audit.OperationCount -or
+        $fingerprint.Fingerprint -ne [string]$audit.SourceFingerprint) {
+        throw 'Release native hook/patch sources changed after the compatibility audit; a new audit is required.'
+    }
+    if ([string]$audit.Result -ne 'Compatible' -or -not [bool]$audit.ExtenderChangesReviewed) {
+        throw 'Release hook audit has no affirmative reviewed compatibility result.'
+    }
+    $allowedClassifications = @('CallSiteAfterOwnedDetour', 'NestedOriginalPath', 'DelegateCallThrough', 'ReferencedOwnedFunction', 'NoOverlap')
+    foreach ($interaction in @($audit.ReviewedInteractions)) {
+        if (-not [string]$interaction.Id -or [string]$interaction.Classification -notin $allowedClassifications -or -not [string]$interaction.Rationale) {
+            throw 'Release hook audit contains an incomplete or unknown interaction classification.'
+        }
+    }
+    if (@($audit.ReviewedInteractions).Count -eq 0) {
+        throw 'Release hook audit contains no reviewed interactions.'
+    }
+    $fingerprint
+}
+
 function Get-SEBuildOrder([object[]]$Mods) {
     $pending = @($Mods | Where-Object Plugin)
     $done = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)

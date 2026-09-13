@@ -4,11 +4,15 @@
   "TargetCommit": "2cee24e33b5a5d81d1c275efabc714ac59917b7b",
   "Mods": {
     "BugfixesAndQoL": {
-      "Version": "1.0.147",
+      "Version": "1.0.149",
       "MinimumScriptExtenderVersion": "2.6.0",
       "Changes": [
-        "Made Friendly Moat Movement coexist with Script Extender 2.6.0's Assassin-selection override while preserving resolution-aware extended zoom compatibility."
+        "Kept the Lord icon scoped to actual Lord HUD categories without replacing swordsman icons."
       ]
     }
-  }
+  },
+  "CompatibilityNotes": [
+    "Friendly Moat Movement now consumes the Script Extender-owned Assassin-selection result at six audited call sites; positive Vanilla or extender results remain authoritative.",
+    "Resolution-aware extended zoom and every other release-mod hook were audited as compatible with Script Extender 2.6.0."
+  ]
 }

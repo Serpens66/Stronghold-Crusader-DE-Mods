@@ -89,6 +89,149 @@ namespace BugfixesAndQoL
                     !featureSource.Contains(
                         "setGameOverStateOriginal(self, state, screen, skirmishDate);"),
                 "game-over hook forwards the corrected state once and preserves screen and date");
+
+            TestStatisticsTeamBadgePolicy();
+            TestStatisticsTeamBadgeIntegration(featureSource);
+        }
+
+        private static void TestStatisticsTeamBadgePolicy()
+        {
+            int[] valid = new int[9];
+            int[] ranking = new int[9];
+            int[][] individualRanking = new int[16][];
+            for (int playerId = 1; playerId <= 8; playerId++)
+            {
+                valid[playerId] = 1;
+                ranking[playerId] = playerId;
+            }
+            for (int rankingIndex = 0; rankingIndex < individualRanking.Length; rankingIndex++)
+            {
+                individualRanking[rankingIndex] = new int[9];
+                for (int ordinal = 1; ordinal <= 8; ordinal++)
+                    individualRanking[rankingIndex][ordinal] = (ordinal + rankingIndex) % 8 + 1;
+            }
+
+            int[] rows = new int[8];
+            bool standardOrder = SurrenderPolicy.TryBuildStatisticsRowPlayerIds(
+                valid, ranking, individualRanking, 0, false, rows);
+            Check(standardOrder && RowsEqual(rows, 1, 2, 3, 4, 5, 6, 7, 8),
+                "statistics team badges follow Vanilla's standard ranking order");
+
+            bool reversedOrder = SurrenderPolicy.TryBuildStatisticsRowPlayerIds(
+                valid, ranking, individualRanking, 0, true, rows);
+            Check(reversedOrder && RowsEqual(rows, 8, 7, 6, 5, 4, 3, 2, 1),
+                "statistics team badges follow Vanilla's reversed ranking order");
+
+            int[] expectedRankingIndices =
+                { -1, 0, 1, 10, 3, 2, 5, 6, 7, 8, 4, 11, 12, 13, 14, 15 };
+            bool allSortTypesMatch = true;
+            for (int sortType = 0; sortType <= 15; sortType++)
+            {
+                allSortTypesMatch &= SurrenderPolicy.TryBuildStatisticsRowPlayerIds(
+                    valid, ranking, individualRanking, sortType, false, rows);
+                int rankingIndex = expectedRankingIndices[sortType];
+                int[] expected = rankingIndex < 0 ? ranking : individualRanking[rankingIndex];
+                for (int row = 0; row < 8; row++)
+                    allSortTypesMatch &= rows[row] == expected[row + 1];
+
+                allSortTypesMatch &= SurrenderPolicy.TryBuildStatisticsRowPlayerIds(
+                    valid, ranking, individualRanking, sortType, true, rows);
+                for (int row = 0; row < 8; row++)
+                    allSortTypesMatch &= rows[row] == expected[8 - row];
+            }
+            Check(allSortTypesMatch,
+                "statistics team badges mirror all 16 Vanilla sort-to-ranking mappings");
+
+            int[] sparseValid = new int[9];
+            sparseValid[1] = 1;
+            sparseValid[3] = 1;
+            sparseValid[7] = 1;
+            bool sparseOrder = SurrenderPolicy.TryBuildStatisticsRowPlayerIds(
+                sparseValid, ranking, individualRanking, 0, false, rows);
+            Check(sparseOrder && RowsEqual(rows, 1, 3, 7, 0, 0, 0, 0, 0),
+                "statistics team badges compact fewer than eight valid participants like Vanilla");
+
+            int[] invalidRanking = (int[])ranking.Clone();
+            invalidRanking[4] = 9;
+            bool invalidRejected = !SurrenderPolicy.TryBuildStatisticsRowPlayerIds(
+                valid, invalidRanking, individualRanking, 0, false, rows);
+            Check(invalidRejected && RowsEqual(rows, 0, 0, 0, 0, 0, 0, 0, 0),
+                "statistics team badges fail closed for invalid ranked player IDs");
+
+            int[] teamShields = new int[9];
+            teamShields[1] = 1;
+            teamShields[2] = 1;
+            teamShields[3] = 2;
+            teamShields[4] = 3;
+            teamShields[5] = 4;
+            teamShields[6] = 0;
+            teamShields[7] = 5;
+            Check(SurrenderPolicy.ResolveStatisticsTeamShield(1, teamShields) == 1 &&
+                    SurrenderPolicy.ResolveStatisticsTeamShield(2, teamShields) == 1 &&
+                    SurrenderPolicy.ResolveStatisticsTeamShield(3, teamShields) == 2 &&
+                    SurrenderPolicy.ResolveStatisticsTeamShield(4, teamShields) == 3 &&
+                    SurrenderPolicy.ResolveStatisticsTeamShield(5, teamShields) == 4,
+                "statistics team members resolve to the shared Vanilla badge for teams 1 through 4");
+            Check(SurrenderPolicy.ResolveStatisticsTeamShield(6, teamShields) == 0 &&
+                    SurrenderPolicy.ResolveStatisticsTeamShield(7, teamShields) == 0 &&
+                    SurrenderPolicy.ResolveStatisticsTeamShield(0, teamShields) == 0,
+                "statistics solo and invalid team values remain badge-free");
+        }
+
+        private static void TestStatisticsTeamBadgeIntegration(string featureSource)
+        {
+            string patchPath = Path.Combine(
+                "Patches", "Assets", "GUI", "XAMLResources", "HUD_MissionOver.xaml");
+            var patch = new XmlDocument();
+            patch.Load(patchPath);
+            XmlNodeList operations = patch.SelectNodes(
+                "/Patch/Operation[contains(@XPath, 'MO_MP_PlayersShields')]");
+            bool completeBadgeGrid = operations != null && operations.Count == 16;
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            if (operations != null)
+            {
+                foreach (XmlElement operation in operations)
+                {
+                    XmlElement image = operation.SelectSingleNode("Content/Image") as XmlElement;
+                    string name = image?.GetAttribute(
+                        "Name", "http://schemas.microsoft.com/winfx/2006/xaml") ?? string.Empty;
+                    completeBadgeGrid &= image != null &&
+                        names.Add(name) &&
+                        image.GetAttribute("Grid.Column") == "0" &&
+                        image.GetAttribute("Width") == "20" &&
+                        image.GetAttribute("Height") == "20" &&
+                        image.GetAttribute("Panel.ZIndex") == "20";
+                }
+            }
+            for (int page = 1; page <= 2; page++)
+            {
+                for (int row = 1; row <= 8; row++)
+                    completeBadgeGrid &= names.Contains($"BugfixesAndQoLTeamBadgePage{page}Row{row}");
+            }
+            Check(completeBadgeGrid,
+                "HUD_MissionOver patch adds one named 20x20 overlay badge to every row on both pages");
+
+            string patchSource = File.ReadAllText(patchPath);
+            Check(featureSource.Contains("getTeamAlliesShield(teamId, large: false)") &&
+                    featureSource.Contains("snapshot.team_shield") &&
+                    featureSource.Contains("ReferenceEquals(snapshot, statisticsTeamBadgeSnapshot)"),
+                "statistics team badges use Vanilla's small shield and update only for changed snapshots or sorting");
+            Check(!patchSource.Contains("Background=") &&
+                    !patchSource.Contains("MO_MP_PlayersVisible") &&
+                    !patchSource.Contains("MO_MP_PlayersShields0}\" />"),
+                "team-badge patch leaves Vanilla row backgrounds, visibility, and personal shield bindings unchanged");
+        }
+
+        private static bool RowsEqual(int[] rows, params int[] expected)
+        {
+            if (rows == null || expected == null || rows.Length != expected.Length)
+                return false;
+            for (int index = 0; index < rows.Length; index++)
+            {
+                if (rows[index] != expected[index])
+                    return false;
+            }
+            return true;
         }
 
         private static void TestResolutionAwareZoomPolicy()

@@ -1,0 +1,54 @@
+{
+  "OldVersion": "2.5.0",
+  "NewVersion": "2.6.0",
+  "ExtenderCommit": "2cee24e33b5a5d81d1c275efabc714ac59917b7b",
+  "ExtenderTree": "9cfb59b7b531553b23709b90b3cc3f10b0615cc1",
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "ReleaseProjects": [
+    "APIShared",
+    "BugfixesAndQoL",
+    "BuildingCosts",
+    "BuildingLimit",
+    "CheatMod",
+    "CustomCustomTrail",
+    "ExtraFeatures",
+    "ImprovedHunters",
+    "RandomEvents",
+    "CastlePlanner",
+    "StartConditions",
+    "UnitCosts",
+    "UnitLimit"
+  ],
+  "SourceFileCount": 49,
+  "OperationCount": 96,
+  "SourceFingerprint": "36109DDBBA175869C27C233AC7CCEAE9AFC54889927E874BC50D4D5F5C40CCE8",
+  "ExtenderChangesReviewed": true,
+  "Result": "Compatible",
+  "ReviewedInteractions": [
+    {
+      "Id": "BugfixesAndQoL.FriendlyMoat.AssassinSelection",
+      "Classification": "CallSiteAfterOwnedDetour",
+      "Rationale": "Six hash-bound call-site adapters consume the result of the Script Extender-owned function at RVA 0x196870; nonzero Vanilla or extender results remain authoritative."
+    },
+    {
+      "Id": "ExtraFeatures.ElevatedMoat.MapEditorTileType",
+      "Classification": "NestedOriginalPath",
+      "Rationale": "The inline site at RVA 0x704CC remains inside the original trampoline path of the extender detour at RVA 0x6FE90; an explicit SkipOriginalFunction remains authoritative."
+    },
+    {
+      "Id": "RandomEvents.NativeWildlifeEventDispatcher",
+      "Classification": "DelegateCallThrough",
+      "Rationale": "RVA 0x11E150 is invoked as a delegate and is not detoured or patched by the mod."
+    },
+    {
+      "Id": "ReleaseMods.ExistingOwnedFunctionReferences",
+      "Classification": "ReferencedOwnedFunction",
+      "Rationale": "References to RVAs 0x196280, 0x192750 and 0x199110 are validated calls or enclosing function bounds, not competing function-entry detours."
+    },
+    {
+      "Id": "ReleaseMods.NextTileSurfaceValidation",
+      "Classification": "NoOverlap",
+      "Rationale": "No release mod detours or patches the new extender target at RVA 0xDCD60 or its sole caller at RVA 0x1855A0."
+    }
+  ]
+}

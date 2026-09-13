@@ -25,6 +25,11 @@ namespace BugfixesAndQoL
 
     internal static class SurrenderPolicy
     {
+        private static readonly int[] StatisticsSortRankingIndices =
+        {
+            -1, 0, 1, 10, 3, 2, 5, 6, 7, 8, 4, 11, 12, 13, 14, 15
+        };
+
         internal static bool IsValidLord(SurrenderLordSnapshot lord) =>
             lord.PlayerId >= 1 && lord.PlayerId <= 8 &&
             lord.UnitId > 0 &&
@@ -92,6 +97,75 @@ namespace BugfixesAndQoL
             int state,
             bool spectatorPromotionRequested) =>
             state == 1 && spectatorPromotionRequested ? 2 : state;
+
+        internal static bool TryBuildStatisticsRowPlayerIds(
+            int[] validPlayers,
+            int[] ranking,
+            int[][] individualRanking,
+            int sortType,
+            bool sortReversed,
+            int[] rowPlayerIds)
+        {
+            if (rowPlayerIds == null || rowPlayerIds.Length < 8)
+                return false;
+
+            for (int row = 0; row < 8; row++)
+                rowPlayerIds[row] = 0;
+
+            if (validPlayers == null || validPlayers.Length < 9 ||
+                ranking == null || ranking.Length < 9)
+            {
+                return false;
+            }
+
+            int[] selectedRanking = ranking;
+            if (sortType >= 1 && sortType < StatisticsSortRankingIndices.Length)
+            {
+                int rankingIndex = StatisticsSortRankingIndices[sortType];
+                if (individualRanking == null ||
+                    rankingIndex < 0 ||
+                    rankingIndex >= individualRanking.Length ||
+                    individualRanking[rankingIndex] == null ||
+                    individualRanking[rankingIndex].Length < 9)
+                {
+                    return false;
+                }
+
+                selectedRanking = individualRanking[rankingIndex];
+            }
+
+            int visibleRow = 0;
+            for (int ordinal = 1; ordinal <= 8; ordinal++)
+            {
+                int selectedIndex = sortReversed ? 9 - ordinal : ordinal;
+                int playerId = selectedRanking[selectedIndex];
+                if (playerId < 1 || playerId > 8)
+                {
+                    for (int row = 0; row < 8; row++)
+                        rowPlayerIds[row] = 0;
+                    return false;
+                }
+
+                if (validPlayers[playerId] <= 0)
+                    continue;
+
+                rowPlayerIds[visibleRow++] = playerId;
+            }
+
+            return true;
+        }
+
+        internal static int ResolveStatisticsTeamShield(int playerId, int[] teamShields)
+        {
+            if (playerId < 1 || playerId > 8 ||
+                teamShields == null || teamShields.Length < 9)
+            {
+                return 0;
+            }
+
+            int teamId = teamShields[playerId];
+            return teamId >= 1 && teamId <= 4 ? teamId : 0;
+        }
 
         internal static bool CanAcceptRequest(
             bool featureEnabled,

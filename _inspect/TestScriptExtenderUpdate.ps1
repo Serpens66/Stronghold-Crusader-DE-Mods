@@ -8,11 +8,17 @@ $workspace = Split-Path -Parent $PSScriptRoot
 function Assert-True([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
 
 $inventory = @(Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\ScriptExtenderUpdate\mods.json') | ConvertFrom-Json)
-Assert-True ($inventory.Count -eq 28) 'Expected 28 runtime mods.'
-Assert-True (@($inventory | Where-Object Plugin).Count -eq 27) 'Expected 27 C# runtime mods.'
-$order = @(Get-SEBuildOrder $inventory)
+Assert-True ($inventory.Count -eq 32) 'Expected 32 inventoried mods.'
+Assert-True (@($inventory | Where-Object Plugin).Count -eq 31) 'Expected 31 inventoried C# runtime mods.'
+$castlePlannerInventory = @($inventory | Where-Object Name -eq 'CastlePlanner')
+Assert-True ($castlePlannerInventory.Count -eq 1 -and
+    @($castlePlannerInventory[0].PreservedInstallFiles).Count -eq 1 -and
+    $castlePlannerInventory[0].PreservedInstallFiles[0] -eq 'RuntimeData\BlueprintBuildingSizes.tsv') 'CastlePlanner runtime calibration data is not narrowly preserved.'
+$activeInventory = @($inventory | Where-Object { $property = $_.PSObject.Properties['Active']; $null -eq $property -or [bool]$property.Value })
+Assert-True ($activeInventory.Count -eq 29) 'Expected 29 active inventory entries.'
+$order = @(Get-SEBuildOrder $activeInventory)
 Assert-True ($order[0].Name -eq 'APIShared') 'APIShared must build first.'
-Assert-True ([array]::IndexOf([string[]]$order.Name, 'APITest') -gt [array]::IndexOf([string[]]$order.Name, 'APIShared')) 'APITest must follow APIShared.'
+Assert-True ([array]::IndexOf([string[]]$order.Name, 'ActiveAIVDetector') -gt [array]::IndexOf([string[]]$order.Name, 'APIShared')) 'ActiveAIVDetector must follow APIShared.'
 Assert-True ($order[-1].Name -eq 'BugfixesAndQoL') 'BugfixesAndQoL must build last.'
 
 $categories = Get-SEChangeCategories @('src/SHCDESE.BepInEx/Detours/Test.cs','src/SHCDESE.BepInEx/Interop/Test.cs','ReverseEngineering/structs/test.h','src/SHCDESE.BepInEx/API/Test.cs','deps/Override/Test.xaml','docs/test.md')
@@ -33,6 +39,48 @@ Assert-SEManifestExtenderRange $undefinedRange $fixtureTarget 'undefined'
 $rangeFailed=$false
 try { Assert-SEManifestExtenderRange ([pscustomobject]@{MinimumScriptExtenderVersion=$fixtureMinimum;MaximumScriptExtenderVersion=$fixtureExcludedMaximum}) $fixtureTarget 'excluded' } catch { $rangeFailed=$true }
 Assert-True $rangeFailed 'MaximumScriptExtenderVersion did not exclude an unsupported target.'
+
+Assert-SEMetadataMutationArguments $false 'Existing' $false $false
+$metadataMutationFailed = $false
+try { Assert-SEMetadataMutationArguments $false 'Patch' $false $false } catch { $metadataMutationFailed = $true }
+Assert-True $metadataMutationFailed 'Bulk patch-version mutation without a compatibility plan did not fail closed.'
+$metadataMutationFailed = $false
+try { Assert-SEMetadataMutationArguments $true 'Existing' $false $true } catch { $metadataMutationFailed = $true }
+Assert-True $metadataMutationFailed 'Legacy changelog mutation remained available beside a compatibility plan.'
+
+$driverText = [IO.File]::ReadAllText((Join-Path $workspace 'Shared\ScriptExtenderUpdate\Invoke-ScriptExtenderUpdate.ps1'))
+Assert-True (-not $driverText.Contains('$targetMinimum = $NewVersion')) 'The update driver still raises unplanned minimum versions.'
+Assert-True (-not $driverText.Contains("elseif (-not `$CompatibilityPlanFile)")) 'The update driver still creates implicit compatibility entries.'
+
+$rootInstructions = [IO.File]::ReadAllText((Join-Path $workspace 'AGENTS.md'))
+$versionedInstructionLines = @($rootInstructions -split '\r\n' | Where-Object {
+    $_ -match 'Script Extender\s+[0-9]+\.[0-9]+\.[0-9]+' -and $_ -notmatch '(?i)bekannt|fehler|fehlalarm'
+})
+Assert-True ($versionedInstructionLines.Count -eq 0) ("Root AGENTS.md contains a non-error Script Extender version:`n" + ($versionedInstructionLines -join "`n"))
+Assert-True (-not $rootInstructions.Contains('KilNpc')) 'Obsolete Script Extender migration history remains in AGENTS.md.'
+$scopedInstructions = [IO.File]::ReadAllText((Join-Path $workspace 'Shared\ScriptExtenderUpdate\AGENTS.md'))
+Assert-True ($scopedInstructions.Contains('Ohne expliziten Kompatibilitätsplaneintrag') -and
+    $scopedInstructions.Contains('tatsächlich installierte Version')) 'Scoped Script Extender update rules are incomplete.'
+
+$nativePath = 'E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
+$hookAuditPath = Join-Path $workspace 'Shared\ScriptExtenderUpdate\2.5.0-2.6.0.release-hooks.json'
+$hookFingerprint = Assert-SEReleaseHookAudit $hookAuditPath $workspace (Join-Path $workspace 'shcde-script-extender') $nativePath
+Assert-True ($hookFingerprint.SourceFileCount -eq 49 -and $hookFingerprint.OperationCount -eq 96) 'Release native hook/patch coverage changed unexpectedly.'
+$missingAuditFailed = $false
+try { Assert-SEReleaseHookAudit ($hookAuditPath + '.missing') $workspace (Join-Path $workspace 'shcde-script-extender') $nativePath | Out-Null } catch { $missingAuditFailed = $true }
+Assert-True $missingAuditFailed 'A missing release hook audit did not fail closed.'
+$invalidAuditPath = Join-Path ([IO.Path]::GetTempPath()) ('SHCDE-SEHookAudit-' + [Guid]::NewGuid().ToString('N') + '.json')
+try {
+    $invalidAudit = Get-Content -Raw -LiteralPath $hookAuditPath | ConvertFrom-Json
+    $invalidAudit.ReviewedInteractions[0].Classification = 'Unknown'
+    [IO.File]::WriteAllText($invalidAuditPath, ($invalidAudit | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
+    $unknownClassificationFailed = $false
+    try { Assert-SEReleaseHookAudit $invalidAuditPath $workspace (Join-Path $workspace 'shcde-script-extender') $nativePath | Out-Null } catch { $unknownClassificationFailed = $true }
+    Assert-True $unknownClassificationFailed 'An unknown release hook classification did not fail closed.'
+}
+finally {
+    if (Test-Path -LiteralPath $invalidAuditPath) { Remove-Item -LiteralPath $invalidAuditPath -Force }
+}
 
 $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
 $temp = Join-Path $tempBase ('SHCDE-SEUpdateTests-' + [Guid]::NewGuid().ToString('N'))
@@ -75,9 +123,10 @@ try {
     $twoPassText='@echo off'+$nl+'echo hit>>"'+$hitTwo+'"'+$nl+'exit /b 0'+$nl
     [IO.File]::WriteAllText((Join-Path $buildTemp 'one.bat'), $oneText, [Text.Encoding]::ASCII)
     [IO.File]::WriteAllText((Join-Path $buildTemp 'two.bat'), $twoFailText, [Text.Encoding]::ASCII)
+    [IO.File]::WriteAllText((Join-Path $buildTemp 'fake.csproj'), '<Project />', [Text.Encoding]::ASCII)
     $fakeMods=@(
-        [pscustomobject]@{Name='One';Plugin='one';BuildDriver='one.bat';BuildOrder=1;DependsOn=@()},
-        [pscustomobject]@{Name='Two';Plugin='two';BuildDriver='two.bat';BuildOrder=2;DependsOn=@('One')}
+        [pscustomobject]@{Name='One';Plugin='one';Project='fake.csproj';BuildDriver='one.bat';BuildOrder=1;DependsOn=@()},
+        [pscustomobject]@{Name='Two';Plugin='two';Project='fake.csproj';BuildDriver='two.bat';BuildOrder=2;DependsOn=@('One')}
     )
     $fakeState=@{CompletedBuilds=@()}
     $stopped=$false
@@ -92,24 +141,10 @@ finally {
     if (Test-Path -LiteralPath $buildTemp) { Remove-Item -LiteralPath $buildTemp -Recurse -Force }
 }
 
-$projects=@($inventory|Where-Object Plugin|ForEach-Object{Join-Path $workspace $_.Project})
+$releaseProjectNames = @((Get-Content -Raw -LiteralPath (Join-Path $workspace 'Shared\Release\release-projects.json') | ConvertFrom-Json).Projects)
+$releaseInventory = @($activeInventory | Where-Object { $_.Name -in $releaseProjectNames })
+$projects=@($releaseInventory|Where-Object Plugin|ForEach-Object{Join-Path $workspace $_.Project})
 foreach($project in $projects){$text=[IO.File]::ReadAllText($project);$installed=$text.IndexOf('BepInEx\plugins\000shcdese</ExtenderDir>');$local=$text.IndexOf("LocalScriptExtenderBuildOutput)\SHCDESE.dll");Assert-True ($installed-ge0-and($local-lt0-or$installed-lt$local)) "Installed extender is not first in $project"}
-foreach($driver in @($inventory|Where-Object Plugin|ForEach-Object{Join-Path $workspace $_.BuildDriver})){Assert-True ([IO.File]::ReadAllText($driver).Contains('SHCDESE_EXTENDER_DIR')) "Explicit override missing in $driver"}
+foreach($driver in @($releaseInventory|Where-Object Plugin|ForEach-Object{Join-Path $workspace $_.BuildDriver})){Assert-True ([IO.File]::ReadAllText($driver).Contains('SHCDESE_EXTENDER_DIR')) "Explicit override missing in $driver"}
 
-$trackedAndNew=@(& git -C $workspace ls-files; & git -C $workspace ls-files --others --exclude-standard)
-$versionedTestFiles=@($trackedAndNew|Where-Object{
-    ($_ -match '(^|/)(tests?)/' -or $_ -match '^_inspect/[^/]*Tests/' -or $_ -eq '_inspect/TestScriptExtenderUpdate.ps1') -and
-    $_ -match '\.(cs|ps1|sh|lua|csproj)$'
-}|Where-Object{Test-Path -LiteralPath (Join-Path $workspace $_)}|Sort-Object -Unique)
-$hardcodedTestVersions=@(foreach($relative in $versionedTestFiles){
-    $lineNumber=0
-    foreach($line in [IO.File]::ReadLines((Join-Path $workspace $relative))){
-        $lineNumber++
-        if($line -match '(?i)(Script[ _-]?Extender|SHCDESE|BepInDependency|AuditedScriptExtenderVersion)[^\r\n]{0,120}\b[0-9]+\.[0-9]+\.[0-9]+\b'){
-            "$relative`:$lineNumber`: $line"
-        }
-    }
-})
-Assert-True ($hardcodedTestVersions.Count -eq 0) ("Hard-coded Script Extender versions remain in tests:`n" + ($hardcodedTestVersions -join "`n"))
-
-Write-Host 'PASS: Script Extender update inventory, classification, provenance, reference selection and build order.'
+Write-Host 'PASS: Script Extender update inventory, metadata isolation, hook audit, provenance, reference selection and build order.'

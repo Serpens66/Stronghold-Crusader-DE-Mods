@@ -25,4 +25,84 @@
       </Grid>
     </Content>
   </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields0}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage1Row1" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields0}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage2Row1" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields1}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage1Row2" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields1}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage2Row2" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields2}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage1Row3" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields2}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage2Row3" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields3}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage1Row4" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields3}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage2Row4" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields4}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage1Row5" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields4}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage2Row5" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields5}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage1Row6" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields5}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage2Row6" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields6}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage1Row7" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields6}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage2Row7" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='470'] and n:Image[@Source='{Binding MO_MP_PlayersShields7}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage1Row8" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[n:Grid.ColumnDefinitions/n:ColumnDefinition[2][@Width='510'] and n:Image[@Source='{Binding MO_MP_PlayersShields7}']]">
+    <Content>
+      <Image x:Name="BugfixesAndQoLTeamBadgePage2Row8" Grid.Column="0" Width="20" Height="20" Margin="22,22,0,0" HorizontalAlignment="Center" VerticalAlignment="Center" Panel.ZIndex="20" Stretch="Uniform" />
+    </Content>
+  </Operation>
 </Patch>

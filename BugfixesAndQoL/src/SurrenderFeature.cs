@@ -192,6 +192,8 @@ namespace BugfixesAndQoL
         private FieldInfo lastStatsField;
         private FieldInfo mpSortTypeField;
         private FieldInfo sortReversedField;
+        private FieldInfo rankingField;
+        private FieldInfo individualRankingField;
         private FieldInfo missionOverInstance1Field;
         private FieldInfo missionOverInstance2Field;
         private R3PacketEventHook<SurrenderRequestPacket> requestPacketHook;
@@ -204,6 +206,14 @@ namespace BugfixesAndQoL
         private HUD_MissionOver statisticsPreviewView;
         private bool statisticsReady;
         private bool statisticsPreviewActive;
+        private bool statisticsTeamBadgesReady;
+        private bool statisticsTeamBadgeErrorLogged;
+        private HUD_MissionOver statisticsTeamBadgeView;
+        private EngineInterface.MPScoreData statisticsTeamBadgeSnapshot;
+        private Image[,] statisticsTeamBadgeImages;
+        private int statisticsTeamBadgeSortType = int.MinValue;
+        private bool statisticsTeamBadgeSortReversed;
+        private readonly int[] statisticsTeamBadgeRowPlayerIds = new int[8];
         private bool localPlayerHadLivingLord;
         private bool spectatorPromotionRequested;
         private bool spectatorPromotionConfirmed;
@@ -270,6 +280,18 @@ namespace BugfixesAndQoL
                     log,
                     $"Bugfixes and QoL spectator statistics initialization failed closed; surrender remains available: {ex}");
             }
+            try
+            {
+                InitializeStatisticsTeamBadges();
+                statisticsTeamBadgesReady = true;
+            }
+            catch (Exception ex)
+            {
+                statisticsTeamBadgesReady = false;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL statistics team-badge initialization failed closed; Vanilla statistics remain available: {ex}");
+            }
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
                 context => ResetSession("session-start:" + context.Kind)));
@@ -283,7 +305,7 @@ namespace BugfixesAndQoL
             initialized = true;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Bugfixes and QoL surrender/statistics initialized: requestPacketId={requestPacketHook.GetPacketId()}, executionPacketId={executionPacketHook.GetPacketId()}, requestProtocolVersion={RequestProtocolVersion}, statisticsReady={statisticsReady}.");
+                $"Bugfixes and QoL surrender/statistics initialized: requestPacketId={requestPacketHook.GetPacketId()}, executionPacketId={executionPacketHook.GetPacketId()}, requestProtocolVersion={RequestProtocolVersion}, statisticsReady={statisticsReady}, statisticsTeamBadgesReady={statisticsTeamBadgesReady}.");
         }
 
         internal void RefreshButtonState()
@@ -345,6 +367,7 @@ namespace BugfixesAndQoL
 
             disposed = true;
             CloseStatisticsPreview("dispose");
+            ClearStatisticsTeamBadges();
             ingameMenuInitHook?.Undo();
             ingameMenuInitHook?.Dispose();
             missionOverButtonHook?.Undo();
@@ -388,6 +411,23 @@ namespace BugfixesAndQoL
                     Shared.DebugLogHelper.LogError(
                         log,
                         $"Bugfixes and QoL could not activate local spectator features for the eliminated player; Vanilla behavior remains active: {ex}");
+                }
+            }
+
+            try
+            {
+                UpdateStatisticsTeamBadges();
+            }
+            catch (Exception ex)
+            {
+                ClearStatisticsTeamBadges();
+                statisticsTeamBadgesReady = false;
+                if (!statisticsTeamBadgeErrorLogged)
+                {
+                    statisticsTeamBadgeErrorLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL statistics team badges failed closed; Vanilla statistics remain available: {ex}");
                 }
             }
         }
@@ -661,6 +701,17 @@ namespace BugfixesAndQoL
 
         }
 
+        private void InitializeStatisticsTeamBadges()
+        {
+            lastStatsField = FindRequiredField(typeof(HUD_MissionOver), "last_stats", BindingFlags.Instance | BindingFlags.NonPublic);
+            mpSortTypeField = FindRequiredField(typeof(HUD_MissionOver), "mp_sortType", BindingFlags.Instance | BindingFlags.NonPublic);
+            sortReversedField = FindRequiredField(typeof(HUD_MissionOver), "sortReversed", BindingFlags.Instance | BindingFlags.NonPublic);
+            rankingField = FindRequiredField(typeof(HUD_MissionOver), "ranking", BindingFlags.Instance | BindingFlags.NonPublic);
+            individualRankingField = FindRequiredField(typeof(HUD_MissionOver), "individual_ranking", BindingFlags.Instance | BindingFlags.NonPublic);
+            missionOverInstance1Field = FindRequiredField(typeof(HUD_MissionOver), "instance1", BindingFlags.Static | BindingFlags.NonPublic);
+            missionOverInstance2Field = FindRequiredField(typeof(HUD_MissionOver), "instance2", BindingFlags.Static | BindingFlags.NonPublic);
+        }
+
         private void InitializeMissionOverHooks()
         {
             MethodInfo buttonClickedMethod = FindRequiredMethod(
@@ -920,6 +971,128 @@ namespace BugfixesAndQoL
             }
 
             return visibleCount == 1 ? resolved : null;
+        }
+
+        private void UpdateStatisticsTeamBadges()
+        {
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (!statisticsTeamBadgesReady ||
+                !FeatureEnabled ||
+                viewModel == null ||
+                !viewModel.Show_HUD_MissionOver ||
+                viewModel.MO_MP_Score != Visibility.Visible)
+            {
+                ClearStatisticsTeamBadges();
+                return;
+            }
+
+            HUD_MissionOver view = ResolveVisibleMissionOverView();
+            EngineInterface.MPScoreData snapshot =
+                view == null ? null : lastStatsField.GetValue(view) as EngineInterface.MPScoreData;
+            if (view == null || !ValidateStatisticsSnapshot(snapshot))
+            {
+                ClearStatisticsTeamBadges();
+                return;
+            }
+
+            int sortType = (int)mpSortTypeField.GetValue(view);
+            bool sortReversed = (bool)sortReversedField.GetValue(view);
+            if (ReferenceEquals(view, statisticsTeamBadgeView) &&
+                ReferenceEquals(snapshot, statisticsTeamBadgeSnapshot) &&
+                sortType == statisticsTeamBadgeSortType &&
+                sortReversed == statisticsTeamBadgeSortReversed)
+            {
+                return;
+            }
+
+            EnsureStatisticsTeamBadgeImages(view);
+            int[] ranking = rankingField.GetValue(view) as int[];
+            int[][] individualRanking = individualRankingField.GetValue(view) as int[][];
+            if (!SurrenderPolicy.TryBuildStatisticsRowPlayerIds(
+                    snapshot.valid,
+                    ranking,
+                    individualRanking,
+                    sortType,
+                    sortReversed,
+                    statisticsTeamBadgeRowPlayerIds))
+            {
+                ClearStatisticsTeamBadgeImages();
+            }
+            else
+            {
+                for (int row = 0; row < 8; row++)
+                {
+                    int teamId = SurrenderPolicy.ResolveStatisticsTeamShield(
+                        statisticsTeamBadgeRowPlayerIds[row],
+                        snapshot.team_shield);
+                    ImageSource source = teamId == 0
+                        ? null
+                        : viewModel.getTeamAlliesShield(teamId, large: false);
+                    statisticsTeamBadgeImages[0, row].Source = source;
+                    statisticsTeamBadgeImages[1, row].Source = source;
+                }
+            }
+
+            statisticsTeamBadgeSnapshot = snapshot;
+            statisticsTeamBadgeSortType = sortType;
+            statisticsTeamBadgeSortReversed = sortReversed;
+            statisticsTeamBadgeErrorLogged = false;
+        }
+
+        private void EnsureStatisticsTeamBadgeImages(HUD_MissionOver view)
+        {
+            if (ReferenceEquals(view, statisticsTeamBadgeView) &&
+                statisticsTeamBadgeImages != null)
+            {
+                return;
+            }
+
+            ClearStatisticsTeamBadges();
+            var images = new Image[2, 8];
+            for (int page = 0; page < 2; page++)
+            {
+                for (int row = 0; row < 8; row++)
+                {
+                    string name = $"BugfixesAndQoLTeamBadgePage{page + 1}Row{row + 1}";
+                    images[page, row] = view.FindName(name) as Image;
+                    if (images[page, row] == null)
+                        throw new InvalidOperationException($"HUD_MissionOver element '{name}' was not found.");
+                }
+            }
+
+            statisticsTeamBadgeView = view;
+            statisticsTeamBadgeImages = images;
+        }
+
+        private void ClearStatisticsTeamBadgeImages()
+        {
+            if (statisticsTeamBadgeImages == null)
+                return;
+
+            for (int page = 0; page < 2; page++)
+            {
+                for (int row = 0; row < 8; row++)
+                {
+                    try
+                    {
+                        statisticsTeamBadgeImages[page, row].Source = null;
+                    }
+                    catch
+                    {
+                        // Badge cleanup must never interfere with the Vanilla statistics view.
+                    }
+                }
+            }
+        }
+
+        private void ClearStatisticsTeamBadges()
+        {
+            ClearStatisticsTeamBadgeImages();
+            statisticsTeamBadgeView = null;
+            statisticsTeamBadgeImages = null;
+            statisticsTeamBadgeSnapshot = null;
+            statisticsTeamBadgeSortType = int.MinValue;
+            statisticsTeamBadgeSortReversed = false;
         }
 
         private void CloseStatisticsPreview(string reason)
@@ -1365,6 +1538,7 @@ namespace BugfixesAndQoL
         private void ResetSession(string reason)
         {
             CloseStatisticsPreview(reason);
+            ClearStatisticsTeamBadges();
             acceptedRequests.Clear();
             nextRequestId = 0;
             localPlayerHadLivingLord = false;

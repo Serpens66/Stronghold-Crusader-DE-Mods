@@ -27,6 +27,7 @@ $runKey = "$OldVersion-$NewVersion"
 $runRoot = Join-Path $workspace ".inspect\ScriptExtenderUpdates\$runKey"
 $statePath = Join-Path $runRoot 'state.json'
 . (Join-Path $scriptRoot 'ScriptExtenderUpdate.Common.ps1')
+Assert-SEMetadataMutationArguments ([bool]$CompatibilityPlanFile) $VersionMode ($PSBoundParameters.ContainsKey('VersionsFile')) ($PSBoundParameters.ContainsKey('Changelog'))
 
 function Write-CrlfFile([string]$Path, [string]$Text) {
     $normalized = [regex]::Replace($Text, '\r?\n', [Environment]::NewLine)
@@ -112,6 +113,12 @@ if ($duplicateNames -or $duplicateGuids) { throw 'Inventory contains duplicate n
 foreach ($mod in $mods) {
     foreach ($property in @('Manifest','Package')) { if (-not (Test-Path -LiteralPath (Join-Path $workspace $mod.$property))) { throw "$($mod.Name): missing $property" } }
     if ($mod.Plugin) { foreach ($property in @('Plugin','Project','BuildDriver')) { if (-not (Test-Path -LiteralPath (Join-Path $workspace $mod.$property))) { throw "$($mod.Name): missing $property" } } }
+    foreach ($preservedFile in @($mod.PreservedInstallFiles | Where-Object { $null -ne $_ })) {
+        if (-not [string]$preservedFile -or [IO.Path]::IsPathRooted([string]$preservedFile) -or
+            [string]$preservedFile -match '(^|[\\/])\.\.([\\/]|$)' -or [string]$preservedFile -match '[*?]') {
+            throw "$($mod.Name): invalid PreservedInstallFiles entry: '$preservedFile'."
+        }
+    }
     if (Test-ModActive $mod) {
         $sourceManifest = Get-Content -Raw -LiteralPath (Join-Path $workspace $mod.Manifest) | ConvertFrom-Json
         Assert-SEManifestExtenderRange $sourceManifest $NewVersion $mod.Name
@@ -169,6 +176,11 @@ $nativePath = Join-Path $gameRoot 'Stronghold Crusader Definitive Edition_Data\P
 $current = Get-Content -Raw -LiteralPath (Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\CURRENT.json') | ConvertFrom-Json
 $nativeHash = (Get-FileHash -LiteralPath $nativePath -Algorithm SHA256).Hash
 if ($nativeHash -ne $current.currentNativeHash) { throw 'Native DLL hash changed. A full new hash-bound baseline is required; the Script-Extender-only fast path is forbidden.' }
+if (@($categories.Native).Count -gt 0) {
+    $hookAuditPath = Join-Path $scriptRoot "$runKey.release-hooks.json"
+    $hookAudit = Assert-SEReleaseHookAudit $hookAuditPath $workspace $extenderRoot $nativePath
+    Write-CrlfFile (Join-Path $runRoot 'release-hook-audit.json') (($hookAudit | ConvertTo-Json -Depth 8) + [Environment]::NewLine)
+}
 
 if (-not $ExtenderDir) { $ExtenderDir = $installedExtender }
 if ($SkipExtenderBuild) { $ExtenderDir = Resolve-SEExtenderDirectory $ExtenderDir $installedExtender }
@@ -190,7 +202,6 @@ if (-not $SkipExtenderBuild -and -not $state.ExtenderBuilt) {
 }
 $selectedExtender = Assert-TargetExtender $ExtenderDir
 
-$explicitVersions = @{}
 $compatibilityPlan = $null
 $plannedMods = @{}
 if ($CompatibilityPlanFile) {
@@ -209,11 +220,6 @@ if ($CompatibilityPlanFile) {
     }
     Write-CrlfFile (Join-Path $runRoot 'compatibility-plan.json') (($compatibilityPlan | ConvertTo-Json -Depth 30) + [Environment]::NewLine)
 }
-elseif ($VersionMode -eq 'Explicit') {
-    if (-not $VersionsFile) { throw '-VersionsFile is required for VersionMode Explicit.' }
-    $map = Get-Content -Raw -LiteralPath $VersionsFile | ConvertFrom-Json
-    foreach ($property in $map.PSObject.Properties) { $explicitVersions[$property.Name] = [string]$property.Value }
-}
 foreach ($mod in $activeMods) {
     $manifestPath = Join-Path $workspace $mod.Manifest
     $json = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
@@ -229,14 +235,6 @@ foreach ($mod in $activeMods) {
         if (-not $targetModVersion -or -not $targetMinimum -or -not $changes.Count) {
             throw "$($mod.Name) has an incomplete compatibility-plan entry."
         }
-    }
-    elseif (-not $CompatibilityPlanFile) {
-        $alreadyAdjusted = [string]$json.MinimumScriptExtenderVersion -eq $NewVersion -and [string]$json.SerpChangelog[0].Changes[0] -eq $Changelog
-        if ($VersionMode -eq 'Patch' -and -not $alreadyAdjusted) { $v=[version]$targetModVersion; $targetModVersion="$($v.Major).$($v.Minor).$($v.Build+1)" }
-        if ($VersionMode -eq 'Explicit') { if (-not $explicitVersions.ContainsKey($mod.Name)) { throw "No explicit version for $($mod.Name)." }; $targetModVersion=$explicitVersions[$mod.Name] }
-        $targetMinimum = $NewVersion
-        $changes = @($Changelog)
-        $hasPlan = $true
     }
     $topChanges = @()
     if ($json.SerpChangelog -and @($json.SerpChangelog).Count -gt 0) {
@@ -313,7 +311,8 @@ foreach ($mod in $activeMods) {
             $targetHash=if(Test-Path -LiteralPath $target -PathType Leaf){(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash}else{$null}
             if(-not $targetHash -or $sourceHash -ne $targetHash){throw "$($mod.Name) package mismatch: $rel"}
         }
-        $unexpected=@(Get-ChildItem -LiteralPath $installed -Recurse -File|ForEach-Object{$_.FullName.Substring($installed.Length+1)}|Where-Object{$_ -notin $localRelative -and $_ -notmatch '^LobbyModSettings([\\/]|$)'})
+        $preservedInstallFiles=@($mod.PreservedInstallFiles|Where-Object{$null-ne$_}|ForEach-Object{[string]$_})
+        $unexpected=@(Get-ChildItem -LiteralPath $installed -Recurse -File|ForEach-Object{$_.FullName.Substring($installed.Length+1)}|Where-Object{$_ -notin $localRelative -and $_ -notin $preservedInstallFiles -and $_ -notmatch '^LobbyModSettings([\\/]|$)'})
         if($unexpected){throw "$($mod.Name) has unexpected installed files: $($unexpected -join ', ')"}
         $dll=Join-Path $source ($mod.Name+'.dll')
         if(-not(Test-Path -LiteralPath $dll -PathType Leaf)){throw "$($mod.Name) primary assembly missing: $dll"}

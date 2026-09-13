@@ -69,7 +69,10 @@
     "Package": "CastlePlanner\\BepInEx\\plugins\\CastlePlanner_Serp",
     "Install": "CastlePlanner_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": [],
+    "PreservedInstallFiles": [
+      "RuntimeData\\BlueprintBuildingSizes.tsv"
+    ]
   },
   {
     "Name": "CheatMod",
