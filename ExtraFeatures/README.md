@@ -10,7 +10,7 @@ An optional host setting removes both the fear-factor damage bonus and penalty f
 Separate host checkboxes allow AI and/or human players to create moats and drawbridges on elevated terrain. AI placement is enabled by default, while human placement is disabled. If either checkbox is enabled, direct placement in the map editor and filling, cancelling, or removing any moat remain available to everyone.
 
 ### Let monks run
-Fighting Monks and Temple Guards can use the normal troop running behavior and animation instead of always being restricted to walking.
+Disabled by default: Fighting Monks and Temple Guards can use the normal troop running behavior and animation instead of always being restricted to walking.
 
 ### Customize Lord health
 Set separate health multipliers for human and AI Lords from 10% to 500%. Both current and maximum health are adjusted when the match starts, while the normal health differences between individual AI Lords are preserved.
@@ -21,15 +21,15 @@ New troop commands turn selected swordsmen into mounted knights or mounted knigh
 ## Gatehouse features
 
 ### Customize automatic gate timing and distance
-Set separate enemy-detection distances and reopening delays for human and AI gatehouses. Delays are measured in simulation time, so higher game speeds make the same delay pass faster in real time.
+Set separate enemy-detection distances and reopening delays for human and AI gatehouses.
 
 ### Control gatehouse automation individually
-Every owned gatehouse receives a button that switches it between normal automatic control and manual-only control. A manual-only gate no longer opens or closes automatically, remains controllable with the normal gate commands, and keeps this setting in saved games and maps.
+Every owned gatehouse receives a button that switches it between normal automatic control and manual-only control. A manual-only gate no longer opens or closes automatically.
 
 ## Buildings and production
 
 ### Add more priests to religious buildings
-Churches employ two priests and cathedrals employ three instead of one. The change applies to both newly built and existing buildings.
+Churches employ two priests and cathedrals employ three instead of one.
 
 ### Customize the campfire population
 Set the maximum number of peasants who may wait at the campfire, from 0 to 200, or leave the Vanilla limit unchanged.
@@ -43,12 +43,10 @@ Goods inside a granary, stockpile, or armory are returned as incoming goods when
 ### Customize enemy proximity for building actions
 Set separate Singleplayer and Multiplayer enemy-exclusion radii for human and AI building actions. Human values apply to normal building placement, repair, and demolition; the demolition cursor from BugfixesAndQoL reads the same active range. AI values apply only to safely classified repairs of damaged defenses and walls and to rebuilding previously built towers and gatehouses, while initial placements and unclassified AI building calls remain unchanged.
 
-Each value ranges from -1 to 100 fields. A value of -1 retains the complete context-specific Vanilla behavior, while 0 practically disables the proximity restriction. Normal human Vanilla checks use 30 fields in Singleplayer and 15 fields in real Multiplayer. Special placement checks with their own Vanilla radii remain unchanged. Skirmishes, Trails, and every other match that is not real Multiplayer use the Singleplayer values.
-
 ## Economy features
 
 ### Multiply gained goods
-Apply separate multipliers to goods gained by human and AI players, allowing normal deposits to produce additional copies. Market purchases and demolition refunds are excluded so they are not multiplied again.
+Apply separate multipliers to goods gained by human and AI players, allowing normal deposits to produce additional copies.
 
 ### Convert gained goods into bonus gold
 Award human or AI players extra gold whenever they gain goods, based on the goods' current market sell value. This can strengthen an economy without adding more physical goods and can be combined with the goods multiplier.
@@ -59,7 +57,7 @@ Multiply all market buying and selling prices globally, then fine-tune the buyin
 ## Plague features
 
 ### Customize plague-cloud duration
-Set how long plague clouds remain active from 0.5 to 20 times the Vanilla duration. Longer durations also extend how long a cloud can cause damage.
+Set how long plague clouds remain active from 0.5 to 20 times the Vanilla duration. Longer durations also extend how long a cloud can cause damage. By default set to *4.
 
 ### Customize apothecary search range
 Set how far an apothecary searches from its assigned building for plague clouds. The range can be adjusted from 20 to 200 tiles; Vanilla uses 30.
