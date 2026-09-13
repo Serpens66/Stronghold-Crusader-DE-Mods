@@ -1,5 +1,6 @@
 using BepInEx;
 using BepInEx.Bootstrap;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
@@ -24,7 +25,7 @@ namespace MoatMove
         public const string PluginVersion = "0.1.0";
         private static ManualLogSource persistentLog;
         private static FriendlyMoatMovementRuntime runtime;
-        private static readonly MoatMoveOptions options = new MoatMoveOptions();
+        private static MoatMoveOptions options;
         private static IDisposable mapStartSubscription;
         private static IDisposable mapUnloadSubscription;
         private static bool initialized;
@@ -38,8 +39,13 @@ namespace MoatMove
             initialized = true;
             persistentLog = Logger;
             if (ReportConflict()) return;
+            string mode = Config.Bind("Movement", "Mode", "precise",
+                new ConfigDescription(
+                    "precise: weighted friendly/allied moat routes. fast: moat only when no ground alternative exists, shared group calculations, no extra moat cost. Restart the game after changing this setting. Use the same mode on all multiplayer peers.",
+                    new AcceptableValueList<string>("precise", "fast"))).Value;
+            options = new MoatMoveOptions(mode);
             Shared.DebugLogHelper.LogInfo(persistentLog,
-                "MoatMove 0.1.0 loaded; precise always active, improvedFill=false, ladderAttackFix=false, formationEnhancements=false; awaiting native library.");
+                $"MoatMove 0.1.0 loaded; mode={options.ModeName}, improvedFill=false, ladderAttackFix=false, formationEnhancements=false; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 
@@ -64,7 +70,7 @@ namespace MoatMove
                 // runtime is process-owned and is never disposed by a plugin/map event.
                 runtime = new FriendlyMoatMovementRuntime(persistentLog, options, context, referenceHashMatches);
                 Shared.DebugLogHelper.LogInfo(persistentLog,
-                    "MoatMove runtime published; comparison=precise; APIShared is optional; detailed diagnostics disabled.");
+                    $"MoatMove runtime published; mode={options.ModeName}; APIShared is optional; detailed diagnostics disabled.");
             }
             catch (Exception ex)
             {
@@ -94,7 +100,7 @@ namespace MoatMove
             mapSequence++;
             mapActive = true;
             mapTickObserved = false;
-            Shared.DebugLogHelper.LogInfo(persistentLog, $"MoatMove map-start sequence={mapSequence}; precise active.");
+            Shared.DebugLogHelper.LogInfo(persistentLog, $"MoatMove map-start sequence={mapSequence}; mode={options.ModeName} active.");
         }
 
         private static void ObserveMapTick(int tick)

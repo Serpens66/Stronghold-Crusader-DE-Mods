@@ -90,14 +90,25 @@ namespace MoatMove
         private long fieldScale = 1;
         private long fieldGeneration;
         private int target;
+        private int targetX, targetY;
         private long groundCost, moatCost;
         private bool useField;
+        // Same lifetime as the existing reverse fields: session/player/map plus the
+        // caller's tick or cursor revision. No additional cache lifetime is introduced.
+        // Four bits per directed edge retain known/allowed/moat/structure separately.
+        private const int EdgePageShift = 10, EdgePageSize = 1 << EdgePageShift;
+        private readonly EdgePage[] edgePages;
+        private long edgeGeneration;
+        private bool cacheEdges;
+        public long EdgeEvaluations { get; private set; }
+        public long EdgeCacheHits { get; private set; }
         public bool LastSearchBudgetExceeded { get; private set; }
 
         public MoatSearchKernel(int width, int height, MoatSearchEdge edge)
         {
             this.width = width; this.height = height; this.edge = edge;
             heads = new int[width * height];
+            edgePages = new EdgePage[(heads.Length + EdgePageSize - 1) >> EdgePageShift];
             for (int i = 0; i < heads.Length; i++) heads[i] = -1;
         }
 
@@ -105,7 +116,7 @@ namespace MoatMove
         public long Searches { get; private set; }
         public long FieldHits { get; private set; }
         public long Refinements { get; private set; }
-        public void Invalidate() { fieldGeneration++; useField = false; }
+        public void Invalidate() { fieldGeneration++; edgeGeneration++; useField = false; }
         internal int CachedFields => fields.Count;
         private static long Gcd(long a, long b) { while (b != 0) { long t = a % b; a = b; b = t; } return a; }
 
@@ -116,6 +127,7 @@ namespace MoatMove
         {
             path = null;
             LastSearchBudgetExceeded = false;
+            cacheEdges = shareField;
             if (start < 0 || destination < 0 || start >= heads.Length || destination >= heads.Length)
                 return false;
             if (maximumExpanded <= 0)
@@ -124,7 +136,8 @@ namespace MoatMove
                 return false;
             }
             long expandedBeforeSearch = Expanded;
-            target = destination; groundCost = ground; moatCost = moat;
+            target = destination; targetX = destination % width; targetY = destination / width;
+            groundCost = ground; moatCost = moat;
             useField = false;
             // Do the constant-time bound before constructing or extending any field.
             if (!Fits(0, 0, start, requireMoat, limits)) return false;
@@ -236,13 +249,16 @@ namespace MoatMove
                 if (current.Node == target && (!refine || !requireMoat || current.Moat > 0))
                 { path = Trace(index); return true; }
                 if (current.Ground + current.Moat >= maximumEdges) continue;
+                int currentX = current.Node % width, currentY = current.Node / width;
                 for (int d = 0; d < 8; d++)
                 {
-                    int next = Neighbour(current.Node, d);
-                    if (next < 0 || !edge(current.Node, next, d, out bool wet, out bool structure) ||
+                    int nx = currentX + Dx[d], ny = currentY + Dy[d];
+                    if ((uint)nx >= width || (uint)ny >= height) continue;
+                    int next = ny * width + nx;
+                    if (!ReadEdge(current.Node, next, d, out bool wet, out bool structure) ||
                         (excludeStructures && structure)) continue;
                     int ng = current.Ground + (wet ? 0 : 1), nm = current.Moat + (wet ? 1 : 0);
-                    if (ng + nm + Distance(next, target) > maximumEdges ||
+                    if (ng + nm + Math.Max(Math.Abs(nx - targetX), Math.Abs(ny - targetY)) > maximumEdges ||
                         (refine && !Fits(ng, nm, next, requireMoat, limits))) continue;
                     bool dominated = false;
                     long cost = ng * groundCost + nm * moatCost;
@@ -272,7 +288,7 @@ namespace MoatMove
         private bool Fits(int ground, int moat, int node, bool requireMoat, MoatSearchLimit[] limits)
         {
             if (limits == null) return true;
-            int remaining = Distance(node, target);
+            int remaining = DistanceToTarget(node);
             foreach (MoatSearchLimit limit in limits)
             {
                 long lower = limit.Ground * (ground + (long)remaining) + limit.Moat * moat;
@@ -291,7 +307,7 @@ namespace MoatMove
             for (int i = 1; i < path.Length; i++)
             {
                 int d = Direction(path[i - 1], path[i]);
-                if (d < 0 || !edge(path[i - 1], path[i], d, out bool wet, out bool structure) ||
+                if (d < 0 || !ReadEdge(path[i - 1], path[i], d, out bool wet, out bool structure) ||
                     (excludeStructures && structure)) return false;
                 if (wet) moat++; else ground++;
             }
@@ -305,6 +321,47 @@ namespace MoatMove
             for (int i = count - 1; i >= 0; i--)
             { result[i] = labels[index].Node; index = labels[index].Parent; }
             return result;
+        }
+        private bool ReadEdge(int from, int to, int direction, out bool moat, out bool structure)
+        {
+            if (!cacheEdges)
+            {
+                EdgeEvaluations++;
+                return edge(from, to, direction, out moat, out structure);
+            }
+            // Index by destination: reverse expansion then reads all eight incoming
+            // edges from one word. Original direction still uniquely identifies from.
+            int pageIndex = to >> EdgePageShift, slot = to & (EdgePageSize - 1);
+            EdgePage page = edgePages[pageIndex] ?? (edgePages[pageIndex] = new EdgePage());
+            if (page.Generation != edgeGeneration)
+            {
+                Array.Clear(page.Edges, 0, EdgePageSize);
+                page.Generation = edgeGeneration;
+            }
+            int shift = direction * 4;
+            uint value = (page.Edges[slot] >> shift) & 15;
+            if ((value & 1) != 0)
+            {
+                EdgeCacheHits++;
+                moat = (value & 4) != 0; structure = (value & 8) != 0;
+                return (value & 2) != 0;
+            }
+            EdgeEvaluations++;
+            bool allowed = edge(from, to, direction, out moat, out structure);
+            value = 1U | (allowed ? 2U : 0U) | (moat ? 4U : 0U) | (structure ? 8U : 0U);
+            page.Edges[slot] |= value << shift;
+            return allowed;
+        }
+        private uint KnownIncomingEdges(int node)
+        {
+            if (!cacheEdges) return 0;
+            EdgePage page = edgePages[node >> EdgePageShift];
+            return page != null && page.Generation == edgeGeneration ? page.Edges[node & (EdgePageSize - 1)] : 0;
+        }
+        private sealed class EdgePage
+        {
+            public long Generation;
+            public readonly uint[] Edges = new uint[EdgePageSize];
         }
         private void Add(Label label)
         {
@@ -346,18 +403,13 @@ namespace MoatMove
         }
         private long Heuristic(int node)
         {
-            long lower = Distance(node, target) * groundCost;
+            long lower = DistanceToTarget(node) * groundCost;
             if (!useField) return lower;
             long difference = field.Lower(node) - field.Cost(target);
             long scaled = difference <= 0 ? 0 : difference > long.MaxValue / fieldScale ? long.MaxValue : difference * fieldScale;
             return Math.Max(lower, scaled);
         }
-        private int Distance(int a, int b) => Math.Max(Math.Abs(a % width - b % width), Math.Abs(a / width - b / width));
-        private int Neighbour(int node, int direction)
-        {
-            int x = node % width + Dx[direction], y = node / width + Dy[direction];
-            return x < 0 || y < 0 || x >= width || y >= height ? -1 : y * width + x;
-        }
+        private int DistanceToTarget(int node) => Math.Max(Math.Abs(node % width - targetX), Math.Abs(node / width - targetY));
         public int Direction(int from, int to)
         {
             int dx = to % width - from % width, dy = to / width - from / width;
@@ -377,7 +429,7 @@ namespace MoatMove
         {
             public long CacheGeneration;
             private readonly MoatSearchKernel owner;
-            private int first;
+            private int firstX, firstY, anchorX, anchorY;
             // Sparse pages keep indexed reads cheap without allocating a full map's
             // distance/parent arrays for every traversal and speed profile.
             private const int PageShift = 10, PageSize = 1 << PageShift, PageMask = PageSize - 1;
@@ -399,7 +451,9 @@ namespace MoatMove
                     generation = 0;
                 }
                 generation++; queue.Clear(); frontier = 0; Expanded = 0;
-                Anchor = anchor; this.first = first;
+                Anchor = anchor;
+                firstX = first % owner.width; firstY = first / owner.width;
+                anchorX = anchor % owner.width; anchorY = anchor / owner.width;
                 Ground = ground; Moat = moat; ExcludeStructures = exclude;
                 Set(anchor, 0, -1); Push(new Entry(anchor, 0, Priority(anchor, 0)));
             }
@@ -435,8 +489,10 @@ namespace MoatMove
                 page.Generation[slot] = generation; page.Distance[slot] = cost; page.Parent[slot] = parent;
             }
             public long Lower(int node) => IsSettled(node) ? Cost(node) :
-                Math.Max(owner.Distance(node, Anchor) * Ground, frontier - owner.Distance(node, first) * Ground);
-            private long Priority(int node, long cost) => cost + owner.Distance(node, first) * Ground;
+                Math.Max(Math.Max(Math.Abs(node % owner.width - anchorX), Math.Abs(node / owner.width - anchorY)) * Ground,
+                    frontier - Math.Max(Math.Abs(node % owner.width - firstX), Math.Abs(node / owner.width - firstY)) * Ground);
+            private long Priority(int node, long cost) => cost +
+                Math.Max(Math.Abs(node % owner.width - firstX), Math.Abs(node / owner.width - firstY)) * Ground;
             public void Settle(int wanted, long ceiling, int maximumExpanded)
             {
                 int expandedAtStart = (int)Math.Min(int.MaxValue, Expanded);
@@ -451,16 +507,30 @@ namespace MoatMove
                     Entry entry = Pop();
                     if (IsSettled(entry.Node) || Cost(entry.Node) != entry.Cost) continue;
                     pages[entry.Node >> PageShift].Generation[entry.Node & PageMask] = -generation; Expanded++;
+                    int currentX = entry.Node % owner.width, currentY = entry.Node / owner.width;
+                    uint knownEdges = owner.KnownIncomingEdges(entry.Node);
                     for (int d = 0; d < 8; d++)
                     {
-                        int predecessor = owner.Neighbour(entry.Node, d);
+                        int nx = currentX + Dx[d], ny = currentY + Dy[d];
+                        if ((uint)nx >= owner.width || (uint)ny >= owner.height) continue;
+                        int predecessor = ny * owner.width + nx;
                         // Reverse traversal must test the ORIGINAL directed edge.
-                        if (predecessor < 0 || !owner.edge(predecessor, entry.Node, (d + 4) & 7,
-                            out bool wet, out bool structure) || (ExcludeStructures && structure)) continue;
+                        int originalDirection = (d + 4) & 7;
+                        uint known = (knownEdges >> (originalDirection * 4)) & 15;
+                        bool wet, structure;
+                        if ((known & 1) != 0)
+                        {
+                            owner.EdgeCacheHits++;
+                            if ((known & 2) == 0) continue;
+                            wet = (known & 4) != 0; structure = (known & 8) != 0;
+                        }
+                        else if (!owner.ReadEdge(predecessor, entry.Node, originalDirection, out wet, out structure)) continue;
+                        if (ExcludeStructures && structure) continue;
                         long cost = entry.Cost + (wet ? Moat : Ground);
                         if (TryCost(predecessor, out long old) && old <= cost) continue;
                         Set(predecessor, cost, entry.Node);
-                        Push(new Entry(predecessor, cost, Priority(predecessor, cost)));
+                        Push(new Entry(predecessor, cost, cost +
+                            Math.Max(Math.Abs(nx - firstX), Math.Abs(ny - firstY)) * Ground));
                     }
                 }
                 while (queue.Count > 0 && (IsSettled(queue[0].Node) || Cost(queue[0].Node) != queue[0].Cost)) Pop();

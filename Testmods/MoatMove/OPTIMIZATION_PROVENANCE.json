@@ -1,0 +1,7 @@
+{
+  "baseline": "SOURCE_PROVENANCE.json",
+  "kernelSha256": "8F14B90E134F8F3CAEE16C826191503577C97580BBB01C238224FE1D8BA573D8",
+  "scope": "Managed kernel only; all other 21 copied sources unchanged",
+  "nativeAudit": "../../_inspect/MoatMove/NativeAudit/PROGRESS.md",
+  "nativeSha256": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2"
+}

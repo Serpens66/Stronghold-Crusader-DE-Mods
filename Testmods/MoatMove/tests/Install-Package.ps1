@@ -24,4 +24,16 @@ foreach ($name in $files) {
     Copy-Item -LiteralPath $source -Destination $destination -Force
     if ((Get-PackageHash $source) -ne (Get-PackageHash $destination)) { throw "Installation hash mismatch: $name" }
 }
+$configDir = [IO.Path]::GetFullPath((Join-Path $gameRoot 'BepInEx\config'))
+$configPath = [IO.Path]::GetFullPath((Join-Path $configDir 'MoatMove_Serp.cfg'))
+if ($configPath -ne ($gameRoot + '\BepInEx\config\MoatMove_Serp.cfg')) { throw 'Invalid config target.' }
+if (-not [IO.File]::Exists($configPath)) {
+    [IO.Directory]::CreateDirectory($configDir) | Out-Null
+    $defaultConfig = "# MoatMove: restart the game after changing Mode. Use the same mode on all peers.`r`n[Movement]`r`n# precise: weighted routes; fast: moat only when no ground alternative exists.`r`nMode = precise`r`n"
+    $configBytes = [Text.UTF8Encoding]::new($false).GetBytes($defaultConfig)
+    $stream = [IO.File]::Open($configPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
+    try { $stream.Write($configBytes, 0, $configBytes.Length) } finally { $stream.Dispose() }
+    if (-not [string]::Equals([IO.File]::ReadAllText($configPath), $defaultConfig, [StringComparison]::Ordinal)) { throw 'Config verification failed.' }
+    Write-Output "Created default mode config: $configPath"
+} else { Write-Output "Preserved existing mode config: $configPath" }
 Write-Output "PASS installed MoatMove 0.1.0; DLL/PDB/manifest hashes match: $installedDir"

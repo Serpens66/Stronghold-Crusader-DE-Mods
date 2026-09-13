@@ -8,6 +8,7 @@
     <OutputType>Library</OutputType><RootNamespace>MoatMove</RootNamespace><AssemblyName>MoatMove</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion><LangVersion>latest</LangVersion><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>BepInEx\plugins\MoatMove_Serp\</OutputPath><DebugSymbols>true</DebugSymbols><DebugType>portable</DebugType><WarningLevel>4</WarningLevel>
+    <Optimize>true</Optimize>
     <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
     <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
   </PropertyGroup>
@@ -41,6 +42,7 @@
     <Compile Include="src\CursorRegionGraph.cs" />
     <Compile Include="src\DirectMoatCommandScopes.cs" />
     <Compile Include="src\FastMoatBridge.cs" />
+    <Compile Include="src\FastRouteField.cs" />
     <Compile Include="src\FillWeightedRoutes.cs" />
     <Compile Include="src\FriendlyMoatMovementPolicy.cs" />
     <Compile Include="src\FriendlyMoatMovementRuntime.cs" />

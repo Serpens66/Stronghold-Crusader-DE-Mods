@@ -1,0 +1,25 @@
+# Fast rewrite - work in progress
+
+The new Fast mode is NOT installed or integrated yet. Installed build remains the preceding Precise optimization with copied legacy Fast. No runtime build was run during this rewrite stage.
+
+User requirements: rewrite Fast completely; ground alternatives take precedence, no additional moat cost, few shared computations for groups. Expensive commands may be delayed rather than discarded. Pending decision: may groups use common routes/coarse destination distribution, or must each Vanilla formation endpoint remain exact? Asked asynchronously; no answer recorded yet.
+
+## New independent component
+
+FastRouteField.cs is a new directed, reverse, unweighted BFS. A single field serves multiple starts for its fixed destination. Advance consumes a deterministic node slice without destroying its frontier. Pending, NoRoute, Found, TooLong, Cancelled and InvalidQuery are distinct. NoRoute requires exhausted reachable frontier. Native 2000-direction buffer limits remain separate from topological reachability. Reset clears visited/frontier cells; cancellation revokes ready results as well. Native pointers, publication and command state are deliberately absent. Integration must supply a stable traversal revision, retain command identity and validate live edges before publishing.
+
+FastRouteFieldTests compares 100 directed random maps and all 221 starts with independent forward BFS, checks short slices, zero budget, group reuse, reset/cancel and long routes. 289388 new assertions passed. Existing 224452 runtime assertions, 84031 search assertions and 1469340 cursor comparisons also passed. Complete source check now covers 23 copied/new runtime source files; project JSON/lifecycle/CRLF preflight passed (28 runtime sources including source links). Test output: ../../_inspect/MoatMove/fast-rewrite-field-tests.log.
+
+## Native recheck and integration constraints
+
+CURRENT.md/CURRENT.json, database manifest and installed CrusaderDE.dll hash rechecked: FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Existing movement/search/publication audit remains the starting point; deferred execution extends its scope and is NOT yet certified by it. Candidate names below remain candidate; E2610 binding is confirmed.
+
+- Re-read full 11B520 group move: validates regions, mutates patrol/queue state, constructs common field, assigns unit targets, enters movement AI state, calls 196280 and consumes success/failure before final command normalization. Cannot postpone an inner call and assume its surrounding native frame remains available.
+- Re-read full 196280: saves target, binds/clears actual 1000-byte unit buffer, calls F4930/E32B0, publishes state2 on success. Failure clears modes/state and invokes199CD0. There is no managed Pending return contract.
+- Re-read 1855A0 entry: state2/4 consumes path; other states may normalize/perform portal traversal and repath. No assumed arbitrary waiting state may be written.
+- 10AE0 is the player-move packet serializer/deserializer: mode1 serializes tribe/XY as16-bit and flags as8-bit; mode0 decodes and invokes196100, whose result is unused. 196100 sets tribe fast-move flag from bit7 then calls11B520. Full bodies inspected through current baseline; any new hook still needs installed-byte and register-span validation.
+- SE BulkTribeDetours raises Pre then conditionally Original/Post. SkipOriginalFunction produces NO Post event. Deferred scheduling therefore cannot rely on Post to balance scopes or to capture an order it already skipped. Public IssueMoveHereCommand re-enters these events; replay would need explicit recursion/identity handling. Its patrol argument is Boolean, whereas the native parameter isInt16; not every native queue value may be replayed through that wrapper without verification.
+- Existing legacy deferred Fast authorization stores only one local-human tribe/unit-set and expires by30-second wall clock; it is not a persistent queue of commands. Do not reuse it as the scheduler.
+- Confirmed legacy semantic mismatch: 117BC0 returns the first living, unmounted member currently on a completed-moat tile, or0 when none exists. SelectOwnerSafeGroupMoatMode sets VanillaFailureProven from that zero. It therefore treats absence of moat-standing members as failed Vanilla reachability. This is not a proven explanation of the reported intermittent lost orders, but must not survive the rewrite.
+
+Remaining: finish deferred-command producer/consumer audit for chosen group behavior, replace all legacy Fast decision/recovery branches, integrate scheduler and shared fields, test command replacement/queue/patrol/attacks/work and topology changes, run native contracts, then one elevated build.bat installation. Precise behavior, original BugfixesAndQoL, README files and version0.1.0 remain unchanged.

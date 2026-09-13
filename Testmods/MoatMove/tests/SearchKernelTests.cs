@@ -59,6 +59,9 @@ namespace MoatMove
         public static void Run()
         {
             CandidateFieldTests();
+            PreciseComparison();
+            PlannerComparison();
+            CacheBoundaryComparison();
             var random = new Random(1420);
             const int width = 5, count = 25, maximum = 12;
             for (int map = 0; map < 40; map++)
@@ -139,6 +142,179 @@ namespace MoatMove
                 }
             }
             return best;
+        }
+
+        private static void PreciseComparison()
+        {
+            var random = new Random(926183);
+            const int w = 13, h = 11;
+            var edges = new byte[w * h, 8];
+            bool Edge(int f, int t, int d, out bool wet, out bool structure)
+            { byte e = edges[f, d]; wet = e == 2 || e == 4; structure = e >= 3; return e != 0; }
+            var old = new ComparisonMoatSearchKernel(w, h, Edge);
+            var current = new MoatSearchKernel(w, h, Edge);
+            long Cost(int[] path, int ground, int moat)
+            {
+                long result = 0;
+                for (int i = 1; i < path.Length; i++)
+                {
+                    int d = current.Direction(path[i - 1], path[i]);
+                    Check(d >= 0 && Edge(path[i - 1], path[i], d, out _, out _), "comparison path edge exists");
+                    result += edges[path[i - 1], d] == 2 || edges[path[i - 1], d] == 4 ? moat : ground;
+                }
+                return result;
+            }
+            for (int map = 0; map < 60; map++)
+            {
+                for (int n = 0; n < w * h; n++) for (int d = 0; d < 8; d++)
+                    edges[n, d] = (byte)random.Next(5);
+                old.Invalidate(); current.Invalidate();
+                for (int q = 0; q < 60; q++)
+                {
+                    int start = random.Next(w * h), target = random.Next(w * h);
+                    int g = 1 + q % 3, m = g + 6, maximum = 10 + q % 20;
+                    bool require = q % 2 == 0, exclude = q % 3 == 0;
+                    var limits = q % 4 == 0 ? null : new[] {
+                        new MoatSearchLimit(g, m, 40 + q), new MoatSearchLimit(3, 12, 60 + q) };
+                    bool expected = old.Search(start, target, g, m, maximum, require, exclude, limits, true, out var a);
+                    bool actual = current.Search(start, target, g, m, maximum, require, exclude, limits, true, out var b);
+                    Check(expected == actual, "accepted precise copy reachability and constrained feasibility");
+                    if (actual)
+                    {
+                        Check(b[0] == start && b[b.Length - 1] == target, "exact comparison endpoints");
+                        Check(Cost(a, g, m) == Cost(b, g, m), "accepted precise copy optimum cost");
+                        Check(System.Linq.Enumerable.SequenceEqual(a, b), "accepted precise copy exact route including ties");
+                    }
+                }
+            }
+            foreach (int units in new[] { 1, 120, 680 })
+            {
+                const int width = 160, height = 120;
+                bool Terrain(int f, int t, int d, out bool wet, out bool structure)
+                {
+                    wet = f % width >= 76 && f % width <= 79 || t % width >= 76 && t % width <= 79;
+                    structure = false;
+                    // A wall with a distant opening forces useful work beyond a straight line.
+                    return !(t % width == 100 && t / width > 18 && t / width < 102);
+                }
+                var reference = new ComparisonMoatSearchKernel(width, height, Terrain);
+                var optimized = new MoatSearchKernel(width, height, Terrain);
+                long RouteCost(int[] p)
+                {
+                    long c = 0;
+                    for (int i = 1; i < p.Length; i++)
+                    { Terrain(p[i - 1], p[i], 0, out bool wet, out _); c += wet ? 7 : 1; }
+                    return c;
+                }
+                var expected = new long[units];
+                var watch = Stopwatch.StartNew();
+                for (int i = 0; i < units; i++)
+                {
+                    int start = (45 + i % 12) * width + 8 + i % 8;
+                    int target = (48 + i % 12) * width + 140 + i % 8;
+                    Check(reference.Search(start, target, 1, 7, 2000, false, false, null, true, out var path), "comparison formation route");
+                    expected[i] = RouteCost(path);
+                }
+                double referenceMs = watch.Elapsed.TotalMilliseconds;
+                watch.Restart();
+                for (int i = 0; i < units; i++)
+                {
+                    int start = (45 + i % 12) * width + 8 + i % 8;
+                    int target = (48 + i % 12) * width + 140 + i % 8;
+                    Check(optimized.Search(start, target, 1, 7, 2000, false, false, null, true, out var path), "optimized formation route");
+                    Check(RouteCost(path) == expected[i], "formation optimum matches accepted precise copy");
+                }
+                Console.WriteLine($"PRECISE COMPARISON units={units} oldMs={referenceMs:F2} newMs={watch.Elapsed.TotalMilliseconds:F2} oldNodes={reference.Expanded} newNodes={optimized.Expanded} edgeEvaluations={optimized.EdgeEvaluations} edgeCacheHits={optimized.EdgeCacheHits}");
+                Check(optimized.Expanded == reference.Expanded, "search ordering and node budgets unchanged");
+                if (units >= 120) Check(optimized.EdgeCacheHits > optimized.EdgeEvaluations * 20, "formation removes repeated edge evaluations");
+            }
+        }
+
+        private static unsafe void PlannerComparison()
+        {
+            const int nativeTiles = 320800, width = 160, height = 120;
+            var allocations = new System.Collections.Generic.List<IntPtr>();
+            IntPtr Allocate(int bytes)
+            {
+                var value = (IntPtr)System.Runtime.InteropServices.NativeMemory.AllocZeroed((nuint)bytes);
+                allocations.Add(value); return value;
+            }
+            try
+            {
+                int* rows = (int*)Allocate(800 * 3 * 4);
+                uint* flags = (uint*)Allocate(nativeTiles * 4);
+                ushort* buildings = (ushort*)Allocate(nativeTiles * 2);
+                byte* heights = (byte*)Allocate(nativeTiles);
+                byte* masks = (byte*)Allocate(nativeTiles);
+                byte* directions = (byte*)Allocate(8);
+                byte* types = (byte*)Allocate(0x32C * 10001);
+                for (int y = 0; y < 800; y++) rows[y * 3] = y < height ? y * 800 : nativeTiles;
+                for (int i = 0; i < nativeTiles; i++) flags[i] = 0x100;
+                for (int d = 0; d < 8; d++) directions[d] = (byte)(1 << d);
+                bool Open(int x, int y) => x >= 0 && x < width && y >= 0 && y < height && !(x == 100 && y > 18 && y < 102);
+                for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+                {
+                    if (!Open(x, y)) continue;
+                    int tile = y * 800 + x;
+                    bool moat = x >= 76 && x <= 79;
+                    flags[tile] = moat ? 0x40000000U : 0x8000U;
+                    for (int d = 0; d < 8; d++)
+                    {
+                        int nx = x + Dx[d], ny = y + Dy[d];
+                        if (Open(nx, ny) && !moat && !(nx >= 76 && nx <= 79)) masks[tile] |= directions[d];
+                    }
+                }
+                WeightedMovementCostProfile.TryCreate(1, 1, 0, 0, 0, 0, false, out var profile, out _);
+                foreach (int units in new[] { 1, 120, 680 })
+                {
+                    var previous = new ComparisonWeightedMoatRoutePlanner(rows, flags, buildings, heights, masks, directions, types,
+                        (p, t) => CompletedMoatRelationship.Friendly, t => false);
+                    var current = new WeightedMoatRoutePlanner(rows, flags, buildings, heights, masks, directions, types,
+                        (p, t) => CompletedMoatRelationship.Friendly, t => false);
+                    object session = new object();
+                    previous.SetSearchSession(session, 1, 1, 1); current.SetSearchSession(session, 1, 1, 1);
+                    var paths = new WeightedMoatEncodedRoute[units];
+                    var watch = Stopwatch.StartNew();
+                    for (int i = 0; i < units; i++)
+                        Check(previous.TryBuildImprovement(1, 8 + i % 8, 45 + i % 12, 140 + i % 8, 48 + i % 12,
+                            profile, false, null, out _, out paths[i], requireMoat: false), "original planner fixture route");
+                    double oldMs = watch.Elapsed.TotalMilliseconds;
+                    watch.Restart();
+                    for (int i = 0; i < units; i++)
+                    {
+                        Check(current.TryBuildImprovement(1, 8 + i % 8, 45 + i % 12, 140 + i % 8, 48 + i % 12,
+                            profile, false, null, out _, out var path, requireMoat: false), "optimized planner fixture route");
+                        Check(path.DirectionCount == paths[i].DirectionCount && System.Linq.Enumerable.SequenceEqual(path.Bytes, paths[i].Bytes),
+                            "actual planner publishes byte-identical precise candidate");
+                    }
+                    Console.WriteLine($"ACTUAL PRECISE PLANNER units={units} oldMs={oldMs:F2} newMs={watch.Elapsed.TotalMilliseconds:F2} oldNodes={previous.SearchNodes} newNodes={current.SearchNodes}");
+                }
+            }
+            finally { foreach (IntPtr p in allocations) System.Runtime.InteropServices.NativeMemory.Free((void*)p); }
+        }
+
+        private static void CacheBoundaryComparison()
+        {
+            const int w = 64, h = 40;
+            bool blocked = false;
+            bool Edge(int f, int t, int d, out bool wet, out bool structure)
+            { wet = f % w == 31 || t % w == 31; structure = t % w == 40; return !blocked || t % w != 31; }
+            var previous = new ComparisonMoatSearchKernel(w, h, Edge);
+            var current = new MoatSearchKernel(w, h, Edge);
+            for (int revision = 0; revision < 8; revision++)
+            {
+                blocked = revision % 2 != 0;
+                previous.Invalidate(); current.Invalidate();
+                foreach (bool shared in new[] { true, false }) foreach (int budget in new[] { 16, 128, 16384 })
+                {
+                    long oldNodes = previous.Expanded, newNodes = current.Expanded;
+                    bool a = previous.Search(22 * w + 2, 22 * w + 61, 1, 1, 2000, false, false, null, shared, out var oldPath, budget);
+                    bool b = current.Search(22 * w + 2, 22 * w + 61, 1, 1, 2000, false, false, null, shared, out var newPath, budget);
+                    Check(a == b && previous.LastSearchBudgetExceeded == current.LastSearchBudgetExceeded, "Fast fixed-budget behavior matches original after invalidation");
+                    Check(previous.Expanded - oldNodes == current.Expanded - newNodes, "Fast expansion count unchanged");
+                    if (a) Check(System.Linq.Enumerable.SequenceEqual(oldPath, newPath), "Fast unweighted path unchanged");
+                }
+            }
         }
 
         private static void LongReachability()

@@ -17,7 +17,7 @@ if (args.Contains("--standalone-only"))
 string[] runtimeSourceNames =
 {
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
-    "FastMoatBridge.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
+    "FastMoatBridge.cs", "FastRouteField.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs", "FriendlyMoatMovementRuntime.LadderAttackFix.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
@@ -126,11 +126,27 @@ if(referenceProcess.ExitCode!=0)throw new Exception("Missing pinned benchmark re
 var referenceClass=CSharpSyntaxTree.ParseText(referenceSource).GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
     .Single(c=>c.Identifier.Text=="MoatSearchKernel").ToFullString().Replace("MoatSearchKernel","ReferenceMoatSearchKernel");
 var referenceTree=CSharpSyntaxTree.ParseText("using System; using System.Collections.Generic; namespace MoatMove {"+referenceClass+"}");
+// The accepted precise copy, not the older benchmark blob, is the optimization oracle.
+var comparisonClass = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
+    "BugfixesAndQoL", "src", "MoatSearchKernel.cs"))).GetRoot().DescendantNodes()
+    .OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "MoatSearchKernel")
+    .ToFullString().Replace("MoatSearchKernel", "ComparisonMoatSearchKernel");
+var comparisonTree = CSharpSyntaxTree.ParseText("using System; using System.Collections.Generic; namespace MoatMove {" + comparisonClass + "}");
+var comparisonPlannerClass = CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,
+    "BugfixesAndQoL", "src", "WeightedMoatRoutePlanner.cs"))).GetRoot().DescendantNodes()
+    .OfType<ClassDeclarationSyntax>().Single(c => c.Identifier.Text == "WeightedMoatRoutePlanner")
+    .ToFullString().Replace("WeightedMoatRoutePlanner", "ComparisonWeightedMoatRoutePlanner")
+    .Replace("MoatSearchKernel", "ComparisonMoatSearchKernel");
+var comparisonPlannerTree = CSharpSyntaxTree.ParseText("using System; using System.Diagnostics; namespace MoatMove {" + comparisonPlannerClass + "}");
 var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     referenceTree,
+    comparisonTree,
+    comparisonPlannerTree,
     CSharpSyntaxTree.ParseText(extracted),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "WeightedMoatRoutePlanner.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatSearchKernel.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "FastRouteField.cs"))),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FastRouteFieldTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatPlacementSearch.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "NativeFormationSlots.cs")).Replace("using SHCDESE.API;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoveFormationSpacingPolicy.cs"))),
@@ -153,6 +169,7 @@ try
 {
     assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod("RunTests").Invoke(null, null);
     assembly.GetType("MoatMove.SearchKernelTests").GetMethod("Run").Invoke(null, null);
+    assembly.GetType("MoatMove.FastRouteFieldTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.CursorGraphTests").GetMethod("Run").Invoke(null, null);
     assembly.GetType("MoatMove.FriendlyMoatMovementRuntime").GetMethod("RunMachineContract").Invoke(null,new object[]{root});
 }

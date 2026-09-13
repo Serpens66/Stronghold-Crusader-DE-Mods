@@ -1,5 +1,7 @@
 # MoatMove comparison copy
 
+Historical extraction record. The current optimized Precise/Fast build and config are documented in [OPTIMIZATION.md](OPTIMIZATION.md). The fixed-mode statements below describe the initial comparison stage.
+
 Date: 2026-09-13. Test version: 0.1.0.
 
 ## Scope and provenance
