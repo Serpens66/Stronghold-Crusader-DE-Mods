@@ -209,6 +209,7 @@ namespace BugfixesAndQoL
         private bool spectatorPromotionConfirmed;
         private bool spectatorPromotionErrorLogged;
         private bool spectatorPromotionRejectionLogged;
+        private bool gameOverStateCorrectionLogged;
         private int spectatorPromotionPlayerId = -1;
         private string spectatorPromotionGameMode = string.Empty;
         private int lastSpectatorPromotionFrame = -1;
@@ -768,10 +769,21 @@ namespace BugfixesAndQoL
 
         private void SetGameOverStateHook(GameData.Scenarios self, int state, int screen, int skirmishDate)
         {
+            int presentedState = SurrenderPolicy.ResolvePresentedGameOverState(
+                state,
+                spectatorPromotionRequested);
             try
             {
-                lobbyReturnFeature.OnGameOverState(state);
-                if (state > 0 && statisticsPreviewActive)
+                if (presentedState != state && !gameOverStateCorrectionLogged)
+                {
+                    gameOverStateCorrectionLogged = true;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Corrected Vanilla spectator game-over result for eliminated local player {spectatorPromotionPlayerId}: originalState={state}, presentedState={presentedState}.");
+                }
+
+                lobbyReturnFeature.OnGameOverState(presentedState);
+                if (presentedState > 0 && statisticsPreviewActive)
                     CloseStatisticsPreview("vanilla-game-over");
             }
             catch (Exception ex)
@@ -780,7 +792,7 @@ namespace BugfixesAndQoL
             }
 
             // Vanilla must run exactly once even if preview cleanup failed.
-            setGameOverStateOriginal(self, state, screen, skirmishDate);
+            setGameOverStateOriginal(self, presentedState, screen, skirmishDate);
         }
 
         private bool TryOpenStatisticsPreview()
@@ -1360,6 +1372,7 @@ namespace BugfixesAndQoL
             spectatorPromotionConfirmed = false;
             spectatorPromotionErrorLogged = false;
             spectatorPromotionRejectionLogged = false;
+            gameOverStateCorrectionLogged = false;
             spectatorPromotionPlayerId = -1;
             spectatorPromotionGameMode = string.Empty;
             lastSpectatorPromotionFrame = -1;

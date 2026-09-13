@@ -704,9 +704,12 @@ internal static class Program
               registration.Contains("TryGetUnitHudPresentation") &&
               registration.Contains("TryRegisterCategory") &&
               registration.Contains("TryRegisterInteraction") &&
-              registration.Contains("TryRegisterImageOverride") &&
+              registration.Contains("UnitHudSurface.All") &&
+              registration.Contains("ResolveLordIcon") &&
+              !registration.Contains("TryRegisterImageOverride") &&
+              !registration.Contains("HasControlledLord") &&
               registration.Contains("capability.RequestRefresh()"),
-            "Lord HUD and control-group presentation must be registered through APIShared");
+            "Lord HUD presentation must use its own APIShared category without global image overrides");
         string sharedTroopPatch = File.ReadAllText(Path.Combine(
             workspace, "APIShared", "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
         Check(sharedTroopPatch.Contains("APISharedUnitHudCategoryHost") &&

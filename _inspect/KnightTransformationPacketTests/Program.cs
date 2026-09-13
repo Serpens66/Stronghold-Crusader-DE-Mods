@@ -15,6 +15,7 @@ namespace ExtraFeatures
             TestFormatterBounds();
             TestReceiverValidation();
             TestProtocolActions();
+            TestTooltipMetadata();
             TestStableHorseAccounting();
             Console.WriteLine($"PASS: Knight transformation packet tests ({assertions} assertions).");
         }
@@ -148,6 +149,37 @@ namespace ExtraFeatures
                 }
             }
             Assert(completed == 100, "100 dismounts complete in one synchronous pass");
+        }
+
+        private static void TestTooltipMetadata()
+        {
+            AssertTooltipMetadata(0, 0, 0, 0, false, false, false, false);
+            AssertTooltipMetadata(5, 0, 5, 0, true, false, false, true);
+            AssertTooltipMetadata(0, 30, 0, 30, false, true, false, true);
+            AssertTooltipMetadata(5, 30, 5, 30, true, true, true, true);
+            AssertTooltipMetadata(1000, 120, 1000, 120, true, true, true, true);
+            AssertTooltipMetadata(1001, 121, 1000, 120, true, true, true, true);
+            AssertTooltipMetadata(-1, -1, 0, 0, false, false, false, false);
+        }
+
+        private static void AssertTooltipMetadata(
+            int goldCost,
+            int delaySeconds,
+            int expectedGoldCost,
+            int expectedDelaySeconds,
+            bool showGold,
+            bool showDelay,
+            bool showSeparator,
+            bool showHost)
+        {
+            KnightTransformationTooltipMetadata metadata =
+                KnightTransformationTooltipPolicy.Create(goldCost, delaySeconds);
+            Assert(metadata.GoldCost == expectedGoldCost, $"tooltip gold clamps to {expectedGoldCost}");
+            Assert(metadata.DelaySeconds == expectedDelaySeconds, $"tooltip delay clamps to {expectedDelaySeconds}");
+            Assert(metadata.ShowGold == showGold, $"tooltip gold visibility for {goldCost}/{delaySeconds}");
+            Assert(metadata.ShowDelay == showDelay, $"tooltip delay visibility for {goldCost}/{delaySeconds}");
+            Assert(metadata.ShowSeparator == showSeparator, $"tooltip separator visibility for {goldCost}/{delaySeconds}");
+            Assert(metadata.ShowHost == showHost, $"tooltip host visibility for {goldCost}/{delaySeconds}");
         }
 
         private static int FindMaximumFittingSequentialTargetCount()

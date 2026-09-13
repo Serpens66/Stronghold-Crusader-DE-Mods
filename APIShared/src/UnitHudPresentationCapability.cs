@@ -96,6 +96,9 @@ namespace APIShared
         private Border[,] groupTints;
         private bool refreshRequested;
         private int lastFrame = -1;
+        private int[] lastTroopSelectionIds = Array.Empty<int>();
+        private int[] lastTroopSelectionTypes = Array.Empty<int>();
+        private bool hasRenderedTroopSelection;
         private int lastSpriteColour;
         private bool lastSpriteArabic;
         private bool hasSpriteContext;
@@ -363,8 +366,8 @@ namespace APIShared
             if (vanillaCounts == null || positions == null || positions.Length < TroopSlotCount)
                 throw new InvalidOperationException("Vanilla troop HUD fields have an unexpected layout.");
 
-            List<UnitHudUnitSnapshot> selected = CaptureSelectedUnits();
-            List<DisplayEntry> entries = BuildEntries(selected, vanillaCounts, UnitHudSurface.TroopSelection);
+            bool selectionComplete = TryCaptureSelectedUnits(out List<UnitHudUnitSnapshot> selected);
+            List<DisplayEntry> entries = BuildEntries(selected, vanillaCounts, selectionComplete, UnitHudSurface.TroopSelection);
             int pages = Math.Max(1, (entries.Count + TroopSlotCount - 1) / TroopSlotCount);
             int page = Math.Max(0, Math.Min((int)CurrentPageField.GetValue(panel), pages - 1));
             PagesField.SetValue(panel, pages);
@@ -408,6 +411,7 @@ namespace APIShared
                 visibleSlots.Clear();
                 visibleSlots.AddRange(snapshots);
             }
+            RememberRenderedTroopSelection();
         }
 
         private static void ApplyTint(Border target, UnitHudTint tint, ImageSource source)
@@ -776,9 +780,15 @@ namespace APIShared
             }
             TryApplyFrameArea("refresh", () =>
             {
-                if (refresh)
+                bool troopSelectionChanged = main?.Show_HUD_Troops == true &&
+                    HasCategories(UnitHudSurface.TroopSelection) &&
+                    HasRenderedTroopSelectionChanged();
+                if (refresh || troopSelectionChanged)
                 {
                     if (main?.Show_HUD_Troops == true) main.HUDTroopPanel?.SetupSelectedTroops();
+                }
+                if (refresh)
+                {
                     if (main?.Show_HUD_ControlGroups == true) main.HUDControlGroups?.Update();
                     if (main != null && hasSpriteContext && IsImageOverrideContextReady())
                     {
@@ -1042,9 +1052,14 @@ namespace APIShared
             }
         }
 
-        private List<DisplayEntry> BuildEntries(List<UnitHudUnitSnapshot> selected, int[] vanillaCounts, UnitHudSurface surface)
+        private List<DisplayEntry> BuildEntries(
+            List<UnitHudUnitSnapshot> selected,
+            int[] vanillaCounts,
+            bool selectionComplete,
+            UnitHudSurface surface)
         {
             var claimed = new Dictionary<string, List<UnitHudUnitSnapshot>>(StringComparer.Ordinal);
+            var claimedIds = new HashSet<int>();
             var reduction = new int[vanillaCounts.Length];
             foreach (UnitHudUnitSnapshot unit in selected)
             {
@@ -1052,13 +1067,21 @@ namespace APIShared
                 if (category == null) continue;
                 if (!claimed.TryGetValue(category.Key, out List<UnitHudUnitSnapshot> list)) claimed[category.Key] = list = new List<UnitHudUnitSnapshot>();
                 list.Add(unit);
+                claimedIds.Add(unit.GameId);
                 if (unit.VanillaType >= 0 && unit.VanillaType < reduction.Length) reduction[unit.VanillaType]++;
             }
+            int[] effectiveCounts = UnitHudSelectionPolicy.ResolveVanillaTroopCounts(
+                vanillaCounts,
+                selected,
+                claimedIds,
+                selectionComplete);
             var result = new List<DisplayEntry>();
             CategoryRegistration[] registrations = CategoryCopy();
-            for (int type = 0; type < vanillaCounts.Length; type++)
+            for (int type = 0; type < effectiveCounts.Length; type++)
             {
-                int normal = Math.Max(0, vanillaCounts[type] - reduction[type]);
+                int normal = selectionComplete
+                    ? effectiveCounts[type]
+                    : Math.Max(0, effectiveCounts[type] - reduction[type]);
                 if (normal > 0) result.Add(new DisplayEntry(type, normal));
                 foreach (CategoryRegistration category in registrations.Where(x => x.Definition.BaseUnitType == type && HasSurface(x, surface)))
                     if (claimed.TryGetValue(category.Key, out List<UnitHudUnitSnapshot> units) && units.Count > 0) result.Add(new DisplayEntry(category, units));
@@ -1068,14 +1091,72 @@ namespace APIShared
 
         private List<UnitHudUnitSnapshot> CaptureSelectedUnits()
         {
-            var result = new List<UnitHudUnitSnapshot>();
+            TryCaptureSelectedUnits(out List<UnitHudUnitSnapshot> result);
+            return result;
+        }
+
+        private static bool TryCaptureSelectedUnits(out List<UnitHudUnitSnapshot> result)
+        {
+            result = new List<UnitHudUnitSnapshot>();
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
-            if (state?.selectedChimps == null) return result;
-            int count = Math.Min(state.numSelectedChimps, state.selectedChimps.Length);
+            if (state == null || state.numSelectedChimps < 0 || state.selectedChimps == null ||
+                state.selectedChimpTypes == null || state.selectedChimps.Length < state.numSelectedChimps ||
+                state.selectedChimpTypes.Length < state.numSelectedChimps)
+                return false;
+            int count = state.numSelectedChimps;
             var seen = new HashSet<int>();
             for (int i = 0; i < count; i++)
-                if (seen.Add(state.selectedChimps[i]) && TryCapture(state.selectedChimps[i], out UnitHudUnitSnapshot snapshot)) result.Add(snapshot);
-            return result;
+            {
+                int unitId = state.selectedChimps[i];
+                if (!seen.Add(unitId) || !TryCapture(unitId, out UnitHudUnitSnapshot snapshot) ||
+                    snapshot.VanillaType != state.selectedChimpTypes[i])
+                    return false;
+                result.Add(snapshot);
+            }
+            return true;
+        }
+
+        private bool HasRenderedTroopSelectionChanged()
+        {
+            if (!hasRenderedTroopSelection ||
+                !TryGetTroopSelectionIdentity(out int[] ids, out int[] types, out int count))
+                return false;
+            return !UnitHudSelectionPolicy.SelectionIdentityEquals(
+                lastTroopSelectionIds,
+                lastTroopSelectionTypes,
+                ids,
+                types,
+                count);
+        }
+
+        private void RememberRenderedTroopSelection()
+        {
+            if (!TryGetTroopSelectionIdentity(out int[] sourceIds, out int[] sourceTypes, out int count))
+            {
+                hasRenderedTroopSelection = false;
+                return;
+            }
+            lastTroopSelectionIds = new int[count];
+            lastTroopSelectionTypes = new int[count];
+            Array.Copy(sourceIds, lastTroopSelectionIds, count);
+            Array.Copy(sourceTypes, lastTroopSelectionTypes, count);
+            hasRenderedTroopSelection = true;
+        }
+
+        private static bool TryGetTroopSelectionIdentity(out int[] ids, out int[] types, out int count)
+        {
+            ids = null;
+            types = null;
+            count = 0;
+            EngineInterface.PlayState state = GameData.Instance?.lastGameState;
+            if (state == null || state.numSelectedChimps < 0 || state.selectedChimps == null ||
+                state.selectedChimpTypes == null || state.selectedChimps.Length < state.numSelectedChimps ||
+                state.selectedChimpTypes.Length < state.numSelectedChimps)
+                return false;
+            count = state.numSelectedChimps;
+            ids = state.selectedChimps;
+            types = state.selectedChimpTypes;
+            return true;
         }
 
         private static bool TryCapture(int unitId, out UnitHudUnitSnapshot snapshot)
@@ -1399,5 +1480,54 @@ namespace APIShared
             internal CategoryRegistration Category { get; } internal int SummaryType { get; } internal int BaseType { get; } internal int Count { get; set; }
             internal string SortKey => Category != null ? "1:" + Category.Key : "0:" + SummaryType.ToString("D2");
         }
+    }
+
+    internal static class UnitHudSelectionPolicy
+    {
+        internal static int[] ResolveVanillaTroopCounts(
+            int[] vanillaCounts,
+            IReadOnlyList<UnitHudUnitSnapshot> selected,
+            ISet<int> claimedUnitIds,
+            bool selectionComplete)
+        {
+            if (vanillaCounts == null) throw new ArgumentNullException(nameof(vanillaCounts));
+            var result = (int[])vanillaCounts.Clone();
+            if (!selectionComplete || selected == null || claimedUnitIds == null)
+                return result;
+            Array.Clear(result, 0, result.Length);
+            foreach (UnitHudUnitSnapshot unit in selected)
+            {
+                if (unit == null || claimedUnitIds.Contains(unit.GameId) ||
+                    unit.VanillaType < 0 || unit.VanillaType >= result.Length ||
+                    !IsVanillaTroopHudType(unit.VanillaType))
+                    continue;
+                result[unit.VanillaType]++;
+            }
+            return result;
+        }
+
+        internal static bool SelectionIdentityEquals(
+            int[] leftIds,
+            int[] leftTypes,
+            int[] rightIds,
+            int[] rightTypes,
+            int rightCount)
+        {
+            if (leftIds == null || leftTypes == null || rightIds == null || rightTypes == null ||
+                rightCount < 0 || leftIds.Length != leftTypes.Length || leftIds.Length != rightCount ||
+                rightIds.Length < rightCount || rightTypes.Length < rightCount)
+                return false;
+            for (int i = 0; i < rightCount; i++)
+                if (leftIds[i] != rightIds[i] || leftTypes[i] != rightTypes[i]) return false;
+            return true;
+        }
+
+        private static bool IsVanillaTroopHudType(int unitType) =>
+            unitType == (int)eChimps.CHIMP_TYPE_TUNNELER ||
+            unitType >= (int)eChimps.CHIMP_TYPE_ARCHER && unitType <= (int)eChimps.CHIMP_TYPE_ENGINEER ||
+            unitType == (int)eChimps.CHIMP_TYPE_MONK ||
+            unitType >= (int)eChimps.CHIMP_TYPE_CATAPULT && unitType <= (int)eChimps.CHIMP_TYPE_MANGONEL ||
+            unitType >= (int)eChimps.CHIMP_TYPE_SIEGE_TOWER && unitType <= (int)eChimps.CHIMP_TYPE_BALLISTA ||
+            unitType >= (int)eChimps.CHIMP_TYPE_ARAB_BOW && unitType <= (int)eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER;
     }
 }

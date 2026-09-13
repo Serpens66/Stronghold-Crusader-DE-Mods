@@ -157,6 +157,14 @@ namespace ExtraFeatures
         private readonly KnightDismountButtonViewModel buttonViewModel;
         private Button hookedDismountButton;
         private Button hookedMountButton;
+        private HUD_Troops tooltipMetadataPanel;
+        private StackPanel tooltipMetadataHost;
+        private Image tooltipGoldIcon;
+        private TextBlock tooltipGoldText;
+        private TextBlock tooltipSeparatorText;
+        private TextBlock tooltipDelayText;
+        private bool tooltipMetadataElementsMissingLogged;
+        private bool tooltipGoldIconMissingLogged;
         private bool initialized;
         private bool disposed;
         private bool networkInitialized;
@@ -333,6 +341,8 @@ namespace ExtraFeatures
                 hookedMountButton.MouseLeave -= OnButtonMouseLeave;
                 hookedMountButton = null;
             }
+
+            ResetTooltipMetadata();
         }
 
         private void OnDismountButtonMouseEnter(object sender, MouseEventArgs e)
@@ -354,7 +364,7 @@ namespace ExtraFeatures
         {
             ShowTooltip(
                 SerpLocalization.Get(SerpLocalization.KnightDismountTooltip),
-                AppendTransformationCosts(SerpLocalization.Get(SerpLocalization.KnightDismountTooltipBody)),
+                SerpLocalization.Get(SerpLocalization.KnightDismountTooltipBody),
                 "dismount");
         }
 
@@ -362,28 +372,8 @@ namespace ExtraFeatures
         {
             ShowTooltip(
                 SerpLocalization.Get(SerpLocalization.KnightMountTooltip),
-                AppendTransformationCosts(SerpLocalization.Get(SerpLocalization.KnightMountTooltipBody)),
+                SerpLocalization.Get(SerpLocalization.KnightMountTooltipBody),
                 "mount");
-        }
-
-        private string AppendTransformationCosts(string body)
-        {
-            var lines = new List<string> { body ?? string.Empty };
-            if (settings.KnightTransformationGoldCost > 0)
-            {
-                lines.Add(string.Format(
-                    CultureInfo.CurrentCulture,
-                    SerpLocalization.Get(SerpLocalization.KnightTransformationTooltipGold),
-                    settings.KnightTransformationGoldCost));
-            }
-            if (settings.KnightTransformationDelaySeconds > 0)
-            {
-                lines.Add(string.Format(
-                    CultureInfo.CurrentCulture,
-                    SerpLocalization.Get(SerpLocalization.KnightTransformationTooltipDelay),
-                    settings.KnightTransformationDelaySeconds));
-            }
-            return string.Join(Environment.NewLine, lines);
         }
 
         private void ShowTooltip(string title, string body, string label)
@@ -399,6 +389,7 @@ namespace ExtraFeatures
                 mainViewModel.TroopsPanelRollover_AmountReq1 = string.Empty;
                 mainViewModel.TroopsPanelRollover_AmountGot1 = body;
                 mainViewModel.TroopsPanelRollover_GoodsImage1 = null;
+                UpdateTooltipMetadata(troopPanel, mainViewModel);
                 SetTroopRolloverVisibility(troopPanel, false, true);
             }
             catch (Exception ex)
@@ -413,11 +404,117 @@ namespace ExtraFeatures
             {
                 HUD_Troops troopPanel = MainViewModel.Instance == null ? null : MainViewModel.Instance.HUDTroopPanel;
                 if (troopPanel != null)
+                {
+                    ResetTooltipMetadata();
                     SetTroopRolloverVisibility(troopPanel, false, false);
+                }
             }
             catch (Exception ex)
             {
                 LogError($"Knight mount/dismount tooltip hide failed: {ex}");
+            }
+        }
+
+        private void UpdateTooltipMetadata(HUD_Troops troopPanel, MainViewModel mainViewModel)
+        {
+            KnightTransformationTooltipMetadata metadata = KnightTransformationTooltipPolicy.Create(
+                settings.KnightTransformationGoldCost,
+                settings.KnightTransformationDelaySeconds);
+            if (!TryResolveTooltipMetadataElements(troopPanel))
+                return;
+
+            tooltipGoldText.Text = metadata.ShowGold
+                ? metadata.GoldCost.ToString(CultureInfo.CurrentCulture)
+                : string.Empty;
+            tooltipGoldText.Visibility = metadata.ShowGold ? Visibility.Visible : Visibility.Collapsed;
+
+            ImageSource goldIcon = null;
+            if (metadata.ShowGold)
+            {
+                try
+                {
+                    goldIcon = mainViewModel.getSmallGoodsIcon((int)eGoods.STORED_GOLD);
+                }
+                catch (Exception ex)
+                {
+                    if (!tooltipGoldIconMissingLogged)
+                    {
+                        tooltipGoldIconMissingLogged = true;
+                        LogWarning($"Knight transformation tooltip could not resolve the Vanilla gold icon: {ex.Message}");
+                    }
+                }
+
+                if (goldIcon == null && !tooltipGoldIconMissingLogged)
+                {
+                    tooltipGoldIconMissingLogged = true;
+                    LogWarning("Knight transformation tooltip could not resolve the Vanilla gold icon.");
+                }
+            }
+
+            tooltipGoldIcon.Source = goldIcon;
+            tooltipGoldIcon.Visibility = metadata.ShowGold && goldIcon != null
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            tooltipSeparatorText.Visibility = metadata.ShowSeparator ? Visibility.Visible : Visibility.Collapsed;
+            tooltipDelayText.Text = metadata.ShowDelay
+                ? metadata.DelaySeconds.ToString(CultureInfo.CurrentCulture) + "s"
+                : string.Empty;
+            tooltipDelayText.Visibility = metadata.ShowDelay ? Visibility.Visible : Visibility.Collapsed;
+            tooltipMetadataHost.Visibility = metadata.ShowHost ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private bool TryResolveTooltipMetadataElements(HUD_Troops troopPanel)
+        {
+            if (troopPanel != null && ReferenceEquals(tooltipMetadataPanel, troopPanel) &&
+                tooltipMetadataHost != null && tooltipGoldIcon != null && tooltipGoldText != null &&
+                tooltipSeparatorText != null && tooltipDelayText != null)
+            {
+                return true;
+            }
+
+            ResetTooltipMetadata();
+            tooltipMetadataPanel = troopPanel;
+            tooltipMetadataHost = troopPanel?.FindName("ExtraFeaturesKnightTransformationTooltipMetadataHost") as StackPanel;
+            tooltipGoldIcon = troopPanel?.FindName("ExtraFeaturesKnightTransformationTooltipGoldIcon") as Image;
+            tooltipGoldText = troopPanel?.FindName("ExtraFeaturesKnightTransformationTooltipGoldText") as TextBlock;
+            tooltipSeparatorText = troopPanel?.FindName("ExtraFeaturesKnightTransformationTooltipSeparatorText") as TextBlock;
+            tooltipDelayText = troopPanel?.FindName("ExtraFeaturesKnightTransformationTooltipDelayText") as TextBlock;
+
+            bool resolved = tooltipMetadataHost != null && tooltipGoldIcon != null && tooltipGoldText != null &&
+                tooltipSeparatorText != null && tooltipDelayText != null;
+            if (!resolved && !tooltipMetadataElementsMissingLogged)
+            {
+                tooltipMetadataElementsMissingLogged = true;
+                LogWarning("Knight transformation tooltip metadata elements were not found; the normal title and body remain available.");
+            }
+            else if (resolved)
+            {
+                tooltipMetadataElementsMissingLogged = false;
+            }
+
+            return resolved;
+        }
+
+        private void ResetTooltipMetadata()
+        {
+            if (tooltipMetadataHost != null)
+                tooltipMetadataHost.Visibility = Visibility.Collapsed;
+            if (tooltipGoldIcon != null)
+            {
+                tooltipGoldIcon.Source = null;
+                tooltipGoldIcon.Visibility = Visibility.Collapsed;
+            }
+            if (tooltipGoldText != null)
+            {
+                tooltipGoldText.Text = string.Empty;
+                tooltipGoldText.Visibility = Visibility.Collapsed;
+            }
+            if (tooltipSeparatorText != null)
+                tooltipSeparatorText.Visibility = Visibility.Collapsed;
+            if (tooltipDelayText != null)
+            {
+                tooltipDelayText.Text = string.Empty;
+                tooltipDelayText.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -1589,6 +1686,11 @@ namespace ExtraFeatures
         private void LogError(string message)
         {
             log.LogError($"[{TimestampNow()}] Extra Features {message}");
+        }
+
+        private void LogWarning(string message)
+        {
+            log.LogWarning($"[{TimestampNow()}] Extra Features {message}");
         }
 
         private static string TimestampNow()

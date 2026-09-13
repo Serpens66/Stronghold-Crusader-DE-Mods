@@ -4,7 +4,6 @@ using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
 using RedBird.X64.Assembly;
 using RedBird.X64.Hooks;
-using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using R3;
 using SHCDESE.API;
@@ -156,37 +155,6 @@ namespace BugfixesAndQoL
         private const int UnitStandingOnCompletedMoatRva = 0x196840;
         private const int RegionReachabilityRva = 0xE7C40;
         private const int CursorReachabilityRva = 0xE9FF0;
-        private const int CursorTilePairFallbackSelectionRva = 0x196870;
-        private static readonly int[] CursorTilePairFallbackCallRvas =
-        {
-            0x8D724, 0x8E2B8, 0x8E550, 0x8F325, 0xB7161, 0xB7321
-        };
-        private static readonly int[] CursorTilePairFallbackResultHookRvas =
-        {
-            0x8D729, 0x8E2BD, 0x8E555, 0x8F32A, 0xB7166, 0xB7326
-        };
-        private static readonly int[] CursorTilePairFallbackResultHookLengths =
-        {
-            19, 14, 19, 20, 14, 16
-        };
-        private static readonly byte[][] CursorTilePairFallbackCallBytes =
-        {
-            new byte[] { 0xE8, 0x47, 0x91, 0x10, 0x00 },
-            new byte[] { 0xE8, 0xB3, 0x85, 0x10, 0x00 },
-            new byte[] { 0xE8, 0x1B, 0x83, 0x10, 0x00 },
-            new byte[] { 0xE8, 0x46, 0x75, 0x10, 0x00 },
-            new byte[] { 0xE8, 0x0A, 0xF7, 0x0D, 0x00 },
-            new byte[] { 0xE8, 0x4A, 0xF5, 0x0D, 0x00 }
-        };
-        private static readonly byte[][] CursorTilePairFallbackResultHookBytes =
-        {
-            new byte[] { 0x85, 0xC0, 0x74, 0x23, 0x46, 0x8B, 0x84, 0x26, 0x2C, 0x07, 0x00, 0x00, 0x48, 0x8D, 0x0D, 0x24, 0xFF, 0x01, 0x06 },
-            new byte[] { 0x48, 0x8D, 0x15, 0x3C, 0x1D, 0xF7, 0xFF, 0x85, 0xC0, 0x74, 0x63, 0x48, 0x63, 0xC7 },
-            new byte[] { 0x85, 0xC0, 0x74, 0x23, 0x45, 0x8B, 0x84, 0x2C, 0x2C, 0x07, 0x00, 0x00, 0x48, 0x8D, 0x0D, 0xF8, 0xF0, 0x01, 0x06 },
-            new byte[] { 0x49, 0x8B, 0xFE, 0x85, 0xC0, 0x74, 0x34, 0x8B, 0x15, 0xF1, 0x2A, 0x98, 0x03, 0x48, 0x8D, 0x0D, 0x22, 0xE3, 0x01, 0x06 },
-            new byte[] { 0x45, 0x33, 0xF6, 0xB9, 0x01, 0x00, 0x00, 0x00, 0x85, 0xC0, 0x44, 0x0F, 0x45, 0xF1 },
-            new byte[] { 0x85, 0xC0, 0x75, 0x7E, 0x48, 0x8B, 0xF3, 0x33, 0xDB, 0x90, 0x42, 0x0F, 0xB6, 0x4C, 0x3D, 0x00 }
-        };
         private const int SelectionCanDigMoatRva = 0x191C00;
         private const int SelectionCanDigMoatCallRva = 0x8D3CE;
         private const int CursorTilePairReachabilityRva = 0xE2CA0;
@@ -532,7 +500,6 @@ namespace BugfixesAndQoL
         private GetTribeMovementModeDelegate getTribeMovementMode;
         private CursorReachabilityDelegate originalCursorReachability;
         private CursorReachabilityDelegate rootedCursorReachability;
-        private ContextHookDelegate rootedCursorTilePairFallbackResultObserver;
         private SelectionCanDigMoatDelegate selectionCanDigMoat;
         private CursorTilePairReachabilityDelegate originalCursorTilePairReachability;
         private CursorTilePairReachabilityDelegate rootedCursorTilePairReachability;
@@ -563,12 +530,6 @@ namespace BugfixesAndQoL
         private RedBirdDetour<TribeFloodFillMembershipDelegate> tribeFloodFillMembershipDetour;
         private RedBirdDetour<FirstGroupUnitOnCompletedMoatDelegate> firstGroupUnitOnCompletedMoatDetour;
         private RedBirdDetour<CursorReachabilityDelegate> cursorReachabilityDetour;
-        private readonly HookHandle<X64InlineHook>[] cursorTilePairFallbackResultHooks =
-        {
-            new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>(),
-            new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>(),
-            new HookHandle<X64InlineHook>(), new HookHandle<X64InlineHook>()
-        };
         private RedBirdDetour<CursorTilePairReachabilityDelegate> cursorTilePairReachabilityDetour;
         private RedBirdDetour<CursorRegionPrecheckDelegate> cursorRegionPrecheckDetour;
         private RedBirdDetour<AttackApproachFloodBuilderDelegate> attackApproachFloodBuilderDetour;
@@ -730,8 +691,6 @@ namespace BugfixesAndQoL
                 "attack-building cursor tile-pair gate context");
             Resolve(memory, AttackAlternativePairGatePattern, AttackAlternativePairGateJumpRva - 0x0E,
                 "alternative attack cursor tile-pair gate context");
-
-            ValidateCursorTilePairFallbackResultHookContracts(memory, libraryBase);
 
             ValidateExactBytes(
                 memory,
@@ -1070,7 +1029,6 @@ namespace BugfixesAndQoL
             rootedUnitStandingOnCompletedMoat = EnableCompletedMoatModeForScopedMovement;
             rootedRegionReachability = AllowBuilderAfterFailedRegionSearch;
             rootedCursorReachability = AllowCursorReachabilityThroughCompletedMoat;
-            rootedCursorTilePairFallbackResultObserver = ObserveCursorTilePairFallbackSelectionContext;
             rootedCursorTilePairReachability = AllowAttackCursorTilePairThroughCompletedMoat;
             rootedCursorRegionPrecheck = AllowCursorRegionThroughCompletedMoat;
             rootedCombatFinishResume = ResumeMovementAfterCombatWithMoatContext;
@@ -1124,18 +1082,7 @@ namespace BugfixesAndQoL
                     pendingTransaction,
                     libraryBase + unchecked((ulong)cursorResolution.Rva),
                     rootedCursorReachability);
-                for (int i = 0; i < cursorTilePairFallbackResultHooks.Length; i++)
-                {
-                    BugfixesHookInfrastructure.AddContextHook(
-                        pendingTransaction,
-                        cursorTilePairFallbackResultHooks[i],
-                        libraryBase + unchecked((ulong)CursorTilePairFallbackResultHookRvas[i]),
-                        rootedCursorTilePairFallbackResultObserver,
-                        registers: X64SmartCPUContextRegs.RAX,
-                        hookSize: CursorTilePairFallbackResultHookLengths[i],
-                        errorMode: CallbackErrorMode.LogAndContinue,
-                        placement: OverwrittenInstructionPlacement.AfterCallback);
-                }
+                AddSelectionCallAdapters(pendingTransaction, memory, libraryBase);
                 pendingCursorTilePair = AddDetour(pendingTransaction,
                     libraryBase + unchecked((ulong)cursorTilePairResolution.Rva),
                     rootedCursorTilePairReachability);
@@ -1145,12 +1092,13 @@ namespace BugfixesAndQoL
                     rootedCursorRegionPrecheck);
 
                 CommitResult commitResult = pendingTransaction.Commit();
+                ValidateSelectionCallAdapters(libraryBase);
                 if (!commitResult.IsCompleteSuccess ||
                     !pendingPlanDetour.Committed || !pendingCombatFinishResume.Committed ||
                     !pendingCursorMoveStager.Committed || !pendingBuilder.Committed ||
                     !pendingReconstruction.Committed || !pendingFlood.Committed ||
                     !pendingGroupMoat.Committed || !pendingMode.Committed || !pendingRegion.Committed ||
-                    !pendingCursor.Committed || !CursorTilePairFallbackResultHooksCommitted(libraryBase) ||
+                    !pendingCursor.Committed ||
                     !pendingCursorTilePair.Committed || !pendingCursorRegion.Committed)
                 {
                     throw new InvalidOperationException(
@@ -1202,7 +1150,7 @@ namespace BugfixesAndQoL
                     $"cursorPair=0x{cursorTilePairResolution.Rva:X}, representativeUnit=0x{representativeUnitResolution.Rva:X}, " +
                     $"attackPairGates=0x{AttackUnitPairGateJumpRva:X}/0x{AttackBuildingPairGateJumpRva:X}/" +
                     $"0x{AttackAlternativePairGateJumpRva:X}(all-vanilla), " +
-                    "selectionGate=SE-owned/call-result-hooks=6, " +
+                    "selectionCallAdapters=6, seSelectionResultPreserved=true, " +
                     $"plan=0x{planResolution.Rva:X}, mode=0x{modeResolution.Rva:X}, " +
                     $"region=0x{regionResolution.Rva:X}, builder=0x{builderResolution.Rva:X}, " +
                     $"postCombatResume=0x{combatFinishResumeResolution.Rva:X}->" +
@@ -6308,32 +6256,16 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void ObserveCursorTilePairFallbackSelectionContext(
-            NativePointer<X64SmartCPUContext> context)
+        private long ObserveCursorTilePairFallbackSelection(
+            IntPtr selectionState, long vanillaResult)
         {
-            int upstreamResult = unchecked((int)(uint)context.Pointer->RAX);
-            try
-            {
-                int effectiveResult = ObserveCursorTilePairFallbackSelection(
-                    unchecked((IntPtr)nativeUnitManager), upstreamResult);
-                context.Pointer->RAX = unchecked((ulong)(uint)effectiveResult);
-            }
-            catch (Exception ex)
-            {
-                // The Script Extender/Vanilla result remains untouched if our observer fails.
-                pendingAttackCursorPair = null;
-                LogFailure("cursor-selection-context", ex);
-            }
-        }
-
-        private int ObserveCursorTilePairFallbackSelection(
-            IntPtr selectionState, int upstreamResult)
-        {
-            if (activeBuildingCursorConnectivity != null) return 1;
-            int vanillaResult = upstreamResult;
             pendingAttackCursorPair = null;
+            if (vanillaResult != 0)
+                return vanillaResult;
             if (disposed || selectionState == IntPtr.Zero)
                 return vanillaResult;
+            if (activeBuildingCursorConnectivity != null)
+                return 1;
 
             try
             {
@@ -8718,93 +8650,6 @@ namespace BugfixesAndQoL
                     $"Unexpected {structType.Name}.{fieldName} offset 0x{actualOffset:X}; " +
                     $"expected 0x{expectedOffset:X}.");
             }
-        }
-
-        private static void ValidateCursorTilePairFallbackResultHookContracts(
-            ReadOnlySpan<byte> memory, ulong libraryBase)
-        {
-            if (CursorTilePairFallbackCallRvas.Length != CursorTilePairFallbackResultHookRvas.Length ||
-                CursorTilePairFallbackResultHookRvas.Length != CursorTilePairFallbackResultHookLengths.Length ||
-                CursorTilePairFallbackResultHookLengths.Length != CursorTilePairFallbackCallBytes.Length ||
-                CursorTilePairFallbackCallBytes.Length != CursorTilePairFallbackResultHookBytes.Length)
-            {
-                throw new InvalidOperationException(
-                    "The cursor fallback result-hook contract tables are inconsistent.");
-            }
-
-            for (int i = 0; i < CursorTilePairFallbackResultHookRvas.Length; i++)
-            {
-                string label = $"cursor fallback result call site {i + 1}";
-                ValidateCallTarget(
-                    memory,
-                    CursorTilePairFallbackCallRvas[i],
-                    CursorTilePairFallbackSelectionRva,
-                    CursorTilePairFallbackCallBytes[i],
-                    label + " call");
-                ValidateExactBytes(
-                    memory,
-                    CursorTilePairFallbackResultHookRvas[i],
-                    CursorTilePairFallbackResultHookBytes[i],
-                    label + " displaced instructions");
-
-                using (var probe = new X64InlineHook(
-                    libraryBase + unchecked((ulong)CursorTilePairFallbackResultHookRvas[i]),
-                    CursorTilePairFallbackResultHookLengths[i]))
-                {
-                    if (probe.DisplacedByteCount != CursorTilePairFallbackResultHookLengths[i])
-                    {
-                        throw new InvalidOperationException(
-                            $"Unexpected RedBird instruction boundary for {label}: " +
-                            $"{probe.DisplacedByteCount} bytes instead of " +
-                            $"{CursorTilePairFallbackResultHookLengths[i]}.");
-                    }
-                }
-            }
-
-            ValidateShortBranchTarget(memory, 0x8D729, 2, 0x8D750, "primary move rejection");
-            ValidateShortBranchTarget(memory, 0x8E2BD, 9, 0x8E32B, "building attack rejection");
-            ValidateShortBranchTarget(memory, 0x8E555, 2, 0x8E57C, "alternative attack rejection");
-            ValidateShortBranchTarget(memory, 0x8F32A, 5, 0x8F365, "wall attack rejection");
-            ValidateShortBranchTarget(memory, 0xB7326, 2, 0xB73A8, "approach scan acceptance");
-        }
-
-        private static void ValidateShortBranchTarget(
-            ReadOnlySpan<byte> memory,
-            int instructionBlockRva,
-            int branchOffset,
-            int expectedTargetRva,
-            string label)
-        {
-            int opcodeRva = instructionBlockRva + branchOffset;
-            byte opcode = memory[opcodeRva];
-            if (opcode != 0x74 && opcode != 0x75)
-                throw new InvalidOperationException($"The validated {label} is not a short JZ/JNZ branch.");
-
-            int actualTargetRva = opcodeRva + 2 + unchecked((sbyte)memory[opcodeRva + 1]);
-            if (actualTargetRva != expectedTargetRva)
-            {
-                throw new InvalidOperationException(
-                    $"The validated {label} targets 0x{actualTargetRva:X} instead of " +
-                    $"0x{expectedTargetRva:X}.");
-            }
-        }
-
-        private bool CursorTilePairFallbackResultHooksCommitted(ulong libraryBase)
-        {
-            for (int i = 0; i < cursorTilePairFallbackResultHooks.Length; i++)
-            {
-                HookHandle<X64InlineHook> handle = cursorTilePairFallbackResultHooks[i];
-                ulong expectedAddress = libraryBase +
-                    unchecked((ulong)CursorTilePairFallbackResultHookRvas[i]);
-                if (!handle.Success || !handle.IsInstalled || handle.Failure != null ||
-                    handle.ResolvedAddress != expectedAddress || handle.Hook == null ||
-                    handle.Hook.DisplacedByteCount != CursorTilePairFallbackResultHookLengths[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
         }
 
         private static void ValidateCallTarget(

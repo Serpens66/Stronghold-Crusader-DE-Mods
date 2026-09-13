@@ -142,6 +142,7 @@
     <Compile Include="src\BugfixesAndQoLPlugin.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.cs" />
     <Compile Include="src\BugfixesAndQoLViewModel.cs" />
+    <Compile Include="src\AssassinSelectionAdapters.cs" />
     <Compile Include="src\CursorConnectivity.cs" />
     <Compile Include="src\CursorRegionGraph.cs" />
     <Compile Include="src\DirectMoatCommandScopes.cs" />

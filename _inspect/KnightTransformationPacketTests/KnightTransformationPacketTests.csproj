@@ -21,6 +21,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="..\..\ExtraFeatures\src\KnightTransformationPacket.cs"><Link>KnightTransformationPacket.cs</Link></Compile>
+    <Compile Include="..\..\ExtraFeatures\src\KnightTransformationTooltipPolicy.cs"><Link>KnightTransformationTooltipPolicy.cs</Link></Compile>
     <Compile Include="..\..\ExtraFeatures\src\StableHorseConsumptionPolicy.cs"><Link>StableHorseConsumptionPolicy.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

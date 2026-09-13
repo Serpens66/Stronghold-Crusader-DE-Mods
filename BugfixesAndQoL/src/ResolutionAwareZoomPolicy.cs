@@ -62,15 +62,36 @@ namespace BugfixesAndQoL
         internal static float GetLockedMinimumPosition(
             bool canUserExtraZoom,
             bool mapEditorMode,
-            bool allowExtendedFarZoom)
+            bool allowExtendedFarZoom,
+            bool useHalfSteps)
         {
             float minimum = canUserExtraZoom ? 1f : 2f;
-            if (allowExtendedFarZoom && canUserExtraZoom)
-                minimum = 0f;
             if (mapEditorMode)
                 minimum -= 1f;
+            else if (allowExtendedFarZoom && canUserExtraZoom && useHalfSteps)
+                minimum = 0.5f;
 
             return Math.Max(0f, minimum);
+        }
+
+        internal static float NormalizeLockedPosition(
+            float currentPosition,
+            bool canUserExtraZoom,
+            bool mapEditorMode,
+            bool allowExtendedFarZoom,
+            bool useHalfSteps)
+        {
+            float minimum = GetLockedMinimumPosition(
+                canUserExtraZoom,
+                mapEditorMode,
+                allowExtendedFarZoom,
+                useHalfSteps);
+            float position = Math.Max(
+                minimum,
+                Math.Min(ExtendedLockedMaximumPosition, currentPosition));
+            if (!useHalfSteps)
+                position = (float)Math.Round(position, MidpointRounding.AwayFromZero);
+            return Math.Max(minimum, position);
         }
 
         internal static float ResolvePosition(
@@ -78,6 +99,7 @@ namespace BugfixesAndQoL
             float adjustment,
             bool mapLocked,
             bool canUserExtraZoom,
+            bool useHalfSteps,
             bool mapEditorMode,
             bool loop)
         {
@@ -88,7 +110,8 @@ namespace BugfixesAndQoL
             float minimum = GetLockedMinimumPosition(
                 canUserExtraZoom,
                 mapEditorMode,
-                allowExtendedFarZoom: true);
+                allowExtendedFarZoom: true,
+                useHalfSteps: useHalfSteps);
 
             if (position > ExtendedLockedMaximumPosition)
                 return loop ? minimum : ExtendedLockedMaximumPosition;

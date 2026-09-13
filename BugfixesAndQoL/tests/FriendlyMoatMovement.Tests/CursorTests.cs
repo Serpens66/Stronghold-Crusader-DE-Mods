@@ -34,6 +34,32 @@ namespace BugfixesAndQoL
             }
             Check(callback&&continuation&&nativeStore,"actual emitter preserves callback, native direct branch and relocated failure store");
             Console.WriteLine($"PASS: actual recovery emitter assembled and decoded ({encoded.Length} bytes, no native code executed).");
+            int[] sites={0x8D724,0x8E2B8,0x8E550,0x8F325,0xB7161,0xB7321};
+            string[] spans={"E84791100085C07423468B84262C070000","E8B3851000488D153C1DF7FF85C0",
+                "E81B83100085C07423458B842C2C070000","E846751000498BFE85C074348B15F12A9803",
+                "E80AF70D004533F6B90100000085C0","E84AF50D0085C0757E488BF333DB"};
+            for(int site=0;site<sites.Length;site++)
+            {
+                byte[] source=Convert.FromHexString(spans[site]);
+                var input=Decoder.Create(64,new ByteArrayCodeReader(source)); input.IP=library+(uint)sites[site];
+                var instructions=new List<Instruction>();
+                while(input.IP<library+(uint)sites[site]+(uint)source.Length) { input.Decode(out var i); instructions.Add(i); }
+                var adapter=new Assembler(64); EmitSelectionCallAdapter(adapter,instructions.ToArray(),0x123456789ABCDEF0);
+                using var buffer=new MemoryStream(); adapter.Assemble(new StreamCodeWriter(buffer),stub);
+                var emittedBytes=buffer.ToArray();
+                File.WriteAllBytes(Path.Combine(root,"_inspect","BugfixesAndQoLNativeTests",$"selection-{sites[site]:X}.bin"),emittedBytes);
+                var outputDecoder=Decoder.Create(64,new ByteArrayCodeReader(emittedBytes)); outputDecoder.IP=stub;
+                var emittedInstructions=new List<Instruction>();
+                while(outputDecoder.IP<stub+(uint)emittedBytes.Length) { outputDecoder.Decode(out var i); Check(i.Code!=Code.INVALID,"selection adapter decode"); emittedInstructions.Add(i); }
+                Check(emittedInstructions.FindAll(i=>i.Mnemonic==Mnemonic.Call).Count==2,"one SE call and one decision call");
+                Check(emittedInstructions.Exists(i=>i.Code==Code.Call_rel32_64 && i.NearBranchTarget==library+0x196870),"live SE entry retained");
+                foreach(var i in instructions)
+                {
+                    if(i.IsJccShortOrNear) Check(emittedInstructions.Exists(j=>j.IsJccShortOrNear && j.NearBranchTarget==i.NearBranchTarget),"original branch destination retained");
+                    if(i.IsIPRelativeMemoryOperand) Check(emittedInstructions.Exists(j=>j.IsIPRelativeMemoryOperand && j.IPRelativeMemoryAddress==i.IPRelativeMemoryAddress),"original RIP address retained");
+                }
+            }
+            Console.WriteLine("PASS: six actual SE selection adapters assembled; live call, branches and RIP addresses preserved.");
         }
 
         private void FillSelectionTests()
@@ -106,7 +132,7 @@ namespace BugfixesAndQoL
             cursorTargetX=coordinates; cursorTargetY=coordinates+1; *cursorTargetX=17; *cursorTargetY=10;
             player.Cursor=cursor; *(int*)nativeUnitManager=1025;
             EngineInterface.Selection=new[]{1,0}; units[1].r_UnitSelected=1;
-            int upstreamSelectionResult=0;
+            long upstreamSelectionResult=0;
             getRepresentativeSelectedUnit=(_,kind)=>EngineInterface.Selection.Length==0?0:EngineInterface.Selection[0];
             selectionCanDigMoat=_=>{
                 for(int i=0;i<EngineInterface.Selection.Length;i+=2)
@@ -118,7 +144,7 @@ namespace BugfixesAndQoL
             int Hover(int pairTarget=1017)
             {
                 pendingAttackCursorPair=null;
-                int gate=ObserveCursorTilePairFallbackSelection(
+                long gate=ObserveCursorTilePairFallbackSelection(
                     (IntPtr)nativeUnitManager,upstreamSelectionResult);
                 return gate==0?0:AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,pairTarget,1010,1);
             }
@@ -210,10 +236,14 @@ namespace BugfixesAndQoL
                 Check(Hover()==1,"mixed selection resolves an eligible digger without granting a moat capability to others");
                 EngineInterface.Selection=new[]{2,0}; upstreamSelectionResult=1;
                 Check(Hover()==7 && nativeCalls==1,"native special selection without diggers retains original pair behavior");
-                upstreamSelectionResult=7;
-                Check(ObserveCursorTilePairFallbackSelection(
-                        (IntPtr)nativeUnitManager,upstreamSelectionResult)==7,
-                    "positive Script Extender overrides remain authoritative");
+                foreach(long result in new long[]{1,7,0x100000001L,-1})
+                {
+                    upstreamSelectionResult=result;
+                    Check(ObserveCursorTilePairFallbackSelection(
+                            (IntPtr)nativeUnitManager,upstreamSelectionResult)==result &&
+                            pendingAttackCursorPair==null,
+                        "nonzero Script Extender results remain authoritative and full-width");
+                }
             }
             finally
             {

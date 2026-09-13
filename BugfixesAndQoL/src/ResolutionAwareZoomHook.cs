@@ -105,6 +105,7 @@ namespace BugfixesAndQoL
                 adjustment,
                 CameraControls2D.instance.isMapLocked(),
                 self.CanUserExtraZoom(),
+                ConfigSettings.Settings_ExtraZoom,
                 MainViewModel.Instance.IsMapEditorMode,
                 loop);
             SetFloat(ZoomPositionField, self, position);
@@ -171,8 +172,6 @@ namespace BugfixesAndQoL
                 : 1f;
             bool scaleChanged = Math.Abs(targetScale - appliedResolutionScale) > 0.0001f;
             bool enabledChanged = enabled != appliedEnabled;
-            if (!scaleChanged && !enabledChanged)
-                return;
 
             if (scaleChanged)
             {
@@ -182,12 +181,32 @@ namespace BugfixesAndQoL
                 ScaleField(ZoomNextValueField, self, ratio);
             }
 
-            if (!enabled)
+            bool positionChanged = false;
+            if (enabled && CameraControls2D.instance != null &&
+                CameraControls2D.instance.isMapLocked())
+            {
+                float currentPosition = GetFloat(ZoomPositionField, self);
+                float validPosition = ResolutionAwareZoomPolicy.NormalizeLockedPosition(
+                    currentPosition,
+                    self.CanUserExtraZoom(),
+                    MainViewModel.Instance.IsMapEditorMode,
+                    allowExtendedFarZoom: true,
+                    useHalfSteps: ConfigSettings.Settings_ExtraZoom);
+                if (Math.Abs(validPosition - currentPosition) > 0.0001f)
+                {
+                    SetFloat(ZoomPositionField, self, validPosition);
+                    zoomOriginal(self, validPosition);
+                    ScaleZoomTarget(self, targetScale);
+                    positionChanged = true;
+                }
+            }
+            else if (!enabled && (enabledChanged || scaleChanged))
             {
                 float vanillaMinimum = ResolutionAwareZoomPolicy.GetLockedMinimumPosition(
                     canUserExtraZoomOriginal(self),
                     MainViewModel.Instance.IsMapEditorMode,
-                    allowExtendedFarZoom: false);
+                    allowExtendedFarZoom: false,
+                    useHalfSteps: ConfigSettings.Settings_ExtraZoom);
                 float currentPosition = GetFloat(ZoomPositionField, self);
                 float vanillaPosition = Math.Max(
                     vanillaMinimum,
@@ -198,8 +217,12 @@ namespace BugfixesAndQoL
                 {
                     SetFloat(ZoomPositionField, self, vanillaPosition);
                     zoomOriginal(self, vanillaPosition);
+                    positionChanged = true;
                 }
             }
+
+            if (!scaleChanged && !enabledChanged && !positionChanged)
+                return;
 
             TrackState(self, enabled, targetScale);
             self.UpdateCameraScale();

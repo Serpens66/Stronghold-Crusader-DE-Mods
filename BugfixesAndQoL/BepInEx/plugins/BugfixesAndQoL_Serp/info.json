@@ -3,13 +3,25 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.147",
+  "Version": "1.0.149",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.6.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.149",
+      "Changes": [
+        "Kept the Lord icon scoped to actual Lord HUD categories without replacing swordsman icons."
+      ]
+    },
+    {
+      "Version": "1.0.148",
+      "Changes": [
+        "Fixed a crash after loading saves by replacing Friendly Moat Movement's unsafe post-call hooks with loop-safe Script Extender selection call adapters."
+      ]
+    },
     {
       "Version": "1.0.147",
       "Changes": [

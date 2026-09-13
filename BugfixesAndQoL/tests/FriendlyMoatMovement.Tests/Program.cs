@@ -11,6 +11,7 @@ string testDir = Path.Combine(root, "BugfixesAndQoL", "tests", "FriendlyMoatMove
 string[] runtimeSourceNames =
 {
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
+    "AssassinSelectionAdapters.cs",
     "FastMoatBridge.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs", "FriendlyMoatMovementRuntime.LadderAttackFix.cs",
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
@@ -32,8 +33,10 @@ ValidateUnsignedRegionAndDeferredFastContracts();
 ValidateScriptExtenderIntegration();
 ValidateRuntimeSources();
 ValidateModeSettings();
+InstalledRedBirdContract.Validate();
 
 var methods = new HashSet<string>(new[] {
+    "EmitSelectionCallAdapter",
     "LogDetailedInfo",
     "EnsureMoveCommandGroupSummary",
     "TryApplyBuildingConsumerFallback", "IsLegalBuildingCandidate", "BuildingCandidateEdge", "TryCaptureOrderedActiveGroupUnits", "CaptureBuildingApproachCandidates", "CaptureBuildingApproachBuffer", "RestoreBuildingApproachBuffer", "WriteBuildingApproachCandidates", "WriteBuildingApproachCandidate", "PublishBuildingApproachPairs", "TryGetPublishedBuildingFootprint", "MatchesSynchronousAttackMovementContext", "TryGetUnitAttackMoveTile", "IsValidBuildingApproachPair", "IsWalkableBuildingApproachEndpoint", "IsExactBuildingContextTile", "TryValidateHostileBuildingTarget",

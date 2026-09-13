@@ -46,16 +46,6 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(log, $"Shared Lord HUD registration failed: state={diagnostic?.State}, reason={diagnostic?.Reason}");
                 return;
             }
-            foreach (UnitHudImageSlot slot in Enum.GetValues(typeof(UnitHudImageSlot)))
-            {
-                var imageOverride = new UnitHudImageOverrideDefinition("european-lord-" + slot, slot);
-                if (!capability.TryRegisterImageOverride(imageOverride, context =>
-                    !context.Arabic && HasControlledLord() ? ResolveLordIcon() : null, out diagnostic))
-                {
-                    Shared.DebugLogHelper.LogError(log, $"Lord image override registration failed for {slot}: state={diagnostic?.State}, reason={diagnostic?.Reason}");
-                    return;
-                }
-            }
             Capability = capability;
             capability.RequestRefresh();
             Shared.DebugLogHelper.LogInfo(log, "Controlled Lord registered with APIShared unit-HUD presentation.");
@@ -70,15 +60,6 @@ namespace BugfixesAndQoL
                 : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1);
             return playerId > 0 && unit.OwnerPlayerId == playerId &&
                 GamePlayerManagerAPI.Instance?.GetLordUnitId(playerId) == unit.GameId;
-        }
-
-        private bool HasControlledLord()
-        {
-            if (!settings.EnableMod || !settings.EnableLordUnitControls) return false;
-            int playerId = Shared.GameModeHelper.IsMapEditor()
-                ? (EditorDirector.instance?.ActivePlayerID ?? -1)
-                : (GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1);
-            return playerId > 0 && (GamePlayerManagerAPI.Instance?.GetLordUnitId(playerId) ?? -1) > 0;
         }
 
         private static ImageSource ResolveLordIcon() =>

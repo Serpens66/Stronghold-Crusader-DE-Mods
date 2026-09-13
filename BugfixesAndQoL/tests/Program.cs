@@ -29,6 +29,7 @@ namespace BugfixesAndQoL
 
         private static int Main()
         {
+            TestSurrenderGameOverPolicy();
             TestCoopCustomLordSelectionPolicy();
             TestTrailCustomizationOwnership();
             TestTunnelPlacementDistancePolicy();
@@ -64,6 +65,32 @@ namespace BugfixesAndQoL
             return 1;
         }
 
+        private static void TestSurrenderGameOverPolicy()
+        {
+            Check(SurrenderPolicy.ResolvePresentedGameOverState(1, true) == 2,
+                "eliminated-player spectator promotion presents Vanilla victory as defeat");
+            Check(SurrenderPolicy.ResolvePresentedGameOverState(2, true) == 2,
+                "eliminated-player spectator promotion preserves an existing defeat");
+            Check(SurrenderPolicy.ResolvePresentedGameOverState(0, true) == 0 &&
+                    SurrenderPolicy.ResolvePresentedGameOverState(7, true) == 7,
+                "spectator promotion preserves running and unknown game-over states");
+            Check(SurrenderPolicy.ResolvePresentedGameOverState(1, false) == 1,
+                "ordinary victory and initial spectators retain Vanilla presentation");
+
+            string featureSource = File.ReadAllText(Path.Combine("src", "SurrenderFeature.cs"));
+            const string correctedOriginalCall =
+                "setGameOverStateOriginal(self, presentedState, screen, skirmishDate);";
+            int correctedOriginalCallCount = featureSource.Split(
+                new[] { correctedOriginalCall },
+                StringSplitOptions.None).Length - 1;
+            Check(featureSource.Contains(
+                        "lobbyReturnFeature.OnGameOverState(presentedState);") &&
+                    correctedOriginalCallCount == 1 &&
+                    !featureSource.Contains(
+                        "setGameOverStateOriginal(self, state, screen, skirmishDate);"),
+                "game-over hook forwards the corrected state once and preserves screen and date");
+        }
+
         private static void TestResolutionAwareZoomPolicy()
         {
             Check(AlmostEqual(ResolutionAwareZoomPolicy.GetResolutionScale(720), 1f),
@@ -82,7 +109,7 @@ namespace BugfixesAndQoL
                 ResolutionAwareZoomPolicy.GetEffectiveZoom(1f, 2160) * 64f);
             Check(AlmostEqual(worldHeight1080, worldHeight4K),
                 "resolution normalization preserves visible vertical world size");
-            float[] extendedFarZoomValues = { 0.175f, 0.125f };
+            float[] extendedFarZoomValues = { 0.175f };
             bool matchingExtendedFarWorldHeights = true;
             foreach (float farZoom in extendedFarZoomValues)
             {
@@ -93,7 +120,13 @@ namespace BugfixesAndQoL
                     AlmostEqual(farWorldHeight1080, farWorldHeight4K);
             }
             Check(matchingExtendedFarWorldHeights,
-                "both extended distant positions preserve world height between 1080p and 4K");
+                "the retained distant position preserves world height between 1080p and 4K");
+
+            float retainedFarTileAreaFactor = (0.25f / 0.175f) * (0.25f / 0.175f);
+            float removedExtremeTileAreaFactor = (0.25f / 0.125f) * (0.25f / 0.125f);
+            Check(retainedFarTileAreaFactor < 2.1f &&
+                    AlmostEqual(removedExtremeTileAreaFactor, 4f),
+                "retained far zoom limits tile-area growth to about 2x instead of 4x");
 
             int[] tilemapSizes = { 160, 200, 300, 400, 500, 600, 700, 800, 1000 };
             bool matchingFullHdAnd4KPolicies = true;
@@ -118,69 +151,72 @@ namespace BugfixesAndQoL
                 "sub-1080p resolutions retain their unscaled Vanilla policy");
 
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, false, true),
-                    0f) &&
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, false, true, true),
+                    0.5f) &&
                 AlmostEqual(
-                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(false, false, true),
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(false, false, true, true),
                     2f),
                 "extended far zoom only relaxes maps allowed by Vanilla's extra-zoom policy");
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, false, false),
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, false, true, false),
                     1f) &&
                 AlmostEqual(
-                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(false, false, false),
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, false, false, true),
+                    1f) &&
+                AlmostEqual(
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(false, false, false, true),
                     2f) &&
                 AlmostEqual(
-                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, true, false),
+                    ResolutionAwareZoomPolicy.GetLockedMinimumPosition(true, true, false, true),
                     0f),
-                "disabled feature restores Vanilla's locked and editor minimum positions");
+                "whole steps, disabled feature and editor restore their Vanilla minimum positions");
 
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(1f, -0.5f, true, true, false, false),
+                    ResolutionAwareZoomPolicy.ResolvePosition(1f, -0.5f, true, true, true, false, false),
                     0.5f) &&
                 AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(0.5f, -0.5f, true, true, false, false),
-                    0f),
-                "extra-zoom steps reach both added distant positions");
+                    ResolutionAwareZoomPolicy.ResolvePosition(0.5f, -0.5f, true, true, true, false, false),
+                    0.5f),
+                "extra-zoom steps reach but do not pass the retained distant position");
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(1f, -1f, true, true, false, false),
-                    0f) &&
+                    ResolutionAwareZoomPolicy.ResolvePosition(1f, -1f, true, true, false, false, false),
+                    1f) &&
                 AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(0f, 1f, true, true, false, false),
+                    ResolutionAwareZoomPolicy.NormalizeLockedPosition(0.5f, true, false, true, false),
                     1f),
-                "whole-step zoom reaches and leaves the extended distant limit directly");
+                "whole-step zoom retains Vanilla's far limit and normalizes a live half step");
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(0f, -0.5f, true, true, false, true),
+                    ResolutionAwareZoomPolicy.ResolvePosition(0.5f, -0.5f, true, true, true, false, true),
                     ResolutionAwareZoomPolicy.ExtendedLockedMaximumPosition) &&
                 AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(4f, 0.5f, true, true, false, true),
-                    0f),
+                    ResolutionAwareZoomPolicy.ResolvePosition(4f, 0.5f, true, true, true, false, true),
+                    0.5f),
                 "cyclic zoom wraps between both extended limits");
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(2f, -0.5f, true, false, false, false),
+                    ResolutionAwareZoomPolicy.ResolvePosition(2f, -0.5f, true, false, true, false, false),
                     2f),
                 "Vanilla-limited maps do not receive the additional distant positions");
 
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(3f, 0.5f, true, true, false, false),
+                    ResolutionAwareZoomPolicy.ResolvePosition(3f, 0.5f, true, true, true, false, false),
                     3.5f) &&
                 AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(3.5f, 0.5f, true, true, false, false),
+                    ResolutionAwareZoomPolicy.ResolvePosition(3.5f, 0.5f, true, true, true, false, false),
                     4f),
                 "extra zoom reaches the added 1.5x and 2x close positions");
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(3f, 1f, true, true, false, false),
+                    ResolutionAwareZoomPolicy.ResolvePosition(3f, 1f, true, true, false, false, false),
                     4f),
                 "whole-step zoom reaches the extended maximum directly");
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(4f, 0.5f, true, false, false, true),
+                    ResolutionAwareZoomPolicy.ResolvePosition(4f, 0.5f, true, false, true, false, true),
                     2f),
                 "locked cyclic zoom wraps to Vanilla's resolution-limited minimum");
             Check(AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(0f, -1f, true, true, true, false),
+                    ResolutionAwareZoomPolicy.ResolvePosition(0f, -1f, true, true, false, true, false),
                     0f) &&
                 AlmostEqual(
-                    ResolutionAwareZoomPolicy.ResolvePosition(5f, 1f, false, true, false, false),
+                    ResolutionAwareZoomPolicy.ResolvePosition(5f, 1f, false, true, false, false, false),
                     5f),
                 "editor minimum and unlocked-camera limits retain Vanilla behavior");
         }
@@ -202,6 +238,7 @@ namespace BugfixesAndQoL
                     hook.Contains("CanUserExtraZoomDelegate") &&
                     hook.Contains("ResolutionAwareZoomPolicy.CanUserExtraZoom") &&
                     hook.Contains("canUserExtraZoomOriginal(self)") &&
+                    hook.Contains("ConfigSettings.Settings_ExtraZoom") &&
                     hook.Contains("ResolutionAwareZoomPolicy.GetLockedMinimumPosition") &&
                     hook.Contains("ResolutionAwareZoomPolicy.ResolvePosition"),
                 "zoom hook is fail-closed and dynamically setting-gated");
@@ -1248,6 +1285,8 @@ namespace BugfixesAndQoL
             string runtime = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
             string friendlyRuntime = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "FriendlyMoatMovementRuntime.cs"));
+            string selectionAdapters = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "AssassinSelectionAdapters.cs"));
             string moatWork = File.ReadAllText(Path.Combine(projectDirectory, "src", "MoatWorkTargetSelection.cs"));
             string viewModel = File.ReadAllText(Path.Combine(projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
@@ -1294,29 +1333,27 @@ namespace BugfixesAndQoL
                 "friendly moat tooltips start with the experimental warning and mention precise-mode group lag");
             Check(plugin.Contains("[BepInIncompatibility(LegacyMoveMoatGuid)]"),
                 "legacy standalone plugin is explicitly incompatible");
-            Check(!friendlyRuntime.Contains("RedBirdDetour<CursorTilePairFallbackSelectionDelegate>") &&
-                    friendlyRuntime.Contains("selectionGate=SE-owned/call-result-hooks=6") &&
-                    friendlyRuntime.Contains("X64SmartCPUContextRegs.RAX") &&
-                    friendlyRuntime.Contains("OverwrittenInstructionPlacement.AfterCallback") &&
-                    friendlyRuntime.Contains("CursorTilePairFallbackResultHooksCommitted"),
-                "friendly moat selection observes six RAX-only post-call results without detouring the SE-owned function");
-            Check(friendlyRuntime.Contains("The Script Extender/Vanilla result remains untouched") &&
-                    friendlyRuntime.Contains("int vanillaResult = upstreamResult;") &&
+            Check(friendlyRuntime.Contains("selectionCallAdapters=6") &&
+                    friendlyRuntime.Contains("ValidateSelectionCallAdapters(libraryBase)") &&
+                    !friendlyRuntime.Contains("CursorTilePairFallbackResultHook") &&
+                    !friendlyRuntime.Contains("ObserveCursorTilePairFallbackSelectionContext"),
+                "friendly moat selection uses six call-site adapters and removes the unsafe post-call hooks");
+            Check(selectionAdapters.Contains("SelectionCallRvas") &&
+                    selectionAdapters.Contains("0xB7321") &&
+                    selectionAdapters.Contains("E84AF50D0085C0757E488BF333DB") &&
+                    selectionAdapters.Contains("original[0].NearBranch64 != libraryBase + 0x196870") &&
+                    selectionAdapters.Contains("handle.Require().DisplacedByteCount"),
+                "selection adapters validate the SE call, exact complete spans, and installed displacement");
+            Check(selectionAdapters.Contains("asm.sub(rsp, 0xE0)") &&
+                    selectionAdapters.Contains("asm.movdqu(__xmmword_ptr[rsp + 0xB0], xmm5)") &&
+                    selectionAdapters.Contains("asm.pushfq()") &&
+                    selectionAdapters.Contains("asm.popfq()") &&
+                    selectionAdapters.Contains("for (int i = 1; i < original.Length; i++)"),
+                "selection adapters preserve stack, volatile SIMD state, flags, and relocated instructions");
+            Check(friendlyRuntime.Contains("private long ObserveCursorTilePairFallbackSelection(") &&
+                    friendlyRuntime.Contains("if (vanillaResult != 0)") &&
                     friendlyRuntime.Contains("if (vanillaResult == 0 && functionalArmed)"),
-                "friendly moat selection preserves positive SE results and fails closed to the upstream result");
-            int contextStart = friendlyRuntime.IndexOf(
-                "private void ObserveCursorTilePairFallbackSelectionContext", StringComparison.Ordinal);
-            int observerStart = friendlyRuntime.IndexOf(
-                "private int ObserveCursorTilePairFallbackSelection(", contextStart, StringComparison.Ordinal);
-            string contextMethod = contextStart >= 0 && observerStart > contextStart
-                ? friendlyRuntime.Substring(contextStart, observerStart - contextStart)
-                : string.Empty;
-            int resultWrite = contextMethod.IndexOf("context.Pointer->RAX =", StringComparison.Ordinal);
-            int failureCatch = contextMethod.IndexOf("catch (Exception ex)", StringComparison.Ordinal);
-            Check(resultWrite > 0 && failureCatch > resultWrite &&
-                    contextMethod.IndexOf("context.Pointer->RAX =", resultWrite + 1,
-                        StringComparison.Ordinal) < 0,
-                "friendly moat callback writes RAX only after success and leaves it untouched on errors");
+                "friendly moat selection preserves full-width nonzero SE results and only lifts rejection");
         }
 
         private static void TestAiDefensePatrolPolicy()

@@ -33,6 +33,8 @@ namespace APISharedTests
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestUnitHudVariantContracts();
+            TestUnitHudLiveSelectionCounts();
+            TestUnitHudSelectionIdentity();
             TestPeValidation();
             TestFixedCatalogValidation();
             TestReadinessAndIndependentCapabilities();
@@ -180,6 +182,69 @@ namespace APISharedTests
                 "recruitment ticket does not preserve immutable Vanilla request data");
         }
 
+        private static void TestUnitHudLiveSelectionCounts()
+        {
+            var lord = new UnitHudUnitSnapshot(100, 1000, 55, 1, true);
+            var spearman = new UnitHudUnitSnapshot(200, 2000, 24, 1, true);
+            var secondSpearman = new UnitHudUnitSnapshot(201, 2001, 24, 1, true);
+            var archer = new UnitHudUnitSnapshot(300, 3000, 22, 1, true);
+            var unsupported = new UnitHudUnitSnapshot(400, 4000, 1, 1, true);
+            var claimed = new HashSet<int> { lord.GameId };
+            int[] emptyVanilla = new int[89];
+
+            int[] lordFirst = UnitHudSelectionPolicy.ResolveVanillaTroopCounts(
+                emptyVanilla, new[] { lord, spearman, secondSpearman, archer, unsupported }, claimed, true);
+            int[] troopsFirst = UnitHudSelectionPolicy.ResolveVanillaTroopCounts(
+                emptyVanilla, new[] { spearman, secondSpearman, archer, lord, unsupported }, claimed, true);
+            Assert(ArraysEqual(lordFirst, troopsFirst) && lordFirst[24] == 2 && lordFirst[22] == 1,
+                "live troop counts must be independent of Lord selection order and preserve multiplicity");
+            Assert(lordFirst[55] == 0 && lordFirst[1] == 0,
+                "claimed and unsupported unit types must not become Vanilla troop slots");
+
+            int visibleTypes = 0;
+            var manyTypes = new List<UnitHudUnitSnapshot>();
+            int[] types = { 5, 22, 23, 24, 25, 26, 27, 28, 30 };
+            for (int i = 0; i < types.Length; i++)
+                manyTypes.Add(new UnitHudUnitSnapshot(500 + i, (uint)(5000 + i), types[i], 1, true));
+            int[] manyCounts = UnitHudSelectionPolicy.ResolveVanillaTroopCounts(
+                emptyVanilla, manyTypes, new HashSet<int>(), true);
+            for (int i = 0; i < manyCounts.Length; i++) if (manyCounts[i] > 0) visibleTypes++;
+            Assert(visibleTypes == 9 && (visibleTypes + 7) / 8 == 2,
+                "live troop counts must retain enough distinct types for Vanilla-compatible paging");
+
+            int[] vanillaFallback = new int[89];
+            vanillaFallback[24] = 3;
+            int[] incomplete = UnitHudSelectionPolicy.ResolveVanillaTroopCounts(
+                vanillaFallback, new[] { lord }, claimed, false);
+            Assert(incomplete[24] == 3 && incomplete[55] == 0,
+                "an incomplete live selection must preserve Vanilla troop counts");
+
+            int[] afterRemoval = UnitHudSelectionPolicy.ResolveVanillaTroopCounts(
+                emptyVanilla, new[] { archer }, new HashSet<int>(), true);
+            Assert(afterRemoval[22] == 1 && afterRemoval[24] == 0 && afterRemoval[55] == 0,
+                "removed Lord and troop members must disappear from live counts");
+        }
+
+        private static void TestUnitHudSelectionIdentity()
+        {
+            int[] ids = { 10, 20 };
+            int[] types = { 55, 24 };
+            Assert(UnitHudSelectionPolicy.SelectionIdentityEquals(ids, types, new[] { 10, 20, 0 }, new[] { 55, 24, 0 }, 2),
+                "an unchanged troop selection must retain the same identity");
+            Assert(!UnitHudSelectionPolicy.SelectionIdentityEquals(ids, types, new[] { 10, 20, 30 }, new[] { 55, 24, 22 }, 3) &&
+                !UnitHudSelectionPolicy.SelectionIdentityEquals(ids, types, new[] { 10 }, new[] { 55 }, 1) &&
+                !UnitHudSelectionPolicy.SelectionIdentityEquals(ids, types, new[] { 10, 20 }, new[] { 55, 22 }, 2) &&
+                !UnitHudSelectionPolicy.SelectionIdentityEquals(ids, types, new[] { 20, 10 }, new[] { 24, 55 }, 2),
+                "added, removed, retyped, or reordered units must invalidate the rendered selection identity");
+        }
+
+        private static bool ArraysEqual(int[] left, int[] right)
+        {
+            if (left == null || right == null || left.Length != right.Length) return false;
+            for (int i = 0; i < left.Length; i++) if (left[i] != right[i]) return false;
+            return true;
+        }
+
         private static void TestMigrationContracts()
         {
             string workspace = FindWorkspaceRoot();
@@ -249,6 +314,28 @@ namespace APISharedTests
                 Count(unitHud, "updateSpritesOriginal(self, colour, arabic)") == 1 &&
                 Count(unitHud, "updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") == 1,
                 "central HUD sprite handling retains one hook trampoline call plus one explicit refresh call");
+            int beforeRenderStart = unitHud.IndexOf("private void OnBeforeRender()", StringComparison.Ordinal);
+            int applyFrameStart = unitHud.IndexOf("private void TryApplyFrameArea(", StringComparison.Ordinal);
+            string beforeRenderMethod = beforeRenderStart >= 0 && applyFrameStart > beforeRenderStart
+                ? unitHud.Substring(beforeRenderStart, applyFrameStart - beforeRenderStart)
+                : string.Empty;
+            int selectionRefreshStart = beforeRenderMethod.IndexOf("if (refresh || troopSelectionChanged)", StringComparison.Ordinal);
+            int explicitRefreshStart = beforeRenderMethod.IndexOf("if (refresh)", selectionRefreshStart + 1, StringComparison.Ordinal);
+            string selectionRefreshBlock = selectionRefreshStart >= 0 && explicitRefreshStart > selectionRefreshStart
+                ? beforeRenderMethod.Substring(selectionRefreshStart, explicitRefreshStart - selectionRefreshStart)
+                : string.Empty;
+            string explicitRefreshBlock = explicitRefreshStart >= 0
+                ? beforeRenderMethod.Substring(explicitRefreshStart)
+                : string.Empty;
+            Assert(selectionRefreshBlock.Contains("SetupSelectedTroops()") &&
+                !selectionRefreshBlock.Contains("HUDControlGroups") &&
+                !selectionRefreshBlock.Contains("updateSpritesOriginal") &&
+                !selectionRefreshBlock.Contains("ApplyImageOverrides"),
+                "selection-only refreshes must update the troop HUD without touching control groups or global images");
+            Assert(explicitRefreshBlock.Contains("HUDControlGroups?.Update()") &&
+                explicitRefreshBlock.Contains("updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") &&
+                explicitRefreshBlock.Contains("ApplyImageOverrides(main, lastSpriteColour, lastSpriteArabic)"),
+                "explicit refreshes must retain control-group and legitimate global image updates");
             int ensureButtonsStart = unitHud.IndexOf("private void EnsureCategoryButtons(", StringComparison.Ordinal);
             int hideButtonsStart = unitHud.IndexOf("private void HideCategoryButtons()", StringComparison.Ordinal);
             int mouseDownStart = unitHud.IndexOf("private void OnCategoryMouseDown(", StringComparison.Ordinal);

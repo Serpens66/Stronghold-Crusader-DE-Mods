@@ -88,6 +88,11 @@ namespace BugfixesAndQoL
             localPlayerId >= 1 && localPlayerId <= 8 &&
             !IsValidLord(currentLord);
 
+        internal static int ResolvePresentedGameOverState(
+            int state,
+            bool spectatorPromotionRequested) =>
+            state == 1 && spectatorPromotionRequested ? 2 : state;
+
         internal static bool CanAcceptRequest(
             bool featureEnabled,
             bool activeMatch,

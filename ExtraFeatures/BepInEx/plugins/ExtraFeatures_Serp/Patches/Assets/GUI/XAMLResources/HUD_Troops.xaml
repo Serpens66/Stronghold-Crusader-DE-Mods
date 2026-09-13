@@ -55,4 +55,41 @@
       </Grid>
     </Content>
   </Operation>
+  <Operation Type="InsertAfter" XPath="//n:TextBlock[@x:Name='TroopsPanelRollover2']/n:Run[@Text='{Binding TroopsPanelRollover}']">
+    <Content>
+      <InlineUIContainer>
+        <StackPanel x:Name="ExtraFeaturesKnightTransformationTooltipMetadataHost"
+                    Orientation="Horizontal"
+                    Margin="8,0,0,-3"
+                    VerticalAlignment="Center"
+                    IsHitTestVisible="False"
+                    Visibility="Collapsed">
+          <Image x:Name="ExtraFeaturesKnightTransformationTooltipGoldIcon"
+                 Width="18"
+                 Height="18"
+                 Margin="0,0,3,0"
+                 VerticalAlignment="Center"
+                 Visibility="Collapsed" />
+          <TextBlock x:Name="ExtraFeaturesKnightTransformationTooltipGoldText"
+                     FontSize="16"
+                     Foreground="#FFDDDDDD"
+                     VerticalAlignment="Center"
+                     Text=""
+                     Visibility="Collapsed" />
+          <TextBlock x:Name="ExtraFeaturesKnightTransformationTooltipSeparatorText"
+                     FontSize="16"
+                     Foreground="#FFDDDDDD"
+                     VerticalAlignment="Center"
+                     Text=" · "
+                     Visibility="Collapsed" />
+          <TextBlock x:Name="ExtraFeaturesKnightTransformationTooltipDelayText"
+                     FontSize="16"
+                     Foreground="#FFDDDDDD"
+                     VerticalAlignment="Center"
+                     Text=""
+                     Visibility="Collapsed" />
+        </StackPanel>
+      </InlineUIContainer>
+    </Content>
+  </Operation>
 </Patch>
