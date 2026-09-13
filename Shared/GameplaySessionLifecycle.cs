@@ -63,6 +63,9 @@ namespace Shared
     /// </summary>
     internal static class GameplaySessionLifecycle
     {
+        [ThreadStatic]
+        private static GameplaySessionStartedContext currentNotification;
+
 #if SHARED_PRESET_TESTS
         private static readonly List<Action<GameplaySessionStartedContext>> TestSubscribers =
             new List<Action<GameplaySessionStartedContext>>();
@@ -77,7 +80,9 @@ namespace Shared
 
 #if SHARED_PRESET_TESTS
             TestSubscribers.Add(callback);
-            return new TestSubscription(callback);
+            var subscription = new TestSubscription(callback);
+            ReplayCurrentNotification(log, callback);
+            return subscription;
 #else
             IDisposable mapStartSubscription = null;
             IDisposable saveLoadSubscription = null;
@@ -85,11 +90,13 @@ namespace Shared
             {
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(args => Notify(log, callback, GameplaySessionStartedContext.FromNewMap(args)));
+                    .Subscribe(args => NotifyNewMap(log, callback, args));
                 saveLoadSubscription = MapLoaderR3EventHooks.OnLoadSave.Observable
                     .Where(IsSuccessfulSavePost)
-                    .Subscribe(args => Notify(log, callback, GameplaySessionStartedContext.FromLoadedSave(args)));
-                return new Subscription(mapStartSubscription, saveLoadSubscription);
+                    .Subscribe(args => NotifyLoadedSave(log, callback, args));
+                var subscription = new Subscription(mapStartSubscription, saveLoadSubscription);
+                ReplayCurrentNotification(log, callback);
+                return subscription;
             }
             catch
             {
@@ -103,11 +110,56 @@ namespace Shared
         internal static bool IsSuccessfulSavePost(LoadSaveGameEventArgs args) =>
             args != null && args.Phase == EventHookPhase.Post && args.ReturnValue > 0;
 
+        private static void NotifyNewMap(
+            ManualLogSource log,
+            Action<GameplaySessionStartedContext> callback,
+            MapStartEventArgs args)
+        {
+            try
+            {
+                Notify(log, callback, GameplaySessionStartedContext.FromNewMap(args));
+            }
+            catch (Exception ex)
+            {
+                DebugLogHelper.LogError(
+                    log,
+                    $"Shared gameplay-session context capture failed: kind={GameplaySessionStartKind.NewMap}, error={ex}");
+            }
+        }
+
+        private static void NotifyLoadedSave(
+            ManualLogSource log,
+            Action<GameplaySessionStartedContext> callback,
+            LoadSaveGameEventArgs args)
+        {
+            try
+            {
+                Notify(log, callback, GameplaySessionStartedContext.FromLoadedSave(args));
+            }
+            catch (Exception ex)
+            {
+                DebugLogHelper.LogError(
+                    log,
+                    $"Shared gameplay-session context capture failed: kind={GameplaySessionStartKind.LoadedSave}, error={ex}");
+            }
+        }
+
+        private static void ReplayCurrentNotification(
+            ManualLogSource log,
+            Action<GameplaySessionStartedContext> callback)
+        {
+            GameplaySessionStartedContext context = currentNotification;
+            if (context != null)
+                Notify(log, callback, context);
+        }
+
         private static void Notify(
             ManualLogSource log,
             Action<GameplaySessionStartedContext> callback,
             GameplaySessionStartedContext context)
         {
+            GameplaySessionStartedContext previousNotification = currentNotification;
+            currentNotification = context;
             try
             {
                 callback(context);
@@ -118,26 +170,32 @@ namespace Shared
                     log,
                     $"Shared gameplay-session subscriber failed: kind={context.Kind}, error={ex}");
             }
+            finally
+            {
+                currentNotification = previousNotification;
+            }
         }
 
 #if SHARED_PRESET_TESTS
         internal static void System_TestRaiseNewMap(MapStartEventArgs args)
         {
-            GameplaySessionStartedContext context = GameplaySessionStartedContext.FromNewMap(args);
             foreach (Action<GameplaySessionStartedContext> callback in TestSubscribers.ToArray())
-                callback(context);
+                NotifyNewMap(null, callback, args);
         }
 
         internal static void System_TestRaiseSave(LoadSaveGameEventArgs args)
         {
             if (!IsSuccessfulSavePost(args))
                 return;
-            GameplaySessionStartedContext context = GameplaySessionStartedContext.FromLoadedSave(args);
             foreach (Action<GameplaySessionStartedContext> callback in TestSubscribers.ToArray())
-                callback(context);
+                NotifyLoadedSave(null, callback, args);
         }
 
-        internal static void System_TestReset() => TestSubscribers.Clear();
+        internal static void System_TestReset()
+        {
+            TestSubscribers.Clear();
+            currentNotification = null;
+        }
 
         private sealed class TestSubscription : IDisposable
         {

@@ -5671,6 +5671,20 @@ internal static class Program
               coordinator.Contains("_ => mapStarted = true") &&
               !coordinator.Contains("GameNetworkAPI.GetLocalPlayerId"),
             "per-player lobby observation is not stopped by loaded sessions or restored the noisy identity call");
+
+        string extraFeaturesRuntime = File.ReadAllText(
+            Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesRuntime.cs"));
+        Check(extraFeaturesRuntime.Contains("if (context.IsLoadedSave)") &&
+              extraFeaturesRuntime.Contains("ApplyMapLoadedSettings();") &&
+              !extraFeaturesRuntime.Contains("TrySubscribeFeature(\"save-load settings\""),
+            "Extra Features does not initialize map-loaded state through the replay-safe shared lifecycle");
+
+        string aiTowerRuinRepair = File.ReadAllText(
+            Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AITowerRuinRepairFix.cs"));
+        Check(aiTowerRuinRepair.Contains("RebuildRuntimeRuinIndex();") &&
+              aiTowerRuinRepair.Contains("int buildingId = spanIndex + 1;") &&
+              aiTowerRuinRepair.Contains("building.r_GlobalId == 0"),
+            "AI tower-ruin tracking is not safely reconstructed from loaded native buildings");
     }
 
     private static void TestSharedGameplaySessionLifecycle()
@@ -5722,16 +5736,44 @@ internal static class Program
         Check(ordering.SequenceEqual(new[] { "mod-save-restored", "session-started" }),
             "gameplay session ran before restored mod-save state");
 
+        int outerNotifications = 0;
+        int lateNotifications = 0;
+        IDisposable lateSubscription = null;
+        IDisposable outerSubscription = GameplaySessionLifecycle.SubscribeStarted(
+            null,
+            _ =>
+            {
+                outerNotifications++;
+                if (lateSubscription == null)
+                {
+                    lateSubscription = GameplaySessionLifecycle.SubscribeStarted(
+                        null,
+                        __ => lateNotifications++);
+                }
+            });
+        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(false)
+        {
+            Phase = EventHookPhase.Post,
+            ReturnValue = 1
+        });
+        Check(outerNotifications == 1 && lateNotifications == 1,
+            "a lifecycle subscriber registered during save Post missed the active session or ran twice");
+
         GameplaySessionLifecycle.System_TestRaiseNewMap(new MapStartEventArgs());
         Check(observed.SequenceEqual(new[]
             {
                 GameplaySessionStartKind.LoadedSave,
+                GameplaySessionStartKind.LoadedSave,
                 GameplaySessionStartKind.NewMap
             }),
             "new-map Post did not produce exactly one new-map start");
+        Check(outerNotifications == 2 && lateNotifications == 2,
+            "a late lifecycle subscriber was not retained exactly once for subsequent sessions");
 
         subscription.Dispose();
         orderingSubscription.Dispose();
+        outerSubscription.Dispose();
+        lateSubscription.Dispose();
         GameplaySessionLifecycle.System_TestReset();
     }
 }

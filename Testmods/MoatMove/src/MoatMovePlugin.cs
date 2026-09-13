@@ -9,9 +9,9 @@ using SHCDESE.EventAPI;
 using System;
 using System.Reflection;
 
-[assembly: AssemblyVersion("0.1.0.0")]
-[assembly: AssemblyFileVersion("0.1.0.0")]
-[assembly: AssemblyInformationalVersion("0.1.0")]
+[assembly: AssemblyVersion("0.1.1.0")]
+[assembly: AssemblyFileVersion("0.1.1.0")]
+[assembly: AssemblyInformationalVersion("0.1.1")]
 
 namespace MoatMove
 {
@@ -22,7 +22,7 @@ namespace MoatMove
     public sealed class MoatMovePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "MoatMove_Serp";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
         private static ManualLogSource persistentLog;
         private static FriendlyMoatMovementRuntime runtime;
         private static MoatMoveOptions options;
@@ -45,7 +45,7 @@ namespace MoatMove
                     new AcceptableValueList<string>("precise", "fast"))).Value;
             options = new MoatMoveOptions(mode);
             Shared.DebugLogHelper.LogInfo(persistentLog,
-                $"MoatMove 0.1.0 loaded; mode={options.ModeName}, improvedFill=false, ladderAttackFix=false, formationEnhancements=false; awaiting native library.");
+                $"MoatMove 0.1.1 loaded; mode={options.ModeName}, improvedFill=false, ladderAttackFix=false, formationEnhancements=false; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 

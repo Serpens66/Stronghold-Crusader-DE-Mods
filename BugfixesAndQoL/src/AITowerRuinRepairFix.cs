@@ -250,7 +250,7 @@ namespace BugfixesAndQoL
                 .Subscribe(_ => ResetMap()));
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                _ => mapActive = true));
+                OnSessionStarted));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => ResetMap()));
@@ -261,6 +261,53 @@ namespace BugfixesAndQoL
             mapActive = false;
             runtimeRuins.Clear();
             callbackFailureLogged = false;
+        }
+
+        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
+        {
+            if (context.IsLoadedSave)
+                RebuildRuntimeRuinIndex();
+            mapActive = true;
+        }
+
+        private void RebuildRuntimeRuinIndex()
+        {
+            runtimeRuins.Clear();
+            try
+            {
+                Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
+                for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
+                {
+                    ref GameBuilding building = ref buildings[spanIndex];
+                    int playerId = building.r_PlayerIdOwner;
+                    if (building.r_AliveState != AliveState.IsAlive ||
+                        building.r_GlobalId == 0 ||
+                        !IsTowerRuin(building.r_BuildingType) ||
+                        playerId < 1 || playerId > 8 ||
+                        !GamePlayerManagerAPI.Instance.IsAIPlayer(playerId))
+                    {
+                        continue;
+                    }
+
+                    int buildingId = spanIndex + 1;
+                    runtimeRuins[buildingId] = new RuntimeTowerRuin(
+                        buildingId,
+                        building.r_GlobalId,
+                        playerId,
+                        building.r_BuildingType,
+                        building.r_TilePositionXBegin,
+                        building.r_TilePositionYBegin);
+                }
+
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"AI tower-ruin tracking reconstructed after save load: count={runtimeRuins.Count}.");
+            }
+            catch (Exception ex)
+            {
+                runtimeRuins.Clear();
+                LogCallbackFailure("save-load ruin reconstruction", ex);
+            }
         }
 
         private void OnBuildingSpawn(BuildingSpawnEventArgs args)

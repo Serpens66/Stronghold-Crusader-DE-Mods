@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "Unit Costs",
   "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.26",
+  "Version": "1.0.27",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
@@ -11,7 +11,7 @@
   "NetworkMode": 1,
   "SerpChangelog": [
     {
-      "Version": "1.0.26",
+      "Version": "1.0.27",
       "Changes": [
         "Rebuilt and verified for compatibility with Script Extender 2.4.0."
       ]

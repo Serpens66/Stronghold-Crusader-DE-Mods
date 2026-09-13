@@ -97,6 +97,11 @@ namespace BugfixesAndQoL
                     return;
                 }
 
+                // Unknown1 is context-dependent: Vanilla also calls this validator for
+                // internal probes and uses non-positive sentinel values instead of a footprint.
+                if (TunnelPlacementDistancePolicy.IsSpecialValidationMode(args.Unknown1))
+                    return;
+
                 if (args.Unknown1 != footprintSize)
                 {
                     LogUnexpectedScaleOnce(args.Mappers, footprintSize, args.Unknown1);

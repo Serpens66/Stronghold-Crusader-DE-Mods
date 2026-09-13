@@ -418,7 +418,7 @@ internal static class Program
         Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, ScriptExtenderVersion)]") &&
               plugin.Contains("[BepInDependency(ApiSharedGuid, ApiSharedVersion)]") &&
               plugin.Contains("ApiSharedVersion = \"0.3.1\"") &&
-              plugin.Contains("PluginVersion = \"0.1.0\""), "Plugin dependency/version contract differs.");
+              plugin.Contains("PluginVersion = \"0.1.1\""), "Plugin dependency/version contract differs.");
         Check(plugin.Contains("private static ManualLogSource persistentLog") &&
               plugin.Contains("private static SwordsmanSkinRuntime runtime") &&
               plugin.Contains("private static bool librarySubscriptionInstalled"),
@@ -438,9 +438,9 @@ internal static class Program
               plugin.IndexOf("candidate?.Dispose();", StringComparison.Ordinal) <
               plugin.IndexOf("runtime.RegisterTroopHudWithApiShared();", StringComparison.Ordinal),
             "Process-lifetime APIShared registrations must occur only after runtime publication and rollback handling.");
-        Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.0\")") &&
-              assemblyInfo.Contains("AssemblyFileVersion(\"0.1.0\")") &&
-              assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.0\")"),
+        Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.1\")") &&
+              assemblyInfo.Contains("AssemblyFileVersion(\"0.1.1\")") &&
+              assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.1\")"),
             "Assembly version metadata must match the active mod version.");
         Check(runtime.Contains("GetModFileBinaryContent") && runtime.Contains("GetModFileTextContent"),
             "Assets must be loaded through the archive-compatible asset index.");
@@ -527,7 +527,10 @@ internal static class Program
             "The APIShared resolver must gate context and player ID before culture lookup without recursive refresh.");
         Match preview = Regex.Match(runtime,
             @"private bool TryReplaceRoundTowerTilePreview[\s\S]*?\n\s*}\r?\n\r?\n\s*private void OnMapStarted");
+        Match buildingHook = Regex.Match(runtime,
+            @"private unsafe void SetBuildingTileSpriteHook[\s\S]*?\n\s*}\r?\n\r?\n\s*private bool TryReplaceRoundTowerTilePreview");
         Check(preview.Success &&
+              buildingHook.Success &&
               preview.Value.Contains("tile.constructionOrigImage") &&
               preview.Value.Contains("controls.CurrentAction != 5") &&
               preview.Value.Contains("Enums.eMappers.MAPPER_TOWER5") &&
@@ -541,10 +544,10 @@ internal static class Program
               preview.Value.IndexOf("GetLocalPlayerId()", StringComparison.Ordinal) &&
               !runtime.Contains("TryReplaceRoundTowerPlacementPreview") &&
               !runtime.Contains("mouseCursorGO") &&
-              runtime.IndexOf("buildingTrampoline(tile, file, image, light);", StringComparison.Ordinal) <
-              runtime.IndexOf("TryReplaceRoundTowerTilePreview(tile, image, expected)", StringComparison.Ordinal) &&
-              runtime.IndexOf("TryReplaceRoundTowerTilePreview(tile, image, expected)", StringComparison.Ordinal) <
-              runtime.IndexOf("GetTileBuildingId(tileId)", StringComparison.Ordinal),
+              buildingHook.Value.IndexOf("buildingTrampoline(tile, file, image, light);", StringComparison.Ordinal) <
+              buildingHook.Value.IndexOf("TryReplaceRoundTowerTilePreview(tile, image, expected)", StringComparison.Ordinal) &&
+              buildingHook.Value.IndexOf("TryReplaceRoundTowerTilePreview(tile, image, expected)", StringComparison.Ordinal) <
+              buildingHook.Value.IndexOf("GetTileBuildingId(tileId)", StringComparison.Ordinal),
             "Round-tower placement preview must use Vanilla tile fragments, direct indices and conflict-friendly sprite-only replacement before building resolution.");
         Check(runtime.Contains("buildingTrampoline(tile, file, image, light);") &&
               runtime.Contains("GetTileBuildingId(tileId)") && runtime.Contains("TryGetBuildingById(buildingId") &&

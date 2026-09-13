@@ -16,7 +16,7 @@ namespace SkinTest
         private const string ApiSharedVersion = "0.3.1";
         public const string PluginGuid = "SkinTest_Serp";
         public const string PluginName = "SkinTest";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.1.1";
 
         // SHCDE destroys the BepInEx component during normal startup. These static
         // roots intentionally keep the visual runtime and hook alive for the process.

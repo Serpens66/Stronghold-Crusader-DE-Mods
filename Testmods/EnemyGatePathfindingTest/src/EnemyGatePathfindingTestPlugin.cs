@@ -21,7 +21,7 @@ namespace EnemyGatePathfindingTest
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "EnemyGatePathfindingTest_Serp";
         private const string PluginName = "Enemy Gate Pathfinding Test";
-        private const string PluginVersion = "0.1.3";
+        private const string PluginVersion = "0.1.4";
 
         // The BepInEx component is destroyed during startup. Static ownership keeps the
         // native hook and event subscriptions alive for the complete process.

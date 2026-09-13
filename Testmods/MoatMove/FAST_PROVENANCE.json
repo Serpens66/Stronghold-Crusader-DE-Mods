@@ -8,7 +8,7 @@
   "files": [
     {
       "file": "FriendlyMoatMovementRuntime.cs",
-      "sha256": "96339BEBAF706C05AAC096064B1D59EAC4021885E84CE7384F0B24C12A33FA9C",
+      "sha256": "69A6B79B817B5B628436EE6028191FCEBD9E7FC305EDBBE942D5B8626D6E4794",
       "reason": "Fast routing dispatch, removal of legacy Fast branches, pending scheduler initialization and group distribution retention; Precise branch preserved."
     },
     {
@@ -73,7 +73,7 @@
     },
     {
       "file": "MoatMovePlugin.cs",
-      "sha256": "4866B6579125A7A7DFC8254879A7B0B15EFBACA7C45037BFCAC0B6A3B479A150",
+      "sha256": "A838553ECC3B024E59B553D22DA536BB059CE39137B231E5A8EFD81B2E2FC78A",
       "reason": "Preserved concurrent user-owned GameplaySessionLifecycle integration."
     }
   ]

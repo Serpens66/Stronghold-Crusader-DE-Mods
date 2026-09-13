@@ -83,7 +83,7 @@ internal static class StandaloneContracts
         var libraryInit = pluginTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Single(m => m.Identifier.Text == "OnLibraryLoaded").ToString();
         Check(libraryInit.IndexOf("ReportConflict()", StringComparison.Ordinal) < libraryInit.IndexOf("new FriendlyMoatMovementRuntime", StringComparison.Ordinal), "Conflict checked after hook installation");
         using var manifest = JsonDocument.Parse(File.ReadAllText(Path.Combine(modDir, "info.json")));
-        Check(manifest.RootElement.GetProperty("GUID").GetString() == "MoatMove_Serp" && manifest.RootElement.GetProperty("Version").GetString() == "0.1.0" && manifest.RootElement.GetProperty("NetworkMode").GetInt32() == 1, "Wrong plugin identity/network contract");
+        Check(manifest.RootElement.GetProperty("GUID").GetString() == "MoatMove_Serp" && manifest.RootElement.GetProperty("Version").GetString() == "0.1.1" && manifest.RootElement.GetProperty("NetworkMode").GetInt32() == 1, "Wrong plugin identity/network contract");
         Console.WriteLine("PASS: original source hashes, explicit Fast replacement inventory, pinned Precise kernel, startup config, unrelated-feature gates, conflicts, process lifetime and manifest.");
     }
 

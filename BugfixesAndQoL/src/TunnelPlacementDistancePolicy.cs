@@ -14,6 +14,8 @@ namespace BugfixesAndQoL
             mapper == eMappers.MAPPER_TUNNEL ||
             mapper == eMappers.MAPPER_TUNNEL_CONSTRUCTION;
 
+        internal static bool IsSpecialValidationMode(int eventScale) => eventScale <= 0;
+
         internal static bool IsPlaceableBuildingMapper(eMappers mapper, int footprintSize) =>
             footprintSize > 0 && mapper.ConvertToEStructs() != eStructs.STRUCT_NULL;
 

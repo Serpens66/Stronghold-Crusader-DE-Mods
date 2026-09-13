@@ -17,13 +17,13 @@ namespace ExtremePowers
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtremePowersPlugin : BaseUnityPlugin
     {
-        public const string PluginGuid = "ExtremePowers_Serp", PluginName = "Extreme Powers", PluginVersion = "0.1.3";
+        public const string PluginGuid = "ExtremePowers_Serp", PluginName = "Extreme Powers", PluginVersion = "0.1.4";
         private static int initialized; private static IExtremePowersApiClient client; private static IDisposable demoHandle;
         private static Settings.ExtremePowersSettings rootedSettings;
         private static ManualLogSource rootedLogger;
         private static bool? capturedRealMultiplayer;
         private static int[] capturedPlayers = Array.Empty<int>();
-        private static IDisposable mapStartSubscription, mapUnloadSubscription;
+        private static IDisposable newMapSubscription, saveLoadSubscription, mapUnloadSubscription;
         public Settings.ExtremePowersSettings Settings { get; private set; }
         private void Awake()
         {
@@ -40,12 +40,22 @@ namespace ExtremePowers
             Settings = rootedSettings = new Settings.ExtremePowersSettings();
             client = LocalExtremePowersApiClient.Create(dll, context.ModuleHandle, context.Memory, GetProtocolReadiness, message => Shared.DebugLogHelper.LogDebug(rootedLogger, message));
             Settings.ApiProtocolReport = client.CompatibilityToken;
-            mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(rootedLogger, OnSessionStarted);
+            // SaveLifecycle: NewMapOnly - protocol state must be captured before native map startup.
+            newMapSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(_ => CaptureMapSession());
+            saveLoadSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
+                rootedLogger,
+                context =>
+                {
+                    if (context.IsLoadedSave)
+                        CaptureMapSession();
+                });
             mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMapSession());
             Shared.LobbyModSettingsPresetRegistration.Register(this, Logger, PluginGuid, Settings, "ScriptExtenderUI/ExtremePowersSettings.xaml");
             Settings.PropertyChanged += (_, __) => ApplySettings(); ApplySettings(); Shared.DebugLogHelper.LogDebug(Logger, client.Status);
         }
-        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
+        private void CaptureMapSession()
         {
             Shared.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
             capturedRealMultiplayer = mode.IsRealMultiplayer;

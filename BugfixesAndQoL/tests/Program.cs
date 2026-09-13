@@ -763,6 +763,11 @@ namespace BugfixesAndQoL
                     !TunnelPlacementDistancePolicy.ShouldApply(
                         true, true, false, false, eMappers.MAPPER_TUNNEL, 0),
                 "placement clearance preserves disabled, editor, AI and non-building placement");
+            Check(TunnelPlacementDistancePolicy.IsSpecialValidationMode(-2) &&
+                    TunnelPlacementDistancePolicy.IsSpecialValidationMode(0) &&
+                    !TunnelPlacementDistancePolicy.IsSpecialValidationMode(2) &&
+                    !TunnelPlacementDistancePolicy.IsSpecialValidationMode(3),
+                "placement clearance distinguishes Vanilla sentinel modes from positive footprints");
 
             var visited = new HashSet<string>();
             bool emptyRingBlocked = TunnelPlacementDistancePolicy.HasHostileOuterRingTile(
@@ -881,6 +886,12 @@ namespace BugfixesAndQoL
                     !feature.Contains("args.CustomValidationRules = false;") &&
                     !feature.Contains("args.ForceBlockPlacementState = false;"),
                 "tunnel distance feature only adds a placement rejection");
+            int sentinelGuard = feature.IndexOf(
+                "IsSpecialValidationMode(args.Unknown1)", StringComparison.Ordinal);
+            int mismatchDiagnostic = feature.IndexOf(
+                "if (args.Unknown1 != footprintSize)", StringComparison.Ordinal);
+            Check(sentinelGuard >= 0 && mismatchDiagnostic >= 0 && sentinelGuard < mismatchDiagnostic,
+                "placement clearance silently ignores non-positive Vanilla validator modes before mismatch diagnostics");
             Check(feature.IndexOf("if (args.PlayerId == 0)", StringComparison.Ordinal) >= 0 &&
                     feature.IndexOf("if (args.PlayerId == 0)", StringComparison.Ordinal) <
                     feature.IndexOf("if (!players.IsPlayerIdValid(args.PlayerId))", StringComparison.Ordinal) &&
@@ -903,6 +914,11 @@ namespace BugfixesAndQoL
             Check(xaml.Contains("EnableTunnelPlacementDistanceFix, Mode=TwoWay") &&
                     xaml.Contains("bugfixes.enable-tunnel-placement-distance-fix"),
                 "tunnel distance fix is exposed in the settings UI");
+            Check(xaml.Contains(
+                    "<Grid Style=\"{StaticResource ModSettingsSearchTargetGrid}\" shared:ModSettingsSearch.Key=\"bugfixes.category.client-qol\"") &&
+                    !xaml.Contains(
+                    "<TextBlock Text=\"{Binding QolTitleText}\" Style=\"{StaticResource CategoryHeader}\" Margin=\"0,8,0,4\" shared:ModSettingsSearch.Key=\"bugfixes.category.client-qol\""),
+                "client QoL category uses the neutral Grid search target wrapper");
         }
 
         private static void TestFriendlyMoatMovementPolicy()

@@ -24,7 +24,7 @@ namespace Shared
         private static GameModeSnapshot authoritativeLoadSnapshot;
 #if !SHARED_PRESET_TESTS
         private static IDisposable mapLoadSubscription;
-        private static IDisposable loadSaveSubscription;
+        private static IDisposable gameplaySessionSubscription;
         private static IDisposable mapStartSubscription;
         private static IDisposable mapUnloadSubscription;
 #endif
@@ -53,11 +53,18 @@ namespace Shared
             // native work already begins in OnStartMap(Pre).
             mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable
                 .Subscribe(args => UpdateLoad(GameModeHelper.Capture(args), $"OnLoadMap({args.Phase})"));
-            loadSaveSubscription = MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(GameplaySessionLifecycle.IsSuccessfulSavePost)
-                .Subscribe(args => UpdateLoad(GameModeHelper.Capture(args), $"OnLoadSave({args.Phase})"));
             mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
-                .Subscribe(args => UpdateStart(GameModeHelper.Capture(args), $"OnStartMap({args.Phase})"));
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(args => UpdateStart(GameModeHelper.Capture(args), "OnStartMap(Pre)"));
+            gameplaySessionSubscription = GameplaySessionLifecycle.SubscribeStarted(
+                log,
+                context =>
+                {
+                    if (context.IsLoadedSave)
+                        UpdateLoad(context.Mode, "OnLoadSave(Post)");
+                    else
+                        UpdateStart(context.Mode, "OnStartMap(Post)");
+                });
             mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Subscribe(args =>
                 {

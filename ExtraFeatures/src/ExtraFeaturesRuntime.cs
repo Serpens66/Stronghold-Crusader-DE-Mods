@@ -256,10 +256,6 @@ namespace ExtraFeatures
                 MapLoaderR3EventHooks.OnLoadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => ApplyMapLoadedSettings()));
-            TrySubscribeFeature("save-load settings", () =>
-                MapLoaderR3EventHooks.OnLoadSave.Observable
-                    .Where(Shared.GameplaySessionLifecycle.IsSuccessfulSavePost)
-                    .Subscribe(_ => ApplyMapLoadedSettings()));
             TrySubscribeFeature("gameplay-session initialization", () =>
                 Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
             TrySubscribeFeature("map-unload cleanup", () =>
@@ -520,8 +516,13 @@ namespace ExtraFeatures
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
-            multiplayerFeatureGate.CaptureMapMode(
-                context.MapStart != null && context.MapStart.bMultiplayerSave != 0);
+            bool multiplayerSave = context.IsLoadedSave
+                ? context.Mode.IsRealMultiplayer
+                : context.MapStart != null && context.MapStart.bMultiplayerSave != 0;
+            multiplayerFeatureGate.CaptureMapMode(multiplayerSave);
+
+            if (context.IsLoadedSave)
+                ApplyMapLoadedSettings();
 
             TryRunFeature("Lord health map initialization", ReconcileLordHealthRuntime);
 

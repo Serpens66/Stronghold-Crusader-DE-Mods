@@ -118,8 +118,8 @@
         <StackPanel>
           <TextBlock Text="{Binding AllowElevatedMoatText}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,3"/>
           <StackPanel Orientation="Horizontal">
-            <CheckBox Content="{Binding AiText}" IsChecked="{Binding AllowElevatedMoatAI, Mode=TwoWay}" Foreground="White" Margin="0,0,18,0"/>
-            <CheckBox Content="{Binding HumanText}" IsChecked="{Binding AllowElevatedMoatHuman, Mode=TwoWay}" Foreground="White"/>
+            <CheckBox Content="{Binding AiText}" IsChecked="{Binding AllowElevatedMoatAI, Mode=TwoWay}" Foreground="White" Margin="0,0,18,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}"/>
+            <CheckBox Content="{Binding HumanText}" IsChecked="{Binding AllowElevatedMoatHuman, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowElevatedMoatHelpText}"/>
           </StackPanel>
         </StackPanel>
       </Grid>

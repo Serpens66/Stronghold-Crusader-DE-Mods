@@ -310,7 +310,7 @@ void ValidateRuntimeSources()
         "public int FriendlyMoatMovementMode { get; set; } = FriendlyMoatMovementPolicy.DefaultMode; " +
         "internal FriendlyMoatMovementMode GetFriendlyMoatMovementMode() => " +
         "(FriendlyMoatMovementMode)FriendlyMoatMovementPolicy.Normalize(FriendlyMoatMovementMode); } }");
-    var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","PresetLobbyModSettingsViewModel.cs","ModSettingsSearch.cs","ToolTipPresentation.cs","GameModeHelper.cs"}.Select(file=>
+    var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","PresetLobbyModSettingsViewModel.cs","ModSettingsSearch.cs","ToolTipPresentation.cs","GameModeHelper.cs","GameplaySessionLifecycle.cs"}.Select(file=>
         CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),

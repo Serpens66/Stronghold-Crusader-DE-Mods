@@ -70,7 +70,7 @@
                  Foreground="#FFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,4,0,4"/>
       <StackPanel IsEnabled="{Binding CanEditClientSettings}">
-      <TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="0,8,0,4" shared:ModSettingsSearch.Key="bugfixes.category.client-qol" shared:ModSettingsSearch.Title="{Binding QolTitleText}"/>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.category.client-qol" shared:ModSettingsSearch.Title="{Binding QolTitleText}"><TextBlock Text="{Binding QolTitleText}" Style="{StaticResource CategoryHeader}" Margin="0,8,0,4"/></Grid>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.client-interface" shared:ModSettingsSearch.SectionTitle="{Binding ClientInterfaceTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding ClientInterfaceTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.show-vanilla-maps-in-editor" shared:ModSettingsSearch.Title="{Binding ShowVanillaMapsInEditorText}" shared:ModSettingsSearch.ToolTipText="{Binding ShowVanillaMapsInEditorHelpText}"><CheckBox IsChecked="{Binding ShowVanillaMapsInEditor, Mode=TwoWay}"

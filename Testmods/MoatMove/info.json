@@ -3,7 +3,7 @@
   "Author": "Serpens66",
   "Name": "MoatMove",
   "Description": "Unmodified precise friendly/allied moat movement comparison. Always active; test alone or with APIShared.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.5.0",
   "MaximumScriptExtenderVersion": "",

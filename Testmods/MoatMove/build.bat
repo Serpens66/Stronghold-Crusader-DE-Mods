@@ -18,7 +18,7 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto failed
 if errorlevel 1 goto failed
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Install-Package.ps1" -GameDir "%GAME_DIR%"
 if errorlevel 1 goto failed
-echo MoatMove 0.1.0 built and installed successfully.
+echo MoatMove 0.1.1 built and installed successfully.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 :failed
