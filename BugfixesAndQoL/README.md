@@ -20,19 +20,19 @@ In borderless fullscreen mode, the game can automatically replace the resolution
 With a normal synchronized movement order, every unit in a mixed group now uses the slowest member's maximum speed and a matching animation pace. Units that can all run are no longer incorrectly forced to walk merely because their individual movement speeds differ.
 
 ### Improve hostile moat filling
-This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle. Excavating owned planned moats is unchanged. This option remains independent from friendly moat movement.
+This enabled-by-default host option makes units filling hostile moats choose another free, valid edge tile when the first position is occupied. If an entire moat edge is unsuitable, they continue with the next moat found by Vanilla's normal search instead of becoming idle.
 
 ### Allow cavalry movement onto stockpiles
-Knights, Horse Archers, Bedouin Camel Lancers, and Heavy Camels can be ordered onto passable stockpile tiles, matching their existing ability to cross them. The fix does not change stockpile tile definitions or relax movement rules for walls, stairs, keeps, other buildings, occupied tiles, or unreachable destinations.
+Knights, Horse Archers, Bedouin Camel Lancers, and Heavy Camels can be ordered onto passable stockpile tiles, matching their existing ability to cross them.
 
 ### Keep Healers out of melee attack groups
 When a mixed selection is ordered to attack an enemy unit, Bedouin Healers now remain in place like Engineers instead of following the combat units into melee. Normal movement orders and healing behavior remain unchanged.
 
 ### Attack through ladder-accessible walls
-Vanilla can find a route over a wall with a placed ladder for an ordinary movement order, but rejects the same route while searching for attack positions. This enabled-by-default host fix applies Vanilla's own ladder checks when units attack an enemy unit or building behind such a wall. It does not create custom paths or permit attacks through walls without a valid Vanilla ladder route.
+Vanilla can find a route over a wall with a placed ladder for an ordinary movement order, but rejects the same route while searching for attack positions. This enabled-by-default host fix applies Vanilla's own ladder checks when units attack an enemy unit or building behind such a wall.
 
 ### Resume Assassin movement after combat
-Assassins resume their original movement order after automatically fighting an enemy encountered along the way, including routes that climb onto or down from walls. This host setting works independently with Vanilla Assassin pathfinding; when improved Assassin pathfinding is also enabled, resumed orders use its weighted routes and support for walkable reserved building areas.
+Assassins resume their original movement order after automatically fighting an enemy encountered along the way, including routes that climb onto or down from walls.
 
 ### Fix plague and apothecary behavior
 Each active plague outbreak now applies exactly one point of negative popularity, which is reliably removed after all associated clouds are gone. Apothecary treatments make every affected cloud fade correctly, while reserving the entire treatment area so other healers choose a different useful target. The intended building-exit transition is also completed when a target is found, preventing apothecaries from becoming stuck inside their buildings.
@@ -41,47 +41,44 @@ Each active plague outbreak now applies exactly one point of negative popularity
 Barracks, mercenary posts, engineer guilds, tunneler guilds, keeps, and Bedouin tents no longer reject a rally point merely because the game considers the destination unreachable. Their rally flags can be placed anywhere the normal rally-point controls allow.
 
 ### Keep buildings away from enemy buildings and moats
-This enabled-by-default host fix requires a one-tile gap around every human-placed building when an enemy completed moat is nearby. Tunnels and tunnel construction sites additionally retain the same gap from enemy buildings and walls.
+This enabled-by-default host fix requires a one-tile gap around every human-placed building when an enemy completed moat is nearby. Tunnels and tunnel construction sites additionally retain the same gap from enemy buildings and walls (same like woodcutters and so on already do).
 
 ### Fix tripled starting gold in Custom Crusader Trails
-The game can interpret the unusable `customisedExtremeTrail` value in a `.trail` file as a request to triple the mission's starting gold. The fix ignores that value when a trail is loaded through the Trail Maker or Customize screen and writes a safe value when a trail is newly saved or resaved; existing files are not modified until they are saved.
+In vanilla every custom trail saves with `customisedExtremeTrail=true`. When loading a mission in the Trail Maker, this results in 3 times the starting money. But when loading your trail as a normal player, you still have normal gold values. This is because the game ignores this value when starting the map, but does not ignore it in the Trail Maker. This fix makes the game also ignore it in the Trai Maker. Use my mod "StartConditions" to set up any starting gold amounts you want ;).
 
 ### Restore AI castle-defense replenishment
 Vanilla can assign every newly recruited defender to the outer patrol after that patrol has first reached its target, even when later losses leave the AI short of wall defenders. This enabled-by-default host fix makes future defensive recruits refill the configured wall-defense count before the outer patrol grows again. It keeps Vanilla's existing assignment helpers and does not change units that were already assigned.
 
 ### Restore ignored AIV defender positions
-Vanilla DE already reads these positions from user-supplied `.aivjson` files, including new AIVs for Extended Lords. Its `custom = 0` import path still skips the defensive positions in the game-provided Standard, Community, and Historical AIV sets for Pikemen, European Swordsmen, and Arabian Swordsmen. This enabled-by-default host fix removes only that remaining exclusion, allowing the existing AI defense logic to use those positions like every other supported troop row without changing the already-correct custom-AIV path.
+Vanilla DE already reads the correct positions from user-supplied `.aivjson` files, including new AIVs for Extended Lords. Its `custom = 0` import path still skips the defensive positions in the game-provided Standard, Community, and Historical AIV sets for Pikemen, European Swordsmen, and Arabian Swordsmen. This enabled-by-default host fix removes only that remaining exclusion, allowing the existing AI defense logic to use those positions like every other supported troop row without changing the already-correct custom-AIV path.
 
 ### Improve AI wall targeting
-Vanilla reserves each reachable wall segment for only one attacker at a time, which can leave the rest of an AI attack force idle until additional targets become accessible. This enabled-by-default host fix allows multiple AI attackers to target the same reachable wall segment simultaneously. It works independently of the game's official Improved Sieging options.
+Vanilla reserves each reachable wall segment for only one attacker at a time, which can leave the rest of an AI attack force idle until additional targets become accessible. This enabled-by-default host fix allows multiple AI attackers to target the same reachable wall segment simultaneously.
 
 ### Fix AI tower rebuilding
-When an AI tries to rebuild a tower from its castle plan, its own tower ruin can block the placement forever. The fix safely removes only the matching ruin owned by that AI; human, enemy, unrelated, and non-tower ruins remain untouched.
+When an AI tries to rebuild a tower from its castle plan, its own tower ruin can block the placement forever. The fix safely removes only the matching ruin owned by that AI; human, enemy, unrelated, and non-tower ruins remain untouched. (vanilla was only able to remove ruins within close range to the keep)
 
 ### Better AI overbuild rules
 Stockpiles, markets, granaries, and armouries can clear ordinary obstacles while an AI builds its castle, matching the special placement behavior already used by hovels and recruitment buildings. Protected buildings and their reserved yards are preserved where AI castles overlap. If one AI demolishes a building that another AI immediately rebuilds, the repeated conflict is detected and further demolition is stopped without blocking the first legitimate overbuild attempt.
 
 ### Fix AI stone reserve mechanics
-Vanilla gives each AI a basic stone reserve and intends to add the cost of the most expensive castle building that has not yet been built. However, it uses a value that is updated only occasionally. Early in a match this value can still be zero, causing the AI to sell stone needed for its castle and buy it back later. After construction or a failed placement, the value can instead remain outdated and make the AI hoard unnecessary stone.
-
-The fix reads the current castle plan whenever the AI is about to sell stone. The AI keeps its configured base reserve plus the current stone cost of the most expensive ordinary building still waiting for its first successful construction. The extra reserve disappears immediately after that building is placed or its placement fails, and it is not restored merely because a completed building is later destroyed.
-
-Walls, crenellations, stairs, moats, pitch areas, and other multi-part castle commands are excluded. If several normal buildings qualify, only the most expensive one determines the additional reserve; their costs are not added together.
+Fixed wrong stone calculations for AIs, causing it to need longer to build their castle and selling+buying stone within short time.  
+Details of the bug: Vanilla gives each AI a basic stone reserve and intends to add the cost of the most expensive castle building that has not yet been built. However, it uses a value that is updated only occasionally. Early in a match this value can still be zero, causing the AI to sell stone needed for its castle and buy it back later. After construction or a failed placement, the value can instead remain outdated and make the AI hoard unnecessary stone.
 
 ### Allow an autotrade sell threshold of zero
-Vanilla does not correctly enable automatic selling when the sell slider is set to zero. The fix makes `Sell > 0` a valid setting, allowing the market to sell a good whenever any amount of it is available.
+Vanilla does not allow automatic selling when the sell slider is set to zero. The fix makes `Sell > 0` a valid setting, allowing the market to sell a good whenever any amount of it is available.
 
 ### Fix map-origin sorting
-The Origin column in singleplayer and multiplayer map selection now sorts maps into reversible Vanilla, local, and Steam Workshop groups. Unknown or malformed entries remain safely at the end of the list.
+The Origin column in singleplayer and multiplayer map selection now sorts maps like intended.
 
 ### Restore map sizes for classic HD maps
-Classic Stronghold Crusader HD maps remain playable in Definitive Edition, but their older metadata does not contain the newer map-size field used by the map-selection interface. The mod recovers the original size from the map's canonical map-size section, so supported classic maps display and sort by size normally without modifying the map file.
+Classic Stronghold Crusader HD maps now properly display their map size in the map selection list.
 
 ### Restore host migration after an abrupt disconnect
 When the host leaves a running two-player match without Vanilla's normal leave packet, for example by using Alt+F4, the sole remaining human player is promoted to host. This allows the match paused by the connection error to continue and leaves Vanilla's normal player-removal flow unchanged.
 
 ### Remove disbanded units from control groups
-Fix immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership.
+Fix that immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership.
 
 ## Quality-of-life features
 
@@ -89,77 +86,74 @@ Fix immediately removes disbanded units from every control group. This prevents 
 Hold Ctrl while clicking a production building's pause button to pause or resume only that building. Clicking without Ctrl keeps the normal behavior of changing every building of that type.
 
 ### Repair all buildings with Shift
-Hold Shift while clicking a building's Repair button to repair the selected building first and then attempt every other damaged repairable building you own. Vanilla checks and deducts wood and stone separately for every repair, so the sequence stops having an effect when the available resources are no longer sufficient.
+Hold Shift while clicking a building's Repair button to repair the selected building first and then attempt every other damaged repairable building you own. Vanilla checks and deducts resources separately for every repair, so the sequence stops having an effect when the available resources are no longer sufficient.
 
 ### Queue movement and attack commands with Shift
-The enabled-by-default host option extends Shift queues so movement orders and attacks against units or buildings share one deterministic FIFO with up to 128 pending commands. Existing Vanilla movement remains the predecessor, and later mixed commands continue in their original order across selection and tribe changes.
-
-Outstanding destinations are displayed in stable pages of up to nine numbered entries. The current page shows its numbers, while later pages retain their destination flags without presenting repeated numbers as global queue positions. Queue state is synchronized in multiplayer and intentionally discarded when a map starts, loads, unloads, or the option is disabled.
+The enabled-by-default host option extends Shift queues so movement orders and attacks against units or buildings share one deterministic FIFO with up to 128 pending commands. 
 
 ### Improve Move formations and target markers
-Pure player Move orders can use one consistent Manhattan-grid spacing for normal units and Assassins, selectable from **Very dense (1)** through **Very wide (4)**. The feature also keeps the complete animated Vanilla destination markers visible and records diagnostics for large groups. Disabling its synchronized host setting restores all Vanilla Move behavior.
+Show correct Destination markers for moving units, even if they are a very big group. Set up how close they should stand to each other selectable from **Very dense (1)** through **Very wide (4)**.
 
 ### Make new recruits run to rally points
 Newly recruited human and AI units move to their rally points at their own normal fastest pace, with the matching animation. Terrain and other movement modifiers still apply.
 
 ### Close gates only for reachable enemies
-Gatehouses can ignore enemies that cannot reach either entrance instead of closing for every nearby enemy. If reachability cannot be checked safely, the normal game behavior is retained.
+Gatehouses can ignore enemies that cannot reach either entrance instead of closing for every nearby enemy.
 
 ### Restock siege ammunition fairly
-One reload click can restock every selected catapult and trebuchet from a shared ammunition package, distributing the ammunition evenly without reducing any unit's existing amount. Hold Shift for five times the normal package or Ctrl for one fifth; holding both uses the normal amount. If there is not enough stone for the requested package, all stone that can be converted is used.
+One reload click can restock every selected catapult and trebuchet from a shared ammunition package, distributing the ammunition evenly in a way, that every unit has the same ammunition in the end. Hold Shift for five times the normal package or Ctrl for one fifth.
 
 ### Move a quarry's stone pile
-Selected quarries receive a button that moves their linked stone pile clockwise to the next valid position. If no replacement can be placed safely, the existing pile remains untouched.
+Selected quarries receive a button that can move their linked stone pile clockwise to the next valid position.
 
 ### Point AI quarry piles towards their Keep
-New AI quarries automatically move their linked stone pile to the valid Vanilla position nearest to that AI player's Keep. The host can disable this behavior independently from the player-controlled quarry button.
+New AI quarries automatically move their linked stone pile to the valid Vanilla position nearest to that AI's Keep.
 
 ### Protect the AI economy
-Four independent settings prevent affected AI production buildings from entering sleep mode when required input resources are unavailable, panic demolitions, direct deletion of living hovels, and demolitions caused solely by an inaccurate unreachable-building classification. Preventing the resource-shortage sleep mode avoids losing goods already in production or transit. The last setting can retain Vanilla behavior, use an improved reachability check that treats living friendly and allied gates and drawbridges as passable, or block every unreachability demolition. Other demolition causes and normal damage remain unchanged.
+Four independent settings prevent affected AI production buildings from entering sleep mode when required input resources are unavailable, panic demolitions, direct deletion of living hovels, and demolitions caused solely by an inaccurate unreachable-building classification.
 
 ### Open and safely manage Vanilla maps in the map editor
 The map editor's Load Map dialog includes a **Show Vanilla maps** checkbox. When enabled, it adds the editable built-in Skirmish, Free Build, and multiplayer maps to the normal list. Campaign and tutorial maps remain hidden. Saving a loaded Vanilla map always creates or overwrites a separate copy in your user `Maps` folder; the original game files are never changed.
-
 The Load Map and Save Map dialogs also include a **Delete Map** button. It asks for confirmation and can delete only maps stored directly in your user `Maps` folder. Vanilla maps and Steam Workshop maps are always protected from deletion.
 
 ### Customize the detailed market's goods order
 The circular order of goods in the detailed market view can be rearranged freely in the mod settings. It defaults to the classic Stronghold Crusader HD order and includes a button that restores that order at any time.
 
 ### Trade exactly one market unit with Ctrl
-Hold Ctrl while buying or selling at the market to trade exactly one unit instead of the normal five. Ctrl+Shift deliberately restores the normal five-unit trade.
+Hold Ctrl while buying or selling at the market to trade exactly one unit instead of the normal five.
 
 ### Adjust ally goods-transfer amounts with Ctrl and Shift
-In the ally goods-transfer panel, Shift multiplies the clicked amount by five and Ctrl reduces it to one fifth. Holding both modifiers uses the normal amount, and the displayed button values update to show what will be sent.
+In the ally goods-transfer panel, Shift multiplies the clicked amount by five and Ctrl reduces it to one fifth, the displayed button values update to show what will be sent.
 
 ### Accept Steam lobby invitations in game
-Incoming invitations can appear as a Yes/No prompt only after Steam confirms that the sender is a current friend and successfully resolves the invited lobby. Accepting uses the game's normal leave-and-join flow. When declining, an optional checkbox permanently suppresses further mod prompts from that Steam user; the complete local invite blacklist can be cleared beside this feature's mod setting. This validation affects only the mod's popup and never filters, rejects, or changes Steam's invitation or overlay handling. Every invitation for which the mod popup is suppressed is recorded as a warning with its exact validation reason in the BepInEx log.
+Incoming invitations can appear as a Yes/No popup ingame. An optional checkbox permanently suppresses further ingame popups for invites from that Steam user; the complete local invite blacklist can be cleared beside this feature's mod setting.
 
 ### Move the camera while holding Ctrl or Alt
-Keyboard scrolling and edge scrolling continue to move the camera while Ctrl or Alt is held. This prevents modifier keys used for other controls from unnecessarily locking camera movement.
+Keyboard scrolling and edge scrolling now continue to move the camera while Ctrl or Alt is held.
 
 ### Jump to selected troops from the troop HUD
-Middle-clicking a selected troop-type icon centers the camera on one selected unit of that type. Normal left-click selection filtering and right-click removal remain unchanged.
+Middle-clicking a selected troop-type icon centers the camera on one selected unit of that type.
 
 ### Remember the selected lobby map and sorting
 The shared lobby map list remembers both the last sort column and direction and the last map selected in Skirmish. This behavior is controlled by the existing **Improve selection and sorting lists** setting.
 
 ### Improve custom-lord and random-opponent selection
-The custom-lord picker gains name search, sortable Name, Lord Power, and Steam Workshop origin columns, and a button that adds a random lord from the currently visible list. Random-opponent dialogs can independently use Vanilla, local, or Steam Workshop lords. The singleplayer Coop Trail also gains a scrollable AI-partner picker containing both local and Steam Workshop custom lords; all custom-lord partners intentionally share one Coop progress record. Random-AI count buttons are also available in editable multiplayer skirmish lobbies and respect the lobby, map, and human-player limits. A host setting enabled by default can fill every available normal multiplayer slot with AI.
+The custom-lord picker gains name search, sortable Name, Lord Power, and Steam Workshop origin columns, and a button that adds a random lord from the currently visible list. Random-opponent dialogs can independently use Vanilla, local, or Steam Workshop lords. The singleplayer Coop Trail also gains a scrollable AI-partner picker containing both local and Steam Workshop custom lords; all custom-lord partners intentionally share one Coop progress record. Random-AI count buttons are also available in editable multiplayer skirmish lobbies and respect the lobby, map, and human-player limits. In Multiplayer you can fill all 7 slots AI.
 
 ### Include Lord JSON sidecars in Workshop uploads
-While the mod is enabled, uploading a local Custom Lord or Extended CPU Lord also includes every direct `.json` file from that Lord's source folder. This supports metadata such as `info.json` and `lordmeta.json`; Vanilla continues to handle `.lordjson`, `.aivjson`, and the normal Workshop files itself.
+While the mod is enabled, uploading a local Custom Lord or Extended CPU Lord also includes every direct `.json` file from that Lord's source folder. This supports metadata such as `info.json` and `lordmeta.json`; Vanilla continues to handle `.lordjson`, `.aivjson`, and the normal Workshop files itself. Useful to add custom descriptions for your lord see: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/Guides/CustomLordExtendedPackages.md  
 
 ### Improve AIV and AIC selection
-AI castle lists can be searched and sorted by origin or name, while AI configuration lists can additionally be sorted by Lord Power. Each lord's last AIV list, AIC configuration, and castle rotation is remembered across singleplayer and multiplayer lobbies, and named presets can save and restore further setups. Up to 50 ordered AIV candidates may be selected per lord; in multiplayer, additional AIV data is validated and synchronized before the match starts. Missing files in a saved preset are handled safely.
+AI castle lists can be searched and sorted by origin or name, while AI configuration lists can additionally be sorted by Lord Power. Each lord's last AIV list, AIC configuration, and castle rotation is remembered across singleplayer and multiplayer lobbies, and named presets can save and restore further setups. Up to 50 ordered AIV candidates may be selected per lord; in multiplayer, additional AIV data is validated and synchronized before the match starts.
 
 ### Improve game-speed controls
-Multiplayer game-speed and pause controls can be disabled, restricted to the host, or allowed for everyone. Authorized players can pause and continue the match with the normal pause key and use the normal speed keybinds or options slider for game-speed changes. Pressing or holding a speed key changes the speed immediately and repeats every 0.25 seconds; holding Shift changes it by 25 instead of 5 per step. The slider retains its normal 5-point increments, and multiplayer changes do not overwrite the saved singleplayer speed.
+Adds Multiplayer game-speed and pause controls. Can be restricted to the host or allowed for everyone. Pressing or holding a speed key changes the speed immediately and repeats every 0.25 seconds; holding Shift changes it by 25 instead of 5 per step. The slider retains its normal 5-point increments.
 
 ### Add surrender and spectator features
-Active players receive a confirmed Surrender button that kills their lord through the normal game rules, preserving the natural defeat and statistics flow. Spectators can open and refresh the current match statistics without leaving or ending the game. Eliminated players can also receive normal spectator vision and AI information while their player slot, team membership, synchronized state, and final statistics remain unchanged.
+Active players receive a confirmed Surrender button that kills their lord through the normal game rules, preserving the natural defeat and statistics flow. Spectators can open and refresh the current match statistics without leaving or ending the game. Eliminated players can also receive normal spectator vision and AI information.
 
 ### Identify and kick a disconnected player during resync
-During a stalled multiplayer resynchronization, the host is shown the human player with the oldest overdue connection heartbeat. A confirmation button lets the host authoritatively remove that player; no player is suggested while all connections remain current.
+During a stalled multiplayer resynchronization, the host is shown the human player with the oldest overdue connection heartbeat. A confirmation button lets the host authoritatively remove that player.
 
 ### Return everyone to a multiplayer lobby after the game
 After a normal multiplayer match, the host prepares a replacement lobby based on the original lobby. Every participant who is still connected joins it when leaving the final statistics with Exit, allowing the group to set up the next game together.
@@ -168,14 +162,11 @@ After a normal multiplayer match, the host prepares a replacement lobby based on
 The troop HUD displays current and maximum health for the selected units. Health is combined separately for each visible troop type and the current value is colored green, yellow, or red according to the remaining proportion.
 
 ### Improve and control Assassin climbing
-Assassins choose routes by expected travel time instead of treating every traversable step equally. The calculation includes normal movement speed as well as the additional time for climbing normal walls, low walls, stairs, and downward transitions, so a nearby open gate can be preferred while climbing remains worthwhile along sufficiently long detours. Wall climbs can also start and end on walkable reserved building areas, such as barracks forecourts.
-
-When an owned Assassin is selected, a troop-action button allows or forbids climbing globally for that player's Assassins. The setting affects new path requests only; ordinary stairs and already accessible wall surfaces remain usable. AI Assassins always retain climbing. Pressing the normal Stop button or Stop hotkey while an Assassin is climbing cancels the climb, clears the current movement order, and makes the unit immediately controllable again.
+Assassins choose routes by expected travel time instead of treating every traversable step equally. The calculation includes normal movement speed as well as the additional time for climbing walls, so a nearby open gate can be preferred while climbing remains worthwhile along sufficiently long detours. Wall climbs can now also start and end on walkable reserved building areas, such as barracks forecourts.
+When an owned Assassin is selected, a troop-action button allows or forbids climbing globally for that player's Assassins. The setting affects new path requests only. Pressing the normal Stop button or Stop hotkey while an Assassin is climbing cancels the climb now.
 
 ### Control the Lord through the troop HUD
 Selecting your own Lord opens the complete troop HUD with normal commands, health display, troop-type controls, and control-group support. Disband surrenders only when the Lord is selected alone; in mixed selections it affects only normal units.
 
 ### Digging Units Get Stuck In Moat Pockets: allow units to move through allied moat
 Vanilla moat-digging units can now move through completed moats owned by their player or an ally.
-
-The behavior applies to direct movement, unit and building attacks, queued and patrol movement, moat work, and movement resumed after combat. Every published route remains bound to the exact unit, owner, command, target, tick, terrain revision, and native path buffer and is rejected safely if those conditions change.
