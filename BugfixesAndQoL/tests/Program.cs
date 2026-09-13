@@ -46,6 +46,8 @@ namespace BugfixesAndQoL
             TestAIResourceShortageSleepIntegration();
             TestTemporaryGateBlockagePolicy();
             TestTemporaryGateBlockageIntegration();
+            TestResolutionAwareZoomPolicy();
+            TestResolutionAwareZoomIntegration();
             TestMapFileManagerContract();
             TestClassicMapSizeReader();
             TestLobbyMapSelectionMemory();
@@ -59,6 +61,84 @@ namespace BugfixesAndQoL
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
         }
+
+        private static void TestResolutionAwareZoomPolicy()
+        {
+            Check(AlmostEqual(ResolutionAwareZoomPolicy.GetResolutionScale(720), 1f),
+                "resolution-aware zoom leaves sub-1080p scale unchanged");
+            Check(AlmostEqual(ResolutionAwareZoomPolicy.GetResolutionScale(1080), 1f),
+                "resolution-aware zoom uses 1080p as its reference");
+            Check(AlmostEqual(ResolutionAwareZoomPolicy.GetResolutionScale(1440), 4f / 3f),
+                "resolution-aware zoom scales 1440p proportionally");
+            Check(AlmostEqual(ResolutionAwareZoomPolicy.GetResolutionScale(2160), 2f),
+                "resolution-aware zoom doubles the effective 4K scale");
+            Check(AlmostEqual(ResolutionAwareZoomPolicy.GetEffectiveZoom(1f, 2160), 2f),
+                "4K normal zoom matches the 1080p world height");
+
+            float worldHeight1080 = 1080f / (1f * 64f);
+            float worldHeight4K = 2160f / (
+                ResolutionAwareZoomPolicy.GetEffectiveZoom(1f, 2160) * 64f);
+            Check(AlmostEqual(worldHeight1080, worldHeight4K),
+                "resolution normalization preserves visible vertical world size");
+
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(3f, 0.5f, true, true, false, false),
+                    3.5f) &&
+                AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(3.5f, 0.5f, true, true, false, false),
+                    4f),
+                "extra zoom reaches the added 1.5x and 2x close positions");
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(3f, 1f, true, true, false, false),
+                    4f),
+                "whole-step zoom reaches the extended maximum directly");
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(4f, 0.5f, true, false, false, true),
+                    2f),
+                "locked cyclic zoom wraps to Vanilla's resolution-limited minimum");
+            Check(AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(0f, -1f, true, true, true, false),
+                    0f) &&
+                AlmostEqual(
+                    ResolutionAwareZoomPolicy.ResolvePosition(5f, 1f, false, true, false, false),
+                    5f),
+                "editor minimum and unlocked-camera limits retain Vanilla behavior");
+        }
+
+        private static void TestResolutionAwareZoomIntegration()
+        {
+            string hook = File.ReadAllText(Path.Combine("src", "ResolutionAwareZoomHook.cs"));
+            string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+
+            Check(plugin.Contains("private static ResolutionAwareZoomHook resolutionAwareZoomHook;") &&
+                    plugin.Contains("new ResolutionAwareZoomHook(Logger, Settings)"),
+                "resolution-aware zoom hook is rooted for the process lifetime");
+            Check(hook.Contains("RollbackFailedInitialization()") &&
+                    hook.Contains("settings.EnableClientFeatures") &&
+                    hook.Contains("settings.EnableResolutionAwareExtendedZoom") &&
+                    hook.Contains("ResolutionAwareZoomPolicy.ResolvePosition"),
+                "zoom hook is fail-closed and dynamically setting-gated");
+            Check(viewModel.Contains("public bool EnableResolutionAwareExtendedZoom") &&
+                    viewModel.Contains("new LocalPerPlayerSetting<bool>(true)"),
+                "resolution-aware zoom is a default-on per-player setting");
+            Check(xaml.Contains("bugfixes.resolution-aware-extended-zoom") &&
+                    xaml.Contains("IsChecked=\"{Binding EnableResolutionAwareExtendedZoom, Mode=TwoWay}\""),
+                "resolution-aware zoom setting is exposed in searchable client UI");
+
+            foreach (string locale in Directory.GetFiles("Locales", "*.txt"))
+            {
+                string text = File.ReadAllText(locale);
+                Check(text.Contains("BugfixesAndQoL.EnableResolutionAwareExtendedZoom=") &&
+                        text.Contains("BugfixesAndQoL.EnableResolutionAwareExtendedZoomHelp="),
+                    "resolution-aware zoom localization exists in " + Path.GetFileName(locale));
+            }
+        }
+
+        private static bool AlmostEqual(float left, float right) =>
+            Math.Abs(left - right) < 0.0001f;
 
         private static void TestNativePatternSearch()
         {

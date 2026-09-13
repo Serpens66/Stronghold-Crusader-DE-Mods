@@ -82,6 +82,8 @@ namespace BugfixesAndQoL
             new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowMinimapWhilePlacingBuilding = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowCameraMovementWithModifiers = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableResolutionAwareExtendedZoom =
+            new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> hdMarketView = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<int[]> marketGoodsOrder =
             new LocalPerPlayerSetting<int[]>(
@@ -114,6 +116,7 @@ namespace BugfixesAndQoL
                 nameof(EnableClientFeatures),
                 nameof(AllowMinimapWhilePlacingBuilding),
                 nameof(AllowCameraMovementWithModifiers),
+                nameof(EnableResolutionAwareExtendedZoom),
                 nameof(HdMarketView),
             };
             foreach (string propertyName in enabledByDefault)
@@ -355,6 +358,10 @@ namespace BugfixesAndQoL
         public string EnablePlagueTargetReservationFixHelpText => SerpLocalization.Get(SerpLocalization.EnablePlagueTargetReservationFixHelp);
         public string AllowCameraMovementWithModifiersText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiers);
         public string AllowCameraMovementWithModifiersHelpText => SerpLocalization.Get(SerpLocalization.AllowCameraMovementWithModifiersHelp);
+        public string EnableResolutionAwareExtendedZoomText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableResolutionAwareExtendedZoom");
+        public string EnableResolutionAwareExtendedZoomHelpText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableResolutionAwareExtendedZoomHelp");
         public string HdMarketViewText => SerpLocalization.Get(SerpLocalization.HdMarketView);
         public string HdMarketViewHelpText => SerpLocalization.Get(SerpLocalization.HdMarketViewHelp);
         public string MarketGoodsOrderTitleText => SerpLocalization.Get(SerpLocalization.MarketGoodsOrderTitle);
@@ -372,6 +379,7 @@ namespace BugfixesAndQoL
         public bool[] EnableClientFeaturesData => enableClientFeatures.Data;
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuilding.Data;
         public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiers.Data;
+        public bool[] EnableResolutionAwareExtendedZoomData => enableResolutionAwareExtendedZoom.Data;
         public bool[] HdMarketViewData => hdMarketView.Data;
         public int[][] MarketGoodsOrderData => marketGoodsOrder.Data;
 
@@ -536,6 +544,16 @@ namespace BugfixesAndQoL
         {
             get => allowCameraMovementWithModifiers.Value;
             set => SetPlayerSetting(allowCameraMovementWithModifiers, value, nameof(AllowCameraMovementWithModifiers));
+        }
+
+        [SyncPerPlayer]
+        public bool EnableResolutionAwareExtendedZoom
+        {
+            get => enableResolutionAwareExtendedZoom.Value;
+            set => SetPlayerSetting(
+                enableResolutionAwareExtendedZoom,
+                value,
+                nameof(EnableResolutionAwareExtendedZoom));
         }
 
         [SyncPerPlayer]
@@ -1018,6 +1036,7 @@ namespace BugfixesAndQoL
             EnableClientFeatures = true;
             AllowMinimapWhilePlacingBuilding = true;
             AllowCameraMovementWithModifiers = true;
+            EnableResolutionAwareExtendedZoom = true;
             HdMarketView = true;
             MarketGoodsOrder = MarketGoodsOrderDefinition.CreateHdOrder();
             EnableMinimapCursorFollowFix = true;

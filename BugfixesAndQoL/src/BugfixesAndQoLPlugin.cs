@@ -36,6 +36,7 @@ namespace BugfixesAndQoL
         public const string PluginVersion = "1.0.146";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
+        private static ResolutionAwareZoomHook resolutionAwareZoomHook;
         private static CustomLordJsonUploadHook customLordJsonUploadHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private static SteamInviteBlacklistStore steamInviteBlacklist;
@@ -61,6 +62,17 @@ namespace BugfixesAndQoL
             // Pass the startup result into the view model so the warning occupies no UI space otherwise.
             steamInviteBlacklist = new SteamInviteBlacklistStore(SteamInviteBlacklistStore.GetDefaultPath());
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            try
+            {
+                if (resolutionAwareZoomHook == null)
+                    resolutionAwareZoomHook = new ResolutionAwareZoomHook(Logger, Settings);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL resolution-aware extended zoom could not be initialized; Vanilla zoom remains active: {ex}");
+            }
             try
             {
                 customLordJsonUploadHook = new CustomLordJsonUploadHook(Logger, Settings);

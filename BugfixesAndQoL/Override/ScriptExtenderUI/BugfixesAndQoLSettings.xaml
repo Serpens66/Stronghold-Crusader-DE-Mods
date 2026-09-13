@@ -115,6 +115,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowCameraMovementWithModifiersText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.resolution-aware-extended-zoom" shared:ModSettingsSearch.Title="{Binding EnableResolutionAwareExtendedZoomText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableResolutionAwareExtendedZoomHelpText}"><CheckBox IsChecked="{Binding EnableResolutionAwareExtendedZoom, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableResolutionAwareExtendedZoomHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableResolutionAwareExtendedZoomText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-ally-goods-amount-modifiers" shared:ModSettingsSearch.Title="{Binding EnableAllyGoodsAmountModifiersText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAllyGoodsAmountModifiersHelpText}"><CheckBox IsChecked="{Binding EnableAllyGoodsAmountModifiers, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAllyGoodsAmountModifiersHelpText}"
