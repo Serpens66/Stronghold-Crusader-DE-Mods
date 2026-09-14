@@ -291,7 +291,11 @@ namespace BugfixesAndQoL
             nativeLibraryAvailable = true;
             TryInitializePersistentFeature(
                 "complete notification skip",
-                () => notificationSkipFeature = new NotificationSkipFeature(log, settings, nativeRegion));
+                () => notificationSkipFeature = new NotificationSkipFeature(
+                    log,
+                    settings,
+                    nativeRegion,
+                    newLibraryHandle));
             tunnelPlacementDistanceFeature.SetFixedNativeLayoutValidated(
                 isFixedLayoutHashValidated);
             try

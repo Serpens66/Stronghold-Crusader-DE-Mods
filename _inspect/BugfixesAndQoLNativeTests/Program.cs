@@ -76,8 +76,14 @@ internal static class Program
             ["SecondClassifierPattern"] = 0x11EF39,
             ["AddClassifierPattern"] = 0xCAEF2,
             ["ReplaceClassifierPattern"] = 0xD0FF7,
+            ["RunTickProloguePattern"] = 0x86680,
+            ["RunTickNotificationCallPattern"] = 0x86A91,
+            ["UpdateProloguePattern"] = 0xFE570,
             ["CompletionTailPattern"] = 0xFE5C9,
-            ["FinalizeProloguePattern"] = 0x102A70
+            ["FinalizeProloguePattern"] = 0x102A70,
+            ["PromotionPattern"] = 0x102AB5,
+            ["StartProloguePattern"] = 0xFEE50,
+            ["StartPendingFlagPattern"] = 0xFEEB1
         };
 
     private static readonly FunctionContract[] Functions =
@@ -134,6 +140,7 @@ internal static class Program
             CheckMarketGoldContract();
             CheckSelectedUnitInfoWiring(workspace);
             CheckP6bRedBirdMigration(workspace);
+            CheckSuppressMessagesCompatibility(workspace);
             CheckMountedStockpilePolicy();
             CheckFunctions(pe.Image);
             CheckProductionPatterns(workspace, pe);
@@ -386,6 +393,10 @@ internal static class Program
             "DLL_RunTick calls the notification updater exactly once");
         CheckCallTarget(image, 0xFE607, 0x102A70,
             "DLL_RunTick notification updater reaches the regular finalizer");
+        CheckBytes(image, 0xFE600, "C6 05 89 D4 7E 00 00",
+            "notification updater clears its pending flag immediately before finalization");
+        CheckCallTarget(image, 0x102AE4, 0xFEE50,
+            "notification finalizer promotes through the presentation starter");
         CheckBytes(image, 0x102AA3, "48 89 43 04 89 03",
             "notification finalizer clears current command and active state");
         CheckBytes(image, 0x102AC2, "89 43 04",
@@ -888,11 +899,11 @@ internal static class Program
               runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
               !production.Contains("context.Region.Dispose()"),
             "P6b borrows all native load-context values without disposing the ScanRegion");
-        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 42,
+        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 43,
             "BugfixesAndQoL owns the audited RedBird hook handles including friendly moat movement");
-        Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 20,
+        Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 21,
             "BugfixesAndQoL performs one checked transaction commit for each audited hook group");
-        Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 21,
+        Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 22,
             "BugfixesAndQoL checks every aggregate RedBird commit result");
 
         foreach (string fileName in new[]
@@ -943,6 +954,37 @@ internal static class Program
             "Assassin command subscriptions are released only through the rooted runtime disposal path");
         Check(manifest.Contains("\"Version\": \"1.0.129\"") && manifest.Contains("\"NetworkMode\": 1"),
             "integrated manifest version and gameplay NetworkMode 1");
+    }
+
+    private static void CheckSuppressMessagesCompatibility(string workspace)
+    {
+        string extenderRoot = Path.Combine(workspace, "shcde-script-extender", "src", "SHCDESE.BepInEx");
+        string soundApi = File.ReadAllText(Path.Combine(extenderRoot, "API", "GameSoundManagerAPI.cs"));
+        string bulkAi = File.ReadAllText(Path.Combine(extenderRoot, "Detours", "BulkAIDetours.cs"));
+        string notification = File.ReadAllText(Path.Combine(
+            workspace,
+            "BugfixesAndQoL",
+            "src",
+            "NotificationSkipFeature.cs"));
+
+        int wrapperStart = bulkAi.IndexOf(
+            "c_game_ai_enqueue_message_wrapper_hook_impl", StringComparison.Ordinal);
+        int enqueueStart = bulkAi.IndexOf(
+            "c_game_ai_enqueue_message_delegate", wrapperStart, StringComparison.Ordinal);
+        string wrapper = wrapperStart >= 0 && enqueueStart > wrapperStart
+            ? bulkAi.Substring(wrapperStart, enqueueStart - wrapperStart)
+            : string.Empty;
+
+        Check(soundApi.Contains("public void SetSuppressMessages(bool suppress = true)") &&
+              soundApi.Contains("_suppressMessages = suppress;") &&
+              wrapper.Contains("soundApi.GetSuppressMessages()") &&
+              wrapper.Contains("return ret;") &&
+              notification.Contains("nativeContract.UpdateRva") &&
+              notification.Contains("UpdateNotificationQueue") &&
+              !notification.Contains("c_game_ai_enqueue_message") &&
+              !notification.Contains("SetSuppressMessages") &&
+              !notification.Contains("GetSuppressMessages"),
+            "notification skip remains separate from Script Extender/Fixes enqueue suppression");
     }
 
     private static void CheckUnknownHashPolicy(string workspace)

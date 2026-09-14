@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Xml;
+using CrusaderDE;
 using Iced.Intel;
 using SHCDESE.Interop;
 
@@ -52,6 +53,7 @@ namespace BugfixesAndQoL
             TestResolutionAwareZoomPolicy();
             TestResolutionAwareZoomIntegration();
             TestNotificationSkipPolicy();
+            TestNotificationManagedContracts();
             TestNotificationQueueNearCallResolver();
             TestNotificationSkipIntegration();
             TestSpriteAnimationGroup26Contract();
@@ -549,6 +551,36 @@ namespace BugfixesAndQoL
                 "production near-call resolver rejects wrong opcodes and truncated calls");
         }
 
+        private static void TestNotificationManagedContracts()
+        {
+            Type ostType = typeof(OnScreenText.OST);
+            Check(ostType.GetField("active")?.FieldType == typeof(bool) &&
+                  ostType.GetField("activeThisFrame")?.FieldType == typeof(bool) &&
+                  ostType.GetField("wasTurnedOnOrChanged")?.FieldType == typeof(bool) &&
+                  ostType.GetField("wasTurnedOff")?.FieldType == typeof(bool) &&
+                  ostType.GetField("timedEnd")?.FieldType == typeof(DateTime),
+                "message-bar OST state fields retain their managed types");
+            MethodInfo getOst = typeof(OnScreenText).GetMethod(
+                "getOST",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new[]
+                {
+                    typeof(Enums.eOnScreenText),
+                    typeof(bool).MakeByRefType(),
+                    typeof(bool).MakeByRefType(),
+                    typeof(bool)
+                },
+                null);
+            PropertyInfo visibility = typeof(MainViewModel).GetProperty(
+                "OST_Message_Bar_Vis",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            Check(getOst?.ReturnType == ostType &&
+                  visibility?.PropertyType == typeof(bool) &&
+                  visibility.CanWrite,
+                "message-bar lookup and visibility contracts remain writable");
+        }
+
         private static void TestNotificationSkipIntegration()
         {
             string feature = File.ReadAllText(Path.Combine("src", "NotificationSkipFeature.cs"));
@@ -563,9 +595,11 @@ namespace BugfixesAndQoL
 
             Check(feature.Contains("MainViewModel.Instance.HUDRoot.RadarME_Ended();") &&
                   feature.Contains("StopSpeechChannel1(MyAudioManager.Instance);") &&
+                  feature.Contains("Enums.eOnScreenText.OST_MESSAGE_BAR") &&
+                  feature.Contains("MainViewModel.Instance.OST_Message_Bar_Vis = false;") &&
                   feature.Contains("ImmediateCommandIdOffset") &&
                   !feature.Contains("StopAllGameSounds"),
-                "notification right-click closes video, stops only channel 1, and releases Vanilla queue state");
+                "notification right-click closes video, stops only channel 1, hides only the message bar, and marks queue state");
             Check(behavior.Contains("mediaElement.PreviewMouseDown += OnPreviewMouseDown") &&
                   behavior.Contains("using NoesisApp;") &&
                   behavior.Contains("if (!(sender is MediaElement)") &&
@@ -585,13 +619,35 @@ namespace BugfixesAndQoL
                   feature.Contains("NotificationSkipBehavior.Configure(this);") &&
                   feature.Contains("source?.Stop();"),
                 "left-click exits in the static behavior before feature inspection and paused channel 1 stops");
-            Check(feature.Contains("The notification channel-1 speech hook could not be initialized.") &&
-                  feature.Contains("RollbackFailedInitialization(pendingLoadHook)") &&
+            Check(feature.Contains("initializationStage = \"channel-1 speech hook\"") &&
+                  feature.Contains("initializationStage = \"native notification-update detour\"") &&
+                  feature.Contains("RollbackFailedInitialization(pendingLoadHook, pendingNativeTransaction)") &&
                   feature.IndexOf("speechSource1Field = FindField", StringComparison.Ordinal) <
                       feature.IndexOf("pendingLoadHook = new Hook", StringComparison.Ordinal) &&
+                  feature.IndexOf("pendingLoadHook = new Hook", StringComparison.Ordinal) <
+                      feature.IndexOf("pendingNativeTransaction.Commit()", StringComparison.Ordinal) &&
                   feature.IndexOf("NotificationSkipBehavior.Configure(this);", StringComparison.Ordinal) <
                       feature.IndexOf("catch (Exception ex)", StringComparison.Ordinal),
-                "all audio contracts, hook creation, and behavior publication share one fail-closed transaction");
+                "audio and native hook failures have distinct context and share fail-closed publication");
+            int updateCallback = feature.IndexOf(
+                "private void UpdateNotificationQueue(IntPtr manager)", StringComparison.Ordinal);
+            int messageBarHelper = feature.IndexOf(
+                "private static void HideMessageBar()", StringComparison.Ordinal);
+            Check(updateCallback >= 0 && messageBarHelper > updateCallback &&
+                  feature.IndexOf("finalizeNotification(manager)", StringComparison.Ordinal) > updateCallback &&
+                  feature.IndexOf("finalizeNotification(manager)", StringComparison.Ordinal) < messageBarHelper &&
+                  feature.IndexOf("finalizeNotification(manager)",
+                      feature.IndexOf("finalizeNotification(manager)", StringComparison.Ordinal) + 1,
+                      StringComparison.Ordinal) < 0 &&
+                  feature.Contains("notificationUpdateHook.Original(manager);") &&
+                  !feature.Contains("0x102C30"),
+                "central single-message finalizer is called only from the validated native update callback");
+            Check(feature.Contains("PendingSkipRequest") &&
+                  feature.Contains("expectedPresentationId") &&
+                  feature.Contains("queuedAtClick") &&
+                  feature.Contains("elapsedMs=") &&
+                  feature.Contains("discarded stale notification completion"),
+                "notification requests are generation-bound and diagnose request, completion, promotion, and staleness");
             Check(feature.Contains("speechChannel1Generation") &&
                   feature.Contains("loadedClip?.UnloadAudioData();") &&
                   feature.Contains("generation != Volatile.Read"),
@@ -600,7 +656,9 @@ namespace BugfixesAndQoL
                   !feature.Contains("public void Dispose()"),
                 "notification hooks are process-lifetime rooted with initialization-only rollback");
             Check(runtime.Contains("private NotificationSkipFeature notificationSkipFeature;") &&
-                  runtime.Contains("new NotificationSkipFeature(log, settings, nativeRegion)"),
+                  runtime.Contains("new NotificationSkipFeature(") &&
+                  runtime.Contains("nativeRegion,") &&
+                  runtime.Contains("newLibraryHandle)"),
                 "notification feature is retained by the process-lifetime runtime");
             Check(viewModel.Contains("new LocalPerPlayerSetting<bool>(true)") &&
                   viewModel.Contains("public bool EnableCompleteNotificationSkipOnClick") &&
@@ -2377,6 +2435,24 @@ namespace BugfixesAndQoL
             catch (Exception exception)
             {
                 Check(false, "AI resource-shortage sleep native contract: " + exception.Message);
+            }
+            try
+            {
+                NotificationQueueNativeResolution notification =
+                    NotificationQueueNativeContract.Validate(mappedImage);
+                Check(notification.RunTickRva == 0x86680 &&
+                      notification.UpdateRva == 0xFE570 &&
+                      notification.FinalizerRva == 0x102A70 &&
+                      notification.StartRva == 0xFEE50 &&
+                      notification.PendingFlagRva == 0x8EBA90 &&
+                      NotificationQueueNativeContract.ImmediateCommandIdOffset == 0x04 &&
+                      NotificationQueueNativeContract.ImmediatePresentationIdOffset == 0x08 &&
+                      NotificationQueueNativeContract.QueuedCountOffset == 0x94C,
+                    "notification DLL_RunTick update, single finalizer, presentation start, and manager offsets match the audited contract");
+            }
+            catch (Exception exception)
+            {
+                Check(false, "notification queue native contract: " + exception.Message);
             }
             CheckBytes(image, FindRva, new byte[] { 0x44, 0x89, 0x44, 0x24, 0x18, 0x89, 0x54, 0x24,
                 0x10, 0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x48, 0x83, 0xEC, 0x68,

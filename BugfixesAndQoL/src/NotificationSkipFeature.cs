@@ -2,9 +2,13 @@
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
+using RedBird.Abstractions.Hooks;
+using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
+using RedBird.X64.Hooks.Transaction;
 using SHCDESE.GameGlobals;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -16,6 +20,12 @@ namespace BugfixesAndQoL
 {
     internal sealed class NotificationSkipFeature
     {
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate void NotificationUpdateDelegate(IntPtr manager);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate ulong NotificationFinalizeDelegate(IntPtr manager);
+
         private delegate void LoadSpeechClipDelegate(
             MyAudioManager self,
             int channel,
@@ -29,6 +39,7 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly IntPtr messageManager;
+        private readonly IntPtr notificationPendingFlag;
         private readonly Hook loadSpeechClipHook;
         private readonly LoadSpeechClipDelegate loadSpeechClipOriginal;
         private readonly FieldInfo speechSource1Field;
@@ -37,18 +48,29 @@ namespace BugfixesAndQoL
         private readonly FieldInfo speechPausedField;
         private readonly FieldInfo ignoreSpeechMutingField;
         private readonly MethodInfo loadClipByPathMethod;
+        private readonly DetourHandle<NotificationUpdateDelegate> notificationUpdateHook =
+            new DetourHandle<NotificationUpdateDelegate>();
+        private readonly HookTransaction notificationUpdateTransaction;
+        private readonly NotificationFinalizeDelegate finalizeNotification;
+        private PendingSkipRequest pendingSkipRequest;
+        private int skipRequestGeneration;
         private int speechChannel1Generation;
 
         public NotificationSkipFeature(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
-            ScanRegion nativeRegion)
+            ScanRegion nativeRegion,
+            IntPtr libraryHandle)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             if (nativeRegion == null)
                 throw new ArgumentNullException(nameof(nativeRegion));
-            NotificationQueueNativeContract.Validate(nativeRegion.Span);
+            if (libraryHandle == IntPtr.Zero)
+                throw new ArgumentOutOfRangeException(nameof(libraryHandle));
+
+            NotificationQueueNativeResolution nativeContract =
+                NotificationQueueNativeContract.Validate(nativeRegion.Span);
 
             ulong messageManagerAddress = GameGlobalsManager.Instance.MessageManagerVA;
             if (messageManagerAddress == 0 || messageManagerAddress > long.MaxValue)
@@ -56,8 +78,13 @@ namespace BugfixesAndQoL
             messageManager = new IntPtr(unchecked((long)messageManagerAddress));
 
             Hook pendingLoadHook = null;
+            HookTransaction pendingNativeTransaction = null;
+            string initializationStage = "managed message-bar contract";
             try
             {
+                ValidateMessageBarContract();
+
+                initializationStage = "channel-1 speech contract";
                 speechSource1Field = FindField("speechSource1", typeof(AudioSource));
                 speechClip1Field = FindField("speechClip1", typeof(AudioClip));
                 speechMode1Field = FindField("speechMode1", typeof(int));
@@ -65,19 +92,39 @@ namespace BugfixesAndQoL
                 ignoreSpeechMutingField = FindField("ignoreSpeechMuting", typeof(bool));
                 loadClipByPathMethod = FindLoadClipByPathMethod();
 
+                initializationStage = "channel-1 speech hook";
                 pendingLoadHook = new Hook(FindLoadSpeechClipMethod(), (LoadSpeechClipDelegate)LoadSpeechClipHook);
                 LoadSpeechClipDelegate pendingLoadOriginal =
                     pendingLoadHook.GenerateTrampoline<LoadSpeechClipDelegate>();
 
                 loadSpeechClipOriginal = pendingLoadOriginal;
                 loadSpeechClipHook = pendingLoadHook;
+
+                ulong moduleBase = unchecked((ulong)libraryHandle.ToInt64());
+                finalizeNotification = Marshal.GetDelegateForFunctionPointer<NotificationFinalizeDelegate>(
+                    new IntPtr(unchecked((long)(moduleBase + (ulong)nativeContract.FinalizerRva))));
+                notificationPendingFlag = new IntPtr(
+                    unchecked((long)(moduleBase + (ulong)nativeContract.PendingFlagRva)));
+
+                initializationStage = "native notification-update detour";
+                pendingNativeTransaction = BugfixesHookInfrastructure.CreateOwnedTransaction(nativeRegion);
+                pendingNativeTransaction.AddDetour(
+                    notificationUpdateHook,
+                    HookTarget.FromAddress(moduleBase + (ulong)nativeContract.UpdateRva),
+                    UpdateNotificationQueue);
+                CommitResult commitResult = pendingNativeTransaction.Commit();
+                if (!commitResult.IsCompleteSuccess || !notificationUpdateHook.Success)
+                    throw new InvalidOperationException("The native notification-update detour was not installed.");
+
+                notificationUpdateTransaction = pendingNativeTransaction;
+                initializationStage = "notification UI behavior publication";
                 NotificationSkipBehavior.Configure(this);
             }
             catch (Exception ex)
             {
-                RollbackFailedInitialization(pendingLoadHook);
+                RollbackFailedInitialization(pendingLoadHook, pendingNativeTransaction);
                 throw new InvalidOperationException(
-                    "The notification channel-1 speech hook could not be initialized.",
+                    $"The notification {initializationStage} could not be initialized.",
                     ex);
             }
 
@@ -137,6 +184,15 @@ namespace BugfixesAndQoL
 
         private void CompleteCurrentNotification()
         {
+            int messageId = Marshal.ReadInt32(
+                messageManager,
+                NotificationQueueNativeContract.ImmediateCommandIdOffset);
+            int presentationId = Marshal.ReadInt32(
+                messageManager,
+                NotificationQueueNativeContract.ImmediatePresentationIdOffset);
+            int queuedCount = Marshal.ReadInt32(
+                messageManager,
+                NotificationQueueNativeContract.QueuedCountOffset);
             Exception firstFailure = null;
             try
             {
@@ -159,16 +215,40 @@ namespace BugfixesAndQoL
 
             try
             {
-                Marshal.WriteInt32(
-                    messageManager,
-                    NotificationQueueNativeContract.ImmediateCommandIdOffset,
-                    0);
+                HideMessageBar();
             }
             catch (Exception ex)
             {
                 if (firstFailure == null)
                     firstFailure = ex;
             }
+
+            int generation = Interlocked.Increment(ref skipRequestGeneration);
+            var request = new PendingSkipRequest(
+                generation,
+                messageId,
+                presentationId,
+                queuedCount,
+                Stopwatch.GetTimestamp());
+            try
+            {
+                Marshal.WriteInt32(
+                    messageManager,
+                    NotificationQueueNativeContract.ImmediateCommandIdOffset,
+                    0);
+                Interlocked.Exchange(ref pendingSkipRequest, request);
+            }
+            catch (Exception ex)
+            {
+                if (firstFailure == null)
+                    firstFailure = ex;
+            }
+
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Bugfixes and QoL requested right-click notification completion: " +
+                $"messageId={messageId}, presentationId={presentationId}, " +
+                $"queuedCount={queuedCount}, generation={generation}.");
 
             if (firstFailure != null)
             {
@@ -177,9 +257,134 @@ namespace BugfixesAndQoL
                     firstFailure);
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL completed the right-clicked notification; Vanilla will promote the next queued message.");
+        }
+
+        private void UpdateNotificationQueue(IntPtr manager)
+        {
+            PendingSkipRequest request = Volatile.Read(ref pendingSkipRequest);
+            if (request == null)
+            {
+                notificationUpdateHook.Original(manager);
+                return;
+            }
+
+            try
+            {
+                bool managerMatches = manager == messageManager;
+                if (!managerMatches)
+                {
+                    if (Interlocked.CompareExchange(ref pendingSkipRequest, null, request) == request)
+                    {
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"Bugfixes and QoL discarded notification completion for an unexpected manager: " +
+                            $"generation={request.Generation}.");
+                    }
+                    notificationUpdateHook.Original(manager);
+                    return;
+                }
+
+                int queueActive = Marshal.ReadInt32(
+                    manager,
+                    NotificationQueueNativeContract.IsQueueActiveOffset);
+                int messageId = Marshal.ReadInt32(
+                    manager,
+                    NotificationQueueNativeContract.ImmediateCommandIdOffset);
+                int presentationId = Marshal.ReadInt32(
+                    manager,
+                    NotificationQueueNativeContract.ImmediatePresentationIdOffset);
+                int queuedBefore = Marshal.ReadInt32(
+                    manager,
+                    NotificationQueueNativeContract.QueuedCountOffset);
+                bool identityMatches = presentationId == request.PresentationId &&
+                    (messageId == request.MessageId || messageId == 0);
+
+                if (queueActive == 0 || !identityMatches)
+                {
+                    if (Interlocked.CompareExchange(ref pendingSkipRequest, null, request) == request)
+                    {
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            $"Bugfixes and QoL discarded stale notification completion: " +
+                            $"generation={request.Generation}, active={queueActive}, " +
+                            $"expectedMessageId={request.MessageId}, " +
+                            $"messageId={messageId}, expectedPresentationId={request.PresentationId}, " +
+                            $"presentationId={presentationId}.");
+                    }
+                    notificationUpdateHook.Original(manager);
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref pendingSkipRequest, null, request) != request)
+                {
+                    notificationUpdateHook.Original(manager);
+                    return;
+                }
+
+                // This callback is the validated 0xFE570 update reached from DLL_RunTick.
+                // Mirror Vanilla's immediately preceding pending-flag clear; a promoted
+                // presentation sets it again in 0xFEE50. The output buffer stays valid here.
+                Marshal.WriteByte(notificationPendingFlag, 0);
+                ulong promoted = finalizeNotification(manager);
+                int activeAfter = Marshal.ReadInt32(
+                    manager,
+                    NotificationQueueNativeContract.IsQueueActiveOffset);
+                int messageAfter = Marshal.ReadInt32(
+                    manager,
+                    NotificationQueueNativeContract.ImmediateCommandIdOffset);
+                int presentationAfter = Marshal.ReadInt32(
+                    manager,
+                    NotificationQueueNativeContract.ImmediatePresentationIdOffset);
+                int queuedAfter = Marshal.ReadInt32(
+                    manager,
+                    NotificationQueueNativeContract.QueuedCountOffset);
+                double elapsedMilliseconds =
+                    (Stopwatch.GetTimestamp() - request.RequestedTimestamp) * 1000.0 /
+                    Stopwatch.Frequency;
+
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"Bugfixes and QoL completed the right-clicked notification centrally: " +
+                    $"generation={request.Generation}, elapsedMs={elapsedMilliseconds:F1}, " +
+                    $"messageIdBefore={request.MessageId}, presentationIdBefore={request.PresentationId}, " +
+                    $"queuedAtClick={request.QueuedCount}, queuedBefore={queuedBefore}, " +
+                    $"promoted={promoted != 0}, activeAfter={activeAfter}, " +
+                    $"messageIdAfter={messageAfter}, presentationIdAfter={presentationAfter}, " +
+                    $"queuedAfter={queuedAfter}.");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL native notification completion failed; Vanilla update retained where safe: {ex}");
+                if (Volatile.Read(ref pendingSkipRequest) != null)
+                    notificationUpdateHook.Original(manager);
+            }
+        }
+
+        private static void HideMessageBar()
+        {
+            OnScreenText onScreenText = OnScreenText.Instance;
+            if (onScreenText != null)
+            {
+                bool wasTurnedOff = false;
+                bool wasTurnedOnOrChanged = false;
+                OnScreenText.OST messageBar = onScreenText.getOST(
+                    Enums.eOnScreenText.OST_MESSAGE_BAR,
+                    ref wasTurnedOff,
+                    ref wasTurnedOnOrChanged);
+                if (messageBar != null)
+                {
+                    messageBar.active = false;
+                    messageBar.activeThisFrame = false;
+                    messageBar.wasTurnedOnOrChanged = false;
+                    messageBar.wasTurnedOff = false;
+                    messageBar.timedEnd = DateTime.MinValue;
+                }
+            }
+
+            if (MainViewModel.viewModelLoaded && MainViewModel.Instance != null)
+                MainViewModel.Instance.OST_Message_Bar_Vis = false;
         }
 
         private void StopSpeechChannel1(MyAudioManager audio)
@@ -343,12 +548,76 @@ namespace BugfixesAndQoL
             return field;
         }
 
-        private static void RollbackFailedInitialization(Hook candidate)
+        private static void ValidateMessageBarContract()
         {
-            if (candidate == null)
+            Type ostType = typeof(OnScreenText.OST);
+            ValidatePublicField(ostType, "active", typeof(bool));
+            ValidatePublicField(ostType, "activeThisFrame", typeof(bool));
+            ValidatePublicField(ostType, "wasTurnedOnOrChanged", typeof(bool));
+            ValidatePublicField(ostType, "wasTurnedOff", typeof(bool));
+            ValidatePublicField(ostType, "timedEnd", typeof(DateTime));
+
+            MethodInfo getOst = typeof(OnScreenText).GetMethod(
+                "getOST",
+                InstanceMembers,
+                null,
+                new[]
+                {
+                    typeof(Enums.eOnScreenText),
+                    typeof(bool).MakeByRefType(),
+                    typeof(bool).MakeByRefType(),
+                    typeof(bool)
+                },
+                null);
+            if (getOst == null || getOst.ReturnType != ostType)
+                throw new MissingMethodException(typeof(OnScreenText).FullName, "getOST");
+
+            PropertyInfo visibility = typeof(MainViewModel).GetProperty(
+                "OST_Message_Bar_Vis",
+                InstanceMembers);
+            if (visibility == null || visibility.PropertyType != typeof(bool) || !visibility.CanWrite)
+                throw new MissingMemberException(typeof(MainViewModel).FullName, "OST_Message_Bar_Vis");
+        }
+
+        private static void ValidatePublicField(Type declaringType, string name, Type expectedType)
+        {
+            FieldInfo field = declaringType.GetField(name, BindingFlags.Instance | BindingFlags.Public);
+            if (field == null || field.FieldType != expectedType)
+                throw new MissingFieldException(declaringType.FullName, name);
+        }
+
+        private static void RollbackFailedInitialization(
+            Hook managedCandidate,
+            HookTransaction nativeCandidate)
+        {
+            nativeCandidate?.Dispose();
+            if (managedCandidate == null)
                 return;
-            candidate.Undo();
-            candidate.Dispose();
+            managedCandidate.Undo();
+            managedCandidate.Dispose();
+        }
+
+        private sealed class PendingSkipRequest
+        {
+            public PendingSkipRequest(
+                int generation,
+                int messageId,
+                int presentationId,
+                int queuedCount,
+                long requestedTimestamp)
+            {
+                Generation = generation;
+                MessageId = messageId;
+                PresentationId = presentationId;
+                QueuedCount = queuedCount;
+                RequestedTimestamp = requestedTimestamp;
+            }
+
+            public int Generation { get; }
+            public int MessageId { get; }
+            public int PresentationId { get; }
+            public int QueuedCount { get; }
+            public long RequestedTimestamp { get; }
         }
     }
 }
