@@ -16,7 +16,6 @@ namespace BugfixesAndQoL
 {
     internal sealed class NotificationSkipFeature
     {
-        private delegate void RadarGridLoadedDelegate(MainHUD self, object sender, Noesis.RoutedEventArgs args);
         private delegate void LoadSpeechClipDelegate(
             MyAudioManager self,
             int channel,
@@ -27,20 +26,17 @@ namespace BugfixesAndQoL
 
         private static readonly BindingFlags InstanceMembers =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        private static readonly FieldInfo SpeechSource1Field = FindField("speechSource1", typeof(AudioSource));
-        private static readonly FieldInfo SpeechClip1Field = FindField("speechClip1", typeof(AudioClip));
-        private static readonly FieldInfo SpeechMode1Field = FindField("speechMode1", typeof(int));
-        private static readonly FieldInfo SpeechPausedField = FindField("speechPaused", typeof(bool));
-        private static readonly FieldInfo IgnoreSpeechMutingField = FindField("ignoreSpeechMuting", typeof(bool));
-        private static readonly MethodInfo LoadClipByPathMethod = FindLoadClipByPathMethod();
-
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly IntPtr messageManager;
-        private readonly Hook radarGridLoadedHook;
-        private readonly RadarGridLoadedDelegate radarGridLoadedOriginal;
         private readonly Hook loadSpeechClipHook;
         private readonly LoadSpeechClipDelegate loadSpeechClipOriginal;
+        private readonly FieldInfo speechSource1Field;
+        private readonly FieldInfo speechClip1Field;
+        private readonly FieldInfo speechMode1Field;
+        private readonly FieldInfo speechPausedField;
+        private readonly FieldInfo ignoreSpeechMutingField;
+        private readonly MethodInfo loadClipByPathMethod;
         private int speechChannel1Generation;
 
         public NotificationSkipFeature(
@@ -60,34 +56,29 @@ namespace BugfixesAndQoL
             messageManager = new IntPtr(unchecked((long)messageManagerAddress));
 
             Hook pendingLoadHook = null;
-            Hook pendingRadarLoadedHook = null;
-            MainHUD pendingAttachedHud = null;
             try
             {
+                speechSource1Field = FindField("speechSource1", typeof(AudioSource));
+                speechClip1Field = FindField("speechClip1", typeof(AudioClip));
+                speechMode1Field = FindField("speechMode1", typeof(int));
+                speechPausedField = FindField("speechPaused", typeof(bool));
+                ignoreSpeechMutingField = FindField("ignoreSpeechMuting", typeof(bool));
+                loadClipByPathMethod = FindLoadClipByPathMethod();
+
                 pendingLoadHook = new Hook(FindLoadSpeechClipMethod(), (LoadSpeechClipDelegate)LoadSpeechClipHook);
                 LoadSpeechClipDelegate pendingLoadOriginal =
                     pendingLoadHook.GenerateTrampoline<LoadSpeechClipDelegate>();
 
-                pendingRadarLoadedHook = new Hook(
-                    FindRadarGridLoadedMethod(),
-                    (RadarGridLoadedDelegate)RadarGridLoadedHook);
-                RadarGridLoadedDelegate pendingRadarLoadedOriginal =
-                    pendingRadarLoadedHook.GenerateTrampoline<RadarGridLoadedDelegate>();
-
                 loadSpeechClipOriginal = pendingLoadOriginal;
-                radarGridLoadedOriginal = pendingRadarLoadedOriginal;
                 loadSpeechClipHook = pendingLoadHook;
-                radarGridLoadedHook = pendingRadarLoadedHook;
-
-                pendingAttachedHud = MainViewModel.Instance?.HUDRoot;
-                AttachRadarVideoMouseHandler(pendingAttachedHud);
+                NotificationSkipBehavior.Configure(this);
             }
-            catch
+            catch (Exception ex)
             {
-                DetachRadarVideoMouseHandler(pendingAttachedHud);
-                RollbackFailedInitialization(pendingRadarLoadedHook);
                 RollbackFailedInitialization(pendingLoadHook);
-                throw;
+                throw new InvalidOperationException(
+                    "The notification channel-1 speech hook could not be initialized.",
+                    ex);
             }
 
             Shared.DebugLogHelper.LogDebug(
@@ -95,45 +86,8 @@ namespace BugfixesAndQoL
                 "Bugfixes and QoL complete notification-skip hooks installed for the process lifetime.");
         }
 
-        private void RadarGridLoadedHook(MainHUD self, object sender, Noesis.RoutedEventArgs args)
+        internal void CompleteFromRadarVideoRightClick(Noesis.MouseButtonEventArgs args)
         {
-            radarGridLoadedOriginal(self, sender, args);
-            try
-            {
-                AttachRadarVideoMouseHandler(self);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL could not attach the notification-video mouse event; Vanilla handling continues: {ex}");
-            }
-        }
-
-        private void AttachRadarVideoMouseHandler(MainHUD hud)
-        {
-            if (hud?.RefRadarME == null)
-                return;
-
-            hud.RefRadarME.PreviewMouseDown -= RadarVideoPreviewMouseDown;
-            hud.RefRadarME.PreviewMouseDown += RadarVideoPreviewMouseDown;
-        }
-
-        private void DetachRadarVideoMouseHandler(MainHUD hud)
-        {
-            if (hud?.RefRadarME != null)
-                hud.RefRadarME.PreviewMouseDown -= RadarVideoPreviewMouseDown;
-        }
-
-        private void RadarVideoPreviewMouseDown(object sender, Noesis.MouseButtonEventArgs args)
-        {
-            if (args == null ||
-                args.ChangedButton != Noesis.MouseButton.Right ||
-                args.ClickCount != 1)
-            {
-                return;
-            }
-
             try
             {
                 if (!NotificationSkipPolicy.ShouldCompleteOnRightClick(
@@ -151,7 +105,7 @@ namespace BugfixesAndQoL
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Bugfixes and QoL complete notification skip failed; the mouse event keeps Vanilla behavior: {ex}");
+                    $"Bugfixes and QoL complete notification skip failed after activation; completion may be partial: {ex}");
             }
         }
 
@@ -234,16 +188,16 @@ namespace BugfixesAndQoL
                 return;
 
             Interlocked.Increment(ref speechChannel1Generation);
-            AudioSource source = (AudioSource)SpeechSource1Field.GetValue(audio);
-            AudioClip clip = (AudioClip)SpeechClip1Field.GetValue(audio);
+            AudioSource source = (AudioSource)speechSource1Field.GetValue(audio);
+            AudioClip clip = (AudioClip)speechClip1Field.GetValue(audio);
             source?.Stop();
             if (clip != null)
                 clip.UnloadAudioData();
-            SpeechClip1Field.SetValue(audio, null);
-            SpeechMode1Field.SetValue(audio, 0);
+            speechClip1Field.SetValue(audio, null);
+            speechMode1Field.SetValue(audio, 0);
 
             bool otherSpeechPlaying = audio.isSpeechPlaying(2) || audio.isSpeechPlaying(3);
-            bool ignoreSpeechMuting = (bool)IgnoreSpeechMutingField.GetValue(audio);
+            bool ignoreSpeechMuting = (bool)ignoreSpeechMutingField.GetValue(audio);
             audio.setMusicFadedState(
                 otherSpeechPlaying &&
                 ConfigSettings.Settings_ReduceMusicVolumeForSpeech &&
@@ -318,7 +272,7 @@ namespace BugfixesAndQoL
                         ? Path.Combine(Application.streamingAssetsPath, "EnglishSpeech", folder, soundName)
                         : Path.Combine(Application.dataPath, "Assets", "GUI", "Speech", folder, soundName));
                 Task<AudioClip> loadTask =
-                    (Task<AudioClip>)LoadClipByPathMethod.Invoke(audio, new object[] { path });
+                    (Task<AudioClip>)loadClipByPathMethod.Invoke(audio, new object[] { path });
                 loadedClip = await loadTask;
 
                 if (generation != Volatile.Read(ref speechChannel1Generation))
@@ -327,45 +281,34 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                SpeechClip1Field.SetValue(audio, loadedClip);
-                AudioSource source = (AudioSource)SpeechSource1Field.GetValue(audio);
+                speechClip1Field.SetValue(audio, loadedClip);
+                AudioSource source = (AudioSource)speechSource1Field.GetValue(audio);
                 float volume = (unitsSpeech
                         ? ConfigSettings.Settings_UnitSpeechVolume
                         : ConfigSettings.Settings_SpeechVolume) *
                     MyAudioManager.GetMasterVolume();
                 source.volume = volume;
                 source.PlayOneShot(loadedClip);
-                SpeechMode1Field.SetValue(audio, 2);
-                if ((bool)SpeechPausedField.GetValue(audio) && !ignorePauseState)
+                speechMode1Field.SetValue(audio, 2);
+                if ((bool)speechPausedField.GetValue(audio) && !ignorePauseState)
                     source.Pause();
                 else
                     audio.setMusicFadedState(
                         ConfigSettings.Settings_ReduceMusicVolumeForSpeech &&
-                        !(bool)IgnoreSpeechMutingField.GetValue(audio));
+                        !(bool)ignoreSpeechMutingField.GetValue(audio));
             }
             catch (Exception ex)
             {
                 if (generation == Volatile.Read(ref speechChannel1Generation))
                 {
                     loadedClip?.UnloadAudioData();
-                    SpeechClip1Field.SetValue(audio, null);
-                    SpeechMode1Field.SetValue(audio, 0);
+                    speechClip1Field.SetValue(audio, null);
+                    speechMode1Field.SetValue(audio, 0);
                 }
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Bugfixes and QoL channel-1 speech loading failed: {ex}");
             }
-        }
-
-        private static MethodInfo FindRadarGridLoadedMethod()
-        {
-            MethodInfo method = typeof(MainHUD).GetMethod(
-                "OnLoadRadarGrid",
-                InstanceMembers,
-                null,
-                new[] { typeof(object), typeof(Noesis.RoutedEventArgs) },
-                null);
-            return method ?? throw new MissingMethodException(typeof(MainHUD).FullName, "OnLoadRadarGrid");
         }
 
         private static MethodInfo FindLoadSpeechClipMethod()

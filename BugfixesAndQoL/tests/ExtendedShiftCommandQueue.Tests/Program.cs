@@ -27,6 +27,7 @@ internal static class Program
         CheckMoveChoreDeduplication();
         CheckFirstShiftMoveTakeover();
         CheckMoveFormationSpacing();
+        CheckMoveFormationGesture();
         CheckLargeMoveTargetDiagnostics();
         CheckMigrationSourceContracts();
         CheckNativeReference();
@@ -125,6 +126,66 @@ internal static class Program
               Enumerable.Range(0, 40).Count(value => value % 3 == 0) >
               Enumerable.Range(0, 40).Count(value => value % 4 == 0),
             "spacing values select monotonically fewer Manhattan grid fields");
+    }
+
+    private static void CheckMoveFormationGesture()
+    {
+        Check(!MoveFormationDragEligibility.RequiresNormalTribeOwnership(
+                  isMapEditor: true) &&
+              MoveFormationDragEligibility.RequiresNormalTribeOwnership(
+                  isMapEditor: false),
+            "map-editor selections including tribe 499 bypass only normal ownership validation");
+        Check(MoveFormationDragEligibility.IsVanillaRelease(0, 3, false) &&
+              !MoveFormationDragEligibility.IsVanillaRelease(0, 2, true) &&
+              MoveFormationDragEligibility.IsVanillaRelease(1, 2, true) &&
+              !MoveFormationDragEligibility.IsVanillaRelease(1, 3, false),
+            "each control scheme releases only on its authoritative Vanilla transport state");
+
+        foreach (int commandButton in new[] { 0, 1 })
+        {
+            float gestureStart = 500f;
+            float gestureStep = MoveFormationSpacingPolicy.GetHorizontalDragStep(1920);
+            MoveFormationDragGesture gesture = new MoveFormationDragGesture(
+                commandButton, gestureStart);
+            Check(gesture.CommandButton == commandButton && gesture.Spacing == 2 &&
+                  !gesture.Released && !gesture.Aborted,
+                $"button {commandButton} starts a neutral spacing-two gesture");
+            Check(gesture.OnHeld(1 - commandButton, 600f, 1920) ==
+                      MoveFormationGestureResult.Ignored && gesture.Spacing == 2,
+                $"button {commandButton} ignores held events from the other button");
+            Check(gesture.OnHeld(commandButton, gestureStart - gestureStep, 1920) ==
+                      MoveFormationGestureResult.SpacingChanged && gesture.Spacing == 1,
+                $"button {commandButton} selects compact spacing one");
+            Check(gesture.OnHeld(commandButton, gestureStart, 1920) ==
+                      MoveFormationGestureResult.SpacingChanged && gesture.Spacing == 2 &&
+                  gesture.OnHeld(commandButton, gestureStart + gestureStep + 0.1f, 1920) ==
+                      MoveFormationGestureResult.SpacingChanged && gesture.Spacing == 3 &&
+                  gesture.OnHeld(commandButton, gestureStart + 2f * gestureStep + 0.1f, 1920) ==
+                      MoveFormationGestureResult.SpacingChanged && gesture.Spacing == 4,
+                $"button {commandButton} traverses spacings two through four");
+            Check(gesture.OnMouseUp(1 - commandButton, gestureStart, 1920) ==
+                      MoveFormationGestureResult.Ignored && !gesture.Released &&
+                  gesture.OnMouseUp(commandButton, gestureStart + gestureStep + 0.1f, 1920) ==
+                      MoveFormationGestureResult.Released && gesture.Released &&
+                  gesture.Spacing == 3,
+                $"button {commandButton} releases only on its matching button and samples final X");
+            Check(gesture.OnHeld(commandButton, 500f, 1920) ==
+                      MoveFormationGestureResult.Ignored && gesture.Spacing == 3,
+                $"button {commandButton} cannot change after release");
+        }
+
+        MoveFormationDragGesture conflicting = new MoveFormationDragGesture(0, 100f);
+        Check(conflicting.OnMouseDown(0) == MoveFormationGestureResult.Ignored &&
+              conflicting.OnMouseDown(1) == MoveFormationGestureResult.Aborted &&
+              conflicting.Aborted &&
+              conflicting.OnMouseUp(0, 100f, 800) == MoveFormationGestureResult.Ignored,
+            "opposite mouse down aborts without releasing a later command");
+
+        MoveFormationDragGesture cancelled = new MoveFormationDragGesture(1, 100f);
+        Check(cancelled.Abort() == MoveFormationGestureResult.Aborted &&
+              cancelled.Abort() == MoveFormationGestureResult.Ignored &&
+              cancelled.OnHeld(1, 200f, 800) == MoveFormationGestureResult.Ignored,
+            "external cancellation is terminal and idempotent");
     }
 
     private static void CheckLargeMoveTargetDiagnostics()
@@ -1070,22 +1131,27 @@ internal static class Program
               !settingsXaml.Contains("bugfixes.move-formation-spacing"),
             "host settings UI exposes the Move feature switch without a spacing slider");
         Check(moveFormationDrag.Contains("GetCommandMouseButton(") &&
-              moveFormationDrag.Contains("Input.GetMouseButtonUp(commandButton)") &&
+              moveFormationDrag.Contains("InputR3EventHooks.OnKeyDown.Observable") &&
+              moveFormationDrag.Contains("InputR3EventHooks.OnKey.Observable") &&
+              moveFormationDrag.Contains("InputR3EventHooks.OnKeyUp.Observable") &&
+              moveFormationDrag.Contains("args.Phase != EventHookPhase.Post") &&
               moveFormationDrag.Contains("MoveFormationCommandContext.Arm(") &&
               moveFormationDrag.Contains("markers.ClearPreview();") &&
-              moveFormationDrag.Contains("engineRunOriginal(multiplayerFrameSkip)") &&
+              moveFormationDrag.Contains("preDllCallActionsOriginal(self, ref mouseOverX, ref mouseOverY)") &&
               moveFormationDrag.Contains("private static readonly object syncRoot") &&
               !moveFormationDrag.Contains("[ThreadStatic]") &&
-              moveFormationDrag.Contains("private volatile bool injectReleasedAnchor") &&
               moveFormationDrag.Contains("RestoreInputState(") &&
-              moveFormationDrag.IndexOf("PrepareReleaseBeforeVanilla(self)", StringComparison.Ordinal) <
-                  moveFormationDrag.IndexOf("editorUpdateOriginal(self)", StringComparison.Ordinal) &&
-              moveFormationDrag.Contains("troopSelectMouseStartField.SetValue(director, new Vector2(-1f, -1f))") &&
-              moveFormationDrag.Contains("director.shiftPressed") &&
-              moveFormationDrag.Contains("Input.GetMouseButtonDown(oppositeButton)") &&
-              moveFormationDrag.Contains("SelectionMatches(drag.Selection)") &&
-              moveFormationDrag.Contains("overNoesisUiField.GetValue(director)"),
-            "drag preview respects Vanilla controls and releases through EngineInterface.run");
+              moveFormationDrag.Contains("StartSelectionHook(") &&
+              moveFormationDrag.Contains("MainControls.instance.CurrentAction = 0") &&
+              moveFormationDrag.Contains("leftMouseStateForEngineField") &&
+              moveFormationDrag.Contains("rightUpForEngineField") &&
+              moveFormationDrag.Contains("SelectionMatches(state.Selection)") &&
+              moveFormationDrag.Contains("MainViewModel.Instance.IsMapEditorMode") &&
+              !moveFormationDrag.Contains("Input.GetMouseButton") &&
+              !moveFormationDrag.Contains("OnBeforeRender") &&
+              !moveFormationDrag.Contains("\"Update\", BindingFlags") &&
+              !moveFormationDrag.Contains("EngineRunDelegate"),
+            "drag preview uses R3 input events and Vanilla's semantic command handoff without frame polling");
         Check(bugfixesRuntime.Contains("settings.EnableMoveFormationEnhancements") &&
               bugfixesRuntime.Contains("!FeatureEnabled ||") &&
               bugfixesRuntime.Contains("setting-disabled"),

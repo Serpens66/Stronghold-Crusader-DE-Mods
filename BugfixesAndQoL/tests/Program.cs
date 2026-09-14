@@ -552,27 +552,46 @@ namespace BugfixesAndQoL
         private static void TestNotificationSkipIntegration()
         {
             string feature = File.ReadAllText(Path.Combine("src", "NotificationSkipFeature.cs"));
+            string behavior = File.ReadAllText(Path.Combine("src", "NotificationSkipBehavior.cs"));
             string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
             string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+            string mainHudPatchPath = Path.Combine(
+                "Patches", "Assets", "GUI", "XAML", "MainHUD.xaml");
+            string mainHudPatch = File.ReadAllText(mainHudPatchPath);
 
             Check(feature.Contains("MainViewModel.Instance.HUDRoot.RadarME_Ended();") &&
                   feature.Contains("StopSpeechChannel1(MyAudioManager.Instance);") &&
                   feature.Contains("ImmediateCommandIdOffset") &&
                   !feature.Contains("StopAllGameSounds"),
                 "notification right-click closes video, stops only channel 1, and releases Vanilla queue state");
-            Check(feature.Contains("RefRadarME.PreviewMouseDown += RadarVideoPreviewMouseDown") &&
-                  feature.Contains("args.ChangedButton != Noesis.MouseButton.Right") &&
+            Check(behavior.Contains("mediaElement.PreviewMouseDown += OnPreviewMouseDown") &&
+                  behavior.Contains("using NoesisApp;") &&
+                  behavior.Contains("if (!(sender is MediaElement)") &&
+                  behavior.Contains("args.ChangedButton != MouseButton.Right") &&
                   feature.Contains("args.Handled = true;") &&
                   !feature.Contains("RadarScrollMap") &&
-                  !feature.Contains("Input.GetMouseButtonDown"),
-                "complete notification skip uses a right-click UI event and no frame polling");
-            Check(feature.IndexOf("args.ChangedButton != Noesis.MouseButton.Right", StringComparison.Ordinal) <
-                      feature.IndexOf("ShouldArmNotificationSkip()", StringComparison.Ordinal) &&
-                  feature.Contains("DetachRadarVideoMouseHandler(pendingAttachedHud)") &&
+                  !feature.Contains("Input.GetMouseButtonDown") &&
+                  !feature.Contains("OnLoadRadarGrid") &&
+                  !behavior.Contains("Input.GetMouseButtonDown") &&
+                  !behavior.Contains(".MouseDown") &&
+                  !behavior.Contains("MouseLeftButton") &&
+                  !behavior.Contains("void Update("),
+                "complete notification skip uses only the RadarME right-click UI event and no polling or HUD hook");
+            Check(behavior.IndexOf("args.ChangedButton != MouseButton.Right", StringComparison.Ordinal) <
+                      behavior.IndexOf("CompleteFromRadarVideoRightClick(args)", StringComparison.Ordinal) &&
+                  behavior.Contains("private static NotificationSkipFeature feature;") &&
+                  feature.Contains("NotificationSkipBehavior.Configure(this);") &&
                   feature.Contains("source?.Stop();"),
-                "left-click avoids native inspection, failed initialization detaches events, and paused channel 1 stops");
+                "left-click exits in the static behavior before feature inspection and paused channel 1 stops");
+            Check(feature.Contains("The notification channel-1 speech hook could not be initialized.") &&
+                  feature.Contains("RollbackFailedInitialization(pendingLoadHook)") &&
+                  feature.IndexOf("speechSource1Field = FindField", StringComparison.Ordinal) <
+                      feature.IndexOf("pendingLoadHook = new Hook", StringComparison.Ordinal) &&
+                  feature.IndexOf("NotificationSkipBehavior.Configure(this);", StringComparison.Ordinal) <
+                      feature.IndexOf("catch (Exception ex)", StringComparison.Ordinal),
+                "all audio contracts, hook creation, and behavior publication share one fail-closed transaction");
             Check(feature.Contains("speechChannel1Generation") &&
                   feature.Contains("loadedClip?.UnloadAudioData();") &&
                   feature.Contains("generation != Volatile.Read"),
@@ -591,6 +610,49 @@ namespace BugfixesAndQoL
             Check(xaml.Contains("bugfixes.enable-complete-notification-skip-on-click") &&
                   xaml.Contains("IsChecked=\"{Binding EnableCompleteNotificationSkipOnClick, Mode=TwoWay}\""),
                 "complete notification skip is exposed in searchable client UI");
+            var patchDocument = new XmlDocument();
+            patchDocument.LoadXml(mainHudPatch);
+            XmlNodeList patchOperations = patchDocument.SelectNodes("/Patch/Operation");
+            Check(patchOperations.Count == 2 &&
+                  mainHudPatch.Contains(
+                      "xmlns:bugfixes=\"clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL\"") &&
+                  patchOperations[0].Attributes?["Type"]?.Value == "AddNamespace" &&
+                  patchOperations[0].Attributes?["AttributeName"]?.Value == "bugfixes" &&
+                  patchOperations[0].Attributes?["Value"]?.Value ==
+                      "clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL" &&
+                  patchOperations[1].Attributes?["Type"]?.Value == "SetAttribute" &&
+                  patchOperations[1].Attributes?["XPath"]?.Value ==
+                      "//n:MediaElement[@Name='RadarME']" &&
+                  patchOperations[1].Attributes?["AttributeName"]?.Value ==
+                      "bugfixes:NotificationSkipBehavior.IsEnabled" &&
+                  patchOperations[1].Attributes?["Value"]?.Value == "True",
+                "MainHUD patch targets only RadarME with the notification attached behavior");
+
+            string projectDirectory = FindProjectDirectory();
+            string baselineRoot = Path.Combine(
+                Directory.GetParent(projectDirectory).FullName,
+                "_inspect",
+                "CrusaderDE-Native-Baseline");
+            var currentBaseline = (IDictionary<string, object>)Shared.DependencyFreeJson.Parse(
+                File.ReadAllText(Path.Combine(baselineRoot, "CURRENT.json")));
+            string semanticDirectory = (string)currentBaseline["semanticDirectory"];
+            string canonicalMainHudPath = Path.Combine(
+                baselineRoot,
+                semanticDirectory.Replace('/', Path.DirectorySeparatorChar),
+                "resources",
+                "xaml",
+                "Assets",
+                "GUI",
+                "XAML",
+                "MainHUD.xaml");
+            var canonicalMainHud = new XmlDocument();
+            canonicalMainHud.Load(canonicalMainHudPath);
+            var canonicalNamespaces = new XmlNamespaceManager(canonicalMainHud.NameTable);
+            canonicalNamespaces.AddNamespace("n", canonicalMainHud.DocumentElement.NamespaceURI);
+            Check(canonicalMainHud.SelectNodes(
+                      "//n:MediaElement[@Name='RadarME']",
+                      canonicalNamespaces)?.Count == 1,
+                "current canonical MainHUD contains exactly one RadarME target for the patch XPath");
             foreach (string locale in Directory.GetFiles("Locales", "*.txt"))
             {
                 string text = File.ReadAllText(locale);
@@ -602,27 +664,27 @@ namespace BugfixesAndQoL
             Type audioType = typeof(MyAudioManager);
             BindingFlags members = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
             Type mainHudType = audioType.Assembly.GetType("CrusaderDE.MainHUD");
-            MethodInfo radarLoadedMethod = Array.Find(
-                mainHudType?.GetMethods(members) ?? Array.Empty<MethodInfo>(),
-                method => method.Name == "OnLoadRadarGrid" &&
-                    method.ReturnType == typeof(void) &&
-                    method.GetParameters().Length == 2 &&
-                    method.GetParameters()[0].ParameterType == typeof(object) &&
-                    method.GetParameters()[1].ParameterType.FullName == "Noesis.RoutedEventArgs");
             Type radarMediaType = mainHudType?.GetField("RefRadarME", members)?.FieldType;
-            Check(radarLoadedMethod != null &&
-                  radarMediaType?.GetEvent("PreviewMouseDown")?.EventHandlerType?.FullName ==
+            Check(radarMediaType?.GetEvent("PreviewMouseDown")?.EventHandlerType?.FullName ==
                       "Noesis.MouseButtonEventHandler",
-                "installed Vanilla HUD load and Noesis mouse-event contracts match the notification feature");
+                "installed Vanilla RadarME exposes the Noesis mouse-event contract used by the behavior");
             Check(audioType.GetField("speechSource1", members)?.FieldType == typeof(UnityEngine.AudioSource) &&
                   audioType.GetField("speechClip1", members)?.FieldType == typeof(UnityEngine.AudioClip) &&
                   audioType.GetField("speechMode1", members)?.FieldType == typeof(int) &&
+                  audioType.GetField("speechPaused", members)?.FieldType == typeof(bool) &&
+                  audioType.GetField("ignoreSpeechMuting", members)?.FieldType == typeof(bool) &&
                   audioType.GetMethod(
                       "LoadClip",
                       members,
                       null,
                       new[] { typeof(int), typeof(string), typeof(string), typeof(bool), typeof(bool) },
-                      null) != null,
+                      null)?.ReturnType == typeof(void) &&
+                  audioType.GetMethod(
+                      "LoadClip",
+                      members,
+                      null,
+                      new[] { typeof(string) },
+                      null)?.ReturnType == typeof(System.Threading.Tasks.Task<UnityEngine.AudioClip>),
                 "installed Vanilla channel-1 reflection contract matches the notification feature");
         }
 
