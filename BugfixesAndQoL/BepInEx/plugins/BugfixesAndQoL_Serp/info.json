@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.149",
+  "Version": "1.0.150",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.6.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.150",
+      "Changes": [
+        "Added right-click skipping for complete AI and event notifications, including videoless notifications through the minimap.",
+        "Prevented a right-click that cancels building placement in DE control mode from also ordering the selected troops to move."
+      ]
+    },
     {
       "Version": "1.0.149",
       "Changes": [

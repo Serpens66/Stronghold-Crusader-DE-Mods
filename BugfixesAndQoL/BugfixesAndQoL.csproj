@@ -204,6 +204,8 @@
     <Compile Include="src\PlagueApothecaryStateTransitionFix.cs" />
     <Compile Include="src\PlagueNativePatternValidator.cs" />
     <Compile Include="src\PlaguePopularitySaveState.cs" />
+    <Compile Include="src\PlacementCancelMoveSuppressionFeature.cs" />
+    <Compile Include="src\PlacementCancelMoveSuppressionPolicy.cs" />
     <Compile Include="src\RandomOpponentLobbyPolicy.cs" />
     <Compile Include="src\QuarryPileVanillaGroupPolicy.cs" />
     <Compile Include="src\QuarryPileRelocationPacket.cs" />

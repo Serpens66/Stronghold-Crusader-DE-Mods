@@ -56,6 +56,8 @@ namespace BugfixesAndQoL
             TestNotificationManagedContracts();
             TestNotificationQueueNearCallResolver();
             TestNotificationSkipIntegration();
+            TestPlacementCancelMoveSuppressionPolicy();
+            TestPlacementCancelMoveSuppressionIntegration();
             TestSpriteAnimationGroup26Contract();
             TestMapFileManagerContract();
             TestClassicMapSizeReader();
@@ -567,6 +569,113 @@ namespace BugfixesAndQoL
                 "production near-call resolver rejects wrong opcodes and truncated calls");
         }
 
+        private static void TestPlacementCancelMoveSuppressionPolicy()
+        {
+            var state = new PlacementCancelMoveSuppressionState();
+            var first = new PlacementCancelUnitIdentity(11, 1011);
+            var second = new PlacementCancelUnitIdentity(12, 1012);
+            var third = new PlacementCancelUnitIdentity(13, 1013);
+
+            state.Replace(1, new[] { first, second, third });
+            Check(state.PendingCount == 3,
+                "placement-cancel suppression captures the selected unit identities");
+            Check(!state.TryConsumeMatchingGroup(
+                    2, new[] { first }, out _, out _) && state.PendingCount == 3,
+                "placement-cancel suppression rejects another player's tribe");
+            Check(!state.TryConsumeMatchingGroup(
+                    1,
+                    new[] { new PlacementCancelUnitIdentity(11, 9999) },
+                    out _,
+                    out _) && state.PendingCount == 3,
+                "placement-cancel suppression rejects a reused unit ID with another global identity");
+            Check(state.TryConsumeMatchingGroup(
+                    1, new[] { first, second }, out int firstMatched, out int firstRemaining) &&
+                  firstMatched == 2 && firstRemaining == 1,
+                "placement-cancel suppression consumes the first affected movement group");
+            Check(state.TryConsumeMatchingGroup(
+                    1, new[] { third }, out int secondMatched, out int secondRemaining) &&
+                  secondMatched == 1 && secondRemaining == 0 && state.PendingCount == 0,
+                "placement-cancel suppression handles multiple groups from one selection");
+
+            state.Replace(1, new[] { first });
+            state.Replace(1, Array.Empty<PlacementCancelUnitIdentity>());
+            Check(state.PendingCount == 0 &&
+                  !state.TryConsumeMatchingGroup(1, new[] { first }, out _, out _),
+                "a later ordinary right-click replaces and clears the pending cancellation");
+            state.Replace(1, new[] { first });
+            state.Clear();
+            Check(state.PendingCount == 0,
+                "map and setting transitions clear pending placement-cancel state");
+        }
+
+        private static void TestPlacementCancelMoveSuppressionIntegration()
+        {
+            string feature = File.ReadAllText(
+                Path.Combine("src", "PlacementCancelMoveSuppressionFeature.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string project = File.ReadAllText("BugfixesAndQoL.csproj");
+            string settingsXaml = File.ReadAllText(Path.Combine(
+                "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+
+            Check(feature.Contains("FindStopAllPlacementMethod()") &&
+                  feature.Contains("Input.GetMouseButtonDown(1)") &&
+                  feature.Contains("controls.CurrentAction != 5") &&
+                  feature.Contains("ConfigSettings.Settings_SH1RTSControls") &&
+                  feature.Contains("stopAllPlacementOriginal(self);") &&
+                  feature.Contains("OnTribeIssueOrderMoveHere.Observable") &&
+                  feature.Contains("args.Phase != EventHookPhase.Pre") &&
+                  feature.Contains("args.SkipOriginalFunction = true;") &&
+                  feature.Contains("args.ReturnValue = 0;"),
+                "placement cancellation is correlated at StopAllPlacement and suppressed in the MoveHere pre-event");
+            Check(!feature.Contains("EditorDirector.Update") &&
+                  !feature.Contains("EngineRun") &&
+                  !feature.Contains("GameTimeManagerAPI") &&
+                  !feature.Contains("OnTick") &&
+                  !feature.Contains("InputR3EventHooks.OnKey.Observable"),
+                "placement-cancel suppression installs no frame, engine-run, held-key, or tick callback");
+            Check(runtime.Contains("private static PlacementCancelMoveSuppressionFeature processPlacementCancelMoveSuppressionFeature;") &&
+                  runtime.Contains("EnsurePlacementCancelMoveSuppressionFeature);") &&
+                  !runtime.Contains("processPlacementCancelMoveSuppressionFeature?.Dispose"),
+                "placement-cancel runtime is process-rooted and never torn down normally");
+            Check(project.Contains("PlacementCancelMoveSuppressionFeature.cs") &&
+                  project.Contains("PlacementCancelMoveSuppressionPolicy.cs"),
+                "placement-cancel implementation is compiled into the runtime project");
+            Check(viewModel.Contains("new LocalPerPlayerSetting<bool>(true)") &&
+                  viewModel.Contains("public bool PreventMoveOrderOnPlacementCancel") &&
+                  viewModel.Contains("preventMoveOrderOnPlacementCancel.TrySetLocalPlayerId(playerId)") &&
+                  settingsXaml.Contains("PreventMoveOrderOnPlacementCancel, Mode=TwoWay"),
+                "placement-cancel suppression is an enabled-by-default per-player client setting");
+
+            string[] moveConsumers =
+            {
+                "AssassinPathfindingRuntime.cs",
+                "ExtendedShiftCommandQueueRuntime.cs",
+                "FastRecruitRallyMovementRuntime.cs",
+                "FriendlyMoatMovementRuntime.cs",
+                "TroopMovementFix3Runtime.cs",
+            };
+            bool allConsumersHonorSuppression = true;
+            foreach (string file in moveConsumers)
+            {
+                allConsumersHonorSuppression &= File.ReadAllText(Path.Combine("src", file))
+                    .Contains("args.SkipOriginalFunction");
+            }
+            Check(allConsumersHonorSuppression,
+                "existing MoveHere consumers ignore orders whose original function was suppressed");
+
+            bool allLocalesComplete = true;
+            foreach (string locale in Directory.GetFiles("Locales", "*.txt"))
+            {
+                string text = File.ReadAllText(locale);
+                allLocalesComplete &=
+                    text.Contains("BugfixesAndQoL.PreventMoveOrderOnPlacementCancel=") &&
+                    text.Contains("BugfixesAndQoL.PreventMoveOrderOnPlacementCancelHelp=");
+            }
+            Check(allLocalesComplete,
+                "all locales contain placement-cancel setting labels and help text");
+        }
+
         private static void TestNotificationManagedContracts()
         {
             Type ostType = typeof(OnScreenText.OST);
@@ -670,10 +779,18 @@ namespace BugfixesAndQoL
                 "central single-message finalizer is called only from the validated native update callback");
             Check(feature.Contains("PendingSkipRequest") &&
                   feature.Contains("expectedPresentationId") &&
-                  feature.Contains("queuedAtClick") &&
-                  feature.Contains("elapsedMs=") &&
-                  feature.Contains("discarded stale notification completion"),
-                "notification requests are generation-bound and diagnose request, completion, promotion, and staleness");
+                  feature.Contains("complete notification-skip hooks installed for the process lifetime") &&
+                  feature.Contains("discarded notification completion for an unexpected manager") &&
+                  feature.Contains("discarded stale notification completion") &&
+                  feature.Contains("complete notification skip failed after activation") &&
+                  feature.Contains("native notification completion failed") &&
+                  !feature.Contains("requested right-click notification completion") &&
+                  !feature.Contains("completed the right-clicked notification centrally") &&
+                  !feature.Contains("queuedAtClick") &&
+                  !feature.Contains("elapsedMs=") &&
+                  !feature.Contains("skipRequestGeneration") &&
+                  !feature.Contains("RequestedTimestamp"),
+                "notification requests remain identity-bound while routine click logs and diagnostic-only state are omitted");
             Check(feature.Contains("speechChannel1Generation") &&
                   feature.Contains("loadedClip?.UnloadAudioData();") &&
                   feature.Contains("generation != Volatile.Read"),

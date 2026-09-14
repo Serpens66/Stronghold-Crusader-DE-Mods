@@ -10,6 +10,9 @@ The demolition cursor now changes to the blocked icon when an enemy is close eno
 ### Restore HD-style minimap controls
 Left-clicking the minimap can move the camera even while a building is selected for placement, without cancelling that building. While the minimap is dragged, the camera also follows the mouse position directly instead of retaining an unwanted offset. Together, these changes restore the convenient and precise minimap navigation known from the HD version.
 
+### Cancel building placement without moving troops
+In DE control mode, right-clicking while any building is selected for placement now only cancels the placement. Selected troops, including engineers placing siege tents and tunnelers placing tunnels, are no longer ordered to move to the clicked location.
+
 ### Return to the main market menu with the market hotkey
 Pressing the market hotkey while a market is already selected returns its interface to the main trading menu. You no longer need to close or reselect the market after opening a sub-menu.
 
@@ -84,6 +87,9 @@ Fix that immediately removes disbanded units from every control group. This prev
 Gatehouses now measure the distance to enemy based on their center, not based on on of the gates. It was only noticeable with small closing distance, that the clsing distance was different depending from which side you got closer to the gate.
 
 ## Quality-of-life features
+
+### Skip AI and event notifications completely
+Right-click an AI or event notification video to stop its video, audio, and message text and immediately advance to the next queued notification. If the notification has no video, right-click the minimap instead. Left-clicking notification videos and normal minimap use keep their Vanilla behavior. This is an enabled-by-default per-player option.
 
 ### Pause a single production building
 Hold Ctrl while clicking a production building's pause button to pause or resume only that building. Clicking without Ctrl keeps the normal behavior of changing every building of that type.

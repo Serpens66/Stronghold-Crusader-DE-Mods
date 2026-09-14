@@ -1544,7 +1544,7 @@ namespace BugfixesAndQoL
 
         private void ObserveTribeMoveOrder(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (disposed)
+            if (disposed || args.SkipOriginalFunction)
                 return;
 
             if (args.Phase == EventHookPhase.Pre)

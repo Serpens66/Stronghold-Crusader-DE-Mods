@@ -125,6 +125,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding AllowMinimapWhilePlacingBuildingText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.prevent-move-order-on-placement-cancel" shared:ModSettingsSearch.Title="{Binding PreventMoveOrderOnPlacementCancelText}" shared:ModSettingsSearch.ToolTipText="{Binding PreventMoveOrderOnPlacementCancelHelpText}"><CheckBox IsChecked="{Binding PreventMoveOrderOnPlacementCancel, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding PreventMoveOrderOnPlacementCancelHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding PreventMoveOrderOnPlacementCancelText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.allow-camera-movement-with-modifiers" shared:ModSettingsSearch.Title="{Binding AllowCameraMovementWithModifiersText}" shared:ModSettingsSearch.ToolTipText="{Binding AllowCameraMovementWithModifiersHelpText}"><CheckBox IsChecked="{Binding AllowCameraMovementWithModifiers, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding AllowCameraMovementWithModifiersHelpText}"

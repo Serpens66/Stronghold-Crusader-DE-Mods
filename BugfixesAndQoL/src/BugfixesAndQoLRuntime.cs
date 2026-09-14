@@ -30,6 +30,7 @@ namespace BugfixesAndQoL
         private readonly TunnelPlacementDistanceFeature tunnelPlacementDistanceFeature;
         private readonly TrailCustomizationFeature trailCustomizationFeature;
         private readonly CoopCustomLordSelectionFeature coopCustomLordSelectionFeature;
+        private static PlacementCancelMoveSuppressionFeature processPlacementCancelMoveSuppressionFeature;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
         private static ExtendedShiftCommandQueueRuntime processExtendedShiftCommandQueueRuntime;
         private IDisposable playerMarketSubscription;
@@ -133,6 +134,9 @@ namespace BugfixesAndQoL
 
         public void InitializeNetwork()
         {
+            TryInitializePersistentFeature(
+                "placement-cancel move suppression",
+                EnsurePlacementCancelMoveSuppressionFeature);
             TryInitializePersistentFeature(
                 "Coop custom-lord selection",
                 coopCustomLordSelectionFeature.Initialize);
@@ -506,6 +510,16 @@ namespace BugfixesAndQoL
         {
             if (shiftRepairAllBuildingsHook == null)
                 shiftRepairAllBuildingsHook = new ShiftRepairAllBuildingsHook(log, settings);
+        }
+
+        private void EnsurePlacementCancelMoveSuppressionFeature()
+        {
+            if (processPlacementCancelMoveSuppressionFeature != null)
+                return;
+
+            var candidate = new PlacementCancelMoveSuppressionFeature(log, settings);
+            candidate.Install();
+            processPlacementCancelMoveSuppressionFeature = candidate;
         }
 
         public void Dispose()

@@ -8,7 +8,6 @@ using RedBird.Core.Memory;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.GameGlobals;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -53,7 +52,6 @@ namespace BugfixesAndQoL
         private readonly HookTransaction notificationUpdateTransaction;
         private readonly NotificationFinalizeDelegate finalizeNotification;
         private PendingSkipRequest pendingSkipRequest;
-        private int skipRequestGeneration;
         private int speechChannel1Generation;
 
         public NotificationSkipFeature(
@@ -150,7 +148,7 @@ namespace BugfixesAndQoL
                 }
 
                 args.Handled = true;
-                CompleteCurrentNotification(surface, hasVideo, hasAudio);
+                CompleteCurrentNotification(hasVideo, hasAudio);
             }
             catch (Exception ex)
             {
@@ -213,10 +211,7 @@ namespace BugfixesAndQoL
                 briefingVisible);
         }
 
-        private void CompleteCurrentNotification(
-            NotificationSkipSurface surface,
-            bool hasVideo,
-            bool hasAudio)
+        private void CompleteCurrentNotification(bool hasVideo, bool hasAudio)
         {
             int messageId = Marshal.ReadInt32(
                 messageManager,
@@ -224,9 +219,6 @@ namespace BugfixesAndQoL
             int presentationId = Marshal.ReadInt32(
                 messageManager,
                 NotificationQueueNativeContract.ImmediatePresentationIdOffset);
-            int queuedCount = Marshal.ReadInt32(
-                messageManager,
-                NotificationQueueNativeContract.QueuedCountOffset);
             Exception firstFailure = null;
             if (hasVideo)
             {
@@ -263,13 +255,7 @@ namespace BugfixesAndQoL
                     firstFailure = ex;
             }
 
-            int generation = Interlocked.Increment(ref skipRequestGeneration);
-            var request = new PendingSkipRequest(
-                generation,
-                messageId,
-                presentationId,
-                queuedCount,
-                Stopwatch.GetTimestamp());
+            var request = new PendingSkipRequest(messageId, presentationId);
             try
             {
                 Marshal.WriteInt32(
@@ -283,12 +269,6 @@ namespace BugfixesAndQoL
                 if (firstFailure == null)
                     firstFailure = ex;
             }
-
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Bugfixes and QoL requested right-click notification completion: " +
-                $"surface={surface}, messageId={messageId}, presentationId={presentationId}, " +
-                $"queuedCount={queuedCount}, generation={generation}.");
 
             if (firstFailure != null)
             {
@@ -317,8 +297,7 @@ namespace BugfixesAndQoL
                     {
                         Shared.DebugLogHelper.LogWarning(
                             log,
-                            $"Bugfixes and QoL discarded notification completion for an unexpected manager: " +
-                            $"generation={request.Generation}.");
+                            "Bugfixes and QoL discarded notification completion for an unexpected manager.");
                     }
                     notificationUpdateHook.Original(manager);
                     return;
@@ -333,9 +312,6 @@ namespace BugfixesAndQoL
                 int presentationId = Marshal.ReadInt32(
                     manager,
                     NotificationQueueNativeContract.ImmediatePresentationIdOffset);
-                int queuedBefore = Marshal.ReadInt32(
-                    manager,
-                    NotificationQueueNativeContract.QueuedCountOffset);
                 bool identityMatches = presentationId == request.PresentationId &&
                     (messageId == request.MessageId || messageId == 0);
 
@@ -346,7 +322,7 @@ namespace BugfixesAndQoL
                         Shared.DebugLogHelper.LogWarning(
                             log,
                             $"Bugfixes and QoL discarded stale notification completion: " +
-                            $"generation={request.Generation}, active={queueActive}, " +
+                            $"active={queueActive}, " +
                             $"expectedMessageId={request.MessageId}, " +
                             $"messageId={messageId}, expectedPresentationId={request.PresentationId}, " +
                             $"presentationId={presentationId}.");
@@ -365,32 +341,7 @@ namespace BugfixesAndQoL
                 // Mirror Vanilla's immediately preceding pending-flag clear; a promoted
                 // presentation sets it again in 0xFEE50. The output buffer stays valid here.
                 Marshal.WriteByte(notificationPendingFlag, 0);
-                ulong promoted = finalizeNotification(manager);
-                int activeAfter = Marshal.ReadInt32(
-                    manager,
-                    NotificationQueueNativeContract.IsQueueActiveOffset);
-                int messageAfter = Marshal.ReadInt32(
-                    manager,
-                    NotificationQueueNativeContract.ImmediateCommandIdOffset);
-                int presentationAfter = Marshal.ReadInt32(
-                    manager,
-                    NotificationQueueNativeContract.ImmediatePresentationIdOffset);
-                int queuedAfter = Marshal.ReadInt32(
-                    manager,
-                    NotificationQueueNativeContract.QueuedCountOffset);
-                double elapsedMilliseconds =
-                    (Stopwatch.GetTimestamp() - request.RequestedTimestamp) * 1000.0 /
-                    Stopwatch.Frequency;
-
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Bugfixes and QoL completed the right-clicked notification centrally: " +
-                    $"generation={request.Generation}, elapsedMs={elapsedMilliseconds:F1}, " +
-                    $"messageIdBefore={request.MessageId}, presentationIdBefore={request.PresentationId}, " +
-                    $"queuedAtClick={request.QueuedCount}, queuedBefore={queuedBefore}, " +
-                    $"promoted={promoted != 0}, activeAfter={activeAfter}, " +
-                    $"messageIdAfter={messageAfter}, presentationIdAfter={presentationAfter}, " +
-                    $"queuedAfter={queuedAfter}.");
+                _ = finalizeNotification(manager);
             }
             catch (Exception ex)
             {
@@ -662,25 +613,14 @@ namespace BugfixesAndQoL
 
         private sealed class PendingSkipRequest
         {
-            public PendingSkipRequest(
-                int generation,
-                int messageId,
-                int presentationId,
-                int queuedCount,
-                long requestedTimestamp)
+            public PendingSkipRequest(int messageId, int presentationId)
             {
-                Generation = generation;
                 MessageId = messageId;
                 PresentationId = presentationId;
-                QueuedCount = queuedCount;
-                RequestedTimestamp = requestedTimestamp;
             }
 
-            public int Generation { get; }
             public int MessageId { get; }
             public int PresentationId { get; }
-            public int QueuedCount { get; }
-            public long RequestedTimestamp { get; }
         }
     }
 }

@@ -83,6 +83,7 @@ namespace BugfixesAndQoL
         private readonly LocalPerPlayerSetting<bool> enableTroopHudMiddleClickCameraJump =
             new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowMinimapWhilePlacingBuilding = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> preventMoveOrderOnPlacementCancel = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> allowCameraMovementWithModifiers = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableResolutionAwareExtendedZoom =
             new LocalPerPlayerSetting<bool>(true);
@@ -119,6 +120,7 @@ namespace BugfixesAndQoL
                 nameof(EnableTroopHudMiddleClickCameraJump),
                 nameof(EnableClientFeatures),
                 nameof(AllowMinimapWhilePlacingBuilding),
+                nameof(PreventMoveOrderOnPlacementCancel),
                 nameof(AllowCameraMovementWithModifiers),
                 nameof(EnableResolutionAwareExtendedZoom),
                 nameof(HdMarketView),
@@ -318,6 +320,8 @@ namespace BugfixesAndQoL
         public string PreserveDisplayResolutionHelpText => SerpLocalization.Get("BugfixesAndQoL.PreserveDisplayResolutionHelp");
         public string AllowMinimapWhilePlacingBuildingText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuilding);
         public string AllowMinimapWhilePlacingBuildingHelpText => SerpLocalization.Get(SerpLocalization.AllowMinimapWhilePlacingBuildingHelp);
+        public string PreventMoveOrderOnPlacementCancelText => SerpLocalization.Get("BugfixesAndQoL.PreventMoveOrderOnPlacementCancel");
+        public string PreventMoveOrderOnPlacementCancelHelpText => SerpLocalization.Get("BugfixesAndQoL.PreventMoveOrderOnPlacementCancelHelp");
         public string RememberAiAivSettingsText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettings);
         public string RememberAiAivSettingsHelpText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettingsHelp);
         public string EnableCustomLordListEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancements");
@@ -397,6 +401,7 @@ namespace BugfixesAndQoL
         public bool[] EnableTroopHudMiddleClickCameraJumpData => enableTroopHudMiddleClickCameraJump.Data;
         public bool[] EnableClientFeaturesData => enableClientFeatures.Data;
         public bool[] AllowMinimapWhilePlacingBuildingData => allowMinimapWhilePlacingBuilding.Data;
+        public bool[] PreventMoveOrderOnPlacementCancelData => preventMoveOrderOnPlacementCancel.Data;
         public bool[] AllowCameraMovementWithModifiersData => allowCameraMovementWithModifiers.Data;
         public bool[] EnableResolutionAwareExtendedZoomData => enableResolutionAwareExtendedZoom.Data;
         public bool[] HdMarketViewData => hdMarketView.Data;
@@ -584,6 +589,16 @@ namespace BugfixesAndQoL
         {
             get => allowMinimapWhilePlacingBuilding.Value;
             set => SetPlayerSetting(allowMinimapWhilePlacingBuilding, value, nameof(AllowMinimapWhilePlacingBuilding));
+        }
+
+        [SyncPerPlayer]
+        public bool PreventMoveOrderOnPlacementCancel
+        {
+            get => preventMoveOrderOnPlacementCancel.Value;
+            set => SetPlayerSetting(
+                preventMoveOrderOnPlacementCancel,
+                value,
+                nameof(PreventMoveOrderOnPlacementCancel));
         }
 
         [SyncPerPlayer]
@@ -1065,6 +1080,7 @@ namespace BugfixesAndQoL
             // Every participant resets only their own per-player preferences.
             EnableClientFeatures = true;
             AllowMinimapWhilePlacingBuilding = true;
+            PreventMoveOrderOnPlacementCancel = true;
             AllowCameraMovementWithModifiers = true;
             EnableResolutionAwareExtendedZoom = true;
             HdMarketView = true;
@@ -1133,6 +1149,7 @@ namespace BugfixesAndQoL
             showSelectedUnitHealth.TrySetLocalPlayerId(playerId);
             statisticsTeamBadgeMode.TrySetLocalPlayerId(playerId);
             allowMinimapWhilePlacingBuilding.TrySetLocalPlayerId(playerId);
+            preventMoveOrderOnPlacementCancel.TrySetLocalPlayerId(playerId);
             allowCameraMovementWithModifiers.TrySetLocalPlayerId(playerId);
             hdMarketView.TrySetLocalPlayerId(playerId);
             marketGoodsOrder.TrySetLocalPlayerId(playerId);
