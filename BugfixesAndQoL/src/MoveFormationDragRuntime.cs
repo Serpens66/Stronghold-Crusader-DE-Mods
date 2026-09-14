@@ -17,10 +17,9 @@ namespace BugfixesAndQoL
 {
     internal static class MoveFormationCommandContext
     {
-        // Input events publish on Unity's main thread, while the native
-        // MoveHere callbacks execute during the simulation handoff. The one
-        // in-flight command therefore has to cross that boundary; a
-        // ThreadStatic context would silently lose it.
+        // R3 input and the native MoveHere event can cross a managed/simulation
+        // boundary. The one in-flight command must therefore be process-global,
+        // synchronized, and explicitly cleared rather than ThreadStatic.
         private static readonly object syncRoot = new object();
         private static PendingCommand pending;
         private static ActiveCommand active;
@@ -59,16 +58,18 @@ namespace BugfixesAndQoL
                     encoded, out int decoded, out int encodedSpacing))
                 return;
 
-            bool hasPrivateBits = (encoded & QueueNativeContract.MoveFormationSpacingMask) != 0;
+            bool hasPrivateBits =
+                (encoded & QueueNativeContract.MoveFormationSpacingMask) != 0;
             if (hasPrivateBits)
-                args.MoveType = (SHCDESE.Interop.Enums.TribeMoveType)decoded;
+                args.MoveType = (TribeMoveType)decoded;
 
             lock (syncRoot)
             {
                 PendingCommand command = pending;
                 bool matchesLocalRelease = command != null &&
                     command.Matches(args.TribeId, args.TileX, args.TileY);
-                if (enabled && args.IsPatrolPath == 0 && (hasPrivateBits || matchesLocalRelease))
+                if (enabled && args.IsPatrolPath == 0 &&
+                    (hasPrivateBits || matchesLocalRelease))
                 {
                     active = new ActiveCommand(
                         args.TribeId,
@@ -151,16 +152,28 @@ namespace BugfixesAndQoL
 
     internal sealed unsafe class MoveFormationDragRuntime
     {
-        private delegate void PreDllCallActionsDelegate(
-            EditorDirector self, ref int mouseOverX, ref int mouseOverY);
+        private delegate int EngineRunDelegate(bool mpFrameSkip);
         private delegate void StartSelectionDelegate(
             TroopSelector self, Vector2 start, Vector2 current);
 
-        private const int MapWidth = 800;
-        private const int MaximumPreviewCandidates = 4250 - 250;
+        private const int NativeMapWidth = 800;
+        private const int GroundClickDepth = 49;
+        private const int MaximumFormationCandidates = 4000;
 
         private static readonly BindingFlags InstanceFields =
             BindingFlags.Instance | BindingFlags.NonPublic;
+        private static readonly BindingFlags StaticMethods =
+            BindingFlags.Static | BindingFlags.Public;
+
+        private readonly object dragSync = new object();
+        private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
+        private readonly LargeMoveTargetDiagnosticsRuntime markers;
+        private readonly Func<int, int, bool> targetAvailable;
+        private readonly MoveFormationPreviewPlanner previewPlanner;
+        private readonly List<int> previewTiles = new List<int>();
+        private readonly HashSet<string> loggedRejectReasons = new HashSet<string>();
+
         private FieldInfo mouseTileXField;
         private FieldInfo mouseTileYField;
         private FieldInfo mousePosXForEngineField;
@@ -168,35 +181,34 @@ namespace BugfixesAndQoL
         private FieldInfo underCursorChimpListField;
         private FieldInfo leftMouseStateForEngineField;
         private FieldInfo rightUpForEngineField;
-
-        private readonly ManualLogSource log;
-        private readonly BugfixesAndQoLViewModel settings;
-        private readonly LargeMoveTargetDiagnosticsRuntime markers;
-        private readonly List<int> previewTiles = new List<int>();
-        private readonly HashSet<string> loggedRejectReasons = new HashSet<string>();
-        private Hook preDllCallActionsHook;
+        private Hook engineRunHook;
         private Hook startSelectionHook;
-        private PreDllCallActionsDelegate preDllCallActionsOriginal;
+        private EngineRunDelegate engineRunOriginal;
         private StartSelectionDelegate startSelectionOriginal;
         private IDisposable keyDownSubscription;
         private IDisposable keyHeldSubscription;
         private IDisposable keyUpSubscription;
-        private volatile DragState drag;
+        private DragState drag;
         private volatile bool installed;
         private volatile bool failed;
 
         internal MoveFormationDragRuntime(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
-            LargeMoveTargetDiagnosticsRuntime markers)
+            LargeMoveTargetDiagnosticsRuntime markers,
+            Func<int, int, bool> targetAvailable)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.markers = markers ?? throw new ArgumentNullException(nameof(markers));
+            this.targetAvailable = targetAvailable ??
+                throw new ArgumentNullException(nameof(targetAvailable));
+            previewPlanner = new MoveFormationPreviewPlanner(this.targetAvailable);
         }
 
-        private bool Enabled => installed && !failed && markers.MarkerReplacementAvailable &&
-            settings.EnableMod && settings.EnableMoveFormationEnhancements;
+        private bool Enabled => installed && !failed &&
+            markers.MarkerReplacementAvailable && settings.EnableMod &&
+            settings.EnableMoveFormationEnhancements;
 
         internal void Install()
         {
@@ -204,41 +216,48 @@ namespace BugfixesAndQoL
                 return;
             try
             {
-                mouseTileXField = RequireField("mouseTileX", typeof(float));
-                mouseTileYField = RequireField("mouseTileY", typeof(float));
-                mousePosXForEngineField = RequireField("mousePosXForEngine", typeof(int));
-                mousePosYForEngineField = RequireField("mousePosYForEngine", typeof(int));
-                underCursorChimpListField = RequireField("underCursorChimpList", typeof(int[]));
-                leftMouseStateForEngineField = RequireField(
-                    "leftMouseStateForEngine", typeof(int));
-                rightUpForEngineField = RequireField("rightUpForEngine", typeof(bool));
+                mouseTileXField = RequireEditorField("mouseTileX", typeof(float));
+                mouseTileYField = RequireEditorField("mouseTileY", typeof(float));
+                mousePosXForEngineField =
+                    RequireEditorField("mousePosXForEngine", typeof(int));
+                mousePosYForEngineField =
+                    RequireEditorField("mousePosYForEngine", typeof(int));
+                underCursorChimpListField =
+                    RequireEditorField("underCursorChimpList", typeof(int[]));
+                leftMouseStateForEngineField =
+                    RequireEditorField("leftMouseStateForEngine", typeof(int));
+                rightUpForEngineField =
+                    RequireEditorField("rightUpForEngine", typeof(bool));
 
-                MethodInfo preDllCallActions = typeof(EditorDirector).GetMethod(
-                    "preDLLCallActions", BindingFlags.Instance | BindingFlags.Public,
-                    null, new[] { typeof(int).MakeByRefType(), typeof(int).MakeByRefType() }, null) ??
+                MethodInfo engineRun = typeof(EngineInterface).GetMethod(
+                    "run", StaticMethods, null, new[] { typeof(bool) }, null) ??
                     throw new MissingMethodException(
-                        typeof(EditorDirector).FullName, "preDLLCallActions(ref int, ref int)");
+                        typeof(EngineInterface).FullName, "run(bool)");
+                if (engineRun.ReturnType != typeof(int))
+                    throw new MissingMethodException(
+                        typeof(EngineInterface).FullName, "int run(bool)");
                 MethodInfo startSelection = typeof(TroopSelector).GetMethod(
-                    "startSelection", BindingFlags.Instance | BindingFlags.Public,
-                    null, new[] { typeof(Vector2), typeof(Vector2) }, null) ??
-                    throw new MissingMethodException(
-                        typeof(TroopSelector).FullName, "startSelection(Vector2, Vector2)");
+                    "startSelection",
+                    BindingFlags.Instance | BindingFlags.Public,
+                    null,
+                    new[] { typeof(Vector2), typeof(Vector2) },
+                    null) ?? throw new MissingMethodException(
+                        typeof(TroopSelector).FullName,
+                        "startSelection(Vector2, Vector2)");
 
-                Hook installedPreDll = null;
+                Hook installedEngineRun = null;
                 Hook installedStartSelection = null;
                 IDisposable installedKeyDown = null;
                 IDisposable installedKeyHeld = null;
                 IDisposable installedKeyUp = null;
                 try
                 {
-                    installedPreDll = new Hook(
-                        preDllCallActions,
-                        (PreDllCallActionsDelegate)PreDllCallActionsHook);
-                    preDllCallActionsOriginal =
-                        installedPreDll.GenerateTrampoline<PreDllCallActionsDelegate>();
+                    installedEngineRun = new Hook(
+                        engineRun, (EngineRunDelegate)EngineRunHook);
+                    engineRunOriginal =
+                        installedEngineRun.GenerateTrampoline<EngineRunDelegate>();
                     installedStartSelection = new Hook(
-                        startSelection,
-                        (StartSelectionDelegate)StartSelectionHook);
+                        startSelection, (StartSelectionDelegate)StartSelectionHook);
                     startSelectionOriginal =
                         installedStartSelection.GenerateTrampoline<StartSelectionDelegate>();
                     installedKeyDown = InputR3EventHooks.OnKeyDown.Observable
@@ -248,7 +267,7 @@ namespace BugfixesAndQoL
                     installedKeyUp = InputR3EventHooks.OnKeyUp.Observable
                         .Subscribe(OnKeyUp);
 
-                    preDllCallActionsHook = installedPreDll;
+                    engineRunHook = installedEngineRun;
                     startSelectionHook = installedStartSelection;
                     keyDownSubscription = installedKeyDown;
                     keyHeldSubscription = installedKeyHeld;
@@ -260,24 +279,28 @@ namespace BugfixesAndQoL
                     installedKeyHeld?.Dispose();
                     installedKeyDown?.Dispose();
                     installedStartSelection?.Dispose();
-                    installedPreDll?.Dispose();
+                    installedEngineRun?.Dispose();
                     throw;
                 }
+
                 installed = true;
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "Move formation drag R3 input, selection transition, and Vanilla command-transport hooks installed for the process lifetime.");
+                    "Move formation drag R3 input, selection transition, and full Vanilla EngineInterface.run transaction installed for the process lifetime.");
             }
             catch
             {
-                RollBackUnpublishedHooks();
+                // This path is initialization-only. Once installed is published,
+                // process-lifetime hooks are never disposed by map/plugin lifecycle.
+                if (!installed)
+                    RollBackUnpublishedHooks();
                 throw;
             }
         }
 
         internal void ResetTransientState()
         {
-            drag = null;
+            AbortPreview("map-reset");
             MoveFormationCommandContext.Clear();
             markers.ClearPreview();
         }
@@ -294,23 +317,41 @@ namespace BugfixesAndQoL
                 return;
             try
             {
-                DragState state = drag;
+                DragState state;
+                lock (dragSync)
+                    state = drag;
                 if (state != null)
                 {
                     if (IsShiftKey(args.Key))
+                    {
                         AbortPreview("conflicting-input");
-                    else if (TryGetMouseButton(args.Key, out int pressedButton) &&
-                        state.Gesture.OnMouseDown(pressedButton) ==
-                            MoveFormationGestureResult.Aborted)
-                        AbortPreview("conflicting-input");
-                    return;
+                        return;
+                    }
+                    if (TryGetMouseButton(args.Key, out int pressedButton))
+                    {
+                        if (pressedButton == state.CommandButton &&
+                            state.ReleaseGate.Released)
+                        {
+                            AbortPreview("stale-release-before-new-down");
+                        }
+                        else
+                        {
+                            if (state.ReleaseGate.OnMouseDown(pressedButton) ==
+                                MoveFormationGestureResult.Aborted)
+                                AbortPreview("conflicting-input");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        return;
+                    }
                 }
 
                 int commandButton = MoveFormationSpacingPolicy.GetCommandMouseButton(
                     ConfigSettings.Settings_SH1RTSControls);
-                if (args.Key != ToKeyCode(commandButton))
-                    return;
-                TryStartDrag(commandButton);
+                if (args.Key == ToKeyCode(commandButton))
+                    TryStartDrag(commandButton);
             }
             catch (Exception exception)
             {
@@ -324,7 +365,9 @@ namespace BugfixesAndQoL
                 return;
             try
             {
-                DragState state = drag;
+                DragState state;
+                lock (dragSync)
+                    state = drag;
                 if (state == null)
                     return;
                 if (IsShiftKey(args.Key))
@@ -340,14 +383,20 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                MoveFormationGestureResult result = state.Gesture.OnHeld(
-                    state.CommandButton, Input.mousePosition.x, state.ScreenWidth);
-                if (result != MoveFormationGestureResult.SpacingChanged)
+                MoveFormationGestureResult heldResult;
+                lock (dragSync)
+                {
+                    if (!ReferenceEquals(drag, state))
+                        return;
+                    heldResult = state.ReleaseGate.OnHeld(
+                        Input.mousePosition.x, state.ScreenWidth);
+                }
+                if (heldResult != MoveFormationGestureResult.SpacingChanged)
                     return;
                 PublishPreview(state);
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"MOVE_FORMATION_DRAG: spacing={state.Spacing}; preview={previewTiles.Count}.");
+                    $"MOVE_FORMATION_DRAG: spacing-change; spacing={state.Spacing}; preview={previewTiles.Count}.");
             }
             catch (Exception exception)
             {
@@ -361,19 +410,22 @@ namespace BugfixesAndQoL
                 return;
             try
             {
-                DragState state = drag;
-                if (state == null || args.Key != ToKeyCode(state.CommandButton))
-                    return;
-                if (state.Gesture.OnMouseUp(
-                        state.CommandButton,
-                        Input.mousePosition.x,
-                        state.ScreenWidth) !=
-                    MoveFormationGestureResult.Released)
+                DragState state;
+                MoveFormationGestureResult releaseResult;
+                lock (dragSync)
+                {
+                    state = drag;
+                    if (state == null || args.Key != ToKeyCode(state.CommandButton))
+                        return;
+                    releaseResult = state.ReleaseGate.OnInputRelease(
+                        Input.mousePosition.x, state.ScreenWidth);
+                }
+                if (releaseResult != MoveFormationGestureResult.Released)
                     return;
                 markers.ClearPreview();
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"MOVE_FORMATION_DRAG: release-event; spacing={state.Spacing}.");
+                    $"MOVE_FORMATION_DRAG: release-event; spacing={state.Spacing}; awaiting Vanilla release.");
             }
             catch (Exception exception)
             {
@@ -389,45 +441,48 @@ namespace BugfixesAndQoL
                 LogRejectedStart(rejection);
                 return;
             }
-
             if (!TryCaptureSelection(
                     out SelectionIdentity[] selection,
+                    out int[] unitTypes,
                     out int tribeId,
                     out rejection))
             {
                 LogRejectedStart(rejection);
                 return;
             }
-
-            float tileX = 0;
-            float tileY = 0;
-            MainControls.instance.getMouseMapTilePosition(ref tileX, ref tileY);
-            int anchorX = (int)tileX;
-            int anchorY = (int)tileY;
-            if (!IsPureGroundTile(anchorX, anchorY, checkUnitUnderCursor: true))
+            if (!TryCaptureFreshGroundTarget(
+                    checkUnitUnderCursor: true,
+                    out GroundTarget target,
+                    out rejection))
             {
-                LogRejectedStart("non-ground-target");
+                LogRejectedStart(
+                    rejection,
+                    rejection == "tilemap-outside-map"
+                        ? (GroundTarget?)null
+                        : target);
                 return;
             }
 
             Vector3 mouse = Input.mousePosition;
             DragState state = new DragState(
                 tribeId,
-                anchorX,
-                anchorY,
+                target,
                 mouse.x,
                 (int)mouse.x,
                 Screen.height - (int)mouse.y,
                 selection,
+                unitTypes,
                 commandButton,
                 Screen.width);
-            drag = state;
+            lock (dragSync)
+                drag = state;
             PublishPreview(state);
             Shared.DebugLogHelper.LogDebug(
                 log,
-                $"MOVE_FORMATION_DRAG: start; tribe={tribeId}; units={selection.Length}; " +
-                $"button={commandButton}; target={anchorX},{anchorY}; spacing=2; " +
-                $"preview={previewTiles.Count}.");
+                $"MOVE_FORMATION_DRAG: drag-start; tribe={tribeId}; units={selection.Length}; " +
+                $"button={commandButton}; tilemap={target.TileMapX},{target.TileMapY}; " +
+                $"native={target.NativeX},{target.NativeY}; clickDepth={target.ClickDepth}; " +
+                $"spacing=2; preview={previewTiles.Count}.");
         }
 
         private void StartSelectionHook(
@@ -435,13 +490,16 @@ namespace BugfixesAndQoL
         {
             try
             {
-                DragState state = drag;
+                DragState state;
+                lock (dragSync)
+                    state = drag;
                 if (!failed && state != null && state.CommandButton == 0 && Enabled)
                 {
                     if (MainControls.instance != null)
                         MainControls.instance.CurrentAction = 0;
                     Shared.DebugLogHelper.LogDebug(
-                        log, "MOVE_FORMATION_DRAG: suppressed Vanilla selection-box transition.");
+                        log,
+                        "MOVE_FORMATION_DRAG: suppressed Vanilla selection-box transition during left-command drag.");
                     return;
                 }
             }
@@ -452,192 +510,186 @@ namespace BugfixesAndQoL
             startSelectionOriginal(self, start, current);
         }
 
-        private void PreDllCallActionsHook(
-            EditorDirector self, ref int mouseOverX, ref int mouseOverY)
+        private int EngineRunHook(bool mpFrameSkip)
         {
-            DragState state = drag;
-            if (failed || state == null)
-            {
-                preDllCallActionsOriginal(self, ref mouseOverX, ref mouseOverY);
-                return;
-            }
-
-            bool matchingRelease;
+            DragState state = null;
             try
             {
-                matchingRelease = IsMatchingVanillaRelease(self, state);
-            }
-            catch (Exception exception)
-            {
-                FailOpen("release-detection", exception);
-                preDllCallActionsOriginal(self, ref mouseOverX, ref mouseOverY);
-                return;
-            }
-            if (!matchingRelease)
-            {
-                preDllCallActionsOriginal(self, ref mouseOverX, ref mouseOverY);
-                return;
-            }
-
-            try
-            {
-                state.Gesture.OnMouseUp(
-                    state.CommandButton,
-                    (int)mousePosXForEngineField.GetValue(self),
-                    state.ScreenWidth);
-
-                if (!ValidateActiveDrag(state, requirePureGround: true))
+                EditorDirector director = EditorDirector.instance;
+                lock (dragSync)
                 {
-                    AbortPreview("release-validation");
-                    preDllCallActionsOriginal(self, ref mouseOverX, ref mouseOverY);
-                    return;
+                    if (!failed && drag != null && director != null &&
+                        drag.CommandButton == MoveFormationSpacingPolicy.GetCommandMouseButton(
+                            ConfigSettings.Settings_SH1RTSControls) &&
+                        drag.ReleaseGate.TryClaimVanillaRelease(
+                            (int)leftMouseStateForEngineField.GetValue(director),
+                            (bool)rightUpForEngineField.GetValue(director),
+                            drag.ScreenWidth))
+                    {
+                        state = drag;
+                        drag = null;
+                    }
                 }
             }
             catch (Exception exception)
             {
-                FailOpen("release-validation", exception);
-                preDllCallActionsOriginal(self, ref mouseOverX, ref mouseOverY);
-                return;
+                FailOpen("run-release-detection", exception);
+                return engineRunOriginal(mpFrameSkip);
             }
 
-            MainControls controls = MainControls.instance;
-            object oldTileX = null;
-            object oldTileY = null;
-            object oldMouseX = null;
-            object oldMouseY = null;
-            object oldUnderCursor = null;
-            int oldDepth = 0;
-            int oldClickDepth = 0;
-            bool stateCaptured = false;
-            bool trampolineEntered = false;
+            if (state == null)
+                return engineRunOriginal(mpFrameSkip);
+
             try
             {
-                oldTileX = mouseTileXField.GetValue(self);
-                oldTileY = mouseTileYField.GetValue(self);
-                oldMouseX = mousePosXForEngineField.GetValue(self);
-                oldMouseY = mousePosYForEngineField.GetValue(self);
-                oldUnderCursor = underCursorChimpListField.GetValue(self);
-                oldDepth = self.lastTroopOverDepth;
-                oldClickDepth = controls.mouseTileClickDepth;
-                stateCaptured = true;
+                if (!ValidateActiveDrag(state, requirePureGround: true))
+                {
+                    ClearCompletedDrag("run-release-validation-failed");
+                    return engineRunOriginal(mpFrameSkip);
+                }
+                if (!StoredCoordinateMappingMatches(state.Target))
+                {
+                    ClearCompletedDrag("coordinate-mapping-changed");
+                    return engineRunOriginal(mpFrameSkip);
+                }
+            }
+            catch (Exception exception)
+            {
+                FailOpen("run-release-validation", exception);
+                return engineRunOriginal(mpFrameSkip);
+            }
 
+            return RunAnchoredVanillaTransaction(state, mpFrameSkip);
+        }
+
+        private int RunAnchoredVanillaTransaction(DragState state, bool mpFrameSkip)
+        {
+            EditorDirector director = EditorDirector.instance;
+            MainControls controls = MainControls.instance;
+            object oldTileX;
+            object oldTileY;
+            object oldMouseX;
+            object oldMouseY;
+            object oldUnderCursor;
+            int oldDepth;
+            int oldClickDepth;
+
+            try
+            {
+                oldTileX = mouseTileXField.GetValue(director);
+                oldTileY = mouseTileYField.GetValue(director);
+                oldMouseX = mousePosXForEngineField.GetValue(director);
+                oldMouseY = mousePosYForEngineField.GetValue(director);
+                oldUnderCursor = underCursorChimpListField.GetValue(director);
+                oldDepth = director.lastTroopOverDepth;
+                oldClickDepth = controls.mouseTileClickDepth;
+            }
+            catch (Exception exception)
+            {
+                FailOpen("run-anchor-capture", exception);
+                return engineRunOriginal(mpFrameSkip);
+            }
+
+            int previewCount = 0;
+            try
+            {
+                PublishPreview(state);
+                previewCount = previewTiles.Count;
+                mouseTileXField.SetValue(director, (float)state.Target.TileMapX);
+                mouseTileYField.SetValue(director, (float)state.Target.TileMapY);
+                mousePosXForEngineField.SetValue(director, state.PressedEngineX);
+                mousePosYForEngineField.SetValue(director, state.PressedEngineY);
+                underCursorChimpListField.SetValue(director, Array.Empty<int>());
+                director.lastTroopOverDepth = -1;
+                controls.mouseTileClickDepth = GroundClickDepth;
                 MoveFormationCommandContext.Arm(
-                    state.TribeId, state.TileX, state.TileY, state.Spacing);
+                    state.TribeId,
+                    state.Target.NativeX,
+                    state.Target.NativeY,
+                    state.Spacing);
                 markers.ClearPreview();
-                mouseTileXField.SetValue(self, (float)state.TileX);
-                mouseTileYField.SetValue(self, (float)state.TileY);
-                mousePosXForEngineField.SetValue(self, state.PressedEngineX);
-                mousePosYForEngineField.SetValue(self, state.PressedEngineY);
-                underCursorChimpListField.SetValue(self, Array.Empty<int>());
-                self.lastTroopOverDepth = -1;
-                controls.mouseTileClickDepth = 49;
                 Shared.DebugLogHelper.LogDebug(
                     log,
-                    $"MOVE_FORMATION_DRAG: Vanilla release handoff; tribe={state.TribeId}; " +
-                    $"target={state.TileX},{state.TileY}; spacing={state.Spacing}.");
-                trampolineEntered = true;
-                preDllCallActionsOriginal(self, ref mouseOverX, ref mouseOverY);
+                    $"MOVE_FORMATION_DRAG: run-release-handoff; tribe={state.TribeId}; " +
+                    $"tilemap={state.Target.TileMapX},{state.Target.TileMapY}; " +
+                    $"native={state.Target.NativeX},{state.Target.NativeY}; " +
+                    $"spacing={state.Spacing}; preview={previewCount}; " +
+                    $"releaseEvent={state.ReleaseGate.ReleaseEventSeen}.");
             }
-            catch (Exception exception) when (!trampolineEntered)
+            catch (Exception exception)
             {
-                Exception restoreFailure = stateCaptured
-                    ? RestoreInputState(
-                        self,
-                        controls,
-                        oldTileX,
-                        oldTileY,
-                        oldMouseX,
-                        oldMouseY,
-                        oldUnderCursor,
-                        oldDepth,
-                        oldClickDepth)
-                    : null;
-                stateCaptured = false;
+                Exception restoreFailure = RestoreInputState(
+                    director,
+                    controls,
+                    oldTileX,
+                    oldTileY,
+                    oldMouseX,
+                    oldMouseY,
+                    oldUnderCursor,
+                    oldDepth,
+                    oldClickDepth);
+                MoveFormationCommandContext.Clear();
+                markers.ClearPreview();
                 FailOpen(
-                    "release-anchor",
+                    "run-anchor-apply",
                     restoreFailure == null
                         ? exception
                         : new AggregateException(exception, restoreFailure));
-                preDllCallActionsOriginal(self, ref mouseOverX, ref mouseOverY);
+                return engineRunOriginal(mpFrameSkip);
+            }
+
+            bool originalEntered = false;
+            try
+            {
+                originalEntered = true;
+                return engineRunOriginal(mpFrameSkip);
             }
             finally
             {
-                Exception restoreFailure = stateCaptured
-                    ? RestoreInputState(
-                        self,
-                        controls,
-                        oldTileX,
-                        oldTileY,
-                        oldMouseX,
-                        oldMouseY,
-                        oldUnderCursor,
-                        oldDepth,
-                        oldClickDepth)
-                    : null;
-                drag = null;
+                Exception restoreFailure = RestoreInputState(
+                    director,
+                    controls,
+                    oldTileX,
+                    oldTileY,
+                    oldMouseX,
+                    oldMouseY,
+                    oldUnderCursor,
+                    oldDepth,
+                    oldClickDepth);
                 MoveFormationCommandContext.Clear();
                 markers.ClearPreview();
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"MOVE_FORMATION_DRAG: run-context-cleared; originalEntered={originalEntered}.");
                 if (restoreFailure != null)
-                    FailOpen("release-anchor-restore", restoreFailure);
+                    FailOpen("run-anchor-restore", restoreFailure);
             }
-        }
-
-        private bool IsMatchingVanillaRelease(
-            EditorDirector director, DragState state)
-        {
-            int currentCommandButton = MoveFormationSpacingPolicy.GetCommandMouseButton(
-                ConfigSettings.Settings_SH1RTSControls);
-            if (currentCommandButton != state.CommandButton)
-                return false;
-            return MoveFormationDragEligibility.IsVanillaRelease(
-                state.CommandButton,
-                (int)leftMouseStateForEngineField.GetValue(director),
-                (bool)rightUpForEngineField.GetValue(director));
         }
 
         private void PublishPreview(DragState state)
         {
-            previewTiles.Clear();
-            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            int anchorTile = GameTileManagerAPI.Instance.GetTileId(state.TileX, state.TileY);
-            if ((uint)anchorTile >= (uint)components.Length)
-                throw new InvalidOperationException("Preview anchor lies outside the path-component grid.");
-            ushort anchorComponent = components[anchorTile];
-            int required = Math.Min(state.Selection.Length, MaximumPreviewCandidates);
-            foreach (MoveFormationOffset offset in
-                MoveFormationSpacingPolicy.EnumerateManhattanOffsets(
-                    state.Spacing, MapWidth * 2 - 2))
-            {
-                TryAddPreviewTile(
-                    state.TileX + offset.X,
-                    state.TileY + offset.Y,
-                    anchorComponent,
-                    components);
-                if (previewTiles.Count >= required)
-                    break;
-            }
+            previewPlanner.Plan(
+                state.Target.NativeX,
+                state.Target.NativeY,
+                state.Spacing,
+                Math.Min(state.Selection.Length, MaximumFormationCandidates),
+                state.UnitTypes,
+                previewTiles);
             markers.SetPreview(previewTiles);
         }
 
-        private void TryAddPreviewTile(
-            int x, int y, ushort anchorComponent, Span<ushort> components)
-        {
-            if ((uint)x >= MapWidth || (uint)y >= MapWidth)
-                return;
-            int tileId = GameTileManagerAPI.Instance.GetTileId(x, y);
-            if ((uint)tileId >= (uint)components.Length || components[tileId] == 0 ||
-                (anchorComponent != 0 && components[tileId] != anchorComponent))
-                return;
-            previewTiles.Add(tileId);
-        }
-
         private static bool TryCaptureSelection(
-            out SelectionIdentity[] identities, out int tribeId, out string rejection)
+            out SelectionIdentity[] identities,
+            out int[] unitTypes,
+            out int tribeId,
+            out string rejection)
         {
-            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps();
+            SelectedUnitInfo[] selected =
+                GamePlayerManagerAPI.Instance.GetSelectedChimps();
             if (selected == null || selected.Length < 2)
             {
                 identities = Array.Empty<SelectionIdentity>();
+                unitTypes = Array.Empty<int>();
                 tribeId = 0;
                 rejection = "selection-count";
                 return false;
@@ -648,10 +700,12 @@ namespace BugfixesAndQoL
             for (int index = 0; index < selected.Length; index++)
             {
                 int unitId = selected[index].UnitId;
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(
+                        unitId, out GameUnit* unit) ||
                     unit == null || unit->r_AliveState != AliveState.IsAlive ||
                     unit->r_GlobalId == 0)
                 {
+                    unitTypes = Array.Empty<int>();
                     rejection = "selection-invalid-unit";
                     return false;
                 }
@@ -659,12 +713,18 @@ namespace BugfixesAndQoL
                     tribeId = unit->r_TribeId;
                 else if (tribeId != unit->r_TribeId)
                 {
+                    unitTypes = Array.Empty<int>();
                     rejection = "selection-mixed-tribe";
                     return false;
                 }
-                identities[index] = new SelectionIdentity(unitId, unit->r_GlobalId);
+                identities[index] = new SelectionIdentity(
+                    unitId, unit->r_GlobalId, selected[index].UnitType);
             }
-            Array.Sort(identities, (left, right) => left.UnitId.CompareTo(right.UnitId));
+            Array.Sort(identities, (left, right) =>
+                left.UnitId.CompareTo(right.UnitId));
+            unitTypes = new int[identities.Length];
+            for (int index = 0; index < identities.Length; index++)
+                unitTypes[index] = identities[index].UnitType;
 
             bool mapEditorSelection = MainViewModel.viewModelLoaded &&
                 MainViewModel.Instance != null && MainViewModel.Instance.IsMapEditorMode;
@@ -676,10 +736,12 @@ namespace BugfixesAndQoL
             }
 
             if (!GameTribeManagerAPI.Instance.IsValidId(tribeId) ||
-                !GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) ||
+                !GameTribeManagerAPI.Instance.TryGetTribeById(
+                    tribeId, out GameTribe* tribe) ||
                 tribe == null || tribe->r_AliveState != AliveState.IsAlive ||
                 GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner) ||
-                tribe->r_PlayerIdOwner != GamePlayerManagerAPI.Instance.GetLocalPlayerId())
+                tribe->r_PlayerIdOwner !=
+                    GamePlayerManagerAPI.Instance.GetLocalPlayerId())
             {
                 rejection = "selection-not-local-player";
                 return false;
@@ -691,8 +753,10 @@ namespace BugfixesAndQoL
         private static bool SelectionMatches(SelectionIdentity[] expected)
         {
             if (!TryCaptureSelection(
-                    out SelectionIdentity[] current, out _, out _) ||
-                current.Length != expected.Length)
+                    out SelectionIdentity[] current,
+                    out _,
+                    out _,
+                    out _) || current.Length != expected.Length)
                 return false;
             for (int index = 0; index < current.Length; index++)
             {
@@ -702,37 +766,97 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        private static bool HasValidMap() =>
-            FatControler.currentScene == Enums.SceneIDS.ActualMainGame &&
-            GameMap.instance != null && MainControls.instance != null;
-
-        private static bool IsPureGroundTile(
-            int x, int y, bool checkUnitUnderCursor)
+        private bool TryCaptureFreshGroundTarget(
+            bool checkUnitUnderCursor,
+            out GroundTarget target,
+            out string rejection)
         {
-            if ((uint)x >= MapWidth || (uint)y >= MapWidth ||
-                GameMap.instance.getMapTile(x, y) == null)
+            Vector3 mouse = Input.mousePosition;
+            Vector3 mouseMap = Vector3.zero;
+            Vector3Int tileMap = Vector3Int.zero;
+            int clickDepth = 0;
+            GameMap.instance.CalcMapTileFromMousePos(
+                mouse, ref mouseMap, ref tileMap, ref clickDepth);
+            GameMapTile mapTile = GameMap.instance.getMapTile(tileMap.x, tileMap.y);
+            if (mapTile == null)
+            {
+                target = default;
+                rejection = "tilemap-outside-map";
                 return false;
-            int tileId = GameTileManagerAPI.Instance.GetTileId(x, y);
-            var tileManager = GameTileManagerAPI.Instance.TileManager;
-            if (tileId < 0 || tileManager == null ||
-                (uint)tileId >= (uint)tileManager.StructureGrid.Length)
-                return false;
-            Span<ushort> components = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            if ((uint)tileId >= (uint)components.Length || components[tileId] == 0 ||
-                tileManager.StructureGrid[tileId] != 0)
-                return false;
-            if (!checkUnitUnderCursor)
-                return true;
+            }
 
-            int[] underCursor = null;
-            int depth = -1;
-            GameMap.instance.grabTroopsOnScreen(
-                Vector2.zero,
-                Vector2.zero,
-                ref underCursor,
-                Input.mousePosition,
-                ref depth);
-            return underCursor == null || underCursor.Length == 0;
+            target = new GroundTarget(
+                tileMap.x,
+                tileMap.y,
+                mapTile.gameMapX,
+                mapTile.gameMapY,
+                clickDepth);
+            return IsPureGroundTarget(
+                target, checkUnitUnderCursor, out rejection);
+        }
+
+        private bool IsPureGroundTarget(
+            GroundTarget target,
+            bool checkUnitUnderCursor,
+            out string rejection)
+        {
+            if ((uint)target.NativeX >= NativeMapWidth ||
+                (uint)target.NativeY >= NativeMapWidth)
+            {
+                rejection = "native-coordinate-outside-map";
+                return false;
+            }
+            if (!targetAvailable(target.NativeX, target.NativeY))
+            {
+                rejection = "native-target-unavailable";
+                return false;
+            }
+            int tileId = GameTileManagerAPI.Instance.GetTileId(
+                target.NativeX, target.NativeY);
+            GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager;
+            if (tileId < 0 || tileManager == null ||
+                (uint)tileId >= (uint)tileManager.StructureGrid.Length ||
+                (uint)tileId >= (uint)tileManager.PathConnectionGrid.Length)
+            {
+                rejection = "native-tile-outside-grid";
+                return false;
+            }
+            if (tileManager.StructureGrid[tileId] != 0)
+            {
+                rejection = "structure-target";
+                return false;
+            }
+            if (tileManager.PathConnectionGrid[tileId] == 0)
+            {
+                rejection = "unwalkable-ground";
+                return false;
+            }
+            if (checkUnitUnderCursor)
+            {
+                int[] underCursor = null;
+                int depth = -1;
+                GameMap.instance.grabTroopsOnScreen(
+                    Vector2.zero,
+                    Vector2.zero,
+                    ref underCursor,
+                    Input.mousePosition,
+                    ref depth);
+                if (underCursor != null && underCursor.Length != 0)
+                {
+                    rejection = "unit-target";
+                    return false;
+                }
+            }
+            rejection = null;
+            return true;
+        }
+
+        private static bool StoredCoordinateMappingMatches(GroundTarget target)
+        {
+            GameMapTile mapTile =
+                GameMap.instance.getMapTile(target.TileMapX, target.TileMapY);
+            return mapTile != null && mapTile.gameMapX == target.NativeX &&
+                mapTile.gameMapY == target.NativeY;
         }
 
         private string GetStartRejection(int commandButton)
@@ -753,18 +877,25 @@ namespace BugfixesAndQoL
             return null;
         }
 
-        private bool ValidateActiveDrag(
-            DragState state, bool requirePureGround)
+        private bool ValidateActiveDrag(DragState state, bool requirePureGround)
         {
             if (!Enabled || !HasValidMap() ||
+                state.ReleaseGate.Aborted ||
                 state.CommandButton != MoveFormationSpacingPolicy.GetCommandMouseButton(
                     ConfigSettings.Settings_SH1RTSControls) ||
                 FatControler.instance == null || FatControler.instance.overNoesisGUI() ||
                 IsShiftHeld() || !SelectionMatches(state.Selection))
                 return false;
-            return !requirePureGround ||
-                IsPureGroundTile(state.TileX, state.TileY, checkUnitUnderCursor: false);
+            if (!requirePureGround)
+                return true;
+            return IsPureGroundTarget(
+                state.Target, checkUnitUnderCursor: false, out _);
         }
+
+        private static bool HasValidMap() =>
+            FatControler.currentScene == Enums.SceneIDS.ActualMainGame &&
+            GameMap.instance != null && MainControls.instance != null &&
+            EditorDirector.instance != null;
 
         private static bool IsShiftHeld()
         {
@@ -796,37 +927,56 @@ namespace BugfixesAndQoL
             return false;
         }
 
-        private void LogRejectedStart(string reason)
+        private void LogRejectedStart(
+            string reason, GroundTarget? rejectedTarget = null)
         {
             string normalized = string.IsNullOrEmpty(reason) ? "unknown" : reason;
             if (!loggedRejectReasons.Add(normalized))
                 return;
+            string coordinates = rejectedTarget.HasValue
+                ? $"; tilemap={rejectedTarget.Value.TileMapX},{rejectedTarget.Value.TileMapY}" +
+                  $"; native={rejectedTarget.Value.NativeX},{rejectedTarget.Value.NativeY}" +
+                  $"; clickDepth={rejectedTarget.Value.ClickDepth}"
+                : string.Empty;
             Shared.DebugLogHelper.LogDebug(
                 log,
-                $"MOVE_FORMATION_DRAG: start-rejected; reason={normalized}; " +
+                $"MOVE_FORMATION_DRAG: start-rejected; reason={normalized}{coordinates}; " +
                 "further occurrences of this reason are suppressed.");
         }
 
         private void AbortPreview(string reason)
         {
-            DragState state = drag;
-            bool hadDrag = state != null;
-            state?.Gesture.Abort();
-            drag = null;
-            MoveFormationCommandContext.Clear();
-            markers.ClearPreview();
-            if (hadDrag)
+            DragState state;
+            lock (dragSync)
             {
+                state = drag;
+                drag = null;
+            }
+            state?.ReleaseGate.Abort();
+            if (state != null)
+            {
+                MoveFormationCommandContext.Clear();
+                markers.ClearPreview();
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"MOVE_FORMATION_DRAG: aborted; reason={reason ?? "unknown"}.");
             }
         }
 
+        private void ClearCompletedDrag(string reason)
+        {
+            MoveFormationCommandContext.Clear();
+            markers.ClearPreview();
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"MOVE_FORMATION_DRAG: release-fell-back-to-Vanilla; reason={reason}.");
+        }
+
         private void FailOpen(string contract, Exception exception)
         {
             failed = true;
-            drag = null;
+            lock (dragSync)
+                drag = null;
             MoveFormationCommandContext.Clear();
             Exception cleanupFailure = null;
             try
@@ -851,14 +1001,14 @@ namespace BugfixesAndQoL
             keyHeldSubscription?.Dispose();
             keyDownSubscription?.Dispose();
             startSelectionHook?.Dispose();
-            preDllCallActionsHook?.Dispose();
+            engineRunHook?.Dispose();
             keyUpSubscription = null;
             keyHeldSubscription = null;
             keyDownSubscription = null;
             startSelectionHook = null;
-            preDllCallActionsHook = null;
+            engineRunHook = null;
             startSelectionOriginal = null;
-            preDllCallActionsOriginal = null;
+            engineRunOriginal = null;
         }
 
         private Exception RestoreInputState(
@@ -873,11 +1023,19 @@ namespace BugfixesAndQoL
             int oldClickDepth)
         {
             Exception firstFailure = null;
-            TryRestore(() => mouseTileXField.SetValue(director, oldTileX), ref firstFailure);
-            TryRestore(() => mouseTileYField.SetValue(director, oldTileY), ref firstFailure);
-            TryRestore(() => mousePosXForEngineField.SetValue(director, oldMouseX), ref firstFailure);
-            TryRestore(() => mousePosYForEngineField.SetValue(director, oldMouseY), ref firstFailure);
-            TryRestore(() => underCursorChimpListField.SetValue(director, oldUnderCursor), ref firstFailure);
+            TryRestore(
+                () => mouseTileXField.SetValue(director, oldTileX), ref firstFailure);
+            TryRestore(
+                () => mouseTileYField.SetValue(director, oldTileY), ref firstFailure);
+            TryRestore(
+                () => mousePosXForEngineField.SetValue(director, oldMouseX),
+                ref firstFailure);
+            TryRestore(
+                () => mousePosYForEngineField.SetValue(director, oldMouseY),
+                ref firstFailure);
+            TryRestore(
+                () => underCursorChimpListField.SetValue(director, oldUnderCursor),
+                ref firstFailure);
             TryRestore(() => director.lastTroopOverDepth = oldDepth, ref firstFailure);
             TryRestore(() => controls.mouseTileClickDepth = oldClickDepth, ref firstFailure);
             return firstFailure;
@@ -896,7 +1054,7 @@ namespace BugfixesAndQoL
             }
         }
 
-        private static FieldInfo RequireField(string name, Type type)
+        private static FieldInfo RequireEditorField(string name, Type type)
         {
             FieldInfo field = typeof(EditorDirector).GetField(name, InstanceFields);
             if (field == null || field.FieldType != type)
@@ -907,44 +1065,77 @@ namespace BugfixesAndQoL
         private sealed class DragState
         {
             internal DragState(
-                int tribeId, int tileX, int tileY, float pressedScreenX,
-                int pressedEngineX, int pressedEngineY,
-                SelectionIdentity[] selection, int commandButton, int screenWidth)
+                int tribeId,
+                GroundTarget target,
+                float pressedScreenX,
+                int pressedEngineX,
+                int pressedEngineY,
+                SelectionIdentity[] selection,
+                int[] unitTypes,
+                int commandButton,
+                int screenWidth)
             {
                 TribeId = tribeId;
-                TileX = tileX;
-                TileY = tileY;
+                Target = target;
                 PressedEngineX = pressedEngineX;
                 PressedEngineY = pressedEngineY;
                 Selection = selection;
-                Gesture = new MoveFormationDragGesture(commandButton, pressedScreenX);
+                UnitTypes = unitTypes;
+                ReleaseGate = new MoveFormationReleaseGate(
+                    commandButton, pressedScreenX);
                 ScreenWidth = screenWidth;
             }
 
             internal int TribeId { get; }
-            internal int TileX { get; }
-            internal int TileY { get; }
+            internal GroundTarget Target { get; }
             internal int PressedEngineX { get; }
             internal int PressedEngineY { get; }
             internal SelectionIdentity[] Selection { get; }
-            internal MoveFormationDragGesture Gesture { get; }
+            internal int[] UnitTypes { get; }
+            internal MoveFormationReleaseGate ReleaseGate { get; }
             internal int ScreenWidth { get; }
-            internal int CommandButton => Gesture.CommandButton;
-            internal int Spacing => Gesture.Spacing;
+            internal int CommandButton => ReleaseGate.CommandButton;
+            internal int Spacing => ReleaseGate.Spacing;
+        }
+
+        private readonly struct GroundTarget
+        {
+            internal GroundTarget(
+                int tileMapX,
+                int tileMapY,
+                int nativeX,
+                int nativeY,
+                int clickDepth)
+            {
+                TileMapX = tileMapX;
+                TileMapY = tileMapY;
+                NativeX = nativeX;
+                NativeY = nativeY;
+                ClickDepth = clickDepth;
+            }
+
+            internal int TileMapX { get; }
+            internal int TileMapY { get; }
+            internal int NativeX { get; }
+            internal int NativeY { get; }
+            internal int ClickDepth { get; }
         }
 
         private readonly struct SelectionIdentity : IEquatable<SelectionIdentity>
         {
-            internal SelectionIdentity(int unitId, uint globalId)
+            internal SelectionIdentity(int unitId, uint globalId, int unitType)
             {
                 UnitId = unitId;
                 GlobalId = globalId;
+                UnitType = unitType;
             }
 
             internal int UnitId { get; }
             internal uint GlobalId { get; }
+            internal int UnitType { get; }
             public bool Equals(SelectionIdentity other) =>
-                UnitId == other.UnitId && GlobalId == other.GlobalId;
+                UnitId == other.UnitId && GlobalId == other.GlobalId &&
+                UnitType == other.UnitType;
         }
     }
 }

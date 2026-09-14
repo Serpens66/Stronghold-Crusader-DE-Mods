@@ -52,6 +52,13 @@ namespace BugfixesAndQoL
                 ResolveCompletedMoatRelationship(player, tile) != CompletedMoatRelationship.Friendly);
         }
 
+        internal bool IsMoveFormationTargetAvailable(int x, int y)
+        {
+            return !disposed && movementTargetAvailability != null &&
+                (uint)x < MapWidth && (uint)y < MapWidth &&
+                movementTargetAvailability[y * MapWidth + x] != 0;
+        }
+
         private void ChooseOwnerSafeFormationSlot(IntPtr manager, int spacing, int x, int y)
         {
             int effectiveSpacing = spacing;

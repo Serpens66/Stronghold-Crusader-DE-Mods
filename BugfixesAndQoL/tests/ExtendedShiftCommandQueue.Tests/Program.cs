@@ -186,6 +186,32 @@ internal static class Program
               cancelled.Abort() == MoveFormationGestureResult.Ignored &&
               cancelled.OnHeld(1, 200f, 800) == MoveFormationGestureResult.Ignored,
             "external cancellation is terminal and idempotent");
+
+        MoveFormationReleaseGate upThenRun = new MoveFormationReleaseGate(1, 500f);
+        Check(upThenRun.OnHeld(700f, 1920) ==
+                  MoveFormationGestureResult.SpacingChanged &&
+              upThenRun.OnInputRelease(700f, 1920) ==
+                  MoveFormationGestureResult.Released &&
+              upThenRun.ReleaseEventSeen &&
+              upThenRun.TryClaimVanillaRelease(2, true, 1920) &&
+              upThenRun.VanillaReleaseClaimed && upThenRun.Spacing == 4 &&
+              !upThenRun.TryClaimVanillaRelease(2, true, 1920),
+            "R3 up before Engine run retains spacing until exactly one Vanilla release claim");
+
+        MoveFormationReleaseGate runThenUp = new MoveFormationReleaseGate(0, 500f);
+        Check(runThenUp.OnHeld(565f, 1920) ==
+                  MoveFormationGestureResult.SpacingChanged &&
+              runThenUp.TryClaimVanillaRelease(3, false, 1920) &&
+              runThenUp.Released && !runThenUp.ReleaseEventSeen &&
+              runThenUp.Spacing == 3 &&
+              runThenUp.OnInputRelease(565f, 1920) ==
+                  MoveFormationGestureResult.Ignored,
+            "authoritative Engine release before R3 up samples the last held position");
+
+        MoveFormationReleaseGate wrongRelease = new MoveFormationReleaseGate(1, 500f);
+        Check(!wrongRelease.TryClaimVanillaRelease(3, false, 1920) &&
+              !wrongRelease.Released && !wrongRelease.VanillaReleaseClaimed,
+            "the opposite Vanilla release cannot claim a drag transaction");
     }
 
     private static void CheckLargeMoveTargetDiagnostics()
@@ -997,6 +1023,11 @@ internal static class Program
             "BugfixesAndQoL",
             "src",
             "MoveFormationDragRuntime.cs");
+        string moveFormationPreview = Read(
+            workspace,
+            "BugfixesAndQoL",
+            "src",
+            "MoveFormationPreviewPlanner.cs");
         string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
         string settingsXaml = Read(
             workspace,
@@ -1137,7 +1168,14 @@ internal static class Program
               moveFormationDrag.Contains("args.Phase != EventHookPhase.Post") &&
               moveFormationDrag.Contains("MoveFormationCommandContext.Arm(") &&
               moveFormationDrag.Contains("markers.ClearPreview();") &&
-              moveFormationDrag.Contains("preDllCallActionsOriginal(self, ref mouseOverX, ref mouseOverY)") &&
+              moveFormationDrag.Contains("RunAnchoredVanillaTransaction(state, mpFrameSkip)") &&
+              moveFormationDrag.Contains("engineRunOriginal(mpFrameSkip)") &&
+              moveFormationDrag.Contains("CalcMapTileFromMousePos(") &&
+              moveFormationDrag.Contains("mapTile.gameMapX") &&
+              moveFormationDrag.Contains("state.Target.TileMapX") &&
+              moveFormationDrag.Contains("state.Target.NativeX") &&
+              moveFormationDrag.Contains("MoveFormationPreviewPlanner") &&
+              moveFormationDrag.Contains("targetAvailable(target.NativeX, target.NativeY)") &&
               moveFormationDrag.Contains("private static readonly object syncRoot") &&
               !moveFormationDrag.Contains("[ThreadStatic]") &&
               moveFormationDrag.Contains("RestoreInputState(") &&
@@ -1150,8 +1188,16 @@ internal static class Program
               !moveFormationDrag.Contains("Input.GetMouseButton") &&
               !moveFormationDrag.Contains("OnBeforeRender") &&
               !moveFormationDrag.Contains("\"Update\", BindingFlags") &&
-              !moveFormationDrag.Contains("EngineRunDelegate"),
-            "drag preview uses R3 input events and Vanilla's semantic command handoff without frame polling");
+              !moveFormationDrag.Contains("PreDllCallActionsDelegate") &&
+              !moveFormationDrag.Contains("preDLLCallActionsOriginal"),
+            "drag preview uses R3 input and a full Engine run transaction with separate coordinate domains");
+        Check(moveFormationPreview.Contains("PathEdgeMaskGrid") &&
+              moveFormationPreview.Contains("PathConnectionGrid") &&
+              moveFormationPreview.Contains("NativeFormationCandidateCapacity = 4001") &&
+              moveFormationPreview.Contains("0x10000100") &&
+              moveFormationPreview.Contains("destination.Count < requiredCount") &&
+              bugfixesProject.Contains("src\\MoveFormationPreviewPlanner.cs"),
+            "formation preview mirrors Vanilla's bounded BFS grids and Assassin filter");
         Check(bugfixesRuntime.Contains("settings.EnableMoveFormationEnhancements") &&
               bugfixesRuntime.Contains("!FeatureEnabled ||") &&
               bugfixesRuntime.Contains("setting-disabled"),

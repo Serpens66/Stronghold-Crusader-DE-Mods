@@ -1570,6 +1570,14 @@ namespace BugfixesAndQoL
                     MovementOptionsSnapshot.Capture(settings),
                     hasFormationSpacing,
                     formationSpacing);
+                if (hasFormationSpacing)
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"MOVE_FORMATION_DRAG: movehere-spacing; tribe={args.TribeId}; " +
+                        $"target={args.TileX},{args.TileY}; spacing={formationSpacing}; " +
+                        $"moveType={args.MoveType}.");
+                }
                 if (!activeMoveCommand.Options.RequiredOnly ||
                     settings.EnableMoveFormationEnhancements)
                     CaptureMoveCommandGroupSummary(activeMoveCommand);

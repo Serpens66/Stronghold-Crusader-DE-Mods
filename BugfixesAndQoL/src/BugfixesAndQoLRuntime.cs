@@ -492,7 +492,7 @@ namespace BugfixesAndQoL
             {
                 processExtendedShiftCommandQueueRuntime =
                     new ExtendedShiftCommandQueueRuntime(
-                        log, settings, friendlyMoatMovementRuntime != null);
+                        log, settings, friendlyMoatMovementRuntime);
                 processExtendedShiftCommandQueueRuntime.Install(context, referenceHashMatches);
             }
             extendedShiftCommandQueueRuntime = processExtendedShiftCommandQueueRuntime;

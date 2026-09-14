@@ -162,13 +162,20 @@ namespace BugfixesAndQoL
         public ExtendedShiftCommandQueueRuntime(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
-            bool formationRuntimeAvailable)
+            FriendlyMoatMovementRuntime formationRuntime)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             largeMoveTargets = new LargeMoveTargetDiagnosticsRuntime(log, settings);
-            moveFormationDrag = new MoveFormationDragRuntime(log, settings, largeMoveTargets);
-            if (!formationRuntimeAvailable)
+            Func<int, int, bool> targetAvailable = formationRuntime != null
+                ? formationRuntime.IsMoveFormationTargetAvailable
+                : (x, y) => false;
+            moveFormationDrag = new MoveFormationDragRuntime(
+                log,
+                settings,
+                largeMoveTargets,
+                targetAvailable);
+            if (formationRuntime == null)
             {
                 moveFormationDrag.DisableForProcess(
                     "formation-runtime",
@@ -503,6 +510,15 @@ namespace BugfixesAndQoL
                     if (encoded)
                     {
                         markedMoveType = formationMarkedMoveType;
+                        QueueNativeContract.TryDecodeFormationSpacing(
+                            markedMoveType & ~0x80,
+                            out _,
+                            out int markedSpacing);
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"MOVE_FORMATION_DRAG: chore-marked; tribe={observedTribeId}; " +
+                            $"target={Marshal.ReadInt32(choreCommandOrTileXPointer)},{Marshal.ReadInt32(choreTileYPointer)}; " +
+                            $"spacing={markedSpacing}; moveType=0x{originalMoveType:X}->0x{markedMoveType:X}.");
                     }
                     else if (pendingMatched)
                     {
