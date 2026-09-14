@@ -10,13 +10,14 @@ namespace BugfixesAndQoL
     {
         bool TryGetNativeRunningSpeedBonus(eChimps unitType, bool improvedSpearmen, out ushort runningSpeedBonus);
         bool TryGetNativeRunningState(eChimps unitType, uint currentState, out uint runningState);
+        void SetRallyTracking(int unitId, uint globalId, int ownerPlayerId, eChimps expectedUnitType);
+        void ClearRallyTracking(int unitId);
+        void ClearAllRallyTracking();
     }
 
     internal sealed class FastRecruitMovementBridge : IMovementCadenceServices, IDisposable
     {
         private readonly ManualLogSource log;
-        private readonly Action<IntPtr> applyMaximumSpeedCallback;
-        private readonly Func<IntPtr, bool> tryApplyCadenceCallback;
         private readonly FastRecruitRallyMovementRuntime runtime;
         private bool registered;
 
@@ -26,15 +27,11 @@ namespace BugfixesAndQoL
             try
             {
                 runtime = new FastRecruitRallyMovementRuntime(log, this);
-                applyMaximumSpeedCallback = runtime.ApplyMaximumSpeed;
-                tryApplyCadenceCallback = runtime.TryApplyRunningCadence;
-                registered = MovementCadenceIntegration.RegisterFastRecruitCallbacks(
-                    applyMaximumSpeedCallback,
-                    tryApplyCadenceCallback);
+                registered = MovementCadenceIntegration.RegisterFastRecruitOwner(this);
                 if (!registered)
                 {
                     LogError("Fast Recruit Rally Movement was disabled because the movement hook could not be initialized.");
-                    MovementCadenceIntegration.UnregisterFastRecruitCallbacks(applyMaximumSpeedCallback);
+                    MovementCadenceIntegration.UnregisterFastRecruitOwner(this);
                     runtime.Dispose();
                 }
             }
@@ -42,8 +39,7 @@ namespace BugfixesAndQoL
             {
                 try
                 {
-                    if (applyMaximumSpeedCallback != null)
-                        MovementCadenceIntegration.UnregisterFastRecruitCallbacks(applyMaximumSpeedCallback);
+                    MovementCadenceIntegration.UnregisterFastRecruitOwner(this);
                 }
                 catch
                 {
@@ -55,6 +51,12 @@ namespace BugfixesAndQoL
         }
 
         public bool IsActive => registered;
+
+        public void SetEnabled(bool enabled)
+        {
+            if (registered)
+                runtime.SetEnabled(enabled);
+        }
 
         public bool TryGetNativeRunningSpeedBonus(eChimps unitType, bool improvedSpearmen, out ushort runningSpeedBonus)
         {
@@ -74,11 +76,39 @@ namespace BugfixesAndQoL
                 out runningState);
         }
 
+        public void SetRallyTracking(int unitId, uint globalId, int ownerPlayerId, eChimps expectedUnitType)
+        {
+            if (registered)
+            {
+                MovementCadenceIntegration.SetRallyTracking(
+                    unitId,
+                    globalId,
+                    ownerPlayerId,
+                    expectedUnitType);
+            }
+        }
+
+        public void ClearRallyTracking(int unitId)
+        {
+            if (registered)
+                MovementCadenceIntegration.ClearRallyTracking(unitId);
+        }
+
+        public void ClearAllRallyTracking()
+        {
+            if (registered)
+                MovementCadenceIntegration.ClearAllRallyTracking();
+        }
+
         public void Dispose()
         {
             if (registered)
-                MovementCadenceIntegration.UnregisterFastRecruitCallbacks(applyMaximumSpeedCallback);
-            registered = false;
+            {
+                runtime.SetEnabled(false);
+                return;
+            }
+
+            MovementCadenceIntegration.UnregisterFastRecruitOwner(this);
             runtime?.Dispose();
         }
 

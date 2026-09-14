@@ -40,6 +40,7 @@ namespace BugfixesAndQoL
             TestFriendlyMoatMovementPolicy();
             TestFriendlyMoatMovementIntegration();
             TestReachableEnemyGatehouseUnitIdContract();
+            TestMovementFastPathParity();
             TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
@@ -589,6 +590,31 @@ namespace BugfixesAndQoL
                   PlacementCancelRightClickPolicy.ShouldForwardRightDown(
                     true, true, false, 5, false),
                 "disabled mod, client features, or local option retain Vanilla forwarding");
+
+            bool suppressRightUp = false;
+            bool placementDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
+                true, true, true, 5, false, ref suppressRightUp);
+            bool placementUp = PlacementCancelRightClickPolicy.CompleteRightClickGesture(
+                ref suppressRightUp);
+            bool followingUp = PlacementCancelRightClickPolicy.CompleteRightClickGesture(
+                ref suppressRightUp);
+            Check(!placementDown && !placementUp && followingUp && !suppressRightUp,
+                "DE placement cancellation suppresses Down and exactly one matching Up");
+
+            suppressRightUp = true;
+            bool ordinaryDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
+                true, true, true, 0, false, ref suppressRightUp);
+            bool ordinaryUp = PlacementCancelRightClickPolicy.CompleteRightClickGesture(
+                ref suppressRightUp);
+            Check(ordinaryDown && ordinaryUp && !suppressRightUp,
+                "a later ordinary Down replaces a stale placement-cancel Up marker");
+
+            suppressRightUp = false;
+            bool disabledDown = PlacementCancelRightClickPolicy.BeginRightClickGesture(
+                true, true, false, 5, false, ref suppressRightUp);
+            Check(disabledDown &&
+                  PlacementCancelRightClickPolicy.CompleteRightClickGesture(ref suppressRightUp),
+                "disabled placement suppression forwards the complete right-click gesture");
         }
 
         private static void TestPlacementCancelMoveSuppressionIntegration()
@@ -604,10 +630,12 @@ namespace BugfixesAndQoL
             Check(feature.Contains("new ILHook(updateMethod, PatchRightClickBranch)") &&
                   feature.Contains("cursor.RemoveRange(4)") &&
                   feature.Contains("CancelPlacementAndGetRightDown") &&
+                  feature.Contains("GetRightUpForEngine") &&
+                  feature.Contains("rightUpCursor.EmitDelegate<Func<bool>>") &&
                   feature.Contains("controls.StopAllPlacement();") &&
                   feature.Contains("return forwardRightDown;") &&
-                  feature.Contains("matches.Count != 1"),
-                "placement cancellation replaces the unique Vanilla right-click IL block before engine input");
+                  feature.Contains("rightDownMatches.Count != 1 || rightUpMatches.Count != 1"),
+                "placement cancellation replaces both unique Vanilla right-click gesture IL blocks before engine input");
             Check(!feature.Contains("OnTribeIssueOrderMoveHere") &&
                   !feature.Contains("GetSelectedChimps") &&
                   !feature.Contains("PlacementCancelMoveSuppressionState") &&
@@ -619,6 +647,7 @@ namespace BugfixesAndQoL
                   !feature.Contains("InputR3EventHooks"),
                 "placement-cancel suppression has no MoveHere, selection, frame-detour, held-key, engine-run, or tick callback");
             Check(feature.Contains("bool forwardRightDown = true;") &&
+                  feature.Contains("suppressNextRightUp = false;") &&
                   feature.Contains("catch (Exception ex)") &&
                   feature.Split(new[] { "controls.StopAllPlacement();" }, StringSplitOptions.None).Length == 2,
                 "placement-cancel classification fails open and invokes Vanilla cleanup exactly once");
@@ -654,6 +683,7 @@ namespace BugfixesAndQoL
                 BindingFlags.Instance | BindingFlags.NonPublic);
             byte[] il = update?.GetMethodBody()?.GetILAsByteArray();
             int contractMatches = 0;
+            int rightUpContractMatches = 0;
             if (il != null)
             {
                 for (int offset = 0; offset <= il.Length - 17; offset++)
@@ -689,9 +719,39 @@ namespace BugfixesAndQoL
                         // Operand bytes can resemble opcodes but cannot resolve as this contract.
                     }
                 }
+
+                for (int offset = 0; offset <= il.Length - 15; offset++)
+                {
+                    if (il[offset] != 0x17 || il[offset + 1] != 0x28 ||
+                        il[offset + 6] != 0x2c || il[offset + 8] != 0x02 ||
+                        il[offset + 9] != 0x17 || il[offset + 10] != 0x7d)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        MethodInfo getMouseButtonUp = update.Module.ResolveMethod(
+                            BitConverter.ToInt32(il, offset + 2)) as MethodInfo;
+                        FieldInfo rightUp = update.Module.ResolveField(
+                            BitConverter.ToInt32(il, offset + 11)) as FieldInfo;
+                        if (getMouseButtonUp?.DeclaringType?.FullName == "UnityEngine.Input" &&
+                            getMouseButtonUp.Name == "GetMouseButtonUp" &&
+                            getMouseButtonUp.GetParameters().Length == 1 &&
+                            rightUp?.DeclaringType == typeof(EditorDirector) &&
+                            rightUp.Name == "rightUpForEngine")
+                        {
+                            rightUpContractMatches++;
+                        }
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Operand bytes can resemble opcodes but cannot resolve as this contract.
+                    }
+                }
             }
-            Check(contractMatches == 1,
-                "installed Assembly-CSharp contains exactly one expected placement-cancel right-click IL block");
+            Check(contractMatches == 1 && rightUpContractMatches == 1,
+                "installed Assembly-CSharp contains exactly one expected right-click Down and Up IL block");
 
             bool allLocalesComplete = true;
             foreach (string locale in Directory.GetFiles("Locales", "*.txt"))
@@ -1006,15 +1066,12 @@ namespace BugfixesAndQoL
                 "SE 2.6 sprite-animation group reads and writes the installed layout");
 
             string projectDirectory = FindProjectDirectory();
-            string fastRecruit = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "FastRecruitRallyMovementRuntime.cs"));
             string cadence = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
-            Check(fastRecruit.Contains("unit->r_SpriteAnimationGroup") &&
-                    cadence.Contains("unit->r_SpriteAnimationGroup") &&
-                    !fastRecruit.Contains("N000000F4") &&
-                    !cadence.Contains("unit->N000000F4"),
-                "movement features use the named SE 2.6 sprite-animation group field");
+            Check(cadence.Contains("UnitAnimationStateManagerOffset = 0x660") &&
+                    cadence.Contains("UnitAnimationStateManagerOffset") &&
+                    !cadence.Contains("N000000F4"),
+                "native movement fastpath uses the audited SE 2.6 sprite-animation group offset");
         }
 
         private static bool AlmostEqual(float left, float right) =>
@@ -2093,6 +2150,12 @@ namespace BugfixesAndQoL
                 projectDirectory, "src", "FastRecruitRallyMovementRuntime.cs"));
             string troopMovement = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "TroopMovementFix3Runtime.cs"));
+            string cadencePatch = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "src",
+                "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
+            string integration = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "MovementCadenceIntegration.cs"));
             string english = File.ReadAllText(Path.Combine(
                 projectDirectory, "Locales", "en-US.txt"));
             string german = File.ReadAllText(Path.Combine(
@@ -2100,8 +2163,14 @@ namespace BugfixesAndQoL
 
             Check(fastRecruit.Contains("!players.IsPlayerIdValid(ownerPlayerId)") &&
                     fastRecruit.Contains("players.IsAIPlayer(ownerPlayerId)") &&
-                    fastRecruit.Contains("unit->r_ControllableForPlayerId == tracking.OwnerPlayerId") &&
-                    fastRecruit.Contains("OwnerPlayerId = ownerPlayerId;"),
+                    fastRecruit.Contains("UnitTransitionSource.MercenaryOutpost") &&
+                    fastRecruit.Contains("UnitTransitionSource.EuropeanBarracks") &&
+                    fastRecruit.Contains("OnUnitDelete") &&
+                    fastRecruit.Contains("OnUnloadMap") &&
+                    fastRecruit.Contains("movementPatch.SetRallyTracking(") &&
+                    cadencePatch.Contains("UnitOwnerManagerOffset") &&
+                    cadencePatch.Contains("RallyGenerationGlobalIdOffset") &&
+                    cadencePatch.Contains("RallyUnitTypeOffset"),
                 "fast recruit rally tracks only valid human owners and preserves owner identity");
             Check(!fastRecruit.Contains("FastRecruitRallyMovementModLog.Debug") &&
                     !fastRecruit.Contains("Fast recruit rally tracking added") &&
@@ -2111,21 +2180,73 @@ namespace BugfixesAndQoL
             int tribeLoop = troopMovement.IndexOf("foreach (int unitId in unitIds)",
                 StringComparison.Ordinal);
             int idValidation = troopMovement.IndexOf(
-                "GameUnitManagerAPI.Instance.IsValidId(unitId)",
+                "unitId <= 0",
                 tribeLoop,
                 StringComparison.Ordinal);
             int unitLookup = troopMovement.IndexOf(
-                "GameUnitManagerAPI.Instance.TryGetUnitById(",
+                "GameUnit* unit = unitArray + unitId - 1;",
                 tribeLoop,
                 StringComparison.Ordinal);
             Check(tribeLoop >= 0 && idValidation > tribeLoop &&
                     unitLookup > idValidation,
-                "tribe synchronization rejects zero or out-of-range IDs before one-based unit lookup");
+                "tribe synchronization validates one-based IDs and performs one direct array conversion");
+            Check(!cadencePatch.Contains("AddContextHook") &&
+                    !cadencePatch.Contains("NativePointer<X64SmartCPUContext>") &&
+                    !cadencePatch.Contains("TryGetCadenceDelegate") &&
+                    !integration.Contains("Func<IntPtr, bool>") &&
+                    !integration.Contains("Action<IntPtr>") &&
+                    cadencePatch.Contains("transaction.AddInline(") &&
+                    cadencePatch.Contains("GeneratePreTerrainSpeedFastPath") &&
+                    cadencePatch.Contains("GenerateCadenceFastPath"),
+                "movement hotpaths use native inline tables without managed callbacks");
+            Check(cadencePatch.Contains("MaximumTrackedUnitId = 10000") &&
+                    cadencePatch.Contains("MaximumTrackedTribeId = 4500") &&
+                    cadencePatch.Contains("RallyObservedOffset") &&
+                    cadencePatch.Contains("RallyMovingOffset") &&
+                    cadencePatch.Contains("UnitInitializationAiState = 109") &&
+                    cadencePatch.Contains("clearRallyAndTrySynchronization") &&
+                    cadencePatch.Contains("applyRallyProfile") &&
+                    cadencePatch.IndexOf("applyRallyProfile", StringComparison.Ordinal) <
+                        cadencePatch.IndexOf("applyRunningProfile", StringComparison.Ordinal),
+                "native tables preserve rally identity, interrupted-path state and rally precedence");
+            Check(cadencePatch.Contains("UnitCurrentSpeed2ManagerOffset = 0x9A2") &&
+                    cadencePatch.Contains("UnitCurrentSpeedManagerOffset = 0x9A4") &&
+                    cadencePatch.Contains("assembler.Label(ref trySynchronization);") &&
+                    cadencePatch.Contains("__word_ptr[r8 + UnitAliveStateManagerOffset]") &&
+                    cadencePatch.Contains("ValidateMovementCadenceHook") &&
+                    cadencePatch.Contains("assembler.pushfq()") &&
+                    cadencePatch.Contains("assembler.popfq()") &&
+                    cadencePatch.Contains("foreach (Instruction instruction in overwrittenInstructions)"),
+                "native movement hooks validate exact fields and replay Vanilla with preserved flags");
+            Check(Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SpriteAnimationGroup)).ToInt32() == 0x004 &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_AliveState)).ToInt32() == 0x088 &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() == 0x092 &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_GlobalId)).ToInt32() == 0x094 &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_PathPlanStateBitFlags)).ToInt32() == 0x0F2 &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SpeedBonus)).ToInt32() == 0x2BA &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_AIState)).ToInt32() == 0x2BC &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_TransformIntoUnitOfType)).ToInt32() == 0x2C6 &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_TribeId)).ToInt32() == 0x2D4 &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentSpeed2)).ToInt32() == 0x346 &&
+                    Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_CurrentSpeed)).ToInt32() == 0x348,
+                "native fastpath offsets match the installed Script Extender GameUnit layout");
             Check(english.Contains("human-player units") &&
                     english.Contains("AI units remain unchanged") &&
                     german.Contains("Einheiten menschlicher Spieler") &&
                     german.Contains("KI-Einheiten bleiben unverändert"),
                 "fast recruit rally help text documents the human-only behavior");
+        }
+
+        private static void TestMovementFastPathParity()
+        {
+            List<string> parityFailures = MovementFastPathParityHarness.Run();
+            foreach (string failure in parityFailures)
+            {
+                Check(false, failure);
+            }
+
+            Check(parityFailures.Count == 0,
+                "managed reference and fixed-table movement kernels have identical golden-matrix results");
         }
 
         private static void TestAiDefensePatrolIntegration()

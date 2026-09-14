@@ -34,6 +34,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="MovementFastPathParityHarness.cs" />
     <Compile Include="..\src\AiDefensePatrolNativeDefinition.cs"><Link>AiDefensePatrolNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AiDefensePatrolPolicy.cs"><Link>AiDefensePatrolPolicy.cs</Link></Compile>
     <Compile Include="..\src\AIResourceShortageSleepNativeDefinition.cs"><Link>AIResourceShortageSleepNativeDefinition.cs</Link></Compile>

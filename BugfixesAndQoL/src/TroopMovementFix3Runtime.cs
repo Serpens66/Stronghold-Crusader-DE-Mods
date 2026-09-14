@@ -40,7 +40,10 @@ namespace BugfixesAndQoL
             new List<IDisposable>(4);
 
         private SpearmanMovementPatch spearmanMovementPatch;
+        private static SpearmanMovementPatch processSpearmanMovementPatch;
         private SynchronizedMovementCadencePatch cadencePatch;
+        private GameUnit* unitArray;
+        private int unitArrayLength;
         private IntPtr libraryHandle;
         private int libraryLength;
         private ScanRegion nativeRegion;
@@ -74,6 +77,11 @@ namespace BugfixesAndQoL
             libraryLength = memory.Length;
             nativeRegion = region ?? throw new ArgumentNullException(nameof(region));
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
+            var units = GameUnitManagerAPI.Instance.GetUnitArray();
+            unitArray = units._array;
+            unitArrayLength = units.Length;
+            if (unitArray == null || unitArrayLength <= 0)
+                throw new InvalidOperationException("The native unit array is unavailable.");
             nativeLibraryAvailable = true;
             MovementCadenceIntegration.RegistrationChanged += ApplySetting;
             try
@@ -128,10 +136,12 @@ namespace BugfixesAndQoL
                 {
                     EnableTroopMovementFixComponents();
                 }
-                else if (!shouldEnableTroopMovementFix &&
-                         AreTroopMovementFixComponentsActive)
+                else if (AreTroopMovementFixComponentsActive)
                 {
-                    DisableTroopMovementFixComponents();
+                    spearmanMovementPatch.SetEnabled(
+                        shouldEnableTroopMovementFix);
+                    if (!shouldEnableTroopMovementFix)
+                        DeactivateTroopMovementFix();
                 }
             }
             catch
@@ -158,13 +168,10 @@ namespace BugfixesAndQoL
 
         public void Dispose()
         {
-            MovementCadenceIntegration.RegistrationChanged -= ApplySetting;
-            Disable();
-            nativeLibraryAvailable = false;
-            fixedLayoutHashValidated = false;
-            libraryHandle = IntPtr.Zero;
-            libraryLength = 0;
-            nativeRegion = null;
+            // Script Extender publishers and committed native hooks are
+            // process-lifetime objects. Only deactivate their mutable state.
+            DeactivateTroopMovementFix();
+            cadencePatch?.ClearAllRallyTracking();
         }
 
         private bool AreTroopMovementFixComponentsActive =>
@@ -196,9 +203,6 @@ namespace BugfixesAndQoL
                         nativeRegion,
                         GetNativeLibraryMemory(),
                         unchecked((ulong)libraryHandle.ToInt64()),
-                        TryGetCadence,
-                        MovementCadenceIntegration.ApplyFastRecruitMaximumSpeed,
-                        MovementCadenceIntegration.TryApplyFastRecruitCadence,
                         fixedLayoutHashValidated);
 
                 cadencePatch = newCadencePatch;
@@ -228,6 +232,7 @@ namespace BugfixesAndQoL
                     memory,
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
+                processSpearmanMovementPatch = newSpearmanMovementPatch;
 
                 newSubscriptions.Add(
                     TribeR3EventHooks.OnTribeAssignUnit.Observable
@@ -243,6 +248,7 @@ namespace BugfixesAndQoL
                         .Subscribe(OnUnloadMap));
 
                 spearmanMovementPatch = newSpearmanMovementPatch;
+                spearmanMovementPatch.SetEnabled(true);
                 troopSubscriptions.AddRange(newSubscriptions);
             }
             catch
@@ -265,13 +271,12 @@ namespace BugfixesAndQoL
 
         private void DisableTroopMovementFixComponents()
         {
-            foreach (IDisposable subscription in troopSubscriptions)
-                subscription.Dispose();
+            DeactivateTroopMovementFix();
+        }
 
-            troopSubscriptions.Clear();
-
-            // Restore only values still owned by the troop fix before its
-            // dedicated hooks and remembered state are removed.
+        private void DeactivateTroopMovementFix()
+        {
+            spearmanMovementPatch?.SetEnabled(false);
             foreach (int tribeId in
                      new List<int>(synchronizationByTribeId.Keys))
             {
@@ -279,19 +284,13 @@ namespace BugfixesAndQoL
             }
 
             ClearSynchronization();
-            spearmanMovementPatch?.Dispose();
-            spearmanMovementPatch = null;
-
-            TroopMovementFix3ModLog.Debug(
-                log,
-                "Troop Movement Fix 3 inactive; its Spearman patch and event subscriptions were removed.");
         }
 
         private void DisableCadencePatch()
         {
-            MovementCadenceIntegration.SetCadencePatch(null);
-            cadencePatch?.Dispose();
-            cadencePatch = null;
+            cadencePatch?.ClearAllSynchronization();
+            if (!MovementCadenceIntegration.HasFastRecruitCallbacks)
+                cadencePatch?.ClearAllRallyTracking();
         }
 
         private void Disable()
@@ -400,12 +399,16 @@ namespace BugfixesAndQoL
             foreach (int unitId in unitIds)
             {
                 // Tribe membership can contain the empty sentinel 0, while
-                // every public unit lookup expects a one-based game ID.
-                if (!GameUnitManagerAPI.Instance.IsValidId(unitId) ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(
-                        unitId,
-                        out GameUnit* unit) ||
-                    unit == null ||
+                // the native array is zero-based. Validate once, then convert
+                // exactly once at the array boundary.
+                if (unitId <= 0 ||
+                    unitId > unitArrayLength)
+                {
+                    continue;
+                }
+
+                GameUnit* unit = unitArray + unitId - 1;
+                if (unit == null ||
                     unit->r_AliveState != AliveState.IsAlive)
                 {
                     continue;
@@ -474,6 +477,10 @@ namespace BugfixesAndQoL
             *freeUnitSpeeds = 0;
             *movementSpeed = slowestMaximumSpeed;
             synchronizationByTribeId[tribeId] = synchronization;
+            cadencePatch.SetSynchronization(
+                tribeId,
+                synchronization.Cadence,
+                synchronization.RunningSpeedBonus);
 
             TroopMovementFix3ModLog.Debug(
                 log,
@@ -521,6 +528,7 @@ namespace BugfixesAndQoL
             }
 
             synchronizationByTribeId.Remove(tribeId);
+            cadencePatch?.ClearSynchronization(tribeId);
             if (!restoreSpeed ||
                 !TryGetTribe(tribeId, out GameTribe* tribe))
             {
@@ -535,6 +543,7 @@ namespace BugfixesAndQoL
 
         private void ClearSynchronization()
         {
+            cadencePatch?.ClearAllSynchronization();
             synchronizationByTribeId.Clear();
             activeMoveOrderTribeIds.Clear();
             unitIds.Clear();

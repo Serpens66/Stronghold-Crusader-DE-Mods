@@ -7,44 +7,38 @@ namespace BugfixesAndQoL
 {
     internal static class MovementCadenceIntegration
     {
-        private static Action<IntPtr> applyFastRecruitMaximumSpeed;
-        private static Func<IntPtr, bool> tryApplyFastRecruitCadence;
+        private static object fastRecruitOwner;
         private static SynchronizedMovementCadencePatch cadencePatch;
 
         internal static event Action RegistrationChanged;
 
         internal static bool HasFastRecruitCallbacks =>
-            applyFastRecruitMaximumSpeed != null && tryApplyFastRecruitCadence != null;
+            fastRecruitOwner != null;
 
         internal static bool IsReady => cadencePatch != null;
 
-        internal static bool RegisterFastRecruitCallbacks(
-            Action<IntPtr> applyMaximumSpeed,
-            Func<IntPtr, bool> tryApplyCadence)
+        internal static bool RegisterFastRecruitOwner(object owner)
         {
-            applyFastRecruitMaximumSpeed = applyMaximumSpeed ?? throw new ArgumentNullException(nameof(applyMaximumSpeed));
-            tryApplyFastRecruitCadence = tryApplyCadence ?? throw new ArgumentNullException(nameof(tryApplyCadence));
+            fastRecruitOwner = owner ?? throw new ArgumentNullException(nameof(owner));
             try
             {
                 RegistrationChanged?.Invoke();
             }
             catch
             {
-                applyFastRecruitMaximumSpeed = null;
-                tryApplyFastRecruitCadence = null;
+                fastRecruitOwner = null;
                 throw;
             }
             return IsReady;
         }
 
-        internal static void UnregisterFastRecruitCallbacks(Action<IntPtr> applyMaximumSpeed)
+        internal static void UnregisterFastRecruitOwner(object owner)
         {
-            // Only the current owner may remove the process-wide callbacks.
-            if (applyFastRecruitMaximumSpeed != applyMaximumSpeed)
+            if (!ReferenceEquals(fastRecruitOwner, owner))
                 return;
 
-            applyFastRecruitMaximumSpeed = null;
-            tryApplyFastRecruitCadence = null;
+            cadencePatch?.ClearAllRallyTracking();
+            fastRecruitOwner = null;
             RegistrationChanged?.Invoke();
         }
 
@@ -83,14 +77,27 @@ namespace BugfixesAndQoL
             cadencePatch = patch;
         }
 
-        internal static unsafe void ApplyFastRecruitMaximumSpeed(GameUnit* unit)
+        internal static void SetRallyTracking(
+            int unitId,
+            uint globalId,
+            int ownerPlayerId,
+            eChimps expectedUnitType)
         {
-            applyFastRecruitMaximumSpeed?.Invoke(new IntPtr(unit));
+            cadencePatch?.SetRallyTracking(
+                unitId,
+                globalId,
+                ownerPlayerId,
+                expectedUnitType);
         }
 
-        internal static unsafe bool TryApplyFastRecruitCadence(SHCDESE.Interop.GameUnit* unit)
+        internal static void ClearRallyTracking(int unitId)
         {
-            return tryApplyFastRecruitCadence?.Invoke(new IntPtr(unit)) == true;
+            cadencePatch?.ClearRallyTracking(unitId);
+        }
+
+        internal static void ClearAllRallyTracking()
+        {
+            cadencePatch?.ClearAllRallyTracking();
         }
     }
 }

@@ -63,9 +63,7 @@ namespace BugfixesAndQoL
             if (!nativeLibraryAvailable || !settings.EnableMod)
             {
                 quarryPileRelocationRuntime.Dispose();
-                fastRecruitMovementBridge?.Dispose();
-                fastRecruitMovementBridge = null;
-                fastRecruitInitializationAttempted = false;
+                fastRecruitMovementBridge?.SetEnabled(false);
                 singleBuildingPauseHook?.ClearOverrides("mod disabled");
                 singleBuildingPauseHook?.UninstallLocalHooks();
                 return;
@@ -158,13 +156,17 @@ namespace BugfixesAndQoL
 
             if (!settings.EnableMod || !settings.EnableFastRecruitRallyMovement)
             {
-                fastRecruitMovementBridge?.Dispose();
-                fastRecruitMovementBridge = null;
-                fastRecruitInitializationAttempted = false;
+                fastRecruitMovementBridge?.SetEnabled(false);
                 return;
             }
 
-            if (fastRecruitMovementBridge != null || fastRecruitInitializationAttempted)
+            if (fastRecruitMovementBridge != null)
+            {
+                fastRecruitMovementBridge.SetEnabled(true);
+                return;
+            }
+
+            if (fastRecruitInitializationAttempted)
                 return;
 
             fastRecruitInitializationAttempted = true;
@@ -188,8 +190,7 @@ namespace BugfixesAndQoL
             singleBuildingPauseHook = null;
             aiEconomyProtectionHook?.Dispose();
             aiEconomyProtectionHook = null;
-            fastRecruitMovementBridge?.Dispose();
-            fastRecruitMovementBridge = null;
+            fastRecruitMovementBridge?.SetEnabled(false);
         }
 
         private void LogMovedFeatureFailure(string featureName, Exception ex)

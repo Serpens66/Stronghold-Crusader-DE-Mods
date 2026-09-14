@@ -47,6 +47,9 @@ namespace ExtraFeatures
         internal const int RebuildFunctionLength = 0x15D;
         internal const int RebuildCompletedHeightRva = 0x64546;
         internal const int RebuildCompletedHeightLength = 15;
+        internal const int RebuildCompletedHeightWriteLength = 8;
+        internal const int RebuildImageBaseLeaRva = RebuildCompletedHeightRva + RebuildCompletedHeightWriteLength;
+        internal const int RebuildImageBaseLeaLength = 7;
         internal const int RebuildGraphicRefreshCallRva = 0x6456E;
         internal const int RebuildPathfindingRefreshCallRva = 0x6457D;
         internal const int DirectCompletedHeightRva = 0x705F7;
@@ -489,6 +492,7 @@ namespace ExtraFeatures
             ValidateBlock(memory, RebuildCompletedHeightRva, RebuildCompletedHeightLength,
                 RebuildFunctionRva, RebuildFunctionLength, RebuildCompletedHeightBytes,
                 "rebuilt-moat height block");
+            ValidateLoweredDrawbridgeRewriteContract(memory);
             ValidateBlock(memory, DirectCompletedHeightRva, DirectCompletedHeightLength,
                 SharedTileFunctionRva, SharedTileFunctionLength, DirectCompletedHeightBytes,
                 "direct completed-moat height block");
@@ -566,6 +570,38 @@ namespace ExtraFeatures
         }
 
         internal static byte CalculateRestoredHeight(byte defaultHeight) => defaultHeight;
+
+        private static void ValidateLoweredDrawbridgeRewriteContract(ReadOnlySpan<byte> memory)
+        {
+            if (RebuildCompletedHeightWriteLength + RebuildImageBaseLeaLength !=
+                RebuildCompletedHeightLength)
+            {
+                throw new InvalidOperationException(
+                    "The lowered-drawbridge replacement does not cover the complete audited block.");
+            }
+
+            // mov byte ptr [RBX + RDI + TileHeightGridOffset], 0
+            if (memory[RebuildCompletedHeightRva] != 0xC6 ||
+                memory[RebuildCompletedHeightRva + 1] != 0x84 ||
+                memory[RebuildCompletedHeightRva + 2] != 0x1F ||
+                ReadInt32(memory, RebuildCompletedHeightRva + 3) != TileHeightGridOffset ||
+                memory[RebuildCompletedHeightRva + 7] != 0)
+            {
+                throw new InvalidOperationException(
+                    "The lowered-drawbridge height write is not [RBX+RDI] with Vanilla height zero.");
+            }
+
+            // lea RDI, [image base]
+            if (memory[RebuildImageBaseLeaRva] != 0x48 ||
+                memory[RebuildImageBaseLeaRva + 1] != 0x8D ||
+                memory[RebuildImageBaseLeaRva + 2] != 0x3D ||
+                checked(RebuildImageBaseLeaRva + RebuildImageBaseLeaLength +
+                    ReadInt32(memory, RebuildImageBaseLeaRva + 3)) != 0)
+            {
+                throw new InvalidOperationException(
+                    "The lowered-drawbridge continuation no longer restores RDI to the image base.");
+            }
+        }
 
         private static void ValidateBlock(
             ReadOnlySpan<byte> memory,

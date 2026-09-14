@@ -23,6 +23,7 @@ namespace ExtraFeatures
     {
         private readonly ManualLogSource log;
         private readonly HookTransaction transaction;
+        private readonly ulong imageBase;
         private readonly HookHandle<X64InlineHook> drawbridgeHeightFailureWriterHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> aivHeightGateHook =
@@ -59,6 +60,8 @@ namespace ExtraFeatures
         private long completedHeightCorrections;
         private long restoredHeightCorrections;
         private int callbackFailureReported;
+        private int completedDrawbridgeDiagnostics;
+        private int loweredDrawbridgeDiagnostics;
         private IntPtr aivAudienceAllowedFlag;
         private IntPtr featureActiveFlag;
         private IntPtr humanPlacementAllowedFlag;
@@ -180,7 +183,7 @@ namespace ExtraFeatures
                 aivGateResolution.Rva,
                 aivCreateResolution.Rva);
             ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(memory);
-            ulong imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
+            imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             using (var probe = new X64InlineHook(
                 imageBase + unchecked((ulong)resolution.Rva),
                 ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength))
@@ -317,7 +320,7 @@ namespace ExtraFeatures
                     rebuildCompletedHeightHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)rebuildHeightResolution.Rva)),
                     ApplyLoweredDrawbridgeHeight,
-                    CorrectingContextOptions(ElevatedMoatNativeContract.RebuildCompletedHeightLength));
+                    SuppressingContextOptions(ElevatedMoatNativeContract.RebuildCompletedHeightLength));
                 pending.AddContextHook(
                     directCompletedHeightHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)directHeightResolution.Rva)),
@@ -516,6 +519,15 @@ namespace ExtraFeatures
                 Placement = OverwrittenInstructionPlacement.BeforeCallback
             };
 
+        private static ContextHookOptions SuppressingContextOptions(int hookSize) =>
+            new ContextHookOptions
+            {
+                Registers = X64SmartCPUContextRegs.All,
+                HookSize = hookSize,
+                ErrorMode = CallbackErrorMode.LogAndContinue,
+                Placement = OverwrittenInstructionPlacement.Suppress
+            };
+
         private void ApplyAivCompletedHeight(NativePointer<X64SmartCPUContext> context)
         {
             try
@@ -539,9 +551,55 @@ namespace ExtraFeatures
             ApplyCompletedHeightFromManager(
                 context, context.Pointer->RBX, unchecked((int)context.Pointer->RDI), "excavation");
 
-        private void ApplyLoweredDrawbridgeHeight(NativePointer<X64SmartCPUContext> context) =>
-            ApplyDrawbridgeHeightFromManager(
-                context, context.Pointer->RBX, unchecked((int)context.Pointer->RSI), "lowered-drawbridge");
+        private void ApplyLoweredDrawbridgeHeight(NativePointer<X64SmartCPUContext> context)
+        {
+            ulong managerAddress = context.Pointer->RBX;
+            long tileId = unchecked((long)context.Pointer->RDI);
+            byte previousHeight = 0;
+            byte defaultHeight = 0;
+            byte appliedHeight = 0;
+            bool corrected = false;
+
+            try
+            {
+                if (!IsValidTileId(tileId))
+                    throw new InvalidOperationException($"Invalid lowered-drawbridge tile ID {tileId}.");
+
+                byte* current = (byte*)(managerAddress + (ulong)tileId +
+                    ElevatedMoatNativeContract.TileHeightGridOffset);
+                previousHeight = *current;
+                defaultHeight = *((byte*)(managerAddress + (ulong)tileId +
+                    ElevatedMoatNativeContract.TileDefaultHeightGridOffset));
+                appliedHeight = IsActive
+                    ? ElevatedMoatNativeContract.CalculateDrawbridgeHeight(defaultHeight)
+                    : (byte)0;
+                *current = appliedHeight;
+                if (*current != appliedHeight)
+                    throw new InvalidOperationException(
+                        $"The lowered drawbridge did not retain height {appliedHeight} on tile {tileId}.");
+
+                corrected = IsActive;
+            }
+            catch (Exception exception)
+            {
+                // Fail closed by reproducing the suppressed Vanilla height write.
+                *((byte*)(managerAddress + (ulong)tileId +
+                    ElevatedMoatNativeContract.TileHeightGridOffset)) = 0;
+                LogCallbackFailure("lowered-drawbridge height", exception);
+            }
+            finally
+            {
+                // Reproduce the suppressed RIP-relative LEA that the remaining loop expects.
+                context.Pointer->RDI = imageBase;
+            }
+
+            if (corrected)
+            {
+                RecordSuccessfulCorrection(restored: false);
+                LogDrawbridgeDiagnostic(
+                    "lowered", tileId.ToString(), defaultHeight, previousHeight, appliedHeight);
+            }
+        }
 
         private void ApplyDirectCompletedHeight(NativePointer<X64SmartCPUContext> context) =>
             ApplyCompletedHeightFromManager(
@@ -725,6 +783,34 @@ namespace ExtraFeatures
             }
 
             RecordSuccessfulCorrection(restored: false);
+            LogDrawbridgeDiagnostic(source, tile, defaultHeight, vanillaHeight, completedHeight);
+        }
+
+        private void LogDrawbridgeDiagnostic(
+            string path,
+            string tile,
+            byte defaultHeight,
+            byte previousHeight,
+            byte appliedHeight)
+        {
+            int sequence = string.Equals(path, "lowered", StringComparison.Ordinal)
+                ? Interlocked.Increment(ref loweredDrawbridgeDiagnostics)
+                : Interlocked.Increment(ref completedDrawbridgeDiagnostics);
+            if (sequence > 8)
+                return;
+
+            try
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Extra Features elevated-drawbridge correction: path={path}, tile={tile}, " +
+                    $"defaultHeight={defaultHeight}, previousHeight={previousHeight}, " +
+                    $"appliedHeight={appliedHeight}, diagnostic={sequence}/8.");
+            }
+            catch
+            {
+                // Diagnostics must never affect the native callback result.
+            }
         }
 
         private bool IsActive => Volatile.Read(ref featureActive) != 0;

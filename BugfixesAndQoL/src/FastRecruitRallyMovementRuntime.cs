@@ -19,21 +19,13 @@ namespace BugfixesAndQoL
     /// </summary>
     internal sealed unsafe class FastRecruitRallyMovementRuntime : IDisposable
     {
-        private const ushort UnitInitializationAiState = 109;
-        private const ushort ActivePathPlanState = 2;
-
         private readonly IMovementCadenceServices movementPatch;
-        private readonly Dictionary<ulong, RecruitRallyTracking>
-            trackingByUnitAddress =
-                new Dictionary<ulong, RecruitRallyTracking>();
-        private readonly Dictionary<int, RecruitRallyTracking>
-            trackingByUnitId =
-                new Dictionary<int, RecruitRallyTracking>();
         private readonly List<int> tribeUnitIds = new List<int>();
         private readonly List<IDisposable> subscriptions =
             new List<IDisposable>(5);
         private readonly GameUnit* unitArray;
         private readonly int unitArrayLength;
+        private bool enabled = true;
         private bool disposed;
 
         public FastRecruitRallyMovementRuntime(
@@ -81,126 +73,6 @@ namespace BugfixesAndQoL
             }
         }
 
-        public void ApplyMaximumSpeed(IntPtr unitAddress)
-        {
-            GameUnit* unit = (GameUnit*)unitAddress.ToPointer();
-            if (disposed || unit == null ||
-                !trackingByUnitAddress.TryGetValue(
-                    unchecked((ulong)unit),
-                    out RecruitRallyTracking tracking) ||
-                !IsMatchingTrackedUnit(unit, tracking) ||
-                (unit->r_PathPlanStateBitFlags & ActivePathPlanState) == 0)
-            {
-                return;
-            }
-
-            // This callback runs before Vanilla's late terrain/status stage.
-            // Reset only the preceding rally/group cap; later modifiers remain.
-            unit->r_CurrentSpeed2 = unit->r_CurrentSpeed;
-        }
-
-        public bool TryApplyRunningCadence(IntPtr unitAddress)
-        {
-            return TryApplyRunningCadenceNative((GameUnit*)unitAddress.ToPointer());
-        }
-
-        private bool TryApplyRunningCadenceNative(GameUnit* unit)
-        {
-            if (disposed || unit == null)
-                return false;
-
-            ulong unitAddress = unchecked((ulong)unit);
-            if (!trackingByUnitAddress.TryGetValue(
-                    unitAddress,
-                    out RecruitRallyTracking tracking))
-            {
-                return false;
-            }
-
-            if (tracking.GlobalId != 0 &&
-                unit->r_GlobalId != tracking.GlobalId)
-            {
-                RemoveTracking(tracking.UnitId);
-                return false;
-            }
-
-            if (unit->r_ControllableForPlayerId != tracking.OwnerPlayerId)
-            {
-                RemoveTracking(tracking.UnitId);
-                return false;
-            }
-
-            if (unit->r_UnitChimp != tracking.ExpectedUnitType)
-            {
-                // The transition event precedes Vanilla's pooled-unit
-                // transformation. Initialization is not rally movement.
-                if (unit->r_AIState == UnitInitializationAiState ||
-                    unit->r_TransformIntoUnitOfType ==
-                        tracking.ExpectedUnitType)
-                {
-                    return true;
-                }
-
-                RemoveTracking(tracking.UnitId);
-                return false;
-            }
-
-            bool hasActivePath =
-                (unit->r_PathPlanStateBitFlags & ActivePathPlanState) != 0;
-            if (!hasActivePath)
-            {
-                if (tracking.IsMovingToRally)
-                    tracking.IsMovingToRally = false;
-
-                return true;
-            }
-
-            ushort targetTileX = unit->r_TargetTilePositionX;
-            ushort targetTileY = unit->r_TargetTilePositionY;
-            if (!tracking.HasObservedRallyMovement)
-            {
-                tracking.HasObservedRallyMovement = true;
-                tracking.GlobalId = unit->r_GlobalId;
-            }
-            else if (!tracking.IsMovingToRally)
-            {
-                if (targetTileX != tracking.TargetTileX ||
-                    targetTileY != tracking.TargetTileY)
-                {
-                    RemoveTracking(tracking.UnitId);
-                    return false;
-                }
-            }
-
-            tracking.IsMovingToRally = true;
-            tracking.TargetTileX = targetTileX;
-            tracking.TargetTileY = targetTileY;
-
-            bool improvedSpearmen =
-                unit->r_UnitChimp == eChimps.CHIMP_TYPE_SPEARMAN &&
-                GamePlayerManagerAPI.Instance.IsImprovedSpearman();
-            bool hasRunningSpeedBonus =
-                movementPatch.TryGetNativeRunningSpeedBonus(
-                    unit->r_UnitChimp,
-                    improvedSpearmen,
-                    out ushort runningSpeedBonus);
-            bool hasRunningState =
-                movementPatch.TryGetNativeRunningState(
-                    unit->r_UnitChimp,
-                    unit->r_SpriteAnimationGroup,
-                    out uint runningState);
-
-            // Both values belong to the same decoded native fast-move case;
-            // applying only one would desynchronize speed and animation.
-            if (hasRunningSpeedBonus && hasRunningState)
-            {
-                unit->r_SpeedBonus = runningSpeedBonus;
-                unit->r_SpriteAnimationGroup = runningState;
-            }
-
-            return true;
-        }
-
         public void Dispose()
         {
             if (disposed)
@@ -212,6 +84,13 @@ namespace BugfixesAndQoL
 
             subscriptions.Clear();
             ClearTracking();
+        }
+
+        public void SetEnabled(bool value)
+        {
+            enabled = value;
+            if (!enabled)
+                ClearTracking();
         }
 
         private void OnTribeIssueOrderMoveHere(
@@ -244,7 +123,8 @@ namespace BugfixesAndQoL
 
         private void OnUnitTransition(UnitTransitionEventArgs args)
         {
-            if (args.Phase != EventHookPhase.Pre ||
+            if (!enabled ||
+                args.Phase != EventHookPhase.Pre ||
                 (args.Source != UnitTransitionSource.MercenaryOutpost &&
                  args.Source != UnitTransitionSource.EuropeanBarracks))
             {
@@ -283,23 +163,12 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            ulong unitAddress = unchecked((ulong)unit);
             RemoveTracking(unitId);
-            if (trackingByUnitAddress.TryGetValue(
-                    unitAddress,
-                    out RecruitRallyTracking addressCollision))
-            {
-                RemoveTracking(addressCollision.UnitId);
-            }
-
-            RecruitRallyTracking tracking = new RecruitRallyTracking(
+            movementPatch.SetRallyTracking(
                 unitId,
-                unitAddress,
                 unit->r_GlobalId,
                 ownerPlayerId,
                 expectedUnitType);
-            trackingByUnitAddress[unitAddress] = tracking;
-            trackingByUnitId[unitId] = tracking;
         }
 
         private void RemoveTrackingForTribe(int tribeId)
@@ -321,42 +190,13 @@ namespace BugfixesAndQoL
 
         private void RemoveTracking(int unitId)
         {
-            if (!trackingByUnitId.TryGetValue(
-                    unitId,
-                    out RecruitRallyTracking tracking))
-            {
-                return;
-            }
-
-            trackingByUnitId.Remove(unitId);
-            if (trackingByUnitAddress.TryGetValue(
-                    tracking.UnitAddress,
-                    out RecruitRallyTracking addressTracking) &&
-                ReferenceEquals(addressTracking, tracking))
-            {
-                trackingByUnitAddress.Remove(tracking.UnitAddress);
-            }
-
+            movementPatch.ClearRallyTracking(unitId);
         }
 
         private void ClearTracking()
         {
-            trackingByUnitId.Clear();
-            trackingByUnitAddress.Clear();
+            movementPatch.ClearAllRallyTracking();
             tribeUnitIds.Clear();
-        }
-
-        private static bool IsMatchingTrackedUnit(
-            GameUnit* unit,
-            RecruitRallyTracking tracking)
-        {
-            return unit != null &&
-                   unit->r_AliveState == AliveState.IsAlive &&
-                   unchecked((ulong)unit) == tracking.UnitAddress &&
-                   unit->r_ControllableForPlayerId == tracking.OwnerPlayerId &&
-                   unit->r_UnitChimp == tracking.ExpectedUnitType &&
-                   (tracking.GlobalId == 0 ||
-                    unit->r_GlobalId == tracking.GlobalId);
         }
 
         private static bool IsRecruitableUnitType(eChimps unitType)
@@ -395,31 +235,5 @@ namespace BugfixesAndQoL
             }
         }
 
-        private sealed class RecruitRallyTracking
-        {
-            public RecruitRallyTracking(
-                int unitId,
-                ulong unitAddress,
-                uint globalId,
-                int ownerPlayerId,
-                eChimps expectedUnitType)
-            {
-                UnitId = unitId;
-                UnitAddress = unitAddress;
-                GlobalId = globalId;
-                OwnerPlayerId = ownerPlayerId;
-                ExpectedUnitType = expectedUnitType;
-            }
-
-            public int UnitId { get; }
-            public ulong UnitAddress { get; }
-            public uint GlobalId { get; set; }
-            public int OwnerPlayerId { get; }
-            public eChimps ExpectedUnitType { get; }
-            public bool HasObservedRallyMovement { get; set; }
-            public bool IsMovingToRally { get; set; }
-            public ushort TargetTileX { get; set; }
-            public ushort TargetTileY { get; set; }
-        }
     }
 }

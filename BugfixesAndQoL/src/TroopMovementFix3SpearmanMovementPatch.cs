@@ -46,8 +46,10 @@ namespace BugfixesAndQoL
         private const ulong WalkingTargetFromReturnAddress = 0x24;
         private const ulong RunningTargetFromReturnAddress = 0x164;
 
-        private readonly HookTransaction transaction;
+        private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> movementDecisionHook = new HookHandle<X64InlineHook>();
+        private readonly IntPtr enabledFlag;
+        private bool published;
         private bool disposed;
 
         public SpearmanMovementPatch(
@@ -73,25 +75,42 @@ namespace BugfixesAndQoL
                 libraryBase,
                 decisionAddress);
 
-            transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+            enabledFlag = Marshal.AllocHGlobal(sizeof(int));
+            Marshal.WriteInt32(enabledFlag, 0);
 
-            transaction.AddInline(
-                movementDecisionHook,
-                HookTarget.FromAddress(decisionAddress),
-                (assembler, instructions, returnAddress) =>
-                    GenerateMovementDecision(
-                        assembler,
-                        instructions,
-                        returnAddress,
-                        improvedSpearmanFlagAddress),
-                hookSize: HookSize);
-
-            CommitResult commitResult = transaction.Commit();
-
-            if (!commitResult.IsCompleteSuccess || !movementDecisionHook.Success)
+            try
             {
-                throw new InvalidOperationException(
-                    "The native Spearman movement decision was not found.");
+                transaction =
+                    BugfixesHookInfrastructure.CreateOwnedTransaction(region);
+
+                transaction.AddInline(
+                    movementDecisionHook,
+                    HookTarget.FromAddress(decisionAddress),
+                    (assembler, instructions, returnAddress) =>
+                        GenerateMovementDecision(
+                            assembler,
+                            instructions,
+                            returnAddress,
+                            improvedSpearmanFlagAddress,
+                            unchecked((ulong)enabledFlag.ToInt64())),
+                    hookSize: HookSize);
+
+                CommitResult commitResult = transaction.Commit();
+
+                if (!commitResult.IsCompleteSuccess ||
+                    !movementDecisionHook.Success)
+                {
+                    throw new InvalidOperationException(
+                        "The native Spearman movement decision was not found.");
+                }
+
+                published = true;
+            }
+            catch
+            {
+                transaction?.Dispose();
+                Marshal.FreeHGlobal(enabledFlag);
+                throw;
             }
 
             TroopMovementFix3ModLog.Debug(
@@ -108,7 +127,17 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            transaction.Dispose();
+            SetEnabled(false);
+            if (!published)
+            {
+                transaction.Dispose();
+                Marshal.FreeHGlobal(enabledFlag);
+            }
+        }
+
+        public void SetEnabled(bool enabled)
+        {
+            Marshal.WriteInt32(enabledFlag, enabled ? 1 : 0);
         }
 
         private static ulong ResolveImprovedSpearmanFlagAddress(
@@ -142,7 +171,8 @@ namespace BugfixesAndQoL
             Assembler assembler,
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
-            ulong improvedSpearmanFlagAddress)
+            ulong improvedSpearmanFlagAddress,
+            ulong enabledFlagAddress)
         {
             if (overwrittenInstructions.Length != 3)
             {
@@ -152,6 +182,11 @@ namespace BugfixesAndQoL
 
             Label walking = assembler.CreateLabel("spearmanWalking");
             Label running = assembler.CreateLabel("spearmanRunning");
+            Label vanilla = assembler.CreateLabel("spearmanVanilla");
+
+            assembler.mov(rax, enabledFlagAddress);
+            assembler.cmp(__dword_ptr[rax], 0);
+            assembler.je(vanilla);
 
             // Preserve Vanilla's walking-only Spearman behavior when the
             // official option is disabled. RAX is safe scratch here: both
@@ -184,6 +219,10 @@ namespace BugfixesAndQoL
             assembler.Label(ref running);
             assembler.AddUnrestrictedJmp(
                 returnAddress + RunningTargetFromReturnAddress);
+
+            assembler.Label(ref vanilla);
+            foreach (Instruction instruction in overwrittenInstructions)
+                assembler.AddInstruction(instruction);
         }
     }
 }

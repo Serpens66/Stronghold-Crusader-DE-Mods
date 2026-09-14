@@ -15,7 +15,19 @@ namespace ExtraFeatures
             {
                 byte[] file = File.ReadAllBytes(DllPath);
                 Check(Hash(file) == ElevatedMoatNativeContract.ReferenceSha256, "canonical DLL hash");
-                ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(MapPeImage(file));
+                byte[] image = MapPeImage(file);
+                ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(image);
+                Check(ElevatedMoatNativeContract.RebuildCompletedHeightLength == 15,
+                    "lowered-drawbridge hook spans exactly 15 bytes");
+                Check(ElevatedMoatNativeContract.RebuildCompletedHeightWriteLength == 8,
+                    "lowered-drawbridge height write spans exactly 8 bytes");
+                Check(ElevatedMoatNativeContract.RebuildImageBaseLeaRva ==
+                    ElevatedMoatNativeContract.RebuildCompletedHeightRva + 8,
+                    "image-base LEA immediately follows the height write");
+                ExpectContractFailure(image, ElevatedMoatNativeContract.RebuildCompletedHeightRva + 2,
+                    "lowered-drawbridge RBX/RDI operand mutation");
+                ExpectContractFailure(image, ElevatedMoatNativeContract.RebuildImageBaseLeaRva + 2,
+                    "lowered-drawbridge image-base LEA mutation");
                 CheckHeight(0, 0, 0);
                 CheckHeight(8, 0, 0);
                 CheckHeight(12, 4, 4);
@@ -74,6 +86,23 @@ namespace ExtraFeatures
             assertions++;
             if (!condition)
                 throw new InvalidOperationException(message);
+        }
+
+        private static void ExpectContractFailure(byte[] image, int mutationRva, string message)
+        {
+            assertions++;
+            byte[] changed = (byte[])image.Clone();
+            changed[mutationRva] ^= 1;
+            try
+            {
+                ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(changed);
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(message);
         }
     }
 }
