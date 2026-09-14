@@ -80,6 +80,9 @@ When the host leaves a running two-player match without Vanilla's normal leave p
 ### Remove disbanded units from control groups
 Fix that immediately removes disbanded units from every control group. This prevents the resulting peasants, or soldiers later recruited from them, from inheriting stale group membership.
 
+### Gate distance from center
+Gatehouses now measure the distance to enemy based on their center, not based on on of the gates. It was only noticeable with small closing distance, that the clsing distance was different depending from which side you got closer to the gate.
+
 ## Quality-of-life features
 
 ### Pause a single production building
@@ -95,7 +98,7 @@ The enabled-by-default host option extends Shift queues so movement orders and a
 Show correct Destination markers for moving units, even if they are a very big group. Set up how close they should stand to each other selectable from **Very dense (1)** through **Very wide (4)**.
 
 ### Make new recruits run to rally points
-Newly recruited human and AI units move to their rally points at their own normal fastest pace, with the matching animation. Terrain and other movement modifiers still apply.
+Newly recruited human units move to their rally points at their own normal fastest pace, with the matching animation. Terrain and other movement modifiers still apply.
 
 ### Close gates only for reachable enemies
 Gatehouses can ignore enemies that cannot reach either entrance instead of closing for every nearby enemy.
@@ -138,7 +141,8 @@ Middle-clicking a selected troop-type icon centers the camera on one selected un
 The shared lobby map list remembers both the last sort column and direction and the last map selected in Skirmish. This behavior is controlled by the existing **Improve selection and sorting lists** setting.
 
 ### Improve custom-lord and random-opponent selection
-The custom-lord picker gains name search, sortable Name, Lord Power, and Steam Workshop origin columns, and a button that adds a random lord from the currently visible list. Random-opponent dialogs can independently use Vanilla, local, or Steam Workshop lords. The singleplayer Coop Trail also gains a scrollable AI-partner picker containing both local and Steam Workshop custom lords; all custom-lord partners intentionally share one Coop progress record. Random-AI count buttons are also available in editable multiplayer skirmish lobbies and respect the lobby, map, and human-player limits. In Multiplayer you can fill all 7 slots AI.
+The custom-lord picker gains name search, sortable Name, Lord Power, and Steam Workshop origin columns, and a button that adds a random lord from the currently visible list. Random-opponent dialogs can independently use Vanilla, local, or Steam Workshop lords. The singleplayer Coop Trail also gains a scrollable AI-partner picker containing both local and Steam Workshop custom lords; all custom-lord partners intentionally share one Coop progress record. Random-AI count buttons are also available in editable multiplayer skirmish lobbies and respect the lobby, map, and human-player limits.  
+In Multiplayer you can fill all 7 slots with AI.
 
 ### Include Lord JSON sidecars in Workshop uploads
 While the mod is enabled, uploading a local Custom Lord or Extended CPU Lord also includes every direct `.json` file from that Lord's source folder. This supports metadata such as `info.json` and `lordmeta.json`; Vanilla continues to handle `.lordjson`, `.aivjson`, and the normal Workshop files itself. Useful to add custom descriptions for your lord see: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/Guides/CustomLordExtendedPackages.md  
@@ -169,4 +173,13 @@ When an owned Assassin is selected, a troop-action button allows or forbids clim
 Selecting your own Lord opens the complete troop HUD with normal commands, health display, troop-type controls, and control-group support. Disband surrenders only when the Lord is selected alone; in mixed selections it affects only normal units.
 
 ### Digging Units Get Stuck In Moat Pockets: allow units to move through allied moat
-Vanilla moat-digging units can now move through completed moats owned by their player or an ally.
+Vanilla moat-digging units can now move through completed moats owned by their player or an ally.  
+
+### More Zoom Levels
+Adds more zoom levels (with game setting Extra Zoom enabled) which allows the same zooms on every game resolution.  
+
+### Team Markers in Statistic
+On Statistic screen you will now see team markers next to the colour-shield.  
+
+### Customize trails
+Adds "Customize" Button to custom and coop trails. Allows to use custom AI as Ally in Coop Trails.  
