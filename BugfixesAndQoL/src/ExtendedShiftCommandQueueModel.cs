@@ -18,8 +18,10 @@ namespace BugfixesAndQoL
         public const int ChoreModeRva = 0x85F8FEC;
         public const int ChoreTribeIdRva = 0x86C132C;
         public const int ChoreCommandOrTileXRva = 0x86C1330;
+        public const int ChoreTileYRva = 0x86C1334;
         public const int ChoreMoveTypeRva = 0x86C133C;
         public const int MoveQueueMarker = 0x40;
+        public const int MoveFormationSpacingMask = 0x0C;
         public const int TargetQueueMarker = 0x80;
         public const int ChorePackMode = 1;
 
@@ -49,14 +51,56 @@ namespace BugfixesAndQoL
             int payloadByte = serializedMoveType & 0xFF;
             // The sole Vanilla producer emits 0, 1 or 0x81. Bit 7 has its own meaning and
             // is stripped by the unpack thunk; bit 6 reaches the move-order event unchanged.
+            int vanillaPayload = payloadByte & ~MoveFormationSpacingMask;
             if (serializedMoveType != payloadByte ||
-                (payloadByte != 0 && payloadByte != 1 && payloadByte != 0x81))
+                (vanillaPayload != 0 && vanillaPayload != 1 && vanillaPayload != 0x81))
             {
                 markedMoveType = serializedMoveType;
                 return false;
             }
 
             markedMoveType = payloadByte | MoveQueueMarker;
+            return true;
+        }
+
+        public static bool TryEncodeFormationSpacing(
+            int serializedMoveType,
+            int spacing,
+            out int encodedMoveType)
+        {
+            int payloadByte = serializedMoveType & 0xFF;
+            if (serializedMoveType != payloadByte ||
+                (payloadByte != 0 && payloadByte != 1 && payloadByte != 0x81) ||
+                spacing < MoveFormationSpacingPolicy.Minimum ||
+                spacing > MoveFormationSpacingPolicy.Maximum)
+            {
+                encodedMoveType = serializedMoveType;
+                return false;
+            }
+
+            int spacingBits = spacing == 1 ? 0x04 : spacing == 3 ? 0x08 :
+                spacing == 4 ? 0x0C : 0;
+            encodedMoveType = payloadByte | spacingBits;
+            return true;
+        }
+
+        public static bool TryDecodeFormationSpacing(
+            int moveType,
+            out int decodedMoveType,
+            out int spacing)
+        {
+            int allowedBits = 0x01 | MoveQueueMarker | MoveFormationSpacingMask;
+            if ((moveType & ~allowedBits) != 0)
+            {
+                decodedMoveType = moveType;
+                spacing = MoveFormationSpacingPolicy.Default;
+                return false;
+            }
+
+            int spacingCode = (moveType & MoveFormationSpacingMask) >> 2;
+            spacing = spacingCode == 1 ? 1 : spacingCode == 2 ? 3 :
+                spacingCode == 3 ? 4 : MoveFormationSpacingPolicy.Default;
+            decodedMoveType = moveType & ~MoveFormationSpacingMask;
             return true;
         }
 

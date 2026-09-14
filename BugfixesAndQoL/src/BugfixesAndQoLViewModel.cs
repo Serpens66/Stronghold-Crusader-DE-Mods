@@ -28,7 +28,6 @@ namespace BugfixesAndQoL
         private bool enableTroopMovementFix = true;
         private bool enableExtendedShiftCommandQueue = true;
         private bool enableMoveFormationEnhancements = true;
-        private int moveFormationSpacing = MoveFormationSpacingPolicy.Default;
         private int friendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
         private bool enableImprovedMoatFilling = true;
         private bool enableMountedStockpileMovementFix = true;
@@ -73,6 +72,7 @@ namespace BugfixesAndQoL
         private bool enableDisbandedUnitControlGroupCleanup = true;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableCompleteNotificationSkipOnClick = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMarketKeyMainMenuFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableAutoTradeSellZeroFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableEnemyProximityBulldozeCursorFix = new LocalPerPlayerSetting<bool>(true);
@@ -110,6 +110,7 @@ namespace BugfixesAndQoL
             string[] enabledByDefault =
             {
                 nameof(EnableMinimapCursorFollowFix),
+                nameof(EnableCompleteNotificationSkipOnClick),
                 nameof(EnableMarketKeyMainMenuFix),
                 nameof(EnableAutoTradeSellZeroFix),
                 nameof(EnableEnemyProximityBulldozeCursorFix),
@@ -244,6 +245,8 @@ namespace BugfixesAndQoL
         public string CustomTrailsTitleText => SerpLocalization.Get("BugfixesAndQoL.CustomTrailsTitle");
         public string EnableMinimapCursorFollowFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFix");
         public string EnableMinimapCursorFollowFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMinimapCursorFollowFixHelp");
+        public string EnableCompleteNotificationSkipOnClickText => SerpLocalization.Get("BugfixesAndQoL.EnableCompleteNotificationSkipOnClick");
+        public string EnableCompleteNotificationSkipOnClickHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCompleteNotificationSkipOnClickHelp");
         public string EnableMarketKeyMainMenuFixText => SerpLocalization.Get("BugfixesAndQoL.EnableMarketKeyMainMenuFix");
         public string EnableMarketKeyMainMenuFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableMarketKeyMainMenuFixHelp");
         public string EnableAutoTradeSellZeroFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAutoTradeSellZeroFix");
@@ -329,27 +332,6 @@ namespace BugfixesAndQoL
             SerpLocalization.Get("BugfixesAndQoL.EnableMoveFormationEnhancements");
         public string EnableMoveFormationEnhancementsHelpText =>
             SerpLocalization.Get("BugfixesAndQoL.EnableMoveFormationEnhancementsHelp");
-        public string MoveFormationSpacingText =>
-            SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacing");
-        public string MoveFormationSpacingHelpText =>
-            SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingHelp");
-        public string MoveFormationSpacingValueText
-        {
-            get
-            {
-                switch (moveFormationSpacing)
-                {
-                    case 1:
-                        return SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingVeryDense");
-                    case 3:
-                        return SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingWide");
-                    case 4:
-                        return SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingVeryWide");
-                    default:
-                        return SerpLocalization.Get("BugfixesAndQoL.MoveFormationSpacingDense");
-                }
-            }
-        }
         public string FriendlyMoatMovementModeText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementMode");
         public string FriendlyMoatMovementModeHelpText => SerpLocalization.Get("BugfixesAndQoL.FriendlyMoatMovementModeHelp");
         public string FriendlyMoatMovementModeValueText
@@ -405,6 +387,7 @@ namespace BugfixesAndQoL
         public string RestoreHdMarketOrderHelpText => SerpLocalization.Get(SerpLocalization.MarketGoodsOrderRestoreHdHelp);
 
         public bool[] EnableMinimapCursorFollowFixData => enableMinimapCursorFollowFix.Data;
+        public bool[] EnableCompleteNotificationSkipOnClickData => enableCompleteNotificationSkipOnClick.Data;
         public bool[] EnableMarketKeyMainMenuFixData => enableMarketKeyMainMenuFix.Data;
         public bool[] EnableAutoTradeSellZeroFixData => enableAutoTradeSellZeroFix.Data;
         public bool[] EnableEnemyProximityBulldozeCursorFixData => enableEnemyProximityBulldozeCursorFix.Data;
@@ -452,6 +435,16 @@ namespace BugfixesAndQoL
         {
             get => enableMinimapCursorFollowFix.Value;
             set => SetPlayerSetting(enableMinimapCursorFollowFix, value, nameof(EnableMinimapCursorFollowFix));
+        }
+
+        [SyncPerPlayer]
+        public bool EnableCompleteNotificationSkipOnClick
+        {
+            get => enableCompleteNotificationSkipOnClick.Value;
+            set => SetPlayerSetting(
+                enableCompleteNotificationSkipOnClick,
+                value,
+                nameof(EnableCompleteNotificationSkipOnClick));
         }
 
         [SyncPerPlayer]
@@ -729,22 +722,6 @@ namespace BugfixesAndQoL
                 ref enableMoveFormationEnhancements,
                 value,
                 nameof(EnableMoveFormationEnhancements));
-        }
-
-        [SyncHostOnly]
-        public int MoveFormationSpacing
-        {
-            get => moveFormationSpacing;
-            set
-            {
-                int previous = moveFormationSpacing;
-                SetSetting(
-                    ref moveFormationSpacing,
-                    MoveFormationSpacingPolicy.Normalize(value),
-                    nameof(MoveFormationSpacing));
-                if (previous != moveFormationSpacing)
-                    OnPropertyChanged(nameof(MoveFormationSpacingValueText));
-            }
         }
 
         [SyncHostOnly]
@@ -1047,7 +1024,6 @@ namespace BugfixesAndQoL
                 EnableTroopMovementFix = true;
                 EnableExtendedShiftCommandQueue = true;
                 EnableMoveFormationEnhancements = true;
-                MoveFormationSpacing = MoveFormationSpacingPolicy.Default;
                 FriendlyMoatMovementMode = FriendlyMoatMovementPolicy.DefaultMode;
                 EnableImprovedMoatFilling = true;
                 EnableMountedStockpileMovementFix = true;
@@ -1094,6 +1070,7 @@ namespace BugfixesAndQoL
             HdMarketView = true;
             MarketGoodsOrder = MarketGoodsOrderDefinition.CreateHdOrder();
             EnableMinimapCursorFollowFix = true;
+            EnableCompleteNotificationSkipOnClick = true;
             EnableMarketKeyMainMenuFix = true;
             EnableAutoTradeSellZeroFix = true;
             EnableEnemyProximityBulldozeCursorFix = true;
@@ -1148,6 +1125,7 @@ namespace BugfixesAndQoL
                 return false;
 
             enableMinimapCursorFollowFix.TrySetLocalPlayerId(playerId);
+            enableCompleteNotificationSkipOnClick.TrySetLocalPlayerId(playerId);
             enableMarketKeyMainMenuFix.TrySetLocalPlayerId(playerId);
             enableAutoTradeSellZeroFix.TrySetLocalPlayerId(playerId);
             enableEnemyProximityBulldozeCursorFix.TrySetLocalPlayerId(playerId);

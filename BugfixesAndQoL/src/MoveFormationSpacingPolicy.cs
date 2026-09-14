@@ -11,11 +11,61 @@ namespace BugfixesAndQoL
 
         public static int ResolveEffectiveSpacing(
             int vanillaSpacing,
-            int configuredSpacing,
+            int commandSpacing,
             bool overrideEnabled) =>
             overrideEnabled && vanillaSpacing >= 2 && vanillaSpacing <= Maximum
-                ? Normalize(configuredSpacing)
+                ? Normalize(commandSpacing)
                 : vanillaSpacing;
+
+        public static int GetCommandMouseButton(bool useStrongholdOneControls) =>
+            useStrongholdOneControls ? 0 : 1;
+
+        public static float GetHorizontalDragStep(float screenWidth) =>
+            System.Math.Max(32f, screenWidth * 0.03f);
+
+        public static int FromHorizontalDrag(
+            float pressedScreenX,
+            float currentScreenX,
+            float screenWidth)
+        {
+            float step = GetHorizontalDragStep(screenWidth);
+            float delta = currentScreenX - pressedScreenX;
+            if (delta <= -step)
+                return 1;
+            if (delta < step)
+                return Default;
+            return delta < step * 2f ? 3 : 4;
+        }
+
+        public static System.Collections.Generic.IEnumerable<MoveFormationOffset>
+            EnumerateManhattanOffsets(int spacing, int maximumRadius)
+        {
+            int normalizedSpacing = Normalize(spacing);
+            for (int radius = 0; radius <= maximumRadius; radius++)
+            {
+                if (radius % normalizedSpacing != 0)
+                    continue;
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    int dy = radius - System.Math.Abs(dx);
+                    yield return new MoveFormationOffset(dx, dy);
+                    if (dy != 0)
+                        yield return new MoveFormationOffset(dx, -dy);
+                }
+            }
+        }
+    }
+
+    internal readonly struct MoveFormationOffset
+    {
+        internal MoveFormationOffset(int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        internal int X { get; }
+        internal int Y { get; }
     }
 
     internal enum MoveFormationSelector

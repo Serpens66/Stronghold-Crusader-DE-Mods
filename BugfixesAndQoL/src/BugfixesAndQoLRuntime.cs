@@ -31,6 +31,7 @@ namespace BugfixesAndQoL
         private readonly TrailCustomizationFeature trailCustomizationFeature;
         private readonly CoopCustomLordSelectionFeature coopCustomLordSelectionFeature;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
+        private static ExtendedShiftCommandQueueRuntime processExtendedShiftCommandQueueRuntime;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapLoadSubscription;
@@ -69,8 +70,10 @@ namespace BugfixesAndQoL
         private PlagueTargetReservationFix plagueTargetReservationFix;
         private PlagueApothecaryStateTransitionFix plagueApothecaryStateTransitionFix;
         private FriendlyMoatMovementRuntime friendlyMoatMovementRuntime;
+        private static FriendlyMoatMovementRuntime processFriendlyMoatMovementRuntime;
         private AllyGoodsAmountModifierHook allyGoodsAmountModifierHook;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
+        private NotificationSkipFeature notificationSkipFeature;
         private IntPtr libraryHandle;
         private int libraryLength;
         private ScanRegion nativeRegion;
@@ -286,6 +289,9 @@ namespace BugfixesAndQoL
             nativeRegion = context.Region;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
+            TryInitializePersistentFeature(
+                "complete notification skip",
+                () => notificationSkipFeature = new NotificationSkipFeature(log, settings, nativeRegion));
             tunnelPlacementDistanceFeature.SetFixedNativeLayoutValidated(
                 isFixedLayoutHashValidated);
             try
@@ -459,8 +465,12 @@ namespace BugfixesAndQoL
         {
             if (!nativeLibraryAvailable || friendlyMoatMovementRuntime != null)
                 return;
-            friendlyMoatMovementRuntime = new FriendlyMoatMovementRuntime(
-                log, settings, context, referenceHashMatches);
+            if (processFriendlyMoatMovementRuntime == null)
+            {
+                processFriendlyMoatMovementRuntime = new FriendlyMoatMovementRuntime(
+                    log, settings, context, referenceHashMatches);
+            }
+            friendlyMoatMovementRuntime = processFriendlyMoatMovementRuntime;
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "Bugfixes and QoL friendly moat movement initialized: " +
@@ -478,8 +488,14 @@ namespace BugfixesAndQoL
 
             // Root the runtime before installing process-lifetime detours so a partial native
             // transaction can never leave callbacks whose managed owner became collectible.
-            extendedShiftCommandQueueRuntime = new ExtendedShiftCommandQueueRuntime(log, settings);
-            extendedShiftCommandQueueRuntime.Install(context, referenceHashMatches);
+            if (processExtendedShiftCommandQueueRuntime == null)
+            {
+                processExtendedShiftCommandQueueRuntime =
+                    new ExtendedShiftCommandQueueRuntime(
+                        log, settings, friendlyMoatMovementRuntime != null);
+                processExtendedShiftCommandQueueRuntime.Install(context, referenceHashMatches);
+            }
+            extendedShiftCommandQueueRuntime = processExtendedShiftCommandQueueRuntime;
         }
 
         private void EnsureShiftRepairAllBuildingsHook()
@@ -493,8 +509,6 @@ namespace BugfixesAndQoL
             UnsubscribeHooks();
             DisposeMovedFeatures();
             assassinPathfindingRuntime.Dispose();
-            friendlyMoatMovementRuntime?.Dispose();
-            friendlyMoatMovementRuntime = null;
             shiftRepairAllBuildingsHook?.Dispose();
             shiftRepairAllBuildingsHook = null;
             skirmishAiSelectionMemoryHook?.Dispose();

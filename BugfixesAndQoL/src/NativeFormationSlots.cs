@@ -110,12 +110,12 @@ namespace BugfixesAndQoL
         {
             MoveCommandScope command = activeMoveCommand;
             bool scopedPureMove = IsScopedPureMoveFormationCall(manager, x, y, command);
-            int configuredSpacing = MoveFormationSpacingPolicy.Normalize(settings.MoveFormationSpacing);
-            bool overrideEnabled = scopedPureMove && settings.EnableMod &&
-                settings.EnableMoveFormationEnhancements;
+            int commandSpacing = command?.FormationSpacing ?? MoveFormationSpacingPolicy.Default;
+            bool overrideEnabled = scopedPureMove && command != null && command.HasFormationSpacing &&
+                settings.EnableMod && settings.EnableMoveFormationEnhancements;
             int effectiveSpacing = MoveFormationSpacingPolicy.ResolveEffectiveSpacing(
-                vanillaSpacing, configuredSpacing, overrideEnabled);
-            if (scopedPureMove && settings.EnableMod && settings.EnableMoveFormationEnhancements)
+                vanillaSpacing, commandSpacing, overrideEnabled);
+            if (overrideEnabled)
             {
                 MoveFormationCommandSnapshotStore.Observe(
                     command,

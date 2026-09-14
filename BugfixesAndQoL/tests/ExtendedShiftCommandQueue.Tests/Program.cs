@@ -36,7 +36,41 @@ internal static class Program
     private static void CheckMoveFormationSpacing()
     {
         Check(MoveFormationSpacingPolicy.Default == 2,
-            "Move formation spacing default is dense");
+            "neutral Move formation click uses spacing two");
+        Check(MoveFormationSpacingPolicy.GetCommandMouseButton(true) == 0 &&
+              MoveFormationSpacingPolicy.GetCommandMouseButton(false) == 1,
+            "Vanilla SH1 and DE control schemes select left and right command buttons");
+        Check(MoveFormationSpacingPolicy.GetHorizontalDragStep(800) == 32f &&
+              Math.Abs(MoveFormationSpacingPolicy.GetHorizontalDragStep(1920) - 57.6f) < 0.001f,
+            "horizontal drag step is resolution independent with a 32-pixel floor");
+        float start = 0f;
+        float step = MoveFormationSpacingPolicy.GetHorizontalDragStep(1920);
+        Check(MoveFormationSpacingPolicy.FromHorizontalDrag(start, start - step, 1920) == 1 &&
+              MoveFormationSpacingPolicy.FromHorizontalDrag(start, start - step + 0.01f, 1920) == 2 &&
+              MoveFormationSpacingPolicy.FromHorizontalDrag(start, start, 1920) == 2 &&
+              MoveFormationSpacingPolicy.FromHorizontalDrag(start, start + step, 1920) == 3 &&
+              MoveFormationSpacingPolicy.FromHorizontalDrag(start, start + 2f * step, 1920) == 4,
+            "drag thresholds select spacings one through four at exact boundaries");
+        foreach (int spacing in new[] { 1, 2, 3, 4 })
+        {
+            MoveFormationOffset[] offsets = MoveFormationSpacingPolicy
+                .EnumerateManhattanOffsets(spacing, 20).Take(100).ToArray();
+            Check(offsets.Length == 100 && offsets[0].X == 0 && offsets[0].Y == 0 &&
+                  offsets.All(offset =>
+                      (Math.Abs(offset.X) + Math.Abs(offset.Y)) % spacing == 0) &&
+                  offsets.Select(offset => $"{offset.X},{offset.Y}").Distinct().Count() == 100,
+                $"spacing {spacing} preview enumerates unique Manhattan-grid candidates");
+        }
+        MoveFormationOffset[] edgeCandidates = MoveFormationSpacingPolicy
+            .EnumerateManhattanOffsets(2, 20)
+            .Where(offset => offset.X >= 0 && offset.Y >= 0 &&
+                !(offset.X == 2 && offset.Y == 0))
+            .Take(25)
+            .ToArray();
+        Check(edgeCandidates.Length == 25 &&
+              edgeCandidates.All(offset => offset.X >= 0 && offset.Y >= 0) &&
+              edgeCandidates.All(offset => offset.X != 2 || offset.Y != 0),
+            "preview candidate stream supports map-edge and blocked-tile filtering");
         for (int spacing = 1; spacing <= 4; spacing++)
         {
             Check(MoveFormationSpacingPolicy.Normalize(spacing) == spacing,
@@ -574,6 +608,8 @@ internal static class Program
         Check(QueueNativeContract.ChoreTribeIdRva == 0x86C132C, "Chore tribe global RVA");
         Check(QueueNativeContract.ChoreCommandOrTileXRva == 0x86C1330,
             "Chore command/tile-X global RVA");
+        Check(QueueNativeContract.ChoreTileYRva == 0x86C1334,
+            "Chore tile-Y global RVA");
         Check(QueueNativeContract.ChoreMoveTypeRva == 0x86C133C, "Chore Move type global RVA");
     }
 
@@ -590,6 +626,37 @@ internal static class Program
             Check(QueueNativeContract.TryDecodeQueuedMoveType(unpackedMoveType, out int decoded) &&
                 decoded == (moveType & ~0x80),
                 $"Chore 17 producer value 0x{moveType:X} survives Vanilla bit-7 unpacking");
+        }
+        foreach (int moveType in producerMoveTypes)
+        foreach (int spacing in new[] { 1, 2, 3, 4 })
+        {
+            Check(QueueNativeContract.TryEncodeFormationSpacing(
+                    moveType, spacing, out int spacingMarked),
+                $"Chore 17 producer value 0x{moveType:X} accepts spacing {spacing}");
+            Check(QueueNativeContract.TryMarkMoveTypeForQueue(
+                    spacingMarked, out int queueAndSpacingMarked),
+                $"spacing {spacing} coexists with queue bit 6");
+            int unpacked = queueAndSpacingMarked & ~0x80;
+            Check(QueueNativeContract.TryDecodeFormationSpacing(
+                    unpacked, out int withoutSpacing, out int decodedSpacing) &&
+                  decodedSpacing == spacing &&
+                  (withoutSpacing & QueueNativeContract.MoveFormationSpacingMask) == 0 &&
+                  QueueNativeContract.TryDecodeQueuedMoveType(
+                      withoutSpacing, out int decodedMoveType) &&
+                  decodedMoveType == (moveType & 1),
+                $"spacing {spacing} and queue marker roundtrip after Vanilla strips bit 7");
+        }
+        foreach (int invalidSpacing in new[] { 0, 5 })
+        {
+            Check(!QueueNativeContract.TryEncodeFormationSpacing(
+                    0, invalidSpacing, out _),
+                $"invalid command spacing {invalidSpacing} is rejected");
+        }
+        foreach (int unknown in new[] { 2, 0x42, 0x100 })
+        {
+            Check(!QueueNativeContract.TryDecodeFormationSpacing(
+                    unknown, out int unchanged, out _) && unchanged == unknown,
+                $"unknown MoveType 0x{unknown:X} is left unchanged");
         }
         Check(!QueueNativeContract.TryMarkMoveTypeForQueue(2, out _),
             "unknown Chore 17 producer value rejected");
@@ -864,6 +931,11 @@ internal static class Program
             "BugfixesAndQoL",
             "src",
             "NativeFormationSlots.cs");
+        string moveFormationDrag = Read(
+            workspace,
+            "BugfixesAndQoL",
+            "src",
+            "MoveFormationDragRuntime.cs");
         string viewModel = Read(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLViewModel.cs");
         string settingsXaml = Read(
             workspace,
@@ -934,6 +1006,9 @@ internal static class Program
         Check(largeMoveRenderer.Contains("MaximumSyntheticMarkers") &&
             largeMoveRenderer.Contains("NativeMode8IdentityCapacity = 4250") &&
             largeMoveRenderer.Contains("stableIdentityByTile") &&
+            largeMoveRenderer.Contains("private readonly object stateRoot") &&
+            largeMoveRenderer.Contains("SetPreviewMarkerTiles(IEnumerable<int> tileIds)") &&
+            largeMoveRenderer.Contains("ClearPreviewMarkerTiles()") &&
             largeMoveRenderer.Contains("AddMarkerTile(int tileId)") &&
             largeMoveRenderer.Contains("RemoveMarkerTile(int tileId)") &&
             largeMoveRenderer.Contains("PublishMarkerTiles()") &&
@@ -976,11 +1051,10 @@ internal static class Program
             "extended queue is enabled by default and by preset reset");
         Check((viewModel.Contains("[SyncHostOnly]\n        public bool EnableMoveFormationEnhancements") ||
                viewModel.Contains("[SyncHostOnly]\r\n        public bool EnableMoveFormationEnhancements")) &&
-              (viewModel.Contains("[SyncHostOnly]\n        public int MoveFormationSpacing") ||
-               viewModel.Contains("[SyncHostOnly]\r\n        public int MoveFormationSpacing")) &&
-              viewModel.Contains("MoveFormationSpacingPolicy.Default") &&
+              !viewModel.Contains("public int MoveFormationSpacing") &&
+              !viewModel.Contains("MoveFormationSpacingValueText") &&
               viewModel.Contains("EnableMoveFormationEnhancements = true;"),
-            "Move formation behavior has a synchronized host switch and resettable spacing");
+            "Move formation behavior has only a synchronized host switch");
         Check(queueRuntime.Contains("settings.EnableMod && settings.EnableExtendedShiftCommandQueue") &&
               (queueRuntime.Contains("if (!enabled)\n                ResetMapState();") ||
                queueRuntime.Contains("if (!enabled)\r\n                ResetMapState();")),
@@ -992,9 +1066,26 @@ internal static class Program
         Check(settingsXaml.Contains("EnableExtendedShiftCommandQueue, Mode=TwoWay"),
             "host settings UI exposes the extended queue option");
         Check(settingsXaml.Contains("EnableMoveFormationEnhancements, Mode=TwoWay") &&
-              settingsXaml.Contains("MoveFormationSpacing, Mode=TwoWay") &&
-              settingsXaml.Contains("Minimum=\"1\" Maximum=\"4\""),
-            "host settings UI exposes the Move feature switch and spacing range");
+              !settingsXaml.Contains("MoveFormationSpacing") &&
+              !settingsXaml.Contains("bugfixes.move-formation-spacing"),
+            "host settings UI exposes the Move feature switch without a spacing slider");
+        Check(moveFormationDrag.Contains("GetCommandMouseButton(") &&
+              moveFormationDrag.Contains("Input.GetMouseButtonUp(commandButton)") &&
+              moveFormationDrag.Contains("MoveFormationCommandContext.Arm(") &&
+              moveFormationDrag.Contains("markers.ClearPreview();") &&
+              moveFormationDrag.Contains("engineRunOriginal(multiplayerFrameSkip)") &&
+              moveFormationDrag.Contains("private static readonly object syncRoot") &&
+              !moveFormationDrag.Contains("[ThreadStatic]") &&
+              moveFormationDrag.Contains("private volatile bool injectReleasedAnchor") &&
+              moveFormationDrag.Contains("RestoreInputState(") &&
+              moveFormationDrag.IndexOf("PrepareReleaseBeforeVanilla(self)", StringComparison.Ordinal) <
+                  moveFormationDrag.IndexOf("editorUpdateOriginal(self)", StringComparison.Ordinal) &&
+              moveFormationDrag.Contains("troopSelectMouseStartField.SetValue(director, new Vector2(-1f, -1f))") &&
+              moveFormationDrag.Contains("director.shiftPressed") &&
+              moveFormationDrag.Contains("Input.GetMouseButtonDown(oppositeButton)") &&
+              moveFormationDrag.Contains("SelectionMatches(drag.Selection)") &&
+              moveFormationDrag.Contains("overNoesisUiField.GetValue(director)"),
+            "drag preview respects Vanilla controls and releases through EngineInterface.run");
         Check(bugfixesRuntime.Contains("settings.EnableMoveFormationEnhancements") &&
               bugfixesRuntime.Contains("!FeatureEnabled ||") &&
               bugfixesRuntime.Contains("setting-disabled"),

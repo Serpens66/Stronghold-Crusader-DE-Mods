@@ -35,6 +35,11 @@ namespace BugfixesAndQoL
 
         public bool MarkerReplacementAvailable => renderer.ReplacementAvailable;
 
+        public void SetPreview(IEnumerable<int> tileIds) =>
+            renderer.SetPreviewMarkerTiles(tileIds);
+
+        public void ClearPreview() => renderer.ClearPreviewMarkerTiles();
+
         public void Install(
             bool layoutValidated,
             bool markerReplacementEnabled,
@@ -92,7 +97,7 @@ namespace BugfixesAndQoL
             int inferredAssassinStructureCalls = CountAssassinStructureTargets(units);
             string spacingSummary = hasSnapshot
                 ? snapshot.Audit.FormatCompact(inferredAssassinStructureCalls)
-                : $"cfg{MoveFormationSpacingPolicy.Normalize(settings.MoveFormationSpacing)};unavailable";
+                : "command-spacing-unavailable";
             var group = new TrackedMoveGroup(
                 tribeId,
                 source,
@@ -211,6 +216,7 @@ namespace BugfixesAndQoL
 
         public void Reset(int tick, string reason)
         {
+            renderer.ClearPreviewMarkerTiles();
             MoveFormationCommandSnapshotStore.Clear();
             foreach (TrackedMoveGroup group in groups.Values.ToArray())
                 FinalizeGroup(group, reason, forceInterrupt: true);

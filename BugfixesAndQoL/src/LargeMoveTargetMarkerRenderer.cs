@@ -74,20 +74,22 @@ namespace BugfixesAndQoL
 
         private readonly ManualLogSource log;
         private readonly Func<bool> featureEnabled;
+        private readonly object stateRoot = new object();
         private readonly HookHandle<X64InlineHook> visibleTileHook =
             new HookHandle<X64InlineHook>();
         private volatile Dictionary<int, int> markerIdentityByTile =
             new Dictionary<int, int>();
         private readonly Dictionary<int, int> stableIdentityByTile =
             new Dictionary<int, int>();
+        private readonly HashSet<int> previewTiles = new HashSet<int>();
         private readonly Stack<int> recycledIdentities = new Stack<int>();
         private int nextIdentity = FirstSyntheticIdentity;
         private HookTransaction transaction;
         private SpriteBuilderDelegate spriteBuilder;
         private BuildingHeightDelegate getBuildingHeight;
         private IntPtr libraryHandle;
-        private bool installed;
-        private bool failed;
+        private volatile bool installed;
+        private volatile bool failed;
         private bool failureLogged;
 
         public LargeMoveTargetMarkerRenderer(ManualLogSource log, Func<bool> featureEnabled)
@@ -158,57 +160,112 @@ namespace BugfixesAndQoL
 
         public void AddMarkerTile(int tileId)
         {
-            if (!ReplacementAvailable)
-                return;
-            try
+            lock (stateRoot)
             {
-                if ((uint)tileId >= NativeTileCount)
-                    throw new InvalidOperationException(
-                        $"Active Move marker tile {tileId} is outside the native tile array.");
-                if (stableIdentityByTile.ContainsKey(tileId))
+                if (!ReplacementAvailable)
                     return;
-                if (stableIdentityByTile.Count >= MaximumSyntheticMarkers)
-                    throw new InvalidOperationException(
-                        $"The validated native capacity of {MaximumSyntheticMarkers} markers is exhausted.");
-                int identity = recycledIdentities.Count != 0
-                    ? recycledIdentities.Pop()
-                    : nextIdentity++;
-                if (identity >= NativeMode8IdentityCapacity)
-                    throw new InvalidOperationException(
-                        "The native Move marker identity range is exhausted.");
-                stableIdentityByTile.Add(tileId, identity);
-            }
-            catch (Exception exception)
-            {
-                FailOpen(exception);
+                try
+                {
+                    if ((uint)tileId >= NativeTileCount)
+                        throw new InvalidOperationException(
+                            $"Active Move marker tile {tileId} is outside the native tile array.");
+                    if (stableIdentityByTile.ContainsKey(tileId))
+                        return;
+                    if (stableIdentityByTile.Count >= MaximumSyntheticMarkers)
+                        throw new InvalidOperationException(
+                            $"The validated native capacity of {MaximumSyntheticMarkers} markers is exhausted.");
+                    int identity = recycledIdentities.Count != 0
+                        ? recycledIdentities.Pop()
+                        : nextIdentity++;
+                    if (identity >= NativeMode8IdentityCapacity)
+                        throw new InvalidOperationException(
+                            "The native Move marker identity range is exhausted.");
+                    stableIdentityByTile.Add(tileId, identity);
+                }
+                catch (Exception exception)
+                {
+                    FailOpen(exception);
+                }
             }
         }
 
         public void RemoveMarkerTile(int tileId)
         {
-            if (!stableIdentityByTile.TryGetValue(tileId, out int identity))
-                return;
-            stableIdentityByTile.Remove(tileId);
-            recycledIdentities.Push(identity);
+            lock (stateRoot)
+            {
+                if (!stableIdentityByTile.TryGetValue(tileId, out int identity))
+                    return;
+                stableIdentityByTile.Remove(tileId);
+                recycledIdentities.Push(identity);
+            }
         }
 
         public void PublishMarkerTiles()
         {
-            if (!ReplacementAvailable)
-                return;
-            // Render callbacks only read the published immutable snapshot.
-            markerIdentityByTile = new Dictionary<int, int>(stableIdentityByTile);
+            lock (stateRoot)
+            {
+                if (!ReplacementAvailable)
+                    return;
+                // Render callbacks only read the published immutable snapshot.
+                var published = new Dictionary<int, int>(stableIdentityByTile);
+                var reservedIdentities = new HashSet<int>(stableIdentityByTile.Values);
+                int previewIdentity = NativeMode8IdentityCapacity - 1;
+                foreach (int tileId in previewTiles)
+                {
+                    if (published.ContainsKey(tileId))
+                        continue;
+                    while (previewIdentity >= FirstSyntheticIdentity &&
+                        reservedIdentities.Contains(previewIdentity))
+                        previewIdentity--;
+                    if (previewIdentity < FirstSyntheticIdentity)
+                        break;
+                    published.Add(tileId, previewIdentity--);
+                }
+                markerIdentityByTile = published;
+            }
+        }
+
+        public void SetPreviewMarkerTiles(IEnumerable<int> tileIds)
+        {
+            lock (stateRoot)
+            {
+                previewTiles.Clear();
+                if (ReplacementAvailable && tileIds != null)
+                {
+                    foreach (int tileId in tileIds)
+                    {
+                        if ((uint)tileId < NativeTileCount)
+                            previewTiles.Add(tileId);
+                    }
+                }
+                PublishMarkerTiles();
+            }
+        }
+
+        public void ClearPreviewMarkerTiles()
+        {
+            lock (stateRoot)
+            {
+                if (previewTiles.Count == 0)
+                    return;
+                previewTiles.Clear();
+                PublishMarkerTiles();
+            }
         }
 
         public void Shutdown()
         {
-            markerIdentityByTile = new Dictionary<int, int>();
-            stableIdentityByTile.Clear();
-            recycledIdentities.Clear();
-            nextIdentity = FirstSyntheticIdentity;
-            transaction?.Dispose();
-            transaction = null;
-            installed = false;
+            lock (stateRoot)
+            {
+                markerIdentityByTile = new Dictionary<int, int>();
+                stableIdentityByTile.Clear();
+                previewTiles.Clear();
+                recycledIdentities.Clear();
+                nextIdentity = FirstSyntheticIdentity;
+                transaction?.Dispose();
+                transaction = null;
+                installed = false;
+            }
         }
 
         private void RenderVisibleLargeMoveTarget(NativePointer<X64SmartCPUContext> context)
@@ -282,13 +339,17 @@ namespace BugfixesAndQoL
 
         private void FailOpen(Exception exception)
         {
-            failed = true;
-            markerIdentityByTile = new Dictionary<int, int>();
-            stableIdentityByTile.Clear();
-            recycledIdentities.Clear();
-            if (failureLogged)
-                return;
-            failureLogged = true;
+            lock (stateRoot)
+            {
+                failed = true;
+                markerIdentityByTile = new Dictionary<int, int>();
+                stableIdentityByTile.Clear();
+                previewTiles.Clear();
+                recycledIdentities.Clear();
+                if (failureLogged)
+                    return;
+                failureLogged = true;
+            }
             Shared.DebugLogHelper.LogError(
                 log,
                 $"MOVE_TARGET_MARKER_RENDER_FAIL_OPEN: Vanilla markers retained; {exception}");

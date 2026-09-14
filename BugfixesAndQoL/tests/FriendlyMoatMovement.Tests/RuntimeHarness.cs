@@ -161,6 +161,8 @@ namespace BugfixesAndQoL
             internal int[] ActiveUnitIdsAtDispatch = Array.Empty<int>();
             public bool IsNewOrder;
             public bool IsPatrolPath;
+            public bool HasFormationSpacing;
+            public int FormationSpacing = MoveFormationSpacingPolicy.Default;
             public int WeightedPublished, WeightedDecisions;
             public int TargetX, TargetY, ModeCalls, TargetedRouteCacheHits, TargetedRouteSearches, TargetedRouteExpandedNodes;
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;

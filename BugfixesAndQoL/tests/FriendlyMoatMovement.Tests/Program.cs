@@ -312,7 +312,10 @@ void ValidateRuntimeSources()
         "public int MoveFormationSpacing { get; set; } = MoveFormationSpacingPolicy.Default; " +
         "public int FriendlyMoatMovementMode { get; set; } = FriendlyMoatMovementPolicy.DefaultMode; " +
         "internal FriendlyMoatMovementMode GetFriendlyMoatMovementMode() => " +
-        "(FriendlyMoatMovementMode)FriendlyMoatMovementPolicy.Normalize(FriendlyMoatMovementMode); } }");
+        "(FriendlyMoatMovementMode)FriendlyMoatMovementPolicy.Normalize(FriendlyMoatMovementMode); } " +
+        "internal static class MoveFormationCommandContext { " +
+        "internal static void ObserveMoveOrder(SHCDESE.EventAPI.Tribes.TribeIssueOrderMoveHereEventArgs args, bool enabled) {} " +
+        "internal static bool TryGetActive(int tribeId, int tileX, int tileY, out int spacing) { spacing=2; return false; } } }");
     var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","PresetLobbyModSettingsViewModel.cs","ModSettingsSearch.cs","ToolTipPresentation.cs","GameModeHelper.cs","GameplaySessionLifecycle.cs"}.Select(file=>
         CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,

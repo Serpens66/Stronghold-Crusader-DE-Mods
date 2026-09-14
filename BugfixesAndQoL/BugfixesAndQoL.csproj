@@ -32,6 +32,7 @@
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.AudioModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.GridModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.GridModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
@@ -158,9 +159,13 @@
     <Compile Include="src\MovementPathPublication.cs" />
     <Compile Include="src\MovementSearchContext.cs" />
     <Compile Include="src\MoveFormationSpacingPolicy.cs" />
+    <Compile Include="src\MoveFormationDragRuntime.cs" />
     <Compile Include="src\NativeFormationSlots.cs" />
     <Compile Include="src\NativeMovementCadenceResolver.cs" />
     <Compile Include="src\NativeMovementRecovery.cs" />
+    <Compile Include="src\NotificationQueueNativeContract.cs" />
+    <Compile Include="src\NotificationSkipFeature.cs" />
+    <Compile Include="src\NotificationSkipPolicy.cs" />
     <Compile Include="src\UnitMovementContext.cs" />
     <Compile Include="src\WeightedMoatPublication.cs" />
     <Compile Include="src\WeightedMoatRoutePlanner.cs" />

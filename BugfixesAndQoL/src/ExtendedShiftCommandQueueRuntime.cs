@@ -94,6 +94,7 @@ namespace BugfixesAndQoL
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly LargeMoveTargetDiagnosticsRuntime largeMoveTargets;
+        private readonly MoveFormationDragRuntime moveFormationDrag;
         // A cohort is the smallest set of units that currently shares mutable queue progress.
         // Unit identities remain authoritative; BoundTribeId is only the current dispatch vessel.
         private readonly Dictionary<long, TribeQueueState> cohorts = new Dictionary<long, TribeQueueState>();
@@ -134,6 +135,7 @@ namespace BugfixesAndQoL
         private IntPtr choreModePointer;
         private IntPtr choreTribeIdPointer;
         private IntPtr choreCommandOrTileXPointer;
+        private IntPtr choreTileYPointer;
         private IntPtr choreMoveTypePointer;
         private bool installed;
         private bool multiplayerSynchronizationReady;
@@ -159,11 +161,20 @@ namespace BugfixesAndQoL
 
         public ExtendedShiftCommandQueueRuntime(
             ManualLogSource log,
-            BugfixesAndQoLViewModel settings)
+            BugfixesAndQoLViewModel settings,
+            bool formationRuntimeAvailable)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             largeMoveTargets = new LargeMoveTargetDiagnosticsRuntime(log, settings);
+            moveFormationDrag = new MoveFormationDragRuntime(log, settings, largeMoveTargets);
+            if (!formationRuntimeAvailable)
+            {
+                moveFormationDrag.DisableForProcess(
+                    "formation-runtime",
+                    new InvalidOperationException(
+                        "The audited native formation runtime is unavailable."));
+            }
         }
 
         private bool FeatureEnabled =>
@@ -318,6 +329,14 @@ namespace BugfixesAndQoL
                 drawFilterInstalled,
                 context,
                 referenceHashMatches);
+            try
+            {
+                moveFormationDrag.Install();
+            }
+            catch (Exception exception)
+            {
+                moveFormationDrag.DisableForProcess("hook-install", exception);
+            }
 
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
@@ -358,6 +377,8 @@ namespace BugfixesAndQoL
         public void ApplySetting()
         {
             largeMoveTargets.ApplySetting(currentTick);
+            if (!settings.EnableMod || !settings.EnableMoveFormationEnhancements)
+                moveFormationDrag.ResetTransientState();
             bool enabled = FeatureEnabled;
             if (lastFeatureEnabled == enabled)
                 return;
@@ -412,6 +433,7 @@ namespace BugfixesAndQoL
                 choreModePointer = libraryHandle + QueueNativeContract.ChoreModeRva;
                 choreTribeIdPointer = libraryHandle + QueueNativeContract.ChoreTribeIdRva;
                 choreCommandOrTileXPointer = libraryHandle + QueueNativeContract.ChoreCommandOrTileXRva;
+                choreTileYPointer = libraryHandle + QueueNativeContract.ChoreTileYRva;
                 choreMoveTypePointer = libraryHandle + QueueNativeContract.ChoreMoveTypeRva;
 
                 multiplayerTransaction = new HookTransaction(
@@ -436,6 +458,7 @@ namespace BugfixesAndQoL
             catch (Exception exception)
             {
                 multiplayerSynchronizationReady = false;
+                moveFormationDrag.DisableForProcess("chore-17-install", exception);
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"MULTIPLAYER_QUEUE_DISABLED: Vanilla multiplayer orders remain unchanged; {exception.Message}");
@@ -466,18 +489,44 @@ namespace BugfixesAndQoL
             try
             {
                 int observedTribeId = Marshal.ReadInt32(choreTribeIdPointer);
+                originalMoveType = Marshal.ReadInt32(choreMoveTypePointer);
+                int markedMoveType = originalMoveType;
+                if (ShouldMarkOutgoingFormationOrder())
+                {
+                    bool encoded = MoveFormationCommandContext.TryMarkOutgoing(
+                        observedTribeId,
+                        Marshal.ReadInt32(choreCommandOrTileXPointer),
+                        Marshal.ReadInt32(choreTileYPointer),
+                        markedMoveType,
+                        out int formationMarkedMoveType,
+                        out bool pendingMatched);
+                    if (encoded)
+                    {
+                        markedMoveType = formationMarkedMoveType;
+                    }
+                    else if (pendingMatched)
+                    {
+                        moveFormationDrag.DisableForProcess(
+                            "chore-17-unknown-move-type",
+                            new InvalidOperationException(
+                                $"Outgoing MoveType 0x{markedMoveType:X} is outside the audited Vanilla producer set."));
+                    }
+                }
                 if (ShouldMarkOutgoingMultiplayerOrder())
                 {
                     int tribeId = observedTribeId;
                     if (IsLocalSelectedTribe(tribeId, out _) &&
                         QueueNativeContract.TryMarkMoveTypeForQueue(
-                            Marshal.ReadInt32(choreMoveTypePointer),
-                            out int markedMoveType))
+                            markedMoveType,
+                            out int queueMarkedMoveType))
                     {
-                        originalMoveType = Marshal.ReadInt32(choreMoveTypePointer);
-                        Marshal.WriteInt32(choreMoveTypePointer, markedMoveType);
-                        markerWritten = true;
+                        markedMoveType = queueMarkedMoveType;
                     }
+                }
+                if (markedMoveType != originalMoveType)
+                {
+                    Marshal.WriteInt32(choreMoveTypePointer, markedMoveType);
+                    markerWritten = true;
                 }
 
                 trampolineEntered = true;
@@ -578,8 +627,16 @@ namespace BugfixesAndQoL
             IsRealMultiplayer() &&
             IsShiftPressed();
 
+        private bool ShouldMarkOutgoingFormationOrder() =>
+            installed && settings.EnableMod && settings.EnableMoveFormationEnhancements &&
+            multiplayerSynchronizationReady && !internalDispatch &&
+            Marshal.ReadInt32(choreModePointer) == QueueNativeContract.ChorePackMode &&
+            IsRealMultiplayer() && !IsShiftPressed();
+
         private void LogMultiplayerMarkerFailure(string chore, Exception exception)
         {
+            if (chore.StartsWith("Chore 17", StringComparison.Ordinal))
+                moveFormationDrag.DisableForProcess("chore-17", exception);
             if (multiplayerMarkerFailureLogged)
                 return;
             multiplayerMarkerFailureLogged = true;
@@ -632,6 +689,7 @@ namespace BugfixesAndQoL
 
         private void OnMapStart()
         {
+            moveFormationDrag.ResetTransientState();
             largeMoveTargets.Reset(currentTick, "map-start");
             cohorts.Clear();
             unitToCohort.Clear();
@@ -653,6 +711,7 @@ namespace BugfixesAndQoL
 
         private void ResetMapState()
         {
+            moveFormationDrag.ResetTransientState();
             largeMoveTargets.Reset(currentTick, "map-reset");
             cohorts.Clear();
             unitToCohort.Clear();
@@ -802,11 +861,19 @@ namespace BugfixesAndQoL
             if (!installed)
                 return;
 
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                MoveFormationCommandContext.ObserveMoveOrder(
+                    args,
+                    settings.EnableMod && settings.EnableMoveFormationEnhancements);
+            }
+
             if (args.Phase == EventHookPhase.Post)
             {
                 if (moveObservationScopes.Count == 0)
                 {
                     MoveFormationCommandSnapshotStore.Clear();
+                    MoveFormationCommandContext.CompleteMoveOrder();
                     return;
                 }
                 MoveObservationScope scope = moveObservationScopes.Pop();
@@ -827,6 +894,7 @@ namespace BugfixesAndQoL
                 {
                     // Formation hooks have completed; never retain an unmatched command snapshot.
                     MoveFormationCommandSnapshotStore.Clear();
+                    MoveFormationCommandContext.CompleteMoveOrder();
                 }
                 return;
             }

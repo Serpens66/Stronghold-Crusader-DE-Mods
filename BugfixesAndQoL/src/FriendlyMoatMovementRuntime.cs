@@ -1549,6 +1549,11 @@ namespace BugfixesAndQoL
 
             if (args.Phase == EventHookPhase.Pre)
             {
+                MoveFormationCommandContext.ObserveMoveOrder(
+                    args,
+                    settings.EnableMod && settings.EnableMoveFormationEnhancements);
+                bool hasFormationSpacing = MoveFormationCommandContext.TryGetActive(
+                    args.TribeId, args.TileX, args.TileY, out int formationSpacing);
                 ClearUnitMoveFrames();
                 RemoveTrackedAttacksForTribe(args.TribeId, "move-command");
                 RemoveTrackedMoatMovesForTribe(args.TribeId, "new-move-command");
@@ -1562,7 +1567,9 @@ namespace BugfixesAndQoL
                     args.MoveType,
                     activeAttackCommand?.Sequence ?? 0,
                     activeAttackCommand?.Command ?? TribeAICommand.Unknown0,
-                    MovementOptionsSnapshot.Capture(settings));
+                    MovementOptionsSnapshot.Capture(settings),
+                    hasFormationSpacing,
+                    formationSpacing);
                 if (!activeMoveCommand.Options.RequiredOnly ||
                     settings.EnableMoveFormationEnhancements)
                     CaptureMoveCommandGroupSummary(activeMoveCommand);
@@ -3733,7 +3740,7 @@ namespace BugfixesAndQoL
                 command.TribeId,
                 command.TargetX,
                 command.TargetY,
-                settings.MoveFormationSpacing,
+                command.FormationSpacing,
                 formationIdentities ?? Array.Empty<MoveFormationUnitIdentity>());
         }
 
@@ -9636,7 +9643,9 @@ namespace BugfixesAndQoL
                 TribeMoveType moveType,
                 int parentAttackCommandSequence,
                 TribeAICommand parentAttackCommand,
-                MovementOptionsSnapshot currentOptions)
+                MovementOptionsSnapshot currentOptions,
+                bool hasFormationSpacing = false,
+                int formationSpacing = MoveFormationSpacingPolicy.Default)
             {
                 Options = activeAttackCommand?.Options ?? currentOptions;
                 Required = activeAttackCommand?.Required ?? new RequiredRouteMetrics();
@@ -9652,6 +9661,8 @@ namespace BugfixesAndQoL
                 MoveType = moveType;
                 ParentAttackCommandSequence = parentAttackCommandSequence;
                 ParentAttackCommand = parentAttackCommand;
+                HasFormationSpacing = hasFormationSpacing;
+                FormationSpacing = MoveFormationSpacingPolicy.Normalize(formationSpacing);
                 StartTimestamp = Stopwatch.GetTimestamp();
             }
 
@@ -9664,6 +9675,8 @@ namespace BugfixesAndQoL
             public TribeMoveType MoveType { get; }
             public int ParentAttackCommandSequence { get; }
             public TribeAICommand ParentAttackCommand { get; }
+            public bool HasFormationSpacing { get; }
+            public int FormationSpacing { get; }
             public long StartTimestamp { get; }
             public double ElapsedMilliseconds { get; set; }
             public int ActiveUnitsAtDispatch { get; set; }

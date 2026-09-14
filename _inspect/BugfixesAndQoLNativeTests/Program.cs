@@ -75,7 +75,9 @@ internal static class Program
             ["FirstClassifierPattern"] = 0x11EBF5,
             ["SecondClassifierPattern"] = 0x11EF39,
             ["AddClassifierPattern"] = 0xCAEF2,
-            ["ReplaceClassifierPattern"] = 0xD0FF7
+            ["ReplaceClassifierPattern"] = 0xD0FF7,
+            ["CompletionTailPattern"] = 0xFE5C9,
+            ["FinalizeProloguePattern"] = 0x102A70
         };
 
     private static readonly FunctionContract[] Functions =
@@ -334,8 +336,8 @@ internal static class Program
 
     private static void CheckProductionPatterns(string workspace, PeImage pe)
     {
-        Dictionary<string, string> patterns = ReadConstStrings(
-            Path.Combine(workspace, "BugfixesAndQoL", "src"));
+        string sourceDirectory = Path.Combine(workspace, "BugfixesAndQoL", "src");
+        Dictionary<string, string> patterns = ReadConstStrings(sourceDirectory);
         foreach (KeyValuePair<string, int> contract in PatternRvas)
         {
             Check(patterns.TryGetValue(contract.Key, out string pattern), contract.Key + " source constant");
@@ -346,10 +348,50 @@ internal static class Program
             Check(matches.Count == 1 && matches[0] == contract.Value,
                 contract.Key + " unique executable match");
         }
+
+        string notificationContract = File.ReadAllText(
+            Path.Combine(sourceDirectory, "NotificationQueueNativeContract.cs"));
+        Match callOffsetMatch = Regex.Match(
+            notificationContract,
+            @"const\s+int\s+CompletionCallOffset\s*=\s*(?<value>\d+)\s*;");
+        Match callLengthMatch = Regex.Match(
+            notificationContract,
+            @"const\s+int\s+CompletionCallLength\s*=\s*(?<value>\d+)\s*;");
+        Check(callOffsetMatch.Success, "notification production completion-call offset constant");
+        Check(callLengthMatch.Success, "notification production completion-call length constant");
+        int callOffset = int.Parse(callOffsetMatch.Groups["value"].Value);
+        int callLength = int.Parse(callLengthMatch.Groups["value"].Value);
+        Check(callOffset == 62, "notification production completion-call offset is 62");
+        Check(callLength == 5, "notification production near-call length is five bytes");
+        Check(notificationContract.Contains("callOpcodeOffset + 1") &&
+              notificationContract.Contains("callOpcodeOffset + CompletionCallLength"),
+            "notification production resolver reads displacement at +1 and return address at +5");
+        int callRva = PatternRvas["CompletionTailPattern"] + callOffset;
+        Check(callRva == 0xFE607, "notification production completion call resolves to RVA 0xFE607");
+        Check(pe.Image[callRva] == 0xE8, "notification production completion-call opcode is E8");
+        CheckCallTarget(
+            pe.Image,
+            callRva,
+            PatternRvas["FinalizeProloguePattern"],
+            "notification production resolver displacement begins at call opcode +1");
     }
 
     private static void CheckCriticalSpans(byte[] image)
     {
+        CheckBytes(image, 0xFE5D7, "83 7B 04 00",
+            "notification updater reads ImmediateCommandId at MessageManager +0x04");
+        CheckBytes(image, 0xFE5DD, "80 7B 0C 00",
+            "notification updater reads ImmediateVideoPath at MessageManager +0x0C");
+        CheckUniqueCallTargetInRange(image, 0x86680, 2229, 0xFE570,
+            "DLL_RunTick calls the notification updater exactly once");
+        CheckCallTarget(image, 0xFE607, 0x102A70,
+            "DLL_RunTick notification updater reaches the regular finalizer");
+        CheckBytes(image, 0x102AA3, "48 89 43 04 89 03",
+            "notification finalizer clears current command and active state");
+        CheckBytes(image, 0x102AC2, "89 43 04",
+            "notification finalizer promotes queue entry zero");
+        CheckBytes(image, 0x102BB3, "89 8B 4C 09 00 00",
+            "notification finalizer commits the decremented queue count");
         CheckBytes(image, 0x912B4, "0F 44 D8", "assembly preview original span");
         foreach (int rva in new[] { 0x929D5, 0x928E2, 0x926FC, 0x912E2, 0x913D1, 0x927EF })
             CheckBytes(image, rva, "0F 84", $"assembly rejection original span 0x{rva:X}");
@@ -1005,6 +1047,27 @@ internal static class Program
         Check(image[callRva] == 0xE8, label + " opcode");
         int displacement = ReadInt32(image, callRva + 1);
         Check(callRva + 5 + displacement == expectedTargetRva, label);
+    }
+
+    private static void CheckUniqueCallTargetInRange(
+        byte[] image,
+        int startRva,
+        int length,
+        int expectedTargetRva,
+        string label)
+    {
+        Check(startRva >= 0 && length >= 5 && startRva <= image.Length - length,
+            label + " bounds");
+        int matches = 0;
+        for (int callRva = startRva; callRva <= startRva + length - 5; callRva++)
+        {
+            if (image[callRva] == 0xE8 &&
+                callRva + 5 + ReadInt32(image, callRva + 1) == expectedTargetRva)
+            {
+                matches++;
+            }
+        }
+        Check(matches == 1, label);
     }
 
     private static void CheckRelativeJump(byte[] image, int jumpRva, int expectedTargetRva, string label)

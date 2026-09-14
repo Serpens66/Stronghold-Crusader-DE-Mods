@@ -51,6 +51,9 @@ namespace BugfixesAndQoL
             TestTemporaryGateBlockageIntegration();
             TestResolutionAwareZoomPolicy();
             TestResolutionAwareZoomIntegration();
+            TestNotificationSkipPolicy();
+            TestNotificationQueueNearCallResolver();
+            TestNotificationSkipIntegration();
             TestSpriteAnimationGroup26Contract();
             TestMapFileManagerContract();
             TestClassicMapSizeReader();
@@ -496,6 +499,131 @@ namespace BugfixesAndQoL
                     ResolutionAwareZoomPolicy.ResolvePosition(5f, 1f, false, true, false, false, false),
                     5f),
                 "editor minimum and unlocked-camera limits retain Vanilla behavior");
+        }
+
+        private static void TestNotificationSkipPolicy()
+        {
+            Check(NotificationSkipPolicy.ShouldArm(true, true, true, true, true),
+                "active visible queued video notification arms complete skip");
+            Check(!NotificationSkipPolicy.ShouldArm(false, true, true, true, true) &&
+                  !NotificationSkipPolicy.ShouldArm(true, false, true, true, true) &&
+                  !NotificationSkipPolicy.ShouldArm(true, true, false, true, true) &&
+                  !NotificationSkipPolicy.ShouldArm(true, true, true, false, true) &&
+                  !NotificationSkipPolicy.ShouldArm(true, true, true, true, false),
+                "disabled, idle, audio-only, hidden, and stopped notifications remain untouched");
+            Check(NotificationSkipPolicy.ShouldCompleteOnRightClick(true, true, true),
+                "single right-click event on an armed notification video completes it");
+            Check(!NotificationSkipPolicy.ShouldCompleteOnRightClick(false, true, true) &&
+                  !NotificationSkipPolicy.ShouldCompleteOnRightClick(true, false, true) &&
+                  !NotificationSkipPolicy.ShouldCompleteOnRightClick(true, true, false),
+                "unarmed, left-click, and non-single-click events do not complete notifications");
+        }
+
+        private static void TestNotificationQueueNearCallResolver()
+        {
+            byte[] validCall = { 0x90, 0xE8, 0x04, 0x00, 0x00, 0x00, 0x90, 0x90, 0x90, 0x90, 0xC3 };
+            Check(NotificationQueueNativeContract.ResolveNearCallTarget(validCall, 1) == 10,
+                "production near-call resolver reads rel32 after E8 and uses the five-byte return address");
+
+            bool wrongOpcodeRejected = false;
+            try
+            {
+                NotificationQueueNativeContract.ResolveNearCallTarget(new byte[] { 0xE9, 0, 0, 0, 0 }, 0);
+            }
+            catch (InvalidOperationException)
+            {
+                wrongOpcodeRejected = true;
+            }
+
+            bool truncatedCallRejected = false;
+            try
+            {
+                NotificationQueueNativeContract.ResolveNearCallTarget(new byte[] { 0xE8, 0, 0, 0 }, 0);
+            }
+            catch (InvalidOperationException)
+            {
+                truncatedCallRejected = true;
+            }
+
+            Check(wrongOpcodeRejected && truncatedCallRejected,
+                "production near-call resolver rejects wrong opcodes and truncated calls");
+        }
+
+        private static void TestNotificationSkipIntegration()
+        {
+            string feature = File.ReadAllText(Path.Combine("src", "NotificationSkipFeature.cs"));
+            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+
+            Check(feature.Contains("MainViewModel.Instance.HUDRoot.RadarME_Ended();") &&
+                  feature.Contains("StopSpeechChannel1(MyAudioManager.Instance);") &&
+                  feature.Contains("ImmediateCommandIdOffset") &&
+                  !feature.Contains("StopAllGameSounds"),
+                "notification right-click closes video, stops only channel 1, and releases Vanilla queue state");
+            Check(feature.Contains("RefRadarME.PreviewMouseDown += RadarVideoPreviewMouseDown") &&
+                  feature.Contains("args.ChangedButton != Noesis.MouseButton.Right") &&
+                  feature.Contains("args.Handled = true;") &&
+                  !feature.Contains("RadarScrollMap") &&
+                  !feature.Contains("Input.GetMouseButtonDown"),
+                "complete notification skip uses a right-click UI event and no frame polling");
+            Check(feature.IndexOf("args.ChangedButton != Noesis.MouseButton.Right", StringComparison.Ordinal) <
+                      feature.IndexOf("ShouldArmNotificationSkip()", StringComparison.Ordinal) &&
+                  feature.Contains("DetachRadarVideoMouseHandler(pendingAttachedHud)") &&
+                  feature.Contains("source?.Stop();"),
+                "left-click avoids native inspection, failed initialization detaches events, and paused channel 1 stops");
+            Check(feature.Contains("speechChannel1Generation") &&
+                  feature.Contains("loadedClip?.UnloadAudioData();") &&
+                  feature.Contains("generation != Volatile.Read"),
+                "superseded channel-1 loads cannot replay skipped notification audio");
+            Check(feature.Contains("RollbackFailedInitialization") &&
+                  !feature.Contains("public void Dispose()"),
+                "notification hooks are process-lifetime rooted with initialization-only rollback");
+            Check(runtime.Contains("private NotificationSkipFeature notificationSkipFeature;") &&
+                  runtime.Contains("new NotificationSkipFeature(log, settings, nativeRegion)"),
+                "notification feature is retained by the process-lifetime runtime");
+            Check(viewModel.Contains("new LocalPerPlayerSetting<bool>(true)") &&
+                  viewModel.Contains("public bool EnableCompleteNotificationSkipOnClick") &&
+                  viewModel.Contains("EnableCompleteNotificationSkipOnClick = true;") &&
+                  viewModel.Contains("enableCompleteNotificationSkipOnClick.TrySetLocalPlayerId(playerId)"),
+                "complete notification skip is a default-on per-player preference");
+            Check(xaml.Contains("bugfixes.enable-complete-notification-skip-on-click") &&
+                  xaml.Contains("IsChecked=\"{Binding EnableCompleteNotificationSkipOnClick, Mode=TwoWay}\""),
+                "complete notification skip is exposed in searchable client UI");
+            foreach (string locale in Directory.GetFiles("Locales", "*.txt"))
+            {
+                string text = File.ReadAllText(locale);
+                Check(text.Contains("BugfixesAndQoL.EnableCompleteNotificationSkipOnClick=") &&
+                      text.Contains("BugfixesAndQoL.EnableCompleteNotificationSkipOnClickHelp="),
+                    "complete notification skip localization exists in " + Path.GetFileName(locale));
+            }
+
+            Type audioType = typeof(MyAudioManager);
+            BindingFlags members = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            Type mainHudType = audioType.Assembly.GetType("CrusaderDE.MainHUD");
+            MethodInfo radarLoadedMethod = Array.Find(
+                mainHudType?.GetMethods(members) ?? Array.Empty<MethodInfo>(),
+                method => method.Name == "OnLoadRadarGrid" &&
+                    method.ReturnType == typeof(void) &&
+                    method.GetParameters().Length == 2 &&
+                    method.GetParameters()[0].ParameterType == typeof(object) &&
+                    method.GetParameters()[1].ParameterType.FullName == "Noesis.RoutedEventArgs");
+            Type radarMediaType = mainHudType?.GetField("RefRadarME", members)?.FieldType;
+            Check(radarLoadedMethod != null &&
+                  radarMediaType?.GetEvent("PreviewMouseDown")?.EventHandlerType?.FullName ==
+                      "Noesis.MouseButtonEventHandler",
+                "installed Vanilla HUD load and Noesis mouse-event contracts match the notification feature");
+            Check(audioType.GetField("speechSource1", members)?.FieldType == typeof(UnityEngine.AudioSource) &&
+                  audioType.GetField("speechClip1", members)?.FieldType == typeof(UnityEngine.AudioClip) &&
+                  audioType.GetField("speechMode1", members)?.FieldType == typeof(int) &&
+                  audioType.GetMethod(
+                      "LoadClip",
+                      members,
+                      null,
+                      new[] { typeof(int), typeof(string), typeof(string), typeof(bool), typeof(bool) },
+                      null) != null,
+                "installed Vanilla channel-1 reflection contract matches the notification feature");
         }
 
         private static void TestResolutionAwareZoomIntegration()
@@ -1575,9 +1703,10 @@ namespace BugfixesAndQoL
                 projectDirectory, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_Multiplayer_AISettings.xaml"));
             string troopPatch = File.ReadAllText(Path.Combine(
                 projectDirectory, "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
-            Check(runtime.Contains("new FriendlyMoatMovementRuntime(") &&
-                    runtime.Contains("friendlyMoatMovementRuntime?.Dispose()"),
-                "integrated runtime participates in native initialization and final disposal");
+            Check(runtime.Contains("processFriendlyMoatMovementRuntime") &&
+                    runtime.Contains("new FriendlyMoatMovementRuntime(") &&
+                    !runtime.Contains("friendlyMoatMovementRuntime?.Dispose()"),
+                "integrated native runtime remains process-rooted and is not disposed by plugin teardown");
             Check(!aiSettingsPatch.Contains("<Attribute Name=") &&
                     aiSettingsPatch.Contains("AttributeName=\"Width\" Value=\"100\"") &&
                     aiSettingsPatch.Contains("AttributeName=\"Margin\" Value=\"0,0,20,20\"") &&
