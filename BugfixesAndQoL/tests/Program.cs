@@ -505,20 +505,36 @@ namespace BugfixesAndQoL
 
         private static void TestNotificationSkipPolicy()
         {
-            Check(NotificationSkipPolicy.ShouldArm(true, true, true, true, true),
+            Check(NotificationSkipPolicy.ShouldArmVideo(true, true, true, true, true, false),
                 "active visible queued video notification arms complete skip");
-            Check(!NotificationSkipPolicy.ShouldArm(false, true, true, true, true) &&
-                  !NotificationSkipPolicy.ShouldArm(true, false, true, true, true) &&
-                  !NotificationSkipPolicy.ShouldArm(true, true, false, true, true) &&
-                  !NotificationSkipPolicy.ShouldArm(true, true, true, false, true) &&
-                  !NotificationSkipPolicy.ShouldArm(true, true, true, true, false),
-                "disabled, idle, audio-only, hidden, and stopped notifications remain untouched");
+            Check(!NotificationSkipPolicy.ShouldArmVideo(false, true, true, true, true, false) &&
+                  !NotificationSkipPolicy.ShouldArmVideo(true, false, true, true, true, false) &&
+                  !NotificationSkipPolicy.ShouldArmVideo(true, true, false, true, true, false) &&
+                  !NotificationSkipPolicy.ShouldArmVideo(true, true, true, false, true, false) &&
+                  !NotificationSkipPolicy.ShouldArmVideo(true, true, true, true, false, false) &&
+                  !NotificationSkipPolicy.ShouldArmVideo(true, true, true, true, true, true),
+                "disabled, idle, videoless, hidden, stopped, and briefing video notifications remain untouched");
+            Check(NotificationSkipPolicy.ShouldArmMinimap(true, true, false, false),
+                "active videoless notification arms complete skip from the minimap");
+            Check(!NotificationSkipPolicy.ShouldArmMinimap(false, true, false, false) &&
+                  !NotificationSkipPolicy.ShouldArmMinimap(true, false, false, false) &&
+                  !NotificationSkipPolicy.ShouldArmMinimap(true, true, true, false) &&
+                  !NotificationSkipPolicy.ShouldArmMinimap(true, true, false, true),
+                "disabled, idle, video, and briefing notifications do not arm minimap skip");
             Check(NotificationSkipPolicy.ShouldCompleteOnRightClick(true, true, true),
-                "single right-click event on an armed notification video completes it");
+                "single right-click event on an armed notification surface completes it");
             Check(!NotificationSkipPolicy.ShouldCompleteOnRightClick(false, true, true) &&
                   !NotificationSkipPolicy.ShouldCompleteOnRightClick(true, false, true) &&
                   !NotificationSkipPolicy.ShouldCompleteOnRightClick(true, true, false),
                 "unarmed, left-click, and non-single-click events do not complete notifications");
+            Check(NotificationSkipPolicy.AudioPathMatches(
+                      "fx\\speech\\Random_Events14.wav", "random_events14.wav") &&
+                  NotificationSkipPolicy.AudioPathMatches(
+                      "folder/Random_Events14.wav", "C:\\audio\\random_events14.wav") &&
+                  !NotificationSkipPolicy.AudioPathMatches(
+                      "Random_Events14.wav", "unrelated.wav") &&
+                  !NotificationSkipPolicy.AudioPathMatches(string.Empty, "Random_Events14.wav"),
+                "notification audio loads are matched by portable case-insensitive filename");
         }
 
         private static void TestNotificationQueueNearCallResolver()
@@ -600,9 +616,10 @@ namespace BugfixesAndQoL
                   feature.Contains("ImmediateCommandIdOffset") &&
                   !feature.Contains("StopAllGameSounds"),
                 "notification right-click closes video, stops only channel 1, hides only the message bar, and marks queue state");
-            Check(behavior.Contains("mediaElement.PreviewMouseDown += OnPreviewMouseDown") &&
+            Check(behavior.Contains("element.PreviewMouseDown += OnPreviewMouseDown") &&
                   behavior.Contains("using NoesisApp;") &&
-                  behavior.Contains("if (!(sender is MediaElement)") &&
+                  behavior.Contains("sender is MediaElement") &&
+                  behavior.Contains("sender is Image") &&
                   behavior.Contains("args.ChangedButton != MouseButton.Right") &&
                   feature.Contains("args.Handled = true;") &&
                   !feature.Contains("RadarScrollMap") &&
@@ -612,13 +629,22 @@ namespace BugfixesAndQoL
                   !behavior.Contains(".MouseDown") &&
                   !behavior.Contains("MouseLeftButton") &&
                   !behavior.Contains("void Update("),
-                "complete notification skip uses only the RadarME right-click UI event and no polling or HUD hook");
+                "complete notification skip uses only notification-surface right-click UI events and no polling or HUD hook");
             Check(behavior.IndexOf("args.ChangedButton != MouseButton.Right", StringComparison.Ordinal) <
-                      behavior.IndexOf("CompleteFromRadarVideoRightClick(args)", StringComparison.Ordinal) &&
+                      behavior.IndexOf("CompleteFromNotificationSurfaceRightClick(surface, args)", StringComparison.Ordinal) &&
                   behavior.Contains("private static NotificationSkipFeature feature;") &&
                   feature.Contains("NotificationSkipBehavior.Configure(this);") &&
                   feature.Contains("source?.Stop();"),
                 "left-click exits in the static behavior before feature inspection and paused channel 1 stops");
+            Check(feature.Contains("surface == NotificationSkipSurface.Minimap") &&
+                  feature.Contains("NotificationSkipPolicy.ShouldArmMinimap") &&
+                  feature.Contains("if (!hasVideo)") &&
+                  feature.Contains("if (hasVideo)") &&
+                  feature.Contains("if (hasAudio)") &&
+                  feature.Contains("ImmediateAudioPathOffset") &&
+                  feature.Contains("NotificationSkipPolicy.AudioPathMatches") &&
+                  feature.Contains("The immediate notification audio path is not null-terminated"),
+                "video and videoless minimap clicks are classified separately, including a transparent RadarME overlay, and only matching notification audio is stopped");
             Check(feature.Contains("initializationStage = \"channel-1 speech hook\"") &&
                   feature.Contains("initializationStage = \"native notification-update detour\"") &&
                   feature.Contains("RollbackFailedInitialization(pendingLoadHook, pendingNativeTransaction)") &&
@@ -660,6 +686,10 @@ namespace BugfixesAndQoL
                   runtime.Contains("nativeRegion,") &&
                   runtime.Contains("newLibraryHandle)"),
                 "notification feature is retained by the process-lifetime runtime");
+            Check(!feature.Contains("GameSoundManagerAPI") &&
+                  !feature.Contains("SetSuppressMessages") &&
+                  !feature.Contains("0x1031B0"),
+                "notification completion does not interfere with Script Extender or fixes-mod message suppression at enqueue time");
             Check(viewModel.Contains("new LocalPerPlayerSetting<bool>(true)") &&
                   viewModel.Contains("public bool EnableCompleteNotificationSkipOnClick") &&
                   viewModel.Contains("EnableCompleteNotificationSkipOnClick = true;") &&
@@ -671,7 +701,7 @@ namespace BugfixesAndQoL
             var patchDocument = new XmlDocument();
             patchDocument.LoadXml(mainHudPatch);
             XmlNodeList patchOperations = patchDocument.SelectNodes("/Patch/Operation");
-            Check(patchOperations.Count == 2 &&
+            Check(patchOperations.Count == 3 &&
                   mainHudPatch.Contains(
                       "xmlns:bugfixes=\"clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL\"") &&
                   patchOperations[0].Attributes?["Type"]?.Value == "AddNamespace" &&
@@ -683,8 +713,15 @@ namespace BugfixesAndQoL
                       "//n:MediaElement[@Name='RadarME']" &&
                   patchOperations[1].Attributes?["AttributeName"]?.Value ==
                       "bugfixes:NotificationSkipBehavior.IsEnabled" &&
-                  patchOperations[1].Attributes?["Value"]?.Value == "True",
-                "MainHUD patch targets only RadarME with the notification attached behavior");
+                  patchOperations[1].Attributes?["Value"]?.Value == "True" &&
+                  patchOperations[2].Attributes?["Type"]?.Value == "SetAttribute" &&
+                  patchOperations[2].Attributes?["XPath"]?.Value ==
+                      "//n:Image[@Name='RadarMapImage']" &&
+                  patchOperations[2].Attributes?["AttributeName"]?.Value ==
+                      "bugfixes:NotificationSkipBehavior.IsEnabled" &&
+                  patchOperations[2].Attributes?["Value"]?.Value == "True" &&
+                  !mainHudPatch.Contains("RadarMapGrid"),
+                "MainHUD patch targets only RadarME and RadarMapImage with the notification attached behavior");
 
             string projectDirectory = FindProjectDirectory();
             string baselineRoot = Path.Combine(
@@ -711,6 +748,10 @@ namespace BugfixesAndQoL
                       "//n:MediaElement[@Name='RadarME']",
                       canonicalNamespaces)?.Count == 1,
                 "current canonical MainHUD contains exactly one RadarME target for the patch XPath");
+            Check(canonicalMainHud.SelectNodes(
+                      "//n:Image[@Name='RadarMapImage']",
+                      canonicalNamespaces)?.Count == 1,
+                "current canonical MainHUD contains exactly one RadarMapImage target for the patch XPath");
             foreach (string locale in Directory.GetFiles("Locales", "*.txt"))
             {
                 string text = File.ReadAllText(locale);
@@ -2447,6 +2488,9 @@ namespace BugfixesAndQoL
                       notification.PendingFlagRva == 0x8EBA90 &&
                       NotificationQueueNativeContract.ImmediateCommandIdOffset == 0x04 &&
                       NotificationQueueNativeContract.ImmediatePresentationIdOffset == 0x08 &&
+                      NotificationQueueNativeContract.ImmediateVideoPathOffset == 0x0C &&
+                      NotificationQueueNativeContract.ImmediateAudioPathOffset == 0x70 &&
+                      NotificationQueueNativeContract.ImmediateAudioPathCapacity == 100 &&
                       NotificationQueueNativeContract.QueuedCountOffset == 0x94C,
                     "notification DLL_RunTick update, single finalizer, presentation start, and manager offsets match the audited contract");
             }

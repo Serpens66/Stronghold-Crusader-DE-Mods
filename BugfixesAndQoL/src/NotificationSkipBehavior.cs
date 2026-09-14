@@ -1,10 +1,16 @@
-// Feature: Bind complete notification skipping to the real Noesis right-click event on RadarME.
+// Feature: Bind complete notification skipping to the real Noesis right-click events on the notification surfaces.
 using Noesis;
 using NoesisApp;
 using System;
 
 namespace BugfixesAndQoL
 {
+    internal enum NotificationSkipSurface
+    {
+        Video,
+        Minimap
+    }
+
     public static class NotificationSkipBehavior
     {
         private static NotificationSkipFeature feature;
@@ -29,25 +35,32 @@ namespace BugfixesAndQoL
             DependencyObject dependencyObject,
             DependencyPropertyChangedEventArgs args)
         {
-            if (!(dependencyObject is MediaElement mediaElement))
+            if (!(dependencyObject is UIElement element))
                 return;
 
-            mediaElement.PreviewMouseDown -= OnPreviewMouseDown;
+            element.PreviewMouseDown -= OnPreviewMouseDown;
             if (args.NewValue is bool enabled && enabled)
-                mediaElement.PreviewMouseDown += OnPreviewMouseDown;
+                element.PreviewMouseDown += OnPreviewMouseDown;
         }
 
         private static void OnPreviewMouseDown(object sender, MouseButtonEventArgs args)
         {
-            if (!(sender is MediaElement) ||
-                args == null ||
+            if (args == null ||
                 args.ChangedButton != MouseButton.Right ||
                 args.ClickCount != 1)
             {
                 return;
             }
 
-            feature?.CompleteFromRadarVideoRightClick(args);
+            NotificationSkipSurface surface;
+            if (sender is MediaElement)
+                surface = NotificationSkipSurface.Video;
+            else if (sender is Image)
+                surface = NotificationSkipSurface.Minimap;
+            else
+                return;
+
+            feature?.CompleteFromNotificationSurfaceRightClick(surface, args);
         }
     }
 }

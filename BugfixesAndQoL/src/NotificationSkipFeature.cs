@@ -1,4 +1,4 @@
-// Feature: Fully finish a queued AI/event notification when its minimap video is right-clicked.
+// Feature: Fully finish a queued AI/event notification when its video or videoless minimap is right-clicked.
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -133,12 +133,16 @@ namespace BugfixesAndQoL
                 "Bugfixes and QoL complete notification-skip hooks installed for the process lifetime.");
         }
 
-        internal void CompleteFromRadarVideoRightClick(Noesis.MouseButtonEventArgs args)
+        internal void CompleteFromNotificationSurfaceRightClick(
+            NotificationSkipSurface surface,
+            Noesis.MouseButtonEventArgs args)
         {
             try
             {
+                bool hasAudio;
+                bool hasVideo;
                 if (!NotificationSkipPolicy.ShouldCompleteOnRightClick(
-                        ShouldArmNotificationSkip(),
+                        ShouldArmNotificationSkip(surface, out hasAudio, out hasVideo),
                         true,
                         true))
                 {
@@ -146,7 +150,7 @@ namespace BugfixesAndQoL
                 }
 
                 args.Handled = true;
-                CompleteCurrentNotification();
+                CompleteCurrentNotification(surface, hasVideo, hasAudio);
             }
             catch (Exception ex)
             {
@@ -156,33 +160,63 @@ namespace BugfixesAndQoL
             }
         }
 
-        private bool ShouldArmNotificationSkip()
+        private bool ShouldArmNotificationSkip(
+            NotificationSkipSurface surface,
+            out bool hasAudio,
+            out bool hasVideo)
         {
-            SFXManager sfx = SFXManager.instance;
+            hasAudio = false;
             bool enabled = settings.EnableMod &&
                 settings.EnableClientFeatures &&
                 settings.EnableCompleteNotificationSkipOnClick;
             bool queueActive = Marshal.ReadInt32(
                 messageManager,
                 NotificationQueueNativeContract.IsQueueActiveOffset) != 0;
-            bool hasVideo = Marshal.ReadByte(
+            hasVideo = Marshal.ReadByte(
                 messageManager,
                 NotificationQueueNativeContract.ImmediateVideoPathOffset) != 0;
+            hasAudio = Marshal.ReadByte(
+                messageManager,
+                NotificationQueueNativeContract.ImmediateAudioPathOffset) != 0;
+            bool briefingVisible = MainViewModel.viewModelLoaded &&
+                MainViewModel.Instance != null &&
+                MainViewModel.Instance.Show_HUD_Briefing;
+
+            // RadarME is layered above RadarMapImage. Noesis may still hit-test the
+            // transparent media element, so a videoless hit on either attached
+            // surface is semantically a minimap click.
+            if (!hasVideo)
+            {
+                return NotificationSkipPolicy.ShouldArmMinimap(
+                    enabled,
+                    queueActive,
+                    hasVideo,
+                    briefingVisible);
+            }
+
+            if (surface == NotificationSkipSurface.Minimap)
+                return false;
+
+            SFXManager sfx = SFXManager.instance;
             bool videoVisible = MainViewModel.viewModelLoaded &&
                 MainViewModel.Instance?.HUDRoot?.RefRadarME != null &&
                 MainViewModel.Instance.HUDRoot.RefRadarME.Opacity != 0f;
             bool videoPlaying = sfx != null &&
                 (sfx.binkIsPlaying || sfx.requestBinkPlayState != 0);
 
-            return NotificationSkipPolicy.ShouldArm(
+            return NotificationSkipPolicy.ShouldArmVideo(
                 enabled,
                 queueActive,
                 hasVideo,
                 videoVisible,
-                videoPlaying);
+                videoPlaying,
+                briefingVisible);
         }
 
-        private void CompleteCurrentNotification()
+        private void CompleteCurrentNotification(
+            NotificationSkipSurface surface,
+            bool hasVideo,
+            bool hasAudio)
         {
             int messageId = Marshal.ReadInt32(
                 messageManager,
@@ -194,23 +228,29 @@ namespace BugfixesAndQoL
                 messageManager,
                 NotificationQueueNativeContract.QueuedCountOffset);
             Exception firstFailure = null;
-            try
+            if (hasVideo)
             {
-                MainViewModel.Instance.HUDRoot.RadarME_Ended();
-            }
-            catch (Exception ex)
-            {
-                firstFailure = ex;
+                try
+                {
+                    MainViewModel.Instance.HUDRoot.RadarME_Ended();
+                }
+                catch (Exception ex)
+                {
+                    firstFailure = ex;
+                }
             }
 
-            try
+            if (hasAudio)
             {
-                StopSpeechChannel1(MyAudioManager.Instance);
-            }
-            catch (Exception ex)
-            {
-                if (firstFailure == null)
-                    firstFailure = ex;
+                try
+                {
+                    StopSpeechChannel1(MyAudioManager.Instance);
+                }
+                catch (Exception ex)
+                {
+                    if (firstFailure == null)
+                        firstFailure = ex;
+                }
             }
 
             try
@@ -247,7 +287,7 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogDebug(
                 log,
                 $"Bugfixes and QoL requested right-click notification completion: " +
-                $"messageId={messageId}, presentationId={presentationId}, " +
+                $"surface={surface}, messageId={messageId}, presentationId={presentationId}, " +
                 $"queuedCount={queuedCount}, generation={generation}.");
 
             if (firstFailure != null)
@@ -417,7 +457,7 @@ namespace BugfixesAndQoL
             bool unitsSpeech,
             bool ignorePauseState)
         {
-            if (channel != 1 || !IsActiveVideoNotificationEnabled())
+            if (channel != 1 || !IsActiveNotificationAudioLoad(soundName))
             {
                 loadSpeechClipOriginal(self, channel, folder, soundName, unitsSpeech, ignorePauseState);
                 return;
@@ -433,7 +473,7 @@ namespace BugfixesAndQoL
                 generation);
         }
 
-        private bool IsActiveVideoNotificationEnabled()
+        private bool IsActiveNotificationAudioLoad(string soundName)
         {
             if (!settings.EnableMod ||
                 !settings.EnableClientFeatures ||
@@ -444,12 +484,17 @@ namespace BugfixesAndQoL
 
             try
             {
-                return Marshal.ReadInt32(
-                           messageManager,
-                           NotificationQueueNativeContract.IsQueueActiveOffset) != 0 &&
-                       Marshal.ReadByte(
-                           messageManager,
-                           NotificationQueueNativeContract.ImmediateVideoPathOffset) != 0;
+                if (Marshal.ReadInt32(
+                        messageManager,
+                        NotificationQueueNativeContract.IsQueueActiveOffset) == 0)
+                {
+                    return false;
+                }
+
+                string notificationAudioPath = ReadImmediateAudioPath();
+                return NotificationSkipPolicy.AudioPathMatches(
+                    notificationAudioPath,
+                    soundName);
             }
             catch (Exception ex)
             {
@@ -458,6 +503,24 @@ namespace BugfixesAndQoL
                     $"Bugfixes and QoL could not classify channel-1 speech; Vanilla loading continues: {ex}");
                 return false;
             }
+        }
+
+        private string ReadImmediateAudioPath()
+        {
+            IntPtr pathAddress = IntPtr.Add(
+                messageManager,
+                NotificationQueueNativeContract.ImmediateAudioPathOffset);
+            int length = 0;
+            while (length < NotificationQueueNativeContract.ImmediateAudioPathCapacity &&
+                   Marshal.ReadByte(pathAddress, length) != 0)
+            {
+                length++;
+            }
+
+            if (length == NotificationQueueNativeContract.ImmediateAudioPathCapacity)
+                throw new InvalidOperationException("The immediate notification audio path is not null-terminated.");
+
+            return length == 0 ? string.Empty : Marshal.PtrToStringAnsi(pathAddress, length);
         }
 
         private async void LoadSpeechChannel1Async(

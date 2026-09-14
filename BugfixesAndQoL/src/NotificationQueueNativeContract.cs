@@ -9,6 +9,8 @@ namespace BugfixesAndQoL
         public const int ImmediateCommandIdOffset = 0x04;
         public const int ImmediatePresentationIdOffset = 0x08;
         public const int ImmediateVideoPathOffset = 0x0C;
+        public const int ImmediateAudioPathOffset = 0x70;
+        public const int ImmediateAudioPathCapacity = 100;
         public const int QueuedCountOffset = 0x94C;
 
         private const int CompletionCallOffset = 62;
