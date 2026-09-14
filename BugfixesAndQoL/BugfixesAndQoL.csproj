@@ -177,8 +177,8 @@
     <Compile Include="src\EnemyProximityBulldozeCursorHook.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueModel.cs" />
     <Compile Include="src\ExtendedShiftCommandQueueRuntime.cs" />
-    <Compile Include="src\LargeMoveTargetDiagnosticsModel.cs" />
-    <Compile Include="src\LargeMoveTargetDiagnosticsRuntime.cs" />
+    <Compile Include="src\LargeMoveTargetOverflowModel.cs" />
+    <Compile Include="src\LargeMoveTargetMarkerRuntime.cs" />
     <Compile Include="src\LargeMoveTargetMarkerRenderer.cs" />
     <Compile Include="src\HdMarketViewHook.cs" />
     <Compile Include="src\MarketKeyMainTradeMenuHook.cs" />

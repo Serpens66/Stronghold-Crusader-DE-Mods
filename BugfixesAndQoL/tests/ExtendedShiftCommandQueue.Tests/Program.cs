@@ -29,7 +29,7 @@ internal static class Program
         CheckFirstShiftMoveTakeover();
         CheckMoveFormationSpacing();
         CheckMoveFormationGesture();
-        CheckLargeMoveTargetDiagnostics();
+        CheckLargeMoveTargetOverflow();
         CheckMigrationSourceContracts();
         CheckNativeReference();
         Console.WriteLine($"Extended Shift command queue static tests passed: {checks} checks.");
@@ -215,179 +215,72 @@ internal static class Program
             "the opposite Vanilla release cannot claim a drag transaction");
     }
 
-    private static void CheckLargeMoveTargetDiagnostics()
+    private static void CheckLargeMoveTargetOverflow()
     {
-        foreach (int size in new[] { 199, 200, 250, 251, 1000, 4000 })
-        {
-            bool expected = size >= LargeMoveTargetDiagnosticsModel.MinimumTrackedUnits;
-            Check(LargeMoveTargetDiagnosticsModel.ShouldTrack(size) == expected,
-                $"large Move threshold {size}");
-            MoveTargetOutcome[] sizedOutcomes = Enumerable.Range(0, size)
-                .Select(index => new MoveTargetOutcome(
-                    index + 1,
-                    (uint)(index + 100),
-                    new MoveTargetCoordinate(index % 100, index / 100),
-                    new MoveTargetCoordinate(index % 100, index / 100),
-                    MoveTargetOutcomeKind.Exact))
-                .ToArray();
-            MoveTargetComparisonSummary sizedSummary =
-                LargeMoveTargetDiagnosticsModel.Compare(sizedOutcomes);
-            Check(sizedSummary.Total == size && sizedSummary.Exact == size,
-                $"large Move comparison size {size}");
-            var sizedActiveMarkers = new HashSet<int>();
-            var sizedObservedMarkers = new HashSet<int>(Enumerable.Range(0, size));
-            var sizedRemovedMarkers = new List<int>();
-            var sizedAddedMarkers = new List<int>();
-            Check(LargeMoveTargetDiagnosticsModel.BuildMarkerDelta(
-                    sizedActiveMarkers,
-                    sizedObservedMarkers,
-                    sizedRemovedMarkers,
-                    sizedAddedMarkers) &&
-                  sizedAddedMarkers.Count == size,
-                $"overlay reconciliation retains all {size} marker calls");
+        Check(LargeMoveTargetOverflowModel.NativeDrawCapacity == 250 &&
+              LargeMoveTargetOverflowModel.NativeUsableDrawRecords == 249,
+            "Vanilla shared draw list exposes 249 usable records");
+        Check(LargeMoveTargetOverflowModel.NativeTileCount == 320800,
+            "overflow uses the complete native tile capacity");
+        Check(LargeMoveTargetOverflowModel.IsVanillaMoveTargetMarker(0x6B, 0x52, 0xC, 6, 2) &&
+              LargeMoveTargetOverflowModel.IsVanillaMoveTargetMarker(0x6B, 0x59, 0xC, 6, 0x40002),
+            "Vanilla green Move marker signatures are recognized");
+        Check(!LargeMoveTargetOverflowModel.IsVanillaMoveTargetMarker(0x6B, 0x5A, 0xC, 6, 2) &&
+              !LargeMoveTargetOverflowModel.IsVanillaMoveTargetMarker(0xAC, 0x142, 0x12, -1, 0xA0022),
+            "non-Move and Extended Shift markers remain outside overflow capture");
 
-            object owner = new object();
-            MoveFormationUnitIdentity[] identities = Enumerable.Range(1, size)
-                .Select(unitId => new MoveFormationUnitIdentity(unitId, (uint)unitId))
-                .ToArray();
-            MoveFormationCommandSnapshotStore.Begin(owner, 9, 50, 60, 2, identities);
-            Check(MoveFormationCommandSnapshotStore.TryConsume(
-                    9, 50, 60, out MoveFormationCommandSnapshot snapshot) == expected &&
-                  (!expected || snapshot.Units.Length == size),
-                $"large Move snapshot threshold {size}");
+        foreach (int requested in new[] { 248, 249, 250, 251, 1000, 4000 })
+        {
+            int expectedOverflow = Math.Max(0, requested - 249);
+            Check(LargeMoveTargetOverflowModel.GetOverflowCount(requested) == expectedOverflow,
+                $"overflow count for {requested} requested markers");
+            var buffer = new LargeMoveTargetOverflowBuffer();
+            for (int index = 0; index < expectedOverflow; index++)
+            {
+                Check(buffer.TryAdd(0x6B, 0x52 + index % 8, 0xC, 6, index, 2),
+                    $"overflow accepts marker {index} of {expectedOverflow}");
+            }
+            Check(buffer.Count == expectedOverflow,
+                $"only the rejected tail of {requested} markers enters overflow");
         }
-        Check(LargeMoveTargetDiagnosticsModel.VanillaDrawCapacity == 250,
-            "Vanilla shared draw capacity contract");
-        Check(LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(0x6B, 0x52, 0xC, 6, 2),
-            "Vanilla first Move marker recognized");
-        Check(LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(0x6B, 0x59, 0xC, 6, 0x40002),
-            "Vanilla directional Move marker recognized");
-        Check(!LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(0x6B, 0x5A, 0xC, 6, 2),
-            "non-Move sprite beside the animation range remains visible");
-        Check(!LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(0xAC, 0x142, 0x12, -1, 0xA0022),
-            "Extended Shift flag remains outside Move target filter");
 
-        var activeMarkers = new HashSet<int>(Enumerable.Range(0, 4000));
-        var observedMarkers = new HashSet<int>(activeMarkers);
-        var removedMarkers = new List<int>();
-        var addedMarkers = new List<int>();
-        Check(!LargeMoveTargetDiagnosticsModel.BuildMarkerDelta(
-                activeMarkers, observedMarkers, removedMarkers, addedMarkers) &&
-              removedMarkers.Count == 0 && addedMarkers.Count == 0,
-            "unchanged 4000-marker overlay does not publish a delta");
-        observedMarkers.Remove(250);
-        observedMarkers.Remove(3999);
-        observedMarkers.Add(5000);
-        Check(LargeMoveTargetDiagnosticsModel.BuildMarkerDelta(
-                activeMarkers, observedMarkers, removedMarkers, addedMarkers) &&
-              removedMarkers.Count == 2 && removedMarkers.Contains(250) &&
-              removedMarkers.Contains(3999) && addedMarkers.SequenceEqual(new[] { 5000 }),
-            "arrival, interruption, death, and target changes form one marker delta");
-        activeMarkers.ExceptWith(removedMarkers);
-        activeMarkers.UnionWith(addedMarkers);
-        Check(activeMarkers.SetEquals(observedMarkers),
-            "applying an overlay delta exactly reconciles the active marker set");
-        observedMarkers.Clear();
-        observedMarkers.Add(7);
-        observedMarkers.Add(7);
-        activeMarkers.Clear();
-        Check(LargeMoveTargetDiagnosticsModel.BuildMarkerDelta(
-                activeMarkers, observedMarkers, removedMarkers, addedMarkers) &&
-              addedMarkers.Count == 1,
-            "duplicate Vanilla marker calls retain one synthetic tile");
-        Check(LargeMoveTargetDiagnosticsModel.RequiredEmptyOverlayPasses == 3 &&
-              !LargeMoveTargetDiagnosticsModel.ShouldCompleteAfterEmptyOverlayPasses(1) &&
-              !LargeMoveTargetDiagnosticsModel.ShouldCompleteAfterEmptyOverlayPasses(2) &&
-              LargeMoveTargetDiagnosticsModel.ShouldCompleteAfterEmptyOverlayPasses(3) &&
-              LargeMoveTargetDiagnosticsModel.ShouldCompleteAfterEmptyOverlayPasses(4),
-            "three empty overlay passes protect markers from transient empty rendering");
-        var sharedTileReferences = new Dictionary<int, int>();
-        Check(LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
-                sharedTileReferences, 42, 1) == 1 &&
-              LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
-                sharedTileReferences, 42, 1) == 2 &&
-              LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
-                sharedTileReferences, 42, -1) == 1 &&
-              sharedTileReferences.ContainsKey(42) &&
-              LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
-                sharedTileReferences, 42, -1) == 0 &&
-              !sharedTileReferences.ContainsKey(42),
-            "overlapping tribe targets retain a shared tile until its final owner completes");
+        Check(!LargeMoveTargetOverflowModel.IsRejectedByFullVanillaList(249) &&
+              LargeMoveTargetOverflowModel.IsRejectedByFullVanillaList(250),
+            "overflow begins only after Vanilla reaches its hard capacity");
 
-        var exact = Enumerable.Range(1, 200)
-            .Select(index => new MoveTargetOutcome(
-                index,
-                (uint)(1000 + index),
-                new MoveTargetCoordinate(index, index + 1),
-                new MoveTargetCoordinate(index, index + 1),
-                MoveTargetOutcomeKind.Exact))
-            .ToArray();
-        MoveTargetComparisonSummary exactSummary = LargeMoveTargetDiagnosticsModel.Compare(exact);
-        Check(exactSummary.Total == 200 && exactSummary.Exact == 200 &&
-            exactSummary.CollectiveMatches == 200 && exactSummary.MaximumManhattan == 0,
-            "200 exact target outcomes aggregate correctly");
-        Check(exactSummary.PlannedUnique == exactSummary.ActualUnique,
-            "exact planned and actual unique target counts match");
+        var duplicates = new LargeMoveTargetOverflowBuffer();
+        Check(duplicates.TryAdd(0x6B, 0x52, 0xC, 6, 42, 2) &&
+              duplicates.TryAdd(0x6B, 0x52, 9, 99, 42, 0x40002) &&
+              duplicates.Count == 1,
+            "same tile, category, and sprite follows Vanilla duplicate suppression");
+        Check(duplicates.TryAdd(0x6B, 0x53, 0xC, 6, 42, 2) && duplicates.Count == 2,
+            "different sprites on one tile remain distinct chained records");
+        int head = duplicates.GetHead(42);
+        Check(duplicates.GetRecord(head).SpriteId == 0x53 &&
+              duplicates.GetRecord(duplicates.GetRecord(head).Next).SpriteId == 0x52,
+            "overflow tile chains use Vanilla last-in-first-rendered order");
 
-        var swapped = new[]
-        {
-            new MoveTargetOutcome(1, 11, new MoveTargetCoordinate(10, 10),
-                new MoveTargetCoordinate(11, 10), MoveTargetOutcomeKind.SettledElsewhere),
-            new MoveTargetOutcome(2, 12, new MoveTargetCoordinate(11, 10),
-                new MoveTargetCoordinate(10, 10), MoveTargetOutcomeKind.SettledElsewhere)
-        };
-        MoveTargetComparisonSummary swappedSummary = LargeMoveTargetDiagnosticsModel.Compare(swapped);
-        Check(swappedSummary.Exact == 0 && swappedSummary.Reassigned == 2 &&
-            swappedSummary.Deviated == 0 && swappedSummary.CollectiveMatches == 2 &&
-            swappedSummary.PlannedUnique == swappedSummary.ActualUnique,
-            "swapped targets are identified as collective reassignment");
+        duplicates.Clear();
+        Check(duplicates.Count == 0 && duplicates.GetHead(42) == 0,
+            "Vanilla reset clears every touched overflow tile immediately");
+        Check(duplicates.TryAdd(0x6B, 0x54, 0xC, 6, 99, 2) &&
+              duplicates.Count == 1 && duplicates.GetHead(42) == 0,
+            "selection, tribe, target, arrival, death, and interruption frames cannot retain old tiles");
+        duplicates.Clear();
+        Check(duplicates.Count == 0,
+            "a frame without a selected tribe publishes no previous overflow");
 
-        var exceptional = new[]
-        {
-            new MoveTargetOutcome(1, 21, new MoveTargetCoordinate(5, 5),
-                new MoveTargetCoordinate(5, 5), MoveTargetOutcomeKind.Exact),
-            new MoveTargetOutcome(2, 22, new MoveTargetCoordinate(5, 5),
-                new MoveTargetCoordinate(8, 9), MoveTargetOutcomeKind.Interrupted),
-            new MoveTargetOutcome(3, 23, new MoveTargetCoordinate(7, 7),
-                default, MoveTargetOutcomeKind.Lost)
-        };
-        MoveTargetComparisonSummary exceptionalSummary = LargeMoveTargetDiagnosticsModel.Compare(exceptional);
-        Check(exceptionalSummary.PlannedDuplicates == 1 && exceptionalSummary.Interrupted == 1 &&
-            exceptionalSummary.Lost == 1 && exceptionalSummary.Deviated == 0 &&
-            exceptionalSummary.MaximumManhattan == 7 &&
-            exceptionalSummary.MaximumChebyshev == 4,
-            "duplicates, interruption, loss, and distances aggregate correctly");
-        Check(exceptionalSummary.Examples.Count == 2,
-            "only exceptional outcomes are emitted as bounded examples");
-
-        MoveTargetOutcome[] manyExceptions = Enumerable.Range(1, 10)
-            .Select(index => new MoveTargetOutcome(
-                index,
-                (uint)index,
-                new MoveTargetCoordinate(index, index),
-                index == 10
-                    ? new MoveTargetCoordinate(99, 99)
-                    : new MoveTargetCoordinate(index + 1, index + 1),
-                MoveTargetOutcomeKind.SettledElsewhere))
-            .ToArray();
-        MoveTargetComparisonSummary manyExceptionSummary =
-            LargeMoveTargetDiagnosticsModel.Compare(manyExceptions);
-        Check(manyExceptionSummary.Examples.Count == 3 &&
-            manyExceptionSummary.Reassigned == 9 && manyExceptionSummary.Deviated == 1,
-            "collective matches stay distinct from deviations and examples are capped at three");
-
-        var fourThousand = Enumerable.Range(0, 4000)
-            .Select(index => new MoveTargetOutcome(
-                index + 1,
-                (uint)(index + 1),
-                new MoveTargetCoordinate(index % 100, index / 100),
-                new MoveTargetCoordinate(index % 100, index / 100),
-                MoveTargetOutcomeKind.Exact))
-            .ToArray();
-        MoveTargetComparisonSummary largeSummary = LargeMoveTargetDiagnosticsModel.Compare(fourThousand);
-        Check(largeSummary.Total == 4000 && largeSummary.PlannedUnique == 4000 &&
-            largeSummary.Exact == 4000,
-            "4000 marker comparison remains complete");
+        var capacity = new LargeMoveTargetOverflowBuffer();
+        for (int index = 0; index < LargeMoveTargetOverflowModel.MaximumOverflowMarkers; index++)
+            Check(capacity.TryAdd(0x6B, 0x52, 0xC, 6, index, 2), "overflow capacity fill");
+        Check(!capacity.TryAdd(0x6B, 0x52, 0xC, 6,
+                LargeMoveTargetOverflowModel.MaximumOverflowMarkers, 2),
+            "overflow fails open when its validated identity range is exhausted");
+        Check(capacity.TryAdd(0x6B, 0x52, 0xC, 6, 0, 2),
+            "a duplicate remains harmless at capacity");
+        Check(!capacity.TryAdd(0x6B, 0x52, 0xC, 6,
+                LargeMoveTargetOverflowModel.NativeTileCount, 2),
+            "out-of-range native tiles are rejected");
     }
 
     private static void CheckClassification()
@@ -1102,6 +995,36 @@ internal static class Program
         Check(image[drawSubmissionRawOffset + expectedDrawSubmissionBody.Length] == 0xCC,
             "overlay draw submission RET boundary");
 
+        const int resetDrawListRva = 0x41D10;
+        byte[] expectedResetDrawListBody = Convert.FromHexString(
+            "41B801000000443981482262007E39488D91240762004533C94C8D1500C07704" +
+            "486342F8488D521C41FFC06645890C4244894AE4443B81482262007CE3C78148" +
+            "22620001000000C344898148226200C3");
+        int resetDrawListRawOffset = RvaToRawOffset(image, resetDrawListRva);
+        Check(expectedResetDrawListBody.Length == 80,
+            "overlay draw-list reset function length");
+        Check(image.AsSpan(resetDrawListRawOffset, expectedResetDrawListBody.Length)
+                .SequenceEqual(expectedResetDrawListBody),
+            "overlay draw-list reset exact body");
+        Check(image[resetDrawListRawOffset + expectedResetDrawListBody.Length] == 0x48,
+            "overlay draw-list reset exact RET boundary before visible renderer");
+
+        const int visibleTileRendererRva = 0x41D60;
+        const int visibleTileRendererLength = 14826;
+        byte[] visibleTileRendererEntry = Convert.FromHexString(
+            "48895C241048896C2418488974242048894C24085741544155415641574881EC");
+        int visibleTileRendererRawOffset = RvaToRawOffset(image, visibleTileRendererRva);
+        Check(image.AsSpan(visibleTileRendererRawOffset, visibleTileRendererEntry.Length)
+                .SequenceEqual(visibleTileRendererEntry),
+            "visible-tile renderer exact entry");
+        byte[] resetCall = Convert.FromHexString("E8FFC5FFFF");
+        int resetCallRawOffset = RvaToRawOffset(image, 0x4570C);
+        Check(image.AsSpan(resetCallRawOffset, resetCall.Length).SequenceEqual(resetCall),
+            "visible-tile renderer calls the reset function at its terminal callsite");
+        Check(image[visibleTileRendererRawOffset + visibleTileRendererLength] == 0x66 &&
+              image[visibleTileRendererRawOffset + visibleTileRendererLength + 1] == 0x90,
+            "visible-tile renderer exact function boundary");
+
         byte[] visibleTileHookBytes = Convert.FromHexString("410FB7BC5980EF7500");
         int visibleTileHookRawOffset = RvaToRawOffset(image, 0x436DE);
         Check(image.AsSpan(visibleTileHookRawOffset, visibleTileHookBytes.Length)
@@ -1136,7 +1059,7 @@ internal static class Program
             workspace,
             "BugfixesAndQoL",
             "src",
-            "LargeMoveTargetDiagnosticsRuntime.cs");
+            "LargeMoveTargetMarkerRuntime.cs");
         string largeMoveRenderer = Read(
             workspace,
             "BugfixesAndQoL",
@@ -1187,15 +1110,15 @@ internal static class Program
             "integrated queue preserves every original-call path through typed handles and the observed overlay wrapper");
         Check(CountText(queueRuntime, ".IsCompleteSuccess") == 3,
             "integrated queue checks all three transaction commits");
-        Check(queueRuntime.Contains("largeMoveTargets.ObserveAndShouldSuppressMarker(") &&
+        Check(queueRuntime.Contains("largeMoveTargets.TryCaptureOverflowCandidate(") &&
+            !queueRuntime.Contains("ObserveAndShouldSuppressMarker(") &&
             CountText(queueRuntime, "new DetourHandle<") == 5,
             "large Move markers reuse the existing draw hook without overlapping detours");
         Check(queueRuntime.Contains("args.Phase == EventHookPhase.Post") &&
             queueRuntime.Contains("args.IsNewOrder") &&
             queueRuntime.Contains("IsLocalSelectedTribe(args.TribeId, out _)") &&
-            !queueRuntime.Contains("localMoveChoreDepth") &&
-            queueRuntime.Contains("internalDispatch ? \"extended-shift\" : \"direct\""),
-            "local direct and executed Extended Shift Moves share post-formation capture without Chore nesting");
+            !queueRuntime.Contains("localMoveChoreDepth"),
+            "local direct and executed Extended Shift Moves share formation handling without Chore nesting");
         Check(!queueRuntime.Contains("GameNetworkAPI.GetLocalPlayerId()") &&
             queueRuntime.Contains("GamePlayerManagerAPI.Instance.GetLocalPlayerId()") &&
             queueRuntime.Contains("IsAiOwnedAliveTribe(args.TribeId)") &&
@@ -1203,26 +1126,21 @@ internal static class Program
             queueRuntime.Contains("cachedRealMultiplayerMode") &&
             queueRuntime.Contains("Subscribe(args => RefreshMapContext())"),
             "AI orders bypass Shift queue work and map-scoped context uses the native in-game player ID");
-        Check(!largeMoveRuntime.Contains("MOVE_TARGET_TRACK_START:") &&
-            CountText(largeMoveRuntime, "MOVE_TARGET_RESULT:") == 1 &&
-            largeMoveRuntime.Contains("GameUnitManagerAPI.Instance.GetUnitsAsSpan()") &&
-            !largeMoveRuntime.Contains("DrawListCountOffset") &&
-            largeMoveRuntime.Contains("MoveFormationCommandSnapshotStore.TryConsume(") &&
-            largeMoveRuntime.Contains("tribe->r_UnitsInGroup >=") &&
-            largeMoveRuntime.Contains("spanIndex = tracked.UnitId - 1") &&
-            largeMoveRuntime.Contains("observedOverlayMarkerTiles.Add(tileId)") &&
-            largeMoveRuntime.Contains("BuildMarkerDelta(") &&
-            largeMoveRuntime.Contains("ShouldCompleteAfterEmptyOverlayPasses(") &&
-            largeMoveRuntime.Contains("renderer.ReplacementActive") &&
-            largeMoveRuntime.Contains("activeMarkerCounts") &&
-            largeMoveRuntime.Contains("RemoveGroupMarkers(group)") &&
-            !largeMoveRuntime.Contains("r_PathPlanLength") &&
-            !largeMoveRuntime.Contains("StableIdleTicks") &&
-            !largeMoveRuntime.Contains("tribeIdBuffer"),
-            "large Move diagnostics reconcile Vanilla overlay markers without per-tick unit scans");
+        Check(largeMoveRuntime.Contains("DrawListCountOffset = 0x622248") &&
+            largeMoveRuntime.Contains("IsRejectedByFullVanillaList(") &&
+            largeMoveRuntime.Contains("renderer.TryAddOverflowMarker(") &&
+            !largeMoveRuntime.Contains("OnTick(") &&
+            !largeMoveRuntime.Contains("GetUnitsAsSpan(") &&
+            !largeMoveRuntime.Contains("MoveFormationCommandSnapshotStore") &&
+            CountText(bugfixesRuntime, "MOVE_TARGET_" + "RESULT:") == 0,
+            "large Move runtime captures only frame-local records rejected by Vanilla capacity");
         Check(largeMoveRenderer.Contains("VisibleTileHookRva = 0x436DE") &&
+            largeMoveRenderer.Contains("ResetDrawListRva = 0x41D10") &&
+            largeMoveRenderer.Contains("VisibleTileRendererRva = 0x41D60") &&
             largeMoveRenderer.Contains("SpriteBuilderRva = 0x1A13C0") &&
             largeMoveRenderer.Contains("BugfixesHookInfrastructure.AddContextHook(") &&
+            largeMoveRenderer.Contains("candidate.AddDetour(") &&
+            largeMoveRenderer.Contains("resetDrawListHook.Original(drawManager)") &&
             largeMoveRenderer.Contains("!featureEnabled()") &&
             largeMoveRenderer.Contains("0x6B") && largeMoveRenderer.Contains("0x52 + frame") &&
             largeMoveRenderer.Contains("0xC") &&
@@ -1230,28 +1148,28 @@ internal static class Program
             !largeMoveRenderer.Contains("Texture2D") &&
             !largeMoveRenderer.Contains("Mesh"),
             "large Move renderer injects real Vanilla sprites in the visible-tile pass");
-        Check(largeMoveRenderer.Contains("MaximumSyntheticMarkers") &&
-            largeMoveRenderer.Contains("NativeMode8IdentityCapacity = 4250") &&
-            largeMoveRenderer.Contains("stableIdentityByTile") &&
+        Check(largeMoveRenderer.Contains("LargeMoveTargetOverflowBuffer firstBuffer") &&
+            largeMoveRenderer.Contains("LargeMoveTargetOverflowBuffer secondBuffer") &&
+            largeMoveRenderer.Contains("publishedOverflow") &&
             largeMoveRenderer.Contains("private readonly object stateRoot") &&
             largeMoveRenderer.Contains("SetPreviewMarkerTiles(IEnumerable<int> tileIds)") &&
             largeMoveRenderer.Contains("ClearPreviewMarkerTiles()") &&
-            largeMoveRenderer.Contains("AddMarkerTile(int tileId)") &&
-            largeMoveRenderer.Contains("RemoveMarkerTile(int tileId)") &&
-            largeMoveRenderer.Contains("PublishMarkerTiles()") &&
-            largeMoveRenderer.Contains("public bool ReplacementActive") &&
+            largeMoveRenderer.Contains("TryAddOverflowMarker(") &&
+            largeMoveRenderer.Contains("NativeContainsDuplicate(drawManager, tileId, category, spriteId)") &&
+            largeMoveRenderer.Contains("DrawRecordBaseOffset = 0x6206F0") &&
+            largeMoveRenderer.Contains("DrawRecordNextOffset = 0x18") &&
+            largeMoveRenderer.Contains("TileDrawHeadRva = 0x47BDD30") &&
+            largeMoveRenderer.Contains("OnVanillaDrawListReset()") &&
             largeMoveRenderer.Contains("visibleTileHook.Hook.Enable()") &&
             largeMoveRenderer.Contains("visibleTileHook.Hook.Disable()") &&
-            largeMoveRenderer.Contains("if (!renderingActive || context.Pointer == null)") &&
-            largeMoveRenderer.Contains("if (!publicationDirty)") &&
-            largeMoveRenderer.Contains("reservedIdentities") &&
-            !largeMoveRenderer.Contains("new HashSet<int>(stableIdentityByTile.Values)") &&
+            largeMoveRenderer.Contains("record.Flags >> 16") &&
+            !largeMoveRenderer.Contains("new Dictionary<int, int>(stableIdentityByTile)") &&
             !largeMoveRenderer.Contains("public void Shutdown()") &&
             CountText(largeMoveRenderer, ".Dispose()") == 1 &&
             largeMoveRenderer.Contains("candidate.Dispose()") &&
             !largeMoveRenderer.Contains(".Sort(") &&
             largeMoveRenderer.Contains("MOVE_TARGET_MARKER_RENDER_FAIL_OPEN"),
-            "large Move renderer publishes only changes and enables its hook only while markers exist");
+            "large Move renderer uses reset-bound reusable overflow buffers and activity windows");
         Check(queueRuntime.Contains("OwnsHooks = false"),
             "integrated queue declares process-lifetime hook ownership");
         Check(!queueRuntime.Contains("CrashBreadcrumbDiagnostics.Enter(") &&

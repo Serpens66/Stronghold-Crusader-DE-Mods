@@ -8,7 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\..\src\ExtendedShiftCommandQueueModel.cs" Link="ExtendedShiftCommandQueueModel.cs" />
-    <Compile Include="..\..\src\LargeMoveTargetDiagnosticsModel.cs" Link="LargeMoveTargetDiagnosticsModel.cs" />
+    <Compile Include="..\..\src\LargeMoveTargetOverflowModel.cs" Link="LargeMoveTargetOverflowModel.cs" />
     <Compile Include="..\..\src\MoveFormationSpacingPolicy.cs" Link="MoveFormationSpacingPolicy.cs" />
     <Compile Include="..\..\src\MoveFormationDragGesture.cs" Link="MoveFormationDragGesture.cs" />
   </ItemGroup>

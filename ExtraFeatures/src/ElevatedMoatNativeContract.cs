@@ -47,10 +47,14 @@ namespace ExtraFeatures
         internal const int RebuildFunctionLength = 0x15D;
         internal const int RebuildCompletedHeightRva = 0x64546;
         internal const int RebuildCompletedHeightLength = 15;
+        internal const int RebuildGraphicRefreshCallRva = 0x6456E;
+        internal const int RebuildPathfindingRefreshCallRva = 0x6457D;
         internal const int DirectCompletedHeightRva = 0x705F7;
         internal const int DirectCompletedHeightLength = 22;
         internal const int DrawbridgeCompletedHeightRva = 0x73B35;
         internal const int DrawbridgeCompletedHeightLength = 17;
+        internal const int DrawbridgeGraphicRefreshCallRva = 0x73B7B;
+        internal const int DrawbridgePathfindingRefreshJumpRva = 0x73BA0;
         internal const int PlannedMoatCancellationRva = 0x70562;
         internal const int PlannedMoatCancellationLength = 15;
         internal const int DirectRemovalHeightRva = 0x70621;
@@ -518,6 +522,26 @@ namespace ExtraFeatures
                 ReadInt32(memory, DrawbridgeCompletedHeightRva + 4));
             if (drawbridgeCallTarget != 0x725A0)
                 throw new InvalidOperationException("The completed-drawbridge visual call target differs.");
+            ValidateRefreshOrder(
+                memory,
+                RebuildCompletedHeightRva,
+                RebuildGraphicRefreshCallRva,
+                0x6E620,
+                RebuildPathfindingRefreshCallRva,
+                0x725E0,
+                RebuildFunctionRva + RebuildFunctionLength,
+                false,
+                "lowered drawbridge");
+            ValidateRefreshOrder(
+                memory,
+                DrawbridgeCompletedHeightRva,
+                DrawbridgeGraphicRefreshCallRva,
+                0x6CDD0,
+                DrawbridgePathfindingRefreshJumpRva,
+                0x725E0,
+                DrawbridgeFunctionRva + DrawbridgeFunctionLength,
+                true,
+                "completed drawbridge");
             int cancellationCallRva = checked(PlannedMoatCancellationRva + PlannedMoatCancellationLength);
             if (memory[cancellationCallRva] != 0xE8 ||
                 checked(cancellationCallRva + 5 + ReadInt32(memory, cancellationCallRva + 1)) != 0x61ED0)
@@ -532,6 +556,14 @@ namespace ExtraFeatures
 
         internal static byte CalculateCompletedHeight(byte defaultHeight) =>
             defaultHeight > MoatDepth ? (byte)(defaultHeight - MoatDepth) : (byte)0;
+
+        internal static byte CalculateDrawbridgeHeight(byte defaultHeight)
+        {
+            byte completedHeight = CalculateCompletedHeight(defaultHeight);
+            return defaultHeight > MaximumVanillaTerrainHeight
+                ? (byte)(completedHeight + 1)
+                : completedHeight;
+        }
 
         internal static byte CalculateRestoredHeight(byte defaultHeight) => defaultHeight;
 
@@ -559,6 +591,44 @@ namespace ExtraFeatures
             memory[offset + 1] << 8 |
             memory[offset + 2] << 16 |
             memory[offset + 3] << 24;
+
+        private static void ValidateRefreshOrder(
+            ReadOnlySpan<byte> memory,
+            int heightRva,
+            int graphicRefreshRva,
+            int graphicRefreshTargetRva,
+            int pathfindingRefreshRva,
+            int pathfindingRefreshTargetRva,
+            int functionEndRva,
+            bool pathfindingIsJump,
+            string description)
+        {
+            if (heightRva >= graphicRefreshRva || graphicRefreshRva >= pathfindingRefreshRva ||
+                pathfindingRefreshRva + 5 > functionEndRva)
+            {
+                throw new InvalidOperationException(
+                    $"The audited {description} height/graphic/pathfinding order differs.");
+            }
+
+            ValidateRelativeBranch(memory, graphicRefreshRva, 0xE8, graphicRefreshTargetRva,
+                $"{description} graphic refresh");
+            ValidateRelativeBranch(memory, pathfindingRefreshRva, pathfindingIsJump ? (byte)0xE9 : (byte)0xE8,
+                pathfindingRefreshTargetRva, $"{description} pathfinding refresh");
+        }
+
+        private static void ValidateRelativeBranch(
+            ReadOnlySpan<byte> memory,
+            int branchRva,
+            byte opcode,
+            int expectedTargetRva,
+            string description)
+        {
+            if (branchRva < 0 || branchRva + 5 > memory.Length || memory[branchRva] != opcode ||
+                checked(branchRva + 5 + ReadInt32(memory, branchRva + 1)) != expectedTargetRva)
+            {
+                throw new InvalidOperationException($"The audited {description} target differs.");
+            }
+        }
 
         private static void AssertBytes(
             ReadOnlySpan<byte> memory,

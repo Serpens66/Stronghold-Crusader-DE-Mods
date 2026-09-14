@@ -224,7 +224,7 @@ namespace ExtraFeatures
             aiDefenseRepairRuntime.Dispose();
             marketTradeGuardBridge.Dispose();
             lordHealthRuntime.Dispose();
-            elevatedMoatRuntime.Dispose();
+            elevatedMoatRuntime.Deactivate();
             nativeLibraryAvailable = false;
             libraryHandle = IntPtr.Zero;
             libraryLength = 0;

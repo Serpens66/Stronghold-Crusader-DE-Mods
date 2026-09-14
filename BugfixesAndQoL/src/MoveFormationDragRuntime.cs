@@ -214,7 +214,7 @@ namespace BugfixesAndQoL
         private readonly object dragSync = new object();
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly LargeMoveTargetDiagnosticsRuntime markers;
+        private readonly LargeMoveTargetMarkerRuntime markers;
         private readonly Func<int, int, bool> targetAvailable;
         private readonly MoveFormationPreviewPlanner previewPlanner;
         private readonly List<int> previewTiles = new List<int>();
@@ -241,7 +241,7 @@ namespace BugfixesAndQoL
         internal MoveFormationDragRuntime(
             ManualLogSource log,
             BugfixesAndQoLViewModel settings,
-            LargeMoveTargetDiagnosticsRuntime markers,
+            LargeMoveTargetMarkerRuntime markers,
             Func<int, int, bool> targetAvailable)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));

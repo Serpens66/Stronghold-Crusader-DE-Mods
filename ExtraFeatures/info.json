@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.96",
+  "Version": "1.0.97",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.97",
+      "Changes": [
+        "Corrected elevated drawbridge decks to sit one height step above their adaptive moat while preserving Vanilla low-terrain behavior and moat demolition restoration."
+      ]
+    },
     {
       "Version": "1.0.96",
       "Changes": [

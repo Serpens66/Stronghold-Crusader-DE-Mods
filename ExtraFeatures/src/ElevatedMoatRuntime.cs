@@ -5,17 +5,16 @@ using System;
 
 namespace ExtraFeatures
 {
-    internal sealed class ElevatedMoatRuntime : IDisposable
+    internal sealed class ElevatedMoatRuntime
     {
         private const string RetiredTestPluginGuid = "ElevatedMoatTest_Serp";
+        private static readonly object ProcessPatchSync = new object();
+        private static ElevatedMoatPatch processPatch;
+        private static bool processPatchUnavailable;
 
         private readonly ManualLogSource log;
         private CrusaderLibraryLoadContext context;
-        private ElevatedMoatPatch patch;
         private bool referenceHashMatches;
-        private bool unavailable;
-        private bool activeAI;
-        private bool activeHuman;
 
         internal ElevatedMoatRuntime(ManualLogSource log)
         {
@@ -30,53 +29,51 @@ namespace ExtraFeatures
 
         internal void Reconcile(bool allowAIPlacement, bool allowHumanPlacement)
         {
-            if (unavailable || context == null)
-                return;
-            if (patch != null && activeAI == allowAIPlacement && activeHuman == allowHumanPlacement)
+            if (context == null)
                 return;
 
-            DisposePatch();
-            if (!allowAIPlacement && !allowHumanPlacement)
-                return;
+            lock (ProcessPatchSync)
+            {
+                if (processPatchUnavailable)
+                    return;
+                if (processPatch != null)
+                {
+                    processPatch.UpdateSettings(allowAIPlacement, allowHumanPlacement);
+                    return;
+                }
+                if (!allowAIPlacement && !allowHumanPlacement)
+                    return;
 
-            if (Chainloader.PluginInfos.ContainsKey(RetiredTestPluginGuid))
-            {
-                unavailable = true;
-                throw new InvalidOperationException(
-                    "ElevatedMoatTest is still loaded. Remove the retired test mod and restart to avoid overlapping native hooks.");
-            }
+                if (Chainloader.PluginInfos.ContainsKey(RetiredTestPluginGuid))
+                {
+                    processPatchUnavailable = true;
+                    throw new InvalidOperationException(
+                        "ElevatedMoatTest is still loaded. Remove the retired test mod and restart to avoid overlapping native hooks.");
+                }
 
-            try
-            {
-                patch = new ElevatedMoatPatch(
-                    log,
-                    context,
-                    referenceHashMatches,
-                    allowAIPlacement,
-                    allowHumanPlacement);
-                activeAI = allowAIPlacement;
-                activeHuman = allowHumanPlacement;
-            }
-            catch
-            {
-                DisposePatch();
-                unavailable = true;
-                throw;
+                try
+                {
+                    var candidate = new ElevatedMoatPatch(
+                        log,
+                        context,
+                        referenceHashMatches,
+                        allowAIPlacement,
+                        allowHumanPlacement);
+                    processPatch = candidate;
+                }
+                catch
+                {
+                    processPatchUnavailable = true;
+                    throw;
+                }
             }
         }
 
-        public void Dispose()
+        internal void Deactivate()
         {
-            DisposePatch();
+            lock (ProcessPatchSync)
+                processPatch?.UpdateSettings(false, false);
             context = null;
-        }
-
-        private void DisposePatch()
-        {
-            patch?.Dispose();
-            patch = null;
-            activeAI = false;
-            activeHuman = false;
         }
     }
 }

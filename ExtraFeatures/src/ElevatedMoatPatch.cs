@@ -19,12 +19,10 @@ using static Iced.Intel.AssemblerRegisters;
 
 namespace ExtraFeatures
 {
-    internal sealed unsafe class ElevatedMoatPatch : IDisposable
+    internal sealed unsafe class ElevatedMoatPatch
     {
         private readonly ManualLogSource log;
         private readonly HookTransaction transaction;
-        private readonly bool allowAIPlacement;
-        private readonly bool allowHumanPlacement;
         private readonly HookHandle<X64InlineHook> drawbridgeHeightFailureWriterHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> aivHeightGateHook =
@@ -62,6 +60,11 @@ namespace ExtraFeatures
         private long restoredHeightCorrections;
         private int callbackFailureReported;
         private IntPtr aivAudienceAllowedFlag;
+        private IntPtr featureActiveFlag;
+        private IntPtr humanPlacementAllowedFlag;
+        private int allowAIPlacement;
+        private int allowHumanPlacement;
+        private int featureActive;
 
         internal ElevatedMoatPatch(
             ManualLogSource log,
@@ -71,8 +74,6 @@ namespace ExtraFeatures
             bool allowHumanPlacement)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.allowAIPlacement = allowAIPlacement;
-            this.allowHumanPlacement = allowHumanPlacement;
             if (!allowAIPlacement && !allowHumanPlacement)
                 throw new ArgumentException("At least one elevated-moat placement audience must be enabled.");
             if (context == null || context.ModuleHandle == IntPtr.Zero || context.Memory.Length == 0)
@@ -235,7 +236,12 @@ namespace ExtraFeatures
             try
             {
                 aivAudienceAllowedFlag = Marshal.AllocHGlobal(1);
-                *((byte*)aivAudienceAllowedFlag) = 0;
+                featureActiveFlag = Marshal.AllocHGlobal(1);
+                humanPlacementAllowedFlag = Marshal.AllocHGlobal(1);
+                WriteNativeFlag(aivAudienceAllowedFlag, false);
+                WriteNativeFlag(featureActiveFlag, false);
+                WriteNativeFlag(humanPlacementAllowedFlag, false);
+                UpdateSettings(allowAIPlacement, allowHumanPlacement);
                 pending = new HookTransaction(
                     context.Region,
                     SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
@@ -281,13 +287,21 @@ namespace ExtraFeatures
                     moatCommandHeightGateHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)moatCommandGateResolution.Rva)),
                     (assembler, instructions, returnAddress) => GenerateMoatCommandHeightBypass(
-                        assembler, instructions, returnAddress, allowHumanPlacement),
+                        assembler,
+                        instructions,
+                        returnAddress,
+                        unchecked((ulong)featureActiveFlag.ToInt64()),
+                        unchecked((ulong)humanPlacementAllowedFlag.ToInt64())),
                     hookSize: ElevatedMoatNativeContract.MoatCommandHeightGateLength);
                 pending.AddInline(
                     sharedHeightGateHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)sharedGateResolution.Rva)),
                     (assembler, instructions, returnAddress) => GenerateSharedHeightBypass(
-                        assembler, instructions, returnAddress, allowHumanPlacement),
+                        assembler,
+                        instructions,
+                        returnAddress,
+                        unchecked((ulong)featureActiveFlag.ToInt64()),
+                        unchecked((ulong)humanPlacementAllowedFlag.ToInt64())),
                     hookSize: ElevatedMoatNativeContract.SharedHeightGateLength);
                 pending.AddContextHook(
                     aivCompletedHeightHook,
@@ -302,7 +316,7 @@ namespace ExtraFeatures
                 pending.AddContextHook(
                     rebuildCompletedHeightHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)rebuildHeightResolution.Rva)),
-                    ApplyRebuildCompletedHeight,
+                    ApplyLoweredDrawbridgeHeight,
                     CorrectingContextOptions(ElevatedMoatNativeContract.RebuildCompletedHeightLength));
                 pending.AddContextHook(
                     directCompletedHeightHook,
@@ -433,23 +447,48 @@ namespace ExtraFeatures
                     {
                     }
                 }
-                FreeAivAudienceFlag();
+                FreeUnpublishedFlags();
                 throw;
             }
         }
 
-        public void Dispose()
+        internal void UpdateSettings(bool allowAIPlacement, bool allowHumanPlacement)
         {
-            transaction?.Dispose();
-            FreeAivAudienceFlag();
+            bool active = allowAIPlacement || allowHumanPlacement;
+            WriteNativeFlag(featureActiveFlag, false);
+            Volatile.Write(ref featureActive, 0);
+            WriteNativeFlag(aivAudienceAllowedFlag, false);
+
+            Volatile.Write(ref this.allowAIPlacement, allowAIPlacement ? 1 : 0);
+            Volatile.Write(ref this.allowHumanPlacement, allowHumanPlacement ? 1 : 0);
+            WriteNativeFlag(humanPlacementAllowedFlag, allowHumanPlacement);
+
+            if (active)
+            {
+                Volatile.Write(ref featureActive, 1);
+                WriteNativeFlag(featureActiveFlag, true);
+            }
         }
 
-        private void FreeAivAudienceFlag()
+        private void FreeUnpublishedFlags()
         {
-            if (aivAudienceAllowedFlag == IntPtr.Zero)
+            FreeFlag(ref aivAudienceAllowedFlag);
+            FreeFlag(ref featureActiveFlag);
+            FreeFlag(ref humanPlacementAllowedFlag);
+        }
+
+        private static void FreeFlag(ref IntPtr flag)
+        {
+            if (flag == IntPtr.Zero)
                 return;
-            Marshal.FreeHGlobal(aivAudienceAllowedFlag);
-            aivAudienceAllowedFlag = IntPtr.Zero;
+            Marshal.FreeHGlobal(flag);
+            flag = IntPtr.Zero;
+        }
+
+        private static void WriteNativeFlag(IntPtr flag, bool value)
+        {
+            if (flag != IntPtr.Zero)
+                Volatile.Write(ref *((byte*)flag), value ? (byte)1 : (byte)0);
         }
 
         private static Shared.NativeResolution ResolveAudited(
@@ -481,6 +520,8 @@ namespace ExtraFeatures
         {
             try
             {
+                if (!IsActive)
+                    return;
                 ulong tileBase = context.Pointer->RSI;
                 ApplyCompletedHeight(
                     tileBase + ElevatedMoatNativeContract.TileHeightGridOffset,
@@ -498,22 +539,24 @@ namespace ExtraFeatures
             ApplyCompletedHeightFromManager(
                 context, context.Pointer->RBX, unchecked((int)context.Pointer->RDI), "excavation");
 
-        private void ApplyRebuildCompletedHeight(NativePointer<X64SmartCPUContext> context) =>
-            ApplyCompletedHeightFromManager(
-                context, context.Pointer->RBX, unchecked((int)context.Pointer->RSI), "rebuild");
+        private void ApplyLoweredDrawbridgeHeight(NativePointer<X64SmartCPUContext> context) =>
+            ApplyDrawbridgeHeightFromManager(
+                context, context.Pointer->RBX, unchecked((int)context.Pointer->RSI), "lowered-drawbridge");
 
         private void ApplyDirectCompletedHeight(NativePointer<X64SmartCPUContext> context) =>
             ApplyCompletedHeightFromManager(
                 context, context.Pointer->RDI, unchecked((long)context.Pointer->RBX), "direct");
 
         private void ApplyDrawbridgeCompletedHeight(NativePointer<X64SmartCPUContext> context) =>
-            ApplyCompletedHeightFromManager(
+            ApplyDrawbridgeHeightFromManager(
                 context, context.Pointer->RBX, unchecked((long)context.Pointer->R14), "drawbridge");
 
         private void RestorePlannedMoatCancellationHeight(NativePointer<X64SmartCPUContext> context)
         {
             try
             {
+                if (!IsActive)
+                    return;
                 ulong managerAddress = context.Pointer->RDI;
                 long tileId = unchecked((long)context.Pointer->RBX);
                 if (!IsValidTileId(tileId))
@@ -531,6 +574,8 @@ namespace ExtraFeatures
         {
             try
             {
+                if (!IsActive)
+                    return;
                 ulong managerAddress = context.Pointer->RDI;
                 long tileId = unchecked((long)context.Pointer->RBX);
                 if (!IsValidTileId(tileId))
@@ -564,6 +609,8 @@ namespace ExtraFeatures
         {
             try
             {
+                if (!IsActive)
+                    return;
                 if (!IsValidTileId(tileId))
                     throw new InvalidOperationException($"Invalid {source} moat tile ID {tileId}.");
 
@@ -596,6 +643,8 @@ namespace ExtraFeatures
         {
             try
             {
+                if (!IsActive)
+                    return;
                 if (!IsValidTileId(tileId))
                     throw new InvalidOperationException($"Invalid {source} moat tile ID {tileId}.");
 
@@ -608,6 +657,31 @@ namespace ExtraFeatures
             catch (Exception exception)
             {
                 LogCallbackFailure($"{source} completed-moat height", exception);
+            }
+        }
+
+        private void ApplyDrawbridgeHeightFromManager(
+            NativePointer<X64SmartCPUContext> context,
+            ulong managerAddress,
+            long tileId,
+            string source)
+        {
+            try
+            {
+                if (!IsActive)
+                    return;
+                if (!IsValidTileId(tileId))
+                    throw new InvalidOperationException($"Invalid {source} tile ID {tileId}.");
+
+                ApplyDrawbridgeHeight(
+                    managerAddress + (ulong)tileId + ElevatedMoatNativeContract.TileHeightGridOffset,
+                    managerAddress + (ulong)tileId + ElevatedMoatNativeContract.TileDefaultHeightGridOffset,
+                    source,
+                    tileId.ToString());
+            }
+            catch (Exception exception)
+            {
+                LogCallbackFailure($"{source} height", exception);
             }
         }
 
@@ -631,6 +705,29 @@ namespace ExtraFeatures
 
             RecordSuccessfulCorrection(restored: false);
         }
+
+        private void ApplyDrawbridgeHeight(
+            ulong heightAddress,
+            ulong defaultHeightAddress,
+            string source,
+            string tile)
+        {
+            byte* current = (byte*)heightAddress;
+            byte vanillaHeight = *current;
+            byte defaultHeight = *((byte*)defaultHeightAddress);
+            byte completedHeight = ElevatedMoatNativeContract.CalculateDrawbridgeHeight(defaultHeight);
+            *current = completedHeight;
+            if (*current != completedHeight)
+            {
+                throw new InvalidOperationException(
+                    $"{source} did not apply the calculated drawbridge height to tile {tile}; " +
+                    $"defaultHeight={defaultHeight}, vanillaHeight={vanillaHeight}.");
+            }
+
+            RecordSuccessfulCorrection(restored: false);
+        }
+
+        private bool IsActive => Volatile.Read(ref featureActive) != 0;
 
         private void RecordSuccessfulCorrection(bool restored)
         {
@@ -688,7 +785,8 @@ namespace ExtraFeatures
             Assembler assembler,
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
-            bool allowHumanPlacement)
+            ulong featureActiveFlagAddress,
+            ulong humanPlacementAllowedFlagAddress)
         {
             if (overwrittenInstructions.Length != 2 ||
                 overwrittenInstructions[0].Length != 8 ||
@@ -706,17 +804,19 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The moat-command height-gate instruction contract differs.");
             }
 
+            Label vanillaHeightGate = assembler.CreateLabel("moatCommandVanillaHeightGate");
             Label bypassHeightGate = assembler.CreateLabel("moatCommandBypassHeightGate");
-            if (allowHumanPlacement)
-            {
-                assembler.cmp(r14d, (int)eMappers.MAPPER_MOAT);
-                assembler.je(bypassHeightGate);
-            }
+            EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaHeightGate);
             assembler.cmp(r14d, (int)eMappers.MAPPER_ANTIMOAT);
             assembler.je(bypassHeightGate);
+            assembler.cmp(r14d, (int)eMappers.MAPPER_MOAT);
+            assembler.jne(vanillaHeightGate);
+            EmitEnabledFlagBranch(assembler, humanPlacementAllowedFlagAddress, vanillaHeightGate);
+            assembler.jmp(bypassHeightGate);
 
             // Preserve Vanilla for every unexpected caller. Both continuations recalculate
             // flags immediately, and this block does not alter any live GPR or XMM state.
+            assembler.Label(ref vanillaHeightGate);
             foreach (Instruction instruction in overwrittenInstructions)
                 assembler.AddInstruction(instruction);
             assembler.AddUnrestrictedJmp(returnAddress);
@@ -729,7 +829,8 @@ namespace ExtraFeatures
             Assembler assembler,
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
-            bool allowHumanPlacement)
+            ulong featureActiveFlagAddress,
+            ulong humanPlacementAllowedFlagAddress)
         {
             if (overwrittenInstructions.Length != 2 ||
                 overwrittenInstructions[0].Length != 8 ||
@@ -747,7 +848,9 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The shared moat height-gate instruction contract differs.");
             }
 
+            Label vanillaHeightGate = assembler.CreateLabel("sharedMoatVanillaHeightGate");
             Label bypassHeightGate = assembler.CreateLabel("sharedMoatBypassHeightGate");
+            EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaHeightGate);
             // Native modes 1 and 3 cancel/remove moats. Mode 2 is direct editor placement.
             // Mode 0 creates a planned moat and therefore follows the human checkbox.
             assembler.cmp(r15d, (int)ElevatedMoatNativeMode.CancelPlan);
@@ -756,18 +859,30 @@ namespace ExtraFeatures
             assembler.je(bypassHeightGate);
             assembler.cmp(r15d, (int)ElevatedMoatNativeMode.DirectRemove);
             assembler.je(bypassHeightGate);
-            if (allowHumanPlacement)
-            {
-                assembler.cmp(r15d, (int)ElevatedMoatNativeMode.Plan);
-                assembler.je(bypassHeightGate);
-            }
+            assembler.cmp(r15d, (int)ElevatedMoatNativeMode.Plan);
+            assembler.jne(vanillaHeightGate);
+            EmitEnabledFlagBranch(assembler, humanPlacementAllowedFlagAddress, vanillaHeightGate);
+            assembler.jmp(bypassHeightGate);
 
+            assembler.Label(ref vanillaHeightGate);
             foreach (Instruction instruction in overwrittenInstructions)
                 assembler.AddInstruction(instruction);
             assembler.AddUnrestrictedJmp(returnAddress);
 
             assembler.Label(ref bypassHeightGate);
             assembler.AddUnrestrictedJmp(returnAddress);
+        }
+
+        private static void EmitEnabledFlagBranch(
+            Assembler assembler,
+            ulong flagAddress,
+            Label disabledTarget)
+        {
+            assembler.push(rax);
+            assembler.mov(rax, flagAddress);
+            assembler.cmp(__byte_ptr[rax], 1);
+            assembler.pop(rax);
+            assembler.jne(disabledTarget);
         }
 
         private static void GenerateAivHeightBypass(
@@ -823,14 +938,16 @@ namespace ExtraFeatures
                 int playerId = unchecked((int)context.Pointer->RDX);
                 GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
                 if (players.IsPlayerIdValid(playerId))
-                    allowed = players.IsAIPlayer(playerId) ? allowAIPlacement : allowHumanPlacement;
+                    allowed = players.IsAIPlayer(playerId)
+                        ? Volatile.Read(ref allowAIPlacement) != 0
+                        : Volatile.Read(ref allowHumanPlacement) != 0;
             }
             catch
             {
                 // Fail closed: the inline gate below keeps Vanilla's height check.
             }
 
-            *((byte*)aivAudienceAllowedFlag) = allowed ? (byte)1 : (byte)0;
+            WriteNativeFlag(aivAudienceAllowedFlag, allowed && IsActive);
         }
 
         private void SuppressDrawbridgeHeightFailureWriter(NativePointer<X64SmartCPUContext> context)
@@ -843,8 +960,10 @@ namespace ExtraFeatures
             {
                 GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
                 bool editor = GameData.Instance?.mapType == Enums.GameModes.MAP_EDITOR;
-                allowed = editor || !players.IsPlayerIdValid(playerId) ||
-                    (players.IsAIPlayer(playerId) ? allowAIPlacement : allowHumanPlacement);
+                allowed = IsActive && (editor || !players.IsPlayerIdValid(playerId) ||
+                    (players.IsAIPlayer(playerId)
+                        ? Volatile.Read(ref allowAIPlacement) != 0
+                        : Volatile.Read(ref allowHumanPlacement) != 0));
             }
             catch
             {

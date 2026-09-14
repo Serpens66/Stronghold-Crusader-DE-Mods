@@ -200,13 +200,18 @@ internal static class Program
             "Friendly-Moat diagnostics check query dirtiness before reading Stopwatch");
 
         string marker = File.ReadAllText(Path.Combine(sourceRoot, "LargeMoveTargetMarkerRenderer.cs"));
-        int markerSnapshot = marker.IndexOf("Dictionary<int, int> markers = markerIdentityByTile;", StringComparison.Ordinal);
-        int emptyGuard = marker.IndexOf("markers.Count == 0", markerSnapshot, StringComparison.Ordinal);
-        int featureDelegate = marker.IndexOf("featureEnabled()", markerSnapshot, StringComparison.Ordinal);
-        int dictionaryLookup = marker.IndexOf("markers.TryGetValue", markerSnapshot, StringComparison.Ordinal);
-        Check(markerSnapshot >= 0 && emptyGuard > markerSnapshot && featureDelegate > emptyGuard &&
-              dictionaryLookup > featureDelegate,
-            "visible-tile callback checks the empty published snapshot before feature delegate and lookup");
+        int markerSnapshot = marker.IndexOf(
+            "Dictionary<int, int> preview = publishedPreview;", StringComparison.Ordinal);
+        int overflowSnapshot = marker.IndexOf(
+            "LargeMoveTargetOverflowBuffer overflow = publishedOverflow;", markerSnapshot, StringComparison.Ordinal);
+        int emptyGuard = marker.IndexOf(
+            "preview.Count == 0 && overflow == null", overflowSnapshot, StringComparison.Ordinal);
+        int featureDelegate = marker.IndexOf("featureEnabled()", emptyGuard, StringComparison.Ordinal);
+        int dictionaryLookup = marker.IndexOf("preview.TryGetValue", featureDelegate, StringComparison.Ordinal);
+        Check(markerSnapshot >= 0 && overflowSnapshot > markerSnapshot && emptyGuard > overflowSnapshot &&
+              featureDelegate > emptyGuard && dictionaryLookup > featureDelegate &&
+              !marker.Contains("new Dictionary<int, int>(stableIdentityByTile)"),
+            "visible-tile callback checks allocation-free preview/overflow snapshots before feature work");
 
         string invite = File.ReadAllText(Path.Combine(sourceRoot, "SteamLobbyInvitePrompt.cs"));
         int expireMethod = invite.IndexOf("private void ExpirePendingInvites", StringComparison.Ordinal);
@@ -899,8 +904,10 @@ internal static class Program
               runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
               !production.Contains("context.Region.Dispose()"),
             "P6b borrows all native load-context values without disposing the ScanRegion");
-        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 43,
-            "BugfixesAndQoL owns the audited RedBird hook handles including friendly moat movement");
+        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 44 &&
+              production.Contains("DetourHandle<ResetDrawListDelegate>") &&
+              production.Contains("HookTarget.FromAddress(unchecked((ulong)(libraryHandle + ResetDrawListRva).ToInt64()))"),
+            "BugfixesAndQoL owns the audited RedBird hook handles including the Vanilla draw-list reset");
         Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 21,
             "BugfixesAndQoL performs one checked transaction commit for each audited hook group");
         Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 22,
