@@ -52,7 +52,7 @@
     <Compile Include="..\src\LocalPerPlayerSetting.cs"><Link>LocalPerPlayerSetting.cs</Link></Compile>
     <Compile Include="..\src\NotificationQueueNativeContract.cs"><Link>NotificationQueueNativeContract.cs</Link></Compile>
     <Compile Include="..\src\NotificationSkipPolicy.cs"><Link>NotificationSkipPolicy.cs</Link></Compile>
-    <Compile Include="..\src\PlacementCancelMoveSuppressionPolicy.cs"><Link>PlacementCancelMoveSuppressionPolicy.cs</Link></Compile>
+    <Compile Include="..\src\PlacementCancelRightClickPolicy.cs"><Link>PlacementCancelRightClickPolicy.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>

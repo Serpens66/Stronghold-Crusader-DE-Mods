@@ -82,6 +82,8 @@ namespace BugfixesAndQoL
         private readonly Dictionary<int, int> stableIdentityByTile =
             new Dictionary<int, int>();
         private readonly HashSet<int> previewTiles = new HashSet<int>();
+        private readonly HashSet<int> previewRequestBuffer = new HashSet<int>();
+        private readonly HashSet<int> reservedIdentities = new HashSet<int>();
         private readonly Stack<int> recycledIdentities = new Stack<int>();
         private int nextIdentity = FirstSyntheticIdentity;
         private HookTransaction transaction;
@@ -90,6 +92,8 @@ namespace BugfixesAndQoL
         private IntPtr libraryHandle;
         private volatile bool installed;
         private volatile bool failed;
+        private volatile bool renderingActive;
+        private bool publicationDirty;
         private bool failureLogged;
 
         public LargeMoveTargetMarkerRenderer(ManualLogSource log, Func<bool> featureEnabled)
@@ -98,8 +102,9 @@ namespace BugfixesAndQoL
             this.featureEnabled = featureEnabled ?? throw new ArgumentNullException(nameof(featureEnabled));
         }
 
-        public bool ReplacementAvailable => installed && !failed &&
-            visibleTileHook.Success && visibleTileHook.IsInstalled;
+        public bool ReplacementAvailable => installed && !failed && visibleTileHook.Success;
+
+        public bool ReplacementActive => ReplacementAvailable && renderingActive;
 
         public void Install(CrusaderLibraryLoadContext context, bool fixedLayoutHashValidated)
         {
@@ -140,22 +145,42 @@ namespace BugfixesAndQoL
             getBuildingHeight = Marshal.GetDelegateForFunctionPointer<BuildingHeightDelegate>(
                 IntPtr.Add(libraryHandle, BuildingHeightHelperRva));
 
-            transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(context.Region);
-            // The callback runs before the original MOVZX. RedBird preserves every register;
-            // the relocated MOVZX restores EDI and the following TEST recreates all live flags.
-            BugfixesHookInfrastructure.AddContextHook(
-                transaction,
-                visibleTileHook,
-                unchecked((ulong)(libraryHandle + VisibleTileHookRva).ToInt64()),
-                RenderVisibleLargeMoveTarget,
-                X64SmartCPUContextRegs.All,
-                hookSize: VisibleTileHookLength,
-                errorMode: CallbackErrorMode.LogAndContinue,
-                placement: OverwrittenInstructionPlacement.AfterCallback);
-            CommitResult result = transaction.Commit();
-            if (!result.IsCompleteSuccess || !visibleTileHook.Success || !visibleTileHook.IsInstalled)
-                throw new InvalidOperationException("Visible-tile marker hook reported no success.");
-            installed = true;
+            HookTransaction candidate =
+                BugfixesHookInfrastructure.CreateOwnedTransaction(context.Region);
+            try
+            {
+                // The callback runs before the original MOVZX. RedBird preserves every register;
+                // the relocated MOVZX restores EDI and the following TEST recreates all live flags.
+                BugfixesHookInfrastructure.AddContextHook(
+                    candidate,
+                    visibleTileHook,
+                    unchecked((ulong)(libraryHandle + VisibleTileHookRva).ToInt64()),
+                    RenderVisibleLargeMoveTarget,
+                    X64SmartCPUContextRegs.All,
+                    hookSize: VisibleTileHookLength,
+                    errorMode: CallbackErrorMode.LogAndContinue,
+                    placement: OverwrittenInstructionPlacement.AfterCallback);
+                CommitResult result = candidate.Commit();
+                if (!result.IsCompleteSuccess || !visibleTileHook.Success ||
+                    !visibleTileHook.IsInstalled)
+                {
+                    throw new InvalidOperationException(
+                        "Visible-tile marker hook reported no success.");
+                }
+
+                transaction = candidate;
+                installed = true;
+                renderingActive = true;
+                SetRenderingActiveCore(false);
+            }
+            catch
+            {
+                installed = false;
+                renderingActive = false;
+                transaction = null;
+                candidate.Dispose();
+                throw;
+            }
         }
 
         public void AddMarkerTile(int tileId)
@@ -181,6 +206,8 @@ namespace BugfixesAndQoL
                         throw new InvalidOperationException(
                             "The native Move marker identity range is exhausted.");
                     stableIdentityByTile.Add(tileId, identity);
+                    reservedIdentities.Add(identity);
+                    publicationDirty = true;
                 }
                 catch (Exception exception)
                 {
@@ -196,7 +223,9 @@ namespace BugfixesAndQoL
                 if (!stableIdentityByTile.TryGetValue(tileId, out int identity))
                     return;
                 stableIdentityByTile.Remove(tileId);
+                reservedIdentities.Remove(identity);
                 recycledIdentities.Push(identity);
+                publicationDirty = true;
             }
         }
 
@@ -206,9 +235,18 @@ namespace BugfixesAndQoL
             {
                 if (!ReplacementAvailable)
                     return;
+                PublishMarkerTilesCore();
+            }
+        }
+
+        private void PublishMarkerTilesCore()
+        {
+            if (!publicationDirty)
+                return;
+            try
+            {
                 // Render callbacks only read the published immutable snapshot.
                 var published = new Dictionary<int, int>(stableIdentityByTile);
-                var reservedIdentities = new HashSet<int>(stableIdentityByTile.Values);
                 int previewIdentity = NativeMode8IdentityCapacity - 1;
                 foreach (int tileId in previewTiles)
                 {
@@ -221,7 +259,14 @@ namespace BugfixesAndQoL
                         break;
                     published.Add(tileId, previewIdentity--);
                 }
+
                 markerIdentityByTile = published;
+                publicationDirty = false;
+                SetRenderingActiveCore(published.Count != 0);
+            }
+            catch (Exception exception)
+            {
+                FailOpen(exception);
             }
         }
 
@@ -229,16 +274,21 @@ namespace BugfixesAndQoL
         {
             lock (stateRoot)
             {
-                previewTiles.Clear();
+                previewRequestBuffer.Clear();
                 if (ReplacementAvailable && tileIds != null)
                 {
                     foreach (int tileId in tileIds)
                     {
                         if ((uint)tileId < NativeTileCount)
-                            previewTiles.Add(tileId);
+                            previewRequestBuffer.Add(tileId);
                     }
                 }
-                PublishMarkerTiles();
+                if (previewTiles.SetEquals(previewRequestBuffer))
+                    return;
+                previewTiles.Clear();
+                previewTiles.UnionWith(previewRequestBuffer);
+                publicationDirty = true;
+                PublishMarkerTilesCore();
             }
         }
 
@@ -249,28 +299,35 @@ namespace BugfixesAndQoL
                 if (previewTiles.Count == 0)
                     return;
                 previewTiles.Clear();
-                PublishMarkerTiles();
+                publicationDirty = true;
+                PublishMarkerTilesCore();
             }
         }
 
-        public void Shutdown()
+        private void SetRenderingActiveCore(bool shouldBeActive)
         {
-            lock (stateRoot)
+            if (renderingActive == shouldBeActive)
+                return;
+            if (shouldBeActive)
             {
-                markerIdentityByTile = new Dictionary<int, int>();
-                stableIdentityByTile.Clear();
-                previewTiles.Clear();
-                recycledIdentities.Clear();
-                nextIdentity = FirstSyntheticIdentity;
-                transaction?.Dispose();
-                transaction = null;
-                installed = false;
+                visibleTileHook.Hook.Enable();
+                if (!visibleTileHook.IsInstalled)
+                    throw new InvalidOperationException(
+                        "Visible-tile marker hook could not be enabled.");
+                renderingActive = true;
+                return;
             }
+
+            visibleTileHook.Hook.Disable();
+            if (visibleTileHook.IsInstalled)
+                throw new InvalidOperationException(
+                    "Visible-tile marker hook could not be disabled.");
+            renderingActive = false;
         }
 
         private void RenderVisibleLargeMoveTarget(NativePointer<X64SmartCPUContext> context)
         {
-            if (!ReplacementAvailable || context.Pointer == null)
+            if (!renderingActive || context.Pointer == null)
                 return;
 
             Dictionary<int, int> markers = markerIdentityByTile;
@@ -342,10 +399,14 @@ namespace BugfixesAndQoL
             lock (stateRoot)
             {
                 failed = true;
+                renderingActive = false;
                 markerIdentityByTile = new Dictionary<int, int>();
                 stableIdentityByTile.Clear();
                 previewTiles.Clear();
+                previewRequestBuffer.Clear();
+                reservedIdentities.Clear();
                 recycledIdentities.Clear();
+                publicationDirty = false;
                 if (failureLogged)
                     return;
                 failureLogged = true;

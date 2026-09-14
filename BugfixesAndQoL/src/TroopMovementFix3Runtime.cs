@@ -308,7 +308,7 @@ namespace BugfixesAndQoL
         private void OnTribeIssueOrderMoveHere(
             TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!IsFeatureEnabled || args.SkipOriginalFunction ||
+            if (!IsFeatureEnabled ||
                 !args.IsNewOrder ||
                 args.MoveType == TribeMoveType.NoChange)
             {

@@ -571,41 +571,24 @@ namespace BugfixesAndQoL
 
         private static void TestPlacementCancelMoveSuppressionPolicy()
         {
-            var state = new PlacementCancelMoveSuppressionState();
-            var first = new PlacementCancelUnitIdentity(11, 1011);
-            var second = new PlacementCancelUnitIdentity(12, 1012);
-            var third = new PlacementCancelUnitIdentity(13, 1013);
-
-            state.Replace(1, new[] { first, second, third });
-            Check(state.PendingCount == 3,
-                "placement-cancel suppression captures the selected unit identities");
-            Check(!state.TryConsumeMatchingGroup(
-                    2, new[] { first }, out _, out _) && state.PendingCount == 3,
-                "placement-cancel suppression rejects another player's tribe");
-            Check(!state.TryConsumeMatchingGroup(
-                    1,
-                    new[] { new PlacementCancelUnitIdentity(11, 9999) },
-                    out _,
-                    out _) && state.PendingCount == 3,
-                "placement-cancel suppression rejects a reused unit ID with another global identity");
-            Check(state.TryConsumeMatchingGroup(
-                    1, new[] { first, second }, out int firstMatched, out int firstRemaining) &&
-                  firstMatched == 2 && firstRemaining == 1,
-                "placement-cancel suppression consumes the first affected movement group");
-            Check(state.TryConsumeMatchingGroup(
-                    1, new[] { third }, out int secondMatched, out int secondRemaining) &&
-                  secondMatched == 1 && secondRemaining == 0 && state.PendingCount == 0,
-                "placement-cancel suppression handles multiple groups from one selection");
-
-            state.Replace(1, new[] { first });
-            state.Replace(1, Array.Empty<PlacementCancelUnitIdentity>());
-            Check(state.PendingCount == 0 &&
-                  !state.TryConsumeMatchingGroup(1, new[] { first }, out _, out _),
-                "a later ordinary right-click replaces and clears the pending cancellation");
-            state.Replace(1, new[] { first });
-            state.Clear();
-            Check(state.PendingCount == 0,
-                "map and setting transitions clear pending placement-cancel state");
+            Check(!PlacementCancelRightClickPolicy.ShouldForwardRightDown(
+                    true, true, true, 5, false),
+                "DE right-click placement cancellation is not forwarded to the engine");
+            Check(PlacementCancelRightClickPolicy.ShouldForwardRightDown(
+                    true, true, true, 0, false) &&
+                  PlacementCancelRightClickPolicy.ShouldForwardRightDown(
+                    true, true, true, 3, false),
+                "ordinary and non-building right-clicks retain Vanilla forwarding");
+            Check(PlacementCancelRightClickPolicy.ShouldForwardRightDown(
+                    true, true, true, 5, true),
+                "SH1 controls retain Vanilla placement-cancel forwarding");
+            Check(PlacementCancelRightClickPolicy.ShouldForwardRightDown(
+                    false, true, true, 5, false) &&
+                  PlacementCancelRightClickPolicy.ShouldForwardRightDown(
+                    true, false, true, 5, false) &&
+                  PlacementCancelRightClickPolicy.ShouldForwardRightDown(
+                    true, true, false, 5, false),
+                "disabled mod, client features, or local option retain Vanilla forwarding");
         }
 
         private static void TestPlacementCancelMoveSuppressionIntegration()
@@ -618,51 +601,97 @@ namespace BugfixesAndQoL
             string settingsXaml = File.ReadAllText(Path.Combine(
                 "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
 
-            Check(feature.Contains("FindStopAllPlacementMethod()") &&
-                  feature.Contains("Input.GetMouseButtonDown(1)") &&
-                  feature.Contains("controls.CurrentAction != 5") &&
-                  feature.Contains("ConfigSettings.Settings_SH1RTSControls") &&
-                  feature.Contains("stopAllPlacementOriginal(self);") &&
-                  feature.Contains("OnTribeIssueOrderMoveHere.Observable") &&
-                  feature.Contains("args.Phase != EventHookPhase.Pre") &&
-                  feature.Contains("args.SkipOriginalFunction = true;") &&
-                  feature.Contains("args.ReturnValue = 0;"),
-                "placement cancellation is correlated at StopAllPlacement and suppressed in the MoveHere pre-event");
-            Check(!feature.Contains("EditorDirector.Update") &&
+            Check(feature.Contains("new ILHook(updateMethod, PatchRightClickBranch)") &&
+                  feature.Contains("cursor.RemoveRange(4)") &&
+                  feature.Contains("CancelPlacementAndGetRightDown") &&
+                  feature.Contains("controls.StopAllPlacement();") &&
+                  feature.Contains("return forwardRightDown;") &&
+                  feature.Contains("matches.Count != 1"),
+                "placement cancellation replaces the unique Vanilla right-click IL block before engine input");
+            Check(!feature.Contains("OnTribeIssueOrderMoveHere") &&
+                  !feature.Contains("GetSelectedChimps") &&
+                  !feature.Contains("PlacementCancelMoveSuppressionState") &&
+                  !feature.Contains("Input.GetMouseButtonDown") &&
+                  !feature.Contains("new Hook(updateMethod") &&
                   !feature.Contains("EngineRun") &&
                   !feature.Contains("GameTimeManagerAPI") &&
                   !feature.Contains("OnTick") &&
-                  !feature.Contains("InputR3EventHooks.OnKey.Observable"),
-                "placement-cancel suppression installs no frame, engine-run, held-key, or tick callback");
+                  !feature.Contains("InputR3EventHooks"),
+                "placement-cancel suppression has no MoveHere, selection, frame-detour, held-key, engine-run, or tick callback");
+            Check(feature.Contains("bool forwardRightDown = true;") &&
+                  feature.Contains("catch (Exception ex)") &&
+                  feature.Split(new[] { "controls.StopAllPlacement();" }, StringSplitOptions.None).Length == 2,
+                "placement-cancel classification fails open and invokes Vanilla cleanup exactly once");
             Check(runtime.Contains("private static PlacementCancelMoveSuppressionFeature processPlacementCancelMoveSuppressionFeature;") &&
                   runtime.Contains("EnsurePlacementCancelMoveSuppressionFeature);") &&
                   !runtime.Contains("processPlacementCancelMoveSuppressionFeature?.Dispose"),
                 "placement-cancel runtime is process-rooted and never torn down normally");
             Check(project.Contains("PlacementCancelMoveSuppressionFeature.cs") &&
-                  project.Contains("PlacementCancelMoveSuppressionPolicy.cs"),
-                "placement-cancel implementation is compiled into the runtime project");
+                  project.Contains("PlacementCancelRightClickPolicy.cs") &&
+                  project.Contains("MonoMod.Utils") &&
+                  project.Contains("Mono.Cecil"),
+                "placement-cancel IL implementation and dependencies are compiled into the runtime project");
             Check(viewModel.Contains("new LocalPerPlayerSetting<bool>(true)") &&
                   viewModel.Contains("public bool PreventMoveOrderOnPlacementCancel") &&
                   viewModel.Contains("preventMoveOrderOnPlacementCancel.TrySetLocalPlayerId(playerId)") &&
                   settingsXaml.Contains("PreventMoveOrderOnPlacementCancel, Mode=TwoWay"),
                 "placement-cancel suppression is an enabled-by-default per-player client setting");
 
-            string[] moveConsumers =
+            Check(!File.ReadAllText(Path.Combine("src", "AssassinPathfindingRuntime.cs"))
+                    .Contains("if (args.SkipOriginalFunction)\r\n                return;") &&
+                  !File.ReadAllText(Path.Combine("src", "ExtendedShiftCommandQueueRuntime.cs"))
+                    .Contains("if (!installed || args.SkipOriginalFunction)") &&
+                  !File.ReadAllText(Path.Combine("src", "FastRecruitRallyMovementRuntime.cs"))
+                    .Contains("if (!args.SkipOriginalFunction &&") &&
+                  !File.ReadAllText(Path.Combine("src", "FriendlyMoatMovementRuntime.cs"))
+                    .Contains("if (disposed || args.SkipOriginalFunction)") &&
+                  !File.ReadAllText(Path.Combine("src", "TroopMovementFix3Runtime.cs"))
+                    .Contains("if (!IsFeatureEnabled || args.SkipOriginalFunction"),
+                "placement-cancel handling no longer patches individual MoveHere consumers");
+
+            MethodInfo update = typeof(EditorDirector).GetMethod(
+                "Update",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            byte[] il = update?.GetMethodBody()?.GetILAsByteArray();
+            int contractMatches = 0;
+            if (il != null)
             {
-                "AssassinPathfindingRuntime.cs",
-                "ExtendedShiftCommandQueueRuntime.cs",
-                "FastRecruitRallyMovementRuntime.cs",
-                "FriendlyMoatMovementRuntime.cs",
-                "TroopMovementFix3Runtime.cs",
-            };
-            bool allConsumersHonorSuppression = true;
-            foreach (string file in moveConsumers)
-            {
-                allConsumersHonorSuppression &= File.ReadAllText(Path.Combine("src", file))
-                    .Contains("args.SkipOriginalFunction");
+                for (int offset = 0; offset <= il.Length - 17; offset++)
+                {
+                    if (il[offset] != 0x7e || il[offset + 5] != 0x6f ||
+                        il[offset + 10] != 0x02 || il[offset + 11] != 0x17 ||
+                        il[offset + 12] != 0x7d)
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        FieldInfo controlsInstance = update.Module.ResolveField(
+                            BitConverter.ToInt32(il, offset + 1)) as FieldInfo;
+                        MethodInfo stopPlacement = update.Module.ResolveMethod(
+                            BitConverter.ToInt32(il, offset + 6)) as MethodInfo;
+                        FieldInfo rightDown = update.Module.ResolveField(
+                            BitConverter.ToInt32(il, offset + 13)) as FieldInfo;
+                        if (controlsInstance?.DeclaringType == typeof(MainControls) &&
+                            controlsInstance.Name == "instance" &&
+                            stopPlacement?.DeclaringType == typeof(MainControls) &&
+                            stopPlacement.Name == nameof(MainControls.StopAllPlacement) &&
+                            stopPlacement.GetParameters().Length == 0 &&
+                            rightDown?.DeclaringType == typeof(EditorDirector) &&
+                            rightDown.Name == "rightDownForEngine")
+                        {
+                            contractMatches++;
+                        }
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Operand bytes can resemble opcodes but cannot resolve as this contract.
+                    }
+                }
             }
-            Check(allConsumersHonorSuppression,
-                "existing MoveHere consumers ignore orders whose original function was suppressed");
+            Check(contractMatches == 1,
+                "installed Assembly-CSharp contains exactly one expected placement-cancel right-click IL block");
 
             bool allLocalesComplete = true;
             foreach (string locale in Directory.GetFiles("Locales", "*.txt"))

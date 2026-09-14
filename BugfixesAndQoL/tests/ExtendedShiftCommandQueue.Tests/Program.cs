@@ -234,6 +234,17 @@ internal static class Program
                 LargeMoveTargetDiagnosticsModel.Compare(sizedOutcomes);
             Check(sizedSummary.Total == size && sizedSummary.Exact == size,
                 $"large Move comparison size {size}");
+            var sizedActiveMarkers = new HashSet<int>();
+            var sizedObservedMarkers = new HashSet<int>(Enumerable.Range(0, size));
+            var sizedRemovedMarkers = new List<int>();
+            var sizedAddedMarkers = new List<int>();
+            Check(LargeMoveTargetDiagnosticsModel.BuildMarkerDelta(
+                    sizedActiveMarkers,
+                    sizedObservedMarkers,
+                    sizedRemovedMarkers,
+                    sizedAddedMarkers) &&
+                  sizedAddedMarkers.Count == size,
+                $"overlay reconciliation retains all {size} marker calls");
 
             object owner = new object();
             MoveFormationUnitIdentity[] identities = Enumerable.Range(1, size)
@@ -255,6 +266,53 @@ internal static class Program
             "non-Move sprite beside the animation range remains visible");
         Check(!LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(0xAC, 0x142, 0x12, -1, 0xA0022),
             "Extended Shift flag remains outside Move target filter");
+
+        var activeMarkers = new HashSet<int>(Enumerable.Range(0, 4000));
+        var observedMarkers = new HashSet<int>(activeMarkers);
+        var removedMarkers = new List<int>();
+        var addedMarkers = new List<int>();
+        Check(!LargeMoveTargetDiagnosticsModel.BuildMarkerDelta(
+                activeMarkers, observedMarkers, removedMarkers, addedMarkers) &&
+              removedMarkers.Count == 0 && addedMarkers.Count == 0,
+            "unchanged 4000-marker overlay does not publish a delta");
+        observedMarkers.Remove(250);
+        observedMarkers.Remove(3999);
+        observedMarkers.Add(5000);
+        Check(LargeMoveTargetDiagnosticsModel.BuildMarkerDelta(
+                activeMarkers, observedMarkers, removedMarkers, addedMarkers) &&
+              removedMarkers.Count == 2 && removedMarkers.Contains(250) &&
+              removedMarkers.Contains(3999) && addedMarkers.SequenceEqual(new[] { 5000 }),
+            "arrival, interruption, death, and target changes form one marker delta");
+        activeMarkers.ExceptWith(removedMarkers);
+        activeMarkers.UnionWith(addedMarkers);
+        Check(activeMarkers.SetEquals(observedMarkers),
+            "applying an overlay delta exactly reconciles the active marker set");
+        observedMarkers.Clear();
+        observedMarkers.Add(7);
+        observedMarkers.Add(7);
+        activeMarkers.Clear();
+        Check(LargeMoveTargetDiagnosticsModel.BuildMarkerDelta(
+                activeMarkers, observedMarkers, removedMarkers, addedMarkers) &&
+              addedMarkers.Count == 1,
+            "duplicate Vanilla marker calls retain one synthetic tile");
+        Check(LargeMoveTargetDiagnosticsModel.RequiredEmptyOverlayPasses == 3 &&
+              !LargeMoveTargetDiagnosticsModel.ShouldCompleteAfterEmptyOverlayPasses(1) &&
+              !LargeMoveTargetDiagnosticsModel.ShouldCompleteAfterEmptyOverlayPasses(2) &&
+              LargeMoveTargetDiagnosticsModel.ShouldCompleteAfterEmptyOverlayPasses(3) &&
+              LargeMoveTargetDiagnosticsModel.ShouldCompleteAfterEmptyOverlayPasses(4),
+            "three empty overlay passes protect markers from transient empty rendering");
+        var sharedTileReferences = new Dictionary<int, int>();
+        Check(LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
+                sharedTileReferences, 42, 1) == 1 &&
+              LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
+                sharedTileReferences, 42, 1) == 2 &&
+              LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
+                sharedTileReferences, 42, -1) == 1 &&
+              sharedTileReferences.ContainsKey(42) &&
+              LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
+                sharedTileReferences, 42, -1) == 0 &&
+              !sharedTileReferences.ContainsKey(42),
+            "overlapping tribe targets retain a shared tile until its final owner completes");
 
         var exact = Enumerable.Range(1, 200)
             .Select(index => new MoveTargetOutcome(
@@ -1152,11 +1210,16 @@ internal static class Program
             largeMoveRuntime.Contains("MoveFormationCommandSnapshotStore.TryConsume(") &&
             largeMoveRuntime.Contains("tribe->r_UnitsInGroup >=") &&
             largeMoveRuntime.Contains("spanIndex = tracked.UnitId - 1") &&
-            largeMoveRuntime.Contains("identity-invalidated") &&
-            largeMoveRuntime.Contains("group.ActiveMarkerCounts.ContainsKey(tileId)") &&
+            largeMoveRuntime.Contains("observedOverlayMarkerTiles.Add(tileId)") &&
+            largeMoveRuntime.Contains("BuildMarkerDelta(") &&
+            largeMoveRuntime.Contains("ShouldCompleteAfterEmptyOverlayPasses(") &&
+            largeMoveRuntime.Contains("renderer.ReplacementActive") &&
             largeMoveRuntime.Contains("activeMarkerCounts") &&
-            largeMoveRuntime.Contains("RemoveGroupMarkers(group)"),
-            "large Move diagnostics use bounded snapshots, direct span access, active-only suppression, and one result log");
+            largeMoveRuntime.Contains("RemoveGroupMarkers(group)") &&
+            !largeMoveRuntime.Contains("r_PathPlanLength") &&
+            !largeMoveRuntime.Contains("StableIdleTicks") &&
+            !largeMoveRuntime.Contains("tribeIdBuffer"),
+            "large Move diagnostics reconcile Vanilla overlay markers without per-tick unit scans");
         Check(largeMoveRenderer.Contains("VisibleTileHookRva = 0x436DE") &&
             largeMoveRenderer.Contains("SpriteBuilderRva = 0x1A13C0") &&
             largeMoveRenderer.Contains("BugfixesHookInfrastructure.AddContextHook(") &&
@@ -1176,9 +1239,19 @@ internal static class Program
             largeMoveRenderer.Contains("AddMarkerTile(int tileId)") &&
             largeMoveRenderer.Contains("RemoveMarkerTile(int tileId)") &&
             largeMoveRenderer.Contains("PublishMarkerTiles()") &&
+            largeMoveRenderer.Contains("public bool ReplacementActive") &&
+            largeMoveRenderer.Contains("visibleTileHook.Hook.Enable()") &&
+            largeMoveRenderer.Contains("visibleTileHook.Hook.Disable()") &&
+            largeMoveRenderer.Contains("if (!renderingActive || context.Pointer == null)") &&
+            largeMoveRenderer.Contains("if (!publicationDirty)") &&
+            largeMoveRenderer.Contains("reservedIdentities") &&
+            !largeMoveRenderer.Contains("new HashSet<int>(stableIdentityByTile.Values)") &&
+            !largeMoveRenderer.Contains("public void Shutdown()") &&
+            CountText(largeMoveRenderer, ".Dispose()") == 1 &&
+            largeMoveRenderer.Contains("candidate.Dispose()") &&
             !largeMoveRenderer.Contains(".Sort(") &&
             largeMoveRenderer.Contains("MOVE_TARGET_MARKER_RENDER_FAIL_OPEN"),
-            "large Move renderer keeps stable incremental identities, validates capacity, and fails open");
+            "large Move renderer publishes only changes and enables its hook only while markers exist");
         Check(queueRuntime.Contains("OwnsHooks = false"),
             "integrated queue declares process-lifetime hook ownership");
         Check(!queueRuntime.Contains("CrashBreadcrumbDiagnostics.Enter(") &&

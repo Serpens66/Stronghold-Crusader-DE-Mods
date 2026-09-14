@@ -865,9 +865,6 @@ namespace BugfixesAndQoL
 
         private void ObserveMoveCommand(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (args.SkipOriginalFunction)
-                return;
-
             if (args.Phase == EventHookPhase.Pre)
             {
                 activeCommand = new AssassinCommandScope(

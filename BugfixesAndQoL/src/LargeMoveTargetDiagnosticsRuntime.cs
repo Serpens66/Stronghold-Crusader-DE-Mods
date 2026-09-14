@@ -16,8 +16,10 @@ namespace BugfixesAndQoL
         private readonly LargeMoveTargetMarkerRenderer renderer;
         private readonly Dictionary<int, TrackedMoveGroup> groups =
             new Dictionary<int, TrackedMoveGroup>();
-        private readonly List<int> tribeIdBuffer = new List<int>();
         private readonly Dictionary<int, int> activeMarkerCounts = new Dictionary<int, int>();
+        private readonly HashSet<int> observedOverlayMarkerTiles = new HashSet<int>();
+        private readonly List<int> removedMarkerTileBuffer = new List<int>();
+        private readonly List<int> addedMarkerTileBuffer = new List<int>();
         private int currentOverlayTribeId;
         private bool trackingAvailable;
 
@@ -113,105 +115,9 @@ namespace BugfixesAndQoL
         {
             if (!FeatureEnabled)
             {
-                if (groups.Count != 0)
+                if (groups.Count != 0 || renderer.ReplacementActive)
                     Reset(tick, "setting-disabled");
-                return;
             }
-            if (!trackingAvailable || groups.Count == 0)
-                return;
-            Span<GameUnit> unitSpan = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
-            tribeIdBuffer.Clear();
-            foreach (int tribeId in groups.Keys)
-                tribeIdBuffer.Add(tribeId);
-
-            bool rendererChanged = false;
-            for (int groupIndex = 0; groupIndex < tribeIdBuffer.Count; groupIndex++)
-            {
-                int tribeId = tribeIdBuffer[groupIndex];
-                if (!groups.TryGetValue(tribeId, out TrackedMoveGroup group))
-                    continue;
-                bool changed = false;
-                int moving = 0;
-                int lost = 0;
-                for (int index = 0; index < group.Units.Count; index++)
-                {
-                    TrackedMoveUnit tracked = group.Units[index];
-                    if (tracked.Kind == MoveTargetOutcomeKind.Lost)
-                    {
-                        lost++;
-                        continue;
-                    }
-                    if (!TryGetMatchingLivingUnit(tracked, unitSpan, out int spanIndex))
-                    {
-                        changed |= SetOutcome(group, tracked, MoveTargetOutcomeKind.Lost);
-                        lost++;
-                        continue;
-                    }
-                    ref GameUnit unit = ref unitSpan[spanIndex];
-
-                    tracked.Actual = new MoveTargetCoordinate(
-                        unit.r_CurrentTilePositionX,
-                        unit.r_CurrentTilePositionY);
-                    if (tracked.Kind == MoveTargetOutcomeKind.Interrupted)
-                        continue;
-                    if (unit.r_AttackMoveToTargetTileX != tracked.Planned.X ||
-                        unit.r_AttackMoveToTargetTileY != tracked.Planned.Y)
-                    {
-                        changed |= SetOutcome(group, tracked, MoveTargetOutcomeKind.Interrupted);
-                        continue;
-                    }
-                    if (tracked.Actual.Equals(tracked.Planned))
-                    {
-                        changed |= SetOutcome(group, tracked, MoveTargetOutcomeKind.Exact);
-                        tracked.StableIdleTicks = 0;
-                        continue;
-                    }
-
-                    bool pathPending = unit.r_PathPlanLength != 0 &&
-                        unit.r_CurrentPathPlanIndex < unit.r_PathPlanLength;
-                    bool tileTransitionPending = unit.r_NextTilePositionX2 != unit.r_CurrentTilePositionX ||
-                        unit.r_NextTilePositionY2 != unit.r_CurrentTilePositionY;
-                    if (pathPending || tileTransitionPending)
-                    {
-                        tracked.StableIdleTicks = 0;
-                        changed |= SetOutcome(group, tracked, MoveTargetOutcomeKind.Moving);
-                        moving++;
-                        continue;
-                    }
-
-                    tracked.StableIdleTicks++;
-                    if (tracked.StableIdleTicks >= LargeMoveTargetDiagnosticsModel.RequiredStableIdleTicks)
-                    {
-                        changed |= SetOutcome(group, tracked, MoveTargetOutcomeKind.SettledElsewhere);
-                    }
-                    else
-                    {
-                        moving++;
-                    }
-                }
-
-                if (changed)
-                {
-                    rendererChanged = true;
-                }
-                if (moving == 0)
-                {
-                    group.StableCompletionTicks++;
-                    if (group.StableCompletionTicks >= LargeMoveTargetDiagnosticsModel.RequiredStableIdleTicks)
-                    {
-                        string reason = lost == group.Units.Count
-                            ? "identity-invalidated"
-                            : "completed";
-                        FinalizeGroup(group, reason, forceInterrupt: false);
-                        rendererChanged = true;
-                    }
-                }
-                else
-                    group.StableCompletionTicks = 0;
-            }
-
-            if (rendererChanged)
-                renderer.PublishMarkerTiles();
         }
 
         public void Reset(int tick, string reason)
@@ -222,28 +128,53 @@ namespace BugfixesAndQoL
                 FinalizeGroup(group, reason, forceInterrupt: true);
             groups.Clear();
             currentOverlayTribeId = 0;
+            observedOverlayMarkerTiles.Clear();
             renderer.PublishMarkerTiles();
-        }
-
-        public void Shutdown()
-        {
-            renderer.Shutdown();
         }
 
         public void ApplySetting(int tick)
         {
-            if (!FeatureEnabled && groups.Count != 0)
+            if (!FeatureEnabled && (groups.Count != 0 || renderer.ReplacementActive))
                 Reset(tick, "setting-disabled");
         }
 
         public void BeginOverlayPass(int tribeId)
         {
             currentOverlayTribeId = tribeId;
+            observedOverlayMarkerTiles.Clear();
         }
 
         public void EndOverlayPass()
         {
+            int tribeId = currentOverlayTribeId;
             currentOverlayTribeId = 0;
+            if (!FeatureEnabled ||
+                !groups.TryGetValue(tribeId, out TrackedMoveGroup group))
+            {
+                observedOverlayMarkerTiles.Clear();
+                return;
+            }
+
+            if (observedOverlayMarkerTiles.Count == 0)
+            {
+                group.EmptyOverlayPasses++;
+                bool completed =
+                    LargeMoveTargetDiagnosticsModel.ShouldCompleteAfterEmptyOverlayPasses(
+                        group.EmptyOverlayPasses);
+                observedOverlayMarkerTiles.Clear();
+                if (completed)
+                {
+                    FinalizeGroup(group, "completed", forceInterrupt: false);
+                    renderer.PublishMarkerTiles();
+                }
+                return;
+            }
+
+            group.EmptyOverlayPasses = 0;
+            bool changed = ReconcileObservedMarkerTiles(group);
+            observedOverlayMarkerTiles.Clear();
+            if (changed)
+                renderer.PublishMarkerTiles();
         }
 
         public bool ObserveAndShouldSuppressMarker(
@@ -258,13 +189,31 @@ namespace BugfixesAndQoL
             if (!FeatureEnabled ||
                 !LargeMoveTargetDiagnosticsModel.IsVanillaMoveTargetMarker(
                     category, spriteId, layer, verticalOffset, flags) ||
-                !groups.TryGetValue(currentOverlayTribeId, out TrackedMoveGroup group) ||
-                !group.ActiveMarkerCounts.ContainsKey(tileId))
+                !groups.TryGetValue(currentOverlayTribeId, out TrackedMoveGroup group))
             {
                 return false;
             }
 
-            return MarkerReplacementAvailable;
+            observedOverlayMarkerTiles.Add(tileId);
+            return group.ActiveMarkerTiles.Contains(tileId) && renderer.ReplacementActive;
+        }
+
+        private bool ReconcileObservedMarkerTiles(TrackedMoveGroup group)
+        {
+            if (!LargeMoveTargetDiagnosticsModel.BuildMarkerDelta(
+                group.ActiveMarkerTiles,
+                observedOverlayMarkerTiles,
+                removedMarkerTileBuffer,
+                addedMarkerTileBuffer))
+            {
+                return false;
+            }
+
+            foreach (int tileId in removedMarkerTileBuffer)
+                AdjustActiveMarkerCount(group, tileId, -1);
+            foreach (int tileId in addedMarkerTileBuffer)
+                AdjustActiveMarkerCount(group, tileId, 1);
+            return true;
         }
 
         private void FinalizeGroup(
@@ -317,12 +266,14 @@ namespace BugfixesAndQoL
                     tracked.Actual = new MoveTargetCoordinate(
                         unit.r_CurrentTilePositionX,
                         unit.r_CurrentTilePositionY);
-                    if (tracked.Kind != MoveTargetOutcomeKind.Interrupted)
-                    {
-                        tracked.Kind = tracked.Actual.Equals(tracked.Planned)
+                    bool targetChanged =
+                        unit.r_AttackMoveToTargetTileX != tracked.Planned.X ||
+                        unit.r_AttackMoveToTargetTileY != tracked.Planned.Y;
+                    tracked.Kind = targetChanged
+                        ? MoveTargetOutcomeKind.Interrupted
+                        : tracked.Actual.Equals(tracked.Planned)
                             ? MoveTargetOutcomeKind.Exact
                             : MoveTargetOutcomeKind.SettledElsewhere;
-                    }
                 }
             }
 
@@ -447,68 +398,51 @@ namespace BugfixesAndQoL
         {
             foreach (TrackedMoveUnit unit in group.Units)
             {
-                unit.TargetTileId = GameTileManagerAPI.Instance.GetTileId(
+                int targetTileId = GameTileManagerAPI.Instance.GetTileId(
                     unit.Planned.X, unit.Planned.Y);
                 if (unit.Kind == MoveTargetOutcomeKind.Moving)
-                    AdjustActiveMarkerCount(group, unit.TargetTileId, 1);
+                    AdjustActiveMarkerCount(group, targetTileId, 1);
             }
-        }
-
-        private bool SetOutcome(
-            TrackedMoveGroup group,
-            TrackedMoveUnit unit,
-            MoveTargetOutcomeKind kind)
-        {
-            if (unit.Kind == kind)
-                return false;
-            bool wasActive = unit.Kind == MoveTargetOutcomeKind.Moving;
-            bool isActive = kind == MoveTargetOutcomeKind.Moving;
-            unit.Kind = kind;
-            if (wasActive != isActive && unit.TargetTileId >= 0)
-                AdjustActiveMarkerCount(group, unit.TargetTileId, isActive ? 1 : -1);
-            return true;
         }
 
         private void AdjustActiveMarkerCount(
             TrackedMoveGroup group, int tileId, int delta)
         {
-            group.ActiveMarkerCounts.TryGetValue(tileId, out int count);
-            count += delta;
-            if (count <= 0)
-                group.ActiveMarkerCounts.Remove(tileId);
-            else
-                group.ActiveMarkerCounts[tileId] = count;
-
-            activeMarkerCounts.TryGetValue(tileId, out int globalCount);
-            globalCount += delta;
-            if (globalCount <= 0)
+            if (delta > 0)
             {
-                activeMarkerCounts.Remove(tileId);
+                if (!group.ActiveMarkerTiles.Add(tileId))
+                    return;
+            }
+            else if (!group.ActiveMarkerTiles.Remove(tileId))
+            {
+                return;
+            }
+
+            int globalCount = LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
+                activeMarkerCounts, tileId, delta);
+            if (globalCount == 0)
+            {
                 renderer.RemoveMarkerTile(tileId);
             }
             else
             {
-                activeMarkerCounts[tileId] = globalCount;
-                if (globalCount == delta)
+                if (delta > 0 && globalCount == 1)
                     renderer.AddMarkerTile(tileId);
             }
         }
 
         private void RemoveGroupMarkers(TrackedMoveGroup group)
         {
-            foreach (KeyValuePair<int, int> marker in group.ActiveMarkerCounts)
+            foreach (int tileId in group.ActiveMarkerTiles)
             {
-                activeMarkerCounts.TryGetValue(marker.Key, out int globalCount);
-                globalCount -= marker.Value;
-                if (globalCount <= 0)
+                int globalCount = LargeMoveTargetDiagnosticsModel.ApplyMarkerReferenceDelta(
+                    activeMarkerCounts, tileId, -1);
+                if (globalCount == 0)
                 {
-                    activeMarkerCounts.Remove(marker.Key);
-                    renderer.RemoveMarkerTile(marker.Key);
+                    renderer.RemoveMarkerTile(tileId);
                 }
-                else
-                    activeMarkerCounts[marker.Key] = globalCount;
             }
-            group.ActiveMarkerCounts.Clear();
+            group.ActiveMarkerTiles.Clear();
         }
 
         private sealed class TrackedMoveGroup
@@ -532,9 +466,8 @@ namespace BugfixesAndQoL
             public List<TrackedMoveUnit> Units { get; }
             public string SpacingSummary { get; }
             public bool MarkerReplacementAtStart { get; }
-            public Dictionary<int, int> ActiveMarkerCounts { get; } =
-                new Dictionary<int, int>();
-            public int StableCompletionTicks { get; set; }
+            public HashSet<int> ActiveMarkerTiles { get; } = new HashSet<int>();
+            public int EmptyOverlayPasses { get; set; }
         }
 
         private sealed class TrackedMoveUnit
@@ -562,8 +495,6 @@ namespace BugfixesAndQoL
             public MoveTargetCoordinate Planned { get; }
             public MoveTargetCoordinate Actual { get; set; }
             public MoveTargetOutcomeKind Kind { get; set; }
-            public int TargetTileId { get; set; } = -1;
-            public int StableIdleTicks { get; set; }
         }
     }
 }

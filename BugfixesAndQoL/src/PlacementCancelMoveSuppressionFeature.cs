@@ -1,36 +1,21 @@
-// Feature: Right-click cancels building placement without issuing a move order.
+// Feature: Cancel building placement without forwarding the click to the engine.
 using BepInEx.Logging;
-using CrusaderDE;
+using Mono.Cecil;
+using Mono.Cecil.Cil;
+using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
-using R3;
-using SHCDESE.API;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.MapLoader;
-using SHCDESE.EventAPI.Tribes;
-using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using UnityEngine;
 
 namespace BugfixesAndQoL
 {
     internal sealed class PlacementCancelMoveSuppressionFeature
     {
-        private delegate void StopAllPlacementDelegate(MainControls self);
-
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly PlacementCancelMoveSuppressionState state =
-            new PlacementCancelMoveSuppressionState();
-        private Hook stopAllPlacementHook;
-        private StopAllPlacementDelegate stopAllPlacementOriginal;
-        private IDisposable moveOrderSubscription;
-        private IDisposable mapLoadSubscription;
-        private IDisposable mapUnloadSubscription;
-        private bool captureFailureLogged;
-        private bool moveFailureLogged;
+        private ILHook editorDirectorUpdateIlHook;
+        private bool classificationFailureLogged;
 
         public PlacementCancelMoveSuppressionFeature(
             ManualLogSource log,
@@ -42,211 +27,112 @@ namespace BugfixesAndQoL
 
         public void Install()
         {
-            if (stopAllPlacementHook != null)
+            if (editorDirectorUpdateIlHook != null)
                 return;
 
-            Hook installedHook = null;
-            IDisposable installedMoveOrderSubscription = null;
-            IDisposable installedMapLoadSubscription = null;
-            IDisposable installedMapUnloadSubscription = null;
-            bool installedSettingsSubscription = false;
-            try
-            {
-                installedHook = new Hook(
-                    FindStopAllPlacementMethod(),
-                    (StopAllPlacementDelegate)StopAllPlacementHook);
-                stopAllPlacementOriginal =
-                    installedHook.GenerateTrampoline<StopAllPlacementDelegate>();
-                installedMoveOrderSubscription =
-                    TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
-                        .Subscribe(OnMoveOrder);
-                installedMapLoadSubscription =
-                    MapLoaderR3EventHooks.OnLoadMap.Observable.Subscribe(_ => state.Clear());
-                installedMapUnloadSubscription =
-                    MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(_ => state.Clear());
-                settings.SettingChanged += OnSettingChanged;
-                installedSettingsSubscription = true;
+            MethodInfo updateMethod = typeof(EditorDirector).GetMethod(
+                "Update",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (updateMethod == null)
+                throw new MissingMethodException(typeof(EditorDirector).FullName, "Update");
 
-                stopAllPlacementHook = installedHook;
-                moveOrderSubscription = installedMoveOrderSubscription;
-                mapLoadSubscription = installedMapLoadSubscription;
-                mapUnloadSubscription = installedMapUnloadSubscription;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Bugfixes and QoL placement-cancel move suppression installed with event-driven callbacks only.");
-            }
-            catch
-            {
-                if (installedSettingsSubscription)
-                    settings.SettingChanged -= OnSettingChanged;
-                installedMapUnloadSubscription?.Dispose();
-                installedMapLoadSubscription?.Dispose();
-                installedMoveOrderSubscription?.Dispose();
-                installedHook?.Undo();
-                installedHook?.Dispose();
-                stopAllPlacementOriginal = null;
-                throw;
-            }
+            editorDirectorUpdateIlHook = new ILHook(updateMethod, PatchRightClickBranch);
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                "Bugfixes and QoL placement-cancel input suppression installed at the Vanilla right-click branch.");
         }
 
-        private static MethodInfo FindStopAllPlacementMethod()
+        private void PatchRightClickBranch(ILContext context)
         {
-            MethodInfo method = typeof(MainControls).GetMethod(
-                nameof(MainControls.StopAllPlacement),
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                null,
-                Type.EmptyTypes,
-                null);
-            if (method == null)
-                throw new MissingMethodException(typeof(MainControls).FullName, nameof(MainControls.StopAllPlacement));
-            return method;
+            IList<Instruction> instructions = context.Body.Instructions;
+            var matches = new List<int>();
+            for (int index = 0; index <= instructions.Count - 5; index++)
+            {
+                if (MatchesField(instructions[index], OpCodes.Ldsfld, typeof(MainControls), "instance") &&
+                    MatchesMethod(instructions[index + 1], OpCodes.Callvirt, typeof(MainControls), nameof(MainControls.StopAllPlacement)) &&
+                    instructions[index + 2].OpCode == OpCodes.Ldarg_0 &&
+                    instructions[index + 3].OpCode == OpCodes.Ldc_I4_1 &&
+                    MatchesField(instructions[index + 4], OpCodes.Stfld, typeof(EditorDirector), "rightDownForEngine"))
+                {
+                    matches.Add(index);
+                }
+            }
+
+            if (matches.Count != 1)
+            {
+                throw new InvalidOperationException(
+                    $"Expected exactly one placement-cancel right-click IL block, found {matches.Count}.");
+            }
+
+            var forwardRightDown = new VariableDefinition(context.Method.Module.TypeSystem.Boolean);
+            context.Body.Variables.Add(forwardRightDown);
+
+            // Keep the first ldsfld instruction in place because Vanilla branches to it.
+            // Its MainControls value becomes the argument of the injected click-only delegate.
+            var cursor = new ILCursor(context) { Index = matches[0] + 1 };
+            cursor.RemoveRange(4);
+            cursor.EmitDelegate<Func<MainControls, bool>>(CancelPlacementAndGetRightDown);
+            cursor.Emit(OpCodes.Stloc, forwardRightDown);
+            cursor.Emit(OpCodes.Ldarg_0);
+            cursor.Emit(OpCodes.Ldloc, forwardRightDown);
+            cursor.Emit(
+                OpCodes.Stfld,
+                typeof(EditorDirector).GetField(
+                    "rightDownForEngine",
+                    BindingFlags.Instance | BindingFlags.NonPublic));
         }
 
-        private void StopAllPlacementHook(MainControls self)
+        private bool CancelPlacementAndGetRightDown(MainControls controls)
         {
+            bool forwardRightDown = true;
             try
             {
-                ObservePlacementCancellation(self);
+                forwardRightDown = PlacementCancelRightClickPolicy.ShouldForwardRightDown(
+                    settings.EnableMod,
+                    settings.EnableClientFeatures,
+                    settings.PreventMoveOrderOnPlacementCancel,
+                    controls.CurrentAction,
+                    ConfigSettings.Settings_SH1RTSControls);
             }
             catch (Exception ex)
             {
-                state.Clear();
-                if (!captureFailureLogged)
+                if (!classificationFailureLogged)
                 {
-                    captureFailureLogged = true;
+                    classificationFailureLogged = true;
                     Shared.DebugLogHelper.LogError(
                         log,
-                        $"Bugfixes and QoL could not classify a placement-cancel click; Vanilla handling continues: {ex}");
+                        $"Bugfixes and QoL could not classify a placement-cancel click; Vanilla input continues: {ex}");
                 }
             }
 
-            stopAllPlacementOriginal(self);
+            // Preserve Vanilla placement cleanup exactly once, even when classification fails.
+            controls.StopAllPlacement();
+            return forwardRightDown;
         }
 
-        private unsafe void ObservePlacementCancellation(MainControls controls)
+        private static bool MatchesField(
+            Instruction instruction,
+            OpCode opcode,
+            Type declaringType,
+            string fieldName)
         {
-            if (!Input.GetMouseButtonDown(1))
-                return;
-
-            // StopAllPlacement is called for every gameplay right-click. Replacing the
-            // marker here guarantees that a later ordinary click cannot inherit it.
-            state.Clear();
-            if (!IsEnabled || controls == null || controls.CurrentAction != 5 ||
-                ConfigSettings.Settings_SH1RTSControls)
-            {
-                return;
-            }
-
-            EditorDirector director = EditorDirector.instance;
-            if (director == null || director.overUI())
-                return;
-
-            int localPlayerId = director.ActivePlayerID;
-            if (localPlayerId <= 0)
-                return;
-
-            SelectedUnitInfo[] selected =
-                GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
-            var identities = new List<PlacementCancelUnitIdentity>(selected.Length);
-            foreach (SelectedUnitInfo selectedUnit in selected)
-            {
-                int unitId = selectedUnit.UnitId;
-                if (unitId <= 0 ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
-                    unit->r_ControllableForPlayerId != localPlayerId)
-                {
-                    continue;
-                }
-
-                identities.Add(new PlacementCancelUnitIdentity(unitId, unit->r_GlobalId));
-            }
-
-            state.Replace(localPlayerId, identities);
+            return instruction.OpCode == opcode &&
+                instruction.Operand is FieldReference field &&
+                field.Name == fieldName &&
+                field.DeclaringType.FullName == declaringType.FullName;
         }
 
-        private unsafe void OnMoveOrder(TribeIssueOrderMoveHereEventArgs args)
+        private static bool MatchesMethod(
+            Instruction instruction,
+            OpCode opcode,
+            Type declaringType,
+            string methodName)
         {
-            if (args.Phase != EventHookPhase.Pre || !args.IsNewOrder || args.SkipOriginalFunction)
-                return;
-
-            try
-            {
-                if (!IsEnabled)
-                {
-                    state.Clear();
-                    return;
-                }
-
-                EditorDirector director = EditorDirector.instance;
-                int localPlayerId = director?.ActivePlayerID ?? -1;
-                if (localPlayerId <= 0 ||
-                    !GameTribeManagerAPI.Instance.TryGetTribeById(args.TribeId, out GameTribe* tribe) ||
-                    tribe == null || tribe->r_AliveState != AliveState.IsAlive ||
-                    tribe->r_PlayerIdOwner != localPlayerId)
-                {
-                    return;
-                }
-
-                var tribeUnitIds = new List<int>();
-                if (!GameTribeManagerAPI.Instance.GetUnits(args.TribeId, tribeUnitIds))
-                    return;
-
-                var identities = new List<PlacementCancelUnitIdentity>(tribeUnitIds.Count);
-                foreach (int unitId in tribeUnitIds)
-                {
-                    if (unitId <= 0 ||
-                        !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
-                        unit == null || unit->r_AliveState != AliveState.IsAlive ||
-                        unit->r_ControllableForPlayerId != localPlayerId)
-                    {
-                        continue;
-                    }
-
-                    identities.Add(new PlacementCancelUnitIdentity(unitId, unit->r_GlobalId));
-                }
-
-                if (!state.TryConsumeMatchingGroup(
-                        localPlayerId,
-                        identities,
-                        out int matchedCount,
-                        out int remainingCount))
-                {
-                    return;
-                }
-
-                args.SkipOriginalFunction = true;
-                args.ReturnValue = 0;
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    () => $"Bugfixes and QoL suppressed placement-cancel move order: tribe={args.TribeId}, matchedUnits={matchedCount}, remainingUnits={remainingCount}.");
-            }
-            catch (Exception ex)
-            {
-                state.Clear();
-                if (!moveFailureLogged)
-                {
-                    moveFailureLogged = true;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL placement-cancel move suppression failed; Vanilla move handling continues: {ex}");
-                }
-            }
-        }
-
-        private bool IsEnabled =>
-            settings.EnableMod &&
-            settings.EnableClientFeatures &&
-            settings.PreventMoveOrderOnPlacementCancel;
-
-        private void OnSettingChanged(string propertyName)
-        {
-            if (propertyName == nameof(BugfixesAndQoLViewModel.EnableMod) ||
-                propertyName == nameof(BugfixesAndQoLViewModel.EnableClientFeatures) ||
-                propertyName == nameof(BugfixesAndQoLViewModel.PreventMoveOrderOnPlacementCancel))
-            {
-                state.Clear();
-            }
+            return instruction.OpCode == opcode &&
+                instruction.Operand is MethodReference method &&
+                method.Name == methodName &&
+                method.Parameters.Count == 0 &&
+                method.DeclaringType.FullName == declaringType.FullName;
         }
     }
 }

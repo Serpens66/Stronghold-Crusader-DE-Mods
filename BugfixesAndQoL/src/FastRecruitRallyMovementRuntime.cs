@@ -217,8 +217,7 @@ namespace BugfixesAndQoL
         private void OnTribeIssueOrderMoveHere(
             TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!args.SkipOriginalFunction &&
-                args.Phase == EventHookPhase.Pre &&
+            if (args.Phase == EventHookPhase.Pre &&
                 args.IsNewOrder &&
                 args.MoveType != TribeMoveType.NoChange)
             {

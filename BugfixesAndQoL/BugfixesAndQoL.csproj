@@ -30,7 +30,9 @@
     <Reference Include="System" /><Reference Include="System.Core" /><Reference Include="System.Xml" /><Reference Include="System.Xml.Linq" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Mono.Cecil"><HintPath>$(GameDir)\BepInEx\core\Mono.Cecil.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MonoMod.Utils"><HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.AudioModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
@@ -205,7 +207,7 @@
     <Compile Include="src\PlagueNativePatternValidator.cs" />
     <Compile Include="src\PlaguePopularitySaveState.cs" />
     <Compile Include="src\PlacementCancelMoveSuppressionFeature.cs" />
-    <Compile Include="src\PlacementCancelMoveSuppressionPolicy.cs" />
+    <Compile Include="src\PlacementCancelRightClickPolicy.cs" />
     <Compile Include="src\RandomOpponentLobbyPolicy.cs" />
     <Compile Include="src\QuarryPileVanillaGroupPolicy.cs" />
     <Compile Include="src\QuarryPileRelocationPacket.cs" />

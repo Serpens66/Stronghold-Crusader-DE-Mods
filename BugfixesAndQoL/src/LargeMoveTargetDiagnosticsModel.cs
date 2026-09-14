@@ -83,9 +83,12 @@ namespace BugfixesAndQoL
     {
         public const int MinimumTrackedUnits = MoveFormationCommandSnapshotStore.MinimumTrackedUnits;
         public const int VanillaDrawCapacity = 0xFA;
-        public const int RequiredStableIdleTicks = 3;
+        public const int RequiredEmptyOverlayPasses = 3;
 
         public static bool ShouldTrack(int unitCount) => unitCount >= MinimumTrackedUnits;
+
+        public static bool ShouldCompleteAfterEmptyOverlayPasses(int consecutiveEmptyPasses) =>
+            consecutiveEmptyPasses >= RequiredEmptyOverlayPasses;
 
         public static bool IsVanillaMoveTargetMarker(
             int category,
@@ -96,6 +99,55 @@ namespace BugfixesAndQoL
         {
             return category == 0x6B && spriteId >= 0x52 && spriteId <= 0x59 &&
                 layer == 0xC && verticalOffset == 6 && (flags & 0x1FFFF) == 2;
+        }
+
+        public static bool BuildMarkerDelta(
+            HashSet<int> activeTiles,
+            HashSet<int> observedTiles,
+            List<int> removedTiles,
+            List<int> addedTiles)
+        {
+            if (activeTiles == null)
+                throw new ArgumentNullException(nameof(activeTiles));
+            if (observedTiles == null)
+                throw new ArgumentNullException(nameof(observedTiles));
+            if (removedTiles == null)
+                throw new ArgumentNullException(nameof(removedTiles));
+            if (addedTiles == null)
+                throw new ArgumentNullException(nameof(addedTiles));
+
+            removedTiles.Clear();
+            addedTiles.Clear();
+            foreach (int tileId in activeTiles)
+            {
+                if (!observedTiles.Contains(tileId))
+                    removedTiles.Add(tileId);
+            }
+            foreach (int tileId in observedTiles)
+            {
+                if (!activeTiles.Contains(tileId))
+                    addedTiles.Add(tileId);
+            }
+            return removedTiles.Count != 0 || addedTiles.Count != 0;
+        }
+
+        public static int ApplyMarkerReferenceDelta(
+            IDictionary<int, int> referenceCounts,
+            int tileId,
+            int delta)
+        {
+            if (referenceCounts == null)
+                throw new ArgumentNullException(nameof(referenceCounts));
+            referenceCounts.TryGetValue(tileId, out int count);
+            count += delta;
+            if (count <= 0)
+            {
+                referenceCounts.Remove(tileId);
+                return 0;
+            }
+
+            referenceCounts[tileId] = count;
+            return count;
         }
 
         public static MoveTargetComparisonSummary Compare(IReadOnlyList<MoveTargetOutcome> outcomes)

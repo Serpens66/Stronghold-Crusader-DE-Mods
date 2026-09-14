@@ -926,7 +926,7 @@ namespace BugfixesAndQoL
 
         private void OnMoveOrderCore(TribeIssueOrderMoveHereEventArgs args)
         {
-            if (!installed || args.SkipOriginalFunction)
+            if (!installed)
                 return;
 
             if (args.Phase == EventHookPhase.Pre)
