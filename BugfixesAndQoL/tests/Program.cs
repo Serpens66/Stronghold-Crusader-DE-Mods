@@ -38,6 +38,7 @@ namespace BugfixesAndQoL
             TestAicDropdownIntegration();
             TestFriendlyMoatMovementPolicy();
             TestFriendlyMoatMovementIntegration();
+            TestReachableEnemyGatehouseUnitIdContract();
             TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
@@ -2080,6 +2081,68 @@ namespace BugfixesAndQoL
                     !classifier.Contains("GetGatehouseArray") &&
                     !classifier.Contains("CollectAccessPcls"),
                 "AI accessibility classifier uses Vanilla entrance/keep PCLs and native three-sided portals only");
+        }
+
+        private static void TestReachableEnemyGatehouseUnitIdContract()
+        {
+            const int unitSpanLength = 10000;
+            Check(Shared.GatehouseQueryUnitIdPolicy.TryValidateGameId(
+                    1, unitSpanLength, out int firstUnitId) &&
+                firstUnitId == 1 && firstUnitId - 1 == 0,
+                "gatehouse event ID 1 remains game ID 1 and converts to span index 0 only at a direct-span boundary");
+            Check(Shared.GatehouseQueryUnitIdPolicy.TryValidateGameId(
+                    unitSpanLength, unitSpanLength, out int lastUnitId) &&
+                lastUnitId == unitSpanLength,
+                "gatehouse event accepts the highest valid one-based Unit game ID unchanged");
+            Check(!Shared.GatehouseQueryUnitIdPolicy.TryValidateGameId(
+                    0, unitSpanLength, out _) &&
+                !Shared.GatehouseQueryUnitIdPolicy.TryValidateGameId(
+                    -1, unitSpanLength, out _) &&
+                !Shared.GatehouseQueryUnitIdPolicy.TryValidateGameId(
+                    unitSpanLength + 1, unitSpanLength, out _),
+                "gatehouse event rejects zero, negative and above-span Unit IDs");
+
+            string projectDirectory = FindProjectDirectory();
+            string source = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "ReachableEnemyGatehouseRuntime.cs"));
+            Check(!source.Contains("zero-based span index") &&
+                    !source.Contains("rawUnitSpanIndex") &&
+                    source.Contains("one-based Unit game ID") &&
+                    source.Contains("validates it without conversion") &&
+                    source.Contains("eventUnitId={args.UnitId}"),
+                "gatehouse source documents and diagnoses the current one-based event contract");
+
+            int handlerStart = source.IndexOf(
+                "private void OnGatehouseQuery(", StringComparison.Ordinal);
+            int helperStart = handlerStart < 0
+                ? -1
+                : source.IndexOf(
+                    "private bool TryIsUnitReachableToGate(",
+                    handlerStart,
+                    StringComparison.Ordinal);
+            Check(handlerStart >= 0 && helperStart > handlerStart,
+                "gatehouse source exposes the expected event-handler boundary");
+            if (handlerStart < 0 || helperStart <= handlerStart)
+                return;
+
+            string handler = source.Substring(handlerStart, helperStart - handlerStart);
+            int eventRead = handler.IndexOf(
+                "int candidateUnitId = args.UnitId;", StringComparison.Ordinal);
+            int validation = handler.IndexOf(
+                "GatehouseQueryUnitIdPolicy.TryValidateGameId(", StringComparison.Ordinal);
+            int lookup = handler.IndexOf(
+                "TryGetUnitById(unitId,", StringComparison.Ordinal);
+            int pathing = handler.IndexOf(
+                "TryIsUnitReachableToGate(unitId,", StringComparison.Ordinal);
+            Check(eventRead >= 0 && validation > eventRead && lookup > validation && pathing > lookup,
+                "gatehouse handler passes the validated one-based Unit ID unchanged to lookup and pathing");
+            Check(!handler.Contains("args.UnitId + 1") &&
+                    !handler.Contains("args.UnitId+1") &&
+                    !handler.Contains("candidateUnitId + 1") &&
+                    !handler.Contains("candidateUnitId+1") &&
+                    !handler.Contains("unitId + 1") &&
+                    !handler.Contains("unitId+1"),
+                "gatehouse handler applies no obsolete +1 conversion to the event Unit ID");
         }
 
         private static void TestNativeContracts()

@@ -39,8 +39,8 @@ namespace BugfixesAndQoL
             if (gatehouseQuerySubscription != null)
                 return;
 
-            // SE 1.42.0 emits a zero-based span index in UnitId. Keep the conversion
-            // isolated here so the documented one-based game-ID boundary stays explicit.
+            // The installed manifest-selected Script Extender supplies a one-based Unit game ID.
+            // The shared adapter validates it without conversion.
             gatehouseQuerySubscription = BuildingR3EventHooks.OnGatehouseQuery.Observable
                 .Subscribe(OnGatehouseQuery);
         }
@@ -115,7 +115,7 @@ namespace BugfixesAndQoL
             {
                 LogFailure(
                     $"gatehouse reachability query failed: buildingId={args.BuildingId}, " +
-                    $"rawUnitSpanIndex={args.UnitId}, error={ex}");
+                    $"eventUnitId={args.UnitId}, error={ex}");
             }
         }
 
