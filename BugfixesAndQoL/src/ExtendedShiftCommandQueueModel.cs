@@ -23,7 +23,19 @@ namespace BugfixesAndQoL
         public const int MoveQueueMarker = 0x40;
         public const int MoveFormationSpacingMask = 0x0C;
         public const int TargetQueueMarker = 0x80;
+        public const int ChoreExecuteMode = 0;
         public const int ChorePackMode = 1;
+
+        public static bool ShouldPackFormationSpacing(
+            bool installed,
+            bool modEnabled,
+            bool featureEnabled,
+            bool choreTransportReady,
+            bool internalDispatch,
+            int choreMode,
+            bool shiftPressed) =>
+            installed && modEnabled && featureEnabled && choreTransportReady &&
+            !internalDispatch && choreMode == ChorePackMode && !shiftPressed;
 
         public const int GameTribePointerAdjustment = 0x2A;
         public const int ManagerRelativeWaypointIndexOffset = 0x5DC;
@@ -102,6 +114,22 @@ namespace BugfixesAndQoL
                 spacingCode == 3 ? 4 : MoveFormationSpacingPolicy.Default;
             decodedMoveType = moveType & ~MoveFormationSpacingMask;
             return true;
+        }
+
+        public static bool TryResolveExecutedFormationSpacing(
+            int moveType,
+            bool executingMoveChore,
+            out int decodedMoveType,
+            out int spacing)
+        {
+            if (!TryDecodeFormationSpacing(
+                    moveType, out decodedMoveType, out spacing))
+                return false;
+
+            bool hasPrivateSpacing =
+                (moveType & MoveFormationSpacingMask) != 0;
+            return hasPrivateSpacing ||
+                (executingMoveChore && (moveType & MoveQueueMarker) == 0);
         }
 
         public static bool TryDecodeQueuedMoveType(int moveType, out int decodedMoveType)

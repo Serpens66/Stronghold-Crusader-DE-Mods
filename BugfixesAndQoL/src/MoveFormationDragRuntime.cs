@@ -23,6 +23,8 @@ namespace BugfixesAndQoL
         private static readonly object syncRoot = new object();
         private static PendingCommand pending;
         private static ActiveCommand active;
+        private static int moveChoreExecutionDepth;
+        private static TribeIssueOrderMoveHereEventArgs observedPreEvent;
 
         internal static void Arm(int tribeId, int tileX, int tileY, int spacing)
         {
@@ -53,13 +55,37 @@ namespace BugfixesAndQoL
             if (args == null || args.Phase != EventHookPhase.Pre)
                 return;
 
-            int encoded = (int)args.MoveType;
-            if (!QueueNativeContract.TryDecodeFormationSpacing(
-                    encoded, out int decoded, out int encodedSpacing))
-                return;
+            lock (syncRoot)
+            {
+                if (ReferenceEquals(observedPreEvent, args))
+                    return;
+                observedPreEvent = args;
+                // A missing Post event (for example when Extended Shift consumes
+                // its marked Vanilla command) must not leak spacing into a later Move.
+                active = null;
+            }
 
+            int encoded = (int)args.MoveType;
             bool hasPrivateBits =
                 (encoded & QueueNativeContract.MoveFormationSpacingMask) != 0;
+            bool executingMoveChore;
+            lock (syncRoot)
+                executingMoveChore = moveChoreExecutionDepth > 0;
+            bool hasTransportSpacing =
+                QueueNativeContract.TryResolveExecutedFormationSpacing(
+                    encoded,
+                    executingMoveChore,
+                    out int decoded,
+                    out int encodedSpacing);
+            if (!hasTransportSpacing && !hasPrivateBits)
+            {
+                lock (syncRoot)
+                {
+                    if (pending == null ||
+                        !pending.Matches(args.TribeId, args.TileX, args.TileY))
+                        return;
+                }
+            }
             if (hasPrivateBits)
                 args.MoveType = (TribeMoveType)decoded;
 
@@ -69,16 +95,31 @@ namespace BugfixesAndQoL
                 bool matchesLocalRelease = command != null &&
                     command.Matches(args.TribeId, args.TileX, args.TileY);
                 if (enabled && args.IsPatrolPath == 0 &&
-                    (hasPrivateBits || matchesLocalRelease))
+                    (hasTransportSpacing || matchesLocalRelease))
                 {
                     active = new ActiveCommand(
                         args.TribeId,
                         args.TileX,
                         args.TileY,
-                        hasPrivateBits ? encodedSpacing : command.Spacing);
+                        hasTransportSpacing ? encodedSpacing : command.Spacing);
                     if (matchesLocalRelease)
                         pending = null;
                 }
+            }
+        }
+
+        internal static void EnterMoveChoreExecution()
+        {
+            lock (syncRoot)
+                moveChoreExecutionDepth++;
+        }
+
+        internal static void ExitMoveChoreExecution()
+        {
+            lock (syncRoot)
+            {
+                if (moveChoreExecutionDepth > 0)
+                    moveChoreExecutionDepth--;
             }
         }
 
@@ -101,7 +142,10 @@ namespace BugfixesAndQoL
         internal static void CompleteMoveOrder()
         {
             lock (syncRoot)
+            {
                 active = null;
+                observedPreEvent = null;
+            }
         }
 
         internal static void Clear()
@@ -110,6 +154,8 @@ namespace BugfixesAndQoL
             {
                 pending = null;
                 active = null;
+                moveChoreExecutionDepth = 0;
+                observedPreEvent = null;
             }
         }
 
@@ -726,8 +772,7 @@ namespace BugfixesAndQoL
             for (int index = 0; index < identities.Length; index++)
                 unitTypes[index] = identities[index].UnitType;
 
-            bool mapEditorSelection = MainViewModel.viewModelLoaded &&
-                MainViewModel.Instance != null && MainViewModel.Instance.IsMapEditorMode;
+            bool mapEditorSelection = Shared.GameModeHelper.IsMapEditor();
             if (!MoveFormationDragEligibility.RequiresNormalTribeOwnership(
                     mapEditorSelection))
             {

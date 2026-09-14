@@ -23,7 +23,8 @@ internal static class Program
         CheckUnitStableBranching();
         CheckAtomicCohortEnqueue();
         CheckNativeLayoutTranslation();
-        CheckMultiplayerChoreMarkers();
+        CheckChoreMarkers();
+        CheckDeferredFormationChoreExecution();
         CheckMoveChoreDeduplication();
         CheckFirstShiftMoveTakeover();
         CheckMoveFormationSpacing();
@@ -700,8 +701,38 @@ internal static class Program
         Check(QueueNativeContract.ChoreMoveTypeRva == 0x86C133C, "Chore Move type global RVA");
     }
 
-    private static void CheckMultiplayerChoreMarkers()
+    private static void CheckChoreMarkers()
     {
+        foreach (string mode in new[] { "map editor", "singleplayer", "multiplayer" })
+        {
+            Check(QueueNativeContract.ShouldPackFormationSpacing(
+                    installed: true,
+                    modEnabled: true,
+                    featureEnabled: true,
+                    choreTransportReady: true,
+                    internalDispatch: false,
+                    choreMode: QueueNativeContract.ChorePackMode,
+                    shiftPressed: false),
+                $"{mode} direct Move packs formation spacing through Vanilla Chore 17");
+        }
+        Check(!QueueNativeContract.ShouldPackFormationSpacing(
+                  true, true, true, true, false, choreMode: 0, shiftPressed: false) &&
+              !QueueNativeContract.ShouldPackFormationSpacing(
+                  true, true, true, true, false,
+                  QueueNativeContract.ChorePackMode, shiftPressed: true) &&
+              !QueueNativeContract.ShouldPackFormationSpacing(
+                  true, true, false, true, false,
+                  QueueNativeContract.ChorePackMode, shiftPressed: false) &&
+              !QueueNativeContract.ShouldPackFormationSpacing(
+                  installed: true,
+                  modEnabled: true,
+                  featureEnabled: true,
+                  choreTransportReady: true,
+                  internalDispatch: true,
+                  choreMode: QueueNativeContract.ChorePackMode,
+                  shiftPressed: false),
+            "formation spacing packs only for enabled direct non-Shift Moves in Chore pack mode");
+
         int[] producerMoveTypes = { 0, 1, 0x81 };
         foreach (int moveType in producerMoveTypes)
         {
@@ -774,6 +805,46 @@ internal static class Program
             "marked unsupported Chore 36 command is rejected");
         Check(!QueueNativeContract.TryDecodeQueuedTargetCommand(36, out _),
             "unmarked target command remains Vanilla");
+    }
+
+    private static void CheckDeferredFormationChoreExecution()
+    {
+        foreach (int tribeId in new[] { 7, 498, 499 })
+        foreach (int producerMoveType in new[] { 0, 1, 0x81 })
+        foreach (int spacing in new[] { 1, 2, 3, 4 })
+        {
+            Check(QueueNativeContract.TryEncodeFormationSpacing(
+                    producerMoveType, spacing, out int packedMoveType),
+                $"tribe {tribeId} spacing {spacing} packs before deferred execution");
+
+            // Vanilla stores this byte in its pending Chore. The managed release
+            // context may be cleared before the later execute-mode invocation.
+            int executeMoveType = packedMoveType & ~0x80;
+            Check(QueueNativeContract.TryResolveExecutedFormationSpacing(
+                    executeMoveType,
+                    executingMoveChore: true,
+                    out int vanillaMoveType,
+                    out int executedSpacing) &&
+                  executedSpacing == spacing &&
+                  vanillaMoveType == (producerMoveType & 1),
+                $"tribe {tribeId} spacing {spacing} survives deferred Chore execution");
+            bool resolvesWithoutExecuteScope =
+                QueueNativeContract.TryResolveExecutedFormationSpacing(
+                    executeMoveType,
+                    executingMoveChore: false,
+                    out _,
+                    out _);
+            Check(resolvesWithoutExecuteScope ==
+                  (spacing != MoveFormationSpacingPolicy.Default),
+                $"tribe {tribeId} spacing {spacing} has the expected private-bit identity");
+        }
+        Check(!QueueNativeContract.TryResolveExecutedFormationSpacing(
+                  QueueNativeContract.MoveQueueMarker,
+                  executingMoveChore: true,
+                  out int queuedMoveType,
+                  out _) &&
+              queuedMoveType == QueueNativeContract.MoveQueueMarker,
+            "Extended Shift marker does not acquire default formation spacing during Chore execution");
     }
 
     private static void CheckMoveChoreDeduplication()
@@ -1052,7 +1123,8 @@ internal static class Program
             "integrated queue owns five typed RedBird detour handles");
         Check(CountText(queueRuntime, "HookTarget.FromAddress(") == 5,
             "integrated queue registers five explicit native targets");
-        Check(CountText(queueRuntime, ".Original(") == 7 &&
+        Check(CountText(queueRuntime, ".Original(") == 6 &&
+            CountText(queueRuntime, "InvokeOriginalMoveChore(") == 3 &&
             CountText(queueRuntime, "InvokeOriginalTribeOverlay(") == 5,
             "integrated queue preserves every original-call path through typed handles and the observed overlay wrapper");
         Check(CountText(queueRuntime, ".IsCompleteSuccess") == 3,
@@ -1177,6 +1249,7 @@ internal static class Program
               moveFormationDrag.Contains("MoveFormationPreviewPlanner") &&
               moveFormationDrag.Contains("targetAvailable(target.NativeX, target.NativeY)") &&
               moveFormationDrag.Contains("private static readonly object syncRoot") &&
+              moveFormationDrag.Contains("ReferenceEquals(observedPreEvent, args)") &&
               !moveFormationDrag.Contains("[ThreadStatic]") &&
               moveFormationDrag.Contains("RestoreInputState(") &&
               moveFormationDrag.Contains("StartSelectionHook(") &&
@@ -1184,13 +1257,22 @@ internal static class Program
               moveFormationDrag.Contains("leftMouseStateForEngineField") &&
               moveFormationDrag.Contains("rightUpForEngineField") &&
               moveFormationDrag.Contains("SelectionMatches(state.Selection)") &&
-              moveFormationDrag.Contains("MainViewModel.Instance.IsMapEditorMode") &&
+              moveFormationDrag.Contains("Shared.GameModeHelper.IsMapEditor()") &&
+              !moveFormationDrag.Contains("MainViewModel.Instance.IsMapEditorMode") &&
               !moveFormationDrag.Contains("Input.GetMouseButton") &&
               !moveFormationDrag.Contains("OnBeforeRender") &&
               !moveFormationDrag.Contains("\"Update\", BindingFlags") &&
               !moveFormationDrag.Contains("PreDllCallActionsDelegate") &&
               !moveFormationDrag.Contains("preDLLCallActionsOriginal"),
             "drag preview uses R3 input and a full Engine run transaction with separate coordinate domains");
+        Check(queueRuntime.Contains("QueueNativeContract.ShouldPackFormationSpacing(") &&
+              queueRuntime.Contains("MoveFormationCommandContext.EnterMoveChoreExecution()") &&
+              queueRuntime.Contains("MoveFormationCommandContext.ExitMoveChoreExecution()") &&
+              queueRuntime.Contains("Shared.GameModeHelper.Capture()") &&
+              queueRuntime.Contains("MOVE_FORMATION_DRAG: chore-packed;") &&
+              !queueRuntime.Contains("MOVE_FORMATION_DRAG: chore-marked;") &&
+              !queueRuntime.Contains("IsRealMultiplayer() && !IsShiftPressed()"),
+            "formation spacing uses Vanilla Chore 17 in every mode and Shared mode diagnostics");
         Check(moveFormationPreview.Contains("PathEdgeMaskGrid") &&
               moveFormationPreview.Contains("PathConnectionGrid") &&
               moveFormationPreview.Contains("NativeFormationCandidateCapacity = 4001") &&

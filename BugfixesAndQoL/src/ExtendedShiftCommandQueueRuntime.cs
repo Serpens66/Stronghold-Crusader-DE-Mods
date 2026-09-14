@@ -493,8 +493,10 @@ namespace BugfixesAndQoL
             bool trampolineEntered = false;
             bool markerWritten = false;
             int originalMoveType = 0;
+            int choreMode = int.MinValue;
             try
             {
+                choreMode = Marshal.ReadInt32(choreModePointer);
                 int observedTribeId = Marshal.ReadInt32(choreTribeIdPointer);
                 originalMoveType = Marshal.ReadInt32(choreMoveTypePointer);
                 int markedMoveType = originalMoveType;
@@ -514,11 +516,13 @@ namespace BugfixesAndQoL
                             markedMoveType & ~0x80,
                             out _,
                             out int markedSpacing);
-                        Shared.DebugLogHelper.LogDebug(
-                            log,
-                            $"MOVE_FORMATION_DRAG: chore-marked; tribe={observedTribeId}; " +
-                            $"target={Marshal.ReadInt32(choreCommandOrTileXPointer)},{Marshal.ReadInt32(choreTileYPointer)}; " +
-                            $"spacing={markedSpacing}; moveType=0x{originalMoveType:X}->0x{markedMoveType:X}.");
+                        TryLogFormationChorePacked(
+                            observedTribeId,
+                            Marshal.ReadInt32(choreCommandOrTileXPointer),
+                            Marshal.ReadInt32(choreTileYPointer),
+                            markedSpacing,
+                            originalMoveType,
+                            markedMoveType);
                     }
                     else if (pendingMatched)
                     {
@@ -545,8 +549,7 @@ namespace BugfixesAndQoL
                     markerWritten = true;
                 }
 
-                trampolineEntered = true;
-                moveChoreHandlerHook.Original();
+                InvokeOriginalMoveChore(choreMode, ref trampolineEntered);
             }
             catch (Exception exception)
             {
@@ -555,7 +558,7 @@ namespace BugfixesAndQoL
                 {
                     try
                     {
-                        moveChoreHandlerHook.Original();
+                        InvokeOriginalMoveChore(choreMode, ref trampolineEntered);
                     }
                     catch (Exception trampolineException)
                     {
@@ -576,6 +579,26 @@ namespace BugfixesAndQoL
                         LogMultiplayerMarkerFailure("Chore 17 restore", restoreException);
                     }
                 }
+            }
+        }
+
+        private void InvokeOriginalMoveChore(
+            int choreMode,
+            ref bool trampolineEntered)
+        {
+            bool executeFormationScope =
+                choreMode == QueueNativeContract.ChoreExecuteMode;
+            if (executeFormationScope)
+                MoveFormationCommandContext.EnterMoveChoreExecution();
+            try
+            {
+                trampolineEntered = true;
+                moveChoreHandlerHook.Original();
+            }
+            finally
+            {
+                if (executeFormationScope)
+                    MoveFormationCommandContext.ExitMoveChoreExecution();
             }
         }
 
@@ -644,10 +667,39 @@ namespace BugfixesAndQoL
             IsShiftPressed();
 
         private bool ShouldMarkOutgoingFormationOrder() =>
-            installed && settings.EnableMod && settings.EnableMoveFormationEnhancements &&
-            multiplayerSynchronizationReady && !internalDispatch &&
-            Marshal.ReadInt32(choreModePointer) == QueueNativeContract.ChorePackMode &&
-            IsRealMultiplayer() && !IsShiftPressed();
+            QueueNativeContract.ShouldPackFormationSpacing(
+                installed,
+                settings.EnableMod,
+                settings.EnableMoveFormationEnhancements,
+                multiplayerSynchronizationReady,
+                internalDispatch,
+                Marshal.ReadInt32(choreModePointer),
+                IsShiftPressed());
+
+        private void TryLogFormationChorePacked(
+            int tribeId,
+            int tileX,
+            int tileY,
+            int spacing,
+            int originalMoveType,
+            int markedMoveType)
+        {
+            try
+            {
+                Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture();
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"MOVE_FORMATION_DRAG: chore-packed; tribe={tribeId}; " +
+                    $"target={tileX},{tileY}; spacing={spacing}; " +
+                    $"moveType=0x{originalMoveType:X}->0x{markedMoveType:X}; " +
+                    $"mode={gameMode.Kind}; realMultiplayer={gameMode.IsRealMultiplayer}.");
+            }
+            catch
+            {
+                // Diagnostics must never prevent the already validated Chore payload
+                // from reaching Vanilla.
+            }
+        }
 
         private void LogMultiplayerMarkerFailure(string chore, Exception exception)
         {
