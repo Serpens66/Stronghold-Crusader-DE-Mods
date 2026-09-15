@@ -31,6 +31,7 @@
     <Style x:Key="ClientActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#44306950"/><Setter Property="BorderBrush" Value="#FF66CC99"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
     <Style x:Key="HostOptionsBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443E315F"/><Setter Property="BorderBrush" Value="#FFB99BE8"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="10,8"/></Style>
     <shared:ModSettingsSearchVisibilityConverter x:Key="ModSettingsSearchVisibilityConverter"/>
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
     <Style x:Key="ModSettingsSearchTargetGrid" TargetType="{x:Type Grid}"><Setter Property="Visibility"><Setter.Value><MultiBinding Converter="{StaticResource ModSettingsSearchVisibilityConverter}"><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.FilterText)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.IncludeToolTips)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.ExactKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.Key)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.Title)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.ToolTipText)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/></MultiBinding></Setter.Value></Setter></Style>
     <Style x:Key="ModSettingsSearchSectionGrid" TargetType="{x:Type Grid}"><Setter Property="Visibility"><Setter.Value><MultiBinding Converter="{StaticResource ModSettingsSearchVisibilityConverter}"><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.FilterText)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.IncludeToolTips)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.ExactKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/></MultiBinding></Setter.Value></Setter></Style>
     <Style x:Key="ModSettingsSearchIcon" TargetType="{x:Type Path}"><Setter Property="Stroke" Value="#FF77AAFF"/><Style.Triggers><DataTrigger Binding="{Binding System_ModSettingsSearchHasActiveFilter}" Value="True"><Setter Property="Stroke" Value="#FFF2D48A"/></DataTrigger></Style.Triggers></Style>
@@ -78,16 +79,38 @@
       <ItemsControl ItemsSource="{Binding CompatibleTrailMods}" Margin="12,6,0,0">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
-            <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding ModId}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding HelpText}"><CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}"
-                      Content="{Binding DisplayName}"
-                      Foreground="White"
-                      ToolTipService.ShowDuration="60000"
-                      Margin="0,2">
-              <CheckBox.ToolTip>
-                <ToolTip Style="{StaticResource ModSettingsToolTipStyle}"
-                         Content="{Binding HelpText}"/>
-              </CheckBox.ToolTip>
-            </CheckBox></Grid>
+            <StackPanel Margin="0,2">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding ModId}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding SearchText}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBlock Grid.Column="1" Text="{Binding SummaryText}" Foreground="#FFCCCCCC" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox Grid.Column="2" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" VerticalAlignment="Center" Margin="0,0,6,0" ToolTipService.ShowDuration="60000">
+                  <ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ComboBox.ToolTip>
+                </ComboBox>
+                <ToggleButton Grid.Column="3" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Foreground="White" Width="28" Height="24" Padding="0" ToolTipService.ShowDuration="60000">
+                  <ToggleButton.Style>
+                    <Style TargetType="{x:Type ToggleButton}">
+                      <Setter Property="Content" Value="▶"/>
+                      <Style.Triggers><Trigger Property="IsChecked" Value="True"><Setter Property="Content" Value="▼"/></Trigger></Style.Triggers>
+                    </Style>
+                  </ToggleButton.Style>
+                  <ToggleButton.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ToggleButton.ToolTip>
+                </ToggleButton>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding Settings}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="26,4,0,5">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding Key}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding HelpText}" Margin="0,1">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="White" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                      <ComboBox Grid.Column="1" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" VerticalAlignment="Center" ToolTipService.ShowDuration="60000">
+                        <ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ComboBox.ToolTip>
+                      </ComboBox>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>

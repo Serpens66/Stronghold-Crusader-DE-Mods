@@ -153,16 +153,6 @@ namespace CustomCustomTrail.Core
                 .ToArray();
         }
 
-        public static string[] NormalizeDisabledModIds(IEnumerable<string> ids, string excludedModId)
-        {
-            return (ids ?? Enumerable.Empty<string>())
-                .Where(id => !string.IsNullOrWhiteSpace(id) &&
-                    !string.Equals(id, excludedModId, StringComparison.Ordinal))
-                .Distinct(StringComparer.Ordinal)
-                .OrderBy(id => id, StringComparer.Ordinal)
-                .ToArray();
-        }
-
         private static bool HasAttribute(PropertyInfo property, string attributeTypeName) =>
             property.GetCustomAttributes(false)
                 .Any(attribute => attribute.GetType().Name == attributeTypeName);

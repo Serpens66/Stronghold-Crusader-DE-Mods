@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 3,
+  "mods": {
+    "StartConditions_Serp": {
+      "playerSettings": [
+        "EnableMod"
+      ],
+      "overrides": {
+        "SetStartGoldAI": -1,
+        "SetStartGoldHuman": 500,
+        "StartGoodsAI": "STORED_WOOD_PLANKS=100",
+        "StartGoodsHuman": "STORED_WOOD_PLANKS=100\r\nSTORED_STONE_BLOCKS=50",
+        "AddStartTroopsAI": "CHIMP_TYPE_ARCHER=10",
+        "AddStartTroopsHuman": "CHIMP_TYPE_SPEARMAN=5"
+      }
+    }
+  }
+}

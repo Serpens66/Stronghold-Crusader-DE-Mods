@@ -5,6 +5,8 @@ namespace Shared
 {
     internal static class WorkshopUploadStaging
     {
+        private const string TrailModSettingsFileSuffix = ".modtrail.json";
+
         internal static bool TryResetDirectChild(
             string stagingRoot,
             string itemName,
@@ -75,12 +77,18 @@ namespace Shared
                 if (string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("The Custom Trail source and Workshop staging destination overlap.");
 
-                string[] sidecars = Directory.GetFiles(source, "*.modjson", SearchOption.TopDirectoryOnly);
+                string[] sidecars = Directory.GetFiles(
+                    source,
+                    "*" + TrailModSettingsFileSuffix,
+                    SearchOption.TopDirectoryOnly);
                 Array.Sort(sidecars, StringComparer.OrdinalIgnoreCase);
                 foreach (string sidecar in sidecars)
                 {
                     RejectReparsePoint(sidecar, "Custom Trail sidecar");
-                    string trail = Path.ChangeExtension(sidecar, ".trail");
+                    string fileName = Path.GetFileName(sidecar);
+                    string trail = Path.Combine(
+                        source,
+                        fileName.Substring(0, fileName.Length - TrailModSettingsFileSuffix.Length) + ".trail");
                     if (!File.Exists(trail))
                         continue;
                     RejectReparsePoint(trail, "Custom Trail mission");

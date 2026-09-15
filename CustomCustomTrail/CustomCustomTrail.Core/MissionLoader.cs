@@ -9,6 +9,7 @@ namespace CustomCustomTrail.Core
     public sealed class MissionLoader
     {
         public const int CurrentSchemaVersion = 3;
+        public const string ModSettingsFileSuffix = ".modtrail.json";
         private static readonly HashSet<int> Rotations = new HashSet<int> { 0, 90, 180, 270 };
 
         public LoadedMission Load(string jsonPath, int trailNumber, int missionNumber)
@@ -160,12 +161,33 @@ namespace CustomCustomTrail.Core
                 throw new InvalidDataException("Coop mission files must end with " + suffix + ".");
             return Path.Combine(
                 Path.GetDirectoryName(fullJsonPath),
-                fileName.Substring(0, fileName.Length - suffix.Length) + ".modjson");
+                fileName.Substring(0, fileName.Length - suffix.Length) + ModSettingsFileSuffix);
+        }
+
+        public static string GetTrailModSettingsPath(string trailPath)
+        {
+            string fullTrailPath = Path.GetFullPath(trailPath ?? throw new ArgumentNullException(nameof(trailPath)));
+            if (!string.Equals(Path.GetExtension(fullTrailPath), ".trail", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Trail mission files must end with .trail.");
+            return Path.ChangeExtension(fullTrailPath, ModSettingsFileSuffix);
+        }
+
+        public static string GetTrailPathFromModSettingsPath(string modSettingsPath)
+        {
+            string fullModSettingsPath = Path.GetFullPath(
+                modSettingsPath ?? throw new ArgumentNullException(nameof(modSettingsPath)));
+            string fileName = Path.GetFileName(fullModSettingsPath);
+            if (!fileName.EndsWith(ModSettingsFileSuffix, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(
+                    "Trail mod-settings files must end with " + ModSettingsFileSuffix + ".");
+            return Path.Combine(
+                Path.GetDirectoryName(fullModSettingsPath),
+                fileName.Substring(0, fileName.Length - ModSettingsFileSuffix.Length) + ".trail");
         }
 
         private static void LoadModSettings(CoopMissionDefinition mission, string sidecarPath)
         {
-            mission.ModSettings = ModSettingsDefinition.CreateUnmanaged();
+            mission.ModSettings = ModSettingsDefinition.CreateModDefaults();
             mission.ModSettingsError = null;
             if (!File.Exists(sidecarPath))
                 return;
@@ -177,7 +199,7 @@ namespace CustomCustomTrail.Core
             {
                 // A broken optional preset must not make the Coop mission assets unusable.
                 mission.ModSettingsError = exception.Message;
-                mission.ModSettings = ModSettingsDefinition.CreateUnmanaged();
+                mission.ModSettings = ModSettingsDefinition.CreateModDefaults();
             }
         }
 

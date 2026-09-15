@@ -27,15 +27,21 @@ namespace CustomCustomTrail
 {
     internal sealed class TrailModCompatibilityInfo
     {
-        public TrailModCompatibilityInfo(string modId, string displayName, string incompatibilityReason)
+        public TrailModCompatibilityInfo(
+            string modId,
+            string displayName,
+            PropertyInfo[] properties,
+            string incompatibilityReason)
         {
             ModId = modId;
             DisplayName = displayName;
+            Properties = properties ?? Array.Empty<PropertyInfo>();
             IncompatibilityReason = incompatibilityReason;
         }
 
         public string ModId { get; }
         public string DisplayName { get; }
+        public PropertyInfo[] Properties { get; }
         public string IncompatibilityReason { get; }
         public bool IsCompatible => string.IsNullOrEmpty(IncompatibilityReason);
     }
@@ -97,7 +103,8 @@ namespace CustomCustomTrail
 
             private readonly ManualLogSource log;
             private readonly BugfixesAndQoLTrailCustomizationBridge customizationBridge;
-            private readonly Func<string, bool> isModSelected;
+            private readonly Func<string, string, TrailSettingMode> getPropertyMode;
+            private readonly Action<ModSettingsDefinition> applyEditorModes;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
             private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
                 new Dictionary<Type, Dictionary<string, PropertyInfo>>();
@@ -172,12 +179,19 @@ namespace CustomCustomTrail
                         continue;
                     LobbyModSettingsEntry entry = group.First();
                     string displayName = GetModDisplayName(entry);
+                    TrailModCompatibilityResult compatibility = entry == null || group.Skip(1).Any()
+                        ? null
+                        : GetCompatibility(entry.ViewModel);
                     string incompatibility = entry == null
                         ? "missing mod-settings registration"
                         : group.Skip(1).Any()
                         ? "multiple mod-settings panels use the same plugin GUID"
-                        : GetIncompatibilityReason(entry.ViewModel);
-                    result.Add(new TrailModCompatibilityInfo(modId, displayName, incompatibility));
+                        : compatibility.IncompatibilityReason;
+                    result.Add(new TrailModCompatibilityInfo(
+                        modId,
+                        displayName,
+                        compatibility?.Properties,
+                        incompatibility));
                 }
                 TrailModCompatibilityInfo[] catalog = result
                     .OrderBy(item => item.DisplayName, StringComparer.CurrentCultureIgnoreCase)
@@ -207,14 +221,16 @@ namespace CustomCustomTrail
                     lastCompatibilityFailures[item.Key] = item.Value;
             }
 
-            private string GetIncompatibilityReason(object viewModel)
+            private TrailModCompatibilityResult GetCompatibility(object viewModel)
             {
                 return TrailModCompatibilityContract.Evaluate(
                     viewModel,
                     (property, value) => MessagePackSerializer.Serialize(property.PropertyType, value),
-                    (type, bytes) => MessagePackSerializer.Deserialize(type, bytes))
-                    .IncompatibilityReason;
+                    (type, bytes) => MessagePackSerializer.Deserialize(type, bytes));
             }
+
+            private string GetIncompatibilityReason(object viewModel) =>
+                GetCompatibility(viewModel).IncompatibilityReason;
 
             private static string GetModId(LobbyModSettingsEntry entry)
             {
@@ -239,11 +255,16 @@ namespace CustomCustomTrail
             private static bool IsRegistrationGroupOptedOut(IEnumerable<LobbyModSettingsEntry> group) =>
                 group.Any(entry => TrailModCompatibilityContract.IsExplicitlyOptedOut(entry?.Plugin));
 
-            public TrailMissionSettingsCoordinator(ManualLogSource log, bool enabled, Func<string, bool> isModSelected)
+            public TrailMissionSettingsCoordinator(
+                ManualLogSource log,
+                bool enabled,
+                Func<string, string, TrailSettingMode> getPropertyMode,
+                Action<ModSettingsDefinition> applyEditorModes)
             {
                 this.log = log;
                 this.enabled = enabled;
-                this.isModSelected = isModSelected ?? (_ => true);
+                this.getPropertyMode = getPropertyMode ?? ((_, __) => TrailSettingMode.ModDefault);
+                this.applyEditorModes = applyEditorModes;
                 customizationBridge = new BugfixesAndQoLTrailCustomizationBridge(log);
             }
 
@@ -387,19 +408,21 @@ namespace CustomCustomTrail
                     document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
                     ApplyDocument(document, editable);
                     DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
-                    return GetMissingEnabledMods(document);
+                    return GetMissingMentionedMods(document);
                 }
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(log, $"Could not load {source} mod settings; sidecar mod settings are ignored: {exception}");
-                    ApplyDocument(ModSettingsDefinition.CreateUnmanaged(), editable);
+                    ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable);
                     return Array.Empty<string>();
                 }
             }
 
-            private static string[] GetMissingEnabledMods(ModSettingsDefinition document) =>
+            private static string[] GetMissingMentionedMods(ModSettingsDefinition document) =>
                 document.Mods
-                    .Where(entry => entry.Value != null && entry.Value.Enabled)
+                    .Where(entry => entry.Value != null &&
+                        ((entry.Value.PlayerSettings?.Length ?? 0) != 0 ||
+                        (entry.Value.Overrides?.Count ?? 0) != 0))
                     .Select(entry => entry.Key)
                     .Where(id => !Chainloader.PluginInfos.ContainsKey(id))
                     .OrderBy(id => id, StringComparer.Ordinal)
@@ -456,13 +479,10 @@ namespace CustomCustomTrail
                     // Vanilla unloads and rebuilds the editor inside the original save call.
                     // Capture synchronously before invoking it so every save uses its own visible values.
                     document = CaptureDocument();
-                    string[] enabledMods = document.Mods
-                        .Where(entry => entry.Value.Enabled)
-                        .Select(entry => entry.Key)
-                        .ToArray();
+                    string[] mentionedMods = document.Mods.Keys.ToArray();
                     DebugLogHelper.LogInfo(
                         log,
-                        "Captured Trail mod settings before save; enabled=[" + string.Join(", ", enabledMods) + "].");
+                        "Captured Trail mod settings before save; mentioned=[" + string.Join(", ", mentionedMods) + "].");
                     // Vanilla can enter Trail export before this save call returns. Keep the
                     // synchronous capture available to both exporters until it reaches disk.
                     capturedDocumentsByTrailPath[IOPath.GetFullPath(trailPath)] = document;
@@ -477,7 +497,7 @@ namespace CustomCustomTrail
                 saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
                 if (document == null)
                     return;
-                string sidecar = IOPath.GetFullPath(IOPath.ChangeExtension(trailPath, ".modjson"));
+                string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 try
                 {
                     if (!File.Exists(trailPath))
@@ -545,12 +565,12 @@ namespace CustomCustomTrail
                         if (loadedHeader != null)
                             EnterSidecar(loadedHeader.filePath, editable: true);
                         else
-                            ApplyDocument(ModSettingsDefinition.CreateUnmanaged(), editable: true);
+                            ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: true);
                     }
                     catch (Exception exception)
                     {
                         DebugLogHelper.LogError(log, $"Could not activate editable Trail mod settings: {exception}");
-                        ApplyDocument(ModSettingsDefinition.CreateUnmanaged(), editable: true);
+                        ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: true);
                     }
                 }
                 else if (string.Equals(command, "Import", StringComparison.Ordinal))
@@ -1066,7 +1086,9 @@ namespace CustomCustomTrail
             {
                 TryFileOperation("export Trail sidecars", () =>
                 {
-                    foreach (string stale in Directory.GetFiles(destination, "Trail_Mission_*.modjson"))
+                    foreach (string stale in Directory.GetFiles(
+                        destination,
+                        "Trail_Mission_*" + MissionLoader.ModSettingsFileSuffix))
                         File.Delete(stale);
 
                     string makerRoot = ConfigSettings.GetUserTrailMakerPath();
@@ -1078,7 +1100,9 @@ namespace CustomCustomTrail
                             continue;
                         if (TryReadModSettingsForExport(sourceTrail, out ModSettingsDefinition document))
                         {
-                            string target = IOPath.Combine(destination, FRONT_ManageTrail.GetMakerFileName(outputIndex) + ".modjson");
+                            string target = IOPath.Combine(
+                                destination,
+                                FRONT_ManageTrail.GetMakerFileName(outputIndex) + MissionLoader.ModSettingsFileSuffix);
                             ModSettingsJson.WriteAtomic(target, document);
                         }
                         outputIndex++;
@@ -1090,7 +1114,7 @@ namespace CustomCustomTrail
             {
                 return TryReadModSettingsForExport(trailPath, out ModSettingsDefinition document)
                     ? document
-                    : ModSettingsDefinition.CreateUnmanaged();
+                    : ModSettingsDefinition.CreateModDefaults();
             }
 
             private bool TryReadModSettingsForExport(string trailPath, out ModSettingsDefinition document)
@@ -1101,7 +1125,7 @@ namespace CustomCustomTrail
                     DebugLogHelper.LogInfo(log, $"Using synchronously captured Trail mod settings for export [{fullTrailPath}].");
                     return true;
                 }
-                string sidecar = IOPath.ChangeExtension(fullTrailPath, ".modjson");
+                string sidecar = MissionLoader.GetTrailModSettingsPath(fullTrailPath);
                 if (File.Exists(sidecar))
                 {
                     document = ModSettingsJson.Read(sidecar);
@@ -1118,7 +1142,9 @@ namespace CustomCustomTrail
                     return;
                 TryFileOperation("clear Trail sidecars", () =>
                 {
-                    foreach (string sidecar in Directory.GetFiles(ConfigSettings.GetUserTrailMakerPath(), "Trail_Mission_*.modjson"))
+                    foreach (string sidecar in Directory.GetFiles(
+                        ConfigSettings.GetUserTrailMakerPath(),
+                        "Trail_Mission_*" + MissionLoader.ModSettingsFileSuffix))
                         File.Delete(sidecar);
                     SetMakerCoopEnabled(false);
                     RefreshTrailMakerCoopCheckbox();
@@ -1235,7 +1261,9 @@ namespace CustomCustomTrail
             {
                 foreach (string trail in Directory.GetFiles(destination, "*.trail"))
                     File.Delete(trail);
-                foreach (string sidecar in Directory.GetFiles(destination, "Trail_Mission_*.modjson"))
+                foreach (string sidecar in Directory.GetFiles(
+                    destination,
+                    "Trail_Mission_*" + MissionLoader.ModSettingsFileSuffix))
                     File.Delete(sidecar);
             }
 
@@ -1302,7 +1330,7 @@ namespace CustomCustomTrail
                     catch (Exception exception)
                     {
                         DebugLogHelper.LogError(log, $"Could not prepare Custom Trail mod settings: {exception}");
-                        ApplyDocument(ModSettingsDefinition.CreateUnmanaged(), editable: false);
+                        ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
                     }
                 }
                 preserveContextForLaunch = false;
@@ -1624,7 +1652,7 @@ namespace CustomCustomTrail
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(log, $"Could not select Custom Trail mod settings: {exception}");
-                    ApplyDocument(ModSettingsDefinition.CreateUnmanaged(), editable: false);
+                    ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
                 }
             }
 
@@ -2161,7 +2189,7 @@ namespace CustomCustomTrail
 
             private void EnterSidecar(string trailPath, bool editable)
             {
-                string sidecar = IOPath.GetFullPath(IOPath.ChangeExtension(trailPath, ".modjson"));
+                string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 bool exists = File.Exists(sidecar);
                 long length = -1;
                 long writeTicks = 0;
@@ -2182,16 +2210,13 @@ namespace CustomCustomTrail
 
                 ModSettingsDefinition document = exists
                     ? ModSettingsJson.Read(sidecar)
-                    : ModSettingsDefinition.CreateUnmanaged();
+                    : ModSettingsDefinition.CreateModDefaults();
                 ApplyDocument(document, editable);
-                string[] enabledMods = document.Mods
-                    .Where(entry => entry.Value.Enabled)
-                    .Select(entry => entry.Key)
-                    .ToArray();
+                string[] mentionedMods = document.Mods.Keys.ToArray();
                 DebugLogHelper.LogInfo(
                     log,
                     $"Loaded Trail sidecar [{sidecar}]; exists={exists}, editable={editable}, " +
-                    "enabled=[" + string.Join(", ", enabledMods) + "].");
+                    "mentioned=[" + string.Join(", ", mentionedMods) + "].");
                 activeSidecarPath = sidecar;
                 activeSidecarLength = length;
                 activeSidecarWriteTicks = writeTicks;
@@ -2200,49 +2225,50 @@ namespace CustomCustomTrail
 
             private ModSettingsDefinition CaptureDocument()
             {
-                ModSettingsDefinition document = ModSettingsDefinition.CreateUnmanaged();
-                Dictionary<string, object> participants = FindCompatibleViewModels(selectedOnly: true);
+                ModSettingsDefinition document = ModSettingsDefinition.CreateModDefaults();
+                Dictionary<string, object> participants = FindCompatibleViewModels();
 
                 foreach (KeyValuePair<string, object> participant in participants)
                 {
                     object viewModel = participant.Value;
                     Dictionary<string, PropertyInfo> properties = GetPersistedProperties(viewModel);
-                    bool enabled = !properties.TryGetValue("EnableMod", out PropertyInfo enableProperty) ||
-                        enableProperty.PropertyType != typeof(bool) ||
-                        (bool)enableProperty.GetValue(viewModel);
                     var target = new ModSettingsEntry();
-                    document.Mods[participant.Key] = target;
-                    target.Enabled = enabled;
-                    if (!enabled)
-                        continue;
-
-                    foreach (PropertyInfo property in properties.Values.Where(property => property.Name != "EnableMod"))
+                    foreach (PropertyInfo property in properties.Values)
                     {
-                        object value = property.GetValue(viewModel);
-                        target.Settings[property.Name] = ModSettingsJson.IsSupportedValue(value)
-                            ? value
-                            : EncodeSettingValue(property.PropertyType, value);
+                        TrailSettingMode mode = getPropertyMode(participant.Key, property.Name);
+                        if (mode == TrailSettingMode.Player)
+                        {
+                            target.PlayerSettings = target.PlayerSettings
+                                .Concat(new[] { property.Name })
+                                .ToArray();
+                        }
+                        else if (mode == TrailSettingMode.Fixed)
+                        {
+                            object value = property.GetValue(viewModel);
+                            target.Overrides[property.Name] = ModSettingsJson.IsSupportedValue(value)
+                                ? value
+                                : EncodeSettingValue(property.PropertyType, value);
+                        }
                     }
+                    if (target.PlayerSettings.Length != 0 || target.Overrides.Count != 0)
+                        document.Mods[participant.Key] = target;
                 }
-                return document;
+                return ModSettingsJson.NormalizeAndValidate(document, "captured Trail mod settings");
             }
 
             private void ApplyDocument(ModSettingsDefinition document, bool editable)
             {
                 ClearActiveSidecar();
-                Dictionary<string, object> allParticipants = FindCompatibleViewModels(selectedOnly: false);
+                Dictionary<string, object> allParticipants = FindCompatibleViewModels();
                 ExitActiveParticipants(allParticipants);
-                Dictionary<string, object> participants = allParticipants
-                    .Where(item => document.Mods.ContainsKey(item.Key))
-                    .ToDictionary(item => item.Key, item => item.Value, StringComparer.Ordinal);
-                var prepared = new List<Tuple<string, object, Dictionary<string, byte[]>>>(participants.Count);
-                foreach (KeyValuePair<string, object> participant in participants)
+                var prepared = new List<Tuple<string, object, Dictionary<string, byte[]>>>(allParticipants.Count);
+                foreach (KeyValuePair<string, object> participant in allParticipants)
                 {
                     Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
                     string[] removedSettings = ModSettingsJson.RemoveUnknownSettings(
                         document,
                         participant.Key,
-                        properties.Keys.Where(name => name != "EnableMod"));
+                        properties.Keys);
                     if (removedSettings.Length != 0)
                     {
                         DebugLogHelper.LogInfo(
@@ -2251,21 +2277,29 @@ namespace CustomCustomTrail
                             string.Join(", ", removedSettings) + ". They will be omitted on the next save.");
                     }
 
-                    ModSettingsEntry entry = document.Mods[participant.Key];
-                    // Begin with every current host default. Sparse old Trail files therefore
-                    // gain newly introduced settings without affecting personal client options.
+                    document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry);
+                    // The participant owns its Trail-safe baseline. Missing mods and settings
+                    // therefore retain their own defaults, normally EnableMod=false.
                     Dictionary<string, byte[]> snapshot =
-                        (Dictionary<string, byte[]>)Invoke(participant.Value, "System_CreateDisabledMissionPresetSnapshot");
-                    if (entry.Enabled)
+                        (Dictionary<string, byte[]>)Invoke(
+                            participant.Value,
+                            "System_CreateDisabledMissionPresetSnapshot");
+                    if (entry != null)
                     {
-                        if (properties.TryGetValue("EnableMod", out PropertyInfo enableProperty) &&
-                            enableProperty.PropertyType == typeof(bool))
+                        // ExitActiveParticipants restored the normal local preset. On the host
+                        // these values become authoritative and the Extender synchronizes the
+                        // resolved snapshot to clients.
+                        foreach (string propertyName in entry.PlayerSettings)
                         {
-                            snapshot[enableProperty.Name] = MessagePackSerializer.Serialize(true);
+                            if (!properties.TryGetValue(propertyName, out PropertyInfo property))
+                                continue;
+                            object current = property.GetValue(participant.Value);
+                            snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, current);
                         }
-                        foreach (KeyValuePair<string, object> setting in entry.Settings)
+                        // Fixed Trail values have final precedence.
+                        foreach (KeyValuePair<string, object> setting in entry.Overrides)
                         {
-                            if (!properties.TryGetValue(setting.Key, out PropertyInfo property) || property.Name == "EnableMod")
+                            if (!properties.TryGetValue(setting.Key, out PropertyInfo property))
                                 continue;
                             object converted = ConvertJsonValue(setting.Value, property.PropertyType);
                             snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, converted);
@@ -2273,6 +2307,9 @@ namespace CustomCustomTrail
                     }
                     prepared.Add(Tuple.Create(participant.Key, participant.Value, snapshot));
                 }
+
+                if (editable)
+                    applyEditorModes?.Invoke(document);
 
                 try
                 {
@@ -2301,7 +2338,7 @@ namespace CustomCustomTrail
 
             private void ExitActiveParticipants(Dictionary<string, object> participants = null)
             {
-                participants = participants ?? FindCompatibleViewModels(selectedOnly: false);
+                participants = participants ?? FindCompatibleViewModels();
                 foreach (string modId in activeParticipantIds.ToArray())
                 {
                     if (!participants.TryGetValue(modId, out object viewModel))
@@ -2314,7 +2351,7 @@ namespace CustomCustomTrail
                 }
             }
 
-            private Dictionary<string, object> FindCompatibleViewModels(bool selectedOnly)
+            private Dictionary<string, object> FindCompatibleViewModels()
             {
                 var result = new Dictionary<string, object>(StringComparer.Ordinal);
                 foreach (IGrouping<string, LobbyModSettingsEntry> group in GetRegistrationGroups())
@@ -2327,8 +2364,7 @@ namespace CustomCustomTrail
                     LobbyModSettingsEntry entry = group.First();
                     if (entry == null ||
                         string.Equals(modId, CustomCustomTrailPlugin.PluginGuid, StringComparison.Ordinal) ||
-                        GetIncompatibilityReason(entry.ViewModel) != null ||
-                        (selectedOnly && !isModSelected(modId)))
+                        GetIncompatibilityReason(entry.ViewModel) != null)
                     {
                         continue;
                     }
@@ -2343,7 +2379,7 @@ namespace CustomCustomTrail
                 if (persistedPropertiesByType.TryGetValue(type, out Dictionary<string, PropertyInfo> cached))
                     return cached;
                 // Trail sidecars define shared match rules only. Personal and transient
-                // properties remain owned by each participant and never enter .modjson.
+                // properties remain owned by each participant and never enter .modtrail.json.
                 cached = TrailModCompatibilityContract.GetTrailProperties(type)
                     .ToDictionary(property => property.Name, StringComparer.Ordinal);
                 persistedPropertiesByType[type] = cached;
@@ -2352,7 +2388,7 @@ namespace CustomCustomTrail
 
             private bool AreAllTrailPresetsActive()
             {
-                Dictionary<string, object> participants = FindCompatibleViewModels(selectedOnly: false);
+                Dictionary<string, object> participants = FindCompatibleViewModels();
                 return activeParticipantIds.All(id =>
                 {
                     if (!participants.TryGetValue(id, out object viewModel))
@@ -2413,7 +2449,9 @@ namespace CustomCustomTrail
             {
                 if (!Directory.Exists(source) || !Directory.Exists(destination))
                     return;
-                foreach (string sidecar in Directory.GetFiles(source, "*.modjson"))
+                foreach (string sidecar in Directory.GetFiles(
+                    source,
+                    "*" + MissionLoader.ModSettingsFileSuffix))
                 {
                     string target = IOPath.Combine(destination, IOPath.GetFileName(sidecar));
                     if (!overwrite && File.Exists(target))
@@ -2425,9 +2463,11 @@ namespace CustomCustomTrail
             private void DeleteOrphanMakerSidecars()
             {
                 string root = ConfigSettings.GetUserTrailMakerPath();
-                foreach (string sidecar in Directory.GetFiles(root, "Trail_Mission_*.modjson"))
+                foreach (string sidecar in Directory.GetFiles(
+                    root,
+                    "Trail_Mission_*" + MissionLoader.ModSettingsFileSuffix))
                 {
-                    if (!File.Exists(IOPath.ChangeExtension(sidecar, ".trail")))
+                    if (!File.Exists(MissionLoader.GetTrailPathFromModSettingsPath(sidecar)))
                         File.Delete(sidecar);
                 }
             }

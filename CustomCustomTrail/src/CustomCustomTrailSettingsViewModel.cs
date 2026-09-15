@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Windows.Input;
 
 namespace CustomCustomTrail
@@ -31,7 +32,8 @@ namespace CustomCustomTrail
         private string activeCoopPackageDescriptor = string.Empty;
         private ComboBoxItem[] coopPackageOptions = Array.Empty<ComboBoxItem>();
         private string[] coopPackageIds = Array.Empty<string>();
-        private string[] disabledTrailModIds = Array.Empty<string>();
+        private string[] playerTrailPropertyIds = Array.Empty<string>();
+        private string[] fixedTrailPropertyIds = Array.Empty<string>();
         private TrailModSelectionItem[] compatibleTrailMods = Array.Empty<TrailModSelectionItem>();
         private string incompatibleTrailModsText = string.Empty;
         private string coopPackageStatus = string.Empty;
@@ -75,6 +77,7 @@ namespace CustomCustomTrail
         public string CoopPackageStatusLabel => SerpLocalization.Get("CustomCustomTrail.CoopPackageStatusLabel");
         public string SupportedTrailSettingsTitle => SerpLocalization.Get("CustomCustomTrail.SupportedTrailSettings");
         public string SupportedTrailSettingsHelpText => SerpLocalization.Get("CustomCustomTrail.SupportedTrailSettingsHelp");
+        public string TrailSettingModeHelpText => SerpLocalization.Get("CustomCustomTrail.TrailSettingModeHelp");
         public string IncompatibleTrailModsLabel => SerpLocalization.Get("CustomCustomTrail.IncompatibleTrailMods");
         public string CompatibilityGuideText => SerpLocalization.Get("CustomCustomTrail.CompatibilityGuide");
         public string CompatibilityGuideHelpText => SerpLocalization.Get("CustomCustomTrail.CompatibilityGuideHelp");
@@ -141,18 +144,28 @@ namespace CustomCustomTrail
         }
 
         [Shared.PresetLocal]
-        public string[] DisabledTrailModIds
+        public string[] PlayerTrailPropertyIds
         {
-            get => disabledTrailModIds;
+            get => playerTrailPropertyIds;
             set
             {
-                string[] normalized = TrailModCompatibilityContract.NormalizeDisabledModIds(
-                    value,
-                    CustomCustomTrailPlugin.PluginGuid);
-                if (disabledTrailModIds.SequenceEqual(normalized, StringComparer.Ordinal))
-                    return;
-                disabledTrailModIds = normalized;
-                OnPropertyChanged(nameof(DisabledTrailModIds));
+                string[] normalized = NormalizePropertyIds(value)
+                    .Where(id => !fixedTrailPropertyIds.Contains(id, StringComparer.Ordinal))
+                    .ToArray();
+                SetTrailPropertyModeIds(normalized, fixedTrailPropertyIds);
+            }
+        }
+
+        [Shared.PresetLocal]
+        public string[] FixedTrailPropertyIds
+        {
+            get => fixedTrailPropertyIds;
+            set
+            {
+                string[] normalized = NormalizePropertyIds(value);
+                SetTrailPropertyModeIds(
+                    playerTrailPropertyIds.Where(id => !normalized.Contains(id, StringComparer.Ordinal)).ToArray(),
+                    normalized);
             }
         }
 
@@ -284,8 +297,35 @@ namespace CustomCustomTrail
 
         public void SetLocalPackageStatus(string value) => CoopPackageStatus = value;
 
-        internal bool IsTrailModEnabled(string modId) =>
-            !disabledTrailModIds.Contains(modId, StringComparer.Ordinal);
+        internal TrailSettingMode GetTrailPropertyMode(string modId, string propertyName)
+        {
+            string id = BuildPropertyId(modId, propertyName);
+            if (fixedTrailPropertyIds.Contains(id, StringComparer.Ordinal))
+                return TrailSettingMode.Fixed;
+            if (playerTrailPropertyIds.Contains(id, StringComparer.Ordinal))
+                return TrailSettingMode.Player;
+            return TrailSettingMode.ModDefault;
+        }
+
+        internal void ApplyTrailSettingModes(ModSettingsDefinition document)
+        {
+            var player = new List<string>();
+            var fixedValues = new List<string>();
+            foreach (KeyValuePair<string, ModSettingsEntry> mod in
+                document?.Mods ?? new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal))
+            {
+                ModSettingsEntry entry = mod.Value;
+                if (entry == null)
+                    continue;
+                player.AddRange((entry.PlayerSettings ?? Array.Empty<string>())
+                    .Select(propertyName => BuildPropertyId(mod.Key, propertyName)));
+                fixedValues.AddRange((entry.Overrides == null
+                        ? Enumerable.Empty<string>()
+                        : entry.Overrides.Keys)
+                    .Select(propertyName => BuildPropertyId(mod.Key, propertyName)));
+            }
+            SetTrailPropertyModeIds(NormalizePropertyIds(player), NormalizePropertyIds(fixedValues));
+        }
 
         internal void RefreshModCompatibility(IEnumerable<TrailModCompatibilityInfo> entries)
         {
@@ -295,9 +335,10 @@ namespace CustomCustomTrail
                 .Select(entry => new TrailModSelectionItem(
                     entry.ModId,
                     entry.DisplayName,
-                    IsTrailModEnabled(entry.ModId),
-                    SupportedTrailSettingsHelpText,
-                    SetTrailModEnabled))
+                    BuildSettingGroups(entry),
+                    GetTrailPropertyMode,
+                    SetTrailPropertiesMode,
+                    TrailSettingModeHelpText))
                 .ToArray();
             incompatibleTrailModsText = string.Join(", ", catalog
                 .Where(entry => !entry.IsCompatible)
@@ -307,14 +348,132 @@ namespace CustomCustomTrail
             OnPropertyChanged(nameof(IncompatibleTrailModsVisibility));
         }
 
-        private void SetTrailModEnabled(string modId, bool value)
+        private void SetTrailPropertiesMode(
+            string modId,
+            IEnumerable<string> propertyNames,
+            TrailSettingMode mode)
         {
-            var disabled = new HashSet<string>(disabledTrailModIds, StringComparer.Ordinal);
-            if (value)
-                disabled.Remove(modId);
-            else
-                disabled.Add(modId);
-            DisabledTrailModIds = disabled.ToArray();
+            var player = new HashSet<string>(playerTrailPropertyIds, StringComparer.Ordinal);
+            var fixedValues = new HashSet<string>(fixedTrailPropertyIds, StringComparer.Ordinal);
+            foreach (string propertyName in propertyNames ?? Enumerable.Empty<string>())
+            {
+                string id = BuildPropertyId(modId, propertyName);
+                player.Remove(id);
+                fixedValues.Remove(id);
+                if (mode == TrailSettingMode.Player)
+                    player.Add(id);
+                else if (mode == TrailSettingMode.Fixed)
+                    fixedValues.Add(id);
+            }
+            SetTrailPropertyModeIds(NormalizePropertyIds(player), NormalizePropertyIds(fixedValues));
+        }
+
+        private void SetTrailPropertyModeIds(string[] player, string[] fixedValues)
+        {
+            player = NormalizePropertyIds(player);
+            fixedValues = NormalizePropertyIds(fixedValues);
+            player = player.Where(id => !fixedValues.Contains(id, StringComparer.Ordinal)).ToArray();
+            bool playerChanged = !playerTrailPropertyIds.SequenceEqual(player, StringComparer.Ordinal);
+            bool fixedChanged = !fixedTrailPropertyIds.SequenceEqual(fixedValues, StringComparer.Ordinal);
+            if (!playerChanged && !fixedChanged)
+                return;
+            playerTrailPropertyIds = player;
+            fixedTrailPropertyIds = fixedValues;
+            if (playerChanged)
+                OnPropertyChanged(nameof(PlayerTrailPropertyIds));
+            if (fixedChanged)
+                OnPropertyChanged(nameof(FixedTrailPropertyIds));
+            foreach (TrailModSelectionItem item in compatibleTrailMods)
+                item.RefreshState();
+        }
+
+        private static string[] NormalizePropertyIds(IEnumerable<string> values) =>
+            (values ?? Enumerable.Empty<string>())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(item => item, StringComparer.Ordinal)
+                .ToArray();
+
+        private static TrailSettingGroupDefinition[] BuildSettingGroups(TrailModCompatibilityInfo entry)
+        {
+            var remaining = new HashSet<string>(entry.Properties.Select(property => property.Name), StringComparer.Ordinal);
+            var groups = new List<TrailSettingGroupDefinition>();
+            AddKnownGroup(
+                groups,
+                remaining,
+                entry.ModId,
+                "UnitCosts_Serp",
+                "CustomCustomTrail.Group.UnitCosts",
+                "UnitCosts",
+                "HumanExtraUnitCosts");
+            AddKnownGroup(
+                groups,
+                remaining,
+                entry.ModId,
+                "ExtraFeatures_Serp",
+                "CustomCustomTrail.Group.MarketGoodMultipliers",
+                "MarketGoodBuyPriceMultipliers",
+                "MarketGoodSellPriceMultipliers");
+
+            foreach (string propertyName in remaining.OrderBy(PropertyOrder).ThenBy(name => name, StringComparer.Ordinal))
+            {
+                groups.Add(new TrailSettingGroupDefinition(
+                    propertyName,
+                    HumanizePropertyName(propertyName),
+                    new[] { propertyName }));
+            }
+            return groups
+                .OrderBy(group => group.PropertyNames.Contains("EnableMod", StringComparer.Ordinal) ? 0 : 1)
+                .ThenBy(group => group.DisplayName, StringComparer.CurrentCultureIgnoreCase)
+                .ToArray();
+        }
+
+        private static void AddKnownGroup(
+            ICollection<TrailSettingGroupDefinition> groups,
+            ISet<string> remaining,
+            string actualModId,
+            string expectedModId,
+            string localizationKey,
+            params string[] propertyNames)
+        {
+            if (!string.Equals(actualModId, expectedModId, StringComparison.Ordinal) ||
+                propertyNames.Any(propertyName => !remaining.Contains(propertyName)))
+            {
+                return;
+            }
+            groups.Add(new TrailSettingGroupDefinition(
+                localizationKey,
+                SerpLocalization.Get(localizationKey),
+                propertyNames));
+            foreach (string propertyName in propertyNames)
+                remaining.Remove(propertyName);
+        }
+
+        private static int PropertyOrder(string propertyName) =>
+            string.Equals(propertyName, "EnableMod", StringComparison.Ordinal) ? 0 : 1;
+
+        private static string BuildPropertyId(string modId, string propertyName) =>
+            (modId ?? string.Empty) + "\u001f" + (propertyName ?? string.Empty);
+
+        private static string HumanizePropertyName(string value)
+        {
+            if (string.Equals(value, "EnableMod", StringComparison.Ordinal))
+                return SerpLocalization.Get("CustomCustomTrail.Group.EnableMod");
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+            var result = new StringBuilder(value.Length + 8);
+            for (int index = 0; index < value.Length; index++)
+            {
+                char current = value[index];
+                if (index > 0 && char.IsUpper(current) &&
+                    (char.IsLower(value[index - 1]) ||
+                    (index + 1 < value.Length && char.IsLower(value[index + 1]))))
+                {
+                    result.Append(' ');
+                }
+                result.Append(current);
+            }
+            return result.ToString();
         }
 
         private static void OpenCompatibilityGuide()
@@ -342,7 +501,7 @@ namespace CustomCustomTrail
         private void ResetToDefault()
         {
             EnableClientFeatures = true;
-            DisabledTrailModIds = Array.Empty<string>();
+            SetTrailPropertyModeIds(Array.Empty<string>(), Array.Empty<string>());
             if (CanEditHostSettings)
             {
                 EnableMod = true;
@@ -353,37 +512,186 @@ namespace CustomCustomTrail
         private string GetLocalStatus() => coopPackageStatus;
     }
 
+    internal sealed class TrailSettingGroupDefinition
+    {
+        internal TrailSettingGroupDefinition(string key, string displayName, string[] propertyNames)
+        {
+            Key = key;
+            DisplayName = displayName;
+            PropertyNames = propertyNames ?? Array.Empty<string>();
+        }
+
+        internal string Key { get; }
+        internal string DisplayName { get; }
+        internal string[] PropertyNames { get; }
+    }
+
     public sealed class TrailModSelectionItem : INotifyPropertyChanged
     {
-        private readonly Action<string, bool> changed;
-        private bool isEnabled;
+        private readonly Action<string, IEnumerable<string>, TrailSettingMode> changed;
+        private bool isExpanded;
 
-        public TrailModSelectionItem(string modId, string displayName, bool isEnabled, string helpText, Action<string, bool> changed)
+        internal TrailModSelectionItem(
+            string modId,
+            string displayName,
+            IEnumerable<TrailSettingGroupDefinition> definitions,
+            Func<string, string, TrailSettingMode> getMode,
+            Action<string, IEnumerable<string>, TrailSettingMode> changed,
+            string helpText)
         {
             ModId = modId;
             DisplayName = displayName;
-            this.isEnabled = isEnabled;
             HelpText = helpText;
             this.changed = changed;
+            ModeOptions = CreateModeOptions(includeMixed: true);
+            Settings = (definitions ?? Enumerable.Empty<TrailSettingGroupDefinition>())
+                .Select(definition => new TrailSettingSelectionItem(
+                    modId,
+                    definition.Key,
+                    definition.DisplayName,
+                    definition.PropertyNames,
+                    getMode,
+                    changed,
+                    OnSettingChanged,
+                    helpText))
+                .ToArray();
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
         public string ModId { get; }
         public string DisplayName { get; }
         public string HelpText { get; }
+        public ComboBoxItem[] ModeOptions { get; }
+        public TrailSettingSelectionItem[] Settings { get; }
+        public string SearchText => string.Join(" ",
+            new[] { DisplayName }.Concat(Settings.Select(item => item.DisplayName)));
+        public string SummaryText => string.Format(
+            SerpLocalization.Get("CustomCustomTrail.TrailSettingModeSummary"),
+            Settings.Count(item => item.SelectedModeIndex == (int)TrailSettingMode.ModDefault),
+            Settings.Count(item => item.SelectedModeIndex == (int)TrailSettingMode.Player),
+            Settings.Count(item => item.SelectedModeIndex == (int)TrailSettingMode.Fixed));
 
-        public bool IsEnabled
+        public bool IsExpanded
         {
-            get => isEnabled;
+            get => isExpanded;
             set
             {
-                if (isEnabled == value)
+                if (isExpanded == value)
                     return;
-                isEnabled = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEnabled)));
-                changed?.Invoke(ModId, value);
+                isExpanded = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExpanded)));
             }
         }
+
+        public int SelectedModeIndex
+        {
+            get
+            {
+                int[] modes = Settings.Select(item => item.SelectedModeIndex).Distinct().ToArray();
+                return modes.Length == 1 && modes[0] <= (int)TrailSettingMode.Fixed
+                    ? modes[0]
+                    : 3;
+            }
+            set
+            {
+                if (value < 0 || value > (int)TrailSettingMode.Fixed)
+                    return;
+                changed?.Invoke(
+                    ModId,
+                    Settings.SelectMany(item => item.PropertyNames),
+                    (TrailSettingMode)value);
+            }
+        }
+
+        internal void RefreshState()
+        {
+            foreach (TrailSettingSelectionItem setting in Settings)
+                setting.RefreshState();
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedModeIndex)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SummaryText)));
+        }
+
+        private void OnSettingChanged()
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedModeIndex)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SummaryText)));
+        }
+
+        internal static ComboBoxItem[] CreateModeOptions(bool includeMixed)
+        {
+            var options = new List<ComboBoxItem>
+            {
+                new ComboBoxItem { Content = SerpLocalization.Get("CustomCustomTrail.Mode.ModDefault") },
+                new ComboBoxItem { Content = SerpLocalization.Get("CustomCustomTrail.Mode.Player") },
+                new ComboBoxItem { Content = SerpLocalization.Get("CustomCustomTrail.Mode.Fixed") },
+            };
+            if (includeMixed)
+            {
+                options.Add(new ComboBoxItem
+                {
+                    Content = SerpLocalization.Get("CustomCustomTrail.Mode.Mixed"),
+                    IsEnabled = false,
+                });
+            }
+            return options.ToArray();
+        }
+    }
+
+    public sealed class TrailSettingSelectionItem : INotifyPropertyChanged
+    {
+        private readonly string modId;
+        private readonly Func<string, string, TrailSettingMode> getMode;
+        private readonly Action<string, IEnumerable<string>, TrailSettingMode> changed;
+        private readonly Action parentChanged;
+
+        internal TrailSettingSelectionItem(
+            string modId,
+            string key,
+            string displayName,
+            string[] propertyNames,
+            Func<string, string, TrailSettingMode> getMode,
+            Action<string, IEnumerable<string>, TrailSettingMode> changed,
+            Action parentChanged,
+            string helpText)
+        {
+            this.modId = modId;
+            this.getMode = getMode;
+            this.changed = changed;
+            this.parentChanged = parentChanged;
+            Key = key;
+            DisplayName = displayName;
+            PropertyNames = propertyNames ?? Array.Empty<string>();
+            HelpText = helpText;
+            ModeOptions = TrailModSelectionItem.CreateModeOptions(includeMixed: true);
+        }
+        public event PropertyChangedEventHandler PropertyChanged;
+        public string Key { get; }
+        public string DisplayName { get; }
+        public string HelpText { get; }
+        public string[] PropertyNames { get; }
+        public ComboBoxItem[] ModeOptions { get; }
+
+        public int SelectedModeIndex
+        {
+            get
+            {
+                TrailSettingMode[] modes = PropertyNames
+                    .Select(propertyName => getMode(modId, propertyName))
+                    .Distinct()
+                    .ToArray();
+                return modes.Length == 1 ? (int)modes[0] : 3;
+            }
+            set
+            {
+                if (value < 0 || value > (int)TrailSettingMode.Fixed)
+                    return;
+                changed?.Invoke(modId, PropertyNames, (TrailSettingMode)value);
+                parentChanged?.Invoke();
+            }
+        }
+
+        internal void RefreshState() =>
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedModeIndex)));
     }
 
     internal sealed class ActionCommand : ICommand

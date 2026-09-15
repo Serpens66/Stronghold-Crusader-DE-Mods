@@ -98,7 +98,11 @@ namespace CustomCustomTrail
         public void Initialize()
         {
             CustomCustomTrailLaunchOriginApi.Initialize(log);
-            missionSettingsCoordinator = new TrailMissionSettingsCoordinator(log, enabled, settings.IsTrailModEnabled);
+            missionSettingsCoordinator = new TrailMissionSettingsCoordinator(
+                log,
+                enabled,
+                settings.GetTrailPropertyMode,
+                settings.ApplyTrailSettingModes);
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
             missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
             missionSettingsCoordinator.CoopLaunchReceived += OnCoopLaunchReceived;

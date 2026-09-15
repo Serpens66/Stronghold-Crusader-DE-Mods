@@ -26,10 +26,9 @@ var tests = new (string Name, Action Run)[]
     ("ordinal mapping covers four trails and ignores mission 41", TestOrdinalMapping),
     ("native mod-settings JSON roundtrip", TestNativeModSettingsRoundtrip),
     ("dynamic third-party mod ids are preserved", TestModSettingsRegistry),
-    ("missing mod entry remains unmanaged", TestMissingModEntry),
+    ("missing mod entry uses the mod-defined default", TestMissingModEntry),
     ("Trail mod compatibility contract is validated", TestTrailModCompatibilityContract),
     ("primitive enum migration policy is fail-closed", TestTrailSettingValueConversionPolicy),
-    ("disabled Trail mod ids are normalized", TestDisabledTrailModIdNormalization),
     ("explicit plugin opt-out marker is honored", TestExplicitPluginOptOut),
     ("sidecar schema evolution keeps only current settings", TestSidecarSettingsSchemaEvolution),
     ("coop mission schema evolution keeps only current settings", TestCoopSettingsSchemaEvolution),
@@ -81,12 +80,18 @@ static void TestCoopMissionModSettingsSidecar()
     using Fixture fixture = Fixture.Create();
     string missionJson = File.ReadAllText(fixture.JsonPath);
     Assert(!missionJson.Contains("modSettings", StringComparison.Ordinal), "mission JSON still embeds modsettings");
+    Assert(Path.GetFileName(fixture.SidecarPath) == "01.modtrail.json", "Coop sidecar filename is not canonical");
+    Assert(Path.GetFileName(MissionLoader.GetTrailModSettingsPath("Trail_Mission_1.trail")) ==
+        "Trail_Mission_1.modtrail.json", "Trail sidecar filename is not canonical");
+    Assert(Path.GetFileName(MissionLoader.GetTrailPathFromModSettingsPath("Trail_Mission_1.modtrail.json")) ==
+        "Trail_Mission_1.trail", "Trail filename cannot be recovered from its sidecar");
 
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
     Assert(loaded.ModSettingsPath == fixture.SidecarPath, "mission sidecar path was not retained");
     Assert(loaded.Definition.ModSettings.Mods.ContainsKey("StartConditions_Serp"), "mission sidecar was not loaded");
 
     File.Delete(fixture.SidecarPath);
+    File.WriteAllText(Path.Combine(Path.GetDirectoryName(fixture.SidecarPath), "01.modjson"), "legacy");
     loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
     Assert(loaded.ModSettingsPath == null, "missing mission sidecar was reported as present");
     Assert(loaded.Definition.ModSettings.Mods.Count == 0, "missing mission sidecar did not remain unmanaged");
@@ -100,11 +105,11 @@ static void TestCoopMissionModSettingsSidecar()
 
 static void TestNativeModSettingsRoundtrip()
 {
-    ModSettingsDefinition document = ModSettingsDefinition.CreateUnmanaged();
+    ModSettingsDefinition document = ModSettingsDefinition.CreateModDefaults();
     document.Mods["StartConditions_Serp"] = new ModSettingsEntry
     {
-        Enabled = true,
-        Settings = new Dictionary<string, object>
+        PlayerSettings = new[] { "PlayerChoice", "EnableMod", "PlayerChoice" },
+        Overrides = new Dictionary<string, object>
         {
             ["Bool"] = true,
             ["Int"] = 42,
@@ -117,11 +122,12 @@ static void TestNativeModSettingsRoundtrip()
     Assert(json.Contains("\r\n"), "serialized JSON has no CRLF");
     Assert(!json.Replace("\r\n", string.Empty).Contains('\n'), "serialized JSON contains naked LF");
     ModSettingsEntry entry = ModSettingsJson.ParseObject(json).Mods["StartConditions_Serp"];
-    Assert(entry.Enabled && (bool)entry.Settings["Bool"], "bool changed");
-    Assert(Convert.ToInt32(entry.Settings["Int"]) == 42, "int changed");
-    Assert(Math.Abs(Convert.ToDouble(entry.Settings["Double"]) - 1.25) < 0.0001, "double changed");
-    Assert((string)entry.Settings["String"] == "Wood=10\r\nStone=-1", "complex string changed");
-    Assert(entry.Settings["DoubleArray"] is List<object> values &&
+    Assert(entry.PlayerSettings.SequenceEqual(new[] { "EnableMod", "PlayerChoice" }), "player settings changed");
+    Assert((bool)entry.Overrides["Bool"], "bool changed");
+    Assert(Convert.ToInt32(entry.Overrides["Int"]) == 42, "int changed");
+    Assert(Math.Abs(Convert.ToDouble(entry.Overrides["Double"]) - 1.25) < 0.0001, "double changed");
+    Assert((string)entry.Overrides["String"] == "Wood=10\r\nStone=-1", "complex string changed");
+    Assert(entry.Overrides["DoubleArray"] is List<object> values &&
         values.Count == 3 && Math.Abs(Convert.ToDouble(values[2]) - 1.25) < 0.0001,
         "double array changed");
 }
@@ -136,8 +142,9 @@ static void TestWorkshopTrailSidecars()
     try
     {
         File.WriteAllText(Path.Combine(source, "01.trail"), "trail");
-        File.WriteAllText(Path.Combine(source, "01.modjson"), "included");
-        File.WriteAllText(Path.Combine(source, "orphan.modjson"), "excluded");
+        File.WriteAllText(Path.Combine(source, "01.modtrail.json"), "included");
+        File.WriteAllText(Path.Combine(source, "orphan.modtrail.json"), "excluded");
+        File.WriteAllText(Path.Combine(source, "01.modjson"), "legacy");
         Assert(WorkshopUploadStaging.TryResetDirectChild(
                 stagingRoot,
                 "Trail",
@@ -153,8 +160,9 @@ static void TestWorkshopTrailSidecars()
                 out string stageError),
             stageError);
         Assert(copied == 1, "unexpected sidecar count: " + copied);
-        Assert(File.Exists(Path.Combine(destination, "01.modjson")), "matching sidecar was not staged");
-        Assert(!File.Exists(Path.Combine(destination, "orphan.modjson")), "orphan sidecar was staged");
+        Assert(File.Exists(Path.Combine(destination, "01.modtrail.json")), "matching sidecar was not staged");
+        Assert(!File.Exists(Path.Combine(destination, "orphan.modtrail.json")), "orphan sidecar was staged");
+        Assert(!File.Exists(Path.Combine(destination, "01.modjson")), "legacy sidecar was staged");
         Assert(File.ReadAllText(Path.Combine(destination, "01.trail")) == "vanilla", "Vanilla Trail was changed");
     }
     finally
@@ -215,16 +223,17 @@ static void TestTrailSettingValueConversionPolicy()
 static void TestModSettingsRegistry()
 {
     ModSettingsDefinition parsed = ModSettingsJson.ParseObject(
-        "{\"schemaVersion\":1,\"mods\":{\"ThirdParty.DynamicMod\":{\"enabled\":true,\"settings\":{\"Value\":7}}}}");
+        "{\"schemaVersion\":3,\"mods\":{\"ThirdParty.DynamicMod\":{\"playerSettings\":[\"EnableMod\"],\"overrides\":{\"Value\":7}}}}");
     Assert(parsed.Mods.ContainsKey("ThirdParty.DynamicMod") &&
-        Convert.ToInt32(parsed.Mods["ThirdParty.DynamicMod"].Settings["Value"]) == 7,
+        parsed.Mods["ThirdParty.DynamicMod"].PlayerSettings.SequenceEqual(new[] { "EnableMod" }) &&
+        Convert.ToInt32(parsed.Mods["ThirdParty.DynamicMod"].Overrides["Value"]) == 7,
         "dynamic third-party mod id was not preserved");
 }
 
 static void TestMissingModEntry()
 {
-    ModSettingsDefinition parsed = ModSettingsJson.ParseObject("{\"schemaVersion\":1,\"mods\":{}}");
-    Assert(parsed.Mods.Count == 0, "an absent mod entry is not treated as unmanaged");
+    ModSettingsDefinition parsed = ModSettingsJson.ParseObject("{\"schemaVersion\":3,\"mods\":{}}");
+    Assert(parsed.Mods.Count == 0, "an absent mod entry is not treated as the mod-defined default");
 }
 
 static void TestTrailModCompatibilityContract()
@@ -272,17 +281,6 @@ static void TestTrailModCompatibilityContract()
         "enabled disabled-snapshot was accepted");
 }
 
-static void TestDisabledTrailModIdNormalization()
-{
-    string[] normalized = TrailModCompatibilityContract.NormalizeDisabledModIds(
-        new[] { "Z.Mod", "", "CustomCustomTrail_Serp", "A.Mod", "Z.Mod", " " },
-        "CustomCustomTrail_Serp");
-    Assert(normalized.SequenceEqual(new[] { "A.Mod", "Z.Mod" }),
-        "disabled mod ids were not filtered, de-duplicated and sorted");
-    Assert(TrailModCompatibilityContract.NormalizeDisabledModIds(null, "CustomCustomTrail_Serp").Length == 0,
-        "an empty selection did not keep every compatible mod enabled by default");
-}
-
 static void TestExplicitPluginOptOut()
 {
     Assert(TrailModCompatibilityContract.IsExplicitlyOptedOut(new OptedOutPlugin()),
@@ -326,17 +324,30 @@ static object DecodeCompatibilityValue(Type type, byte[] bytes)
 static void TestSidecarSettingsSchemaEvolution()
 {
     ModSettingsDefinition parsed = ModSettingsJson.ParseObject(
-        "{\"schemaVersion\":1,\"mods\":{\"ExtraFeatures_Serp\":{\"enabled\":true,\"settings\":{\"CurrentSetting\":7,\"RemovedSetting\":99}}}}");
+        "{\"schemaVersion\":3,\"mods\":{\"ExtraFeatures_Serp\":{\"playerSettings\":[\"EnableMod\",\"RemovedPlayerSetting\"],\"overrides\":{\"CurrentSetting\":7,\"RemovedSetting\":99}}}}");
     string[] removed = ModSettingsJson.RemoveUnknownSettings(
         parsed,
         "ExtraFeatures_Serp",
-        new[] { "CurrentSetting", "NewSetting" });
+        new[] { "EnableMod", "CurrentSetting", "NewSetting" });
 
-    Assert(removed.SequenceEqual(new[] { "RemovedSetting" }), "obsolete sidecar setting was not identified");
-    Assert(parsed.Mods["ExtraFeatures_Serp"].Settings.ContainsKey("CurrentSetting"), "current sidecar setting was removed");
-    Assert(!parsed.Mods["ExtraFeatures_Serp"].Settings.ContainsKey("NewSetting"), "missing new setting was fabricated instead of using the ViewModel default");
+    Assert(removed.SequenceEqual(new[] { "RemovedPlayerSetting", "RemovedSetting" }), "obsolete sidecar settings were not identified");
+    Assert(parsed.Mods["ExtraFeatures_Serp"].PlayerSettings.SequenceEqual(new[] { "EnableMod" }), "current player setting was removed");
+    Assert(parsed.Mods["ExtraFeatures_Serp"].Overrides.ContainsKey("CurrentSetting"), "current sidecar setting was removed");
+    Assert(!parsed.Mods["ExtraFeatures_Serp"].Overrides.ContainsKey("NewSetting"), "missing new setting was fabricated instead of inheriting the host value");
     string serialized = ModSettingsJson.Serialize(parsed);
     Assert(!serialized.Contains("RemovedSetting", StringComparison.Ordinal), "obsolete sidecar setting was written again");
+
+    ModSettingsDefinition activation = ModSettingsJson.ParseObject(
+        "{\"schemaVersion\":3,\"mods\":{\"ExtraFeatures_Serp\":{\"playerSettings\":[],\"overrides\":{\"EnableMod\":false}}}}");
+    string[] activationRemoved = ModSettingsJson.RemoveUnknownSettings(
+        activation,
+        "ExtraFeatures_Serp",
+        new[] { "EnableMod", "CurrentSetting" });
+    Assert(activationRemoved.Length == 0 &&
+        activation.Mods.TryGetValue("ExtraFeatures_Serp", out ModSettingsEntry activationEntry) &&
+        activationEntry.Overrides.TryGetValue("EnableMod", out object enabled) &&
+        enabled is bool enabledValue && !enabledValue,
+        "EnableMod override was incorrectly removed as obsolete");
 }
 
 static void TestCoopSettingsSchemaEvolution()
@@ -350,17 +361,36 @@ static void TestCoopSettingsSchemaEvolution()
 
     ModSettingsEntry entry = loaded.Definition.ModSettings.Mods["StartConditions_Serp"];
     Assert(removed.SequenceEqual(new[] { "RemovedSetting" }), "obsolete coop mission setting was not identified");
-    Assert(Convert.ToInt32(entry.Settings["SetStartGoldHuman"]) == 500, "current coop mission setting changed");
-    Assert(!entry.Settings.ContainsKey("NewSetting"), "missing coop mission setting was fabricated instead of using the ViewModel default");
+    Assert(Convert.ToInt32(entry.Overrides["SetStartGoldHuman"]) == 500, "current coop mission setting changed");
+    Assert(!entry.Overrides.ContainsKey("NewSetting"), "missing coop mission setting was fabricated instead of inheriting the host value");
 }
 
 static void TestInvalidModSettingsDocuments()
 {
     ExpectFailure(() => ModSettingsJson.ParseObject("broken"), "corrupt JSON was accepted");
+    ExpectFailure(() => ModSettingsJson.ParseObject("{\"schemaVersion\":1,\"mods\":{}}"), "schema 1 sidecar was accepted");
     ExpectFailure(() => ModSettingsJson.ParseObject("{\"schemaVersion\":2,\"mods\":{}}"), "schema 2 sidecar was accepted");
     ExpectFailure(
-        () => ModSettingsJson.ParseObject("{\"schemaVersion\":1,\"mods\":{\"UnitLimit_Serp\":{\"enabled\":true,\"settings\":{\"Limit\":{\"bad\":1}}}}}"),
+        () => ModSettingsJson.ParseObject("{\"schemaVersion\":3,\"mods\":{\"Broken.Mod\":{\"overrides\":{}}}}"),
+        "mod entry without playerSettings was accepted");
+    ExpectFailure(
+        () => ModSettingsJson.ParseObject("{\"schemaVersion\":3,\"mods\":{\"\":{\"playerSettings\":[],\"overrides\":{\"Value\":1}}}}"),
+        "empty mod id was accepted");
+    ExpectFailure(
+        () => ModSettingsJson.ParseObject("{\"schemaVersion\":3,\"mods\":{\"UnitLimit_Serp\":{\"playerSettings\":[],\"overrides\":{\"Limit\":{\"bad\":1}}}}}"),
         "object setting was accepted");
+    ExpectFailure(
+        () => ModSettingsJson.ParseObject("{\"schemaVersion\":3,\"mods\":{\"UnitLimit_Serp\":{\"playerSettings\":[\"Limit\"],\"overrides\":{\"Limit\":1000}}}}"),
+        "setting selected as both player and fixed was accepted");
+    ExpectFailure(
+        () => ModSettingsJson.ParseObject("{\"schemaVersion\":3,\"mods\":{\"UnitLimit_Serp\":{\"playerSettings\":[1],\"overrides\":{}}}}"),
+        "non-string player setting was accepted");
+    ExpectFailure(
+        () => ModSettingsJson.ParseObject("{\"schemaVersion\":3,\"mods\":{\"UnitLimit_Serp\":{\"playerSettings\":[\" \"],\"overrides\":{}}}}"),
+        "blank player setting was accepted");
+    ExpectFailure(
+        () => ModSettingsJson.Serialize(new ModSettingsDefinition { SchemaVersion = 1 }),
+        "non-current schema was silently serialized as schema 3");
 }
 
 static void TestAtomicSidecarWrite()
@@ -369,12 +399,15 @@ static void TestAtomicSidecarWrite()
     Directory.CreateDirectory(root);
     try
     {
-        string path = Path.Combine(root, "Trail_Mission_1.modjson");
+        string path = Path.Combine(root, "Trail_Mission_1.modtrail.json");
         File.WriteAllText(path, "old");
-        ModSettingsDefinition document = ModSettingsDefinition.CreateUnmanaged();
-        document.Mods["UnitLimit_Serp"] = new ModSettingsEntry { Enabled = true };
+        ModSettingsDefinition document = ModSettingsDefinition.CreateModDefaults();
+        document.Mods["UnitLimit_Serp"] = new ModSettingsEntry
+        {
+            Overrides = new Dictionary<string, object> { ["UnitLimit"] = 1000 },
+        };
         ModSettingsJson.WriteAtomic(path, document);
-        Assert(ModSettingsJson.Read(path).Mods["UnitLimit_Serp"].Enabled, "replacement was not readable");
+        Assert(Convert.ToInt32(ModSettingsJson.Read(path).Mods["UnitLimit_Serp"].Overrides["UnitLimit"]) == 1000, "replacement was not readable");
         Assert(!Directory.GetFiles(root, "*.tmp-*").Any(), "temporary file remained");
     }
     finally
@@ -410,8 +443,16 @@ static void TestCoordinatorOwnership()
         coordinator.Contains("TrailModCompatibilityContract.Evaluate"),
         "Trail saves do not use validated synchronous settings capture");
     Assert(coordinator.Contains("System_CreateDisabledMissionPresetSnapshot") &&
+        coordinator.Contains("foreach (string propertyName in entry.PlayerSettings)") &&
+        coordinator.Contains("Fixed Trail values have final precedence") &&
         coordinator.Contains("RemoveUnknownSettings"),
-        "Trail loading does not combine current defaults with schema cleanup");
+        "Trail loading does not layer mod defaults, player settings and fixed values with schema cleanup");
+    int defaultLayer = coordinator.IndexOf("System_CreateDisabledMissionPresetSnapshot", StringComparison.Ordinal);
+    int playerLayer = coordinator.IndexOf("foreach (string propertyName in entry.PlayerSettings)", defaultLayer, StringComparison.Ordinal);
+    int fixedLayer = coordinator.IndexOf("foreach (KeyValuePair<string, object> setting in entry.Overrides)", playerLayer, StringComparison.Ordinal);
+    Assert(defaultLayer >= 0 && playerLayer > defaultLayer && fixedLayer > playerLayer &&
+        coordinator.Contains("foreach (KeyValuePair<string, object> participant in allParticipants)"),
+        "Trail setting source precedence or the all-participant default baseline changed");
     Assert(sharedPresetSystem.Contains("CopyProperties(defaults, hostProperties)") &&
         sharedPresetSystem.Contains("defaults.TryGetValue(property.Name, out bytes)"),
         "the shared mission preset no longer supplies defaults for missing current host settings");
@@ -736,10 +777,11 @@ static void TestLocalActivationSetting()
     Assert(coordinator.Contains("if (!enabled)"), "sidecar/customization hooks are not activation-gated");
     Assert(xaml.Contains("ToolTipService.ShowDuration=\"60000\""), "activation control tooltip duration is missing");
     Assert(xaml.Contains("x:Key=\"ModSettingsToolTipStyle\"") &&
-        xaml.Contains("<CheckBox.ToolTip>") &&
         xaml.Contains("Style=\"{StaticResource ModSettingsToolTipStyle}\"") &&
-        xaml.Contains("Content=\"{Binding HelpText}\""),
-        "dynamic mod checkbox tooltips do not explicitly use the shared modsettings tooltip design");
+        xaml.Contains("Content=\"{Binding HelpText}\"") &&
+        xaml.Contains("SelectedIndex=\"{Binding SelectedModeIndex, Mode=TwoWay}\"") &&
+        xaml.Contains("ItemsSource=\"{Binding Settings}\""),
+        "dynamic mode selectors do not use the shared modsettings tooltip design");
     Assert(xaml.Contains("PracticalEffectsText") && viewModel.Contains("CustomCustomTrail.PracticalEffects"),
         "player-facing practical-effects text is not bound below the activation setting");
     int descriptionPosition = xaml.IndexOf("PracticalEffectsText", StringComparison.Ordinal);
@@ -749,10 +791,17 @@ static void TestLocalActivationSetting()
         modSelectionPosition < hostOptionsPosition,
         "local Trail settings are not shown before host Coop Trail options");
     Assert(xaml.Contains("CompatibleTrailMods") && xaml.Contains("IncompatibleTrailModsText") &&
-        viewModel.Contains("DisabledTrailModIds") && runtime.Contains("DiscoverModCompatibility()"),
+        viewModel.Contains("PlayerTrailPropertyIds") &&
+        viewModel.Contains("FixedTrailPropertyIds") &&
+        viewModel.Contains("TrailSettingMode.ModDefault") &&
+        viewModel.Contains("TrailSettingMode.Player") &&
+        viewModel.Contains("TrailSettingMode.Fixed") &&
+        runtime.Contains("DiscoverModCompatibility()"),
         "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
-    Assert(coordinator.Contains("FindCompatibleViewModels(selectedOnly: true)") &&
-        coordinator.Contains("System_CreateDisabledMissionPresetSnapshot") &&
+    Assert(coordinator.Contains("getPropertyMode(participant.Key, property.Name)") &&
+        coordinator.Contains("TrailSettingMode.Player") &&
+        coordinator.Contains("TrailSettingMode.Fixed") &&
+        coordinator.Contains("entry.Overrides") &&
         compatibilityContract.Contains("DoNotPersistAttribute") &&
         compatibilityContract.Contains("deserializationProbe"),
         "dynamic Trail compatibility does not enforce the safe mission-preset contract");
@@ -1166,11 +1215,11 @@ static void TestEditedMissionReload()
 static void TestInvalidModSettings()
 {
     using Fixture fixture = Fixture.Create();
-    string json = File.ReadAllText(fixture.SidecarPath).Replace("\"schemaVersion\": 1", "\"schemaVersion\": 99");
+    string json = File.ReadAllText(fixture.SidecarPath).Replace("\"schemaVersion\": 3", "\"schemaVersion\": 99");
     File.WriteAllText(fixture.SidecarPath, json, new UTF8Encoding(false));
     LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
     Assert(!string.IsNullOrWhiteSpace(loaded.Definition.ModSettingsError), "invalid sidecar was not reported");
-    Assert(loaded.Definition.ModSettings.Mods.Count == 0, "invalid sidecar was partially retained instead of remaining unmanaged");
+    Assert(loaded.Definition.ModSettings.Mods.Count == 0, "invalid sidecar was partially retained instead of using mod defaults");
 }
 
 static void TestHumanProjection()
@@ -1205,7 +1254,7 @@ static void TestPackageFingerprint()
     using Fixture fixture = Fixture.Create();
     string root = Path.Combine(fixture.Root, "CustomTrails");
     string package = CreatePackage(fixture, root, "Changed", 1);
-    File.AppendAllText(Path.Combine(package, "CoopMissions", "01.modjson"), "changed");
+    File.AppendAllText(Path.Combine(package, "CoopMissions", "01.modtrail.json"), "changed");
     ExpectFailure(() => CoopTrailPackageCatalog.Load(package), "changed mission sidecar passed its fingerprint");
 }
 
@@ -1217,7 +1266,8 @@ static void TestCoopWorkshopStaging()
     string trailMakerSource = Path.Combine(source, "TrailMakerSource");
     Directory.CreateDirectory(trailMakerSource);
     File.WriteAllText(Path.Combine(trailMakerSource, "Trail_Mission_01.trail"), "trail");
-    File.WriteAllText(Path.Combine(trailMakerSource, "Trail_Mission_01.modjson"), "editable sidecar");
+    File.WriteAllText(Path.Combine(trailMakerSource, "Trail_Mission_01.modtrail.json"), "editable sidecar");
+    File.WriteAllText(Path.Combine(trailMakerSource, "Trail_Mission_01.modjson"), "legacy sidecar");
     File.WriteAllText(Path.Combine(source, "Upload.data"), "metadata");
     CoopTrailPackage package = CoopTrailPackageCatalog.Load(source);
 
@@ -1225,15 +1275,17 @@ static void TestCoopWorkshopStaging()
     CoopTrailPackage includedPackage = CoopWorkshopPackageStaging.Stage(
         package, included, "Upload.data", includeModSettings: true, out int includedCount);
     Assert(includedCount == 3, "not all Coop and Trail Maker sidecars were staged");
-    Assert(File.Exists(Path.Combine(included, "CoopMissions", "01.modjson")), "Coop sidecar was omitted");
-    Assert(File.Exists(Path.Combine(included, "TrailMakerSource", "Trail_Mission_01.modjson")), "Trail Maker sidecar was omitted");
+    Assert(File.Exists(Path.Combine(included, "CoopMissions", "01.modtrail.json")), "Coop sidecar was omitted");
+    Assert(File.Exists(Path.Combine(included, "TrailMakerSource", "Trail_Mission_01.modtrail.json")), "Trail Maker sidecar was omitted");
+    Assert(!File.Exists(Path.Combine(included, "TrailMakerSource", "Trail_Mission_01.modjson")), "legacy sidecar was staged");
     Assert(!File.Exists(Path.Combine(included, "Upload.data")), "Workshop metadata was copied into content");
 
     string excluded = Path.Combine(fixture.Root, "staging-excluded");
     CoopTrailPackage excludedPackage = CoopWorkshopPackageStaging.Stage(
         package, excluded, "Upload.data", includeModSettings: false, out int excludedCount);
     Assert(excludedCount == 0, "excluded Coop staging reported copied sidecars");
-    Assert(!Directory.GetFiles(excluded, "*.modjson", SearchOption.AllDirectories).Any(), "excluded Coop staging contains modsettings");
+    Assert(!Directory.GetFiles(excluded, "*.modtrail.json", SearchOption.AllDirectories).Any(), "excluded Coop staging contains modsettings");
+    Assert(!Directory.GetFiles(excluded, "*.modjson", SearchOption.AllDirectories).Any(), "excluded Coop staging contains legacy modsettings");
     Assert(includedPackage.Manifest.ContentFingerprint != excludedPackage.Manifest.ContentFingerprint,
         "including mission sidecars did not affect the staged package fingerprint");
     Assert(CoopTrailPackageCatalog.Load(included).Missions[0].Definition.ModSettings.Mods.Count == 1,
@@ -1317,7 +1369,7 @@ static string CreatePackage(Fixture fixture, string customTrailsRoot, string nam
         string target = Path.Combine(missions, ordinal.ToString("00") + ".coopmission.json");
         File.Copy(fixture.JsonPath, target);
         fingerprintFiles.Add(target);
-        string sidecar = Path.Combine(missions, ordinal.ToString("00") + ".modjson");
+        string sidecar = Path.Combine(missions, ordinal.ToString("00") + ".modtrail.json");
         File.Copy(fixture.SidecarPath, sidecar);
         fingerprintFiles.Add(sidecar);
     }
@@ -1388,15 +1440,14 @@ sealed class Fixture : IDisposable
                     PreferredAiv = preferredAiv,
                 },
             },
-            ModSettings = ModSettingsDefinition.CreateUnmanaged(),
+            ModSettings = ModSettingsDefinition.CreateModDefaults(),
         };
         definition.ModSettings.Mods["StartConditions_Serp"] = new ModSettingsEntry
         {
-            Enabled = true,
-            Settings = new Dictionary<string, object> { ["SetStartGoldHuman"] = startGold },
+            Overrides = new Dictionary<string, object> { ["SetStartGoldHuman"] = startGold },
         };
         if (includeLegacyModSetting)
-            definition.ModSettings.Mods["StartConditions_Serp"].Settings["RemovedSetting"] = 99;
+            definition.ModSettings.Mods["StartConditions_Serp"].Overrides["RemovedSetting"] = 99;
         if (secondAivRotation.HasValue)
             definition.Players[2].Aivs.Add(new AivReference { Source = "bundled", File = "castle.aivjson", Rotation = secondAivRotation.Value });
         string jsonPath = Path.Combine(root, "01.coopmission.json");

@@ -341,8 +341,8 @@ namespace CustomCustomTrail
 
         private static ModSettingsDefinition ReadModSettings(string trailPath)
         {
-            string sidecar = Path.ChangeExtension(trailPath, ".modjson");
-            return File.Exists(sidecar) ? ModSettingsJson.Read(sidecar) : ModSettingsDefinition.CreateUnmanaged();
+            string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
+            return File.Exists(sidecar) ? ModSettingsJson.Read(sidecar) : ModSettingsDefinition.CreateModDefaults();
         }
 
         private static string ReadExistingPackageId(string destination)

@@ -22,46 +22,49 @@ namespace CustomCustomTrail.Core
 
         internal static ModSettingsDefinition ParseObject(Dictionary<string, object> root)
         {
-            if (!root.TryGetValue("schemaVersion", out object schema) || !(schema is int schemaVersion) || schemaVersion != 1)
+            if (!root.TryGetValue("schemaVersion", out object schema) || !(schema is int schemaVersion) || schemaVersion != 3)
                 throw new InvalidDataException("Unsupported Trail mod-settings schemaVersion.");
             if (!root.TryGetValue("mods", out object modsObject) || !(modsObject is Dictionary<string, object> mods))
                 throw new InvalidDataException("Trail mod-settings JSON requires a mods object.");
 
-            ModSettingsDefinition document = ModSettingsDefinition.CreateUnmanaged();
+            ModSettingsDefinition document = ModSettingsDefinition.CreateModDefaults();
             foreach (KeyValuePair<string, object> mod in mods)
             {
+                if (string.IsNullOrWhiteSpace(mod.Key))
+                    throw new InvalidDataException("Trail mod-settings contains an empty mod id.");
                 if (!(mod.Value is Dictionary<string, object> rawEntry))
                     throw new InvalidDataException($"Mod entry [{mod.Key}] must be an object.");
                 var entry = new ModSettingsEntry();
-                if (rawEntry.TryGetValue("enabled", out object enabled))
+                if (!rawEntry.TryGetValue("playerSettings", out object playerSettingsObject) ||
+                    !(playerSettingsObject is List<object> rawPlayerSettings))
                 {
-                    if (!(enabled is bool enabledValue))
-                        throw new InvalidDataException($"Mod entry [{mod.Key}].enabled must be a boolean.");
-                    entry.Enabled = enabledValue;
+                    throw new InvalidDataException($"Mod entry [{mod.Key}] requires a playerSettings array.");
                 }
-                if (rawEntry.TryGetValue("settings", out object settingsObject))
+                entry.PlayerSettings = rawPlayerSettings
+                    .Select(value => value as string ?? throw new InvalidDataException(
+                        $"Mod entry [{mod.Key}].playerSettings must contain only strings."))
+                    .ToArray();
+                if (!rawEntry.TryGetValue("overrides", out object settingsObject))
+                    throw new InvalidDataException($"Mod entry [{mod.Key}] requires an overrides object.");
+                if (!(settingsObject is Dictionary<string, object> settings))
+                    throw new InvalidDataException($"Mod entry [{mod.Key}].overrides must be an object.");
+                foreach (KeyValuePair<string, object> setting in settings)
                 {
-                    if (!(settingsObject is Dictionary<string, object> settings))
-                        throw new InvalidDataException($"Mod entry [{mod.Key}].settings must be an object.");
-                    foreach (KeyValuePair<string, object> setting in settings)
-                    {
                     if (string.IsNullOrWhiteSpace(setting.Key) || !IsSupportedValue(setting.Value))
-                            throw new InvalidDataException($"Mod entry [{mod.Key}] contains an unsupported value for [{setting.Key}].");
-                    }
-                    entry.Settings = settings;
+                        throw new InvalidDataException($"Mod entry [{mod.Key}] contains an unsupported value for [{setting.Key}].");
                 }
-                if (!entry.Enabled)
-                    entry.Settings.Clear();
-                document.Mods[mod.Key] = entry;
+                entry.Overrides = settings;
+                if (entry.PlayerSettings.Length != 0 || entry.Overrides.Count != 0)
+                    document.Mods[mod.Key] = entry;
             }
             return NormalizeAndValidate(document, "Trail mod-settings");
         }
 
         public static ModSettingsDefinition NormalizeAndValidate(ModSettingsDefinition settings, string path)
         {
-            settings = settings ?? ModSettingsDefinition.CreateUnmanaged();
-            if (settings.SchemaVersion != 1)
-                throw new InvalidDataException((path ?? "modSettings") + ".schemaVersion must be 1.");
+            settings = settings ?? ModSettingsDefinition.CreateModDefaults();
+            if (settings.SchemaVersion != 3)
+                throw new InvalidDataException((path ?? "modSettings") + ".schemaVersion must be 3.");
             settings.Mods = settings.Mods ?? new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
             var normalized = new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
             foreach (KeyValuePair<string, ModSettingsEntry> mod in settings.Mods
@@ -71,18 +74,30 @@ namespace CustomCustomTrail.Core
                 if (string.IsNullOrWhiteSpace(id))
                     throw new InvalidDataException((path ?? "modSettings") + ".mods contains an empty mod id.");
                 ModSettingsEntry entry = mod.Value ?? new ModSettingsEntry();
-                entry.Settings = entry.Settings ?? new Dictionary<string, object>(StringComparer.Ordinal);
-                if (!entry.Enabled)
-                    entry.Settings.Clear();
-                foreach (KeyValuePair<string, object> value in entry.Settings)
+                if ((entry.PlayerSettings ?? Array.Empty<string>())
+                    .Any(name => string.IsNullOrWhiteSpace(name) ||
+                        !string.Equals(name, name.Trim(), StringComparison.Ordinal)))
+                {
+                    throw new InvalidDataException((path ?? "modSettings") + "." + id + ".playerSettings contains an empty or padded property name.");
+                }
+                entry.PlayerSettings = (entry.PlayerSettings ?? Array.Empty<string>())
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToArray();
+                entry.Overrides = entry.Overrides ?? new Dictionary<string, object>(StringComparer.Ordinal);
+                foreach (KeyValuePair<string, object> value in entry.Overrides)
                 {
                     if (string.IsNullOrWhiteSpace(value.Key) || !IsSupportedValue(value.Value))
-                        throw new InvalidDataException((path ?? "modSettings") + "." + id + ".settings contains an unsupported value for " + value.Key + ".");
+                        throw new InvalidDataException((path ?? "modSettings") + "." + id + ".overrides contains an unsupported value for " + value.Key + ".");
                 }
-                entry.Settings = entry.Settings
+                entry.Overrides = entry.Overrides
                     .OrderBy(value => value.Key, StringComparer.Ordinal)
                     .ToDictionary(value => value.Key, value => value.Value, StringComparer.Ordinal);
-                normalized[id] = entry;
+                string conflict = entry.PlayerSettings.FirstOrDefault(entry.Overrides.ContainsKey);
+                if (conflict != null)
+                    throw new InvalidDataException((path ?? "modSettings") + "." + id + " selects " + conflict + " as both player and fixed.");
+                if (entry.PlayerSettings.Length != 0 || entry.Overrides.Count != 0)
+                    normalized[id] = entry;
             }
             settings.Mods = normalized;
             return settings;
@@ -94,36 +109,46 @@ namespace CustomCustomTrail.Core
             IEnumerable<string> currentSettingNames)
         {
             if (document?.Mods == null || string.IsNullOrEmpty(modId) ||
-                !document.Mods.TryGetValue(modId, out ModSettingsEntry entry) || entry?.Settings == null)
+                !document.Mods.TryGetValue(modId, out ModSettingsEntry entry) || entry == null)
             {
                 return Array.Empty<string>();
             }
 
+            entry.PlayerSettings = entry.PlayerSettings ?? Array.Empty<string>();
+            entry.Overrides = entry.Overrides ?? new Dictionary<string, object>(StringComparer.Ordinal);
             var currentNames = new HashSet<string>(currentSettingNames ?? Enumerable.Empty<string>(), StringComparer.Ordinal);
-            string[] removed = entry.Settings.Keys
+            string[] removed = entry.PlayerSettings
+                .Concat(entry.Overrides.Keys)
                 .Where(name => !currentNames.Contains(name))
+                .Distinct(StringComparer.Ordinal)
                 .OrderBy(name => name, StringComparer.Ordinal)
                 .ToArray();
+            entry.PlayerSettings = entry.PlayerSettings
+                .Where(currentNames.Contains)
+                .ToArray();
             foreach (string name in removed)
-                entry.Settings.Remove(name);
+                entry.Overrides.Remove(name);
+            if (entry.PlayerSettings.Length == 0 && entry.Overrides.Count == 0)
+                document.Mods.Remove(modId);
             return removed;
         }
 
         public static string Serialize(ModSettingsDefinition document)
         {
+            document = NormalizeAndValidate(document, "Trail mod-settings");
             var mods = new OrderedDictionary(StringComparer.Ordinal);
-            foreach (string id in (document?.Mods?.Keys ?? Enumerable.Empty<string>())
+            foreach (string id in document.Mods.Keys
                 .OrderBy(value => value, StringComparer.Ordinal))
             {
-                ModSettingsEntry entry = document?.Mods != null &&
-                    document.Mods.TryGetValue(id, out ModSettingsEntry found)
-                        ? found
-                        : new ModSettingsEntry();
+                ModSettingsEntry entry = document.Mods[id];
+                var playerSettings = new List<object>();
+                foreach (string setting in entry.PlayerSettings)
+                    playerSettings.Add(setting);
                 var settings = new OrderedDictionary(StringComparer.Ordinal);
-                if (entry.Enabled && entry.Settings != null)
+                if (entry.Overrides != null)
                 {
                     foreach (KeyValuePair<string, object> setting in
-                        entry.Settings.OrderBy(item => item.Key, StringComparer.Ordinal))
+                        entry.Overrides.OrderBy(item => item.Key, StringComparer.Ordinal))
                     {
                         if (string.IsNullOrWhiteSpace(setting.Key) || !IsSupportedValue(setting.Value))
                             throw new InvalidDataException($"Mod entry [{id}] contains an unsupported value for [{setting.Key}].");
@@ -131,16 +156,19 @@ namespace CustomCustomTrail.Core
                     }
                 }
 
-                mods.Add(id, new OrderedDictionary(StringComparer.Ordinal)
+                if (playerSettings.Count != 0 || settings.Count != 0)
                 {
-                    { "enabled", entry.Enabled },
-                    { "settings", settings }
-                });
+                    mods.Add(id, new OrderedDictionary(StringComparer.Ordinal)
+                    {
+                        { "playerSettings", playerSettings },
+                        { "overrides", settings }
+                    });
+                }
             }
 
             return Shared.DependencyFreeJson.Serialize(new OrderedDictionary(StringComparer.Ordinal)
             {
-                { "schemaVersion", 1 },
+                { "schemaVersion", 3 },
                 { "mods", mods }
             });
         }

@@ -74,7 +74,11 @@ namespace CustomCustomTrail.Core
                 bool sourceRootFile = string.Equals(source, sourceRoot, StringComparison.OrdinalIgnoreCase);
                 if (sourceRootFile && string.Equals(Path.GetFileName(file), metadataFileName, StringComparison.OrdinalIgnoreCase))
                     continue;
-                bool modSettings = string.Equals(Path.GetExtension(file), ".modjson", StringComparison.OrdinalIgnoreCase);
+                if (file.EndsWith(".modjson", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                bool modSettings = file.EndsWith(
+                    MissionLoader.ModSettingsFileSuffix,
+                    StringComparison.OrdinalIgnoreCase);
                 if (modSettings && !includeModSettings)
                     continue;
                 File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), false);

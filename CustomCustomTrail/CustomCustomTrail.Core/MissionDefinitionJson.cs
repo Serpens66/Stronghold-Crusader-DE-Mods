@@ -22,7 +22,7 @@ namespace CustomCustomTrail.Core
             if (root.TryGetValue("settings", out object settingsValue) && settingsValue != null)
                 mission.Settings = ParseSettings(RequireObject(settingsValue, "settings"));
             if (root.ContainsKey("modSettings"))
-                throw new InvalidDataException("Embedded modSettings are not supported; use the matching .modjson sidecar.");
+                throw new InvalidDataException("Embedded modSettings are not supported; use the matching .modtrail.json sidecar.");
 
             return mission;
         }

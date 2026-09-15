@@ -1,6 +1,8 @@
 # Custom Custom Trail compatibility for mod authors
 
-`CustomCustomTrail` can save and restore another mod's host-controlled lobby settings without a compile-time reference to that mod. Compatible installed mods are discovered automatically and appear as checkboxes in the `CustomCustomTrail` settings.
+This guide is for mod authors. Trail creators should use [Custom Trail Mod Settings](Custom%20Trail%20Mod%20Settings.md).
+
+`CustomCustomTrail` can save and restore another mod's host-controlled lobby settings without a compile-time reference to that mod. Compatible installed mods are discovered automatically and appear as per-setting mode selectors in the `CustomCustomTrail` settings.
 
 Your mod does **not** need to reference `CustomCustomTrail.dll` or contain mod-specific integration code.
 
@@ -144,7 +146,7 @@ Unless there is a strong reason to maintain a separate implementation, use the s
 - Public `[SyncHostOnly]` properties must have both a getter and setter.
 - Property values must be non-null and MessagePack-serializable while compatibility is checked and while a Trail is saved. Primitive values and arrays are the simplest choices; explicitly attributed MessagePack models are suitable for complex values.
 
-Do not write a second JSON serializer for Trail integration. `CustomCustomTrail` owns the `.modjson` format and serializes complex compatible values through MessagePack.
+Do not write a second JSON serializer for Trail integration. `CustomCustomTrail` owns the `.modtrail.json` format and serializes complex compatible values through MessagePack.
 
 ## UI expectations
 
@@ -156,9 +158,11 @@ Commands and property setters must both enforce the same authority. UI disableme
 
 Before publishing a compatible mod, verify that:
 
-- the mod appears with a checkbox under compatible mods in `CustomCustomTrail`;
-- disabling that checkbox causes new Trail files to omit the mod entirely;
-- enabling it stores all intended persistent `[SyncHostOnly]` values;
+- the mod appears with mode selectors under compatible mods in `CustomCustomTrail`;
+- `Mod default` uses the snapshot returned by `System_CreateDisabledMissionPresetSnapshot()`;
+- `Player/host` uses the normal saved host preset without storing its current value in the Trail;
+- `Fixed Trail value` stores and restores the value visible while the Trail is saved;
+- leaving every setting on `Mod default` omits the mod from the sidecar;
 - `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and `[DoNotPersist]` values are absent;
 - playing a Trail applies its host settings without changing the local `.msgpack` file;
 - leaving the Trail restores the previously selected local preset;

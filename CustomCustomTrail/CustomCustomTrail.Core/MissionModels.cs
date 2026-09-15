@@ -3,6 +3,13 @@ using System.Collections.Generic;
 
 namespace CustomCustomTrail.Core
 {
+    public enum TrailSettingMode
+    {
+        ModDefault = 0,
+        Player = 1,
+        Fixed = 2,
+    }
+
     public sealed class CoopTrailPackageManifest
     {
         public int SchemaVersion { get; set; } = 1;
@@ -29,7 +36,7 @@ namespace CustomCustomTrail.Core
         public MapReference Map { get; set; }
         public CoopSettings Settings { get; set; } = new CoopSettings();
         public List<PlayerDefinition> Players { get; set; } = new List<PlayerDefinition>();
-        public ModSettingsDefinition ModSettings { get; set; } = ModSettingsDefinition.CreateUnmanaged();
+        public ModSettingsDefinition ModSettings { get; set; } = ModSettingsDefinition.CreateModDefaults();
         public string ModSettingsError { get; set; }
     }
 
@@ -82,16 +89,16 @@ namespace CustomCustomTrail.Core
 
     public sealed class ModSettingsDefinition
     {
-        public int SchemaVersion { get; set; } = 1;
+        public int SchemaVersion { get; set; } = 3;
         public Dictionary<string, ModSettingsEntry> Mods { get; set; } = new Dictionary<string, ModSettingsEntry>(StringComparer.Ordinal);
 
-        public static ModSettingsDefinition CreateUnmanaged() => new ModSettingsDefinition();
+        public static ModSettingsDefinition CreateModDefaults() => new ModSettingsDefinition();
     }
 
     public sealed class ModSettingsEntry
     {
-        public bool Enabled { get; set; }
-        public Dictionary<string, object> Settings { get; set; } = new Dictionary<string, object>(StringComparer.Ordinal);
+        public string[] PlayerSettings { get; set; } = Array.Empty<string>();
+        public Dictionary<string, object> Overrides { get; set; } = new Dictionary<string, object>(StringComparer.Ordinal);
     }
 
     public sealed class LoadedMission
