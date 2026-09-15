@@ -40,21 +40,6 @@ All gameplay settings are synchronized, controlled by the host, and applied equa
 - `Attack Lord After Breach` — Allows every eligible AI tribe to receive the post-breach lord attack command. Default: enabled.
 - `Initial Defense-Only Months` — Sets the initial defender-recruitment period from 0 to 30 months. Default: 0.
 
-Setting changes take effect on the next successful map start or savegame load. They are not applied in the middle of an active session.
-
-## Compatibility and safety
-
-- Requires SHCDE Script Extender 2.6.0 or newer.
-- Uses synchronized host-only settings and is configured for multiplayer synchronization.
-- Declares `BugfixesAndQoL_Serp` as an optional dependency.
-- Does not duplicate or modify the `AiWallTargetingFix`; both mods can run together.
-- Validates the supported native game DLL before making any change. If validation fails, Vanilla behavior remains active.
-- Restores only values and native bytes still owned by this mod. Changes made by another mod are not overwritten during cleanup.
-
-## Diagnostics
-
-For each active AI player, the mod logs the first four observed attack-force changes. Each entry includes the lord, attack trigger, normal or high-gold path, wave multipliers, and the lord-specific troop cap.
-
 ## Not included yet
 
 The possible UCP-style 4/2/1 target rotation—four wall targets, two fortification targets, and one building target—is intentionally not part of this version. It requires an additional Definitive Edition native-code audit before it can be implemented safely. See `FUTURE_WORK.md` for details.
