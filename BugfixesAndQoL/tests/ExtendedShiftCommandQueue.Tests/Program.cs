@@ -28,6 +28,7 @@ internal static class Program
         CheckMoveChoreDeduplication();
         CheckFirstShiftMoveTakeover();
         CheckMoveFormationSpacing();
+        CheckMoveFormationPlanner();
         CheckMoveFormationGesture();
         CheckLargeMoveTargetOverflow();
         CheckMigrationSourceContracts();
@@ -83,15 +84,13 @@ internal static class Program
             Check(MoveFormationSpacingPolicy.Normalize(invalid) == MoveFormationSpacingPolicy.Default,
                 $"invalid Move formation spacing {invalid} resets to default");
         }
-        foreach (int vanillaSpacing in new[] { 2, 3, 4 })
+        foreach (int vanillaSpacing in new[] { 1, 2, 3, 4 })
         foreach (int configuredSpacing in new[] { 1, 2, 3, 4 })
         {
             Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(
                     vanillaSpacing, configuredSpacing, overrideEnabled: true) == configuredSpacing,
                 $"normal Vanilla spacing {vanillaSpacing} accepts configured {configuredSpacing}");
         }
-        Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(1, 4, overrideEnabled: true) == 1,
-            "Vanilla safety spacing one is always preserved");
         Check(MoveFormationSpacingPolicy.ResolveEffectiveSpacing(3, 4, overrideEnabled: false) == 3,
             "disabled Move formation feature preserves Vanilla Assassin spacing");
 
@@ -213,6 +212,57 @@ internal static class Program
         Check(!wrongRelease.TryClaimVanillaRelease(3, false, 1920) &&
               !wrongRelease.Released && !wrongRelease.VanillaReleaseClaimed,
             "the opposite Vanilla release cannot claim a drag transaction");
+    }
+
+    private static void CheckMoveFormationPlanner()
+    {
+        var tiles = new SHCDESE.Interop.GameTileManagerView();
+        SHCDESE.API.GameTileManagerAPI.Instance.TileManager = tiles;
+        bool[] available = new bool[800 * 800];
+        for (int y = 20; y <= 380; y++)
+        for (int x = 20; x <= 779; x++)
+        {
+            int tile = y * 800 + x;
+            available[tile] = true;
+            tiles.Components[tile] = 1;
+            tiles.Edges[tile] = 0xFF;
+        }
+
+        var planner = new MoveFormationPreviewPlanner(
+            (x, y) => (uint)x < 800 && (uint)y < 800 && available[y * 800 + x]);
+        var destinations = new List<MoveFormationDestination>();
+        foreach (int spacing in new[] { 1, 2, 3, 4 })
+        foreach (int required in new[] { 1000, 1001, 1002, 1250, 1350, 3999, 4000, 4001, 5001 })
+        {
+            MoveFormationPlanMetrics metrics = planner.Plan(
+                400, 200, spacing, required, assassinOnly: false, destinations);
+            Check(destinations.Count == required &&
+                  destinations.Select(item => item.TileId).Distinct().Count() == required &&
+                  destinations.All(item =>
+                      (Math.Abs(item.X - 400) + Math.Abs(item.Y - 200)) % spacing == 0) &&
+                  metrics.ExactDestinations == required &&
+                  metrics.RelaxedDestinations == 0 && metrics.ReusedDestinations == 0,
+                $"full-grid planner assigns {required} unique spacing-{spacing} destinations");
+        }
+
+        MoveFormationPlanMetrics overflow = planner.Plan(
+            400,
+            200,
+            4,
+            15,
+            assassinOnly: false,
+            destinations,
+            (x, y) => y == 200 && x >= 400 && x < 410);
+        Check(destinations.Count == 15 && overflow.ExactDestinations == 3 &&
+              overflow.RelaxedDestinations == 7 && overflow.UniqueDestinations == 10 &&
+              overflow.ReusedDestinations == 5,
+            "planner deterministically relaxes density and only then reuses reachable destinations");
+
+        int excludedAssassinTile = 200 * 800 + 404;
+        tiles.Logic[excludedAssassinTile] = 0x100;
+        planner.Plan(400, 200, 4, 20, assassinOnly: true, destinations);
+        Check(destinations.All(item => item.TileId != excludedAssassinTile),
+            "Assassin ground planning retains Vanilla's additional tile-flag filter");
     }
 
     private static void CheckLargeMoveTargetOverflow()
@@ -1238,7 +1288,14 @@ internal static class Program
               moveFormationDrag.Contains("state.Target.TileMapX") &&
               moveFormationDrag.Contains("state.Target.NativeX") &&
               moveFormationDrag.Contains("MoveFormationPreviewPlanner") &&
-              moveFormationDrag.Contains("targetAvailable(target.NativeX, target.NativeY)") &&
+              moveFormationDrag.Contains("state.Target.UnderCursorUnitIds") &&
+              moveFormationDrag.Contains("state.Target.TroopDepth") &&
+              moveFormationDrag.Contains("state.Target.OverTopHalf") &&
+              moveFormationDrag.Contains("grabTroopsOnScreen(") &&
+              !moveFormationDrag.Contains("\"unit-target\"") &&
+              !moveFormationDrag.Contains("\"structure-target\"") &&
+              !moveFormationDrag.Contains("\"unwalkable-ground\"") &&
+              !moveFormationDrag.Contains("CurrentAction != 0") &&
               moveFormationDrag.Contains("private static readonly object syncRoot") &&
               moveFormationDrag.Contains("ReferenceEquals(observedPreEvent, args)") &&
               !moveFormationDrag.Contains("[ThreadStatic]") &&
@@ -1266,11 +1323,14 @@ internal static class Program
             "formation spacing uses Vanilla Chore 17 in every mode and Shared mode diagnostics");
         Check(moveFormationPreview.Contains("PathEdgeMaskGrid") &&
               moveFormationPreview.Contains("PathConnectionGrid") &&
-              moveFormationPreview.Contains("NativeFormationCandidateCapacity = 4001") &&
+              moveFormationPreview.Contains("queueTile = new int[NativeTileCapacity]") &&
+              !moveFormationPreview.Contains("NativeFormationCandidateCapacity = 4001") &&
               moveFormationPreview.Contains("0x10000100") &&
               moveFormationPreview.Contains("destination.Count < requiredCount") &&
+              moveFormationPreview.Contains("relaxedQueueIndices") &&
+              moveFormationPreview.Contains("while (destination.Count < requiredCount)") &&
               bugfixesProject.Contains("src\\MoveFormationPreviewPlanner.cs"),
-            "formation preview mirrors Vanilla's bounded BFS grids and Assassin filter");
+            "formation preview and execution planner cover the full native grid with deterministic overflow");
         Check(bugfixesRuntime.Contains("settings.EnableMoveFormationEnhancements") &&
               bugfixesRuntime.Contains("!FeatureEnabled ||") &&
               bugfixesRuntime.Contains("setting-disabled"),
@@ -1278,8 +1338,11 @@ internal static class Program
         Check(nativeFormationSlots.Contains("libraryBase, 0xE0970") &&
               nativeFormationSlots.Contains("MoveFormationSelector.AssassinGround") &&
               nativeFormationSlots.Contains("ResolveEffectiveSpacing") &&
+              nativeFormationSlots.Contains("TryChooseManagedFormationSlot(") &&
+              nativeFormationSlots.Contains("state[2] = 0") &&
+              nativeFormationSlots.Contains("formation-assigned") &&
               !nativeFormationSlots.Contains("libraryBase, 0xE0AC0"),
-            "Move spacing hooks the Assassin ground selector while leaving its structure selector untouched");
+            "Move spacing assigns every managed slot while leaving the Assassin structure selector untouched");
         Check(bugfixesPlugin.Contains("BepInIncompatibility(LegacyQueueTestGuid)") &&
               bugfixesPlugin.Contains("LegacyQueueTestGuid = \"QueueTest_Serp\""),
             "standalone QueueTest is explicitly incompatible");

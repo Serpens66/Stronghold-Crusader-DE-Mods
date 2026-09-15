@@ -5,19 +5,56 @@ using System.Collections.Generic;
 
 namespace BugfixesAndQoL
 {
+    internal readonly struct MoveFormationDestination
+    {
+        internal MoveFormationDestination(int tileId, int x, int y)
+        {
+            TileId = tileId;
+            X = x;
+            Y = y;
+        }
+
+        internal int TileId { get; }
+        internal int X { get; }
+        internal int Y { get; }
+    }
+
+    internal readonly struct MoveFormationPlanMetrics
+    {
+        internal MoveFormationPlanMetrics(
+            int visitedTiles,
+            int exactDestinations,
+            int relaxedDestinations,
+            int reusedDestinations,
+            int uniqueDestinations)
+        {
+            VisitedTiles = visitedTiles;
+            ExactDestinations = exactDestinations;
+            RelaxedDestinations = relaxedDestinations;
+            ReusedDestinations = reusedDestinations;
+            UniqueDestinations = uniqueDestinations;
+        }
+
+        internal int VisitedTiles { get; }
+        internal int ExactDestinations { get; }
+        internal int RelaxedDestinations { get; }
+        internal int ReusedDestinations { get; }
+        internal int UniqueDestinations { get; }
+    }
+
     internal sealed class MoveFormationPreviewPlanner
     {
         private const int MapWidth = 800;
         private const int NativeTileCapacity = GameTileManagerView.NativePackedTileCapacity;
-        private const int NativeFormationCandidateCapacity = 4001;
         private const int MaximumFormationDistance = 4000;
         private const int AssassinUnitType = 0x49;
 
         private readonly int[] visitStamp = new int[NativeTileCapacity];
-        private readonly int[] queueTile = new int[NativeFormationCandidateCapacity];
-        private readonly short[] queueX = new short[NativeFormationCandidateCapacity];
-        private readonly short[] queueY = new short[NativeFormationCandidateCapacity];
-        private readonly short[] queueDistance = new short[NativeFormationCandidateCapacity];
+        private readonly int[] queueTile = new int[NativeTileCapacity];
+        private readonly short[] queueX = new short[NativeTileCapacity];
+        private readonly short[] queueY = new short[NativeTileCapacity];
+        private readonly short[] queueDistance = new short[NativeTileCapacity];
+        private readonly int[] relaxedQueueIndices = new int[NativeTileCapacity];
         private readonly Func<int, int, bool> targetAvailable;
         private int stamp;
 
@@ -27,19 +64,39 @@ namespace BugfixesAndQoL
                 throw new ArgumentNullException(nameof(targetAvailable));
         }
 
-        internal void Plan(
+        internal MoveFormationPlanMetrics Plan(
             int anchorX,
             int anchorY,
             int spacing,
             int requiredCount,
             int[] selectedUnitTypes,
-            List<int> destination)
+            List<MoveFormationDestination> destination,
+            Func<int, int, bool> additionalCandidateFilter = null)
+        {
+            return Plan(
+                anchorX,
+                anchorY,
+                spacing,
+                requiredCount,
+                IsAssassinOnly(selectedUnitTypes),
+                destination,
+                additionalCandidateFilter);
+        }
+
+        internal MoveFormationPlanMetrics Plan(
+            int anchorX,
+            int anchorY,
+            int spacing,
+            int requiredCount,
+            bool assassinOnly,
+            List<MoveFormationDestination> destination,
+            Func<int, int, bool> additionalCandidateFilter = null)
         {
             if (destination == null)
                 throw new ArgumentNullException(nameof(destination));
             destination.Clear();
             if (requiredCount <= 0)
-                return;
+                return default;
 
             GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager ??
                 throw new InvalidOperationException("The native tile-manager view is unavailable.");
@@ -65,28 +122,41 @@ namespace BugfixesAndQoL
             int currentStamp = NextStamp();
             int read = 0;
             int write = 0;
+            int relaxedWrite = 0;
             Enqueue(anchorTile, anchorX, anchorY, 1, currentStamp, ref write);
             ushort anchorComponent = components[anchorTile];
             int normalizedSpacing = MoveFormationSpacingPolicy.Normalize(spacing);
-            bool assassinOnly = IsAssassinOnly(selectedUnitTypes);
 
             while (read < write && destination.Count < requiredCount)
             {
+                int queueIndex = read;
                 int tileId = queueTile[read];
                 int x = queueX[read];
                 int y = queueY[read];
                 int distance = queueDistance[read];
                 read++;
 
-                if (distance > 0 && distance < MaximumFormationDistance &&
-                    (Math.Abs(x - anchorX) + Math.Abs(y - anchorY)) % normalizedSpacing == 0 &&
+                bool candidateAllowed = distance > 0 &&
+                    distance < MaximumFormationDistance &&
+                    targetAvailable(x, y) &&
                     (!assassinOnly ||
                      ((uint)tileId < (uint)logic.Length &&
-                      (logic[tileId] & 0x10000100) == 0)))
+                      (logic[tileId] & 0x10000100) == 0)) &&
+                    (additionalCandidateFilter == null ||
+                     additionalCandidateFilter(x, y));
+                if (candidateAllowed)
                 {
-                    destination.Add(tileId);
-                    if (destination.Count >= requiredCount)
-                        break;
+                    if ((Math.Abs(x - anchorX) + Math.Abs(y - anchorY)) %
+                        normalizedSpacing == 0)
+                    {
+                        destination.Add(new MoveFormationDestination(tileId, x, y));
+                        if (destination.Count >= requiredCount)
+                            break;
+                    }
+                    else
+                    {
+                        relaxedQueueIndices[relaxedWrite++] = queueIndex;
+                    }
                 }
 
                 if (distance >= MaximumFormationDistance - 2)
@@ -110,6 +180,36 @@ namespace BugfixesAndQoL
                 TryEnqueue(x + 1, y + 1, distance + 2, 0x08, mask, anchorComponent,
                     components, currentStamp, ref write);
             }
+
+            int exactCount = destination.Count;
+            for (int index = 0;
+                index < relaxedWrite && destination.Count < requiredCount;
+                index++)
+            {
+                int queueIndex = relaxedQueueIndices[index];
+                destination.Add(new MoveFormationDestination(
+                    queueTile[queueIndex], queueX[queueIndex], queueY[queueIndex]));
+            }
+            int uniqueCount = destination.Count;
+            if (uniqueCount == 0)
+                throw new InvalidOperationException(
+                    "The formation planner found no valid destination tile.");
+
+            int reuseIndex = 0;
+            while (destination.Count < requiredCount)
+            {
+                destination.Add(destination[reuseIndex]);
+                reuseIndex++;
+                if (reuseIndex >= uniqueCount)
+                    reuseIndex = 0;
+            }
+
+            return new MoveFormationPlanMetrics(
+                write,
+                exactCount,
+                uniqueCount - exactCount,
+                destination.Count - uniqueCount,
+                uniqueCount);
         }
 
         private void TryEnqueue(

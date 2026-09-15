@@ -57,6 +57,7 @@ namespace BugfixesAndQoL
             TestNotificationManagedContracts();
             TestNotificationQueueNearCallResolver();
             TestNotificationSkipIntegration();
+            TestMinimapInputIntegration();
             TestPlacementCancelMoveSuppressionPolicy();
             TestPlacementCancelMoveSuppressionIntegration();
             TestSpriteAnimationGroup26Contract();
@@ -907,7 +908,7 @@ namespace BugfixesAndQoL
             var patchDocument = new XmlDocument();
             patchDocument.LoadXml(mainHudPatch);
             XmlNodeList patchOperations = patchDocument.SelectNodes("/Patch/Operation");
-            Check(patchOperations.Count == 3 &&
+            Check(patchOperations.Count == 5 &&
                   mainHudPatch.Contains(
                       "xmlns:bugfixes=\"clr-namespace:BugfixesAndQoL;assembly=BugfixesAndQoL\"") &&
                   patchOperations[0].Attributes?["Type"]?.Value == "AddNamespace" &&
@@ -922,12 +923,24 @@ namespace BugfixesAndQoL
                   patchOperations[1].Attributes?["Value"]?.Value == "True" &&
                   patchOperations[2].Attributes?["Type"]?.Value == "SetAttribute" &&
                   patchOperations[2].Attributes?["XPath"]?.Value ==
-                      "//n:Image[@Name='RadarMapImage']" &&
+                      "//n:MediaElement[@Name='RadarME']" &&
                   patchOperations[2].Attributes?["AttributeName"]?.Value ==
-                      "bugfixes:NotificationSkipBehavior.IsEnabled" &&
+                      "bugfixes:MinimapInputBehavior.IsEnabled" &&
                   patchOperations[2].Attributes?["Value"]?.Value == "True" &&
+                  patchOperations[3].Attributes?["Type"]?.Value == "SetAttribute" &&
+                  patchOperations[3].Attributes?["XPath"]?.Value ==
+                      "//n:Image[@Name='RadarMapImage']" &&
+                  patchOperations[3].Attributes?["AttributeName"]?.Value ==
+                      "bugfixes:NotificationSkipBehavior.IsEnabled" &&
+                  patchOperations[3].Attributes?["Value"]?.Value == "True" &&
+                  patchOperations[4].Attributes?["Type"]?.Value == "SetAttribute" &&
+                  patchOperations[4].Attributes?["XPath"]?.Value ==
+                      "//n:Image[@Name='RadarMapImage']" &&
+                  patchOperations[4].Attributes?["AttributeName"]?.Value ==
+                      "bugfixes:MinimapInputBehavior.IsEnabled" &&
+                  patchOperations[4].Attributes?["Value"]?.Value == "True" &&
                   !mainHudPatch.Contains("RadarMapGrid"),
-                "MainHUD patch targets only RadarME and RadarMapImage with the notification attached behavior");
+                "MainHUD patch targets only RadarME and RadarMapImage with both click behaviors");
 
             string projectDirectory = FindProjectDirectory();
             string baselineRoot = Path.Combine(
@@ -991,6 +1004,72 @@ namespace BugfixesAndQoL
                       new[] { typeof(string) },
                       null)?.ReturnType == typeof(System.Threading.Tasks.Task<UnityEngine.AudioClip>),
                 "installed Vanilla channel-1 reflection contract matches the notification feature");
+        }
+
+        private static void TestMinimapInputIntegration()
+        {
+            string input = File.ReadAllText(Path.Combine("src", "MinimapInputFeature.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string project = File.ReadAllText("BugfixesAndQoL.csproj");
+
+            Check(input.Contains("element.PreviewMouseDown += OnPreviewMouseDown") &&
+                  input.Contains("captureElement.PreviewMouseMove += OnPreviewMouseMove") &&
+                  input.Contains("captureElement.PreviewMouseUp += OnPreviewMouseUp") &&
+                  input.Contains("captureElement.LostMouseCapture += OnLostMouseCapture") &&
+                  input.Contains("captureElement.CaptureMouse()") &&
+                  input.Contains("element.ReleaseMouseCapture()"),
+                "minimap input attaches movement and release events only for a captured gesture");
+            Check(input.IndexOf("TryBeginGesture(sender, args", StringComparison.Ordinal) <
+                      input.IndexOf("captureElement.PreviewMouseMove +=", StringComparison.Ordinal) &&
+                  input.IndexOf("gestureElement = null;", StringComparison.Ordinal) <
+                      input.IndexOf("element.PreviewMouseMove -=", StringComparison.Ordinal),
+                "minimap gesture callbacks are dynamically armed and fail-safe detached");
+            Check(!input.Contains("RadarScrollMap") &&
+                  !input.Contains("void Update(") &&
+                  !input.Contains("Application.onBeforeRender") &&
+                  !input.Contains("Input.GetMouseButton") &&
+                  !input.Contains("InputR3EventHooks"),
+                "minimap improvements install no frame, render, or held-input polling callback");
+            Check(input.Contains("args.GetPosition(currentRadarImage)") &&
+                  input.Contains("args.GetPosition(radarImage)") &&
+                  input.Contains("Enums.editorActions.placingBuilding") &&
+                  input.Contains("Enums.editorActions.troopSelection") &&
+                  input.Contains("Enums.editorActions.troopSelectionEnding") &&
+                  input.Contains("MoveCameraToRadarPoint(controller, point)") &&
+                  input.Contains("ApplyVanillaStyleDrag(point)"),
+                "minimap events preserve placement clicks, cursor following, and Vanilla action exclusions");
+            Check(input.Contains("requestBinkPlayState != 0") &&
+                  input.Contains("sfxManager.binkIsPlaying") &&
+                  input.Contains("radarMedia.Opacity = 0f") &&
+                  input.Contains("RadarHeldX = 0f") &&
+                  input.Contains("RadarHeldY = 0f"),
+                "minimap gesture normalization preserves active video and clears held movement");
+            Check(runtime.Contains("private MinimapInputFeature minimapInputFeature;") &&
+                  runtime.Contains("new MinimapInputFeature(log, settings)") &&
+                  runtime.Contains("DeactivateMinimapInputFeature") &&
+                  project.Contains("src\\MinimapInputFeature.cs") &&
+                  !project.Contains("MinimapPlacementClickHook.cs") &&
+                  !project.Contains("MinimapBuildingPlacementFeature.cs") &&
+                  !project.Contains("MinimapCursorFollowFeature.cs"),
+                "runtime and project use only the event-driven minimap implementation");
+
+            BindingFlags members = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            Type mainHudType = typeof(MyAudioManager).Assembly.GetType("CrusaderDE.MainHUD");
+            Type radarImageType = mainHudType?.GetField("RefRadarMapImage", members)?.FieldType;
+            Check(radarImageType?.GetEvent("PreviewMouseDown")?.EventHandlerType?.FullName ==
+                      "Noesis.MouseButtonEventHandler" &&
+                  radarImageType.GetEvent("PreviewMouseMove")?.EventHandlerType?.FullName ==
+                      "Noesis.MouseEventHandler" &&
+                  radarImageType.GetEvent("PreviewMouseUp")?.EventHandlerType?.FullName ==
+                      "Noesis.MouseButtonEventHandler" &&
+                  radarImageType.GetEvent("LostMouseCapture")?.EventHandlerType?.FullName ==
+                      "Noesis.MouseEventHandler" &&
+                  radarImageType.GetMethod("CaptureMouse", Type.EmptyTypes)?.ReturnType == typeof(bool),
+                "installed Vanilla radar image exposes the required Noesis gesture contract");
+            Check(typeof(FatControler).GetField("radarClickDelay", members)?.FieldType == typeof(bool) &&
+                  typeof(FatControler).GetField("radarClickDelayTime", members)?.FieldType == typeof(DateTime) &&
+                  typeof(FatControler).GetField("radarScrollTrigged", members)?.FieldType == typeof(bool),
+                "installed Vanilla minimap delay and drag fields retain their managed contracts");
         }
 
         private static void TestResolutionAwareZoomIntegration()

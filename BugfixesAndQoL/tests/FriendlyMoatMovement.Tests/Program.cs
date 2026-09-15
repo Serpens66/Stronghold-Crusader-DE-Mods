@@ -17,7 +17,7 @@ string[] runtimeSourceNames =
     "MoatPlacement.cs", "MoatPlacementSearch.cs",
     "MoatSearchKernel.cs", "MoatWorkTargetSelection.cs", "MovementOptionsSnapshot.cs",
     "MovementPathPublication.cs", "MovementSearchContext.cs", "NativeFormationSlots.cs",
-    "MoveFormationSpacingPolicy.cs",
+    "MoveFormationSpacingPolicy.cs", "MoveFormationPreviewPlanner.cs",
     "NativeMovementCadenceResolver.cs", "NativeMovementRecovery.cs", "UnitMovementContext.cs",
     "WeightedMoatPublication.cs", "WeightedMoatRoutePlanner.cs", "BugfixesHookInfrastructure.cs"
 };

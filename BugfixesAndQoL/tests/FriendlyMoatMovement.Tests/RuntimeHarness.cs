@@ -6,6 +6,36 @@ using System.Runtime.InteropServices;
 
 namespace BugfixesAndQoL
 {
+    internal readonly struct MoveFormationDestination
+    {
+        internal MoveFormationDestination(int tileId,int x,int y)
+        { TileId=tileId;X=x;Y=y; }
+        internal int TileId { get; }
+        internal int X { get; }
+        internal int Y { get; }
+    }
+    internal readonly struct MoveFormationPlanMetrics
+    {
+        internal MoveFormationPlanMetrics(int visited,int exact,int relaxed,int reused,int unique)
+        { VisitedTiles=visited;ExactDestinations=exact;RelaxedDestinations=relaxed;ReusedDestinations=reused;UniqueDestinations=unique; }
+        internal int VisitedTiles { get; }
+        internal int ExactDestinations { get; }
+        internal int RelaxedDestinations { get; }
+        internal int ReusedDestinations { get; }
+        internal int UniqueDestinations { get; }
+    }
+    internal sealed class MoveFormationPreviewPlanner
+    {
+        internal MoveFormationPreviewPlanner(Func<int,int,bool> available) { }
+        internal MoveFormationPlanMetrics Plan(int x,int y,int spacing,int required,bool assassin,
+            List<MoveFormationDestination> destination,Func<int,int,bool> filter=null)
+        {
+            destination.Clear();
+            for(int index=0;index<required;index++)
+                destination.Add(new MoveFormationDestination(1000+index,x+index,y));
+            return new MoveFormationPlanMetrics(required,required,0,0,required);
+        }
+    }
     internal enum AliveState { IsAlive, Dead }
     internal enum eStructs { STRUCT_NULL }
     internal enum TribeAICommand { Move, AttackUnit=4, AttackBuilding=5, DigMoatTileId = 6, Unknown7 = 7 }
@@ -168,6 +198,7 @@ namespace BugfixesAndQoL
             public int TargetedRouteSearchPasses, BuilderCalls, FloodFillBypasses, FallbackBuilderCalls, FallbackRollbacks;
             public bool BuilderReached;
             public int RegionCalls, TribeId, UnitsOnMoatAtDispatch;
+            public int ActiveUnitsAtDispatch;
             public bool MoatRelevant;
             public string LastGroupMoatModeDiagnostic;
             public int UnitMoveCalls, UnitMoveCompleted, UnitMovePositive, UnitMoveWithoutBuilder, UnitMoveAlreadyArrived;
@@ -1182,7 +1213,7 @@ namespace BugfixesAndQoL {
     }
 }
 
-namespace Shared { internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} } }
+namespace Shared { internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} public static void LogDebug(object log,string text) {} } internal static class GameModeHelper { public static bool IsMapEditor()=>true; } }
 
 namespace BugfixesAndQoL {
  internal enum RouteCalculationMode { Exact = 0, RequiredOnly = 1 }

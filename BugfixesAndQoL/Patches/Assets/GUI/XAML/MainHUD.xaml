@@ -9,7 +9,15 @@
              AttributeName="bugfixes:NotificationSkipBehavior.IsEnabled"
              Value="True" />
   <Operation Type="SetAttribute"
+             XPath="//n:MediaElement[@Name='RadarME']"
+             AttributeName="bugfixes:MinimapInputBehavior.IsEnabled"
+             Value="True" />
+  <Operation Type="SetAttribute"
              XPath="//n:Image[@Name='RadarMapImage']"
              AttributeName="bugfixes:NotificationSkipBehavior.IsEnabled"
+             Value="True" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Image[@Name='RadarMapImage']"
+             AttributeName="bugfixes:MinimapInputBehavior.IsEnabled"
              Value="True" />
 </Patch>

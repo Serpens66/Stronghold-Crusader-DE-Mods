@@ -1701,6 +1701,7 @@ namespace BugfixesAndQoL
                     ClearDeferredFastMoveScope();
                     TryLogDiagnosticFailure("deferred-fast-move-scope", ex);
                 }
+                CompleteManagedFormationPlan(command);
                 activeMoveCommand = null;
                 activePlan = null;
                 pendingPlan = null;
@@ -8191,6 +8192,7 @@ namespace BugfixesAndQoL
             cursorTopologies.Clear(); noBuilderDetails = 0; preBuilderRejections.Clear();
             cursorDecisionCounts.Clear(); cursorDecisionDetails.Clear();
             fillRouteDecisions.Clear(); fillRouteLogTick = -1; fillRouteLogCount = 0; formationOwner = null;
+            CompleteManagedFormationPlan(null);
             ResetMoatWorkTargetSelection();
             ResetDirectMoatCommandScopes();
             cacheMapEpoch = -1;

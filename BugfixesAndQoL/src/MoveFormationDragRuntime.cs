@@ -203,8 +203,6 @@ namespace BugfixesAndQoL
             TroopSelector self, Vector2 start, Vector2 current);
 
         private const int NativeMapWidth = 800;
-        private const int GroundClickDepth = 49;
-        private const int MaximumFormationCandidates = 4000;
 
         private static readonly BindingFlags InstanceFields =
             BindingFlags.Instance | BindingFlags.NonPublic;
@@ -218,6 +216,8 @@ namespace BugfixesAndQoL
         private readonly Func<int, int, bool> targetAvailable;
         private readonly MoveFormationPreviewPlanner previewPlanner;
         private readonly List<int> previewTiles = new List<int>();
+        private readonly List<MoveFormationDestination> previewDestinations =
+            new List<MoveFormationDestination>();
         private readonly HashSet<string> loggedRejectReasons = new HashSet<string>();
 
         private FieldInfo mouseTileXField;
@@ -423,7 +423,7 @@ namespace BugfixesAndQoL
                 }
                 if (args.Key != ToKeyCode(state.CommandButton))
                     return;
-                if (!ValidateActiveDrag(state, requirePureGround: false))
+                if (!ValidateActiveDrag(state))
                 {
                     AbortPreview("state-changed");
                     return;
@@ -496,8 +496,7 @@ namespace BugfixesAndQoL
                 LogRejectedStart(rejection);
                 return;
             }
-            if (!TryCaptureFreshGroundTarget(
-                    checkUnitUnderCursor: true,
+            if (!TryCaptureFreshTarget(
                     out GroundTarget target,
                     out rejection))
             {
@@ -588,7 +587,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                if (!ValidateActiveDrag(state, requirePureGround: true))
+                if (!ValidateActiveDrag(state))
                 {
                     ClearCompletedDrag("run-release-validation-failed");
                     return engineRunOriginal(mpFrameSkip);
@@ -619,6 +618,7 @@ namespace BugfixesAndQoL
             object oldUnderCursor;
             int oldDepth;
             int oldClickDepth;
+            bool oldOverTopHalf;
 
             try
             {
@@ -629,6 +629,7 @@ namespace BugfixesAndQoL
                 oldUnderCursor = underCursorChimpListField.GetValue(director);
                 oldDepth = director.lastTroopOverDepth;
                 oldClickDepth = controls.mouseTileClickDepth;
+                oldOverTopHalf = GameMap.instance.overTopHalf;
             }
             catch (Exception exception)
             {
@@ -645,9 +646,11 @@ namespace BugfixesAndQoL
                 mouseTileYField.SetValue(director, (float)state.Target.TileMapY);
                 mousePosXForEngineField.SetValue(director, state.PressedEngineX);
                 mousePosYForEngineField.SetValue(director, state.PressedEngineY);
-                underCursorChimpListField.SetValue(director, Array.Empty<int>());
-                director.lastTroopOverDepth = -1;
-                controls.mouseTileClickDepth = GroundClickDepth;
+                underCursorChimpListField.SetValue(
+                    director, state.Target.UnderCursorUnitIds);
+                director.lastTroopOverDepth = state.Target.TroopDepth;
+                controls.mouseTileClickDepth = state.Target.ClickDepth;
+                GameMap.instance.overTopHalf = state.Target.OverTopHalf;
                 MoveFormationCommandContext.Arm(
                     state.TribeId,
                     state.Target.NativeX,
@@ -673,7 +676,8 @@ namespace BugfixesAndQoL
                     oldMouseY,
                     oldUnderCursor,
                     oldDepth,
-                    oldClickDepth);
+                    oldClickDepth,
+                    oldOverTopHalf);
                 MoveFormationCommandContext.Clear();
                 markers.ClearPreview();
                 FailOpen(
@@ -701,7 +705,8 @@ namespace BugfixesAndQoL
                     oldMouseY,
                     oldUnderCursor,
                     oldDepth,
-                    oldClickDepth);
+                    oldClickDepth,
+                    oldOverTopHalf);
                 MoveFormationCommandContext.Clear();
                 markers.ClearPreview();
                 Shared.DebugLogHelper.LogDebug(
@@ -714,14 +719,27 @@ namespace BugfixesAndQoL
 
         private void PublishPreview(DragState state)
         {
-            previewPlanner.Plan(
-                state.Target.NativeX,
-                state.Target.NativeY,
-                state.Spacing,
-                Math.Min(state.Selection.Length, MaximumFormationCandidates),
-                state.UnitTypes,
-                previewTiles);
-            markers.SetPreview(previewTiles);
+            previewDestinations.Clear();
+            previewTiles.Clear();
+            try
+            {
+                previewPlanner.Plan(
+                    state.Target.NativeX,
+                    state.Target.NativeY,
+                    state.Spacing,
+                    state.Selection.Length,
+                    state.UnitTypes,
+                    previewDestinations);
+                for (int index = 0; index < previewDestinations.Count; index++)
+                    previewTiles.Add(previewDestinations[index].TileId);
+                markers.SetPreview(previewTiles);
+            }
+            catch (InvalidOperationException)
+            {
+                // Entity and structure clicks may legitimately have no ground
+                // preview anchor. Vanilla remains authoritative at release.
+                markers.ClearPreview();
+            }
         }
 
         private static bool TryCaptureSelection(
@@ -811,8 +829,7 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        private bool TryCaptureFreshGroundTarget(
-            bool checkUnitUnderCursor,
+        private bool TryCaptureFreshTarget(
             out GroundTarget target,
             out string rejection)
         {
@@ -822,6 +839,7 @@ namespace BugfixesAndQoL
             int clickDepth = 0;
             GameMap.instance.CalcMapTileFromMousePos(
                 mouse, ref mouseMap, ref tileMap, ref clickDepth);
+            bool overTopHalf = GameMap.instance.overTopHalf;
             GameMapTile mapTile = GameMap.instance.getMapTile(tileMap.x, tileMap.y);
             if (mapTile == null)
             {
@@ -830,67 +848,28 @@ namespace BugfixesAndQoL
                 return false;
             }
 
+            int[] underCursor = null;
+            int troopDepth = -1;
+            GameMap.instance.grabTroopsOnScreen(
+                Vector2.zero,
+                Vector2.zero,
+                ref underCursor,
+                mouse,
+                ref troopDepth);
             target = new GroundTarget(
                 tileMap.x,
                 tileMap.y,
                 mapTile.gameMapX,
                 mapTile.gameMapY,
-                clickDepth);
-            return IsPureGroundTarget(
-                target, checkUnitUnderCursor, out rejection);
-        }
-
-        private bool IsPureGroundTarget(
-            GroundTarget target,
-            bool checkUnitUnderCursor,
-            out string rejection)
-        {
+                clickDepth,
+                overTopHalf,
+                underCursor == null ? Array.Empty<int>() : (int[])underCursor.Clone(),
+                troopDepth);
             if ((uint)target.NativeX >= NativeMapWidth ||
                 (uint)target.NativeY >= NativeMapWidth)
             {
                 rejection = "native-coordinate-outside-map";
                 return false;
-            }
-            if (!targetAvailable(target.NativeX, target.NativeY))
-            {
-                rejection = "native-target-unavailable";
-                return false;
-            }
-            int tileId = GameTileManagerAPI.Instance.GetTileId(
-                target.NativeX, target.NativeY);
-            GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager;
-            if (tileId < 0 || tileManager == null ||
-                (uint)tileId >= (uint)tileManager.StructureGrid.Length ||
-                (uint)tileId >= (uint)tileManager.PathConnectionGrid.Length)
-            {
-                rejection = "native-tile-outside-grid";
-                return false;
-            }
-            if (tileManager.StructureGrid[tileId] != 0)
-            {
-                rejection = "structure-target";
-                return false;
-            }
-            if (tileManager.PathConnectionGrid[tileId] == 0)
-            {
-                rejection = "unwalkable-ground";
-                return false;
-            }
-            if (checkUnitUnderCursor)
-            {
-                int[] underCursor = null;
-                int depth = -1;
-                GameMap.instance.grabTroopsOnScreen(
-                    Vector2.zero,
-                    Vector2.zero,
-                    ref underCursor,
-                    Input.mousePosition,
-                    ref depth);
-                if (underCursor != null && underCursor.Length != 0)
-                {
-                    rejection = "unit-target";
-                    return false;
-                }
             }
             rejection = null;
             return true;
@@ -915,14 +894,12 @@ namespace BugfixesAndQoL
                 return "control-scheme-changed";
             if (FatControler.instance == null || FatControler.instance.overNoesisGUI())
                 return "over-ui";
-            if (MainControls.instance.CurrentAction != 0)
-                return "non-neutral-action";
             if (IsShiftHeld())
                 return "shift-held";
             return null;
         }
 
-        private bool ValidateActiveDrag(DragState state, bool requirePureGround)
+        private bool ValidateActiveDrag(DragState state)
         {
             if (!Enabled || !HasValidMap() ||
                 state.ReleaseGate.Aborted ||
@@ -931,10 +908,7 @@ namespace BugfixesAndQoL
                 FatControler.instance == null || FatControler.instance.overNoesisGUI() ||
                 IsShiftHeld() || !SelectionMatches(state.Selection))
                 return false;
-            if (!requirePureGround)
-                return true;
-            return IsPureGroundTarget(
-                state.Target, checkUnitUnderCursor: false, out _);
+            return true;
         }
 
         private static bool HasValidMap() =>
@@ -1065,7 +1039,8 @@ namespace BugfixesAndQoL
             object oldMouseY,
             object oldUnderCursor,
             int oldDepth,
-            int oldClickDepth)
+            int oldClickDepth,
+            bool oldOverTopHalf)
         {
             Exception firstFailure = null;
             TryRestore(
@@ -1083,6 +1058,8 @@ namespace BugfixesAndQoL
                 ref firstFailure);
             TryRestore(() => director.lastTroopOverDepth = oldDepth, ref firstFailure);
             TryRestore(() => controls.mouseTileClickDepth = oldClickDepth, ref firstFailure);
+            TryRestore(() => GameMap.instance.overTopHalf = oldOverTopHalf,
+                ref firstFailure);
             return firstFailure;
         }
 
@@ -1150,13 +1127,19 @@ namespace BugfixesAndQoL
                 int tileMapY,
                 int nativeX,
                 int nativeY,
-                int clickDepth)
+                int clickDepth,
+                bool overTopHalf,
+                int[] underCursorUnitIds,
+                int troopDepth)
             {
                 TileMapX = tileMapX;
                 TileMapY = tileMapY;
                 NativeX = nativeX;
                 NativeY = nativeY;
                 ClickDepth = clickDepth;
+                OverTopHalf = overTopHalf;
+                UnderCursorUnitIds = underCursorUnitIds ?? Array.Empty<int>();
+                TroopDepth = troopDepth;
             }
 
             internal int TileMapX { get; }
@@ -1164,6 +1147,9 @@ namespace BugfixesAndQoL
             internal int NativeX { get; }
             internal int NativeY { get; }
             internal int ClickDepth { get; }
+            internal bool OverTopHalf { get; }
+            internal int[] UnderCursorUnitIds { get; }
+            internal int TroopDepth { get; }
         }
 
         private readonly struct SelectionIdentity : IEquatable<SelectionIdentity>

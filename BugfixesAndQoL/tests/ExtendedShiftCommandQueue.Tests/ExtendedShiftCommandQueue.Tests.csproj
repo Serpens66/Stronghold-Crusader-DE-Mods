@@ -11,5 +11,6 @@
     <Compile Include="..\..\src\LargeMoveTargetOverflowModel.cs" Link="LargeMoveTargetOverflowModel.cs" />
     <Compile Include="..\..\src\MoveFormationSpacingPolicy.cs" Link="MoveFormationSpacingPolicy.cs" />
     <Compile Include="..\..\src\MoveFormationDragGesture.cs" Link="MoveFormationDragGesture.cs" />
+    <Compile Include="..\..\src\MoveFormationPreviewPlanner.cs" Link="MoveFormationPreviewPlanner.cs" />
   </ItemGroup>
 </Project>

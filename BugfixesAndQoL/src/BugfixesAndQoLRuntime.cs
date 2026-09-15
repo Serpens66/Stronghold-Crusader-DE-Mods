@@ -37,7 +37,7 @@ namespace BugfixesAndQoL
         private IDisposable mapStartSubscription;
         private IDisposable mapLoadSubscription;
         private IDisposable mapUnloadSubscription;
-        private MinimapPlacementClickHook minimapPlacementClickHook;
+        private MinimapInputFeature minimapInputFeature;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
         private CustomLordListEnhancementHook customLordListEnhancementHook;
         private AiCastleSettingsListEnhancementHook aiCastleSettingsListEnhancementHook;
@@ -616,9 +616,9 @@ namespace BugfixesAndQoL
             ReconcileClientHook(
                 "minimap improvements",
                 settings.EnableMinimapCursorFollowFix || settings.AllowMinimapWhilePlacingBuilding,
-                () => minimapPlacementClickHook != null,
-                () => minimapPlacementClickHook = new MinimapPlacementClickHook(log, settings),
-                () => DisposeFeature("minimap improvements", ref minimapPlacementClickHook));
+                () => minimapInputFeature != null,
+                () => minimapInputFeature = new MinimapInputFeature(log, settings),
+                DeactivateMinimapInputFeature);
             ReconcileClientHook(
                 "market autotrade sell threshold",
                 settings.EnableAutoTradeSellZeroFix,
@@ -679,13 +679,32 @@ namespace BugfixesAndQoL
 
         private void UnsubscribeHooks()
         {
-            DisposeFeature("minimap improvements", ref minimapPlacementClickHook);
+            DeactivateMinimapInputFeature();
             DisposeFeature("market autotrade sell threshold", ref autoTradeSellZeroHook);
             DisposeFeature("enemy-proximity bulldoze cursor", ref enemyProximityBulldozeCursorHook);
             DisposeFeature("market key main-menu return", ref marketKeyMainTradeMenuHook);
             DisposeFeature("HD market view", ref hdMarketViewHook);
             DisposeFeature("camera movement modifier", ref cameraMovementModifierHook);
             DisposeFeature("Custom Trail starting-gold fix", ref customTrailExtremeGoldFixHook);
+        }
+
+        private void DeactivateMinimapInputFeature()
+        {
+            MinimapInputFeature current = minimapInputFeature;
+            minimapInputFeature = null;
+            if (current == null)
+                return;
+
+            try
+            {
+                current.Deactivate();
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Bugfixes and QoL feature 'minimap improvements' deactivation failed; other features continue: {ex}");
+            }
         }
 
         private void ReconcileClientHook(

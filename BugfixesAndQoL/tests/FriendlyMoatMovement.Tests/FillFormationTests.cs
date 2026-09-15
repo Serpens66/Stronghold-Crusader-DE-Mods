@@ -272,7 +272,7 @@ namespace BugfixesAndQoL
                 ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
                 Check(lastSpacing==4,"command spacing overrides the Vanilla unit-type value");
                 ChooseOwnerSafeFormationSlot(nativePathManager,1,60,10);
-                Check(lastSpacing==1,"Move spacing setting never replaces Vanilla safety spacing one");
+                Check(lastSpacing==4,"direct Standard movement uses one command-wide spacing");
                 activeMoveCommand.IsPatrolPath=true;*(int*)(tribes+0x14)=1;
                 ChooseOwnerSafeFormationSlot(nativePathManager,2,60,10);
                 Check(lastSpacing==2,"patrol movement retains its Vanilla spacing");
@@ -292,8 +292,39 @@ namespace BugfixesAndQoL
                         assassinSpacing==configured,
                         "pure Assassin ground selection uses command Move spacing "+configured);
                 }
-                Check(ChooseAssassinGroundFormationSlot(nativePathManager,1,60,10)==1,
-                    "Assassin safety spacing one remains unchanged");
+                Check(ChooseAssassinGroundFormationSlot(nativePathManager,1,60,10)==4,
+                    "Assassin ground movement uses one command-wide spacing");
+                CompleteManagedFormationPlan(null);
+                foreach(int largeCount in new[]{1000,1001,1002,1250,1350,3999,4000,4001,5001})
+                {
+                    activeMoveCommand=new MoveCommandScope{TribeId=1,TargetX=60,TargetY=10,
+                        HasFormationSpacing=true,FormationSpacing=4,ActiveUnitsAtDispatch=largeCount};
+                    *(int*)(tribes+0x14)=0;int nativeCallsBefore=calls;
+                    for(int index=0;index<largeCount;index++)
+                    {
+                        ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
+                        Check(*(int*)(tribes+0x14)==0,"managed selector leaves a safe pre-increment index");
+                        *(int*)(tribes+0x14)+=1;
+                        Check(*(int*)(tribes+0x14)<4000,"managed selector prevents Vanilla's group abort guard");
+                    }
+                    Check(managedFormationCursor==largeCount && calls==nativeCallsBefore,
+                        "every large formation member receives a managed destination");
+                    CompleteManagedFormationPlan(activeMoveCommand);
+                }
+                *(int*)(tribes+TribeRecordSize+0x2C)=0;
+                activeMoveCommand=new MoveCommandScope{TribeId=1,TargetX=60,TargetY=10,
+                    HasFormationSpacing=true,FormationSpacing=4,ActiveUnitsAtDispatch=1002};
+                *(int*)(tribes+0x14)=0;
+                for(int index=0;index<1002;index++)
+                {
+                    ChooseOwnerSafeFormationSlot(nativePathManager,3,60,10);
+                    *(int*)(tribes+0x14)+=1;
+                }
+                Check(managedFormationCursor==1002,
+                    "map-editor special tribes do not require a normal player owner");
+                CompleteManagedFormationPlan(activeMoveCommand);
+                *(int*)(tribes+TribeRecordSize+0x2C)=1;
+                activeMoveCommand=new MoveCommandScope{TribeId=1,TargetX=60,TargetY=10};
                 TestSettings.Settings.EnableMoveFormationEnhancements=false;
                 Check(ChooseAssassinGroundFormationSlot(nativePathManager,3,60,10)==3,
                     "disabled feature restores Vanilla Assassin ground spacing three");

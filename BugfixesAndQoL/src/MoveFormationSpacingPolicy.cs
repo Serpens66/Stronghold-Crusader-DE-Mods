@@ -13,7 +13,7 @@ namespace BugfixesAndQoL
             int vanillaSpacing,
             int commandSpacing,
             bool overrideEnabled) =>
-            overrideEnabled && vanillaSpacing >= 2 && vanillaSpacing <= Maximum
+            overrideEnabled && vanillaSpacing >= Minimum && vanillaSpacing <= Maximum
                 ? Normalize(commandSpacing)
                 : vanillaSpacing;
 
@@ -120,13 +120,13 @@ namespace BugfixesAndQoL
             for (int vanilla = 1; vanilla <= MoveFormationSpacingPolicy.Maximum; vanilla++)
             {
                 int count = VanillaCounts[vanilla];
-                if (vanilla == 1)
-                    count += inferredAssassinStructureCalls;
                 if (count == 0)
                     continue;
-                int effective = vanilla == 1 ? 1 : ConfiguredSpacing;
+                int effective = ConfiguredSpacing;
                 transitions.Add($"{vanilla}->{effective}:{count}");
             }
+            if (inferredAssassinStructureCalls != 0)
+                transitions.Add($"structure1->1:{inferredAssassinStructureCalls}");
             if (VanillaCounts[0] != 0)
                 transitions.Add($"other:{VanillaCounts[0]}");
             return $"cfg{ConfiguredSpacing};selectors=s{StandardCalls}/a{AssassinGroundCalls}/" +
