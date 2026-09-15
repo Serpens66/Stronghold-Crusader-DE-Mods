@@ -42,4 +42,5 @@ All gameplay settings are synchronized, controlled by the host, and applied equa
 
 ## Not included yet
 
-The possible UCP-style 4/2/1 target rotation—four wall targets, two fortification targets, and one building target—is intentionally not part of this version. It requires an additional Definitive Edition native-code audit before it can be implemented safely. See `FUTURE_WORK.md` for details.
+- AiWallTargetingFix is already in out BugfixesAndQoL mod.  
+- The possible UCP-style 4/2/1 target rotation—four wall targets, two fortification targets, and one building target—is intentionally not part of this version. It requires an additional Definitive Edition native-code audit before it can be implemented safely. See `FUTURE_WORK.md` for details.
