@@ -55,6 +55,7 @@ namespace BugfixesAndQoL
             RunCadenceMatrix(failures, profiles);
             RunRallyMatrix(failures, profiles);
             RunSpeedMatrix(failures);
+            RunActivationFlagMatrix(failures, profiles);
             return failures;
         }
 
@@ -129,11 +130,15 @@ namespace BugfixesAndQoL
             var cases = new List<RallyCase>
             {
                 Rally("active", UnitFor(1, 1), TrackingFor(1), true),
+                Rally("arab-bow-vanilla-running-pair",
+                    UnitFor((ushort)eChimps.CHIMP_TYPE_ARAB_BOW, 1),
+                    TrackingFor((ushort)eChimps.CHIMP_TYPE_ARAB_BOW), true),
                 Rally("no-path", UnitFor(1, 1, false), TrackingFor(1, moving: true), true),
                 Rally("initializing", UnitFor(99, 1, false, InitializationState, 0), TrackingFor(1), true),
                 Rally("transforming", UnitFor(99, 1, false, 0, 1), TrackingFor(1), true),
                 Rally("wrong-type", UnitFor(99, 1), TrackingFor(1), true),
                 Rally("wrong-owner", UnitFor(1, 1, owner: 2), TrackingFor(1), true),
+                Rally("dead-unit", Dead(UnitFor(1, 1)), TrackingFor(1), true),
                 Rally("reused-slot", UnitFor(1, 1, globalId: 88), TrackingFor(1), true),
                 Rally("capture-generation", UnitFor(1, 1), TrackingFor(1, globalId: 0), true),
                 Rally("interrupted-same-target", UnitFor(1, 1), TrackingFor(1, observed: true, moving: false), true),
@@ -164,6 +169,12 @@ namespace BugfixesAndQoL
                 Compare(referenceTracking, tableTracking, failures, item.Name + "-tracking");
                 if (referenceHandled && referenceUnit.SpeedBonus == 99)
                     failures.Add(item.Name + ": synchronization overrode rally priority");
+                if (item.Name == "arab-bow-vanilla-running-pair" &&
+                    (tableUnit.Animation != 0x81 || tableUnit.SpeedBonus != 1))
+                {
+                    failures.Add(item.Name +
+                        ": expected Animation 0x81 and SpeedBonus 1");
+                }
             }
         }
 
@@ -189,6 +200,58 @@ namespace BugfixesAndQoL
             }
         }
 
+        private static void RunActivationFlagMatrix(
+            List<string> failures,
+            Dictionary<ushort, Profile> profiles)
+        {
+            foreach (bool rallyEnabled in new[] { false, true })
+            foreach (bool synchronizationEnabled in new[] { false, true })
+            {
+                Unit referenceUnit = UnitFor(1, 1);
+                Unit tableUnit = referenceUnit.Clone();
+                Tracking referenceTracking = TrackingFor(1);
+                Tracking tableTracking = referenceTracking.Clone();
+                ApplyCombinedReference(referenceUnit, referenceTracking, profiles,
+                    rallyEnabled, synchronizationEnabled);
+                ApplyCombinedTable(tableUnit, tableTracking, profiles,
+                    rallyEnabled, synchronizationEnabled);
+                string name = $"flags-rally-{rallyEnabled}-sync-{synchronizationEnabled}";
+                Compare(referenceUnit, tableUnit, failures, name + "-unit");
+                Compare(referenceTracking, tableTracking, failures, name + "-tracking");
+                if (rallyEnabled && referenceUnit.SpeedBonus == 99)
+                    failures.Add(name + ": synchronization overrode active rally");
+                if (!rallyEnabled && !synchronizationEnabled &&
+                    (referenceUnit.Animation != 1 || referenceUnit.SpeedBonus != 55))
+                    failures.Add(name + ": disabled native flags changed Vanilla state");
+            }
+        }
+
+        private static void ApplyCombinedReference(
+            Unit unit,
+            Tracking tracking,
+            Dictionary<ushort, Profile> profiles,
+            bool rallyEnabled,
+            bool synchronizationEnabled)
+        {
+            bool handled = rallyEnabled &&
+                ApplyRallyReference(unit, tracking, profiles, improvedSpearmen: true);
+            if (!handled && synchronizationEnabled)
+                ApplySynchronizationReference(unit, profiles, running: true, bonus: 99);
+        }
+
+        private static void ApplyCombinedTable(
+            Unit unit,
+            Tracking tracking,
+            Dictionary<ushort, Profile> profiles,
+            bool rallyEnabled,
+            bool synchronizationEnabled)
+        {
+            bool handled = rallyEnabled &&
+                ApplyRallyTable(unit, tracking, profiles, improvedSpearmen: true);
+            if (!handled && synchronizationEnabled)
+                ApplySynchronizationTable(unit, profiles, running: true, bonus: 99);
+        }
+
         private static bool ApplyRallyReference(
             Unit unit,
             Tracking tracking,
@@ -197,6 +260,11 @@ namespace BugfixesAndQoL
         {
             if (!tracking.Active)
                 return false;
+            if (!unit.Alive)
+            {
+                tracking.Active = false;
+                return false;
+            }
             if (tracking.GlobalId != 0 && unit.GlobalId != tracking.GlobalId)
             {
                 tracking.Active = false;
@@ -421,14 +489,19 @@ namespace BugfixesAndQoL
             foreach (eChimps unitType in SupportedRallyTypes)
             {
                 ushort type = (ushort)unitType;
+                bool isArabBow = unitType == eChimps.CHIMP_TYPE_ARAB_BOW;
+                bool allowFallback = isArabBow ||
+                    unitType == eChimps.CHIMP_TYPE_BEDOUIN_HEALER;
                 profiles[type] = new Profile(
                     new Dictionary<uint, uint> { [1] = 0x81, [0x81] = 0x81 },
                     new Dictionary<uint, uint> { [0x81] = 1, [1] = 1 },
-                    (ushort)(type + 1),
-                    allowFallback: unitType == eChimps.CHIMP_TYPE_BEDOUIN_HEALER,
-                    soleRunningState: unitType == eChimps.CHIMP_TYPE_BEDOUIN_HEALER
-                        ? 0x5C1u
-                        : 0u);
+                    isArabBow ? (ushort)1 : (ushort)(type + 1),
+                    allowFallback,
+                    soleRunningState: isArabBow
+                        ? 0x81u
+                        : unitType == eChimps.CHIMP_TYPE_BEDOUIN_HEALER
+                            ? 0x5C1u
+                            : 0u);
             }
             return profiles;
         }
@@ -486,6 +559,12 @@ namespace BugfixesAndQoL
             Tracking tracking,
             bool improvedSpearmen) =>
             new RallyCase(name, unit, tracking, improvedSpearmen);
+
+        private static Unit Dead(Unit unit)
+        {
+            unit.Alive = false;
+            return unit;
+        }
 
         private static GroupMember Member(
             ushort type,

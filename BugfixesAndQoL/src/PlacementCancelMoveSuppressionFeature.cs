@@ -38,9 +38,6 @@ namespace BugfixesAndQoL
                 throw new MissingMethodException(typeof(EditorDirector).FullName, "Update");
 
             editorDirectorUpdateIlHook = new ILHook(updateMethod, PatchRightClickBranch);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL placement-cancel input suppression installed at the Vanilla right-click Down/Up branches.");
         }
 
         private void PatchRightClickBranch(ILContext context)
@@ -118,12 +115,6 @@ namespace BugfixesAndQoL
                     controls.CurrentAction,
                     ConfigSettings.Settings_SH1RTSControls,
                     ref suppressNextRightUp);
-                if (!forwardRightDown)
-                {
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        "Bugfixes and QoL suppressed placement-cancel right-click Down; matching Up is pending.");
-                }
             }
             catch (Exception ex)
             {
@@ -144,15 +135,8 @@ namespace BugfixesAndQoL
 
         private bool GetRightUpForEngine()
         {
-            bool forwardRightUp =
-                PlacementCancelRightClickPolicy.CompleteRightClickGesture(ref suppressNextRightUp);
-            if (!forwardRightUp)
-            {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Bugfixes and QoL suppressed matching placement-cancel right-click Up.");
-            }
-            return forwardRightUp;
+            return PlacementCancelRightClickPolicy.CompleteRightClickGesture(
+                ref suppressNextRightUp);
         }
 
         private static bool MatchesField(

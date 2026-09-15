@@ -96,7 +96,8 @@ namespace BugfixesAndQoL
         private void OnTribeIssueOrderMoveHere(
             TribeIssueOrderMoveHereEventArgs args)
         {
-            if (args.Phase == EventHookPhase.Pre &&
+            if (enabled &&
+                args.Phase == EventHookPhase.Pre &&
                 args.IsNewOrder &&
                 args.MoveType != TribeMoveType.NoChange)
             {
@@ -107,7 +108,7 @@ namespace BugfixesAndQoL
         private void OnTribeIssueOrderWithTarget(
             TribeIssueOrderWithTargetEventArgs args)
         {
-            if (args.Phase == EventHookPhase.Pre)
+            if (enabled && args.Phase == EventHookPhase.Pre)
             {
                 RemoveTrackingForTribe(args.TribeId);
             }
@@ -115,7 +116,7 @@ namespace BugfixesAndQoL
 
         private void OnUnitDelete(UnitDeleteEventArgs args)
         {
-            if (args.Phase == EventHookPhase.Pre)
+            if (enabled && args.Phase == EventHookPhase.Pre)
             {
                 RemoveTracking(unchecked((int)args.UnitId));
             }

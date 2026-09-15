@@ -107,6 +107,13 @@ namespace BugfixesAndQoL
 
     internal sealed class MinimapInputFeature
     {
+        private enum RadarOverlayState
+        {
+            Clear,
+            NormalizedStale,
+            ActiveVideoOrUnavailable
+        }
+
         private static readonly BindingFlags InstanceMembers =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
         private static readonly FieldInfo RadarClickDelayField = FindField("radarClickDelay");
@@ -166,8 +173,9 @@ namespace BugfixesAndQoL
                     currentAction != (int)Enums.editorActions.troopSelectionEnding;
                 if (!placementGesture && (!followCursorGesture || !vanillaRadarGestureAllowed))
                     return false;
-                bool mediaSurface = sender is MediaElement;
-                if (mediaSurface && !TryNormalizeIdleRadarOverlay(main))
+
+                RadarOverlayState overlayState = InspectAndNormalizeRadarOverlay(main);
+                if (overlayState == RadarOverlayState.ActiveVideoOrUnavailable)
                     return false;
 
                 Point point = args.GetPosition(currentRadarImage);
@@ -179,7 +187,10 @@ namespace BugfixesAndQoL
                 gestureStart = point;
                 SuppressVanillaDrag(controller);
                 StopHeldRadarMovement();
-                if (placementGesture || mediaSurface)
+                bool replacedStaleClick = overlayState == RadarOverlayState.NormalizedStale;
+                if (replacedStaleClick)
+                    FatControler.MouseIsDownStroke = false;
+                if (placementGesture || replacedStaleClick)
                     MoveCameraToRadarPoint(controller, point);
                 captureElement = currentRadarImage;
                 return true;
@@ -268,20 +279,20 @@ namespace BugfixesAndQoL
             (bool)RadarClickDelayField.GetValue(controller) &&
             DateTime.UtcNow < (DateTime)RadarClickDelayTimeField.GetValue(controller);
 
-        private bool TryNormalizeIdleRadarOverlay(MainViewModel main)
+        private static RadarOverlayState InspectAndNormalizeRadarOverlay(MainViewModel main)
         {
             if (main?.HUDRoot?.RefRadarME == null)
-                return false;
+                return RadarOverlayState.ActiveVideoOrUnavailable;
 
             var radarMedia = main.HUDRoot.RefRadarME;
             SFXManager sfxManager = SFXManager.instance;
             if (radarMedia.Opacity == 0f)
-                return true;
+                return RadarOverlayState.Clear;
             if (sfxManager == null || sfxManager.requestBinkPlayState != 0 || sfxManager.binkIsPlaying)
-                return false;
+                return RadarOverlayState.ActiveVideoOrUnavailable;
 
             radarMedia.Opacity = 0f;
-            return true;
+            return RadarOverlayState.NormalizedStale;
         }
 
         private static void SuppressVanillaDrag(FatControler controller) =>

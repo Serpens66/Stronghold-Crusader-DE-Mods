@@ -111,6 +111,7 @@ var references = ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES"))
         MetadataReference.CreateFromFile(Path.Combine(installedExtender,"RedBird.X64.dll")) });
 foreach (string redBirdReference in new[]{"Iced.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll"})
     Assembly.LoadFrom(Path.Combine(installedExtender,redBirdReference));
+ValidateMovementEmitterAssembly(references);
 // Pinned pre-optimization blob; read only, compiled exclusively into this test process.
 var referenceStart = new System.Diagnostics.ProcessStartInfo("git") {
     WorkingDirectory=root, RedirectStandardOutput=true, RedirectStandardError=true, UseShellExecute=false, CreateNoWindow=true };
@@ -159,6 +160,227 @@ catch (TargetInvocationException ex)
     throw;
 }
 Console.WriteLine($"PASS: syntax of {trees.Length} runtime files; {selected.Count} actual runtime members compiled and exercised.");
+
+void ValidateMovementEmitterAssembly(IEnumerable<MetadataReference> compilerReferences)
+{
+    string cadencePath = Path.Combine(sourceDir,
+        "TroopMovementFix3SynchronizedMovementCadencePatch.cs");
+    string spearmanPath = Path.Combine(sourceDir,
+        "TroopMovementFix3SpearmanMovementPatch.cs");
+    var cadenceClass = CSharpSyntaxTree.ParseText(File.ReadAllText(cadencePath))
+        .GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+        .Single(type => type.Identifier.Text == "SynchronizedMovementCadencePatch");
+    var spearmanClass = CSharpSyntaxTree.ParseText(File.ReadAllText(spearmanPath))
+        .GetRoot().DescendantNodes().OfType<ClassDeclarationSyntax>()
+        .Single(type => type.Identifier.Text == "SpearmanMovementPatch");
+    string[] cadenceMethods = {
+        "GeneratePreTerrainSpeedFastPath", "GenerateCadenceFastPath",
+        "EmitProfileAddress", "EmitStateMappings", "EmitRallyRunningMappings",
+        "EmitRallyDiagnosticsProfileMarker",
+        "EmitRallyDiagnosticsWriteMarker",
+        "EmitRallyDiagnosticsEntryAddress"
+    };
+    string[] spearmanMethods = { "GenerateMovementDecision" };
+
+    var cadenceMembers = cadenceClass.Members.Where(member =>
+        member is FieldDeclarationSyntax field &&
+            field.Modifiers.Any(SyntaxKind.ConstKeyword) ||
+        member is MethodDeclarationSyntax method &&
+            cadenceMethods.Contains(method.Identifier.Text)).ToArray();
+    var spearmanMembers = spearmanClass.Members.Where(member =>
+        member is FieldDeclarationSyntax field &&
+            field.Modifiers.Any(SyntaxKind.ConstKeyword) ||
+        member is MethodDeclarationSyntax method &&
+            spearmanMethods.Contains(method.Identifier.Text)).ToArray();
+    foreach (string methodName in cadenceMethods)
+        if (!cadenceMembers.OfType<MethodDeclarationSyntax>()
+            .Any(method => method.Identifier.Text == methodName))
+            throw new Exception("Missing production cadence emitter: " + methodName);
+    foreach (string methodName in spearmanMethods)
+        if (!spearmanMembers.OfType<MethodDeclarationSyntax>()
+            .Any(method => method.Identifier.Text == methodName))
+            throw new Exception("Missing production Spearman emitter: " + methodName);
+
+    string cadenceSource = string.Join("\n",
+        cadenceMembers.Select(member => member.ToFullString()));
+    string spearmanSource = string.Join("\n",
+        spearmanMembers.Select(member => member.ToFullString()));
+    string contractSource = """
+using Iced.Intel;
+using RedBird.X64.Assembly;
+using RedBird.X64.Extensions;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using static Iced.Intel.AssemblerRegisters;
+namespace SHCDESE.Interop { internal enum AliveState { IsAlive = 0, Dead = 1 } }
+namespace SHCDESE.Interop.Enums {
+    internal enum eChimps { CHIMP_TYPE_SPEARMAN = 7, CHIMP_NUM_TYPES = 256 }
+}
+namespace BugfixesAndQoL {
+using SHCDESE.Interop;
+using SHCDESE.Interop.Enums;
+internal unsafe sealed class SynchronizedMovementCadencePatch {
+    private readonly ulong currentUnitIdAddress = 0x181100000;
+    private readonly ulong improvedSpearmanFlagAddress = 0x181100100;
+    private byte* rallyEntries = (byte*)0x181200000;
+    private byte* synchronizationEntries = (byte*)0x181300000;
+    private byte* nativeProfiles = (byte*)0x181400000;
+    private int* rallyEnabledFlag = (int*)0x181500000;
+    private int* synchronizationEnabledFlag = (int*)0x181500100;
+""" + cadenceSource + """
+    internal static byte[] EmitSpeed(Instruction[] original, ulong returnAddress) {
+        var assembler = new Assembler(64);
+        new SynchronizedMovementCadencePatch().GeneratePreTerrainSpeedFastPath(
+            assembler, original, returnAddress);
+        return Assemble(assembler);
+    }
+    internal static byte[] EmitCadence(Instruction[] original, ulong returnAddress) {
+        var assembler = new Assembler(64);
+        new SynchronizedMovementCadencePatch().GenerateCadenceFastPath(
+            assembler, original, returnAddress);
+        return Assemble(assembler);
+    }
+    private static byte[] Assemble(Assembler assembler) {
+        using var stream = new MemoryStream();
+        assembler.Assemble(new StreamCodeWriter(stream), MovementEmitterContract.Stub);
+        return stream.ToArray();
+    }
+}
+internal sealed class SpearmanMovementPatch {
+""" + spearmanSource + """
+    internal static byte[] EmitSpearman(Instruction[] original, ulong returnAddress) {
+        var assembler = new Assembler(64);
+        GenerateMovementDecision(assembler, original, returnAddress,
+            0x181600000, 0x181600100);
+        using var stream = new MemoryStream();
+        assembler.Assemble(new StreamCodeWriter(stream), MovementEmitterContract.Stub);
+        return stream.ToArray();
+    }
+}
+public static class MovementEmitterContract {
+    internal const ulong Stub = 0x181000000;
+    public static void Run() {
+        var speed = Decode(new byte[] { 0x0F,0xB6,0x83,0xC8,0x06,0,0,
+            0x45,0x85,0xC9,0x74,0x04,0x3C,0x18 }, 0x18019B506);
+        var cadence = Decode(new byte[] { 0x41,0x0F,0xBF,0x80,0x16,0x09,0,0,
+            0x41,0x0F,0xBF,0x88,0xA2,0x09,0,0,
+            0x45,0x8B,0x90,0xA8,0x09,0,0 }, 0x180184203);
+        var spearman = Decode(new byte[] { 0x66,0x42,0x39,0xBC,0x3B,0x14,0x09,0,0,
+            0x75,0x2D,0x66,0x42,0x39,0xBC,0x3B,0x9E,0x09,0,0 }, 0x180143BD9);
+        Verify("speed", SynchronizedMovementCadencePatch.EmitSpeed(
+            speed, 0x18019B514), 1, 1, 1, 1, new ulong[] { 0x18019B516 });
+        Verify("cadence", SynchronizedMovementCadencePatch.EmitCadence(
+            cadence, 0x18018421A), 1, 1, 0, 0, Array.Empty<ulong>());
+        VerifyRallyCadenceWriteContract(
+            SynchronizedMovementCadencePatch.EmitCadence(
+                cadence, 0x18018421A));
+        byte[] spearmanBytes = SpearmanMovementPatch.EmitSpearman(
+            spearman, 0x180143BED);
+        Verify("Spearman", spearmanBytes, -1, -1, -1, -1,
+            new ulong[] { 0x180143C11 });
+        RequireEmbeddedTarget(spearmanBytes, 0x180143C11);
+        RequireEmbeddedTarget(spearmanBytes, 0x180143D51);
+    }
+    private static Instruction[] Decode(byte[] bytes, ulong ip) {
+        var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+        decoder.IP = ip;
+        var result = new List<Instruction>();
+        while (decoder.IP < ip + (ulong)bytes.Length) {
+            decoder.Decode(out var instruction);
+            if (instruction.Code == Code.INVALID)
+                throw new Exception("Invalid displaced instruction.");
+            result.Add(instruction);
+        }
+        return result.ToArray();
+    }
+    private static void Verify(string name, byte[] bytes,
+        int pushFlags, int popFlags, int pushRcx, int popRcx,
+        ulong[] allowedExternalBranches) {
+        if (bytes.Length == 0) throw new Exception(name + " emitter produced no code.");
+        var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+        decoder.IP = Stub;
+        int decoded = 0, pushes = 0, pops = 0, pushesRcx = 0, popsRcx = 0;
+        while (decoder.IP < Stub + (ulong)bytes.Length) {
+            decoder.Decode(out var instruction);
+            if (instruction.Code == Code.INVALID)
+                throw new Exception(name + " emitter produced an invalid instruction.");
+            if (instruction.IsJccShortOrNear &&
+                (instruction.NearBranchTarget < Stub ||
+                 instruction.NearBranchTarget >= Stub + (ulong)bytes.Length) &&
+                Array.IndexOf(allowedExternalBranches,
+                    instruction.NearBranchTarget) < 0)
+                throw new Exception(name + " emitter produced an unexpected branch target.");
+            decoded += instruction.Length;
+            if (instruction.Mnemonic == Mnemonic.Pushfq) pushes++;
+            if (instruction.Mnemonic == Mnemonic.Popfq) pops++;
+            if (instruction.Mnemonic == Mnemonic.Push && instruction.Op0Register == Register.RCX) pushesRcx++;
+            if (instruction.Mnemonic == Mnemonic.Pop && instruction.Op0Register == Register.RCX) popsRcx++;
+        }
+        if (decoded != bytes.Length ||
+            pushFlags >= 0 && (pushes != pushFlags || pops != popFlags) ||
+            pushRcx >= 0 && (pushesRcx != pushRcx || popsRcx != popRcx))
+            throw new Exception(name + " emitter has an invalid decode or save/restore contract: " +
+                "bytes=" + bytes.Length + ", decoded=" + decoded +
+                ", pushfq=" + pushes + ", popfq=" + pops +
+                ", pushRcx=" + pushesRcx + ", popRcx=" + popsRcx + ".");
+    }
+    private static void RequireEmbeddedTarget(byte[] bytes, ulong target) {
+        byte[] encodedTarget = BitConverter.GetBytes(target);
+        for (int index = 0; index <= bytes.Length - encodedTarget.Length; index++) {
+            bool equal = true;
+            for (int offset = 0; offset < encodedTarget.Length; offset++)
+                equal &= bytes[index + offset] == encodedTarget[offset];
+            if (equal) return;
+        }
+        throw new Exception("Spearman emitter lost an audited external target.");
+    }
+    private static void VerifyRallyCadenceWriteContract(byte[] bytes) {
+        var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+        decoder.IP = Stub;
+        bool animationWrite = false, bonusWrite = false;
+        while (decoder.IP < Stub + (ulong)bytes.Length) {
+            decoder.Decode(out var instruction);
+            if (instruction.Code == Code.INVALID)
+                throw new Exception("cadence rally contract contains invalid code.");
+            if (instruction.Op0Kind != OpKind.Memory ||
+                instruction.MemoryBase != Register.R8)
+                continue;
+            if (instruction.MemoryDisplacement64 == 0x660 &&
+                instruction.MemorySize.GetSize() == 4)
+                animationWrite = true;
+            if (instruction.MemoryDisplacement64 == 0x916 &&
+                instruction.MemorySize.GetSize() == 2)
+                bonusWrite = true;
+        }
+        if (!animationWrite || !bonusWrite)
+            throw new Exception("cadence rally path does not emit both the Vanilla animation and speed-bonus stores.");
+    }
+}
+}
+""";
+    var compilation = CSharpCompilation.Create(
+        "MovementEmitterProductionContract",
+        new[] { CSharpSyntaxTree.ParseText(contractSource) },
+        compilerReferences,
+        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary,
+            allowUnsafe: true, optimizationLevel: OptimizationLevel.Release));
+    using var output = new MemoryStream();
+    var result = compilation.Emit(output);
+    if (!result.Success)
+        throw new Exception(string.Join("\n", result.Diagnostics
+            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)));
+    var assembly = Assembly.Load(output.ToArray());
+    try {
+        assembly.GetType("BugfixesAndQoL.MovementEmitterContract")!
+            .GetMethod("Run")!.Invoke(null, null);
+    } catch (TargetInvocationException ex) {
+        System.Runtime.ExceptionServices.ExceptionDispatchInfo
+            .Capture(ex.InnerException ?? ex).Throw();
+        throw;
+    }
+    Console.WriteLine("PASS: all three production movement emitters assembled and fully decoded.");
+}
 
 void ValidateDetailedDiagnostics()
 {

@@ -652,6 +652,11 @@ namespace BugfixesAndQoL
                   feature.Contains("catch (Exception ex)") &&
                   feature.Split(new[] { "controls.StopAllPlacement();" }, StringSplitOptions.None).Length == 2,
                 "placement-cancel classification fails open and invokes Vanilla cleanup exactly once");
+            Check(!feature.Contains("LogDebug(") &&
+                  feature.Split(new[] { "LogError(" }, StringSplitOptions.None).Length == 2 &&
+                  feature.Contains("if (!classificationFailureLogged)") &&
+                  feature.Contains("classificationFailureLogged = true;"),
+                "placement-cancel suppression logs only its once-guarded fail-open classification error");
             Check(runtime.Contains("private static PlacementCancelMoveSuppressionFeature processPlacementCancelMoveSuppressionFeature;") &&
                   runtime.Contains("EnsurePlacementCancelMoveSuppressionFeature);") &&
                   !runtime.Contains("processPlacementCancelMoveSuppressionFeature?.Dispose"),
@@ -1044,6 +1049,19 @@ namespace BugfixesAndQoL
                   input.Contains("RadarHeldX = 0f") &&
                   input.Contains("RadarHeldY = 0f"),
                 "minimap gesture normalization preserves active video and clears held movement");
+            Check(input.Contains("RadarOverlayState overlayState = InspectAndNormalizeRadarOverlay(main);") &&
+                  input.Contains("overlayState == RadarOverlayState.ActiveVideoOrUnavailable") &&
+                  input.Contains("bool replacedStaleClick = overlayState == RadarOverlayState.NormalizedStale;") &&
+                  input.Contains("if (replacedStaleClick)") &&
+                  input.Contains("FatControler.MouseIsDownStroke = false;") &&
+                  input.Contains("if (placementGesture || replacedStaleClick)") &&
+                  !input.Contains("mediaSurface && !TryNormalizeIdleRadarOverlay"),
+                "stale radar overlay replacement is sender-independent and forwards exactly the swallowed click");
+            Check(input.IndexOf("overlayState == RadarOverlayState.ActiveVideoOrUnavailable", StringComparison.Ordinal) <
+                      input.IndexOf("bool replacedStaleClick", StringComparison.Ordinal) &&
+                  input.IndexOf("FatControler.MouseIsDownStroke = false;", StringComparison.Ordinal) <
+                      input.IndexOf("if (placementGesture || replacedStaleClick)", StringComparison.Ordinal),
+                "active videos exit before replacement and the Vanilla stroke is cleared before forwarding");
             Check(runtime.Contains("private MinimapInputFeature minimapInputFeature;") &&
                   runtime.Contains("new MinimapInputFeature(log, settings)") &&
                   runtime.Contains("DeactivateMinimapInputFeature") &&
@@ -2235,6 +2253,10 @@ namespace BugfixesAndQoL
                 "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
             string integration = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "MovementCadenceIntegration.cs"));
+            string bridge = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "FastRecruitMovementBridge.cs"));
+            string parityHarness = File.ReadAllText(Path.Combine(
+                projectDirectory, "tests", "MovementFastPathParityHarness.cs"));
             string english = File.ReadAllText(Path.Combine(
                 projectDirectory, "Locales", "en-US.txt"));
             string german = File.ReadAllText(Path.Combine(
@@ -2255,6 +2277,11 @@ namespace BugfixesAndQoL
                     !fastRecruit.Contains("Fast recruit rally tracking added") &&
                     !fastRecruit.Contains("Fast recruit rally movement started"),
                 "fast recruit rally omits routine per-unit lifecycle logging");
+            Check(fastRecruit.Contains("if (enabled &&\r\n                args.Phase == EventHookPhase.Pre") &&
+                    fastRecruit.Contains("if (enabled && args.Phase == EventHookPhase.Pre)") &&
+                    fastRecruit.IndexOf("if (enabled &&", StringComparison.Ordinal) <
+                        fastRecruit.IndexOf("RemoveTrackingForTribe(args.TribeId)", StringComparison.Ordinal),
+                "disabled fast recruit handlers exit before tribe queries and unit loops");
 
             int tribeLoop = troopMovement.IndexOf("foreach (int unitId in unitIds)",
                 StringComparison.Ordinal);
@@ -2278,6 +2305,16 @@ namespace BugfixesAndQoL
                     cadencePatch.Contains("GeneratePreTerrainSpeedFastPath") &&
                     cadencePatch.Contains("GenerateCadenceFastPath"),
                 "movement hotpaths use native inline tables without managed callbacks");
+            Check(cadencePatch.Contains("rallyEnabledFlag") &&
+                    cadencePatch.Contains("synchronizationEnabledFlag") &&
+                    cadencePatch.Contains("assembler.je(trySynchronization);") &&
+                    cadencePatch.Contains("assembler.je(replayVanilla);") &&
+                    integration.Contains("SetRallyEnabled(bool enabled)") &&
+                    !integration.Contains("TryGetNativeRunningState") &&
+                    !integration.Contains("TryGetNativeRunningSpeedBonus") &&
+                    !bridge.Contains("TryGetNativeRunningState") &&
+                    !bridge.Contains("TryGetNativeRunningSpeedBonus"),
+                "independent native flags bypass disabled kernels and obsolete managed animation queries are removed");
             Check(cadencePatch.Contains("MaximumTrackedUnitId = 10000") &&
                     cadencePatch.Contains("MaximumTrackedTribeId = 4500") &&
                     cadencePatch.Contains("RallyObservedOffset") &&
@@ -2288,6 +2325,35 @@ namespace BugfixesAndQoL
                     cadencePatch.IndexOf("applyRallyProfile", StringComparison.Ordinal) <
                         cadencePatch.IndexOf("applyRunningProfile", StringComparison.Ordinal),
                 "native tables preserve rally identity, interrupted-path state and rally precedence");
+            const string rallyDiagnosticsTag =
+                "RALLY_ANIMATION_DIAGNOSTICS";
+            Check(cadencePatch.Contains(
+                      rallyDiagnosticsTag + "_BEGIN") &&
+                    cadencePatch.Contains(
+                      rallyDiagnosticsTag + "_END") &&
+                    cadencePatch.Contains(
+                      "RallyDiagnosticsRegistered") &&
+                    cadencePatch.Contains(
+                      "RallyDiagnosticsIdentityConfirmed") &&
+                    cadencePatch.Contains(
+                      "RallyDiagnosticsPathObserved") &&
+                    cadencePatch.Contains(
+                      "RallyDiagnosticsProfileResolved") &&
+                    cadencePatch.Contains(
+                      "RallyDiagnosticsCadenceWritten") &&
+                    cadencePatch.Contains(
+                      "LogRallyAnimationDiagnostics") &&
+                    !fastRecruit.Contains(rallyDiagnosticsTag) &&
+                    !integration.Contains(rallyDiagnosticsTag) &&
+                    !bridge.Contains(rallyDiagnosticsTag),
+                "temporary rally animation diagnostics are explicitly marked and confined to the cadence owner");
+            Check(cadencePatch.Contains(
+                      "SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_BOW, 1, 0x81);") &&
+                    parityHarness.Contains(
+                      "arab-bow-vanilla-running-pair") &&
+                    parityHarness.Contains(
+                      "tableUnit.Animation != 0x81 || tableUnit.SpeedBonus != 1"),
+                "Arab bow rally cadence preserves Vanilla Animation 0x81 and SpeedBonus 1");
             Check(cadencePatch.Contains("UnitCurrentSpeed2ManagerOffset = 0x9A2") &&
                     cadencePatch.Contains("UnitCurrentSpeedManagerOffset = 0x9A4") &&
                     cadencePatch.Contains("assembler.Label(ref trySynchronization);") &&

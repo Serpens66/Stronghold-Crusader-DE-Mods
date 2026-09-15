@@ -37,39 +37,14 @@ namespace BugfixesAndQoL
             if (!ReferenceEquals(fastRecruitOwner, owner))
                 return;
 
-            cadencePatch?.ClearAllRallyTracking();
+            cadencePatch?.SetRallyEnabled(false);
             fastRecruitOwner = null;
             RegistrationChanged?.Invoke();
         }
 
-        internal static bool SupportsSynchronizedRunning(int unitType)
+        internal static void SetRallyEnabled(bool enabled)
         {
-            return cadencePatch != null && cadencePatch.SupportsSynchronizedRunning((eChimps)unitType);
-        }
-
-        internal static ushort GetNativeRunningSpeedBonus(int unitType, bool improvedSpearmen)
-        {
-            return cadencePatch?.GetNativeRunningSpeedBonus((eChimps)unitType, improvedSpearmen) ?? 0;
-        }
-
-        internal static bool TryGetNativeRunningSpeedBonus(
-            int unitType,
-            bool improvedSpearmen,
-            out ushort runningSpeedBonus)
-        {
-            runningSpeedBonus = 0;
-            return cadencePatch != null &&
-                cadencePatch.TryGetNativeRunningSpeedBonus(
-                    (eChimps)unitType,
-                    improvedSpearmen,
-                    out runningSpeedBonus);
-        }
-
-        internal static bool TryGetNativeRunningState(int unitType, uint currentState, out uint runningState)
-        {
-            runningState = currentState;
-            return cadencePatch != null &&
-                cadencePatch.TryGetNativeRunningState((eChimps)unitType, currentState, out runningState);
+            cadencePatch?.SetRallyEnabled(enabled);
         }
 
         internal static void SetCadencePatch(SynchronizedMovementCadencePatch patch)

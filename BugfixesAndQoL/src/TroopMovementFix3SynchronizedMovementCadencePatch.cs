@@ -35,7 +35,7 @@ namespace BugfixesAndQoL
         private const int MaximumUnitTypeHandlerLength = 0x5000;
         private const ulong UnitRecordOffset = 0x65CUL;
 
-        private const int RallyEntrySize = 20;
+        private const int RallyEntrySize = 32;
         private const int RallyOwnerOffset = 0;
         // Vanilla's monotonically assigned GlobalId is the generation token
         // which distinguishes a reused 1-based unit-array slot.
@@ -46,6 +46,29 @@ namespace BugfixesAndQoL
         private const int RallyActiveOffset = 14;
         private const int RallyObservedOffset = 15;
         private const int RallyMovingOffset = 16;
+
+        // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+        // Temporary, tick-log-free instrumentation. Remove the complete
+        // RALLY_ANIMATION_DIAGNOSTICS surface after the runtime cause is
+        // confirmed and covered by a permanent semantic emitter test.
+        private const int RallyDiagnosticsStatusOffset = 17;
+        private const int RallyDiagnosticsAbortReasonOffset = 18;
+        private const int RallyDiagnosticsObservedAnimationOffset = 20;
+        private const int RallyDiagnosticsWrittenAnimationOffset = 24;
+        private const int RallyDiagnosticsWrittenBonusOffset = 28;
+        private const int RallyDiagnosticsCadenceVisitsOffset = 30;
+        private const byte RallyDiagnosticsRegistered = 1 << 0;
+        private const byte RallyDiagnosticsIdentityConfirmed = 1 << 1;
+        private const byte RallyDiagnosticsPathObserved = 1 << 2;
+        private const byte RallyDiagnosticsProfileResolved = 1 << 3;
+        private const byte RallyDiagnosticsCadenceWritten = 1 << 4;
+        private const byte RallyDiagnosticsAbortDead = 1;
+        private const byte RallyDiagnosticsAbortGeneration = 2;
+        private const byte RallyDiagnosticsAbortOwner = 3;
+        private const byte RallyDiagnosticsAbortType = 4;
+        private const byte RallyDiagnosticsAbortTarget = 5;
+        private const uint RallyDiagnosticsUnsetAnimation = uint.MaxValue;
+        // RALLY_ANIMATION_DIAGNOSTICS_END
 
         private const int SynchronizationEntrySize = 4;
         private const int SynchronizationActiveOffset = 0;
@@ -131,6 +154,8 @@ namespace BugfixesAndQoL
         private byte* rallyEntries;
         private byte* synchronizationEntries;
         private byte* nativeProfiles;
+        private int* rallyEnabledFlag;
+        private int* synchronizationEnabledFlag;
         private readonly ulong currentUnitIdAddress;
         private readonly ulong improvedSpearmanFlagAddress;
         private readonly HookHandle<X64InlineHook> movementSpeedAdjustmentHook = new HookHandle<X64InlineHook>();
@@ -216,6 +241,9 @@ namespace BugfixesAndQoL
                             SynchronizationEntrySize));
                 nativeProfiles = AllocateZeroed(
                     checked((int)eChimps.CHIMP_NUM_TYPES * NativeProfileSize));
+                rallyEnabledFlag = (int*)AllocateZeroed(sizeof(int));
+                synchronizationEnabledFlag =
+                    (int*)AllocateZeroed(sizeof(int));
                 PublishNativeProfiles();
 
                 transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
@@ -278,7 +306,8 @@ namespace BugfixesAndQoL
                 return;
 
             byte* entry = rallyEntries + unitId * RallyEntrySize;
-            entry[RallyActiveOffset] = 0;
+            for (int offset = 0; offset < RallyEntrySize; offset++)
+                entry[offset] = 0;
             *(int*)(entry + RallyOwnerOffset) = ownerPlayerId;
             *(uint*)(entry + RallyGenerationGlobalIdOffset) = globalId;
             *(ushort*)(entry + RallyUnitTypeOffset) = (ushort)expectedUnitType;
@@ -286,21 +315,126 @@ namespace BugfixesAndQoL
             *(ushort*)(entry + RallyTargetYOffset) = 0;
             entry[RallyObservedOffset] = 0;
             entry[RallyMovingOffset] = 0;
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            entry[RallyDiagnosticsStatusOffset] =
+                RallyDiagnosticsRegistered;
+            *(uint*)(entry + RallyDiagnosticsObservedAnimationOffset) =
+                RallyDiagnosticsUnsetAnimation;
+            *(uint*)(entry + RallyDiagnosticsWrittenAnimationOffset) =
+                RallyDiagnosticsUnsetAnimation;
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             entry[RallyActiveOffset] = 1;
+        }
+
+        internal void SetRallyEnabled(bool enabled)
+        {
+            if (rallyEnabledFlag == null)
+                return;
+
+            int requested = enabled ? 1 : 0;
+            if (*rallyEnabledFlag == requested)
+                return;
+
+            if (enabled)
+            {
+                ClearAllRallyTracking();
+                *rallyEnabledFlag = 1;
+            }
+            else
+            {
+                *rallyEnabledFlag = 0;
+                ClearAllRallyTracking();
+            }
         }
 
         internal void ClearRallyTracking(int unitId)
         {
             if (unitId > 0 && unitId <= MaximumTrackedUnitId)
-                rallyEntries[unitId * RallyEntrySize + RallyActiveOffset] = 0;
+            {
+                byte* entry = rallyEntries + unitId * RallyEntrySize;
+                LogRallyAnimationDiagnostics(unitId, entry);
+                for (int offset = 0; offset < RallyEntrySize; offset++)
+                    entry[offset] = 0;
+            }
         }
 
         internal void ClearAllRallyTracking()
         {
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            if (rallyEntries != null)
+            {
+                for (int unitId = 1;
+                     unitId <= MaximumTrackedUnitId;
+                     unitId++)
+                {
+                    byte* entry = rallyEntries + unitId * RallyEntrySize;
+                    LogRallyAnimationDiagnostics(unitId, entry);
+                }
+            }
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             ZeroMemory(
                 rallyEntries,
                 checked((MaximumTrackedUnitId + 1) * RallyEntrySize));
         }
+
+        // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+        private void LogRallyAnimationDiagnostics(int unitId, byte* entry)
+        {
+            if (entry == null ||
+                (entry[RallyDiagnosticsStatusOffset] &
+                 RallyDiagnosticsRegistered) == 0)
+            {
+                return;
+            }
+
+            byte status = entry[RallyDiagnosticsStatusOffset];
+            byte abortReason = entry[RallyDiagnosticsAbortReasonOffset];
+            uint observedAnimation = *(uint*)(
+                entry + RallyDiagnosticsObservedAnimationOffset);
+            uint writtenAnimation = *(uint*)(
+                entry + RallyDiagnosticsWrittenAnimationOffset);
+            ushort writtenBonus = *(ushort*)(
+                entry + RallyDiagnosticsWrittenBonusOffset);
+            ushort cadenceVisits = *(ushort*)(
+                entry + RallyDiagnosticsCadenceVisitsOffset);
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                "RALLY_ANIMATION_DIAGNOSTICS " +
+                $"unitId={unitId}, active={entry[RallyActiveOffset] != 0}, " +
+                $"owner={*(int*)(entry + RallyOwnerOffset)}, " +
+                $"globalId={*(uint*)(entry + RallyGenerationGlobalIdOffset)}, " +
+                $"expectedType={*(ushort*)(entry + RallyUnitTypeOffset)}, " +
+                $"status=0x{status:X2}, " +
+                $"identity={(status & RallyDiagnosticsIdentityConfirmed) != 0}, " +
+                $"path={(status & RallyDiagnosticsPathObserved) != 0}, " +
+                $"profile={(status & RallyDiagnosticsProfileResolved) != 0}, " +
+                $"written={(status & RallyDiagnosticsCadenceWritten) != 0}, " +
+                $"abort={DescribeRallyDiagnosticsAbort(abortReason)}, " +
+                $"visits={cadenceVisits}, " +
+                $"observedAnimation=0x{observedAnimation:X}, " +
+                $"writtenAnimation=0x{writtenAnimation:X}, " +
+                $"writtenBonus={writtenBonus}.");
+        }
+
+        private static string DescribeRallyDiagnosticsAbort(byte reason)
+        {
+            switch (reason)
+            {
+                case RallyDiagnosticsAbortDead:
+                    return "dead";
+                case RallyDiagnosticsAbortGeneration:
+                    return "generation";
+                case RallyDiagnosticsAbortOwner:
+                    return "owner";
+                case RallyDiagnosticsAbortType:
+                    return "type";
+                case RallyDiagnosticsAbortTarget:
+                    return "target";
+                default:
+                    return "none";
+            }
+        }
+        // RALLY_ANIMATION_DIAGNOSTICS_END
 
         internal void SetSynchronization(
             int tribeId,
@@ -321,6 +455,27 @@ namespace BugfixesAndQoL
             *(ushort*)(entry + SynchronizationBonusOffset) =
                 runningSpeedBonus;
             entry[SynchronizationActiveOffset] = 1;
+        }
+
+        internal void SetSynchronizationEnabled(bool enabled)
+        {
+            if (synchronizationEnabledFlag == null)
+                return;
+
+            int requested = enabled ? 1 : 0;
+            if (*synchronizationEnabledFlag == requested)
+                return;
+
+            if (enabled)
+            {
+                ClearAllSynchronization();
+                *synchronizationEnabledFlag = 1;
+            }
+            else
+            {
+                *synchronizationEnabledFlag = 0;
+                ClearAllSynchronization();
+            }
         }
 
         internal void ClearSynchronization(int tribeId)
@@ -424,28 +579,14 @@ namespace BugfixesAndQoL
             return false;
         }
 
-        internal bool TryGetNativeRunningState(
-            eChimps unitType,
-            uint currentState,
-            out uint runningState)
-        {
-            runningState = currentState;
-            return animationTransitionsByType.TryGetValue(
-                       unitType,
-                       out AnimationTransitions animationTransitions) &&
-                   animationTransitions.TryGetRallyRunningState(
-                       currentState,
-                       out runningState);
-        }
-
         public void Dispose()
         {
             if (disposed)
                 return;
 
             disposed = true;
-            ClearAllRallyTracking();
-            ClearAllSynchronization();
+            SetRallyEnabled(false);
+            SetSynchronizationEnabled(false);
 
             // Published native hooks and their embedded table pointers are
             // process-lifetime state. Dispose is only allowed to roll back a
@@ -479,6 +620,9 @@ namespace BugfixesAndQoL
             // incoming flags because neither belongs to the displaced span.
             assembler.pushfq();
             assembler.push(rcx);
+            assembler.mov(rax, unchecked((ulong)rallyEnabledFlag));
+            assembler.cmp(__dword_ptr[rax], 0);
+            assembler.je(restoreAndReplay);
             assembler.mov(rax, currentUnitIdAddress);
             assembler.mov(eax, __dword_ptr[rax]);
             assembler.cmp(eax, 1);
@@ -561,6 +705,18 @@ namespace BugfixesAndQoL
                 assembler.CreateLabel("cadenceRallyCaptureGlobalDone");
             Label rallyTargetAccepted =
                 assembler.CreateLabel("cadenceRallyTargetAccepted");
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            Label rallyAbortDead =
+                assembler.CreateLabel("cadenceRallyDiagnosticsAbortDead");
+            Label rallyAbortGeneration =
+                assembler.CreateLabel("cadenceRallyDiagnosticsAbortGeneration");
+            Label rallyAbortOwner =
+                assembler.CreateLabel("cadenceRallyDiagnosticsAbortOwner");
+            Label rallyAbortType =
+                assembler.CreateLabel("cadenceRallyDiagnosticsAbortType");
+            Label rallyAbortTarget =
+                assembler.CreateLabel("cadenceRallyDiagnosticsAbortTarget");
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             Label synchronizationRunning =
                 assembler.CreateLabel("cadenceSynchronizationRunning");
             Label synchronizationWalking =
@@ -578,6 +734,9 @@ namespace BugfixesAndQoL
             // displaced Vanilla instructions overwrite EAX, ECX and R10D.
             // No other register, stack value or incoming flag is changed.
             assembler.pushfq();
+            assembler.mov(rax, unchecked((ulong)rallyEnabledFlag));
+            assembler.cmp(__dword_ptr[rax], 0);
+            assembler.je(trySynchronization);
             assembler.mov(rax, currentUnitIdAddress);
             assembler.mov(eax, __dword_ptr[rax]);
             assembler.cmp(eax, 1);
@@ -589,10 +748,19 @@ namespace BugfixesAndQoL
             assembler.add(rax, rcx);
             assembler.cmp(__byte_ptr[rax + RallyActiveOffset], 0);
             assembler.je(trySynchronization);
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            assembler.movzx(
+                ecx,
+                __word_ptr[rax + RallyDiagnosticsCadenceVisitsOffset]);
+            assembler.add(ecx, 1);
+            assembler.mov(
+                __word_ptr[rax + RallyDiagnosticsCadenceVisitsOffset],
+                cx);
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             assembler.cmp(
                 __word_ptr[r8 + UnitAliveStateManagerOffset],
                 (int)AliveState.IsAlive);
-            assembler.jne(clearRallyAndTrySynchronization);
+            assembler.jne(rallyAbortDead);
 
             assembler.mov(ecx, __dword_ptr[rax + RallyGenerationGlobalIdOffset]);
             assembler.test(ecx, ecx);
@@ -600,13 +768,13 @@ namespace BugfixesAndQoL
             assembler.cmp(
                 __dword_ptr[r8 + UnitGlobalIdManagerOffset],
                 ecx);
-            assembler.jne(clearRallyAndTrySynchronization);
+            assembler.jne(rallyAbortGeneration);
             assembler.Label(ref rallyGlobalMatches);
             assembler.mov(ecx, __dword_ptr[rax + RallyOwnerOffset]);
             assembler.cmp(
                 __byte_ptr[r8 + UnitOwnerManagerOffset],
                 cl);
-            assembler.jne(clearRallyAndTrySynchronization);
+            assembler.jne(rallyAbortOwner);
             assembler.movzx(ecx, __word_ptr[rax + RallyUnitTypeOffset]);
             assembler.cmp(
                 __word_ptr[r8 + UnitTypeManagerOffset],
@@ -620,9 +788,14 @@ namespace BugfixesAndQoL
                 __word_ptr[r8 + UnitTransformTypeManagerOffset],
                 cx);
             assembler.je(rallyHandled);
-            assembler.jmp(clearRallyAndTrySynchronization);
+            assembler.jmp(rallyAbortType);
 
             assembler.Label(ref rallyIdentityMatches);
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            assembler.or(
+                __byte_ptr[rax + RallyDiagnosticsStatusOffset],
+                RallyDiagnosticsIdentityConfirmed);
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             assembler.test(
                 __word_ptr[r8 + UnitPathStateManagerOffset],
                 2);
@@ -631,6 +804,18 @@ namespace BugfixesAndQoL
             assembler.jmp(rallyHandled);
 
             assembler.Label(ref rallyPathActive);
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            assembler.or(
+                __byte_ptr[rax + RallyDiagnosticsStatusOffset],
+                RallyDiagnosticsPathObserved);
+            assembler.mov(
+                ecx,
+                __dword_ptr[r8 + UnitAnimationStateManagerOffset]);
+            assembler.mov(
+                __dword_ptr[
+                    rax + RallyDiagnosticsObservedAnimationOffset],
+                ecx);
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             assembler.cmp(__byte_ptr[rax + RallyObservedOffset], 0);
             assembler.jne(rallyPreviouslyObserved);
             assembler.mov(__byte_ptr[rax + RallyObservedOffset], 1);
@@ -652,10 +837,10 @@ namespace BugfixesAndQoL
             assembler.jne(rallyTargetAccepted);
             assembler.movzx(ecx, __word_ptr[r8 + UnitTargetXManagerOffset]);
             assembler.cmp(cx, __word_ptr[rax + RallyTargetXOffset]);
-            assembler.jne(clearRallyAndTrySynchronization);
+            assembler.jne(rallyAbortTarget);
             assembler.movzx(ecx, __word_ptr[r8 + UnitTargetYManagerOffset]);
             assembler.cmp(cx, __word_ptr[rax + RallyTargetYOffset]);
-            assembler.jne(clearRallyAndTrySynchronization);
+            assembler.jne(rallyAbortTarget);
 
             assembler.Label(ref rallyTargetAccepted);
             assembler.mov(__byte_ptr[rax + RallyMovingOffset], 1);
@@ -665,10 +850,41 @@ namespace BugfixesAndQoL
             assembler.mov(__word_ptr[rax + RallyTargetYOffset], cx);
             assembler.jmp(applyRallyProfile);
 
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            assembler.Label(ref rallyAbortDead);
+            assembler.mov(
+                __byte_ptr[rax + RallyDiagnosticsAbortReasonOffset],
+                RallyDiagnosticsAbortDead);
+            assembler.jmp(clearRallyAndTrySynchronization);
+            assembler.Label(ref rallyAbortGeneration);
+            assembler.mov(
+                __byte_ptr[rax + RallyDiagnosticsAbortReasonOffset],
+                RallyDiagnosticsAbortGeneration);
+            assembler.jmp(clearRallyAndTrySynchronization);
+            assembler.Label(ref rallyAbortOwner);
+            assembler.mov(
+                __byte_ptr[rax + RallyDiagnosticsAbortReasonOffset],
+                RallyDiagnosticsAbortOwner);
+            assembler.jmp(clearRallyAndTrySynchronization);
+            assembler.Label(ref rallyAbortType);
+            assembler.mov(
+                __byte_ptr[rax + RallyDiagnosticsAbortReasonOffset],
+                RallyDiagnosticsAbortType);
+            assembler.jmp(clearRallyAndTrySynchronization);
+            assembler.Label(ref rallyAbortTarget);
+            assembler.mov(
+                __byte_ptr[rax + RallyDiagnosticsAbortReasonOffset],
+                RallyDiagnosticsAbortTarget);
+            assembler.jmp(clearRallyAndTrySynchronization);
+            // RALLY_ANIMATION_DIAGNOSTICS_END
+
             assembler.Label(ref clearRallyAndTrySynchronization);
             assembler.mov(__byte_ptr[rax + RallyActiveOffset], 0);
 
             assembler.Label(ref trySynchronization);
+            assembler.mov(rax, unchecked((ulong)synchronizationEnabledFlag));
+            assembler.cmp(__dword_ptr[rax], 0);
+            assembler.je(replayVanilla);
             assembler.cmp(
                 __word_ptr[r8 + UnitAliveStateManagerOffset],
                 (int)AliveState.IsAlive);
@@ -803,11 +1019,14 @@ namespace BugfixesAndQoL
             assembler.jmp(completed);
         }
 
-        private static void EmitRallyRunningMappings(
+        private void EmitRallyRunningMappings(
             Assembler assembler,
             Label completed)
         {
             Label fallback = assembler.CreateLabel("cadenceRallyFallback");
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            EmitRallyDiagnosticsProfileMarker(assembler);
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             assembler.movzx(
                 r10d,
                 __byte_ptr[rax + NativeProfileRunningCountOffset]);
@@ -815,8 +1034,11 @@ namespace BugfixesAndQoL
                  index < MaximumNativeTransitionMappings;
                  index++)
             {
-                Label next = assembler.CreateLabel(
-                    $"cadenceRallyMappingNext{index}");
+                bool isLast = index == MaximumNativeTransitionMappings - 1;
+                Label next = isLast
+                    ? fallback
+                    : assembler.CreateLabel(
+                        $"cadenceRallyMappingNext{index}");
                 assembler.cmp(r10d, index + 1);
                 assembler.jl(fallback);
                 int mappingOffset =
@@ -838,8 +1060,12 @@ namespace BugfixesAndQoL
                 assembler.mov(
                     __word_ptr[r8 + UnitSpeedBonusOffset],
                     cx);
+                // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+                EmitRallyDiagnosticsWriteMarker(assembler);
+                // RALLY_ANIMATION_DIAGNOSTICS_END
                 assembler.jmp(completed);
-                assembler.Label(ref next);
+                if (!isLast)
+                    assembler.Label(ref next);
             }
 
             assembler.Label(ref fallback);
@@ -865,8 +1091,53 @@ namespace BugfixesAndQoL
             assembler.mov(
                 __word_ptr[r8 + UnitSpeedBonusOffset],
                 cx);
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            EmitRallyDiagnosticsWriteMarker(assembler);
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             assembler.jmp(completed);
         }
+
+        // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+        private void EmitRallyDiagnosticsProfileMarker(Assembler assembler)
+        {
+            assembler.mov(r10, rax);
+            EmitRallyDiagnosticsEntryAddress(assembler);
+            assembler.or(
+                __byte_ptr[rax + RallyDiagnosticsStatusOffset],
+                RallyDiagnosticsProfileResolved);
+            assembler.mov(rax, r10);
+        }
+
+        private void EmitRallyDiagnosticsWriteMarker(Assembler assembler)
+        {
+            EmitRallyDiagnosticsEntryAddress(assembler);
+            assembler.or(
+                __byte_ptr[rax + RallyDiagnosticsStatusOffset],
+                RallyDiagnosticsCadenceWritten);
+            assembler.mov(
+                ecx,
+                __dword_ptr[r8 + UnitAnimationStateManagerOffset]);
+            assembler.mov(
+                __dword_ptr[
+                    rax + RallyDiagnosticsWrittenAnimationOffset],
+                ecx);
+            assembler.movzx(
+                ecx,
+                __word_ptr[r8 + UnitSpeedBonusOffset]);
+            assembler.mov(
+                __word_ptr[rax + RallyDiagnosticsWrittenBonusOffset],
+                cx);
+        }
+
+        private void EmitRallyDiagnosticsEntryAddress(Assembler assembler)
+        {
+            assembler.mov(rax, currentUnitIdAddress);
+            assembler.mov(eax, __dword_ptr[rax]);
+            assembler.imul(rax, rax, RallyEntrySize);
+            assembler.mov(rcx, unchecked((ulong)rallyEntries));
+            assembler.add(rax, rcx);
+        }
+        // RALLY_ANIMATION_DIAGNOSTICS_END
 
         private void PublishNativeProfiles()
         {
@@ -1034,6 +1305,10 @@ namespace BugfixesAndQoL
                 Marshal.FreeHGlobal(new IntPtr(synchronizationEntries));
             if (nativeProfiles != null)
                 Marshal.FreeHGlobal(new IntPtr(nativeProfiles));
+            if (rallyEnabledFlag != null)
+                Marshal.FreeHGlobal(new IntPtr(rallyEnabledFlag));
+            if (synchronizationEnabledFlag != null)
+                Marshal.FreeHGlobal(new IntPtr(synchronizationEnabledFlag));
         }
 
         private void ValidatePreTerrainSpeedAdjustmentHook(

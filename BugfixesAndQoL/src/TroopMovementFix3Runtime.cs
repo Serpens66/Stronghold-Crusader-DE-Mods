@@ -129,6 +129,9 @@ namespace BugfixesAndQoL
             if (shouldEnableCadencePatch && cadencePatch == null)
                 EnableCadencePatch();
 
+            cadencePatch?.SetSynchronizationEnabled(
+                shouldEnableTroopMovementFix);
+
             try
             {
                 if (shouldEnableTroopMovementFix &&
@@ -146,6 +149,7 @@ namespace BugfixesAndQoL
             }
             catch
             {
+                cadencePatch?.SetSynchronizationEnabled(false);
                 if (!MovementCadenceIntegration.HasFastRecruitCallbacks)
                     DisableCadencePatch();
 
@@ -171,7 +175,7 @@ namespace BugfixesAndQoL
             // Script Extender publishers and committed native hooks are
             // process-lifetime objects. Only deactivate their mutable state.
             DeactivateTroopMovementFix();
-            cadencePatch?.ClearAllRallyTracking();
+            cadencePatch?.SetRallyEnabled(false);
         }
 
         private bool AreTroopMovementFixComponentsActive =>
@@ -277,6 +281,7 @@ namespace BugfixesAndQoL
         private void DeactivateTroopMovementFix()
         {
             spearmanMovementPatch?.SetEnabled(false);
+            cadencePatch?.SetSynchronizationEnabled(false);
             foreach (int tribeId in
                      new List<int>(synchronizationByTribeId.Keys))
             {
@@ -288,9 +293,9 @@ namespace BugfixesAndQoL
 
         private void DisableCadencePatch()
         {
-            cadencePatch?.ClearAllSynchronization();
+            cadencePatch?.SetSynchronizationEnabled(false);
             if (!MovementCadenceIntegration.HasFastRecruitCallbacks)
-                cadencePatch?.ClearAllRallyTracking();
+                cadencePatch?.SetRallyEnabled(false);
         }
 
         private void Disable()

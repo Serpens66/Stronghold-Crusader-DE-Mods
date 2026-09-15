@@ -23,7 +23,6 @@ namespace ExtraFeatures
     {
         private readonly ManualLogSource log;
         private readonly HookTransaction transaction;
-        private readonly ulong imageBase;
         private readonly HookHandle<X64InlineHook> drawbridgeHeightFailureWriterHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> aivHeightGateHook =
@@ -38,11 +37,11 @@ namespace ExtraFeatures
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> excavationCompletedHeightHook =
             new HookHandle<X64InlineHook>();
-        private readonly HookHandle<X64InlineHook> rebuildCompletedHeightHook =
+        private readonly HookHandle<X64InlineHook> loweredDrawbridgeHeightWriteHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> directCompletedHeightHook =
             new HookHandle<X64InlineHook>();
-        private readonly HookHandle<X64InlineHook> drawbridgeCompletedHeightHook =
+        private readonly HookHandle<X64InlineHook> completedDrawbridgeHeightWriteHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> plannedMoatCancellationHook =
             new HookHandle<X64InlineHook>();
@@ -60,8 +59,6 @@ namespace ExtraFeatures
         private long completedHeightCorrections;
         private long restoredHeightCorrections;
         private int callbackFailureReported;
-        private int completedDrawbridgeDiagnostics;
-        private int loweredDrawbridgeDiagnostics;
         private IntPtr aivAudienceAllowedFlag;
         private IntPtr featureActiveFlag;
         private IntPtr humanPlacementAllowedFlag;
@@ -137,16 +134,17 @@ namespace ExtraFeatures
             Shared.NativeResolution excavationHeightResolution = ResolveAudited(
                 memory, ElevatedMoatNativeContract.ExcavationCompletedHeightPattern,
                 ElevatedMoatNativeContract.ExcavationCompletedHeightRva, "excavated-moat height", log);
-            Shared.NativeResolution rebuildHeightResolution = ResolveAudited(
-                memory, ElevatedMoatNativeContract.RebuildCompletedHeightPattern,
-                ElevatedMoatNativeContract.RebuildCompletedHeightRva, "rebuilt-moat height", log);
+            Shared.NativeResolution loweredDrawbridgeHeightResolution = ResolveAudited(
+                memory, ElevatedMoatNativeContract.LowerDrawbridgeHookPattern,
+                ElevatedMoatNativeContract.LowerDrawbridgeHookRva,
+                "lowered-drawbridge hook block", log);
             Shared.NativeResolution directHeightResolution = ResolveAudited(
                 memory, ElevatedMoatNativeContract.DirectCompletedHeightPattern,
                 ElevatedMoatNativeContract.DirectCompletedHeightRva, "direct completed-moat height", log);
-            Shared.NativeResolution drawbridgeHeightResolution = ResolveAudited(
-                memory, ElevatedMoatNativeContract.DrawbridgeCompletedHeightPattern,
-                ElevatedMoatNativeContract.DrawbridgeCompletedHeightRva,
-                "completed-drawbridge height", log);
+            Shared.NativeResolution completedDrawbridgeHeightResolution = ResolveAudited(
+                memory, ElevatedMoatNativeContract.CompletedDrawbridgeHookPattern,
+                ElevatedMoatNativeContract.CompletedDrawbridgeHookRva,
+                "completed-drawbridge hook block", log);
             Shared.NativeResolution plannedCancellationResolution = ResolveAudited(
                 memory, ElevatedMoatNativeContract.PlannedMoatCancellationPattern,
                 ElevatedMoatNativeContract.PlannedMoatCancellationRva,
@@ -183,7 +181,7 @@ namespace ExtraFeatures
                 aivGateResolution.Rva,
                 aivCreateResolution.Rva);
             ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(memory);
-            imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
+            ulong imageBase = unchecked((ulong)context.ModuleHandle.ToInt64());
             using (var probe = new X64InlineHook(
                 imageBase + unchecked((ulong)resolution.Rva),
                 ElevatedMoatNativeContract.DrawbridgeHeightFailureWriterLength))
@@ -210,13 +208,14 @@ namespace ExtraFeatures
                 ElevatedMoatNativeContract.AivCompletedHeightLength, "AIV completed-moat height");
             ProbeExactHookLength(imageBase, excavationHeightResolution.Rva,
                 ElevatedMoatNativeContract.ExcavationCompletedHeightLength, "excavated-moat height");
-            ProbeExactHookLength(imageBase, rebuildHeightResolution.Rva,
-                ElevatedMoatNativeContract.RebuildCompletedHeightLength, "rebuilt-moat height");
+            ProbeExactHookLength(imageBase, loweredDrawbridgeHeightResolution.Rva,
+                ElevatedMoatNativeContract.LowerDrawbridgeHookLength,
+                "lowered-drawbridge hook block");
             ProbeExactHookLength(imageBase, directHeightResolution.Rva,
                 ElevatedMoatNativeContract.DirectCompletedHeightLength, "direct completed-moat height");
-            ProbeExactHookLength(imageBase, drawbridgeHeightResolution.Rva,
-                ElevatedMoatNativeContract.DrawbridgeCompletedHeightLength,
-                "completed-drawbridge height");
+            ProbeExactHookLength(imageBase, completedDrawbridgeHeightResolution.Rva,
+                ElevatedMoatNativeContract.CompletedDrawbridgeHookLength,
+                "completed-drawbridge hook block");
             ProbeExactHookLength(imageBase, plannedCancellationResolution.Rva,
                 ElevatedMoatNativeContract.PlannedMoatCancellationLength,
                 "planned moat cancellation");
@@ -316,21 +315,33 @@ namespace ExtraFeatures
                     HookTarget.FromAddress(imageBase + unchecked((ulong)excavationHeightResolution.Rva)),
                     ApplyExcavationCompletedHeight,
                     CorrectingContextOptions(ElevatedMoatNativeContract.ExcavationCompletedHeightLength));
-                pending.AddContextHook(
-                    rebuildCompletedHeightHook,
-                    HookTarget.FromAddress(imageBase + unchecked((ulong)rebuildHeightResolution.Rva)),
-                    ApplyLoweredDrawbridgeHeight,
-                    SuppressingContextOptions(ElevatedMoatNativeContract.RebuildCompletedHeightLength));
+                pending.AddInline(
+                    loweredDrawbridgeHeightWriteHook,
+                    HookTarget.FromAddress(
+                        imageBase + unchecked((ulong)loweredDrawbridgeHeightResolution.Rva)),
+                    (assembler, instructions, returnAddress) => ElevatedMoatDrawbridgeHooks.GenerateLowered(
+                        assembler,
+                        instructions,
+                        returnAddress,
+                        unchecked((ulong)featureActiveFlag.ToInt64()),
+                        imageBase),
+                    hookSize: ElevatedMoatNativeContract.LowerDrawbridgeHookLength);
                 pending.AddContextHook(
                     directCompletedHeightHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)directHeightResolution.Rva)),
                     ApplyDirectCompletedHeight,
                     CorrectingContextOptions(ElevatedMoatNativeContract.DirectCompletedHeightLength));
-                pending.AddContextHook(
-                    drawbridgeCompletedHeightHook,
-                    HookTarget.FromAddress(imageBase + unchecked((ulong)drawbridgeHeightResolution.Rva)),
-                    ApplyDrawbridgeCompletedHeight,
-                    CorrectingContextOptions(ElevatedMoatNativeContract.DrawbridgeCompletedHeightLength));
+                pending.AddInline(
+                    completedDrawbridgeHeightWriteHook,
+                    HookTarget.FromAddress(
+                        imageBase + unchecked((ulong)completedDrawbridgeHeightResolution.Rva)),
+                    (assembler, instructions, returnAddress) => ElevatedMoatDrawbridgeHooks.GenerateCompleted(
+                        assembler,
+                        instructions,
+                        returnAddress,
+                        unchecked((ulong)featureActiveFlag.ToInt64()),
+                        imageBase + ElevatedMoatNativeContract.DrawbridgeStateUpdateRva),
+                    hookSize: ElevatedMoatNativeContract.CompletedDrawbridgeHookLength);
                 pending.AddContextHook(
                     plannedMoatCancellationHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)plannedCancellationResolution.Rva)),
@@ -371,9 +382,9 @@ namespace ExtraFeatures
                     !sharedHeightGateHook.Success ||
                     !aivCompletedHeightHook.Success ||
                     !excavationCompletedHeightHook.Success ||
-                    !rebuildCompletedHeightHook.Success ||
+                    !loweredDrawbridgeHeightWriteHook.Success ||
                     !directCompletedHeightHook.Success ||
-                    !drawbridgeCompletedHeightHook.Success ||
+                    !completedDrawbridgeHeightWriteHook.Success ||
                     !plannedMoatCancellationHook.Success ||
                     !directRemovalHeightHook.Success ||
                     !footprintRemovalHeightHook.Success ||
@@ -404,13 +415,14 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.AivCompletedHeightLength, "AIV completed-moat height");
                 RequireInstalledHookLength(excavationCompletedHeightHook,
                     ElevatedMoatNativeContract.ExcavationCompletedHeightLength, "excavated-moat height");
-                RequireInstalledHookLength(rebuildCompletedHeightHook,
-                    ElevatedMoatNativeContract.RebuildCompletedHeightLength, "rebuilt-moat height");
+                RequireInstalledHookLength(loweredDrawbridgeHeightWriteHook,
+                    ElevatedMoatNativeContract.LowerDrawbridgeHookLength,
+                    "lowered-drawbridge hook block");
                 RequireInstalledHookLength(directCompletedHeightHook,
                     ElevatedMoatNativeContract.DirectCompletedHeightLength, "direct completed-moat height");
-                RequireInstalledHookLength(drawbridgeCompletedHeightHook,
-                    ElevatedMoatNativeContract.DrawbridgeCompletedHeightLength,
-                    "completed-drawbridge height");
+                RequireInstalledHookLength(completedDrawbridgeHeightWriteHook,
+                    ElevatedMoatNativeContract.CompletedDrawbridgeHookLength,
+                    "completed-drawbridge hook block");
                 RequireInstalledHookLength(plannedMoatCancellationHook,
                     ElevatedMoatNativeContract.PlannedMoatCancellationLength,
                     "planned moat cancellation");
@@ -519,15 +531,6 @@ namespace ExtraFeatures
                 Placement = OverwrittenInstructionPlacement.BeforeCallback
             };
 
-        private static ContextHookOptions SuppressingContextOptions(int hookSize) =>
-            new ContextHookOptions
-            {
-                Registers = X64SmartCPUContextRegs.All,
-                HookSize = hookSize,
-                ErrorMode = CallbackErrorMode.LogAndContinue,
-                Placement = OverwrittenInstructionPlacement.Suppress
-            };
-
         private void ApplyAivCompletedHeight(NativePointer<X64SmartCPUContext> context)
         {
             try
@@ -551,63 +554,9 @@ namespace ExtraFeatures
             ApplyCompletedHeightFromManager(
                 context, context.Pointer->RBX, unchecked((int)context.Pointer->RDI), "excavation");
 
-        private void ApplyLoweredDrawbridgeHeight(NativePointer<X64SmartCPUContext> context)
-        {
-            ulong managerAddress = context.Pointer->RBX;
-            long tileId = unchecked((long)context.Pointer->RDI);
-            byte previousHeight = 0;
-            byte defaultHeight = 0;
-            byte appliedHeight = 0;
-            bool corrected = false;
-
-            try
-            {
-                if (!IsValidTileId(tileId))
-                    throw new InvalidOperationException($"Invalid lowered-drawbridge tile ID {tileId}.");
-
-                byte* current = (byte*)(managerAddress + (ulong)tileId +
-                    ElevatedMoatNativeContract.TileHeightGridOffset);
-                previousHeight = *current;
-                defaultHeight = *((byte*)(managerAddress + (ulong)tileId +
-                    ElevatedMoatNativeContract.TileDefaultHeightGridOffset));
-                appliedHeight = IsActive
-                    ? ElevatedMoatNativeContract.CalculateDrawbridgeHeight(defaultHeight)
-                    : (byte)0;
-                *current = appliedHeight;
-                if (*current != appliedHeight)
-                    throw new InvalidOperationException(
-                        $"The lowered drawbridge did not retain height {appliedHeight} on tile {tileId}.");
-
-                corrected = IsActive;
-            }
-            catch (Exception exception)
-            {
-                // Fail closed by reproducing the suppressed Vanilla height write.
-                *((byte*)(managerAddress + (ulong)tileId +
-                    ElevatedMoatNativeContract.TileHeightGridOffset)) = 0;
-                LogCallbackFailure("lowered-drawbridge height", exception);
-            }
-            finally
-            {
-                // Reproduce the suppressed RIP-relative LEA that the remaining loop expects.
-                context.Pointer->RDI = imageBase;
-            }
-
-            if (corrected)
-            {
-                RecordSuccessfulCorrection(restored: false);
-                LogDrawbridgeDiagnostic(
-                    "lowered", tileId.ToString(), defaultHeight, previousHeight, appliedHeight);
-            }
-        }
-
         private void ApplyDirectCompletedHeight(NativePointer<X64SmartCPUContext> context) =>
             ApplyCompletedHeightFromManager(
                 context, context.Pointer->RDI, unchecked((long)context.Pointer->RBX), "direct");
-
-        private void ApplyDrawbridgeCompletedHeight(NativePointer<X64SmartCPUContext> context) =>
-            ApplyDrawbridgeHeightFromManager(
-                context, context.Pointer->RBX, unchecked((long)context.Pointer->R14), "drawbridge");
 
         private void RestorePlannedMoatCancellationHeight(NativePointer<X64SmartCPUContext> context)
         {
@@ -718,31 +667,6 @@ namespace ExtraFeatures
             }
         }
 
-        private void ApplyDrawbridgeHeightFromManager(
-            NativePointer<X64SmartCPUContext> context,
-            ulong managerAddress,
-            long tileId,
-            string source)
-        {
-            try
-            {
-                if (!IsActive)
-                    return;
-                if (!IsValidTileId(tileId))
-                    throw new InvalidOperationException($"Invalid {source} tile ID {tileId}.");
-
-                ApplyDrawbridgeHeight(
-                    managerAddress + (ulong)tileId + ElevatedMoatNativeContract.TileHeightGridOffset,
-                    managerAddress + (ulong)tileId + ElevatedMoatNativeContract.TileDefaultHeightGridOffset,
-                    source,
-                    tileId.ToString());
-            }
-            catch (Exception exception)
-            {
-                LogCallbackFailure($"{source} height", exception);
-            }
-        }
-
         private void ApplyCompletedHeight(
             ulong heightAddress,
             ulong defaultHeightAddress,
@@ -762,55 +686,6 @@ namespace ExtraFeatures
             }
 
             RecordSuccessfulCorrection(restored: false);
-        }
-
-        private void ApplyDrawbridgeHeight(
-            ulong heightAddress,
-            ulong defaultHeightAddress,
-            string source,
-            string tile)
-        {
-            byte* current = (byte*)heightAddress;
-            byte vanillaHeight = *current;
-            byte defaultHeight = *((byte*)defaultHeightAddress);
-            byte completedHeight = ElevatedMoatNativeContract.CalculateDrawbridgeHeight(defaultHeight);
-            *current = completedHeight;
-            if (*current != completedHeight)
-            {
-                throw new InvalidOperationException(
-                    $"{source} did not apply the calculated drawbridge height to tile {tile}; " +
-                    $"defaultHeight={defaultHeight}, vanillaHeight={vanillaHeight}.");
-            }
-
-            RecordSuccessfulCorrection(restored: false);
-            LogDrawbridgeDiagnostic(source, tile, defaultHeight, vanillaHeight, completedHeight);
-        }
-
-        private void LogDrawbridgeDiagnostic(
-            string path,
-            string tile,
-            byte defaultHeight,
-            byte previousHeight,
-            byte appliedHeight)
-        {
-            int sequence = string.Equals(path, "lowered", StringComparison.Ordinal)
-                ? Interlocked.Increment(ref loweredDrawbridgeDiagnostics)
-                : Interlocked.Increment(ref completedDrawbridgeDiagnostics);
-            if (sequence > 8)
-                return;
-
-            try
-            {
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Extra Features elevated-drawbridge correction: path={path}, tile={tile}, " +
-                    $"defaultHeight={defaultHeight}, previousHeight={previousHeight}, " +
-                    $"appliedHeight={appliedHeight}, diagnostic={sequence}/8.");
-            }
-            catch
-            {
-                // Diagnostics must never affect the native callback result.
-            }
         }
 
         private bool IsActive => Volatile.Read(ref featureActive) != 0;

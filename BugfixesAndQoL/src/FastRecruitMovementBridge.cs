@@ -8,8 +8,6 @@ namespace BugfixesAndQoL
 {
     internal interface IMovementCadenceServices
     {
-        bool TryGetNativeRunningSpeedBonus(eChimps unitType, bool improvedSpearmen, out ushort runningSpeedBonus);
-        bool TryGetNativeRunningState(eChimps unitType, uint currentState, out uint runningState);
         void SetRallyTracking(int unitId, uint globalId, int ownerPlayerId, eChimps expectedUnitType);
         void ClearRallyTracking(int unitId);
         void ClearAllRallyTracking();
@@ -28,7 +26,11 @@ namespace BugfixesAndQoL
             {
                 runtime = new FastRecruitRallyMovementRuntime(log, this);
                 registered = MovementCadenceIntegration.RegisterFastRecruitOwner(this);
-                if (!registered)
+                if (registered)
+                {
+                    MovementCadenceIntegration.SetRallyEnabled(true);
+                }
+                else
                 {
                     LogError("Fast Recruit Rally Movement was disabled because the movement hook could not be initialized.");
                     MovementCadenceIntegration.UnregisterFastRecruitOwner(this);
@@ -54,26 +56,19 @@ namespace BugfixesAndQoL
 
         public void SetEnabled(bool enabled)
         {
-            if (registered)
-                runtime.SetEnabled(enabled);
-        }
+            if (!registered)
+                return;
 
-        public bool TryGetNativeRunningSpeedBonus(eChimps unitType, bool improvedSpearmen, out ushort runningSpeedBonus)
-        {
-            runningSpeedBonus = 0;
-            return registered && MovementCadenceIntegration.TryGetNativeRunningSpeedBonus(
-                (int)unitType,
-                improvedSpearmen,
-                out runningSpeedBonus);
-        }
-
-        public bool TryGetNativeRunningState(eChimps unitType, uint currentState, out uint runningState)
-        {
-            runningState = currentState;
-            return registered && MovementCadenceIntegration.TryGetNativeRunningState(
-                (int)unitType,
-                currentState,
-                out runningState);
+            if (enabled)
+            {
+                runtime.SetEnabled(true);
+                MovementCadenceIntegration.SetRallyEnabled(true);
+            }
+            else
+            {
+                MovementCadenceIntegration.SetRallyEnabled(false);
+                runtime.SetEnabled(false);
+            }
         }
 
         public void SetRallyTracking(int unitId, uint globalId, int ownerPlayerId, eChimps expectedUnitType)
@@ -104,7 +99,7 @@ namespace BugfixesAndQoL
         {
             if (registered)
             {
-                runtime.SetEnabled(false);
+                SetEnabled(false);
                 return;
             }
 

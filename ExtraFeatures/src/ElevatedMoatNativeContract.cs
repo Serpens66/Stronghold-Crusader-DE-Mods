@@ -43,20 +43,31 @@ namespace ExtraFeatures
         internal const int ExcavationFunctionLength = 0x143;
         internal const int ExcavationCompletedHeightRva = 0x63A65;
         internal const int ExcavationCompletedHeightLength = 16;
-        internal const int RebuildFunctionRva = 0x64460;
-        internal const int RebuildFunctionLength = 0x15D;
-        internal const int RebuildCompletedHeightRva = 0x64546;
-        internal const int RebuildCompletedHeightLength = 15;
-        internal const int RebuildCompletedHeightWriteLength = 8;
-        internal const int RebuildImageBaseLeaRva = RebuildCompletedHeightRva + RebuildCompletedHeightWriteLength;
-        internal const int RebuildImageBaseLeaLength = 7;
-        internal const int RebuildGraphicRefreshCallRva = 0x6456E;
-        internal const int RebuildPathfindingRefreshCallRva = 0x6457D;
+        internal const int LowerDrawbridgeFunctionRva = 0x64460;
+        internal const int LowerDrawbridgeFunctionLength = 0x15D;
+        internal const int LowerDrawbridgeHeightWriteRva = 0x64546;
+        internal const int LowerDrawbridgeHookRva = LowerDrawbridgeHeightWriteRva;
+        internal const int LowerDrawbridgeHookLength = 15;
+        internal const int LowerDrawbridgeHeightWriteLength = 8;
+        internal const int LowerDrawbridgeImageBaseLeaRva =
+            LowerDrawbridgeHeightWriteRva + LowerDrawbridgeHeightWriteLength;
+        internal const int LowerDrawbridgeImageBaseLeaLength = 7;
+        internal const int LowerDrawbridgeContinuationRva =
+            LowerDrawbridgeHookRva + LowerDrawbridgeHookLength;
+        internal const int LowerDrawbridgeGraphicRefreshCallRva = 0x6456E;
+        internal const int LowerDrawbridgePathfindingRefreshCallRva = 0x6457D;
         internal const int DirectCompletedHeightRva = 0x705F7;
         internal const int DirectCompletedHeightLength = 22;
-        internal const int DrawbridgeCompletedHeightRva = 0x73B35;
-        internal const int DrawbridgeCompletedHeightLength = 17;
-        internal const int DrawbridgeGraphicRefreshCallRva = 0x73B7B;
+        internal const int CompletedDrawbridgeHookRva = 0x73B35;
+        internal const int CompletedDrawbridgeHookLength = 17;
+        internal const int CompletedDrawbridgeStateCallRva = CompletedDrawbridgeHookRva + 3;
+        internal const int DrawbridgeStateUpdateRva = 0x725A0;
+        internal const int CompletedDrawbridgeHeightWriteRva = CompletedDrawbridgeHookRva + 8;
+        internal const int CompletedDrawbridgeHeightWriteLength = 9;
+        internal const int CompletedDrawbridgeJumpRva =
+            CompletedDrawbridgeHookRva + CompletedDrawbridgeHookLength;
+        internal const int CompletedDrawbridgeHeightContinuationRva = 0x73B54;
+        internal const int DrawbridgeConnectivityCallRva = 0x73B7B;
         internal const int DrawbridgePathfindingRefreshJumpRva = 0x73BA0;
         internal const int PlannedMoatCancellationRva = 0x70562;
         internal const int PlannedMoatCancellationLength = 15;
@@ -131,15 +142,16 @@ namespace ExtraFeatures
         internal const string ExcavationCompletedHeightPattern =
             "BA 02 00 00 00 48 63 C7 C6 84 18 A0 E5 D7 00 00 49 63 06";
 
-        internal const string RebuildCompletedHeightPattern =
+        internal const string LowerDrawbridgeHookPattern =
             "C6 84 1F A0 E5 D7 00 00 48 8D 3D AB BA F9 FF FF C5 49 83 C6 04";
 
         internal const string DirectCompletedHeightPattern =
             "41 81 26 FF BF FF FF 41 81 0E 00 00 00 40 " +
             "C6 84 3B A0 E5 D7 00 00 E9 2E 03 00 00";
 
-        internal const string DrawbridgeCompletedHeightPattern =
-            "48 8B CB E8 63 EA FF FF 41 C6 84 1E A0 E5 D7 00 00 EB 0C";
+        internal const string CompletedDrawbridgeHookPattern =
+            "48 8B CB E8 63 EA FF FF 41 C6 84 1E A0 E5 D7 00 00 " +
+            "EB 0C 42 81 A4 B3 00 84 89 00";
 
         internal const string PlannedMoatCancellationPattern =
             "0F BA F2 0E 45 8B C4 41 89 16 48 8B CF 8B D6 " +
@@ -292,7 +304,12 @@ namespace ExtraFeatures
             0xC6, 0x84, 0x18, 0xA0, 0xE5, 0xD7, 0x00, 0x00
         };
 
-        internal static readonly byte[] RebuildCompletedHeightBytes =
+        internal static readonly byte[] LowerDrawbridgeHeightWriteBytes =
+        {
+            0xC6, 0x84, 0x1F, 0xA0, 0xE5, 0xD7, 0x00, 0x00
+        };
+
+        internal static readonly byte[] LowerDrawbridgeHookBytes =
         {
             0xC6, 0x84, 0x1F, 0xA0, 0xE5, 0xD7, 0x00, 0x00,
             0x48, 0x8D, 0x3D, 0xAB, 0xBA, 0xF9, 0xFF
@@ -305,9 +322,15 @@ namespace ExtraFeatures
             0xC6, 0x84, 0x3B, 0xA0, 0xE5, 0xD7, 0x00, 0x00
         };
 
-        internal static readonly byte[] DrawbridgeCompletedHeightBytes =
+        internal static readonly byte[] CompletedDrawbridgeHeightWriteBytes =
         {
-            0x48, 0x8B, 0xCB, 0xE8, 0x63, 0xEA, 0xFF, 0xFF,
+            0x41, 0xC6, 0x84, 0x1E, 0xA0, 0xE5, 0xD7, 0x00, 0x00
+        };
+
+        internal static readonly byte[] CompletedDrawbridgeHookBytes =
+        {
+            0x48, 0x8B, 0xCB,
+            0xE8, 0x63, 0xEA, 0xFF, 0xFF,
             0x41, 0xC6, 0x84, 0x1E, 0xA0, 0xE5, 0xD7, 0x00, 0x00
         };
 
@@ -489,16 +512,26 @@ namespace ExtraFeatures
             ValidateBlock(memory, ExcavationCompletedHeightRva, ExcavationCompletedHeightLength,
                 ExcavationFunctionRva, ExcavationFunctionLength, ExcavationCompletedHeightBytes,
                 "excavated-moat height block");
-            ValidateBlock(memory, RebuildCompletedHeightRva, RebuildCompletedHeightLength,
-                RebuildFunctionRva, RebuildFunctionLength, RebuildCompletedHeightBytes,
-                "rebuilt-moat height block");
+            ValidateBlock(memory, LowerDrawbridgeHookRva, LowerDrawbridgeHookLength,
+                LowerDrawbridgeFunctionRva, LowerDrawbridgeFunctionLength,
+                LowerDrawbridgeHookBytes, "lowered-drawbridge hook block");
             ValidateLoweredDrawbridgeRewriteContract(memory);
             ValidateBlock(memory, DirectCompletedHeightRva, DirectCompletedHeightLength,
                 SharedTileFunctionRva, SharedTileFunctionLength, DirectCompletedHeightBytes,
                 "direct completed-moat height block");
-            ValidateBlock(memory, DrawbridgeCompletedHeightRva, DrawbridgeCompletedHeightLength,
-                DrawbridgeFunctionRva, DrawbridgeFunctionLength, DrawbridgeCompletedHeightBytes,
-                "completed-drawbridge height block");
+            ValidateBlock(memory, CompletedDrawbridgeHookRva,
+                CompletedDrawbridgeHookLength, DrawbridgeFunctionRva,
+                DrawbridgeFunctionLength, CompletedDrawbridgeHookBytes,
+                "completed-drawbridge hook block");
+            ValidateCompletedDrawbridgeRewriteContract(memory);
+            if (memory[CompletedDrawbridgeJumpRva] != 0xEB ||
+                checked(CompletedDrawbridgeJumpRva + 2 +
+                    (sbyte)memory[CompletedDrawbridgeJumpRva + 1]) !=
+                        CompletedDrawbridgeHeightContinuationRva)
+            {
+                throw new InvalidOperationException(
+                    "The completed-drawbridge height continuation differs.");
+            }
             ValidateBlock(memory, PlannedMoatCancellationRva, PlannedMoatCancellationLength,
                 SharedTileFunctionRva, SharedTileFunctionLength, PlannedMoatCancellationBytes,
                 "planned moat cancellation block");
@@ -522,30 +555,29 @@ namespace ExtraFeatures
                 AreaRemovalFunctionRva, AreaRemovalFunctionLength,
                 AreaRemovalHeightBytes, "area moat-removal height block");
 
-            int drawbridgeCallTarget = checked(DrawbridgeCompletedHeightRva + 8 +
-                ReadInt32(memory, DrawbridgeCompletedHeightRva + 4));
-            if (drawbridgeCallTarget != 0x725A0)
-                throw new InvalidOperationException("The completed-drawbridge visual call target differs.");
+            ValidateRelativeBranch(memory, CompletedDrawbridgeStateCallRva, 0xE8, 0x725A0,
+                "completed drawbridge state update");
             ValidateRefreshOrder(
                 memory,
-                RebuildCompletedHeightRva,
-                RebuildGraphicRefreshCallRva,
+                LowerDrawbridgeHookRva,
+                LowerDrawbridgeGraphicRefreshCallRva,
                 0x6E620,
-                RebuildPathfindingRefreshCallRva,
+                LowerDrawbridgePathfindingRefreshCallRva,
                 0x725E0,
-                RebuildFunctionRva + RebuildFunctionLength,
+                LowerDrawbridgeFunctionRva + LowerDrawbridgeFunctionLength,
                 false,
                 "lowered drawbridge");
             ValidateRefreshOrder(
                 memory,
-                DrawbridgeCompletedHeightRva,
-                DrawbridgeGraphicRefreshCallRva,
+                CompletedDrawbridgeHookRva,
+                DrawbridgeConnectivityCallRva,
                 0x6CDD0,
                 DrawbridgePathfindingRefreshJumpRva,
                 0x725E0,
                 DrawbridgeFunctionRva + DrawbridgeFunctionLength,
                 true,
-                "completed drawbridge");
+                "completed drawbridge",
+                "connectivity update");
             int cancellationCallRva = checked(PlannedMoatCancellationRva + PlannedMoatCancellationLength);
             if (memory[cancellationCallRva] != 0xE8 ||
                 checked(cancellationCallRva + 5 + ReadInt32(memory, cancellationCallRva + 1)) != 0x61ED0)
@@ -565,7 +597,7 @@ namespace ExtraFeatures
         {
             byte completedHeight = CalculateCompletedHeight(defaultHeight);
             return defaultHeight > MaximumVanillaTerrainHeight
-                ? (byte)(completedHeight + 1)
+                ? defaultHeight
                 : completedHeight;
         }
 
@@ -573,33 +605,50 @@ namespace ExtraFeatures
 
         private static void ValidateLoweredDrawbridgeRewriteContract(ReadOnlySpan<byte> memory)
         {
-            if (RebuildCompletedHeightWriteLength + RebuildImageBaseLeaLength !=
-                RebuildCompletedHeightLength)
-            {
-                throw new InvalidOperationException(
-                    "The lowered-drawbridge replacement does not cover the complete audited block.");
-            }
-
             // mov byte ptr [RBX + RDI + TileHeightGridOffset], 0
-            if (memory[RebuildCompletedHeightRva] != 0xC6 ||
-                memory[RebuildCompletedHeightRva + 1] != 0x84 ||
-                memory[RebuildCompletedHeightRva + 2] != 0x1F ||
-                ReadInt32(memory, RebuildCompletedHeightRva + 3) != TileHeightGridOffset ||
-                memory[RebuildCompletedHeightRva + 7] != 0)
+            if (memory[LowerDrawbridgeHeightWriteRva] != 0xC6 ||
+                memory[LowerDrawbridgeHeightWriteRva + 1] != 0x84 ||
+                memory[LowerDrawbridgeHeightWriteRva + 2] != 0x1F ||
+                ReadInt32(memory, LowerDrawbridgeHeightWriteRva + 3) != TileHeightGridOffset ||
+                memory[LowerDrawbridgeHeightWriteRva + 7] != 0)
             {
                 throw new InvalidOperationException(
                     "The lowered-drawbridge height write is not [RBX+RDI] with Vanilla height zero.");
             }
 
             // lea RDI, [image base]
-            if (memory[RebuildImageBaseLeaRva] != 0x48 ||
-                memory[RebuildImageBaseLeaRva + 1] != 0x8D ||
-                memory[RebuildImageBaseLeaRva + 2] != 0x3D ||
-                checked(RebuildImageBaseLeaRva + RebuildImageBaseLeaLength +
-                    ReadInt32(memory, RebuildImageBaseLeaRva + 3)) != 0)
+            if (memory[LowerDrawbridgeImageBaseLeaRva] != 0x48 ||
+                memory[LowerDrawbridgeImageBaseLeaRva + 1] != 0x8D ||
+                memory[LowerDrawbridgeImageBaseLeaRva + 2] != 0x3D ||
+                checked(LowerDrawbridgeImageBaseLeaRva + LowerDrawbridgeImageBaseLeaLength +
+                    ReadInt32(memory, LowerDrawbridgeImageBaseLeaRva + 3)) != 0)
             {
                 throw new InvalidOperationException(
                     "The lowered-drawbridge continuation no longer restores RDI to the image base.");
+            }
+        }
+
+        private static void ValidateCompletedDrawbridgeRewriteContract(ReadOnlySpan<byte> memory)
+        {
+            // mov RCX, RBX; call FUN_1800725A0
+            if (memory[CompletedDrawbridgeHookRva] != 0x48 ||
+                memory[CompletedDrawbridgeHookRva + 1] != 0x8B ||
+                memory[CompletedDrawbridgeHookRva + 2] != 0xCB)
+            {
+                throw new InvalidOperationException(
+                    "The completed-drawbridge hook no longer loads the manager into RCX before the state call.");
+            }
+
+            // mov byte ptr [RBX + R14 + TileHeightGridOffset], 0
+            if (memory[CompletedDrawbridgeHeightWriteRva] != 0x41 ||
+                memory[CompletedDrawbridgeHeightWriteRva + 1] != 0xC6 ||
+                memory[CompletedDrawbridgeHeightWriteRva + 2] != 0x84 ||
+                memory[CompletedDrawbridgeHeightWriteRva + 3] != 0x1E ||
+                ReadInt32(memory, CompletedDrawbridgeHeightWriteRva + 4) != TileHeightGridOffset ||
+                memory[CompletedDrawbridgeHeightWriteRva + 8] != 0)
+            {
+                throw new InvalidOperationException(
+                    "The completed-drawbridge height write is not [RBX+R14] with Vanilla height zero.");
             }
         }
 
@@ -631,23 +680,24 @@ namespace ExtraFeatures
         private static void ValidateRefreshOrder(
             ReadOnlySpan<byte> memory,
             int heightRva,
-            int graphicRefreshRva,
-            int graphicRefreshTargetRva,
+            int operationRva,
+            int operationTargetRva,
             int pathfindingRefreshRva,
             int pathfindingRefreshTargetRva,
             int functionEndRva,
             bool pathfindingIsJump,
-            string description)
+            string description,
+            string firstOperation = "graphic refresh")
         {
-            if (heightRva >= graphicRefreshRva || graphicRefreshRva >= pathfindingRefreshRva ||
+            if (heightRva >= operationRva || operationRva >= pathfindingRefreshRva ||
                 pathfindingRefreshRva + 5 > functionEndRva)
             {
                 throw new InvalidOperationException(
-                    $"The audited {description} height/graphic/pathfinding order differs.");
+                    $"The audited {description} height/{firstOperation}/pathfinding order differs.");
             }
 
-            ValidateRelativeBranch(memory, graphicRefreshRva, 0xE8, graphicRefreshTargetRva,
-                $"{description} graphic refresh");
+            ValidateRelativeBranch(memory, operationRva, 0xE8, operationTargetRva,
+                $"{description} {firstOperation}");
             ValidateRelativeBranch(memory, pathfindingRefreshRva, pathfindingIsJump ? (byte)0xE9 : (byte)0xE8,
                 pathfindingRefreshTargetRva, $"{description} pathfinding refresh");
         }
