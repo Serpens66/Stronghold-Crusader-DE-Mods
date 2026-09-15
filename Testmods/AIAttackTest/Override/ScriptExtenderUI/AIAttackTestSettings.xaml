@@ -1,0 +1,30 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="10">
+            <TextBlock Text="AI ATTACK TEST (Host Only)" Foreground="#77AAFF" FontWeight="Bold" Margin="0,0,0,10"/>
+            <CheckBox IsChecked="{Binding EnableMod}" Content="Enable AI Attack Test" Foreground="White" Margin="0,5" IsEnabled="{Binding IsHost}"/>
+
+            <TextBlock Text="Attack growth mode" Foreground="#AAAAAA" Margin="0,10,0,2"/>
+            <ComboBox ItemsSource="{Binding AttackScalingModes}" SelectedItem="{Binding AttackScalingMode}" Margin="0,0,0,5" IsEnabled="{Binding IsHost}"/>
+
+            <TextBlock Text="Relative growth per attack (%)" Foreground="#AAAAAA" Margin="0,10,0,2"/>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding RelativeAttackGrowthPercent}" Width="48" Foreground="White" TextAlignment="Right"/>
+                <Slider Value="{Binding RelativeAttackGrowthPercent}" Minimum="0" Maximum="300" TickFrequency="10" IsSnapToTickEnabled="True" IsEnabled="{Binding CanEditRelativeGrowth}"/>
+            </DockPanel>
+            <TextBlock Text="Growth remains capped by each lord's own siege_max_troops value." Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,2,0,5"/>
+
+            <CheckBox IsChecked="{Binding AttackLordAfterBreach}" Content="Send all eligible tribes to the lord after a breach" Foreground="White" Margin="0,10,0,5" IsEnabled="{Binding IsHost}"/>
+
+            <TextBlock Text="Initial defense-only recruitment (months; Vanilla: 6)" Foreground="#AAAAAA" Margin="0,10,0,2"/>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding InitialDefenseOnlyMonths}" Width="48" Foreground="White" TextAlignment="Right"/>
+                <Slider Value="{Binding InitialDefenseOnlyMonths}" Minimum="0" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" IsEnabled="{Binding IsHost}"/>
+            </DockPanel>
+
+            <Separator Margin="0,12" Background="#44FFFFFF"/>
+            <TextBlock Text="Changes apply on the next successful map start or save load." Foreground="#FFCC77" TextWrapping="Wrap"/>
+        </StackPanel>
+    </ScrollViewer>
+</Grid>

@@ -5667,10 +5667,11 @@ internal static class Program
 
         string coordinator = File.ReadAllText(
             Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
-        Check(coordinator.Contains("GameplaySessionLifecycle.SubscribeStarted") &&
-              coordinator.Contains("_ => mapStarted = true") &&
+        Check(coordinator.Contains("TryGetLobbyState") &&
+              coordinator.Contains("API_SHARED_LOBBY_OBSERVER") &&
+              !coordinator.Contains("Application.onBeforeRender") &&
               !coordinator.Contains("GameNetworkAPI.GetLocalPlayerId"),
-            "per-player lobby observation is not stopped by loaded sessions or restored the noisy identity call");
+            "per-player lobby observation must use APIShared without restoring a local render poller or noisy identity call");
 
         string extraFeaturesRuntime = File.ReadAllText(
             Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesRuntime.cs"));
@@ -6414,7 +6415,12 @@ internal sealed class NestedRowViewModel : INotifyPropertyChanged
 namespace BepInEx
 {
     public class BaseUnityPlugin { public PluginInfo Info { get; } = new PluginInfo(); }
-    public sealed class PluginInfo { public string Location { get; set; } = typeof(Program).Assembly.Location; }
+    public sealed class PluginInfo
+    {
+        public string Location { get; set; } = typeof(Program).Assembly.Location;
+        public PluginMetadata Metadata { get; } = new PluginMetadata();
+    }
+    public sealed class PluginMetadata { public string GUID { get; set; } = "host-client-preset-tests"; }
 }
 
 namespace BepInEx.Logging { public sealed class ManualLogSource { } }

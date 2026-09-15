@@ -20,7 +20,7 @@
     <DebugType>portable</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>BepInEx\plugins\CastlePlanner_Serp\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>DEBUG;TRACE;API_SHARED_LOBBY_OBSERVER</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -29,7 +29,7 @@
     <DebugType>portable</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>BepInEx\plugins\CastlePlanner_Serp\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;API_SHARED_LOBBY_OBSERVER</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -38,6 +38,7 @@
     <GameDir>$(MSBuildThisFileDirectory)..\..\..\..\..\..\..\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
   </PropertyGroup>
     <PropertyGroup Condition="'$(ExtenderDir)' == ''"><ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir></PropertyGroup>
+  <PropertyGroup Condition="'$(ApiSharedDir)' == ''"><ApiSharedDir>$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir></PropertyGroup>
   <PropertyGroup>
     <LocalScriptExtenderRoot>$(MSBuildThisFileDirectory)..\shcde-script-extender</LocalScriptExtenderRoot>
     <LocalScriptExtenderModOutput>$(LocalScriptExtenderRoot)\mod_output\000shcdese</LocalScriptExtenderModOutput>
@@ -63,6 +64,10 @@
     <Reference Include="System.Xml.Linq" />
     <Reference Include="BepInEx">
       <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="APIShared">
+      <HintPath>$(ApiSharedDir)\APIShared.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="MonoMod.RuntimeDetour">
@@ -244,6 +249,8 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 
   <Target Name="ValidateScriptExtenderReference" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')"
+           Text="APIShared.dll wurde im ApiSharedDir nicht gefunden: $(ApiSharedDir)" />
     <Error Condition="Exists('$(LocalScriptExtenderRoot)') and '$(ExtenderDir)' == ''"
            Text="Der lokale Script Extender Nebenordner existiert, aber es wurde keine lokale SHCDESE.dll gefunden. Baue zuerst ..\shcde-script-extender\build.bat oder uebergib /p:ExtenderDir=... explizit." />
     <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\SHCDESE.dll')"

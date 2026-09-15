@@ -12,6 +12,7 @@ namespace ExtraFeatures
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
             ulong featureActiveFlagAddress,
+            ulong imageBase,
             ulong stateUpdateAddress)
         {
             if (overwrittenInstructions.Length != 3 ||
@@ -40,19 +41,23 @@ namespace ExtraFeatures
             assembler.AddInstruction(overwrittenInstructions[1]);
 
             Label vanillaWrite = assembler.CreateLabel("completedDrawbridgeVanillaHeightWrite");
-            Label applyHeight = assembler.CreateLabel("completedDrawbridgeApplyHeight");
+            Label applyElevatedHeight = assembler.CreateLabel("completedDrawbridgeApplyElevatedHeight");
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaWrite);
 
-            // RAX is dead after the state call. INC/CMP in the untouched continuation replace flags.
-            assembler.movzx(eax, __byte_ptr[rbx + r14 +
-                ElevatedMoatNativeContract.TileDefaultHeightGridOffset]);
+            // Vanilla's allocator stored the already calculated building height in the
+            // new record. R13 is its building id; RAX/RDX are dead after the state call.
+            assembler.mov(rax, r13);
+            assembler.imul(rax, rax, ElevatedMoatNativeContract.BuildingRecordStride);
+            assembler.mov(rdx, imageBase + ElevatedMoatNativeContract.BuildingHeightAddressRva);
+            assembler.movzx(eax, __word_ptr[rdx + rax]);
             assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
-            assembler.ja(applyHeight);
-            assembler.cmp(eax, ElevatedMoatNativeContract.MoatDepth);
             assembler.jbe(vanillaWrite);
-            assembler.sub(eax, ElevatedMoatNativeContract.MoatDepth);
+            assembler.add(eax, ElevatedMoatNativeContract.DrawbridgeDeckHeightOffset);
+            assembler.cmp(eax, ElevatedMoatNativeContract.MaximumTileHeight);
+            assembler.jbe(applyElevatedHeight);
+            assembler.mov(eax, ElevatedMoatNativeContract.MaximumTileHeight);
 
-            assembler.Label(ref applyHeight);
+            assembler.Label(ref applyElevatedHeight);
             assembler.mov(__byte_ptr[rbx + r14 + ElevatedMoatNativeContract.TileHeightGridOffset], al);
             assembler.AddUnrestrictedJmp(returnAddress);
 
@@ -88,10 +93,23 @@ namespace ExtraFeatures
             }
 
             Label vanillaWrite = assembler.CreateLabel("loweredDrawbridgeVanillaHeightWrite");
+            Label applyElevatedHeight = assembler.CreateLabel("loweredDrawbridgeApplyElevatedHeight");
             Label restoreImageBase = assembler.CreateLabel("loweredDrawbridgeRestoreImageBase");
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaWrite);
 
-            // Keep the construction height while active, then join Vanilla's RDI restoration.
+            // R13 is already buildingId * BuildingRecordStride in this function.
+            // RAX is volatile and dead here; the untouched INC replaces flags.
+            assembler.mov(rax, imageBase + ElevatedMoatNativeContract.BuildingHeightAddressRva);
+            assembler.movzx(eax, __word_ptr[rax + r13]);
+            assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
+            assembler.jbe(vanillaWrite);
+            assembler.add(eax, ElevatedMoatNativeContract.DrawbridgeDeckHeightOffset);
+            assembler.cmp(eax, ElevatedMoatNativeContract.MaximumTileHeight);
+            assembler.jbe(applyElevatedHeight);
+            assembler.mov(eax, ElevatedMoatNativeContract.MaximumTileHeight);
+
+            assembler.Label(ref applyElevatedHeight);
+            assembler.mov(__byte_ptr[rbx + rdi + ElevatedMoatNativeContract.TileHeightGridOffset], al);
             assembler.jmp(restoreImageBase);
 
             assembler.Label(ref vanillaWrite);

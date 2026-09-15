@@ -340,6 +340,7 @@ namespace ExtraFeatures
                         instructions,
                         returnAddress,
                         unchecked((ulong)featureActiveFlag.ToInt64()),
+                        imageBase,
                         imageBase + ElevatedMoatNativeContract.DrawbridgeStateUpdateRva),
                     hookSize: ElevatedMoatNativeContract.CompletedDrawbridgeHookLength);
                 pending.AddContextHook(

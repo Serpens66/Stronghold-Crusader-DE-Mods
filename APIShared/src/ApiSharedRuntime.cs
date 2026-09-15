@@ -18,10 +18,12 @@ namespace APIShared
         private GatehouseTimingService gatehouse;
         private UnitHudPresentationService unitHudPresentation;
         private AivBuildStepService aivBuildStep;
+        private LobbyStateService lobbyState;
         private NativeCapabilityDiagnostic gatehouseDistanceOriginDiagnostic = Pending(NativeCapabilityIds.GatehouseDistanceOrigin);
         private NativeCapabilityDiagnostic gatehouseDiagnostic = Pending(NativeCapabilityIds.GatehouseTiming);
         private NativeCapabilityDiagnostic unitHudDiagnostic = Pending(NativeCapabilityIds.UnitHudPresentation);
         private NativeCapabilityDiagnostic aivBuildStepDiagnostic = Pending(NativeCapabilityIds.AivBuildStep);
+        private NativeCapabilityDiagnostic lobbyStateDiagnostic = Pending(NativeCapabilityIds.LobbyState);
         private ManualLogSource log;
 
         internal static ApiSharedRuntime ProcessInstance { get; } = new ApiSharedRuntime();
@@ -41,6 +43,25 @@ namespace APIShared
                 }
             }
             callback(this);
+        }
+
+        internal void InitializeManaged(ManualLogSource logger)
+        {
+            lock (sync)
+            {
+                if (lobbyState != null ||
+                    lobbyStateDiagnostic.State != NativeCapabilityState.Pending)
+                {
+                    return;
+                }
+                log = logger;
+                LobbyStateService.TryCreate(
+                    logger,
+                    out LobbyStateService created,
+                    out NativeCapabilityDiagnostic diagnostic);
+                lobbyState = created;
+                lobbyStateDiagnostic = diagnostic;
+            }
         }
 
         internal void Initialize(
@@ -143,7 +164,7 @@ namespace APIShared
                 callbacks = readyCallbacks.ToArray();
                 readyCallbacks.Clear();
             }
-            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, unitHudPresentation={unitHudDiagnostic.State}, aivBuildStep={aivBuildStepDiagnostic.State}.");
+            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, lobbyState={lobbyStateDiagnostic.State}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, unitHudPresentation={unitHudDiagnostic.State}, aivBuildStep={aivBuildStepDiagnostic.State}.");
             foreach (Action<IApiShared> callback in callbacks)
             {
                 try { callback(this); }
@@ -225,6 +246,34 @@ namespace APIShared
                 }
                 capability = aivBuildStep.Bind(ownerGuid);
                 diagnostic = aivBuildStepDiagnostic;
+                return true;
+            }
+        }
+
+        public bool TryGetLobbyState(
+            string ownerGuid,
+            out ILobbyStateCapability capability,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            capability = null;
+            if (string.IsNullOrWhiteSpace(ownerGuid))
+            {
+                diagnostic = new NativeCapabilityDiagnostic(
+                    NativeCapabilityIds.LobbyState,
+                    NativeCapabilityState.ValidationFailed,
+                    string.Empty,
+                    "A non-empty BepInEx owner GUID is required.");
+                return false;
+            }
+            lock (sync)
+            {
+                if (lobbyState == null)
+                {
+                    diagnostic = lobbyStateDiagnostic;
+                    return false;
+                }
+                capability = lobbyState.Bind(ownerGuid);
+                diagnostic = lobbyStateDiagnostic;
                 return true;
             }
         }

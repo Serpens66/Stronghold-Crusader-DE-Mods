@@ -1,0 +1,15 @@
+{
+  "GUID": "AIAttackTest_Serp",
+  "Author": "Serpens66",
+  "Name": "AI Attack Test",
+  "Description": "Experimental synchronized AI attack scaling, post-breach lord targeting, and initial recruitment timing options.",
+  "Version": "0.1.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.6.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": [
+    "2.8.0.1"
+  ]
+}

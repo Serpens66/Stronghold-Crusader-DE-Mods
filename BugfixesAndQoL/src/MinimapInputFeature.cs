@@ -134,7 +134,6 @@ namespace BugfixesAndQoL
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             MinimapInputBehavior.Configure(this);
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL event-driven minimap input installed.");
         }
 
         internal bool TryBeginGesture(
@@ -260,7 +259,6 @@ namespace BugfixesAndQoL
         internal void Deactivate()
         {
             MinimapInputBehavior.Deactivate(this);
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL event-driven minimap input deactivated.");
         }
 
         private static bool IsGameplayRadarAvailable(MainViewModel main) =>

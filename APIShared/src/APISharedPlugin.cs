@@ -21,6 +21,7 @@ namespace APIShared
 
         private void Awake()
         {
+            ApiSharedRuntime.ProcessInstance.InitializeManaged(Logger);
             NativeApiLog.Info(Logger, $"{PluginName} {PluginVersion} loaded; awaiting CrusaderLibrary.LibraryLoaded.");
             // The Script Extender event roots this plugin's native initialization after BepInEx
             // destroys its short-lived manager object. Native process state is never torn down here.

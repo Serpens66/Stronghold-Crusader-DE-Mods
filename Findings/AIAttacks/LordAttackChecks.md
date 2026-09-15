@@ -15,6 +15,7 @@
 - Der aktuelle Hash stimmt mit `_inspect/CrusaderDE-Native-Baseline/CURRENT.json` überein.
 - Historische Workspace-Vergleichs-DLL `17F8DD4A…` bleibt eine getrennte Vergleichsquelle und ist nicht die hier geprüfte Vor-Winter-DLL.
 - Sämtliche Vor-Winter-Exporte, Ghidra-Daten und Diffs liegen ausschließlich unter `_inspect/CrusaderDE-PreWinter-24816905/2A7BD065A00F7A14408C1586BD6F499536CF1AD97E67319EEE28E3881C870C35/`.
+- HD-Vergleich: Ghidra-Programm `Stronghold Crusader.exe`, x86, Image Base `0x400000`. SHA-256 des vorhandenen `.gzf`-Archivs: `9069E32DD2B6FEFFEE39E0B12EA9CF17CE68B7CF93AA8B4C7291969298D4E2A0`; dies ist kein Hash der ursprünglichen EXE.
 
 Automatischer Versionsabgleich: 3.728 `confirmed`, 27 `probable`, 1.243 unveränderte, 2.512 geänderte, 718 entfernte und 723 neue Funktionen. Alle nachfolgenden Kernbefunde wurden zusätzlich direkt im Decompiler und Disassembly geprüft.
 
@@ -112,7 +113,7 @@ for each valid tribe slot:
         moveWholeTribeTowardPreparedAttackVector
 ```
 
-Ohne aggressive Wirkung ist `lordQuota` null. Nach dem ersten erfolgreichen Lord-Auftrag gehen fast alle weiteren Tribes zum Gebäudezweig. Genau dieselbe Ein-Tribe-Sperre existiert vor Winter in `0x39700`; nur die zusätzliche Quote fehlt dort.
+Ohne aggressive Wirkung ist `lordQuota` gleich `0`. Nach dem ersten erfolgreichen Lord-Auftrag gehen fast alle weiteren Tribes zum Gebäudezweig. Genau dieselbe Ein-Tribe-Sperre existiert vor Winter in `0x39700`; nur die zusätzliche Quote fehlt dort.
 
 ## Gebäudeziele und Vektor-Fallback
 
@@ -159,9 +160,127 @@ Die gelegentlich „Imprived Siege“ geschriebene Option heißt `Improved Siege
 - Globale Lobbyoptionen und die individuelle AIC-Einstellung sind getrennte Quellen; der jeweilige Zweig verknüpft sie per logischem ODER.
 - Die geprüften eingebauten Vor-Winter-Werte sind 0 oder 1. Dadurch bleibt deren bisherige `Improved Siege`-Bedeutung erhalten.
 
+## Vergleich: HD-Vanilla und aktuelle DE
+
+### Verständlicher Befund
+
+- HD-Vanilla und die aktuelle DE verteilen die Truppen nach einem Durchbruch grundsätzlich gleich: Der erste geeignete vollständige Tribe greift den Lord an; fast alle folgenden Tribes erhalten Gebäudeziele.
+- Beide Versionen behalten ein noch gültiges Gebäudeziel bei. Andernfalls wählen sie über eine von drei Prioritätslisten ein neues Ziel. Dadurch verhalten sich die übrigen Belagerungstruppen wie Überfalltruppen und arbeiten häufig dasselbe Wirtschaftsgebäude nacheinander ab.
+- Rolle 186 (`SiegeCoverTribe`, Deckungsgruppe) darf weder den Lord noch ein Gebäude angreifen und folgt einem vorberechneten Angriffsvektor. Die Rollen 13, 14 und 18 werden in diesem Verteiler übersprungen.
+- Findet der Gebäudezweig kein Ziel, folgt der Tribe ebenfalls einem Angriffsvektor. Weder HD noch DE versuchen in diesem Fallback erneut den Lord.
+- Damit ist das Verhalten „nur ein Tribe zum Lord“ bereits in HD-Vanilla vorhanden und keine Eigenheit der DE.
+
+### Zugehörige Funktionen
+
+| Aufgabe | HD-Vanilla (VA) | Aktuelle DE (RVA) |
+| --- | ---: | ---: |
+| Angriffs-FSM | `0x4D49E0` | `0x3C2E0` |
+| Angriffsvektoren berechnen | `0x4568B0` | `0xCF020` |
+| Tribes nach dem Durchbruch verteilen | `0x4D30E0` | `0x3B450` |
+| lebenden Ziel-Lord bestimmen | `0x5377F0` | `0x187E60` |
+| Gebäudeziel halten oder zuweisen | `0x4CF920` | `0x30E90` |
+| normales Gebäudeziel auswählen | `0x4CDB20` | `0x2C620` |
+| entfernungsgewichtetes Gebäudeziel | nicht vorhanden | `0x2C710` |
+| vollständigen Tribe bewegen | `0x5263A0` | `0x11B520` |
+| Gebäudeangriff als Befehl 9 einreihen | `0x537160` | `0x199C00` |
+| angreifbares Gebäude registrieren | `0x4CDA50` | `0x29190` |
+
+HD ist ein 32-Bit-x86-Programm, DE eine 64-Bit-x64-DLL. Adressen und Instruktionsbytes sind deshalb nicht übertragbar; verglichen wird der Kontrollfluss.
+
+### Codevergleich des Lord-Limits
+
+HD-Vanilla, vereinfacht:
+
+```text
+lordCommandSucceeded = false
+
+for each valid tribe slot:
+    if lordCommandSucceeded or targetLordMissing or role == SiegeCoverTribe:
+        assignOrRetainBuildingTargetOrUseAttackVector
+    else:
+        if moveWholeTribeToLordCoordinates fails:
+            return failure
+        lordCommandSucceeded = true
+```
+
+Aktuelle DE, vereinfacht:
+
+```text
+lordQuota = aggressiveSiege and configuredSiegeWallTribes > 2
+    ? ceil(configuredSiegeWallTribes / 2)
+    : 0
+
+for each valid tribe slot:
+    sendToLord =
+        not lordCommandSucceeded
+        or (role == SiegeWallTribe and slotIndex < lordQuota)
+
+    if sendToLord and targetLordAlive and role != SiegeCoverTribe:
+        moveWholeTribeToLordCoordinates
+        lordCommandSucceeded = true
+    else:
+        assignOrRetainBuildingTargetOrUseAttackVector
+```
+
+Ohne `Aggressive Siege` ist `lordQuota` gleich `0` und der DE-Code entspricht funktional dem HD-Code. Die äquivalente Ein-Tribe-Sperre ist unterschiedlich kompiliert:
+
+```asm
+HD  VA  0x4D31CD: 75 49    jne Gebäudezweig
+DE  RVA 0x3B5DB:  74 12    je  Lord-Zweig
+```
+
+Die Sprungrichtung ist wegen der umgekehrten Blockanordnung verschieden; beide Branches verhindern nach dem ersten erfolgreichen Lord-Auftrag weitere normale Lord-Aufträge.
+
+### Tatsächliche Unterschiede
+
+- HD durchsucht drei Gebäudeprioritätslisten mit je 46 Einträgen; die aktuelle DE verwendet je 47. DE kennt zusätzliche Gebäudetypen, darunter Beduinen-Stockade (`108`), die HD nicht besitzt.
+- HD besitzt weder die Vanilla-Optionen `Improved Siege` und `Aggressive Siege` noch das AIC-Feld `use_improved_sieging` bei Offset `0x2F4`.
+- HD verwendet in den geprüften State-5-Pfaden ausschließlich Gruppenmodus `0x3F2` (**normale Befestigungszielsuche**). Modus `0x420` (**verbesserte Befestigungszielsuche**) existiert dort nicht.
+- Nur die aktuelle DE kann über `Aggressive Siege` mehrere Rolle-192-Tribes zum Lord schicken und für die übrigen Tribes den entfernungsgewichteten Gebäudeselektor `0x2C710` verwenden.
+
+### UCP ist nicht HD-Vanilla
+
+UCPs Option `ai_attackwave` enthält für den Lord-Angriff den Teilpatch `ai_attackwave_lord_edit`. Er sucht den HD-Code über ein AOB-Muster und ersetzt bei VA `0x4D31CD` genau den bedingten Sprung `75 49` durch `90 90` (**zwei NOPs; keine Operation**).
+
+HD-Vanilla:
+
+```text
+if lordCommandSucceeded:
+    useBuildingOrVectorFallback
+else if targetLordMissing or role == SiegeCoverTribe:
+    useBuildingOrVectorFallback
+else:
+    moveWholeTribeToLord
+    lordCommandSucceeded = true
+```
+
+HD mit UCP:
+
+```text
+if targetLordMissing or role == SiegeCoverTribe:
+    useBuildingOrVectorFallback
+else:
+    moveWholeTribeToLord
+```
+
+Der entfernte Sprung ist ausschließlich die Abfrage „wurde bereits ein Tribe zum Lord geschickt?“. Dadurch versucht jeder im Verteiler verarbeitete und geeignete Tribe den Lord-Auftrag, nicht nur der erste.
+
+Unverändert bleiben:
+
+- die Prüfung, ob der Ziel-Lord lebt;
+- der Ausschluss von Rolle 186 (`SiegeCoverTribe`, Deckungsgruppe);
+- das Überspringen der Rollen 13, 14 und 18;
+- Tribe-ID/UID-Prüfung und Auftrag für den vollständigen Tribe;
+- die vorhandene Bewegungs- und Erreichbarkeitslogik;
+- Gebäude- beziehungsweise Angriffsvektor-Fallback für ungeeignete Tribes oder einen fehlenden Lord.
+
+Das übergeordnete UCP-Modul ändert getrennt davon bereits vor dem Durchbruch die Angriffswellen. Mit dem Standardwert 7 verwendet es nacheinander viermal Mauerziele, zweimal Befestigungsziele und einmal normale Gebäudeziele. Außerdem überspringt es laut UCP-Quellkommentar die Prüfungen „Mauerteil bereits belegt“ und „Mauerteil bereits gebrochen“. Diese Änderungen stammen nicht aus `ai_attackwave_lord_edit`.
+
+UCP und DEs `Aggressive Siege` sind daher nicht gleich: UCP entfernt das Lord-Limit vollständig. DE begrenzt zusätzliche Lord-Aufträge auf `ceil(configuredSiegeWallTribes / 2)` der Rolle 192 und verteilt die übrigen Tribes weiterhin entfernungsgewichtet auf Gebäude. Der UCP-Lord-Patch ist das passendere Vorbild für die empfohlene DE-Anpassung „alle geeigneten Tribes zum Lord“.
+
 ## Historische Schlussfolgerung
 
-Die Vor-Winter-DLL widerlegt die bisherige Annahme, die Ein-Tribe-Sperre sei mit dem Winter Update eingeführt worden. Auch der SHC-HD-Code besitzt diese Sperre; UCPs `ai_attackwave_lord_edit` entfernt sie gezielt.
+Die Vor-Winter-DLL und HD-Vanilla widerlegen die Annahme, die Ein-Tribe-Sperre sei mit dem Winter Update oder erst mit der DE eingeführt worden. UCPs `ai_attackwave_lord_edit` entfernt sie gezielt; ein entsprechend modifiziertes HD-Spiel kann daher das erinnerte Verhalten „gesamte Armee zum Lord“ erklären.
 
 Statisch gesichert ist deshalb nur:
 

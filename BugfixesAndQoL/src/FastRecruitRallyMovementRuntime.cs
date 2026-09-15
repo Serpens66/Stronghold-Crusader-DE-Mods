@@ -19,6 +19,9 @@ namespace BugfixesAndQoL
     /// </summary>
     internal sealed unsafe class FastRecruitRallyMovementRuntime : IDisposable
     {
+        // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+        private readonly ManualLogSource rallyAnimationDiagnosticsLog;
+        // RALLY_ANIMATION_DIAGNOSTICS_END
         private readonly IMovementCadenceServices movementPatch;
         private readonly List<int> tribeUnitIds = new List<int>();
         private readonly List<IDisposable> subscriptions =
@@ -34,6 +37,9 @@ namespace BugfixesAndQoL
         {
             if (log == null)
                 throw new ArgumentNullException(nameof(log));
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            rallyAnimationDiagnosticsLog = log;
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             this.movementPatch = movementPatch ??
                 throw new ArgumentNullException(nameof(movementPatch));
 
@@ -108,11 +114,75 @@ namespace BugfixesAndQoL
         private void OnTribeIssueOrderWithTarget(
             TribeIssueOrderWithTargetEventArgs args)
         {
+            // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+            if (args.AICommand == TribeAICommand.UnitStop)
+                LogRallyAnimationDiagnosticsUnitStop(args);
+            // RALLY_ANIMATION_DIAGNOSTICS_END
             if (enabled && args.Phase == EventHookPhase.Pre)
             {
                 RemoveTrackingForTribe(args.TribeId);
             }
         }
+
+        // RALLY_ANIMATION_DIAGNOSTICS_BEGIN
+        private void LogRallyAnimationDiagnosticsUnitStop(
+            TribeIssueOrderWithTargetEventArgs args)
+        {
+            tribeUnitIds.Clear();
+            bool resolved = args.TribeId > 0 &&
+                GameTribeManagerAPI.Instance.GetUnits(
+                    args.TribeId,
+                    tribeUnitIds);
+            var units = new System.Text.StringBuilder();
+            if (resolved)
+            {
+                foreach (int unitId in tribeUnitIds)
+                {
+                    if (units.Length != 0)
+                        units.Append(';');
+                    if (unitId <= 0 || unitId > unitArrayLength)
+                    {
+                        units.Append("id=").Append(unitId).Append(",invalid");
+                        continue;
+                    }
+
+                    GameUnit* unit = unitArray + unitId - 1;
+                    units.Append("id=").Append(unitId)
+                        .Append(",alive=").Append((ushort)unit->r_AliveState)
+                        .Append(",type=").Append((ushort)unit->r_UnitChimp)
+                        .Append(",owner=").Append(unit->r_ControllableForPlayerId)
+                        .Append(",global=").Append(unit->r_GlobalId)
+                        .Append(",ai=").Append(unit->r_AIState)
+                        .Append(",transform=").Append(
+                            (ushort)unit->r_TransformIntoUnitOfType)
+                        .Append(",path=0x").Append(
+                            unit->r_PathPlanStateBitFlags.ToString("X"))
+                        .Append(",pathIndex=").Append(
+                            unit->r_CurrentPathPlanIndex)
+                        .Append(",pathLength=").Append(unit->r_PathPlanLength)
+                        .Append(",target=(").Append(
+                            unit->r_TargetTilePositionX)
+                        .Append(',').Append(unit->r_TargetTilePositionY)
+                        .Append("),animation=0x").Append(
+                            unit->r_SpriteAnimationGroup.ToString("X"))
+                        .Append(",bonus=").Append(unit->r_SpeedBonus);
+                }
+            }
+
+            string returnValue = args.Phase == EventHookPhase.Post
+                ? args.ReturnValue.ToString()
+                : "pending";
+            Shared.DebugLogHelper.LogInfo(
+                rallyAnimationDiagnosticsLog,
+                "RALLY_ANIMATION_DIAGNOSTICS UnitStop " +
+                $"phase={args.Phase}, command={args.AICommand}/" +
+                $"{(int)args.AICommand}, tribe={args.TribeId}, " +
+                $"target1={args.TargetValue1}, target2={args.TargetValue2}, " +
+                $"a6={args.a6}, return={returnValue}, " +
+                $"resolved={resolved}, units=[{units}].");
+            tribeUnitIds.Clear();
+        }
+        // RALLY_ANIMATION_DIAGNOSTICS_END
 
         private void OnUnitDelete(UnitDeleteEventArgs args)
         {

@@ -1,8 +1,16 @@
 # APIShared architecture
 
-APIShared complements Script Extender 2.4.0 with four typed process-wide capabilities that the extender does not provide directly. Consumers cannot request arbitrary addresses, scans, writes or detours.
+APIShared complements Script Extender with five typed process-wide capabilities that the extender does not provide directly. Consumers cannot request arbitrary addresses, scans, writes or detours.
 
-Initialization occurs once from `CrusaderLibrary.LibraryLoaded`. Each capability has an independent error boundary; `NativeApiState.Unavailable` is reserved for failure of global publication. Registrations, hooks, loggers and native state remain rooted for the process lifetime.
+The managed `lobby-state` capability initializes once from `APISharedPlugin.Awake()` and is therefore available independently of native library initialization. Native capabilities initialize once from `CrusaderLibrary.LibraryLoaded`. Each capability has an independent error boundary; `NativeApiState.Unavailable` is reserved for failure of global native publication. Registrations, hooks, loggers and runtime state remain rooted for the process lifetime.
+
+## Lobby-state capability
+
+`lobby-state` owns the single managed observation path for Vanilla's active multiplayer lobby. It captures once during startup, immediately after the central `Platform_Multiplayer.GetActiveLobbyMembers(bool)` writer and `LeaveLobby(bool)`, at map transitions, and otherwise every 15 render frames. Observation is suppressed while a map is running. The map-start Pre event synchronously captures the last lobby state before mod-local slot finalization.
+
+Snapshots defensively copy the one-based player-slot-to-Steam-ID mapping and include lobby ID, local slot, resolution/error state and map-transition preservation. Equal values are not republished. Observer order is ordinal owner GUID followed by registration ID; reentrant publications are queued and callback failures are isolated.
+
+`BugfixesAndQoL`, `CastlePlanner` and `CustomCustomTrail` are the only current consumers. Their source-linked coordinators retain settings publication, readiness, host/client policy and final in-game slot remapping. They have hard APIShared dependencies and no local polling fallback.
 
 ## Gatehouse capabilities
 
@@ -32,4 +40,4 @@ Only a demonstrated identical process-wide target shared by independently loadab
 
 ## Compatibility basis
 
-The active native catalog targets SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Its semantic evidence is tied to Script Extender 2.4.0 commit `5d5719c1002aec043d331162d72b2e7f3111b34b`. APIShared itself retains minimum Script Extender 2.3.0 because its current public and runtime contracts require no 2.4.0-only API.
+The active native catalog targets SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. The managed lobby audit targets installed `Assembly-CSharp.dll` SHA-256 `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789` and Script Extender 2.6.0 commit `2cee24e33b5a5d81d1c275efabc714ac59917b7b`. APIShared itself retains minimum Script Extender 2.3.0 because its current public and runtime contracts require no newer API.

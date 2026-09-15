@@ -29,6 +29,17 @@ namespace ExtraFeatures
         internal const int StructureWriterRva = 0x59210;
         internal const int TileHeightGridOffset = 0xD7E5A0;
         internal const int TileDefaultHeightGridOffset = 0xDCCAC0;
+        internal const int BuildingArrayRva = 0x64CCBB0;
+        internal const int BuildingRecordStride = 0x32C;
+        internal const int BuildingHeightOffset = 0x148;
+        internal const int BuildingHeightAddressRva = BuildingArrayRva + BuildingHeightOffset;
+        internal const int DrawbridgeHeightForwardingRva = 0x73A08;
+        internal const int DrawbridgeAllocatorCallRva = 0x73A19;
+        internal const int BuildingAllocatorRva = 0xB47E0;
+        internal const int BuildingAllocatorHeightLoadRva = 0xB49B2;
+        internal const int BuildingAllocatorHeightStoreRva = 0xB49DC;
+        internal const int CompletedDrawbridgeBuildingIdCaptureRva = 0x73A1E;
+        internal const int LowerDrawbridgeRecordOffsetRva = 0x64478;
         internal const int MoatCommandValidationFunctionRva = 0x5CA40;
         internal const int MoatCommandValidationFunctionLength = 0x290;
         internal const int MoatCommandHeightGateRva = 0x5CC1E;
@@ -90,6 +101,8 @@ namespace ExtraFeatures
         internal const int AreaRemovalHeightRva = 0xEDA77;
         internal const int AreaRemovalHeightLength = 21;
         internal const int MoatDepth = 8;
+        internal const int DrawbridgeDeckHeightOffset = 8;
+        internal const int MaximumTileHeight = byte.MaxValue;
         internal const int MaximumVanillaTerrainHeight = 12;
         internal const int PlacementBlockedValue = 1;
         internal const int PlacementFailureReason = 24;
@@ -334,6 +347,39 @@ namespace ExtraFeatures
             0x41, 0xC6, 0x84, 0x1E, 0xA0, 0xE5, 0xD7, 0x00, 0x00
         };
 
+        internal static readonly byte[] DrawbridgeHeightForwardingBytes =
+        {
+            // mov ECX,[RSP+0xD8] (constructor argument 8); mov [RAX-0x78],ECX
+            0x8B, 0x8C, 0x24, 0xD8, 0x00, 0x00, 0x00,
+            0x89, 0x48, 0x88
+        };
+
+        internal static readonly byte[] BuildingAllocatorHeightLoadBytes =
+        {
+            // movzx EAX,word ptr [RSP+0xC0] (allocator argument 5)
+            0x0F, 0xB7, 0x84, 0x24, 0xC0, 0x00, 0x00, 0x00
+        };
+
+        internal static readonly byte[] BuildingAllocatorHeightStoreBytes =
+        {
+            // mov word ptr [R8+R14+0x148],AX
+            0x66, 0x43, 0x89, 0x84, 0x30, 0x48, 0x01, 0x00, 0x00
+        };
+
+        internal static readonly byte[] CompletedDrawbridgeBuildingIdCaptureBytes =
+        {
+            // movsxd R13,EAX (allocator result)
+            0x4C, 0x63, 0xE8
+        };
+
+        internal static readonly byte[] LowerDrawbridgeRecordOffsetBytes =
+        {
+            // movsxd RAX,EDX; lea RDI,imageBase; imul R13,RAX,0x32C
+            0x48, 0x63, 0xC2,
+            0x48, 0x8D, 0x3D, 0x7E, 0xBB, 0xF9, 0xFF,
+            0x4C, 0x69, 0xE8, 0x2C, 0x03, 0x00, 0x00
+        };
+
         internal static readonly byte[] PlannedMoatCancellationBytes =
         {
             0x0F, 0xBA, 0xF2, 0x0E,
@@ -524,6 +570,7 @@ namespace ExtraFeatures
                 DrawbridgeFunctionLength, CompletedDrawbridgeHookBytes,
                 "completed-drawbridge hook block");
             ValidateCompletedDrawbridgeRewriteContract(memory);
+            ValidateDrawbridgeBuildingHeightContract(memory);
             if (memory[CompletedDrawbridgeJumpRva] != 0xEB ||
                 checked(CompletedDrawbridgeJumpRva + 2 +
                     (sbyte)memory[CompletedDrawbridgeJumpRva + 1]) !=
@@ -593,12 +640,13 @@ namespace ExtraFeatures
         internal static byte CalculateCompletedHeight(byte defaultHeight) =>
             defaultHeight > MoatDepth ? (byte)(defaultHeight - MoatDepth) : (byte)0;
 
-        internal static byte CalculateDrawbridgeHeight(byte defaultHeight)
+        internal static byte CalculateDrawbridgeHeight(byte buildingHeight)
         {
-            byte completedHeight = CalculateCompletedHeight(defaultHeight);
-            return defaultHeight > MaximumVanillaTerrainHeight
-                ? defaultHeight
-                : completedHeight;
+            if (buildingHeight <= MaximumVanillaTerrainHeight)
+                return 0;
+
+            int elevatedHeight = buildingHeight + DrawbridgeDeckHeightOffset;
+            return (byte)Math.Min(elevatedHeight, MaximumTileHeight);
         }
 
         internal static byte CalculateRestoredHeight(byte defaultHeight) => defaultHeight;
@@ -650,6 +698,27 @@ namespace ExtraFeatures
                 throw new InvalidOperationException(
                     "The completed-drawbridge height write is not [RBX+R14] with Vanilla height zero.");
             }
+        }
+
+        private static void ValidateDrawbridgeBuildingHeightContract(ReadOnlySpan<byte> memory)
+        {
+            AssertBytes(memory, DrawbridgeHeightForwardingRva,
+                DrawbridgeHeightForwardingBytes,
+                "drawbridge constructor building-height forwarding");
+            ValidateRelativeBranch(memory, DrawbridgeAllocatorCallRva, 0xE8,
+                BuildingAllocatorRva, "drawbridge building allocator");
+            AssertBytes(memory, BuildingAllocatorHeightLoadRva,
+                BuildingAllocatorHeightLoadBytes,
+                "building allocator height-argument load");
+            AssertBytes(memory, BuildingAllocatorHeightStoreRva,
+                BuildingAllocatorHeightStoreBytes,
+                "building allocator record-height store");
+            AssertBytes(memory, CompletedDrawbridgeBuildingIdCaptureRva,
+                CompletedDrawbridgeBuildingIdCaptureBytes,
+                "completed drawbridge building-id capture");
+            AssertBytes(memory, LowerDrawbridgeRecordOffsetRva,
+                LowerDrawbridgeRecordOffsetBytes,
+                "lowered drawbridge building-record offset");
         }
 
         private static void ValidateBlock(

@@ -673,7 +673,8 @@ namespace BugfixesAndQoL
                 "placement-cancel suppression is an enabled-by-default per-player client setting");
 
             Check(!File.ReadAllText(Path.Combine("src", "AssassinPathfindingRuntime.cs"))
-                    .Contains("if (args.SkipOriginalFunction)\r\n                return;") &&
+                    .Contains("if (args.SkipOriginalFunction)" +
+                        Environment.NewLine + "                return;") &&
                   !File.ReadAllText(Path.Combine("src", "ExtendedShiftCommandQueueRuntime.cs"))
                     .Contains("if (!installed || args.SkipOriginalFunction)") &&
                   !File.ReadAllText(Path.Combine("src", "FastRecruitRallyMovementRuntime.cs"))
@@ -1035,6 +1036,12 @@ namespace BugfixesAndQoL
                   !input.Contains("Input.GetMouseButton") &&
                   !input.Contains("InputR3EventHooks"),
                 "minimap improvements install no frame, render, or held-input polling callback");
+            Check(!input.Contains("DebugLogHelper.LogDebug") &&
+                  !input.Contains("DebugLogHelper.LogInfo") &&
+                  !input.Contains("DebugLogHelper.LogWarning") &&
+                  input.Contains("DebugLogHelper.LogError") &&
+                  input.Contains("if (failureLogged)"),
+                "minimap input logs only its one-shot unexpected failure diagnostic");
             Check(input.Contains("args.GetPosition(currentRadarImage)") &&
                   input.Contains("args.GetPosition(radarImage)") &&
                   input.Contains("Enums.editorActions.placingBuilding") &&
@@ -2277,11 +2284,14 @@ namespace BugfixesAndQoL
                     !fastRecruit.Contains("Fast recruit rally tracking added") &&
                     !fastRecruit.Contains("Fast recruit rally movement started"),
                 "fast recruit rally omits routine per-unit lifecycle logging");
-            Check(fastRecruit.Contains("if (enabled &&\r\n                args.Phase == EventHookPhase.Pre") &&
+            Check(fastRecruit.Contains("if (enabled &&" +
+                    Environment.NewLine +
+                    "                args.Phase == EventHookPhase.Pre") &&
                     fastRecruit.Contains("if (enabled && args.Phase == EventHookPhase.Pre)") &&
+                    fastRecruit.Contains("args.AICommand == TribeAICommand.UnitStop") &&
                     fastRecruit.IndexOf("if (enabled &&", StringComparison.Ordinal) <
                         fastRecruit.IndexOf("RemoveTrackingForTribe(args.TribeId)", StringComparison.Ordinal),
-                "disabled fast recruit handlers exit before tribe queries and unit loops");
+                "disabled fast recruit handlers exit before production tribe queries; only the explicitly marked UnitStop diagnostic samples the disabled control run");
 
             int tribeLoop = troopMovement.IndexOf("foreach (int unitId in unitIds)",
                 StringComparison.Ordinal);
@@ -2342,11 +2352,22 @@ namespace BugfixesAndQoL
                     cadencePatch.Contains(
                       "RallyDiagnosticsCadenceWritten") &&
                     cadencePatch.Contains(
+                      "RallyDiagnosticsSnapshotCaptured") &&
+                    cadencePatch.Contains(
+                      "EmitRallyDiagnosticsSnapshot") &&
+                    cadencePatch.Contains(
                       "LogRallyAnimationDiagnostics") &&
-                    !fastRecruit.Contains(rallyDiagnosticsTag) &&
+                    fastRecruit.Contains(
+                      rallyDiagnosticsTag + "_BEGIN") &&
+                    fastRecruit.Contains(
+                      rallyDiagnosticsTag + "_END") &&
+                    fastRecruit.Contains(
+                      "LogRallyAnimationDiagnosticsUnitStop") &&
+                    fastRecruit.Contains(
+                      "args.AICommand == TribeAICommand.UnitStop") &&
                     !integration.Contains(rallyDiagnosticsTag) &&
                     !bridge.Contains(rallyDiagnosticsTag),
-                "temporary rally animation diagnostics are explicitly marked and confined to the cadence owner");
+                "temporary rally animation diagnostics are explicitly marked and confined to the cadence and UnitStop owners");
             Check(cadencePatch.Contains(
                       "SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_BOW, 1, 0x81);") &&
                     parityHarness.Contains(

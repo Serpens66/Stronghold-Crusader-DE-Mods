@@ -2,6 +2,7 @@ using APIShared;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Xml;
@@ -32,6 +33,7 @@ namespace APISharedTests
             TestPublicSurface();
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
+            TestLobbyStateCapability();
             TestUnitHudVariantContracts();
             TestUnitHudLiveSelectionCounts();
             TestUnitHudSelectionIdentity();
@@ -166,6 +168,119 @@ namespace APISharedTests
                 "unit-HUD snapshot membership is not exposed as a mutable array");
         }
 
+        private static void TestLobbyStateCapability()
+        {
+            var source = new Dictionary<int, ulong> { [1] = 1001UL };
+            var first = new LobbyStateSnapshot(
+                42UL, source, false, 1, false, string.Empty, string.Empty);
+            source[1] = 9001UL;
+            Assert(first.Players[1] == 1001UL,
+                "lobby snapshots must copy their player map");
+            AssertThrows<NotSupportedException>(
+                () => ((IDictionary<int, ulong>)first.Players)[2] = 1002UL,
+                "lobby snapshot player maps must be immutable");
+
+            var equal = new LobbyStateSnapshot(
+                42UL,
+                new Dictionary<int, ulong> { [1] = 1001UL },
+                false,
+                1,
+                false,
+                string.Empty,
+                string.Empty);
+            var changed = new LobbyStateSnapshot(
+                42UL,
+                new Dictionary<int, ulong> { [1] = 1001UL, [2] = 1002UL },
+                false,
+                1,
+                false,
+                string.Empty,
+                string.Empty);
+            Assert(LobbyStateService.ValueEquals(first, equal) &&
+                !LobbyStateService.ValueEquals(first, changed),
+                "lobby snapshot equality must compare every published value");
+            Assert(LobbyStateService.ShouldObserve(false, true, 10, 11) &&
+                !LobbyStateService.ShouldObserve(false, false, 10, 24) &&
+                LobbyStateService.ShouldObserve(false, false, 10, 25) &&
+                !LobbyStateService.ShouldObserve(true, true, 10, 25) &&
+                LobbyStateService.ShouldObserve(false, true, 25, 26),
+                "lobby polling must honor dirty, 15-frame fallback, map suppression and dirty resume");
+
+            var service = new LobbyStateService(null);
+            var calls = new List<string>();
+            ILobbyStateCapability zOwner = service.Bind("z.owner");
+            ILobbyStateCapability aOwner = service.Bind("a.owner");
+            Assert(zOwner.TryRegisterObserver("one", _ => calls.Add("z"), out _),
+                "first lobby observer registration should succeed");
+            Assert(aOwner.TryRegisterObserver("two", snapshot =>
+            {
+                calls.Add("a2:" + snapshot.Players.Count);
+                if (snapshot.Players.Count == 1)
+                    service.System_TestPublish(changed);
+            }, out _), "second lobby observer registration should succeed");
+            Assert(aOwner.TryRegisterObserver("one", _ => calls.Add("a1"), out _),
+                "third lobby observer registration should succeed");
+            Assert(!aOwner.TryRegisterObserver("one", _ => { }, out NativeCapabilityDiagnostic duplicate) &&
+                duplicate.State == NativeCapabilityState.ValidationFailed,
+                "duplicate lobby observer IDs must fail closed");
+
+            service.System_TestPublish(first);
+            Assert(string.Join(",", calls) == "a1,a2:1,z,a1,a2:2,z",
+                "lobby observers must be ordered and nested publication must unwind deterministically");
+            calls.Clear();
+            service.System_TestPublish(new LobbyStateSnapshot(
+                42UL,
+                new Dictionary<int, ulong> { [1] = 1001UL, [2] = 1002UL },
+                false,
+                1,
+                false,
+                string.Empty,
+                string.Empty));
+            Assert(calls.Count == 0,
+                "equal lobby snapshots must not be republished");
+            Assert(aOwner.TryRegisterObserver("late", _ => calls.Add("late"), out _ ) &&
+                string.Join(",", calls) == "late",
+                "late lobby observers must receive the current snapshot synchronously");
+
+            var isolated = new LobbyStateService(null);
+            var isolatedCalls = new List<string>();
+            isolated.Bind("a").TryRegisterObserver("throws", _ =>
+                throw new InvalidOperationException("expected"), out _);
+            isolated.Bind("b").TryRegisterObserver("continues", _ =>
+                isolatedCalls.Add("continues"), out _);
+            isolated.System_TestPublish(first);
+            Assert(isolatedCalls.Count == 1,
+                "one failing lobby observer must not stop later observers");
+
+            var lifecycle = new LobbyStateService(null);
+            var lifecycleStates = new List<string>();
+            lifecycle.Bind("owner").TryRegisterObserver("lifecycle", snapshot =>
+                lifecycleStates.Add(
+                    snapshot.Error.Length != 0 ? "error" :
+                    !snapshot.LobbyId.HasValue ? "left" :
+                    snapshot.HasUnresolvedPlayers ? "unresolved" :
+                    "lobby:" + snapshot.Players.Count), out _);
+            lifecycle.System_TestPublish(new LobbyStateSnapshot(
+                null, null, false, 0, false, string.Empty, string.Empty));
+            lifecycle.System_TestPublish(first);
+            lifecycle.System_TestPublish(new LobbyStateSnapshot(
+                42UL,
+                new Dictionary<int, ulong> { [1] = 1001UL, [2] = 1002UL },
+                true,
+                1,
+                false,
+                string.Empty,
+                string.Empty));
+            lifecycle.System_TestPublish(new LobbyStateSnapshot(
+                null, null, true, 0, false, "capture failed", "details"));
+            lifecycle.System_TestPublish(changed);
+            lifecycle.System_TestPublish(new LobbyStateSnapshot(
+                null, null, false, 0, false, string.Empty, string.Empty));
+            Assert(string.Join(",", lifecycleStates) ==
+                "left,lobby:1,unresolved,error,lobby:2,left",
+                "lobby snapshots must publish join, membership, unresolved, error, recovery and leave transitions");
+        }
+
         private static void TestUnitHudVariantContracts()
         {
             var oldCategory = new UnitHudCategoryDefinition("old", "Old", 1, UnitHudSurface.TroopSelection);
@@ -251,6 +366,8 @@ namespace APISharedTests
             string plugin = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "APISharedPlugin.cs"));
             string project = File.ReadAllText(Path.Combine(workspace, "APIShared", "APIShared.csproj"));
             string unitHud = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitHudPresentationCapability.cs"));
+            string lobbyState = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "LobbyStateCapability.cs"));
+            string sharedPreset = File.ReadAllText(Path.Combine(workspace, "Shared", "PresetLobbyModSettingsViewModel.cs"));
             string virtualRuntime = File.ReadAllText(Path.Combine(workspace, "Testmods", "VirtualUnitsPrototype", "src", "VirtualEntityRuntime.cs"));
             string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordUnitHudRegistration.cs"));
             string bugfixGatehouse = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "GatehouseDistanceOriginRegistration.cs"));
@@ -264,7 +381,12 @@ namespace APISharedTests
             string bugfixControlGroups = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "ControlGroupDisbandCleanupRuntime.cs"));
             string bugfixNativeDefinition = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "ControlGroupNativeDefinition.cs"));
             string bugfixPlugin = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "BugfixesAndQoLPlugin.cs"));
+            string bugfixProject = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "BugfixesAndQoL.csproj"));
             string castlePlanner = File.ReadAllText(Path.Combine(workspace, "CastlePlanner", "src", "CastlePlannerRuntime.cs"));
+            string castlePlugin = File.ReadAllText(Path.Combine(workspace, "CastlePlanner", "src", "CastlePlannerPlugin.cs"));
+            string castleProject = File.ReadAllText(Path.Combine(workspace, "CastlePlanner", "CastlePlanner.csproj"));
+            string customPlugin = File.ReadAllText(Path.Combine(workspace, "CustomCustomTrail", "src", "CustomCustomTrailPlugin.cs"));
+            string customProject = File.ReadAllText(Path.Combine(workspace, "CustomCustomTrail", "CustomCustomTrail.csproj"));
             string releaseConfig = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "release-projects.json"));
             string releaseScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "Release-Mod.ps1"));
             string nexusScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "NexusRelease.Common.ps1"));
@@ -500,7 +622,7 @@ namespace APISharedTests
             Assert(bugfixControlGroups.Contains("TryRemoveUnitFromControlGroups") &&
                 !bugfixControlGroups.Contains("ControlGroupStorage") &&
                 !bugfixNativeDefinition.Contains("ControlGroupStorage") &&
-                bugfixPlugin.Contains("[BepInDependency(ApiSharedGuid, \"0.3.0\")]"),
+                bugfixPlugin.Contains("[BepInDependency(ApiSharedGuid, \"0.3.6\")]"),
                 "native control-group storage must only be resolved and mutated inside APIShared");
             int bindStart = castlePlanner.IndexOf("private void BindNativeFunctions(", StringComparison.Ordinal);
             int hookStart = castlePlanner.IndexOf("private void InstallHumanStartPreparationHook(", StringComparison.Ordinal);
@@ -512,8 +634,43 @@ namespace APISharedTests
                 castleBindings.Contains("prepareLayout = Bind<PrepareLayoutDelegate>") &&
                 !castleBindings.Contains("AddDetour") && !castleBindings.Contains("AddContextHook"),
                 "CastlePlanner AIV targets 0x54F60, 0x54DE0, and 0x53D00 must remain bind-only");
+            Assert(Count(lobbyState, "Application.onBeforeRender += OnBeforeRender") == 1 &&
+                lobbyState.Contains("ObserveDirtyNow();") &&
+                Count(lobbyState, "getActiveLobbyMembersOriginal(self, coopGame)") == 1 &&
+                Count(lobbyState, "leaveLobbyOriginal(self, startGame)") == 1 &&
+                lobbyState.Contains("private const int FallbackFrames = 15") &&
+                lobbyState.Contains("MapLoaderR3EventHooks.OnStartMap") &&
+                lobbyState.Contains("MapLoaderR3EventHooks.OnUnloadMap"),
+                "APIShared must own exactly one managed lobby observer with one-call detours and map-aware fallback polling");
+            Assert(sharedPreset.Contains("TryGetLobbyState") &&
+                sharedPreset.Contains("API_SHARED_LOBBY_OBSERVER") &&
+                !sharedPreset.Contains("Application.onBeforeRender"),
+                "the source-linked preset coordinator must consume APIShared without a local render poller");
+            string[] lobbyObserverProjects = FindRuntimeProjectFiles(workspace)
+                .Where(path => File.ReadAllText(path).Contains("API_SHARED_LOBBY_OBSERVER"))
+                .Select(Path.GetFileNameWithoutExtension)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            Assert(lobbyObserverProjects.SequenceEqual(new[]
+                {
+                    "BugfixesAndQoL",
+                    "CastlePlanner",
+                    "CustomCustomTrail"
+                }),
+                "only the three real per-player consumers may enable the APIShared lobby bridge");
+            Assert(bugfixProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
+                bugfixProject.Contains("<Reference Include=\"APIShared\">") && bugfixProject.Contains("<Private>false</Private>") &&
+                castleProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
+                castleProject.Contains("<Reference Include=\"APIShared\">") && castleProject.Contains("<Private>false</Private>") &&
+                customProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
+                customProject.Contains("<Reference Include=\"APIShared\">") && customProject.Contains("<Private>false</Private>") &&
+                castlePlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]" ) &&
+                customPlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]"),
+                "exactly the three active preset consumers must compile against and hard-depend on APIShared");
             Assert(releaseConfig.Contains("\"ActiveAIVDetector\": \"0.3.0\"") &&
-                releaseConfig.Contains("\"BugfixesAndQoL\": \"0.3.0\"") &&
+                releaseConfig.Contains("\"BugfixesAndQoL\": \"0.3.6\"") &&
+                releaseConfig.Contains("\"CastlePlanner\": \"0.3.6\"") &&
+                releaseConfig.Contains("\"CustomCustomTrail\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"ExtraFeatures\": \"0.3.0\""),
                 "release inventory must declare each consumer's actual APIShared minimum");
             Assert(releaseScript.Contains("Profile = 'Thin'") &&
@@ -565,6 +722,35 @@ namespace APISharedTests
             throw new DirectoryNotFoundException("Workspace root was not found.");
         }
 
+        private static IEnumerable<string> FindRuntimeProjectFiles(string workspace)
+        {
+            foreach (string directory in Directory.GetDirectories(workspace))
+            {
+                foreach (string project in Directory.GetFiles(
+                    directory,
+                    "*.csproj",
+                    SearchOption.TopDirectoryOnly))
+                {
+                    yield return project;
+                }
+
+                string name = Path.GetFileName(directory);
+                if (!string.Equals(name, "Testmods", StringComparison.Ordinal) &&
+                    !string.Equals(name, "Helpers", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                foreach (string child in Directory.GetDirectories(directory))
+                    foreach (string project in Directory.GetFiles(
+                        child,
+                        "*.csproj",
+                        SearchOption.TopDirectoryOnly))
+                    {
+                        yield return project;
+                    }
+            }
+        }
+
         private static int Count(string text, string value)
         {
             int count = 0;
@@ -598,6 +784,8 @@ namespace APISharedTests
                 "APIShared.IGatehouseTimingCapability",
                 "APIShared.IUnitHudPresentationCapability",
                 "APIShared.IAivBuildStepCapability",
+                "APIShared.ILobbyStateCapability",
+                "APIShared.LobbyStateSnapshot",
                 "APIShared.IAivBuildStepObserver",
                 "APIShared.IAivBuildStepInvocation",
                 "APIShared.AivBuildStepContext",
@@ -661,7 +849,8 @@ namespace APISharedTests
                 "TryGetGatehouseDistanceOrigin",
                 "TryGetGatehouseTiming",
                 "TryGetUnitHudPresentation",
-                "TryGetAivBuildStep"
+                "TryGetAivBuildStep",
+                "TryGetLobbyState"
             };
             foreach (MethodInfo method in typeof(IApiShared).GetMethods())
                 expectedAcquisitionMethods.Remove(method.Name);
@@ -676,6 +865,8 @@ namespace APISharedTests
                 "unit-HUD capability ID must remain stable");
             Assert(NativeCapabilityIds.AivBuildStep == "aiv-build-step",
                 "AIV build-step capability ID must remain stable");
+            Assert(NativeCapabilityIds.LobbyState == "lobby-state",
+                "lobby-state capability ID must remain stable");
         }
 
         private static void TestAivBuildStepBroker()

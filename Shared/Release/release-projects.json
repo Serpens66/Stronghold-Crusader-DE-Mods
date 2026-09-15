@@ -7,7 +7,9 @@
     "Guid": "APIShared_Serp",
     "Consumers": {
       "ActiveAIVDetector": "0.3.0",
-      "BugfixesAndQoL": "0.3.0",
+      "BugfixesAndQoL": "0.3.6",
+      "CastlePlanner": "0.3.6",
+      "CustomCustomTrail": "0.3.6",
       "ExtraFeatures": "0.3.0"
     }
   },

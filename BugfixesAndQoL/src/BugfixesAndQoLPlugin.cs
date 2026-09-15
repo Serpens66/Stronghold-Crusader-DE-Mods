@@ -10,7 +10,7 @@ using System;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.6.0")]
-    [BepInDependency(ApiSharedGuid, "0.3.0")]
+    [BepInDependency(ApiSharedGuid, "0.3.6")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInIncompatibility(LegacyTroopMovementFixGuid)]

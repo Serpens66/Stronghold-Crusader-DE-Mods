@@ -19,11 +19,12 @@ using System.Runtime.CompilerServices;
 using R3;
 using SHCDESE.EventAPI;
 using SHCDESE.NoesisUtil;
-using Steamworks;
-using UnityEngine;
 #endif
 using ComboBoxItem = Noesis.ComboBoxItem;
 using Visibility = Noesis.Visibility;
+#if API_SHARED_LOBBY_OBSERVER && !SHARED_PRESET_TESTS
+using APIShared;
+#endif
 
 namespace Shared
 {
@@ -31,17 +32,10 @@ namespace Shared
     {
         private const int FirstPlayerId = 1;
         private const int LastPlayerId = 8;
-#if !SHARED_PRESET_TESTS
-        private static readonly FieldInfo LobbyIdField = typeof(Platform_Multiplayer.MPLobby)
-            .GetField("id", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        private static readonly FieldInfo LobbyMemberIdField = typeof(Platform_Multiplayer.MPLobbyMember)
-            .GetField("id", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-        private static readonly FieldInfo SteamIdValueField = LobbyMemberIdField?.FieldType
-            .GetField("m_SteamID", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-#endif
         private readonly PresetLobbyModSettingsViewModel owner;
         private readonly ManualLogSource log;
         private readonly string modName;
+        private readonly string ownerGuid;
         private readonly PerPlayerLobbySettingsContract contract;
         private readonly Dictionary<int, ulong> playersById = new Dictionary<int, ulong>();
         private ulong lobbyId;
@@ -55,12 +49,7 @@ namespace Shared
         private string readinessError = string.Empty;
         private bool active;
 #if !SHARED_PRESET_TESTS
-        private int lastObservedFrame = -1;
-        private float nextErrorLogTime;
         private IDisposable mapStartSubscription;
-        private IDisposable mapUnloadSubscription;
-        private IDisposable gameplaySessionSubscription;
-        private bool mapStarted;
         private string lastIdentityDiagnostic = string.Empty;
 #endif
 
@@ -68,11 +57,13 @@ namespace Shared
             PresetLobbyModSettingsViewModel owner,
             ManualLogSource log,
             string modName,
+            string ownerGuid,
             PerPlayerLobbySettingsContract contract)
         {
             this.owner = owner;
             this.log = log;
             this.modName = modName;
+            this.ownerGuid = ownerGuid;
             this.contract = contract;
         }
 
@@ -90,51 +81,61 @@ namespace Shared
             {
                 owner.PropertyChanged += OnOwnerPropertyChanged;
 #if !SHARED_PRESET_TESTS
-                Application.onBeforeRender += OnBeforeRender;
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
                 {
                     if (args.Phase == EventHookPhase.Pre)
                         FinalizeRosterForMapTransition(args.bMultiplayerSave != 0);
                 });
-                gameplaySessionSubscription = GameplaySessionLifecycle.SubscribeStarted(
-                    log,
-                    _ => mapStarted = true);
-                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
-                {
-                    if (args.Phase == EventHookPhase.Post)
-                        mapStarted = false;
-                });
-                if (mapStartSubscription == null || mapUnloadSubscription == null ||
-                    gameplaySessionSubscription == null)
-                    throw new InvalidOperationException("The persistent map lifecycle subscriptions could not be created.");
+                if (mapStartSubscription == null)
+                    throw new InvalidOperationException("The persistent map-start subscription could not be created.");
 #endif
                 active = true;
                 RequestPublish();
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"[{modName}] Shared per-player lobby convergence activated: " +
+                    $"settings=[{string.Join(",", contract.Settings.Select(item => item.Property.Name))}], " +
+                    $"required=[{string.Join(",", contract.Settings.Where(item => item.IsReportRequired).Select(item => item.Property.Name))}].");
+#if !SHARED_PRESET_TESTS
+#if API_SHARED_LOBBY_OBSERVER
+                IApiShared api = ApiShared.Current;
+                if (!api.TryGetLobbyState(
+                        ownerGuid,
+                        out ILobbyStateCapability lobbyState,
+                        out NativeCapabilityDiagnostic diagnostic))
+                {
+                    throw new InvalidOperationException(
+                        $"The process-wide lobby-state capability is unavailable: " +
+                        $"state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                }
+                if (!lobbyState.TryRegisterObserver(
+                        "per-player-settings",
+                        OnLobbyStateChanged,
+                        out diagnostic))
+                {
+                    throw new InvalidOperationException(
+                        $"The per-player lobby observer could not be registered: " +
+                        $"state={diagnostic?.State}, reason={diagnostic?.Reason}");
+                }
+#else
+                throw new InvalidOperationException(
+                    "Per-player lobby settings require the APIShared lobby-state bridge.");
+#endif
+#endif
             }
             catch
             {
                 Deactivate();
                 throw;
             }
-            DebugLogHelper.LogInfo(
-                log,
-                $"[{modName}] Shared per-player lobby convergence activated: " +
-                $"settings=[{string.Join(",", contract.Settings.Select(item => item.Property.Name))}], " +
-                $"required=[{string.Join(",", contract.Settings.Where(item => item.IsReportRequired).Select(item => item.Property.Name))}].");
         }
 
         internal void Deactivate()
         {
             owner.PropertyChanged -= OnOwnerPropertyChanged;
 #if !SHARED_PRESET_TESTS
-            Application.onBeforeRender -= OnBeforeRender;
             mapStartSubscription?.Dispose();
-            mapUnloadSubscription?.Dispose();
-            gameplaySessionSubscription?.Dispose();
             mapStartSubscription = null;
-            mapUnloadSubscription = null;
-            gameplaySessionSubscription = null;
-            mapStarted = false;
 #endif
             active = false;
             publishPending = false;
@@ -143,6 +144,13 @@ namespace Shared
         internal void RequestPublish()
         {
             publishPending = true;
+            if (hasLobby && !rosterHasUnresolvedPlayers &&
+                IsValidPlayerId(resolvedLocalPlayerId) &&
+                playersById.ContainsKey(resolvedLocalPlayerId))
+            {
+                PublishLocalSettings(resolvedLocalPlayerId);
+                RequestReadinessRefresh();
+            }
         }
 
         internal bool ArePlayersReady(IEnumerable<int> playerIds, out string error)
@@ -517,76 +525,37 @@ namespace Shared
             }
         }
 
-        private void OnBeforeRender()
+#if API_SHARED_LOBBY_OBSERVER
+        private void OnLobbyStateChanged(LobbyStateSnapshot snapshot)
         {
-            int frame = Time.frameCount;
-            if (lastObservedFrame >= 0 && frame - lastObservedFrame < 15)
+            if (snapshot == null)
                 return;
-            lastObservedFrame = frame;
-
-            try
+            if (!string.IsNullOrEmpty(snapshot.Error))
             {
-                if (mapStarted)
-                {
-                    // Lobby settings are immutable during a match. OnUnloadMap is
-                    // the authoritative point at which observation may resume.
-                    return;
-                }
-                ObserveCurrentGameLobby();
-            }
-            catch (Exception exception)
-            {
-                SetReadiness(
+                SetReadiness(false, snapshot.Error);
+                ReportIdentityDiagnostic(new PlayerIdentityResolution(
+                    0,
                     false,
-                    "The lobby roster could not be observed; waiting for a successful retry.");
-                if (Time.unscaledTime < nextErrorLogTime)
-                    return;
-                nextErrorLogTime = Time.unscaledTime + 5f;
-                DebugLogHelper.LogError(
-                    log,
-                    $"[{modName}] Shared per-player lobby observer recovered from an error: {exception}");
-            }
-        }
-
-        private void ObserveCurrentGameLobby()
-        {
-            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
-            Platform_Multiplayer.MPLobby lobby = platform?.activeLobby;
-            if (lobby == null)
-            {
-                bool mapTransition = platform?.gameMembers != null &&
-                    platform.gameMembers.Any(member =>
-                        member != null && !member.skirmishAI && !member.kicked);
-                // There is no stable local player slot outside a lobby. Querying the
-                // Extender here only emits warnings and the value is discarded anyway.
-                Observe(null, null, false, 0, mapTransition);
+                    snapshot.Error,
+                    snapshot.Diagnostic));
                 return;
             }
-
-            bool resolvedRoster = PlayerIdentityHelper.TryCaptureHumanRoster(
-                preferInGameRoster: false,
-                requireAuthoritativeLobbyRoster: true,
-                out Dictionary<int, ulong> players,
-                out _,
-                out _);
-            bool unresolved = !resolvedRoster;
-
-            PlayerIdentityResolution localIdentity = PlayerIdentityHelper.CaptureLocalPlayerId(
-                preferInGameRoster: false);
-            ReportIdentityDiagnostic(localIdentity);
-            if (!localIdentity.IsResolved)
-                unresolved = true;
-
-            ulong currentLobbyId = ReadSteamId(LobbyIdField?.GetValue(lobby));
-            if (currentLobbyId == 0)
-                unresolved = true;
+            if (!string.IsNullOrEmpty(snapshot.Diagnostic))
+            {
+                ReportIdentityDiagnostic(new PlayerIdentityResolution(
+                    snapshot.LocalPlayerId,
+                    true,
+                    string.Empty,
+                    snapshot.Diagnostic));
+            }
             Observe(
-                currentLobbyId,
-                players,
-                unresolved,
-                localIdentity.IsResolved ? localIdentity.PlayerId : 0,
-                false);
+                snapshot.LobbyId,
+                snapshot.Players,
+                snapshot.HasUnresolvedPlayers,
+                snapshot.LocalPlayerId,
+                snapshot.PreserveForMapTransition);
         }
+#endif
 
         private void ReportIdentityDiagnostic(PlayerIdentityResolution identity)
         {
@@ -598,12 +567,6 @@ namespace Shared
             DebugLogHelper.LogError(
                 log,
                 $"[{modName}] Shared player identity source mismatch: {diagnostic}");
-        }
-
-        private static ulong ReadSteamId(object steamId)
-        {
-            object value = steamId == null ? null : SteamIdValueField?.GetValue(steamId);
-            return value == null ? 0UL : Convert.ToUInt64(value);
         }
 
 #endif
@@ -1240,10 +1203,13 @@ namespace Shared
             presetController.Activate();
         }
 
-        internal void ActivatePerPlayerLobbySettings(ManualLogSource log, string modName)
+        internal void PreparePerPlayerLobbySettings(
+            ManualLogSource log,
+            string modName,
+            string ownerGuid)
         {
             if (perPlayerSettingsCoordinator != null)
-                throw new InvalidOperationException($"Per-player lobby settings for [{modName}] were already activated.");
+                throw new InvalidOperationException($"Per-player lobby settings for [{modName}] were already prepared.");
 
             var builder = new PerPlayerLobbySettingsBuilder(this);
             ConfigurePerPlayerLobbySettings(builder);
@@ -1251,7 +1217,14 @@ namespace Shared
                 this,
                 log,
                 modName,
+                ownerGuid,
                 builder.Build());
+        }
+
+        internal void ActivatePerPlayerLobbySettings()
+        {
+            if (perPlayerSettingsCoordinator == null)
+                throw new InvalidOperationException("Per-player lobby settings must be prepared before activation.");
             perPlayerSettingsCoordinator.Activate();
         }
 
@@ -2259,7 +2232,10 @@ namespace Shared
             viewModel.PreparePresets(log, plugin.Info.Location, modName);
             // Structural validation must happen before the ViewModel can enter the
             // Extender registry. An invalid personal setting therefore fails closed.
-            viewModel.ActivatePerPlayerLobbySettings(log, modName);
+            viewModel.PreparePerPlayerLobbySettings(
+                log,
+                modName,
+                plugin.Info.Metadata.GUID);
             object registeredView = null;
             try
             {
@@ -2300,6 +2276,7 @@ namespace Shared
                 log,
                 modName);
             viewModel.ActivatePresets();
+            viewModel.ActivatePerPlayerLobbySettings();
 #if !SHARED_PRESET_TESTS
             // Views are created before a lobby exists. Refresh the cached role whenever
             // the persistent settings hub opens or changes its selected tab.

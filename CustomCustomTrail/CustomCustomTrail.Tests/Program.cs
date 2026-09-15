@@ -458,11 +458,13 @@ static void TestCoordinatorOwnership()
         "the shared mission preset no longer supplies defaults for missing current host settings");
     Assert(sharedPresetSystem.Contains("class PerPlayerLobbySettingsCoordinator") &&
         sharedPresetSystem.Contains("FinalizeRosterForMapTransition") &&
-        sharedPresetSystem.Contains("requireAuthoritativeLobbyRoster: true") &&
+        sharedPresetSystem.Contains("TryGetLobbyState") &&
+        sharedPresetSystem.Contains("API_SHARED_LOBBY_OBSERVER") &&
+        !sharedPresetSystem.Contains("Application.onBeforeRender") &&
         !sharedPresetSystem.Contains("PerPlayerIdentityHookAnchor") &&
         !sharedPresetSystem.Contains("ScriptExtenderMultiplayerSyncWorkaround") &&
         !sharedPresetSystem.Contains("EnsureInstalled"),
-        "shared per-player convergence still depends on the obsolete pre-2.0.2 transport workaround");
+        "shared per-player convergence does not exclusively consume the process-wide APIShared observer");
     Assert(sharedGameMode.Contains("SCRIPT EXTENDER BUG WORKAROUND") &&
         sharedGameMode.Contains("Revalidate all source semantics after every Extender update"),
         "the shared Script Extender identity workaround is not marked for removal and update review");

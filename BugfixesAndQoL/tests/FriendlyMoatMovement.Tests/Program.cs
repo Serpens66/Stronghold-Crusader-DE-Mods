@@ -177,6 +177,7 @@ void ValidateMovementEmitterAssembly(IEnumerable<MetadataReference> compilerRefe
         "GeneratePreTerrainSpeedFastPath", "GenerateCadenceFastPath",
         "EmitProfileAddress", "EmitStateMappings", "EmitRallyRunningMappings",
         "EmitRallyDiagnosticsProfileMarker",
+        "EmitRallyDiagnosticsSnapshot",
         "EmitRallyDiagnosticsWriteMarker",
         "EmitRallyDiagnosticsEntryAddress"
     };

@@ -58,6 +58,9 @@
         <member name="F:APIShared.NativeCapabilityIds.AivBuildStep">
             <summary>Capability for observing the process-wide AIV build-step function.</summary>
         </member>
+        <member name="F:APIShared.NativeCapabilityIds.LobbyState">
+            <summary>Capability for observing the process-wide multiplayer lobby state.</summary>
+        </member>
         <member name="T:APIShared.NativeCapabilityDiagnostic">
             <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
         </member>
@@ -97,11 +100,14 @@
         <member name="M:APIShared.IApiShared.TryGetAivBuildStep(System.String,APIShared.IAivBuildStepCapability@,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to acquire the process-wide AIV build-step observer capability.</summary>
         </member>
+        <member name="M:APIShared.IApiShared.TryGetLobbyState(System.String,APIShared.ILobbyStateCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Attempts to acquire the process-wide managed lobby-state observer.</summary>
+        </member>
         <member name="T:APIShared.ApiShared">
             <summary>Static access to the process-wide API and its readiness notification.</summary>
         </member>
         <member name="P:APIShared.ApiShared.Current">
-            <summary>Gets the process-wide API instance. Inspect <see cref="P:APIShared.IApiShared.State"/> before use.</summary>
+            <summary>Gets the process-wide API instance. Native capabilities require a terminal <see cref="P:APIShared.IApiShared.State"/>; managed capabilities report their own readiness.</summary>
         </member>
         <member name="M:APIShared.ApiShared.WhenReady(System.Action{APIShared.IApiShared})">
             <summary>
@@ -161,6 +167,39 @@
             <summary>Owner-bound process-wide AIV build-step observer service.</summary>
         </member>
         <member name="M:APIShared.IAivBuildStepCapability.TryRegisterObserver(System.String,APIShared.IAivBuildStepObserver,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Registers one process-lifetime observer under an owner-local stable ID.</summary>
+        </member>
+        <member name="T:APIShared.LobbyStateSnapshot">
+            <summary>Immutable process-wide observation of the current multiplayer lobby.</summary>
+        </member>
+        <member name="M:APIShared.LobbyStateSnapshot.#ctor(System.Nullable{System.UInt64},System.Collections.Generic.IReadOnlyDictionary{System.Int32,System.UInt64},System.Boolean,System.Int32,System.Boolean,System.String,System.String)">
+            <summary>Creates an immutable lobby-state snapshot.</summary>
+        </member>
+        <member name="P:APIShared.LobbyStateSnapshot.LobbyId">
+            <summary>Steam lobby identifier, or null when no lobby is active.</summary>
+        </member>
+        <member name="P:APIShared.LobbyStateSnapshot.Players">
+            <summary>Resolved one-based player slots mapped to Steam identities.</summary>
+        </member>
+        <member name="P:APIShared.LobbyStateSnapshot.HasUnresolvedPlayers">
+            <summary>Whether at least one required lobby identity is not resolved yet.</summary>
+        </member>
+        <member name="P:APIShared.LobbyStateSnapshot.LocalPlayerId">
+            <summary>Resolved one-based local player slot, or zero while unresolved.</summary>
+        </member>
+        <member name="P:APIShared.LobbyStateSnapshot.PreserveForMapTransition">
+            <summary>Whether a missing lobby must be preserved for an ongoing map transition.</summary>
+        </member>
+        <member name="P:APIShared.LobbyStateSnapshot.Error">
+            <summary>Observation failure that consumers must treat as not ready.</summary>
+        </member>
+        <member name="P:APIShared.LobbyStateSnapshot.Diagnostic">
+            <summary>Non-fatal identity-source diagnostic.</summary>
+        </member>
+        <member name="T:APIShared.ILobbyStateCapability">
+            <summary>Owner-bound observer for the single process-wide lobby-state source.</summary>
+        </member>
+        <member name="M:APIShared.ILobbyStateCapability.TryRegisterObserver(System.String,System.Action{APIShared.LobbyStateSnapshot},APIShared.NativeCapabilityDiagnostic@)">
             <summary>Registers one process-lifetime observer under an owner-local stable ID.</summary>
         </member>
         <member name="T:APIShared.UnitHudSurface">

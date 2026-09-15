@@ -45,6 +45,8 @@ namespace APIShared
         public const string UnitHudPresentation = "unit-hud-presentation";
         /// <summary>Capability for observing the process-wide AIV build-step function.</summary>
         public const string AivBuildStep = "aiv-build-step";
+        /// <summary>Capability for observing the process-wide multiplayer lobby state.</summary>
+        public const string LobbyState = "lobby-state";
     }
 
     /// <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
@@ -102,12 +104,17 @@ namespace APIShared
             string ownerGuid,
             out IAivBuildStepCapability capability,
             out NativeCapabilityDiagnostic diagnostic);
+        /// <summary>Attempts to acquire the process-wide managed lobby-state observer.</summary>
+        bool TryGetLobbyState(
+            string ownerGuid,
+            out ILobbyStateCapability capability,
+            out NativeCapabilityDiagnostic diagnostic);
     }
 
     /// <summary>Static access to the process-wide API and its readiness notification.</summary>
     public static class ApiShared
     {
-        /// <summary>Gets the process-wide API instance. Inspect <see cref="IApiShared.State"/> before use.</summary>
+        /// <summary>Gets the process-wide API instance. Native capabilities require a terminal <see cref="IApiShared.State"/>; managed capabilities report their own readiness.</summary>
         public static IApiShared Current => ApiSharedRuntime.ProcessInstance;
 
         /// <summary>

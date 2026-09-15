@@ -35,7 +35,7 @@ namespace BugfixesAndQoL
         private const int MaximumUnitTypeHandlerLength = 0x5000;
         private const ulong UnitRecordOffset = 0x65CUL;
 
-        private const int RallyEntrySize = 32;
+        private const int RallyEntrySize = 96;
         private const int RallyOwnerOffset = 0;
         // Vanilla's monotonically assigned GlobalId is the generation token
         // which distinguishes a reused 1-based unit-array slot.
@@ -57,11 +57,36 @@ namespace BugfixesAndQoL
         private const int RallyDiagnosticsWrittenAnimationOffset = 24;
         private const int RallyDiagnosticsWrittenBonusOffset = 28;
         private const int RallyDiagnosticsCadenceVisitsOffset = 30;
+        private const int RallyDiagnosticsFirstCurrentUnitIdOffset = 32;
+        private const int RallyDiagnosticsLastCurrentUnitIdOffset = 36;
+        private const int RallyDiagnosticsFirstGlobalIdOffset = 40;
+        private const int RallyDiagnosticsLastGlobalIdOffset = 44;
+        private const int RallyDiagnosticsFirstAnimationOffset = 48;
+        private const int RallyDiagnosticsLastAnimationOffset = 52;
+        private const int RallyDiagnosticsFirstAliveStateOffset = 56;
+        private const int RallyDiagnosticsLastAliveStateOffset = 58;
+        private const int RallyDiagnosticsFirstUnitTypeOffset = 60;
+        private const int RallyDiagnosticsLastUnitTypeOffset = 62;
+        private const int RallyDiagnosticsFirstAiStateOffset = 64;
+        private const int RallyDiagnosticsLastAiStateOffset = 66;
+        private const int RallyDiagnosticsFirstTransformTypeOffset = 68;
+        private const int RallyDiagnosticsLastTransformTypeOffset = 70;
+        private const int RallyDiagnosticsFirstPathFlagsOffset = 72;
+        private const int RallyDiagnosticsLastPathFlagsOffset = 74;
+        private const int RallyDiagnosticsFirstTargetXOffset = 76;
+        private const int RallyDiagnosticsFirstTargetYOffset = 78;
+        private const int RallyDiagnosticsLastTargetXOffset = 80;
+        private const int RallyDiagnosticsLastTargetYOffset = 82;
+        private const int RallyDiagnosticsSnapshotCountOffset = 84;
+        private const int RallyDiagnosticsTransitionCountOffset = 86;
+        private const int RallyDiagnosticsFirstOwnerOffset = 88;
+        private const int RallyDiagnosticsLastOwnerOffset = 89;
         private const byte RallyDiagnosticsRegistered = 1 << 0;
         private const byte RallyDiagnosticsIdentityConfirmed = 1 << 1;
         private const byte RallyDiagnosticsPathObserved = 1 << 2;
         private const byte RallyDiagnosticsProfileResolved = 1 << 3;
         private const byte RallyDiagnosticsCadenceWritten = 1 << 4;
+        private const byte RallyDiagnosticsSnapshotCaptured = 1 << 5;
         private const byte RallyDiagnosticsAbortDead = 1;
         private const byte RallyDiagnosticsAbortGeneration = 2;
         private const byte RallyDiagnosticsAbortOwner = 3;
@@ -397,10 +422,14 @@ namespace BugfixesAndQoL
                 entry + RallyDiagnosticsWrittenBonusOffset);
             ushort cadenceVisits = *(ushort*)(
                 entry + RallyDiagnosticsCadenceVisitsOffset);
+            ushort snapshotCount = *(ushort*)(
+                entry + RallyDiagnosticsSnapshotCountOffset);
+            ushort transitionCount = *(ushort*)(
+                entry + RallyDiagnosticsTransitionCountOffset);
             Shared.DebugLogHelper.LogInfo(
                 log,
                 "RALLY_ANIMATION_DIAGNOSTICS " +
-                $"unitId={unitId}, active={entry[RallyActiveOffset] != 0}, " +
+                $"tableUnitId={unitId}, active={entry[RallyActiveOffset] != 0}, " +
                 $"owner={*(int*)(entry + RallyOwnerOffset)}, " +
                 $"globalId={*(uint*)(entry + RallyGenerationGlobalIdOffset)}, " +
                 $"expectedType={*(ushort*)(entry + RallyUnitTypeOffset)}, " +
@@ -411,6 +440,29 @@ namespace BugfixesAndQoL
                 $"written={(status & RallyDiagnosticsCadenceWritten) != 0}, " +
                 $"abort={DescribeRallyDiagnosticsAbort(abortReason)}, " +
                 $"visits={cadenceVisits}, " +
+                $"snapshots={snapshotCount}, transitions={transitionCount}, " +
+                $"currentUnitId={*(uint*)(entry + RallyDiagnosticsFirstCurrentUnitIdOffset)}->" +
+                $"{*(uint*)(entry + RallyDiagnosticsLastCurrentUnitIdOffset)}, " +
+                $"actualGlobalId={*(uint*)(entry + RallyDiagnosticsFirstGlobalIdOffset)}->" +
+                $"{*(uint*)(entry + RallyDiagnosticsLastGlobalIdOffset)}, " +
+                $"alive={*(ushort*)(entry + RallyDiagnosticsFirstAliveStateOffset)}->" +
+                $"{*(ushort*)(entry + RallyDiagnosticsLastAliveStateOffset)}, " +
+                $"actualType={*(ushort*)(entry + RallyDiagnosticsFirstUnitTypeOffset)}->" +
+                $"{*(ushort*)(entry + RallyDiagnosticsLastUnitTypeOffset)}, " +
+                $"actualOwner={entry[RallyDiagnosticsFirstOwnerOffset]}->" +
+                $"{entry[RallyDiagnosticsLastOwnerOffset]}, " +
+                $"aiState={*(ushort*)(entry + RallyDiagnosticsFirstAiStateOffset)}->" +
+                $"{*(ushort*)(entry + RallyDiagnosticsLastAiStateOffset)}, " +
+                $"transformType={*(ushort*)(entry + RallyDiagnosticsFirstTransformTypeOffset)}->" +
+                $"{*(ushort*)(entry + RallyDiagnosticsLastTransformTypeOffset)}, " +
+                $"pathFlags=0x{*(ushort*)(entry + RallyDiagnosticsFirstPathFlagsOffset):X}->" +
+                $"0x{*(ushort*)(entry + RallyDiagnosticsLastPathFlagsOffset):X}, " +
+                $"target=({*(ushort*)(entry + RallyDiagnosticsFirstTargetXOffset)}," +
+                $"{*(ushort*)(entry + RallyDiagnosticsFirstTargetYOffset)})->" +
+                $"({*(ushort*)(entry + RallyDiagnosticsLastTargetXOffset)}," +
+                $"{*(ushort*)(entry + RallyDiagnosticsLastTargetYOffset)}), " +
+                $"animation=0x{*(uint*)(entry + RallyDiagnosticsFirstAnimationOffset):X}->" +
+                $"0x{*(uint*)(entry + RallyDiagnosticsLastAnimationOffset):X}, " +
                 $"observedAnimation=0x{observedAnimation:X}, " +
                 $"writtenAnimation=0x{writtenAnimation:X}, " +
                 $"writtenBonus={writtenBonus}.");
@@ -756,6 +808,7 @@ namespace BugfixesAndQoL
             assembler.mov(
                 __word_ptr[rax + RallyDiagnosticsCadenceVisitsOffset],
                 cx);
+            EmitRallyDiagnosticsSnapshot(assembler);
             // RALLY_ANIMATION_DIAGNOSTICS_END
             assembler.cmp(
                 __word_ptr[r8 + UnitAliveStateManagerOffset],
@@ -1105,6 +1158,208 @@ namespace BugfixesAndQoL
             assembler.or(
                 __byte_ptr[rax + RallyDiagnosticsStatusOffset],
                 RallyDiagnosticsProfileResolved);
+            assembler.mov(rax, r10);
+        }
+
+        private void EmitRallyDiagnosticsSnapshot(Assembler assembler)
+        {
+            Label compareLast = assembler.CreateLabel(
+                "cadenceRallyDiagnosticsCompareLast");
+            Label stateChanged = assembler.CreateLabel(
+                "cadenceRallyDiagnosticsStateChanged");
+            Label updateLast = assembler.CreateLabel(
+                "cadenceRallyDiagnosticsUpdateLast");
+
+            // Preserve the already resolved rally-entry pointer in R10. RAX,
+            // RCX and R10 are overwritten by the displaced Vanilla block.
+            assembler.mov(r10, rax);
+            assembler.test(
+                __byte_ptr[r10 + RallyDiagnosticsStatusOffset],
+                RallyDiagnosticsSnapshotCaptured);
+            assembler.jne(compareLast);
+            assembler.or(
+                __byte_ptr[r10 + RallyDiagnosticsStatusOffset],
+                RallyDiagnosticsSnapshotCaptured);
+
+            assembler.mov(rax, currentUnitIdAddress);
+            assembler.mov(eax, __dword_ptr[rax]);
+            assembler.mov(
+                __dword_ptr[r10 + RallyDiagnosticsFirstCurrentUnitIdOffset],
+                eax);
+            assembler.mov(ecx, __dword_ptr[r8 + UnitGlobalIdManagerOffset]);
+            assembler.mov(
+                __dword_ptr[r10 + RallyDiagnosticsFirstGlobalIdOffset],
+                ecx);
+            assembler.mov(
+                ecx,
+                __dword_ptr[r8 + UnitAnimationStateManagerOffset]);
+            assembler.mov(
+                __dword_ptr[r10 + RallyDiagnosticsFirstAnimationOffset],
+                ecx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitAliveStateManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsFirstAliveStateOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitTypeManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsFirstUnitTypeOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitAiStateManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsFirstAiStateOffset],
+                cx);
+            assembler.movzx(
+                ecx,
+                __word_ptr[r8 + UnitTransformTypeManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsFirstTransformTypeOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitPathStateManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsFirstPathFlagsOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitTargetXManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsFirstTargetXOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitTargetYManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsFirstTargetYOffset],
+                cx);
+            assembler.movzx(ecx, __byte_ptr[r8 + UnitOwnerManagerOffset]);
+            assembler.mov(
+                __byte_ptr[r10 + RallyDiagnosticsFirstOwnerOffset],
+                cl);
+            assembler.jmp(updateLast);
+
+            assembler.Label(ref compareLast);
+            assembler.mov(rax, currentUnitIdAddress);
+            assembler.mov(eax, __dword_ptr[rax]);
+            assembler.cmp(
+                __dword_ptr[r10 + RallyDiagnosticsLastCurrentUnitIdOffset],
+                eax);
+            assembler.jne(stateChanged);
+            assembler.mov(ecx, __dword_ptr[r8 + UnitGlobalIdManagerOffset]);
+            assembler.cmp(
+                __dword_ptr[r10 + RallyDiagnosticsLastGlobalIdOffset],
+                ecx);
+            assembler.jne(stateChanged);
+            assembler.mov(
+                ecx,
+                __dword_ptr[r8 + UnitAnimationStateManagerOffset]);
+            assembler.cmp(
+                __dword_ptr[r10 + RallyDiagnosticsLastAnimationOffset],
+                ecx);
+            assembler.jne(stateChanged);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitAliveStateManagerOffset]);
+            assembler.cmp(
+                __word_ptr[r10 + RallyDiagnosticsLastAliveStateOffset],
+                cx);
+            assembler.jne(stateChanged);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitTypeManagerOffset]);
+            assembler.cmp(
+                __word_ptr[r10 + RallyDiagnosticsLastUnitTypeOffset],
+                cx);
+            assembler.jne(stateChanged);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitAiStateManagerOffset]);
+            assembler.cmp(
+                __word_ptr[r10 + RallyDiagnosticsLastAiStateOffset],
+                cx);
+            assembler.jne(stateChanged);
+            assembler.movzx(
+                ecx,
+                __word_ptr[r8 + UnitTransformTypeManagerOffset]);
+            assembler.cmp(
+                __word_ptr[r10 + RallyDiagnosticsLastTransformTypeOffset],
+                cx);
+            assembler.jne(stateChanged);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitPathStateManagerOffset]);
+            assembler.cmp(
+                __word_ptr[r10 + RallyDiagnosticsLastPathFlagsOffset],
+                cx);
+            assembler.jne(stateChanged);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitTargetXManagerOffset]);
+            assembler.cmp(
+                __word_ptr[r10 + RallyDiagnosticsLastTargetXOffset],
+                cx);
+            assembler.jne(stateChanged);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitTargetYManagerOffset]);
+            assembler.cmp(
+                __word_ptr[r10 + RallyDiagnosticsLastTargetYOffset],
+                cx);
+            assembler.jne(stateChanged);
+            assembler.movzx(ecx, __byte_ptr[r8 + UnitOwnerManagerOffset]);
+            assembler.cmp(
+                __byte_ptr[r10 + RallyDiagnosticsLastOwnerOffset],
+                cl);
+            assembler.je(updateLast);
+
+            assembler.Label(ref stateChanged);
+            assembler.movzx(
+                ecx,
+                __word_ptr[r10 + RallyDiagnosticsTransitionCountOffset]);
+            assembler.add(ecx, 1);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsTransitionCountOffset],
+                cx);
+
+            assembler.Label(ref updateLast);
+            assembler.mov(rax, currentUnitIdAddress);
+            assembler.mov(eax, __dword_ptr[rax]);
+            assembler.mov(
+                __dword_ptr[r10 + RallyDiagnosticsLastCurrentUnitIdOffset],
+                eax);
+            assembler.mov(ecx, __dword_ptr[r8 + UnitGlobalIdManagerOffset]);
+            assembler.mov(
+                __dword_ptr[r10 + RallyDiagnosticsLastGlobalIdOffset],
+                ecx);
+            assembler.mov(
+                ecx,
+                __dword_ptr[r8 + UnitAnimationStateManagerOffset]);
+            assembler.mov(
+                __dword_ptr[r10 + RallyDiagnosticsLastAnimationOffset],
+                ecx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitAliveStateManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsLastAliveStateOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitTypeManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsLastUnitTypeOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitAiStateManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsLastAiStateOffset],
+                cx);
+            assembler.movzx(
+                ecx,
+                __word_ptr[r8 + UnitTransformTypeManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsLastTransformTypeOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitPathStateManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsLastPathFlagsOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitTargetXManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsLastTargetXOffset],
+                cx);
+            assembler.movzx(ecx, __word_ptr[r8 + UnitTargetYManagerOffset]);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsLastTargetYOffset],
+                cx);
+            assembler.movzx(ecx, __byte_ptr[r8 + UnitOwnerManagerOffset]);
+            assembler.mov(
+                __byte_ptr[r10 + RallyDiagnosticsLastOwnerOffset],
+                cl);
+            assembler.movzx(
+                ecx,
+                __word_ptr[r10 + RallyDiagnosticsSnapshotCountOffset]);
+            assembler.add(ecx, 1);
+            assembler.mov(
+                __word_ptr[r10 + RallyDiagnosticsSnapshotCountOffset],
+                cx);
             assembler.mov(rax, r10);
         }
 
