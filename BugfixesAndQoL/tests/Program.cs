@@ -57,6 +57,8 @@ namespace BugfixesAndQoL
             TestNotificationManagedContracts();
             TestNotificationQueueNearCallResolver();
             TestNotificationSkipIntegration();
+            TestAllyGoodsTransferPolicy();
+            TestAllyGoodsTransferIntegration();
             TestMinimapInputIntegration();
             TestPlacementCancelMoveSuppressionPolicy();
             TestPlacementCancelMoveSuppressionIntegration();
@@ -569,6 +571,85 @@ namespace BugfixesAndQoL
 
             Check(wrongOpcodeRejected && truncatedCallRejected,
                 "production near-call resolver rejects wrong opcodes and truncated calls");
+        }
+
+        private static void TestAllyGoodsTransferPolicy()
+        {
+            Check(AllyGoodsTransferPolicy.ShouldForceConfirmVisible(
+                    true, true, true, 2, 25),
+                "ally goods confirm remains visible for a valid send selection");
+            Check(!AllyGoodsTransferPolicy.ShouldForceConfirmVisible(
+                    false, true, true, 2, 25) &&
+                  !AllyGoodsTransferPolicy.ShouldForceConfirmVisible(
+                    true, false, true, 2, 25),
+                "disabled client features or ally amount setting preserve Vanilla visibility");
+            Check(!AllyGoodsTransferPolicy.ShouldForceConfirmVisible(
+                    true, true, false, 2, 25),
+                "ally goods requests preserve Vanilla visibility");
+            Check(!AllyGoodsTransferPolicy.ShouldForceConfirmVisible(
+                    true, true, true, 0, 25) &&
+                  !AllyGoodsTransferPolicy.ShouldForceConfirmVisible(
+                    true, true, true, 25, 25) &&
+                  !AllyGoodsTransferPolicy.ShouldForceConfirmVisible(
+                    true, true, true, 2, 0),
+                "invalid goods or non-positive amounts do not expose ally goods confirm");
+            Check(AllyGoodsTransferPolicy.IsSendSuccessful(0) &&
+                  !AllyGoodsTransferPolicy.IsSendSuccessful(1) &&
+                  !AllyGoodsTransferPolicy.IsSendSuccessful(-1) &&
+                  !AllyGoodsTransferPolicy.IsSendRejected(0) &&
+                  !AllyGoodsTransferPolicy.IsSendRejected(-1) &&
+                  AllyGoodsTransferPolicy.IsSendRejected(1) &&
+                  AllyGoodsTransferPolicy.IsSendRejected(int.MaxValue),
+                "only ally goods result zero succeeds and positive results reject");
+        }
+
+        private static void TestAllyGoodsTransferIntegration()
+        {
+            string hook = File.ReadAllText(Path.Combine("src", "AllyGoodsAmountModifierHook.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            int confirmationStart = hook.IndexOf(
+                "private void HandleSendConfirmation",
+                StringComparison.Ordinal);
+            int confirmationEnd = hook.IndexOf(
+                "private void UpdateGoodsHook",
+                confirmationStart,
+                StringComparison.Ordinal);
+            string confirmationHandler = hook.Substring(
+                confirmationStart,
+                confirmationEnd - confirmationStart);
+
+            Check(hook.Split(new[] { "GameActionCommand.Ally_SendGoods" },
+                      StringSplitOptions.None).Length == 2 &&
+                  hook.Contains("int result = EngineInterface.GameAction(") &&
+                  hook.Contains("IsSendSuccessful(result)") &&
+                  hook.Contains("IsSendRejected(result)") &&
+                  !confirmationHandler.Contains("buttonClickedTrampoline") &&
+                  !confirmationHandler.Contains("SetValue("),
+                "ally goods confirmation submits exactly one Vanilla action and preserves the open panel and selection on success");
+            Check(hook.Contains("Space_Warning7.wav") &&
+                  hook.IndexOf("IsSendRejected(result)", StringComparison.Ordinal) <
+                  hook.IndexOf("Space_Warning7.wav", StringComparison.Ordinal) &&
+                  hook.Contains("the panel remains open and the action is not retried"),
+                "rejected ally goods sends warn, remain open and are never retried");
+            Check(hook.Contains("updateGoodsTrampoline(self);") &&
+                  hook.IndexOf(
+                      "ShouldForceConfirmVisible(",
+                      hook.IndexOf("updateGoodsTrampoline(self);", StringComparison.Ordinal),
+                      StringComparison.Ordinal) >
+                  hook.IndexOf("updateGoodsTrampoline(self);", StringComparison.Ordinal) &&
+                  hook.Contains("Allies_GoodConfirmVis = true") &&
+                  !hook.Contains("OnTick") &&
+                  !hook.Contains("onBeforeRender"),
+                "ally goods visibility extends Vanilla UpdateGoods without polling");
+            Check(hook.Contains("Allies_SendGoodsViewVis") &&
+                  !hook.Contains("GameActionCommand.Ally_RequestGoods"),
+                "ally request confirmation remains owned by Vanilla");
+            Check(runtime.Contains(
+                    "private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;") &&
+                  runtime.Contains("processAllyGoodsAmountModifierHook = candidate;") &&
+                  !runtime.Contains("processAllyGoodsAmountModifierHook?.Dispose") &&
+                  !hook.Contains("public void Dispose()"),
+                "ally goods hook is process-rooted and never torn down normally");
         }
 
         private static void TestPlacementCancelMoveSuppressionPolicy()

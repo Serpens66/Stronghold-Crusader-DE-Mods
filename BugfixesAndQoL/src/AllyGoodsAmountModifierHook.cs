@@ -13,21 +13,28 @@ using UnityEngine;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class AllyGoodsAmountModifierHook : IDisposable, INotifyPropertyChanged
+    internal sealed class AllyGoodsAmountModifierHook : INotifyPropertyChanged
     {
         private delegate void ButtonClickedDelegate(HUD_AlliesPanel self, string parameter);
+        private delegate void UpdateGoodsDelegate(HUD_AlliesPanel self);
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
+        private readonly FieldInfo selectedGoodsField;
         private readonly FieldInfo selectedGoodsAmountField;
+        private readonly FieldInfo currentAllyField;
+        private readonly FieldInfo allyCountField;
+        private readonly FieldInfo allyArrayField;
         private readonly MethodInfo updateGoodsMethod;
         private readonly Hook buttonClickedHook;
         private readonly ButtonClickedDelegate buttonClickedTrampoline;
+        private readonly Hook updateGoodsHook;
+        private readonly UpdateGoodsDelegate updateGoodsTrampoline;
         private readonly IDisposable keyDownSubscription;
         private readonly IDisposable keyUpSubscription;
         private DisplayMode displayMode;
         private bool failureLogged;
-        private bool disposed;
+        private bool sendFailureLogged;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -45,14 +52,19 @@ namespace BugfixesAndQoL
             Type panelType = typeof(HUD_AlliesPanel);
             MethodInfo buttonClickedMethod = FindMethod(panelType, "ButtonClicked", new[] { typeof(string) });
             updateGoodsMethod = FindMethod(panelType, "UpdateGoods", Type.EmptyTypes);
+            selectedGoodsField = FindIntField(panelType, "selectedGoods");
+            currentAllyField = FindIntField(panelType, "curr_ally");
+            allyCountField = FindIntField(panelType, "num_allies");
+            allyArrayField = FindField(panelType, "ally", typeof(int[]));
             selectedGoodsAmountField = panelType.GetField(
                 "selectedGoodsAmount",
-                BindingFlags.Instance | BindingFlags.NonPublic);
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
             if (selectedGoodsAmountField == null || selectedGoodsAmountField.FieldType != typeof(int))
                 throw new MissingFieldException(panelType.FullName, "selectedGoodsAmount");
 
             Hook installedHook = null;
+            Hook installedUpdateGoodsHook = null;
             IDisposable installedKeyDownSubscription = null;
             IDisposable installedKeyUpSubscription = null;
             bool focusChangedSubscribed = false;
@@ -61,6 +73,10 @@ namespace BugfixesAndQoL
                 installedHook = new Hook(buttonClickedMethod, (ButtonClickedDelegate)ButtonClickedHook);
                 buttonClickedTrampoline = installedHook.GenerateTrampoline<ButtonClickedDelegate>();
                 buttonClickedHook = installedHook;
+
+                installedUpdateGoodsHook = new Hook(updateGoodsMethod, (UpdateGoodsDelegate)UpdateGoodsHook);
+                updateGoodsTrampoline = installedUpdateGoodsHook.GenerateTrampoline<UpdateGoodsDelegate>();
+                updateGoodsHook = installedUpdateGoodsHook;
 
                 installedKeyDownSubscription = InputR3EventHooks.OnKeyDown.Observable
                     .Subscribe(OnModifierKeyChanged);
@@ -78,6 +94,8 @@ namespace BugfixesAndQoL
                     Application.focusChanged -= OnFocusChanged;
                 installedKeyUpSubscription?.Dispose();
                 installedKeyDownSubscription?.Dispose();
+                installedUpdateGoodsHook?.Undo();
+                installedUpdateGoodsHook?.Dispose();
                 installedHook?.Undo();
                 installedHook?.Dispose();
                 throw;
@@ -86,20 +104,13 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL ally goods amount modifier hook installed.");
         }
 
-        public void Dispose()
+        internal void RefreshSetting()
         {
-            if (disposed)
-                return;
-
-            disposed = true;
-            Application.focusChanged -= OnFocusChanged;
-            keyUpSubscription?.Dispose();
-            keyDownSubscription?.Dispose();
-            buttonClickedHook?.Undo();
-            buttonClickedHook?.Dispose();
+            RefreshDisplayedAmounts();
+            HUD_AlliesPanel panel = MainViewModel.Instance?.HUDAlliesPanel;
+            if (panel != null)
+                updateGoodsMethod.Invoke(panel, null);
         }
-
-        internal void RefreshSetting() => RefreshDisplayedAmounts();
 
         internal static int CalculateAmount(int currentAmount, int buttonAmount, bool subtract, bool shift, bool control)
         {
@@ -116,6 +127,13 @@ namespace BugfixesAndQoL
 
         private void ButtonClickedHook(HUD_AlliesPanel self, string parameter)
         {
+            if (IsSendConfirmationContext(parameter))
+            {
+                if (TryGetSendParameters(self, out int allyId, out int goodsId, out int amount))
+                    HandleSendConfirmation(allyId, goodsId, amount);
+                return;
+            }
+
             if (!settings.EnableClientFeatures ||
                 !settings.EnableAllyGoodsAmountModifiers ||
                 !TryGetKnownAmountButton(parameter, out int buttonAmount, out bool subtract))
@@ -155,6 +173,88 @@ namespace BugfixesAndQoL
             }
         }
 
+        private bool IsSendConfirmationContext(string parameter)
+        {
+            MainViewModel viewModel = MainViewModel.Instance;
+            return settings.EnableClientFeatures &&
+                settings.EnableAllyGoodsAmountModifiers &&
+                string.Equals(parameter, "ConfirmGoods", StringComparison.Ordinal) &&
+                viewModel != null &&
+                viewModel.Allies_SendGoodsViewVis;
+        }
+
+        private bool TryGetSendParameters(HUD_AlliesPanel self, out int allyId, out int goodsId, out int amount)
+        {
+            allyId = 0;
+            goodsId = (int)selectedGoodsField.GetValue(self);
+            amount = (int)selectedGoodsAmountField.GetValue(self);
+            int currentAlly = (int)currentAllyField.GetValue(self);
+            int allyCount = (int)allyCountField.GetValue(self);
+            int[] allies = (int[])allyArrayField.GetValue(self);
+
+            if (!AllyGoodsTransferPolicy.ShouldForceConfirmVisible(true, true, true, goodsId, amount) ||
+                allies == null ||
+                currentAlly < 0 ||
+                currentAlly >= allyCount ||
+                currentAlly >= allies.Length)
+            {
+                return false;
+            }
+
+            allyId = allies[currentAlly];
+            return allyId >= 0;
+        }
+
+        private void HandleSendConfirmation(int allyId, int goodsId, int amount)
+        {
+            try
+            {
+                int result = EngineInterface.GameAction(
+                    Enums.GameActionCommand.Ally_SendGoods,
+                    allyId,
+                    goodsId,
+                    amount);
+
+                if (AllyGoodsTransferPolicy.IsSendSuccessful(result))
+                    return;
+
+                if (AllyGoodsTransferPolicy.IsSendRejected(result))
+                    SFXManager.instance?.playSpeech(1, "Space_Warning7.wav", 1f);
+            }
+            catch (Exception ex)
+            {
+                // Never retry after GameAction may have submitted the synchronized action.
+                if (!sendFailureLogged)
+                {
+                    sendFailureLogged = true;
+                    Shared.DebugLogHelper.LogError(
+                        log,
+                        $"Bugfixes and QoL ally goods confirmation failed; the panel remains open and the action is not retried: {ex}");
+                }
+            }
+        }
+
+        private void UpdateGoodsHook(HUD_AlliesPanel self)
+        {
+            updateGoodsTrampoline(self);
+
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (viewModel == null)
+                return;
+
+            int selectedGoods = (int)selectedGoodsField.GetValue(self);
+            int selectedGoodsAmount = (int)selectedGoodsAmountField.GetValue(self);
+            if (AllyGoodsTransferPolicy.ShouldForceConfirmVisible(
+                    settings.EnableClientFeatures,
+                    settings.EnableAllyGoodsAmountModifiers,
+                    viewModel.Allies_SendGoodsViewVis,
+                    selectedGoods,
+                    selectedGoodsAmount))
+            {
+                viewModel.Allies_GoodConfirmVis = true;
+            }
+        }
+
         private static bool IsHeld(KeyCode left, KeyCode right) =>
             Input.GetKey(left) || Input.GetKey(right);
 
@@ -174,9 +274,6 @@ namespace BugfixesAndQoL
 
         private void RefreshDisplayedAmounts()
         {
-            if (disposed)
-                return;
-
             DisplayMode newMode = DisplayMode.Normal;
             if (settings.EnableClientFeatures && settings.EnableAllyGoodsAmountModifiers)
             {
@@ -251,6 +348,19 @@ namespace BugfixesAndQoL
             if (method == null || method.ReturnType != typeof(void))
                 throw new MissingMethodException(type.FullName, name);
             return method;
+        }
+
+        private static FieldInfo FindIntField(Type type, string name)
+            => FindField(type, name, typeof(int));
+
+        private static FieldInfo FindField(Type type, string name, Type fieldType)
+        {
+            FieldInfo field = type.GetField(
+                name,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field == null || field.FieldType != fieldType)
+                throw new MissingFieldException(type.FullName, name);
+            return field;
         }
 
         private enum DisplayMode

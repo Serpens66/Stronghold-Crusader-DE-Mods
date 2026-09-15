@@ -174,16 +174,20 @@ internal static class Program
               allyGoods.Contains("InputR3EventHooks.OnKeyUp.Observable") &&
               allyGoods.Contains("Application.focusChanged += OnFocusChanged") &&
               allyGoods.Contains("Application.focusChanged -= OnFocusChanged") &&
-              allyGoods.Contains("keyDownSubscription?.Dispose()") &&
-              allyGoods.Contains("keyUpSubscription?.Dispose()"),
-            "Ally-Goods key/focus subscriptions have complete lifecycle cleanup");
+              !allyGoods.Contains("keyDownSubscription?.Dispose()") &&
+              !allyGoods.Contains("keyUpSubscription?.Dispose()") &&
+              !allyGoods.Contains("public void Dispose()"),
+            "Ally-Goods key/focus subscriptions remain process-rooted without normal teardown");
         Check(allyGoods.Contains("Input.GetKey(left) || Input.GetKey(right)") &&
-              allyGoods.Contains("RefreshSetting() => RefreshDisplayedAmounts()"),
+              allyGoods.Contains("internal void RefreshSetting()") &&
+              allyGoods.Contains("updateGoodsMethod.Invoke(panel, null);"),
             "Ally-Goods captures both modifier sides and supports settings refresh");
 
         string runtime = File.ReadAllText(Path.Combine(sourceRoot, "BugfixesAndQoLRuntime.cs"));
-        Check(runtime.Contains("allyGoodsAmountModifierHook?.RefreshSetting()"),
-            "Ally-Goods settings application refresh is wired");
+        Check(runtime.Contains("private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;") &&
+              runtime.Contains("processAllyGoodsAmountModifierHook?.RefreshSetting()") &&
+              !runtime.Contains("processAllyGoodsAmountModifierHook?.Dispose"),
+            "Ally-Goods settings refresh is wired to the process-rooted runtime");
 
         string health = File.ReadAllText(Path.Combine(sourceRoot, "SelectedUnitHealthFeature.cs"));
         Check(health.Contains("readonly SelectedUnitHealthSummary[] summaries") &&

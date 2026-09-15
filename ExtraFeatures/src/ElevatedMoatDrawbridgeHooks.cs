@@ -12,7 +12,6 @@ namespace ExtraFeatures
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
             ulong featureActiveFlagAddress,
-            ulong imageBase,
             ulong stateUpdateAddress)
         {
             if (overwrittenInstructions.Length != 3 ||
@@ -41,23 +40,17 @@ namespace ExtraFeatures
             assembler.AddInstruction(overwrittenInstructions[1]);
 
             Label vanillaWrite = assembler.CreateLabel("completedDrawbridgeVanillaHeightWrite");
-            Label applyElevatedHeight = assembler.CreateLabel("completedDrawbridgeApplyElevatedHeight");
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaWrite);
 
-            // Vanilla's allocator stored the already calculated building height in the
-            // new record. R13 is its building id; RAX/RDX are dead after the state call.
-            assembler.mov(rax, r13);
-            assembler.imul(rax, rax, ElevatedMoatNativeContract.BuildingRecordStride);
-            assembler.mov(rdx, imageBase + ElevatedMoatNativeContract.BuildingHeightAddressRva);
-            assembler.movzx(eax, __word_ptr[rdx + rax]);
+            // The drawbridge tile is the walkable surface, not the excavated moat
+            // floor. Keep Vanilla's zero on ordinary terrain and retain the tile's
+            // original surface height only above Vanilla's terrain limit. RAX is dead
+            // after Vanilla's state call and the following paths do not consume flags.
+            assembler.movzx(eax,
+                __byte_ptr[rbx + r14 + ElevatedMoatNativeContract.TileDefaultHeightGridOffset]);
             assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
             assembler.jbe(vanillaWrite);
-            assembler.add(eax, ElevatedMoatNativeContract.DrawbridgeDeckHeightOffset);
-            assembler.cmp(eax, ElevatedMoatNativeContract.MaximumTileHeight);
-            assembler.jbe(applyElevatedHeight);
-            assembler.mov(eax, ElevatedMoatNativeContract.MaximumTileHeight);
 
-            assembler.Label(ref applyElevatedHeight);
             assembler.mov(__byte_ptr[rbx + r14 + ElevatedMoatNativeContract.TileHeightGridOffset], al);
             assembler.AddUnrestrictedJmp(returnAddress);
 
@@ -93,22 +86,17 @@ namespace ExtraFeatures
             }
 
             Label vanillaWrite = assembler.CreateLabel("loweredDrawbridgeVanillaHeightWrite");
-            Label applyElevatedHeight = assembler.CreateLabel("loweredDrawbridgeApplyElevatedHeight");
             Label restoreImageBase = assembler.CreateLabel("loweredDrawbridgeRestoreImageBase");
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaWrite);
 
-            // R13 is already buildingId * BuildingRecordStride in this function.
-            // RAX is volatile and dead here; the untouched INC replaces flags.
-            assembler.mov(rax, imageBase + ElevatedMoatNativeContract.BuildingHeightAddressRva);
-            assembler.movzx(eax, __word_ptr[rax + r13]);
+            // RDI is the audited tile ID. Preserve the original walkable surface
+            // height only above Vanilla's terrain limit. RAX is dead here; Vanilla's
+            // following INC replaces flags before they are consumed.
+            assembler.movzx(eax,
+                __byte_ptr[rbx + rdi + ElevatedMoatNativeContract.TileDefaultHeightGridOffset]);
             assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
             assembler.jbe(vanillaWrite);
-            assembler.add(eax, ElevatedMoatNativeContract.DrawbridgeDeckHeightOffset);
-            assembler.cmp(eax, ElevatedMoatNativeContract.MaximumTileHeight);
-            assembler.jbe(applyElevatedHeight);
-            assembler.mov(eax, ElevatedMoatNativeContract.MaximumTileHeight);
 
-            assembler.Label(ref applyElevatedHeight);
             assembler.mov(__byte_ptr[rbx + rdi + ElevatedMoatNativeContract.TileHeightGridOffset], al);
             assembler.jmp(restoreImageBase);
 
@@ -117,6 +105,105 @@ namespace ExtraFeatures
 
             assembler.Label(ref restoreImageBase);
             assembler.AddInstruction(overwrittenInstructions[1]);
+        }
+
+        internal static void GenerateSpecialRenderer(
+            Assembler assembler,
+            ReadOnlySpan<Instruction> overwrittenInstructions,
+            ulong returnAddress,
+            ulong featureActiveFlagAddress,
+            ulong currentTileHeightAddress)
+        {
+            if (overwrittenInstructions.Length != 6 ||
+                overwrittenInstructions[0].Length != 3 ||
+                overwrittenInstructions[0].Mnemonic != Mnemonic.Mov ||
+                overwrittenInstructions[0].Op0Register != Register.RAX ||
+                overwrittenInstructions[0].Op1Register != Register.RSP ||
+                overwrittenInstructions[1].Length != 4 ||
+                overwrittenInstructions[1].Mnemonic != Mnemonic.Mov ||
+                overwrittenInstructions[1].MemoryBase != Register.RAX ||
+                overwrittenInstructions[1].MemoryDisplacement64 != 0x20 ||
+                overwrittenInstructions[1].Op1Register != Register.RBX ||
+                overwrittenInstructions[2].Mnemonic != Mnemonic.Push ||
+                overwrittenInstructions[2].Op0Register != Register.RBP ||
+                overwrittenInstructions[3].Mnemonic != Mnemonic.Push ||
+                overwrittenInstructions[3].Op0Register != Register.R12 ||
+                overwrittenInstructions[4].Mnemonic != Mnemonic.Push ||
+                overwrittenInstructions[4].Op0Register != Register.R14 ||
+                overwrittenInstructions[5].Length != 7 ||
+                overwrittenInstructions[5].Mnemonic != Mnemonic.Sub ||
+                overwrittenInstructions[5].Op0Register != Register.RSP ||
+                overwrittenInstructions[5].Immediate32 != 0x80 ||
+                returnAddress != overwrittenInstructions[5].NextIP)
+            {
+                throw new InvalidOperationException(
+                    "The drawbridge special-renderer prologue contract differs.");
+            }
+
+            Label vanillaPrologue = assembler.CreateLabel("drawbridgeSpecialRendererVanillaPrologue");
+            EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaPrologue);
+
+            // The two Vanilla call sites omit the tile-height subtraction used by the
+            // sibling drawbridge renderer. RAX is overwritten by the first prologue
+            // instruction; R9 and stack argument 7 are the two affected coordinates.
+            assembler.mov(rax, currentTileHeightAddress);
+            assembler.mov(eax, __dword_ptr[rax]);
+            assembler.sub(r9d, eax);
+            assembler.sub(__dword_ptr[rsp + 0x38], eax);
+
+            assembler.Label(ref vanillaPrologue);
+            foreach (Instruction instruction in overwrittenInstructions)
+                assembler.AddInstruction(instruction);
+        }
+
+        internal static void GenerateAnimatedRendererArguments(
+            Assembler assembler,
+            ReadOnlySpan<Instruction> overwrittenInstructions,
+            ulong returnAddress,
+            ulong featureActiveFlagAddress,
+            ulong currentTileHeightAddress)
+        {
+            if (overwrittenInstructions.Length != 3 ||
+                overwrittenInstructions[0].Length != 8 ||
+                overwrittenInstructions[0].Mnemonic != Mnemonic.Mov ||
+                overwrittenInstructions[0].Op0Register != Register.RCX ||
+                overwrittenInstructions[0].MemoryBase != Register.RSP ||
+                overwrittenInstructions[0].MemoryDisplacement64 != 0x140 ||
+                overwrittenInstructions[1].Length != 4 ||
+                overwrittenInstructions[1].Mnemonic != Mnemonic.Mov ||
+                overwrittenInstructions[1].MemoryBase != Register.RSP ||
+                overwrittenInstructions[1].MemoryDisplacement64 != 0x28 ||
+                overwrittenInstructions[1].Op1Register != Register.ESI ||
+                overwrittenInstructions[2].Length != 5 ||
+                overwrittenInstructions[2].Mnemonic != Mnemonic.Mov ||
+                overwrittenInstructions[2].MemoryBase != Register.RSP ||
+                overwrittenInstructions[2].MemoryDisplacement64 != 0x20 ||
+                overwrittenInstructions[2].Op1Register != Register.R15D ||
+                returnAddress != overwrittenInstructions[2].NextIP)
+            {
+                throw new InvalidOperationException(
+                    "The drawbridge animated-renderer argument contract differs.");
+            }
+
+            assembler.mov(rcx, __qword_ptr[rsp + 0x140]);
+
+            Label vanillaHeight = assembler.CreateLabel("drawbridgeAnimatedRendererVanillaHeight");
+            EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaHeight);
+
+            // This call site is reached only for a drawbridge (building type 0x31)
+            // on the tile-flags == 4 branch. Vanilla passes zero as argument 6;
+            // elevated tiles need the same negative current-tile render offset that
+            // the sibling renderer path already passes. The callee remains Vanilla.
+            assembler.mov(rax, currentTileHeightAddress);
+            assembler.mov(eax, __dword_ptr[rax]);
+            assembler.neg(eax);
+            assembler.mov(__dword_ptr[rsp + 0x28], eax);
+            assembler.mov(__dword_ptr[rsp + 0x20], r15d);
+            assembler.AddUnrestrictedJmp(returnAddress);
+
+            assembler.Label(ref vanillaHeight);
+            assembler.mov(__dword_ptr[rsp + 0x28], esi);
+            assembler.mov(__dword_ptr[rsp + 0x20], r15d);
         }
 
         private static bool HasMemoryOperands(
@@ -131,10 +218,8 @@ namespace ExtraFeatures
             ulong flagAddress,
             Label disabledTarget)
         {
-            assembler.push(rax);
             assembler.mov(rax, flagAddress);
             assembler.cmp(__byte_ptr[rax], 1);
-            assembler.pop(rax);
             assembler.jne(disabledTarget);
         }
     }

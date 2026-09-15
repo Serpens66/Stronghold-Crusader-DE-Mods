@@ -43,6 +43,10 @@ namespace ExtraFeatures
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> completedDrawbridgeHeightWriteHook =
             new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> drawbridgeSpecialRendererHook =
+            new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> drawbridgeAnimatedRendererArgumentsHook =
+            new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> plannedMoatCancellationHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> directRemovalHeightHook =
@@ -145,6 +149,14 @@ namespace ExtraFeatures
                 memory, ElevatedMoatNativeContract.CompletedDrawbridgeHookPattern,
                 ElevatedMoatNativeContract.CompletedDrawbridgeHookRva,
                 "completed-drawbridge hook block", log);
+            Shared.NativeResolution drawbridgeRendererResolution = ResolveAudited(
+                memory, ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookBytes,
+                ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva,
+                "drawbridge special-renderer prologue", log);
+            Shared.NativeResolution drawbridgeAnimatedRendererResolution = ResolveAudited(
+                memory, ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsBytes,
+                ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsRva,
+                "drawbridge animated-renderer arguments", log);
             Shared.NativeResolution plannedCancellationResolution = ResolveAudited(
                 memory, ElevatedMoatNativeContract.PlannedMoatCancellationPattern,
                 ElevatedMoatNativeContract.PlannedMoatCancellationRva,
@@ -216,6 +228,12 @@ namespace ExtraFeatures
             ProbeExactHookLength(imageBase, completedDrawbridgeHeightResolution.Rva,
                 ElevatedMoatNativeContract.CompletedDrawbridgeHookLength,
                 "completed-drawbridge hook block");
+            ProbeExactHookLength(imageBase, drawbridgeRendererResolution.Rva,
+                ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength,
+                "drawbridge special-renderer prologue");
+            ProbeExactHookLength(imageBase, drawbridgeAnimatedRendererResolution.Rva,
+                ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength,
+                "drawbridge animated-renderer arguments");
             ProbeExactHookLength(imageBase, plannedCancellationResolution.Rva,
                 ElevatedMoatNativeContract.PlannedMoatCancellationLength,
                 "planned moat cancellation");
@@ -340,9 +358,32 @@ namespace ExtraFeatures
                         instructions,
                         returnAddress,
                         unchecked((ulong)featureActiveFlag.ToInt64()),
-                        imageBase,
                         imageBase + ElevatedMoatNativeContract.DrawbridgeStateUpdateRva),
                     hookSize: ElevatedMoatNativeContract.CompletedDrawbridgeHookLength);
+                pending.AddInline(
+                    drawbridgeSpecialRendererHook,
+                    HookTarget.FromAddress(
+                        imageBase + unchecked((ulong)drawbridgeRendererResolution.Rva)),
+                    (assembler, instructions, returnAddress) =>
+                        ElevatedMoatDrawbridgeHooks.GenerateSpecialRenderer(
+                            assembler,
+                            instructions,
+                            returnAddress,
+                            unchecked((ulong)featureActiveFlag.ToInt64()),
+                            imageBase + ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
+                    hookSize: ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength);
+                pending.AddInline(
+                    drawbridgeAnimatedRendererArgumentsHook,
+                    HookTarget.FromAddress(
+                        imageBase + unchecked((ulong)drawbridgeAnimatedRendererResolution.Rva)),
+                    (assembler, instructions, returnAddress) =>
+                        ElevatedMoatDrawbridgeHooks.GenerateAnimatedRendererArguments(
+                            assembler,
+                            instructions,
+                            returnAddress,
+                            unchecked((ulong)featureActiveFlag.ToInt64()),
+                            imageBase + ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
+                    hookSize: ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength);
                 pending.AddContextHook(
                     plannedMoatCancellationHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)plannedCancellationResolution.Rva)),
@@ -386,6 +427,8 @@ namespace ExtraFeatures
                     !loweredDrawbridgeHeightWriteHook.Success ||
                     !directCompletedHeightHook.Success ||
                     !completedDrawbridgeHeightWriteHook.Success ||
+                    !drawbridgeSpecialRendererHook.Success ||
+                    !drawbridgeAnimatedRendererArgumentsHook.Success ||
                     !plannedMoatCancellationHook.Success ||
                     !directRemovalHeightHook.Success ||
                     !footprintRemovalHeightHook.Success ||
@@ -424,6 +467,12 @@ namespace ExtraFeatures
                 RequireInstalledHookLength(completedDrawbridgeHeightWriteHook,
                     ElevatedMoatNativeContract.CompletedDrawbridgeHookLength,
                     "completed-drawbridge hook block");
+                RequireInstalledHookLength(drawbridgeSpecialRendererHook,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength,
+                    "drawbridge special-renderer prologue");
+                RequireInstalledHookLength(drawbridgeAnimatedRendererArgumentsHook,
+                    ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength,
+                    "drawbridge animated-renderer arguments");
                 RequireInstalledHookLength(plannedMoatCancellationHook,
                     ElevatedMoatNativeContract.PlannedMoatCancellationLength,
                     "planned moat cancellation");
@@ -516,6 +565,26 @@ namespace ExtraFeatures
         {
             Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
                 memory, pattern, expectedRva, true, description, log: null);
+            if (resolution.Rva != expectedRva)
+                throw new InvalidOperationException($"The {description} resolved outside its audited RVA.");
+            return resolution;
+        }
+
+        private static Shared.NativeResolution ResolveAudited(
+            ReadOnlySpan<byte> memory,
+            byte[] pattern,
+            int expectedRva,
+            string description,
+            ManualLogSource log)
+        {
+            Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
+                memory,
+                pattern,
+                expectedRva,
+                true,
+                description,
+                log: null,
+                Shared.NativePatternSearchScope.ExecutableSections);
             if (resolution.Rva != expectedRva)
                 throw new InvalidOperationException($"The {description} resolved outside its audited RVA.");
             return resolution;

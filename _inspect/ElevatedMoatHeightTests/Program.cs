@@ -22,6 +22,7 @@ namespace ExtraFeatures
                 Check(Hash(file) == ElevatedMoatNativeContract.ReferenceSha256, "canonical DLL hash");
                 byte[] image = MapPeImage(file);
                 ElevatedMoatNativeContract.ValidateAdaptiveHeightHooks(image);
+                ValidateRendererResolution(image);
                 Check(ElevatedMoatNativeContract.LowerDrawbridgeHookLength == 15,
                     "lowered-drawbridge RedBird hook spans exactly 15 bytes");
                 Check(ElevatedMoatNativeContract.LowerDrawbridgeHeightWriteLength == 8,
@@ -33,6 +34,10 @@ namespace ExtraFeatures
                     "completed-drawbridge RedBird hook spans exactly 17 bytes");
                 Check(ElevatedMoatNativeContract.CompletedDrawbridgeHeightWriteLength == 9,
                     "completed-drawbridge height write spans exactly 9 bytes");
+                Check(ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength == 19,
+                    "drawbridge special-renderer hook spans exactly 19 bytes");
+                Check(ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength == 17,
+                    "drawbridge animated-renderer argument hook spans exactly 17 bytes");
                 ExpectContractFailure(image, ElevatedMoatNativeContract.LowerDrawbridgeHeightWriteRva + 2,
                     "lowered-drawbridge RBX/RDI operand mutation");
                 ExpectContractFailure(image, ElevatedMoatNativeContract.LowerDrawbridgeImageBaseLeaRva + 2,
@@ -47,23 +52,53 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.CompletedDrawbridgeJumpRva,
                     "completed-drawbridge continuation mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.DrawbridgeHeightForwardingRva,
-                    "drawbridge building-height forwarding mutation");
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva,
+                    "drawbridge special-renderer prologue mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.DrawbridgeAllocatorCallRva,
-                    "drawbridge building allocator call mutation");
+                    ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsRva,
+                    "drawbridge animated-renderer arguments mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.BuildingAllocatorHeightLoadRva,
-                    "building allocator height load mutation");
+                    ElevatedMoatNativeContract.DrawbridgeAnimatedRendererTypeCheckRva,
+                    "drawbridge animated-renderer type gate mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.BuildingAllocatorHeightStoreRva,
-                    "building allocator height store mutation");
+                    ElevatedMoatNativeContract.DrawbridgeAnimatedRendererTileFlagsRva,
+                    "drawbridge animated-renderer tile-flags gate mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.CompletedDrawbridgeBuildingIdCaptureRva,
-                    "completed-drawbridge building-id capture mutation");
+                    ElevatedMoatNativeContract.DrawbridgeAnimatedRendererCallRva,
+                    "drawbridge animated-renderer call mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.LowerDrawbridgeRecordOffsetRva,
-                    "lowered-drawbridge record-offset mutation");
+                    ElevatedMoatNativeContract.HeightAwareBuildingRendererArgumentsRva,
+                    "height-aware building-renderer arguments mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.HeightAwareBuildingRendererCallRva,
+                    "height-aware building-renderer call mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall1ArgumentsRva,
+                    "first height-blind renderer arguments mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall2ArgumentsRva,
+                    "second height-blind renderer arguments mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall1Rva,
+                    "first drawbridge special-renderer call mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall2Rva,
+                    "second drawbridge special-renderer call mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.DrawbridgeHeightAwareSubtractRva,
+                    "height-aware renderer subtraction mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.UnitCurrentTileHeightLoadRva,
+                    "unit current-tile-height load mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.UnitTileHeightForwardingRva,
+                    "unit tile-height forwarding mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.UnitRenderYSubtractRva,
+                    "unit render-Y subtraction mutation");
+                ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.UnitSpriteQueueCallRva,
+                    "unit sprite-queue call mutation");
                 ValidateInstalledRedBirdSpans();
                 ValidateProductionGenerators(image);
                 CheckNoIncomingTargets(
@@ -80,15 +115,26 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.LowerDrawbridgeFunctionRva,
                     ElevatedMoatNativeContract.LowerDrawbridgeFunctionLength,
                     "lowered-drawbridge hook block");
+                CheckNoIncomingTargets(
+                    image,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererLength,
+                    "drawbridge special-renderer prologue");
+                CheckDirectCallers(
+                    image,
+                    ElevatedMoatNativeContract.MainRendererRva,
+                    ElevatedMoatNativeContract.MainRendererLength,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall1Rva,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall2Rva);
                 CheckHeight(0, 0, 0);
                 CheckHeight(8, 0, 0);
                 CheckHeight(12, 4, 0);
-                CheckHeight(13, 5, 21);
-                CheckHeight(16, 8, 24);
-                CheckHeight(80, 72, 88);
-                CheckHeight(130, 122, 138);
-                CheckHeight(247, 239, 255);
-                CheckHeight(248, 240, 255);
+                CheckHeight(13, 5, 13);
+                CheckHeight(80, 72, 80);
+                CheckHeight(130, 122, 130);
                 CheckHeight(255, 247, 255);
                 Console.WriteLine($"PASS: elevated-moat height tests ({assertions} assertions).");
                 return 0;
@@ -110,6 +156,82 @@ namespace ExtraFeatures
                 $"restored height for {defaultHeight}");
         }
 
+        private static void ValidateRendererResolution(byte[] image)
+        {
+            ValidateUniqueExecutableSignature(
+                image,
+                ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookBytes,
+                ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva,
+                "drawbridge special-renderer prologue");
+            ValidateUniqueExecutableSignature(
+                image,
+                ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsBytes,
+                ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsRva,
+                "drawbridge animated-renderer arguments");
+        }
+
+        private static void ValidateUniqueExecutableSignature(
+            byte[] image,
+            byte[] signature,
+            int expectedRva,
+            string description)
+        {
+            Shared.NativeResolution resolution = Shared.NativePatternResolver.ResolveUnique(
+                image,
+                signature,
+                expectedRva,
+                referenceHashMatches: true,
+                description,
+                log: null,
+                Shared.NativePatternSearchScope.ExecutableSections);
+            Check(resolution.Rva == expectedRva &&
+                resolution.Method == "reference-rva",
+                $"production {description} signature resolves at the audited reference RVA");
+
+            byte[] missing = (byte[])image.Clone();
+            Array.Clear(missing, expectedRva, signature.Length);
+            ExpectResolutionFailure(missing, signature, expectedRva, description,
+                $"missing {description} signature was accepted");
+
+            byte[] mutated = (byte[])image.Clone();
+            mutated[expectedRva] ^= 1;
+            ExpectResolutionFailure(mutated, signature, expectedRva, description,
+                $"mutated {description} signature was accepted");
+
+            byte[] duplicated = (byte[])image.Clone();
+            const int DuplicateExecutableRva = 0x3000;
+            Buffer.BlockCopy(signature, 0, duplicated, DuplicateExecutableRva, signature.Length);
+            ExpectResolutionFailure(duplicated, signature, expectedRva, description,
+                $"duplicate {description} signature was accepted");
+        }
+
+        private static void ExpectResolutionFailure(
+            byte[] image,
+            byte[] signature,
+            int expectedRva,
+            string description,
+            string message)
+        {
+            assertions++;
+            try
+            {
+                Shared.NativePatternResolver.ResolveUnique(
+                    image,
+                    signature,
+                    expectedRva,
+                    referenceHashMatches: false,
+                    "test " + description,
+                    log: null,
+                    Shared.NativePatternSearchScope.ExecutableSections);
+            }
+            catch (InvalidOperationException)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(message);
+        }
+
         private static void ValidateInstalledRedBirdSpans()
         {
             byte[] lowered = SliceFixture(
@@ -124,6 +246,12 @@ namespace ExtraFeatures
                 0xEB, 0x0C,
                 0x42, 0x81, 0xA4, 0xB3, 0x00, 0x84, 0x89, 0x00, 0xFF, 0xFF, 0xFF, 0xBF
             };
+            byte[] renderer = SliceFixture(
+                ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookBytes,
+                16);
+            byte[] animatedRenderer = SliceFixture(
+                ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsBytes,
+                16);
 
             CheckRedBirdSpan(lowered, 8, 15,
                 "requested 8-byte lowered-drawbridge span expands to 15 bytes");
@@ -133,6 +261,12 @@ namespace ExtraFeatures
                 "requested 9-byte completed-drawbridge span expands to 23 bytes");
             CheckRedBirdSpan(completed, 17, 17,
                 "audited completed-drawbridge span remains 17 bytes");
+            CheckRedBirdSpan(renderer, 14, 19,
+                "requested minimum drawbridge renderer span expands to 19 bytes");
+            CheckRedBirdSpan(renderer, 19, 19,
+                "audited drawbridge renderer span remains 19 bytes");
+            CheckRedBirdSpan(animatedRenderer, 17, 17,
+                "audited animated drawbridge renderer span remains 17 bytes");
         }
 
         private static void ValidateProductionGenerators(byte[] image)
@@ -150,14 +284,12 @@ namespace ExtraFeatures
                     completedInstructions,
                     returnAddress,
                     imageBase + 0x2000000,
-                    imageBase,
                     imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeStateUpdateRva),
                 imageBase + (ulong)ElevatedMoatNativeContract.CompletedDrawbridgeHookRva +
                     (ulong)ElevatedMoatNativeContract.CompletedDrawbridgeHookLength,
                 "completed-drawbridge production generator");
             ValidateCompletedGeneratorOutput(
                 completedStub,
-                imageBase,
                 imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeStateUpdateRva,
                 imageBase + (ulong)ElevatedMoatNativeContract.CompletedDrawbridgeHookRva +
                     (ulong)ElevatedMoatNativeContract.CompletedDrawbridgeHookLength);
@@ -181,6 +313,48 @@ namespace ExtraFeatures
                 loweredStub,
                 imageBase,
                 imageBase + (ulong)ElevatedMoatNativeContract.LowerDrawbridgeContinuationRva);
+
+            byte[] renderer = new byte[ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength];
+            Buffer.BlockCopy(image, ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva,
+                renderer, 0, renderer.Length);
+            Instruction[] rendererInstructions = DecodeExact(
+                renderer,
+                imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva);
+            byte[] rendererStub = AssembleAndDecode(
+                (assembler, returnAddress) => ElevatedMoatDrawbridgeHooks.GenerateSpecialRenderer(
+                    assembler,
+                    rendererInstructions,
+                    returnAddress,
+                    imageBase + 0x2000000,
+                    imageBase + (ulong)ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
+                imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeSpecialRendererContinuationRva,
+                "drawbridge special-renderer production generator");
+            ValidateRendererGeneratorOutput(
+                rendererStub,
+                imageBase + (ulong)ElevatedMoatNativeContract.CurrentRenderedTileHeightRva);
+
+            byte[] animatedRenderer =
+                new byte[ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength];
+            Buffer.BlockCopy(image,
+                ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsRva,
+                animatedRenderer, 0, animatedRenderer.Length);
+            Instruction[] animatedRendererInstructions = DecodeExact(
+                animatedRenderer,
+                imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsRva);
+            byte[] animatedRendererStub = AssembleAndDecode(
+                (assembler, returnAddress) =>
+                    ElevatedMoatDrawbridgeHooks.GenerateAnimatedRendererArguments(
+                        assembler,
+                        animatedRendererInstructions,
+                        returnAddress,
+                        imageBase + 0x2000000,
+                        imageBase + (ulong)ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
+                imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeAnimatedRendererCallRva,
+                "drawbridge animated-renderer production generator");
+            ValidateAnimatedRendererGeneratorOutput(
+                animatedRendererStub,
+                imageBase + (ulong)ElevatedMoatNativeContract.CurrentRenderedTileHeightRva,
+                imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeAnimatedRendererCallRva);
         }
 
         private static byte[] SliceFixture(byte[] prefix, int trailingNops)
@@ -287,26 +461,18 @@ namespace ExtraFeatures
 
         private static void ValidateCompletedGeneratorOutput(
             byte[] stub,
-            ulong imageBase,
             ulong stateUpdateAddress,
             ulong returnAddress)
         {
             Instruction[] instructions = DecodeGeneratedInstructions(stub, out ulong[] jumpTargets);
             int stateCalls = 0;
             int heightWrites = 0;
-            int recordBaseLoads = 0;
-            int recordHeightLoads = 0;
-            int recordStrideCalculations = 0;
-            int elevatedHeightComparisons = 0;
-            int heightOffsetAdds = 0;
-            int maximumHeightComparisons = 0;
-            int saturatedHeightLoads = 0;
+            int defaultHeightLoads = 0;
+            int terrainLimitComparisons = 0;
+            int heightArithmetic = 0;
             int instructionIndex = 0;
-            int recordHeightLoadIndex = -1;
-            int elevatedComparisonIndex = -1;
-            int heightOffsetAddIndex = -1;
-            int maximumComparisonIndex = -1;
-            int saturatedHeightLoadIndex = -1;
+            int defaultHeightLoadIndex = -1;
+            int terrainLimitComparisonIndex = -1;
             int adjustedHeightWriteIndex = -1;
             foreach (Instruction instruction in instructions)
             {
@@ -324,77 +490,38 @@ namespace ExtraFeatures
                     if (instruction.Op1Register == Register.AL)
                         adjustedHeightWriteIndex = instructionIndex;
                 }
-                if (instruction.Mnemonic == Mnemonic.Mov &&
-                    instruction.Op0Register == Register.RDX &&
-                    instruction.Op1Kind == OpKind.Immediate64 &&
-                    instruction.Immediate64 == imageBase +
-                        (ulong)ElevatedMoatNativeContract.BuildingHeightAddressRva)
-                {
-                    recordBaseLoads++;
-                }
                 if (instruction.Mnemonic == Mnemonic.Movzx &&
                     instruction.Op0Register == Register.EAX &&
-                    HasMemoryOperands(instruction, Register.RDX, Register.RAX))
+                    HasMemoryOperands(instruction, Register.RBX, Register.R14) &&
+                    instruction.MemoryDisplacement64 ==
+                        ElevatedMoatNativeContract.TileDefaultHeightGridOffset)
                 {
-                    recordHeightLoads++;
-                    recordHeightLoadIndex = instructionIndex;
-                }
-                if (instruction.Mnemonic == Mnemonic.Imul &&
-                    instruction.Op0Register == Register.RAX &&
-                    instruction.Op1Register == Register.RAX &&
-                    instruction.Immediate32 == ElevatedMoatNativeContract.BuildingRecordStride)
-                {
-                    recordStrideCalculations++;
+                    defaultHeightLoads++;
+                    defaultHeightLoadIndex = instructionIndex;
                 }
                 if (instruction.Mnemonic == Mnemonic.Cmp &&
                     instruction.Op0Register == Register.EAX &&
                     instruction.Immediate32 == ElevatedMoatNativeContract.MaximumVanillaTerrainHeight)
                 {
-                    elevatedHeightComparisons++;
-                    elevatedComparisonIndex = instructionIndex;
+                    terrainLimitComparisons++;
+                    terrainLimitComparisonIndex = instructionIndex;
                 }
-                if (instruction.Mnemonic == Mnemonic.Add &&
-                    instruction.Op0Register == Register.EAX &&
-                    instruction.Immediate32 == ElevatedMoatNativeContract.DrawbridgeDeckHeightOffset)
-                {
-                    heightOffsetAdds++;
-                    heightOffsetAddIndex = instructionIndex;
-                }
-                if (instruction.Mnemonic == Mnemonic.Cmp &&
-                    instruction.Op0Register == Register.EAX &&
-                    instruction.Immediate32 == ElevatedMoatNativeContract.MaximumTileHeight)
-                {
-                    maximumHeightComparisons++;
-                    maximumComparisonIndex = instructionIndex;
-                }
-                if (instruction.Mnemonic == Mnemonic.Mov &&
-                    instruction.Op0Register == Register.EAX &&
-                    instruction.Op1Kind == OpKind.Immediate32 &&
-                    instruction.Immediate32 == ElevatedMoatNativeContract.MaximumTileHeight)
-                {
-                    saturatedHeightLoads++;
-                    saturatedHeightLoadIndex = instructionIndex;
-                }
+                if ((instruction.Mnemonic == Mnemonic.Add ||
+                     instruction.Mnemonic == Mnemonic.Sub) &&
+                    instruction.Op0Register == Register.EAX)
+                    heightArithmetic++;
                 instructionIndex++;
             }
 
             Check(stateCalls == 1,
                 "completed generator calls Vanilla state update exactly once");
             Check(heightWrites == 2,
-                "completed generator emits record and Vanilla height writes");
-            Check(recordBaseLoads == 1 && recordHeightLoads == 1,
-                "completed generator reads Vanilla's stored building height exactly once");
-            Check(recordStrideCalculations == 1 && elevatedHeightComparisons == 1,
-                "completed generator selects only elevated stored building heights");
-            Check(heightOffsetAdds == 1 && maximumHeightComparisons == 1 &&
-                saturatedHeightLoads == 1,
-                "completed generator adds one deck level and saturates at byte max");
-            Check(recordHeightLoadIndex < elevatedComparisonIndex &&
-                elevatedComparisonIndex < heightOffsetAddIndex &&
-                heightOffsetAddIndex < maximumComparisonIndex &&
-                maximumComparisonIndex < saturatedHeightLoadIndex &&
-                saturatedHeightLoadIndex < adjustedHeightWriteIndex,
-                "completed generator applies elevated height arithmetic before its deck write");
+                "completed generator emits adaptive and Vanilla height writes");
+            Check(defaultHeightLoads == 1 && terrainLimitComparisons == 1 && heightArithmetic == 0,
+                "completed generator preserves the elevated tile default without height arithmetic");
+            Check(defaultHeightLoadIndex < terrainLimitComparisonIndex &&
+                terrainLimitComparisonIndex < adjustedHeightWriteIndex,
+                "completed generator checks Vanilla's terrain limit before its deck write");
             Check(CountBranchTargets(instructions, jumpTargets, returnAddress) == 2,
                 "completed generator returns both height branches to Vanilla continuation");
         }
@@ -407,18 +534,12 @@ namespace ExtraFeatures
             Instruction[] instructions = DecodeGeneratedInstructions(stub, out ulong[] jumpTargets);
             int heightWrites = 0;
             int imageBaseLoads = 0;
-            int recordBaseLoads = 0;
-            int recordHeightLoads = 0;
-            int elevatedHeightComparisons = 0;
-            int heightOffsetAdds = 0;
-            int maximumHeightComparisons = 0;
-            int saturatedHeightLoads = 0;
+            int defaultHeightLoads = 0;
+            int terrainLimitComparisons = 0;
+            int heightArithmetic = 0;
             int instructionIndex = 0;
-            int recordHeightLoadIndex = -1;
-            int elevatedComparisonIndex = -1;
-            int heightOffsetAddIndex = -1;
-            int maximumComparisonIndex = -1;
-            int saturatedHeightLoadIndex = -1;
+            int defaultHeightLoadIndex = -1;
+            int terrainLimitComparisonIndex = -1;
             int adjustedHeightWriteIndex = -1;
             foreach (Instruction instruction in instructions)
             {
@@ -438,72 +559,140 @@ namespace ExtraFeatures
                 {
                     imageBaseLoads++;
                 }
-                if (instruction.Mnemonic == Mnemonic.Mov &&
-                    instruction.Op0Register == Register.RAX &&
-                    instruction.Op1Kind == OpKind.Immediate64 &&
-                    instruction.Immediate64 == imageBase +
-                        (ulong)ElevatedMoatNativeContract.BuildingHeightAddressRva)
-                {
-                    recordBaseLoads++;
-                }
                 if (instruction.Mnemonic == Mnemonic.Movzx &&
                     instruction.Op0Register == Register.EAX &&
-                    HasMemoryOperands(instruction, Register.RAX, Register.R13))
+                    HasMemoryOperands(instruction, Register.RBX, Register.RDI) &&
+                    instruction.MemoryDisplacement64 ==
+                        ElevatedMoatNativeContract.TileDefaultHeightGridOffset)
                 {
-                    recordHeightLoads++;
-                    recordHeightLoadIndex = instructionIndex;
+                    defaultHeightLoads++;
+                    defaultHeightLoadIndex = instructionIndex;
                 }
                 if (instruction.Mnemonic == Mnemonic.Cmp &&
                     instruction.Op0Register == Register.EAX &&
                     instruction.Immediate32 == ElevatedMoatNativeContract.MaximumVanillaTerrainHeight)
                 {
-                    elevatedHeightComparisons++;
-                    elevatedComparisonIndex = instructionIndex;
+                    terrainLimitComparisons++;
+                    terrainLimitComparisonIndex = instructionIndex;
                 }
-                if (instruction.Mnemonic == Mnemonic.Add &&
-                    instruction.Op0Register == Register.EAX &&
-                    instruction.Immediate32 == ElevatedMoatNativeContract.DrawbridgeDeckHeightOffset)
-                {
-                    heightOffsetAdds++;
-                    heightOffsetAddIndex = instructionIndex;
-                }
-                if (instruction.Mnemonic == Mnemonic.Cmp &&
-                    instruction.Op0Register == Register.EAX &&
-                    instruction.Immediate32 == ElevatedMoatNativeContract.MaximumTileHeight)
-                {
-                    maximumHeightComparisons++;
-                    maximumComparisonIndex = instructionIndex;
-                }
-                if (instruction.Mnemonic == Mnemonic.Mov &&
-                    instruction.Op0Register == Register.EAX &&
-                    instruction.Op1Kind == OpKind.Immediate32 &&
-                    instruction.Immediate32 == ElevatedMoatNativeContract.MaximumTileHeight)
-                {
-                    saturatedHeightLoads++;
-                    saturatedHeightLoadIndex = instructionIndex;
-                }
+                if ((instruction.Mnemonic == Mnemonic.Add ||
+                     instruction.Mnemonic == Mnemonic.Sub) &&
+                    instruction.Op0Register == Register.EAX)
+                    heightArithmetic++;
                 instructionIndex++;
             }
 
             Check(heightWrites == 2,
-                "lowered generator emits record and Vanilla height writes");
+                "lowered generator emits adaptive and Vanilla height writes");
             Check(imageBaseLoads == 1,
                 "lowered generator restores RDI to the image base exactly once");
-            Check(recordBaseLoads == 1 && recordHeightLoads == 1,
-                "lowered generator reads Vanilla's stored building height exactly once");
-            Check(elevatedHeightComparisons == 1,
-                "lowered generator selects only elevated stored building heights");
-            Check(heightOffsetAdds == 1 && maximumHeightComparisons == 1 &&
-                saturatedHeightLoads == 1,
-                "lowered generator adds one deck level and saturates at byte max");
-            Check(recordHeightLoadIndex < elevatedComparisonIndex &&
-                elevatedComparisonIndex < heightOffsetAddIndex &&
-                heightOffsetAddIndex < maximumComparisonIndex &&
-                maximumComparisonIndex < saturatedHeightLoadIndex &&
-                saturatedHeightLoadIndex < adjustedHeightWriteIndex,
-                "lowered generator applies elevated height arithmetic before its deck write");
+            Check(defaultHeightLoads == 1 && terrainLimitComparisons == 1 && heightArithmetic == 0,
+                "lowered generator preserves the elevated tile default without height arithmetic");
+            Check(defaultHeightLoadIndex < terrainLimitComparisonIndex &&
+                terrainLimitComparisonIndex < adjustedHeightWriteIndex,
+                "lowered generator checks Vanilla's terrain limit before its deck write");
             Check(CountBranchTargets(instructions, jumpTargets, returnAddress) == 1,
                 "lowered generator returns to the exact Vanilla continuation");
+        }
+
+        private static void ValidateRendererGeneratorOutput(byte[] stub, ulong currentHeightAddress)
+        {
+            Instruction[] instructions = DecodeGeneratedInstructions(stub, out _);
+            int heightAddressLoads = 0;
+            int heightValueLoads = 0;
+            int renderYSubtractions = 0;
+            int stackYSubtractions = 0;
+            int originalStackAllocation = 0;
+            foreach (Instruction instruction in instructions)
+            {
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.Op0Register == Register.RAX &&
+                    instruction.Op1Kind == OpKind.Immediate64 &&
+                    instruction.Immediate64 == currentHeightAddress)
+                    heightAddressLoads++;
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.Op0Register == Register.EAX &&
+                    instruction.MemoryBase == Register.RAX)
+                    heightValueLoads++;
+                if (instruction.Mnemonic == Mnemonic.Sub &&
+                    instruction.Op0Register == Register.R9D &&
+                    instruction.Op1Register == Register.EAX)
+                    renderYSubtractions++;
+                if (instruction.Mnemonic == Mnemonic.Sub &&
+                    instruction.MemoryBase == Register.RSP &&
+                    instruction.MemoryDisplacement64 == 0x38 &&
+                    instruction.Op1Register == Register.EAX)
+                    stackYSubtractions++;
+                if (instruction.Mnemonic == Mnemonic.Sub &&
+                    instruction.Op0Register == Register.RSP &&
+                    instruction.Immediate32 == 0x80)
+                    originalStackAllocation++;
+            }
+
+            Check(heightAddressLoads == 1 && heightValueLoads == 1,
+                "renderer generator reads Vanilla's current tile height exactly once");
+            Check(renderYSubtractions == 1 && stackYSubtractions == 1,
+                "renderer generator corrects both height-blind coordinates exactly once");
+            Check(originalStackAllocation == 1,
+                "renderer generator replays the original stack allocation exactly once");
+        }
+
+        private static void ValidateAnimatedRendererGeneratorOutput(
+            byte[] stub,
+            ulong currentHeightAddress,
+            ulong returnAddress)
+        {
+            Instruction[] instructions = DecodeGeneratedInstructions(stub, out ulong[] jumpTargets);
+            int heightAddressLoads = 0;
+            int heightValueLoads = 0;
+            int heightNegations = 0;
+            int vanillaZeroWrites = 0;
+            int adjustedHeightWrites = 0;
+            int managerArgumentLoads = 0;
+            int fifthArgumentWrites = 0;
+            foreach (Instruction instruction in instructions)
+            {
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.Op0Register == Register.RAX &&
+                    instruction.Op1Kind == OpKind.Immediate64 &&
+                    instruction.Immediate64 == currentHeightAddress)
+                    heightAddressLoads++;
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.Op0Register == Register.EAX &&
+                    instruction.MemoryBase == Register.RAX)
+                    heightValueLoads++;
+                if (instruction.Mnemonic == Mnemonic.Neg &&
+                    instruction.Op0Register == Register.EAX)
+                    heightNegations++;
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.MemoryBase == Register.RSP &&
+                    instruction.MemoryDisplacement64 == 0x28)
+                {
+                    if (instruction.Op1Register == Register.ESI)
+                        vanillaZeroWrites++;
+                    if (instruction.Op1Register == Register.EAX)
+                        adjustedHeightWrites++;
+                }
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.Op0Register == Register.RCX &&
+                    instruction.MemoryBase == Register.RSP &&
+                    instruction.MemoryDisplacement64 == 0x140)
+                    managerArgumentLoads++;
+                if (instruction.Mnemonic == Mnemonic.Mov &&
+                    instruction.MemoryBase == Register.RSP &&
+                    instruction.MemoryDisplacement64 == 0x20 &&
+                    instruction.Op1Register == Register.R15D)
+                    fifthArgumentWrites++;
+            }
+
+            Check(heightAddressLoads == 1 && heightValueLoads == 1 && heightNegations == 1,
+                "animated renderer generator derives exactly one negative current-tile offset");
+            Check(vanillaZeroWrites == 1 && adjustedHeightWrites == 1,
+                "animated renderer generator keeps Vanilla zero and elevated height branches");
+            Check(managerArgumentLoads == 1 && fifthArgumentWrites == 2,
+                "animated renderer generator preserves the other Vanilla call arguments on both branches");
+            Check(CountBranchTargets(instructions, jumpTargets, returnAddress) == 2,
+                "animated renderer generator returns both branches to the Vanilla call");
         }
 
         private static Instruction[] DecodeGeneratedInstructions(
@@ -631,6 +820,39 @@ namespace ExtraFeatures
                 Check(target <= hookStart || target >= hookEnd,
                     description + " has no incoming direct target inside its displaced span");
             }
+        }
+
+        private static void CheckDirectCallers(
+            byte[] image,
+            int functionRva,
+            int functionLength,
+            int targetRva,
+            int expectedCall1Rva,
+            int expectedCall2Rva)
+        {
+            const ulong imageBase = 0x180000000;
+            byte[] function = new byte[functionLength];
+            Buffer.BlockCopy(image, functionRva, function, 0, function.Length);
+            var reader = new ByteArrayCodeReader(function);
+            Decoder decoder = Decoder.Create(64, reader);
+            decoder.IP = imageBase + (ulong)functionRva;
+            ulong functionEnd = decoder.IP + (ulong)functionLength;
+            var callers = new List<ulong>();
+            while (decoder.IP < functionEnd)
+            {
+                Instruction instruction = decoder.Decode();
+                Check(!instruction.IsInvalid && instruction.NextIP <= functionEnd,
+                    "main renderer decodes completely");
+                if (instruction.Mnemonic == Mnemonic.Call &&
+                    instruction.NearBranchTarget == imageBase + (ulong)targetRva)
+                    callers.Add(instruction.IP);
+            }
+
+            Check(callers.Count == 2,
+                "drawbridge special renderer has exactly two direct calls in the main renderer");
+            Check(callers.Contains(imageBase + (ulong)expectedCall1Rva) &&
+                callers.Contains(imageBase + (ulong)expectedCall2Rva),
+                "drawbridge special renderer is called only at the two audited call sites");
         }
 
         private static byte[] MapPeImage(byte[] file)

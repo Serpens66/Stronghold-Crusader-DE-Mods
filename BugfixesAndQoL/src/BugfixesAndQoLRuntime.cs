@@ -72,7 +72,7 @@ namespace BugfixesAndQoL
         private PlagueApothecaryStateTransitionFix plagueApothecaryStateTransitionFix;
         private FriendlyMoatMovementRuntime friendlyMoatMovementRuntime;
         private static FriendlyMoatMovementRuntime processFriendlyMoatMovementRuntime;
-        private AllyGoodsAmountModifierHook allyGoodsAmountModifierHook;
+        private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private NotificationSkipFeature notificationSkipFeature;
         private IntPtr libraryHandle;
@@ -128,7 +128,7 @@ namespace BugfixesAndQoL
 
         public object SurrenderAndStatisticsUi => surrenderFeature?.ButtonViewModel;
         public object SelectedUnitHealthUi => selectedUnitHealthFeature?.ViewModel;
-        public object AllyGoodsAmountDisplay => allyGoodsAmountModifierHook;
+        public object AllyGoodsAmountDisplay => processAllyGoodsAmountModifierHook;
         public object MultiplayerAivSyncUi => multiplayerAivSyncRuntime;
         public object AssassinClimbButton => assassinClimbRuntime.ButtonViewModel;
 
@@ -428,7 +428,7 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
-            TryApplyFeature("ally goods amount modifiers", () => allyGoodsAmountModifierHook?.RefreshSetting());
+            TryApplyFeature("ally goods amount modifiers", () => processAllyGoodsAmountModifierHook?.RefreshSetting());
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryApplyFeature("Lord troop HUD", () => lordUnitControlsFeature?.RefreshSetting());
             TryApplyFeature("shared unit HUD", () => lordUnitHudRegistration.Capability?.RequestRefresh());
@@ -581,8 +581,6 @@ namespace BugfixesAndQoL
             assassinClimbCancellationRuntime.Dispose();
             ctrlMarketTradeHook?.Dispose();
             ctrlMarketTradeHook = null;
-            allyGoodsAmountModifierHook?.Dispose();
-            allyGoodsAmountModifierHook = null;
             multiplayerGameSpeedRuntime.Dispose();
             multiplayerAivSyncRuntime.Dispose();
             siegeAmmoRestockFeature.Dispose();
@@ -789,12 +787,13 @@ namespace BugfixesAndQoL
 
         private void InstallAllyGoodsAmountModifierHook()
         {
-            if (allyGoodsAmountModifierHook != null)
+            if (processAllyGoodsAmountModifierHook != null)
                 return;
 
             try
             {
-                allyGoodsAmountModifierHook = new AllyGoodsAmountModifierHook(log, settings);
+                var candidate = new AllyGoodsAmountModifierHook(log, settings);
+                processAllyGoodsAmountModifierHook = candidate;
             }
             catch (Exception ex)
             {

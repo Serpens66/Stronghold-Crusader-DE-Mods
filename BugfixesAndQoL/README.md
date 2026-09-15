@@ -132,7 +132,7 @@ The circular order of goods in the detailed market view can be rearranged freely
 Hold Ctrl while buying or selling at the market to trade exactly one unit instead of the normal five.
 
 ### Adjust ally goods-transfer amounts with Ctrl and Shift
-In the ally goods-transfer panel, Shift multiplies the clicked amount by five and Ctrl reduces it to one fifth, the displayed button values update to show what will be sent.
+In the ally goods-transfer panel, Shift multiplies the clicked amount by five and Ctrl reduces it to one fifth, while the displayed button values update to show what will be sent. After selecting a good and a positive amount, the send button remains available even if the stock changes. Vanilla rechecks the current stock when clicked; successful and insufficient transfers both keep the panel open with the selection intact, while insufficient goods also play the normal warning.
 
 ### Accept Steam lobby invitations in game
 Incoming invitations can appear as a Yes/No popup ingame. An optional checkbox permanently suppresses further ingame popups for invites from that Steam user; the complete local invite blacklist can be cleared beside this feature's mod setting.
