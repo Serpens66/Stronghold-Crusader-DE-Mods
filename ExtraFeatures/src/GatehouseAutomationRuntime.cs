@@ -194,7 +194,7 @@ namespace ExtraFeatures
 
         public void RefreshButtonVisibility()
         {
-            EnsureEditorMapState();
+            RefreshEditorReadiness();
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 buttonViewModel.Hide();
@@ -351,7 +351,7 @@ namespace ExtraFeatures
         {
             try
             {
-                EnsureEditorMapState();
+                RefreshEditorReadiness();
                 if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) || !mapActive)
                     return;
 
@@ -645,36 +645,23 @@ namespace ExtraFeatures
             LogInfo($"gatehouse map locators resolved: resolved={resolved}, pending={pendingMapLocators.Count}, ambiguous={ambiguous}, finalPass={removeUnresolved}.");
         }
 
-        private void EnsureEditorMapState()
+        public void BeginEditorMap()
         {
-            bool editor = IsMapEditor();
-            if (!editor)
-            {
-                if (editorSessionActive)
-                {
-                    editorSessionActive = false;
-                    ResetMapState();
-                    LogInfo("gatehouse editor map state ended after leaving the editor.");
-                }
-                return;
-            }
+            loadedMapStatePending = false;
+            mapActive = true;
+            editorSessionActive = true;
+            RefreshButtonVisibility();
+        }
+
+        private void RefreshEditorReadiness()
+        {
+            if (!editorSessionActive || !mapActive) return;
 
             int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
             if (activePlayerId < 1 || activePlayerId > 8 ||
                 GameData.Instance?.lastGameState == null || MainViewModel.Instance?.HUDBuildingPanel == null)
             {
                 return;
-            }
-
-            if (!mapActive)
-            {
-                mapActive = true;
-                editorSessionActive = true;
-                LogInfo($"gatehouse editor map state started: activePlayerId={activePlayerId}, pendingLocators={pendingMapLocators.Count}.");
-            }
-            else
-            {
-                editorSessionActive = true;
             }
 
             ResolvePendingMapLocators(removeUnresolved: false);

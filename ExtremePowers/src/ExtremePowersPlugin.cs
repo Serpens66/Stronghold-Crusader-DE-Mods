@@ -14,6 +14,7 @@ namespace ExtremePowers
 {
     [BepInDependency("000shcdese", "2.3.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtremePowersPlugin : BaseUnityPlugin
     {
@@ -48,9 +49,9 @@ namespace ExtremePowers
                 rootedLogger,
                 context =>
                 {
-                    if (context.IsLoadedSave)
+                    if (context.IsLoadedSave || context.IsEditor)
                         CaptureMapSession();
-                });
+                }, onEditorEnded: ResetMapSession);
             mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMapSession());
             Shared.LobbyModSettingsPresetRegistration.Register(this, Logger, PluginGuid, Settings, "ScriptExtenderUI/ExtremePowersSettings.xaml");
             Settings.PropertyChanged += (_, __) => ApplySettings(); ApplySettings(); Shared.DebugLogHelper.LogDebug(Logger, client.Status);

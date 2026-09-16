@@ -19,6 +19,8 @@ namespace APIShared
         private UnitHudPresentationService unitHudPresentation;
         private AivBuildStepService aivBuildStep;
         private LobbyStateService lobbyState;
+        private EditorMapLifecycleService editorMapLifecycle;
+        private NativeCapabilityDiagnostic editorMapLifecycleDiagnostic = Pending(NativeCapabilityIds.EditorMapLifecycle);
         private NativeCapabilityDiagnostic gatehouseDistanceOriginDiagnostic = Pending(NativeCapabilityIds.GatehouseDistanceOrigin);
         private NativeCapabilityDiagnostic gatehouseDiagnostic = Pending(NativeCapabilityIds.GatehouseTiming);
         private NativeCapabilityDiagnostic unitHudDiagnostic = Pending(NativeCapabilityIds.UnitHudPresentation);
@@ -49,6 +51,8 @@ namespace APIShared
         {
             lock (sync)
             {
+                if (editorMapLifecycleDiagnostic.State == NativeCapabilityState.Pending)
+                    EditorMapLifecycleService.TryCreate(logger, out editorMapLifecycle, out editorMapLifecycleDiagnostic);
                 if (lobbyState != null ||
                     lobbyStateDiagnostic.State != NativeCapabilityState.Pending)
                 {
@@ -246,6 +250,25 @@ namespace APIShared
                 }
                 capability = aivBuildStep.Bind(ownerGuid);
                 diagnostic = aivBuildStepDiagnostic;
+                return true;
+            }
+        }
+
+        public bool TryGetEditorMapLifecycle(string ownerGuid, out IEditorMapLifecycleCapability capability,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            capability = null;
+            if (string.IsNullOrWhiteSpace(ownerGuid))
+            {
+                diagnostic = new NativeCapabilityDiagnostic(NativeCapabilityIds.EditorMapLifecycle,
+                    NativeCapabilityState.ValidationFailed, string.Empty, "A non-empty owner GUID is required.");
+                return false;
+            }
+            lock (sync)
+            {
+                diagnostic = editorMapLifecycleDiagnostic;
+                if (editorMapLifecycle == null) return false;
+                capability = editorMapLifecycle.Bind(ownerGuid);
                 return true;
             }
         }

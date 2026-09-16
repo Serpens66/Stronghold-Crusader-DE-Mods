@@ -112,7 +112,10 @@ namespace ExtendedData
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => OnMapUnloaded()));
-            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => OnMapStarted()));
+            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, context =>
+            {
+                if (!context.IsEditor) OnMapStarted();
+            }));
 
             MethodInfo initMethod = RequireMethod("InitCoopMissions");
             initHook = new Hook(initMethod, (InitCoopMissionsDelegate)InitCoopMissionsHook);

@@ -15,6 +15,7 @@ using System.Reflection;
 
 namespace MoatMove
 {
+    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, "MoatMove", PluginVersion)]
     [BepInDependency("000shcdese", "2.6.0")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -81,7 +82,7 @@ namespace MoatMove
             {
                 mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     persistentLog,
-                    _ => ObserveMapStart());
+                    _ => ObserveMapStart(), ObserveMapUnload);
                 mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => ObserveMapUnload());

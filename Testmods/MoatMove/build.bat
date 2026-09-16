@@ -6,7 +6,9 @@ set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitiv
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 }"
 if errorlevel 1 (
   echo Game is running. Build and installation aborted.
@@ -16,9 +18,14 @@ if not exist "%MSBUILD%" goto failed
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto failed
 "%MSBUILD%" "%PROJECT_DIR%MoatMove.csproj" /t:Build /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /nologo /v:minimal
 if errorlevel 1 goto failed
+if "%NO_INSTALL%"=="1" goto built_without_install
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Install-Package.ps1" -GameDir "%GAME_DIR%"
 if errorlevel 1 goto failed
 echo MoatMove 0.1.1 built and installed successfully.
+if "%NO_PAUSE%"=="0" pause
+exit /b 0
+:built_without_install
+echo MoatMove built successfully. Installation skipped.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 :failed

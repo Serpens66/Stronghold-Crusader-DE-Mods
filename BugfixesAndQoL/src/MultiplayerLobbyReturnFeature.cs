@@ -62,7 +62,7 @@ namespace BugfixesAndQoL
                 .Subscribe(OnMapStart));
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                OnSessionStarted));
+                OnSessionStarted, () => Reset("editor-ended", clearContinuationId: false)));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
             {
                 if (args.Phase == EventHookPhase.Post)
@@ -227,6 +227,11 @@ namespace BugfixesAndQoL
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            if (context.IsEditor)
+            {
+                Reset("editor-start", clearContinuationId: false);
+                return;
+            }
             int coopTrailId = GameData.Instance?.coopTrailID ?? 0;
             CaptureSession(context.Mode, coopTrailId, "session-start:" + context.Kind);
         }

@@ -2127,7 +2127,15 @@ namespace ImprovedHunters
             TrySubscribeFeature("projectile deletion", () => ProjectileR3EventHooks.OnProjectileDelete.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre).Subscribe(OnProjectileDelete));
             TrySubscribeFeature("gameplay session start", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => OnMapStarted()));
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => OnMapStarted(), () =>
+                {
+                    targetSelectionModeAllowed = false;
+                    pathfindingModeAllowed = false;
+                    ClearTargetSelectionCaches();
+                    ClearTrackedGranaryChickens();
+                    pendingGranaryChickenSpawns.Clear();
+                    loadedChickenReconstructionPending = false;
+                }));
             TrySubscribeFeature("movement scan trigger", () => UnitR3EventHooks.OnUnitMovement.Observable.Subscribe(_ => RunNativeScan()));
             TrySubscribeFeature("visual scan trigger", () => UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(_ => RunNativeScan()));
             runtimeEventsSubscribed = true;

@@ -69,7 +69,7 @@ namespace BuildingCosts
 
             try
             {
-                subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
+                subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, ResetTooltipCache));
             }
             catch (Exception ex)
             {

@@ -90,7 +90,7 @@ namespace SkinTest
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualRemove.Observable.Subscribe(OnUnitVisualRemove));
                 subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log,
-                    _ => OnMapStarted()));
+                    _ => OnMapStarted(), ClearBindings));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => ClearBindings()));

@@ -14,7 +14,11 @@ foreach ($path in $runtimePaths) {
     if ([IO.File]::ReadAllText($path) -match '\bruntime\??\.Dispose\s*\(') { throw "Published runtime teardown: $path" }
 }
 foreach ($reference in $project.Project.ItemGroup.Reference) {
-    if ($reference.Include -in @('APIShared','BugfixesAndQoL')) { throw 'Standalone mod references another mod.' }
+    if ($reference.Include -eq 'BugfixesAndQoL') { throw 'Standalone mod references the BugfixesAndQoL feature implementation.' }
+}
+if (-not ($project.Project.ItemGroup.Reference | Where-Object { $_.Include -eq 'APIShared' }) -or
+    $plugin -notmatch 'BepInDependency\("APIShared_Serp", "0\.3\.6"\)') {
+    throw 'Central editor lifecycle requires the declared APIShared dependency.'
 }
 $textPaths = @(Get-ChildItem -LiteralPath $modDir,(Join-Path $modDir 'src'),$PSScriptRoot -File | Where-Object { $_.Extension -in @('.cs','.csproj','.ps1','.py','.bat','.json','.md') })
 foreach ($file in $textPaths) {

@@ -46,6 +46,9 @@
         <member name="T:APIShared.NativeCapabilityIds">
             <summary>Stable identifiers for capabilities exposed by this API version.</summary>
         </member>
+        <member name="F:APIShared.NativeCapabilityIds.EditorMapLifecycle">
+            <summary>Capability for successful editor map sessions and their end.</summary>
+        </member>
         <member name="F:APIShared.NativeCapabilityIds.GatehouseDistanceOrigin">
             <summary>Capability for selecting the native gatehouse distance origin.</summary>
         </member>
@@ -85,6 +88,9 @@
         <member name="T:APIShared.IApiShared">
             <summary>Public process-wide entry point for typed shared native capabilities.</summary>
         </member>
+        <member name="M:APIShared.IApiShared.TryGetEditorMapLifecycle(System.String,APIShared.IEditorMapLifecycleCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires the process-wide managed editor lifecycle.</summary>
+        </member>
         <member name="P:APIShared.IApiShared.State">
             <summary>Gets the global initialization state.</summary>
         </member>
@@ -113,6 +119,75 @@
             <summary>
             Registers a callback that runs when initialization reaches a terminal state. Late
             registrations run synchronously.
+            </summary>
+        </member>
+        <member name="T:APIShared.EditorMapOrigin">
+            <summary>Origin of a successfully initialized editor map.</summary>
+        </member>
+        <member name="F:APIShared.EditorMapOrigin.Created">
+            <summary>A newly created map.</summary>
+        </member>
+        <member name="F:APIShared.EditorMapOrigin.Loaded">
+            <summary>A map loaded from disk.</summary>
+        </member>
+        <member name="T:APIShared.EditorMapLifecycleKind">
+            <summary>Editor session transition.</summary>
+        </member>
+        <member name="F:APIShared.EditorMapLifecycleKind.Ready">
+            <summary>Vanilla's managed editor initialization has returned successfully.</summary>
+        </member>
+        <member name="F:APIShared.EditorMapLifecycleKind.Ended">
+            <summary>The session is no longer usable.</summary>
+        </member>
+        <member name="T:APIShared.EditorMapEndReason">
+            <summary>Reason an editor session ended.</summary>
+        </member>
+        <member name="F:APIShared.EditorMapEndReason.None">
+            <summary>The notification is a ready notification.</summary>
+        </member>
+        <member name="F:APIShared.EditorMapEndReason.MapReplacement">
+            <summary>Another map operation began, even if that operation subsequently fails.</summary>
+        </member>
+        <member name="F:APIShared.EditorMapEndReason.NativeUnload">
+            <summary>Vanilla unloaded native map state outside an editor load operation.</summary>
+        </member>
+        <member name="F:APIShared.EditorMapEndReason.SceneChanged">
+            <summary>The editor's actual game screen was left.</summary>
+        </member>
+        <member name="T:APIShared.EditorMapLifecycleNotification">
+            <summary>
+            Immutable editor-session notification. Ready does not guarantee a first PlayState,
+            rendered visuals, or any particular building. All callbacks run on the Unity thread.
+            </summary>
+        </member>
+        <member name="P:APIShared.EditorMapLifecycleNotification.SessionId">
+            <summary>Process-local monotonically increasing identity; failed attempts can leave gaps.</summary>
+        </member>
+        <member name="P:APIShared.EditorMapLifecycleNotification.Origin">
+            <summary>Creation or file-load origin.</summary>
+        </member>
+        <member name="P:APIShared.EditorMapLifecycleNotification.FilePath">
+            <summary>Loaded file path, or null for a new map.</summary>
+        </member>
+        <member name="P:APIShared.EditorMapLifecycleNotification.Kind">
+            <summary>Ready or ended transition.</summary>
+        </member>
+        <member name="P:APIShared.EditorMapLifecycleNotification.EndReason">
+            <summary>End reason, or None for ready.</summary>
+        </member>
+        <member name="P:APIShared.EditorMapLifecycleNotification.IsReplay">
+            <summary>True only for delivery of the current session to a late observer.</summary>
+        </member>
+        <member name="T:APIShared.IEditorMapLifecycleCapability">
+            <summary>Owner-bound access to the process-wide editor lifecycle; use on the Unity thread.</summary>
+        </member>
+        <member name="P:APIShared.IEditorMapLifecycleCapability.Current">
+            <summary>Current ready session, or null during loading, after failure, or outside the editor.</summary>
+        </member>
+        <member name="M:APIShared.IEditorMapLifecycleCapability.TryRegisterObserver(System.String,System.Action{APIShared.EditorMapLifecycleNotification},APIShared.NativeCapabilityDiagnostic@)">
+            <summary>
+            Registers a process-lifetime observer. An active session is replayed once before return,
+            except during a notification dispatch, when replay follows the current publication.
             </summary>
         </member>
         <member name="T:APIShared.AivBuildStepContext">

@@ -302,7 +302,7 @@ namespace BugfixesAndQoL
             }
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                context => ResetSession("session-start:" + context.Kind)));
+                context => ResetSession("session-start:" + context.Kind), () => ResetSession("editor-ended")));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
             {
                 if (args.Phase == EventHookPhase.Post)

@@ -119,7 +119,7 @@ namespace ExtraFeatures
                 .Subscribe(OnStartMap));
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                OnSessionStarted));
+                OnSessionStarted, onEditorEnded: ResetMap));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMap()));
             initialized = true;
@@ -241,6 +241,14 @@ namespace ExtraFeatures
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            if (context.IsEditor)
+            {
+                ResetMap();
+                CaptureGameMode(multiplayerSave: false);
+                mapPrepared = true;
+                BeginMap();
+                return;
+            }
             if (context.IsLoadedSave)
             {
                 CaptureGameMode(multiplayerSave: context.Mode.IsRealMultiplayer);

@@ -6,11 +6,25 @@
     "Project": "APIShared",
     "Guid": "APIShared_Serp",
     "Consumers": {
-      "ActiveAIVDetector": "0.3.0",
+      "ActiveAIVDetector": "0.3.6",
+      "AIAttackTest": "0.3.6",
+      "BuildingCosts": "0.3.6",
+      "BuildingLimit": "0.3.6",
+      "CheatMod": "0.3.6",
+      "EnemyGatePathfindingTest": "0.3.6",
+      "ExtremePowers": "0.3.6",
+      "ImprovedHunters": "0.3.6",
+      "MoatMove": "0.3.6",
+      "RandomEvents": "0.3.6",
+      "SerpsModsHost": "0.3.6",
+      "SkinTest": "0.3.6",
+      "StartConditions": "0.3.6",
+      "UnitCosts": "0.3.6",
+      "UnitLimit": "0.3.6",
       "BugfixesAndQoL": "0.3.6",
       "CastlePlanner": "0.3.6",
       "ExtendedData": "0.3.6",
-      "ExtraFeatures": "0.3.0"
+      "ExtraFeatures": "0.3.6"
     }
   },
   "AdditionalReleaseIndexEntries": [

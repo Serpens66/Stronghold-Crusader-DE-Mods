@@ -19,7 +19,7 @@ internal static class StandaloneContracts
             item => item.GetProperty("file").GetString()!, item => item.GetProperty("sha256").GetString()!);
         Check(nativeChanges.Keys.ToHashSet().SetEquals(new[] { "IFastRouteField.cs", "FastNativeKernel.cs", "FastNativeRouteField.cs", "FastRouteField.cs", "FastRoutePool.cs", "FastMoatRouting.cs", "FastIntegration.cs", "FastMovementScheduler.cs", "MoatMoveOptions.cs", "MoatMovePlugin.cs", "FriendlyMoatMovementRuntime.cs" }), "Native backend scope changed");
         foreach (var entry in nativeChanges)
-            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(sourceDir, entry.Key)))) == entry.Value,
+            Check(Convert.ToHexString(SHA256.HashData(ReadBeforeEditorLifecycle(sourceDir, entry.Key))) == entry.Value,
                 "Unreviewed FastNative source change: " + entry.Key);
         var seChanges = se.RootElement.GetProperty("files").EnumerateArray().ToDictionary(
             item => item.GetProperty("file").GetString()!, item => item.GetProperty("sha256").GetString()!);
@@ -102,6 +102,18 @@ internal static class StandaloneContracts
             plugin.Contains("BepInDependency(\"000shcdese\", \"2.6.0\")"), "SE 2.6 dependency mismatch");
         Check(manifest.RootElement.GetProperty("GUID").GetString() == "MoatMove_Serp" && manifest.RootElement.GetProperty("Version").GetString() == "0.1.1" && manifest.RootElement.GetProperty("NetworkMode").GetInt32() == 1, "Wrong plugin identity/network contract");
         Console.WriteLine("PASS: original source hashes, explicit Fast replacement inventory, pinned Precise kernel, startup config, unrelated-feature gates, conflicts, process lifetime and manifest.");
+    }
+
+    private static byte[] ReadBeforeEditorLifecycle(string sourceDir, string name)
+    {
+        if (name != "MoatMovePlugin.cs") return File.ReadAllBytes(Path.Combine(sourceDir, name));
+        string plugin = File.ReadAllText(Path.Combine(sourceDir, name));
+        const string dependency = "    [BepInDependency(\"APIShared_Serp\", \"0.3.6\")]\r\n";
+        const string session = "_ => ObserveMapStart(), ObserveMapUnload);";
+        Check(plugin.Contains(dependency) && plugin.Contains(session), "Missing central editor lifecycle integration");
+        // The two reviewed lifecycle edits are the only exception to the historical native-backend hash.
+        string historical = plugin.Replace(dependency, "").Replace(session, "_ => ObserveMapStart());");
+        return System.Text.Encoding.UTF8.GetBytes(historical);
     }
 
     private static byte[] ReadHistoricalSource(string root, string commit, string name)

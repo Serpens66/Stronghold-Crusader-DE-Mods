@@ -48,7 +48,27 @@ namespace Shared
             profile = GameplayModModePolicy.GetProfile(modGuid, displayName);
             configuredEnabledProvider = isConfiguredEnabled ?? throw new ArgumentNullException(nameof(isConfiguredEnabled));
 
+            // Install priority handling before SubscribeStarted can replay an active editor session.
+            GameplaySessionLifecycle.SetEditorGate(context =>
+            {
+                hasAuthoritativeLoadEvidence = false;
+                authoritativeLoadSnapshot = default;
+                UpdateLoad(context.Mode, $"EditorMapReady({context.Kind}, session={context.EditorSessionId})");
+            }, () => Reset("EditorMapEnded"));
+
 #if !SHARED_PRESET_TESTS
+            // Acquire the required lifecycle before publishing any native gate handlers.
+            // A missing capability must not leave a partially initialized gate behind.
+            gameplaySessionSubscription = GameplaySessionLifecycle.SubscribeStarted(
+                log,
+                context =>
+                {
+                    if (context.IsEditor) return; // The central priority callback owns editor transitions.
+                    if (context.IsLoadedSave)
+                        UpdateLoad(context.Mode, "OnLoadSave(Post)");
+                    else
+                        UpdateStart(context.Mode, "OnStartMap(Post)");
+                });
             // Register before the mod's own handlers. Castle spawning and similar
             // native work already begins in OnStartMap(Pre).
             mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable
@@ -56,15 +76,6 @@ namespace Shared
             mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(args => UpdateStart(GameModeHelper.Capture(args), "OnStartMap(Pre)"));
-            gameplaySessionSubscription = GameplaySessionLifecycle.SubscribeStarted(
-                log,
-                context =>
-                {
-                    if (context.IsLoadedSave)
-                        UpdateLoad(context.Mode, "OnLoadSave(Post)");
-                    else
-                        UpdateStart(context.Mode, "OnStartMap(Post)");
-                });
             mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Subscribe(args =>
                 {
@@ -73,11 +84,7 @@ namespace Shared
                 });
 #endif
             initialized = true;
-            GameModeSnapshot current = GameModeHelper.Capture();
-            if (current.Kind == GameModeKind.MapEditor)
-                UpdateLoad(current, "initial-current-editor");
-            else
-                LogTransition("initialization", policyChanged: false);
+            LogTransition("initialization", policyChanged: false);
         }
 
         private static void UpdateLoad(GameModeSnapshot next, string source)

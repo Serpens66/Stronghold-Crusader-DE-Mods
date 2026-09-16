@@ -10,6 +10,7 @@ namespace AIAttackTest
 {
     [BepInDependency(ScriptExtenderGuid, "2.6.0")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class AIAttackTestPlugin : BaseUnityPlugin
     {
@@ -79,7 +80,7 @@ namespace AIAttackTest
                 AIAttackTestRuntime installed = candidate;
                 candidateSessionSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     persistentLog,
-                    installed.BeginMap);
+                    installed.BeginMap, () => installed.EndMap("EditorMapEnded"));
                 candidateUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(_ => installed.EndMap("OnUnloadMap(Pre)"));

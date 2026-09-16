@@ -18,6 +18,8 @@ Primary reusable artifacts:
 
 Semantic reverse-engineering baseline:
 
+- [Editor map lifecycle audit](./sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md): native creation/loading paths, managed completion, and event boundaries.
+
 - [Semantic overview and validation](./sem/FBCB9319/SEMANTIC_INFO.md)
 - [Semantic Ghidra project](./sem/FBCB9319/ghidra/CrusaderDE-Semantic.gpr)
 - [SQLite database manifest](./sem/FBCB9319/DATABASE_INFO.json); the 148 MB SQLite/FTS5 file is reproducible, retained locally and intentionally excluded from Git

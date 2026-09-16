@@ -5,8 +5,11 @@ using R3;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
 using System;
-#if SHARED_PRESET_TESTS
 using System.Collections.Generic;
+#if !SHARED_PRESET_TESTS
+using APIShared;
+using System.Linq;
+using BepInEx;
 #endif
 
 namespace Shared
@@ -15,6 +18,8 @@ namespace Shared
     {
         NewMap,
         LoadedSave,
+        EditorCreated,
+        EditorLoaded,
     }
 
     internal sealed class GameplaySessionStartedContext
@@ -25,8 +30,21 @@ namespace Shared
         internal LoadSaveGameEventArgs SaveLoad { get; }
 
         internal bool IsLoadedSave => Kind == GameplaySessionStartKind.LoadedSave;
-        internal bool LoadingEditorMap => SaveLoad?.LoadingEditorMap == true;
-        internal string SaveFileName => SaveLoad?.FileName;
+        internal bool IsEditor => Kind == GameplaySessionStartKind.EditorCreated || Kind == GameplaySessionStartKind.EditorLoaded;
+        internal bool LoadingEditorMap => Kind == GameplaySessionStartKind.EditorLoaded;
+        internal long EditorSessionId { get; private set; }
+        internal bool IsReplay { get; private set; }
+        private string editorFilePath;
+        internal string SaveFileName => IsEditor ? editorFilePath : SaveLoad?.FileName;
+
+        internal static GameplaySessionStartedContext FromEditor(long id, bool loaded, string path, bool replay) =>
+            new GameplaySessionStartedContext(loaded ? GameplaySessionStartKind.EditorLoaded : GameplaySessionStartKind.EditorCreated,
+                GameModeHelper.CaptureEditorSession(), null, null)
+            { EditorSessionId = id, editorFilePath = path, IsReplay = replay };
+
+        internal GameplaySessionStartedContext AsEditorReplay() =>
+            new GameplaySessionStartedContext(Kind, Mode, null, null)
+            { EditorSessionId = EditorSessionId, editorFilePath = editorFilePath, IsReplay = true };
 
         private GameplaySessionStartedContext(
             GameplaySessionStartKind kind,
@@ -60,9 +78,91 @@ namespace Shared
     /// start or a successful save load. Save-load Pre and the nested unload notifications are
     /// deliberately ignored; existing ModSaveData handlers have restored their state before the
     /// final Post notification reaches subscriptions installed by a mod runtime.
+    /// Editor sessions instead come exclusively from APIShared after managed initialization;
+    /// their activation gate runs before feature subscribers, including synchronous replay.
     /// </summary>
     internal static class GameplaySessionLifecycle
     {
+        private static readonly List<EditorSubscriber> editorSubscribers = new List<EditorSubscriber>();
+        private static GameplaySessionStartedContext activeEditor;
+        private static Action<GameplaySessionStartedContext> editorGate;
+        private static Action editorGateEnded;
+#if !SHARED_PRESET_TESTS
+        private static bool editorConnected;
+        private static void EnsureEditorConnected()
+        {
+            if (editorConnected) return;
+            string owner = typeof(GameplaySessionLifecycle).Assembly.GetTypes()
+                .SelectMany(t => t.GetCustomAttributes(typeof(BepInPlugin), false).Cast<BepInPlugin>())
+                .Select(a => a.GUID).First();
+            if (!ApiShared.Current.TryGetEditorMapLifecycle(owner, out var capability, out var diagnostic))
+                throw new InvalidOperationException("Editor lifecycle unavailable: " + diagnostic?.Reason);
+            // Mark before registration: a synchronous replay can initialize another feature.
+            editorConnected = true;
+            if (!capability.TryRegisterObserver("Shared.GameplaySessionLifecycle", OnEditorNotification, out diagnostic))
+            {
+                editorConnected = false;
+                throw new InvalidOperationException("Editor lifecycle registration failed: " + diagnostic?.Reason);
+            }
+        }
+
+        private static void OnEditorNotification(EditorMapLifecycleNotification e)
+        {
+            if (e.Kind == EditorMapLifecycleKind.Ended) { EndEditor(); return; }
+            StartEditor(GameplaySessionStartedContext.FromEditor(e.SessionId,
+                e.Origin == EditorMapOrigin.Loaded, e.FilePath, e.IsReplay));
+        }
+#endif
+
+        internal static void SetEditorGate(Action<GameplaySessionStartedContext> ready, Action ended)
+        {
+            editorGate = ready;
+            editorGateEnded = ended;
+            if (activeEditor != null) ready(activeEditor.AsEditorReplay());
+        }
+
+        private static void StartEditor(GameplaySessionStartedContext context)
+        {
+            activeEditor = context;
+            // A gate failure prevents feature callbacks; never initialize behind a stale mode gate.
+            try { editorGate?.Invoke(context); }
+            catch
+            {
+                activeEditor = null;
+                editorGateEnded?.Invoke();
+                throw;
+            }
+            foreach (var entry in editorSubscribers.ToArray()) entry.Deliver(context);
+        }
+
+        private static void EndEditor()
+        {
+            activeEditor = null;
+            editorGateEnded?.Invoke();
+            foreach (var entry in editorSubscribers.ToArray()) entry.End();
+        }
+
+        private sealed class EditorSubscriber : IDisposable
+        {
+            private readonly ManualLogSource log;
+            private readonly Action<GameplaySessionStartedContext> callback;
+            private readonly Action ended;
+            private long lastSession;
+            internal EditorSubscriber(ManualLogSource log, Action<GameplaySessionStartedContext> callback, Action ended)
+            { this.log = log; this.callback = callback; this.ended = ended; }
+            internal void End()
+            {
+                try { ended?.Invoke(); }
+                catch (Exception ex) { DebugLogHelper.LogError(log, $"Editor end subscriber failed: {ex}"); }
+            }
+            internal void Deliver(GameplaySessionStartedContext context)
+            {
+                if (lastSession == context.EditorSessionId) return;
+                lastSession = context.EditorSessionId;
+                Notify(log, callback, context);
+            }
+            public void Dispose() { editorSubscribers.Remove(this); }
+        }
         [ThreadStatic]
         private static GameplaySessionStartedContext currentNotification;
 
@@ -73,14 +173,19 @@ namespace Shared
 
         internal static IDisposable SubscribeStarted(
             ManualLogSource log,
-            Action<GameplaySessionStartedContext> callback)
+            Action<GameplaySessionStartedContext> callback,
+            Action onEditorEnded = null)
         {
             if (callback == null)
                 throw new ArgumentNullException(nameof(callback));
 
+            var editor = new EditorSubscriber(log, callback, onEditorEnded);
+            editorSubscribers.Add(editor);
+
 #if SHARED_PRESET_TESTS
             TestSubscribers.Add(callback);
-            var subscription = new TestSubscription(callback);
+            var subscription = new TestSubscription(callback, editor);
+            if (activeEditor != null) editor.Deliver(activeEditor.AsEditorReplay());
             ReplayCurrentNotification(log, callback);
             return subscription;
 #else
@@ -88,13 +193,15 @@ namespace Shared
             IDisposable saveLoadSubscription = null;
             try
             {
+                EnsureEditorConnected();
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(args => NotifyNewMap(log, callback, args));
                 saveLoadSubscription = MapLoaderR3EventHooks.OnLoadSave.Observable
-                    .Where(IsSuccessfulSavePost)
+                    .Where(args => IsSuccessfulSavePost(args) && !args.LoadingEditorMap)
                     .Subscribe(args => NotifyLoadedSave(log, callback, args));
-                var subscription = new Subscription(mapStartSubscription, saveLoadSubscription);
+                var subscription = new Subscription(mapStartSubscription, saveLoadSubscription, editor);
+                if (activeEditor != null) editor.Deliver(activeEditor.AsEditorReplay());
                 ReplayCurrentNotification(log, callback);
                 return subscription;
             }
@@ -102,6 +209,7 @@ namespace Shared
             {
                 mapStartSubscription?.Dispose();
                 saveLoadSubscription?.Dispose();
+                editor.Dispose();
                 throw;
             }
 #endif
@@ -149,7 +257,7 @@ namespace Shared
             Action<GameplaySessionStartedContext> callback)
         {
             GameplaySessionStartedContext context = currentNotification;
-            if (context != null)
+            if (context != null && !context.IsEditor)
                 Notify(log, callback, context);
         }
 
@@ -177,6 +285,9 @@ namespace Shared
         }
 
 #if SHARED_PRESET_TESTS
+        internal static void System_TestRaiseEditor(long id, bool loaded = false) =>
+            StartEditor(GameplaySessionStartedContext.FromEditor(id, loaded, loaded ? "test.map" : null, false));
+        internal static void System_TestEndEditor() => EndEditor();
         internal static void System_TestRaiseNewMap(MapStartEventArgs args)
         {
             foreach (Action<GameplaySessionStartedContext> callback in TestSubscribers.ToArray())
@@ -185,7 +296,7 @@ namespace Shared
 
         internal static void System_TestRaiseSave(LoadSaveGameEventArgs args)
         {
-            if (!IsSuccessfulSavePost(args))
+            if (!IsSuccessfulSavePost(args) || args.LoadingEditorMap)
                 return;
             foreach (Action<GameplaySessionStartedContext> callback in TestSubscribers.ToArray())
                 NotifyLoadedSave(null, callback, args);
@@ -195,19 +306,25 @@ namespace Shared
         {
             TestSubscribers.Clear();
             currentNotification = null;
+            editorSubscribers.Clear();
+            activeEditor = null;
+            editorGate = null;
+            editorGateEnded = null;
         }
 
         private sealed class TestSubscription : IDisposable
         {
             private Action<GameplaySessionStartedContext> callback;
+            private readonly IDisposable editor;
 
-            internal TestSubscription(Action<GameplaySessionStartedContext> callback) =>
-                this.callback = callback;
+            internal TestSubscription(Action<GameplaySessionStartedContext> callback, IDisposable editor)
+            { this.callback = callback; this.editor = editor; }
 
             public void Dispose()
             {
                 Action<GameplaySessionStartedContext> removed = callback;
                 callback = null;
+                editor.Dispose();
                 if (removed != null)
                     TestSubscribers.Remove(removed);
             }
@@ -217,9 +334,11 @@ namespace Shared
         {
             private IDisposable mapStartSubscription;
             private IDisposable saveLoadSubscription;
+            private readonly IDisposable editor;
 
-            internal Subscription(IDisposable mapStartSubscription, IDisposable saveLoadSubscription)
+            internal Subscription(IDisposable mapStartSubscription, IDisposable saveLoadSubscription, IDisposable editor)
             {
+                this.editor = editor;
                 this.mapStartSubscription = mapStartSubscription;
                 this.saveLoadSubscription = saveLoadSubscription;
             }
@@ -232,6 +351,7 @@ namespace Shared
                 saveLoadSubscription = null;
                 mapStart?.Dispose();
                 saveLoad?.Dispose();
+                editor.Dispose();
             }
         }
 #endif

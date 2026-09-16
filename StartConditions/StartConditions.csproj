@@ -149,4 +149,9 @@
     <Error Condition="'$(ExtenderDir)' != '' and !Exists('$(ExtenderDir)\SHCDESE.dll')"
            Text="SHCDESE.dll wurde im ExtenderDir nicht gefunden: $(ExtenderDir)" />
   </Target>
+  <PropertyGroup Condition="'$(ApiSharedDir)' == ''"><ApiSharedDir>$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir></PropertyGroup>
+  <ItemGroup><Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference></ItemGroup>
+  <Target Name="ValidateEditorLifecycleReference" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll with editor lifecycle capability is required in ApiSharedDir." />
+  </Target>
 </Project>

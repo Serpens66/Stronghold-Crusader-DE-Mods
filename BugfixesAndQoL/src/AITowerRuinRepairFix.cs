@@ -250,7 +250,7 @@ namespace BugfixesAndQoL
                 .Subscribe(_ => ResetMap()));
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                OnSessionStarted));
+                OnSessionStarted, onEditorEnded: ResetMap));
             subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => ResetMap()));
@@ -265,7 +265,7 @@ namespace BugfixesAndQoL
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
-            if (context.IsLoadedSave)
+            if (context.IsLoadedSave || context.LoadingEditorMap)
                 RebuildRuntimeRuinIndex();
             mapActive = true;
         }

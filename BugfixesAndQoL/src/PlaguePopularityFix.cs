@@ -112,7 +112,7 @@ namespace BugfixesAndQoL
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileDelete.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnProjectileDelete));
-                subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
+                subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, ResetMapState));
                 GameTimeManagerAPI.Instance.OnTick += OnGameTick;
 
                 if (!ModSaveDataAPI.Instance.RegisterModDataHandler(

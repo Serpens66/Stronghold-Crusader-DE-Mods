@@ -6,7 +6,7 @@ using System.IO;
 namespace ActiveAIVDetector
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
-    [BepInDependency(ApiSharedGuid, "0.3.0")]
+    [BepInDependency(ApiSharedGuid, "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ActiveAIVDetectorPlugin : BaseUnityPlugin
     {

@@ -1927,8 +1927,8 @@ internal static class Program
         string assassinClimbSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AssassinClimbRuntime.cs"));
         Check(hudCoordinatorSource.Contains("A direct editor launch can build the HUD") &&
-              bugfixRuntimeSource.Contains("BeginEditorMapIfApplicable") &&
-              bugfixRuntimeSource.Contains("GameModeHelper.IsMapEditor()") &&
+              bugfixRuntimeSource.Contains("BeginGameplaySession, EndEditorSession") &&
+              !bugfixRuntimeSource.Contains("BeginEditorMapIfApplicable") &&
               assassinClimbSource.Contains("initialized = true;") &&
               assassinClimbSource.Contains("RefreshButtonVisibility();") &&
               assassinClimbSource.Contains("Application.onBeforeRender += OnBeforeRender") &&
@@ -5675,8 +5675,8 @@ internal static class Program
 
         string extraFeaturesRuntime = File.ReadAllText(
             Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesRuntime.cs"));
-        Check(extraFeaturesRuntime.Contains("if (context.IsLoadedSave)") &&
-              extraFeaturesRuntime.Contains("ApplyMapLoadedSettings();") &&
+        Check(extraFeaturesRuntime.Contains("if (context.IsLoadedSave || context.IsEditor)") &&
+              extraFeaturesRuntime.Contains("ApplyMapLoadedSettings(context.IsEditor);") &&
               !extraFeaturesRuntime.Contains("TrySubscribeFeature(\"save-load settings\""),
             "Extra Features does not initialize map-loaded state through the replay-safe shared lifecycle");
 
@@ -5775,6 +5775,44 @@ internal static class Program
         orderingSubscription.Dispose();
         outerSubscription.Dispose();
         lateSubscription.Dispose();
+        GameplaySessionLifecycle.System_TestReset();
+        TestSharedEditorSessionLifecycle();
+    }
+
+    private static void TestSharedEditorSessionLifecycle()
+    {
+        var order = new List<string>();
+        var sessions = new List<GameplaySessionStartedContext>();
+        GameplaySessionLifecycle.SubscribeStarted(null, context =>
+        {
+            sessions.Add(context);
+            Check(order.Count != 0 && order.Last() == "gate-ready", "editor subscriber ran before its gate");
+            order.Add("feature-ready");
+        }, () => order.Add("feature-ended"));
+        GameplaySessionLifecycle.SetEditorGate(_ => order.Add("gate-ready"), () => order.Add("gate-ended"));
+        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(true)
+        { Phase = EventHookPhase.Post, ReturnValue = 1 });
+        Check(sessions.Count == 0, "early native editor load produced a gameplay session");
+        GameplaySessionLifecycle.System_TestRaiseEditor(1);
+        Check(sessions.Count == 1 && sessions[0].Kind == GameplaySessionStartKind.EditorCreated &&
+            !sessions[0].IsLoadedSave && sessions[0].MapStart == null && sessions[0].SaveLoad == null &&
+            sessions[0].Mode.Kind == GameModeKind.MapEditor,
+            "editor creation was confused with gameplay start or save load");
+        var replay = new List<GameplaySessionStartedContext>();
+        GameplaySessionLifecycle.SubscribeStarted(null, replay.Add);
+        Check(replay.Count == 1 && replay[0].IsReplay && replay[0].EditorSessionId == 1,
+            "late editor subscriber did not receive exactly one current-session replay");
+        GameplaySessionLifecycle.System_TestEndEditor();
+        Check(order.Skip(order.Count - 2).SequenceEqual(new[] { "gate-ended", "feature-ended" }),
+            "editor end did not clear the gate before the feature");
+        GameplaySessionLifecycle.System_TestRaiseEditor(2, true);
+        Check(sessions.Count == 2 && sessions[1].Kind == GameplaySessionStartKind.EditorLoaded &&
+            sessions[1].LoadingEditorMap && sessions[1].SaveFileName == "test.map" && replay.Count == 2,
+            "loaded editor map was not delivered exactly once with file context");
+        GameplaySessionLifecycle.System_TestEndEditor();
+        int stale = 0;
+        GameplaySessionLifecycle.SubscribeStarted(null, _ => stale++);
+        Check(stale == 0, "ended editor session leaked into a late registration");
         GameplaySessionLifecycle.System_TestReset();
     }
 }

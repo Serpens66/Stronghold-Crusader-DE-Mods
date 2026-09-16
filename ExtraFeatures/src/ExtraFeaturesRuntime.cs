@@ -257,7 +257,7 @@ namespace ExtraFeatures
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => ApplyMapLoadedSettings()));
             TrySubscribeFeature("gameplay-session initialization", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, () => OnUnloadMap(null)));
             TrySubscribeFeature("map-unload cleanup", () =>
                 MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
@@ -452,10 +452,14 @@ namespace ExtraFeatures
             ApplySettings();
         }
 
-        private void ApplyMapLoadedSettings()
+        private void ApplyMapLoadedSettings(bool editor = false)
         {
             mapActive = true;
-            TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
+            TryRunFeature("gatehouse map initialization", () =>
+            {
+                if (editor) gatehouseAutomationRuntime.BeginEditorMap();
+                else gatehouseAutomationRuntime.BeginMap();
+            });
             TryRunFeature("market price multipliers", ApplyMarketPriceMultipliers);
             TryRunFeature("church priest counts", churchPriestCountRuntime.ApplySetting);
             TryRunFeature("campfire peasants", ApplyCampfirePeasantsLimit);
@@ -521,13 +525,14 @@ namespace ExtraFeatures
                 : context.MapStart != null && context.MapStart.bMultiplayerSave != 0;
             multiplayerFeatureGate.CaptureMapMode(multiplayerSave);
 
-            if (context.IsLoadedSave)
-                ApplyMapLoadedSettings();
+            if (context.IsLoadedSave || context.IsEditor)
+                ApplyMapLoadedSettings(context.IsEditor);
 
             TryRunFeature("Lord health map initialization", ReconcileLordHealthRuntime);
 
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
-            TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
+            if (!context.IsLoadedSave && !context.IsEditor)
+                TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
         }
 
         private void InitializePlagueDurationPatch(IntPtr nativeLibraryHandle, ScanRegion region, ReadOnlySpan<byte> memory)

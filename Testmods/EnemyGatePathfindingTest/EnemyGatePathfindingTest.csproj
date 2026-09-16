@@ -68,4 +68,9 @@
     <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Iced.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll')" Text="Microsoft.Extensions.Logging.Abstractions.dll was not found: $(ExtenderDir)" />
   </Target>
+  <PropertyGroup Condition="'$(ApiSharedDir)' == ''"><ApiSharedDir>$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir></PropertyGroup>
+  <ItemGroup><Reference Include="APIShared"><HintPath>$(ApiSharedDir)\APIShared.dll</HintPath><Private>false</Private></Reference></ItemGroup>
+  <Target Name="ValidateEditorLifecycleReference" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll with editor lifecycle capability is required in ApiSharedDir." />
+  </Target>
 </Project>

@@ -148,7 +148,7 @@ namespace RandomEvents
                 throw new InvalidOperationException("Random Events save-data handler registration failed.");
 
             TrySubscribeFeature("gameplay session start", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, ResetMapState));
             TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(OnUnloadMap));
@@ -208,6 +208,7 @@ namespace RandomEvents
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
         {
+            if (context.IsEditor) { ResetMapState(); return; }
             if (!Shared.GameplayModActivationGate.IsAllowed)
             {
                 ResetMapState();

@@ -35,7 +35,6 @@ namespace BugfixesAndQoL
         private static ExtendedShiftCommandQueueRuntime processExtendedShiftCommandQueueRuntime;
         private IDisposable playerMarketSubscription;
         private IDisposable mapStartSubscription;
-        private IDisposable mapLoadSubscription;
         private IDisposable mapUnloadSubscription;
         private MinimapInputFeature minimapInputFeature;
         private SkirmishAiSelectionMemoryHook skirmishAiSelectionMemoryHook;
@@ -193,16 +192,7 @@ namespace BugfixesAndQoL
                     "gameplay-session start subscription",
                     () => mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                         log,
-                        BeginGameplaySession));
-            }
-
-            if (mapLoadSubscription == null)
-            {
-                TryInitializePersistentFeature(
-                    "map-editor load subscription",
-                    () => mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable
-                        .Where(args => args.Phase == EventHookPhase.Post)
-                        .Subscribe(args => BeginEditorMapIfApplicable(Shared.GameModeHelper.Capture(args))));
+                        BeginGameplaySession, EndEditorSession));
             }
 
             if (mapUnloadSubscription == null)
@@ -221,18 +211,15 @@ namespace BugfixesAndQoL
                         }));
             }
 
-            if (Shared.GameModeHelper.IsMapEditor())
-                BeginEditorMapIfApplicable(Shared.GameModeHelper.Capture());
         }
 
-        private void BeginEditorMapIfApplicable(Shared.GameModeSnapshot mode)
+        private void EndEditorSession()
         {
-            if (mode.Kind != Shared.GameModeKind.MapEditor)
-                return;
-            multiplayerFeatureGate.CaptureMapMode(multiplayerSave: false);
-            assassinPathfindingRuntime.BeginMap();
-            assassinClimbRuntime.BeginMap();
-            troopActionHudCoordinator.Refresh();
+            ResetMovedFeatureMapState();
+            multiplayerGameSpeedRuntime.ResetMapState();
+            assassinClimbRuntime.EndMap();
+            assassinPathfindingRuntime.EndMap();
+            multiplayerFeatureGate.Reset();
         }
 
         private void BeginGameplaySession(Shared.GameplaySessionStartedContext context)
@@ -240,7 +227,8 @@ namespace BugfixesAndQoL
             multiplayerFeatureGate.CaptureMapMode(
                 context.MapStart != null && context.MapStart.bMultiplayerSave != 0);
             // Restored customized-save origins are pending until the destination session exists.
-            TrailCustomizationLaunchOriginApi.MarkMapStarted();
+            if (!context.IsEditor)
+                TrailCustomizationLaunchOriginApi.MarkMapStarted();
             assassinPathfindingRuntime.BeginMap();
             assassinClimbRuntime.BeginMap();
             multiplayerGameSpeedRuntime.ApplySetting();
@@ -590,8 +578,6 @@ namespace BugfixesAndQoL
             playerMarketSubscription = null;
             mapStartSubscription?.Dispose();
             mapStartSubscription = null;
-            mapLoadSubscription?.Dispose();
-            mapLoadSubscription = null;
             mapUnloadSubscription?.Dispose();
             mapUnloadSubscription = null;
             nativeLibraryAvailable = false;

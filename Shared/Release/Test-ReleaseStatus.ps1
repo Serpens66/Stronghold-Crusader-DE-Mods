@@ -10,9 +10,9 @@ $config = Get-ReleaseConfiguration
 Assert-True ([string]$config.ApiShared.Guid -ceq 'APIShared_Serp') 'The resolved release configuration must expose the APIShared GUID.'
 Assert-True ($null -eq $config.ApiShared.PSObject.Properties['Version']) 'The release configuration must not duplicate the current APIShared version.'
 Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.3.6') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.3.0') 'ExtraFeatures must be recognized as an APIShared consumer.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.3.6') 'ExtraFeatures must be recognized as an APIShared consumer.'
 Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtendedData') -ceq '0.3.6') 'ExtendedData must be recognized as an APIShared consumer.'
-Assert-True ($null -eq (Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts')) 'BuildingCosts must not be classified as an APIShared consumer.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts') -ceq '0.3.6') 'BuildingCosts must be classified as an editor lifecycle APIShared consumer.'
 $releaseIndexEntries = @(Get-ReleaseIndexEntries -Config $config)
 Assert-True ([string]$releaseIndexEntries[0].Project -ceq 'SerpsMods') 'The SerpsMods release-index entry must be first.'
 Assert-True ([string]$releaseIndexEntries[0].DisplayName -ceq 'SerpsMods (Modpack)') 'The SerpsMods release-index display name must identify the modpack.'
@@ -21,7 +21,8 @@ Assert-True ((Get-ReleaseIndexAssetName -Entry $releaseIndexEntries[0] -Version 
 Assert-True ((Get-ReleaseIndexSha256 -Entry $releaseIndexEntries[0] -ReleaseBody "ZIP SHA-256: ``$('a' * 64)``") -ceq ('a' * 64)) 'The SerpsMods release-index entry must read the ZIP hash from release notes.'
 Assert-True ((Get-ReleaseIndexSha256 -Entry $releaseIndexEntries[1] -ReleaseBody "Thin SHA-256: ``$('b' * 64)``") -ceq ('b' * 64)) 'Normal release-index entries must retain support for thin-package hash labels.'
 $samplePackRow = New-ReleaseIndexRow -Config $config -Entry $releaseIndexEntries[0] -Version '1.2.3' -Url 'https://example.invalid/SerpsMods-v1.2.3.zip' -Commit '1234567890abcdef' -Sha256 ('a' * 64)
-Assert-True ($samplePackRow.StartsWith('| SerpsMods (Modpack) | [1.2.3](https://example.invalid/SerpsMods-v1.2.3.zip) | — | [1234567]')) 'The SerpsMods release-index row must link the ZIP directly and render no status badge.'
+$samplePackPrefix = "| SerpsMods (Modpack) | [1.2.3](https://example.invalid/SerpsMods-v1.2.3.zip) | $([char]0x2014) | [1234567]"
+Assert-True ($samplePackRow.StartsWith($samplePackPrefix)) 'The SerpsMods release-index row must link the ZIP directly and render no status badge.'
 $apiSharedPackage = Get-ValidatedApiSharedPackage -Config $config -MinimumVersion '0.3.0'
 Assert-True ($apiSharedPackage.Directory -ceq (Join-Path $config.Root 'APIShared\BepInEx\plugins\APIShared_Serp')) 'Release builds must resolve the validated workspace APIShared package.'
 Assert-True (Test-Path -LiteralPath $apiSharedPackage.DllPath -PathType Leaf) 'The resolved workspace APIShared package must contain APIShared.dll.'

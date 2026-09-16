@@ -7,7 +7,9 @@ set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
 if errorlevel 1 (
@@ -17,7 +19,7 @@ if errorlevel 1 (
 )
 if not exist "%MSBUILD%" ( echo MSBuild wurde nicht gefunden.& goto failed )
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" ( echo SHCDESE.dll wurde nicht gefunden: %EXTENDER_DIR%& goto failed )
-if not exist "%API_SHARED_DIR%\APIShared.dll" ( echo APIShared.dll 0.3.1 wurde nicht gefunden: %API_SHARED_DIR%& goto failed )
+if not exist "%API_SHARED_DIR%\APIShared.dll" ( echo APIShared.dll 0.3.6 wurde nicht gefunden: %API_SHARED_DIR%& goto failed )
 if not exist "%PROJECT_DIR%Assets\CrusaderSwordsman\atlas.png" ( echo Private Atlas-Assets fehlen.& goto failed )
 if not exist "%PROJECT_DIR%Assets\CrusaderRoundTower\atlas.png" ( echo Private Rundturm-Assets fehlen.& goto failed )
 if not exist "%PROJECT_DIR%Assets\CrusaderRoundTowerAnimations\atlas.png" ( echo Private Rundturm-Animationsassets fehlen.& goto failed )
@@ -39,9 +41,15 @@ if not "%BUILD_EXIT_CODE%"=="0" goto failed
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\SkinTest_Serp"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\SkinTest_Serp"
 if not exist "%LOCAL_PLUGIN_DIR%\SkinTest.dll" goto failed
+if "%NO_INSTALL%"=="1" goto built_without_install
 xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y
 if errorlevel 1 goto failed
 echo Build, Tests und Installation erfolgreich.
+if "%NO_PAUSE%"=="0" pause
+exit /b 0
+
+:built_without_install
+echo Build und Tests erfolgreich. Installation uebersprungen.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 

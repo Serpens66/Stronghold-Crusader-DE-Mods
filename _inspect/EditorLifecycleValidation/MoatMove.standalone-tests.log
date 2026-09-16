@@ -1,0 +1,7 @@
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\StandaloneContracts.cs(47,77): warning CS8632: Die Anmerkung für Nullable-Verweistypen darf nur in Code innerhalb eines #nullable-Anmerkungskontexts verwendet werden. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\MoatMove.Tests.csproj]
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\StandaloneContracts.cs(47,152): warning CS8632: Die Anmerkung für Nullable-Verweistypen darf nur in Code innerhalb eines #nullable-Anmerkungskontexts verwendet werden. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\MoatMove.Tests.csproj]
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\StandaloneContracts.cs(47,221): warning CS8632: Die Anmerkung für Nullable-Verweistypen darf nur in Code innerhalb eines #nullable-Anmerkungskontexts verwendet werden. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\Testmods\MoatMove\tests\MoatMove.Tests.csproj]
+PASS: original source hashes, explicit Fast replacement inventory, pinned Precise kernel, startup config, unrelated-feature gates, conflicts, process lifetime and manifest.
+PASS: installed RedBird decode-only candidate displaces exactly 14 bytes; no hook installed.
+PASS: installed RedBird Fast entry spans 14/22/15 bytes; decode-only, no hooks installed.
+PASS: installed RedBird selection spans 17/14/17/18/15/14 bytes; no hooks installed.

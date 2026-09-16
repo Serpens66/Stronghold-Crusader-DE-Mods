@@ -1,0 +1,101 @@
+TEXT _inspect/APISharedTests/APISharedTests.csproj: CRLF=44, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT _inspect/APISharedTests/EditorMapLifecycleTests.cs: CRLF=130, bareLF=0, first=using APIShared;
+TEXT _inspect/APISharedTests/Program.cs: CRLF=1653, bareLF=0, first=using APIShared;
+TEXT _inspect/CrusaderDE-Native-Baseline/CURRENT.md: CRLF=47, bareLF=0, first=# Current CrusaderDE Native Baseline
+TEXT _inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md: CRLF=22, bareLF=0, first=# Editor map lifecycle audit
+TEXT _inspect/EditorLifecycleMigration.ps1: CRLF=82, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT _inspect/HostClientPresetTests/Program.cs: CRLF=6945, bareLF=0, first=using MessagePack;
+TEXT _inspect/Test-EditorLifecyclePreflight.ps1: CRLF=83, bareLF=0, first=param([switch]$NormalizeChangedText)
+TEXT APIShared/APIShared.csproj: CRLF=73, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT APIShared/src/ApiSharedRuntime.cs: CRLF=334, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/Contracts.cs: CRLF=132, bareLF=0, first=using System;
+TEXT APIShared/src/EditorMapLifecycleCapability.cs: CRLF=154, bareLF=0, first=using BepInEx.Logging;
+TEXT APIShared/src/EditorMapLifecycleContracts.cs: CRLF=79, bareLF=0, first=using System;
+TEXT APIShared/src/EditorMapLifecycleState.cs: CRLF=116, bareLF=0, first=using System;
+TEXT BugfixesAndQoL/src/AITowerRuinRepairFix.cs: CRLF=438, bareLF=0, first=// Feature: Route runtime-created AI tower ruins through Vanilla cleanup in both placement branches.
+TEXT BugfixesAndQoL/src/BugfixesAndQoLRuntime.cs: CRLF=1480, bareLF=0, first=// Feature: Lifecycle orchestration for the Bugfixes and QoL features.
+TEXT BugfixesAndQoL/src/MultiplayerLobbyReturnFeature.cs: CRLF=582, bareLF=0, first=// Feature: Recreate a normal multiplayer lobby before the final statistics release the peers.
+TEXT BugfixesAndQoL/src/PlaguePopularityFix.cs: CRLF=769, bareLF=0, first=// Feature: Tie the plague popularity penalty to living Disease projectile herds.
+TEXT BugfixesAndQoL/src/QuarryPileRelocationRuntime.cs: CRLF=1893, bareLF=0, first=// Feature: Relocate a quarry's linked stone pile to the next valid position.
+TEXT BugfixesAndQoL/src/SurrenderFeature.cs: CRLF=1680, bareLF=0, first=// Feature: Confirmed surrender and reversible spectator statistics.
+TEXT BuildingCosts/BuildingCosts.csproj: CRLF=149, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT BuildingCosts/src/BuildingCostsPlugin.cs: CRLF=89, bareLF=0, first=using BepInEx;
+TEXT BuildingCosts/src/BuildingCostsRuntime.cs: CRLF=1068, bareLF=0, first=using CrusaderDE;
+TEXT BuildingLimit/BuildingLimit.csproj: CRLF=155, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT BuildingLimit/src/ActiveBuildingCache.cs: CRLF=642, bareLF=0, first=using BepInEx.Logging;
+TEXT BuildingLimit/src/BuildingLimitPlugin.cs: CRLF=90, bareLF=0, first=using BepInEx;
+TEXT BuildingLimit/src/BuildingLimitRuntime.cs: CRLF=259, bareLF=0, first=using BepInEx.Logging;
+TEXT CastlePlanner/src/BlueprintRuntimeController.cs: CRLF=1017, bareLF=0, first=using BepInEx.Logging;
+TEXT CheatMod/CheatMod.csproj: CRLF=63, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT CheatMod/src/CheatModPlugin.cs: CRLF=71, bareLF=0, first=using BepInEx;
+TEXT CheatMod/src/CheatModRuntime.cs: CRLF=185, bareLF=0, first=using BepInEx.Logging;
+TEXT ExtendedData/src/ExtendedDataRuntime.cs: CRLF=840, bareLF=0, first=using BepInEx.Logging;
+TEXT ExtraFeatures/src/AIDefenseRepairRuntime.cs: CRLF=1110, bareLF=0, first=// Feature: Configure human/AI enemy proximity and damage-anchored AIV defense rebuild timing.
+TEXT ExtraFeatures/src/ExtraFeaturesPlugin.cs: CRLF=173, bareLF=0, first=// Feature: Plugin bootstrap for the Extra Features mod.
+TEXT ExtraFeatures/src/ExtraFeaturesRuntime.cs: CRLF=781, bareLF=0, first=// Feature: Lifecycle orchestration and shared event guards for Extra Features.
+TEXT ExtraFeatures/src/GatehouseAutomationRuntime.cs: CRLF=927, bareLF=0, first=// Feature: Reachability-aware and per-building manual gatehouse automation.
+TEXT ExtremePowers/ExtremePowers.csproj: CRLF=33, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT ExtremePowers/src/ExtremePowersPlugin.cs: CRLF=113, bareLF=0, first=using BepInEx;
+TEXT Helpers/ActiveAIVDetector/src/ActiveAIVDetectionRuntime.cs: CRLF=1624, bareLF=0, first=using BepInEx.Logging;
+TEXT Helpers/ActiveAIVDetector/src/ActiveAIVDetectorPlugin.cs: CRLF=98, bareLF=0, first=using BepInEx;
+TEXT ImprovedHunters/ImprovedHunters.csproj: CRLF=203, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT ImprovedHunters/src/ImprovedHuntersPlugin.cs: CRLF=90, bareLF=0, first=using BepInEx;
+TEXT ImprovedHunters/src/ImprovedHuntersRuntime.cs: CRLF=2258, bareLF=0, first=using BepInEx.Logging;
+TEXT RandomEvents/RandomEvents.csproj: CRLF=80, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT RandomEvents/src/RandomEventsPlugin.cs: CRLF=91, bareLF=0, first=using BepInEx;
+TEXT RandomEvents/src/RandomEventsRuntime.cs: CRLF=2559, bareLF=0, first=using BepInEx.Logging;
+TEXT SerpsModsHost/SerpsModsHost.csproj: CRLF=79, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT SerpsModsHost/src/SerpsModsHostPlugin.cs: CRLF=643, bareLF=0, first=using BepInEx;
+TEXT Shared/GameModeHelper.cs: CRLF=1238, bareLF=0, first=using SHCDESE.API;
+TEXT Shared/GameplayModActivationGate.cs: CRLF=229, bareLF=0, first=using BepInEx.Logging;
+TEXT Shared/GameplaySessionLifecycle.cs: CRLF=359, bareLF=0, first=using BepInEx.Logging;
+TEXT Shared/Release/release-projects.json: CRLF=55, bareLF=0, first={
+TEXT Shared/Release/Test-ReleaseStatus.ps1: CRLF=146, bareLF=0, first=. (Join-Path $PSScriptRoot 'Release.Common.ps1')
+TEXT Shared/ScriptExtenderUpdate/mods.json: CRLF=407, bareLF=0, first=[
+TEXT StartConditions/src/StartConditionsPlugin.cs: CRLF=80, bareLF=0, first=using BepInEx;
+TEXT StartConditions/src/StartConditionsRuntime.cs: CRLF=207, bareLF=0, first=using BepInEx.Logging;
+TEXT StartConditions/StartConditions.csproj: CRLF=157, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT Testmods/AIAttackTest/AIAttackTest.csproj: CRLF=67, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT Testmods/AIAttackTest/src/AIAttackTestPlugin.cs: CRLF=125, bareLF=0, first=using BepInEx;
+TEXT Testmods/EnemyGatePathfindingTest/build.bat: CRLF=93, bareLF=0, first=@echo off
+TEXT Testmods/EnemyGatePathfindingTest/EnemyGatePathfindingTest.csproj: CRLF=76, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT Testmods/EnemyGatePathfindingTest/src/EnemyGatePathfindingTestPlugin.cs: CRLF=156, bareLF=0, first=using BepInEx;
+TEXT Testmods/MoatMove/build.bat: CRLF=34, bareLF=0, first=@echo off
+TEXT Testmods/MoatMove/MoatMove.csproj: CRLF=91, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT Testmods/MoatMove/src/MoatMovePlugin.cs: CRLF=121, bareLF=0, first=using BepInEx;
+TEXT Testmods/MoatMove/tests/StandaloneContracts.cs: CRLF=137, bareLF=0, first=using System.Reflection;
+TEXT Testmods/MoatMove/tests/Test-Preflight.ps1: CRLF=31, bareLF=0, first=$ErrorActionPreference = 'Stop'
+TEXT Testmods/SkinTest/build.bat: CRLF=59, bareLF=0, first=@echo off
+TEXT Testmods/SkinTest/SkinTest.csproj: CRLF=70, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT Testmods/SkinTest/src/SkinTestPlugin.cs: CRLF=65, bareLF=0, first=using BepInEx;
+TEXT Testmods/SkinTest/src/SwordsmanSkinRuntime.cs: CRLF=1093, bareLF=0, first=using APIShared;
+TEXT Testmods/SkinTest/tests/Program.cs: CRLF=694, bareLF=0, first=using SHCDESE.Interop;
+TEXT UnitCosts/src/UnitCostsPlugin.cs: CRLF=118, bareLF=0, first=using BepInEx;
+TEXT UnitCosts/src/UnitCostsRuntime.cs: CRLF=2100, bareLF=0, first=using BepInEx.Logging;
+TEXT UnitCosts/UnitCosts.csproj: CRLF=162, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+TEXT UnitLimit/src/ActiveSiegeTentCache.cs: CRLF=421, bareLF=0, first=using BepInEx.Logging;
+TEXT UnitLimit/src/ActiveUnitCache.cs: CRLF=788, bareLF=0, first=using BepInEx.Logging;
+TEXT UnitLimit/src/UnitLimitPlugin.cs: CRLF=112, bareLF=0, first=using BepInEx;
+TEXT UnitLimit/src/UnitLimitRuntime.cs: CRLF=284, bareLF=0, first=using BepInEx.Logging;
+TEXT UnitLimit/UnitLimit.csproj: CRLF=174, bareLF=0, first=<?xml version="1.0" encoding="utf-8"?>
+RUNTIME PASS: UnitLimit\UnitLimit.csproj
+RUNTIME PASS: UnitCosts\UnitCosts.csproj
+RUNTIME PASS: CheatMod\CheatMod.csproj
+RUNTIME PASS: CastlePlanner\CastlePlanner.csproj
+RUNTIME PASS: ExtraFeatures\ExtraFeatures.csproj
+RUNTIME PASS: BuildingLimit\BuildingLimit.csproj
+RUNTIME PASS: ExtendedData\ExtendedData.csproj
+RUNTIME PASS: ExtremePowers\ExtremePowers.csproj
+RUNTIME PASS: BuildingCosts\BuildingCosts.csproj
+RUNTIME PASS: Testmods\EnemyGatePathfindingTest\EnemyGatePathfindingTest.csproj
+RUNTIME PASS: Testmods\AIAttackTest\AIAttackTest.csproj
+RUNTIME PASS: BugfixesAndQoL\BugfixesAndQoL.csproj
+RUNTIME PASS: RandomEvents\RandomEvents.csproj
+RUNTIME PASS: StartConditions\StartConditions.csproj
+RUNTIME PASS: SerpsModsHost\SerpsModsHost.csproj
+RUNTIME PASS: ImprovedHunters\ImprovedHunters.csproj
+RUNTIME PASS: Testmods\SkinTest\SkinTest.csproj
+RUNTIME PASS: Testmods\MoatMove\MoatMove.csproj
+RUNTIME PASS: Helpers\ActiveAIVDetector\ActiveAIVDetector.csproj
+RUNTIME PASS: APIShared\APIShared.csproj
+PASS: editor lifecycle preflight, dependencies, CRLF and replacement checks.

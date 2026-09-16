@@ -21,16 +21,16 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Fetch release tags and main
-        shell: powershell
+        shell: pwsh
         run: git fetch --force --tags origin main
 
       - name: Generate badges and reports
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -38,7 +38,7 @@ jobs:
           & '.\Shared\Release\Update-ReleaseStatus.ps1' -OutputDirectory (Join-Path $env:RUNNER_TEMP 'release-status') -HeadCommit 'origin/main'
 
       - name: Publish generated status branch
-        shell: powershell
+        shell: pwsh
         run: |
           $statusRoot = Join-Path $env:RUNNER_TEMP 'release-status'
           git config user.name 'github-actions[bot]'

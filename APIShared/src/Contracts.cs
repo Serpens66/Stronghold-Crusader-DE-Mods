@@ -37,6 +37,8 @@ namespace APIShared
     /// <summary>Stable identifiers for capabilities exposed by this API version.</summary>
     public static class NativeCapabilityIds
     {
+        /// <summary>Capability for successful editor map sessions and their end.</summary>
+        public const string EditorMapLifecycle = "editor-map-lifecycle";
         /// <summary>Capability for selecting the native gatehouse distance origin.</summary>
         public const string GatehouseDistanceOrigin = "gatehouse-distance-origin";
         /// <summary>Capability for configuring gatehouse timing and closing distances.</summary>
@@ -82,6 +84,9 @@ namespace APIShared
     /// <summary>Public process-wide entry point for typed shared native capabilities.</summary>
     public interface IApiShared
     {
+        /// <summary>Acquires the process-wide managed editor lifecycle.</summary>
+        bool TryGetEditorMapLifecycle(string ownerGuid, out IEditorMapLifecycleCapability capability,
+            out NativeCapabilityDiagnostic diagnostic);
         /// <summary>Gets the global initialization state.</summary>
         NativeApiState State { get; }
         /// <summary>Attempts to acquire the gatehouse distance-origin capability for a stable owner GUID.</summary>

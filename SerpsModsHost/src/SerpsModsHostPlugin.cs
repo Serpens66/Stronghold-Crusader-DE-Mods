@@ -18,6 +18,7 @@ using System.Security.Cryptography;
 namespace SerpsModsHost
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class SerpsModsHostPlugin : BaseUnityPlugin
     {

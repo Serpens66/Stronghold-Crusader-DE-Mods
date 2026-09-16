@@ -424,7 +424,7 @@ namespace ActiveAIVDetector
 
             lifecycleSubscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                _ => OnMapStarted()));
+                _ => OnMapStarted(), () => ResetForMapTransition("EditorMapEnded")));
         }
 
         private void ResetForMapTransition(string reason)

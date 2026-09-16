@@ -417,7 +417,7 @@ internal static class Program
             "Manifest must declare a visual client mod matching the plugin's Script Extender version.");
         Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, ScriptExtenderVersion)]") &&
               plugin.Contains("[BepInDependency(ApiSharedGuid, ApiSharedVersion)]") &&
-              plugin.Contains("ApiSharedVersion = \"0.3.1\"") &&
+              plugin.Contains("ApiSharedVersion = \"0.3.6\"") &&
               plugin.Contains("PluginVersion = \"0.1.1\""), "Plugin dependency/version contract differs.");
         Check(plugin.Contains("private static ManualLogSource persistentLog") &&
               plugin.Contains("private static SwordsmanSkinRuntime runtime") &&
@@ -467,8 +467,8 @@ internal static class Program
         Check(project.Contains("<Reference Include=\"RedBird.Core\"><HintPath>$(ExtenderDir)\\RedBird.Core.dll</HintPath><Private>false</Private></Reference>"),
             "The AIC array dependency must reference installed RedBird.Core without private packaging.");
         Check(project.Contains("<Reference Include=\"APIShared\"><HintPath>$(ApiSharedDir)\\APIShared.dll</HintPath><Private>false</Private></Reference>") &&
-              project.Contains("APIShared.dll 0.3.1"),
-            "SkinTest must consume installed APIShared 0.3.1 without private packaging.");
+              project.Contains("APIShared.dll 0.3.6"),
+            "SkinTest must consume installed APIShared 0.3.6 without private packaging.");
         Check(runtime.Contains("cultureByPlayer") && runtime.Contains("Authoritative lord culture differs from early culture") &&
               runtime.Contains("Early culture resolved before lord spawn") &&
               runtime.Contains("ReconcileEarlyAndActualCulture") && runtime.Contains("unknown graphics material"),

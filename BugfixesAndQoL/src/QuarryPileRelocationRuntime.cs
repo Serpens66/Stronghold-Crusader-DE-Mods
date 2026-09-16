@@ -217,12 +217,16 @@ namespace BugfixesAndQoL
             {
                 subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log,
-                    _ => BeginMapState()));
+                    context =>
+                    {
+                        BeginMapState();
+                        if (context.IsEditor) OnMapContentLoaded();
+                    }, onEditorEnded: EndMapState));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(_ => OnMapContentLoaded()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                    .Where(Shared.GameplaySessionLifecycle.IsSuccessfulSavePost)
+                    .Where(args => Shared.GameplaySessionLifecycle.IsSuccessfulSavePost(args) && !args.LoadingEditorMap)
                     .Subscribe(_ => OnMapContentLoaded()));
                 subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)

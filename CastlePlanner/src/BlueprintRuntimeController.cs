@@ -100,11 +100,13 @@ namespace CastlePlanner
                 log,
                 context =>
                 {
-                    if (context.IsLoadedSave)
+                    if (context.IsEditor)
+                        OnEditorMapReady();
+                    else if (context.IsLoadedSave)
                         OnLoadSave(context.SaveLoad);
                     else
                         OnStartMap(context.MapStart);
-                }));
+                }, onEditorEnded: () => OnUnloadMap(null)));
             subscriptions.Add(
                 MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
@@ -218,15 +220,7 @@ namespace CastlePlanner
             Hud?.CompleteCastleSearchOpeningClick();
             Hud?.ProcessOpenDropDownWheel();
             UpdateHotkeyCapture();
-            EnsureEditorMapState();
-            if (!mapActive && IsSimulationActive())
-            {
-                // Fallback for unusual map flows that do not emit the normal hook.
-                mapActive = true;
-                if (EffectiveBlueprintMode && layout == null)
-                    SchedulePrepare(false);
-                RefreshHud();
-            }
+            RefreshEditorPlayer();
 
             if (!mapActive)
                 return;
@@ -934,24 +928,18 @@ namespace CastlePlanner
                 renderer?.RequestedDepthCaptureCount ?? 0);
         }
 
-        private void EnsureEditorMapState()
+        private void OnEditorMapReady()
         {
-            bool editor = IsMapEditor();
-            if (!editor)
-            {
-                if (editorSessionActive)
-                {
-                    ResetMapState();
-                    mapActive = false;
-                    editorSessionActive = false;
-                    editorControlledPlayerId = -1;
-                    RefreshHud();
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        "Blueprint editor lifecycle ended after leaving the map editor.");
-                }
-                return;
-            }
+            ResetMapState();
+            mapActive = true;
+            editorSessionActive = true;
+            editorControlledPlayerId = -1;
+            RefreshHud();
+        }
+
+        private void RefreshEditorPlayer()
+        {
+            if (!editorSessionActive) return;
 
             int activePlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
             if (activePlayerId < 1 ||
@@ -994,14 +982,6 @@ namespace CastlePlanner
         }
 
         private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
-
-        private static bool IsSimulationActive()
-        {
-            return Director.instance != null &&
-                   Director.instance.SimRunning &&
-                   GameMap.instance != null &&
-                   TilemapManager.instance != null;
-        }
 
         private static bool CanUseGameplayHotkeys()
         {

@@ -94,7 +94,7 @@ namespace UnitCosts
                 return;
 
             TrySubscribeFeature("gameplay session start", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, () => OnUnloadMap(null)));
 
             TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)

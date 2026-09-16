@@ -34,6 +34,7 @@ namespace APISharedTests
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestLobbyStateCapability();
+            EditorMapLifecycleTests.Run(Assert);
             TestUnitHudVariantContracts();
             TestUnitHudLiveSelectionCounts();
             TestUnitHudSelectionIdentity();
@@ -617,7 +618,7 @@ namespace APISharedTests
             Assert(activeRuntime.Contains("TryGetAivBuildStep") && activeRuntime.Contains("TryRegisterObserver") &&
                 !activeAiv.Contains("ExecuteBuildStepDelegate") && !activeAiv.Contains("executeBuildStepHook") &&
                 activeProject.Contains("<Reference Include=\"APIShared\">") && activeProject.Contains("<Private>false</Private>") &&
-                activePlugin.Contains("[BepInDependency(ApiSharedGuid, \"0.3.0\")]"),
+                activePlugin.Contains("[BepInDependency(ApiSharedGuid, \"0.3.6\")]"),
                 "ActiveAIVDetector prebuild tracing must use APIShared as a thin hard dependency");
             Assert(bugfixControlGroups.Contains("TryRemoveUnitFromControlGroups") &&
                 !bugfixControlGroups.Contains("ControlGroupStorage") &&
@@ -667,11 +668,11 @@ namespace APISharedTests
                 castlePlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]" ) &&
                 customPlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]"),
                 "exactly the three active preset consumers must compile against and hard-depend on APIShared");
-            Assert(releaseConfig.Contains("\"ActiveAIVDetector\": \"0.3.0\"") &&
+            Assert(releaseConfig.Contains("\"ActiveAIVDetector\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"BugfixesAndQoL\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"CastlePlanner\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"ExtendedData\": \"0.3.6\"") &&
-                releaseConfig.Contains("\"ExtraFeatures\": \"0.3.0\""),
+                releaseConfig.Contains("\"ExtraFeatures\": \"0.3.6\""),
                 "release inventory must declare each consumer's actual APIShared minimum");
             Assert(releaseScript.Contains("Profile = 'Thin'") &&
                 releaseScript.Contains("Profile = 'Bundle'") &&
@@ -777,6 +778,11 @@ namespace APISharedTests
                 "unit-HUD image slots must retain the four-slot prefix and deterministic seven-slot order");
             var expected = new HashSet<string>(StringComparer.Ordinal)
             {
+                "APIShared.EditorMapOrigin",
+                "APIShared.EditorMapLifecycleKind",
+                "APIShared.EditorMapEndReason",
+                "APIShared.EditorMapLifecycleNotification",
+                "APIShared.IEditorMapLifecycleCapability",
                 "APIShared.GatehouseDistanceOrigin",
                 "APIShared.GatehouseTimingSettings",
                 "APIShared.GatehouseTimingValues",
@@ -850,7 +856,8 @@ namespace APISharedTests
                 "TryGetGatehouseTiming",
                 "TryGetUnitHudPresentation",
                 "TryGetAivBuildStep",
-                "TryGetLobbyState"
+                "TryGetLobbyState",
+                "TryGetEditorMapLifecycle"
             };
             foreach (MethodInfo method in typeof(IApiShared).GetMethods())
                 expectedAcquisitionMethods.Remove(method.Name);

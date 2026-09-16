@@ -12,6 +12,20 @@
     "DependsOn": []
   },
   {
+    "Name": "AIAttackTest",
+    "Guid": "AIAttackTest_Serp",
+    "Manifest": "Testmods\\AIAttackTest\\info.json",
+    "Plugin": "Testmods\\AIAttackTest\\src\\AIAttackTestPlugin.cs",
+    "Project": "Testmods\\AIAttackTest\\AIAttackTest.csproj",
+    "BuildDriver": "Testmods\\AIAttackTest\\build.bat",
+    "Package": "Testmods\\AIAttackTest\\BepInEx\\plugins\\AIAttackTest_Serp",
+    "Install": "AIAttackTest_Serp",
+    "BuildOrder": 100,
+    "DependsOn": ["APIShared"],
+    "Active": false,
+    "InactiveReason": "Experimental test mod; records its lifecycle dependency while preserving its previous exclusion from automatic update builds."
+  },
+  {
     "Name": "ActiveAIVDetector",
     "Guid": "ActiveAIVDetector_Serp",
     "Manifest": "Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp\\info.json",
@@ -21,7 +35,7 @@
     "Package": "Helpers\\ActiveAIVDetector\\BepInEx\\plugins\\ActiveAIVDetector_Serp",
     "Install": "ActiveAIVDetector_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "AIDefenseTest",
@@ -45,7 +59,7 @@
     "Package": "BuildingCosts\\BepInEx\\plugins\\BuildingCosts_Serp",
     "Install": "BuildingCosts_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "BuildingLimit",
@@ -57,7 +71,7 @@
     "Package": "BuildingLimit\\BepInEx\\plugins\\BuildingLimit_Serp",
     "Install": "BuildingLimit_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "CastlePlanner",
@@ -69,7 +83,7 @@
     "Package": "CastlePlanner\\BepInEx\\plugins\\CastlePlanner_Serp",
     "Install": "CastlePlanner_Serp",
     "BuildOrder": 100,
-    "DependsOn": [],
+    "DependsOn": ["APIShared"],
     "PreservedInstallFiles": [
       "RuntimeData\\BlueprintBuildingSizes.tsv"
     ]
@@ -84,7 +98,7 @@
     "Package": "CheatMod\\BepInEx\\plugins\\CheatMod_Serp",
     "Install": "CheatMod_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "ExtendedData",
@@ -96,7 +110,7 @@
     "Package": "ExtendedData\\BepInEx\\plugins\\ExtendedData_Serp",
     "Install": "ExtendedData_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "EnemyGatePathfindingTest",
@@ -108,7 +122,7 @@
     "Package": "Testmods\\EnemyGatePathfindingTest\\BepInEx\\plugins\\EnemyGatePathfindingTest_Serp",
     "Install": "EnemyGatePathfindingTest_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "EngineerSiegeFixTest",
@@ -146,7 +160,7 @@
     "Package": "ExtremePowers\\BepInEx\\plugins\\ExtremePowers_Serp",
     "Install": "ExtremePowers_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "HunterQueryTargetDiagnostic",
@@ -170,7 +184,7 @@
     "Package": "ImprovedHunters\\BepInEx\\plugins\\ImprovedHunters_Serp",
     "Install": "ImprovedHunters_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "OxTetherIdleFixTest",
@@ -194,7 +208,7 @@
     "Package": "RandomEvents\\BepInEx\\plugins\\RandomEvents_Serp",
     "Install": "RandomEvents_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "SerpsModsHost",
@@ -206,7 +220,7 @@
     "Package": "SerpsModsHost\\BepInEx\\plugins\\SerpsMods_Serp",
     "Install": "SerpsMods_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "StartConditions",
@@ -218,7 +232,7 @@
     "Package": "StartConditions\\BepInEx\\plugins\\StartConditions_Serp",
     "Install": "StartConditions_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "StockpileAccessFixTest",
@@ -242,7 +256,7 @@
     "Package": "UnitCosts\\BepInEx\\plugins\\UnitCosts_Serp",
     "Install": "UnitCosts_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "UnitLimit",
@@ -254,7 +268,7 @@
     "Package": "UnitLimit\\BepInEx\\plugins\\UnitLimit_Serp",
     "Install": "UnitLimit_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "VanillaAICExporter",
@@ -346,7 +360,7 @@
     "Package": "Testmods\\MoatMove\\BepInEx\\plugins\\MoatMove_Serp",
     "Install": "MoatMove_Serp",
     "BuildOrder": 100,
-    "DependsOn": [],
+    "DependsOn": ["APIShared"],
     "Active": false,
     "InactiveReason": "Unmodified comparison copy replaced by BugfixesAndQoL; intentionally excluded from update builds and installation."
   },

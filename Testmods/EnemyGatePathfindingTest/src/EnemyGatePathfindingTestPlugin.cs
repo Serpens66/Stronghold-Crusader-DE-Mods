@@ -15,6 +15,7 @@ namespace EnemyGatePathfindingTest
     // Load after the hook owner when it exists, so PluginInfos can suppress
     // our overlapping observational route hooks while keeping the PCL hook active.
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class EnemyGatePathfindingTestPlugin : BaseUnityPlugin
     {
@@ -48,7 +49,7 @@ namespace EnemyGatePathfindingTest
             {
                 mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     persistentLog,
-                    _ => runtime?.BeginMap());
+                    _ => runtime?.BeginMap(), () => runtime?.EndMap("EditorMapEnded"));
             }
             if (mapUnloadSubscription == null)
             {

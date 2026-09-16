@@ -92,6 +92,10 @@ namespace Shared
                 eventTrailType: NoGameValue,
                 editorLoad: args != null && args.LoadingEditorMap);
 
+        // Only the completed central editor lifecycle may force editor evidence.
+        internal static GameModeSnapshot CaptureEditorSession() =>
+            CaptureCore(false, 0, NoGameValue, editorLoad: true);
+
         internal static bool AllowsCustomGameMods(
             GameModeKind kind,
             GameModeLaunchVariant launchVariant)
