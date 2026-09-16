@@ -214,6 +214,8 @@
     <Compile Include="src\QuarryPileRelocationRuntime.cs" />
     <Compile Include="src\QuarryPileTargetSelectionPolicy.cs" />
     <Compile Include="src\ReachableEnemyGatehouseRuntime.cs" />
+    <Compile Include="src\GatehouseReachabilityDiagnosticThrottle.cs" />
+    <Compile Include="src\SynchronizedGatehouseReachabilityPolicy.cs" />
     <Compile Include="src\ResyncHostKickFeature.cs" />
     <Compile Include="src\ResyncHostKickPolicy.cs" />
     <Compile Include="src\SelectedUnitHealthFeature.cs" />

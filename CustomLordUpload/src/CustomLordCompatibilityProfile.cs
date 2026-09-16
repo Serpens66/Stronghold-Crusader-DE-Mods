@@ -20,18 +20,32 @@ namespace CustomLordUpload
                 ".wav", ".ogg", ".webm", ".mp4", ".jpg", ".jpeg", ".tga"
             };
 
-        internal static readonly HashSet<string> DevelopmentExtensions =
+        internal static readonly HashSet<string> AllowedOverrideExtensions =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                ".7z", ".aup", ".aup3", ".bak", ".cs", ".csproj", ".dll", ".exe", ".pdb",
-                ".psd", ".rar", ".sln", ".tmp", ".zip"
+                ".png", ".jpg", ".tga", ".ogg", ".wav", ".webm", ".mp4"
             };
 
-        internal static readonly HashSet<string> DevelopmentDirectoryNames =
+        internal static readonly HashSet<string> GenericOverrideAssetNames =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                ".git", ".svn", "_LegacyMediaSource", "bin", "node_modules", "obj"
+                "about2siege", "add_player", "ally_need_help", "angry", "angry_castle_damaged",
+                "angry_siege_lost", "attack", "avatar", "boast_of_kill", "cant_attack",
+                "cant_help", "clip", "congrats_on_kill", "default", "defeat", "die_ally",
+                "face", "happy", "icon", "intro", "introduction", "join", "kick_player",
+                "kill_npc", "kill_player", "leave", "line", "message", "nerv_pre_siege",
+                "nerv_weak", "neutral", "not_sending_goods", "portrait", "request_goods",
+                "sad", "sent_goods", "sound", "speech", "taunt1", "taunt2", "taunt3",
+                "taunt4", "team_losing", "team_winning", "thank_goods", "victory_good",
+                "victory_harass", "video", "voice", "will_attack_enemy", "will_send_troops",
+                "wont_attack", "wont_help"
             };
+
+        internal static readonly string[] NumberedGenericOverrideAssetNames =
+        {
+            "attack", "clip", "intro", "introduction", "join", "leave", "line",
+            "message", "sound", "speech", "video", "voice"
+        };
 
         internal static Dictionary<string, int> CreateFallbackMessageTypes()
         {

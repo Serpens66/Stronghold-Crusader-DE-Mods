@@ -37,7 +37,7 @@ namespace CustomLordUpload
             packageByteCount = 0;
             if (!TryCollectFiles(
                     sourceLordRoot,
-                    includeVanillaAndControlRootFiles: false,
+                    includeAllFiles: false,
                     out string sourceRoot,
                     out List<CustomLordWorkshopPackageFile> files,
                     out error))
@@ -114,7 +114,7 @@ namespace CustomLordUpload
         {
             bool result = TryCollectFiles(
                 sourceLordRoot,
-                includeVanillaAndControlRootFiles: true,
+                includeAllFiles: true,
                 out _,
                 out files,
                 out error);
@@ -123,7 +123,7 @@ namespace CustomLordUpload
 
         private static bool TryCollectFiles(
             string sourceLordRoot,
-            bool includeVanillaAndControlRootFiles,
+            bool includeAllFiles,
             out string normalizedRoot,
             out List<CustomLordWorkshopPackageFile> files,
             out string error)
@@ -133,7 +133,7 @@ namespace CustomLordUpload
             try
             {
                 normalizedRoot = NormalizeExistingDirectory(sourceLordRoot, "Custom Lord directory");
-                CollectFiles(normalizedRoot, normalizedRoot, includeVanillaAndControlRootFiles, files);
+                CollectFiles(normalizedRoot, normalizedRoot, includeAllFiles, files);
                 files.Sort((left, right) =>
                 {
                     int comparison = StringComparer.OrdinalIgnoreCase.Compare(left.RelativePath, right.RelativePath);
@@ -181,7 +181,7 @@ namespace CustomLordUpload
         private static void CollectFiles(
             string packageRoot,
             string directory,
-            bool includeVanillaAndControlRootFiles,
+            bool includeAllFiles,
             List<CustomLordWorkshopPackageFile> files)
         {
             string[] childFiles = Directory.GetFiles(directory);
@@ -192,7 +192,7 @@ namespace CustomLordUpload
                 EnsureContained(packageRoot, fullPath);
                 ValidateRegularFile(fullPath, "Custom Lord package file");
                 string relativePath = GetRelativePath(packageRoot, fullPath);
-                if (includeVanillaAndControlRootFiles || !IsVanillaOrControlRootFile(relativePath))
+                if (includeAllFiles || IsAllowedExtendedUploadFile(relativePath))
                     files.Add(new CustomLordWorkshopPackageFile(fullPath, relativePath));
             }
 
@@ -208,26 +208,74 @@ namespace CustomLordUpload
                         "Package directories may not be reparse points: " +
                         GetRelativePath(packageRoot, fullPath));
                 }
-                CollectFiles(packageRoot, fullPath, includeVanillaAndControlRootFiles, files);
+                CollectFiles(packageRoot, fullPath, includeAllFiles, files);
             }
         }
 
-        private static bool IsVanillaOrControlRootFile(string relativePath)
+        internal static bool IsAllowedExtendedUploadFile(string relativePath)
         {
-            // COMPATIBILITY: Vanilla owns these direct files; .data/.ldata are local uploader controls.
-            if (relativePath.IndexOf(Path.DirectorySeparatorChar) >= 0 ||
-                relativePath.IndexOf(Path.AltDirectorySeparatorChar) >= 0)
+            string normalizedPath = NormalizeRelativePath(relativePath);
+            string[] segments = normalizedPath.Split('/');
+            string fileName = segments[segments.Length - 1];
+            string extension = Path.GetExtension(fileName);
+
+            if (segments.Length == 1)
             {
-                return false;
+                return string.Equals(fileName, "info.json", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(fileName, "lordmeta.json", StringComparison.OrdinalIgnoreCase) ||
+                       string.Equals(extension, ".lua", StringComparison.OrdinalIgnoreCase);
             }
-            if (string.Equals(relativePath, "avatar.png", StringComparison.OrdinalIgnoreCase))
+
+            if (string.Equals(segments[0], "Override", StringComparison.OrdinalIgnoreCase))
+                return CustomLordCompatibilityProfile.AllowedOverrideExtensions.Contains(extension);
+
+            if (string.Equals(segments[0], "Scripts", StringComparison.OrdinalIgnoreCase))
+                return string.Equals(extension, ".lua", StringComparison.OrdinalIgnoreCase);
+
+            if (string.Equals(segments[0], "MapAreas", StringComparison.OrdinalIgnoreCase))
+                return string.Equals(extension, ".sema", StringComparison.OrdinalIgnoreCase);
+
+            return segments.Length == 3 &&
+                   string.Equals(segments[0], "Locales", StringComparison.OrdinalIgnoreCase) &&
+                   !string.IsNullOrWhiteSpace(segments[1]) &&
+                   string.Equals(segments[2], "crusader.txt", StringComparison.OrdinalIgnoreCase);
+        }
+
+        internal static bool IsExcludedFromExtendedUpload(string relativePath)
+        {
+            return !IsAllowedExtendedUploadFile(relativePath) &&
+                   !IsVanillaOwnedRootFile(relativePath) &&
+                   !IsLocalControlRootFile(relativePath);
+        }
+
+        private static bool IsVanillaOwnedRootFile(string relativePath)
+        {
+            string normalizedPath = NormalizeRelativePath(relativePath);
+            if (normalizedPath.IndexOf('/') >= 0)
+                return false;
+
+            if (string.Equals(normalizedPath, "avatar.png", StringComparison.OrdinalIgnoreCase))
                 return true;
 
-            string extension = Path.GetExtension(relativePath);
+            string extension = Path.GetExtension(normalizedPath);
             return string.Equals(extension, ".lordjson", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(extension, ".aivjson", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(extension, ".data", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(extension, ".aivjson", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsLocalControlRootFile(string relativePath)
+        {
+            string normalizedPath = NormalizeRelativePath(relativePath);
+            if (normalizedPath.IndexOf('/') >= 0)
+                return false;
+
+            string extension = Path.GetExtension(normalizedPath);
+            return string.Equals(extension, ".data", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(extension, ".ldata", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeRelativePath(string path)
+        {
+            return path.Replace(Path.DirectorySeparatorChar, '/').Replace(Path.AltDirectorySeparatorChar, '/');
         }
 
         private static void CreateDirectoryChain(string root, string directory, List<string> createdDirectories)

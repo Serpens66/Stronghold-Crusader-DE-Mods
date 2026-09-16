@@ -51,11 +51,29 @@ namespace ExtraFeatures
         internal const int DrawbridgeHeightAwareSubtractRva = 0x44EDD;
         internal const int DrawbridgeHeightAwareCallRva = 0x44F09;
         internal const int DrawbridgeHeightAwareRendererRva = 0x4C1D0;
-        internal const int UnitCurrentTileHeightLoadRva = 0x44FA9;
-        internal const int UnitTileHeightForwardingRva = 0x4507B;
-        internal const int UnitRenderYSubtractRva = 0x450DB;
-        internal const int UnitSpriteQueueCallRva = 0x4522E;
+        internal const int UnitType2SpriteQueueCall1Rva = 0x43EF3;
+        internal const int UnitType2SpriteQueueCall2Rva = 0x44346;
+        internal const int Type9SpriteQueueCallRva = 0x4522E;
         internal const int UnitSpriteQueueRva = 0x1A13C0;
+        internal const int UnitType52HeightForwardingRva = 0x1A22C4;
+        internal const int UnitHeightInitializationFunctionRva = 0x180A80;
+        internal const int UnitHeightUpdateFunctionRva = 0x182B00;
+        internal const int UnitHeightCorrectionFunctionRva = 0x184FD0;
+        internal const int UnitHeightCorrectionFunctionLength = 0x1C0;
+        internal const int UnitHeightInitializationCallRva = 0x180B56;
+        internal const int UnitHeightUpdateCall1Rva = 0x184413;
+        internal const int UnitHeightUpdateCall2Rva = 0x184538;
+        internal const int UnitHeightUpdateCall3Rva = 0x184988;
+        internal const int UnitHeightUpdateCall4Rva = 0x1849B3;
+        internal const int UnitHeightCorrectionFunctionPrologueRva = 0x184FD0;
+        internal const int UnitDrawbridgeTypeGateRva = 0x1850FF;
+        internal const int UnitDrawbridgeHeightCorrectionRva = 0x18511C;
+        internal const int UnitDrawbridgeHeightCorrectionLength = 19;
+        internal const int UnitDrawbridgeHeightContinuationRva = 0x18512F;
+        internal const int UnitHeightPostCorrectionRva = 0x18514E;
+        internal const int UnitCurrentTileIdOffset = 0x72C;
+        internal const int UnitCurrentElevationOffset = 0x712;
+        internal const int UnitVerticalCorrectionOffset = 0x714;
         internal const int MoatCommandValidationFunctionRva = 0x5CA40;
         internal const int MoatCommandValidationFunctionLength = 0x290;
         internal const int MoatCommandHeightGateRva = 0x5CC1E;
@@ -426,28 +444,63 @@ namespace ExtraFeatures
             0x44, 0x2B, 0x15, 0xF4, 0x89, 0x3E, 0x00
         };
 
-        internal static readonly byte[] UnitCurrentTileHeightLoadBytes =
+        internal static readonly byte[] UnitDrawbridgeTypeGateBytes =
         {
-            // mov EDI,dword ptr [CurrentRenderedTileHeight]
-            0x8B, 0x3D, 0x29, 0x89, 0x3E, 0x00
+            // test EDI,EDI; je fallback; locate building record; require type 0x31.
+            0x85, 0xFF,
+            0x74, 0x2E,
+            0x48, 0x69, 0xCF, 0x2C, 0x03, 0x00, 0x00,
+            0x48, 0x8D, 0x35, 0x9F, 0x7A, 0x34, 0x06,
+            0x66, 0x83, 0xBC, 0x31, 0x2E, 0x01, 0x00, 0x00, 0x31,
+            0x75, 0x32
         };
 
-        internal static readonly byte[] UnitTileHeightForwardingBytes =
+        internal static readonly byte[] UnitHeightCorrectionFunctionPrologueBytes =
         {
-            // mov EDX,EDI; preserve Vanilla's alternate-render-mode override
-            0x8B, 0xD7,
-            0x44, 0x39, 0x25, 0xC8, 0x83, 0x06, 0x06,
+            0x40, 0x53,
+            0x48, 0x83, 0xEC, 0x20,
+            0x48, 0x63, 0xC2,
+            0x33, 0xD2,
+            0x48, 0x69, 0xD8, 0x90, 0x04, 0x00, 0x00,
+            0x48, 0x89, 0x6C, 0x24, 0x30,
+            0x48, 0x8D, 0x2D, 0x12, 0xB0, 0xE7, 0xFF,
+            0x48, 0x03, 0xD9
+        };
+
+        internal static readonly byte[] UnitDrawbridgeHeightCorrectionBytes =
+        {
             0xB8, 0x08, 0x00, 0x00, 0x00,
-            0x45, 0x8B, 0xC4,
-            0x0F, 0x45, 0xD0
+            0x66, 0x2B, 0x83, 0x12, 0x07, 0x00, 0x00,
+            0x66, 0x89, 0x83, 0x14, 0x07, 0x00, 0x00
         };
 
-        internal static readonly byte[] UnitRenderYSubtractBytes =
+        internal static readonly byte[] UnitDrawbridgeHeightContinuationBytes =
         {
-            // mov EAX,[unit+0x6206FC]; mov R9D,[unit+0x620704]; sub EAX,EDX
-            0x8B, 0x83, 0xFC, 0x06, 0x62, 0x00,
-            0x44, 0x8B, 0x8B, 0x04, 0x07, 0x62, 0x00,
-            0x2B, 0xC2
+            // Preserve Vanilla's jump to the shared post-height path.
+            0xEB, 0x1D
+        };
+
+        internal static readonly byte[] UnitHeightPostCorrectionBytes =
+        {
+            // RAX and RCX are rebuilt before use; TEST AX replaces incoming flags.
+            0x48, 0x63, 0x05, 0x6F, 0xB1, 0x7A, 0x00,
+            0x48, 0x8B, 0x7C, 0x24, 0x40,
+            0x48, 0x8B, 0x74, 0x24, 0x38,
+            0x48, 0x69, 0xC8, 0x90, 0x04, 0x00, 0x00,
+            0x0F, 0xB7, 0x84, 0x29, 0x70, 0x8E, 0x7E, 0x06,
+            0x48, 0x8B, 0x6C, 0x24, 0x30,
+            0x66, 0x85, 0xC0
+        };
+
+        internal static readonly byte[] UnitType52HeightForwardingBytes =
+        {
+            // Keep param8 in R10W unless Vanilla's debug/override source is active,
+            // then store the resulting value in the type-52 record height field.
+            0x39, 0x35, 0x82, 0xB1, 0xF0, 0x05,
+            0x48, 0x8B, 0x03,
+            0x75, 0x09,
+            0x46, 0x0F, 0xB7, 0x94, 0x07, 0x62, 0xC3, 0x30, 0x07,
+            0x66, 0x44, 0x89, 0x54, 0x01, 0x0A
         };
 
         internal static readonly byte[] PlannedMoatCancellationBytes =
@@ -641,6 +694,7 @@ namespace ExtraFeatures
                 "completed-drawbridge hook block");
             ValidateCompletedDrawbridgeRewriteContract(memory);
             ValidateDrawbridgeRendererContract(memory);
+            ValidateUnitDrawbridgeHeightContract(memory);
             if (memory[CompletedDrawbridgeJumpRva] != 0xEB ||
                 checked(CompletedDrawbridgeJumpRva + 2 +
                     (sbyte)memory[CompletedDrawbridgeJumpRva + 1]) !=
@@ -714,6 +768,26 @@ namespace ExtraFeatures
             defaultHeight > MaximumVanillaTerrainHeight ? defaultHeight : (byte)0;
 
         internal static byte CalculateRestoredHeight(byte defaultHeight) => defaultHeight;
+
+        internal static short CalculateUnitDrawbridgeCorrection(
+            short currentElevation,
+            byte currentTileHeight,
+            bool featureActive) =>
+            featureActive && currentTileHeight > MaximumVanillaTerrainHeight
+                ? (short)MoatDepth
+                : unchecked((short)(MoatDepth - currentElevation));
+
+        internal static short CalculateUnitDrawbridgeRenderHeight(
+            short currentElevation,
+            byte currentTileHeight,
+            bool featureActive)
+        {
+            short correction = CalculateUnitDrawbridgeCorrection(
+                currentElevation,
+                currentTileHeight,
+                featureActive);
+            return checked((short)(-((int)currentTileHeight + correction)));
+        }
 
         private static void ValidateLoweredDrawbridgeRewriteContract(ReadOnlySpan<byte> memory)
         {
@@ -825,19 +899,78 @@ namespace ExtraFeatures
             ValidateRelativeBranch(memory, DrawbridgeHeightAwareCallRva, 0xE8,
                 DrawbridgeHeightAwareRendererRva, "height-aware drawbridge renderer call");
 
-            AssertBytes(memory, UnitCurrentTileHeightLoadRva,
-                UnitCurrentTileHeightLoadBytes, "unit current-tile-height load");
-            int unitHeightAddress = checked(UnitCurrentTileHeightLoadRva +
-                UnitCurrentTileHeightLoadBytes.Length +
-                ReadInt32(memory, UnitCurrentTileHeightLoadRva + 2));
-            if (unitHeightAddress != CurrentRenderedTileHeightRva)
-                throw new InvalidOperationException("The unit tile-height source differs.");
-            AssertBytes(memory, UnitTileHeightForwardingRva,
-                UnitTileHeightForwardingBytes, "unit tile-height forwarding");
-            AssertBytes(memory, UnitRenderYSubtractRva,
-                UnitRenderYSubtractBytes, "unit render-Y height subtraction");
-            ValidateRelativeBranch(memory, UnitSpriteQueueCallRva, 0xE8,
-                UnitSpriteQueueRva, "unit sprite-queue call");
+            ValidateRelativeBranch(memory, UnitType2SpriteQueueCall1Rva, 0xE8,
+                UnitSpriteQueueRva, "first type-2 unit sprite-queue call");
+            ValidateRelativeBranch(memory, UnitType2SpriteQueueCall2Rva, 0xE8,
+                UnitSpriteQueueRva, "second type-2 unit sprite-queue call");
+            ValidateRelativeBranch(memory, Type9SpriteQueueCallRva, 0xE8,
+                UnitSpriteQueueRva, "type-9 sprite-queue call");
+            AssertBytes(memory, UnitType52HeightForwardingRva,
+                UnitType52HeightForwardingBytes,
+                "type-52 unit interpolation height forwarding");
+        }
+
+        private static void ValidateUnitDrawbridgeHeightContract(ReadOnlySpan<byte> memory)
+        {
+            AssertBytes(memory,
+                UnitHeightCorrectionFunctionPrologueRva,
+                UnitHeightCorrectionFunctionPrologueBytes,
+                "unit height-correction function prologue");
+            const int ImageBaseLeaOffset = 23;
+            int imageBaseTarget = checked(UnitHeightCorrectionFunctionPrologueRva +
+                ImageBaseLeaOffset + 7 +
+                ReadInt32(memory, UnitHeightCorrectionFunctionPrologueRva +
+                    ImageBaseLeaOffset + 3));
+            if (imageBaseTarget != 0)
+                throw new InvalidOperationException("The unit height writer no longer keeps the image base in RBP.");
+
+            ValidateBlock(memory,
+                UnitDrawbridgeHeightCorrectionRva,
+                UnitDrawbridgeHeightCorrectionLength,
+                UnitHeightCorrectionFunctionRva,
+                UnitHeightCorrectionFunctionLength,
+                UnitDrawbridgeHeightCorrectionBytes,
+                "unit drawbridge vertical-correction block");
+            AssertBytes(memory,
+                UnitDrawbridgeTypeGateRva,
+                UnitDrawbridgeTypeGateBytes,
+                "unit drawbridge building-type gate");
+            AssertBytes(memory,
+                UnitDrawbridgeHeightContinuationRva,
+                UnitDrawbridgeHeightContinuationBytes,
+                "unit drawbridge vertical-correction continuation");
+            AssertBytes(memory,
+                UnitHeightPostCorrectionRva,
+                UnitHeightPostCorrectionBytes,
+                "unit post-height register and flag reinitialization");
+
+            if (UnitDrawbridgeTypeGateRva + UnitDrawbridgeTypeGateBytes.Length !=
+                    UnitDrawbridgeHeightCorrectionRva ||
+                UnitDrawbridgeHeightCorrectionRva + UnitDrawbridgeHeightCorrectionLength !=
+                    UnitDrawbridgeHeightContinuationRva)
+            {
+                throw new InvalidOperationException(
+                    "The unit drawbridge height gate, rewrite span, or continuation differs.");
+            }
+
+            ValidateRelativeBranch(memory, UnitHeightInitializationCallRva, 0xE9,
+                UnitHeightCorrectionFunctionRva, "unit initialization height-update tail jump");
+            ValidateRelativeBranch(memory, UnitHeightUpdateCall1Rva, 0xE8,
+                UnitHeightCorrectionFunctionRva, "first unit-loop height-update call");
+            ValidateRelativeBranch(memory, UnitHeightUpdateCall2Rva, 0xE8,
+                UnitHeightCorrectionFunctionRva, "second unit-loop height-update call");
+            ValidateRelativeBranch(memory, UnitHeightUpdateCall3Rva, 0xE8,
+                UnitHeightCorrectionFunctionRva, "third unit-loop height-update call");
+            ValidateRelativeBranch(memory, UnitHeightUpdateCall4Rva, 0xE8,
+                UnitHeightCorrectionFunctionRva, "fourth unit-loop height-update call");
+            if (UnitHeightInitializationCallRva < UnitHeightInitializationFunctionRva ||
+                UnitHeightInitializationCallRva >= UnitHeightUpdateFunctionRva ||
+                UnitHeightUpdateCall1Rva < UnitHeightUpdateFunctionRva ||
+                UnitHeightUpdateCall4Rva >= UnitHeightCorrectionFunctionRva)
+            {
+                throw new InvalidOperationException(
+                    "The unit height-writer caller functions or call-site ranges differ.");
+            }
         }
 
         private static void ValidateBlock(

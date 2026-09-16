@@ -47,6 +47,8 @@ namespace ExtraFeatures
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> drawbridgeAnimatedRendererArgumentsHook =
             new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> unitDrawbridgeHeightCorrectionHook =
+            new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> plannedMoatCancellationHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> directRemovalHeightHook =
@@ -157,6 +159,10 @@ namespace ExtraFeatures
                 memory, ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsBytes,
                 ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsRva,
                 "drawbridge animated-renderer arguments", log);
+            Shared.NativeResolution unitDrawbridgeHeightResolution = ResolveAudited(
+                memory, ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionBytes,
+                ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionRva,
+                "unit drawbridge vertical-correction block", log);
             Shared.NativeResolution plannedCancellationResolution = ResolveAudited(
                 memory, ElevatedMoatNativeContract.PlannedMoatCancellationPattern,
                 ElevatedMoatNativeContract.PlannedMoatCancellationRva,
@@ -234,6 +240,9 @@ namespace ExtraFeatures
             ProbeExactHookLength(imageBase, drawbridgeAnimatedRendererResolution.Rva,
                 ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength,
                 "drawbridge animated-renderer arguments");
+            ProbeExactHookLength(imageBase, unitDrawbridgeHeightResolution.Rva,
+                ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionLength,
+                "unit drawbridge vertical-correction block");
             ProbeExactHookLength(imageBase, plannedCancellationResolution.Rva,
                 ElevatedMoatNativeContract.PlannedMoatCancellationLength,
                 "planned moat cancellation");
@@ -384,6 +393,17 @@ namespace ExtraFeatures
                             unchecked((ulong)featureActiveFlag.ToInt64()),
                             imageBase + ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
                     hookSize: ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength);
+                pending.AddInline(
+                    unitDrawbridgeHeightCorrectionHook,
+                    HookTarget.FromAddress(
+                        imageBase + unchecked((ulong)unitDrawbridgeHeightResolution.Rva)),
+                    (assembler, instructions, returnAddress) =>
+                        ElevatedMoatDrawbridgeHooks.GenerateUnitHeightCorrection(
+                            assembler,
+                            instructions,
+                            returnAddress,
+                            unchecked((ulong)featureActiveFlag.ToInt64())),
+                    hookSize: ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionLength);
                 pending.AddContextHook(
                     plannedMoatCancellationHook,
                     HookTarget.FromAddress(imageBase + unchecked((ulong)plannedCancellationResolution.Rva)),
@@ -429,6 +449,7 @@ namespace ExtraFeatures
                     !completedDrawbridgeHeightWriteHook.Success ||
                     !drawbridgeSpecialRendererHook.Success ||
                     !drawbridgeAnimatedRendererArgumentsHook.Success ||
+                    !unitDrawbridgeHeightCorrectionHook.Success ||
                     !plannedMoatCancellationHook.Success ||
                     !directRemovalHeightHook.Success ||
                     !footprintRemovalHeightHook.Success ||
@@ -473,6 +494,9 @@ namespace ExtraFeatures
                 RequireInstalledHookLength(drawbridgeAnimatedRendererArgumentsHook,
                     ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength,
                     "drawbridge animated-renderer arguments");
+                RequireInstalledHookLength(unitDrawbridgeHeightCorrectionHook,
+                    ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionLength,
+                    "unit drawbridge vertical-correction block");
                 RequireInstalledHookLength(plannedMoatCancellationHook,
                     ElevatedMoatNativeContract.PlannedMoatCancellationLength,
                     "planned moat cancellation");

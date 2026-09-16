@@ -40,10 +40,13 @@ namespace CustomLordUpload
             CheckVanillaBase(files, issues);
             CheckExtendedMetadata(byPath, rules, issues);
             CheckPackageHygiene(files, byPath, issues);
+            CheckExcludedPackageFiles(files, issues);
+            CheckGenericOverrideAssetNames(files, issues);
             foreach (CustomLordWorkshopPackageFile file in files)
             {
                 string relativePath = NormalizeRelativePath(file.RelativePath);
-                if (string.Equals(Path.GetExtension(relativePath), ".wav", StringComparison.OrdinalIgnoreCase))
+                if (CustomLordWorkshopPackagePolicy.IsAllowedExtendedUploadFile(relativePath) &&
+                    string.Equals(Path.GetExtension(relativePath), ".wav", StringComparison.OrdinalIgnoreCase))
                     CheckWave(file.SourcePath, relativePath, issues);
             }
 
@@ -221,8 +224,6 @@ namespace CustomLordUpload
         {
             // COMPATIBILITY: Recheck the reviewed Override and localized Override path conventions
             // when Script Extender asset indexing changes.
-            HashSet<string> reportedDevelopmentDirectories =
-                new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (CustomLordWorkshopPackageFile file in files)
             {
                 string relativePath = NormalizeRelativePath(file.RelativePath);
@@ -230,18 +231,6 @@ namespace CustomLordUpload
                 string fileName = segments[segments.Length - 1];
                 string extension = Path.GetExtension(fileName);
                 bool rootFile = segments.Length == 1;
-
-                foreach (string directory in segments.Take(segments.Length - 1))
-                {
-                    if (CustomLordCompatibilityProfile.DevelopmentDirectoryNames.Contains(directory) &&
-                        reportedDevelopmentDirectories.Add(directory))
-                    {
-                        issues.Add(Issue("DevelopmentDirectory", "Directory", directory));
-                    }
-                }
-
-                if (CustomLordCompatibilityProfile.DevelopmentExtensions.Contains(extension))
-                    issues.Add(Issue("DevelopmentFile", "Path", relativePath));
 
                 if (!rootFile &&
                     (string.Equals(fileName, "info.json", StringComparison.OrdinalIgnoreCase) ||
@@ -299,6 +288,87 @@ namespace CustomLordUpload
             {
                 issues.Add(IssueWithDetail("WaveUnreadable", exception.ToString(), "Path", relativePath));
             }
+        }
+
+        private static void CheckGenericOverrideAssetNames(
+            IEnumerable<CustomLordWorkshopPackageFile> files,
+            List<CustomLordUploadIssue> issues)
+        {
+            const string overridePrefix = "Override/";
+            List<string> matches = files
+                .Select(file => NormalizeRelativePath(file.RelativePath))
+                .Where(path => path.StartsWith(overridePrefix, StringComparison.OrdinalIgnoreCase))
+                .Where(CustomLordWorkshopPackagePolicy.IsAllowedExtendedUploadFile)
+                .Where(path => IsGenericOverrideAssetName(Path.GetFileNameWithoutExtension(path)))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (matches.Count == 0)
+                return;
+
+            const int exampleLimit = 4;
+            string examples = string.Join(", ", matches.Take(exampleLimit));
+            if (matches.Count > exampleLimit)
+                examples += " (+" + (matches.Count - exampleLimit) + ")";
+
+            issues.Add(IssueWithDetail(
+                "GenericOverrideAssetNames",
+                string.Join(Environment.NewLine, matches),
+                "Count", matches.Count,
+                "Examples", examples));
+        }
+
+        private static void CheckExcludedPackageFiles(
+            IEnumerable<CustomLordWorkshopPackageFile> files,
+            List<CustomLordUploadIssue> issues)
+        {
+            List<string> excluded = files
+                .Select(file => NormalizeRelativePath(file.RelativePath))
+                .Where(CustomLordWorkshopPackagePolicy.IsExcludedFromExtendedUpload)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (excluded.Count == 0)
+                return;
+
+            const int exampleLimit = 4;
+            string examples = string.Join(", ", excluded.Take(exampleLimit));
+            if (excluded.Count > exampleLimit)
+                examples += " (+" + (excluded.Count - exampleLimit) + ")";
+
+            issues.Add(IssueWithDetail(
+                "ExcludedPackageFiles",
+                string.Join(Environment.NewLine, excluded),
+                "Count", excluded.Count,
+                "Examples", examples));
+        }
+
+        private static bool IsGenericOverrideAssetName(string fileStem)
+        {
+            if (string.IsNullOrWhiteSpace(fileStem))
+                return false;
+            if (CustomLordCompatibilityProfile.GenericOverrideAssetNames.Contains(fileStem))
+                return true;
+
+            foreach (string genericName in CustomLordCompatibilityProfile.NumberedGenericOverrideAssetNames)
+            {
+                if (!fileStem.StartsWith(genericName, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string suffix = fileStem.Substring(genericName.Length);
+                if (suffix.StartsWith("_", StringComparison.Ordinal) ||
+                    suffix.StartsWith("-", StringComparison.Ordinal))
+                {
+                    suffix = suffix.Substring(1);
+                }
+
+                if (suffix.Length > 0 && suffix.All(char.IsDigit))
+                    return true;
+            }
+
+            return false;
         }
 
         private static bool HasValidWaveDataChunk(byte[] wav)

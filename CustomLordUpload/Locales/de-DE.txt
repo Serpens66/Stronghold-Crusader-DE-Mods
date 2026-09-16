@@ -1,4 +1,6 @@
 # Custom Lord Upload localization
+CustomLordUpload.GenericOverrideAssetNames={Count} Override-Assets verwenden generische globale Namen ({Examples}). Ein anderer geladener Mod kann sie ersetzen, da Override nach Last-Write-Wins arbeitet. Verwende einen Lord- oder GUID-spezifischen Dateinamenspraefix, sofern dies kein beabsichtigter Vanilla-Override ist.
+CustomLordUpload.ExcludedPackageFiles={Count} Dateien gehoeren nicht zur Custom-Lord-Upload-Allowlist und werden nicht hochgeladen ({Examples}). Verschiebe benoetigte Inhalte in einen unterstuetzten Custom-Lord-Pfad und ein unterstuetztes Format.
 CustomLordUpload.WarningTitle=Warnungen zum Custom-Lord-Upload
 CustomLordUpload.WarningIntro=Die folgenden moeglichen Paketprobleme wurden gefunden:
 CustomLordUpload.UploadAnyway=Dennoch uploaden?
@@ -20,8 +22,6 @@ CustomLordUpload.UnknownMessageType=Der lordmeta.json-Nachrichtenschluessel {Mes
 CustomLordUpload.DuplicateMessageId=Die lordmeta.json-Nachrichtenschluessel {First} und {Second} verwenden beide die native ID {Id}; einer ersetzt den anderen.
 CustomLordUpload.NullMessageList=Der lordmeta.json-Nachrichtenschluessel {Message} hat eine leere Clip-Liste und kann nicht sicher abgespielt werden.
 CustomLordUpload.NullMessageClip=Der lordmeta.json-Nachrichtenschluessel {Message} enthaelt einen leeren Clip und kann nicht sicher abgespielt werden.
-CustomLordUpload.DevelopmentDirectory=Der Entwicklungs- oder Quellordner {Directory} liegt im veroeffentlichten Lord-Ordner und wird hochgeladen.
-CustomLordUpload.DevelopmentFile=Die Datei {Path} sieht nach Entwicklungs- oder Archivmaterial aus. Sie wird dennoch hochgeladen.
 CustomLordUpload.MisplacedMetadata={Path} scheint falsch platziert; {File} muss im Lord-Hauptordner liegen.
 CustomLordUpload.RootMedia=Die Mediendatei {Path} liegt im Lord-Hauptordner und wird nicht als Asset indexiert. Lege sie unter Override mit ihrem logischen Asset-Pfad ab.
 CustomLordUpload.RootFx={Path} liegt unter root/fx; Sprachausgaben muessen unter Override/fx oder Override/Locales/<locale>/fx liegen.

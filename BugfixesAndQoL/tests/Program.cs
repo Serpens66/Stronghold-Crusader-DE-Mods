@@ -40,6 +40,8 @@ namespace BugfixesAndQoL
             TestFriendlyMoatMovementPolicy();
             TestFriendlyMoatMovementIntegration();
             TestReachableEnemyGatehouseUnitIdContract();
+            TestSynchronizedGatehouseReachabilityPolicy();
+            TestGatehouseReachabilityDiagnosticThrottle();
             TestMovementFastPathParity();
             TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
@@ -2937,7 +2939,7 @@ namespace BugfixesAndQoL
             int lookup = handler.IndexOf(
                 "TryGetUnitById(unitId,", StringComparison.Ordinal);
             int pathing = handler.IndexOf(
-                "TryIsUnitReachableToGate(unitId,", StringComparison.Ordinal);
+                "TryIsUnitReachableToGate(", StringComparison.Ordinal);
             Check(eventRead >= 0 && validation > eventRead && lookup > validation && pathing > lookup,
                 "gatehouse handler passes the validated one-based Unit ID unchanged to lookup and pathing");
             Check(!handler.Contains("args.UnitId + 1") &&
@@ -2947,6 +2949,126 @@ namespace BugfixesAndQoL
                     !handler.Contains("unitId + 1") &&
                     !handler.Contains("unitId+1"),
                 "gatehouse handler applies no obsolete +1 conversion to the event Unit ID");
+
+            Check(source.Contains("STRUCT_DRAWBRIDGE") &&
+                    source.Contains("MaximumSynchronizedDrawbridges") &&
+                    source.Contains("CanReachSynchronizedGroup(") &&
+                    source.Contains("CanUnitTypeUsePathConnectionClass(") &&
+                    source.Contains("r_SubjectGlobalId != drawbridge->r_GlobalId") &&
+                    source.Contains("GATE_REACH_DIAG decision:") &&
+                    source.Contains("occupyGridSize=") &&
+                    source.Contains("recordOpen=") &&
+                    source.Contains("drawbridgeStateSignature=") &&
+                    source.Contains("unchangedRepeats=") &&
+                    !source.Contains("r_IsEnabledOrOpen =") &&
+                    !source.Contains("SetPath") &&
+                    !source.Contains("RecalculateTile"),
+                "gatehouse runtime diagnoses validated synchronized drawbridges without mutating live pathing state");
+        }
+
+        private static void TestSynchronizedGatehouseReachabilityPolicy()
+        {
+            var gatehouse = new GatePortalSnapshot(
+                10, 20, 0,
+                entryX: 100, entryY: 100,
+                exitX: 104, exitY: 100);
+            var firstBridge = new GatePortalSnapshot(
+                20, 30, 0,
+                entryX: 105, entryY: 100,
+                exitX: 109, exitY: 100);
+            var secondBridge = new GatePortalSnapshot(
+                10, 40, 0,
+                entryX: 99, entryY: 100,
+                exitX: 95, exitY: 100);
+            var distantBridge = new GatePortalSnapshot(
+                20, 50, 0,
+                entryX: 200, entryY: 200,
+                exitX: 204, exitY: 200);
+            var unconnectedBridge = new GatePortalSnapshot(
+                60, 70, 0,
+                entryX: 105, entryY: 100,
+                exitX: 109, exitY: 100);
+
+            Check(SynchronizedGatehouseReachabilityPolicy.IsAssociatedDrawbridge(
+                    gatehouse, firstBridge) &&
+                  !SynchronizedGatehouseReachabilityPolicy.IsAssociatedDrawbridge(
+                    gatehouse, distantBridge) &&
+                  !SynchronizedGatehouseReachabilityPolicy.IsAssociatedDrawbridge(
+                    gatehouse, unconnectedBridge),
+                "drawbridge association requires both a shared PCL and an adjacent gate endpoint");
+            Check(SynchronizedGatehouseReachabilityPolicy.EvaluateAssociation(
+                      gatehouse, firstBridge) == DrawbridgeAssociationResult.Accepted &&
+                  SynchronizedGatehouseReachabilityPolicy.EvaluateAssociation(
+                      gatehouse, distantBridge) == DrawbridgeAssociationResult.NonAdjacentEndpoints &&
+                  SynchronizedGatehouseReachabilityPolicy.EvaluateAssociation(
+                      gatehouse, unconnectedBridge) == DrawbridgeAssociationResult.NoSharedComponent,
+                "drawbridge diagnostics expose the exact current-heuristic rejection stage");
+
+            Check(SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
+                    gatehouse,
+                    Array.Empty<GatePortalSnapshot>(),
+                    component => component == 10),
+                "gatehouse group remains reachable through a directly reachable gate component");
+            Check(SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
+                    gatehouse,
+                    new[] { firstBridge },
+                    component => component == 30),
+                "raised synchronized drawbridge remains reachable through its outer component");
+            Check(SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
+                    gatehouse,
+                    new[] { firstBridge, secondBridge },
+                    component => component == 40) &&
+                  !SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
+                    gatehouse,
+                    new[] { firstBridge, secondBridge },
+                    component => component == 99),
+                "gatehouse group supports both Vanilla-coupled drawbridges without inventing unrelated reachability");
+            Check(!SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
+                    gatehouse,
+                    new[] { firstBridge, secondBridge, firstBridge },
+                    component => true),
+                "more than two synchronized drawbridges fail closed");
+            Check(!SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
+                    new GatePortalSnapshot(0, 20, 0, 100, 100, 104, 100),
+                    new[] { firstBridge },
+                    component => true),
+                "malformed gatehouse PCL data fails closed");
+        }
+
+        private static void TestGatehouseReachabilityDiagnosticThrottle()
+        {
+            var throttle = new GatehouseReachabilityDiagnosticThrottle();
+            Check(throttle.Observe(1, 101, 2, 202, "closed", out int suppressed) ==
+                    GatehouseDiagnosticEmission.Detailed && suppressed == 0,
+                "gatehouse diagnostics emit the first state immediately");
+
+            bool prematureSummary = false;
+            for (int index = 1;
+                 index < GatehouseReachabilityDiagnosticThrottle.SummaryInterval;
+                 index++)
+            {
+                prematureSummary |= throttle.Observe(
+                    1, 101, 2, 202, "closed", out _) != GatehouseDiagnosticEmission.None;
+            }
+            Check(!prematureSummary &&
+                  throttle.Observe(1, 101, 2, 202, "closed", out suppressed) ==
+                      GatehouseDiagnosticEmission.Summary &&
+                  suppressed == GatehouseReachabilityDiagnosticThrottle.SummaryInterval,
+                "unchanged gatehouse diagnostics are suppressed and summarized at the fixed interval");
+
+            throttle.Observe(1, 101, 2, 202, "closed", out _);
+            throttle.Observe(1, 101, 2, 202, "closed", out _);
+            Check(throttle.Observe(1, 101, 2, 202, "open", out suppressed) ==
+                    GatehouseDiagnosticEmission.Detailed && suppressed == 2,
+                "gatehouse diagnostics emit state changes with the suppressed repeat count");
+            Check(throttle.Observe(1, 101, 3, 303, "open", out suppressed) ==
+                    GatehouseDiagnosticEmission.Detailed && suppressed == 0,
+                "gatehouse diagnostic throttling isolates distinct gate and unit identities");
+
+            throttle.Clear();
+            Check(throttle.Observe(1, 101, 2, 202, "open", out suppressed) ==
+                    GatehouseDiagnosticEmission.Detailed && suppressed == 0,
+                "clearing gatehouse diagnostics makes the next observation detailed again");
         }
 
         private static void TestNativeContracts()

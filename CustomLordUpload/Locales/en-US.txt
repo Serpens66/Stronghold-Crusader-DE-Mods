@@ -1,4 +1,6 @@
 # Custom Lord Upload localization
+CustomLordUpload.GenericOverrideAssetNames={Count} Override assets use generic global names ({Examples}). Another loaded mod can replace them because Override is Last-Write-Wins. Use a lord- or GUID-specific filename prefix unless this is an intentional Vanilla override.
+CustomLordUpload.ExcludedPackageFiles={Count} files are not part of the Custom Lord upload allowlist and will not be uploaded ({Examples}). Move required content to a supported Custom Lord path and format.
 CustomLordUpload.WarningTitle=Custom Lord upload warnings
 CustomLordUpload.WarningIntro=The following possible package problems were found:
 CustomLordUpload.UploadAnyway=Upload anyway?
@@ -20,8 +22,6 @@ CustomLordUpload.UnknownMessageType=lordmeta.json message key {Message} is not a
 CustomLordUpload.DuplicateMessageId=lordmeta.json message keys {First} and {Second} both use native ID {Id}; one replaces the other.
 CustomLordUpload.NullMessageList=lordmeta.json message key {Message} has a null clip list and cannot be played safely.
 CustomLordUpload.NullMessageClip=lordmeta.json message key {Message} contains a null clip and cannot be played safely.
-CustomLordUpload.DevelopmentDirectory=Development/source directory {Directory} is inside the publishable lord folder and will be uploaded.
-CustomLordUpload.DevelopmentFile=File {Path} looks like development or archive material. It will still be uploaded.
 CustomLordUpload.MisplacedMetadata={Path} looks misplaced; {File} must be in the lord root.
 CustomLordUpload.RootMedia=Media file {Path} is in the lord root and is not indexed as an asset. Place it below Override with its logical asset path.
 CustomLordUpload.RootFx={Path} is below root/fx; speech assets must be below Override/fx or Override/Locales/<locale>/fx.

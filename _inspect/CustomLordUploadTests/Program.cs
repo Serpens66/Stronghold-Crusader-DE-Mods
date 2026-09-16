@@ -17,6 +17,7 @@ namespace CustomLordUpload
                 return ExpectUnsafePackage(args[1]);
 
             Run("complete package and retry", TestCompletePackageAndRetry);
+            Run("upload allowlist and excluded warning", TestUploadAllowlistAndExcludedWarning);
             Run("conflict rollback", TestConflictRollback);
             Run("dynamic rules", TestDynamicRules);
             Run("unknown version profile", TestUnknownVersionProfile);
@@ -31,6 +32,7 @@ namespace CustomLordUpload
             Run("invalid WAV", TestInvalidWave);
             Run("separate WAV defects", TestSeparateWaveDefects);
             Run("misplaced paths", TestMisplacedPaths);
+            Run("generic Override asset names", TestGenericOverrideAssetNames);
 
             Console.WriteLine(failures == 0
                 ? "All CustomLordUpload tests passed."
@@ -51,7 +53,7 @@ namespace CustomLordUpload
                 WriteText(Path.Combine(source, "init.lua"), "return true");
                 WriteText(Path.Combine(source, "Override", "fx", "Speech", "line.ogg"), "audio");
                 WriteText(Path.Combine(source, "Override", "Locales", "de-DE", "fx", "Speech", "line.ogg"), "audio-de");
-                WriteText(Path.Combine(source, "Locales", "en-US", "text.txt"), "text");
+                WriteText(Path.Combine(source, "Locales", "en-US", "crusader.txt"), "text");
                 WriteText(Path.Combine(source, "Scripts", "init.lua"), "return true");
 
                 WriteText(Path.Combine(staging, "lord.lordjson"), "vanilla lord");
@@ -86,16 +88,131 @@ namespace CustomLordUpload
         {
             WithRoots((source, staging) =>
             {
-                WriteText(Path.Combine(source, "a-created.txt"), "created");
-                WriteText(Path.Combine(source, "z-conflict.txt"), "source");
-                WriteText(Path.Combine(staging, "z-conflict.txt"), "destination");
+                WriteText(Path.Combine(source, "Scripts", "a-created.lua"), "created");
+                WriteText(Path.Combine(source, "Scripts", "z-conflict.lua"), "source");
+                WriteText(Path.Combine(staging, "Scripts", "z-conflict.lua"), "destination");
 
                 bool result = CustomLordWorkshopPackagePolicy.TryStageFiles(
                     source, staging, out _, out _, out _, out _, out string error);
                 Assert(!result, "conflict unexpectedly succeeded");
                 Assert(error.IndexOf("different package destination", StringComparison.OrdinalIgnoreCase) >= 0, "wrong conflict error");
-                Assert(!File.Exists(Path.Combine(staging, "a-created.txt")), "rollback left copied file");
-                Assert(File.ReadAllText(Path.Combine(staging, "z-conflict.txt")) == "destination", "conflict target changed");
+                Assert(!File.Exists(Path.Combine(staging, "Scripts", "a-created.lua")), "rollback left copied file");
+                Assert(File.ReadAllText(Path.Combine(staging, "Scripts", "z-conflict.lua")) == "destination", "conflict target changed");
+            });
+        }
+
+        private static void TestUploadAllowlistAndExcludedWarning()
+        {
+            WithRoots((source, staging) =>
+            {
+                WriteVanillaBase(source);
+                WriteText(Path.Combine(source, "avatar.png"), "avatar");
+                WriteText(Path.Combine(source, "local.data"), "control");
+                WriteText(Path.Combine(source, "local.ldata"), "control");
+
+                string[] allowed =
+                {
+                    "info.json",
+                    "lordmeta.json",
+                    "init.lua",
+                    "helper.LUA",
+                    "Scripts/init.lua",
+                    "Scripts/lib/utils.lua",
+                    "MapAreas/nested/keep.SEMA",
+                    "Locales/en-US/crusader.txt",
+                    "oVeRrIdE/Assets/GUI/Sprites/lord-face.PNG",
+                    "Override/Assets/GUI/Sprites/lord-banner.jpg",
+                    "Override/Assets/GUI/Sprites/lord-portrait.tga",
+                    "Override/fx/speech/lord-voice.OGG",
+                    "Override/fx/speech/lord-line.wav",
+                    "Override/Assets/GUI/Video/lord-video.WEBM",
+                    "Override/Assets/GUI/Video/lord-alternate.mp4",
+                    "Override/Locales/de-DE/fx/speech/lord-voice.ogg"
+                };
+
+                foreach (string relativePath in allowed)
+                {
+                    string path = Path.Combine(source, relativePath.Replace('/', Path.DirectorySeparatorChar));
+                    if (relativePath.EndsWith(".wav", StringComparison.OrdinalIgnoreCase))
+                        WriteValidWave(path);
+                    else if (string.Equals(relativePath, "info.json", StringComparison.OrdinalIgnoreCase))
+                        WriteText(path, ValidInfo);
+                    else if (string.Equals(relativePath, "lordmeta.json", StringComparison.OrdinalIgnoreCase))
+                        WriteText(path, ValidLordMeta);
+                    else
+                        WriteText(path, "allowed");
+                }
+
+                string[] excluded =
+                {
+                    "README.md",
+                    "secret.env",
+                    "tool.exe",
+                    "archive.zip",
+                    "_LegacyMediaSource/zMediafiles.aivjson",
+                    "Resources/config.json",
+                    "Override/Atlas/atlas.json",
+                    "Override/Assets/GUI/XAML/panel.xaml",
+                    "Override/AssetBundles/lordbundle",
+                    "Override/photo.jpeg",
+                    "Patches/ui.xaml",
+                    "Locales/en-US/notes.txt",
+                    "screenshot.png",
+                    "Scripts/readme.txt",
+                    "MapAreas/readme.txt"
+                };
+                foreach (string relativePath in excluded)
+                    WriteText(Path.Combine(source, relativePath.Replace('/', Path.DirectorySeparatorChar)), "excluded");
+
+                bool staged = CustomLordWorkshopPackagePolicy.TryStageFiles(
+                    source, staging, out int copied, out int existing,
+                    out int packageFiles, out long packageBytes, out string error);
+                Assert(staged, error);
+                Assert(copied == allowed.Length, "unexpected allowed copied count: " + copied);
+                Assert(existing == 0, "unexpected existing allowed count: " + existing);
+                Assert(packageFiles == allowed.Length, "unexpected allowed package count: " + packageFiles);
+                Assert(packageBytes > 0, "allowed package byte count was not reported");
+
+                foreach (string relativePath in allowed)
+                {
+                    string stagedPath = Path.Combine(staging, relativePath.Replace('/', Path.DirectorySeparatorChar));
+                    Assert(File.Exists(stagedPath), "allowed file was not staged: " + relativePath);
+                }
+
+                bool repeated = CustomLordWorkshopPackagePolicy.TryStageFiles(
+                    source, staging, out int retryCopied, out int retryExisting,
+                    out int retryPackageFiles, out long retryPackageBytes, out string retryError);
+                Assert(repeated, retryError);
+                Assert(retryCopied == 0, "allowlisted retry unexpectedly copied files");
+                Assert(retryExisting == allowed.Length, "allowlisted retry did not recognize every existing file");
+                Assert(retryPackageFiles == allowed.Length, "allowlisted retry reported the wrong package count");
+                Assert(retryPackageBytes == packageBytes, "allowlisted retry reported a different byte count");
+
+                foreach (string relativePath in excluded)
+                {
+                    string stagedPath = Path.Combine(staging, relativePath.Replace('/', Path.DirectorySeparatorChar));
+                    Assert(!File.Exists(stagedPath), "excluded file was staged: " + relativePath);
+                }
+                Assert(!File.Exists(Path.Combine(staging, "local.data")), "control .data was staged");
+                Assert(!File.Exists(Path.Combine(staging, "local.ldata")), "control .ldata was staged");
+
+                IReadOnlyList<CustomLordUploadIssue> issues = Inspect(source);
+                CustomLordUploadIssue[] excludedIssues = issues
+                    .Where(issue => issue.Code == "ExcludedPackageFiles")
+                    .ToArray();
+                Assert(excludedIssues.Length == 1, "excluded files were not grouped into one warning");
+                Assert(excludedIssues[0].Replacements.Length >= 2 &&
+                       Convert.ToInt32(excludedIssues[0].Replacements[1]) == excluded.Length,
+                    "excluded warning reported the wrong count");
+                foreach (string relativePath in excluded)
+                {
+                    Assert(excludedIssues[0].TechnicalDetail.IndexOf(relativePath, StringComparison.OrdinalIgnoreCase) >= 0,
+                        "excluded warning omitted: " + relativePath);
+                }
+                Assert(excludedIssues[0].TechnicalDetail.IndexOf("local.data", StringComparison.OrdinalIgnoreCase) < 0,
+                    "local control file was reported as excluded");
+                Assert(excludedIssues[0].TechnicalDetail.IndexOf("avatar.png", StringComparison.OrdinalIgnoreCase) < 0,
+                    "Vanilla-owned file was reported as excluded");
             });
         }
 
@@ -195,6 +312,44 @@ namespace CustomLordUpload
                 Assert(issues.Any(issue => issue.Code == "WaveChannels"), "WAV channel defect missing");
                 Assert(issues.Any(issue => issue.Code == "WaveSampleRate"), "WAV sample-rate defect missing");
                 Assert(issues.Any(issue => issue.Code == "WaveBits"), "WAV bit-depth defect missing");
+            });
+        }
+
+        private static void TestGenericOverrideAssetNames()
+        {
+            WithSource(source =>
+            {
+                WriteVanillaBase(source);
+                WriteText(Path.Combine(source, "info.json"), ValidInfo);
+                WriteText(Path.Combine(source, "lordmeta.json"), ValidLordMeta);
+                WriteText(Path.Combine(source, "Override", "fx", "speech", "ATTACK_01.ogg"), "audio");
+                WriteValidWave(Path.Combine(source, "Override", "fx", "speech", "add_player.wav"));
+                WriteText(Path.Combine(source, "Override", "Assets", "GUI", "Video", "neutral.webm"), "video");
+                WriteText(Path.Combine(source, "Override", "Assets", "GUI", "Sprites", "icon.png"), "image");
+                WriteText(Path.Combine(source, "Override", "Locales", "de-DE", "fx", "speech", "attack_01.ogg"), "audio-de");
+                WriteText(Path.Combine(source, "Override", "fx", "speech", "test-lord-attack.ogg"), "unique");
+                WriteText(Path.Combine(source, "Override", "fx", "speech", "attack.mp3"), "excluded-format");
+                WriteText(Path.Combine(source, "Media", "attack.ogg"), "outside-override");
+
+                IReadOnlyList<CustomLordUploadIssue> issues = Inspect(source);
+                CustomLordUploadIssue[] genericIssues = issues
+                    .Where(issue => issue.Code == "GenericOverrideAssetNames")
+                    .ToArray();
+
+                Assert(genericIssues.Length == 1, "generic assets were not grouped into one warning");
+                Assert(genericIssues[0].Replacements.Length >= 2 &&
+                       Convert.ToInt32(genericIssues[0].Replacements[1]) == 5,
+                    "generic asset warning reported the wrong count");
+                Assert(genericIssues[0].TechnicalDetail.IndexOf("ATTACK_01.ogg", StringComparison.Ordinal) >= 0,
+                    "case-insensitive numbered generic name was not reported");
+                Assert(genericIssues[0].TechnicalDetail.IndexOf("Locales/de-DE", StringComparison.Ordinal) >= 0,
+                    "localized generic asset was not reported");
+                Assert(genericIssues[0].TechnicalDetail.IndexOf("test-lord-attack", StringComparison.OrdinalIgnoreCase) < 0,
+                    "lord-prefixed asset was incorrectly reported");
+                Assert(genericIssues[0].TechnicalDetail.IndexOf("attack.mp3", StringComparison.OrdinalIgnoreCase) < 0,
+                    "excluded Override format was incorrectly reported as an uploaded generic asset");
+                Assert(genericIssues[0].TechnicalDetail.IndexOf("Media/attack", StringComparison.OrdinalIgnoreCase) < 0,
+                    "asset outside Override was incorrectly reported");
             });
         }
 
@@ -460,6 +615,28 @@ namespace CustomLordUpload
             if (directory != null)
                 Directory.CreateDirectory(directory);
             File.WriteAllText(path, content, new UTF8Encoding(false));
+        }
+
+        private static void WriteValidWave(string path)
+        {
+            string? directory = Path.GetDirectoryName(path);
+            if (directory != null)
+                Directory.CreateDirectory(directory);
+
+            byte[] wave = new byte[46];
+            Encoding.ASCII.GetBytes("RIFF").CopyTo(wave, 0);
+            BitConverter.GetBytes(38).CopyTo(wave, 4);
+            Encoding.ASCII.GetBytes("WAVEfmt ").CopyTo(wave, 8);
+            BitConverter.GetBytes(16).CopyTo(wave, 16);
+            BitConverter.GetBytes((short)1).CopyTo(wave, 20);
+            BitConverter.GetBytes((short)1).CopyTo(wave, 22);
+            BitConverter.GetBytes(44100).CopyTo(wave, 24);
+            BitConverter.GetBytes(88200).CopyTo(wave, 28);
+            BitConverter.GetBytes((short)2).CopyTo(wave, 32);
+            BitConverter.GetBytes((short)16).CopyTo(wave, 34);
+            Encoding.ASCII.GetBytes("data").CopyTo(wave, 36);
+            BitConverter.GetBytes(2).CopyTo(wave, 40);
+            File.WriteAllBytes(path, wave);
         }
 
         private static void Run(string name, Action test)

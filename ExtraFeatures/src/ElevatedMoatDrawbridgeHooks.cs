@@ -206,6 +206,59 @@ namespace ExtraFeatures
             assembler.mov(__dword_ptr[rsp + 0x20], r15d);
         }
 
+        internal static void GenerateUnitHeightCorrection(
+            Assembler assembler,
+            ReadOnlySpan<Instruction> overwrittenInstructions,
+            ulong returnAddress,
+            ulong featureActiveFlagAddress)
+        {
+            if (overwrittenInstructions.Length != 3 ||
+                overwrittenInstructions[0].Length != 5 ||
+                overwrittenInstructions[0].Mnemonic != Mnemonic.Mov ||
+                overwrittenInstructions[0].Op0Register != Register.EAX ||
+                overwrittenInstructions[0].Immediate32 != ElevatedMoatNativeContract.MoatDepth ||
+                overwrittenInstructions[1].Length != 7 ||
+                overwrittenInstructions[1].Mnemonic != Mnemonic.Sub ||
+                overwrittenInstructions[1].Op0Register != Register.AX ||
+                overwrittenInstructions[1].MemoryBase != Register.RBX ||
+                overwrittenInstructions[1].MemoryDisplacement64 !=
+                    ElevatedMoatNativeContract.UnitCurrentElevationOffset ||
+                overwrittenInstructions[2].Length != 7 ||
+                overwrittenInstructions[2].Mnemonic != Mnemonic.Mov ||
+                overwrittenInstructions[2].MemoryBase != Register.RBX ||
+                overwrittenInstructions[2].MemoryDisplacement64 !=
+                    ElevatedMoatNativeContract.UnitVerticalCorrectionOffset ||
+                overwrittenInstructions[2].Op1Register != Register.AX ||
+                returnAddress != overwrittenInstructions[2].NextIP)
+            {
+                throw new InvalidOperationException(
+                    "The unit drawbridge height-correction instruction contract differs.");
+            }
+
+            Label vanillaCorrection = assembler.CreateLabel("unitDrawbridgeVanillaHeightCorrection");
+            EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaCorrection);
+
+            // This hook is already behind Vanilla's building-type == 0x31 branch.
+            // RBP is the image base. RAX, RCX and flags are dead at the common
+            // continuation, while RBX remains the live unit-record pointer.
+            assembler.mov(ecx,
+                __dword_ptr[rbx + ElevatedMoatNativeContract.UnitCurrentTileIdOffset]);
+            assembler.movzx(eax,
+                __byte_ptr[rbp + rcx + ElevatedMoatNativeContract.TileHeightGridOffset]);
+            assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
+            assembler.jbe(vanillaCorrection);
+
+            assembler.mov(eax, ElevatedMoatNativeContract.MoatDepth);
+            assembler.mov(
+                __word_ptr[rbx + ElevatedMoatNativeContract.UnitVerticalCorrectionOffset],
+                ax);
+            assembler.AddUnrestrictedJmp(returnAddress);
+
+            assembler.Label(ref vanillaCorrection);
+            foreach (Instruction instruction in overwrittenInstructions)
+                assembler.AddInstruction(instruction);
+        }
+
         private static bool HasMemoryOperands(
             Instruction instruction,
             Register first,
