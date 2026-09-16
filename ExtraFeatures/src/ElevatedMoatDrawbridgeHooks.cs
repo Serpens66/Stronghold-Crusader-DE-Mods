@@ -112,6 +112,7 @@ namespace ExtraFeatures
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
             ulong featureActiveFlagAddress,
+            ulong tileHeightGridAddress,
             ulong currentTileHeightAddress)
         {
             if (overwrittenInstructions.Length != 6 ||
@@ -144,8 +145,20 @@ namespace ExtraFeatures
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaPrologue);
 
             // The two Vanilla call sites omit the tile-height subtraction used by the
-            // sibling drawbridge renderer. RAX is overwritten by the first prologue
-            // instruction; R9 and stack argument 7 are the two affected coordinates.
+            // sibling drawbridge renderer. Argument 5 at entry is the current tile ID.
+            // Preserve R10 while using it as the index; RAX is overwritten by the first
+            // prologue instruction. Low drawbridges must remain exactly Vanilla even
+            // when the renderer temporarily publishes a nonzero current tile height.
+            assembler.push(r10);
+            assembler.mov(r10d, __dword_ptr[rsp + 0x30]);
+            assembler.mov(rax, tileHeightGridAddress);
+            assembler.cmp(
+                __byte_ptr[rax + r10],
+                ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
+            assembler.pop(r10);
+            assembler.jbe(vanillaPrologue);
+
+            // R9 and stack argument 7 are the two height-blind coordinates.
             assembler.mov(rax, currentTileHeightAddress);
             assembler.mov(eax, __dword_ptr[rax]);
             assembler.sub(r9d, eax);
@@ -161,6 +174,7 @@ namespace ExtraFeatures
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
             ulong featureActiveFlagAddress,
+            ulong tileHeightGridAddress,
             ulong currentTileHeightAddress)
         {
             if (overwrittenInstructions.Length != 3 ||
@@ -192,8 +206,15 @@ namespace ExtraFeatures
 
             // This call site is reached only for a drawbridge (building type 0x31)
             // on the tile-flags == 4 branch. Vanilla passes zero as argument 6;
-            // elevated tiles need the same negative current-tile render offset that
-            // the sibling renderer path already passes. The callee remains Vanilla.
+            // R15D is argument 5 and therefore the current tile ID. Only elevated
+            // tiles need the same negative current-tile render offset that the sibling
+            // renderer path already passes. The callee remains Vanilla.
+            assembler.mov(rax, tileHeightGridAddress);
+            assembler.cmp(
+                __byte_ptr[rax + r15],
+                ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
+            assembler.jbe(vanillaHeight);
+
             assembler.mov(rax, currentTileHeightAddress);
             assembler.mov(eax, __dword_ptr[rax]);
             assembler.neg(eax);

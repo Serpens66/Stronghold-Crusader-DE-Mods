@@ -379,6 +379,7 @@ namespace ExtraFeatures
                             instructions,
                             returnAddress,
                             unchecked((ulong)featureActiveFlag.ToInt64()),
+                            imageBase + ElevatedMoatNativeContract.TileHeightGridRva,
                             imageBase + ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
                     hookSize: ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength);
                 pending.AddInline(
@@ -391,6 +392,7 @@ namespace ExtraFeatures
                             instructions,
                             returnAddress,
                             unchecked((ulong)featureActiveFlag.ToInt64()),
+                            imageBase + ElevatedMoatNativeContract.TileHeightGridRva,
                             imageBase + ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
                     hookSize: ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength);
                 pending.AddInline(

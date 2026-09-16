@@ -49,6 +49,9 @@ namespace ExtraFeatures
         internal const int DrawbridgeSpecialRendererCall2Rva = 0x44EC3;
         internal const int DrawbridgeSpecialRendererCall1ArgumentsRva = 0x44E09;
         internal const int DrawbridgeSpecialRendererCall2ArgumentsRva = 0x44E8D;
+        internal const int DrawbridgeSpecialRendererCall1TileArgumentRva = 0x44E34;
+        internal const int DrawbridgeSpecialRendererCall2TileArgumentRva = 0x44EBE;
+        internal const int DrawbridgeSpecialRendererTileArgumentReadRva = 0x45879;
         internal const int DrawbridgeHeightAwareSubtractRva = 0x44EDD;
         internal const int DrawbridgeHeightAwareCallRva = 0x44F09;
         internal const int DrawbridgeHeightAwareRendererRva = 0x4C1D0;
@@ -440,6 +443,19 @@ namespace ExtraFeatures
             0x89, 0x4C, 0x24, 0x30
         };
 
+        internal static readonly byte[] DrawbridgeSpecialRendererTileArgumentBytes =
+        {
+            // mov dword ptr [RSP+0x20],R14D
+            0x44, 0x89, 0x74, 0x24, 0x20
+        };
+
+        internal static readonly byte[] DrawbridgeSpecialRendererTileArgumentReadBytes =
+        {
+            // After the 0x80-byte local allocation and three pushes, read argument 5.
+            // movsxd RDI,dword ptr [RSP+0xC0]
+            0x48, 0x63, 0xBC, 0x24, 0xC0, 0x00, 0x00, 0x00
+        };
+
         internal static readonly byte[] DrawbridgeHeightAwareSubtractBytes =
         {
             // sub R10D,dword ptr [CurrentRenderedTileHeight]
@@ -777,6 +793,19 @@ namespace ExtraFeatures
 
         internal static byte CalculateRestoredHeight(byte defaultHeight) => defaultHeight;
 
+        internal static bool ShouldCorrectDrawbridgeRendering(
+            byte currentTileHeight,
+            bool featureActive) =>
+            featureActive && currentTileHeight > MaximumVanillaTerrainHeight;
+
+        internal static int CalculateDrawbridgeRenderOffset(
+            byte currentTileHeight,
+            int currentRenderedTileHeight,
+            bool featureActive) =>
+            ShouldCorrectDrawbridgeRendering(currentTileHeight, featureActive)
+                ? -currentRenderedTileHeight
+                : 0;
+
         internal static short CalculateUnitDrawbridgeCorrection(
             short currentElevation,
             byte currentTileHeight,
@@ -891,6 +920,15 @@ namespace ExtraFeatures
             AssertBytes(memory, DrawbridgeSpecialRendererCall2ArgumentsRva,
                 DrawbridgeSpecialRendererCall2ArgumentsBytes,
                 "second height-blind drawbridge renderer arguments");
+            AssertBytes(memory, DrawbridgeSpecialRendererCall1TileArgumentRva,
+                DrawbridgeSpecialRendererTileArgumentBytes,
+                "first drawbridge special-renderer tile argument");
+            AssertBytes(memory, DrawbridgeSpecialRendererCall2TileArgumentRva,
+                DrawbridgeSpecialRendererTileArgumentBytes,
+                "second drawbridge special-renderer tile argument");
+            AssertBytes(memory, DrawbridgeSpecialRendererTileArgumentReadRva,
+                DrawbridgeSpecialRendererTileArgumentReadBytes,
+                "drawbridge special-renderer tile argument read");
             ValidateRelativeBranch(memory, DrawbridgeSpecialRendererCall1Rva, 0xE8,
                 DrawbridgeSpecialRendererRva, "first drawbridge special-renderer call");
             ValidateRelativeBranch(memory, DrawbridgeSpecialRendererCall2Rva, 0xE8,
