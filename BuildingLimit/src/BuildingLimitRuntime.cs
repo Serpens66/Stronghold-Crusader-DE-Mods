@@ -83,10 +83,9 @@ namespace BuildingLimit
                 .Subscribe(OnBuildingPlacementValidation));
 
             TrySubscribeFeature("gameplay session start", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, () => OnUnloadMap(null)));
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
 
-            TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            TrySubscribeFeature("map unload", () => Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap));
 
             LogDebug("Building limit runtime hooks subscribed");
@@ -160,7 +159,7 @@ namespace BuildingLimit
             }
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             LogDebug("OnUnloadMap");
             HideBuildingLimitMessage();

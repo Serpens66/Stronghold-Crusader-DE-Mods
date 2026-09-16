@@ -38,7 +38,6 @@ namespace EnemyGatePathfindingTest
         private volatile NativeGateAccessSnapshot previousStableGateAccess = NativeGateAccessSnapshot.Empty;
         private ulong libraryBase;
         private int mapActive;
-        private int implicitEpochSuppressed;
         private int callbackWarnings;
         private long nextDiagnosticAt;
         private readonly long[] siteCalls = new long[SiteCount];
@@ -207,10 +206,9 @@ namespace EnemyGatePathfindingTest
 
         internal void BeginMap()
         {
-            Volatile.Write(ref implicitEpochSuppressed, 0);
             if (Volatile.Read(ref mapActive) != 0)
-                EndMap("implicit restart before OnStartMap(Post)");
-            StartMapEpoch("OnStartMap(Post)");
+                EndMap("replacement before MissionStart");
+            StartMapEpoch("MissionStart");
         }
 
         private void StartMapEpoch(string reason)
@@ -225,7 +223,7 @@ namespace EnemyGatePathfindingTest
                     samePclRouteRuntime != null ? "pending-policy" : "inactive")}.");
         }
 
-        internal void EndMap(string reason = "OnUnloadMap(Pre)")
+        internal void EndMap(string reason = "MissionEnd")
         {
             bool hadActiveEpoch = Interlocked.CompareExchange(ref mapActive, 0, 1) == 1;
             if (!hadActiveEpoch)
@@ -233,7 +231,6 @@ namespace EnemyGatePathfindingTest
             LogDiagnosticCheckpoint("final", reason);
             topologyProvider?.EndEpoch(reason);
             gateAccess = NativeGateAccessSnapshot.Empty;
-            Volatile.Write(ref implicitEpochSuppressed, 1);
         }
 
         internal void ProcessDeferredDiagnostics()
@@ -241,14 +238,6 @@ namespace EnemyGatePathfindingTest
             try
             {
                 ComparePathfindingGlobalsOnce();
-                if (Volatile.Read(ref mapActive) == 0 && GameTileManagerAPI.Instance != null)
-                {
-                    int mapSize = GameTileManagerAPI.Instance.GetCurrentMapSize();
-                    if (mapSize <= 0)
-                        Volatile.Write(ref implicitEpochSuppressed, 0);
-                    else if (Volatile.Read(ref implicitEpochSuppressed) == 0)
-                        StartMapEpoch("implicit editor map-size probe");
-                }
                 topologyProvider?.ProcessDeferred();
                 samePclRouteRuntime?.ProcessDeferred();
                 long now = Stopwatch.GetTimestamp();

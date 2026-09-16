@@ -99,7 +99,7 @@ namespace ExtraFeatures
                     subscriptionCandidates.Add(UnitR3EventHooks.OnUnitMoveHere.Observable.Subscribe(PersistentUnitMoveHere));
                     subscriptionCandidates.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(PersistentVisualInterpolate));
                     subscriptionCandidates.Add(UnitR3EventHooks.OnUnitUnityVisualRemove.Observable.Subscribe(PersistentVisualRemove));
-                    subscriptionCandidates.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(PersistentMapUnload));
+                    subscriptionCandidates.Add(Shared.MissionEvents.Ended.Subscribe(PersistentMapUnload));
                     GameTimeManagerAPI.Instance.OnTick += PersistentGameTick;
                     tickSubscribed = true;
 
@@ -196,10 +196,10 @@ namespace ExtraFeatures
                 runtime.RemoveProgressVisualForUnitId(args.Chimp.objectID);
         }
 
-        private static void PersistentMapUnload(MapUnloadEventArgs args)
+        private static void PersistentMapUnload(APIShared.MissionLifecycleNotification args)
         {
             KnightDismountRuntime runtime = activeRuntime;
-            if (runtime == null || args == null || args.Phase != EventHookPhase.Pre)
+            if (runtime == null || args == null || false)
                 return;
 
             runtime.CancelAllPending("map-unload", refundGold: true, releaseReservedHorse: true);

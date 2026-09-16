@@ -410,21 +410,16 @@ namespace ActiveAIVDetector
 
         private void SubscribeLifecycleHooks()
         {
-            lifecycleSubscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            lifecycleSubscriptions.Add(Shared.MissionEvents.Loading
+                .Where(args => args.IsBeforeInitialization)
                 .Subscribe(OnMapLoadStarted));
 
-            lifecycleSubscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(_ => ResetForMapTransition("save load")));
-
-            lifecycleSubscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            lifecycleSubscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(_ => ResetForMapTransition("map unload")));
 
             lifecycleSubscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                _ => OnMapStarted(), () => ResetForMapTransition("EditorMapEnded")));
+                _ => OnMapStarted()));
         }
 
         private void ResetForMapTransition(string reason)
@@ -456,16 +451,16 @@ namespace ActiveAIVDetector
                 $"retainedPendingPreBuildSetting={preBuildCapturePending}.");
         }
 
-        private void OnMapLoadStarted(MapLoadEventArgs args)
+        private void OnMapLoadStarted(APIShared.MissionLifecycleNotification args)
         {
             ResetForMapTransition("map load");
             mapLoadSequence++;
-            currentMapFileName = string.IsNullOrEmpty(args.FileName)
+            currentMapFileName = string.IsNullOrEmpty(args.Context.FilePath)
                 ? "<unknown>"
-                : args.FileName;
-            currentMapName = string.IsNullOrEmpty(args.MapName)
+                : args.Context.FilePath;
+            currentMapName = string.IsNullOrEmpty(args.Context.MapName)
                 ? "<unknown>"
-                : args.MapName;
+                : args.Context.MapName;
             // Hash once per load so every Oracle row identifies the exact same map bytes.
             currentMapFileSha256 = ComputeFileSha256(currentMapFileName);
         }
@@ -532,7 +527,7 @@ namespace ActiveAIVDetector
 
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Active AIV finalization completed after OnStartMap(Post): " +
+                $"Active AIV finalization completed after MissionStart: " +
                 $"activeAIs={activeAiCount}, reportedAIVs={reportedAiCount}, " +
                 $"capturedSelections={playerIds.Count}.");
         }

@@ -47,7 +47,7 @@
     "Package": "Testmods\\AIDefenseTest\\BepInEx\\plugins\\AIDefenseTest_Serp",
     "Install": "AIDefenseTest_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "BuildingCosts",
@@ -196,7 +196,7 @@
     "Package": "Testmods\\OxTetherIdleFixTest\\BepInEx\\plugins\\OxTetherIdleFixTest_Serp",
     "Install": "OxTetherIdleFixTest_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "RandomEvents",
@@ -244,7 +244,7 @@
     "Package": "Testmods\\StockpileAccessFixTest\\BepInEx\\plugins\\StockpileAccessFixTest_Serp",
     "Install": "StockpileAccessFixTest_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "UnitCosts",
@@ -320,7 +320,7 @@
     "Package": "Testmods\\PreplacedTest\\BepInEx\\plugins\\PreplacedTest_Serp",
     "Install": "PreplacedTest_Serp",
     "BuildOrder": 100,
-    "DependsOn": []
+    "DependsOn": ["APIShared"]
   },
   {
     "Name": "SkinTest",

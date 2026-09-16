@@ -79,13 +79,13 @@ namespace MoatMove
                 }
                 fastCommands.Removed += ReleaseFastPendingSearch;
                 fastCancelSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable.Subscribe(CancelFastPlayerTarget);
-                fastLoadSubscription = MapLoaderR3EventHooks.OnLoadSave.Observable.Subscribe(args =>
+                fastLoadSubscription = Shared.MissionEvents.SaveLoading.Subscribe(args =>
                 {
-                    if (args.Phase == EventHookPhase.Pre)
+                    if (args.IsBeforeInitialization)
                     { fastSaveLoading = true; fastCommands.Clear(); fastLoadedCommands = null; fastLoadReady = false; }
                     else
                     {
-                        fastSaveLoading = false; fastLoadReady = args.ReturnValue > 0;
+                        fastSaveLoading = false; fastLoadReady = !args.IsBeforeInitialization;
                         if (!fastLoadReady) fastLoadedCommands = null;
                     }
                 });

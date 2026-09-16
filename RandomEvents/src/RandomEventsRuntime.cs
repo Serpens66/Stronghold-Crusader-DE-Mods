@@ -148,9 +148,8 @@ namespace RandomEvents
                 throw new InvalidOperationException("Random Events save-data handler registration failed.");
 
             TrySubscribeFeature("gameplay session start", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, ResetMapState));
-            TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
+            TrySubscribeFeature("map unload", () => Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap));
             try
             {
@@ -216,14 +215,14 @@ namespace RandomEvents
             }
             mapStartPending = true;
             mapActive = false;
-            mapStartedFromMultiplayerSave = context.MapStart != null &&
-                context.MapStart.bMultiplayerSave != 0;
+            mapStartedFromMultiplayerSave = context.Notification != null &&
+                context.Notification.Context.IsSave && context.Mode.IsRealMultiplayer;
             lastSignpostAttemptTick = int.MinValue;
             mapStartTimestamp = Stopwatch.GetTimestamp();
             startupDelayLogged = false;
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             ResetMapState();
         }

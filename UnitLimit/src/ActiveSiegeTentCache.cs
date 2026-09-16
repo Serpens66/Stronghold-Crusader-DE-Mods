@@ -36,9 +36,8 @@ namespace UnitLimit
             {
                 subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log,
-                    _ => ResyncAll(true), onEditorEnded: Clear));
-                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
+                    _ => ResyncAll(true)));
+                subscriptions.Add(Shared.MissionEvents.Ended
                     .Subscribe(_ => Clear()));
                 subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
                     .Subscribe(OnBuildingSpawn));

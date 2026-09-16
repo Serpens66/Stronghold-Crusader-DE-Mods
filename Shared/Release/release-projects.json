@@ -8,6 +8,11 @@
     "Consumers": {
       "ActiveAIVDetector": "0.3.6",
       "AIAttackTest": "0.3.6",
+      "AIDefenseTest": "0.3.6",
+      "OxTetherIdleFixTest": "0.3.6",
+      "StockpileAccessFixTest": "0.3.6",
+      "PreplacedTest": "0.3.6",
+      "VirtualUnitsPrototype": "0.3.6",
       "BuildingCosts": "0.3.6",
       "BuildingLimit": "0.3.6",
       "CheatMod": "0.3.6",

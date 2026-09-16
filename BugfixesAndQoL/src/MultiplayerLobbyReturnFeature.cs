@@ -57,17 +57,14 @@ namespace BugfixesAndQoL
         internal void Initialize()
         {
             // SaveLifecycle: NewMapOnly - lobby state is captured before Vanilla leaves the setup.
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            subscriptions.Add(Shared.MissionEvents.NativeStart
+                .Where(args => args.IsBeforeInitialization)
                 .Subscribe(OnMapStart));
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                OnSessionStarted, () => Reset("editor-ended", clearContinuationId: false)));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
-            {
-                if (args.Phase == EventHookPhase.Post)
-                    Reset("map-unload", clearContinuationId: false);
-            }));
+                OnSessionStarted));
+            subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ =>
+                Reset("mission-end", clearContinuationId: false)));
         }
 
         internal void OnGameOverPresentation()
@@ -218,11 +215,11 @@ namespace BugfixesAndQoL
             ClearPendingExit();
         }
 
-        private void OnMapStart(MapStartEventArgs args)
+        private void OnMapStart(APIShared.MissionLifecycleNotification args)
         {
             int coopTrailId = GameData.Instance?.coopTrailID ?? 0;
             Reset("map-start", clearContinuationId: coopTrailId <= 0);
-            CaptureSession(Shared.GameModeHelper.Capture(args.bMultiplayerSave != 0), coopTrailId, "map-start-pre");
+            CaptureSession(Shared.GameModeHelper.Capture(args.Context.IsSave && args.Context.Mode.IsRealMultiplayer), coopTrailId, "map-start-pre");
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)

@@ -17,6 +17,8 @@ tree 9cfb59b7b531553b23709b90b3cc3f10b0615cc1. Installed assembly independently 
 
 ## Workspace integration
 
+The editor-only public contract below is historical. It has been superseded by the [unified mission lifecycle](MISSION_LIFECYCLE.md); the native/editor findings above remain applicable.
+
 APIShared owns managed hooks around createNewMap/loadMapIntoEditor and captures newMapEditor's output for creation success. It observes actual GoToScreen transitions and external unloads, suppressing nested unloads within its operation scope. It publishes one Ready per successful operation and one Ended per retired ready session. A failed replacement leaves no active session; late observers replay only a currently ready session.
 
 Shared.GameplaySessionLifecycle translates those notifications into EditorCreated/EditorLoaded, with no fabricated MapStartEventArgs or save restoration. It updates the per-assembly activation gate before feature callbacks. Feature-specific readiness and editor-player changes remain local. Runtime evidence from an actual game session is still required; this document records static analysis, not a live test.

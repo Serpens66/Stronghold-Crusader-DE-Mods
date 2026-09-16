@@ -67,9 +67,8 @@ namespace VirtualUnitsPrototype
             {
                 visuals = new VisualRuntime(this, log);
                 visuals.Install();
-                subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Where(x => x.Phase == EventHookPhase.Post).Subscribe(OnStartMap));
-                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable.Where(x => x.Phase == EventHookPhase.Post && x.ReturnValue > 0).Subscribe(OnLoadSave));
-                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(x => x.Phase == EventHookPhase.Pre).Subscribe(_ => ClearMapState()));
+                subscriptions.Add(Shared.MissionEvents.Started.Subscribe(e => SetMapMode(e.Context.Mode)));
+                subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ => ClearMapState()));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualSpawn.Observable.Subscribe(visuals.OnUnitVisualSpawn));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualInterpolate.Observable.Subscribe(visuals.OnUnitVisualInterpolate));
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualRemove.Observable.Subscribe(visuals.OnUnitVisualRemove));
@@ -766,8 +765,6 @@ namespace VirtualUnitsPrototype
         internal IEnumerable<VirtualUnitDefinition> VisibleUnits() => unitDefinitions.Values.Where(x => x.SpawnOptions.ShowInDiagnosticMenu).OrderBy(x => x.TypeId).ToArray();
         internal IEnumerable<VirtualBuildingDefinition> VisibleBuildings() => buildingDefinitions.Values.Where(x => x.SpawnOptions.ShowInDiagnosticMenu).OrderBy(x => x.TypeId).ToArray();
 
-        private void OnStartMap(MapStartEventArgs args) { SetMapMode(Shared.GameModeHelper.Capture(args)); }
-        private void OnLoadSave(LoadSaveGameEventArgs args) { SetMapMode(Shared.GameModeHelper.Capture(args)); }
         private void SetMapMode(Shared.GameModeSnapshot mode)
         {
             lock (sync) { mapActive = true; modeAllowed = mode.IsSingleplayerSkirmish && !mode.IsRealMultiplayer && !mode.IsMapEditor; }

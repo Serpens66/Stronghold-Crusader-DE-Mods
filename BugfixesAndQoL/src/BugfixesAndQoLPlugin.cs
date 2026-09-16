@@ -19,6 +19,7 @@ namespace BugfixesAndQoL
     [BepInIncompatibility(LegacyMoveMoatGuid)]
     [BepInIncompatibility(LegacyQueueTestGuid)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BugfixesAndQoLPlugin : BaseUnityPlugin
     {

@@ -62,11 +62,12 @@ namespace APIShared
                 candidate.Install(installed);
                 service = candidate;
                 diagnostic = candidate.Available("Process-wide managed lobby observer is active.");
-                NativeApiLog.Info(log, "Process-wide lobby-state observer installed.");
+                try { NativeApiLog.Info(log, "Process-wide lobby-state observer installed."); } catch { }
                 return true;
             }
             catch (Exception ex)
             {
+                service = null;
                 if (candidate != null)
                 {
                     Application.onBeforeRender -= candidate.OnBeforeRender;
@@ -116,13 +117,11 @@ namespace APIShared
             leaveLobbyOriginal = leaveLobbyHook.GenerateTrampoline<LeaveLobbyDelegate>();
             leaveLobbyHook.Apply();
 
-            // SaveLifecycle: this is lobby-state invalidation, not gameplay initialization;
-            // saved-game loads have no active lobby state to preserve or initialize here.
-            mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            Shared.MissionEvents.SetOwner("APIShared_Serp");
+            mapStartSubscription = Shared.MissionEvents.Initialization
+                .Where(args => args.Phase == MissionInitializationPhase.BeforeLoad)
                 .Subscribe(_ => OnMapStarting());
-            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            mapUnloadSubscription = Shared.MissionEvents.Ended
                 .Subscribe(_ => OnMapUnloaded());
             if (mapStartSubscription == null || mapUnloadSubscription == null)
                 throw new InvalidOperationException("Lobby-state map subscriptions could not be created.");

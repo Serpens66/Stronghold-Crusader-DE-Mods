@@ -909,8 +909,8 @@ namespace PreplacedTest.Tests
             Check(source.Contains("origin={(IsCurrentPreplaced(building.Id) ? \"baseline\" : \"runtime-aiv\")}") &&
                 source.Contains("FullPortalTopologyEmitted") && source.Contains("FullNativeRouteMatrixEmitted"),
                 "baseline/runtime portals or compact topology transitions are not distinguished");
-            Check(source.Contains("if (args.Phase == EventHookPhase.Pre) initializationTracingActive = true"),
-                "initialization tracing does not start at OnStartMap Pre");
+            Check(source.Contains("if (args.IsBeforeInitialization) initializationTracingActive = true") && source.Contains("Shared.MissionEvents.NativeStart"),
+                "initialization tracing does not start at the common BeforeNativeStart phase");
             Check(source.Contains("0x115830-unit-subsystem") && source.Contains("0x102C30-map-object-reset") &&
                 source.Contains("0x2A340-player-pathing"),
                 "timer checkpoints around the final map initialization sequence are incomplete");

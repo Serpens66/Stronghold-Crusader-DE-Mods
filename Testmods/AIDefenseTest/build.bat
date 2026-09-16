@@ -14,6 +14,8 @@ set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
 
 rem Never touch build or installation output while the game has plugin DLLs loaded.
@@ -77,6 +79,12 @@ pushd "%PROJECT_DIR%"
 "%MSBUILD%" AIDefenseTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
+
+if "%BUILD_EXIT_CODE%"=="0" if "%NO_INSTALL%"=="1" (
+  echo Build successful. Installation skipped.
+  if "%NO_PAUSE%"=="0" pause
+  exit /b 0
+)
 
 echo.
 if "%BUILD_EXIT_CODE%"=="0" (

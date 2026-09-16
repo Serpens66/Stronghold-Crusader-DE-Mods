@@ -69,7 +69,7 @@ namespace BugfixesAndQoL
                     UnitR3EventHooks.OnUnitTransition.Observable
                         .Subscribe(OnUnitTransition));
                 subscriptions.Add(
-                    MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    Shared.MissionEvents.Ended
                         .Subscribe(OnUnloadMap));
             }
             catch
@@ -207,10 +207,9 @@ namespace BugfixesAndQoL
             TrackRecruit(args.UnitId, args.NextUnitType);
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
-            if (args.Phase == EventHookPhase.Post)
-                ClearTracking();
+            ClearTracking();
         }
 
         private void TrackRecruit(int unitId, eChimps expectedUnitType)

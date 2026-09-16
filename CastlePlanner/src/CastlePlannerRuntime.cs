@@ -187,7 +187,7 @@ namespace CastlePlanner
             InstallHumanStartPreparationHook(context);
 
             // SaveLifecycle: NewMapOnly - Pre/Post encloses native free-castle creation.
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
+            subscriptions.Add(Shared.MissionEvents.NativeStart
                 .Subscribe(OnStartMap));
             subscriptions.Add(BuildingR3EventHooks.OnBuildStructure.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
@@ -200,11 +200,10 @@ namespace CastlePlanner
                 .Subscribe(OnBuildingSpawnPost));
             subscriptions.Add(UnitR3EventHooks.OnUnitCreate.Observable
                 .Subscribe(OnUnitCreateDiagnostic));
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post && args.ReturnValue > 0)
+            subscriptions.Add(Shared.MissionEvents.SaveLoading
+                .Where(args => !args.IsBeforeInitialization)
                 .Subscribe(OnLoadSave));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap));
             GameTimeManagerAPI.Instance.OnTick += OnGameTick;
 
@@ -214,7 +213,7 @@ namespace CastlePlanner
                 "Native AIV castle spawner installed; all private functions and globals resolved uniquely.");
         }
 
-        private void OnLoadSave(LoadSaveGameEventArgs args)
+        private void OnLoadSave(APIShared.MissionLifecycleNotification args)
         {
             handledCurrentMap = true;
             ClearDeferredCompoundPlacements("savegame-load");
@@ -224,7 +223,7 @@ namespace CastlePlanner
                 "Savegame load detected; native castle spawning is disabled for this map.");
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             handledCurrentMap = false;
             ClearDeferredCompoundPlacements("map-unload");
@@ -249,16 +248,13 @@ namespace CastlePlanner
             spawnPlanFailure = string.Empty;
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnStartMap(APIShared.MissionLifecycleNotification args)
         {
-            if (args.Phase == EventHookPhase.Pre)
+            if (args.IsBeforeInitialization)
             {
                 OnStartMapPre(args);
                 return;
             }
-
-            if (args.Phase != EventHookPhase.Post)
-                return;
 
             Shared.DebugLogHelper.LogDebug(
                 log,
@@ -339,7 +335,7 @@ namespace CastlePlanner
             }
         }
 
-        private void OnStartMapPre(MapStartEventArgs args)
+        private void OnStartMapPre(APIShared.MissionLifecycleNotification args)
         {
             ClearDeferredCompoundPlacements("new-map-start");
             ClearMapSpawnState();
@@ -1894,7 +1890,7 @@ namespace CastlePlanner
                 : "candidate-present-but-map-fit-rejected";
         }
 
-        private static GameModeSnapshot CaptureGameMode(MapStartEventArgs args)
+        private static GameModeSnapshot CaptureGameMode(APIShared.MissionLifecycleNotification args)
         {
             Shared.GameModeSnapshot sharedMode =
                 Shared.GameplayModActivationGate.Snapshot;
@@ -1944,10 +1940,8 @@ namespace CastlePlanner
 
             return new GameModeSnapshot
             {
-                CampaignMapId = args.CampaignMapId,
-                MultiplayerSave = args.bMultiplayerSave,
-                Unknown1 = args.Unknown1,
-                Unknown3 = args.Unknown3,
+                CampaignMapId = args.Context.Mode.CampaignMapId,
+                MultiplayerSave = (args.Context.IsSave ? (byte)1 : (byte)0),
                 SharedRealMultiplayer = sharedMode.IsRealMultiplayer,
                 SharedSingleplayerSkirmish = sharedMode.IsSingleplayerSkirmish,
                 SharedSingleplayerTrail = sharedMode.IsSingleplayerTrail,
@@ -1984,7 +1978,6 @@ namespace CastlePlanner
                 log,
                 $"Game-mode diagnostics: campaignMapId={mode.CampaignMapId}, " +
                 $"bMultiplayerSave={mode.MultiplayerSave}, " +
-                $"unknown1=0x{mode.Unknown1.ToInt64():X}, unknown3={mode.Unknown3}, " +
                 $"sharedRealMultiplayer={mode.SharedRealMultiplayer}, " +
                 $"sharedSingleplayerSkirmish={mode.SharedSingleplayerSkirmish}, " +
                 $"sharedSingleplayerTrail={mode.SharedSingleplayerTrail}, " +
@@ -2175,8 +2168,6 @@ namespace CastlePlanner
         {
             public int CampaignMapId { get; set; }
             public byte MultiplayerSave { get; set; }
-            public IntPtr Unknown1 { get; set; }
-            public ulong Unknown3 { get; set; }
             public bool SharedRealMultiplayer { get; set; }
             public bool SharedSingleplayerSkirmish { get; set; }
             public bool SharedSingleplayerTrail { get; set; }

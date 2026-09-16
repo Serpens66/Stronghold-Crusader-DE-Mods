@@ -15,8 +15,10 @@ namespace StartConditions
 {
     public sealed partial class StartConditionsRuntime
     {
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnStartMap(APIShared.MissionLifecycleNotification args)
         {
+            // Replay must not grant another set of resources or starting troops.
+            if (args.IsReplay) { mapSessionState.MarkSaveLoaded(); return; }
             try
             {
                 LogDebug("OnStartMap");
@@ -30,7 +32,7 @@ namespace StartConditions
             }
         }
 
-        private void OnLoadSave(LoadSaveGameEventArgs args)
+        private void OnLoadSave(APIShared.MissionLifecycleNotification args)
         {
             LogDebug("OnLoadSave");
             CancelPendingKeepReadiness();
@@ -39,7 +41,7 @@ namespace StartConditions
             CodeOnLoadGame();
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             LogDebug("OnUnloadMap");
             ResetMapSession();

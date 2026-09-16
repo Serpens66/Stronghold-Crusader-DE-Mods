@@ -538,9 +538,9 @@ namespace EnemyGatePathfindingTest
                 Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
             string runtime = File.ReadAllText(
                 Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
-            Assert(plugin.IndexOf("args.Phase == EventHookPhase.Pre", StringComparison.Ordinal) >= 0,
-                "map summary uses reliable unload Pre phase");
-            Assert(runtime.IndexOf("implicit restart before OnStartMap(Post)",
+            Assert(plugin.IndexOf("Shared.MissionEvents.Ended", StringComparison.Ordinal) >= 0,
+                "map summary uses the common mission end");
+            Assert(runtime.IndexOf("replacement before MissionStart",
                     StringComparison.Ordinal) >= 0,
                 "new map defensively finalizes a missed unload");
             Assert(runtime.IndexOf("DiagnosticInterval = Stopwatch.Frequency * 10L",
@@ -548,8 +548,9 @@ namespace EnemyGatePathfindingTest
                 "one central ten-second diagnostic cadence is used");
             Assert(runtime.IndexOf(":NOT_OBSERVED", StringComparison.Ordinal) >= 0,
                 "uncovered capturer cases are explicit");
-            Assert(runtime.IndexOf("implicit editor map-size probe", StringComparison.Ordinal) >= 0,
-                "editor maps start the central diagnostic epoch without a cursor callback");
+            Assert(runtime.IndexOf("implicit editor map-size probe", StringComparison.Ordinal) < 0 &&
+                plugin.Contains("Shared.GameplaySessionLifecycle.SubscribeStarted"),
+                "editor maps must start exclusively through the common lifecycle");
         }
 
         private static void AcceptanceVerdictsAreMachineReadable()

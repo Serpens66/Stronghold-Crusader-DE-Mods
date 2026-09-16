@@ -42,8 +42,8 @@ namespace ExtremePowers
             client = LocalExtremePowersApiClient.Create(dll, context.ModuleHandle, context.Memory, GetProtocolReadiness, message => Shared.DebugLogHelper.LogDebug(rootedLogger, message));
             Settings.ApiProtocolReport = client.CompatibilityToken;
             // SaveLifecycle: NewMapOnly - protocol state must be captured before native map startup.
-            newMapSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            newMapSubscription = Shared.MissionEvents.NativeStart
+                .Where(args => args.IsBeforeInitialization)
                 .Subscribe(_ => CaptureMapSession());
             saveLoadSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                 rootedLogger,
@@ -51,8 +51,8 @@ namespace ExtremePowers
                 {
                     if (context.IsLoadedSave || context.IsEditor)
                         CaptureMapSession();
-                }, onEditorEnded: ResetMapSession);
-            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMapSession());
+                });
+            mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(_ => ResetMapSession());
             Shared.LobbyModSettingsPresetRegistration.Register(this, Logger, PluginGuid, Settings, "ScriptExtenderUI/ExtremePowersSettings.xaml");
             Settings.PropertyChanged += (_, __) => ApplySettings(); ApplySettings(); Shared.DebugLogHelper.LogDebug(Logger, client.Status);
         }

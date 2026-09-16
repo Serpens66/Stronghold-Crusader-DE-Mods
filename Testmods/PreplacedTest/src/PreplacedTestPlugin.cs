@@ -7,6 +7,7 @@ using System.Collections.Generic;
 namespace PreplacedTest
 {
     [BepInDependency(ScriptExtenderGuid, "2.4.0")]
+    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class PreplacedTestPlugin : BaseUnityPlugin
     {

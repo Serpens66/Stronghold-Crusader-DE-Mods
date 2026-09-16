@@ -1130,450 +1130,68 @@ internal static class Program
 
     private static void TestGameModeHelper()
     {
-        CrusaderDE.MainViewModel.Reset();
-        GamePlayerManagerAPI.Instance.MapEditor = false;
-        Check(!GameModeHelper.IsMapEditor() && CrusaderDE.MainViewModel.InstanceReadCount == 0,
-            "early map-editor detection constructed MainViewModel before viewModelLoaded");
-        GamePlayerManagerAPI.Instance.MapEditor = true;
-        Check(GameModeHelper.IsMapEditor(),
-            "Script Extender map-editor state was not recognized");
-        GamePlayerManagerAPI.Instance.MapEditor = false;
-        CrusaderDE.MainViewModel.viewModelLoaded = true;
-        CrusaderDE.MainViewModel.Instance.IsMapEditorMode = true;
-        Check(GameModeHelper.IsMapEditor(),
-            "loaded MainViewModel map-editor state was not recognized");
-        CrusaderDE.MainViewModel.Reset();
-
-        Platform_Multiplayer platform = Platform_Multiplayer.Instance;
-        platform.activeLobby = null;
-        platform.gameMembers = null;
-        Director.instance = null;
-        GameNetworkAPI.Networked = true;
-        GameNetworkAPI.MultiplayerGame = false;
-        GameData.Instance = new GameData
-        {
-            game_type = (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
-            SkirmishGameType = (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM,
-            coopTrailID = 0
+        APIShared.MissionLifecycleService.Snapshot = default;
+        Check(GameModeHelper.Capture().Kind == GameModeKind.Unknown, "No mission must not inherit stale game flags");
+        var cases = new[] {
+            (Enums.eGameTypeModes.GAMETYPE_CAMPAIGN, -1, -1, 0, GameModeKind.Campaign),
+            (Enums.eGameTypeModes.GAMETYPE_MAP, -1, -1, 0, GameModeKind.StandaloneMission),
+            (Enums.eGameTypeModes.GAMETYPE_TUTORIAL, -1, -1, 0, GameModeKind.Tutorial),
+            (Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER, 0, -1, 0, GameModeKind.CustomGame),
+            (Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER, 1, 0, 0, GameModeKind.VanillaTrail),
+            (Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER, 1, 11, 0, GameModeKind.SandsOfTime),
+            (Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER, 2, -1, 0, GameModeKind.CustomTrail),
+            (Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER, 0, -1, 2, GameModeKind.CoopTrail)
         };
-
-        GameModeSnapshot skirmish = GameModeHelper.Capture();
-        Check(skirmish.LowLevelNetworked && !skirmish.IsRealMultiplayer &&
-              skirmish.IsSingleplayerSkirmish &&
-              skirmish.Kind == GameModeKind.CustomGame &&
-              skirmish.AllowsCustomGameMods && skirmish.AllowsRegularGameplayMods,
-            "local skirmish was misclassified as multiplayer");
-
-        GameData.Instance.SkirmishGameType = (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL;
-        GameData.Instance.SkirmishTrailType = (int)GameTrailType.FirstEdition;
-        GameModeSnapshot trail = GameModeHelper.Capture();
-        Check(!trail.IsRealMultiplayer && trail.IsSingleplayerTrail &&
-              trail.Kind == GameModeKind.VanillaTrail && !trail.AllowsCustomGameMods &&
-              !trail.AllowsRegularGameplayMods,
-            "singleplayer Trail was not recognized");
-
-        foreach (GameModeKind blockedKind in new[]
+        foreach (var item in cases)
+        foreach (bool multiplayer in new[] { false, true })
+        foreach (bool save in new[] { false, true })
         {
-            GameModeKind.Unknown,
-            GameModeKind.Campaign,
-            GameModeKind.StandaloneMission
-        })
-        {
-            Check(!GameModeHelper.AllowsRegularGameplayMods(
-                      blockedKind, GameModeLaunchVariant.Standard) &&
-                  !GameModeHelper.AllowsRegularGameplayMods(
-                      blockedKind, GameModeLaunchVariant.Customized),
-                $"regular gameplay policy accepted contradictory mode {blockedKind}");
+            var data = new EngineInterface.LoadMapReturnData {
+                game_type = (int)item.Item1, skirmishGameType = item.Item2,
+                skirmishTrail = item.Item3, coopTrailID = item.Item4 };
+            var captured = GameModeHelper.CaptureMission(multiplayer, save, 0, -1, false, data, GameModeKind.Unknown);
+            Check(captured.Kind == item.Item5 && captured.IsRealMultiplayer == multiplayer &&
+                captured.MultiplayerSave == (multiplayer && save), "Central mode capture confused mode, network role or save origin");
+            APIShared.MissionLifecycleService.Snapshot = captured;
+            Check(GameModeHelper.Capture().Kind == item.Item5, "Consumer did not read the central snapshot");
         }
-        foreach (GameModeKind customizableKind in new[]
+        var editor = CaptureModeFixture(editor: true);
+        Check(editor.Kind == GameModeKind.MapEditor, "Explicit editor evidence was lost");
+        for (int coop = 1; coop <= 4; coop++)
         {
-            GameModeKind.VanillaTrail,
-            GameModeKind.CustomTrail,
-            GameModeKind.CoopTrail,
-            GameModeKind.SandsOfTime
-        })
-        {
-            Check(!GameModeHelper.AllowsRegularGameplayMods(
-                      customizableKind, GameModeLaunchVariant.Standard) &&
-                  GameModeHelper.AllowsRegularGameplayMods(
-                      customizableKind, GameModeLaunchVariant.Customized) &&
-                  GameModeHelper.AllowsRegularGameplayMods(
-                      customizableKind, GameModeLaunchVariant.RestoredCustomizedSave),
-                $"regular gameplay policy mishandled Customize variants for {customizableKind}");
+            var earlyCoop = GameModeHelper.CaptureMission(false, false, 0, -1, false, null, GameModeKind.CoopTrail, coop);
+            Check(earlyCoop.Kind == GameModeKind.CoopTrail && earlyCoop.CoopTrailId == coop && !earlyCoop.AllowsRegularGameplayMods,
+                "Early local coop initialization was mistaken for unrestricted custom gameplay");
         }
-        Check(GameModeHelper.AllowsRegularGameplayMods(
-                  GameModeKind.CustomGame, GameModeLaunchVariant.Standard) &&
-              GameModeHelper.AllowsRegularGameplayMods(
-                  GameModeKind.MapEditor, GameModeLaunchVariant.Standard),
-            "regular gameplay policy rejected Custom Game or Map Editor");
-
-        string[] gameplayModGuids =
+        var tutorial = GameModeHelper.CaptureMission(false, false, 0, -1, false,
+            new EngineInterface.LoadMapReturnData { game_type = (int)Enums.eGameTypeModes.GAMETYPE_TUTORIAL }, GameModeKind.Tutorial);
+        Check(!GameplayModModePolicy.IsAllowed(GameplayModModePolicy.GetProfile("ExtraFeatures_Serp", "Extra"), tutorial, out _),
+            "Recognizing tutorials silently enabled regular gameplay mods");
+        foreach (bool restored in new[] { false, true })
         {
-            "BuildingCosts_Serp", "BuildingLimit_Serp", "CastlePlanner_Serp",
-            "CheatMod_Serp", "ExtraFeatures_Serp", "ExtremePowers_Serp",
-            "ImprovedHunters_Serp", "RandomEvents_Serp", "StartConditions_Serp",
-            "UnitCosts_Serp", "UnitLimit_Serp"
-        };
-        foreach (string modGuid in gameplayModGuids)
-        {
-            GameplayModActivationProfile profile = GameplayModModePolicy.GetProfile(modGuid, modGuid);
-            Check(profile.ModGuid == modGuid &&
-                  GameplayModModePolicy.IsAllowed(profile, skirmish, out string customReason) &&
-                  customReason == "custom-game" &&
-                  !GameplayModModePolicy.IsAllowed(profile, trail, out _),
-                $"typed gameplay profile is incorrect for {modGuid}");
+            var origin = new ExternalCustomizedOrigin(ExternalCustomizedOrigin.CoopTrail, -1, 2, 4, restored, true);
+            Check(GameModeHelper.ResolveLaunchVariant(GameModeKind.CoopTrail, false, -1, -1, true, origin) ==
+                (restored ? GameModeLaunchVariant.RestoredCustomizedSave : GameModeLaunchVariant.Customized),
+                "Customize provenance lost its save/new-game distinction");
+            Check(GameModeHelper.ExternalOriginMatchesEvidence(origin, GameModeKind.CoopTrail, -1, 3, -1, false, -1, -1) &&
+                !GameModeHelper.ExternalOriginMatchesEvidence(origin, GameModeKind.CoopTrail, -1, 2, -1, false, -1, -1),
+                "Coop provenance failed to distinguish zero-based provider IDs from one-based native trail IDs");
+            Check(GameModeHelper.ResolveLaunchVariant(GameModeKind.Campaign, false, -1, -1, false, origin) == GameModeLaunchVariant.Standard,
+                "A foreign Customize origin reclassified a campaign");
         }
-        bool unknownProfileRejected = false;
-        try { GameplayModModePolicy.GetProfile("Unknown_Serp", "Unknown"); }
-        catch (ArgumentOutOfRangeException) { unknownProfileRejected = true; }
-        Check(unknownProfileRejected, "unknown gameplay-mod GUID received a permissive profile");
-
-        Check(GameModeHelper.ResolveKind(false,
-                  (int)Enums.eGameTypeModes.GAMETYPE_CAMPAIGN,
-                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_NOT_SKIRMISH,
-                  -1, 0) == GameModeKind.Campaign,
-            "campaign was not classified from Vanilla's game-type enum");
-        Check(GameModeHelper.ResolveKind(false,
-                  (int)Enums.eGameTypeModes.GAMETYPE_MAP,
-                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_NOT_SKIRMISH,
-                  -1, 0) == GameModeKind.StandaloneMission,
-            "standalone mission was not classified separately");
-        Check(GameModeHelper.ResolveKind(false, -1, -1, -1, 0,
-                  campaignMapId: 7) == GameModeKind.Campaign,
-            "campaign event data was not classified");
-        Check(GameModeHelper.ResolveKind(false,
-                  (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
-                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL,
-                  (int)GameTrailType.SandsEight, 0) == GameModeKind.SandsOfTime,
-            "Sands of Time was not classified from its named Trail type");
-        Check(GameModeHelper.ResolveKind(false,
-                  (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
-                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL,
-                  -1, 0) == GameModeKind.CustomTrail,
-            "Custom Trail was not classified");
-        Check(GameModeHelper.ResolveKind(false,
-                  (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
-                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM,
-                  -1, 2) == GameModeKind.CoopTrail,
-            "Coop Trail was not classified before multiplayer state");
-        Check(GameModeHelper.ResolveKind(true,
-                  (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
-                  (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM,
-                  -1, 0) == GameModeKind.MapEditor,
-            "Map Editor did not take precedence");
-        GameData.Instance = new GameData { mapType = Enums.GameModes.MAP_EDITOR };
-        Check(GameModeHelper.Capture().Kind == GameModeKind.MapEditor,
-            "Vanilla's named map-type enum did not identify Map Editor");
-        Check(GameModeHelper.ResolveKind(false, -1, -1, -1, -1) == GameModeKind.Unknown,
-            "incomplete mode evidence did not fail closed");
-
-        var restoredCustomTrail = new ExternalCustomizedOrigin(
-            ExternalCustomizedOrigin.CustomTrail, -1, 90, 1, restoredFromSave: true);
-        Check(GameModeHelper.ResolveLaunchVariant(
-                  GameModeKind.CustomTrail, false, -1, -1, false, restoredCustomTrail) ==
-              GameModeLaunchVariant.RestoredCustomizedSave,
-            "restored customized Custom Trail was not recognized");
-        Check(GameModeHelper.ResolveLaunchVariant(
-                  GameModeKind.Campaign, false, -1, -1, false, restoredCustomTrail) ==
-              GameModeLaunchVariant.Standard,
-            "stale customized origin overrode an incompatible mode");
-        Check(GameModeHelper.ResolveLaunchVariant(
-                  GameModeKind.VanillaTrail, true, (int)GameTrailType.Warchest, 12, true, default) ==
-              GameModeLaunchVariant.Customized,
-            "Vanilla Trail Customize was not recognized");
-        Check(GameModeHelper.ResolveLaunchVariant(
-                  GameModeKind.SandsOfTime, true, (int)GameTrailType.SandsOne, 4, true, default) ==
-              GameModeLaunchVariant.Customized,
-            "Sands of Time Customize was not recognized");
-        Check(GameModeHelper.ResolveLaunchVariant(
-                  GameModeKind.SandsOfTime, false, (int)GameTrailType.SandsOne, 4, false, default) ==
-              GameModeLaunchVariant.Standard,
-            "direct Sands of Time was treated as customized");
-        Check(GameModeHelper.ResolveLaunchVariant(
-                  GameModeKind.CustomTrail, false, -1, -1, false,
-                  new ExternalCustomizedOrigin(ExternalCustomizedOrigin.CoopTrail, -1, 0, 1, false)) ==
-              GameModeLaunchVariant.Standard,
-            "mismatched Coop origin enabled a Custom Trail");
-        Check(GameModeHelper.ResolveLaunchVariant(
-                  GameModeKind.VanillaTrail, true, (int)GameTrailType.FirstEdition, 1, false, default) ==
-              GameModeLaunchVariant.Standard,
-            "stale Vanilla Customize fields enabled a directly started Trail");
-        Check(GameModeHelper.ResolveLaunchVariant(
-                  GameModeKind.VanillaTrail,
-                  true,
-                  (int)GameTrailType.FirstEdition,
-                  1,
-                  true,
-                  ExternalCustomizedOrigin.AvailableProvider(supportsBuiltInOrigins: true)) ==
-              GameModeLaunchVariant.Standard,
-            "stale Vanilla Customize fields bypassed an empty v2 origin provider");
-        Check(GameModeHelper.ExternalOriginMatchesEvidence(
-                  new ExternalCustomizedOrigin(
-                      ExternalCustomizedOrigin.CoopTrail, -1, 0, 1, false),
-                  GameModeKind.CoopTrail, -1, 1, -1, false, -1, -1) &&
-              !GameModeHelper.ExternalOriginMatchesEvidence(
-                  new ExternalCustomizedOrigin(
-                      ExternalCustomizedOrigin.CoopTrail, -1, 1, 1, false),
-                  GameModeKind.CoopTrail, -1, 1, -1, false, -1, -1),
-            "Coop Customize origin was not matched against Vanilla's one-based Trail ID");
-        Check(!GameModeHelper.ExternalOriginMatchesEvidence(
-                  new ExternalCustomizedOrigin(
-                      ExternalCustomizedOrigin.SandsOfTime,
-                      (int)GameTrailType.SandsOne, (int)GameTrailType.SandsOne, 4, false),
-                  GameModeKind.SandsOfTime,
-                  (int)GameTrailType.SandsTwo,
-                  0,
-                  (int)GameTrailType.SandsTwo,
-                  false,
-                  -1,
-                  -1),
-            "a mismatched Sands Trail identifier passed origin validation");
-        Check(!GameModeHelper.ExternalOriginMatchesEvidence(
-                  new ExternalCustomizedOrigin(
-                      ExternalCustomizedOrigin.VanillaTrail,
-                      (int)GameTrailType.FirstEdition, (int)GameTrailType.FirstEdition, 3, false),
-                  GameModeKind.VanillaTrail,
-                  (int)GameTrailType.FirstEdition,
-                  0,
-                  (int)GameTrailType.FirstEdition,
-                  true,
-                  (int)GameTrailType.FirstEdition,
-                  4),
-            "a mismatched Vanilla mission identifier passed origin validation");
-
-        Check(GameModeHelper.ResolveKind(false, -1, -1, -1, 0,
-                  eventTrailType: (int)GameTrailType.Extreme) == GameModeKind.VanillaTrail,
-            "OnLoadMap Trail event data was not classified");
-        Check(GameModeHelper.ResolveKind(false, -1, -1, -1, 0,
-                  eventTrailType: (int)GameTrailType.SandsTwo) == GameModeKind.SandsOfTime,
-            "OnLoadMap Sands event data was not classified");
-
-        GameData.Instance = new GameData();
-        CrusaderDE.MainViewModel.Reset();
-        GamePlayerManagerAPI.Instance.MapEditor = false;
-        GameModeSnapshot editorLoad = GameModeHelper.Capture(
-            new SHCDESE.EventAPI.MapLoader.LoadSaveGameEventArgs(true));
-        Check(editorLoad.Kind == GameModeKind.MapEditor && !editorLoad.AllowsCustomGameMods &&
-              editorLoad.AllowsRegularGameplayMods,
-            "editor save load required an OnStartMap event");
-
-        GamePlayerManagerAPI.Instance.MapEditor = true;
-        GameModeSnapshot editorMapLoad = GameModeHelper.Capture(
-            new SHCDESE.EventAPI.MapLoader.MapLoadEventArgs
-            {
-                CampaignMapID = uint.MaxValue,
-                TrailType = -1
-            });
-        Check(editorMapLoad.Kind == GameModeKind.MapEditor && !editorMapLoad.AllowsCustomGameMods &&
-              editorMapLoad.AllowsRegularGameplayMods,
-            "OnLoadMap without OnStartMap did not detect Map Editor");
-        GamePlayerManagerAPI.Instance.MapEditor = false;
-
-        GameData.Instance = new GameData();
-        GameModeSnapshot emptyLoad = GameModeHelper.Capture(
-            new SHCDESE.EventAPI.MapLoader.MapLoadEventArgs
-            {
-                CampaignMapID = uint.MaxValue,
-                TrailType = -1
-            });
-        Check(emptyLoad.Kind == GameModeKind.Unknown && !emptyLoad.AllowsCustomGameMods,
-            "an empty OnLoadMap event was heuristically treated as Map Editor");
-
-        int gateTransitions = 0;
-        Action<bool> countGateTransition = _ => gateTransitions++;
-        GameplayModActivationGate.StateChanged += countGateTransition;
-        GameplayModActivationGate.ResetForTests();
-        Check(!GameplayModActivationGate.IsAllowed,
-            "gameplay gate did not start fail-closed");
-        GameplayModActivationGate.SetSnapshotForTests(skirmish);
-        Check(GameplayModActivationGate.IsAllowed,
-            "gameplay gate rejected a Custom Game snapshot");
-        GameplayModActivationGate.SetSnapshotForTests(trail);
-        Check(!GameplayModActivationGate.IsAllowed,
-            "gameplay gate retained permission for a direct Trail");
-        GameplayModActivationGate.SetSnapshotForTests(editorMapLoad);
-        Check(GameplayModActivationGate.IsAllowed,
-            "gameplay gate rejected an editor OnLoadMap snapshot");
-        GameplayModActivationGate.ResetForTests();
-        Check(!GameplayModActivationGate.IsAllowed && gateTransitions == 4,
-            "gameplay gate did not publish exactly the effective lifecycle transitions");
-        GameplayModActivationGate.StateChanged -= countGateTransition;
-
-        int resilientGateListeners = 0;
-        Action<bool> throwingGateListener = _ => throw new InvalidOperationException("expected test failure");
-        Action<bool> resilientGateListener = _ => resilientGateListeners++;
-        GameplayModActivationGate.SetSnapshotForTests(editorMapLoad);
-        GameplayModActivationGate.StateChanged += throwingGateListener;
-        GameplayModActivationGate.StateChanged += resilientGateListener;
-        GameplayModActivationGate.SetSnapshotForTests(trail);
-        Check(resilientGateListeners == 1 && !GameplayModActivationGate.IsAllowed,
-            "one failing gameplay gate listener blocked fail-closed sibling cleanup");
-        GameplayModActivationGate.StateChanged -= throwingGateListener;
-        GameplayModActivationGate.StateChanged -= resilientGateListener;
-
-        GameData.Instance = new GameData
-        {
-            game_type = (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
-            SkirmishGameType = (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_TRAIL,
-            SkirmishTrailType = (int)GameTrailType.SandsOne,
-            coopTrailID = 0
-        };
-        GameModeSnapshot explicitSandsLoad = GameModeHelper.Capture(
-            new SHCDESE.EventAPI.MapLoader.MapLoadEventArgs
-            {
-                CampaignMapID = uint.MaxValue,
-                TrailType = (int)GameTrailType.SandsOne
-            });
-        GameplayModActivationGate.ResetForTests();
-        GameplayModActivationGate.SetLoadSnapshotForTests(explicitSandsLoad);
-        GameplayModActivationGate.SetStartSnapshotForTests(skirmish);
-        Check(GameplayModActivationGate.Snapshot.Kind == GameModeKind.SandsOfTime &&
-              !GameplayModActivationGate.IsAllowed,
-            "generic OnStartMap evidence overrode an explicit direct Sands load");
-        GameplayModActivationGate.ResetForTests();
-
-        GameModeSnapshot customizedSandsLoad = explicitSandsLoad.WithModeEvidenceForTests(
-            GameModeKind.SandsOfTime,
-            GameModeLaunchVariant.Customized,
-            (int)GameTrailType.SandsOne);
-        GameplayModActivationGate.SetLoadSnapshotForTests(customizedSandsLoad);
-        GameplayModActivationGate.SetStartSnapshotForTests(skirmish);
-        GameplayModActivationGate.SetLoadSnapshotForTests(explicitSandsLoad);
-        Check(GameplayModActivationGate.Snapshot.Kind == GameModeKind.SandsOfTime &&
-              GameplayModActivationGate.Snapshot.IsCustomized &&
-              GameplayModActivationGate.IsAllowed,
-            "OnLoadMap(Post) discarded a verified Sands Customize origin");
-        GameplayModActivationGate.ResetForTests();
-
-        GameModeSnapshot conflictingCustomGame = skirmish.WithModeEvidenceForTests(
-            GameModeKind.CustomGame,
-            GameModeLaunchVariant.Standard,
-            eventTrailType: -1,
-            hasConflictingCustomizedOrigin: true);
-        GameplayModActivationGate.SetSnapshotForTests(conflictingCustomGame);
-        Check(!GameplayModActivationGate.IsAllowed,
-            "a conflicting stale Customize origin enabled an ordinary Custom Game");
-        GameplayModActivationGate.ResetForTests();
-
-        GameData.Instance = new GameData
-        {
-            game_type = (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
-            SkirmishGameType = (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM,
-            coopTrailID = 2
-        };
-        GameModeSnapshot directCoopLoad = GameModeHelper.Capture(
-            new SHCDESE.EventAPI.MapLoader.MapLoadEventArgs
-            {
-                CampaignMapID = uint.MaxValue,
-                TrailType = -1
-            });
-        GameplayModActivationGate.SetLoadSnapshotForTests(directCoopLoad);
-        GameplayModActivationGate.SetStartSnapshotForTests(skirmish);
-        Check(GameplayModActivationGate.Snapshot.Kind == GameModeKind.CoopTrail &&
-              !GameplayModActivationGate.IsAllowed,
-            "generic OnStartMap evidence enabled a directly started Coop Trail");
-        GameplayModActivationGate.ResetForTests();
-
-        GameModeSnapshot customizedCoopLoad = directCoopLoad.WithModeEvidenceForTests(
-            GameModeKind.CoopTrail,
-            GameModeLaunchVariant.Customized,
-            eventTrailType: -1);
-        GameplayModActivationGate.SetLoadSnapshotForTests(customizedCoopLoad);
-        GameplayModActivationGate.SetStartSnapshotForTests(skirmish);
-        Check(GameplayModActivationGate.Snapshot.Kind == GameModeKind.CoopTrail &&
-              GameplayModActivationGate.IsAllowed,
-            "generic OnStartMap evidence disabled a verified customized Coop Trail");
-        GameplayModActivationGate.ResetForTests();
-
-        GameData.Instance = new GameData
-        {
-            game_type = (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
-            SkirmishGameType = (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL,
-            coopTrailID = 0
-        };
-        GameModeSnapshot directCustomTrailLoad = GameModeHelper.Capture(
-            new SHCDESE.EventAPI.MapLoader.MapLoadEventArgs
-            {
-                CampaignMapID = uint.MaxValue,
-                TrailType = -1
-            });
-        GameplayModActivationGate.SetLoadSnapshotForTests(directCustomTrailLoad);
-        GameplayModActivationGate.SetStartSnapshotForTests(skirmish);
-        Check(GameplayModActivationGate.Snapshot.Kind == GameModeKind.CustomTrail &&
-              !GameplayModActivationGate.IsAllowed,
-            "generic OnStartMap evidence enabled a directly started Custom Trail");
-        GameplayModActivationGate.ResetForTests();
-
-        GameModeSnapshot customizedCustomTrailLoad = directCustomTrailLoad.WithModeEvidenceForTests(
-            GameModeKind.CustomTrail,
-            GameModeLaunchVariant.Customized,
-            eventTrailType: -1);
-        GameplayModActivationGate.SetLoadSnapshotForTests(customizedCustomTrailLoad);
-        GameplayModActivationGate.SetStartSnapshotForTests(skirmish);
-        Check(GameplayModActivationGate.Snapshot.Kind == GameModeKind.CustomTrail &&
-              GameplayModActivationGate.IsAllowed,
-            "generic OnStartMap evidence disabled a verified customized Custom Trail");
-        GameplayModActivationGate.ResetForTests();
-
-        GameData.Instance = new GameData { game_type = 3, SkirmishGameType = -1 };
-        platform.activeLobby = new Platform_Multiplayer.MPLobby
-        {
-            members = new List<Platform_Multiplayer.MPLobbyMember>
-            {
-                new Platform_Multiplayer.MPLobbyMember { SkirmishMember = true },
-                new Platform_Multiplayer.MPLobbyMember { SkirmishMember = true }
-            }
-        };
-        platform.gameMembers = new List<Platform_Multiplayer.MPGameMember>
-        {
-            new Platform_Multiplayer.MPGameMember { skirmishAI = false, steamID = 0 },
-            new Platform_Multiplayer.MPGameMember { skirmishAI = true, steamID = 0 }
-        };
-        GameModeSnapshot transitioningSkirmish = GameModeHelper.Capture();
-        Check(transitioningSkirmish.IsSingleplayerSkirmishMode &&
-              !transitioningSkirmish.IsSingleplayerSkirmish &&
-              !transitioningSkirmish.IsRealMultiplayer &&
-              transitioningSkirmish.SkirmishLobbyMembers == 2,
-            "local skirmish transition required the temporarily unavailable subtype");
-
-        GameData.Instance = new GameData();
-        platform.activeLobby = new Platform_Multiplayer.MPLobby
-        {
-            members = new List<Platform_Multiplayer.MPLobbyMember>
-            {
-                null,
-                new Platform_Multiplayer.MPLobbyMember { SkirmishMember = false }
-            }
-        };
-        platform.gameMembers = new List<Platform_Multiplayer.MPGameMember>
-        {
-            null,
-            new Platform_Multiplayer.MPGameMember { skirmishAI = false, steamID = 12345 }
-        };
-        GameModeSnapshot lobby = GameModeHelper.Capture();
-        Check(lobby.IsRealMultiplayer && !lobby.PlatformMultiplayer &&
-              lobby.RealLobbyMembers == 1 && lobby.RealNetworkGameMembers == 1,
-            "pre-start lobby required the active-game signal or failed on null transition members");
-
-        platform.activeLobby = null;
-        GameNetworkAPI.MultiplayerGame = true;
-        GameModeSnapshot activeGame = GameModeHelper.Capture();
-        Check(activeGame.IsRealMultiplayer && activeGame.PlatformMultiplayer &&
-              activeGame.ToDiagnosticString().Contains("platformMultiplayer=True"),
-            "active multiplayer game did not use the Extender API signal");
-
-        GameNetworkAPI.MultiplayerGame = false;
-        GameNetworkAPI.Networked = false;
-        GameModeSnapshot multiplayerSave = GameModeHelper.Capture(multiplayerSave: true);
-        Check(multiplayerSave.IsRealMultiplayer && multiplayerSave.MultiplayerSave,
-            "multiplayer-save signal was not authoritative");
-
-        platform.activeLobby = null;
-        platform.gameMembers = null;
-        GameData.Instance = null;
-        Director.instance = null;
-        GameNetworkAPI.Networked = true;
+        var builtIn = new ExternalCustomizedOrigin(ExternalCustomizedOrigin.VanillaTrail, 0, 2, 2, false, true, supportsBuiltInOrigins: true);
+        Check(!GameModeHelper.ExternalOriginMatchesEvidence(builtIn, GameModeKind.VanillaTrail, 1, 0, 1, true, 0, 2) &&
+            !GameModeHelper.ExternalOriginMatchesEvidence(builtIn, GameModeKind.VanillaTrail, 0, 0, 0, true, 0, 3),
+            "Conflicting Vanilla trail or mission evidence was accepted");
+        APIShared.MissionLifecycleService.Snapshot = default;
     }
+
+    private static GameModeSnapshot CaptureModeFixture(bool multiplayer = false, bool editor = false) =>
+        GameModeHelper.CaptureMission(multiplayer, false, 0, -1, editor,
+            new EngineInterface.LoadMapReturnData { game_type = (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
+                skirmishGameType = (int)Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM, skirmishTrail = -1 },
+            editor ? GameModeKind.MapEditor : GameModeKind.CustomGame);
+
 
     private static void TestGameplayFeatureModePolicy()
     {
@@ -1591,7 +1209,7 @@ internal static class Program
             coopTrailID = 0
         };
 
-        GameModeSnapshot customGame = GameModeHelper.Capture();
+        GameModeSnapshot customGame = CaptureModeFixture();
         GameModeSnapshot[] customizedModes =
         {
             customGame.WithModeEvidenceForTests(GameModeKind.VanillaTrail, GameModeLaunchVariant.Customized, (int)GameTrailType.FirstEdition),
@@ -1612,7 +1230,7 @@ internal static class Program
             customGame.WithModeEvidenceForTests(GameModeKind.CustomGame, GameModeLaunchVariant.Standard, -1, true);
 
         GameNetworkAPI.MultiplayerGame = true;
-        GameModeSnapshot realMultiplayerCustomGame = GameModeHelper.Capture();
+        GameModeSnapshot realMultiplayerCustomGame = CaptureModeFixture(multiplayer: true);
         GameModeSnapshot[] realMultiplayerCustomizedModes =
         {
             realMultiplayerCustomGame.WithModeEvidenceForTests(GameModeKind.VanillaTrail, GameModeLaunchVariant.Customized, (int)GameTrailType.FirstEdition),
@@ -1631,7 +1249,7 @@ internal static class Program
         };
         GameNetworkAPI.MultiplayerGame = false;
         GamePlayerManagerAPI.Instance.MapEditor = true;
-        GameModeSnapshot editor = GameModeHelper.Capture();
+        GameModeSnapshot editor = CaptureModeFixture(editor: true);
         GamePlayerManagerAPI.Instance.MapEditor = false;
 
         var owners = new Dictionary<GameplayFeatureId, string>
@@ -1830,7 +1448,7 @@ internal static class Program
             { "UnitLimit", "UnitLimitRuntime.cs", "UnitLimit_Serp" }
         };
         string policySource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "GameplayModModePolicy.cs"));
+            Path.Combine(workspaceRoot, "APIShared", "src", "GameplayModModePolicy.cs"));
 
         for (int index = 0; index < gameplayMods.GetLength(0); index++)
         {
@@ -1839,8 +1457,9 @@ internal static class Program
             string runtime = File.ReadAllText(
                 Path.Combine(workspaceRoot, mod, "src", gameplayMods[index, 1]));
             Check(project.Contains("GameplayModActivationGate.cs") &&
-                  project.Contains("GameplayModModePolicy.cs") &&
-                  project.Contains("GameplayFeatureModePolicy.cs") &&
+                  project.Contains("Reference Include=\"APIShared\"") &&
+                  !project.Contains("GameplayModModePolicy.cs") &&
+                  !project.Contains("GameplayFeatureModePolicy.cs") &&
                   runtime.Contains("GameplayModActivationGate.Initialize") &&
                   runtime.Contains("PluginGuid") &&
                   policySource.Contains(gameplayMods[index, 2]),
@@ -1878,7 +1497,7 @@ internal static class Program
             "gameplay gate logging or non-mutating settings contract regressed");
 
         string featurePolicySource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "GameplayFeatureModePolicy.cs"));
+            Path.Combine(workspaceRoot, "APIShared", "src", "GameplayFeatureModePolicy.cs"));
         foreach (string expectedFeature in Enum.GetNames(typeof(GameplayFeatureId)))
         {
             Check(featurePolicySource.Contains(expectedFeature),
@@ -1927,7 +1546,8 @@ internal static class Program
         string assassinClimbSource = File.ReadAllText(
             Path.Combine(workspaceRoot, "BugfixesAndQoL", "src", "AssassinClimbRuntime.cs"));
         Check(hudCoordinatorSource.Contains("A direct editor launch can build the HUD") &&
-              bugfixRuntimeSource.Contains("BeginGameplaySession, EndEditorSession") &&
+              bugfixRuntimeSource.Contains("BeginGameplaySession") &&
+              bugfixRuntimeSource.Contains("Subscribe(_ => EndGameplaySession())") &&
               !bugfixRuntimeSource.Contains("BeginEditorMapIfApplicable") &&
               assassinClimbSource.Contains("initialized = true;") &&
               assassinClimbSource.Contains("RefreshButtonVisibility();") &&
@@ -2316,7 +1936,7 @@ internal static class Program
                 fileName + " still restricts a transferred BugfixesAndQoL feature by game mode");
         }
         string gameplayFeaturePolicySource = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "GameplayFeatureModePolicy.cs"));
+            Path.Combine(workspaceRoot, "APIShared", "src", "GameplayFeatureModePolicy.cs"));
         Check(!gameplayFeaturePolicySource.Contains("AIQuarryPileTowardsKeep"),
             "AI quarry-pile placement still has a restrictive per-feature game-mode policy");
 
@@ -5646,7 +5266,7 @@ internal static class Program
             foreach (string path in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
             {
                 string source = File.ReadAllText(path);
-                if (!source.Contains("MapLoaderR3EventHooks.OnStartMap.Observable"))
+                if (path.Contains(Path.DirectorySeparatorChar + "APIShared" + Path.DirectorySeparatorChar) || !source.Contains("MapLoaderR3EventHooks.OnStartMap.Observable"))
                     continue;
 
                 bool covered = source.Contains("GameplaySessionLifecycle.SubscribeStarted") ||
@@ -5659,8 +5279,8 @@ internal static class Program
 
         string lifecycle = File.ReadAllText(
             Path.Combine(workspaceRoot, "Shared", "GameplaySessionLifecycle.cs"));
-        Check(lifecycle.Contains("args.ReturnValue > 0") &&
-              lifecycle.Contains("EventHookPhase.Post") &&
+        Check(lifecycle.Contains("TryGetMissionLifecycle") &&
+              lifecycle.Contains("priority?.Invoke(notification)") &&
               !lifecycle.Contains("OnUnloadMap.Observable") &&
               !lifecycle.Contains("RegisterModDataHandler"),
             "Shared gameplay lifecycle no longer gates successful save Post, reacts to nested unloads, or introduced persistence");
@@ -5675,7 +5295,7 @@ internal static class Program
 
         string extraFeaturesRuntime = File.ReadAllText(
             Path.Combine(workspaceRoot, "ExtraFeatures", "src", "ExtraFeaturesRuntime.cs"));
-        Check(extraFeaturesRuntime.Contains("if (context.IsLoadedSave || context.IsEditor)") &&
+        Check(extraFeaturesRuntime.Contains("!context.IsReplay") &&
               extraFeaturesRuntime.Contains("ApplyMapLoadedSettings(context.IsEditor);") &&
               !extraFeaturesRuntime.Contains("TrySubscribeFeature(\"save-load settings\""),
             "Extra Features does not initialize map-loaded state through the replay-safe shared lifecycle");
@@ -5690,131 +5310,60 @@ internal static class Program
 
     private static void TestSharedGameplaySessionLifecycle()
     {
-        GameplaySessionLifecycle.System_TestReset();
-        var observed = new List<GameplaySessionStartKind>();
-        IDisposable subscription = GameplaySessionLifecycle.SubscribeStarted(
-            null,
-            context => observed.Add(context.Kind));
-
-        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(false)
-        {
-            Phase = EventHookPhase.Pre,
-            ReturnValue = 0
+        MissionEvents.ResetForTests();
+        var state = new APIShared.MissionLifecycleState(_ => { });
+        state.Register("adapter", "test", MissionEvents.PublishForTests);
+        var order = new List<string>();
+        MissionEvents.SetGate(e => order.Add("gate:" + e.Kind));
+        var observed = new List<GameplaySessionStartedContext>();
+        var start = GameplaySessionLifecycle.SubscribeStarted(null, e => {
+            Check(order.Last() == "gate:Start", "Feature ran before its activation gate");
+            observed.Add(e);
         });
-        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(false)
-        {
-            Phase = EventHookPhase.Post,
-            ReturnValue = 0
-        });
-        Check(observed.Count == 0,
-            "Shared gameplay lifecycle started for save Pre or a failed save Post");
-
-        var notify = typeof(GameplaySessionLifecycle).GetMethod(
-            "Notify",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-        Check(notify != null, "Shared gameplay lifecycle subscriber guard is missing");
-        notify.Invoke(
-            null,
-            new object[]
-            {
-                null,
-                new Action<GameplaySessionStartedContext>(
-                    _ => throw new InvalidOperationException("expected subscriber isolation test")),
-                GameplaySessionStartedContext.FromNewMap(new MapStartEventArgs())
-            });
-
-        var ordering = new List<string> { "mod-save-restored" };
-        IDisposable orderingSubscription = GameplaySessionLifecycle.SubscribeStarted(
-            null,
-            _ => ordering.Add("session-started"));
-        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(false)
-        {
-            Phase = EventHookPhase.Post,
-            ReturnValue = 1
-        });
-        Check(observed.SequenceEqual(new[] { GameplaySessionStartKind.LoadedSave }),
-            "successful save Post did not produce exactly one loaded-save start");
-        Check(ordering.SequenceEqual(new[] { "mod-save-restored", "session-started" }),
-            "gameplay session ran before restored mod-save state");
-
-        int outerNotifications = 0;
-        int lateNotifications = 0;
-        IDisposable lateSubscription = null;
-        IDisposable outerSubscription = GameplaySessionLifecycle.SubscribeStarted(
-            null,
-            _ =>
-            {
-                outerNotifications++;
-                if (lateSubscription == null)
-                {
-                    lateSubscription = GameplaySessionLifecycle.SubscribeStarted(
-                        null,
-                        __ => lateNotifications++);
-                }
-            });
-        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(false)
-        {
-            Phase = EventHookPhase.Post,
-            ReturnValue = 1
-        });
-        Check(outerNotifications == 1 && lateNotifications == 1,
-            "a lifecycle subscriber registered during save Post missed the active session or ran twice");
-
-        GameplaySessionLifecycle.System_TestRaiseNewMap(new MapStartEventArgs());
-        Check(observed.SequenceEqual(new[]
-            {
-                GameplaySessionStartKind.LoadedSave,
-                GameplaySessionStartKind.LoadedSave,
-                GameplaySessionStartKind.NewMap
-            }),
-            "new-map Post did not produce exactly one new-map start");
-        Check(outerNotifications == 2 && lateNotifications == 2,
-            "a late lifecycle subscriber was not retained exactly once for subsequent sessions");
-
-        subscription.Dispose();
-        orderingSubscription.Dispose();
-        outerSubscription.Dispose();
-        lateSubscription.Dispose();
-        GameplaySessionLifecycle.System_TestReset();
+        var seed = new APIShared.MissionContext(0, APIShared.MissionStartKind.LoadedSave,
+            CaptureModeFixture(), "save.sav", "map", false);
+        long id = state.Begin(seed);
+        state.Checkpoint(id, seed, APIShared.MissionInitializationPhase.NativeLoaded);
+        Check(observed.Count == 0, "Native load was exposed as a completed managed session");
+        state.Ready(id, seed);
+        Check(observed.Count == 1 && observed[0].IsLoadedSave, "Save load did not start exactly once");
+        int replay = 0;
+        var late = GameplaySessionLifecycle.SubscribeStarted(null, e => { if(e.IsReplay) replay++; });
+        Check(replay == 1, "Late subscriber did not receive exactly one marked replay");
+        state.End(APIShared.MissionEndReason.Unloaded);
+        int stale = 0;
+        var after = GameplaySessionLifecycle.SubscribeStarted(null, _ => stale++);
+        Check(stale == 0, "Ended session leaked into a late registration");
+        start.Dispose(); late.Dispose(); after.Dispose();
+        MissionEvents.ResetForTests();
         TestSharedEditorSessionLifecycle();
     }
+
 
     private static void TestSharedEditorSessionLifecycle()
     {
         var order = new List<string>();
-        var sessions = new List<GameplaySessionStartedContext>();
-        GameplaySessionLifecycle.SubscribeStarted(null, context =>
+        MissionEvents.SetGate(e => order.Add("gate:" + e.Kind));
+        var state = new APIShared.MissionLifecycleState(_ => { });
+        state.Register("adapter", "editor", MissionEvents.PublishForTests);
+        var subscription = GameplaySessionLifecycle.SubscribeStarted(null, context => {
+            Check(context.IsEditor && !context.IsLoadedSave && order.Last() == "gate:Start", "Editor contract/gate order changed");
+            order.Add("feature:Start");
+        }, () => order.Add("feature:End"));
+        foreach (var kind in new[] { APIShared.MissionStartKind.EditorCreated, APIShared.MissionStartKind.EditorLoaded })
         {
-            sessions.Add(context);
-            Check(order.Count != 0 && order.Last() == "gate-ready", "editor subscriber ran before its gate");
-            order.Add("feature-ready");
-        }, () => order.Add("feature-ended"));
-        GameplaySessionLifecycle.SetEditorGate(_ => order.Add("gate-ready"), () => order.Add("gate-ended"));
-        GameplaySessionLifecycle.System_TestRaiseSave(new LoadSaveGameEventArgs(true)
-        { Phase = EventHookPhase.Post, ReturnValue = 1 });
-        Check(sessions.Count == 0, "early native editor load produced a gameplay session");
-        GameplaySessionLifecycle.System_TestRaiseEditor(1);
-        Check(sessions.Count == 1 && sessions[0].Kind == GameplaySessionStartKind.EditorCreated &&
-            !sessions[0].IsLoadedSave && sessions[0].MapStart == null && sessions[0].SaveLoad == null &&
-            sessions[0].Mode.Kind == GameModeKind.MapEditor,
-            "editor creation was confused with gameplay start or save load");
-        var replay = new List<GameplaySessionStartedContext>();
-        GameplaySessionLifecycle.SubscribeStarted(null, replay.Add);
-        Check(replay.Count == 1 && replay[0].IsReplay && replay[0].EditorSessionId == 1,
-            "late editor subscriber did not receive exactly one current-session replay");
-        GameplaySessionLifecycle.System_TestEndEditor();
-        Check(order.Skip(order.Count - 2).SequenceEqual(new[] { "gate-ended", "feature-ended" }),
-            "editor end did not clear the gate before the feature");
-        GameplaySessionLifecycle.System_TestRaiseEditor(2, true);
-        Check(sessions.Count == 2 && sessions[1].Kind == GameplaySessionStartKind.EditorLoaded &&
-            sessions[1].LoadingEditorMap && sessions[1].SaveFileName == "test.map" && replay.Count == 2,
-            "loaded editor map was not delivered exactly once with file context");
-        GameplaySessionLifecycle.System_TestEndEditor();
-        int stale = 0;
-        GameplaySessionLifecycle.SubscribeStarted(null, _ => stale++);
-        Check(stale == 0, "ended editor session leaked into a late registration");
-        GameplaySessionLifecycle.System_TestReset();
+            var seed = new APIShared.MissionContext(0, kind, CaptureModeFixture(editor:true), "test.map", "map", false);
+            long id = state.Begin(seed);
+            state.Checkpoint(id, seed, APIShared.MissionInitializationPhase.NativeLoaded);
+            state.Ready(id, seed);
+            state.End(APIShared.MissionEndReason.Unloaded);
+            Check(order.Skip(order.Count-2).SequenceEqual(new[]{"gate:End","feature:End"}), "Editor cleanup preceded its gate reset");
+        }
+        subscription.Dispose();
+        MissionEvents.ResetForTests();
     }
+
+
 }
 
 [MessagePackObject]

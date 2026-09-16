@@ -137,6 +137,7 @@ namespace APIShared
         {
             service = null;
             var installed = new List<Hook>();
+            UnitHudPresentationService candidate = null;
             try
             {
                 int* records = null;
@@ -159,7 +160,7 @@ namespace APIShared
                     }
                 }
 
-                var candidate = new UnitHudPresentationService(hash, log, records, recordAccess);
+                candidate = new UnitHudPresentationService(hash, log, records, recordAccess);
                 candidate.Install(installed);
                 service = candidate;
                 diagnostic = new NativeCapabilityDiagnostic(
@@ -167,11 +168,17 @@ namespace APIShared
                     NativeCapabilityState.Available,
                     hash,
                     groupReason);
-                NativeApiLog.Info(log, $"Unit HUD presentation installed; controlGroups={recordAccess}, build={hash}.");
+                try { NativeApiLog.Info(log, $"Unit HUD presentation installed; controlGroups={recordAccess}, build={hash}."); } catch { }
                 return true;
             }
             catch (Exception ex)
             {
+                service = null;
+                if (candidate != null)
+                {
+                    UnityEngine.Application.onBeforeRender -= candidate.OnBeforeRender;
+                    candidate.mapUnloadSubscription?.Dispose();
+                }
                 for (int i = installed.Count - 1; i >= 0; i--)
                 {
                     try { installed[i].Undo(); } catch { }
@@ -218,7 +225,8 @@ namespace APIShared
             recruitmentGameActionHook = PrepareHook(RequireMethod(typeof(EngineInterface), "GameAction", new[] { typeof(Enums.GameActionCommand), typeof(int), typeof(int), typeof(int) }), (RecruitmentGameActionDelegate)RecruitmentGameActionHook, "APIShared.UnitHud.RecruitmentGameAction", installed);
             recruitmentGameActionOriginal = recruitmentGameActionHook.GenerateTrampoline<RecruitmentGameActionDelegate>();
             recruitmentGameActionHook.Apply();
-            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(x => x.Phase == EventHookPhase.Pre).Subscribe(_ => ResetRecruitment());
+            Shared.MissionEvents.SetOwner("APIShared_Serp");
+            mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(_ => ResetRecruitment());
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
         }
 

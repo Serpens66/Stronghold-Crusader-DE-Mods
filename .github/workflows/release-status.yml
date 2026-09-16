@@ -29,12 +29,16 @@ jobs:
         shell: pwsh
         run: git fetch --force --tags origin main
 
+      - name: Test release-status tooling
+        shell: pwsh
+        run: |
+          & '.\Shared\Release\Test-ReleaseStatus.ps1'
+
       - name: Generate badges and reports
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          & '.\Shared\Release\Test-ReleaseStatus.ps1'
           & '.\Shared\Release\Update-ReleaseStatus.ps1' -OutputDirectory (Join-Path $env:RUNNER_TEMP 'release-status') -HeadCommit 'origin/main'
 
       - name: Publish generated status branch

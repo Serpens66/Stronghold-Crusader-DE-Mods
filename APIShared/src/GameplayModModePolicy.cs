@@ -2,27 +2,43 @@ using System;
 
 namespace Shared
 {
+    /// <summary>GameplayModAllowedContext in the centralized mission policy contract.</summary>
     [Flags]
-    internal enum GameplayModAllowedContext
+    public enum GameplayModAllowedContext
     {
+        /// <summary>None.</summary>
         None = 0,
+        /// <summary>CustomGame.</summary>
         CustomGame = 1 << 0,
+        /// <summary>CustomizedVanillaTrail.</summary>
         CustomizedVanillaTrail = 1 << 1,
+        /// <summary>CustomizedCustomTrail.</summary>
         CustomizedCustomTrail = 1 << 2,
+        /// <summary>CustomizedCoopTrail.</summary>
         CustomizedCoopTrail = 1 << 3,
+        /// <summary>CustomizedSandsOfTime.</summary>
         CustomizedSandsOfTime = 1 << 4,
+        /// <summary>MapEditor.</summary>
         MapEditor = 1 << 5,
+        /// <summary>Campaign.</summary>
         Campaign = 1 << 6,
+        /// <summary>StandaloneMission.</summary>
         StandaloneMission = 1 << 7,
+        /// <summary>VanillaTrail.</summary>
         VanillaTrail = 1 << 8,
+        /// <summary>CustomTrail.</summary>
         CustomTrail = 1 << 9,
+        /// <summary>CoopTrail.</summary>
         CoopTrail = 1 << 10,
+        /// <summary>SandsOfTime.</summary>
         SandsOfTime = 1 << 11,
     }
 
-    internal readonly struct GameplayModActivationProfile
+    /// <summary>GameplayModActivationProfile in the centralized mission policy contract.</summary>
+    public readonly struct GameplayModActivationProfile
     {
-        internal GameplayModActivationProfile(
+        /// <summary>GameplayModActivationProfile in the centralized mission policy contract.</summary>
+        public GameplayModActivationProfile(
             string modGuid,
             string displayName,
             GameplayModAllowedContext allowedContexts)
@@ -32,13 +48,16 @@ namespace Shared
             AllowedContexts = allowedContexts;
         }
 
-        internal string ModGuid { get; }
-        internal string DisplayName { get; }
-        internal GameplayModAllowedContext AllowedContexts { get; }
+        /// <summary>ModGuid in the centralized mission policy contract.</summary>
+        public string ModGuid { get; }
+        /// <summary>DisplayName in the centralized mission policy contract.</summary>
+        public string DisplayName { get; }
+        /// <summary>AllowedContexts in the centralized mission policy contract.</summary>
+        public GameplayModAllowedContext AllowedContexts { get; }
     }
 
     /// <summary>Single typed source of truth for mode permissions of regular gameplay mods.</summary>
-    internal static class GameplayModModePolicy
+    public static class GameplayModModePolicy
     {
         private const GameplayModAllowedContext RegularContexts =
             GameplayModAllowedContext.CustomGame |
@@ -48,7 +67,8 @@ namespace Shared
             GameplayModAllowedContext.CustomizedSandsOfTime |
             GameplayModAllowedContext.MapEditor;
 
-        internal static GameplayModActivationProfile GetProfile(string modGuid, string displayName)
+        /// <summary>GetProfile in the centralized mission policy contract.</summary>
+        public static GameplayModActivationProfile GetProfile(string modGuid, string displayName)
         {
             switch (modGuid)
             {
@@ -69,7 +89,8 @@ namespace Shared
             }
         }
 
-        internal static bool IsAllowed(
+        /// <summary>IsAllowed in the centralized mission policy contract.</summary>
+        public static bool IsAllowed(
             GameplayModActivationProfile profile,
             GameModeSnapshot snapshot,
             out string reason)
@@ -97,7 +118,8 @@ namespace Shared
         private static GameplayModActivationProfile Create(string modGuid, string displayName) =>
             new GameplayModActivationProfile(modGuid, displayName, RegularContexts);
 
-        internal static GameplayModAllowedContext ResolveContext(GameModeSnapshot snapshot)
+        /// <summary>ResolveContext in the centralized mission policy contract.</summary>
+        public static GameplayModAllowedContext ResolveContext(GameModeSnapshot snapshot)
         {
             if (snapshot.Kind == GameModeKind.MapEditor)
                 return GameplayModAllowedContext.MapEditor;

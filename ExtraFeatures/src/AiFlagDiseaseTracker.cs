@@ -80,8 +80,7 @@ namespace ExtraFeatures
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileDelete.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(args => registry.RemoveSlot(args.ProjectileId)));
-                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
+                subscriptions.Add(Shared.MissionEvents.Ended
                     .Subscribe(_ => ResetMapState()));
 
                 if (!ModSaveDataAPI.Instance.RegisterModDataHandler(

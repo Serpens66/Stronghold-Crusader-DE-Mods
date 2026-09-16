@@ -109,8 +109,7 @@ namespace ExtendedData
             missionSettingsCoordinator.Initialize();
             RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(_ => OnMapUnloaded()));
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, context =>
             {

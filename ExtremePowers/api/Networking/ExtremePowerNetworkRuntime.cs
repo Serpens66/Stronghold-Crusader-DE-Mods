@@ -28,7 +28,9 @@ namespace ExtremePowers.API
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<ExtremePowerChore>();
             subscription = packetHook.GetBaseHook().Observable.Subscribe(Receive);
-            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMapState());
+
+            Shared.MissionEvents.SetOwner("ExtremePowers_Serp");
+            mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(_ => ResetMapState());
         }
 
         internal bool Queue(ExtremePowerId power, int playerId, ExtremePowerTarget target, out string rejectionReason)

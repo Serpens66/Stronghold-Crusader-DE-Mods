@@ -19,8 +19,8 @@ namespace APIShared
         private UnitHudPresentationService unitHudPresentation;
         private AivBuildStepService aivBuildStep;
         private LobbyStateService lobbyState;
-        private EditorMapLifecycleService editorMapLifecycle;
-        private NativeCapabilityDiagnostic editorMapLifecycleDiagnostic = Pending(NativeCapabilityIds.EditorMapLifecycle);
+        private MissionLifecycleService missionLifecycle;
+        private NativeCapabilityDiagnostic missionLifecycleDiagnostic = Pending(NativeCapabilityIds.MissionLifecycle);
         private NativeCapabilityDiagnostic gatehouseDistanceOriginDiagnostic = Pending(NativeCapabilityIds.GatehouseDistanceOrigin);
         private NativeCapabilityDiagnostic gatehouseDiagnostic = Pending(NativeCapabilityIds.GatehouseTiming);
         private NativeCapabilityDiagnostic unitHudDiagnostic = Pending(NativeCapabilityIds.UnitHudPresentation);
@@ -51,8 +51,8 @@ namespace APIShared
         {
             lock (sync)
             {
-                if (editorMapLifecycleDiagnostic.State == NativeCapabilityState.Pending)
-                    EditorMapLifecycleService.TryCreate(logger, out editorMapLifecycle, out editorMapLifecycleDiagnostic);
+                if (missionLifecycleDiagnostic.State == NativeCapabilityState.Pending)
+                    MissionLifecycleService.TryCreate(logger, out missionLifecycle, out missionLifecycleDiagnostic);
                 if (lobbyState != null ||
                     lobbyStateDiagnostic.State != NativeCapabilityState.Pending)
                 {
@@ -254,21 +254,21 @@ namespace APIShared
             }
         }
 
-        public bool TryGetEditorMapLifecycle(string ownerGuid, out IEditorMapLifecycleCapability capability,
+        public bool TryGetMissionLifecycle(string ownerGuid, out IMissionLifecycleCapability capability,
             out NativeCapabilityDiagnostic diagnostic)
         {
             capability = null;
             if (string.IsNullOrWhiteSpace(ownerGuid))
             {
-                diagnostic = new NativeCapabilityDiagnostic(NativeCapabilityIds.EditorMapLifecycle,
+                diagnostic = new NativeCapabilityDiagnostic(NativeCapabilityIds.MissionLifecycle,
                     NativeCapabilityState.ValidationFailed, string.Empty, "A non-empty owner GUID is required.");
                 return false;
             }
             lock (sync)
             {
-                diagnostic = editorMapLifecycleDiagnostic;
-                if (editorMapLifecycle == null) return false;
-                capability = editorMapLifecycle.Bind(ownerGuid);
+                diagnostic = missionLifecycleDiagnostic;
+                if (missionLifecycle == null) return false;
+                capability = missionLifecycle.Bind(ownerGuid);
                 return true;
             }
         }

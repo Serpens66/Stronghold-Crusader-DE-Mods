@@ -70,9 +70,24 @@ $releaseModSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release-Mod
 Assert-True ($releaseModSource -match '\$env:SHCDE_API_SHARED_DIR = \$apiSharedPackage\.Directory') 'APIShared consumer releases must pass the workspace package to build.bat.'
 Assert-True ($releaseModSource -match "Remove-Item -LiteralPath 'Env:SHCDE_API_SHARED_DIR'") 'Release builds must restore an initially undefined APIShared environment override.'
 Assert-True ($releaseModSource -match 'BundledVersion = \[string\]\$apiSharedPackage\.Version') 'Release provenance must use the validated APIShared package version.'
-$bugfixMetadata = Get-PluginMetadata -ModName 'BugfixesAndQoL'
-$bugfixDependencies = @(Get-DependencyRecords -Metadata $bugfixMetadata -ExtenderDir (Get-ExtenderDirectory -Metadata $bugfixMetadata) -ApiSharedDir $apiSharedPackage.Directory)
-Assert-True (@($bugfixDependencies | Where-Object { $_.Path -ceq '$Repository/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll' }).Count -eq 1) 'Release provenance must hash the same workspace APIShared.dll used by the consumer build.'
+$dependencyFixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-release-dependencies-' + [Guid]::NewGuid().ToString('N'))
+try {
+    $fixtureGameDir = Join-Path $dependencyFixtureRoot 'Game'
+    $fixtureExtenderDir = Join-Path $dependencyFixtureRoot 'Extender'
+    $fixtureCrusaderDll = Join-Path $fixtureGameDir 'Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll'
+    [void](New-Item -ItemType Directory -Path (Split-Path -Parent $fixtureCrusaderDll), $fixtureExtenderDir -Force)
+    [IO.File]::WriteAllBytes($fixtureCrusaderDll, [byte[]]@(0))
+    [IO.File]::WriteAllBytes((Join-Path $fixtureExtenderDir 'SHCDESE.dll'), [byte[]]@(0))
+    $bugfixMetadata = Get-PluginMetadata -ModName 'BugfixesAndQoL'
+    $fixtureMetadata = [PSCustomObject]@{
+        Config = [PSCustomObject]@{ Root = $config.Root; GameDir = $fixtureGameDir }
+        ModDir = $bugfixMetadata.ModDir
+    }
+    $bugfixDependencies = @(Get-DependencyRecords -Metadata $fixtureMetadata -ExtenderDir $fixtureExtenderDir -ApiSharedDir $apiSharedPackage.Directory)
+    Assert-True (@($bugfixDependencies | Where-Object { $_.Path -ceq '$Repository/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll' }).Count -eq 1) 'Release provenance must hash the same workspace APIShared.dll used by the consumer build.'
+} finally {
+    if (Test-Path -LiteralPath $dependencyFixtureRoot) { Remove-Item -LiteralPath $dependencyFixtureRoot -Recurse -Force }
+}
 foreach ($consumerBuild in @('BugfixesAndQoL\build.bat', 'ExtendedData\build.bat', 'ExtraFeatures\build.bat', 'Helpers\ActiveAIVDetector\build.bat')) {
     $consumerBuildSource = [IO.File]::ReadAllText((Join-Path $config.Root $consumerBuild))
     Assert-True ($consumerBuildSource -match 'if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"') "$consumerBuild must honor the release APIShared override."

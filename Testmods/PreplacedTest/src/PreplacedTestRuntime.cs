@@ -509,10 +509,9 @@ namespace PreplacedTest
 
         public void InstallEventDiagnostics()
         {
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable.Subscribe(a => OnMapLoad(a)));
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable.Subscribe(a => OnLoadSave(a)));
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(a => OnMapStart(a)));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(a => OnMapUnload(a)));
+            subscriptions.Add(Shared.MissionEvents.Loading.Subscribe(a => OnMapLoad(a)));
+            subscriptions.Add(Shared.MissionEvents.NativeStart.Subscribe(a => OnMapStart(a)));
+            subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(a => OnMapUnload(a)));
             subscriptions.Add(BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe(OnBuildStructure));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnPlacementValidation.Observable.Subscribe(OnPlacementValidation));
@@ -4152,25 +4151,17 @@ namespace PreplacedTest
                     string.Join(",", context.SpawnSignals) + "]");
         }
 
-        private void OnMapLoad(MapLoadEventArgs args) => Safe(() => ProcessMapLoad(args));
+        private void OnMapLoad(APIShared.MissionLifecycleNotification args) => Safe(() => ProcessMapLoad(args));
 
-        private void OnLoadSave(LoadSaveGameEventArgs args) => Safe(() =>
+        private void ProcessMapLoad(APIShared.MissionLifecycleNotification args)
         {
-            loadSaveEventObserved = true;
-            loadingEditorMap = args.LoadingEditorMap;
-            currentMapIsSave = !args.LoadingEditorMap;
-            Shared.DebugLogHelper.LogInfo(log,
-                $"PREPLACED_LOAD_SAVE_CONTEXT: phase={args.Phase}; loadingEditorMap={args.LoadingEditorMap}; " +
-                $"file={args.FileName}; sequence={mapSequence}.");
-        });
-
-        private void ProcessMapLoad(MapLoadEventArgs args)
-        {
-            if (args.Phase == EventHookPhase.Pre)
+            if (args.IsBeforeInitialization)
             {
                 ResetMap("OnLoadMap(Pre)");
                 mapActive = true;
-                currentMapIsSave = args.bMultiplayerSave != 0;
+                currentMapIsSave = args.Context.IsSave;
+                loadingEditorMap = args.Context.IsEditor;
+                loadSaveEventObserved = args.Context.IsSave || args.Context.StartKind == APIShared.MissionStartKind.EditorLoaded;
                 Safe(() => ObservePhase("map-load.pre", false));
             }
             else Safe(() =>
@@ -4181,16 +4172,16 @@ namespace PreplacedTest
             Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_MAP_LOAD: phase={args.Phase}, sequence={mapSequence}.");
         }
 
-        private void OnMapStart(MapStartEventArgs args) => Safe(() => ProcessMapStart(args));
+        private void OnMapStart(APIShared.MissionLifecycleNotification args) => Safe(() => ProcessMapStart(args));
 
-        private void ProcessMapStart(MapStartEventArgs args)
+        private void ProcessMapStart(APIShared.MissionLifecycleNotification args)
         {
-            if (args.Phase == EventHookPhase.Pre) initializationTracingActive = true;
-            if (args.Phase == EventHookPhase.Pre && args.bMultiplayerSave != 0) currentMapIsSave = true;
+            if (args.IsBeforeInitialization) initializationTracingActive = true;
+            if (args.IsBeforeInitialization && args.Context.IsSave && args.Context.Mode.IsRealMultiplayer) currentMapIsSave = true;
             // Full inventories are deferred until the map profile is known. This prevents
             // the ruins-only test from paying for wall/economy diagnostics during startup.
-            Safe(() => ObservePhase(args.Phase == EventHookPhase.Pre ? "map-start.pre" : "map-start.post", false));
-            if (args.Phase == EventHookPhase.Post)
+            Safe(() => ObservePhase(args.IsBeforeInitialization ? "map-start.pre" : "map-start.post", false));
+            if (!args.IsBeforeInitialization)
             {
                 aiOwnershipResolved = true;
                 CapturePreplacedBaseline();
@@ -4238,11 +4229,10 @@ namespace PreplacedTest
             Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_MAP_START: phase={args.Phase}, sequence={mapSequence}.");
         }
 
-        private void OnMapUnload(MapUnloadEventArgs args) => Safe(() => ProcessMapUnload(args));
+        private void OnMapUnload(APIShared.MissionLifecycleNotification args) => Safe(() => ProcessMapUnload(args));
 
-        private void ProcessMapUnload(MapUnloadEventArgs args)
+        private void ProcessMapUnload(APIShared.MissionLifecycleNotification args)
         {
-            if (args.Phase != EventHookPhase.Pre) return;
             mapActive = false;
             Safe(() => ObservePhase("map-unload.pre", walledEconomyProfile));
             foreach (int playerId in players.Keys.ToArray()) FinalizePlayer(playerId, "map-unload");

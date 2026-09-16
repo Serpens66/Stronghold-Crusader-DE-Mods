@@ -252,15 +252,10 @@ namespace ExtraFeatures
                 PlayerR3EventHooks.OnPlayerMarketInteraction.Observable.Subscribe(OnPlayerMarketInteraction));
             TrySubscribeFeature("church priest spawn handling", () =>
                 BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(churchPriestCountRuntime.ApplySpawnedBuilding));
-            TrySubscribeFeature("map-load settings", () =>
-                MapLoaderR3EventHooks.OnLoadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => ApplyMapLoadedSettings()));
             TrySubscribeFeature("gameplay-session initialization", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, () => OnUnloadMap(null)));
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
             TrySubscribeFeature("map-unload cleanup", () =>
-                MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
+                Shared.MissionEvents.Ended
                     .Subscribe(OnUnloadMap));
             TryRunFeature("Lord health tick", ReconcileLordHealthRuntime);
             hooksSubscribed = true;
@@ -522,16 +517,15 @@ namespace ExtraFeatures
         {
             bool multiplayerSave = context.IsLoadedSave
                 ? context.Mode.IsRealMultiplayer
-                : context.MapStart != null && context.MapStart.bMultiplayerSave != 0;
+                : context.Notification != null && context.Notification.Context.IsSave && context.Mode.IsRealMultiplayer;
             multiplayerFeatureGate.CaptureMapMode(multiplayerSave);
 
-            if (context.IsLoadedSave || context.IsEditor)
-                ApplyMapLoadedSettings(context.IsEditor);
+            ApplyMapLoadedSettings(context.IsEditor);
 
             TryRunFeature("Lord health map initialization", ReconcileLordHealthRuntime);
 
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
-            if (!context.IsLoadedSave && !context.IsEditor)
+            if (!context.IsLoadedSave && !context.IsEditor && !context.IsReplay)
                 TryRunFeature("gatehouse map initialization", gatehouseAutomationRuntime.BeginMap);
         }
 
@@ -684,7 +678,7 @@ namespace ExtraFeatures
             return nativeRegion == null ? ReadOnlySpan<byte>.Empty : nativeRegion.Span;
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             RestoreCampfirePeasantsCap();
             lordHealthRuntime.ResetMapState();

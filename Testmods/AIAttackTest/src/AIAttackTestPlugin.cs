@@ -80,10 +80,9 @@ namespace AIAttackTest
                 AIAttackTestRuntime installed = candidate;
                 candidateSessionSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     persistentLog,
-                    installed.BeginMap, () => installed.EndMap("EditorMapEnded"));
-                candidateUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(_ => installed.EndMap("OnUnloadMap(Pre)"));
+                    installed.BeginMap);
+                candidateUnloadSubscription = Shared.MissionEvents.Ended
+                    .Subscribe(_ => installed.EndMap("MissionEnd"));
                 if (candidateSessionSubscription == null || candidateUnloadSubscription == null)
                     throw new InvalidOperationException("Persistent map subscriptions could not be created.");
 

@@ -1904,7 +1904,7 @@ namespace BugfixesAndQoL
             string runtime = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
             string sharedGameMode = File.ReadAllText(Path.Combine(
-                Directory.GetParent(projectDirectory).FullName, "Shared", "GameModeHelper.cs"));
+                Directory.GetParent(projectDirectory).FullName, "APIShared", "src", "MissionModePolicy.cs"));
             Check(feature.Contains("Name = \"SharedTrailCustomize\"") &&
                     feature.Contains("foreach (UIElement child in host.Children)") &&
                     feature.Contains("TryCustomizeCustomTrail(out bool providerActive)") &&

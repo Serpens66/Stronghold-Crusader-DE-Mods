@@ -103,13 +103,12 @@ namespace CastlePlanner
                     if (context.IsEditor)
                         OnEditorMapReady();
                     else if (context.IsLoadedSave)
-                        OnLoadSave(context.SaveLoad);
+                        OnLoadSave(context.Notification);
                     else
-                        OnStartMap(context.MapStart);
-                }, onEditorEnded: () => OnUnloadMap(null)));
+                        OnStartMap(context.Notification);
+                }));
             subscriptions.Add(
-                MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
+                Shared.MissionEvents.Ended
                     .Subscribe(OnUnloadMap));
 
             initialized = true;
@@ -310,7 +309,7 @@ namespace CastlePlanner
             cameraUpdateTrampoline(camera);
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnStartMap(APIShared.MissionLifecycleNotification args)
         {
             ResetMapState();
             editorSessionActive = false;
@@ -329,7 +328,7 @@ namespace CastlePlanner
                 "Blueprint map-start lifecycle received; visibility reset to hidden.");
         }
 
-        private void OnLoadSave(LoadSaveGameEventArgs args)
+        private void OnLoadSave(APIShared.MissionLifecycleNotification args)
         {
             ResetMapState();
             editorSessionActive = false;
@@ -346,7 +345,7 @@ namespace CastlePlanner
                 "Blueprint save-load lifecycle received; visibility reset to hidden.");
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             ResetMapState();
             mapActive = false;

@@ -46,8 +46,8 @@
         <member name="T:APIShared.NativeCapabilityIds">
             <summary>Stable identifiers for capabilities exposed by this API version.</summary>
         </member>
-        <member name="F:APIShared.NativeCapabilityIds.EditorMapLifecycle">
-            <summary>Capability for successful editor map sessions and their end.</summary>
+        <member name="F:APIShared.NativeCapabilityIds.MissionLifecycle">
+            <summary>Capability for interactive mission initialization, successful starts and ends.</summary>
         </member>
         <member name="F:APIShared.NativeCapabilityIds.GatehouseDistanceOrigin">
             <summary>Capability for selecting the native gatehouse distance origin.</summary>
@@ -88,8 +88,8 @@
         <member name="T:APIShared.IApiShared">
             <summary>Public process-wide entry point for typed shared native capabilities.</summary>
         </member>
-        <member name="M:APIShared.IApiShared.TryGetEditorMapLifecycle(System.String,APIShared.IEditorMapLifecycleCapability@,APIShared.NativeCapabilityDiagnostic@)">
-            <summary>Acquires the process-wide managed editor lifecycle.</summary>
+        <member name="M:APIShared.IApiShared.TryGetMissionLifecycle(System.String,APIShared.IMissionLifecycleCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Acquires the process-wide mission lifecycle.</summary>
         </member>
         <member name="P:APIShared.IApiShared.State">
             <summary>Gets the global initialization state.</summary>
@@ -121,74 +121,182 @@
             registrations run synchronously.
             </summary>
         </member>
-        <member name="T:APIShared.EditorMapOrigin">
-            <summary>Origin of a successfully initialized editor map.</summary>
+        <member name="T:APIShared.MissionMapType">
+            <summary>Map objective subtype, independent of campaign/trail/editor provenance.</summary>
         </member>
-        <member name="F:APIShared.EditorMapOrigin.Created">
-            <summary>A newly created map.</summary>
+        <member name="F:APIShared.MissionMapType.Unknown">
+            <summary>Subtype is not available.</summary>
         </member>
-        <member name="F:APIShared.EditorMapOrigin.Loaded">
-            <summary>A map loaded from disk.</summary>
+        <member name="F:APIShared.MissionMapType.FreeBuild">
+            <summary>Unrestricted building map.</summary>
         </member>
-        <member name="T:APIShared.EditorMapLifecycleKind">
-            <summary>Editor session transition.</summary>
+        <member name="F:APIShared.MissionMapType.Economy">
+            <summary>Economic objectives.</summary>
         </member>
-        <member name="F:APIShared.EditorMapLifecycleKind.Ready">
-            <summary>Vanilla's managed editor initialization has returned successfully.</summary>
+        <member name="F:APIShared.MissionMapType.Siege">
+            <summary>Siege objectives.</summary>
         </member>
-        <member name="F:APIShared.EditorMapLifecycleKind.Ended">
-            <summary>The session is no longer usable.</summary>
+        <member name="F:APIShared.MissionMapType.Invasion">
+            <summary>Invasion objectives.</summary>
         </member>
-        <member name="T:APIShared.EditorMapEndReason">
-            <summary>Reason an editor session ended.</summary>
+        <member name="T:APIShared.MissionStartKind">
+            <summary>How an interactive mission is initialized.</summary>
         </member>
-        <member name="F:APIShared.EditorMapEndReason.None">
-            <summary>The notification is a ready notification.</summary>
+        <member name="F:APIShared.MissionStartKind.NewGame">
+            <summary>A new gameplay mission.</summary>
         </member>
-        <member name="F:APIShared.EditorMapEndReason.MapReplacement">
-            <summary>Another map operation began, even if that operation subsequently fails.</summary>
+        <member name="F:APIShared.MissionStartKind.LoadedSave">
+            <summary>A gameplay save, including multiplayer restoration.</summary>
         </member>
-        <member name="F:APIShared.EditorMapEndReason.NativeUnload">
-            <summary>Vanilla unloaded native map state outside an editor load operation.</summary>
+        <member name="F:APIShared.MissionStartKind.EditorCreated">
+            <summary>A blank interactive editor map.</summary>
         </member>
-        <member name="F:APIShared.EditorMapEndReason.SceneChanged">
-            <summary>The editor's actual game screen was left.</summary>
+        <member name="F:APIShared.MissionStartKind.EditorLoaded">
+            <summary>An existing interactive editor map.</summary>
         </member>
-        <member name="T:APIShared.EditorMapLifecycleNotification">
-            <summary>
-            Immutable editor-session notification. Ready does not guarantee a first PlayState,
-            rendered visuals, or any particular building. All callbacks run on the Unity thread.
-            </summary>
+        <member name="T:APIShared.MissionLifecycleKind">
+            <summary>Lifecycle publication type.</summary>
         </member>
-        <member name="P:APIShared.EditorMapLifecycleNotification.SessionId">
-            <summary>Process-local monotonically increasing identity; failed attempts can leave gaps.</summary>
+        <member name="F:APIShared.MissionLifecycleKind.Initialization">
+            <summary>An explicitly timed initialization checkpoint.</summary>
         </member>
-        <member name="P:APIShared.EditorMapLifecycleNotification.Origin">
-            <summary>Creation or file-load origin.</summary>
+        <member name="F:APIShared.MissionLifecycleKind.Start">
+            <summary>Successful managed initialization has completed.</summary>
         </member>
-        <member name="P:APIShared.EditorMapLifecycleNotification.FilePath">
-            <summary>Loaded file path, or null for a new map.</summary>
+        <member name="F:APIShared.MissionLifecycleKind.End">
+            <summary>The attempt or ready session has ended.</summary>
         </member>
-        <member name="P:APIShared.EditorMapLifecycleNotification.Kind">
-            <summary>Ready or ended transition.</summary>
+        <member name="T:APIShared.MissionInitializationPhase">
+            <summary>Checkpoints are not interchangeable; some routes omit native start checkpoints.</summary>
         </member>
-        <member name="P:APIShared.EditorMapLifecycleNotification.EndReason">
-            <summary>End reason, or None for ready.</summary>
+        <member name="F:APIShared.MissionInitializationPhase.None">
+            <summary>No initialization checkpoint.</summary>
         </member>
-        <member name="P:APIShared.EditorMapLifecycleNotification.IsReplay">
-            <summary>True only for delivery of the current session to a late observer.</summary>
+        <member name="F:APIShared.MissionInitializationPhase.BeforeLoad">
+            <summary>Immediately before the native map creation/load wrapper; managed setup may already have run.</summary>
         </member>
-        <member name="T:APIShared.IEditorMapLifecycleCapability">
-            <summary>Owner-bound access to the process-wide editor lifecycle; use on the Unity thread.</summary>
+        <member name="F:APIShared.MissionInitializationPhase.BeforeNativeStart">
+            <summary>Immediately before the native new-game initializer; also occurs for MP saves.</summary>
         </member>
-        <member name="P:APIShared.IEditorMapLifecycleCapability.Current">
-            <summary>Current ready session, or null during loading, after failure, or outside the editor.</summary>
+        <member name="F:APIShared.MissionInitializationPhase.AfterNativeStart">
+            <summary>Immediately after a successful native initializer, before its enclosing loader returns.</summary>
         </member>
-        <member name="M:APIShared.IEditorMapLifecycleCapability.TryRegisterObserver(System.String,System.Action{APIShared.EditorMapLifecycleNotification},APIShared.NativeCapabilityDiagnostic@)">
-            <summary>
-            Registers a process-lifetime observer. An active session is replayed once before return,
-            except during a notification dispatch, when replay follows the current publication.
-            </summary>
+        <member name="F:APIShared.MissionInitializationPhase.NativeLoaded">
+            <summary>Native loading and synchronous archive callbacks have returned successfully.</summary>
+        </member>
+        <member name="F:APIShared.MissionInitializationPhase.ManagedReady">
+            <summary>The complete managed interactive operation has returned successfully.</summary>
+        </member>
+        <member name="T:APIShared.MissionEndReason">
+            <summary>Logical retirement; it does not promise physical native memory disposal.</summary>
+        </member>
+        <member name="F:APIShared.MissionEndReason.None">
+            <summary>Not an end publication.</summary>
+        </member>
+        <member name="F:APIShared.MissionEndReason.Replaced">
+            <summary>A replacement operation began.</summary>
+        </member>
+        <member name="F:APIShared.MissionEndReason.Unloaded">
+            <summary>Vanilla or the extender invalidated the active map.</summary>
+        </member>
+        <member name="F:APIShared.MissionEndReason.SceneChanged">
+            <summary>The actual gameplay scene was left.</summary>
+        </member>
+        <member name="F:APIShared.MissionEndReason.Failed">
+            <summary>Initialization returned without success.</summary>
+        </member>
+        <member name="F:APIShared.MissionEndReason.Exception">
+            <summary>Vanilla initialization threw an exception.</summary>
+        </member>
+        <member name="F:APIShared.MissionEndReason.ApplicationExit">
+            <summary>Orderly application exit was requested.</summary>
+        </member>
+        <member name="T:APIShared.MissionContext">
+            <summary>Immutable mission evidence. Missing data is null, never borrowed from a previous session.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.SessionId">
+            <summary>Monotonically increasing process-local attempt identity, retained on success.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.StartKind">
+            <summary>New game, restored save, or interactive editor operation.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.Mode">
+            <summary>Shared authoritative mode evidence and customization provenance.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.FilePath">
+            <summary>Source file, when provided by the operation.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.MapName">
+            <summary>Display name, when provided by the operation.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.IsRestart">
+            <summary>True only when an explicit restart entry point was observed.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.MapSize">
+            <summary>Square map size in tiles, if known.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.Difficulty">
+            <summary>Vanilla difficulty value, if known.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.LocalPlayerId">
+            <summary>One-based local player ID, if assigned.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.MissionIndex">
+            <summary>Zero-based mission index within a campaign or trail, if known.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.IsHost">
+            <summary>Host role for real multiplayer; null for local or unresolved contexts.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.MapType">
+            <summary>Map objective subtype; distinct from the mission's provenance.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.IsMultiplayerMap">
+            <summary>Whether the map supports multiplayer; this does not indicate connected peers.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.IsSiegeThatEditor">
+            <summary>Whether the editor was explicitly entered in Siege That creation mode.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.IsEditor">
+            <summary>Whether this is either editor operation.</summary>
+        </member>
+        <member name="P:APIShared.MissionContext.IsSave">
+            <summary>Whether gameplay state is being restored, including multiplayer saves.</summary>
+        </member>
+        <member name="T:APIShared.MissionLifecycleNotification">
+            <summary>Immutable publication. End carries the last context captured before retirement.</summary>
+        </member>
+        <member name="P:APIShared.MissionLifecycleNotification.Context">
+            <summary>Context for this attempt or session.</summary>
+        </member>
+        <member name="P:APIShared.MissionLifecycleNotification.Kind">
+            <summary>Initialization, start or end.</summary>
+        </member>
+        <member name="P:APIShared.MissionLifecycleNotification.Phase">
+            <summary>Current or last reached checkpoint.</summary>
+        </member>
+        <member name="P:APIShared.MissionLifecycleNotification.EndReason">
+            <summary>Reason for end, otherwise None.</summary>
+        </member>
+        <member name="P:APIShared.MissionLifecycleNotification.HasStarted">
+            <summary>True if this session reached OnStart.</summary>
+        </member>
+        <member name="P:APIShared.MissionLifecycleNotification.IsReplay">
+            <summary>True only for a late observer's ready-session replay.</summary>
+        </member>
+        <member name="P:APIShared.MissionLifecycleNotification.IsBeforeInitialization">
+            <summary>Whether this checkpoint occurs before loading or native initialization.</summary>
+        </member>
+        <member name="M:APIShared.MissionLifecycleNotification.AsReplay">
+            <summary>Returns a replay marker only for an already successful start publication.</summary>
+        </member>
+        <member name="T:APIShared.IMissionLifecycleCapability">
+            <summary>Owner-bound, process-lifetime lifecycle access. Register on the Unity thread.</summary>
+        </member>
+        <member name="P:APIShared.IMissionLifecycleCapability.Current">
+            <summary>The active ready session, or null while loading/outside a session.</summary>
+        </member>
+        <member name="M:APIShared.IMissionLifecycleCapability.TryRegisterObserver(System.String,System.Action{APIShared.MissionLifecycleNotification},System.Action{APIShared.MissionLifecycleNotification},System.Action{APIShared.MissionLifecycleNotification},APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Register callbacks; replay applies only to OnStart, never initialization mutations.</summary>
         </member>
         <member name="T:APIShared.AivBuildStepContext">
             <summary>Immutable arguments of one native AIV build-step invocation.</summary>
@@ -703,6 +811,357 @@
         </member>
         <member name="F:APIShared.APISharedPlugin.PluginVersion">
             <summary>Current API plugin version.</summary>
+        </member>
+        <member name="T:Shared.GameModeKind">
+            <summary>GameModeKind in the centralized mission policy contract.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.Unknown">
+            <summary>Unknown.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.MapEditor">
+            <summary>MapEditor.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.Campaign">
+            <summary>Campaign.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.StandaloneMission">
+            <summary>StandaloneMission.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.CustomGame">
+            <summary>CustomGame.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.VanillaTrail">
+            <summary>VanillaTrail.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.CustomTrail">
+            <summary>CustomTrail.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.CoopTrail">
+            <summary>CoopTrail.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.SandsOfTime">
+            <summary>SandsOfTime.</summary>
+        </member>
+        <member name="F:Shared.GameModeKind.Tutorial">
+            <summary>Tutorial.</summary>
+        </member>
+        <member name="T:Shared.GameModeLaunchVariant">
+            <summary>GameModeLaunchVariant in the centralized mission policy contract.</summary>
+        </member>
+        <member name="F:Shared.GameModeLaunchVariant.Standard">
+            <summary>Standard.</summary>
+        </member>
+        <member name="F:Shared.GameModeLaunchVariant.Customized">
+            <summary>Customized.</summary>
+        </member>
+        <member name="F:Shared.GameModeLaunchVariant.RestoredCustomizedSave">
+            <summary>RestoredCustomizedSave.</summary>
+        </member>
+        <member name="T:Shared.GameTrailType">
+            <summary>GameTrailType in the centralized mission policy contract.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.FirstEdition">
+            <summary>FirstEdition.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.Warchest">
+            <summary>Warchest.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.Extreme">
+            <summary>Extreme.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.SandsOne">
+            <summary>SandsOne.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.SandsTwo">
+            <summary>SandsTwo.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.SandsThree">
+            <summary>SandsThree.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.SandsFour">
+            <summary>SandsFour.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.SandsFive">
+            <summary>SandsFive.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.SandsSix">
+            <summary>SandsSix.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.SandsSeven">
+            <summary>SandsSeven.</summary>
+        </member>
+        <member name="F:Shared.GameTrailType.SandsEight">
+            <summary>SandsEight.</summary>
+        </member>
+        <member name="T:Shared.GameModeHelper">
+            <summary>GameModeHelper in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameModeHelper.Capture(System.Boolean)">
+            <summary>Reads the central current/pending mission snapshot. The legacy save argument does not override authoritative evidence.</summary>
+        </member>
+        <member name="M:Shared.GameModeHelper.IsRealMultiplayer(System.Boolean)">
+            <summary>Reads mission network identity, or lobby authority outside a mission. This alone never grants gameplay permission.</summary>
+        </member>
+        <member name="M:Shared.GameModeHelper.IsSingleplayerSkirmish(System.Boolean)">
+            <summary>IsSingleplayerSkirmish in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameModeHelper.IsSingleplayerTrail(System.Boolean)">
+            <summary>IsSingleplayerTrail in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameModeHelper.IsSingleplayerSkirmishMode(System.Boolean)">
+            <summary>IsSingleplayerSkirmishMode in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameModeHelper.IsMapEditor">
+            <summary>IsMapEditor in the centralized mission policy contract.</summary>
+        </member>
+        <member name="T:Shared.GameModeSnapshot">
+            <summary>GameModeSnapshot in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameModeSnapshot.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,Shared.GameModeKind,Shared.GameModeLaunchVariant,System.Int32,System.Int32,System.Int32,System.Int32,System.Int32,System.Boolean)">
+            <summary>GameModeSnapshot in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.IsRealMultiplayer">
+            <summary>IsRealMultiplayer in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.IsSingleplayerSkirmishMode">
+            <summary>IsSingleplayerSkirmishMode in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.IsSingleplayerSkirmish">
+            <summary>IsSingleplayerSkirmish in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.IsSingleplayerTrail">
+            <summary>IsSingleplayerTrail in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.IsMapEditor">
+            <summary>IsMapEditor in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.MultiplayerSave">
+            <summary>MultiplayerSave in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.DirectorAvailable">
+            <summary>DirectorAvailable in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.DirectorMultiplayer">
+            <summary>DirectorMultiplayer in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.DirectorSkirmish">
+            <summary>DirectorSkirmish in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.LowLevelNetworked">
+            <summary>LowLevelNetworked in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.PlatformMultiplayer">
+            <summary>PlatformMultiplayer in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.LobbyMembers">
+            <summary>LobbyMembers in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.RealLobbyMembers">
+            <summary>RealLobbyMembers in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.SkirmishLobbyMembers">
+            <summary>SkirmishLobbyMembers in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.GameMembers">
+            <summary>GameMembers in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.RealNetworkGameMembers">
+            <summary>RealNetworkGameMembers in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.GameType">
+            <summary>GameType in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.SkirmishGameType">
+            <summary>SkirmishGameType in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.SkirmishTrailType">
+            <summary>Native trail type: 0..2 Vanilla, 11..18 Sands of Time; -1 when absent.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.CoopTrailId">
+            <summary>Native one-based Coop trail ID (1..4); zero when absent.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.Kind">
+            <summary>Kind in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.LaunchVariant">
+            <summary>LaunchVariant in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.IsCustomized">
+            <summary>IsCustomized in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.IsMissionContent">
+            <summary>IsMissionContent in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.AllowsCustomGameMods">
+            <summary>AllowsCustomGameMods in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.AllowsRegularGameplayMods">
+            <summary>AllowsRegularGameplayMods in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.CampaignMapId">
+            <summary>Positive native campaign map ID supplied to the loader; zero if not captured. This is distinct from the zero-based mission index.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.EventTrailType">
+            <summary>EventTrailType in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.CustomizedTrailId">
+            <summary>CustomizedTrailId in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.CustomizedMissionId">
+            <summary>CustomizedMissionId in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.CustomizedOriginKind">
+            <summary>CustomizedOriginKind in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameModeSnapshot.HasConflictingCustomizedOrigin">
+            <summary>HasConflictingCustomizedOrigin in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameModeSnapshot.ToDiagnosticString">
+            <summary>ToDiagnosticString in the centralized mission policy contract.</summary>
+        </member>
+        <member name="T:Shared.GameplayModAllowedContext">
+            <summary>GameplayModAllowedContext in the centralized mission policy contract.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.None">
+            <summary>None.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.CustomGame">
+            <summary>CustomGame.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.CustomizedVanillaTrail">
+            <summary>CustomizedVanillaTrail.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.CustomizedCustomTrail">
+            <summary>CustomizedCustomTrail.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.CustomizedCoopTrail">
+            <summary>CustomizedCoopTrail.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.CustomizedSandsOfTime">
+            <summary>CustomizedSandsOfTime.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.MapEditor">
+            <summary>MapEditor.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.Campaign">
+            <summary>Campaign.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.StandaloneMission">
+            <summary>StandaloneMission.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.VanillaTrail">
+            <summary>VanillaTrail.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.CustomTrail">
+            <summary>CustomTrail.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.CoopTrail">
+            <summary>CoopTrail.</summary>
+        </member>
+        <member name="F:Shared.GameplayModAllowedContext.SandsOfTime">
+            <summary>SandsOfTime.</summary>
+        </member>
+        <member name="T:Shared.GameplayModActivationProfile">
+            <summary>GameplayModActivationProfile in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameplayModActivationProfile.#ctor(System.String,System.String,Shared.GameplayModAllowedContext)">
+            <summary>GameplayModActivationProfile in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameplayModActivationProfile.ModGuid">
+            <summary>ModGuid in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameplayModActivationProfile.DisplayName">
+            <summary>DisplayName in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameplayModActivationProfile.AllowedContexts">
+            <summary>AllowedContexts in the centralized mission policy contract.</summary>
+        </member>
+        <member name="T:Shared.GameplayModModePolicy">
+            <summary>Single typed source of truth for mode permissions of regular gameplay mods.</summary>
+        </member>
+        <member name="M:Shared.GameplayModModePolicy.GetProfile(System.String,System.String)">
+            <summary>GetProfile in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameplayModModePolicy.IsAllowed(Shared.GameplayModActivationProfile,Shared.GameModeSnapshot,System.String@)">
+            <summary>IsAllowed in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameplayModModePolicy.ResolveContext(Shared.GameModeSnapshot)">
+            <summary>ResolveContext in the centralized mission policy contract.</summary>
+        </member>
+        <member name="T:Shared.GameplayFeatureId">
+            <summary>GameplayFeatureId in the centralized mission policy contract.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.BuildingCostTooltip">
+            <summary>BuildingCostTooltip.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.BuildingLimitEnforcement">
+            <summary>BuildingLimitEnforcement.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.UnitCostEnforcement">
+            <summary>UnitCostEnforcement.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.UnitLimitEnforcement">
+            <summary>UnitLimitEnforcement.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.LordHealthMultipliers">
+            <summary>LordHealthMultipliers.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.EndlessExtremePowersRecharge">
+            <summary>EndlessExtremePowersRecharge.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.RandomEventsRuntime">
+            <summary>RandomEventsRuntime.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.ImprovedHunterTargetSelection">
+            <summary>ImprovedHunterTargetSelection.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.ImprovedHunterPathfinding">
+            <summary>ImprovedHunterPathfinding.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.CastleSpawning">
+            <summary>CastleSpawning.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.FreeCastlePreview">
+            <summary>FreeCastlePreview.</summary>
+        </member>
+        <member name="F:Shared.GameplayFeatureId.CastleBlueprints">
+            <summary>CastleBlueprints.</summary>
+        </member>
+        <member name="T:Shared.GameplayFeatureActivationProfile">
+            <summary>GameplayFeatureActivationProfile in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameplayFeatureActivationProfile.#ctor(System.String,Shared.GameplayFeatureId,Shared.GameplayModAllowedContext,System.Boolean)">
+            <summary>GameplayFeatureActivationProfile in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameplayFeatureActivationProfile.ModGuid">
+            <summary>ModGuid in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameplayFeatureActivationProfile.FeatureId">
+            <summary>FeatureId in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameplayFeatureActivationProfile.AllowedContexts">
+            <summary>AllowedContexts in the centralized mission policy contract.</summary>
+        </member>
+        <member name="P:Shared.GameplayFeatureActivationProfile.AllowRealMultiplayer">
+            <summary>AllowRealMultiplayer in the centralized mission policy contract.</summary>
+        </member>
+        <member name="T:Shared.GameplayFeatureModePolicy">
+            <summary>
+            Typed source of truth for features that intentionally have a narrower
+            mode contract than their owning gameplay mod.
+            </summary>
+        </member>
+        <member name="M:Shared.GameplayFeatureModePolicy.GetProfile(System.String,Shared.GameplayFeatureId)">
+            <summary>GetProfile in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameplayFeatureModePolicy.IsAllowed(System.String,Shared.GameplayFeatureId,Shared.GameModeSnapshot)">
+            <summary>IsAllowed in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameplayFeatureModePolicy.IsAllowed(Shared.GameplayFeatureActivationProfile,Shared.GameModeSnapshot,System.String@)">
+            <summary>IsAllowed in the centralized mission policy contract.</summary>
+        </member>
+        <member name="M:Shared.GameplayFeatureModePolicy.LogDecisions(BepInEx.Logging.ManualLogSource,System.String,Shared.GameModeSnapshot,System.String)">
+            <summary>LogDecisions in the centralized mission policy contract.</summary>
         </member>
     </members>
 </doc>

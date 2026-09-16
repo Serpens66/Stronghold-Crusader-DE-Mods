@@ -14,6 +14,11 @@
     <DefineConstants>$(DefineConstants);SHARED_PRESET_TESTS</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\APIShared\src\MissionLifecycleContracts.cs" />
+    <Compile Include="..\..\APIShared\src\MissionLifecycleState.cs" />
+    <Compile Include="..\HostClientPresetTests\MissionTestEnvironment.cs" />
+    <Reference Include="R3"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll</HintPath></Reference>
+
     <Compile Include="..\..\CastlePlanner\src\CastleSpawnCompatibility.cs">
       <Link>CastleSpawnCompatibility.cs</Link>
     </Compile>
@@ -59,6 +64,7 @@
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
       <Private>true</Private>
     </Reference>
+  <Compile Include="..\..\APIShared\src\MissionModePolicy.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
@@ -80,10 +86,10 @@
     <Compile Include="..\..\Shared\GameplayModActivationGate.cs">
       <Link>GameplayModActivationGate.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\GameplayModModePolicy.cs">
+    <Compile Include="..\..\APIShared\src\GameplayModModePolicy.cs">
       <Link>GameplayModModePolicy.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\GameplayFeatureModePolicy.cs">
+    <Compile Include="..\..\APIShared\src\GameplayFeatureModePolicy.cs">
       <Link>GameplayFeatureModePolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\StartConditions\src\StartConditionsMapSessionState.cs">

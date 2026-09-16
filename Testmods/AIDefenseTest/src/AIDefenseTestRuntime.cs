@@ -83,16 +83,15 @@ namespace AIDefenseTest
             if (applied)
                 return;
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(OnStartMap));
+            subscriptions.Add(Shared.MissionEvents.Started
+                .Where(args => args.Context.Mode.Kind != Shared.GameModeKind.Tutorial && args.Context.Mode.Kind != Shared.GameModeKind.Unknown)
+                .Subscribe(args =>
+            {
+                if (args.Context.IsSave) OnLoadSave(args);
+                else OnStartMap(args);
+            }));
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post && args.ReturnValue > 0)
-                .Subscribe(OnLoadSave));
-
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap));
 
             subscriptions.Add(TribeR3EventHooks.OnTribeAssignUnit.Observable
@@ -189,7 +188,7 @@ namespace AIDefenseTest
             applied = false;
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnStartMap(APIShared.MissionLifecycleNotification args)
         {
             if (IsMapEditor())
             {
@@ -198,20 +197,20 @@ namespace AIDefenseTest
             }
 
             BeginMap(
-                $"start-map campaignMapId={args.CampaignMapId}, multiplayerSave={args.bMultiplayerSave}");
+                $"start-map campaignMapId={args.Context.Mode.CampaignMapId}, multiplayerSave={(args.Context.IsSave ? (byte)1 : (byte)0)}");
         }
 
-        private void OnLoadSave(LoadSaveGameEventArgs args)
+        private void OnLoadSave(APIShared.MissionLifecycleNotification args)
         {
-            if (args.LoadingEditorMap || IsMapEditor())
+            if ((args.Context.StartKind == APIShared.MissionStartKind.EditorLoaded) || IsMapEditor())
             {
                 DisableForMapEditor(
-                    $"editor-map load file={args.FileName ?? "<null>"}, loadingEditorMap={args.LoadingEditorMap}");
+                    $"editor-map load file={args.Context.FilePath ?? "<null>"}, loadingEditorMap={(args.Context.StartKind == APIShared.MissionStartKind.EditorLoaded)}");
                 return;
             }
 
             BeginMap(
-                $"load-save file={args.FileName ?? "<null>"}, loadingEditorMap={args.LoadingEditorMap}");
+                $"load-save file={args.Context.FilePath ?? "<null>"}, loadingEditorMap={(args.Context.StartKind == APIShared.MissionStartKind.EditorLoaded)}");
         }
 
         private void BeginMap(string reason)
@@ -229,7 +228,7 @@ namespace AIDefenseTest
                 $"Map tracking started: reason={reason}, currentTick={currentTick}, firstScanTick={nextScanTick}.");
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             if (editorBypassActive)
             {
@@ -1048,7 +1047,7 @@ namespace AIDefenseTest
 
         private static bool IsMapEditor()
         {
-            return GamePlayerManagerAPI.Instance?.IsInMapEditor() ?? false;
+            return Shared.GameModeHelper.IsMapEditor();
         }
 
         private bool TryEnsurePrivateTribe(

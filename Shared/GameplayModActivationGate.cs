@@ -20,15 +20,6 @@ namespace Shared
         private static GameModeSnapshot snapshot;
         private static volatile bool isAllowed;
         private static bool initialized;
-        private static bool hasAuthoritativeLoadEvidence;
-        private static GameModeSnapshot authoritativeLoadSnapshot;
-#if !SHARED_PRESET_TESTS
-        private static IDisposable mapLoadSubscription;
-        private static IDisposable gameplaySessionSubscription;
-        private static IDisposable mapStartSubscription;
-        private static IDisposable mapUnloadSubscription;
-#endif
-
         internal static event Action<bool> StateChanged;
 
         internal static bool IsAllowed => isAllowed;
@@ -48,89 +39,14 @@ namespace Shared
             profile = GameplayModModePolicy.GetProfile(modGuid, displayName);
             configuredEnabledProvider = isConfiguredEnabled ?? throw new ArgumentNullException(nameof(isConfiguredEnabled));
 
-            // Install priority handling before SubscribeStarted can replay an active editor session.
-            GameplaySessionLifecycle.SetEditorGate(context =>
+            MissionEvents.SetOwner(modGuid);
+            MissionEvents.SetGate(e =>
             {
-                hasAuthoritativeLoadEvidence = false;
-                authoritativeLoadSnapshot = default;
-                UpdateLoad(context.Mode, $"EditorMapReady({context.Kind}, session={context.EditorSessionId})");
-            }, () => Reset("EditorMapEnded"));
-
-#if !SHARED_PRESET_TESTS
-            // Acquire the required lifecycle before publishing any native gate handlers.
-            // A missing capability must not leave a partially initialized gate behind.
-            gameplaySessionSubscription = GameplaySessionLifecycle.SubscribeStarted(
-                log,
-                context =>
-                {
-                    if (context.IsEditor) return; // The central priority callback owns editor transitions.
-                    if (context.IsLoadedSave)
-                        UpdateLoad(context.Mode, "OnLoadSave(Post)");
-                    else
-                        UpdateStart(context.Mode, "OnStartMap(Post)");
-                });
-            // Register before the mod's own handlers. Castle spawning and similar
-            // native work already begins in OnStartMap(Pre).
-            mapLoadSubscription = MapLoaderR3EventHooks.OnLoadMap.Observable
-                .Subscribe(args => UpdateLoad(GameModeHelper.Capture(args), $"OnLoadMap({args.Phase})"));
-            mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args => UpdateStart(GameModeHelper.Capture(args), "OnStartMap(Pre)"));
-            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Subscribe(args =>
-                {
-                    if (args.Phase == EventHookPhase.Pre)
-                        Reset("OnUnloadMap(Pre)");
-                });
-#endif
+                if (e.Kind == APIShared.MissionLifecycleKind.End) Reset("MissionEnd");
+                else Update(e.Context.Mode, $"Mission{e.Kind}({e.Phase}, session={e.Context.SessionId})");
+            });
             initialized = true;
             LogTransition("initialization", policyChanged: false);
-        }
-
-        private static void UpdateLoad(GameModeSnapshot next, string source)
-        {
-            if (hasAuthoritativeLoadEvidence)
-                next = MergeWithAuthoritativeLoad(next);
-            if (HasAuthoritativeLoadEvidence(next))
-            {
-                authoritativeLoadSnapshot = next;
-                hasAuthoritativeLoadEvidence = true;
-            }
-            Update(next, source);
-        }
-
-        private static bool HasAuthoritativeLoadEvidence(GameModeSnapshot candidate) =>
-            candidate.Kind == GameModeKind.MapEditor ||
-            candidate.CampaignMapId > 0 ||
-            candidate.EventTrailType >= 0 ||
-            (candidate.Kind == GameModeKind.CoopTrail && candidate.CoopTrailId > 0) ||
-            (candidate.Kind == GameModeKind.CustomTrail &&
-             candidate.SkirmishGameType ==
-                 (int)global::Enums.eSkirmishGameMode.SKIRMISH_GAME_CUSTOM_TRAIL) ||
-            (candidate.IsMissionContent && candidate.IsCustomized);
-
-        private static void UpdateStart(GameModeSnapshot next, string source)
-        {
-            if (hasAuthoritativeLoadEvidence)
-                next = MergeWithAuthoritativeLoad(next);
-            Update(next, source);
-        }
-
-        private static GameModeSnapshot MergeWithAuthoritativeLoad(GameModeSnapshot next)
-        {
-            if (authoritativeLoadSnapshot.Kind == GameModeKind.MapEditor)
-                return authoritativeLoadSnapshot;
-            if ((next.Kind == GameModeKind.CustomGame || next.Kind == GameModeKind.Unknown) &&
-                authoritativeLoadSnapshot.IsMissionContent)
-            {
-                return authoritativeLoadSnapshot;
-            }
-            if (next.Kind == authoritativeLoadSnapshot.Kind &&
-                authoritativeLoadSnapshot.IsCustomized && !next.IsCustomized)
-            {
-                return authoritativeLoadSnapshot;
-            }
-            return next;
         }
 
         private static void Update(GameModeSnapshot next, string source)
@@ -157,8 +73,6 @@ namespace Shared
             bool previousAllowed = isAllowed;
             isAllowed = false;
             snapshot = default;
-            hasAuthoritativeLoadEvidence = false;
-            authoritativeLoadSnapshot = default;
             if (changed)
                 LogTransition(source, previousAllowed != isAllowed);
             if (previousAllowed)
@@ -216,8 +130,8 @@ namespace Shared
 
 #if SHARED_PRESET_TESTS
         internal static void SetSnapshotForTests(GameModeSnapshot next) => Update(next, "test");
-        internal static void SetLoadSnapshotForTests(GameModeSnapshot next) => UpdateLoad(next, "test-load");
-        internal static void SetStartSnapshotForTests(GameModeSnapshot next) => UpdateStart(next, "test-start");
+        internal static void SetLoadSnapshotForTests(GameModeSnapshot next) => Update(next, "test-load");
+        internal static void SetStartSnapshotForTests(GameModeSnapshot next) => Update(next, "test-start");
         internal static void ResetForTests()
         {
             profile = GameplayModModePolicy.GetProfile("ExtraFeatures_Serp", "Extra Features");

@@ -417,11 +417,10 @@ namespace BugfixesAndQoL
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(OnBuildingDelete));
             // SaveLifecycle: ResetOnly - save loading already enters OnUnloadMap(Pre).
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            subscriptions.Add(Shared.MissionEvents.NativeStart
+                .Where(args => args.IsBeforeInitialization)
                 .Subscribe(_ => ResetConflictState()));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(_ => ResetConflictState()));
         }
 

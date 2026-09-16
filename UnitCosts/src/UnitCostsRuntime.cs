@@ -94,10 +94,9 @@ namespace UnitCosts
                 return;
 
             TrySubscribeFeature("gameplay session start", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, () => OnUnloadMap(null)));
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
 
-            TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
+            TrySubscribeFeature("map unload", () => Shared.MissionEvents.Ended
                     .Subscribe(OnUnloadMap));
 
             TrySubscribeFeature("placement validation", () => BuildingR3EventHooks.OnPlacementValidation.Observable
@@ -255,7 +254,7 @@ namespace UnitCosts
             }
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             HideMaterialMessage();
         }

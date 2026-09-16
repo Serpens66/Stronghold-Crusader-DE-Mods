@@ -337,17 +337,12 @@ namespace BugfixesAndQoL
                 .Subscribe(OnTargetOrder));
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                 .Subscribe(OnMoveOrder));
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(args => OnMapStart()));
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            subscriptions.Add(Shared.MissionEvents.Started
+                .Subscribe(args => { if (args.Context.IsSave) RefreshMapContext(); else OnMapStart(); }));
+            subscriptions.Add(Shared.MissionEvents.SaveLoading
+                .Where(args => args.IsBeforeInitialization)
                 .Subscribe(args => ResetMapState()));
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(Shared.GameplaySessionLifecycle.IsSuccessfulSavePost)
-                .Subscribe(args => RefreshMapContext()));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(args => ResetMapState()));
             GameTimeManagerAPI.Instance.OnTick += OnTick;
 

@@ -34,7 +34,7 @@ namespace APISharedTests
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestLobbyStateCapability();
-            EditorMapLifecycleTests.Run(Assert);
+            MissionLifecycleTests.Run(Assert);
             TestUnitHudVariantContracts();
             TestUnitHudLiveSelectionCounts();
             TestUnitHudSelectionIdentity();
@@ -496,7 +496,7 @@ namespace APISharedTests
                 unitHud.Contains("recruitmentGameActionOriginal(command, structureId, state, value2)") &&
                 !virtualRuntime.Contains("GameAction(Enums.GameActionCommand.MakeTroop"),
                 "recruitment variants must observe Vanilla's one MakeTroop action instead of issuing a second action");
-            Assert(unitHud.Contains("MapLoaderR3EventHooks.OnUnloadMap") && unitHud.Contains("activeRecruitment.Clear()") &&
+            Assert(unitHud.Contains("Shared.MissionEvents.Ended") && unitHud.Contains("activeRecruitment.Clear()") &&
                 unitHud.Contains("APISharedUnitDetailHost"),
                 "recruitment map reset or unit-detail host is missing");
             Assert(unitHud.Contains("if (updateSpritesActive)") &&
@@ -640,8 +640,8 @@ namespace APISharedTests
                 Count(lobbyState, "getActiveLobbyMembersOriginal(self, coopGame)") == 1 &&
                 Count(lobbyState, "leaveLobbyOriginal(self, startGame)") == 1 &&
                 lobbyState.Contains("private const int FallbackFrames = 15") &&
-                lobbyState.Contains("MapLoaderR3EventHooks.OnStartMap") &&
-                lobbyState.Contains("MapLoaderR3EventHooks.OnUnloadMap"),
+                lobbyState.Contains("Shared.MissionEvents.Initialization") &&
+                lobbyState.Contains("Shared.MissionEvents.Ended"),
                 "APIShared must own exactly one managed lobby observer with one-call detours and map-aware fallback polling");
             Assert(sharedPreset.Contains("TryGetLobbyState") &&
                 sharedPreset.Contains("API_SHARED_LOBBY_OBSERVER") &&
@@ -778,11 +778,25 @@ namespace APISharedTests
                 "unit-HUD image slots must retain the four-slot prefix and deterministic seven-slot order");
             var expected = new HashSet<string>(StringComparer.Ordinal)
             {
-                "APIShared.EditorMapOrigin",
-                "APIShared.EditorMapLifecycleKind",
-                "APIShared.EditorMapEndReason",
-                "APIShared.EditorMapLifecycleNotification",
-                "APIShared.IEditorMapLifecycleCapability",
+                "APIShared.MissionStartKind",
+                "APIShared.MissionMapType",
+                "APIShared.MissionLifecycleKind",
+                "APIShared.MissionInitializationPhase",
+                "APIShared.MissionEndReason",
+                "APIShared.MissionContext",
+                "APIShared.MissionLifecycleNotification",
+                "APIShared.IMissionLifecycleCapability",
+                "Shared.GameModeKind",
+                "Shared.GameModeLaunchVariant",
+                "Shared.GameTrailType",
+                "Shared.GameModeSnapshot",
+                "Shared.GameModeHelper",
+                "Shared.GameplayModAllowedContext",
+                "Shared.GameplayModActivationProfile",
+                "Shared.GameplayModModePolicy",
+                "Shared.GameplayFeatureId",
+                "Shared.GameplayFeatureActivationProfile",
+                "Shared.GameplayFeatureModePolicy",
                 "APIShared.GatehouseDistanceOrigin",
                 "APIShared.GatehouseTimingSettings",
                 "APIShared.GatehouseTimingValues",
@@ -857,7 +871,7 @@ namespace APISharedTests
                 "TryGetUnitHudPresentation",
                 "TryGetAivBuildStep",
                 "TryGetLobbyState",
-                "TryGetEditorMapLifecycle"
+                "TryGetMissionLifecycle"
             };
             foreach (MethodInfo method in typeof(IApiShared).GetMethods())
                 expectedAcquisitionMethods.Remove(method.Name);

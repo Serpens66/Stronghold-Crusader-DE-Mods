@@ -248,7 +248,7 @@ namespace BugfixesAndQoL
                     TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
                         .Subscribe(OnTribeIssueOrderWithTarget));
                 newSubscriptions.Add(
-                    MapLoaderR3EventHooks.OnUnloadMap.Observable
+                    Shared.MissionEvents.Ended
                         .Subscribe(OnUnloadMap));
 
                 spearmanMovementPatch = newSpearmanMovementPatch;
@@ -339,11 +339,8 @@ namespace BugfixesAndQoL
             TryApplyMixedGroupSynchronization(args.TribeId);
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
-            if (args.Phase != EventHookPhase.Post)
-                return;
-
             ClearSynchronization();
         }
 

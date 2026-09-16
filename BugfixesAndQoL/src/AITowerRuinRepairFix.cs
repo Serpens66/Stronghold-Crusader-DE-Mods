@@ -245,14 +245,13 @@ namespace BugfixesAndQoL
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(args => RemoveTrackedRuin(args.BuildingId)));
             // SaveLifecycle: NewMapOnly - Pre clears state before Vanilla creates the new castle.
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            subscriptions.Add(Shared.MissionEvents.NativeStart
+                .Where(args => args.IsBeforeInitialization)
                 .Subscribe(_ => ResetMap()));
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                OnSessionStarted, onEditorEnded: ResetMap));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+                OnSessionStarted));
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(_ => ResetMap()));
         }
 

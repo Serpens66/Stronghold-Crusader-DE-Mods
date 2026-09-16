@@ -93,13 +93,12 @@ namespace StartConditions
                     if (context.IsEditor)
                         ResetMapSession(); // An editor session must never apply gameplay start resources/troops.
                     else if (context.IsLoadedSave)
-                        OnLoadSave(context.SaveLoad);
+                        OnLoadSave(context.Notification);
                     else
-                        OnStartMap(context.MapStart);
-                }, onEditorEnded: ResetMapSession));
+                        OnStartMap(context.Notification);
+                }));
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap));
 
             LogDebug("Start conditions runtime hooks subscribed");

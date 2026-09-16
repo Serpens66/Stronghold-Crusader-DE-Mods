@@ -192,28 +192,20 @@ namespace BugfixesAndQoL
                     "gameplay-session start subscription",
                     () => mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                         log,
-                        BeginGameplaySession, EndEditorSession));
+                        BeginGameplaySession));
             }
 
             if (mapUnloadSubscription == null)
             {
                 TryInitializePersistentFeature(
                     "multiplayer map-unload subscription",
-                    () => mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
-                        .Where(args => args.Phase == EventHookPhase.Post)
-                        .Subscribe(_ =>
-                        {
-                            ResetMovedFeatureMapState();
-                            multiplayerGameSpeedRuntime.ResetMapState();
-                            assassinClimbRuntime.EndMap();
-                            assassinPathfindingRuntime.EndMap();
-                            multiplayerFeatureGate.Reset();
-                        }));
+                    () => mapUnloadSubscription = Shared.MissionEvents.Ended
+                        .Subscribe(_ => EndGameplaySession()));
             }
 
         }
 
-        private void EndEditorSession()
+        private void EndGameplaySession()
         {
             ResetMovedFeatureMapState();
             multiplayerGameSpeedRuntime.ResetMapState();
@@ -225,7 +217,7 @@ namespace BugfixesAndQoL
         private void BeginGameplaySession(Shared.GameplaySessionStartedContext context)
         {
             multiplayerFeatureGate.CaptureMapMode(
-                context.MapStart != null && context.MapStart.bMultiplayerSave != 0);
+                context.Notification != null && context.Notification.Context.IsSave && context.Mode.IsRealMultiplayer);
             // Restored customized-save origins are pending until the destination session exists.
             if (!context.IsEditor)
                 TrailCustomizationLaunchOriginApi.MarkMapStarted();

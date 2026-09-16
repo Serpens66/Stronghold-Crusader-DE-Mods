@@ -7,6 +7,7 @@ namespace VirtualUnitsPrototype
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
     [BepInDependency(ApiSharedGuid, "0.3.2")]
+    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class VirtualUnitsPlugin : BaseUnityPlugin
     {

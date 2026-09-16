@@ -82,9 +82,8 @@ namespace MoatMove
             {
                 mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     persistentLog,
-                    _ => ObserveMapStart(), ObserveMapUnload);
-                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    _ => ObserveMapStart());
+                mapUnloadSubscription = Shared.MissionEvents.Ended
                     .Subscribe(_ => ObserveMapUnload());
                 GameTimeManagerAPI.Instance.OnTick += ObserveMapTick;
             }

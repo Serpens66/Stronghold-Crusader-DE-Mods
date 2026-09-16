@@ -198,9 +198,8 @@ namespace CastlePlanner
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<FreeCastlePacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacket);
             // SaveLifecycle: NewMapOnly - preview pause must surround a newly committed launch.
-            mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(OnStartMap);
-            mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(OnStartMap);
+            mapUnloadSubscription = Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap);
 
             MethodInfo action = typeof(EngineInterface).GetMethod(
@@ -308,9 +307,9 @@ namespace CastlePlanner
             leaveLobbyTrampoline(self, preserveGameMembers);
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnStartMap(APIShared.MissionLifecycleNotification args)
         {
-            if (args.Phase == EventHookPhase.Pre)
+            if (args.IsBeforeInitialization)
             {
                 if (state == PreviewState.RestartCommitted)
                 {
@@ -342,7 +341,7 @@ namespace CastlePlanner
                 return;
             }
 
-            if (args.Phase == EventHookPhase.Post &&
+            if (!args.IsBeforeInitialization &&
                 state == PreviewState.AwaitingGameplay)
             {
                 ApplyPause(true);
@@ -353,16 +352,16 @@ namespace CastlePlanner
             }
         }
 
-        private bool ShouldStartPreview(MapStartEventArgs args)
+        private bool ShouldStartPreview(APIShared.MissionLifecycleNotification args)
         {
             if (!IsFeatureModeAllowed() ||
-                !settings.IsSpawnMode || args.bMultiplayerSave != 0 || args.CampaignMapId != 0)
+                !settings.IsSpawnMode || args.Context.IsSave || args.Context.Mode.CampaignMapId != 0)
                 return false;
             Shared.GameModeSnapshot mode = Shared.GameplayModActivationGate.Snapshot;
             return mode.IsRealMultiplayer || mode.IsSingleplayerSkirmishMode;
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             if (state == PreviewState.RestartCommitted)
                 return;

@@ -114,14 +114,13 @@ namespace ExtraFeatures
             subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable.Subscribe(OnBuildingSpawn));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnDefenseDamage));
             // SaveLifecycle: NewMapOnly - Pre surrounds Vanilla's initial finished-castle spawns.
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            subscriptions.Add(Shared.MissionEvents.NativeStart
+                .Where(args => args.IsBeforeInitialization)
                 .Subscribe(OnStartMap));
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                OnSessionStarted, onEditorEnded: ResetMap));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post).Subscribe(_ => ResetMap()));
+                OnSessionStarted));
+            subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ => ResetMap()));
             initialized = true;
             Shared.DebugLogHelper.LogDebug(log, "AI defense repair and rebuild runtime initialized.");
         }
@@ -226,13 +225,13 @@ namespace ExtraFeatures
             ResetMap();
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnStartMap(APIShared.MissionLifecycleNotification args)
         {
-            if (args.Phase == EventHookPhase.Pre)
+            if (args.IsBeforeInitialization)
             {
                 mapActive = false;
                 ResetState();
-                CaptureGameMode(args.bMultiplayerSave != 0);
+                CaptureGameMode(args.Context.IsSave && args.Context.Mode.IsRealMultiplayer);
                 mapPrepared = true;
                 return;
             }

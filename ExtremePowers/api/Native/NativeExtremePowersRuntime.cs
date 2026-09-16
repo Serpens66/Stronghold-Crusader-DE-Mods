@@ -98,7 +98,9 @@ namespace ExtremePowers.API
                     ?? throw new MissingMethodException(typeof(HUD_ExtremePowers).FullName, ".ctor()");
                 extremeHudConstructorHook = new Hook(hudConstructor, (ExtremeHudConstructorDelegate)ConstructExtremeHud);
                 originalExtremeHudConstructor = extremeHudConstructorHook.GenerateTrampoline<ExtremeHudConstructorDelegate>();
-                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable.Where(args => args.Phase == EventHookPhase.Post).Subscribe(OnUnloadMap);
+
+                Shared.MissionEvents.SetOwner("ExtremePowers_Serp");
+                mapUnloadSubscription = Shared.MissionEvents.Ended.Subscribe(OnUnloadMap);
             }
             catch
             {
@@ -267,7 +269,7 @@ namespace ExtremePowers.API
             }
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             for (int player = 1; player < regenerationAccumulators.Length; player++) regenerationAccumulators[player].Reset();
             Array.Clear(resourceManaBefore, 0, resourceManaBefore.Length);

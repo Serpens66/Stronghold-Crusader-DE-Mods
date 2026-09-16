@@ -302,12 +302,8 @@ namespace BugfixesAndQoL
             }
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                context => ResetSession("session-start:" + context.Kind), () => ResetSession("editor-ended")));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(args =>
-            {
-                if (args.Phase == EventHookPhase.Post)
-                    ResetSession("map-unload");
-            }));
+                context => ResetSession("session-start:" + context.Kind)));
+            subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ => ResetSession("mission-end")));
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
 
             initialized = true;

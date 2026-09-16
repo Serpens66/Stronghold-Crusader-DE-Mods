@@ -42,9 +42,8 @@ namespace CheatMod
             if (initialized)
                 return;
 
-            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => BeginMap(), EndMap));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(log, _ => BeginMap()));
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(_ => EndMap()));
             settings.SettingChanged += OnSettingChanged;
             try

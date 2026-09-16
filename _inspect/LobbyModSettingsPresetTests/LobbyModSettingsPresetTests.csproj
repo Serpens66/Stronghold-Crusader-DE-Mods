@@ -20,6 +20,11 @@
     <ExtenderDir>$(MSBuildThisFileDirectory)..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481</ExtenderDir>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\..\APIShared\src\MissionLifecycleContracts.cs" />
+    <Compile Include="..\..\APIShared\src\MissionLifecycleState.cs" />
+    <Compile Include="..\HostClientPresetTests\MissionTestEnvironment.cs" />
+    <Reference Include="R3"><HintPath>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll</HintPath></Reference>
+
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
@@ -30,6 +35,7 @@
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>true</Private></Reference>
+  <Compile Include="..\..\APIShared\src\MissionModePolicy.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>

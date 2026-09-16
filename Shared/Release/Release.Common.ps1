@@ -481,14 +481,14 @@ function Get-ReleaseChangeLines {
 
 function Get-ExtenderDirectory {
     param([Parameter(Mandatory)]$Metadata)
-    $localRoot = Join-Path $Metadata.Config.Root 'shcde-script-extender'
+    $localRoot = [IO.Path]::Combine($Metadata.Config.Root, 'shcde-script-extender')
     $candidates = @(
-        (Join-Path $Metadata.Config.GameDir 'BepInEx\plugins\000shcdese'),
-        (Join-Path $localRoot 'mod_output\000shcdese'),
-        (Join-Path $localRoot 'src\SHCDESE.BepInEx\bin\net481')
+        ([IO.Path]::Combine($Metadata.Config.GameDir, 'BepInEx\plugins\000shcdese')),
+        ([IO.Path]::Combine($localRoot, 'mod_output\000shcdese')),
+        ([IO.Path]::Combine($localRoot, 'src\SHCDESE.BepInEx\bin\net481'))
     )
     foreach ($candidate in $candidates) {
-        if (Test-Path -LiteralPath (Join-Path $candidate 'SHCDESE.dll')) {
+        if (Test-Path -LiteralPath ([IO.Path]::Combine($candidate, 'SHCDESE.dll'))) {
             return (Resolve-Path -LiteralPath $candidate).Path
         }
     }

@@ -4,25 +4,40 @@ using System.Collections.Generic;
 
 namespace Shared
 {
-    internal enum GameplayFeatureId
+    /// <summary>GameplayFeatureId in the centralized mission policy contract.</summary>
+    public enum GameplayFeatureId
     {
+        /// <summary>BuildingCostTooltip.</summary>
         BuildingCostTooltip,
+        /// <summary>BuildingLimitEnforcement.</summary>
         BuildingLimitEnforcement,
+        /// <summary>UnitCostEnforcement.</summary>
         UnitCostEnforcement,
+        /// <summary>UnitLimitEnforcement.</summary>
         UnitLimitEnforcement,
+        /// <summary>LordHealthMultipliers.</summary>
         LordHealthMultipliers,
+        /// <summary>EndlessExtremePowersRecharge.</summary>
         EndlessExtremePowersRecharge,
+        /// <summary>RandomEventsRuntime.</summary>
         RandomEventsRuntime,
+        /// <summary>ImprovedHunterTargetSelection.</summary>
         ImprovedHunterTargetSelection,
+        /// <summary>ImprovedHunterPathfinding.</summary>
         ImprovedHunterPathfinding,
+        /// <summary>CastleSpawning.</summary>
         CastleSpawning,
+        /// <summary>FreeCastlePreview.</summary>
         FreeCastlePreview,
+        /// <summary>CastleBlueprints.</summary>
         CastleBlueprints,
     }
 
-    internal readonly struct GameplayFeatureActivationProfile
+    /// <summary>GameplayFeatureActivationProfile in the centralized mission policy contract.</summary>
+    public readonly struct GameplayFeatureActivationProfile
     {
-        internal GameplayFeatureActivationProfile(
+        /// <summary>GameplayFeatureActivationProfile in the centralized mission policy contract.</summary>
+        public GameplayFeatureActivationProfile(
             string modGuid,
             GameplayFeatureId featureId,
             GameplayModAllowedContext allowedContexts,
@@ -34,17 +49,21 @@ namespace Shared
             AllowRealMultiplayer = allowRealMultiplayer;
         }
 
-        internal string ModGuid { get; }
-        internal GameplayFeatureId FeatureId { get; }
-        internal GameplayModAllowedContext AllowedContexts { get; }
-        internal bool AllowRealMultiplayer { get; }
+        /// <summary>ModGuid in the centralized mission policy contract.</summary>
+        public string ModGuid { get; }
+        /// <summary>FeatureId in the centralized mission policy contract.</summary>
+        public GameplayFeatureId FeatureId { get; }
+        /// <summary>AllowedContexts in the centralized mission policy contract.</summary>
+        public GameplayModAllowedContext AllowedContexts { get; }
+        /// <summary>AllowRealMultiplayer in the centralized mission policy contract.</summary>
+        public bool AllowRealMultiplayer { get; }
     }
 
     /// <summary>
     /// Typed source of truth for features that intentionally have a narrower
     /// mode contract than their owning gameplay mod.
     /// </summary>
-    internal static class GameplayFeatureModePolicy
+    public static class GameplayFeatureModePolicy
     {
         private const GameplayModAllowedContext NonEditorGameplayContexts =
             GameplayModAllowedContext.CustomGame |
@@ -67,7 +86,8 @@ namespace Shared
         private static readonly Dictionary<GameplayFeatureId, bool> LoggedDecisions =
             new Dictionary<GameplayFeatureId, bool>();
 
-        internal static GameplayFeatureActivationProfile GetProfile(
+        /// <summary>GetProfile in the centralized mission policy contract.</summary>
+        public static GameplayFeatureActivationProfile GetProfile(
             string modGuid,
             GameplayFeatureId featureId)
         {
@@ -139,7 +159,8 @@ namespace Shared
                 allowRealMultiplayer);
         }
 
-        internal static bool IsAllowed(
+        /// <summary>IsAllowed in the centralized mission policy contract.</summary>
+        public static bool IsAllowed(
             string modGuid,
             GameplayFeatureId featureId,
             GameModeSnapshot snapshot)
@@ -156,7 +177,8 @@ namespace Shared
             }
         }
 
-        internal static bool IsAllowed(
+        /// <summary>IsAllowed in the centralized mission policy contract.</summary>
+        public static bool IsAllowed(
             GameplayFeatureActivationProfile profile,
             GameModeSnapshot snapshot,
             out string reason)
@@ -194,7 +216,8 @@ namespace Shared
             return true;
         }
 
-        internal static void LogDecisions(
+        /// <summary>LogDecisions in the centralized mission policy contract.</summary>
+        public static void LogDecisions(
             ManualLogSource log,
             string modGuid,
             GameModeSnapshot snapshot,
@@ -227,10 +250,12 @@ namespace Shared
         }
 
 #if SHARED_PRESET_TESTS
-        internal static bool RecordDecisionForTests(GameplayFeatureId featureId, bool allowed) =>
+        /// <summary>RecordDecisionForTests in the centralized mission policy contract.</summary>
+        public static bool RecordDecisionForTests(GameplayFeatureId featureId, bool allowed) =>
             RecordDecision(featureId, allowed);
 
-        internal static void ResetLoggedDecisionsForTests()
+        /// <summary>ResetLoggedDecisionsForTests in the centralized mission policy contract.</summary>
+        public static void ResetLoggedDecisionsForTests()
         {
             lock (LogSync)
                 LoggedDecisions.Clear();

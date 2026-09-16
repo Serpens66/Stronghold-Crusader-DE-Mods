@@ -220,16 +220,9 @@ namespace BugfixesAndQoL
                     context =>
                     {
                         BeginMapState();
-                        if (context.IsEditor) OnMapContentLoaded();
-                    }, onEditorEnded: EndMapState));
-                subscriptions.Add(MapLoaderR3EventHooks.OnLoadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
-                    .Subscribe(_ => OnMapContentLoaded()));
-                subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                    .Where(args => Shared.GameplaySessionLifecycle.IsSuccessfulSavePost(args) && !args.LoadingEditorMap)
-                    .Subscribe(_ => OnMapContentLoaded()));
-                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
+                        OnMapContentLoaded();
+                    }));
+                subscriptions.Add(Shared.MissionEvents.Ended
                     .Subscribe(_ => EndMapState()));
                 subscriptions.Add(BuildingR3EventHooks.OnBuildingSpawn.Observable
                     .Subscribe(OnBuildingSpawn));

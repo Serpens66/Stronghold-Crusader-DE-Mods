@@ -1,0 +1,45 @@
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ExtendedData\ExtendedData.Core\ExtendedData.Core.csproj : warning NU1900: Fehler beim Abrufen von Paketsicherheitsrisikodaten: Der Dienstindex für die Quelle "https://api.nuget.org/v3/index.json" konnte nicht geladen werden. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ExtendedData\ExtendedData.Tests\ExtendedData.Tests.csproj]
+D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\ExtendedData\ExtendedData.Core\ExtendedData.Core.csproj : warning NU1900: Fehler beim Abrufen von Paketsicherheitsrisikodaten: Der Dienstindex für die Quelle "https://api.nuget.org/v3/index.json" konnte nicht geladen werden.
+PASS bundled mission loads
+PASS Coop mission modsettings use an optional sidecar
+PASS path escape rejected
+PASS invalid rotation rejected
+PASS package catalog rejects invalid packages
+PASS package catalog logs only state changes
+PASS package catalog reports new and resolved errors
+PASS old mission schemas are rejected
+PASS old Coop package schema is rejected
+PASS locally edited mission JSON reloads from the same slot
+PASS invalid mod settings are isolated
+PASS first two active players become allied humans
+PASS preferred AIV permits differing rotations
+PASS fourth trail tenth slot is addressable
+PASS package fingerprint detects content changes
+PASS Coop Workshop staging filters modsettings
+PASS duplicate package IDs are rejected
+PASS identical local and Workshop replicas are merged
+PASS ordinal mapping covers four trails and ignores mission 41
+PASS native mod-settings JSON roundtrip
+PASS dynamic third-party mod ids are preserved
+PASS missing mod entry uses the mod-defined default
+PASS Trail mod compatibility contract is validated
+PASS primitive enum migration policy is fail-closed
+PASS explicit plugin opt-out marker is honored
+PASS sidecar schema evolution keeps only current settings
+PASS coop mission schema evolution keeps only current settings
+PASS invalid mod-settings documents are rejected
+PASS atomic sidecar write replaces existing file
+PASS Trail coordinator ownership is centralized
+PASS BugfixesAndQoL Customize button delegation is optional
+PASS customized launch origin is persisted and fail-closed
+PASS customized launch origin save roundtrip
+PASS Built-in Customize origin packet roundtrip
+PASS Steam Workshop discovery waits for Steamworks
+PASS local activation setting gates the complete runtime
+PASS Script Extender manifest range contract is explicit
+PASS Trail Maker Coop export is integrated
+PASS Coop package JSON is Unity dependency-free
+PASS mission and manifest JSON use CRLF
+PASS Workshop Trail staging filters sidecars
+PASS Workshop upload checkbox is unified
+42/42 tests passed.

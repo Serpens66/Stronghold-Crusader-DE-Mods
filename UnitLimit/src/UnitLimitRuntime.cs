@@ -134,10 +134,9 @@ namespace UnitLimit
                 TryInitializeFeature("siege tooltip", () => siegeBuildHoverHook = new SiegeBuildHoverHook(log, UpdateSiegeBuildLimitTooltip, ClearUnitLimitTooltip));
 
             TrySubscribeFeature("gameplay session start", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, () => OnUnloadMap(null)));
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
 
-            TrySubscribeFeature("map unload", () => MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Post)
+            TrySubscribeFeature("map unload", () => Shared.MissionEvents.Ended
                     .Subscribe(OnUnloadMap));
 
             if (activeUnitCacheAvailable && activeSiegeTentCacheAvailable)
@@ -219,7 +218,7 @@ namespace UnitLimit
             ApplyUnitLimits();
         }
 
-        private void OnUnloadMap(MapUnloadEventArgs args)
+        private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
             LogDebug("OnUnloadMap");
             ClearPendingRecruitments("OnUnloadMap");

@@ -49,13 +49,12 @@ namespace EnemyGatePathfindingTest
             {
                 mapStartSubscription = Shared.GameplaySessionLifecycle.SubscribeStarted(
                     persistentLog,
-                    _ => runtime?.BeginMap(), () => runtime?.EndMap("EditorMapEnded"));
+                    _ => runtime?.BeginMap());
             }
             if (mapUnloadSubscription == null)
             {
-                mapUnloadSubscription = MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(_ => runtime?.EndMap("OnUnloadMap(Pre)"));
+                mapUnloadSubscription = Shared.MissionEvents.Ended
+                    .Subscribe(_ => runtime?.EndMap("MissionEnd"));
             }
             if (!beforeRenderInstalled)
             {

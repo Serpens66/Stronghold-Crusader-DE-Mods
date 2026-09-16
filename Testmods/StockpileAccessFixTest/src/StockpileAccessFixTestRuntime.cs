@@ -113,17 +113,12 @@ namespace StockpileAccessFixTest
             if (applied)
                 return;
 
-            subscriptions.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(args => BeginMap($"new map campaignMapId={args.CampaignMapId}")));
-            subscriptions.Add(MapLoaderR3EventHooks.OnLoadSave.Observable
-                .Where(args => args.Phase == EventHookPhase.Post && args.ReturnValue > 0)
-                .Subscribe(args => BeginMap($"loaded save file={args.FileName ?? "<null>"}")));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
+            subscriptions.Add(Shared.MissionEvents.Started
+                .Where(args => !args.Context.IsEditor && args.Context.Mode.Kind != Shared.GameModeKind.Tutorial && args.Context.Mode.Kind != Shared.GameModeKind.Unknown)
+                .Subscribe(args => BeginMap($"mission={args.Context.SessionId}, source={args.Context.StartKind}, file={args.Context.FilePath ?? "<null>"}")));
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(_ => TryRestoreTestBlocker("map unload")));
-            subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
+            subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(_ => EndMap()));
             subscriptions.Add(UnitR3EventHooks.OnUnitMoveHere.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)

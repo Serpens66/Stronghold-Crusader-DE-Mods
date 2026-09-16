@@ -90,9 +90,8 @@ namespace SkinTest
                 subscriptions.Add(UnitR3EventHooks.OnUnitUnityVisualRemove.Observable.Subscribe(OnUnitVisualRemove));
                 subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                     log,
-                    _ => OnMapStarted(), ClearBindings));
-                subscriptions.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    _ => OnMapStarted()));
+                subscriptions.Add(Shared.MissionEvents.Ended
                     .Subscribe(_ => ClearBindings()));
                 LogInfo($"Validated private atlases: swordsman normal={normalSprites.Length}, alternate={alternateSprites.Length}, mask=yes; castle sparse=1467; castle animations=122, mask=no.");
             }

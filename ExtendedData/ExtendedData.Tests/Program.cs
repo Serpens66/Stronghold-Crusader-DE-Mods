@@ -433,7 +433,7 @@ static void TestCoordinatorOwnership()
 
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
     string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
-    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "GameModeHelper.cs"));
+    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "MissionModePolicy.cs"));
     Assert(CountOccurrences(coordinator, "InjectCoopCustomizeButton(pages[index]);") == 1,
         "Coop Trail button registration is not centralized and singular");
     Assert(CountOccurrences(coordinator, "nameof(Platform_Workshop.UploadWorkshopMap)") == 1 &&
@@ -473,9 +473,10 @@ static void TestCoordinatorOwnership()
         !sharedPresetSystem.Contains("ScriptExtenderMultiplayerSyncWorkaround") &&
         !sharedPresetSystem.Contains("EnsureInstalled"),
         "shared per-player convergence does not exclusively consume the process-wide APIShared observer");
-    Assert(sharedGameMode.Contains("SCRIPT EXTENDER BUG WORKAROUND") &&
-        sharedGameMode.Contains("Revalidate all source semantics after every Extender update"),
-        "the shared Script Extender identity workaround is not marked for removal and update review");
+    Assert(sharedGameMode.Contains("bool realMultiplayer = realMultiplayerOverride;") &&
+        sharedGameMode.Contains("APIShared.MissionLifecycleService.Snapshot") &&
+        !sharedGameMode.Contains("multiplayerSave ||"),
+        "mission network identity must come from the common operation, without stale roster fallback");
     Assert(!coordinator.Contains("pendingTrailMakerSaveDocument"),
         "Trail saves still retain a snapshot for the next save operation");
     Assert(coordinator.Contains("!openingCustomTrailSetup") &&
@@ -495,7 +496,7 @@ static void TestCustomizedLaunchOriginIntegration()
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
     string originPacket = File.ReadAllText(Path.Combine(projectRoot, "src", "BuiltInCustomizeOriginPacket.cs"));
-    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "GameModeHelper.cs"));
+    string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "MissionModePolicy.cs"));
     string project = File.ReadAllText(Path.Combine(projectRoot, "ExtendedData.csproj"));
 
     Assert(project.Contains("ExtendedDataLaunchOriginApi.cs") &&
