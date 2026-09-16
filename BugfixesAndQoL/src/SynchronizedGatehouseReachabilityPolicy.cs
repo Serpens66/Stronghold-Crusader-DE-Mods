@@ -1,159 +1,229 @@
-// Feature: Evaluate a gatehouse and its synchronized drawbridges as one hypothetical portal group.
+// Feature: Mirror Vanilla's footprint-edge lookup for gatehouse-coupled drawbridges.
 using System;
 using System.Collections.Generic;
 
 namespace BugfixesAndQoL
 {
-    internal enum DrawbridgeAssociationResult
+    internal readonly struct VanillaFootprintCandidate
     {
-        Accepted,
-        InvalidComponents,
-        NoSharedComponent,
-        NonAdjacentEndpoints
-    }
-
-    internal readonly struct GatePortalSnapshot
-    {
-        internal GatePortalSnapshot(
-            int firstPcl,
-            int secondPcl,
-            int thirdPcl,
-            int entryX,
-            int entryY,
-            int exitX,
-            int exitY)
+        internal VanillaFootprintCandidate(int x, int y, int outwardX, int outwardY)
         {
-            FirstPcl = firstPcl;
-            SecondPcl = secondPcl;
-            ThirdPcl = thirdPcl;
-            EntryX = entryX;
-            EntryY = entryY;
-            ExitX = exitX;
-            ExitY = exitY;
+            X = x;
+            Y = y;
+            OutwardX = outwardX;
+            OutwardY = outwardY;
         }
 
-        internal int FirstPcl { get; }
-        internal int SecondPcl { get; }
-        internal int ThirdPcl { get; }
-        internal int EntryX { get; }
-        internal int EntryY { get; }
-        internal int ExitX { get; }
-        internal int ExitY { get; }
+        internal int X { get; }
+        internal int Y { get; }
+        internal int OutwardX { get; }
+        internal int OutwardY { get; }
+    }
 
-        internal bool HasValidComponents =>
-            FirstPcl > 0 && SecondPcl > 0 &&
-            FirstPcl <= ushort.MaxValue && SecondPcl <= ushort.MaxValue &&
-            ThirdPcl >= 0 && ThirdPcl <= ushort.MaxValue;
+    internal readonly struct DrawbridgeApproachSnapshot
+    {
+        internal DrawbridgeApproachSnapshot(
+            int contactX,
+            int contactY,
+            int exteriorX,
+            int exteriorY,
+            int exteriorTileId,
+            int exteriorPcl)
+        {
+            ContactX = contactX;
+            ContactY = contactY;
+            ExteriorX = exteriorX;
+            ExteriorY = exteriorY;
+            ExteriorTileId = exteriorTileId;
+            ExteriorPcl = exteriorPcl;
+        }
+
+        internal int ContactX { get; }
+        internal int ContactY { get; }
+        internal int ExteriorX { get; }
+        internal int ExteriorY { get; }
+        internal int ExteriorTileId { get; }
+        internal int ExteriorPcl { get; }
+    }
+
+    internal sealed class SynchronizedDrawbridgeSnapshot
+    {
+        internal SynchronizedDrawbridgeSnapshot(int buildingId, uint globalId)
+        {
+            BuildingId = buildingId;
+            GlobalId = globalId;
+        }
+
+        internal int BuildingId { get; }
+        internal uint GlobalId { get; }
+        internal List<DrawbridgeApproachSnapshot> Approaches { get; } =
+            new List<DrawbridgeApproachSnapshot>();
     }
 
     internal static class SynchronizedGatehouseReachabilityPolicy
     {
         internal const int MaximumSynchronizedDrawbridges = 2;
 
-        internal static bool IsAssociatedDrawbridge(
-            GatePortalSnapshot gatehouse,
-            GatePortalSnapshot drawbridge) =>
-            EvaluateAssociation(gatehouse, drawbridge) == DrawbridgeAssociationResult.Accepted;
-
-        internal static DrawbridgeAssociationResult EvaluateAssociation(
-            GatePortalSnapshot gatehouse,
-            GatePortalSnapshot drawbridge)
+        internal static List<VanillaFootprintCandidate> BuildOrderedFootprintCandidates(
+            int originX,
+            int originY,
+            int occupyTileGridSize)
         {
-            if (!gatehouse.HasValidComponents || !drawbridge.HasValidComponents)
-                return DrawbridgeAssociationResult.InvalidComponents;
-            if (!SharesComponent(gatehouse, drawbridge))
-                return DrawbridgeAssociationResult.NoSharedComponent;
-            return HasAdjacentEndpoint(gatehouse, drawbridge)
-                ? DrawbridgeAssociationResult.Accepted
-                : DrawbridgeAssociationResult.NonAdjacentEndpoints;
+            var candidates = new List<VanillaFootprintCandidate>();
+            if (occupyTileGridSize <= 0)
+                return candidates;
+
+            int midpoint = occupyTileGridSize / 2;
+            for (int x = midpoint; x < occupyTileGridSize; x++)
+            {
+                candidates.Add(new VanillaFootprintCandidate(
+                    originX + x, originY - 1, 0, -1));
+            }
+            for (int y = 0; y < occupyTileGridSize; y++)
+            {
+                candidates.Add(new VanillaFootprintCandidate(
+                    originX + occupyTileGridSize, originY + y, 1, 0));
+            }
+            for (int x = occupyTileGridSize - 1; x >= 0; x--)
+            {
+                candidates.Add(new VanillaFootprintCandidate(
+                    originX + x, originY + occupyTileGridSize, 0, 1));
+            }
+            for (int y = occupyTileGridSize - 1; y >= 0; y--)
+            {
+                candidates.Add(new VanillaFootprintCandidate(
+                    originX - 1, originY + y, -1, 0));
+            }
+            for (int x = 0; x < midpoint; x++)
+            {
+                candidates.Add(new VanillaFootprintCandidate(
+                    originX + x, originY - 1, 0, -1));
+            }
+
+            return candidates;
         }
 
-        internal static bool CanReachSynchronizedGroup(
-            GatePortalSnapshot gatehouse,
-            IReadOnlyList<GatePortalSnapshot> drawbridges,
-            Func<int, bool> canReachCurrentComponent)
+        internal static List<int> CollectFirstDistinctBuildingIds(
+            IReadOnlyList<VanillaFootprintCandidate> candidates,
+            Func<int, int, int> getBuildingId,
+            Func<int, bool> isEligibleDrawbridge)
         {
-            if (!gatehouse.HasValidComponents || canReachCurrentComponent == null)
+            var result = new List<int>(MaximumSynchronizedDrawbridges);
+            if (candidates == null || getBuildingId == null || isEligibleDrawbridge == null)
+                return result;
+
+            for (int index = 0; index < candidates.Count; index++)
+            {
+                VanillaFootprintCandidate candidate = candidates[index];
+                int buildingId = getBuildingId(candidate.X, candidate.Y);
+                if (buildingId <= 0 || result.Contains(buildingId) ||
+                    !isEligibleDrawbridge(buildingId))
+                {
+                    continue;
+                }
+
+                result.Add(buildingId);
+                if (result.Count == MaximumSynchronizedDrawbridges)
+                    break;
+            }
+
+            return result;
+        }
+
+        internal static bool TryTraceExteriorApproach(
+            VanillaFootprintCandidate contact,
+            int drawbridgeBuildingId,
+            Func<int, int, bool> isInsideMap,
+            Func<int, int, int> getBuildingId,
+            Func<int, int, int> getTileId,
+            Func<int, int> getPathComponent,
+            out DrawbridgeApproachSnapshot approach)
+        {
+            approach = default;
+            if (drawbridgeBuildingId <= 0 || isInsideMap == null || getBuildingId == null ||
+                getTileId == null || getPathComponent == null ||
+                Math.Abs(contact.OutwardX) + Math.Abs(contact.OutwardY) != 1 ||
+                !isInsideMap(contact.X, contact.Y) ||
+                getBuildingId(contact.X, contact.Y) != drawbridgeBuildingId)
+            {
                 return false;
+            }
 
-            IReadOnlyList<GatePortalSnapshot> bridges =
-                drawbridges ?? Array.Empty<GatePortalSnapshot>();
-            if (bridges.Count > MaximumSynchronizedDrawbridges)
-                return false;
-
-            var reachableGroup = new HashSet<int>();
-            AddComponents(reachableGroup, gatehouse);
-
-            bool added;
+            int x = contact.X;
+            int y = contact.Y;
             do
             {
-                added = false;
-                for (int index = 0; index < bridges.Count; index++)
-                {
-                    GatePortalSnapshot bridge = bridges[index];
-                    if (!bridge.HasValidComponents ||
-                        !IsAssociatedDrawbridge(gatehouse, bridge) ||
-                        !ContainsAny(reachableGroup, bridge))
-                    {
-                        continue;
-                    }
-
-                    int previousCount = reachableGroup.Count;
-                    AddComponents(reachableGroup, bridge);
-                    added |= reachableGroup.Count != previousCount;
-                }
+                x += contact.OutwardX;
+                y += contact.OutwardY;
+                if (!isInsideMap(x, y))
+                    return false;
             }
-            while (added);
+            while (getBuildingId(x, y) == drawbridgeBuildingId);
 
-            foreach (int component in reachableGroup)
+            int tileId = getTileId(x, y);
+            int pcl = getPathComponent(tileId);
+            if (tileId < 0 || pcl <= 0 || pcl > ushort.MaxValue)
+                return false;
+
+            approach = new DrawbridgeApproachSnapshot(
+                contact.X,
+                contact.Y,
+                x,
+                y,
+                tileId,
+                pcl);
+            return true;
+        }
+
+        internal static bool CanReachAnyExteriorApproach(
+            IReadOnlyList<SynchronizedDrawbridgeSnapshot> drawbridges,
+            Func<int, bool> canReachComponent)
+        {
+            if (drawbridges == null || canReachComponent == null ||
+                drawbridges.Count > MaximumSynchronizedDrawbridges)
             {
-                if (canReachCurrentComponent(component))
-                    return true;
+                return false;
+            }
+
+            for (int bridgeIndex = 0; bridgeIndex < drawbridges.Count; bridgeIndex++)
+            {
+                IReadOnlyList<DrawbridgeApproachSnapshot> approaches =
+                    drawbridges[bridgeIndex].Approaches;
+                for (int approachIndex = 0; approachIndex < approaches.Count; approachIndex++)
+                {
+                    if (canReachComponent(approaches[approachIndex].ExteriorPcl))
+                        return true;
+                }
             }
 
             return false;
         }
 
-        private static bool SharesComponent(
-            GatePortalSnapshot first,
-            GatePortalSnapshot second)
+        internal static int ComputeDrawbridgeSignature(
+            IReadOnlyList<SynchronizedDrawbridgeSnapshot> drawbridges)
         {
-            return Contains(first, second.FirstPcl) ||
-                Contains(first, second.SecondPcl) ||
-                Contains(first, second.ThirdPcl);
-        }
+            unchecked
+            {
+                int signature = 17;
+                if (drawbridges == null)
+                    return signature;
 
-        private static bool HasAdjacentEndpoint(
-            GatePortalSnapshot gatehouse,
-            GatePortalSnapshot drawbridge)
-        {
-            return IsAdjacent(gatehouse.EntryX, gatehouse.EntryY, drawbridge.EntryX, drawbridge.EntryY) ||
-                IsAdjacent(gatehouse.EntryX, gatehouse.EntryY, drawbridge.ExitX, drawbridge.ExitY) ||
-                IsAdjacent(gatehouse.ExitX, gatehouse.ExitY, drawbridge.EntryX, drawbridge.EntryY) ||
-                IsAdjacent(gatehouse.ExitX, gatehouse.ExitY, drawbridge.ExitX, drawbridge.ExitY);
-        }
+                for (int bridgeIndex = 0; bridgeIndex < drawbridges.Count; bridgeIndex++)
+                {
+                    SynchronizedDrawbridgeSnapshot bridge = drawbridges[bridgeIndex];
+                    signature = signature * 397 ^ bridge.BuildingId;
+                    signature = signature * 397 ^ (int)bridge.GlobalId;
+                    for (int approachIndex = 0;
+                         approachIndex < bridge.Approaches.Count;
+                         approachIndex++)
+                    {
+                        signature = signature * 397 ^
+                            bridge.Approaches[approachIndex].ExteriorPcl;
+                    }
+                }
 
-        private static bool IsAdjacent(int firstX, int firstY, int secondX, int secondY) =>
-            Math.Abs(firstX - secondX) <= 1 && Math.Abs(firstY - secondY) <= 1;
-
-        private static bool Contains(GatePortalSnapshot portal, int component) =>
-            component > 0 &&
-            (portal.FirstPcl == component || portal.SecondPcl == component ||
-             portal.ThirdPcl == component);
-
-        private static bool ContainsAny(HashSet<int> components, GatePortalSnapshot portal) =>
-            components.Contains(portal.FirstPcl) ||
-            components.Contains(portal.SecondPcl) ||
-            (portal.ThirdPcl > 0 && components.Contains(portal.ThirdPcl));
-
-        private static void AddComponents(HashSet<int> components, GatePortalSnapshot portal)
-        {
-            if (portal.FirstPcl > 0)
-                components.Add(portal.FirstPcl);
-            if (portal.SecondPcl > 0)
-                components.Add(portal.SecondPcl);
-            if (portal.ThirdPcl > 0)
-                components.Add(portal.ThirdPcl);
+                return signature;
+            }
         }
     }
 }

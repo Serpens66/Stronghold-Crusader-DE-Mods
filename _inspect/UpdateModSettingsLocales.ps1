@@ -61,7 +61,7 @@ $localeDirectories = @(
     'ImprovedHunters\Locales',
     'RandomEvents\Locales',
     'CastlePlanner\BepInEx\plugins\CastlePlanner_Serp\Locales',
-    'CustomCustomTrail\Locales',
+    'ExtendedData\Locales',
     'StartConditions\Locales',
     'UnitCosts\Locales',
     'UnitLimit\Locales'
@@ -106,6 +106,19 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'ExtraFeature
     Set-LocaleKey $file.FullName 'SomeSettings.EconomyBuffsTitle' $(if ($german) { 'Wirtschaftsboni' } else { 'Economy Bonuses' })
     Set-LocaleKey $file.FullName 'SomeSettings.MarketPriceMultipliersTitle' $(if ($german) { 'Marktpreise' } else { 'Market Prices' })
     Set-LocaleKey $file.FullName 'SomeSettings.PlagueTitle' $(if ($german) { 'Pest' } else { 'Plague' })
+}
+
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'ExtendedData\Locales') -Filter '*.txt') {
+    $german = $file.Name -eq 'de-DE.txt'
+    Set-LocaleKey $file.FullName 'ExtendedData.TrailSettingModeHelp' $(if ($german) { 'Mod-Standard verwendet den vom Mod vorgegebenen Trail-Grundzustand (meist deaktiviert). Spieler/Host übernimmt das normale gespeicherte Preset. Fester Trailwert speichert den beim Ersteller aktuell sichtbaren Wert.' } else { 'Mod default uses the Trail baseline supplied by the mod (usually disabled). Player/host uses the normal saved preset. Fixed Trail value stores the value currently visible to the creator.' })
+    Set-LocaleKey $file.FullName 'ExtendedData.TrailSettingModeSummary' $(if ($german) { '{0} Standard · {1} Spieler/Host · {2} fest' } else { '{0} default · {1} player/host · {2} fixed' })
+    Set-LocaleKey $file.FullName 'ExtendedData.Mode.ModDefault' $(if ($german) { 'Mod-Standard' } else { 'Mod default' })
+    Set-LocaleKey $file.FullName 'ExtendedData.Mode.Player' $(if ($german) { 'Spieler/Host' } else { 'Player/host' })
+    Set-LocaleKey $file.FullName 'ExtendedData.Mode.Fixed' $(if ($german) { 'Fester Trailwert' } else { 'Fixed Trail value' })
+    Set-LocaleKey $file.FullName 'ExtendedData.Mode.Mixed' $(if ($german) { 'Gemischt' } else { 'Mixed' })
+    Set-LocaleKey $file.FullName 'ExtendedData.Group.EnableMod' $(if ($german) { 'Mod aktiviert' } else { 'Mod enabled' })
+    Set-LocaleKey $file.FullName 'ExtendedData.Group.UnitCosts' $(if ($german) { 'Alle Einheitenkostenlisten' } else { 'All unit cost lists' })
+    Set-LocaleKey $file.FullName 'ExtendedData.Group.MarketGoodMultipliers' $(if ($german) { 'Warenbezogene Handelsmultiplikatoren' } else { 'Per-good trade multipliers' })
 }
 
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'UnitLimit\Locales') -Filter '*.txt') {

@@ -8,6 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
+    <AssemblyVersion>1.0.152.0</AssemblyVersion>
+    <FileVersion>1.0.152.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -138,13 +140,12 @@
     <Compile Include="src\CoopCustomLordSelectionFeature.cs" />
     <Compile Include="src\CoopCustomLordSelectionPolicy.cs" />
     <Compile Include="src\CustomLordLobbyUtility.cs" />
-    <Compile Include="src\CustomLordJsonUploadHook.cs" />
-    <Compile Include="src\CustomLordJsonUploadPolicy.cs" />
     <Compile Include="src\CustomTrailExtremeGoldFixHook.cs" />
     <Compile Include="src\CustomLordListEnhancementHook.cs" />
     <Compile Include="src\DisplayResolutionPersistenceHook.cs" />
     <Compile Include="src\DisplayResolutionFocusState.cs" />
     <Compile Include="src\BugfixesAndQoLPlugin.cs" />
+    <Compile Include="src\Properties\AssemblyInfo.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.cs" />
     <Compile Include="src\BugfixesAndQoLViewModel.cs" />
     <Compile Include="src\AssassinSelectionAdapters.cs" />
@@ -214,7 +215,6 @@
     <Compile Include="src\QuarryPileRelocationRuntime.cs" />
     <Compile Include="src\QuarryPileTargetSelectionPolicy.cs" />
     <Compile Include="src\ReachableEnemyGatehouseRuntime.cs" />
-    <Compile Include="src\GatehouseReachabilityDiagnosticThrottle.cs" />
     <Compile Include="src\SynchronizedGatehouseReachabilityPolicy.cs" />
     <Compile Include="src\ResyncHostKickFeature.cs" />
     <Compile Include="src\ResyncHostKickPolicy.cs" />

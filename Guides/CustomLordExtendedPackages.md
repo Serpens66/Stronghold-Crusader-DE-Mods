@@ -256,7 +256,7 @@ Override/Assets/GUI/Sprites/my-lord-face.png
 
 When the extension is omitted, the texture resolver probes supported image extensions including `.png`, `.jpg`, and `.tga`. If `FacePath` is absent or cannot be loaded, the detail panel falls back to Vanilla's validated `avatar.png`; without either image, Vanilla's question-mark portrait remains.
 
-Use lord- or GUID-specific asset names. The registered `Override` asset index is global and uses Last-Write-Wins resolution, so generic names can collide with another loaded asset mod. When the separate `CustomLordUpload` mod prepares a Workshop upload, it warns about high-confidence generic names such as `attack.ogg`, `line-2.wav`, and `icon.png`. The warning applies only to allowed `Override` assets that will actually be uploaded. Intentional Vanilla overrides remain possible after confirming the warning.
+Use lord- or GUID-specific asset names. The registered `Override` asset index is global and uses Last-Write-Wins resolution, so generic names can collide with another loaded asset mod. When the separate `ExtendedData` mod prepares a Workshop upload, it warns about high-confidence generic names such as `attack.ogg`, `line-2.wav`, and `icon.png`. The warning applies only to allowed `Override` assets that will actually be uploaded. Intentional Vanilla overrides remain possible after confirming the warning.
 
 ### Join and leave audio
 
@@ -392,7 +392,7 @@ Lua that changes resources, units, buildings, terrain, AI behavior, or other sim
 
 Because the lord directory is registered as an asset mod, Script Extender can use the normal 2.4.0 Asset API layout. At runtime this broader system includes XAML patches, atlases, sprites, textures, audio, music, AssetBundles, and private mod resources in addition to the lord-focused files shown above.
 
-This runtime support is broader than the upload policy of the separate `CustomLordUpload` mod. XAML patches, atlas definitions, AssetBundles, general JSON resources, private resources, and other non-allowlisted files are deliberately not added to Custom Lord Workshop uploads. Packages that require them need a separate, complete Steam UGC publishing workflow. These systems also have their own schemas and lifecycle rules; do not infer them from `lordmeta.json`, and use the linked API guides below.
+This runtime support is broader than the upload policy of the separate `ExtendedData` mod. XAML patches, atlas definitions, AssetBundles, nested JSON resources, private resources, and other non-allowlisted files are deliberately not added to Custom Lord Workshop uploads. Packages that require them need a separate, complete Steam UGC publishing workflow. These systems also have their own schemas and lifecycle rules; do not infer them from `lordmeta.json`, and use the linked API guides below.
 
 ## Publishing and installation
 
@@ -413,21 +413,23 @@ Workshop item content/
     Override/...                 # Supported media/image formats only
 ```
 
-Script Extender 2.4.0 itself does **not** contain a hook that adds arbitrary extended files to Vanilla's Custom Lord upload. The separate [`CustomLordUpload`](../CustomLordUpload/) BepInEx mod supplies that missing staging step and a package preflight. On the upload page, leave **Upload additional files for mod support** enabled to add allowlisted extended files; disable it for a Vanilla-only upload.
+Script Extender 2.4.0 itself does **not** contain a hook that adds arbitrary extended files to Vanilla's Custom Lord upload. The separate [`ExtendedData`](../ExtendedData/) BepInEx mod supplies that missing staging step and a package preflight. On the upload page, leave **Upload additional files for mod support** enabled to add allowlisted extended files; disable it for a Vanilla-only upload.
 
-Vanilla remains responsible for the direct `.lordjson`, `.aivjson`, and optional `avatar.png`. `CustomLordUpload` supplements them with this case-insensitive allowlist:
+Vanilla remains responsible for the direct `.lordjson`, `.aivjson`, and optional `avatar.png`. `ExtendedData` supplements them with this case-insensitive allowlist:
 
-| Location | Files added by `CustomLordUpload` |
+| Location | Files added by `ExtendedData` |
 |---|---|
-| Lord root | `info.json`, `lordmeta.json`, and any direct `*.lua` |
+| Lord root | any direct `*.json` and `*.lua` |
 | `Scripts/**` | `*.lua` |
 | `MapAreas/**` | `*.sema` |
 | `Locales/<locale>/` | exactly `crusader.txt` |
 | `Override/**` | `.png`, `.jpg`, `.tga`, `.ogg`, `.wav`, `.webm`, and `.mp4` |
 
-Direct root `.data` and `.ldata` files are local uploader controls and are silently left out. All other regular files are still inventoried safely for the preflight, but they are not staged or uploaded. This excludes archives, executables and libraries, source and backup files, `.env` or other configuration files, `_LegacyMediaSource`, template text, screenshots outside an allowed path, XAML patches, atlas data, general JSON resources, AssetBundles, and unsupported `Override` formats such as `.jpeg` or `.mp3`.
+Direct root `.data` and `.ldata` files are local uploader controls and are silently left out. All other regular files are still inventoried safely for the preflight, but they are not staged or uploaded. This excludes archives, executables and libraries, source and backup files, `.env` or other configuration files, `_LegacyMediaSource`, template text, screenshots outside an allowed path, nested JSON resources, XAML patches, atlas data, AssetBundles, and unsupported `Override` formats such as `.jpeg` or `.mp3`.
 
 When excluded files are present, the preflight displays one confirmation warning with their count and up to four example paths. Continuing the upload does not include those files. The complete sorted list is written to `BepInEx/LogOutput.log`. Placement warnings such as root media, root `fx`, and misplaced metadata can appear alongside the exclusion warning.
+
+If any requested extended or direct JSON file cannot be staged safely, `ExtendedData` cancels the upload and reports the error instead of publishing an incomplete package.
 
 Use a separate Steam UGC publishing workflow that uploads the complete prepared content directory when the package intentionally requires files outside this allowlist. After publishing by either method, subscribe to or download the item and inspect the installed Workshop directory. Verify that there is exactly one intended lord directory and that every expected file is present at the same relative path.
 
@@ -441,7 +443,7 @@ The Script Extender's generic `.map` Workshop packager installs mods through its
 4. Add advanced fields one subsystem at a time: display name and titles, portrait, join/leave audio, then message clips and subtitles.
 5. Test both localized and global audio fallback paths and check that unsupported WAV files fail without breaking unrelated metadata.
 6. If Lua is present, test new-game and saved-game loading and verify the correct `NetworkMode` classification.
-7. Before uploading with `CustomLordUpload`, confirm that every required extended file matches the documented allowlist and that **Upload additional files for mod support** is enabled.
+7. Before uploading with `ExtendedData`, confirm that every required extended file matches the documented allowlist and that **Upload additional files for mod support** is enabled.
 8. Review every preflight warning. Rename generic global `Override` assets with a lord- or GUID-specific prefix unless the collision is intentional, and move or remove any required file that would be excluded.
 9. Check `BepInEx/LogOutput.log` for the complete excluded-file list and for JSON, GUID, duplicate, asset, media, message-key, and Lua errors.
 10. Publish, install the resulting Workshop item, inspect its actual files, and repeat the runtime tests from the installed copy. Confirm specifically that excluded files are absent.

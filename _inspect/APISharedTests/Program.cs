@@ -385,8 +385,8 @@ namespace APISharedTests
             string castlePlanner = File.ReadAllText(Path.Combine(workspace, "CastlePlanner", "src", "CastlePlannerRuntime.cs"));
             string castlePlugin = File.ReadAllText(Path.Combine(workspace, "CastlePlanner", "src", "CastlePlannerPlugin.cs"));
             string castleProject = File.ReadAllText(Path.Combine(workspace, "CastlePlanner", "CastlePlanner.csproj"));
-            string customPlugin = File.ReadAllText(Path.Combine(workspace, "CustomCustomTrail", "src", "CustomCustomTrailPlugin.cs"));
-            string customProject = File.ReadAllText(Path.Combine(workspace, "CustomCustomTrail", "CustomCustomTrail.csproj"));
+            string customPlugin = File.ReadAllText(Path.Combine(workspace, "ExtendedData", "src", "ExtendedDataPlugin.cs"));
+            string customProject = File.ReadAllText(Path.Combine(workspace, "ExtendedData", "ExtendedData.csproj"));
             string releaseConfig = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "release-projects.json"));
             string releaseScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "Release-Mod.ps1"));
             string nexusScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "NexusRelease.Common.ps1"));
@@ -655,7 +655,7 @@ namespace APISharedTests
                 {
                     "BugfixesAndQoL",
                     "CastlePlanner",
-                    "CustomCustomTrail"
+                    "ExtendedData"
                 }),
                 "only the three real per-player consumers may enable the APIShared lobby bridge");
             Assert(bugfixProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
@@ -670,7 +670,7 @@ namespace APISharedTests
             Assert(releaseConfig.Contains("\"ActiveAIVDetector\": \"0.3.0\"") &&
                 releaseConfig.Contains("\"BugfixesAndQoL\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"CastlePlanner\": \"0.3.6\"") &&
-                releaseConfig.Contains("\"CustomCustomTrail\": \"0.3.6\"") &&
+                releaseConfig.Contains("\"ExtendedData\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"ExtraFeatures\": \"0.3.0\""),
                 "release inventory must declare each consumer's actual APIShared minimum");
             Assert(releaseScript.Contains("Profile = 'Thin'") &&

@@ -15,16 +15,14 @@ namespace BugfixesAndQoL
     internal sealed unsafe class ReachableEnemyGatehouseRuntime : IDisposable
     {
         private const int MaximumFailureLogs = 20;
+        private const int MaximumSaneFootprintSize = 512;
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly Dictionary<ReachabilityKey, bool> reachabilityCache =
             new Dictionary<ReachabilityKey, bool>();
-        private readonly GatehouseReachabilityDiagnosticThrottle diagnosticThrottle =
-            new GatehouseReachabilityDiagnosticThrottle();
         private IDisposable gatehouseQuerySubscription;
         private bool reachabilityAvailable;
-        private bool firstQueryLogged;
         private int lastCacheTick = int.MinValue;
         private int failureLogs;
 
@@ -76,8 +74,13 @@ namespace BugfixesAndQoL
 
             try
             {
-                if (!TryGetLiveGatehouse(args.BuildingId, out GameBuilding* building, out PathConnectionRecord* gatehouse))
+                if (!TryGetLiveGatehouse(
+                        args.BuildingId,
+                        out GameBuilding* building,
+                        out PathConnectionRecord* gatehouse))
+                {
                     return;
+                }
 
                 int candidateUnitId = args.UnitId;
                 Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
@@ -95,45 +98,21 @@ namespace BugfixesAndQoL
                     unit->r_AliveState == AliveState.IsAlive &&
                     unit->r_UnitChimp != eChimps.CHIMP_TYPE_LION &&
                     unit->r_ControllableForPlayerId != 0;
-                bool? incomingDecision = args.ShouldClose;
                 args.ShouldClose = Shared.GatehouseQueryUnitIdPolicy.ResolveCandidateDecision(
                     args.ShouldClose,
                     vanillaCandidateCanClose);
                 if (args.ShouldClose != true)
                     return;
-                bool? vanillaDecision = args.ShouldClose;
-
-                if (!firstQueryLogged)
-                {
-                    firstQueryLogged = true;
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        $"gatehouse reachability query confirmed: buildingId={args.BuildingId}, " +
-                        $"eventUnitId={candidateUnitId}, unitId={unitId}, globalId={building->r_GlobalId}.");
-                }
 
                 bool evaluationAvailable = TryIsUnitReachableToGate(
-                        unitId,
-                        unit,
-                        building->r_PlayerIdOwner,
-                        gatehouse,
-                        out bool reachable,
-                        out ReachabilityEvaluation evaluation);
-                if (evaluationAvailable && !reachable)
-                    args.ShouldClose = false;
-
-                MaybeLogGatehouseDiagnostic(
+                    unitId,
+                    unit,
                     args.BuildingId,
                     building,
                     gatehouse,
-                    unitId,
-                    unit,
-                    incomingDecision,
-                    vanillaDecision,
-                    args.ShouldClose,
-                    evaluationAvailable,
-                    reachable,
-                    evaluation);
+                    out bool reachable);
+                if (evaluationAvailable && !reachable)
+                    args.ShouldClose = false;
             }
             catch (Exception ex)
             {
@@ -146,18 +125,17 @@ namespace BugfixesAndQoL
         private bool TryIsUnitReachableToGate(
             int unitId,
             GameUnit* unit,
-            int gatehouseOwnerId,
+            int gatehouseBuildingId,
+            GameBuilding* gatehouseBuilding,
             PathConnectionRecord* gatehouse,
-            out bool reachable,
-            out ReachabilityEvaluation evaluation)
+            out bool reachable)
         {
             reachable = true;
-            evaluation = new ReachabilityEvaluation();
-            if (unitId <= 0 || gatehouse == null || unit == null ||
+            if (unitId <= 0 || gatehouseBuildingId <= 0 || gatehouseBuilding == null ||
+                gatehouse == null || unit == null ||
                 unit->r_AliveState != AliveState.IsAlive || unit->r_CurrentHealth == 0 ||
                 unit->r_ControllableForPlayerId <= 0)
             {
-                evaluation.FailureStage = "invalid-unit-or-gate";
                 return false;
             }
 
@@ -167,9 +145,12 @@ namespace BugfixesAndQoL
             int entryTileId = (int)gatehouse->r_EntryTileId;
             int exitTileId = (int)gatehouse->r_ExitTileId;
             if (!tileApi.IsValidTileId(sourceTileId) || !tileApi.IsValidTileId(entryTileId) ||
-                !tileApi.IsValidTileId(exitTileId))
+                !tileApi.IsValidTileId(exitTileId) ||
+                !TryValidateGateEndpoint(gatehouse->r_EntryTilePositionX, gatehouse->r_EntryTilePositionY,
+                    entryTileId, tileApi) ||
+                !TryValidateGateEndpoint(gatehouse->r_ExitTilePositionX, gatehouse->r_ExitTilePositionY,
+                    exitTileId, tileApi))
             {
-                evaluation.FailureStage = "invalid-tile-id";
                 return false;
             }
 
@@ -178,7 +159,6 @@ namespace BugfixesAndQoL
                 (uint)entryTileId >= (uint)pathConnections.Length ||
                 (uint)exitTileId >= (uint)pathConnections.Length)
             {
-                evaluation.FailureStage = "tile-outside-pcl-grid";
                 return false;
             }
 
@@ -194,32 +174,17 @@ namespace BugfixesAndQoL
             int entryPcl = pathConnections[entryTileId];
             int exitPcl = pathConnections[exitTileId];
             int mode = unit->r_PathConnectionMode;
-            evaluation.Tick = tick;
-            evaluation.SourceTileId = sourceTileId;
-            evaluation.SourcePcl = sourcePcl;
-            evaluation.EntryPcl = entryPcl;
-            evaluation.ExitPcl = exitPcl;
-            evaluation.Mode = mode;
-            if (!TryCreatePortalSnapshot(*gatehouse, tileApi, out GatePortalSnapshot gatehousePortal) ||
-                !TryCollectSynchronizedDrawbridges(
-                    gatehouseOwnerId,
-                    unit,
-                    gatehousePortal,
+            if (sourcePcl <= 0 || entryPcl <= 0 || exitPcl <= 0)
+                return false;
+
+            if (!TryCollectSynchronizedDrawbridges(
+                    gatehouseBuilding,
                     tileApi,
-                    pathingApi,
-                    out List<GatePortalSnapshot> drawbridges,
-                    out int synchronizedGroupSignature,
-                    out int diagnosticSignature))
+                    out List<SynchronizedDrawbridgeSnapshot> drawbridges,
+                    out int synchronizedGroupSignature))
             {
-                evaluation.FailureStage = "portal-or-drawbridge-collection";
                 return false;
             }
-
-            evaluation.GatehousePortal = gatehousePortal;
-            evaluation.Drawbridges = drawbridges;
-            evaluation.SynchronizedGroupSignature = synchronizedGroupSignature;
-            evaluation.DrawbridgeDiagnosticSignature = diagnosticSignature;
-            evaluation.GroupComponents = FormatGroupComponents(gatehousePortal, drawbridges);
 
             var key = new ReachabilityKey(
                 playerId,
@@ -229,169 +194,152 @@ namespace BugfixesAndQoL
                 mode,
                 synchronizedGroupSignature);
             if (reachabilityCache.TryGetValue(key, out reachable))
-            {
-                evaluation.CacheHit = true;
-                evaluation.Reachable = reachable;
                 return true;
-            }
 
             PathConnectionQueryMode queryMode = (PathConnectionQueryMode)mode;
-            int entryResult = pathingApi.FindNextComponentTowardDestination(
-                playerId,
-                sourcePcl,
-                entryPcl,
-                queryMode);
+            int entryResult = FindRoute(
+                pathingApi, playerId, sourcePcl, entryPcl, queryMode);
             int exitResult = entryResult != 0
-                ? entryResult
-                : pathingApi.FindNextComponentTowardDestination(
-                    playerId,
-                    sourcePcl,
-                    exitPcl,
-                    queryMode);
+                ? 0
+                : FindRoute(pathingApi, playerId, sourcePcl, exitPcl, queryMode);
             reachable = entryResult != 0 || exitResult != 0;
-            evaluation.EntryResult = entryResult;
-            evaluation.ExitResult = exitResult;
-            evaluation.DirectReachable = reachable;
             if (!reachable && drawbridges.Count > 0)
             {
-                reachable = SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
-                    gatehousePortal,
+                reachable = SynchronizedGatehouseReachabilityPolicy.CanReachAnyExteriorApproach(
                     drawbridges,
-                    component => component == sourcePcl ||
-                        pathingApi.FindNextComponentTowardDestination(
-                            playerId,
-                            sourcePcl,
-                            component,
-                            queryMode) != 0);
+                    component => FindRoute(
+                        pathingApi,
+                        playerId,
+                        sourcePcl,
+                        component,
+                        queryMode) != 0);
             }
-            evaluation.GroupReachable = !evaluation.DirectReachable && reachable;
-            evaluation.Reachable = reachable;
+
             reachabilityCache[key] = reachable;
             return true;
         }
 
         private static bool TryCollectSynchronizedDrawbridges(
-            int buildingOwnerId,
-            GameUnit* unit,
-            GatePortalSnapshot gatehouse,
+            GameBuilding* gatehouseBuilding,
             GameTileManagerAPI tileApi,
-            GamePathingManagerAPI pathingApi,
-            out List<GatePortalSnapshot> drawbridges,
-            out int signature,
-            out int diagnosticSignature)
+            out List<SynchronizedDrawbridgeSnapshot> drawbridges,
+            out int signature)
         {
-            drawbridges = new List<GatePortalSnapshot>(
+            drawbridges = new List<SynchronizedDrawbridgeSnapshot>(
                 SynchronizedGatehouseReachabilityPolicy.MaximumSynchronizedDrawbridges);
-            signature = ComputePortalSignature(gatehouse);
-            diagnosticSignature = signature;
-            if (buildingOwnerId <= 0 || unit == null)
+            signature = 17;
+            if (gatehouseBuilding == null || gatehouseBuilding->r_OccupyTileGridSize == 0 ||
+                gatehouseBuilding->r_OccupyTileGridSize > MaximumSaneFootprintSize)
                 return false;
 
-            Span<PathConnectionRecord> records = pathingApi.GetPathConnectionRecords();
-            int lastRecordId = Math.Min(
-                GamePathingManagerAPI.LAST_PATH_CONNECTION_RECORD_ID,
-                records.Length - 1);
-            GameBuildingManagerAPI buildingApi = GameBuildingManagerAPI.Instance;
-            for (int recordId = GamePathingManagerAPI.FIRST_PATH_CONNECTION_RECORD_ID;
-                 recordId <= lastRecordId;
-                 recordId++)
+            List<VanillaFootprintCandidate> candidates =
+                SynchronizedGatehouseReachabilityPolicy.BuildOrderedFootprintCandidates(
+                    gatehouseBuilding->r_TilePositionXBegin,
+                    gatehouseBuilding->r_TilePositionYBegin,
+                    (int)gatehouseBuilding->r_OccupyTileGridSize);
+            int GetBuildingIdAt(int x, int y)
             {
-                ref PathConnectionRecord record = ref records[recordId];
-                if (record.r_BuildingId > 0 &&
-                    buildingApi.TryGetBuildingById(record.r_BuildingId, out GameBuilding* diagnosticBuilding) &&
-                    diagnosticBuilding != null &&
-                    diagnosticBuilding->r_AliveState == AliveState.IsAlive &&
-                    diagnosticBuilding->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE &&
-                    diagnosticBuilding->r_PlayerIdOwner == buildingOwnerId)
-                {
-                    unchecked
-                    {
-                        diagnosticSignature = diagnosticSignature * 397 ^ recordId;
-                        diagnosticSignature = diagnosticSignature * 397 ^ record.r_IsActive;
-                        diagnosticSignature = diagnosticSignature * 397 ^ record.r_IsEnabledOrOpen;
-                        diagnosticSignature = diagnosticSignature * 397 ^ record.r_PathComponentA;
-                        diagnosticSignature = diagnosticSignature * 397 ^ record.r_PathComponentB;
-                        diagnosticSignature = diagnosticSignature * 397 ^ record.r_PathComponentC;
-                        diagnosticSignature = diagnosticSignature * 397 ^ (int)diagnosticBuilding->r_AIWalkableState;
-                    }
-                }
-
-                if (record.r_IsActive == 0 || record.r_BuildingId <= 0 ||
-                    !buildingApi.TryGetBuildingById(record.r_BuildingId, out GameBuilding* drawbridge) ||
-                    drawbridge == null || drawbridge->r_AliveState != AliveState.IsAlive ||
-                    drawbridge->r_BuildingType != eStructs.STRUCT_DRAWBRIDGE ||
-                    drawbridge->r_PlayerIdOwner != buildingOwnerId ||
-                    drawbridge->r_GlobalId == 0 ||
-                    record.r_SubjectGlobalId != drawbridge->r_GlobalId ||
-                    !pathingApi.CanUnitTypeUsePathConnectionClass(
-                        unit->r_UnitChimp,
-                        record.r_ConnectionClass) ||
-                    !TryCreatePortalSnapshot(record, tileApi, out GatePortalSnapshot bridgePortal) ||
-                    !SynchronizedGatehouseReachabilityPolicy.IsAssociatedDrawbridge(
-                        gatehouse,
-                        bridgePortal))
-                {
-                    continue;
-                }
-
-                if (drawbridges.Count >=
-                    SynchronizedGatehouseReachabilityPolicy.MaximumSynchronizedDrawbridges)
-                {
-                    return false;
-                }
-
-                drawbridges.Add(bridgePortal);
-                unchecked
-                {
-                    signature = signature * 397 ^ recordId;
-                    signature = signature * 397 ^ record.r_BuildingId;
-                    signature = signature * 397 ^ (int)record.r_SubjectGlobalId;
-                    signature = signature * 397 ^ ComputePortalSignature(bridgePortal);
-                }
+                if (!tileApi.IsTileInsideMapBounds(x, y))
+                    return 0;
+                int tileId = tileApi.GetTileId(x, y);
+                return tileApi.IsValidTileId(tileId) ? tileApi.GetTileBuildingId(tileId) : 0;
             }
 
+            bool IsEligibleDrawbridge(int buildingId) =>
+                TryGetLiveDrawbridge(buildingId, out _);
+
+            List<int> selectedIds =
+                SynchronizedGatehouseReachabilityPolicy.CollectFirstDistinctBuildingIds(
+                    candidates,
+                    GetBuildingIdAt,
+                    IsEligibleDrawbridge);
+
+            for (int selectedIndex = 0; selectedIndex < selectedIds.Count; selectedIndex++)
+            {
+                int buildingId = selectedIds[selectedIndex];
+                if (!TryGetLiveDrawbridge(buildingId, out GameBuilding* drawbridge) ||
+                    drawbridge == null || drawbridge->r_GlobalId == 0)
+                    return false;
+
+                var snapshot = new SynchronizedDrawbridgeSnapshot(
+                    buildingId,
+                    drawbridge->r_GlobalId);
+                var seenApproaches = new HashSet<long>();
+                bool foundContact = false;
+                for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
+                {
+                    VanillaFootprintCandidate candidate = candidates[candidateIndex];
+                    if (GetBuildingIdAt(candidate.X, candidate.Y) != buildingId)
+                        continue;
+
+                    foundContact = true;
+                    bool traced = SynchronizedGatehouseReachabilityPolicy.TryTraceExteriorApproach(
+                        candidate,
+                        buildingId,
+                        tileApi.IsTileInsideMapBounds,
+                        GetBuildingIdAt,
+                        tileApi.GetTileId,
+                        tileId =>
+                        {
+                            Span<ushort> currentComponents =
+                                GamePathingManagerAPI.Instance.GetPathComponentGrid();
+                            return (uint)tileId < (uint)currentComponents.Length
+                                ? currentComponents[tileId]
+                                : 0;
+                        },
+                        out DrawbridgeApproachSnapshot approach);
+                    if (!traced)
+                        continue;
+
+                    long approachKey = ((long)(uint)approach.ExteriorTileId << 32) |
+                        (uint)approach.ExteriorPcl;
+                    if (seenApproaches.Add(approachKey))
+                        snapshot.Approaches.Add(approach);
+                }
+
+                if (!foundContact || snapshot.Approaches.Count == 0)
+                    return false;
+
+                drawbridges.Add(snapshot);
+            }
+
+            signature = SynchronizedGatehouseReachabilityPolicy.ComputeDrawbridgeSignature(
+                drawbridges);
             return true;
         }
 
-        private static bool TryCreatePortalSnapshot(
-            PathConnectionRecord record,
-            GameTileManagerAPI tileApi,
-            out GatePortalSnapshot snapshot)
-        {
-            snapshot = new GatePortalSnapshot(
-                record.r_PathComponentA,
-                record.r_PathComponentB,
-                record.r_PathComponentC,
-                record.r_EntryTilePositionX,
-                record.r_EntryTilePositionY,
-                record.r_ExitTilePositionX,
-                record.r_ExitTilePositionY);
-            if (!snapshot.HasValidComponents ||
-                !tileApi.IsValidTileId(record.r_EntryTileId) ||
-                !tileApi.IsValidTileId(record.r_ExitTileId) ||
-                !tileApi.IsTileInsideMapBounds(snapshot.EntryX, snapshot.EntryY) ||
-                !tileApi.IsTileInsideMapBounds(snapshot.ExitX, snapshot.ExitY))
-            {
-                return false;
-            }
+        private static int FindRoute(
+            GamePathingManagerAPI pathingApi,
+            int playerId,
+            int sourcePcl,
+            int destinationPcl,
+            PathConnectionQueryMode queryMode) =>
+            sourcePcl == destinationPcl
+                ? sourcePcl
+                : pathingApi.FindNextComponentTowardDestination(
+                    playerId,
+                    sourcePcl,
+                    destinationPcl,
+                    queryMode);
 
-            return tileApi.GetTileId(snapshot.EntryX, snapshot.EntryY) == record.r_EntryTileId &&
-                tileApi.GetTileId(snapshot.ExitX, snapshot.ExitY) == record.r_ExitTileId;
+        private static bool TryGetLiveDrawbridge(
+            int buildingId,
+            out GameBuilding* drawbridge)
+        {
+            drawbridge = null;
+            return buildingId > 0 &&
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out drawbridge) &&
+                drawbridge != null && drawbridge->r_AliveState == AliveState.IsAlive &&
+                drawbridge->r_BuildingType == eStructs.STRUCT_DRAWBRIDGE;
         }
 
-        private static int ComputePortalSignature(GatePortalSnapshot portal)
-        {
-            unchecked
-            {
-                int hash = portal.FirstPcl;
-                hash = hash * 397 ^ portal.SecondPcl;
-                hash = hash * 397 ^ portal.ThirdPcl;
-                hash = hash * 397 ^ portal.EntryX;
-                hash = hash * 397 ^ portal.EntryY;
-                hash = hash * 397 ^ portal.ExitX;
-                return hash * 397 ^ portal.ExitY;
-            }
-        }
+        private static bool TryValidateGateEndpoint(
+            int x,
+            int y,
+            int expectedTileId,
+            GameTileManagerAPI tileApi) =>
+            tileApi.IsTileInsideMapBounds(x, y) &&
+            tileApi.GetTileId(x, y) == expectedTileId;
 
         private static bool TryGetLiveGatehouse(
             int buildingId,
@@ -404,241 +352,16 @@ namespace BugfixesAndQoL
             return buildingId > 0 &&
                 api.TryGetBuildingById(buildingId, out building) && building != null &&
                 building->r_AliveState == AliveState.IsAlive &&
-                GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(buildingId, out gatehouse) &&
+                GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(
+                    buildingId,
+                    out gatehouse) &&
                 gatehouse != null && gatehouse->r_BuildingId == buildingId &&
                 gatehouse->r_SubjectGlobalId == building->r_GlobalId;
         }
 
-        private void MaybeLogGatehouseDiagnostic(
-            int gatehouseId,
-            GameBuilding* gatehouseBuilding,
-            PathConnectionRecord* gatehouseRecord,
-            int unitId,
-            GameUnit* unit,
-            bool? incomingDecision,
-            bool? vanillaDecision,
-            bool? finalDecision,
-            bool evaluationAvailable,
-            bool reachable,
-            ReachabilityEvaluation evaluation)
-        {
-            if (gatehouseBuilding == null || gatehouseRecord == null || unit == null ||
-                evaluation == null || evaluation.CacheHit)
-            {
-                return;
-            }
-
-            string fingerprint = string.Join(
-                "|",
-                FormatDecision(incomingDecision),
-                FormatDecision(vanillaDecision),
-                FormatDecision(finalDecision),
-                evaluationAvailable ? "evaluated" : evaluation.FailureStage,
-                reachable ? "reachable" : "unreachable",
-                gatehouseRecord->r_IsActive.ToString(CultureInfo.InvariantCulture),
-                gatehouseRecord->r_IsEnabledOrOpen.ToString(CultureInfo.InvariantCulture),
-                ((int)gatehouseBuilding->r_AIWalkableState).ToString(CultureInfo.InvariantCulture),
-                evaluation.SourcePcl.ToString(CultureInfo.InvariantCulture),
-                evaluation.EntryPcl.ToString(CultureInfo.InvariantCulture),
-                evaluation.ExitPcl.ToString(CultureInfo.InvariantCulture),
-                evaluation.EntryResult.ToString(CultureInfo.InvariantCulture),
-                evaluation.ExitResult.ToString(CultureInfo.InvariantCulture),
-                evaluation.SynchronizedGroupSignature.ToString(CultureInfo.InvariantCulture),
-                evaluation.DrawbridgeDiagnosticSignature.ToString(CultureInfo.InvariantCulture));
-
-            GatehouseDiagnosticEmission emission = diagnosticThrottle.Observe(
-                gatehouseId,
-                gatehouseBuilding->r_GlobalId,
-                unitId,
-                unit->r_GlobalId,
-                fingerprint,
-                out int suppressedRepeats);
-            if (emission == GatehouseDiagnosticEmission.None)
-                return;
-
-            if (emission == GatehouseDiagnosticEmission.Summary)
-            {
-                LogDiagnostic(
-                    $"GATE_REACH_DIAG summary: gateId={gatehouseId}, gateGlobalId={gatehouseBuilding->r_GlobalId}, " +
-                    $"unitId={unitId}, unitGlobalId={unit->r_GlobalId}, unchangedRepeats={suppressedRepeats}, " +
-                    $"fingerprint={fingerprint}.");
-                return;
-            }
-
-            LogDiagnostic(
-                $"GATE_REACH_DIAG decision: tick={evaluation.Tick}, gateId={gatehouseId}, " +
-                $"gateGlobalId={gatehouseBuilding->r_GlobalId}, owner={gatehouseBuilding->r_PlayerIdOwner}, " +
-                $"type={(int)gatehouseBuilding->r_BuildingType}, unitId={unitId}, " +
-                $"unitGlobalId={unit->r_GlobalId}, unitPlayer={unit->r_ControllableForPlayerId}, " +
-                $"unitType={(int)unit->r_UnitChimp}, sourceTile={evaluation.SourceTileId}, " +
-                $"mode={evaluation.Mode}, incoming={FormatDecision(incomingDecision)}, " +
-                $"vanilla={FormatDecision(vanillaDecision)}, final={FormatDecision(finalDecision)}, " +
-                $"evaluationAvailable={evaluationAvailable}, reachable={reachable}, " +
-                $"failureStage={evaluation.FailureStage}, suppressedSinceChange={suppressedRepeats}.");
-            LogDiagnostic(
-                $"GATE_REACH_DIAG gate: begin=({gatehouseBuilding->r_TilePositionXBegin}," +
-                $"{gatehouseBuilding->r_TilePositionYBegin}), end=({gatehouseBuilding->r_TilePositionXEnd}," +
-                $"{gatehouseBuilding->r_TilePositionYEnd}), occupyGridSize={gatehouseBuilding->r_OccupyTileGridSize}, " +
-                $"aiWalkableState={(int)gatehouseBuilding->r_AIWalkableState}, " +
-                $"recordActive={gatehouseRecord->r_IsActive}, recordOpen={gatehouseRecord->r_IsEnabledOrOpen}, " +
-                $"recordGlobalId={gatehouseRecord->r_RecordGlobalId}, recordSubjectGlobalId={gatehouseRecord->r_SubjectGlobalId}, " +
-                $"connectionClass={(int)gatehouseRecord->r_ConnectionClass}, " +
-                $"entry=({gatehouseRecord->r_EntryTilePositionX},{gatehouseRecord->r_EntryTilePositionY})/" +
-                $"{gatehouseRecord->r_EntryTileId}, exit=({gatehouseRecord->r_ExitTilePositionX}," +
-                $"{gatehouseRecord->r_ExitTilePositionY})/{gatehouseRecord->r_ExitTileId}, " +
-                $"components=[{gatehouseRecord->r_PathComponentA},{gatehouseRecord->r_PathComponentB}," +
-                $"{gatehouseRecord->r_PathComponentC}].");
-            LogDiagnostic(
-                $"GATE_REACH_DIAG routes: sourcePcl={evaluation.SourcePcl}, entryPcl={evaluation.EntryPcl}, " +
-                $"exitPcl={evaluation.ExitPcl}, entryResult={evaluation.EntryResult}, " +
-                $"exitResult={evaluation.ExitResult}, directReachable={evaluation.DirectReachable}, " +
-                $"groupReachable={evaluation.GroupReachable}, acceptedDrawbridges={evaluation.Drawbridges.Count}, " +
-                $"groupComponents=[{evaluation.GroupComponents}], groupSignature={evaluation.SynchronizedGroupSignature}, " +
-                $"drawbridgeStateSignature={evaluation.DrawbridgeDiagnosticSignature}.");
-
-            LogDrawbridgeDiagnostics(
-                gatehouseBuilding->r_PlayerIdOwner,
-                unit,
-                evaluation.GatehousePortal);
-        }
-
-        private void LogDrawbridgeDiagnostics(
-            int ownerId,
-            GameUnit* unit,
-            GatePortalSnapshot gatehousePortal)
-        {
-            Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
-            int found = 0;
-            int accepted = 0;
-            for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
-            {
-                ref GameBuilding drawbridge = ref buildings[spanIndex];
-                if (drawbridge.r_AliveState != AliveState.IsAlive ||
-                    drawbridge.r_BuildingType != eStructs.STRUCT_DRAWBRIDGE ||
-                    drawbridge.r_PlayerIdOwner != ownerId)
-                {
-                    continue;
-                }
-
-                found++;
-                int buildingId = spanIndex + 1;
-                string reason;
-                string recordDescription;
-                if (!GamePathingManagerAPI.Instance.TryGetPathConnectionRecordByBuildingId(
-                        buildingId,
-                        out PathConnectionRecord* record) ||
-                    record == null)
-                {
-                    reason = "missing-path-record";
-                    recordDescription = "record=none";
-                }
-                else
-                {
-                    reason = EvaluateDrawbridgeDiagnostic(
-                        buildingId,
-                        drawbridge,
-                        record,
-                        unit,
-                        gatehousePortal,
-                        ref accepted);
-                    recordDescription =
-                        $"recordActive={record->r_IsActive}, recordOpen={record->r_IsEnabledOrOpen}, " +
-                        $"recordBuildingId={record->r_BuildingId}, recordGlobalId={record->r_RecordGlobalId}, " +
-                        $"recordSubjectGlobalId={record->r_SubjectGlobalId}, " +
-                        $"connectionClass={(int)record->r_ConnectionClass}, " +
-                        $"entry=({record->r_EntryTilePositionX},{record->r_EntryTilePositionY})/{record->r_EntryTileId}, " +
-                        $"exit=({record->r_ExitTilePositionX},{record->r_ExitTilePositionY})/{record->r_ExitTileId}, " +
-                        $"components=[{record->r_PathComponentA},{record->r_PathComponentB},{record->r_PathComponentC}]";
-                }
-
-                LogDiagnostic(
-                    $"GATE_REACH_DIAG drawbridge: buildingId={buildingId}, globalId={drawbridge.r_GlobalId}, " +
-                    $"owner={drawbridge.r_PlayerIdOwner}, begin=({drawbridge.r_TilePositionXBegin}," +
-                    $"{drawbridge.r_TilePositionYBegin}), end=({drawbridge.r_TilePositionXEnd}," +
-                    $"{drawbridge.r_TilePositionYEnd}), occupyGridSize={drawbridge.r_OccupyTileGridSize}, " +
-                    $"aiWalkableState={(int)drawbridge.r_AIWalkableState}, decision={reason}, {recordDescription}.");
-            }
-
-            if (found == 0)
-                LogDiagnostic($"GATE_REACH_DIAG drawbridge: owner={ownerId}, result=no-live-owned-drawbridges.");
-        }
-
-        private static string EvaluateDrawbridgeDiagnostic(
-            int buildingId,
-            GameBuilding drawbridge,
-            PathConnectionRecord* record,
-            GameUnit* unit,
-            GatePortalSnapshot gatehousePortal,
-            ref int accepted)
-        {
-            if (record->r_IsActive == 0)
-                return "rejected-inactive-record";
-            if (record->r_BuildingId != buildingId)
-                return "rejected-record-building-id";
-            if (drawbridge.r_GlobalId == 0 || record->r_SubjectGlobalId != drawbridge.r_GlobalId)
-                return "rejected-global-id";
-            if (unit == null || !GamePathingManagerAPI.Instance.CanUnitTypeUsePathConnectionClass(
-                    unit->r_UnitChimp,
-                    record->r_ConnectionClass))
-            {
-                return "rejected-connection-class";
-            }
-
-            if (!TryCreatePortalSnapshot(
-                    *record,
-                    GameTileManagerAPI.Instance,
-                    out GatePortalSnapshot bridgePortal))
-            {
-                return "rejected-invalid-portal";
-            }
-
-            DrawbridgeAssociationResult association =
-                SynchronizedGatehouseReachabilityPolicy.EvaluateAssociation(
-                    gatehousePortal,
-                    bridgePortal);
-            if (association != DrawbridgeAssociationResult.Accepted)
-                return "rejected-" + association.ToString();
-
-            accepted++;
-            return accepted <= SynchronizedGatehouseReachabilityPolicy.MaximumSynchronizedDrawbridges
-                ? "accepted-by-current-heuristic"
-                : "accepted-but-overflow";
-        }
-
-        private static string FormatGroupComponents(
-            GatePortalSnapshot gatehouse,
-            IReadOnlyList<GatePortalSnapshot> drawbridges)
-        {
-            var components = new HashSet<int>();
-            AddPortalComponents(components, gatehouse);
-            for (int index = 0; index < drawbridges.Count; index++)
-                AddPortalComponents(components, drawbridges[index]);
-
-            var sorted = new List<int>(components);
-            sorted.Sort();
-            return string.Join(",", sorted);
-        }
-
-        private static void AddPortalComponents(HashSet<int> components, GatePortalSnapshot portal)
-        {
-            if (portal.FirstPcl > 0)
-                components.Add(portal.FirstPcl);
-            if (portal.SecondPcl > 0)
-                components.Add(portal.SecondPcl);
-            if (portal.ThirdPcl > 0)
-                components.Add(portal.ThirdPcl);
-        }
-
-        private static string FormatDecision(bool? decision) =>
-            decision.HasValue ? decision.Value.ToString() : "null";
-
-        private void LogDiagnostic(string message) =>
-            Shared.DebugLogHelper.LogDebug(log, message);
-
         private void ClearCache()
         {
             reachabilityCache.Clear();
-            diagnosticThrottle.Clear();
             lastCacheTick = int.MinValue;
         }
 
@@ -650,35 +373,10 @@ namespace BugfixesAndQoL
             LogWarning($"{message}. Vanilla remains authoritative ({failureLogs}/{MaximumFailureLogs}).");
         }
 
-        private void LogInfo(string message) =>
-            log.LogInfo($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private void LogWarning(string message) =>
             log.LogWarning($"[{TimestampNow()}] Bugfixes and QoL {message}");
         private static string TimestampNow() =>
             DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
-
-        private sealed class ReachabilityEvaluation
-        {
-            internal int Tick { get; set; }
-            internal int SourceTileId { get; set; }
-            internal int SourcePcl { get; set; }
-            internal int EntryPcl { get; set; }
-            internal int ExitPcl { get; set; }
-            internal int Mode { get; set; }
-            internal int EntryResult { get; set; }
-            internal int ExitResult { get; set; }
-            internal int SynchronizedGroupSignature { get; set; }
-            internal int DrawbridgeDiagnosticSignature { get; set; }
-            internal bool CacheHit { get; set; }
-            internal bool DirectReachable { get; set; }
-            internal bool GroupReachable { get; set; }
-            internal bool Reachable { get; set; }
-            internal string FailureStage { get; set; } = "none";
-            internal string GroupComponents { get; set; } = string.Empty;
-            internal GatePortalSnapshot GatehousePortal { get; set; }
-            internal List<GatePortalSnapshot> Drawbridges { get; set; } =
-                new List<GatePortalSnapshot>();
-        }
 
         private readonly struct ReachabilityKey : IEquatable<ReachabilityKey>
         {

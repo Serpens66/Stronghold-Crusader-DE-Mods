@@ -141,7 +141,7 @@ In multiplayer, gameplay-related settings are controlled by the host and synchro
 [*]Select your castle and set blueprint icon size and opacity by the ingame button on the bottom left
 [/list]
 
-[b]CustomCustomTrails[/b]
+[b]ExtendedData[/b]
 [list]
 [*]Adds "customize" Button to all trails.
 [*]Allows you to create "custom coop trails".

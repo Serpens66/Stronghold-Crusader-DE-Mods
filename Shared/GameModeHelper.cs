@@ -443,7 +443,7 @@ namespace Shared
                 string[] providerTypes =
                 {
                     "BugfixesAndQoL.TrailCustomizationLaunchOriginApi, BugfixesAndQoL",
-                    "CustomCustomTrail.CustomCustomTrailLaunchOriginApi, CustomCustomTrail",
+                    "ExtendedData.ExtendedDataLaunchOriginApi, ExtendedData",
                 };
                 ExternalCustomizedOrigin active = default;
                 bool hasActive = false;

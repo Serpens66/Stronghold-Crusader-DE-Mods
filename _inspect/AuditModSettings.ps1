@@ -11,7 +11,7 @@ param(
         'RandomEvents',
         'SerpsModsHost',
         'CastlePlanner',
-        'CustomCustomTrail',
+        'ExtendedData',
         'StartConditions',
         'UnitCosts',
         'UnitLimit')]
@@ -42,7 +42,7 @@ $settingsByMod = [ordered]@{
     RandomEvents = 'RandomEvents/Override/ScriptExtenderUI/RandomEventsSettings.xaml'
     SerpsModsHost = 'SerpsModsHost/Override/ScriptExtenderUI/SerpsModsStatus.xaml'
     CastlePlanner = 'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Override/ScriptExtenderUI/CastlePlannerSettings.xaml'
-    CustomCustomTrail = 'CustomCustomTrail/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml'
+    ExtendedData = 'ExtendedData/Override/ScriptExtenderUI/ExtendedDataSettings.xaml'
     StartConditions = 'StartConditions/BepInEx/plugins/StartConditions_Serp/Override/ScriptExtenderUI/StartConditionsSettings.xaml'
     UnitCosts = 'UnitCosts/BepInEx/plugins/UnitCosts_Serp/Override/ScriptExtenderUI/UnitCostsSettings.xaml'
     UnitLimit = 'UnitLimit/BepInEx/plugins/UnitLimit_Serp/Override/ScriptExtenderUI/UnitLimitSettings.xaml'
@@ -59,7 +59,7 @@ $localeDirectories = [ordered]@{
     RandomEvents = 'RandomEvents/Locales'
     SerpsModsHost = 'SerpsModsHost/Locales'
     CastlePlanner = 'CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Locales'
-    CustomCustomTrail = 'CustomCustomTrail/Locales'
+    ExtendedData = 'ExtendedData/Locales'
     StartConditions = 'StartConditions/Locales'
     UnitCosts = 'UnitCosts/Locales'
     UnitLimit = 'UnitLimit/Locales'
@@ -71,7 +71,7 @@ $viewModelSources = @{
     BuildingLimit = 'BuildingLimit/src/BuildingLimitLobbyViewModel.cs'
     CheatMod = 'CheatMod/src/CheatModSettingsViewModel.cs'
     CastlePlanner = 'CastlePlanner/src/CastlePlannerSettingsViewModel.cs'
-    CustomCustomTrail = 'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs'
+    ExtendedData = 'ExtendedData/src/ExtendedDataSettingsViewModel.cs'
     ExtraFeatures = 'ExtraFeatures/src/ExtraFeaturesViewModel.cs'
     ExtremePowers = 'ExtremePowers/src/Settings/ExtremePowersSettings.cs'
     ImprovedHunters = 'ImprovedHunters/src/ImprovedHuntersViewModel.cs'
@@ -90,7 +90,7 @@ $editableProxyBindings = @{
     BuildingLimit = @('LimitText','SliderLimit')
     CheatMod = @()
     CastlePlanner = @()
-    CustomCustomTrail = @('IsEnabled','SelectedCoopPackage')
+    ExtendedData = @('IsEnabled','SelectedCoopPackage','SelectedModeIndex')
     ExtraFeatures = @('AIEnemyProximityMultiplayerValueText','AIEnemyProximitySingleplayerValueText','AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanEnemyProximityMultiplayerValueText','HumanEnemyProximitySingleplayerValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
     ExtremePowers = @('ArrowDamageValueText','ArrowRadiusValueText','DemoOwnerIndex','DemoSpawnCountValueText','DemoSpriteIndex','DemoUnitTypeIndex','EngineersCountValueText','EngineersTypeIndex','GoldMaximumValueText','GoldMinimumValueText','HealAmountValueText','HealRadiusValueText','KnightsCountValueText','KnightsTypeIndex','MacemenCountValueText','MacemenTypeIndex','RegenerationPercentValueText','RockDamageValueText','RockRadiusValueText','SpearmenCountValueText','SpearmenTypeIndex')
     ImprovedHunters = @('CamelMeatText','ChickenMeatText','DeerMeatText','GoatMeatText','MaxNeutralChickensPerPlayerValueText','RabbitMeatText')
@@ -376,14 +376,15 @@ foreach ($entry in $settings.GetEnumerator()) {
             }
         }
     }
-    if ($entry.Key -eq 'CustomCustomTrail') {
+    if ($entry.Key -eq 'ExtendedData') {
         foreach ($required in @(
             'x:Key="ModSettingsToolTipStyle"',
-            '<CheckBox.ToolTip>',
+            '<ComboBox.ToolTip>',
+            '<ToggleButton.ToolTip>',
             'Style="{StaticResource ModSettingsToolTipStyle}"',
             'Content="{Binding HelpText}"')) {
             if (-not $text.Contains($required)) {
-                throw "CustomCustomTrail: dynamic mod checkbox tooltip marker is missing: $required"
+                throw "ExtendedData: dynamic Trail-setting tooltip marker is missing: $required"
             }
         }
     }
@@ -698,9 +699,9 @@ $currentTooltipXamlByMod = @{
     BuildingLimit = @('BuildingLimit/BepInEx/plugins/BuildingLimit_Serp/Override/ScriptExtenderUI/BuildingLimitSettings.xaml')
     CheatMod = @('CheatMod/Override/ScriptExtenderUI/CheatModSettings.xaml')
     CastlePlanner = @('CastlePlanner/BepInEx/plugins/CastlePlanner_Serp/Override/ScriptExtenderUI/CastlePlannerSettings.xaml')
-    CustomCustomTrail = @(
-        'CustomCustomTrail/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml',
-        'CustomCustomTrail/BepInEx/plugins/CustomCustomTrail_Serp/Override/ScriptExtenderUI/CustomCustomTrailSettings.xaml')
+    ExtendedData = @(
+        'ExtendedData/Override/ScriptExtenderUI/ExtendedDataSettings.xaml',
+        'ExtendedData/BepInEx/plugins/ExtendedData_Serp/Override/ScriptExtenderUI/ExtendedDataSettings.xaml')
     ExtraFeatures = @(
         'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml',
         'ExtraFeatures/BepInEx/plugins/ExtraFeatures_Serp/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml')
@@ -1222,15 +1223,15 @@ if ([Text.RegularExpressions.Regex]::Matches(
     throw 'Shared must compile one common per-player coordinator in production and tests.'
 }
 foreach ($required in @(
-    'OnUnloadMap.Observable.Subscribe',
-    'args.Phase == EventHookPhase.Post',
+    'OnStartMap.Observable.Subscribe',
+    'args.Phase == EventHookPhase.Pre',
     'PlayerIdentityHelper.TryCaptureHumanRoster(',
     'PlayerIdentityHelper.CaptureLocalPlayerId(',
-    'member != null && !member.skirmishAI && !member.kicked',
-    'platform.gameMembers.Any(member =>',
+    'preferInGameRoster: true',
+    'snapshot.HasUnresolvedPlayers',
     'never need to resolve or guess their own player ID',
-    'Observe(null, null, false, 0, mapTransition)',
-    'The lobby roster could not be observed; waiting for a successful retry.',
+    'preserveForMapTransition',
+    'At least one human lobby member has no stable player ID yet.',
     'viewModel.DeactivatePerPlayerLobbySettings();',
     'GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(')) {
     if (-not $sharedSettingsSource.Contains($required)) {
@@ -1289,18 +1290,18 @@ if (Test-ModSelected 'CastlePlanner') {
         throw 'CastlePlanner must let Shared mirror local personal values into companion slots.'
     }
 }
-if (Test-ModSelected 'CustomCustomTrail') {
-    $customTrailSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs'))
+if (Test-ModSelected 'ExtendedData') {
+    $customTrailSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'ExtendedData/src/ExtendedDataSettingsViewModel.cs'))
     if ($customTrailSettingsSource.Contains('GameNetworkAPI.GetLocalPlayerId()')) {
-        throw 'CustomCustomTrail must let Shared mirror its local status into the companion slot.'
+        throw 'ExtendedData must let Shared mirror its local status into the companion slot.'
     }
-    $customTrailCoordinatorSource = [IO.File]::ReadAllText((Join-Path $workspace 'CustomCustomTrail/src/TrailMissionSettingsCoordinator.cs'))
+    $customTrailCoordinatorSource = [IO.File]::ReadAllText((Join-Path $workspace 'ExtendedData/src/TrailMissionSettingsCoordinator.cs'))
     foreach ($required in @(
         'page.Loaded += loaded;',
         'page.Loaded -= loaded;',
         'Could not find the logical title element after Loaded')) {
         if (-not $customTrailCoordinatorSource.Contains($required)) {
-            throw "CustomCustomTrail lifecycle-safe Coop presentation marker is missing: $required"
+            throw "ExtendedData lifecycle-safe Coop presentation marker is missing: $required"
         }
     }
 }
@@ -1320,9 +1321,9 @@ $additionalCrlfTargetsByMod = @{
         'CheatMod/info.json',
         'CheatMod/build.bat',
         'CheatMod/release.bat')
-    CustomCustomTrail = @(
-        'CustomCustomTrail/src/CustomCustomTrailSettingsViewModel.cs',
-        'CustomCustomTrail/src/CustomCustomTrailRuntime.cs')
+    ExtendedData = @(
+        'ExtendedData/src/ExtendedDataSettingsViewModel.cs',
+        'ExtendedData/src/ExtendedDataRuntime.cs')
     ExtremePowers = @(
         'ExtremePowers/src/Settings/ExtremePowersSettings.cs',
         'ExtremePowers/src/ExtremePowersPlugin.cs',

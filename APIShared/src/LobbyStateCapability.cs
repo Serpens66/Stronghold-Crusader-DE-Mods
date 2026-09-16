@@ -116,6 +116,8 @@ namespace APIShared
             leaveLobbyOriginal = leaveLobbyHook.GenerateTrampoline<LeaveLobbyDelegate>();
             leaveLobbyHook.Apply();
 
+            // SaveLifecycle: this is lobby-state invalidation, not gameplay initialization;
+            // saved-game loads have no active lobby state to preserve or initialize here.
             mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(_ => OnMapStarting());

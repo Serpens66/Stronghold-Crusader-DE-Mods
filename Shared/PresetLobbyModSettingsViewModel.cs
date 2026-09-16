@@ -81,6 +81,8 @@ namespace Shared
             {
                 owner.PropertyChanged += OnOwnerPropertyChanged;
 #if !SHARED_PRESET_TESTS
+                // SaveLifecycle: this finalizes a multiplayer lobby roster before map entry;
+                // saved-game loads have no lobby roster to converge through this coordinator.
                 mapStartSubscription = MapLoaderR3EventHooks.OnStartMap.Observable.Subscribe(args =>
                 {
                     if (args.Phase == EventHookPhase.Pre)

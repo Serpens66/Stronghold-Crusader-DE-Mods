@@ -10,7 +10,7 @@ The managed `lobby-state` capability initializes once from `APISharedPlugin.Awak
 
 Snapshots defensively copy the one-based player-slot-to-Steam-ID mapping and include lobby ID, local slot, resolution/error state and map-transition preservation. Equal values are not republished. Observer order is ordinal owner GUID followed by registration ID; reentrant publications are queued and callback failures are isolated.
 
-`BugfixesAndQoL`, `CastlePlanner` and `CustomCustomTrail` are the only current consumers. Their source-linked coordinators retain settings publication, readiness, host/client policy and final in-game slot remapping. They have hard APIShared dependencies and no local polling fallback.
+`BugfixesAndQoL`, `CastlePlanner` and `ExtendedData` are the only current consumers. Their source-linked coordinators retain settings publication, readiness, host/client policy and final in-game slot remapping. They have hard APIShared dependencies and no local polling fallback.
 
 ## Gatehouse capabilities
 

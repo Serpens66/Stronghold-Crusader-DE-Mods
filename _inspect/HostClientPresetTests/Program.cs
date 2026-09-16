@@ -1858,7 +1858,7 @@ internal static class Program
         foreach (string exemptProject in new[]
         {
             Path.Combine("BugfixesAndQoL", "BugfixesAndQoL.csproj"),
-            Path.Combine("CustomCustomTrail", "CustomCustomTrail.csproj"),
+            Path.Combine("ExtendedData", "ExtendedData.csproj"),
             Path.Combine("SerpsModsHost", "SerpsModsHost.csproj")
         })
         {

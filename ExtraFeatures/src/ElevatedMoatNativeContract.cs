@@ -27,6 +27,7 @@ namespace ExtraFeatures
         internal const int DrawbridgeWriterResultRva = 0x73B24;
         internal const int DrawbridgeWriterResultLength = 15;
         internal const int StructureWriterRva = 0x59210;
+        internal const int TileHeightGridRva = 0x4DDD350;
         internal const int TileHeightGridOffset = 0xD7E5A0;
         internal const int TileDefaultHeightGridOffset = 0xDCCAC0;
         internal const int MainRendererRva = 0x41D60;
@@ -70,6 +71,7 @@ namespace ExtraFeatures
         internal const int UnitDrawbridgeHeightCorrectionRva = 0x18511C;
         internal const int UnitDrawbridgeHeightCorrectionLength = 19;
         internal const int UnitDrawbridgeHeightContinuationRva = 0x18512F;
+        internal const int UnitHeightGridReadRva = 0x185139;
         internal const int UnitHeightPostCorrectionRva = 0x18514E;
         internal const int UnitCurrentTileIdOffset = 0x72C;
         internal const int UnitCurrentElevationOffset = 0x712;
@@ -478,6 +480,12 @@ namespace ExtraFeatures
         {
             // Preserve Vanilla's jump to the shared post-height path.
             0xEB, 0x1D
+        };
+
+        internal static readonly byte[] UnitHeightGridReadBytes =
+        {
+            // movzx EAX,byte ptr [RBP + RCX + TileHeightGridRva]
+            0x0F, 0xB6, 0x84, 0x29, 0x50, 0xD3, 0xDD, 0x04
         };
 
         internal static readonly byte[] UnitHeightPostCorrectionBytes =
@@ -939,6 +947,15 @@ namespace ExtraFeatures
                 UnitDrawbridgeHeightContinuationRva,
                 UnitDrawbridgeHeightContinuationBytes,
                 "unit drawbridge vertical-correction continuation");
+            AssertBytes(memory,
+                UnitHeightGridReadRva,
+                UnitHeightGridReadBytes,
+                "unit height writer current HeightGrid read");
+            if (ReadInt32(memory, UnitHeightGridReadRva + 4) != TileHeightGridRva)
+            {
+                throw new InvalidOperationException(
+                    "The unit height writer no longer reads the image-relative HeightGrid.");
+            }
             AssertBytes(memory,
                 UnitHeightPostCorrectionRva,
                 UnitHeightPostCorrectionBytes,

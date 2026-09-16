@@ -19,7 +19,7 @@ namespace BugfixesAndQoL
     public static class TrailCustomizationLaunchOriginApi
     {
         // Version 1 intentionally advertises only Custom/Coop origins. Built-in Trail
-        // and Sands-of-Time origin tracking remains CustomCustomTrail's responsibility.
+        // and Sands-of-Time origin tracking remains ExtendedData's responsibility.
         private const int CurrentApiVersion = 1;
         private const string SaveDataIdentifier = "BugfixesAndQoL-TrailCustomizationOrigin";
         private static readonly object Sync = new object();

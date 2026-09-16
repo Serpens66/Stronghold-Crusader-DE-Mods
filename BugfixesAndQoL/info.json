@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.151",
+  "Version": "1.0.152",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.6.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.152",
+      "Changes": [
+        "Moved Custom Lord and Extended CPU Lord Workshop JSON staging into the new Extended Data mod."
+      ]
+    },
     {
       "Version": "1.0.151",
       "Changes": [

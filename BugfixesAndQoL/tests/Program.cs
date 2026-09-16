@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -41,7 +42,6 @@ namespace BugfixesAndQoL
             TestFriendlyMoatMovementIntegration();
             TestReachableEnemyGatehouseUnitIdContract();
             TestSynchronizedGatehouseReachabilityPolicy();
-            TestGatehouseReachabilityDiagnosticThrottle();
             TestMovementFastPathParity();
             TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
@@ -1840,7 +1840,7 @@ namespace BugfixesAndQoL
         {
             int refreshCalls = 0;
             Check(!TrailCustomizationProviderHostApi.RegisterProvider(
-                    "CustomCustomTrail_Serp",
+                    "ExtendedData_Serp",
                     TrailCustomizationProviderHostApi.ApiVersion,
                     () => true,
                     () => true,
@@ -1851,19 +1851,19 @@ namespace BugfixesAndQoL
                     "", 1, () => true, () => true, () => true),
                 "Trail customization rejects an invalid provider identity");
             Check(!TrailCustomizationProviderHostApi.RegisterProvider(
-                    "CustomCustomTrail_Serp", 2, () => true, () => true, () => true),
+                    "ExtendedData_Serp", 2, () => true, () => true, () => true),
                 "Trail customization rejects an incompatible provider API");
 
             bool enabled = true;
             int customCalls = 0;
             int coopCalls = 0;
             Check(TrailCustomizationProviderHostApi.RegisterProvider(
-                    "CustomCustomTrail_Serp",
+                    "ExtendedData_Serp",
                     TrailCustomizationProviderHostApi.ApiVersion,
                     () => enabled,
                     () => { customCalls++; return true; },
                     () => { coopCalls++; return true; }),
-                "Trail customization accepts the compatible CustomCustomTrail provider");
+                "Trail customization accepts the compatible ExtendedData provider");
             Check(refreshCalls == 2,
                 "Trail customization refreshes visibility after attach and provider registration");
             Check(TrailCustomizationProviderHostApi.IsProviderEnabled() &&
@@ -1881,7 +1881,7 @@ namespace BugfixesAndQoL
                 "Trail customization rejects an unexpected competing provider");
             int rejectedCalls = 0;
             Check(TrailCustomizationProviderHostApi.RegisterProvider(
-                    "CustomCustomTrail_Serp",
+                    "ExtendedData_Serp",
                     TrailCustomizationProviderHostApi.ApiVersion,
                     () => enabled,
                     () => { rejectedCalls++; return false; },
@@ -2952,123 +2952,149 @@ namespace BugfixesAndQoL
 
             Check(source.Contains("STRUCT_DRAWBRIDGE") &&
                     source.Contains("MaximumSynchronizedDrawbridges") &&
-                    source.Contains("CanReachSynchronizedGroup(") &&
-                    source.Contains("CanUnitTypeUsePathConnectionClass(") &&
-                    source.Contains("r_SubjectGlobalId != drawbridge->r_GlobalId") &&
-                    source.Contains("GATE_REACH_DIAG decision:") &&
-                    source.Contains("occupyGridSize=") &&
-                    source.Contains("recordOpen=") &&
-                    source.Contains("drawbridgeStateSignature=") &&
-                    source.Contains("unchangedRepeats=") &&
+                    source.Contains("BuildOrderedFootprintCandidates(") &&
+                    source.Contains("CollectFirstDistinctBuildingIds(") &&
+                    source.Contains("CanReachAnyExteriorApproach(") &&
+                    source.Contains("GetTileBuildingId(") &&
+                    !source.Contains("GATE_REACH_DIAG") &&
+                    !source.Contains("GatehouseReachabilityDiagnosticThrottle") &&
+                    !source.Contains("missing-path-record") &&
+                    !source.Contains("CanUnitTypeUsePathConnectionClass(") &&
                     !source.Contains("r_IsEnabledOrOpen =") &&
                     !source.Contains("SetPath") &&
                     !source.Contains("RecalculateTile"),
-                "gatehouse runtime diagnoses validated synchronized drawbridges without mutating live pathing state");
+                "gatehouse runtime uses Vanilla's building grid and exterior approaches without mutating live pathing state");
         }
 
         private static void TestSynchronizedGatehouseReachabilityPolicy()
         {
-            var gatehouse = new GatePortalSnapshot(
-                10, 20, 0,
-                entryX: 100, entryY: 100,
-                exitX: 104, exitY: 100);
-            var firstBridge = new GatePortalSnapshot(
-                20, 30, 0,
-                entryX: 105, entryY: 100,
-                exitX: 109, exitY: 100);
-            var secondBridge = new GatePortalSnapshot(
-                10, 40, 0,
-                entryX: 99, entryY: 100,
-                exitX: 95, exitY: 100);
-            var distantBridge = new GatePortalSnapshot(
-                20, 50, 0,
-                entryX: 200, entryY: 200,
-                exitX: 204, exitY: 200);
-            var unconnectedBridge = new GatePortalSnapshot(
-                60, 70, 0,
-                entryX: 105, entryY: 100,
-                exitX: 109, exitY: 100);
+            List<VanillaFootprintCandidate> candidates =
+                SynchronizedGatehouseReachabilityPolicy.BuildOrderedFootprintCandidates(
+                    0, 0, 5);
+            string actualOrder = string.Join(
+                ";",
+                candidates.Select(candidate =>
+                    $"({candidate.X},{candidate.Y},{candidate.OutwardX},{candidate.OutwardY})"));
+            const string ExpectedOrder =
+                "(2,-1,0,-1);(3,-1,0,-1);(4,-1,0,-1);" +
+                "(5,0,1,0);(5,1,1,0);(5,2,1,0);(5,3,1,0);(5,4,1,0);" +
+                "(4,5,0,1);(3,5,0,1);(2,5,0,1);(1,5,0,1);(0,5,0,1);" +
+                "(-1,4,-1,0);(-1,3,-1,0);(-1,2,-1,0);(-1,1,-1,0);(-1,0,-1,0);" +
+                "(0,-1,0,-1);(1,-1,0,-1)";
+            Check(candidates.Count == 20 && actualOrder == ExpectedOrder,
+                "gatehouse footprint size 5 yields Vanilla's exact 20 edge candidates in order");
 
-            Check(SynchronizedGatehouseReachabilityPolicy.IsAssociatedDrawbridge(
-                    gatehouse, firstBridge) &&
-                  !SynchronizedGatehouseReachabilityPolicy.IsAssociatedDrawbridge(
-                    gatehouse, distantBridge) &&
-                  !SynchronizedGatehouseReachabilityPolicy.IsAssociatedDrawbridge(
-                    gatehouse, unconnectedBridge),
-                "drawbridge association requires both a shared PCL and an adjacent gate endpoint");
-            Check(SynchronizedGatehouseReachabilityPolicy.EvaluateAssociation(
-                      gatehouse, firstBridge) == DrawbridgeAssociationResult.Accepted &&
-                  SynchronizedGatehouseReachabilityPolicy.EvaluateAssociation(
-                      gatehouse, distantBridge) == DrawbridgeAssociationResult.NonAdjacentEndpoints &&
-                  SynchronizedGatehouseReachabilityPolicy.EvaluateAssociation(
-                      gatehouse, unconnectedBridge) == DrawbridgeAssociationResult.NoSharedComponent,
-                "drawbridge diagnostics expose the exact current-heuristic rejection stage");
+            var candidateBuildings = new Dictionary<string, int>
+            {
+                ["2,-1"] = 90,
+                ["3,-1"] = 10,
+                ["4,-1"] = 10,
+                ["5,0"] = 11,
+                ["5,1"] = 12,
+                ["5,2"] = 13
+            };
+            var eligible = new HashSet<int> { 10, 11, 12, 13 };
+            List<int> selected =
+                SynchronizedGatehouseReachabilityPolicy.CollectFirstDistinctBuildingIds(
+                    candidates,
+                    (x, y) => candidateBuildings.TryGetValue($"{x},{y}", out int id) ? id : 0,
+                    id => eligible.Contains(id));
+            Check(selected.SequenceEqual(new[] { 10, 11 }),
+                "dead or non-drawbridge candidates are skipped and only Vanilla's first two distinct bridges are coupled");
+            Check(selected.Contains(11),
+                "a live foreign-owner drawbridge remains eligible because Vanilla's lookup has no owner filter");
 
-            Check(SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
-                    gatehouse,
-                    Array.Empty<GatePortalSnapshot>(),
-                    component => component == 10),
-                "gatehouse group remains reachable through a directly reachable gate component");
-            Check(SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
-                    gatehouse,
-                    new[] { firstBridge },
-                    component => component == 30),
-                "raised synchronized drawbridge remains reachable through its outer component");
-            Check(SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
-                    gatehouse,
+            int HorizontalBuildingAt(int x, int y) => y == 2 && x >= 5 && x <= 9 ? 7 : 0;
+            bool horizontalOpen = SynchronizedGatehouseReachabilityPolicy.TryTraceExteriorApproach(
+                new VanillaFootprintCandidate(5, 2, 1, 0),
+                7,
+                (x, y) => x >= 0 && x < 20 && y >= 0 && y < 20,
+                HorizontalBuildingAt,
+                (x, y) => y * 20 + x,
+                tileId => tileId == 50 ? 88 : 0,
+                out DrawbridgeApproachSnapshot openApproach);
+            bool horizontalRaised = SynchronizedGatehouseReachabilityPolicy.TryTraceExteriorApproach(
+                new VanillaFootprintCandidate(5, 2, 1, 0),
+                7,
+                (x, y) => x >= 0 && x < 20 && y >= 0 && y < 20,
+                HorizontalBuildingAt,
+                (x, y) => y * 20 + x,
+                tileId => tileId == 50 ? 88 : 0,
+                out DrawbridgeApproachSnapshot raisedApproach);
+            Check(horizontalOpen && horizontalRaised &&
+                    openApproach.ExteriorX == 10 && openApproach.ExteriorY == 2 &&
+                    openApproach.ExteriorPcl == 88 &&
+                    raisedApproach.ExteriorTileId == openApproach.ExteriorTileId,
+                "open and raised drawbridge states resolve to the same stable exterior approach without a path record");
+
+            int VerticalBuildingAt(int x, int y) => x == 3 && y >= 4 && y <= 8 ? 8 : 0;
+            Check(SynchronizedGatehouseReachabilityPolicy.TryTraceExteriorApproach(
+                    new VanillaFootprintCandidate(3, 4, 0, -1),
+                    8,
+                    (x, y) => x >= 0 && x < 20 && y >= 0 && y < 20,
+                    VerticalBuildingAt,
+                    (x, y) => y * 20 + x,
+                    tileId => tileId == 63 ? 77 : 0,
+                    out DrawbridgeApproachSnapshot rotatedApproach) &&
+                  rotatedApproach.ExteriorX == 3 && rotatedApproach.ExteriorY == 3 &&
+                  rotatedApproach.ExteriorPcl == 77,
+                "rotated drawbridges follow the candidate's outward direction");
+            Check(!SynchronizedGatehouseReachabilityPolicy.TryTraceExteriorApproach(
+                    new VanillaFootprintCandidate(0, 2, -1, 0),
+                    9,
+                    (x, y) => x >= 0 && x < 20 && y >= 0 && y < 20,
+                    (x, y) => x == 0 && y == 2 ? 9 : 0,
+                    (x, y) => y * 20 + x,
+                    tileId => 22,
+                    out _) &&
+                  !SynchronizedGatehouseReachabilityPolicy.TryTraceExteriorApproach(
+                    new VanillaFootprintCandidate(5, 2, 1, 0),
+                    7,
+                    (x, y) => x >= 0 && x < 20 && y >= 0 && y < 20,
+                    HorizontalBuildingAt,
+                    (x, y) => y * 20 + x,
+                    tileId => 0,
+                    out _),
+                "out-of-map geometry and exterior PCL zero fail closed");
+
+            var firstBridge = new SynchronizedDrawbridgeSnapshot(7, 700);
+            firstBridge.Approaches.Add(openApproach);
+            var secondBridge = new SynchronizedDrawbridgeSnapshot(8, 800);
+            secondBridge.Approaches.Add(rotatedApproach);
+            Check(SynchronizedGatehouseReachabilityPolicy.CanReachAnyExteriorApproach(
                     new[] { firstBridge, secondBridge },
-                    component => component == 40) &&
-                  !SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
-                    gatehouse,
+                    component => component == 77) &&
+                  !SynchronizedGatehouseReachabilityPolicy.CanReachAnyExteriorApproach(
                     new[] { firstBridge, secondBridge },
                     component => component == 99),
-                "gatehouse group supports both Vanilla-coupled drawbridges without inventing unrelated reachability");
-            Check(!SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
-                    gatehouse,
+                "either of two coupled drawbridge exteriors can establish reachability without unrelated components");
+            Check(!SynchronizedGatehouseReachabilityPolicy.CanReachAnyExteriorApproach(
                     new[] { firstBridge, secondBridge, firstBridge },
                     component => true),
-                "more than two synchronized drawbridges fail closed");
-            Check(!SynchronizedGatehouseReachabilityPolicy.CanReachSynchronizedGroup(
-                    new GatePortalSnapshot(0, 20, 0, 100, 100, 104, 100),
-                    new[] { firstBridge },
-                    component => true),
-                "malformed gatehouse PCL data fails closed");
-        }
+                "more than two supplied drawbridges fail closed even though discovery selects only two");
 
-        private static void TestGatehouseReachabilityDiagnosticThrottle()
-        {
-            var throttle = new GatehouseReachabilityDiagnosticThrottle();
-            Check(throttle.Observe(1, 101, 2, 202, "closed", out int suppressed) ==
-                    GatehouseDiagnosticEmission.Detailed && suppressed == 0,
-                "gatehouse diagnostics emit the first state immediately");
+            int signature =
+                SynchronizedGatehouseReachabilityPolicy.ComputeDrawbridgeSignature(
+                    new[] { firstBridge });
+            var replacedBridge = new SynchronizedDrawbridgeSnapshot(7, 701);
+            replacedBridge.Approaches.Add(openApproach);
+            var changedExterior = new SynchronizedDrawbridgeSnapshot(7, 700);
+            changedExterior.Approaches.Add(new DrawbridgeApproachSnapshot(
+                5, 2, 10, 2, 50, 89));
+            Check(signature != SynchronizedGatehouseReachabilityPolicy.ComputeDrawbridgeSignature(
+                      new[] { replacedBridge }) &&
+                  signature != SynchronizedGatehouseReachabilityPolicy.ComputeDrawbridgeSignature(
+                      new[] { changedExterior }),
+                "drawbridge cache signature changes with Global ID and exterior PCL");
 
-            bool prematureSummary = false;
-            for (int index = 1;
-                 index < GatehouseReachabilityDiagnosticThrottle.SummaryInterval;
-                 index++)
-            {
-                prematureSummary |= throttle.Observe(
-                    1, 101, 2, 202, "closed", out _) != GatehouseDiagnosticEmission.None;
-            }
-            Check(!prematureSummary &&
-                  throttle.Observe(1, 101, 2, 202, "closed", out suppressed) ==
-                      GatehouseDiagnosticEmission.Summary &&
-                  suppressed == GatehouseReachabilityDiagnosticThrottle.SummaryInterval,
-                "unchanged gatehouse diagnostics are suppressed and summarized at the fixed interval");
-
-            throttle.Observe(1, 101, 2, 202, "closed", out _);
-            throttle.Observe(1, 101, 2, 202, "closed", out _);
-            Check(throttle.Observe(1, 101, 2, 202, "open", out suppressed) ==
-                    GatehouseDiagnosticEmission.Detailed && suppressed == 2,
-                "gatehouse diagnostics emit state changes with the suppressed repeat count");
-            Check(throttle.Observe(1, 101, 3, 303, "open", out suppressed) ==
-                    GatehouseDiagnosticEmission.Detailed && suppressed == 0,
-                "gatehouse diagnostic throttling isolates distinct gate and unit identities");
-
-            throttle.Clear();
-            Check(throttle.Observe(1, 101, 2, 202, "open", out suppressed) ==
-                    GatehouseDiagnosticEmission.Detailed && suppressed == 0,
-                "clearing gatehouse diagnostics makes the next observation detailed again");
+            string projectDirectory = FindProjectDirectory();
+            string runtime = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "ReachableEnemyGatehouseRuntime.cs"));
+            Check(!runtime.Contains("OpenState") &&
+                    !runtime.Contains("previouslyOpen") &&
+                    runtime.Contains("tick != lastCacheTick") &&
+                    runtime.Contains("reachabilityCache.Clear()"),
+                "already-closed gates need no remembered open state and cache only within one tick");
         }
 
         private static void TestNativeContracts()

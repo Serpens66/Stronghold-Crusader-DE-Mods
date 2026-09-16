@@ -9,8 +9,9 @@ function Assert-True {
 $config = Get-ReleaseConfiguration
 Assert-True ([string]$config.ApiShared.Guid -ceq 'APIShared_Serp') 'The resolved release configuration must expose the APIShared GUID.'
 Assert-True ($null -eq $config.ApiShared.PSObject.Properties['Version']) 'The release configuration must not duplicate the current APIShared version.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.3.0') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.3.6') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
 Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.3.0') 'ExtraFeatures must be recognized as an APIShared consumer.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtendedData') -ceq '0.3.6') 'ExtendedData must be recognized as an APIShared consumer.'
 Assert-True ($null -eq (Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts')) 'BuildingCosts must not be classified as an APIShared consumer.'
 $releaseIndexEntries = @(Get-ReleaseIndexEntries -Config $config)
 Assert-True ([string]$releaseIndexEntries[0].Project -ceq 'SerpsMods') 'The SerpsMods release-index entry must be first.'
@@ -71,12 +72,12 @@ Assert-True ($releaseModSource -match 'BundledVersion = \[string\]\$apiSharedPac
 $bugfixMetadata = Get-PluginMetadata -ModName 'BugfixesAndQoL'
 $bugfixDependencies = @(Get-DependencyRecords -Metadata $bugfixMetadata -ExtenderDir (Get-ExtenderDirectory -Metadata $bugfixMetadata) -ApiSharedDir $apiSharedPackage.Directory)
 Assert-True (@($bugfixDependencies | Where-Object { $_.Path -ceq '$Repository/APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll' }).Count -eq 1) 'Release provenance must hash the same workspace APIShared.dll used by the consumer build.'
-foreach ($consumerBuild in @('BugfixesAndQoL\build.bat', 'ExtraFeatures\build.bat', 'Helpers\ActiveAIVDetector\build.bat')) {
+foreach ($consumerBuild in @('BugfixesAndQoL\build.bat', 'ExtendedData\build.bat', 'ExtraFeatures\build.bat', 'Helpers\ActiveAIVDetector\build.bat')) {
     $consumerBuildSource = [IO.File]::ReadAllText((Join-Path $config.Root $consumerBuild))
     Assert-True ($consumerBuildSource -match 'if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"') "$consumerBuild must honor the release APIShared override."
     Assert-True ($consumerBuildSource -match '/p:ApiSharedDir="%API_SHARED_DIR%"') "$consumerBuild must forward the APIShared directory to MSBuild."
 }
-foreach ($neverReleaseProject in @('ActiveAIVDetector', 'AIDefenseTest', 'CustomLordUpload', 'MultiplayerLeaveFix', 'SerpsMods', 'VanillaAICExporter')) {
+foreach ($neverReleaseProject in @('ActiveAIVDetector', 'AIDefenseTest', 'MultiplayerLeaveFix', 'SerpsMods', 'VanillaAICExporter')) {
     Assert-True ($neverReleaseProject -notin $config.Projects) "$neverReleaseProject must not be release-enabled."
     $rejected = $false
     try {
@@ -93,11 +94,11 @@ Assert-True (-not (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'Buil
 Assert-True (-not (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/README.md')) 'Project README files must be ignored.'
 Assert-True (-not (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/Findings/NativeNotes.md')) 'Nested Markdown files must be ignored.'
 Assert-True (-not (Test-RelevantProjectPath -Project 'BuildingCosts' -Path 'BuildingCosts/release.bat')) 'Release automation must be ignored.'
-Assert-True (-not (Test-RelevantProjectPath -Project 'CustomCustomTrail' -Path 'CustomCustomTrail/README.md')) 'CustomCustomTrail README must be ignored.'
-Assert-True (-not (Test-RelevantProjectPath -Project 'CustomCustomTrail' -Path 'CustomCustomTrail/BepInEx/plugins/CustomCustomTrail_Serp/README.md')) 'Package-tree Markdown files must be ignored.'
-$customTrailBuildSource = [IO.File]::ReadAllText((Join-Path $config.Root 'CustomCustomTrail\build.bat'))
-Assert-True ($customTrailBuildSource -notmatch '(?i)README\.md') 'CustomCustomTrail build must not copy or require README.md.'
-Assert-True (-not (Test-Path -LiteralPath (Join-Path $config.Root 'CustomCustomTrail\BepInEx\plugins\CustomCustomTrail_Serp\README.md') -PathType Leaf)) 'CustomCustomTrail package must not contain README.md.'
+Assert-True (-not (Test-RelevantProjectPath -Project 'ExtendedData' -Path 'ExtendedData/README.md')) 'ExtendedData README must be ignored.'
+Assert-True (-not (Test-RelevantProjectPath -Project 'ExtendedData' -Path 'ExtendedData/BepInEx/plugins/ExtendedData_Serp/README.md')) 'Package-tree Markdown files must be ignored.'
+$extendedDataBuildSource = [IO.File]::ReadAllText((Join-Path $config.Root 'ExtendedData\build.bat'))
+Assert-True ($extendedDataBuildSource -notmatch '(?i)README\.md') 'ExtendedData build must not copy or require README.md.'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $config.Root 'ExtendedData\BepInEx\plugins\ExtendedData_Serp\README.md') -PathType Leaf)) 'ExtendedData package must not contain README.md.'
 
 $sample = @'
 public const string BuildingCostsTitle = "BuildingCosts.Title";

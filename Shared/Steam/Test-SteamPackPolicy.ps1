@@ -59,7 +59,7 @@ $expectedVersions = @('1.0.2','1.0.3','1.0.5','1.0.6','1.0.7','1.0.8','1.0.9','1
 Assert-True ((@($seed.Uploads.PackVersion) -join ',') -ceq ($expectedVersions -join ',')) 'the seed must contain exactly the nine confirmed public Steam versions'
 Assert-True ('1.0.4' -notin @($seed.Uploads.PackVersion) -and '1.0.11' -notin @($seed.Uploads.PackVersion)) 'non-uploaded GitHub releases must be excluded'
 Assert-True ('1.0.0' -notin @($seed.Uploads.PackVersion) -and '1.0.1' -notin @($seed.Uploads.PackVersion) -and
-    ($seed | ConvertTo-Json -Depth 10) -notmatch 'CustomCustomTrail') 'private predecessors and CustomCustomTrail must be excluded'
+    ($seed | ConvertTo-Json -Depth 10) -notmatch 'ExtendedData') 'private predecessors and ExtendedData must be excluded'
 
 function Get-TestMapPaths([string]$MapPath) {
     Add-Type -AssemblyName System.IO.Compression

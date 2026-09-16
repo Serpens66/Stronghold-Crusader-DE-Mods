@@ -33,11 +33,10 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.151";
+        public const string PluginVersion = "1.0.152";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static ResolutionAwareZoomHook resolutionAwareZoomHook;
-        private static CustomLordJsonUploadHook customLordJsonUploadHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private static SteamInviteBlacklistStore steamInviteBlacklist;
         private static IDisposable gameplaySessionSubscription;
@@ -72,16 +71,6 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     Logger,
                     $"Bugfixes and QoL resolution-aware extended zoom could not be initialized; Vanilla zoom remains active: {ex}");
-            }
-            try
-            {
-                customLordJsonUploadHook = new CustomLordJsonUploadHook(Logger, Settings);
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(
-                    Logger,
-                    $"Bugfixes and QoL Lord Workshop JSON upload could not be initialized; Vanilla uploads remain active: {ex}");
             }
             try
             {

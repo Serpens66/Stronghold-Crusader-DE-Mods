@@ -239,12 +239,14 @@ namespace ExtraFeatures
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaCorrection);
 
             // This hook is already behind Vanilla's building-type == 0x31 branch.
-            // RBP is the image base. RAX, RCX and flags are dead at the common
-            // continuation, while RBX remains the live unit-record pointer.
+            // RBP is the image base. RBX is the unit-slot anchor formed from the
+            // manager base plus game ID * 0x490; its +0x712/+0x714/+0x72C operands
+            // correspond to GameUnit record fields +0xB6/+0xB8/+0xD0. RAX, RCX and
+            // flags are dead at the common continuation.
             assembler.mov(ecx,
                 __dword_ptr[rbx + ElevatedMoatNativeContract.UnitCurrentTileIdOffset]);
             assembler.movzx(eax,
-                __byte_ptr[rbp + rcx + ElevatedMoatNativeContract.TileHeightGridOffset]);
+                __byte_ptr[rbp + rcx + ElevatedMoatNativeContract.TileHeightGridRva]);
             assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
             assembler.jbe(vanillaCorrection);
 

@@ -106,7 +106,7 @@
                           {
                               "Version":  "1.0.1",
                               "Changes":  [
-                                              "Explicitly opts the diagnostic host settings out of CustomCustomTrail discovery."
+                                              "Explicitly opts the diagnostic host settings out of ExtendedData discovery."
                                           ]
                           },
                           {

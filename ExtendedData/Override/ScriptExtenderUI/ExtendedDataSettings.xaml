@@ -1,0 +1,156 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
+      xmlns:shared="clr-namespace:Shared;assembly=ExtendedData"
+      xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
+      shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
+      shared:ModSettingsSearch.IncludeToolTips="{Binding System_ModSettingsSearchIncludeToolTips}"
+      shared:ModSettingsSearch.ExactKey="{Binding System_ModSettingsSearchExactKey}">
+  <Grid.Resources>
+    <Style x:Key="ModSettingsToolTipStyle" TargetType="{x:Type ToolTip}">
+      <Setter Property="Background" Value="#FF1D1710"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
+      <Setter Property="BorderBrush" Value="#FFF2D48A"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ToolTip}">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}" MaxWidth="{TemplateBinding MaxWidth}">
+              <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="{x:Type ToolTip}" BasedOn="{StaticResource ModSettingsToolTipStyle}"/>
+    <Style x:Key="HostRoleHeader" TargetType="{x:Type TextBlock}"><Setter Property="Background" Value="#332F5F9F"/><Setter Property="Foreground" Value="#77AAFF"/><Setter Property="FontWeight" Value="Bold"/></Style>
+    <Style x:Key="ClientRoleHeader" TargetType="{x:Type TextBlock}"><Setter Property="Background" Value="#33306950"/><Setter Property="Foreground" Value="#66CC99"/><Setter Property="FontWeight" Value="Bold"/></Style>
+    <Style x:Key="SectionHeader" TargetType="{x:Type TextBlock}"><Setter Property="Foreground" Value="#CCCCCC"/><Setter Property="FontWeight" Value="Bold"/></Style>
+    <Style x:Key="HostActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443B6EA5"/><Setter Property="BorderBrush" Value="#FF77AAFF"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
+    <Style x:Key="ClientActivationBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#44306950"/><Setter Property="BorderBrush" Value="#FF66CC99"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="8,4"/></Style>
+    <Style x:Key="HostOptionsBorder" TargetType="{x:Type Border}"><Setter Property="Background" Value="#443E315F"/><Setter Property="BorderBrush" Value="#FFB99BE8"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="3"/><Setter Property="Padding" Value="10,8"/></Style>
+    <shared:ModSettingsSearchVisibilityConverter x:Key="ModSettingsSearchVisibilityConverter"/>
+    <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    <Style x:Key="ModSettingsSearchTargetGrid" TargetType="{x:Type Grid}"><Setter Property="Visibility"><Setter.Value><MultiBinding Converter="{StaticResource ModSettingsSearchVisibilityConverter}"><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.FilterText)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.IncludeToolTips)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.ExactKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.Key)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.Title)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.ToolTipText)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/></MultiBinding></Setter.Value></Setter></Style>
+    <Style x:Key="ModSettingsSearchSectionGrid" TargetType="{x:Type Grid}"><Setter Property="Visibility"><Setter.Value><MultiBinding Converter="{StaticResource ModSettingsSearchVisibilityConverter}"><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.FilterText)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.IncludeToolTips)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.ExactKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionKey)"/><Binding RelativeSource="{RelativeSource Self}" Path="(shared:ModSettingsSearch.SectionTitle)"/></MultiBinding></Setter.Value></Setter></Style>
+    <Style x:Key="ModSettingsSearchIcon" TargetType="{x:Type Path}"><Setter Property="Stroke" Value="#FF77AAFF"/><Style.Triggers><DataTrigger Binding="{Binding System_ModSettingsSearchHasActiveFilter}" Value="True"><Setter Property="Stroke" Value="#FFF2D48A"/></DataTrigger></Style.Triggers></Style>
+  </Grid.Resources>
+  <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="10">
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
+        <TextBlock Text="{Binding ModEnabledText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+        <Border Style="{StaticResource HostActivationBorder}" Margin="8,0,0,0">
+          <CheckBox IsEnabled="{Binding CanToggleHostSettings}" IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}" Content="{Binding HostActivationLabelText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding HostSettingsActivationHelpText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+        </Border>
+        <Border Style="{StaticResource ClientActivationBorder}" Visibility="{Binding ClientSettingsActivationVisibility}" Margin="8,0,0,0">
+          <CheckBox IsEnabled="{Binding CanToggleClientSettings}" IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}" Content="{Binding ClientActivationLabelText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClientSettingsActivationHelpText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+        </Border>
+        <ComboBox IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" ItemsSource="{Binding PresetOptions}" SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}" Width="145" VerticalAlignment="Center" Margin="14,0,0,0"/>
+        <Button Command="{Binding System_ToggleModSettingsSearchCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_ModSettingsSearchToggleHelpText}" Width="30" Height="28" Padding="5" Margin="8,0,0,0"><Viewbox Width="16" Height="16"><Path Style="{StaticResource ModSettingsSearchIcon}" StrokeThickness="2" Data="M 7,1 A 6,6 0 1 1 6.99,1 M 11.5,11.5 L 16,16"/></Viewbox></Button>
+        <Button IsEnabled="{Binding CanResetSettings}" Content="{Binding ResetToDefaultText}" Command="{Binding ResetToDefaultCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ResetToDefaultHelpText}" HorizontalAlignment="Left" Padding="10,3" Margin="14,0,0,0"/>
+      </StackPanel>
+      <StackPanel shared:ModSettingsSearch.Exclude="True" Visibility="{Binding System_ModSettingsSearchPanelVisibility}" HorizontalAlignment="Left" Margin="0,0,0,8">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+          <TextBlock Text="{Binding System_ModSettingsSearchLabelText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding System_ModSettingsSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" shared:ModSettingsSearch.FocusRequest="{Binding System_ModSettingsSearchFocusRequest}" Width="280" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_ModSettingsSearchHelpText}" Foreground="White" Padding="5,2" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
+          <CheckBox IsChecked="{Binding System_ModSettingsSearchIncludeToolTips, Mode=TwoWay}" Content="{Binding System_ModSettingsSearchIncludeToolTipsText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_ModSettingsSearchIncludeToolTipsHelpText}" Foreground="White" VerticalAlignment="Center" Margin="10,0,0,0"/>
+          <Button Command="{Binding System_ClearModSettingsSearchCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_ModSettingsSearchClearHelpText}" Width="30" Height="26" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" Margin="8,0,0,0"><Viewbox Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center"><Path Stroke="#FFF2D48A" StrokeThickness="2" Data="M 1,1 L 9,9 M 9,1 L 1,9"/></Viewbox></Button>
+        </StackPanel>
+        <TextBlock Text="{Binding System_ModSettingsSearchNoResultsText}" Visibility="{Binding System_ModSettingsSearchNoResultsVisibility}" Foreground="#FFCC66" HorizontalAlignment="Left" Margin="0,4,0,0"/>
+      </StackPanel>
+      <TextBlock Text="{Binding ActionsScopeNoticeText}" Visibility="{Binding ActionsScopeNoticeVisibility}" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFFFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding PracticalEffectsText}"
+                 Foreground="#FFDDDDDD"
+                 TextWrapping="Wrap"
+                 Margin="0,10,0,0"/>
+      <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,16,0,6"/>
+      <StackPanel IsEnabled="{Binding CanEditClientSettings}">
+      <StackPanel shared:ModSettingsSearch.SectionKey="custom-trail.section.compatible-mods" shared:ModSettingsSearch.SectionTitle="{Binding SupportedTrailSettingsTitle}">
+      <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding SupportedTrailSettingsTitle}"
+                 Foreground="#FFF2D48A"
+                 FontWeight="Bold"
+                 Margin="0,16,0,4"/></Grid>
+      <TextBlock Text="{Binding SupportedTrailSettingsHelpText}"
+                 Foreground="#FFCCCCCC"
+                 TextWrapping="Wrap" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}"/>
+      <ItemsControl ItemsSource="{Binding CompatibleTrailMods}" Margin="12,6,0,0">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Margin="0,2">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding ModId}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding SearchText}">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <TextBlock Grid.Column="1" Text="{Binding SummaryText}" Foreground="#FFCCCCCC" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <ComboBox Grid.Column="2" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" VerticalAlignment="Center" Margin="0,0,6,0" ToolTipService.ShowDuration="60000">
+                  <ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ComboBox.ToolTip>
+                </ComboBox>
+                <ToggleButton Grid.Column="3" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Foreground="White" Width="28" Height="24" Padding="0" ToolTipService.ShowDuration="60000">
+                  <ToggleButton.Style>
+                    <Style TargetType="{x:Type ToggleButton}">
+                      <Setter Property="Content" Value="▶"/>
+                      <Style.Triggers><Trigger Property="IsChecked" Value="True"><Setter Property="Content" Value="▼"/></Trigger></Style.Triggers>
+                    </Style>
+                  </ToggleButton.Style>
+                  <ToggleButton.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ToggleButton.ToolTip>
+                </ToggleButton>
+              </Grid>
+              <ItemsControl ItemsSource="{Binding Settings}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="26,4,0,5">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding Key}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding HelpText}" Margin="0,1">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                      <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="White" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                      <ComboBox Grid.Column="1" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" VerticalAlignment="Center" ToolTipService.ShowDuration="60000">
+                        <ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ComboBox.ToolTip>
+                      </ComboBox>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <StackPanel Visibility="{Binding IncompatibleTrailModsVisibility}" Margin="0,12,0,0">
+        <TextBlock Text="{Binding IncompatibleTrailModsLabel}"
+                   Foreground="#FFFFCC66"
+                   FontWeight="Bold"/>
+        <TextBlock Text="{Binding IncompatibleTrailModsText}"
+                   Foreground="#FFCCCCCC"
+                   TextWrapping="Wrap"
+                   Margin="12,4,0,0"/>
+      </StackPanel>
+      <TextBlock Margin="0,10,0,0">
+        <Hyperlink Command="{Binding OpenCompatibilityGuideCommand}"
+                   ToolTipService.ShowDuration="60000"
+                   ToolTip="{Binding CompatibilityGuideHelpText}">
+          <Run Text="{Binding CompatibilityGuideText}"/>
+        </Hyperlink>
+      </TextBlock>
+      </StackPanel>
+      </StackPanel>
+      <Separator Background="#444466" Margin="0,12"/>
+      <TextBlock Text="{Binding HostOptionsText}" Style="{StaticResource HostRoleHeader}" Margin="0,2,0,6"/>
+      <StackPanel shared:ModSettingsSearch.SectionKey="custom-trail.section.coop-package" shared:ModSettingsSearch.SectionTitle="{Binding CoopPackageText}">
+      <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding CoopPackageText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="custom-trail.coop-package" shared:ModSettingsSearch.Title="{Binding CoopPackageText}" shared:ModSettingsSearch.ToolTipText="{Binding CoopPackageHelpText}">
+      <Border Style="{StaticResource HostOptionsBorder}" HorizontalAlignment="Left">
+        <StackPanel IsEnabled="{Binding CanEditHostSettings}">
+          <TextBlock Text="{Binding CoopPackageText}" Foreground="White" Margin="0,0,0,4"/>
+          <ComboBox ItemsSource="{Binding CoopPackageOptions}" SelectedItem="{Binding SelectedCoopPackage, Mode=TwoWay}" IsEnabled="{Binding CanEditCoopPackage}" Width="520" HorizontalAlignment="Left" ToolTipService.ShowDuration="60000" ToolTip="{Binding CoopPackageHelpText}"/>
+          <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+            <TextBlock Text="{Binding CoopPackageStatusLabel}" Foreground="#FFCCCCCC"/>
+            <TextBlock Text="{Binding CoopPackageStatusText}" Foreground="White" TextWrapping="Wrap" MaxWidth="700" Margin="5,0,0,0"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      </Grid>
+      </StackPanel>
+      <!-- Lets the co-op package selector scroll high enough to open a tall dropdown. -->
+      <Border Height="300"/>
+    </StackPanel>
+  </ScrollViewer>
+</Grid>

@@ -29,7 +29,6 @@ Assert-True ($wrappers.Count -gt 0) 'No release wrappers found.'
 $neverReleaseProjects = @(
     [PSCustomObject]@{ ModName='ActiveAIVDetector'; RelativeDirectory='Helpers/ActiveAIVDetector' },
     [PSCustomObject]@{ ModName='AIDefenseTest'; RelativeDirectory='Testmods/AIDefenseTest' },
-    [PSCustomObject]@{ ModName='CustomLordUpload'; RelativeDirectory='CustomLordUpload' },
     [PSCustomObject]@{ ModName='MultiplayerLeaveFix'; RelativeDirectory='MultiplayerLeaveFix' },
     [PSCustomObject]@{ ModName='VanillaAICExporter'; RelativeDirectory='Helpers/VanillaAICExporter' }
 )

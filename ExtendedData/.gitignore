@@ -1,0 +1,5 @@
+obj/
+ExtendedData.Core/bin/
+ExtendedData.Core/obj/
+ExtendedData.Tests/bin/
+ExtendedData.Tests/obj/

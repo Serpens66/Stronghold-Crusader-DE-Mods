@@ -30,7 +30,7 @@ Native addresses, patterns, memory writers, detours, concrete services and owner
 | Path components | `RandomEvents` | Uses `GamePathingManagerAPI.GetPathComponentGrid()` directly with a span-length guard and requires Script Extender 2.4.0. |
 | Gate/path records | `ExtraFeatures`, `ImprovedHunters`, relevant `Testmods` | Use the 2.4.0 `GamePathingManagerAPI` and `PathConnectionRecord` contracts directly. |
 | AIV build step | `ExtraFeatures`, `Helpers/ActiveAIVDetector` | Share the single permanent APIShared detour at `0x51790`; deterministic observers cannot modify arguments or result. |
-| Lobby state | `BugfixesAndQoL`, `CastlePlanner`, `CustomCustomTrail` | Share one managed dirty-plus-15-frame observer. Publish, readiness, host/client and map-slot remapping remain mod-local. |
+| Lobby state | `BugfixesAndQoL`, `CastlePlanner`, `ExtendedData` | Share one managed dirty-plus-15-frame observer. Publish, readiness, host/client and map-slot remapping remain mod-local. |
 
 `Testmods/APITest` was removed after its assertions were transferred to the APIShared test suite and both production pilots stopped using local gatehouse mutations.
 

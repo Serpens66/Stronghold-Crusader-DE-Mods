@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <ProjectGuid>{896C36A0-FCD8-44C2-B14A-B2B141E9E75D}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>ExtendedData</RootNamespace>
+    <AssemblyName>ExtendedData.Upload.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <OutputPath>bin\Debug\</OutputPath>
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath><Private>true</Private></Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\src\LordUpload\CustomLordCompatibilityProfile.cs"><Link>CustomLordCompatibilityProfile.cs</Link></Compile>
+    <Compile Include="..\src\LordUpload\CustomLordRuntimeRules.cs"><Link>CustomLordRuntimeRules.cs</Link></Compile>
+    <Compile Include="..\src\LordUpload\CustomLordUploadIssue.cs"><Link>CustomLordUploadIssue.cs</Link></Compile>
+    <Compile Include="..\src\LordUpload\CustomLordUploadContracts.cs"><Link>CustomLordUploadContracts.cs</Link></Compile>
+    <Compile Include="..\src\LordUpload\CustomLordUploadRequest.cs"><Link>CustomLordUploadRequest.cs</Link></Compile>
+    <Compile Include="..\src\LordUpload\CustomLordUploadWorkflow.cs"><Link>CustomLordUploadWorkflow.cs</Link></Compile>
+    <Compile Include="..\src\LordUpload\CustomLordWorkshopPackagePolicy.cs"><Link>CustomLordWorkshopPackagePolicy.cs</Link></Compile>
+    <Compile Include="..\src\LordUpload\CustomLordWorkshopPreflight.cs"><Link>CustomLordWorkshopPreflight.cs</Link></Compile>
+    <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\WorkshopUploadStaging.cs"><Link>WorkshopUploadStaging.cs</Link></Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="SerpLocalizationStub.cs" />
+    <Compile Include="TestExtenderTypes.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

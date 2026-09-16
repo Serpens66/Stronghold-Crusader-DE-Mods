@@ -1,14 +1,14 @@
 # Mod settings in Custom Trails
 
-`CustomCustomTrail` can store shared gameplay settings beside a Trail mission. Compatible installed mods are discovered automatically, so Trail creators normally configure everything in the Trail Maker and do not edit JSON by hand.
+`ExtendedData` can store shared gameplay settings beside a Trail mission. Compatible installed mods are discovered automatically, so Trail creators normally configure everything in the Trail Maker and do not edit JSON by hand.
 
-This guide is for Trail creators. Mod developers who want their settings to appear here should use [Custom Custom Trail compatibility for mod authors](Mod%20Compatibilty%20CustomCustomTrail.md).
+This guide is for Trail creators. Mod developers who want their settings to appear here should use [Extended Data compatibility for mod authors](Mod%20Compatibilty%20ExtendedData.md).
 
 ## Create Trail mod settings
 
-1. Install and enable `CustomCustomTrail` and the compatible gameplay mods that the Trail should use.
+1. Install and enable `ExtendedData` and the compatible gameplay mods that the Trail should use.
 2. Open the Trail Maker and load or create the mission.
-3. Open the `CustomCustomTrail` mod settings. Expand a compatible mod to configure its individual settings.
+3. Open the `ExtendedData` mod settings. Expand a compatible mod to configure its individual settings.
 4. Choose one mode for each relevant setting:
    - **Mod default** uses the Trail-safe baseline supplied by that mod. For most gameplay mods, this disables the mod or feature.
    - **Player/host** uses the normal saved setting of the player in singleplayer or the multiplayer host. The Trail permits the feature but does not dictate its value.
@@ -38,7 +38,7 @@ The old `.modjson` name is unsupported and is not imported, loaded or included i
 
 ## What players need
 
-Players need `CustomCustomTrail` and every mod explicitly mentioned by the mission. A missing mentioned mod is reported when the Trail is selected. Mods and settings that the creator did not mention stay on their mod-defined Trail baseline rather than inheriting arbitrary local gameplay settings.
+Players need `ExtendedData` and every mod explicitly mentioned by the mission. A missing mentioned mod is reported when the Trail is selected. Mods and settings that the creator did not mention stay on their mod-defined Trail baseline rather than inheriting arbitrary local gameplay settings.
 
 After the mission ends, compatible mods restore the player's previous normal preset. Read-only Trail-owned host settings remain locked during play, while personal client settings stay editable.
 
@@ -64,7 +64,7 @@ The current format uses schema 3:
 
 Each key under `mods` is the owning BepInEx plugin GUID. Property names in `playerSettings` use `Player/host`; values in `overrides` use `Fixed Trail value`. A property must not occur in both collections. Unlisted properties use `Mod default`.
 
-See `CustomCustomTrail/Examples/01.modtrail.json.example` for a larger example. Property names and value types must match the installed compatible mod exactly, which is why saving through the Trail Maker is recommended.
+See `ExtendedData/Examples/01.modtrail.json.example` for a larger example. Property names and value types must match the installed compatible mod exactly, which is why saving through the Trail Maker is recommended.
 
 ## Troubleshooting
 

@@ -21,7 +21,7 @@ set "STEAM_MOD_06=CastlePlanner"
 set "STEAM_MOD_07=StartConditions"
 set "STEAM_MOD_08=UnitCosts"
 set "STEAM_MOD_09=UnitLimit"
-REM set "STEAM_MOD_10=CustomCustomTrail"
+REM set "STEAM_MOD_10=ExtendedData"
 
 set "SERPS_STEAM_MODS="
 for /L %%N in (1,1,99) do (

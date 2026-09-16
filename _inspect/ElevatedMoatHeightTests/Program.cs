@@ -102,6 +102,9 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.UnitDrawbridgeHeightContinuationRva,
                     "unit drawbridge continuation mutation");
                 ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.UnitHeightGridReadRva,
+                    "unit HeightGrid source mutation");
+                ExpectContractFailure(image,
                     ElevatedMoatNativeContract.UnitHeightPostCorrectionRva,
                     "unit height-writer register-liveness mutation");
                 ExpectContractFailure(image,
@@ -785,6 +788,7 @@ namespace ExtraFeatures
             Instruction[] instructions = DecodeGeneratedInstructions(stub, out ulong[] jumpTargets);
             int tileIdLoads = 0;
             int tileHeightLoads = 0;
+            int managerRelativeTileHeightLoads = 0;
             int terrainLimitComparisons = 0;
             int vanillaElevationSubtractions = 0;
             int correctionWrites = 0;
@@ -801,8 +805,14 @@ namespace ExtraFeatures
                     instruction.Op0Register == Register.EAX &&
                     HasMemoryOperands(instruction, Register.RBP, Register.RCX) &&
                     instruction.MemoryDisplacement64 ==
-                        ElevatedMoatNativeContract.TileHeightGridOffset)
+                        ElevatedMoatNativeContract.TileHeightGridRva)
                     tileHeightLoads++;
+                if (instruction.Mnemonic == Mnemonic.Movzx &&
+                    instruction.Op0Register == Register.EAX &&
+                    HasMemoryOperands(instruction, Register.RBP, Register.RCX) &&
+                    instruction.MemoryDisplacement64 ==
+                        ElevatedMoatNativeContract.TileHeightGridOffset)
+                    managerRelativeTileHeightLoads++;
                 if (instruction.Mnemonic == Mnemonic.Cmp &&
                     instruction.Op0Register == Register.EAX &&
                     instruction.Immediate32 == ElevatedMoatNativeContract.MaximumVanillaTerrainHeight)
@@ -826,7 +836,9 @@ namespace ExtraFeatures
             }
 
             Check(tileIdLoads == 1 && tileHeightLoads == 1 && terrainLimitComparisons == 1,
-                "unit height generator reads and gates the actual current tile exactly once");
+                "unit height generator reads and gates the image-relative current tile exactly once");
+            Check(managerRelativeTileHeightLoads == 0,
+                "unit height generator never combines the image base with a manager-relative grid offset");
             Check(vanillaElevationSubtractions == 1,
                 "unit height generator preserves Vanilla's low-terrain elevation subtraction");
             Check(correctionWrites == 2 && constantCorrections == 2,

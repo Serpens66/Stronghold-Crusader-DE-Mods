@@ -6,7 +6,7 @@ namespace BugfixesAndQoL
     public static class TrailCustomizationProviderHostApi
     {
         public const int ApiVersion = 1;
-        private const string SupportedProviderId = "CustomCustomTrail_Serp";
+        private const string SupportedProviderId = "ExtendedData_Serp";
 
         private static readonly object Sync = new object();
         private static string providerId;
