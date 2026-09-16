@@ -506,8 +506,11 @@ void ValidateRuntimeSources()
         "Reference Assemblies", "Microsoft", "Framework", ".NETFramework", "v4.8.1");
     string game=@"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition";
     string extender=Path.Combine(game,"BepInEx","plugins","000shcdese");
+    string apiShared=Path.Combine(game,"BepInEx","plugins","APIShared_Serp","APIShared.dll");
     if(!File.Exists(Path.Combine(extender,"SHCDESE.dll")))
         throw new Exception("Installed Script Extender test references are required.");
+    if(!File.Exists(apiShared))
+        throw new Exception("Installed APIShared test reference is required.");
     (string minimum, string maximum) = ReadExtenderRange();
     string productVersion=System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(extender,"SHCDESE.dll")).ProductVersion;
     string referenceVersion=productVersion?.Split('+')[0];
@@ -522,6 +525,7 @@ void ValidateRuntimeSources()
     foreach(string path in Directory.GetFiles(framework,"*.dll"))Include(path);
     foreach(string path in Directory.GetFiles(Path.Combine(framework,"Facades"),"*.dll"))Include(path);
     foreach(string path in Directory.GetFiles(Path.Combine(game,"BepInEx","core"),"*.dll"))Include(path);
+    Include(apiShared);
     foreach(string file in new[]{"SHCDESE.dll","R3.dll","System.Memory.dll","RedBird.Abstractions.dll","RedBird.Core.dll","RedBird.X64.dll","Iced.dll",
         "Microsoft.Extensions.Logging.Abstractions.dll","System.Threading.Tasks.Extensions.dll","System.Runtime.CompilerServices.Unsafe.dll","MessagePack.dll","MessagePack.Annotations.dll"})
         Include(Path.Combine(extender,file));

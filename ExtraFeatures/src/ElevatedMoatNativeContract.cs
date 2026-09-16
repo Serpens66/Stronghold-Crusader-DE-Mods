@@ -32,10 +32,24 @@ namespace ExtraFeatures
         internal const int TileDefaultHeightGridRva = 0x4E2B870;
         internal const int TileHeightGridOffset = 0xD7E5A0;
         internal const int TileDefaultHeightGridOffset = 0xDCCAC0;
+        internal const int BuildingManagerRva = 0x64CCBB0;
+        internal const int BuildingRecordStride = 0x32C;
+        internal const int BuildingHeightOffset = 0x148;
+        internal const int BuildingAllocatorFunctionRva = 0xB47E0;
+        internal const int BuildingAllocatorFunctionLength = 0xCBF;
+        internal const int BuildingHeightWriterRva = 0xB49DC;
+        internal const int BuildingHeightWriterLength = 9;
         internal const int BuildingCreationFunctionRva = 0x6D580;
         internal const int BuildingCreationFunctionLength = 0xA68;
         internal const int BuildingCreationDefaultHeightRestoreRva = 0x6D71C;
         internal const int BuildingCreationDefaultHeightRestoreLength = 16;
+        internal const int BuildingCreationMidpointRva = 0x6D9B6;
+        internal const int BuildingCreationMidpointLength = 20;
+        internal const int DrawbridgeCreationMidpointForwardRva = 0x6DDAF;
+        internal const int DrawbridgeCreationMidpointForwardLength = 35;
+        internal const int DrawbridgeBuildingHeightForwardRva = 0x73A08;
+        internal const int DrawbridgeBuildingHeightForwardLength = 10;
+        internal const int DrawbridgeBuildingAllocatorCallRva = 0x73A19;
         internal const int MainRendererRva = 0x41D60;
         internal const int MainRendererLength = 0x39EA;
         internal const int DrawbridgeSpecialRendererRva = 0x45820;
@@ -49,6 +63,7 @@ namespace ExtraFeatures
         internal const int DrawbridgeAnimatedRendererRva = 0x488B0;
         internal const int DrawbridgeAnimatedRendererTypeCheckRva = 0x43B5B;
         internal const int DrawbridgeAnimatedRendererTileFlagsRva = 0x43B73;
+        internal const int DrawbridgeAnimatedRendererBuildingArgumentRva = 0x43B91;
         internal const int HeightAwareBuildingRendererArgumentsRva = 0x44F34;
         internal const int HeightAwareBuildingRendererCallRva = 0x44F56;
         internal const int DrawbridgeSpecialRendererCall1Rva = 0x44E3C;
@@ -57,8 +72,13 @@ namespace ExtraFeatures
         internal const int DrawbridgeSpecialRendererCall2ArgumentsRva = 0x44E8D;
         internal const int DrawbridgeSpecialRendererCall1TileArgumentRva = 0x44E34;
         internal const int DrawbridgeSpecialRendererCall2TileArgumentRva = 0x44EBE;
+        internal const int DrawbridgeSpecialRendererCall1BuildingArgumentRva = 0x44E32;
+        internal const int DrawbridgeSpecialRendererCall2BuildingArgumentRva = 0x44EBC;
         internal const int DrawbridgeSpecialRendererTileArgumentReadRva = 0x45879;
-        internal const int DrawbridgeHeightAwareSubtractRva = 0x44EDD;
+        internal const int DrawbridgeStaticRendererArgumentsRva = 0x44EDD;
+        internal const int DrawbridgeStaticRendererArgumentsLength = 16;
+        internal const int DrawbridgeStaticRendererHeightSubtractLength = 7;
+        internal const int DrawbridgeStaticRendererContinuationRva = 0x44EED;
         internal const int DrawbridgeHeightAwareCallRva = 0x44F09;
         internal const int DrawbridgeHeightAwareRendererRva = 0x4C1D0;
         internal const int UnitType2SpriteQueueCall1Rva = 0x43EF3;
@@ -82,7 +102,6 @@ namespace ExtraFeatures
         internal const int UnitDrawbridgeHeightContinuationRva = 0x18512F;
         internal const int UnitHeightGridReadRva = 0x185139;
         internal const int UnitHeightPostCorrectionRva = 0x18514E;
-        internal const int UnitCurrentTileIdOffset = 0x72C;
         internal const int UnitCurrentElevationOffset = 0x712;
         internal const int UnitVerticalCorrectionOffset = 0x714;
         internal const int MoatCommandValidationFunctionRva = 0x5CA40;
@@ -462,10 +481,64 @@ namespace ExtraFeatures
             0x48, 0x63, 0xBC, 0x24, 0xC0, 0x00, 0x00, 0x00
         };
 
-        internal static readonly byte[] DrawbridgeHeightAwareSubtractBytes =
+        internal static readonly byte[] DrawbridgeAnimatedRendererBuildingArgumentBytes =
         {
-            // sub R10D,dword ptr [CurrentRenderedTileHeight]
-            0x44, 0x2B, 0x15, 0xF4, 0x89, 0x3E, 0x00
+            // mov EDX,R12D
+            0x41, 0x8B, 0xD4
+        };
+
+        internal static readonly byte[] DrawbridgeStaticRendererArgumentsBytes =
+        {
+            // sub R10D,[CurrentRenderedTileHeight]; mov EDX,EDI;
+            // mov R9D,[CurrentRenderBase]
+            0x44, 0x2B, 0x15, 0xF4, 0x89, 0x3E, 0x00,
+            0x8B, 0xD7,
+            0x44, 0x8B, 0x0D, 0xE7, 0x89, 0x3E, 0x00
+        };
+
+        internal static readonly byte[] BuildingHeightWriterBytes =
+        {
+            // mov word ptr [R8 + R14 + BuildingHeightOffset],AX
+            0x66, 0x43, 0x89, 0x84, 0x30, 0x48, 0x01, 0x00, 0x00
+        };
+
+        internal static readonly byte[] BuildingCreationMidpointBytes =
+        {
+            // (maximum - minimum) / 2 + minimum -> ESI
+            0x2B, 0xF1,
+            0x48, 0x63, 0xBC, 0x24, 0xB8, 0x00, 0x00, 0x00,
+            0x8B, 0xC6,
+            0x99,
+            0x2B, 0xC2,
+            0xD1, 0xF8,
+            0x8D, 0x34, 0x01
+        };
+
+        internal static readonly byte[] DrawbridgeCreationMidpointForwardBytes =
+        {
+            // Forward ESI as argument 8 to the drawbridge creator.
+            0x89, 0x74, 0x24, 0x38,
+            0x45, 0x8B, 0xCE,
+            0x89, 0x6C, 0x24, 0x30,
+            0x45, 0x8B, 0xC7,
+            0x44, 0x89, 0x6C, 0x24, 0x28,
+            0x8B, 0xD7,
+            0x48, 0x8B, 0xCB,
+            0x66, 0x44, 0x89, 0x64, 0x24, 0x20,
+            0xE8, 0xEE, 0x5B, 0x00, 0x00
+        };
+
+        internal static readonly byte[] DrawbridgeBuildingHeightForwardBytes =
+        {
+            // Read argument 8 and forward it as the allocator's height argument.
+            0x8B, 0x8C, 0x24, 0xD8, 0x00, 0x00, 0x00,
+            0x89, 0x48, 0x88
+        };
+
+        internal static readonly byte[] DrawbridgeSpecialRendererBuildingArgumentBytes =
+        {
+            // mov EDX,EDI
+            0x8B, 0xD7
         };
 
         internal static readonly byte[] UnitDrawbridgeTypeGateBytes =
@@ -694,6 +767,39 @@ namespace ExtraFeatures
                     "The image-relative DefaultHeightGrid address no longer matches its manager-relative offset.");
             }
             ValidateBlock(memory,
+                BuildingHeightWriterRva,
+                BuildingHeightWriterLength,
+                BuildingAllocatorFunctionRva,
+                BuildingAllocatorFunctionLength,
+                BuildingHeightWriterBytes,
+                "Vanilla building-height writer");
+            ValidateBlock(memory,
+                BuildingCreationMidpointRva,
+                BuildingCreationMidpointLength,
+                BuildingCreationFunctionRva,
+                BuildingCreationFunctionLength,
+                BuildingCreationMidpointBytes,
+                "Vanilla footprint-height midpoint calculation");
+            AssertBytes(memory,
+                DrawbridgeCreationMidpointForwardRva,
+                DrawbridgeCreationMidpointForwardBytes,
+                "drawbridge midpoint forwarding");
+            ValidateRelativeBranch(memory,
+                DrawbridgeCreationMidpointForwardRva +
+                    DrawbridgeCreationMidpointForwardLength - 5,
+                0xE8,
+                DrawbridgeFunctionRva,
+                "drawbridge creator call");
+            AssertBytes(memory,
+                DrawbridgeBuildingHeightForwardRva,
+                DrawbridgeBuildingHeightForwardBytes,
+                "drawbridge building-height forwarding");
+            ValidateRelativeBranch(memory,
+                DrawbridgeBuildingAllocatorCallRva,
+                0xE8,
+                BuildingAllocatorFunctionRva,
+                "drawbridge building allocator call");
+            ValidateBlock(memory,
                 BuildingCreationDefaultHeightRestoreRva,
                 BuildingCreationDefaultHeightRestoreLength,
                 BuildingCreationFunctionRva,
@@ -822,35 +928,41 @@ namespace ExtraFeatures
         internal static byte CalculateRestoredHeight(byte defaultHeight) => defaultHeight;
 
         internal static bool ShouldCorrectDrawbridgeRendering(
-            byte defaultTileHeight,
+            ushort buildingHeight,
             bool featureActive) =>
-            featureActive && defaultTileHeight > MaximumVanillaTerrainHeight;
+            featureActive && buildingHeight > MaximumVanillaTerrainHeight;
 
         internal static int CalculateDrawbridgeRenderOffset(
-            byte defaultTileHeight,
-            int currentRenderedTileHeight,
+            ushort buildingHeight,
             bool featureActive) =>
-            ShouldCorrectDrawbridgeRendering(defaultTileHeight, featureActive)
-                ? -currentRenderedTileHeight
+            ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive)
+                ? -(buildingHeight - MoatDepth)
                 : 0;
+
+        internal static int CalculateStaticDrawbridgeHeight(
+            int vanillaCurrentTileHeight,
+            ushort buildingHeight,
+            bool featureActive) =>
+            ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive)
+                ? -buildingHeight
+                : -vanillaCurrentTileHeight;
 
         internal static short CalculateUnitDrawbridgeCorrection(
             short currentElevation,
-            byte defaultTileHeight,
+            ushort buildingHeight,
             bool featureActive) =>
-            featureActive && defaultTileHeight > MaximumVanillaTerrainHeight
-                ? (short)MoatDepth
+            ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive)
+                ? checked((short)(buildingHeight - currentElevation))
                 : unchecked((short)(MoatDepth - currentElevation));
 
         internal static short CalculateUnitDrawbridgeRenderHeight(
             short currentElevation,
-            byte currentTileHeight,
-            byte defaultTileHeight,
+            ushort buildingHeight,
             bool featureActive)
         {
             short correction = CalculateUnitDrawbridgeCorrection(
-                currentElevation, defaultTileHeight, featureActive);
-            return checked((short)(-((int)currentTileHeight + correction)));
+                currentElevation, buildingHeight, featureActive);
+            return checked((short)(-((int)currentElevation + correction)));
         }
 
         private static void ValidateLoweredDrawbridgeRewriteContract(ReadOnlySpan<byte> memory)
@@ -910,6 +1022,9 @@ namespace ExtraFeatures
             AssertBytes(memory, DrawbridgeAnimatedRendererTileFlagsRva,
                 DrawbridgeAnimatedRendererTileFlagsBytes,
                 "drawbridge animated-renderer tile-flags gate");
+            AssertBytes(memory, DrawbridgeAnimatedRendererBuildingArgumentRva,
+                DrawbridgeAnimatedRendererBuildingArgumentBytes,
+                "drawbridge animated-renderer building argument");
             ValidateBlock(memory, DrawbridgeAnimatedRendererArgumentsRva,
                 DrawbridgeAnimatedRendererArgumentsLength, MainRendererRva,
                 MainRendererLength, DrawbridgeAnimatedRendererArgumentsBytes,
@@ -953,6 +1068,12 @@ namespace ExtraFeatures
             AssertBytes(memory, DrawbridgeSpecialRendererCall2TileArgumentRva,
                 DrawbridgeSpecialRendererTileArgumentBytes,
                 "second drawbridge special-renderer tile argument");
+            AssertBytes(memory, DrawbridgeSpecialRendererCall1BuildingArgumentRva,
+                DrawbridgeSpecialRendererBuildingArgumentBytes,
+                "first drawbridge special-renderer building argument");
+            AssertBytes(memory, DrawbridgeSpecialRendererCall2BuildingArgumentRva,
+                DrawbridgeSpecialRendererBuildingArgumentBytes,
+                "second drawbridge special-renderer building argument");
             AssertBytes(memory, DrawbridgeSpecialRendererTileArgumentReadRva,
                 DrawbridgeSpecialRendererTileArgumentReadBytes,
                 "drawbridge special-renderer tile argument read");
@@ -961,12 +1082,20 @@ namespace ExtraFeatures
             ValidateRelativeBranch(memory, DrawbridgeSpecialRendererCall2Rva, 0xE8,
                 DrawbridgeSpecialRendererRva, "second drawbridge special-renderer call");
 
-            AssertBytes(memory, DrawbridgeHeightAwareSubtractRva,
-                DrawbridgeHeightAwareSubtractBytes,
-                "height-aware drawbridge renderer subtraction");
-            int heightAddress = checked(DrawbridgeHeightAwareSubtractRva +
-                DrawbridgeHeightAwareSubtractBytes.Length +
-                ReadInt32(memory, DrawbridgeHeightAwareSubtractRva + 3));
+            ValidateBlock(memory, DrawbridgeStaticRendererArgumentsRva,
+                DrawbridgeStaticRendererArgumentsLength, MainRendererRva,
+                MainRendererLength, DrawbridgeStaticRendererArgumentsBytes,
+                "drawbridge static-renderer arguments");
+            if (DrawbridgeStaticRendererArgumentsRva +
+                    DrawbridgeStaticRendererArgumentsLength !=
+                DrawbridgeStaticRendererContinuationRva)
+            {
+                throw new InvalidOperationException(
+                    "The drawbridge static-renderer continuation differs.");
+            }
+            int heightAddress = checked(DrawbridgeStaticRendererArgumentsRva +
+                DrawbridgeStaticRendererHeightSubtractLength +
+                ReadInt32(memory, DrawbridgeStaticRendererArgumentsRva + 3));
             if (heightAddress != CurrentRenderedTileHeightRva)
                 throw new InvalidOperationException("The rendered tile-height source differs.");
             ValidateRelativeBranch(memory, DrawbridgeHeightAwareCallRva, 0xE8,

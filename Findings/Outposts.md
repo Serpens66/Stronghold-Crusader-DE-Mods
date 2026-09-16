@@ -351,3 +351,50 @@ Keine dieser Prüfungen wurde hier als Spieltest ausgeführt. Ein erster Diagnos
 | Deaktivierte Mod/fehlende Daten | Vanilla-Verhalten, keine bleibenden UI-/Spawnpatches, explizit leere Daten überschreiben alte Einträge |
 
 Offene statische Vertiefung vor produktiver Umsetzung: exakte Bedeutung der verbleibenden Modus-/Limitglobalen, vollständige Reader/Writer der KI-Rollen für neu zugelassene Typen, vollständiger normale-UI-Lauf-/Haltungscommandweg und feldweiser Native-Savevertrag. Diese Liste verhindert, dass die vorhandenen positiven Befunde mit einem abgeschlossenen Audit sämtlicher Spezialfälle verwechselt werden.
+
+## Vanilla-Vergleichslauf vom 17.09.2026
+
+Provenienz: kanonischer Native-SHA-256 erneut geprüft und unverändert `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`. Ausgewertet wurde der jüngste Start in BepInEx/LogOutput.log, Zeilen 5570–39264 zum Auswertungszeitpunkt. OutpostTest 0.1.0 meldet ausdrücklich `customSpawn=False`, `suppression=False` und keinen eigenen nativen Hook. Nach einer unbeobachteten Editorsitzung folgt Einzelspieler-CustomGame, Session 2, 01:07:54–01:11:00. Kein Error/Fatal, kein Observerfehler, keine Kandidatenlimit- oder Spawnfehlermeldung. Die Diagnose verändert weder Gruppierung noch Befehle; andere installierte Mods und Spielerbefehle sind damit nicht ausgeschlossen.
+
+Die featurebezogene statische Grundlage bleibt der bereits abgeschlossene Audit von Update `0xABB90`, Create `0x17FEF0`, Zuordnung `0x11D370`, Ausgangsbewegung `0x11B520` und Gruppenabschluss `0x2E2B0` (S/C gemäß obiger Vertrauenslegende). Identitätsfelder und Abschlussbedingungen wurden mit den dokumentierten Verträgen und dem Testcode abgeglichen. Der Lauf ergänzt Beobachtungen, beweist aber keine unbekannte Bedeutung einzelner Zustandszahlen oder den Verursacher späterer Befehle.
+
+### Abdeckung und Diagnosequalität
+
+| Gebäude-ID/Global-ID | Variante | Besitzer | Erfasste Spawnkandidaten |
+|---|---|---:|---:|
+| 19/21 | Arabisch, Typ 107 | 1 | 44 |
+| 20/22 | Beduinisch, Typ 2 | 1 | 54 |
+| 21/23 | Europäisch, Typ 106 | 1 | 43 |
+| 22/24 | Europäisch, Typ 106 | 2 | 56 |
+| 23/25 | Arabisch, Typ 107 | 2 | 96 |
+| 24/26 | Beduinisch, Typ 2 | 2 | 43 |
+
+336 Kandidaten, 29.604 Zustandsbeobachtungen. Zuletzt 283 über Produktionsgruppenidentität und 39 über Wachenidentität bestätigt; 14 bleiben reine Ausgangs-/Besitzerkandidaten. Nicht alle Kandidaten als gesicherte Outpost-Spawns zählen. Missionsende: `captured=336 ended=276 remaining=60 invariant=True`; acht Beobachtungen enden wegen nicht mehr passender Unitidentität, 268 am Beobachtungslimit. Die übrigen 60 werden beim Missionsende beendet. Rohdatenextrakte: [Zustände](../_inspect/OutpostAudit/vanilla-log-states.xml), [Erzeugungen](../_inspect/OutpostAudit/vanilla-log-creates.xml). Diese Dateien enthalten den Stand dieses Vergleichslaufs.
+
+### Erst sammeln, dann übergeben: Unterschied zum eigenen Spawn
+
+Die Ingame-Beobachtung des Benutzers bestätigt den bereits statisch dokumentierten Unterschied: Vanilla baut eine Produktionsgruppe schrittweise auf und übergibt sie erst nach Erreichen ihrer profil-/größenabhängigen Ziel-Mitgliederzahl und Ablauf einer eventuellen Verzögerung. Es gibt keine für alle Outposts feste Angriffsschwelle. Sammelphase und Angriffsbeginn sind außerdem vom Zustand Aggressive zu unterscheiden: Eine aggressive Produktionsgruppe kann zunächst am Outpost warten.
+
+Konkreter Logbeleg: Beduinen-Outpost 24/26, Besitzer 2, Gruppe 4426/392. Unit 142/393 entsteht bei Tick 2000. Bei Tick 2001 zählt die Gruppe ein Mitglied, Haltung Aggressive, Unit-State 1, Weltposition 2660/3236. Die Gruppe wächst über die Zwischenzahlen 2 bis 11; bei Tick 3635 steht diese Unit weiterhin am selben Ort. Bei Tick 3641 sind zwölf Mitglieder erreicht. Bei Tick 3661 lautet der Unit-State 101 und die Gruppenhaltung Defensive; bei Tick 3701 liegt die Position bei 2686/3236. Damit sind Gruppenaufbau und anschließende Bewegung konkret belegt. Die Diagnose erfasst nicht den exakten nativen Abschlussaufruf oder den Auslöser des Haltungswechsels; aus Bewegung allein folgt kein bestimmtes Angriffsziel.
+
+Unser erster Macemen-Test hat dagegen alle fünf Einheiten einer Welle im selben Tick erzeugt und diese Gruppe unmittelbar mit Vanillas Abschlussfunktion übergeben. Eine über mehrere Spawnintervalle laufende Sammelphase gab es dort nicht. Das vom Benutzer beobachtete sofortige Loslaufen zum Angriff passt daher zum frühzeitigen Abschluss einer bereits vollständig erzeugten Fünfergruppe. Es ist kein Beleg für fehlerhafte Unitinitialisierung. Soll die eigene Produktion auch diesen Aspekt von Vanilla nachbilden, muss sie eine unfertige Gruppe über mehrere Spawns halten und erst bei ihrer vorgesehenen Größe abschließen. Menschliche Gruppen bleiben weiterhin von Vanillas automatischer KI-Übergabe ausgenommen.
+
+### Wachen und Stellung halten
+
+Benutzerbeobachtung im Spiel: Die Wachen zeigen offenbar bereits Stellung halten. Im Log ist `stance=Hold` bei acht unterschiedlichen, über die Wachenliste bestätigten Units später tatsächlich vorhanden. Beispiel: Wache 101/313 aus Beduinen-Outpost 20/22 steht bei Tick 1414, Alter 213, in Gruppe 487/341 mit einem Mitglied und Haltung Hold; später bewegt sie sich zeitweise mit State 101, während die Gruppe Hold behält. Hold und Bewegungszustand sind daher getrennte Messgrößen.
+
+Wichtige Grenze: Alle 39 Wachen haben bei ihrer ersten bestätigten Beobachtung `group=none`. Das bisherige Log schreibt die Haltung der aktuell zugeordneten Tribe, kein unabhängiges Unit-Haltungsfeld und keinen UI-Zustand. Es beweist deshalb nicht, dass jede Wache bereits unmittelbar beim Erzeugen eine Hold-Tribe besitzt. Sechs Wachen zeigen im weiteren Verlauf auch Zugehörigkeit zu Aggressive-Gruppen; die Identitätsbestätigung beschreibt ihre Herkunft, nicht eine unveränderliche Gruppenzugehörigkeit. Spieler-/KI-Befehle und der genaue Ursprung der Hold-Gruppen sind im Log nicht erfasst.
+
+Beispiel für den frühen Wachenzustand: Unit 100/312 (arabischer Bogenschütze, Typ 70) hat im Create-Post bei Tick 1201 Alive=1, State=0, Tribe=0 und Rolle=0. Bei Tick 1202 ist sie als Wache bestätigt, Alive=2, State=101, weiterhin Tribe=0. Nach örtlicher Bewegung erreicht sie bei Tick 1277 State=0. Das bestätigt, warum Create-Post und Outpost-Nachinitialisierung getrennt betrachtet werden müssen.
+
+Der im eigenen Spawnlauf auffällige State 114 kommt in den 29.604 Zustandsbeobachtungen dieses Vanilla-Laufs nicht vor. Seine Bedeutung und die Ursache der damaligen neun Gruppenablösungen bleiben offen; unterschiedliche Einheiten, Kampfverläufe und die begrenzte Beobachtungsdauer erlauben daraus keinen Nachweis eines Fehlers im eigenen Spawn.
+
+### Nachtrag: Bedeutung von Macemen-State 114 (17.09.2026)
+
+Die zuvor offene Bedeutung ist durch gezielte Baseline-Nachprüfung geklärt: **Bei Macemen ist 114 / 0x72 ein Sterbeanimationszustand.** Der kanonische Native-Hash wurde erneut gegen CURRENT.json und den Datensatz zu 0x146A70 geprüft; unverändert FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2. Die Baseline-Funktionssignaturen bleiben candidate; die folgenden Aussagen sind konkrete statische Daten-/Kontrollflussbelege, keine pauschale Aufwertung der Signaturen.
+
+- Schadenspfad RVA 0x199110: Unit-Managerbasis plus 1-basierte Ziel-Unit-ID × 0x490. Manager-/slotrelativ +0xA20 ist aktuelle Gesundheit (GameUnit +0x3C4), +0xA24 maximale Gesundheit. Schaden wird abgezogen, negative Gesundheit auf 0 begrenzt. Bei positiver Restgesundheit verlässt der Pfad die Verarbeitung ohne den Sterbezustand. Bei tödlichem Schaden wird über den Angreifertyp zwischen 0x71 und dem Default 0x72 gewählt und der Zustand nach +0x918 (GameUnit +0x2BC, r_AIState) geschrieben. 114 benennt daher keinen eindeutig bestimmten Angreifer oder eine einzelne Schadensquelle.
+- Weitere direkte Writer: 0xC1B40 (prozentualer Gesundheitsschaden) und 0xC70B0 (18000 Schaden unter den dortigen Gebäude-/Kontextbedingungen) schreiben bei tödlichem Ergebnis ebenfalls 0x72. Keine dieser Quellen lässt sich allein anhand des alten Logwertes unterscheiden.
+- Macemen-Update RVA 0x146A70: Cases 0x72/0x73/0x74 teilen die Animationsverarbeitung. Sie wählen Animationsframes und gehen bei Animationsende beziehungsweise fehlendem weiterem Animationsschritt zu 0x6E = 110 über. Case 110 erhöht einen Bytezähler und setzt nach Überschreiten von 32 den AliveState auf 3 (MarkedForDeletion); nachgelagerte Verarbeitung umfasst Verlust-/Killstatistik. Bis dahin kann der Slot noch AliveState 2 besitzen. AliveState 2 ist damit ausdrücklich kein Beweis für kampffähiges Leben.
+
+Korrektur zur bisherigen Logbewertung: Die neun Macemen mit State 114 waren im Sterbeablauf, nicht allein wegen eines unbekannten KI-Zustands auffällig. Der konkrete tödliche Auslöser, Gesundheitsverlauf und genaue Zeitpunkt/Writer ihrer Gruppenablösung sind im ersten Testlog nicht erfasst. Tribe=0 und State=114 sind deshalb kein eigenständiger Nachweis fehlerhafter Spawninitialisierung; ein vollständiger Nachweis des Gruppenabbaupfades wird hier nicht behauptet. Die frühere Aussage „Bedeutung von State 114 ungeklärt“ ist durch diesen Nachtrag überholt.

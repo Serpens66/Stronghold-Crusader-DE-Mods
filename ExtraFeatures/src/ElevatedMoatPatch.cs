@@ -47,6 +47,8 @@ namespace ExtraFeatures
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> drawbridgeAnimatedRendererArgumentsHook =
             new HookHandle<X64InlineHook>();
+        private readonly HookHandle<X64InlineHook> drawbridgeStaticRendererArgumentsHook =
+            new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> unitDrawbridgeHeightCorrectionHook =
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> plannedMoatCancellationHook =
@@ -159,6 +161,10 @@ namespace ExtraFeatures
                 memory, ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsBytes,
                 ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsRva,
                 "drawbridge animated-renderer arguments", log);
+            Shared.NativeResolution drawbridgeStaticRendererResolution = ResolveAudited(
+                memory, ElevatedMoatNativeContract.DrawbridgeStaticRendererArgumentsBytes,
+                ElevatedMoatNativeContract.DrawbridgeStaticRendererArgumentsRva,
+                "drawbridge static-renderer arguments", log);
             Shared.NativeResolution unitDrawbridgeHeightResolution = ResolveAudited(
                 memory, ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionBytes,
                 ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionRva,
@@ -240,6 +246,9 @@ namespace ExtraFeatures
             ProbeExactHookLength(imageBase, drawbridgeAnimatedRendererResolution.Rva,
                 ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength,
                 "drawbridge animated-renderer arguments");
+            ProbeExactHookLength(imageBase, drawbridgeStaticRendererResolution.Rva,
+                ElevatedMoatNativeContract.DrawbridgeStaticRendererArgumentsLength,
+                "drawbridge static-renderer arguments");
             ProbeExactHookLength(imageBase, unitDrawbridgeHeightResolution.Rva,
                 ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionLength,
                 "unit drawbridge vertical-correction block");
@@ -379,8 +388,7 @@ namespace ExtraFeatures
                             instructions,
                             returnAddress,
                             unchecked((ulong)featureActiveFlag.ToInt64()),
-                            imageBase + ElevatedMoatNativeContract.TileDefaultHeightGridRva,
-                            imageBase + ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
+                            imageBase + ElevatedMoatNativeContract.BuildingManagerRva),
                     hookSize: ElevatedMoatNativeContract.DrawbridgeSpecialRendererHookLength);
                 pending.AddInline(
                     drawbridgeAnimatedRendererArgumentsHook,
@@ -392,9 +400,20 @@ namespace ExtraFeatures
                             instructions,
                             returnAddress,
                             unchecked((ulong)featureActiveFlag.ToInt64()),
-                            imageBase + ElevatedMoatNativeContract.TileDefaultHeightGridRva,
-                            imageBase + ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
+                            imageBase + ElevatedMoatNativeContract.BuildingManagerRva),
                     hookSize: ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength);
+                pending.AddInline(
+                    drawbridgeStaticRendererArgumentsHook,
+                    HookTarget.FromAddress(
+                        imageBase + unchecked((ulong)drawbridgeStaticRendererResolution.Rva)),
+                    (assembler, instructions, returnAddress) =>
+                        ElevatedMoatDrawbridgeHooks.GenerateStaticRendererArguments(
+                            assembler,
+                            instructions,
+                            returnAddress,
+                            unchecked((ulong)featureActiveFlag.ToInt64()),
+                            imageBase + ElevatedMoatNativeContract.BuildingManagerRva),
+                    hookSize: ElevatedMoatNativeContract.DrawbridgeStaticRendererArgumentsLength);
                 pending.AddInline(
                     unitDrawbridgeHeightCorrectionHook,
                     HookTarget.FromAddress(
@@ -451,6 +470,7 @@ namespace ExtraFeatures
                     !completedDrawbridgeHeightWriteHook.Success ||
                     !drawbridgeSpecialRendererHook.Success ||
                     !drawbridgeAnimatedRendererArgumentsHook.Success ||
+                    !drawbridgeStaticRendererArgumentsHook.Success ||
                     !unitDrawbridgeHeightCorrectionHook.Success ||
                     !plannedMoatCancellationHook.Success ||
                     !directRemovalHeightHook.Success ||
@@ -496,6 +516,9 @@ namespace ExtraFeatures
                 RequireInstalledHookLength(drawbridgeAnimatedRendererArgumentsHook,
                     ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength,
                     "drawbridge animated-renderer arguments");
+                RequireInstalledHookLength(drawbridgeStaticRendererArgumentsHook,
+                    ElevatedMoatNativeContract.DrawbridgeStaticRendererArgumentsLength,
+                    "drawbridge static-renderer arguments");
                 RequireInstalledHookLength(unitDrawbridgeHeightCorrectionHook,
                     ElevatedMoatNativeContract.UnitDrawbridgeHeightCorrectionLength,
                     "unit drawbridge vertical-correction block");

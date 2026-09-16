@@ -654,10 +654,13 @@ namespace BugfixesAndQoL
                 refreshStart,
                 StringComparison.Ordinal);
             string refreshSetting = hook.Substring(refreshStart, refreshEnd - refreshStart);
-            Check(refreshSetting.Contains("if (!MainViewModel.viewModelLoaded)") &&
-                  refreshSetting.IndexOf("if (!MainViewModel.viewModelLoaded)", StringComparison.Ordinal) <
-                  refreshSetting.IndexOf("MainViewModel.Instance", StringComparison.Ordinal),
-                "ally goods setting refresh never constructs MainViewModel during plugin startup");
+            Check(refreshSetting.Contains("RefreshDisplayedAmounts();") &&
+                  !refreshSetting.Contains("MainViewModel.Instance") &&
+                  !refreshSetting.Contains("MainViewModel.viewModelLoaded") &&
+                  !refreshSetting.Contains("updateGoodsMethod.Invoke") &&
+                  !refreshSetting.Contains("OnTick") &&
+                  !refreshSetting.Contains("onBeforeRender"),
+                "ally goods setting refresh updates bindings without touching the MainViewModel factory or polling");
             Check(runtime.Contains(
                     "private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;") &&
                   runtime.Contains("processAllyGoodsAmountModifierHook = candidate;") &&

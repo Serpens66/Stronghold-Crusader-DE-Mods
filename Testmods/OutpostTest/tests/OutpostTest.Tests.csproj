@@ -1,0 +1,81 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="15.0">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" />
+  <PropertyGroup>
+    <Configuration Condition="'$(Configuration)' == ''">Debug</Configuration>
+    <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>OutpostTest.Tests</AssemblyName>
+    <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <OutputPath>bin\</OutputPath>
+    <GameDir Condition="'$(GameDir)' == ''">E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+    <ExtenderDir Condition="'$(ExtenderDir)' == ''">$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="BepInEx">
+      <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="SHCDESE">
+      <HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="APIShared">
+      <HintPath>$(GameDir)\BepInEx\plugins\APIShared_Serp\APIShared.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>$(ExtenderDir)\System.Memory.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Iced">
+      <HintPath>$(ExtenderDir)\Iced.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="RedBird.Abstractions">
+      <HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="RedBird.Core">
+      <HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="RedBird.X64">
+      <HintPath>$(ExtenderDir)\RedBird.X64.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions">
+      <HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="Installed SHCDESE.dll required." />
+    <Error Condition="!Exists('$(GameDir)\BepInEx\plugins\APIShared_Serp\APIShared.dll')" Text="Installed APIShared required." />
+  </Target>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\src\OutpostSchedule.cs" />
+    <Compile Include="..\src\OutpostGate.cs" />
+    <Compile Include="..\src\OutpostNative.cs" />
+    <Compile Include="..\..\..\Shared\DebugLogHelper.cs" />
+    <Compile Include="..\..\..\Shared\NativePatternResolver.cs" />
+  </ItemGroup>
+</Project>

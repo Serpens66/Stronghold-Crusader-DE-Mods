@@ -1174,7 +1174,10 @@ internal static class Program
             queueRuntime.Contains("IsAiOwnedAliveTribe(args.TribeId)") &&
             queueRuntime.Contains("IsAiOwnedAliveTribe(tribeId)") &&
             queueRuntime.Contains("cachedRealMultiplayerMode") &&
-            queueRuntime.Contains("Subscribe(args => RefreshMapContext())"),
+            queueRuntime.Contains("if (args.Context.IsSave) RefreshMapContext(); else OnMapStart();") &&
+            queueRuntime.Contains(".Subscribe(args => ResetMapState())") &&
+            queueRuntime.Contains("private void RefreshMapContext()") &&
+            CountText(queueRuntime, "cachedRealMultiplayerMode = null;") >= 2,
             "AI orders bypass Shift queue work and map-scoped context uses the native in-game player ID");
         Check(largeMoveRuntime.Contains("DrawListCountOffset = 0x622248") &&
             largeMoveRuntime.Contains("IsRejectedByFullVanillaList(") &&

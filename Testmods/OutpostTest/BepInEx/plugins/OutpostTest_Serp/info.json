@@ -1,0 +1,12 @@
+{
+  "GUID": "OutpostTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Outpost Test",
+  "Description": "Singleplayer diagnostic: replaces outpost production and guards with five Macemen every five game seconds.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.6.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SupportedGameVersions": ["2.8.0.1"]
+}

@@ -180,8 +180,10 @@ internal static class Program
             "Ally-Goods key/focus subscriptions remain process-rooted without normal teardown");
         Check(allyGoods.Contains("Input.GetKey(left) || Input.GetKey(right)") &&
               allyGoods.Contains("internal void RefreshSetting()") &&
-              allyGoods.Contains("updateGoodsMethod.Invoke(panel, null);"),
-            "Ally-Goods captures both modifier sides and supports settings refresh");
+              allyGoods.Contains("RefreshDisplayedAmounts();") &&
+              !allyGoods.Contains("MainViewModel.viewModelLoaded") &&
+              !allyGoods.Contains("updateGoodsMethod.Invoke(panel, null);"),
+            "Ally-Goods captures both modifier sides and refreshes settings without touching the MainViewModel factory");
 
         string runtime = File.ReadAllText(Path.Combine(sourceRoot, "BugfixesAndQoLRuntime.cs"));
         Check(runtime.Contains("private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;") &&

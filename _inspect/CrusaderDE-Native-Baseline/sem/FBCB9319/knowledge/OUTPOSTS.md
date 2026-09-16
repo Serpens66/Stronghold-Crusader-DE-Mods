@@ -26,6 +26,26 @@ Reproducible hash-checked evidence extraction: [audit.py](../../../../OutpostAud
 
 ## Confidence and remaining work
 
+### Macemen-only production replacement audit (2026-09-17)
+
+The narrower test contract is documented in [OutpostTest native contract](../../../../../Testmods/OutpostTest/UpdateToNewDLL.md). Installed Native hash and Extender commit/tree remain unchanged; installed RedBird.X64 1.1.0.0 was inspected. Gate `0xABC78..0xABC88` contains CMP(7), JE(6), TEST(3); incoming jump `0xABC6E` targets its start, no baseline xref or direct function branch targets its interior. `0xACDDB` is the early epilogue before the later RBP/RDI/R14 spills. Skipping this section also skips vicinity initialization and production counters, while keeping the registration/animation prefix.
+
+Maceman type 26 dispatches to `0x146A70`. Its normal state 101 uses the native movement continuation and returns to idle/special states as other native Macemen do. Unit field manager-relative `+0xA82` / GameUnit `+0x426` is exposed by the current Extender as `r_AITribeRole`; the outpost writes value 50. The unit recruitment-rally field `+0x708` / GameUnit `+0xAC` is cleared. The dedicated allocator at `0x119D60` initializes tribe Alive=2, not NeedsInit=1; units created by `0x17FEF0` start NeedsInit=1. The exact completion ABI at `0x2E2B0` is `(AI manager, tribe ID, tribe global ID) -> void`; the third argument is required for queue identity.
+
+Additional production blockers are RVA `0x37EF974` (int) and `0x38722DC` (byte), bypassed for native modes 0/99. The player cap compares sum of `0x379B30C + owner*0x583C` and `0x379E6D4 + owner*0x583C` against `0x37EF950` if player category `0x8574BCC+owner*4` is -1, else `0x37EF954`. Native Create separately enforces its pool limit. These exact predicates are test-contract findings, not guesses about the display names of the modes/counters.
+
 These are specific static relationships, not blanket promotion of the baseline's candidate function signatures. Decompiled signatures may omit live register/stack arguments. Function evidence retains the original confidence and binary hash. Raw exports, database, function-claims and Ghidra projects were not relabeled or regenerated.
 
 Do not infer runtime-safe hooks, all-type AI-role compatibility, complete native save-field persistence or multiplayer archive roundtrip from these findings. Full normal-UI run/stance command tracing, remaining mode/limit semantics, special-type role readers and runtime cases are listed in the detailed audit. Any implementation still requires that narrower contract closure and installed-hook-backend validation.
+
+## Runtime comparison, 2026-09-17 (scoped observation)
+
+The passive OutpostTest comparison under the same verified native hash is documented in [Findings/Outposts.md](../../../../../Findings/Outposts.md), section Vanilla-Vergleichslauf. All three building variants were observed for owners 1 and 2. The previously static incremental-group relationship has a concrete runtime example: tribe 4426/392 grows from 1 to 12 members while its first unit remains at the exit; movement follows. Unlike this incremental path, the earlier custom test completed each five-unit group immediately.
+
+Hold occurs later for eight identity-confirmed guards, but all 39 guards initially have no tribe in the observed samples. The logger measures tribe stance, not an independent unit/UI stance. Therefore neither universal initial Hold nor its writer is established. Six guards also later occur in Aggressive tribes. These observations must not be promoted to a claim that guard membership/stance is immutable. State 114 is absent in this run; its semantics remain unresolved. These are modded-session observations with bounded sampling, not new function-signature or writer claims.
+
+## Maceman state 114 clarification (2026-09-17)
+
+The previously unresolved semantics of 114 are now established for Macemen: death animation, not an unknown live AI command. Under the same reverified native hash, damage handler 0x199110 subtracts target health (+0xA20 manager/slot, GameUnit +0x3C4), returns early for positive health, and writes 0x71 or default 0x72 to state (+0x918 manager/slot, GameUnit +0x2BC) after lethal damage. Additional lethal writers include 0xC1B40 and 0xC70B0. Maceman update 0x146A70 shares animation processing for 0x72/73/74, transitions to 0x6E (110), then marks AliveState=3 after its terminal byte counter exceeds 32. AliveState can remain 2 during the death animation. Generic baseline function confidence remains candidate; these are scoped static field/control-flow findings.
+
+See the State 114 addendum in Findings/Outposts.md for parameter bases and qualifications. The first custom-spawn log shows nine dying Macemen; it does not identify their damage source or the writer of tribe=0. Previous statements that state 114 semantics are unresolved are superseded, without claiming a proven group-detachment path or a spawn defect.

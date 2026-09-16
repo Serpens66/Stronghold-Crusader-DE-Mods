@@ -107,12 +107,6 @@ namespace BugfixesAndQoL
         internal void RefreshSetting()
         {
             RefreshDisplayedAmounts();
-            if (!MainViewModel.viewModelLoaded)
-                return;
-
-            HUD_AlliesPanel panel = MainViewModel.Instance?.HUDAlliesPanel;
-            if (panel != null)
-                updateGoodsMethod.Invoke(panel, null);
         }
 
         internal static int CalculateAmount(int currentAmount, int buttonAmount, bool subtract, bool shift, bool control)

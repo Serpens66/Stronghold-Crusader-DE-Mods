@@ -114,8 +114,7 @@ namespace ExtraFeatures
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
             ulong featureActiveFlagAddress,
-            ulong tileDefaultHeightGridAddress,
-            ulong currentTileHeightAddress)
+            ulong buildingManagerAddress)
         {
             if (overwrittenInstructions.Length != 6 ||
                 overwrittenInstructions[0].Length != 3 ||
@@ -146,23 +145,23 @@ namespace ExtraFeatures
             Label vanillaPrologue = assembler.CreateLabel("drawbridgeSpecialRendererVanillaPrologue");
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaPrologue);
 
-            // The two Vanilla call sites omit the tile-height subtraction used by the
-            // sibling drawbridge renderer. Argument 5 at entry is the current tile ID.
-            // Preserve R10 while using it as the index; RAX is overwritten by the first
-            // prologue instruction. Classify through the immutable default grid so
-            // elevated moat-floor values at or below 12 are not mistaken for Vanilla.
+            // Argument 2 is the drawbridge building ID. Use Vanilla's common building
+            // height for every rigid drawbridge part, including sloped footprints.
+            // Preserve R10 while using it as the record index; RAX is overwritten by
+            // the first displaced prologue instruction.
             assembler.push(r10);
-            assembler.mov(r10d, __dword_ptr[rsp + 0x30]);
-            assembler.mov(rax, tileDefaultHeightGridAddress);
-            assembler.cmp(
-                __byte_ptr[rax + r10],
-                ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
+            assembler.mov(r10d, edx);
+            assembler.imul(r10, r10, ElevatedMoatNativeContract.BuildingRecordStride);
+            assembler.mov(rax, buildingManagerAddress);
+            assembler.movzx(eax,
+                __word_ptr[rax + r10 + ElevatedMoatNativeContract.BuildingHeightOffset]);
             assembler.pop(r10);
+            assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
             assembler.jbe(vanillaPrologue);
 
-            // R9 and stack argument 7 are the two height-blind coordinates.
-            assembler.mov(rax, currentTileHeightAddress);
-            assembler.mov(eax, __dword_ptr[rax]);
+            // R9 and stack argument 7 are the two height-blind coordinates. Vanilla's
+            // low-terrain deck reference is eight, so translate both by H - 8.
+            assembler.sub(eax, ElevatedMoatNativeContract.MoatDepth);
             assembler.sub(r9d, eax);
             assembler.sub(__dword_ptr[rsp + 0x38], eax);
 
@@ -176,8 +175,7 @@ namespace ExtraFeatures
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
             ulong featureActiveFlagAddress,
-            ulong tileDefaultHeightGridAddress,
-            ulong currentTileHeightAddress)
+            ulong buildingManagerAddress)
         {
             if (overwrittenInstructions.Length != 3 ||
                 overwrittenInstructions[0].Length != 8 ||
@@ -206,19 +204,20 @@ namespace ExtraFeatures
             Label vanillaHeight = assembler.CreateLabel("drawbridgeAnimatedRendererVanillaHeight");
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaHeight);
 
-            // This call site is reached only for a drawbridge (building type 0x31)
-            // on the tile-flags == 4 branch. Vanilla passes zero as argument 6;
-            // R15D is argument 5 and therefore the current tile ID. Classify through
-            // DefaultHeightGrid, then pass the negative current-tile render offset used
-            // by the sibling renderer. The callee remains Vanilla.
-            assembler.mov(rax, tileDefaultHeightGridAddress);
-            assembler.cmp(
-                __byte_ptr[rax + r15],
-                ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
+            // This call site is reached only for a drawbridge (building type 0x31).
+            // EDX still contains the building ID. Preserve R10 while resolving the
+            // common Vanilla building height and pass 8 - H as argument 6.
+            assembler.push(r10);
+            assembler.mov(r10d, edx);
+            assembler.imul(r10, r10, ElevatedMoatNativeContract.BuildingRecordStride);
+            assembler.mov(rax, buildingManagerAddress);
+            assembler.movzx(eax,
+                __word_ptr[rax + r10 + ElevatedMoatNativeContract.BuildingHeightOffset]);
+            assembler.pop(r10);
+            assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
             assembler.jbe(vanillaHeight);
 
-            assembler.mov(rax, currentTileHeightAddress);
-            assembler.mov(eax, __dword_ptr[rax]);
+            assembler.sub(eax, ElevatedMoatNativeContract.MoatDepth);
             assembler.neg(eax);
             assembler.mov(__dword_ptr[rsp + 0x28], eax);
             assembler.mov(__dword_ptr[rsp + 0x20], r15d);
@@ -227,6 +226,62 @@ namespace ExtraFeatures
             assembler.Label(ref vanillaHeight);
             assembler.mov(__dword_ptr[rsp + 0x28], esi);
             assembler.mov(__dword_ptr[rsp + 0x20], r15d);
+        }
+
+        internal static void GenerateStaticRendererArguments(
+            Assembler assembler,
+            ReadOnlySpan<Instruction> overwrittenInstructions,
+            ulong returnAddress,
+            ulong featureActiveFlagAddress,
+            ulong buildingManagerAddress)
+        {
+            if (overwrittenInstructions.Length != 3 ||
+                overwrittenInstructions[0].Length != 7 ||
+                overwrittenInstructions[0].Mnemonic != Mnemonic.Sub ||
+                overwrittenInstructions[0].Op0Register != Register.R10D ||
+                overwrittenInstructions[0].MemoryBase != Register.RIP ||
+                overwrittenInstructions[0].MemoryDisplacement64 !=
+                    buildingManagerAddress - ElevatedMoatNativeContract.BuildingManagerRva +
+                        ElevatedMoatNativeContract.CurrentRenderedTileHeightRva ||
+                overwrittenInstructions[1].Length != 2 ||
+                overwrittenInstructions[1].Mnemonic != Mnemonic.Mov ||
+                overwrittenInstructions[1].Op0Register != Register.EDX ||
+                overwrittenInstructions[1].Op1Register != Register.EDI ||
+                overwrittenInstructions[2].Length != 7 ||
+                overwrittenInstructions[2].Mnemonic != Mnemonic.Mov ||
+                overwrittenInstructions[2].Op0Register != Register.R9D ||
+                overwrittenInstructions[2].MemoryBase != Register.RIP ||
+                returnAddress != overwrittenInstructions[2].NextIP)
+            {
+                throw new InvalidOperationException(
+                    "The drawbridge static-renderer argument contract differs.");
+            }
+
+            Label vanillaHeight = assembler.CreateLabel("drawbridgeStaticRendererVanillaHeight");
+            Label commonArguments = assembler.CreateLabel("drawbridgeStaticRendererCommonArguments");
+            EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaHeight);
+
+            // EDI is the drawbridge building ID. The static sibling renderer expects
+            // shadow - height, so elevated bridges subtract the common building height.
+            assembler.push(r11);
+            assembler.mov(r11d, edi);
+            assembler.imul(r11, r11, ElevatedMoatNativeContract.BuildingRecordStride);
+            assembler.mov(rax, buildingManagerAddress);
+            assembler.movzx(eax,
+                __word_ptr[rax + r11 + ElevatedMoatNativeContract.BuildingHeightOffset]);
+            assembler.pop(r11);
+            assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
+            assembler.jbe(vanillaHeight);
+
+            assembler.sub(r10d, eax);
+            assembler.jmp(commonArguments);
+
+            assembler.Label(ref vanillaHeight);
+            assembler.AddInstruction(overwrittenInstructions[0]);
+
+            assembler.Label(ref commonArguments);
+            assembler.AddInstruction(overwrittenInstructions[1]);
+            assembler.AddInstruction(overwrittenInstructions[2]);
         }
 
         internal static void GenerateUnitHeightCorrection(
@@ -261,20 +316,22 @@ namespace ExtraFeatures
             Label vanillaCorrection = assembler.CreateLabel("unitDrawbridgeVanillaHeightCorrection");
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaCorrection);
 
-            // This hook is already behind Vanilla's building-type == 0x31 branch.
-            // RBP is the image base. RBX is the unit-slot anchor formed from the
-            // manager base plus game ID * 0x490; its +0x712/+0x714/+0x72C operands
-            // correspond to GameUnit record fields +0xB6/+0xB8/+0xD0. RAX, RCX and
-            // flags are dead at the common continuation. DefaultHeightGrid classifies
-            // the bridge while Vanilla's downstream current-height flow stays intact.
-            assembler.mov(ecx,
-                __dword_ptr[rbx + ElevatedMoatNativeContract.UnitCurrentTileIdOffset]);
+            // This hook is already behind Vanilla's building-type == 0x31 branch and
+            // EDI contains its building ID. RBP is the image base. RBX is the unit-slot
+            // anchor formed from the manager base plus game ID * 0x490; its +0x712 and
+            // +0x714 operands correspond to GameUnit record fields +0xB6 and +0xB8. RAX, RCX and
+            // flags are dead at the common continuation. Use the same building height
+            // as every drawbridge renderer, then subtract the unit's current elevation.
+            assembler.mov(ecx, edi);
+            assembler.imul(rcx, rcx, ElevatedMoatNativeContract.BuildingRecordStride);
             assembler.movzx(eax,
-                __byte_ptr[rbp + rcx + ElevatedMoatNativeContract.TileDefaultHeightGridRva]);
+                __word_ptr[rbp + rcx + ElevatedMoatNativeContract.BuildingManagerRva +
+                    ElevatedMoatNativeContract.BuildingHeightOffset]);
             assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
             assembler.jbe(vanillaCorrection);
 
-            assembler.mov(eax, ElevatedMoatNativeContract.MoatDepth);
+            assembler.sub(ax,
+                __word_ptr[rbx + ElevatedMoatNativeContract.UnitCurrentElevationOffset]);
             assembler.mov(
                 __word_ptr[rbx + ElevatedMoatNativeContract.UnitVerticalCorrectionOffset],
                 ax);
