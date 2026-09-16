@@ -1,0 +1,129 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0x11D370",
+  "va": "0x18011D370",
+  "baselineConfidence": "candidate",
+  "size": 172,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x291F0"
+    },
+    {
+      "caller_rva": "0x292F0"
+    },
+    {
+      "caller_rva": "0x29360"
+    },
+    {
+      "caller_rva": "0x29430"
+    },
+    {
+      "caller_rva": "0x294B0"
+    },
+    {
+      "caller_rva": "0x2B340"
+    },
+    {
+      "caller_rva": "0x2C050"
+    },
+    {
+      "caller_rva": "0x2C1B0"
+    },
+    {
+      "caller_rva": "0x2CA30"
+    },
+    {
+      "caller_rva": "0x2EAC0"
+    },
+    {
+      "caller_rva": "0x2ECD0"
+    },
+    {
+      "caller_rva": "0x30310"
+    },
+    {
+      "caller_rva": "0x303E0"
+    },
+    {
+      "caller_rva": "0x40230"
+    },
+    {
+      "caller_rva": "0x40430"
+    },
+    {
+      "caller_rva": "0xABB90"
+    },
+    {
+      "caller_rva": "0xE8C20"
+    },
+    {
+      "caller_rva": "0x10C970"
+    },
+    {
+      "caller_rva": "0x10CE90"
+    },
+    {
+      "caller_rva": "0x10D3A0"
+    },
+    {
+      "caller_rva": "0x1107F0"
+    },
+    {
+      "caller_rva": "0x1142E0"
+    },
+    {
+      "caller_rva": "0x117000"
+    },
+    {
+      "caller_rva": "0x117D20"
+    },
+    {
+      "caller_rva": "0x118130"
+    },
+    {
+      "caller_rva": "0x118660"
+    },
+    {
+      "caller_rva": "0x118CA0"
+    },
+    {
+      "caller_rva": "0x11D420"
+    },
+    {
+      "caller_rva": "0x11D510"
+    },
+    {
+      "caller_rva": "0x11DA20"
+    },
+    {
+      "caller_rva": "0x11E150"
+    },
+    {
+      "caller_rva": "0x1520D0"
+    },
+    {
+      "caller_rva": "0x1535F0"
+    },
+    {
+      "caller_rva": "0x15ECE0"
+    },
+    {
+      "caller_rva": "0x160420"
+    },
+    {
+      "caller_rva": "0x161220"
+    },
+    {
+      "caller_rva": "0x171C50"
+    }
+  ],
+  "callees": [
+    {
+      "callee_rva": "0x11E820",
+      "callee_name": "FUN_18011e820"
+    }
+  ],
+  "pseudocode": "/* FUNCTION FUN_18011d370 VA=0x18011D370 RVA=0x11D370 */\n\nvoid FUN_18011d370(longlong param_1,int param_2,int param_3)\n\n{\n  ushort *puVar1;\n  uint uVar2;\n  longlong lVar3;\n  uint uVar4;\n  short sVar5;\n  longlong lVar6;\n  \n  uVar4 = param_2 >> 0x1f & 0xf;\n  uVar2 = param_2 + uVar4;\n  lVar6 = (longlong)param_3 * 0x688 + param_1;\n  *(short *)(lVar6 + 0x5c) = *(short *)(lVar6 + 0x5c) + 1;\n  puVar1 = (ushort *)\n           (param_1 + 0x60 + ((longlong)param_3 * 0x344 + (longlong)((int)uVar2 >> 4)) * 2);\n  *puVar1 = *puVar1 | *(ushort *)(&DAT_1803202a0 + (longlong)(int)((uVar2 & 0xf) - uVar4) * 2);\n  sVar5 = *(short *)(lVar6 + 0x5a);\n  if (sVar5 == 0) {\n    sVar5 = (short)param_2;\n    *(short *)(lVar6 + 0x5a) = sVar5;\n  }\n  lVar3 = (longlong)param_2 * 0x490;\n  *(short *)(&DAT_1867e8d2e + lVar3) = sVar5;\n  (&DAT_1867e8d30)[(longlong)param_2 * 0x248] = (short)param_3;\n  *(undefined4 *)(&DAT_1867e8d3c + lVar3) = *(undefined4 *)(lVar6 + 0x34);\n  *(undefined2 *)(&DAT_1867e8d32 + lVar3) = *(undefined2 *)(lVar6 + 0x5c);\n  FUN_18011e820(param_1,param_3);\n  return;\n}\n\n\n\n",
+  "disassembly": "0011D370: mov qword ptr [rsp + 8], rbx\n0011D375: push rdi\n0011D376: movsxd rbx, edx\n0011D379: mov rdi, rcx\n0011D37C: mov eax, ebx\n0011D37E: movsxd r10, r8d\n0011D381: cdq \n0011D382: and edx, 0xf\n0011D385: add eax, edx\n0011D387: mov r9d, eax\n0011D38A: and eax, 0xf\n0011D38D: sub eax, edx\n0011D38F: sar r9d, 4\n0011D393: imul r11, r10, 0x688\n0011D39A: imul rdx, r10, 0x344\n0011D3A1: add r11, rcx\n0011D3A4: cdqe \n0011D3A6: movsxd rcx, r9d\n0011D3A9: lea r9, [rip - 0x11d3b0]\n0011D3B0: inc word ptr [r11 + 0x5c]\n0011D3B5: movzx eax, word ptr [r9 + rax*2 + 0x3202a0]\n0011D3BE: add rdx, rcx\n0011D3C1: or word ptr [rdi + rdx*2 + 0x60], ax\n0011D3C6: movzx edx, word ptr [r11 + 0x5a]\n0011D3CB: test dx, dx\n0011D3CE: jne 0x11d3d8\n0011D3D0: movzx edx, bx\n0011D3D3: mov word ptr [r11 + 0x5a], bx\n0011D3D8: imul rcx, rbx, 0x490\n0011D3DF: mov word ptr [rcx + r9 + 0x67e8d2e], dx\n0011D3E8: mov edx, r8d\n0011D3EB: mov word ptr [rcx + r9 + 0x67e8d30], r8w\n0011D3F4: mov eax, dword ptr [r11 + 0x34]\n0011D3F8: mov dword ptr [rcx + r9 + 0x67e8d3c], eax\n0011D400: movzx eax, word ptr [r11 + 0x5c]\n0011D405: mov word ptr [rcx + r9 + 0x67e8d32], ax\n0011D40E: mov rcx, rdi\n0011D411: mov rbx, qword ptr [rsp + 0x10]\n0011D416: pop rdi\n0011D417: jmp 0x11e820"
+}

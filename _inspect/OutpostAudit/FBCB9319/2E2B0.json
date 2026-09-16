@@ -1,0 +1,24 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0x2E2B0",
+  "va": "0x18002E2B0",
+  "baselineConfidence": "candidate",
+  "size": 265,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0xABB90"
+    },
+    {
+      "caller_rva": "0xB8310"
+    }
+  ],
+  "callees": [
+    {
+      "callee_rva": "0x2A720",
+      "callee_name": "FUN_18002a720"
+    }
+  ],
+  "pseudocode": "/* FUNCTION FUN_18002e2b0 VA=0x18002E2B0 RVA=0x2E2B0 */\n\nvoid FUN_18002e2b0(longlong param_1,int param_2,undefined4 param_3)\n\n{\n  short *psVar1;\n  ulonglong uVar2;\n  longlong lVar3;\n  int *piVar4;\n  int iVar5;\n  ulonglong uVar6;\n  bool bVar7;\n  \n  lVar3 = (longlong)param_2 * 0x688;\n  if (*(short *)(&DAT_187cc677c + lVar3) < 1) {\n    *(undefined2 *)(&DAT_187cc6760 + lVar3) = 3;\n    return;\n  }\n  iVar5 = *(int *)(&DAT_187cc674c + lVar3);\n  if (DAT_188574b90 == 0) {\n    bVar7 = iVar5 == 1;\n  }\n  else {\n    bVar7 = *(int *)(&DAT_18379d0d0 + (longlong)iVar5 * 0x583c) == 0;\n  }\n  if (!bVar7) {\n    uVar2 = 0;\n    piVar4 = (int *)(param_1 + 0x114b8);\n    psVar1 = (short *)(param_1 + 0x10ce8);\n    uVar6 = uVar2;\n    do {\n      iVar5 = (int)uVar6;\n      if ((*psVar1 == 0) || ((&DAT_187cc6754)[(longlong)*psVar1 * 0x1a2] != *piVar4)) {\n        *(short *)(param_1 + 0x10ce8 + (longlong)iVar5 * 2) = (short)param_2;\n        *(undefined4 *)(param_1 + 0x114b8 + (longlong)iVar5 * 4) = param_3;\n        FUN_18002a720(param_1,*(int *)(&DAT_187cc674c + lVar3),param_2);\n        return;\n      }\n      uVar6 = (ulonglong)(iVar5 + 1);\n      uVar2 = uVar2 + 1;\n      psVar1 = psVar1 + 1;\n      piVar4 = piVar4 + 1;\n    } while ((longlong)uVar2 < 1000);\n  }\n  return;\n}\n\n\n\n",
+  "disassembly": "0002E2B0: mov qword ptr [rsp + 0x10], rbx\n0002E2B5: mov qword ptr [rsp + 0x18], rbp\n0002E2BA: push rsi\n0002E2BB: sub rsp, 0x20\n0002E2BF: movsxd rbx, edx\n0002E2C2: lea rbp, [rip - 0x2e2c9]\n0002E2C9: imul r9, rbx, 0x688\n0002E2D0: mov esi, r8d\n0002E2D3: mov r11, rcx\n0002E2D6: cmp word ptr [r9 + rbp + 0x7cc677c], 0\n0002E2E0: jle 0x2e39b\n0002E2E6: mov qword ptr [rsp + 0x30], rdi\n0002E2EB: lea rdi, [rbp + 0x7cc674c]\n0002E2F2: add rdi, r9\n0002E2F5: cmp dword ptr [rip + 0x8546894], 0\n0002E2FC: movsxd rax, dword ptr [rdi]\n0002E2FF: je 0x2e312\n0002E301: imul rcx, rax, 0x583c\n0002E308: cmp dword ptr [rcx + rbp + 0x379d0d0], 0\n0002E310: jmp 0x2e315\n0002E312: cmp eax, 1\n0002E315: je 0x2e363\n0002E317: xor r10d, r10d\n0002E31A: lea r9, [r11 + 0x114b8]\n0002E321: mov r8d, r10d\n0002E324: lea rdx, [r11 + 0x10ce8]\n0002E32B: nop dword ptr [rax + rax]\n0002E330: movsx rax, word ptr [rdx]\n0002E334: test ax, ax\n0002E337: je 0x2e378\n0002E339: imul rcx, rax, 0x688\n0002E340: mov eax, dword ptr [r9]\n0002E343: cmp dword ptr [rcx + rbp + 0x7cc6754], eax\n0002E34A: jne 0x2e378\n0002E34C: inc r10d\n0002E34F: inc r8\n0002E352: add rdx, 2\n0002E356: add r9, 4\n0002E35A: cmp r8, 0x3e8\n0002E361: jl 0x2e330\n0002E363: mov rdi, qword ptr [rsp + 0x30]\n0002E368: mov rbx, qword ptr [rsp + 0x38]\n0002E36D: mov rbp, qword ptr [rsp + 0x40]\n0002E372: add rsp, 0x20\n0002E376: pop rsi\n0002E377: ret \n0002E378: movsxd rax, r10d\n0002E37B: mov r8d, ebx\n0002E37E: mov rcx, r11\n0002E381: mov word ptr [r11 + rax*2 + 0x10ce8], bx\n0002E38A: mov dword ptr [r11 + rax*4 + 0x114b8], esi\n0002E392: mov edx, dword ptr [rdi]\n0002E394: call 0x2a720\n0002E399: jmp 0x2e363\n0002E39B: mov rbx, qword ptr [rsp + 0x38]\n0002E3A0: mov eax, 3\n0002E3A5: mov word ptr [r9 + rbp + 0x7cc6760], ax\n0002E3AE: mov rbp, qword ptr [rsp + 0x40]\n0002E3B3: add rsp, 0x20\n0002E3B7: pop rsi\n0002E3B8: ret "
+}

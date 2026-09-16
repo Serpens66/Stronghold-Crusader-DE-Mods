@@ -1,0 +1,21 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0x196100",
+  "va": "0x180196100",
+  "baselineConfidence": "candidate",
+  "size": 89,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x10AE0"
+    }
+  ],
+  "callees": [
+    {
+      "callee_rva": "0x11B520",
+      "callee_name": "FUN_18011b520"
+    }
+  ],
+  "pseudocode": "/* FUNCTION FUN_180196100 VA=0x180196100 RVA=0x196100 */\n\nvoid FUN_180196100(undefined8 param_1,int param_2)\n\n{\n  char in_stack_00000030;\n  \n  *(undefined2 *)(&DAT_187cc6c8c + (longlong)param_2 * 0x688) = 0;\n  if (in_stack_00000030 < '\\0') {\n    *(undefined2 *)(&DAT_187cc6c8c + (longlong)param_2 * 0x688) = 1;\n  }\n  FUN_18011b520(&DAT_187cc6720);\n  return;\n}\n\n\n\n",
+  "disassembly": "00196100: sub rsp, 0x48\n00196104: movsxd rax, edx\n00196107: lea r11, [rip + 0x7b30612]\n0019610E: imul rcx, rax, 0x688\n00196115: xor eax, eax\n00196117: mov r10d, 1\n0019611D: mov word ptr [rcx + r11 + 0x56c], ax\n00196126: mov eax, dword ptr [rsp + 0x78]\n0019612A: test al, al\n0019612C: jns 0x19613b\n0019612E: btr eax, 7\n00196132: mov word ptr [rcx + r11 + 0x56c], r10w\n0019613B: mov dword ptr [rsp + 0x30], eax\n0019613F: mov rcx, r11\n00196142: mov eax, dword ptr [rsp + 0x70]\n00196146: mov dword ptr [rsp + 0x28], r10d\n0019614B: mov dword ptr [rsp + 0x20], eax\n0019614F: call 0x11b520\n00196154: add rsp, 0x48\n00196158: ret "
+}

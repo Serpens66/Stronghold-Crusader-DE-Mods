@@ -258,7 +258,8 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"CastlePlanner cached AIVJSON choices including Steam Workshop content; " +
-                $"unique={CastleOptions.Count}, identicalDuplicatesIgnored={catalog.IdenticalFileCount}.");
+                $"unique={CastleOptions.Count}, identicalDuplicatesIgnored={catalog.IdenticalFileCount}, " +
+                $"nonAivContainersIgnored={catalog.IgnoredNonAivContainerCount}.");
         }
 
         private sealed class CatalogLoadResult

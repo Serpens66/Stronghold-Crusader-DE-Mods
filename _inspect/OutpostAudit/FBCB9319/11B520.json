@@ -1,0 +1,219 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0x11B520",
+  "va": "0x18011B520",
+  "baselineConfidence": "candidate",
+  "size": 3317,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x3B450"
+    },
+    {
+      "caller_rva": "0x3C150"
+    },
+    {
+      "caller_rva": "0x3CAC0"
+    },
+    {
+      "caller_rva": "0x3CCD0"
+    },
+    {
+      "caller_rva": "0x3D020"
+    },
+    {
+      "caller_rva": "0x3D260"
+    },
+    {
+      "caller_rva": "0x3D3E0"
+    },
+    {
+      "caller_rva": "0x3D6E0"
+    },
+    {
+      "caller_rva": "0x3D840"
+    },
+    {
+      "caller_rva": "0x3E070"
+    },
+    {
+      "caller_rva": "0x3FE50"
+    },
+    {
+      "caller_rva": "0xABB90"
+    },
+    {
+      "caller_rva": "0xF82B0"
+    },
+    {
+      "caller_rva": "0x1045F0"
+    },
+    {
+      "caller_rva": "0x10AA20"
+    },
+    {
+      "caller_rva": "0x10C970"
+    },
+    {
+      "caller_rva": "0x1133B0"
+    },
+    {
+      "caller_rva": "0x1136E0"
+    },
+    {
+      "caller_rva": "0x113AB0"
+    },
+    {
+      "caller_rva": "0x113BC0"
+    },
+    {
+      "caller_rva": "0x113E00"
+    },
+    {
+      "caller_rva": "0x113F60"
+    },
+    {
+      "caller_rva": "0x1140C0"
+    },
+    {
+      "caller_rva": "0x1141D0"
+    },
+    {
+      "caller_rva": "0x114960"
+    },
+    {
+      "caller_rva": "0x114A80"
+    },
+    {
+      "caller_rva": "0x11A980"
+    },
+    {
+      "caller_rva": "0x11D7C0"
+    },
+    {
+      "caller_rva": "0x11D8D0"
+    },
+    {
+      "caller_rva": "0x11DD10"
+    },
+    {
+      "caller_rva": "0x11E960"
+    },
+    {
+      "caller_rva": "0x124890"
+    },
+    {
+      "caller_rva": "0x124B90"
+    },
+    {
+      "caller_rva": "0x124E80"
+    },
+    {
+      "caller_rva": "0x125290"
+    },
+    {
+      "caller_rva": "0x1256A0"
+    },
+    {
+      "caller_rva": "0x1259D0"
+    },
+    {
+      "caller_rva": "0x125D00"
+    },
+    {
+      "caller_rva": "0x196100"
+    }
+  ],
+  "callees": [
+    {
+      "callee_rva": "0x79C0",
+      "callee_name": "FUN_1800079c0"
+    },
+    {
+      "callee_rva": "0xD9C40",
+      "callee_name": "FUN_1800d9c40"
+    },
+    {
+      "callee_rva": "0xDA590",
+      "callee_name": "FUN_1800da590"
+    },
+    {
+      "callee_rva": "0xDAFD0",
+      "callee_name": "FUN_1800dafd0"
+    },
+    {
+      "callee_rva": "0xDF720",
+      "callee_name": "FUN_1800df720"
+    },
+    {
+      "callee_rva": "0xE0970",
+      "callee_name": "FUN_1800e0970"
+    },
+    {
+      "callee_rva": "0xE0AC0",
+      "callee_name": "FUN_1800e0ac0"
+    },
+    {
+      "callee_rva": "0xE1D30",
+      "callee_name": "FUN_1800e1d30"
+    },
+    {
+      "callee_rva": "0xE2610",
+      "callee_name": "c_game_get_next_reachable_pcl_to_destination_for_player"
+    },
+    {
+      "callee_rva": "0xE7C40",
+      "callee_name": "FUN_1800e7c40"
+    },
+    {
+      "callee_rva": "0xE9D90",
+      "callee_name": "FUN_1800e9d90"
+    },
+    {
+      "callee_rva": "0xE9FF0",
+      "callee_name": "FUN_1800e9ff0"
+    },
+    {
+      "callee_rva": "0x117820",
+      "callee_name": "FUN_180117820"
+    },
+    {
+      "callee_rva": "0x117BC0",
+      "callee_name": "FUN_180117bc0"
+    },
+    {
+      "callee_rva": "0x117C70",
+      "callee_name": "FUN_180117c70"
+    },
+    {
+      "callee_rva": "0x118E00",
+      "callee_name": "FUN_180118e00"
+    },
+    {
+      "callee_rva": "0x119E30",
+      "callee_name": "FUN_180119e30"
+    },
+    {
+      "callee_rva": "0x119EE0",
+      "callee_name": "FUN_180119ee0"
+    },
+    {
+      "callee_rva": "0x119F90",
+      "callee_name": "FUN_180119f90"
+    },
+    {
+      "callee_rva": "0x123460",
+      "callee_name": "FUN_180123460"
+    },
+    {
+      "callee_rva": "0x124740",
+      "callee_name": "FUN_180124740"
+    },
+    {
+      "callee_rva": "0x196280",
+      "callee_name": "FUN_180196280"
+    }
+  ],
+  "pseudocode": "/* FUNCTION FUN_18011b520 VA=0x18011B520 RVA=0x11B520 */\n\nundefined8\nFUN_18011b520(longlong param_1,int param_2,uint param_3,uint param_4,undefined4 param_5,int param_6,\n             int param_7)\n\n{\n  short sVar1;\n  short sVar2;\n  short sVar3;\n  short sVar4;\n  short sVar5;\n  bool bVar6;\n  bool bVar7;\n  int iVar8;\n  int iVar9;\n  int iVar10;\n  undefined8 uVar11;\n  longlong lVar12;\n  longlong lVar13;\n  longlong lVar14;\n  undefined4 uVar15;\n  longlong lVar16;\n  int iVar17;\n  uint uVar18;\n  undefined4 uVar19;\n  int iVar20;\n  int iVar21;\n  ulonglong uVar22;\n  bool bVar23;\n  bool bVar24;\n  int local_6c;\n  undefined4 local_58;\n  \n  iVar10 = 1000;\n  bVar6 = false;\n  local_6c = 0;\n  local_58 = 0;\n  bVar24 = false;\n  if (param_3 == 0) {\n    if (param_4 == 0) {\n      return 0;\n    }\n  }\n  else if (799 < param_3) {\n    return 0;\n  }\n  if ((param_4 < 800) &&\n     ((&DAT_183a11ea4)[(longlong)(int)param_4 * 800 + (longlong)(int)param_3] != '\\0')) {\n    lVar13 = (longlong)param_2 * 0x688;\n    sVar1 = *(short *)(lVar13 + 0x5a + param_1);\n    uVar22 = (ulonglong)sVar1;\n    lVar14 = lVar13 + param_1;\n    sVar2 = (&DAT_1867e8b1c)[uVar22 * 0x248];\n    sVar3 = (&DAT_1867e8b1e)[uVar22 * 0x248];\n    sVar4 = (&DAT_1850ec690)[(&DAT_18402ff2c)[(longlong)sVar3 * 3] + (int)sVar2];\n    iVar20 = (int)sVar4;\n    iVar8 = (&DAT_18402ff2c)[(longlong)(int)param_4 * 3] + param_3;\n    sVar5 = (&DAT_1850ec690)[iVar8];\n    iVar17 = (int)sVar5;\n    if ((*(byte *)(&DAT_1848f71b0 + iVar8) & 0x30) == 0) {\n      DAT_1860ad6f8 = 0;\n      *(int *)(param_1 + 0x736b10) = *(int *)(param_1 + 0x736b10) + 1;\n      iVar9 = FUN_180117bc0(param_1,param_2);\n      if (sVar1 == iVar9) {\n        iVar20 = FUN_1800e7c40(&DAT_1860ad660,*(undefined4 *)(lVar14 + 0x2c),iVar17,\n                               (int)(short)(&DAT_1867e8b1c)[uVar22 * 0x248],\n                               (int)(short)(&DAT_1867e8b1e)[uVar22 * 0x248]);\n        if (iVar20 == 0) {\nLAB_18011b6a3:\n          uVar11 = FUN_180118e00(param_1,param_2,param_3,param_4,param_5,param_6);\n          return uVar11;\n        }\n        uVar22 = (ulonglong)(uint)(int)*(short *)(lVar14 + 0x5a);\n        bVar6 = true;\n      }\n      else if (sVar4 == 0) goto LAB_18011b6a3;\n      if (0 < sVar5) {\n        iVar9 = FUN_180117820(param_1,param_2);\n        bVar7 = false;\n        iVar21 = (int)uVar22;\n        if (iVar9 == 0) {\n          if (iVar17 != iVar20) {\n            uVar15 = FUN_180117c70(param_1,param_2);\n            iVar17 = c_game_get_next_reachable_pcl_to_destination_for_player\n                               (&DAT_1860ad660,*(undefined4 *)(lVar14 + 0x2c),iVar20,iVar17,uVar15);\n            if (iVar17 == 0) {\n              iVar20 = FUN_1800e9d90(&DAT_1860ad660);\n              if (iVar20 == 0) {\n                return 0;\n              }\n              iVar20 = FUN_1800e9ff0(&DAT_1860ad660,uVar22 & 0xffffffff,param_3,param_4);\n              if (iVar20 == 0) {\n                return 0;\n              }\n              local_6c = DAT_1860ad694;\n              local_58 = DAT_1860ad6ac;\n              bVar7 = true;\n            }\n            else {\n              bVar7 = false;\n              iVar20 = FUN_1800df720(&DAT_1860ad660,uVar22 & 0xffffffff,iVar20,iVar17);\n              if (iVar20 == 0) {\n                return 0;\n              }\n            }\n          }\n        }\n        else {\n          bVar24 = true;\n        }\n        bVar23 = false;\n        if (param_6 != 0) {\n          *(undefined2 *)(lVar14 + 0x582) = (undefined2)param_5;\n          *(undefined2 *)(lVar14 + 0x5b4) = (&DAT_1867e8b1c)[(longlong)iVar21 * 0x248];\n          *(undefined2 *)(lVar14 + 0x5b6) = (&DAT_1867e8b1e)[(longlong)iVar21 * 0x248];\n          *(short *)(lVar14 + 0x5b8) = (short)param_3;\n          *(short *)(lVar14 + 0x5ba) = (short)param_4;\n          *(undefined4 *)(lVar14 + 0x5dc) = 0x20001;\n          *(undefined2 *)(lVar14 + 0x58e) = 0;\n        }\n        *(undefined8 *)(param_1 + 0x14) = 0;\n        uVar18 = (uint)(&DAT_1848f71b0)[iVar8] >> 8 & 1;\n        if (((uint)(&DAT_1848f71b0)[iVar8] >> 0x1c & 1) != 0) {\n          uVar18 = 1;\n        }\n        FUN_1800079c0(&DAT_1834a9f50,param_3,param_4,\n                      (int)(short)(&DAT_1867e8b1c)[(longlong)iVar21 * 0x248],\n                      (int)(short)(&DAT_1867e8b1e)[(longlong)iVar21 * 0x248]);\n        if (0x2d < DAT_1834a9f5c) {\n          iVar10 = (DAT_1834a9f5c * DAT_1834a9f5c) / 2;\n        }\n        if (bVar24) {\n          FUN_1800d9c40();\n        }\n        else if (bVar6) {\n          FUN_1800dafd0();\n        }\n        else {\n          FUN_1800da590(&DAT_1860ad660,param_3,param_4,0xffffffff,0xffffffff,iVar10,0);\n        }\n        iVar8 = FUN_180124740(param_1,param_2,DAT_1860ad664);\n        uVar15 = 1;\n        uVar19 = DAT_186203598;\n        while (DAT_186203598 = uVar19, iVar8 == 0) {\n          iVar10 = iVar10 + 5000;\n          if (0x4e51f < iVar10) {\n            iVar10 = 0x4e520;\n          }\n          if (bVar24) {\n            FUN_1800d9c40();\n          }\n          else if (bVar6) {\n            FUN_1800dafd0();\n          }\n          else {\n            FUN_1800da590(&DAT_1860ad660,param_3,param_4,0xffffffff,0xffffffff,iVar10,1);\n          }\n          if (0x4e51f < iVar10) {\n            if (DAT_1860ad6f8 == 0) {\n              if (bVar24) {\n                iVar10 = FUN_1800d9c40();\n              }\n              else {\n                if (!bVar6) {\n                  iVar10 = FUN_1800da590(&DAT_1860ad660,param_3,param_4,(int)sVar2,(int)sVar3,100000\n                                         ,0);\n                  if (iVar10 == 0) {\n                    return 0;\n                  }\n                  goto LAB_18011be26;\n                }\n                iVar10 = FUN_1800dafd0();\n              }\n              if (iVar10 == 0) {\n                return 0;\n              }\n            }\nLAB_18011be26:\n            FUN_180119e30(param_1,param_2);\n            goto LAB_18011b9ca;\n          }\n          iVar8 = FUN_180124740(param_1,param_2,DAT_1860ad664);\n          uVar15 = uVar19;\n          uVar19 = DAT_186203598;\n        }\n        FUN_180119ee0(param_1,param_2);\n        uVar19 = uVar15;\nLAB_18011b9ca:\n        if (0 < *(short *)(lVar14 + 0x5c)) {\n          iVar10 = 0;\n          do {\n            iVar8 = FUN_180119f90(param_1,param_2,iVar10);\n            lVar12 = (longlong)iVar8;\n            lVar16 = lVar12 * 0x490;\n            iVar10 = iVar10 + 1;\n            if ((((((&DAT_1867e8ae4)[lVar12 * 0x248] == 2) &&\n                  ((&DAT_1867e8cf8)[lVar12 * 0x248] == 0)) &&\n                 (*(short *)(&DAT_1867e8cf6 + lVar16) == 0)) &&\n                (((&DAT_1867e8e6b)[lVar16] == '\\0' && (*(short *)(&DAT_1867e8d18 + lVar16) != 0xcf))\n                )) && (((*(short *)(&DAT_1867e8e84 + lVar16) == 0 &&\n                        ((*(short *)(&DAT_1867e8aec + lVar16) != 1 &&\n                         (sVar1 = (&DAT_1867e8ae6)[lVar12 * 0x248], 1 < (ushort)(sVar1 - 0x28U)))))\n                       && (sVar1 != 0x3d)))) {\n              if (sVar1 == 0x27) {\n                if ((&DAT_1867e8e0c)[lVar12 * 0x248] == 2) {\nLAB_18011baac:\n                  if (sVar1 != 0x3a) goto LAB_18011be4f;\n                  if ((&DAT_1867e8e0c)[lVar12 * 0x248] != 4) goto LAB_18011bb76;\n                  goto LAB_18011bac5;\n                }\n              }\n              else {\n                if (sVar1 != 0x4d) goto LAB_18011baac;\n                if ((&DAT_1867e8e0c)[lVar12 * 0x248] != 2) goto LAB_18011bb76;\nLAB_18011be4f:\n                if (sVar1 == 0x3b) {\n                  if ((&DAT_1867e8e0c)[lVar12 * 0x248] != 4) goto LAB_18011bb76;\n                }\n                else {\nLAB_18011bac5:\n                  if ((sVar1 == 0x3c) && ((&DAT_1867e8e0c)[lVar12 * 0x248] != 1))\n                  goto LAB_18011bb76;\n                  if (sVar1 == 0x1e) {\n                    (&DAT_1867e8e1c)[lVar16] = 0;\n                  }\n                }\n                if (bVar24) {\n                  if (uVar18 == 0) {\n                    if (bVar23) {\n                      uVar15 = 3;\n                    }\n                    else {\n                      iVar8 = FUN_1800e0970(&DAT_1860ad660,3,param_3,param_4);\n                      *(int *)(param_1 + 0x14) = *(int *)(param_1 + 0x14) + 1;\n                      if (iVar8 != 0) goto LAB_18011bb4d;\n                      *(undefined4 *)(param_1 + 0x14) = 0;\n                      bVar23 = true;\n                      uVar15 = 3;\n                    }\n                    goto LAB_18011bb38;\n                  }\n                  if (bVar23) {\nLAB_18011bb33:\n                    uVar15 = 1;\n                    goto LAB_18011bb38;\n                  }\n                  iVar8 = FUN_1800e0ac0(&DAT_1860ad660,1,param_3,param_4,uVar19);\n                  *(int *)(param_1 + 0x14) = *(int *)(param_1 + 0x14) + 1;\n                  if (iVar8 == 0) {\n                    *(undefined4 *)(param_1 + 0x14) = 0;\n                    bVar23 = true;\n                    goto LAB_18011bb33;\n                  }\n                }\n                else {\n                  if (*(short *)(lVar14 + 0x5f8) == 0) {\n                    if ((uVar18 != 0) || (bVar6)) goto LAB_18011bb33;\n                    if ((0x26 < (ushort)(sVar1 - 0x27U)) ||\n                       (uVar15 = 4,\n                       (0x4000380001U >> ((ulonglong)(ushort)(sVar1 - 0x27U) & 0x3f) & 1) == 0)) {\n                      uVar15 = 2;\n                    }\n                  }\n                  else {\n                    uVar15 = 3;\n                  }\nLAB_18011bb38:\n                  FUN_1800e1d30(&DAT_1860ad660,uVar15,param_3,param_4);\n                  *(int *)(param_1 + 0x14) = *(int *)(param_1 + 0x14) + 1;\n                }\nLAB_18011bb4d:\n                if (3999 < *(int *)(param_1 + 0x14)) break;\n                (&DAT_1867e8d34)[lVar12 * 0x248] = *(undefined2 *)(param_1 + 0xc);\n                (&DAT_1867e8d36)[lVar12 * 0x248] = *(undefined2 *)(param_1 + 0x10);\n              }\n            }\nLAB_18011bb76:\n          } while (iVar10 < *(short *)(lVar14 + 0x5c));\n        }\n        iVar10 = 0;\n        if (0 < *(short *)(param_1 + 0x5c + lVar13)) {\n          do {\n            iVar8 = FUN_180119f90(param_1,param_2,iVar10);\n            lVar12 = (longlong)iVar8;\n            lVar14 = lVar12 * 0x490;\n            iVar10 = iVar10 + 1;\n            if (((((&DAT_1867e8ae4)[lVar12 * 0x248] == 2) && ((&DAT_1867e8cf8)[lVar12 * 0x248] == 0)\n                 ) && (*(short *)(&DAT_1867e8cf6 + lVar14) == 0)) &&\n               (((((&DAT_1867e8e6b)[lVar14] == '\\0' &&\n                  (sVar1 = *(short *)(&DAT_1867e8d18 + lVar14), sVar1 != 0xcf)) &&\n                 ((*(short *)(&DAT_1867e8e84 + lVar14) == 0 &&\n                  ((*(short *)(&DAT_1867e8aec + lVar14) != 1 &&\n                   (sVar2 = (&DAT_1867e8ae6)[lVar12 * 0x248], 1 < (ushort)(sVar2 - 0x28U))))))) &&\n                (sVar2 != 0x3d)))) {\n              if ((sVar2 == 0x27) || (sVar2 == 0x4d)) {\n                bVar23 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 2;\nLAB_18011bc66:\n                if (bVar23) {\nLAB_18011bc68:\n                  if ((sVar2 != 0x3c) || ((&DAT_1867e8e0c)[lVar12 * 0x248] == 1))\n                  goto LAB_18011bf63;\n                }\n              }\n              else {\n                if (sVar2 == 0x3a) {\n                  bVar23 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 4;\n                  goto LAB_18011bc66;\n                }\n                if (sVar2 != 0x3b) goto LAB_18011bc68;\n                if ((&DAT_1867e8e0c)[lVar12 * 0x248] != 4) goto LAB_18011bc8e;\nLAB_18011bf63:\n                if (sVar1 == 0x6a) {\n                  *(short *)(&DAT_1867e8d2a + lVar12 * 0x490) =\n                       *(short *)(&DAT_1867e8da4 + lVar12 * 0x490) * -4;\n                }\n                lVar14 = lVar12 * 0x490;\n                *(undefined2 *)(&DAT_1867e8d18 + lVar14) = 0x65;\n                *(undefined2 *)(&DAT_1867e8d9e + lVar14) = 0;\n                (&DAT_1867e8e00)[lVar12 * 0x124] = 0;\n                DAT_1860ad6e8 = 0;\n                if (bVar24) {\n                  DAT_1860ad6e8 = 1;\n                }\n                else if ((bVar6) || (DAT_182f7a690 != 0)) {\n                  DAT_1860ad6e0 = 0;\n                }\n                else {\n                  DAT_1860ad6e0 = 1;\n                }\n                *(undefined4 *)(&DAT_1867e8b48 + lVar12 * 0x248) = 0;\n                if ((((sVar1 == 0x6a) ||\n                     ((&DAT_1867e8d34)[lVar12 * 0x248] != (&DAT_1867e8b20)[lVar12 * 0x248])) ||\n                    ((&DAT_1867e8d36)[lVar12 * 0x248] != (&DAT_1867e8b22)[lVar12 * 0x248])) ||\n                   (*(short *)(&DAT_1867e8b4e + lVar14) != 2)) {\n                  iVar20 = FUN_180196280(&DAT_1867e8400,iVar8,\n                                         (int)(short)(&DAT_1867e8d34)[lVar12 * 0x248],\n                                         (int)(short)(&DAT_1867e8d36)[lVar12 * 0x248],0);\n                  if (iVar20 == 0) {\n                    if ((bVar7) &&\n                       (((&DAT_1848f71b0)[(int)(&DAT_1867e8b2c)[lVar12 * 0x124]] & 0x10000100) != 0)\n                       ) {\n                      FUN_180196280(&DAT_1867e8400,iVar8,\n                                    local_6c -\n                                    (&DAT_18402ff2c)\n                                    [(longlong)(short)(&DAT_183aae2a4)[local_6c] * 3],\n                                    (longlong)(short)(&DAT_183aae2a4)[local_6c],0);\n                      *(undefined2 *)(&DAT_1867e8d18 + lVar14) = 0x7a;\n                      *(undefined4 *)(&DAT_1867e8df8 + lVar14) = local_58;\n                      if (param_7 != 0) {\n                        *(undefined2 *)(&DAT_1867e8ad4 + lVar14) = 0x10;\n                      }\n                    }\n                  }\n                  else {\n                    if (param_7 != 0) {\n                      *(undefined2 *)(&DAT_1867e8ad4 + lVar14) = 0x10;\n                    }\n                    if ((((&DAT_1867e8ae6)[lVar12 * 0x248] == 0x55) && (sVar1 == 0x82)) &&\n                       ((&DAT_188574bcc)[(short)(&DAT_1867e8aee)[lVar12 * 0x248]] != -1)) {\n                      *(undefined2 *)(&DAT_1867e8eba + lVar14) = 200;\n                    }\n                  }\n                }\n                else {\n                  *(undefined2 *)(&DAT_1867e8ad4 + lVar14) = 0x10;\n                }\n                DAT_1860ad6e0 = 0;\n                if (DAT_1860ad6dc == 0) {\n                  *(int *)(param_1 + 0x18) = *(int *)(param_1 + 0x18) + 1;\n                }\n                else {\n                  *(int *)(param_1 + 0x18) = *(int *)(param_1 + 0x18) + -1;\n                }\n              }\n            }\nLAB_18011bc8e:\n          } while (iVar10 < *(short *)(param_1 + 0x5c + lVar13));\n        }\n        FUN_180123460(param_1,param_2,0);\n        iVar10 = 0;\n        *(undefined2 *)(param_1 + 0x63c + lVar13) = 0;\n        if (0 < *(short *)(param_1 + 0x5c + lVar13)) {\n          do {\n            iVar8 = FUN_180119f90(param_1,param_2,iVar10);\n            lVar12 = (longlong)iVar8;\n            lVar14 = lVar12 * 0x490;\n            iVar10 = iVar10 + 1;\n            if (((((((&DAT_1867e8ae4)[lVar12 * 0x248] == 2) &&\n                   ((&DAT_1867e8cf8)[lVar12 * 0x248] == 0)) &&\n                  (*(short *)(&DAT_1867e8cf6 + lVar14) == 0)) &&\n                 (((&DAT_1867e8e6b)[lVar14] == '\\0' && (*(short *)(&DAT_1867e8d18 + lVar14) != 0xcf)\n                  ))) && ((*(short *)(&DAT_1867e8e84 + lVar14) == 0 &&\n                          ((*(short *)(&DAT_1867e8aec + lVar14) != 1 &&\n                           (*(short *)(&DAT_1867e8e9e + lVar14) != 0)))))) &&\n               ((sVar1 = (&DAT_1867e8ae6)[lVar12 * 0x248], 1 < (ushort)(sVar1 - 0x28U) &&\n                (sVar1 != 0x3d)))) {\n              if (sVar1 == 0x27) {\n                bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 2;\nLAB_18011c1c7:\n                if (!bVar24) goto LAB_18011c1fd;\n              }\n              else {\n                if (sVar1 == 0x4d) {\n                  bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 2;\n                  goto LAB_18011c1c7;\n                }\n                if (sVar1 == 0x3a) {\n                  bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 4;\n                  goto LAB_18011c1c7;\n                }\n                if (sVar1 == 0x3b) {\n                  bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 4;\n                  goto LAB_18011c1c7;\n                }\n                if (sVar1 == 0x3c) {\n                  bVar24 = (&DAT_1867e8e0c)[lVar12 * 0x248] == 1;\n                  goto LAB_18011c1c7;\n                }\n              }\n              lVar12 = lVar12 * 0x490;\n              *(undefined2 *)(&DAT_1867e8ce6 + lVar12) = 0;\n              *(undefined2 *)(&DAT_1867e8b4c + lVar12) = 0;\n              *(undefined2 *)(&DAT_1867e8e7c + lVar12) = 0;\n              *(undefined2 *)(&DAT_1867e8df4 + lVar12) = 3;\n            }\nLAB_18011c1fd:\n          } while (iVar10 < *(short *)(param_1 + 0x5c + lVar13));\n        }\n        return 1;\n      }\n    }\n  }\n  return 0;\n}\n\n\n\n",
+  "disassembly": "0011B520: mov qword ptr [rsp + 8], rbx\n0011B525: mov dword ptr [rsp + 0x10], edx\n0011B529: push rbp\n0011B52A: push rsi\n0011B52B: push rdi\n0011B52C: push r12\n0011B52E: push r13\n0011B530: push r14\n0011B532: push r15\n0011B534: sub rsp, 0x80\n0011B53B: xor r10d, r10d\n0011B53E: movsxd rbp, r9d\n0011B541: movsxd rsi, r8d\n0011B544: mov rdi, rcx\n0011B547: movsxd r9, edx\n0011B54A: mov ebx, 0x3e8\n0011B54F: mov dword ptr [rsp + 0x40], r10d\n0011B554: mov dword ptr [rsp + 0x4c], r10d\n0011B559: mov dword ptr [rsp + 0x60], r10d\n0011B55E: mov dword ptr [rsp + 0xd0], r10d\n0011B566: test r8d, r8d\n0011B569: jne 0x11b574\n0011B56B: test ebp, ebp\n0011B56D: jne 0x11b580\n0011B56F: jmp 0x11bdf2\n0011B574: cmp esi, 0x31f\n0011B57A: ja 0x11bdf2\n0011B580: cmp ebp, 0x31f\n0011B586: ja 0x11bdf2\n0011B58C: imul rcx, rbp, 0x320\n0011B593: lea r11, [rip - 0x11b59a]\n0011B59A: add rcx, rsi\n0011B59D: cmp byte ptr [rcx + r11 + 0x3a11ea4], r10b\n0011B5A5: je 0x11bdf2\n0011B5AB: imul rcx, r9, 0x688\n0011B5B2: movsx r15, word ptr [rcx + rdi + 0x5a]\n0011B5B8: lea rax, [rcx + rdi]\n0011B5BC: mov qword ptr [rsp + 0x50], rax\n0011B5C1: lea rax, [rip + 0x66cce38]\n0011B5C8: mov qword ptr [rsp + 0x70], rcx\n0011B5CD: imul rcx, r15, 0x490\n0011B5D4: lea r13, [rcx + rax]\n0011B5D8: add rax, 0x71e\n0011B5DE: movsx r8d, word ptr [r13 + 0x71c]\n0011B5E6: add rax, rcx\n0011B5E9: mov qword ptr [rsp + 0x58], rax\n0011B5EE: mov dword ptr [rsp + 0x48], r8d\n0011B5F3: movsx rax, word ptr [rax]\n0011B5F7: mov dword ptr [rsp + 0x44], eax\n0011B5FB: lea rcx, [rax + rax*2]\n0011B5FF: mov eax, dword ptr [r11 + rcx*4 + 0x402ff2c]\n0011B607: add eax, r8d\n0011B60A: movsxd rcx, eax\n0011B60D: lea rax, [rbp*2]\n0011B615: add rax, rbp\n0011B618: movsx r14d, word ptr [r11 + rcx*2 + 0x50ec690]\n0011B621: mov eax, dword ptr [r11 + rax*4 + 0x402ff2c]\n0011B629: add eax, esi\n0011B62B: movsxd rcx, eax\n0011B62E: movsx r12d, word ptr [r11 + rcx*2 + 0x50ec690]\n0011B637: lea rax, [rcx*4]\n0011B63F: test byte ptr [rax + r11 + 0x48f71b0], 0x30\n0011B648: mov qword ptr [rsp + 0x68], rax\n0011B64D: jne 0x11bdf2\n0011B653: mov dword ptr [rip + 0x5f9209e], r10d\n0011B65A: mov edx, r9d\n0011B65D: inc dword ptr [rdi + 0x736b10]\n0011B663: mov rcx, rdi\n0011B666: call 0x117bc0\n0011B66B: cmp r15d, eax\n0011B66E: jne 0x11b6e2\n0011B670: mov rax, qword ptr [rsp + 0x58]\n0011B675: lea rcx, [rip + 0x5f91fe4]\n0011B67C: mov r15, qword ptr [rsp + 0x50]\n0011B681: mov r8d, r12d\n0011B684: movsx r9d, word ptr [r13 + 0x71c]\n0011B68C: movsx eax, word ptr [rax]\n0011B68F: mov edx, dword ptr [r15 + 0x2c]\n0011B693: mov dword ptr [rsp + 0x20], eax\n0011B697: call 0xe7c40\n0011B69C: mov r14d, eax\n0011B69F: test eax, eax\n0011B6A1: jne 0x11b6d3\n0011B6A3: mov eax, dword ptr [rsp + 0xe8]\n0011B6AA: mov r9d, ebp\n0011B6AD: mov edx, dword ptr [rsp + 0xc8]\n0011B6B4: mov r8d, esi\n0011B6B7: mov dword ptr [rsp + 0x28], eax\n0011B6BB: mov rcx, rdi\n0011B6BE: mov eax, dword ptr [rsp + 0xe0]\n0011B6C5: mov dword ptr [rsp + 0x20], eax\n0011B6C9: call 0x118e00\n0011B6CE: jmp 0x11bdf4\n0011B6D3: movsx r15d, word ptr [r15 + 0x5a]\n0011B6D8: mov dword ptr [rsp + 0x40], 1\n0011B6E0: jmp 0x11b6e7\n0011B6E2: test r14d, r14d\n0011B6E5: je 0x11b6a3\n0011B6E7: test r12d, r12d\n0011B6EA: jle 0x11bdf2\n0011B6F0: mov r13d, dword ptr [rsp + 0xc8]\n0011B6F8: mov rcx, rdi\n0011B6FB: mov edx, r13d\n0011B6FE: call 0x117820\n0011B703: xor r8d, r8d\n0011B706: mov qword ptr [rsp + 0x58], r8\n0011B70B: test eax, eax\n0011B70D: je 0x11b727\n0011B70F: mov r13, qword ptr [rsp + 0x50]\n0011B714: mov r9d, 1\n0011B71A: mov dword ptr [rsp + 0xd0], r9d\n0011B722: jmp 0x11b7dd\n0011B727: cmp r12d, r14d\n0011B72A: je 0x11b8f6\n0011B730: mov edx, r13d\n0011B733: mov rcx, rdi\n0011B736: call 0x117c70\n0011B73B: mov r13, qword ptr [rsp + 0x50]\n0011B740: lea rcx, [rip + 0x5f91f19]\n0011B747: mov r9d, r12d\n0011B74A: mov dword ptr [rsp + 0x20], eax\n0011B74E: mov r8d, r14d\n0011B751: mov edx, dword ptr [r13 + 0x2c]\n0011B755: call 0xe2610\n0011B75A: mov edx, r15d\n0011B75D: test eax, eax\n0011B75F: jne 0x11b7b3\n0011B761: lea rcx, [rip + 0x5f91ef8]\n0011B768: call 0xe9d90\n0011B76D: test eax, eax\n0011B76F: je 0x11bdf2\n0011B775: mov r9d, ebp\n0011B778: lea rcx, [rip + 0x5f91ee1]\n0011B77F: mov r8d, esi\n0011B782: mov edx, r15d\n0011B785: call 0xe9ff0\n0011B78A: test eax, eax\n0011B78C: je 0x11bdf2\n0011B792: mov eax, dword ptr [rip + 0x5f91efc]\n0011B798: mov r9d, 1\n0011B79E: mov dword ptr [rsp + 0x4c], eax\n0011B7A2: mov eax, dword ptr [rip + 0x5f91f04]\n0011B7A8: mov dword ptr [rsp + 0x60], eax\n0011B7AC: mov qword ptr [rsp + 0x58], r9\n0011B7B1: jmp 0x11b7da\n0011B7B3: xor ecx, ecx\n0011B7B5: mov r9d, eax\n0011B7B8: mov qword ptr [rsp + 0x58], rcx\n0011B7BD: mov r8d, r14d\n0011B7C0: lea rcx, [rip + 0x5f91e99]\n0011B7C7: call 0xdf720\n0011B7CC: test eax, eax\n0011B7CE: je 0x11bdf2\n0011B7D4: mov r9d, 1\n0011B7DA: xor r8d, r8d\n0011B7DD: cmp dword ptr [rsp + 0xe8], 0\n0011B7E5: lea rdx, [rip + 0x66ccc14]\n0011B7EC: je 0x11b84b\n0011B7EE: movzx eax, word ptr [rsp + 0xe0]\n0011B7F6: mov word ptr [r13 + 0x582], ax\n0011B7FE: movsxd rax, r15d\n0011B801: imul rcx, rax, 0x490\n0011B808: movzx eax, word ptr [rcx + rdx + 0x71c]\n0011B810: mov word ptr [r13 + 0x5b4], ax\n0011B818: movzx eax, word ptr [rcx + rdx + 0x71e]\n0011B820: mov word ptr [r13 + 0x5b6], ax\n0011B828: mov word ptr [r13 + 0x5b8], si\n0011B830: mov word ptr [r13 + 0x5ba], bp\n0011B838: mov dword ptr [r13 + 0x5dc], 0x20001\n0011B843: mov word ptr [r13 + 0x58e], r8w\n0011B84B: mov rax, qword ptr [rsp + 0x68]\n0011B850: lea rcx, [rip - 0x11b857]\n0011B857: mov qword ptr [rdi + 0x14], 0\n0011B85F: mov r14d, r8d\n0011B862: mov r8d, ebp\n0011B865: mov eax, dword ptr [rax + rcx + 0x48f71b0]\n0011B86C: mov r12d, eax\n0011B86F: shr r12, 8\n0011B873: and r12d, 1\n0011B877: bt eax, 0x1c\n0011B87B: movsxd rax, r15d\n0011B87E: cmovb r12, r9\n0011B882: imul rcx, rax, 0x490\n0011B889: movsx eax, word ptr [rcx + rdx + 0x71e]\n0011B891: movsx r9d, word ptr [rcx + rdx + 0x71c]\n0011B89A: mov edx, esi\n0011B89C: lea rcx, [rip + 0x338e6ad]\n0011B8A3: mov dword ptr [rsp + 0x20], eax\n0011B8A7: call 0x79c0\n0011B8AC: mov eax, dword ptr [rip + 0x338e6aa]\n0011B8B2: cmp eax, 0x2d\n0011B8B5: jle 0x11b8c1\n0011B8B7: imul eax, eax\n0011B8BA: cdq \n0011B8BB: sub eax, edx\n0011B8BD: sar eax, 1\n0011B8BF: mov ebx, eax\n0011B8C1: xor eax, eax\n0011B8C3: lea rcx, [rip + 0x5f91d96]\n0011B8CA: mov r13d, 1\n0011B8D0: mov dword ptr [rsp + 0x30], eax\n0011B8D4: mov r8d, ebp\n0011B8D7: mov dword ptr [rsp + 0x28], ebx\n0011B8DB: mov edx, esi\n0011B8DD: lea r9d, [r13 - 2]\n0011B8E1: mov dword ptr [rsp + 0x20], r9d\n0011B8E6: cmp dword ptr [rsp + 0xd0], eax\n0011B8ED: je 0x11b906\n0011B8EF: call 0xd9c40\n0011B8F4: jmp 0x11b919\n0011B8F6: mov r13, qword ptr [rsp + 0x50]\n0011B8FB: mov r9d, 1\n0011B901: jmp 0x11b7dd\n0011B906: cmp dword ptr [rsp + 0x40], 0\n0011B90B: je 0x11b914\n0011B90D: call 0xdafd0\n0011B912: jmp 0x11b919\n0011B914: call 0xda590\n0011B919: mov r15d, dword ptr [rsp + 0xc8]\n0011B921: mov rcx, rdi\n0011B924: mov r8d, dword ptr [rip + 0x5f91d39]\n0011B92B: mov edx, r15d\n0011B92E: call 0x124740\n0011B933: test eax, eax\n0011B935: jne 0x11b9bf\n0011B93B: mov eax, 0x4e520\n0011B940: mov r13d, dword ptr [rip + 0x60e7c51]\n0011B947: lea rcx, [rip + 0x5f91d12]\n0011B94E: add ebx, 0x1388\n0011B954: mov r8d, ebp\n0011B957: cmp ebx, eax\n0011B959: mov edx, esi\n0011B95B: cmovge ebx, eax\n0011B95E: cmp dword ptr [rsp + 0xd0], 0\n0011B966: mov eax, 1\n0011B96B: mov dword ptr [rsp + 0x30], eax\n0011B96F: mov dword ptr [rsp + 0x28], ebx\n0011B973: lea r9d, [rax - 2]\n0011B977: mov dword ptr [rsp + 0x20], r9d\n0011B97C: je 0x11b985\n0011B97E: call 0xd9c40\n0011B983: jmp 0x11b998\n0011B985: cmp dword ptr [rsp + 0x40], 0\n0011B98A: je 0x11b993\n0011B98C: call 0xdafd0\n0011B991: jmp 0x11b998\n0011B993: call 0xda590\n0011B998: cmp ebx, 0x4e520\n0011B99E: jge 0x11bdaf\n0011B9A4: mov r8d, dword ptr [rip + 0x5f91cb9]\n0011B9AB: mov edx, r15d\n0011B9AE: mov rcx, rdi\n0011B9B1: call 0x124740\n0011B9B6: test eax, eax\n0011B9B8: mov eax, 0x4e520\n0011B9BD: je 0x11b940\n0011B9BF: mov edx, r15d\n0011B9C2: mov rcx, rdi\n0011B9C5: call 0x119ee0\n0011B9CA: mov rax, qword ptr [rsp + 0x50]\n0011B9CF: xor ecx, ecx\n0011B9D1: mov ebx, 0xcf\n0011B9D6: cmp cx, word ptr [rax + 0x5c]\n0011B9DA: jge 0x11bb8d\n0011B9E0: mov r15d, ecx\n0011B9E3: mov edx, dword ptr [rsp + 0xc8]\n0011B9EA: mov r8d, r15d\n0011B9ED: mov rcx, rdi\n0011B9F0: call 0x119f90\n0011B9F5: cdqe \n0011B9F7: lea rdx, [rip + 0x66cca02]\n0011B9FE: imul rbx, rax, 0x490\n0011BA05: inc r15d\n0011BA08: cmp word ptr [rbx + rdx + 0x6e4], 2\n0011BA11: jne 0x11bb76\n0011BA17: cmp word ptr [rbx + rdx + 0x8f8], 0\n0011BA20: jne 0x11bb76\n0011BA26: cmp word ptr [rbx + rdx + 0x8f6], 0\n0011BA2F: jne 0x11bb76\n0011BA35: cmp byte ptr [rbx + rdx + 0xa6b], 0\n0011BA3D: jne 0x11bb76\n0011BA43: mov eax, 0xcf\n0011BA48: cmp word ptr [rbx + rdx + 0x918], ax\n0011BA50: je 0x11bb76\n0011BA56: cmp word ptr [rbx + rdx + 0xa84], 0\n0011BA5F: jne 0x11bb76\n0011BA65: cmp word ptr [rbx + rdx + 0x6ec], 1\n0011BA6E: je 0x11bb76\n0011BA74: movzx ecx, word ptr [rbx + rdx + 0x6e6]\n0011BA7C: lea eax, [rcx - 0x28]\n0011BA7F: cmp ax, 1\n0011BA83: jbe 0x11bb76\n0011BA89: cmp cx, 0x3d\n0011BA8D: je 0x11bb76\n0011BA93: cmp cx, 0x27\n0011BA97: jne 0x11be36\n0011BA9D: cmp word ptr [rbx + rdx + 0xa0c], 2\n0011BAA6: jne 0x11bb76\n0011BAAC: cmp cx, 0x3a\n0011BAB0: jne 0x11be4f\n0011BAB6: cmp word ptr [rbx + rdx + 0xa0c], 4\n0011BABF: jne 0x11bb76\n0011BAC5: cmp cx, 0x3c\n0011BAC9: jne 0x11bada\n0011BACB: cmp word ptr [rbx + rdx + 0xa0c], 1\n0011BAD4: jne 0x11bb76\n0011BADA: cmp cx, 0x1e\n0011BADE: jne 0x11bae8\n0011BAE0: mov byte ptr [rbx + rdx + 0xa1c], 0\n0011BAE8: cmp dword ptr [rsp + 0xd0], 0\n0011BAF0: je 0x11bec6\n0011BAF6: test r12, r12\n0011BAF9: je 0x11be7c\n0011BAFF: test r14d, r14d\n0011BB02: jne 0x11be6d\n0011BB08: mov r9d, ebp\n0011BB0B: mov dword ptr [rsp + 0x20], r13d\n0011BB10: mov r8d, esi\n0011BB13: lea edx, [r14 + 1]\n0011BB17: lea rcx, [rip + 0x5f91b42]\n0011BB1E: call 0xe0ac0\n0011BB23: inc dword ptr [rdi + 0x14]\n0011BB26: test eax, eax\n0011BB28: jne 0x11bb4d\n0011BB2A: xor eax, eax\n0011BB2C: mov dword ptr [rdi + 0x14], eax\n0011BB2F: lea r14d, [rax + 1]\n0011BB33: mov edx, 1\n0011BB38: mov r9d, ebp\n0011BB3B: lea rcx, [rip + 0x5f91b1e]\n0011BB42: mov r8d, esi\n0011BB45: call 0xe1d30\n0011BB4A: inc dword ptr [rdi + 0x14]\n0011BB4D: mov eax, dword ptr [rdi + 0x14]\n0011BB50: cmp eax, 0xfa0\n0011BB55: jge 0x11bb88\n0011BB57: movzx eax, word ptr [rdi + 0xc]\n0011BB5B: lea rdx, [rip + 0x66cc89e]\n0011BB62: mov word ptr [rbx + rdx + 0x934], ax\n0011BB6A: movzx eax, word ptr [rdi + 0x10]\n0011BB6E: mov word ptr [rbx + rdx + 0x936], ax\n0011BB76: mov rax, qword ptr [rsp + 0x50]\n0011BB7B: movsx eax, word ptr [rax + 0x5c]\n0011BB7F: cmp r15d, eax\n0011BB82: jl 0x11b9e3\n0011BB88: mov ebx, 0xcf\n0011BB8D: mov r13, qword ptr [rsp + 0x70]\n0011BB92: xor ebp, ebp\n0011BB94: mov r14d, ebp\n0011BB97: cmp bp, word ptr [rdi + r13 + 0x5c]\n0011BB9D: jge 0x11bca2\n0011BBA3: movsxd r12, dword ptr [rsp + 0x4c]\n0011BBA8: mov r15d, dword ptr [rsp + 0xf0]\n0011BBB0: mov edx, dword ptr [rsp + 0xc8]\n0011BBB7: mov r8d, r14d\n0011BBBA: mov rcx, rdi\n0011BBBD: call 0x119f90\n0011BBC2: movsxd rbp, eax\n0011BBC5: lea r10, [rip + 0x66cc834]\n0011BBCC: imul rcx, rbp, 0x490\n0011BBD3: inc r14d\n0011BBD6: mov r8, rbp\n0011BBD9: cmp word ptr [rcx + r10 + 0x6e4], 2\n0011BBE3: jne 0x11bc8c\n0011BBE9: cmp word ptr [rcx + r10 + 0x8f8], 0\n0011BBF3: jne 0x11bc8c\n0011BBF9: cmp word ptr [rcx + r10 + 0x8f6], 0\n0011BC03: jne 0x11bc8c\n0011BC09: cmp byte ptr [rcx + r10 + 0xa6b], 0\n0011BC12: jne 0x11bc8c\n0011BC14: movzx esi, word ptr [rcx + r10 + 0x918]\n0011BC1D: cmp si, bx\n0011BC20: je 0x11bc8c\n0011BC22: cmp word ptr [rcx + r10 + 0xa84], 0\n0011BC2C: jne 0x11bc8c\n0011BC2E: cmp word ptr [rcx + r10 + 0x6ec], 1\n0011BC38: je 0x11bc8c\n0011BC3A: movzx edx, word ptr [rcx + r10 + 0x6e6]\n0011BC43: lea eax, [rdx - 0x28]\n0011BC46: cmp ax, 1\n0011BC4A: jbe 0x11bc8c\n0011BC4C: cmp dx, 0x3d\n0011BC50: je 0x11bc8c\n0011BC52: cmp dx, 0x27\n0011BC56: jne 0x11bf20\n0011BC5C: cmp word ptr [rcx + r10 + 0xa0c], 2\n0011BC66: jne 0x11bc8c\n0011BC68: mov rax, r8\n0011BC6B: cmp dx, 0x3c\n0011BC6F: jne 0x11bf5c\n0011BC75: imul rbx, r8, 0x490\n0011BC7C: cmp word ptr [rbx + r10 + 0xa0c], 1\n0011BC86: je 0x11bf63\n0011BC8C: xor ebp, ebp\n0011BC8E: movsx eax, word ptr [rdi + r13 + 0x5c]\n0011BC94: mov ebx, 0xcf\n0011BC99: cmp r14d, eax\n0011BC9C: jl 0x11bbb0\n0011BCA2: mov esi, dword ptr [rsp + 0xc8]\n0011BCA9: xor r8d, r8d\n0011BCAC: mov edx, esi\n0011BCAE: mov rcx, rdi\n0011BCB1: call 0x123460\n0011BCB6: mov ebx, ebp\n0011BCB8: mov word ptr [rdi + r13 + 0x63c], bp\n0011BCC1: cmp bp, word ptr [rdi + r13 + 0x5c]\n0011BCC7: jge 0x11c20b\n0011BCCD: nop dword ptr [rax]\n0011BCD0: mov r8d, ebx\n0011BCD3: mov edx, esi\n0011BCD5: mov rcx, rdi\n0011BCD8: call 0x119f90\n0011BCDD: movsxd rdx, eax\n0011BCE0: lea r9, [rip + 0x66cc719]\n0011BCE7: imul rcx, rdx, 0x490\n0011BCEE: inc ebx\n0011BCF0: cmp word ptr [rcx + r9 + 0x6e4], 2\n0011BCFA: jne 0x11c1fd\n0011BD00: cmp word ptr [rcx + r9 + 0x8f8], 0\n0011BD0A: jne 0x11c1fd\n0011BD10: cmp word ptr [rcx + r9 + 0x8f6], 0\n0011BD1A: jne 0x11c1fd\n0011BD20: cmp byte ptr [rcx + r9 + 0xa6b], 0\n0011BD29: jne 0x11c1fd\n0011BD2F: mov eax, 0xcf\n0011BD34: cmp word ptr [rcx + r9 + 0x918], ax\n0011BD3D: je 0x11c1fd\n0011BD43: cmp word ptr [rcx + r9 + 0xa84], 0\n0011BD4D: jne 0x11c1fd\n0011BD53: cmp word ptr [rcx + r9 + 0x6ec], 1\n0011BD5D: je 0x11c1fd\n0011BD63: cmp word ptr [rcx + r9 + 0xa9e], 0\n0011BD6D: je 0x11c1fd\n0011BD73: movzx r8d, word ptr [rcx + r9 + 0x6e6]\n0011BD7C: lea eax, [r8 - 0x28]\n0011BD80: cmp ax, 1\n0011BD84: jbe 0x11c1fd\n0011BD8A: cmp r8w, 0x3d\n0011BD8F: je 0x11c1fd\n0011BD95: cmp r8w, 0x27\n0011BD9A: jne 0x11c176\n0011BDA0: cmp word ptr [rcx + r9 + 0xa0c], 2\n0011BDAA: jmp 0x11c1c7\n0011BDAF: cmp dword ptr [rip + 0x5f91942], 0\n0011BDB6: jne 0x11be26\n0011BDB8: mov r9d, dword ptr [rsp + 0x48]\n0011BDBD: lea rcx, [rip + 0x5f9189c]\n0011BDC4: xor eax, eax\n0011BDC6: mov r8d, ebp\n0011BDC9: cmp dword ptr [rsp + 0xd0], 0\n0011BDD1: mov edx, esi\n0011BDD3: mov dword ptr [rsp + 0x30], eax\n0011BDD7: mov eax, dword ptr [rsp + 0x44]\n0011BDDB: mov dword ptr [rsp + 0x28], 0x186a0\n0011BDE3: mov dword ptr [rsp + 0x20], eax\n0011BDE7: je 0x11be0f\n0011BDE9: call 0xd9c40\n0011BDEE: test eax, eax\n0011BDF0: jne 0x11be26\n0011BDF2: xor eax, eax\n0011BDF4: mov rbx, qword ptr [rsp + 0xc0]\n0011BDFC: add rsp, 0x80\n0011BE03: pop r15\n0011BE05: pop r14\n0011BE07: pop r13\n0011BE09: pop r12\n0011BE0B: pop rdi\n0011BE0C: pop rsi\n0011BE0D: pop rbp\n0011BE0E: ret \n0011BE0F: cmp dword ptr [rsp + 0x40], 0\n0011BE14: je 0x11be1d\n0011BE16: call 0xdafd0\n0011BE1B: jmp 0x11bdee\n0011BE1D: call 0xda590\n0011BE22: test eax, eax\n0011BE24: je 0x11bdf2\n0011BE26: mov edx, r15d\n0011BE29: mov rcx, rdi\n0011BE2C: call 0x119e30\n0011BE31: jmp 0x11b9ca\n0011BE36: cmp cx, 0x4d\n0011BE3A: jne 0x11baac\n0011BE40: cmp word ptr [rbx + rdx + 0xa0c], 2\n0011BE49: jne 0x11bb76\n0011BE4F: cmp cx, 0x3b\n0011BE53: jne 0x11bac5\n0011BE59: cmp word ptr [rbx + rdx + 0xa0c], 4\n0011BE62: jne 0x11bb76\n0011BE68: jmp 0x11bae8\n0011BE6D: cmp r14d, 1\n0011BE71: jne 0x11bb4d\n0011BE77: jmp 0x11bb33\n0011BE7C: test r14d, r14d\n0011BE7F: jne 0x11beb3\n0011BE81: mov r9d, ebp\n0011BE84: lea edx, [r14 + 3]\n0011BE88: mov r8d, esi\n0011BE8B: lea rcx, [rip + 0x5f917ce]\n0011BE92: call 0xe0970\n0011BE97: inc dword ptr [rdi + 0x14]\n0011BE9A: test eax, eax\n0011BE9C: jne 0x11bb4d\n0011BEA2: xor eax, eax\n0011BEA4: mov dword ptr [rdi + 0x14], eax\n0011BEA7: lea r14d, [rax + 1]\n0011BEAB: lea edx, [rax + 3]\n0011BEAE: jmp 0x11bb38\n0011BEB3: cmp r14d, 1\n0011BEB7: jne 0x11bb4d\n0011BEBD: lea edx, [r14 + 2]\n0011BEC1: jmp 0x11bb38\n0011BEC6: mov rax, qword ptr [rsp + 0x50]\n0011BECB: cmp word ptr [rax + 0x5f8], 0\n0011BED3: je 0x11bedf\n0011BED5: mov edx, 3\n0011BEDA: jmp 0x11bb38\n0011BEDF: test r12, r12\n0011BEE2: jne 0x11bb33\n0011BEE8: cmp dword ptr [rsp + 0x40], r12d\n0011BEED: jne 0x11bb33\n0011BEF3: sub cx, 0x27\n0011BEF7: cmp cx, 0x26\n0011BEFB: ja 0x11bf16\n0011BEFD: movabs rax, 0x4000380001\n0011BF07: lea edx, [r12 + 4]\n0011BF0C: bt rax, rcx\n0011BF10: jb 0x11bb38\n0011BF16: mov edx, 2\n0011BF1B: jmp 0x11bb38\n0011BF20: cmp dx, 0x4d\n0011BF24: je 0x11bc5c\n0011BF2A: cmp dx, 0x3a\n0011BF2E: jne 0x11bf3f\n0011BF30: cmp word ptr [rcx + r10 + 0xa0c], 4\n0011BF3A: jmp 0x11bc66\n0011BF3F: cmp dx, 0x3b\n0011BF43: jne 0x11bc68\n0011BF49: cmp word ptr [rcx + r10 + 0xa0c], 4\n0011BF53: jne 0x11bc8c\n0011BF59: mov rax, r8\n0011BF5C: imul rbx, rax, 0x490\n0011BF63: cmp si, 0x6a\n0011BF67: jne 0x11bf89\n0011BF69: imul rbx, r8, 0x490\n0011BF70: movzx eax, word ptr [rbx + r10 + 0x9a4]\n0011BF79: neg ax\n0011BF7C: shl ax, 2\n0011BF80: mov word ptr [rbx + r10 + 0x92a], ax\n0011BF89: xor ecx, ecx\n0011BF8B: mov eax, 0x65\n0011BF90: mov word ptr [rbx + r10 + 0x918], ax\n0011BF99: mov word ptr [rbx + r10 + 0x99e], cx\n0011BFA2: mov dword ptr [rbx + r10 + 0xa00], ecx\n0011BFAA: mov dword ptr [rip + 0x5f91738], ecx\n0011BFB0: cmp dword ptr [rsp + 0xd0], ecx\n0011BFB7: je 0x11bfc6\n0011BFB9: mov eax, 1\n0011BFBE: mov dword ptr [rip + 0x5f91724], eax\n0011BFC4: jmp 0x11bfe7\n0011BFC6: cmp dword ptr [rsp + 0x40], ecx\n0011BFCA: jne 0x11bfe1\n0011BFCC: cmp dword ptr [rip + 0x2e5e6be], ecx\n0011BFD2: jne 0x11bfe1\n0011BFD4: mov eax, 1\n0011BFD9: mov dword ptr [rip + 0x5f91701], eax\n0011BFDF: jmp 0x11bfe7\n0011BFE1: mov dword ptr [rip + 0x5f916f9], ecx\n0011BFE7: mov dword ptr [rbx + r10 + 0x748], ecx\n0011BFEF: cmp si, 0x6a\n0011BFF3: je 0x11c03c\n0011BFF5: movzx eax, word ptr [rbx + r10 + 0x720]\n0011BFFE: cmp word ptr [rbx + r10 + 0x934], ax\n0011C007: jne 0x11c03c\n0011C009: movzx eax, word ptr [rbx + r10 + 0x722]\n0011C012: cmp word ptr [rbx + r10 + 0x936], ax\n0011C01B: jne 0x11c03c\n0011C01D: cmp word ptr [rbx + r10 + 0x74e], 2\n0011C027: jne 0x11c03c\n0011C029: mov eax, 0x10\n0011C02E: mov word ptr [rbx + r10 + 0x6d4], ax\n0011C037: jmp 0x11c14f\n0011C03C: movsx r9d, word ptr [rbx + r10 + 0x936]\n0011C045: mov edx, ebp\n0011C047: movsx r8d, word ptr [rbx + r10 + 0x934]\n0011C050: mov dword ptr [rsp + 0x20], ecx\n0011C054: mov rcx, r10\n0011C057: call 0x196280\n0011C05C: test eax, eax\n0011C05E: jne 0x11c0f7\n0011C064: cmp qword ptr [rsp + 0x58], 0\n0011C06A: je 0x11c14f\n0011C070: lea r10, [rip + 0x66cc389]\n0011C077: movsxd rax, dword ptr [rbx + r10 + 0x72c]\n0011C07F: lea rdx, [rip - 0x11c086]\n0011C086: test dword ptr [rdx + rax*4 + 0x48f71b0], 0x10000100\n0011C091: je 0x11c14f\n0011C097: movsx r9, word ptr [rdx + r12*2 + 0x3aae2a4]\n0011C0A0: xor eax, eax\n0011C0A2: mov r8d, dword ptr [rsp + 0x4c]\n0011C0A7: mov dword ptr [rsp + 0x20], eax\n0011C0AB: lea rcx, [r9 + r9*2]\n0011C0AF: sub r8d, dword ptr [rdx + rcx*4 + 0x402ff2c]\n0011C0B7: mov edx, ebp\n0011C0B9: mov rcx, r10\n0011C0BC: call 0x196280\n0011C0C1: lea r10, [rip + 0x66cc338]\n0011C0C8: mov eax, 0x7a\n0011C0CD: mov word ptr [rbx + r10 + 0x918], ax\n0011C0D6: mov eax, dword ptr [rsp + 0x60]\n0011C0DA: mov dword ptr [rbx + r10 + 0x9f8], eax\n0011C0E2: test r15d, r15d\n0011C0E5: je 0x11c14f\n0011C0E7: mov eax, 0x10\n0011C0EC: mov word ptr [rbx + r10 + 0x6d4], ax\n0011C0F5: jmp 0x11c14f\n0011C0F7: lea r10, [rip + 0x66cc302]\n0011C0FE: test r15d, r15d\n0011C101: je 0x11c111\n0011C103: mov eax, 0x10\n0011C108: mov word ptr [rbx + r10 + 0x6d4], ax\n0011C111: cmp word ptr [rbx + r10 + 0x6e6], 0x55\n0011C11B: jne 0x11c14f\n0011C11D: mov eax, 0x82\n0011C122: cmp si, ax\n0011C125: jne 0x11c14f\n0011C127: movsx rax, word ptr [rbx + r10 + 0x6ee]\n0011C130: lea rcx, [rip - 0x11c137]\n0011C137: cmp dword ptr [rcx + rax*4 + 0x8574bcc], -1\n0011C13F: je 0x11c14f\n0011C141: mov eax, 0xc8\n0011C146: mov word ptr [rbx + r10 + 0xaba], ax\n0011C14F: xor ebp, ebp\n0011C151: cmp dword ptr [rip + 0x5f91585], ebp\n0011C157: mov dword ptr [rip + 0x5f91583], ebp\n0011C15D: mov eax, dword ptr [rdi + 0x18]\n0011C160: jne 0x11c16c\n0011C162: inc eax\n0011C164: mov dword ptr [rdi + 0x18], eax\n0011C167: jmp 0x11bc8e\n0011C16C: dec eax\n0011C16E: mov dword ptr [rdi + 0x18], eax\n0011C171: jmp 0x11bc8e\n0011C176: cmp r8w, 0x4d\n0011C17B: jne 0x11c189\n0011C17D: cmp word ptr [rcx + r9 + 0xa0c], 2\n0011C187: jmp 0x11c1c7\n0011C189: cmp r8w, 0x3a\n0011C18E: jne 0x11c19c\n0011C190: cmp word ptr [rcx + r9 + 0xa0c], 4\n0011C19A: jmp 0x11c1c7\n0011C19C: cmp r8w, 0x3b\n0011C1A1: jne 0x11c1af\n0011C1A3: cmp word ptr [rcx + r9 + 0xa0c], 4\n0011C1AD: jmp 0x11c1c7\n0011C1AF: cmp r8w, 0x3c\n0011C1B4: jne 0x11c1c9\n0011C1B6: imul rax, rdx, 0x490\n0011C1BD: cmp word ptr [rax + r9 + 0xa0c], 1\n0011C1C7: jne 0x11c1fd\n0011C1C9: imul r8, rdx, 0x490\n0011C1D0: lea rax, [rdi + r13]\n0011C1D4: mov eax, 3\n0011C1D9: mov word ptr [r8 + r9 + 0x8e6], bp\n0011C1E2: mov word ptr [r8 + r9 + 0x74c], bp\n0011C1EB: mov word ptr [r8 + r9 + 0xa7c], bp\n0011C1F4: mov word ptr [r8 + r9 + 0x9f4], ax\n0011C1FD: movsx ecx, word ptr [rdi + r13 + 0x5c]\n0011C203: cmp ebx, ecx\n0011C205: jl 0x11bcd0\n0011C20B: mov eax, 1\n0011C210: jmp 0x11bdf4"
+}

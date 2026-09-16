@@ -1,0 +1,57 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0x119D60",
+  "va": "0x180119D60",
+  "baselineConfidence": "candidate",
+  "size": 204,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x29360"
+    },
+    {
+      "caller_rva": "0x2B340"
+    },
+    {
+      "caller_rva": "0x2B780"
+    },
+    {
+      "caller_rva": "0x2B8D0"
+    },
+    {
+      "caller_rva": "0x2BAE0"
+    },
+    {
+      "caller_rva": "0x2BC40"
+    },
+    {
+      "caller_rva": "0x2BE10"
+    },
+    {
+      "caller_rva": "0x2BF10"
+    },
+    {
+      "caller_rva": "0x2C050"
+    },
+    {
+      "caller_rva": "0x2C1B0"
+    },
+    {
+      "caller_rva": "0x2ECD0"
+    },
+    {
+      "caller_rva": "0xABB90"
+    },
+    {
+      "caller_rva": "0x1142E0"
+    }
+  ],
+  "callees": [
+    {
+      "callee_rva": "0x7490",
+      "callee_name": "FUN_180007490"
+    }
+  ],
+  "pseudocode": "/* FUNCTION FUN_180119d60 VA=0x180119D60 RVA=0x119D60 */\n\nint FUN_180119d60(longlong param_1,int param_2)\n\n{\n  longlong lVar1;\n  int iVar2;\n  short *psVar3;\n  \n  iVar2 = 0x1194 - param_2;\n  lVar1 = (longlong)iVar2;\n  if (0 < iVar2) {\n    psVar3 = (short *)(param_1 + 0x40 + lVar1 * 0x688);\n    do {\n      if (*psVar3 == 0) {\n        FUN_180007490(&DAT_1860ad648,0x688,0,param_1 + 0x28 + (longlong)iVar2 * 0x688);\n        if (iVar2 < 1) {\n          return 0;\n        }\n        param_1 = (longlong)iVar2 * 0x688 + param_1;\n        *(undefined2 *)(param_1 + 0x40) = 2;\n        *(int *)(param_1 + 0x2c) = param_2;\n        *(int *)(param_1 + 0x34) = DAT_183665f84;\n        DAT_183665f84 = DAT_183665f84 + 1;\n        *(undefined4 *)(param_1 + 0x42) = 0;\n        *(undefined2 *)(param_1 + 0x46) = 0;\n        *(undefined2 *)(param_1 + 0x50) = 0;\n        *(undefined4 *)(param_1 + 0x58) = 0;\n        *(undefined2 *)(param_1 + 0x5c) = 0;\n        return iVar2;\n      }\n      iVar2 = iVar2 + -8;\n      lVar1 = lVar1 + -8;\n      psVar3 = psVar3 + -0x1a20;\n    } while (0 < lVar1);\n  }\n  return 0;\n}\n\n\n\n",
+  "disassembly": "00119D60: mov qword ptr [rsp + 8], rbx\n00119D65: mov qword ptr [rsp + 0x10], rbp\n00119D6A: mov qword ptr [rsp + 0x18], rsi\n00119D6F: push rdi\n00119D70: sub rsp, 0x20\n00119D74: mov ebx, 0x1194\n00119D79: mov ebp, edx\n00119D7B: sub ebx, edx\n00119D7D: mov rdi, rcx\n00119D80: movsxd rax, ebx\n00119D83: test ebx, ebx\n00119D85: jle 0x119daf\n00119D87: imul r8, rax, 0x688\n00119D8E: lea r9, [rcx + 0x40]\n00119D92: add r9, r8\n00119D95: cmp word ptr [r9], 0\n00119D9A: je 0x119dc6\n00119D9C: sub ebx, 8\n00119D9F: sub rax, 8\n00119DA3: sub r9, 0x3440\n00119DAA: test rax, rax\n00119DAD: jg 0x119d95\n00119DAF: xor eax, eax\n00119DB1: mov rbx, qword ptr [rsp + 0x30]\n00119DB6: mov rbp, qword ptr [rsp + 0x38]\n00119DBB: mov rsi, qword ptr [rsp + 0x40]\n00119DC0: add rsp, 0x20\n00119DC4: pop rdi\n00119DC5: ret \n00119DC6: lea r9, [rcx + 0x28]\n00119DCA: movsxd rsi, ebx\n00119DCD: imul rax, rsi, 0x688\n00119DD4: xor r8d, r8d\n00119DD7: lea rcx, [rip + 0x5f9386a]\n00119DDE: add r9, rax\n00119DE1: mov edx, 0x688\n00119DE6: call 0x7490\n00119DEB: test ebx, ebx\n00119DED: jle 0x119daf\n00119DEF: imul rcx, rsi, 0x688\n00119DF6: mov eax, 2\n00119DFB: add rcx, rdi\n00119DFE: mov word ptr [rcx + 0x40], ax\n00119E02: mov dword ptr [rcx + 0x2c], ebp\n00119E05: mov eax, dword ptr [rip + 0x354c179]\n00119E0B: mov dword ptr [rcx + 0x34], eax\n00119E0E: inc dword ptr [rip + 0x354c170]\n00119E14: xor eax, eax\n00119E16: mov dword ptr [rcx + 0x42], eax\n00119E19: mov word ptr [rcx + 0x46], ax\n00119E1D: mov word ptr [rcx + 0x50], ax\n00119E21: mov dword ptr [rcx + 0x58], eax\n00119E24: mov word ptr [rcx + 0x5c], ax\n00119E28: mov eax, ebx\n00119E2A: jmp 0x119db1"
+}

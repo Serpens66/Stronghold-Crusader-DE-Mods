@@ -646,6 +646,18 @@ namespace BugfixesAndQoL
             Check(hook.Contains("Allies_SendGoodsViewVis") &&
                   !hook.Contains("GameActionCommand.Ally_RequestGoods"),
                 "ally request confirmation remains owned by Vanilla");
+            int refreshStart = hook.IndexOf(
+                "internal void RefreshSetting()",
+                StringComparison.Ordinal);
+            int refreshEnd = hook.IndexOf(
+                "internal static int CalculateAmount",
+                refreshStart,
+                StringComparison.Ordinal);
+            string refreshSetting = hook.Substring(refreshStart, refreshEnd - refreshStart);
+            Check(refreshSetting.Contains("if (!MainViewModel.viewModelLoaded)") &&
+                  refreshSetting.IndexOf("if (!MainViewModel.viewModelLoaded)", StringComparison.Ordinal) <
+                  refreshSetting.IndexOf("MainViewModel.Instance", StringComparison.Ordinal),
+                "ally goods setting refresh never constructs MainViewModel during plugin startup");
             Check(runtime.Contains(
                     "private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;") &&
                   runtime.Contains("processAllyGoodsAmountModifierHook = candidate;") &&

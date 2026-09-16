@@ -54,6 +54,9 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.CompletedDrawbridgeJumpRva,
                     "completed-drawbridge continuation mutation");
                 ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.BuildingCreationDefaultHeightRestoreRva,
+                    "building-creation DefaultHeightGrid restore mutation");
+                ExpectContractFailure(image,
                     ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva,
                     "drawbridge special-renderer prologue mutation");
                 ExpectContractFailure(image,
@@ -174,10 +177,14 @@ namespace ExtraFeatures
                 CheckHeight(0, 0, 0);
                 CheckHeight(8, 0, 0);
                 CheckHeight(12, 4, 0);
-                CheckHeight(13, 5, 13);
-                CheckHeight(80, 72, 80);
-                CheckHeight(130, 122, 130);
-                CheckHeight(255, 247, 255);
+                CheckHeight(13, 5, 5);
+                CheckHeight(56, 48, 48);
+                CheckHeight(80, 72, 72);
+                CheckHeight(122, 114, 114);
+                CheckHeight(124, 116, 116);
+                CheckHeight(128, 120, 120);
+                CheckHeight(130, 122, 122);
+                CheckHeight(255, 247, 247);
                 CheckRendererGate(0, true, false);
                 CheckRendererGate(8, true, false);
                 CheckRendererGate(12, true, false);
@@ -193,20 +200,25 @@ namespace ExtraFeatures
                 CheckRendererGate(130, false, false);
                 CheckRendererGate(255, false, false);
                 CheckRendererOffset(0, 8, true, 0);
-                CheckRendererOffset(8, 8, true, 0);
-                CheckRendererOffset(12, 8, true, 0);
-                CheckRendererOffset(13, 13, true, -13);
-                CheckRendererOffset(80, 80, true, -80);
-                CheckRendererOffset(130, 130, true, -130);
-                CheckRendererOffset(255, 255, true, -255);
-                CheckRendererOffset(255, 255, false, 0);
-                CheckUnitHeight(0, 0, false, 8, -8);
-                CheckUnitHeight(8, 8, true, 0, -8);
-                CheckUnitHeight(12, 12, true, -4, -8);
-                CheckUnitHeight(13, 13, true, 8, -21);
-                CheckUnitHeight(80, 80, true, 8, -88);
-                CheckUnitHeight(130, 130, true, 8, -138);
-                CheckUnitHeight(255, 255, true, 8, -263);
+                CheckRendererOffset(8, 0, true, 0);
+                CheckRendererOffset(12, 4, true, 0);
+                CheckRendererOffset(13, 5, true, -5);
+                CheckRendererOffset(56, 48, true, -48);
+                CheckRendererOffset(80, 72, true, -72);
+                CheckRendererOffset(124, 116, true, -116);
+                CheckRendererOffset(130, 122, true, -122);
+                CheckRendererOffset(255, 247, true, -247);
+                CheckRendererOffset(255, 247, false, 0);
+                CheckUnitHeight(0, 0, 0, false, 8, -8);
+                CheckUnitHeight(0, 0, 8, true, 8, -8);
+                CheckUnitHeight(0, 0, 12, true, 8, -8);
+                CheckUnitHeight(5, 5, 13, true, 8, -13);
+                CheckUnitHeight(48, 48, 56, true, 8, -56);
+                CheckUnitHeight(72, 72, 80, true, 8, -80);
+                CheckUnitHeight(116, 116, 124, true, 8, -124);
+                CheckUnitHeight(122, 122, 130, true, 8, -130);
+                CheckUnitHeight(247, 247, 255, true, 8, -255);
+                CheckUnitHeight(72, 72, 80, false, -64, -8);
                 Console.WriteLine($"PASS: elevated-moat height tests ({assertions} assertions).");
                 return 0;
             }
@@ -230,37 +242,40 @@ namespace ExtraFeatures
         private static void CheckUnitHeight(
             short currentElevation,
             byte currentTileHeight,
+            byte defaultTileHeight,
             bool featureActive,
             short expectedCorrection,
             short expectedRenderHeight)
         {
             Check(ElevatedMoatNativeContract.CalculateUnitDrawbridgeCorrection(
-                    currentElevation, currentTileHeight, featureActive) == expectedCorrection,
-                $"unit drawbridge correction for elevation {currentElevation}, tile {currentTileHeight}");
+                    currentElevation, defaultTileHeight, featureActive) == expectedCorrection,
+                $"unit drawbridge correction for elevation {currentElevation}, default tile {defaultTileHeight}");
             Check(ElevatedMoatNativeContract.CalculateUnitDrawbridgeRenderHeight(
-                    currentElevation, currentTileHeight, featureActive) == expectedRenderHeight,
-                $"unit drawbridge render height for elevation {currentElevation}, tile {currentTileHeight}");
+                    currentElevation, currentTileHeight, defaultTileHeight, featureActive) ==
+                        expectedRenderHeight,
+                $"unit drawbridge render height for elevation {currentElevation}, current tile " +
+                $"{currentTileHeight}, default tile {defaultTileHeight}");
         }
 
         private static void CheckRendererGate(
-            byte currentTileHeight,
+            byte defaultTileHeight,
             bool featureActive,
             bool expected)
         {
             Check(ElevatedMoatNativeContract.ShouldCorrectDrawbridgeRendering(
-                    currentTileHeight, featureActive) == expected,
-                $"drawbridge renderer gate for tile {currentTileHeight}, active {featureActive}");
+                    defaultTileHeight, featureActive) == expected,
+                $"drawbridge renderer gate for default tile {defaultTileHeight}, active {featureActive}");
         }
 
         private static void CheckRendererOffset(
-            byte currentTileHeight,
+            byte defaultTileHeight,
             int currentRenderedTileHeight,
             bool featureActive,
             int expected)
         {
             Check(ElevatedMoatNativeContract.CalculateDrawbridgeRenderOffset(
-                    currentTileHeight, currentRenderedTileHeight, featureActive) == expected,
-                $"drawbridge renderer offset for tile {currentTileHeight}, rendered " +
+                    defaultTileHeight, currentRenderedTileHeight, featureActive) == expected,
+                $"drawbridge renderer offset for default tile {defaultTileHeight}, rendered " +
                 $"{currentRenderedTileHeight}, active {featureActive}");
         }
 
@@ -444,13 +459,13 @@ namespace ExtraFeatures
                     rendererInstructions,
                     returnAddress,
                     imageBase + 0x2000000,
-                    imageBase + (ulong)ElevatedMoatNativeContract.TileHeightGridRva,
+                    imageBase + (ulong)ElevatedMoatNativeContract.TileDefaultHeightGridRva,
                     imageBase + (ulong)ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
                 imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeSpecialRendererContinuationRva,
                 "drawbridge special-renderer production generator");
             ValidateRendererGeneratorOutput(
                 rendererStub,
-                imageBase + (ulong)ElevatedMoatNativeContract.TileHeightGridRva,
+                imageBase + (ulong)ElevatedMoatNativeContract.TileDefaultHeightGridRva,
                 imageBase + (ulong)ElevatedMoatNativeContract.CurrentRenderedTileHeightRva);
 
             byte[] animatedRenderer =
@@ -468,13 +483,13 @@ namespace ExtraFeatures
                         animatedRendererInstructions,
                         returnAddress,
                         imageBase + 0x2000000,
-                        imageBase + (ulong)ElevatedMoatNativeContract.TileHeightGridRva,
+                        imageBase + (ulong)ElevatedMoatNativeContract.TileDefaultHeightGridRva,
                         imageBase + (ulong)ElevatedMoatNativeContract.CurrentRenderedTileHeightRva),
                 imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeAnimatedRendererCallRva,
                 "drawbridge animated-renderer production generator");
             ValidateAnimatedRendererGeneratorOutput(
                 animatedRendererStub,
-                imageBase + (ulong)ElevatedMoatNativeContract.TileHeightGridRva,
+                imageBase + (ulong)ElevatedMoatNativeContract.TileDefaultHeightGridRva,
                 imageBase + (ulong)ElevatedMoatNativeContract.CurrentRenderedTileHeightRva,
                 imageBase + (ulong)ElevatedMoatNativeContract.DrawbridgeAnimatedRendererCallRva);
 
@@ -613,9 +628,11 @@ namespace ExtraFeatures
             int defaultHeightLoads = 0;
             int terrainLimitComparisons = 0;
             int heightArithmetic = 0;
+            int moatDepthSubtractions = 0;
             int instructionIndex = 0;
             int defaultHeightLoadIndex = -1;
             int terrainLimitComparisonIndex = -1;
+            int moatDepthSubtractionIndex = -1;
             int adjustedHeightWriteIndex = -1;
             foreach (Instruction instruction in instructions)
             {
@@ -652,7 +669,16 @@ namespace ExtraFeatures
                 if ((instruction.Mnemonic == Mnemonic.Add ||
                      instruction.Mnemonic == Mnemonic.Sub) &&
                     instruction.Op0Register == Register.EAX)
+                {
                     heightArithmetic++;
+                    if (instruction.Mnemonic == Mnemonic.Sub &&
+                        (instruction.Immediate8 == ElevatedMoatNativeContract.MoatDepth ||
+                         instruction.Immediate32 == ElevatedMoatNativeContract.MoatDepth))
+                    {
+                        moatDepthSubtractions++;
+                        moatDepthSubtractionIndex = instructionIndex;
+                    }
+                }
                 instructionIndex++;
             }
 
@@ -660,11 +686,13 @@ namespace ExtraFeatures
                 "completed generator calls Vanilla state update exactly once");
             Check(heightWrites == 2,
                 "completed generator emits adaptive and Vanilla height writes");
-            Check(defaultHeightLoads == 1 && terrainLimitComparisons == 1 && heightArithmetic == 0,
-                "completed generator preserves the elevated tile default without height arithmetic");
+            Check(defaultHeightLoads == 1 && terrainLimitComparisons == 1 &&
+                heightArithmetic == 1 && moatDepthSubtractions == 1,
+                "completed generator derives the elevated moat floor with exactly one depth subtraction");
             Check(defaultHeightLoadIndex < terrainLimitComparisonIndex &&
-                terrainLimitComparisonIndex < adjustedHeightWriteIndex,
-                "completed generator checks Vanilla's terrain limit before its deck write");
+                terrainLimitComparisonIndex < moatDepthSubtractionIndex &&
+                moatDepthSubtractionIndex < adjustedHeightWriteIndex,
+                "completed generator checks the terrain limit before subtracting depth and writing");
             Check(CountBranchTargets(instructions, jumpTargets, returnAddress) == 2,
                 "completed generator returns both height branches to Vanilla continuation");
         }
@@ -680,9 +708,11 @@ namespace ExtraFeatures
             int defaultHeightLoads = 0;
             int terrainLimitComparisons = 0;
             int heightArithmetic = 0;
+            int moatDepthSubtractions = 0;
             int instructionIndex = 0;
             int defaultHeightLoadIndex = -1;
             int terrainLimitComparisonIndex = -1;
+            int moatDepthSubtractionIndex = -1;
             int adjustedHeightWriteIndex = -1;
             foreach (Instruction instruction in instructions)
             {
@@ -721,7 +751,16 @@ namespace ExtraFeatures
                 if ((instruction.Mnemonic == Mnemonic.Add ||
                      instruction.Mnemonic == Mnemonic.Sub) &&
                     instruction.Op0Register == Register.EAX)
+                {
                     heightArithmetic++;
+                    if (instruction.Mnemonic == Mnemonic.Sub &&
+                        (instruction.Immediate8 == ElevatedMoatNativeContract.MoatDepth ||
+                         instruction.Immediate32 == ElevatedMoatNativeContract.MoatDepth))
+                    {
+                        moatDepthSubtractions++;
+                        moatDepthSubtractionIndex = instructionIndex;
+                    }
+                }
                 instructionIndex++;
             }
 
@@ -729,18 +768,20 @@ namespace ExtraFeatures
                 "lowered generator emits adaptive and Vanilla height writes");
             Check(imageBaseLoads == 1,
                 "lowered generator restores RDI to the image base exactly once");
-            Check(defaultHeightLoads == 1 && terrainLimitComparisons == 1 && heightArithmetic == 0,
-                "lowered generator preserves the elevated tile default without height arithmetic");
+            Check(defaultHeightLoads == 1 && terrainLimitComparisons == 1 &&
+                heightArithmetic == 1 && moatDepthSubtractions == 1,
+                "lowered generator derives the elevated moat floor with exactly one depth subtraction");
             Check(defaultHeightLoadIndex < terrainLimitComparisonIndex &&
-                terrainLimitComparisonIndex < adjustedHeightWriteIndex,
-                "lowered generator checks Vanilla's terrain limit before its deck write");
+                terrainLimitComparisonIndex < moatDepthSubtractionIndex &&
+                moatDepthSubtractionIndex < adjustedHeightWriteIndex,
+                "lowered generator checks the terrain limit before subtracting depth and writing");
             Check(CountBranchTargets(instructions, jumpTargets, returnAddress) == 1,
                 "lowered generator returns to the exact Vanilla continuation");
         }
 
         private static void ValidateRendererGeneratorOutput(
             byte[] stub,
-            ulong tileHeightGridAddress,
+            ulong tileDefaultHeightGridAddress,
             ulong currentHeightAddress)
         {
             Instruction[] instructions = DecodeGeneratedInstructions(stub, out _);
@@ -759,7 +800,7 @@ namespace ExtraFeatures
                 if (instruction.Mnemonic == Mnemonic.Mov &&
                     instruction.Op0Register == Register.RAX &&
                     instruction.Op1Kind == OpKind.Immediate64 &&
-                    instruction.Immediate64 == tileHeightGridAddress)
+                    instruction.Immediate64 == tileDefaultHeightGridAddress)
                     tileGridAddressLoads++;
                 if (instruction.Mnemonic == Mnemonic.Mov &&
                     instruction.Op0Register == Register.R10D &&
@@ -802,7 +843,7 @@ namespace ExtraFeatures
             }
 
             Check(tileGridAddressLoads == 1 && tileIdLoads == 1 && terrainLimitComparisons == 1,
-                "renderer generator gates correction on argument-5 current HeightGrid exactly once");
+                "renderer generator gates correction on argument-5 DefaultHeightGrid exactly once");
             Check(scratchPushes == 1 && scratchPops == 1,
                 "renderer generator preserves its temporary tile-index register");
             Check(heightAddressLoads == 1 && heightValueLoads == 1,
@@ -815,7 +856,7 @@ namespace ExtraFeatures
 
         private static void ValidateAnimatedRendererGeneratorOutput(
             byte[] stub,
-            ulong tileHeightGridAddress,
+            ulong tileDefaultHeightGridAddress,
             ulong currentHeightAddress,
             ulong returnAddress)
         {
@@ -834,7 +875,7 @@ namespace ExtraFeatures
                 if (instruction.Mnemonic == Mnemonic.Mov &&
                     instruction.Op0Register == Register.RAX &&
                     instruction.Op1Kind == OpKind.Immediate64 &&
-                    instruction.Immediate64 == tileHeightGridAddress)
+                    instruction.Immediate64 == tileDefaultHeightGridAddress)
                     tileGridAddressLoads++;
                 if (instruction.Mnemonic == Mnemonic.Cmp &&
                     instruction.MemoryBase == Register.RAX &&
@@ -875,7 +916,7 @@ namespace ExtraFeatures
             }
 
             Check(tileGridAddressLoads == 1 && terrainLimitComparisons == 1,
-                "animated renderer generator gates correction on R15D current HeightGrid exactly once");
+                "animated renderer generator gates correction on R15D DefaultHeightGrid exactly once");
             Check(heightAddressLoads == 1 && heightValueLoads == 1 && heightNegations == 1,
                 "animated renderer generator derives exactly one negative current-tile offset");
             Check(vanillaZeroWrites == 1 && adjustedHeightWrites == 1,
@@ -892,7 +933,8 @@ namespace ExtraFeatures
         {
             Instruction[] instructions = DecodeGeneratedInstructions(stub, out ulong[] jumpTargets);
             int tileIdLoads = 0;
-            int tileHeightLoads = 0;
+            int defaultTileHeightLoads = 0;
+            int currentTileHeightLoads = 0;
             int managerRelativeTileHeightLoads = 0;
             int terrainLimitComparisons = 0;
             int vanillaElevationSubtractions = 0;
@@ -910,8 +952,14 @@ namespace ExtraFeatures
                     instruction.Op0Register == Register.EAX &&
                     HasMemoryOperands(instruction, Register.RBP, Register.RCX) &&
                     instruction.MemoryDisplacement64 ==
+                        ElevatedMoatNativeContract.TileDefaultHeightGridRva)
+                    defaultTileHeightLoads++;
+                if (instruction.Mnemonic == Mnemonic.Movzx &&
+                    instruction.Op0Register == Register.EAX &&
+                    HasMemoryOperands(instruction, Register.RBP, Register.RCX) &&
+                    instruction.MemoryDisplacement64 ==
                         ElevatedMoatNativeContract.TileHeightGridRva)
-                    tileHeightLoads++;
+                    currentTileHeightLoads++;
                 if (instruction.Mnemonic == Mnemonic.Movzx &&
                     instruction.Op0Register == Register.EAX &&
                     HasMemoryOperands(instruction, Register.RBP, Register.RCX) &&
@@ -940,8 +988,9 @@ namespace ExtraFeatures
                     constantCorrections++;
             }
 
-            Check(tileIdLoads == 1 && tileHeightLoads == 1 && terrainLimitComparisons == 1,
-                "unit height generator reads and gates the image-relative current tile exactly once");
+            Check(tileIdLoads == 1 && defaultTileHeightLoads == 1 &&
+                currentTileHeightLoads == 0 && terrainLimitComparisons == 1,
+                "unit height generator classifies exactly once through image-relative DefaultHeightGrid");
             Check(managerRelativeTileHeightLoads == 0,
                 "unit height generator never combines the image base with a manager-relative grid offset");
             Check(vanillaElevationSubtractions == 1,

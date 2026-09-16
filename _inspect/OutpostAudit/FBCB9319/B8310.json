@@ -1,0 +1,72 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0xB8310",
+  "va": "0x1800B8310",
+  "baselineConfidence": "candidate",
+  "size": 330,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x5D3A0"
+    },
+    {
+      "caller_rva": "0x7DF60"
+    },
+    {
+      "caller_rva": "0x7EB00"
+    },
+    {
+      "caller_rva": "0xC43A0"
+    },
+    {
+      "caller_rva": "0xC60F0"
+    },
+    {
+      "caller_rva": "0xD0E40"
+    }
+  ],
+  "callees": [
+    {
+      "callee_rva": "0x7490",
+      "callee_name": "FUN_180007490"
+    },
+    {
+      "callee_rva": "0xA110",
+      "callee_name": "FUN_18000a110"
+    },
+    {
+      "callee_rva": "0x2E2B0",
+      "callee_name": "FUN_18002e2b0"
+    },
+    {
+      "callee_rva": "0x61FC0",
+      "callee_name": "FUN_180061fc0"
+    },
+    {
+      "callee_rva": "0xB5C40",
+      "callee_name": "FUN_1800b5c40"
+    },
+    {
+      "callee_rva": "0xB8460",
+      "callee_name": "FUN_1800b8460"
+    },
+    {
+      "callee_rva": "0xCFE90",
+      "callee_name": "FUN_1800cfe90"
+    },
+    {
+      "callee_rva": "0xD95A0",
+      "callee_name": "FUN_1800d95a0"
+    },
+    {
+      "callee_rva": "0x195030",
+      "callee_name": "FUN_180195030"
+    },
+    {
+      "callee_rva": "0x1977A0",
+      "callee_name": "FUN_1801977a0"
+    }
+  ],
+  "pseudocode": "/* FUNCTION FUN_1800b8310 VA=0x1800B8310 RVA=0xB8310 */\n\nvoid FUN_1800b8310(longlong param_1,int param_2)\n\n{\n  short sVar1;\n  short sVar2;\n  longlong lVar3;\n  \n  if ((DAT_183665ed8 == 0x10) && (DAT_1867e8394 == param_2)) {\n    FUN_18000a110(&DAT_183665ed0,0xe);\n  }\n  FUN_1800b8460(param_1,param_2);\n  FUN_1801977a0(&DAT_1867e8400,param_2);\n  lVar3 = (longlong)param_2 * 0x32c + param_1;\n  sVar2 = *(short *)(lVar3 + 0x12e);\n  if ((((sVar2 == 0x6a) || (sVar2 == 0x6b)) && (sVar1 = *(short *)(lVar3 + 0x35e), 0 < sVar1)) &&\n     ((&DAT_187cc6754)[(longlong)sVar1 * 0x1a2] == *(int *)(lVar3 + 0x360))) {\n    FUN_18002e2b0(&DAT_18404c950,(longlong)sVar1 & 0xffffffff);\n    sVar2 = *(short *)(lVar3 + 0x12e);\n  }\n  if (sVar2 == 4) {\n    FUN_180195030(&DAT_1867e8400,(int)*(short *)(lVar3 + 0x2c8),*(undefined4 *)(lVar3 + 0x2c4));\n  }\n  else if (sVar2 == 0x26) {\n    DAT_1837ed498 = 1;\n  }\n  FUN_1800b5c40(param_1,param_2);\n  FUN_180061fc0(&DAT_18405edb0,param_2);\n  FUN_1800cfe90(&DAT_18366c210,param_2);\n  FUN_180007490(&DAT_1860ad648,0x32c,0,lVar3 + 0x5c);\n  FUN_1800d95a0(&DAT_1860ad660,0);\n  return;\n}\n\n\n\n",
+  "disassembly": "000B8310: mov qword ptr [rsp + 8], rbx\n000B8315: mov qword ptr [rsp + 0x10], rsi\n000B831A: push rdi\n000B831B: sub rsp, 0x20\n000B831F: cmp dword ptr [rip + 0x35adbb2], 0x10\n000B8326: mov rsi, rcx\n000B8329: movsxd rdi, edx\n000B832C: jne 0xb8349\n000B832E: cmp dword ptr [rip + 0x6730060], edi\n000B8334: jne 0xb8349\n000B8336: xor r8d, r8d\n000B8339: lea rcx, [rip + 0x35adb90]\n000B8340: lea edx, [r8 + 0xe]\n000B8344: call 0xa110\n000B8349: mov edx, edi\n000B834B: mov rcx, rsi\n000B834E: call 0xb8460\n000B8353: mov edx, edi\n000B8355: lea rcx, [rip + 0x67300a4]\n000B835C: call 0x1977a0\n000B8361: imul rbx, rdi, 0x32c\n000B8368: add rbx, rsi\n000B836B: movzx eax, word ptr [rbx + 0x12e]\n000B8372: cmp ax, 0x6a\n000B8376: je 0xb8381\n000B8378: movzx edx, ax\n000B837B: cmp ax, 0x6b\n000B837F: jne 0xb83c5\n000B8381: movsx rcx, word ptr [rbx + 0x35e]\n000B8389: movzx edx, ax\n000B838C: test cx, cx\n000B838F: jle 0xb83c5\n000B8391: mov r8d, dword ptr [rbx + 0x360]\n000B8398: lea rax, [rip + 0x7c0e3b5]\n000B839F: mov r9, rcx\n000B83A2: imul rcx, rcx, 0x688\n000B83A9: cmp dword ptr [rcx + rax], r8d\n000B83AD: jne 0xb83c5\n000B83AF: mov edx, r9d\n000B83B2: lea rcx, [rip + 0x3f94597]\n000B83B9: call 0x2e2b0\n000B83BE: movzx edx, word ptr [rbx + 0x12e]\n000B83C5: cmp dx, 4\n000B83C9: jne 0xb83e7\n000B83CB: movsx edx, word ptr [rbx + 0x2c8]\n000B83D2: lea rcx, [rip + 0x6730027]\n000B83D9: mov r8d, dword ptr [rbx + 0x2c4]\n000B83E0: call 0x195030\n000B83E5: jmp 0xb83ff\n000B83E7: mov eax, dword ptr [rip + 0x37350ab]\n000B83ED: cmp dx, 0x26\n000B83F1: mov ecx, 1\n000B83F6: cmove eax, ecx\n000B83F9: mov dword ptr [rip + 0x3735099], eax\n000B83FF: mov edx, edi\n000B8401: mov rcx, rsi\n000B8404: call 0xb5c40\n000B8409: mov edx, edi\n000B840B: lea rcx, [rip + 0x3fa699e]\n000B8412: call 0x61fc0\n000B8417: mov edx, edi\n000B8419: lea rcx, [rip + 0x35b3df0]\n000B8420: call 0xcfe90\n000B8425: lea r9, [rbx + 0x5c]\n000B8429: xor r8d, r8d\n000B842C: mov edx, 0x32c\n000B8431: lea rcx, [rip + 0x5ff5210]\n000B8438: call 0x7490\n000B843D: xor edx, edx\n000B843F: lea rcx, [rip + 0x5ff521a]\n000B8446: mov rbx, qword ptr [rsp + 0x30]\n000B844B: mov rsi, qword ptr [rsp + 0x38]\n000B8450: add rsp, 0x20\n000B8454: pop rdi\n000B8455: jmp 0xd95a0"
+}

@@ -65,6 +65,8 @@ internal static class Program
             ("rejects malformed native AIV spawn data", RejectsMalformedNativeSpawnData),
             ("filters every AIV spawn frame category", FiltersEverySpawnFrameCategory),
             ("filters Blueprint castle choices case-insensitively", FiltersBlueprintCastleChoices),
+            ("recognizes non-AIV archive containers", RecognizesNonAivArchiveContainers),
+            ("removes invalid AIVJSON catalog entries", RemovesInvalidAivJsonCatalogEntries),
             ("formats compact AIVJSON display names", FormatsCompactAivDisplayNames),
             ("disambiguates compact AIVJSON display names", DisambiguatesCompactAivDisplayNames),
             ("filters troops and maps only siege engines", FiltersTroopsAndMapsOnlySiegeEngines),
@@ -1513,6 +1515,38 @@ internal static class Program
         Assert(!CastlePlanner.BlueprintSearchPolicy.Matches(
             "Rat1.aivjson",
             "Snake"), "unrelated castle search unexpectedly matched");
+    }
+
+    private static void RecognizesNonAivArchiveContainers()
+    {
+        Assert(AivCandidateFilePolicy.IsKnownNonJsonContainer(
+                new byte[] { 0x50, 0x4B, 0x03, 0x04 }),
+            "ZIP payload was not recognized");
+        Assert(AivCandidateFilePolicy.IsKnownNonJsonContainer(
+                new byte[] { 0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00 }),
+            "RAR payload was not recognized");
+        Assert(!AivCandidateFilePolicy.IsKnownNonJsonContainer(
+                System.Text.Encoding.UTF8.GetBytes("{\"frames\":[]}")),
+            "JSON payload was incorrectly classified as an archive");
+    }
+
+    private static void RemovesInvalidAivJsonCatalogEntries()
+    {
+        string source = File.ReadAllText(Path.Combine("src", "AivFileCatalog.cs"));
+        int methodStart = source.IndexOf(
+            "private void RemoveIdenticalFiles",
+            StringComparison.Ordinal);
+        int methodEnd = source.IndexOf(
+            "private void RemoveKnownNonAivContainers",
+            methodStart,
+            StringComparison.Ordinal);
+        string method = source.Substring(methodStart, methodEnd - methodStart);
+        int catchStart = method.LastIndexOf("catch (Exception exception)", StringComparison.Ordinal);
+        string failureHandler = method.Substring(catchStart);
+        Assert(failureHandler.Contains("RemoveOption(option, path);") &&
+               failureHandler.IndexOf("RemoveOption(option, path);", StringComparison.Ordinal) <
+               failureHandler.IndexOf("warning?.Invoke", StringComparison.Ordinal),
+            "invalid AIVJSON entries remain selectable after fingerprint failure");
     }
 
     private static void FormatsCompactAivDisplayNames()

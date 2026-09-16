@@ -18,6 +18,8 @@ Primary reusable artifacts:
 
 Semantic reverse-engineering baseline:
 
+- [Outpost static audit](./sem/FBCB9319/knowledge/OUTPOSTS.md): profiles, spawn/guard/group flows, selection, rally scope and documented runtime gaps.
+
 - [Editor map lifecycle audit](./sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md): native creation/loading paths, managed completion, and event boundaries.
 - [Unified mission lifecycle audit](./sem/FBCB9319/knowledge/MISSION_LIFECYCLE.md): gameplay, save, editor and multiplayer operation boundaries and central mode permissions.
 

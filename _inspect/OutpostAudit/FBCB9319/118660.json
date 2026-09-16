@@ -1,0 +1,103 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0x118660",
+  "va": "0x180118660",
+  "baselineConfidence": "candidate",
+  "size": 733,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x119AF0"
+    },
+    {
+      "caller_rva": "0x12E400"
+    },
+    {
+      "caller_rva": "0x13F540"
+    },
+    {
+      "caller_rva": "0x141DA0"
+    },
+    {
+      "caller_rva": "0x143400"
+    },
+    {
+      "caller_rva": "0x145030"
+    },
+    {
+      "caller_rva": "0x146A70"
+    },
+    {
+      "caller_rva": "0x1483F0"
+    },
+    {
+      "caller_rva": "0x1493E0"
+    },
+    {
+      "caller_rva": "0x14A3F0"
+    },
+    {
+      "caller_rva": "0x14AED0"
+    },
+    {
+      "caller_rva": "0x151090"
+    },
+    {
+      "caller_rva": "0x167D40"
+    },
+    {
+      "caller_rva": "0x169B70"
+    },
+    {
+      "caller_rva": "0x16B220"
+    },
+    {
+      "caller_rva": "0x16CD70"
+    },
+    {
+      "caller_rva": "0x16E440"
+    },
+    {
+      "caller_rva": "0x16F590"
+    },
+    {
+      "caller_rva": "0x170570"
+    },
+    {
+      "caller_rva": "0x1731F0"
+    },
+    {
+      "caller_rva": "0x174100"
+    },
+    {
+      "caller_rva": "0x174F90"
+    },
+    {
+      "caller_rva": "0x1768A0"
+    },
+    {
+      "caller_rva": "0x178350"
+    },
+    {
+      "caller_rva": "0x17A590"
+    },
+    {
+      "caller_rva": "0x17B540"
+    },
+    {
+      "caller_rva": "0x17CF50"
+    }
+  ],
+  "callees": [
+    {
+      "callee_rva": "0x119C00",
+      "callee_name": "FUN_180119c00"
+    },
+    {
+      "callee_rva": "0x11D370",
+      "callee_name": "FUN_18011d370"
+    }
+  ],
+  "pseudocode": "/* FUNCTION FUN_180118660 VA=0x180118660 RVA=0x118660 */\n\nundefined8 FUN_180118660(longlong param_1,int param_2)\n\n{\n  short sVar1;\n  undefined2 uVar2;\n  int iVar3;\n  longlong lVar4;\n  longlong lVar5;\n  longlong lVar6;\n  \n  lVar5 = (longlong)param_2;\n  if (DAT_188574b90 == 0) {\n    lVar6 = lVar5 * 0x490;\n    if (((&DAT_188574bcc)[(short)(&DAT_1867e8aee)[lVar5 * 0x248]] == -1) &&\n       ((((short)(&DAT_1867e8d30)[lVar5 * 0x248] < 1 ||\n         (lVar4 = (longlong)(short)(&DAT_1867e8d30)[lVar5 * 0x248] * 0x688,\n         *(int *)(lVar4 + 0x34 + param_1) != *(int *)(&DAT_1867e8d3c + lVar6))) ||\n        (*(short *)(lVar4 + 0x40 + param_1) == 0)))) {\n      iVar3 = FUN_180119c00(param_1,(longlong)(short)(&DAT_1867e8aee)[lVar5 * 0x248] & 0xffffffff,0)\n      ;\n      lVar4 = (longlong)iVar3;\n      if (0 < iVar3) {\n        sVar1 = (&DAT_1867e8ae6)[lVar5 * 0x248];\n        if (sVar1 == 0x16) {\n          *(undefined2 *)(lVar4 * 0x688 + 0x42 + param_1) = 3;\n        }\n        else {\n          if (sVar1 == 0x17) {\n            uVar2 = 7;\n          }\n          else if (sVar1 == 0x18) {\n            uVar2 = 5;\n          }\n          else if (sVar1 == 0x19) {\n            uVar2 = 6;\n          }\n          else if (sVar1 == 0x1a) {\n            uVar2 = 9;\n          }\n          else if (sVar1 == 0x1b) {\n            uVar2 = 8;\n          }\n          else if (sVar1 == 0x1c) {\n            uVar2 = 10;\n          }\n          else if (sVar1 == 0x1d) {\n            uVar2 = 4;\n          }\n          else if (sVar1 == 0x1e) {\n            uVar2 = 0xb;\n          }\n          else if (sVar1 == 0xc) {\n            uVar2 = 0xc;\n          }\n          else if (sVar1 == 5) {\n            uVar2 = 2;\n          }\n          else if (sVar1 == 0x46) {\n            uVar2 = 0x19;\n          }\n          else if (sVar1 == 0x47) {\n            uVar2 = 0x1a;\n          }\n          else if (sVar1 == 0x48) {\n            uVar2 = 0x1b;\n          }\n          else if (sVar1 == 0x49) {\n            uVar2 = 0x1c;\n          }\n          else if (sVar1 == 0x4a) {\n            uVar2 = 0x1d;\n          }\n          else if (sVar1 == 0x4b) {\n            uVar2 = 0x1e;\n          }\n          else if (sVar1 == 0x4c) {\n            uVar2 = 0x1f;\n          }\n          else if (sVar1 == 0x4d) {\n            uVar2 = 0x18;\n          }\n          else if (sVar1 == 0x4e) {\n            uVar2 = 0x20;\n          }\n          else if (sVar1 == 0x50) {\n            uVar2 = 0x22;\n          }\n          else if (sVar1 == 0x4f) {\n            uVar2 = 0x21;\n          }\n          else if (sVar1 == 0x51) {\n            uVar2 = 0x23;\n          }\n          else if (sVar1 == 0x52) {\n            uVar2 = 0x24;\n          }\n          else if (sVar1 == 0x53) {\n            uVar2 = 0x25;\n          }\n          else if (sVar1 == 0x54) {\n            uVar2 = 0x26;\n          }\n          else {\n            if (sVar1 != 0x55) goto LAB_1801188ac;\n            uVar2 = 0x27;\n          }\n          *(undefined2 *)(lVar4 * 0x688 + 0x42 + param_1) = uVar2;\n        }\nLAB_1801188ac:\n        lVar4 = lVar4 * 0x688;\n        *(undefined2 *)(lVar4 + 0x60e + param_1) = 1;\n        *(undefined2 *)(lVar4 + 0x610 + param_1) = DAT_182ea7618;\n        if ((&DAT_1867e8ae6)[lVar5 * 0x248] == 0x1e) {\n          if (*(short *)(&DAT_1867e8d18 + lVar6) == 8) {\n            *(undefined2 *)(lVar4 + 0x50 + param_1) = 0x410;\n          }\n        }\n        else if (((&DAT_1867e8ae6)[lVar5 * 0x248] == 5) && (*(short *)(&DAT_1867e8d18 + lVar6) == 7)\n                ) {\n          *(undefined2 *)(lVar4 + 0x50 + param_1) = 0x415;\n        }\n        FUN_18011d370(param_1,param_2);\n        return 1;\n      }\n    }\n  }\n  return 0;\n}\n\n\n\n",
+  "disassembly": "00118660: mov qword ptr [rsp + 0x10], rbx\n00118665: mov qword ptr [rsp + 0x18], rsi\n0011866A: mov qword ptr [rsp + 0x20], rdi\n0011866F: push r14\n00118671: sub rsp, 0x20\n00118675: cmp dword ptr [rip + 0x845c514], 0\n0011867C: mov rbx, rcx\n0011867F: movsxd rsi, edx\n00118682: jne 0x118925\n00118688: imul rdi, rsi, 0x490\n0011868F: lea r14, [rip - 0x118696]\n00118696: movsx r8, word ptr [rdi + r14 + 0x67e8aee]\n0011869F: cmp dword ptr [r14 + r8*4 + 0x8574bcc], -1\n001186A8: jne 0x118925\n001186AE: movsx rax, word ptr [rdi + r14 + 0x67e8d30]\n001186B7: test ax, ax\n001186BA: jle 0x1186dd\n001186BC: imul rcx, rax, 0x688\n001186C3: mov eax, dword ptr [rdi + r14 + 0x67e8d3c]\n001186CB: cmp dword ptr [rcx + rbx + 0x34], eax\n001186CF: jne 0x1186dd\n001186D1: cmp word ptr [rcx + rbx + 0x40], 0\n001186D7: jne 0x118925\n001186DD: mov edx, r8d\n001186E0: mov rcx, rbx\n001186E3: xor r8d, r8d\n001186E6: call 0x119c00\n001186EB: movsxd r8, eax\n001186EE: test eax, eax\n001186F0: jle 0x118925\n001186F6: movzx ecx, word ptr [rdi + r14 + 0x67e8ae6]\n001186FF: mov qword ptr [rsp + 0x30], rbp\n00118704: cmp cx, 0x16\n00118708: jne 0x118720\n0011870A: imul rdx, r8, 0x688\n00118711: mov eax, 3\n00118716: mov word ptr [rdx + rbx + 0x42], ax\n0011871B: jmp 0x1188ac\n00118720: cmp cx, 0x17\n00118724: jne 0x118730\n00118726: mov eax, 7\n0011872B: jmp 0x1188a0\n00118730: cmp cx, 0x18\n00118734: jne 0x118740\n00118736: mov eax, 5\n0011873B: jmp 0x1188a0\n00118740: cmp cx, 0x19\n00118744: jne 0x118750\n00118746: mov eax, 6\n0011874B: jmp 0x1188a0\n00118750: cmp cx, 0x1a\n00118754: jne 0x118760\n00118756: mov eax, 9\n0011875B: jmp 0x1188a0\n00118760: cmp cx, 0x1b\n00118764: jne 0x118770\n00118766: mov eax, 8\n0011876B: jmp 0x1188a0\n00118770: cmp cx, 0x1c\n00118774: jne 0x118780\n00118776: mov eax, 0xa\n0011877B: jmp 0x1188a0\n00118780: cmp cx, 0x1d\n00118784: jne 0x118790\n00118786: mov eax, 4\n0011878B: jmp 0x1188a0\n00118790: cmp cx, 0x1e\n00118794: jne 0x1187a0\n00118796: mov eax, 0xb\n0011879B: jmp 0x1188a0\n001187A0: cmp cx, 0xc\n001187A4: jne 0x1187b0\n001187A6: mov eax, 0xc\n001187AB: jmp 0x1188a0\n001187B0: cmp cx, 5\n001187B4: jne 0x1187c0\n001187B6: mov eax, 2\n001187BB: jmp 0x1188a0\n001187C0: cmp cx, 0x46\n001187C4: jne 0x1187d0\n001187C6: mov eax, 0x19\n001187CB: jmp 0x1188a0\n001187D0: cmp cx, 0x47\n001187D4: jne 0x1187e0\n001187D6: mov eax, 0x1a\n001187DB: jmp 0x1188a0\n001187E0: cmp cx, 0x48\n001187E4: jne 0x1187f0\n001187E6: mov eax, 0x1b\n001187EB: jmp 0x1188a0\n001187F0: cmp cx, 0x49\n001187F4: jne 0x118800\n001187F6: mov eax, 0x1c\n001187FB: jmp 0x1188a0\n00118800: cmp cx, 0x4a\n00118804: jne 0x118810\n00118806: mov eax, 0x1d\n0011880B: jmp 0x1188a0\n00118810: cmp cx, 0x4b\n00118814: jne 0x118820\n00118816: mov eax, 0x1e\n0011881B: jmp 0x1188a0\n00118820: cmp cx, 0x4c\n00118824: jne 0x11882d\n00118826: mov eax, 0x1f\n0011882B: jmp 0x1188a0\n0011882D: cmp cx, 0x4d\n00118831: jne 0x11883a\n00118833: mov eax, 0x18\n00118838: jmp 0x1188a0\n0011883A: cmp cx, 0x4e\n0011883E: jne 0x118847\n00118840: mov eax, 0x20\n00118845: jmp 0x1188a0\n00118847: cmp cx, 0x50\n0011884B: jne 0x118854\n0011884D: mov eax, 0x22\n00118852: jmp 0x1188a0\n00118854: cmp cx, 0x4f\n00118858: jne 0x118861\n0011885A: mov eax, 0x21\n0011885F: jmp 0x1188a0\n00118861: cmp cx, 0x51\n00118865: jne 0x11886e\n00118867: mov eax, 0x23\n0011886C: jmp 0x1188a0\n0011886E: cmp cx, 0x52\n00118872: jne 0x11887b\n00118874: mov eax, 0x24\n00118879: jmp 0x1188a0\n0011887B: cmp cx, 0x53\n0011887F: jne 0x118888\n00118881: mov eax, 0x25\n00118886: jmp 0x1188a0\n00118888: cmp cx, 0x54\n0011888C: jne 0x118895\n0011888E: mov eax, 0x26\n00118893: jmp 0x1188a0\n00118895: cmp cx, 0x55\n00118899: jne 0x1188ac\n0011889B: mov eax, 0x27\n001188A0: imul rcx, r8, 0x688\n001188A7: mov word ptr [rcx + rbx + 0x42], ax\n001188AC: imul rcx, r8, 0x688\n001188B3: mov ebp, 1\n001188B8: mov word ptr [rcx + rbx + 0x60e], bp\n001188C0: movzx eax, word ptr [rip + 0x2d8ed51]\n001188C7: mov word ptr [rcx + rbx + 0x610], ax\n001188CF: movzx eax, word ptr [rdi + r14 + 0x67e8ae6]\n001188D8: cmp ax, 0x1e\n001188DC: jne 0x1188f6\n001188DE: cmp word ptr [rdi + r14 + 0x67e8d18], 8\n001188E8: jne 0x118912\n001188EA: mov eax, 0x410\n001188EF: mov word ptr [rcx + rbx + 0x50], ax\n001188F4: jmp 0x118912\n001188F6: cmp ax, 5\n001188FA: jne 0x118912\n001188FC: cmp word ptr [rdi + r14 + 0x67e8d18], 7\n00118906: jne 0x118912\n00118908: mov edx, 0x415\n0011890D: mov word ptr [rcx + rbx + 0x50], dx\n00118912: mov edx, esi\n00118914: mov rcx, rbx\n00118917: call 0x11d370\n0011891C: mov eax, ebp\n0011891E: mov rbp, qword ptr [rsp + 0x30]\n00118923: jmp 0x118927\n00118925: xor eax, eax\n00118927: mov rbx, qword ptr [rsp + 0x38]\n0011892C: mov rsi, qword ptr [rsp + 0x40]\n00118931: mov rdi, qword ptr [rsp + 0x48]\n00118936: add rsp, 0x20\n0011893A: pop r14\n0011893C: ret "
+}

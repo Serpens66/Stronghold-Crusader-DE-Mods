@@ -27,9 +27,15 @@ namespace ExtraFeatures
         internal const int DrawbridgeWriterResultRva = 0x73B24;
         internal const int DrawbridgeWriterResultLength = 15;
         internal const int StructureWriterRva = 0x59210;
+        internal const int TileManagerRva = 0x405EDB0;
         internal const int TileHeightGridRva = 0x4DDD350;
+        internal const int TileDefaultHeightGridRva = 0x4E2B870;
         internal const int TileHeightGridOffset = 0xD7E5A0;
         internal const int TileDefaultHeightGridOffset = 0xDCCAC0;
+        internal const int BuildingCreationFunctionRva = 0x6D580;
+        internal const int BuildingCreationFunctionLength = 0xA68;
+        internal const int BuildingCreationDefaultHeightRestoreRva = 0x6D71C;
+        internal const int BuildingCreationDefaultHeightRestoreLength = 16;
         internal const int MainRendererRva = 0x41D60;
         internal const int MainRendererLength = 0x39EA;
         internal const int DrawbridgeSpecialRendererRva = 0x45820;
@@ -504,6 +510,14 @@ namespace ExtraFeatures
             0x0F, 0xB6, 0x84, 0x29, 0x50, 0xD3, 0xDD, 0x04
         };
 
+        internal static readonly byte[] BuildingCreationDefaultHeightRestoreBytes =
+        {
+            // movzx EAX,byte ptr [RSI + R8 + TileDefaultHeightGridRva]
+            0x42, 0x0F, 0xB6, 0x84, 0x06, 0x70, 0xB8, 0xE2, 0x04,
+            // mov byte ptr [RSI + RBX + TileHeightGridOffset],AL
+            0x88, 0x84, 0x1E, 0xA0, 0xE5, 0xD7, 0x00
+        };
+
         internal static readonly byte[] UnitHeightPostCorrectionBytes =
         {
             // RAX and RCX are rebuilt before use; TEST AX replaces incoming flags.
@@ -674,6 +688,18 @@ namespace ExtraFeatures
 
         internal static void ValidateAdaptiveHeightHooks(ReadOnlySpan<byte> memory)
         {
+            if (TileDefaultHeightGridRva != TileManagerRva + TileDefaultHeightGridOffset)
+            {
+                throw new InvalidOperationException(
+                    "The image-relative DefaultHeightGrid address no longer matches its manager-relative offset.");
+            }
+            ValidateBlock(memory,
+                BuildingCreationDefaultHeightRestoreRva,
+                BuildingCreationDefaultHeightRestoreLength,
+                BuildingCreationFunctionRva,
+                BuildingCreationFunctionLength,
+                BuildingCreationDefaultHeightRestoreBytes,
+                "building-creation DefaultHeightGrid restore block");
             ValidateBlock(memory, MoatCommandHeightGateRva, MoatCommandHeightGateLength,
                 MoatCommandValidationFunctionRva, MoatCommandValidationFunctionLength,
                 MoatCommandHeightGateBytes, "MAPPER_MOAT/MAPPER_ANTIMOAT command height gate");
@@ -789,40 +815,41 @@ namespace ExtraFeatures
             defaultHeight > MoatDepth ? (byte)(defaultHeight - MoatDepth) : (byte)0;
 
         internal static byte CalculateDrawbridgeHeight(byte defaultHeight) =>
-            defaultHeight > MaximumVanillaTerrainHeight ? defaultHeight : (byte)0;
+            defaultHeight > MaximumVanillaTerrainHeight
+                ? (byte)(defaultHeight - MoatDepth)
+                : (byte)0;
 
         internal static byte CalculateRestoredHeight(byte defaultHeight) => defaultHeight;
 
         internal static bool ShouldCorrectDrawbridgeRendering(
-            byte currentTileHeight,
+            byte defaultTileHeight,
             bool featureActive) =>
-            featureActive && currentTileHeight > MaximumVanillaTerrainHeight;
+            featureActive && defaultTileHeight > MaximumVanillaTerrainHeight;
 
         internal static int CalculateDrawbridgeRenderOffset(
-            byte currentTileHeight,
+            byte defaultTileHeight,
             int currentRenderedTileHeight,
             bool featureActive) =>
-            ShouldCorrectDrawbridgeRendering(currentTileHeight, featureActive)
+            ShouldCorrectDrawbridgeRendering(defaultTileHeight, featureActive)
                 ? -currentRenderedTileHeight
                 : 0;
 
         internal static short CalculateUnitDrawbridgeCorrection(
             short currentElevation,
-            byte currentTileHeight,
+            byte defaultTileHeight,
             bool featureActive) =>
-            featureActive && currentTileHeight > MaximumVanillaTerrainHeight
+            featureActive && defaultTileHeight > MaximumVanillaTerrainHeight
                 ? (short)MoatDepth
                 : unchecked((short)(MoatDepth - currentElevation));
 
         internal static short CalculateUnitDrawbridgeRenderHeight(
             short currentElevation,
             byte currentTileHeight,
+            byte defaultTileHeight,
             bool featureActive)
         {
             short correction = CalculateUnitDrawbridgeCorrection(
-                currentElevation,
-                currentTileHeight,
-                featureActive);
+                currentElevation, defaultTileHeight, featureActive);
             return checked((short)(-((int)currentTileHeight + correction)));
         }
 

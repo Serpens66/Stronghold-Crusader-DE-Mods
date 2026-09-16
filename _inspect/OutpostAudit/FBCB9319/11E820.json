@@ -1,0 +1,31 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0x11E820",
+  "va": "0x18011E820",
+  "baselineConfidence": "candidate",
+  "size": 58,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x1173F0"
+    },
+    {
+      "caller_rva": "0x11D370"
+    },
+    {
+      "caller_rva": "0x123EA0"
+    },
+    {
+      "caller_rva": "0x124110"
+    },
+    {
+      "caller_rva": "0x124270"
+    },
+    {
+      "caller_rva": "0x126740"
+    }
+  ],
+  "callees": [],
+  "pseudocode": "/* FUNCTION FUN_18011e820 VA=0x18011E820 RVA=0x11E820 */\n\nvoid FUN_18011e820(longlong param_1,int param_2)\n\n{\n  int iVar1;\n  \n  iVar1 = 0;\n  do {\n    if (*(short *)(param_1 + 0x60 + ((longlong)iVar1 + (longlong)param_2 * 0x344) * 2) != 0) {\n      *(short *)((longlong)param_2 * 0x688 + 0x648 + param_1) = (short)iVar1;\n      return;\n    }\n    iVar1 = iVar1 + 1;\n  } while (iVar1 < 0x271);\n  return;\n}\n\n\n\n",
+  "disassembly": "0011E820: xor eax, eax\n0011E822: movsxd r9, edx\n0011E825: mov r8, rcx\n0011E828: imul rcx, r9, 0x344\n0011E82F: nop \n0011E830: movsxd rdx, eax\n0011E833: add rdx, rcx\n0011E836: cmp word ptr [r8 + rdx*2 + 0x60], 0\n0011E83D: jne 0x11e849\n0011E83F: inc eax\n0011E841: cmp eax, 0x271\n0011E846: jl 0x11e830\n0011E848: ret \n0011E849: imul rcx, r9, 0x688\n0011E850: mov word ptr [rcx + r8 + 0x648], ax\n0011E859: ret "
+}

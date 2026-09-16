@@ -202,6 +202,7 @@
       <Link>Shared\WorkshopContentPaths.cs</Link>
     </Compile>
     <Compile Include="src\AivFileCatalog.cs" />
+    <Compile Include="src\AivCandidateFilePolicy.cs" />
     <Compile Include="src\AivOptionDisplayNames.cs" />
     <Compile Include="src\AivJsonModels.cs" />
     <Compile Include="src\AivJsonReader.cs" />

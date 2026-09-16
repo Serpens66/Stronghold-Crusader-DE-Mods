@@ -1,0 +1,16 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0xD6BF0",
+  "va": "0x1800D6BF0",
+  "baselineConfidence": "candidate",
+  "size": 36,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x81870"
+    }
+  ],
+  "callees": [],
+  "pseudocode": "/* FUNCTION FUN_1800d6bf0 VA=0x1800D6BF0 RVA=0xD6BF0 */\n\nvoid FUN_1800d6bf0(ushort param_1)\n\n{\n  *(ushort *)(&DAT_1864ccf0c + (longlong)DAT_1867e8394 * 0x32c) =\n       *(ushort *)(&DAT_1864ccf0c + (longlong)DAT_1867e8394 * 0x32c) ^ 1 << (param_1 & 0xf);\n  return;\n}\n\n\n\n",
+  "disassembly": "000D6BF0: movsxd rax, dword ptr [rip + 0x671179d]\n000D6BF7: lea r8, [rip + 0x63f630e]\n000D6BFE: imul rdx, rax, 0x32c\n000D6C05: movzx eax, word ptr [rdx + r8]\n000D6C0A: btc ax, cx\n000D6C0E: mov word ptr [rdx + r8], ax\n000D6C13: ret "
+}

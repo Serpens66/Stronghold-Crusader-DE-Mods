@@ -1,0 +1,27 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0xC5790",
+  "va": "0x1800C5790",
+  "baselineConfidence": "candidate",
+  "size": 126,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x87D0"
+    },
+    {
+      "caller_rva": "0x5BC70"
+    },
+    {
+      "caller_rva": "0xB4790"
+    }
+  ],
+  "callees": [
+    {
+      "callee_rva": "0x7490",
+      "callee_name": "FUN_180007490"
+    }
+  ],
+  "pseudocode": "/* FUNCTION FUN_1800c5790 VA=0x1800C5790 RVA=0xC5790 */\n\nvoid FUN_1800c5790(undefined8 *param_1)\n\n{\n  longlong lVar1;\n  longlong lVar2;\n  \n  lVar2 = (longlong)param_1 + 0x5c;\n  *param_1 = 0;\n  param_1[5] = 0;\n  lVar1 = 4000;\n  param_1[1] = 0;\n  param_1[6] = 0;\n  param_1[2] = 0;\n  param_1[7] = 0;\n  param_1[3] = 0;\n  param_1[8] = 0;\n  param_1[4] = 0;\n  *(undefined4 *)(param_1 + 9) = 0;\n  do {\n    FUN_180007490(&DAT_1860ad648,0x32c,0,lVar2);\n    lVar2 = lVar2 + 0x32c;\n    lVar1 = lVar1 + -1;\n  } while (lVar1 != 0);\n  *(undefined4 *)(param_1 + 10) = 4000;\n  return;\n}\n\n\n\n",
+  "disassembly": "000C5790: mov qword ptr [rsp + 8], rbx\n000C5795: mov qword ptr [rsp + 0x10], rsi\n000C579A: push rdi\n000C579B: sub rsp, 0x20\n000C579F: xor eax, eax\n000C57A1: lea rdi, [rcx + 0x5c]\n000C57A5: mov qword ptr [rcx], rax\n000C57A8: mov rbx, rcx\n000C57AB: mov qword ptr [rcx + 0x28], rax\n000C57AF: mov esi, 0xfa0\n000C57B4: mov qword ptr [rcx + 8], rax\n000C57B8: mov qword ptr [rcx + 0x30], rax\n000C57BC: mov qword ptr [rcx + 0x10], rax\n000C57C0: mov qword ptr [rcx + 0x38], rax\n000C57C4: mov qword ptr [rcx + 0x18], rax\n000C57C8: mov qword ptr [rcx + 0x40], rax\n000C57CC: mov qword ptr [rcx + 0x20], rax\n000C57D0: mov dword ptr [rcx + 0x48], eax\n000C57D3: mov r9, rdi\n000C57D6: lea rcx, [rip + 0x5fe7e6b]\n000C57DD: xor r8d, r8d\n000C57E0: mov edx, 0x32c\n000C57E5: call 0x7490\n000C57EA: add rdi, 0x32c\n000C57F1: sub rsi, 1\n000C57F5: jne 0xc57d3\n000C57F7: mov rsi, qword ptr [rsp + 0x38]\n000C57FC: mov dword ptr [rbx + 0x50], 0xfa0\n000C5803: mov rbx, qword ptr [rsp + 0x30]\n000C5808: add rsp, 0x20\n000C580C: pop rdi\n000C580D: ret "
+}

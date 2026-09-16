@@ -42,15 +42,16 @@ namespace ExtraFeatures
             Label vanillaWrite = assembler.CreateLabel("completedDrawbridgeVanillaHeightWrite");
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaWrite);
 
-            // The drawbridge tile is the walkable surface, not the excavated moat
-            // floor. Keep Vanilla's zero on ordinary terrain and retain the tile's
-            // original surface height only above Vanilla's terrain limit. RAX is dead
-            // after Vanilla's state call and the following paths do not consume flags.
+            // Vanilla keeps the drawbridge tile at the moat floor and applies its
+            // fixed eight-unit deck offset separately. Keep Vanilla's zero on ordinary
+            // terrain and reproduce that topology above Vanilla's terrain limit.
+            // RAX is dead after the state call and following paths do not consume flags.
             assembler.movzx(eax,
                 __byte_ptr[rbx + r14 + ElevatedMoatNativeContract.TileDefaultHeightGridOffset]);
             assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
             assembler.jbe(vanillaWrite);
 
+            assembler.sub(eax, ElevatedMoatNativeContract.MoatDepth);
             assembler.mov(__byte_ptr[rbx + r14 + ElevatedMoatNativeContract.TileHeightGridOffset], al);
             assembler.AddUnrestrictedJmp(returnAddress);
 
@@ -89,14 +90,15 @@ namespace ExtraFeatures
             Label restoreImageBase = assembler.CreateLabel("loweredDrawbridgeRestoreImageBase");
             EmitEnabledFlagBranch(assembler, featureActiveFlagAddress, vanillaWrite);
 
-            // RDI is the audited tile ID. Preserve the original walkable surface
-            // height only above Vanilla's terrain limit. RAX is dead here; Vanilla's
-            // following INC replaces flags before they are consumed.
+            // RDI is the audited tile ID. Recreate Vanilla's moat-floor/deck separation
+            // above the terrain limit. RAX is dead here; Vanilla's following INC
+            // replaces flags before they are consumed.
             assembler.movzx(eax,
                 __byte_ptr[rbx + rdi + ElevatedMoatNativeContract.TileDefaultHeightGridOffset]);
             assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
             assembler.jbe(vanillaWrite);
 
+            assembler.sub(eax, ElevatedMoatNativeContract.MoatDepth);
             assembler.mov(__byte_ptr[rbx + rdi + ElevatedMoatNativeContract.TileHeightGridOffset], al);
             assembler.jmp(restoreImageBase);
 
@@ -112,7 +114,7 @@ namespace ExtraFeatures
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
             ulong featureActiveFlagAddress,
-            ulong tileHeightGridAddress,
+            ulong tileDefaultHeightGridAddress,
             ulong currentTileHeightAddress)
         {
             if (overwrittenInstructions.Length != 6 ||
@@ -147,11 +149,11 @@ namespace ExtraFeatures
             // The two Vanilla call sites omit the tile-height subtraction used by the
             // sibling drawbridge renderer. Argument 5 at entry is the current tile ID.
             // Preserve R10 while using it as the index; RAX is overwritten by the first
-            // prologue instruction. Low drawbridges must remain exactly Vanilla even
-            // when the renderer temporarily publishes a nonzero current tile height.
+            // prologue instruction. Classify through the immutable default grid so
+            // elevated moat-floor values at or below 12 are not mistaken for Vanilla.
             assembler.push(r10);
             assembler.mov(r10d, __dword_ptr[rsp + 0x30]);
-            assembler.mov(rax, tileHeightGridAddress);
+            assembler.mov(rax, tileDefaultHeightGridAddress);
             assembler.cmp(
                 __byte_ptr[rax + r10],
                 ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
@@ -174,7 +176,7 @@ namespace ExtraFeatures
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong returnAddress,
             ulong featureActiveFlagAddress,
-            ulong tileHeightGridAddress,
+            ulong tileDefaultHeightGridAddress,
             ulong currentTileHeightAddress)
         {
             if (overwrittenInstructions.Length != 3 ||
@@ -206,10 +208,10 @@ namespace ExtraFeatures
 
             // This call site is reached only for a drawbridge (building type 0x31)
             // on the tile-flags == 4 branch. Vanilla passes zero as argument 6;
-            // R15D is argument 5 and therefore the current tile ID. Only elevated
-            // tiles need the same negative current-tile render offset that the sibling
-            // renderer path already passes. The callee remains Vanilla.
-            assembler.mov(rax, tileHeightGridAddress);
+            // R15D is argument 5 and therefore the current tile ID. Classify through
+            // DefaultHeightGrid, then pass the negative current-tile render offset used
+            // by the sibling renderer. The callee remains Vanilla.
+            assembler.mov(rax, tileDefaultHeightGridAddress);
             assembler.cmp(
                 __byte_ptr[rax + r15],
                 ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
@@ -263,11 +265,12 @@ namespace ExtraFeatures
             // RBP is the image base. RBX is the unit-slot anchor formed from the
             // manager base plus game ID * 0x490; its +0x712/+0x714/+0x72C operands
             // correspond to GameUnit record fields +0xB6/+0xB8/+0xD0. RAX, RCX and
-            // flags are dead at the common continuation.
+            // flags are dead at the common continuation. DefaultHeightGrid classifies
+            // the bridge while Vanilla's downstream current-height flow stays intact.
             assembler.mov(ecx,
                 __dword_ptr[rbx + ElevatedMoatNativeContract.UnitCurrentTileIdOffset]);
             assembler.movzx(eax,
-                __byte_ptr[rbp + rcx + ElevatedMoatNativeContract.TileHeightGridRva]);
+                __byte_ptr[rbp + rcx + ElevatedMoatNativeContract.TileDefaultHeightGridRva]);
             assembler.cmp(eax, ElevatedMoatNativeContract.MaximumVanillaTerrainHeight);
             assembler.jbe(vanillaCorrection);
 

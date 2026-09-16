@@ -8,6 +8,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\AIVPlacement.Core\CastlePlanner.AIVPlacement.Core.csproj" />
+    <Compile Include="..\src\AivCandidateFilePolicy.cs" Link="Blueprint\AivCandidateFilePolicy.cs" />
     <Compile Include="..\src\AivJsonModels.cs" Link="SpawnPlan\AivJsonModels.cs" />
     <Compile Include="..\src\AivOptionDisplayNames.cs" Link="Blueprint\AivOptionDisplayNames.cs" />
     <Compile Include="..\src\AivJsonReader.cs" Link="SpawnPlan\AivJsonReader.cs" />

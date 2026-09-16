@@ -59,6 +59,7 @@ namespace CastlePlanner
             new Dictionary<string, CachedFingerprint>(StringComparer.OrdinalIgnoreCase);
 
         public int IdenticalFileCount { get; private set; }
+        public int IgnoredNonAivContainerCount { get; private set; }
 
         public static DiscoveryPlan PrepareDiscovery(Action<string> warning = null)
         {
@@ -93,12 +94,14 @@ namespace CastlePlanner
             pathByOption.Clear();
             discoveryOrder.Clear();
             IdenticalFileCount = 0;
+            IgnoredNonAivContainerCount = 0;
 
             foreach (PreparedOption option in plan.Options)
                 AddOption(option.Option, option.Path);
             foreach (RootSpec root in plan.Roots)
                 AddRoot(root.SourceName, root.Path);
 
+            RemoveKnownNonAivContainers(warning);
             RemoveIdenticalFiles(warning);
             BuildDisplayNames();
 
@@ -431,12 +434,43 @@ namespace CastlePlanner
                 }
                 catch (Exception exception)
                 {
+                    RemoveOption(option, path);
                     warning?.Invoke(
                         $"Could not fingerprint AIVJSON '{path}' while removing identical files: {exception.Message}");
                 }
             }
 
             IdenticalFileCount = duplicateCount;
+        }
+
+        private void RemoveKnownNonAivContainers(Action<string> warning)
+        {
+            foreach (string option in discoveryOrder.ToArray())
+            {
+                if (!pathByOption.TryGetValue(option, out string path))
+                    continue;
+
+                try
+                {
+                    if (!AivCandidateFilePolicy.IsKnownNonJsonContainer(path))
+                        continue;
+
+                    RemoveOption(option, path);
+                    IgnoredNonAivContainerCount++;
+                }
+                catch (Exception exception)
+                {
+                    RemoveOption(option, path);
+                    warning?.Invoke($"Could not inspect AIVJSON candidate '{path}': {exception.Message}");
+                }
+            }
+        }
+
+        private void RemoveOption(string option, string path)
+        {
+            pathByOption.Remove(option);
+            discoveryOrder.Remove(option);
+            fingerprintByPath.Remove(path);
         }
 
         private sealed class CachedFingerprint

@@ -1,0 +1,199 @@
+{
+  "binaryHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "rva": "0x7530",
+  "va": "0x180007530",
+  "baselineConfidence": "candidate",
+  "size": 41,
+  "disassemblyCoverage": "linear diagnostic window of baseline body size; not a function-boundary claim",
+  "callers": [
+    {
+      "caller_rva": "0x2B6C0"
+    },
+    {
+      "caller_rva": "0x2C710"
+    },
+    {
+      "caller_rva": "0x2CB10"
+    },
+    {
+      "caller_rva": "0x2CE40"
+    },
+    {
+      "caller_rva": "0x2D370"
+    },
+    {
+      "caller_rva": "0x2D500"
+    },
+    {
+      "caller_rva": "0x2F080"
+    },
+    {
+      "caller_rva": "0x30620"
+    },
+    {
+      "caller_rva": "0x487C0"
+    },
+    {
+      "caller_rva": "0x54F60"
+    },
+    {
+      "caller_rva": "0x59380"
+    },
+    {
+      "caller_rva": "0x709B0"
+    },
+    {
+      "caller_rva": "0x720C0"
+    },
+    {
+      "caller_rva": "0x99C50"
+    },
+    {
+      "caller_rva": "0x9AF20"
+    },
+    {
+      "caller_rva": "0x9B2B0"
+    },
+    {
+      "caller_rva": "0x9BAF0"
+    },
+    {
+      "caller_rva": "0x9C120"
+    },
+    {
+      "caller_rva": "0x9C450"
+    },
+    {
+      "caller_rva": "0x9DCF0"
+    },
+    {
+      "caller_rva": "0x9F960"
+    },
+    {
+      "caller_rva": "0xA93C0"
+    },
+    {
+      "caller_rva": "0xA9A30"
+    },
+    {
+      "caller_rva": "0xAA030"
+    },
+    {
+      "caller_rva": "0xAA630"
+    },
+    {
+      "caller_rva": "0xABB90"
+    },
+    {
+      "caller_rva": "0xB47E0"
+    },
+    {
+      "caller_rva": "0xBF0A0"
+    },
+    {
+      "caller_rva": "0xBF300"
+    },
+    {
+      "caller_rva": "0xBF400"
+    },
+    {
+      "caller_rva": "0xBF510"
+    },
+    {
+      "caller_rva": "0xC4D30"
+    },
+    {
+      "caller_rva": "0xC5D60"
+    },
+    {
+      "caller_rva": "0xCA660"
+    },
+    {
+      "caller_rva": "0xCA740"
+    },
+    {
+      "caller_rva": "0xCA820"
+    },
+    {
+      "caller_rva": "0xCD630"
+    },
+    {
+      "caller_rva": "0xCDE60"
+    },
+    {
+      "caller_rva": "0xCE570"
+    },
+    {
+      "caller_rva": "0xD1600"
+    },
+    {
+      "caller_rva": "0xD17D0"
+    },
+    {
+      "caller_rva": "0xD1E50"
+    },
+    {
+      "caller_rva": "0xD7450"
+    },
+    {
+      "caller_rva": "0xDD6C0"
+    },
+    {
+      "caller_rva": "0xDE7A0"
+    },
+    {
+      "caller_rva": "0xE8340"
+    },
+    {
+      "caller_rva": "0x108320"
+    },
+    {
+      "caller_rva": "0x108E90"
+    },
+    {
+      "caller_rva": "0x11E960"
+    },
+    {
+      "caller_rva": "0x1501D0"
+    },
+    {
+      "caller_rva": "0x15A950"
+    },
+    {
+      "caller_rva": "0x15ECE0"
+    },
+    {
+      "caller_rva": "0x162CB0"
+    },
+    {
+      "caller_rva": "0x163510"
+    },
+    {
+      "caller_rva": "0x164470"
+    },
+    {
+      "caller_rva": "0x166280"
+    },
+    {
+      "caller_rva": "0x1669A0"
+    },
+    {
+      "caller_rva": "0x17FEF0"
+    },
+    {
+      "caller_rva": "0x180590"
+    },
+    {
+      "caller_rva": "0x1909A0"
+    },
+    {
+      "caller_rva": "0x194C40"
+    },
+    {
+      "caller_rva": "0x1971A0"
+    }
+  ],
+  "callees": [],
+  "pseudocode": "/* FUNCTION FUN_180007530 VA=0x180007530 RVA=0x7530 */\n\nvoid FUN_180007530(longlong param_1)\n\n{\n  int iVar1;\n  \n  iVar1 = *(int *)(param_1 + 0x9c48) + 1;\n  *(undefined2 *)(param_1 + 2) =\n       *(undefined2 *)(param_1 + 8 + (longlong)*(int *)(param_1 + 0x9c48) * 2);\n  if (19999 < iVar1) {\n    iVar1 = 0;\n  }\n  *(int *)(param_1 + 0x9c48) = iVar1;\n  return;\n}\n\n\n\n",
+  "disassembly": "00007530: movsxd r8, dword ptr [rcx + 0x9c48]\n00007537: xor eax, eax\n00007539: movzx edx, word ptr [rcx + r8*2 + 8]\n0000753F: inc r8d\n00007542: cmp r8d, 0x4e20\n00007549: mov word ptr [rcx + 2], dx\n0000754D: cmovge r8d, eax\n00007551: mov dword ptr [rcx + 0x9c48], r8d\n00007558: ret "
+}
