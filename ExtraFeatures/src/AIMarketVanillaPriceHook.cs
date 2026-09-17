@@ -24,7 +24,7 @@ namespace ExtraFeatures
         private delegate int MarketPriceDelegate(IntPtr playerManager, int playerId, int good, int amount);
 
         private readonly ManualLogSource log;
-        private readonly ExtraFeaturesViewModel settings;
+        private volatile bool useVanillaAIPricesForSession;
         private HookTransaction transaction;
         private readonly DetourHandle<MarketPriceDelegate> buyPriceHook =
             new DetourHandle<MarketPriceDelegate>();
@@ -36,14 +36,12 @@ namespace ExtraFeatures
 
         public AIMarketVanillaPriceHook(
             ManualLogSource log,
-            ExtraFeaturesViewModel settings,
             IntPtr libraryHandle,
             ScanRegion region,
             ReadOnlySpan<byte> memory,
             bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             if (libraryHandle == IntPtr.Zero || memory.Length == 0)
                 throw new ArgumentException("The Crusader native library is unavailable.");
 
@@ -187,22 +185,19 @@ namespace ExtraFeatures
             }
         }
 
+        internal void SetSessionOverride(bool enabled)
+        {
+            useVanillaAIPricesForSession = enabled;
+        }
+
         private bool ShouldUseVanillaPrice(IntPtr playerManager, int playerId, int good)
         {
-            bool validPlayer = playerManager != IntPtr.Zero && playerId >= 1 && playerId <= 8;
-            bool validGood = good >= 0 && good < (int)eGoods.Count;
-            bool modEnabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
-            bool marketPricesAlsoForAI = settings.MarketPricesAlsoForAI;
-            if (!modEnabled || !validPlayer || !validGood)
+            if (!useVanillaAIPricesForSession || playerManager == IntPtr.Zero ||
+                playerId < 1 || playerId > 8 || good < 0 || good >= (int)eGoods.Count)
                 return false;
 
-            bool isAIPlayer = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
-            return AIMarketVanillaPricePolicy.ShouldUseVanillaPrice(
-                modEnabled,
-                marketPricesAlsoForAI,
-                validPlayer,
-                validGood,
-                isAIPlayer);
+            // Settings are fixed for the session; player classification is live game state.
+            return GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
         }
 
         private void TryLogCallbackFailureOnce(ref int alreadyLogged, string direction, Exception failure)

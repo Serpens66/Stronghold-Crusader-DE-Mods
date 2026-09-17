@@ -322,6 +322,7 @@ namespace UnitCosts
             }
 
             humanExtraCosts.Clear();
+            configuredRecruitmentButtons.Clear();
             ClearRecruitmentCostTooltip();
             Shared.DebugLogHelper.LogDebug(log, "Restored vanilla unit cost values:", restoredValues);
         }
@@ -336,6 +337,7 @@ namespace UnitCosts
         private void ApplyHumanExtraUnitCosts()
         {
             humanExtraCosts.Clear();
+            configuredRecruitmentButtons.Clear();
             Dictionary<eChimps, UnitExtraCostValues> parsedCosts = settings.ParseHumanExtraUnitCosts();
             int configuredUnits = 0;
             foreach (KeyValuePair<eChimps, UnitExtraCostValues> entry in parsedCosts)
@@ -345,6 +347,7 @@ namespace UnitCosts
                     configuredUnits++;
             }
 
+            RebuildConfiguredRecruitmentButtons();
             Shared.DebugLogHelper.LogDebug(log, "Applied human extra unit cost rows:", configuredUnits);
             RefreshCurrentRecruitmentCostTooltip();
         }
@@ -619,9 +622,60 @@ namespace UnitCosts
             return Math.Max(0, GamePlayerManagerAPI.Instance.GetGoodAmount(playerId, good));
         }
 
+        private readonly System.Collections.Generic.List<RecruitmentButtonRule> configuredRecruitmentButtons =
+            new System.Collections.Generic.List<RecruitmentButtonRule>();
+        private static readonly RecruitmentButtonRule[] RecruitmentButtonRules =
+        {
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARCHER, panel => panel.RefRecruitArcherButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_SPEARMAN, panel => panel.RefRecruitSpearmanButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_MACEMAN, panel => panel.RefRecruitMacemanButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_XBOWMAN, panel => panel.RefRecruitXBowmanButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_PIKEMAN, panel => panel.RefRecruitPikemanButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_SWORDSMAN, panel => panel.RefRecruitSwordsmanButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_KNIGHT, panel => panel.RefRecruitKnightButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ENGINEER, panel => panel.RefRecruitEngineerButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_LADDERMAN, panel => panel.RefRecruitLaddermanButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_TUNNELER, panel => panel.RefRecruitTunellerButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_MONK, panel => panel.RefRecruitMonkButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_BOW, panel => panel.RefRecruitArabBowButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_SLAVE, panel => panel.RefRecruitArabSlaveButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_SLINGER, panel => panel.RefRecruitArabSlingerButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_ASSASIN, panel => panel.RefRecruitArabAssassinButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_HORSEMAN, panel => panel.RefRecruitArabHorseArcherButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_SWORDSMAN, panel => panel.RefRecruitArabSwordsmanButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_ARAB_GRENADIER, panel => panel.RefRecruitArabGrenadierButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER, panel => panel.RefRecruitBedouinCamelLancerButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, panel => panel.RefRecruitBedouinHealerButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, panel => panel.RefRecruitBedouinEunuchButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER, panel => panel.RefRecruitBedouinAmbusherButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER, panel => panel.RefRecruitBedouinSkirmisherButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL, panel => panel.RefRecruitBedouinHeavyCamelButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_SAPPER, panel => panel.RefRecruitBedouinSapperButton),
+            new RecruitmentButtonRule(eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER, panel => panel.RefRecruitBedouinDemolisherButton),
+        };
+
+        private readonly struct RecruitmentButtonRule
+        {
+            internal RecruitmentButtonRule(eChimps unitType, System.Func<HUD_Buildings, Noesis.UIElement> getButton)
+            {
+                UnitType = unitType;
+                GetButton = getButton;
+            }
+            internal eChimps UnitType { get; }
+            internal System.Func<HUD_Buildings, Noesis.UIElement> GetButton { get; }
+        }
+
+        private void RebuildConfiguredRecruitmentButtons()
+        {
+            configuredRecruitmentButtons.Clear();
+            foreach (RecruitmentButtonRule rule in RecruitmentButtonRules)
+                if (TryGetHumanExtraCosts(rule.UnitType, out _))
+                    configuredRecruitmentButtons.Add(rule);
+        }
+
         internal void RefreshRecruitmentButtonAvailability()
         {
-            if (!IsUnitCostModeAllowed() || !EffectsEnabled || humanExtraCosts.Count == 0)
+            if (!IsUnitCostModeAllowed() || !EffectsEnabled || configuredRecruitmentButtons.Count == 0)
                 return;
 
             int playerId = GetLocalHumanPlayerId();
@@ -636,35 +690,9 @@ namespace UnitCosts
             int amount = hoveredUnitType == eChimps.CHIMP_NUM_TYPES ? 1 : GetLastTroopsAmountToMake(mainViewModel);
             HUD_Buildings panel = mainViewModel.HUDBuildingPanel;
 
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARCHER, panel.RefRecruitArcherButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_SPEARMAN, panel.RefRecruitSpearmanButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_MACEMAN, panel.RefRecruitMacemanButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_XBOWMAN, panel.RefRecruitXBowmanButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_PIKEMAN, panel.RefRecruitPikemanButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_SWORDSMAN, panel.RefRecruitSwordsmanButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_KNIGHT, panel.RefRecruitKnightButton);
-
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ENGINEER, panel.RefRecruitEngineerButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_LADDERMAN, panel.RefRecruitLaddermanButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_TUNNELER, panel.RefRecruitTunellerButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_MONK, panel.RefRecruitMonkButton);
-
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_BOW, panel.RefRecruitArabBowButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_SLAVE, panel.RefRecruitArabSlaveButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_SLINGER, panel.RefRecruitArabSlingerButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_ASSASIN, panel.RefRecruitArabAssassinButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_HORSEMAN, panel.RefRecruitArabHorseArcherButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_SWORDSMAN, panel.RefRecruitArabSwordsmanButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_ARAB_GRENADIER, panel.RefRecruitArabGrenadierButton);
-
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER, panel.RefRecruitBedouinCamelLancerButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_HEALER, panel.RefRecruitBedouinHealerButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, panel.RefRecruitBedouinEunuchButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER, panel.RefRecruitBedouinAmbusherButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER, panel.RefRecruitBedouinSkirmisherButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL, panel.RefRecruitBedouinHeavyCamelButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_SAPPER, panel.RefRecruitBedouinSapperButton);
-            DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER, panel.RefRecruitBedouinDemolisherButton);
+            // Resolve from the current panel; retain Vanilla/other-mod disabled states.
+            foreach (RecruitmentButtonRule rule in configuredRecruitmentButtons)
+                DisableRecruitmentButtonIfMissingExtraCosts(playerId, amount, rule.UnitType, rule.GetButton(panel));
         }
 
         private void DisableRecruitmentButtonIfMissingExtraCosts(

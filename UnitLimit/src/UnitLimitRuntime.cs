@@ -209,6 +209,7 @@ namespace UnitLimit
             activeSiegeTentCacheAvailable = false;
 
             activeUnitLimits.Clear();
+            configuredRecruitmentButtons.Clear();
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)

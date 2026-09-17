@@ -112,6 +112,7 @@ namespace BugfixesAndQoL
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, FailedRotationTargets> failedRotationTargetsByQuarry = new Dictionary<int, FailedRotationTargets>();
         private readonly Dictionary<int, PendingAIQuarry> pendingAIQuarriesByGlobalId = new Dictionary<int, PendingAIQuarry>();
+        private readonly Stack<int[]> pendingAIQuarryKeyBuffers = new Stack<int[]>();
 
         private Hook setUpInbuildingHook;
         private SetUpInbuildingDelegate setUpInbuildingTrampoline;
@@ -567,22 +568,37 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                var quarryGlobalIds = new List<int>(pendingAIQuarriesByGlobalId.Keys);
-                for (int index = 0; index < quarryGlobalIds.Count; index++)
+                int keyCount = pendingAIQuarriesByGlobalId.Count;
+                int[] quarryGlobalIds = pendingAIQuarryKeyBuffers.Count > 0
+                    ? pendingAIQuarryKeyBuffers.Pop()
+                    : Array.Empty<int>();
+                if (quarryGlobalIds.Length < keyCount)
+                    quarryGlobalIds = new int[keyCount];
+                // Keep the entry snapshot private even if a worker invokes a nested tick.
+                try
                 {
-                    int quarryGlobalId = quarryGlobalIds[index];
-                    try
+                    pendingAIQuarriesByGlobalId.Keys.CopyTo(quarryGlobalIds, 0);
+                    for (int index = 0; index < keyCount; index++)
                     {
-                        TryProcessPendingAIQuarry(quarryGlobalId, tick);
+                        int quarryGlobalId = quarryGlobalIds[index];
+                        try
+                        {
+                            TryProcessPendingAIQuarry(quarryGlobalId, tick);
+                        }
+                        catch (Exception ex)
+                        {
+                            // One malformed entry must not postpone the remaining quarries.
+                            pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
+                            Shared.DebugLogHelper.LogError(
+                                log,
+                                $"Bugfixes and QoL AI quarry-pile queue entry failed and was discarded: tick={tick}, quarryGlobalId={quarryGlobalId}, exception={ex}");
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        // One malformed or externally removed quarry must not postpone every other queued quarry.
-                        pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
-                        Shared.DebugLogHelper.LogError(
-                            log,
-                            $"Bugfixes and QoL AI quarry-pile queue entry failed and was discarded: tick={tick}, quarryGlobalId={quarryGlobalId}, exception={ex}");
-                    }
+                }
+                finally
+                {
+                    Array.Clear(quarryGlobalIds, 0, keyCount);
+                    pendingAIQuarryKeyBuffers.Push(quarryGlobalIds);
                 }
             }
             catch (Exception ex)

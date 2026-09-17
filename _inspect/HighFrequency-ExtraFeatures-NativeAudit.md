@@ -1,0 +1,56 @@
+# ExtraFeatures callback audit: session settings and Lord readiness
+
+Status: 2026-09-17. Market callback and Lord scheduling/basis capture review completed. The user chose persisted actual Vanilla bases and explicitly excluded legacy-save support. No reconstruction or private native reader is implemented. Final build/installation is tracked in HighFrequencyCallbackAudit.md.
+
+## Provenance
+
+- Installed canonical CrusaderDE.dll SHA-256 verified against CURRENT.json: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+- Baseline selected through CURRENT.json: `sem/FBCB9319`. All function packages below were filtered by that full native hash; query results can also contain historical functions at the same RVA.
+- Installed SHCDESE assembly version: `2.6.0.0`; canonical source commit `2cee24e33b5a5d81d1c275efabc714ac59917b7b`, tree `9cfb59b7b531553b23709b90b3cc3f10b0615cc1`, matching baseline provenance.
+- Existing `knowledge/MISSION_LIFECYCLE.md` covers new-game, save, multiplayer, failure, retirement and managed-ready boundaries. `Shared.GameplaySessionLifecycle` delivers completed starts and replay identity; initialization callbacks are not completed starts.
+
+## Market callbacks
+
+Confirmed semantic functions `0xCEB10` and `0xCEB90` index buy/sell table fields at player-manager offsets `0x1817B8/0x1817BC` by signed goods index times eight. RCX is the manager, EDX the one-based player ID, R8D goods, R9D amount. Complete helpers return signed unchecked `(basePrice / 5) * amount`; division truncates toward zero. The helpers have no writes or callees.
+
+Current semantic function boundaries identify buy callers `0x29650` (transaction) and `0x3EC90` (affordability). Negative transaction amounts are rejected; failed goods addition prevents gold subtraction. Successful purchase subtracts the helper result and records the trade. Sell transaction `0x29700` credits the returned result and removes goods. `0x3EE10` chooses surplus goods for that transaction. Sell helper callers also include `0xD78C0` and `0xD7AD0`: allied goods transfer accounting uses the price result, including human-player branches. Their goods remapping, zero/negative handling and accounting remain untouched.
+
+The curated claims' older caller ranges (`0x29000`, `0x3E000`) are not the current precise function starts. The additional allied-transfer callers must not be omitted in future audits. Internal caller names remain candidate confidence; the listed reads, branches and result consumers were inspected in the current decompiler export.
+
+The implementation captures only the configured override flag at completed session start and clears it at retirement. Pointer/player/goods guards remain before the live `IsAIPlayer` query. AI classification is not a mod setting and is deliberately not cached. Buy/sell callback bodies, amount arithmetic, exception fallback, original-call count and breadcrumbs compare exactly to the original source. No detour target, span, backend or delegate signature changes.
+
+## Lord creation and deferred readiness
+
+- Player resource array begins at player manager + `0x1343FC`, with one-based public player IDs converted once to index `playerId - 1`. Record size is `0x583C`; Lord unit/global IDs are unsigned fields at record offsets `0x21F8/0x21FC`.
+- With current manager VA `0x18366C210`, equivalent native player-zero bases are `0x18379CFC8/0x18379CFCC`. Unit IDs are one-based; native unit addressing uses the sentinel at manager + `0x65C` and stride `0x490`, not the first array element as a zero-based base.
+- Spawn `0x17FEF0` selects a free slot, returns zero on exhaustion, assigns identity and owner, calls unit initialization `0x19A240`, finishes placement and returns the unit ID. The installed-source event wrapper raises Post immediately after this return.
+- Lord owner `0xC23C0` can call the spawn helper with type `0x37`. Only AFTER the spawn returns does it publish player Lord ID/global ID, reset chores (`0x196F80`), and apply applicable AI `lord_hps_percent` to current/max health. Therefore Create Post is a dirty signal, not a safe HP-write boundary.
+- `0xCEF00` considers eligible player records 1..8 and calls that owner. It is reached from multiplayer state restoration `0x15200` and simulation work `0xD1AD0` at its cycle slot 95. Missing Lords can therefore appear after a completed managed start.
+- Existing identity checks and the native clear/recreate branches are necessary. Failed spawn has no new Lord; already matching Lord identity must not multiply again. Empty/dead slots need no continuing HP scan. A newly created Lord can mark its player again.
+- Type initialization is also called by `0x195D10` and `0x19C760`; those reset/type paths do not publish a new player Lord global ID. The previous runtime already skipped an identity it had applied, so no new guarantee about arbitrary external type/HP writes is claimed.
+
+Internal native function names above remain candidate confidence. Spawn identity is additionally tied to the unique installed-source pattern at `0x17FEF0`. The scheduler keeps the existing ten-tick application cadence, snapshots settings once per session, and performs no HP write from the Create callback.
+
+## HP-basis findings and final scope
+
+`0x19A240` reads a per-owner modifier from VA `0x183666058 + owner * 4`, applying 3/4, 5/4 or 6/4 to the default health table before storing current/max health. `0xC23C0` can subsequently apply AI profile scaling. The current Lord policy instead reconstructs maximum health from the default table, AI percentage and the global advanced enemy-HP option. That is not proof of equivalence for all campaign/player configurations.
+
+`0x197EF0`, called from skirmish `0x94350` and mission/tutorial initialization `0x100530`, rewrites healthy alive/NeedsInit units when their per-owner modifier is not 1. Its default-table reconstruction does not apply the AI Lord profile. Skirmish and selected mission branches write the per-owner table using team comparisons and difficulty; allies and enemies can therefore differ independently of the global option and public AI classification. The former approximation is removed rather than retained as a fallback.
+
+The completed save chain `0x853F0 -> 0x71670 -> 0x19A8C0 -> 0x19C300` normalizes units in alive states 1/2 when signed current HP >= maximum HP. It replaces BOTH current/max from default type HP and the per-owner modifier, then updates percentage/bar fields. Wounded units are left unchanged. `0x19A8C0` performs this even when saved/current format versions match; its other unconditional callees `0x19C130`, `0x19C090`, `0x19BD90` do not rewrite Lord HP. Subsequent `0x19A500` clears selection/movement state. The older-format migration `0x19BF70` can additionally apply AI Lord HP to equal current/max in formats <= 0xA8; it is not a universal current-save normalization step. Its gate is the same native nonzero game-state/AI-slot combination used by the create caller. These internal function names are candidate confidence; the listed branches and writes were directly inspected.
+
+More precisely, the AI profile branch in `0xC23C0` requires native state at VA `0x188574B90 != 0`, slot at `0x188574BCC + playerId*4 == -1`, and lineup at `0x188574C44 + playerId*4 != 0`. It indexes the profile selected by the player record at `0x18379D0D0 + playerId*0x583C`, then performs signed multiplication/division by 100. The native mode value can also be 99 (singleplayer skirmish); it must not simply be labelled real multiplayer. The zero-state branch skips this profile scaling. The final code reads none of these private addresses and needs no profile-index reconstruction.
+
+Spawn `0x17FEF0` initially sets alive state 1 (`NeedsInit`); `0x19A240` already fills current/max health. Final spawn callees `0x180230 -> 0x1802A0` update tile linked lists/placement and `0x18BE50` updates render offsets, not Lord HP. After the caller completes, a save can record this maximum without mutating the unit. Scheduled scaling still waits for `IsAlive` (2); NeedsInit remains pending, zero-current/dead units are terminal. This distinction was added during the final concrete-type review; the earlier fixture's two-state enum did not cover it.
+
+The ChoreManager source pattern uniquely matches RVA `0xFCED`; decoding its RIP-relative LEA from the installed PE gives VA `0x188574320`. The public advanced EnemyHPS field is at +2596868, VA `0x1887EE324`, distinct from the per-owner table. The skirmish initializer does propagate options into per-player state in some branches; equivalence must be established branch-by-branch, not inferred from matching names.
+
+User decisions resolved: correct the HP basis here, capture the actual value per Lord and persist it; older saves need not be supported. New games therefore capture the completed native maximum, including mission-specific values. Later Lords mark their actual owner/global identity from the returned unit (installed Create Post arguments can still contain pre-modification inputs). Capturing/scaling occurs outside Create Post. On save, at most eight validated player/global-ID/maximum triples are written with a bounded explicit MessagePack formatter, also covering a newly created Lord before its next scheduled tick. Saving never writes unit HP.
+
+On load, the completed managed session reads the final Script Extender archive and validates schema/identities before applying new settings to the stored basis. The archive service invokes load callbacks in both Pre and Post, so its early callbacks deliberately do not alter Lord state. Healthy native normalization preserves a full-health ratio; wounded native data supplies the existing ratio. The mod applies that ratio to the new maximum and keeps the same immutable basis for the next save. Missing/malformed payloads disable Lord adjustment for that loaded session, with a diagnostic; missing individual identities are not guessed. New games do not reuse archive bases from maps. No old approximation or legacy reconstruction remains.
+
+## Verification so far
+
+`_inspect/Test-ExtraFeaturesSessionCallbacks.ps1` compiles the actual Lord runtime/policy with controlled API doubles, plus the real save formatter against installed MessagePack assemblies. 4,552 checks cover session identity, proportional HP, actual mission/AI bases, changed settings on reload, twenty repeated loads, default 100%, healthy native normalization, wounded data, deferred/replacement Lord creation, NeedsInit retry, save-before-tick (including NeedsInit), dead/zero HP, invalid events/identities, absent/corrupt/oversized/truncated payloads, duplicate players, thrown reads, retirement and disallowed mode. Ten thousand settled ticks perform zero player/mode reads. Market guards, snapshots, reload, live AI changes and zero AI queries while disabled are checked. This is deterministic model coverage, not an in-game/Host/Client test or proof that old saves can be reconstructed. Existing HostClientPresetTests also pass.
+
+ExtraFeatures source/project and linked-source JSON/lifecycle preflight passed. No new serializer, native hook or public API was introduced. Permanent Lord subscriptions are retained through ordinary session resets; published hook ownership remains process-rooted.

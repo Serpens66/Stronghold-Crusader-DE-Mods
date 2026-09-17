@@ -497,6 +497,7 @@ namespace UnitLimit
         private void ApplyUnitLimits()
         {
             activeUnitLimits.Clear();
+            configuredRecruitmentButtons.Clear();
             Dictionary<eChimps, int> parsedLimits = ParseEnumAmounts<eChimps>(settings.UnitLimits);
             foreach (KeyValuePair<eChimps, int> entry in parsedLimits)
             {
@@ -511,6 +512,7 @@ namespace UnitLimit
                     LogDebug("Active unit limit:", entry.Key, "=", entry.Value);
             }
 
+            RebuildConfiguredRecruitmentButtons();
             LogDebug("Applied active unit limit rules:", activeUnitLimits.Count);
             RefreshCurrentUnitLimitTooltip();
         }

@@ -12,16 +12,6 @@ namespace ExtraFeatures
         public static int NormalizePercent(int percent) =>
             Math.Max(MinimumPercent, Math.Min(MaximumPercent, percent));
 
-        public static uint CalculateVanillaMaximum(
-            uint baseLordHealth,
-            int aiHealthPercent,
-            int enemyHealthPercent = DefaultPercent)
-        {
-            int normalizedAI = aiHealthPercent > 0 ? aiHealthPercent : DefaultPercent;
-            uint aiScaled = Scale(baseLordHealth, normalizedAI);
-            return Scale(aiScaled, enemyHealthPercent > 0 ? enemyHealthPercent : DefaultPercent);
-        }
-
         public static uint CalculateMaximum(uint vanillaMaximum, int settingPercent) =>
             Scale(vanillaMaximum, NormalizePercent(settingPercent));
 

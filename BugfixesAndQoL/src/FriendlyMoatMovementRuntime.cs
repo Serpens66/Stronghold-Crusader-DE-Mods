@@ -5051,146 +5051,200 @@ namespace BugfixesAndQoL
                 return BuildingConsumerFallbackResult.Rejected("invalid-command-group");
             }
 
-            List<int> diggerUnitIds = new List<int>();
-            int playerId = -1;
-            foreach (int unitId in groupUnitIds)
+            BuildingFallbackWorkBuffers work = RentBuildingFallbackWorkBuffers();
+            try
             {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
-                    unit == null || unit->r_AliveState != AliveState.IsAlive ||
-                    unit->r_TribeId != scope.TribeId || !CanDigMoat(unit))
+                List<int> diggerUnitIds = work.DiggerUnitIds;
+                int playerId = -1;
+                foreach (int unitId in groupUnitIds)
                 {
-                    continue;
-                }
-
-                int candidatePlayerId = unit->r_ControllableForPlayerId;
-                if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(candidatePlayerId))
-                    continue;
-                if (playerId < 0)
-                    playerId = candidatePlayerId;
-                if (candidatePlayerId == playerId)
-                    diggerUnitIds.Add(unitId);
-            }
-            if (diggerUnitIds.Count == 0 || playerId < 0)
-                return BuildingConsumerFallbackResult.Rejected("no-active-vanilla-digger");
-            if (!TryValidateHostileBuildingTarget(
-                    command.TargetValue1,
-                    unchecked((uint)command.TargetValue2),
-                    playerId,
-                    out GameBuilding* building))
-            {
-                return BuildingConsumerFallbackResult.Rejected("invalid-hostile-building");
-            }
-
-            BuildingConsumerPerformanceScope performance = activeBuildingConsumerPerformance;
-            if (performance != null) performance.DiggerUnits = diggerUnitIds.Count;
-            var retained = new Dictionary<int, BuildingApproachCandidate>();
-            foreach (var candidate in CaptureBuildingApproachCandidates(nativePathManager))
-                if (IsLegalBuildingCandidate(command, building, playerId, candidate))
-                    retained[candidate.ApproachTileId] = candidate;
-
-            var candidates = new List<BuildingApproachCandidate>();
-            var targets = new List<int>();
-            var pending = new List<int>();
-            var reserved = new HashSet<int>();
-            int rejected = 0;
-            foreach (var original in vanillaCandidates)
-            {
-                if (!IsLegalBuildingCandidate(command, building, playerId, original)) { rejected++; continue; }
-                var candidate = original;
-                var pos = GameTileManagerAPI.Instance.GetTileVectorFromId(candidate.ApproachTileId);
-                int cell = pos.Y * MapWidth + pos.X;
-                if (candidate.FootprintTileId != 0) reserved.Add(cell);
-                if (retained.TryGetValue(candidate.ApproachTileId, out var native) &&
-                    native.FootprintTileId == candidate.FootprintTileId && native.Score > 0 && native.Score < VanillaUnreachableCandidateScore)
-                    candidate.Score = native.Score;
-                else
-                { candidate.Score = VanillaUnreachableCandidateScore; pending.Add(candidates.Count); targets.Add(cell); }
-                candidates.Add(candidate);
-            }
-            if (performance != null) performance.ValidCandidates = candidates.Count;
-            if (pending.Count == 0 && rejected == 0)
-                return BuildingConsumerFallbackResult.NotAttempted("vanilla-usable");
-
-            int leaderId = *(short*)((byte*)tribeManager + scope.TribeId * TribeRecordSize + TribeLeadUnitIdOffset);
-            var leaderStarts = new List<int>();
-            var otherStarts = new List<int>();
-            foreach (int id in diggerUnitIds)
-            {
-                if (!GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) || unit == null) continue;
-                // The native candidate consumer uses current coordinates, not MoveHere's next-step start.
-                int x = unit->r_CurrentTilePositionX, y = unit->r_CurrentTilePositionY;
-                if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
-                int tile = GameTileManagerAPI.Instance.GetTileId(x,y);
-                if (!IsValidTileId(tile) || (IsCompletedMoatTile(tile) &&
-                    ResolveCompletedMoatRelationship(playerId,tile) != CompletedMoatRelationship.Friendly)) continue;
-                if (id == leaderId) leaderStarts.Add(y * MapWidth + x);
-                else otherStarts.Add(y * MapWidth + x);
-            }
-            if (pending.Count != 0)
-            {
-                if (RequiredOnlyMode &&
-                    !HasFastFriendlyMoatBridgeForCells(playerId, leaderStarts, targets) &&
-                    !HasFastFriendlyMoatBridgeForCells(playerId, otherStarts, targets))
-                {
-                    return BuildingConsumerFallbackResult.Rejected(
-                        "no-friendly-moat-bridge");
-                }
-                MoatCandidateField field = buildingCandidateFields.Count != 0
-                    ? buildingCandidateFields.Pop() : new MoatCandidateField(MapWidth, MapWidth);
-                MoatSearchEdge normal = (int from, int to, int d, out bool moat, out bool structure) =>
-                    BuildingCandidateEdge(playerId,from,to,d,false,false,out moat,out structure);
-                MoatSearchEdge terminal = (int from, int to, int d, out bool moat, out bool structure) =>
-                    BuildingCandidateEdge(playerId,from,to,d,true,reserved.Contains(to),out moat,out structure);
-                weightedMoatRoutePlanner.BeginReachabilityProbe();
-                try
-                {
-                    long fieldStarted = Stopwatch.GetTimestamp();
-                    int[] distances = field.Resolve(leaderStarts, targets, normal, terminal,
-                        RequiredOnlyMode ? FastSearchNodeBudget : int.MaxValue,
-                        RequiredOnlyMode ? 2000 : int.MaxValue);
-                    if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
-                    if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += field.Expanded; }
-                    var remaining = new List<int>(); var remainingIndices = new List<int>();
-                    for (int i=0;i<distances.Length;i++)
+                    if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
+                        unit == null || unit->r_AliveState != AliveState.IsAlive ||
+                        unit->r_TribeId != scope.TribeId || !CanDigMoat(unit))
                     {
-                        if (distances[i] >= 0)
-                        { var c=candidates[pending[i]]; c.Score=distances[i]+1; candidates[pending[i]]=c; }
-                        else { remaining.Add(targets[i]); remainingIndices.Add(pending[i]); }
+                        continue;
                     }
-                    if (remaining.Count != 0 && otherStarts.Count != 0)
+
+                    int candidatePlayerId = unit->r_ControllableForPlayerId;
+                    if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(candidatePlayerId))
+                        continue;
+                    if (playerId < 0)
+                        playerId = candidatePlayerId;
+                    if (candidatePlayerId == playerId)
+                        diggerUnitIds.Add(unitId);
+                }
+                if (diggerUnitIds.Count == 0 || playerId < 0)
+                    return BuildingConsumerFallbackResult.Rejected("no-active-vanilla-digger");
+                if (!TryValidateHostileBuildingTarget(
+                        command.TargetValue1,
+                        unchecked((uint)command.TargetValue2),
+                        playerId,
+                        out GameBuilding* building))
+                {
+                    return BuildingConsumerFallbackResult.Rejected("invalid-hostile-building");
+                }
+
+                BuildingConsumerPerformanceScope performance = activeBuildingConsumerPerformance;
+                if (performance != null) performance.DiggerUnits = diggerUnitIds.Count;
+                var retained = work.Retained;
+                foreach (var candidate in CaptureBuildingApproachCandidates(nativePathManager))
+                    if (IsLegalBuildingCandidate(command, building, playerId, candidate))
+                        retained[candidate.ApproachTileId] = candidate;
+
+                var candidates = work.Candidates;
+                var targets = work.Targets;
+                var pending = work.Pending;
+                var reserved = work.Reserved;
+                int rejected = 0;
+                foreach (var original in vanillaCandidates)
+                {
+                    if (!IsLegalBuildingCandidate(command, building, playerId, original)) { rejected++; continue; }
+                    var candidate = original;
+                    var pos = GameTileManagerAPI.Instance.GetTileVectorFromId(candidate.ApproachTileId);
+                    int cell = pos.Y * MapWidth + pos.X;
+                    if (candidate.FootprintTileId != 0) reserved.Add(cell);
+                    if (retained.TryGetValue(candidate.ApproachTileId, out var native) &&
+                        native.FootprintTileId == candidate.FootprintTileId && native.Score > 0 && native.Score < VanillaUnreachableCandidateScore)
+                        candidate.Score = native.Score;
+                    else
+                    { candidate.Score = VanillaUnreachableCandidateScore; pending.Add(candidates.Count); targets.Add(cell); }
+                    candidates.Add(candidate);
+                }
+                if (performance != null) performance.ValidCandidates = candidates.Count;
+                if (pending.Count == 0 && rejected == 0)
+                    return BuildingConsumerFallbackResult.NotAttempted("vanilla-usable");
+
+                int leaderId = *(short*)((byte*)tribeManager + scope.TribeId * TribeRecordSize + TribeLeadUnitIdOffset);
+                var leaderStarts = work.LeaderStarts;
+                var otherStarts = work.OtherStarts;
+                foreach (int id in diggerUnitIds)
+                {
+                    if (!GameUnitManagerAPI.Instance.TryGetUnitById(id, out GameUnit* unit) || unit == null) continue;
+                    // The native candidate consumer uses current coordinates, not MoveHere's next-step start.
+                    int x = unit->r_CurrentTilePositionX, y = unit->r_CurrentTilePositionY;
+                    if ((uint)x >= MapWidth || (uint)y >= MapWidth) continue;
+                    int tile = GameTileManagerAPI.Instance.GetTileId(x,y);
+                    if (!IsValidTileId(tile) || (IsCompletedMoatTile(tile) &&
+                        ResolveCompletedMoatRelationship(playerId,tile) != CompletedMoatRelationship.Friendly)) continue;
+                    if (id == leaderId) leaderStarts.Add(y * MapWidth + x);
+                    else otherStarts.Add(y * MapWidth + x);
+                }
+                if (pending.Count != 0)
+                {
+                    if (RequiredOnlyMode &&
+                        !HasFastFriendlyMoatBridgeForCells(playerId, leaderStarts, targets) &&
+                        !HasFastFriendlyMoatBridgeForCells(playerId, otherStarts, targets))
                     {
-                        int supplementBase=0;
-                        foreach(var c in candidates) if(c.Score<VanillaUnreachableCandidateScore) supplementBase=Math.Max(supplementBase,c.Score);
-                        fieldStarted = Stopwatch.GetTimestamp();
-                        distances = field.Resolve(otherStarts, remaining, normal, terminal,
+                        return BuildingConsumerFallbackResult.Rejected(
+                            "no-friendly-moat-bridge");
+                    }
+                    MoatCandidateField field = buildingCandidateFields.Count != 0
+                        ? buildingCandidateFields.Pop() : new MoatCandidateField(MapWidth, MapWidth);
+                    MoatSearchEdge normal = (int from, int to, int d, out bool moat, out bool structure) =>
+                        BuildingCandidateEdge(playerId,from,to,d,false,false,out moat,out structure);
+                    MoatSearchEdge terminal = (int from, int to, int d, out bool moat, out bool structure) =>
+                        BuildingCandidateEdge(playerId,from,to,d,true,reserved.Contains(to),out moat,out structure);
+                    weightedMoatRoutePlanner.BeginReachabilityProbe();
+                    try
+                    {
+                        long fieldStarted = Stopwatch.GetTimestamp();
+                        int[] distances = field.Resolve(leaderStarts, targets, normal, terminal,
                             RequiredOnlyMode ? FastSearchNodeBudget : int.MaxValue,
                             RequiredOnlyMode ? 2000 : int.MaxValue);
                         if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
                         if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += field.Expanded; }
-                        for (int i=0;i<distances.Length;i++) if (distances[i]>=0)
-                        { var c=candidates[remainingIndices[i]]; c.Score=supplementBase+distances[i]+1; candidates[remainingIndices[i]]=c; }
+                        var remaining = work.Remaining; var remainingIndices = work.RemainingIndices;
+                        for (int i=0;i<distances.Length;i++)
+                        {
+                            if (distances[i] >= 0)
+                            { var c=candidates[pending[i]]; c.Score=distances[i]+1; candidates[pending[i]]=c; }
+                            else { remaining.Add(targets[i]); remainingIndices.Add(pending[i]); }
+                        }
+                        if (remaining.Count != 0 && otherStarts.Count != 0)
+                        {
+                            int supplementBase=0;
+                            foreach(var c in candidates) if(c.Score<VanillaUnreachableCandidateScore) supplementBase=Math.Max(supplementBase,c.Score);
+                            fieldStarted = Stopwatch.GetTimestamp();
+                            distances = field.Resolve(otherStarts, remaining, normal, terminal,
+                                RequiredOnlyMode ? FastSearchNodeBudget : int.MaxValue,
+                                RequiredOnlyMode ? 2000 : int.MaxValue);
+                            if (RequiredOnlyMode) RecordFastFieldSearch(field, fieldStarted);
+                            if (performance != null) { performance.ReachabilityMapsBuilt++; performance.SearchNodes += field.Expanded; }
+                            for (int i=0;i<distances.Length;i++) if (distances[i]>=0)
+                            { var c=candidates[remainingIndices[i]]; c.Score=supplementBase+distances[i]+1; candidates[remainingIndices[i]]=c; }
+                        }
                     }
+                    finally { weightedMoatRoutePlanner.EndReachabilityProbe(); buildingCandidateFields.Push(field); }
                 }
-                finally { weightedMoatRoutePlanner.EndReachabilityProbe(); buildingCandidateFields.Push(field); }
+                // 123090 only sorts the paired prefix; null-footprint staging entries keep producer order.
+                int prefix=0;
+                while (prefix<candidates.Count && candidates[prefix].FootprintTileId!=0) prefix++;
+                for(int i=1;i<prefix;i++)
+                {
+                    var c=candidates[i]; int j=i;
+                    while(j>0 && candidates[j-1].Score>c.Score) { candidates[j]=candidates[j-1]; j--; }
+                    candidates[j]=c;
+                }
+                candidates.RemoveAll(c => c.Score >= VanillaUnreachableCandidateScore);
+                var snapshot = CaptureBuildingApproachBuffer(nativePathManager);
+                try { WriteBuildingApproachCandidates(nativePathManager,candidates); }
+                catch { RestoreBuildingApproachBuffer(nativePathManager,snapshot); throw; }
+                if (performance != null)
+                    foreach(var c in candidates) { if(c.FootprintTileId==0) performance.ApproachOnly++; else performance.AttackPlaces++; }
+                return BuildingConsumerFallbackResult.Applied(diggerUnitIds.Count,candidates.Count,0,0,0,0,rejected,default);
             }
-            // 123090 only sorts the paired prefix; null-footprint staging entries keep producer order.
-            int prefix=0;
-            while (prefix<candidates.Count && candidates[prefix].FootprintTileId!=0) prefix++;
-            for(int i=1;i<prefix;i++)
+            finally
             {
-                var c=candidates[i]; int j=i;
-                while(j>0 && candidates[j-1].Score>c.Score) { candidates[j]=candidates[j-1]; j--; }
-                candidates[j]=c;
+                ReturnBuildingFallbackWorkBuffers(work);
             }
-            candidates.RemoveAll(c => c.Score >= VanillaUnreachableCandidateScore);
-            var snapshot = CaptureBuildingApproachBuffer(nativePathManager);
-            try { WriteBuildingApproachCandidates(nativePathManager,candidates); }
-            catch { RestoreBuildingApproachBuffer(nativePathManager,snapshot); throw; }
-            if (performance != null)
-                foreach(var c in candidates) { if(c.FootprintTileId==0) performance.ApproachOnly++; else performance.AttackPlaces++; }
-            return BuildingConsumerFallbackResult.Applied(diggerUnitIds.Count,candidates.Count,0,0,0,0,rejected,default);
         }
 
+        // Scratch data only: command snapshots and native rollback buffers retain their ownership.
+        private readonly Stack<BuildingFallbackWorkBuffers> buildingFallbackWorkBuffers =
+            new Stack<BuildingFallbackWorkBuffers>();
+
+        private BuildingFallbackWorkBuffers RentBuildingFallbackWorkBuffers()
+        {
+            lock (buildingFallbackWorkBuffers)
+                return buildingFallbackWorkBuffers.Count != 0
+                    ? buildingFallbackWorkBuffers.Pop() : new BuildingFallbackWorkBuffers();
+        }
+
+        private void ReturnBuildingFallbackWorkBuffers(BuildingFallbackWorkBuffers work)
+        {
+            work.Clear();
+            lock (buildingFallbackWorkBuffers)
+                buildingFallbackWorkBuffers.Push(work);
+        }
+
+        private sealed class BuildingFallbackWorkBuffers
+        {
+            public readonly List<int> DiggerUnitIds = new List<int>();
+            public readonly Dictionary<int, BuildingApproachCandidate> Retained =
+                new Dictionary<int, BuildingApproachCandidate>();
+            public readonly List<BuildingApproachCandidate> Candidates = new List<BuildingApproachCandidate>();
+            public readonly List<int> Targets = new List<int>();
+            public readonly List<int> Pending = new List<int>();
+            public readonly HashSet<int> Reserved = new HashSet<int>();
+            public readonly List<int> LeaderStarts = new List<int>();
+            public readonly List<int> OtherStarts = new List<int>();
+            public readonly List<int> Remaining = new List<int>();
+            public readonly List<int> RemainingIndices = new List<int>();
+
+            public void Clear()
+            {
+                DiggerUnitIds.Clear();
+                Retained.Clear();
+                Candidates.Clear();
+                Targets.Clear();
+                Pending.Clear();
+                Reserved.Clear();
+                LeaderStarts.Clear();
+                OtherStarts.Clear();
+                Remaining.Clear();
+                RemainingIndices.Clear();
+            }
+        }
         private readonly Stack<MoatCandidateField> buildingCandidateFields = new Stack<MoatCandidateField>();
 
         private bool IsLegalBuildingCandidate(AttackCommandScope command, GameBuilding* building,

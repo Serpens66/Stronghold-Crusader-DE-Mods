@@ -149,6 +149,7 @@ namespace CastlePlanner
             new Dictionary<int, PreparedAivCastle>();
         private readonly SortedDictionary<int, DeferredCompoundBuildingQueue> deferredCompoundBuildings =
             new SortedDictionary<int, DeferredCompoundBuildingQueue>();
+        private readonly Stack<int[]> deferredCompoundKeyBuffers = new Stack<int[]>();
         private readonly HashSet<int> expectedAivCastlePlayers = new HashSet<int>();
         private readonly HashSet<int> failedAivCastlePlayers = new HashSet<int>();
         private readonly Dictionary<int, int> earlyUnitDiagnosticCounts =
@@ -1265,28 +1266,46 @@ namespace CastlePlanner
             if (deferredCompoundBuildings.Count == 0)
                 return;
 
-            foreach (int playerId in deferredCompoundBuildings.Keys.ToArray())
-            {
-                if (!deferredCompoundBuildings.TryGetValue(
-                        playerId,
-                        out DeferredCompoundBuildingQueue queue))
-                {
-                    continue;
-                }
+            int keyCount = deferredCompoundBuildings.Count;
+            int[] playerIds = deferredCompoundKeyBuffers.Count > 0
+                ? deferredCompoundKeyBuffers.Pop()
+                : Array.Empty<int>();
+            if (playerIds.Length < keyCount)
+                playerIds = new int[keyCount];
 
-                try
+            // A nested tick owns another buffer; callbacks cannot overwrite this snapshot.
+            try
+            {
+                deferredCompoundBuildings.Keys.CopyTo(playerIds, 0);
+                for (int index = 0; index < keyCount; index++)
                 {
-                    if (ProcessDeferredCompoundBuilding(queue, tick))
+                    int playerId = playerIds[index];
+                    if (!deferredCompoundBuildings.TryGetValue(
+                            playerId,
+                            out DeferredCompoundBuildingQueue queue))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        if (ProcessDeferredCompoundBuilding(queue, tick))
+                            deferredCompoundBuildings.Remove(playerId);
+                    }
+                    catch (Exception ex)
+                    {
                         deferredCompoundBuildings.Remove(playerId);
+                        Shared.DebugLogHelper.LogError(
+                            log,
+                            $"Deferred compound-building queue aborted after an exception: " +
+                            $"playerId={playerId}, tick={tick}, error={ex}.");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    deferredCompoundBuildings.Remove(playerId);
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Deferred compound-building queue aborted after an exception: " +
-                        $"playerId={playerId}, tick={tick}, error={ex}.");
-                }
+            }
+            finally
+            {
+                Array.Clear(playerIds, 0, keyCount);
+                deferredCompoundKeyBuffers.Push(playerIds);
             }
         }
 

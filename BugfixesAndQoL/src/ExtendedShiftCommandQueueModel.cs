@@ -521,6 +521,25 @@ namespace BugfixesAndQoL
 
         public IEnumerable<QueueCommand> PendingCommands => pending;
 
+        internal bool HasSamePendingCommands(TribeQueueState other)
+        {
+            if (other == null || pending.Count != other.pending.Count)
+                return false;
+            // Concrete Queue enumerators are value types; no array snapshots or boxing.
+            using (Queue<QueueCommand>.Enumerator left = pending.GetEnumerator())
+            using (Queue<QueueCommand>.Enumerator right = other.pending.GetEnumerator())
+            {
+                while (left.MoveNext())
+                {
+                    if (!right.MoveNext() ||
+                        !(ReferenceEquals(left.Current, right.Current) ||
+                          (left.Current != null && left.Current.HasSamePayload(right.Current))))
+                        return false;
+                }
+            }
+            return true;
+        }
+
         public bool TryEnqueue(QueueCommand command)
         {
             return TryEnqueue(command, out _);

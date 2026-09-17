@@ -58,10 +58,18 @@ namespace APIShared
         private static readonly MethodInfo GroupSpriteMethod = RequireMethod(typeof(HUD_ControlGroups), "GetTroopSprite", new[] { typeof(int) });
 
         private readonly object sync = new object();
+        private readonly Stack<HudWorkBuffers> hudBufferPool = new Stack<HudWorkBuffers>();
+        private static readonly UnitHudImageSlot[] ImageSlots = (UnitHudImageSlot[])Enum.GetValues(typeof(UnitHudImageSlot));
         private readonly List<CategoryRegistration> categories = new List<CategoryRegistration>();
         private readonly List<InteractionRegistration> interactions = new List<InteractionRegistration>();
         private readonly List<ImageRegistration> imageOverrides = new List<ImageRegistration>();
         private readonly List<RecruitmentRegistration> recruitment = new List<RecruitmentRegistration>();
+        // Immutable internal views are replaced only while holding sync; consumers never receive them.
+        private CategoryRegistration[] categoryView = Array.Empty<CategoryRegistration>();
+        private InteractionRegistration[] interactionView = Array.Empty<InteractionRegistration>();
+        private ImageRegistration[] imageView = Array.Empty<ImageRegistration>();
+        private readonly Dictionary<int, RecruitmentRegistration[]> recruitmentViews =
+            new Dictionary<int, RecruitmentRegistration[]>();
         private readonly HashSet<string> loggedCategoryConflicts = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> loggedCallbackFailures = new HashSet<string>(StringComparer.Ordinal);
         private readonly ManualLogSource log;
@@ -249,6 +257,7 @@ namespace APIShared
                     return Fail("The owner already registered this category ID.", out diagnostic);
                 categories.Add(new CategoryRegistration(owner, definition, matcher));
                 SortRegistrations();
+                categoryView = categories.ToArray();
                 refreshRequested = true;
             }
             diagnostic = Available("Category registered for the process lifetime.");
@@ -265,6 +274,7 @@ namespace APIShared
                     return Fail("The owner already registered this interaction ID.", out diagnostic);
                 interactions.Add(new InteractionRegistration(owner, id, handler));
                 interactions.Sort((a, b) => Compare(a.Owner, a.Id, b.Owner, b.Id));
+                interactionView = interactions.ToArray();
             }
             diagnostic = Available("Interaction observer registered for the process lifetime.");
             return true;
@@ -284,6 +294,7 @@ namespace APIShared
                     int result = a.Definition.Priority.CompareTo(b.Definition.Priority);
                     return result != 0 ? result : Compare(a.Owner, a.Definition.OverrideId, b.Owner, b.Definition.OverrideId);
                 });
+                imageView = imageOverrides.ToArray();
                 refreshRequested = true;
             }
             diagnostic = Available("Image override registered for the process lifetime.");
@@ -309,6 +320,8 @@ namespace APIShared
                     int result = a.Category.Definition.Order.CompareTo(b.Category.Definition.Order);
                     return result != 0 ? result : StringComparer.Ordinal.Compare(a.Category.Key, b.Category.Key);
                 });
+                int baseType = category.Definition.BaseUnitType;
+                recruitmentViews[baseType] = recruitment.Where(x => x.Category.Definition.BaseUnitType == baseType).ToArray();
                 refreshRequested = true;
             }
             diagnostic = Available("Recruitment variant registered for the process lifetime.");
@@ -368,58 +381,68 @@ namespace APIShared
 
         private void RenderTroopCategories(HUD_Troops panel)
         {
-            EnsureCategoryButtons(panel);
-            int[] vanillaCounts = SelectedCountsField.GetValue(panel) as int[];
-            TranslateTransform[] positions = TroopPositionsField.GetValue(panel) as TranslateTransform[];
-            if (vanillaCounts == null || positions == null || positions.Length < TroopSlotCount)
-                throw new InvalidOperationException("Vanilla troop HUD fields have an unexpected layout.");
-
-            bool selectionComplete = TryCaptureSelectedUnits(out List<UnitHudUnitSnapshot> selected);
-            List<DisplayEntry> entries = BuildEntries(selected, vanillaCounts, selectionComplete, UnitHudSurface.TroopSelection);
-            int pages = Math.Max(1, (entries.Count + TroopSlotCount - 1) / TroopSlotCount);
-            int page = Math.Max(0, Math.Min((int)CurrentPageField.GetValue(panel), pages - 1));
-            PagesField.SetValue(panel, pages);
-            CurrentPageField.SetValue(panel, page);
-            SelectedTypeCountField.SetValue(panel, entries.Count);
-            panel.HideAllSelectedTroops();
-            panel.HideAllSelectedTroopsNumbers();
-            HideCategoryButtons();
-            SetPageButtons(panel, page, pages);
-
-            var snapshots = new List<UnitHudSlotSnapshot>();
-            for (int slot = 0; slot < TroopSlotCount; slot++)
+            HudWorkBuffers buffers = RentHudBuffers();
+            try
             {
-                int index = page * TroopSlotCount + slot;
-                if (index >= entries.Count) break;
-                DisplayEntry entry = entries[index];
-                if (entry.Category == null)
+                EnsureCategoryButtons(panel);
+                int[] vanillaCounts = SelectedCountsField.GetValue(panel) as int[];
+                TranslateTransform[] positions = TroopPositionsField.GetValue(panel) as TranslateTransform[];
+                if (vanillaCounts == null || positions == null || positions.Length < TroopSlotCount)
+                    throw new InvalidOperationException("Vanilla troop HUD fields have an unexpected layout.");
+
+                List<UnitHudUnitSnapshot> selected = buffers.Selected;
+                bool selectionComplete = TryCaptureSelectedUnits(selected, buffers.Seen);
+                List<DisplayEntry> entries = BuildEntries(selected, vanillaCounts, selectionComplete, UnitHudSurface.TroopSelection, buffers);
+                int pages = Math.Max(1, (entries.Count + TroopSlotCount - 1) / TroopSlotCount);
+                int page = Math.Max(0, Math.Min((int)CurrentPageField.GetValue(panel), pages - 1));
+                PagesField.SetValue(panel, pages);
+                CurrentPageField.SetValue(panel, page);
+                SelectedTypeCountField.SetValue(panel, entries.Count);
+                panel.HideAllSelectedTroops();
+                panel.HideAllSelectedTroopsNumbers();
+                HideCategoryButtons();
+                SetPageButtons(panel, page, pages);
+
+                List<UnitHudSlotSnapshot> snapshots = buffers.Slots;
+                for (int slot = 0; slot < TroopSlotCount; slot++)
                 {
-                    positions[slot].Y = panel.SetSelectedTroopVisible(entry.VanillaType);
-                    panel.SetSelectedTroopPosition(entry.VanillaType, slot);
-                    snapshots.Add(new UnitHudSlotSnapshot(slot, entry.VanillaType, null));
+                    int index = page * TroopSlotCount + slot;
+                    if (index >= entries.Count) break;
+                    DisplayEntry entry = entries[index];
+                    if (entry.Category == null)
+                    {
+                        positions[slot].Y = panel.SetSelectedTroopVisible(entry.VanillaType);
+                        panel.SetSelectedTroopPosition(entry.VanillaType, slot);
+                        snapshots.Add(new UnitHudSlotSnapshot(slot, entry.VanillaType, null));
+                    }
+                    else
+                    {
+                        Grid host = categoryHosts[slot];
+                        Button button = categoryButtons[slot];
+                        button.Tag = entry.Category.Key;
+                        button.ToolTip = ResolveText(entry.Category, UnitHudTextKind.DisplayName);
+                        host.RenderTransform = positions[slot];
+                        ImageSource source = ResolveCategoryImage(entry.Category, UnitHudSurface.TroopSelection, panel);
+                        ApplyTroopButtonImages(button, entry.Category, panel, source);
+                        ApplyTint(categoryTints[slot], entry.Category.Definition.Tint, source);
+                        host.Visibility = Visibility.Visible;
+                        UnitHudCategorySnapshot snapshot = Snapshot(entry.Category, entry.Units);
+                        snapshots.Add(new UnitHudSlotSnapshot(slot, -1, snapshot));
+                    }
+                    panel.ShowSelectedTroopsNumber(slot, entry.Count);
                 }
-                else
+                lock (sync)
                 {
-                    Grid host = categoryHosts[slot];
-                    Button button = categoryButtons[slot];
-                    button.Tag = entry.Category.Key;
-                    button.ToolTip = ResolveText(entry.Category, UnitHudTextKind.DisplayName);
-                    host.RenderTransform = positions[slot];
-                    ImageSource source = ResolveCategoryImage(entry.Category, UnitHudSurface.TroopSelection, panel);
-                    ApplyTroopButtonImages(button, entry.Category, panel, source);
-                    ApplyTint(categoryTints[slot], entry.Category.Definition.Tint, source);
-                    host.Visibility = Visibility.Visible;
-                    UnitHudCategorySnapshot snapshot = Snapshot(entry.Category, entry.Units);
-                    snapshots.Add(new UnitHudSlotSnapshot(slot, -1, snapshot));
+                    visibleSlots.Clear();
+                    visibleSlots.AddRange(snapshots);
                 }
-                panel.ShowSelectedTroopsNumber(slot, entry.Count);
+                RememberRenderedTroopSelection();
             }
-            lock (sync)
+            finally
             {
-                visibleSlots.Clear();
-                visibleSlots.AddRange(snapshots);
+                buffers.Clear();
+                lock (sync) hudBufferPool.Push(buffers);
             }
-            RememberRenderedTroopSelection();
         }
 
         private static void ApplyTint(Border target, UnitHudTint tint, ImageSource source)
@@ -743,13 +766,14 @@ namespace APIShared
         private void ApplyImageOverrides(MainViewModel self, int colour, bool arabic)
         {
             ImageRegistration[] registrations;
-            lock (sync) registrations = imageOverrides.ToArray();
-            foreach (UnitHudImageSlot slot in Enum.GetValues(typeof(UnitHudImageSlot)))
+            lock (sync) registrations = imageView;
+            foreach (UnitHudImageSlot slot in ImageSlots)
             {
                 ImageSource vanilla = GetImage(self, slot);
                 ImageSource current = vanilla;
-                foreach (ImageRegistration registration in registrations.Where(x => x.Definition.Slot == slot))
+                foreach (ImageRegistration registration in registrations)
                 {
+                    if (registration.Definition.Slot != slot) continue;
                     try
                     {
                         ImageSource next = registration.Resolver(new UnitHudImageOverrideContext(colour, arabic, slot, vanilla, current));
@@ -940,7 +964,7 @@ namespace APIShared
 
         private RecruitmentRegistration[] RecruitmentCopy(int baseType)
         {
-            lock (sync) return recruitment.Where(x => x.Category.Definition.BaseUnitType == baseType).ToArray();
+            lock (sync) return recruitmentViews.TryGetValue(baseType, out RecruitmentRegistration[] view) ? view : Array.Empty<RecruitmentRegistration>();
         }
 
         private void ApplyUnitDetails(MainViewModel main)
@@ -1064,16 +1088,18 @@ namespace APIShared
             List<UnitHudUnitSnapshot> selected,
             int[] vanillaCounts,
             bool selectionComplete,
-            UnitHudSurface surface)
+            UnitHudSurface surface,
+            HudWorkBuffers buffers)
         {
-            var claimed = new Dictionary<string, List<UnitHudUnitSnapshot>>(StringComparer.Ordinal);
-            var claimedIds = new HashSet<int>();
-            var reduction = new int[vanillaCounts.Length];
+            Dictionary<string, List<UnitHudUnitSnapshot>> claimed = buffers.Grouped;
+            HashSet<int> claimedIds = buffers.ClaimedIds;
+            if (buffers.Reduction.Length != vanillaCounts.Length) buffers.Reduction = new int[vanillaCounts.Length];
+            int[] reduction = buffers.Reduction;
             foreach (UnitHudUnitSnapshot unit in selected)
             {
                 CategoryRegistration category = Classify(unit, surface);
                 if (category == null) continue;
-                if (!claimed.TryGetValue(category.Key, out List<UnitHudUnitSnapshot> list)) claimed[category.Key] = list = new List<UnitHudUnitSnapshot>();
+                if (!claimed.TryGetValue(category.Key, out List<UnitHudUnitSnapshot> list)) claimed[category.Key] = list = buffers.RentGroup();
                 list.Add(unit);
                 claimedIds.Add(unit.GameId);
                 if (unit.VanillaType >= 0 && unit.VanillaType < reduction.Length) reduction[unit.VanillaType]++;
@@ -1082,8 +1108,10 @@ namespace APIShared
                 vanillaCounts,
                 selected,
                 claimedIds,
-                selectionComplete);
-            var result = new List<DisplayEntry>();
+                selectionComplete,
+                buffers.EffectiveCounts);
+            buffers.EffectiveCounts = effectiveCounts;
+            List<DisplayEntry> result = buffers.Entries;
             CategoryRegistration[] registrations = CategoryCopy();
             for (int type = 0; type < effectiveCounts.Length; type++)
             {
@@ -1091,8 +1119,9 @@ namespace APIShared
                     ? effectiveCounts[type]
                     : Math.Max(0, effectiveCounts[type] - reduction[type]);
                 if (normal > 0) result.Add(new DisplayEntry(type, normal));
-                foreach (CategoryRegistration category in registrations.Where(x => x.Definition.BaseUnitType == type && HasSurface(x, surface)))
-                    if (claimed.TryGetValue(category.Key, out List<UnitHudUnitSnapshot> units) && units.Count > 0) result.Add(new DisplayEntry(category, units));
+                foreach (CategoryRegistration category in registrations)
+                    if (category.Definition.BaseUnitType == type && HasSurface(category, surface) &&
+                        claimed.TryGetValue(category.Key, out List<UnitHudUnitSnapshot> units) && units.Count > 0) result.Add(new DisplayEntry(category, units));
             }
             return result;
         }
@@ -1106,13 +1135,19 @@ namespace APIShared
         private static bool TryCaptureSelectedUnits(out List<UnitHudUnitSnapshot> result)
         {
             result = new List<UnitHudUnitSnapshot>();
+            return TryCaptureSelectedUnits(result, new HashSet<int>());
+        }
+
+        private static bool TryCaptureSelectedUnits(List<UnitHudUnitSnapshot> result, HashSet<int> seen)
+        {
+            result.Clear();
+            seen.Clear();
             EngineInterface.PlayState state = GameData.Instance?.lastGameState;
             if (state == null || state.numSelectedChimps < 0 || state.selectedChimps == null ||
                 state.selectedChimpTypes == null || state.selectedChimps.Length < state.numSelectedChimps ||
                 state.selectedChimpTypes.Length < state.numSelectedChimps)
                 return false;
             int count = state.numSelectedChimps;
-            var seen = new HashSet<int>();
             for (int i = 0; i < count; i++)
             {
                 int unitId = state.selectedChimps[i];
@@ -1144,8 +1179,11 @@ namespace APIShared
                 hasRenderedTroopSelection = false;
                 return;
             }
-            lastTroopSelectionIds = new int[count];
-            lastTroopSelectionTypes = new int[count];
+            if (lastTroopSelectionIds.Length != count)
+            {
+                lastTroopSelectionIds = new int[count];
+                lastTroopSelectionTypes = new int[count];
+            }
             Array.Copy(sourceIds, lastTroopSelectionIds, count);
             Array.Copy(sourceTypes, lastTroopSelectionTypes, count);
             hasRenderedTroopSelection = true;
@@ -1206,21 +1244,34 @@ namespace APIShared
         private bool HasDerivedCategory(int type) => CategoryCopy().Any(x => x.Definition.BaseUnitType == type && HasSurface(x, UnitHudSurface.TroopSelection));
         private bool HasCategories(UnitHudSurface surface) => CategoryCopy().Any(x => HasSurface(x, surface));
         private static bool HasSurface(CategoryRegistration category, UnitHudSurface surface) => (category.Definition.Surfaces & surface) != 0;
-        private CategoryRegistration[] CategoryCopy() { lock (sync) return categories.ToArray(); }
+        private CategoryRegistration[] CategoryCopy() { lock (sync) return categoryView; }
         private CategoryRegistration GetCategory(string key) => CategoryCopy().FirstOrDefault(x => x.Key == key);
-        private UnitHudCategorySnapshot Snapshot(CategoryRegistration category, IList<UnitHudUnitSnapshot> units) => new UnitHudCategorySnapshot(category.Owner, category.Definition.CategoryId, ResolveText(category, UnitHudTextKind.DisplayName), units.ToArray());
+        private UnitHudCategorySnapshot Snapshot(CategoryRegistration category, IReadOnlyList<UnitHudUnitSnapshot> units) => new UnitHudCategorySnapshot(category.Owner, category.Definition.CategoryId, ResolveText(category, UnitHudTextKind.DisplayName), units);
 
         private IReadOnlyList<UnitHudCategorySnapshot> CaptureSelectedCategories()
         {
-            var grouped = new Dictionary<string, List<UnitHudUnitSnapshot>>(StringComparer.Ordinal);
-            foreach (UnitHudUnitSnapshot unit in CaptureSelectedUnits())
+            HudWorkBuffers buffers = RentHudBuffers();
+            try
             {
-                CategoryRegistration category = Classify(unit, UnitHudSurface.TroopSelection);
-                if (category == null) continue;
-                if (!grouped.TryGetValue(category.Key, out List<UnitHudUnitSnapshot> items)) grouped[category.Key] = items = new List<UnitHudUnitSnapshot>();
-                items.Add(unit);
+                Dictionary<string, List<UnitHudUnitSnapshot>> grouped = buffers.Grouped;
+                TryCaptureSelectedUnits(buffers.Selected, buffers.Seen);
+                foreach (UnitHudUnitSnapshot unit in buffers.Selected)
+                {
+                    CategoryRegistration category = Classify(unit, UnitHudSurface.TroopSelection);
+                    if (category == null) continue;
+                    if (!grouped.TryGetValue(category.Key, out List<UnitHudUnitSnapshot> items)) grouped[category.Key] = items = buffers.RentGroup();
+                    items.Add(unit);
+                }
+                foreach (CategoryRegistration category in CategoryCopy())
+                    if (grouped.TryGetValue(category.Key, out List<UnitHudUnitSnapshot> units))
+                        buffers.Categories.Add(Snapshot(category, units));
+                return buffers.Categories.ToArray();
             }
-            return CategoryCopy().Where(x => grouped.ContainsKey(x.Key)).Select(x => Snapshot(x, grouped[x.Key])).ToArray();
+            finally
+            {
+                buffers.Clear();
+                lock (sync) hudBufferPool.Push(buffers);
+            }
         }
 
         private IReadOnlyList<UnitHudControlGroupSnapshot> CaptureControlGroups()
@@ -1243,7 +1294,7 @@ namespace APIShared
                             members.Add(unit);
                         }
                     }
-                    result.Add(new UnitHudControlGroupSnapshot(group, members.ToArray()));
+                    result.Add(new UnitHudControlGroupSnapshot(group, members));
                 }
                 return result;
             }
@@ -1298,7 +1349,7 @@ namespace APIShared
 
         private void NotifyInteraction(UnitHudInteractionContext context)
         {
-            InteractionRegistration[] copy; lock (sync) copy = interactions.ToArray();
+            InteractionRegistration[] copy; lock (sync) copy = interactionView;
             foreach (InteractionRegistration item in copy) try { item.Handler(context); } catch (Exception ex) { LogCallbackFailure("interaction " + item.Owner + ":" + item.Id, ex); }
         }
 
@@ -1448,13 +1499,56 @@ namespace APIShared
             public void RequestRefresh() { lock (service.sync) service.refreshRequested = true; }
         }
 
+        private HudWorkBuffers RentHudBuffers()
+        {
+            lock (sync) return hudBufferPool.Count == 0 ? new HudWorkBuffers() : hudBufferPool.Pop();
+        }
+
+        // A callback may reenter the service. Never share a live workspace between calls,
+        // and copy public snapshots before clearing these internal lists.
+        private sealed class HudWorkBuffers
+        {
+            internal readonly List<UnitHudUnitSnapshot> Selected = new List<UnitHudUnitSnapshot>();
+            internal readonly HashSet<int> Seen = new HashSet<int>();
+            internal readonly HashSet<int> ClaimedIds = new HashSet<int>();
+            internal readonly Dictionary<string, List<UnitHudUnitSnapshot>> Grouped =
+                new Dictionary<string, List<UnitHudUnitSnapshot>>(StringComparer.Ordinal);
+            internal readonly List<DisplayEntry> Entries = new List<DisplayEntry>();
+            internal readonly List<UnitHudSlotSnapshot> Slots = new List<UnitHudSlotSnapshot>();
+            internal readonly List<UnitHudCategorySnapshot> Categories = new List<UnitHudCategorySnapshot>();
+            internal int[] Reduction = Array.Empty<int>();
+            internal int[] EffectiveCounts = Array.Empty<int>();
+            private readonly Stack<List<UnitHudUnitSnapshot>> groupPool = new Stack<List<UnitHudUnitSnapshot>>();
+
+            internal List<UnitHudUnitSnapshot> RentGroup() =>
+                groupPool.Count == 0 ? new List<UnitHudUnitSnapshot>() : groupPool.Pop();
+
+            internal void Clear()
+            {
+                foreach (List<UnitHudUnitSnapshot> group in Grouped.Values)
+                {
+                    group.Clear();
+                    groupPool.Push(group);
+                }
+                Grouped.Clear();
+                Selected.Clear();
+                Seen.Clear();
+                ClaimedIds.Clear();
+                Entries.Clear();
+                Slots.Clear();
+                Categories.Clear();
+                Array.Clear(Reduction, 0, Reduction.Length);
+                Array.Clear(EffectiveCounts, 0, EffectiveCounts.Length);
+            }
+        }
+
         private sealed class CategoryRegistration
         {
-            internal CategoryRegistration(string owner, UnitHudCategoryDefinition definition, UnitHudCategoryMatcher matcher) { Owner = owner; Definition = definition; Matcher = matcher; }
+            internal CategoryRegistration(string owner, UnitHudCategoryDefinition definition, UnitHudCategoryMatcher matcher) { Owner = owner; Definition = definition; Matcher = matcher; Key = owner + ":" + definition.CategoryId; }
             internal string Owner { get; }
             internal UnitHudCategoryDefinition Definition { get; }
             internal UnitHudCategoryMatcher Matcher { get; }
-            internal string Key => Owner + ":" + Definition.CategoryId;
+            internal string Key { get; }
         }
         private sealed class InteractionRegistration
         {
@@ -1496,10 +1590,13 @@ namespace APIShared
             int[] vanillaCounts,
             IReadOnlyList<UnitHudUnitSnapshot> selected,
             ISet<int> claimedUnitIds,
-            bool selectionComplete)
+            bool selectionComplete,
+            int[] reusableCounts = null)
         {
             if (vanillaCounts == null) throw new ArgumentNullException(nameof(vanillaCounts));
-            var result = (int[])vanillaCounts.Clone();
+            int[] result = reusableCounts != null && reusableCounts.Length == vanillaCounts.Length
+                ? reusableCounts : new int[vanillaCounts.Length];
+            Array.Copy(vanillaCounts, result, vanillaCounts.Length);
             if (!selectionComplete || selected == null || claimedUnitIds == null)
                 return result;
             Array.Clear(result, 0, result.Length);

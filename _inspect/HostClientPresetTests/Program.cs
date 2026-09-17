@@ -2963,13 +2963,11 @@ internal static class Program
         Check(LordHealthMultiplierPolicy.NormalizePercent(900) == 500,
             "Lord health percentage did not clamp to 500%");
 
-        uint humanVanilla = LordHealthMultiplierPolicy.CalculateVanillaMaximum(2000, 100);
-        uint weakAI = LordHealthMultiplierPolicy.CalculateVanillaMaximum(2000, 50);
-        uint strongAI = LordHealthMultiplierPolicy.CalculateVanillaMaximum(2000, 180);
-        Check(humanVanilla == 2000 && weakAI == 1000 && strongAI == 3600,
-            "Vanilla AI Lord health differences were not preserved");
-        Check(LordHealthMultiplierPolicy.CalculateVanillaMaximum(2000, 180, 125) == 4500,
-            "Vanilla enemy-health option was not retained in the AI Lord baseline");
+        // The runtime now captures these values after native initialization. The pure
+        // policy must not reconstruct them from incomplete global option/AI data.
+        uint humanVanilla = 2000;
+        uint weakAI = 1000;
+        uint strongAI = 3600;
         Check(LordHealthMultiplierPolicy.CalculateMaximum(weakAI, 200) == 2000 &&
               LordHealthMultiplierPolicy.CalculateMaximum(strongAI, 200) == 7200,
             "AI Lord multiplier flattened individual Vanilla health values");

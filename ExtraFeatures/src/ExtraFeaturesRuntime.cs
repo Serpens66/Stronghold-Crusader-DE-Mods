@@ -100,6 +100,7 @@ namespace ExtraFeatures
             // Local lifecycle setup does not require a functioning custom packet group.
             TryRunFeature("gatehouse automation lifecycle", gatehouseAutomationRuntime.Initialize);
             TryRunFeature("AI defense repair lifecycle", aiDefenseRepairRuntime.Initialize);
+            TryRunFeature("Lord health lifecycle", lordHealthRuntime.Initialize);
         }
 
         public void InitializeNative(CrusaderLibraryLoadContext context, bool isFixedLayoutHashValidated)
@@ -185,7 +186,8 @@ namespace ExtraFeatures
             try
             {
                 aiMarketVanillaPriceHook = new AIMarketVanillaPriceHook(
-                    log, settings, libraryHandle, nativeRegion, GetNativeLibraryMemory(), fixedLayoutHashValidated);
+                    log, libraryHandle, nativeRegion, GetNativeLibraryMemory(), fixedLayoutHashValidated);
+                CaptureAIMarketSessionSettings();
                 if (!fixedLayoutHashValidated)
                 {
                     Shared.DebugLogHelper.LogWarning(
@@ -269,7 +271,7 @@ namespace ExtraFeatures
                 TryRunFeature("event subscription cleanup", subscription.Dispose);
             subscriptions.Clear();
             TryRunFeature("knight mount/dismount cleanup", knightDismountRuntime.Dispose);
-            TryRunFeature("Lord health cleanup", lordHealthRuntime.Dispose);
+            TryRunFeature("Lord health cleanup", lordHealthRuntime.ResetMapState);
             ClearResourceEventGuards();
             pendingStockpileRefund = null;
             hooksSubscribed = false;
@@ -438,6 +440,8 @@ namespace ExtraFeatures
             if (!allowed)
             {
                 mapActive = false;
+                aiMarketVanillaPriceHook?.SetSessionOverride(false);
+                lordHealthRuntime.ResetMapState();
                 ClearResourceEventGuards();
                 pendingStockpileRefund = null;
                 multiplayerFeatureGate.Reset();
@@ -522,7 +526,13 @@ namespace ExtraFeatures
 
             ApplyMapLoadedSettings(context.IsEditor);
 
-            TryRunFeature("Lord health map initialization", ReconcileLordHealthRuntime);
+            CaptureAIMarketSessionSettings();
+            TryRunFeature("Lord health map initialization", () =>
+            {
+                ReconcileLordHealthRuntime();
+                if (Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
+                    lordHealthRuntime.BeginMap(context.SessionId, context.IsLoadedSave);
+            });
 
             TryRunFeature("knight mount/dismount visibility", knightDismountRuntime.RefreshButtonVisibility);
             if (!context.IsLoadedSave && !context.IsEditor && !context.IsReplay)
@@ -658,18 +668,22 @@ namespace ExtraFeatures
 
         private void ReconcileLordHealthRuntime()
         {
-            bool enabled = Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
-                (settings.HumanLordHealthPercent != LordHealthMultiplierPolicy.DefaultPercent ||
-                 settings.AILordHealthPercent != LordHealthMultiplierPolicy.DefaultPercent);
-            if (!enabled)
+            if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
-                lordHealthRuntime.Dispose();
+                lordHealthRuntime.ResetMapState();
                 return;
             }
 
+            // Keep subscriptions rooted; only a completed session start captures settings.
+            // Default percentages also restore recorded Vanilla bases on save reload.
             lordHealthRuntime.Initialize();
-            if (mapActive)
-                lordHealthRuntime.BeginMap();
+        }
+
+        private void CaptureAIMarketSessionSettings()
+        {
+            aiMarketVanillaPriceHook?.SetSessionOverride(mapActive &&
+                Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod) &&
+                !settings.MarketPricesAlsoForAI);
         }
 
         private unsafe ReadOnlySpan<byte> GetNativeLibraryMemory()
@@ -682,6 +696,7 @@ namespace ExtraFeatures
         {
             RestoreCampfirePeasantsCap();
             lordHealthRuntime.ResetMapState();
+            aiMarketVanillaPriceHook?.SetSessionOverride(false);
             mapActive = false;
             ClearResourceEventGuards();
             multiplayerFeatureGate.Reset();

@@ -288,6 +288,9 @@ namespace BugfixesAndQoL
         {
             if (!mapActive || !correctionAvailable)
                 return;
+            // No herd and no managed player means there is no reconciliation or diagnosis work.
+            if (herds.Count == 0 && managedPlayerIds.Count == 0)
+                return;
 
             try
             {

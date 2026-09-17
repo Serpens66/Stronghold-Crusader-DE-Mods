@@ -1,7 +1,10 @@
-// Feature: Applies the lobby-selected Lord health multipliers after Vanilla initialization.
+// Capture completed Vanilla Lord health once; retain that basis across save/load cycles.
 using BepInEx.Logging;
-using CrusaderDE;
+using R3;
 using SHCDESE.API;
+using SHCDESE.API.Components.SaveData;
+using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -11,17 +14,23 @@ namespace ExtraFeatures
 {
     internal sealed unsafe class LordHealthRuntime : IDisposable
     {
+        internal const string SaveDataIdentifier = "ExtraFeatures.LordHealth.v1";
+        private const string ArchiveFileName = "_SE_ModData_" + SaveDataIdentifier + ".msgpack";
         private const int FirstPlayerId = 1;
         private const int LastPlayerId = 8;
         private const int ScanTickInterval = 10;
-
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
-        private readonly Dictionary<int, uint> appliedLordGlobalIds = new Dictionary<int, uint>();
-        private readonly HashSet<int> warnedPlayers = new HashSet<int>();
-
+        private readonly LordHealthBasis[] bases = new LordHealthBasis[9];
+        private readonly uint[] appliedGlobalIds = new uint[9];
+        private readonly uint[] createdGlobalIds = new uint[9];
+        private IDisposable unitCreatedSubscription;
+        private int pendingPlayersMask;
+        private int warnedPlayersMask;
+        private long sessionId;
         private bool initialized;
         private bool mapActive;
+        private bool loadedSave;
         private int humanPercent = LordHealthMultiplierPolicy.DefaultPercent;
         private int aiPercent = LordHealthMultiplierPolicy.DefaultPercent;
 
@@ -33,123 +42,88 @@ namespace ExtraFeatures
 
         public void Initialize()
         {
-            if (initialized)
-                return;
-
+            if (initialized) return;
+            unitCreatedSubscription = UnitR3EventHooks.OnUnitCreate.Observable.Subscribe(OnUnitCreated);
+            // Archive callbacks run in Pre and Post, before managed initialization is
+            // complete. BeginMap reads the final archive instead of applying early data.
+            if (!ModSaveDataAPI.Instance.RegisterModDataHandler(SaveDataIdentifier, SaveState, IgnoreEarlyLoad))
+            {
+                unitCreatedSubscription.Dispose();
+                unitCreatedSubscription = null;
+                throw new InvalidOperationException("Lord health save-data registration failed.");
+            }
             GameTimeManagerAPI.Instance.OnTick += OnGameTick;
             initialized = true;
         }
 
-        public void BeginMap()
-        {
-            if (!IsFeatureModeAllowed())
-            {
-                ResetMapState();
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Extra Features Lord health remains inactive in the map editor.");
-                return;
-            }
+        private static void IgnoreEarlyLoad(byte[] bytes, LoadContext context) { }
 
+        public void BeginMap(long newSessionId, bool isLoadedSave)
+        {
+            if (sessionId == newSessionId) return;
+            ResetMapState();
+            sessionId = newSessionId;
+            if (!IsFeatureModeAllowed()) return;
+            loadedSave = isLoadedSave;
+            if (loadedSave)
+            {
+                try
+                {
+                    byte[] bytes = GameMapArchiveManagerAPI.Instance.TryReadBinaryFile(ArchiveFileName, ignoreCase: true);
+                    if (bytes == null || bytes.Length == 0)
+                    {
+                        Shared.DebugLogHelper.LogWarning(log,
+                            "Extra Features Lord health inactive: this save has no recorded Vanilla HP basis. Legacy saves are not supported.");
+                        return;
+                    }
+                    LordHealthSaveState state = LordHealthSaveState.Decode(bytes);
+                    foreach (LordHealthBasis basis in state.Records) bases[basis.PlayerId] = basis;
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(log, $"Extra Features Lord health inactive: invalid saved HP basis: {ex}");
+                    return;
+                }
+            }
             humanPercent = LordHealthMultiplierPolicy.NormalizePercent(settings.HumanLordHealthPercent);
             aiPercent = LordHealthMultiplierPolicy.NormalizePercent(settings.AILordHealthPercent);
-            appliedLordGlobalIds.Clear();
-            warnedPlayers.Clear();
+            pendingPlayersMask = 0x1FE;
             mapActive = true;
-
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Extra Features Lord health initialized for this map: humans={humanPercent}%, AI={aiPercent}%.");
+            Shared.DebugLogHelper.LogDebug(log,
+                $"Extra Features Lord health initialized: session={sessionId}, savedBasis={loadedSave}, humans={humanPercent}%, AI={aiPercent}%.");
             ApplyAvailableLords();
         }
 
         public void ResetMapState()
         {
             mapActive = false;
-            appliedLordGlobalIds.Clear();
-            warnedPlayers.Clear();
+            pendingPlayersMask = 0;
+            warnedPlayersMask = 0;
+            sessionId = 0;
+            loadedSave = false;
+            Array.Clear(bases, 0, bases.Length);
+            Array.Clear(appliedGlobalIds, 0, appliedGlobalIds.Length);
+            Array.Clear(createdGlobalIds, 0, createdGlobalIds.Length);
         }
 
+        // Only an unpublished initialization candidate may be disposed.
+        // Ordinary sessions retain these process-rooted registrations.
         public void Dispose()
         {
-            if (mapActive && appliedLordGlobalIds.Count > 0)
-            {
-                try
-                {
-                    RestoreAppliedLordsToVanilla();
-                }
-                catch (Exception ex)
-                {
-                    Shared.DebugLogHelper.LogError(log, $"Extra Features Lord health Vanilla restoration failed: {ex}");
-                }
-            }
-
             ResetMapState();
-            if (!initialized)
-                return;
-
+            if (!initialized) return;
             GameTimeManagerAPI.Instance.OnTick -= OnGameTick;
+            ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
+            unitCreatedSubscription?.Dispose();
+            unitCreatedSubscription = null;
             initialized = false;
-        }
-
-        private void RestoreAppliedLordsToVanilla()
-        {
-            uint baseLordHealth = GameUnitManagerAPI.Instance.GetDefaultHealth(eChimps.CHIMP_TYPE_LORD);
-            if (baseLordHealth == 0)
-                return;
-
-            foreach (KeyValuePair<int, uint> entry in appliedLordGlobalIds)
-            {
-                int playerId = entry.Key;
-                int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
-                if (unitId <= 0 ||
-                    !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* lord) ||
-                    lord == null || lord->r_GlobalId != entry.Value || lord->r_AliveState != AliveState.IsAlive)
-                {
-                    continue;
-                }
-
-                bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
-                int aiHealthPercent = isAI ? ResolveAIHealthPercent(playerId) : 100;
-                if (aiHealthPercent <= 0)
-                    continue;
-                int enemyHealthPercent = isAI
-                    ? ResolveEnemyHealthPercent(GamePlayerManagerAPI.Instance.GetEnemyHealthModifier())
-                    : 100;
-                uint vanillaMaximum = LordHealthMultiplierPolicy.CalculateVanillaMaximum(
-                    baseLordHealth, aiHealthPercent, enemyHealthPercent);
-                uint restoredCurrent = LordHealthMultiplierPolicy.CalculateCurrent(
-                    lord->r_CurrentHealth, lord->r_MaxHealth, vanillaMaximum);
-                ushort restoredPercent = LordHealthMultiplierPolicy.CalculateHealthPercent(
-                    restoredCurrent, vanillaMaximum);
-                lord->r_MaxHealth = vanillaMaximum;
-                lord->r_CurrentHealth = restoredCurrent;
-                lord->r_CurrentHealthPercentage = restoredPercent;
-                lord->r_HealthBarBlocks = (uint)(restoredPercent / 10);
-            }
         }
 
         private void OnGameTick(int tick)
         {
-            if (!IsFeatureModeAllowed())
-            {
-                if (mapActive)
-                {
-                    ResetMapState();
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        "Extra Features Lord health stopped after entering the map editor.");
-                }
-                return;
-            }
-
-            if (!mapActive || tick % ScanTickInterval != 0)
-                return;
-
-            try
-            {
-                ApplyAvailableLords();
-            }
+            if (!mapActive || pendingPlayersMask == 0 || tick % ScanTickInterval != 0) return;
+            if (!IsFeatureModeAllowed()) { ResetMapState(); return; }
+            try { ApplyAvailableLords(); }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(log, $"Extra Features Lord health scan failed: {ex}");
@@ -157,132 +131,116 @@ namespace ExtraFeatures
         }
 
         private static bool IsFeatureModeAllowed() =>
-            Shared.GameplayFeatureModePolicy.IsAllowed(
-                ExtraFeaturesPlugin.PluginGuid,
-                Shared.GameplayFeatureId.LordHealthMultipliers,
-                Shared.GameplayModActivationGate.Snapshot);
+            Shared.GameplayFeatureModePolicy.IsAllowed(ExtraFeaturesPlugin.PluginGuid,
+                Shared.GameplayFeatureId.LordHealthMultipliers, Shared.GameplayModActivationGate.Snapshot);
+
+        private void OnUnitCreated(UnitCreateEventArgs args)
+        {
+            if (!mapActive || args.Phase != EventHookPhase.Post || args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue) return;
+            // Post arguments retain original inputs even when Pre subscribers change them.
+            // Read the returned unit's actual type/owner; do not write HP here.
+            if (!GameUnitManagerAPI.Instance.TryGetUnitById((int)args.ReturnValue, out GameUnit* unit) ||
+                unit == null || unit->r_UnitChimp != eChimps.CHIMP_TYPE_LORD) return;
+            int playerId = unit->r_ControllableForPlayerId;
+            if (playerId < FirstPlayerId || playerId > LastPlayerId || unit->r_GlobalId == 0) return;
+            createdGlobalIds[playerId] = unit->r_GlobalId;
+            pendingPlayersMask |= 1 << playerId;
+            // The caller publishes Player.LordUnitId and finishes AI HP scaling AFTER Post.
+        }
 
         private void ApplyAvailableLords()
         {
+            int pending = pendingPlayersMask;
             for (int playerId = FirstPlayerId; playerId <= LastPlayerId; playerId++)
-                TryApplyPlayerLord(playerId);
+            {
+                int bit = 1 << playerId;
+                if ((pending & bit) == 0) continue;
+                pendingPlayersMask &= ~bit;
+                try { if (!TryApplyPlayerLord(playerId)) pendingPlayersMask |= bit; }
+                catch { pendingPlayersMask |= bit; throw; }
+            }
         }
 
-        private void TryApplyPlayerLord(int playerId)
+        private bool TryGetPlayerLord(int playerId, out GameUnit* lord, out bool retry, bool capturePending = false)
         {
-            GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-            int unitId = players.GetLordUnitId(playerId);
-            int expectedGlobalId = players.GetLordUnitGlobalId(playerId);
-            if (unitId <= 0 || expectedGlobalId <= 0)
-                return;
-
-            uint globalId = (uint)expectedGlobalId;
-            if (appliedLordGlobalIds.TryGetValue(playerId, out uint appliedGlobalId) &&
-                appliedGlobalId == globalId)
+            lord = null;
+            retry = false;
+            int unitId = GamePlayerManagerAPI.Instance.GetLordUnitId(playerId);
+            if (unitId <= 0) return false;
+            int expectedGlobalId = GamePlayerManagerAPI.Instance.GetLordUnitGlobalId(playerId);
+            if (expectedGlobalId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out lord) ||
+                lord == null || lord->r_GlobalId != (uint)expectedGlobalId ||
+                lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD || lord->r_ControllableForPlayerId != playerId)
             {
-                return;
+                retry = true;
+                return false;
             }
+            // The spawn helper initializes health while the slot still has NeedsInit.
+            // Wait before applying; saving may record its completed spawn maximum.
+            // Never revive a dying Lord whose alive flag has not yet changed.
+            if (lord->r_CurrentHealth == 0) return false;
+            retry = lord->r_AliveState == AliveState.NeedsInit;
+            return lord->r_AliveState == AliveState.IsAlive || (capturePending && retry);
+        }
 
-            if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* lord) ||
-                lord == null ||
-                lord->r_GlobalId != globalId ||
-                lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
-                lord->r_ControllableForPlayerId != playerId ||
-                lord->r_AliveState != AliveState.IsAlive)
+        private bool TryGetBasis(int playerId, GameUnit* lord, out LordHealthBasis basis)
+        {
+            basis = bases[playerId];
+            if (basis.GlobalId == lord->r_GlobalId) return true;
+            if (loadedSave && createdGlobalIds[playerId] != lord->r_GlobalId)
             {
-                return;
+                LogPlayerWarningOnce(playerId, "saved Lord identity has no matching Vanilla HP basis");
+                return false;
             }
+            if (lord->r_MaxHealth == 0) return false;
+            basis = new LordHealthBasis(playerId, lord->r_GlobalId, lord->r_MaxHealth);
+            bases[playerId] = basis;
+            return true;
+        }
 
-            bool isAI = players.IsAIPlayer(playerId);
+        private bool TryApplyPlayerLord(int playerId)
+        {
+            if (!TryGetPlayerLord(playerId, out GameUnit* lord, out bool retry)) return !retry;
+            if (appliedGlobalIds[playerId] == lord->r_GlobalId) return true;
+            if (!TryGetBasis(playerId, lord, out LordHealthBasis basis))
+                return lord->r_MaxHealth != 0; // Zero can become ready; missing saved identity is terminal.
+            bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
             int selectedPercent = isAI ? aiPercent : humanPercent;
-            uint baseLordHealth = GameUnitManagerAPI.Instance.GetDefaultHealth(eChimps.CHIMP_TYPE_LORD);
-            if (baseLordHealth == 0)
-            {
-                LogPlayerWarningOnce(playerId, "the Vanilla Lord health table returned zero");
-                return;
-            }
-
-            int aiHealthPercent = isAI ? ResolveAIHealthPercent(playerId) : 100;
-            if (aiHealthPercent <= 0)
-                return;
-
-            int enemyHealthPercent = isAI ? ResolveEnemyHealthPercent(players.GetEnemyHealthModifier()) : 100;
-            uint vanillaMaximum = LordHealthMultiplierPolicy.CalculateVanillaMaximum(
-                baseLordHealth,
-                aiHealthPercent,
-                enemyHealthPercent);
             uint oldMaximum = lord->r_MaxHealth;
             uint oldCurrent = lord->r_CurrentHealth;
-            uint newMaximum = LordHealthMultiplierPolicy.CalculateMaximum(vanillaMaximum, selectedPercent);
+            uint newMaximum = LordHealthMultiplierPolicy.CalculateMaximum(basis.VanillaMaximum, selectedPercent);
             uint newCurrent = LordHealthMultiplierPolicy.CalculateCurrent(oldCurrent, oldMaximum, newMaximum);
-            ushort newHealthPercent = LordHealthMultiplierPolicy.CalculateHealthPercent(newCurrent, newMaximum);
-
+            ushort healthPercent = LordHealthMultiplierPolicy.CalculateHealthPercent(newCurrent, newMaximum);
             lord->r_MaxHealth = newMaximum;
             lord->r_CurrentHealth = newCurrent;
-            lord->r_CurrentHealthPercentage = newHealthPercent;
-            lord->r_HealthBarBlocks = (uint)(newHealthPercent / 10);
-            appliedLordGlobalIds[playerId] = globalId;
-
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"Extra Features applied Lord health: player={playerId}, globalId={globalId}, " +
-                $"controller={(isAI ? "AI" : "human")}, multiplier={selectedPercent}%, " +
-                $"health={oldCurrent}/{oldMaximum}->{newCurrent}/{newMaximum}, " +
-                $"vanillaMax={vanillaMaximum}, aiBasePercent={aiHealthPercent}%, " +
-                $"enemyHealthPercent={enemyHealthPercent}%.");
+            lord->r_CurrentHealthPercentage = healthPercent;
+            lord->r_HealthBarBlocks = (uint)(healthPercent / 10);
+            appliedGlobalIds[playerId] = lord->r_GlobalId;
+            Shared.DebugLogHelper.LogDebug(log,
+                $"Extra Features applied Lord health: player={playerId}, globalId={lord->r_GlobalId}, " +
+                $"multiplier={selectedPercent}%, health={oldCurrent}/{oldMaximum}->{newCurrent}/{newMaximum}, vanillaMax={basis.VanillaMaximum}.");
+            return true;
         }
 
-        private static int ResolveEnemyHealthPercent(EnemyHPModifier modifier)
+        private byte[] SaveState(SaveContext context)
         {
-            switch (modifier)
+            if (!mapActive || !context.IsSaveFile || context.IsMapEditorSave || !IsFeatureModeAllowed()) return null;
+            var records = new List<LordHealthBasis>(LastPlayerId);
+            for (int playerId = FirstPlayerId; playerId <= LastPlayerId; playerId++)
             {
-                case EnemyHPModifier.Weak:
-                    return 66;
-                case EnemyHPModifier.Strong:
-                    return 125;
-                case EnemyHPModifier.VeryStrong:
-                    return 150;
-                default:
-                    return 100;
+                if (TryGetPlayerLord(playerId, out GameUnit* lord, out _, capturePending: true) &&
+                    TryGetBasis(playerId, lord, out LordHealthBasis basis)) records.Add(basis);
             }
-        }
-
-        private int ResolveAIHealthPercent(int playerId)
-        {
-            int aiLordId = (int)GamePlayerManagerAPI.Instance.GetAILord(playerId);
-            try
-            {
-                var aics = GameAIManagerAPI.Instance.GetAICArray();
-                if (aiLordId <= 0 || aiLordId >= aics.Length)
-                {
-                    LogPlayerWarningOnce(playerId, $"AI Lord index {aiLordId} is outside the AIC array");
-                    return 0;
-                }
-
-                int percent = aics.GetValue(aiLordId).lord_hps_percent;
-                if (percent <= 0)
-                {
-                    LogPlayerWarningOnce(playerId, $"AI Lord index {aiLordId} has invalid lord_hps_percent={percent}");
-                    return 0;
-                }
-
-                return percent;
-            }
-            catch (Exception ex)
-            {
-                LogPlayerWarningOnce(playerId, $"AI Lord health data could not be read: {ex.Message}");
-                return 0;
-            }
+            // Capture a new Lord saved before its next tick without mutating native save data.
+            return LordHealthSaveState.Encode(records.ToArray());
         }
 
         private void LogPlayerWarningOnce(int playerId, string reason)
         {
-            if (!warnedPlayers.Add(playerId))
-                return;
-
-            Shared.DebugLogHelper.LogWarning(
-                log,
-                $"Extra Features skipped Lord health for player {playerId}: {reason}.");
+            int bit = 1 << playerId;
+            if ((warnedPlayersMask & bit) != 0) return;
+            warnedPlayersMask |= bit;
+            Shared.DebugLogHelper.LogWarning(log, $"Extra Features skipped Lord health for player {playerId}: {reason}.");
         }
     }
 }

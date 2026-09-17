@@ -108,7 +108,7 @@ namespace BugfixesAndQoL
             new HashSet<string>(StringComparer.Ordinal);
         private readonly object unexpectedFailureLogRoot = new object();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly List<long> cohortIdBuffer = new List<long>();
+        private readonly Stack<QueueWorkBuffers> workBufferPool = new Stack<QueueWorkBuffers>();
         private readonly List<TribeQueueState> overlayCohortBuffer = new List<TribeQueueState>();
         private readonly List<RuntimeExpectedMove> expectedMoveChores = new List<RuntimeExpectedMove>();
         private readonly List<RuntimeExpectedMove> expectedMoveEvents = new List<RuntimeExpectedMove>();
@@ -1531,17 +1531,29 @@ namespace BugfixesAndQoL
                 runtimeTickLogged = true;
                 Shared.DebugLogHelper.LogInfo(log, $"RUNTIME_ACTIVE: firstTick={tick}.");
             }
-            PruneExpectedMoveSignals(expectedMoveChores);
-            PruneExpectedMoveSignals(expectedMoveEvents);
-            ReconcileCohorts();
-            CoalesceEquivalentCohorts();
+            // Keep currentTick and the first runtime marker current even while idle.
+            if (cohorts.Count == 0 && expectedMoveChores.Count == 0 && expectedMoveEvents.Count == 0)
+                return;
+            QueueWorkBuffers buffers = RentWorkBuffers();
+            try
+            {
+                PruneExpectedMoveSignals(expectedMoveChores);
+                PruneExpectedMoveSignals(expectedMoveEvents);
+                ReconcileCohorts();
+                CoalesceEquivalentCohorts();
 
-            cohortIdBuffer.Clear();
-            foreach (long cohortId in cohorts.Keys)
-                cohortIdBuffer.Add(cohortId);
-            cohortIdBuffer.Sort((left, right) => CompareCohorts(cohorts[left], cohorts[right]));
-            for (int index = 0; index < cohortIdBuffer.Count; index++)
-                ProcessCohort(cohortIdBuffer[index]);
+                buffers.CohortIds.Clear();
+                foreach (long cohortId in cohorts.Keys)
+                    buffers.CohortIds.Add(cohortId);
+                buffers.CohortIds.Sort((left, right) => CompareCohorts(cohorts[left], cohorts[right]));
+                for (int index = 0; index < buffers.CohortIds.Count; index++)
+                    ProcessCohort(buffers.CohortIds[index]);
+            }
+            finally
+            {
+                buffers.Clear();
+                workBufferPool.Push(buffers);
+            }
         }
 
         private void ProcessCohort(long cohortId)
@@ -1739,58 +1751,68 @@ namespace BugfixesAndQoL
 
         private bool TryApplyQueuedCommand(int tribeId, GameTribe* tribe, QueueCommand command)
         {
-            // Mode-0 is authoritative. Reconcile immediately so a Chore affects exactly
-            // the units Vanilla currently placed in its serialized tribe, never stale siblings.
-            ReconcileCohorts();
-            List<QueueUnitIdentity> tribeMembers = CaptureTribeMembers(tribeId);
-            if (tribeMembers.Count == 0)
-                return false;
-
-            List<TribeQueueState> affected = new List<TribeQueueState>();
-            List<QueueUnitIdentity> unqueued = new List<QueueUnitIdentity>();
-            HashSet<long> seen = new HashSet<long>();
-            foreach (QueueUnitIdentity member in tribeMembers)
+            QueueWorkBuffers buffers = RentWorkBuffers();
+            try
             {
-                if (unitToCohort.TryGetValue(member, out long cohortId) &&
-                    cohorts.TryGetValue(cohortId, out TribeQueueState state))
-                {
-                    if (seen.Add(cohortId))
-                        affected.Add(state);
-                }
-                else
-                {
-                    unqueued.Add(member);
-                }
-            }
-
-            affected.Sort(CompareCohorts);
-            if (affected.Any(state => !state.CanEnqueue))
-                return false;
-
-            TribeQueueState created = null;
-            if (unqueued.Count != 0)
-            {
-                created = CreateCohort(tribeId, tribe, unqueued);
-                if (!created.CanEnqueue)
-                {
-                    RemoveCohort(created.CohortId);
+                // Mode-0 is authoritative. Reconcile immediately so a Chore affects exactly
+                // the units Vanilla currently placed in its serialized tribe, never stale siblings.
+                ReconcileCohorts();
+                List<QueueUnitIdentity> tribeMembers = buffers.Members;
+                CaptureTribeMembers(tribeId, tribeMembers);
+                if (tribeMembers.Count == 0)
                     return false;
-                }
-            }
 
-            if (created != null)
-                affected.Add(created);
-            bool enqueued = QueueCohortOperations.TryEnqueueAtomically(affected, command);
-            if (enqueued)
-            {
-                Shared.CrashBreadcrumbDiagnostics.Record(
-                    "ShiftQueueEnqueue",
-                    tribeId,
-                    (int)command.Kind,
-                    tribeMembers.Count,
-                    currentTick);
+                List<TribeQueueState> affected = buffers.States;
+                List<QueueUnitIdentity> unqueued = buffers.OtherMembers;
+                HashSet<long> seen = buffers.SeenCohorts;
+                foreach (QueueUnitIdentity member in tribeMembers)
+                {
+                    if (unitToCohort.TryGetValue(member, out long cohortId) &&
+                        cohorts.TryGetValue(cohortId, out TribeQueueState state))
+                    {
+                        if (seen.Add(cohortId))
+                            affected.Add(state);
+                    }
+                    else
+                    {
+                        unqueued.Add(member);
+                    }
+                }
+
+                affected.Sort(CompareCohorts);
+                if (affected.Any(state => !state.CanEnqueue))
+                    return false;
+
+                TribeQueueState created = null;
+                if (unqueued.Count != 0)
+                {
+                    created = CreateCohort(tribeId, tribe, unqueued);
+                    if (!created.CanEnqueue)
+                    {
+                        RemoveCohort(created.CohortId);
+                        return false;
+                    }
+                }
+
+                if (created != null)
+                    affected.Add(created);
+                bool enqueued = QueueCohortOperations.TryEnqueueAtomically(affected, command);
+                if (enqueued)
+                {
+                    Shared.CrashBreadcrumbDiagnostics.Record(
+                        "ShiftQueueEnqueue",
+                        tribeId,
+                        (int)command.Kind,
+                        tribeMembers.Count,
+                        currentTick);
+                }
+                return enqueued;
             }
-            return enqueued;
+            finally
+            {
+                buffers.Clear();
+                workBufferPool.Push(buffers);
+            }
         }
 
         private TribeQueueState CreateCohort(
@@ -1846,99 +1868,120 @@ namespace BugfixesAndQoL
 
         private void CancelQueuesForTribeUnits(int tribeId)
         {
-            List<QueueUnitIdentity> affected = CaptureTribeMembers(tribeId);
-            int removedMembers = 0;
-            int removedCohorts = 0;
-            foreach (QueueUnitIdentity member in affected)
+            QueueWorkBuffers buffers = RentWorkBuffers();
+            try
             {
-                if (!unitToCohort.TryGetValue(member, out long cohortId) ||
-                    !cohorts.TryGetValue(cohortId, out TribeQueueState state))
-                    continue;
-                unitToCohort.Remove(member);
-                state.RemoveMember(member);
-                removedMembers++;
-                if (state.Members.Count == 0)
+                List<QueueUnitIdentity> affected = buffers.Members;
+                CaptureTribeMembers(tribeId, affected);
+                int removedMembers = 0;
+                int removedCohorts = 0;
+                foreach (QueueUnitIdentity member in affected)
                 {
-                    cohorts.Remove(cohortId);
-                    removedCohorts++;
-                    loggedPredecessorRedispatchFailures.Remove(cohortId);
-                    loggedIsolationFailures.Remove(cohortId);
+                    if (!unitToCohort.TryGetValue(member, out long cohortId) ||
+                        !cohorts.TryGetValue(cohortId, out TribeQueueState state))
+                        continue;
+                    unitToCohort.Remove(member);
+                    state.RemoveMember(member);
+                    removedMembers++;
+                    if (state.Members.Count == 0)
+                    {
+                        cohorts.Remove(cohortId);
+                        removedCohorts++;
+                        loggedPredecessorRedispatchFailures.Remove(cohortId);
+                        loggedIsolationFailures.Remove(cohortId);
+                    }
+                }
+                if (removedMembers != 0)
+                {
+                    Shared.CrashBreadcrumbDiagnostics.Record(
+                        "ShiftQueueCancel",
+                        tribeId,
+                        removedMembers,
+                        removedCohorts,
+                        currentTick);
                 }
             }
-            if (removedMembers != 0)
+            finally
             {
-                Shared.CrashBreadcrumbDiagnostics.Record(
-                    "ShiftQueueCancel",
-                    tribeId,
-                    removedMembers,
-                    removedCohorts,
-                    currentTick);
+                buffers.Clear();
+                workBufferPool.Push(buffers);
             }
         }
 
         private void ReconcileCohorts()
         {
-            cohortIdBuffer.Clear();
-            cohortIdBuffer.AddRange(cohorts.Keys);
-            cohortIdBuffer.Sort();
-            foreach (long cohortId in cohortIdBuffer)
+            QueueWorkBuffers buffers = RentWorkBuffers();
+            try
             {
-                if (!cohorts.TryGetValue(cohortId, out TribeQueueState state))
-                    continue;
-                SortedDictionary<int, List<QueueUnitIdentity>> branches =
-                    new SortedDictionary<int, List<QueueUnitIdentity>>();
-                foreach (QueueUnitIdentity member in state.Members.ToArray())
+                buffers.CohortIds.Clear();
+                buffers.CohortIds.AddRange(cohorts.Keys);
+                buffers.CohortIds.Sort();
+                foreach (long cohortId in buffers.CohortIds)
                 {
-                    if (!TryGetLivingUnit(member, out GameUnit* unit))
+                    if (!cohorts.TryGetValue(cohortId, out TribeQueueState state))
+                        continue;
+                    buffers.ClearBranches();
+                    SortedDictionary<int, List<QueueUnitIdentity>> branches = buffers.Branches;
+                    buffers.Members.Clear();
+                    buffers.Members.AddRange(state.Members);
+                    foreach (QueueUnitIdentity member in buffers.Members)
                     {
-                        unitToCohort.Remove(member);
+                        if (!TryGetLivingUnit(member, out GameUnit* unit))
+                        {
+                            unitToCohort.Remove(member);
+                            continue;
+                        }
+                        int memberTribeId = unit->r_TribeId;
+                        if (!branches.TryGetValue(memberTribeId, out List<QueueUnitIdentity> branch))
+                        {
+                            branch = buffers.RentBranch();
+                            branches.Add(memberTribeId, branch);
+                        }
+                        branch.Add(member);
+                    }
+
+                    if (branches.Count == 0)
+                    {
+                        RemoveCohort(cohortId);
                         continue;
                     }
-                    int memberTribeId = unit->r_TribeId;
-                    if (!branches.TryGetValue(memberTribeId, out List<QueueUnitIdentity> branch))
+
+                    bool first = true;
+                    foreach (KeyValuePair<int, List<QueueUnitIdentity>> branch in branches)
                     {
-                        branch = new List<QueueUnitIdentity>();
-                        branches.Add(memberTribeId, branch);
+                        branch.Value.Sort(QueueUnitIdentity.Compare);
+                        uint tribeGlobalId = 0;
+                        if (branch.Key > 0 && TryGetAliveTribe(branch.Key, out GameTribe* branchTribe) &&
+                            branchTribe->r_PlayerIdOwner == state.OwnerPlayerId)
+                            tribeGlobalId = branchTribe->r_GlobalId;
+
+                        if (first)
+                        {
+                            first = false;
+                            state.ReplaceMembers(branch.Value);
+                            state.RebindTribe(branch.Key, tribeGlobalId);
+                            foreach (QueueUnitIdentity member in branch.Value)
+                                unitToCohort[member] = state.CohortId;
+                        }
+                        else
+                        {
+                            long branchId = nextCohortId++;
+                            TribeQueueState clone = state.CloneForBranch(
+                                branchId, branch.Key, tribeGlobalId, branch.Value);
+                            cohorts.Add(branchId, clone);
+                            foreach (QueueUnitIdentity member in branch.Value)
+                                unitToCohort[member] = branchId;
+                        }
                     }
-                    branch.Add(member);
+
+                    if (branches.Count > 1)
+                        RecordQueueTopology("ShiftQueueSplit", state);
                 }
-
-                if (branches.Count == 0)
-                {
-                    RemoveCohort(cohortId);
-                    continue;
-                }
-
-                bool first = true;
-                foreach (KeyValuePair<int, List<QueueUnitIdentity>> branch in branches)
-                {
-                    branch.Value.Sort(QueueUnitIdentity.Compare);
-                    uint tribeGlobalId = 0;
-                    if (branch.Key > 0 && TryGetAliveTribe(branch.Key, out GameTribe* branchTribe) &&
-                        branchTribe->r_PlayerIdOwner == state.OwnerPlayerId)
-                        tribeGlobalId = branchTribe->r_GlobalId;
-
-                    if (first)
-                    {
-                        first = false;
-                        state.ReplaceMembers(branch.Value);
-                        state.RebindTribe(branch.Key, tribeGlobalId);
-                        foreach (QueueUnitIdentity member in branch.Value)
-                            unitToCohort[member] = state.CohortId;
-                    }
-                    else
-                    {
-                        long branchId = nextCohortId++;
-                        TribeQueueState clone = state.CloneForBranch(
-                            branchId, branch.Key, tribeGlobalId, branch.Value);
-                        cohorts.Add(branchId, clone);
-                        foreach (QueueUnitIdentity member in branch.Value)
-                            unitToCohort[member] = branchId;
-                    }
-                }
-
-                if (branches.Count > 1)
-                    RecordQueueTopology("ShiftQueueSplit", state);
+            }
+            finally
+            {
+                buffers.Clear();
+                workBufferPool.Push(buffers);
             }
         }
 
@@ -1947,52 +1990,63 @@ namespace BugfixesAndQoL
             ref int tribeId,
             ref GameTribe* tribe)
         {
-            foreach (QueueUnitIdentity member in state.Members)
+            QueueWorkBuffers buffers = RentWorkBuffers();
+            try
             {
-                if (!TryGetLivingUnit(member, out GameUnit* unit) || unit->r_TribeId != tribeId)
-                    return false;
-            }
-
-            if (tribe->r_UnitsInGroup == state.Members.Count)
-                return true;
-
-            int originalTribeId = tribeId;
-            TribeStance stance = tribe->r_TribeStance;
-            long createdValue = GameTribeManagerAPI.Instance.Create(state.OwnerPlayerId, false);
-            if (createdValue <= 0 || createdValue > int.MaxValue)
-            {
-                LogIsolationFailure(state, $"create returned {createdValue}");
-                return false;
-            }
-            int newTribeId = unchecked((int)createdValue);
-            if (!TryGetAliveTribe(newTribeId, out GameTribe* newTribe))
-            {
-                LogIsolationFailure(state, $"created tribe {newTribeId} is unavailable");
-                return false;
-            }
-            newTribe->r_TribeStance = stance;
-
-            List<QueueUnitIdentity> moved = new List<QueueUnitIdentity>();
-            foreach (QueueUnitIdentity member in state.Members.OrderBy(value => value.UnitId))
-            {
-                if (!TryUnassignUnit(member, originalTribeId) ||
-                    !GameTribeManagerAPI.Instance.AssignUnit(newTribeId, member.UnitId) ||
-                    !TryGetLivingUnit(member, out GameUnit* unit) || unit->r_TribeId != newTribeId)
+                foreach (QueueUnitIdentity member in state.Members)
                 {
-                    RollBackTribeSplit(moved, member, originalTribeId, newTribeId);
-                    GameTribeManagerAPI.Instance.DeleteTribeSafe(newTribeId);
-                    LogIsolationFailure(state, $"assignment failed for unit {member.UnitId}");
+                    if (!TryGetLivingUnit(member, out GameUnit* unit) || unit->r_TribeId != tribeId)
+                        return false;
+                }
+
+                if (tribe->r_UnitsInGroup == state.Members.Count)
+                    return true;
+
+                int originalTribeId = tribeId;
+                TribeStance stance = tribe->r_TribeStance;
+                long createdValue = GameTribeManagerAPI.Instance.Create(state.OwnerPlayerId, false);
+                if (createdValue <= 0 || createdValue > int.MaxValue)
+                {
+                    LogIsolationFailure(state, $"create returned {createdValue}");
                     return false;
                 }
-                moved.Add(member);
-            }
+                int newTribeId = unchecked((int)createdValue);
+                if (!TryGetAliveTribe(newTribeId, out GameTribe* newTribe))
+                {
+                    LogIsolationFailure(state, $"created tribe {newTribeId} is unavailable");
+                    return false;
+                }
+                newTribe->r_TribeStance = stance;
 
-            tribeId = newTribeId;
-            tribe = newTribe;
-            state.RebindTribe(newTribeId, newTribe->r_GlobalId);
-            loggedIsolationFailures.Remove(state.CohortId);
-            RecordQueueTopology("ShiftQueueIsolate", state);
-            return true;
+                List<QueueUnitIdentity> moved = buffers.OtherMembers;
+                // Constructor and ReplaceMembers keep this list sorted by UnitId/GlobalId.
+                buffers.Members.AddRange(state.Members);
+                foreach (QueueUnitIdentity member in buffers.Members)
+                {
+                    if (!TryUnassignUnit(member, originalTribeId) ||
+                        !GameTribeManagerAPI.Instance.AssignUnit(newTribeId, member.UnitId) ||
+                        !TryGetLivingUnit(member, out GameUnit* unit) || unit->r_TribeId != newTribeId)
+                    {
+                        RollBackTribeSplit(moved, member, originalTribeId, newTribeId);
+                        GameTribeManagerAPI.Instance.DeleteTribeSafe(newTribeId);
+                        LogIsolationFailure(state, $"assignment failed for unit {member.UnitId}");
+                        return false;
+                    }
+                    moved.Add(member);
+                }
+
+                tribeId = newTribeId;
+                tribe = newTribe;
+                state.RebindTribe(newTribeId, newTribe->r_GlobalId);
+                loggedIsolationFailures.Remove(state.CohortId);
+                RecordQueueTopology("ShiftQueueIsolate", state);
+                return true;
+            }
+            finally
+            {
+                buffers.Clear();
+                workBufferPool.Push(buffers);
+            }
         }
 
         private void LogIsolationFailure(TribeQueueState state, string reason)
@@ -2060,48 +2114,118 @@ namespace BugfixesAndQoL
 
         private void CoalesceEquivalentCohorts()
         {
-            Dictionary<int, List<TribeQueueState>> byTribe =
-                new Dictionary<int, List<TribeQueueState>>();
-            foreach (TribeQueueState state in cohorts.Values)
+            QueueWorkBuffers buffers = RentWorkBuffers();
+            try
             {
-                if (!byTribe.TryGetValue(state.BoundTribeId, out List<TribeQueueState> states))
+                Dictionary<int, List<TribeQueueState>> byTribe = buffers.ByTribe;
+                foreach (TribeQueueState state in cohorts.Values)
                 {
-                    states = new List<TribeQueueState>();
-                    byTribe.Add(state.BoundTribeId, states);
-                }
-                states.Add(state);
-            }
-
-            List<int> tribeIds = byTribe.Keys.ToList();
-            tribeIds.Sort();
-            foreach (int groupedTribeId in tribeIds)
-            {
-                List<TribeQueueState> ordered = byTribe[groupedTribeId];
-                if (ordered.Count < 2)
-                    continue;
-                ordered.Sort(CompareCohorts);
-                for (int leftIndex = 0; leftIndex < ordered.Count; leftIndex++)
-                {
-                    TribeQueueState left = ordered[leftIndex];
-                    if (!cohorts.ContainsKey(left.CohortId))
-                        continue;
-                    for (int rightIndex = leftIndex + 1; rightIndex < ordered.Count; rightIndex++)
+                    if (!byTribe.TryGetValue(state.BoundTribeId, out List<TribeQueueState> states))
                     {
-                        TribeQueueState right = ordered[rightIndex];
-                        if (!cohorts.ContainsKey(right.CohortId) ||
-                            !HaveEquivalentExecutionState(left, right))
+                        states = buffers.RentStates();
+                        byTribe.Add(state.BoundTribeId, states);
+                    }
+                    states.Add(state);
+                }
+
+                List<int> tribeIds = buffers.TribeIds;
+                tribeIds.AddRange(byTribe.Keys);
+                tribeIds.Sort();
+                foreach (int groupedTribeId in tribeIds)
+                {
+                    List<TribeQueueState> ordered = byTribe[groupedTribeId];
+                    if (ordered.Count < 2)
+                        continue;
+                    ordered.Sort(CompareCohorts);
+                    for (int leftIndex = 0; leftIndex < ordered.Count; leftIndex++)
+                    {
+                        TribeQueueState left = ordered[leftIndex];
+                        if (!cohorts.ContainsKey(left.CohortId))
                             continue;
-                        List<QueueUnitIdentity> merged = left.Members.Concat(right.Members)
-                            .Distinct().OrderBy(member => member.UnitId).ThenBy(member => member.GlobalId).ToList();
-                        left.ReplaceMembers(merged);
-                        foreach (QueueUnitIdentity member in right.Members)
-                            unitToCohort[member] = left.CohortId;
-                        cohorts.Remove(right.CohortId);
-                        loggedPredecessorRedispatchFailures.Remove(right.CohortId);
-                        loggedIsolationFailures.Remove(right.CohortId);
-                        RecordQueueTopology("ShiftQueueCoalesce", left);
+                        for (int rightIndex = leftIndex + 1; rightIndex < ordered.Count; rightIndex++)
+                        {
+                            TribeQueueState right = ordered[rightIndex];
+                            if (!cohorts.ContainsKey(right.CohortId) ||
+                                !HaveEquivalentExecutionState(left, right))
+                                continue;
+                            List<QueueUnitIdentity> merged = buffers.Members;
+                            merged.Clear();
+                            buffers.SeenMembers.Clear();
+                            foreach (QueueUnitIdentity member in left.Members)
+                                if (buffers.SeenMembers.Add(member)) merged.Add(member);
+                            foreach (QueueUnitIdentity member in right.Members)
+                                if (buffers.SeenMembers.Add(member)) merged.Add(member);
+                            merged.Sort(QueueUnitIdentity.Compare);
+                            left.ReplaceMembers(merged);
+                            foreach (QueueUnitIdentity member in right.Members)
+                                unitToCohort[member] = left.CohortId;
+                            cohorts.Remove(right.CohortId);
+                            loggedPredecessorRedispatchFailures.Remove(right.CohortId);
+                            loggedIsolationFailures.Remove(right.CohortId);
+                            RecordQueueTopology("ShiftQueueCoalesce", left);
+                        }
                     }
                 }
+            }
+            finally
+            {
+                buffers.Clear();
+                workBufferPool.Push(buffers);
+            }
+        }
+
+        private QueueWorkBuffers RentWorkBuffers() =>
+            workBufferPool.Count == 0 ? new QueueWorkBuffers() : workBufferPool.Pop();
+
+        // Workspaces never escape a call. Nested work borrows another instance; persistent
+        // cohort members are copied by TribeQueueState, never backed by these scratch lists.
+        private sealed class QueueWorkBuffers
+        {
+            internal readonly List<long> CohortIds = new List<long>();
+            internal readonly List<int> TribeIds = new List<int>();
+            internal readonly List<QueueUnitIdentity> Members = new List<QueueUnitIdentity>();
+            internal readonly List<QueueUnitIdentity> OtherMembers = new List<QueueUnitIdentity>();
+            internal readonly List<TribeQueueState> States = new List<TribeQueueState>();
+            internal readonly HashSet<long> SeenCohorts = new HashSet<long>();
+            internal readonly HashSet<QueueUnitIdentity> SeenMembers = new HashSet<QueueUnitIdentity>();
+            internal readonly SortedDictionary<int, List<QueueUnitIdentity>> Branches =
+                new SortedDictionary<int, List<QueueUnitIdentity>>();
+            internal readonly Dictionary<int, List<TribeQueueState>> ByTribe =
+                new Dictionary<int, List<TribeQueueState>>();
+            private readonly Stack<List<QueueUnitIdentity>> branchPool = new Stack<List<QueueUnitIdentity>>();
+            private readonly Stack<List<TribeQueueState>> statePool = new Stack<List<TribeQueueState>>();
+
+            internal List<QueueUnitIdentity> RentBranch() =>
+                branchPool.Count == 0 ? new List<QueueUnitIdentity>() : branchPool.Pop();
+            internal List<TribeQueueState> RentStates() =>
+                statePool.Count == 0 ? new List<TribeQueueState>() : statePool.Pop();
+
+            internal void ClearBranches()
+            {
+                foreach (List<QueueUnitIdentity> branch in Branches.Values)
+                {
+                    branch.Clear();
+                    branchPool.Push(branch);
+                }
+                Branches.Clear();
+            }
+
+            internal void Clear()
+            {
+                ClearBranches();
+                foreach (List<TribeQueueState> states in ByTribe.Values)
+                {
+                    states.Clear();
+                    statePool.Push(states);
+                }
+                ByTribe.Clear();
+                CohortIds.Clear();
+                TribeIds.Clear();
+                Members.Clear();
+                OtherMembers.Clear();
+                States.Clear();
+                SeenCohorts.Clear();
+                SeenMembers.Clear();
             }
         }
 
@@ -2114,15 +2238,8 @@ namespace BugfixesAndQoL
                 !SameCommand(left.Active, right.Active) ||
                 !SameCommand(left.ExternalAttack, right.ExternalAttack))
                 return false;
-            QueueCommand[] leftPending = left.PendingCommands.ToArray();
-            QueueCommand[] rightPending = right.PendingCommands.ToArray();
-            if (leftPending.Length != rightPending.Length)
+            if (!left.HasSamePendingCommands(right))
                 return false;
-            for (int index = 0; index < leftPending.Length; index++)
-            {
-                if (!SameCommand(leftPending[index], rightPending[index]))
-                    return false;
-            }
             return left.CurrentVisualPageNumber == right.CurrentVisualPageNumber &&
                 left.OutstandingVisualCount == right.OutstandingVisualCount &&
                 HaveEquivalentVisualState(left, right);
@@ -2266,9 +2383,8 @@ namespace BugfixesAndQoL
             return global != 0 ? global : left.CohortId.CompareTo(right.CohortId);
         }
 
-        private static List<QueueUnitIdentity> CaptureTribeMembers(int tribeId)
+        private static void CaptureTribeMembers(int tribeId, List<QueueUnitIdentity> members)
         {
-            List<QueueUnitIdentity> members = new List<QueueUnitIdentity>();
             Span<GameUnit> units = GameUnitManagerAPI.Instance.GetUnitsAsSpan();
             for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
             {
@@ -2278,7 +2394,6 @@ namespace BugfixesAndQoL
                 int unitId = spanIndex + 1;
                 members.Add(new QueueUnitIdentity(unitId, unit.r_GlobalId));
             }
-            return members;
         }
 
         private bool IsLocalSelectedTribe(int tribeId, out GameTribe* tribe)

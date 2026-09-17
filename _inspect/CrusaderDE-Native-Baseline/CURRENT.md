@@ -23,6 +23,7 @@ Semantic reverse-engineering baseline:
 
 - [Editor map lifecycle audit](./sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md): native creation/loading paths, managed completion, and event boundaries.
 - [Unified mission lifecycle audit](./sem/FBCB9319/knowledge/MISSION_LIFECYCLE.md): gameplay, save, editor and multiplayer operation boundaries and central mode permissions.
+- [ExtraFeatures session callbacks](./sem/FBCB9319/knowledge/EXTRAFEATURES_SESSION_CALLBACKS.md): Lord creation/HP normalization, persisted actual bases and market helper callers.
 
 - [Semantic overview and validation](./sem/FBCB9319/SEMANTIC_INFO.md)
 - [Semantic Ghidra project](./sem/FBCB9319/ghidra/CrusaderDE-Semantic.gpr)

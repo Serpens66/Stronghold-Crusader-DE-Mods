@@ -1519,13 +1519,13 @@ internal static class Program
 
     private static void RecognizesNonAivArchiveContainers()
     {
-        Assert(AivCandidateFilePolicy.IsKnownNonJsonContainer(
+        Assert(CastlePlanner.AivCandidateFilePolicy.IsKnownNonJsonContainer(
                 new byte[] { 0x50, 0x4B, 0x03, 0x04 }),
             "ZIP payload was not recognized");
-        Assert(AivCandidateFilePolicy.IsKnownNonJsonContainer(
+        Assert(CastlePlanner.AivCandidateFilePolicy.IsKnownNonJsonContainer(
                 new byte[] { 0x52, 0x61, 0x72, 0x21, 0x1A, 0x07, 0x01, 0x00 }),
             "RAR payload was not recognized");
-        Assert(!AivCandidateFilePolicy.IsKnownNonJsonContainer(
+        Assert(!CastlePlanner.AivCandidateFilePolicy.IsKnownNonJsonContainer(
                 System.Text.Encoding.UTF8.GetBytes("{\"frames\":[]}")),
             "JSON payload was incorrectly classified as an archive");
     }
