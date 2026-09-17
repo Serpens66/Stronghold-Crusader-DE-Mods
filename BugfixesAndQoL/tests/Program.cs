@@ -67,6 +67,8 @@ namespace BugfixesAndQoL
             TestPlacementCancelMoveSuppressionIntegration();
             TestSpriteAnimationGroup26Contract();
             TestMapFileManagerContract();
+            TestMultiplayerSafetyPolicy();
+            TestWorkshopUploadLordSelectionPolicy();
             TestMultiplayerLobbyReturnIntegration();
             TestClassicMapSizeReader();
             TestLobbyMapSelectionMemory();
@@ -1454,6 +1456,337 @@ namespace BugfixesAndQoL
                 "post-game lobby map restoration targets retain their installed Vanilla contracts");
         }
 
+        private static void TestMultiplayerSafetyPolicy()
+        {
+            Check(MultiplayerSafetyPolicy.IsConnectedHuman(1001, false, false) &&
+                    !MultiplayerSafetyPolicy.IsConnectedHuman(1000, false, false) &&
+                    !MultiplayerSafetyPolicy.IsConnectedHuman(1001, true, false) &&
+                    !MultiplayerSafetyPolicy.IsConnectedHuman(1001, false, true),
+                "multiplayer safety counts only connected non-AI Steam players");
+
+            Check(MultiplayerSafetyPolicy.NormalizeConfiguredMultiplayerSpeed(39) == 40 &&
+                    MultiplayerSafetyPolicy.NormalizeConfiguredMultiplayerSpeed(92) == 90 &&
+                    MultiplayerSafetyPolicy.NormalizeConfiguredMultiplayerSpeed(93) == 95 &&
+                    MultiplayerSafetyPolicy.NormalizeConfiguredMultiplayerSpeed(203) == 200,
+                "the host multiplayer maximum is clamped to 40-200 and normalized to five-speed steps");
+
+            Check(MultiplayerSafetyPolicy.ResolveMaximumSpeed(1500, 40, true, 2) == 40 &&
+                    MultiplayerSafetyPolicy.ResolveMaximumSpeed(1500, 90, true, 2) == 90 &&
+                    MultiplayerSafetyPolicy.ResolveMaximumSpeed(1500, 120, true, 2) == 120 &&
+                    MultiplayerSafetyPolicy.ResolveMaximumSpeed(1500, 200, true, 2) == 200 &&
+                    MultiplayerSafetyPolicy.ResolveMaximumSpeed(1500, 90, true, 1) == 1500 &&
+                    MultiplayerSafetyPolicy.ResolveMaximumSpeed(1500, 90, false, 2) == 1500 &&
+                    MultiplayerSafetyPolicy.ResolveMaximumSpeed(65, 90, true, 2) == 65,
+                "real multiplayer with at least two connected humans uses the synchronized host maximum without raising the Script Extender limit");
+
+            Check(MultiplayerGameSpeedPolicy.TryResolve(
+                        240,
+                        MultiplayerGameSpeedPolicy.IncreaseAction,
+                        0,
+                        MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed,
+                        out int clampedSpeed) &&
+                    clampedSpeed == MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed &&
+                    MultiplayerGameSpeedPolicy.TryResolve(
+                        240,
+                        MultiplayerGameSpeedPolicy.DecreaseAction,
+                        0,
+                        MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed,
+                        out int decreasedClampedSpeed) &&
+                    decreasedClampedSpeed == MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed &&
+                    MultiplayerGameSpeedPolicy.TryResolve(
+                        200,
+                        MultiplayerGameSpeedPolicy.SetAction,
+                        200,
+                        MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed,
+                        out int setClampedSpeed) &&
+                    setClampedSpeed == MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed,
+                "relative and absolute in-game requests immediately clamp an existing or requested speed above the host maximum");
+
+            Check(MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
+                        true, true, true, true, true, true, 1001, false, false, 2) &&
+                    !MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
+                        true, false, true, true, true, true, 1001, false, false, 2) &&
+                    !MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
+                        true, true, false, true, true, true, 1001, false, false, 2) &&
+                    !MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
+                        true, true, true, false, true, true, 1001, false, false, 2) &&
+                    !MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
+                        true, true, true, true, false, true, 1001, false, false, 2) &&
+                    !MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
+                        true, true, true, true, true, false, 1001, false, false, 2) &&
+                    !MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
+                        true, true, true, true, true, true, 1001, true, false, 2) &&
+                    !MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
+                        true, true, true, true, true, true, 1001, false, true, 2) &&
+                    !MultiplayerSafetyPolicy.ShouldDelayNativeLagKick(
+                        true, true, true, true, true, true, 1001, false, false, 1),
+                "recovery save delays only the native forced lag kick in compatible real multiplayer");
+
+            string viewModelSource = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string xamlSource = File.ReadAllText(Path.Combine(
+                "Override",
+                "ScriptExtenderUI",
+                "BugfixesAndQoLSettings.xaml"));
+            string recoverySource = File.ReadAllText(Path.Combine("src", "AbruptHostMigrationFix.cs"));
+            Check(viewModelSource.Contains("private bool enableConnectionRecoverySave = true;") &&
+                    viewModelSource.Contains(
+                        "[SyncHostOnly]" + Environment.NewLine +
+                        "        public bool EnableConnectionRecoverySave") &&
+                    viewModelSource.Contains(
+                        "public int MultiplayerGameSpeedMaximum") &&
+                    viewModelSource.Contains(
+                        "public string MultiplayerSafetyCompatibilityReport") &&
+                    xamlSource.Contains("Minimum=\"40\" Maximum=\"200\"") &&
+                    xamlSource.Contains("TickFrequency=\"5\"") &&
+                    xamlSource.Contains("Value=\"{Binding MultiplayerGameSpeedMaximum, Mode=TwoWay}\"") &&
+                    xamlSource.Contains("IsChecked=\"{Binding EnableConnectionRecoverySave, Mode=TwoWay}\"") &&
+                    recoverySource.Contains("EngineInterface.TriggerMPSave(MultiplayerSafetyPolicy.RecoverySaveFileName)") &&
+                    recoverySource.Contains("Platform_Multiplayer.MPGameActive") &&
+                    recoverySource.Contains("GameData.Instance.lastGameState = null;") &&
+                    recoverySource.Contains("System_ArePerPlayerSettingsReady") &&
+                    recoverySource.Contains("opcode == 39") &&
+                    recoverySource.Contains("opcode == 94"),
+                "connection recovery is a default-enabled host setting backed by the synchronized Vanilla save lifecycle");
+        }
+
+        private static void TestWorkshopUploadLordSelectionPolicy()
+        {
+            var policy = new WorkshopUploadLordSelectionPolicy();
+
+            Check(policy.HandleCommand(
+                        true,
+                        "DoUpload",
+                        WorkshopUploadLordRefresh.LordConfig,
+                        14,
+                        out _) == WorkshopUploadLordRefresh.None &&
+                    policy.HandleCommand(
+                        true,
+                        "UploadLordConfig",
+                        WorkshopUploadLordRefresh.LordConfig,
+                        1,
+                        out int restoredLordConfig) == WorkshopUploadLordRefresh.LordConfig &&
+                    restoredLordConfig == 14,
+                "successful Extended CPU Lord uploads retain the selected non-Rat Lord slot");
+
+            Check(policy.HandleCommand(
+                        true,
+                        "DoUpload",
+                        WorkshopUploadLordRefresh.Aiv,
+                        23,
+                        out _) == WorkshopUploadLordRefresh.None &&
+                    policy.HandleCommand(
+                        true,
+                        "UploadAIV",
+                        WorkshopUploadLordRefresh.Aiv,
+                        1,
+                        out int restoredAiv) == WorkshopUploadLordRefresh.Aiv &&
+                    restoredAiv == 23,
+                "successful Extended AIV Castle uploads retain the selected non-Rat Lord slot");
+
+            Check(policy.HandleCommand(
+                        true,
+                        "DoUpload",
+                        WorkshopUploadLordRefresh.LordConfig,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None &&
+                    policy.HandleCommand(
+                        true,
+                        "UploadLordConfig",
+                        WorkshopUploadLordRefresh.LordConfig,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None,
+                "Rat uploads remain fully delegated to Vanilla");
+
+            policy.HandleCommand(
+                true,
+                "DoUpload",
+                WorkshopUploadLordRefresh.Aiv,
+                8,
+                out _);
+            Check(policy.HandleCommand(
+                        true,
+                        "UploadLordConfig",
+                        WorkshopUploadLordRefresh.LordConfig,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None &&
+                    policy.HandleCommand(
+                        true,
+                        "UploadAIV",
+                        WorkshopUploadLordRefresh.Aiv,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None,
+                "a mismatched upload refresh clears pending Lord-selection state");
+
+            policy.HandleCommand(
+                true,
+                "DoUpload",
+                WorkshopUploadLordRefresh.Aiv,
+                12,
+                out _);
+            Check(policy.HandleCommand(
+                        true,
+                        "UploadAIV",
+                        WorkshopUploadLordRefresh.LordConfig,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None &&
+                    policy.HandleCommand(
+                        true,
+                        "UploadAIV",
+                        WorkshopUploadLordRefresh.Aiv,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None,
+                "a matching refresh command with a changed live mode clears pending state");
+
+            policy.HandleCommand(
+                true,
+                "DoUpload",
+                WorkshopUploadLordRefresh.LordConfig,
+                9,
+                out _);
+            policy.HandleCommand(
+                true,
+                "CloseUpload",
+                WorkshopUploadLordRefresh.LordConfig,
+                9,
+                out _);
+            Check(policy.HandleCommand(
+                        true,
+                        "UploadLordConfig",
+                        WorkshopUploadLordRefresh.LordConfig,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None,
+                "closing or aborting the uploader clears pending Lord-selection state");
+
+            policy.HandleCommand(
+                true,
+                "DoUpload",
+                WorkshopUploadLordRefresh.LordConfig,
+                11,
+                out _);
+            policy.CancelPending();
+            Check(policy.HandleCommand(
+                        true,
+                        "UploadLordConfig",
+                        WorkshopUploadLordRefresh.LordConfig,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None,
+                "a synchronously failed upload start explicitly cancels pending state");
+
+            foreach (string reachableFailureCommand in new[]
+                     {
+                         "Upload", "CloseDoUpload", "CloseUpload", "Lord_07"
+                     })
+            {
+                policy.HandleCommand(
+                    true,
+                    "DoUpload",
+                    WorkshopUploadLordRefresh.Aiv,
+                    7,
+                    out _);
+                policy.HandleCommand(
+                    true,
+                    reachableFailureCommand,
+                    WorkshopUploadLordRefresh.Aiv,
+                    7,
+                    out _);
+                Check(policy.HandleCommand(
+                            true,
+                            "UploadAIV",
+                            WorkshopUploadLordRefresh.Aiv,
+                            1,
+                            out _) == WorkshopUploadLordRefresh.None,
+                    "the reachable post-failure command " + reachableFailureCommand +
+                    " clears pending state");
+            }
+
+            policy.HandleCommand(
+                true,
+                "DoUpload",
+                WorkshopUploadLordRefresh.Aiv,
+                6,
+                out _);
+            Check(policy.HandleCommand(
+                        false,
+                        "UploadAIV",
+                        WorkshopUploadLordRefresh.Aiv,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None &&
+                    policy.HandleCommand(
+                        true,
+                        "UploadAIV",
+                        WorkshopUploadLordRefresh.Aiv,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None,
+                "disabling the fix clears pending state and preserves Vanilla behavior");
+
+            policy.HandleCommand(
+                true,
+                "DoUpload",
+                WorkshopUploadLordRefresh.LordConfig,
+                30,
+                out _);
+            Check(policy.HandleCommand(
+                        true,
+                        "UploadLordConfig",
+                        WorkshopUploadLordRefresh.LordConfig,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None,
+                "invalid and unrelated upload selections never arm the fix");
+
+            policy.HandleCommand(
+                true,
+                "DoUpload",
+                WorkshopUploadLordRefresh.Aiv,
+                4,
+                out _);
+            policy.HandleCommand(
+                true,
+                "DoUpload",
+                WorkshopUploadLordRefresh.Aiv,
+                17,
+                out _);
+            Check(policy.HandleCommand(
+                        true,
+                        "UploadAIV",
+                        WorkshopUploadLordRefresh.Aiv,
+                        1,
+                        out int repeatedUploadLord) == WorkshopUploadLordRefresh.Aiv &&
+                    repeatedUploadLord == 17 &&
+                    policy.HandleCommand(
+                        true,
+                        "UploadAIV",
+                        WorkshopUploadLordRefresh.Aiv,
+                        1,
+                        out _) == WorkshopUploadLordRefresh.None,
+                "a repeated upload replaces and then consumes pending state exactly once");
+
+            string hookSource = File.ReadAllText(Path.Combine(
+                "src",
+                "WorkshopUploadLordSelectionFix.cs"));
+            string policySource = File.ReadAllText(Path.Combine(
+                "src",
+                "WorkshopUploadLordSelectionPolicy.cs"));
+            string runtimeSource = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            Check(hookSource.Contains("FindRequiredMethod(\"UpdateUploadAIVList\")") &&
+                    hookSource.Contains("FindRequiredMethod(\"UpdateUploadLordList\")") &&
+                    hookSource.Contains("selectedLordTypeField.SetValue(self, restoredLordType);") &&
+                    hookSource.Contains("if (!settings.EnableMod || !settings.EnableWorkshopUploadLordSelectionFix)") &&
+                    policySource.Contains("internal const int MinimumLordType = 2;") &&
+                    policySource.Contains("requestedRefresh == currentMode") &&
+                    hookSource.Contains("if (isDoUpload && FRONT_EditorSetup.canCloseWorkshop)") &&
+                    hookSource.Contains("policy.CancelPending();") &&
+                    hookSource.Contains("delegating to Vanilla") &&
+                    CountOccurrences(hookSource, "buttonOriginal(self, command);") == 3 &&
+                    hookSource.Contains("ValidateReflectionContracts();") &&
+                    hookSource.Contains("uploadModeField.FieldType.IsEnum") &&
+                    hookSource.Contains("selectedLordTypeField.FieldType != typeof(int)") &&
+                    !hookSource.Contains("Platform_Workshop") &&
+                    runtimeSource.Contains(
+                        "private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;") &&
+                    !hookSource.Contains("public void Dispose()"),
+                "the fix validates Vanilla contracts, falls back safely, avoids Steam hooks, and remains process rooted");
+        }
+
         private static void TestMultiplayerLobbyReturnIntegration()
         {
             string source = File.ReadAllText(Path.Combine(
@@ -1464,7 +1797,10 @@ namespace BugfixesAndQoL
                     source.Contains("bool transitionAsHost = transitionHostLobby != null && transitionHostLobby.isHost;") &&
                     source.Contains("OpenHostLobby(multiplayer, transitionHostLobby, transitionSnapshot);") &&
                     source.Contains("RestoreHostMapPresentation(front, transitionSnapshot);") &&
-                    source.Contains("RestoreHostMapPresentation(\r\n            FRONT_Multiplayer front,\r\n            LobbySnapshot transitionSnapshot)") &&
+                    source.Contains(
+                        "RestoreHostMapPresentation(" + Environment.NewLine +
+                        "            FRONT_Multiplayer front," + Environment.NewLine +
+                        "            LobbySnapshot transitionSnapshot)") &&
                     source.Contains("if (transitionSnapshot == null)") &&
                     !source.Contains("RestoreHostMapPresentation(FRONT_Multiplayer front)"),
                 "post-game host transition preserves map metadata and role across the synchronous mission-end reset");
@@ -3482,6 +3818,20 @@ namespace BugfixesAndQoL
             byte[] bytes = image.ReadRva(blockRva + branchOffset, 2);
             int target = blockRva + branchOffset + 2 + unchecked((sbyte)bytes[1]);
             Check((bytes[0] == 0x74 || bytes[0] == 0x75) && target == expectedTargetRva, name);
+        }
+
+        private static int CountOccurrences(string source, string value)
+        {
+            int count = 0;
+            int offset = 0;
+            while (!string.IsNullOrEmpty(source) && !string.IsNullOrEmpty(value) &&
+                (offset = source.IndexOf(value, offset, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                offset += value.Length;
+            }
+
+            return count;
         }
 
         private static void Check(bool condition, string name)

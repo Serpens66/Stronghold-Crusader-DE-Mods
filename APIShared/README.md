@@ -24,7 +24,11 @@ BepInEx/
         └── ...
 ```
 
-Ein Mod, der APIShared verwendet, liefert **keine eigene Kopie von `APIShared.dll`** mit. Alle Verbrauchermods referenzieren dieselbe zentral installierte Assembly. So wird verhindert, dass BepInEx mehrere Kopien oder unterschiedliche Versionen der API lädt.
+Für einzeln installierte Mods wird APIShared separat über den GitHub-Release [`APIShared/v0.3.6`](https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/releases/tag/APIShared%2Fv0.3.6) installiert. Ein Verbrauchermod liefert **keine eigene Kopie von `APIShared.dll`** mit. Alle Verbrauchermods referenzieren dieselbe zentral installierte Assembly.
+
+Das SerpsMods-Workshop-Modpack ist davon ausgenommen: Es enthält bereits genau eine interne APIShared-Kopie. Neben dem Modpack dürfen weder APIShared noch einzelne darin enthaltene Serps-Mods separat installiert werden.
+
+Mehrere Kopien sind auch dann zu vermeiden, wenn BepInEx oder der Script Extender doppelte GUIDs erkennt. Die Auswahlmechanismen garantieren bei unterschiedlich verschachtelten Paketen nicht gemeinsam, dass Plugin-DLL und zugehörige Assets aus derselben Version stammen. Insbesondere gilt nicht, dass der zuletzt entpackte Stand automatisch verwendet wird.
 
 ## In ein eigenes Projekt einbinden
 
@@ -72,7 +76,7 @@ Die Projektdatei verweist auf die zentral installierte Assembly. `<Private>false
 </Target>
 ```
 
-Für lokale Entwicklung darf `ApiSharedDir` auf den Ausgabeordner des APIShared-Projekts zeigen. Auch dabei bleibt `Private` auf `false`. Das Releasepaket des Verbrauchermods darf weder `APIShared.dll` noch den Ordner `APIShared_Serp` enthalten; APIShared wird separat installiert und aktualisiert.
+Für lokale Entwicklung darf `ApiSharedDir` auf den Ausgabeordner des APIShared-Projekts zeigen. Auch dabei bleibt `Private` auf `false`. Das Releasepaket des Verbrauchermods darf weder `APIShared.dll` noch den Ordner `APIShared_Serp` enthalten; APIShared wird separat installiert und aktualisiert. In den Release-Hinweisen sollte die mindestens benötigte APIShared-Version mit einem direkten Link auf den dazugehörigen APIShared-Release genannt werden.
 
 ## API verwenden
 

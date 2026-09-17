@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.152.0</AssemblyVersion>
-    <FileVersion>1.0.152.0</FileVersion>
+    <AssemblyVersion>1.0.153.0</AssemblyVersion>
+    <FileVersion>1.0.153.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -121,7 +121,10 @@
     <Compile Include="src\MultiplayerGameSpeedChangePacket.cs" />
     <Compile Include="src\MultiplayerGameSpeedPolicy.cs" />
     <Compile Include="src\MultiplayerGameSpeedRuntime.cs" />
+    <Compile Include="src\MultiplayerSafetyPolicy.cs" />
     <Compile Include="src\MultiplayerTimeControlPermission.cs" />
+    <Compile Include="src\WorkshopUploadLordSelectionFix.cs" />
+    <Compile Include="src\WorkshopUploadLordSelectionPolicy.cs" />
     <Compile Include="src\MultiplayerLobbyReturnFeature.cs" />
     <Compile Include="src\MultiplayerLobbyReturnPolicy.cs" />
     <Compile Include="src\AssemblyPointPlacementPatch.cs" />

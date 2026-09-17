@@ -39,33 +39,42 @@ namespace BugfixesAndQoL
             out int resolvedSpeed)
         {
             maximumSpeed = NormalizeMaximumSpeed(maximumSpeed);
+            bool observedAboveMaximum = currentSpeed > maximumSpeed;
             resolvedSpeed = NormalizeObservedSpeed(currentSpeed, maximumSpeed);
             switch (action)
             {
                 case IncreaseAction:
                     if (requestedTarget != 0)
                         return false;
+                    if (observedAboveMaximum)
+                        return true;
                     resolvedSpeed = Math.Min(maximumSpeed, resolvedSpeed + SpeedStep);
                     return true;
                 case DecreaseAction:
                     if (requestedTarget != 0)
                         return false;
+                    if (observedAboveMaximum)
+                        return true;
                     resolvedSpeed = Math.Max(MinimumSpeed, resolvedSpeed - SpeedStep);
                     return true;
                 case FastIncreaseAction:
                     if (requestedTarget != 0)
                         return false;
+                    if (observedAboveMaximum)
+                        return true;
                     resolvedSpeed = Math.Min(maximumSpeed, resolvedSpeed + FastSpeedStep);
                     return true;
                 case FastDecreaseAction:
                     if (requestedTarget != 0)
                         return false;
+                    if (observedAboveMaximum)
+                        return true;
                     resolvedSpeed = Math.Max(MinimumSpeed, resolvedSpeed - FastSpeedStep);
                     return true;
                 case SetAction:
-                    if (!IsValidTarget(requestedTarget, maximumSpeed))
+                    if (!IsValidTarget(requestedTarget, MaximumSpeed))
                         return false;
-                    resolvedSpeed = requestedTarget;
+                    resolvedSpeed = Math.Min(maximumSpeed, requestedTarget);
                     return true;
                 default:
                     return false;

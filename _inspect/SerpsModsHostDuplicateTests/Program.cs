@@ -12,6 +12,7 @@ namespace SerpsModsHostDuplicateTests
         {
             TestScriptExtenderCompatibility();
             TestModInventoryCompatibility();
+            TestLobbyChatMessageFormatting();
             TestPluginLoadDiagnostics();
             string root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "runs", Guid.NewGuid().ToString("N"));
             string pluginRoot = Path.Combine(root, "BepInEx", "plugins");
@@ -140,7 +141,7 @@ namespace SerpsModsHostDuplicateTests
                 "AAAAAAAAAAAAAAAA",
                 "Alice",
                 "Bob",
-                "{Player} differs from {Host}: {PlayerHash}/{HostHash}",
+                "ERROR: Mods differ: {Player} vs {Host}.",
                 out _))
             {
                 throw new InvalidOperationException("Equal Script Extender mod hashes were reported as different.");
@@ -151,11 +152,11 @@ namespace SerpsModsHostDuplicateTests
                 "BBBBBBBBBBBBBBBB",
                 "Alice",
                 "Bob",
-                "{Player} differs from {Host}: {PlayerHash}/{HostHash}",
+                "ERROR: Mods differ: {Player} vs {Host}.",
                 out string mismatchMessage) ||
                 !string.Equals(
                     mismatchMessage,
-                    "Alice differs from Bob: AAAAAAAAAAAAAAAA/BBBBBBBBBBBBBBBB",
+                    "ERROR: Mods differ: Alice vs Bob.",
                     StringComparison.Ordinal))
             {
                 throw new InvalidOperationException("Different Script Extender mod hashes did not produce the expected message.");
@@ -287,9 +288,10 @@ namespace SerpsModsHostDuplicateTests
 
             ModInventoryDifference difference = ModInventoryCompatibility.Compare(host, client);
             if (difference.HostOnly.Count != 1 ||
-                !difference.HostOnly[0].Contains("HostGameplay") ||
-                difference.ClientOnly.Count != 1 || !difference.ClientOnly[0].Contains("ClientOnlyPlugin") ||
-                difference.VersionMismatches.Count != 1 || !difference.VersionMismatches[0].Contains("Versioned"))
+                !difference.HostOnly[0].Guid.Contains("HostGameplay") ||
+                difference.ClientOnly.Count != 1 || !difference.ClientOnly[0].Guid.Contains("ClientOnlyPlugin") ||
+                difference.VersionMismatches.Count != 1 ||
+                !difference.VersionMismatches[0].Client.Guid.Contains("Versioned"))
             {
                 throw new InvalidOperationException("Gameplay mod differences were not classified correctly.");
             }
@@ -326,6 +328,120 @@ namespace SerpsModsHostDuplicateTests
             {
                 throw new InvalidOperationException("Malformed Script Extender lobby metadata was accepted.");
             }
+        }
+
+        private static void TestLobbyChatMessageFormatting()
+        {
+            var difference = new ModInventoryDifference();
+            difference.HostOnly.Add(new ModInventoryEntry(
+                "Long.Internal.Host.Guid",
+                "Host Mod",
+                "1.0.0",
+                false));
+            difference.ClientOnly.Add(new ModInventoryEntry(
+                "Long.Internal.Client.Guid",
+                "Client Mod",
+                "2.0.0",
+                false));
+            for (int index = 0; index < 4; index++)
+            {
+                difference.VersionMismatches.Add(new ModVersionMismatch(
+                    new ModInventoryEntry(
+                        "Long.Internal.Version.Guid." + index,
+                        "Version Mod " + index,
+                        "1.0." + index,
+                        false),
+                    new ModInventoryEntry(
+                        "Long.Internal.Version.Guid." + index,
+                        "Version Mod " + index,
+                        "2.0." + index,
+                        false)));
+            }
+
+            IReadOnlyList<string> messages = LobbyChatMessageFormatter.BuildMessages(
+                "ERROR: Mods differ: Alice vs lobby host Bob.",
+                difference,
+                "Host only",
+                "Only Alice",
+                "Different versions",
+                "{Count} more differences are in the BepInEx log.",
+                "Exact mod list unavailable.",
+                "Check BepInEx\\plugins and CustomLords (local + Workshop). Full details: BepInEx log.");
+            string combined = string.Join("\n", messages);
+            if (!combined.Contains("Host Mod v1.0.0") ||
+                !combined.Contains("Client Mod v2.0.0") ||
+                !combined.Contains("Version Mod 0: 1.0.0 / 2.0.0") ||
+                !combined.Contains("2 more differences") ||
+                combined.Contains("Long.Internal") ||
+                combined.Contains("AAAAAAAAAAAAAAAA") ||
+                combined.Contains("BBBBBBBBBBBBBBBB"))
+            {
+                throw new InvalidOperationException("Compact lobby chat messages lost details or exposed internal identifiers.");
+            }
+            if (messages.Any(message =>
+                message.Length > LobbyChatMessageFormatter.MaximumMessageLength ||
+                message.IndexOf('\r') >= 0 ||
+                message.IndexOf('\n') >= 0 ||
+                HasUnpairedSurrogate(message)))
+            {
+                throw new InvalidOperationException("A lobby chat message violates the Vanilla-safe length or Unicode contract.");
+            }
+
+            IReadOnlyList<string> unavailable = LobbyChatMessageFormatter.BuildMessages(
+                "Mismatch",
+                null,
+                "Host only",
+                "Client only",
+                "Versions",
+                "{Count} more",
+                "Exact inventory unavailable.",
+                "See BepInEx log.");
+            if (unavailable.Count != 2 ||
+                !unavailable[1].Contains("Exact inventory unavailable.") ||
+                !unavailable[1].Contains("See BepInEx log."))
+            {
+                throw new InvalidOperationException("Unavailable inventory guidance was not kept compact and complete.");
+            }
+
+            AssertFormattedSummaryLength(new string('a', 280), 280);
+            AssertFormattedSummaryLength(new string('b', 279) + "😀", 280);
+            AssertFormattedSummaryLength(new string('c', 298) + "😀", 280);
+        }
+
+        private static void AssertFormattedSummaryLength(string summary, int expectedLength)
+        {
+            IReadOnlyList<string> messages = LobbyChatMessageFormatter.BuildMessages(
+                summary,
+                new ModInventoryDifference(),
+                "Host",
+                "Client",
+                "Versions",
+                "{Count} more",
+                "Unavailable",
+                string.Empty);
+            if (messages.Count != 1 || messages[0].Length != expectedLength ||
+                HasUnpairedSurrogate(messages[0]))
+            {
+                throw new InvalidOperationException("Lobby summary truncation is not Unicode-safe or deterministic.");
+            }
+        }
+
+        private static bool HasUnpairedSurrogate(string value)
+        {
+            for (int index = 0; index < value.Length; index++)
+            {
+                if (char.IsHighSurrogate(value[index]))
+                {
+                    if (index + 1 >= value.Length || !char.IsLowSurrogate(value[index + 1]))
+                        return true;
+                    index++;
+                }
+                else if (char.IsLowSurrogate(value[index]))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static void TestScriptExtenderCompatibility()

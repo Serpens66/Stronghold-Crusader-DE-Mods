@@ -1,0 +1,20 @@
+{
+  "GUID": "FormationTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Formation Test",
+  "Description": "Standalone multiplayer prototype for mouse-controlled troop formations.",
+  "Version": "0.1.0",
+  "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
+  "MinimumScriptExtenderVersion": "2.6.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SerpChangelog": [
+    {
+      "Version": "0.1.0",
+      "Changes": [
+        "Initial synchronized mouse-controlled formation prototype."
+      ]
+    }
+  ]
+}

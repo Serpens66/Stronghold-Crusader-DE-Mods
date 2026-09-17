@@ -9,8 +9,8 @@ namespace RandomEvents
     public sealed class RandomEventsSettingsViewModel : Shared.PresetLobbyModSettingsViewModel
     {
         private bool enableMod = true;
-        private int intervalMonths = 3;
-        private int cooldownMonths = 6;
+        private int intervalMonths = 6;
+        private int cooldownMonths = 12;
         private readonly int[] chances = new int[RandomEventDefinitions.All.Length];
         private int plagueMin = 1, plagueMax = 10;
         private int lionMin = 1, lionMax = 10;
@@ -27,7 +27,7 @@ namespace RandomEvents
         public RandomEventsSettingsViewModel()
         {
             for (int index = 0; index < chances.Length; index++)
-                chances[index] = 2;
+                chances[index] = 1;
             ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
@@ -181,12 +181,12 @@ namespace RandomEvents
                 return;
 
             EnableMod = true;
-            IntervalMonths = 3;
-            CooldownMonths = 6;
+            IntervalMonths = 6;
+            CooldownMonths = 12;
             MultiplayerEventModeIndex = (int)MultiplayerEventMode.SharedEvents;
             IncludeAIPlayers = false;
             for (int index = 0; index < chances.Length; index++)
-                SetChance((RandomEventKind)index, 2, GetChancePropertyName((RandomEventKind)index));
+                SetChance((RandomEventKind)index, 1, GetChancePropertyName((RandomEventKind)index));
             PlagueMin = 1; PlagueMax = 10;
             LionMin = 1; LionMax = 10;
             BanditMin = 0.1; BanditMax = 5.0;

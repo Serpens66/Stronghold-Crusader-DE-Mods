@@ -76,8 +76,7 @@ function Get-NexusMd5 {
 function Get-LatestNexusLocalRelease {
     param(
         [Parameter(Mandatory)][string]$Root,
-        [Parameter(Mandatory)][string]$ModName,
-        [ValidateSet('Thin','Bundle')][string]$Artifact = 'Thin'
+        [Parameter(Mandatory)][string]$ModName
     )
     $modOutput = Join-Path (Join-Path $Root '.release-output') $ModName
     if (-not (Test-Path -LiteralPath $modOutput -PathType Container)) { throw "Kein Release-Ordner fuer ${ModName}: $modOutput" }
@@ -86,20 +85,16 @@ function Get-LatestNexusLocalRelease {
         if ($directory.Name -notmatch '^v(.+)$') { continue }
         $version = $Matches[1]
         if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') { continue }
-        $zipFiles = @(if ($Artifact -ceq 'Thin') {
-            Get-Item -LiteralPath (Join-Path $directory.FullName "$ModName-v$version.zip") -ErrorAction SilentlyContinue
-        } else {
-            Get-ChildItem -LiteralPath $directory.FullName -File -Filter "$ModName-v$version-with-APIShared-v*.zip"
-        })
-        if ($zipFiles.Count -gt 1) { throw "Mehrere $Artifact-Artefakte fuer $ModName v${version}: $(@($zipFiles.Name) -join ', ')" }
+        $zipFiles = @(Get-Item -LiteralPath (Join-Path $directory.FullName "$ModName-v$version.zip") -ErrorAction SilentlyContinue)
+        if ($zipFiles.Count -gt 1) { throw "Mehrere Thin-Artefakte fuer $ModName v${version}: $(@($zipFiles.Name) -join ', ')" }
         if ($zipFiles.Count -eq 1) {
             $candidates.Add([PSCustomObject]@{
-                ModName=$ModName; Version=$version; Artifact=$Artifact; Directory=$directory.FullName
+                ModName=$ModName; Version=$version; Artifact='Thin'; Directory=$directory.FullName
                 ZipName=$zipFiles[0].Name; ZipPath=$zipFiles[0].FullName
             })
         }
     }
-    if ($candidates.Count -eq 0) { throw "Kein gueltiges lokales $Artifact-Release-ZIP fuer $ModName gefunden. Release-Mod.ps1 muss beide APIShared-Profile erzeugen." }
+    if ($candidates.Count -eq 0) { throw "Kein gueltiges lokales Thin-Release-ZIP fuer $ModName gefunden." }
     $latest = $candidates[0]
     for ($index = 1; $index -lt $candidates.Count; $index++) {
         if ((Compare-NexusSemanticVersion -Left $candidates[$index].Version -Right $latest.Version) -gt 0) { $latest = $candidates[$index] }
@@ -132,8 +127,8 @@ function Test-NexusLocalRelease {
     param([Parameter(Mandatory)]$Release)
     $artifactProperty = $Release.PSObject.Properties['Artifact']
     $artifact = if ($null -eq $artifactProperty) { 'Thin' } else { [string]$artifactProperty.Value }
-    if ($artifact -notin @('Thin', 'Bundle')) {
-        throw "Unbekanntes Nexus-Artefaktprofil '$artifact' fuer $($Release.ModName)."
+    if ($artifact -cne 'Thin') {
+        throw "Nexus akzeptiert nur Thin-Artefakte; erhalten: '$artifact' fuer $($Release.ModName)."
     }
     $hashPath = "$($Release.ZipPath).sha256"
     $provenancePath = Join-Path $Release.Directory "$($Release.ModName)-v$($Release.Version).provenance.json"
@@ -145,7 +140,7 @@ function Test-NexusLocalRelease {
     if ($Matches[1].ToLowerInvariant() -cne $actualHash -or $Matches[2] -cne $Release.ZipName) { throw "SHA-256-Pruefung fehlgeschlagen: $($Release.ZipName)" }
     $provenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
     if ([string]$provenance.Mod -cne $Release.ModName -or [string]$provenance.Version -cne $Release.Version) { throw "Provenance nennt einen anderen Mod oder eine andere Version: $provenancePath" }
-    $artifactProvenance = if ($artifact -ceq 'Bundle') { $provenance.Bundle } else { $provenance.Package }
+    $artifactProvenance = $provenance.Package
     if ($null -eq $artifactProvenance -or [string]$artifactProvenance.File -cne $Release.ZipName -or
         ([string]$artifactProvenance.Sha256).ToLowerInvariant() -cne $actualHash) {
         throw "Provenance-Paketdaten fuer $artifact stimmen nicht: $provenancePath"
@@ -156,18 +151,8 @@ function Test-NexusLocalRelease {
         Expand-Archive -LiteralPath $Release.ZipPath -DestinationPath $auditRoot
         $infos = @(Get-ChildItem -LiteralPath $auditRoot -Filter info.json -File -Recurse)
         $manifests = @($infos | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json })
-        if ($artifact -ceq 'Bundle') {
-            $api = @($manifests | Where-Object { [string]$_.GUID -ceq 'APIShared_Serp' })
-            $consumer = @($manifests | Where-Object { [string]$_.GUID -cne 'APIShared_Serp' })
-            if ($api.Count -ne 1 -or $consumer.Count -ne 1) { throw "Bundle muss genau APIShared und einen Verbraucher enthalten." }
-            if ([string]$consumer[0].Version -cne $Release.Version -or
-                [string]$api[0].Version -cne [string]$artifactProvenance.ApiShared.Version) {
-                throw "Bundle-Manifestversionen stimmen nicht mit der Provenance ueberein: $($Release.ZipName)"
-            }
-        } else {
-            if ($manifests.Count -ne 1 -or [string]$manifests[0].Version -cne $Release.Version) {
-                throw "Thin-Archiv muss genau ein passendes info.json enthalten: $($Release.ZipName)"
-            }
+        if ($manifests.Count -ne 1 -or [string]$manifests[0].Version -cne $Release.Version) {
+            throw "Thin-Archiv muss genau ein passendes info.json enthalten: $($Release.ZipName)"
         }
     } finally {
         if (Test-Path -LiteralPath $auditRoot) { Remove-Item -LiteralPath $auditRoot -Recurse -Force }
@@ -190,6 +175,24 @@ function Test-NexusModFileName {
     return $candidate -ceq $expected -or
         $candidate -ceq ($expected + 'serp') -or
         $candidate -match ('^' + [regex]::Escape($expected) + 'v\d+[a-z0-9]*$')
+}
+
+function Assert-NexusRetiredFileChainsInactive {
+    param(
+        [Parameter(Mandatory)][object[]]$ModFiles,
+        [Parameter(Mandatory)][string[]]$ExpectedNames
+    )
+    foreach ($expectedName in $ExpectedNames) {
+        $activeMatches = @($ModFiles | Where-Object {
+            $activeProperty = $_.PSObject.Properties['is_active']
+            $null -ne $activeProperty -and [bool]$activeProperty.Value -and
+                (Test-NexusModFileName -CandidateName ([string]$_.name) -ExpectedName $expectedName)
+        })
+        if ($activeMatches.Count -gt 0) {
+            $details = @($activeMatches | ForEach-Object { "'$([string]$_.name)' (file_id $([string]$_.id))" }) -join ', '
+            throw "Stillgelegte Nexus-Dateikette '$expectedName' ist noch aktiv: $details. Vor weiteren Uploads auf Nexus archivieren."
+        }
+    }
 }
 
 function Resolve-NexusModFile {
@@ -271,8 +274,7 @@ function Test-NexusTargetPublishesChangelog {
     param([Parameter(Mandatory)]$Target)
     $property = $Target.PSObject.Properties['PublishChangelog']
     if ($null -ne $property) { return [bool]$property.Value }
-    $artifactProperty = $Target.PSObject.Properties['Artifact']
-    return $null -eq $artifactProperty -or [string]$artifactProperty.Value -cne 'Bundle'
+    return $true
 }
 
 function Get-NexusChangelogPublicationPlans {

@@ -47,6 +47,7 @@ namespace BugfixesAndQoL
         private bool enableLordUnitControls = true;
         private bool enableEliminatedPlayersBecomeSpectators = true;
         private bool enableAbruptHostMigrationFix = true;
+        private bool enableConnectionRecoverySave = true;
         private bool enableResyncHostKick = true;
         private bool enableReturnToMultiplayerLobby = true;
         private bool enableCtrlSingleMarketTrade = true;
@@ -63,12 +64,18 @@ namespace BugfixesAndQoL
             TemporaryGateBlockagePolicy.ImprovedReachabilityMode;
         private MultiplayerTimeControlPermission enableMultiplayerGameSpeedChanges =
             MultiplayerTimeControlPermission.OnlyHost;
+        private int multiplayerGameSpeedMaximum =
+            MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed;
+        private string multiplayerSafetyCompatibilityReport =
+            MultiplayerSafetyPolicy.CompatibilityToken;
+        private readonly string[] multiplayerSafetyCompatibilityReportData = new string[9];
         private bool enableShiftGameSpeedSteps = true;
         private bool enableAllyGoodsAmountModifiers = true;
         private bool enableCustomTrailExtremeGoldFix = true;
         private bool enableTrailCustomizationButtons = true;
         private bool showVanillaMapsInEditor = true;
         private bool preserveDisplayResolution = true;
+        private bool enableWorkshopUploadLordSelectionFix = true;
         private bool enableDisbandedUnitControlGroupCleanup = true;
         private readonly LocalPerPlayerSetting<bool> enableClientFeatures = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableMinimapCursorFollowFix = new LocalPerPlayerSetting<bool>(true);
@@ -135,6 +142,15 @@ namespace BugfixesAndQoL
                 .ResetSlotsWith(
                     nameof(MarketGoodsOrder),
                     () => MarketGoodsOrderDefinition.CreateHdOrder())
+                .ResetSlotsWith(
+                    nameof(MultiplayerSafetyCompatibilityReport),
+                    () => null)
+                .RequireReport(
+                    nameof(MultiplayerSafetyCompatibilityReport),
+                    value => string.Equals(
+                        value as string,
+                        MultiplayerSafetyPolicy.CompatibilityToken,
+                        StringComparison.Ordinal))
                 .WhenLocalPlayerResolved(playerId => TrySetLocalPlayerId(playerId));
         }
 
@@ -230,6 +246,8 @@ namespace BugfixesAndQoL
         public string EnableAllyGoodsAmountModifiersHelpText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiersHelp);
         public string EnableMultiplayerGameSpeedChangesText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChanges);
         public string EnableMultiplayerGameSpeedChangesHelpText => SerpLocalization.Get(SerpLocalization.EnableMultiplayerGameSpeedChangesHelp);
+        public string MultiplayerGameSpeedMaximumText => SerpLocalization.Get(SerpLocalization.MultiplayerGameSpeedMaximum);
+        public string MultiplayerGameSpeedMaximumHelpText => SerpLocalization.Get(SerpLocalization.MultiplayerGameSpeedMaximumHelp);
         public string[] MultiplayerTimeControlPermissionOptions => new[]
         {
             SerpLocalization.Get(SerpLocalization.MultiplayerTimeControlDisabled),
@@ -242,6 +260,8 @@ namespace BugfixesAndQoL
         public string EnableResyncHostKickHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableResyncHostKickHelp");
         public string EnableAbruptHostMigrationFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAbruptHostMigrationFix");
         public string EnableAbruptHostMigrationFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAbruptHostMigrationFixHelp");
+        public string EnableConnectionRecoverySaveText => SerpLocalization.Get("BugfixesAndQoL.EnableConnectionRecoverySave");
+        public string EnableConnectionRecoverySaveHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableConnectionRecoverySaveHelp");
         public string EnableReturnToMultiplayerLobbyText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobby");
         public string EnableReturnToMultiplayerLobbyHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableReturnToMultiplayerLobbyHelp");
         public string CustomTrailsTitleText => SerpLocalization.Get("BugfixesAndQoL.CustomTrailsTitle");
@@ -326,6 +346,8 @@ namespace BugfixesAndQoL
         public string RememberAiAivSettingsHelpText => SerpLocalization.Get(SerpLocalization.RememberAiAivSettingsHelp);
         public string EnableCustomLordListEnhancementsText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancements");
         public string EnableCustomLordListEnhancementsHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCustomLordListEnhancementsHelp");
+        public string EnableWorkshopUploadLordSelectionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableWorkshopUploadLordSelectionFix");
+        public string EnableWorkshopUploadLordSelectionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableWorkshopUploadLordSelectionFixHelp");
         public string EnableTroopMovementFixText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFix);
         public string EnableTroopMovementFixHelpText => SerpLocalization.Get(SerpLocalization.EnableTroopMovementFixHelp);
         public string EnableExtendedShiftCommandQueueText =>
@@ -406,6 +428,8 @@ namespace BugfixesAndQoL
         public bool[] EnableResolutionAwareExtendedZoomData => enableResolutionAwareExtendedZoom.Data;
         public bool[] HdMarketViewData => hdMarketView.Data;
         public int[][] MarketGoodsOrderData => marketGoodsOrder.Data;
+        public string[] MultiplayerSafetyCompatibilityReportData =>
+            multiplayerSafetyCompatibilityReportData;
 
         private bool CanClearSteamInviteBlacklist() =>
             steamInviteBlacklist.Count > 0 || !steamInviteBlacklist.IsUsable;
@@ -561,6 +585,16 @@ namespace BugfixesAndQoL
         {
             get => preserveDisplayResolution;
             set => SetSetting(ref preserveDisplayResolution, value, nameof(PreserveDisplayResolution));
+        }
+
+        [Shared.PresetLocal]
+        public bool EnableWorkshopUploadLordSelectionFix
+        {
+            get => enableWorkshopUploadLordSelectionFix;
+            set => SetSetting(
+                ref enableWorkshopUploadLordSelectionFix,
+                value,
+                nameof(EnableWorkshopUploadLordSelectionFix));
         }
 
         [Shared.PresetLocal]
@@ -970,6 +1004,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableConnectionRecoverySave
+        {
+            get => enableConnectionRecoverySave;
+            set => SetSetting(ref enableConnectionRecoverySave, value, nameof(EnableConnectionRecoverySave));
+        }
+
+        [SyncHostOnly]
         public bool EnableResyncHostKick
         {
             get => enableResyncHostKick;
@@ -1012,6 +1053,36 @@ namespace BugfixesAndQoL
                 var permission = (MultiplayerTimeControlPermission)value;
                 if (MultiplayerTimeControlPolicy.IsDefinedPermission(permission))
                     EnableMultiplayerGameSpeedChanges = permission;
+            }
+        }
+
+        [SyncHostOnly]
+        public int MultiplayerGameSpeedMaximum
+        {
+            get => multiplayerGameSpeedMaximum;
+            set => SetSetting(
+                ref multiplayerGameSpeedMaximum,
+                MultiplayerSafetyPolicy.NormalizeConfiguredMultiplayerSpeed(value),
+                nameof(MultiplayerGameSpeedMaximum));
+        }
+
+        [SyncPerPlayer, SHCDESE.API.Components.ModManager.DoNotPersist]
+        public string MultiplayerSafetyCompatibilityReport
+        {
+            get => multiplayerSafetyCompatibilityReport;
+            set
+            {
+                string normalized = value ?? string.Empty;
+                if (string.Equals(
+                        multiplayerSafetyCompatibilityReport,
+                        normalized,
+                        StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                multiplayerSafetyCompatibilityReport = normalized;
+                OnPropertyChanged(nameof(MultiplayerSafetyCompatibilityReport));
             }
         }
 
@@ -1069,10 +1140,13 @@ namespace BugfixesAndQoL
                 EnableLordUnitControls = true;
                 EnableEliminatedPlayersBecomeSpectators = true;
                 EnableAbruptHostMigrationFix = true;
+                EnableConnectionRecoverySave = true;
                 EnableResyncHostKick = true;
                 EnableReturnToMultiplayerLobby = true;
                 EnableCtrlSingleMarketTrade = true;
                 EnableMultiplayerGameSpeedChanges = MultiplayerTimeControlPermission.OnlyHost;
+                MultiplayerGameSpeedMaximum =
+                    MultiplayerSafetyPolicy.DefaultConfiguredMultiplayerSpeed;
                 EnableShiftGameSpeedSteps = true;
                 EnableTrailCustomizationButtons = true;
             }
@@ -1098,6 +1172,7 @@ namespace BugfixesAndQoL
             EnableCustomTrailExtremeGoldFix = true;
             ShowVanillaMapsInEditor = true;
             PreserveDisplayResolution = true;
+            EnableWorkshopUploadLordSelectionFix = true;
             EnableAllyGoodsAmountModifiers = true;
         }
 

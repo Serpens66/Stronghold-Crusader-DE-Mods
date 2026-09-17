@@ -22,9 +22,7 @@ namespace SerpsModsHost
 
             message = messageTemplate
                 .Replace("{Player}", NormalizeName(localPlayerName))
-                .Replace("{Host}", NormalizeName(hostPlayerName))
-                .Replace("{PlayerHash}", localHash)
-                .Replace("{HostHash}", hostHash);
+                .Replace("{Host}", NormalizeName(hostPlayerName));
             return true;
         }
 

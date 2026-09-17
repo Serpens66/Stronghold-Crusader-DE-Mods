@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.40",
+  "Version": "1.0.41",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.4.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.41",
+      "Changes": [
+        "Changed the default event interval to 6 months, chances to 1%, and cooldown to 12 months."
+      ]
+    },
     {
       "Version": "1.0.40",
       "Changes": [

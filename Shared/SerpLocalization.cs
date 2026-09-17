@@ -117,6 +117,8 @@ public static class SerpLocalization
     public const string EnableSingleBuildingPauseHelp = "BugfixesAndQoL.EnableSingleBuildingPauseHelp";
     public const string EnableMultiplayerGameSpeedChanges = "SomeSettings.EnableMultiplayerGameSpeedChanges";
     public const string EnableMultiplayerGameSpeedChangesHelp = "SomeSettings.EnableMultiplayerGameSpeedChangesHelp";
+    public const string MultiplayerGameSpeedMaximum = "SomeSettings.MultiplayerGameSpeedMaximum";
+    public const string MultiplayerGameSpeedMaximumHelp = "SomeSettings.MultiplayerGameSpeedMaximumHelp";
     public const string MultiplayerTimeControlDisabled = "SomeSettings.MultiplayerTimeControlDisabled";
     public const string MultiplayerTimeControlOnlyHost = "SomeSettings.MultiplayerTimeControlOnlyHost";
     public const string MultiplayerTimeControlEveryone = "SomeSettings.MultiplayerTimeControlEveryone";
@@ -295,13 +297,13 @@ public static class SerpLocalization
         { SerpsModsScriptExtenderInvalidMaximum, "- {Name}: has an invalid maximum Script Extender version '{Maximum}'." },
         { SerpsModsScriptExtenderInvalidRange, "- {Name}: declares the invalid Script Extender range {Minimum} through {Maximum}." },
         { SerpsModsScriptExtenderComponentCheckFailed, "- {Name}: compatibility metadata could not be read. Reason: {Reason}" },
-        { SerpsModsLobbyHashMismatch, "ERROR: The installed mods of {Player} differ from lobby host {Host} ({Player}: {PlayerHash}, {Host}: {HostHash})." },
+        { SerpsModsLobbyHashMismatch, "ERROR: Mods differ: {Player} vs lobby host {Host}." },
         { SerpsModsLobbyHostOnly, "Host only" },
         { SerpsModsLobbyClientOnly, "Only {Player}" },
         { SerpsModsLobbyVersions, "Different versions" },
-        { SerpsModsLobbyMoreDifferences, "{Count} more differences are listed in the BepInEx log." },
-        { SerpsModsLobbyInventoryUnavailable, "The exact inventory is unavailable." },
-        { SerpsModsLobbyHashFolders, "Check BepInEx\\plugins, the local AppData\\LocalLow\\Firefly Studios\\Stronghold Crusader Definitive Edition\\CustomLords folder, and custom-lord content under Steam\\steamapps\\workshop\\content\\3024040." },
+        { SerpsModsLobbyMoreDifferences, "+{Count} more differences." },
+        { SerpsModsLobbyInventoryUnavailable, "Exact mod list unavailable." },
+        { SerpsModsLobbyHashFolders, "Check BepInEx\\plugins and CustomLords (local + Workshop). Full details: BepInEx log." },
         { SerpsModsSearchLabel, "Search settings" },
         { SerpsModsSearchHelp, "Searches the localized setting titles of all registered mods." },
         { SerpsModsSearchClearHelp, "Clears the mod-settings search." },
@@ -572,7 +574,9 @@ public static class SerpLocalization
         { EnableSingleBuildingPause, "Enable single-building pause" },
         { EnableSingleBuildingPauseHelp, "Hold Ctrl while toggling a production building's pause state to affect only the selected building. Multiplayer actions use Script Extender's tick-aligned Chore transport." },
         { EnableMultiplayerGameSpeedChanges, "Multiplayer game speed and pause controls" },
-        { EnableMultiplayerGameSpeedChangesHelp, "Chooses who may change game speed or pause a running multiplayer game. Speed changes use the normal increase/decrease keybinds or the in-game options slider; pause uses the normal pause keybind. Changes are executed for all players through Script Extender's tick-aligned Chore transport. Multiplayer speed uses Script Extender's configured maximum and is not saved as the local singleplayer default." },
+        { EnableMultiplayerGameSpeedChangesHelp, "Chooses who may change game speed or pause a running multiplayer game. Speed changes use the normal increase/decrease keybinds or the in-game options slider; pause uses the normal pause keybind. Changes are executed for all players through Script Extender's tick-aligned Chore transport. The lobby starting speed remains unchanged and is not saved as the local singleplayer default." },
+        { MultiplayerGameSpeedMaximum, "Max." },
+        { MultiplayerGameSpeedMaximumHelp, "Limits speed changes during a running multiplayer match with at least two connected human players. A value from 90 to 120 is recommended. Excessive values can cause tick lag and disconnects reported as a poor connection." },
         { MultiplayerTimeControlDisabled, "Disabled" },
         { MultiplayerTimeControlOnlyHost, "Only Host" },
         { MultiplayerTimeControlEveryone, "Everyone" },

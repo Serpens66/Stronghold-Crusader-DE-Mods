@@ -36,7 +36,7 @@ try {
     $remoteCommit = ((Invoke-CheckedCommand -FilePath 'git' -Arguments @('-C', $config.Root, 'rev-parse', "origin/$($config.Branch)")).Output -join '').Trim()
     if ($commit -ne $remoteCommit) { throw "HEAD ($commit) must exactly match origin/$($config.Branch) ($remoteCommit)." }
 
-    $existingReleaseResult = Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'view', $metadata.Tag, '--repo', $config.Repository, '--json', 'isDraft,targetCommitish,url') -AllowFailure
+    $existingReleaseResult = Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'view', $metadata.Tag, '--repo', $config.Repository, '--json', 'isDraft,targetCommitish,url,assets') -AllowFailure
     $existingDraft = $null
     if ($existingReleaseResult.ExitCode -eq 0) {
         $existing = ($existingReleaseResult.Output -join "`n") | ConvertFrom-Json
@@ -65,6 +65,11 @@ try {
     $extenderDir = Get-ExtenderDirectory -Metadata $metadata
     $apiSharedPackage = if ($apiSharedConsumer) {
         Get-ValidatedApiSharedPackage -Config $config -MinimumVersion $apiSharedMinimum
+    } else {
+        $null
+    }
+    $apiSharedRelease = if ($apiSharedConsumer) {
+        Get-PublishedApiSharedRelease -Config $config -Package $apiSharedPackage
     } else {
         $null
     }
@@ -134,55 +139,12 @@ try {
         throw 'ZIP audit failed: archive contents differ from the staged package.'
     }
 
-    $bundle = $null
-    $bundlePath = $null
-    $bundleShaPath = $null
-    if ($apiSharedConsumer) {
-        $apiVersion = $apiSharedPackage.Version
-        $apiPackage = $apiSharedPackage.Directory
-        $apiDllPath = $apiSharedPackage.DllPath
-
-        $bundleRoot = Join-Path $outputRoot 'bundle-stage'
-        $bundlePlugins = Join-Path $bundleRoot 'BepInEx\plugins'
-        $bundleConsumer = Join-Path $bundlePlugins $metadata.PackageFolderName
-        $bundleApi = Join-Path $bundlePlugins ([string]$config.ApiShared.Guid)
-        [void](New-Item -ItemType Directory -Path $bundlePlugins -Force)
-        Copy-Item -LiteralPath $stagePackage -Destination $bundleConsumer -Recurse -Force
-        Copy-Item -LiteralPath $apiPackage -Destination $bundleApi -Recurse -Force
-        $bundleFiles = @(Get-ChildItem -LiteralPath $bundleRoot -File -Recurse | Sort-Object FullName)
-        $bundleApiCopies = @($bundleFiles | Where-Object { $_.Name -ieq 'APIShared.dll' })
-        $bundleForbidden = @($bundleFiles | Where-Object { $_.Name -ieq 'SHCDESE.dll' -or $_.Name -like 'RedBird*.dll' })
-        if ($bundleApiCopies.Count -ne 1 -or $bundleForbidden.Count -ne 0) {
-            throw "APIShared bundle must contain exactly one APIShared.dll and no private SHCDESE/RedBird DLLs."
-        }
-        $bundleRecords = @(foreach ($file in $bundleFiles) { Get-FileHashRecord -Path $file.FullName -BasePath $bundleRoot })
-        $bundleName = "$baseName-with-APIShared-v$apiVersion"
-        $bundlePath = Join-Path $outputRoot "$bundleName.zip"
-        Compress-Archive -LiteralPath (Join-Path $bundleRoot 'BepInEx') -DestinationPath $bundlePath -CompressionLevel Optimal
-        $bundleHash = Get-Sha256Hex -Path $bundlePath
-        $bundleShaPath = "$bundlePath.sha256"
-        Write-Utf8CrLfFile -Path $bundleShaPath -Text "$bundleHash  $bundleName.zip"
-        $bundle = [ordered]@{
-            Profile = 'Bundle'
-            File = [IO.Path]::GetFileName($bundlePath)
-            Sha256 = $bundleHash
-            Size = (Get-Item -LiteralPath $bundlePath).Length
-            ApiShared = [ordered]@{
-                Guid = [string]$config.ApiShared.Guid
-                Version = $apiVersion
-                MinimumRequired = $apiSharedMinimum
-                DllSha256 = Get-Sha256Hex -Path $apiDllPath
-            }
-            Files = $bundleRecords
-        }
-    }
-
     $gitVersion = ((Invoke-CheckedCommand -FilePath 'git' -Arguments @('--version')).Output -join ' ').Trim()
     $ghVersion = ((Invoke-CheckedCommand -FilePath 'gh' -Arguments @('--version')).Output | Select-Object -First 1).Trim()
     $dotnetVersion = ((Invoke-CheckedCommand -FilePath 'dotnet' -Arguments @('--version')).Output -join '').Trim()
     $msBuildVersion = (Get-Item -LiteralPath $config.MSBuild).VersionInfo.FileVersion
     $provenance = [ordered]@{
-        SchemaVersion = 1
+        SchemaVersion = 2
         Repository = "https://github.com/$($config.Repository)"
         Commit = $commit
         Branch = $config.Branch
@@ -195,8 +157,13 @@ try {
         BuildStartedUtc = $buildStart.ToString('o')
         BuildCompletedUtc = [DateTime]::UtcNow.ToString('o')
         Package = [ordered]@{ Profile = 'Thin'; File = [IO.Path]::GetFileName($zipPath); Sha256 = $zipHash; Size = (Get-Item -LiteralPath $zipPath).Length }
-        ApiSharedRequirement = $(if ($apiSharedConsumer) { [ordered]@{ MinimumVersion = $apiSharedMinimum; BundledVersion = [string]$apiSharedPackage.Version } } else { $null })
-        Bundle = $bundle
+        ApiSharedRequirement = $(if ($apiSharedConsumer) { [ordered]@{
+            MinimumVersion = $apiSharedMinimum
+            ValidatedVersion = [string]$apiSharedPackage.Version
+            ReleaseTag = [string]$apiSharedRelease.Tag
+            ReleaseUrl = [string]$apiSharedRelease.Url
+            DllSha256 = Get-Sha256Hex -Path $apiSharedPackage.DllPath
+        } } else { $null })
         Files = $fileRecords
         Dependencies = $dependencyRecords
         Tools = [ordered]@{ Git = $gitVersion; GitHubCli = $ghVersion; DotNet = $dotnetVersion; MSBuild = $msBuildVersion }
@@ -213,24 +180,32 @@ try {
     }
 
     $notesPath = Join-Path $outputRoot 'release-notes.md'
-    $bundleNoteLines = if ($null -ne $bundle) { @(
-        "Bundle SHA-256: ``$($bundle.Sha256)``",
-        "Bundled APIShared: v$($bundle.ApiShared.Version) (``$($bundle.ApiShared.DllSha256)``)",
-        ''
+    $distributionNoteLines = if ($apiSharedConsumer) { @(
+        '',
+        '## Requirements',
+        '',
+        "Requires [APIShared v$apiSharedMinimum or newer]($([string]$apiSharedRelease.Url)). Install APIShared separately before this mod.",
+        'APIShared is already included in the complete Serps Mods Workshop pack; do not install a separate copy beside that pack.'
+    ) } elseif ($ModName -ceq 'APIShared') { @(
+        '',
+        '## Installation',
+        '',
+        'APIShared is a shared dependency required by most Serps mods and is installed once as its own BepInEx plugin.',
+        'The complete Serps Mods Workshop pack already includes APIShared; do not install this standalone archive beside that pack.'
     ) } else { @() }
     $noteLines = @(
         "# $($metadata.Manifest.Name) v$($metadata.Version)",
         '',
         '## Changes',
         ''
-    ) + $releaseChangeLines + @(
+    ) + $releaseChangeLines + $distributionNoteLines + @(
         '',
         '## Source and verification',
         '',
         "Source commit: https://github.com/$($config.Repository)/commit/$commit",
         "Thin SHA-256: ``$zipHash``",
         ''
-    ) + $bundleNoteLines + @(
+    ) + @(
         'Verify on Windows:',
         '',
         "    Get-FileHash $baseName.zip -Algorithm SHA256",
@@ -240,12 +215,15 @@ try {
     Write-Utf8CrLfFile -Path $notesPath -Text ($noteLines -join "`r`n")
 
     $releaseAssets = @($zipPath, $shaPath, $provenancePath)
-    if ($null -ne $bundle) { $releaseAssets += @($bundlePath, $bundleShaPath) }
 
     if ($null -eq $existingDraft) {
         [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments (@('release', 'create', $metadata.Tag, '--repo', $config.Repository, '--draft', '--target', $commit, '--title', "$($metadata.Manifest.Name) v$($metadata.Version)", '--notes-file', $notesPath) + $releaseAssets))
         $draftCreated = $true
     } else {
+        $expectedAssetNames = @($releaseAssets | ForEach-Object { [IO.Path]::GetFileName([string]$_) })
+        foreach ($asset in @($existingDraft.assets | Where-Object { [string]$_.name -notin $expectedAssetNames })) {
+            [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'delete-asset', $metadata.Tag, [string]$asset.name, '--repo', $config.Repository, '--yes'))
+        }
         [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments @('release', 'edit', $metadata.Tag, '--repo', $config.Repository, '--title', "$($metadata.Manifest.Name) v$($metadata.Version)", '--notes-file', $notesPath))
         [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments (@('release', 'upload', $metadata.Tag, '--repo', $config.Repository, '--clobber') + $releaseAssets))
     }

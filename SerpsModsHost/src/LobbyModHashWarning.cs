@@ -75,16 +75,27 @@ namespace SerpsModsHost
                     return;
                 }
 
-                string messageDetails = difference == null
-                    ? " " + SerpLocalization.Get(SerpLocalization.SerpsModsLobbyInventoryUnavailable)
-                    : BuildInventoryDetails(difference, localName);
-                message += messageDetails + " " + SerpLocalization.Get(SerpLocalization.SerpsModsLobbyHashFolders);
+                if (difference != null)
+                    LogInventoryDifference(difference);
 
-                Platform_Multiplayer.Instance.SendLobbyChatMessage(message);
+                IReadOnlyList<string> messages = LobbyChatMessageFormatter.BuildMessages(
+                    message,
+                    difference,
+                    SerpLocalization.Get(SerpLocalization.SerpsModsLobbyHostOnly),
+                    SerpLocalization.Get(
+                        SerpLocalization.SerpsModsLobbyClientOnly,
+                        "Player", localName),
+                    SerpLocalization.Get(SerpLocalization.SerpsModsLobbyVersions),
+                    SerpLocalization.Get(SerpLocalization.SerpsModsLobbyMoreDifferences),
+                    SerpLocalization.Get(SerpLocalization.SerpsModsLobbyInventoryUnavailable),
+                    SerpLocalization.Get(SerpLocalization.SerpsModsLobbyHashFolders));
+                foreach (string chatMessage in messages)
+                    Platform_Multiplayer.Instance.SendLobbyChatMessage(chatMessage);
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"[Serps Mods] Lobby mod hash mismatch announced: " +
-                    $"player={localName}, host={hostName}, localHash={localHash}, hostHash={hostHash}.");
+                    $"player={localName}, host={hostName}, localHash={localHash}, hostHash={hostHash}, " +
+                    $"chatMessages={messages.Count}.");
             }
             catch (Exception ex)
             {
@@ -147,59 +158,16 @@ namespace SerpsModsHost
             return ModInventoryCompatibility.BuildCanonicalLocalInventory(assets, plugins);
         }
 
-        private string BuildInventoryDetails(
-            ModInventoryDifference difference,
-            string localName)
+        private void LogInventoryDifference(ModInventoryDifference difference)
         {
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Gameplay-relevant lobby mod inventory difference: hostOnly=[" + string.Join("; ", difference.HostOnly) +
-                "], clientOnly=[" + string.Join("; ", difference.ClientOnly) +
-                "], versions=[" + string.Join("; ", difference.VersionMismatches) + "].");
-
-            int remaining = 4;
-            var sections = new List<string>();
-            AddSection(
-                sections,
-                SerpLocalization.Get(SerpLocalization.SerpsModsLobbyHostOnly),
-                difference.HostOnly,
-                ref remaining);
-            AddSection(
-                sections,
-                SerpLocalization.Get(
-                    SerpLocalization.SerpsModsLobbyClientOnly,
-                    "Player", localName),
-                difference.ClientOnly,
-                ref remaining);
-            AddSection(
-                sections,
-                SerpLocalization.Get(SerpLocalization.SerpsModsLobbyVersions),
-                difference.VersionMismatches,
-                ref remaining);
-
-            int shown = 4 - remaining;
-            int omitted = difference.Count - shown;
-            string result = " " + string.Join(" ", sections);
-            if (omitted > 0)
-            {
-                result += " " + SerpLocalization.Get(
-                    SerpLocalization.SerpsModsLobbyMoreDifferences,
-                    "Count", omitted.ToString());
-            }
-            return result;
-        }
-
-        private static void AddSection(
-            ICollection<string> sections,
-            string label,
-            IReadOnlyCollection<string> values,
-            ref int remaining)
-        {
-            if (remaining <= 0 || values.Count == 0)
-                return;
-            string[] shown = values.Take(remaining).ToArray();
-            remaining -= shown.Length;
-            sections.Add(label + ": " + string.Join(", ", shown) + ".");
+                "Gameplay-relevant lobby mod inventory difference: hostOnly=[" +
+                string.Join("; ", difference.HostOnly.Select(entry => entry.LogDisplay)) +
+                "], clientOnly=[" +
+                string.Join("; ", difference.ClientOnly.Select(entry => entry.LogDisplay)) +
+                "], versions=[" +
+                string.Join("; ", difference.VersionMismatches.Select(item => item.LogDisplay)) + "].");
         }
 
         private static Exception Unwrap(Exception ex) =>

@@ -69,7 +69,37 @@ Assert-ApiSharedValidationFails -SourceGuid 'APIShared_Serp' -SourceVersion '1.2
 $releaseModSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release-Mod.ps1'))
 Assert-True ($releaseModSource -match '\$env:SHCDE_API_SHARED_DIR = \$apiSharedPackage\.Directory') 'APIShared consumer releases must pass the workspace package to build.bat.'
 Assert-True ($releaseModSource -match "Remove-Item -LiteralPath 'Env:SHCDE_API_SHARED_DIR'") 'Release builds must restore an initially undefined APIShared environment override.'
-Assert-True ($releaseModSource -match 'BundledVersion = \[string\]\$apiSharedPackage\.Version') 'Release provenance must use the validated APIShared package version.'
+Assert-True ($releaseModSource -match 'SchemaVersion = 2') 'Release provenance must use schema 2.'
+Assert-True ($releaseModSource -match 'ValidatedVersion = \[string\]\$apiSharedPackage\.Version') 'Release provenance must record the validated APIShared build version.'
+Assert-True ($releaseModSource -match 'ReleaseTag = \[string\]\$apiSharedRelease\.Tag' -and $releaseModSource -match 'ReleaseUrl = \[string\]\$apiSharedRelease\.Url') 'Release provenance must record the validated APIShared release.'
+Assert-True ($releaseModSource -match 'DllSha256 = Get-Sha256Hex -Path \$apiSharedPackage\.DllPath') 'Release provenance must record the APIShared DLL hash.'
+Assert-True ($releaseModSource -notmatch 'with-APIShared' -and $releaseModSource -notmatch "Profile = 'Bundle'" -and $releaseModSource -notmatch 'BundledVersion') 'Consumer releases must not generate or describe bundle artifacts.'
+Assert-True ($releaseModSource -match "'release', 'delete-asset'" -and $releaseModSource.IndexOf("'release', 'delete-asset'") -lt $releaseModSource.IndexOf("'--draft=false'")) 'Resumed drafts must remove unexpected legacy assets before publication.'
+$releaseCommonSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release.Common.ps1'))
+Assert-True ($releaseCommonSource -match 'function Get-PublishedApiSharedRelease') 'Consumer releases must validate a published APIShared release.'
+Assert-True ($releaseCommonSource -match 'isDraft' -and $releaseCommonSource -match 'APIShared-v\$\(\[string\]\$Package\.Version\)\.zip') 'APIShared validation must reject drafts and require the exact versioned ZIP.'
+$originalInvokeCheckedCommand = (Get-Command Invoke-CheckedCommand).ScriptBlock
+try {
+    $script:apiReleaseFixture = @{ tagName='APIShared/v0.3.6'; isDraft=$false; url='https://example.invalid/release'; assets=@(@{ name='APIShared-v0.3.6.zip'; url='https://example.invalid/archive' }) }
+    function Invoke-CheckedCommand {
+        param([string]$FilePath, [string[]]$Arguments, [switch]$AllowFailure)
+        return [PSCustomObject]@{ ExitCode=0; Output=@(($script:apiReleaseFixture | ConvertTo-Json -Depth 5 -Compress)) }
+    }
+    $validatedRelease = Get-PublishedApiSharedRelease -Config ([PSCustomObject]@{ Repository='owner/repository' }) -Package ([PSCustomObject]@{ Version='0.3.6' })
+    Assert-True ($validatedRelease.Tag -ceq 'APIShared/v0.3.6' -and $validatedRelease.AssetName -ceq 'APIShared-v0.3.6.zip') 'Published APIShared release validation must accept the exact public tag and ZIP.'
+    $script:apiReleaseFixture.isDraft = $true
+    $draftRejected = $false
+    try { [void](Get-PublishedApiSharedRelease -Config ([PSCustomObject]@{ Repository='owner/repository' }) -Package ([PSCustomObject]@{ Version='0.3.6' })) } catch { $draftRejected = $_.Exception.Message -match 'still a draft' }
+    Assert-True $draftRejected 'Published APIShared release validation must reject drafts.'
+    $script:apiReleaseFixture.isDraft = $false
+    $script:apiReleaseFixture.assets = @(@{ name='wrong.zip'; url='https://example.invalid/wrong' })
+    $wrongAssetRejected = $false
+    try { [void](Get-PublishedApiSharedRelease -Config ([PSCustomObject]@{ Repository='owner/repository' }) -Package ([PSCustomObject]@{ Version='0.3.6' })) } catch { $wrongAssetRejected = $_.Exception.Message -match 'exactly one APIShared-v0.3.6.zip' }
+    Assert-True $wrongAssetRejected 'Published APIShared release validation must require the exact ZIP asset.'
+} finally {
+    Set-Item -LiteralPath Function:\Invoke-CheckedCommand -Value $originalInvokeCheckedCommand
+    Remove-Variable -Name apiReleaseFixture -Scope Script -ErrorAction SilentlyContinue
+}
 $dependencyFixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-release-dependencies-' + [Guid]::NewGuid().ToString('N'))
 try {
     $fixtureGameDir = Join-Path $dependencyFixtureRoot 'Game'

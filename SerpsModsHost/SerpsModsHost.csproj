@@ -57,6 +57,7 @@
     <Compile Include="src\DuplicateInstallationDetector.cs" />
     <Compile Include="src\RegisteredAssetDirectoryPolicy.cs" />
     <Compile Include="src\LobbyModHashWarning.cs" />
+    <Compile Include="src\LobbyChatMessageFormatter.cs" />
     <Compile Include="src\ModInventoryCompatibility.cs" />
     <Compile Include="src\ModHashCompatibility.cs" />
     <Compile Include="src\ModSettingsSearchPolicy.cs" />

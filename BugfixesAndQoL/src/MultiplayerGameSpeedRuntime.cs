@@ -726,16 +726,60 @@ namespace BugfixesAndQoL
                 return 40;
 
             int observed = (int)Math.Round(1.0 / director.EngineFrameTime);
-            return MultiplayerGameSpeedPolicy.NormalizeObservedSpeed(observed, GetMaximumSpeed());
+            return MultiplayerGameSpeedPolicy.NormalizeObservedSpeed(
+                observed,
+                GetConfiguredMaximumSpeed());
         }
 
-        private static int GetMaximumSpeed()
+        private int GetMaximumSpeed()
+        {
+            int connectedHumanCount = CountConnectedHumans(Platform_Multiplayer.Instance);
+            bool realMultiplayer;
+            try
+            {
+                realMultiplayer = Shared.GameModeHelper.IsRealMultiplayer();
+            }
+            catch
+            {
+                // A running Vanilla multiplayer session must retain the conservative cap
+                // if the more specific mode helper is temporarily unavailable.
+                realMultiplayer = Director.instance?.MultiplayerGame == true;
+            }
+
+            return MultiplayerSafetyPolicy.ResolveMaximumSpeed(
+                GetConfiguredMaximumSpeed(),
+                settings.MultiplayerGameSpeedMaximum,
+                realMultiplayer,
+                connectedHumanCount);
+        }
+
+        private static int GetConfiguredMaximumSpeed()
         {
             // Match the same live configuration used by Script Extender's Director IL hooks.
             SHCDESE.BepInEx.Bootstrap.Plugin plugin = SHCDESE.BepInEx.Bootstrap.Plugin.Instance;
             return plugin?.MaxGameSpeed != null
                 ? Math.Max(MultiplayerGameSpeedPolicy.MinimumSpeed, (int)plugin.MaxGameSpeed.Value)
                 : MultiplayerGameSpeedPolicy.MaximumSpeed;
+        }
+
+        private static int CountConnectedHumans(Platform_Multiplayer multiplayer)
+        {
+            int count = 0;
+            if (multiplayer?.gameMembers == null)
+                return count;
+
+            foreach (Platform_Multiplayer.MPGameMember member in multiplayer.gameMembers)
+            {
+                if (member != null && MultiplayerSafetyPolicy.IsConnectedHuman(
+                        member.steamID,
+                        member.skirmishAI,
+                        member.kicked))
+                {
+                    count++;
+                }
+            }
+
+            return count;
         }
 
         private static bool TryGetLoadedMainViewModel(out MainViewModel main)

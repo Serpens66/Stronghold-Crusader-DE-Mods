@@ -21,14 +21,28 @@ namespace SerpsModsHost
         internal string Name { get; }
         internal string Version { get; }
         internal bool Clientside { get; }
-        internal string Display => $"{Guid}@{Version}";
+        internal string LogDisplay => $"{Guid}@{Version}";
+    }
+
+    internal sealed class ModVersionMismatch
+    {
+        internal ModVersionMismatch(ModInventoryEntry client, ModInventoryEntry host)
+        {
+            Client = client ?? throw new ArgumentNullException(nameof(client));
+            Host = host ?? throw new ArgumentNullException(nameof(host));
+        }
+
+        internal ModInventoryEntry Client { get; }
+        internal ModInventoryEntry Host { get; }
+        internal string LogDisplay =>
+            $"{Client.Guid}: client {Client.Version}, host {Host.Version}";
     }
 
     internal sealed class ModInventoryDifference
     {
-        internal List<string> HostOnly { get; } = new List<string>();
-        internal List<string> ClientOnly { get; } = new List<string>();
-        internal List<string> VersionMismatches { get; } = new List<string>();
+        internal List<ModInventoryEntry> HostOnly { get; } = new List<ModInventoryEntry>();
+        internal List<ModInventoryEntry> ClientOnly { get; } = new List<ModInventoryEntry>();
+        internal List<ModVersionMismatch> VersionMismatches { get; } = new List<ModVersionMismatch>();
         internal int Count => HostOnly.Count + ClientOnly.Count + VersionMismatches.Count;
     }
 
@@ -132,15 +146,14 @@ namespace SerpsModsHost
                 if (!host.TryGetValue(local.Guid, out ModInventoryEntry remote))
                 {
                     if (!local.Clientside)
-                        result.ClientOnly.Add(local.Display);
+                        result.ClientOnly.Add(local);
                     continue;
                 }
 
                 if (!string.Equals(local.Version, remote.Version, StringComparison.Ordinal) &&
                     (!local.Clientside || !remote.Clientside))
                 {
-                    result.VersionMismatches.Add(
-                        $"{local.Guid}: client {local.Version}, host {remote.Version}");
+                    result.VersionMismatches.Add(new ModVersionMismatch(local, remote));
                 }
             }
 
@@ -149,7 +162,7 @@ namespace SerpsModsHost
                 StringComparer.OrdinalIgnoreCase))
             {
                 if (!client.ContainsKey(remote.Guid) && !remote.Clientside)
-                    result.HostOnly.Add(remote.Display);
+                    result.HostOnly.Add(remote);
             }
 
             return result;

@@ -275,11 +275,20 @@
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-multiplayer-game-speed-changes" shared:ModSettingsSearch.Title="{Binding EnableMultiplayerGameSpeedChangesText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableMultiplayerGameSpeedChangesHelpText}" Margin="0,0,14,8">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/>
-          <ColumnDefinition Width="260"/>
+          <ColumnDefinition Width="180"/>
+          <ColumnDefinition Width="44"/>
+          <ColumnDefinition Width="120"/>
+          <ColumnDefinition Width="36"/>
         </Grid.ColumnDefinitions>
         <TextBlock Grid.Column="0" Text="{Binding EnableMultiplayerGameSpeedChangesText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0"/>
         <ComboBox Grid.Column="1" ItemsSource="{Binding MultiplayerTimeControlPermissionOptions}" SelectedIndex="{Binding MultiplayerTimeControlPermissionIndex, Mode=TwoWay}"
-                  ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}"/>
+                  IsEnabled="{Binding CanEditHostSettings}" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableMultiplayerGameSpeedChangesHelpText}"/>
+        <TextBlock Grid.Column="2" Text="{Binding MultiplayerGameSpeedMaximumText}" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="4,0,4,0"
+                   ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}"/>
+        <Slider Grid.Column="3" Minimum="40" Maximum="200" Value="{Binding MultiplayerGameSpeedMaximum, Mode=TwoWay}" TickFrequency="5" SmallChange="5" LargeChange="10"
+                IsSnapToTickEnabled="True" IsEnabled="{Binding CanEditHostSettings}" Margin="3,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}"/>
+        <TextBlock Grid.Column="4" Text="{Binding MultiplayerGameSpeedMaximum}" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Right"
+                   ToolTipService.ShowDuration="60000" ToolTip="{Binding MultiplayerGameSpeedMaximumHelpText}"/>
       </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-shift-game-speed-steps" shared:ModSettingsSearch.Title="{Binding EnableShiftGameSpeedStepsText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableShiftGameSpeedStepsHelpText}"><CheckBox IsChecked="{Binding EnableShiftGameSpeedSteps, Mode=TwoWay}"
                 Foreground="White"
@@ -340,6 +349,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableCustomLordListEnhancementsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-workshop-upload-lord-selection-fix" shared:ModSettingsSearch.Title="{Binding EnableWorkshopUploadLordSelectionFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableWorkshopUploadLordSelectionFixHelpText}"><CheckBox IsChecked="{Binding EnableWorkshopUploadLordSelectionFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableWorkshopUploadLordSelectionFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableWorkshopUploadLordSelectionFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.ai-quarry-pile-towards-keep" shared:ModSettingsSearch.Title="{Binding EnableAIQuarryPileTowardsKeepText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableAIQuarryPileTowardsKeepHelpText}"><CheckBox IsChecked="{Binding EnableAIQuarryPileTowardsKeep, Mode=TwoWay}" Foreground="White" ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAIQuarryPileTowardsKeepHelpText}" Margin="0,0,14,8"><TextBlock Text="{Binding EnableAIQuarryPileTowardsKeepText}" Foreground="White" TextWrapping="Wrap"/></CheckBox></Grid>
       </StackPanel>
       <StackPanel shared:ModSettingsSearch.SectionKey="bugfixes.section.troop-movement" shared:ModSettingsSearch.SectionTitle="{Binding TroopMovementTitleText}">
@@ -385,6 +400,12 @@
               ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAbruptHostMigrationFixHelpText}"
               Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAbruptHostMigrationFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-connection-recovery-save" shared:ModSettingsSearch.Title="{Binding EnableConnectionRecoverySaveText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableConnectionRecoverySaveHelpText}"><CheckBox IsChecked="{Binding EnableConnectionRecoverySave, Mode=TwoWay}"
+              Foreground="White"
+              ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableConnectionRecoverySaveHelpText}"
+              Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableConnectionRecoverySaveText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-resync-host-kick" shared:ModSettingsSearch.Title="{Binding EnableResyncHostKickText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableResyncHostKickHelpText}"><CheckBox IsChecked="{Binding EnableResyncHostKick, Mode=TwoWay}"
                 Foreground="White"

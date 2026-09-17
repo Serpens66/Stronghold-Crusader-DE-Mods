@@ -3,28 +3,20 @@ param(
     [switch]$ResetApiKey
 )
 
-# Whitelist: Existing chains are updated by their visible Nexus name. A missing
-# chain is created only when CreateIfMissing is explicitly true for that target.
+# Whitelist: only existing Thin file chains are updated by their visible Nexus name.
 $NexusTargets = @(
     [PSCustomObject]@{ ModName='StartConditions'; NexusPageId='209'; NexusFileName='StartConditions'; AllowWrongTwoCorrection=$false },
     [PSCustomObject]@{ ModName='BuildingCosts'; NexusPageId='222'; NexusFileName='Building Costs'; AllowWrongTwoCorrection=$false },
     [PSCustomObject]@{ ModName='BuildingLimit'; NexusPageId='223'; NexusFileName='Building Limit'; AllowWrongTwoCorrection=$false },
     [PSCustomObject]@{ ModName='UnitCosts'; NexusPageId='224'; NexusFileName='Unit Costs'; AllowWrongTwoCorrection=$false },
     [PSCustomObject]@{ ModName='UnitLimit'; NexusPageId='225'; NexusFileName='Unit Limit'; AllowWrongTwoCorrection=$false },
-    [PSCustomObject]@{ ModName='BugfixesAndQoL'; Artifact='Thin'; NexusPageId='226'; NexusFileName='Bugfixes and QoL'; AllowWrongTwoCorrection=$true; PublishChangelog=$true },
-    [PSCustomObject]@{
-        ModName='BugfixesAndQoL'; Artifact='Bundle'; NexusPageId='226'
-        NexusFileName='Bugfixes and QoL - APIShared Bundle'; AllowWrongTwoCorrection=$false
-        CreateIfMissing=$true; FileCategory='main'; PrimaryModManagerDownload=$false; PublishChangelog=$false
-        NexusFileDescription='Includes Bugfixes and QoL plus the required APIShared version. Install this bundle instead of the thin archive; do not install both.'
-    },
-    [PSCustomObject]@{ ModName='ExtraFeatures'; Artifact='Thin'; NexusPageId='226'; NexusFileName='Extra Features'; AllowWrongTwoCorrection=$true; PublishChangelog=$true },
-    [PSCustomObject]@{
-        ModName='ExtraFeatures'; Artifact='Bundle'; NexusPageId='226'
-        NexusFileName='Extra Features - APIShared Bundle'; AllowWrongTwoCorrection=$false
-        CreateIfMissing=$true; FileCategory='main'; PrimaryModManagerDownload=$false; PublishChangelog=$false
-        NexusFileDescription='Includes Extra Features plus the required APIShared version. Install this bundle instead of the thin archive; do not install both.'
-    }
+    [PSCustomObject]@{ ModName='BugfixesAndQoL'; NexusPageId='226'; NexusFileName='Bugfixes and QoL'; AllowWrongTwoCorrection=$true; PublishChangelog=$true },
+    [PSCustomObject]@{ ModName='ExtraFeatures'; NexusPageId='226'; NexusFileName='Extra Features'; AllowWrongTwoCorrection=$true; PublishChangelog=$true }
+)
+
+$RetiredNexusFileChains = @(
+    [PSCustomObject]@{ NexusPageId='226'; NexusFileName='Bugfixes and QoL - APIShared Bundle' },
+    [PSCustomObject]@{ NexusPageId='226'; NexusFileName='Extra Features - APIShared Bundle' }
 )
 
 . (Join-Path $PSScriptRoot 'NexusRelease.Common.ps1')
@@ -96,10 +88,10 @@ try {
     $apiKey = Read-NexusApiKey -Path $keyPath
     $headers = New-NexusHeaders -ApiKey $apiKey
     $plans = [System.Collections.Generic.List[object]]::new()
+    $checkedRetiredPages = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 
     foreach ($target in $NexusTargets) {
-        $artifact = if ($null -ne $target.PSObject.Properties['Artifact']) { [string]$target.Artifact } else { 'Thin' }
-        $release = Get-LatestNexusLocalRelease -Root $root -ModName $target.ModName -Artifact $artifact
+        $release = Get-LatestNexusLocalRelease -Root $root -ModName $target.ModName
         $validated = Test-NexusLocalRelease -Release $release
         if (Test-NexusTargetPublishesChangelog -Target $target) {
             try {
@@ -119,6 +111,12 @@ try {
         $modId = [string]$modResponse.data.id
         if ([string]::IsNullOrWhiteSpace($modId)) { throw "Nexus-Seite $($target.NexusPageId) lieferte keine interne Mod-ID." }
         $filesResponse = Invoke-NexusApi -Method Get -Path "/mods/$modId/files" -Headers $headers
+        if ($checkedRetiredPages.Add([string]$target.NexusPageId)) {
+            $retiredNames = @($RetiredNexusFileChains | Where-Object { [string]$_.NexusPageId -ceq [string]$target.NexusPageId } | ForEach-Object { [string]$_.NexusFileName })
+            if ($retiredNames.Count -gt 0) {
+                Assert-NexusRetiredFileChainsInactive -ModFiles @($filesResponse.data.mod_files) -ExpectedNames $retiredNames
+            }
+        }
         $resolution = Resolve-NexusTargetFile -ModFiles @($filesResponse.data.mod_files) -Target $target
         if ($resolution.Action -ceq 'Create') {
             $modFile = $null
@@ -139,7 +137,7 @@ try {
     $summary = @($plans | ForEach-Object {
         $currentVersion = if ($null -eq $_.Decision.Current) { '<neu>' } else { [string]$_.Decision.Current.version }
         [PSCustomObject]@{
-            Mod="$($_.Target.ModName) [$($_.Release.Artifact)]"
+            Mod=$_.Target.ModName
             Lokal=$_.Release.Version
             Nexus=$currentVersion
             Aktion=$(switch ($_.Decision.Action) {
@@ -192,7 +190,7 @@ try {
     $publishedChangelogKeys = @{}
 
     foreach ($plan in $pending) {
-        Write-NexusLog "Starte $($plan.Target.ModName) [$($plan.Release.Artifact)] v$($plan.Release.Version)." Cyan
+        Write-NexusLog "Starte $($plan.Target.ModName) v$($plan.Release.Version)." Cyan
         $md5 = Get-NexusMd5 -Path $plan.Release.ZipPath
         $uploadResponse = Invoke-NexusApi -Method Post -Path '/uploads' -Headers $headers -Body @{
             size_bytes=(Get-Item -LiteralPath $plan.Release.ZipPath).Length

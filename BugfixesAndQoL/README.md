@@ -156,6 +156,8 @@ While the mod is enabled, uploading a local Custom Lord or Extended CPU Lord als
 ### Improve AIV and AIC selection
 AI castle lists can be searched and sorted by origin or name, while AI configuration lists can additionally be sorted by Lord Power. Each lord's last AIV list, AIC configuration, and castle rotation is remembered across singleplayer and multiplayer lobbies, and named presets can save and restore further setups. Up to 50 ordered AIV candidates may be selected per lord; in multiplayer, additional AIV data is validated and synchronized before the match starts.
 
+The local **Keep selected Lord after Workshop upload** option prevents successful Extended AIV Castle and Extended CPU Lord uploads from returning the upload list to the Rat.
+
 ### Improve game-speed controls
 Adds Multiplayer game-speed and pause controls. Can be restricted to the host or allowed for everyone. Pressing or holding a speed key changes the speed immediately and repeats every 0.25 seconds; holding Shift changes it by 25 instead of 5 per step. The slider retains its normal 5-point increments.
 

@@ -743,13 +743,16 @@ namespace APISharedTests
                 releaseConfig.Contains("\"ExtraFeatures\": \"0.3.6\""),
                 "release inventory must declare each consumer's actual APIShared minimum");
             Assert(releaseScript.Contains("Profile = 'Thin'") &&
-                releaseScript.Contains("Profile = 'Bundle'") &&
+                !releaseScript.Contains("Profile = 'Bundle'") &&
+                !releaseScript.Contains("with-APIShared") &&
+                releaseScript.Contains("Get-PublishedApiSharedRelease") &&
                 releaseScript.Contains("APIShared.dll") && releaseScript.Contains("SHCDESE.dll") &&
                 releaseScript.Contains("RedBird"),
-                "release staging must distinguish thin and bundled APIShared artifacts and reject private runtime copies");
-            Assert(nexusScript.Contains("[ValidateSet('Thin','Bundle')]") &&
-                nexusScript.Contains("Bundle muss genau APIShared und einen Verbraucher enthalten."),
-                "Nexus validation must audit thin and bundle artifacts separately");
+                "release staging must emit only thin artifacts, validate the published APIShared release, and reject private runtime copies");
+            Assert(!nexusScript.Contains("[ValidateSet('Thin','Bundle')]") &&
+                nexusScript.Contains("Nexus akzeptiert nur Thin-Artefakte") &&
+                nexusScript.Contains("Assert-NexusRetiredFileChainsInactive"),
+                "Nexus validation must accept only thin artifacts and reject active retired bundle chains");
             Assert(steamScript.Contains("Infrastructure") && steamScript.Contains("releaseConfig.ApiShared.Guid") &&
                 steamScript.Contains("APIShared.dll") && releaseConfig.Contains("\"Guid\": \"APIShared_Serp\""),
                 "Steam staging must model APIShared as one separately validated infrastructure dependency");

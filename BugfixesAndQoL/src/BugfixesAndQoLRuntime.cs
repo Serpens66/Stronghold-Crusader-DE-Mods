@@ -72,6 +72,7 @@ namespace BugfixesAndQoL
         private FriendlyMoatMovementRuntime friendlyMoatMovementRuntime;
         private static FriendlyMoatMovementRuntime processFriendlyMoatMovementRuntime;
         private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;
+        private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private NotificationSkipFeature notificationSkipFeature;
         private IntPtr libraryHandle;
@@ -209,6 +210,7 @@ namespace BugfixesAndQoL
         {
             ResetMovedFeatureMapState();
             multiplayerGameSpeedRuntime.ResetMapState();
+            abruptHostMigrationFix?.ResetMapState();
             assassinClimbRuntime.EndMap();
             assassinPathfindingRuntime.EndMap();
             multiplayerFeatureGate.Reset();
@@ -216,6 +218,7 @@ namespace BugfixesAndQoL
 
         private void BeginGameplaySession(Shared.GameplaySessionStartedContext context)
         {
+            abruptHostMigrationFix?.ResetMapState();
             multiplayerFeatureGate.CaptureMapMode(
                 context.Notification != null && context.Notification.Context.IsSave && context.Mode.IsRealMultiplayer);
             // Restored customized-save origins are pending until the destination session exists.
@@ -417,6 +420,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("surrender", () => surrenderFeature?.RefreshButtonState());
             TryInitializeFeature("resync host kick", EnsureResyncHostKickFeature);
             TryInitializeFeature("AI castle/settings selection memory", EnsureAiSelectionHook);
+            TryInitializeFeature("Workshop upload Lord-selection fix", EnsureWorkshopUploadLordSelectionFix);
             TryApplyFeature("AI castle/settings selection memory", () => skirmishAiSelectionMemoryHook?.ApplySetting());
             TryInitializeFeature("custom-lord list enhancements", EnsureCustomLordListEnhancementHook);
             TryApplyFeature("custom-lord list enhancements", () => customLordListEnhancementHook?.ApplySetting());
@@ -721,6 +725,15 @@ namespace BugfixesAndQoL
                 skirmishAiSelectionMemoryHook = new SkirmishAiSelectionMemoryHook(log, settings);
         }
 
+        private void EnsureWorkshopUploadLordSelectionFix()
+        {
+            if (processWorkshopUploadLordSelectionFix != null)
+                return;
+
+            var candidate = new WorkshopUploadLordSelectionFix(log, settings);
+            processWorkshopUploadLordSelectionFix = candidate;
+        }
+
         private void EnsureCustomLordListEnhancementHook()
         {
             if (customLordListEnhancementHook == null)
@@ -760,7 +773,10 @@ namespace BugfixesAndQoL
         private void EnsureAbruptHostMigrationFix()
         {
             if (abruptHostMigrationFix == null)
-                abruptHostMigrationFix = new AbruptHostMigrationFix(log, settings);
+                abruptHostMigrationFix = new AbruptHostMigrationFix(
+                    log,
+                    settings,
+                    multiplayerFeatureGate);
         }
 
         private void InstallAllyGoodsAmountModifierHook()

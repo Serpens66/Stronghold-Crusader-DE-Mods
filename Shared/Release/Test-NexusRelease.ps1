@@ -12,14 +12,16 @@ $updaterSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Update-NexusMo
 $previewGuardIndex = $updaterSource.IndexOf('if ($Preview)')
 $uploadMutationIndex = $updaterSource.IndexOf("Invoke-NexusApi -Method Post -Path '/uploads'")
 Assert-True ($previewGuardIndex -ge 0 -and $uploadMutationIndex -gt $previewGuardIndex) 'Preview muss vor dem ersten mutierenden Nexus-Aufruf enden.'
-Assert-True ([regex]::Matches($updaterSource, 'CreateIfMissing=\$true').Count -eq 2) 'Nur zwei explizite Bundle-Ziele duerfen automatisch erstellt werden.'
+Assert-True ([regex]::Matches($updaterSource, 'CreateIfMissing=\$true').Count -eq 0) 'Nexus-Ziele duerfen keine fehlenden Dateiketten automatisch erstellen.'
+Assert-True ($updaterSource -match 'Assert-NexusRetiredFileChainsInactive') 'Preview und Upload muessen stillgelegte Bundle-Dateiketten als inaktiv validieren.'
+Assert-True ($updaterSource -match 'Bugfixes and QoL - APIShared Bundle' -and $updaterSource -match 'Extra Features - APIShared Bundle') 'Beide bisherigen Bundle-Dateiketten muessen als stillgelegt katalogisiert bleiben.'
 Assert-True ([regex]::Matches($updaterSource, "Post -Path '/mod-files'").Count -eq 1) 'Die Neuanlage darf nur einen POST-Codepfad besitzen.'
 Assert-True ($updaterSource -match 'Find-NexusCreatedFile' -and $updaterSource -match 'kein zweiter Erstellungsaufruf') 'Unklare Neuanlagen muessen durch Abgleich statt Wiederholung behandelt werden.'
 Assert-True ([regex]::Matches($updaterSource, '/changelogs').Count -eq 1) 'Der additive Changelog-Endpunkt darf nur einen Publikationscodepfad besitzen.'
 
 $releaseSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release-Mod.ps1'))
 Assert-True ($releaseSource -match 'Thin APIShared consumer contains private runtime DLLs') 'Thin-Releases muessen private API-Laufzeitkopien ablehnen.'
-Assert-True ($releaseSource -match 'bundle must contain exactly one APIShared\.dll') 'Bundle-Releases muessen genau eine APIShared-Kopie erzwingen.'
+Assert-True ($releaseSource -notmatch 'with-APIShared' -and $releaseSource -notmatch "Profile = 'Bundle'") 'Release-Mod darf keine Bundle-Artefakte mehr erzeugen.'
 $steamSource = [IO.File]::ReadAllText((Join-Path $root 'Shared\Steam\Create-SteamModPack.ps1'))
 Assert-True ($steamSource -match 'Steam infrastructure must contain exactly one APIShared\.dll') 'Steam muss genau eine zentrale APIShared-Kopie erzwingen.'
 Assert-True ($steamSource -match 'Steam consumer .* is not thin') 'Steam muss private API-Kopien in Verbraucherpaketen ablehnen.'
@@ -58,35 +60,22 @@ $artifactTestRoot = Join-Path ([IO.Path]::GetTempPath()) ("nexus-artifact-test-"
 try {
     $artifactReleaseDirectory = Join-Path $artifactTestRoot '.release-output\Synthetic\v1.2.3'
     $thinStage = Join-Path $artifactTestRoot 'thin-stage\BepInEx\plugins\Synthetic_Serp'
-    $bundleConsumerStage = Join-Path $artifactTestRoot 'bundle-stage\BepInEx\plugins\Synthetic_Serp'
-    $bundleApiStage = Join-Path $artifactTestRoot 'bundle-stage\BepInEx\plugins\APIShared_Serp'
-    [void](New-Item -ItemType Directory -Path $artifactReleaseDirectory,$thinStage,$bundleConsumerStage,$bundleApiStage -Force)
+    [void](New-Item -ItemType Directory -Path $artifactReleaseDirectory,$thinStage -Force)
     $consumerInfo = @{ GUID='Synthetic_Serp'; Name='Synthetic'; Version='1.2.3' } | ConvertTo-Json
-    $apiInfo = @{ GUID='APIShared_Serp'; Name='APIShared'; Version='0.3.0' } | ConvertTo-Json
     [IO.File]::WriteAllText((Join-Path $thinStage 'info.json'), $consumerInfo, [Text.UTF8Encoding]::new($false))
-    [IO.File]::WriteAllText((Join-Path $bundleConsumerStage 'info.json'), $consumerInfo, [Text.UTF8Encoding]::new($false))
-    [IO.File]::WriteAllText((Join-Path $bundleApiStage 'info.json'), $apiInfo, [Text.UTF8Encoding]::new($false))
     $thinName = 'Synthetic-v1.2.3.zip'
-    $bundleName = 'Synthetic-v1.2.3-with-APIShared-v0.3.0.zip'
     $thinPath = Join-Path $artifactReleaseDirectory $thinName
-    $bundlePath = Join-Path $artifactReleaseDirectory $bundleName
     Compress-Archive -LiteralPath (Join-Path $artifactTestRoot 'thin-stage\BepInEx') -DestinationPath $thinPath
-    Compress-Archive -LiteralPath (Join-Path $artifactTestRoot 'bundle-stage\BepInEx') -DestinationPath $bundlePath
     $thinHash = Get-NexusSha256 -Path $thinPath
-    $bundleHash = Get-NexusSha256 -Path $bundlePath
     [IO.File]::WriteAllText("$thinPath.sha256", "$thinHash  $thinName", [Text.UTF8Encoding]::new($false))
-    [IO.File]::WriteAllText("$bundlePath.sha256", "$bundleHash  $bundleName", [Text.UTF8Encoding]::new($false))
     $artifactProvenance = @{
-        Mod='Synthetic'; Version='1.2.3'
+        SchemaVersion=2; Mod='Synthetic'; Version='1.2.3'
         Package=@{ Profile='Thin'; File=$thinName; Sha256=$thinHash }
-        Bundle=@{ Profile='Bundle'; File=$bundleName; Sha256=$bundleHash; ApiShared=@{ Version='0.3.0' } }
     } | ConvertTo-Json -Depth 8
     [IO.File]::WriteAllText((Join-Path $artifactReleaseDirectory 'Synthetic-v1.2.3.provenance.json'), $artifactProvenance, [Text.UTF8Encoding]::new($false))
 
-    $syntheticThin = Get-LatestNexusLocalRelease -Root $artifactTestRoot -ModName 'Synthetic' -Artifact Thin
-    $syntheticBundle = Get-LatestNexusLocalRelease -Root $artifactTestRoot -ModName 'Synthetic' -Artifact Bundle
+    $syntheticThin = Get-LatestNexusLocalRelease -Root $artifactTestRoot -ModName 'Synthetic'
     Assert-True ((Test-NexusLocalRelease -Release $syntheticThin).Sha256 -ceq $thinHash) 'Synthetisches Thin-Artefakt.'
-    Assert-True ((Test-NexusLocalRelease -Release $syntheticBundle).Sha256 -ceq $bundleHash) 'Synthetisches Bundle-Artefakt.'
 } finally {
     if (Test-Path -LiteralPath $artifactTestRoot) { Remove-Item -LiteralPath $artifactTestRoot -Recurse -Force }
 }
@@ -110,24 +99,36 @@ $ambiguous = $false
 try { [void](Resolve-NexusModFile -ModFiles ($files + [PSCustomObject]@{ id='c'; name='BugfixesAndQoL'; is_active=$true }) -ExpectedName 'Bugfixes and QoL') }
 catch { $ambiguous = $true }
 Assert-True $ambiguous 'Mehrdeutige Dateizuordnung muss fehlschlagen.'
+$retiredNames = @('Bugfixes and QoL - APIShared Bundle', 'Extra Features - APIShared Bundle')
+Assert-NexusRetiredFileChainsInactive -ModFiles @(
+    [PSCustomObject]@{ id='retired-a'; name=$retiredNames[0]; is_active=$false },
+    [PSCustomObject]@{ id='retired-b'; name=$retiredNames[1]; is_active=$false }
+) -ExpectedNames $retiredNames
+$activeRetiredRejected = $false
+try {
+    Assert-NexusRetiredFileChainsInactive -ModFiles @(
+        [PSCustomObject]@{ id='active-retired'; name=$retiredNames[0]; is_active=$true }
+    ) -ExpectedNames $retiredNames
+} catch { $activeRetiredRejected = $_.Exception.Message -match 'noch aktiv' }
+Assert-True $activeRetiredRejected 'Eine noch aktive stillgelegte Bundle-Dateikette muss Preview und Upload blockieren.'
 $createTarget = [PSCustomObject]@{
-    NexusFileName='Bugfixes and QoL - APIShared Bundle'
+    NexusFileName='Synthetic Optional Chain'
     CreateIfMissing=$true
     FileCategory='main'
     PrimaryModManagerDownload=$false
-    NexusFileDescription='Bundle description.'
+    NexusFileDescription='Synthetic description.'
 }
 $createResolution = Resolve-NexusTargetFile -ModFiles $files -Target $createTarget
 Assert-True ($createResolution.Action -ceq 'Create' -and $null -eq $createResolution.ModFile) 'Explizit freigegebene fehlende Dateikette muss CREATE planen.'
-$existingBundle = [PSCustomObject]@{ id='bundle'; name='Bugfixes and QoL - APIShared Bundle'; is_active=$true }
+$existingBundle = [PSCustomObject]@{ id='optional'; name='Synthetic Optional Chain'; is_active=$true }
 $existingResolution = Resolve-NexusTargetFile -ModFiles ($files + $existingBundle) -Target $createTarget
-Assert-True ($existingResolution.Action -ceq 'Existing' -and $existingResolution.ModFile.id -ceq 'bundle') 'Vorhandene Bundle-Dateikette muss wiederverwendet werden.'
+Assert-True ($existingResolution.Action -ceq 'Existing' -and $existingResolution.ModFile.id -ceq 'optional') 'Vorhandene Dateikette muss wiederverwendet werden.'
 $ambiguousTargetRejected = $false
-try { [void](Resolve-NexusTargetFile -ModFiles ($files + $existingBundle + [PSCustomObject]@{ id='bundle-2'; name='BugfixesAndQoL APIShared Bundle'; is_active=$true }) -Target $createTarget) }
+try { [void](Resolve-NexusTargetFile -ModFiles ($files + $existingBundle + [PSCustomObject]@{ id='optional-2'; name='SyntheticOptionalChain'; is_active=$true }) -Target $createTarget) }
 catch { $ambiguousTargetRejected = $true }
-Assert-True $ambiguousTargetRejected 'Mehrdeutige aktive Bundle-Dateiketten muessen die Planung blockieren.'
+Assert-True $ambiguousTargetRejected 'Mehrdeutige aktive Dateiketten muessen die Planung blockieren.'
 $archivedRejected = $false
-try { [void](Resolve-NexusTargetFile -ModFiles ($files + [PSCustomObject]@{ id='archived-bundle'; name='Bugfixes and QoL - APIShared Bundle'; is_active=$false }) -Target $createTarget) }
+try { [void](Resolve-NexusTargetFile -ModFiles ($files + [PSCustomObject]@{ id='archived-optional'; name='Synthetic Optional Chain'; is_active=$false }) -Target $createTarget) }
 catch { $archivedRejected = $true }
 Assert-True $archivedRejected 'Archivierte passende Dateikette muss eine Neuanlage blockieren.'
 $notAllowedRejected = $false
@@ -138,16 +139,16 @@ Assert-True $notAllowedRejected 'Fehlende Dateikette ohne CreateIfMissing muss a
 $createBody = New-NexusCreateModFileBody -Target $createTarget -Release ([PSCustomObject]@{ Version='1.2.3' }) -ModId 'mod-226' -UploadId 'upload-1'
 Assert-True ($createBody.mod_id -ceq 'mod-226' -and $createBody.upload_id -ceq 'upload-1') 'Create-Mod-File-Body muss Mod und Upload zuordnen.'
 Assert-True ($createBody.name -ceq $createTarget.NexusFileName -and $createBody.version -ceq '1.2.3') 'Create-Mod-File-Body muss Name und Version enthalten.'
-Assert-True ($createBody.file_category -ceq 'main' -and -not $createBody.primary_mod_manager_download) 'Bundle muss Main und nicht primaer sein.'
+Assert-True ($createBody.file_category -ceq 'main' -and -not $createBody.primary_mod_manager_download) 'Dateikette muss Main und nicht primaer sein.'
 
 $createdVersions = @([PSCustomObject]@{ id='version-1'; version='1.2.3'; category='main'; position='1'; is_primary=$false })
-Assert-True (Test-NexusModFileVersionState -ModFile $existingBundle -Versions $createdVersions -ExpectedName $createTarget.NexusFileName -ExpectedVersion '1.2.3' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId 'bundle') 'Neu erstellte Dateikette muss exakt verifiziert werden.'
+Assert-True (Test-NexusModFileVersionState -ModFile $existingBundle -Versions $createdVersions -ExpectedName $createTarget.NexusFileName -ExpectedVersion '1.2.3' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId 'optional') 'Neu erstellte Dateikette muss exakt verifiziert werden.'
 Assert-True (-not (Test-NexusModFileVersionState -ModFile $existingBundle -Versions $createdVersions -ExpectedName $createTarget.NexusFileName -ExpectedVersion '1.2.3' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId 'other')) 'Abweichende Datei-ID muss die Wiederholungspruefung blockieren.'
-$observedBundle = [PSCustomObject]@{ id='7948587'; name='Bugfixes and QoL - APIShared Bundle'; is_active=$true }
+$observedBundle = [PSCustomObject]@{ id='7948587'; name='Synthetic Optional Chain'; is_active=$true }
 $observedVersions = @([PSCustomObject]@{ id='34183644709611'; version='1.0.142'; category='main'; position='1.0'; is_primary=$false })
-Assert-True (Test-NexusModFileVersionState -ModFile $observedBundle -Versions $observedVersions -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587') 'Der beobachtete Nexus-Bundlezustand muss akzeptiert werden.'
+Assert-True (Test-NexusModFileVersionState -ModFile $observedBundle -Versions $observedVersions -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587') 'Ein vollstaendiger Nexus-Dateikettenzustand muss akzeptiert werden.'
 
-$wrongName = Get-NexusModFileVersionStateDiagnostic -ModFile ([PSCustomObject]@{ id='7948587'; name='Wrong bundle' }) -Versions $observedVersions -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587'
+$wrongName = Get-NexusModFileVersionStateDiagnostic -ModFile ([PSCustomObject]@{ id='7948587'; name='Wrong chain' }) -Versions $observedVersions -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587'
 $wrongVersion = Get-NexusModFileVersionStateDiagnostic -ModFile $observedBundle -Versions @([PSCustomObject]@{ id='v'; version='1.0.141'; category='main'; position='1'; is_primary=$false }) -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587'
 $wrongCategory = Get-NexusModFileVersionStateDiagnostic -ModFile $observedBundle -Versions @([PSCustomObject]@{ id='v'; version='1.0.142'; category='optional'; position='1'; is_primary=$false }) -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587'
 $wrongPrimary = Get-NexusModFileVersionStateDiagnostic -ModFile $observedBundle -Versions @([PSCustomObject]@{ id='v'; version='1.0.142'; category='main'; position='1'; is_primary=$true }) -ExpectedName $observedBundle.name -ExpectedVersion '1.0.142' -ExpectedCategory 'main' -ExpectedPrimary $false -ExpectedFileId '7948587'
@@ -171,18 +172,12 @@ $timeoutResult = Wait-NexusCreatedFileVerification -MaxAttempts 3 -PollMilliseco
 Assert-True (-not $timeoutResult.Found -and $timeoutProbeCounter.Count -eq 3 -and $timeoutResult.Diagnostic -ceq 'letzte Diagnose 3') 'Timeout muss nach exakt den erlaubten Abfragen die letzte Diagnose liefern.'
 
 $thinPlan = [PSCustomObject]@{
-    Target=[PSCustomObject]@{ Artifact='Thin'; PublishChangelog=$true }
+    Target=[PSCustomObject]@{ PublishChangelog=$true }
     ModId='mod-226'; Release=[PSCustomObject]@{ Version='1.2.3' }
     Changelog=[PSCustomObject]@{ Text='One changelog.' }
 }
-$bundlePlan = [PSCustomObject]@{
-    Target=[PSCustomObject]@{ Artifact='Bundle'; PublishChangelog=$false }
-    ModId='mod-226'; Release=[PSCustomObject]@{ Version='1.2.3' }
-    Changelog=[PSCustomObject]@{ Text='One changelog.' }
-}
-$changelogPlans = @(Get-NexusChangelogPublicationPlans -Plans @($thinPlan,$bundlePlan))
-Assert-True ($changelogPlans.Count -eq 1 -and $changelogPlans[0] -eq $thinPlan) 'Thin plus Bundle duerfen nur einen Thin-Changelog planen.'
-Assert-True (@(Get-NexusChangelogPublicationPlans -Plans @($bundlePlan)).Count -eq 0) 'Ein reiner Bundle-Upload darf keinen Changelog planen.'
+$changelogPlans = @(Get-NexusChangelogPublicationPlans -Plans @($thinPlan))
+Assert-True ($changelogPlans.Count -eq 1 -and $changelogPlans[0] -eq $thinPlan) 'Thin-Uploads muessen ihren Changelog planen.'
 
 $targetNormal = [PSCustomObject]@{ AllowWrongTwoCorrection=$false }
 $targetCorrection = [PSCustomObject]@{ AllowWrongTwoCorrection=$true }

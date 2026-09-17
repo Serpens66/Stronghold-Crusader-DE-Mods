@@ -394,6 +394,39 @@ function Get-ValidatedApiSharedPackage {
     }
 }
 
+function Get-PublishedApiSharedRelease {
+    param(
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)]$Package
+    )
+    $tag = "APIShared/v$([string]$Package.Version)"
+    $assetName = "APIShared-v$([string]$Package.Version).zip"
+    $result = Invoke-CheckedCommand -FilePath 'gh' -Arguments @(
+        'release', 'view', $tag, '--repo', [string]$Config.Repository,
+        '--json', 'tagName,isDraft,url,assets'
+    ) -AllowFailure
+    if ($result.ExitCode -ne 0) {
+        throw "Required APIShared release $tag is not published. Publish APIShared first."
+    }
+    $release = ($result.Output -join "`n") | ConvertFrom-Json
+    if ([string]$release.tagName -cne $tag) {
+        throw "Required APIShared release resolved to unexpected tag '$([string]$release.tagName)' instead of '$tag'."
+    }
+    if ([bool]$release.isDraft) {
+        throw "Required APIShared release $tag is still a draft. Publish APIShared first."
+    }
+    $assets = @($release.assets | Where-Object { [string]$_.name -ceq $assetName })
+    if ($assets.Count -ne 1) {
+        throw "Required APIShared release $tag must contain exactly one $assetName asset."
+    }
+    return [PSCustomObject]@{
+        Tag = $tag
+        Url = [string]$release.url
+        AssetName = $assetName
+        AssetUrl = [string]$assets[0].url
+    }
+}
+
 function Get-PreviousPublishedReleaseVersion {
     param([Parameter(Mandatory)]$Metadata)
     $result = Invoke-CheckedCommand -FilePath 'gh' -Arguments @(
