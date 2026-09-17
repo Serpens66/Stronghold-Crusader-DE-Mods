@@ -22,6 +22,7 @@ Semantic reverse-engineering baseline:
 
 - [Drawbridge native contracts](./sem/FBCB9319/knowledge/DRAWBRIDGES.md): tile topology, shared building height, three rendering paths, unit height and verified RedBird spans.
 - [Outpost static audit](./sem/FBCB9319/knowledge/OUTPOSTS.md): profiles, spawn/guard/group flows, selection, rally scope and documented runtime gaps.
+- [Recruit transformation and rally tracking](./sem/FBCB9319/knowledge/RECRUIT_TRANSFORMATION.md): same-slot recruitment, transient AliveState 4, finalization and consumer lifetime contract.
 
 - [Editor map lifecycle audit](./sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md): native creation/loading paths, managed completion, and event boundaries.
 - [Unified mission lifecycle audit](./sem/FBCB9319/knowledge/MISSION_LIFECYCLE.md): gameplay, save, editor and multiplayer operation boundaries and central mode permissions.

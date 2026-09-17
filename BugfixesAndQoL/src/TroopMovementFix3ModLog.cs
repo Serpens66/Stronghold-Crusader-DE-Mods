@@ -12,19 +12,9 @@ namespace BugfixesAndQoL
             log?.LogDebug(WithTimestamp(message));
         }
 
-        public static void Info(ManualLogSource log, string message)
-        {
-            log?.LogInfo(WithTimestamp(message));
-        }
-
         public static void Warning(ManualLogSource log, string message)
         {
             log?.LogWarning(WithTimestamp(message));
-        }
-
-        public static void Error(ManualLogSource log, string message)
-        {
-            log?.LogError(WithTimestamp(message));
         }
 
         private static string WithTimestamp(string message)

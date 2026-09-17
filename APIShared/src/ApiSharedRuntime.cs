@@ -19,6 +19,7 @@ namespace APIShared
         private UnitHudPresentationService unitHudPresentation;
         private AivBuildStepService aivBuildStep;
         private LobbyStateService lobbyState;
+        private PlayerDefeatService playerDefeat;
         private MissionLifecycleService missionLifecycle;
         private NativeCapabilityDiagnostic missionLifecycleDiagnostic = Pending(NativeCapabilityIds.MissionLifecycle);
         private NativeCapabilityDiagnostic gatehouseDistanceOriginDiagnostic = Pending(NativeCapabilityIds.GatehouseDistanceOrigin);
@@ -26,6 +27,7 @@ namespace APIShared
         private NativeCapabilityDiagnostic unitHudDiagnostic = Pending(NativeCapabilityIds.UnitHudPresentation);
         private NativeCapabilityDiagnostic aivBuildStepDiagnostic = Pending(NativeCapabilityIds.AivBuildStep);
         private NativeCapabilityDiagnostic lobbyStateDiagnostic = Pending(NativeCapabilityIds.LobbyState);
+        private NativeCapabilityDiagnostic playerDefeatDiagnostic = Pending(NativeCapabilityIds.PlayerDefeat);
         private ManualLogSource log;
 
         internal static ApiSharedRuntime ProcessInstance { get; } = new ApiSharedRuntime();
@@ -53,6 +55,12 @@ namespace APIShared
             {
                 if (missionLifecycleDiagnostic.State == NativeCapabilityState.Pending)
                     MissionLifecycleService.TryCreate(logger, out missionLifecycle, out missionLifecycleDiagnostic);
+                if (playerDefeatDiagnostic.State == NativeCapabilityState.Pending)
+                    PlayerDefeatService.TryCreate(
+                        logger,
+                        missionLifecycle,
+                        out playerDefeat,
+                        out playerDefeatDiagnostic);
                 if (lobbyState != null ||
                     lobbyStateDiagnostic.State != NativeCapabilityState.Pending)
                 {
@@ -168,7 +176,7 @@ namespace APIShared
                 callbacks = readyCallbacks.ToArray();
                 readyCallbacks.Clear();
             }
-            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, lobbyState={lobbyStateDiagnostic.State}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, unitHudPresentation={unitHudDiagnostic.State}, aivBuildStep={aivBuildStepDiagnostic.State}.");
+            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, lobbyState={lobbyStateDiagnostic.State}, playerDefeat={playerDefeatDiagnostic.State}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, unitHudPresentation={unitHudDiagnostic.State}, aivBuildStep={aivBuildStepDiagnostic.State}.");
             foreach (Action<IApiShared> callback in callbacks)
             {
                 try { callback(this); }
@@ -297,6 +305,34 @@ namespace APIShared
                 }
                 capability = lobbyState.Bind(ownerGuid);
                 diagnostic = lobbyStateDiagnostic;
+                return true;
+            }
+        }
+
+        public bool TryGetPlayerDefeat(
+            string ownerGuid,
+            out IPlayerDefeatCapability capability,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            capability = null;
+            if (string.IsNullOrWhiteSpace(ownerGuid))
+            {
+                diagnostic = new NativeCapabilityDiagnostic(
+                    NativeCapabilityIds.PlayerDefeat,
+                    NativeCapabilityState.ValidationFailed,
+                    string.Empty,
+                    "A non-empty BepInEx owner GUID is required.");
+                return false;
+            }
+            lock (sync)
+            {
+                if (playerDefeat == null)
+                {
+                    diagnostic = playerDefeatDiagnostic;
+                    return false;
+                }
+                capability = playerDefeat.Bind(ownerGuid);
+                diagnostic = playerDefeatDiagnostic;
                 return true;
             }
         }

@@ -43,6 +43,7 @@ namespace BugfixesAndQoL
             TestReachableEnemyGatehouseUnitIdContract();
             TestSynchronizedGatehouseReachabilityPolicy();
             TestMovementFastPathParity();
+            TestMovementLoggingState();
             TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
@@ -80,8 +81,34 @@ namespace BugfixesAndQoL
             return 1;
         }
 
+        private static void TestMovementLoggingState()
+        {
+            var tracker = new MovementLoggingStateTracker();
+            Check(tracker.TryUpdate(true, false, true) &&
+                    !tracker.TryUpdate(true, false, true) &&
+                    tracker.TryUpdate(true, true, true) &&
+                    !tracker.TryUpdate(true, true, true) &&
+                    tracker.TryUpdate(false, true, true) &&
+                    tracker.TryUpdate(false, false, false),
+                "movement logging summarizes only distinct effective states");
+        }
+
         private static void TestSurrenderGameOverPolicy()
         {
+            Check(SurrenderPolicy.ShouldLatchPlayerLordDeath(3, 3) &&
+                    !SurrenderPolicy.ShouldLatchPlayerLordDeath(3, 2) &&
+                    !SurrenderPolicy.ShouldLatchPlayerLordDeath(0, 0) &&
+                    !SurrenderPolicy.ShouldLatchPlayerLordDeath(9, 9),
+                "only a valid local-player lord event sets the spectator latch");
+            Check(SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                    true, true, false, false, true, true, true, 3) &&
+                    !SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                        false, true, false, false, true, true, true, 3) &&
+                    !SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                        true, true, false, false, true, true, false, 3) &&
+                    !SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                        true, true, false, false, true, false, true, 3),
+                "spectator promotion remains fail-closed and requires the defeat-event latch");
             Check(SurrenderPolicy.ResolvePresentedGameOverState(1, true) == 2,
                 "eliminated-player spectator promotion presents Vanilla victory as defeat");
             Check(SurrenderPolicy.ResolvePresentedGameOverState(2, true) == 2,
@@ -93,6 +120,40 @@ namespace BugfixesAndQoL
                 "ordinary victory and initial spectators retain Vanilla presentation");
 
             string featureSource = File.ReadAllText(Path.Combine("src", "SurrenderFeature.cs"));
+            int renderStart = featureSource.IndexOf(
+                "private void OnBeforeRender()",
+                StringComparison.Ordinal);
+            int renderEnd = featureSource.IndexOf(
+                "private void RegisterPlayerDefeatObserver()",
+                renderStart,
+                StringComparison.Ordinal);
+            string renderSource = featureSource.Substring(renderStart, renderEnd - renderStart);
+            int activationStart = featureSource.IndexOf(
+                "private void TryActivateLocalSpectator(",
+                StringComparison.Ordinal);
+            int activationEnd = featureSource.IndexOf(
+                "private static bool IsValidLocalSpectatorPromotionParticipant(",
+                activationStart,
+                StringComparison.Ordinal);
+            string activationSource = featureSource.Substring(
+                activationStart,
+                activationEnd - activationStart);
+            Check(featureSource.Contains("TryGetPlayerDefeat(") &&
+                    featureSource.Contains("OnPlayerLordDied") &&
+                    featureSource.Contains("OnSpectatorPacketReceived") &&
+                    featureSource.Contains("GameNetworkAPI.IsLocalHost()") &&
+                    featureSource.Contains("viaChore: true") &&
+                    featureSource.IndexOf("GameTimeManagerAPI.Instance.OnTick", StringComparison.Ordinal) < 0 &&
+                    renderSource.IndexOf("GameAction(Enums.GameActionCommand.SpectatorMode", StringComparison.Ordinal) < 0 &&
+                    activationSource.Split(new[] { "GameAction(Enums.GameActionCommand.SpectatorMode" },
+                        StringSplitOptions.None).Length - 1 == 1,
+                "spectator promotion consumes APIShared lord deaths and activates Vanilla spectator mode only through the synchronized path in multiplayer");
+
+            string packetSource = File.ReadAllText(Path.Combine("src", "SurrenderPackets.cs"));
+            Check(packetSource.Contains("internal sealed class EliminatedPlayerSpectatorPacket") &&
+                    packetSource.Contains("writer.Write(value.PlayerId);") &&
+                    !packetSource.Contains("[Key(0)] public long SessionId;"),
+                "spectator Chore uses only the stable scalar player slot and validates session state locally");
             const string correctedOriginalCall =
                 "setGameOverStateOriginal(self, presentedState, screen, skirmishDate);";
             int correctedOriginalCallCount = featureSource.Split(
@@ -113,7 +174,7 @@ namespace BugfixesAndQoL
             Check(featureSource.Contains(
                         "int presentedData1 = ostID == Enums.eOnScreenText.OST_MP_GAME_OVER") &&
                     featureSource.Contains(
-                        "SurrenderPolicy.ResolvePresentedGameOverState(data1, spectatorPromotionRequested)") &&
+                        "SurrenderPolicy.ResolvePresentedGameOverState(data1, SpectatorPromotionPendingOrActive)") &&
                     correctedOstOriginalCallCount == 1 &&
                     !featureSource.Contains(
                         "addOnScreenTextEntryOriginal(self, ostID, data1, data2, data3, data4, data5);"),
@@ -2391,6 +2452,10 @@ namespace BugfixesAndQoL
                 projectDirectory,
                 "src",
                 "TroopMovementFix3SynchronizedMovementCadencePatch.cs"));
+            string spearmanPatch = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "src",
+                "TroopMovementFix3SpearmanMovementPatch.cs"));
             string integration = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "MovementCadenceIntegration.cs"));
             string bridge = File.ReadAllText(Path.Combine(
@@ -2421,10 +2486,10 @@ namespace BugfixesAndQoL
                     Environment.NewLine +
                     "                args.Phase == EventHookPhase.Pre") &&
                     fastRecruit.Contains("if (enabled && args.Phase == EventHookPhase.Pre)") &&
-                    fastRecruit.Contains("args.AICommand == TribeAICommand.UnitStop") &&
+                    !fastRecruit.Contains("LogRallyAnimationDiagnosticsUnitStop") &&
                     fastRecruit.IndexOf("if (enabled &&", StringComparison.Ordinal) <
                         fastRecruit.IndexOf("RemoveTrackingForTribe(args.TribeId)", StringComparison.Ordinal),
-                "disabled fast recruit handlers exit before production tribe queries; only the explicitly marked UnitStop diagnostic samples the disabled control run");
+                "disabled fast recruit handlers exit before tribe queries and unit loops");
 
             int tribeLoop = troopMovement.IndexOf("foreach (int unitId in unitIds)",
                 StringComparison.Ordinal);
@@ -2439,6 +2504,32 @@ namespace BugfixesAndQoL
             Check(tribeLoop >= 0 && idValidation > tribeLoop &&
                     unitLookup > idValidation,
                 "tribe synchronization validates one-based IDs and performs one direct array conversion");
+            int groupSynchronizationStart = troopMovement.IndexOf(
+                "private bool TryApplyMixedGroupSynchronization(",
+                StringComparison.Ordinal);
+            int groupSynchronizationEnd = troopMovement.IndexOf(
+                "private bool TryGetCadence(",
+                groupSynchronizationStart,
+                StringComparison.Ordinal);
+            string groupSynchronization = troopMovement.Substring(
+                groupSynchronizationStart,
+                groupSynchronizationEnd - groupSynchronizationStart);
+            Check(!groupSynchronization.Contains(
+                        "TroopMovementFix3ModLog.Debug") &&
+                    !groupSynchronization.Contains("synchronization prepared") &&
+                    groupSynchronization.Contains(
+                        "TroopMovementFix3ModLog.Warning") &&
+                    troopMovement.Contains(
+                        "Movement features: sameSpeed={sameSpeedActive}") &&
+                    !troopMovement.Contains("Movement options reconciled") &&
+                    !troopMovement.Contains("Troop Movement Fix 3 active") &&
+                    !cadencePatch.Contains(
+                        "Native allocation-free movement-speed") &&
+                    !cadencePatch.Contains(
+                        "Pre-terrain speed hook span validated") &&
+                    !spearmanPatch.Contains(
+                        "Native Spearman movement-option branch replaced"),
+                "movement logging omits commands and redundant component success messages");
             Check(!cadencePatch.Contains("AddContextHook") &&
                     !cadencePatch.Contains("NativePointer<X64SmartCPUContext>") &&
                     !cadencePatch.Contains("TryGetCadenceDelegate") &&
@@ -2468,39 +2559,17 @@ namespace BugfixesAndQoL
                     cadencePatch.IndexOf("applyRallyProfile", StringComparison.Ordinal) <
                         cadencePatch.IndexOf("applyRunningProfile", StringComparison.Ordinal),
                 "native tables preserve rally identity, interrupted-path state and rally precedence");
-            const string rallyDiagnosticsTag =
-                "RALLY_ANIMATION_DIAGNOSTICS";
-            Check(cadencePatch.Contains(
-                      rallyDiagnosticsTag + "_BEGIN") &&
-                    cadencePatch.Contains(
-                      rallyDiagnosticsTag + "_END") &&
-                    cadencePatch.Contains(
-                      "RallyDiagnosticsRegistered") &&
-                    cadencePatch.Contains(
-                      "RallyDiagnosticsIdentityConfirmed") &&
-                    cadencePatch.Contains(
-                      "RallyDiagnosticsPathObserved") &&
-                    cadencePatch.Contains(
-                      "RallyDiagnosticsProfileResolved") &&
-                    cadencePatch.Contains(
-                      "RallyDiagnosticsCadenceWritten") &&
-                    cadencePatch.Contains(
-                      "RallyDiagnosticsSnapshotCaptured") &&
-                    cadencePatch.Contains(
-                      "EmitRallyDiagnosticsSnapshot") &&
-                    cadencePatch.Contains(
-                      "LogRallyAnimationDiagnostics") &&
-                    fastRecruit.Contains(
-                      rallyDiagnosticsTag + "_BEGIN") &&
-                    fastRecruit.Contains(
-                      rallyDiagnosticsTag + "_END") &&
-                    fastRecruit.Contains(
-                      "LogRallyAnimationDiagnosticsUnitStop") &&
-                    fastRecruit.Contains(
-                      "args.AICommand == TribeAICommand.UnitStop") &&
-                    !integration.Contains(rallyDiagnosticsTag) &&
-                    !bridge.Contains(rallyDiagnosticsTag),
-                "temporary rally animation diagnostics are explicitly marked and confined to the cadence and UnitStop owners");
+            string removedRallyDiagnosticsTag =
+                "RALLY_ANIMATION_" + "DIAGNOSTICS";
+            bool diagnosticsRemain = Directory
+                .EnumerateFiles(
+                    projectDirectory,
+                    "*.cs",
+                    SearchOption.AllDirectories)
+                .Any(path => File.ReadAllText(path).Contains(
+                    removedRallyDiagnosticsTag));
+            Check(!diagnosticsRemain,
+                "temporary rally animation diagnostics are completely removed");
             Check(cadencePatch.Contains(
                       "SetAuditedProfile(eChimps.CHIMP_TYPE_ARAB_BOW, 1, 0x81);") &&
                     parityHarness.Contains(
@@ -2508,6 +2577,11 @@ namespace BugfixesAndQoL
                     parityHarness.Contains(
                       "tableUnit.Animation != 0x81 || tableUnit.SpeedBonus != 1"),
                 "Arab bow rally cadence preserves Vanilla Animation 0x81 and SpeedBonus 1");
+            Check(cadencePatch.Contains(
+                      "SetAuditedProfile(eChimps.CHIMP_TYPE_KNIGHT, 2, 0x81);") &&
+                    parityHarness.Contains(
+                      "tableUnit.SpeedBonus != 2"),
+                "Knight rally cadence preserves Vanilla Animation 0x81 and SpeedBonus 2");
             Check(cadencePatch.Contains("UnitCurrentSpeed2ManagerOffset = 0x9A2") &&
                     cadencePatch.Contains("UnitCurrentSpeedManagerOffset = 0x9A4") &&
                     cadencePatch.Contains("assembler.Label(ref trySynchronization);") &&
@@ -2517,6 +2591,31 @@ namespace BugfixesAndQoL
                     cadencePatch.Contains("assembler.popfq()") &&
                     cadencePatch.Contains("foreach (Instruction instruction in overwrittenInstructions)"),
                 "native movement hooks validate exact fields and replay Vanilla with preserved flags");
+            int cadenceEmitterStart = cadencePatch.IndexOf(
+                "private void GenerateCadenceFastPath(",
+                StringComparison.Ordinal);
+            int cadenceEmitterEnd = cadencePatch.IndexOf(
+                "private void EmitProfileAddress(",
+                cadenceEmitterStart,
+                StringComparison.Ordinal);
+            string cadenceEmitter = cadencePatch.Substring(
+                cadenceEmitterStart,
+                cadenceEmitterEnd - cadenceEmitterStart);
+            int aliveGate = cadenceEmitter.IndexOf(
+                "__word_ptr[r8 + UnitAliveStateManagerOffset]",
+                StringComparison.Ordinal);
+            int rallyFlagRead = cadenceEmitter.IndexOf(
+                "unchecked((ulong)rallyEnabledFlag)",
+                StringComparison.Ordinal);
+            Check(aliveGate >= 0 && aliveGate < rallyFlagRead &&
+                    cadenceEmitter.Split(new[] {
+                        "__word_ptr[r8 + UnitAliveStateManagerOffset]"
+                    }, StringSplitOptions.None).Length == 2 &&
+                    cadenceEmitter.IndexOf(
+                        "assembler.jne(replayVanilla);",
+                        aliveGate,
+                        StringComparison.Ordinal) < rallyFlagRead,
+                "cadence fastpath preserves the managed outer alive gate before all rally and synchronization table access");
             Check(Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_SpriteAnimationGroup)).ToInt32() == 0x004 &&
                     Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_AliveState)).ToInt32() == 0x088 &&
                     Marshal.OffsetOf<GameUnit>(nameof(GameUnit.r_ControllableForPlayerId)).ToInt32() == 0x092 &&

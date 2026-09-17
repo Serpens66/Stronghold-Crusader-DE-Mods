@@ -1,5 +1,7 @@
+using Shared;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 
@@ -7,17 +9,19 @@ namespace SerpsModsHost
 {
     internal sealed class ModInventoryEntry
     {
-        internal ModInventoryEntry(string kind, string guid, string version)
+        internal ModInventoryEntry(string guid, string name, string version, bool clientside)
         {
-            Kind = kind ?? string.Empty;
             Guid = guid ?? string.Empty;
+            Name = name ?? string.Empty;
             Version = version ?? string.Empty;
+            Clientside = clientside;
         }
 
-        internal string Kind { get; }
         internal string Guid { get; }
+        internal string Name { get; }
         internal string Version { get; }
-        internal string Display => $"{Guid}@{Version} [{Kind}]";
+        internal bool Clientside { get; }
+        internal string Display => $"{Guid}@{Version}";
     }
 
     internal sealed class ModInventoryDifference
@@ -30,114 +34,178 @@ namespace SerpsModsHost
 
     internal static class ModInventoryCompatibility
     {
-        private const string Schema = "v1";
+        internal const string ScriptExtenderLobbyModListToken = "_SE_MODS_";
         private const int MaximumEncodedBytes = 8192;
-        private static readonly UTF8Encoding StrictUtf8 = new UTF8Encoding(false, true);
+        private const int MaximumGuidLength = 200;
+        private const int MaximumNameLength = 160;
+        private const int MaximumVersionLength = 80;
 
-        internal static string Encode(IEnumerable<ModInventoryEntry> entries)
-        {
-            string[] lines = (entries ?? Enumerable.Empty<ModInventoryEntry>())
-                .OrderBy(entry => entry.Kind, StringComparer.Ordinal)
-                .ThenBy(entry => entry.Guid, StringComparer.Ordinal)
-                .ThenBy(entry => entry.Version, StringComparer.Ordinal)
-                .Select(entry => string.Join("|",
-                    EncodePart(entry.Kind),
-                    EncodePart(entry.Guid),
-                    EncodePart(entry.Version)))
-                .ToArray();
-            return lines.Length == 0 ? Schema : Schema + "\n" + string.Join("\n", lines);
-        }
-
-        internal static bool TryDecode(string encoded, out List<ModInventoryEntry> entries)
+        internal static bool TryDecodeScriptExtenderMetadata(
+            string json,
+            out List<ModInventoryEntry> entries)
         {
             entries = new List<ModInventoryEntry>();
-            if (string.IsNullOrEmpty(encoded) || Encoding.UTF8.GetByteCount(encoded) >= MaximumEncodedBytes)
-                return false;
-
-            string[] lines = encoded.Split(new[] { '\n' }, StringSplitOptions.None);
-            if (lines.Length == 0 || !string.Equals(lines[0], Schema, StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(json) || Encoding.UTF8.GetByteCount(json) >= MaximumEncodedBytes)
                 return false;
 
             try
             {
-                for (int index = 1; index < lines.Length; index++)
+                if (!(DependencyFreeJson.Parse(json) is List<object> parsed))
+                    return false;
+
+                var seenGuids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (object item in parsed)
                 {
-                    string[] parts = lines[index].Split('|');
-                    if (parts.Length != 3)
-                        return false;
-                    string kind = DecodePart(parts[0]);
-                    string guid = DecodePart(parts[1]);
-                    string version = DecodePart(parts[2]);
-                    if ((kind != "plugin" && kind != "asset") ||
-                        string.IsNullOrWhiteSpace(guid) || string.IsNullOrWhiteSpace(version))
+                    if (!(item is Dictionary<string, object> fields) ||
+                        !TryReadRequiredString(fields, "g", MaximumGuidLength, out string guid) ||
+                        !TryReadRequiredString(fields, "n", MaximumNameLength, out string name) ||
+                        !TryReadRequiredString(fields, "v", MaximumVersionLength, out string version) ||
+                        !fields.TryGetValue("c", out object clientsideValue) ||
+                        !(clientsideValue is bool clientside) ||
+                        !seenGuids.Add(guid))
                     {
+                        entries.Clear();
                         return false;
                     }
-                    entries.Add(new ModInventoryEntry(kind, guid, version));
+
+                    if (fields.TryGetValue("w", out object workshopValue) && !(workshopValue is string))
+                    {
+                        entries.Clear();
+                        return false;
+                    }
+
+                    entries.Add(new ModInventoryEntry(guid, name, version, clientside));
                 }
+
+                entries.Sort((left, right) =>
+                    StringComparer.OrdinalIgnoreCase.Compare(left.Guid, right.Guid));
                 return true;
             }
-            catch (FormatException)
+            catch (InvalidDataException)
             {
                 entries.Clear();
                 return false;
             }
-            catch (DecoderFallbackException)
+            catch (EncoderFallbackException)
             {
                 entries.Clear();
                 return false;
             }
+        }
+
+        internal static List<ModInventoryEntry> BuildCanonicalLocalInventory(
+            IEnumerable<ModInventoryEntry> assetEntries,
+            IEnumerable<ModInventoryEntry> pluginEntries)
+        {
+            var byGuid = new Dictionary<string, ModInventoryEntry>(StringComparer.OrdinalIgnoreCase);
+            foreach (ModInventoryEntry asset in assetEntries ?? Enumerable.Empty<ModInventoryEntry>())
+            {
+                ModInventoryEntry cleaned = CleanLocalEntry(asset);
+                if (cleaned != null)
+                    byGuid[cleaned.Guid] = cleaned;
+            }
+
+            foreach (ModInventoryEntry plugin in pluginEntries ?? Enumerable.Empty<ModInventoryEntry>())
+            {
+                ModInventoryEntry cleaned = CleanLocalEntry(plugin);
+                if (cleaned != null && !byGuid.ContainsKey(cleaned.Guid))
+                    byGuid.Add(cleaned.Guid, cleaned);
+            }
+
+            return byGuid.Values
+                .OrderBy(entry => entry.Guid, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         internal static ModInventoryDifference Compare(
             IEnumerable<ModInventoryEntry> hostEntries,
             IEnumerable<ModInventoryEntry> clientEntries)
         {
-            Dictionary<string, List<ModInventoryEntry>> host = Group(hostEntries);
-            Dictionary<string, List<ModInventoryEntry>> client = Group(clientEntries);
+            Dictionary<string, ModInventoryEntry> host = ToGuidDictionary(hostEntries);
+            Dictionary<string, ModInventoryEntry> client = ToGuidDictionary(clientEntries);
             var result = new ModInventoryDifference();
-            foreach (string key in host.Keys.Concat(client.Keys).Distinct(StringComparer.Ordinal).OrderBy(value => value, StringComparer.Ordinal))
-            {
-                host.TryGetValue(key, out List<ModInventoryEntry> hostGroup);
-                client.TryGetValue(key, out List<ModInventoryEntry> clientGroup);
-                hostGroup = hostGroup ?? new List<ModInventoryEntry>();
-                clientGroup = clientGroup ?? new List<ModInventoryEntry>();
-                if (Versions(hostGroup).SequenceEqual(Versions(clientGroup), StringComparer.Ordinal))
-                    continue;
 
-                if (clientGroup.Count == 0)
-                    result.HostOnly.Add(DescribeGroup(hostGroup));
-                else if (hostGroup.Count == 0)
-                    result.ClientOnly.Add(DescribeGroup(clientGroup));
-                else
+            foreach (ModInventoryEntry local in client.Values.OrderBy(
+                entry => entry.Guid,
+                StringComparer.OrdinalIgnoreCase))
+            {
+                if (!host.TryGetValue(local.Guid, out ModInventoryEntry remote))
+                {
+                    if (!local.Clientside)
+                        result.ClientOnly.Add(local.Display);
+                    continue;
+                }
+
+                if (!string.Equals(local.Version, remote.Version, StringComparison.Ordinal) &&
+                    (!local.Clientside || !remote.Clientside))
+                {
                     result.VersionMismatches.Add(
-                        $"{hostGroup[0].Guid} [{hostGroup[0].Kind}]: client {string.Join(",", Versions(clientGroup))}, host {string.Join(",", Versions(hostGroup))}");
+                        $"{local.Guid}: client {local.Version}, host {remote.Version}");
+                }
             }
+
+            foreach (ModInventoryEntry remote in host.Values.OrderBy(
+                entry => entry.Guid,
+                StringComparer.OrdinalIgnoreCase))
+            {
+                if (!client.ContainsKey(remote.Guid) && !remote.Clientside)
+                    result.HostOnly.Add(remote.Display);
+            }
+
             return result;
         }
 
-        private static Dictionary<string, List<ModInventoryEntry>> Group(IEnumerable<ModInventoryEntry> entries) =>
-            (entries ?? Enumerable.Empty<ModInventoryEntry>())
-                .GroupBy(entry => entry.Kind + "\0" + entry.Guid, StringComparer.Ordinal)
-                .ToDictionary(
-                    group => group.Key,
-                    group => group.OrderBy(entry => entry.Version, StringComparer.Ordinal).ToList(),
-                    StringComparer.Ordinal);
-
-        private static IEnumerable<string> Versions(IEnumerable<ModInventoryEntry> entries) =>
-            entries.Select(entry => entry.Version);
-
-        private static string DescribeGroup(IReadOnlyList<ModInventoryEntry> entries)
+        private static bool TryReadRequiredString(
+            IReadOnlyDictionary<string, object> fields,
+            string key,
+            int maximumLength,
+            out string value)
         {
-            ModInventoryEntry first = entries[0];
-            string versions = string.Join(",", Versions(entries));
-            return $"{first.Guid}@{versions} [{first.Kind}]";
+            value = null;
+            if (!fields.TryGetValue(key, out object raw) || !(raw is string text))
+                return false;
+            value = text.Trim();
+            return value.Length > 0 && value.Length <= maximumLength &&
+                value.IndexOf('\r') < 0 && value.IndexOf('\n') < 0;
         }
 
-        private static string EncodePart(string value) =>
-            Convert.ToBase64String(Encoding.UTF8.GetBytes(value ?? string.Empty));
+        private static ModInventoryEntry CleanLocalEntry(ModInventoryEntry entry)
+        {
+            if (entry == null)
+                return null;
+            string guid = CleanText(entry.Guid, MaximumGuidLength);
+            if (string.IsNullOrWhiteSpace(guid))
+                return null;
+            string name = CleanText(entry.Name, MaximumNameLength);
+            string version = CleanText(entry.Version, MaximumVersionLength);
+            return new ModInventoryEntry(
+                guid,
+                string.IsNullOrWhiteSpace(name) ? guid : name,
+                string.IsNullOrWhiteSpace(version) ? "0.0.0" : version,
+                entry.Clientside);
+        }
 
-        private static string DecodePart(string value) =>
-            StrictUtf8.GetString(Convert.FromBase64String(value));
+        private static string CleanText(string value, int maximumLength)
+        {
+            string cleaned = (value ?? string.Empty)
+                .Replace('\r', ' ')
+                .Replace('\n', ' ')
+                .Trim();
+            return cleaned.Length <= maximumLength
+                ? cleaned
+                : cleaned.Substring(0, maximumLength);
+        }
+
+        private static Dictionary<string, ModInventoryEntry> ToGuidDictionary(
+            IEnumerable<ModInventoryEntry> entries)
+        {
+            var result = new Dictionary<string, ModInventoryEntry>(StringComparer.OrdinalIgnoreCase);
+            foreach (ModInventoryEntry entry in entries ?? Enumerable.Empty<ModInventoryEntry>())
+            {
+                if (entry != null && !string.IsNullOrWhiteSpace(entry.Guid))
+                    result[entry.Guid] = entry;
+            }
+            return result;
+        }
     }
 }

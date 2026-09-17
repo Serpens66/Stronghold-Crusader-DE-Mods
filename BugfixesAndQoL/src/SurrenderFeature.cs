@@ -1,4 +1,5 @@
 // Feature: Confirmed surrender and reversible spectator statistics.
+using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.RuntimeDetour;
@@ -198,8 +199,10 @@ namespace BugfixesAndQoL
         private FieldInfo missionOverInstance2Field;
         private R3PacketEventHook<SurrenderRequestPacket> requestPacketHook;
         private R3PacketEventHook<SurrenderExecutionPacket> executionPacketHook;
+        private R3PacketEventHook<EliminatedPlayerSpectatorPacket> spectatorPacketHook;
         private IDisposable requestPacketSubscription;
         private IDisposable executionPacketSubscription;
+        private IDisposable spectatorPacketSubscription;
         private int nextRequestId;
         private long confirmationSequence;
         private long confirmationOpenedFromMenuSequence;
@@ -222,8 +225,15 @@ namespace BugfixesAndQoL
         private bool statisticsTeamBadgeSortReversed;
         private int statisticsTeamBadgeMode = int.MinValue;
         private readonly int[] statisticsTeamBadgeRowPlayerIds = new int[8];
-        private bool localPlayerHadLivingLord;
-        private bool spectatorPromotionRequested;
+        private readonly long[] lordDeathSessionIds = new long[9];
+        private readonly int[] lordDeathSimulationTicks = new int[9];
+        private readonly bool[] spectatorChoreQueuedPlayers = new bool[9];
+        private readonly bool[] spectatorChoreExecutedPlayers = new bool[9];
+        private long activeSessionId;
+        private bool localPlayerLordDeathObserved;
+        private int localPlayerLordDeathPlayerId = -1;
+        private bool spectatorPromotionChoreExpected;
+        private bool spectatorPromotionActivated;
         private bool spectatorPromotionConfirmed;
         private bool spectatorPromotionErrorLogged;
         private bool spectatorPromotionRejectionLogged;
@@ -258,6 +268,8 @@ namespace BugfixesAndQoL
             requestPacketSubscription = requestPacketHook.GetBaseHook().Observable.Subscribe(OnRequestReceived);
             executionPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<SurrenderExecutionPacket>();
             executionPacketSubscription = executionPacketHook.GetBaseHook().Observable.Subscribe(OnExecutionReceived);
+            spectatorPacketHook = GameNetworkAPI.Instance.GetPacketEventFor<EliminatedPlayerSpectatorPacket>();
+            spectatorPacketSubscription = spectatorPacketHook.GetBaseHook().Observable.Subscribe(OnSpectatorPacketReceived);
 
             MethodInfo initMethod = typeof(HUD_IngameMenu).GetMethod(
                 nameof(HUD_IngameMenu.Init),
@@ -302,14 +314,19 @@ namespace BugfixesAndQoL
             }
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
-                context => ResetSession("session-start:" + context.Kind)));
+                context =>
+                {
+                    ResetSession("session-start:" + context.Kind);
+                    activeSessionId = context.SessionId;
+                }));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(_ => ResetSession("mission-end")));
+            RegisterPlayerDefeatObserver();
             UnityEngine.Application.onBeforeRender += OnBeforeRender;
 
             initialized = true;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Bugfixes and QoL surrender/statistics initialized: requestPacketId={requestPacketHook.GetPacketId()}, executionPacketId={executionPacketHook.GetPacketId()}, requestProtocolVersion={RequestProtocolVersion}, statisticsReady={statisticsReady}, statisticsTeamBadgesReady={statisticsTeamBadgesReady}.");
+                $"Bugfixes and QoL surrender/statistics initialized: requestPacketId={requestPacketHook.GetPacketId()}, executionPacketId={executionPacketHook.GetPacketId()}, spectatorPacketId={spectatorPacketHook.GetPacketId()}, requestProtocolVersion={RequestProtocolVersion}, statisticsReady={statisticsReady}, statisticsTeamBadgesReady={statisticsTeamBadgesReady}.");
         }
 
         internal void RefreshButtonState()
@@ -382,6 +399,7 @@ namespace BugfixesAndQoL
             setGameOverStateHook?.Dispose();
             requestPacketSubscription?.Dispose();
             executionPacketSubscription?.Dispose();
+            spectatorPacketSubscription?.Dispose();
             lobbyReturnFeature.Dispose();
             UnityEngine.Application.onBeforeRender -= OnBeforeRender;
             foreach (IDisposable subscription in subscriptions)
@@ -407,7 +425,7 @@ namespace BugfixesAndQoL
             try
             {
                 lobbyReturnFeature.OnBeforeRender();
-                TryPromoteEliminatedPlayerToSpectator();
+                ConfirmSpectatorPromotion();
             }
             catch (Exception ex)
             {
@@ -438,93 +456,231 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void TryPromoteEliminatedPlayerToSpectator()
+        private void ConfirmSpectatorPromotion()
         {
-            bool activeMatch = IsActiveMatch();
-            if (!activeMatch || IsMapEditor())
+            if (!spectatorPromotionActivated || spectatorPromotionConfirmed || !IsStartSpectator())
                 return;
 
-            bool alreadySpectator = IsStartSpectator();
-            if (alreadySpectator)
+            int currentLocalPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+            int managedLocalPlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
+            if (currentLocalPlayerId != spectatorPromotionPlayerId ||
+                managedLocalPlayerId != spectatorPromotionPlayerId)
             {
-                if (spectatorPromotionRequested && !spectatorPromotionConfirmed)
+                if (!spectatorPromotionErrorLogged)
                 {
-                    int currentLocalPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
-                    int managedLocalPlayerId = EditorDirector.instance?.ActivePlayerID ?? -1;
-                    if (currentLocalPlayerId != spectatorPromotionPlayerId ||
-                        managedLocalPlayerId != spectatorPromotionPlayerId)
-                    {
-                        if (!spectatorPromotionErrorLogged)
-                        {
-                            spectatorPromotionErrorLogged = true;
-                            Shared.DebugLogHelper.LogError(
-                                log,
-                                $"Vanilla spectator mode changed the local player identity unexpectedly: expected={spectatorPromotionPlayerId}, native={currentLocalPlayerId}, managed={managedLocalPlayerId}, mode={spectatorPromotionGameMode}.");
-                        }
-                        return;
-                    }
-
-                    spectatorPromotionConfirmed = true;
-                    Shared.DebugLogHelper.LogInfo(
+                    spectatorPromotionErrorLogged = true;
+                    Shared.DebugLogHelper.LogError(
                         log,
-                        $"Vanilla spectator mode confirmed for eliminated local player {spectatorPromotionPlayerId}; local identity remained unchanged and omniscient visibility/AI information are active: mode={spectatorPromotionGameMode}.");
+                        $"Vanilla spectator mode changed the local player identity unexpectedly: expected={spectatorPromotionPlayerId}, native={currentLocalPlayerId}, managed={managedLocalPlayerId}, mode={spectatorPromotionGameMode}.");
                 }
                 return;
             }
 
-            GamePlayerManagerAPI playerManager = GamePlayerManagerAPI.Instance;
-            if (playerManager == null)
+            spectatorPromotionConfirmed = true;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Vanilla spectator mode confirmed for eliminated local player {spectatorPromotionPlayerId}; local identity remained unchanged and omniscient visibility/AI information are active: mode={spectatorPromotionGameMode}.");
+        }
+
+        private void RegisterPlayerDefeatObserver()
+        {
+            if (!ApiShared.Current.TryGetPlayerDefeat(
+                    BugfixesAndQoLPlugin.PluginGuid,
+                    out IPlayerDefeatCapability capability,
+                    out NativeCapabilityDiagnostic diagnostic))
+            {
+                LogPlayerDefeatRegistrationFailure(diagnostic);
+                return;
+            }
+
+            if (!capability.TryRegisterObserver(
+                    "eliminated-player-spectator",
+                    OnPlayerLordDied,
+                    null,
+                    out diagnostic))
+                LogPlayerDefeatRegistrationFailure(diagnostic);
+        }
+
+        private void LogPlayerDefeatRegistrationFailure(NativeCapabilityDiagnostic diagnostic) =>
+            Shared.DebugLogHelper.LogWarning(
+                log,
+                $"Eliminated-player spectator promotion is unavailable because the APIShared player-defeat observer could not be registered: state={diagnostic?.State}, reason={diagnostic?.Reason}");
+
+        private void OnPlayerLordDied(PlayerLordDeathNotification notification)
+        {
+            if (disposed || notification == null)
                 return;
 
-            int localPlayerId = playerManager.GetLocalPlayerId();
+            int playerId = notification.PlayerId;
+            if (playerId < 1 || playerId > 8 ||
+                activeSessionId <= 0 || notification.SessionId != activeSessionId)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Ignored stale or invalid APIShared lord-death notification: activeSessionId={activeSessionId}, notificationSessionId={notification.SessionId}, playerId={playerId}, simulationTick={notification.SimulationTick}.");
+                return;
+            }
+
+            if (lordDeathSessionIds[playerId] == notification.SessionId)
+                return;
+
+            lordDeathSessionIds[playerId] = notification.SessionId;
+            lordDeathSimulationTicks[playerId] = notification.SimulationTick;
+
+            GamePlayerManagerAPI playerManager = GamePlayerManagerAPI.Instance;
+            int localPlayerId = playerManager?.GetLocalPlayerId() ?? -1;
+            bool localLordDied = SurrenderPolicy.ShouldLatchPlayerLordDeath(playerId, localPlayerId);
+            if (localLordDied)
+            {
+                localPlayerLordDeathObserved = true;
+                localPlayerLordDeathPlayerId = playerId;
+            }
+
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                $"Observed lord death through APIShared: sessionId={notification.SessionId}, playerId={playerId}, lordUnitId={notification.LordUnitId}, lordGlobalId={notification.LordGlobalId}, simulationTick={notification.SimulationTick}, localPlayerId={localPlayerId}.");
+
             Shared.GameModeSnapshot gameMode = Shared.GameModeHelper.Capture();
+            if (!gameMode.IsRealMultiplayer)
+            {
+                if (localLordDied)
+                    TryActivateLocalSpectator(playerId, gameMode, "APIShared singleplayer lord-death event");
+                return;
+            }
+
+            if (localLordDied && EliminatedPlayerSpectatorEnabled)
+                spectatorPromotionChoreExpected = true;
+
+            if (GameNetworkAPI.IsLocalHost())
+                TryQueueSpectatorChore(notification, gameMode);
+        }
+
+        private void TryQueueSpectatorChore(
+            PlayerLordDeathNotification notification,
+            Shared.GameModeSnapshot gameMode)
+        {
+            int playerId = notification.PlayerId;
+            Platform_Multiplayer.MPGameMember member = Platform_Multiplayer.Instance?.getPlayer(playerId);
+            if (!EliminatedPlayerSpectatorEnabled ||
+                !IsActiveMatch() || !gameMode.IsRealMultiplayer || IsMapEditor() ||
+                notification.SessionId != activeSessionId ||
+                !IsHumanMember(member) || spectatorChoreQueuedPlayers[playerId])
+            {
+                return;
+            }
+
+            var packet = new EliminatedPlayerSpectatorPacket { PlayerId = playerId };
+            short packetId = spectatorPacketHook?.GetPacketId() ?? (short)0;
+            if (!BugfixesAndQoLChoreSender.TrySend(
+                    packet,
+                    packetId,
+                    initialized && spectatorPacketHook != null,
+                    value => GameNetworkAPI.Serialize(value),
+                    () => SHCDESE.GameGlobals.GameGlobalsManager.Instance.ChoreManagerVA,
+                    (value, id) => GameNetworkAPI.SendPacketToAllEx2(value, id, viaChore: true),
+                    out byte[] body,
+                    out string rejectionReason))
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Eliminated-player spectator Chore was not queued; no unsynchronized fallback was applied: sessionId={notification.SessionId}, playerId={playerId}, lordDeathTick={notification.SimulationTick}, reason={rejectionReason}.");
+                return;
+            }
+
+            spectatorChoreQueuedPlayers[playerId] = true;
+            int queueTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Eliminated-player spectator Chore queued: sessionId={notification.SessionId}, playerId={playerId}, lordDeathTick={notification.SimulationTick}, queueTick={queueTick}, packetId={packetId}, bodyBytes={body.Length}, bodyHex={ToCompactHex(body)}.");
+        }
+
+        private void OnSpectatorPacketReceived(
+            ReceiveCustomPacketEventArgs<EliminatedPlayerSpectatorPacket> args)
+        {
+            EliminatedPlayerSpectatorPacket packet = args?.Packet;
+            try
+            {
+                int playerId = packet?.PlayerId ?? 0;
+                Platform_Multiplayer.MPGameMember member = Platform_Multiplayer.Instance?.getPlayer(playerId);
+                if (packet == null || args.SenderSteamId.HasValue ||
+                    playerId < 1 || playerId > 8 ||
+                    !EliminatedPlayerSpectatorEnabled || !IsActiveMatch() ||
+                    !Shared.GameModeHelper.IsRealMultiplayer() || IsMapEditor() ||
+                    activeSessionId <= 0 || lordDeathSessionIds[playerId] != activeSessionId ||
+                    !IsHumanMember(member))
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        $"Rejected stale or invalid eliminated-player spectator Chore: playerId={playerId}, hasSteamSender={args?.SenderSteamId.HasValue}, activeSessionId={activeSessionId}, observedLordDeathSessionId={(playerId >= 1 && playerId <= 8 ? lordDeathSessionIds[playerId] : 0)}.");
+                    return;
+                }
+
+                if (spectatorChoreExecutedPlayers[playerId])
+                    return;
+
+                spectatorChoreExecutedPlayers[playerId] = true;
+                int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+                int executionTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Eliminated-player spectator Chore executed: sessionId={activeSessionId}, playerId={playerId}, lordDeathTick={lordDeathSimulationTicks[playerId]}, executionTick={executionTick}, localPlayerId={localPlayerId}.");
+
+                if (localPlayerId != playerId)
+                    return;
+
+                spectatorPromotionChoreExpected = false;
+                TryActivateLocalSpectator(
+                    playerId,
+                    Shared.GameModeHelper.Capture(),
+                    "synchronized eliminated-player spectator Chore");
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(log, $"Eliminated-player spectator Chore failed closed: {ex}");
+            }
+        }
+
+        private void TryActivateLocalSpectator(
+            int localPlayerId,
+            Shared.GameModeSnapshot gameMode,
+            string source)
+        {
             bool supportedGameMode =
                 gameMode.IsRealMultiplayer || gameMode.IsSingleplayerSkirmishMode;
             bool validLocalParticipant =
                 IsValidLocalSpectatorPromotionParticipant(localPlayerId, gameMode.IsRealMultiplayer);
-            SurrenderLordSnapshot lord = CaptureLord(localPlayerId);
-            if (SurrenderPolicy.IsValidLord(lord))
-            {
-                localPlayerHadLivingLord = true;
-                return;
-            }
-
-            if (spectatorPromotionRequested ||
+            bool lordDeathObserved =
+                localPlayerLordDeathObserved && localPlayerLordDeathPlayerId == localPlayerId;
+            if (spectatorPromotionActivated ||
                 !SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
                     EliminatedPlayerSpectatorEnabled,
-                    activeMatch,
-                    false,
-                    alreadySpectator,
+                    IsActiveMatch(),
+                    IsMapEditor(),
+                    IsStartSpectator(),
                     supportedGameMode,
                     validLocalParticipant,
-                    localPlayerHadLivingLord,
-                    localPlayerId,
-                    lord))
+                    lordDeathObserved,
+                    localPlayerId))
             {
-                if (EliminatedPlayerSpectatorEnabled &&
-                    localPlayerHadLivingLord &&
-                    !SurrenderPolicy.IsValidLord(lord) &&
-                    (!supportedGameMode ||
-                      !validLocalParticipant) &&
+                if (EliminatedPlayerSpectatorEnabled && lordDeathObserved &&
+                    (!supportedGameMode || !validLocalParticipant) &&
                     !spectatorPromotionRejectionLogged)
                 {
                     spectatorPromotionRejectionLogged = true;
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Eliminated-player spectator promotion was rejected fail-closed: playerId={localPlayerId}, supportedGameMode={supportedGameMode}, validLocalParticipant={validLocalParticipant}, mode={gameMode.ToDiagnosticString()}.");
+                        $"Eliminated-player spectator activation was rejected fail-closed: playerId={localPlayerId}, source={source}, supportedGameMode={supportedGameMode}, validLocalParticipant={validLocalParticipant}, mode={gameMode.ToDiagnosticString()}.");
                 }
                 return;
             }
 
-            // Vanilla evaluates this local flag during every display tick. Keeping the
-            // player's slot intact preserves team membership and final statistics.
             EngineInterface.GameAction(Enums.GameActionCommand.SpectatorMode, 0, 0);
-            spectatorPromotionRequested = true;
+            spectatorPromotionActivated = true;
             spectatorPromotionPlayerId = localPlayerId;
             spectatorPromotionGameMode = gameMode.ToDiagnosticString();
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Requested Vanilla spectator features for eliminated local player {localPlayerId}; no packet or Chore was sent and the player slot/synchronized game state remain unchanged: mode={spectatorPromotionGameMode}.");
+                $"Activated Vanilla spectator mode for eliminated local player {localPlayerId}: source={source}, mode={spectatorPromotionGameMode}.");
         }
 
         private static bool IsValidLocalSpectatorPromotionParticipant(
@@ -807,7 +963,7 @@ namespace BugfixesAndQoL
             int data5)
         {
             int presentedData1 = ostID == Enums.eOnScreenText.OST_MP_GAME_OVER
-                ? SurrenderPolicy.ResolvePresentedGameOverState(data1, spectatorPromotionRequested)
+                ? SurrenderPolicy.ResolvePresentedGameOverState(data1, SpectatorPromotionPendingOrActive)
                 : data1;
 
             // Preserve Vanilla's record and all auxiliary data. Only the result consumed by
@@ -865,7 +1021,7 @@ namespace BugfixesAndQoL
         {
             int presentedState = SurrenderPolicy.ResolvePresentedGameOverState(
                 state,
-                spectatorPromotionRequested);
+                SpectatorPromotionPendingOrActive);
             try
             {
                 LogGameOverStateCorrectionOnce(state, presentedState, "setGameOverState");
@@ -1576,6 +1732,9 @@ namespace BugfixesAndQoL
 
         private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
 
+        private bool SpectatorPromotionPendingOrActive =>
+            spectatorPromotionChoreExpected || spectatorPromotionActivated;
+
         private bool IsStatisticsViewer()
         {
             GamePlayerManagerAPI playerManager = GamePlayerManagerAPI.Instance;
@@ -1653,8 +1812,15 @@ namespace BugfixesAndQoL
             ClearStatisticsTeamBadges();
             acceptedRequests.Clear();
             nextRequestId = 0;
-            localPlayerHadLivingLord = false;
-            spectatorPromotionRequested = false;
+            activeSessionId = 0;
+            Array.Clear(lordDeathSessionIds, 0, lordDeathSessionIds.Length);
+            Array.Clear(lordDeathSimulationTicks, 0, lordDeathSimulationTicks.Length);
+            Array.Clear(spectatorChoreQueuedPlayers, 0, spectatorChoreQueuedPlayers.Length);
+            Array.Clear(spectatorChoreExecutedPlayers, 0, spectatorChoreExecutedPlayers.Length);
+            localPlayerLordDeathObserved = false;
+            localPlayerLordDeathPlayerId = -1;
+            spectatorPromotionChoreExpected = false;
+            spectatorPromotionActivated = false;
             spectatorPromotionConfirmed = false;
             spectatorPromotionErrorLogged = false;
             spectatorPromotionRejectionLogged = false;

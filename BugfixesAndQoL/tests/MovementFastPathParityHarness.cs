@@ -13,6 +13,9 @@ namespace BugfixesAndQoL
     internal static class MovementFastPathParityHarness
     {
         private const ushort InitializationState = 109;
+        private const ushort AliveStateValue = (ushort)AliveState.IsAlive;
+        private const ushort TransformationState = 4;
+        private const ushort DeadState = 3;
         private static readonly ushort SpearmanType =
             (ushort)eChimps.CHIMP_TYPE_SPEARMAN;
 
@@ -54,6 +57,7 @@ namespace BugfixesAndQoL
             RunGroupMatrix(failures);
             RunCadenceMatrix(failures, profiles);
             RunRallyMatrix(failures, profiles);
+            RunRallyTransformationSequence(failures, profiles);
             RunSpeedMatrix(failures);
             RunActivationFlagMatrix(failures, profiles);
             return failures;
@@ -116,7 +120,7 @@ namespace BugfixesAndQoL
                 "cadence-unsupported-profile");
 
             Unit deadReference = UnitFor(1, 1);
-            deadReference.Alive = false;
+            deadReference.AliveState = DeadState;
             Unit deadTable = deadReference.Clone();
             ApplySynchronizationReference(deadReference, profiles, true, 9);
             ApplySynchronizationTable(deadTable, profiles, true, 9);
@@ -185,7 +189,7 @@ namespace BugfixesAndQoL
             foreach (bool path in new[] { false, true })
             {
                 Unit reference = UnitFor(1, 1, path);
-                reference.Alive = alive;
+                reference.AliveState = alive ? AliveStateValue : DeadState;
                 reference.CurrentSpeed = 17;
                 reference.CurrentSpeed2 = 31;
                 Unit table = reference.Clone();
@@ -197,6 +201,66 @@ namespace BugfixesAndQoL
                 ApplySpeedTable(table, tableTracking);
                 Compare(reference, table, failures,
                     $"speed-active-{active}-alive-{alive}-path-{path}");
+            }
+        }
+
+        private static void RunRallyTransformationSequence(
+            List<string> failures,
+            Dictionary<ushort, Profile> profiles)
+        {
+            ushort knightType = (ushort)eChimps.CHIMP_TYPE_KNIGHT;
+            Unit referenceUnit = UnitFor(
+                1,
+                1,
+                path: false,
+                aiState: InitializationState,
+                transformType: knightType);
+            Unit tableUnit = referenceUnit.Clone();
+            Tracking referenceTracking = TrackingFor(knightType);
+            Tracking tableTracking = referenceTracking.Clone();
+
+            for (int tick = 0; tick < 32; tick++)
+            {
+                ApplyCombinedReference(referenceUnit, referenceTracking,
+                    profiles, rallyEnabled: true, synchronizationEnabled: true);
+                ApplyCombinedTable(tableUnit, tableTracking,
+                    profiles, rallyEnabled: true, synchronizationEnabled: true);
+            }
+
+            referenceUnit.AliveState = TransformationState;
+            tableUnit.AliveState = TransformationState;
+            referenceUnit.AiState = 0;
+            tableUnit.AiState = 0;
+            ApplyCombinedReference(referenceUnit, referenceTracking,
+                profiles, rallyEnabled: true, synchronizationEnabled: true);
+            ApplyCombinedTable(tableUnit, tableTracking,
+                profiles, rallyEnabled: true, synchronizationEnabled: true);
+            Compare(referenceUnit, tableUnit, failures,
+                "rally-transform-state-4-unit");
+            Compare(referenceTracking, tableTracking, failures,
+                "rally-transform-state-4-tracking");
+            if (!referenceTracking.Active || !tableTracking.Active)
+                failures.Add("rally-transform-state-4 cleared tracking");
+
+            referenceUnit.AliveState = AliveStateValue;
+            tableUnit.AliveState = AliveStateValue;
+            referenceUnit.Type = knightType;
+            tableUnit.Type = knightType;
+            referenceUnit.HasPath = true;
+            tableUnit.HasPath = true;
+            ApplyCombinedReference(referenceUnit, referenceTracking,
+                profiles, rallyEnabled: true, synchronizationEnabled: true);
+            ApplyCombinedTable(tableUnit, tableTracking,
+                profiles, rallyEnabled: true, synchronizationEnabled: true);
+            Compare(referenceUnit, tableUnit, failures,
+                "rally-transform-complete-unit");
+            Compare(referenceTracking, tableTracking, failures,
+                "rally-transform-complete-tracking");
+            if (!tableTracking.Active || tableUnit.Animation != 0x81 ||
+                tableUnit.SpeedBonus != 2)
+            {
+                failures.Add(
+                    "rally-transform-complete did not apply the Knight 0x81/2 profile before synchronization");
             }
         }
 
@@ -260,11 +324,8 @@ namespace BugfixesAndQoL
         {
             if (!tracking.Active)
                 return false;
-            if (!unit.Alive)
-            {
-                tracking.Active = false;
+            if (unit.AliveState != AliveStateValue)
                 return false;
-            }
             if (tracking.GlobalId != 0 && unit.GlobalId != tracking.GlobalId)
             {
                 tracking.Active = false;
@@ -314,8 +375,9 @@ namespace BugfixesAndQoL
         {
             if (!tracking.Active)
                 return false;
-            if (!unit.Alive ||
-                (tracking.GlobalId != 0 && unit.GlobalId != tracking.GlobalId) ||
+            if (unit.AliveState != AliveStateValue)
+                return false;
+            if ((tracking.GlobalId != 0 && unit.GlobalId != tracking.GlobalId) ||
                 unit.Owner != tracking.Owner)
             {
                 tracking.Active = false;
@@ -380,7 +442,7 @@ namespace BugfixesAndQoL
             bool running,
             ushort bonus)
         {
-            if (!unit.Alive)
+            if (unit.AliveState != AliveStateValue)
                 return;
             unit.SpeedBonus = running ? bonus : (ushort)0;
             if (!profiles.TryGetValue(unit.Type, out Profile profile))
@@ -396,7 +458,7 @@ namespace BugfixesAndQoL
             bool running,
             ushort bonus)
         {
-            if (!unit.Alive)
+            if (unit.AliveState != AliveStateValue)
                 return;
             unit.SpeedBonus = running ? bonus : (ushort)0;
             if (!profiles.TryGetValue(unit.Type, out Profile profile))
@@ -413,7 +475,7 @@ namespace BugfixesAndQoL
 
         private static void ApplySpeedReference(Unit unit, Tracking tracking)
         {
-            if (tracking.Active && unit.Alive && unit.HasPath &&
+            if (tracking.Active && unit.AliveState == AliveStateValue && unit.HasPath &&
                 (tracking.GlobalId == 0 || unit.GlobalId == tracking.GlobalId) &&
                 unit.Owner == tracking.Owner && unit.Type == tracking.ExpectedType)
                 unit.CurrentSpeed2 = unit.CurrentSpeed;
@@ -421,7 +483,7 @@ namespace BugfixesAndQoL
 
         private static void ApplySpeedTable(Unit unit, Tracking tracking)
         {
-            if (!tracking.Active || !unit.Alive)
+            if (!tracking.Active || unit.AliveState != AliveStateValue)
                 return;
             if (tracking.GlobalId != 0 && unit.GlobalId != tracking.GlobalId)
                 return;
@@ -490,12 +552,13 @@ namespace BugfixesAndQoL
             {
                 ushort type = (ushort)unitType;
                 bool isArabBow = unitType == eChimps.CHIMP_TYPE_ARAB_BOW;
+                bool isKnight = unitType == eChimps.CHIMP_TYPE_KNIGHT;
                 bool allowFallback = isArabBow ||
                     unitType == eChimps.CHIMP_TYPE_BEDOUIN_HEALER;
                 profiles[type] = new Profile(
                     new Dictionary<uint, uint> { [1] = 0x81, [0x81] = 0x81 },
                     new Dictionary<uint, uint> { [0x81] = 1, [1] = 1 },
-                    isArabBow ? (ushort)1 : (ushort)(type + 1),
+                    isArabBow ? (ushort)1 : isKnight ? (ushort)2 : (ushort)(type + 1),
                     allowFallback,
                     soleRunningState: isArabBow
                         ? 0x81u
@@ -519,7 +582,7 @@ namespace BugfixesAndQoL
         {
             return new Unit
             {
-                Alive = true,
+                AliveState = AliveStateValue,
                 Type = type,
                 Animation = animation,
                 HasPath = path,
@@ -562,7 +625,7 @@ namespace BugfixesAndQoL
 
         private static Unit Dead(Unit unit)
         {
-            unit.Alive = false;
+            unit.AliveState = DeadState;
             return unit;
         }
 
@@ -580,7 +643,7 @@ namespace BugfixesAndQoL
             List<string> failures,
             string name)
         {
-            if (expected.Alive != actual.Alive || expected.GlobalId != actual.GlobalId ||
+            if (expected.AliveState != actual.AliveState || expected.GlobalId != actual.GlobalId ||
                 expected.Owner != actual.Owner || expected.Type != actual.Type ||
                 expected.Animation != actual.Animation || expected.SpeedBonus != actual.SpeedBonus ||
                 expected.CurrentSpeed != actual.CurrentSpeed ||
@@ -614,7 +677,7 @@ namespace BugfixesAndQoL
 
         private sealed class Unit
         {
-            public bool Alive;
+            public ushort AliveState;
             public uint GlobalId;
             public int Owner;
             public ushort Type;

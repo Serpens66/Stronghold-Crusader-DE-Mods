@@ -49,6 +49,8 @@ namespace APIShared
         public const string AivBuildStep = "aiv-build-step";
         /// <summary>Capability for observing the process-wide multiplayer lobby state.</summary>
         public const string LobbyState = "lobby-state";
+        /// <summary>Capability for observing player lord deaths and official defeat transitions.</summary>
+        public const string PlayerDefeat = "player-defeat";
     }
 
     /// <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
@@ -113,6 +115,11 @@ namespace APIShared
         bool TryGetLobbyState(
             string ownerGuid,
             out ILobbyStateCapability capability,
+            out NativeCapabilityDiagnostic diagnostic);
+        /// <summary>Attempts to acquire the process-wide managed player-defeat observer.</summary>
+        bool TryGetPlayerDefeat(
+            string ownerGuid,
+            out IPlayerDefeatCapability capability,
             out NativeCapabilityDiagnostic diagnostic);
     }
 

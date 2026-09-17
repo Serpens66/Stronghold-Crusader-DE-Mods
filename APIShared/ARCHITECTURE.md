@@ -1,8 +1,12 @@
 # APIShared architecture
 
-APIShared complements Script Extender with five typed process-wide capabilities that the extender does not provide directly. Consumers cannot request arbitrary addresses, scans, writes or detours.
+APIShared complements Script Extender with typed process-wide capabilities that the extender does not provide directly. Consumers cannot request arbitrary addresses, scans, writes or detours.
 
-The managed `lobby-state` capability initializes once from `APISharedPlugin.Awake()` and is therefore available independently of native library initialization. Native capabilities initialize once from `CrusaderLibrary.LibraryLoaded`. Each capability has an independent error boundary; `NativeApiState.Unavailable` is reserved for failure of global native publication. Registrations, hooks, loggers and runtime state remain rooted for the process lifetime.
+The managed `lobby-state`, `mission-lifecycle`, and `player-defeat` capabilities initialize once from `APISharedPlugin.Awake()` and are therefore available independently of native library initialization. Native capabilities initialize once from `CrusaderLibrary.LibraryLoaded`. Each capability has an independent error boundary; `NativeApiState.Unavailable` is reserved for failure of global native publication. Registrations, hooks, loggers and runtime state remain rooted for the process lifetime.
+
+## Player-defeat capability
+
+The managed `player-defeat` capability observes simulation ticks and publishes two independent, one-shot transitions per player and mission: disappearance or death of a previously confirmed living lord, and entry into Vanilla's official `WinLossState.Loss`. Initial save state is baseline-only. Owner-local registrations are delivered in deterministic owner/registration order; reentrant publications are queued and callback failures are isolated.
 
 ## Lobby-state capability
 

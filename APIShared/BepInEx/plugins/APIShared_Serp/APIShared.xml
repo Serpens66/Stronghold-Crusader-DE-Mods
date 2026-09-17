@@ -64,6 +64,9 @@
         <member name="F:APIShared.NativeCapabilityIds.LobbyState">
             <summary>Capability for observing the process-wide multiplayer lobby state.</summary>
         </member>
+        <member name="F:APIShared.NativeCapabilityIds.PlayerDefeat">
+            <summary>Capability for observing player lord deaths and official defeat transitions.</summary>
+        </member>
         <member name="T:APIShared.NativeCapabilityDiagnostic">
             <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
         </member>
@@ -108,6 +111,9 @@
         </member>
         <member name="M:APIShared.IApiShared.TryGetLobbyState(System.String,APIShared.ILobbyStateCapability@,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to acquire the process-wide managed lobby-state observer.</summary>
+        </member>
+        <member name="M:APIShared.IApiShared.TryGetPlayerDefeat(System.String,APIShared.IPlayerDefeatCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Attempts to acquire the process-wide managed player-defeat observer.</summary>
         </member>
         <member name="T:APIShared.ApiShared">
             <summary>Static access to the process-wide API and its readiness notification.</summary>
@@ -384,6 +390,51 @@
         </member>
         <member name="M:APIShared.ILobbyStateCapability.TryRegisterObserver(System.String,System.Action{APIShared.LobbyStateSnapshot},APIShared.NativeCapabilityDiagnostic@)">
             <summary>Registers one process-lifetime observer under an owner-local stable ID.</summary>
+        </member>
+        <member name="T:APIShared.PlayerLordDeathNotification">
+            <summary>Immutable notification that a previously confirmed living player lord disappeared or died.</summary>
+        </member>
+        <member name="M:APIShared.PlayerLordDeathNotification.#ctor(System.Int64,System.Int32,System.Int32,System.Int32,System.Int32)">
+            <summary>Creates a lord-death notification.</summary>
+        </member>
+        <member name="P:APIShared.PlayerLordDeathNotification.SessionId">
+            <summary>Gets the mission-lifecycle session identifier.</summary>
+        </member>
+        <member name="P:APIShared.PlayerLordDeathNotification.PlayerId">
+            <summary>Gets the one-based player identifier.</summary>
+        </member>
+        <member name="P:APIShared.PlayerLordDeathNotification.LordUnitId">
+            <summary>Gets the one-based unit identifier of the last confirmed living lord.</summary>
+        </member>
+        <member name="P:APIShared.PlayerLordDeathNotification.LordGlobalId">
+            <summary>Gets the stable global identity of the last confirmed living lord.</summary>
+        </member>
+        <member name="P:APIShared.PlayerLordDeathNotification.SimulationTick">
+            <summary>Gets the simulation tick on which the transition was observed.</summary>
+        </member>
+        <member name="T:APIShared.PlayerDefeatNotification">
+            <summary>Immutable notification that a player entered Vanilla's official loss state.</summary>
+        </member>
+        <member name="M:APIShared.PlayerDefeatNotification.#ctor(System.Int64,System.Int32,System.Int32)">
+            <summary>Creates an official player-defeat notification.</summary>
+        </member>
+        <member name="P:APIShared.PlayerDefeatNotification.SessionId">
+            <summary>Gets the mission-lifecycle session identifier.</summary>
+        </member>
+        <member name="P:APIShared.PlayerDefeatNotification.PlayerId">
+            <summary>Gets the one-based player identifier.</summary>
+        </member>
+        <member name="P:APIShared.PlayerDefeatNotification.SimulationTick">
+            <summary>Gets the simulation tick on which the transition was observed.</summary>
+        </member>
+        <member name="T:APIShared.IPlayerDefeatCapability">
+            <summary>Owner-bound observer for process-wide player defeat transitions.</summary>
+        </member>
+        <member name="M:APIShared.IPlayerDefeatCapability.TryRegisterObserver(System.String,System.Action{APIShared.PlayerLordDeathNotification},System.Action{APIShared.PlayerDefeatNotification},APIShared.NativeCapabilityDiagnostic@)">
+            <summary>
+            Registers one process-lifetime observer under an owner-local stable ID. Either callback
+            may be null, but at least one callback is required. Existing state is never replayed.
+            </summary>
         </member>
         <member name="T:APIShared.UnitHudSurface">
             <summary>HUD surfaces on which a registered unit category may appear.</summary>

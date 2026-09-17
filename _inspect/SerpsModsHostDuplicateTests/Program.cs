@@ -235,44 +235,96 @@ namespace SerpsModsHostDuplicateTests
 
         private static void TestModInventoryCompatibility()
         {
-            var host = new List<ModInventoryEntry>
+            const string hostJson = "[" +
+                "{\"g\":\"BugfixesAndQoL_Serp\",\"n\":\"Bugfixes\",\"v\":\"1.0.126\",\"w\":\"\",\"c\":false}," +
+                "{\"g\":\"serpens66.testlord-serp.extended-package-test\",\"n\":\"Test Lord\",\"v\":\"1.0.1-test\",\"w\":\"\",\"c\":true}," +
+                "{\"g\":\"HostGameplay\",\"n\":\"Host Gameplay\",\"v\":\"1.0.0\",\"w\":\"\",\"c\":false}," +
+                "{\"g\":\"Versioned\",\"n\":\"Versioned\",\"v\":\"2.0.0\",\"w\":\"\",\"c\":false}" +
+                "]";
+            if (!ModInventoryCompatibility.TryDecodeScriptExtenderMetadata(
+                hostJson,
+                out List<ModInventoryEntry> host))
             {
-                new ModInventoryEntry("plugin", "BugfixesAndQoL_Serp", "1.0.126"),
-                new ModInventoryEntry("asset", "BugfixesAndQoL_Serp", "1.0.126"),
-                new ModInventoryEntry("asset", "serpens66.testlord-serp.extended-package-test", "1.0.0-test"),
-                new ModInventoryEntry("plugin", "Versioned", "2.0.0"),
-            };
-            var client = new List<ModInventoryEntry>
-            {
-                new ModInventoryEntry("plugin", "BugfixesAndQoL_Serp", "1.0.126"),
-                new ModInventoryEntry("asset", "BugfixesAndQoL_Serp", "1.0.126"),
-                new ModInventoryEntry("plugin", "ClientOnly", "1.0.0"),
-                new ModInventoryEntry("plugin", "Versioned", "1.0.0"),
-            };
-
-            string encoded = ModInventoryCompatibility.Encode(host);
-            if (!ModInventoryCompatibility.TryDecode(encoded, out List<ModInventoryEntry> decoded) ||
-                !string.Equals(encoded, ModInventoryCompatibility.Encode(decoded), StringComparison.Ordinal))
-            {
-                throw new InvalidOperationException("Mod inventory encoding is not deterministic.");
+                throw new InvalidOperationException("Valid Script Extender lobby metadata was rejected.");
             }
 
-            ModInventoryDifference difference = ModInventoryCompatibility.Compare(decoded, client);
+            List<ModInventoryEntry> client = ModInventoryCompatibility.BuildCanonicalLocalInventory(
+                new[]
+                {
+                    new ModInventoryEntry(
+                        "BugfixesAndQoL_Serp",
+                        "Bugfixes asset",
+                        "1.0.126",
+                        false),
+                    new ModInventoryEntry(
+                        "serpens66.testlord-serp.extended-package-test",
+                        "Test Lord",
+                        "1.0.0-test",
+                        true),
+                    new ModInventoryEntry("ClientOnlyAsset", "Client Asset", "1.0.0", true),
+                },
+                new[]
+                {
+                    new ModInventoryEntry(
+                        "bugfixesandqol_serp",
+                        "Duplicate plugin",
+                        "9.9.9",
+                        false),
+                    new ModInventoryEntry("ClientOnlyPlugin", "Client Plugin", "1.0.0", false),
+                    new ModInventoryEntry("Versioned", "Versioned", "1.0.0", false),
+                });
+
+            ModInventoryEntry canonicalBugfixes = client.Single(
+                entry => string.Equals(
+                    entry.Guid,
+                    "BugfixesAndQoL_Serp",
+                    StringComparison.OrdinalIgnoreCase));
+            if (!string.Equals(canonicalBugfixes.Version, "1.0.126", StringComparison.Ordinal) ||
+                canonicalBugfixes.Clientside)
+            {
+                throw new InvalidOperationException("Asset metadata did not override the duplicate plugin GUID.");
+            }
+
+            ModInventoryDifference difference = ModInventoryCompatibility.Compare(host, client);
             if (difference.HostOnly.Count != 1 ||
-                !difference.HostOnly[0].Contains("serpens66.testlord-serp.extended-package-test") ||
-                difference.ClientOnly.Count != 1 || !difference.ClientOnly[0].Contains("ClientOnly") ||
+                !difference.HostOnly[0].Contains("HostGameplay") ||
+                difference.ClientOnly.Count != 1 || !difference.ClientOnly[0].Contains("ClientOnlyPlugin") ||
                 difference.VersionMismatches.Count != 1 || !difference.VersionMismatches[0].Contains("Versioned"))
             {
-                throw new InvalidOperationException("Mod inventory differences were not classified correctly.");
+                throw new InvalidOperationException("Gameplay mod differences were not classified correctly.");
             }
 
-            if (ModInventoryCompatibility.TryDecode("v2", out _) ||
-                ModInventoryCompatibility.TryDecode("v1\ninvalid", out _) ||
-                ModInventoryCompatibility.TryDecode("v1\ncGx1Z2lu|/w==|MS4w", out _) ||
-                ModInventoryCompatibility.TryDecode(new string('a', 8192), out _) ||
-                ModInventoryCompatibility.TryDecode(string.Empty, out _))
+            var clientsideOnlyHost = new List<ModInventoryEntry>
             {
-                throw new InvalidOperationException("Malformed mod inventory metadata was accepted.");
+                new ModInventoryEntry("Visual", "Visual", "2.0.0", true),
+                new ModInventoryEntry("HostVisual", "Host Visual", "1.0.0", true),
+            };
+            var clientsideOnlyClient = new List<ModInventoryEntry>
+            {
+                new ModInventoryEntry("Visual", "Visual", "1.0.0", true),
+                new ModInventoryEntry("ClientVisual", "Client Visual", "1.0.0", true),
+            };
+            if (ModInventoryCompatibility.Compare(
+                clientsideOnlyHost,
+                clientsideOnlyClient).Count != 0)
+            {
+                throw new InvalidOperationException("Client-side-only mod differences were treated as incompatible.");
+            }
+
+            string[] malformedMetadata =
+            {
+                "{}",
+                "[{\"g\":\"MissingFields\"}]",
+                "[{\"g\":\"WrongType\",\"n\":\"Wrong\",\"v\":1,\"c\":false}]",
+                "[{\"g\":\"Duplicate\",\"n\":\"One\",\"v\":\"1\",\"c\":false}," +
+                    "{\"g\":\"duplicate\",\"n\":\"Two\",\"v\":\"1\",\"c\":false}]",
+                new string('a', 8192),
+                string.Empty,
+            };
+            if (malformedMetadata.Any(value =>
+                ModInventoryCompatibility.TryDecodeScriptExtenderMetadata(value, out _)))
+            {
+                throw new InvalidOperationException("Malformed Script Extender lobby metadata was accepted.");
             }
         }
 

@@ -51,6 +51,8 @@
     <Compile Include="src\MissionLifecycleCapability.cs" />
     <Compile Include="src\AivBuildStepContracts.cs" />
     <Compile Include="src\LobbyStateContracts.cs" />
+    <Compile Include="src\PlayerDefeatContracts.cs" />
+    <Compile Include="src\PlayerDefeatState.cs" />
     <Compile Include="src\UnitHudContracts.cs" />
     <Compile Include="src\NativeInfrastructure.cs" />
     <Compile Include="src\UniquePatternSearch.cs" />
@@ -59,6 +61,7 @@
     <Compile Include="src\UnitHudPresentationCapability.cs" />
     <Compile Include="src\AivBuildStepCapability.cs" />
     <Compile Include="src\LobbyStateCapability.cs" />
+    <Compile Include="src\PlayerDefeatCapability.cs" />
     <Compile Include="src\ApiSharedRuntime.cs" />
     <Compile Include="src\APISharedPlugin.cs" />
   </ItemGroup>

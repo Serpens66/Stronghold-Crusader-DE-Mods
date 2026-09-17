@@ -113,12 +113,6 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            TroopMovementFix3ModLog.Debug(
-                log,
-                "Native Spearman movement-option branch replaced with the " +
-                "ordinary Archer walk/run decision while the Improved " +
-                "Spearman option is enabled; disabled Spearmen retain their " +
-                "Vanilla walking-only behavior.");
         }
 
         public void Dispose()

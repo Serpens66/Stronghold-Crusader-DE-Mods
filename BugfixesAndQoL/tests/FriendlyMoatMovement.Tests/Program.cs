@@ -39,7 +39,7 @@ var methods = new HashSet<string>(new[] {
     "EmitSelectionCallAdapter",
     "LogDetailedInfo",
     "EnsureMoveCommandGroupSummary",
-    "TryApplyBuildingConsumerFallback", "IsLegalBuildingCandidate", "BuildingCandidateEdge", "TryCaptureOrderedActiveGroupUnits", "CaptureBuildingApproachCandidates", "CaptureBuildingApproachBuffer", "RestoreBuildingApproachBuffer", "WriteBuildingApproachCandidates", "WriteBuildingApproachCandidate", "PublishBuildingApproachPairs", "TryGetPublishedBuildingFootprint", "MatchesSynchronousAttackMovementContext", "TryGetUnitAttackMoveTile", "IsValidBuildingApproachPair", "IsWalkableBuildingApproachEndpoint", "IsExactBuildingContextTile", "TryValidateHostileBuildingTarget",
+    "TryApplyBuildingConsumerFallback", "RentBuildingFallbackWorkBuffers", "ReturnBuildingFallbackWorkBuffers", "IsLegalBuildingCandidate", "BuildingCandidateEdge", "TryCaptureOrderedActiveGroupUnits", "CaptureBuildingApproachCandidates", "CaptureBuildingApproachBuffer", "RestoreBuildingApproachBuffer", "WriteBuildingApproachCandidates", "WriteBuildingApproachCandidate", "PublishBuildingApproachPairs", "TryGetPublishedBuildingFootprint", "MatchesSynchronousAttackMovementContext", "TryGetUnitAttackMoveTile", "IsValidBuildingApproachPair", "IsWalkableBuildingApproachEndpoint", "IsExactBuildingContextTile", "TryValidateHostileBuildingTarget",
     "GetReusableQualifiedRoute",
     "InvalidateMovementSearchData",
     "TryCaptureBuilderWeightedScope", "ObserveWeightedMoatShadowResult", "FindMoatWorkTargetWithOwnerRoute",
@@ -63,7 +63,7 @@ var methods = new HashSet<string>(new[] {
 });
 var types = new HashSet<string>(new[] {
     "RedBirdDetour",
-    "BuildingApproachCandidate", "BuildingConsumerFallbackResult", "BuildingConsumerPerformanceScope", "AttackApproachState",
+    "BuildingApproachCandidate", "BuildingConsumerFallbackResult", "BuildingConsumerPerformanceScope", "BuildingFallbackWorkBuffers", "AttackApproachState",
     "AttackApproachKind", "LadderAttackProbeScope", "LadderRegionTransition", "LadderBuildingCandidateRestoreResult",
     "QualifiedMovementRoute", "RouteDecisionKey", "RequiredRouteMetrics", "RequiredRouteCache",
     "PendingDigMoatTarget",
@@ -71,7 +71,7 @@ var types = new HashSet<string>(new[] {
 });
 var properties = new HashSet<string>(new[] { "CurrentOptions", "ExtensionsEnabled", "RequiredOnlyMode" });
 var constants = new HashSet<string>(new[] {
-    "DetailedDiagnosticsEnabled",
+    "DetailedDiagnosticsEnabled", "buildingFallbackWorkBuffers",
     "VanillaUnreachableCandidateScore", "buildingCandidateFields", "BuildingContextBlockingTileFlagMask", "VanillaAttackFloodResultCapacity", "PathManagerFloodGenerationOffset", "PathManagerFloodDepthOffset", "PathManagerFloodQueueHeadOffset", "PathManagerFloodQueueTailOffset", "PathManagerFloodResultTileOffset", "PathManagerFloodResultStride", "BuildingCandidateApproachTileOffset", "BuildingCandidateFootprintTileOffset", "BuildingCandidateScoreOffset",
     "SelectedMoatTileIdOffset", "SelectedMoatApproachXOffset", "SelectedMoatApproachYOffset",
     "TribeRecordSize", "TribeLeadUnitIdOffset", "TribeUnitCountOffset", "UnitGroupInactiveStateOffset", "MaximumTribeCount", "MoatRecordArrayOffset", "MoatRecordCountOffset", "MoatRecordSize", "MoatRecordTileIdOffset", "MoatRecordXOffset", "MoatRecordYOffset", "NativeUnitSlotDataOffset", "MaximumMoatRecordId", "MaximumRegionId", "MaximumUnitCount", "MapWidth", "MapCellCount", "NativeTileCount",
@@ -175,11 +175,7 @@ void ValidateMovementEmitterAssembly(IEnumerable<MetadataReference> compilerRefe
         .Single(type => type.Identifier.Text == "SpearmanMovementPatch");
     string[] cadenceMethods = {
         "GeneratePreTerrainSpeedFastPath", "GenerateCadenceFastPath",
-        "EmitProfileAddress", "EmitStateMappings", "EmitRallyRunningMappings",
-        "EmitRallyDiagnosticsProfileMarker",
-        "EmitRallyDiagnosticsSnapshot",
-        "EmitRallyDiagnosticsWriteMarker",
-        "EmitRallyDiagnosticsEntryAddress"
+        "EmitProfileAddress", "EmitStateMappings", "EmitRallyRunningMappings"
     };
     string[] spearmanMethods = { "GenerateMovementDecision" };
 
@@ -214,7 +210,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using static Iced.Intel.AssemblerRegisters;
-namespace SHCDESE.Interop { internal enum AliveState { IsAlive = 0, Dead = 1 } }
+namespace SHCDESE.Interop { internal enum AliveState { IsAlive = 2, Unknown = 4 } }
 namespace SHCDESE.Interop.Enums {
     internal enum eChimps { CHIMP_TYPE_SPEARMAN = 7, CHIMP_NUM_TYPES = 256 }
 }
@@ -271,11 +267,12 @@ public static class MovementEmitterContract {
             0x75,0x2D,0x66,0x42,0x39,0xBC,0x3B,0x9E,0x09,0,0 }, 0x180143BD9);
         Verify("speed", SynchronizedMovementCadencePatch.EmitSpeed(
             speed, 0x18019B514), 1, 1, 1, 1, new ulong[] { 0x18019B516 });
-        Verify("cadence", SynchronizedMovementCadencePatch.EmitCadence(
-            cadence, 0x18018421A), 1, 1, 0, 0, Array.Empty<ulong>());
+        byte[] cadenceBytes = SynchronizedMovementCadencePatch.EmitCadence(
+            cadence, 0x18018421A);
+        Verify("cadence", cadenceBytes, 1, 1, 0, 0, Array.Empty<ulong>());
+        VerifyCadenceAliveGate(cadenceBytes);
         VerifyRallyCadenceWriteContract(
-            SynchronizedMovementCadencePatch.EmitCadence(
-                cadence, 0x18018421A));
+            cadenceBytes);
         byte[] spearmanBytes = SpearmanMovementPatch.EmitSpearman(
             spearman, 0x180143BED);
         Verify("Spearman", spearmanBytes, -1, -1, -1, -1,
@@ -335,6 +332,25 @@ public static class MovementEmitterContract {
             if (equal) return;
         }
         throw new Exception("Spearman emitter lost an audited external target.");
+    }
+    private static void VerifyCadenceAliveGate(byte[] bytes) {
+        var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+        decoder.IP = Stub;
+        decoder.Decode(out var pushFlags);
+        decoder.Decode(out var aliveCompare);
+        decoder.Decode(out var skipNonAlive);
+        if (pushFlags.Mnemonic != Mnemonic.Pushfq ||
+            aliveCompare.Mnemonic != Mnemonic.Cmp ||
+            aliveCompare.Op0Kind != OpKind.Memory ||
+            aliveCompare.MemoryBase != Register.R8 ||
+            aliveCompare.MemoryDisplacement64 != 0x6E4 ||
+            aliveCompare.MemorySize.GetSize() != 2 ||
+            aliveCompare.GetImmediate(1) != 2 ||
+            !skipNonAlive.IsJccShortOrNear ||
+            skipNonAlive.Mnemonic != Mnemonic.Jne ||
+            skipNonAlive.NearBranchTarget < Stub ||
+            skipNonAlive.NearBranchTarget >= Stub + (ulong)bytes.Length)
+            throw new Exception("cadence emitter no longer begins with the managed outer alive gate.");
     }
     private static void VerifyRallyCadenceWriteContract(byte[] bytes) {
         var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));

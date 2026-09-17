@@ -35,6 +35,7 @@ namespace APISharedTests
                 new AssemblyName(args.Name).Name == "Assembly-CSharp"
                     ? Assembly.LoadFrom(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assembly-CSharp-publicized.dll"))
                     : null;
+            PlayerDefeatTests.Run();
             TestPublicSurface();
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
@@ -874,6 +875,9 @@ namespace APISharedTests
                 "APIShared.IAivBuildStepCapability",
                 "APIShared.ILobbyStateCapability",
                 "APIShared.LobbyStateSnapshot",
+                "APIShared.IPlayerDefeatCapability",
+                "APIShared.PlayerLordDeathNotification",
+                "APIShared.PlayerDefeatNotification",
                 "APIShared.IAivBuildStepObserver",
                 "APIShared.IAivBuildStepInvocation",
                 "APIShared.AivBuildStepContext",
@@ -939,7 +943,8 @@ namespace APISharedTests
                 "TryGetUnitHudPresentation",
                 "TryGetAivBuildStep",
                 "TryGetLobbyState",
-                "TryGetMissionLifecycle"
+                "TryGetMissionLifecycle",
+                "TryGetPlayerDefeat"
             };
             foreach (MethodInfo method in typeof(IApiShared).GetMethods())
                 expectedAcquisitionMethods.Remove(method.Name);
@@ -956,6 +961,8 @@ namespace APISharedTests
                 "AIV build-step capability ID must remain stable");
             Assert(NativeCapabilityIds.LobbyState == "lobby-state",
                 "lobby-state capability ID must remain stable");
+            Assert(NativeCapabilityIds.PlayerDefeat == "player-defeat",
+                "player-defeat capability ID must remain stable");
         }
 
         private static void TestAivBuildStepBroker()

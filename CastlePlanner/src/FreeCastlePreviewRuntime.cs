@@ -94,6 +94,8 @@ namespace CastlePlanner
         private bool bypassPauseHook;
         private bool bypassLeaveLobbyHook;
         private bool bypassStartCapture;
+        private bool multiplayerLivenessGuardArmed;
+        private bool previousResyncingOrSaving;
         private bool briefingObserved;
         private bool localCatalogReady;
         private bool catalogWaitLogged;
@@ -331,13 +333,26 @@ namespace CastlePlanner
                 realMultiplayer = Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer;
                 localPlayerId = ResolveLocalPlayerId(out string identityError);
                 BuildRoster(out string rosterError);
-                ApplyPause(true);
+                bool livenessReady = TryArmMultiplayerLivenessGuard(out string livenessError);
+                if (livenessReady)
+                    ApplyPause(true);
                 NotifyAll();
-                Shared.DebugLogHelper.LogInfo(
-                    log,
-                    $"Castle preview pause armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
-                if (!string.IsNullOrEmpty(identityError) || !string.IsNullOrEmpty(rosterError))
-                    FailBeforeCommit(identityError ?? rosterError);
+                if (livenessReady)
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"Castle preview pause armed in OnStartMap(Pre): operation={operationId}, localPlayer={localPlayerId}, multiplayer={realMultiplayer}, roster=[{string.Join(",", roster.OrderBy(id => id))}].");
+                }
+                if (!string.IsNullOrEmpty(identityError) ||
+                    !string.IsNullOrEmpty(rosterError) ||
+                    !string.IsNullOrEmpty(livenessError))
+                {
+                    FailBeforeCommit(!string.IsNullOrEmpty(identityError)
+                        ? identityError
+                        : !string.IsNullOrEmpty(rosterError)
+                            ? rosterError
+                            : livenessError);
+                }
                 return;
             }
 
@@ -873,6 +888,7 @@ namespace CastlePlanner
                     // reconstructs both for the new map.
                     initFastMethod.Invoke(platform, null);
                     platform.initFastFollowOn();
+                    RelinquishMultiplayerLivenessGuardAfterVanillaReset();
                     Shared.DebugLogHelper.LogInfo(
                         log,
                         $"Free-castle multiplayer restart reset completed: " +
@@ -935,13 +951,35 @@ namespace CastlePlanner
 
         private void ContinueCurrentGame()
         {
-            bypassLeaveLobbyHook = true;
-            if (realMultiplayer && Platform_Multiplayer.Instance?.activeLobby != null)
-                leaveLobbyTrampoline(Platform_Multiplayer.Instance, true);
-            bypassLeaveLobbyHook = false;
-            bypassPauseHook = true;
-            gameActionTrampoline(Enums.GameActionCommand.Game_Paused, 0, 0, 0);
-            bypassPauseHook = false;
+            try
+            {
+                try
+                {
+                    bypassLeaveLobbyHook = true;
+                    if (realMultiplayer && Platform_Multiplayer.Instance?.activeLobby != null)
+                        leaveLobbyTrampoline(Platform_Multiplayer.Instance, true);
+                }
+                finally
+                {
+                    bypassLeaveLobbyHook = false;
+                }
+            }
+            finally
+            {
+                ReleaseMultiplayerLivenessGuard(
+                    refreshRemoteHumanTimestamps: true,
+                    reason: "continue-current-game");
+            }
+
+            try
+            {
+                bypassPauseHook = true;
+                gameActionTrampoline(Enums.GameActionCommand.Game_Paused, 0, 0, 0);
+            }
+            finally
+            {
+                bypassPauseHook = false;
+            }
             state = PreviewState.Inactive;
             lastReadySent = 0;
             lastAbortSent = 0;
@@ -1023,7 +1061,18 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogError(log, $"Free-castle restart failed after commit; returning to frontend fail-closed: {error}");
             state = PreviewState.Inactive;
             if (realMultiplayer)
-                Platform_Multiplayer.Instance?.exitMP();
+            {
+                try
+                {
+                    ReleaseMultiplayerLivenessGuard(
+                        refreshRemoteHumanTimestamps: false,
+                        reason: "restart-failure");
+                }
+                finally
+                {
+                    Platform_Multiplayer.Instance?.exitMP();
+                }
+            }
             if (MainViewModel.viewModelLoaded)
                 MainViewModel.Instance.InitNewScene(Enums.SceneIDS.FrontEnd);
             NotifyAll();
@@ -1031,9 +1080,100 @@ namespace CastlePlanner
 
         private void ApplyPause(bool paused)
         {
-            bypassPauseHook = true;
-            EngineInterface.GameAction(Enums.GameActionCommand.Game_Paused, paused ? 1 : 0, paused ? 1 : 0);
-            bypassPauseHook = false;
+            try
+            {
+                bypassPauseHook = true;
+                EngineInterface.GameAction(Enums.GameActionCommand.Game_Paused, paused ? 1 : 0, paused ? 1 : 0);
+            }
+            finally
+            {
+                bypassPauseHook = false;
+            }
+        }
+
+        private bool TryArmMultiplayerLivenessGuard(out string error)
+        {
+            error = string.Empty;
+            if (!realMultiplayer || multiplayerLivenessGuardArmed)
+                return true;
+
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            if (platform == null)
+            {
+                error = "The multiplayer platform is unavailable for the castle-preview liveness guard.";
+                return false;
+            }
+
+            previousResyncingOrSaving = platform.resyncingOrSaving;
+            platform.resyncingOrSaving = true;
+            multiplayerLivenessGuardArmed = true;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Castle-preview multiplayer liveness guard armed: operation={operationId}, " +
+                $"previousResyncingOrSaving={previousResyncingOrSaving}, " +
+                $"mpGameActive={Platform_Multiplayer.MPGameActive}.");
+            return true;
+        }
+
+        private void ReleaseMultiplayerLivenessGuard(
+            bool refreshRemoteHumanTimestamps,
+            string reason)
+        {
+            if (!multiplayerLivenessGuardArmed)
+                return;
+
+            Platform_Multiplayer platform = Platform_Multiplayer.Instance;
+            bool restoreValue = previousResyncingOrSaving;
+            int refreshedPlayers = 0;
+            try
+            {
+                if (refreshRemoteHumanTimestamps && !restoreValue && platform?.gameMembers != null)
+                {
+                    DateTime now = DateTime.UtcNow;
+                    foreach (Platform_Multiplayer.MPGameMember member in platform.gameMembers)
+                    {
+                        if (member == null || member.isSelf || member.kicked ||
+                            member.skirmishAI || member.steamID <= 1000)
+                        {
+                            continue;
+                        }
+
+                        member.lastTimePacketRecieved = now;
+                        refreshedPlayers++;
+                    }
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (platform != null)
+                        platform.resyncingOrSaving = restoreValue;
+                }
+                finally
+                {
+                    multiplayerLivenessGuardArmed = false;
+                    previousResyncingOrSaving = false;
+                }
+            }
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Castle-preview multiplayer liveness guard released: operation={operationId}, " +
+                $"reason={reason}, restoredResyncingOrSaving={restoreValue}, " +
+                $"refreshedRemoteHumans={refreshedPlayers}.");
+        }
+
+        private void RelinquishMultiplayerLivenessGuardAfterVanillaReset()
+        {
+            if (!multiplayerLivenessGuardArmed)
+                return;
+
+            multiplayerLivenessGuardArmed = false;
+            previousResyncingOrSaving = false;
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Castle-preview multiplayer liveness guard ownership relinquished after Vanilla reset: operation={operationId}.");
         }
 
         private void BuildRoster(out string error)
@@ -1171,6 +1311,9 @@ namespace CastlePlanner
 
         private void ResetPreview()
         {
+            ReleaseMultiplayerLivenessGuard(
+                refreshRemoteHumanTimestamps: false,
+                reason: "preview-reset");
             state = PreviewState.Inactive;
             roster.Clear();
             readyPlayers.Clear();

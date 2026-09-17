@@ -78,6 +78,7 @@ internal static class Program
             ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
             ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder),
             ("preserves the Vanilla Blueprint HUD interaction contract", PreservesVanillaBlueprintHudContract),
+            ("guards multiplayer preview liveness across pause and resume", GuardsMultiplayerPreviewLiveness),
             ("pins CastlePlanner to the manifest Script Extender range", PinsCastlePlannerToManifestExtenderRange)
         };
 
@@ -598,6 +599,65 @@ internal static class Program
                 matches++;
         }
         Equal(1, matches);
+    }
+
+    private static void GuardsMultiplayerPreviewLiveness()
+    {
+        string root = FindCastlePlannerRoot();
+        string source = File.ReadAllText(Path.Combine(
+            root, "src", "FreeCastlePreviewRuntime.cs"));
+
+        int armCall = source.IndexOf(
+            "TryArmMultiplayerLivenessGuard(out string livenessError)",
+            StringComparison.Ordinal);
+        int firstPause = source.IndexOf("ApplyPause(true);", StringComparison.Ordinal);
+        Assert(armCall >= 0 && firstPause > armCall,
+            "multiplayer liveness guard is not armed before the preview pause");
+        Assert(source.Contains("platform.resyncingOrSaving = true;", StringComparison.Ordinal),
+            "multiplayer liveness guard does not activate Vanilla's timeout suppression");
+
+        int vanillaFollowOn = source.IndexOf("platform.initFastFollowOn();", StringComparison.Ordinal);
+        int relinquish = source.IndexOf(
+            "RelinquishMultiplayerLivenessGuardAfterVanillaReset();",
+            StringComparison.Ordinal);
+        Assert(vanillaFollowOn >= 0 && relinquish > vanillaFollowOn,
+            "liveness guard ownership is not relinquished after Vanilla's complete reset");
+
+        int continueMethod = source.IndexOf("private void ContinueCurrentGame()", StringComparison.Ordinal);
+        int release = source.IndexOf(
+            "ReleaseMultiplayerLivenessGuard(",
+            continueMethod,
+            StringComparison.Ordinal);
+        int unpause = source.IndexOf(
+            "gameActionTrampoline(Enums.GameActionCommand.Game_Paused, 0, 0, 0);",
+            continueMethod,
+            StringComparison.Ordinal);
+        Assert(continueMethod >= 0 && release > continueMethod && unpause > release,
+            "continue/abort path does not release the liveness guard before unpausing");
+        Assert(source.Contains("member.lastTimePacketRecieved = now;", StringComparison.Ordinal),
+            "continue/abort path does not refresh remote human packet timestamps");
+
+        int leaveBypassReset = source.IndexOf(
+            "bypassLeaveLobbyHook = false;",
+            continueMethod,
+            StringComparison.Ordinal);
+        int leaveFinally = source.LastIndexOf(
+            "finally",
+            leaveBypassReset,
+            StringComparison.Ordinal);
+        int pauseBypassReset = source.IndexOf(
+            "bypassPauseHook = false;",
+            continueMethod,
+            StringComparison.Ordinal);
+        int pauseFinally = source.LastIndexOf(
+            "finally",
+            pauseBypassReset,
+            StringComparison.Ordinal);
+        Assert(leaveFinally > continueMethod && leaveBypassReset > leaveFinally &&
+               leaveBypassReset - leaveFinally < 120 &&
+               pauseFinally > continueMethod && pauseBypassReset > pauseFinally &&
+               pauseBypassReset - pauseFinally < 120,
+            "preview bypass flags are not protected by finally blocks");
     }
 
     private static int RvaToRawOffset(byte[] image, int rva)

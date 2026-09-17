@@ -904,6 +904,11 @@ static void TestLocalActivationSetting()
         viewModel.Contains("TrailSettingMode.Fixed") &&
         runtime.Contains("DiscoverModCompatibility()"),
         "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
+    Assert(xaml.Contains("Width=\"723\" HorizontalAlignment=\"Left\"") &&
+        xaml.Contains("<ColumnDefinition Width=\"300\"/><ColumnDefinition Width=\"220\"/><ColumnDefinition Width=\"175\"/><ColumnDefinition Width=\"28\"/>") &&
+        xaml.Contains("Width=\"669\" HorizontalAlignment=\"Left\"") &&
+        xaml.Contains("<ColumnDefinition Width=\"494\"/><ColumnDefinition Width=\"175\"/>"),
+        "Trail mod and feature selectors are not arranged as a compact left-aligned table");
     Assert(coordinator.Contains("getPropertyMode(participant.Key, property.Name)") &&
         coordinator.Contains("TrailSettingMode.Player") &&
         coordinator.Contains("TrailSettingMode.Fixed") &&

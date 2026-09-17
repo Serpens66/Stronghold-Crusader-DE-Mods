@@ -38,6 +38,8 @@ namespace BugfixesAndQoL
                     (int)eChimps.CHIMP_NUM_TYPES);
         private readonly List<IDisposable> troopSubscriptions =
             new List<IDisposable>(4);
+        private readonly MovementLoggingStateTracker movementLoggingState =
+            new MovementLoggingStateTracker();
 
         private SpearmanMovementPatch spearmanMovementPatch;
         private static SpearmanMovementPatch processSpearmanMovementPatch;
@@ -83,7 +85,7 @@ namespace BugfixesAndQoL
             if (unitArray == null || unitArrayLength <= 0)
                 throw new InvalidOperationException("The native unit array is unavailable.");
             nativeLibraryAvailable = true;
-            MovementCadenceIntegration.RegistrationChanged += ApplySetting;
+            MovementCadenceIntegration.StateChanged += ApplySetting;
             try
             {
                 ApplySetting();
@@ -92,7 +94,7 @@ namespace BugfixesAndQoL
             {
                 // A conflicting native hook must disable only the movement feature.
                 initializationFailed = true;
-                MovementCadenceIntegration.RegistrationChanged -= ApplySetting;
+                MovementCadenceIntegration.StateChanged -= ApplySetting;
                 Disable();
                 Shared.DebugLogHelper.LogError(
                     log,
@@ -159,15 +161,23 @@ namespace BugfixesAndQoL
             if (!shouldEnableCadencePatch)
                 DisableCadencePatch();
 
-            TroopMovementFix3ModLog.Debug(
-                log,
-                $"Movement options reconciled: " +
-                $"troopSpeedFixRequested={shouldEnableTroopMovementFix}, " +
-                $"externalFastRecruitRallyRequested=" +
-                $"{MovementCadenceIntegration.HasFastRecruitCallbacks}, " +
-                $"cadenceHookActive={cadencePatch != null}, " +
-                $"troopFixComponentsActive=" +
-                $"{AreTroopMovementFixComponentsActive}.");
+            bool sameSpeedActive = shouldEnableTroopMovementFix &&
+                cadencePatch != null &&
+                AreTroopMovementFixComponentsActive;
+            bool rallyActive = cadencePatch != null &&
+                MovementCadenceIntegration.IsRallyEnabled;
+            bool nativeFastpathsActive = cadencePatch != null;
+            if (movementLoggingState.TryUpdate(
+                    sameSpeedActive,
+                    rallyActive,
+                    nativeFastpathsActive))
+            {
+                TroopMovementFix3ModLog.Debug(
+                    log,
+                    $"Movement features: sameSpeed={sameSpeedActive}, " +
+                    $"rally={rallyActive}, " +
+                    $"nativeFastpaths={nativeFastpathsActive}.");
+            }
         }
 
         public void Dispose()
@@ -264,13 +274,6 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            TroopMovementFix3ModLog.Debug(
-                log,
-                "Troop Movement Fix 3 active: mixed DefaultInSync groups " +
-                "use the slowest member's Vanilla maximum speed and a " +
-                "matching shared cadence; " +
-                "Spearmen use the Archer walk/run decision instead of the " +
-                "Improved-Spearman movement override.");
         }
 
         private void DisableTroopMovementFixComponents()
@@ -484,15 +487,6 @@ namespace BugfixesAndQoL
                 synchronization.Cadence,
                 synchronization.RunningSpeedBonus);
 
-            TroopMovementFix3ModLog.Debug(
-                log,
-                $"Mixed-group synchronization prepared: " +
-                $"tribeId={tribeId}, members={activeUnitCount}, " +
-                $"unitTypes={unitTypeMovementInfoByType.Count}, " +
-                $"slowestMaximumSpeedLevel={slowestMaximumSpeed}, " +
-                $"cadence={synchronization.Cadence}, " +
-                $"sharedRunningSpeedBonus=" +
-                $"{synchronization.RunningSpeedBonus}.");
             return true;
         }
 

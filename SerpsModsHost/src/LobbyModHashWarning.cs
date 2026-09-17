@@ -1,5 +1,8 @@
+using BepInEx;
 using BepInEx.Logging;
+using BepInEx.Bootstrap;
 using SHCDESE.API;
+using SHCDESE.API.Components.ModManager;
 using Steamworks;
 using System;
 using System.Collections.Generic;
@@ -62,7 +65,19 @@ namespace SerpsModsHost
                     return;
                 }
 
-                string messageDetails = BuildInventoryDetails(lobby.id, localName);
+                if (TryBuildNetworkedDifference(lobby.id, out ModInventoryDifference difference) &&
+                    difference.Count == 0)
+                {
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"[Serps Mods] Lobby mod hashes differ only because of client-side-only mod differences: " +
+                        $"local={localHash}, host={hostHash}. No warning was sent.");
+                    return;
+                }
+
+                string messageDetails = difference == null
+                    ? " " + SerpLocalization.Get(SerpLocalization.SerpsModsLobbyInventoryUnavailable)
+                    : BuildInventoryDetails(difference, localName);
                 message += messageDetails + " " + SerpLocalization.Get(SerpLocalization.SerpsModsLobbyHashFolders);
 
                 Platform_Multiplayer.Instance.SendLobbyChatMessage(message);
@@ -82,32 +97,63 @@ namespace SerpsModsHost
         private static string FormatHash(string value) =>
             string.IsNullOrWhiteSpace(value) ? "missing" : value;
 
-        private string BuildInventoryDetails(CSteamID lobbyId, string localName)
+        private bool TryBuildNetworkedDifference(
+            CSteamID lobbyId,
+            out ModInventoryDifference difference)
         {
-            string encoded = SteamMatchmaking.GetLobbyData(
+            difference = null;
+            string json = SteamMatchmaking.GetLobbyData(
                 lobbyId,
-                LobbyModInventoryPublisher.LobbyInventoryToken);
-            if (!ModInventoryCompatibility.TryDecode(encoded, out List<ModInventoryEntry> hostEntries))
+                ModInventoryCompatibility.ScriptExtenderLobbyModListToken);
+            if (!ModInventoryCompatibility.TryDecodeScriptExtenderMetadata(
+                json,
+                out List<ModInventoryEntry> hostEntries))
             {
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    "Exact lobby mod inventory is unavailable or invalid; using the folder guidance fallback.");
-                return " " + SerpLocalization.Get(SerpLocalization.SerpsModsLobbyInventoryUnavailable);
+                    "Script Extender lobby mod metadata is unavailable or invalid; " +
+                    "using the conservative legacy mod-hash warning.");
+                return false;
             }
 
-            List<ModInventoryEntry> localEntries = LobbyModInventoryPublisher.Capture();
-            ModInventoryDifference difference = ModInventoryCompatibility.Compare(hostEntries, localEntries);
-            if (difference.Count == 0)
+            difference = ModInventoryCompatibility.Compare(hostEntries, CaptureLocalInventory());
+            return true;
+        }
+
+        private static List<ModInventoryEntry> CaptureLocalInventory()
+        {
+            var assets = new List<ModInventoryEntry>();
+            foreach (KeyValuePair<ModInfo, string> asset in
+                GameAssetModManager.Instance.GetRegisteredAssetDirectories())
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Lobby mod hashes differ although the published GUID/version inventories match.");
-                return " " + SerpLocalization.Get(SerpLocalization.SerpsModsLobbyInventoryUnavailable);
+                ModInfo info = asset.Key;
+                assets.Add(new ModInventoryEntry(
+                    info.GUID,
+                    info.Name,
+                    info.Version,
+                    info.NetworkMode == ModNetworkMode.Clientside));
             }
 
+            var plugins = new List<ModInventoryEntry>();
+            foreach (KeyValuePair<string, PluginInfo> plugin in Chainloader.PluginInfos)
+            {
+                plugins.Add(new ModInventoryEntry(
+                    plugin.Value.Metadata.GUID,
+                    plugin.Value.Metadata.Name,
+                    plugin.Value.Metadata.Version?.ToString() ?? string.Empty,
+                    false));
+            }
+
+            return ModInventoryCompatibility.BuildCanonicalLocalInventory(assets, plugins);
+        }
+
+        private string BuildInventoryDetails(
+            ModInventoryDifference difference,
+            string localName)
+        {
             Shared.DebugLogHelper.LogInfo(
                 log,
-                "Full lobby mod inventory difference: hostOnly=[" + string.Join("; ", difference.HostOnly) +
+                "Gameplay-relevant lobby mod inventory difference: hostOnly=[" + string.Join("; ", difference.HostOnly) +
                 "], clientOnly=[" + string.Join("; ", difference.ClientOnly) +
                 "], versions=[" + string.Join("; ", difference.VersionMismatches) + "].");
 

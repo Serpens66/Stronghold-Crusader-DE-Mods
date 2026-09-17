@@ -201,6 +201,7 @@
     <Compile Include="src\LordControlGroupNativePatch.cs" />
     <Compile Include="src\LordUnitControlsPolicy.cs" />
     <Compile Include="src\MovementCadenceIntegration.cs" />
+    <Compile Include="src\MovementLoggingStateTracker.cs" />
     <Compile Include="src\PlaguePopularityFix.cs" />
     <Compile Include="src\PlagueTreatmentFadeFix.cs" />
     <Compile Include="src\PlagueTargetReservationFix.cs" />
