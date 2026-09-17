@@ -9,10 +9,6 @@ namespace ExtraFeatures
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         internal const int DrawbridgeHeightFailureWriterRva = 0x7870B;
         internal const int DrawbridgeHeightFailureWriterLength = 20;
-        internal const int TileValidationResultRva = 0x7888E;
-        internal const int TileValidationResultLength = 14;
-        internal const int TileValidatorCallRva = 0x78889;
-        internal const int TileValidatorRva = 0x7B060;
         internal const int AivMoatFunctionRva = 0x59730;
         internal const int AivMoatFunctionLength = 0x2F4;
         internal const int AivAudienceCaptureRva = AivMoatFunctionRva;
@@ -23,12 +19,7 @@ namespace ExtraFeatures
         internal const int AivCreatePathLength = 16;
         internal const int DrawbridgeFunctionRva = 0x739C0;
         internal const int DrawbridgeFunctionLength = 0x1E5;
-        internal const int DrawbridgeWriterCallRva = 0x73B1F;
-        internal const int DrawbridgeWriterResultRva = 0x73B24;
-        internal const int DrawbridgeWriterResultLength = 15;
-        internal const int StructureWriterRva = 0x59210;
         internal const int TileManagerRva = 0x405EDB0;
-        internal const int TileHeightGridRva = 0x4DDD350;
         internal const int TileDefaultHeightGridRva = 0x4E2B870;
         internal const int TileHeightGridOffset = 0xD7E5A0;
         internal const int TileDefaultHeightGridOffset = 0xDCCAC0;
@@ -48,7 +39,6 @@ namespace ExtraFeatures
         internal const int DrawbridgeCreationMidpointForwardRva = 0x6DDAF;
         internal const int DrawbridgeCreationMidpointForwardLength = 35;
         internal const int DrawbridgeBuildingHeightForwardRva = 0x73A08;
-        internal const int DrawbridgeBuildingHeightForwardLength = 10;
         internal const int DrawbridgeBuildingAllocatorCallRva = 0x73A19;
         internal const int MainRendererRva = 0x41D60;
         internal const int MainRendererLength = 0x39EA;
@@ -56,6 +46,7 @@ namespace ExtraFeatures
         internal const int DrawbridgeSpecialRendererLength = 0x19F;
         internal const int DrawbridgeSpecialRendererHookLength = 19;
         internal const int DrawbridgeSpecialRendererContinuationRva = 0x45833;
+        internal const int DrawbridgeSpecialRendererBuildingRecordRva = 0x45833;
         internal const int CurrentRenderedTileHeightRva = 0x42D8D8;
         internal const int DrawbridgeAnimatedRendererArgumentsRva = 0x43BA2;
         internal const int DrawbridgeAnimatedRendererArgumentsLength = 17;
@@ -64,17 +55,12 @@ namespace ExtraFeatures
         internal const int DrawbridgeAnimatedRendererTypeCheckRva = 0x43B5B;
         internal const int DrawbridgeAnimatedRendererTileFlagsRva = 0x43B73;
         internal const int DrawbridgeAnimatedRendererBuildingArgumentRva = 0x43B91;
-        internal const int HeightAwareBuildingRendererArgumentsRva = 0x44F34;
-        internal const int HeightAwareBuildingRendererCallRva = 0x44F56;
         internal const int DrawbridgeSpecialRendererCall1Rva = 0x44E3C;
         internal const int DrawbridgeSpecialRendererCall2Rva = 0x44EC3;
         internal const int DrawbridgeSpecialRendererCall1ArgumentsRva = 0x44E09;
         internal const int DrawbridgeSpecialRendererCall2ArgumentsRva = 0x44E8D;
-        internal const int DrawbridgeSpecialRendererCall1TileArgumentRva = 0x44E34;
-        internal const int DrawbridgeSpecialRendererCall2TileArgumentRva = 0x44EBE;
         internal const int DrawbridgeSpecialRendererCall1BuildingArgumentRva = 0x44E32;
         internal const int DrawbridgeSpecialRendererCall2BuildingArgumentRva = 0x44EBC;
-        internal const int DrawbridgeSpecialRendererTileArgumentReadRva = 0x45879;
         internal const int DrawbridgeStaticRendererArgumentsRva = 0x44EDD;
         internal const int DrawbridgeStaticRendererArgumentsLength = 16;
         internal const int DrawbridgeStaticRendererHeightSubtractLength = 7;
@@ -83,7 +69,6 @@ namespace ExtraFeatures
         internal const int DrawbridgeHeightAwareRendererRva = 0x4C1D0;
         internal const int UnitType2SpriteQueueCall1Rva = 0x43EF3;
         internal const int UnitType2SpriteQueueCall2Rva = 0x44346;
-        internal const int Type9SpriteQueueCallRva = 0x4522E;
         internal const int UnitSpriteQueueRva = 0x1A13C0;
         internal const int UnitType52HeightForwardingRva = 0x1A22C4;
         internal const int UnitHeightInitializationFunctionRva = 0x180A80;
@@ -100,7 +85,6 @@ namespace ExtraFeatures
         internal const int UnitDrawbridgeHeightCorrectionRva = 0x18511C;
         internal const int UnitDrawbridgeHeightCorrectionLength = 19;
         internal const int UnitDrawbridgeHeightContinuationRva = 0x18512F;
-        internal const int UnitHeightGridReadRva = 0x185139;
         internal const int UnitHeightPostCorrectionRva = 0x18514E;
         internal const int UnitCurrentElevationOffset = 0x712;
         internal const int UnitVerticalCorrectionOffset = 0x714;
@@ -170,23 +154,10 @@ namespace ExtraFeatures
         internal const int PlacementFailureReason = 24;
         internal const int PlacementBlockedOffset = 0x204E6FC;
         internal const int PlacementFailureReasonOffset = 0x204E704;
-        internal const int MaximumFootprintHeightOffset = 0x204E72C;
-        internal const int MinimumFootprintHeightOffset = 0x204E728;
-        internal const int EffectiveMinimumFootprintHeightOffset = 0x204E730;
-        internal const int FootprintTileXOffset = 0x204E760;
-        internal const int FootprintTileYOffset = 0x204E764;
-        internal const int TileFlagsOffset = 0x898400;
-        // Native tile protocol masks: planned MAPPER_MOAT and completed MAPPER_MOAT.
-        internal const uint PlannedMoatTileFlag = 0x00004000;
-        internal const uint CompletedMoatTileFlag = 0x40000000;
 
         internal const string DrawbridgeHeightFailureWriterPattern =
             "C7 83 FC E6 04 02 01 00 00 00 " +
             "C7 83 04 E7 04 02 18 00 00 00";
-
-        internal const string TileValidationResultPattern =
-            "85 C0 74 0A C7 83 FC E6 04 02 01 00 00 00 " +
-            "8B 44 24 58 8B 8B 58 E7 04 02";
 
         internal const string AivHeightGatePattern =
             "80 BE A0 E5 D7 00 0C 0F 86 7F 01 00 00 " +
@@ -199,10 +170,6 @@ namespace ExtraFeatures
         internal const string AivCreatePathPattern =
             "0F B6 9C 24 90 00 00 00 45 8B CE C6 44 24 28 00 " +
             "45 8B C7 41 8B D4 89 5C 24 20 49 8B CB E8";
-
-        internal const string DrawbridgeWriterResultPattern =
-            "42 81 A4 B3 00 84 89 00 FF FF FF BF 45 33 C0 " +
-            "8B D7 48 8B CB E8 63 EA FF FF";
 
         internal const string SharedHeightGatePattern =
             "80 BC 3B A0 E5 D7 00 0C 0F 87 78 04 00 00 45 85 FF 75 73";
@@ -276,28 +243,6 @@ namespace ExtraFeatures
             0x44, 0x0F, 0xB6, 0xBC, 0x24, 0xD0, 0x00, 0x00, 0x00
         };
 
-        internal static readonly byte[] TileValidationResultBytes =
-        {
-            0x85, 0xC0,
-            0x74, 0x0A,
-            0xC7, 0x83, 0xFC, 0xE6, 0x04, 0x02, 0x01, 0x00, 0x00, 0x00
-        };
-
-        internal static readonly byte[] TileValidationResultSuffix =
-        {
-            0x8B, 0x44, 0x24, 0x58,
-            0x8B, 0x8B, 0x58, 0xE7, 0x04, 0x02
-        };
-
-        internal static readonly byte[] TileValidationResultResolutionBytes =
-        {
-            0x85, 0xC0,
-            0x74, 0x0A,
-            0xC7, 0x83, 0xFC, 0xE6, 0x04, 0x02, 0x01, 0x00, 0x00, 0x00,
-            0x8B, 0x44, 0x24, 0x58,
-            0x8B, 0x8B, 0x58, 0xE7, 0x04, 0x02
-        };
-
         internal static readonly byte[] AivHeightGateBytes =
         {
             0x80, 0xBE, 0xA0, 0xE5, 0xD7, 0x00, 0x0C,
@@ -317,35 +262,6 @@ namespace ExtraFeatures
             0x0F, 0xB6, 0x9C, 0x24, 0x90, 0x00, 0x00, 0x00,
             0x45, 0x8B, 0xCE,
             0xC6, 0x44, 0x24, 0x28, 0x00
-        };
-
-        internal static readonly byte[] AivCreatePathResolutionBytes =
-        {
-            0x0F, 0xB6, 0x9C, 0x24, 0x90, 0x00, 0x00, 0x00,
-            0x45, 0x8B, 0xCE,
-            0xC6, 0x44, 0x24, 0x28, 0x00,
-            0x45, 0x8B, 0xC7, 0x41, 0x8B, 0xD4, 0x89, 0x5C, 0x24, 0x20,
-            0x49, 0x8B, 0xCB, 0xE8
-        };
-
-        internal static readonly byte[] DrawbridgeWriterResultBytes =
-        {
-            0x42, 0x81, 0xA4, 0xB3, 0x00, 0x84, 0x89, 0x00,
-            0xFF, 0xFF, 0xFF, 0xBF,
-            0x45, 0x33, 0xC0
-        };
-
-        internal static readonly byte[] DrawbridgeWriterResultSuffix =
-        {
-            0x8B, 0xD7, 0x48, 0x8B, 0xCB, 0xE8, 0x63, 0xEA, 0xFF, 0xFF
-        };
-
-        internal static readonly byte[] DrawbridgeWriterResultResolutionBytes =
-        {
-            0x42, 0x81, 0xA4, 0xB3, 0x00, 0x84, 0x89, 0x00,
-            0xFF, 0xFF, 0xFF, 0xBF,
-            0x45, 0x33, 0xC0,
-            0x8B, 0xD7, 0x48, 0x8B, 0xCB, 0xE8, 0x63, 0xEA, 0xFF, 0xFF
         };
 
         internal static readonly byte[] SharedHeightGateBytes =
@@ -379,11 +295,6 @@ namespace ExtraFeatures
             0xC6, 0x84, 0x18, 0xA0, 0xE5, 0xD7, 0x00, 0x00
         };
 
-        internal static readonly byte[] LowerDrawbridgeHeightWriteBytes =
-        {
-            0xC6, 0x84, 0x1F, 0xA0, 0xE5, 0xD7, 0x00, 0x00
-        };
-
         internal static readonly byte[] LowerDrawbridgeHookBytes =
         {
             0xC6, 0x84, 0x1F, 0xA0, 0xE5, 0xD7, 0x00, 0x00,
@@ -395,11 +306,6 @@ namespace ExtraFeatures
             0x41, 0x81, 0x26, 0xFF, 0xBF, 0xFF, 0xFF,
             0x41, 0x81, 0x0E, 0x00, 0x00, 0x00, 0x40,
             0xC6, 0x84, 0x3B, 0xA0, 0xE5, 0xD7, 0x00, 0x00
-        };
-
-        internal static readonly byte[] CompletedDrawbridgeHeightWriteBytes =
-        {
-            0x41, 0xC6, 0x84, 0x1E, 0xA0, 0xE5, 0xD7, 0x00, 0x00
         };
 
         internal static readonly byte[] CompletedDrawbridgeHookBytes =
@@ -417,6 +323,15 @@ namespace ExtraFeatures
             0x41, 0x54,
             0x41, 0x56,
             0x48, 0x81, 0xEC, 0x80, 0x00, 0x00, 0x00
+        };
+
+        internal static readonly byte[] DrawbridgeSpecialRendererBuildingRecordBytes =
+        {
+            // movsxd RBP,EDX; lea R12,imageBase; imul RBX,RBP,0x32C; mov R14D,R9D
+            0x48, 0x63, 0xEA,
+            0x4C, 0x8D, 0x25, 0xC3, 0xA7, 0xFB, 0xFF,
+            0x48, 0x69, 0xDD, 0x2C, 0x03, 0x00, 0x00,
+            0x45, 0x8B, 0xF1
         };
 
         internal static readonly byte[] DrawbridgeAnimatedRendererArgumentsBytes =
@@ -441,14 +356,6 @@ namespace ExtraFeatures
             0x24, 0x0C, 0x3C, 0x04, 0x75, 0x38
         };
 
-        internal static readonly byte[] HeightAwareBuildingRendererArgumentsBytes =
-        {
-            // mov [RSP+0x28],R10D; mov RCX,[RSP+0x140]; mov [RSP+0x20],R14D
-            0x44, 0x89, 0x54, 0x24, 0x28,
-            0x48, 0x8B, 0x8C, 0x24, 0x40, 0x01, 0x00, 0x00,
-            0x44, 0x89, 0x74, 0x24, 0x20
-        };
-
         internal static readonly byte[] DrawbridgeSpecialRendererCall1ArgumentsBytes =
         {
             0x44, 0x8B, 0x0D, 0xC4, 0x8A, 0x3E, 0x00,
@@ -466,19 +373,6 @@ namespace ExtraFeatures
             0x44, 0x8B, 0x05, 0x31, 0x8A, 0x3E, 0x00,
             0x41, 0x83, 0xC1, 0x28,
             0x89, 0x4C, 0x24, 0x30
-        };
-
-        internal static readonly byte[] DrawbridgeSpecialRendererTileArgumentBytes =
-        {
-            // mov dword ptr [RSP+0x20],R14D
-            0x44, 0x89, 0x74, 0x24, 0x20
-        };
-
-        internal static readonly byte[] DrawbridgeSpecialRendererTileArgumentReadBytes =
-        {
-            // After the 0x80-byte local allocation and three pushes, read argument 5.
-            // movsxd RDI,dword ptr [RSP+0xC0]
-            0x48, 0x63, 0xBC, 0x24, 0xC0, 0x00, 0x00, 0x00
         };
 
         internal static readonly byte[] DrawbridgeAnimatedRendererBuildingArgumentBytes =
@@ -575,12 +469,6 @@ namespace ExtraFeatures
         {
             // Preserve Vanilla's jump to the shared post-height path.
             0xEB, 0x1D
-        };
-
-        internal static readonly byte[] UnitHeightGridReadBytes =
-        {
-            // movzx EAX,byte ptr [RBP + RCX + TileHeightGridRva]
-            0x0F, 0xB6, 0x84, 0x29, 0x50, 0xD3, 0xDD, 0x04
         };
 
         internal static readonly byte[] BuildingCreationDefaultHeightRestoreBytes =
@@ -687,28 +575,6 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The native mapper immediate is not eMappers.MAPPER_DRAWBRIDGE.");
         }
 
-        internal static void ValidateTileValidationResultHook(ReadOnlySpan<byte> memory, int hookRva)
-        {
-            int callRva = checked(hookRva - 5);
-            int suffixRva = checked(hookRva + TileValidationResultLength);
-            int requiredEnd = checked(suffixRva + TileValidationResultSuffix.Length);
-            if (callRva < 0 || requiredEnd > memory.Length)
-                throw new InvalidOperationException("The tile-validation result window lies outside the native image.");
-            if (callRva != TileValidatorCallRva || memory[callRva] != 0xE8)
-                throw new InvalidOperationException("The tile-validation result hook is not immediately after its audited CALL.");
-
-            int relativeDisplacement = ReadInt32(memory, callRva + 1);
-            int callTargetRva = checked(hookRva + relativeDisplacement);
-            if (callTargetRva != TileValidatorRva)
-                throw new InvalidOperationException("The audited tile-validation CALL target differs.");
-
-            AssertBytes(memory, hookRva, TileValidationResultBytes, "tile-validation result block");
-            AssertBytes(memory, suffixRva, TileValidationResultSuffix, "tile-validation result continuation");
-            int branchTargetRva = checked(hookRva + 4 + unchecked((sbyte)memory[hookRva + 3]));
-            if (branchTargetRva != suffixRva)
-                throw new InvalidOperationException("The tile-validation success branch does not land at the hook boundary.");
-        }
-
         internal static void ValidateAivHooks(
             ReadOnlySpan<byte> memory,
             int audienceCaptureRva,
@@ -733,30 +599,6 @@ namespace ExtraFeatures
             int branchTarget = checked(gateRva + 13 + ReadInt32(memory, gateRva + 9));
             if (branchTarget != createPathRva)
                 throw new InvalidOperationException("The AIV low-height branch target differs from the audited creation path.");
-        }
-
-        internal static void ValidateDrawbridgeWriterResultHook(
-            ReadOnlySpan<byte> memory,
-            int hookRva)
-        {
-            int functionEnd = checked(DrawbridgeFunctionRva + DrawbridgeFunctionLength);
-            int suffixRva = checked(hookRva + DrawbridgeWriterResultLength);
-            if (hookRva < DrawbridgeFunctionRva ||
-                suffixRva + DrawbridgeWriterResultSuffix.Length > functionEnd ||
-                functionEnd > memory.Length)
-            {
-                throw new InvalidOperationException("The drawbridge result hook lies outside its audited function.");
-            }
-
-            int callRva = checked(hookRva - 5);
-            if (callRva != DrawbridgeWriterCallRva || memory[callRva] != 0xE8)
-                throw new InvalidOperationException("The drawbridge result hook is not after its audited CALL.");
-            int callTarget = checked(hookRva + ReadInt32(memory, callRva + 1));
-            if (callTarget != StructureWriterRva)
-                throw new InvalidOperationException("The drawbridge writer CALL target differs.");
-
-            AssertBytes(memory, hookRva, DrawbridgeWriterResultBytes, "drawbridge writer result block");
-            AssertBytes(memory, suffixRva, DrawbridgeWriterResultSuffix, "drawbridge writer result continuation");
         }
 
         internal static void ValidateAdaptiveHeightHooks(ReadOnlySpan<byte> memory)
@@ -920,50 +762,7 @@ namespace ExtraFeatures
         internal static byte CalculateCompletedHeight(byte defaultHeight) =>
             defaultHeight > MoatDepth ? (byte)(defaultHeight - MoatDepth) : (byte)0;
 
-        internal static byte CalculateDrawbridgeHeight(byte defaultHeight) =>
-            defaultHeight > MaximumVanillaTerrainHeight
-                ? (byte)(defaultHeight - MoatDepth)
-                : (byte)0;
-
         internal static byte CalculateRestoredHeight(byte defaultHeight) => defaultHeight;
-
-        internal static bool ShouldCorrectDrawbridgeRendering(
-            ushort buildingHeight,
-            bool featureActive) =>
-            featureActive && buildingHeight > MaximumVanillaTerrainHeight;
-
-        internal static int CalculateDrawbridgeRenderOffset(
-            ushort buildingHeight,
-            bool featureActive) =>
-            ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive)
-                ? -(buildingHeight - MoatDepth)
-                : 0;
-
-        internal static int CalculateStaticDrawbridgeHeight(
-            int vanillaCurrentTileHeight,
-            ushort buildingHeight,
-            bool featureActive) =>
-            ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive)
-                ? -buildingHeight
-                : -vanillaCurrentTileHeight;
-
-        internal static short CalculateUnitDrawbridgeCorrection(
-            short currentElevation,
-            ushort buildingHeight,
-            bool featureActive) =>
-            ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive)
-                ? checked((short)(buildingHeight - currentElevation))
-                : unchecked((short)(MoatDepth - currentElevation));
-
-        internal static short CalculateUnitDrawbridgeRenderHeight(
-            short currentElevation,
-            ushort buildingHeight,
-            bool featureActive)
-        {
-            short correction = CalculateUnitDrawbridgeCorrection(
-                currentElevation, buildingHeight, featureActive);
-            return checked((short)(-((int)currentElevation + correction)));
-        }
 
         private static void ValidateLoweredDrawbridgeRewriteContract(ReadOnlySpan<byte> memory)
         {
@@ -1039,12 +838,6 @@ namespace ExtraFeatures
             ValidateRelativeBranch(memory, DrawbridgeAnimatedRendererCallRva, 0xE8,
                 DrawbridgeAnimatedRendererRva, "drawbridge animated-renderer call");
 
-            AssertBytes(memory, HeightAwareBuildingRendererArgumentsRva,
-                HeightAwareBuildingRendererArgumentsBytes,
-                "height-aware building-renderer arguments");
-            ValidateRelativeBranch(memory, HeightAwareBuildingRendererCallRva, 0xE8,
-                DrawbridgeAnimatedRendererRva, "height-aware building-renderer call");
-
             ValidateBlock(memory, DrawbridgeSpecialRendererRva,
                 DrawbridgeSpecialRendererHookLength, DrawbridgeSpecialRendererRva,
                 DrawbridgeSpecialRendererLength, DrawbridgeSpecialRendererHookBytes,
@@ -1055,6 +848,15 @@ namespace ExtraFeatures
                 throw new InvalidOperationException(
                     "The drawbridge special-renderer continuation differs.");
             }
+            AssertBytes(memory, DrawbridgeSpecialRendererBuildingRecordRva,
+                DrawbridgeSpecialRendererBuildingRecordBytes,
+                "drawbridge special-renderer building-record setup");
+            if (ReadInt32(memory, DrawbridgeSpecialRendererBuildingRecordRva + 13) !=
+                BuildingRecordStride)
+            {
+                throw new InvalidOperationException(
+                    "The drawbridge special renderer no longer derives its record from EDX using stride 0x32C.");
+            }
 
             AssertBytes(memory, DrawbridgeSpecialRendererCall1ArgumentsRva,
                 DrawbridgeSpecialRendererCall1ArgumentsBytes,
@@ -1062,21 +864,12 @@ namespace ExtraFeatures
             AssertBytes(memory, DrawbridgeSpecialRendererCall2ArgumentsRva,
                 DrawbridgeSpecialRendererCall2ArgumentsBytes,
                 "second height-blind drawbridge renderer arguments");
-            AssertBytes(memory, DrawbridgeSpecialRendererCall1TileArgumentRva,
-                DrawbridgeSpecialRendererTileArgumentBytes,
-                "first drawbridge special-renderer tile argument");
-            AssertBytes(memory, DrawbridgeSpecialRendererCall2TileArgumentRva,
-                DrawbridgeSpecialRendererTileArgumentBytes,
-                "second drawbridge special-renderer tile argument");
             AssertBytes(memory, DrawbridgeSpecialRendererCall1BuildingArgumentRva,
                 DrawbridgeSpecialRendererBuildingArgumentBytes,
                 "first drawbridge special-renderer building argument");
             AssertBytes(memory, DrawbridgeSpecialRendererCall2BuildingArgumentRva,
                 DrawbridgeSpecialRendererBuildingArgumentBytes,
                 "second drawbridge special-renderer building argument");
-            AssertBytes(memory, DrawbridgeSpecialRendererTileArgumentReadRva,
-                DrawbridgeSpecialRendererTileArgumentReadBytes,
-                "drawbridge special-renderer tile argument read");
             ValidateRelativeBranch(memory, DrawbridgeSpecialRendererCall1Rva, 0xE8,
                 DrawbridgeSpecialRendererRva, "first drawbridge special-renderer call");
             ValidateRelativeBranch(memory, DrawbridgeSpecialRendererCall2Rva, 0xE8,
@@ -1105,8 +898,6 @@ namespace ExtraFeatures
                 UnitSpriteQueueRva, "first type-2 unit sprite-queue call");
             ValidateRelativeBranch(memory, UnitType2SpriteQueueCall2Rva, 0xE8,
                 UnitSpriteQueueRva, "second type-2 unit sprite-queue call");
-            ValidateRelativeBranch(memory, Type9SpriteQueueCallRva, 0xE8,
-                UnitSpriteQueueRva, "type-9 sprite-queue call");
             AssertBytes(memory, UnitType52HeightForwardingRva,
                 UnitType52HeightForwardingBytes,
                 "type-52 unit interpolation height forwarding");
@@ -1141,15 +932,6 @@ namespace ExtraFeatures
                 UnitDrawbridgeHeightContinuationRva,
                 UnitDrawbridgeHeightContinuationBytes,
                 "unit drawbridge vertical-correction continuation");
-            AssertBytes(memory,
-                UnitHeightGridReadRva,
-                UnitHeightGridReadBytes,
-                "unit height writer current HeightGrid read");
-            if (ReadInt32(memory, UnitHeightGridReadRva + 4) != TileHeightGridRva)
-            {
-                throw new InvalidOperationException(
-                    "The unit height writer no longer reads the image-relative HeightGrid.");
-            }
             AssertBytes(memory,
                 UnitHeightPostCorrectionRva,
                 UnitHeightPostCorrectionBytes,

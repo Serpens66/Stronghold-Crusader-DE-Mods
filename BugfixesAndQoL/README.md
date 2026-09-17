@@ -151,7 +151,7 @@ The custom-lord picker gains name search, sortable Name, Lord Power, and Steam W
 In Multiplayer you can fill all 7 slots with AI.
 
 ### Include Lord JSON sidecars in Workshop uploads
-While the mod is enabled, uploading a local Custom Lord or Extended CPU Lord also includes every direct `.json` file from that Lord's source folder. This supports metadata such as `info.json` and `lordmeta.json`; Vanilla continues to handle `.lordjson`, `.aivjson`, and the normal Workshop files itself. Useful to add custom descriptions for your lord see: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/Guides/CustomLordExtendedPackages.md  
+While the mod is enabled, uploading a local Custom Lord or Extended CPU Lord also includes every direct `.json` file from that Lord's source folder. This supports metadata such as `info.json` and `lordmeta.json`; Vanilla continues to handle `.lordjson`, `.aivjson`, and the normal Workshop files itself. Useful to add custom descriptions for your lord see: https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/Guides/ExtendedData/CustomLordExtendedPackages.md
 
 ### Improve AIV and AIC selection
 AI castle lists can be searched and sorted by origin or name, while AI configuration lists can additionally be sorted by Lord Power. Each lord's last AIV list, AIC configuration, and castle rotation is remembered across singleplayer and multiplayer lobbies, and named presets can save and restore further setups. Up to 50 ordered AIV candidates may be selected per lord; in multiplayer, additional AIV data is validated and synchronized before the match starts.

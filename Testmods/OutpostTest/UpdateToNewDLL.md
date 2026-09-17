@@ -53,3 +53,21 @@ The build driver runs source JSON/lifecycle and CRLF preflight, then tests on in
 Game acceptance: all three outpost types for human and AI owners; five actual type-26 units per 200 ticks without vanilla guards; normal controllability and AI queue use; pause/speed; multiple outposts, cap exhaustion and partial waves; demolition/slot reuse/owner change; save load resets interval; editor and multiplayer unchanged. Markers: `gate installed inactive`, `session ... active`, `tracking`, `hook confirmed`, `wave`, `followup`. Logs use millisecond timestamps. No map/ownership inference from a stale slot or an unverified spawn-event argument.
 
 No custom UI, no persistence schema, no runtime JSON, no changes to existing README files. Package metadata is build-time JSON only. Start version 0.1.0 remains a test version.
+
+## Incremental Macemen production (2026-09-17)
+
+The passive Vanilla observer is removed; the original validated 16-byte gate is active again. No new native function detours/delegates were added. Runtime now uses building fields 302/304 (tribe identity), 308 (shared signed short counter), 30A (target), 30C (profile=2), 30E (size), 310 (delay), 316/318 (accelerations). Check them against ABB90 on updates and test save/load and deletion. Keep the 106/107 vs 2 deletion-handoff distinction from B8310; clearing a matching link before native cleanup avoids double handoff.
+
+Profile 2 at 2DD880+2*52: 250/100 interval bounds, 10+RNG%10 members times size+1, sole type26, role184. AC4C5..AC52F checks group wait max(2000-acceleration, native minima); AC871..AC915 computes interval and resets counter to RNG%40. AC939..AC962 holds the last unit while delay>0; ACA8A..ACAD7 creates target/2 units for an empty delayed AI group. ACD51..ACD7E checks members>=target and delay<=0 before handoff. World acceleration predicate reads int RVA3668E34>3000 and int RVA3669048<11; AI branch reads int RVA379D0D0+owner*583C !=0. These are exact predicates, not claims about undocumented field names.
+
+The replacement uses the same arithmetic and batches but independent deterministic random draws (global ID/tick/salt), no global Vanilla RNG adapter. Saturating accelerations and stricter per-unit limit checks deliberately avoid counter wrap and limit overshoot. Tests verify profile bytes, group/interval minima, delay behavior, partial allocations, hook/control-flow and installed RedBird assembly/decode/execute contracts. Existing native signatures remain scoped to the verified hash.
+
+## Human rally integration
+
+Human owners now branch to singleton groups via public Create/AssignUnit/SetStance APIs, with separate saved production counts. Verify the installed Create relative-call target (0x11E17C -> 0x119C00) and Alive=2 initializer on updates. No direct unassignment adapter was introduced.
+
+Native RunTo uses 0x196100 as a six-argument void Win64 delegate: manager, tribe ID, tile X/Y, patrol=0, flags=0x81. It deliberately calls through other installed detours rather than bypassing them or requiring unmodified live entry bytes. The canonical file hash is the authorization boundary, with offline byte tests for its entry and BTR bit7. Review 0x11B520, 0x19B260 and later command writers if the native build changes. Public MoveHere callbacks provide a synchronous result only when the command is not deferred by another mod.
+
+New binary save schema: magic 0x4F505254, version 1, bounded building records and pending singleton orders. Uses BinaryReader/BinaryWriter through ModSaveDataAPI; its archive suffix does not imply MessagePack payload. The empty header/count payload is intentional. Preserve target snapshots, building/owner identity and native unit/tribe global IDs. The state codec rejects unknown versions, duplicate entries, invalid counts/IDs/coordinates and trailing/truncated data before publication.
+
+Managed projection/input contracts are tied to Assembly-CSharp SHA256 BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789: Mouse2 through KeyManager events; MainControls GUI/off-world guards; GameMap coordinate rotation and testHeight. Verify flag placement in-game after Unity/managed updates.

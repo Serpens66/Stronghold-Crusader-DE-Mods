@@ -16,9 +16,7 @@ foreach ($file in $textFiles) {
 $metadata = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'info.json') -Raw | ConvertFrom-Json
 if ($metadata.GUID -ne 'OutpostTest_Serp' -or $metadata.Version -ne '0.1.0') { throw 'Metadata mismatch.' }
 Write-Output 'OutpostTest JSON/lifecycle, CRLF, project and metadata preflight passed.'
-# Passive-run invariants: the entry point must not construct the production runtime.
 $plugin = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\OutpostTestPlugin.cs'))
-$observer = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\VanillaObserver.cs'))
-if ($plugin -match 'new OutpostRuntime|new OutpostNative' -or $plugin -notmatch 'new VanillaObserver') { throw 'Production runtime enabled in passive build.' }
-if ($observer -match 'CreateUnitLocal\(|AssignUnit\(|IssueMoveHereCommand\(|new OutpostNative|SkipOriginalFunction\s*=|ReturnValue\s*=|->\w+\s*=(?!=)') { throw 'Mutation in passive observer.' }
-Write-Output 'Passive observer entry-point and read-only API checks passed.'
+if ($plugin -notmatch 'new OutpostRuntime' -or $plugin -match 'VanillaObserver') { throw 'Incorrect runtime entry point.' }
+if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'src\VanillaObserver.cs')) { throw 'Vanilla diagnosis was not removed.' }
+Write-Output 'Incremental production entry-point check passed.'

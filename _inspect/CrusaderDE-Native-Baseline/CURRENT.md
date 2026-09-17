@@ -18,6 +18,7 @@ Primary reusable artifacts:
 
 Semantic reverse-engineering baseline:
 
+- [Drawbridge native contracts](./sem/FBCB9319/knowledge/DRAWBRIDGES.md): tile topology, shared building height, three rendering paths, unit height and verified RedBird spans.
 - [Outpost static audit](./sem/FBCB9319/knowledge/OUTPOSTS.md): profiles, spawn/guard/group flows, selection, rally scope and documented runtime gaps.
 
 - [Editor map lifecycle audit](./sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md): native creation/loading paths, managed completion, and event boundaries.

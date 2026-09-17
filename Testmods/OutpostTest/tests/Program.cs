@@ -31,30 +31,54 @@ namespace OutpostTest
         private static void Run()
         {
             OutpostNative.ValidateLayouts(); count++;
-            var s = new OutpostSchedule();
-            var e = s.Observe(1, 10, 1, 106, 100);
-            e.Adopted = true;
-            Check(s.Observe(1, 10, 1, 106, 101).Adopted, "same outpost is adopted only once");
-            Check(!OutpostSchedule.TakeWave(e, 299), "no early spawn");
-            Check(OutpostSchedule.TakeWave(e, 300), "first 200 ticks");
-            Check(!OutpostSchedule.TakeWave(e, 300), "no duplicate wave");
-            Check(OutpostSchedule.TakeWave(e, 1500) && e.NextTick == 1700, "no backlog");
-            Check(s.Observe(1, 11, 1, 106, 1500).NextTick == 1700, "reused slot resets clock");
-            Check(!s.Observe(1, 11, 2, 106, 1600).Adopted, "owner change must re-adopt");
-            s.Prune(1700); Check(s.Observe(1, 11, 2, 106, 1700).NextTick == 1900, "deleted outpost removed");
-            s.Clear(); Check(s.Observe(1, 11, 2, 106, 0).NextTick == 200, "save load resets timer");
-            var wrap = s.Observe(2, 1, 1, 2, int.MaxValue - 100);
-            Check(!OutpostSchedule.TakeWave(wrap, int.MinValue + 50), "tick wrap not due");
-            Check(OutpostSchedule.TakeWave(wrap, int.MinValue + 99), "tick wrap due");
-            Check(OutpostSchedule.IsOutpost(2) && OutpostSchedule.IsOutpost(106) && OutpostSchedule.IsOutpost(107) && !OutpostSchedule.IsOutpost(8), "three variants only");
-            int spawned = 0;
-            while (spawned < 5 && OutpostSchedule.HasCapacity(1, 98, spawned, 100)) spawned++;
-            Check(spawned == 2, "partial wave respects remaining capacity");
-            Check(!OutpostSchedule.HasCapacity(1, 100, 0, 100), "full cap no wave");
-            Check(OutpostSchedule.HasCapacity(0, 100, 0, 100) && OutpostSchedule.HasCapacity(99, 100, 0, 100), "vanilla mode exceptions");
+            RallyTests.Run(Check);
+            Check(OutpostSchedule.IsOutpost(2) && OutpostSchedule.IsOutpost(106) && OutpostSchedule.IsOutpost(107) && !OutpostSchedule.IsOutpost(8), "three variants");
+            Check(OutpostSchedule.GroupWait(0,3,false)==2000, "initial group wait");
+            Check(OutpostSchedule.GroupWait(33,3,false)==1967, "completed group acceleration");
+            Check(OutpostSchedule.GroupWait(2000,3,false)==600, "ordinary minimum");
+            Check(OutpostSchedule.GroupWait(2000,3,true)==400, "game mode minimum");
+            Check(OutpostSchedule.GroupWait(2000,0,true)==100 && OutpostSchedule.GroupWait(2000,99,true)==100, "native mode exceptions");
+            Check(OutpostSchedule.SpawnWait(0,1)==212, "default size integer interval");
+            Check(OutpostSchedule.SpawnWait(4,1)==209, "spawn acceleration");
+            Check(OutpostSchedule.SpawnWait(150,1)==85 && OutpostSchedule.SpawnWait(500,1)==85, "profile minimum");
+            Check(OutpostSchedule.Target(0,0)==10 && OutpostSchedule.Target(0,9)==19, "small group bounds");
+            Check(OutpostSchedule.Target(1,0)==20 && OutpostSchedule.Target(1,9)==38, "default group bounds");
+            Check(!OutpostSchedule.Complete(5,20,0) && !OutpostSchedule.Complete(19,20,0), "partial group never handed off");
+            Check(OutpostSchedule.Complete(20,20,0) && !OutpostSchedule.Complete(20,20,1), "target and delay gate");
+            Check(OutpostSchedule.DelayBlocks(19,20,1) && !OutpostSchedule.DelayBlocks(18,20,1), "delay retains last unit");
+            Check(OutpostSchedule.Batch(0,20,1,true)==10, "AI delayed initial half group");
+            Check(OutpostSchedule.Batch(0,20,0,true)==1 && OutpostSchedule.Batch(0,20,1,false)==1 && OutpostSchedule.Batch(10,20,1,true)==1, "ordinary single spawns");
+            int members=0, handedOff=0;
+            for(int attempt=0;attempt<22;attempt++) {
+                // Two failed allocations must not count toward a full group.
+                if(attempt != 3 && attempt != 9) members++;
+                if(OutpostSchedule.Complete(members,20,0)) handedOff++;
+            }
+            Check(members==20 && handedOff==1, "failed partial allocations retain group until target");
+            Check(!OutpostSchedule.HasCapacity(3,100,0,100) && !OutpostSchedule.HasCapacity(3,99,1,100), "capacity with current tick allocations");
+            Check(OutpostSchedule.HasCapacity(3,98,1,100) && OutpostSchedule.HasCapacity(0,100,0,100), "capacity exceptions");
+            Check(OutpostSchedule.SameIdentity(10,1,106,10,1,106),"same building after save");
+            Check(!OutpostSchedule.SameIdentity(10,1,106,11,1,106),"slot reuse invalidates");
+            Check(!OutpostSchedule.SameIdentity(10,1,106,10,2,106),"owner change invalidates");
+            Check(!OutpostSchedule.SameIdentity(10,1,106,10,1,107),"type change invalidates");
+            Check(OutpostSchedule.FinishRetired(true,true,106),"clear linked group before native delete");
+            Check(!OutpostSchedule.FinishRetired(false,false,106) && !OutpostSchedule.FinishRetired(false,false,107),"native cleanup already hands off European/Arab groups");
+            Check(OutpostSchedule.FinishRetired(false,false,2),"Bedouin deleted record needs handoff");
+            Check(!OutpostSchedule.FinishRetired(false,true,2),"already detached group not handed off twice");
+            int roll=OutpostSchedule.Roll(42,int.MaxValue,2,10);
+            Check(roll>=0 && roll<10 && roll==OutpostSchedule.Roll(42,int.MaxValue,2,10), "stable bounded random choice");
+            bool sizeRejected=false;
+            try { OutpostSchedule.SpawnWait(0,7); } catch(InvalidOperationException) { sizeRejected=true; }
+            Check(sizeRejected,"unsupported size fails closed");
             byte[] dll = File.ReadAllBytes(Path.Combine(Game, @"Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll"));
             using (var sha = SHA256.Create()) Check(BitConverter.ToString(sha.ComputeHash(dll)).Replace("-", "") == Shared.DebugLogHelper.CurrentNativeSha256, "native hash");
             Check(ReadRva(dll, OutpostGate.Rva, 16).SequenceEqual(OutpostGate.Bytes), "gate bytes");
+            byte[] profile=ReadRva(dll,0x2DD880+2*52,52);
+            Check(BitConverter.ToInt32(profile,0)==250 && BitConverter.ToInt32(profile,4)==100 && BitConverter.ToInt32(profile,8)==10 && BitConverter.ToInt32(profile,12)==10 && BitConverter.ToInt32(profile,16)==26 && BitConverter.ToInt32(profile,48)==184,"audited Macemen profile");
+            Check(ReadRva(dll,0x196100,14).SequenceEqual(new byte[]{0x48,0x83,0xEC,0x48,0x48,0x63,0xC2,0x4C,0x8D,0x1D,0x12,0x06,0xB3,0x07}),"native run wrapper entry matches audited ABI");
+            Check(ReadRva(dll,0x19612E,4).SequenceEqual(new byte[]{0x0F,0xBA,0xF0,0x07}),"native run wrapper consumes bit seven");
+            byte[] createCall=ReadRva(dll,0x11E17C,5);
+            Check(createCall[0]==0xE8 && 0x11E17C+5+BitConverter.ToInt32(createCall,1)==0x119C00,"public tribe allocator target");
             byte[] body = ReadRva(dll, 0xABB90, 0xACDE8 - 0xABB90);
             OutpostNative.ValidateControlFlow(body, 0x180000000); count++;
             // An external predecessor targeting the gate's interior must be rejected.

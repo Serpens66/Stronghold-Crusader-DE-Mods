@@ -14,7 +14,7 @@ namespace OutpostTest
     {
         public const string Guid = "OutpostTest_Serp", Version = "0.1.0";
         private static ManualLogSource persistentLog;
-        private static VanillaObserver runtime;
+        private static OutpostRuntime runtime;
         private static IMissionLifecycleCapability lifecycle;
         private static bool subscribed;
 
@@ -24,32 +24,35 @@ namespace OutpostTest
             if (subscribed) return;
             subscribed = true;
             CrusaderLibrary.Instance.LibraryLoaded += Loaded;
-            Shared.DebugLogHelper.LogInfo(persistentLog, "OutpostTest 0.1.0: Vanilla observation; custom spawning and suppression disabled; no native hook installed.");
+            Shared.DebugLogHelper.LogInfo(persistentLog, "OutpostTest 0.1.0: incremental Macemen production; Vanilla production suppressed; native profile timing and group completion.");
         }
 
         private static void Loaded(CrusaderLibraryLoadContext context)
         {
             if (runtime != null) return;
-            VanillaObserver candidate = null;
+            OutpostRuntime candidate = null;
             try
             {
                 if (!Shared.DebugLogHelper.ReportNativeLibraryVersion(persistentLog, "OutpostTest", true)) return;
                 if (!ApiShared.Current.TryGetMissionLifecycle(Guid, out lifecycle, out var diagnostic))
                     throw new InvalidOperationException("APIShared mission lifecycle: " + diagnostic?.Reason);
-                candidate = new VanillaObserver(persistentLog);
+                candidate = new OutpostRuntime(persistentLog, context);
                 // Root before publishing callbacks. No normal Unity teardown owns it.
                 runtime = candidate;
                 candidate = null;
+                runtime.RegisterRally();
                 if (!lifecycle.TryRegisterObserver("OutpostTest.Runtime", runtime.Begin, runtime.End, null, out diagnostic))
                     throw new InvalidOperationException("APIShared observer: " + diagnostic?.Reason);
                 GameTimeManagerAPI.Instance.OnTick += Tick;
             }
             catch (Exception ex)
             {
-                runtime?.Disable("initialization failure");
+                candidate?.RollbackUnpublishedInitialization();
+                runtime?.FailInitialization();
                 Shared.DebugLogHelper.LogError(persistentLog, "OutpostTest initialization failed; Vanilla active: " + ex);
             }
         }
+        private void LateUpdate() => runtime?.PresentRally();
         private static void Tick(int tick) => runtime?.Tick(tick);
     }
 }

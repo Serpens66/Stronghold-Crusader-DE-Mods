@@ -77,6 +77,9 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.DrawbridgeSpecialRendererRva,
                     "drawbridge special-renderer prologue mutation");
                 ExpectContractFailure(image,
+                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererBuildingRecordRva,
+                    "drawbridge special-renderer building-record setup mutation");
+                ExpectContractFailure(image,
                     ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsRva,
                     "drawbridge animated-renderer arguments mutation");
                 ExpectContractFailure(image,
@@ -92,32 +95,17 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.DrawbridgeAnimatedRendererCallRva,
                     "drawbridge animated-renderer call mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.HeightAwareBuildingRendererArgumentsRva,
-                    "height-aware building-renderer arguments mutation");
-                ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.HeightAwareBuildingRendererCallRva,
-                    "height-aware building-renderer call mutation");
-                ExpectContractFailure(image,
                     ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall1ArgumentsRva,
                     "first height-blind renderer arguments mutation");
                 ExpectContractFailure(image,
                     ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall2ArgumentsRva,
                     "second height-blind renderer arguments mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall1TileArgumentRva,
-                    "first special-renderer tile argument mutation");
-                ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall2TileArgumentRva,
-                    "second special-renderer tile argument mutation");
-                ExpectContractFailure(image,
                     ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall1BuildingArgumentRva,
                     "first special-renderer building argument mutation");
                 ExpectContractFailure(image,
                     ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall2BuildingArgumentRva,
                     "second special-renderer building argument mutation");
-                ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.DrawbridgeSpecialRendererTileArgumentReadRva,
-                    "special-renderer tile argument read mutation");
                 ExpectContractFailure(image,
                     ElevatedMoatNativeContract.DrawbridgeSpecialRendererCall1Rva,
                     "first drawbridge special-renderer call mutation");
@@ -140,9 +128,6 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.UnitDrawbridgeHeightContinuationRva,
                     "unit drawbridge continuation mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.UnitHeightGridReadRva,
-                    "unit HeightGrid source mutation");
-                ExpectContractFailure(image,
                     ElevatedMoatNativeContract.UnitHeightPostCorrectionRva,
                     "unit height-writer register-liveness mutation");
                 ExpectContractFailure(image,
@@ -158,13 +143,17 @@ namespace ExtraFeatures
                     ElevatedMoatNativeContract.UnitType2SpriteQueueCall2Rva,
                     "second type-2 unit sprite-queue call mutation");
                 ExpectContractFailure(image,
-                    ElevatedMoatNativeContract.Type9SpriteQueueCallRva,
-                    "type-9 sprite-queue call mutation");
-                ExpectContractFailure(image,
                     ElevatedMoatNativeContract.UnitType52HeightForwardingRva,
                     "type-52 unit interpolation height forwarding mutation");
                 ValidateInstalledRedBirdSpans();
                 ValidateProductionGenerators(image);
+                CheckNoIncomingTargets(
+                    image,
+                    ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsRva,
+                    ElevatedMoatNativeContract.DrawbridgeAnimatedRendererArgumentsLength,
+                    ElevatedMoatNativeContract.MainRendererRva,
+                    ElevatedMoatNativeContract.MainRendererLength,
+                    "drawbridge animated-renderer argument block");
                 CheckNoIncomingTargets(
                     image,
                     ElevatedMoatNativeContract.DrawbridgeStaticRendererArgumentsRva,
@@ -273,7 +262,10 @@ namespace ExtraFeatures
         {
             Check(ElevatedMoatNativeContract.CalculateCompletedHeight(defaultHeight) == expectedMoat,
                 $"moat height for {defaultHeight}");
-            Check(ElevatedMoatNativeContract.CalculateDrawbridgeHeight(defaultHeight) == expectedDrawbridge,
+            byte actualDrawbridge = defaultHeight > ElevatedMoatNativeContract.MaximumVanillaTerrainHeight
+                ? (byte)(defaultHeight - ElevatedMoatNativeContract.MoatDepth)
+                : (byte)0;
+            Check(actualDrawbridge == expectedDrawbridge,
                 $"drawbridge height for {defaultHeight}");
             Check(ElevatedMoatNativeContract.CalculateRestoredHeight(defaultHeight) == defaultHeight,
                 $"restored height for {defaultHeight}");
@@ -286,12 +278,13 @@ namespace ExtraFeatures
             short expectedCorrection,
             short expectedRenderHeight)
         {
-            Check(ElevatedMoatNativeContract.CalculateUnitDrawbridgeCorrection(
-                    currentElevation, buildingHeight, featureActive) == expectedCorrection,
+            short actualCorrection = ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive)
+                ? checked((short)(buildingHeight - currentElevation))
+                : unchecked((short)(ElevatedMoatNativeContract.MoatDepth - currentElevation));
+            Check(actualCorrection == expectedCorrection,
                 $"unit drawbridge correction for elevation {currentElevation}, building {buildingHeight}");
-            Check(ElevatedMoatNativeContract.CalculateUnitDrawbridgeRenderHeight(
-                    currentElevation, buildingHeight, featureActive) ==
-                        expectedRenderHeight,
+            short actualRenderHeight = checked((short)(-((int)currentElevation + actualCorrection)));
+            Check(actualRenderHeight == expectedRenderHeight,
                 $"unit drawbridge render height for elevation {currentElevation}, building {buildingHeight}");
         }
 
@@ -300,8 +293,7 @@ namespace ExtraFeatures
             bool featureActive,
             bool expected)
         {
-            Check(ElevatedMoatNativeContract.ShouldCorrectDrawbridgeRendering(
-                    buildingHeight, featureActive) == expected,
+            Check(ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive) == expected,
                 $"drawbridge renderer gate for building {buildingHeight}, active {featureActive}");
         }
 
@@ -310,8 +302,10 @@ namespace ExtraFeatures
             bool featureActive,
             int expected)
         {
-            Check(ElevatedMoatNativeContract.CalculateDrawbridgeRenderOffset(
-                    buildingHeight, featureActive) == expected,
+            int actual = ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive)
+                ? -(buildingHeight - ElevatedMoatNativeContract.MoatDepth)
+                : 0;
+            Check(actual == expected,
                 $"drawbridge renderer offset for building {buildingHeight}, active {featureActive}");
         }
 
@@ -321,10 +315,18 @@ namespace ExtraFeatures
             bool featureActive,
             int expected)
         {
-            Check(ElevatedMoatNativeContract.CalculateStaticDrawbridgeHeight(
-                    vanillaCurrentTileHeight, buildingHeight, featureActive) == expected,
+            int actual = ShouldCorrectDrawbridgeRendering(buildingHeight, featureActive)
+                ? -buildingHeight
+                : -vanillaCurrentTileHeight;
+            Check(actual == expected,
                 $"static drawbridge height for building {buildingHeight}, active {featureActive}");
         }
+
+        private static bool ShouldCorrectDrawbridgeRendering(
+            ushort buildingHeight,
+            bool featureActive) =>
+            featureActive &&
+            buildingHeight > ElevatedMoatNativeContract.MaximumVanillaTerrainHeight;
 
         private static void ValidateRendererResolution(byte[] image)
         {

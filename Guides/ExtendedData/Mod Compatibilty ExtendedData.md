@@ -27,9 +27,9 @@ The easiest and safest integration is to use this repository's shared preset sys
 
 Use the current versions of these three source files together:
 
-- [`Shared/PresetLobbyModSettingsViewModel.cs`](Shared/PresetLobbyModSettingsViewModel.cs)
-- [`Shared/GameModeHelper.cs`](Shared/GameModeHelper.cs)
-- [`Shared/DebugLogHelper.cs`](Shared/DebugLogHelper.cs)
+- [`Shared/PresetLobbyModSettingsViewModel.cs`](../../Shared/PresetLobbyModSettingsViewModel.cs)
+- [`Shared/GameModeHelper.cs`](../../Shared/GameModeHelper.cs)
+- [`Shared/DebugLogHelper.cs`](../../Shared/DebugLogHelper.cs)
 
 For a separate repository, download or vendor the files into a directory such as `Compatibility/SerpShared` and update all three together when the shared contract changes. A Git submodule is also suitable. Do not manually reimplement fragments of the files.
 

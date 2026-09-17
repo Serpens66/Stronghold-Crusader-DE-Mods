@@ -1,4 +1,5 @@
 using ExtendedData.Core;
+using ExtendedData;
 using Shared;
 using System.Text;
 using System.Text.Json;
@@ -47,6 +48,10 @@ var tests = new (string Name, Action Run)[]
     ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
     ("Workshop Trail staging filters sidecars", TestWorkshopTrailSidecars),
     ("Workshop upload checkbox is unified", TestWorkshopUploadCheckbox),
+    ("mod-data namespaces are isolated and immutable", TestModDataNamespaces),
+    ("invalid mod-data containers fail closed", TestInvalidModDataContainers),
+    ("map mod-data API distinguishes file and namespace absence", TestMapModDataApi),
+    ("Custom Lord mod-data API supports paths and configs", TestLordModDataApi),
 };
 
 int failed = 0;
@@ -66,6 +71,96 @@ foreach ((string name, Action run) in tests)
 
 Console.WriteLine($"{tests.Length - failed}/{tests.Length} tests passed.");
 return failed == 0 ? 0 : 1;
+
+static void TestModDataNamespaces()
+{
+    const string json = "{\"Other.Mod\":{\"untouched\":true},\"Author.Example-Mod\":{\"schemaVersion\":1,\"nested\":{\"values\":[1,2]}}}";
+    ExtendedDataModDataReadResult result = ModDataNamespaceReader.Read(json, "author.example-mod", "memory");
+
+    Assert(result.Success, result.Diagnostic);
+    Assert(result.ModGuid == "Author.Example-Mod", "the document's canonical GUID casing was not retained");
+    Assert(result.Data.Count == 2 && !result.Data.ContainsKey("untouched"), "foreign namespace data leaked into the result");
+    Assert(!result.Json.Contains("Other.Mod", StringComparison.Ordinal), "foreign namespace leaked into namespace JSON");
+    Assert(json.Contains("\"Other.Mod\":{\"untouched\":true}", StringComparison.Ordinal), "source document was modified");
+
+    var dictionary = (System.Collections.IDictionary)result.Data;
+    AssertThrows<NotSupportedException>(() => dictionary.Add("changed", true), "top-level snapshot was mutable");
+    var nested = (IReadOnlyDictionary<string, object>)result.Data["nested"];
+    var values = (IReadOnlyList<object>)nested["values"];
+    AssertThrows<NotSupportedException>(
+        () => ((System.Collections.IList)values).Add(3),
+        "nested snapshot was mutable");
+}
+
+static void TestInvalidModDataContainers()
+{
+    Assert(ModDataNamespaceReader.Read("[]", "author.mod", "memory").Status == ExtendedDataModDataReadStatus.InvalidDocument,
+        "array root was accepted");
+    Assert(ModDataNamespaceReader.Read("{", "author.mod", "memory").Status == ExtendedDataModDataReadStatus.InvalidDocument,
+        "invalid JSON was accepted");
+    Assert(ModDataNamespaceReader.Read("{\"author.mod\":1}", "author.mod", "memory").Status == ExtendedDataModDataReadStatus.InvalidDocument,
+        "primitive namespace was accepted");
+    Assert(ModDataNamespaceReader.Read("{\"Author.Mod\":{},\"author.mod\":{}}", "author.mod", "memory").Status == ExtendedDataModDataReadStatus.InvalidDocument,
+        "case-insensitive GUID collision was accepted");
+    Assert(ModDataNamespaceReader.Read("{\"other.mod\":{}}", "author.mod", "memory").Status == ExtendedDataModDataReadStatus.NamespaceNotFound,
+        "missing namespace was not reported");
+}
+
+static void TestMapModDataApi()
+{
+    SHCDESE.API.GameMapArchiveManagerAPI.Instance.Reset();
+    Assert(ExtendedDataModDataApi.ReadCurrentMapNamespace(" ").Status == ExtendedDataModDataReadStatus.InvalidRequest,
+        "empty map mod GUID was not rejected");
+    ExtendedDataModDataReadResult missingFile = ExtendedDataModDataApi.ReadCurrentMapNamespace("author.mod");
+    Assert(missingFile.Status == ExtendedDataModDataReadStatus.FileNotFound, "missing modmap.json was not reported");
+
+    SHCDESE.API.GameMapArchiveManagerAPI.Instance.CurrentFilePath = @"C:\Maps\test.map";
+    SHCDESE.API.GameMapArchiveManagerAPI.Instance.ModMapBytes = Encoding.UTF8.GetBytes("{\"other.mod\":{}}");
+    ExtendedDataModDataReadResult missingNamespace = ExtendedDataModDataApi.ReadCurrentMapNamespace("author.mod");
+    Assert(missingNamespace.Status == ExtendedDataModDataReadStatus.NamespaceNotFound, "missing map namespace was not reported");
+    Assert(missingNamespace.Source.EndsWith("test.map::modmap.json", StringComparison.Ordinal), "map source was not identified");
+
+    SHCDESE.API.GameMapArchiveManagerAPI.Instance.ModMapBytes = Encoding.UTF8.GetBytes("{\"AUTHOR.MOD\":{\"value\":7}}");
+    ExtendedDataModDataReadResult success = ExtendedDataModDataApi.ReadCurrentMapNamespace("author.mod");
+    Assert(success.Success && Convert.ToInt32(success.Data["value"]) == 7, "map namespace was not read");
+
+    SHCDESE.API.GameMapArchiveManagerAPI.Instance.ModMapBytes = new byte[] { 0xFF };
+    Assert(ExtendedDataModDataApi.ReadCurrentMapNamespace("author.mod").Status == ExtendedDataModDataReadStatus.InvalidDocument,
+        "invalid UTF-8 was accepted");
+
+    SHCDESE.API.GameMapArchiveManagerAPI.Instance.ModMapBytes = new UTF8Encoding(true).GetPreamble()
+        .Concat(Encoding.UTF8.GetBytes("{\"author.mod\":{}}"))
+        .ToArray();
+    Assert(ExtendedDataModDataApi.ReadCurrentMapNamespace("author.mod").Success, "UTF-8 BOM was not accepted");
+}
+
+static void TestLordModDataApi()
+{
+    string root = Path.Combine(Path.GetTempPath(), "ExtendedDataModLordTests", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(root);
+    try
+    {
+        string lordPath = Path.Combine(root, "aggressive.v2.lordjson");
+        string sidecarPath = Path.Combine(root, "aggressive.v2.modlord.json");
+        File.WriteAllText(sidecarPath, "{\"author.mod\":{\"schemaVersion\":1}}", new UTF8Encoding(false));
+
+        ExtendedDataModDataReadResult byPath = ExtendedDataModDataApi.ReadLordNamespace(lordPath, "AUTHOR.MOD");
+        Assert(byPath.Success && byPath.Source == sidecarPath, "Lord namespace path lookup failed");
+
+        var config = new CustomisationFileManager.CustomLordConfig { path = root, name = "aggressive.v2" };
+        ExtendedDataModDataReadResult byConfig = ExtendedDataModDataApi.ReadLordNamespace(config, "author.mod");
+        Assert(byConfig.Success, "CustomLordConfig lookup failed: " + byConfig.Diagnostic);
+
+        ExtendedDataModDataReadResult absent = ExtendedDataModDataApi.ReadLordNamespace(
+            Path.Combine(root, "absent.lordjson"),
+            "author.mod");
+        Assert(absent.Status == ExtendedDataModDataReadStatus.FileNotFound, "missing Lord sidecar was not reported");
+    }
+    finally
+    {
+        Directory.Delete(root, true);
+    }
+}
 
 static void TestBundledMission()
 {
@@ -1415,6 +1510,19 @@ static void Assert(bool condition, string message)
         throw new InvalidOperationException(message);
 }
 
+static void AssertThrows<TException>(Action action, string message) where TException : Exception
+{
+    try
+    {
+        action();
+    }
+    catch (TException)
+    {
+        return;
+    }
+    throw new InvalidOperationException(message);
+}
+
 sealed class Fixture : IDisposable
 {
     public string Root { get; private set; }
@@ -1623,6 +1731,26 @@ namespace SHCDESE.API.Components.SaveData
 
 namespace SHCDESE.API
 {
+    public sealed class GameMapArchiveManagerAPI
+    {
+        public static GameMapArchiveManagerAPI Instance { get; } = new GameMapArchiveManagerAPI();
+        public string CurrentFilePath { get; set; }
+        public byte[] ModMapBytes { get; set; }
+
+        public string GetCurrentFilePath() => CurrentFilePath;
+
+        public byte[] TryReadBinaryFile(string fileName, bool ignoreCase = true) =>
+            string.Equals(fileName, "modmap.json", ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+                ? ModMapBytes
+                : null;
+
+        public void Reset()
+        {
+            CurrentFilePath = null;
+            ModMapBytes = null;
+        }
+    }
+
     public sealed class ModSaveDataAPI
     {
         public static ModSaveDataAPI Instance { get; } = new ModSaveDataAPI();
@@ -1641,5 +1769,14 @@ namespace SHCDESE.API
             OnUnloadCallback = onUnloadCallback;
             return true;
         }
+    }
+}
+
+public sealed class CustomisationFileManager
+{
+    public sealed class CustomLordConfig
+    {
+        public string name;
+        public string path;
     }
 }

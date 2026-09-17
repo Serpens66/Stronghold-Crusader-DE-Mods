@@ -71,6 +71,7 @@
     <Compile Include="src\ExtendedDataSettingsViewModel.cs" />
     <Compile Include="src\ExtendedDataRuntime.cs" />
     <Compile Include="src\ExtendedDataLaunchOriginApi.cs" />
+    <Compile Include="src\ExtendedDataModDataApi.cs" />
     <Compile Include="src\CoopCustomizePacket.cs" />
     <Compile Include="src\BuiltInCustomizeOriginPacket.cs" />
     <Compile Include="src\BugfixesAndQoLTrailCustomizationBridge.cs" />

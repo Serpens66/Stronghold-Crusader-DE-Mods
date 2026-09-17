@@ -413,7 +413,7 @@ Workshop item content/
     Override/...                 # Supported media/image formats only
 ```
 
-Script Extender 2.4.0 itself does **not** contain a hook that adds arbitrary extended files to Vanilla's Custom Lord upload. The separate [`ExtendedData`](../ExtendedData/) BepInEx mod supplies that missing staging step and a package preflight. On the upload page, leave **Upload additional files for mod support** enabled to add allowlisted extended files; disable it for a Vanilla-only upload.
+Script Extender 2.4.0 itself does **not** contain a hook that adds arbitrary extended files to Vanilla's Custom Lord upload. The separate [`ExtendedData`](../../ExtendedData/) BepInEx mod supplies that missing staging step and a package preflight. On the upload page, leave **Upload additional files for mod support** enabled to add allowlisted extended files; disable it for a Vanilla-only upload.
 
 Vanilla remains responsible for the direct `.lordjson`, `.aivjson`, and optional `avatar.png`. `ExtendedData` supplements them with this case-insensitive allowlist:
 

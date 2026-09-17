@@ -9,175 +9,208 @@ using SHCDESE.Interop.Enums;
 
 namespace OutpostTest
 {
-    internal sealed unsafe class OutpostRuntime
+    internal sealed unsafe partial class OutpostRuntime
     {
         private readonly ManualLogSource log;
         private readonly OutpostNative native;
-        private readonly OutpostSchedule schedule = new OutpostSchedule();
-        private readonly List<Observation> observations = new List<Observation>();
+        private readonly Dictionary<int, Entry> entries = new Dictionary<int, Entry>();
         private bool active, failed, confirmed;
         private int lastTick = int.MinValue;
         private long initialBypasses;
-        private sealed class Observation
+        private sealed class Entry
         {
-            internal int Building, Tribe, Born, Stage;
-            internal uint TribeGlobal;
-            internal readonly List<Tuple<int, uint>> Units = new List<Tuple<int, uint>>();
+            internal int Id, Owner, Type, Seen, Tribe;
+            internal uint Global, TribeGlobal;
+            internal bool Human;
         }
         internal OutpostRuntime(ManualLogSource log, CrusaderLibraryLoadContext context)
         { this.log = log; native = new OutpostNative(log, context); }
-
-        internal void Begin(MissionLifecycleNotification notification)
+        internal void Begin(MissionLifecycleNotification n)
         {
             Disable("new mission");
-            var mode = notification.Context.Mode;
-            active = !failed && !mode.IsRealMultiplayer && !mode.IsMapEditor &&
-                !mode.HasConflictingCustomizedOrigin && mode.Kind != Shared.GameModeKind.Unknown &&
-                mode.Kind != Shared.GameModeKind.Tutorial;
-            native.Enabled = active;
-            initialBypasses = native.Bypasses;
-            Info($"session={notification.Context.SessionId} save={notification.Context.IsSave} active={active}; {mode.ToDiagnosticString()}");
+            var m = n.Context.Mode;
+            active = !failed && !m.IsRealMultiplayer && !m.IsMapEditor && !m.HasConflictingCustomizedOrigin &&
+                m.Kind != Shared.GameModeKind.Unknown && m.Kind != Shared.GameModeKind.Tutorial;
+            native.Enabled = active; initialBypasses = native.Bypasses;
+            lock(rallyLock) RestoreRally(n.Context.IsSave);
+            Info($"session={n.Context.SessionId} save={n.Context.IsSave} active={active} mode=incremental-macemen; {m.ToDiagnosticString()}");
         }
         internal void End(MissionLifecycleNotification _) => Disable("mission ended");
         internal void Disable(string reason)
         {
-            native.Enabled = false; active = false; schedule.Clear(); observations.Clear();
-            lastTick = int.MinValue; confirmed = false;
+            native.Enabled = false; active = false; entries.Clear(); lastTick = int.MinValue; confirmed = false;
+            lock(rallyLock) { rally=new OutpostRallyState(); rallyView?.Reset(); }
+            // Native building fields retain unfinished groups for saves and Vanilla fallback.
             Info("inactive: " + reason);
         }
         internal void RollbackUnpublishedInitialization() => native.RollbackUnpublishedInitialization();
-
+        private static short Read(GameBuilding* b, int offset) => *(short*)((byte*)b + offset);
+        private static void Write(GameBuilding* b, int offset, int value) => *(short*)((byte*)b + offset) = checked((short)value);
+        private static uint GroupGlobal(GameBuilding* b) => *(uint*)((byte*)b + 0x304);
+        private static void Link(GameBuilding* b, int id, uint global)
+        { Write(b, 0x302, id); *(uint*)((byte*)b+0x304) = global; }
+        private bool TryGroup(int id, uint global, out GameTribe* tribe)
+        {
+            tribe = null;
+            bool valid = id > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(id, out tribe) &&
+                tribe->r_GlobalId == global && tribe->r_AliveState == AliveState.IsAlive;
+            if (valid) native.ValidateTribePointer(id,tribe);
+            return valid;
+        }
         internal void Tick(int tick)
+        { lock(rallyLock) TickLocked(tick); }
+        private void TickLocked(int tick)
         {
             if (!active || tick == lastTick) return;
             lastTick = tick;
             try
             {
+                rallyView?.AcceptInput();
                 if (!native.ProductionAllowed) return;
-                ObserveFollowups(tick);
+                ProcessRallyOrders();
                 int[] added = new int[9];
                 var buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
                 for (int spanIndex = 0; spanIndex < buildings.Length && spanIndex < 3999; spanIndex++)
                 {
                     fixed (GameBuilding* b = &buildings[spanIndex])
                     {
-                        if (b->r_AliveState != AliveState.IsAlive || !OutpostSchedule.IsOutpost((int)b->r_BuildingType)) continue;
-                        int buildingId = spanIndex + 1, owner = b->r_PlayerIdOwner;
-                        if (owner < 1 || owner > 8) continue;
-                        native.ValidateBuildingPointer(buildingId, b);
-                        var entry = schedule.Observe(buildingId, b->r_GlobalId, owner, (int)b->r_BuildingType, tick);
-                        if (!entry.Adopted)
+                        if (b->r_AliveState != AliveState.IsAlive || !OutpostSchedule.IsOutpost((int)b->r_BuildingType) ||
+                            b->r_PlayerIdOwner < 1 || b->r_PlayerIdOwner > 8) continue;
+                        int id = spanIndex + 1;
+                        native.ValidateBuildingPointer(id, b);
+                        if (entries.TryGetValue(id, out var previous) &&
+                            (!OutpostSchedule.SameIdentity(previous.Global,previous.Owner,previous.Type,b->r_GlobalId,b->r_PlayerIdOwner,(int)b->r_BuildingType) || previous.Human!=Human(b->r_PlayerIdOwner)))
                         {
-                            Adopt(b, buildingId);
-                            entry.Adopted = true;
-                            Info($"tracking building={buildingId}/{b->r_GlobalId} type={(int)b->r_BuildingType} owner={owner} exit={b->r_TilePositionXEnd},{b->r_TilePositionYEnd} firstTick={entry.NextTick}; offsets mask=300 tribe=302/304 unit=AC/426 role=652.");
+                            Retire(previous, b, "identity-or-owner-change"); entries.Remove(id);
                         }
+                        if (!entries.TryGetValue(id, out var e))
+                        {
+                            e = new Entry { Id=id, Global=b->r_GlobalId, Owner=b->r_PlayerIdOwner, Type=(int)b->r_BuildingType, Human=Human(b->r_PlayerIdOwner) };
+                            entries.Add(id, e); if(e.Human) AdoptHuman(e,b); else Adopt(e, b);
+                            Info($"tracking building={id}/{e.Global} type={e.Type} owner={e.Owner} size={Read(b,0x30E)} delay={Read(b,0x310)}");
+                        }
+                        e.Seen = tick;
                         if (!confirmed && native.Bypasses > initialBypasses)
-                        { confirmed = true; Info($"hook confirmed building={buildingId}/{b->r_GlobalId} alive={b->r_AliveState} bypasses={native.Bypasses} tick={tick}"); }
-                        if (OutpostSchedule.TakeWave(entry, tick)) SpawnWave(b, buildingId, tick, added);
+                        { confirmed = true; Info($"hook confirmed building={id}/{e.Global} tick={tick} bypasses={native.Bypasses}"); }
+                        if(e.Human) ProduceHuman(e,b,tick,added); else Produce(e, b, tick, added);
                     }
                 }
-                schedule.Prune(tick);
+                var removed = new List<int>();
+                foreach (var pair in entries) if (pair.Value.Seen != tick)
+                {
+                    GameBuildingManagerAPI.Instance.TryGetBuildingById(pair.Key, out var b);
+                    Retire(pair.Value, b, "building-ended"); removed.Add(pair.Key);
+                }
+                foreach (int id in removed) entries.Remove(id);
             }
             catch (Exception ex)
             {
-                failed = true; Disable("runtime contract failure");
-                Shared.DebugLogHelper.LogError(log, "OutpostTest failed closed; no further custom spawns: " + ex);
+                failed = true; Disable("contract failure; native group fields retained");
+                Shared.DebugLogHelper.LogError(log, "OutpostTest failed closed; Vanilla resumed: " + ex);
             }
         }
-        private void Adopt(GameBuilding* b, int buildingId)
+        private void Adopt(Entry e, GameBuilding* b)
         {
-            byte* bytes = (byte*)b;
-            int tribeId = *(short*)(bytes + 0x302);
-            uint global = *(uint*)(bytes + 0x304);
-            if (tribeId > 0 && GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out var t) &&
-                t->r_GlobalId == global && t->r_AliveState == AliveState.IsAlive)
+            int id = Read(b, 0x302); uint global = GroupGlobal(b);
+            if (TryGroup(id, global, out var t))
             {
-                native.ValidateTribePointer(tribeId, t);
-                native.Finish(tribeId, global);
-                Info($"adopt building={buildingId} previousTribe={tribeId}/{global} members={t->r_UnitsInGroup} owner={t->r_PlayerIdOwner} handoff=once");
-            }
-            *(short*)(bytes + 0x302) = 0;
-            *(uint*)(bytes + 0x304) = 0;
-        }
-
-        private void SpawnWave(GameBuilding* b, int buildingId, int tick, int[] added)
-        {
-            int owner = b->r_PlayerIdOwner, x = b->r_TilePositionXEnd, y = b->r_TilePositionYEnd;
-            if (x >= 800 || y >= 800) throw new InvalidOperationException("Outpost exit outside native tile bounds.");
-            if (!native.HasCapacity(owner, added[owner]))
-            { Info($"wave tick={tick} building={buildingId}/{b->r_GlobalId} owner={owner} requested=5 created=0 reason=player-limit"); return; }
-            int tribeId = native.Allocate(owner);
-            if (tribeId == 0)
-            { Info($"wave tick={tick} building={buildingId}/{b->r_GlobalId} requested=5 created=0 reason=tribe-pool"); return; }
-            var tribeApi = GameTribeManagerAPI.Instance;
-            var unitApi = GameUnitManagerAPI.Instance;
-            if (!tribeApi.TryGetTribeById(tribeId, out var tribe)) throw new InvalidOperationException("Allocated tribe missing.");
-            native.ValidateTribePointer(tribeId, tribe);
-            uint tribeGlobal = tribe->r_GlobalId;
-            var observation = new Observation { Building = buildingId, Tribe = tribeId, TribeGlobal = tribeGlobal, Born = tick };
-            bool move = false;
-            string reason = "complete";
-            try
-            {
-                if (tribe->r_PlayerIdOwner != owner || tribe->r_AliveState != AliveState.IsAlive || tribe->r_UnitsInGroup != 0)
-                    throw new InvalidOperationException("Outpost tribe allocator result differs.");
-                tribe->r_TribeStance = TribeStance.Aggressive;
-                OutpostNative.SetRole(tribe);
-                for (int i = 0; i < OutpostSchedule.WaveSize; i++)
+                // Profile 2 is exclusively Macemen. Resume native save state only with matching owner/role.
+                if (Read(b,0x30C) == 2 && t->r_PlayerIdOwner == e.Owner && *(short*)((byte*)t+0x652) == 184 && Read(b,0x30A) > 0)
                 {
-                    if (!native.HasCapacity(owner, added[owner])) { reason = "player-limit"; break; }
-                    int unitId = checked((int)unitApi.CreateUnitLocal(owner, owner, x, y, 8, (eChimps)26));
-                    if (unitId == 0) { reason = "unit-pool-or-cancelled"; break; }
-                    if (!unitApi.TryGetUnitById(unitId, out var unit)) throw new InvalidOperationException("Spawn returned invalid unit ID.");
-                    native.ValidateUnitPointer(unitId, unit);
-                    // Record successful allocation even if a subsequent contract check fails.
-                    observation.Units.Add(Tuple.Create(unitId, unit->r_GlobalId));
-                    added[owner]++;
-                    if (unit->r_AliveState != AliveState.NeedsInit && unit->r_AliveState != AliveState.IsAlive)
-                        throw new InvalidOperationException("Spawn did not return an initial/live unit.");
-                    if ((int)unit->r_UnitChimp != 26 || unitApi.GetOwner(unitId) != owner)
-                        throw new InvalidOperationException("Another spawn modifier changed the requested Maceman/owner.");
-                    if (!tribeApi.AssignUnit(tribeId, unitId) || unit->r_TribeId != tribeId ||
-                        tribe->r_UnitsInGroup != observation.Units.Count)
-                        throw new InvalidOperationException("Tribe assignment/count differs.");
-                    OutpostNative.InitializeUnit(unit);
+                    e.Tribe=id; e.TribeGlobal=global;
+                    Info($"resume building={e.Id}/{e.Global} tribe={id}/{global} members={t->r_UnitsInGroup} target={Read(b,0x30A)}");
+                    return;
                 }
-                if (tribe->r_UnitsInGroup > 0)
-                    move = tribeApi.IssueMoveHereCommand(tribeId, x, y, false, 0, TribeMoveType.NoChange);
+                native.Finish(id, global);
+                Info($"adopt-finish building={e.Id} tribe={id}/{global} reason=previous-profile");
+                Write(b,0x308,0);
             }
-            catch
-            {
-                reason = "contract-failure";
-                throw;
-            }
-            finally
-            {
-                // Native handoff also retires an empty allocated tribe. It deliberately
-                // leaves human groups outside the AI queue; do not invent an attack order.
-                native.Finish(tribeId, tribeGlobal);
-                Info($"wave tick={tick} building={buildingId}/{b->r_GlobalId} type={(int)b->r_BuildingType} owner={owner} tribe={tribeId}/{tribeGlobal} requested=5 created={observation.Units.Count} members={tribe->r_UnitsInGroup} stance={tribe->r_TribeStance} role={*(short*)((byte*)tribe+0x652)} moveResult={move} handoff=called reason={reason} units={string.Join(",", observation.Units)}");
-                if (observation.Units.Count > 0) observations.Add(observation);
-            }
+            Link(b,0,0);
         }
-        private void ObserveFollowups(int tick)
+        private void Retire(Entry e, GameBuilding* current, string reason)
         {
-            for (int i = observations.Count - 1; i >= 0; i--)
+            rally.Remove(e.Id);
+            bool sameBuilding = current != null && current->r_GlobalId == e.Global;
+            bool linked = sameBuilding && Read(current,0x302) == e.Tribe && GroupGlobal(current) == e.TribeGlobal;
+            // Native deletion already hands off 106/107. Bedouin deletion does not.
+            // Clearing a still matching link before native cleanup prevents double handoff.
+            if (OutpostSchedule.FinishRetired(linked,sameBuilding,e.Type) && TryGroup(e.Tribe,e.TribeGlobal,out var t))
             {
-                var o = observations[i];
-                int age = unchecked(tick - o.Born), due = o.Stage == 0 ? 1 : o.Stage == 1 ? 40 : 200;
-                if (age < due) continue;
-                var states = new List<string>();
-                foreach (var identity in o.Units)
-                {
-                    if (GameUnitManagerAPI.Instance.TryGetUnitById(identity.Item1, out var u) && u->r_GlobalId == identity.Item2)
-                        states.Add($"{identity.Item1}/{identity.Item2}:type={(int)u->r_UnitChimp},alive={(int)u->r_AliveState},tribe={u->r_TribeId},state={u->r_AIState},tile={u->r_CurrentWorldPositionX/8},{u->r_CurrentWorldPositionY/8}");
-                    else states.Add($"{identity.Item1}/{identity.Item2}:retired");
-                }
-                Info($"followup tick={tick} age={age} building={o.Building} tribe={o.Tribe}/{o.TribeGlobal} units=[{string.Join(";", states)}]");
-                if (++o.Stage == 3) observations.RemoveAt(i);
+                native.Finish(e.Tribe,e.TribeGlobal);
+                Info($"retire building={e.Id}/{e.Global} tribe={e.Tribe}/{e.TribeGlobal} reason={reason} handoff=called");
             }
+            if (linked) { Link(current,0,0); Write(current,0x308,0); }
+            e.Tribe=0; e.TribeGlobal=0;
         }
-        private void Info(string message) => Shared.DebugLogHelper.LogInfo(log, "OutpostTest " + message);
+        private void Produce(Entry e, GameBuilding* b, int tick, int[] added)
+        {
+            if (b->r_TilePositionXEnd >= 800 || b->r_TilePositionYEnd >= 800) throw new InvalidOperationException("Outpost exit outside native tile bounds.");
+            int mode = native.ReadInt(0x8574B90);
+            bool fast = native.ReadInt(0x3668E34) > 3000 && native.ReadInt(0x3669048) < 11;
+            int size = Read(b,0x30E), delay = Math.Max(0,Read(b,0x310)-1);
+            int interval = OutpostSchedule.SpawnWait(Read(b,0x318),size);
+            Write(b,0x310,delay);
+            int tribeId=Read(b,0x302); uint global=GroupGlobal(b);
+            int counter=Read(b,0x308);
+            if (!TryGroup(tribeId,global,out var tribe))
+            {
+                Link(b,0,0); e.Tribe=0; e.TribeGlobal=0;
+                counter = Math.Min(30000,counter+1);
+                Write(b,0x308,counter);
+                if (counter < OutpostSchedule.GroupWait(Read(b,0x316),mode,fast)) return;
+                if (!native.HasCapacity(e.Owner,added[e.Owner])) { Limited(e,tick,"player-limit"); return; }
+                tribeId=native.Allocate(e.Owner);
+                if (tribeId <= 0) { Limited(e,tick,"tribe-pool"); return; }
+                if (!GameTribeManagerAPI.Instance.TryGetTribeById(tribeId,out tribe)) throw new InvalidOperationException("Allocated tribe unresolved.");
+                native.ValidateTribePointer(tribeId,tribe);
+                if (tribe->r_PlayerIdOwner != e.Owner || tribe->r_AliveState != AliveState.IsAlive || tribe->r_UnitsInGroup != 0)
+                    throw new InvalidOperationException("Unexpected allocated tribe.");
+                global=tribe->r_GlobalId; Link(b,tribeId,global); e.Tribe=tribeId; e.TribeGlobal=global;
+                tribe->r_TribeStance=TribeStance.Aggressive; OutpostNative.SetRole(tribe);
+                Write(b,0x30C,2);
+                Write(b,0x30A,OutpostSchedule.Target(size,OutpostSchedule.Roll(e.Global,tick,2,10)));
+                counter=2000; Write(b,0x308,counter);
+                Info($"group-start tick={tick} building={e.Id}/{e.Global} owner={e.Owner} tribe={tribeId}/{global} target={Read(b,0x30A)} interval={interval} stance=Aggressive role=184");
+            }
+            e.Tribe=tribeId; e.TribeGlobal=global;
+            if (tribe->r_PlayerIdOwner != e.Owner) throw new InvalidOperationException("Production tribe owner changed.");
+            counter=Math.Min(30000,counter+1); Write(b,0x308,counter);
+            if (counter < interval) return;
+            Write(b,0x308,OutpostSchedule.Roll(e.Global,tick,40,40));
+            int target=Read(b,0x30A), before=tribe->r_UnitsInGroup;
+            if (OutpostSchedule.DelayBlocks(before,target,delay)) return;
+            if (!native.HasCapacity(e.Owner,added[e.Owner])) { Limited(e,tick,"player-limit"); return; }
+            int requested=OutpostSchedule.Batch(before,target,delay,native.ReadInt(0x379D0D0+e.Owner*0x583C) != 0);
+            int created=0; bool move=false; string reason="complete";
+            for (int i=0;i<requested;i++)
+            {
+                if (!native.HasCapacity(e.Owner,added[e.Owner])) { reason="player-limit"; break; }
+                int unitId=checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(e.Owner,e.Owner,b->r_TilePositionXEnd,b->r_TilePositionYEnd,8,(eChimps)26));
+                if (unitId == 0) { reason="unit-pool-or-cancelled"; break; }
+                if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId,out var u)) throw new InvalidOperationException("Created unit unresolved.");
+                native.ValidateUnitPointer(unitId,u); added[e.Owner]++; created++;
+                if ((int)u->r_UnitChimp != 26 || GameUnitManagerAPI.Instance.GetOwner(unitId) != e.Owner ||
+                    (u->r_AliveState != AliveState.NeedsInit && u->r_AliveState != AliveState.IsAlive))
+                    throw new InvalidOperationException("Created unit contract changed.");
+                int members=tribe->r_UnitsInGroup;
+                if (!GameTribeManagerAPI.Instance.AssignUnit(tribeId,unitId) || u->r_TribeId != tribeId || tribe->r_UnitsInGroup != members+1)
+                    throw new InvalidOperationException("Assignment/count mismatch.");
+                OutpostNative.InitializeUnit(u);
+                Info($"spawn tick={tick} building={e.Id}/{e.Global} tribe={tribeId}/{global} unit={unitId}/{u->r_GlobalId} type=26 members={tribe->r_UnitsInGroup}/{target} state={u->r_AIState}");
+            }
+            if (created > 0) move=GameTribeManagerAPI.Instance.IssueMoveHereCommand(tribeId,b->r_TilePositionXEnd,b->r_TilePositionYEnd,false,0,TribeMoveType.NoChange);
+            bool complete=OutpostSchedule.Complete(tribe->r_UnitsInGroup,target,delay);
+            if (complete || tribe->r_UnitsInGroup == 0)
+            {
+                native.Finish(tribeId,global); Link(b,0,0); e.Tribe=0; e.TribeGlobal=0;
+                if (complete)
+                { Write(b,0x316,Math.Min(2000,Read(b,0x316)+(fast?100:33))); Write(b,0x318,Math.Min(150,Read(b,0x318)+4)); }
+                Info($"group-finish tick={tick} building={e.Id}/{e.Global} tribe={tribeId}/{global} members={tribe->r_UnitsInGroup}/{target} handoff=called reason={(complete?"target-reached":"empty-failed-spawn")}");
+            }
+            Info($"production tick={tick} building={e.Id}/{e.Global} requested={requested} created={created} members={tribe->r_UnitsInGroup}/{target} moveResult={move} handedOff={complete} reason={reason}");
+        }
+        private void Limited(Entry e,int tick,string reason)
+        { if (tick % 200 == 0) Info($"limited tick={tick} building={e.Id}/{e.Global} reason={reason}"); }
+        private void Info(string text) => Shared.DebugLogHelper.LogInfo(log,"OutpostTest "+text);
     }
 }

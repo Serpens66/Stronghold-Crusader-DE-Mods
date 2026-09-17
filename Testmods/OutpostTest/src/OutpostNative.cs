@@ -26,6 +26,9 @@ namespace OutpostTest
         private delegate void FinishDelegate(IntPtr manager, int tribeId, uint global);
         private readonly AllocateDelegate allocate;
         private readonly FinishDelegate finish;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void PlayerMoveDelegate(IntPtr manager,int tribe,int x,int y,int patrol,int flags);
+        private readonly PlayerMoveDelegate playerMove;
         internal bool Enabled { get => flags != IntPtr.Zero && Marshal.ReadInt32(flags) != 0;
             set { if (flags != IntPtr.Zero) Marshal.WriteInt32(flags, value ? 1 : 0); } }
         internal long Bypasses => Marshal.ReadInt64(flags, 8);
@@ -35,6 +38,9 @@ namespace OutpostTest
             this.log = log;
             image = unchecked((ulong)context.ModuleHandle.ToInt64());
             ValidateLayouts();
+            // Hash-verified function entry; deliberately call through any existing MoatMove detour.
+            // Do not pattern-check patched live entry bytes or create a competing hook.
+            playerMove=Marshal.GetDelegateForFunctionPointer<PlayerMoveDelegate>((IntPtr)(image+0x196100));
             if ((ulong)GameTribeManagerAPI.Instance.GetTribeManager().Pointer != image + TribeManagerRva)
                 throw new InvalidOperationException("Extender tribe manager does not match the audited native base.");
             Resolve(context, OutpostGate.Rva, "44 39 1D A9 A2 5B 03 0F 84 56 11 00 00 45 85 FF", "production gate");
@@ -107,6 +113,7 @@ namespace OutpostTest
             int limit = ReadInt(ReadInt(0x8574BCC + owner * 4) == -1 ? 0x37EF950 : 0x37EF954);
             return OutpostSchedule.HasCapacity(mode, count, addedThisTick, limit);
         }
+        internal void RunTo(int tribe,int x,int y) => playerMove((IntPtr)(image+0x67E8400),tribe,x,y,0,0x81);
         internal int Allocate(int owner) => allocate((IntPtr)(image + TribeManagerRva), owner);
         internal void Finish(int tribeId, uint global) => finish((IntPtr)(image + AiManagerRva), tribeId, global);
         internal void ValidateBuildingPointer(int id, GameBuilding* p)
