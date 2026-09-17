@@ -685,6 +685,18 @@
         <member name="P:APIShared.UnitHudImageOverrideDefinition.Priority">
             <summary>Ascending pipeline priority.</summary>
         </member>
+        <member name="T:APIShared.IUnitHudActivationCapability">
+            <summary>Optional owner-bound activation control. Registrations remain process-lived; legacy registrations default to active.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudActivationCapability.SetOwnerActive(System.Boolean)">
+            <summary>Enables or disables all presentation and interaction registrations belonging to this owner.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudActivationCapability.SetCategoryActive(System.String,System.Boolean)">
+            <summary>Changes an existing owner-local category's activation. Unknown IDs return false.</summary>
+        </member>
+        <member name="M:APIShared.IUnitHudActivationCapability.SetImageOverrideActive(System.String,System.Boolean)">
+            <summary>Changes an existing owner-local image override's activation. Unknown IDs return false.</summary>
+        </member>
         <member name="T:APIShared.IUnitHudPresentationCapability">
             <summary>Owner-bound shared Unit HUD service.</summary>
         </member>

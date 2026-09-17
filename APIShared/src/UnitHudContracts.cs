@@ -330,6 +330,17 @@ namespace APIShared
         public int Priority { get; }
     }
 
+    /// <summary>Optional owner-bound activation control. Registrations remain process-lived; legacy registrations default to active.</summary>
+    public interface IUnitHudActivationCapability
+    {
+        /// <summary>Enables or disables all presentation and interaction registrations belonging to this owner.</summary>
+        void SetOwnerActive(bool active);
+        /// <summary>Changes an existing owner-local category's activation. Unknown IDs return false.</summary>
+        bool SetCategoryActive(string categoryId, bool active);
+        /// <summary>Changes an existing owner-local image override's activation. Unknown IDs return false.</summary>
+        bool SetImageOverrideActive(string overrideId, bool active);
+    }
+
     /// <summary>Owner-bound shared Unit HUD service.</summary>
     public interface IUnitHudPresentationCapability
     {

@@ -52,7 +52,6 @@ namespace OutpostTest
                 Shared.DebugLogHelper.LogError(persistentLog, "OutpostTest initialization failed; Vanilla active: " + ex);
             }
         }
-        private void LateUpdate() => runtime?.PresentRally();
         private static void Tick(int tick) => runtime?.Tick(tick);
     }
 }

@@ -203,6 +203,11 @@ namespace Shared
                 campaignMapId,
                 eventTrailType);
             GameModeKind kind = observedKind;
+            // A successful native load can omit its skirmish subtype (notably for
+            // older multiplayer maps). Preserve the authoritative managed entry
+            // intent only when native data cannot classify the mode at all.
+            if (kind == GameModeKind.Unknown && intent != GameModeKind.Unknown)
+                kind = intent;
             if (observedKind == GameModeKind.CustomGame && externalOrigin.LaunchPending)
             {
                 GameModeKind originKind = ResolveExternalOriginKind(externalOrigin.Origin);

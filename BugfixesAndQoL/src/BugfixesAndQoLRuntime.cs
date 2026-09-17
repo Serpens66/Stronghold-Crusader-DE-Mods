@@ -411,7 +411,7 @@ namespace BugfixesAndQoL
             TryApplyFeature("ally goods amount modifiers", () => processAllyGoodsAmountModifierHook?.RefreshSetting());
             TryInitializeFeature("surrender", InitializeSurrenderFeature);
             TryApplyFeature("Lord troop HUD", () => lordUnitControlsFeature?.RefreshSetting());
-            TryApplyFeature("shared unit HUD", () => lordUnitHudRegistration.Capability?.RequestRefresh());
+            TryApplyFeature("shared unit HUD", () => lordUnitHudRegistration.RefreshSetting());
             TryInitializeFeature("selected-unit health display", InitializeSelectedUnitHealthFeature);
             TryApplyFeature("selected-unit health display", () => selectedUnitHealthFeature?.RefreshSetting());
             TryApplyFeature("surrender", () => surrenderFeature?.RefreshButtonState());

@@ -30,6 +30,11 @@ namespace APISharedTests
 
         private static int Main()
         {
+            // The publicized fixture keeps its file name but has Assembly-CSharp as its identity.
+            AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+                new AssemblyName(args.Name).Name == "Assembly-CSharp"
+                    ? Assembly.LoadFrom(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assembly-CSharp-publicized.dll"))
+                    : null;
             TestPublicSurface();
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
@@ -38,6 +43,7 @@ namespace APISharedTests
             TestUnitHudVariantContracts();
             TestUnitHudLiveSelectionCounts();
             TestUnitHudSelectionIdentity();
+            TestUnitHudActivation();
             TestPeValidation();
             TestFixedCatalogValidation();
             TestReadinessAndIndependentCapabilities();
@@ -55,6 +61,53 @@ namespace APISharedTests
             }
             Console.Error.WriteLine($"FAIL: APIShared tests reported {failures} failure(s).");
             return 1;
+        }
+
+        private static void TestUnitHudActivation()
+        {
+            Type type = typeof(UnitHudPresentationService);
+            object service = type.GetConstructors(BindingFlags.Instance | BindingFlags.NonPublic).Single()
+                .Invoke(new object[] { "test", null, null, false });
+            Func<string, object> field = name => type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(service);
+            Action<string, object> set = (name, value) => type.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(service, value);
+            Func<string, IUnitHudPresentationCapability> bind = owner => ((UnitHudPresentationService)service).Bind(owner);
+            var passive = bind("read-only");
+            passive.RequestRefresh();
+            Assert(!(bool)field("pendingPresentation") && !(bool)field("refreshRequested"), "capability lookup and passive refresh do not enable presentation");
+            // Render entry order is checked below against source: standalone CLR cannot JIT Unity ECalls.
+            Assert((UnitHudSurface)field("activeSurfaces") == UnitHudSurface.None && field("recruitmentLease") == null,
+                "passive owner satisfies the render idle guard");
+
+            var a = bind("a"); var b = bind("b");
+            var aa = (IUnitHudActivationCapability)a; var ba = (IUnitHudActivationCapability)b;
+            aa.SetOwnerActive(false);
+            int calls = 0;
+            Assert(a.TryRegisterCategory(new UnitHudCategoryDefinition("lord", "Lord", 55, UnitHudSurface.All), u => { calls++; return true; }, out _), "inactive registration succeeds");
+            Assert((UnitHudSurface)field("activeSurfaces") == UnitHudSurface.None && !(bool)field("pendingPresentation"), "inactive registration does not wake HUD");
+            a.RequestRefresh();
+            Assert(!(bool)field("refreshRequested") && a.GetSelectedCategories().Count == 0 && calls == 0, "inactive refresh and queries perform no classification");
+            aa.SetOwnerActive(true);
+            Assert(((UnitHudSurface)field("activeSurfaces") & UnitHudSurface.ArmyReport) != 0 &&
+                ((UnitHudSurface)field("activeSurfaces") & UnitHudSurface.Recruitment) == 0, "All category does not enable recruitment without handler");
+            Assert(b.TryRegisterCategory(new UnitHudCategoryDefinition("archer", "Archer", 22, UnitHudSurface.TroopSelection | UnitHudSurface.Recruitment), u => false, out _), "legacy registrations remain active");
+            Assert(b.TryRegisterRecruitment("archer", ticket => true, out _), "recruitment attaches to owner category");
+            Assert((bool)field("activeRecruitmentHandlers"), "active handler enables recruitment");
+            aa.SetOwnerActive(false);
+            Assert(((UnitHudSurface)field("activeSurfaces") & UnitHudSurface.ArmyReport) == 0 && (bool)field("activeRecruitmentHandlers"), "disabling one owner preserves another");
+            Assert(!aa.SetCategoryActive("archer", false) && ba.SetCategoryActive("archer", false), "activation is owner-bound");
+            Assert(!(bool)field("activeRecruitmentHandlers") && (UnitHudSurface)field("activeSurfaces") == UnitHudSurface.None, "category disable also disables recruitment");
+            Assert((UnitHudSurface)field("restoreSurfaces") != UnitHudSurface.None && (bool)field("pendingPresentation"), "last disable retains restoration work");
+            Assert(ba.SetCategoryActive("archer", true) && (bool)field("activeRecruitmentHandlers"), "category reactivation works without re-registration");
+            ba.SetOwnerActive(false);
+            var image = bind("image");
+            Assert(image.TryRegisterImageOverride(new UnitHudImageOverrideDefinition("skin", UnitHudImageSlot.UIBuildingsO011), ctx => null, out _), "image-only registration succeeds");
+            Assert((bool)field("activeImages") && (UnitHudSurface)field("activeSurfaces") == UnitHudSurface.None, "image-only owner enables no unit surfaces");
+            // Simulate completed restoration/refresh; the image hook will wake only for real sprite changes.
+            set("pendingPresentation", false); set("refreshRequested", false);
+            Assert((UnitHudSurface)field("activeSurfaces") == UnitHudSurface.None && field("recruitmentLease") == null,
+                "image-only owner satisfies the render idle guard after refresh");
+            Assert(((IUnitHudActivationCapability)image).SetImageOverrideActive("skin", false) && !(bool)field("activeImages"), "individual image override disables");
+            Assert((bool)field("restoreImages"), "image disable requests Vanilla restoration");
         }
 
         private static void TestCompiledPatternSearch()
@@ -388,6 +441,8 @@ namespace APISharedTests
             string castleProject = File.ReadAllText(Path.Combine(workspace, "CastlePlanner", "CastlePlanner.csproj"));
             string customPlugin = File.ReadAllText(Path.Combine(workspace, "ExtendedData", "src", "ExtendedDataPlugin.cs"));
             string customProject = File.ReadAllText(Path.Combine(workspace, "ExtendedData", "ExtendedData.csproj"));
+            string extremePlugin = File.ReadAllText(Path.Combine(workspace, "ExtremePowers", "src", "ExtremePowersPlugin.cs"));
+            string extremeProject = File.ReadAllText(Path.Combine(workspace, "ExtremePowers", "ExtremePowers.csproj"));
             string releaseConfig = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "release-projects.json"));
             string releaseScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "Release-Mod.ps1"));
             string nexusScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "NexusRelease.Common.ps1"));
@@ -435,14 +490,19 @@ namespace APISharedTests
                 Count(unitHud, "populateGroupsOriginal(panel)") == 1 &&
                 Count(unitHud, "gameActionOriginal(command, value1, value2, value3)") == 1 &&
                 Count(unitHud, "updateSpritesOriginal(self, colour, arabic)") == 1 &&
-                Count(unitHud, "updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") == 1,
-                "central HUD sprite handling retains one hook trampoline call plus one explicit refresh call");
+                Count(unitHud, "updateSpritesOriginal(main, lastSpriteColour, lastSpriteArabic)") == 2,
+                "central HUD sprite handling retains the hook, explicit refresh and activation-restoration paths");
             int beforeRenderStart = unitHud.IndexOf("private void OnBeforeRender()", StringComparison.Ordinal);
             int applyFrameStart = unitHud.IndexOf("private void TryApplyFrameArea(", StringComparison.Ordinal);
             string beforeRenderMethod = beforeRenderStart >= 0 && applyFrameStart > beforeRenderStart
                 ? unitHud.Substring(beforeRenderStart, applyFrameStart - beforeRenderStart)
                 : string.Empty;
-            int selectionRefreshStart = beforeRenderMethod.IndexOf("if (refresh || troopSelectionChanged)", StringComparison.Ordinal);
+            int idleGuard = beforeRenderMethod.IndexOf("if (activeSurfaces == UnitHudSurface.None && !pendingPresentation && !refreshRequested && recruitmentLease == null) return;", StringComparison.Ordinal);
+            Assert(idleGuard >= 0 && idleGuard < beforeRenderMethod.IndexOf("Time.frameCount", StringComparison.Ordinal),
+                "idle guard returns before Unity access");
+            Assert(beforeRenderMethod.IndexOf("ExpireRecruitment();", StringComparison.Ordinal) < beforeRenderMethod.IndexOf("MainViewModel.viewModelLoaded", StringComparison.Ordinal),
+                "pending tickets expire even when the HUD is unavailable");
+            int selectionRefreshStart = beforeRenderMethod.IndexOf("if ((refresh && HasCategories(UnitHudSurface.TroopSelection)) || troopSelectionChanged)", StringComparison.Ordinal);
             int explicitRefreshStart = beforeRenderMethod.IndexOf("if (refresh)", selectionRefreshStart + 1, StringComparison.Ordinal);
             string selectionRefreshBlock = selectionRefreshStart >= 0 && explicitRefreshStart > selectionRefreshStart
                 ? beforeRenderMethod.Substring(selectionRefreshStart, explicitRefreshStart - selectionRefreshStart)
@@ -589,7 +649,8 @@ namespace APISharedTests
                 unitHud.Contains("UnitHudImageSlot.UIButtonsO018") &&
                 Enum.GetValues(typeof(UnitHudImageSlot)).Length == 7,
                 "typed image-override allowlist is incomplete");
-            Assert(unitHud.Contains("target.OpacityMask = source == null ? null : new ImageBrush(source)") &&
+            Assert(unitHud.Contains("cache.Mask = source == null ? null : new ImageBrush(source)") &&
+                unitHud.Contains("ConditionalWeakTable<Border, TintCache>") &&
                 unitHud.Contains(": (float)tint.Alpha / byte.MaxValue") &&
                 unitHud.Contains("troopPanel?.FindName(\"ArchersSelected\")") &&
                 unitHud.Contains("source ?? main?.UIButtonsK023") &&
@@ -652,26 +713,32 @@ namespace APISharedTests
                 .Select(Path.GetFileNameWithoutExtension)
                 .OrderBy(name => name, StringComparer.Ordinal)
                 .ToArray();
-            Assert(lobbyObserverProjects.SequenceEqual(new[]
+            string[] knownLobbyObserverProjects =
                 {
                     "BugfixesAndQoL",
                     "CastlePlanner",
-                    "ExtendedData"
-                }),
-                "only the three real per-player consumers may enable the APIShared lobby bridge");
+                    "ExtendedData",
+                    "ExtremePowers"
+                };
+            Assert(knownLobbyObserverProjects.All(name => lobbyObserverProjects.Contains(name, StringComparer.Ordinal)),
+                "all known per-player consumers must enable the APIShared lobby bridge; additional consumers are permitted");
             Assert(bugfixProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
                 bugfixProject.Contains("<Reference Include=\"APIShared\">") && bugfixProject.Contains("<Private>false</Private>") &&
                 castleProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
                 castleProject.Contains("<Reference Include=\"APIShared\">") && castleProject.Contains("<Private>false</Private>") &&
                 customProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
                 customProject.Contains("<Reference Include=\"APIShared\">") && customProject.Contains("<Private>false</Private>") &&
+                extremeProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
+                extremeProject.Contains("<Reference Include=\"APIShared\">") && extremeProject.Contains("<Private>false</Private>") &&
                 castlePlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]" ) &&
-                customPlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]"),
-                "exactly the three active preset consumers must compile against and hard-depend on APIShared");
+                customPlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]" ) &&
+                extremePlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]"),
+                "all known active preset consumers must compile against and hard-depend on APIShared");
             Assert(releaseConfig.Contains("\"ActiveAIVDetector\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"BugfixesAndQoL\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"CastlePlanner\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"ExtendedData\": \"0.3.6\"") &&
+                releaseConfig.Contains("\"ExtremePowers\": \"0.3.6\"") &&
                 releaseConfig.Contains("\"ExtraFeatures\": \"0.3.6\""),
                 "release inventory must declare each consumer's actual APIShared minimum");
             Assert(releaseScript.Contains("Profile = 'Thin'") &&
@@ -803,6 +870,7 @@ namespace APISharedTests
                 "APIShared.IGatehouseDistanceOriginCapability",
                 "APIShared.IGatehouseTimingCapability",
                 "APIShared.IUnitHudPresentationCapability",
+                "APIShared.IUnitHudActivationCapability",
                 "APIShared.IAivBuildStepCapability",
                 "APIShared.ILobbyStateCapability",
                 "APIShared.LobbyStateSnapshot",

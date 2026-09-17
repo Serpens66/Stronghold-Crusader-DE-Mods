@@ -27,6 +27,12 @@ namespace BugfixesAndQoL
 
         internal IUnitHudPresentationCapability Capability { get; private set; }
 
+        internal void RefreshSetting()
+        {
+            (Capability as IUnitHudActivationCapability)?.SetOwnerActive(settings.EnableMod && settings.EnableLordUnitControls);
+            Capability?.RequestRefresh();
+        }
+
         private void Register(IApiShared api)
         {
             if (!api.TryGetUnitHudPresentation(BugfixesAndQoLPlugin.PluginGuid, out IUnitHudPresentationCapability capability, out NativeCapabilityDiagnostic diagnostic))
@@ -40,6 +46,7 @@ namespace BugfixesAndQoL
                 (int)eChimps.CHIMP_TYPE_LORD,
                 UnitHudSurface.All,
                 ResolveLordIcon);
+            ((IUnitHudActivationCapability)capability).SetOwnerActive(false);
             if (!capability.TryRegisterCategory(definition, IsControlledLord, out diagnostic) ||
                 !capability.TryRegisterInteraction("lord-middle-click", OnInteraction, out diagnostic))
             {
@@ -47,7 +54,7 @@ namespace BugfixesAndQoL
                 return;
             }
             Capability = capability;
-            capability.RequestRefresh();
+            RefreshSetting();
             Shared.DebugLogHelper.LogInfo(log, "Controlled Lord registered with APIShared unit-HUD presentation.");
         }
 

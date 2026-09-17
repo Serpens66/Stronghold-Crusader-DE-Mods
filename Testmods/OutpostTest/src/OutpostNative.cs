@@ -18,7 +18,9 @@ namespace OutpostTest
         private readonly ulong image;
         private readonly ManualLogSource log;
         private IntPtr flags;
-        private HookTransaction hooks;
+        private HookTransaction hooks, selectionHooks;
+        private readonly HookHandle<X64InlineHook> selectionGate=new HookHandle<X64InlineHook>();
+        internal bool SelectionAvailable { get; private set; }
         private readonly HookHandle<X64InlineHook> gate = new HookHandle<X64InlineHook>();
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AllocateDelegate(IntPtr manager, int owner);
@@ -30,7 +32,7 @@ namespace OutpostTest
         private delegate void PlayerMoveDelegate(IntPtr manager,int tribe,int x,int y,int patrol,int flags);
         private readonly PlayerMoveDelegate playerMove;
         internal bool Enabled { get => flags != IntPtr.Zero && Marshal.ReadInt32(flags) != 0;
-            set { if (flags != IntPtr.Zero) Marshal.WriteInt32(flags, value ? 1 : 0); } }
+            set { if (flags != IntPtr.Zero) { Marshal.WriteInt32(flags, value ? 1 : 0); Marshal.WriteInt32(flags,4,value && SelectionAvailable ? 1 : 0); } } }
         internal long Bypasses => Marshal.ReadInt64(flags, 8);
 
         internal OutpostNative(ManualLogSource log, CrusaderLibraryLoadContext context)
@@ -67,12 +69,36 @@ namespace OutpostTest
                 Shared.DebugLogHelper.LogInfo(log, "OutpostTest gate installed inactive: RVA=0xABC78 length=16 return=0xABC88 exit=0xACDDB; native layouts validated.");
             }
             catch { RollbackUnpublishedInitialization(); throw; }
+            // Independent optional feature. A failed unpublished selection transaction rolls back
+            // without disabling the already validated production gate.
+            try {
+                Resolve(context,OutpostSelectionGate.Rva,"83 3D 28 BD 5D 03 01 0F 85 EC FD FF FF BB 2D 00 00 00 E9 D0 04 00 00","selection gate");
+                OutpostSelectionGate.Validate(context.Memory.Slice(0x89F40,0x8A75B-0x89F40).ToArray(),new[] {
+                    context.Memory.Slice(0x8A75C,16).ToArray(),context.Memory.Slice(0x8A7D8,36).ToArray(),
+                    context.Memory.Slice(0x8A7FC,8).ToArray(),context.Memory.Slice(0x8A86C,432).ToArray()},image);
+                using(var probe=new X64InlineHook(image+OutpostSelectionGate.Rva,OutpostSelectionGate.Length))
+                    if(probe.DisplacedByteCount!=OutpostSelectionGate.Length) throw new InvalidOperationException("Selection backend span differs.");
+                selectionHooks=new HookTransaction(context.Region,SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                    new HookTransactionOptions { FailureMode=TransactionFailureMode.RollbackAndThrow, OwnsHooks=true });
+                selectionHooks.AddInline(selectionGate,HookTarget.FromAddress(image+OutpostSelectionGate.Rva),
+                    (a,original,back)=>OutpostSelectionGate.Generate(a,original,back,unchecked((ulong)flags.ToInt64())+4,image+OutpostSelectionGate.RejectRva),
+                    hookSize:OutpostSelectionGate.Length);
+                var result=selectionHooks.Commit();
+                if(!result.IsCompleteSuccess || !selectionGate.Success || selectionGate.Hook.DisplacedByteCount!=18)
+                    throw new InvalidOperationException("Selection hook transaction incomplete.");
+                SelectionAvailable=true;
+                Shared.DebugLogHelper.LogInfo(log,"OutpostTest selection gate ready: RVA=0x8A1F9 span=18 return=0x8A20B; native owner checks retained, panel=45.");
+            } catch(Exception ex) {
+                selectionHooks?.Dispose();selectionHooks=null;
+                Shared.DebugLogHelper.LogError(log,"OutpostTest selection/rally disabled; production independent: "+ex);
+            }
         }
 
         // Only for an unpublished initialization candidate, never mission cleanup.
         internal void RollbackUnpublishedInitialization()
         {
             Enabled = false;
+            selectionHooks?.Dispose(); selectionHooks=null;
             hooks?.Dispose(); hooks = null;
             if (flags != IntPtr.Zero) { Marshal.FreeHGlobal(flags); flags = IntPtr.Zero; }
         }

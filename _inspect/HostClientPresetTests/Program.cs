@@ -1155,6 +1155,62 @@ internal static class Program
             APIShared.MissionLifecycleService.Snapshot = captured;
             Check(GameModeHelper.Capture().Kind == item.Item5, "Consumer did not read the central snapshot");
         }
+        var incompleteCustomGameData = new EngineInterface.LoadMapReturnData
+        {
+            game_type = (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
+            skirmishGameType = -1,
+            skirmishTrail = -1,
+            coopTrailID = 0
+        };
+        GameplayModActivationProfile extraFeaturesProfile =
+            GameplayModModePolicy.GetProfile("ExtraFeatures_Serp", "Extra Features");
+        GameplayModActivationProfile buildingCostsProfile =
+            GameplayModModePolicy.GetProfile("BuildingCosts_Serp", "Building Costs");
+        GameplayFeatureActivationProfile lordHealthProfile =
+            GameplayFeatureModePolicy.GetProfile("ExtraFeatures_Serp", GameplayFeatureId.LordHealthMultipliers);
+        foreach (bool multiplayer in new[] { false, true })
+        {
+            GameModeSnapshot incompleteCustomGame = GameModeHelper.CaptureMission(
+                multiplayer, false, 0, -1, false, incompleteCustomGameData, GameModeKind.CustomGame);
+            Check(incompleteCustomGame.Kind == GameModeKind.CustomGame &&
+                  GameplayModModePolicy.IsAllowed(extraFeaturesProfile, incompleteCustomGame, out _) &&
+                  GameplayModModePolicy.IsAllowed(buildingCostsProfile, incompleteCustomGame, out _) &&
+                  GameplayFeatureModePolicy.IsAllowed(lordHealthProfile, incompleteCustomGame, out _),
+                $"NativeLoaded lost the authoritative {(multiplayer ? "multiplayer" : "local")} CustomGame intent");
+        }
+        GameModeSnapshot unknownIntent = GameModeHelper.CaptureMission(
+            true, false, 0, -1, false, incompleteCustomGameData, GameModeKind.Unknown);
+        Check(unknownIntent.Kind == GameModeKind.Unknown &&
+              !GameplayModModePolicy.IsAllowed(extraFeaturesProfile, unknownIntent, out _),
+            "Incomplete native mode evidence with no managed intent did not fail closed");
+        GameModeSnapshot concreteCampaign = GameModeHelper.CaptureMission(
+            true, false, 0, -1, false,
+            new EngineInterface.LoadMapReturnData
+            {
+                game_type = (int)Enums.eGameTypeModes.GAMETYPE_CAMPAIGN,
+                skirmishGameType = -1,
+                skirmishTrail = -1,
+                coopTrailID = 0
+            },
+            GameModeKind.CustomGame);
+        Check(concreteCampaign.Kind == GameModeKind.Campaign,
+            "Managed intent overrode concrete native campaign evidence");
+        GameModeSnapshot concreteCoop = GameModeHelper.CaptureMission(
+            true, false, 0, -1, false,
+            new EngineInterface.LoadMapReturnData
+            {
+                game_type = (int)Enums.eGameTypeModes.GAMETYPE_MULTIPLAYER,
+                skirmishGameType = -1,
+                skirmishTrail = -1,
+                coopTrailID = 2
+            },
+            GameModeKind.CustomGame);
+        Check(concreteCoop.Kind == GameModeKind.CoopTrail,
+            "Managed CustomGame intent overrode concrete native Coop evidence");
+        GameModeSnapshot incompleteCustomTrail = GameModeHelper.CaptureMission(
+            false, false, 0, -1, false, incompleteCustomGameData, GameModeKind.CustomTrail);
+        Check(incompleteCustomTrail.Kind == GameModeKind.CustomTrail,
+            "Incomplete native mode evidence lost the authoritative CustomTrail intent");
         var editor = CaptureModeFixture(editor: true);
         Check(editor.Kind == GameModeKind.MapEditor, "Explicit editor evidence was lost");
         for (int coop = 1; coop <= 4; coop++)

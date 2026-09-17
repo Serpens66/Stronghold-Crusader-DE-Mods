@@ -142,15 +142,27 @@ internal static class Program
     {
         string modRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", ".."));
         string apiRoot = Path.Combine(modRoot, "api");
-        string[] forbidden = { "ExtremePowers.Settings", "ExtremePowers.Demo", "SerpLocalization", "Shared.", ".xaml", "Locales" };
+        string[] forbidden = { "ExtremePowers.Settings", "ExtremePowers.Demo", "SerpLocalization", ".xaml", "Locales" };
         foreach (string file in Directory.GetFiles(apiRoot, "*.cs", SearchOption.AllDirectories))
         {
             string text = File.ReadAllText(file); Check(!forbidden.Any(text.Contains), "architecture " + file);
         }
         string project = File.ReadAllText(Path.Combine(modRoot, "ExtremePowers.API.csproj"));
-        Check(!project.Contains("Include=\"src\\") && !project.Contains("Include=\"Locales\\") && !project.Contains("Include=\"Override\\") && !project.Contains("Include=\"Patches\\") && !project.Contains("Include=\"..\\Shared\\"), "extractable API project inputs");
+        string pluginProject = File.ReadAllText(Path.Combine(modRoot, "ExtremePowers.csproj"));
+        string pluginSource = File.ReadAllText(Path.Combine(modRoot, "src", "ExtremePowersPlugin.cs"));
+        string sharedPresetSystem = File.ReadAllText(Path.Combine(modRoot, "..", "Shared", "PresetLobbyModSettingsViewModel.cs"));
+        Check(!project.Contains("Include=\"src\\") && !project.Contains("Include=\"Locales\\") && !project.Contains("Include=\"Override\\") && !project.Contains("Include=\"Patches\\"), "extractable API project inputs");
+        string[] allowedSharedApiSources = { "..\\Shared\\DebugLogHelper.cs", "..\\Shared\\GameplaySessionLifecycle.cs" };
         foreach (string line in project.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Where(value => value.Contains("<Compile Include=")))
-            Check(line.Contains("Include=\"api\\"), "all API compile inputs live below api/");
+            Check(line.Contains("Include=\"api\\") || allowedSharedApiSources.Any(path => line.Contains("Include=\"" + path + "\"")), "API compile inputs are API sources or approved lifecycle links");
+        Check(allowedSharedApiSources.All(path => project.Contains("Include=\"" + path + "\"")), "API project contains the complete approved lifecycle source set");
+        Check(project.Contains("<Reference Include=\"APIShared\"><HintPath>$(ApiSharedDir)\\APIShared.dll</HintPath><Private>false</Private></Reference>"), "extractable API uses the process-wide APIShared assembly without a private copy");
+        Check(pluginProject.Contains("<DefineConstants>$(DefineConstants);API_SHARED_LOBBY_OBSERVER</DefineConstants>"), "plugin enables the APIShared lobby observer bridge in every configuration");
+        Check(pluginProject.Contains("<Reference Include=\"APIShared\"><HintPath>$(ApiSharedDir)\\APIShared.dll</HintPath><Private>false</Private></Reference>"), "plugin references APIShared without copying a private DLL");
+        Check(pluginSource.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]"), "plugin has a hard APIShared 0.3.6 dependency");
+        Check(sharedPresetSystem.Contains("TryGetLobbyState") && sharedPresetSystem.Contains("TryRegisterObserver") && !sharedPresetSystem.Contains("Application.onBeforeRender"), "per-player settings use the shared lobby observer without a local render poller");
+        Check(sharedPresetSystem.IndexOf("TryRegisterObserver", StringComparison.Ordinal) < sharedPresetSystem.IndexOf("Shared per-player lobby convergence activated", StringComparison.Ordinal), "activation is logged only after observer registration");
+        Check(sharedPresetSystem.Contains("Shared per-player lobby convergence activation failed"), "observer registration failures are logged before propagation");
         string integrationAdapter = Path.GetFullPath(Path.Combine(modRoot, "src", "Integration", "LocalExtremePowersApiClient.cs"));
         foreach (string file in Directory.GetFiles(Path.Combine(modRoot, "src"), "*.cs", SearchOption.AllDirectories).Where(value => File.ReadAllText(value).Contains("ExtremePowers.API")))
             Check(string.Equals(Path.GetFullPath(file), integrationAdapter, StringComparison.OrdinalIgnoreCase), "API types are isolated to the replaceable adapter: " + file);

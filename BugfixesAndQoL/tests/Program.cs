@@ -66,6 +66,7 @@ namespace BugfixesAndQoL
             TestPlacementCancelMoveSuppressionIntegration();
             TestSpriteAnimationGroup26Contract();
             TestMapFileManagerContract();
+            TestMultiplayerLobbyReturnIntegration();
             TestClassicMapSizeReader();
             TestLobbyMapSelectionMemory();
             TestNativePatternSearch();
@@ -1372,6 +1373,40 @@ namespace BugfixesAndQoL
                     !method.IsStatic &&
                     method.ReturnType == typeof(FileHeader),
                 "MapFileManager exposes the public GetFileInfoFromFileName hook contract");
+
+            MethodInfo exactMultiplayerHeader = typeof(MapFileManager).GetMethod(
+                nameof(MapFileManager.GetHeaderFromFileNameMP),
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new[] { typeof(string), typeof(int) },
+                null);
+            MethodInfo populateMapList = typeof(FRONT_Multiplayer).GetMethod(
+                "populateMapList",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(FileHeader), typeof(bool) },
+                null);
+
+            Check(
+                exactMultiplayerHeader?.ReturnType == typeof(FileHeader) &&
+                    populateMapList?.ReturnType == typeof(void),
+                "post-game lobby map restoration targets retain their installed Vanilla contracts");
+        }
+
+        private static void TestMultiplayerLobbyReturnIntegration()
+        {
+            string source = File.ReadAllText(Path.Combine(
+                "src", "MultiplayerLobbyReturnFeature.cs"));
+
+            Check(
+                source.Contains("LobbySnapshot transitionSnapshot = snapshot;") &&
+                    source.Contains("bool transitionAsHost = transitionHostLobby != null && transitionHostLobby.isHost;") &&
+                    source.Contains("OpenHostLobby(multiplayer, transitionHostLobby, transitionSnapshot);") &&
+                    source.Contains("RestoreHostMapPresentation(front, transitionSnapshot);") &&
+                    source.Contains("RestoreHostMapPresentation(\r\n            FRONT_Multiplayer front,\r\n            LobbySnapshot transitionSnapshot)") &&
+                    source.Contains("if (transitionSnapshot == null)") &&
+                    !source.Contains("RestoreHostMapPresentation(FRONT_Multiplayer front)"),
+                "post-game host transition preserves map metadata and role across the synchronous mission-end reset");
         }
 
         private static void TestCoopCustomLordSelectionPolicy()

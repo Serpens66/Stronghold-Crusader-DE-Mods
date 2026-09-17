@@ -266,6 +266,7 @@ namespace SkinTest
                     UnitHudImageSlot.UIButtonsO017,
                     UnitHudImageSlot.UIButtonsO018
                 };
+                ((IUnitHudActivationCapability)capability).SetOwnerActive(false);
                 bool complete = true;
                 foreach (UnitHudImageSlot slot in slots)
                 {
@@ -281,6 +282,7 @@ namespace SkinTest
                     }
                 }
                 troopHudCapability = capability;
+                ((IUnitHudActivationCapability)capability).SetOwnerActive(activeMap);
                 if (activeMap)
                     troopHudCapability.RequestRefresh();
                 LogInfo(complete
@@ -853,6 +855,7 @@ namespace SkinTest
         private void OnMapStarted()
         {
             activeMap = true;
+            (troopHudCapability as IUnitHudActivationCapability)?.SetOwnerActive(true);
             troopHudCapability?.RequestRefresh();
             ApplyTowerHud();
         }
@@ -959,6 +962,7 @@ namespace SkinTest
         private void ClearBindings()
         {
             activeMap = false;
+            (troopHudCapability as IUnitHudActivationCapability)?.SetOwnerActive(false);
             troopHudCapability?.RequestRefresh();
             RestoreTowerHud();
             unitByRenderer.Clear();

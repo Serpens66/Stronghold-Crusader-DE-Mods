@@ -84,6 +84,7 @@ namespace VirtualUnitsPrototype
                 ApiShared.WhenReady(RegisterUnitHudPresentation);
                 GameTimeManagerAPI.Instance.OnTick += OnSimulationTick;
                 lock (sync) initialized = true;
+                (unitHudPresentation as IUnitHudActivationCapability)?.SetOwnerActive(true);
                 Shared.DebugLogHelper.LogInfo(log, $"Runtime initialized; unitDefinitions={unitDefinitions.Count}, buildingDefinitions={buildingDefinitions.Count}, definitions sealed.");
             }
             catch (Exception ex)
@@ -270,6 +271,7 @@ namespace VirtualUnitsPrototype
                 new UnitHudTint(64, 128, byte.MaxValue, 115),
                 0,
                 new UnitHudTextProfile("Desert Archer", "DA", "A tougher variant of the European archer.", ResolveDesertArcherText));
+            ((IUnitHudActivationCapability)capability).SetOwnerActive(false);
             if (!capability.TryRegisterCategory(category, snapshot =>
             {
                 if (!TryGetValidatedUnit(snapshot.GameId, out VirtualEntityInstance instance, out VirtualUnitDefinition definition))
@@ -288,6 +290,7 @@ namespace VirtualUnitsPrototype
                 return;
             }
             unitHudPresentation = capability;
+            ((IUnitHudActivationCapability)capability).SetOwnerActive(initialized);
             capability.RequestRefresh();
             Shared.DebugLogHelper.LogInfo(log, "Desert Archer registered with APIShared unit-HUD presentation.");
         }

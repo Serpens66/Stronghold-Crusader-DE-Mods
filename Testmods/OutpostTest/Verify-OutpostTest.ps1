@@ -4,7 +4,7 @@ $files += Get-Item -LiteralPath (Join-Path $PSScriptRoot 'OutpostTest.csproj')
 $shared = Join-Path $PSScriptRoot '..\..\Shared'
 $files += Get-Item -LiteralPath (Join-Path $shared 'DebugLogHelper.cs'), (Join-Path $shared 'NativePatternResolver.cs')
 if ($files | Select-String -Pattern 'System\.Text\.Json|Newtonsoft\.Json|JavaScriptSerializer|System\.Web\.Extensions|DataContractJsonSerializer|JsonUtility') { throw 'Forbidden runtime JSON dependency.' }
-if ($files | Select-String -Pattern '\b(OnDestroy|OnDisable|OnApplicationQuit)\s*\(') { throw 'Forbidden runtime lifecycle teardown.' }
+if ($files | Select-String -Pattern '\b(OnDestroy|OnDisable|OnApplicationQuit|Update|LateUpdate|FixedUpdate|StartCoroutine)\s*\(') { throw 'Forbidden runtime lifecycle teardown.' }
 $textFiles = @(Get-ChildItem -LiteralPath $PSScriptRoot -Recurse -File | Where-Object {
     $_.Extension -in @('.cs','.csproj','.ps1','.bat','.md','.json') -and $_.FullName -notmatch '\\(obj|bin|BepInEx)\\'
 })
@@ -20,3 +20,10 @@ $plugin = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\OutpostTestPlugin
 if ($plugin -notmatch 'new OutpostRuntime' -or $plugin -match 'VanillaObserver') { throw 'Incorrect runtime entry point.' }
 if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'src\VanillaObserver.cs')) { throw 'Vanilla diagnosis was not removed.' }
 Write-Output 'Incremental production entry-point check passed.'
+
+$runtime = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\OutpostRuntime.cs'))
+if ($runtime -match 'AcceptInput|PresentRally|CalcMapTileFromMousePos') { throw 'Unity presentation/input leaked into simulation runtime.' }
+$view = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\OutpostRallyView.cs'))
+$present = $view.Substring($view.IndexOf('internal void Present('), $view.IndexOf('private void EnsureFlag()') - $view.IndexOf('internal void Present('))
+if ($present -match 'Input\.|GetBuildings|GetUnits|\.ToArray|\.ToList|new |Log|Camera\.main') { throw 'Expensive or input-dependent presentation path.' }
+Write-Output 'Selection/presentation lifecycle boundary check passed.'

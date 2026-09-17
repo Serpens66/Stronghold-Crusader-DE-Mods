@@ -1,3 +1,12 @@
+## Aktueller Test: normales Outpost-HUD und Rallypoint
+
+- Spiel neu starten. Eigene Outposts aller drei Typen anklicken: Vanilla-HUD mit korrekter Fraktion, Größe, Verzögerung und Profilbuttons muss erscheinen. Diese bisherigen Controls sind vorerst auch im Spiel bedienbar; eigenes Macemen-Profil bleibt fest.
+- Mittelklick auf die Weltkarte setzt genau ein Ziel; gedrückt halten darf das Ziel nicht laufend verschieben. HUD, Minimap und Menüs ignorieren. Fahne nur am ausgewählten eigenen Outpost.
+- Zwischen zwei Outposts und normalen Gebäuden wechseln; keine alte Auswahl übernehmen. Abwahl, Abriss, Besitzerwechsel und Missionswechsel prüfen. Editor und Multiplayer behalten Vanilla.
+- Einheit A erhält Ziel A; nach Versetzen auf B darf erst neu erzeugte Einheit B Ziel B erhalten. Hold, Laufmodus, unerreichbares Ziel, Pause, Rotation, Zoom, Höhen und Save/Load prüfen.
+- Im Log einmal `selection gate ready`, später `rally-render confirmed`, bei ersten Klicks `rally-input`, danach `rally-set`/`rally-move` erwarten. Keine Gebäude-ID-0-Fehler.
+- Leistung: Im ersten Messfenster nach Missionsstart abwechselnd keine Outpost-Auswahl, Outpost ohne Ziel und Outpost mit Fahne jeweils mehrere Sekunden anzeigen. Nach 1860 aktiven Renderframes erscheint einmal `rally-frame-metrics`; je Kategorie sind maximal 300 Stichproben nach 30 Aufwärmbeobachtungen enthalten. Zum Vergleich mit vielen Outposts Spiel neu starten und denselben Ablauf wiederholen. `samples=0` bedeutet nicht gemessen; `allocation counter=unavailable` verlangt einen externen Unity/Mono-Profiler. Bericht enthält Mittelwert, Maximum und insgesamt allokierte Bytes je Kategorie. Keine dauerhafte Messung.
+- Automatische Tests belegen Hook-/Policy-Verträge, keine sichtbare Fahne, Pathfinding-Ankunft oder gemessene Spielperformance. Diese Live-Ergebnisse separat dokumentieren.
 # Aktueller Test: Rallypoints für menschliche Outposts
 
 Eigene Outposts auswählen und auf der Spielkarte mit der mittleren Maustaste klicken. Jeder Outpost hat sein eigenes Ziel. Die gelbe Fahne erscheint nur bei ausgewähltem Outpost. HUD-/Menüklicks und fremde Gebäude werden ausgeschlossen. Während Pause kann das Ziel geändert werden; die Simulation bleibt angehalten. Spiel nach Installation neu starten.

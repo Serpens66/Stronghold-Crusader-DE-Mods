@@ -79,7 +79,9 @@ namespace MainViewModelInitProbe
             var definition = new UnitHudImageOverrideDefinition(
                 "main-view-model-init-probe",
                 UnitHudImageSlot.UIBuildingsO011);
+            ((IUnitHudActivationCapability)capability).SetOwnerActive(false);
             bool registered = capability.TryRegisterImageOverride(definition, ResolveNoOpImage, out diagnostic);
+            ((IUnitHudActivationCapability)capability).SetOwnerActive(registered);
             LogDiagnostic(registered ? "HUD_REGISTRATION_ACCEPTED" : "HUD_REGISTRATION_REJECTED", diagnostic);
             LogSnapshot("AFTER_HUD_REGISTRATION");
         }

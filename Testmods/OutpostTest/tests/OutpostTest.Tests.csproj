@@ -74,8 +74,10 @@
     <Compile Include="Program.cs" />
     <Compile Include="..\src\OutpostRallyState.cs" />
     <Compile Include="RallyTests.cs" />
+    <Compile Include="..\src\OutpostPresentationState.cs" />
     <Compile Include="..\src\OutpostSchedule.cs" />
     <Compile Include="..\src\OutpostGate.cs" />
+    <Compile Include="..\src\OutpostSelectionGate.cs" />
     <Compile Include="..\src\OutpostNative.cs" />
     <Compile Include="..\..\..\Shared\DebugLogHelper.cs" />
     <Compile Include="..\..\..\Shared\NativePatternResolver.cs" />

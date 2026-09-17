@@ -1,0 +1,1289 @@
+BugfixesAndQoL runtime JSON/lifecycle preflight succeeded.
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 17.09.2026 16:10:39 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BugfixesAndQoLNativeTests\BugfixesAndQoLNativeTests.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /nowarn:1701,1702 /fullpaths /nostdlib+ /platform:anycpu32bitpreferred /highentropyva+ /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /out:obj\Release\BugfixesAndQoLNativeTests.exe /subsystemversion:6.00 /target:exe /utf8output /langversion:latest ..\..\Shared\GatehouseQueryUnitIdPolicy.cs ..\..\BugfixesAndQoL\src\MountedStockpileMovementPolicy.cs ..\..\BugfixesAndQoL\src\MarketGoldPolicy.cs ..\..\BugfixesAndQoL\src\HealerAttackCommandFixNativeDefinition.cs ..\..\BugfixesAndQoL\src\ControlGroupDisbandCleanupPolicy.cs ..\..\BugfixesAndQoL\src\ControlGroupNativeDefinition.cs ..\..\BugfixesAndQoL\src\LordControlGroupNativeDefinition.cs Program.cs "obj\Release\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+  CompilerServer: server - server processed compilation - BugfixesAndQoLNativeTests
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BugfixesAndQoLNativeTests\obj\Release\BugfixesAndQoLNativeTests.exe" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BugfixesAndQoLNativeTests\bin\BugfixesAndQoLNativeTests.exe" kopiert.
+  BugfixesAndQoLNativeTests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BugfixesAndQoLNativeTests\bin\BugfixesAndQoLNativeTests.exe
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\_inspect\BugfixesAndQoLNativeTests\BugfixesAndQoLNativeTests.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.14
+PASS: BugfixesAndQoL native tests (1015 assertions, 67 signatures).
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 17.09.2026 16:10:44 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ImprovedMoatFilling.Tests.csproj" auf Knoten "1" (Standardziele).
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+Das Ziel "CoreCompile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+_CopyAppConfigFile:
+Das Ziel "_CopyAppConfigFile" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CopyFilesToOutputDirectory:
+  ImprovedMoatFilling.Tests -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\bin\ImprovedMoatFilling.Tests.exe
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\ImprovedMoatFilling.Tests.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+    0 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.20
+PASS eliminated-player spectator promotion presents Vanilla victory as defeat
+PASS eliminated-player spectator promotion preserves an existing defeat
+PASS spectator promotion preserves running and unknown game-over states
+PASS ordinary victory and initial spectators retain Vanilla presentation
+PASS game-over hook forwards the corrected state once and preserves screen and date
+PASS OST hook corrects only the game-over result and forwards all auxiliary data once
+PASS both presentation boundaries share the one-shot correction diagnostic
+PASS statistics team-badge modes use stable slider values and default to Vanilla icons
+PASS statistics team-badge mode normalization preserves valid values and restores the default
+PASS statistics team-badge preference keeps independent per-player values
+PASS statistics team badges follow Vanilla's standard ranking order
+PASS statistics team badges follow Vanilla's reversed ranking order
+PASS statistics team badges mirror all 16 Vanilla sort-to-ranking mappings
+PASS statistics team badges compact fewer than eight valid participants like Vanilla
+PASS statistics team badges fail closed for invalid ranked player IDs
+PASS statistics team members resolve to the shared Vanilla badge for teams 1 through 4
+PASS statistics solo and invalid team values remain badge-free
+PASS statistics team badges use opaque Vanilla lobby colours and a contrasting number colour
+PASS statistics team-badge styles reject solo and invalid team IDs
+PASS HUD_MissionOver patch adds lower-left Vanilla and Easy Read icons to every row on both pages
+PASS statistics team badges select Vanilla or Easy Read visuals and cache the chosen mode
+PASS statistics team badges use the independent client gate and support Off mode
+PASS team-badge patch leaves Vanilla row backgrounds, visibility, and personal shield bindings unchanged
+PASS statistics team-badge mode is stored and reset as a per-player client preference
+PASS client slider exposes all three modes and previews Team 3 in both icon styles
+PASS Team 3 Vanilla preview resolves at the existing safe ModSettings visual refresh point
+PASS all locales define the statistics team-badge slider and its three values
+PASS Coop custom partner maps SK_X2 to the shared Vanilla progress ID
+PASS Coop custom partner selection is gated to enabled singleplayer Coop
+PASS Coop custom AIV replacement is limited to the active player-2 partner
+PASS Coop portrait scrolling starts with the eighth custom lord
+PASS Coop lord power is appended exactly once
+PASS Coop history marker and delete visibility are display-only and setting-gated
+PASS Coop progress deletion rejects changed or inconsistent rows at confirmation
+PASS six occupied Coop rows show exactly six delete buttons
+PASS all four Coop Trail patches preserve Vanilla portraits, order, hover and DLC visibility while adding custom slots
+PASS Coop hover power and progress deletion preserve Vanilla UI and use Script Extender metadata
+PASS Coop delete buttons do not consume or reroute Vanilla multiplayer commands
+PASS the Custom Lord history marker is not persisted to coop.cfg
+PASS Trail customization keeps provider standalone ownership until the host is attached
+PASS Trail customization rejects an invalid provider identity
+PASS Trail customization rejects an incompatible provider API
+PASS Trail customization accepts the compatible ExtendedData provider
+PASS Trail customization refreshes visibility after attach and provider registration
+PASS active provider owns each Customize transition exactly once
+PASS Trail customization rejects an unexpected competing provider
+PASS active provider rejection remains fail-closed without a second transition
+PASS disabled provider yields to the BugfixesAndQoL standalone fallback
+PASS Trail customization owns idempotent buttons and authenticated provider-aware transitions
+PASS Trail customization exposes the default-enabled host setting
+PASS launch origin is captured before cleanup and conflicting providers fail closed
+PASS placement clearance retains the tunnel-only structure rule
+PASS placement clearance includes ordinary buildings, tunnels and every siege tent
+PASS placement clearance excludes walls, moats, map objects, markers and units
+PASS placement clearance accepts human ordinary, tunnel and siege buildings
+PASS placement clearance preserves disabled, editor, AI and non-building placement
+PASS placement clearance distinguishes Vanilla sentinel modes from positive footprints
+PASS tunnel distance policy scans the complete 16-tile outer ring only
+PASS placement clearance detects hostile tiles on every side and corner
+PASS placement clearance scans the complete outer ring for varied building sizes
+PASS tunnel distance policy ignores ring coordinates outside the map
+PASS wall ownership is converted exactly once from zero-based to game player ID
+PASS own and allied owners remain allowed while enemy owners block
+PASS completed moat ownership preserves the one-based record owner
+PASS completed moat ownership rejects invalid IDs, counts, tile links and owners
+PASS placement clearance uses public placement APIs and the validated moat record contract
+PASS tunnel distance feature only adds a placement rejection
+PASS placement clearance silently ignores non-positive Vanilla validator modes before mismatch diagnostics
+PASS placement clearance silently ignores Nature while retaining diagnostics for other invalid player IDs
+PASS placement clearance has no extra native hook and preserves one-based IDs
+PASS placement clearance is registered persistently and receives hash validation
+PASS tunnel distance fix is an enabled-by-default synchronized host setting
+PASS tunnel distance fix is exposed in the settings UI
+PASS client QoL category uses the neutral Grid search target wrapper
+PASS AIC dropdown pins Default before custom configurations
+PASS AIC dropdown sorts custom configurations by name
+PASS AIC dropdown uses origin and power as deterministic name tie-breakers
+PASS AIC dropdown formats custom power and Default labels
+PASS AIC dropdown search matches names, power, and Default without changing case semantics
+PASS AIC dropdown resolves Default, local, and Workshop icons explicitly
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownHost' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownSelector' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownOpenSurface' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownPopup' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownSearchBox' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownResults' is present
+PASS AIC dropdown exposes searchable, scrollable icon and power rows
+PASS rotation controls use the compact two-row layout
+PASS Save/Load keeps its width and sits ten units left of Clear
+PASS AIC dropdown updates Vanilla state, selection memory, and the legacy list
+PASS AIC dropdown labels have English fallbacks and German translations
+PASS Off is the default mode while the feature remains experimental
+PASS all three public mode values are preserved
+PASS invalid friendly-moat modes fail closed to Off
+PASS friendly-moat slider is ordered Off, Fast, Precise without changing persisted values
+PASS friendly-moat slider maps back to stable modes and fails closed
+PASS integrated native runtime remains process-rooted and is not disposed by plugin teardown
+PASS XAML SetAttribute operations use the audited Script Extender patch contract
+PASS hostile filling remains independent while Off blocks every friendly moat work route
+PASS friendly moat movement is a default-required synchronized host setting
+PASS friendly moat movement exposes the ordered slider adapter and value label
+PASS friendly moat movement uses the standard three-position slider layout
+PASS friendly moat tooltips start with the experimental warning and mention precise-mode group lag
+PASS legacy standalone plugin is explicitly incompatible
+PASS friendly moat selection uses six call-site adapters and removes the unsafe post-call hooks
+PASS selection adapters validate the SE call, exact complete spans, and installed displacement
+PASS selection adapters preserve stack, volatile SIMD state, flags, and relocated instructions
+PASS friendly moat selection preserves full-width nonzero SE results and only lifts rejection
+PASS gatehouse event ID 1 remains game ID 1 and converts to span index 0 only at a direct-span boundary
+PASS gatehouse event accepts the highest valid one-based Unit game ID unchanged
+PASS gatehouse event rejects zero, negative and above-span Unit IDs
+PASS gatehouse source documents and diagnoses the current one-based event contract
+PASS gatehouse source exposes the expected event-handler boundary
+PASS gatehouse handler passes the validated one-based Unit ID unchanged to lookup and pathing
+PASS gatehouse handler applies no obsolete +1 conversion to the event Unit ID
+PASS gatehouse runtime uses Vanilla's building grid and exterior approaches without mutating live pathing state
+PASS gatehouse footprint size 5 yields Vanilla's exact 20 edge candidates in order
+PASS dead or non-drawbridge candidates are skipped and only Vanilla's first two distinct bridges are coupled
+PASS a live foreign-owner drawbridge remains eligible because Vanilla's lookup has no owner filter
+PASS open and raised drawbridge states resolve to the same stable exterior approach without a path record
+PASS rotated drawbridges follow the candidate's outward direction
+PASS out-of-map geometry and exterior PCL zero fail closed
+PASS either of two coupled drawbridge exteriors can establish reachability without unrelated components
+PASS more than two supplied drawbridges fail closed even though discovery selects only two
+PASS drawbridge cache signature changes with Global ID and exterior PCL
+PASS already-closed gates need no remembered open state and cache only within one tick
+PASS managed reference and fixed-table movement kernels have identical golden-matrix results
+PASS fast recruit rally tracks only valid human owners and preserves owner identity
+PASS fast recruit rally omits routine per-unit lifecycle logging
+PASS disabled fast recruit handlers exit before production tribe queries; only the explicitly marked UnitStop diagnostic samples the disabled control run
+PASS tribe synchronization validates one-based IDs and performs one direct array conversion
+PASS movement hotpaths use native inline tables without managed callbacks
+PASS independent native flags bypass disabled kernels and obsolete managed animation queries are removed
+PASS native tables preserve rally identity, interrupted-path state and rally precedence
+PASS temporary rally animation diagnostics are explicitly marked and confined to the cadence and UnitStop owners
+PASS Arab bow rally cadence preserves Vanilla Animation 0x81 and SpeedBonus 1
+PASS native movement hooks validate exact fields and replay Vanilla with preserved flags
+PASS native fastpath offsets match the installed Script Extender GameUnit layout
+PASS fast recruit rally help text documents the human-only behavior
+PASS AI defense patrol detects wall-defense underfill
+PASS AI defense patrol preserves patrol assignment after the wall quota is met
+PASS AI defense patrol handles zero DefWalls and DefTotal
+PASS AI defense patrol handles integer boundary quotas
+PASS AI defense patrol emits signed-jl comparison sentinels
+PASS AI defense patrol runtime uses the owned before-callback hook and its specific setting gates
+PASS AI defense patrol retains Vanilla fallback and explicit ID/index contracts
+PASS AI defense patrol participates in native initialization, setting reconciliation and final disposal
+PASS AI defense patrol host setting defaults and resets to enabled
+PASS AI defense patrol setting is searchable and bound in XAML
+PASS AI stone-reserve runtime uses the mod and specific host setting gates
+PASS AI stone-reserve host setting defaults and resets to enabled
+PASS AI stone-reserve setting is searchable, bound, and localized
+PASS the removed aggregate AI-fixes setting is absent from active sources, XAML, and localization
+PASS AI wall-targeting patch has its specific setting gates, audited states, and rollback
+PASS AI wall-targeting fix participates in initialization, reconciliation, and final disposal
+PASS AI wall-targeting host setting defaults and resets to enabled
+PASS AI wall-targeting setting is searchable and bound in XAML
+PASS AI wall-targeting help text documents shared reachable wall targets
+PASS single-building override store reports the first active override
+PASS single-building override store updates without a second activation transition
+PASS single-building override store adds further entries without reactivation
+PASS single-building override type reset preserves unrelated entries
+PASS single-building override deletion reports the last-entry transition
+PASS single-building override type reset reports the last-entry transition
+PASS single-building override clear removes id and address indexes
+PASS AI resource-shortage policy leaves outputs untouched when the native planner exits early
+PASS AI resource-shortage policy accepts a valid one-based player id
+PASS AI resource-shortage policy clears exactly the 21 audited building sleep requests
+PASS AI resource-shortage policy leaves the neighboring player untouched
+PASS AI resource-shortage policy rejects invalid player ids and null managers
+PASS AI resource-shortage hook runs Vanilla before clearing its sleep outputs
+PASS general sleep synchronization is limited to single-building overrides
+PASS single-building pause keeps its render correction dormant without overrides
+PASS single-building native interception is dormant initially and activates before storing the first override
+PASS AI sleep title and help text describe the intended resource-shortage fix directly
+PASS AI accessibility policy preserves Vanilla mode and accessible results
+PASS AI accessibility policy exempts stables for both inaccessible results
+PASS improved AI accessibility only relaxes result 2 with a proven friendly portal route
+PASS always-prevent remains scoped to living AI buildings and results 0/2
+PASS friendly portal graph follows a third PCL and a multiple-gate chain
+PASS friendly portal graph distinguishes permanent separation and an existing PCL connection
+PASS portal ownership accepts own and allied gates but rejects enemy gates
+PASS portal type policy includes gates and drawbridges but excludes unrelated linkages
+PASS AI accessibility hook replaces the woodcutter counter hook with the audited general sweep decision
+PASS AI accessibility hook uses the audited register and managed-layout contracts
+PASS AI accessibility classifier uses Vanilla entrance/keep PCLs and native three-sided portals only
+PASS resolution-aware zoom leaves sub-1080p scale unchanged
+PASS resolution-aware zoom uses 1080p as its reference
+PASS resolution-aware zoom scales 1440p proportionally
+PASS resolution-aware zoom doubles the effective 4K scale
+PASS 4K normal zoom matches the 1080p world height
+PASS resolution normalization preserves visible vertical world size
+PASS the retained distant position preserves world height between 1080p and 4K
+PASS retained far zoom limits tile-area growth to about 2x instead of 4x
+PASS 1080p and 4K expose identical zoom positions for every Vanilla map size
+PASS standard maps keep the distant 1080p zoom positions at 4K
+PASS normalized policy retains Vanilla's small-map limits
+PASS normalized policy retains Vanilla's horizontal ultrawide limit
+PASS sub-1080p resolutions retain their unscaled Vanilla policy
+PASS extended far zoom only relaxes maps allowed by Vanilla's extra-zoom policy
+PASS whole steps, disabled feature and editor restore their Vanilla minimum positions
+PASS extra-zoom steps reach but do not pass the retained distant position
+PASS whole-step zoom retains Vanilla's far limit and normalizes a live half step
+PASS cyclic zoom wraps between both extended limits
+PASS Vanilla-limited maps do not receive the additional distant positions
+PASS extra zoom reaches the added 1.5x and 2x close positions
+PASS whole-step zoom reaches the extended maximum directly
+PASS locked cyclic zoom wraps to Vanilla's resolution-limited minimum
+PASS editor minimum and unlocked-camera limits retain Vanilla behavior
+PASS resolution-aware zoom hook is rooted for the process lifetime
+PASS zoom hook is fail-closed and dynamically setting-gated
+PASS resolution-aware zoom reflection targets match the installed Vanilla managed contract
+PASS resolution-aware zoom is tested against installed Script Extender 2.6.0
+PASS resolution-aware zoom is a default-on per-player setting
+PASS resolution-aware zoom setting is exposed in searchable client UI
+PASS resolution-aware zoom localization exists in ar.txt
+PASS resolution-aware zoom localization exists in cs-CZ.txt
+PASS resolution-aware zoom localization exists in de-DE.txt
+PASS resolution-aware zoom localization exists in el-GR.txt
+PASS resolution-aware zoom localization exists in en-US.txt
+PASS resolution-aware zoom localization exists in es-ES.txt
+PASS resolution-aware zoom localization exists in fr-FR.txt
+PASS resolution-aware zoom localization exists in hu-HU.txt
+PASS resolution-aware zoom localization exists in it-IT.txt
+PASS resolution-aware zoom localization exists in ja-JP.txt
+PASS resolution-aware zoom localization exists in ko-KR.txt
+PASS resolution-aware zoom localization exists in nl-NL.txt
+PASS resolution-aware zoom localization exists in pl-PL.txt
+PASS resolution-aware zoom localization exists in pt-BR.txt
+PASS resolution-aware zoom localization exists in ru-RU.txt
+PASS resolution-aware zoom localization exists in sv-SE.txt
+PASS resolution-aware zoom localization exists in th-TH.txt
+PASS resolution-aware zoom localization exists in tr-TR.txt
+PASS resolution-aware zoom localization exists in uk-UA.txt
+PASS resolution-aware zoom localization exists in zh-CN.txt
+PASS resolution-aware zoom localization exists in zh-HK.txt
+PASS active visible queued video notification arms complete skip
+PASS disabled, idle, videoless, hidden, stopped, and briefing video notifications remain untouched
+PASS active videoless notification arms complete skip from the minimap
+PASS disabled, idle, video, and briefing notifications do not arm minimap skip
+PASS single right-click event on an armed notification surface completes it
+PASS unarmed, left-click, and non-single-click events do not complete notifications
+PASS notification audio loads are matched by portable case-insensitive filename
+PASS message-bar OST state fields retain their managed types
+PASS message-bar lookup and visibility contracts remain writable
+PASS production near-call resolver reads rel32 after E8 and uses the five-byte return address
+PASS production near-call resolver rejects wrong opcodes and truncated calls
+PASS notification right-click closes video, stops only channel 1, hides only the message bar, and marks queue state
+PASS complete notification skip uses only notification-surface right-click UI events and no polling or HUD hook
+PASS left-click exits in the static behavior before feature inspection and paused channel 1 stops
+PASS video and videoless minimap clicks are classified separately, including a transparent RadarME overlay, and only matching notification audio is stopped
+PASS audio and native hook failures have distinct context and share fail-closed publication
+PASS central single-message finalizer is called only from the validated native update callback
+PASS notification requests remain identity-bound while routine click logs and diagnostic-only state are omitted
+PASS superseded channel-1 loads cannot replay skipped notification audio
+PASS notification hooks are process-lifetime rooted with initialization-only rollback
+PASS notification feature is retained by the process-lifetime runtime
+PASS notification completion does not interfere with Script Extender or fixes-mod message suppression at enqueue time
+PASS complete notification skip is a default-on per-player preference
+PASS complete notification skip is exposed in searchable client UI
+PASS MainHUD patch targets only RadarME and RadarMapImage with both click behaviors
+PASS current canonical MainHUD contains exactly one RadarME target for the patch XPath
+PASS current canonical MainHUD contains exactly one RadarMapImage target for the patch XPath
+PASS complete notification skip localization exists in ar.txt
+PASS complete notification skip localization exists in cs-CZ.txt
+PASS complete notification skip localization exists in de-DE.txt
+PASS complete notification skip localization exists in el-GR.txt
+PASS complete notification skip localization exists in en-US.txt
+PASS complete notification skip localization exists in es-ES.txt
+PASS complete notification skip localization exists in fr-FR.txt
+PASS complete notification skip localization exists in hu-HU.txt
+PASS complete notification skip localization exists in it-IT.txt
+PASS complete notification skip localization exists in ja-JP.txt
+PASS complete notification skip localization exists in ko-KR.txt
+PASS complete notification skip localization exists in nl-NL.txt
+PASS complete notification skip localization exists in pl-PL.txt
+PASS complete notification skip localization exists in pt-BR.txt
+PASS complete notification skip localization exists in ru-RU.txt
+PASS complete notification skip localization exists in sv-SE.txt
+PASS complete notification skip localization exists in th-TH.txt
+PASS complete notification skip localization exists in tr-TR.txt
+PASS complete notification skip localization exists in uk-UA.txt
+PASS complete notification skip localization exists in zh-CN.txt
+PASS complete notification skip localization exists in zh-HK.txt
+PASS installed Vanilla RadarME exposes the Noesis mouse-event contract used by the behavior
+PASS installed Vanilla channel-1 reflection contract matches the notification feature
+PASS ally goods confirm remains visible for a valid send selection
+PASS disabled client features or ally amount setting preserve Vanilla visibility
+PASS ally goods requests preserve Vanilla visibility
+PASS invalid goods or non-positive amounts do not expose ally goods confirm
+PASS only ally goods result zero succeeds and positive results reject
+PASS ally goods confirmation submits exactly one Vanilla action and preserves the open panel and selection on success
+PASS rejected ally goods sends warn, remain open and are never retried
+PASS ally goods visibility extends Vanilla UpdateGoods without polling
+PASS ally request confirmation remains owned by Vanilla
+PASS ally goods setting refresh updates bindings without touching the MainViewModel factory or polling
+PASS ally goods hook is process-rooted and never torn down normally
+PASS minimap input attaches movement and release events only for a captured gesture
+PASS minimap gesture callbacks are dynamically armed and fail-safe detached
+PASS minimap improvements install no frame, render, or held-input polling callback
+PASS minimap input logs only its one-shot unexpected failure diagnostic
+PASS minimap events preserve placement clicks, cursor following, and Vanilla action exclusions
+PASS minimap gesture normalization preserves active video and clears held movement
+PASS stale radar overlay replacement is sender-independent and forwards exactly the swallowed click
+PASS active videos exit before replacement and the Vanilla stroke is cleared before forwarding
+PASS runtime and project use only the event-driven minimap implementation
+PASS installed Vanilla radar image exposes the required Noesis gesture contract
+PASS installed Vanilla minimap delay and drag fields retain their managed contracts
+PASS DE right-click placement cancellation is not forwarded to the engine
+PASS ordinary and non-building right-clicks retain Vanilla forwarding
+PASS SH1 controls retain Vanilla placement-cancel forwarding
+PASS disabled mod, client features, or local option retain Vanilla forwarding
+PASS DE placement cancellation suppresses Down and exactly one matching Up
+PASS a later ordinary Down replaces a stale placement-cancel Up marker
+PASS disabled placement suppression forwards the complete right-click gesture
+PASS placement cancellation replaces both unique Vanilla right-click gesture IL blocks before engine input
+PASS placement-cancel suppression has no MoveHere, selection, frame-detour, held-key, engine-run, or tick callback
+PASS placement-cancel classification fails open and invokes Vanilla cleanup exactly once
+PASS placement-cancel suppression logs only its once-guarded fail-open classification error
+PASS placement-cancel runtime is process-rooted and never torn down normally
+PASS placement-cancel IL implementation and dependencies are compiled into the runtime project
+PASS placement-cancel suppression is an enabled-by-default per-player client setting
+PASS placement-cancel handling no longer patches individual MoveHere consumers
+PASS installed Assembly-CSharp contains exactly one expected right-click Down and Up IL block
+PASS all locales contain placement-cancel setting labels and help text
+PASS SE 2.6 sprite-animation group keeps the audited GameUnit offset
+PASS SE 2.6 sprite-animation group reads and writes the installed layout
+PASS native movement fastpath uses the audited SE 2.6 sprite-animation group offset
+PASS MapFileManager exposes the public GetFileInfoFromFileName hook contract
+PASS classic map size reader supports directory tag 2036
+PASS classic map size reader supports directory tag 3036
+PASS classic map size reader supports directory tag 4036
+PASS classic map size policy changes only missing enabled classic map metadata
+PASS classic map size reader rejects a missing map-size section
+PASS classic map size reader rejects a compressed map-size section
+PASS classic map size reader rejects a wrongly sized map-size section
+PASS classic map size reader rejects a map-size offset outside the payload
+PASS classic map size reader rejects a zero map size
+PASS classic map size reader rejects a map size above the engine maximum
+PASS classic map size reader rejects a truncated payload
+PASS Brother's Strife exposes its HD map size through section 1050
+PASS lobby map memory is gated by the existing enhancement setting
+PASS lobby map memory accepts sort column 0
+PASS lobby map memory accepts sort column 1
+PASS lobby map memory accepts sort column 2
+PASS lobby map memory accepts sort column 3
+PASS lobby map memory accepts sort column 4
+PASS lobby map memory accepts sort column 5
+PASS lobby map memory accepts sort column 10
+PASS lobby map memory accepts sort column 11
+PASS lobby map memory accepts sort column 12
+PASS lobby map memory accepts sort column 13
+PASS lobby map memory accepts sort column 14
+PASS lobby map memory accepts sort column 15
+PASS lobby map memory accepts sort column 16
+PASS lobby map memory rejects unsupported sort columns
+PASS lobby map memory grants map authority only to local modes and multiplayer hosts
+PASS lobby map memory prefers the exact origin and path match
+PASS lobby map memory rejects an ambiguous origin and name fallback
+PASS lobby map memory accepts one unambiguous origin and name fallback
+PASS lobby map memory JSON roundtrip preserves map and special player sort mode
+PASS lobby map memory rejects invalid persisted sort data
+PASS lobby map memory rejects unknown schemas and non-integral schema values
+PASS lobby map memory store persists state atomically across instances
+PASS lobby map memory store ignores malformed data
+PASS lobby map memory store ignores oversized data
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS canonical native DLL exists
+PASS canonical native SHA-256 matches the audited baseline
+PASS shared native SHA-256 matches the AI defense patrol baseline
+PASS AI defense patrol GameUnit layout, unique signature, instruction span, branches and call targets
+PASS AI resource-shortage sleep planner signature, calls, and 21 output stores
+PASS notification DLL_RunTick update, single finalizer, presentation start, and manager offsets match the audited contract
+PASS selector entry bytes
+PASS resolver entry bytes
+PASS movement planner entry bytes
+PASS movement low-flag gate bytes
+PASS movement structure-flag gate bytes
+PASS cursor fallback call 1 still targets the SE-owned selector
+PASS cursor fallback result hook 1 exact displaced bytes
+PASS cursor fallback result hook 1 instruction boundaries
+PASS cursor fallback call 2 still targets the SE-owned selector
+PASS cursor fallback result hook 2 exact displaced bytes
+PASS cursor fallback result hook 2 instruction boundaries
+PASS cursor fallback call 3 still targets the SE-owned selector
+PASS cursor fallback result hook 3 exact displaced bytes
+PASS cursor fallback result hook 3 instruction boundaries
+PASS cursor fallback call 4 still targets the SE-owned selector
+PASS cursor fallback result hook 4 exact displaced bytes
+PASS cursor fallback result hook 4 instruction boundaries
+PASS cursor fallback call 5 still targets the SE-owned selector
+PASS cursor fallback result hook 5 exact displaced bytes
+PASS cursor fallback result hook 5 instruction boundaries
+PASS cursor fallback call 6 still targets the SE-owned selector
+PASS cursor fallback result hook 6 exact displaced bytes
+PASS cursor fallback result hook 6 instruction boundaries
+PASS primary move rejection branch
+PASS building attack rejection branch
+PASS alternative attack rejection branch
+PASS wall attack rejection branch
+PASS approach scan acceptance branch
+PASS AI wall-targeting context is unique at the audited RVA
+PASS AI wall reservation rejection branch bytes
+PASS AI wall approach-tile validation remains separate and intact
+PASS general AI accessibility sweep entry bytes
+PASS general AI accessibility decision exact 15-byte hook span
+PASS general AI sweep calls the audited building accessibility classifier immediately before the hook
+PASS AI accessibility managed building and player-resource offsets match the native contract
+PASS dispatcher contains initial and follow-up moat-work call chain
+BugfixesAndQoL policy and native-contract tests passed.
+Extended Shift command queue static tests passed: 9232 checks.
+ASSASSIN SEARCH MODEL units=900 dijkstraExpanded=4134441 astarExpanded=589409 dijkstraMs=2719,42 astarMs=451,84
+PASS: 13871 Assassin A*/Dijkstra assertions.
+PASS installed metadata: Assembly-CSharp / global EngineInterface / selectedChimps static int[] (Private, Static).
+PASS: detailed movement and ladder diagnostics are disabled for production logging.
+PASS: unsigned 16-bit path regions and local-human deferred Fast scopes.
+PASS: integrated ownership, RedBird references, selection, atomic commits and rollbacks.
+SOURCE WARNING CS1701: 92 occurrences; warning CS1701: Es wird angenommen, dass der von "BepInEx" verwendete Assemblyverweis "mscorlib, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" mit "mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" von "mscorlib" übereinstimmt. Möglicherweise müssen Sie eine Laufzeitrichtlinie bereitstellen.
+SOURCE WARNING CS1702: 8 occurrences; warning CS1702: Es wird angenommen, dass der von "RedBird.X64" verwendete Assemblyverweis "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.10, Culture=neutral, PublicKeyToken=adb9793829ddae60" mit "Microsoft.Extensions.Logging.Abstractions, Version=10.0.0.11, Culture=neutral, PublicKeyToken=adb9793829ddae60" von "Microsoft.Extensions.Logging.Abstractions" übereinstimmt. Möglicherweise müssen Sie eine Laufzeitrichtlinie bereitstellen.
+PASS: installed Script Extender 2.6.0 assembly API surface matches all runtime sources.
+PASS: complete runtime semantic source check against Script Extender 2.6.0; no mod assembly emitted.
+PASS: movement mode and default-enabled ladder attack host setting, reset, XAML, runtime gate, and locales.
+PASS: installed RedBird decode-only candidate displaces exactly 14 bytes; no hook installed.
+PASS: installed RedBird Fast entry spans 14/22/15 bytes; decode-only, no hooks installed.
+PASS: installed RedBird selection spans 17/14/17/18/15/14 bytes; no hooks installed.
+PASS: all three production movement emitters assembled and fully decoded.
+Unhandled exception. System.Exception: (573,13): error CS0246: Der Typ- oder Namespacename "BuildingFallbackWorkBuffers" wurde nicht gefunden (möglicherweise fehlt eine using-Direktive oder ein Assemblyverweis).
+(573,48): error CS0103: Der Name "RentBuildingFallbackWorkBuffers" ist im aktuellen Kontext nicht vorhanden.
+(717,17): error CS0103: Der Name "ReturnBuildingFallbackWorkBuffers" ist im aktuellen Kontext nicht vorhanden.
+   at Program.<Main>$(String[] args) in D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\tests\FriendlyMoatMovement.Tests\Program.cs:line 148
+MSBuild-Version 17.11.9+a69bbaaf5 für .NET Framework
+Der Buildvorgang wurde am 17.09.2026 16:10:58 gestartet.
+
+Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj" auf Knoten "1" (Standardziele).
+PrepareForBuild:
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\" wird erstellt.
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277: Es wurden Konflikte zwischen verschiedenen Versionen von "Mono.Cecil" gefunden, die nicht aufgelöst werden konnten. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277: Konflikt zwischen Mono.Cecil, Version=0.10.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e und Mono.Cecil, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:     Mono.Cecil, Version=0.10.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e wurde aufgrund der primären Eigenschaft Mono.Cecil, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e vorgezogen. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:     Verweise, die von "Mono.Cecil, Version=0.10.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e" abhängig sind [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll]. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             Mono.Cecil [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:     Verweise, die von „Mono.Cecil, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e“ [] abhängen oder damit vereint wurden. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             BepInEx [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.RuntimeDetour.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.RuntimeDetour.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             MonoMod.RuntimeDetour [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             BepInEx [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.Utils.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.Utils.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             MonoMod.Utils [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             BepInEx [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             MonoMod.RuntimeDetour [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             SHCDESE [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\0Harmony.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\0Harmony.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             BepInEx [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+GenerateTargetFrameworkMonikerAttribute:
+Das Ziel "GenerateTargetFrameworkMonikerAttribute" wird übersprungen, da alle Ausgabedateien hinsichtlich der Eingabedateien aktuell sind.
+CoreCompile:
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe /noconfig /unsafe+ /nowarn:1701,1702 /fullpaths /nostdlib+ /warn:4 /define:API_SHARED_LOBBY_OBSERVER /highentropyva+ /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\APIShared_Serp\APIShared.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Iced.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\MessagePack.Annotations.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\MessagePack.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Microsoft.Extensions.Logging.Abstractions.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.RuntimeDetour.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.Utils.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\mscorlib.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Abstractions.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.Core.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\RedBird.X64.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Core.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\System.Memory.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Xml.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\System.Xml.Linq.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AudioModule.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.GridModule.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.InputLegacyModule.dll" /reference:"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.TilemapModule.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\Microsoft.Win32.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\netstandard.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.AppContext.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.Concurrent.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.NonGeneric.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Collections.Specialized.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.Annotations.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.EventBasedAsync.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ComponentModel.TypeConverter.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Console.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Data.Common.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Contracts.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Debug.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.FileVersionInfo.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Process.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.StackTrace.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.TextWriterTraceListener.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.Tools.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Diagnostics.TraceSource.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Drawing.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Dynamic.Runtime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.Calendars.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Globalization.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.Compression.ZipFile.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.DriveInfo.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.FileSystem.Watcher.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.IsolatedStorage.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.MemoryMappedFiles.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.Pipes.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.IO.UnmanagedMemoryStream.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Expressions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Parallel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Linq.Queryable.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Http.Rtc.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.NameResolution.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.NetworkInformation.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Ping.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Requests.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Security.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.Sockets.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebHeaderCollection.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebSockets.Client.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Net.WebSockets.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ObjectModel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.ILGeneration.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Emit.Lightweight.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Reflection.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.Reader.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.ResourceManager.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Resources.Writer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.CompilerServices.VisualC.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Handles.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.RuntimeInformation.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.InteropServices.WindowsRuntime.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Numerics.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Formatters.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Json.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Runtime.Serialization.Xml.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Claims.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Algorithms.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Csp.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Encoding.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Cryptography.X509Certificates.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.Principal.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Security.SecureString.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Duplex.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Http.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.NetTcp.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Primitives.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ServiceModel.Security.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.Encoding.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.Encoding.Extensions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Text.RegularExpressions.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Overlapped.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Tasks.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Tasks.Parallel.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Thread.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.ThreadPool.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Threading.Timer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.ValueTuple.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.ReaderWriter.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XDocument.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XmlDocument.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XmlSerializer.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XPath.dll" /reference:"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.8.1\Facades\System.Xml.XPath.XDocument.dll" /debug+ /debug:portable /out:obj\Debug\BugfixesAndQoL.dll /subsystemversion:6.00 /target:library /utf8output /langversion:latest ..\Shared\DependencyFreeJson.cs ..\Shared\CrashBreadcrumbDiagnostics.cs ..\Shared\CrashBreadcrumbRecorder.cs ..\Shared\DebugLogHelper.cs ..\Shared\NativePatternResolver.cs ..\Shared\SerpLocalization.cs src\AiAivSelectionCodec.cs src\AIBuildingTemporaryAccessClassifier.cs src\AIEconomyProtectionHook.cs src\AIResourceShortageSleepNativeDefinition.cs src\AIResourceShortageSleepPolicy.cs src\AbruptHostMigrationFix.cs src\AbruptHostMigrationPolicy.cs src\AivCandidateStatusApi.cs src\AivCandidateSelectionPolicy.cs src\AivAicPresetStore.cs src\AivSelectionListViewModel.cs src\AicDropdownPolicy.cs src\AiCastleSettingsListEnhancementHook.cs src\AiDefensePatrolFix.cs src\AiDefensePatrolNativeDefinition.cs src\AiDefensePatrolPolicy.cs src\AiStoneReserveFix.cs src\AiStoneReserveNativeDefinition.cs src\AiStoneReservePolicy.cs src\AiWallTargetingFix.cs src\AivDefenderPositionFix.cs src\AITowerRuinRepairFix.cs src\BetterAIOverbuildPolicy.cs src\BetterAIOverbuildConflictState.cs src\BetterAIOverbuildRulesFix.cs src\AllyGoodsAmountModifierHook.cs src\AllyGoodsTransferPolicy.cs src\AssassinClimbCancellationPolicy.cs src\AssassinClimbCancellationRuntime.cs src\AssassinAStarPolicy.cs src\AssassinClimbCostPolicy.cs src\AssassinClimbRuntime.cs src\AssassinClimbStatePacket.cs src\AssassinClimbTransitionPolicy.cs src\AssassinCombatResumeNativeDefinition.cs src\AssassinCombatResumePolicy.cs src\AssassinCombatResumeRuntime.cs src\AssassinPathReconstructionNativeDefinition.cs src\AssassinPathReconstructionPatch.cs src\AssassinPathfindingRuntime.cs src\BugfixesAndQoLRuntime.CtrlMarketTrade.cs src\BugfixesAndQoLRuntime.MovedFeatures.cs src\BugfixesAndQoLChoreSender.cs src\BugfixesHookInfrastructure.cs src\CtrlMarketTradeHook.cs src\GameSpeedRepeatScheduler.cs src\FastRecruitMovementBridge.cs src\FastRecruitRallyMovementModLog.cs src\FastRecruitRallyMovementRuntime.cs src\FastMoatBridge.cs src\MarketTradeIntegration.cs src\MarketGoldPolicy.cs src\MultiplayerFeatureGate.cs src\MultiplayerAivSyncPacket.cs src\MultiplayerAivSyncPolicy.cs src\MultiplayerAivSyncProtocol.cs src\MultiplayerAivSyncRuntime.cs src\MultiplayerGameSpeedChangePacket.cs src\MultiplayerGameSpeedPolicy.cs src\MultiplayerGameSpeedRuntime.cs src\MultiplayerTimeControlPermission.cs src\MultiplayerLobbyReturnFeature.cs src\MultiplayerLobbyReturnPolicy.cs src\AssemblyPointPlacementPatch.cs src\HealerAttackCommandFixNativeDefinition.cs src\HealerAttackCommandPatch.cs src\MountedStockpileMovementPatch.cs src\MountedStockpileMovementPolicy.cs src\AutoTradeSellZeroHook.cs src\CameraMovementModifierHook.cs src\ResolutionAwareZoomHook.cs src\ResolutionAwareZoomPolicy.cs src\ClassicMapSizeReader.cs src\ControlGroupDisbandCleanupPolicy.cs src\ControlGroupDisbandCleanupRuntime.cs src\ControlGroupNativeDefinition.cs src\CoopCustomLordSelectionFeature.cs src\CoopCustomLordSelectionPolicy.cs src\CustomLordLobbyUtility.cs src\CustomTrailExtremeGoldFixHook.cs src\CustomLordListEnhancementHook.cs src\DisplayResolutionPersistenceHook.cs src\DisplayResolutionFocusState.cs src\BugfixesAndQoLPlugin.cs src\Properties\AssemblyInfo.cs src\BugfixesAndQoLRuntime.cs src\BugfixesAndQoLViewModel.cs src\AssassinSelectionAdapters.cs src\CursorConnectivity.cs src\CursorRegionGraph.cs src\DirectMoatCommandScopes.cs src\FillWeightedRoutes.cs src\FriendlyMoatMovementPolicy.cs src\FriendlyMoatMovementRuntime.cs src\FriendlyMoatMovementRuntime.LadderAttackFix.cs src\MoatPlacement.cs src\MoatPlacementSearch.cs src\MoatSearchKernel.cs src\MoatWorkTargetSelection.cs src\MovementOptionsSnapshot.cs src\MovementPathPublication.cs src\MovementSearchContext.cs src\MoveFormationSpacingPolicy.cs src\MoveFormationDragGesture.cs src\MoveFormationPreviewPlanner.cs src\MoveFormationDragRuntime.cs src\NativeFormationSlots.cs src\NativeMovementCadenceResolver.cs src\NativeMovementRecovery.cs src\NotificationQueueNativeContract.cs src\NotificationSkipBehavior.cs src\NotificationSkipFeature.cs src\NotificationSkipPolicy.cs src\UnitMovementContext.cs src\WeightedMoatPublication.cs src\WeightedMoatRoutePlanner.cs src\EnemyProximityBulldozeCursorHook.cs src\ExtendedShiftCommandQueueModel.cs src\ExtendedShiftCommandQueueRuntime.cs src\LargeMoveTargetOverflowModel.cs src\LargeMoveTargetMarkerRuntime.cs src\LargeMoveTargetMarkerRenderer.cs src\HdMarketViewHook.cs src\MarketKeyMainTradeMenuHook.cs src\MarketGoodOrderItemViewModel.cs src\MarketGoodsOrderDefinition.cs src\MapOriginSortHook.cs src\MapOriginSortPolicy.cs src\LobbyMapSelectionMemory.cs src\VanillaMapEditorHook.cs src\VanillaMapEditorPolicy.cs src\MinimapInputFeature.cs src\LocalPerPlayerSetting.cs src\LordUnitControlsFeature.cs src\LordUnitHudRegistration.cs src\GatehouseDistanceOriginRegistration.cs src\LordControlGroupNativeDefinition.cs src\LordControlGroupNativePatch.cs src\LordUnitControlsPolicy.cs src\MovementCadenceIntegration.cs src\PlaguePopularityFix.cs src\PlagueTreatmentFadeFix.cs src\PlagueTargetReservationFix.cs src\PlagueApothecaryStateTransitionFix.cs src\PlagueNativePatternValidator.cs src\PlaguePopularitySaveState.cs src\PlacementCancelMoveSuppressionFeature.cs src\PlacementCancelRightClickPolicy.cs src\RandomOpponentLobbyPolicy.cs src\QuarryPileVanillaGroupPolicy.cs src\QuarryPileRelocationPacket.cs src\QuarryPileRelocationRuntime.cs src\QuarryPileTargetSelectionPolicy.cs src\ReachableEnemyGatehouseRuntime.cs src\SynchronizedGatehouseReachabilityPolicy.cs src\ResyncHostKickFeature.cs src\ResyncHostKickPolicy.cs src\SelectedUnitHealthFeature.cs src\SelectedUnitHealthSummary.cs src\SiegeAmmoRestockFeature.cs src\SiegeAmmoRestockPacket.cs src\SiegeAmmoRestockPolicy.cs src\SkirmishAiSelectionMemoryHook.cs src\SteamLobbyInvitePrompt.cs src\SteamLobbyInvitePolicy.cs src\SteamInviteBlacklistStore.cs src\StartupDiagnosticPolicy.cs src\SingleBuildingPauseHook.cs src\SingleBuildingPauseOverrideStore.cs src\SingleBuildingPausePacket.cs src\ShiftRepairAllBuildingsHook.cs src\ShiftRepairAllBuildingsPolicy.cs src\SurrenderFeature.cs src\SurrenderPackets.cs src\SurrenderPolicy.cs src\TroopMovementFix3ModLog.cs src\TroopMovementFix3Runtime.cs src\TroopMovementFix3SpearmanMovementPatch.cs src\TroopMovementFix3SynchronizedMovementCadencePatch.cs src\TemporaryGateBlockagePolicy.cs src\TroopHudMiddleClickCameraFeature.cs src\TrailCustomizationFeature.cs src\TrailCustomizationLaunchOriginApi.cs src\TrailCustomizationPacket.cs src\TrailCustomizationProviderHostApi.cs src\TunnelPlacementDistanceFeature.cs src\TunnelPlacementDistancePolicy.cs ..\Shared\GameModeHelper.cs ..\Shared\GameplaySessionLifecycle.cs ..\Shared\GatehouseQueryUnitIdPolicy.cs ..\Shared\PresetLobbyModSettingsViewModel.cs ..\Shared\ModSettingsSearch.cs ..\Shared\ToolTipPresentation.cs ..\Shared\TroopActionButtonLayout.cs ..\Shared\TroopActionButtonLayoutPolicy.cs "obj\Debug\.NETFramework,Version=v4.8.1.AssemblyAttributes.cs"
+  CompilerServer: server - server processed compilation - BugfixesAndQoL
+_CopyOutOfDateSourceItemsToOutputDirectory:
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\de-DE.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\de-DE.txt" kopiert.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\es-ES.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\es-ES.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\el-GR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\el-GR.txt" kopiert.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Locales" wird erstellt.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\cs-CZ.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\cs-CZ.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\ar.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\ar.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\en-US.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\en-US.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\fr-FR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\fr-FR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\hu-HU.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\hu-HU.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\ja-JP.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\ja-JP.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\it-IT.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\it-IT.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\nl-NL.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\nl-NL.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\ko-KR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\ko-KR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\pl-PL.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\pl-PL.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\pt-BR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\pt-BR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\ru-RU.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\ru-RU.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\tr-TR.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\tr-TR.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\sv-SE.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\sv-SE.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\th-TH.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\th-TH.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\uk-UA.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\uk-UA.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\zh-CN.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\zh-CN.txt" kopiert.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Locales\zh-HK.txt" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Locales\zh-HK.txt" kopiert.
+  Das Verzeichnis "BepInEx\plugins\BugfixesAndQoL_Serp\Patches\Assets\GUI\XAMLResources" wird erstellt.
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\Patches\Assets\GUI\XAMLResources\HUD_Buildings.xaml" kopiert.
+CopyFilesToOutputDirectory:
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\obj\Debug\BugfixesAndQoL.dll" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll" kopiert.
+  BugfixesAndQoL -> D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.dll
+  Die Datei wird von "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\obj\Debug\BugfixesAndQoL.pdb" in "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BepInEx\plugins\BugfixesAndQoL_Serp\BugfixesAndQoL.pdb" kopiert.
+Die Erstellung von Projekt "D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj" ist abgeschlossen (Standardziele).
+
+Der Buildvorgang wurde erfolgreich ausgeführt.
+
+"D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj" (Standardziel) (1) ->
+(ResolveAssemblyReferences Ziel) -> 
+  C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277: Es wurden Konflikte zwischen verschiedenen Versionen von "Mono.Cecil" gefunden, die nicht aufgelöst werden konnten. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277: Konflikt zwischen Mono.Cecil, Version=0.10.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e und Mono.Cecil, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:     Mono.Cecil, Version=0.10.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e wurde aufgrund der primären Eigenschaft Mono.Cecil, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e vorgezogen. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:     Verweise, die von "Mono.Cecil, Version=0.10.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e" abhängig sind [E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll]. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\Mono.Cecil.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             Mono.Cecil [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:     Verweise, die von „Mono.Cecil, Version=0.11.4.0, Culture=neutral, PublicKeyToken=50cebf1cceb9d05e“ [] abhängen oder damit vereint wurden. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             BepInEx [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.RuntimeDetour.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.RuntimeDetour.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             MonoMod.RuntimeDetour [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             BepInEx [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.Utils.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\MonoMod.Utils.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             MonoMod.Utils [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             BepInEx [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             MonoMod.RuntimeDetour [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             SHCDESE [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:         E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\0Harmony.dll [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:           Elementincludes einer Projektdatei, die den Verweis "E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\0Harmony.dll" verursacht haben. [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             BepInEx [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Microsoft.Common.CurrentVersion.targets(2412,5): warning MSB3277:             APIShared [D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\BugfixesAndQoL\BugfixesAndQoL.csproj]
+
+    1 Warnung(en)
+    0 Fehler
+
+Verstrichene Zeit 00:00:00.86
+Lokaler Buildnachweis: D:\CDesktopLink\Unterlagen\Mods\Stronghold Crusader DE\Meine Mods\.release-output\local\BugfixesAndQoL\latest.provenance.json
+Build und Installation von Bugfixes and QoL erfolgreich.

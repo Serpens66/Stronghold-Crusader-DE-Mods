@@ -87,7 +87,56 @@ namespace OutpostTest
             bool rejected = false;
             try { OutpostNative.ValidateControlFlow(body, 0x180000000); } catch (InvalidOperationException) { rejected = true; }
             Check(rejected, "incoming branch regression");
+            SelectionTests(dll);
             ExecuteGate();
+        }
+        private static void SelectionTests(byte[] dll)
+        {
+            Check(ReadRva(dll,OutpostSelectionGate.Rva,18).SequenceEqual(OutpostSelectionGate.Bytes),"selection span bytes");
+            byte[] code=ReadRva(dll,0x89F40,0x8A75B-0x89F40);
+            byte[][] tables={ReadRva(dll,0x8A75C,16),ReadRva(dll,0x8A7D8,36),ReadRva(dll,0x8A7FC,8),ReadRva(dll,0x8A86C,432)};
+            OutpostSelectionGate.Validate(code,tables,0x180000000);count++;
+            foreach(int type in new[]{2,106,107}) Check(BitConverter.ToUInt32(tables[3],(type-1)*4)==OutpostSelectionGate.Rva,"all outpost switch entries");
+            // The earlier owner/editor path stays unchanged; foreign owners cannot enter our gate in gameplay.
+            Check(ReadRva(dll,0x8A051,9).SequenceEqual(new byte[]{0x83,0x3D,0xD0,0xBE,0x5D,0x03,1,0x75,0x98}),"foreign owner editor guard preserved");
+            byte[] invalid=(byte[])code.Clone();invalid[0]=0xE9;
+            Array.Copy(BitConverter.GetBytes(OutpostSelectionGate.Rva+1-0x89F45),0,invalid,1,4);
+            bool rejected=false;try { OutpostSelectionGate.Validate(invalid,tables,0x180000000); } catch(InvalidOperationException){rejected=true;}
+            Check(rejected,"selection rejects external interior branch");
+            var badTables=(byte[][])tables.Clone();badTables[3]=(byte[])tables[3].Clone();
+            Array.Copy(BitConverter.GetBytes(OutpostSelectionGate.Rva+1),0,badTables[3],4,4);
+            rejected=false;try { OutpostSelectionGate.Validate(code,badTables,0x180000000); } catch(InvalidOperationException){rejected=true;}
+            Check(rejected,"selection rejects interior table destination");
+            var state=new OutpostPresentationState();
+            Check(state.EnterFrame(4) && !state.EnterFrame(4) && state.EnterFrame(5),"single render per frame");
+            Check(state.Click(4,true) && !state.Click(4,true) && !state.Click(5,false) && state.Click(6,true),"physical click edge only");
+            Check(!state.Visibility(false) && state.Visibility(true) && !state.Visibility(true) && state.Visibility(false) && !state.Visibility(false),"visibility writes on transitions only");
+            Check(state.Position(1,2,3) && !state.Position(1,2,3) && state.Position(1,4,3),"position writes on change only");
+            state.ForgetPosition();Check(state.Position(1,4,3),"mission projection reset");
+            Check(OutpostPresentationState.Selection(16,45,19,19),"normal outpost building selection");
+            Check(!OutpostPresentationState.Selection(16,45,0,0) && !OutpostPresentationState.Selection(14,45,19,19) &&
+                !OutpostPresentationState.Selection(16,1,19,19) && !OutpostPresentationState.Selection(16,45,19,20),"reject zero stale or wrong panel selection");
+            IntPtr memory=VirtualAlloc(IntPtr.Zero,(UIntPtr)4096,0x3000,0x40);
+            if(memory==IntPtr.Zero)throw new Exception("Selection VirtualAlloc failed");
+            try {
+                ulong b=unchecked((ulong)memory.ToInt64());
+                Marshal.Copy(OutpostSelectionGate.Bytes,0,(IntPtr)(b+0x200),18);
+                using(var probe=new X64InlineHook(b+0x200,18)) Check(probe.DisplacedByteCount==18,"installed selection backend span");
+                var decoder=Decoder.Create(64,new ByteArrayCodeReader(OutpostSelectionGate.Bytes),b+0x200);
+                var original=new[]{decoder.Decode(),decoder.Decode(),decoder.Decode()};
+                original[0].MemoryDisplacement64=b+0xE20;original[1].NearBranch64=b+0x600;
+                var entry=new Assembler(64);entry.push(rbx);entry.mov(rax,0x12345UL);entry.AddUnrestrictedJmp(b+0x800);Emit(entry,b);
+                var back=new Assembler(64);var bad=back.CreateLabel();back.cmp(rax,0x12345);back.jne(bad);back.mov(eax,ebx);back.pop(rbx);back.ret();
+                back.Label(ref bad);back.mov(eax,98);back.pop(rbx);back.ret();Emit(back,b+0x212);
+                var reject=new Assembler(64);reject.mov(eax,99);reject.pop(rbx);reject.ret();Emit(reject,b+0x600);
+                var generator=new Assembler(64);OutpostSelectionGate.Generate(generator,original,b+0x212,b+0xE00,b+0x600);Emit(generator,b+0x800);
+                if(!FlushInstructionCache(GetCurrentProcess(),memory,(UIntPtr)4096))throw new Exception("Selection flush failed");
+                var run=Marshal.GetDelegateForFunctionPointer<Probe>(memory);
+                foreach(int enabled in new[]{0,1}) foreach(int mode in new[]{0,1,2,3,4,6}) {
+                    Marshal.WriteInt32((IntPtr)(b+0xE00),enabled);Marshal.WriteInt32((IntPtr)(b+0xE20),mode);
+                    Check(run(0,0)==(enabled==1 || mode==1?45:99),"selection executable gate mode="+mode+" enabled="+enabled);
+                }
+            } finally { VirtualFree(memory,UIntPtr.Zero,0x8000); }
         }
         private static byte[] ReadRva(byte[] file, int rva, int size)
         {

@@ -93,11 +93,6 @@ namespace Shared
 #endif
                 active = true;
                 RequestPublish();
-                DebugLogHelper.LogInfo(
-                    log,
-                    $"[{modName}] Shared per-player lobby convergence activated: " +
-                    $"settings=[{string.Join(",", contract.Settings.Select(item => item.Property.Name))}], " +
-                    $"required=[{string.Join(",", contract.Settings.Where(item => item.IsReportRequired).Select(item => item.Property.Name))}].");
 #if !SHARED_PRESET_TESTS
 #if API_SHARED_LOBBY_OBSERVER
                 IApiShared api = ApiShared.Current;
@@ -124,10 +119,18 @@ namespace Shared
                     "Per-player lobby settings require the APIShared lobby-state bridge.");
 #endif
 #endif
+                DebugLogHelper.LogInfo(
+                    log,
+                    $"[{modName}] Shared per-player lobby convergence activated: " +
+                    $"settings=[{string.Join(",", contract.Settings.Select(item => item.Property.Name))}], " +
+                    $"required=[{string.Join(",", contract.Settings.Where(item => item.IsReportRequired).Select(item => item.Property.Name))}].");
             }
-            catch
+            catch (Exception ex)
             {
                 Deactivate();
+                DebugLogHelper.LogError(
+                    log,
+                    $"[{modName}] Shared per-player lobby convergence activation failed: {ex}");
                 throw;
             }
         }

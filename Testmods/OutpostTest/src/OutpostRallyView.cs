@@ -5,73 +5,74 @@ using UnityEngine;
 
 namespace OutpostTest
 {
-    // All input is event-driven; LateUpdate only resolves queued input and presents the marker.
+    // Input is event-driven. Rendering only maintains one non-interactive world marker.
     internal sealed class OutpostRallyView
     {
         private readonly OutpostRuntime runtime;
+        private readonly OutpostPresentationState state=new OutpostPresentationState();
         private GameObject flag;
+        private Transform flagTransform;
         private Mesh mesh;
         private Material material;
-        private Click pending;
-        private int lastInputFrame=-1;
-        private sealed class Click
-        {
-            internal int Id,Owner,Type,Frame;
-            internal uint Global;
-            internal Vector3 Screen;
-        }
+        private GameMap map;
+        private MainControls controls;
+        private int diagnosticClicks;
         internal OutpostRallyView(OutpostRuntime runtime) { this.runtime=runtime; }
         private static bool HudClear()
         {
+            if(!MainViewModel.viewModelLoaded) return false;
             var vm=MainViewModel.Instance;
-            return vm!=null && vm.Show_HUD_Main && !vm.Show_BlackOut && !vm.Show_HUD_Briefing &&
+            return vm!=null && vm.Show_HUD_Building && !vm.Show_BlackOut && !vm.Show_HUD_Briefing &&
                 !vm.Show_HUD_IngameMenu && !vm.Show_HUD_FrontEndBlackout && !vm.Show_HUD_MissionOver;
+        }
+        private bool ResolveReferences()
+        {
+            if(map==null) map=GameMap.instance;
+            if(controls==null) controls=MainControls.instance;
+            return map!=null && controls!=null;
         }
         internal void Input(UnityInputEventArgs args)
         {
-            if(args.Phase!=EventHookPhase.Pre || args.Key!=KeyCode.Mouse2 || !args.Result || !UnityEngine.Input.GetMouseButtonDown(2) || Time.frameCount==lastInputFrame) return;
-            lastInputFrame=Time.frameCount;
-            if(!HudClear() || MainControls.instance==null || MainControls.instance.overGUI || MainControls.instance.isOffWorld()) return;
-            if(!runtime.TrySelected(out int id,out uint global,out int owner,out int type)) return;
-            pending=new Click { Id=id,Global=global,Owner=owner,Type=type,Screen=UnityEngine.Input.mousePosition,Frame=Time.frameCount };
-            args.Result=false;
+            if(args.Phase!=EventHookPhase.Pre || args.Key!=KeyCode.Mouse2 || !args.Result ||
+                !state.Click(Time.frameCount,UnityEngine.Input.GetMouseButtonDown(2))) return;
+            string reason="hud-or-offworld";
+            bool accepted=false;
+            if(HudClear() && ResolveReferences() && !controls.overGUI && !controls.isOffWorld()) {
+                reason="selection";
+                if(runtime.TrySelected(out int id,out uint global,out int owner,out int type)) {
+                    // Resolve the click now, on the Unity thread. Never access Unity from OnTick.
+                    var screen=UnityEngine.Input.mousePosition;
+                    float previousHeight=map.lastMouseLandscapeHeight;bool previousHalf=map.overTopHalf;
+                    Vector3 world=Vector3.zero;Vector3Int cell=new Vector3Int(-1,-1,0);int depth=0;
+                    try { map.CalcMapTileFromMousePos(screen,ref world,ref cell,ref depth,false,true); }
+                    finally { map.lastMouseLandscapeHeight=previousHeight;map.overTopHalf=previousHalf; }
+                    var tile=map.getMapTile(cell.x,cell.y);
+                    reason="tile-or-identity";
+                    if(tile!=null) accepted=runtime.SetRally(id,global,owner,type,tile.gameMapX,tile.gameMapY);
+                }
+            }
+            if(accepted) args.Result=false;
+            // First clicks only: explain rejection without periodic logging.
+            if(diagnosticClicks++<8) runtime.InputDiagnostic(accepted?"accepted":reason);
         }
-        internal void AcceptInput()
+        internal void Present(bool hasPoint,int targetX,int targetY)
         {
-            var c=pending;pending=null;
-            if(c==null || !HudClear() || MainControls.instance==null || MainControls.instance.overGUI ||
-                MainControls.instance.isOffWorld() || GameMap.instance==null || Camera.main==null) return;
-            // Use the captured screen coordinate, not a later mouse position. Avoid leaking the
-            // projection helper's incidental hover state into Vanilla's input handling.
-            var map=GameMap.instance;
-            float previousHeight=map.lastMouseLandscapeHeight;bool previousHalf=map.overTopHalf;
-            Vector3 world=Vector3.zero;Vector3Int cell=new Vector3Int(-1,-1,0);int depth=0;
-            try { map.CalcMapTileFromMousePos(c.Screen,ref world,ref cell,ref depth,false,true); }
-            finally { map.lastMouseLandscapeHeight=previousHeight;map.overTopHalf=previousHalf; }
-            var tile=map.getMapTile(cell.x,cell.y);
-            if(tile!=null) runtime.SetRally(c.Id,c.Global,c.Owner,c.Type,tile.gameMapX,tile.gameMapY);
-        }
-        internal void Present(OutpostRallyState.Record selected)
-        {
-            if(selected==null || !HudClear() || GameMap.instance==null || MainControls.instance==null)
-            { Hide();return; }
-            var map=GameMap.instance;
-            map.mapGameTileToTilemapCoord(selected.X,selected.Y,out int x,out int y);
+            if(!hasPoint || !HudClear() || !ResolveReferences()) { Hide();return; }
+            map.mapGameTileToTilemapCoord(targetX,targetY,out int x,out int y);
             var tile=map.getMapTile(x,y);
             if(tile==null) { Hide();return; }
             EnsureFlag();
-            Vector3 position=MainControls.instance.getCellCentre(x,y);
-            position.y+=tile.testHeight;
-            position.z=200f+position.y;
-            flag.transform.position=position;
-            flag.SetActive(true);
+            Vector3 position=controls.getCellCentre(x,y);
+            position.y+=tile.testHeight;position.z=200f+position.y;
+            if(state.Position(position.x,position.y,position.z)) flagTransform.position=position;
+            if(state.Visibility(true)) flag.SetActive(true);
         }
         private void EnsureFlag()
         {
             if(flag!=null) return;
-            flag=new GameObject("OutpostTest Rallypoint");
+            flag=new GameObject("OutpostTest Rallypoint");flag.SetActive(false);
+            flagTransform=flag.transform;state.Visibility(false);state.ForgetPosition();
             Object.DontDestroyOnLoad(flag);
-            // Vector pennant and mast: no colliders, HUD hit targets or native sprite slots.
             mesh=new Mesh { name="OutpostTest rally flag mesh" };
             mesh.vertices=new[] {
                 new Vector3(-.022f,0,0),new Vector3(.022f,0,0),new Vector3(.022f,.8f,0),new Vector3(-.022f,.8f,0),
@@ -85,7 +86,8 @@ namespace OutpostTest
             flag.AddComponent<MeshFilter>().sharedMesh=mesh;
             var renderer=flag.AddComponent<MeshRenderer>();renderer.sharedMaterial=material;renderer.sortingOrder=32760;
         }
-        private void Hide() { if(flag!=null) flag.SetActive(false); }
-        internal void Reset() { pending=null;Hide(); }
+        internal void Hide() { if(state.Visibility(false) && flag!=null) flag.SetActive(false); }
+        // Main-thread only, called after the simulation publishes a revision change.
+        internal void Reset() { Hide();map=null;controls=null;state.ForgetPosition();diagnosticClicks=0; }
     }
 }

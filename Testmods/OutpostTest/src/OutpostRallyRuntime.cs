@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -15,8 +16,11 @@ namespace OutpostTest
         private byte[] loadedRally;
         private readonly List<IDisposable> rallySubscriptions=new List<IDisposable>();
         private OutpostRallyView rallyView;
-        private bool rallyRegistered, dispatchingRally, frameFailed;
-        private int dispatchTribe;
+        private bool rallyRegistered, dispatchingRally, frameFailed, inputFailed;
+        private int dispatchTribe, presentationRevision, shownRevision=-1;
+        private readonly OutpostPresentationState presentation=new OutpostPresentationState();
+        private bool renderConfirmed;
+        private readonly OutpostFrameMetrics frameMetrics=new OutpostFrameMetrics();
         private long? moveResult;
         internal void RegisterRally()
         {
@@ -24,7 +28,7 @@ namespace OutpostTest
             rallyView=new OutpostRallyView(this);
             // Runtime is statically rooted before any of these publishers receive it.
             rallySubscriptions.Add(InputR3EventHooks.OnKeyDown.Observable.Subscribe(args=>
-            { try { if(active) rallyView.Input(args); } catch(Exception ex) { RallyFailure(ex); } }));
+            { try { if(active && native.SelectionAvailable && !inputFailed) rallyView.Input(args); } catch(Exception ex) { inputFailed=true; Shared.DebugLogHelper.LogError(log,"OutpostTest rally input disabled: "+ex); } }));
             rallySubscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable.Subscribe(args=>
             {
                 lock(rallyLock) {
@@ -45,8 +49,9 @@ namespace OutpostTest
             if(!ModSaveDataAPI.Instance.RegisterModDataHandler(OutpostTestPlugin.Guid,
                 context=> { lock(rallyLock) return context.IsSaveFile ? rally.Encode() : null; },
                 (bytes,context)=> { if(context.IsSaveFile) lock(rallyLock) loadedRally=(byte[])bytes.Clone(); },
-                ()=> { lock(rallyLock) { loadedRally=null; rally=new OutpostRallyState(); rallyView?.Reset(); } }))
+                ()=> { lock(rallyLock) { loadedRally=null; rally=new OutpostRallyState(); Interlocked.Increment(ref presentationRevision); } }))
                 throw new InvalidOperationException("Outpost rally save handler already registered.");
+            UnityEngine.Application.onBeforeRender += PresentRally;
             rallyRegistered=true;
             Info("rally ready: middle click, per-outpost save data, Hold and one-shot native running orders");
         }
@@ -67,33 +72,55 @@ namespace OutpostTest
         internal bool TrySelected(out int id,out uint global,out int owner,out int type)
         {
             id=0;global=0;owner=0;type=0;
-            if(!active) return false;
+            if(!active || !native.SelectionAvailable) return false;
+            var data=GameData.Instance;
+            if(data==null || data.lastGameState==null || data.app_mode!=16 || data.app_sub_mode!=45) return false;
             id=GamePlayerManagerAPI.Instance.GetSelectedBuildingId();
+            if(!OutpostPresentationState.Selection(data.app_mode,data.app_sub_mode,id,data.lastGameState.in_structure))return false;
             if(!GameBuildingManagerAPI.Instance.TryGetBuildingById(id,out var b) || b->r_AliveState!=AliveState.IsAlive ||
                 !OutpostSchedule.IsOutpost((int)b->r_BuildingType) || b->r_PlayerIdOwner!=GamePlayerManagerAPI.Instance.GetLocalPlayerId() || !Human(b->r_PlayerIdOwner)) return false;
             global=b->r_GlobalId;owner=b->r_PlayerIdOwner;type=(int)b->r_BuildingType;return true;
         }
+        internal void InputDiagnostic(string result) => Info("rally-input result="+result);
         internal bool SetRally(int id,uint global,int owner,int type,int x,int y)
         {
+            if(!TrySelected(out int selected,out uint g,out int o,out int t) || selected!=id ||
+                !OutpostSchedule.SameIdentity(global,owner,type,g,o,t) || !GameTileManagerAPI.Instance.IsTileInsideMapBounds(x,y)) return false;
             lock(rallyLock) {
-                if(!TrySelected(out int selected,out uint g,out int o,out int t) || selected!=id ||
-                    !OutpostSchedule.SameIdentity(global,owner,type,g,o,t) || !GameTileManagerAPI.Instance.IsTileInsideMapBounds(x,y)) return false;
+                if(!active) return false;
                 var r=rally.Get(id,global,owner,type); r.HasPoint=true;r.X=x;r.Y=y;
-                Info($"rally-set building={id}/{global} owner={owner} target={x},{y}; future-spawns-only");return true;
             }
+            Info($"rally-set building={id}/{global} owner={owner} target={x},{y}; future-spawns-only");return true;
         }
         internal void PresentRally()
         {
-            if(frameFailed || !rallyRegistered) return;
+            if(frameFailed || !rallyRegistered || !presentation.EnterFrame(UnityEngine.Time.frameCount)) return;
+            int category=0;bool measuring=false;
             try {
-                lock(rallyLock) {
-                    rallyView.AcceptInput();
-                    OutpostRallyState.Record selected=null;
-                    if(TrySelected(out int id,out uint global,out int owner,out int type) &&
-                        rally.Records.TryGetValue(id,out var r) && r.Matches(global,owner,type) && r.HasPoint) selected=r;
-                    rallyView.Present(selected);
+                int revision=Volatile.Read(ref presentationRevision);
+                if(shownRevision!=revision) { rallyView.Reset();shownRevision=revision; }
+                if(!active || !native.SelectionAvailable) { rallyView.Hide();return; }
+                if(!renderConfirmed) { renderConfirmed=true;Info("rally-render confirmed after mission start; event=onBeforeRender"); }
+                frameMetrics.Begin();measuring=true;
+                bool hasPoint=false;int x=0,y=0;
+                if(TrySelected(out int id,out uint global,out int owner,out int type)) {
+                    category=1;
+                    // Never block the render thread behind a native spawn or save operation.
+                    if(!Monitor.TryEnter(rallyLock)) return;
+                    try {
+                        if(rally.Records.TryGetValue(id,out var r) && r.Matches(global,owner,type) && r.HasPoint) {
+                            hasPoint=true;x=r.X;y=r.Y;category=2;
+                        }
+                    } finally { Monitor.Exit(rallyLock); }
                 }
-            } catch(Exception ex) { frameFailed=true; RallyFailure(ex); }
+                rallyView.Present(hasPoint,x,y);
+            } catch(Exception ex) {
+                frameFailed=true;
+                try { rallyView.Hide(); } catch { }
+                Shared.DebugLogHelper.LogError(log,"OutpostTest presentation disabled: "+ex);
+            } finally {
+                if(measuring) { string report=frameMetrics.End(category);if(report!=null)Info(report); }
+            }
         }
         private void RestoreRally(bool isSave)
         {
@@ -123,6 +150,7 @@ namespace OutpostTest
         }
         private void ProcessRallyOrders()
         {
+            if(!native.SelectionAvailable) { rally.Pending.Clear(); return; }
             var invalid=new List<int>();
             foreach(var r in rally.Records.Values) if(!ValidBuilding(r,out var b)) invalid.Add(r.Building);
             foreach(int id in invalid) rally.Remove(id);
@@ -203,7 +231,7 @@ namespace OutpostTest
                 if(!tribes.AssignUnit(tribeId,id) || u->r_TribeId!=tribeId || tribe->r_UnitsInGroup!=1) throw new InvalidOperationException("Human assignment failed.");
                 OutpostNative.InitializeUnit(u);OutpostNative.SetRole(tribe);
                 if(!tribes.SetStance(tribeId,TribeStance.Hold)) throw new InvalidOperationException("Human Hold failed.");
-                r.Produced++;rally.Queue(r,id,u->r_GlobalId,tribeId,global);
+                r.Produced++;if(native.SelectionAvailable) rally.Queue(r,id,u->r_GlobalId,tribeId,global);
                 Info($"human-spawn tick={tick} building={e.Id}/{e.Global} unit={id}/{u->r_GlobalId} tribe={tribeId}/{global} stance=Hold produced={r.Produced}/{r.Target} rally={(r.HasPoint?r.X+","+r.Y:"none")}");
                 return true;
             } finally {

@@ -338,21 +338,25 @@ namespace BugfixesAndQoL
         private bool TryTransitionToLobby()
         {
             Platform_Multiplayer multiplayer = Platform_Multiplayer.Instance;
-            ulong lobbyId = hostLobby?.identifier ?? multiplayer?.CoopContinuationLobbyID ?? 0UL;
+            Platform_Multiplayer.MPLobby transitionHostLobby = hostLobby;
+            LobbySnapshot transitionSnapshot = snapshot;
+            bool transitionAsHost = transitionHostLobby != null && transitionHostLobby.isHost;
+            ulong lobbyId = transitionHostLobby?.identifier ??
+                multiplayer?.CoopContinuationLobbyID ?? 0UL;
             if (lobbyId == 0)
                 return false;
 
             transitionStarted = true;
             try
             {
-                if (hostLobby != null && hostLobby.isHost)
-                    OpenHostLobby(multiplayer, hostLobby);
+                if (transitionAsHost)
+                    OpenHostLobby(multiplayer, transitionHostLobby, transitionSnapshot);
                 else
                     JoinClientLobby(multiplayer, lobbyId);
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Post-game lobby transition started: role={(hostLobby != null && hostLobby.isHost ? "host" : "client")}, lobbyId={lobbyId}.");
+                    $"Post-game lobby transition started: role={(transitionAsHost ? "host" : "client")}, lobbyId={lobbyId}.");
                 return true;
             }
             catch (Exception ex)
@@ -397,7 +401,8 @@ namespace BugfixesAndQoL
 
         private void OpenHostLobby(
             Platform_Multiplayer multiplayer,
-            Platform_Multiplayer.MPLobby lobby)
+            Platform_Multiplayer.MPLobby lobby,
+            LobbySnapshot transitionSnapshot)
         {
             MainViewModel viewModel = MainViewModel.Instance;
             FRONT_Multiplayer front = viewModel?.FRONTMultiplayer;
@@ -419,24 +424,34 @@ namespace BugfixesAndQoL
             FindFrontMethod("UpdateRadarShieldPositions", Type.EmptyTypes).Invoke(front, null);
             FindFrontMethod("UpdateHostInfo", new[] { typeof(bool) }).Invoke(front, new object[] { false });
             FindFrontMethod("ShowSetupScreen", Type.EmptyTypes).Invoke(front, null);
-            RestoreHostMapPresentation(front);
+            RestoreHostMapPresentation(front, transitionSnapshot);
             RefreshHostLobbyRows(front);
             viewModel.Show_FrontMenus_Background_Main = false;
             viewModel.Show_Frontend_MainMenu = false;
         }
 
-        private void RestoreHostMapPresentation(FRONT_Multiplayer front)
+        private void RestoreHostMapPresentation(
+            FRONT_Multiplayer front,
+            LobbySnapshot transitionSnapshot)
         {
+            if (transitionSnapshot == null)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    "Post-game host lobby map presentation could not be restored because the captured lobby metadata is unavailable.");
+                return;
+            }
+
             try
             {
                 FileHeader header = MapFileManager.Instance?.GetHeaderFromFileNameMP(
-                    snapshot.MapFileName,
-                    snapshot.Crc);
+                    transitionSnapshot.MapFileName,
+                    transitionSnapshot.Crc);
                 if (header == null)
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        $"Post-game host lobby map presentation could not be restored because the exact map header was not found: map='{snapshot.MapFileName}', crc={snapshot.Crc}.");
+                        $"Post-game host lobby map presentation could not be restored because the exact map header was not found: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}.");
                     return;
                 }
 
@@ -450,14 +465,14 @@ namespace BugfixesAndQoL
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    $"Post-game host lobby map presentation restored through Vanilla selection: map='{snapshot.MapFileName}', crc={snapshot.Crc}.");
+                    $"Post-game host lobby map presentation restored through Vanilla selection: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}.");
             }
             catch (Exception ex)
             {
                 // The replacement Steam lobby is already valid; presentation recovery is cosmetic.
                 Shared.DebugLogHelper.LogWarning(
                     log,
-                    $"Post-game host lobby opened, but its map presentation could not be restored: map='{snapshot?.MapFileName ?? string.Empty}', crc={snapshot?.Crc ?? 0}, error={ex}");
+                    $"Post-game host lobby opened, but its map presentation could not be restored: map='{transitionSnapshot.MapFileName}', crc={transitionSnapshot.Crc}, error={ex}");
             }
         }
 

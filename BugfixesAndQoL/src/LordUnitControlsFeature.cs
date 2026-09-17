@@ -58,6 +58,8 @@ namespace BugfixesAndQoL
 
         private void OnBeforeRender()
         {
+            if ((!settings.EnableMod || !settings.EnableLordUnitControls) && !lordModeActive) return;
+            if (!MainViewModel.viewModelLoaded || MainViewModel.Instance?.HUDmain == null) return;
             if (lastFrame == UnityEngine.Time.frameCount) return;
             lastFrame = UnityEngine.Time.frameCount;
             try { RefreshLordOnlyHud(); }
@@ -86,11 +88,18 @@ namespace BugfixesAndQoL
                 return;
             }
             if (!main.Show_HUD_Troops) main.TroopsSelectedGameAction(true);
-            activePanel = main.HUDTroopPanel ?? throw new InvalidOperationException("HUD_Troops is unavailable.");
-            attackHereElement = RequireElement<UIElement>(activePanel, "UnitAttackHere");
-            disbandElement = RequireElement<UIElement>(activePanel, "UnitDisband");
-            attackHereElement.Visibility = Visibility.Visible;
-            disbandElement.Visibility = LordUnitControlsPolicy.CanShowDisband(true, settings.EnableMod && settings.EnableSurrenderAndStatistics, Shared.GameModeHelper.IsMapEditor()) ? Visibility.Visible : Visibility.Collapsed;
+            HUD_Troops panel = main.HUDTroopPanel ?? throw new InvalidOperationException("HUD_Troops is unavailable.");
+            if (!ReferenceEquals(activePanel, panel) || attackHereElement == null || disbandElement == null)
+            {
+                UIElement attack = RequireElement<UIElement>(panel, "UnitAttackHere");
+                UIElement disband = RequireElement<UIElement>(panel, "UnitDisband");
+                activePanel = panel;
+                attackHereElement = attack;
+                disbandElement = disband;
+            }
+            if (attackHereElement.Visibility != Visibility.Visible) attackHereElement.Visibility = Visibility.Visible;
+            Visibility desired = LordUnitControlsPolicy.CanShowDisband(true, settings.EnableMod && settings.EnableSurrenderAndStatistics, Shared.GameModeHelper.IsMapEditor()) ? Visibility.Visible : Visibility.Collapsed;
+            if (disbandElement.Visibility != desired) disbandElement.Visibility = desired;
             lordModeActive = true;
         }
 
@@ -166,6 +175,7 @@ namespace BugfixesAndQoL
         private void DeactivateLordOnlyMode(bool refresh)
         {
             if (!lordModeActive) return;
+            if (!MainViewModel.viewModelLoaded || MainViewModel.Instance?.HUDmain == null) return;
             lordModeActive = false;
             if (refresh && MainViewModel.Instance?.Show_HUD_Troops == true) activePanel?.SelectedTroops();
         }

@@ -14,7 +14,8 @@ namespace OutpostTest
         private readonly ManualLogSource log;
         private readonly OutpostNative native;
         private readonly Dictionary<int, Entry> entries = new Dictionary<int, Entry>();
-        private bool active, failed, confirmed;
+        private volatile bool active;
+        private bool failed, confirmed;
         private int lastTick = int.MinValue;
         private long initialBypasses;
         private sealed class Entry
@@ -39,7 +40,7 @@ namespace OutpostTest
         internal void Disable(string reason)
         {
             native.Enabled = false; active = false; entries.Clear(); lastTick = int.MinValue; confirmed = false;
-            lock(rallyLock) { rally=new OutpostRallyState(); rallyView?.Reset(); }
+            lock(rallyLock) { rally=new OutpostRallyState(); System.Threading.Interlocked.Increment(ref presentationRevision); }
             // Native building fields retain unfinished groups for saves and Vanilla fallback.
             Info("inactive: " + reason);
         }
@@ -65,7 +66,6 @@ namespace OutpostTest
             lastTick = tick;
             try
             {
-                rallyView?.AcceptInput();
                 if (!native.ProductionAllowed) return;
                 ProcessRallyOrders();
                 int[] added = new int[9];
