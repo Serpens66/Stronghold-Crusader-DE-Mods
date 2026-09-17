@@ -10,6 +10,8 @@ namespace RandomEvents
         private static int suppressedPresentationCalls;
         [ThreadStatic]
         private static int suppressedActionPointCalls;
+        [ThreadStatic]
+        private static int suppressedSoundEffectCalls;
 
         public static bool IsSuppressed => suppressionDepth > 0;
 
@@ -18,11 +20,16 @@ namespace RandomEvents
 
         public static void RecordSuppressedPresentation() => suppressedPresentationCalls++;
         public static void RecordSuppressedActionPoint() => suppressedActionPointCalls++;
+        public static void RecordSuppressedSoundEffect() => suppressedSoundEffectCalls++;
 
-        public static void GetSuppressedCallCounts(out int presentationCalls, out int actionPointCalls)
+        public static void GetSuppressedCallCounts(
+            out int presentationCalls,
+            out int actionPointCalls,
+            out int soundEffectCalls)
         {
             presentationCalls = suppressedPresentationCalls;
             actionPointCalls = suppressedActionPointCalls;
+            soundEffectCalls = suppressedSoundEffectCalls;
         }
 
         public static IDisposable Begin(int targetPlayerId, int localPlayerId)

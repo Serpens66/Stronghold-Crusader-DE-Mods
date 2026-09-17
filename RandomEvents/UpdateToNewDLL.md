@@ -26,6 +26,7 @@ disabling unrelated events.
 | `MadCowBuildingPattern` | `0xC6090` | mad-cow building handler |
 | `GranaryTheftPattern` | `0xC5F70` | theft handler |
 | `PresentationCallsitePattern` | `0xF9B74` | derives manager `0x1B62EE0` and handler `0x1031B0` |
+| `RandomEventSoundNativeLayout.MarriageCallsitePattern` | `0x104A20` | derives global SFX manager `0x64C4490` and handler `0x2940` for marriage bells |
 | `WildlifeHandlerPattern` | `0x11E150` | common wildlife delegate |
 | `WildlifeBranchPattern` | `0x11E638` | lion/rabbit branch validation |
 | `RabbitPredicatePattern` | `0x1177A0` | count/limit state |

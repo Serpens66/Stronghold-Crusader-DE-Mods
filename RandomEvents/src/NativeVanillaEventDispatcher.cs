@@ -67,6 +67,11 @@ namespace RandomEvents
         private PresentationDelegate rootedPresentationDetour;
         private NativeDetour presentationDetour;
         private IntPtr presentationHandlerAddress;
+        private SoundEffectDelegate soundEffectHandler;
+        private SoundEffectDelegate soundEffectOriginal;
+        private SoundEffectDelegate rootedSoundEffectDetour;
+        private NativeDetour soundEffectDetour;
+        private IntPtr soundEffectHandlerAddress;
 
         public NativeVanillaEventDispatcher(ManualLogSource log)
         {
@@ -74,6 +79,7 @@ namespace RandomEvents
         }
 
         public bool IsPresentationAvailable => presentationHandler != null && presentationManager != IntPtr.Zero;
+        public bool IsEventSoundFilterAvailable => soundEffectHandler != null;
 
         public bool TryQueuePresentation(
             int messageId,
@@ -119,6 +125,7 @@ namespace RandomEvents
             granaryTheftHandler = TryResolveDelegate<GranaryTheftDelegate>(
                 libraryHandle, memory, GranaryTheftPattern, GranaryTheftHandlerRva, referenceHashMatches, "granary theft");
             ResolvePresentation(libraryHandle, memory, referenceHashMatches);
+            ResolveEventSoundFilter(libraryHandle, memory, referenceHashMatches);
         }
 
         public NativeEventDispatchStatus Dispatch(
@@ -378,6 +385,70 @@ namespace RandomEvents
             }
         }
 
+        private void ResolveEventSoundFilter(
+            IntPtr libraryHandle,
+            ReadOnlySpan<byte> memory,
+            bool referenceHashMatches)
+        {
+            try
+            {
+                RandomEventSoundNativeResolution resolution = RandomEventSoundNativeLayout.Resolve(
+                    memory,
+                    referenceHashMatches);
+                InstallEventSoundFilter(AtRva(libraryHandle, resolution.SoundHandlerRva));
+                LogDebug(
+                    $"Native event-sound target resolved: method={resolution.Method}, " +
+                    $"callsiteRva=0x{resolution.CallsiteRva:X}, managerRva=0x{resolution.SoundManagerRva:X}, " +
+                    $"handlerRva=0x{resolution.SoundHandlerRva:X}.");
+            }
+            catch (Exception ex)
+            {
+                soundEffectHandler = null;
+                LogWarning($"Native handler unavailable: component=event sound filter, reason={ex.Message}");
+            }
+        }
+
+        private void InstallEventSoundFilter(IntPtr resolvedHandlerAddress)
+        {
+            if (soundEffectDetour != null)
+            {
+                if (resolvedHandlerAddress != soundEffectHandlerAddress)
+                {
+                    throw new InvalidOperationException(
+                        $"event sound handler changed after detour installation: " +
+                        $"installed=0x{soundEffectHandlerAddress.ToInt64():X}, resolved=0x{resolvedHandlerAddress.ToInt64():X}.");
+                }
+
+                soundEffectHandler = FilterSoundEffect;
+                return;
+            }
+
+            rootedSoundEffectDetour = FilterSoundEffect;
+            IntPtr detourAddress = Marshal.GetFunctionPointerForDelegate(rootedSoundEffectDetour);
+            NativeDetour installedDetour = null;
+            try
+            {
+                var config = new NativeDetourConfig { ManualApply = true };
+                installedDetour = new NativeDetour(resolvedHandlerAddress, detourAddress, config);
+                SoundEffectDelegate installedOriginal = installedDetour.GenerateTrampoline<SoundEffectDelegate>();
+                soundEffectHandlerAddress = resolvedHandlerAddress;
+                soundEffectOriginal = installedOriginal;
+                soundEffectHandler = FilterSoundEffect;
+                installedDetour.Apply();
+                soundEffectDetour = installedDetour;
+                LogDebug($"Native event-sound target filter installed: address=0x{resolvedHandlerAddress.ToInt64():X}.");
+            }
+            catch
+            {
+                installedDetour?.Dispose();
+                soundEffectHandlerAddress = IntPtr.Zero;
+                soundEffectOriginal = null;
+                soundEffectHandler = null;
+                rootedSoundEffectDetour = null;
+                throw;
+            }
+        }
+
         private void FilterPresentation(
             IntPtr messageManager,
             int messageId,
@@ -394,6 +465,19 @@ namespace RandomEvents
             }
             if (original != null)
                 original(messageManager, messageId, presentationId, video, audio);
+        }
+
+        private void FilterSoundEffect(IntPtr soundManager, int soundId)
+        {
+            // Global event SFX are presentation and must not leak to a peer that does not own the event.
+            SoundEffectDelegate original = soundEffectOriginal;
+            if (RandomEventsPresentationScope.IsSuppressed)
+            {
+                RandomEventsPresentationScope.RecordSuppressedSoundEffect();
+                return;
+            }
+            if (original != null)
+                original(soundManager, soundId);
         }
 
         private bool TryGetEventAvailability(RandomEventKind kind, out string reason)
@@ -444,6 +528,7 @@ namespace RandomEvents
             madCowBuildingHandler = null;
             granaryTheftHandler = null;
             presentationHandler = null;
+            soundEffectHandler = null;
         }
 
         private static IntPtr AtRva(IntPtr libraryHandle, int rva) =>
@@ -471,6 +556,9 @@ namespace RandomEvents
             int presentationId,
             IntPtr video,
             IntPtr audio);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private delegate void SoundEffectDelegate(IntPtr soundManager, int soundId);
 
     }
 }

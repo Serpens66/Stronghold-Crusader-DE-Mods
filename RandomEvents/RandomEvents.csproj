@@ -42,6 +42,7 @@
     <Compile Include="src\BanditTargetEligibility.cs" />
     <Compile Include="src\NativeBanditEventSupport.cs" />
     <Compile Include="src\NativeVanillaEventDispatcher.cs" />
+    <Compile Include="src\RandomEventSoundNativeLayout.cs" />
     <Compile Include="src\NativeWildlifeEventDispatcher.cs" />
     <Compile Include="src\RandomEventsPlugin.cs" />
     <Compile Include="src\RandomEventsChorePacket.cs" />

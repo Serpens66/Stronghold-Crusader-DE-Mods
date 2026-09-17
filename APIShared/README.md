@@ -1,165 +1,296 @@
 # APIShared
 
-APIShared stellt Mods typisierte, gemeinsam verwaltete Fähigkeiten für native SHCDE-Funktionen bereit. Verbraucher erhalten keine beliebigen Speicheradressen, Scanner, Zielpointer oder Detour-Objekte. Native Versionsprüfung, Besitz, Konflikterkennung, Mutation und Diagnosen bleiben in der API.
+APIShared ist ein eigenständiger BepInEx-Mod, der gemeinsam genutzte SHCDE-Funktionen als typisierte, prozessweite API bereitstellt. Mehrere Mods können dadurch dieselben Hooks, Beobachter und nativen Änderungen verwenden, ohne konkurrierende Implementierungen zu installieren.
 
-Aktuelle Moddaten:
+Aktueller Stand:
 
+- Version: `0.3.6`
 - BepInEx-GUID: `APIShared_Serp`
-- Version: `0.1.0`
+- Assembly und Namespace: `APIShared`
 - Ziel-Framework: .NET Framework 4.8.1
-- harte Laufzeitabhängigkeit: Script Extender `000shcdese`
+- Laufzeitabhängigkeit: Script Extender `000shcdese` ab Version `2.3.0`
 
-## Installation und Projektreferenz
+## Installation
 
-APIShared muss als eigener BepInEx-Mod installiert sein. Ein Verbrauchermod deklariert beide harten Abhängigkeiten:
+APIShared wird genau einmal als eigener Mod installiert:
 
-    [BepInDependency("000shcdese", BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency("APIShared_Serp", BepInDependency.DependencyFlags.HardDependency)]
+```text
+BepInEx/
+└── plugins/
+    ├── 000shcdese/
+    └── APIShared_Serp/
+        ├── APIShared.dll
+        ├── APIShared.xml
+        └── ...
+```
 
-Die Assemblyreferenz darf nicht privat in den Verbraucherordner kopiert werden:
+Ein Mod, der APIShared verwendet, liefert **keine eigene Kopie von `APIShared.dll`** mit. Alle Verbrauchermods referenzieren dieselbe zentral installierte Assembly. So wird verhindert, dass BepInEx mehrere Kopien oder unterschiedliche Versionen der API lädt.
 
-    <PropertyGroup>
-      <ApiSharedPath>$(GameDir)\BepInEx\plugins\APIShared_Serp\APIShared.dll</ApiSharedPath>
-    </PropertyGroup>
-    <ItemGroup>
-      <Reference Include="APIShared">
-        <HintPath>$(ApiSharedPath)</HintPath>
-        <Private>false</Private>
-      </Reference>
-    </ItemGroup>
-    <Target Name="ValidateApiShared" BeforeTargets="BeforeBuild">
-      <Error Condition="!Exists('$(ApiSharedPath)')" Text="APIShared.dll wurde nicht gefunden: $(ApiSharedPath)" />
-    </Target>
+## In ein eigenes Projekt einbinden
 
-Bei einer Workspace-Referenz kann der `HintPath` stattdessen auf `APIShared/BepInEx/plugins/APIShared_Serp/APIShared.dll` zeigen. Auch dann bleibt `<Private>false>` zwingend. Im installierten Verbraucherordner darf keine zweite API-DLL liegen.
+### BepInEx-Abhängigkeiten
 
-## Readiness und Diagnosen
+Der Verbrauchermod deklariert Script Extender und APIShared als harte Abhängigkeiten. Die Versionsnummer bei APIShared sollte der mindestens benötigten API-Version entsprechen:
 
-Native Initialisierung endet erst mit dem `CrusaderLibrary.LibraryLoaded`-Ereignis. Ein Verbraucher soll daher `WhenReady` verwenden:
+```csharp
+using BepInEx;
 
-    private void Awake()
+[BepInDependency("000shcdese", "2.3.0")]
+[BepInDependency("APIShared_Serp", "0.3.6")]
+[BepInPlugin(PluginGuid, PluginName, PluginVersion)]
+public sealed class MyPlugin : BaseUnityPlugin
+{
+    public const string PluginGuid = "MyMod.Author";
+    public const string PluginName = "My Mod";
+    public const string PluginVersion = "1.0.0";
+}
+```
+
+### Projektverweis
+
+Die Projektdatei verweist auf die zentral installierte Assembly. `<Private>false</Private>` ist entscheidend: MSBuild darf `APIShared.dll` nicht in den Ausgabeordner des Verbrauchermods kopieren.
+
+```xml
+<PropertyGroup Condition="'$(GameDir)' == ''">
+  <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+</PropertyGroup>
+
+<PropertyGroup Condition="'$(ApiSharedDir)' == ''">
+  <ApiSharedDir>$(GameDir)\BepInEx\plugins\APIShared_Serp</ApiSharedDir>
+</PropertyGroup>
+
+<ItemGroup>
+  <Reference Include="APIShared">
+    <HintPath>$(ApiSharedDir)\APIShared.dll</HintPath>
+    <Private>false</Private>
+  </Reference>
+</ItemGroup>
+
+<Target Name="ValidateApiSharedReference" BeforeTargets="BeforeBuild">
+  <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')"
+         Text="APIShared.dll wurde nicht gefunden: $(ApiSharedDir)" />
+</Target>
+```
+
+Für lokale Entwicklung darf `ApiSharedDir` auf den Ausgabeordner des APIShared-Projekts zeigen. Auch dabei bleibt `Private` auf `false`. Das Releasepaket des Verbrauchermods darf weder `APIShared.dll` noch den Ordner `APIShared_Serp` enthalten; APIShared wird separat installiert und aktualisiert.
+
+## API verwenden
+
+Alle Capabilities werden mit der stabilen BepInEx-GUID des Verbrauchermods angefordert. Diese GUID identifiziert den Besitzer von Registrierungen und exklusiven nativen Änderungen. Anzeigenamen, Assemblynamen oder zufällige Werte sind dafür ungeeignet.
+
+Die verwalteten Capabilities für Missions-Lebenszyklus, Lobby-Zustand und Spieler-Niederlagen werden bereits beim Laden von APIShared initialisiert. Capabilities, die von der nativen Spielbibliothek abhängen, stehen erst nach deren Initialisierung bereit. `ApiShared.WhenReady` ist deshalb der einfachste gemeinsame Einstieg:
+
+```csharp
+using APIShared;
+
+private void Awake()
+{
+    ApiShared.WhenReady(OnApiReady);
+}
+
+private void OnApiReady(IApiShared api)
+{
+    if (api.State != NativeApiState.Ready)
     {
-        ApiShared.WhenReady(OnNativeApiReady);
+        Logger.LogError("APIShared konnte nicht vollständig initialisiert werden.");
+        return;
     }
-
-    private void OnNativeApiReady(IApiShared api)
-    {
-        if (api.State != NativeApiState.Ready)
-        {
-            Logger.LogError("APIShared ist global nicht verfügbar.");
-            return;
-        }
-
-        // Capabilities werden anschließend unabhängig angefordert.
-    }
-
-`ApiShared.Current` ist für Statusabfragen verfügbar, ersetzt während `Pending` aber nicht die Readiness-Registrierung. `WhenReady` ruft spät registrierte Callbacks unmittelbar auf.
-
-Jede `TryGet...`- und Mutationsmethode liefert ein `NativeCapabilityDiagnostic` mit:
-
-- `CapabilityId`
-- `State`
-- vollständigem `BinaryHash`
-- verständlicher `Reason`
-- optionalem `ConflictOwnerGuid`
-
-`UnsupportedBuild` bedeutet, dass nur die hashgebundene Capability nicht unterstützt wird. Andere, beispielsweise durch ein Script-Extender-Event bereitgestellte Capabilities können trotzdem `Available` sein. `Unavailable` ist globalen Initialisierungsfehlern vorbehalten. Diagnosen sollten mit Zeitstempel, Besitzer-GUID und vollständigem Hash geloggt werden.
-
-Als `ownerGuid` wird immer die stabile BepInEx-GUID des Verbrauchermods übergeben. Sie steuert Idempotenz, deterministische Callbackreihenfolge und Konfliktdiagnosen; Anzeigenamen oder zufällige Werte sind ungeeignet.
-
-## Gatehouse Timing verwenden
 
     if (!api.TryGetGatehouseTiming(
             PluginGuid,
-            out IGatehouseTimingCapability gatehouse,
+            out IGatehouseTimingCapability capability,
             out NativeCapabilityDiagnostic diagnostic))
     {
         LogDiagnostic(diagnostic);
         return;
     }
 
-    var settings = new GatehouseTimingSettings(
-        enabled: true,
-        humanReopenDelaySeconds: 0.0,
-        aiReopenDelaySeconds: 0.0,
-        humanCloseDistanceTiles: 5.0,
-        aiCloseDistanceTiles: 5.0);
+    // capability verwenden
+}
 
-    if (!gatehouse.TryApply(settings, out diagnostic))
-        LogDiagnostic(diagnostic);
+private void LogDiagnostic(NativeCapabilityDiagnostic diagnostic)
+{
+    Logger.LogError(
+        $"APIShared: capability={diagnostic?.CapabilityId}, " +
+        $"state={diagnostic?.State}, hash={diagnostic?.BinaryHash}, " +
+        $"conflictOwner={diagnostic?.ConflictOwnerGuid}, reason={diagnostic?.Reason}");
+}
+```
 
-Die API rundet mit `MidpointRounding.AwayFromZero`, verwendet 40 Ticks pro Sekunde und acht native Einheiten pro Feld und prüft zusätzlich den nativen `UInt16`-Wertebereich. Die vier Immediates werden gemeinsam validiert, geschrieben und verifiziert. Bei Teilfehlern erfolgt ein Rollback.
+`ApiShared.Current` liefert die prozessweite API-Instanz direkt. Bei einer späten Registrierung ruft `WhenReady` den Callback unmittelbar auf.
 
-`Enabled=false` ignoriert die übrigen Werte des Settings-Objekts und stellt die katalogisierten Vanilla-Werte wieder her. Der einmal erworbene Prozessbesitz wird dabei absichtlich nicht freigegeben. Ein anderer Besitzer erhält bei überlappender exklusiver Mutation `Conflict`.
+Jeder fehlgeschlagene Erwerb und jede fehlgeschlagene Mutation liefert ein `NativeCapabilityDiagnostic`. Die wichtigsten Zustände sind:
 
-## Selected Unit Command verwenden
+- `Available`: Die Capability kann verwendet werden.
+- `Pending`: Die erforderliche Initialisierung ist noch nicht abgeschlossen.
+- `UnsupportedBuild`: Diese Capability unterstützt die installierte native Spielversion nicht.
+- `PatternMissing`, `Ambiguous` oder `ValidationFailed`: Das benötigte Ziel konnte nicht sicher bestimmt oder validiert werden.
+- `Conflict`: Eine Registrierung oder ein exklusives natives Ziel wird bereits von einem anderen Besitzer verwendet.
+- `Faulted`: Bei der Initialisierung der Capability ist ein unerwarteter Fehler aufgetreten.
 
-Das Handle muss für die gewünschte Lebensdauer verwurzelt bleiben, üblicherweise in einem statischen Feld. Es darf nicht in `OnDisable` oder `OnDestroy` der kurzlebigen BepInEx-Komponente entsorgt werden.
+Capabilities werden unabhängig voneinander initialisiert. Eine nicht verfügbare native Capability bedeutet daher nicht automatisch, dass auch alle anderen Funktionen ausgefallen sind.
 
-    private static ISelectedUnitCommandRegistration selectedCommandRegistration;
+## Enthaltene Capabilities
 
-    private void RegisterSelectedCommand(IApiShared api)
-    {
-        if (!api.TryGetSelectedUnitCommand(
-                PluginGuid,
-                out ISelectedUnitCommandCapability capability,
-                out NativeCapabilityDiagnostic diagnostic))
-        {
-            LogDiagnostic(diagnostic);
-            return;
-        }
+### Missions-Lebenszyklus (`mission-lifecycle`)
 
-        if (!capability.TryRegisterBefore(
-                OnSelectedUnitCommand,
-                out selectedCommandRegistration,
-                out diagnostic))
-        {
-            LogDiagnostic(diagnostic);
-        }
-    }
+`IMissionLifecycleCapability` veröffentlicht den Lebenszyklus interaktiver Missionen:
 
-    private static void OnSelectedUnitCommand(SelectedUnitCommandContext context)
-    {
-        if (context.Command != TribeAICommand.UnitStop)
-            return;
+- Initialisierungsphasen vor und nach nativen beziehungsweise verwalteten Ladeschritten;
+- einen erfolgreichen Missionsstart;
+- das Ende oder den Abbruch einer Mission mit Endgrund;
+- `Current` als Kontext der aktuell vollständig gestarteten Mission.
 
-        // TribeId, TargetValue1, TargetValue2 und Argument6 auswerten.
-    }
+`MissionContext` enthält unter anderem eine prozesslokale Session-ID, Startart, Spielmodus, Kartenpfad und -name, Kartenparameter, lokalen Spieler, Hoststatus und Kartentyp. Fehlende Informationen werden als `null` beziehungsweise `Unknown` geliefert und nicht aus einer vorherigen Mission übernommen.
 
-Pro Besitzer-GUID gibt es höchstens eine idempotente Registrierung. Eine spätere Registrierung desselben Besitzers liefert dasselbe Handle; sie ersetzt den ursprünglichen Callback nicht. `Disable()` pausiert, `Enable()` aktiviert wieder und `Dispose()` entfernt die Registrierung dauerhaft. Nach `Dispose()` kann derselbe Besitzer neu registrieren.
+Registrierungen müssen auf dem Unity-Thread mit einer stabilen, pro Besitzer eindeutigen `registrationId` erfolgen. Ein bereits laufender erfolgreicher Start wird einem späten Beobachter einmal mit `IsReplay=true` zugestellt; Initialisierungsereignisse werden nicht nachträglich wiederholt.
 
-Die API vermittelt ausschließlich `EventHookPhase.Pre` aus `TribeR3EventHooks.OnTribeIssueOrderWithTarget`. Verbraucher erhalten einen unveränderlichen Snapshot und nie die veränderlichen EventArgs. Callbackfehler werden je Besitzer isoliert; weitere Callbacks laufen in ordinaler Reihenfolge der Besitzer-GUID weiter. APIShared setzt weder `SkipOriginalFunction` noch Argumente oder Rückgabewerte. Direkte fremde Abonnenten des zugrunde liegenden Extender-Events liegen außerhalb dieser Garantie.
+```csharp
+if (!ApiShared.Current.TryGetMissionLifecycle(
+        PluginGuid,
+        out IMissionLifecycleCapability lifecycle,
+        out NativeCapabilityDiagnostic diagnostic) ||
+    !lifecycle.TryRegisterObserver(
+        "main",
+        onStart: OnMissionStart,
+        onEnd: OnMissionEnd,
+        onInitialization: OnMissionInitialization,
+        diagnostic: out diagnostic))
+{
+    LogDiagnostic(diagnostic);
+}
+```
 
-## Eine neue Capability hinzufügen
+### Lobby-Zustand (`lobby-state`)
 
-Jede fachliche API gehört in eine eigene Datei unter `src`. Zusammengehörige Operationen wie Get/Set oder Registrierung/Handle bleiben gemeinsam. Eine Capability-Datei enthält möglichst vollständig:
+`ILobbyStateCapability` stellt unveränderliche Snapshots der aktuellen Multiplayer-Lobby bereit. Ein `LobbyStateSnapshot` enthält:
 
-- ihre öffentlichen Settings-, Kontext-, Handle- und Capability-Verträge;
-- den spezifischen Extender-Adapter oder den kompilierten Native-Zielkatalog;
-- Auflösung und Validierung;
-- Besitzer-/Broker- oder Mutationslogik;
-- capability-spezifische Diagnosen.
+- die Steam-Lobby-ID;
+- die Zuordnung einbasierter Spielerslots zu Steam-IDs;
+- den einbasierten lokalen Spielerslot;
+- noch nicht aufgelöste Spieleridentitäten;
+- Fehler- und Diagnoseinformationen;
+- die Information, ob der letzte Lobbyzustand während eines Kartenwechsels erhalten bleibt.
 
-`Contracts.cs` bleibt auf gemeinsame Zustände, Diagnosen, IDs und `IApiShared` beschränkt. `ApiSharedRuntime.cs` koordiniert nur Initialisierung, Readiness und Veröffentlichung. Allgemeine PE-, Speicher-, Seitenschutz-, Besitz- und Logging-Helfer gehören in `NativeInfrastructure.cs`. Eine Capability darf keine Implementierungsdetails einer anderen Capability voraussetzen.
+Beobachter werden mit einer besitzerlokalen `registrationId` für die Prozesslaufzeit registriert. Ist bereits ein Snapshot bekannt, erhält ein neuer Beobachter ihn unmittelbar.
 
-Vorgehen für eine Erweiterung:
+### Spieler-Niederlagen (`player-defeat`)
 
-1. Zuerst `_inspect/CrusaderDE-Native-Baseline/CURRENT.md` und `CURRENT.json` lesen und den Hash der installierten kanonischen DLL vergleichen.
-2. Prüfen, ob der Script Extender bereits eine passende typisierte API oder ein Event besitzt. Diese Oberfläche ist einem zusätzlichen nativen Hook vorzuziehen.
-3. Bei nativen Zielen Funktion, RVA, Grenzen, Section, Bytes, semantische Invarianten und betroffene halboffene Intervalle für genau den bestätigten vollständigen DLL-Hash katalogisieren. Unbekannte Builds mutieren nichts. Keine unbeschränkten AOB-Fallbacks einführen.
-4. Nur fachlich typisierte Verträge veröffentlichen. Keine Speicheradressen, Pointer, Scanner, rohen Delegates, Trampolines, Seitenschutz- oder Detour-Objekte an Verbraucher geben.
-5. Capabilities unabhängig initialisieren. Ein lokaler Fehler darf andere Capabilities nicht deaktivieren; globale Veröffentlichung allein darf `NativeApiState.Unavailable` erzeugen.
-6. Native Intervalle vor Mutation reservieren. Wiederholungen desselben Besitzers sind idempotent, fremde Überschneidungen scheitern geschlossen mit Besitzerdiagnose.
-7. Zusammengehörige Writes transaktional ausführen: erwarteten Zustand prüfen, alte Werte und jeden Seitenschutz sichern, gemeinsam schreiben und verifizieren, vollständig zurückrollen, Schutzwerte einzeln restaurieren und den Instruction Cache leeren. Primär- und Cleanupfehler gemeinsam melden.
-8. Dauerhafte Events, Delegates, Trampolines und Subscriptions statisch oder anderweitig für den Prozess verwurzeln. Nicht auf `OnDisable`, `OnDestroy`, `Update` oder Coroutines der BepInEx-Plugininstanz vertrauen.
-9. Fake-Adapter und Tests unter `_inspect/APISharedTests` ergänzen. Mindestens unbekannte Builds, unabhängige Fehler, Konflikte, Idempotenz, externe Mutation, Rollback, Cleanupfehler, Reentranz und Callbackfehler abdecken.
-10. `APIShared/_inspect/native-surface-audit.csv`, `ARCHITECTURE.md` und bei offenen Analysen eine eigene TODO-Datei aktualisieren. Erst nach statischen Prüfungen und Tests den vorgesehenen `build.bat`-Treiber einmal ausführen.
+`IPlayerDefeatCapability` veröffentlicht zwei voneinander getrennte Zustandsübergänge:
 
-## Projektunterlagen
+- `PlayerLordDeathNotification`, wenn ein zuvor bestätigt lebender Lord verschwindet oder stirbt;
+- `PlayerDefeatNotification`, wenn Vanilla den Spieler offiziell in den Niederlagenstatus versetzt.
 
-- [ARCHITECTURE.md](ARCHITECTURE.md): kompakte Architektur und Sicherheitsgrenzen
-- [TODOGatehouse.md](TODOGatehouse.md): offene Mittelpunktanalyse
-- [_inspect/HANDOFF.md](_inspect/HANDOFF.md): implementierter Übergabestand
-- [_inspect/native-surface-audit.csv](_inspect/native-surface-audit.csv): weitere Migrationskandidaten
+Die Meldungen enthalten Session-ID, einbasierte Spieler-ID und Simulationstick; die Lord-Meldung enthält zusätzlich die einbasierte Unit-ID und die globale Identität des zuletzt bestätigten Lords. Bereits bestehende Zustände werden bei der Registrierung nicht nachträglich veröffentlicht. Mindestens einer der beiden Callbacks muss angegeben werden.
 
-Vor Version 1.0 sind die Verträge primär für die Workspace-Mods bestimmt; Änderungen sollen dennoch bewusst, typisiert und in allen Verbrauchern atomar erfolgen.
+### Gatehouse-Distanzursprung (`gatehouse-distance-origin`)
+
+`IGatehouseDistanceOriginCapability` wählt den Ursprung für gegnerische Distanzprüfungen an Torhäusern:
+
+- `VanillaBuildingBegin`: Vanillas Eckkoordinate;
+- `BuildingBoundsCenter`: der Mittelpunkt der vollständigen Gebäudegrenzen.
+
+Die Einstellung gilt prozessweit. APIShared validiert und übernimmt die zugehörige native Änderung exklusiv für die angegebene Besitzer-GUID.
+
+### Gatehouse-Zeiten und -Distanzen (`gatehouse-timing`)
+
+`IGatehouseTimingCapability` setzt vier Torhauswerte gemeinsam und transaktional:
+
+- Wiederöffnungsverzögerung für menschliche Spieler: `0` bis `30` Sekunden;
+- Wiederöffnungsverzögerung für KI-Spieler: `0` bis `120` Sekunden;
+- Schließdistanz für Menschen und KI: jeweils `5` bis `50` Felder.
+
+Die unterstützten Grenzen und Vanilla-Werte stehen in `GatehouseTimingValues`. `Enabled=false` stellt die vier Vanilla-Werte wieder her; der separat verwaltete Distanzursprung bleibt unverändert.
+
+```csharp
+var settings = new GatehouseTimingSettings(
+    enabled: true,
+    humanReopenDelaySeconds: 0.0,
+    aiReopenDelaySeconds: 10.0,
+    humanCloseDistanceTiles: 12.5,
+    aiCloseDistanceTiles: 20.0);
+
+if (!capability.TryApply(settings, out NativeCapabilityDiagnostic diagnostic))
+    LogDiagnostic(diagnostic);
+```
+
+### Unit-HUD-Präsentation (`unit-hud-presentation`)
+
+`IUnitHudPresentationCapability` bündelt gemeinsam nutzbare Darstellung und Interaktion für besondere Einheitenkategorien. Verbrauchermods können:
+
+- Kategorien anhand validierter `UnitHudUnitSnapshot`-Objekte registrieren;
+- Kategorien auf Truppenauswahl, Kontrollgruppen, Hovertext, Armeebericht, Rekrutierung und Einheitendetails anzeigen;
+- lokalisierte Namen, Kurztexte und Beschreibungen mit sicheren Fallbacks liefern;
+- eigene Bilder und Farbtönungen für Kategorien setzen;
+- deterministische Bild-Overrides für die unterstützten `UnitHudImageSlot`-Werte registrieren;
+- Mausinteraktionen mit Kategorien beobachten;
+- Rekrutierungsanforderungen über Tickets annehmen und nach der Zuordnung erzeugter Einheiten abschließen;
+- sichtbare Truppenslots, ausgewählte Kategorien und die zehn Vanilla-Kontrollgruppen abfragen;
+- eine einbasierte Unit-ID sicher aus allen Kontrollgruppen entfernen;
+- eine verzögerte, Unity-thread-sichere HUD-Aktualisierung anfordern.
+
+Registrierungen gelten für die Prozesslaufzeit. Die Capability implementiert zusätzlich `IUnitHudActivationCapability`; damit lassen sich alle Registrierungen eines Besitzers oder einzelne Kategorien und Bild-Overrides vorübergehend aktivieren beziehungsweise deaktivieren.
+
+```csharp
+var category = new UnitHudCategoryDefinition(
+    categoryId: "my-elite-archer",
+    displayName: "Elite Archer",
+    baseUnitType: archerType,
+    surfaces: UnitHudSurface.All,
+    imageResolver: ResolveIcon,
+    tint: new UnitHudTint(255, 220, 120, 96),
+    order: 0,
+    textProfile: new UnitHudTextProfile(
+        "Elite Archer",
+        "EA",
+        "A specialized archer.",
+        ResolveLocalizedText));
+
+if (!hud.TryRegisterCategory(category, MatchesEliteArcher, out diagnostic))
+    LogDiagnostic(diagnostic);
+
+((IUnitHudActivationCapability)hud).SetOwnerActive(true);
+hud.RequestRefresh();
+```
+
+Die derzeitige Rekrutierungsintegration unterstützt Kategorien mit dem europäischen Bogenschützen als Vanilla-Basistyp. Ein `UnitHudRecruitmentHandler` entscheidet vor Vanillas Rekrutierungsaktion, ob er ein Ticket übernimmt; ein übernommenes Ticket muss anschließend mit `TryCompleteRecruitment` abgeschlossen werden.
+
+### AIV-Bauschritt (`aiv-build-step`)
+
+`IAivBuildStepCapability` vermittelt Beobachter für den prozessweiten AIV-Bauschritt. `IAivBuildStepObserver.TryBegin` wird vor dem unveränderten Vanilla-Aufruf ausgeführt und kann ein aufrufsbezogenes `IAivBuildStepInvocation` zurückgeben. Dessen `Complete`-Methode erhält nach Vanilla:
+
+- denselben unveränderlichen Aufrufkontext;
+- die Information, ob Vanilla normal beendet wurde;
+- Vanillas unveränderten Rückgabewert oder `0`, falls der Aufruf nicht abgeschlossen wurde.
+
+Mehrere Beobachter werden deterministisch gestartet und in umgekehrter Reihenfolge abgeschlossen. APIShared führt Vanilla dabei genau einmal aus. Eine identische Registrierung ist idempotent; dieselbe Besitzer-/Registrierungs-ID darf nicht für einen anderen Beobachter wiederverwendet werden.
+
+## Gemeinsame Spielmodus-Erkennung
+
+Neben den Capabilities enthält die Assembly im Namespace `Shared` eine zentrale Spielmodusauswertung:
+
+```csharp
+using Shared;
+
+GameModeSnapshot mode = GameModeHelper.Capture();
+
+if (mode.IsRealMultiplayer)
+    Logger.LogInfo("Eine echte Multiplayer-Partie ist aktiv.");
+
+Logger.LogInfo(mode.ToDiagnosticString());
+```
+
+`GameModeSnapshot` unterscheidet unter anderem Karteneditor, Kampagne, Einzelmission, freie Partie, Vanilla-, benutzerdefinierte und Koop-Kreuzzüge, Sands of Time, Tutorial sowie angepasste und aus Spielständen wiederhergestellte Starts. Er enthält außerdem die zugrunde liegenden Lobby-, Netzwerk-, Kampagnen- und Trail-Indizien.
+
+`GameplayModModePolicy` und `GameplayFeatureModePolicy` enthalten Profile für fest katalogisierte Serps-Mod-GUIDs und deren Features. Sie sind keine allgemeine Registrierungs- oder Erweiterungsoberfläche für fremde Mods: Unbekannte Mod-GUIDs beziehungsweise nicht zugeordnete Kombinationen werden abgelehnt. Drittanbieter sollten `GameModeSnapshot` auswerten und ihre eigene Modusregel ausdrücklich definieren.
+
+## Lebensdauer und Fehlerbehandlung
+
+- Registrierungen und Hooks sind grundsätzlich für die gesamte Prozesslaufzeit ausgelegt.
+- Verwendete Capability-Objekte, Observer und Callbacks sollten entsprechend langlebig gehalten werden.
+- Besitzer- und Registrierungs-IDs müssen stabil und eindeutig sein.
+- Callbackfehler eines Verbrauchers werden, soweit der jeweilige Broker dies unterstützt, von anderen Verbrauchern isoliert. Eigene Callbacks sollten trotzdem keine Ausnahmen nach außen geben.
+- Native Capabilities arbeiten fail-closed: Bei unbekannter Spielversion, uneindeutigem Ziel, Validierungsfehler oder Konflikt erfolgt keine unsichere Mutation.
+- Vollständige Diagnosen sollten mit Capability-ID, Zustand, Grund, Konfliktbesitzer und vollständigem Binary-Hash protokolliert werden.
+
+Die mitgelieferte `APIShared.xml` enthält die XML-Dokumentation der öffentlichen Typen, Methoden, Eigenschaften und Enum-Werte und kann von IDEs direkt neben `APIShared.dll` verwendet werden.

@@ -67,6 +67,13 @@
 - Direkte native Handler laufen innerhalb desselben Chore-Callbacks auf jedem PC. Dadurch konsumieren sie Vanillas synchronisierten Zufallszahlengenerator überall in derselben Folge. Vanilla-`GameAction`-Ereignisse werden nur vom Host eingereiht, weil das Spiel daraus selbst weitere native Chores erzeugt.
 - Automatische Wegweiser und verzögerte Banditenbefehle werden ebenfalls per Chore beziehungsweise Simulationstick synchronisiert. Lokale Echtzeit und ein pro PC frisch erzeugter Zufallsseed dürfen keinen Simulationszustand bestimmen.
 
+## Zielspielergebundene Ereignis-Sounds
+
+- Die expliziten WAV-Dateien aller fünfzehn Random Events laufen über Vanillas Nachrichtenhandler RVA `0x1031B0` und werden zusammen mit Video und Nachricht durch den lokalen Zielspieler-Scope gefiltert.
+- Heirat ist die einzige zusätzliche Ausnahme: Nach `action_marriage.bik` und `Random_Events12.wav` ruft der direkte `FreeBuild_Event`-Zweig am RVA `0x104A53` den globalen UI-SFX-Wrapper RVA `0x2940` mit Sound-ID `207` auf. Der alternative Timeline-Zweig tut dasselbe am RVA `0xFA771`.
+- RVA `0x2940` schreibt über RVA `0x1A4190` einen Soundauftrag mit Position `64` und Lautstärke `100` in die globale Soundqueue. RandomEvents filtert diesen Wrapper nur während seines synchronen fremden Zielspieler-Scope; außerhalb davon und für den lokalen Zielspieler bleibt Vanilla unverändert.
+- Die direkt verwendeten Effekt- und Wildtierhandler besitzen keine weiteren expliziten Ereignis-Audioaufrufe. Normale räumliche Folgegeräusche von Einheiten und Gebäuden bleiben deshalb unberührt.
+
 ## Direkte Vanilla-Handler
 
 - `GameTimeManagerAPI.OnTick` wird aus einem nativen Pre-Tick-Kontext vor der Zeit-/Datumsverarbeitung aufgerufen. Timeline-Vektoren dort zu verändern führte reproduzierbar zu einem nativen Zugriffsfehler beim Kartenstart.

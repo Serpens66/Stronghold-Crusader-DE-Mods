@@ -1358,7 +1358,8 @@ namespace RandomEvents
 
             RandomEventsPresentationScope.GetSuppressedCallCounts(
                 out int presentationCallsBefore,
-                out int actionPointCallsBefore);
+                out int actionPointCallsBefore,
+                out int soundEffectCallsBefore);
             bool applied;
             using (RandomEventsPresentationScope.Begin(targetPlayerId, presentationPlayerId))
                 applied = DispatchDirectEventCore(definition, strength, targetPlayerId);
@@ -1367,12 +1368,14 @@ namespace RandomEvents
             {
                 RandomEventsPresentationScope.GetSuppressedCallCounts(
                     out int presentationCallsAfter,
-                    out int actionPointCallsAfter);
+                    out int actionPointCallsAfter,
+                    out int soundEffectCallsAfter);
                 LogDebug(
                     $"Local event presentation filter completed: event={definition.Name}, " +
                     $"targetPlayerId={targetPlayerId}, localPlayerId={presentationPlayerId}, applied={applied}, " +
                     $"presentationCallsSuppressed={presentationCallsAfter - presentationCallsBefore}, " +
-                    $"actionPointCallsSuppressed={actionPointCallsAfter - actionPointCallsBefore}.");
+                    $"actionPointCallsSuppressed={actionPointCallsAfter - actionPointCallsBefore}, " +
+                    $"soundEffectCallsSuppressed={soundEffectCallsAfter - soundEffectCallsBefore}.");
             }
             return applied;
         }
@@ -1474,6 +1477,15 @@ namespace RandomEvents
 
             if (definition.DispatchKind == RandomEventDispatchKind.ManualBandits)
                 return SpawnBanditAttack(targetPlayerId, strength);
+
+            if (definition.Kind == RandomEventKind.Marriage &&
+                !nativeEventDispatcher.IsEventSoundFilterAvailable)
+            {
+                LogError(
+                    $"Vanilla direct event skipped: event={definition.Name}, targetPlayerId={targetPlayerId}, " +
+                    "reason=validated native event-sound filter unavailable.");
+                return false;
+            }
 
             IDisposable signpostScope = null;
             SignpostTarget signpostTarget = default;

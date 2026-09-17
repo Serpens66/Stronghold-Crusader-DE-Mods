@@ -22,6 +22,7 @@ namespace BugfixesAndQoL
         public const int ChoreMoveTypeRva = 0x86C133C;
         public const int MoveQueueMarker = 0x40;
         public const int MoveFormationSpacingMask = 0x0C;
+        public const int ExecutedFastMoveType = -255;
         public const int TargetQueueMarker = 0x80;
         public const int ChoreExecuteMode = 0;
         public const int ChorePackMode = 1;
@@ -101,8 +102,13 @@ namespace BugfixesAndQoL
             out int decodedMoveType,
             out int spacing)
         {
-            int allowedBits = 0x01 | MoveQueueMarker | MoveFormationSpacingMask;
-            if ((moveType & ~allowedBits) != 0)
+            // Chore 17 stores MoveType as one byte. During execute mode Vanilla sign-extends
+            // that byte and then clears bit 7 with BTR before calling MoveHere. Consequently
+            // wire value 0x81 becomes Fast (-255), while 0x8D becomes -243. Do not truncate
+            // back to a byte here: retaining the signed Fast representation is part of the
+            // native MoveHere contract, and exact base validation keeps unknown values fail-open.
+            int vanillaOrQueuedMoveType = moveType & ~MoveFormationSpacingMask;
+            if (!IsKnownExecutedMoveType(vanillaOrQueuedMoveType, allowQueueMarker: true))
             {
                 decodedMoveType = moveType;
                 spacing = MoveFormationSpacingPolicy.Default;
@@ -112,7 +118,7 @@ namespace BugfixesAndQoL
             int spacingCode = (moveType & MoveFormationSpacingMask) >> 2;
             spacing = spacingCode == 1 ? 1 : spacingCode == 2 ? 3 :
                 spacingCode == 3 ? 4 : MoveFormationSpacingPolicy.Default;
-            decodedMoveType = moveType & ~MoveFormationSpacingMask;
+            decodedMoveType = vanillaOrQueuedMoveType;
             return true;
         }
 
@@ -134,15 +140,30 @@ namespace BugfixesAndQoL
 
         public static bool TryDecodeQueuedMoveType(int moveType, out int decodedMoveType)
         {
-            // After Vanilla removes bit 7, marked player moves can only be 0x40 or 0x41.
-            if (moveType != MoveQueueMarker && moveType != (MoveQueueMarker | 1))
+            if ((moveType & MoveQueueMarker) == 0)
             {
                 decodedMoveType = moveType;
                 return false;
             }
 
             decodedMoveType = moveType & ~MoveQueueMarker;
-            return true;
+            if (IsKnownExecutedMoveType(decodedMoveType, allowQueueMarker: false))
+                return true;
+
+            decodedMoveType = moveType;
+            return false;
+        }
+
+        private static bool IsKnownExecutedMoveType(int moveType, bool allowQueueMarker)
+        {
+            if (moveType == 0 || moveType == 1 || moveType == ExecutedFastMoveType)
+                return true;
+            if (!allowQueueMarker || (moveType & MoveQueueMarker) == 0)
+                return false;
+
+            int withoutQueueMarker = moveType & ~MoveQueueMarker;
+            return withoutQueueMarker == 0 || withoutQueueMarker == 1 ||
+                withoutQueueMarker == ExecutedFastMoveType;
         }
 
         public static bool TryMarkTargetCommandForQueue(int command, out int markedCommand)

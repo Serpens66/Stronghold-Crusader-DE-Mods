@@ -101,7 +101,10 @@ namespace BugfixesAndQoL
                         args.TribeId,
                         args.TileX,
                         args.TileY,
-                        hasTransportSpacing ? encodedSpacing : command.Spacing);
+                        hasTransportSpacing ? encodedSpacing : command.Spacing,
+                        encoded,
+                        hasTransportSpacing ? decoded : encoded,
+                        executingMoveChore);
                     if (matchesLocalRelease)
                         pending = null;
                 }
@@ -135,6 +138,35 @@ namespace BugfixesAndQoL
                     return true;
                 }
                 spacing = MoveFormationSpacingPolicy.Default;
+                return false;
+            }
+        }
+
+        internal static bool TryGetActiveDecodeDiagnostic(
+            int tribeId,
+            int tileX,
+            int tileY,
+            out int rawMoveType,
+            out int decodedMoveType,
+            out int spacing,
+            out bool executingMoveChore)
+        {
+            lock (syncRoot)
+            {
+                ActiveCommand command = active;
+                if (command != null && command.Matches(tribeId, tileX, tileY))
+                {
+                    rawMoveType = command.RawMoveType;
+                    decodedMoveType = command.DecodedMoveType;
+                    spacing = command.Spacing;
+                    executingMoveChore = command.ExecutingMoveChore;
+                    return true;
+                }
+
+                rawMoveType = 0;
+                decodedMoveType = 0;
+                spacing = MoveFormationSpacingPolicy.Default;
+                executingMoveChore = false;
                 return false;
             }
         }
@@ -179,18 +211,31 @@ namespace BugfixesAndQoL
 
         private sealed class ActiveCommand
         {
-            internal ActiveCommand(int tribeId, int tileX, int tileY, int spacing)
+            internal ActiveCommand(
+                int tribeId,
+                int tileX,
+                int tileY,
+                int spacing,
+                int rawMoveType,
+                int decodedMoveType,
+                bool executingMoveChore)
             {
                 TribeId = tribeId;
                 TileX = tileX;
                 TileY = tileY;
                 Spacing = spacing;
+                RawMoveType = rawMoveType;
+                DecodedMoveType = decodedMoveType;
+                ExecutingMoveChore = executingMoveChore;
             }
 
             internal int TribeId { get; }
             internal int TileX { get; }
             internal int TileY { get; }
             internal int Spacing { get; }
+            internal int RawMoveType { get; }
+            internal int DecodedMoveType { get; }
+            internal bool ExecutingMoveChore { get; }
             internal bool Matches(int tribeId, int tileX, int tileY) =>
                 TribeId == tribeId && TileX == tileX && TileY == tileY;
         }

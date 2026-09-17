@@ -741,9 +741,9 @@ internal static class Program
                 $"Chore 17 producer value 0x{moveType:X} accepts queue marker");
             Check((marked & QueueNativeContract.MoveQueueMarker) != 0,
                 $"Chore 17 producer value 0x{moveType:X} carries bit 0x40");
-            int unpackedMoveType = marked & ~0x80;
+            int unpackedMoveType = SimulateVanillaMoveTypeExecute(marked);
             Check(QueueNativeContract.TryDecodeQueuedMoveType(unpackedMoveType, out int decoded) &&
-                decoded == (moveType & ~0x80),
+                decoded == ExpectedExecutedVanillaMoveType(moveType),
                 $"Chore 17 producer value 0x{moveType:X} survives Vanilla bit-7 unpacking");
         }
         foreach (int moveType in producerMoveTypes)
@@ -755,14 +755,14 @@ internal static class Program
             Check(QueueNativeContract.TryMarkMoveTypeForQueue(
                     spacingMarked, out int queueAndSpacingMarked),
                 $"spacing {spacing} coexists with queue bit 6");
-            int unpacked = queueAndSpacingMarked & ~0x80;
+            int unpacked = SimulateVanillaMoveTypeExecute(queueAndSpacingMarked);
             Check(QueueNativeContract.TryDecodeFormationSpacing(
                     unpacked, out int withoutSpacing, out int decodedSpacing) &&
                   decodedSpacing == spacing &&
                   (withoutSpacing & QueueNativeContract.MoveFormationSpacingMask) == 0 &&
                   QueueNativeContract.TryDecodeQueuedMoveType(
                       withoutSpacing, out int decodedMoveType) &&
-                  decodedMoveType == (moveType & 1),
+                  decodedMoveType == ExpectedExecutedVanillaMoveType(moveType),
                 $"spacing {spacing} and queue marker roundtrip after Vanilla strips bit 7");
         }
         foreach (int invalidSpacing in new[] { 0, 5 })
@@ -771,7 +771,7 @@ internal static class Program
                     0, invalidSpacing, out _),
                 $"invalid command spacing {invalidSpacing} is rejected");
         }
-        foreach (int unknown in new[] { 2, 0x42, 0x100 })
+        foreach (int unknown in new[] { 2, 0x42, 0x100, -256, -254, -190 })
         {
             Check(!QueueNativeContract.TryDecodeFormationSpacing(
                     unknown, out int unchanged, out _) && unchanged == unknown,
@@ -787,6 +787,9 @@ internal static class Program
             "marked normal Move roundtrip");
         Check(QueueNativeContract.TryDecodeQueuedMoveType(0x41, out int alternateMove) && alternateMove == 1,
             "marked alternate Move roundtrip");
+        Check(QueueNativeContract.TryDecodeQueuedMoveType(-191, out int fastMove) &&
+              fastMove == QueueNativeContract.ExecutedFastMoveType,
+            "marked Fast Move retains Vanilla's signed execute representation");
         Check(!QueueNativeContract.TryDecodeQueuedMoveType(0xC1, out _),
             "Vanilla high bit cannot masquerade as a queued Move");
         Check(!QueueNativeContract.TryDecodeQueuedMoveType(1, out _),
@@ -820,14 +823,14 @@ internal static class Program
 
             // Vanilla stores this byte in its pending Chore. The managed release
             // context may be cleared before the later execute-mode invocation.
-            int executeMoveType = packedMoveType & ~0x80;
+            int executeMoveType = SimulateVanillaMoveTypeExecute(packedMoveType);
             Check(QueueNativeContract.TryResolveExecutedFormationSpacing(
                     executeMoveType,
                     executingMoveChore: true,
                     out int vanillaMoveType,
                     out int executedSpacing) &&
                   executedSpacing == spacing &&
-                  vanillaMoveType == (producerMoveType & 1),
+                  vanillaMoveType == ExpectedExecutedVanillaMoveType(producerMoveType),
                 $"tribe {tribeId} spacing {spacing} survives deferred Chore execution");
             bool resolvesWithoutExecuteScope =
                 QueueNativeContract.TryResolveExecutedFormationSpacing(
@@ -847,6 +850,15 @@ internal static class Program
               queuedMoveType == QueueNativeContract.MoveQueueMarker,
             "Extended Shift marker does not acquire default formation spacing during Chore execution");
     }
+
+    private static int SimulateVanillaMoveTypeExecute(int wireMoveType)
+    {
+        int signExtended = unchecked((sbyte)(byte)wireMoveType);
+        return signExtended < 0 ? signExtended & ~0x80 : signExtended;
+    }
+
+    private static int ExpectedExecutedVanillaMoveType(int producerMoveType) =>
+        producerMoveType == 0x81 ? QueueNativeContract.ExecutedFastMoveType : producerMoveType;
 
     private static void CheckMoveChoreDeduplication()
     {

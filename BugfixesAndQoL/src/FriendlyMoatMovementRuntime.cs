@@ -595,6 +595,7 @@ namespace BugfixesAndQoL
             new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<string> loggedDiggerDecisions =
             new HashSet<string>(StringComparer.Ordinal);
+        private readonly HashSet<int> loggedFormationExecuteMoveTypes = new HashSet<int>();
         private readonly Dictionary<int, string> lastWeightedPublicationDecisionByUnit =
             new Dictionary<int, string>();
         private int moveCommandSequence;
@@ -1577,6 +1578,22 @@ namespace BugfixesAndQoL
                         $"MOVE_FORMATION_DRAG: movehere-spacing; tribe={args.TribeId}; " +
                         $"target={args.TileX},{args.TileY}; spacing={formationSpacing}; " +
                         $"moveType={args.MoveType}.");
+                    if (MoveFormationCommandContext.TryGetActiveDecodeDiagnostic(
+                            args.TribeId,
+                            args.TileX,
+                            args.TileY,
+                            out int rawMoveType,
+                            out int decodedMoveType,
+                            out int decodedSpacing,
+                            out bool executingMoveChore) &&
+                        executingMoveChore &&
+                        loggedFormationExecuteMoveTypes.Add(rawMoveType))
+                    {
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"MOVE_FORMATION_DRAG: chore-execute-decoded; raw={rawMoveType}; " +
+                            $"decoded={decodedMoveType}; spacing={decodedSpacing}.");
+                    }
                 }
                 if (!activeMoveCommand.Options.RequiredOnly ||
                     settings.EnableMoveFormationEnhancements)

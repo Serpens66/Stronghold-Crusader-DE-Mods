@@ -28,6 +28,7 @@
     <Compile Include="..\..\RandomEvents\src\ArcherSourceNativeLayout.cs"><Link>ArcherSourceNativeLayout.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\BanditTargetEligibility.cs"><Link>BanditTargetEligibility.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventDefinitions.cs"><Link>RandomEventDefinitions.cs</Link></Compile>
+    <Compile Include="..\..\RandomEvents\src\RandomEventSoundNativeLayout.cs"><Link>RandomEventSoundNativeLayout.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsBatchValidator.cs"><Link>RandomEventsBatchValidator.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsChorePacket.cs"><Link>RandomEventsChorePacket.cs</Link></Compile>
     <Compile Include="..\..\RandomEvents\src\RandomEventsChoreSender.cs"><Link>RandomEventsChoreSender.cs</Link></Compile>

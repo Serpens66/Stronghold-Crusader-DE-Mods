@@ -21,6 +21,7 @@ namespace RandomEvents
             TestCalendar();
             TestSaveState();
             TestPresentationTargeting();
+            TestEventSoundNativeLayout();
             TestSignpostSelection();
             TestBanditTargetEligibility();
             TestArcherSourceTargetingScope();
@@ -139,13 +140,65 @@ namespace RandomEvents
                 Assert(RandomEventsPresentationScope.IsSuppressed, "foreign-target presentation is suppressed");
                 RandomEventsPresentationScope.RecordSuppressedPresentation();
                 RandomEventsPresentationScope.RecordSuppressedActionPoint();
+                RandomEventsPresentationScope.RecordSuppressedSoundEffect();
                 using (RandomEventsPresentationScope.Begin(1, 1))
                     Assert(RandomEventsPresentationScope.IsSuppressed, "nested local scope cannot cancel foreign suppression");
                 Assert(RandomEventsPresentationScope.IsSuppressed, "outer suppression survives nested scope disposal");
             }
             Assert(!RandomEventsPresentationScope.IsSuppressed, "presentation suppression is restored after dispatch");
-            RandomEventsPresentationScope.GetSuppressedCallCounts(out int presentations, out int actionPoints);
-            Assert(presentations == 1 && actionPoints == 1, "suppressed native UI calls are counted for diagnostics");
+            RandomEventsPresentationScope.GetSuppressedCallCounts(
+                out int presentations,
+                out int actionPoints,
+                out int soundEffects);
+            Assert(
+                presentations == 1 && actionPoints == 1 && soundEffects == 1,
+                "suppressed native UI and sound calls are counted for diagnostics");
+        }
+
+        private static void TestEventSoundNativeLayout()
+        {
+            const string dllPath = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Plugins\x86_64\CrusaderDE.dll";
+            byte[] image = LoadPeImage(dllPath);
+            RandomEventSoundNativeResolution reference = RandomEventSoundNativeLayout.Resolve(
+                image,
+                referenceHashMatches: true);
+            Assert(
+                reference.CallsiteRva == RandomEventSoundNativeLayout.ReferenceMarriageCallsiteRva,
+                "reference marriage sound callsite resolves");
+            Assert(
+                reference.SoundManagerRva == RandomEventSoundNativeLayout.ReferenceSoundManagerRva,
+                "reference marriage sound manager resolves");
+            Assert(
+                reference.SoundHandlerRva == RandomEventSoundNativeLayout.ReferenceSoundHandlerRva,
+                "reference marriage sound handler resolves");
+
+            RandomEventSoundNativeResolution fallback = RandomEventSoundNativeLayout.Resolve(
+                image,
+                referenceHashMatches: false);
+            Assert(
+                fallback.CallsiteRva == reference.CallsiteRva &&
+                fallback.SoundManagerRva == reference.SoundManagerRva &&
+                fallback.SoundHandlerRva == reference.SoundHandlerRva,
+                "fallback marriage sound signature resolves uniquely");
+
+            byte[] corrupt = (byte[])image.Clone();
+            corrupt[RandomEventSoundNativeLayout.ReferenceMarriageCallsiteRva] = 0x90;
+            ExpectFailure(
+                () => RandomEventSoundNativeLayout.Resolve(corrupt, true),
+                "a corrupted reference marriage sound callsite was accepted");
+
+            byte[] duplicate = (byte[])image.Clone();
+            const int duplicateRva = 0x200000;
+            int patternLength = 56;
+            Buffer.BlockCopy(
+                image,
+                RandomEventSoundNativeLayout.ReferenceMarriageCallsiteRva,
+                duplicate,
+                duplicateRva,
+                patternLength);
+            ExpectFailure(
+                () => RandomEventSoundNativeLayout.Resolve(duplicate, false),
+                "duplicate marriage sound callsites were accepted");
         }
 
         private static void TestSignpostSelection()
