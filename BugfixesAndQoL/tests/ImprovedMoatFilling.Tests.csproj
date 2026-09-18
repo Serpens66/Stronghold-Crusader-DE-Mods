@@ -39,6 +39,7 @@
     <Compile Include="..\src\AiDefensePatrolNativeDefinition.cs"><Link>AiDefensePatrolNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AiDefensePatrolPolicy.cs"><Link>AiDefensePatrolPolicy.cs</Link></Compile>
     <Compile Include="..\src\AiStoneReservePolicy.cs"><Link>AiStoneReservePolicy.cs</Link></Compile>
+    <Compile Include="..\src\ShcdeSeCoarseGridBufferWorkaround.cs"><Link>ShcdeSeCoarseGridBufferWorkaround.cs</Link></Compile>
     <Compile Include="..\src\AIResourceShortageSleepNativeDefinition.cs"><Link>AIResourceShortageSleepNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AIResourceShortageSleepPolicy.cs"><Link>AIResourceShortageSleepPolicy.cs</Link></Compile>
     <Compile Include="..\src\AicDropdownPolicy.cs"><Link>AicDropdownPolicy.cs</Link></Compile>
@@ -56,6 +57,7 @@
     <Compile Include="..\src\LocalPerPlayerSetting.cs"><Link>LocalPerPlayerSetting.cs</Link></Compile>
     <Compile Include="..\src\NotificationQueueNativeContract.cs"><Link>NotificationQueueNativeContract.cs</Link></Compile>
     <Compile Include="..\src\NotificationSkipPolicy.cs"><Link>NotificationSkipPolicy.cs</Link></Compile>
+    <Compile Include="..\src\QuarryKeepCenterPolicy.cs"><Link>QuarryKeepCenterPolicy.cs</Link></Compile>
     <Compile Include="..\..\Shared\GameProjectileSlotPolicy.cs"><Link>GameProjectileSlotPolicy.cs</Link></Compile>
     <Compile Include="..\src\NativeHandlerSnapshot.cs"><Link>NativeHandlerSnapshot.cs</Link></Compile>
     <Compile Include="..\src\AllyGoodsTransferPolicy.cs"><Link>AllyGoodsTransferPolicy.cs</Link></Compile>

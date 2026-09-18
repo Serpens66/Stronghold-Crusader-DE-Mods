@@ -81,6 +81,7 @@
     <Compile Include="src\AiStoneReserveFix.cs" />
     <Compile Include="src\AiStoneReserveNativeDefinition.cs" />
     <Compile Include="src\AiStoneReservePolicy.cs" />
+    <Compile Include="src\ShcdeSeCoarseGridBufferWorkaround.cs" />
     <Compile Include="src\AiWallTargetingFix.cs" />
     <Compile Include="src\AivDefenderPositionFix.cs" />
     <Compile Include="src\AITowerRuinRepairFix.cs" />
@@ -219,6 +220,7 @@
     <Compile Include="src\QuarryPileVanillaGroupPolicy.cs" />
     <Compile Include="src\QuarryPileRelocationPacket.cs" />
     <Compile Include="src\QuarryPileRelocationRuntime.cs" />
+    <Compile Include="src\QuarryKeepCenterPolicy.cs" />
     <Compile Include="src\QuarryPileTargetSelectionPolicy.cs" />
     <Compile Include="src\ReachableEnemyGatehouseRuntime.cs" />
     <Compile Include="src\SynchronizedGatehouseReachabilityPolicy.cs" />

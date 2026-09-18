@@ -19,7 +19,7 @@ namespace BugfixesAndQoL
     {
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly GameAIVManagerAPI aivApi;
+        private readonly IAiStoneReserveAivDataSource aivDataSource;
         private readonly Func<short, int?> stoneCostResolver;
         private readonly object stateLock = new object();
         private readonly ulong hookAddress;
@@ -51,14 +51,42 @@ namespace BugfixesAndQoL
                 log: null);
             ValidateAivNativeLayout(memory, referenceHashMatches);
 
-            aivApi = GameAIVManagerAPI.Instance;
-            Span<AivVillageState> liveVillages = aivApi.GetLiveVillageSlots();
-            if (liveVillages.Length != AivSystem.LIVE_VILLAGE_SLOT_COUNT ||
-                liveVillages.Length != AiStoneReservePolicy.LiveAivSlotCount)
+            // SHCDESE_COARSE_GRID_BUFFER_WORKAROUND: the official API is always attempted
+            // first. See Findings/SHCDESE-CoarseGridBuffer-TypeLoadException.md. Remove the
+            // marked fallback after the official live-village and build-step views load on Mono.
+            int moduleLength = memory.Length;
+            aivDataSource = ShcdeSeCoarseGridBufferWorkaround.SelectBackend(
+                () => new OfficialAiStoneReserveAivDataSource(GameAIVManagerAPI.Instance),
+                () => ShcdeSeCoarseGridBufferWorkaround.CreateRawDataSource(
+                    libraryBase,
+                    moduleLength),
+                out bool workaroundActive,
+                out Exception knownScriptExtenderFailure);
+
+            Span<AivVillageState> liveVillages = aivDataSource.GetLiveVillageSlots();
+            if (liveVillages.Length != AiStoneReservePolicy.LiveAivSlotCount)
             {
                 throw new InvalidOperationException(
-                    $"The Script Extender returned {liveVillages.Length} live AIV village slots; " +
+                    $"The selected AIV data source returned {liveVillages.Length} live village slots; " +
                     $"expected {AiStoneReservePolicy.LiveAivSlotCount}.");
+            }
+
+            Version extenderVersion = typeof(GameAIVManagerAPI).Assembly.GetName().Version;
+            if (workaroundActive)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"{ShcdeSeCoarseGridBufferWorkaround.Marker}: compatibility workaround active; " +
+                    $"SHCDE-SE {extenderVersion} could not initialize GameAIVManagerAPI. " +
+                    $"The official API will be selected automatically after the Extender is fixed. " +
+                    $"Detected failure: {knownScriptExtenderFailure.Message}");
+            }
+            else
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"AI stone-reserve AIV backend: official SHCDE-SE {extenderVersion} API; " +
+                    $"{ShcdeSeCoarseGridBufferWorkaround.Marker} workaround inactive.");
             }
 
             stoneCostResolver = ResolveStoneCost;
@@ -179,7 +207,7 @@ namespace BugfixesAndQoL
                             $"The seller player offset is invalid: r8=0x{registers->R8:X}.");
                     }
 
-                    Span<AivVillageState> liveVillages = aivApi.GetLiveVillageSlots();
+                    Span<AivVillageState> liveVillages = aivDataSource.GetLiveVillageSlots();
                     if (liveVillages.Length != AiStoneReservePolicy.LiveAivSlotCount)
                     {
                         throw new InvalidOperationException(
@@ -197,14 +225,14 @@ namespace BugfixesAndQoL
                             $"The live AIV villages did not contain exactly one slot for player {playerId}.");
                     }
 
-                    int villageSlot = checked(liveSlotIndex + AivSystem.FIRST_LIVE_VILLAGE_SLOT);
+                    int villageSlot = checked(liveSlotIndex + 1);
                     ref AivVillageState village = ref liveVillages[liveSlotIndex];
-                    Span<AivBuildStep> buildSteps = aivApi.GetBuildSteps(villageSlot);
-                    if (buildSteps.Length != AivVillageState.BUILD_STEP_CAPACITY)
+                    Span<AivBuildStep> buildSteps = aivDataSource.GetBuildSteps(villageSlot);
+                    if (buildSteps.Length != ShcdeSeCoarseGridBufferWorkaround.BuildStepCapacity)
                     {
                         throw new InvalidOperationException(
                             $"The AIV village for player {playerId} exposes {buildSteps.Length} build steps " +
-                            $"instead of {AivVillageState.BUILD_STEP_CAPACITY}.");
+                            $"instead of {ShcdeSeCoarseGridBufferWorkaround.BuildStepCapacity}.");
                     }
                     int maximumBuildStep = village.MaximumBuildStep;
                     if (!AiStoneReservePolicy.IsValidMaximumBuildStep(

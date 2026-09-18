@@ -17,6 +17,7 @@ using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Extensions;
+using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -33,7 +34,6 @@ namespace CastlePlanner
     {
         private const int AivSpecStride = 0x6D98;
         private const int PlayerAivStateStride = 0x583C;
-        private const int ImportedCandidatesPerPlayer = 1000;
         private const int SpecCopiedPlayerAivValueOffset = 0x08;
         private const int SpecOrientationOffset = 0x0C;
         private const int SpecCandidateIdOffset = 0x10;
@@ -136,6 +136,9 @@ namespace CastlePlanner
         private IntPtr prebuiltPlayersBitField;
         private IntPtr preparedKeepX;
         private IntPtr preparedKeepY;
+        private GameAIVManagerAPI officialAivApi;
+        private IntPtr workaroundImportedAivTable;
+        private AivImportBackend aivImportBackend;
         private HookTransaction nativeHookTransaction;
         private readonly HookHandle<X64InlineHook> humanKeepCoordinateLoadHook =
             new HookHandle<X64InlineHook>();
@@ -191,6 +194,7 @@ namespace CastlePlanner
 
             this.referenceHashMatches = referenceHashMatches;
             BindNativeFunctions(context.ModuleHandle, context.Memory);
+            InitializeAivImportBackend(context);
             InstallHumanStartPreparationHook(context);
 
             // SaveLifecycle: NewMapOnly - Pre/Post encloses native free-castle creation.
@@ -440,11 +444,33 @@ namespace CastlePlanner
             PendingAivImport prepared)
         {
             // Pre runs after Vanilla's import loop but before map start consumes the table.
-            if (!GameAIVManagerAPI.Instance.ImportAIV(
-                    request.PlayerId - 1,
+            int bankIndex = request.PlayerId - 1;
+            AivImportCompatibilityPolicy.ValidateImportArguments(
+                bankIndex,
+                0,
+                prepared.RawAiv);
+            bool imported;
+            if (aivImportBackend == AivImportBackend.ScriptExtenderApi)
+            {
+                imported = officialAivApi.ImportAIV(
+                    bankIndex,
                     0,
                     prepared.RawAiv,
-                    true))
+                    true);
+            }
+            else if (aivImportBackend == AivImportBackend.CoarseGridBufferWorkaround)
+            {
+                // SHCDE-SE 2.7.x CoarseGridBuffer workaround. This is the same
+                // managed import call used by GameAIVManagerAPI.ImportAIV.
+                EngineInterface.ImportAIV(bankIndex, 0, prepared.RawAiv, 1);
+                imported = true;
+            }
+            else
+            {
+                throw new InvalidOperationException("No validated AIV import backend is active.");
+            }
+
+            if (!imported)
             {
                 throw new InvalidOperationException(
                     $"The Script Extender rejected the AIV import; " +
@@ -1651,6 +1677,81 @@ namespace CastlePlanner
                 $"preparedKeepY=0x{preparedKeepY.ToInt64():X}.");
         }
 
+        private void InitializeAivImportBackend(CrusaderLibraryLoadContext context)
+        {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
+            bool workaroundActive;
+            Exception knownFailure;
+            aivImportBackend = AivImportCompatibilityPolicy.SelectBackend(
+                () =>
+                {
+                    GameAIVManagerAPI candidate = GameAIVManagerAPI.Instance;
+                    Span<ulong> table = candidate.GetImportedAIVVariantPointers();
+                    if (table.Length != AivImportCompatibilityPolicy.CandidateTableEntryCount)
+                    {
+                        throw new InvalidOperationException(
+                            $"The Script Extender returned an unexpected AIV candidate table size; " +
+                            $"expected={AivImportCompatibilityPolicy.CandidateTableEntryCount}, actual={table.Length}.");
+                    }
+
+                    officialAivApi = candidate;
+                    workaroundImportedAivTable = IntPtr.Zero;
+                    return AivImportBackend.ScriptExtenderApi;
+                },
+                () =>
+                {
+                    try
+                    {
+                        ulong tableAddress = GameGlobalsManager.Instance.AIVImportedVariantsVA;
+                        ulong moduleAddress = unchecked((ulong)context.ModuleHandle.ToInt64());
+                        if (!AivImportCompatibilityPolicy.IsTableRangeInsideModule(
+                                tableAddress,
+                                moduleAddress,
+                                context.Memory.Length))
+                        {
+                            throw new InvalidOperationException(
+                                $"The Script Extender AIV table address failed module-range validation; " +
+                                $"table=0x{tableAddress:X}, module=0x{moduleAddress:X}, moduleLength={context.Memory.Length}.");
+                        }
+
+                        officialAivApi = null;
+                        workaroundImportedAivTable = new IntPtr(checked((long)tableAddress));
+                        return AivImportBackend.CoarseGridBufferWorkaround;
+                    }
+                    catch (Exception ex)
+                    {
+                        Shared.DebugLogHelper.LogError(
+                            log,
+                            $"Known SHCDE-SE CoarseGridBuffer failure was detected, but CastlePlanner's " +
+                            $"marked workaround validation failed; native Spawn mode remains inactive: {ex}");
+                        throw;
+                    }
+                },
+                out workaroundActive,
+                out knownFailure);
+
+            Version extenderVersion = typeof(GameAIVManagerAPI).Assembly.GetName().Version;
+            if (workaroundActive)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"CastlePlanner compatibility workaround active: SHCDE-SE {extenderVersion} " +
+                    $"cannot load GameAIVManagerAPI because of the known CoarseGridBuffer fixed-buffer limit; " +
+                    $"imports use EngineInterface.ImportAIV and candidate reads use AIVImportedVariantsVA. " +
+                    $"The official API will be selected automatically after the Script Extender is fixed. " +
+                    $"Detected failure: {knownFailure.Message}");
+            }
+            else
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner AIV import backend: official SHCDE-SE {extenderVersion} " +
+                    $"GameAIVManagerAPI is available; compatibility workaround inactive.");
+            }
+        }
+
         private void InstallHumanStartPreparationHook(CrusaderLibraryLoadContext context)
         {
             ReadOnlySpan<byte> memory = context.Memory;
@@ -1933,44 +2034,55 @@ namespace CastlePlanner
             Marshal.WriteInt32(prebuiltPlayersBitField, updated);
         }
 
-        private static ImportedCandidateSnapshot CaptureImportedCandidates(
+        private ImportedCandidateSnapshot CaptureImportedCandidates(
             int zeroBasedPlayerSlot)
         {
-            if (zeroBasedPlayerSlot < 0 || zeroBasedPlayerSlot >= 8)
+            int bankOffset = AivImportCompatibilityPolicy.GetBankOffset(zeroBasedPlayerSlot);
+            if (aivImportBackend == AivImportBackend.ScriptExtenderApi)
             {
-                throw new ArgumentOutOfRangeException(
-                    nameof(zeroBasedPlayerSlot),
-                    zeroBasedPlayerSlot,
-                    "The native AIV candidate table only contains eight player slots.");
+                Span<ulong> importedVariantPointers =
+                    officialAivApi.GetImportedAIVVariantPointers();
+                if (importedVariantPointers.Length != AivImportCompatibilityPolicy.CandidateTableEntryCount)
+                {
+                    throw new InvalidOperationException(
+                        $"The Script Extender returned an unexpected AIV candidate table size; " +
+                        $"expected={AivImportCompatibilityPolicy.CandidateTableEntryCount}, " +
+                        $"actual={importedVariantPointers.Length}.");
+                }
+
+                int count = officialAivApi.GetImportedAIVVariantCount(zeroBasedPlayerSlot);
+                if (count < 0 || count > AivImportCompatibilityPolicy.CandidatesPerBank)
+                {
+                    throw new InvalidOperationException(
+                        $"The Script Extender returned an invalid AIV candidate count; " +
+                        $"bank={zeroBasedPlayerSlot}, count={count}.");
+                }
+
+                fixed (ulong* tablePointer = importedVariantPointers)
+                {
+                    return new ImportedCandidateSnapshot(
+                        new IntPtr(tablePointer),
+                        new IntPtr(checked((long)importedVariantPointers[bankOffset])),
+                        count);
+                }
             }
 
-            Span<ulong> importedVariantPointers =
-                GameAIVManagerAPI.Instance.GetImportedAIVVariantPointers();
-            int expectedPointerCount = checked(8 * ImportedCandidatesPerPlayer);
-            if (importedVariantPointers.Length != expectedPointerCount)
+            if (aivImportBackend != AivImportBackend.CoarseGridBufferWorkaround ||
+                workaroundImportedAivTable == IntPtr.Zero)
             {
                 throw new InvalidOperationException(
-                    $"The Script Extender returned an unexpected AIV candidate table size; " +
-                    $"expected={expectedPointerCount}, actual={importedVariantPointers.Length}.");
+                    "The marked SHCDE-SE AIV compatibility workaround is not initialized.");
             }
 
-            int bankOffset = checked(zeroBasedPlayerSlot * ImportedCandidatesPerPlayer);
-            int count = GameAIVManagerAPI.Instance.GetImportedAIVVariantCount(
-                zeroBasedPlayerSlot);
-            if (count < 0 || count > ImportedCandidatesPerPlayer)
-            {
-                throw new InvalidOperationException(
-                    $"The Script Extender returned an invalid AIV candidate count; " +
-                    $"bank={zeroBasedPlayerSlot}, count={count}.");
-            }
-
-            fixed (ulong* tablePointer = importedVariantPointers)
-            {
-                return new ImportedCandidateSnapshot(
-                    new IntPtr(tablePointer),
-                    new IntPtr(checked((long)importedVariantPointers[bankOffset])),
-                    count);
-            }
+            ulong* tablePointerFallback = (ulong*)workaroundImportedAivTable.ToPointer();
+            ReadOnlySpan<ulong> bank = new ReadOnlySpan<ulong>(
+                tablePointerFallback + bankOffset,
+                AivImportCompatibilityPolicy.CandidatesPerBank);
+            int fallbackCount = AivImportCompatibilityPolicy.CountDenseCandidatePrefix(bank);
+            return new ImportedCandidateSnapshot(
+                workaroundImportedAivTable,
+                new IntPtr(checked((long)bank[0])),
+                fallbackCount);
         }
 
         private static int[] CaptureHumanPlayerIds()
@@ -2263,6 +2375,13 @@ namespace CastlePlanner
             public IntPtr TableAddress { get; }
             public IntPtr FirstPointer { get; }
             public int Count { get; }
+        }
+
+        private enum AivImportBackend
+        {
+            None = 0,
+            ScriptExtenderApi = 1,
+            CoarseGridBufferWorkaround = 2
         }
 
 

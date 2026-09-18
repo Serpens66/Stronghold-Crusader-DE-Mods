@@ -87,7 +87,13 @@ internal static class Program
             ("marshals free-castle packets before protocol handling", MarshalsFreeCastlePacketsBeforeProtocolHandling),
             ("validates the installed RedBird overwrite span", ValidatesInstalledRedBirdOverwriteSpan),
             ("guards multiplayer preview liveness across pause and resume", GuardsMultiplayerPreviewLiveness),
-            ("pins CastlePlanner to the manifest Script Extender range", PinsCastlePlannerToManifestExtenderRange)
+            ("pins CastlePlanner to the manifest Script Extender range", PinsCastlePlannerToManifestExtenderRange),
+            ("maps localized castle rotation labels to Vanilla directions", MapsLocalizedCastleRotationLabels),
+            ("falls back to English castle rotation directions", FallsBackToEnglishCastleRotationDirections),
+            ("selects the official AIV API when available", SelectsOfficialAivApiWhenAvailable),
+            ("recognizes the known nested CoarseGridBuffer failure", RecognizesKnownNestedCoarseGridBufferFailure),
+            ("rejects unrelated AIV API failures", RejectsUnrelatedAivApiFailures),
+            ("validates workaround AIV table and import boundaries", ValidatesWorkaroundAivBoundaries)
         };
 
         int failures = 0;
@@ -936,6 +942,161 @@ internal static class Program
         Assert(source.Contains("OwnsHooks = true", StringComparison.Ordinal) &&
             source.Contains("pending?.Dispose();", StringComparison.Ordinal),
             "an unpublished invalid hook candidate cannot be rolled back completely");
+    }
+
+    private static void MapsLocalizedCastleRotationLabels()
+    {
+        var localized = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["TEXT_CUSTOMISATION_015"] = "Nord",
+            ["TEXT_CUSTOMISATION_016"] = "Ost",
+            ["TEXT_CUSTOMISATION_017"] = "Süd",
+            ["TEXT_CUSTOMISATION_018"] = "West"
+        };
+        CastleRotationOptions options = CastleRotationOptions.Create(
+            key => localized.TryGetValue(key, out string text) ? text : null);
+
+        Equal(4, options.DisplayTexts.Count);
+        Equal("Süd (0°)", options.DisplayTexts[0]);
+        Equal("Ost (90°)", options.DisplayTexts[1]);
+        Equal("Nord (180°)", options.DisplayTexts[2]);
+        Equal("West (270°)", options.DisplayTexts[3]);
+        Equal(0, options.GetNativeRotation(options.DisplayTexts[0]));
+        Equal(2, options.GetNativeRotation(options.DisplayTexts[1]));
+        Equal(4, options.GetNativeRotation(options.DisplayTexts[2]));
+        Equal(6, options.GetNativeRotation(options.DisplayTexts[3]));
+        Equal(0, options.GetNativeRotation("Nord (180°) "));
+
+        string root = FindCastlePlannerRoot();
+        string preview = File.ReadAllText(Path.Combine(
+            root, "src", "FreeCastlePreviewRuntime.cs"));
+        Assert(preview.Contains(
+                "CastleRotationOptions.Create(GetVanillaGameText)",
+                StringComparison.Ordinal) &&
+            preview.Contains(
+                "rotationOptions.GetNativeRotation(selectedRotation)",
+                StringComparison.Ordinal) &&
+            preview.Contains(
+                "Translate.Instance.GameTexts.TryGetValue",
+                StringComparison.Ordinal) &&
+            !preview.Contains("RotationTextToNative", StringComparison.Ordinal),
+            "free-castle preview does not use the localized, value-backed rotation options");
+    }
+
+    private static void FallsBackToEnglishCastleRotationDirections()
+    {
+        CastleRotationOptions missing = CastleRotationOptions.Create(key => key);
+        Equal("South (0°)", missing.DisplayTexts[0]);
+        Equal("East (90°)", missing.DisplayTexts[1]);
+        Equal("North (180°)", missing.DisplayTexts[2]);
+        Equal("West (270°)", missing.DisplayTexts[3]);
+        Equal("South (0°)", missing.DefaultDisplayText);
+
+        CastleRotationOptions failed = CastleRotationOptions.Create(
+            _ => throw new InvalidOperationException("translation unavailable"));
+        Equal("South (0°)", failed.DisplayTexts[0]);
+        Equal(6, failed.GetNativeRotation("West (270°)"));
+        Equal(0, failed.GetNativeRotation("unknown"));
+        Equal(0, failed.GetNativeRotation(null));
+    }
+
+    private static void SelectsOfficialAivApiWhenAvailable()
+    {
+        string selected = AivImportCompatibilityPolicy.SelectBackend(
+            () => "official",
+            () => throw new InvalidOperationException("workaround must remain dormant"),
+            out bool workaroundActive,
+            out Exception knownFailure);
+
+        Equal("official", selected);
+        Assert(!workaroundActive, "workaround activated despite a successful official API probe");
+        Assert(knownFailure == null, "successful official API probe retained a failure");
+    }
+
+    private static void RecognizesKnownNestedCoarseGridBufferFailure()
+    {
+        var typeLoad = new TypeLoadException(
+            "Could not set up field 'CoarseGridBuffer' due to: Value type instance size (1228816) " +
+            "cannot be zero, negative, or bigger than 1Mb type:<CoarseGridBuffer>e__FixedBuffer");
+        var wrapped = new InvalidOperationException("lazy initialization failed", typeLoad);
+
+        string selected = AivImportCompatibilityPolicy.SelectBackend(
+            () => throw wrapped,
+            () => "workaround",
+            out bool workaroundActive,
+            out Exception knownFailure);
+
+        Equal("workaround", selected);
+        Assert(workaroundActive, "known nested CoarseGridBuffer failure did not activate the workaround");
+        Assert(ReferenceEquals(wrapped, knownFailure), "known Script Extender failure was not retained for logging");
+        Assert(AivImportCompatibilityPolicy.IsKnownCoarseGridBufferFailure(typeLoad),
+            "direct CoarseGridBuffer TypeLoadException was not recognized");
+    }
+
+    private static void RejectsUnrelatedAivApiFailures()
+    {
+        bool workaroundCalled = false;
+        var unrelated = new TypeLoadException("A different interop layout failed.");
+        try
+        {
+            AivImportCompatibilityPolicy.SelectBackend(
+                () => throw unrelated,
+                () =>
+                {
+                    workaroundCalled = true;
+                    return "workaround";
+                },
+                out _,
+                out _);
+            throw new InvalidOperationException("unrelated TypeLoadException was unexpectedly accepted");
+        }
+        catch (TypeLoadException ex)
+        {
+            Assert(ReferenceEquals(unrelated, ex), "unrelated failure identity was not preserved");
+        }
+
+        Assert(!workaroundCalled, "unrelated failure invoked the workaround factory");
+    }
+
+    private static void ValidatesWorkaroundAivBoundaries()
+    {
+        Equal(0, AivImportCompatibilityPolicy.GetBankOffset(0));
+        Equal(7_000, AivImportCompatibilityPolicy.GetBankOffset(7));
+        AssertThrows(
+            () => AivImportCompatibilityPolicy.GetBankOffset(8),
+            "out-of-range AIV bank was accepted");
+
+        AivImportCompatibilityPolicy.ValidateImportArguments(0, 0, new short[] { 1 });
+        AivImportCompatibilityPolicy.ValidateImportArguments(7, 999, new short[] { 1 });
+        AssertThrows(
+            () => AivImportCompatibilityPolicy.ValidateImportArguments(-1, 0, new short[] { 1 }),
+            "negative AIV bank was accepted");
+        AssertThrows(
+            () => AivImportCompatibilityPolicy.ValidateImportArguments(0, 1_000, new short[] { 1 }),
+            "out-of-range AIV candidate was accepted");
+        AssertThrows(
+            () => AivImportCompatibilityPolicy.ValidateImportArguments(0, 0, Array.Empty<short>()),
+            "empty AIV payload was accepted");
+
+        var bank = new ulong[AivImportCompatibilityPolicy.CandidatesPerBank];
+        bank[0] = 0x1000;
+        bank[1] = 0x2000;
+        Equal(2, AivImportCompatibilityPolicy.CountDenseCandidatePrefix(bank));
+        bank[2] = 0x3000;
+        bank[3] = 0;
+        bank[4] = 0x5000;
+        Equal(3, AivImportCompatibilityPolicy.CountDenseCandidatePrefix(bank));
+
+        const ulong module = 0x180000000;
+        ulong table = module + 0x1000;
+        int requiredLength = 0x1000 +
+            AivImportCompatibilityPolicy.CandidateTableEntryCount * sizeof(ulong);
+        Assert(AivImportCompatibilityPolicy.IsTableRangeInsideModule(table, module, requiredLength),
+            "valid aligned AIV table range was rejected");
+        Assert(!AivImportCompatibilityPolicy.IsTableRangeInsideModule(table + 1, module, requiredLength + 1),
+            "misaligned AIV table address was accepted");
+        Assert(!AivImportCompatibilityPolicy.IsTableRangeInsideModule(table, module, requiredLength - 1),
+            "truncated AIV table range was accepted");
     }
 
     private sealed class ManualSynchronizationContext : SynchronizationContext

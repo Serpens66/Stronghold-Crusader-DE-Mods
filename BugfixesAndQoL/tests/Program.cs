@@ -51,7 +51,9 @@ namespace BugfixesAndQoL
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
             TestAiStoneReservePolicy();
+            TestShcdeSeCoarseGridBufferWorkaround();
             TestAiStoneReserveIntegration();
+            TestQuarryKeepCenterPolicy();
             TestAiWallTargetingIntegration();
             TestSingleBuildingPauseOverrideStore();
             TestAIResourceShortageSleepPolicy();
@@ -3294,6 +3296,13 @@ namespace BugfixesAndQoL
             string projectDirectory = FindProjectDirectory();
             string sourceDirectory = Path.Combine(projectDirectory, "src");
             string fix = File.ReadAllText(Path.Combine(sourceDirectory, "AiStoneReserveFix.cs"));
+            string workaround = File.ReadAllText(Path.Combine(
+                sourceDirectory,
+                "ShcdeSeCoarseGridBufferWorkaround.cs"));
+            string findings = File.ReadAllText(Path.Combine(
+                Directory.GetParent(projectDirectory).FullName,
+                "Findings",
+                "SHCDESE-CoarseGridBuffer-TypeLoadException.md"));
             string viewModel = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory,
@@ -3309,12 +3318,20 @@ namespace BugfixesAndQoL
 
             Check(fix.Contains("settings.EnableMod && settings.EnableAiStoneReserveFix"),
                 "AI stone-reserve runtime uses the mod and specific host setting gates");
-            Check(fix.Contains("GetLiveVillageSlots()") &&
-                    fix.Contains("GetBuildSteps(villageSlot)") &&
+            Check(fix.Contains("aivDataSource.GetLiveVillageSlots()") &&
+                    fix.Contains("aivDataSource.GetBuildSteps(villageSlot)") &&
                     fix.Contains("ref AivBuildStep step") &&
                     !fix.Contains("GetAIVSystemPointer()") &&
                     !fix.Contains("ReadOnlySpan<byte>(aivTable"),
-                "AI stone-reserve runtime uses typed Script Extender AIV views without raw table parsing");
+                "AI stone-reserve runtime uses its validated typed AIV data-source boundary");
+            Check(fix.Contains("ShcdeSeCoarseGridBufferWorkaround.SelectBackend") &&
+                    workaround.Contains("SHCDESE_COARSE_GRID_BUFFER_WORKAROUND") &&
+                    workaround.Contains("officialFactory()") &&
+                    workaround.IndexOf("officialFactory()", StringComparison.Ordinal) <
+                    workaround.IndexOf("workaroundFactory()", StringComparison.Ordinal) &&
+                    workaround.Contains("Findings/SHCDESE-CoarseGridBuffer-TypeLoadException.md") &&
+                    findings.Contains("SHCDESE_COARSE_GRID_BUFFER_WORKAROUND"),
+                "AI stone-reserve workaround is isolated, searchable, documented, and official-first");
             Check(viewModel.Contains("private bool enableAiStoneReserveFix = true;") &&
                     viewModel.Contains("public bool EnableAiStoneReserveFix") &&
                     viewModel.Contains("EnableAiStoneReserveFix = true;"),
@@ -3345,6 +3362,109 @@ namespace BugfixesAndQoL
             removedFromActiveSources &= !sharedLocalization.Contains(removedSettingName);
             Check(removedFromActiveSources,
                 "the removed aggregate AI-fixes setting is absent from active sources, XAML, and localization");
+        }
+
+        private static void TestShcdeSeCoarseGridBufferWorkaround()
+        {
+            int officialCalls = 0;
+            int workaroundCalls = 0;
+            string selected = ShcdeSeCoarseGridBufferWorkaround.SelectBackend(
+                () =>
+                {
+                    officialCalls++;
+                    return "official";
+                },
+                () =>
+                {
+                    workaroundCalls++;
+                    return "workaround";
+                },
+                out bool workaroundActive,
+                out Exception knownFailure);
+            Check(selected == "official" && officialCalls == 1 && workaroundCalls == 0 &&
+                    !workaroundActive && knownFailure == null,
+                "AI stone-reserve selects the official Extender API before considering its workaround");
+
+            var monoFailure = new InvalidOperationException(
+                "outer",
+                new TypeLoadException(
+                    "Could not set up field 'CoarseGridBuffer': type <CoarseGridBuffer>e__FixedBuffer " +
+                    "has value type instance size 1228816 bigger than 1Mb"));
+            selected = ShcdeSeCoarseGridBufferWorkaround.SelectBackend(
+                () => throw monoFailure,
+                () => "workaround",
+                out workaroundActive,
+                out knownFailure);
+            Check(selected == "workaround" && workaroundActive &&
+                    ReferenceEquals(knownFailure, monoFailure),
+                "AI stone-reserve recognizes the exact nested Unity Mono fixed-buffer failure");
+
+            bool unrelatedRethrown = false;
+            try
+            {
+                ShcdeSeCoarseGridBufferWorkaround.SelectBackend(
+                    () => throw new TypeLoadException("CoarseGridBuffer failed for another reason"),
+                    () => "workaround",
+                    out _,
+                    out _);
+            }
+            catch (TypeLoadException)
+            {
+                unrelatedRethrown = true;
+            }
+            Check(unrelatedRethrown,
+                "AI stone-reserve rejects similar but unrecognized Extender failures");
+
+            const ulong moduleAddress = 0x180000000;
+            int moduleLength = 0x4000000;
+            ulong validAivAddress = moduleAddress + 0x34A9F70;
+            Check(ShcdeSeCoarseGridBufferWorkaround.IsAivSystemRangeInsideModule(
+                        validAivAddress, moduleAddress, moduleLength) &&
+                    !ShcdeSeCoarseGridBufferWorkaround.IsAivSystemRangeInsideModule(
+                        validAivAddress + 1, moduleAddress, moduleLength) &&
+                    !ShcdeSeCoarseGridBufferWorkaround.IsAivSystemRangeInsideModule(
+                        moduleAddress + (ulong)moduleLength - 4, moduleAddress, moduleLength),
+                "AI stone-reserve raw fallback validates AIVSystem alignment and complete module range");
+        }
+
+        private static void TestQuarryKeepCenterPolicy()
+        {
+            Check(QuarryKeepCenterPolicy.Resolve(
+                        eStructs.STRUCT_KEEP_ONE, 7, 100, 200,
+                        out int center7X, out int center7Y) == QuarryKeepCenterResolution.Ready &&
+                    center7X == 206 && center7Y == 406,
+                "AI quarry resolves a 7x7 Keep center without occupied-tile reads");
+            Check(QuarryKeepCenterPolicy.Resolve(
+                        eStructs.STRUCT_KEEP_THREE, 11, 300, 400,
+                        out int center11X, out int center11Y) == QuarryKeepCenterResolution.Ready &&
+                    center11X == 610 && center11Y == 810,
+                "AI quarry resolves an 11x11 Keep center without occupied-tile reads");
+            Check(QuarryKeepCenterPolicy.Resolve(
+                        eStructs.STRUCT_KEEP_TWO, 0, 100, 100, out _, out _) ==
+                    QuarryKeepCenterResolution.NotReady,
+                "AI quarry retries a recognized Keep whose grid is not initialized yet");
+            Check(QuarryKeepCenterPolicy.Resolve(
+                        eStructs.STRUCT_QUARRY, 7, 100, 100, out _, out _) ==
+                    QuarryKeepCenterResolution.Invalid &&
+                    QuarryKeepCenterPolicy.Resolve(
+                        eStructs.STRUCT_KEEP_ONE, 14, 100, 100, out _, out _) ==
+                    QuarryKeepCenterResolution.Invalid &&
+                    QuarryKeepCenterPolicy.Resolve(
+                        eStructs.STRUCT_KEEP_ONE, 7, 794, 100, out _, out _) ==
+                    QuarryKeepCenterResolution.Invalid,
+                "AI quarry rejects non-Keeps, unsupported grids, and map-edge overflow");
+
+            string projectDirectory = FindProjectDirectory();
+            string runtime = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "src",
+                "QuarryPileRelocationRuntime.cs"));
+            Check(runtime.Contains("QuarryKeepCenterPolicy.Resolve") &&
+                    runtime.Contains("QuarryKeepCenterResolution.NotReady") &&
+                    runtime.Contains("Keep geometry is structurally invalid") &&
+                    !runtime.Contains("AI Keep occupied-tile footprint is invalid") &&
+                    !runtime.Contains("GameBuildingFootprint.TryGetBounds(keep"),
+                "AI quarry runtime retries only an uninitialized Keep and no longer reads its truncated footprint");
         }
 
         private static void TestAiWallTargetingIntegration()

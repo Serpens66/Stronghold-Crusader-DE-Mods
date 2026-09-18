@@ -13,11 +13,13 @@
     <Compile Include="..\src\AivOptionDisplayNames.cs" Link="Blueprint\AivOptionDisplayNames.cs" />
     <Compile Include="..\src\AivJsonReader.cs" Link="SpawnPlan\AivJsonReader.cs" />
     <Compile Include="..\src\AivLordJsonResolver.cs" Link="SpawnPlan\AivLordJsonResolver.cs" />
+    <Compile Include="..\src\AivImportCompatibilityPolicy.cs" Link="SpawnPlan\AivImportCompatibilityPolicy.cs" />
     <Compile Include="..\src\AivRawDataEncoder.cs" Link="SpawnPlan\AivRawDataEncoder.cs" />
     <Compile Include="..\src\AivSpawnPlan.cs" Link="SpawnPlan\AivSpawnPlan.cs" />
     <Compile Include="..\src\AivWorldCoordinateTransform.cs" Link="SpawnPlan\AivWorldCoordinateTransform.cs" />
     <Compile Include="..\..\Shared\DependencyFreeJson.cs" Link="Shared\DependencyFreeJson.cs" />
     <Compile Include="..\src\BlueprintHudPolicy.cs" Link="Blueprint\BlueprintHudPolicy.cs" />
+    <Compile Include="..\src\CastleRotationOptions.cs" Link="Protocol\CastleRotationOptions.cs" />
     <Compile Include="..\src\CoalescedSynchronizationContextQueue.cs" Link="Protocol\CoalescedSynchronizationContextQueue.cs" />
     <Compile Include="..\src\FreeCastleProtocol.cs" Link="Protocol\FreeCastleProtocol.cs" />
     <Reference Include="SHCDESE">

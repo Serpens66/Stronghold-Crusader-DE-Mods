@@ -650,12 +650,36 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            QuarryKeepCenterResolution keepCenterResolution = QuarryKeepCenterPolicy.Resolve(
+                keep->r_BuildingType,
+                keep->r_OccupyTileGridSize,
+                keep->r_TilePositionXBegin,
+                keep->r_TilePositionYBegin,
+                out int keepCenterXTimesTwo,
+                out int keepCenterYTimesTwo);
+            if (keepCenterResolution == QuarryKeepCenterResolution.NotReady)
+                return;
+            if (keepCenterResolution != QuarryKeepCenterResolution.Ready)
+            {
+                pendingAIQuarriesByGlobalId.Remove(quarryGlobalId);
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"Bugfixes and QoL discarded an AI quarry-pile queue entry because the Keep geometry is structurally invalid; " +
+                    $"the Vanilla pile remains unchanged: playerId={pending.PlayerId}, keepId={keepId}, " +
+                    $"keepType={keep->r_BuildingType}, keepAliveState={keep->r_AliveState}, " +
+                    $"keepGridSize={keep->r_OccupyTileGridSize}, " +
+                    $"keepBegin=({keep->r_TilePositionXBegin},{keep->r_TilePositionYBegin}), " +
+                    $"quarryGlobalId={quarryGlobalId}, tick={tick}.");
+                return;
+            }
+
             int operationId = NextOperationId();
             if (!TryFindNearestKeepTarget(
                 pending.PlayerId,
                 quarry,
                 oldPile,
-                keep,
+                keepCenterXTimesTwo,
+                keepCenterYTimesTwo,
                 operationId,
                 out PlacementPosition target,
                 out bool currentPositionIsBest))
@@ -1005,14 +1029,15 @@ namespace BugfixesAndQoL
             int playerId,
             GameBuilding* quarry,
             GameBuilding* oldPile,
-            GameBuilding* keep,
+            int keepCenterXTimesTwo,
+            int keepCenterYTimesTwo,
             int operationId,
             out PlacementPosition target,
             out bool currentPositionIsBest)
         {
             target = default;
             currentPositionIsBest = false;
-            if (setupBuildingEntrancesOffset == null || quarry == null || oldPile == null || keep == null)
+            if (setupBuildingEntrancesOffset == null || quarry == null || oldPile == null)
                 return false;
 
             int quarryScale = GetBuildingScale(quarry);
@@ -1069,10 +1094,6 @@ namespace BugfixesAndQoL
                     isCurrentPosition: false));
             }
 
-            if (!Shared.GameBuildingFootprint.TryGetBounds(keep, out Shared.GameBuildingFootprintBounds keepBounds))
-                throw new InvalidOperationException("AI Keep occupied-tile footprint is invalid.");
-            int keepCenterXTimesTwo = keepBounds.CenterXTimesTwo;
-            int keepCenterYTimesTwo = keepBounds.CenterYTimesTwo;
             if (!QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(
                 candidates,
                 VanillaMinimumPlacementTry,

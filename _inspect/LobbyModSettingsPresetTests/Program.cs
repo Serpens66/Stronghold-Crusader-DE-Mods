@@ -30,6 +30,7 @@ namespace LobbyModSettingsPresetTests
 
             try
             {
+                TestPresetAtomicPublisher();
                 ValidateInstalledLegacyFiles();
 
                 string assemblyPath = Path.Combine(root, "PresetTest.dll");
@@ -249,6 +250,69 @@ namespace LobbyModSettingsPresetTests
             field.SetValue(SHCDESE.API.GameXAMLManagerAPI.Instance, value);
         }
 
+        private static void TestPresetAtomicPublisher()
+        {
+            var retries = new FakeAtomicFileOperations(
+                new[] { true, true, true },
+                new Exception[]
+                {
+                    new IOException("first transient failure"),
+                    new IOException("second transient failure")
+                });
+            PresetAtomicPublishResult retryResult = PresetAtomicFilePublisher.Publish(
+                "temporary",
+                "destination",
+                retries);
+            Assert(retryResult.Succeeded && retryResult.Attempts == 3 &&
+                    retries.ReplaceCalls == 3 && retries.Delays.SequenceEqual(new[] { 15, 35 }),
+                "Atomic preset publishing did not retry transient replace failures as specified.");
+
+            var exhausted = new FakeAtomicFileOperations(
+                new[] { true, true, true, true },
+                new Exception[]
+                {
+                    new IOException("failure 1"),
+                    new IOException("failure 2"),
+                    new IOException("failure 3"),
+                    new IOException("failure 4")
+                });
+            PresetAtomicPublishResult exhaustedResult = PresetAtomicFilePublisher.Publish(
+                "temporary",
+                "destination",
+                exhausted);
+            Assert(!exhaustedResult.Succeeded && exhaustedResult.Attempts == 4 &&
+                    exhausted.Delays.SequenceEqual(new[] { 15, 35, 75 }) &&
+                    exhaustedResult.Error != null,
+                "Atomic preset publishing did not stop after its bounded retry budget.");
+
+            var destinationDisappeared = new FakeAtomicFileOperations(
+                new[] { true, false },
+                new Exception[] { new IOException("destination disappeared") });
+            PresetAtomicPublishResult moveResult = PresetAtomicFilePublisher.Publish(
+                "temporary",
+                "destination",
+                destinationDisappeared);
+            Assert(moveResult.Succeeded && moveResult.Attempts == 2 &&
+                    destinationDisappeared.ReplaceCalls == 1 &&
+                    destinationDisappeared.MoveCalls == 1,
+                "Atomic preset publishing did not re-evaluate destination existence between attempts.");
+
+            var nonIoFailure = new FakeAtomicFileOperations(
+                new[] { true },
+                new Exception[] { new UnauthorizedAccessException("permanent") });
+            bool nonIoRethrown = false;
+            try
+            {
+                PresetAtomicFilePublisher.Publish("temporary", "destination", nonIoFailure);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                nonIoRethrown = true;
+            }
+            Assert(nonIoRethrown && nonIoFailure.ReplaceCalls == 1 && nonIoFailure.Delays.Count == 0,
+                "Atomic preset publishing retried a non-IO failure.");
+        }
+
         private static void ApplyTopLevelSettings(
             FakeSettings settings,
             Dictionary<string, byte[]> payload)
@@ -304,6 +368,52 @@ namespace LobbyModSettingsPresetTests
         {
             if (!condition)
                 throw new InvalidOperationException(message);
+        }
+
+        private sealed class FakeAtomicFileOperations : IPresetAtomicFileOperations
+        {
+            private readonly Queue<bool> destinationExists;
+            private readonly Queue<Exception> failures;
+
+            public FakeAtomicFileOperations(
+                IEnumerable<bool> destinationExists,
+                IEnumerable<Exception> failures)
+            {
+                this.destinationExists = new Queue<bool>(destinationExists);
+                this.failures = new Queue<Exception>(failures);
+            }
+
+            public int ReplaceCalls { get; private set; }
+            public int MoveCalls { get; private set; }
+            public List<int> Delays { get; } = new List<int>();
+
+            public bool Exists(string path)
+            {
+                return destinationExists.Count > 0 && destinationExists.Dequeue();
+            }
+
+            public void Replace(string sourcePath, string destinationPath)
+            {
+                ReplaceCalls++;
+                ThrowNextFailure();
+            }
+
+            public void Move(string sourcePath, string destinationPath)
+            {
+                MoveCalls++;
+                ThrowNextFailure();
+            }
+
+            public void Delay(int milliseconds)
+            {
+                Delays.Add(milliseconds);
+            }
+
+            private void ThrowNextFailure()
+            {
+                if (failures.Count > 0)
+                    throw failures.Dequeue();
+            }
         }
 
         private sealed class FakeSettings : PresetLobbyModSettingsViewModel

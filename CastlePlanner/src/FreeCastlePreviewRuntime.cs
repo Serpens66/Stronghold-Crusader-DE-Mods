@@ -76,11 +76,8 @@ namespace CastlePlanner
         private readonly HashSet<ulong> manifestAcks = new HashSet<ulong>();
         private readonly BulkObservableCollection<string> castleChoices =
             new BulkObservableCollection<string>();
-        private readonly ObservableCollection<string> rotations =
-            new ObservableCollection<string>
-        {
-            "0°", "90°", "180°", "270°"
-        };
+        private readonly CastleRotationOptions rotationOptions;
+        private readonly ObservableCollection<string> rotations;
 
         private R3PacketEventHook<FreeCastlePacket> packetHook;
         private CoalescedSynchronizationContextQueue<QueuedPacket> packetDispatchQueue;
@@ -121,7 +118,7 @@ namespace CastlePlanner
         private string pendingAbortReason;
         private int lastFrame = -1;
         private string selectedChoice = string.Empty;
-        private string selectedRotation = "0°";
+        private string selectedRotation;
         private string statusText = string.Empty;
 
         public FreeCastlePreviewRuntime(
@@ -130,6 +127,9 @@ namespace CastlePlanner
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            rotationOptions = CastleRotationOptions.Create(GetVanillaGameText);
+            rotations = new ObservableCollection<string>(rotationOptions.DisplayTexts);
+            selectedRotation = rotationOptions.DefaultDisplayText;
             ConfirmCommand = new RelayCommand(ConfirmLocalSelection, () => CanConfirm);
         }
 
@@ -153,7 +153,8 @@ namespace CastlePlanner
         public bool HasRotatableSelection =>
             IsPreviewActive &&
             !string.Equals(selectedChoice, NothingText, StringComparison.Ordinal);
-        public int SelectedNativeRotation => RotationTextToNative(selectedRotation);
+        public int SelectedNativeRotation =>
+            rotationOptions.GetNativeRotation(selectedRotation);
         public string TitleText => SerpLocalization.Get("CastlePlanner.Preview.Title");
         public string TimerText
         {
@@ -201,7 +202,9 @@ namespace CastlePlanner
             get => selectedRotation;
             set
             {
-                string normalized = rotations.Contains(value) ? value : "0°";
+                string normalized = rotations.Contains(value)
+                    ? value
+                    : rotationOptions.DefaultDisplayText;
                 if (selectedRotation == normalized)
                     return;
                 selectedRotation = normalized;
@@ -1502,20 +1505,16 @@ namespace CastlePlanner
             // The ComboBox can retain its previous SelectedItem while the preview
             // panel is hidden. Force the source notifications on every new map so
             // its visible value cannot drift from the native zero rotation.
-            selectedRotation = rotations[0];
+            selectedRotation = rotationOptions.DefaultDisplayText;
             Notify(nameof(SelectedRotation));
             Notify(nameof(SelectedNativeRotation));
         }
 
-        private static int RotationTextToNative(string rotation)
+        private static string GetVanillaGameText(string key)
         {
-            switch (rotation)
-            {
-                case "90°": return 2;
-                case "180°": return 4;
-                case "270°": return 6;
-                default: return 0;
-            }
+            return Translate.Instance.GameTexts.TryGetValue(key, out string text)
+                ? text
+                : null;
         }
 
         private void BroadcastParticipantStatus()
