@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "CastlePlanner",
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
-  "Version": "0.8.27",
+  "Version": "0.8.28",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.8.28",
+      "Changes": [
+        "Moved custom multiplayer packet handling onto Unity's main thread to prevent synchronized castle restarts from crashing."
+      ]
+    },
     {
       "Version": "0.8.27",
       "Changes": [

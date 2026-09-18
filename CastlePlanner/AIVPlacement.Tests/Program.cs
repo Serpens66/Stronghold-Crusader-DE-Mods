@@ -1,5 +1,6 @@
 using AIVParser.Core;
 using AIVPlacement.Core;
+using CastlePlanner;
 using CastlePlanner.AIVPlacement.Core;
 using MapParser.Core;
 using SHCDESE.Interop;
@@ -78,6 +79,9 @@ internal static class Program
             ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
             ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder),
             ("preserves the Vanilla Blueprint HUD interaction contract", PreservesVanillaBlueprintHudContract),
+            ("coalesces synchronization-context packet dispatch in FIFO order", CoalescesSynchronizationContextPacketDispatch),
+            ("marshals free-castle packets before protocol handling", MarshalsFreeCastlePacketsBeforeProtocolHandling),
+            ("validates the installed RedBird overwrite span", ValidatesInstalledRedBirdOverwriteSpan),
             ("guards multiplayer preview liveness across pause and resume", GuardsMultiplayerPreviewLiveness),
             ("pins CastlePlanner to the manifest Script Extender range", PinsCastlePlannerToManifestExtenderRange)
         };
@@ -564,8 +568,10 @@ internal static class Program
         Assert(runtime.Contains("commitResult.IsCompleteSuccess", StringComparison.Ordinal) &&
             runtime.Contains("humanKeepCoordinateLoadHook.Success", StringComparison.Ordinal),
             "CastlePlanner does not check transaction and handle success");
-        Assert(runtime.Contains("OwnsHooks = false", StringComparison.Ordinal),
-            "CastlePlanner process-lifetime hook ownership is not explicit");
+        Assert(runtime.Contains("OwnsHooks = true", StringComparison.Ordinal) &&
+            runtime.Contains("nativeHookTransaction = pending", StringComparison.Ordinal) &&
+            runtime.Contains("pending?.Dispose();", StringComparison.Ordinal),
+            "CastlePlanner hook ownership does not distinguish unpublished rollback from process-lifetime rooting");
         Assert(!runtime.Contains("Zhuqiaomon", StringComparison.Ordinal) &&
             !runtime.Contains("HookRef<", StringComparison.Ordinal),
             "CastlePlanner runtime retains a legacy hook API");
@@ -658,6 +664,123 @@ internal static class Program
                pauseFinally > continueMethod && pauseBypassReset > pauseFinally &&
                pauseBypassReset - pauseFinally < 120,
             "preview bypass flags are not protected by finally blocks");
+    }
+
+    private static void CoalescesSynchronizationContextPacketDispatch()
+    {
+        var context = new ManualSynchronizationContext();
+        var received = new List<int>();
+        CoalescedSynchronizationContextQueue<int> queue = null;
+        queue = new CoalescedSynchronizationContextQueue<int>(
+            context,
+            value =>
+            {
+                received.Add(value);
+                if (value == 1)
+                    queue.Enqueue(3);
+            });
+
+        queue.Enqueue(1);
+        queue.Enqueue(2);
+        Equal(1, context.PendingCount);
+        Equal(0, received.Count);
+
+        context.RunOne();
+        Assert(received.SequenceEqual([1, 2, 3]),
+            "queued packet dispatch was not deferred and FIFO");
+        Equal(0, context.PendingCount);
+
+        queue.Enqueue(4);
+        Equal(1, context.PendingCount);
+        context.RunOne();
+        Assert(received.SequenceEqual([1, 2, 3, 4]),
+            "queue did not schedule a new drain after becoming idle");
+    }
+
+    private static void MarshalsFreeCastlePacketsBeforeProtocolHandling()
+    {
+        string root = FindCastlePlannerRoot();
+        string source = File.ReadAllText(Path.Combine(
+            root, "src", "FreeCastlePreviewRuntime.cs"));
+
+        Assert(source.Contains(
+                "UnityEngine.UnitySynchronizationContext",
+                StringComparison.Ordinal) &&
+            source.Contains(
+                "new CoalescedSynchronizationContextQueue<QueuedPacket>",
+                StringComparison.Ordinal),
+            "free-castle runtime does not fail closed onto Unity's synchronization context");
+
+        int onPacket = source.IndexOf(
+            "private void OnPacket(",
+            StringComparison.Ordinal);
+        int dispatch = source.IndexOf(
+            "private void DispatchQueuedPacket(",
+            onPacket,
+            StringComparison.Ordinal);
+        Assert(onPacket >= 0 && dispatch > onPacket,
+            "raw and queued packet entry points were not found");
+        string rawCallback = source.Substring(onPacket, dispatch - onPacket);
+        Assert(rawCallback.Contains("ClonePacket(packet)", StringComparison.Ordinal) &&
+            rawCallback.Contains("packetDispatchQueue.Enqueue(queued)", StringComparison.Ordinal),
+            "raw packet callback does not copy and enqueue the complete packet");
+        Assert(!rawCallback.Contains("Platform_Multiplayer", StringComparison.Ordinal) &&
+            !rawCallback.Contains("IsFeatureModeAllowed", StringComparison.Ordinal) &&
+            !rawCallback.Contains("HandleHostPacket", StringComparison.Ordinal) &&
+            !rawCallback.Contains("CommitRestart", StringComparison.Ordinal),
+            "raw packet callback still reads or mutates game/protocol state");
+
+        int process = source.IndexOf(
+            "private void ProcessQueuedPacket(",
+            dispatch,
+            StringComparison.Ordinal);
+        Assert(process > dispatch &&
+            source.IndexOf("if (!IsOnUnityMainThread)", dispatch, StringComparison.Ordinal) < process,
+            "queued packet dispatch is not guarded by the captured main-thread identity");
+        Assert(source.IndexOf(
+                "packet.OperationId != operationId",
+                process,
+                StringComparison.Ordinal) > process,
+            "operation identity is not revalidated during main-thread dispatch");
+    }
+
+    private static void ValidatesInstalledRedBirdOverwriteSpan()
+    {
+        string root = FindCastlePlannerRoot();
+        string source = File.ReadAllText(Path.Combine(
+            root, "src", "CastlePlannerRuntime.cs"));
+
+        Assert(source.Contains(
+                "const int expectedDisplacedByteCount = 16;",
+                StringComparison.Ordinal) &&
+            source.Contains(
+                "probe.DisplacedByteCount != expectedDisplacedByteCount",
+                StringComparison.Ordinal) &&
+            source.Contains(
+                "humanKeepCoordinateLoadHook.Hook.DisplacedByteCount !=",
+                StringComparison.Ordinal),
+            "RedBird hook span is not checked before and after installation");
+        Assert(source.Contains("OwnsHooks = true", StringComparison.Ordinal) &&
+            source.Contains("pending?.Dispose();", StringComparison.Ordinal),
+            "an unpublished invalid hook candidate cannot be rolled back completely");
+    }
+
+    private sealed class ManualSynchronizationContext : SynchronizationContext
+    {
+        private readonly Queue<(SendOrPostCallback Callback, object State)> callbacks = new();
+
+        public int PendingCount => callbacks.Count;
+
+        public override void Post(SendOrPostCallback callback, object state)
+        {
+            callbacks.Enqueue((callback, state));
+        }
+
+        public void RunOne()
+        {
+            (SendOrPostCallback callback, object state) = callbacks.Dequeue();
+            callback(state);
+        }
     }
 
     private static int RvaToRawOffset(byte[] image, int rva)

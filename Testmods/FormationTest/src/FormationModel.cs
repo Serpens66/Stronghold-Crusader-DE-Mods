@@ -50,6 +50,129 @@ namespace FormationTest
         internal FormationRole Role { get; }
     }
 
+    internal readonly struct FormationPreviewKey : IEquatable<FormationPreviewKey>
+    {
+        private FormationPreviewKey(
+            FormationKind kind,
+            int density,
+            bool rearSorting,
+            int directionSector,
+            int width,
+            int targetX,
+            int targetY,
+            int unitCount)
+        {
+            Kind = kind;
+            Density = density;
+            RearSorting = rearSorting;
+            DirectionSector = directionSector;
+            Width = width;
+            TargetX = targetX;
+            TargetY = targetY;
+            UnitCount = unitCount;
+        }
+
+        internal FormationKind Kind { get; }
+        internal int Density { get; }
+        internal bool RearSorting { get; }
+        internal int DirectionSector { get; }
+        internal int Width { get; }
+        internal int TargetX { get; }
+        internal int TargetY { get; }
+        internal int UnitCount { get; }
+
+        internal static FormationPreviewKey Create(
+            FormationKind kind,
+            int density,
+            bool rearSorting,
+            int directionSector,
+            int width,
+            int targetX,
+            int targetY,
+            int unitCount)
+        {
+            FormationKind normalizedKind = FormationModel.NormalizeKind((int)kind);
+            bool vanilla = normalizedKind == FormationKind.Vanilla;
+            return new FormationPreviewKey(
+                normalizedKind,
+                FormationModel.NormalizeDensity(density),
+                vanilla ? false : rearSorting,
+                vanilla ? 0 : directionSector & 7,
+                vanilla ? 0 : Math.Max(1, width),
+                targetX,
+                targetY,
+                Math.Max(0, unitCount));
+        }
+
+        public bool Equals(FormationPreviewKey other) =>
+            Kind == other.Kind && Density == other.Density &&
+            RearSorting == other.RearSorting &&
+            DirectionSector == other.DirectionSector && Width == other.Width &&
+            TargetX == other.TargetX && TargetY == other.TargetY &&
+            UnitCount == other.UnitCount;
+
+        public override bool Equals(object obj) =>
+            obj is FormationPreviewKey other && Equals(other);
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = (int)Kind;
+                hash = hash * 397 ^ Density;
+                hash = hash * 397 ^ RearSorting.GetHashCode();
+                hash = hash * 397 ^ DirectionSector;
+                hash = hash * 397 ^ Width;
+                hash = hash * 397 ^ TargetX;
+                hash = hash * 397 ^ TargetY;
+                return hash * 397 ^ UnitCount;
+            }
+        }
+    }
+
+    internal readonly struct FormationDefaultsMigration
+    {
+        internal const int CurrentRevision = 1;
+
+        internal FormationDefaultsMigration(
+            FormationKind kind,
+            int revision,
+            bool kindChanged,
+            bool revisionChanged)
+        {
+            Kind = kind;
+            Revision = revision;
+            KindChanged = kindChanged;
+            RevisionChanged = revisionChanged;
+        }
+
+        internal FormationKind Kind { get; }
+        internal int Revision { get; }
+        internal bool KindChanged { get; }
+        internal bool RevisionChanged { get; }
+
+        internal static FormationDefaultsMigration Resolve(
+            FormationKind currentKind,
+            int currentRevision)
+        {
+            if (currentRevision >= CurrentRevision)
+            {
+                return new FormationDefaultsMigration(
+                    currentKind,
+                    currentRevision,
+                    kindChanged: false,
+                    revisionChanged: false);
+            }
+
+            bool migrateKind = currentKind == FormationKind.Vanilla;
+            return new FormationDefaultsMigration(
+                migrateKind ? FormationKind.Block : currentKind,
+                CurrentRevision,
+                migrateKind,
+                revisionChanged: true);
+        }
+    }
+
     internal static class FormationModel
     {
         private static readonly int[] ForwardX = { 0, 1, 1, 1, 0, -1, -1, -1 };

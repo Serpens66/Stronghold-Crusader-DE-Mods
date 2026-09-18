@@ -18,6 +18,7 @@
     <Compile Include="..\src\AivWorldCoordinateTransform.cs" Link="SpawnPlan\AivWorldCoordinateTransform.cs" />
     <Compile Include="..\..\Shared\DependencyFreeJson.cs" Link="Shared\DependencyFreeJson.cs" />
     <Compile Include="..\src\BlueprintHudPolicy.cs" Link="Blueprint\BlueprintHudPolicy.cs" />
+    <Compile Include="..\src\CoalescedSynchronizationContextQueue.cs" Link="Protocol\CoalescedSynchronizationContextQueue.cs" />
     <Reference Include="SHCDESE">
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\SHCDESE.dll</HintPath>
       <Private>true</Private>

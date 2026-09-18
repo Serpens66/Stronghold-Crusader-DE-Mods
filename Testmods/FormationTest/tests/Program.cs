@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 internal static class Program
 {
@@ -19,6 +21,10 @@ internal static class Program
             TestRoleAssignment();
             TestDirectionAndDensityMatrix();
             TestRoleEdgeCases();
+            TestEffectivePreviewKeys();
+            TestDefaultsMigration();
+            TestPreviewMarkerNormalization();
+            TestInstalledRedBirdMarkerSpan();
             TestSourceSafetyContracts();
             Console.WriteLine($"PASS: FormationTest ({assertions} assertions).");
             return 0;
@@ -211,6 +217,175 @@ internal static class Program
             "tiny army keeps melee ahead of rear unit");
     }
 
+    private static void TestPreviewMarkerNormalization()
+    {
+        int[] normalized = FormationPreviewMarkerModel.NormalizeTileIds(new[]
+        {
+            FormationPreviewMarkerModel.NativeTileCount,
+            12,
+            -1,
+            4,
+            12,
+            FormationPreviewMarkerModel.NativeTileCount - 1
+        });
+        Check(normalized.SequenceEqual(new[]
+        {
+            4,
+            12,
+            FormationPreviewMarkerModel.NativeTileCount - 1
+        }), "preview tiles are valid, unique, and deterministic");
+
+        int[] capped = FormationPreviewMarkerModel.NormalizeTileIds(
+            Enumerable.Range(0, FormationPreviewMarkerModel.MaximumMarkers + 50).Reverse());
+        Check(capped.Length == FormationPreviewMarkerModel.MaximumMarkers,
+            "preview marker capacity is capped at 4000");
+        Check(FormationPreviewMarkerModel.MaximumMarkers == 4000,
+            "native mode-8 identity range exposes exactly 4000 preview markers");
+        Check(capped[0] == 0 &&
+              capped[capped.Length - 1] == FormationPreviewMarkerModel.MaximumMarkers - 1,
+            "preview capacity selection is deterministic");
+        Check(FormationPreviewMarkerModel.NormalizeTileIds(null).Length == 0,
+            "null preview is empty");
+    }
+
+    private static void TestEffectivePreviewKeys()
+    {
+        FormationPreviewKey vanilla = FormationPreviewKey.Create(
+            FormationKind.Vanilla, 2, false, 0, 4, 100, 200, 40);
+        FormationPreviewKey vanillaDragged = FormationPreviewKey.Create(
+            FormationKind.Vanilla, 2, true, 7, 30, 100, 200, 40);
+        Check(vanilla.Equals(vanillaDragged),
+            "Vanilla preview ignores direction, width, and rear sorting");
+        Check(!vanilla.Equals(FormationPreviewKey.Create(
+                FormationKind.Vanilla, 3, false, 0, 4, 100, 200, 40)),
+            "Vanilla preview changes for density");
+        Check(!vanilla.Equals(FormationPreviewKey.Create(
+                FormationKind.Vanilla, 2, false, 0, 4, 101, 200, 40)),
+            "Vanilla preview changes for target");
+
+        FormationPreviewKey block = FormationPreviewKey.Create(
+            FormationKind.Block, 2, false, 3, 8, 100, 200, 40);
+        Check(block.Equals(FormationPreviewKey.Create(
+                FormationKind.Block, 2, false, 3, 8, 100, 200, 40)),
+            "same effective custom formation reuses preview");
+        Check(!block.Equals(FormationPreviewKey.Create(
+                FormationKind.Block, 2, false, 4, 8, 100, 200, 40)),
+            "custom preview changes for direction sector");
+        Check(!block.Equals(FormationPreviewKey.Create(
+                FormationKind.Block, 2, false, 3, 9, 100, 200, 40)),
+            "custom preview changes for width");
+        Check(!block.Equals(FormationPreviewKey.Create(
+                FormationKind.Block, 2, true, 3, 8, 100, 200, 40)),
+            "custom preview changes for rear sorting");
+    }
+
+    private static void TestDefaultsMigration()
+    {
+        FormationDefaultsMigration oldVanilla = FormationDefaultsMigration.Resolve(
+            FormationKind.Vanilla,
+            0);
+        Check(oldVanilla.Kind == FormationKind.Block && oldVanilla.KindChanged &&
+              oldVanilla.RevisionChanged &&
+              oldVanilla.Revision == FormationDefaultsMigration.CurrentRevision,
+            "old Vanilla default migrates once to Block");
+
+        FormationDefaultsMigration oldCustom = FormationDefaultsMigration.Resolve(
+            FormationKind.Line,
+            0);
+        Check(oldCustom.Kind == FormationKind.Line && !oldCustom.KindChanged &&
+              oldCustom.RevisionChanged,
+            "existing custom choice survives defaults migration");
+
+        FormationDefaultsMigration deliberateVanilla = FormationDefaultsMigration.Resolve(
+            FormationKind.Vanilla,
+            FormationDefaultsMigration.CurrentRevision);
+        Check(deliberateVanilla.Kind == FormationKind.Vanilla &&
+              !deliberateVanilla.KindChanged && !deliberateVanilla.RevisionChanged,
+            "deliberate Vanilla choice survives later starts");
+    }
+
+    private static void TestInstalledRedBirdMarkerSpan()
+    {
+        string extender = Environment.GetEnvironmentVariable("SHCDESE_EXTENDER_DIR");
+        if (string.IsNullOrWhiteSpace(extender))
+        {
+            extender =
+                @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese";
+        }
+        ResolveEventHandler resolver = (sender, args) =>
+        {
+            string candidate = Path.Combine(
+                extender,
+                new AssemblyName(args.Name).Name + ".dll");
+            return File.Exists(candidate) ? Assembly.LoadFrom(candidate) : null;
+        };
+        AppDomain.CurrentDomain.AssemblyResolve += resolver;
+        try
+        {
+            foreach (string name in new[]
+            {
+                "Microsoft.Extensions.Logging.Abstractions",
+                "Iced",
+                "RedBird.Abstractions",
+                "RedBird.Core",
+                "RedBird.X64"
+            })
+                Assembly.LoadFrom(Path.Combine(extender, name + ".dll"));
+
+            Assembly assembly = Assembly.LoadFrom(Path.Combine(extender, "RedBird.X64.dll"));
+            Type type = assembly.GetType(
+                "RedBird.X64.Hooks.X64InlineHook",
+                throwOnError: true);
+            byte[] bytes =
+            {
+                0x41, 0x0F, 0xB7, 0xBC, 0x59, 0x80, 0xEF, 0x75, 0x00,
+                0x85, 0xFF,
+                0x0F, 0x84, 0x81, 0x02, 0x00, 0x00
+            };
+            IntPtr memory = Marshal.AllocHGlobal(64);
+            try
+            {
+                for (int index = 0; index < 64; index++)
+                    Marshal.WriteByte(memory, index, 0x90);
+                Marshal.Copy(bytes, 0, memory, bytes.Length);
+
+                object candidate = Activator.CreateInstance(
+                    type,
+                    new object[]
+                    {
+                        unchecked((ulong)memory.ToInt64()),
+                        14,
+                        null,
+                        "FormationTest marker span regression"
+                    });
+                try
+                {
+                    Check((int)type.GetProperty("DisplacedByteCount").GetValue(candidate) == 17,
+                        "installed RedBird displaces the audited 17-byte marker span");
+                    Check(!(bool)type.GetProperty("IsInstalled").GetValue(candidate),
+                        "decode-only marker probe installs no hook");
+                }
+                finally
+                {
+                    ((IDisposable)candidate).Dispose();
+                }
+
+                var after = new byte[bytes.Length];
+                Marshal.Copy(memory, after, 0, after.Length);
+                Check(after.SequenceEqual(bytes),
+                    "decode-only marker probe leaves fixture bytes unchanged");
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(memory);
+            }
+        }
+        finally
+        {
+            AppDomain.CurrentDomain.AssemblyResolve -= resolver;
+        }
+    }
+
     private static void TestSourceSafetyContracts()
     {
         string projectRoot = FindProjectRoot();
@@ -232,6 +407,64 @@ internal static class Program
             "assassin selector RVA contract");
         Check(source.Contains("DisplacedByteCount != ExpectedSelectorDisplacedBytes"),
             "RedBird displaced-span check");
+        Check(source.Contains("ExpectedSelectorDisplacedBytes = 10"),
+            "selector detours use the observed 10-byte span");
+        Check(source.Contains("ExpectedVisibleTileDisplacedBytes = 17") &&
+              source.Contains("VisibleTileHookRva = 0x436DE"),
+            "native green marker hook span contract");
+        Check(source.Contains("Placement = OverwrittenInstructionPlacement.AfterCallback") &&
+              source.Contains("Registers = X64SmartCPUContextRegs.All"),
+            "marker callback runs before TEST/JE with preserved general registers");
+        Check(source.Contains("0x6B, 0x52 + frame") &&
+              source.Contains("6 - GetTerrainHeight(registers, tileId)"),
+            "animated green Vanilla marker and height contract");
+        Check(source.Contains("MainViewModel.instance.IsMapEditorMode") &&
+              source.Contains("if (!isMapEditor"),
+            "map editor bypasses only normal ownership filtering");
+        Check(!source.Contains("GUI.Label("),
+            "preview has no HUD text label");
+        Check(source.Contains("selected.Length > FormationPreviewMarkerModel.MaximumMarkers"),
+            "commands cannot exceed the complete green preview capacity");
+        Check(source.Contains("markerRenderer?.ClearPreviewMarkerTiles()") &&
+              source.Contains("FormationPreviewOverlay.Clear()"),
+            "native markers and role dots share the clear path");
+        Check(source.Contains("ConfigSettings.Settings_SH1RTSControls ? 0 : 1") &&
+              source.Contains("mouseButton == 0 ? KeyCode.Mouse0 : KeyCode.Mouse1"),
+            "both Vanilla mouse-control schemes use the formation gesture");
+        Check(source.Contains("!markerRenderer.ReplacementAvailable") &&
+              source.Contains("FORMATION_PREVIEW_MARKER_FAIL_OPEN"),
+            "an unavailable native preview leaves the drag disabled and fails open");
+        Check(source.Contains("InputR3EventHooks.OnKey.Observable.Subscribe(OnKeyHeld)") &&
+              source.Contains("keyHeldSubscription = pendingKeyHeld"),
+            "held-input subscription is process-rooted");
+        Check(source.Contains("RequireMainThread(\"input-down\")") &&
+              source.Contains("RequireMainThread(\"input-held\")") &&
+              source.Contains("RequireMainThread(\"input-up\")"),
+            "all Unity input handlers enforce the captured main thread");
+        string engineRun = ExtractMethodBody(source, "private int EngineRunHook(");
+        Check(!engineRun.Contains("UpdateGesture(") &&
+              !engineRun.Contains("Input.") &&
+              !engineRun.Contains("TryCaptureTarget(") &&
+              !engineRun.Contains("CalcMapTileFromMousePos"),
+            "simulation hook performs no Unity cursor or map query");
+        string held = ExtractMethodBody(source, "private void OnKeyHeld(");
+        Check(held.Contains("UpdateGesture(state)"),
+            "held input owns live gesture updates");
+        string released = ExtractMethodBody(source, "private void OnKeyUp(");
+        Check(released.IndexOf("UpdateGesture(state)", StringComparison.Ordinal) >= 0 &&
+              released.IndexOf("UpdateGesture(state)", StringComparison.Ordinal) <
+              released.IndexOf("ReleaseObserved = true", StringComparison.Ordinal),
+            "release performs a final cursor update before publication");
+        Check(source.Contains("FormationPreviewKey.Create(") &&
+              !source.Contains("LastPreviewDeltaX") &&
+              !source.Contains("LastPreviewDeltaY"),
+            "preview cache uses effective parameters instead of raw mouse tiles");
+        Check(source.Contains("Event.current.type != EventType.Repaint") &&
+              source.Contains("Camera camera = Camera.main"),
+            "role overlay renders only during repaint and caches the camera");
+        Check(source.Contains("\"Formation\", \"Kind\", FormationKind.Block") &&
+              source.Contains("FormationDefaultsMigration.Resolve("),
+            "Block default and one-time defaults migration are wired");
         Check(source.Contains("ReleaseObserved") &&
               source.Contains("suppressCommandRelease: nativeRelease"),
             "stale release cannot leak into Vanilla");
@@ -254,6 +487,25 @@ internal static class Program
             current = current.Parent;
         }
         throw new DirectoryNotFoundException("FormationTest project root not found.");
+    }
+
+    private static string ExtractMethodBody(string source, string signature)
+    {
+        int signatureIndex = source.IndexOf(signature, StringComparison.Ordinal);
+        if (signatureIndex < 0)
+            throw new InvalidOperationException("Method signature not found: " + signature);
+        int openingBrace = source.IndexOf('{', signatureIndex);
+        if (openingBrace < 0)
+            throw new InvalidOperationException("Method body not found: " + signature);
+        int depth = 0;
+        for (int index = openingBrace; index < source.Length; index++)
+        {
+            if (source[index] == '{')
+                depth++;
+            else if (source[index] == '}' && --depth == 0)
+                return source.Substring(openingBrace, index - openingBrace + 1);
+        }
+        throw new InvalidOperationException("Method body is incomplete: " + signature);
     }
 
     private static void Check(bool condition, string message)

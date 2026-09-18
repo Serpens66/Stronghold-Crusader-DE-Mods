@@ -22,12 +22,13 @@ namespace FormationTest
         private static ConfigEntry<FormationKind> formation;
         private static ConfigEntry<int> density;
         private static ConfigEntry<bool> rearSorting;
+        private static ConfigEntry<int> defaultsRevision;
 
         private void Awake()
         {
             persistentLog = Logger;
             formation = Config.Bind(
-                "Formation", "Kind", FormationKind.Vanilla,
+                "Formation", "Kind", FormationKind.Block,
                 "Current process-wide formation selection.");
             density = Config.Bind(
                 "Formation", "Density", 2,
@@ -36,6 +37,22 @@ namespace FormationTest
             rearSorting = Config.Bind(
                 "Formation", "RearSorting", false,
                 "Places melee units in front and ranged/siege/support units behind.");
+            defaultsRevision = Config.Bind(
+                "Formation", "DefaultsRevision", 0,
+                "Internal prototype defaults migration revision.");
+            FormationDefaultsMigration migration = FormationDefaultsMigration.Resolve(
+                formation.Value,
+                defaultsRevision.Value);
+            if (migration.RevisionChanged)
+            {
+                formation.Value = migration.Kind;
+                defaultsRevision.Value = migration.Revision;
+                Config.Save();
+                Shared.DebugLogHelper.LogInfo(
+                    persistentLog,
+                    $"Formation defaults migrated: revision={migration.Revision}, " +
+                    $"kind={migration.Kind}, kindChanged={migration.KindChanged}.");
+            }
 
             if (overlay == null)
                 overlay = FormationPreviewOverlay.CreateProcessLifetimeInstance();

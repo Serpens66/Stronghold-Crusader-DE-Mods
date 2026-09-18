@@ -228,6 +228,7 @@
     <Compile Include="src\BlueprintRuntimeController.cs" />
     <Compile Include="src\CastlePlannerPlugin.cs" />
     <Compile Include="src\CastleSpawnContentPolicy.cs" />
+    <Compile Include="src\CoalescedSynchronizationContextQueue.cs" />
     <Compile Include="src\ExtraFeaturesFlagBridge.cs" />
     <Compile Include="src\FreeCastleProtocol.cs" />
     <Compile Include="src\FreeCastlePreviewRuntime.cs" />

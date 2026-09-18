@@ -21,6 +21,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="..\src\FormationModel.cs"><Link>FormationModel.cs</Link></Compile>
+    <Compile Include="..\src\FormationPreviewMarkerModel.cs"><Link>FormationPreviewMarkerModel.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

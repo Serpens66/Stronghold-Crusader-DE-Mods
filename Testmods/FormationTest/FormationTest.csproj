@@ -49,10 +49,13 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="src\FormationModel.cs" />
     <Compile Include="src\FormationOrderPacket.cs" />
+    <Compile Include="src\FormationPreviewMarkerModel.cs" />
+    <Compile Include="src\FormationPreviewMarkerRenderer.cs" />
     <Compile Include="src\FormationPreviewOverlay.cs" />
     <Compile Include="src\FormationTestPlugin.cs" />
     <Compile Include="src\FormationTestRuntime.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
   </ItemGroup>
   <ItemGroup>
     <Content Include="info.json"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>

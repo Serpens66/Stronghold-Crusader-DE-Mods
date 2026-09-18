@@ -51,7 +51,7 @@ namespace FormationTest
         private const int NativePathManagerRva = 0x60AD660;
         private const int NativeTribeManagerRva = 0x7CC6720;
         private const int MovementTargetAvailabilityRva = 0x3A11EA4;
-        private const int ExpectedSelectorDisplacedBytes = 15;
+        private const int ExpectedSelectorDisplacedBytes = 10;
         private const int MaximumPreviewCandidates = 8192;
         private const int MinimumDragTileDistance = 2;
 
@@ -83,6 +83,7 @@ namespace FormationTest
         private readonly DetourHandle<AssassinFormationSlotDelegate> assassinSelectorHandle =
             new DetourHandle<AssassinFormationSlotDelegate>();
 
+        private FormationPreviewMarkerRenderer markerRenderer;
         private HookTransaction nativeTransaction;
         private Hook engineRunHook;
         private Hook startSelectionHook;
@@ -91,6 +92,7 @@ namespace FormationTest
         private StartSelectionDelegate startSelectionOriginal;
         private CameraUpdateDelegate cameraUpdateOriginal;
         private IDisposable keyDownSubscription;
+        private IDisposable keyHeldSubscription;
         private IDisposable keyUpSubscription;
         private IDisposable packetSubscription;
         private R3PacketEventHook<FormationOrderPacket> packetHook;
@@ -105,6 +107,7 @@ namespace FormationTest
         private ActiveFormationCommand activeCommand;
         private int nextOperationId;
         private int lastWheelFrame = -1;
+        private int mainThreadId;
         private bool initialized;
         private bool failed;
 
@@ -136,12 +139,19 @@ namespace FormationTest
             Hook pendingStartSelection = null;
             Hook pendingCameraUpdate = null;
             IDisposable pendingKeyDown = null;
+            IDisposable pendingKeyHeld = null;
             IDisposable pendingKeyUp = null;
             IDisposable pendingPacket = null;
+            FormationPreviewMarkerRenderer pendingMarkerRenderer = null;
             try
             {
+                mainThreadId = Environment.CurrentManagedThreadId;
                 ulong libraryBase = unchecked((ulong)libraryContext.ModuleHandle.ToInt64());
                 ValidateNativeContracts(libraryContext.Memory);
+                pendingMarkerRenderer = new FormationPreviewMarkerRenderer(
+                    log,
+                    FormationPreviewOverlay.Clear);
+                pendingMarkerRenderer.Install(libraryContext);
                 nativeTribeManager = (IntPtr)(libraryBase + NativeTribeManagerRva);
                 nativePathManager = (IntPtr)(libraryBase + NativePathManagerRva);
                 movementTargetAvailability = (byte*)(libraryBase +
@@ -224,6 +234,7 @@ namespace FormationTest
                 packetHook = GameNetworkAPI.Instance.GetPacketEventFor<FormationOrderPacket>();
                 pendingPacket = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
                 pendingKeyDown = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown);
+                pendingKeyHeld = InputR3EventHooks.OnKey.Observable.Subscribe(OnKeyHeld);
                 pendingKeyUp = InputR3EventHooks.OnKeyUp.Observable.Subscribe(OnKeyUp);
 
                 nativeTransaction = pendingNative;
@@ -238,25 +249,33 @@ namespace FormationTest
                 pendingPacket = null;
                 keyDownSubscription = pendingKeyDown;
                 pendingKeyDown = null;
+                keyHeldSubscription = pendingKeyHeld;
+                pendingKeyHeld = null;
                 keyUpSubscription = pendingKeyUp;
                 pendingKeyUp = null;
+                markerRenderer = pendingMarkerRenderer;
+                pendingMarkerRenderer.PublishProcessLifetime();
+                pendingMarkerRenderer = null;
                 initialized = true;
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "FormationTest active: synchronized Chore packet, mouse gesture hooks, " +
+                    $"mainThread={mainThreadId}, " +
                     $"standardSelector=0x{StandardSelectorRva:X}/span{ExpectedSelectorDisplacedBytes}, " +
                     $"assassinSelector=0x{AssassinSelectorRva:X}/span{ExpectedSelectorDisplacedBytes}.");
             }
             catch
             {
                 pendingKeyUp?.Dispose();
+                pendingKeyHeld?.Dispose();
                 pendingKeyDown?.Dispose();
                 pendingPacket?.Dispose();
                 pendingCameraUpdate?.Dispose();
                 pendingStartSelection?.Dispose();
                 pendingEngineRun?.Dispose();
                 pendingNative?.Dispose();
+                pendingMarkerRenderer?.RollbackUnpublished();
                 throw;
             }
         }
@@ -267,6 +286,7 @@ namespace FormationTest
                 return;
             try
             {
+                RequireMainThread("input-down");
                 ActiveDrag state;
                 lock (stateSync)
                     state = drag;
@@ -276,13 +296,17 @@ namespace FormationTest
                     if (args.Key == ToKeyCode(1 - state.CommandButton))
                     {
                         state.Kind = FormationModel.Next(state.Kind);
-                        PublishPreview(state, force: true);
+                        PublishPreview(state, force: false);
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            $"FORMATION_KIND_CHANGED: kind={state.Kind}, " +
+                            $"thread={Environment.CurrentManagedThreadId}.");
                         return;
                     }
                     if (args.Key == KeyCode.Mouse2)
                     {
                         state.RearSorting = !state.RearSorting;
-                        PublishPreview(state, force: true);
+                        PublishPreview(state, force: false);
                         return;
                     }
                     return;
@@ -298,14 +322,49 @@ namespace FormationTest
             }
         }
 
+        private void OnKeyHeld(UnityInputEventArgs args)
+        {
+            if (!initialized || failed || args == null || args.Phase != EventHookPhase.Post)
+                return;
+            try
+            {
+                RequireMainThread("input-held");
+                ActiveDrag state;
+                lock (stateSync)
+                    state = drag;
+                if (state == null || args.Key != ToKeyCode(state.CommandButton))
+                    return;
+                UpdateGesture(state);
+            }
+            catch (Exception exception)
+            {
+                FailOpen("input-held", exception);
+            }
+        }
+
         private void OnKeyUp(UnityInputEventArgs args)
         {
             if (!initialized || failed || args == null || args.Phase != EventHookPhase.Post)
                 return;
-            lock (stateSync)
+            try
             {
-                if (drag != null && args.Key == ToKeyCode(drag.CommandButton))
-                    drag.ReleaseObserved = true;
+                RequireMainThread("input-up");
+                ActiveDrag state;
+                lock (stateSync)
+                    state = drag;
+                if (state == null || args.Key != ToKeyCode(state.CommandButton))
+                    return;
+
+                UpdateGesture(state);
+                lock (stateSync)
+                {
+                    if (ReferenceEquals(drag, state))
+                        state.ReleaseObserved = true;
+                }
+            }
+            catch (Exception exception)
+            {
+                FailOpen("input-up", exception);
             }
         }
 
@@ -315,18 +374,21 @@ namespace FormationTest
                 return engineRunOriginal(mpFrameSkip);
 
             ActiveDrag state;
+            bool releaseObserved;
             try
             {
                 lock (stateSync)
+                {
                     state = drag;
+                    releaseObserved = state != null && state.ReleaseObserved;
+                }
                 if (state == null)
                     return engineRunOriginal(mpFrameSkip);
 
-                UpdateGesture(state);
                 EditorDirector director = EditorDirector.instance;
                 bool nativeRelease = director != null &&
                     HasVanillaRelease(state, director);
-                if (!nativeRelease || !state.ReleaseObserved)
+                if (!nativeRelease || !releaseObserved)
                     return RunOriginalWithConflictingReleaseSuppressed(
                         state,
                         director,
@@ -339,9 +401,9 @@ namespace FormationTest
                         return engineRunOriginal(mpFrameSkip);
                     drag = null;
                 }
-                FormationPreviewOverlay.Clear();
+                ClearPreview();
 
-                if (!ValidateActiveDrag(state) || !TryCreatePacket(state, out FormationOrderPacket packet))
+                if (!TryCreatePacket(state, out FormationOrderPacket packet))
                     return engineRunOriginal(mpFrameSkip);
 
                 if (!TryDispatch(packet, out string rejection))
@@ -453,12 +515,13 @@ namespace FormationTest
                 state.DragDeltaX = endpoint.NativeX - state.Target.NativeX;
                 state.DragDeltaY = endpoint.NativeY - state.Target.NativeY;
             }
-            PublishPreview(state, force: wheel != 0f);
+            PublishPreview(state, force: false);
         }
 
         private void TryStartDrag(int commandButton)
         {
-            if (!HasValidMap() || FatControler.instance == null ||
+            if (!HasValidMap() || markerRenderer == null ||
+                !markerRenderer.ReplacementAvailable || FatControler.instance == null ||
                 FatControler.instance.overNoesisGUI() || IsShiftHeld())
                 return;
             if (!TryCaptureSelection(out SelectionIdentity[] selection, out int tribeId) ||
@@ -966,20 +1029,22 @@ namespace FormationTest
         private void PublishPreview(ActiveDrag state, bool force)
         {
             ResolveDirectionAndWidth(state, out int direction, out int width);
-            if (!force && state.LastPreviewDeltaX == state.DragDeltaX &&
-                state.LastPreviewDeltaY == state.DragDeltaY &&
-                state.LastPreviewKind == state.Kind &&
-                state.LastPreviewDensity == state.Density &&
-                state.LastPreviewRear == state.RearSorting)
-                return;
-
             state.DirectionSector = direction;
             state.Width = width;
-            state.LastPreviewDeltaX = state.DragDeltaX;
-            state.LastPreviewDeltaY = state.DragDeltaY;
-            state.LastPreviewKind = state.Kind;
-            state.LastPreviewDensity = state.Density;
-            state.LastPreviewRear = state.RearSorting;
+            FormationPreviewKey previewKey = FormationPreviewKey.Create(
+                state.Kind,
+                state.Density,
+                state.RearSorting,
+                direction,
+                width,
+                state.Target.NativeX,
+                state.Target.NativeY,
+                state.Selection.Length);
+            if (!force && state.HasLastPreviewKey &&
+                state.LastPreviewKey.Equals(previewKey))
+                return;
+            state.LastPreviewKey = previewKey;
+            state.HasLastPreviewKey = true;
 
             FormationUnit[] units = new FormationUnit[state.Selection.Length];
             for (int index = 0; index < units.Length; index++)
@@ -1044,12 +1109,26 @@ namespace FormationTest
                     points[index] = new FormationPreviewPoint(
                         destinations[index].X, destinations[index].Y, role);
                 }
-                FormationPreviewOverlay.Publish(
-                    points, state.Kind, state.Density, state.RearSorting, width);
+                var markerTiles = new int[destinations.Length];
+                for (int index = 0; index < destinations.Length; index++)
+                    markerTiles[index] = destinations[index].TileId;
+                if (!markerRenderer.SetPreviewMarkerTiles(markerTiles))
+                {
+                    FormationPreviewOverlay.Clear();
+                    return;
+                }
+                FormationPreviewOverlay.Publish(points);
+                Shared.DebugLogHelper.LogDebug(
+                    log,
+                    $"FORMATION_PREVIEW_UPDATED: kind={previewKey.Kind}, " +
+                    $"density={previewKey.Density}, rear={previewKey.RearSorting}, " +
+                    $"direction={previewKey.DirectionSector}, width={previewKey.Width}, " +
+                    $"markers={new HashSet<int>(markerTiles).Count}, " +
+                    $"thread={Environment.CurrentManagedThreadId}.");
             }
             catch (Exception exception)
             {
-                FormationPreviewOverlay.Clear();
+                ClearPreview();
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Formation preview unavailable for this target: {exception.Message}");
@@ -1084,7 +1163,8 @@ namespace FormationTest
         {
             SelectedUnitInfo[] selected =
                 GamePlayerManagerAPI.Instance.GetSelectedChimps();
-            if (selected == null || selected.Length < 2)
+            if (selected == null || selected.Length < 2 ||
+                selected.Length > FormationPreviewMarkerModel.MaximumMarkers)
             {
                 identities = Array.Empty<SelectionIdentity>();
                 tribeId = 0;
@@ -1119,9 +1199,13 @@ namespace FormationTest
 
             if (!GameTribeManagerAPI.Instance.IsValidId(tribeId) ||
                 !GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) ||
-                tribe == null || tribe->r_AliveState != AliveState.IsAlive ||
-                GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner) ||
-                tribe->r_PlayerIdOwner != GamePlayerManagerAPI.Instance.GetLocalPlayerId())
+                tribe == null || tribe->r_AliveState != AliveState.IsAlive)
+                return false;
+            bool isMapEditor = MainViewModel.instance != null &&
+                MainViewModel.instance.IsMapEditorMode;
+            if (!isMapEditor &&
+                (GamePlayerManagerAPI.Instance.IsAIPlayer(tribe->r_PlayerIdOwner) ||
+                 tribe->r_PlayerIdOwner != GamePlayerManagerAPI.Instance.GetLocalPlayerId()))
                 return false;
             return true;
         }
@@ -1160,7 +1244,8 @@ namespace FormationTest
         }
 
         private bool ValidateActiveDrag(ActiveDrag state) =>
-            state != null && HasValidMap() && !IsShiftHeld() &&
+            state != null && markerRenderer != null &&
+            markerRenderer.ReplacementAvailable && HasValidMap() && !IsShiftHeld() &&
             GetCommandMouseButton() == state.CommandButton &&
             SelectionMatches(state.Selection);
 
@@ -1233,7 +1318,7 @@ namespace FormationTest
             }
             if (state == null)
                 return;
-            FormationPreviewOverlay.Clear();
+            ClearPreview();
             Shared.DebugLogHelper.LogDebug(log, $"FORMATION_DRAG_ABORTED: {reason}.");
         }
 
@@ -1245,10 +1330,27 @@ namespace FormationTest
                 drag = null;
                 activeCommand = null;
             }
-            FormationPreviewOverlay.Clear();
+            ClearPreview();
             Shared.DebugLogHelper.LogError(
                 log,
                 $"FORMATION_TEST_DISABLED: contract={contract}; Vanilla remains active; {exception}");
+        }
+
+        private void ClearPreview()
+        {
+            markerRenderer?.ClearPreviewMarkerTiles();
+            FormationPreviewOverlay.Clear();
+        }
+
+        private void RequireMainThread(string contract)
+        {
+            int current = Environment.CurrentManagedThreadId;
+            if (current != mainThreadId)
+            {
+                throw new InvalidOperationException(
+                    $"Formation input callback '{contract}' ran on thread {current}; " +
+                    $"expected main thread {mainThreadId}.");
+            }
         }
 
         private static FieldInfo RequireEditorField(string name, Type type)
@@ -1312,10 +1414,6 @@ namespace FormationTest
                 Kind = kind;
                 Density = density;
                 RearSorting = rearSorting;
-                LastPreviewDeltaX = int.MinValue;
-                LastPreviewDeltaY = int.MinValue;
-                LastPreviewKind = (FormationKind)byte.MaxValue;
-                LastPreviewDensity = -1;
                 int sumX = 0;
                 int sumY = 0;
                 for (int index = 0; index < selection.Length; index++)
@@ -1344,11 +1442,8 @@ namespace FormationTest
             internal int DefaultDirectionSector { get; }
             internal int DirectionSector { get; set; }
             internal int Width { get; set; }
-            internal int LastPreviewDeltaX { get; set; }
-            internal int LastPreviewDeltaY { get; set; }
-            internal FormationKind LastPreviewKind { get; set; }
-            internal int LastPreviewDensity { get; set; }
-            internal bool LastPreviewRear { get; set; }
+            internal bool HasLastPreviewKey { get; set; }
+            internal FormationPreviewKey LastPreviewKey { get; set; }
         }
 
         private sealed class ActiveFormationCommand

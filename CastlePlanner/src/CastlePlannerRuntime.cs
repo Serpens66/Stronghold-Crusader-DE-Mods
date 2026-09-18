@@ -1627,34 +1627,67 @@ namespace CastlePlanner
                 "Vanilla human Keep coordinate load",
                 HumanKeepCoordinateLoadPattern,
                 HumanKeepCoordinateLoadRva);
-            nativeHookTransaction = new HookTransaction(
-                context.Region,
-                SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
-                new HookTransactionOptions
+            const int expectedDisplacedByteCount = 16;
+            using (var probe = new X64InlineHook(
+                libraryBase + unchecked((ulong)humanStartHookRva),
+                expectedDisplacedByteCount))
+            {
+                if (probe.DisplacedByteCount != expectedDisplacedByteCount)
                 {
-                    FailureMode = TransactionFailureMode.RollbackAndThrow,
-                    // CastlePlanner's static runtime keeps this hook for the process lifetime.
-                    OwnsHooks = false
-                });
-            nativeHookTransaction.AddContextHook(
-                humanKeepCoordinateLoadHook,
-                HookTarget.FromAddress(libraryBase + unchecked((ulong)humanStartHookRva)),
-                PrepareVanillaHumanStart,
-                new ContextHookOptions
+                    throw new InvalidOperationException(
+                        $"RedBird decoded {probe.DisplacedByteCount} bytes at the Vanilla human " +
+                        $"Keep coordinate load; expected {expectedDisplacedByteCount}.");
+                }
+            }
+
+            HookTransaction pending = null;
+            try
+            {
+                pending = new HookTransaction(
+                    context.Region,
+                    SHCDESE.BepInEx.Bootstrap.Plugin.Instance.LoggerFactory,
+                    new HookTransactionOptions
+                    {
+                        FailureMode = TransactionFailureMode.RollbackAndThrow,
+                        // The published transaction stays rooted for the process lifetime.
+                        // Ownership permits rollback only while this candidate is unpublished.
+                        OwnsHooks = true
+                    });
+                pending.AddContextHook(
+                    humanKeepCoordinateLoadHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)humanStartHookRva)),
+                    PrepareVanillaHumanStart,
+                    new ContextHookOptions
+                    {
+                        Registers = X64SmartCPUContextRegs.All,
+                        HookSize = expectedDisplacedByteCount,
+                        ErrorMode = CallbackErrorMode.LogAndContinue,
+                        Placement = OverwrittenInstructionPlacement.AfterCallback
+                    });
+                CommitResult commitResult = pending.Commit();
+                if (!commitResult.IsCompleteSuccess ||
+                    !humanKeepCoordinateLoadHook.Success ||
+                    humanKeepCoordinateLoadHook.Hook.DisplacedByteCount !=
+                        expectedDisplacedByteCount)
                 {
-                    Registers = X64SmartCPUContextRegs.All,
-                    HookSize = 16,
-                    ErrorMode = CallbackErrorMode.LogAndContinue,
-                    Placement = OverwrittenInstructionPlacement.AfterCallback
-                });
-            CommitResult commitResult = nativeHookTransaction.Commit();
-            if (!commitResult.IsCompleteSuccess || !humanKeepCoordinateLoadHook.Success)
-                throw new InvalidOperationException("The Vanilla human Keep coordinate-load hook was not installed.");
+                    throw new InvalidOperationException(
+                        "The Vanilla human Keep coordinate-load hook did not retain its audited 16-byte span.");
+                }
+
+                nativeHookTransaction = pending;
+                pending = null;
+            }
+            catch
+            {
+                pending?.Dispose();
+                throw;
+            }
 
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Early Vanilla human-start hooks installed: " +
-                $"keepCoordinateRva=0x{humanStartHookRva:X}.");
+                $"keepCoordinateRva=0x{humanStartHookRva:X}, " +
+                $"displacedBytes={humanKeepCoordinateLoadHook.Hook.DisplacedByteCount}.");
         }
 
         private void PrepareVanillaHumanStart(

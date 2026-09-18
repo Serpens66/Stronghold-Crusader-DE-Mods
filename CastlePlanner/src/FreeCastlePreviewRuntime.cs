@@ -16,6 +16,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows.Input;
 using UnityEngine;
 
@@ -50,6 +51,18 @@ namespace CastlePlanner
             SpawnMap
         }
 
+        private sealed class QueuedPacket
+        {
+            public QueuedPacket(FreeCastlePacket packet, ulong senderSteamId)
+            {
+                Packet = packet;
+                SenderSteamId = senderSteamId;
+            }
+
+            public FreeCastlePacket Packet { get; }
+            public ulong SenderSteamId { get; }
+        }
+
         private const int TimeoutSeconds = 120;
         private readonly ManualLogSource log;
         private readonly CastlePlannerSettingsViewModel settings;
@@ -70,6 +83,8 @@ namespace CastlePlanner
         };
 
         private R3PacketEventHook<FreeCastlePacket> packetHook;
+        private CoalescedSynchronizationContextQueue<QueuedPacket> packetDispatchQueue;
+        private SynchronizationContext unitySynchronizationContext;
         private IDisposable packetSubscription;
         private IDisposable mapStartSubscription;
         private IDisposable mapUnloadSubscription;
@@ -88,6 +103,7 @@ namespace CastlePlanner
         private List<FreeCastleSelection> committedSelections =
             new List<FreeCastleSelection>();
         private int operationId;
+        private int unityMainThreadId;
         private int localPlayerId;
         private bool realMultiplayer;
         private bool localConfirmed;
@@ -195,8 +211,27 @@ namespace CastlePlanner
         public string NoneText => SerpLocalization.Get("CastlePlanner.Preview.None");
         public event Action SelectionVisualChanged;
 
+        private bool IsOnUnityMainThread =>
+            unityMainThreadId != 0 &&
+            Thread.CurrentThread.ManagedThreadId == unityMainThreadId;
+
         public void Initialize()
         {
+            unitySynchronizationContext = SynchronizationContext.Current;
+            unityMainThreadId = Thread.CurrentThread.ManagedThreadId;
+            if (unitySynchronizationContext == null ||
+                !string.Equals(
+                    unitySynchronizationContext.GetType().FullName,
+                    "UnityEngine.UnitySynchronizationContext",
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    "Free-castle networking must initialize on Unity's main-thread SynchronizationContext.");
+            }
+            packetDispatchQueue =
+                new CoalescedSynchronizationContextQueue<QueuedPacket>(
+                    unitySynchronizationContext,
+                    DispatchQueuedPacket);
             packetHook = GameNetworkAPI.Instance.GetPacketEventFor<FreeCastlePacket>();
             packetSubscription = packetHook.GetBaseHook().Observable.Subscribe(OnPacket);
             // SaveLifecycle: NewMapOnly - preview pause must surround a newly committed launch.
@@ -242,7 +277,9 @@ namespace CastlePlanner
             Application.onBeforeRender += OnBeforeRender;
             Shared.DebugLogHelper.LogInfo(
                 log,
-                $"Free-castle preview initialized: packetId={packetHook.GetPacketId()}, timeout={TimeoutSeconds}s.");
+                $"Free-castle preview initialized: packetId={packetHook.GetPacketId()}, " +
+                $"timeout={TimeoutSeconds}s, mainThread={unityMainThreadId}, " +
+                $"synchronizationContext={unitySynchronizationContext.GetType().FullName}.");
         }
 
         public bool TryGetCommittedSelections(out List<FreeCastleSelection> selections)
@@ -559,16 +596,54 @@ namespace CastlePlanner
 
         private void OnPacket(ReceiveCustomPacketEventArgs<FreeCastlePacket> args)
         {
-            if (!IsFeatureModeAllowed())
-                return;
-
             FreeCastlePacket packet = args?.Packet;
-            if (packet == null || !args.SenderSteamId.HasValue || !IsPreviewPendingOrActive)
+            if (packet == null || !args.SenderSteamId.HasValue)
+                return;
+            ulong sender = args.SenderSteamId.Value.m_SteamID;
+            var queued = new QueuedPacket(ClonePacket(packet), sender);
+            try
+            {
+                packetDispatchQueue.Enqueue(queued);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Failed to schedule a free-castle packet on Unity's main thread: {ex}");
+            }
+        }
+
+        private void DispatchQueuedPacket(QueuedPacket queued)
+        {
+            if (!IsOnUnityMainThread)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Free-castle packet dispatch was rejected outside Unity's main thread.");
+                return;
+            }
+
+            try
+            {
+                ProcessQueuedPacket(queued.Packet, queued.SenderSteamId);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Free-castle main-thread packet dispatch failed: {ex}");
+                if (IsPreviewPendingOrActive)
+                    FailBeforeCommit(ex.GetBaseException().Message);
+            }
+        }
+
+        private void ProcessQueuedPacket(FreeCastlePacket packet, ulong sender)
+        {
+            if (!IsFeatureModeAllowed() || !IsPreviewPendingOrActive)
                 return;
             Platform_Multiplayer platform = Platform_Multiplayer.Instance;
             if (platform?.activeLobby == null)
                 return;
-            ulong sender = args.SenderSteamId.Value.m_SteamID;
             bool host = platform.activeLobby.isHost;
             bool senderIsHost = sender == SteamMatchmaking.GetLobbyOwner(platform.activeLobby.id).m_SteamID;
             if (!host && !senderIsHost)
@@ -621,6 +696,26 @@ namespace CastlePlanner
                 FailBeforeCommit(ex.GetBaseException().Message);
             }
         }
+
+        private static FreeCastlePacket ClonePacket(FreeCastlePacket packet) =>
+            new FreeCastlePacket
+            {
+                ProtocolVersion = packet.ProtocolVersion,
+                Kind = packet.Kind,
+                OperationId = packet.OperationId,
+                PlayerId = packet.PlayerId,
+                Rotation = packet.Rotation,
+                DisplayName = packet.DisplayName,
+                ContentHash = packet.ContentHash,
+                UncompressedLength = packet.UncompressedLength,
+                CompressedLength = packet.CompressedLength,
+                ChunkIndex = packet.ChunkIndex,
+                ChunkCount = packet.ChunkCount,
+                DataBase64 = packet.DataBase64,
+                TimeoutSeconds = packet.TimeoutSeconds,
+                Roster = packet.Roster,
+                Message = packet.Message
+            };
 
         private void HandleHostPacket(FreeCastlePacket packet, ulong sender, FreeCastlePacketKind kind)
         {

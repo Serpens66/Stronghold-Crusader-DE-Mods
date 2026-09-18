@@ -11,7 +11,6 @@ namespace FormationTest
         private static Texture2D protectedTexture;
         private static Texture2D neutralTexture;
         private static Texture2D rearTexture;
-        private static GUIStyle labelStyle;
 
         internal static FormationPreviewOverlay CreateProcessLifetimeInstance()
         {
@@ -20,19 +19,10 @@ namespace FormationTest
             return root.AddComponent<FormationPreviewOverlay>();
         }
 
-        internal static void Publish(
-            FormationPreviewPoint[] points,
-            FormationKind kind,
-            int density,
-            bool rearSorting,
-            int width)
+        internal static void Publish(FormationPreviewPoint[] points)
         {
             lock (Sync)
-            {
-                snapshot = new PreviewSnapshot(
-                    points ?? Array.Empty<FormationPreviewPoint>(),
-                    $"Formation: {kind}   Dichte: {density}   Nachhut: {(rearSorting ? "AN" : "AUS")}   Breite: {width}");
-            }
+                snapshot = new PreviewSnapshot(points ?? Array.Empty<FormationPreviewPoint>());
         }
 
         internal static void Clear()
@@ -43,14 +33,16 @@ namespace FormationTest
 
         private void OnGUI()
         {
+            if (Event.current == null || Event.current.type != EventType.Repaint)
+                return;
             PreviewSnapshot current;
             lock (Sync)
                 current = snapshot;
-            if (current.Points.Length == 0 || Camera.main == null || GameMap.instance == null)
+            Camera camera = Camera.main;
+            if (current.Points.Length == 0 || camera == null || GameMap.instance == null)
                 return;
 
             EnsureTextures();
-            GUI.Label(new Rect(16f, 16f, 640f, 28f), current.Label, labelStyle);
             for (int index = 0; index < current.Points.Length; index++)
             {
                 FormationPreviewPoint point = current.Points[index];
@@ -59,7 +51,7 @@ namespace FormationTest
                     System.Numerics.Vector2 world = SHCDESE.CoordinateConverter
                         .ConvertLocalTileToCameraWorld(
                             new System.Numerics.Vector2(point.X, point.Y));
-                    Vector3 screen = Camera.main.WorldToScreenPoint(
+                    Vector3 screen = camera.WorldToScreenPoint(
                         new Vector3(world.X, world.Y, 0f));
                     if (screen.z < 0f)
                         continue;
@@ -95,12 +87,6 @@ namespace FormationTest
             protectedTexture = CreateTexture(new Color(0.15f, 0.85f, 0.35f, 0.9f));
             neutralTexture = CreateTexture(new Color(0.95f, 0.85f, 0.2f, 0.9f));
             rearTexture = CreateTexture(new Color(0.2f, 0.55f, 1f, 0.9f));
-            labelStyle = new GUIStyle(GUI.skin.label)
-            {
-                fontSize = 15,
-                fontStyle = FontStyle.Bold,
-                normal = { textColor = Color.white }
-            };
         }
 
         private static Texture2D CreateTexture(Color color)
@@ -114,16 +100,14 @@ namespace FormationTest
         private sealed class PreviewSnapshot
         {
             internal static readonly PreviewSnapshot Empty =
-                new PreviewSnapshot(Array.Empty<FormationPreviewPoint>(), string.Empty);
+                new PreviewSnapshot(Array.Empty<FormationPreviewPoint>());
 
-            internal PreviewSnapshot(FormationPreviewPoint[] points, string label)
+            internal PreviewSnapshot(FormationPreviewPoint[] points)
             {
                 Points = points;
-                Label = label;
             }
 
             internal FormationPreviewPoint[] Points { get; }
-            internal string Label { get; }
         }
     }
 
