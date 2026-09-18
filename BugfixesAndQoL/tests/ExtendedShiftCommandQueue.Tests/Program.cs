@@ -135,6 +135,15 @@ internal static class Program
               MoveFormationDragEligibility.RequiresNormalTribeOwnership(
                   isMapEditor: false),
             "map-editor selections including tribe 499 bypass only normal ownership validation");
+        Check(!MoveFormationDragEligibility.IsUsableSelectionCount(-1) &&
+              !MoveFormationDragEligibility.IsUsableSelectionCount(0) &&
+              !MoveFormationDragEligibility.IsUsableSelectionCount(1) &&
+              MoveFormationDragEligibility.IsUsableSelectionCount(2) &&
+              MoveFormationDragEligibility.IsUsableSelectionCount(
+                  MoveFormationDragEligibility.MaximumSelectionCount) &&
+              !MoveFormationDragEligibility.IsUsableSelectionCount(
+                  MoveFormationDragEligibility.MaximumSelectionCount + 1),
+            "transient and implausible native selection counts reject only the current drag gesture");
         Check(MoveFormationDragEligibility.IsVanillaRelease(0, 3, false) &&
               !MoveFormationDragEligibility.IsVanillaRelease(0, 2, true) &&
               MoveFormationDragEligibility.IsVanillaRelease(1, 2, true) &&

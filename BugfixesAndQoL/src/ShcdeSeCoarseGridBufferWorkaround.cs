@@ -1,6 +1,5 @@
 // SHCDESE_COARSE_GRID_BUFFER_WORKAROUND
 // Temporary compatibility code for SHCDE-SE 2.7.1's Unity Mono TypeLoadException.
-// Evidence: Findings/SHCDESE-CoarseGridBuffer-TypeLoadException.md.
 // Remove this entire file once GameAIVManagerAPI.Instance and its official live-village and
 // build-step spans initialize successfully under the game's Unity Mono runtime.
 using SHCDESE.API;

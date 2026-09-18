@@ -2,8 +2,13 @@ namespace BugfixesAndQoL
 {
     internal static class MoveFormationDragEligibility
     {
+        internal const int MaximumSelectionCount = 10000;
+
         internal static bool RequiresNormalTribeOwnership(bool isMapEditor) =>
             !isMapEditor;
+
+        internal static bool IsUsableSelectionCount(int count) =>
+            count >= 2 && count <= MaximumSelectionCount;
 
         internal static bool IsVanillaRelease(
             int commandButton, int leftMouseState, bool rightMouseUp) =>

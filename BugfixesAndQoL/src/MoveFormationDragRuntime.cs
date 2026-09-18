@@ -793,16 +793,31 @@ namespace BugfixesAndQoL
             out int tribeId,
             out string rejection)
         {
-            SelectedUnitInfo[] selected =
-                GamePlayerManagerAPI.Instance.GetSelectedChimps();
-            if (selected == null || selected.Length < 2)
+            identities = Array.Empty<SelectionIdentity>();
+            unitTypes = Array.Empty<int>();
+            tribeId = 0;
+            rejection = "selection-count";
+
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            int selectedCount = playerApi.GetSelectedChimpsCount();
+            if (!MoveFormationDragEligibility.IsUsableSelectionCount(selectedCount))
+                return false;
+
+            SelectedUnitInfo[] selected;
+            try
             {
-                identities = Array.Empty<SelectionIdentity>();
-                unitTypes = Array.Empty<int>();
-                tribeId = 0;
-                rejection = "selection-count";
+                selected = playerApi.GetSelectedChimps();
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // The Script Extender currently constructs its result list directly
+                // from a native count. A transient -1 must reject this gesture without
+                // permanently disabling the otherwise fail-open client feature.
+                rejection = "selection-count-transient";
                 return false;
             }
+            if (selected == null || selected.Length != selectedCount)
+                return false;
 
             identities = new SelectionIdentity[selected.Length];
             tribeId = -1;

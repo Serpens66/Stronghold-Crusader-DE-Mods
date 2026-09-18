@@ -425,7 +425,11 @@ namespace SerpsModsHost
                 var registrations = GameXAMLManagerAPI.Instance.RegisteredModSettings;
                 LobbyModSettingsEntry registration = registrations
                     .FirstOrDefault(entry => ReferenceEquals(entry.ViewModel, diagnostics));
-                ModSettingsRegistrationOrder.PromoteToFront(registrations, registration);
+                if (registration != null)
+                {
+                    ModSettingsRegistrationOrder.PromoteToFront(registrations, registration);
+                    SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.SelectedTab = registration;
+                }
                 NoesisTextBox searchTextBox = registration?.View?.FindName("SerpsModSettingsSearchTextBox") as NoesisTextBox;
                 if (searchTextBox != null)
                     searchTextBox.PreviewKeyDown += OnSearchTextBoxPreviewKeyDown;

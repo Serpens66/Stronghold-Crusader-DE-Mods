@@ -75,6 +75,7 @@ namespace BugfixesAndQoL
             TestMapFileManagerContract();
             TestMultiplayerSafetyPolicy();
             TestPacketThreadMarshallingContracts();
+            TestTransientSelectionGuards();
             TestWorkshopUploadLordSelectionPolicy();
             TestMultiplayerLobbyReturnIntegration();
             TestClassicMapSizeReader();
@@ -88,6 +89,25 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestTransientSelectionGuards()
+        {
+            string health = File.ReadAllText(Path.Combine("src", "SelectedUnitHealthFeature.cs"));
+            string drag = File.ReadAllText(Path.Combine("src", "MoveFormationDragRuntime.cs"));
+            string resync = File.ReadAllText(Path.Combine("src", "ResyncHostKickFeature.cs"));
+            string migration = File.ReadAllText(Path.Combine("src", "AbruptHostMigrationFix.cs"));
+            Check(health.Contains(
+                    "int unitId = state.selectedChimps[index];" + Environment.NewLine +
+                    "                    if (unitId <= 0) continue;") &&
+                  drag.Contains("GetSelectedChimpsCount()") &&
+                  drag.Contains("catch (ArgumentOutOfRangeException)") &&
+                  drag.Contains("selection-count-transient"),
+                "transient dead-unit and invalid selection states remain local fail-closed HUD rejections");
+            Check(resync.Contains("RESYNC_STATE_CHANGED") &&
+                  migration.Contains("RESYNC_CHORE_OUTGOING") &&
+                  migration.Contains("opcode == 54 || opcode == 67"),
+                "resync diagnostics observe state transitions and outgoing start/end Chores");
         }
 
         private static unsafe void TestProjectileSlotContract()
@@ -3299,10 +3319,6 @@ namespace BugfixesAndQoL
             string workaround = File.ReadAllText(Path.Combine(
                 sourceDirectory,
                 "ShcdeSeCoarseGridBufferWorkaround.cs"));
-            string findings = File.ReadAllText(Path.Combine(
-                Directory.GetParent(projectDirectory).FullName,
-                "Findings",
-                "SHCDESE-CoarseGridBuffer-TypeLoadException.md"));
             string viewModel = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesAndQoLViewModel.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory,
@@ -3329,9 +3345,9 @@ namespace BugfixesAndQoL
                     workaround.Contains("officialFactory()") &&
                     workaround.IndexOf("officialFactory()", StringComparison.Ordinal) <
                     workaround.IndexOf("workaroundFactory()", StringComparison.Ordinal) &&
-                    workaround.Contains("Findings/SHCDESE-CoarseGridBuffer-TypeLoadException.md") &&
-                    findings.Contains("SHCDESE_COARSE_GRID_BUFFER_WORKAROUND"),
-                "AI stone-reserve workaround is isolated, searchable, documented, and official-first");
+                    workaround.Contains("internal const string Marker = \"SHCDESE_COARSE_GRID_BUFFER_WORKAROUND\"") &&
+                    workaround.Contains("IsKnownFailure(Exception exception)"),
+                "AI stone-reserve workaround is isolated, searchable, failure-scoped, and official-first");
             Check(viewModel.Contains("private bool enableAiStoneReserveFix = true;") &&
                     viewModel.Contains("public bool EnableAiStoneReserveFix") &&
                     viewModel.Contains("EnableAiStoneReserveFix = true;"),

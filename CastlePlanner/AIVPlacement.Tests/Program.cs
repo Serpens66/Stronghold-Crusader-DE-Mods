@@ -1686,6 +1686,47 @@ internal static class Program
                 noxAiv, out _, out warning));
             Equal(string.Empty, warning);
 
+            string vanillaDirectory = Path.Combine(root, "VanillaAIV");
+            Directory.CreateDirectory(vanillaDirectory);
+            foreach ((string name, ushort expected) in new[]
+            {
+                ("Rat", (ushort)12), ("Snake", (ushort)12), ("Pig", (ushort)12),
+                ("Wolf", (ushort)13), ("Saladin", (ushort)10), ("Caliph", (ushort)10),
+                ("Sultan", (ushort)10), ("Richard", (ushort)13), ("Frederick", (ushort)13),
+                ("Philip", (ushort)13), ("Wazir", (ushort)10), ("Emir", (ushort)10),
+                ("Nizar", (ushort)10), ("Sheriff", (ushort)13), ("Marshal", (ushort)13),
+                ("Abbot", (ushort)13), ("Jewel", (ushort)13), ("Sentinel", (ushort)13),
+                ("Nomad", (ushort)10), ("Kahinah", (ushort)10), ("Canary", (ushort)12),
+                ("Trader", (ushort)10), ("Sergeant", (ushort)13), ("Lioness", (ushort)10),
+                ("Crocodile", (ushort)12), ("Baldwin", (ushort)12), ("Bullseye", (ushort)12),
+                ("Surgeon", (ushort)10), ("Baibars", (ushort)10)
+            })
+            {
+                string vanillaAiv = Path.Combine(vanillaDirectory, name + "8.aivjson");
+                File.WriteAllText(vanillaAiv, "{}");
+                Equal(expected, CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
+                    vanillaAiv, out resolvedLord, out warning));
+                Equal(string.Empty, resolvedLord);
+                Equal(string.Empty, warning);
+            }
+
+            string communitySheriff = Path.Combine(
+                vanillaDirectory,
+                "Community_Sheriff8.aivjson");
+            File.WriteAllText(communitySheriff, "{}");
+            Equal((ushort)13, CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
+                communitySheriff, out _, out warning));
+            Equal(string.Empty, warning);
+
+            string streamingAssets = Path.Combine(root, "StreamingAssets");
+            string villagesDirectory = Path.Combine(streamingAssets, "Villages");
+            Directory.CreateDirectory(villagesDirectory);
+            string officialSheriff = Path.Combine(villagesDirectory, "sheriff8.aivjson");
+            File.WriteAllText(officialSheriff, "{}");
+            Equal((ushort)13, CastlePlanner.AivLordJsonResolver.ResolveFlagProjectileType(
+                officialSheriff, out _, out warning));
+            Equal(string.Empty, warning);
+
             string ambiguousDirectory = Path.Combine(root, "ambiguous");
             Directory.CreateDirectory(ambiguousDirectory);
             string ambiguousAiv = Path.Combine(ambiguousDirectory, "Castle.aivjson");

@@ -485,6 +485,21 @@ namespace SerpsModsHostDuplicateTests
             {
                 throw new InvalidOperationException("A later registration did not remain behind Serps Mods.");
             }
+
+            string workspace = FindWorkspaceRoot();
+            string hostSource = File.ReadAllText(Path.Combine(
+                workspace, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
+            int promoteIndex = hostSource.IndexOf(
+                "ModSettingsRegistrationOrder.PromoteToFront(registrations, registration);",
+                StringComparison.Ordinal);
+            int selectIndex = hostSource.IndexOf(
+                "SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.SelectedTab = registration;",
+                StringComparison.Ordinal);
+            if (promoteIndex < 0 || selectIndex <= promoteIndex)
+            {
+                throw new InvalidOperationException(
+                    "Serps Mods must become the initial selected tab after it is promoted.");
+            }
         }
 
         private static void TestScriptExtenderCompatibility()

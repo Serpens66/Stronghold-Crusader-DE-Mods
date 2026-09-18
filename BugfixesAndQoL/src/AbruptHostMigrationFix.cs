@@ -201,6 +201,7 @@ namespace BugfixesAndQoL
 
             try
             {
+                LogOutgoingResyncChores(choreBuffer);
                 ObserveRecoverySaveChores(choreBuffer);
             }
             catch (Exception ex)
@@ -208,6 +209,34 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Connection-recovery save Chore observation failed; the 30-second fail-open timeout remains active: {ex}");
+            }
+        }
+
+        private void LogOutgoingResyncChores(byte[] choreBuffer)
+        {
+            if (choreBuffer == null)
+                return;
+
+            int offset = 0;
+            for (int recordCount = 0; recordCount < 10000; recordCount++)
+            {
+                if (offset < 0 || offset + sizeof(int) > choreBuffer.Length)
+                    return;
+                int payloadLength = BitConverter.ToInt32(choreBuffer, offset);
+                if (payloadLength < 1 || payloadLength > choreBuffer.Length - offset - 5)
+                    return;
+                byte opcode = choreBuffer[offset + 5];
+                if (opcode == 54 || opcode == 67)
+                {
+                    int tick = GameTimeManagerAPI.Instance?.GetElapsedMapTicks() ?? -1;
+                    int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+                    Shared.DebugLogHelper.LogInfo(
+                        log,
+                        $"RESYNC_CHORE_OUTGOING: opcode={opcode}, offset={offset}, payloadLength={payloadLength}, " +
+                        $"isHost={GameNetworkAPI.IsLocalHost()}, tick={tick}, localPlayerId={localPlayerId}, " +
+                        SurrenderFeature.CaptureResyncDiagnostic() + ".");
+                }
+                offset += payloadLength + 5;
             }
         }
 

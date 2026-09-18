@@ -374,6 +374,7 @@ namespace BugfixesAndQoL
                 for (int index = 0; index < count; index++)
                 {
                     int unitId = state.selectedChimps[index];
+                    if (unitId <= 0) continue;
                     if (customIds.Contains(unitId)) continue;
                     if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) && unit != null && (int)unit->r_UnitChimp == slot.VanillaType)
                         AddHealth(unitId, ref slotSummaries[slot.Slot], unitApi, mapEditor, controlledPlayerId);
