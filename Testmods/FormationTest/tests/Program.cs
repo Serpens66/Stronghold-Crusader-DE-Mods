@@ -8,6 +8,10 @@ using System.Runtime.InteropServices;
 
 internal static class Program
 {
+    [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+    private delegate long CommonGroupProbeDelegate(
+        IntPtr manager, int tribeId, short x, short y, short patrol, int newOrder);
+
     private static int assertions;
 
     private static int Main()
@@ -23,6 +27,7 @@ internal static class Program
             TestRoleEdgeCases();
             TestEffectivePreviewKeys();
             TestDefaultsMigration();
+            TestMoveOrderMatching();
             TestPreviewMarkerNormalization();
             TestInstalledRedBirdMarkerSpan();
             TestSourceSafetyContracts();
@@ -248,6 +253,23 @@ internal static class Program
             "null preview is empty");
     }
 
+    private static void TestMoveOrderMatching()
+    {
+        Func<int, int, int, short, bool, int, bool> matches =
+            (tribe, x, y, patrol, fresh, moveType) =>
+                FormationOrderMatchModel.Matches(
+                    42, 320, 240, 1, 3,
+                    tribe, x, y, patrol, fresh, moveType);
+        Check(matches(42, 320, 240, 0, true, 3),
+            "exact pending move order matches Pre/Post identity");
+        Check(!matches(41, 320, 240, 0, true, 3), "tribe mismatch rejected");
+        Check(!matches(42, 319, 240, 0, true, 3), "X mismatch rejected");
+        Check(!matches(42, 320, 241, 0, true, 3), "Y mismatch rejected");
+        Check(!matches(42, 320, 240, 1, true, 3), "patrol mismatch rejected");
+        Check(!matches(42, 320, 240, 0, false, 3), "new-order mismatch rejected");
+        Check(!matches(42, 320, 240, 0, true, 2), "move-type mismatch rejected");
+    }
+
     private static void TestEffectivePreviewKeys()
     {
         FormationPreviewKey vanilla = FormationPreviewKey.Create(
@@ -327,12 +349,15 @@ internal static class Program
                 "Microsoft.Extensions.Logging.Abstractions",
                 "Iced",
                 "RedBird.Abstractions",
+                "RedBird.Backends.NativeX64",
                 "RedBird.Core",
                 "RedBird.X64"
             })
                 Assembly.LoadFrom(Path.Combine(extender, name + ".dll"));
 
             Assembly assembly = Assembly.LoadFrom(Path.Combine(extender, "RedBird.X64.dll"));
+            Assembly nativeAssembly = Assembly.LoadFrom(
+                Path.Combine(extender, "RedBird.Backends.NativeX64.dll"));
             Type type = assembly.GetType(
                 "RedBird.X64.Hooks.X64InlineHook",
                 throwOnError: true);
@@ -379,10 +404,131 @@ internal static class Program
             {
                 Marshal.FreeHGlobal(memory);
             }
+
+            ProbeInstalledRedBirdSpan(
+                type,
+                new byte[]
+                {
+                    0x48, 0x89, 0x5C, 0x24, 0x20,
+                    0x55, 0x56, 0x57, 0x41, 0x54,
+                    0x41, 0x55, 0x41, 0x56,
+                    0x41, 0x57
+                },
+                14,
+                "terminal unit target");
+            ProbeInstalledNativeDetourSpan(nativeAssembly);
         }
         finally
         {
             AppDomain.CurrentDomain.AssemblyResolve -= resolver;
+        }
+    }
+
+    private static void ProbeInstalledNativeDetourSpan(Assembly nativeAssembly)
+    {
+        byte[] bytes =
+        {
+            0x48, 0x89, 0x5C, 0x24, 0x08,
+            0x48, 0x89, 0x6C, 0x24, 0x10,
+            0x48, 0x89, 0x74, 0x24, 0x18,
+            0x57, 0x41, 0x54, 0x41, 0x55
+        };
+        IntPtr memory = Marshal.AllocHGlobal(128);
+        try
+        {
+            for (int index = 0; index < 128; index++)
+                Marshal.WriteByte(memory, index, 0x90);
+            Marshal.Copy(bytes, 0, memory, bytes.Length);
+
+            Type backendType = nativeAssembly.GetType(
+                "RedBird.Backends.NativeX64.NativeDetourBackend",
+                throwOnError: true);
+            Assembly abstractions = AppDomain.CurrentDomain.GetAssemblies().Single(
+                candidate => candidate.GetName().Name == "RedBird.Abstractions");
+            Type requestType = abstractions.GetType(
+                "RedBird.Abstractions.Hooks.DetourRequest`1",
+                throwOnError: true).MakeGenericType(typeof(CommonGroupProbeDelegate));
+            object request = Activator.CreateInstance(requestType);
+            CommonGroupProbeDelegate callback = CommonGroupProbe;
+            requestType.GetProperty("Name").SetValue(request, "FormationTest common detour probe");
+            requestType.GetProperty("TargetAddress").SetValue(
+                request, unchecked((ulong)memory.ToInt64()));
+            requestType.GetProperty("Callback").SetValue(request, callback);
+            MethodInfo create = backendType.GetMethods()
+                .Single(method => method.Name == "CreateDetour" &&
+                    method.IsGenericMethodDefinition && method.GetParameters().Length == 1)
+                .MakeGenericMethod(typeof(CommonGroupProbeDelegate));
+            object candidate = create.Invoke(
+                backendType.GetProperty("Instance").GetValue(null),
+                new[] { request });
+            GC.KeepAlive(callback);
+            try
+            {
+                Type candidateType = candidate.GetType();
+                Check((int)candidateType.GetProperty("DisplacedByteCount")
+                        .GetValue(candidate) == 10,
+                    "installed NativeDetour displaces the audited 10-byte common prologue");
+                Check(!(bool)candidateType.GetProperty("IsInstalled").GetValue(candidate),
+                    "native detour probe remains uninstalled");
+            }
+            finally
+            {
+                ((IDisposable)candidate).Dispose();
+            }
+            var after = new byte[bytes.Length];
+            Marshal.Copy(memory, after, 0, after.Length);
+            Check(after.SequenceEqual(bytes),
+                "native detour probe leaves common fixture bytes unchanged");
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(memory);
+        }
+    }
+
+    private static long CommonGroupProbe(
+        IntPtr manager, int tribeId, short x, short y, short patrol, int newOrder) => 0;
+
+    private static void ProbeInstalledRedBirdSpan(
+        Type hookType,
+        byte[] bytes,
+        int expectedSpan,
+        string label)
+    {
+        IntPtr memory = Marshal.AllocHGlobal(64);
+        try
+        {
+            for (int index = 0; index < 64; index++)
+                Marshal.WriteByte(memory, index, 0x90);
+            Marshal.Copy(bytes, 0, memory, bytes.Length);
+            object candidate = Activator.CreateInstance(
+                hookType,
+                new object[]
+                {
+                    unchecked((ulong)memory.ToInt64()),
+                    14,
+                    null,
+                    "FormationTest " + label + " span regression"
+                });
+            try
+            {
+                Check((int)hookType.GetProperty("DisplacedByteCount").GetValue(candidate) ==
+                    expectedSpan, label + " uses the audited displaced span");
+                Check(!(bool)hookType.GetProperty("IsInstalled").GetValue(candidate),
+                    label + " decode-only probe installs no hook");
+            }
+            finally
+            {
+                ((IDisposable)candidate).Dispose();
+            }
+            var after = new byte[bytes.Length];
+            Marshal.Copy(memory, after, 0, after.Length);
+            Check(after.SequenceEqual(bytes),
+                label + " decode-only probe leaves fixture bytes unchanged");
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(memory);
         }
     }
 
@@ -409,6 +555,58 @@ internal static class Program
             "RedBird displaced-span check");
         Check(source.Contains("ExpectedSelectorDisplacedBytes = 10"),
             "selector detours use the observed 10-byte span");
+        Check(source.Contains("CommonGroupMoveRva = 0x118E00") &&
+              source.Contains("ExpectedCommonGroupDisplacedBytes = 10"),
+            "common group path RVA and displaced-span contract");
+        Check(source.Contains("UnitMoveTargetRva = 0x196280") &&
+              source.Contains("ExpectedUnitMoveTargetAuditBytes = 14"),
+            "terminal unit target RVA and native audit-span contract");
+        Check(source.Contains("TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable") &&
+              source.Contains("tribeMoveSubscription = pendingTribeMove"),
+            "move-order Pre/Post subscription is process-rooted");
+        Check(source.Contains("UnitR3EventHooks.OnUnitMoveHere.Observable") &&
+              source.Contains("unitMoveSubscription = pendingUnitMove") &&
+              !source.Contains("unitMoveTargetHandle"),
+            "terminal target replacement uses the Extender-owned 0x196280 event");
+        string applyPacket = ExtractMethodBody(source, "private void ApplyPacket(");
+        Check(applyPacket.Contains("pendingCommand = command") &&
+              !applyPacket.Contains("BuildManagedDestinations("),
+            "packet application only stages the pending command before Vanilla dispatch");
+        string moveEvent = ExtractMethodBody(
+            source, "private void OnTribeIssueOrderMoveHere(");
+        Check(moveEvent.Contains("EventHookPhase.Pre") &&
+              moveEvent.Contains("EventHookPhase.Post") &&
+              moveEvent.Contains("finally") &&
+              moveEvent.Contains("activeCommand = null"),
+            "move-order context is activated in Pre and cleared in Post finally");
+        string commonHook = ExtractMethodBody(source, "private long CommonGroupMoveHook(");
+        Check(CountOccurrences(commonHook, "commonGroupMoveHandle.Original(") == 1,
+            "common group detour calls its original exactly once");
+        string unitHook = ExtractMethodBody(source, "private void OnUnitMoveHere(");
+        Check(unitHook.Contains("TryGetUnitDestination(") &&
+              unitHook.Contains("args.TileX = destination.X") &&
+              unitHook.Contains("args.TileY = destination.Y") &&
+              unitHook.Contains("args.Phase != EventHookPhase.Post") &&
+              unitHook.Contains("args.ReturnValue > 0") &&
+              unitHook.Contains("frame.PreArgs.SkipOriginalFunction") &&
+              !unitHook.Contains("Original("),
+            "common path substitutes targets and confirms its LIFO frame in Post");
+        Check(source.Contains("r_AttackMoveToTargetTileX = (ushort)destination.X") &&
+              source.Contains("FinishUnitAssignmentFrame(frame, false)") &&
+              source.Contains("UnitAssignmentFrame Parent"),
+            "common path synchronizes and rolls back Vanilla's persistent attack target");
+        Check(source.Contains("Dictionary<int, NativeDestination>") &&
+              source.Contains("Invalid or duplicate native unit identity") &&
+              source.Contains("unit->r_GlobalId == globalId"),
+            "common path mapping uses validated unit game IDs and global identities");
+        Check(source.Contains("FORMATION_ORDER_FELL_BACK_TO_VANILLA") &&
+              source.Contains("assigned={completed.AssignedCount}") &&
+              source.Contains("expected={completed.ExpectedCount}"),
+            "completion distinguishes observed native assignments from Vanilla fallback");
+        Check(source.Contains("r_TargetTilePositionX == pair.Value.X") &&
+              source.Contains("r_TargetTilePositionY == pair.Value.Y") &&
+              source.Contains("FORMATION_TARGET_VERIFICATION_MISMATCH"),
+            "Post verifies the stored native unit targets against assigned slots");
         Check(source.Contains("ExpectedVisibleTileDisplacedBytes = 17") &&
               source.Contains("VisibleTileHookRva = 0x436DE"),
             "native green marker hook span contract");
@@ -506,6 +704,18 @@ internal static class Program
                 return source.Substring(openingBrace, index - openingBrace + 1);
         }
         throw new InvalidOperationException("Method body is incomplete: " + signature);
+    }
+
+    private static int CountOccurrences(string source, string value)
+    {
+        int count = 0;
+        int index = 0;
+        while ((index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+        return count;
     }
 
     private static void Check(bool condition, string message)

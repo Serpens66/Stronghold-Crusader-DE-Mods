@@ -39,13 +39,21 @@ namespace FormationTest
     internal readonly struct FormationUnit
     {
         internal FormationUnit(int unitId, int unitType, FormationRole role)
+            : this(unitId, 0, unitType, role)
+        {
+        }
+
+        internal FormationUnit(
+            int unitId, uint globalId, int unitType, FormationRole role)
         {
             UnitId = unitId;
+            GlobalId = globalId;
             UnitType = unitType;
             Role = role;
         }
 
         internal int UnitId { get; }
+        internal uint GlobalId { get; }
         internal int UnitType { get; }
         internal FormationRole Role { get; }
     }
@@ -391,5 +399,26 @@ namespace FormationTest
 
         private static int RoundHalf(int doubled) =>
             doubled >= 0 ? (doubled + 1) / 2 : (doubled - 1) / 2;
+    }
+
+    internal static class FormationOrderMatchModel
+    {
+        internal static bool Matches(
+            int expectedTribeId,
+            int expectedX,
+            int expectedY,
+            int expectedNewOrder,
+            int expectedMoveType,
+            int actualTribeId,
+            int actualX,
+            int actualY,
+            short actualPatrol,
+            bool actualNewOrder,
+            int actualMoveType) =>
+            actualPatrol == 0 &&
+            expectedTribeId == actualTribeId &&
+            expectedX == actualX && expectedY == actualY &&
+            expectedNewOrder == (actualNewOrder ? 1 : 0) &&
+            expectedMoveType == actualMoveType;
     }
 }

@@ -12,6 +12,8 @@ using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Input;
 using SHCDESE.EventAPI.Network;
+using SHCDESE.EventAPI.Tribes;
+using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -36,6 +38,10 @@ namespace FormationTest
         private delegate int AssassinFormationSlotDelegate(IntPtr manager, int spacing, int x, int y);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate long CommonGroupMoveDelegate(
+            IntPtr manager, int tribeId, short x, short y, short patrol, int newOrder);
+
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int GetGroupUnitIdDelegate(IntPtr tribeManager, int tribeId, int ordinal);
 
         private const int ProtocolVersion = 1;
@@ -47,11 +53,15 @@ namespace FormationTest
         private const int UnitGroupInactiveStateOffset = 0x29C;
         private const int StandardSelectorRva = 0xE1D30;
         private const int AssassinSelectorRva = 0xE0970;
+        private const int CommonGroupMoveRva = 0x118E00;
+        private const int UnitMoveTargetRva = 0x196280;
         private const int GetGroupUnitIdRva = 0x119F90;
         private const int NativePathManagerRva = 0x60AD660;
         private const int NativeTribeManagerRva = 0x7CC6720;
         private const int MovementTargetAvailabilityRva = 0x3A11EA4;
         private const int ExpectedSelectorDisplacedBytes = 10;
+        private const int ExpectedCommonGroupDisplacedBytes = 10;
+        private const int ExpectedUnitMoveTargetAuditBytes = 14;
         private const int MaximumPreviewCandidates = 8192;
         private const int MinimumDragTileDistance = 2;
 
@@ -59,14 +69,48 @@ namespace FormationTest
         {
             0x48, 0x89, 0x5C, 0x24, 0x08,
             0x48, 0x89, 0x6C, 0x24, 0x18,
-            0x48, 0x89, 0x74, 0x24, 0x20
+            0x48, 0x89, 0x74, 0x24, 0x20,
+            0x89, 0x54, 0x24, 0x10, 0x57,
+            0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57,
+            0x4C, 0x63, 0x1D, 0xE1, 0x49, 0xBE, 0x07,
+            0x4C, 0x8B, 0xF1, 0x48, 0x63
         };
 
         private static readonly byte[] AssassinSelectorPrefix =
         {
             0x48, 0x89, 0x5C, 0x24, 0x08,
             0x48, 0x89, 0x6C, 0x24, 0x10,
-            0x48, 0x89, 0x74, 0x24, 0x18
+            0x48, 0x89, 0x74, 0x24, 0x18,
+            0x48, 0x89, 0x7C, 0x24, 0x20,
+            0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57,
+            0x4C, 0x63, 0x1D, 0xA1, 0x5D, 0xBE, 0x07,
+            0x4C, 0x8B, 0xF1,
+            0x48, 0x63, 0x81, 0x6C, 0x5F, 0x15, 0x00,
+            0x45, 0x8B, 0xF9
+        };
+
+        private static readonly byte[] CommonGroupMovePrefix =
+        {
+            0x48, 0x89, 0x5C, 0x24, 0x08,
+            0x48, 0x89, 0x6C, 0x24, 0x10,
+            0x48, 0x89, 0x74, 0x24, 0x18,
+            0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56, 0x41, 0x57,
+            0x48, 0x83, 0xEC, 0x30,
+            0x48, 0x63, 0xF2, 0x45, 0x33, 0xED, 0x8B, 0xD6,
+            0x45, 0x8B, 0xF1, 0x45, 0x8B, 0xF8, 0x48, 0x8B, 0xE9,
+            0x41, 0x8B, 0xDD
+        };
+
+        private static readonly byte[] UnitMoveTargetPrefix =
+        {
+            0x48, 0x89, 0x5C, 0x24, 0x20,
+            0x55, 0x56, 0x57, 0x41, 0x54, 0x41, 0x55, 0x41, 0x56,
+            0x41, 0x57, 0x48, 0x83, 0xEC, 0x30,
+            0x48, 0x63, 0xF2, 0x45, 0x33, 0xD2,
+            0x48, 0x69, 0xFE, 0x90, 0x04, 0x00, 0x00,
+            0x4D, 0x63, 0xF0,
+            0x48, 0x8D, 0x15, 0x55, 0x9D, 0xE6, 0xFF,
+            0x48, 0x03, 0xF9
         };
 
         private static readonly BindingFlags InstanceFields =
@@ -82,6 +126,8 @@ namespace FormationTest
             new DetourHandle<FormationSlotDelegate>();
         private readonly DetourHandle<AssassinFormationSlotDelegate> assassinSelectorHandle =
             new DetourHandle<AssassinFormationSlotDelegate>();
+        private readonly DetourHandle<CommonGroupMoveDelegate> commonGroupMoveHandle =
+            new DetourHandle<CommonGroupMoveDelegate>();
 
         private FormationPreviewMarkerRenderer markerRenderer;
         private HookTransaction nativeTransaction;
@@ -95,6 +141,8 @@ namespace FormationTest
         private IDisposable keyHeldSubscription;
         private IDisposable keyUpSubscription;
         private IDisposable packetSubscription;
+        private IDisposable tribeMoveSubscription;
+        private IDisposable unitMoveSubscription;
         private R3PacketEventHook<FormationOrderPacket> packetHook;
         private FieldInfo leftMouseStateField;
         private FieldInfo rightMouseUpField;
@@ -104,7 +152,10 @@ namespace FormationTest
         private GetGroupUnitIdDelegate getGroupUnitId;
         private MethodInfo sendChorePayloadMethod;
         private ActiveDrag drag;
+        private PendingFormationCommand pendingCommand;
         private ActiveFormationCommand activeCommand;
+        private ActiveFormationCommand commonGroupCommand;
+        private UnitAssignmentFrame unitAssignmentFrame;
         private int nextOperationId;
         private int lastWheelFrame = -1;
         private int mainThreadId;
@@ -142,6 +193,8 @@ namespace FormationTest
             IDisposable pendingKeyHeld = null;
             IDisposable pendingKeyUp = null;
             IDisposable pendingPacket = null;
+            IDisposable pendingTribeMove = null;
+            IDisposable pendingUnitMove = null;
             FormationPreviewMarkerRenderer pendingMarkerRenderer = null;
             try
             {
@@ -187,21 +240,34 @@ namespace FormationTest
                     assassinSelectorHandle,
                     HookTarget.FromAddress(libraryBase + AssassinSelectorRva),
                     (AssassinFormationSlotDelegate)ChooseAssassinFormationSlot);
+                pendingNative.AddDetour(
+                    commonGroupMoveHandle,
+                    HookTarget.FromAddress(libraryBase + CommonGroupMoveRva),
+                    (CommonGroupMoveDelegate)CommonGroupMoveHook);
                 CommitResult nativeResult = pendingNative.Commit();
                 NativeDetour<FormationSlotDelegate> standardDetour =
                     standardSelectorHandle.Hook as NativeDetour<FormationSlotDelegate>;
                 NativeDetour<AssassinFormationSlotDelegate> assassinDetour =
                     assassinSelectorHandle.Hook as NativeDetour<AssassinFormationSlotDelegate>;
+                NativeDetour<CommonGroupMoveDelegate> commonDetour =
+                    commonGroupMoveHandle.Hook as NativeDetour<CommonGroupMoveDelegate>;
                 if (!nativeResult.IsCompleteSuccess || !standardSelectorHandle.Success ||
                     !assassinSelectorHandle.Success ||
+                    !commonGroupMoveHandle.Success ||
                     standardDetour == null || assassinDetour == null ||
+                    commonDetour == null ||
+                    standardDetour.TargetAddress != libraryBase + StandardSelectorRva ||
+                    assassinDetour.TargetAddress != libraryBase + AssassinSelectorRva ||
+                    commonDetour.TargetAddress != libraryBase + CommonGroupMoveRva ||
                     standardDetour.DisplacedByteCount != ExpectedSelectorDisplacedBytes ||
-                    assassinDetour.DisplacedByteCount != ExpectedSelectorDisplacedBytes)
+                    assassinDetour.DisplacedByteCount != ExpectedSelectorDisplacedBytes ||
+                    commonDetour.DisplacedByteCount != ExpectedCommonGroupDisplacedBytes)
                 {
                     throw new InvalidOperationException(
                         $"Formation selector transaction failed or displaced an unexpected span: " +
                         $"result={nativeResult}, standard={standardDetour?.DisplacedByteCount}, " +
-                        $"assassin={assassinDetour?.DisplacedByteCount}.");
+                        $"assassin={assassinDetour?.DisplacedByteCount}, " +
+                        $"common={commonDetour?.DisplacedByteCount}.");
                 }
 
                 leftMouseStateField = RequireEditorField("leftMouseStateForEngine", typeof(int));
@@ -233,6 +299,10 @@ namespace FormationTest
 
                 packetHook = GameNetworkAPI.Instance.GetPacketEventFor<FormationOrderPacket>();
                 pendingPacket = packetHook.GetBaseHook().Observable.Subscribe(OnPacketReceived);
+                pendingTribeMove = TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
+                    .Subscribe(OnTribeIssueOrderMoveHere);
+                pendingUnitMove = UnitR3EventHooks.OnUnitMoveHere.Observable
+                    .Subscribe(OnUnitMoveHere);
                 pendingKeyDown = InputR3EventHooks.OnKeyDown.Observable.Subscribe(OnKeyDown);
                 pendingKeyHeld = InputR3EventHooks.OnKey.Observable.Subscribe(OnKeyHeld);
                 pendingKeyUp = InputR3EventHooks.OnKeyUp.Observable.Subscribe(OnKeyUp);
@@ -247,6 +317,10 @@ namespace FormationTest
                 pendingCameraUpdate = null;
                 packetSubscription = pendingPacket;
                 pendingPacket = null;
+                tribeMoveSubscription = pendingTribeMove;
+                pendingTribeMove = null;
+                unitMoveSubscription = pendingUnitMove;
+                pendingUnitMove = null;
                 keyDownSubscription = pendingKeyDown;
                 pendingKeyDown = null;
                 keyHeldSubscription = pendingKeyHeld;
@@ -263,10 +337,15 @@ namespace FormationTest
                     "FormationTest active: synchronized Chore packet, mouse gesture hooks, " +
                     $"mainThread={mainThreadId}, " +
                     $"standardSelector=0x{StandardSelectorRva:X}/span{ExpectedSelectorDisplacedBytes}, " +
-                    $"assassinSelector=0x{AssassinSelectorRva:X}/span{ExpectedSelectorDisplacedBytes}.");
+                    $"assassinSelector=0x{AssassinSelectorRva:X}/span{ExpectedSelectorDisplacedBytes}, " +
+                    $"commonGroup=0x{CommonGroupMoveRva:X}/span{ExpectedCommonGroupDisplacedBytes}, " +
+                    $"unitTarget=0x{UnitMoveTargetRva:X}/extender-event, " +
+                    $"nativeAuditSpan={ExpectedUnitMoveTargetAuditBytes}.");
             }
             catch
             {
+                pendingUnitMove?.Dispose();
+                pendingTribeMove?.Dispose();
                 pendingKeyUp?.Dispose();
                 pendingKeyHeld?.Dispose();
                 pendingKeyDown?.Dispose();
@@ -643,42 +722,13 @@ namespace FormationTest
                 return;
             }
 
-            FormationKind kind = FormationModel.NormalizeKind(packet.Formation);
-            int density = FormationModel.NormalizeDensity(packet.Density);
-            FormationUnit[] units = CaptureOrderedGroupUnits(packet.TribeId);
-            if (units.Length == 0)
-                throw new InvalidOperationException("The commanded tribe has no active units.");
-
-            ActiveFormationCommand command;
-            if (kind == FormationKind.Vanilla)
-            {
-                command = ActiveFormationCommand.CreateVanilla(
-                    packet.TribeId, packet.TargetX, packet.TargetY, density);
-            }
-            else
-            {
-                NativeDestination[] destinations = BuildManagedDestinations(
-                    packet.TargetX,
-                    packet.TargetY,
-                    kind,
-                    density,
-                    packet.DirectionSector,
-                    packet.Width,
-                    packet.RearSorting,
-                    units);
-                command = ActiveFormationCommand.CreateManaged(
-                    packet.TribeId,
-                    packet.TargetX,
-                    packet.TargetY,
-                    density,
-                    destinations);
-            }
+            var command = new PendingFormationCommand(packet, source);
 
             lock (stateSync)
             {
-                if (activeCommand != null)
+                if (pendingCommand != null || activeCommand != null)
                     throw new InvalidOperationException("A nested formation command was rejected.");
-                activeCommand = command;
+                pendingCommand = command;
             }
             try
             {
@@ -695,14 +745,149 @@ namespace FormationTest
             finally
             {
                 lock (stateSync)
-                    activeCommand = null;
+                {
+                    if (ReferenceEquals(pendingCommand, command))
+                        pendingCommand = null;
+                    if (activeCommand != null && activeCommand.Pending == command)
+                    {
+                        ClearUnitAssignmentFrames(activeCommand);
+                        activeCommand = null;
+                        commonGroupCommand = null;
+                        LogWarningNoThrow(
+                            $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={source}, " +
+                            $"operation={packet.OperationId}, reason=missing-post-event.");
+                    }
+                }
+            }
+        }
+
+        private void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args)
+        {
+            if (!initialized || failed || args == null)
+                return;
+
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                PendingFormationCommand pending;
+                lock (stateSync)
+                {
+                    pending = pendingCommand;
+                }
+                if (pending == null || !pending.Matches(args))
+                    return;
+
+                try
+                {
+                    FormationOrderPacket packet = pending.Packet;
+                    FormationKind kind = FormationModel.NormalizeKind(packet.Formation);
+                    int density = FormationModel.NormalizeDensity(packet.Density);
+                    FormationUnit[] units = CaptureOrderedGroupUnits(packet.TribeId);
+                    if (units.Length == 0)
+                        throw new InvalidOperationException(
+                            "The commanded tribe has no active units at dispatch.");
+
+                    NativeDestination[] destinations = Array.Empty<NativeDestination>();
+                    if (kind != FormationKind.Vanilla)
+                    {
+                        destinations = BuildManagedDestinations(
+                            packet.TargetX,
+                            packet.TargetY,
+                            kind,
+                            density,
+                            packet.DirectionSector,
+                            packet.Width,
+                            packet.RearSorting,
+                            units);
+                    }
+
+                    ActiveFormationCommand active = new ActiveFormationCommand(
+                        pending, kind, density, units, destinations);
+                    lock (stateSync)
+                    {
+                        if (!ReferenceEquals(pendingCommand, pending) || activeCommand != null)
+                            return;
+                        pendingCommand = null;
+                        activeCommand = active;
+                    }
+                    LogDebugNoThrow(
+                        $"FORMATION_ORDER_SCOPE_PRE: source={pending.Source}, " +
+                        $"operation={packet.OperationId}, tribe={packet.TribeId}, " +
+                        $"expected={units.Length}, kind={kind}, " +
+                        $"thread={Environment.CurrentManagedThreadId}.");
+                }
+                catch (Exception exception)
+                {
+                    lock (stateSync)
+                    {
+                        if (ReferenceEquals(pendingCommand, pending))
+                            pendingCommand = null;
+                        ClearUnitAssignmentFrames(null);
+                        activeCommand = null;
+                        commonGroupCommand = null;
+                    }
+                    LogWarningNoThrow(
+                        $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={pending.Source}, " +
+                        $"operation={pending.Packet.OperationId}, reason=preparation-failed, " +
+                        $"error={exception.Message}.");
+                }
+                return;
             }
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                $"FORMATION_ORDER_APPLIED: source={source}, operation={packet.OperationId}, " +
-                $"tribe={packet.TribeId}, units={units.Length}, kind={kind}, density={density}, " +
-                $"rear={packet.RearSorting}, direction={packet.DirectionSector}, width={packet.Width}.");
+            if (args.Phase != EventHookPhase.Post)
+                return;
+
+            ActiveFormationCommand completed = null;
+            try
+            {
+                lock (stateSync)
+                {
+                    if (activeCommand != null && activeCommand.Matches(args))
+                        completed = activeCommand;
+                }
+            }
+            finally
+            {
+                lock (stateSync)
+                {
+                    if (ReferenceEquals(activeCommand, completed))
+                    {
+                        ClearUnitAssignmentFrames(completed);
+                        activeCommand = null;
+                    }
+                    if (ReferenceEquals(commonGroupCommand, completed))
+                        commonGroupCommand = null;
+                }
+            }
+
+            if (completed == null)
+                return;
+            int verifiedTargets = completed.Managed
+                ? completed.CountVerifiedNativeTargets()
+                : completed.AssignedCount;
+            if (completed.AssignedCount > 0)
+            {
+                if (completed.Managed && verifiedTargets != completed.ExpectedCount)
+                {
+                    LogWarningNoThrow(
+                        $"FORMATION_TARGET_VERIFICATION_MISMATCH: " +
+                        $"operation={completed.Pending.Packet.OperationId}, " +
+                        $"verified={verifiedTargets}, expected={completed.ExpectedCount}.");
+                }
+                LogDebugNoThrow(
+                    $"FORMATION_ORDER_APPLIED: source={completed.Pending.Source}, " +
+                    $"operation={completed.Pending.Packet.OperationId}, " +
+                    $"tribe={completed.TribeId}, path={completed.AssignmentPath}, " +
+                    $"assigned={completed.AssignedCount}, verified={verifiedTargets}, " +
+                    $"expected={completed.ExpectedCount}.");
+            }
+            else
+            {
+                LogWarningNoThrow(
+                    $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: " +
+                    $"source={completed.Pending.Source}, " +
+                    $"operation={completed.Pending.Packet.OperationId}, " +
+                    $"tribe={completed.TribeId}, reason=no-native-assignments.");
+            }
         }
 
         private void ChooseStandardFormationSlot(IntPtr manager, int spacing, int x, int y)
@@ -718,6 +903,7 @@ namespace FormationTest
             if (!command.Managed)
             {
                 standardSelectorHandle.Original(manager, command.Density, x, y);
+                RecordSelectorAssignment(command, false);
                 return;
             }
             if (!TryTakeDestination(command, out NativeDestination destination))
@@ -726,6 +912,7 @@ namespace FormationTest
                 return;
             }
             WriteFormationOutput(destination);
+            RecordSelectorAssignment(command, false);
         }
 
         private int ChooseAssassinFormationSlot(IntPtr manager, int spacing, int x, int y)
@@ -736,11 +923,265 @@ namespace FormationTest
             if (!Matches(command, manager, x, y))
                 return assassinSelectorHandle.Original(manager, spacing, x, y);
             if (!command.Managed)
-                return assassinSelectorHandle.Original(manager, command.Density, x, y);
+            {
+                int result = assassinSelectorHandle.Original(manager, command.Density, x, y);
+                RecordSelectorAssignment(command, true);
+                return result;
+            }
             if (!TryTakeDestination(command, out NativeDestination destination))
                 return assassinSelectorHandle.Original(manager, command.Density, x, y);
             WriteFormationOutput(destination);
+            RecordSelectorAssignment(command, true);
             return destination.TileId;
+        }
+
+        private long CommonGroupMoveHook(
+            IntPtr manager,
+            int tribeId,
+            short x,
+            short y,
+            short patrol,
+            int newOrder)
+        {
+            ActiveFormationCommand previous;
+            UnitAssignmentFrame previousUnitFrame;
+            ActiveFormationCommand command = null;
+            lock (stateSync)
+            {
+                previous = commonGroupCommand;
+                previousUnitFrame = unitAssignmentFrame;
+                ActiveFormationCommand candidate = activeCommand;
+                commonGroupCommand = null;
+                unitAssignmentFrame = null;
+                if (candidate != null && candidate.Managed &&
+                    manager == nativeTribeManager && candidate.TribeId == tribeId &&
+                    candidate.TargetX == x && candidate.TargetY == y &&
+                    patrol == 0 && candidate.IsNewOrder == newOrder)
+                {
+                    command = candidate;
+                    command.CommonPathEntered = true;
+                    commonGroupCommand = command;
+                }
+            }
+            try
+            {
+                return commonGroupMoveHandle.Original(
+                    manager, tribeId, x, y, patrol, newOrder);
+            }
+            finally
+            {
+                lock (stateSync)
+                {
+                    ClearUnitAssignmentFrames(command);
+                    if (ReferenceEquals(commonGroupCommand, command))
+                        commonGroupCommand = previous;
+                    unitAssignmentFrame = previousUnitFrame;
+                }
+            }
+        }
+
+        private void OnUnitMoveHere(UnitMoveHereEventArgs args)
+        {
+            if (!initialized || failed || args == null)
+                return;
+            if (args.Phase == EventHookPhase.Pre)
+            {
+                if (args.SkipOriginalFunction)
+                    return;
+                try
+                {
+                    lock (stateSync)
+                    {
+                        PruneUnitAssignmentFrames();
+                        ActiveFormationCommand command = commonGroupCommand;
+                        if (command == null || !ReferenceEquals(activeCommand, command) ||
+                            !command.TryGetUnitDestination(
+                                args.UnitId,
+                                out NativeDestination destination,
+                                out uint globalId) ||
+                            !TryGetMatchingUnit(args.UnitId, globalId, out GameUnit* unit) ||
+                            unit->r_AttackMoveToTargetTileX != command.TargetX ||
+                            unit->r_AttackMoveToTargetTileY != command.TargetY)
+                        {
+                            return;
+                        }
+                        UnitAssignmentFrame parent = unitAssignmentFrame;
+                        int originalX = args.TileX;
+                        int originalY = args.TileY;
+                        args.TileX = destination.X;
+                        args.TileY = destination.Y;
+                        unit->r_AttackMoveToTargetTileX = (ushort)destination.X;
+                        unit->r_AttackMoveToTargetTileY = (ushort)destination.Y;
+                        unitAssignmentFrame = new UnitAssignmentFrame(
+                            args,
+                            parent,
+                            command,
+                            args.UnitId,
+                            globalId,
+                            destination,
+                            originalX,
+                            originalY);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    DisableAfterNativeFailure("unit-target-pre", exception);
+                }
+                return;
+            }
+
+            if (args.Phase != EventHookPhase.Post)
+                return;
+            try
+            {
+                lock (stateSync)
+                {
+                    PruneUnitAssignmentFrames();
+                    UnitAssignmentFrame frame = unitAssignmentFrame;
+                    if (frame == null)
+                        return;
+                    try
+                    {
+                        bool accepted = false;
+                        if (args.ReturnValue > 0 &&
+                            !frame.PreArgs.SkipOriginalFunction &&
+                            ReferenceEquals(activeCommand, frame.Command) &&
+                            ReferenceEquals(commonGroupCommand, frame.Command) &&
+                            TryGetMatchingUnit(
+                                frame.UnitId, frame.GlobalId, out GameUnit* unit) &&
+                            unit->r_TargetTilePositionX == frame.Destination.X &&
+                            unit->r_TargetTilePositionY == frame.Destination.Y &&
+                            unit->r_AttackMoveToTargetTileX == frame.Destination.X &&
+                            unit->r_AttackMoveToTargetTileY == frame.Destination.Y)
+                        {
+                            accepted = true;
+                            frame.Command.RecordCommonAssignment(frame.UnitId);
+                        }
+                        FinishUnitAssignmentFrame(frame, accepted);
+                    }
+                    finally
+                    {
+                        unitAssignmentFrame = frame.Parent;
+                    }
+                }
+            }
+            catch (Exception exception)
+            {
+                DisableAfterNativeFailure("unit-target-post", exception);
+            }
+        }
+
+        private void PruneUnitAssignmentFrames()
+        {
+            while (unitAssignmentFrame != null &&
+                (unitAssignmentFrame.PreArgs.SkipOriginalFunction ||
+                 !ReferenceEquals(unitAssignmentFrame.Command, activeCommand) ||
+                 !ReferenceEquals(unitAssignmentFrame.Command, commonGroupCommand)))
+            {
+                UnitAssignmentFrame frame = unitAssignmentFrame;
+                unitAssignmentFrame = frame.Parent;
+                FinishUnitAssignmentFrame(frame, false);
+            }
+        }
+
+        private void ClearUnitAssignmentFrames(ActiveFormationCommand command)
+        {
+            while (unitAssignmentFrame != null &&
+                (command == null || ReferenceEquals(unitAssignmentFrame.Command, command)))
+            {
+                UnitAssignmentFrame frame = unitAssignmentFrame;
+                unitAssignmentFrame = frame.Parent;
+                FinishUnitAssignmentFrame(frame, false);
+            }
+        }
+
+        private static bool TryGetMatchingUnit(
+            int unitId,
+            uint globalId,
+            out GameUnit* unit)
+        {
+            unit = null;
+            return globalId != 0 &&
+                GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out unit) &&
+                unit != null && unit->r_AliveState == AliveState.IsAlive &&
+                unit->r_GlobalId == globalId;
+        }
+
+        private static void FinishUnitAssignmentFrame(
+            UnitAssignmentFrame frame,
+            bool accepted)
+        {
+            if (frame == null || accepted)
+                return;
+            if (frame.PreArgs.UnitId == frame.UnitId &&
+                frame.PreArgs.TileX == frame.Destination.X &&
+                frame.PreArgs.TileY == frame.Destination.Y)
+            {
+                frame.PreArgs.TileX = frame.OriginalX;
+                frame.PreArgs.TileY = frame.OriginalY;
+            }
+            if (TryGetMatchingUnit(frame.UnitId, frame.GlobalId, out GameUnit* unit) &&
+                unit->r_AttackMoveToTargetTileX == frame.Destination.X &&
+                unit->r_AttackMoveToTargetTileY == frame.Destination.Y)
+            {
+                unit->r_AttackMoveToTargetTileX = (ushort)frame.OriginalX;
+                unit->r_AttackMoveToTargetTileY = (ushort)frame.OriginalY;
+            }
+        }
+
+        private void RecordSelectorAssignment(
+            ActiveFormationCommand command,
+            bool assassin)
+        {
+            lock (stateSync)
+            {
+                if (ReferenceEquals(activeCommand, command))
+                    command.RecordSelectorAssignment(assassin);
+            }
+        }
+
+        private void DisableAfterNativeFailure(string stage, Exception exception)
+        {
+            lock (stateSync)
+            {
+                ClearUnitAssignmentFrames(null);
+                pendingCommand = null;
+                activeCommand = null;
+                commonGroupCommand = null;
+                failed = true;
+            }
+            try
+            {
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Formation native assignment failed open at {stage}; " +
+                    $"future formation commands are disabled: {exception}");
+            }
+            catch
+            {
+            }
+        }
+
+        private void LogDebugNoThrow(string message)
+        {
+            try
+            {
+                Shared.DebugLogHelper.LogDebug(log, message);
+            }
+            catch
+            {
+            }
+        }
+
+        private void LogWarningNoThrow(string message)
+        {
+            try
+            {
+                Shared.DebugLogHelper.LogWarning(log, message);
+            }
+            catch
+            {
+            }
         }
 
         private bool Matches(
@@ -967,7 +1408,7 @@ namespace FormationTest
                     continue;
                 int unitType = (int)unit->r_UnitChimp;
                 result.Add(new FormationUnit(
-                    unitId, unitType, Classify((eChimps)unitType)));
+                    unitId, unit->r_GlobalId, unitType, Classify((eChimps)unitType)));
             }
             return result.ToArray();
         }
@@ -1052,6 +1493,7 @@ namespace FormationTest
                 SelectionIdentity selected = state.Selection[index];
                 units[index] = new FormationUnit(
                     selected.UnitId,
+                    selected.GlobalId,
                     selected.UnitType,
                     Classify((eChimps)selected.UnitType));
             }
@@ -1363,10 +1805,34 @@ namespace FormationTest
 
         private static void ValidateNativeContracts(ReadOnlySpan<byte> memory)
         {
+            if (Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_TargetTilePositionX)).ToInt32() !=
+                    0xC4 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_TargetTilePositionY)).ToInt32() !=
+                    0xC6 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AttackMoveToTargetTileX)).ToInt32() !=
+                    0x2D8 ||
+                Marshal.OffsetOf(typeof(GameUnit), nameof(GameUnit.r_AttackMoveToTargetTileY)).ToInt32() !=
+                    0x2DA)
+            {
+                throw new InvalidOperationException(
+                    "GameUnit target tile offsets no longer match the audited native layout.");
+            }
             ValidateBytes(memory, StandardSelectorRva, StandardSelectorPrefix,
+                "standard formation selector");
+            ValidateUniqueEntry(memory, StandardSelectorRva, StandardSelectorPrefix,
                 "standard formation selector");
             ValidateBytes(memory, AssassinSelectorRva, AssassinSelectorPrefix,
                 "Assassin ground formation selector");
+            ValidateUniqueEntry(memory, AssassinSelectorRva, AssassinSelectorPrefix,
+                "Assassin ground formation selector");
+            ValidateBytes(memory, CommonGroupMoveRva, CommonGroupMovePrefix,
+                "common group movement path");
+            ValidateUniqueEntry(memory, CommonGroupMoveRva, CommonGroupMovePrefix,
+                "common group movement path");
+            ValidateBytes(memory, UnitMoveTargetRva, UnitMoveTargetPrefix,
+                "terminal unit movement target writer");
+            ValidateUniqueEntry(memory, UnitMoveTargetRva, UnitMoveTargetPrefix,
+                "terminal unit movement target writer");
             ValidateBytes(
                 memory,
                 GetGroupUnitIdRva,
@@ -1446,45 +1912,208 @@ namespace FormationTest
             internal FormationPreviewKey LastPreviewKey { get; set; }
         }
 
-        private sealed class ActiveFormationCommand
+        private sealed class PendingFormationCommand
         {
-            private ActiveFormationCommand(
-                int tribeId,
-                int targetX,
-                int targetY,
-                int density,
-                bool managed,
-                NativeDestination[] destinations)
+            internal PendingFormationCommand(FormationOrderPacket packet, string source)
             {
-                TribeId = tribeId;
-                TargetX = targetX;
-                TargetY = targetY;
-                Density = density;
-                Managed = managed;
-                Destinations = destinations ?? Array.Empty<NativeDestination>();
+                Packet = packet ?? throw new ArgumentNullException(nameof(packet));
+                Source = source ?? string.Empty;
             }
 
-            internal int TribeId { get; }
-            internal int TargetX { get; }
-            internal int TargetY { get; }
+            internal FormationOrderPacket Packet { get; }
+            internal string Source { get; }
+
+            internal bool Matches(TribeIssueOrderMoveHereEventArgs args) =>
+                args != null && FormationOrderMatchModel.Matches(
+                    Packet.TribeId,
+                    Packet.TargetX,
+                    Packet.TargetY,
+                    Packet.IsNewOrder,
+                    Packet.MoveType,
+                    args.TribeId,
+                    args.TileX,
+                    args.TileY,
+                    args.IsPatrolPath,
+                    args.IsNewOrder,
+                    (int)args.MoveType);
+        }
+
+        private sealed class ActiveFormationCommand
+        {
+            private readonly Dictionary<int, NativeDestination> destinationsByUnitId;
+            private readonly Dictionary<int, uint> globalIdsByUnitId;
+            private readonly HashSet<int> commonAssignedUnitIds = new HashSet<int>();
+            private int standardAssignments;
+            private int assassinAssignments;
+
+            internal ActiveFormationCommand(
+                PendingFormationCommand pending,
+                FormationKind kind,
+                int density,
+                FormationUnit[] units,
+                NativeDestination[] destinations)
+            {
+                Pending = pending ?? throw new ArgumentNullException(nameof(pending));
+                Kind = kind;
+                Density = density;
+                ExpectedCount = units?.Length ?? 0;
+                Destinations = destinations ?? Array.Empty<NativeDestination>();
+                destinationsByUnitId = new Dictionary<int, NativeDestination>(ExpectedCount);
+                globalIdsByUnitId = new Dictionary<int, uint>(ExpectedCount);
+                if (Managed && Destinations.Length != ExpectedCount)
+                {
+                    throw new InvalidOperationException(
+                        "The native unit and destination counts do not match.");
+                }
+                for (int index = 0; Managed && index < ExpectedCount; index++)
+                {
+                    int unitId = units[index].UnitId;
+                    uint globalId = units[index].GlobalId;
+                    if (unitId <= 0 || globalId == 0 ||
+                        destinationsByUnitId.ContainsKey(unitId))
+                        throw new InvalidOperationException(
+                            $"Invalid or duplicate native unit identity {unitId}/{globalId}.");
+                    destinationsByUnitId.Add(unitId, Destinations[index]);
+                    globalIdsByUnitId.Add(unitId, globalId);
+                }
+            }
+
+            internal PendingFormationCommand Pending { get; }
+            internal FormationKind Kind { get; }
+            internal int TribeId => Pending.Packet.TribeId;
+            internal int TargetX => Pending.Packet.TargetX;
+            internal int TargetY => Pending.Packet.TargetY;
+            internal int IsNewOrder => Pending.Packet.IsNewOrder;
             internal int Density { get; }
-            internal bool Managed { get; }
+            internal bool Managed => Kind != FormationKind.Vanilla;
+            internal int ExpectedCount { get; }
             internal NativeDestination[] Destinations { get; }
             internal int Cursor { get; set; }
+            internal bool CommonPathEntered { get; set; }
+            internal int AssignedCount =>
+                Math.Min(
+                    ExpectedCount,
+                    standardAssignments + assassinAssignments + commonAssignedUnitIds.Count);
+            internal string AssignmentPath
+            {
+                get
+                {
+                    int kinds = (standardAssignments > 0 ? 1 : 0) +
+                        (assassinAssignments > 0 ? 1 : 0) +
+                        (commonAssignedUnitIds.Count > 0 ? 1 : 0);
+                    if (kinds > 1)
+                        return "mixed";
+                    if (commonAssignedUnitIds.Count > 0)
+                        return "common";
+                    if (assassinAssignments > 0)
+                        return "assassin";
+                    if (standardAssignments > 0)
+                        return "standard";
+                    return CommonPathEntered ? "common-unassigned" : "none";
+                }
+            }
 
-            internal static ActiveFormationCommand CreateVanilla(
-                int tribeId, int targetX, int targetY, int density) =>
-                new ActiveFormationCommand(
-                    tribeId, targetX, targetY, density, false, null);
+            internal bool Matches(TribeIssueOrderMoveHereEventArgs args) =>
+                Pending.Matches(args);
 
-            internal static ActiveFormationCommand CreateManaged(
-                int tribeId,
-                int targetX,
-                int targetY,
-                int density,
-                NativeDestination[] destinations) =>
-                new ActiveFormationCommand(
-                    tribeId, targetX, targetY, density, true, destinations);
+            internal bool TryGetUnitDestination(
+                int unitId,
+                out NativeDestination destination,
+                out uint globalId)
+            {
+                if (destinationsByUnitId.TryGetValue(unitId, out destination) &&
+                    globalIdsByUnitId.TryGetValue(unitId, out globalId))
+                {
+                    return true;
+                }
+                destination = default;
+                globalId = 0;
+                return false;
+            }
+
+            internal void RecordSelectorAssignment(bool assassin)
+            {
+                if (assassin)
+                    assassinAssignments++;
+                else
+                    standardAssignments++;
+            }
+
+            internal void RecordCommonAssignment(int unitId)
+            {
+                commonAssignedUnitIds.Add(unitId);
+            }
+
+            internal int CountVerifiedNativeTargets()
+            {
+                int count = 0;
+                foreach (KeyValuePair<int, NativeDestination> pair in destinationsByUnitId)
+                {
+                    if (GameUnitManagerAPI.Instance.TryGetUnitById(
+                            pair.Key, out GameUnit* unit) &&
+                        unit != null &&
+                        globalIdsByUnitId.TryGetValue(pair.Key, out uint globalId) &&
+                        unit->r_GlobalId == globalId &&
+                        unit->r_TargetTilePositionX == pair.Value.X &&
+                        unit->r_TargetTilePositionY == pair.Value.Y &&
+                        unit->r_AttackMoveToTargetTileX == pair.Value.X &&
+                        unit->r_AttackMoveToTargetTileY == pair.Value.Y)
+                    {
+                        count++;
+                    }
+                }
+                return count;
+            }
+        }
+
+        private static void ValidateUniqueEntry(
+            ReadOnlySpan<byte> memory,
+            int expectedRva,
+            byte[] expected,
+            string name)
+        {
+            string[] bytes = new string[expected.Length];
+            for (int index = 0; index < expected.Length; index++)
+                bytes[index] = expected[index].ToString("X2");
+            int resolved = Shared.NativePatternResolver.FindUniquePattern(
+                memory, string.Join(" ", bytes), name);
+            if (resolved != expectedRva)
+            {
+                throw new InvalidOperationException(
+                    $"{name} resolved to RVA 0x{resolved:X}, expected 0x{expectedRva:X}.");
+            }
+        }
+
+        private sealed class UnitAssignmentFrame
+        {
+            internal UnitAssignmentFrame(
+                UnitMoveHereEventArgs preArgs,
+                UnitAssignmentFrame parent,
+                ActiveFormationCommand command,
+                int unitId,
+                uint globalId,
+                NativeDestination destination,
+                int originalX,
+                int originalY)
+            {
+                PreArgs = preArgs;
+                Parent = parent;
+                Command = command;
+                UnitId = unitId;
+                GlobalId = globalId;
+                Destination = destination;
+                OriginalX = originalX;
+                OriginalY = originalY;
+            }
+
+            internal UnitMoveHereEventArgs PreArgs { get; }
+            internal UnitAssignmentFrame Parent { get; }
+            internal ActiveFormationCommand Command { get; }
+            internal int UnitId { get; }
+            internal uint GlobalId { get; }
+            internal NativeDestination Destination { get; }
+            internal int OriginalX { get; }
+            internal int OriginalY { get; }
         }
 
         private readonly struct SelectionIdentity
