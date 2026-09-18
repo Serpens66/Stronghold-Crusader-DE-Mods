@@ -68,8 +68,11 @@ Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. `-Resume` s
    - harte und weiche Modabhängigkeiten sowie notwendige Buildreihenfolge.
 3. Exakt nach entfernten und umbenannten Symbolen suchen. Zusätzlich die Klassen mit semantisch geänderten Methoden und alle betreffenden Lua-Namen durchsuchen.
 4. Direkte Span-/Arrayzugriffe und ID-APIs erneut auf ihre dokumentierte 0-/1-Basis prüfen. Die Basis niemals aus erfolgreichen Einzelzugriffen erraten.
+   - Jeden geänderten Manager getrennt prüfen: Speicherbasis, reservierte Header-/Sentinelslots, physische Kapazität, inklusive oder exklusive Obergrenze sowie die Abbildung von Spanindex zu öffentlicher ID. Ein bestätigter Unit-/Building-Vertrag darf nicht auf Projectile-, Tribe-, Pitch- oder andere Manager übertragen werden.
+   - Generische `GameStructQuery`-ID-Ausgaben sind nur dann korrekt, wenn Index 0 der übergebenen Sicht die öffentliche Entity-ID 1 repräsentiert. Enthält die Sicht einen reservierten Slot 0, verschiebt `index + 1` sämtliche Query-IDs.
 5. Bei API-Änderungen den kleinsten bestätigten Ersatz verwenden. Alte Adapter oder Fallbacks nur nach ausdrücklicher Entscheidung behalten.
 6. Auch bei keinem Suchtreffer jeden Runtime-Mod gegen die neue Extender-DLL kompilieren; nur der echte Compiler deckt Signatur-, Assembly- und transitive Abhängigkeitsprobleme vollständig auf.
+7. Modseitige Absicherungen gegen bestätigte Extenderfehler einheitlich mit `SHCDESE-WORKAROUND(<version>-<kurzname>)` markieren. Bei jedem späteren Extender-Update alle Marker inventarisieren und den Upstreamvertrag erneut prüfen. Einen behobenen Workaround sofort entfernen, wenn er mit dem korrigierten Vertrag kollidiert; ein ausdrücklich gegen fehlerhaften und korrigierten Vertrag getesteter, verhaltensneutraler Kompatibilitätsadapter darf bis zum nächsten geplanten Modrelease beziehungsweise bis zur Anhebung der Mindestversion bestehen bleiben. Dann den Adapter und ausschließlich dafür vorhandene Tests gemeinsam entfernen.
 
 ## 4. Native Baseline und Sicherheitsverträge
 
@@ -109,6 +112,11 @@ Historische Ghidra-Exporte werden bei reinen Extender-Updates nicht neu erzeugt.
 3. Runtime-Lifecycle statisch prüfen: kein Prozess-Teardown in Startup-`OnDestroy`, keine langfristige Logik auf einer früh zerstörbaren Plugin-Komponente und eine dokumentierte Runtime-Verwurzelung.
 4. Projekt- und Paketreferenzen prüfen. SHCDESE-, RedBird-, R3- und zentral gelieferte Laufzeit-DLLs dürfen nicht unbeabsichtigt privat mitgeliefert werden.
 5. Alle relevanten statischen Tests und Codekontrollen abschließen, bevor irgendeine Mod-`build.bat` ausgeführt wird.
+6. Tests müssen stabile öffentliche, native oder paketbezogene Verträge und beobachtbares Verhalten prüfen. Bestandszahlen, Dateilisten, Symbolnamen, Quelltextfragmente oder Hashes dürfen nicht als allgemeine Sollwerte festgeschrieben werden, wenn sie sich bei einem normalen Mod- oder Extender-Update erwartbar ändern.
+7. Harte Identitätswerte sind nur für bewusst hash-/commitgebundene Provenienz, ABI-/Layoutverträge oder einen konkreten historischen Regressionsfall zulässig. Sie gehören in den jeweiligen Kompatibilitätsplan, Hook-Audit oder Baseline-Datensatz und benötigen einen klaren Neuerzeugungs- beziehungsweise Reviewpfad.
+8. Update-Tests leiten Inventar, Versionen und erwartete Abhängigkeiten aus den maßgeblichen Manifesten ab. Sie prüfen Eindeutigkeit, Konsistenz, Reihenfolge und Grenzverhalten, nicht eine zufällige Anzahl vorhandener Mods oder die exakte interne Implementierungsform.
+9. Release-spezifische Regressionstests müssen, soweit möglich, auch spätere Versionen anhand des fortbestehenden Vertrags prüfen. Ein neuer korrekter Extender-Build darf nicht allein wegen eines veralteten fest codierten Assemblyhashes oder Commits scheitern.
+10. Buildtreiber müssen jeden von einem Testprozess gelieferten Nichtnull-Exitcode als Fehler behandeln, einschließlich negativer Windows-Exceptioncodes. Unmittelbar nach einem verwalteten Testprogramm daher nicht `if errorlevel 1`, sondern einen exakten Nichtnullvergleich des unveränderten `%ERRORLEVEL%` verwenden.
 
 ## 7. Build, Installation und Abnahme
 

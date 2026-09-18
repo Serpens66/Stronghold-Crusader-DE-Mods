@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace CastlePlanner
 {
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.7.1")]
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]

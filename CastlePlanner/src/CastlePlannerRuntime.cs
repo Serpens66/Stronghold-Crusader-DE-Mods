@@ -17,7 +17,6 @@ using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Extensions;
-using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -441,7 +440,17 @@ namespace CastlePlanner
             PendingAivImport prepared)
         {
             // Pre runs after Vanilla's import loop but before map start consumes the table.
-            EngineInterface.ImportAIV(request.PlayerId - 1, 0, prepared.RawAiv, 1);
+            if (!GameAIVManagerAPI.Instance.ImportAIV(
+                    request.PlayerId - 1,
+                    0,
+                    prepared.RawAiv,
+                    true))
+            {
+                throw new InvalidOperationException(
+                    $"The Script Extender rejected the AIV import; " +
+                    $"playerId={request.PlayerId}, candidateId=0, " +
+                    $"rawShorts={prepared.RawAiv?.Length ?? 0}.");
+            }
             ImportedCandidateSnapshot importedCandidates =
                 CaptureImportedCandidates(request.PlayerId - 1);
             pendingAivImports.Add(request.PlayerId, prepared);
@@ -614,7 +623,7 @@ namespace CastlePlanner
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                GameBuilding building = buildings[spanIndex];
+                ref GameBuilding building = ref buildings[spanIndex];
                 if (building.r_PlayerIdOwner != castle.PlayerId ||
                     (building.r_AliveState != AliveState.NeedsInit &&
                      building.r_AliveState != AliveState.IsAlive) ||
@@ -623,10 +632,13 @@ namespace CastlePlanner
                     continue;
                 }
 
+                string footprint = Shared.GameBuildingFootprint.TryGetBounds(
+                    ref building, out Shared.GameBuildingFootprintBounds bounds)
+                    ? $"({bounds.MinX},{bounds.MinY})-({bounds.MaxX},{bounds.MaxY})"
+                    : "<invalid>";
                 components.Add(
                     $"{spanIndex + 1}:{building.r_BuildingType}:" +
-                    $"({building.r_TilePositionXBegin},{building.r_TilePositionYBegin})-" +
-                    $"({building.r_AccessTilePositionX},{building.r_AccessTilePositionY}):" +
+                    $"footprint={footprint}:access=({building.r_AccessTilePositionX},{building.r_AccessTilePositionY}):" +
                     $"tile={building.r_TileIdBegin}:global={building.r_GlobalId}");
             }
 
@@ -1484,7 +1496,7 @@ namespace CastlePlanner
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                GameBuilding building = buildings[spanIndex];
+                ref GameBuilding building = ref buildings[spanIndex];
                 if (building.r_PlayerIdOwner == playerId &&
                     building.r_BuildingType == structure &&
                     building.r_TilePositionXBegin == placement.BuildOrigin.X &&
@@ -1932,31 +1944,33 @@ namespace CastlePlanner
                     "The native AIV candidate table only contains eight player slots.");
             }
 
-            ulong tableVirtualAddress = GameGlobalsManager.Instance.AIVImportedVariantsVA;
-            if (tableVirtualAddress == 0)
+            Span<ulong> importedVariantPointers =
+                GameAIVManagerAPI.Instance.GetImportedAIVVariantPointers();
+            int expectedPointerCount = checked(8 * ImportedCandidatesPerPlayer);
+            if (importedVariantPointers.Length != expectedPointerCount)
             {
                 throw new InvalidOperationException(
-                    "The Script Extender did not resolve the native AIV candidate table.");
+                    $"The Script Extender returned an unexpected AIV candidate table size; " +
+                    $"expected={expectedPointerCount}, actual={importedVariantPointers.Length}.");
             }
 
-            IntPtr tableAddress = new IntPtr(checked((long)tableVirtualAddress));
-            IntPtr playerTableAddress = IntPtr.Add(
-                tableAddress,
-                checked(zeroBasedPlayerSlot * ImportedCandidatesPerPlayer * IntPtr.Size));
-            IntPtr firstPointer = Marshal.ReadIntPtr(playerTableAddress);
-            int count = 0;
-            while (count < ImportedCandidatesPerPlayer &&
-                   Marshal.ReadIntPtr(
-                       playerTableAddress,
-                       checked(count * IntPtr.Size)) != IntPtr.Zero)
+            int bankOffset = checked(zeroBasedPlayerSlot * ImportedCandidatesPerPlayer);
+            int count = GameAIVManagerAPI.Instance.GetImportedAIVVariantCount(
+                zeroBasedPlayerSlot);
+            if (count < 0 || count > ImportedCandidatesPerPlayer)
             {
-                count++;
+                throw new InvalidOperationException(
+                    $"The Script Extender returned an invalid AIV candidate count; " +
+                    $"bank={zeroBasedPlayerSlot}, count={count}.");
             }
 
-            return new ImportedCandidateSnapshot(
-                tableAddress,
-                firstPointer,
-                count);
+            fixed (ulong* tablePointer = importedVariantPointers)
+            {
+                return new ImportedCandidateSnapshot(
+                    new IntPtr(tablePointer),
+                    new IntPtr(checked((long)importedVariantPointers[bankOffset])),
+                    count);
+            }
         }
 
         private static int[] CaptureHumanPlayerIds()
@@ -2157,7 +2171,7 @@ namespace CastlePlanner
                 GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int spanIndex = 0; spanIndex < buildings.Length; spanIndex++)
             {
-                GameBuilding building = buildings[spanIndex];
+                ref GameBuilding building = ref buildings[spanIndex];
                 if (building.r_PlayerIdOwner != playerId ||
                     (building.r_BuildingType != eStructs.STRUCT_GRANARY &&
                      building.r_BuildingType != eStructs.STRUCT_HOVEL))
@@ -2170,13 +2184,16 @@ namespace CastlePlanner
                 else
                     hovelCount++;
 
+                string footprint = Shared.GameBuildingFootprint.TryGetBounds(
+                    ref building, out Shared.GameBuildingFootprintBounds bounds)
+                    ? $"({bounds.MinX},{bounds.MinY})-({bounds.MaxX},{bounds.MaxY})"
+                    : "<invalid>";
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Native special-building diagnostics: playerId={playerId}, " +
                     $"buildingId={spanIndex + 1}, globalId={building.r_GlobalId}, " +
                     $"type={building.r_BuildingType}, aliveState={building.r_AliveState}, " +
-                    $"tiles=({building.r_TilePositionXBegin},{building.r_TilePositionYBegin})-" +
-                    $"({building.r_AccessTilePositionX},{building.r_AccessTilePositionY}), " +
+                    $"footprint={footprint}, access=({building.r_AccessTilePositionX},{building.r_AccessTilePositionY}), " +
                     $"gridSize={building.r_OccupyTileGridSize}, " +
                     $"height={building.r_HeightElevation}, " +
                     $"spritePlayerColorId={building.r_SpritePlayerColorId}, " +

@@ -21,7 +21,7 @@ if errorlevel 1 goto failed
 if "%NO_INSTALL%"=="1" goto built_without_install
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%tests\Install-Package.ps1" -GameDir "%GAME_DIR%"
 if errorlevel 1 goto failed
-echo MoatMove 0.1.1 built and installed successfully.
+echo MoatMove 0.1.2 built and installed successfully.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 :built_without_install

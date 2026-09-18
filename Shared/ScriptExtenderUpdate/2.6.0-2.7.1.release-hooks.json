@@ -1,0 +1,47 @@
+{
+  "OldVersion": "2.6.0",
+  "NewVersion": "2.7.1",
+  "ExtenderCommit": "68ebf5380d711dfa7b7f84c9d4326ff81e42854c",
+  "ExtenderTree": "4dcc39cb0a9950bc5e399bc2623bbe2c38a52d9d",
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "ReleaseProjects": [
+    "APIShared", "BugfixesAndQoL", "BuildingCosts", "BuildingLimit", "CheatMod", "ExtendedData", "ExtraFeatures", "ImprovedHunters", "RandomEvents", "CastlePlanner", "StartConditions", "UnitCosts", "UnitLimit"
+  ],
+  "SourceFileCount": 50,
+  "OperationCount": 102,
+  "SourceFingerprint": "69AC475B9D0818958177DC655D400DB926B5C2F7E8A6F5CDF432ABA2C7023E90",
+  "ExtenderChangesReviewed": true,
+  "Result": "Compatible",
+  "ReviewedInteractions": [
+    {
+      "Id": "SHCDESE.SharedHookTransaction",
+      "Classification": "NoOverlap",
+      "Rationale": "The 2.7.1 bulk-detour constructors now share one transaction and scanner; the audited target patterns remain unchanged, and release mods create independent transactions only for their own non-overlapping targets."
+    },
+    {
+      "Id": "BugfixesAndQoL.FriendlyMoat.AssassinSelection",
+      "Classification": "CallSiteAfterOwnedDetour",
+      "Rationale": "Six hash-bound call-site adapters consume the Script Extender-owned result at RVA/module offset 0x196870; positive Vanilla or extender results remain authoritative."
+    },
+    {
+      "Id": "ExtraFeatures.ElevatedMoat.MapEditorTileType",
+      "Classification": "NestedOriginalPath",
+      "Rationale": "The inline site at RVA/module offset 0x704CC remains inside the original trampoline path of the extender detour at RVA/module offset 0x6FE90; SkipOriginalFunction remains authoritative."
+    },
+    {
+      "Id": "SHCDESE.AIVImportAndPathingContracts",
+      "Classification": "DelegateCallThrough",
+      "Rationale": "The corrected AIV import signature and current-to-destination path-component argument order are consumed through public APIs or delegate calls; no release mod installs a competing entry detour at those extender-owned targets."
+    },
+    {
+      "Id": "SHCDESE.VegetationPatternExpansion",
+      "Classification": "NoOverlap",
+      "Rationale": "The vegetation-growth signature was lengthened without moving its hook site; no release project patches or detours that site."
+    },
+    {
+      "Id": "ReleaseMods.ExistingOwnedFunctionReferences",
+      "Classification": "ReferencedOwnedFunction",
+      "Rationale": "References to extender-owned native functions are validated calls or enclosing function bounds, not competing function-entry detours; manager ID adjustments and the marked 2.7.1 projectile-bound workaround remain at the managed array/index boundary."
+    }
+  ]
+}

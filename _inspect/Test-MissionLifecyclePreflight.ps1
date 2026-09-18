@@ -6,6 +6,15 @@ Set-Location -LiteralPath $workspace
 $projects = @('APIShared\APIShared.csproj') + @(Get-Content '_inspect\MissionLifecycleProjects.json' -Raw | ConvertFrom-Json)
 $inventory = Get-Content 'Shared\ScriptExtenderUpdate\mods.json' -Raw | ConvertFrom-Json
 $release = Get-Content 'Shared\Release\release-projects.json' -Raw | ConvertFrom-Json
+function Get-ApiSharedDependencyVersion([string]$PluginText) {
+    $match = [regex]::Match($PluginText, 'BepInDependency\((?:"APIShared_Serp"|ApiSharedGuid),\s*"(?<version>[^"]+)"\)')
+    if ($match.Success) { return $match.Groups['version'].Value }
+    $constant = [regex]::Match($PluginText, 'const\s+string\s+ApiSharedVersion\s*=\s*"(?<version>[^"]+)"')
+    if ($constant.Success -and $PluginText -match 'BepInDependency\((?:"APIShared_Serp"|ApiSharedGuid),\s*ApiSharedVersion\)') {
+        return $constant.Groups['version'].Value
+    }
+    return $null
+}
 $sourceSet = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($relative in $projects) {
     $path = Join-Path $workspace $relative
@@ -24,9 +33,10 @@ foreach ($relative in $projects) {
     if ($mod[0].Name -ne 'APIShared') {
         if (-not $project.SelectSingleNode('//*[local-name()="Reference" and @Include="APIShared"]')) { throw "Missing API reference: $relative" }
         $pluginText = [IO.File]::ReadAllText((Join-Path $workspace $mod[0].Plugin))
-        if ($pluginText -notmatch 'BepInDependency\((?:"APIShared_Serp"|ApiSharedGuid),\s*(?:"0\.3\.6"|ApiSharedVersion)\)') { throw "Missing hard API dependency: $relative" }
+        $apiDependencyVersion = Get-ApiSharedDependencyVersion $pluginText
+        if (-not $apiDependencyVersion) { throw "Missing hard API dependency: $relative" }
         if ($mod[0].DependsOn -notcontains 'APIShared' -or $mod[0].BuildOrder -le 10) { throw "Invalid API build order: $relative" }
-        if ($release.ApiShared.Consumers.($mod[0].Name) -ne '0.3.6') { throw "Missing API release dependency: $relative" }
+        if ($release.ApiShared.Consumers.($mod[0].Name) -ne $apiDependencyVersion) { throw "API release dependency does not match plugin metadata: $relative" }
         $installed = Test-Path -LiteralPath ('E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\' + $mod[0].Install)
         if (-not $installed -and [IO.File]::ReadAllText((Join-Path $workspace $mod[0].BuildDriver)) -notmatch '/noinstall') { throw "Missing /noinstall: $relative" }
     }

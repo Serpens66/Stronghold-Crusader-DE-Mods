@@ -68,15 +68,15 @@ pushd "%PROJECT_DIR%"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
 if errorlevel 1 goto forbidden_source_popd
 dotnet run --project ExtendedData.Tests -c Release
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" ExtendedData.Upload.Tests\ExtendedData.Upload.Tests.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%ExtendedData.Upload.Tests\bin\Debug\ExtendedData.Upload.Tests.exe"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" ExtendedData.JsonUpload.Tests\ExtendedData.JsonUpload.Tests.csproj /p:Configuration=Debug
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%ExtendedData.JsonUpload.Tests\bin\Debug\ExtendedData.JsonUpload.Tests.exe"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 
 rem Recreate the exact package so removed assets cannot survive an update.
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"

@@ -204,6 +204,7 @@ public static class SerpLocalization
     public const string SerpsModsScriptExtenderMinimumWarning = "SerpsModsHost.ScriptExtenderMinimumWarning";
     public const string SerpsModsScriptExtenderCheckFailed = "SerpsModsHost.ScriptExtenderCheckFailed";
     public const string SerpsModsScriptExtenderIssuesHeader = "SerpsModsHost.ScriptExtenderIssuesHeader";
+    public const string SerpsModsScriptExtenderRequiredAction = "SerpsModsHost.ScriptExtenderRequiredAction";
     public const string SerpsModsScriptExtenderComponentMinimum = "SerpsModsHost.ScriptExtenderComponentMinimum";
     public const string SerpsModsScriptExtenderComponentMaximum = "SerpsModsHost.ScriptExtenderComponentMaximum";
     public const string SerpsModsScriptExtenderComponentRange = "SerpsModsHost.ScriptExtenderComponentRange";
@@ -290,6 +291,7 @@ public static class SerpLocalization
         { SerpsModsScriptExtenderMinimumWarning, "WARNING: Script Extender {Installed} is not supported by this Serps Mods version. Install Script Extender {Minimum} or newer to make sure all mods work correctly." },
         { SerpsModsScriptExtenderCheckFailed, "WARNING: Script Extender compatibility could not be verified. Make sure a supported Script Extender version is installed. Reason: {Reason}" },
         { SerpsModsScriptExtenderIssuesHeader, "WARNING: Script Extender {Installed} is incompatible with or could not be verified for these Serps Mods components:" },
+        { SerpsModsScriptExtenderRequiredAction, "Required action: install a Script Extender version that satisfies every requirement below, then restart the game." },
         { SerpsModsScriptExtenderComponentMinimum, "- {Name}: requires Script Extender {Minimum} or newer." },
         { SerpsModsScriptExtenderComponentMaximum, "- {Name}: requires Script Extender {Maximum} or older." },
         { SerpsModsScriptExtenderComponentRange, "- {Name}: supports Script Extender {Minimum} through {Maximum} (inclusive)." },

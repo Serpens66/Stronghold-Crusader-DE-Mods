@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Random Events",
   "Description": "Runs configurable Vanilla scenario events in skirmishes, Trail missions, and multiplayer games.",
-  "Version": "1.0.41",
+  "Version": "1.0.42",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.4.0",
+  "MinimumScriptExtenderVersion": "2.7.1",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.42",
+      "Changes": [
+        "Migrated signpost, target, and farm geometry to Script Extender 2.7.1 occupied-tile footprints."
+      ]
+    },
     {
       "Version": "1.0.41",
       "Changes": [

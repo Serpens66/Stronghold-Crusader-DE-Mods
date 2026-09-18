@@ -46,6 +46,7 @@
     <Compile Include="src\RecruitmentCorrelationPolicy.cs" />
     <Compile Include="src\VirtualUnitsPlugin.cs" /><Compile Include="src\VirtualEntityRuntime.cs" />
     <Compile Include="src\VisualRuntime.cs" /><Compile Include="src\VirtualSpawnHud.cs" />
+    <Compile Include="..\..\Shared\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>
   </ItemGroup>
   <ItemGroup>
     <Content Include="Patches\**\*.xaml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>

@@ -28,7 +28,7 @@ pushd "%PROJECT_DIR%"
 "%MSBUILD%" tests\PreplacedTest.Tests.csproj /p:Configuration=Debug
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\bin\PreplacedTest.Tests.exe"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"

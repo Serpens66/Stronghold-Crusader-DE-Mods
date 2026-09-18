@@ -5,6 +5,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using Shared;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -88,16 +89,20 @@ namespace RandomEvents
             {
                 if (buildingId <= 0)
                     continue;
-                bool usableAndReachable =
+                bool usableAndReachable = false;
+                if (
                     GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* signpost) &&
                     signpost->r_BuildingType == eStructs.STRUCT_SIGNPOST &&
                     (signpost->r_AliveState == AliveState.NeedsInit || signpost->r_AliveState == AliveState.IsAlive) &&
-                    IsReachableFromEveryParticipant(
-                        signpost->r_TilePositionXBegin,
-                        signpost->r_TilePositionYBegin,
-                        signpost->r_TilePositionXEnd,
-                        signpost->r_TilePositionYEnd,
+                    GameBuildingFootprint.TryGetBounds(signpost, out GameBuildingFootprintBounds footprint))
+                {
+                    usableAndReachable = IsReachableFromEveryParticipant(
+                        footprint.MinX,
+                        footprint.MinY,
+                        footprint.MaxX,
+                        footprint.MaxY,
                         participantReachability);
+                }
                 if (!usableAndReachable)
                     registry.TryUnregister(buildingId);
             }
@@ -486,16 +491,18 @@ namespace RandomEvents
                     continue;
                 }
 
-                double x = (building->r_TilePositionXBegin + building->r_TilePositionXEnd) / 2.0;
-                double y = (building->r_TilePositionYBegin + building->r_TilePositionYEnd) / 2.0;
+                if (!GameBuildingFootprint.TryGetBounds(building, out GameBuildingFootprintBounds footprint))
+                    continue;
+                double x = footprint.CenterXTimesTwo / 2.0;
+                double y = footprint.CenterYTimesTwo / 2.0;
                 double edgeDepth = DistanceFromEdge(side, x, y);
                 if (edgeDepth + 0.0001 < MinimumEdgeDepth || edgeDepth > MaximumEdgeDepth + 0.0001)
                     continue;
                 if (!IsReachableFromEveryParticipant(
-                        building->r_TilePositionXBegin,
-                        building->r_TilePositionYBegin,
-                        building->r_TilePositionXEnd,
-                        building->r_TilePositionYEnd,
+                        footprint.MinX,
+                        footprint.MinY,
+                        footprint.MaxX,
+                        footprint.MaxY,
                         participantReachability))
                 {
                     continue;
@@ -537,11 +544,14 @@ namespace RandomEvents
                         continue;
                     }
 
+                    if (!GameBuildingFootprint.TryGetBounds(ref building, out GameBuildingFootprintBounds footprint))
+                        continue;
+
                     AddApproachComponents(
-                        building.r_TilePositionXBegin,
-                        building.r_TilePositionYBegin,
-                        building.r_TilePositionXEnd,
-                        building.r_TilePositionYEnd,
+                        footprint.MinX,
+                        footprint.MinY,
+                        footprint.MaxX,
+                        footprint.MaxY,
                         player.Components);
                 }
             }
@@ -653,9 +663,11 @@ namespace RandomEvents
             {
                 if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep))
                     return false;
+                if (!GameBuildingFootprint.TryGetBounds(keep, out GameBuildingFootprintBounds footprint))
+                    return false;
                 keeps.Add(new MapPoint(
-                    (keep->r_TilePositionXBegin + keep->r_TilePositionXEnd) / 2.0,
-                    (keep->r_TilePositionYBegin + keep->r_TilePositionYEnd) / 2.0));
+                    footprint.CenterXTimesTwo / 2.0,
+                    footprint.CenterYTimesTwo / 2.0));
             }
             return true;
         }

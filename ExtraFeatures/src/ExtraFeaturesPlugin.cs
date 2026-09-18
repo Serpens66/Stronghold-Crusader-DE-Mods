@@ -7,7 +7,7 @@ using System;
 
 namespace ExtraFeatures
 {
-    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.7.1")]
     [BepInDependency(ApiSharedGuid, "0.3.6")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
@@ -22,7 +22,7 @@ namespace ExtraFeatures
 
         public const string PluginGuid = "ExtraFeatures_Serp";
         public const string PluginName = "Extra Features";
-        public const string PluginVersion = "1.0.97";
+        public const string PluginVersion = "1.0.98";
 
         private ExtraFeaturesRuntime runtime;
         private bool marketGoodPriceVisualRefreshFailureLogged;

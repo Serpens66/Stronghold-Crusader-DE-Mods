@@ -453,6 +453,19 @@ namespace SerpsModsHostDuplicateTests
             string installedProduct = installed + "+commit";
             string newer = VersionText(1, 44, 0);
 
+            string workspace = FindWorkspaceRoot();
+            string hostSource = File.ReadAllText(Path.Combine(
+                workspace, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));
+            string localizationSource = File.ReadAllText(Path.Combine(
+                workspace, "Shared", "SerpLocalization.cs"));
+            if (!hostSource.Contains("SerpsModsScriptExtenderRequiredAction") ||
+                !localizationSource.Contains("Required action: install a Script Extender version") ||
+                !localizationSource.Contains("- {Name}: requires Script Extender {Minimum} or newer."))
+            {
+                throw new InvalidOperationException(
+                    "Script Extender mismatch warning no longer names the mod/minimum or tells the player to update and restart.");
+            }
+
             AssertResolvedVersion(
                 installed,
                 false,
@@ -562,6 +575,21 @@ namespace SerpsModsHostDuplicateTests
         }
 
         private static string VersionText(params int[] parts) => string.Join(".", parts);
+
+        private static string FindWorkspaceRoot()
+        {
+            DirectoryInfo directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+            while (directory != null)
+            {
+                if (Directory.Exists(Path.Combine(directory.FullName, "SerpsModsHost")) &&
+                    Directory.Exists(Path.Combine(directory.FullName, "Shared")))
+                {
+                    return directory.FullName;
+                }
+                directory = directory.Parent;
+            }
+            throw new DirectoryNotFoundException("Workspace root was not found from the test output directory.");
+        }
 
         private static void AssertResolvedVersion(
             string expected,

@@ -34,9 +34,11 @@ namespace KnightArmorAIBuyFixBackup
                 "missing-good offset");
             Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.EmptyUnitFillValue)).ToInt32() == 0x658,
                 "empty-fill offset");
-            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.LastOrderedUnit)).ToInt32() == 0x65C,
-                "LastOrderedUnit offset");
-            Check(Marshal.SizeOf(typeof(GameUnitManager)) == 0xF7C, "GameUnitManager size");
+            Check(Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.GameUnitArray)).ToInt32() == 0x65C,
+                "reserved unit slot offset");
+            Check(GameUnitManager.FirstLiveUnitId == 1, "first live unit ID");
+            Check(GameUnitManager.LastLiveUnitId == GameUnitManager.NativeUnitSlotCount - 1,
+                "last live unit ID follows the declared native capacity");
         }
 
         private static void TestSourceContract()
@@ -54,9 +56,9 @@ namespace KnightArmorAIBuyFixBackup
             Check(runtime.Contains("if (!referenceHashMatches)"), "unknown DLL hashes fail closed");
             Check(!plugin.Contains("ConfigEntry") && !plugin.Contains("RegisterLobbyModSettings"), "no mod settings");
             Check(project.Contains("Properties\\AssemblyInfo.cs") &&
-                  assemblyInfo.Contains("AssemblyVersion(\"0.1.0.0\")") &&
-                  assemblyInfo.Contains("AssemblyFileVersion(\"0.1.0.0\")") &&
-                  assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.0\")"),
+                  assemblyInfo.Contains("AssemblyVersion(\"0.1.1.0\")") &&
+                  assemblyInfo.Contains("AssemblyFileVersion(\"0.1.1.0\")") &&
+                  assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.1\")"),
                 "assembly versions match the plugin and manifest version");
         }
 

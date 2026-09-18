@@ -6,7 +6,7 @@ using System.Collections.Generic;
 
 namespace PreplacedTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.4.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.7.1")]
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class PreplacedTestPlugin : BaseUnityPlugin
@@ -14,7 +14,7 @@ namespace PreplacedTest
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "PreplacedTest_Serp";
         private const string PluginName = "Preplaced Test";
-        private const string PluginVersion = "0.1.1";
+        private const string PluginVersion = "0.1.2";
         private static readonly string[] ConflictingPluginGuids =
         {
             "ActiveAIVDetector_Serp", "ExtraFeatures_Serp", "BugfixesAndQoL_Serp", "CastlePlanner_Serp"
@@ -29,8 +29,8 @@ namespace PreplacedTest
         {
             Shared.DebugLogHelper.LogInfo(Logger,
                 $"{PluginName} {PluginVersion} loaded; activeTestFixes=legacy-tower-timer+player-specific-economy-grid+scoped-wood-score-floor, NetworkMode=1, settings=false, " +
-                "minimumScriptExtender=2.4.0, testedScriptExtender=2.5.0, " +
-                "auditedCommit=5f02af6d074af7c741ebdaaccb48add39eba1bf4.");
+                "minimumScriptExtender=2.7.1, testedScriptExtender=2.7.1, " +
+                "auditedCommit=68ebf5380d711dfa7b7f84c9d4326ff81e42854c.");
             WarnAboutConflicts("Awake");
             if (!handled && !subscribed)
             {

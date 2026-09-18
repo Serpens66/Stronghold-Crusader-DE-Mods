@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Extra Features",
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.97",
+  "Version": "1.0.98",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.4.0",
+  "MinimumScriptExtenderVersion": "2.7.1",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.98",
+      "Changes": [
+        "Separated building access tiles from occupied footprints using the corrected Script Extender 2.7.1 layout."
+      ]
+    },
     {
       "Version": "1.0.97",
       "Changes": [

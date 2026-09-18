@@ -585,6 +585,8 @@ namespace ImprovedHunters
 
                     if (buildingApi.TryGetBuildingById(pair.Key, out GameBuilding* building) && building != null)
                     {
+                        bool hasBounds = Shared.GameBuildingFootprint.TryGetBounds(
+                            building, out Shared.GameBuildingFootprintBounds bounds);
                         buildings.Append(pair.Key)
                             .Append('/')
                             .Append(building->r_BuildingType)
@@ -595,13 +597,13 @@ namespace ImprovedHunters
                             .Append("/baseElevation:")
                             .Append(building->r_HeightElevation)
                             .Append("/bounds:")
-                            .Append(building->r_TilePositionXBegin)
+                            .Append(hasBounds ? bounds.MinX : -1)
                             .Append(',')
-                            .Append(building->r_TilePositionYBegin)
+                            .Append(hasBounds ? bounds.MinY : -1)
                             .Append('-')
-                            .Append(building->r_TilePositionXEnd)
+                            .Append(hasBounds ? bounds.MaxX : -1)
                             .Append(',')
-                            .Append(building->r_TilePositionYEnd)
+                            .Append(hasBounds ? bounds.MaxY : -1)
                             .Append("/grid:")
                             .Append(building->r_OccupyTileGridSize);
                     }

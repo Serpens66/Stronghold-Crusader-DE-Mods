@@ -52,14 +52,7 @@ public class ApplyCrusaderSemantics extends GhidraScript {
         File header = new File(args[2]);
         File gdt = new File(args[3]);
         File output = new File(args[4]);
-        int importedTypes;
-        try {
-            importedTypes = importTypes(header, gdt);
-        }
-        catch (Exception typeError) {
-            importedTypes = -1;
-            printerr("SEMANTIC_TYPES_FAILED " + typeError);
-        }
+        int importedTypes = importTypes(header, gdt);
         int prototypeCount = applyPrototypes(prototypes);
         int labelCount = applyLabels(labels, output);
         println("SEMANTIC_APPLY_COMPLETE labels=" + labelCount + " prototypes=" + prototypeCount + " importedTypes=" + importedTypes);

@@ -56,6 +56,17 @@ function Assert-Hash([string]$Path, [string]$Expected) {
     if ($actual -ne $Expected) { throw "Hash mismatch for $Path. Expected $Expected, got $actual." }
 }
 
+function Normalize-GeneratedText([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return }
+    $text = [IO.File]::ReadAllText($Path)
+    $trimmed = [regex]::Replace($text, '[ \t]+(?=\r?$)', '', [Text.RegularExpressions.RegexOptions]::Multiline)
+    $normalized = [regex]::Replace($trimmed, '\r?\n', [Environment]::NewLine)
+    if (-not $normalized.EndsWith([Environment]::NewLine, [StringComparison]::Ordinal)) {
+        $normalized += [Environment]::NewLine
+    }
+    [IO.File]::WriteAllText($Path, $normalized, [Text.UTF8Encoding]::new($false))
+}
+
 function Initialize-Identity([string]$Path, [hashtable]$Expected) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         [IO.Directory]::CreateDirectory((Split-Path -Parent $Path)) | Out-Null
@@ -226,8 +237,14 @@ if ($runGhidraCurrent -or $runGhidraHistorical) {
 if ($runGhidraCurrent) {
     $currentProject = Join-Path $semantic 'ghidra'
     $currentExports = Join-Path $semantic 'exports'
-    & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ApplyCrusaderSemantics.java (Join-Path $semantic 'knowledge\combined-labels.tsv') (Join-Path $semantic 'sources\pinvoke-prototypes.tsv') (Join-Path $semantic 'sources\script-extender-types-ghidra.h') (Join-Path $semantic 'sources\CrusaderDE-ScriptExtender.gdt') (Join-Path $currentExports 'applied-labels.json')
+    $appliedLabels = Join-Path $currentExports 'applied-labels.json'
+    Remove-Item -LiteralPath $appliedLabels -Force -ErrorAction SilentlyContinue
+    & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ApplyCrusaderSemantics.java (Join-Path $semantic 'knowledge\combined-labels.tsv') (Join-Path $semantic 'sources\pinvoke-prototypes.tsv') (Join-Path $semantic 'sources\script-extender-types-ghidra.h') (Join-Path $semantic 'sources\CrusaderDE-ScriptExtender.gdt') $appliedLabels
     Assert-LastExitCode 'Current semantic Ghidra apply'
+    if (-not (Test-Path -LiteralPath $appliedLabels -PathType Leaf)) {
+        throw 'Current semantic Ghidra apply did not produce applied-labels.json; type, prototype, or label application failed.'
+    }
+    Normalize-GeneratedText (Join-Path $semantic 'sources\CrusaderDE-ScriptExtender.gdt_CParser.out')
     & $ghidra $currentProject 'CrusaderDE-Semantic' -process 'CrusaderDE.dll' -noanalysis -scriptPath $toolDirectory -postScript ExportCrusaderSemantics.java $currentExports $currentHash
     Assert-LastExitCode 'Current semantic Ghidra export'
 }

@@ -255,6 +255,10 @@ namespace ExtraFeatures
             // Projectile world coordinates use eight native units per map tile.
             int sourceTileX = args.SourceWorldTileX >> 3;
             int sourceTileY = args.SourceWorldTileY >> 3;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
+            if (!tiles.IsTileInsideMapBounds(sourceTileX, sourceTileY))
+                return false;
+            int sourceTileId = tiles.GetTileId(sourceTileX, sourceTileY);
             var buildingEnumerator = GameBuildingManagerAPI.Instance
                 .QueryBuildings()
                 .GetEnumerator();
@@ -268,10 +272,7 @@ namespace ExtraFeatures
                     continue;
                 }
 
-                if (sourceTileX >= building.r_TilePositionXBegin &&
-                    sourceTileX <= building.r_TilePositionXEnd &&
-                    sourceTileY >= building.r_TilePositionYBegin &&
-                    sourceTileY <= building.r_TilePositionYEnd)
+                if (Shared.GameBuildingFootprint.ContainsTileId(ref building, sourceTileId))
                 {
                     return true;
                 }
@@ -322,10 +323,18 @@ namespace ExtraFeatures
         private void PruneInvalidProjectiles()
         {
             PlagueFlagDiseaseIdentity[] identities = registry.Snapshot();
+            // SHCDESE-WORKAROUND(2.7.1-projectile-slot-view): accept both the
+            // sentinel-inclusive 2.7.1 span and the corrected live-slot view.
+            Span<GameProjectile> projectiles = GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
+            bool hasProjectileLayout = Shared.GameProjectileSlotPolicy.TryResolve(
+                projectiles,
+                out Shared.GameProjectileSlotLayout projectileLayout);
             for (int index = 0; index < identities.Length; index++)
             {
                 PlagueFlagDiseaseIdentity identity = identities[index];
-                if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(identity.SlotId, out GameProjectile* projectile) ||
+                if (!hasProjectileLayout ||
+                    !projectileLayout.IsAddressableId(identity.SlotId) ||
+                    !GameProjectileManagerAPI.Instance.TryGetProjectileById(identity.SlotId, out GameProjectile* projectile) ||
                     projectile == null ||
                     projectile->r_GlobalId != identity.GlobalId ||
                     projectile->r_ProjectileType != ProjectileType.Disease ||

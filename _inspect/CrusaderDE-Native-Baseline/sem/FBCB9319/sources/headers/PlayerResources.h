@@ -1,9 +1,11 @@
+// Created with ReClass.NET 1.2 by KN4CK3R
+
 class PlayerResources
 {
 public:
 	uint32_t N000039F7; //0x0000
 	uint32_t N000044FF; //0x0004
-	uint32_t N000039F8; //0x0008
+	uint32_t r_HasOrHadStoneBarracks; //0x0008
 	uint32_t N00004501; //0x000C
 	uint32_t N000039F9; //0x0010
 	uint32_t N00004503; //0x0014
@@ -36,7 +38,7 @@ public:
 	uint32_t r_CivilianHousingSpace; //0x0074
 	uint32_t r_TotalPeasants; //0x0078
 	uint32_t N0000451D; //0x007C
-	uint32_t N00003A07; //0x0080
+	uint32_t r_OverpopulationRatioPercent; //0x0080
 	uint32_t r_TotalCivilians; //0x0084
 	uint32_t r_ReadyPeasants; //0x0088
 	uint32_t r_ExistingPeasants; //0x008C
@@ -327,7 +329,7 @@ public:
 	uint32_t r_TotalGoodsFoodMeat; //0x0500
 	uint32_t r_TotalGoodsFoodFruit; //0x0504
 	uint32_t r_TotalGoodsFoodAle; //0x0508
-	uint32_t r_TotalGoodsGold; //0x050C
+	int32_t r_TotalGoodsGold; //0x050C
 	uint32_t r_TotalGoodsFlour; //0x0510
 	uint32_t r_TotalGoodsBows; //0x0514
 	uint32_t r_TotalGoodsCrossbows; //0x0518
@@ -2093,8 +2095,8 @@ public:
 	uint32_t r_FoodStockFruit; //0x2098
 	uint32_t r_FoodStockTotal; //0x209C
 	uint32_t r_PreferredFoodType; //0x20A0
-	uint32_t N00004D27; //0x20A4
-	uint32_t r_LastConsumedFoodType; //0x20A8
+	uint32_t r_UnknownFoodRelated; //0x20A4
+	uint32_t r_FoodVarietyAmount; //0x20A8
 	uint32_t r_FoodTypeConsumptionIndex; //0x20AC
 	uint32_t r_ConsumptionRateThisTick; //0x20B0
 	uint32_t r_ConsumptionAccumulator; //0x20B4
@@ -2120,9 +2122,9 @@ public:
 	uint32_t N00004D3F; //0x2104
 	uint32_t N00003E18; //0x2108
 	uint32_t N00004D41; //0x210C
-	uint32_t r_AleBonus; //0x2110
-	uint32_t N00004D43; //0x2114
-	uint32_t N00003E1A; //0x2118
+	uint32_t r_AlePopularityModifier; //0x2110
+	uint32_t r_ChurchPopularityModifier; //0x2114
+	uint32_t r_RationsPopularityModifier2Uncertain; //0x2118
 	uint32_t r_ProductivityPercentage; //0x211C
 	uint32_t N00003E1B; //0x2120
 	uint32_t r_WorkingInns; //0x2124
@@ -2132,17 +2134,17 @@ public:
 	int32_t r_GoodBadThingBoost; //0x2134
 	uint32_t r_GoodBadThingsForNextStage; //0x2138
 	uint32_t N00004D4D; //0x213C
-	uint32_t N00003E1F; //0x2140
-	uint32_t N00004D4F; //0x2144
+	uint32_t r_LastExpenditureBribeAmount; //0x2140
+	uint32_t r_NextExpenditureBribeAccumulator; //0x2144
 	uint32_t N00003E20; //0x2148
 	uint32_t N00004D51; //0x214C
 	uint32_t r_LastBoughtWallStoneCost; //0x2150
 	uint32_t r_NextIncomeGoldAmount; //0x2154
-	uint32_t r_NextIncomeProgress; //0x2158
+	uint32_t r_NextIncomeProgressAccumulator; //0x2158
 	int32_t r_TaxPopularityModifier; //0x215C
-	int32_t r_RationsPopularityModifier; //0x2160
-	int32_t N00004D57; //0x2164
-	uint32_t N00003E24; //0x2168
+	int32_t r_RationsPopularityModifierUncertain; //0x2160
+	int32_t r_OvercrowdingPopularityModifier; //0x2164
+	uint32_t r_UnknownPopularityRelated; //0x2168
 	uint32_t N00004D59; //0x216C
 	uint32_t N00003E25; //0x2170
 	uint32_t N00004D5B; //0x2174
@@ -2150,8 +2152,8 @@ public:
 	uint32_t N00004D5D; //0x217C
 	uint32_t r_TotalPopulation; //0x2180
 	uint32_t N00004D5F; //0x2184
-	uint32_t r_TaxesMode; //0x2188
-	uint32_t r_RationMode; //0x218C
+	TaxesMode r_TaxesMode; //0x2188
+	RationsMode r_RationMode; //0x218C
 	int32_t r_DaysUntilStarvation; //0x2190
 	uint32_t N00004D63; //0x2194
 	uint32_t N00003E2A; //0x2198
@@ -2186,26 +2188,26 @@ public:
 	uint32_t N00004D81; //0x220C
 	uint32_t r_IsPaused; //0x2210
 	uint32_t N00004D83; //0x2214
-	uint32_t N00003E3A; //0x2218
+	uint32_t r_WallRefundStoneAccumulator; //0x2218
 	uint32_t r_GranaryChickens; //0x221C
 	uint32_t N00003E3B; //0x2220
 	uint32_t N00004D87; //0x2224
-	uint32_t N00003E3C; //0x2228
-	uint32_t N00004D89; //0x222C
+	uint32_t r_IsPopularityMaxEvent; //0x2228
+	uint32_t r_EventPopularityBoostModifier; //0x222C
 	uint32_t N00003E3D; //0x2230
 	uint32_t N00004D8B; //0x2234
 	uint32_t r_BlessedPeople; //0x2238
 	uint32_t r_NotBlessedPeople; //0x223C
 	uint32_t r_BlessedCiviliansPercent2; //0x2240
 	uint32_t r_WinLossState; //0x2244
-	uint16_t N00003E40; //0x2248
-	uint16_t N0000488D_2; //0x224A
-	uint16_t N00004D91; //0x224C
-	uint16_t N00004890; //0x224E
+	uint16_t r_UnknownRelatedOfPlayerGold1; //0x2248
+	uint16_t r_UnknownRelatedOfPlayerGold2; //0x224A
+	uint16_t r_UnknownRelatedOfPlayerFood1; //0x224C
+	uint16_t r_UnknownRelatedOfPlayerFood2; //0x224E
 	uint16_t N00003E41; //0x2250
-	uint16_t N0000924C; //0x2252
-	uint32_t N00004D93; //0x2254
-	uint32_t N00003E42; //0x2258
+	uint16_t r_UnusedHorsesTotal; //0x2252
+	uint32_t r_Mothers; //0x2254
+	uint32_t r_Children; //0x2258
 	uint32_t N00004D95; //0x225C
 	uint32_t N00003E43; //0x2260
 	uint32_t N00004D97; //0x2264
@@ -2222,7 +2224,7 @@ public:
 	uint32_t r_Chapels; //0x2288
 	uint32_t r_Churches; //0x228C
 	uint32_t r_Cathedrals; //0x2290
-	uint32_t N00004DA3; //0x2294
+	uint32_t r_UnknownPopularityAccumulationByCurrentDividedBy25; //0x2294
 	uint32_t r_Priests; //0x2298
 	uint32_t N00004DA5; //0x229C
 	uint32_t N00003E4B; //0x22A0
@@ -2250,7 +2252,7 @@ public:
 	uint32_t N00003E56; //0x22F8
 	uint32_t N00004DBD; //0x22FC
 	uint32_t r_AILordMinusOne; //0x2300
-	uint32_t N00004DBF; //0x2304
+	uint32_t r_PopulationAndIncomeRelated; //0x2304
 	uint32_t N00003E58; //0x2308
 	uint32_t N00004DC1; //0x230C
 	uint32_t N00003E59; //0x2310
@@ -2723,33 +2725,33 @@ public:
 	uint32_t N00004F95; //0x2A5C
 	uint32_t N00003F43; //0x2A60
 	uint32_t N00004F97; //0x2A64
-	uint32_t N00003F44; //0x2A68
-	uint32_t N00004F99; //0x2A6C
-	uint32_t N00003F45; //0x2A70
-	uint32_t N00004F9B; //0x2A74
-	uint32_t N00003F46; //0x2A78
-	uint32_t N00004F9D; //0x2A7C
-	uint32_t N00003F47; //0x2A80
-	uint32_t N00004F9F; //0x2A84
-	uint32_t N00003F48; //0x2A88
-	uint32_t N00004FA1; //0x2A8C
-	uint32_t N00003F49; //0x2A90
-	uint32_t N00004FA3; //0x2A94
-	uint32_t N00003F4A; //0x2A98
-	uint32_t N00004FA5; //0x2A9C
-	uint32_t N00003F4B; //0x2AA0
-	uint32_t N00004FA7; //0x2AA4
-	uint32_t N00003F4C; //0x2AA8
-	uint32_t N00004FA9; //0x2AAC
-	uint32_t N00003F4D; //0x2AB0
-	uint32_t N00004FAB; //0x2AB4
-	uint32_t N00003F4E; //0x2AB8
-	uint32_t N00004FAD; //0x2ABC
-	uint32_t N00003F4F; //0x2AC0
-	uint32_t N00004FAF; //0x2AC4
-	uint32_t N00003F50; //0x2AC8
-	uint32_t N00004FB1; //0x2ACC
-	uint32_t N00003F51; //0x2AD0
+	uint32_t r_bCachedTradePostExists; //0x2A68
+	uint32_t r_AISellOrBuyPhase; //0x2A6C
+	uint32_t r_AIPendingMarketPurchaseAmountNull; //0x2A70
+	uint32_t r_AIPendingMarketPurchaseAmountWoodLogs; //0x2A74
+	uint32_t r_AIPendingMarketPurchaseAmountWoodPlanks; //0x2A78
+	uint32_t r_AIPendingMarketPurchaseAmountHops; //0x2A7C
+	uint32_t r_AIPendingMarketPurchaseAmountStoneBlocks; //0x2A80
+	uint32_t r_AIPendingMarketPurchaseAmountCowHides; //0x2A84
+	uint32_t r_AIPendingMarketPurchaseAmountIronIngots; //0x2A88
+	uint32_t r_AIPendingMarketPurchaseAmountPitchRaw; //0x2A8C
+	uint32_t r_AIPendingMarketPurchaseAmountPitchRefined; //0x2A90
+	uint32_t r_AIPendingMarketPurchaseAmountRawWheat; //0x2A94
+	uint32_t r_AIPendingMarketPurchaseAmountFoodBread; //0x2A98
+	uint32_t r_AIPendingMarketPurchaseAmountFoodCheese; //0x2A9C
+	uint32_t r_AIPendingMarketPurchaseAmountFoodMeat; //0x2AA0
+	uint32_t r_AIPendingMarketPurchaseAmountFoodFruit; //0x2AA4
+	uint32_t r_AIPendingMarketPurchaseAmountFoodAle; //0x2AA8
+	uint32_t r_AIPendingMarketPurchaseAmountGold; //0x2AAC
+	uint32_t r_AIPendingMarketPurchaseAmountFlour; //0x2AB0
+	uint32_t r_AIPendingMarketPurchaseAmountBows; //0x2AB4
+	uint32_t r_AIPendingMarketPurchaseAmountCrossbows; //0x2AB8
+	uint32_t r_AIPendingMarketPurchaseAmountSpears; //0x2ABC
+	uint32_t r_AIPendingMarketPurchaseAmountPikes; //0x2AC0
+	uint32_t r_AIPendingMarketPurchaseAmountMaces; //0x2AC4
+	uint32_t r_AIPendingMarketPurchaseAmountSwords; //0x2AC8
+	uint32_t r_AIPendingMarketPurchaseAmountLeatherArmour; //0x2ACC
+	uint32_t r_AIPendingMarketPurchaseAmountMetalArmour; //0x2AD0
 	uint32_t N00004FB3; //0x2AD4
 	uint32_t N00003F52; //0x2AD8
 	uint32_t N00004FB5; //0x2ADC
@@ -3143,7 +3145,7 @@ public:
 	uint32_t r_UnitsWithTribeRole2; //0x30EC
 	uint32_t N00004015; //0x30F0
 	uint32_t N0000513B; //0x30F4
-	uint32_t N00004016; //0x30F8
+	uint32_t r_AIRecruitmentFSMMode; //0x30F8
 	uint32_t N0000513D; //0x30FC
 	uint32_t N00004017; //0x3100
 	uint32_t N0000513F; //0x3104
@@ -3449,7 +3451,8 @@ public:
 	uint32_t N0000526B; //0x35B4
 	uint32_t N000040AE; //0x35B8
 	uint32_t N0000526D; //0x35BC
-	uint32_t N000040AF; //0x35C0
+	uint16_t N000040AF; //0x35C0
+	uint16_t N000124E4; //0x35C2
 	uint32_t N0000526F; //0x35C4
 	uint32_t N000040B0; //0x35C8
 	uint32_t N00005271; //0x35CC
@@ -4657,523 +4660,43 @@ public:
 	uint32_t N00005723; //0x4894
 	uint32_t N0000430A; //0x4898
 	uint32_t N00005725; //0x489C
-	uint32_t N0000430B; //0x48A0
-	uint32_t N00005727; //0x48A4
-	uint32_t N0000430C; //0x48A8
-	uint32_t N00005729; //0x48AC
-	uint32_t N0000430D; //0x48B0
-	uint16_t N0000572B; //0x48B4
-	uint16_t N000091EF; //0x48B6
-	uint16_t N0000430E; //0x48B8
-	uint16_t N000091F2; //0x48BA
-	uint16_t N0000572D; //0x48BC
-	uint16_t N000091F5; //0x48BE
-	uint16_t N0000430F; //0x48C0
-	uint16_t N000091F8; //0x48C2
-	uint16_t N0000572F; //0x48C4
-	uint16_t N000091FB; //0x48C6
-	uint16_t N00004310; //0x48C8
-	uint16_t N000091FE; //0x48CA
-	uint16_t N00005731; //0x48CC
-	uint16_t N00009201; //0x48CE
-	uint16_t N00004311; //0x48D0
-	uint16_t N00009204; //0x48D2
-	uint16_t N00005733; //0x48D4
-	uint16_t N00009207; //0x48D6
-	uint16_t N00004312; //0x48D8
-	uint16_t N0000920A; //0x48DA
-	uint16_t N00005735; //0x48DC
-	uint16_t N0000920D; //0x48DE
-	uint16_t N00004313; //0x48E0
-	uint16_t N00009210; //0x48E2
-	uint16_t N00005737; //0x48E4
-	uint16_t N00009213; //0x48E6
-	uint16_t N00004314; //0x48E8
-	uint16_t N00009216; //0x48EA
-	uint32_t N00005739; //0x48EC
-	uint32_t N00004315; //0x48F0
-	uint32_t N0000573B; //0x48F4
-	uint32_t N00004316; //0x48F8
-	uint32_t N0000573D; //0x48FC
-	uint32_t N00004317; //0x4900
-	uint32_t N0000573F; //0x4904
-	uint32_t N00004318; //0x4908
-	uint32_t N00005741; //0x490C
-	uint32_t N00004319; //0x4910
-	uint32_t N00005743; //0x4914
-	uint32_t N0000431A; //0x4918
-	uint32_t N00005745; //0x491C
-	uint32_t N0000431B; //0x4920
-	uint32_t N00005747; //0x4924
-	uint32_t N0000431C; //0x4928
-	uint32_t N00005749; //0x492C
-	uint32_t N0000431D; //0x4930
-	uint32_t N0000574B; //0x4934
-	uint32_t N0000431E; //0x4938
-	uint32_t N0000574D; //0x493C
-	uint32_t N0000431F; //0x4940
-	uint32_t N0000574F; //0x4944
-	uint32_t N00004320; //0x4948
-	uint32_t N00005751; //0x494C
-	uint32_t N00004321; //0x4950
-	uint32_t N00005753; //0x4954
-	uint32_t N00004322; //0x4958
-	uint32_t N00005755; //0x495C
-	uint32_t N00004323; //0x4960
-	uint32_t N00005757; //0x4964
-	uint32_t N00004324; //0x4968
-	uint32_t N00005759; //0x496C
-	uint32_t N00004325; //0x4970
-	uint32_t N0000575B; //0x4974
-	uint32_t N00004326; //0x4978
-	uint32_t N0000575D; //0x497C
-	uint32_t N00004327; //0x4980
-	uint32_t N0000575F; //0x4984
-	uint32_t N00004328; //0x4988
-	uint32_t N00005761; //0x498C
-	uint32_t N00004329; //0x4990
-	uint32_t N00005763; //0x4994
-	uint32_t N0000432A; //0x4998
-	uint32_t N00005765; //0x499C
-	uint32_t N0000432B; //0x49A0
-	uint32_t N00005767; //0x49A4
-	uint32_t N0000432C; //0x49A8
-	uint32_t N00005769; //0x49AC
-	uint32_t N0000432D; //0x49B0
-	uint32_t N0000576B; //0x49B4
-	uint32_t N0000432E; //0x49B8
-	uint32_t N0000576D; //0x49BC
-	uint32_t N0000432F; //0x49C0
-	uint32_t N0000576F; //0x49C4
-	uint32_t N00004330; //0x49C8
-	uint32_t N00005771; //0x49CC
-	uint32_t N00004331; //0x49D0
-	uint32_t N00005773; //0x49D4
-	uint32_t N00004332; //0x49D8
-	uint32_t N00005775; //0x49DC
-	uint32_t N00004333; //0x49E0
-	uint32_t N00005777; //0x49E4
-	uint16_t N00004334; //0x49E8
-	uint16_t r_AITribe_Engineers; //0x49EA
-	uint16_t r_AITribe_EconomyProtection; //0x49EC
-	uint16_t r_AITribe_Bodyguards; //0x49EE
-	uint16_t N00004335; //0x49F0
-	uint16_t N000091F2_2; //0x49F2
-	uint16_t N0000577B; //0x49F4
-	uint16_t N000091F5_3; //0x49F6
-	uint16_t N00004336; //0x49F8
-	uint16_t N000091F8_2; //0x49FA
-	uint16_t N0000577D; //0x49FC
-	uint16_t N000091FB_2; //0x49FE
-	uint16_t N00004337; //0x4A00
-	uint16_t N000091FE_2; //0x4A02
-	uint16_t N0000577F; //0x4A04
-	uint16_t N00009201_2; //0x4A06
-	uint16_t N00004338; //0x4A08
-	uint16_t N00009204_2; //0x4A0A
-	uint16_t N00005781; //0x4A0C
-	uint16_t N000091E7_2; //0x4A0E
-	uint16_t N00004339; //0x4A10
-	uint16_t N00009207_2; //0x4A12
-	uint16_t N00005783; //0x4A14
-	uint16_t N000091EF_2; //0x4A16
-	uint16_t N0000433A; //0x4A18
-	uint16_t N0000920A_2; //0x4A1A
-	uint16_t N00005785; //0x4A1C
-	uint16_t N0000920D_2; //0x4A1E
-	uint16_t N0000433B; //0x4A20
-	uint16_t N00009210_2; //0x4A22
-	uint16_t N00005787; //0x4A24
-	uint16_t N00009213_2; //0x4A26
-	uint16_t N0000433C; //0x4A28
-	uint16_t N00009216_2; //0x4A2A
-	uint32_t N00005789; //0x4A2C
-	uint32_t N0000433D_2; //0x4A30
-	uint32_t N0000578B; //0x4A34
-	uint32_t N0000433E_2; //0x4A38
-	uint32_t N0000578D; //0x4A3C
-	uint32_t N0000433F_2; //0x4A40
-	uint32_t N0000578F; //0x4A44
-	uint32_t N00004340_2; //0x4A48
-	uint32_t N00005791; //0x4A4C
-	uint32_t N00004341_2; //0x4A50
-	uint32_t N00005793; //0x4A54
-	uint32_t N00004342_2; //0x4A58
-	uint32_t N00005795; //0x4A5C
-	uint32_t N00004343_2; //0x4A60
-	uint32_t N00005797; //0x4A64
-	uint32_t N00004344_2; //0x4A68
-	uint32_t N00005799; //0x4A6C
-	uint32_t N00004345_2; //0x4A70
-	uint32_t N0000579B; //0x4A74
-	uint32_t N00004346_2; //0x4A78
-	uint32_t N0000579D; //0x4A7C
-	uint32_t N00004347_2; //0x4A80
-	uint32_t N0000579F; //0x4A84
-	uint32_t N00004348_2; //0x4A88
-	uint32_t N000057A1; //0x4A8C
-	uint32_t N00004349_2; //0x4A90
-	uint32_t N000057A3; //0x4A94
-	uint32_t N0000434A_2; //0x4A98
-	uint32_t N000057A5; //0x4A9C
-	uint32_t N0000434B_2; //0x4AA0
-	uint32_t N000057A7; //0x4AA4
-	uint32_t N0000434C_2; //0x4AA8
-	uint32_t N000057A9; //0x4AAC
-	uint32_t N0000434D; //0x4AB0
-	uint32_t N000057AB; //0x4AB4
-	uint32_t N0000434E; //0x4AB8
-	uint32_t N000057AD; //0x4ABC
-	uint32_t N0000434F; //0x4AC0
-	uint32_t N000057AF; //0x4AC4
-	uint32_t N00004350; //0x4AC8
-	uint32_t N000057B1; //0x4ACC
-	uint32_t N00004351; //0x4AD0
-	uint32_t N000057B3; //0x4AD4
-	uint32_t N00004352; //0x4AD8
-	uint32_t N000057B5; //0x4ADC
-	uint32_t N00004353; //0x4AE0
-	uint32_t N000057B7; //0x4AE4
-	uint32_t N00004354; //0x4AE8
-	uint32_t N000057B9; //0x4AEC
-	uint32_t N00004355; //0x4AF0
-	uint32_t N000057BB; //0x4AF4
-	uint32_t N00004356; //0x4AF8
-	uint32_t N000057BD; //0x4AFC
-	uint32_t N00004357; //0x4B00
-	uint32_t N000057BF; //0x4B04
-	uint32_t N00004358; //0x4B08
-	uint32_t N000057C1; //0x4B0C
-	uint32_t N00004359; //0x4B10
-	uint32_t N000057C3; //0x4B14
-	uint32_t N0000435A; //0x4B18
-	uint32_t N000057C5; //0x4B1C
-	uint32_t N0000435B; //0x4B20
-	uint32_t N000057C7; //0x4B24
-	uint32_t N0000435C; //0x4B28
-	uint32_t N000057C9; //0x4B2C
-	uint32_t N0000435D; //0x4B30
-	uint32_t N000057CB; //0x4B34
-	uint32_t N0000435E; //0x4B38
-	uint32_t N000057CD; //0x4B3C
-	uint16_t N0000435F; //0x4B40
-	uint16_t N00009219; //0x4B42
-	uint32_t N000057CF; //0x4B44
-	uint32_t N00004360; //0x4B48
-	uint32_t N000057D1; //0x4B4C
-	uint32_t N00004361; //0x4B50
-	uint32_t N000057D3; //0x4B54
-	uint32_t N00004362; //0x4B58
-	uint32_t N000057D5; //0x4B5C
-	uint32_t N00004363; //0x4B60
-	uint32_t N000057D7; //0x4B64
-	uint32_t N00004364; //0x4B68
-	uint32_t N000057D9; //0x4B6C
-	uint32_t N00004365; //0x4B70
-	uint32_t N000057DB; //0x4B74
-	uint32_t N00004366; //0x4B78
-	uint32_t N000057DD; //0x4B7C
-	uint32_t N00004367; //0x4B80
-	uint32_t N000057DF; //0x4B84
-	uint32_t N00004368; //0x4B88
-	uint32_t N000057E1; //0x4B8C
-	uint32_t N00004369; //0x4B90
-	uint32_t N000057E3; //0x4B94
-	uint32_t N0000436A; //0x4B98
-	uint32_t N000057E5; //0x4B9C
-	uint32_t N0000436B; //0x4BA0
-	uint32_t N000057E7; //0x4BA4
-	uint32_t N0000436C; //0x4BA8
-	uint32_t N000057E9; //0x4BAC
-	uint32_t N0000436D; //0x4BB0
-	uint32_t N000057EB; //0x4BB4
-	uint32_t N0000436E; //0x4BB8
-	uint32_t N000057ED; //0x4BBC
-	uint32_t N0000436F; //0x4BC0
-	uint32_t N000057EF; //0x4BC4
-	uint32_t N00004370; //0x4BC8
-	uint32_t N000057F1; //0x4BCC
-	uint32_t N00004371; //0x4BD0
-	uint32_t N000057F3; //0x4BD4
-	uint32_t N00004372; //0x4BD8
-	uint32_t N000057F5; //0x4BDC
-	uint32_t N00004373; //0x4BE0
-	uint32_t N000057F7; //0x4BE4
-	uint32_t N00004374; //0x4BE8
-	uint32_t N000057F9; //0x4BEC
-	uint32_t N00004375; //0x4BF0
-	uint32_t N000057FB; //0x4BF4
-	uint32_t N00004376; //0x4BF8
-	uint32_t N000057FD; //0x4BFC
-	uint32_t N00004377; //0x4C00
-	uint32_t N000057FF; //0x4C04
-	uint32_t N00004378; //0x4C08
-	uint32_t N00005801; //0x4C0C
-	uint32_t N00004379; //0x4C10
-	uint32_t N00005803; //0x4C14
-	uint32_t N0000437A; //0x4C18
-	uint32_t N00005805; //0x4C1C
-	uint32_t N0000437B; //0x4C20
-	uint32_t N00005807; //0x4C24
-	uint32_t N0000437C; //0x4C28
-	uint32_t N00005809; //0x4C2C
-	uint32_t N0000437D; //0x4C30
-	uint32_t N0000580B; //0x4C34
-	uint32_t N0000437E; //0x4C38
-	uint32_t N0000580D; //0x4C3C
-	uint32_t N0000437F; //0x4C40
-	uint32_t N0000580F; //0x4C44
-	uint32_t N00004380; //0x4C48
-	uint32_t N00005811; //0x4C4C
-	uint32_t N00004381; //0x4C50
-	uint32_t N00005813; //0x4C54
-	uint32_t N00004382; //0x4C58
-	uint32_t N00005815; //0x4C5C
-	uint32_t N00004383; //0x4C60
-	uint32_t N00005817; //0x4C64
-	uint32_t N00004384; //0x4C68
-	uint32_t N00005819; //0x4C6C
-	uint32_t N00004385; //0x4C70
-	uint32_t N0000581B; //0x4C74
-	uint32_t N00004386; //0x4C78
-	uint32_t N0000581D; //0x4C7C
-	uint32_t N00004387; //0x4C80
-	uint32_t N0000581F; //0x4C84
-	uint32_t N00004388; //0x4C88
-	uint32_t N00005821; //0x4C8C
-	uint32_t N00004389; //0x4C90
-	uint32_t N00005823; //0x4C94
-	uint32_t N0000438A; //0x4C98
-	uint32_t N00005825; //0x4C9C
-	uint32_t N0000438B; //0x4CA0
-	uint32_t N00005827; //0x4CA4
-	uint32_t N0000438C; //0x4CA8
-	uint32_t N00005829; //0x4CAC
-	uint32_t N0000438D; //0x4CB0
-	uint32_t N0000582B; //0x4CB4
-	uint32_t N0000438E; //0x4CB8
-	uint32_t N0000582D; //0x4CBC
-	uint32_t N0000438F; //0x4CC0
-	uint32_t N0000582F; //0x4CC4
-	uint32_t N00004390; //0x4CC8
-	uint32_t N00005831; //0x4CCC
-	uint32_t N00004391; //0x4CD0
-	uint32_t N00005833; //0x4CD4
-	uint32_t N00004392; //0x4CD8
-	uint32_t N00005835; //0x4CDC
-	uint32_t N00004393; //0x4CE0
-	uint32_t N00005837; //0x4CE4
-	uint32_t N00004394; //0x4CE8
-	uint32_t N00005839; //0x4CEC
-	uint32_t N00004395; //0x4CF0
-	uint32_t N0000583B; //0x4CF4
-	uint32_t N00004396; //0x4CF8
-	uint32_t N0000583D; //0x4CFC
-	uint32_t N00004397; //0x4D00
-	uint32_t N0000583F; //0x4D04
-	uint32_t N00004398; //0x4D08
-	uint32_t N00005841; //0x4D0C
-	uint32_t N00004399; //0x4D10
-	uint32_t N00005843; //0x4D14
-	uint32_t N0000439A; //0x4D18
-	uint32_t N00005845; //0x4D1C
-	uint32_t N0000439B; //0x4D20
-	uint32_t N00005847; //0x4D24
-	uint32_t N0000439C; //0x4D28
-	uint32_t N00005849; //0x4D2C
-	uint32_t N0000439D; //0x4D30
-	uint32_t N0000584B; //0x4D34
-	uint32_t N0000439E; //0x4D38
-	uint32_t N0000584D; //0x4D3C
-	uint32_t N0000439F; //0x4D40
-	uint32_t N0000584F; //0x4D44
-	uint32_t N000043A0; //0x4D48
-	uint32_t N00005851; //0x4D4C
-	uint32_t N000043A1; //0x4D50
-	uint32_t N00005853; //0x4D54
-	uint32_t N000043A2; //0x4D58
-	uint32_t N00005855; //0x4D5C
-	uint32_t N000043A3; //0x4D60
-	uint32_t N00005857; //0x4D64
-	uint32_t N000043A4; //0x4D68
-	uint32_t N00005859; //0x4D6C
-	uint32_t N000043A5; //0x4D70
-	uint32_t N0000585B; //0x4D74
-	uint32_t N000043A6; //0x4D78
-	uint32_t N0000585D; //0x4D7C
-	uint32_t N000043A7; //0x4D80
-	uint32_t N0000585F; //0x4D84
-	uint32_t N000043A8; //0x4D88
-	uint32_t r_HarassmentEngineerTribeGlobalId1; //0x4D8C
-	uint32_t N000043A9; //0x4D90
-	uint32_t N00005863; //0x4D94
-	uint32_t N000043AA; //0x4D98
-	uint32_t N00005865; //0x4D9C
-	uint32_t N000043AB; //0x4DA0
-	uint32_t N00005867; //0x4DA4
-	uint32_t N000043AC; //0x4DA8
-	uint32_t N00005869; //0x4DAC
-	uint32_t N000043AD; //0x4DB0
-	uint32_t N0000586B; //0x4DB4
-	uint32_t N000043AE; //0x4DB8
-	uint32_t N0000586D; //0x4DBC
-	uint32_t N000043AF; //0x4DC0
-	uint32_t N0000586F; //0x4DC4
-	uint32_t N000043B0; //0x4DC8
-	uint32_t N00005871; //0x4DCC
-	uint32_t N000043B1; //0x4DD0
-	uint32_t N00005873; //0x4DD4
-	uint32_t N000043B2; //0x4DD8
-	uint32_t N00005875; //0x4DDC
-	uint32_t N000043B3; //0x4DE0
-	uint32_t N00005877; //0x4DE4
-	uint32_t N000043B4; //0x4DE8
-	uint32_t N00005879; //0x4DEC
-	uint32_t N000043B5; //0x4DF0
-	uint32_t N0000587B; //0x4DF4
-	uint32_t N000043B6; //0x4DF8
-	uint32_t N0000587D; //0x4DFC
-	uint32_t N000043B7; //0x4E00
-	uint32_t N0000587F; //0x4E04
-	uint32_t N000043B8; //0x4E08
-	uint32_t N00005881; //0x4E0C
-	uint32_t N000043B9; //0x4E10
-	uint32_t N00005883; //0x4E14
-	uint32_t N000043BA; //0x4E18
-	uint32_t N00005885; //0x4E1C
-	uint32_t N000043BB; //0x4E20
-	uint32_t N00005887; //0x4E24
-	uint32_t N000043BC; //0x4E28
-	uint32_t N00005889; //0x4E2C
-	uint32_t N000043BD; //0x4E30
-	uint32_t N0000588B; //0x4E34
-	uint32_t N000043BE; //0x4E38
-	uint32_t N0000588D; //0x4E3C
-	uint32_t N000043BF; //0x4E40
-	uint32_t N0000588F; //0x4E44
-	uint32_t N000043C0; //0x4E48
-	uint32_t N00005891; //0x4E4C
-	uint32_t N000043C1; //0x4E50
-	uint32_t N00005893; //0x4E54
-	uint32_t N000043C2; //0x4E58
-	uint32_t N00005895; //0x4E5C
-	uint32_t N000043C3; //0x4E60
-	uint32_t N00005897; //0x4E64
-	uint32_t N000043C4; //0x4E68
-	uint32_t N00005899; //0x4E6C
-	uint32_t N000043C5; //0x4E70
-	uint32_t N0000589B; //0x4E74
-	uint32_t N000043C6; //0x4E78
-	uint32_t N0000589D; //0x4E7C
-	uint32_t N000043C7; //0x4E80
-	uint32_t N0000589F; //0x4E84
-	uint32_t N000043C8; //0x4E88
-	uint32_t N000058A1; //0x4E8C
-	uint32_t N000043C9; //0x4E90
-	uint32_t N000058A3; //0x4E94
-	uint32_t N000043CA; //0x4E98
-	uint32_t N000058A5; //0x4E9C
-	uint32_t N000043CB; //0x4EA0
-	uint32_t N000058A7; //0x4EA4
-	uint32_t N000043CC; //0x4EA8
-	uint32_t N000058A9; //0x4EAC
-	uint32_t N000043CD; //0x4EB0
-	uint32_t N000058AB; //0x4EB4
-	uint32_t N000043CE; //0x4EB8
-	uint32_t N000058AD; //0x4EBC
-	uint32_t N000043CF; //0x4EC0
-	uint32_t N000058AF; //0x4EC4
-	uint32_t N000043D0; //0x4EC8
-	uint32_t N000058B1; //0x4ECC
-	uint32_t N000043D1; //0x4ED0
-	uint32_t N000058B3; //0x4ED4
-	uint32_t N000043D2; //0x4ED8
-	uint32_t N000058B5; //0x4EDC
-	uint32_t N000043D3; //0x4EE0
-	uint32_t N000058B7; //0x4EE4
-	uint32_t N000043D4; //0x4EE8
-	uint32_t N000058B9; //0x4EEC
-	uint32_t N000043D5; //0x4EF0
-	uint32_t N000058BB; //0x4EF4
-	uint32_t N000043D6; //0x4EF8
-	uint32_t N000058BD; //0x4EFC
-	uint32_t N000043D7; //0x4F00
-	uint32_t N000058BF; //0x4F04
-	uint32_t N000043D8; //0x4F08
-	uint32_t N000058C1; //0x4F0C
-	uint32_t N000043D9; //0x4F10
-	uint32_t N000058C3; //0x4F14
-	uint32_t N000043DA; //0x4F18
-	uint32_t N000058C5; //0x4F1C
-	uint32_t N000043DB; //0x4F20
-	uint32_t N000058C7; //0x4F24
-	uint32_t N000043DC; //0x4F28
-	uint32_t N000058C9; //0x4F2C
-	uint32_t N000043DD; //0x4F30
-	uint32_t N000058CB; //0x4F34
-	uint32_t N000043DE; //0x4F38
-	uint32_t N000058CD; //0x4F3C
-	uint32_t N000043DF; //0x4F40
-	uint32_t N000058CF; //0x4F44
-	uint32_t N000043E0; //0x4F48
-	uint32_t N000058D1; //0x4F4C
-	uint32_t N000043E1; //0x4F50
-	uint32_t N000058D3; //0x4F54
-	uint32_t N000043E2; //0x4F58
-	uint32_t N000058D5; //0x4F5C
-	uint32_t N000043E3; //0x4F60
-	uint32_t N000058D7; //0x4F64
-	uint32_t N000043E4; //0x4F68
-	uint32_t N000058D9; //0x4F6C
-	uint32_t N000043E5; //0x4F70
-	uint32_t N000058DB; //0x4F74
-	uint32_t N000043E6; //0x4F78
-	uint32_t N000058DD; //0x4F7C
-	uint32_t N000043E7; //0x4F80
-	uint32_t N000058DF; //0x4F84
-	uint32_t N000043E8; //0x4F88
-	uint32_t N000058E1; //0x4F8C
-	uint32_t N000043E9; //0x4F90
-	uint32_t N000058E3; //0x4F94
-	uint32_t N000043EA; //0x4F98
-	uint32_t N000058E5; //0x4F9C
-	uint32_t N000043EB; //0x4FA0
-	uint32_t N000058E7; //0x4FA4
-	uint32_t N000043EC; //0x4FA8
-	uint32_t N000058E9; //0x4FAC
-	uint32_t N000043ED; //0x4FB0
-	uint32_t N000058EB; //0x4FB4
-	uint32_t N000043EE; //0x4FB8
-	uint32_t N000058ED; //0x4FBC
-	uint32_t N000043EF; //0x4FC0
-	uint32_t N000058EF; //0x4FC4
-	uint32_t N000043F0; //0x4FC8
-	uint32_t N000058F1; //0x4FCC
-	uint32_t N000043F1; //0x4FD0
-	uint32_t N000058F3; //0x4FD4
-	uint32_t N000043F2; //0x4FD8
-	uint32_t N000058F5; //0x4FDC
-	uint32_t N000043F3; //0x4FE0
-	uint32_t N000058F7; //0x4FE4
-	uint32_t N000043F4; //0x4FE8
-	uint32_t N000058F9; //0x4FEC
-	uint32_t N000043F5; //0x4FF0
-	uint32_t N000058FB; //0x4FF4
-	uint32_t N000043F6; //0x4FF8
-	uint32_t N000058FD; //0x4FFC
-	uint32_t N000043F7; //0x5000
-	uint32_t N000058FF; //0x5004
-	uint32_t N000043F8; //0x5008
-	uint32_t N00005901; //0x500C
-	uint32_t N000043F9; //0x5010
-	uint32_t N00005903; //0x5014
-	uint32_t N000043FA; //0x5018
-	uint32_t N00005905; //0x501C
-	uint32_t N000043FB; //0x5020
-	uint32_t N00005907; //0x5024
-	uint32_t N000043FC; //0x5028
-	uint32_t N00005909; //0x502C
-	uint32_t N000043FD; //0x5030
+	uint16_t r_AITribeIdsByRole[300]; //0x48A0
+	uint32_t r_AITribeGlobalIdsByRole[300]; //0x4AF8
+	uint32_t N000124CF; //0x4FA8
+	uint32_t N000124D3; //0x4FAC
+	uint32_t N000124D5; //0x4FB0
+	uint32_t N000124D7; //0x4FB4
+	uint32_t N000124DF; //0x4FB8
+	uint32_t N000124E1; //0x4FBC
+	uint32_t N000124DB; //0x4FC0
+	uint32_t N000124DD; //0x4FC4
+	uint32_t N000124D9; //0x4FC8
+	uint32_t N000124D1; //0x4FCC
+	uint32_t r_AISuppressSellAllTimerNull; //0x4FD0
+	uint32_t r_AISuppressSellAllTimerWoodLogs; //0x4FD4
+	uint32_t r_AISuppressSellAllTimerWoodPlanks; //0x4FD8
+	uint32_t r_AISuppressSellAllTimerRawHops; //0x4FDC
+	uint32_t r_AISuppressSellAllTimerStoneBlocks; //0x4FE0
+	uint32_t r_AISuppressSellAllTimerCowHides; //0x4FE4
+	uint32_t r_AISuppressSellAllTimerIronIngots; //0x4FE8
+	uint32_t r_AISuppressSellAllTimerPitchRaw; //0x4FEC
+	uint32_t r_AISuppressSellAllTimerPitchRefined; //0x4FF0
+	uint32_t r_AISuppressSellAllTimerRawWheat; //0x4FF4
+	uint32_t r_AISuppressSellAllTimerFoodBread; //0x4FF8
+	uint32_t r_AISuppressSellAllTimerFoodCheese; //0x4FFC
+	uint32_t r_AISuppressSellAllTimerFoodMeat; //0x5000
+	uint32_t r_AISuppressSellAllTimerFoodFruit; //0x5004
+	uint32_t r_AISuppressSellAllTimerFoodAle; //0x5008
+	uint32_t r_AISuppressSellAllTimerGold; //0x500C
+	uint32_t r_AISuppressSellAllTimerFlour; //0x5010
+	uint32_t r_AISuppressSellAllTimerBows; //0x5014
+	uint32_t r_AISuppressSellAllTimerCrossbows; //0x5018
+	uint32_t r_AISuppressSellAllTimerSpears; //0x501C
+	uint32_t r_AISuppressSellAllTimerPikes; //0x5020
+	uint32_t r_AISuppressSellAllTimerMaces; //0x5024
+	uint32_t r_AISuppressSellAllTimerSwords; //0x5028
+	uint32_t r_AISuppressSellAllTimerLeatherArmour; //0x502C
+	uint32_t r_AISuppressSellAllTimerMetalArmour; //0x5030
 	uint32_t N0000590B; //0x5034
 	uint32_t N000043FE; //0x5038
 	uint32_t N0000590D; //0x503C

@@ -800,8 +800,8 @@ namespace PreplacedTest
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_BuildingType), 0xD2);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner), 0xD6);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId), 0xD8);
-            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionXEnd), 0xFE);
-            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionYEnd), 0x100);
+            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionX), 0xFE);
+            ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionY), 0x100);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_IsSleeping), 0x296);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_GatehouseId), 0x2D2);
             ValidateOffset(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId), 0xA0);
@@ -5501,7 +5501,7 @@ namespace PreplacedTest
         private static BuildingSnapshot Snapshot(int buildingId, ref GameBuilding building) =>
             new BuildingSnapshot(buildingId, building.r_GlobalId, building.r_PlayerIdOwner, building.r_BuildingType,
                 building.r_AliveState, building.r_TilePositionXBegin, building.r_TilePositionYBegin,
-                building.r_TilePositionXEnd, building.r_TilePositionYEnd, building.r_WorldPositionX,
+                building.r_AccessTilePositionX, building.r_AccessTilePositionY, building.r_WorldPositionX,
                 building.r_WorldPositionY, building.r_CurrentHealth, building.r_MaxHealth,
                 building.r_IsSleeping, building.r_GatehouseId);
 

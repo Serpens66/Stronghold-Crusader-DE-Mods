@@ -3,11 +3,19 @@
   "Author": "Serpens66",
   "Name": "MoatMove",
   "Description": "Unmodified precise friendly/allied moat movement comparison. Always active; test alone or with APIShared.",
-  "Version": "0.1.1",
+  "Version": "0.1.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.6.0",
+  "MinimumScriptExtenderVersion": "2.7.1",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
-  "SupportedGameVersions": ["2.8.0.1"]
+  "SupportedGameVersions": ["2.8.0.1"],
+  "SerpChangelog": [
+    {
+      "Version": "0.1.2",
+      "Changes": [
+        "Migrated moat geometry and manager sentinel validation to Script Extender 2.7.1."
+      ]
+    }
+  ]
 }

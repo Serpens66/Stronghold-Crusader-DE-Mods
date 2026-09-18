@@ -45,7 +45,7 @@ pushd "%PROJECT_DIR%"
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\SerpsModsHostDuplicateTests.csproj" /p:Configuration=Release
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\SerpsModsHostDuplicateTests\bin\SerpsModsHostDuplicateTests.exe"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" SerpsModsHost.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd

@@ -125,8 +125,9 @@ namespace KnightArmorAIBuyFixBackup
             if (Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.r_RecruitmentResultFailureReason)).ToInt32() != 0x650 ||
                 Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.r_RecruitmentResultMissingGoodId)).ToInt32() != 0x654 ||
                 Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.EmptyUnitFillValue)).ToInt32() != 0x658 ||
-                Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.LastOrderedUnit)).ToInt32() != 0x65C ||
-                Marshal.SizeOf(typeof(GameUnitManager)) != 0xF7C)
+                Marshal.OffsetOf(typeof(GameUnitManager), nameof(GameUnitManager.GameUnitArray)).ToInt32() != 0x65C ||
+                GameUnitManager.FirstLiveUnitId != 1 ||
+                GameUnitManager.LastLiveUnitId != GameUnitManager.NativeUnitSlotCount - 1)
             {
                 throw new InvalidOperationException("The Script Extender GameUnitManager layout differs from the audited 2.3.0 contract.");
             }

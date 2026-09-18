@@ -14,7 +14,7 @@ namespace KnightArmorAIBuyFixBackup
         private const string ScriptExtenderGuid = "000shcdese";
         private const string PluginGuid = "KnightArmorAIBuyFixBackup_Serp";
         private const string PluginName = "Knight Armor AI Buy Fix Backup";
-        private const string PluginVersion = "0.1.0";
+        private const string PluginVersion = "0.1.1";
 
         // SHCDE destroys early BepInEx components during startup, so process-lifetime
         // ownership must not depend on this Unity component remaining alive.

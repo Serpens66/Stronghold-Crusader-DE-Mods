@@ -786,7 +786,19 @@ namespace BugfixesAndQoL
             }
 
             for (int index = 0; index < info.aivs.Count; index++)
-                EngineInterface.ImportAIV(playerId - 1, index, info.aivs[index].data, 1);
+            {
+                if (!GameAIVManagerAPI.Instance.ImportAIV(
+                        playerId - 1,
+                        index,
+                        info.aivs[index].data,
+                        true))
+                {
+                    throw new InvalidOperationException(
+                        $"The Script Extender rejected a custom-lord AIV import; " +
+                        $"playerId={playerId}, candidateId={index}, " +
+                        $"rawShorts={info.aivs[index].data?.Length ?? 0}.");
+                }
+            }
             if (!info.builtInLord && info.lordConfig != null)
                 EngineInterface.setCustomLordConfig(ref info.lordConfig.lordData, playerId);
         }

@@ -14,7 +14,7 @@ foreach ($file in $textFiles) {
 }
 [xml](Get-Content -LiteralPath (Join-Path $PSScriptRoot 'OutpostTest.csproj') -Raw) | Out-Null
 $metadata = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'info.json') -Raw | ConvertFrom-Json
-if ($metadata.GUID -ne 'OutpostTest_Serp' -or $metadata.Version -ne '0.1.0') { throw 'Metadata mismatch.' }
+if ($metadata.GUID -ne 'OutpostTest_Serp' -or $metadata.Version -ne '0.1.1') { throw 'Metadata mismatch.' }
 Write-Output 'OutpostTest JSON/lifecycle, CRLF, project and metadata preflight passed.'
 $plugin = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'src\OutpostTestPlugin.cs'))
 if ($plugin -notmatch 'new OutpostRuntime' -or $plugin -match 'VanillaObserver') { throw 'Incorrect runtime entry point.' }

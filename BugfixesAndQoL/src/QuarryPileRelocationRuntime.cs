@@ -1069,8 +1069,10 @@ namespace BugfixesAndQoL
                     isCurrentPosition: false));
             }
 
-            int keepCenterXTimesTwo = keep->r_TilePositionXBegin + keep->r_AccessTilePositionX;
-            int keepCenterYTimesTwo = keep->r_TilePositionYBegin + keep->r_AccessTilePositionY;
+            if (!Shared.GameBuildingFootprint.TryGetBounds(keep, out Shared.GameBuildingFootprintBounds keepBounds))
+                throw new InvalidOperationException("AI Keep occupied-tile footprint is invalid.");
+            int keepCenterXTimesTwo = keepBounds.CenterXTimesTwo;
+            int keepCenterYTimesTwo = keepBounds.CenterYTimesTwo;
             if (!QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(
                 candidates,
                 VanillaMinimumPlacementTry,

@@ -229,6 +229,11 @@ def sanitize_header(text: str, source_name: str):
     depth = 0
     for original in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
         line = original
+        line = re.sub(
+            r"^(\s*typedef\s+enum\s+[A-Za-z_]\w*)\s*:\s*[A-Za-z_]\w*",
+            r"\1",
+            line,
+        )
         stripped = line.strip()
         if stripped.startswith("#ifndef") or stripped.startswith("#define") or stripped.startswith("#endif"):
             continue
@@ -265,20 +270,58 @@ def sanitize_header(text: str, source_name: str):
                 line = re.sub(r"};", f"}} {active};", line, count=1)
                 active = None
                 active_kind = None
-        output.append(line)
+        output.append(line.rstrip())
     return "\n".join(output)
+
+
+def reorder_struct_definitions(content):
+    """Order complete struct definitions by their by-value dependencies.
+
+    Some upstream C++ inspection headers place a complete member type after its
+    consumer. The combined Ghidra artifact is strict C, so use the dependency
+    relation itself instead of maintaining a release-specific type-name list.
+    """
+    pattern = re.compile(r"(?ms)^struct\s+([A-Za-z_]\w*)\s*\{.*?^\};\s*")
+    matches = list(pattern.finditer(content))
+    if len(matches) < 2:
+        return content
+    remainder = pattern.sub("", content)
+    if remainder.strip():
+        return content
+    blocks = {match.group(1): match.group(0).strip() for match in matches}
+    original_order = list(blocks)
+    dependencies = {
+        name: {
+            candidate for candidate in original_order
+            if candidate != name and re.search(rf"\b{re.escape(candidate)}\b", block)
+        }
+        for name, block in blocks.items()
+    }
+    ordered = []
+    remaining = set(original_order)
+    while remaining:
+        ready = [name for name in original_order if name in remaining and not (dependencies[name] & remaining)]
+        if not ready:
+            return content
+        for name in ready:
+            ordered.append(blocks[name])
+            remaining.remove(name)
+    return "\n\n".join(ordered) + "\n"
 
 
 def command_sanitize_headers(args):
     source = Path(args.source)
     # ReClassExports uses the project-local enums declared by Custom.h.
     # Keep all small standalone enum headers ahead of the large ReClass layout.
-    order = [
-        "Enums.h", "Custom.h", "AILordMessageType.h", "RationsMode.h",
-        "TaxesMode.h", "TilePropertyFlags.h", "TileType.h", "TribeAICommand.h",
-        "ReClassExports.h", "engineinterface.h",
-    ]
     paths = {path.name: path for path in source.glob("*.h")}
+    standalone_enums = sorted(
+        name for name, path in paths.items()
+        if name not in {"Enums.h", "Custom.h"}
+        and re.search(r"(?m)^\s*(?:typedef\s+)?enum\b", path.read_text(encoding="utf-8-sig"))
+        and not re.search(r"(?m)^\s*(?:typedef\s+)?(?:struct|class)\b", path.read_text(encoding="utf-8-sig"))
+    )
+    order = ["Enums.h", "Custom.h", *standalone_enums, "ReClassExports.h", "engineinterface.h",
+             "TrackedUnitHandle.h", "PlayerResources.h", "PlayerManagerAndPathfindingContext.h"]
     ordered = [paths.pop(name) for name in order if name in paths]
     ordered.extend(sorted(paths.values(), key=lambda item: item.name.lower()))
     preamble = """#ifndef SERPS_SHCDE_GHIDRA_TYPES_H
@@ -296,6 +339,8 @@ typedef unsigned long long uint64_t;
     manifest = []
     for path in ordered:
         content = path.read_text(encoding="utf-8-sig")
+        if path.name == "PlayerManagerAndPathfindingContext.h":
+            content = reorder_struct_definitions(content)
         pieces.append(sanitize_header(content, path.name))
         manifest.append({"path": path.name, "sha256": sha256_file(path)})
     pieces.append("#endif\n")

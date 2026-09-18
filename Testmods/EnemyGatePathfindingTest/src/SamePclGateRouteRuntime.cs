@@ -524,9 +524,11 @@ namespace EnemyGatePathfindingTest
                 ai[player] = GamePlayerManagerAPI.Instance.IsAIPlayer(player);
             playerKinds = new PlayerKindSnapshot(ai);
             Span<GameTribe> tribes = GameTribeManagerAPI.Instance.GetTribeAsSpan();
-            var owners = new int[tribes.Length + 1];
-            for (int spanIndex = 0; spanIndex < tribes.Length; spanIndex++)
-                owners[spanIndex + 1] = tribes[spanIndex].r_PlayerIdOwner;
+            var owners = new int[tribes.Length];
+            // Script Extender 2.7 exposes the complete native tribe-slot span.
+            // Slot 0 is reserved; every other span index is already the tribe ID.
+            for (int tribeId = 1; tribeId < tribes.Length; tribeId++)
+                owners[tribeId] = tribes[tribeId].r_PlayerIdOwner;
             tribePlayers = new TribePlayerSnapshot(owners);
         }
 

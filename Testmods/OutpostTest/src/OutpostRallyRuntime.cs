@@ -186,7 +186,7 @@ namespace OutpostTest
         private void ProduceHuman(Entry e,GameBuilding* b,int tick,int[] added)
         {
             var r=rally.Get(e.Id,e.Global,e.Owner,e.Type);
-            if(!OutpostRallyState.PointValid(b->r_TilePositionXEnd,b->r_TilePositionYEnd)) throw new InvalidOperationException("Invalid outpost exit.");
+            if(!OutpostRallyState.PointValid(b->r_AccessTilePositionX,b->r_AccessTilePositionY)) throw new InvalidOperationException("Invalid outpost access tile.");
             bool fast=native.ReadInt(0x3668E34)>3000 && native.ReadInt(0x3669048)<11;
             int size=Read(b,0x30E), interval=OutpostSchedule.SpawnWait(Read(b,0x318),size);
             int delay=Math.Max(0,Read(b,0x310)-1); Write(b,0x310,delay);
@@ -221,7 +221,7 @@ namespace OutpostTest
             if(tribe->r_PlayerIdOwner!=e.Owner || tribe->r_UnitsInGroup!=0 || tribe->r_AliveState!=AliveState.IsAlive)
                 throw new InvalidOperationException("Human tribe allocator contract changed.");
             try {
-                int id=checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(e.Owner,e.Owner,b->r_TilePositionXEnd,b->r_TilePositionYEnd,8,(eChimps)26));
+                int id=checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(e.Owner,e.Owner,b->r_AccessTilePositionX,b->r_AccessTilePositionY,8,(eChimps)26));
                 if(id==0) { Info($"human-spawn tick={tick} building={e.Id} created=0 reason=unit-pool-or-cancelled");return false; }
                 added[e.Owner]++;
                 if(!GameUnitManagerAPI.Instance.TryGetUnitById(id,out var u)) throw new InvalidOperationException("Human unit unresolved.");

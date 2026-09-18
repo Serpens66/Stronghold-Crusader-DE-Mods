@@ -195,6 +195,8 @@ namespace SerpsModsHost
                 string warning = SerpLocalization.Get(
                     SerpLocalization.SerpsModsScriptExtenderIssuesHeader,
                     "Installed", installedVersion) +
+                    Environment.NewLine + SerpLocalization.Get(
+                        SerpLocalization.SerpsModsScriptExtenderRequiredAction) +
                     Environment.NewLine + string.Join(Environment.NewLine, issueLines.ToArray());
                 diagnostics.SetScriptExtenderCompatibilityWarning(warning);
                 ReportError("H008", warning);

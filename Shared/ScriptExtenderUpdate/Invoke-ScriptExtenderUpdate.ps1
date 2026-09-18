@@ -121,6 +121,7 @@ foreach ($mod in $mods) {
     }
     if (Test-ModActive $mod) {
         $sourceManifest = Get-Content -Raw -LiteralPath (Join-Path $workspace $mod.Manifest) | ConvertFrom-Json
+        Assert-SENoGenericExtenderDependency $sourceManifest $mod.Name
         Assert-SEManifestExtenderRange $sourceManifest $NewVersion $mod.Name
     }
 }
@@ -240,16 +241,23 @@ foreach ($mod in $activeMods) {
     if ($json.SerpChangelog -and @($json.SerpChangelog).Count -gt 0) {
         $topChanges = @($json.SerpChangelog[0].Changes | ForEach-Object { [string]$_ })
     }
+    $targetChangelogEntries = @($json.SerpChangelog | Where-Object { [string]$_.Version -eq $targetModVersion })
     $needsUpdate = $hasPlan -and (
         [string]$json.MinimumScriptExtenderVersion -ne $targetMinimum -or
         [string]$json.Version -ne $targetModVersion -or
         [string]$json.SerpChangelog[0].Version -ne $targetModVersion -or
-        ($topChanges -join "`n") -cne ($changes -join "`n"))
+        ($topChanges -join "`n") -cne ($changes -join "`n") -or
+        $targetChangelogEntries.Count -ne 1)
     if ($needsUpdate) {
         $json.Version = $targetModVersion; $json.MinimumScriptExtenderVersion = $targetMinimum
-        if (-not $json.SerpChangelog -or [string]$json.SerpChangelog[0].Version -ne $targetModVersion -or ($topChanges -join "`n") -cne ($changes -join "`n")) {
+        if (-not $json.SerpChangelog -or
+            [string]$json.SerpChangelog[0].Version -ne $targetModVersion -or
+            ($topChanges -join "`n") -cne ($changes -join "`n") -or
+            $targetChangelogEntries.Count -ne 1) {
             $changeEntry=[pscustomobject]@{Version=$targetModVersion;Changes=$changes}
-            $existingChangelog = @($json.SerpChangelog | Where-Object { $null -ne $_ })
+            $existingChangelog = @($json.SerpChangelog | Where-Object {
+                $null -ne $_ -and [string]$_.Version -ne $targetModVersion
+            })
             $newChangelog=@($changeEntry)+$existingChangelog
             if ($json.PSObject.Properties['SerpChangelog']) { $json.SerpChangelog=$newChangelog }
             else { $json | Add-Member -NotePropertyName SerpChangelog -NotePropertyValue $newChangelog }
@@ -288,10 +296,12 @@ foreach ($mod in $activeMods) {
     $source = Join-Path $workspace $mod.Package; $installed = Join-Path (Join-Path $gameRoot 'BepInEx\plugins') $mod.Install
     if ($mod.Plugin -and -not (Test-Path -LiteralPath $installed -PathType Container)) { throw "$($mod.Name) is not installed: $installed" }
     $manifest=Get-Content -Raw -LiteralPath (Join-Path $workspace $mod.Manifest)|ConvertFrom-Json
+    Assert-SENoGenericExtenderDependency $manifest $mod.Name
     if ($manifest.PSObject.Properties['SerpChangelog'] -and @($manifest.SerpChangelog | Where-Object { $null -eq $_ }).Count) {
         throw "$($mod.Name) contains a null changelog entry."
     }
     $packageManifest=Get-Content -Raw -LiteralPath (Join-Path $source 'info.json')|ConvertFrom-Json
+    Assert-SENoGenericExtenderDependency $packageManifest "$($mod.Name) package"
     if (($manifest|ConvertTo-Json -Depth 30 -Compress) -cne ($packageManifest|ConvertTo-Json -Depth 30 -Compress)) {
         throw "$($mod.Name) source and package manifests differ."
     }

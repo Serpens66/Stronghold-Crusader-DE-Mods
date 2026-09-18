@@ -12,7 +12,9 @@ set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 
 rem Never replace plugin files while the game has loaded them.
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
@@ -37,7 +39,7 @@ pushd "%PROJECT_DIR%"
 "%MSBUILD%" tests\AIAttackTest.Tests.csproj /p:Configuration=Debug /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\bin\AIAttackTest.Tests.exe"
-if errorlevel 1 goto test_failed_popd
+if not "%ERRORLEVEL%"=="0" goto test_failed_popd
 "%MSBUILD%" AIAttackTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd
@@ -48,6 +50,7 @@ if errorlevel 1 goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\AIAttackTest.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\Override\ScriptExtenderUI\AIAttackTestSettings.xaml" goto package_failed
+if "%NO_INSTALL%"=="1" goto built_without_install
 
 if exist "%GAME_PLUGIN_DIR%\" (
   for /D %%D in ("%GAME_PLUGIN_DIR%\*") do (
@@ -65,6 +68,11 @@ xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed
 
 echo AI Attack Test checks passed, mod built and installed successfully.
+if "%NO_PAUSE%"=="0" pause
+exit /b 0
+
+:built_without_install
+echo AI Attack Test checks passed and mod built successfully. Installation skipped.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 

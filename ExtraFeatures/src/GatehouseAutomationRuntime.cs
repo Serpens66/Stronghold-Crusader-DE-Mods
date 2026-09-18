@@ -676,8 +676,8 @@ namespace ExtraFeatures
                 BuildingType = (int)building->r_BuildingType,
                 TileXBegin = building->r_TilePositionXBegin,
                 TileYBegin = building->r_TilePositionYBegin,
-                TileXEnd = building->r_TilePositionXEnd,
-                TileYEnd = building->r_TilePositionYEnd
+                AccessTileX = building->r_AccessTilePositionX,
+                AccessTileY = building->r_AccessTilePositionY
             };
         }
 
@@ -694,8 +694,8 @@ namespace ExtraFeatures
                     (int)candidate.r_BuildingType != locator.BuildingType ||
                     candidate.r_TilePositionXBegin != locator.TileXBegin ||
                     candidate.r_TilePositionYBegin != locator.TileYBegin ||
-                    candidate.r_TilePositionXEnd != locator.TileXEnd ||
-                    candidate.r_TilePositionYEnd != locator.TileYEnd)
+                    candidate.r_AccessTilePositionX != locator.AccessTileX ||
+                    candidate.r_AccessTilePositionY != locator.AccessTileY)
                 {
                     continue;
                 }
@@ -743,8 +743,8 @@ namespace ExtraFeatures
             if (result != 0) return result;
             result = left.TileYBegin.CompareTo(right.TileYBegin);
             if (result != 0) return result;
-            result = left.TileXEnd.CompareTo(right.TileXEnd);
-            return result != 0 ? result : left.TileYEnd.CompareTo(right.TileYEnd);
+            result = left.AccessTileX.CompareTo(right.AccessTileX);
+            return result != 0 ? result : left.AccessTileY.CompareTo(right.AccessTileY);
         }
 
         private static string FormatLocator(GatehouseMapLocator locator) =>

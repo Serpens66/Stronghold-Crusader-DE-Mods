@@ -100,7 +100,7 @@ if errorlevel 1 (
   goto build_failed
 )
 "%PROJECT_DIR%AIVPlacement.Tests\bin\Release\net10.0\CastlePlanner.AIVPlacement.Tests.exe"
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   set "BUILD_EXIT_CODE=1"
   popd
   goto build_failed

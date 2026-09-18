@@ -9,21 +9,21 @@ using SHCDESE.EventAPI;
 using System;
 using System.Reflection;
 
-[assembly: AssemblyVersion("0.1.1.0")]
-[assembly: AssemblyFileVersion("0.1.1.0")]
-[assembly: AssemblyInformationalVersion("0.1.1")]
+[assembly: AssemblyVersion("0.1.2.0")]
+[assembly: AssemblyFileVersion("0.1.2.0")]
+[assembly: AssemblyInformationalVersion("0.1.2")]
 
 namespace MoatMove
 {
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, "MoatMove", PluginVersion)]
-    [BepInDependency("000shcdese", "2.6.0")]
+    [BepInDependency("000shcdese", "2.7.1")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("EnemyGatePathfindingTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class MoatMovePlugin : BaseUnityPlugin
     {
         public const string PluginGuid = "MoatMove_Serp";
-        public const string PluginVersion = "0.1.1";
+        public const string PluginVersion = "0.1.2";
         private static ManualLogSource persistentLog;
         private static FriendlyMoatMovementRuntime runtime;
         private static MoatMoveOptions options;
@@ -45,7 +45,7 @@ namespace MoatMove
                     "precise: weighted friendly/allied moat routes. fast: moat only when no ground alternative exists, shared group calculations, no extra moat cost. FastNative: Fast rules with a private native shared field. Restart the game after changing this setting. Use the same mode on all multiplayer peers.")).Value;
             options = new MoatMoveOptions(mode);
             Shared.DebugLogHelper.LogInfo(persistentLog,
-                $"MoatMove 0.1.1 loaded; mode={options.ModeName}, improvedFill=false, ladderAttackFix=false, formationEnhancements=false; awaiting native library.");
+                $"MoatMove 0.1.2 loaded; mode={options.ModeName}, improvedFill=false, ladderAttackFix=false, formationEnhancements=false; awaiting native library.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }
 

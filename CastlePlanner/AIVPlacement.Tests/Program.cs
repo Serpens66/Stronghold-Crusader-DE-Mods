@@ -715,8 +715,6 @@ internal static class Program
             .GetProperty("MinimumScriptExtenderVersion").GetString() ?? string.Empty;
         string maximumExtenderVersion = manifestJson.RootElement
             .GetProperty("MaximumScriptExtenderVersion").GetString() ?? string.Empty;
-        JsonElement dependency = manifestJson.RootElement
-            .GetProperty("Dependencies")[0];
 
         Assert(Version.TryParse(minimumExtenderVersion, out Version? minimum),
             "Manifest minimum Script Extender version is invalid");
@@ -727,10 +725,12 @@ internal static class Program
             "Script Extender dependency does not match the manifest minimum");
         Assert(plugin.Contains("BepInDependency(\"fixes\", BepInDependency.DependencyFlags.SoftDependency)", StringComparison.Ordinal),
             "CastlePlanner does not load after Fixes when the optional mod is installed");
-        Assert(dependency.GetProperty("GUID").GetString() == "000shcdese" &&
-                dependency.GetProperty("MinimumVersion").GetString() == minimumExtenderVersion &&
-                !manifest.Contains("\"GUID\": \"fixes\"", StringComparison.Ordinal),
-            "CastlePlanner manifest dependencies do not preserve optional Fixes integration");
+        Assert(!manifestJson.RootElement.TryGetProperty("Dependencies", out JsonElement dependencies) ||
+                !dependencies.EnumerateArray().Any(item =>
+                    item.TryGetProperty("GUID", out JsonElement guid) && guid.GetString() == "000shcdese"),
+            "CastlePlanner must leave Script Extender version reporting to MinimumScriptExtenderVersion");
+        Assert(!manifest.Contains("\"GUID\": \"fixes\"", StringComparison.Ordinal),
+            "CastlePlanner manifest must preserve optional Fixes integration");
         Assert(plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)", StringComparison.Ordinal) &&
             plugin.Contains("runtime.Install(context, currentNativeLayout)", StringComparison.Ordinal),
             "CastlePlanner does not propagate the Script Extender load context");

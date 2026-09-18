@@ -92,6 +92,7 @@
     <Compile Include="..\..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
     </Compile>
+    <Compile Include="..\..\Shared\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="src\AIDefenseTestPlugin.cs" />
     <Compile Include="src\AIDefenseTestRuntime.cs" />
   </ItemGroup>

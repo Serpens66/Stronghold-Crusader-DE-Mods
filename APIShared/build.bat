@@ -28,7 +28,7 @@ if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
-"%MSBUILD%" "%PROJECT_DIR%..\_inspect\APISharedTests\APISharedTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\APISharedTests\APISharedTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\APISharedTests\bin\APISharedTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd

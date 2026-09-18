@@ -55,6 +55,7 @@
     <Compile Include="..\src\LocalPerPlayerSetting.cs"><Link>LocalPerPlayerSetting.cs</Link></Compile>
     <Compile Include="..\src\NotificationQueueNativeContract.cs"><Link>NotificationQueueNativeContract.cs</Link></Compile>
     <Compile Include="..\src\NotificationSkipPolicy.cs"><Link>NotificationSkipPolicy.cs</Link></Compile>
+    <Compile Include="..\..\Shared\GameProjectileSlotPolicy.cs"><Link>GameProjectileSlotPolicy.cs</Link></Compile>
     <Compile Include="..\src\NativeHandlerSnapshot.cs"><Link>NativeHandlerSnapshot.cs</Link></Compile>
     <Compile Include="..\src\AllyGoodsTransferPolicy.cs"><Link>AllyGoodsTransferPolicy.cs</Link></Compile>
     <Compile Include="..\src\PlacementCancelRightClickPolicy.cs"><Link>PlacementCancelRightClickPolicy.cs</Link></Compile>

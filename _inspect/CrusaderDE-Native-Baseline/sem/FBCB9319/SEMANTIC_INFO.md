@@ -2,11 +2,11 @@
 
 ## Identity and scope
 
-- Created: 2026-09-01; Script Extender knowledge refreshed for 2.6.0 on 2026-09-13, Europe/Berlin
+- Created: 2026-09-01; Script Extender knowledge refreshed for 2.7.1 on 2026-09-18, Europe/Berlin
 - Current native DLL SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Current `Assembly-CSharp.dll` SHA-256: `BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789`
 - Historical native DLL SHA-256: `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`
-- Script Extender commit: `2cee24e33b5a5d81d1c275efabc714ac59917b7b` (`v2.6.0`), Git tree `9cfb59b7b531553b23709b90b3cc3f10b0615cc1`
+- Script Extender commit: `68ebf5380d711dfa7b7f84c9d4326ff81e42854c` (`v2.7.1`), Git tree `4dccdd7525c945ecdbe593cc669ff32d1638f435`
 - PE image base for both native DLLs: `0x180000000`
 - PDB GUID and missing Jenkins PDB path are documented in the parent `SCAN_INFO.md`.
 

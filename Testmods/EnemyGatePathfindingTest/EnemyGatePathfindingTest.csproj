@@ -42,6 +42,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="src\EnemyGatePathfindingTestPlugin.cs" />
+    <Compile Include="..\..\Shared\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="src\EnemyGatePathfindingNativeDefinition.cs" />
     <Compile Include="src\EnemyGatePathfindingPolicy.cs" />
     <Compile Include="src\GateTopologySnapshotProvider.cs" />

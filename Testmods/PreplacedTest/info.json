@@ -3,8 +3,8 @@
   "Author": "Serpens66",
   "Name": "Preplaced Test",
   "Description": "Diagnosis and active test fixes for Vanilla AI startup and economy interference from preplaced buildings.",
-  "Version": "0.1.1",
-  "MinimumScriptExtenderVersion": "2.4.0",
+  "Version": "0.1.2",
+  "MinimumScriptExtenderVersion": "2.7.1",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
@@ -12,6 +12,12 @@
     "2.8.0.1"
   ],
   "SerpChangelog": [
+    {
+      "Version": "0.1.2",
+      "Changes": [
+        "Validated the Script Extender 2.7.1 building access fields at offsets 0xFE and 0x100."
+      ]
+    },
     {
       "Version": "0.1.1",
       "Changes": [

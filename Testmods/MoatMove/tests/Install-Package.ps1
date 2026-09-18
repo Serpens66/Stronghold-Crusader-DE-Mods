@@ -16,7 +16,7 @@ Copy-Item -LiteralPath (Join-Path $modDir 'info.json') -Destination (Join-Path $
 $files = @('MoatMove.dll','MoatMove.pdb','info.json')
 foreach ($name in $files) { if (-not (Test-Path -LiteralPath (Join-Path $localDir $name) -PathType Leaf)) { throw "Package missing $name" } }
 $version = [Reflection.AssemblyName]::GetAssemblyName((Join-Path $localDir 'MoatMove.dll')).Version
-if ($version.ToString() -ne '0.1.1.0') { throw "Unexpected assembly version: $version" }
+if ($version.ToString() -ne '0.1.2.0') { throw "Unexpected assembly version: $version" }
 [IO.Directory]::CreateDirectory($installedDir) | Out-Null
 foreach ($name in $files) {
     $source = Join-Path $localDir $name
@@ -36,4 +36,4 @@ if (-not [IO.File]::Exists($configPath)) {
     if (-not [string]::Equals([IO.File]::ReadAllText($configPath), $defaultConfig, [StringComparison]::Ordinal)) { throw 'Config verification failed.' }
     Write-Output "Created default mode config: $configPath"
 } else { Write-Output "Preserved existing mode config: $configPath" }
-Write-Output "PASS installed MoatMove 0.1.1; DLL/PDB/manifest hashes match: $installedDir"
+Write-Output "PASS installed MoatMove 0.1.2; DLL/PDB/manifest hashes match: $installedDir"

@@ -25,7 +25,7 @@ if errorlevel 1 (
 echo.
 echo Fuehre die synthetischen Tests aus...
 dotnet run --project "MapParser.Tests\MapParser.Tests.csproj" -c Release --no-build
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   popd
   echo.
   echo Mindestens ein Test ist fehlgeschlagen.

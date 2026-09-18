@@ -2,7 +2,6 @@
 using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.Extensions;
-using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -53,7 +52,7 @@ namespace BugfixesAndQoL
                 log: null);
             ValidateAivNativeLayout(memory, referenceHashMatches);
 
-            ulong tableAddress = GameGlobalsManager.Instance.AIVSystemVA;
+            ulong tableAddress = (ulong)GameAIVManagerAPI.Instance.GetAIVSystemPointer();
             ulong libraryEnd = checked(libraryBase + unchecked((ulong)memory.Length));
             ulong tableEnd = checked(
                 tableAddress +

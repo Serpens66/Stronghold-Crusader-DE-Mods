@@ -69,7 +69,7 @@ if errorlevel 1 goto :failed
 
 echo [%date% %time%] Fuehre TrailEditor-Tests aus ...
 dotnet run --project "%PROJECT_DIR%TrailEditor.Tests\TrailEditor.Tests.csproj" -c Release --no-build
-if errorlevel 1 goto :failed
+if not "%ERRORLEVEL%"=="0" goto :failed
 
 popd
 

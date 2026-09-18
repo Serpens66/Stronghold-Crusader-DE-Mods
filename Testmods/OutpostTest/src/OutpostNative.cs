@@ -170,8 +170,8 @@ namespace OutpostTest
             Offset<GameBuilding>(nameof(GameBuilding.r_BuildingType), 0xD2);
             Offset<GameBuilding>(nameof(GameBuilding.r_PlayerIdOwner), 0xD6);
             Offset<GameBuilding>(nameof(GameBuilding.r_GlobalId), 0xD8);
-            Offset<GameBuilding>(nameof(GameBuilding.r_TilePositionXEnd), 0xFE);
-            Offset<GameBuilding>(nameof(GameBuilding.r_TilePositionYEnd), 0x100);
+            Offset<GameBuilding>(nameof(GameBuilding.r_AccessTilePositionX), 0xFE);
+            Offset<GameBuilding>(nameof(GameBuilding.r_AccessTilePositionY), 0x100);
             Offset<GameUnit>(nameof(GameUnit.r_AliveState), 0x88);
             Offset<GameUnit>(nameof(GameUnit.r_GlobalId), 0x94);
             Offset<GameUnit>(nameof(GameUnit.N0000011E), 0xAC);

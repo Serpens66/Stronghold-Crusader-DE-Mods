@@ -23,7 +23,7 @@ pushd "%PROJECT_DIR%"
 "%MSBUILD%" tests\VirtualUnitsPrototype.Tests.csproj /p:Configuration=Release
 if errorlevel 1 ( popd& goto failed )
 "%PROJECT_DIR%tests\bin\VirtualUnitsPrototype.Tests.exe"
-if errorlevel 1 ( popd& goto failed )
+if not "%ERRORLEVEL%"=="0" ( popd& goto failed )
 if exist "%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp\" rmdir /S /Q "%PROJECT_DIR%BepInEx\plugins\VirtualUnitsPrototype_Serp"
 "%MSBUILD%" VirtualUnitsPrototype.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"

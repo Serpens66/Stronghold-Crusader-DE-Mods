@@ -83,6 +83,7 @@ namespace MoatMove
         public int GetTileUnitId(int tile) => ForceOccupied ? 2 : Occupants.TryGetValue(tile,out int id) ? id : 0;
         public UnmanagedVector2<ushort> GetTileVectorFromId(int tile) =>
             new UnmanagedVector2<ushort> { X = (ushort)(tile % 1000), Y = (ushort)(tile >= 2000 ? 11 : 10) };
+        public bool IsValidTileId(int tile) => tile >= 0 && tile < 640000;
     }
     internal sealed unsafe partial class FriendlyMoatMovementRuntime
     {
@@ -1178,7 +1179,7 @@ namespace MoatMove
 
 public static class EngineInterface { private static int[] selectedChimps = Array.Empty<int>(); public static int[] Selection { get=>selectedChimps; set=>selectedChimps=value; } }
 namespace MoatMove {
-    internal struct GameBuilding { public uint r_GlobalId; public AliveState r_AliveState; public int r_PlayerIdOwner, r_BuildingType; public int r_TilePositionXBegin, r_TilePositionXEnd, r_TilePositionYBegin, r_TilePositionYEnd; }
+    internal struct GameBuilding { public uint r_GlobalId; public AliveState r_AliveState; public int r_PlayerIdOwner, r_BuildingType; public uint r_OccupyTileGridSize, r_OccupiedTileIdsArrayBegin; }
     internal unsafe class GameBuildingManagerAPI {
         public static GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
         public GameBuilding* Building;
@@ -1186,7 +1187,11 @@ namespace MoatMove {
     }
 }
 
-namespace Shared { internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} } }
+namespace Shared {
+ using MoatMove;
+ internal readonly struct GameBuildingFootprintBounds { public GameBuildingFootprintBounds(int minX,int minY,int maxX,int maxY){MinX=minX;MinY=minY;MaxX=maxX;MaxY=maxY;} public int MinX{get;} public int MinY{get;} public int MaxX{get;} public int MaxY{get;} public int CenterXTimesTwo=>MinX+MaxX; public int CenterYTimesTwo=>MinY+MaxY; }
+ internal static unsafe class GameBuildingFootprint { public const int MaximumGridSize=6; public static bool TryGetBounds(GameBuilding* building,out GameBuildingFootprintBounds bounds){bounds=default;if(building==null||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;int minX=int.MaxValue,minY=int.MaxValue,maxX=int.MinValue,maxY=int.MinValue;for(int index=0;index<count;index++){if(ids[index]>int.MaxValue||!GameTileManagerAPI.Instance.IsValidTileId((int)ids[index]))return false;var p=GameTileManagerAPI.Instance.GetTileVectorFromId((int)ids[index]);if(p.X<minX)minX=p.X;if(p.Y<minY)minY=p.Y;if(p.X>maxX)maxX=p.X;if(p.Y>maxY)maxY=p.Y;}bounds=new GameBuildingFootprintBounds(minX,minY,maxX,maxY);return true;} public static bool TryGetBounds(GameBuilding building,out GameBuildingFootprintBounds bounds)=>TryGetBounds(&building,out bounds); public static bool TryGetBounds(ref GameBuilding building,out GameBuildingFootprintBounds bounds){fixed(GameBuilding* pointer=&building)return TryGetBounds(pointer,out bounds);} public static bool ContainsTileId(GameBuilding* building,int tileId){if(building==null||tileId<0||building->r_OccupyTileGridSize==0||building->r_OccupyTileGridSize>MaximumGridSize)return false;int count=checked((int)(building->r_OccupyTileGridSize*building->r_OccupyTileGridSize));uint* ids=&building->r_OccupiedTileIdsArrayBegin;for(int index=0;index<count;index++)if(ids[index]==(uint)tileId)return true;return false;} public static bool ContainsTileId(GameBuilding building,int tileId)=>ContainsTileId(&building,tileId); }
+ internal static class DebugLogHelper { public static void LogInfo(object log,string text) {} public static void LogWarning(object log,string text) {} } }
 
 namespace MoatMove {
  internal enum RouteCalculationMode { Exact = 0, RequiredOnly = 1 }

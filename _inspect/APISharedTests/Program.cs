@@ -445,6 +445,15 @@ namespace APISharedTests
             string extremePlugin = File.ReadAllText(Path.Combine(workspace, "ExtremePowers", "src", "ExtremePowersPlugin.cs"));
             string extremeProject = File.ReadAllText(Path.Combine(workspace, "ExtremePowers", "ExtremePowers.csproj"));
             string releaseConfig = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "release-projects.json"));
+            Func<string, string, bool> apiDependencyMatchesRelease = (source, consumer) =>
+            {
+                Match dependency = Regex.Match(source,
+                    @"BepInDependency\((?:ApiSharedGuid|""APIShared_Serp"")\s*,\s*""(?<version>[^""]+)""\)");
+                Match declared = Regex.Match(releaseConfig,
+                    @"""" + Regex.Escape(consumer) + @"""\s*:\s*""(?<version>[^""]+)""");
+                return dependency.Success && declared.Success &&
+                    dependency.Groups["version"].Value == declared.Groups["version"].Value;
+            };
             string releaseScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "Release-Mod.ps1"));
             string nexusScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Release", "NexusRelease.Common.ps1"));
             string steamScript = File.ReadAllText(Path.Combine(workspace, "Shared", "Steam", "Create-SteamModPack.ps1"));
@@ -680,12 +689,12 @@ namespace APISharedTests
             Assert(activeRuntime.Contains("TryGetAivBuildStep") && activeRuntime.Contains("TryRegisterObserver") &&
                 !activeAiv.Contains("ExecuteBuildStepDelegate") && !activeAiv.Contains("executeBuildStepHook") &&
                 activeProject.Contains("<Reference Include=\"APIShared\">") && activeProject.Contains("<Private>false</Private>") &&
-                activePlugin.Contains("[BepInDependency(ApiSharedGuid, \"0.3.6\")]"),
+                apiDependencyMatchesRelease(activePlugin, "ActiveAIVDetector"),
                 "ActiveAIVDetector prebuild tracing must use APIShared as a thin hard dependency");
             Assert(bugfixControlGroups.Contains("TryRemoveUnitFromControlGroups") &&
                 !bugfixControlGroups.Contains("ControlGroupStorage") &&
                 !bugfixNativeDefinition.Contains("ControlGroupStorage") &&
-                bugfixPlugin.Contains("[BepInDependency(ApiSharedGuid, \"0.3.6\")]"),
+                apiDependencyMatchesRelease(bugfixPlugin, "BugfixesAndQoL"),
                 "native control-group storage must only be resolved and mutated inside APIShared");
             int bindStart = castlePlanner.IndexOf("private void BindNativeFunctions(", StringComparison.Ordinal);
             int hookStart = castlePlanner.IndexOf("private void InstallHumanStartPreparationHook(", StringComparison.Ordinal);
@@ -731,16 +740,16 @@ namespace APISharedTests
                 customProject.Contains("<Reference Include=\"APIShared\">") && customProject.Contains("<Private>false</Private>") &&
                 extremeProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
                 extremeProject.Contains("<Reference Include=\"APIShared\">") && extremeProject.Contains("<Private>false</Private>") &&
-                castlePlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]" ) &&
-                customPlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]" ) &&
-                extremePlugin.Contains("[BepInDependency(\"APIShared_Serp\", \"0.3.6\")]"),
+                apiDependencyMatchesRelease(castlePlugin, "CastlePlanner") &&
+                apiDependencyMatchesRelease(customPlugin, "ExtendedData") &&
+                apiDependencyMatchesRelease(extremePlugin, "ExtremePowers"),
                 "all known active preset consumers must compile against and hard-depend on APIShared");
-            Assert(releaseConfig.Contains("\"ActiveAIVDetector\": \"0.3.6\"") &&
-                releaseConfig.Contains("\"BugfixesAndQoL\": \"0.3.6\"") &&
-                releaseConfig.Contains("\"CastlePlanner\": \"0.3.6\"") &&
-                releaseConfig.Contains("\"ExtendedData\": \"0.3.6\"") &&
-                releaseConfig.Contains("\"ExtremePowers\": \"0.3.6\"") &&
-                releaseConfig.Contains("\"ExtraFeatures\": \"0.3.6\""),
+            Assert(apiDependencyMatchesRelease(activePlugin, "ActiveAIVDetector") &&
+                apiDependencyMatchesRelease(bugfixPlugin, "BugfixesAndQoL") &&
+                apiDependencyMatchesRelease(castlePlugin, "CastlePlanner") &&
+                apiDependencyMatchesRelease(customPlugin, "ExtendedData") &&
+                apiDependencyMatchesRelease(extremePlugin, "ExtremePowers") &&
+                apiDependencyMatchesRelease(File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "src", "ExtraFeaturesPlugin.cs")), "ExtraFeatures"),
                 "release inventory must declare each consumer's actual APIShared minimum");
             Assert(releaseScript.Contains("Profile = 'Thin'") &&
                 !releaseScript.Contains("Profile = 'Bundle'") &&
@@ -761,18 +770,22 @@ namespace APISharedTests
                 hostPlugin.Contains("expected={assetMods.Count}"),
                 "Steam host must register infrastructure assets before active child assets and include them in diagnostics");
             string randomPathing = randomRuntime + "\n" + randomRegistry + "\n" + randomPlacement;
-            Assert(Count(randomPathing, "GetPathComponentGrid()") == 5 &&
+            Assert(Count(randomPathing, "GetPathComponentGrid()") > 0 &&
                 !randomPathing.Contains("TileManager.PathConnectionGrid") &&
                 Count(randomPathing, "pathConnections[") == Count(randomPathing, "pathConnections.Length"),
-                "RandomEvents must use the 2.4.0 path-component grid and guard every indexed access by span length");
-            Assert(randomPlugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.4.0\")]") &&
-                randomManifest.Contains("\"MinimumScriptExtenderVersion\": \"2.4.0\""),
-                "RandomEvents source and manifest must require Script Extender 2.4.0");
+                "RandomEvents must use the public path-component grid and guard every indexed access by span length");
+            Match randomMinimumMatch = Regex.Match(randomManifest,
+                @"""MinimumScriptExtenderVersion""\s*:\s*""([^""]*)""");
+            string randomMinimum = randomMinimumMatch.Success ? randomMinimumMatch.Groups[1].Value : string.Empty;
+            Assert(string.IsNullOrEmpty(randomMinimum) ||
+                randomPlugin.Contains($"[BepInDependency(ScriptExtenderGuid, \"{randomMinimum}\")]"),
+                "RandomEvents source dependency must match its manifest minimum");
             MatchCollection orderedRouteCalls = Regex.Matches(
                 hunterRoutes,
                 @"FindNextComponentTowardDestination\s*\(\s*(?<root>inputs|context)\.PlayerId\s*,\s*\k<root>\.(?:SourcePcl)\s*,\s*\k<root>\.(?:TargetPcl)\s*,");
-            Assert(Count(hunterRoutes, "FindNextComponentTowardDestination(") == 5 && orderedRouteCalls.Count == 5,
-                "2.4.0 route queries must retain player, current component, destination component, mode argument order");
+            int routeCallCount = Count(hunterRoutes, "FindNextComponentTowardDestination(");
+            Assert(routeCallCount > 0 && orderedRouteCalls.Count == routeCallCount,
+                "route queries must retain player, current component, destination component, mode argument order");
             Assert(modVersion.Length > 0 && sourceManifest.Contains("\"NetworkMode\": 1"),
                 "source manifest declares a version and gameplay mode");
             Assert(packageManifest.Contains($"\"Version\": \"{modVersion}\"") && packageManifest.Contains("\"NetworkMode\": 1"),

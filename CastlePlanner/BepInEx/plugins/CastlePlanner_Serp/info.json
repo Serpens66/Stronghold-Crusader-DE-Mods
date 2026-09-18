@@ -5,21 +5,16 @@
   "Description": "Displays AIVJSON blueprints, spawns personal human castles, and contains the gated AI lobby placement workflow.",
   "Version": "0.8.29",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.3.0",
+  "MinimumScriptExtenderVersion": "2.7.1",
   "MaximumScriptExtenderVersion": "",
-  "Dependencies": [
-    {
-      "GUID": "000shcdese",
-      "MinimumVersion": "2.3.0"
-    }
-  ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
     {
       "Version": "0.8.29",
       "Changes": [
-        "Added Nothing and Rotate keep only start choices and made castle/Keep rotation compatible with Fixes 1.17.0."
+        "Added Nothing and Rotate keep only start choices and made castle/Keep rotation compatible with Fixes 1.17.0.",
+        "Migrated AIV and building diagnostics to Script Extender 2.7.1 while keeping access tiles distinct from occupied footprints."
       ]
     },
     {

@@ -103,6 +103,15 @@ function Assert-SEManifestExtenderRange([object]$Manifest, [string]$TargetVersio
     }
 }
 
+function Assert-SENoGenericExtenderDependency([object]$Manifest, [string]$ModName) {
+    $genericDependencies = @($Manifest.Dependencies | Where-Object {
+        $null -ne $_ -and [string]$_.GUID -eq '000shcdese'
+    })
+    if ($genericDependencies.Count -gt 0) {
+        throw "$ModName declares 000shcdese in info.json Dependencies. Use MinimumScriptExtenderVersion for the SerpsModsHost warning and a versioned BepInDependency for load protection."
+    }
+}
+
 function Assert-SEMetadataMutationArguments(
     [bool]$HasCompatibilityPlan,
     [string]$VersionMode,

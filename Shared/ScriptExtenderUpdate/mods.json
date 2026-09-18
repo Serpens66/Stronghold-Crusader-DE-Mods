@@ -151,6 +151,18 @@
     ]
   },
   {
+    "Name": "FormationTest",
+    "Guid": "FormationTest_Serp",
+    "Manifest": "Testmods\\FormationTest\\info.json",
+    "Plugin": "Testmods\\FormationTest\\src\\FormationTestPlugin.cs",
+    "Project": "Testmods\\FormationTest\\FormationTest.csproj",
+    "BuildDriver": "Testmods\\FormationTest\\build.bat",
+    "Package": "Testmods\\FormationTest\\BepInEx\\plugins\\FormationTest_Serp",
+    "Install": "FormationTest_Serp",
+    "BuildOrder": 100,
+    "DependsOn": []
+  },
+  {
     "Name": "ExtremePowers",
     "Guid": "ExtremePowers_Serp",
     "Manifest": "ExtremePowers\\info.json",
@@ -195,6 +207,18 @@
     "BuildDriver": "Testmods\\OxTetherIdleFixTest\\build.bat",
     "Package": "Testmods\\OxTetherIdleFixTest\\BepInEx\\plugins\\OxTetherIdleFixTest_Serp",
     "Install": "OxTetherIdleFixTest_Serp",
+    "BuildOrder": 100,
+    "DependsOn": ["APIShared"]
+  },
+  {
+    "Name": "OutpostTest",
+    "Guid": "OutpostTest_Serp",
+    "Manifest": "Testmods\\OutpostTest\\info.json",
+    "Plugin": "Testmods\\OutpostTest\\src\\OutpostTestPlugin.cs",
+    "Project": "Testmods\\OutpostTest\\OutpostTest.csproj",
+    "BuildDriver": "Testmods\\OutpostTest\\build.bat",
+    "Package": "Testmods\\OutpostTest\\BepInEx\\plugins\\OutpostTest_Serp",
+    "Install": "OutpostTest_Serp",
     "BuildOrder": 100,
     "DependsOn": ["APIShared"]
   },

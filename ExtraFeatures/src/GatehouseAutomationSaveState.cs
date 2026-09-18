@@ -99,16 +99,16 @@ namespace ExtraFeatures
         [Key(1)] public int BuildingType;
         [Key(2)] public int TileXBegin;
         [Key(3)] public int TileYBegin;
-        [Key(4)] public int TileXEnd;
-        [Key(5)] public int TileYEnd;
+        [Key(4)] public int AccessTileX;
+        [Key(5)] public int AccessTileY;
 
         internal bool HasValidShape =>
             OwnerPlayerId >= 1 && OwnerPlayerId <= 8 && BuildingType > 0 &&
             TileXBegin >= 0 && TileYBegin >= 0 &&
-            TileXEnd >= TileXBegin && TileYEnd >= TileYBegin;
+            AccessTileX >= 0 && AccessTileX < 800 && AccessTileY >= 0 && AccessTileY < 800;
 
         internal string IdentityKey =>
-            $"{OwnerPlayerId}:{BuildingType}:{TileXBegin},{TileYBegin}-{TileXEnd},{TileYEnd}";
+            $"{OwnerPlayerId}:{BuildingType}:origin={TileXBegin},{TileYBegin}:access={AccessTileX},{AccessTileY}";
     }
 
     internal sealed class GatehouseAutomationSaveStateFormatter : IMessagePackFormatter<GatehouseAutomationSaveState>
@@ -240,8 +240,8 @@ namespace ExtraFeatures
             writer.Write(value.BuildingType);
             writer.Write(value.TileXBegin);
             writer.Write(value.TileYBegin);
-            writer.Write(value.TileXEnd);
-            writer.Write(value.TileYEnd);
+            writer.Write(value.AccessTileX);
+            writer.Write(value.AccessTileY);
         }
 
         public GatehouseMapLocator Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
@@ -261,8 +261,8 @@ namespace ExtraFeatures
                     case 1: locator.BuildingType = reader.ReadInt32(); break;
                     case 2: locator.TileXBegin = reader.ReadInt32(); break;
                     case 3: locator.TileYBegin = reader.ReadInt32(); break;
-                    case 4: locator.TileXEnd = reader.ReadInt32(); break;
-                    case 5: locator.TileYEnd = reader.ReadInt32(); break;
+                    case 4: locator.AccessTileX = reader.ReadInt32(); break;
+                    case 5: locator.AccessTileY = reader.ReadInt32(); break;
                     default: reader.Skip(); break;
                 }
             }

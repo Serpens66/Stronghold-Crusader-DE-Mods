@@ -2,6 +2,15 @@ param([switch]$NormalizeChangedText)
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $workspace
+function Get-ApiSharedDependencyVersion([string]$PluginText) {
+    $match = [regex]::Match($PluginText, 'BepInDependency\((?:"APIShared_Serp"|ApiSharedGuid),\s*"(?<version>[^"]+)"\)')
+    if ($match.Success) { return $match.Groups['version'].Value }
+    $constant = [regex]::Match($PluginText, 'const\s+string\s+ApiSharedVersion\s*=\s*"(?<version>[^"]+)"')
+    if ($constant.Success -and $PluginText -match 'BepInDependency\((?:"APIShared_Serp"|ApiSharedGuid),\s*ApiSharedVersion\)') {
+        return $constant.Groups['version'].Value
+    }
+    return $null
+}
 $changed = @(& git diff --name-only) + @(& git ls-files --others --exclude-standard)
 $textTargets = @($changed | Where-Object { $_ -match '\.(cs|csproj|ps1|md|json|jsonl|bat)$' } | Sort-Object -Unique)
 foreach ($relative in $textTargets) {
@@ -58,7 +67,7 @@ foreach ($relative in $projects) {
     if ($relative -ne 'APIShared\APIShared.csproj') {
         if (-not $project.SelectSingleNode('//*[local-name()="Reference" and @Include="APIShared"]')) { throw "Missing APIShared reference: $relative" }
         $pluginText = (@($sources | Where-Object { $_ -match 'Plugin\.cs$' } | ForEach-Object { [IO.File]::ReadAllText($_) }) -join "`n")
-        if ($pluginText -notmatch 'BepInDependency\((?:"APIShared_Serp"|ApiSharedGuid),\s*(?:"0\.3\.6"|ApiSharedVersion)\)') {
+        if (-not (Get-ApiSharedDependencyVersion $pluginText)) {
             throw "Missing mandatory APIShared dependency: $relative"
         }
     }
@@ -69,8 +78,17 @@ $release = Get-Content 'Shared\Release\release-projects.json' -Raw | ConvertFrom
 foreach ($projectRelative in $projects) {
     $matches = @($inventory | Where-Object { $_.Project -eq $projectRelative })
     if ($matches.Count -ne 1) { throw "Missing or duplicate inventory project: $projectRelative" }
-    if ($matches[0].Name -ne 'APIShared' -and $release.ApiShared.Consumers.($matches[0].Name) -ne '0.3.6') {
-        throw "Missing release dependency: $projectRelative"
+    if ($matches[0].Name -ne 'APIShared') {
+        [xml]$project = [IO.File]::ReadAllText((Join-Path $workspace $projectRelative))
+        $projectRoot = Split-Path -Parent (Join-Path $workspace $projectRelative)
+        $pluginText = (@($project.SelectNodes('//*[local-name()="Compile"]') | ForEach-Object {
+            $include = $_.GetAttribute('Include')
+            if ($include -notmatch '[$*]' -and $include -match 'Plugin\.cs$') { [IO.File]::ReadAllText((Join-Path $projectRoot $include)) }
+        }) -join "`n")
+        $apiDependencyVersion = Get-ApiSharedDependencyVersion $pluginText
+        if (-not $apiDependencyVersion -or $release.ApiShared.Consumers.($matches[0].Name) -ne $apiDependencyVersion) {
+            throw "Release dependency does not match plugin metadata: $projectRelative"
+        }
     }
 }
 foreach ($item in $inventory) {

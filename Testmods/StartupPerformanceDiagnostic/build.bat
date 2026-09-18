@@ -11,7 +11,9 @@ set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PATCHER=%GAME_DIR%\BepInEx\patchers\%PATCHER_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
 set "NO_PAUSE=0"
+set "NO_INSTALL=0"
 for %%A in (%*) do if /I "%%~A"=="/nopause" set "NO_PAUSE=1"
+for %%A in (%*) do if /I "%%~A"=="/noinstall" set "NO_INSTALL=1"
 
 powershell.exe -NoProfile -Command "if (Get-Process -Name 'Stronghold Crusader Definitive Edition' -ErrorAction SilentlyContinue) { exit 1 } else { exit 0 }" >nul 2>&1
 if errorlevel 1 (
@@ -41,7 +43,7 @@ if errorlevel 1 goto build_failed_popd
 "%MSBUILD%" tests\StartupPerformanceDiagnostic.Tests.csproj /p:Configuration=Debug
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\bin\StartupPerformanceDiagnostic.Tests.exe"
-if errorlevel 1 goto tests_failed_popd
+if not "%ERRORLEVEL%"=="0" goto tests_failed_popd
 popd
 
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
@@ -49,6 +51,7 @@ if not exist "%LOCAL_PATCHER_DIR%\%PATCHER_NAME%" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\StartupPerformanceDiagnostic.dll" goto package_failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto package_failed
 if exist "%LOCAL_PLUGIN_DIR%\StartupPerformanceDiagnostic.Patcher.dll" goto package_failed
+if "%NO_INSTALL%"=="1" goto built_without_install
 
 if not exist "%GAME_DIR%\BepInEx\patchers\" mkdir "%GAME_DIR%\BepInEx\patchers"
 copy /Y "%LOCAL_PATCHER_DIR%\%PATCHER_NAME%" "%GAME_PATCHER%" >nul
@@ -58,6 +61,11 @@ xcopy "%LOCAL_PLUGIN_DIR%" "%GAME_PLUGIN_DIR%\" /E /I /Q /Y >nul
 if errorlevel 1 goto copy_failed
 
 echo Startup Performance Diagnostic built, tested, and installed successfully.
+if "%NO_PAUSE%"=="0" pause
+exit /b 0
+
+:built_without_install
+echo Startup Performance Diagnostic built and tested successfully. Installation skipped.
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 

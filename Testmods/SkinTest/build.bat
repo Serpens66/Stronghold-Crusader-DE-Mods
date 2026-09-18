@@ -30,7 +30,7 @@ pushd "%PROJECT_DIR%"
 "%MSBUILD%" tests\SkinTest.Tests.csproj /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 ( popd& goto failed )
 "%PROJECT_DIR%tests\bin\SkinTest.Tests.exe"
-if errorlevel 1 ( popd& goto failed )
+if not "%ERRORLEVEL%"=="0" ( popd& goto failed )
 "%MSBUILD%" SkinTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 if "%BUILD_EXIT_CODE%"=="0" "%PROJECT_DIR%tests\bin\SkinTest.Tests.exe" --runtime-assembly "%PROJECT_DIR%BepInEx\plugins\SkinTest_Serp\SkinTest.dll"

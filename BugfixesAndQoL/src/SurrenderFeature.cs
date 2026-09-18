@@ -627,7 +627,7 @@ namespace BugfixesAndQoL
                     return;
 
                 spectatorPromotionChoreExpected = false;
-                int sessionSnapshot = activeSessionId;
+                long sessionSnapshot = activeSessionId;
                 Shared.GameModeSnapshot gameModeSnapshot = Shared.GameModeHelper.Capture();
                 Shared.UnityMainThreadDispatch.TryEnqueue(() =>
                 {

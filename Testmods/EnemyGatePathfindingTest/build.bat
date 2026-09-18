@@ -35,7 +35,7 @@ pushd "%PROJECT_DIR%"
 "%MSBUILD%" EnemyGatePathfindingTest.PolicyTests.csproj /p:Configuration=Debug
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\bin\EnemyGatePathfindingTest.PolicyTests.exe"
-if errorlevel 1 goto test_failed_popd
+if not "%ERRORLEVEL%"=="0" goto test_failed_popd
 "%MSBUILD%" EnemyGatePathfindingTest.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
 popd

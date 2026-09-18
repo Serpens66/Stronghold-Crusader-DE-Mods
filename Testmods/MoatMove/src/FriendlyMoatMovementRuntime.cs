@@ -958,7 +958,7 @@ namespace MoatMove
             ValidateGameUnitFieldOffset(
                 nameof(GameUnit.UnknownRelevant1), UnitMoatPathConsumptionModeOffset + 1);
             ValidateStructFieldOffset(
-                typeof(GameUnitManager), nameof(GameUnitManager.LastOrderedUnit), NativeUnitSlotDataOffset);
+                typeof(GameUnitManager), nameof(GameUnitManager.GameUnitArray), NativeUnitSlotDataOffset);
             ValidateStructFieldOffset(
                 typeof(GameCursorManager), nameof(GameCursorManager.r_HoverOverUnitId), 0x30);
             if (Marshal.SizeOf(typeof(GameUnit)) != NativeUnitStride)
@@ -7165,25 +7165,24 @@ namespace MoatMove
                 return false;
             }
 
-            int minX = Math.Max(0, Math.Min(
-                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
-            int maxX = Math.Min(MapWidth - 1, Math.Max(
-                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
-            int minY = Math.Max(0, Math.Min(
-                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
-            int maxY = Math.Min(MapWidth - 1, Math.Max(
-                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
             long bestDistanceSquared = long.MaxValue;
-            for (int y = minY; y <= maxY; y++)
+            uint gridSize = building->r_OccupyTileGridSize;
+            if (gridSize == 0 || gridSize > Shared.GameBuildingFootprint.MaximumGridSize)
+                return false;
+            int tileCount = checked((int)(gridSize * gridSize));
+            uint* occupiedTileIds = &building->r_OccupiedTileIdsArrayBegin;
+            for (int index = 0; index < tileCount; index++)
             {
-                for (int x = minX; x <= maxX; x++)
-                {
-                    int candidateTileId = GameTileManagerAPI.Instance.GetTileId(x, y);
-                    if (!IsValidTileId(candidateTileId) ||
-                        GameTileManagerAPI.Instance.GetTileBuildingId(candidateTileId) != buildingId)
-                    {
-                        continue;
-                    }
+                uint rawCandidateTileId = occupiedTileIds[index];
+                if (rawCandidateTileId > int.MaxValue)
+                    continue;
+                int candidateTileId = (int)rawCandidateTileId;
+                if (!IsValidTileId(candidateTileId) ||
+                    GameTileManagerAPI.Instance.GetTileBuildingId(candidateTileId) != buildingId)
+                    continue;
+                UnmanagedVector2<ushort> candidate = GameTileManagerAPI.Instance.GetTileVectorFromId(candidateTileId);
+                int x = candidate.X;
+                int y = candidate.Y;
 
                     long deltaX = x - mouseX;
                     long deltaY = y - mouseY;
@@ -7199,7 +7198,6 @@ namespace MoatMove
                     targetX = x;
                     targetY = y;
                     targetTileId = candidateTileId;
-                }
             }
 
             return targetTileId >= 0;
@@ -7237,32 +7235,14 @@ namespace MoatMove
                 return false;
 
             int candidateTileId = (int)rawTileId;
-            if (GameTileManagerAPI.Instance.GetTileBuildingId(candidateTileId) != buildingId)
+            if (GameTileManagerAPI.Instance.GetTileBuildingId(candidateTileId) != buildingId ||
+                !Shared.GameBuildingFootprint.ContainsTileId(building, candidateTileId))
                 return false;
-
-            int minX = Math.Max(0, Math.Min(
-                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
-            int maxX = Math.Min(MapWidth - 1, Math.Max(
-                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
-            int minY = Math.Max(0, Math.Min(
-                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
-            int maxY = Math.Min(MapWidth - 1, Math.Max(
-                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
-            for (int y = minY; y <= maxY; y++)
-            {
-                for (int x = minX; x <= maxX; x++)
-                {
-                    if (GameTileManagerAPI.Instance.GetTileId(x, y) != candidateTileId)
-                        continue;
-
-                    targetX = x;
-                    targetY = y;
-                    targetTileId = candidateTileId;
-                    return true;
-                }
-            }
-
-            return false;
+            UnmanagedVector2<ushort> candidatePosition = GameTileManagerAPI.Instance.GetTileVectorFromId(candidateTileId);
+            targetX = candidatePosition.X;
+            targetY = candidatePosition.Y;
+            targetTileId = candidateTileId;
+            return true;
         }
 
         private bool TryGetHostileLivingBuildingForCursor(
@@ -7463,14 +7443,12 @@ namespace MoatMove
                 return false;
             }
 
-            int minX = Math.Min(building->r_TilePositionXBegin, building->r_TilePositionXEnd);
-            int maxX = Math.Max(building->r_TilePositionXBegin, building->r_TilePositionXEnd);
-            int minY = Math.Min(building->r_TilePositionYBegin, building->r_TilePositionYEnd);
-            int maxY = Math.Max(building->r_TilePositionYBegin, building->r_TilePositionYEnd);
-            minX = Math.Max(0, minX - 1);
-            minY = Math.Max(0, minY - 1);
-            maxX = Math.Min(MapWidth - 1, maxX + 1);
-            maxY = Math.Min(MapWidth - 1, maxY + 1);
+            if (!Shared.GameBuildingFootprint.TryGetBounds(building, out Shared.GameBuildingFootprintBounds bounds))
+                return false;
+            int minX = Math.Max(0, bounds.MinX - 1);
+            int minY = Math.Max(0, bounds.MinY - 1);
+            int maxX = Math.Min(MapWidth - 1, bounds.MaxX + 1);
+            int maxY = Math.Min(MapWidth - 1, bounds.MaxY + 1);
 
             RouteProbeSummary observed = new RouteProbeSummary(scope.PlayerId);
             bool reachableWithMoat = false;

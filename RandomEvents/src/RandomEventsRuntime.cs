@@ -11,6 +11,7 @@ using SHCDESE.EventAPI.Network;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using Shared;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -2093,22 +2094,23 @@ namespace RandomEvents
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             long bestDistanceSquared = long.MaxValue;
-            int centerX = (building.r_TilePositionXBegin + building.r_TilePositionXEnd) / 2;
-            int centerY = (building.r_TilePositionYBegin + building.r_TilePositionYEnd) / 2;
+            if (!GameBuildingFootprint.TryGetBounds(building, out GameBuildingFootprintBounds footprint))
+                return false;
+            int centerX = footprint.CenterXTimesTwo / 2;
+            int centerY = footprint.CenterYTimesTwo / 2;
 
-            for (int y = building.r_TilePositionYBegin - 1; y <= building.r_TilePositionYEnd + 1; y++)
+            for (int y = footprint.MinY - 1; y <= footprint.MaxY + 1; y++)
             {
-                for (int x = building.r_TilePositionXBegin - 1; x <= building.r_TilePositionXEnd + 1; x++)
+                for (int x = footprint.MinX - 1; x <= footprint.MaxX + 1; x++)
                 {
-                    if ((x >= building.r_TilePositionXBegin && x <= building.r_TilePositionXEnd &&
-                         y >= building.r_TilePositionYBegin && y <= building.r_TilePositionYEnd) ||
-                        !tiles.IsTileInsideMapBounds(x, y))
+                    if (!tiles.IsTileInsideMapBounds(x, y))
                     {
                         continue;
                     }
 
                     int tileId = tiles.GetTileId(x, y);
-                    if ((uint)tileId >= (uint)pathConnections.Length ||
+                    if (GameBuildingFootprint.ContainsTileId(building, tileId) ||
+                        (uint)tileId >= (uint)pathConnections.Length ||
                         !tiles.IsTileWalkableAndUnoccupied(tileId) ||
                         pathConnections[tileId] != sourcePathComponent)
                     {
@@ -2136,19 +2138,20 @@ namespace RandomEvents
         {
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
-            for (int y = building.r_TilePositionYBegin - 1; y <= building.r_TilePositionYEnd + 1; y++)
+            if (!GameBuildingFootprint.TryGetBounds(building, out GameBuildingFootprintBounds footprint))
+                return false;
+            for (int y = footprint.MinY - 1; y <= footprint.MaxY + 1; y++)
             {
-                for (int x = building.r_TilePositionXBegin - 1; x <= building.r_TilePositionXEnd + 1; x++)
+                for (int x = footprint.MinX - 1; x <= footprint.MaxX + 1; x++)
                 {
-                    if ((x >= building.r_TilePositionXBegin && x <= building.r_TilePositionXEnd &&
-                         y >= building.r_TilePositionYBegin && y <= building.r_TilePositionYEnd) ||
-                        !tiles.IsTileInsideMapBounds(x, y))
+                    if (!tiles.IsTileInsideMapBounds(x, y))
                     {
                         continue;
                     }
 
                     int tileId = tiles.GetTileId(x, y);
-                    if ((uint)tileId < (uint)pathConnections.Length &&
+                    if (!GameBuildingFootprint.ContainsTileId(building, tileId) &&
+                        (uint)tileId < (uint)pathConnections.Length &&
                         tiles.IsTileWalkableAndUnoccupied(tileId) &&
                         pathConnections[tileId] == sourcePathComponent)
                     {
@@ -2192,21 +2195,24 @@ namespace RandomEvents
             Span<ushort> pathConnections = GamePathingManagerAPI.Instance.GetPathComponentGrid();
             Dictionary<ushort, bool> reachableComponents = new Dictionary<ushort, bool>();
             long bestDistanceSquared = long.MaxValue;
+            if (!GameBuildingFootprint.TryGetBounds(signpost, out GameBuildingFootprintBounds footprint))
+            {
+                failure = "registered signpost has an invalid occupied-tile footprint.";
+                return false;
+            }
 
             // The registry returns the building center, whose path component may be zero.
             // Spawn on the nearest free perimeter tile so Vanilla can initialize movement normally.
-            for (int y = signpost->r_TilePositionYBegin - 1; y <= signpost->r_TilePositionYEnd + 1; y++)
+            for (int y = footprint.MinY - 1; y <= footprint.MaxY + 1; y++)
             {
-                for (int x = signpost->r_TilePositionXBegin - 1; x <= signpost->r_TilePositionXEnd + 1; x++)
+                for (int x = footprint.MinX - 1; x <= footprint.MaxX + 1; x++)
                 {
-                    bool insideFootprint =
-                        x >= signpost->r_TilePositionXBegin && x <= signpost->r_TilePositionXEnd &&
-                        y >= signpost->r_TilePositionYBegin && y <= signpost->r_TilePositionYEnd;
-                    if (insideFootprint || !tiles.IsTileInsideMapBounds(x, y))
+                    if (!tiles.IsTileInsideMapBounds(x, y))
                         continue;
 
                     int candidateTileId = tiles.GetTileId(x, y);
-                    if (!tiles.IsValidTileId(candidateTileId) ||
+                    if (GameBuildingFootprint.ContainsTileId(signpost, candidateTileId) ||
+                        !tiles.IsValidTileId(candidateTileId) ||
                         (uint)candidateTileId >= (uint)pathConnections.Length ||
                         !tiles.IsTileWalkableAndUnoccupied(candidateTileId))
                     {
@@ -2245,8 +2251,8 @@ namespace RandomEvents
             if (spawnTileId < 0)
             {
                 failure =
-                    $"footprint=({signpost->r_TilePositionXBegin},{signpost->r_TilePositionYBegin})-" +
-                    $"({signpost->r_TilePositionXEnd},{signpost->r_TilePositionYEnd}) has no free, " +
+                    $"footprint=({footprint.MinX},{footprint.MinY})-" +
+                    $"({footprint.MaxX},{footprint.MaxY}) has no free, " +
                     $"walkable perimeter tile connected to a living building or owned wall of player {targetPlayerId}";
                 return false;
             }
@@ -2306,11 +2312,14 @@ namespace RandomEvents
                     continue;
                 }
 
+                if (!GameBuildingFootprint.TryGetBounds(ref building, out GameBuildingFootprintBounds footprint))
+                    continue;
+
                 farms.Add(new RabbitFarm(
                     spanIndex + 1,
                     building.r_BuildingType,
-                    (building.r_TilePositionXBegin + building.r_TilePositionXEnd) / 2,
-                    (building.r_TilePositionYBegin + building.r_TilePositionYEnd) / 2));
+                    footprint.CenterXTimesTwo / 2,
+                    footprint.CenterYTimesTwo / 2));
             }
 
             if (farms.Count == 0)

@@ -148,7 +148,16 @@ namespace BugfixesAndQoL
             uint targetGlobalId = *(uint*)((byte*)healer + HealerTargetGlobalIdOffset);
             bool directTargetAdvanced = false;
 
-            if (targetSlot > 0 &&
+            // SHCDESE-WORKAROUND(2.7.1-projectile-slot-view): see GameProjectileSlotPolicy.
+            Span<GameProjectile> projectiles = GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
+            if (!Shared.GameProjectileSlotPolicy.TryResolve(
+                    projectiles,
+                    out Shared.GameProjectileSlotLayout projectileLayout))
+            {
+                throw new InvalidOperationException("The Script Extender projectile-slot view is unavailable or inconsistent.");
+            }
+
+            if (projectileLayout.IsAddressableId(targetSlot) &&
                 GameProjectileManagerAPI.Instance.TryGetProjectileById(targetSlot, out GameProjectile* target) &&
                 target != null &&
                 target->r_AliveState == AliveState.IsAlive &&
@@ -161,10 +170,14 @@ namespace BugfixesAndQoL
             }
 
             int nearbyAdvancedCount = 0;
-            Span<GameProjectile> projectiles = GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
-            for (int index = 0; index < projectiles.Length; index++)
+            for (int projectileId = 1;
+                projectileId < projectileLayout.ExclusiveUpperBound;
+                projectileId++)
             {
-                ref GameProjectile projectile = ref projectiles[index];
+                if (!projectileLayout.TryGetSpanIndex(projectileId, out int spanIndex))
+                    throw new InvalidOperationException("The resolved projectile-slot view became inconsistent.");
+
+                ref GameProjectile projectile = ref projectiles[spanIndex];
                 if (projectile.r_AliveState != AliveState.IsAlive ||
                     projectile.r_ProjectileType != ProjectileType.Disease ||
                     ReadPhase(ref projectile) != TreatmentTransitionPhase ||

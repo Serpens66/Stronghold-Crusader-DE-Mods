@@ -25,7 +25,7 @@ namespace AIDefenseTest
         // Known behaviour buckets use values 0 through 22. A signed -1 sentinel keeps protected
         // defenders outside those counters and, unlike 0, does not mark them as unclassified.
         private const short ProtectedAIBehaviourTypeValue = -1;
-        private const AITribeRole16 ProtectedAIBehaviourType = (AITribeRole16)ProtectedAIBehaviourTypeValue;
+        private const ushort ProtectedAIBehaviourType = ushort.MaxValue;
         private const ushort ProtectedAIBehaviourRelatedValue = 0;
 
         private const eChimps DefenderType = eChimps.CHIMP_TYPE_ARCHER;
@@ -856,8 +856,13 @@ namespace AIDefenseTest
             int bestTileX = 0;
             int bestTileY = 0;
 
-            int towerCenterX2 = tower->r_TilePositionXBegin + tower->r_TilePositionXEnd;
-            int towerCenterY2 = tower->r_TilePositionYBegin + tower->r_TilePositionYEnd;
+            if (!Shared.GameBuildingFootprint.TryGetBounds(tower, out Shared.GameBuildingFootprintBounds towerBounds))
+            {
+                failureReason = "tower occupied-tile footprint is invalid";
+                return false;
+            }
+            int towerCenterX2 = towerBounds.CenterXTimesTwo;
+            int towerCenterY2 = towerBounds.CenterYTimesTwo;
 
             foreach (uint tileId in towerTileIds)
             {
@@ -941,8 +946,8 @@ namespace AIDefenseTest
 
             LogInfo(
                 $"Spawned protected tower defender: buildingId={buildingId}, towerGlobalId={tower->r_GlobalId}, " +
-                $"towerType={tower->r_BuildingType}, owner={ownerPlayerId}, towerBegin={tower->r_TilePositionXBegin},{tower->r_TilePositionYBegin}, " +
-                $"towerEnd={tower->r_TilePositionXEnd},{tower->r_TilePositionYEnd}, spawnTileId={spawnTileId}, " +
+                $"towerType={tower->r_BuildingType}, owner={ownerPlayerId}, footprint={towerBounds.MinX},{towerBounds.MinY}-{towerBounds.MaxX},{towerBounds.MaxY}, " +
+                $"access={tower->r_AccessTilePositionX},{tower->r_AccessTilePositionY}, spawnTileId={spawnTileId}, " +
                 $"spawnTile={bestTileX},{bestTileY}, tileHeight={bestHeight}, buildingHeight={tower->r_HeightElevation}, " +
                 $"unitId={unitId}, unitGlobalId={unit->r_GlobalId}, unitState={unit->r_AliveState}, initialTribeId={initialTribeId}, " +
                 $"initialAIBehaviourRelated={initialAIBehaviourRelated}, initialAIBehaviourType={initialAIBehaviourType}, " +

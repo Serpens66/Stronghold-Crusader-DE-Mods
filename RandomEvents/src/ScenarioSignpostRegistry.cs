@@ -188,19 +188,22 @@ namespace RandomEvents
 
             int selectedTileId = -1;
             long bestDistanceSquared = long.MaxValue;
-            // A signpost center is occupied. Case 148 uses the injected tile literally for every new unit.
-            for (int y = signpost->r_TilePositionYBegin - 1; y <= signpost->r_TilePositionYEnd + 1; y++)
+            if (!GameBuildingFootprint.TryGetBounds(signpost, out GameBuildingFootprintBounds footprint))
             {
-                for (int x = signpost->r_TilePositionXBegin - 1; x <= signpost->r_TilePositionXEnd + 1; x++)
+                failure = $"signpost {target.BuildingId} has an invalid occupied-tile footprint.";
+                return false;
+            }
+            // A signpost center is occupied. Case 148 uses the injected tile literally for every new unit.
+            for (int y = footprint.MinY - 1; y <= footprint.MaxY + 1; y++)
+            {
+                for (int x = footprint.MinX - 1; x <= footprint.MaxX + 1; x++)
                 {
-                    bool insideFootprint =
-                        x >= signpost->r_TilePositionXBegin && x <= signpost->r_TilePositionXEnd &&
-                        y >= signpost->r_TilePositionYBegin && y <= signpost->r_TilePositionYEnd;
-                    if (insideFootprint || !tiles.IsTileInsideMapBounds(x, y))
+                    if (!tiles.IsTileInsideMapBounds(x, y))
                         continue;
 
                     int tileId = tiles.GetTileId(x, y);
-                    if (!tiles.IsValidTileId(tileId) ||
+                    if (GameBuildingFootprint.ContainsTileId(signpost, tileId) ||
+                        !tiles.IsValidTileId(tileId) ||
                         (uint)tileId >= (uint)pathConnections.Length ||
                         !tiles.IsTileWalkableAndUnoccupied(tileId))
                         continue;
@@ -230,8 +233,8 @@ namespace RandomEvents
                 return true;
 
             failure =
-                $"signpost {target.BuildingId} footprint=({signpost->r_TilePositionXBegin},{signpost->r_TilePositionYBegin})-" +
-                $"({signpost->r_TilePositionXEnd},{signpost->r_TilePositionYEnd}) has no free walkable perimeter tile " +
+                $"signpost {target.BuildingId} footprint=({footprint.MinX},{footprint.MinY})-" +
+                $"({footprint.MaxX},{footprint.MaxY}) has no free walkable perimeter tile " +
                 $"connected to target player {targetPlayerId}.";
             return false;
         }
@@ -252,11 +255,14 @@ namespace RandomEvents
                     continue;
                 }
 
+                if (!GameBuildingFootprint.TryGetBounds(ref building, out GameBuildingFootprintBounds footprint))
+                    continue;
+
                 AddPerimeterPathComponents(
-                    building.r_TilePositionXBegin,
-                    building.r_TilePositionYBegin,
-                    building.r_TilePositionXEnd,
-                    building.r_TilePositionYEnd,
+                    footprint.MinX,
+                    footprint.MinY,
+                    footprint.MaxX,
+                    footprint.MaxY,
                     tiles,
                     pathConnections,
                     result);
@@ -339,8 +345,10 @@ namespace RandomEvents
                     !TryGetUsableSignpost(buildingId, out GameBuilding* signpost))
                     continue;
 
-                double x = (signpost->r_TilePositionXBegin + signpost->r_TilePositionXEnd) / 2.0;
-                double y = (signpost->r_TilePositionYBegin + signpost->r_TilePositionYEnd) / 2.0;
+                if (!GameBuildingFootprint.TryGetBounds(signpost, out GameBuildingFootprintBounds footprint))
+                    continue;
+                double x = footprint.CenterXTimesTwo / 2.0;
+                double y = footprint.CenterYTimesTwo / 2.0;
                 double deltaX = x - anchorX;
                 double deltaY = y - anchorY;
                 candidates.Add(new SignpostTarget(
@@ -503,8 +511,10 @@ namespace RandomEvents
                 GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) &&
                 (keep->r_AliveState == AliveState.NeedsInit || keep->r_AliveState == AliveState.IsAlive))
             {
-                tileX = (keep->r_TilePositionXBegin + keep->r_TilePositionXEnd) / 2.0;
-                tileY = (keep->r_TilePositionYBegin + keep->r_TilePositionYEnd) / 2.0;
+                if (!GameBuildingFootprint.TryGetBounds(keep, out GameBuildingFootprintBounds footprint))
+                    return false;
+                tileX = footprint.CenterXTimesTwo / 2.0;
+                tileY = footprint.CenterYTimesTwo / 2.0;
                 reference = "keep";
                 return true;
             }

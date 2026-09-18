@@ -23,6 +23,7 @@ SerpsModsHost.ScriptExtenderRangeWarning=WARNING: Script Extender {Installed} is
 SerpsModsHost.ScriptExtenderMinimumWarning=WARNING: Script Extender {Installed} is not supported by this Serps Mods version. Install Script Extender {Minimum} or newer to make sure all mods work correctly.
 SerpsModsHost.ScriptExtenderCheckFailed=WARNING: Script Extender compatibility could not be verified. Make sure a supported Script Extender version is installed. Reason: {Reason}
 SerpsModsHost.ScriptExtenderIssuesHeader=WARNING: Script Extender {Installed} is incompatible with or could not be verified for these Serps Mods components:
+SerpsModsHost.ScriptExtenderRequiredAction=Required action: install a Script Extender version that satisfies every requirement below, then restart the game.
 SerpsModsHost.ScriptExtenderComponentMinimum=- {Name}: requires Script Extender {Minimum} or newer.
 SerpsModsHost.ScriptExtenderComponentMaximum=- {Name}: requires Script Extender {Maximum} or older.
 SerpsModsHost.ScriptExtenderComponentRange=- {Name}: supports Script Extender {Minimum} through {Maximum} (inclusive).

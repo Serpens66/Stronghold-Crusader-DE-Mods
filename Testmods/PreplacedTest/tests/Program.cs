@@ -974,15 +974,18 @@ namespace PreplacedTest.Tests
                 "first AIV building identity correlation missing");
             Check(source.Contains("transaction?.DisableAll()"), "native diagnostic failure does not defensively disable committed hooks");
             Check(!source.Contains("MaximumCapture") && !source.Contains("Take(100"), "fixed event cap found");
-            Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.1.0\")") &&
-                assemblyInfo.Contains("AssemblyFileVersion(\"0.1.1.0\")") &&
-                assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.1\")") &&
-                plugin.Contains("PluginVersion = \"0.1.1\"") && manifest.Contains("\"Version\": \"0.1.1\""),
+            Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.2.0\")") &&
+                assemblyInfo.Contains("AssemblyFileVersion(\"0.1.2.0\")") &&
+                assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.2\")") &&
+                plugin.Contains("PluginVersion = \"0.1.2\"") && manifest.Contains("\"Version\": \"0.1.2\""),
                 "active version declarations are inconsistent");
-            Check(plugin.Contains("BepInDependency(ScriptExtenderGuid, \"2.4.0\")") &&
-                plugin.Contains("testedScriptExtender=2.5.0") &&
-                plugin.Contains("5f02af6d074af7c741ebdaaccb48add39eba1bf4") &&
-                manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.4.0\"") &&
+            Match minimumMatch = Regex.Match(manifest,
+                @"""MinimumScriptExtenderVersion""\s*:\s*""([^""]*)""");
+            string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
+            Check(!string.IsNullOrEmpty(minimumExtenderVersion) &&
+                plugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")") &&
+                plugin.Contains("testedScriptExtender=2.7.1") &&
+                plugin.Contains("68ebf5380d711dfa7b7f84c9d4326ff81e42854c") &&
                 manifest.Contains("\"NetworkMode\": 1"),
                 "Script Extender compatibility or active test-fix network contract is inconsistent");
         }

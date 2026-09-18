@@ -320,10 +320,23 @@ namespace BugfixesAndQoL
             }
 
             var reserved = new List<DiseaseIdentity>();
+            // SHCDESE-WORKAROUND(2.7.1-projectile-slot-view): see GameProjectileSlotPolicy.
             Span<GameProjectile> projectiles = GameProjectileManagerAPI.Instance.GetProjectilesAsSpan();
-            for (int index = 0; index < projectiles.Length; index++)
+            if (!Shared.GameProjectileSlotPolicy.TryResolve(
+                    projectiles,
+                    out Shared.GameProjectileSlotLayout projectileLayout))
             {
-                ref GameProjectile projectile = ref projectiles[index];
+                throw new InvalidOperationException("The Script Extender projectile-slot view is unavailable or inconsistent.");
+            }
+
+            for (int projectileId = 1;
+                projectileId < projectileLayout.ExclusiveUpperBound;
+                projectileId++)
+            {
+                if (!projectileLayout.TryGetSpanIndex(projectileId, out int spanIndex))
+                    throw new InvalidOperationException("The resolved projectile-slot view became inconsistent.");
+
+                ref GameProjectile projectile = ref projectiles[spanIndex];
                 if (projectile.r_AliveState != AliveState.IsAlive ||
                     projectile.r_ProjectileType != ProjectileType.Disease ||
                     projectile.r_Unknown4 > MaximumSelectablePhase ||
@@ -337,7 +350,7 @@ namespace BugfixesAndQoL
                 }
 
                 DiseaseIdentity identity =
-                    new DiseaseIdentity(checked((ushort)(index + 1)), projectile.r_GlobalId);
+                    new DiseaseIdentity(checked((ushort)projectileId), projectile.r_GlobalId);
                 if (ownersByDisease.TryGetValue(identity, out uint owner) && owner != ownerGlobalId)
                 {
                     continue;

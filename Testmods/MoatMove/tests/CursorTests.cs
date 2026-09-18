@@ -196,8 +196,8 @@ namespace MoatMove
                 }
                 GameBuilding* gate=(GameBuilding*)NativeMemory.AllocZeroed((nuint)sizeof(GameBuilding));
                 GameBuildingManagerAPI.Instance.Building=gate;
-                gate->r_TilePositionXBegin=gate->r_TilePositionXEnd=17;
-                gate->r_TilePositionYBegin=gate->r_TilePositionYEnd=10;
+                gate->r_OccupyTileGridSize=1;
+                gate->r_OccupiedTileIdsArrayBegin=1017;
                 int* portals=(int*)nativePathManager; int portal=0x81;
                 nativeBuildingLayer[1017]=1; portals[0]=2;
                 portals[portal+0x809]=1; portals[portal+0x80C]=1; portals[portal+0x80F]=1;

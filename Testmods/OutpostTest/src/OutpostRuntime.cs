@@ -144,7 +144,7 @@ namespace OutpostTest
         }
         private void Produce(Entry e, GameBuilding* b, int tick, int[] added)
         {
-            if (b->r_TilePositionXEnd >= 800 || b->r_TilePositionYEnd >= 800) throw new InvalidOperationException("Outpost exit outside native tile bounds.");
+            if (b->r_AccessTilePositionX >= 800 || b->r_AccessTilePositionY >= 800) throw new InvalidOperationException("Outpost access tile outside native tile bounds.");
             int mode = native.ReadInt(0x8574B90);
             bool fast = native.ReadInt(0x3668E34) > 3000 && native.ReadInt(0x3669048) < 11;
             int size = Read(b,0x30E), delay = Math.Max(0,Read(b,0x310)-1);
@@ -185,7 +185,7 @@ namespace OutpostTest
             for (int i=0;i<requested;i++)
             {
                 if (!native.HasCapacity(e.Owner,added[e.Owner])) { reason="player-limit"; break; }
-                int unitId=checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(e.Owner,e.Owner,b->r_TilePositionXEnd,b->r_TilePositionYEnd,8,(eChimps)26));
+                int unitId=checked((int)GameUnitManagerAPI.Instance.CreateUnitLocal(e.Owner,e.Owner,b->r_AccessTilePositionX,b->r_AccessTilePositionY,8,(eChimps)26));
                 if (unitId == 0) { reason="unit-pool-or-cancelled"; break; }
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId,out var u)) throw new InvalidOperationException("Created unit unresolved.");
                 native.ValidateUnitPointer(unitId,u); added[e.Owner]++; created++;
@@ -198,7 +198,7 @@ namespace OutpostTest
                 OutpostNative.InitializeUnit(u);
                 Info($"spawn tick={tick} building={e.Id}/{e.Global} tribe={tribeId}/{global} unit={unitId}/{u->r_GlobalId} type=26 members={tribe->r_UnitsInGroup}/{target} state={u->r_AIState}");
             }
-            if (created > 0) move=GameTribeManagerAPI.Instance.IssueMoveHereCommand(tribeId,b->r_TilePositionXEnd,b->r_TilePositionYEnd,false,0,TribeMoveType.NoChange);
+            if (created > 0) move=GameTribeManagerAPI.Instance.IssueMoveHereCommand(tribeId,b->r_AccessTilePositionX,b->r_AccessTilePositionY,false,0,TribeMoveType.NoChange);
             bool complete=OutpostSchedule.Complete(tribe->r_UnitsInGroup,target,delay);
             if (complete || tribe->r_UnitsInGroup == 0)
             {

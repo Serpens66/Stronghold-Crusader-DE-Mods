@@ -532,7 +532,7 @@ namespace BugfixesAndQoL
                         synchronizeSleepStates.Invoke();
 
                     int ownerSnapshot = packet.PlayerId;
-                    int buildingTypeSnapshot = building->r_BuildingType;
+                    eStructs buildingTypeSnapshot = building->r_BuildingType;
                     bool sleepingSnapshot = packet.TargetSleeping;
                     Shared.UnityMainThreadDispatch.TryEnqueue(() =>
                         RefreshSelectedBuildingTypeVisibility(
@@ -919,7 +919,7 @@ namespace BugfixesAndQoL
 
         private unsafe void RefreshSelectedBuildingTypeVisibility(
             int playerId,
-            int buildingType,
+            eStructs buildingType,
             bool isSleeping)
         {
             int selectedBuildingId = TryGetSelectedBuildingId();

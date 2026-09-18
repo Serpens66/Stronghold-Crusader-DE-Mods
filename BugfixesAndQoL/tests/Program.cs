@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using System.Xml;
 using CrusaderDE;
 using Iced.Intel;
@@ -41,6 +42,7 @@ namespace BugfixesAndQoL
             TestFriendlyMoatMovementPolicy();
             TestFriendlyMoatMovementIntegration();
             TestReachableEnemyGatehouseUnitIdContract();
+            TestProjectileSlotContract();
             TestSynchronizedGatehouseReachabilityPolicy();
             TestMovementFastPathParity();
             TestMovementLoggingState();
@@ -83,6 +85,69 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static unsafe void TestProjectileSlotContract()
+        {
+            const int liveCount = 4;
+            GameProjectile* legacyStorage = stackalloc GameProjectile[liveCount + 4];
+            Span<GameProjectile> legacySpan = new Span<GameProjectile>(legacyStorage, liveCount + 4);
+            *(uint*)((byte*)legacyStorage + sizeof(uint)) = liveCount + 1;
+
+            GameProjectile* correctedStorage = stackalloc GameProjectile[liveCount];
+            Span<GameProjectile> correctedSpan = new Span<GameProjectile>(correctedStorage, liveCount);
+
+            bool legacyResolved = Shared.GameProjectileSlotPolicy.TryResolve(
+                legacySpan,
+                legacyStorage + 1,
+                out Shared.GameProjectileSlotLayout legacyLayout);
+            bool correctedResolved = Shared.GameProjectileSlotPolicy.TryResolve(
+                correctedSpan,
+                correctedStorage,
+                out Shared.GameProjectileSlotLayout correctedLayout);
+
+            Check(legacyResolved &&
+                    legacyLayout.FirstLiveSpanIndex == 1 &&
+                    legacyLayout.ExclusiveUpperBound == liveCount + 1 &&
+                    legacyLayout.LiveCount == liveCount &&
+                    correctedResolved &&
+                    correctedLayout.FirstLiveSpanIndex == 0 &&
+                    correctedLayout.ExclusiveUpperBound == liveCount + 1 &&
+                    correctedLayout.LiveCount == liveCount,
+                "legacy and corrected projectile views resolve to the same live ID range");
+
+            bool equivalentMappings = legacyResolved && correctedResolved;
+            for (int projectileId = 1; projectileId <= liveCount && equivalentMappings; projectileId++)
+            {
+                equivalentMappings =
+                    legacyLayout.TryGetSpanIndex(projectileId, out int legacyIndex) &&
+                    correctedLayout.TryGetSpanIndex(projectileId, out int correctedIndex) &&
+                    legacyIndex == projectileId &&
+                    correctedIndex == projectileId - 1;
+            }
+            Check(equivalentMappings &&
+                    !legacyLayout.IsAddressableId(0) &&
+                    !legacyLayout.IsAddressableId(liveCount + 1) &&
+                    !correctedLayout.IsAddressableId(0) &&
+                    !correctedLayout.IsAddressableId(liveCount + 1),
+                "projectile ID mapping preserves both boundaries across view layouts");
+
+            *(uint*)((byte*)legacyStorage + sizeof(uint)) = 0;
+            bool rejectsMissingBoundary = !Shared.GameProjectileSlotPolicy.TryResolve(
+                legacySpan,
+                legacyStorage + 1,
+                out _);
+            *(uint*)((byte*)legacyStorage + sizeof(uint)) = (uint)legacySpan.Length + 1;
+            bool rejectsOversizedBoundary = !Shared.GameProjectileSlotPolicy.TryResolve(
+                legacySpan,
+                legacyStorage + 1,
+                out _);
+
+            Check(rejectsMissingBoundary &&
+                    rejectsOversizedBoundary &&
+                    !Shared.GameProjectileSlotPolicy.TryResolve(legacySpan, legacyStorage + 2, out _) &&
+                    !Shared.GameProjectileSlotPolicy.TryResolve(Span<GameProjectile>.Empty, null, out _),
+                "unknown or inconsistent projectile view layouts fail closed");
         }
 
         private static void TestMovementLoggingState()
@@ -1344,9 +1409,6 @@ namespace BugfixesAndQoL
                     null, Type.EmptyTypes, null)?.ReturnType == typeof(void);
             Check(managedContractMatches,
                 "resolution-aware zoom reflection targets match the installed Vanilla managed contract");
-            Check(typeof(SHCDESE.API.GamePlayerManagerAPI).Assembly.GetName().Version ==
-                    new Version(2, 7, 0, 0),
-                "resolution-aware zoom is tested against installed Script Extender 2.7.0");
             Check(viewModel.Contains("public bool EnableResolutionAwareExtendedZoom") &&
                     viewModel.Contains("new LocalPerPlayerSetting<bool>(true)"),
                 "resolution-aware zoom is a default-on per-player setting");
@@ -3120,13 +3182,17 @@ namespace BugfixesAndQoL
             string plugin = File.ReadAllText(Path.Combine(
                 "src", "BugfixesAndQoLPlugin.cs"));
             string manifest = File.ReadAllText("info.json");
+            Match minimumMatch = Regex.Match(manifest,
+                @"""MinimumScriptExtenderVersion""\s*:\s*""([^""]*)""");
+            string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
             Check(plugin.Contains(
                     "BepInDependency(\"fixes\", BepInDependency.DependencyFlags.SoftDependency)"),
                 "BugfixesAndQoL loads after Fixes when the optional mod is installed");
-            Check(manifest.Contains("\"GUID\": \"000shcdese\"") &&
-                    manifest.Contains("\"MinimumVersion\": \"2.6.0\"") &&
+            Check(!manifest.Contains("\"GUID\": \"000shcdese\"") &&
+                    !string.IsNullOrEmpty(minimumExtenderVersion) &&
+                    plugin.Contains($"[BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")]" ) &&
                     !manifest.Contains("\"GUID\": \"fixes\""),
-                "BugfixesAndQoL manifest keeps Fixes optional while requiring Script Extender 2.6.0");
+                "BugfixesAndQoL uses the precise host warning, matches its plugin dependency, and keeps Fixes optional");
         }
 
         private static void TestMovementFastPathParity()

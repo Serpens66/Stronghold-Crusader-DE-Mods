@@ -741,13 +741,18 @@ namespace VirtualUnitsPrototype
 
         private int CountLinkedFootprintTiles(int buildingId, GameBuilding* building)
         {
-            if (building->r_TilePositionXBegin > building->r_TilePositionXEnd || building->r_TilePositionYBegin > building->r_TilePositionYEnd) return 0;
+            uint gridSize = building->r_OccupyTileGridSize;
+            if (gridSize == 0 || gridSize > Shared.GameBuildingFootprint.MaximumGridSize) return 0;
+            int tileCount = checked((int)(gridSize * gridSize));
+            uint* occupiedTileIds = &building->r_OccupiedTileIdsArrayBegin;
             int linked = 0;
-            for (int y = building->r_TilePositionYBegin; y <= building->r_TilePositionYEnd; y++)
-            for (int x = building->r_TilePositionXBegin; x <= building->r_TilePositionXEnd; x++)
+            for (int index = 0; index < tileCount; index++)
             {
-                if (!GameTileManagerAPI.Instance.IsTileInsideMapBounds(x, y)) return 0;
-                if (GameTileManagerAPI.Instance.GetTileBuildingId(GameTileManagerAPI.Instance.GetTileId(x, y)) == buildingId) linked++;
+                uint rawTileId = occupiedTileIds[index];
+                if (rawTileId > int.MaxValue) return 0;
+                int tileId = (int)rawTileId;
+                if (!GameTileManagerAPI.Instance.IsValidTileId(tileId)) return 0;
+                if (GameTileManagerAPI.Instance.GetTileBuildingId(tileId) == buildingId) linked++;
             }
             return linked;
         }
@@ -763,7 +768,13 @@ namespace VirtualUnitsPrototype
             $"Pending {pending.Kind} created: ticket={pending.Ticket}, gameId={pending.GameId}, globalId={pending.GlobalId}, owner={pending.PlayerId}, type={pending.TypeId}, requestedTile={pending.RequestedX},{pending.RequestedY}, originalMaxHealth={pending.OriginalMaxHealth}, originalCurrentHealth={pending.OriginalCurrentHealth}, originalSpeed={pending.OriginalSpeed}, state={pending.LastState}, deadlineTick={pending.DeadlineTick}, rendererSeen={pending.RendererSeen}, {creationResult}.");
 
         private static string DescribeUnit(GameUnit* unit) => $"idGlobal={unit->r_GlobalId}, state={unit->r_AliveState}, type={unit->r_UnitChimp}, owner={unit->r_ControllableForPlayerId}, tile={unit->r_CurrentTilePositionX},{unit->r_CurrentTilePositionY}, tileId={unit->r_CurrentPositionTileId}, invisible={unit->r_IsInvisible}";
-        private static string DescribeBuilding(GameBuilding* building) => $"idGlobal={building->r_GlobalId}, state={building->r_AliveState}, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, footprint={building->r_TilePositionXBegin},{building->r_TilePositionYBegin}-{building->r_TilePositionXEnd},{building->r_TilePositionYEnd}, originTileId={building->r_TileIdBegin}";
+        private static string DescribeBuilding(GameBuilding* building)
+        {
+            string footprint = Shared.GameBuildingFootprint.TryGetBounds(building, out Shared.GameBuildingFootprintBounds bounds)
+                ? $"{bounds.MinX},{bounds.MinY}-{bounds.MaxX},{bounds.MaxY}"
+                : "<invalid>";
+            return $"idGlobal={building->r_GlobalId}, state={building->r_AliveState}, type={building->r_BuildingType}, owner={building->r_PlayerIdOwner}, footprint={footprint}, access={building->r_AccessTilePositionX},{building->r_AccessTilePositionY}, originTileId={building->r_TileIdBegin}";
+        }
         internal static string FormatBuildingResult(long result) => $"result={result}, low32={VirtualMath.HexLow32(result)}, signedLow32={VirtualMath.SignedLow32(result)}";
         internal IEnumerable<VirtualUnitDefinition> VisibleUnits() => unitDefinitions.Values.Where(x => x.SpawnOptions.ShowInDiagnosticMenu).OrderBy(x => x.TypeId).ToArray();
         internal IEnumerable<VirtualBuildingDefinition> VisibleBuildings() => buildingDefinitions.Values.Where(x => x.SpawnOptions.ShowInDiagnosticMenu).OrderBy(x => x.TypeId).ToArray();
@@ -940,7 +951,19 @@ namespace VirtualUnitsPrototype
             try
             {
                 if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null) return;
-                for (int y = building->r_TilePositionYBegin; y <= building->r_TilePositionYEnd; y++) for (int x = building->r_TilePositionXBegin; x <= building->r_TilePositionXEnd; x++) GameTileManagerAPI.Instance.RefreshTileAreaVisuals(x, y);
+                uint gridSize = building->r_OccupyTileGridSize;
+                if (gridSize == 0 || gridSize > Shared.GameBuildingFootprint.MaximumGridSize) return;
+                int tileCount = checked((int)(gridSize * gridSize));
+                uint* occupiedTileIds = &building->r_OccupiedTileIdsArrayBegin;
+                for (int index = 0; index < tileCount; index++)
+                {
+                    uint rawTileId = occupiedTileIds[index];
+                    if (rawTileId > int.MaxValue) continue;
+                    int tileId = (int)rawTileId;
+                    if (!GameTileManagerAPI.Instance.IsValidTileId(tileId)) continue;
+                    UnmanagedVector2<ushort> position = GameTileManagerAPI.Instance.GetTileVectorFromId(tileId);
+                    GameTileManagerAPI.Instance.RefreshTileAreaVisuals(position.X, position.Y);
+                }
             }
             catch (Exception ex) { LogWarning($"Building visual refresh failed for ID {id}: {ex.Message}"); }
         }

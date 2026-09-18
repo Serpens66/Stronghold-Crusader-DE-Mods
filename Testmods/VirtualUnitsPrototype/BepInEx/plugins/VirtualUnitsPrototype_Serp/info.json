@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Virtual Units Prototype",
   "Description": "Proof of concept for per-instance virtual unit and building identities, visuals, stats, spawning, and save data.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.3.0",
+  "MinimumScriptExtenderVersion": "2.7.1",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.1",
+      "Changes": [
+        "Migrated virtual-building footprint enumeration to Script Extender 2.7.1 occupied tile IDs."
+      ]
+    },
     {
       "Version": "0.1.0",
       "Changes": [

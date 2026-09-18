@@ -9,7 +9,7 @@ using System;
 
 namespace BugfixesAndQoL
 {
-    [BepInDependency(ScriptExtenderGuid, "2.6.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.7.1")]
     [BepInDependency(ApiSharedGuid, "0.3.6")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]

@@ -1,0 +1,27 @@
+{
+  "OldVersion": "2.6.0",
+  "NewVersion": "2.7.1",
+  "TargetCommit": "68ebf5380d711dfa7b7f84c9d4326ff81e42854c",
+  "Mods": {
+    "AIDefenseTest": { "Version": "1.2.11", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Migrated raw AI tribe roles and tower footprint centers to the corrected Script Extender 2.7.1 contracts."] },
+    "CastlePlanner": { "Version": "0.8.29", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Added Nothing and Rotate keep only start choices and made castle/Keep rotation compatible with Fixes 1.17.0.", "Migrated AIV and building diagnostics to Script Extender 2.7.1 while keeping access tiles distinct from occupied footprints."] },
+    "BugfixesAndQoL": { "Version": "1.0.154", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Kept synchronized movement cadence discovery stable when Fixes patches unit-selection slowdown first.", "Migrated AIV access, unit manager slots, and all building geometry to the corrected Script Extender 2.7.1 contracts.", "Bound projectile iteration to the native exclusive manager limit because the 2.7.1 public projectile span and validity check expose non-record storage."] },
+    "EnemyGatePathfindingTest": { "Version": "0.1.5", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Derived gate geometry from occupied-tile footprints and migrated tribe-slot indexing to Script Extender 2.7.1."] },
+    "ExtraFeatures": { "Version": "1.0.98", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Separated building access tiles from occupied footprints using the corrected Script Extender 2.7.1 layout."] },
+    "ImprovedHunters": { "Version": "1.1.84", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Migrated hunter-building diagnostics to Script Extender 2.7.1 occupied-tile footprints."] },
+    "RandomEvents": { "Version": "1.0.42", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Migrated signpost, target, and farm geometry to Script Extender 2.7.1 occupied-tile footprints."] },
+    "PreplacedTest": { "Version": "0.1.2", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Validated the Script Extender 2.7.1 building access fields at offsets 0xFE and 0x100."] },
+    "VirtualUnitsPrototype": { "Version": "0.1.1", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Migrated virtual-building footprint enumeration to Script Extender 2.7.1 occupied tile IDs."] },
+    "OutpostTest": { "Version": "0.1.1", "MinimumScriptExtenderVersion": "2.7.1", "Changes": ["Renamed the former end-position contract to its Script Extender 2.7.1 building-access meaning."] }
+  },
+  "InactiveMods": {
+    "MoatMove": { "Version": "0.1.2", "MinimumScriptExtenderVersion": "2.7.1" },
+    "KnightArmorAIBuyFixBackup": { "Version": "0.1.1", "MinimumScriptExtenderVersion": "2.3.0" }
+  },
+  "CompatibilityNotes": [
+    "FormationTest, AIAttackTest, and StartupPerformanceDiagnostic required no source or version change.",
+    "Generic info.json Dependencies entries for 000shcdese are rejected; MinimumScriptExtenderVersion remains the SerpsModsHost warning source and versioned BepInDependency remains load protection.",
+    "SHCDESE-WORKAROUND(2.7.1-projectile-slot-view): SHCDESE 2.7.1 still exposes an invalid projectile range. Native RVA 0xA1350 initializes slots 0..5999 and stores exclusive bound 6000 at manager offset 0x04, while the public API exposes 10000 slots and admits ID 10000. The marked adapter detects both this sentinel-inclusive view and a corrected live-slot view by pointer identity, so it may remain after an upstream fix; remove it and its compatibility-only tests with a later planned release or when raising the minimum SE version.",
+    "SHCDESE 2.7.1 Tribe and Pitch queries also include reserved slot 0 and therefore shift query IDs. No workspace mod consumes those query APIs; direct tribe iteration was audited explicitly and pitch APIs are unused."
+  ]
+}

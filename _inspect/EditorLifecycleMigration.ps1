@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 $workspace = Split-Path -Parent $PSScriptRoot
+$release = Get-Content -LiteralPath (Join-Path $workspace 'Shared\Release\release-projects.json') -Raw | ConvertFrom-Json
 function Write-TaskText([string]$relative, [string]$value) {
     $path = [IO.Path]::GetFullPath((Join-Path $workspace $relative))
     if (-not $path.StartsWith($workspace + '\', [StringComparison]::OrdinalIgnoreCase)) { throw $path }
@@ -39,7 +40,10 @@ foreach ($relative in $projects) {
     $plugin = $plugins[0]
     $source = [IO.File]::ReadAllText($plugin.FullName)
     if ($source -notmatch 'BepInDependency\((?:"APIShared_Serp"|ApiSharedGuid)') {
-        $source = $source.Replace('[BepInPlugin(', "[BepInDependency(`"APIShared_Serp`", `"0.3.6`")]`r`n    [BepInPlugin(")
+        $consumer = [IO.Path]::GetFileNameWithoutExtension($relative)
+        $apiSharedMinimum = [string]$release.ApiShared.Consumers.$consumer
+        if (-not $apiSharedMinimum) { throw "Missing APIShared release dependency for $consumer." }
+        $source = $source.Replace('[BepInPlugin(', "[BepInDependency(`"APIShared_Serp`", `"$apiSharedMinimum`")]`r`n    [BepInPlugin(")
         Write-TaskText $plugin.FullName.Substring($workspace.Length + 1) $source
     }
 }

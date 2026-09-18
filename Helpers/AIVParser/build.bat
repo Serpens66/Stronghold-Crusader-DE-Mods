@@ -31,7 +31,7 @@ echo.
 echo Fuehre die automatischen Tests aus...
 echo.
 dotnet run --project "AIVParser.Tests\AIVParser.Tests.csproj" -c Release --no-build
-if errorlevel 1 (
+if not "%ERRORLEVEL%"=="0" (
   popd
   echo.
   echo Mindestens ein Test ist fehlgeschlagen.

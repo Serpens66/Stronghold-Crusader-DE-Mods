@@ -574,11 +574,17 @@ namespace BugfixesAndQoL
                 {
                     for (int candidateId = 1; candidateId < slot.Candidates.Count; candidateId++)
                     {
-                        EngineInterface.ImportAIV(
-                            slot.PlayerId - 1,
-                            candidateId,
-                            slot.Candidates[candidateId].Data,
-                            1);
+                        if (!GameAIVManagerAPI.Instance.ImportAIV(
+                                slot.PlayerId - 1,
+                                candidateId,
+                                slot.Candidates[candidateId].Data,
+                                true))
+                        {
+                            throw new InvalidOperationException(
+                                $"The Script Extender rejected a synchronized AIV import; " +
+                                $"playerId={slot.PlayerId}, candidateId={candidateId}, " +
+                                $"rawShorts={slot.Candidates[candidateId].Data?.Length ?? 0}.");
+                        }
                     }
                 }
                 Shared.DebugLogHelper.LogDebug(

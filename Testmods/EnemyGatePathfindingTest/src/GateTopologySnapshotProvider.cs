@@ -737,7 +737,7 @@ namespace EnemyGatePathfindingTest
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int index = 0; index < buildings.Length; index++)
             {
-                GameBuilding building = buildings[index];
+                ref GameBuilding building = ref buildings[index];
                 if (!IsGatehouseBuildingType(building.r_BuildingType) &&
                     building.r_BuildingType != eStructs.STRUCT_DRAWBRIDGE)
                     continue;
@@ -750,10 +750,12 @@ namespace EnemyGatePathfindingTest
                     signature = (signature ^ (uint)building.r_PlayerIdOwner) * 1099511628211UL;
                     signature = (signature ^ (uint)building.r_CapturedByPlayerId) * 1099511628211UL;
                     signature = (signature ^ (uint)building.r_GatehouseId) * 1099511628211UL;
-                    signature = (signature ^ building.r_TilePositionXBegin) * 1099511628211UL;
-                    signature = (signature ^ building.r_TilePositionYBegin) * 1099511628211UL;
-                    signature = (signature ^ building.r_TilePositionXEnd) * 1099511628211UL;
-                    signature = (signature ^ building.r_TilePositionYEnd) * 1099511628211UL;
+                    if (!Shared.GameBuildingFootprint.TryGetBounds(ref building, out Shared.GameBuildingFootprintBounds bounds))
+                        throw new InvalidOperationException($"Building {index + 1} has an invalid occupied-tile footprint.");
+                    signature = (signature ^ (uint)bounds.MinX) * 1099511628211UL;
+                    signature = (signature ^ (uint)bounds.MinY) * 1099511628211UL;
+                    signature = (signature ^ (uint)bounds.MaxX) * 1099511628211UL;
+                    signature = (signature ^ (uint)bounds.MaxY) * 1099511628211UL;
                 }
             }
             return signature;
@@ -1255,14 +1257,15 @@ namespace EnemyGatePathfindingTest
         {
             List<KeyValuePair<int, int>> candidates = GetSpatialGateCandidates(bridge, gates);
             var text = new StringBuilder();
+            Shared.GameBuildingFootprintBounds bridgeBounds = GetFootprintBounds(ref bridge);
             text.Append("orphanBridge#").Append(bridgeId).Append("/g").Append(bridge.r_GlobalId)
                 .Append(" state=").Append((int)bridge.r_AliveState)
                 .Append(" owner=").Append(bridge.r_PlayerIdOwner)
                 .Append(" captured=").Append(bridge.r_CapturedByPlayerId)
                 .Append(" rawGatehouseId=").Append(rawGatehouseId)
-                .Append(" bounds=").Append(bridge.r_TilePositionXBegin).Append('/')
-                .Append(bridge.r_TilePositionYBegin).Append('-')
-                .Append(bridge.r_TilePositionXEnd).Append('/').Append(bridge.r_TilePositionYEnd)
+                .Append(" bounds=").Append(bridgeBounds.MinX).Append('/')
+                .Append(bridgeBounds.MinY).Append('-')
+                .Append(bridgeBounds.MaxX).Append('/').Append(bridgeBounds.MaxY)
                 .Append(" pcls=").Append(string.Join("/", CollectRelevantPcls(tiles)))
                 .Append(" footprintAdjacentSameOwnerGates=[");
             bool firstAdjacent = true;
@@ -1283,12 +1286,13 @@ namespace EnemyGatePathfindingTest
                 if (index > 0) text.Append(';');
                 int gateId = candidates[index].Key;
                 GameBuilding gate = gates[gateId];
+                Shared.GameBuildingFootprintBounds gateBounds = GetFootprintBounds(ref gate);
                 text.Append("gate#").Append(gateId).Append("/g").Append(gate.r_GlobalId)
                     .Append("/distance=").Append(candidates[index].Value)
-                    .Append("/bounds=").Append(gate.r_TilePositionXBegin).Append('/')
-                    .Append(gate.r_TilePositionYBegin).Append('-')
-                    .Append(gate.r_TilePositionXEnd).Append('/')
-                    .Append(gate.r_TilePositionYEnd);
+                    .Append("/bounds=").Append(gateBounds.MinX).Append('/')
+                    .Append(gateBounds.MinY).Append('-')
+                    .Append(gateBounds.MaxX).Append('/')
+                    .Append(gateBounds.MaxY);
             }
             if (candidates.Count > 8) text.Append(";+").Append(candidates.Count - 8);
             text.Append("] tiles=[");
@@ -1316,11 +1320,18 @@ namespace EnemyGatePathfindingTest
 
         private static int RectDistance(GameBuilding first, GameBuilding second)
         {
+            Shared.GameBuildingFootprintBounds firstBounds = GetFootprintBounds(ref first);
+            Shared.GameBuildingFootprintBounds secondBounds = GetFootprintBounds(ref second);
             return EnemyGatePathfindingPolicy.CalculateRectangleDistance(
-                first.r_TilePositionXBegin, first.r_TilePositionYBegin,
-                first.r_TilePositionXEnd, first.r_TilePositionYEnd,
-                second.r_TilePositionXBegin, second.r_TilePositionYBegin,
-                second.r_TilePositionXEnd, second.r_TilePositionYEnd);
+                firstBounds.MinX, firstBounds.MinY, firstBounds.MaxX, firstBounds.MaxY,
+                secondBounds.MinX, secondBounds.MinY, secondBounds.MaxX, secondBounds.MaxY);
+        }
+
+        private static Shared.GameBuildingFootprintBounds GetFootprintBounds(ref GameBuilding building)
+        {
+            if (!Shared.GameBuildingFootprint.TryGetBounds(ref building, out Shared.GameBuildingFootprintBounds bounds))
+                throw new InvalidOperationException($"Building {building.r_GlobalId} has an invalid occupied-tile footprint.");
+            return bounds;
         }
 
         private static ulong MixOrphanBridge(

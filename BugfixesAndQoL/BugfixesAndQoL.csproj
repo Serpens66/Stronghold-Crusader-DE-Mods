@@ -207,6 +207,7 @@
     <Compile Include="src\MovementCadenceIntegration.cs" />
     <Compile Include="src\MovementLoggingStateTracker.cs" />
     <Compile Include="src\PlaguePopularityFix.cs" />
+    <Compile Include="..\Shared\GameProjectileSlotPolicy.cs"><Link>Shared\GameProjectileSlotPolicy.cs</Link></Compile>
     <Compile Include="src\PlagueTreatmentFadeFix.cs" />
     <Compile Include="src\PlagueTargetReservationFix.cs" />
     <Compile Include="src\PlagueApothecaryStateTransitionFix.cs" />
@@ -264,6 +265,7 @@
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
+    <Compile Include="..\Shared\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>Shared\GatehouseQueryUnitIdPolicy.cs</Link></Compile>
     <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
     <Compile Include="..\Shared\ModSettingsSearch.cs"><Link>Shared\ModSettingsSearch.cs</Link></Compile>

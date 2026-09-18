@@ -3,12 +3,18 @@
   "Author": "Serpens66",
   "Name": "Knight Armor AI Buy Fix Backup",
   "Description": "Standalone backup of the shared European-recruitment missing-good initialization used to investigate AI knight purchases after horse-only failures.",
-  "Version": "0.1.0",
+  "Version": "0.1.1",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.1.1",
+      "Changes": [
+        "Updated manager layout validation to the public unit-array sentinel contract."
+      ]
+    },
     {
       "Version": "0.1.0",
       "Changes": [

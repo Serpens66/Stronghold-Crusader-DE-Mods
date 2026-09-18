@@ -11698,6 +11698,55 @@ typedef enum ProjectileType
     ProjectileType_Condor = 0x31
 } ProjectileType;
 
+/* Derived from AIDefensivePositionClass.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum AIDefensivePositionClass
+{
+    AIDefensivePositionClass_Default = 0,
+
+    AIDefensivePositionClass_OilSmelterEngineer = 1,
+
+    AIDefensivePositionClass_Mangonel = 2,
+    AIDefensivePositionClass_Ballista = 3,
+    AIDefensivePositionClass_Trebuchet = 4,
+    AIDefensivePositionClass_ArabBallista = 5,
+
+    AIDefensivePositionClass_Archer = 6,
+    AIDefensivePositionClass_Crossbowman = 7,
+    AIDefensivePositionClass_Spearman = 8,
+    AIDefensivePositionClass_Pikeman = 9,
+    AIDefensivePositionClass_Maceman = 10,
+    AIDefensivePositionClass_Swordsman = 11,
+    AIDefensivePositionClass_Knight = 12,
+
+    /// <summary>
+    /// Normally Arabian slaves. Under a conditional override,
+    /// additional unit types can also be assigned to this class.
+    /// </summary>
+    AIDefensivePositionClass_ArabSlaveOrConditionalOverride = 13,
+
+    AIDefensivePositionClass_ArabSlinger = 14,
+    AIDefensivePositionClass_Assassin = 15,
+    AIDefensivePositionClass_ArabBow = 16,
+    AIDefensivePositionClass_ArabHorseman = 17,
+    AIDefensivePositionClass_ArabSwordsman = 18,
+    AIDefensivePositionClass_ArabGrenadier = 19,
+
+    /// <summary>No unit type is present in the normal lookup table.</summary>
+    AIDefensivePositionClass_Reserved20 = 20,
+
+    /// <summary>No unit type is present in the normal lookup table.</summary>
+    AIDefensivePositionClass_Reserved21 = 21,
+
+    AIDefensivePositionClass_BedouinCamelLancer = 22,
+    AIDefensivePositionClass_BedouinHealer = 23,
+    AIDefensivePositionClass_BedouinEunuch = 24,
+    AIDefensivePositionClass_BedouinAmbusher = 25,
+    AIDefensivePositionClass_BedouinSkirmisher = 26,
+    AIDefensivePositionClass_BedouinHeavyCamel = 27,
+    AIDefensivePositionClass_BedouinSapper = 28,
+    AIDefensivePositionClass_BedouinDemolisher = 29
+} AIDefensivePositionClass;
+
 /* Derived from AILordMessageType.h; C++ syntax normalized for Ghidra CParser. */
 typedef enum AILordMessageType
 {
@@ -11737,6 +11786,577 @@ typedef enum AILordMessageType
     AllyNotificationAgree = 33
 } AILordMessageType;
 
+/* Derived from AIRecruitmentMode.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum AIRecruitmentMode
+{
+    AIRecruitmentMode_DefensiveForces = 0,
+    AIRecruitmentMode_HarassmentForces = 1,
+    AIRecruitmentMode_SiegeForces = 2
+} AIRecruitmentMode;
+
+/* Derived from ConnectionClassMode.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum ConnectionClassMode
+{
+    Unknown = 0,
+    LadderClimb = 1,
+    Connection2 = 2,
+    GatehouseBig = 3,
+    GatehouseSmall = 4,
+    Connection5 = 5,
+    Connection6 = 6
+} ConnectionClassMode;
+
+/* Derived from GatePathOverrideMode.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum GatePathOverrideMode
+{
+    GatePathOverrideMode_RestoreSaved = 0,
+	GatePathOverrideMode_ForceClosed = 1,
+	GatePathOverrideMode_ForceOpen = 2
+} GatePathOverrideMode;
+
+
+/* Derived from Goods16.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum Goods16
+{
+    Goods16_STORED_NULL,
+    Goods16_STORED_WOOD_LOGS,
+    Goods16_STORED_WOOD_PLANKS,
+    Goods16_STORED_RAW_HOPS,
+    Goods16_STORED_STONE_BLOCKS,
+    Goods16_STORED_COW_HIDES,
+    Goods16_STORED_IRON_INGOTS,
+    Goods16_STORED_PITCH_RAW,
+    Goods16_STORED_PITCH_REFINED,
+    Goods16_STORED_RAW_WHEAT,
+    Goods16_STORED_FOOD_BREAD,
+    Goods16_STORED_FOOD_CHEESE,
+    Goods16_STORED_FOOD_MEAT,
+    Goods16_STORED_FOOD_FRUIT,
+    Goods16_STORED_FOOD_ALE,
+    Goods16_STORED_GOLD,
+    Goods16_STORED_FLOUR,
+    Goods16_STORED_BOWS,
+    Goods16_STORED_CROSSBOWS,
+    Goods16_STORED_SPEARS,
+    Goods16_STORED_PIKES,
+    Goods16_STORED_MACES,
+    Goods16_STORED_SWORDS,
+    Goods16_STORED_LEATHER_ARMOUR,
+    Goods16_STORED_METAL_ARMOUR,
+    Goods16_Count
+} Goods16;
+
+/* Derived from Mappers16.h; C++ syntax normalized for Ghidra CParser. */
+
+typedef enum eMappers
+{
+    eMappers_MAPPER_NULL,
+    eMappers_MAPPER_AREA,
+    eMappers_MAPPER_RAISE,
+    eMappers_MAPPER_LOWER,
+    eMappers_MAPPER_SEA,
+    eMappers_MAPPER_LAND,
+    eMappers_MAPPER_FOREST,
+    eMappers_MAPPER_SCRUB,
+    eMappers_MAPPER_BEACH,
+    eMappers_MAPPER_SHALLOWS,
+    eMappers_MAPPER_ROCKY,
+    eMappers_MAPPER_STONES,
+    eMappers_MAPPER_BOULDERS,
+    eMappers_MAPPER_PEBBLES,
+    eMappers_MAPPER_RIVER,
+    eMappers_MAPPER_FORD,
+    eMappers_MAPPER_IRON,
+    eMappers_MAPPER_MARSH,
+    eMappers_MAPPER_DIRT,
+    eMappers_MAPPER_GRASS,
+    eMappers_MAPPER_BIGROCKS,
+    eMappers_MAPPER_MIN,
+    eMappers_MAPPER_MAX,
+    eMappers_MAPPER_EQUALISE,
+    eMappers_MAPPER_PLATEAU,
+    eMappers_MAPPER_WALL,
+    eMappers_MAPPER_CRENAL,
+    eMappers_MAPPER_STAIR,
+    eMappers_MAPPER_TOWER,
+    eMappers_MAPPER_UP,
+    eMappers_MAPPER_DOWN = 20,
+    eMappers_MAPPER_EXIT = 31,
+    eMappers_MAPPER_TOMAIN,
+    eMappers_MAPPER_TOTEST,
+    eMappers_MAPPER_PATROL,
+    eMappers_MAPPER_CRENAL2,
+    eMappers_MAPPER_MOUNTAIN,
+    eMappers_MAPPER_HILL,
+    eMappers_MAPPER_AFFECT_TYPE,
+    eMappers_MAPPER_DELETE,
+    eMappers_MAPPER_CHESTNUT,
+    eMappers_MAPPER_OAK,
+    eMappers_MAPPER_PINE,
+    eMappers_MAPPER_BIRCH,
+    eMappers_MAPPER_UNDUGMOAT,
+    eMappers_MAPPER_DUGMOAT,
+    eMappers_MAPPER_WOODWALL,
+    eMappers_MAPPER_PLAIN1,
+    eMappers_MAPPER_PLAIN2,
+    eMappers_MAPPER_OIL,
+    eMappers_MAPPER_FLETCHER,
+    eMappers_MAPPER_WOODSMAN,
+    eMappers_MAPPER_STORES,
+    eMappers_MAPPER_OUTPOST_BEDOUIN,
+    eMappers_MAPPER_HOVEL,
+    eMappers_MAPPER_OXENBASE,
+    eMappers_MAPPER_QUARRY,
+    eMappers_MAPPER_TUNNEL,
+    eMappers_MAPPER_CAMP_FIRE,
+    eMappers_MAPPER_SIGNPOST,
+    eMappers_MAPPER_KEEP1,
+    eMappers_MAPPER_KEEP2,
+    eMappers_MAPPER_KEEP3,
+    eMappers_MAPPER_KEEP4,
+    eMappers_MAPPER_KEEP5,
+    eMappers_MAPPER_STABLES,
+    eMappers_MAPPER_TUNNEL_CONSTRUCTION,
+    eMappers_MAPPER_UNUSED_2 = 68,
+    eMappers_MAPPER_UNUSED_3,
+    eMappers_MAPPER_WHEATFARM,
+    eMappers_MAPPER_HOPSFARM,
+    eMappers_MAPPER_APPLEFARM,
+    eMappers_MAPPER_CATTLEFARM,
+    eMappers_MAPPER_MILL,
+    eMappers_MAPPER_BAKER,
+    eMappers_MAPPER_BREWER,
+    eMappers_MAPPER_TRADEPOST,
+    eMappers_MAPPER_HUNTER,
+    eMappers_MAPPER_BEDOUIN_STOCKADE,
+    eMappers_MAPPER_GRANARY,
+    eMappers_MAPPER_ARMOURY,
+    eMappers_MAPPER_POLETURNER,
+    eMappers_MAPPER_BLACKSMITH,
+    eMappers_MAPPER_ARMOURER,
+    eMappers_MAPPER_TANNER,
+    eMappers_MAPPER_BARRACKS_WOOD,
+    eMappers_MAPPER_BARRACKS_STONE,
+    eMappers_MAPPER_ENGINEERS_GUILD,
+    eMappers_MAPPER_TUNNELERS_GUILD,
+    eMappers_MAPPER_IRON_MINE,
+    eMappers_MAPPER_PITCH_WORKINGS,
+    eMappers_MAPPER_INN,
+    eMappers_MAPPER_HEALER,
+    eMappers_MAPPER_SIEGE_TOWER_BASE,
+    eMappers_MAPPER_CHURCH1,
+    eMappers_MAPPER_CHURCH2,
+    eMappers_MAPPER_CHURCH3,
+    eMappers_MAPPER_KILLING_PIT,
+    eMappers_MAPPER_PITCH_DITCH,
+    eMappers_MAPPER_GATEHOUSE,
+    eMappers_MAPPER_GATE_MAIN,
+    eMappers_MAPPER_GATE_INNER,
+    eMappers_MAPPER_GATE_WOOD,
+    eMappers_MAPPER_GATE_POSTERN,
+    eMappers_MAPPER_DRAWBRIDGE,
+    eMappers_MAPPER_MOAT,
+    eMappers_MAPPER_ANTIMOAT,
+    eMappers_MAPPER_GENERIC,
+    eMappers_MAPPER_QUARRYPILE,
+    eMappers_MAPPER_TOWER1,
+    eMappers_MAPPER_TOWER2,
+    eMappers_MAPPER_TOWER3,
+    eMappers_MAPPER_TOWER4,
+    eMappers_MAPPER_TOWER5,
+    eMappers_MAPPER_TOWER1_DESTROYED,
+    eMappers_MAPPER_TOWER2_DESTROYED,
+    eMappers_MAPPER_TOWER3_DESTROYED,
+    eMappers_MAPPER_TOWER4_DESTROYED,
+    eMappers_MAPPER_TOWER5_DESTROYED,
+    eMappers_MAPPER_FLAG_TYPE0,
+    eMappers_MAPPER_FLAG_TYPE1,
+    eMappers_MAPPER_FLAG_TYPE2,
+    eMappers_MAPPER_FLAG_TYPE3,
+    eMappers_MAPPER_FLAG_TYPE4,
+    eMappers_MAPPER_FLAG_TYPE5,
+    eMappers_MAPPER_FLAG_TYPE6,
+    eMappers_MAPPER_FLAG_TYPE7,
+    eMappers_MAPPER_FLAG_TYPE8,
+    eMappers_MAPPER_HEADS,
+    eMappers_MAPPER_SHRUB1A,
+    eMappers_MAPPER_SHRUB1B,
+    eMappers_MAPPER_SHRUB1C,
+    eMappers_MAPPER_SHRUB1D,
+    eMappers_MAPPER_SHRUB1E,
+    eMappers_MAPPER_SHRUB2A,
+    eMappers_MAPPER_SHRUB2B,
+    eMappers_MAPPER_SHRUB2C,
+    eMappers_MAPPER_SHRUB2D,
+    eMappers_MAPPER_SHRUB2E,
+    eMappers_MAPPER_GATE_WOOD1A,
+    eMappers_MAPPER_GATE_WOOD1B,
+    eMappers_MAPPER_GATE_WOOD1C,
+    eMappers_MAPPER_GATE_WOOD1D,
+    eMappers_MAPPER_GATE_STONE1A,
+    eMappers_MAPPER_GATE_STONE1B,
+    eMappers_MAPPER_GATE_STONE2A,
+    eMappers_MAPPER_GATE_STONE2B,
+    eMappers_MAPPER_BRAZIER,
+    eMappers_MAPPER_UNUSED_7,
+    eMappers_MAPPER_FOAM,
+    eMappers_MAPPER_RIPPLE,
+    eMappers_MAPPER_TO_MAP_EDIT,
+    eMappers_MAPPER_SHRUB3A,
+    eMappers_MAPPER_SHRUB3B,
+    eMappers_MAPPER_SHRUB3C,
+    eMappers_MAPPER_SHRUB3D,
+    eMappers_MAPPER_UNUSED_12,
+    eMappers_MAPPER_UNUSED_13,
+    eMappers_MAPPER_UNUSED_14,
+    eMappers_MAPPER_GARDEN1,
+    eMappers_MAPPER_GARDEN2,
+    eMappers_MAPPER_GARDEN3,
+    eMappers_MAPPER_GARDEN4,
+    eMappers_MAPPER_GARDEN5,
+    eMappers_MAPPER_GARDEN6,
+    eMappers_MAPPER_GARDEN7,
+    eMappers_MAPPER_GARDEN8,
+    eMappers_MAPPER_GARDEN9,
+    eMappers_MAPPER_GARDEN10,
+    eMappers_MAPPER_GARDEN11,
+    eMappers_MAPPER_GARDEN12,
+    eMappers_MAPPER_UNUSED_15,
+    eMappers_MAPPER_UNUSED_16,
+    eMappers_MAPPER_UNUSED_17,
+    eMappers_MAPPER_MAYPOLE,
+    eMappers_MAPPER_GALLOWS,
+    eMappers_MAPPER_STOCKS,
+    eMappers_MAPPER_OUTPOST,
+    eMappers_MAPPER_OUTPOST_ARAB,
+    eMappers_MAPPER_OIL_SMELTER,
+    eMappers_MAPPER_STAIR1,
+    eMappers_MAPPER_STAIR2,
+    eMappers_MAPPER_STAIR3,
+    eMappers_MAPPER_STAIR4,
+    eMappers_MAPPER_STAIR5,
+    eMappers_MAPPER_STAIR6,
+    eMappers_MAPPER_UNUSED_26,
+    eMappers_MAPPER_UNUSED_27,
+    eMappers_MAPPER_UNUSED_28,
+    eMappers_MAPPER_CATAPULT,
+    eMappers_MAPPER_TREBUCHET,
+    eMappers_MAPPER_SIEGE_TOWER,
+    eMappers_MAPPER_BATTERING_RAM,
+    eMappers_MAPPER_PORTABLE_SHIELD,
+    eMappers_MAPPER_DOCK,
+    eMappers_MAPPER_DOCK2,
+    eMappers_MAPPER_DOCK3,
+    eMappers_MAPPER_DOCK4,
+    eMappers_MAPPER_UNUSED_33,
+    eMappers_MAPPER_BACK,
+    eMappers_MAPPER_CHECK_BOX,
+    eMappers_MAPPER_TEST,
+    eMappers_MAPPER_REBUILD,
+    eMappers_MAPPER_SNAP_TO,
+    eMappers_MAPPER_BIGROCK1,
+    eMappers_MAPPER_BIGROCK2,
+    eMappers_MAPPER_BIGROCK3,
+    eMappers_MAPPER_BIGROCK4,
+    eMappers_MAPPER_BIGROCK5,
+    eMappers_MAPPER_MANGONEL,
+    eMappers_MAPPER_BALLISTA,
+    eMappers_MAPPER_UNUSED_34,
+    eMappers_MAPPER_UNUSED_35,
+    eMappers_MAPPER_UNUSED_36,
+    eMappers_MAPPER_UNUSED_37,
+    eMappers_MAPPER_UNUSED_38,
+    eMappers_MAPPER_UNUSED_39,
+    eMappers_MAPPER_UNUSED_40,
+    eMappers_MAPPER_UNUSED_41,
+    eMappers_MAPPER_DEER,
+    eMappers_MAPPER_LION,
+    eMappers_MAPPER_RABBIT,
+    eMappers_MAPPER_BEAR,
+    eMappers_MAPPER_CROW,
+    eMappers_MAPPER_SEAGULL,
+    eMappers_MAPPER_GOAT,
+    eMappers_MAPPER_HYENA,
+    eMappers_MAPPER_CONDOR,
+    eMappers_MAPPER_CROCODILE,
+    eMappers_MAPPER_MAP_SIZE,
+    eMappers_MAPPER_SUB_MODE_HEIGHT,
+    eMappers_MAPPER_SUB_MODE_TYPE,
+    eMappers_MAPPER_SUB_MODE_OBJ = 234,
+    eMappers_MAPPER_SUB_MODE_ANIMAL,
+    eMappers_MAPPER_SUB_MODE_WATER,
+    eMappers_MAPPER_SUB_MODE_FEATURE,
+    eMappers_MAPPER_ESTUARY,
+    eMappers_MAPPER_SUB_MODE_FEATURE_MP,
+    eMappers_MAPPER_REPORT1,
+    eMappers_MAPPER_REPORT2,
+    eMappers_MAPPER_REPORT3,
+    eMappers_MAPPER_REPORT4,
+    eMappers_MAPPER_REPORT5,
+    eMappers_MAPPER_REPORT6,
+    eMappers_MAPPER_REPORT7,
+    eMappers_MAPPER_REPORT8,
+    eMappers_MAPPER_MP_KEEP1 = 240,
+    eMappers_MAPPER_MP_KEEP2,
+    eMappers_MAPPER_MP_KEEP3,
+    eMappers_MAPPER_MP_KEEP4,
+    eMappers_MAPPER_MP_KEEP5,
+    eMappers_MAPPER_MP_KEEP6,
+    eMappers_MAPPER_MP_KEEP7,
+    eMappers_MAPPER_MP_KEEP8,
+    eMappers_MAPPER_POND5 = 265,
+    eMappers_MAPPER_POND6,
+    eMappers_MAPPER_POND7,
+    eMappers_MAPPER_POND8,
+    eMappers_MAPPER_UNUSED_56,
+    eMappers_MAPPER_PEOPLE_ARCHERS,
+    eMappers_MAPPER_PEOPLE_SPEARMEN,
+    eMappers_MAPPER_PEOPLE_PIKEMEN,
+    eMappers_MAPPER_PEOPLE_MACEMEN,
+    eMappers_MAPPER_PEOPLE_XBOWMEN,
+    eMappers_MAPPER_PEOPLE_SWORDSMEN,
+    eMappers_MAPPER_PEOPLE_KNIGHTS,
+    eMappers_MAPPER_PEOPLE_LADDERMEN,
+    eMappers_MAPPER_PEOPLE_ENGINEERS,
+    eMappers_MAPPER_PEOPLE_ENGINEERS_POTS,
+    eMappers_MAPPER_PEOPLE_MONKS,
+    eMappers_MAPPER_PEOPLE_CATAPULTS,
+    eMappers_MAPPER_PEOPLE_TREBUCHETS,
+    eMappers_MAPPER_PEOPLE_BATTERING_RAMS,
+    eMappers_MAPPER_PEOPLE_SIEGE_TOWERS,
+    eMappers_MAPPER_PEOPLE_PORTABLE_SHIELDS,
+    eMappers_MAPPER_PEOPLE_TUNNELERS,
+    eMappers_MAPPER_STANCE_STAND,
+    eMappers_MAPPER_STANCE_DEFENSIVE,
+    eMappers_MAPPER_STANCE_AGGRESSIVE,
+    eMappers_MAPPER_TROOP_STOP,
+    eMappers_MAPPER_ENGINEER_BUILD,
+    eMappers_MAPPER_BUILD_BACK,
+    eMappers_MAPPER_BUY_AMMO,
+    eMappers_MAPPER_UNUSED_57,
+    eMappers_MAPPER_UNUSED_58,
+    eMappers_MAPPER_UNUSED_59,
+    eMappers_MAPPER_UNUSED_60,
+    eMappers_MAPPER_UNUSED_61,
+    eMappers_MAPPER_UNUSED_62,
+    eMappers_MAPPER_UNUSED_63,
+    eMappers_MAPPER_CESS_PIT1,
+    eMappers_MAPPER_CESS_PIT2,
+    eMappers_MAPPER_CESS_PIT3,
+    eMappers_MAPPER_CESS_PIT4,
+    eMappers_MAPPER_BURNING_STAKE,
+    eMappers_MAPPER_GIBBET,
+    eMappers_MAPPER_DUNGEON,
+    eMappers_MAPPER_RACK_STRETCHING,
+    eMappers_MAPPER_RACK_FLOGGING,
+    eMappers_MAPPER_CHOPPING_BLOCK,
+    eMappers_MAPPER_DUNKING_STOOL,
+    eMappers_MAPPER_DOG_CAGE,
+    eMappers_MAPPER_STATUE1,
+    eMappers_MAPPER_STATUE2,
+    eMappers_MAPPER_STATUE3,
+    eMappers_MAPPER_STATUE4,
+    eMappers_MAPPER_STATUE5,
+    eMappers_MAPPER_SHRINE1,
+    eMappers_MAPPER_SHRINE2,
+    eMappers_MAPPER_SHRINE3,
+    eMappers_MAPPER_SHRINE4,
+    eMappers_MAPPER_SHRINE5,
+    eMappers_MAPPER_BEE_HIVE,
+    eMappers_MAPPER_DANCING_BEAR,
+    eMappers_MAPPER_POND1,
+    eMappers_MAPPER_POND2,
+    eMappers_MAPPER_POND3,
+    eMappers_MAPPER_POND4,
+    eMappers_MAPPER_BEAR_CAVE,
+    eMappers_MAPPER_WELL,
+    eMappers_MAPPER_AREA_BACK,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINT1,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINT2,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINT3,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINT4,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINT5,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINT6,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINT7,
+    eMappers_MAPPER_SUB_MENU_TOWERS = 377,
+    eMappers_MAPPER_SUB_MENU_MILITARY,
+    eMappers_MAPPER_SUB_MENU_GATEHOUSES,
+    eMappers_MAPPER_SUB_MENU_KEEPS = 343,
+    eMappers_MAPPER_SUB_MENU_GATEHOUSES_WOOD,
+    eMappers_MAPPER_SUB_MENU_GATEHOUSES_STONESMALL,
+    eMappers_MAPPER_SUB_MENU_GATEHOUSES_STONELARGE,
+    eMappers_MAPPER_SUB_MENU_GOOD,
+    eMappers_MAPPER_SUB_MENU_BAD,
+    eMappers_MAPPER_DELETE_EDITOR,
+    eMappers_MAPPER_DUNES = 340,
+    eMappers_MAPPER_SCRUBGRASS,
+    eMappers_MAPPER_WATERPOT,
+    eMappers_MAPPER_PEOPLE_ARAB_BOW = 350,
+    eMappers_MAPPER_PEOPLE_ARAB_SLAVE,
+    eMappers_MAPPER_PEOPLE_ARAB_SLINGER,
+    eMappers_MAPPER_PEOPLE_ARAB_ASSASIN,
+    eMappers_MAPPER_PEOPLE_ARAB_HORSEMAN,
+    eMappers_MAPPER_PEOPLE_ARAB_SWORDSMAN,
+    eMappers_MAPPER_PEOPLE_ARAB_GRENADIER,
+    eMappers_MAPPER_PEOPLE_ARAB_BALLISTA,
+    eMappers_MAPPER_ARAB_BALLISTA,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTM1 = 360,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTM2,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTM3,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTM4,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTM5,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTM6,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTM7,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTE1,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTE2,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTT1,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTK1,
+    eMappers_MAPPER_MARKER_POINT1 = 380,
+    eMappers_MAPPER_MARKER_POINT2,
+    eMappers_MAPPER_MARKER_POINT3,
+    eMappers_MAPPER_MARKER_POINT4,
+    eMappers_MAPPER_MARKER_POINT5,
+    eMappers_MAPPER_MARKER_POINT6,
+    eMappers_MAPPER_MARKER_POINT7,
+    eMappers_MAPPER_MARKER_POINT8,
+    eMappers_MAPPER_MARKER_POINT9,
+    eMappers_MAPPER_MARKER_POINT10,
+    eMappers_MAPPER_MENU_RETURN_TOWERS = 371,
+    eMappers_MAPPER_MENU_RETURN_GATEHOUSES,
+    eMappers_MAPPER_MENU_RETURN_MILITARY,
+    eMappers_MAPPER_MENU_RETURN_KEEPS,
+    eMappers_MAPPER_MENU_RETURN_GOOD,
+    eMappers_MAPPER_MENU_RETURN_BAD,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTBS1 = 391,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTBS2,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTBS3,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTBS4,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTBS5,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTBS6,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTBS7,
+    eMappers_MAPPER_PLACE_ASSEMBLY_POINTBS8,
+    eMappers_MAPPER_PEOPLE_BEDOUIN_CAMEL_LANCER = 400,
+    eMappers_MAPPER_PEOPLE_BEDOUIN_HEALER,
+    eMappers_MAPPER_PEOPLE_BEDOUIN_EUNUCH,
+    eMappers_MAPPER_PEOPLE_BEDOUIN_AMBUSHER,
+    eMappers_MAPPER_PEOPLE_BEDOUIN_SKIRMISHER,
+    eMappers_MAPPER_PEOPLE_BEDOUIN_HEAVY_CAMEL,
+    eMappers_MAPPER_PEOPLE_BEDOUIN_SAPPER,
+    eMappers_MAPPER_PEOPLE_BEDOUIN_DEMOLISHER,
+    eMappers_MAPPER_RUINS1 = 410,
+    eMappers_MAPPER_RUINS2,
+    eMappers_MAPPER_RUINS3,
+    eMappers_MAPPER_RUINS4,
+    eMappers_MAPPER_RUINS5,
+    eMappers_MAPPER_RUINS6,
+    eMappers_MAPPER_RUINS7,
+    eMappers_MAPPER_RUINS8,
+    eMappers_MAPPER_RUINS9,
+    eMappers_MAPPER_RUINS10,
+    eMappers_MAPPER_RUINS11,
+    eMappers_MAPPER_RUINS12,
+    eMappers_MAPPER_RUINS13,
+    eMappers_MAPPER_RUINS14,
+    eMappers_MAPPER_RUINS15,
+    eMappers_MAPPER_RUINS16,
+    eMappers_MAPPER_RUINS17,
+    eMappers_MAPPER_RUINS18,
+    eMappers_MAPPER_RUINS19,
+    eMappers_MAPPER_RUINS20,
+    eMappers_MAPPER_RUINS21,
+    eMappers_MAPPER_RUINS22,
+    eMappers_MAPPER_RUINS23,
+    eMappers_MAPPER_RUINS24,
+    eMappers_MAPPER_RUINS25,
+    eMappers_MAPPER_RUINS26,
+    eMappers_MAPPER_RUINS27,
+    eMappers_MAPPER_RUINS28,
+    eMappers_MAPPER_RUINS29,
+    eMappers_MAPPER_RUINS30,
+    eMappers_MAPPER_RUINS31,
+    eMappers_MAPPER_RUINS32,
+    eMappers_MAPPER_RUINS33,
+    eMappers_MAPPER_RUINS34,
+    eMappers_MAPPER_POND9_RAVINE1A,
+    eMappers_MAPPER_POND10_RAVINE1B,
+    eMappers_MAPPER_POND11_RAVINE1C,
+    eMappers_MAPPER_POND12_RAVINE1AR,
+    eMappers_MAPPER_POND13_RAVINE1BR,
+    eMappers_MAPPER_POND14_RAVINE1CR,
+    eMappers_MAPPER_POND15_RAVINE2A,
+    eMappers_MAPPER_POND16_RAVINE2B,
+    eMappers_MAPPER_POND17_RAVINE2C,
+    eMappers_MAPPER_POND18_RAVINE2AR,
+    eMappers_MAPPER_POND19_RAVINE2BR,
+    eMappers_MAPPER_POND20_RAVINE2CR,
+    eMappers_END_OF_MAPPERS = 460
+} eMappers;
+
+/* Derived from MoatTargetMode.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum MoatTargetMode
+{
+    TaskTile = 1,
+    AdjacentReachableTile = 2,
+} MoatTargetMode;
+
+/* Derived from MoatWorkType.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum MoatWorkType
+{
+    DigFriendlyPlannedMoat = 1,
+    FillHostileDugMoat = 2,
+} MoatWorkType;
+
+/* Derived from ProjectileType16.h; C++ syntax normalized for Ghidra CParser. */
+
+typedef enum ProjectileType
+{
+    ProjectileType_Unknown = 0x0,
+    ProjectileType_ArcherArrow = 0x1,
+    ProjectileType_CatapultRocks = 0x2,
+    ProjectileType_TrebutchetRocks = 0x3,
+    ProjectileType_MangongelRocks = 0x4,
+    ProjectileType_Steam1 = 0x5,
+    ProjectileType_AfterImage = 0x6,
+    ProjectileType_CrossbowBolt = 0x7,
+    ProjectileType_EngineerLava = 0x8,
+    ProjectileType_StaticFire = 0x9,
+    ProjectileType_Flag1 = 0xA,
+    ProjectileType_Flag3 = 0xB,
+    ProjectileType_Flag2 = 0xC,
+    ProjectileType_CrusaderFlag = 0xD,
+    ProjectileType_Brazier = 0xE,
+    ProjectileType_Heads = 0xF,
+    ProjectileType_UnkFlag1 = 0x10,
+    ProjectileType_UnkFlag2 = 0x11,
+    ProjectileType_UnkFlag3 = 0x12,
+    ProjectileType_UnkFlag4 = 0x13,
+    ProjectileType_BallistaBolt = 0x14,
+    ProjectileType_Steam2 = 0x15,
+    ProjectileType_Disease = 0x16,
+    ProjectileType_Cow = 0x17,
+    ProjectileType_UnkMissile24 = 0x18,
+    ProjectileType_UnkMissile25 = 0x19,
+    ProjectileType_UnkBlast = 0x1A,
+    ProjectileType_CatapultOrTrebutchetRocksImpactDebris1 = 0x1B,
+    ProjectileType_Crow = 0x1C,
+    ProjectileType_Seagull = 0x1D,
+    ProjectileType_CatapultOrTrebutchetRocksImpactDebris2 = 0x1E,
+    ProjectileType_BodySplash = 0x1F,
+    ProjectileType_RockChipsFire1 = 0x20,
+    ProjectileType_SlingerStone = 0x21,
+    ProjectileType_ArabGrenadierOrBedouinAmbusherOrDiseaseCloud = 0x22,
+    ProjectileType_RockChips3 = 0x23,
+    ProjectileType_GrenadierGrenade = 0x24,
+    ProjectileType_ArabBallistaBolt = 0x25,
+    ProjectileType_BedouinLance = 0x26,
+    ProjectileType_UnkJavelin39 = 0x27,
+    ProjectileType_UnkInfo1 = 0x28,
+    ProjectileType_UnkInfo2 = 0x29,
+    ProjectileType_UnkInfo3 = 0x2A,
+    ProjectileType_UnkInfo4 = 0x2B,
+    ProjectileType_Condor = 0x31
+} ProjectileType;
+
 /* Derived from RationsMode.h; C++ syntax normalized for Ghidra CParser. */
 typedef enum RationsMode
 {
@@ -11746,6 +12366,257 @@ typedef enum RationsMode
 	Extra = 3,
 	Double = 4
 } RationsMode;
+
+/* Derived from SelectedRechargeablesResultType.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum SelectedRechargeablesResultType
+{
+    None = 0,
+	Single = 1,
+	Multile = 2
+} SelectedRechargeablesResultType;
+
+/* Derived from Structs16.h; C++ syntax normalized for Ghidra CParser. */
+
+typedef enum eStructs16
+{
+    eStructs16_STRUCT_NULL,
+    eStructs16_STRUCT_HOVEL,
+    eStructs16_STRUCT_OUTPOST_BEDOUIN,
+    eStructs16_STRUCT_WOODCUTTERS_HUT,
+    eStructs16_STRUCT_OXEN_BASE,
+    eStructs16_STRUCT_IRON_MINE,
+    eStructs16_STRUCT_PITCH_DIGGER,
+    eStructs16_STRUCT_HUNTERS_HUT,
+    eStructs16_STRUCT_BARRACKS_WOOD,
+    eStructs16_STRUCT_BARRACKS_STONE,
+    eStructs16_STRUCT_GOODS_YARD,
+    eStructs16_STRUCT_ARMOURY,
+    eStructs16_STRUCT_FLETCHERS_WORKSHOP,
+    eStructs16_STRUCT_BLACKSMITHS_WORKSHOP,
+    eStructs16_STRUCT_POLETURNERS_WORKSHOP,
+    eStructs16_STRUCT_ARMOURERS_WORKSHOP,
+    eStructs16_STRUCT_TANNERS_WORKSHOP,
+    eStructs16_STRUCT_BAKERS_WORKSHOP,
+    eStructs16_STRUCT_BREWERS_WORKSHOP,
+    eStructs16_STRUCT_GRANARY,
+    eStructs16_STRUCT_QUARRY,
+    eStructs16_STRUCT_QUARRYPILE,
+    eStructs16_STRUCT_INN,
+    eStructs16_STRUCT_HEALER,
+    eStructs16_STRUCT_ENGINEERS_GUILD,
+    eStructs16_STRUCT_TUNNELLERS_GUILD,
+    eStructs16_STRUCT_TRADEPOST,
+    eStructs16_STRUCT_WELL,
+    eStructs16_STRUCT_OIL_SMELTER,
+    eStructs16_STRUCT_SIEGE_TENT,
+    eStructs16_STRUCT_WHEATFARM,
+    eStructs16_STRUCT_HOPSFARM,
+    eStructs16_STRUCT_APPLEFARM,
+    eStructs16_STRUCT_CATTLEFARM,
+    eStructs16_STRUCT_MILL,
+    eStructs16_STRUCT_STABLES,
+    eStructs16_STRUCT_CHURCH1,
+    eStructs16_STRUCT_CHURCH2,
+    eStructs16_STRUCT_CHURCH3,
+    eStructs16_STRUCT_RUINS,
+    eStructs16_STRUCT_KEEP_ONE,
+    eStructs16_STRUCT_KEEP_TWO,
+    eStructs16_STRUCT_KEEP_THREE,
+    eStructs16_STRUCT_KEEP_FOUR,
+    eStructs16_STRUCT_KEEP_FIVE,
+    eStructs16_STRUCT_GATE_MAIN,
+    eStructs16_STRUCT_GATE_INNER,
+    eStructs16_STRUCT_GATE_WOOD,
+    eStructs16_STRUCT_GATE_POSTERN,
+    eStructs16_STRUCT_DRAWBRIDGE,
+    eStructs16_STRUCT_TUNNEL_ENTERANCE,
+    eStructs16_STRUCT_PARADEGROUND_OIL,
+    eStructs16_STRUCT_SIGNPOST,
+    eStructs16_STRUCT_PARADEGROUND_ENG,
+    eStructs16_STRUCT_SIEGE_TENT_ARAB_BALLISTA,
+    eStructs16_STRUCT_CAMPGROUND,
+    eStructs16_STRUCT_PARADEGROUND_MISS,
+    eStructs16_STRUCT_PARADEGROUND_LGT,
+    eStructs16_STRUCT_PARADEGROUND_HVY,
+    eStructs16_STRUCT_PARADEGROUND_TUN,
+    eStructs16_STRUCT_GATEHOUSE,
+    eStructs16_STRUCT_TOWER,
+    eStructs16_STRUCT_GALLOWS,
+    eStructs16_STRUCT_STOCKS,
+    eStructs16_STRUCT_WITCH_HOIST,
+    eStructs16_STRUCT_MAYPOLE,
+    eStructs16_STRUCT_GARDEN,
+    eStructs16_STRUCT_KILLING_PIT,
+    eStructs16_STRUCT_PITCH_DITCH,
+    eStructs16_STRUCT_SIEGE_TOWER,
+    eStructs16_STRUCT_WATERPOT,
+    eStructs16_STRUCT_KEEPDOOR_LEFT,
+    eStructs16_STRUCT_KEEPDOOR_RIGHT,
+    eStructs16_STRUCT_KEEPDOOR,
+    eStructs16_STRUCT_TOWER1,
+    eStructs16_STRUCT_TOWER2,
+    eStructs16_STRUCT_TOWER3,
+    eStructs16_STRUCT_TOWER4,
+    eStructs16_STRUCT_TOWER5,
+    eStructs16_STRUCT_TOWER5_DESTROYED,
+    eStructs16_STRUCT_SIEGE_TENT_CATAPULT,
+    eStructs16_STRUCT_SIEGE_TENT_TREBUCHET,
+    eStructs16_STRUCT_SIEGE_TENT_SIEGE_TOWER,
+    eStructs16_STRUCT_SIEGE_TENT_BATTERING_RAM,
+    eStructs16_STRUCT_SIEGE_TENT_PORTABLE_SHIELD,
+    eStructs16_STRUCT_TUNNEL_CONSTRUCTION,
+    eStructs16_STRUCT_TOWER1_DESTROYED,
+    eStructs16_STRUCT_TOWER2_DESTROYED,
+    eStructs16_STRUCT_TOWER3_DESTROYED,
+    eStructs16_STRUCT_TOWER4_DESTROYED,
+    eStructs16_STRUCT_WAS_WALL,
+    eStructs16_STRUCT_CESS_PIT,
+    eStructs16_STRUCT_BURNING_STAKE,
+    eStructs16_STRUCT_GIBBET,
+    eStructs16_STRUCT_DUNGEON,
+    eStructs16_STRUCT_RACK_STRETCHING,
+    eStructs16_STRUCT_RACK_FLOGGING,
+    eStructs16_STRUCT_CHOPPING_BLOCK,
+    eStructs16_STRUCT_DUNKING_STOOL,
+    eStructs16_STRUCT_DOG_CAGE,
+    eStructs16_STRUCT_STATUE,
+    eStructs16_STRUCT_SHRINE,
+    eStructs16_STRUCT_BEE_HIVE,
+    eStructs16_STRUCT_DANCING_BEAR,
+    eStructs16_STRUCT_POND,
+    eStructs16_STRUCT_BEAR_CAVE,
+    eStructs16_STRUCT_OUTPOST,
+    eStructs16_STRUCT_OUTPOST_ARAB,
+    eStructs16_STRUCT_BEDOUIN_STOCKADE,
+    eStructs16_STRUCT_DOCK,
+    eStructs16_STRUCT_MAX,
+    eStructs16_STRUCT_WOOD_WALL = 110,
+    eStructs16_STRUCT_STONE_WALL,
+    eStructs16_STRUCT_CRENAL_WALL,
+    eStructs16_STRUCT_STAIRS,
+    eStructs16_STRUCT_BRAZIER,
+    eStructs16_STRUCT_MANGONEL,
+    eStructs16_STRUCT_BALLISTA,
+    eStructs16_STRUCT_HEAD_ON_SPIKE,
+    eStructs16_STRUCT_GARDEN_SMALL,
+    eStructs16_STRUCT_GARDEN_MED,
+    eStructs16_STRUCT_GARDEN_LARGE,
+    eStructs16_STRUCT_POND_SMALL,
+    eStructs16_STRUCT_POND_LARGE,
+    eStructs16_STRUCT_FLAG1,
+    eStructs16_STRUCT_FLAG2,
+    eStructs16_STRUCT_FLAG3,
+    eStructs16_STRUCT_FLAG4,
+    eStructs16_STRUCT_GATE_WOOD1A,
+    eStructs16_STRUCT_GATE_WOOD1B,
+    eStructs16_STRUCT_GATE_WOOD1C,
+    eStructs16_STRUCT_GATE_WOOD1D,
+    eStructs16_STRUCT_GATE_STONE1A,
+    eStructs16_STRUCT_GATE_STONE1B,
+    eStructs16_STRUCT_GATE_STONE2A,
+    eStructs16_STRUCT_GATE_STONE2B,
+    eStructs16_STRUCT_RUINS01,
+    eStructs16_STRUCT_RUINS02,
+    eStructs16_STRUCT_RUINS03,
+    eStructs16_STRUCT_RUINS04,
+    eStructs16_STRUCT_RUINS05,
+    eStructs16_STRUCT_RUINS06,
+    eStructs16_STRUCT_RUINS07,
+    eStructs16_STRUCT_RUINS08,
+    eStructs16_STRUCT_RUINS09,
+    eStructs16_STRUCT_RUINS10,
+    eStructs16_STRUCT_RUINS11,
+    eStructs16_STRUCT_RUINS12,
+    eStructs16_STRUCT_RUINS13,
+    eStructs16_STRUCT_PEOPLE_ARCHERS,
+    eStructs16_STRUCT_PEOPLE_SPEARMEN,
+    eStructs16_STRUCT_PEOPLE_PIKEMEN,
+    eStructs16_STRUCT_PEOPLE_MACEMEN,
+    eStructs16_STRUCT_PEOPLE_XBOWMEN,
+    eStructs16_STRUCT_PEOPLE_SWORDSMEN,
+    eStructs16_STRUCT_PEOPLE_KNIGHTS,
+    eStructs16_STRUCT_PEOPLE_LADDERMEN,
+    eStructs16_STRUCT_PEOPLE_ENGINEERS,
+    eStructs16_STRUCT_PEOPLE_ENGINEERS_POTS,
+    eStructs16_STRUCT_PEOPLE_MONKS,
+    eStructs16_STRUCT_PEOPLE_CATAPULTS,
+    eStructs16_STRUCT_PEOPLE_TREBUCHETS,
+    eStructs16_STRUCT_PEOPLE_BATTERING_RAMS,
+    eStructs16_STRUCT_PEOPLE_SIEGE_TOWERS,
+    eStructs16_STRUCT_PEOPLE_PORTABLE_SHIELDS,
+    eStructs16_STRUCT_PEOPLE_TUNNELERS,
+    eStructs16_STRUCT_NEW_DIG_MOAT = 168,
+    eStructs16_STRUCT_NEW_FILL_MOAT,
+    eStructs16_STRUCT_MARKER_POINT1,
+    eStructs16_STRUCT_MARKER_POINT2,
+    eStructs16_STRUCT_MARKER_POINT3,
+    eStructs16_STRUCT_MARKER_POINT4,
+    eStructs16_STRUCT_MARKER_POINT5,
+    eStructs16_STRUCT_MARKER_POINT6,
+    eStructs16_STRUCT_MARKER_POINT7,
+    eStructs16_STRUCT_MARKER_POINT8,
+    eStructs16_STRUCT_MARKER_POINT9,
+    eStructs16_STRUCT_MARKER_POINT10,
+    eStructs16_STRUCT_RUINS14,
+    eStructs16_STRUCT_RUINS15,
+    eStructs16_STRUCT_RUINS16,
+    eStructs16_STRUCT_RUINS17,
+    eStructs16_STRUCT_POND5,
+    eStructs16_STRUCT_POND6,
+    eStructs16_STRUCT_POND7,
+    eStructs16_STRUCT_POND8,
+    eStructs16_STRUCT_IN_REPORTS = 190,
+    eStructs16_STRUCT_SUB_MENU_TOWERS = 200,
+    eStructs16_STRUCT_SUB_MENU_MILITARY,
+    eStructs16_STRUCT_SUB_MENU_GATEHOUSES,
+    eStructs16_STRUCT_SUB_MENU_KEEPS,
+    eStructs16_STRUCT_SUB_MENU_GATEHOUSES_WOOD,
+    eStructs16_STRUCT_SUB_MENU_GATEHOUSES_STONESMALL,
+    eStructs16_STRUCT_SUB_MENU_GATEHOUSES_STONELARGE,
+    eStructs16_STRUCT_SUB_MENU_GOOD,
+    eStructs16_STRUCT_SUB_MENU_BAD,
+    eStructs16_STRUCT_NEW_EDITOR_DELETE,
+    eStructs16_STRUCT_MENU_RETURN_TOWERS,
+    eStructs16_STRUCT_MENU_RETURN_GATEHOUSES,
+    eStructs16_STRUCT_MENU_RETURN_MILITARY,
+    eStructs16_STRUCT_MENU_RETURN_KEEPS,
+    eStructs16_STRUCT_MENU_RETURN_GOOD,
+    eStructs16_STRUCT_MENU_RETURN_BAD,
+    eStructs16_STRUCT_NEW_DELETE,
+    eStructs16_STRUCT_PEOPLE_ARAB_BOW = 220,
+    eStructs16_STRUCT_PEOPLE_ARAB_SLAVE,
+    eStructs16_STRUCT_PEOPLE_ARAB_SLINGER,
+    eStructs16_STRUCT_PEOPLE_ARAB_ASSASIN,
+    eStructs16_STRUCT_PEOPLE_ARAB_HORSEMAN,
+    eStructs16_STRUCT_PEOPLE_ARAB_SWORDSMAN,
+    eStructs16_STRUCT_PEOPLE_ARAB_GRENADIER,
+    eStructs16_STRUCT_PEOPLE_ARAB_BALLISTA,
+    eStructs16_STRUCT_RUINS18 = 230,
+    eStructs16_STRUCT_RUINS19,
+    eStructs16_STRUCT_RUINS20,
+    eStructs16_STRUCT_RUINS21,
+    eStructs16_STRUCT_RUINS22,
+    eStructs16_STRUCT_RUINS23,
+    eStructs16_STRUCT_RUINS24,
+    eStructs16_STRUCT_RUINS25,
+    eStructs16_STRUCT_RUINS26,
+    eStructs16_STRUCT_RUINS27,
+    eStructs16_STRUCT_RUINS28,
+    eStructs16_STRUCT_RUINS29,
+    eStructs16_STRUCT_RUINS30,
+    eStructs16_STRUCT_RUINS31,
+    eStructs16_STRUCT_RUINS32,
+    eStructs16_STRUCT_RUINS33,
+    eStructs16_STRUCT_RUINS34,
+    eStructs16_STRUCT_PEOPLE_BEDOUIN_CAMEL_LANCER,
+    eStructs16_STRUCT_PEOPLE_BEDOUIN_HEALER,
+    eStructs16_STRUCT_PEOPLE_BEDOUIN_EUNUCH,
+    eStructs16_STRUCT_PEOPLE_BEDOUIN_AMBUSHER,
+    eStructs16_STRUCT_PEOPLE_BEDOUIN_SKIRMISHER,
+    eStructs16_STRUCT_PEOPLE_BEDOUIN_HEAVY_CAMEL,
+    eStructs16_STRUCT_PEOPLE_BEDOUIN_SAPPER,
+    eStructs16_STRUCT_PEOPLE_BEDOUIN_DEMOLISHER
+} eStructs16;
 
 /* Derived from TaxesMode.h; C++ syntax normalized for Ghidra CParser. */
 typedef enum TaxesMode
@@ -11823,7 +12694,7 @@ typedef enum TileType
 /// </summary>
 /// <remarks>This enumeration defines the possible instructions that may be assigned to units within the game AI
 /// system. Some values correspond to specific actions, such as attacking a unit or building, moving to a location, or
-/// performing engineering tasks. Several members are reserved or have unknown purposes and may be used internally still. 
+/// performing engineering tasks. Several members are reserved or have unknown purposes and may be used internally still.
 /// The meaning and required parameters for each command may vary</remarks>
 typedef enum TribeAICommand
 {
@@ -11884,6 +12755,22 @@ typedef enum TribeAICommand
     // TODO: (used at E8 ? ? ? ? E9 ? ? ? ? 41 B8 ? ? ? ? 44 89 6C 24)
     TribeAICommand_Unknown38 = 38              // USED BY AI ? (maybe something to do with tiles?)
 } TribeAICommand;
+
+/* Derived from TribePatrolMode16.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum TribePatrolMode16
+{
+    TribePatrolMode16_Hold = 0,
+	TribePatrolMode16_PatrolOnce = -1,
+	TribePatrolMode16_PatrolInfinite = 1
+} TribePatrolMode16;
+
+/* Derived from TribeStance16.h; C++ syntax normalized for Ghidra CParser. */
+typedef enum TribeStance16
+{
+    TribeStance16_Hold = 0,
+	TribeStance16_Defensive = 1,
+	TribeStance16_Aggressive = 2
+} TribeStance16;
 
 /* Derived from ReClassExports.h; C++ syntax normalized for Ghidra CParser. */
 // Created with ReClass.NET 1.2 by KN4CK3R
@@ -13555,438 +14442,21 @@ typedef struct LogicDebugInfo
 
 
 
-/* Derived from GatePathOverrideMode.h; C++ syntax normalized for Ghidra CParser. */
-typedef enum GatePathOverrideMode
+/* Derived from TrackedUnitHandle.h; C++ syntax normalized for Ghidra CParser. */
+typedef struct CrusaderDE_TrackedUnitHandle
 {
-    GatePathOverrideMode_RestoreSaved = 0,
-	GatePathOverrideMode_ForceClosed = 1,
-	GatePathOverrideMode_ForceOpen = 2
-} GatePathOverrideMode;
-
-
-/* Derived from InternalAIC.h; C++ syntax normalized for Ghidra CParser. */
-// Created with ReClass.NET 1.2 by KN4CK3R
-
-typedef struct InternalAIC
-{
-	int32_t opponent_type; //0x0000
-	int32_t opponent_type_for_speech; //0x0004
-	int32_t lord_gfx_type; //0x0008
-	int32_t flag_type; //0x000C
-	int32_t use_of_religion; //0x0010
-	int32_t use_of_ale; //0x0014
-	int32_t vlow_popularity; //0x0018
-	int32_t low_popularity; //0x001C
-	int32_t high_popularity; //0x0020
-	int32_t min_tax; //0x0024
-	int32_t max_tax; //0x0028
-	int32_t farm_types1; //0x002C
-	int32_t farm_types2; //0x0030
-	int32_t farm_types3; //0x0034
-	int32_t farm_types4; //0x0038
-	int32_t farm_types5; //0x003C
-	int32_t farm_types6; //0x0040
-	int32_t farm_types7; //0x0044
-	int32_t farm_types8; //0x0048
-	int32_t people_to_farm_ratio; //0x004C
-	int32_t extract_wood_ratio; //0x0050
-	int32_t extract_stone_ratio; //0x0054
-	int32_t extract_iron_ratio; //0x0058
-	int32_t extract_pitch_ratio; //0x005C
-	int32_t max_quarries; //0x0060
-	int32_t max_mines; //0x0064
-	int32_t max_woodcutters; //0x0068
-	int32_t max_pitch_dugouts; //0x006C
-	int32_t max_farms; //0x0070
-	int32_t build_rate; //0x0074
-	int32_t crushed_building_delay; //0x0078
-	int32_t sell_food_at; //0x007C
-	int32_t buy_apples_at; //0x0080
-	int32_t buy_cheese_at; //0x0084
-	int32_t buy_bread_at; //0x0088
-	int32_t buy_wheat_at; //0x008C
-	int32_t buy_hops_at; //0x0090
-	int32_t buy_food_amount; //0x0094
-	int32_t buy_weapons; //0x0098
-	int32_t pester_for_goods_delay; //0x009C
-	int32_t send_goods_margin; //0x00A0
-	int32_t ration_boost; //0x00A4
-	int32_t trade_wood_at; //0x00A8
-	int32_t trade_stone_at; //0x00AC
-	int32_t trade_resources_at; //0x00B0
-	int32_t trade_flour_at; //0x00B4
-	int32_t trade_weapons_at; //0x00B8
-	int32_t trade_ale_at; //0x00BC
-	int32_t trade_pitch_at; //0x00C0
-	int32_t trade_minimum; //0x00C4
-	int32_t base_gold_reserves; //0x00C8
-	int32_t blacksmiths_make; //0x00CC
-	int32_t fletchers_make; //0x00D0
-	int32_t poleturners_make; //0x00D4
-	int32_t sell_all1; //0x00D8
-	int32_t sell_all2; //0x00DC
-	int32_t sell_all3; //0x00E0
-	int32_t sell_all4; //0x00E4
-	int32_t sell_all5; //0x00E8
-	int32_t sell_all6; //0x00EC
-	int32_t sell_all7; //0x00F0
-	int32_t sell_all8; //0x00F4
-	int32_t sell_all9; //0x00F8
-	int32_t sell_all10; //0x00FC
-	int32_t sell_all11; //0x0100
-	int32_t sell_all12; //0x0104
-	int32_t sell_all13; //0x0108
-	int32_t sell_all14; //0x010C
-	int32_t sell_all15; //0x0110
-	int32_t move_mobile_defenders; //0x0114
-	int32_t max_mobile_groups; //0x0118
-	int32_t buy_defense_machines_at; //0x011C
-	int32_t buy_defense_machines_delay; //0x0120
-	int32_t dog_release_timing; //0x0124
-	int32_t dog_points_count; //0x0128
-	int32_t chance_of_defensive1; //0x012C
-	int32_t chance_of_defensive2; //0x0130
-	int32_t chance_of_defensive3; //0x0134
-	int32_t chance_of_harrasment1; //0x0138
-	int32_t chance_of_harrasment2; //0x013C
-	int32_t chance_of_harrasment3; //0x0140
-	int32_t chance_of_seiging1; //0x0144
-	int32_t chance_of_seiging2; //0x0148
-	int32_t chance_of_seiging3; //0x014C
-	int32_t economy_protection_number; //0x0150
-	int32_t economy_protection_type; //0x0154
-	int32_t bodyguard_number; //0x0158
-	int32_t bodyguard_type; //0x015C
-	int32_t moat_diggers; //0x0160
-	int32_t moat_digger_type; //0x0164
-	int32_t troop_production_rate1; //0x0168
-	int32_t troop_production_rate2; //0x016C
-	int32_t troop_production_rate3; //0x0170
-	int32_t defense_patrol_trigger_level; //0x0174
-	int32_t defense_patrols; //0x0178
-	int32_t defense_patrol_style; //0x017C
-	int32_t defense_patrol_delay; //0x0180
-	int32_t defensive_trigger_level; //0x0184
-	int32_t defensive_troops1; //0x0188
-	int32_t defensive_troops2; //0x018C
-	int32_t defensive_troops3; //0x0190
-	int32_t defensive_troops4; //0x0194
-	int32_t defensive_troops5; //0x0198
-	int32_t defensive_troops6; //0x019C
-	int32_t defensive_troops7; //0x01A0
-	int32_t defensive_troops8; //0x01A4
-	int32_t harrasment_trigger_level; //0x01A8
-	int32_t harrasment_trigger_variance; //0x01AC
-	int32_t harrasment_troops1; //0x01B0
-	int32_t harrasment_troops2; //0x01B4
-	int32_t harrasment_troops3; //0x01B8
-	int32_t harrasment_troops4; //0x01BC
-	int32_t harrasment_troops5; //0x01C0
-	int32_t harrasment_troops6; //0x01C4
-	int32_t harrasment_troops7; //0x01C8
-	int32_t harrasment_troops8; //0x01CC
-	int32_t harrasment_machines1; //0x01D0
-	int32_t harrasment_machines2; //0x01D4
-	int32_t harrasment_machines3; //0x01D8
-	int32_t harrasment_machines4; //0x01DC
-	int32_t harrasment_machines5; //0x01E0
-	int32_t harrasment_machines6; //0x01E4
-	int32_t harrasment_machines7; //0x01E8
-	int32_t harrasment_machines8; //0x01EC
-	int32_t max_harrasment_machines; //0x01F0
-	int32_t harrass_delay; //0x01F4
-	int32_t siege_trigger_level; //0x01F8
-	int32_t siege_trigger_variance; //0x01FC
-	int32_t siege_troops_before_will_come_to_rescue; //0x0200
-	int32_t siege_troops_on_site_percent; //0x0204
-	int32_t siege_troops_at_home_percent; //0x0208
-	int32_t siege_soften_up_delay; //0x020C
-	int32_t siege_victory_delay; //0x0210
-	int32_t percent_chance_waiting_for_joint_attack; //0x0214
-	int32_t siege_machines1; //0x0218
-	int32_t siege_machines2; //0x021C
-	int32_t siege_machines3; //0x0220
-	int32_t siege_machines4; //0x0224
-	int32_t siege_machines5; //0x0228
-	int32_t siege_machines6; //0x022C
-	int32_t siege_machines7; //0x0230
-	int32_t siege_machines8; //0x0234
-	int32_t siege_cow_timer; //0x0238
-	int32_t siege_eng_amount; //0x023C
-	int32_t siege_moat_troop; //0x0240
-	int32_t siege_moat_amount; //0x0244
-	int32_t siege_herring_troop; //0x0248
-	int32_t siege_herring_amount; //0x024C
-	int32_t siege_assasin_amount; //0x0250
-	int32_t siege_ladder_amount; //0x0254
-	int32_t siege_tunnel_amount; //0x0258
-	int32_t siege_storm_troop; //0x025C
-	int32_t siege_storm_amount; //0x0260
-	int32_t siege_storm_tribes; //0x0264
-	int32_t siege_cover_troop; //0x0268
-	int32_t siege_cover_amount; //0x026C
-	int32_t siege_cover_tribes; //0x0270
-	int32_t siege_shock_troop; //0x0274
-	int32_t siege_shock_amount; //0x0278
-	int32_t siege_reserve_troop; //0x027C
-	int32_t siege_reserve_amount; //0x0280
-	int32_t siege_reserve_tribes; //0x0284
-	int32_t siege_wall_troops1; //0x0288
-	int32_t siege_wall_troops2; //0x028C
-	int32_t siege_wall_troops3; //0x0290
-	int32_t siege_wall_troops4; //0x0294
-	int32_t siege_wall_troops5; //0x0298
-	int32_t siege_wall_troops6; //0x029C
-	int32_t siege_wall_troops7; //0x02A0
-	int32_t siege_wall_troops8; //0x02A4
-	int32_t siege_wall_troops9; //0x02A8
-	int32_t siege_wall_troops10; //0x02AC
-	int32_t siege_wall_troops11; //0x02B0
-	int32_t siege_wall_troops12; //0x02B4
-	int32_t siege_wall_troops13; //0x02B8
-	int32_t siege_wall_troops14; //0x02BC
-	int32_t siege_wall_troops15; //0x02C0
-	int32_t siege_wall_troops16; //0x02C4
-	int32_t siege_wall_troops17; //0x02C8
-	int32_t siege_wall_troops18; //0x02CC
-	int32_t siege_wall_troops19; //0x02D0
-	int32_t siege_wall_troops20; //0x02D4
-	int32_t siege_wall_troops21; //0x02D8
-	int32_t siege_wall_troops22; //0x02DC
-	int32_t siege_wall_troops23; //0x02E0
-	int32_t siege_wall_troops24; //0x02E4
-	int32_t siege_wall_amount; //0x02E8
-	int32_t siege_wall_tribes; //0x02EC
-	int32_t who_to_pick_on; //0x02F0
-	int32_t use_improved_sieging; //0x02F4
-	int32_t starting_troops_normal1; //0x02F8
-	int32_t starting_troops_normal2; //0x02FC
-	int32_t starting_troops_normal3; //0x0300
-	int32_t starting_troops_normal4; //0x0304
-	int32_t starting_troops_normal5; //0x0308
-	int32_t starting_troops_normal6; //0x030C
-	int32_t starting_troops_normal7; //0x0310
-	int32_t starting_troops_normal8; //0x0314
-	int32_t starting_troops_normal9; //0x0318
-	int32_t starting_troops_normal10; //0x031C
-	int32_t starting_troops_normal11; //0x0320
-	int32_t starting_troops_normal12; //0x0324
-	int32_t starting_troops_normal13; //0x0328
-	int32_t starting_troops_normal14; //0x032C
-	int32_t starting_troops_normal15; //0x0330
-	int32_t starting_troops_normal16; //0x0334
-	int32_t starting_troops_normal17; //0x0338
-	int32_t starting_troops_normal18; //0x033C
-	int32_t starting_troops_normal19; //0x0340
-	int32_t starting_troops_normal20; //0x0344
-	int32_t starting_troops_normal21; //0x0348
-	int32_t starting_troops_normal22; //0x034C
-	int32_t starting_troops_normal23; //0x0350
-	int32_t starting_troops_normal24; //0x0354
-	int32_t starting_troops_normal25; //0x0358
-	int32_t starting_troops_normal26; //0x035C
-	int32_t starting_troops_normal27; //0x0360
-	int32_t starting_troops_normal28; //0x0364
-	int32_t starting_troops_deathmatch1; //0x0368
-	int32_t starting_troops_deathmatch2; //0x036C
-	int32_t starting_troops_deathmatch3; //0x0370
-	int32_t starting_troops_deathmatch4; //0x0374
-	int32_t starting_troops_deathmatch5; //0x0378
-	int32_t starting_troops_deathmatch6; //0x037C
-	int32_t starting_troops_deathmatch7; //0x0380
-	int32_t starting_troops_deathmatch8; //0x0384
-	int32_t starting_troops_deathmatch9; //0x0388
-	int32_t starting_troops_deathmatch10; //0x038C
-	int32_t starting_troops_deathmatch11; //0x0390
-	int32_t starting_troops_deathmatch12; //0x0394
-	int32_t starting_troops_deathmatch13; //0x0398
-	int32_t starting_troops_deathmatch14; //0x039C
-	int32_t starting_troops_deathmatch15; //0x03A0
-	int32_t starting_troops_deathmatch16; //0x03A4
-	int32_t starting_troops_deathmatch17; //0x03A8
-	int32_t starting_troops_deathmatch18; //0x03AC
-	int32_t starting_troops_deathmatch19; //0x03B0
-	int32_t starting_troops_deathmatch20; //0x03B4
-	int32_t starting_troops_deathmatch21; //0x03B8
-	int32_t starting_troops_deathmatch22; //0x03BC
-	int32_t starting_troops_deathmatch23; //0x03C0
-	int32_t starting_troops_deathmatch24; //0x03C4
-	int32_t starting_troops_deathmatch25; //0x03C8
-	int32_t starting_troops_deathmatch26; //0x03CC
-	int32_t starting_troops_deathmatch27; //0x03D0
-	int32_t starting_troops_deathmatch28; //0x03D4
-	int32_t starting_troops_crusader1; //0x03D8
-	int32_t starting_troops_crusader2; //0x03DC
-	int32_t starting_troops_crusader3; //0x03E0
-	int32_t starting_troops_crusader4; //0x03E4
-	int32_t starting_troops_crusader5; //0x03E8
-	int32_t starting_troops_crusader6; //0x03EC
-	int32_t starting_troops_crusader7; //0x03F0
-	int32_t starting_troops_crusader8; //0x03F4
-	int32_t starting_troops_crusader9; //0x03F8
-	int32_t starting_troops_crusader10; //0x03FC
-	int32_t starting_troops_crusader11; //0x0400
-	int32_t starting_troops_crusader12; //0x0404
-	int32_t starting_troops_crusader13; //0x0408
-	int32_t starting_troops_crusader14; //0x040C
-	int32_t starting_troops_crusader15; //0x0410
-	int32_t starting_troops_crusader16; //0x0414
-	int32_t starting_troops_crusader17; //0x0418
-	int32_t starting_troops_crusader18; //0x041C
-	int32_t starting_troops_crusader19; //0x0420
-	int32_t starting_troops_crusader20; //0x0424
-	int32_t starting_troops_crusader21; //0x0428
-	int32_t starting_troops_crusader22; //0x042C
-	int32_t starting_troops_crusader23; //0x0430
-	int32_t starting_troops_crusader24; //0x0434
-	int32_t starting_troops_crusader25; //0x0438
-	int32_t starting_troops_crusader26; //0x043C
-	int32_t starting_troops_crusader27; //0x0440
-	int32_t starting_troops_crusader28; //0x0444
-	int32_t lord_power_display_level; //0x0448
-	int32_t lord_hps_percent; //0x044C
-	int32_t extendedLordParent; //0x0450
-	int32_t siege_max_troops; //0x0454
-	int32_t siege_normal_wave_multiplier; //0x0458
-	int32_t siege_high_gold_wave_multiplier; //0x045C
-	int32_t free04; //0x0460
-	int32_t free05; //0x0464
-	int32_t free06; //0x0468
-	int32_t free07; //0x046C
-	int32_t free08; //0x0470
-	int32_t free09; //0x0474
-	int32_t free00; //0x0478
-	int32_t free11; //0x047C
-	int32_t free12; //0x0480
-	int32_t free13; //0x0484
-	int32_t free14; //0x0488
-	int32_t free15; //0x048C
-	int32_t free16; //0x0490
-	int32_t free17; //0x0494
-	int32_t free18; //0x0498
-	int32_t free19; //0x049C
-	int32_t free20; //0x04A0
-	int32_t free21; //0x04A4
-	int32_t free22; //0x04A8
-	int32_t free23; //0x04AC
-	int32_t free24; //0x04B0
-	int32_t free25; //0x04B4
-	int32_t free26; //0x04B8
-	int32_t free27; //0x04BC
-	int32_t free28; //0x04C0
-	int32_t free29; //0x04C4
-	int32_t free30; //0x04C8
-	int32_t free31; //0x04CC
-	int32_t free32; //0x04D0
-	int32_t free33; //0x04D4
-	int32_t free34; //0x04D8
-	int32_t free35; //0x04DC
-	int32_t free36; //0x04E0
-	int32_t free37; //0x04E4
-	int32_t free38; //0x04E8
-	int32_t free39; //0x04EC
-	int32_t free40; //0x04F0
-	int32_t free41; //0x04F4
-	int32_t free42; //0x04F8
-	int32_t free43; //0x04FC
-	int32_t free44; //0x0500
-	int32_t free45; //0x0504
-	int32_t free46; //0x0508
-	int32_t free47; //0x050C
-	int32_t free48; //0x0510
-	int32_t free49; //0x0514
-	int32_t free50; //0x0518
-	int32_t free51; //0x051C
-	int32_t free52; //0x0520
-	int32_t free53; //0x0524
-	int32_t free54; //0x0528
-	int32_t free55; //0x052C
-	int32_t free56; //0x0530
-	int32_t free57; //0x0534
-	int32_t free58; //0x0538
-	int32_t free59; //0x053C
-	int32_t free60; //0x0540
-	int32_t free61; //0x0544
-	int32_t free62; //0x0548
-	int32_t free63; //0x054C
-	int32_t free64; //0x0550
-	int32_t free65; //0x0554
-	int32_t free66; //0x0558
-	int32_t free67; //0x055C
-	int32_t free68; //0x0560
-	int32_t free69; //0x0564
-	int32_t free70; //0x0568
-	int32_t free71; //0x056C
-	int32_t free72; //0x0570
-	int32_t free73; //0x0574
-	int32_t free74; //0x0578
-	int32_t free75; //0x057C
-	int32_t free76; //0x0580
-	int32_t free77; //0x0584
-	int32_t free78; //0x0588
-	int32_t free79; //0x058C
-	int32_t free80; //0x0590
-	int32_t free81; //0x0594
-	int32_t free82; //0x0598
-	int32_t free83; //0x059C
-	int32_t free84; //0x05A0
-	int32_t free85; //0x05A4
-	int32_t free86; //0x05A8
-	int32_t free87; //0x05AC
-	int32_t free88; //0x05B0
-	int32_t free89; //0x05B4
-	int32_t free90; //0x05B8
-	int32_t free91; //0x05BC
-	int32_t free92; //0x05C0
-	int32_t free93; //0x05C4
-	int32_t free94; //0x05C8
-	int32_t free95; //0x05CC
-	int32_t free96; //0x05D0
-	int32_t free97; //0x05D4
-	int32_t free98; //0x05D8
-	int32_t free99; //0x05DC
-	int32_t free100; //0x05E0
-}; //Size: 0x05E4
-
-/* Derived from MessageManager.h; C++ syntax normalized for Ghidra CParser. */
-typedef struct MessageManager
-{
-	uint32_t IsQueueActive; //0x0000
-	uint32_t ImmediateCommandId; //0x0004
-	uint32_t ImmediateMessageType; //0x0008
-	char pad_000C[200]; //0x000C
-	uint32_t ImmediatePlayerId; //0x00D4
-	char pad_00D8[4]; //0x00D8
-	uint32_t QueueCommandIds[10]; //0x00DC
-	uint32_t QueueMessageTypes[10]; //0x0104
-	uint32_t QueueFlags[10]; //0x012C
-	char QueueVideoPaths[10][100]; //0x0154
-	char QueueAudioPaths[10][100]; //0x053C
-	uint32_t QueuePlayerIds[10]; //0x0924
-	uint32_t CurrentQueueCount; //0x094C
-	char pad_0950[904]; //0x0950
-}; //Size: 0x0CD8
-
-/* Derived from MoatTargetMode.h; C++ syntax normalized for Ghidra CParser. */
-typedef enum MoatTargetMode
-{
-    TaskTile = 1,
-    AdjacentReachableTile = 2,
-} MoatTargetMode;
-
-/* Derived from MoatWorkType.h; C++ syntax normalized for Ghidra CParser. */
-typedef enum MoatWorkType
-{
-    DigFriendlyPlannedMoat = 1,
-    FillHostileDugMoat = 2,
-} MoatWorkType;
+    int32_t unit_index;
+    int32_t unit_global_id;
+} CrusaderDE_TrackedUnitHandle;
 
 /* Derived from PlayerResources.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
 typedef struct PlayerResources
 {
 	uint32_t N000039F7; //0x0000
 	uint32_t N000044FF; //0x0004
-	uint32_t N000039F8; //0x0008
+	uint32_t r_HasOrHadStoneBarracks; //0x0008
 	uint32_t N00004501; //0x000C
 	uint32_t N000039F9; //0x0010
 	uint32_t N00004503; //0x0014
@@ -14019,7 +14489,7 @@ typedef struct PlayerResources
 	uint32_t r_CivilianHousingSpace; //0x0074
 	uint32_t r_TotalPeasants; //0x0078
 	uint32_t N0000451D; //0x007C
-	uint32_t N00003A07; //0x0080
+	uint32_t r_OverpopulationRatioPercent; //0x0080
 	uint32_t r_TotalCivilians; //0x0084
 	uint32_t r_ReadyPeasants; //0x0088
 	uint32_t r_ExistingPeasants; //0x008C
@@ -14310,7 +14780,7 @@ typedef struct PlayerResources
 	uint32_t r_TotalGoodsFoodMeat; //0x0500
 	uint32_t r_TotalGoodsFoodFruit; //0x0504
 	uint32_t r_TotalGoodsFoodAle; //0x0508
-	uint32_t r_TotalGoodsGold; //0x050C
+	int32_t r_TotalGoodsGold; //0x050C
 	uint32_t r_TotalGoodsFlour; //0x0510
 	uint32_t r_TotalGoodsBows; //0x0514
 	uint32_t r_TotalGoodsCrossbows; //0x0518
@@ -16076,8 +16546,8 @@ typedef struct PlayerResources
 	uint32_t r_FoodStockFruit; //0x2098
 	uint32_t r_FoodStockTotal; //0x209C
 	uint32_t r_PreferredFoodType; //0x20A0
-	uint32_t N00004D27; //0x20A4
-	uint32_t r_LastConsumedFoodType; //0x20A8
+	uint32_t r_UnknownFoodRelated; //0x20A4
+	uint32_t r_FoodVarietyAmount; //0x20A8
 	uint32_t r_FoodTypeConsumptionIndex; //0x20AC
 	uint32_t r_ConsumptionRateThisTick; //0x20B0
 	uint32_t r_ConsumptionAccumulator; //0x20B4
@@ -16103,9 +16573,9 @@ typedef struct PlayerResources
 	uint32_t N00004D3F; //0x2104
 	uint32_t N00003E18; //0x2108
 	uint32_t N00004D41; //0x210C
-	uint32_t r_AleBonus; //0x2110
-	uint32_t N00004D43; //0x2114
-	uint32_t N00003E1A; //0x2118
+	uint32_t r_AlePopularityModifier; //0x2110
+	uint32_t r_ChurchPopularityModifier; //0x2114
+	uint32_t r_RationsPopularityModifier2Uncertain; //0x2118
 	uint32_t r_ProductivityPercentage; //0x211C
 	uint32_t N00003E1B; //0x2120
 	uint32_t r_WorkingInns; //0x2124
@@ -16115,17 +16585,17 @@ typedef struct PlayerResources
 	int32_t r_GoodBadThingBoost; //0x2134
 	uint32_t r_GoodBadThingsForNextStage; //0x2138
 	uint32_t N00004D4D; //0x213C
-	uint32_t N00003E1F; //0x2140
-	uint32_t N00004D4F; //0x2144
+	uint32_t r_LastExpenditureBribeAmount; //0x2140
+	uint32_t r_NextExpenditureBribeAccumulator; //0x2144
 	uint32_t N00003E20; //0x2148
 	uint32_t N00004D51; //0x214C
 	uint32_t r_LastBoughtWallStoneCost; //0x2150
 	uint32_t r_NextIncomeGoldAmount; //0x2154
-	uint32_t r_NextIncomeProgress; //0x2158
+	uint32_t r_NextIncomeProgressAccumulator; //0x2158
 	int32_t r_TaxPopularityModifier; //0x215C
-	int32_t r_RationsPopularityModifier; //0x2160
-	int32_t N00004D57; //0x2164
-	uint32_t N00003E24; //0x2168
+	int32_t r_RationsPopularityModifierUncertain; //0x2160
+	int32_t r_OvercrowdingPopularityModifier; //0x2164
+	uint32_t r_UnknownPopularityRelated; //0x2168
 	uint32_t N00004D59; //0x216C
 	uint32_t N00003E25; //0x2170
 	uint32_t N00004D5B; //0x2174
@@ -16133,8 +16603,8 @@ typedef struct PlayerResources
 	uint32_t N00004D5D; //0x217C
 	uint32_t r_TotalPopulation; //0x2180
 	uint32_t N00004D5F; //0x2184
-	uint32_t r_TaxesMode; //0x2188
-	uint32_t r_RationMode; //0x218C
+	TaxesMode r_TaxesMode; //0x2188
+	RationsMode r_RationMode; //0x218C
 	int32_t r_DaysUntilStarvation; //0x2190
 	uint32_t N00004D63; //0x2194
 	uint32_t N00003E2A; //0x2198
@@ -16169,26 +16639,26 @@ typedef struct PlayerResources
 	uint32_t N00004D81; //0x220C
 	uint32_t r_IsPaused; //0x2210
 	uint32_t N00004D83; //0x2214
-	uint32_t N00003E3A; //0x2218
+	uint32_t r_WallRefundStoneAccumulator; //0x2218
 	uint32_t r_GranaryChickens; //0x221C
 	uint32_t N00003E3B; //0x2220
 	uint32_t N00004D87; //0x2224
-	uint32_t N00003E3C; //0x2228
-	uint32_t N00004D89; //0x222C
+	uint32_t r_IsPopularityMaxEvent; //0x2228
+	uint32_t r_EventPopularityBoostModifier; //0x222C
 	uint32_t N00003E3D; //0x2230
 	uint32_t N00004D8B; //0x2234
 	uint32_t r_BlessedPeople; //0x2238
 	uint32_t r_NotBlessedPeople; //0x223C
 	uint32_t r_BlessedCiviliansPercent2; //0x2240
 	uint32_t r_WinLossState; //0x2244
-	uint16_t N00003E40; //0x2248
-	uint16_t N0000488D_2; //0x224A
-	uint16_t N00004D91; //0x224C
-	uint16_t N00004890; //0x224E
+	uint16_t r_UnknownRelatedOfPlayerGold1; //0x2248
+	uint16_t r_UnknownRelatedOfPlayerGold2; //0x224A
+	uint16_t r_UnknownRelatedOfPlayerFood1; //0x224C
+	uint16_t r_UnknownRelatedOfPlayerFood2; //0x224E
 	uint16_t N00003E41; //0x2250
-	uint16_t N0000924C; //0x2252
-	uint32_t N00004D93; //0x2254
-	uint32_t N00003E42; //0x2258
+	uint16_t r_UnusedHorsesTotal; //0x2252
+	uint32_t r_Mothers; //0x2254
+	uint32_t r_Children; //0x2258
 	uint32_t N00004D95; //0x225C
 	uint32_t N00003E43; //0x2260
 	uint32_t N00004D97; //0x2264
@@ -16205,7 +16675,7 @@ typedef struct PlayerResources
 	uint32_t r_Chapels; //0x2288
 	uint32_t r_Churches; //0x228C
 	uint32_t r_Cathedrals; //0x2290
-	uint32_t N00004DA3; //0x2294
+	uint32_t r_UnknownPopularityAccumulationByCurrentDividedBy25; //0x2294
 	uint32_t r_Priests; //0x2298
 	uint32_t N00004DA5; //0x229C
 	uint32_t N00003E4B; //0x22A0
@@ -16233,7 +16703,7 @@ typedef struct PlayerResources
 	uint32_t N00003E56; //0x22F8
 	uint32_t N00004DBD; //0x22FC
 	uint32_t r_AILordMinusOne; //0x2300
-	uint32_t N00004DBF; //0x2304
+	uint32_t r_PopulationAndIncomeRelated; //0x2304
 	uint32_t N00003E58; //0x2308
 	uint32_t N00004DC1; //0x230C
 	uint32_t N00003E59; //0x2310
@@ -16706,33 +17176,33 @@ typedef struct PlayerResources
 	uint32_t N00004F95; //0x2A5C
 	uint32_t N00003F43; //0x2A60
 	uint32_t N00004F97; //0x2A64
-	uint32_t N00003F44; //0x2A68
-	uint32_t N00004F99; //0x2A6C
-	uint32_t N00003F45; //0x2A70
-	uint32_t N00004F9B; //0x2A74
-	uint32_t N00003F46; //0x2A78
-	uint32_t N00004F9D; //0x2A7C
-	uint32_t N00003F47; //0x2A80
-	uint32_t N00004F9F; //0x2A84
-	uint32_t N00003F48; //0x2A88
-	uint32_t N00004FA1; //0x2A8C
-	uint32_t N00003F49; //0x2A90
-	uint32_t N00004FA3; //0x2A94
-	uint32_t N00003F4A; //0x2A98
-	uint32_t N00004FA5; //0x2A9C
-	uint32_t N00003F4B; //0x2AA0
-	uint32_t N00004FA7; //0x2AA4
-	uint32_t N00003F4C; //0x2AA8
-	uint32_t N00004FA9; //0x2AAC
-	uint32_t N00003F4D; //0x2AB0
-	uint32_t N00004FAB; //0x2AB4
-	uint32_t N00003F4E; //0x2AB8
-	uint32_t N00004FAD; //0x2ABC
-	uint32_t N00003F4F; //0x2AC0
-	uint32_t N00004FAF; //0x2AC4
-	uint32_t N00003F50; //0x2AC8
-	uint32_t N00004FB1; //0x2ACC
-	uint32_t N00003F51; //0x2AD0
+	uint32_t r_bCachedTradePostExists; //0x2A68
+	uint32_t r_AISellOrBuyPhase; //0x2A6C
+	uint32_t r_AIPendingMarketPurchaseAmountNull; //0x2A70
+	uint32_t r_AIPendingMarketPurchaseAmountWoodLogs; //0x2A74
+	uint32_t r_AIPendingMarketPurchaseAmountWoodPlanks; //0x2A78
+	uint32_t r_AIPendingMarketPurchaseAmountHops; //0x2A7C
+	uint32_t r_AIPendingMarketPurchaseAmountStoneBlocks; //0x2A80
+	uint32_t r_AIPendingMarketPurchaseAmountCowHides; //0x2A84
+	uint32_t r_AIPendingMarketPurchaseAmountIronIngots; //0x2A88
+	uint32_t r_AIPendingMarketPurchaseAmountPitchRaw; //0x2A8C
+	uint32_t r_AIPendingMarketPurchaseAmountPitchRefined; //0x2A90
+	uint32_t r_AIPendingMarketPurchaseAmountRawWheat; //0x2A94
+	uint32_t r_AIPendingMarketPurchaseAmountFoodBread; //0x2A98
+	uint32_t r_AIPendingMarketPurchaseAmountFoodCheese; //0x2A9C
+	uint32_t r_AIPendingMarketPurchaseAmountFoodMeat; //0x2AA0
+	uint32_t r_AIPendingMarketPurchaseAmountFoodFruit; //0x2AA4
+	uint32_t r_AIPendingMarketPurchaseAmountFoodAle; //0x2AA8
+	uint32_t r_AIPendingMarketPurchaseAmountGold; //0x2AAC
+	uint32_t r_AIPendingMarketPurchaseAmountFlour; //0x2AB0
+	uint32_t r_AIPendingMarketPurchaseAmountBows; //0x2AB4
+	uint32_t r_AIPendingMarketPurchaseAmountCrossbows; //0x2AB8
+	uint32_t r_AIPendingMarketPurchaseAmountSpears; //0x2ABC
+	uint32_t r_AIPendingMarketPurchaseAmountPikes; //0x2AC0
+	uint32_t r_AIPendingMarketPurchaseAmountMaces; //0x2AC4
+	uint32_t r_AIPendingMarketPurchaseAmountSwords; //0x2AC8
+	uint32_t r_AIPendingMarketPurchaseAmountLeatherArmour; //0x2ACC
+	uint32_t r_AIPendingMarketPurchaseAmountMetalArmour; //0x2AD0
 	uint32_t N00004FB3; //0x2AD4
 	uint32_t N00003F52; //0x2AD8
 	uint32_t N00004FB5; //0x2ADC
@@ -17126,7 +17596,7 @@ typedef struct PlayerResources
 	uint32_t r_UnitsWithTribeRole2; //0x30EC
 	uint32_t N00004015; //0x30F0
 	uint32_t N0000513B; //0x30F4
-	uint32_t N00004016; //0x30F8
+	uint32_t r_AIRecruitmentFSMMode; //0x30F8
 	uint32_t N0000513D; //0x30FC
 	uint32_t N00004017; //0x3100
 	uint32_t N0000513F; //0x3104
@@ -17432,7 +17902,8 @@ typedef struct PlayerResources
 	uint32_t N0000526B; //0x35B4
 	uint32_t N000040AE; //0x35B8
 	uint32_t N0000526D; //0x35BC
-	uint32_t N000040AF; //0x35C0
+	uint16_t N000040AF; //0x35C0
+	uint16_t N000124E4; //0x35C2
 	uint32_t N0000526F; //0x35C4
 	uint32_t N000040B0; //0x35C8
 	uint32_t N00005271; //0x35CC
@@ -18640,523 +19111,43 @@ typedef struct PlayerResources
 	uint32_t N00005723; //0x4894
 	uint32_t N0000430A; //0x4898
 	uint32_t N00005725; //0x489C
-	uint32_t N0000430B; //0x48A0
-	uint32_t N00005727; //0x48A4
-	uint32_t N0000430C; //0x48A8
-	uint32_t N00005729; //0x48AC
-	uint32_t N0000430D; //0x48B0
-	uint16_t N0000572B; //0x48B4
-	uint16_t N000091EF; //0x48B6
-	uint16_t N0000430E; //0x48B8
-	uint16_t N000091F2; //0x48BA
-	uint16_t N0000572D; //0x48BC
-	uint16_t N000091F5; //0x48BE
-	uint16_t N0000430F; //0x48C0
-	uint16_t N000091F8; //0x48C2
-	uint16_t N0000572F; //0x48C4
-	uint16_t N000091FB; //0x48C6
-	uint16_t N00004310; //0x48C8
-	uint16_t N000091FE; //0x48CA
-	uint16_t N00005731; //0x48CC
-	uint16_t N00009201; //0x48CE
-	uint16_t N00004311; //0x48D0
-	uint16_t N00009204; //0x48D2
-	uint16_t N00005733; //0x48D4
-	uint16_t N00009207; //0x48D6
-	uint16_t N00004312; //0x48D8
-	uint16_t N0000920A; //0x48DA
-	uint16_t N00005735; //0x48DC
-	uint16_t N0000920D; //0x48DE
-	uint16_t N00004313; //0x48E0
-	uint16_t N00009210; //0x48E2
-	uint16_t N00005737; //0x48E4
-	uint16_t N00009213; //0x48E6
-	uint16_t N00004314; //0x48E8
-	uint16_t N00009216; //0x48EA
-	uint32_t N00005739; //0x48EC
-	uint32_t N00004315; //0x48F0
-	uint32_t N0000573B; //0x48F4
-	uint32_t N00004316; //0x48F8
-	uint32_t N0000573D; //0x48FC
-	uint32_t N00004317; //0x4900
-	uint32_t N0000573F; //0x4904
-	uint32_t N00004318; //0x4908
-	uint32_t N00005741; //0x490C
-	uint32_t N00004319; //0x4910
-	uint32_t N00005743; //0x4914
-	uint32_t N0000431A; //0x4918
-	uint32_t N00005745; //0x491C
-	uint32_t N0000431B; //0x4920
-	uint32_t N00005747; //0x4924
-	uint32_t N0000431C; //0x4928
-	uint32_t N00005749; //0x492C
-	uint32_t N0000431D; //0x4930
-	uint32_t N0000574B; //0x4934
-	uint32_t N0000431E; //0x4938
-	uint32_t N0000574D; //0x493C
-	uint32_t N0000431F; //0x4940
-	uint32_t N0000574F; //0x4944
-	uint32_t N00004320; //0x4948
-	uint32_t N00005751; //0x494C
-	uint32_t N00004321; //0x4950
-	uint32_t N00005753; //0x4954
-	uint32_t N00004322; //0x4958
-	uint32_t N00005755; //0x495C
-	uint32_t N00004323; //0x4960
-	uint32_t N00005757; //0x4964
-	uint32_t N00004324; //0x4968
-	uint32_t N00005759; //0x496C
-	uint32_t N00004325; //0x4970
-	uint32_t N0000575B; //0x4974
-	uint32_t N00004326; //0x4978
-	uint32_t N0000575D; //0x497C
-	uint32_t N00004327; //0x4980
-	uint32_t N0000575F; //0x4984
-	uint32_t N00004328; //0x4988
-	uint32_t N00005761; //0x498C
-	uint32_t N00004329; //0x4990
-	uint32_t N00005763; //0x4994
-	uint32_t N0000432A; //0x4998
-	uint32_t N00005765; //0x499C
-	uint32_t N0000432B; //0x49A0
-	uint32_t N00005767; //0x49A4
-	uint32_t N0000432C; //0x49A8
-	uint32_t N00005769; //0x49AC
-	uint32_t N0000432D; //0x49B0
-	uint32_t N0000576B; //0x49B4
-	uint32_t N0000432E; //0x49B8
-	uint32_t N0000576D; //0x49BC
-	uint32_t N0000432F; //0x49C0
-	uint32_t N0000576F; //0x49C4
-	uint32_t N00004330; //0x49C8
-	uint32_t N00005771; //0x49CC
-	uint32_t N00004331; //0x49D0
-	uint32_t N00005773; //0x49D4
-	uint32_t N00004332; //0x49D8
-	uint32_t N00005775; //0x49DC
-	uint32_t N00004333; //0x49E0
-	uint32_t N00005777; //0x49E4
-	uint16_t N00004334; //0x49E8
-	uint16_t r_AITribe_Engineers; //0x49EA
-	uint16_t r_AITribe_EconomyProtection; //0x49EC
-	uint16_t r_AITribe_Bodyguards; //0x49EE
-	uint16_t N00004335; //0x49F0
-	uint16_t N000091F2_2; //0x49F2
-	uint16_t N0000577B; //0x49F4
-	uint16_t N000091F5_3; //0x49F6
-	uint16_t N00004336; //0x49F8
-	uint16_t N000091F8_2; //0x49FA
-	uint16_t N0000577D; //0x49FC
-	uint16_t N000091FB_2; //0x49FE
-	uint16_t N00004337; //0x4A00
-	uint16_t N000091FE_2; //0x4A02
-	uint16_t N0000577F; //0x4A04
-	uint16_t N00009201_2; //0x4A06
-	uint16_t N00004338; //0x4A08
-	uint16_t N00009204_2; //0x4A0A
-	uint16_t N00005781; //0x4A0C
-	uint16_t N000091E7_2; //0x4A0E
-	uint16_t N00004339; //0x4A10
-	uint16_t N00009207_2; //0x4A12
-	uint16_t N00005783; //0x4A14
-	uint16_t N000091EF_2; //0x4A16
-	uint16_t N0000433A; //0x4A18
-	uint16_t N0000920A_2; //0x4A1A
-	uint16_t N00005785; //0x4A1C
-	uint16_t N0000920D_2; //0x4A1E
-	uint16_t N0000433B; //0x4A20
-	uint16_t N00009210_2; //0x4A22
-	uint16_t N00005787; //0x4A24
-	uint16_t N00009213_2; //0x4A26
-	uint16_t N0000433C; //0x4A28
-	uint16_t N00009216_2; //0x4A2A
-	uint32_t N00005789; //0x4A2C
-	uint32_t N0000433D_2; //0x4A30
-	uint32_t N0000578B; //0x4A34
-	uint32_t N0000433E_2; //0x4A38
-	uint32_t N0000578D; //0x4A3C
-	uint32_t N0000433F_2; //0x4A40
-	uint32_t N0000578F; //0x4A44
-	uint32_t N00004340_2; //0x4A48
-	uint32_t N00005791; //0x4A4C
-	uint32_t N00004341_2; //0x4A50
-	uint32_t N00005793; //0x4A54
-	uint32_t N00004342_2; //0x4A58
-	uint32_t N00005795; //0x4A5C
-	uint32_t N00004343_2; //0x4A60
-	uint32_t N00005797; //0x4A64
-	uint32_t N00004344_2; //0x4A68
-	uint32_t N00005799; //0x4A6C
-	uint32_t N00004345_2; //0x4A70
-	uint32_t N0000579B; //0x4A74
-	uint32_t N00004346_2; //0x4A78
-	uint32_t N0000579D; //0x4A7C
-	uint32_t N00004347_2; //0x4A80
-	uint32_t N0000579F; //0x4A84
-	uint32_t N00004348_2; //0x4A88
-	uint32_t N000057A1; //0x4A8C
-	uint32_t N00004349_2; //0x4A90
-	uint32_t N000057A3; //0x4A94
-	uint32_t N0000434A_2; //0x4A98
-	uint32_t N000057A5; //0x4A9C
-	uint32_t N0000434B_2; //0x4AA0
-	uint32_t N000057A7; //0x4AA4
-	uint32_t N0000434C_2; //0x4AA8
-	uint32_t N000057A9; //0x4AAC
-	uint32_t N0000434D; //0x4AB0
-	uint32_t N000057AB; //0x4AB4
-	uint32_t N0000434E; //0x4AB8
-	uint32_t N000057AD; //0x4ABC
-	uint32_t N0000434F; //0x4AC0
-	uint32_t N000057AF; //0x4AC4
-	uint32_t N00004350; //0x4AC8
-	uint32_t N000057B1; //0x4ACC
-	uint32_t N00004351; //0x4AD0
-	uint32_t N000057B3; //0x4AD4
-	uint32_t N00004352; //0x4AD8
-	uint32_t N000057B5; //0x4ADC
-	uint32_t N00004353; //0x4AE0
-	uint32_t N000057B7; //0x4AE4
-	uint32_t N00004354; //0x4AE8
-	uint32_t N000057B9; //0x4AEC
-	uint32_t N00004355; //0x4AF0
-	uint32_t N000057BB; //0x4AF4
-	uint32_t N00004356; //0x4AF8
-	uint32_t N000057BD; //0x4AFC
-	uint32_t N00004357; //0x4B00
-	uint32_t N000057BF; //0x4B04
-	uint32_t N00004358; //0x4B08
-	uint32_t N000057C1; //0x4B0C
-	uint32_t N00004359; //0x4B10
-	uint32_t N000057C3; //0x4B14
-	uint32_t N0000435A; //0x4B18
-	uint32_t N000057C5; //0x4B1C
-	uint32_t N0000435B; //0x4B20
-	uint32_t N000057C7; //0x4B24
-	uint32_t N0000435C; //0x4B28
-	uint32_t N000057C9; //0x4B2C
-	uint32_t N0000435D; //0x4B30
-	uint32_t N000057CB; //0x4B34
-	uint32_t N0000435E; //0x4B38
-	uint32_t N000057CD; //0x4B3C
-	uint16_t N0000435F; //0x4B40
-	uint16_t N00009219; //0x4B42
-	uint32_t N000057CF; //0x4B44
-	uint32_t N00004360; //0x4B48
-	uint32_t N000057D1; //0x4B4C
-	uint32_t N00004361; //0x4B50
-	uint32_t N000057D3; //0x4B54
-	uint32_t N00004362; //0x4B58
-	uint32_t N000057D5; //0x4B5C
-	uint32_t N00004363; //0x4B60
-	uint32_t N000057D7; //0x4B64
-	uint32_t N00004364; //0x4B68
-	uint32_t N000057D9; //0x4B6C
-	uint32_t N00004365; //0x4B70
-	uint32_t N000057DB; //0x4B74
-	uint32_t N00004366; //0x4B78
-	uint32_t N000057DD; //0x4B7C
-	uint32_t N00004367; //0x4B80
-	uint32_t N000057DF; //0x4B84
-	uint32_t N00004368; //0x4B88
-	uint32_t N000057E1; //0x4B8C
-	uint32_t N00004369; //0x4B90
-	uint32_t N000057E3; //0x4B94
-	uint32_t N0000436A; //0x4B98
-	uint32_t N000057E5; //0x4B9C
-	uint32_t N0000436B; //0x4BA0
-	uint32_t N000057E7; //0x4BA4
-	uint32_t N0000436C; //0x4BA8
-	uint32_t N000057E9; //0x4BAC
-	uint32_t N0000436D; //0x4BB0
-	uint32_t N000057EB; //0x4BB4
-	uint32_t N0000436E; //0x4BB8
-	uint32_t N000057ED; //0x4BBC
-	uint32_t N0000436F; //0x4BC0
-	uint32_t N000057EF; //0x4BC4
-	uint32_t N00004370; //0x4BC8
-	uint32_t N000057F1; //0x4BCC
-	uint32_t N00004371; //0x4BD0
-	uint32_t N000057F3; //0x4BD4
-	uint32_t N00004372; //0x4BD8
-	uint32_t N000057F5; //0x4BDC
-	uint32_t N00004373; //0x4BE0
-	uint32_t N000057F7; //0x4BE4
-	uint32_t N00004374; //0x4BE8
-	uint32_t N000057F9; //0x4BEC
-	uint32_t N00004375; //0x4BF0
-	uint32_t N000057FB; //0x4BF4
-	uint32_t N00004376; //0x4BF8
-	uint32_t N000057FD; //0x4BFC
-	uint32_t N00004377; //0x4C00
-	uint32_t N000057FF; //0x4C04
-	uint32_t N00004378; //0x4C08
-	uint32_t N00005801; //0x4C0C
-	uint32_t N00004379; //0x4C10
-	uint32_t N00005803; //0x4C14
-	uint32_t N0000437A; //0x4C18
-	uint32_t N00005805; //0x4C1C
-	uint32_t N0000437B; //0x4C20
-	uint32_t N00005807; //0x4C24
-	uint32_t N0000437C; //0x4C28
-	uint32_t N00005809; //0x4C2C
-	uint32_t N0000437D; //0x4C30
-	uint32_t N0000580B; //0x4C34
-	uint32_t N0000437E; //0x4C38
-	uint32_t N0000580D; //0x4C3C
-	uint32_t N0000437F; //0x4C40
-	uint32_t N0000580F; //0x4C44
-	uint32_t N00004380; //0x4C48
-	uint32_t N00005811; //0x4C4C
-	uint32_t N00004381; //0x4C50
-	uint32_t N00005813; //0x4C54
-	uint32_t N00004382; //0x4C58
-	uint32_t N00005815; //0x4C5C
-	uint32_t N00004383; //0x4C60
-	uint32_t N00005817; //0x4C64
-	uint32_t N00004384; //0x4C68
-	uint32_t N00005819; //0x4C6C
-	uint32_t N00004385; //0x4C70
-	uint32_t N0000581B; //0x4C74
-	uint32_t N00004386; //0x4C78
-	uint32_t N0000581D; //0x4C7C
-	uint32_t N00004387; //0x4C80
-	uint32_t N0000581F; //0x4C84
-	uint32_t N00004388; //0x4C88
-	uint32_t N00005821; //0x4C8C
-	uint32_t N00004389; //0x4C90
-	uint32_t N00005823; //0x4C94
-	uint32_t N0000438A; //0x4C98
-	uint32_t N00005825; //0x4C9C
-	uint32_t N0000438B; //0x4CA0
-	uint32_t N00005827; //0x4CA4
-	uint32_t N0000438C; //0x4CA8
-	uint32_t N00005829; //0x4CAC
-	uint32_t N0000438D; //0x4CB0
-	uint32_t N0000582B; //0x4CB4
-	uint32_t N0000438E; //0x4CB8
-	uint32_t N0000582D; //0x4CBC
-	uint32_t N0000438F; //0x4CC0
-	uint32_t N0000582F; //0x4CC4
-	uint32_t N00004390; //0x4CC8
-	uint32_t N00005831; //0x4CCC
-	uint32_t N00004391; //0x4CD0
-	uint32_t N00005833; //0x4CD4
-	uint32_t N00004392; //0x4CD8
-	uint32_t N00005835; //0x4CDC
-	uint32_t N00004393; //0x4CE0
-	uint32_t N00005837; //0x4CE4
-	uint32_t N00004394; //0x4CE8
-	uint32_t N00005839; //0x4CEC
-	uint32_t N00004395; //0x4CF0
-	uint32_t N0000583B; //0x4CF4
-	uint32_t N00004396; //0x4CF8
-	uint32_t N0000583D; //0x4CFC
-	uint32_t N00004397; //0x4D00
-	uint32_t N0000583F; //0x4D04
-	uint32_t N00004398; //0x4D08
-	uint32_t N00005841; //0x4D0C
-	uint32_t N00004399; //0x4D10
-	uint32_t N00005843; //0x4D14
-	uint32_t N0000439A; //0x4D18
-	uint32_t N00005845; //0x4D1C
-	uint32_t N0000439B; //0x4D20
-	uint32_t N00005847; //0x4D24
-	uint32_t N0000439C; //0x4D28
-	uint32_t N00005849; //0x4D2C
-	uint32_t N0000439D; //0x4D30
-	uint32_t N0000584B; //0x4D34
-	uint32_t N0000439E; //0x4D38
-	uint32_t N0000584D; //0x4D3C
-	uint32_t N0000439F; //0x4D40
-	uint32_t N0000584F; //0x4D44
-	uint32_t N000043A0; //0x4D48
-	uint32_t N00005851; //0x4D4C
-	uint32_t N000043A1; //0x4D50
-	uint32_t N00005853; //0x4D54
-	uint32_t N000043A2; //0x4D58
-	uint32_t N00005855; //0x4D5C
-	uint32_t N000043A3; //0x4D60
-	uint32_t N00005857; //0x4D64
-	uint32_t N000043A4; //0x4D68
-	uint32_t N00005859; //0x4D6C
-	uint32_t N000043A5; //0x4D70
-	uint32_t N0000585B; //0x4D74
-	uint32_t N000043A6; //0x4D78
-	uint32_t N0000585D; //0x4D7C
-	uint32_t N000043A7; //0x4D80
-	uint32_t N0000585F; //0x4D84
-	uint32_t N000043A8; //0x4D88
-	uint32_t r_HarassmentEngineerTribeGlobalId1; //0x4D8C
-	uint32_t N000043A9; //0x4D90
-	uint32_t N00005863; //0x4D94
-	uint32_t N000043AA; //0x4D98
-	uint32_t N00005865; //0x4D9C
-	uint32_t N000043AB; //0x4DA0
-	uint32_t N00005867; //0x4DA4
-	uint32_t N000043AC; //0x4DA8
-	uint32_t N00005869; //0x4DAC
-	uint32_t N000043AD; //0x4DB0
-	uint32_t N0000586B; //0x4DB4
-	uint32_t N000043AE; //0x4DB8
-	uint32_t N0000586D; //0x4DBC
-	uint32_t N000043AF; //0x4DC0
-	uint32_t N0000586F; //0x4DC4
-	uint32_t N000043B0; //0x4DC8
-	uint32_t N00005871; //0x4DCC
-	uint32_t N000043B1; //0x4DD0
-	uint32_t N00005873; //0x4DD4
-	uint32_t N000043B2; //0x4DD8
-	uint32_t N00005875; //0x4DDC
-	uint32_t N000043B3; //0x4DE0
-	uint32_t N00005877; //0x4DE4
-	uint32_t N000043B4; //0x4DE8
-	uint32_t N00005879; //0x4DEC
-	uint32_t N000043B5; //0x4DF0
-	uint32_t N0000587B; //0x4DF4
-	uint32_t N000043B6; //0x4DF8
-	uint32_t N0000587D; //0x4DFC
-	uint32_t N000043B7; //0x4E00
-	uint32_t N0000587F; //0x4E04
-	uint32_t N000043B8; //0x4E08
-	uint32_t N00005881; //0x4E0C
-	uint32_t N000043B9; //0x4E10
-	uint32_t N00005883; //0x4E14
-	uint32_t N000043BA; //0x4E18
-	uint32_t N00005885; //0x4E1C
-	uint32_t N000043BB; //0x4E20
-	uint32_t N00005887; //0x4E24
-	uint32_t N000043BC; //0x4E28
-	uint32_t N00005889; //0x4E2C
-	uint32_t N000043BD; //0x4E30
-	uint32_t N0000588B; //0x4E34
-	uint32_t N000043BE; //0x4E38
-	uint32_t N0000588D; //0x4E3C
-	uint32_t N000043BF; //0x4E40
-	uint32_t N0000588F; //0x4E44
-	uint32_t N000043C0; //0x4E48
-	uint32_t N00005891; //0x4E4C
-	uint32_t N000043C1; //0x4E50
-	uint32_t N00005893; //0x4E54
-	uint32_t N000043C2; //0x4E58
-	uint32_t N00005895; //0x4E5C
-	uint32_t N000043C3; //0x4E60
-	uint32_t N00005897; //0x4E64
-	uint32_t N000043C4; //0x4E68
-	uint32_t N00005899; //0x4E6C
-	uint32_t N000043C5; //0x4E70
-	uint32_t N0000589B; //0x4E74
-	uint32_t N000043C6; //0x4E78
-	uint32_t N0000589D; //0x4E7C
-	uint32_t N000043C7; //0x4E80
-	uint32_t N0000589F; //0x4E84
-	uint32_t N000043C8; //0x4E88
-	uint32_t N000058A1; //0x4E8C
-	uint32_t N000043C9; //0x4E90
-	uint32_t N000058A3; //0x4E94
-	uint32_t N000043CA; //0x4E98
-	uint32_t N000058A5; //0x4E9C
-	uint32_t N000043CB; //0x4EA0
-	uint32_t N000058A7; //0x4EA4
-	uint32_t N000043CC; //0x4EA8
-	uint32_t N000058A9; //0x4EAC
-	uint32_t N000043CD; //0x4EB0
-	uint32_t N000058AB; //0x4EB4
-	uint32_t N000043CE; //0x4EB8
-	uint32_t N000058AD; //0x4EBC
-	uint32_t N000043CF; //0x4EC0
-	uint32_t N000058AF; //0x4EC4
-	uint32_t N000043D0; //0x4EC8
-	uint32_t N000058B1; //0x4ECC
-	uint32_t N000043D1; //0x4ED0
-	uint32_t N000058B3; //0x4ED4
-	uint32_t N000043D2; //0x4ED8
-	uint32_t N000058B5; //0x4EDC
-	uint32_t N000043D3; //0x4EE0
-	uint32_t N000058B7; //0x4EE4
-	uint32_t N000043D4; //0x4EE8
-	uint32_t N000058B9; //0x4EEC
-	uint32_t N000043D5; //0x4EF0
-	uint32_t N000058BB; //0x4EF4
-	uint32_t N000043D6; //0x4EF8
-	uint32_t N000058BD; //0x4EFC
-	uint32_t N000043D7; //0x4F00
-	uint32_t N000058BF; //0x4F04
-	uint32_t N000043D8; //0x4F08
-	uint32_t N000058C1; //0x4F0C
-	uint32_t N000043D9; //0x4F10
-	uint32_t N000058C3; //0x4F14
-	uint32_t N000043DA; //0x4F18
-	uint32_t N000058C5; //0x4F1C
-	uint32_t N000043DB; //0x4F20
-	uint32_t N000058C7; //0x4F24
-	uint32_t N000043DC; //0x4F28
-	uint32_t N000058C9; //0x4F2C
-	uint32_t N000043DD; //0x4F30
-	uint32_t N000058CB; //0x4F34
-	uint32_t N000043DE; //0x4F38
-	uint32_t N000058CD; //0x4F3C
-	uint32_t N000043DF; //0x4F40
-	uint32_t N000058CF; //0x4F44
-	uint32_t N000043E0; //0x4F48
-	uint32_t N000058D1; //0x4F4C
-	uint32_t N000043E1; //0x4F50
-	uint32_t N000058D3; //0x4F54
-	uint32_t N000043E2; //0x4F58
-	uint32_t N000058D5; //0x4F5C
-	uint32_t N000043E3; //0x4F60
-	uint32_t N000058D7; //0x4F64
-	uint32_t N000043E4; //0x4F68
-	uint32_t N000058D9; //0x4F6C
-	uint32_t N000043E5; //0x4F70
-	uint32_t N000058DB; //0x4F74
-	uint32_t N000043E6; //0x4F78
-	uint32_t N000058DD; //0x4F7C
-	uint32_t N000043E7; //0x4F80
-	uint32_t N000058DF; //0x4F84
-	uint32_t N000043E8; //0x4F88
-	uint32_t N000058E1; //0x4F8C
-	uint32_t N000043E9; //0x4F90
-	uint32_t N000058E3; //0x4F94
-	uint32_t N000043EA; //0x4F98
-	uint32_t N000058E5; //0x4F9C
-	uint32_t N000043EB; //0x4FA0
-	uint32_t N000058E7; //0x4FA4
-	uint32_t N000043EC; //0x4FA8
-	uint32_t N000058E9; //0x4FAC
-	uint32_t N000043ED; //0x4FB0
-	uint32_t N000058EB; //0x4FB4
-	uint32_t N000043EE; //0x4FB8
-	uint32_t N000058ED; //0x4FBC
-	uint32_t N000043EF; //0x4FC0
-	uint32_t N000058EF; //0x4FC4
-	uint32_t N000043F0; //0x4FC8
-	uint32_t N000058F1; //0x4FCC
-	uint32_t N000043F1; //0x4FD0
-	uint32_t N000058F3; //0x4FD4
-	uint32_t N000043F2; //0x4FD8
-	uint32_t N000058F5; //0x4FDC
-	uint32_t N000043F3; //0x4FE0
-	uint32_t N000058F7; //0x4FE4
-	uint32_t N000043F4; //0x4FE8
-	uint32_t N000058F9; //0x4FEC
-	uint32_t N000043F5; //0x4FF0
-	uint32_t N000058FB; //0x4FF4
-	uint32_t N000043F6; //0x4FF8
-	uint32_t N000058FD; //0x4FFC
-	uint32_t N000043F7; //0x5000
-	uint32_t N000058FF; //0x5004
-	uint32_t N000043F8; //0x5008
-	uint32_t N00005901; //0x500C
-	uint32_t N000043F9; //0x5010
-	uint32_t N00005903; //0x5014
-	uint32_t N000043FA; //0x5018
-	uint32_t N00005905; //0x501C
-	uint32_t N000043FB; //0x5020
-	uint32_t N00005907; //0x5024
-	uint32_t N000043FC; //0x5028
-	uint32_t N00005909; //0x502C
-	uint32_t N000043FD; //0x5030
+	uint16_t r_AITribeIdsByRole[300]; //0x48A0
+	uint32_t r_AITribeGlobalIdsByRole[300]; //0x4AF8
+	uint32_t N000124CF; //0x4FA8
+	uint32_t N000124D3; //0x4FAC
+	uint32_t N000124D5; //0x4FB0
+	uint32_t N000124D7; //0x4FB4
+	uint32_t N000124DF; //0x4FB8
+	uint32_t N000124E1; //0x4FBC
+	uint32_t N000124DB; //0x4FC0
+	uint32_t N000124DD; //0x4FC4
+	uint32_t N000124D9; //0x4FC8
+	uint32_t N000124D1; //0x4FCC
+	uint32_t r_AISuppressSellAllTimerNull; //0x4FD0
+	uint32_t r_AISuppressSellAllTimerWoodLogs; //0x4FD4
+	uint32_t r_AISuppressSellAllTimerWoodPlanks; //0x4FD8
+	uint32_t r_AISuppressSellAllTimerRawHops; //0x4FDC
+	uint32_t r_AISuppressSellAllTimerStoneBlocks; //0x4FE0
+	uint32_t r_AISuppressSellAllTimerCowHides; //0x4FE4
+	uint32_t r_AISuppressSellAllTimerIronIngots; //0x4FE8
+	uint32_t r_AISuppressSellAllTimerPitchRaw; //0x4FEC
+	uint32_t r_AISuppressSellAllTimerPitchRefined; //0x4FF0
+	uint32_t r_AISuppressSellAllTimerRawWheat; //0x4FF4
+	uint32_t r_AISuppressSellAllTimerFoodBread; //0x4FF8
+	uint32_t r_AISuppressSellAllTimerFoodCheese; //0x4FFC
+	uint32_t r_AISuppressSellAllTimerFoodMeat; //0x5000
+	uint32_t r_AISuppressSellAllTimerFoodFruit; //0x5004
+	uint32_t r_AISuppressSellAllTimerFoodAle; //0x5008
+	uint32_t r_AISuppressSellAllTimerGold; //0x500C
+	uint32_t r_AISuppressSellAllTimerFlour; //0x5010
+	uint32_t r_AISuppressSellAllTimerBows; //0x5014
+	uint32_t r_AISuppressSellAllTimerCrossbows; //0x5018
+	uint32_t r_AISuppressSellAllTimerSpears; //0x501C
+	uint32_t r_AISuppressSellAllTimerPikes; //0x5020
+	uint32_t r_AISuppressSellAllTimerMaces; //0x5024
+	uint32_t r_AISuppressSellAllTimerSwords; //0x5028
+	uint32_t r_AISuppressSellAllTimerLeatherArmour; //0x502C
+	uint32_t r_AISuppressSellAllTimerMetalArmour; //0x5030
 	uint32_t N0000590B; //0x5034
 	uint32_t N000043FE; //0x5038
 	uint32_t N0000590D; //0x503C
@@ -19673,13 +19664,3618 @@ typedef struct PlayerResources
 	uint32_t N00005B0C; //0x5838
 }; //Size: 0x583C
 
-
-/* Derived from SelectedRechargeablesResultType.h; C++ syntax normalized for Ghidra CParser. */
-typedef enum SelectedRechargeablesResultType
+/* Derived from PlayerManagerAndPathfindingContext.h; C++ syntax normalized for Ghidra CParser. */
+struct CrusaderDE_PlayerBuildingIndexCache
 {
-    None = 0,
-	Single = 1,
-	Multile = 2
-} SelectedRechargeablesResultType;
+  uint16_t building_ids_by_player[9][500];
+  uint32_t building_count_by_player[9];
+};
+
+struct CrusaderDE_SignpostPathAnchor
+{
+  int32_t tile_x;
+  int32_t tile_y;
+  int32_t tile_id;
+  uint32_t unknown;
+};
+
+struct CrusaderDE_PathMapOrigin
+{
+  int32_t tile_x;
+  int32_t tile_y;
+  uint32_t unknown_08;
+  uint32_t unknown_0C;
+};
+
+struct CrusaderDE_PathComponentPair
+{
+  int32_t component_a;
+  int32_t component_b;
+};
+
+struct CrusaderDE_PathApproachCandidate
+{
+  int32_t tile_id;
+  int32_t associated_tile_or_flags;
+  int32_t unknown_08;
+};
+
+struct CrusaderDE_PathConnectionRecord
+{
+  uint32_t in_use;
+  uint32_t kind;
+  uint32_t global_id;
+  uint32_t building_id;
+  uint32_t unit_id;
+  uint32_t object_global_id;
+  uint32_t unknown_18;
+  int32_t endpoint_a_x;
+  int32_t endpoint_a_y;
+  int32_t endpoint_a_tile_id;
+  int32_t endpoint_b_x;
+  int32_t endpoint_b_y;
+  int32_t endpoint_b_tile_id;
+  int32_t endpoint_a_component_id;
+  int32_t endpoint_b_component_id;
+  uint32_t registered_unit_count;
+  int32_t registered_unit_ids[50];
+  int32_t registered_unit_global_ids[50];
+  int32_t kind_specific_value;
+  uint8_t unknown_1D4[16];
+  int32_t owner_player_id;
+  int32_t extra_component_or_state;
+  uint8_t unknown_1EC[24];
+};
+
+struct CrusaderDE_PathSearchState
+{
+  uint32_t deferred_reciprocal_edge_count;
+  uint32_t current_distance_or_generation;
+  uint32_t queue_head;
+  uint32_t unknown_0C;
+  uint32_t queue_tail;
+  uint8_t unknown_14[36];
+};
+
+struct CrusaderDE_PathfindingHeader
+{
+  uint32_t connection_record_limit_or_count;
+  uint32_t walk_generation;
+  uint8_t unknown_008[16];
+  int32_t result_tile_x;
+  int32_t result_tile_y;
+  uint8_t unknown_020[36];
+  int32_t random_tile_x;
+  int32_t random_tile_y;
+  uint8_t unknown_04C[32];
+  uint32_t rebuild_requested;
+  uint32_t unknown_070;
+  uint32_t rebuild_serial;
+  uint8_t unknown_078[24];
+  uint32_t component_pair_cache_initialized;
+  uint8_t unknown_094[44];
+  uint32_t connection_unit_tracking_enabled;
+  uint32_t component_graph_search_generation;
+  uint32_t unknown_C8;
+  uint32_t component_count;
+  uint8_t unknown_D0[8];
+  uint32_t connection_table_state;
+  uint32_t unknown_DC;
+};
+
+struct CrusaderDE_PlayerManagerSharedStateA
+{
+  uint8_t unknown_000000[808];
+  uint32_t current_month;
+  uint32_t current_year;
+  uint8_t unknown_000330[20];
+  uint8_t no_knockdown_walls_raw[8];
+  uint8_t unknown_00034C[2608];
+  uint8_t allowed_european_units_raw[16];
+  uint8_t unknown_000D8C[48];
+  uint8_t teams_list_raw[8];
+  uint8_t unknown_000DC4[6692];
+  uint8_t extreme_powers_enabled_raw[8];
+  uint8_t unknown_0027F0[12];
+  uint32_t local_player_state;
+  uint8_t unknown_002800[252];
+  uint8_t allowed_arabian_units_raw[16];
+  uint8_t unknown_00290C[16];
+  uint32_t signpost_building_ids[8];
+  uint8_t unknown_00293C[16];
+  uint32_t ai_siege_rally_point_x_by_player;
+  uint32_t ai_siege_rally_point_y_by_player;
+  uint8_t unknown_002954[8];
+  CrusaderDE_SignpostPathAnchor signpost_path_anchors[16];
+  uint8_t signpost_path_cache_a_raw[6400];
+  uint8_t signpost_path_cache_b_raw[2560];
+  uint8_t unknown_004D5C[242808];
+  uint32_t instanced_skirmish_unit_spawn_queue_head;
+  uint8_t unknown_0401D8[271004];
+};
+
+struct CrusaderDE_PlayerManagerSharedStateB
+{
+  CrusaderDE_PathMapOrigin path_map_origins[10];
+  uint8_t unknown_0000A0[174692];
+  uint8_t allowed_bedouin_units_raw[16];
+  uint8_t unknown_02AB14[1530144];
+};
+
+struct CrusaderDE_PathfindingContext
+{
+  CrusaderDE_PathfindingHeader header;
+  uint32_t component_tile_counts[1000];
+  uint32_t total_labelled_tiles;
+  uint32_t component_visit_generation[1000];
+  CrusaderDE_PathConnectionRecord connection_records[200];
+  CrusaderDE_PathApproachCandidate approach_candidates[500];
+  uint32_t deferred_reciprocal_edge_tile_ids[320800];
+  CrusaderDE_PathSearchState search_state;
+  int32_t bfs_tile_ids[320800];
+  int16_t bfs_tile_y[320800];
+  int16_t bfs_tile_x[320800];
+  int32_t candidate_tile_ids[40100];
+  int16_t candidate_tile_y[40100];
+  int16_t candidate_tile_x[40100];
+  CrusaderDE_PathComponentPair reachable_component_pairs[10];
+  CrusaderDE_PathComponentPair unreachable_component_pairs[10];
+};
+
+struct CrusaderDE_PlayerManager
+{
+  uint8_t unknown_pre_tracking_state[440000];
+  CrusaderDE_TrackedUnitHandle tracked_units_by_player[10][10000];
+  PlayerResources players[9];
+  uint8_t unknown_post_player_resources[133524];
+  CrusaderDE_PlayerManagerSharedStateA shared_state_a;
+  CrusaderDE_PlayerManagerSharedStateB shared_state_b;
+  uint32_t global_tick_timer;
+  CrusaderDE_PlayerBuildingIndexCache building_index_cache;
+};
+
+
+/* Derived from AIVSystem.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+typedef enum AivBuildStepState
+{
+  AivBuildStepState_Inactive = 0,
+  AivBuildStepState_Pending = 1,
+  AivBuildStepState_Unknown2 = 2,
+  AivBuildStepState_Built = 3,
+  AivBuildStepState_Abandoned = 4,
+  AivBuildStepState_RetryPending = 5
+} AivBuildStepState;
+
+typedef enum AivLayoutSelectionState
+{
+  AivLayoutSelectionState_None = 0,
+  AivLayoutSelectionState_Usable = 1,
+  AivLayoutSelectionState_Perfect = 2
+} AivLayoutSelectionState;
+
+typedef enum AivMiscItemType
+{
+    AivMiscItemType_None = 0,
+    AivMiscItemType_OilPourer = 1,
+    AivMiscItemType_Mangonel = 2,
+    AivMiscItemType_TowerMountedBallista = 3,
+    AivMiscItemType_Trebuchet = 4,
+    AivMiscItemType_FireBallista = 5,
+    AivMiscItemType_Archer = 6,
+    AivMiscItemType_Crossbowman = 7,
+    AivMiscItemType_Spearman = 8,
+    AivMiscItemType_Pikeman = 9,
+    AivMiscItemType_Maceman = 10,
+    AivMiscItemType_Swordsman = 11,
+    AivMiscItemType_Knight = 12,
+    AivMiscItemType_Slave = 13,
+    AivMiscItemType_Slinger = 14,
+    AivMiscItemType_Assassin = 15,
+    AivMiscItemType_ArabianArcher = 16,
+    AivMiscItemType_HorseArcher = 17,
+    AivMiscItemType_ArabianSwordsman = 18,
+    AivMiscItemType_FireThrower = 19,
+    AivMiscItemType_Brazier = 20,
+    AivMiscItemType_Flag = 21
+} AivMiscItemType;
+
+typedef enum AivRotation
+{
+    AivRotation_North = 0,
+    AivRotation_East = 2,
+    AivRotation_South = 4,
+    AivRotation_West = 6
+} AivRotation;
+
+typedef struct AivBuildStep
+{
+	AivBuildStepState	State; //0x0000
+	uint8_t RebuildDelay; //0x0001
+	eMappers BuildingType; //0x0002
+	uint16_t TileCount; //0x0004
+	uint16_t Unknown06; //0x0006
+	uint32_t MapTileIdOrBufferIndex; //0x0008
+}; //Size: 0x000C
+
+typedef struct AivVillageState
+{
+	uint32_t OwnerPlayerId; //0x0000
+AILords AILord; //0x0004
+AivRotation Rotation; //0x0008
+	uint32_t SelectedVariantIndex; //0x000C
+AivLayoutSelectionState LayoutSelectionState; //0x0010
+	uint32_t UnlockedBuildStep; //0x0014
+	uint32_t LowGoldBuildDelayElapsed; //0x0018
+	uint32_t BuildRate; //0x001C
+	uint32_t MaximumBuildStep; //0x0020
+	uint32_t LayoutOriginX; //0x0024
+	uint32_t LayoutOriginY; //0x0028
+	uint32_t KeepX; //0x002C
+	uint32_t KeepY; //0x0030
+	AivBuildStep BuildStepsBuffer[1000]; //0x0034
+	uint32_t OrderedMapTileIds[4000]; //0x2F14
+	uint32_t OrderedMapTileCount; //0x6D94
+}; //Size: 0x6D98
+
+typedef struct AivCoarseCell
+{
+	uint32_t CoarseSearchGeneration; //0x0000
+	uint8_t ForeignPathComponentTileCount; //0x0004
+	uint8_t CoarseSearchDepth; //0x0005
+	uint8_t Unknown06; //0x0006
+	uint8_t TreeObstructionWeight; //0x0007
+	uint16_t StoneTileCount; //0x0008
+	uint8_t IronTileCount; //0x000A
+	uint8_t PitchTileCount; //0x000B
+	uint8_t SwampTileCount; //0x000C
+	uint8_t MinimumHeight; //0x000D
+	uint8_t MaximumHeight; //0x000E
+	uint8_t HeightRangeExceeds12; //0x000F
+	uint8_t StructureOrReservationCount; //0x0010
+	uint8_t OutsideUsableMap; //0x0011
+	uint8_t UnknownFlags91Count; //0x0012
+	uint8_t UnknownFlags90Count; //0x0013
+	uint8_t WoodcutterRetryDelay; //0x0014
+	uint8_t Unknown14; //0x0015
+	uint8_t OccupyingPlayerId; //0x0016
+	uint8_t ImpassableEdgeTileCount; //0x0017
+	uint8_t WoodcutterRemovalCount; //0x0018
+	uint8_t CombinedUnknownFlags; //0x0019
+	uint8_t N00006BD3[22]; //0x001A
+}; //Size: 0x0030
+
+typedef struct AivSystem
+{
+	uint32_t Unknown000000; //0x0000
+	AivVillageState ReservedVillageSlot[9]; //0x0004
+	uint32_t KeepPlacementX; //0x3DA5C
+	uint32_t KeepPlacementY; //0x3DA60
+	uint32_t Unknown03DA64; //0x3DA64
+	uint32_t Unknown03DA68; //0x3DA68
+	eMappers BuildingTypeGrid[10000]; //0x3DA6C
+	int32_t BuildStepGrid[10000]; //0x4288C
+	eMappers RotatedBuildingTypeGrid[10000]; //0x4C4CC
+	int32_t RotatedBuildStepGrid[10000]; //0x512EC
+	int32_t PauseFrameIndices[50]; //0x5AF2C
+	int32_t PauseDelay; //0x5AFF4
+	int32_t MiscItemPositions[320]; //0x5AFF8
+	int32_t PlacementEvaluatedTileCount; //0x5B4F8
+	int32_t PlacementObstructedTileCount; //0x5B4FC
+	int32_t TotalTreeObstructionWeight; //0x5B500
+	int32_t DominantPathComponentId; //0x5B504
+	int32_t AiUpdatePhase; //0x5B508
+	int32_t CoarseSearchGeneration; //0x5B50C
+	uint8_t UnknownCoarseGridState[800]; //0x5B510
+	AivCoarseCell CoarseGridBuffer[25600]; //0x5B830
+	int32_t CoarseSearchDepth; //0x187830
+	int32_t CoarseSearchQueueReadIndex; //0x187834
+	int32_t CoarseSearchQueueWriteIndex; //0x187838
+	int32_t CoarseSearchQueueX[25600]; //0x18783C
+	int32_t CoarseSearchQueueY[25600]; //0x1A083C
+	int32_t CoarseSearchResultX; //0x1B983C
+	int32_t CoarseSearchResultY; //0x1B9840
+	uint8_t PlacementVisitedMask[10000]; //0x1B9844
+	int32_t ActiveVillageCount; //0x1BBF54
+}; //Size: 0x1BBF58
+
+/* Derived from GameBuildingManager.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+typedef struct GameBuilding
+{
+	uint32_t N00012005; //0x0000
+	GM16 r_GameMaterialIndex; //0x0004
+	int16_t N00012072; //0x0006
+	uint32_t r_SpritePlayerColorId; //0x0008
+	uint32_t N00012022; //0x000C
+	uint32_t N00012007; //0x0010
+	uint32_t r_TimeSpentInProductionTotal1; //0x0014
+	uint32_t r_TimeSpentInProductionTotal2; //0x0018
+	uint32_t N00012026; //0x001C
+	uint32_t N00012009; //0x0020
+	uint32_t N00012028; //0x0024
+	uint32_t N0001200A; //0x0028
+	uint32_t N0001202A; //0x002C
+	uint32_t N0001200B; //0x0030
+	uint32_t N0001202C; //0x0034
+	uint32_t N0001200C; //0x0038
+	uint32_t N0001202E; //0x003C
+	uint32_t N0001200D; //0x0040
+	uint32_t N00012030; //0x0044
+	uint32_t N0001200E; //0x0048
+	uint32_t N00012032; //0x004C
+	uint32_t N0001200F; //0x0050
+	uint32_t N00012034; //0x0054
+	uint32_t N00012010; //0x0058
+	uint32_t N00012036; //0x005C
+	uint32_t N00012011; //0x0060
+	uint32_t N00012038; //0x0064
+	uint32_t N00012012; //0x0068
+	uint32_t N0001203A; //0x006C
+	uint32_t N00012013; //0x0070
+	uint32_t N0001203C; //0x0074
+	uint32_t N00012014; //0x0078
+	uint32_t N0001203E; //0x007C
+	uint32_t N0001206C; //0x0080
+	uint32_t N00012015; //0x0084
+	uint32_t N00012040; //0x0088
+	uint32_t r_TileIdOriginBottomRight; //0x008C
+	uint32_t N00012042; //0x0090
+	uint32_t N00012017; //0x0094
+	uint32_t N00012044; //0x0098
+	uint32_t N00012018; //0x009C
+	uint32_t r_ProductionAnimationIndex; //0x00A0
+	uint32_t N00012019; //0x00A4
+	uint32_t N00012048; //0x00A8
+	uint32_t N0001201A; //0x00AC
+	uint32_t N0001204A; //0x00B0
+	uint32_t N0001201B; //0x00B4
+	uint32_t N0001204C; //0x00B8
+	uint32_t N0001201C; //0x00BC
+	uint32_t r_TicksWhenProductionLive; //0x00C0
+	uint32_t N0001201D; //0x00C4
+	uint32_t r_TileIdOriginBottomRightInnerOne; //0x00C8
+	uint16_t N0001201E; //0x00CC
+	uint16_t N00009204; //0x00CE
+	eAliveState	r_AliveState; //0x00D0
+	eStructs16 r_BuildingType; //0x00D2
+	uint16_t r_AIWalkableState; //0x00D4
+	uint16_t r_PlayerIdOwner; //0x00D6
+	uint32_t r_GlobalId; //0x00D8
+	uint32_t N000017BD; //0x00DC
+	uint32_t N00001751; //0x00E0
+	uint32_t N000017BF; //0x00E4
+	uint16_t r_WorldPositionX; //0x00E8
+	uint16_t r_WorldPositionY; //0x00EA
+	uint16_t r_HeightElevation; //0x00EC
+	uint16_t r_TilePositionXBegin; //0x00EE
+	uint16_t r_TilePositionYBegin; //0x00F0
+	uint16_t N00002C21; //0x00F2
+	uint32_t r_TileIdBegin; //0x00F4
+	uint32_t r_OccupyTileGridSize; //0x00F8
+	uint16_t N000017C5; //0x00FC
+	uint16_t r_TilePositionXEnd; //0x00FE
+	uint16_t r_TilePositionYEnd; //0x0100
+	uint16_t r_SpriteVariationIndex; //0x0102
+	uint16_t r_RandomShort; //0x0104
+	uint16_t N00002C2D; //0x0106
+	uint32_t N00001756; //0x0108
+	int16_t r_CurrentHealth; //0x010C
+	uint16_t r_MaxHealth; //0x010E
+	uint32_t N00001757; //0x0110
+	uint32_t N000017CB; //0x0114
+	uint32_t N00001758; //0x0118
+	uint32_t N000017CD; //0x011C
+	uint32_t r_NullAmount; //0x0120
+	uint32_t r_WoodLogsAmount; //0x0124
+	uint32_t r_WoodPlanksAmount; //0x0128
+	uint32_t r_RawHopsAmount; //0x012C
+	uint32_t r_StoneBlocksAmount; //0x0130
+	uint32_t r_CowHidesAmount; //0x0134
+	uint32_t r_IronIngotsAmount; //0x0138
+	uint32_t r_PitchRawAmount; //0x013C
+	uint32_t r_PitchRefinedAmount; //0x0140
+	uint32_t r_RawWheatAmount; //0x0144
+	uint32_t r_BreadAmount; //0x0148
+	uint32_t r_CheeseAmount; //0x014C
+	uint32_t r_MeatAmount; //0x0150
+	uint32_t r_FruitAmount; //0x0154
+	uint32_t r_AleAmount; //0x0158
+	uint32_t r_GoldAmount; //0x015C
+	uint32_t r_FlourAmount; //0x0160
+	uint32_t r_ArmouryBowsAmount; //0x0164
+	uint32_t r_ArmouryCrossbowsAmount; //0x0168
+	uint32_t r_ArmourySpearsAmount; //0x016C
+	uint32_t r_ArmouryPikesAmount; //0x0170
+	uint32_t r_ArmouryMacesAmount; //0x0174
+	uint32_t r_ArmourySwordsAmount; //0x0178
+	uint32_t r_ArmouryLeatherArmorAmount; //0x017C
+	uint32_t r_ArmouryMetalArmorAmount; //0x0180
+	uint32_t r_CurrentGoodStackAmount; //0x0184
+	uint32_t r_MaxGoodStackAmount; //0x0188
+	Goods16	r_LocalStorageGoodType; //0x018C
+	uint16_t N00002C19; //0x018E
+	uint16_t N00001767; //0x0190
+	uint16_t r_StoneQuarry_StockPileBuildingId; //0x0192
+	uint16_t N000017EB; //0x0194
+	uint16_t r_HousingPopulationSpace; //0x0196
+	uint16_t r_TotalWorkersRequired; //0x0198
+	uint16_t r_TotalCurrentWorkers; //0x019A
+	uint16_t r_TotalMissingWorkers; //0x019C
+	uint16_t r_WorkerId_1; //0x019E
+	uint16_t r_WorkerId_2; //0x01A0
+	uint16_t r_WorkerId_3; //0x01A2
+	uint32_t r_WorkerId_4; //0x01A4
+	uint32_t N0000176A; //0x01A8
+	uint32_t N000017F1; //0x01AC
+	uint32_t N0000176B; //0x01B0
+	uint32_t N000017F3_2; //0x01B4
+	uint32_t N0000176C; //0x01B8
+	uint32_t N000017F5; //0x01BC
+	uint32_t N0000176D; //0x01C0
+	uint32_t N000017F7_2; //0x01C4
+	uint32_t r_OccupiedTileIdsArrayBegin; //0x01C8
+	uint32_t r_OTA1; //0x01CC
+	uint32_t r_OTA2; //0x01D0
+	uint32_t r_OTA3; //0x01D4
+	uint32_t r_OTA4; //0x01D8
+	uint32_t r_OTA5; //0x01DC
+	uint32_t r_OTA6; //0x01E0
+	uint32_t r_OTA7; //0x01E4
+	uint32_t r_OTA8; //0x01E8
+	uint32_t r_OTA9; //0x01EC
+	uint32_t r_OTA10; //0x01F0
+	uint32_t r_OTA11; //0x01F4
+	uint32_t r_OTA12; //0x01F8
+	uint32_t r_OTA13; //0x01FC
+	uint32_t r_OTA14; //0x0200
+	uint32_t r_OTA15; //0x0204
+	uint32_t r_OTA16; //0x0208
+	uint32_t r_OTA17; //0x020C
+	uint32_t r_OTA18; //0x0210
+	uint32_t r_OTA19; //0x0214
+	uint32_t r_OTA20; //0x0218
+	uint32_t r_OTA21; //0x021C
+	uint32_t r_OTA22; //0x0220
+	uint32_t r_OTA23; //0x0224
+	uint32_t r_OTA24; //0x0228
+	uint32_t r_OTA25; //0x022C
+	uint32_t r_OTA26; //0x0230
+	uint32_t r_OTA27; //0x0234
+	uint32_t r_OTA28; //0x0238
+	uint32_t r_OTA29; //0x023C
+	uint32_t r_OTA30; //0x0240
+	uint32_t r_OTA31; //0x0244
+	uint32_t r_OTA32; //0x0248
+	uint32_t r_OTA33; //0x024C
+	uint32_t r_OTA34; //0x0250
+	uint32_t r_OTA35; //0x0254
+	uint32_t Unknown23; //0x0258
+	uint32_t Unknown24; //0x025C
+	uint32_t Unknown25; //0x0260
+	uint32_t Unknown26; //0x0264
+	uint32_t Unknown27; //0x0268
+	uint32_t N00001821; //0x026C
+	uint32_t Unknown31; //0x0270
+	uint32_t N00001823; //0x0274
+	uint32_t N00001784; //0x0278
+	uint32_t r_TicksAlive; //0x027C
+	uint32_t N00001785; //0x0280
+	uint32_t r_BuildingVariation; //0x0284
+	uint32_t N00001786; //0x0288
+	uint16_t Unknown32; //0x028C
+	Goods16 r_NextProducedGoodId; //0x028E
+	Goods16	r_ProducedGoodId; //0x0290
+	uint16_t N00008642; //0x0292
+	uint16_t N0000182B; //0x0294
+	uint8_t r_IsSleeping; //0x0296
+	uint8_t r_TotalHorses; //0x0297
+	int16_t N00001788; //0x0298
+	int16_t r_HorseRechargeTimer; //0x029A
+	uint32_t N0000182D; //0x029C
+	uint16_t N00001789; //0x02A0
+	uint16_t r_GateState; //0x02A2
+	uint16_t N0000182F; //0x02A4
+	uint8_t N00004896; //0x02A6
+	uint8_t r_UsedHorses; //0x02A7
+	uint32_t N0000178A; //0x02A8
+	uint32_t r_UsedInSiegeAttemptId; //0x02AC
+	uint16_t r_ContextFoodAmount; //0x02B0
+	uint16_t N000091D9; //0x02B2
+	uint32_t Unknown33; //0x02B4
+	int16_t r_GateDoNotCloseForTicks; //0x02B8
+	uint16_t N00005DB8; //0x02BA
+	uint16_t N00001835; //0x02BC
+	uint16_t r_OnFireTicks; //0x02BE
+	uint32_t r_GateDoNotOpenForTicks; //0x02C0
+	uint16_t p_CooldownTimer; //0x02C4
+	uint16_t r_CapturedByPlayerId; //0x02C6
+	uint32_t p_UnknownRelevant17; //0x02C8
+	uint32_t N00001839; //0x02CC
+	uint16_t N0000178F; //0x02D0
+	uint16_t r_GatehouseId; //0x02D2
+	uint32_t N0000183B; //0x02D4
+	uint32_t N00001790; //0x02D8
+	uint16_t N0000183D; //0x02DC
+	uint16_t r_CausedFireByPlayer; //0x02DE
+	uint16_t r_UsedHorse1UnitId; //0x02E0
+	uint16_t r_UsedHorse2UnitId; //0x02E2
+	uint16_t r_UsedHorse3UnitId; //0x02E4
+	uint16_t r_UsedHorse4UnitId; //0x02E6
+	uint32_t r_UsedHorse1GlobalId; //0x02E8
+	uint32_t r_UsedHorse2GlobalId; //0x02EC
+	uint32_t r_UsedHorse3GlobalId; //0x02F0
+	uint32_t r_UsedHorse4GlobalId; //0x02F4
+	uint32_t N00001794; //0x02F8
+	uint32_t N00001845; //0x02FC
+	uint32_t N00001795; //0x0300
+	uint32_t N00001847; //0x0304
+	uint32_t N00001796; //0x0308
+	uint32_t N00001849; //0x030C
+	uint32_t N00001797; //0x0310
+	uint32_t N0000184B; //0x0314
+	uint32_t N00001798; //0x0318
+	uint32_t N0000184D; //0x031C
+	uint32_t N00001799; //0x0320
+	uint32_t N0000184F; //0x0324
+	uint32_t N0000179A; //0x0328
+}; //Size: 0x032C
+
+typedef struct GameBuildingManager
+{
+	uint32_t ActiveBuildings; //0x0000
+	uint32_t N0000184D; //0x0004
+	uint32_t N0000179C; //0x0008
+	uint32_t N0000184F; //0x000C
+	uint32_t N0000179D; //0x0010
+	uint32_t N00001851; //0x0014
+	uint32_t N0000179E; //0x0018
+	uint32_t N00001853; //0x001C
+	uint32_t N0000179F; //0x0020
+	uint32_t N00001855; //0x0024
+	uint32_t N000017A0; //0x0028
+	uint32_t Unk; //0x002C
+	uint32_t N000017A1; //0x0030
+	uint32_t N00001859; //0x0034
+	uint32_t N000017A2; //0x0038
+	uint32_t N000017F3; //0x003C
+	uint32_t N000017A3; //0x0040
+	uint32_t N000017F5_2; //0x0044
+	uint32_t N000017A4; //0x0048
+	uint32_t N000017F7_3; //0x004C
+	uint32_t BuildingsAllocated; //0x0050
+	uint32_t FreeBuildings; //0x0054
+	uint32_t N000017A6; //0x0058
+	uint32_t N00011E85; //0x005C
+	uint32_t N000017A7; //0x0060
+	uint32_t N00011E87; //0x0064
+	uint32_t N000017A8; //0x0068
+	uint32_t N00011E89; //0x006C
+	uint32_t N000017A9; //0x0070
+	uint32_t N00011E8B; //0x0074
+	uint32_t N000017AA; //0x0078
+	uint32_t N00011E8D; //0x007C
+	uint32_t N000017AB; //0x0080
+	uint32_t N00011E8F; //0x0084
+	uint32_t N000017AC; //0x0088
+	uint32_t N00011E91; //0x008C
+	uint32_t N000017AD; //0x0090
+	uint32_t N00011E93; //0x0094
+	uint32_t N000017AE; //0x0098
+	uint32_t N00011E95; //0x009C
+	uint32_t N000017AF; //0x00A0
+	uint32_t N00011E97; //0x00A4
+	uint32_t N000017B0; //0x00A8
+	uint32_t N00011E99; //0x00AC
+	uint32_t N000017B1; //0x00B0
+	uint32_t N00011E9B; //0x00B4
+	uint32_t N000017B2; //0x00B8
+	uint32_t N00011E9D; //0x00BC
+	uint32_t N000017B3; //0x00C0
+	uint32_t N00011E9F; //0x00C4
+	uint32_t N000017B4; //0x00C8
+	uint32_t N00011EA1; //0x00CC
+	uint32_t N000017B5; //0x00D0
+	uint32_t N00011EA3; //0x00D4
+	uint32_t N000017B6; //0x00D8
+	uint32_t N00011EA5; //0x00DC
+	uint32_t N000017B7; //0x00E0
+	uint32_t N00011EA7; //0x00E4
+	uint32_t N000017B8; //0x00E8
+	uint32_t N00011EA9; //0x00EC
+	uint32_t N000017B9; //0x00F0
+	uint32_t N00011EAB; //0x00F4
+	uint32_t N000017BA; //0x00F8
+	uint32_t N00011EAD; //0x00FC
+	uint32_t N000017BB; //0x0100
+	uint32_t N00011EAF; //0x0104
+	uint32_t N000017BC; //0x0108
+	uint32_t N00011EB1; //0x010C
+	uint32_t N000017BD; //0x0110
+	uint32_t N00011EB3; //0x0114
+	uint32_t N000017BE; //0x0118
+	uint32_t N00011EB5; //0x011C
+	uint32_t N000017BF; //0x0120
+	uint32_t N00011EB7; //0x0124
+	uint32_t N000017C0; //0x0128
+	uint32_t N00011EB9; //0x012C
+	uint32_t N000017C1; //0x0130
+	uint32_t N00011EBB; //0x0134
+	uint32_t N000017C2; //0x0138
+	uint32_t N00011EBD; //0x013C
+	uint32_t N000017C3; //0x0140
+	uint32_t N00011EBF; //0x0144
+	uint32_t N000017C4; //0x0148
+	uint32_t N00011EC1; //0x014C
+	uint32_t N000017C5; //0x0150
+	uint32_t N00011EC3; //0x0154
+	uint32_t N000017C6; //0x0158
+	uint32_t N00011EC5; //0x015C
+	uint32_t N000017C7; //0x0160
+	uint32_t N00011EC7; //0x0164
+	uint32_t N000017C8; //0x0168
+	uint32_t N00011EC9; //0x016C
+	uint32_t N000017C9; //0x0170
+	uint32_t N00011ECB; //0x0174
+	uint32_t N000017CA; //0x0178
+	uint32_t N00011ECD; //0x017C
+	uint32_t N000017CB; //0x0180
+	uint32_t N00011ECF; //0x0184
+	uint32_t N000017CC; //0x0188
+	uint32_t N00011ED1; //0x018C
+	uint32_t N000017CD; //0x0190
+	uint32_t N00011ED3; //0x0194
+	uint32_t N000017CE; //0x0198
+	uint32_t N00011ED5; //0x019C
+	uint32_t N000017CF; //0x01A0
+	uint32_t N00011ED7; //0x01A4
+	uint32_t N000017D0; //0x01A8
+	uint32_t N00011ED9; //0x01AC
+	uint32_t N000017D1; //0x01B0
+	uint32_t N00011EDB; //0x01B4
+	uint32_t N000017D2; //0x01B8
+	uint32_t N00011EDD; //0x01BC
+	uint32_t N000017D3; //0x01C0
+	uint32_t N00011EDF; //0x01C4
+	uint32_t N000017D4; //0x01C8
+	uint32_t N00011EE1; //0x01CC
+	uint32_t N000017D5; //0x01D0
+	uint32_t N00011EE3; //0x01D4
+	uint32_t N000017D6; //0x01D8
+	uint32_t N00011EE5; //0x01DC
+	uint32_t N000017D7; //0x01E0
+	uint32_t N00011EE7; //0x01E4
+	uint32_t N000017D8; //0x01E8
+	uint32_t N00011EE9; //0x01EC
+	uint32_t N000017D9; //0x01F0
+	uint32_t N00011EEB; //0x01F4
+	uint32_t N000017DA; //0x01F8
+	uint32_t N00011EED; //0x01FC
+	uint32_t N000017DB; //0x0200
+	uint32_t N00011EEF; //0x0204
+	uint32_t N000017DC; //0x0208
+	uint32_t N00011EF1; //0x020C
+	uint32_t N000017DD; //0x0210
+	uint32_t N00011EF3; //0x0214
+	uint32_t N000017DE; //0x0218
+	uint32_t N00011EF5; //0x021C
+	uint32_t N000017DF; //0x0220
+	uint32_t N00011EF7; //0x0224
+	uint32_t N000017E0; //0x0228
+	uint32_t N00011EF9; //0x022C
+	uint32_t N000017E1; //0x0230
+	uint32_t N00011EFB; //0x0234
+	uint32_t N000017E2; //0x0238
+	uint32_t N00011EFD; //0x023C
+	uint32_t N000017E3; //0x0240
+	uint32_t N00011EFF; //0x0244
+	uint32_t N000017E4; //0x0248
+	uint32_t N00011F01; //0x024C
+	uint32_t N000017E5; //0x0250
+	uint32_t N00011F03; //0x0254
+	uint32_t N000017E6; //0x0258
+	uint32_t N00011F05; //0x025C
+	uint32_t N000017E7; //0x0260
+	uint32_t N00011F07; //0x0264
+	uint32_t N000017E8; //0x0268
+	uint32_t N00011F09; //0x026C
+	uint32_t N000017E9; //0x0270
+	uint32_t N00011F0B; //0x0274
+	uint32_t N000017EA; //0x0278
+	uint32_t N00011F0D; //0x027C
+	uint32_t N000017EB; //0x0280
+	uint32_t N00011F0F; //0x0284
+	uint32_t N000017EC; //0x0288
+	uint32_t N00011F11; //0x028C
+	uint32_t N000017ED; //0x0290
+	uint32_t N00011F13; //0x0294
+	uint32_t N000017EE; //0x0298
+	uint32_t N00011F15; //0x029C
+	uint32_t N000017EF; //0x02A0
+	uint32_t N00011F17; //0x02A4
+	uint32_t N000017F0; //0x02A8
+	uint32_t N00011F19; //0x02AC
+	uint32_t N000017F1; //0x02B0
+	uint32_t N00011F1B; //0x02B4
+	uint32_t N000017F2; //0x02B8
+	uint32_t N00011F1D; //0x02BC
+	uint32_t N000017F3_2; //0x02C0
+	uint32_t N00011F1F; //0x02C4
+	uint32_t N000017F4; //0x02C8
+	uint32_t N00011F21; //0x02CC
+	uint32_t N000017F5; //0x02D0
+	uint32_t N00011F23; //0x02D4
+	uint32_t N000017F6; //0x02D8
+	uint32_t N00011F25; //0x02DC
+	uint32_t N000017F7; //0x02E0
+	uint32_t N00011F27; //0x02E4
+	uint32_t N000017F8; //0x02E8
+	uint32_t N00011F29; //0x02EC
+	uint32_t N000017F9; //0x02F0
+	uint32_t N00011F2B; //0x02F4
+	uint32_t N000017FA; //0x02F8
+	uint32_t N00011F2D; //0x02FC
+	uint32_t N000017FB; //0x0300
+	uint32_t N00011F2F; //0x0304
+	uint32_t N000017FC; //0x0308
+	uint32_t N00011F31; //0x030C
+	uint32_t N000017FD; //0x0310
+	uint32_t N00011F33; //0x0314
+	uint32_t N000017FE; //0x0318
+	uint32_t N00011F35; //0x031C
+	uint32_t N000017FF_4; //0x0320
+	uint32_t N00011F37; //0x0324
+	uint32_t N00001800_4; //0x0328
+	uint32_t N00011F39; //0x032C
+	uint32_t StockpileTiles; //0x0330
+	uint32_t N00011F3B; //0x0334
+	uint32_t N000017FF; //0x0338
+	uint32_t N00011F3D; //0x033C
+	uint32_t N00001800; //0x0340
+	uint32_t N00011F3F; //0x0344
+	uint32_t N00001801; //0x0348
+	uint32_t N00011F41; //0x034C
+	uint32_t N00001802; //0x0350
+	uint32_t N00011F43; //0x0354
+	uint32_t N00001803; //0x0358
+	uint32_t N00011F45; //0x035C
+	uint32_t N00001804; //0x0360
+	uint32_t N00011F47; //0x0364
+	uint32_t N00001805; //0x0368
+	uint32_t N00011F49; //0x036C
+	uint32_t N00001806; //0x0370
+	uint32_t N00011F4B; //0x0374
+	uint32_t N00001807; //0x0378
+	uint32_t N00011F4D; //0x037C
+	uint32_t N00001808; //0x0380
+	uint32_t N00011F4F; //0x0384
+	GameBuilding BuildingsArray[4000]; //0x0388
+}; //Size: 0x19E7F0
+
+/* Derived from GameProjectileManager.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+typedef struct GameProjectileFull
+{
+	uint32_t N000053F4; //0x0000
+	uint32_t N00005425; //0x0004
+	uint32_t N000053F5; //0x0008
+	uint32_t N00005427; //0x000C
+	uint32_t N000053F6; //0x0010
+	uint32_t r_p_AnimRelated; //0x0014
+	uint16_t r_Sprite; //0x0018
+	GM16 r_GameMaterial; //0x001A
+	uint32_t r_UnitPlayerSourceId; //0x001C
+	uint16_t Unknown9; //0x0020
+	int8_t r_DistanceToGroundModifier; //0x0022
+	uint8_t N0000A80A; //0x0023
+	uint16_t r_Unknown5; //0x0024
+	uint16_t r_Unknown3; //0x0026
+	uint16_t r_Unknown4; //0x0028
+	uint16_t N000054EF; //0x002A
+	uint32_t N0000542F; //0x002C
+	uint32_t N000053FA; //0x0030
+	uint32_t N00005431; //0x0034
+	uint32_t N000053FB; //0x0038
+	eAliveState r_AliveState; //0x003C
+	ProjectileType r_ProjectileType; //0x003E
+	uint32_t r_PlayerSourceId; //0x0040
+	uint32_t r_GlobalId; //0x0044
+	uint32_t r_UnknownDword; //0x0048
+	uint16_t r_SourceWorldTileX; //0x004C
+	uint16_t r_SourceWorldTileY; //0x004E
+	uint16_t r_SourceElevation; //0x0050
+	uint16_t r_TargetWorldTileX; //0x0052
+	uint16_t r_TargetWorldTileY; //0x0054
+	uint16_t r_TargetElevation; //0x0056
+	uint16_t r_CurrentTileX; //0x0058
+	uint16_t r_CurrentTileY; //0x005A
+	uint32_t N00005400; //0x005C
+	uint32_t r_CurrentTileId; //0x0060
+	uint16_t r_UnkWorldTileX; //0x0064
+	uint16_t r_UnkWorldTileY; //0x0066
+	uint16_t r_SourceUnknown2; //0x0068
+	uint16_t r_SourceUnknown3; //0x006A
+	uint16_t r_SourceUnknown4; //0x006C
+	uint16_t r_typeDependant4; //0x006E
+	uint16_t N00005441; //0x0070
+	uint16_t N0000A80F; //0x0072
+	int16_t r_BackwardsVelocity; //0x0074
+	uint16_t N0000A815; //0x0076
+	int16_t N00005443; //0x0078
+	int16_t r_VelocityModifier; //0x007A
+	uint32_t N00005404; //0x007C
+	uint32_t N00005445; //0x0080
+	uint16_t N00005405; //0x0084
+	int16_t N0000A821; //0x0086
+	uint32_t r_ArrowState; //0x0088
+	float r_VelocityGained; //0x008C
+	float r_VelocityX; //0x0090
+	float r_VelocityY; //0x0094
+	uint32_t r_FlyingRelated; //0x0098
+	uint32_t r_SpriteRotation; //0x009C
+	uint32_t N0000544D; //0x00A0
+	uint32_t r_SrcTargetInvolvedUnknown; //0x00A4
+	uint16_t N0000544F; //0x00A8
+	uint16_t r_InitialVelocityMagnitude; //0x00AA
+	float r_Velocity; //0x00AC
+	uint16_t r_FiringAngle; //0x00B0
+	int16_t N0000A845; //0x00B2
+	uint16_t r_TargetUnidId; //0x00B4
+	uint16_t r_SourceUnitId; //0x00B6
+	uint16_t Unknown8; //0x00B8
+	uint32_t r_AfterimageSprite; //0x00BA
+	uint16_t r_Unknown6; //0x00BE
+	uint16_t N0000A839; //0x00C0
+	uint32_t r_Unknown7; //0x00C2
+	uint32_t N0000540E; //0x00C6
+	uint32_t N00005459; //0x00CA
+	uint32_t N0000540F; //0x00CE
+	uint32_t N0000545B; //0x00D2
+	uint32_t N00005410; //0x00D6
+	uint32_t N0000545D; //0x00DA
+	uint32_t N00005411; //0x00DE
+	uint16_t N0000A849; //0x00E2
+	uint32_t N0000545F; //0x00E4
+}; //Size: 0x00E8
+
+typedef struct GameProjectileManager
+{
+	uint32_t ActiveProjectiles; //0x0000
+	uint32_t NextAvailableId; //0x0004
+	uint32_t N00009B44; //0x0008
+	uint32_t N00009BD6; //0x000C
+	uint32_t N00009B45; //0x0010
+	uint32_t N00009BD8; //0x0014
+	uint32_t N00009B46; //0x0018
+	uint32_t N00009BDA; //0x001C
+	uint32_t N00009B47; //0x0020
+	uint32_t N00009BDC; //0x0024
+	uint32_t N00009B48; //0x0028
+	uint32_t N00009BDE; //0x002C
+	uint32_t N00009B49; //0x0030
+	uint32_t N00009BE0; //0x0034
+	uint32_t TotalAllocated; //0x0038
+	uint32_t N00009BE2; //0x003C
+	uint32_t N00009B4B; //0x0040
+	uint32_t N00005DA3; //0x0044
+	uint32_t N00009B4C; //0x0048
+	uint32_t N00005DA5; //0x004C
+	uint32_t N00009B4D; //0x0050
+	uint32_t N00005DA7; //0x0054
+	uint32_t N00009B4E; //0x0058
+	uint32_t N00005DA9; //0x005C
+	uint32_t N00009B4F; //0x0060
+	uint32_t N00005DAB; //0x0064
+	uint32_t N00009B50; //0x0068
+	uint32_t N00005DAD; //0x006C
+	uint32_t N00009B51; //0x0070
+	uint32_t N00005DAF; //0x0074
+	uint32_t N00009B52; //0x0078
+	uint32_t N00005DB1; //0x007C
+	uint32_t N00009B53; //0x0080
+	uint32_t N00005DB3; //0x0084
+	uint32_t N00009B54; //0x0088
+	uint32_t N00005DB5; //0x008C
+	uint32_t N00009B55; //0x0090
+	uint32_t N00005DB7; //0x0094
+	uint32_t N00009B56; //0x0098
+	uint32_t N00005DB9; //0x009C
+	uint32_t N00009B57; //0x00A0
+	uint32_t N00005DBB; //0x00A4
+	uint32_t N00009B58; //0x00A8
+	uint32_t N00005DBD; //0x00AC
+	uint32_t N00009B59; //0x00B0
+	uint32_t N00005DBF; //0x00B4
+	uint32_t N00009B5A; //0x00B8
+	uint32_t N00005DC1; //0x00BC
+	uint32_t N00009B5B; //0x00C0
+	uint32_t N00005DC3; //0x00C4
+	uint32_t N00009B5C; //0x00C8
+	uint32_t N00005DC5; //0x00CC
+	uint32_t N00009B5D; //0x00D0
+	uint32_t N00005DC7; //0x00D4
+	uint32_t N00009B5E; //0x00D8
+	uint32_t N00005DC9; //0x00DC
+	uint32_t N00009B5F; //0x00E0
+	uint32_t N00005DCB; //0x00E4
+	GameProjectileFull ProjectilesArray[6000]; //0x00E8
+}; //Size: 0xCDA0
+
+/* Derived from GameUnitManager.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+typedef struct GameUnitData
+{
+	uint32_t r_AnimationFrame; //0x0000
+	uint32_t r_SpriteAnimationGroup; //0x0004
+	GM16 r_GameMaterialIndex; //0x0008
+	uint16_t N0000542F; //0x000A
+	uint32_t r_SpritePlayerColorId; //0x000C
+	uint16_t N00000055; //0x0010
+	uint16_t N000002FB; //0x0012
+	uint32_t N000000F8; //0x0014
+	uint16_t N00000056; //0x0018
+	uint16_t N000002F7; //0x001A
+	uint16_t N000000FA; //0x001C
+	uint16_t N00000301; //0x001E
+	uint32_t N00000057; //0x0020
+	uint32_t N000000FC; //0x0024
+	uint32_t N00000058; //0x0028
+	uint32_t N000000FE; //0x002C
+	uint32_t r_UnitSelected; //0x0030
+	uint32_t r_HealthBarBlocks; //0x0034
+	uint32_t r_TicksAlive1; //0x0038
+	uint32_t r_TicksAlive2; //0x003C
+	uint32_t N0000005B; //0x0040
+	uint32_t r_CurrentSpriteAnimationFrame; //0x0044
+	uint32_t N0000005C; //0x0048
+	uint32_t N00000106; //0x004C
+	Dircs16 r_Direction; //0x0050
+	uint16_t Unknown; //0x0052
+	uint32_t N00000108; //0x0054
+	uint32_t N0000005E; //0x0058
+	uint32_t N0000010A; //0x005C
+	uint32_t N0000005F; //0x0060
+	uint32_t r_IsInvisible; //0x0064
+	uint32_t N00000060; //0x0068
+	uint32_t N0000010E; //0x006C
+	uint32_t N00000061; //0x0070
+	uint32_t N00000110; //0x0074
+	uint32_t N00000062; //0x0078
+	uint32_t r_SpawnedForPlayerIndex; //0x007C
+	uint32_t N00000063; //0x0080
+	uint32_t N00000114; //0x0084
+	eAliveState r_UnitState; //0x0088
+	eChimps16 r_UnitChimp; //0x008A
+	uint32_t N00000116; //0x008C
+	uint8_t N00000573; //0x0090
+	uint8_t N00000568; //0x0091
+	uint8_t r_ControllableForPlayerId; //0x0092
+	uint8_t N00000569; //0x0093
+	uint32_t r_GlobalId; //0x0094
+	uint32_t N00000066; //0x0098
+	uint32_t N0000011A; //0x009C
+	uint32_t N00000067; //0x00A0
+	uint32_t r_WorkerTargetContextEntityGlobalId; //0x00A4
+	uint32_t N00000068; //0x00A8
+	uint16_t N0000011E; //0x00AC
+	uint16_t r_UnitSelected2; //0x00AE
+	uint16_t N00000069; //0x00B0
+	uint16_t r_CurrentWorldPositionX; //0x00B2
+	uint16_t r_CurrentWorldPositionY; //0x00B4
+	uint16_t r_HeightElevation; //0x00B6
+	int16_t N0000006A; //0x00B8
+	uint16_t r_LookAtWorldPositionX; //0x00BA
+	uint16_t r_LookAtWorldPositionY; //0x00BC
+	uint16_t r_LookAtHeight; //0x00BE
+	uint16_t r_CurrentTilePositionX; //0x00C0
+	uint16_t r_CurrentTilePositionY; //0x00C2
+	uint16_t r_TargetTilePositionX; //0x00C4
+	uint16_t r_TargetTilePositionY; //0x00C6
+	uint16_t r_PreviousTilePositionX; //0x00C8
+	uint16_t r_PreviousTilePositionY; //0x00CA
+	uint32_t N00000126; //0x00CC
+	uint32_t r_CurrentPositionTileId; //0x00D0
+	uint32_t r_TargetPositionTileId; //0x00D4
+	uint32_t r_PreviousPositionTileId; //0x00D8
+	uint16_t r_NextTilePositionX2; //0x00DC
+	uint16_t r_NextTilePositionY2; //0x00DE
+	uint32_t r_NextPositionTileId2; //0x00E0
+	uint32_t N0000012C; //0x00E4
+	uint16_t r_TargetTilePositionX2; //0x00E8
+	uint16_t r_TargetTilePositionY2; //0x00EA
+	uint32_t N0000012E; //0x00EC
+	uint16_t r_PathPlanRelated1; //0x00F0
+	uint16_t r_PathPlanStateBitFlags; //0x00F2
+	uint16_t r_MovementSubstep; //0x00F4
+	uint16_t r_CurrentPathPlanIndex; //0x00F6
+	uint16_t r_PathPlanLength; //0x00F8
+	uint16_t N00009255; //0x00FA
+	uint32_t N00000132; //0x00FC
+	uint32_t N00000073; //0x0100
+	uint32_t N00000134; //0x0104
+	uint32_t N00000074; //0x0108
+	uint32_t N00000136; //0x010C
+	uint32_t N00000075; //0x0110
+	uint32_t N00000138; //0x0114
+	uint32_t N00000076; //0x0118
+	uint32_t N0000013A; //0x011C
+	uint32_t N00000077; //0x0120
+	uint32_t N0000013C; //0x0124
+	uint32_t N00000078; //0x0128
+	uint32_t N0000013E; //0x012C
+	uint32_t N00000079; //0x0130
+	uint32_t N00000140; //0x0134
+	uint32_t N0000007A; //0x0138
+	uint32_t N00000142; //0x013C
+	uint32_t N0000007B; //0x0140
+	uint32_t N00000144; //0x0144
+	uint32_t N0000007C; //0x0148
+	uint32_t N00000146; //0x014C
+	uint32_t N0000007D; //0x0150
+	uint32_t N00000148; //0x0154
+	uint32_t N0000007E; //0x0158
+	uint32_t N0000014A; //0x015C
+	uint32_t N0000007F; //0x0160
+	uint32_t N0000014C; //0x0164
+	uint32_t N00000080; //0x0168
+	uint32_t N0000014E; //0x016C
+	uint32_t N00000081; //0x0170
+	uint32_t N00000150; //0x0174
+	uint32_t N00000082; //0x0178
+	uint32_t N00000152; //0x017C
+	uint32_t N00000083; //0x0180
+	uint32_t N00000154; //0x0184
+	uint32_t N00000084; //0x0188
+	uint32_t N00000156; //0x018C
+	uint32_t N00000085; //0x0190
+	uint32_t N00000158; //0x0194
+	uint32_t N00000086; //0x0198
+	uint32_t N0000015A; //0x019C
+	uint32_t N00000087; //0x01A0
+	uint32_t N0000015C; //0x01A4
+	uint32_t N00000088; //0x01A8
+	uint32_t N0000015E; //0x01AC
+	uint32_t N00000089; //0x01B0
+	uint32_t N00000160; //0x01B4
+	uint32_t N0000008A; //0x01B8
+	uint32_t N00000162; //0x01BC
+	uint32_t N0000008B; //0x01C0
+	uint32_t N00000164; //0x01C4
+	uint32_t N0000008C; //0x01C8
+	uint32_t N00000166; //0x01CC
+	uint32_t N0000008D; //0x01D0
+	uint32_t N00000168; //0x01D4
+	uint32_t N0000008E; //0x01D8
+	uint32_t N0000016A; //0x01DC
+	uint32_t N0000008F; //0x01E0
+	uint32_t N0000016C; //0x01E4
+	uint32_t N00000090; //0x01E8
+	uint32_t N0000016E; //0x01EC
+	uint32_t N00000091; //0x01F0
+	uint32_t N00000170; //0x01F4
+	uint32_t N00000092; //0x01F8
+	uint32_t N00000172; //0x01FC
+	uint32_t N00000093; //0x0200
+	uint32_t N00000174; //0x0204
+	uint32_t N00000094; //0x0208
+	uint32_t N00000176; //0x020C
+	uint32_t N00000095; //0x0210
+	uint32_t N00000178; //0x0214
+	uint32_t N00000096; //0x0218
+	uint32_t N0000017A; //0x021C
+	uint32_t N00000097; //0x0220
+	uint32_t N0000017C; //0x0224
+	uint32_t N00000098; //0x0228
+	uint32_t N0000017E; //0x022C
+	uint32_t N00000099; //0x0230
+	uint32_t N00000180; //0x0234
+	uint32_t N0000009A; //0x0238
+	uint32_t N00000182; //0x023C
+	uint32_t N0000009B; //0x0240
+	uint32_t N00000184; //0x0244
+	uint32_t N0000009C; //0x0248
+	uint32_t N00000186; //0x024C
+	uint32_t N0000009D; //0x0250
+	uint32_t N00000188; //0x0254
+	uint32_t N0000009E; //0x0258
+	uint32_t N0000018A; //0x025C
+	uint32_t N0000009F; //0x0260
+	uint32_t N0000018C; //0x0264
+	uint32_t N000000A0; //0x0268
+	uint32_t N0000018E; //0x026C
+	uint32_t N000000A1; //0x0270
+	uint32_t N00000190; //0x0274
+	uint32_t N000000A2; //0x0278
+	uint32_t N00000192; //0x027C
+	uint32_t N000000A3; //0x0280
+	uint32_t N00000194; //0x0284
+	uint32_t N000000A4; //0x0288
+	uint32_t N00000196; //0x028C
+	uint16_t r_SelectedConnectionRecordId; //0x0290
+	uint16_t N00012430; //0x0292
+	uint32_t r_SelectedConnectionRecordGlobalId; //0x0294
+	uint16_t N000000A6; //0x0298
+	uint16_t r_InterestingTodo1; //0x029A
+	uint16_t r_IsKilledByProjectile; //0x029C
+	uint16_t r_InterestingTodo4MaybeRandomPathing; //0x029E
+	uint16_t p_r_SelectionAllowed; //0x02A0
+	uint16_t r_WorldDistanceToNearestEnemy; //0x02A2
+	uint32_t r_InitialNextOrTargetPCLId; //0x02A4
+	uint32_t N000000A8; //0x02A8
+	uint32_t r_AnimationTimer; //0x02AC
+	Dircs16 r_MovementDirection; //0x02B0
+	uint16_t N0000924D_2; //0x02B2
+	uint32_t N000001A0; //0x02B4
+	uint16_t N000000AA; //0x02B8
+	uint16_t r_SpeedBonus; //0x02BA
+	uint16_t r_AIState; //0x02BC
+	uint16_t N0000924D; //0x02BE
+	uint32_t N000000AB; //0x02C0
+	int16_t r_TimeSinceDeathTicker; //0x02C4
+	eChimps16 r_TransformIntoUnitOfType; //0x02C6
+	uint32_t N000000AC; //0x02C8
+	uint32_t N000001A6; //0x02CC
+	uint16_t r_CurrentHealthPercentage; //0x02D0
+	uint16_t r_TribeLeaderUnitId; //0x02D2
+	uint16_t r_TribeId; //0x02D4
+	uint16_t UnknownAIFlag; //0x02D6
+	uint16_t r_AttackMoveToTargetTileX; //0x02D8
+	uint16_t r_AttackMoveToTargetTileY; //0x02DA
+	uint32_t N000001AA; //0x02DC
+	uint32_t N000000AF; //0x02E0
+	uint32_t N000001AC; //0x02E4
+	uint32_t N000000B0; //0x02E8
+	uint32_t N000001AE; //0x02EC
+	uint32_t N000000B1; //0x02F0
+	uint32_t N000001B0; //0x02F4
+	uint32_t N000000B2; //0x02F8
+	uint32_t N000001B2; //0x02FC
+	uint16_t r_CarryOverGoodsAmount; //0x0300
+	uint16_t r_CarryBonusYieldAmount; //0x0302
+	uint32_t N000001B4; //0x0304
+	uint32_t N000000B4; //0x0308
+	uint32_t N000001B6; //0x030C
+	uint16_t r_AssignedEngineer1; //0x0310
+	uint16_t r_AssignedEngineer2; //0x0312
+	uint16_t r_AssignedEngineer3; //0x0314
+	uint16_t r_AssignedEngineer4; //0x0316
+	uint32_t r_AssignedEngineer1GlobalId; //0x0318
+	uint32_t r_AssignedEngineer2GlobalId; //0x031C
+	uint32_t r_AssignedEngineer3GlobalId; //0x0320
+	uint32_t r_AssignedEngineer4GlobalId; //0x0324
+	uint16_t N000000B8; //0x0328
+	uint16_t UnknownRelevant2; //0x032A
+	uint32_t N000001BE; //0x032C
+	uint32_t N000000B9; //0x0330
+	uint16_t r_LinkedProductionBuildingId; //0x0334
+	uint16_t r_LinkedProductionBuildingTileEndX; //0x0336
+	uint16_t r_LinkedProductionBuildingTileEndY; //0x0338
+	uint16_t r_AttackingUnitId; //0x033A
+	uint32_t N000001C2; //0x033C
+	uint32_t r_RangedAttackTargetUnitId; //0x0340
+	uint16_t N000001C4; //0x0344
+	uint16_t r_CurrentSpeed2; //0x0346
+	uint16_t r_CurrentSpeed; //0x0348
+	uint16_t N00008635; //0x034A
+	uint32_t r_AliveTicks1; //0x034C
+	uint32_t r_AliveTicks2; //0x0350
+	uint16_t r_SelectionRelevant3; //0x0354
+	uint16_t N0000924A; //0x0356
+	uint32_t N000000BE; //0x0358
+	uint16_t r_PathConnectionMode; //0x035C
+	uint8_t r_StoneAmmoLeft; //0x035E
+	uint8_t r_StoneAmmoStacksLeft; //0x035F
+	uint32_t N000000BF; //0x0360
+	uint32_t r_LinkedProductionBuildingGlobalId; //0x0364
+	uint32_t N000000C0; //0x0368
+	uint8_t N000001CE; //0x036C
+	uint8_t UnknownRelevant1; //0x036D
+	uint16_t N0000026E; //0x036E
+	uint32_t Unknown2; //0x0370
+	uint32_t N000001D0; //0x0374
+	uint32_t N000000C2; //0x0378
+	uint32_t TimeUntilResting4thBit; //0x037C
+	uint16_t TimeUntilResting; //0x0380
+	uint16_t N0000026B; //0x0382
+	uint16_t r_CarryGoodAmount; //0x0384
+	uint16_t N0001184A; //0x0386
+	uint32_t N000000C4; //0x0388
+	uint32_t N000001D6; //0x038C
+	uint32_t N000000C5; //0x0390
+	uint32_t N000001D8; //0x0394
+	uint16_t r_AI_LastIssuedTribeCommand; //0x0398
+	uint16_t r_AI_ContextTargetUnitId; //0x039A
+	uint32_t r_AI_ContextTargetUnitGlobalId; //0x039C
+	uint32_t N000000C7; //0x03A0
+	uint32_t r_AI_ContextTargetBuildingTileId; //0x03A4
+	uint32_t N000000C8; //0x03A8
+	uint32_t N000001DE; //0x03AC
+	uint32_t N000000C9; //0x03B0
+	uint32_t N000001E0; //0x03B4
+	uint32_t N000000CA; //0x03B8
+	uint32_t N000001E2; //0x03BC
+	uint32_t N000000CB; //0x03C0
+	uint32_t r_CurrentHealth; //0x03C4
+	uint32_t r_MaxHealth; //0x03C8
+	uint32_t N000001E6; //0x03CC
+	uint16_t N000000CD; //0x03D0
+	uint16_t r_LinkedStableBuildingId; //0x03D2
+	uint32_t r_ShootingSalvoLeft; //0x03D4
+	uint32_t N000000CE; //0x03D8
+	uint32_t r_LinkedStableGlobalId; //0x03DC
+	uint32_t r_BlessedElapseTickTimer; //0x03E0
+	uint16_t r_ContextTargetTileX; //0x03E4
+	uint16_t r_ContextTargetTileY; //0x03E6
+	uint16_t N000000D0; //0x03E8
+	uint16_t r_UnknownAttackiterator; //0x03EA
+	uint32_t N000001EE; //0x03EC
+	uint32_t N000000D1; //0x03F0
+	uint32_t N000001F0; //0x03F4
+	uint16_t N000000D2; //0x03F8
+	uint16_t r_AISiegeEngineRelatedMaybe; //0x03FA
+	uint16_t N000001F2; //0x03FC
+	uint16_t N00012437; //0x03FE
+	uint32_t r_ContextCurrentPositionTileId; //0x0400
+	uint32_t N000001F4; //0x0404
+	uint32_t N000000D4; //0x0408
+	uint16_t N000001F6; //0x040C
+	uint8_t N00009254; //0x040E
+	uint8_t r_InterestingTodo2; //0x040F
+	uint32_t N000000D5; //0x0410
+	uint32_t N000001F8; //0x0414
+	uint32_t N000000D6; //0x0418
+	uint32_t N000001FA; //0x041C
+	uint32_t N000000D7; //0x0420
+	uint16_t r_AITribeRoleRelatedUnknown; //0x0424
+	uint16_t r_AITribeRole; //0x0426
+	uint32_t N000000D8; //0x0428
+	uint32_t N000001FE; //0x042C
+	uint16_t N000000D9; //0x0430
+	uint16_t r_FarmerAIRelatedUnknown; //0x0432
+	uint32_t r_NearestEnemyWorldTiles; //0x0434
+	uint32_t N000000DA; //0x0438
+	uint32_t N00000202; //0x043C
+	uint16_t r_StealthTimer; //0x0440
+	uint16_t N00008AA0; //0x0442
+	uint32_t N00000204; //0x0444
+	uint32_t N000000DC; //0x0448
+	uint32_t N00000206; //0x044C
+	uint32_t N000000DD; //0x0450
+	uint32_t N00000208; //0x0454
+	uint16_t N000000DE; //0x0458
+	uint16_t r_DemolisherShieldHealth; //0x045A
+	uint32_t r_DemolisherShieldLastTakenDamageCooldown; //0x045C
+	uint32_t N000000DF; //0x0460
+	uint32_t N0000020C; //0x0464
+	uint32_t N000000E3; //0x0468
+	uint32_t N0000020E; //0x046C
+	uint32_t N000000E4; //0x0470
+	uint32_t N00000210; //0x0474
+	uint32_t N000000E5; //0x0478
+	uint32_t N00000212; //0x047C
+	uint32_t N000000E6; //0x0480
+	uint32_t N00000214; //0x0484
+	uint32_t N000000E7; //0x0488
+	uint32_t N00000216; //0x048C
+}; //Size: 0x0490
+
+
+typedef struct GameUnitPackedPathPlan
+{
+	uint32_t N00006A5D; //0x0000
+	uint32_t N00006ADB; //0x0004
+	uint32_t N00006A5E; //0x0008
+	uint32_t N00006ADD; //0x000C
+	uint32_t N00006A5F; //0x0010
+	uint32_t N00006ADF; //0x0014
+	uint32_t N00006A60; //0x0018
+	uint32_t N00006AE1; //0x001C
+	uint32_t N00006A61; //0x0020
+	uint32_t N00006AE3; //0x0024
+	uint32_t N00006A62; //0x0028
+	uint32_t N00006AE5; //0x002C
+	uint32_t N00006A63; //0x0030
+	uint32_t N00006AE7; //0x0034
+	uint32_t N00006A64; //0x0038
+	uint32_t N00006AE9; //0x003C
+	uint32_t N00006A65; //0x0040
+	uint32_t N00006AEB; //0x0044
+	uint32_t N00006A66; //0x0048
+	uint32_t N00006AED; //0x004C
+	uint32_t N00006A67; //0x0050
+	uint32_t N00006AEF; //0x0054
+	uint32_t N00006A68; //0x0058
+	uint32_t N00006AF1; //0x005C
+	uint32_t N00006A69; //0x0060
+	uint32_t N00006AF3; //0x0064
+	uint32_t N00006A6A; //0x0068
+	uint32_t N00006AF5; //0x006C
+	uint32_t N00006A6B; //0x0070
+	uint32_t N00006AF7; //0x0074
+	uint32_t N00006A6C; //0x0078
+	uint32_t N00006AF9; //0x007C
+	uint32_t N00006A6D; //0x0080
+	uint32_t N00006AFB; //0x0084
+	uint32_t N00006A6E; //0x0088
+	uint32_t N00006AFD; //0x008C
+	uint32_t N00006A6F; //0x0090
+	uint32_t N00006AFF; //0x0094
+	uint32_t N00006A70; //0x0098
+	uint32_t N00006B01; //0x009C
+	uint32_t N00006A71; //0x00A0
+	uint32_t N00006B03; //0x00A4
+	uint32_t N00006A72; //0x00A8
+	uint32_t N00006B05; //0x00AC
+	uint32_t N00006A73; //0x00B0
+	uint32_t N00006B07; //0x00B4
+	uint32_t N00006A74; //0x00B8
+	uint32_t N00006B09; //0x00BC
+	uint32_t N00006A75; //0x00C0
+	uint32_t N00006B0B; //0x00C4
+	uint32_t N00006A76; //0x00C8
+	uint32_t N00006B0D; //0x00CC
+	uint32_t N00006A77; //0x00D0
+	uint32_t N00006B0F; //0x00D4
+	uint32_t N00006A78; //0x00D8
+	uint32_t N00006B11; //0x00DC
+	uint32_t N00006A79; //0x00E0
+	uint32_t N00006B13; //0x00E4
+	uint32_t N00006A7A; //0x00E8
+	uint32_t N00006B15; //0x00EC
+	uint32_t N00006A7B; //0x00F0
+	uint32_t N00006B17; //0x00F4
+	uint32_t N00006A7C; //0x00F8
+	uint32_t N00006B19; //0x00FC
+	uint32_t N00006A7D; //0x0100
+	uint32_t N00006B1B; //0x0104
+	uint32_t N00006A7E; //0x0108
+	uint32_t N00006B1D; //0x010C
+	uint32_t N00006A7F; //0x0110
+	uint32_t N00006B1F; //0x0114
+	uint32_t N00006A80; //0x0118
+	uint32_t N00006B21; //0x011C
+	uint32_t N00006A81; //0x0120
+	uint32_t N00006B23; //0x0124
+	uint32_t N00006A82; //0x0128
+	uint32_t N00006B25; //0x012C
+	uint32_t N00006A83; //0x0130
+	uint32_t N00006B27; //0x0134
+	uint32_t N00006A84; //0x0138
+	uint32_t N00006B29; //0x013C
+	uint32_t N00006A85; //0x0140
+	uint32_t N00006B2B; //0x0144
+	uint32_t N00006A86; //0x0148
+	uint32_t N00006B2D; //0x014C
+	uint32_t N00006A87; //0x0150
+	uint32_t N00006B2F; //0x0154
+	uint32_t N00006A88; //0x0158
+	uint32_t N00006B31; //0x015C
+	uint32_t N00006A89; //0x0160
+	uint32_t N00006B33; //0x0164
+	uint32_t N00006A8A; //0x0168
+	uint32_t N00006B35; //0x016C
+	uint32_t N00006A8B; //0x0170
+	uint32_t N00006B37; //0x0174
+	uint32_t N00006A8C; //0x0178
+	uint32_t N00006B39; //0x017C
+	uint32_t N00006A8D; //0x0180
+	uint32_t N00006B3B; //0x0184
+	uint32_t N00006A8E; //0x0188
+	uint32_t N00006B3D; //0x018C
+	uint32_t N00006A8F; //0x0190
+	uint32_t N00006B3F; //0x0194
+	uint32_t N00006A90; //0x0198
+	uint32_t N00006B41; //0x019C
+	uint32_t N00006A91; //0x01A0
+	uint32_t N00006B43; //0x01A4
+	uint32_t N00006A92; //0x01A8
+	uint32_t N00006B45; //0x01AC
+	uint32_t N00006A93; //0x01B0
+	uint32_t N00006B47; //0x01B4
+	uint32_t N00006A94; //0x01B8
+	uint32_t N00006B49; //0x01BC
+	uint32_t N00006A95; //0x01C0
+	uint32_t N00006B4B; //0x01C4
+	uint32_t N00006A96; //0x01C8
+	uint32_t N00006B4D; //0x01CC
+	uint32_t N00006A97; //0x01D0
+	uint32_t N00006B4F; //0x01D4
+	uint32_t N00006A98; //0x01D8
+	uint32_t N00006B51; //0x01DC
+	uint32_t N00006A99; //0x01E0
+	uint32_t N00006B53; //0x01E4
+	uint32_t N00006A9A; //0x01E8
+	uint32_t N00006B55; //0x01EC
+	uint32_t N00006A9B; //0x01F0
+	uint32_t N00006B57; //0x01F4
+	uint32_t N00006A9C; //0x01F8
+	uint32_t N00006B59; //0x01FC
+	uint32_t N00006A9D; //0x0200
+	uint32_t N00006B5B; //0x0204
+	uint32_t N00006A9E; //0x0208
+	uint32_t N00006B5D; //0x020C
+	uint32_t N00006A9F; //0x0210
+	uint32_t N00006B5F; //0x0214
+	uint32_t N00006AA0; //0x0218
+	uint32_t N00006B61; //0x021C
+	uint32_t N00006AA1; //0x0220
+	uint32_t N00006B63; //0x0224
+	uint32_t N00006AA2; //0x0228
+	uint32_t N00006B65; //0x022C
+	uint32_t N00006AA3; //0x0230
+	uint32_t N00006B67; //0x0234
+	uint32_t N00006AA4; //0x0238
+	uint32_t N00006B69; //0x023C
+	uint32_t N00006AA5; //0x0240
+	uint32_t N00006B6B; //0x0244
+	uint32_t N00006AA6; //0x0248
+	uint32_t N00006B6D; //0x024C
+	uint32_t N00006AA7; //0x0250
+	uint32_t N00006B6F; //0x0254
+	uint32_t N00006AA8; //0x0258
+	uint32_t N00006B71; //0x025C
+	uint32_t N00006AA9; //0x0260
+	uint32_t N00006B73; //0x0264
+	uint32_t N00006AAA; //0x0268
+	uint32_t N00006B75; //0x026C
+	uint32_t N00006AAB; //0x0270
+	uint32_t N00006B77; //0x0274
+	uint32_t N00006AAC; //0x0278
+	uint32_t N00006B79; //0x027C
+	uint32_t N00006AAD; //0x0280
+	uint32_t N00006B7B; //0x0284
+	uint32_t N00006AAE; //0x0288
+	uint32_t N00006B7D; //0x028C
+	uint32_t N00006AAF; //0x0290
+	uint32_t N00006B7F; //0x0294
+	uint32_t N00006AB0; //0x0298
+	uint32_t N00006B81; //0x029C
+	uint32_t N00006AB1; //0x02A0
+	uint32_t N00006B83; //0x02A4
+	uint32_t N00006AB2; //0x02A8
+	uint32_t N00006B85; //0x02AC
+	uint32_t N00006AB3; //0x02B0
+	uint32_t N00006B87; //0x02B4
+	uint32_t N00006AB4; //0x02B8
+	uint32_t N00006B89; //0x02BC
+	uint32_t N00006AB5; //0x02C0
+	uint32_t N00006B8B; //0x02C4
+	uint32_t N00006AB6; //0x02C8
+	uint32_t N00006B8D; //0x02CC
+	uint32_t N00006AB7; //0x02D0
+	uint32_t N00006B8F; //0x02D4
+	uint32_t N00006AB8; //0x02D8
+	uint32_t N00006B91; //0x02DC
+	uint32_t N00006AB9; //0x02E0
+	uint32_t N00006B93; //0x02E4
+	uint32_t N00006ABA; //0x02E8
+	uint32_t N00006B95; //0x02EC
+	uint32_t N00006ABB; //0x02F0
+	uint32_t N00006B97; //0x02F4
+	uint32_t N00006ABC; //0x02F8
+	uint32_t N00006B99; //0x02FC
+	uint32_t N00006ABD; //0x0300
+	uint32_t N00006B9B; //0x0304
+	uint32_t N00006ABE; //0x0308
+	uint32_t N00006B9D; //0x030C
+	uint32_t N00006ABF; //0x0310
+	uint32_t N00006B9F; //0x0314
+	uint32_t N00006AC0; //0x0318
+	uint32_t N00006BA1; //0x031C
+	uint32_t N00006AC1; //0x0320
+	uint32_t N00006BA3; //0x0324
+	uint32_t N00006AC2; //0x0328
+	uint32_t N00006BA5; //0x032C
+	uint32_t N00006AC3; //0x0330
+	uint32_t N00006BA7; //0x0334
+	uint32_t N00006AC4; //0x0338
+	uint32_t N00006BA9; //0x033C
+	uint32_t N00006AC5; //0x0340
+	uint32_t N00006BAB; //0x0344
+	uint32_t N00006AC6; //0x0348
+	uint32_t N00006BAD; //0x034C
+	uint32_t N00006AC7; //0x0350
+	uint32_t N00006BAF; //0x0354
+	uint32_t N00006AC8; //0x0358
+	uint32_t N00006BB1; //0x035C
+	uint32_t N00006AC9; //0x0360
+	uint32_t N00006BB3; //0x0364
+	uint32_t N00006ACA; //0x0368
+	uint32_t N00006BB5; //0x036C
+	uint32_t N00006ACB; //0x0370
+	uint32_t N00006BB7; //0x0374
+	uint32_t N00006ACC; //0x0378
+	uint32_t N00006BB9; //0x037C
+	uint32_t N00006ACD; //0x0380
+	uint32_t N00006BBB; //0x0384
+	uint32_t N00006ACE; //0x0388
+	uint32_t N00006BBD; //0x038C
+	uint32_t N00006ACF; //0x0390
+	uint32_t N00006BBF; //0x0394
+	uint32_t N00006AD0; //0x0398
+	uint32_t N00006BC1; //0x039C
+	uint32_t N00006AD1; //0x03A0
+	uint32_t N00006BC3; //0x03A4
+	uint32_t N00006AD2; //0x03A8
+	uint32_t N00006BC5; //0x03AC
+	uint32_t N00006AD3; //0x03B0
+	uint32_t N00006BC7; //0x03B4
+	uint32_t N00006AD4; //0x03B8
+	uint32_t N00006BC9; //0x03BC
+	uint32_t N00006AD5; //0x03C0
+	uint32_t N00006BCB; //0x03C4
+	uint32_t N00006AD6; //0x03C8
+	uint32_t N00006BCD; //0x03CC
+	uint32_t N00006AD7; //0x03D0
+	uint32_t N00006BCF; //0x03D4
+	uint32_t N00006AD8; //0x03D8
+	uint32_t N00006BD1; //0x03DC
+	uint32_t N00006AD9; //0x03E0
+	uint32_t N00006BD3; //0x03E4
+}; //Size: 0x03E8
+
+typedef struct GameUnitManager
+{
+	uint32_t r_NextUnitId; //0x0000
+	uint32_t r_TotalUnits; //0x0004
+	uint32_t N000003DC; //0x0008
+	uint32_t N00002C1F; //0x000C
+	uint32_t N000003DD; //0x0010
+	uint32_t N00002C21; //0x0014
+	uint32_t N000003DE; //0x0018
+	uint32_t N00002C23; //0x001C
+	uint32_t r_HoveredChimpsCount; //0x0020
+	uint32_t N00002C25; //0x0024
+	uint32_t r_SelectedChimpsCount; //0x0028
+	uint32_t N00002C27; //0x002C
+	uint32_t N000003E1; //0x0030
+	uint32_t N00002C29; //0x0034
+	uint32_t N000003E2; //0x0038
+	uint32_t N00002C2B; //0x003C
+	uint32_t N000003E3; //0x0040
+	uint32_t N00002C2D; //0x0044
+	uint32_t N000003E4; //0x0048
+	uint32_t N00002C2F; //0x004C
+	uint32_t N000003E5; //0x0050
+	uint32_t N00002C31; //0x0054
+	uint32_t N000003E6; //0x0058
+	uint32_t N00002C33; //0x005C
+	uint32_t N000003E7; //0x0060
+	uint32_t N00002C35; //0x0064
+	uint32_t N000003E8; //0x0068
+	uint32_t N00002C37; //0x006C
+	uint32_t N000003E9; //0x0070
+	uint32_t N00002C39; //0x0074
+	uint32_t N000003EA; //0x0078
+	uint32_t N00002C3B; //0x007C
+	uint32_t N000003EB; //0x0080
+	uint32_t N000091DA; //0x0084
+	uint32_t N000003EC; //0x0088
+	uint32_t N000091DD; //0x008C
+	uint32_t N000003ED; //0x0090
+	uint32_t N000091E0; //0x0094
+	char pad_0098[1224]; //0x0098
+	uint32_t r_CurrentSelectedUnitId; //0x0560
+	uint32_t r_SelectedArchersAmount; //0x0564
+	uint32_t r_SelectedSpearmanAmount; //0x0568
+	uint32_t r_SelectedMacemanAmount; //0x056C
+	uint32_t r_SelectedCrossbowAmount; //0x0570
+	uint32_t r_SelectedPikemanAmount; //0x0574
+	uint32_t r_SelectedSwordsmanAmount; //0x0578
+	uint32_t r_SelectedKnightAmount; //0x057C
+	uint32_t r_SelectedEngineersAmount; //0x0580
+	uint32_t r_SelectedLaddermanAmount; //0x0584
+	uint32_t r_SelectedTunnelerAmount; //0x0588
+	uint32_t r_SelectedMonkAmount; //0x058C
+	uint32_t r_SelectedCatapultAmount; //0x0590
+	uint32_t r_SelectedTrebuchetAmount; //0x0594
+	uint32_t r_SelectedBatteringRamAmount; //0x0598
+	uint32_t r_SelectedSiegeTowerAmount; //0x059C
+	uint32_t r_SelectedPortableShieldsAmount; //0x05A0
+	uint32_t r_SelectedStationaryCatapultAmount; //0x05A4
+	uint32_t r_SelectedStationaryBallistaAmount; //0x05A8
+	uint32_t r_SelectedUnknownAmount; //0x05AC
+	uint32_t r_SelectedArabBowAmount; //0x05B0
+	uint32_t r_SelectedArabSlaveAmount; //0x05B4
+	uint32_t r_SelectedArabSlingerAmount; //0x05B8
+	uint32_t r_SelectedAssasinAmount; //0x05BC
+	uint32_t r_SelectedArabHorseBowAmount; //0x05C0
+	uint32_t r_SelectedArabSwordsmanAmount; //0x05C4
+	uint32_t r_SelectedArabFirethrowerAmount; //0x05C8
+	uint32_t r_SelectedArabFireBallistaAmount; //0x05CC
+	uint32_t r_SelectedBedouinCamelLancerAmount; //0x05D0
+	uint32_t r_SelectedBedouinHealerAmount; //0x05D4
+	uint32_t r_SelectedBedouinEunuchAmount; //0x05D8
+	uint32_t r_SelectedBedouinAmbusherAmount; //0x05DC
+	uint32_t r_SelectedBedouinSkirmisherAmount; //0x05E0
+	uint32_t r_SelectedBedouinHeavyCamelAmount; //0x05E4
+	uint32_t r_SelectedBedouinSapperAmount; //0x05E8
+	uint32_t r_SelectedBedouinDemolisherAmount; //0x05EC
+	uint32_t N00000499; //0x05F0
+	uint32_t N00009283; //0x05F4
+	uint32_t N0000049A; //0x05F8
+	uint32_t N00009285; //0x05FC
+	uint32_t N0000049B; //0x0600
+	uint32_t N00009287; //0x0604
+	uint32_t N0000049C; //0x0608
+	uint32_t N00009289; //0x060C
+	uint32_t N0000049D; //0x0610
+	uint32_t N0000928B; //0x0614
+	uint32_t N0000049E; //0x0618
+	uint32_t N0000928D; //0x061C
+	uint32_t N0000049F; //0x0620
+	uint32_t N0000928F; //0x0624
+	uint32_t N000004A0; //0x0628
+	uint32_t N00009291; //0x062C
+	uint32_t N000004A1; //0x0630
+	uint32_t N00009293; //0x0634
+	uint32_t N000004A2; //0x0638
+	uint32_t N00009295; //0x063C
+	uint32_t N000004A3; //0x0640
+	uint32_t N00009297; //0x0644
+	uint32_t N000004A4; //0x0648
+	uint32_t N00009299; //0x064C
+	uint32_t r_RecruitmentResultFailureReason; //0x0650
+	uint32_t r_RecruitmentResultMissingGoodId; //0x0654
+	uint32_t EmptyUnitFillValue; //0x0658
+	GameUnitData GameUnitArray[10000]; //0x0AEC
+	uint32_t UnknownSection[44999]; //0xB23F5C
+	GameUnitPackedPathPlan PackedPathPlans[10000]; //0xB4FE78
+}; //Size: 0x8F42C
+
+/* Derived from GameVegetation.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+typedef struct GameVegetation
+{
+	uint32_t N0000486B; //0x0000
+	uint32_t N00004896; //0x0004
+	uint32_t N0000486C; //0x0008
+	uint32_t N00004898; //0x000C
+	GM16	r_GameMaterialIndex; //0x0010
+	uint16_t N0000542C; //0x0012
+	uint32_t r_SpriteHueLevel; //0x0014
+	uint32_t N0000486E; //0x0018
+	uint32_t r_AnimationPlaybackSpeed; //0x001C
+	uint16_t N0000486F; //0x0020
+	uint16_t N00004951; //0x0022
+	uint32_t N0000489E; //0x0024
+	uint32_t N00004870; //0x0028
+	uint32_t N000048A0; //0x002C
+	uint32_t N00004871; //0x0030
+	uint32_t N000048A2; //0x0034
+	uint32_t N00004872; //0x0038
+	uint32_t N000048A4; //0x003C
+	uint32_t N00004873; //0x0040
+	uint32_t N000048A6; //0x0044
+	uint32_t N00004874; //0x0048
+	uint32_t N000048A8; //0x004C
+	eAliveState r_AliveState; //0x0050
+	VegType	r_VegetationType; //0x0052
+	uint32_t N000048AA; //0x0054
+	uint32_t r_GlobalId; //0x0058
+	uint32_t N000048AC; //0x005C
+	uint32_t N0000487B; //0x0060
+	uint32_t N000048AE; //0x0064
+	uint16_t WorldPositionX; //0x0068
+	uint16_t WorldPositionY; //0x006A
+	uint16_t N000048B0; //0x006C
+	uint16_t TilePositionX; //0x006E
+	uint16_t TilePositionY; //0x0070
+	uint16_t N00009C64; //0x0072
+	uint32_t TileId; //0x0074
+	uint32_t N0000488F; //0x0078
+	uint16_t N000048B4; //0x007C
+	uint16_t r_Health; //0x007E
+	uint32_t N00004890; //0x0080
+	uint16_t r_ResourceState; //0x0084
+	uint16_t N00004958; //0x0086
+	uint32_t N00004892; //0x0088
+	uint32_t r_GrowthStage; //0x008C
+	uint32_t r_GrowthProgress; //0x0090
+	uint32_t N000048BA; //0x0094
+	uint32_t N00004894; //0x0098
+}; //Size: 0x009C
+
+typedef struct GameVegetationManager
+{
+	uint32_t N000047CF; //0x0000
+	uint32_t N00004810; //0x0004
+	uint32_t TotalActive; //0x0008
+	uint32_t N00004812; //0x000C
+	uint32_t TotalAllocated; //0x0010
+	uint16_t N0002227E; //0x0014
+	uint16_t N00022280; //0x0016
+	GameVegetation VegetationArray[5000]; //0x0018
+}; //Size: 0xBE990
+
+/* Derived from InternalAIC.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+typedef struct InternalAIC
+{
+	int32_t opponent_type; //0x0000
+	int32_t opponent_type_for_speech; //0x0004
+	int32_t lord_gfx_type; //0x0008
+	int32_t flag_type; //0x000C
+	int32_t use_of_religion; //0x0010
+	int32_t use_of_ale; //0x0014
+	int32_t vlow_popularity; //0x0018
+	int32_t low_popularity; //0x001C
+	int32_t high_popularity; //0x0020
+	int32_t min_tax; //0x0024
+	int32_t max_tax; //0x0028
+	int32_t farm_types1; //0x002C
+	int32_t farm_types2; //0x0030
+	int32_t farm_types3; //0x0034
+	int32_t farm_types4; //0x0038
+	int32_t farm_types5; //0x003C
+	int32_t farm_types6; //0x0040
+	int32_t farm_types7; //0x0044
+	int32_t farm_types8; //0x0048
+	int32_t people_to_farm_ratio; //0x004C
+	int32_t extract_wood_ratio; //0x0050
+	int32_t extract_stone_ratio; //0x0054
+	int32_t extract_iron_ratio; //0x0058
+	int32_t extract_pitch_ratio; //0x005C
+	int32_t max_quarries; //0x0060
+	int32_t max_mines; //0x0064
+	int32_t max_woodcutters; //0x0068
+	int32_t max_pitch_dugouts; //0x006C
+	int32_t max_farms; //0x0070
+	int32_t build_rate; //0x0074
+	int32_t crushed_building_delay; //0x0078
+	int32_t sell_food_at; //0x007C
+	int32_t buy_apples_at; //0x0080
+	int32_t buy_cheese_at; //0x0084
+	int32_t buy_bread_at; //0x0088
+	int32_t buy_wheat_at; //0x008C
+	int32_t buy_hops_at; //0x0090
+	int32_t buy_food_amount; //0x0094
+	int32_t buy_weapons; //0x0098
+	int32_t pester_for_goods_delay; //0x009C
+	int32_t send_goods_margin; //0x00A0
+	int32_t ration_boost; //0x00A4
+	int32_t trade_wood_at; //0x00A8
+	int32_t trade_stone_at; //0x00AC
+	int32_t trade_resources_at; //0x00B0
+	int32_t trade_flour_at; //0x00B4
+	int32_t trade_weapons_at; //0x00B8
+	int32_t trade_ale_at; //0x00BC
+	int32_t trade_pitch_at; //0x00C0
+	int32_t trade_minimum; //0x00C4
+	int32_t base_gold_reserves; //0x00C8
+	int32_t blacksmiths_make; //0x00CC
+	int32_t fletchers_make; //0x00D0
+	int32_t poleturners_make; //0x00D4
+	int32_t sell_all1; //0x00D8
+	int32_t sell_all2; //0x00DC
+	int32_t sell_all3; //0x00E0
+	int32_t sell_all4; //0x00E4
+	int32_t sell_all5; //0x00E8
+	int32_t sell_all6; //0x00EC
+	int32_t sell_all7; //0x00F0
+	int32_t sell_all8; //0x00F4
+	int32_t sell_all9; //0x00F8
+	int32_t sell_all10; //0x00FC
+	int32_t sell_all11; //0x0100
+	int32_t sell_all12; //0x0104
+	int32_t sell_all13; //0x0108
+	int32_t sell_all14; //0x010C
+	int32_t sell_all15; //0x0110
+	int32_t move_mobile_defenders; //0x0114
+	int32_t max_mobile_groups; //0x0118
+	int32_t buy_defense_machines_at; //0x011C
+	int32_t buy_defense_machines_delay; //0x0120
+	int32_t dog_release_timing; //0x0124
+	int32_t dog_points_count; //0x0128
+	int32_t chance_of_defensive1; //0x012C
+	int32_t chance_of_defensive2; //0x0130
+	int32_t chance_of_defensive3; //0x0134
+	int32_t chance_of_harrasment1; //0x0138
+	int32_t chance_of_harrasment2; //0x013C
+	int32_t chance_of_harrasment3; //0x0140
+	int32_t chance_of_seiging1; //0x0144
+	int32_t chance_of_seiging2; //0x0148
+	int32_t chance_of_seiging3; //0x014C
+	int32_t economy_protection_number; //0x0150
+	int32_t economy_protection_type; //0x0154
+	int32_t bodyguard_number; //0x0158
+	int32_t bodyguard_type; //0x015C
+	int32_t moat_diggers; //0x0160
+	int32_t moat_digger_type; //0x0164
+	int32_t troop_production_rate1; //0x0168
+	int32_t troop_production_rate2; //0x016C
+	int32_t troop_production_rate3; //0x0170
+	int32_t defense_patrol_trigger_level; //0x0174
+	int32_t defense_patrols; //0x0178
+	int32_t defense_patrol_style; //0x017C
+	int32_t defense_patrol_delay; //0x0180
+	int32_t defensive_trigger_level; //0x0184
+	int32_t defensive_troops1; //0x0188
+	int32_t defensive_troops2; //0x018C
+	int32_t defensive_troops3; //0x0190
+	int32_t defensive_troops4; //0x0194
+	int32_t defensive_troops5; //0x0198
+	int32_t defensive_troops6; //0x019C
+	int32_t defensive_troops7; //0x01A0
+	int32_t defensive_troops8; //0x01A4
+	int32_t harrasment_trigger_level; //0x01A8
+	int32_t harrasment_trigger_variance; //0x01AC
+	int32_t harrasment_troops1; //0x01B0
+	int32_t harrasment_troops2; //0x01B4
+	int32_t harrasment_troops3; //0x01B8
+	int32_t harrasment_troops4; //0x01BC
+	int32_t harrasment_troops5; //0x01C0
+	int32_t harrasment_troops6; //0x01C4
+	int32_t harrasment_troops7; //0x01C8
+	int32_t harrasment_troops8; //0x01CC
+	int32_t harrasment_machines1; //0x01D0
+	int32_t harrasment_machines2; //0x01D4
+	int32_t harrasment_machines3; //0x01D8
+	int32_t harrasment_machines4; //0x01DC
+	int32_t harrasment_machines5; //0x01E0
+	int32_t harrasment_machines6; //0x01E4
+	int32_t harrasment_machines7; //0x01E8
+	int32_t harrasment_machines8; //0x01EC
+	int32_t max_harrasment_machines; //0x01F0
+	int32_t harrass_delay; //0x01F4
+	int32_t siege_trigger_level; //0x01F8
+	int32_t siege_trigger_variance; //0x01FC
+	int32_t siege_troops_before_will_come_to_rescue; //0x0200
+	int32_t siege_troops_on_site_percent; //0x0204
+	int32_t siege_troops_at_home_percent; //0x0208
+	int32_t siege_soften_up_delay; //0x020C
+	int32_t siege_victory_delay; //0x0210
+	int32_t percent_chance_waiting_for_joint_attack; //0x0214
+	int32_t siege_machines1; //0x0218
+	int32_t siege_machines2; //0x021C
+	int32_t siege_machines3; //0x0220
+	int32_t siege_machines4; //0x0224
+	int32_t siege_machines5; //0x0228
+	int32_t siege_machines6; //0x022C
+	int32_t siege_machines7; //0x0230
+	int32_t siege_machines8; //0x0234
+	int32_t siege_cow_timer; //0x0238
+	int32_t siege_eng_amount; //0x023C
+	int32_t siege_moat_troop; //0x0240
+	int32_t siege_moat_amount; //0x0244
+	int32_t siege_herring_troop; //0x0248
+	int32_t siege_herring_amount; //0x024C
+	int32_t siege_assasin_amount; //0x0250
+	int32_t siege_ladder_amount; //0x0254
+	int32_t siege_tunnel_amount; //0x0258
+	int32_t siege_storm_troop; //0x025C
+	int32_t siege_storm_amount; //0x0260
+	int32_t siege_storm_tribes; //0x0264
+	int32_t siege_cover_troop; //0x0268
+	int32_t siege_cover_amount; //0x026C
+	int32_t siege_cover_tribes; //0x0270
+	int32_t siege_shock_troop; //0x0274
+	int32_t siege_shock_amount; //0x0278
+	int32_t siege_reserve_troop; //0x027C
+	int32_t siege_reserve_amount; //0x0280
+	int32_t siege_reserve_tribes; //0x0284
+	int32_t siege_wall_troops1; //0x0288
+	int32_t siege_wall_troops2; //0x028C
+	int32_t siege_wall_troops3; //0x0290
+	int32_t siege_wall_troops4; //0x0294
+	int32_t siege_wall_troops5; //0x0298
+	int32_t siege_wall_troops6; //0x029C
+	int32_t siege_wall_troops7; //0x02A0
+	int32_t siege_wall_troops8; //0x02A4
+	int32_t siege_wall_troops9; //0x02A8
+	int32_t siege_wall_troops10; //0x02AC
+	int32_t siege_wall_troops11; //0x02B0
+	int32_t siege_wall_troops12; //0x02B4
+	int32_t siege_wall_troops13; //0x02B8
+	int32_t siege_wall_troops14; //0x02BC
+	int32_t siege_wall_troops15; //0x02C0
+	int32_t siege_wall_troops16; //0x02C4
+	int32_t siege_wall_troops17; //0x02C8
+	int32_t siege_wall_troops18; //0x02CC
+	int32_t siege_wall_troops19; //0x02D0
+	int32_t siege_wall_troops20; //0x02D4
+	int32_t siege_wall_troops21; //0x02D8
+	int32_t siege_wall_troops22; //0x02DC
+	int32_t siege_wall_troops23; //0x02E0
+	int32_t siege_wall_troops24; //0x02E4
+	int32_t siege_wall_amount; //0x02E8
+	int32_t siege_wall_tribes; //0x02EC
+	int32_t who_to_pick_on; //0x02F0
+	int32_t use_improved_sieging; //0x02F4
+	int32_t starting_troops_normal1; //0x02F8
+	int32_t starting_troops_normal2; //0x02FC
+	int32_t starting_troops_normal3; //0x0300
+	int32_t starting_troops_normal4; //0x0304
+	int32_t starting_troops_normal5; //0x0308
+	int32_t starting_troops_normal6; //0x030C
+	int32_t starting_troops_normal7; //0x0310
+	int32_t starting_troops_normal8; //0x0314
+	int32_t starting_troops_normal9; //0x0318
+	int32_t starting_troops_normal10; //0x031C
+	int32_t starting_troops_normal11; //0x0320
+	int32_t starting_troops_normal12; //0x0324
+	int32_t starting_troops_normal13; //0x0328
+	int32_t starting_troops_normal14; //0x032C
+	int32_t starting_troops_normal15; //0x0330
+	int32_t starting_troops_normal16; //0x0334
+	int32_t starting_troops_normal17; //0x0338
+	int32_t starting_troops_normal18; //0x033C
+	int32_t starting_troops_normal19; //0x0340
+	int32_t starting_troops_normal20; //0x0344
+	int32_t starting_troops_normal21; //0x0348
+	int32_t starting_troops_normal22; //0x034C
+	int32_t starting_troops_normal23; //0x0350
+	int32_t starting_troops_normal24; //0x0354
+	int32_t starting_troops_normal25; //0x0358
+	int32_t starting_troops_normal26; //0x035C
+	int32_t starting_troops_normal27; //0x0360
+	int32_t starting_troops_normal28; //0x0364
+	int32_t starting_troops_deathmatch1; //0x0368
+	int32_t starting_troops_deathmatch2; //0x036C
+	int32_t starting_troops_deathmatch3; //0x0370
+	int32_t starting_troops_deathmatch4; //0x0374
+	int32_t starting_troops_deathmatch5; //0x0378
+	int32_t starting_troops_deathmatch6; //0x037C
+	int32_t starting_troops_deathmatch7; //0x0380
+	int32_t starting_troops_deathmatch8; //0x0384
+	int32_t starting_troops_deathmatch9; //0x0388
+	int32_t starting_troops_deathmatch10; //0x038C
+	int32_t starting_troops_deathmatch11; //0x0390
+	int32_t starting_troops_deathmatch12; //0x0394
+	int32_t starting_troops_deathmatch13; //0x0398
+	int32_t starting_troops_deathmatch14; //0x039C
+	int32_t starting_troops_deathmatch15; //0x03A0
+	int32_t starting_troops_deathmatch16; //0x03A4
+	int32_t starting_troops_deathmatch17; //0x03A8
+	int32_t starting_troops_deathmatch18; //0x03AC
+	int32_t starting_troops_deathmatch19; //0x03B0
+	int32_t starting_troops_deathmatch20; //0x03B4
+	int32_t starting_troops_deathmatch21; //0x03B8
+	int32_t starting_troops_deathmatch22; //0x03BC
+	int32_t starting_troops_deathmatch23; //0x03C0
+	int32_t starting_troops_deathmatch24; //0x03C4
+	int32_t starting_troops_deathmatch25; //0x03C8
+	int32_t starting_troops_deathmatch26; //0x03CC
+	int32_t starting_troops_deathmatch27; //0x03D0
+	int32_t starting_troops_deathmatch28; //0x03D4
+	int32_t starting_troops_crusader1; //0x03D8
+	int32_t starting_troops_crusader2; //0x03DC
+	int32_t starting_troops_crusader3; //0x03E0
+	int32_t starting_troops_crusader4; //0x03E4
+	int32_t starting_troops_crusader5; //0x03E8
+	int32_t starting_troops_crusader6; //0x03EC
+	int32_t starting_troops_crusader7; //0x03F0
+	int32_t starting_troops_crusader8; //0x03F4
+	int32_t starting_troops_crusader9; //0x03F8
+	int32_t starting_troops_crusader10; //0x03FC
+	int32_t starting_troops_crusader11; //0x0400
+	int32_t starting_troops_crusader12; //0x0404
+	int32_t starting_troops_crusader13; //0x0408
+	int32_t starting_troops_crusader14; //0x040C
+	int32_t starting_troops_crusader15; //0x0410
+	int32_t starting_troops_crusader16; //0x0414
+	int32_t starting_troops_crusader17; //0x0418
+	int32_t starting_troops_crusader18; //0x041C
+	int32_t starting_troops_crusader19; //0x0420
+	int32_t starting_troops_crusader20; //0x0424
+	int32_t starting_troops_crusader21; //0x0428
+	int32_t starting_troops_crusader22; //0x042C
+	int32_t starting_troops_crusader23; //0x0430
+	int32_t starting_troops_crusader24; //0x0434
+	int32_t starting_troops_crusader25; //0x0438
+	int32_t starting_troops_crusader26; //0x043C
+	int32_t starting_troops_crusader27; //0x0440
+	int32_t starting_troops_crusader28; //0x0444
+	int32_t lord_power_display_level; //0x0448
+	int32_t lord_hps_percent; //0x044C
+	int32_t extendedLordParent; //0x0450
+	int32_t siege_max_troops; //0x0454
+	int32_t siege_normal_wave_multiplier; //0x0458
+	int32_t siege_high_gold_wave_multiplier; //0x045C
+	int32_t free04; //0x0460
+	int32_t free05; //0x0464
+	int32_t free06; //0x0468
+	int32_t free07; //0x046C
+	int32_t free08; //0x0470
+	int32_t free09; //0x0474
+	int32_t free00; //0x0478
+	int32_t free11; //0x047C
+	int32_t free12; //0x0480
+	int32_t free13; //0x0484
+	int32_t free14; //0x0488
+	int32_t free15; //0x048C
+	int32_t free16; //0x0490
+	int32_t free17; //0x0494
+	int32_t free18; //0x0498
+	int32_t free19; //0x049C
+	int32_t free20; //0x04A0
+	int32_t free21; //0x04A4
+	int32_t free22; //0x04A8
+	int32_t free23; //0x04AC
+	int32_t free24; //0x04B0
+	int32_t free25; //0x04B4
+	int32_t free26; //0x04B8
+	int32_t free27; //0x04BC
+	int32_t free28; //0x04C0
+	int32_t free29; //0x04C4
+	int32_t free30; //0x04C8
+	int32_t free31; //0x04CC
+	int32_t free32; //0x04D0
+	int32_t free33; //0x04D4
+	int32_t free34; //0x04D8
+	int32_t free35; //0x04DC
+	int32_t free36; //0x04E0
+	int32_t free37; //0x04E4
+	int32_t free38; //0x04E8
+	int32_t free39; //0x04EC
+	int32_t free40; //0x04F0
+	int32_t free41; //0x04F4
+	int32_t free42; //0x04F8
+	int32_t free43; //0x04FC
+	int32_t free44; //0x0500
+	int32_t free45; //0x0504
+	int32_t free46; //0x0508
+	int32_t free47; //0x050C
+	int32_t free48; //0x0510
+	int32_t free49; //0x0514
+	int32_t free50; //0x0518
+	int32_t free51; //0x051C
+	int32_t free52; //0x0520
+	int32_t free53; //0x0524
+	int32_t free54; //0x0528
+	int32_t free55; //0x052C
+	int32_t free56; //0x0530
+	int32_t free57; //0x0534
+	int32_t free58; //0x0538
+	int32_t free59; //0x053C
+	int32_t free60; //0x0540
+	int32_t free61; //0x0544
+	int32_t free62; //0x0548
+	int32_t free63; //0x054C
+	int32_t free64; //0x0550
+	int32_t free65; //0x0554
+	int32_t free66; //0x0558
+	int32_t free67; //0x055C
+	int32_t free68; //0x0560
+	int32_t free69; //0x0564
+	int32_t free70; //0x0568
+	int32_t free71; //0x056C
+	int32_t free72; //0x0570
+	int32_t free73; //0x0574
+	int32_t free74; //0x0578
+	int32_t free75; //0x057C
+	int32_t free76; //0x0580
+	int32_t free77; //0x0584
+	int32_t free78; //0x0588
+	int32_t free79; //0x058C
+	int32_t free80; //0x0590
+	int32_t free81; //0x0594
+	int32_t free82; //0x0598
+	int32_t free83; //0x059C
+	int32_t free84; //0x05A0
+	int32_t free85; //0x05A4
+	int32_t free86; //0x05A8
+	int32_t free87; //0x05AC
+	int32_t free88; //0x05B0
+	int32_t free89; //0x05B4
+	int32_t free90; //0x05B8
+	int32_t free91; //0x05BC
+	int32_t free92; //0x05C0
+	int32_t free93; //0x05C4
+	int32_t free94; //0x05C8
+	int32_t free95; //0x05CC
+	int32_t free96; //0x05D0
+	int32_t free97; //0x05D4
+	int32_t free98; //0x05D8
+	int32_t free99; //0x05DC
+	int32_t free100; //0x05E0
+}; //Size: 0x05E4
+
+/* Derived from LordManager.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+typedef struct InternalAIC
+{
+	int32_t opponent_type; //0x0000
+	int32_t opponent_type_for_speech; //0x0004
+	int32_t lord_gfx_type; //0x0008
+	int32_t flag_type; //0x000C
+	int32_t use_of_religion; //0x0010
+	int32_t use_of_ale; //0x0014
+	int32_t vlow_popularity; //0x0018
+	int32_t low_popularity; //0x001C
+	int32_t high_popularity; //0x0020
+	int32_t min_tax; //0x0024
+	int32_t max_tax; //0x0028
+	int32_t farm_types1; //0x002C
+	int32_t farm_types2; //0x0030
+	int32_t farm_types3; //0x0034
+	int32_t farm_types4; //0x0038
+	int32_t farm_types5; //0x003C
+	int32_t farm_types6; //0x0040
+	int32_t farm_types7; //0x0044
+	int32_t farm_types8; //0x0048
+	int32_t people_to_farm_ratio; //0x004C
+	int32_t extract_wood_ratio; //0x0050
+	int32_t extract_stone_ratio; //0x0054
+	int32_t extract_iron_ratio; //0x0058
+	int32_t extract_pitch_ratio; //0x005C
+	int32_t max_quarries; //0x0060
+	int32_t max_mines; //0x0064
+	int32_t max_woodcutters; //0x0068
+	int32_t max_pitch_dugouts; //0x006C
+	int32_t max_farms; //0x0070
+	int32_t build_rate; //0x0074
+	int32_t crushed_building_delay; //0x0078
+	int32_t sell_food_at; //0x007C
+	int32_t buy_apples_at; //0x0080
+	int32_t buy_cheese_at; //0x0084
+	int32_t buy_bread_at; //0x0088
+	int32_t buy_wheat_at; //0x008C
+	int32_t buy_hops_at; //0x0090
+	int32_t buy_food_amount; //0x0094
+	int32_t buy_weapons; //0x0098
+	int32_t pester_for_goods_delay; //0x009C
+	int32_t send_goods_margin; //0x00A0
+	int32_t ration_boost; //0x00A4
+	int32_t trade_wood_at; //0x00A8
+	int32_t trade_stone_at; //0x00AC
+	int32_t trade_resources_at; //0x00B0
+	int32_t trade_flour_at; //0x00B4
+	int32_t trade_weapons_at; //0x00B8
+	int32_t trade_ale_at; //0x00BC
+	int32_t trade_pitch_at; //0x00C0
+	int32_t trade_minimum; //0x00C4
+	int32_t base_gold_reserves; //0x00C8
+	int32_t blacksmiths_make; //0x00CC
+	int32_t fletchers_make; //0x00D0
+	int32_t poleturners_make; //0x00D4
+	int32_t sell_all1; //0x00D8
+	int32_t sell_all2; //0x00DC
+	int32_t sell_all3; //0x00E0
+	int32_t sell_all4; //0x00E4
+	int32_t sell_all5; //0x00E8
+	int32_t sell_all6; //0x00EC
+	int32_t sell_all7; //0x00F0
+	int32_t sell_all8; //0x00F4
+	int32_t sell_all9; //0x00F8
+	int32_t sell_all10; //0x00FC
+	int32_t sell_all11; //0x0100
+	int32_t sell_all12; //0x0104
+	int32_t sell_all13; //0x0108
+	int32_t sell_all14; //0x010C
+	int32_t sell_all15; //0x0110
+	int32_t move_mobile_defenders; //0x0114
+	int32_t max_mobile_groups; //0x0118
+	int32_t buy_defense_machines_at; //0x011C
+	int32_t buy_defense_machines_delay; //0x0120
+	int32_t dog_release_timing; //0x0124
+	int32_t dog_points_count; //0x0128
+	int32_t chance_of_defensive1; //0x012C
+	int32_t chance_of_defensive2; //0x0130
+	int32_t chance_of_defensive3; //0x0134
+	int32_t chance_of_harrasment1; //0x0138
+	int32_t chance_of_harrasment2; //0x013C
+	int32_t chance_of_harrasment3; //0x0140
+	int32_t chance_of_seiging1; //0x0144
+	int32_t chance_of_seiging2; //0x0148
+	int32_t chance_of_seiging3; //0x014C
+	int32_t economy_protection_number; //0x0150
+	int32_t economy_protection_type; //0x0154
+	int32_t bodyguard_number; //0x0158
+	int32_t bodyguard_type; //0x015C
+	int32_t moat_diggers; //0x0160
+	int32_t moat_digger_type; //0x0164
+	int32_t troop_production_rate1; //0x0168
+	int32_t troop_production_rate2; //0x016C
+	int32_t troop_production_rate3; //0x0170
+	int32_t defense_patrol_trigger_level; //0x0174
+	int32_t defense_patrols; //0x0178
+	int32_t defense_patrol_style; //0x017C
+	int32_t defense_patrol_delay; //0x0180
+	int32_t defensive_trigger_level; //0x0184
+	int32_t defensive_troops1; //0x0188
+	int32_t defensive_troops2; //0x018C
+	int32_t defensive_troops3; //0x0190
+	int32_t defensive_troops4; //0x0194
+	int32_t defensive_troops5; //0x0198
+	int32_t defensive_troops6; //0x019C
+	int32_t defensive_troops7; //0x01A0
+	int32_t defensive_troops8; //0x01A4
+	int32_t harrasment_trigger_level; //0x01A8
+	int32_t harrasment_trigger_variance; //0x01AC
+	int32_t harrasment_troops1; //0x01B0
+	int32_t harrasment_troops2; //0x01B4
+	int32_t harrasment_troops3; //0x01B8
+	int32_t harrasment_troops4; //0x01BC
+	int32_t harrasment_troops5; //0x01C0
+	int32_t harrasment_troops6; //0x01C4
+	int32_t harrasment_troops7; //0x01C8
+	int32_t harrasment_troops8; //0x01CC
+	int32_t harrasment_machines1; //0x01D0
+	int32_t harrasment_machines2; //0x01D4
+	int32_t harrasment_machines3; //0x01D8
+	int32_t harrasment_machines4; //0x01DC
+	int32_t harrasment_machines5; //0x01E0
+	int32_t harrasment_machines6; //0x01E4
+	int32_t harrasment_machines7; //0x01E8
+	int32_t harrasment_machines8; //0x01EC
+	int32_t max_harrasment_machines; //0x01F0
+	int32_t harrass_delay; //0x01F4
+	int32_t siege_trigger_level; //0x01F8
+	int32_t siege_trigger_variance; //0x01FC
+	int32_t siege_troops_before_will_come_to_rescue; //0x0200
+	int32_t siege_troops_on_site_percent; //0x0204
+	int32_t siege_troops_at_home_percent; //0x0208
+	int32_t siege_soften_up_delay; //0x020C
+	int32_t siege_victory_delay; //0x0210
+	int32_t percent_chance_waiting_for_joint_attack; //0x0214
+	int32_t siege_machines1; //0x0218
+	int32_t siege_machines2; //0x021C
+	int32_t siege_machines3; //0x0220
+	int32_t siege_machines4; //0x0224
+	int32_t siege_machines5; //0x0228
+	int32_t siege_machines6; //0x022C
+	int32_t siege_machines7; //0x0230
+	int32_t siege_machines8; //0x0234
+	int32_t siege_cow_timer; //0x0238
+	int32_t siege_eng_amount; //0x023C
+	int32_t siege_moat_troop; //0x0240
+	int32_t siege_moat_amount; //0x0244
+	int32_t siege_herring_troop; //0x0248
+	int32_t siege_herring_amount; //0x024C
+	int32_t siege_assasin_amount; //0x0250
+	int32_t siege_ladder_amount; //0x0254
+	int32_t siege_tunnel_amount; //0x0258
+	int32_t siege_storm_troop; //0x025C
+	int32_t siege_storm_amount; //0x0260
+	int32_t siege_storm_tribes; //0x0264
+	int32_t siege_cover_troop; //0x0268
+	int32_t siege_cover_amount; //0x026C
+	int32_t siege_cover_tribes; //0x0270
+	int32_t siege_shock_troop; //0x0274
+	int32_t siege_shock_amount; //0x0278
+	int32_t siege_reserve_troop; //0x027C
+	int32_t siege_reserve_amount; //0x0280
+	int32_t siege_reserve_tribes; //0x0284
+	int32_t siege_wall_troops1; //0x0288
+	int32_t siege_wall_troops2; //0x028C
+	int32_t siege_wall_troops3; //0x0290
+	int32_t siege_wall_troops4; //0x0294
+	int32_t siege_wall_troops5; //0x0298
+	int32_t siege_wall_troops6; //0x029C
+	int32_t siege_wall_troops7; //0x02A0
+	int32_t siege_wall_troops8; //0x02A4
+	int32_t siege_wall_troops9; //0x02A8
+	int32_t siege_wall_troops10; //0x02AC
+	int32_t siege_wall_troops11; //0x02B0
+	int32_t siege_wall_troops12; //0x02B4
+	int32_t siege_wall_troops13; //0x02B8
+	int32_t siege_wall_troops14; //0x02BC
+	int32_t siege_wall_troops15; //0x02C0
+	int32_t siege_wall_troops16; //0x02C4
+	int32_t siege_wall_troops17; //0x02C8
+	int32_t siege_wall_troops18; //0x02CC
+	int32_t siege_wall_troops19; //0x02D0
+	int32_t siege_wall_troops20; //0x02D4
+	int32_t siege_wall_troops21; //0x02D8
+	int32_t siege_wall_troops22; //0x02DC
+	int32_t siege_wall_troops23; //0x02E0
+	int32_t siege_wall_troops24; //0x02E4
+	int32_t siege_wall_amount; //0x02E8
+	int32_t siege_wall_tribes; //0x02EC
+	int32_t who_to_pick_on; //0x02F0
+	int32_t use_improved_sieging; //0x02F4
+	int32_t starting_troops_normal1; //0x02F8
+	int32_t starting_troops_normal2; //0x02FC
+	int32_t starting_troops_normal3; //0x0300
+	int32_t starting_troops_normal4; //0x0304
+	int32_t starting_troops_normal5; //0x0308
+	int32_t starting_troops_normal6; //0x030C
+	int32_t starting_troops_normal7; //0x0310
+	int32_t starting_troops_normal8; //0x0314
+	int32_t starting_troops_normal9; //0x0318
+	int32_t starting_troops_normal10; //0x031C
+	int32_t starting_troops_normal11; //0x0320
+	int32_t starting_troops_normal12; //0x0324
+	int32_t starting_troops_normal13; //0x0328
+	int32_t starting_troops_normal14; //0x032C
+	int32_t starting_troops_normal15; //0x0330
+	int32_t starting_troops_normal16; //0x0334
+	int32_t starting_troops_normal17; //0x0338
+	int32_t starting_troops_normal18; //0x033C
+	int32_t starting_troops_normal19; //0x0340
+	int32_t starting_troops_normal20; //0x0344
+	int32_t starting_troops_normal21; //0x0348
+	int32_t starting_troops_normal22; //0x034C
+	int32_t starting_troops_normal23; //0x0350
+	int32_t starting_troops_normal24; //0x0354
+	int32_t starting_troops_normal25; //0x0358
+	int32_t starting_troops_normal26; //0x035C
+	int32_t starting_troops_normal27; //0x0360
+	int32_t starting_troops_normal28; //0x0364
+	int32_t starting_troops_deathmatch1; //0x0368
+	int32_t starting_troops_deathmatch2; //0x036C
+	int32_t starting_troops_deathmatch3; //0x0370
+	int32_t starting_troops_deathmatch4; //0x0374
+	int32_t starting_troops_deathmatch5; //0x0378
+	int32_t starting_troops_deathmatch6; //0x037C
+	int32_t starting_troops_deathmatch7; //0x0380
+	int32_t starting_troops_deathmatch8; //0x0384
+	int32_t starting_troops_deathmatch9; //0x0388
+	int32_t starting_troops_deathmatch10; //0x038C
+	int32_t starting_troops_deathmatch11; //0x0390
+	int32_t starting_troops_deathmatch12; //0x0394
+	int32_t starting_troops_deathmatch13; //0x0398
+	int32_t starting_troops_deathmatch14; //0x039C
+	int32_t starting_troops_deathmatch15; //0x03A0
+	int32_t starting_troops_deathmatch16; //0x03A4
+	int32_t starting_troops_deathmatch17; //0x03A8
+	int32_t starting_troops_deathmatch18; //0x03AC
+	int32_t starting_troops_deathmatch19; //0x03B0
+	int32_t starting_troops_deathmatch20; //0x03B4
+	int32_t starting_troops_deathmatch21; //0x03B8
+	int32_t starting_troops_deathmatch22; //0x03BC
+	int32_t starting_troops_deathmatch23; //0x03C0
+	int32_t starting_troops_deathmatch24; //0x03C4
+	int32_t starting_troops_deathmatch25; //0x03C8
+	int32_t starting_troops_deathmatch26; //0x03CC
+	int32_t starting_troops_deathmatch27; //0x03D0
+	int32_t starting_troops_deathmatch28; //0x03D4
+	int32_t starting_troops_crusader1; //0x03D8
+	int32_t starting_troops_crusader2; //0x03DC
+	int32_t starting_troops_crusader3; //0x03E0
+	int32_t starting_troops_crusader4; //0x03E4
+	int32_t starting_troops_crusader5; //0x03E8
+	int32_t starting_troops_crusader6; //0x03EC
+	int32_t starting_troops_crusader7; //0x03F0
+	int32_t starting_troops_crusader8; //0x03F4
+	int32_t starting_troops_crusader9; //0x03F8
+	int32_t starting_troops_crusader10; //0x03FC
+	int32_t starting_troops_crusader11; //0x0400
+	int32_t starting_troops_crusader12; //0x0404
+	int32_t starting_troops_crusader13; //0x0408
+	int32_t starting_troops_crusader14; //0x040C
+	int32_t starting_troops_crusader15; //0x0410
+	int32_t starting_troops_crusader16; //0x0414
+	int32_t starting_troops_crusader17; //0x0418
+	int32_t starting_troops_crusader18; //0x041C
+	int32_t starting_troops_crusader19; //0x0420
+	int32_t starting_troops_crusader20; //0x0424
+	int32_t starting_troops_crusader21; //0x0428
+	int32_t starting_troops_crusader22; //0x042C
+	int32_t starting_troops_crusader23; //0x0430
+	int32_t starting_troops_crusader24; //0x0434
+	int32_t starting_troops_crusader25; //0x0438
+	int32_t starting_troops_crusader26; //0x043C
+	int32_t starting_troops_crusader27; //0x0440
+	int32_t starting_troops_crusader28; //0x0444
+	int32_t lord_power_display_level; //0x0448
+	int32_t lord_hps_percent; //0x044C
+	int32_t extendedLordParent; //0x0450
+	int32_t siege_max_troops; //0x0454
+	int32_t siege_normal_wave_multiplier; //0x0458
+	int32_t siege_high_gold_wave_multiplier; //0x045C
+	int32_t free04; //0x0460
+	int32_t free05; //0x0464
+	int32_t free06; //0x0468
+	int32_t free07; //0x046C
+	int32_t free08; //0x0470
+	int32_t free09; //0x0474
+	int32_t free00; //0x0478
+	int32_t free11; //0x047C
+	int32_t free12; //0x0480
+	int32_t free13; //0x0484
+	int32_t free14; //0x0488
+	int32_t free15; //0x048C
+	int32_t free16; //0x0490
+	int32_t free17; //0x0494
+	int32_t free18; //0x0498
+	int32_t free19; //0x049C
+	int32_t free20; //0x04A0
+	int32_t free21; //0x04A4
+	int32_t free22; //0x04A8
+	int32_t free23; //0x04AC
+	int32_t free24; //0x04B0
+	int32_t free25; //0x04B4
+	int32_t free26; //0x04B8
+	int32_t free27; //0x04BC
+	int32_t free28; //0x04C0
+	int32_t free29; //0x04C4
+	int32_t free30; //0x04C8
+	int32_t free31; //0x04CC
+	int32_t free32; //0x04D0
+	int32_t free33; //0x04D4
+	int32_t free34; //0x04D8
+	int32_t free35; //0x04DC
+	int32_t free36; //0x04E0
+	int32_t free37; //0x04E4
+	int32_t free38; //0x04E8
+	int32_t free39; //0x04EC
+	int32_t free40; //0x04F0
+	int32_t free41; //0x04F4
+	int32_t free42; //0x04F8
+	int32_t free43; //0x04FC
+	int32_t free44; //0x0500
+	int32_t free45; //0x0504
+	int32_t free46; //0x0508
+	int32_t free47; //0x050C
+	int32_t free48; //0x0510
+	int32_t free49; //0x0514
+	int32_t free50; //0x0518
+	int32_t free51; //0x051C
+	int32_t free52; //0x0520
+	int32_t free53; //0x0524
+	int32_t free54; //0x0528
+	int32_t free55; //0x052C
+	int32_t free56; //0x0530
+	int32_t free57; //0x0534
+	int32_t free58; //0x0538
+	int32_t free59; //0x053C
+	int32_t free60; //0x0540
+	int32_t free61; //0x0544
+	int32_t free62; //0x0548
+	int32_t free63; //0x054C
+	int32_t free64; //0x0550
+	int32_t free65; //0x0554
+	int32_t free66; //0x0558
+	int32_t free67; //0x055C
+	int32_t free68; //0x0560
+	int32_t free69; //0x0564
+	int32_t free70; //0x0568
+	int32_t free71; //0x056C
+	int32_t free72; //0x0570
+	int32_t free73; //0x0574
+	int32_t free74; //0x0578
+	int32_t free75; //0x057C
+	int32_t free76; //0x0580
+	int32_t free77; //0x0584
+	int32_t free78; //0x0588
+	int32_t free79; //0x058C
+	int32_t free80; //0x0590
+	int32_t free81; //0x0594
+	int32_t free82; //0x0598
+	int32_t free83; //0x059C
+	int32_t free84; //0x05A0
+	int32_t free85; //0x05A4
+	int32_t free86; //0x05A8
+	int32_t free87; //0x05AC
+	int32_t free88; //0x05B0
+	int32_t free89; //0x05B4
+	int32_t free90; //0x05B8
+	int32_t free91; //0x05BC
+	int32_t free92; //0x05C0
+	int32_t free93; //0x05C4
+	int32_t free94; //0x05C8
+	int32_t free95; //0x05CC
+	int32_t free96; //0x05D0
+	int32_t free97; //0x05D4
+	int32_t free98; //0x05D8
+	int32_t free99; //0x05DC
+	int32_t free100; //0x05E0
+}; //Size: 0x05E4
+
+typedef struct LordManager
+{
+	InternalAIC AICs[37]; //0x0000
+}; //Size: 0xD9F4
+
+/* Derived from MessageManager.h; C++ syntax normalized for Ghidra CParser. */
+typedef struct MessageManager
+{
+	uint32_t IsQueueActive; //0x0000
+	uint32_t ImmediateCommandId; //0x0004
+	uint32_t ImmediateMessageType; //0x0008
+	char pad_000C[200]; //0x000C
+	uint32_t ImmediatePlayerId; //0x00D4
+	char pad_00D8[4]; //0x00D8
+	uint32_t QueueCommandIds[10]; //0x00DC
+	uint32_t QueueMessageTypes[10]; //0x0104
+	uint32_t QueueFlags[10]; //0x012C
+	char QueueVideoPaths[10][100]; //0x0154
+	char QueueAudioPaths[10][100]; //0x053C
+	uint32_t QueuePlayerIds[10]; //0x0924
+	uint32_t CurrentQueueCount; //0x094C
+	char pad_0950[904]; //0x0950
+}; //Size: 0x0CD8
+
+/* Derived from TileManager.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+typedef enum TileType16
+{
+    TileType16_NoneOrDirt = 0,
+    TileType16_Foliage = 1 << 0, // 0x01
+    TileType16_DirtAndStones = 1 << 1, // 0x02
+    TileType16_Elevation1 = 1 << 2, // 0x04
+    TileType16_Elevation2 = 1 << 3, // 0x08
+    TileType16_OasisGrass = 1 << 4, // 0x10
+    TileType16_BeachOrWaves = 1 << 5, // 0x20
+    TileType16_CoarseSand = 1 << 6, // 0x40
+    TileType16_ThickFoliage = 1 << 7, // 0x80
+} TileType16;
+
+typedef struct GameMoatWorkTask
+{
+	int32_t PackedTileId; //0x0000
+	int16_t TileX; //0x0004
+	int16_t TileY; //0x0006
+	int32_t TargetMode; //0x0008
+	uint8_t OwnerPlayerId; //0x000C
+	uint8_t Progress; //0x000D
+	uint8_t WorkType; //0x000E
+	uint8_t ReservationPentalty; //0x000F
+}; //Size: 0x0010
+
+typedef struct GamePitchDescriptor
+{
+	uint32_t r_GlobalId; //0x0000
+	int16_t r_PlayerOwneIdd; //0x0004
+	uint16_t r_TileX; //0x0006
+	uint16_t r_TileY; //0x0008
+	uint16_t r_RandomSeed; //0x000A
+	int16_t r_State; //0x000C
+	int16_t r_FireTimer; //0x000E
+	uint32_t r_Reserved; //0x0010
+}; //Size: 0x0014
+
+typedef struct GameTileManager
+{
+	int32_t PackedNeighborTileDeltas[800][8]; //0x0000
+	int32_t PackedRowTileCounts[800]; //0x6400
+	uint8_t Unknown00007080[1024]; //0x7080
+	int16_t PackedTileCoordinateLookup0[320800]; //0x7480
+	int16_t PackedTileCoordinateLookup1[320800]; //0xA3EC0
+	int32_t GfxLayer[320800]; //0x140900
+	int32_t AlphaGfxLayer[320800]; //0x279D80
+	int32_t ConstructionGfxLayer[320800]; //0x3B3200
+	int32_t PillarGfxLayer[320800]; //0x4EC680
+	int32_t WallGfxLayer[320800]; //0x625B00
+	int16_t FloatingLayer[320800]; //0x75EF80
+	uint16_t RandomLayer[320800]; //0x7FB9C0
+	TilePropertyFlag LogicLayer[320800]; //0x898400
+	int32_t Unknown009D1880[800]; //0x9D1880
+	TileType16 Logic2Layer[320800]; //0x9D2500
+	uint8_t Unknown00A20A20[800]; //0xA20A20
+	uint8_t ChangedLayer[320800]; //0xA20D40
+	uint16_t OrganismLayer[320800]; //0xA6F260
+	uint16_t StructureLayer[320800]; //0xB0BCA0
+	uint8_t StructureWasLayer[320800]; //0xBA86E0
+	int16_t ChimpLayer[320800]; //0xBF6C00
+	ProjectileType FlyLayer[320800]; //0xC93640
+	uint8_t Unknown00D30080[320800]; //0xD30080
+	uint8_t HeightLayer[320800]; //0xD7E5A0
+	uint8_t DefaultHeightLayer[320800]; //0xDCCAC0
+	uint8_t WallOwnerLayer[320800]; //0xE1AFE0
+	uint8_t LuminescenceLayer[320800]; //0xE69500
+	uint8_t ShowHiLayer[320800]; //0xEB7A20
+	uint16_t MiscDisplayLayer[320800]; //0xF05F40
+	uint8_t DamageLayer[320800]; //0xFA2980
+	int16_t MacroLayer[320800]; //0xFF0EA0
+	uint16_t PathConnectionLayer[320800]; //0x108D8E0
+	uint8_t PathLinkageLayer[320800]; //0x112A320
+	uint8_t OccupancyLayer[320800]; //0x1178840
+	uint16_t CertainPathLayer[320800]; //0x11C6D60
+	uint16_t WalkLayer[320800]; //0x12637A0
+	uint8_t AiZoneLayer[320800]; //0x13001E0
+	uint8_t AiInfoLayer[320800]; //0x134E700
+	uint8_t AiDangerLayer[320800]; //0x139CC20
+	uint8_t AiProximityLayer[320800]; //0x13EB140
+	uint8_t TownDzSpreadIdLayer[320800]; //0x1439660
+	uint8_t TownNullConnectsLayer[320800]; //0x1487B80
+	uint8_t TownDzSpreadCountLayer[320800]; //0x14D60A0
+	uint8_t TownStoneValueLayer[320800]; //0x15245C0
+	uint8_t TownStructureLayer[320800]; //0x1572AE0
+	uint8_t TownOasisLayer[320800]; //0x15C1000
+	uint8_t TownFarmLayer[320800]; //0x160F520
+	uint8_t TownIronLayer[320800]; //0x165DA40
+	uint8_t ProblemBuildLayer[320800]; //0x16ABF60
+	uint8_t Unknown016FA480[5774400]; //0x16FA480
+	uint8_t AivBlockLayer[320800]; //0x1C7C0C0
+	uint8_t Unknown01CCA5E0[16]; //0x1CCA5E0
+	uint8_t AivBlockZone[6400]; //0x1CCA5F0
+	uint8_t DelayLayer[320800]; //0x1CCBEF0
+	uint8_t Unknown01D1A410[800]; //0x1D1A410
+	uint8_t GatePathLayer[320800]; //0x1D1A730
+	uint8_t Unknown01D68C50[800]; //0x1D68C50
+	int32_t Unknown01D68F70[320800]; //0x1D68F70
+	int16_t MoatWorkTaskIndexLayer[320800]; //0x1EA23F0
+	GameMoatWorkTask MoatWorkTasks[64000]; //0x1F3EE30
+	int32_t MoatWorkTaskSlotLimit; //0x2038E30
+	int32_t MoatWorkTaskActiveCount; //0x2038E34
+	uint8_t Unknown02038E38[16]; //0x2038E38
+	GamePitchDescriptor PitchSlots[3999]; //0x2038E48
+	uint32_t Unknown0204C6B4; //0x204C6B4
+	uint8_t Unknown0204C6B8[12]; //0x204C6B8
+	uint32_t PitchIdLimit; //0x204C6C4
+	uint32_t Unknown0204C6C8; //0x204C6C8
+	uint16_t PitchSlotLookup[4000]; //0x204C6CC
+	uint8_t Unknown0204E60C[32]; //0x204E60C
+	int32_t LayerInvalidationPending[3]; //0x204E62C
+	int32_t Unknown0204E638; //0x204E638
+	int32_t Unknown0204E63C; //0x204E63C
+	int32_t Unknown0204E640; //0x204E640
+	int32_t Unknown0204E644; //0x204E644
+	int32_t Unknown0204E648; //0x204E648
+	int32_t Unknown0204E64C; //0x204E64C
+	int64_t Unknown0204E650; //0x204E650
+	int32_t LastUpdateTimestamp; //0x204E658
+	int32_t MapRotation; //0x204E65C
+	int32_t DirectionCount; //0x204E660
+	int32_t CameraAnchorTileX; //0x204E664
+	int32_t CameraAnchorTileY; //0x204E668
+	int32_t RotatedDirectionMap[5]; //0x204E66C
+	int32_t Unknown0204E680[8]; //0x204E680
+	int32_t Unknown0204E6A0; //0x204E6A0
+	int32_t Unknown0204E6A4; //0x204E6A4
+	int32_t Unknown0204E6A8; //0x204E6A8
+	int32_t Unknown0204E6AC; //0x204E6AC
+	int32_t Unknown0204E6B0; //0x204E6B0
+	int32_t Unknown0204E6B4; //0x204E6B4
+	int32_t Unknown0204E6B8; //0x204E6B8
+	int32_t Unknown0204E6BC; //0x204E6BC
+	int32_t Unknown0204E6C0; //0x204E6C0
+	int32_t Unknown0204E6C4; //0x204E6C4
+	int32_t Unknown0204E6C8; //0x204E6C8
+	int32_t Unknown0204E6CC; //0x204E6CC
+	uint8_t Unknown0204E6D0[40]; //0x204E6D0
+	int32_t Unknown0204E6F8; //0x204E6F8
+	int32_t IsPlacementBlocked; //0x204E6FC
+	int32_t Unknown0204E700; //0x204E700
+	int32_t Unknown0204E704; //0x204E704
+	int32_t PlacementFailureReason; //0x204E708
+	int32_t DetectedAdjacentGateRotation; //0x204E70C
+	int32_t DrawbridgePlacementVariant; //0x204E710
+	uint8_t Unknown0204E714[16]; //0x204E714
+	int32_t PlacementHeightLimit; //0x204E724
+	int32_t FootprintMinimumTerrainHeight; //0x204E728
+	int32_t FootprintMaximumTerrainHeight; //0x204E72C
+	int32_t FootprintMinimumEffectiveHeight; //0x204E730
+	int32_t FootprintMaximumEffectiveHeight; //0x204E734
+	int32_t MaximumFootprintHeightDelta; //0x204E738
+	int32_t Unknown0204E73C; //0x204E73C
+	int32_t PlacementAllowsLogicFlag00000080; //0x204E740
+	int32_t Unknown0204E744; //0x204E744
+	int32_t PlacementMode; //0x204E748
+	int32_t PlacementAllowsLogicFlag40000000; //0x204E74C
+	int32_t Unknown0204E750; //0x204E750
+	int32_t Unknown0204E754; //0x204E754
+	int32_t BuildingFootprintCellCount; //0x204E758
+	int32_t Unknown0204E75C; //0x204E75C
+	int32_t BuildingFootprintCellOffsetX; //0x204E760
+	int32_t BuildingFootprintCellOffsetY; //0x204E764
+	int32_t BuildingFootprintRotatedCellIndex; //0x204E768
+	uint8_t Unknown0204E76C[36]; //0x204E76C
+	uint32_t PlacementUpdateTimestamp; //0x204E790
+	int32_t Unknown0204E794; //0x204E794
+	uint8_t Unknown0204E798[76]; //0x204E798
+	int32_t CurrentMapSize; //0x204E7E4
+	int32_t Unknown0204E7E8; //0x204E7E8
+	int32_t Unknown0204E7EC; //0x204E7EC
+	uint8_t Unknown0204E7F0[64]; //0x204E7F0
+	uint64_t LogicLayerPointer; //0x204E830
+	uint64_t Logic2LayerPointer; //0x204E838
+	uint64_t HeightLayerPointer; //0x204E840
+	uint64_t ChangedLayerPointer; //0x204E848
+	uint64_t Unknown0204E850Pointer; //0x204E850
+	uint64_t OccupancyLayerPointer; //0x204E858
+	uint64_t DamageLayerPointer; //0x204E860
+	uint64_t PathConnectionLayerPointer; //0x204E868
+	uint64_t AiZoneLayerPointer; //0x204E870
+	uint64_t PitchSlotLookupPointer; //0x204E878
+	uint64_t MiscDisplayLayerPointer; //0x204E880
+}; //Size: 0x204E888
+
+/* Derived from TribeManager.h; C++ syntax normalized for Ghidra CParser. */
+// Created with ReClass.NET 1.2 by KN4CK3R
+
+typedef struct GameTribe
+{
+	uint16_t N000004BC; //0x0000
+	uint16_t r_PlayerOwnerId; //0x0002
+	uint32_t N0000081C; //0x0004
+	uint16_t N000004BD; //0x0008
+	uint32_t r_GlobalId; //0x000A
+	uint16_t N00008645; //0x000E
+	uint32_t N000004BE; //0x0010
+	uint16_t N00000819; //0x0014
+	eAliveState r_AliveState; //0x0016
+	uint16_t r_UnknownRelevant; //0x0018
+	uint16_t N00000591; //0x001A
+	uint16_t N00000594; //0x001C
+	uint16_t N00000592; //0x001E
+	uint32_t N000004C0; //0x0020
+	uint16_t N00000813; //0x0024
+	uint16_t N0000924A; //0x0026
+	uint32_t N000004C1; //0x0028
+	uint32_t r_TimeSinceLastOrder; //0x002C
+	uint16_t r_LeaderUnitId; //0x0030
+	uint16_t r_UnitsInGroup; //0x0032
+	uint16_t r_UnitsInGroup2; //0x0034
+	uint16_t r_UnitIdsInGroupBitfield; //0x0036
+	uint16_t N000004C3; //0x0038
+	uint16_t N0000059F; //0x003A
+	uint16_t N000005A2; //0x003C
+	uint16_t N000005A0; //0x003E
+	uint32_t N000004C4; //0x0040
+	uint32_t N000005BE; //0x0044
+	uint32_t N000004C5; //0x0048
+	uint32_t N000005C0; //0x004C
+	uint32_t N000004C6; //0x0050
+	uint32_t N000005C2; //0x0054
+	uint32_t N000004C7; //0x0058
+	uint32_t N000005C4; //0x005C
+	uint32_t N000004C8; //0x0060
+	uint32_t N000005C6; //0x0064
+	uint32_t N000004C9; //0x0068
+	uint32_t N000005C8; //0x006C
+	uint32_t N000004CA; //0x0070
+	uint32_t N000005CA; //0x0074
+	uint32_t N000004CB; //0x0078
+	uint32_t N000005CC; //0x007C
+	uint32_t N000004CC; //0x0080
+	uint32_t N000005CE; //0x0084
+	uint32_t N000004CD; //0x0088
+	uint32_t N000005D0; //0x008C
+	uint32_t N000004CE; //0x0090
+	uint32_t N000005D2; //0x0094
+	uint32_t N000004CF; //0x0098
+	uint32_t N000005D4; //0x009C
+	uint32_t N000004D0; //0x00A0
+	uint32_t N000005D6; //0x00A4
+	uint32_t N000004D1; //0x00A8
+	uint32_t N000005D8; //0x00AC
+	uint32_t N000004D2; //0x00B0
+	uint32_t N000005DA; //0x00B4
+	uint32_t N000004D3; //0x00B8
+	uint32_t N000005DC; //0x00BC
+	uint32_t N000004D4; //0x00C0
+	uint32_t N000005DE; //0x00C4
+	uint32_t N000004D5; //0x00C8
+	uint32_t N000005E0; //0x00CC
+	uint32_t N000004D6; //0x00D0
+	uint32_t N000005E2; //0x00D4
+	uint32_t N000004D7; //0x00D8
+	uint32_t N000005E4; //0x00DC
+	uint32_t N000004D8; //0x00E0
+	uint32_t N000005E6; //0x00E4
+	uint32_t N000004D9; //0x00E8
+	uint32_t N000005E8; //0x00EC
+	uint32_t N000004DA; //0x00F0
+	uint32_t N000005EA; //0x00F4
+	uint32_t N000004DB; //0x00F8
+	uint32_t N000005EC; //0x00FC
+	uint32_t N000004DC; //0x0100
+	uint32_t N000005EE; //0x0104
+	uint32_t N000004DD; //0x0108
+	uint32_t N000005F0; //0x010C
+	uint32_t N000004DE; //0x0110
+	uint32_t N000005F2; //0x0114
+	uint32_t N000004DF; //0x0118
+	uint32_t N000005F4; //0x011C
+	uint32_t N000004E0; //0x0120
+	uint32_t N000005F6; //0x0124
+	uint32_t N000004E1; //0x0128
+	uint32_t N000005F8; //0x012C
+	uint32_t N000004E2; //0x0130
+	uint32_t N000005FA; //0x0134
+	uint32_t N000004E3; //0x0138
+	uint32_t N000005FC; //0x013C
+	uint32_t N000004E4; //0x0140
+	uint32_t N000005FE; //0x0144
+	uint32_t N000004E5; //0x0148
+	uint32_t N00000600; //0x014C
+	uint32_t N000004E6; //0x0150
+	uint32_t N00000602; //0x0154
+	uint32_t N000004E7; //0x0158
+	uint32_t N00000604; //0x015C
+	uint32_t N000004E8; //0x0160
+	uint32_t N00000606; //0x0164
+	uint32_t N000004E9; //0x0168
+	uint32_t N00000608; //0x016C
+	uint32_t N000004EA; //0x0170
+	uint32_t N0000060A; //0x0174
+	uint32_t N000004EB; //0x0178
+	uint32_t N0000060C; //0x017C
+	uint32_t N000004EC; //0x0180
+	uint32_t N0000060E; //0x0184
+	uint32_t N000004ED; //0x0188
+	uint32_t N00000610; //0x018C
+	uint32_t N000004EE; //0x0190
+	uint32_t N00000612; //0x0194
+	uint32_t N000004EF; //0x0198
+	uint32_t N00000614; //0x019C
+	uint32_t N000004F0; //0x01A0
+	uint32_t N00000616; //0x01A4
+	uint32_t N000004F1; //0x01A8
+	uint32_t N00000618; //0x01AC
+	uint32_t N000004F2; //0x01B0
+	uint32_t N0000061A; //0x01B4
+	uint32_t N000004F3; //0x01B8
+	uint32_t N0000061C; //0x01BC
+	uint32_t N000004F4; //0x01C0
+	uint32_t N0000061E; //0x01C4
+	uint32_t N000004F5; //0x01C8
+	uint32_t N00000620; //0x01CC
+	uint32_t N000004F6; //0x01D0
+	uint16_t N00000622; //0x01D4
+	uint16_t N00009201; //0x01D6
+	uint32_t N000004F7; //0x01D8
+	uint32_t N00000624; //0x01DC
+	uint32_t N000004F8; //0x01E0
+	uint32_t N00000626; //0x01E4
+	uint32_t N000004F9; //0x01E8
+	uint32_t N00000628; //0x01EC
+	uint32_t N000004FA; //0x01F0
+	uint32_t N0000062A; //0x01F4
+	uint32_t N000004FB; //0x01F8
+	uint32_t N0000062C; //0x01FC
+	uint32_t N000004FC; //0x0200
+	uint32_t N0000062E; //0x0204
+	uint32_t N000004FD; //0x0208
+	uint32_t N00000630; //0x020C
+	uint32_t N000004FE; //0x0210
+	uint32_t N00000632; //0x0214
+	uint32_t N000004FF; //0x0218
+	uint32_t N00000634; //0x021C
+	uint32_t N00000500; //0x0220
+	uint32_t N00000636; //0x0224
+	uint32_t N00000501; //0x0228
+	uint32_t N00000638; //0x022C
+	uint32_t N00000502; //0x0230
+	uint32_t N0000063A; //0x0234
+	uint32_t N00000503; //0x0238
+	uint32_t N0000063C; //0x023C
+	uint32_t N00000504; //0x0240
+	uint32_t N0000063E; //0x0244
+	uint32_t N00000505; //0x0248
+	uint32_t N00000640; //0x024C
+	uint32_t N00000506; //0x0250
+	uint32_t N00000642; //0x0254
+	uint32_t N00000507; //0x0258
+	uint32_t N00000644; //0x025C
+	uint32_t N00000508; //0x0260
+	uint32_t N00000646; //0x0264
+	uint32_t N00000509; //0x0268
+	uint32_t N00000648; //0x026C
+	uint32_t N0000050A; //0x0270
+	uint32_t N0000064A; //0x0274
+	uint32_t N0000050B; //0x0278
+	uint32_t N0000064C; //0x027C
+	uint32_t N0000050C; //0x0280
+	uint32_t N0000064E; //0x0284
+	uint32_t N0000050D; //0x0288
+	uint32_t N00000650; //0x028C
+	uint32_t N0000050E; //0x0290
+	uint32_t N00000652; //0x0294
+	uint32_t N0000050F; //0x0298
+	uint32_t N00000654; //0x029C
+	uint32_t N00000510; //0x02A0
+	uint32_t N00000656; //0x02A4
+	uint32_t N00000511; //0x02A8
+	uint32_t N00000658; //0x02AC
+	uint32_t N00000512; //0x02B0
+	uint32_t N0000065A; //0x02B4
+	uint32_t N00000513; //0x02B8
+	uint32_t N0000065C; //0x02BC
+	uint32_t N00000514; //0x02C0
+	uint32_t N0000065E; //0x02C4
+	uint32_t N00000515; //0x02C8
+	uint32_t N00000660; //0x02CC
+	uint32_t N00000516; //0x02D0
+	uint32_t N00000662; //0x02D4
+	uint32_t N00000517; //0x02D8
+	uint32_t N00000664; //0x02DC
+	uint32_t N00000518; //0x02E0
+	uint32_t N00000666; //0x02E4
+	uint32_t N00000519; //0x02E8
+	uint32_t N00000668; //0x02EC
+	uint32_t N0000051A; //0x02F0
+	uint32_t N0000066A; //0x02F4
+	uint32_t N0000051B; //0x02F8
+	uint32_t N0000066C; //0x02FC
+	uint32_t N0000051C; //0x0300
+	uint32_t N0000066E; //0x0304
+	uint32_t N0000051D; //0x0308
+	uint32_t N00000670; //0x030C
+	uint32_t N0000051E; //0x0310
+	uint32_t N00000672; //0x0314
+	uint32_t N0000051F; //0x0318
+	uint32_t N00000674; //0x031C
+	uint32_t N00000520; //0x0320
+	uint32_t N00000676; //0x0324
+	uint32_t N00000521; //0x0328
+	uint32_t N00000678; //0x032C
+	uint32_t N00000522; //0x0330
+	uint32_t N0000067A; //0x0334
+	uint32_t N00000523; //0x0338
+	uint32_t N0000067C; //0x033C
+	uint32_t N00000524; //0x0340
+	uint32_t N0000067E; //0x0344
+	uint32_t N00000525; //0x0348
+	uint32_t N00000680; //0x034C
+	uint32_t N00000526; //0x0350
+	uint32_t N00000682; //0x0354
+	uint32_t N00000527; //0x0358
+	uint32_t N00000684; //0x035C
+	uint32_t N00000528; //0x0360
+	uint32_t N00000686; //0x0364
+	uint32_t N00000529; //0x0368
+	uint32_t N00000688; //0x036C
+	uint32_t N0000052A; //0x0370
+	uint32_t N0000068A; //0x0374
+	uint32_t N0000052B; //0x0378
+	uint32_t N0000068C; //0x037C
+	uint32_t N0000052C; //0x0380
+	uint32_t N0000068E; //0x0384
+	uint32_t N0000052D; //0x0388
+	uint32_t N00000690; //0x038C
+	uint32_t N0000052E; //0x0390
+	uint32_t N00000692; //0x0394
+	uint32_t N0000052F; //0x0398
+	uint32_t N00000694; //0x039C
+	uint32_t N00000530; //0x03A0
+	uint32_t N00000696; //0x03A4
+	uint32_t N00000531; //0x03A8
+	uint32_t N00000698; //0x03AC
+	uint32_t N00000532; //0x03B0
+	uint32_t N0000069A; //0x03B4
+	uint32_t N00000533; //0x03B8
+	uint32_t N0000069C; //0x03BC
+	uint32_t N00000534; //0x03C0
+	uint32_t N0000069E; //0x03C4
+	uint32_t N00000535; //0x03C8
+	uint32_t N000006A0; //0x03CC
+	uint32_t N00000536; //0x03D0
+	uint32_t N000006A2; //0x03D4
+	uint32_t N00000537; //0x03D8
+	uint32_t N000006A4; //0x03DC
+	uint32_t N00000538; //0x03E0
+	uint32_t N000006A6; //0x03E4
+	uint32_t N00000539; //0x03E8
+	uint32_t N000006A8; //0x03EC
+	uint32_t N0000053A; //0x03F0
+	uint32_t N000006AA; //0x03F4
+	uint32_t N0000053B; //0x03F8
+	uint32_t N000006AC; //0x03FC
+	uint32_t N0000053C; //0x0400
+	uint32_t N000006AE; //0x0404
+	uint32_t N0000053D; //0x0408
+	uint32_t N000006B0; //0x040C
+	uint32_t N0000053E; //0x0410
+	uint32_t N000006B2; //0x0414
+	uint32_t N0000053F; //0x0418
+	uint32_t N000006B4; //0x041C
+	uint32_t N00000540; //0x0420
+	uint32_t N000006B6; //0x0424
+	uint32_t N00000541; //0x0428
+	uint32_t N000006B8; //0x042C
+	uint32_t N00000542; //0x0430
+	uint32_t N000006BA; //0x0434
+	uint32_t N00000543; //0x0438
+	uint32_t N000006BC; //0x043C
+	uint32_t N00000544; //0x0440
+	uint32_t N000006BE; //0x0444
+	uint32_t N00000545; //0x0448
+	uint32_t N000006C0; //0x044C
+	uint32_t N00000546; //0x0450
+	uint32_t N000006C2; //0x0454
+	uint32_t N00000547; //0x0458
+	uint32_t N000006C4; //0x045C
+	uint32_t N00000548; //0x0460
+	uint32_t N000006C6; //0x0464
+	uint32_t N00000549; //0x0468
+	uint32_t N000006C8; //0x046C
+	uint32_t N0000054A; //0x0470
+	uint32_t N000006CA; //0x0474
+	uint32_t N0000054B; //0x0478
+	uint32_t N000006CC; //0x047C
+	uint32_t N0000054C; //0x0480
+	uint32_t N000006CE; //0x0484
+	uint32_t N0000054D; //0x0488
+	uint32_t N000006D0; //0x048C
+	uint32_t N0000054E; //0x0490
+	uint32_t N000006D2; //0x0494
+	uint32_t N0000054F; //0x0498
+	uint32_t N000006D4; //0x049C
+	uint32_t N00000550; //0x04A0
+	uint32_t N000006D6; //0x04A4
+	uint32_t N00000551; //0x04A8
+	uint32_t N000006D8; //0x04AC
+	uint32_t N00000552; //0x04B0
+	uint32_t N000006DA; //0x04B4
+	uint32_t N00000553; //0x04B8
+	uint32_t N000006DC; //0x04BC
+	uint32_t N00000554; //0x04C0
+	uint32_t N000006DE; //0x04C4
+	uint32_t N00000555; //0x04C8
+	uint32_t N000006E0; //0x04CC
+	uint32_t N00000556; //0x04D0
+	uint32_t N000006E2; //0x04D4
+	uint32_t N00000557; //0x04D8
+	uint32_t N000006E4; //0x04DC
+	uint32_t N00000558; //0x04E0
+	uint32_t N000006E6; //0x04E4
+	uint32_t N00000559; //0x04E8
+	uint32_t N000006E8; //0x04EC
+	uint32_t HeightElevation; //0x04F0
+	uint32_t N000006EA; //0x04F4
+	uint32_t N0000055B; //0x04F8
+	uint32_t N000006EC; //0x04FC
+	uint32_t N0000055C; //0x0500
+	uint32_t N000006EE; //0x0504
+	uint32_t N0000055D; //0x0508
+	uint32_t N000006F0; //0x050C
+	uint32_t N0000055E; //0x0510
+	uint32_t N000006F2; //0x0514
+	uint32_t N0000055F; //0x0518
+	uint32_t N000006F4; //0x051C
+	uint32_t N00000560; //0x0520
+	uint32_t N000006F6; //0x0524
+	uint32_t N00000561; //0x0528
+	uint32_t N000006F8; //0x052C
+	uint32_t N00000562; //0x0530
+	uint32_t N000006FA; //0x0534
+	uint32_t N00000563; //0x0538
+	uint32_t N000006FC; //0x053C
+	uint32_t N00000564; //0x0540
+	uint32_t N000006FE; //0x0544
+	uint32_t N00000565; //0x0548
+	uint32_t N00000700; //0x054C
+	uint32_t N00000566; //0x0550
+	uint32_t N00000702; //0x0554
+	TribePatrolMode16 r_PatrolMode; //0x0558
+	uint16_t N00011844; //0x055A
+	uint32_t N00000704; //0x055C
+	uint32_t N00000568; //0x0560
+	uint32_t N00000706; //0x0564
+	uint32_t N00000569; //0x0568
+	uint32_t N00000708; //0x056C
+	uint32_t N0000056A; //0x0570
+	uint32_t N0000070A; //0x0574
+	uint32_t N0000056B; //0x0578
+	uint32_t r_AttackStanceTicker; //0x057C
+	uint32_t N0000056C; //0x0580
+	uint32_t N000007B3; //0x0584
+	uint16_t N0000056D; //0x0588
+	uint16_t r_PatrolPoint1TileX; //0x058A
+	uint16_t r_PatrolPoint1TileY; //0x058C
+	uint16_t r_PatrolPoint2TileX; //0x058E
+	uint16_t r_PatrolPoint2TileY; //0x0590
+	uint16_t r_PatrolPoint3TileX; //0x0592
+	uint16_t r_PatrolPoint3TileY; //0x0594
+	uint16_t r_PatrolPoint4TileX; //0x0596
+	uint16_t r_PatrolPoint4TileY; //0x0598
+	uint16_t r_PatrolPoint5TileX; //0x059A
+	uint16_t r_PatrolPoint5TileY; //0x059C
+	uint16_t r_PatrolPoint6TileX; //0x059E
+	uint16_t r_PatrolPoint6TileY; //0x05A0
+	uint16_t r_PatrolPoint7TileX; //0x05A2
+	uint16_t r_PatrolPoint7TileY; //0x05A4
+	uint16_t r_PatrolPoint8TileX; //0x05A6
+	uint16_t r_PatrolPoint8TileY; //0x05A8
+	uint16_t r_PatrolPoint9TileX; //0x05AA
+	uint16_t r_PatrolPoint9TileY; //0x05AC
+	uint16_t r_PatrolPoint10TileX; //0x05AE
+	uint16_t r_PatrolPoint10TileY; //0x05B0
+	uint16_t r_PatrolCurrentTargetIndex; //0x05B2
+	uint32_t r_CurrentPatrolPoints; //0x05B4
+	uint32_t N00000573; //0x05B8
+	uint32_t N000007C1; //0x05BC
+	uint32_t N00000574; //0x05C0
+	uint32_t N000007C3; //0x05C4
+	uint32_t N00000575; //0x05C8
+	uint32_t N000007C5; //0x05CC
+	uint32_t N00000576; //0x05D0
+	uint16_t N000005A9; //0x05D4
+	uint16_t N000005AB; //0x05D6
+	uint32_t N00000577; //0x05D8
+	uint16_t N000007D1; //0x05DC
+	uint16_t r_bAttackNearestUnit; //0x05DE
+	uint16_t r_TicksFrom100WhenRangeAttacked; //0x05E0
+	uint16_t r_TrackedRangedAttackersCount; //0x05E2
+	uint32_t r_UnknownRelevant2; //0x05E4
+	uint16_t N00000579; //0x05E8
+	uint16_t is100whenwalking; //0x05EA
+	uint32_t N000007D5; //0x05EC
+	uint32_t N0000057A; //0x05F0
+	uint32_t N000007D7; //0x05F4
+	uint32_t N0000057B; //0x05F8
+	uint32_t N000007D9; //0x05FC
+	uint32_t N0000057C; //0x0600
+	uint32_t N000007DB; //0x0604
+	uint16_t N0000057D; //0x0608
+	TribeStance16 r_TribeStance; //0x060A
+	uint32_t N000007DD; //0x060C
+	uint16_t p_AttackTargetDistanceRelated; //0x0610
+	uint16_t r_AttackTargetUnitId; //0x0612
+	uint16_t N000007DF; //0x0614
+	uint32_t r_UnkRefGlobalId; //0x0616
+	uint16_t N00005DC0; //0x061A
+	uint32_t r_AttackTargetOwnerPlayerId; //0x061C
+	uint32_t N00000580; //0x0620
+	uint32_t N000007E3; //0x0624
+	uint16_t unk10; //0x0628
+	uint16_t r_LastRangedAttackerGlobalId10; //0x062A
+	uint16_t unk1; //0x062C
+	uint16_t r_LastRangedAttackerGlobalId1; //0x062E
+	uint16_t unk2; //0x0630
+	uint16_t r_LastRangedAttackerGlobalId2; //0x0632
+	uint16_t unk3; //0x0634
+	uint16_t r_LastRangedAttackerGlobalId3; //0x0636
+	uint16_t unk4; //0x0638
+	uint16_t r_LastRangedAttackerGlobalId4; //0x063A
+	uint16_t unk5; //0x063C
+	uint16_t r_LastRangedAttackerGlobalId5; //0x063E
+	uint16_t unk6; //0x0640
+	uint16_t r_LastRangedAttackerGlobalId6; //0x0642
+	uint16_t unk7; //0x0644
+	uint16_t r_LastRangedAttackerGlobalId7; //0x0646
+	uint16_t unk8; //0x0648
+	uint16_t r_LastRangedAttackerGlobalId8; //0x064A
+	uint16_t unk9; //0x064C
+	uint16_t r_LastRangedAttackerGlobalId9; //0x064E
+	uint32_t N00000586; //0x0650
+	uint32_t N000007EF; //0x0654
+	uint32_t N00000587; //0x0658
+	uint32_t N000007F1; //0x065C
+	uint32_t N00000588; //0x0660
+	uint32_t N000007F3; //0x0664
+	uint32_t N00000589; //0x0668
+	uint32_t N000007F5; //0x066C
+	uint32_t N0000058A; //0x0670
+	uint32_t N000007F7; //0x0674
+	uint32_t N0000058B; //0x0678
+	uint32_t N000007F9; //0x067C
+	uint32_t N0000058C; //0x0680
+	uint32_t N00000820; //0x0684
+}; //Size: 0x0688
+
+typedef struct GameTribeManager
+{
+	uint32_t CurrentSelectedTribeId; //0x0000
+	uint32_t ActiveAIGroups; //0x0004
+	uint32_t TotalAllocated; //0x0008
+	uint32_t LastCreatedTileX; //0x000C
+	uint32_t LastCreatedTileY; //0x0010
+	uint32_t N00000387; //0x0014
+	uint32_t N00000273; //0x0018
+	uint32_t N00000829; //0x001C
+	uint32_t N00000274; //0x0020
+	uint32_t N00000AA3; //0x0024
+	uint32_t N00000275; //0x0028
+	uint32_t N00000AA6; //0x002C
+	uint32_t N00000276; //0x0030
+	uint32_t N00000AA9; //0x0034
+	uint32_t N00000277; //0x0038
+	uint32_t N00000AAC; //0x003C
+	uint16_t N00000278; //0x0040
+	uint16_t N00000AB2; //0x0042
+	uint32_t N00000AAF; //0x0044
+	uint16_t N00000279; //0x0048
+	uint16_t N0000082C; //0x004A
+	uint16_t N0000082F; //0x004C
+	uint16_t N0000082D; //0x004E
+	uint32_t N0000027A; //0x0050
+	uint16_t N00000833; //0x0054
+	uint16_t N00000835; //0x0056
+	uint16_t N0000027B; //0x0058
+	uint16_t N00000838; //0x005A
+	uint32_t N0000083B; //0x005C
+	uint16_t N00000839; //0x0060
+	uint32_t N0000027C; //0x0062
+	uint32_t N0000083F; //0x0066
+	uint32_t N0000027D; //0x006A
+	uint32_t N00000841; //0x006E
+	uint32_t N0000027E; //0x0072
+	uint32_t N00000843; //0x0076
+	uint32_t N0000027F; //0x007A
+	uint32_t N00000845; //0x007E
+	uint32_t N00000280; //0x0082
+	uint32_t N00000847; //0x0086
+	uint32_t N00000281; //0x008A
+	uint32_t N00000849; //0x008E
+	uint32_t N00000282; //0x0092
+	uint32_t N0000084B; //0x0096
+	uint32_t N00000283; //0x009A
+	uint32_t N0000084D; //0x009E
+	uint32_t N00000284; //0x00A2
+	uint32_t N0000084F; //0x00A6
+	uint32_t N00000285; //0x00AA
+	uint32_t N00000851; //0x00AE
+	uint32_t N00000286; //0x00B2
+	uint32_t N00000853; //0x00B6
+	uint32_t N00000287; //0x00BA
+	uint32_t N00000855; //0x00BE
+	uint32_t N00000288; //0x00C2
+	uint32_t N00000857; //0x00C6
+	uint32_t N00000289; //0x00CA
+	uint32_t N00000859; //0x00CE
+	uint32_t N0000028A; //0x00D2
+	uint32_t N0000085B; //0x00D6
+	uint32_t N0000028B; //0x00DA
+	uint32_t N0000085D; //0x00DE
+	uint32_t N0000028C; //0x00E2
+	uint32_t N0000085F; //0x00E6
+	uint32_t N0000028D; //0x00EA
+	uint32_t N00000861; //0x00EE
+	uint32_t N0000028E; //0x00F2
+	uint32_t N00000863; //0x00F6
+	uint32_t N0000028F; //0x00FA
+	uint32_t N00000865; //0x00FE
+	uint32_t N00000290; //0x0102
+	uint32_t N00000867; //0x0106
+	uint32_t N00000291; //0x010A
+	uint32_t N00000869; //0x010E
+	uint32_t N00000292; //0x0112
+	uint32_t N0000086B; //0x0116
+	uint32_t N00000293; //0x011A
+	uint32_t N0000086D; //0x011E
+	uint32_t N00000294; //0x0122
+	uint32_t N0000086F; //0x0126
+	uint32_t N00000295; //0x012A
+	uint32_t N00000871; //0x012E
+	uint32_t N00000296; //0x0132
+	uint32_t N00000873; //0x0136
+	uint32_t N00000297; //0x013A
+	uint32_t N00000875; //0x013E
+	uint32_t N00000298; //0x0142
+	uint32_t N00000877; //0x0146
+	uint32_t N00000299; //0x014A
+	uint32_t N00000879; //0x014E
+	uint32_t N0000029A; //0x0152
+	uint32_t N0000087B; //0x0156
+	uint32_t N0000029B; //0x015A
+	uint32_t N0000087D; //0x015E
+	uint32_t N0000029C; //0x0162
+	uint32_t N0000087F; //0x0166
+	uint32_t N0000029D; //0x016A
+	uint32_t N00000881; //0x016E
+	uint32_t N0000029E; //0x0172
+	uint32_t N00000883; //0x0176
+	uint32_t N0000029F; //0x017A
+	uint32_t N00000885; //0x017E
+	uint32_t N000002A0; //0x0182
+	uint32_t N00000887; //0x0186
+	uint32_t N000002A1; //0x018A
+	uint32_t N00000889; //0x018E
+	uint32_t N000002A2; //0x0192
+	uint32_t N0000088B; //0x0196
+	uint32_t N000002A3; //0x019A
+	uint32_t N0000088D; //0x019E
+	uint32_t N000002A4; //0x01A2
+	uint32_t N0000088F; //0x01A6
+	uint32_t N000002A5; //0x01AA
+	uint32_t N00000891; //0x01AE
+	uint32_t N000002A6; //0x01B2
+	uint32_t N00000893; //0x01B6
+	uint32_t N000002A7; //0x01BA
+	uint32_t N00000895; //0x01BE
+	uint32_t N000002A8; //0x01C2
+	uint32_t N00000897; //0x01C6
+	uint32_t N000002A9; //0x01CA
+	uint32_t N00000899; //0x01CE
+	uint32_t N000002AA; //0x01D2
+	uint32_t N0000089B; //0x01D6
+	uint32_t N000002AB; //0x01DA
+	uint32_t N0000089D; //0x01DE
+	uint32_t N000002AC; //0x01E2
+	uint32_t N0000089F; //0x01E6
+	uint32_t N000002AD; //0x01EA
+	uint32_t N000008A1; //0x01EE
+	uint32_t N000002AE; //0x01F2
+	uint32_t N000008A3; //0x01F6
+	uint32_t N000002AF; //0x01FA
+	uint32_t N000008A5; //0x01FE
+	uint32_t N000002B0; //0x0202
+	uint32_t N000008A7; //0x0206
+	uint32_t N000002B1; //0x020A
+	uint32_t N000008A9; //0x020E
+	uint32_t N000002B2; //0x0212
+	uint32_t N000008AB; //0x0216
+	uint32_t N000002B3; //0x021A
+	uint32_t N000008AD; //0x021E
+	uint32_t N000002B4; //0x0222
+	uint32_t N000008AF; //0x0226
+	uint32_t N000002B5; //0x022A
+	uint32_t N000008B1; //0x022E
+	uint32_t N000002B6; //0x0232
+	uint32_t N000008B3; //0x0236
+	uint32_t N000002B7; //0x023A
+	uint32_t N000008B5; //0x023E
+	uint32_t N000002B8; //0x0242
+	uint32_t N000008B7; //0x0246
+	uint32_t N000002B9; //0x024A
+	uint32_t N000008B9; //0x024E
+	uint32_t N000002BA; //0x0252
+	uint32_t N000008BB; //0x0256
+	uint32_t N000002BB; //0x025A
+	uint32_t N000008BD; //0x025E
+	uint32_t N000002BC; //0x0262
+	uint32_t N000008BF; //0x0266
+	uint32_t N000002BD; //0x026A
+	uint32_t N000008C1; //0x026E
+	uint32_t N000002BE; //0x0272
+	uint32_t N000008C3; //0x0276
+	uint32_t N000002BF; //0x027A
+	uint32_t N000008C5; //0x027E
+	uint32_t N000002C0; //0x0282
+	uint32_t N000008C7; //0x0286
+	uint32_t N000002C1; //0x028A
+	uint32_t N000008C9; //0x028E
+	uint32_t N000002C2; //0x0292
+	uint32_t N000008CB; //0x0296
+	uint32_t N000002C3; //0x029A
+	uint32_t N000008CD; //0x029E
+	uint32_t N000002C4; //0x02A2
+	uint32_t N000008CF; //0x02A6
+	uint32_t N000002C5; //0x02AA
+	uint32_t N000008D1; //0x02AE
+	uint32_t N000002C6; //0x02B2
+	uint32_t N000008D3; //0x02B6
+	uint32_t N000002C7; //0x02BA
+	uint32_t N000008D5; //0x02BE
+	uint32_t N000002C8; //0x02C2
+	uint32_t N000008D7; //0x02C6
+	uint32_t N000002C9; //0x02CA
+	uint32_t N000008D9; //0x02CE
+	uint32_t N000002CA; //0x02D2
+	uint32_t N000008DB; //0x02D6
+	uint32_t N000002CB; //0x02DA
+	uint32_t N000008DD; //0x02DE
+	uint32_t N000002CC; //0x02E2
+	uint32_t N000008DF; //0x02E6
+	uint32_t N000002CD; //0x02EA
+	uint32_t N000008E1; //0x02EE
+	uint32_t N000002CE; //0x02F2
+	uint32_t N000008E3; //0x02F6
+	uint32_t N000002CF; //0x02FA
+	uint32_t N000008E5; //0x02FE
+	uint32_t N000002D0; //0x0302
+	uint32_t N000008E7; //0x0306
+	uint32_t N000002D1; //0x030A
+	uint32_t N000008E9; //0x030E
+	uint32_t N000002D2; //0x0312
+	uint32_t N000008EB; //0x0316
+	uint32_t N000002D3; //0x031A
+	uint32_t N000008ED; //0x031E
+	uint32_t N000002D4; //0x0322
+	uint32_t N000008EF; //0x0326
+	uint32_t N000002D5; //0x032A
+	uint32_t N000008F1; //0x032E
+	uint32_t N000002D6; //0x0332
+	uint32_t N000008F3; //0x0336
+	uint32_t N000002D7; //0x033A
+	uint32_t N000008F5; //0x033E
+	uint32_t N000002D8; //0x0342
+	uint32_t N000008F7; //0x0346
+	uint32_t N000002D9; //0x034A
+	uint32_t N000008F9; //0x034E
+	uint32_t N000002DA; //0x0352
+	uint32_t N000008FB; //0x0356
+	uint32_t N000002DB; //0x035A
+	uint32_t N000008FD; //0x035E
+	uint32_t N000002DC; //0x0362
+	uint32_t N000008FF; //0x0366
+	uint32_t N000002DD; //0x036A
+	uint32_t N00000901; //0x036E
+	uint32_t N000002DE; //0x0372
+	uint32_t N00000903; //0x0376
+	uint32_t N000002DF; //0x037A
+	uint32_t N00000905; //0x037E
+	uint32_t N000002E0; //0x0382
+	uint32_t N00000907; //0x0386
+	uint32_t N000002E1; //0x038A
+	uint32_t N00000909; //0x038E
+	uint32_t N000002E2; //0x0392
+	uint32_t N0000090B; //0x0396
+	uint32_t N000002E3; //0x039A
+	uint32_t N0000090D; //0x039E
+	uint32_t N000002E4; //0x03A2
+	uint32_t N0000090F; //0x03A6
+	uint32_t N000002E5; //0x03AA
+	uint32_t N00000911; //0x03AE
+	uint32_t N000002E6; //0x03B2
+	uint32_t N00000913; //0x03B6
+	uint32_t N000002E7; //0x03BA
+	uint32_t N00000915; //0x03BE
+	uint32_t N000002E8; //0x03C2
+	uint32_t N00000917; //0x03C6
+	uint32_t N000002E9; //0x03CA
+	uint32_t N00000919; //0x03CE
+	uint32_t N000002EA; //0x03D2
+	uint32_t N0000091B; //0x03D6
+	uint32_t N000002EB; //0x03DA
+	uint32_t N0000091D; //0x03DE
+	uint32_t N000002EC; //0x03E2
+	uint32_t N0000091F; //0x03E6
+	uint32_t N000002ED; //0x03EA
+	uint32_t N00000921; //0x03EE
+	uint32_t N000002EE; //0x03F2
+	uint32_t N00000923; //0x03F6
+	uint32_t N000002EF; //0x03FA
+	uint32_t N00000925; //0x03FE
+	uint32_t N000002F0; //0x0402
+	uint32_t N00000927; //0x0406
+	uint32_t N000002F1; //0x040A
+	uint32_t N00000929; //0x040E
+	uint32_t N000002F2; //0x0412
+	uint32_t N0000092B; //0x0416
+	uint32_t N000002F3; //0x041A
+	uint32_t N0000092D; //0x041E
+	uint32_t N000002F4; //0x0422
+	uint32_t N0000092F; //0x0426
+	uint32_t N000002F5; //0x042A
+	uint32_t N00000931; //0x042E
+	uint32_t N000002F6; //0x0432
+	uint32_t N00000933; //0x0436
+	uint32_t N000002F7; //0x043A
+	uint32_t N00000935; //0x043E
+	uint32_t N000002F8; //0x0442
+	uint32_t N00000937; //0x0446
+	uint32_t N000002F9; //0x044A
+	uint32_t N00000939; //0x044E
+	uint32_t N000002FA; //0x0452
+	uint32_t N0000093B; //0x0456
+	uint32_t N000002FB; //0x045A
+	uint32_t N0000093D; //0x045E
+	uint32_t N000002FC; //0x0462
+	uint32_t N0000093F; //0x0466
+	uint32_t N000002FD; //0x046A
+	uint32_t N00000941; //0x046E
+	uint32_t N000002FE; //0x0472
+	uint32_t N00000943; //0x0476
+	uint32_t N000002FF; //0x047A
+	uint32_t N00000945; //0x047E
+	uint32_t N00000300; //0x0482
+	uint32_t N00000947; //0x0486
+	uint32_t N00000301; //0x048A
+	uint32_t N00000949; //0x048E
+	uint32_t N00000302; //0x0492
+	uint32_t N0000094B; //0x0496
+	uint32_t N00000303; //0x049A
+	uint32_t N0000094D; //0x049E
+	uint32_t N00000304; //0x04A2
+	uint32_t N0000094F; //0x04A6
+	uint32_t N00000305; //0x04AA
+	uint32_t N00000951; //0x04AE
+	uint32_t N00000306; //0x04B2
+	uint32_t N00000953; //0x04B6
+	uint32_t N00000307; //0x04BA
+	uint32_t N00000955; //0x04BE
+	uint32_t N00000308; //0x04C2
+	uint32_t N00000957; //0x04C6
+	uint32_t N00000309; //0x04CA
+	uint32_t N00000959; //0x04CE
+	uint32_t N0000030A; //0x04D2
+	uint32_t N0000095B; //0x04D6
+	uint32_t N0000030B; //0x04DA
+	uint32_t N0000095D; //0x04DE
+	uint32_t N0000030C; //0x04E2
+	uint32_t N0000095F; //0x04E6
+	uint32_t N0000030D; //0x04EA
+	uint32_t N00000961; //0x04EE
+	uint32_t N0000030E; //0x04F2
+	uint32_t N00000963; //0x04F6
+	uint32_t N0000030F; //0x04FA
+	uint32_t N00000965; //0x04FE
+	uint32_t N00000310; //0x0502
+	uint32_t N00000967; //0x0506
+	uint32_t N00000311; //0x050A
+	uint32_t N00000969; //0x050E
+	uint32_t N00000312; //0x0512
+	uint32_t N0000096B; //0x0516
+	uint32_t N00000313; //0x051A
+	uint32_t N0000096D; //0x051E
+	uint32_t N00000314; //0x0522
+	uint32_t N0000096F; //0x0526
+	uint32_t N00000315; //0x052A
+	uint32_t N00000971; //0x052E
+	uint32_t N00000316; //0x0532
+	uint32_t N00000973; //0x0536
+	uint32_t N00000317; //0x053A
+	uint32_t N00000975; //0x053E
+	uint32_t N00000318; //0x0542
+	uint32_t N00000977; //0x0546
+	uint32_t N00000319; //0x054A
+	uint32_t N00000979; //0x054E
+	uint32_t N0000031A; //0x0552
+	uint32_t N0000097B; //0x0556
+	uint32_t N0000031B; //0x055A
+	uint32_t N0000097D; //0x055E
+	uint32_t N0000031C; //0x0562
+	uint32_t N0000097F; //0x0566
+	uint32_t N0000031D; //0x056A
+	uint32_t N00000981; //0x056E
+	uint32_t N0000031E; //0x0572
+	uint16_t N00000A25; //0x0576
+	uint16_t N00000A27; //0x0578
+	uint32_t N0000031F; //0x057A
+	uint32_t N00000A2A; //0x057E
+	uint32_t N00000320; //0x0582
+	uint32_t N00000A2D; //0x0586
+	uint32_t N00000321; //0x058A
+	uint32_t N00000A2F; //0x058E
+	uint32_t N00000322; //0x0592
+	uint32_t N00000A31; //0x0596
+	uint32_t N00000323; //0x059A
+	uint32_t N00000A33; //0x059E
+	uint16_t N00000324; //0x05A2
+	uint32_t N00000A39; //0x05A4
+	uint16_t N00000A3A; //0x05A8
+	uint32_t N00000325; //0x05AA
+	uint32_t N00000A3E; //0x05AE
+	uint32_t N00000326; //0x05B2
+	uint32_t N00000A40; //0x05B6
+	uint32_t N00000327; //0x05BA
+	uint32_t N00000A42; //0x05BE
+	uint32_t N00000328; //0x05C2
+	uint32_t N00000A44; //0x05C6
+	uint32_t N00000329; //0x05CA
+	uint32_t N00000A46; //0x05CE
+	uint32_t N0000032A; //0x05D2
+	uint32_t N00000A48; //0x05D6
+	uint32_t N0000032B; //0x05DA
+	uint32_t N00000A4A; //0x05DE
+	uint32_t N0000032C; //0x05E2
+	uint32_t N00000A4C; //0x05E6
+	uint32_t N0000032D; //0x05EA
+	uint32_t N00000A4E; //0x05EE
+	uint32_t N0000032E; //0x05F2
+	uint32_t N00000A50; //0x05F6
+	uint32_t N0000032F; //0x05FA
+	uint32_t N00000A52; //0x05FE
+	uint32_t N00000330; //0x0602
+	uint32_t N00000A54; //0x0606
+	uint32_t N00000331; //0x060A
+	uint32_t N00000A56; //0x060E
+	uint32_t N00000332; //0x0612
+	uint32_t N00000A58; //0x0616
+	uint32_t N00000333; //0x061A
+	uint32_t N00000A5A; //0x061E
+	uint32_t N00000334; //0x0622
+	uint32_t N00000A5C; //0x0626
+	uint32_t N00000335; //0x062A
+	uint32_t N00000A5E; //0x062E
+	uint32_t N00000336; //0x0632
+	uint32_t N00000A60; //0x0636
+	uint32_t N00000337; //0x063A
+	uint32_t N00000A62; //0x063E
+	uint32_t N00000338; //0x0642
+	uint32_t N00000A64; //0x0646
+	uint32_t N00000339; //0x064A
+	uint32_t N00000A66; //0x064E
+	uint32_t N0000033A; //0x0652
+	uint32_t N00000A68; //0x0656
+	uint32_t N0000033B; //0x065A
+	uint32_t N00000A6A; //0x065E
+	uint32_t N0000033C; //0x0662
+	uint32_t N00000A6C; //0x0666
+	uint32_t N0000033D; //0x066A
+	uint32_t N00000A6E; //0x066E
+	uint32_t N0000033E; //0x0672
+	uint32_t N00000A70; //0x0676
+	uint32_t N0000033F; //0x067A
+	uint32_t N00000A72; //0x067E
+	uint32_t N00000340; //0x0682
+	uint32_t N00000A74; //0x0686
+	uint32_t N00000341; //0x068A
+	uint32_t N00000A76; //0x068E
+	uint32_t N00000342; //0x0692
+	uint32_t N00000A78; //0x0696
+	uint32_t N00000343; //0x069A
+	uint32_t N00000A7A; //0x069E
+	uint32_t N00000344; //0x06A2
+	uint32_t N00000A7C; //0x06A6
+	uint32_t N00000345; //0x06AA
+	uint32_t N00000A9E; //0x06AE
+	GameTribe TribesArray[5000]; //0x06B2
+}; //Size: 0x7F96F2
 
 #endif

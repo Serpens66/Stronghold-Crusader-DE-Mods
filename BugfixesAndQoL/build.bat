@@ -50,17 +50,17 @@ if errorlevel 1 goto build_failed_popd
 "%MSBUILD%" "%PROJECT_DIR%..\_inspect\BugfixesAndQoLNativeTests\BugfixesAndQoLNativeTests.csproj" /p:Configuration=Release
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\BugfixesAndQoLNativeTests\bin\BugfixesAndQoLNativeTests.exe"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 dotnet run --project "tests\ExtendedShiftCommandQueue.Tests\ExtendedShiftCommandQueue.Tests.csproj"
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 dotnet run --project "tests\AssassinPathfinding.Tests\AssassinPathfinding.Tests.csproj" -- "%PROJECT_DIR%.."
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 dotnet run --project "tests\FriendlyMoatMovement.Tests\FriendlyMoatMovement.Tests.csproj" -- "%PROJECT_DIR%.."
-if errorlevel 1 goto build_failed_popd
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 popd
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
