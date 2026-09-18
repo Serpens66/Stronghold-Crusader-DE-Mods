@@ -78,5 +78,39 @@ namespace BugfixesAndQoL
             coopGame && !customCoopGame && singlePlayerCoop && customSelectionActive &&
             selectedAllyLordType == CustomPartnerLordType &&
             lordType == CustomPartnerLordType && playerId == 2;
+
+        internal static bool ShouldOverridePreviewName(
+            bool activeCustomContext,
+            int computerOpponent,
+            int computerName,
+            int partnerLordType,
+            int partnerSubType) =>
+            activeCustomContext &&
+            computerOpponent == partnerLordType + 1 &&
+            computerName == partnerSubType;
+
+        internal static bool ShouldSecurePartnerRegistration(
+            bool activeCustomContext,
+            int playerId,
+            int lordType,
+            int subType,
+            int partnerLordType,
+            int partnerSubType) =>
+            activeCustomContext && playerId == 2 &&
+            lordType == partnerLordType && subType == partnerSubType;
+
+        internal static bool TryResolveEffectiveCoopTeam(
+            int playerTeam,
+            int playerTeamMemberCount,
+            out int effectiveTeam)
+        {
+            effectiveTeam = 0;
+            if (playerTeam < 0 || playerTeamMemberCount < 1)
+                return false;
+
+            // FRONT_Multiplayer.StartSkirmishGame converts a one-member team to team 0.
+            effectiveTeam = playerTeamMemberCount <= 1 ? 0 : playerTeam;
+            return true;
+        }
     }
 }

@@ -1840,6 +1840,36 @@ namespace BugfixesAndQoL
                 "Coop custom AIV replacement is limited to the active player-2 partner");
 
             Check(
+                CoopCustomLordSelectionPolicy.ShouldOverridePreviewName(
+                    true, expectedLordType + 1, 0, expectedLordType, 0) &&
+                !CoopCustomLordSelectionPolicy.ShouldOverridePreviewName(
+                    false, expectedLordType + 1, 0, expectedLordType, 0) &&
+                !CoopCustomLordSelectionPolicy.ShouldOverridePreviewName(
+                    true, expectedLordType, 0, expectedLordType, 0) &&
+                !CoopCustomLordSelectionPolicy.ShouldOverridePreviewName(
+                    true, expectedLordType + 1, 1, expectedLordType, 0),
+                "Coop custom preview names are limited to the active partner identity");
+
+            Check(
+                CoopCustomLordSelectionPolicy.ShouldSecurePartnerRegistration(
+                    true, 2, expectedLordType, 0, expectedLordType, 0) &&
+                !CoopCustomLordSelectionPolicy.ShouldSecurePartnerRegistration(
+                    false, 2, expectedLordType, 0, expectedLordType, 0) &&
+                !CoopCustomLordSelectionPolicy.ShouldSecurePartnerRegistration(
+                    true, 3, expectedLordType, 0, expectedLordType, 0) &&
+                !CoopCustomLordSelectionPolicy.ShouldSecurePartnerRegistration(
+                    true, 2, expectedLordType - 1, 0, expectedLordType, 0),
+                "Coop team registration is limited to the active custom partner in slot 2");
+
+            Check(
+                CoopCustomLordSelectionPolicy.TryResolveEffectiveCoopTeam(1, 2, out int sharedTeam) &&
+                sharedTeam == 1 &&
+                CoopCustomLordSelectionPolicy.TryResolveEffectiveCoopTeam(1, 1, out int soloTeam) &&
+                soloTeam == 0 &&
+                !CoopCustomLordSelectionPolicy.TryResolveEffectiveCoopTeam(-1, 0, out _),
+                "Coop custom partner team registration mirrors Vanilla's one-member normalization");
+
+            Check(
                 CoopCustomLordSelectionPolicy.CalculatePortraitContentHeight(-1) == 450 &&
                 CoopCustomLordSelectionPolicy.CalculatePortraitContentHeight(0) == 450 &&
                 CoopCustomLordSelectionPolicy.CalculatePortraitContentHeight(7) == 450 &&
@@ -2001,6 +2031,37 @@ namespace BugfixesAndQoL
                 !featureSource.Contains("lordmeta.json") &&
                 !featureSource.Contains("DependencyFreeJson"),
                 "Coop hover power and progress deletion preserve Vanilla UI and use Script Extender metadata");
+
+            Check(
+                featureSource.Contains("private Hook getComputerNameHook;") &&
+                featureSource.Contains("private Hook registerSkirmishUserHook;") &&
+                featureSource.Contains("nameof(OnScreenText.getComputerName)") &&
+                featureSource.Contains("nameof(EngineInterface.RegisterSkirmishUser)") &&
+                featureSource.Contains("return getComputerNameOriginal(computerOpponent, computerName);") &&
+                featureSource.Contains("? selectedDisplayName") &&
+                featureSource.Contains(": selectedLordName;") &&
+                featureSource.Contains("registerSkirmishUserOriginal(playerId, lordType, subType, team);") &&
+                featureSource.Contains("registerSkirmishUserOriginal(playerId, lordType, subType, effectiveTeam);") &&
+                featureSource.Contains("CreatePartnerRegistrationFailure("),
+                "Coop custom preview and registration hooks stay rooted, scoped and fail closed");
+
+            int restoreStart = featureSource.IndexOf("private void RestorePartnerAfterMissionChange(", StringComparison.Ordinal);
+            int restoreEnd = restoreStart >= 0
+                ? featureSource.IndexOf("private string GetComputerNameHook(", restoreStart, StringComparison.Ordinal)
+                : -1;
+            bool restoreBoundsValid = restoreStart >= 0 && restoreEnd > restoreStart;
+            string restoreSource = restoreBoundsValid
+                ? featureSource.Substring(restoreStart, restoreEnd - restoreStart)
+                : string.Empty;
+            Check(
+                restoreBoundsValid &&
+                restoreSource.Contains("int insertionIndex = self.currentLobby.members.IndexOf(oldPartner);") &&
+                restoreSource.Contains("int colourId = oldPartner.colourID;") &&
+                restoreSource.Contains("int partnerTeam = self.currentLobby.getTeam(oldPartner);") &&
+                restoreSource.Contains("self, lord, partnerTeam, insertionIndex, colourId, out int playerId") &&
+                restoreSource.Contains("self.currentLobby.validateTeams();") &&
+                !restoreSource.Contains("forceCoopTeams()"),
+                "Coop custom partner restoration inherits Vanilla's position, colour and team without changing enemy teams");
 
             string multiplayerHookSource = File.ReadAllText(
                 Path.Combine("src", "SkirmishAiSelectionMemoryHook.cs"));

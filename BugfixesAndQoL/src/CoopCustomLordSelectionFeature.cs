@@ -33,6 +33,9 @@ namespace BugfixesAndQoL
             FRONT_Multiplayer self, int row, string name, ulong steamId,
             ImageSource avatar, bool hidden);
         private delegate void AiLordEnterDelegate(FRONT_Multiplayer self, string parameter);
+        private delegate string GetComputerNameDelegate(int computerOpponent, int computerName);
+        private delegate void RegisterSkirmishUserDelegate(
+            int playerId, int lordType, int subType, int team);
 
         private static readonly BindingFlags AllStatic =
             BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -96,6 +99,8 @@ namespace BugfixesAndQoL
         private Hook coopPopulateFriendsListHook;
         private Hook setCoopRowHook;
         private Hook aiLordEnterHook;
+        private Hook getComputerNameHook;
+        private Hook registerSkirmishUserHook;
         private CoopMissionChangedDelegate coopMissionChangedOriginal;
         private UploadDefaultAivDelegate uploadDefaultAivOriginal;
         private InitCoopGameDelegate initCoopGameOriginal;
@@ -104,6 +109,8 @@ namespace BugfixesAndQoL
         private CoopPopulateFriendsListDelegate coopPopulateFriendsListOriginal;
         private SetCoopRowDelegate setCoopRowOriginal;
         private AiLordEnterDelegate aiLordEnterOriginal;
+        private GetComputerNameDelegate getComputerNameOriginal;
+        private RegisterSkirmishUserDelegate registerSkirmishUserOriginal;
 
         private FRONT_Multiplayer owner;
         private string selectedLordName = string.Empty;
@@ -136,6 +143,8 @@ namespace BugfixesAndQoL
             Hook pendingPopulate = null;
             Hook pendingSetCoopRow = null;
             Hook pendingEnter = null;
+            Hook pendingComputerName = null;
+            Hook pendingRegisterSkirmishUser = null;
             try
             {
                 pendingMission = InstallHook(
@@ -178,6 +187,16 @@ namespace BugfixesAndQoL
                         AllInstance, typeof(string)),
                     (AiLordEnterDelegate)AiLordEnterHook,
                     out aiLordEnterOriginal);
+                pendingComputerName = InstallHook(
+                    RequireMethod(typeof(OnScreenText), nameof(OnScreenText.getComputerName),
+                        AllStatic, typeof(int), typeof(int)),
+                    (GetComputerNameDelegate)GetComputerNameHook,
+                    out getComputerNameOriginal);
+                pendingRegisterSkirmishUser = InstallHook(
+                    RequireMethod(typeof(EngineInterface), nameof(EngineInterface.RegisterSkirmishUser),
+                        AllStatic, typeof(int), typeof(int), typeof(int), typeof(int)),
+                    (RegisterSkirmishUserDelegate)RegisterSkirmishUserHook,
+                    out registerSkirmishUserOriginal);
 
                 coopMissionChangedHook = pendingMission;
                 uploadDefaultAivHook = pendingUpload;
@@ -187,6 +206,8 @@ namespace BugfixesAndQoL
                 coopPopulateFriendsListHook = pendingPopulate;
                 setCoopRowHook = pendingSetCoopRow;
                 aiLordEnterHook = pendingEnter;
+                getComputerNameHook = pendingComputerName;
+                registerSkirmishUserHook = pendingRegisterSkirmishUser;
                 GameXAMLManagerAPI.Instance.RegisterBinding("CoopCustomLordSelectionHost", this);
                 current = this;
                 initialized = true;
@@ -194,6 +215,8 @@ namespace BugfixesAndQoL
             catch
             {
                 // Only a not-yet-published installation candidate may be rolled back.
+                pendingRegisterSkirmishUser?.Dispose();
+                pendingComputerName?.Dispose();
                 pendingEnter?.Dispose();
                 pendingSetCoopRow?.Dispose();
                 pendingPopulate?.Dispose();
@@ -590,17 +613,142 @@ namespace BugfixesAndQoL
 
             int insertionIndex = self.currentLobby.members.IndexOf(oldPartner);
             int colourId = oldPartner.colourID;
+            int partnerTeam = self.currentLobby.getTeam(oldPartner);
+            if (partnerTeam < 0)
+                throw new InvalidOperationException("Vanilla did not assign a team to the Coop partner.");
+
             Platform_Multiplayer.Instance.kickSkirmishPlayer(oldPartner.GetSteamID());
             Platform_Multiplayer.MPLobbyMember replacement = CustomLordLobbyUtility.AddAndInitialize(
-                self, lord, forcedTeam: 1, insertionIndex, colourId, out int playerId);
+                self, lord, partnerTeam, insertionIndex, colourId, out int playerId);
             if (replacement == null || playerId != 2)
                 throw new InvalidOperationException("The restored Coop custom lord did not occupy player slot 2.");
 
             self.currentLobby.validateTeams();
-            self.currentLobby.forceCoopTeams();
+            if (self.currentLobby.getTeam(replacement) != partnerTeam)
+                throw new InvalidOperationException("The restored Coop custom lord did not retain Vanilla's partner team.");
             Shared.DebugLogHelper.LogDebug(
                 log,
-                () => $"Bugfixes and QoL restored Coop custom lord '{lord.lordName}' after mission change.");
+                () => $"Bugfixes and QoL restored Coop custom lord '{lord.lordName}' after mission change: team={partnerTeam}.");
+        }
+
+        private string GetComputerNameHook(int computerOpponent, int computerName)
+        {
+            FRONT_Multiplayer self = MainViewModel.viewModelLoaded
+                ? MainViewModel.Instance.FRONTMultiplayer
+                : null;
+            if (TryGetActiveCustomPartner(self, out Platform_Multiplayer.MPLobbyMember partner) &&
+                CoopCustomLordSelectionPolicy.ShouldOverridePreviewName(
+                    true,
+                    computerOpponent,
+                    computerName,
+                    partner.GetLordType(),
+                    partner.GetLordSubType()))
+            {
+                return !string.IsNullOrWhiteSpace(selectedDisplayName)
+                    ? selectedDisplayName
+                    : selectedLordName;
+            }
+
+            return getComputerNameOriginal(computerOpponent, computerName);
+        }
+
+        private void RegisterSkirmishUserHook(
+            int playerId,
+            int lordType,
+            int subType,
+            int team)
+        {
+            FRONT_Multiplayer self = MainViewModel.viewModelLoaded
+                ? MainViewModel.Instance.FRONTMultiplayer
+                : null;
+            if (!IsActiveCustomContext(self) || playerId != 2)
+            {
+                registerSkirmishUserOriginal(playerId, lordType, subType, team);
+                return;
+            }
+
+            if (!TryGetActiveCustomPartner(self, out Platform_Multiplayer.MPLobbyMember partner))
+            {
+                throw CreatePartnerRegistrationFailure(
+                    "Cannot register the Coop custom lord because its player-slot identity is missing or inconsistent.",
+                    playerId, lordType, subType, team);
+            }
+            if (!CoopCustomLordSelectionPolicy.ShouldSecurePartnerRegistration(
+                    true,
+                    playerId,
+                    lordType,
+                    subType,
+                    partner.GetLordType(),
+                    partner.GetLordSubType()))
+            {
+                throw CreatePartnerRegistrationFailure(
+                    "Cannot register the Coop custom lord because Vanilla supplied a different slot-2 lord identity.",
+                    playerId, lordType, subType, team);
+            }
+
+            Platform_Multiplayer.MPLobbyMember player =
+                self.currentLobby.GetLobbyMemberFromThis_PlayerID(1);
+            if (player == null)
+            {
+                throw CreatePartnerRegistrationFailure(
+                    "Cannot register the Coop custom lord because Vanilla player slot 1 is missing.",
+                    playerId, lordType, subType, team);
+            }
+
+            int playerTeam = self.currentLobby.getTeam(player);
+            int playerTeamMemberCount = playerTeam < 0
+                ? 0
+                : self.currentLobby.CountTeamMembers(playerTeam);
+            if (!CoopCustomLordSelectionPolicy.TryResolveEffectiveCoopTeam(
+                    playerTeam,
+                    playerTeamMemberCount,
+                    out int effectiveTeam))
+            {
+                throw CreatePartnerRegistrationFailure(
+                    "Cannot register the Coop custom lord because Vanilla's player team is invalid.",
+                    playerId, lordType, subType, team);
+            }
+
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"Bugfixes and QoL registering Coop custom lord: playerId={playerId}, lordType={lordType}, subType={subType}, lobbyTeam={self.currentLobby.getTeam(partner)}, requestedTeam={team}, playerTeam={playerTeam}, playerTeamMembers={playerTeamMemberCount}, effectiveTeam={effectiveTeam}.");
+            registerSkirmishUserOriginal(playerId, lordType, subType, effectiveTeam);
+        }
+
+        private InvalidOperationException CreatePartnerRegistrationFailure(
+            string message,
+            int playerId,
+            int lordType,
+            int subType,
+            int requestedTeam)
+        {
+            Shared.DebugLogHelper.LogError(
+                log,
+                $"Bugfixes and QoL: {message} playerId={playerId}, lordType={lordType}, subType={subType}, requestedTeam={requestedTeam}.");
+            return new InvalidOperationException(message);
+        }
+
+        private bool TryGetActiveCustomPartner(
+            FRONT_Multiplayer self,
+            out Platform_Multiplayer.MPLobbyMember partner)
+        {
+            partner = null;
+            if (!IsActiveCustomContext(self) || self.currentLobby == null)
+                return false;
+
+            partner = self.currentLobby.GetLobbyMemberFromThis_PlayerID(2);
+            if (partner == null ||
+                partner.GetLordType() != CoopCustomLordSelectionPolicy.CustomPartnerLordType ||
+                string.IsNullOrWhiteSpace(selectedLordName) ||
+                !string.Equals(
+                    partner.customLordName,
+                    selectedLordName,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                partner = null;
+                return false;
+            }
+            return true;
         }
 
         private void UploadDefaultAivHook(
