@@ -15,14 +15,25 @@
     <DebugSymbols>false</DebugSymbols>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(GameDir)' == ''">
+    <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(ExtenderDir)' == ''">
+    <ExtenderDir>$(GameDir)\BepInEx\plugins\000shcdese</ExtenderDir>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="..\src\FormationModel.cs"><Link>FormationModel.cs</Link></Compile>
     <Compile Include="..\src\FormationPreviewMarkerModel.cs"><Link>FormationPreviewMarkerModel.cs</Link></Compile>
+    <Compile Include="..\src\NativeDetourEntryContract.cs"><Link>NativeDetourEntryContract.cs</Link></Compile>
   </ItemGroup>
+  <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Iced.dll was not found: $(ExtenderDir)" />
+  </Target>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

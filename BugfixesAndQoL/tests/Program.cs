@@ -50,6 +50,7 @@ namespace BugfixesAndQoL
             TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
+            TestAiStoneReservePolicy();
             TestAiStoneReserveIntegration();
             TestAiWallTargetingIntegration();
             TestSingleBuildingPauseOverrideStore();
@@ -3242,6 +3243,52 @@ namespace BugfixesAndQoL
                 "AI defense patrol setting is searchable and bound in XAML");
         }
 
+        private static void TestAiStoneReservePolicy()
+        {
+            ulong stride = AiStoneReservePolicy.PlayerResourceStrideElements;
+            Check(AiStoneReservePolicy.TryGetPlayerId(stride, out int firstPlayerId) &&
+                    firstPlayerId == 1 &&
+                    AiStoneReservePolicy.TryGetPlayerId(stride * 8, out int lastPlayerId) &&
+                    lastPlayerId == 8 &&
+                    !AiStoneReservePolicy.TryGetPlayerId(0, out _) &&
+                    !AiStoneReservePolicy.TryGetPlayerId(stride + 1, out _),
+                "AI stone-reserve derives only aligned live player IDs from resource offsets");
+
+            int[] owners = { 8, 3, 6, 1, 7, 5, 4, 2 };
+            Check(AiStoneReservePolicy.TryFindUniquePlayerSlot(owners, 1, out int liveSlotIndex) &&
+                    liveSlotIndex == 3,
+                "AI stone-reserve finds the unique live AIV slot independently of slot order");
+            owners[7] = 1;
+            Check(!AiStoneReservePolicy.TryFindUniquePlayerSlot(owners, 1, out _) &&
+                    !AiStoneReservePolicy.TryFindUniquePlayerSlot(new[] { 1, 2 }, 1, out _),
+                "AI stone-reserve rejects duplicate owners and incomplete live-slot views");
+
+            Check(AiStoneReservePolicy.IsValidMaximumBuildStep(0, 1) &&
+                    AiStoneReservePolicy.IsValidMaximumBuildStep(6, 7) &&
+                    !AiStoneReservePolicy.IsValidMaximumBuildStep(-1, 7) &&
+                    !AiStoneReservePolicy.IsValidMaximumBuildStep(7, 7),
+                "AI stone-reserve validates the highest build-step index against the supplied view capacity");
+
+            int reserve = 0;
+            Func<short, int?> costs = buildingType => buildingType == 10 ? 12 :
+                buildingType == 11 ? 30 : (int?)null;
+            Check(AiStoneReservePolicy.TryAccumulateReserve(1, 10, costs, ref reserve) &&
+                    reserve == 12 &&
+                    AiStoneReservePolicy.TryAccumulateReserve(1, 11, costs, ref reserve) &&
+                    reserve == 30 &&
+                    AiStoneReservePolicy.TryAccumulateReserve(3, 11, costs, ref reserve) &&
+                    reserve == 30 &&
+                    AiStoneReservePolicy.TryAccumulateReserve(1, 99, costs, ref reserve) &&
+                    reserve == 30,
+                "AI stone-reserve keeps the maximum pending first-build cost and ignores completed or non-stone steps");
+            Check(!AiStoneReservePolicy.TryAccumulateReserve(2, 10, costs, ref reserve) &&
+                    !AiStoneReservePolicy.TryAccumulateReserve(1, 10, _ => -1, ref reserve),
+                "AI stone-reserve fails closed for unknown states and invalid costs");
+            Check(AiStoneReservePolicy.TryValidateThreshold(100, -10, reserve) &&
+                    !AiStoneReservePolicy.TryValidateThreshold(int.MaxValue, 1, reserve),
+                "AI stone-reserve validates the final threshold without overflow");
+        }
+
         private static void TestAiStoneReserveIntegration()
         {
             string projectDirectory = FindProjectDirectory();
@@ -3255,9 +3302,19 @@ namespace BugfixesAndQoL
                 "BugfixesAndQoLSettings.xaml"));
             string english = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "en-US.txt"));
             string german = File.ReadAllText(Path.Combine(projectDirectory, "Locales", "de-DE.txt"));
+            string customLordTemplate = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "CustomLordExtendedPackageTemplate",
+                "info.json"));
 
             Check(fix.Contains("settings.EnableMod && settings.EnableAiStoneReserveFix"),
                 "AI stone-reserve runtime uses the mod and specific host setting gates");
+            Check(fix.Contains("GetLiveVillageSlots()") &&
+                    fix.Contains("GetBuildSteps(villageSlot)") &&
+                    fix.Contains("ref AivBuildStep step") &&
+                    !fix.Contains("GetAIVSystemPointer()") &&
+                    !fix.Contains("ReadOnlySpan<byte>(aivTable"),
+                "AI stone-reserve runtime uses typed Script Extender AIV views without raw table parsing");
             Check(viewModel.Contains("private bool enableAiStoneReserveFix = true;") &&
                     viewModel.Contains("public bool EnableAiStoneReserveFix") &&
                     viewModel.Contains("EnableAiStoneReserveFix = true;"),
@@ -3267,6 +3324,8 @@ namespace BugfixesAndQoL
                     english.Contains("BugfixesAndQoL.EnableAiStoneReserveFix=") &&
                     german.Contains("BugfixesAndQoL.EnableAiStoneReserveFix="),
                 "AI stone-reserve setting is searchable, bound, and localized");
+            Check(customLordTemplate.Contains("\"AssetMode\": \"Local\""),
+                "custom Lord package template isolates provider-owned assets");
 
             string removedSettingName = "EnableAi" + "Fixes";
             bool removedFromActiveSources = !viewModel.Contains(removedSettingName) &&

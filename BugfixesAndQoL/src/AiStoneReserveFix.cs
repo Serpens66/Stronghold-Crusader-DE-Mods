@@ -5,7 +5,6 @@ using SHCDESE.Extensions;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
-using System.Runtime.InteropServices;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Abstractions.Hooks;
 using RedBird.Core.Memory;
@@ -20,7 +19,7 @@ namespace BugfixesAndQoL
     {
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
-        private readonly byte* aivTable;
+        private readonly GameAIVManagerAPI aivApi;
         private readonly Func<short, int?> stoneCostResolver;
         private readonly object stateLock = new object();
         private readonly ulong hookAddress;
@@ -52,19 +51,16 @@ namespace BugfixesAndQoL
                 log: null);
             ValidateAivNativeLayout(memory, referenceHashMatches);
 
-            ulong tableAddress = (ulong)GameAIVManagerAPI.Instance.GetAIVSystemPointer();
-            ulong libraryEnd = checked(libraryBase + unchecked((ulong)memory.Length));
-            ulong tableEnd = checked(
-                tableAddress +
-                unchecked((ulong)(AiStoneReservePolicy.AivSlotCount * AiStoneReservePolicy.AivSlotSize)));
-            if (tableAddress < libraryBase || tableEnd > libraryEnd)
+            aivApi = GameAIVManagerAPI.Instance;
+            Span<AivVillageState> liveVillages = aivApi.GetLiveVillageSlots();
+            if (liveVillages.Length != AivSystem.LIVE_VILLAGE_SLOT_COUNT ||
+                liveVillages.Length != AiStoneReservePolicy.LiveAivSlotCount)
             {
                 throw new InvalidOperationException(
-                    $"The Script Extender AIV table is outside CrusaderDE.dll: " +
-                    $"table=0x{tableAddress:X}, module=0x{libraryBase:X}-0x{libraryEnd:X}.");
+                    $"The Script Extender returned {liveVillages.Length} live AIV village slots; " +
+                    $"expected {AiStoneReservePolicy.LiveAivSlotCount}.");
             }
 
-            aivTable = (byte*)tableAddress;
             stoneCostResolver = ResolveStoneCost;
 
             try
@@ -104,7 +100,7 @@ namespace BugfixesAndQoL
                 {
                     Shared.DebugLogHelper.LogWarning(
                         log,
-                        "Bugfixes and QoL AI stone-reserve fix is running on an unknown CrusaderDE.dll because the seller, AIV layout, first-build lifecycle, and table bounds were validated.");
+                        "Bugfixes and QoL AI stone-reserve fix is running on an unknown CrusaderDE.dll because the seller, AIV layout, first-build lifecycle, and typed Script Extender views were validated.");
                 }
             }
             catch
@@ -183,19 +179,56 @@ namespace BugfixesAndQoL
                             $"The seller player offset is invalid: r8=0x{registers->R8:X}.");
                     }
 
-                    int tableLength = AiStoneReservePolicy.AivSlotCount * AiStoneReservePolicy.AivSlotSize;
-                    var table = new ReadOnlySpan<byte>(aivTable, tableLength);
-                    if (!AiStoneReservePolicy.TryFindPlayerSlot(table, playerId, out int slotOffset))
+                    Span<AivVillageState> liveVillages = aivApi.GetLiveVillageSlots();
+                    if (liveVillages.Length != AiStoneReservePolicy.LiveAivSlotCount)
                     {
                         throw new InvalidOperationException(
-                            $"The AIV table did not contain exactly one active slot for player {playerId}.");
+                            $"The Script Extender returned {liveVillages.Length} live AIV village slots.");
                     }
 
-                    var slot = table.Slice(slotOffset, AiStoneReservePolicy.AivSlotSize);
-                    if (!AiStoneReservePolicy.TryCalculateReserve(slot, stoneCostResolver, out int reserve))
+                    Span<int> ownerPlayerIds = stackalloc int[AiStoneReservePolicy.LiveAivSlotCount];
+                    for (int index = 0; index < liveVillages.Length; index++)
+                        ownerPlayerIds[index] = liveVillages[index].OwnerPlayerId;
+
+                    if (!AiStoneReservePolicy.TryFindUniquePlayerSlot(
+                        ownerPlayerIds, playerId, out int liveSlotIndex))
                     {
                         throw new InvalidOperationException(
-                            $"The AIV slot for player {playerId} failed frame, status, or cost validation.");
+                            $"The live AIV villages did not contain exactly one slot for player {playerId}.");
+                    }
+
+                    int villageSlot = checked(liveSlotIndex + AivSystem.FIRST_LIVE_VILLAGE_SLOT);
+                    ref AivVillageState village = ref liveVillages[liveSlotIndex];
+                    Span<AivBuildStep> buildSteps = aivApi.GetBuildSteps(villageSlot);
+                    if (buildSteps.Length != AivVillageState.BUILD_STEP_CAPACITY)
+                    {
+                        throw new InvalidOperationException(
+                            $"The AIV village for player {playerId} exposes {buildSteps.Length} build steps " +
+                            $"instead of {AivVillageState.BUILD_STEP_CAPACITY}.");
+                    }
+                    int maximumBuildStep = village.MaximumBuildStep;
+                    if (!AiStoneReservePolicy.IsValidMaximumBuildStep(
+                        maximumBuildStep, buildSteps.Length))
+                    {
+                        throw new InvalidOperationException(
+                            $"The AIV village for player {playerId} has invalid maximum build step " +
+                            $"{maximumBuildStep} for capacity {buildSteps.Length}.");
+                    }
+
+                    int reserve = 0;
+                    // Vanilla stores the highest valid index, not a step count.
+                    for (int index = 0; index <= maximumBuildStep; index++)
+                    {
+                        ref AivBuildStep step = ref buildSteps[index];
+                        if (!AiStoneReservePolicy.TryAccumulateReserve(
+                            unchecked((byte)step.State),
+                            unchecked((short)step.BuildingType),
+                            stoneCostResolver,
+                            ref reserve))
+                        {
+                            throw new InvalidOperationException(
+                                $"AIV build step {index} for player {playerId} failed state or cost validation.");
+                        }
                     }
 
                     int maximumStone = unchecked((int)(uint)registers->RAX);
@@ -213,12 +246,10 @@ namespace BugfixesAndQoL
                     if (!firstCalculationLogged)
                     {
                         firstCalculationLogged = true;
-                        int highestFrame = ReadInt32(slot, AiStoneReservePolicy.HighestFrameOffset);
                         Shared.DebugLogHelper.LogDebug(
                             log,
                             $"AI stone-reserve first live calculation succeeded: player={playerId}, " +
-                            $"slot={slotOffset / AiStoneReservePolicy.AivSlotSize}, " +
-                            $"highestFrame={highestFrame}, reserve={reserve}.");
+                            $"slot={villageSlot}, maximumBuildStep={maximumBuildStep}, reserve={reserve}.");
                     }
                     if (reserve > 0 && !firstPositiveReserveLogged)
                     {
@@ -440,10 +471,5 @@ namespace BugfixesAndQoL
             return HookBytesMatchOriginal();
         }
 
-        private static int ReadInt32(ReadOnlySpan<byte> data, int offset) =>
-            data[offset] |
-            data[offset + 1] << 8 |
-            data[offset + 2] << 16 |
-            data[offset + 3] << 24;
     }
 }

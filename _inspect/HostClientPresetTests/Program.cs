@@ -837,8 +837,8 @@ internal static class Program
             BuildingType = 77,
             TileXBegin = 120,
             TileYBegin = 240,
-            TileXEnd = 124,
-            TileYEnd = 248
+            AccessTileX = 124,
+            AccessTileY = 248
         };
         var state = new GatehouseAutomationSaveState
         {
@@ -849,7 +849,8 @@ internal static class Program
 
         byte[] bytes = MessagePackSerializer.Serialize(state);
         GatehouseAutomationSaveState roundTrip = MessagePackSerializer.Deserialize<GatehouseAutomationSaveState>(bytes);
-        Check(roundTrip.Version == 2, "gatehouse v2 version did not round-trip");
+        Check(roundTrip.Version == GatehouseAutomationSaveState.CurrentVersion,
+            "current gatehouse save-state version did not round-trip");
         Check(roundTrip.ManualOnlyGateGlobalIds != null && roundTrip.ManualOnlyGateGlobalIds.Length == 0,
             "gatehouse empty global-ID state was not serialized explicitly");
         Check(roundTrip.ManualOnlyGateLocators != null && roundTrip.ManualOnlyGateLocators.Length == 1,
@@ -857,26 +858,62 @@ internal static class Program
         GatehouseMapLocator restored = roundTrip.ManualOnlyGateLocators[0];
         Check(restored.OwnerPlayerId == locator.OwnerPlayerId && restored.BuildingType == locator.BuildingType &&
             restored.TileXBegin == locator.TileXBegin && restored.TileYBegin == locator.TileYBegin &&
-            restored.TileXEnd == locator.TileXEnd && restored.TileYEnd == locator.TileYEnd,
+            restored.AccessTileX == locator.AccessTileX && restored.AccessTileY == locator.AccessTileY,
             "gatehouse map locator identity changed during serialization");
         Check(locator.HasValidShape, "valid gatehouse map locator was rejected");
-        Check(!new GatehouseMapLocator { OwnerPlayerId = 0, BuildingType = 77 }.HasValidShape,
+        Check(!new GatehouseMapLocator
+            {
+                OwnerPlayerId = 0,
+                BuildingType = locator.BuildingType,
+                TileXBegin = locator.TileXBegin,
+                TileYBegin = locator.TileYBegin,
+                AccessTileX = locator.AccessTileX,
+                AccessTileY = locator.AccessTileY
+            }.HasValidShape,
             "gatehouse locator accepted an invalid owner");
-        Check(!new GatehouseMapLocator { OwnerPlayerId = 1, BuildingType = 0 }.HasValidShape,
+        Check(!new GatehouseMapLocator
+            {
+                OwnerPlayerId = locator.OwnerPlayerId,
+                BuildingType = 0,
+                TileXBegin = locator.TileXBegin,
+                TileYBegin = locator.TileYBegin,
+                AccessTileX = locator.AccessTileX,
+                AccessTileY = locator.AccessTileY
+            }.HasValidShape,
             "gatehouse locator accepted an invalid building type");
+        Check(!new GatehouseMapLocator
+            {
+                OwnerPlayerId = locator.OwnerPlayerId,
+                BuildingType = locator.BuildingType,
+                TileXBegin = locator.TileXBegin,
+                TileYBegin = locator.TileYBegin,
+                AccessTileX = -1,
+                AccessTileY = locator.AccessTileY
+            }.HasValidShape,
+            "gatehouse locator accepted an invalid access tile");
         Check(locator.IdentityKey == restored.IdentityKey,
             "gatehouse locator uniqueness key changed during serialization");
-        var differentTileLocator = new GatehouseMapLocator
+        var differentOriginLocator = new GatehouseMapLocator
         {
             OwnerPlayerId = locator.OwnerPlayerId,
             BuildingType = locator.BuildingType,
             TileXBegin = locator.TileXBegin + 1,
             TileYBegin = locator.TileYBegin,
-            TileXEnd = locator.TileXEnd + 1,
-            TileYEnd = locator.TileYEnd
+            AccessTileX = locator.AccessTileX,
+            AccessTileY = locator.AccessTileY
         };
-        Check(locator.IdentityKey != differentTileLocator.IdentityKey,
-            "different gatehouse positions produced the same uniqueness key");
+        var differentAccessLocator = new GatehouseMapLocator
+        {
+            OwnerPlayerId = locator.OwnerPlayerId,
+            BuildingType = locator.BuildingType,
+            TileXBegin = locator.TileXBegin,
+            TileYBegin = locator.TileYBegin,
+            AccessTileX = locator.AccessTileX + 1,
+            AccessTileY = locator.AccessTileY
+        };
+        Check(locator.IdentityKey != differentOriginLocator.IdentityKey &&
+                locator.IdentityKey != differentAccessLocator.IdentityKey,
+            "different gatehouse origins or access tiles produced the same uniqueness key");
 
         var emptyState = new GatehouseAutomationSaveState
         {
@@ -897,7 +934,7 @@ internal static class Program
 
         var changedRuntimeIds = new GatehouseAutomationSaveState
         {
-            Version = 2,
+            Version = GatehouseAutomationSaveState.CurrentVersion,
             ManualOnlyGateGlobalIds = new[] { 900001 },
             ManualOnlyGateLocators = new[] { locator }
         };
@@ -1732,31 +1769,34 @@ internal static class Program
             "spectator statistics appeared without a validated runtime");
 
         Check(SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, true, 2, missingLord),
+                true, true, false, false, true, true, true, 2),
             "eligible eliminated player was not promoted to spectator");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                false, true, false, false, true, true, true, 2, missingLord),
+                false, true, false, false, true, true, true, 2),
             "disabled eliminated-player spectator setting still promoted a player");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, true, false, true, true, true, 2, missingLord),
+                true, false, false, false, true, true, true, 2),
+            "player outside an active match was promoted to spectator");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, true, false, true, true, true, 2),
             "map-editor player was promoted to spectator");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, true, true, true, true, 2, missingLord),
+                true, true, false, true, true, true, true, 2),
             "existing spectator was promoted again");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, false, 2, missingLord),
+                true, true, false, false, true, true, false, 2),
             "player without a previously validated living lord was promoted during initialization");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, true, 2, validLord),
-            "active player with a living lord was promoted to spectator");
-        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, true, true, 0, missingLord),
+                true, true, false, false, true, true, true, 0),
             "invalid local player slot was promoted to spectator");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, false, true, true, 2, missingLord),
+                true, true, false, false, true, true, true, 9),
+            "out-of-range local player slot was promoted to spectator");
+        Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
+                true, true, false, false, false, true, true, 2),
             "unsupported campaign/tutorial mode promoted an eliminated player");
         Check(!SurrenderPolicy.CanPromoteEliminatedPlayerToSpectator(
-                true, true, false, false, true, false, true, 2, missingLord),
+                true, true, false, false, true, false, true, 2),
             "unverified local multiplayer participant was promoted to spectator");
 
         Check(SurrenderPolicy.CanAcceptRequest(true, true, true, true, true, validLord),
@@ -4155,124 +4195,70 @@ internal static class Program
                 out _),
             "AI stone-reserve policy accepted an invalid seller player offset");
 
-        byte[] table = new byte[AiStoneReservePolicy.AivSlotCount * AiStoneReservePolicy.AivSlotSize];
-        WriteInt32(table, AiStoneReservePolicy.PlayerIdOffset, 3);
+        int[] ownerPlayerIds = new int[AiStoneReservePolicy.LiveAivSlotCount];
+        ownerPlayerIds[3] = 3;
         Check(
-            !AiStoneReservePolicy.TryFindPlayerSlot(table, 3, out _),
-            "AI stone-reserve policy treated reserved AIV slot zero as a player slot");
-        int expectedSlotOffset = 4 * AiStoneReservePolicy.AivSlotSize;
-        WriteInt32(table, expectedSlotOffset + AiStoneReservePolicy.PlayerIdOffset, 3);
-        Check(
-            AiStoneReservePolicy.TryFindPlayerSlot(table, 3, out int slotOffset) &&
-            slotOffset == expectedSlotOffset,
+            AiStoneReservePolicy.TryFindUniquePlayerSlot(
+                ownerPlayerIds, 3, out int liveSlotIndex) && liveSlotIndex == 3,
             "AI stone-reserve policy did not find the unique player AIV slot");
         Check(
-            !AiStoneReservePolicy.TryFindPlayerSlot(table, 9, out _) &&
-            !AiStoneReservePolicy.TryFindPlayerSlot(new byte[32], 3, out _),
-            "AI stone-reserve policy accepted invalid player or table bounds");
-        WriteInt32(
-            table,
-            5 * AiStoneReservePolicy.AivSlotSize + AiStoneReservePolicy.PlayerIdOffset,
-            3);
+            !AiStoneReservePolicy.TryFindUniquePlayerSlot(ownerPlayerIds, 9, out _) &&
+            !AiStoneReservePolicy.TryFindUniquePlayerSlot(new int[7], 3, out _),
+            "AI stone-reserve policy accepted an invalid player or live-slot view");
+        ownerPlayerIds[4] = 3;
         Check(
-            !AiStoneReservePolicy.TryFindPlayerSlot(table, 3, out _),
+            !AiStoneReservePolicy.TryFindUniquePlayerSlot(ownerPlayerIds, 3, out _),
             "AI stone-reserve policy accepted duplicate player AIV slots");
 
-        byte[] slot = new byte[AiStoneReservePolicy.AivSlotSize];
-        WriteInt32(slot, AiStoneReservePolicy.HighestFrameOffset, 4);
-        WriteAivStep(slot, 0, 1, 100);
-        WriteAivStep(slot, 1, 5, 101);
-        WriteAivStep(slot, 2, 3, 102);
-        WriteAivStep(slot, 3, 0, 103);
-        WriteAivStep(slot, 4, 4, 104);
+        Check(
+            AiStoneReservePolicy.IsValidMaximumBuildStep(0, 1) &&
+            AiStoneReservePolicy.IsValidMaximumBuildStep(999, 1000) &&
+            !AiStoneReservePolicy.IsValidMaximumBuildStep(-1, 1000) &&
+            !AiStoneReservePolicy.IsValidMaximumBuildStep(1000, 1000) &&
+            !AiStoneReservePolicy.IsValidMaximumBuildStep(0, 0),
+            "AI stone-reserve maximum build-step validation is incorrect");
+
         var costs = new Dictionary<short, int?>
         {
             { 100, 20 },
             { 101, 40 },
-            { 102, 99 },
-            { 103, 99 },
-            { 104, 99 }
+            { 102, null },
+            { 103, 0 },
+            { 104, -1 }
         };
+        int reserve = 0;
         Check(
-            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out int reserve) &&
+            AiStoneReservePolicy.TryAccumulateReserve(0, 100, type => costs[type], ref reserve) &&
+            AiStoneReservePolicy.TryAccumulateReserve(3, 100, type => costs[type], ref reserve) &&
+            AiStoneReservePolicy.TryAccumulateReserve(4, 100, type => costs[type], ref reserve) &&
+            AiStoneReservePolicy.TryAccumulateReserve(5, 100, type => costs[type], ref reserve) &&
+            AiStoneReservePolicy.TryAccumulateReserve(1, 100, type => costs[type], ref reserve) &&
             reserve == 20,
             "AI stone-reserve policy included a state other than Vanilla's initial first-build state");
 
-        WriteAivStep(slot, 4, 1, 104);
-        costs[104] = 70;
         Check(
-            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
-            reserve == 70,
-            "AI stone-reserve policy did not include the highest-frame entry");
-        WriteAivStep(slot, 4, 4, 104);
+            AiStoneReservePolicy.TryAccumulateReserve(1, 101, type => costs[type], ref reserve) &&
+            reserve == 40,
+            "AI stone-reserve policy did not select the largest pending first-build cost");
 
         costs[100] = 65;
         Check(
-            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
+            AiStoneReservePolicy.TryAccumulateReserve(1, 100, type => costs[type], ref reserve) &&
             reserve == 65,
             "AI stone-reserve policy cached a stale building cost");
-        costs[100] = null;
-        Check(
-            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
-            reserve == 0,
-            "AI stone-reserve policy did not ignore non-building AIV commands");
 
-        costs[100] = 0;
         Check(
-            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
-            reserve == 0,
-            "AI stone-reserve policy retained a reserve for a command without stone cost");
+            AiStoneReservePolicy.TryAccumulateReserve(1, 102, type => costs[type], ref reserve) &&
+            AiStoneReservePolicy.TryAccumulateReserve(1, 103, type => costs[type], ref reserve) &&
+            reserve == 65,
+            "AI stone-reserve policy did not ignore commands without a positive stone cost");
 
-        costs[100] = 20;
-        WriteAivStep(slot, 0, 1, 100);
-        WriteAivStep(slot, 1, 1, 101);
-        costs[101] = 40;
+        int invalidReserve = 0;
         Check(
-            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
-            reserve == 40,
-            "AI stone-reserve policy did not select the maximum initial first-build cost");
-
-        WriteAivStep(slot, 1, 5, 101);
-        Check(
-            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
-            reserve == 20,
-            "AI stone-reserve policy retained a reserve after a placement retry state");
-
-        WriteAivStep(slot, 0, 3, 100);
-        WriteAivStep(slot, 1, 3, 101);
-        Check(
-            AiStoneReservePolicy.TryCalculateReserve(slot, type => costs[type], out reserve) &&
-            reserve == 0,
-            "AI stone-reserve policy retained a reserve after all buildings completed");
-
-        WriteAivStep(slot, 0, 2, 100);
-        Check(
-            !AiStoneReservePolicy.TryCalculateReserve(slot, type => 20, out _),
-            "AI stone-reserve policy accepted an unknown AIV step status");
-        WriteAivStep(slot, 0, 1, 100);
-        Check(
-            !AiStoneReservePolicy.TryCalculateReserve(slot, type => -1, out _),
-            "AI stone-reserve policy accepted a negative building cost");
-
-        Array.Clear(slot, 0, slot.Length);
-        WriteInt32(slot, AiStoneReservePolicy.HighestFrameOffset, AiStoneReservePolicy.MaximumSteps - 1);
-        WriteAivStep(slot, AiStoneReservePolicy.MaximumSteps - 1, 1, 105);
-        Check(
-            AiStoneReservePolicy.TryCalculateReserve(
-                slot,
-                type => type == 105 ? (int?)90 : null,
-                out reserve) &&
-            reserve == 90,
-            "AI stone-reserve policy did not accept and scan the maximum valid frame");
-
-        WriteInt32(slot, AiStoneReservePolicy.HighestFrameOffset, AiStoneReservePolicy.MaximumSteps);
-        Check(
-            !AiStoneReservePolicy.TryCalculateReserve(slot, type => 20, out _),
-            "AI stone-reserve policy accepted an invalid highest frame");
-        WriteInt32(slot, AiStoneReservePolicy.HighestFrameOffset, -1);
-        Check(
-            !AiStoneReservePolicy.TryCalculateReserve(slot, type => 20, out _),
-            "AI stone-reserve policy accepted a negative highest frame");
+            !AiStoneReservePolicy.TryAccumulateReserve(2, 100, type => costs[type], ref invalidReserve) &&
+            !AiStoneReservePolicy.TryAccumulateReserve(1, 104, type => costs[type], ref invalidReserve) &&
+            !AiStoneReservePolicy.TryAccumulateReserve(1, 100, null, ref invalidReserve),
+            "AI stone-reserve policy accepted an unknown state, negative cost, or missing resolver");
 
         Check(
             AiStoneReservePolicy.TryValidateThreshold(200, 10, 40) &&
@@ -4339,19 +4325,6 @@ internal static class Program
     {
         byte[] bytes = BitConverter.GetBytes(value);
         Array.Copy(bytes, 0, destination, offset, bytes.Length);
-    }
-
-    private static void WriteAivStep(
-        byte[] destination,
-        int stepIndex,
-        byte status,
-        short commandBuildingType)
-    {
-        int offset = AiStoneReservePolicy.StepsOffset + stepIndex * AiStoneReservePolicy.StepSize;
-        destination[offset] = status;
-        byte[] typeBytes = BitConverter.GetBytes(commandBuildingType);
-        destination[offset + 2] = typeBytes[0];
-        destination[offset + 3] = typeBytes[1];
     }
 
     private static void ExpectInvalidOperation(Action action, string failureMessage)
@@ -4791,6 +4764,7 @@ internal static class Program
         {
             new CastlePlanner.FreeCastleSelection
             {
+                Mode = CastlePlanner.FreeCastleSelectionMode.Castle,
                 PlayerId = 2,
                 Rotation = 6,
                 SpawnBraziersAndFlags = true,
@@ -4800,6 +4774,7 @@ internal static class Program
             },
             new CastlePlanner.FreeCastleSelection
             {
+                Mode = CastlePlanner.FreeCastleSelectionMode.Castle,
                 PlayerId = 1,
                 Rotation = 0,
                 SpawnBraziersAndFlags = false,
@@ -4814,12 +4789,12 @@ internal static class Program
         List<CastlePlanner.FreeCastleSelection> decoded =
             CastlePlanner.FreeCastleProtocol.DecodeSelections(restored);
         Check(decoded.Count == 2 && decoded[0].PlayerId == 1 && decoded[1].Rotation == 6 &&
+              decoded[0].Mode == CastlePlanner.FreeCastleSelectionMode.Castle &&
+              decoded[1].Mode == CastlePlanner.FreeCastleSelectionMode.Castle &&
               !decoded[0].SpawnBraziersAndFlags && decoded[1].SpawnBraziersAndFlags &&
               decoded[0].FlagProjectileType == ushort.MaxValue &&
               decoded[1].FlagProjectileType == 22,
             "free-castle canonical transfer did not preserve player order and fixed rotation");
-        Check(CastlePlanner.FreeCastleProtocol.ProtocolVersion == 4,
-            "free-castle selection protocol was not advanced to v4");
         Check(!string.Equals(
                 CastlePlanner.FreeCastleProtocol.HashSelectionContent(new short[] { 1, 2, 3 }, 9),
                 CastlePlanner.FreeCastleProtocol.HashSelectionContent(new short[] { 1, 2, 3 }, 22),
@@ -4870,10 +4845,11 @@ internal static class Program
         {
             CastlePlanner.FreeCastleProtocol.ValidateSelection(new CastlePlanner.FreeCastleSelection
             {
+                Mode = CastlePlanner.FreeCastleSelectionMode.RotateKeepOnly,
                 PlayerId = 1,
                 Rotation = 1,
-                DisplayName = "Invalid",
-                RawData = new short[] { 1 }
+                DisplayName = string.Empty,
+                RawData = Array.Empty<short>()
             });
         }
         catch (InvalidDataException)

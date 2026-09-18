@@ -14,7 +14,8 @@
       "Version": "1.0.154",
       "Changes": [
         "Kept synchronized movement cadence discovery stable when Fixes patches unit-selection slowdown first.",
-        "Migrated AIV access, unit manager slots, and all building geometry to the corrected Script Extender 2.7.1 contracts.",
+        "Migrated AIV access, unit manager slots, and all building geometry to the corrected Script Extender 2.7.1 contracts, replacing raw AI stone-reserve table parsing with typed village and build-step views.",
+        "Marked the custom-lord package template assets as local so provider-owned files remain isolated.",
         "Bound projectile iteration to the native exclusive manager limit because the 2.7.1 public projectile span and validity check expose non-record storage."
       ]
     },

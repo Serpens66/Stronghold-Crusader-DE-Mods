@@ -496,6 +496,13 @@ namespace EnemyGatePathfindingTest
                 "committed RedBird spans are checked");
             Assert(runtimeSource.IndexOf("transaction.DisableAll()", StringComparison.Ordinal) >= 0,
                 "unexpected committed spans roll back before publication");
+            Assert(runtimeSource.IndexOf("typeof(X64InlineHook).Assembly.GetName().Version",
+                    StringComparison.Ordinal) >= 0 &&
+                    runtimeSource.IndexOf("new Version(1, 1, 0, 0)",
+                        StringComparison.Ordinal) < 0 &&
+                    runtimeSource.IndexOf("is not the audited 1.1.0 implementation",
+                        StringComparison.Ordinal) < 0,
+                "RedBird version is diagnostic while concrete hook contracts remain authoritative");
             Assert(sharedBody.IndexOf("originalZeroKnown", StringComparison.Ordinal) >= 0 &&
                     sharedBody.IndexOf("SetZeroFlag", StringComparison.Ordinal) >= 0,
                 "callback restores reconstructed Vanilla ZF on policy failures");

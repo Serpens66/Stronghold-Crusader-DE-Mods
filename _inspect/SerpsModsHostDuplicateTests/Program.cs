@@ -1,6 +1,8 @@
 using SerpsModsHost;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.IO;
 using System.Linq;
 
@@ -10,6 +12,7 @@ namespace SerpsModsHostDuplicateTests
     {
         private static int Main()
         {
+            TestModSettingsRegistrationOrder();
             TestScriptExtenderCompatibility();
             TestModInventoryCompatibility();
             TestLobbyChatMessageFormatting();
@@ -442,6 +445,46 @@ namespace SerpsModsHostDuplicateTests
                 }
             }
             return false;
+        }
+
+        private static void TestModSettingsRegistrationOrder()
+        {
+            object fixes = new object();
+            object serpsMods = new object();
+            object laterMod = new object();
+            object missingMod = new object();
+            var registrations = new ObservableCollection<object> { fixes, serpsMods };
+            int collectionChanges = 0;
+            NotifyCollectionChangedAction? lastAction = null;
+            registrations.CollectionChanged += (_, args) =>
+            {
+                collectionChanges++;
+                lastAction = args.Action;
+            };
+
+            if (!ModSettingsRegistrationOrder.PromoteToFront(registrations, serpsMods) ||
+                !ReferenceEquals(registrations[0], serpsMods) ||
+                !ReferenceEquals(registrations[1], fixes) ||
+                collectionChanges != 1 ||
+                lastAction != NotifyCollectionChangedAction.Move)
+            {
+                throw new InvalidOperationException("Serps Mods was not moved to the front with one Move notification.");
+            }
+
+            collectionChanges = 0;
+            lastAction = null;
+            if (ModSettingsRegistrationOrder.PromoteToFront(registrations, serpsMods) || collectionChanges != 0)
+                throw new InvalidOperationException("An already-first Serps Mods registration was changed.");
+
+            if (ModSettingsRegistrationOrder.PromoteToFront(registrations, missingMod) || collectionChanges != 0)
+                throw new InvalidOperationException("A missing Serps Mods registration changed the collection.");
+
+            registrations.Add(laterMod);
+            if (!ReferenceEquals(registrations[0], serpsMods) ||
+                !ReferenceEquals(registrations[registrations.Count - 1], laterMod))
+            {
+                throw new InvalidOperationException("A later registration did not remain behind Serps Mods.");
+            }
         }
 
         private static void TestScriptExtenderCompatibility()

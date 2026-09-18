@@ -29,6 +29,7 @@ internal static class Program
             TestDefaultsMigration();
             TestMoveOrderMatching();
             TestPreviewMarkerNormalization();
+            TestNativeDetourEntryContract();
             TestInstalledRedBirdMarkerSpan();
             TestSourceSafetyContracts();
             Console.WriteLine($"PASS: FormationTest ({assertions} assertions).");
@@ -470,6 +471,34 @@ internal static class Program
                     "installed NativeDetour displaces the audited 10-byte common prologue");
                 Check(!(bool)candidateType.GetProperty("IsInstalled").GetValue(candidate),
                     "native detour probe remains uninstalled");
+                candidateType.GetMethod("Enable").Invoke(candidate, null);
+                Check((bool)candidateType.GetProperty("IsInstalled").GetValue(candidate),
+                    "first NativeDetour layer installs on the Vanilla prologue");
+
+                requestType.GetProperty("Name").SetValue(
+                    request, "FormationTest chained common detour probe");
+                object chained = create.Invoke(
+                    backendType.GetProperty("Instance").GetValue(null),
+                    new[] { request });
+                try
+                {
+                    Type chainedType = chained.GetType();
+                    Check(chainedType.GetProperty("Scheme").GetValue(chained).ToString() ==
+                            "Indirect" &&
+                          (int)chainedType.GetProperty("DisplacedByteCount")
+                            .GetValue(chained) == 6 &&
+                          (int)chainedType.GetProperty("ChainDepth").GetValue(chained) == 2,
+                        "second NativeDetour layer uses the supported indirect six-byte chain entry");
+                    chainedType.GetMethod("Enable").Invoke(chained, null);
+                    Check((bool)chainedType.GetProperty("IsInstalled").GetValue(chained),
+                        "second NativeDetour layer installs");
+                }
+                finally
+                {
+                    ((IDisposable)chained).Dispose();
+                }
+                Check((bool)candidateType.GetProperty("IsInstalled").GetValue(candidate),
+                    "disposing the upper layer restores the lower detour");
             }
             finally
             {
@@ -484,6 +513,55 @@ internal static class Program
         {
             Marshal.FreeHGlobal(memory);
         }
+    }
+
+    private static void TestNativeDetourEntryContract()
+    {
+        byte[] vanillaPrefix =
+        {
+            0x48, 0x89, 0x5C, 0x24, 0x08,
+            0x48, 0x89, 0x6C, 0x24, 0x10,
+            0x48, 0x89, 0x74, 0x24, 0x18
+        };
+        var vanilla = Enumerable.Repeat((byte)0x90,
+            NativeDetourEntryContract.SnapshotLength).ToArray();
+        Array.Copy(vanillaPrefix, vanilla, vanillaPrefix.Length);
+        Check(NativeDetourEntryContract.Validate(
+                vanilla, vanillaPrefix, "Indirect", 10, out bool vanillaChained) == 10 &&
+              !vanillaChained,
+            "Vanilla prologue rounds the indirect patch to ten complete bytes");
+
+        var chained = Enumerable.Repeat((byte)0x90,
+            NativeDetourEntryContract.SnapshotLength).ToArray();
+        chained[0] = 0xFF;
+        chained[1] = 0x25;
+        Check(NativeDetourEntryContract.Validate(
+                chained, vanillaPrefix, "Indirect", 6, out bool isChained) == 6 &&
+              isChained,
+            "existing indirect hook entry validates at six bytes");
+
+        ExpectInvalidDetourContract(
+            () => NativeDetourEntryContract.Validate(
+                new byte[] { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48 },
+                new byte[] { 0x48, 0x89, 0x5C, 0x24, 0x08, 0x48 },
+                "Indirect", 6, out _),
+            "truncated instruction is rejected");
+        ExpectInvalidDetourContract(
+            () => NativeDetourEntryContract.Validate(
+                vanilla, vanillaPrefix, "Indirect", 6, out _),
+            "backend span that splits the Vanilla prologue is rejected");
+        ExpectInvalidDetourContract(
+            () => NativeDetourEntryContract.Validate(
+                vanilla, vanillaPrefix, "Unknown", 10, out _),
+            "unknown RedBird detour scheme is rejected");
+    }
+
+    private static void ExpectInvalidDetourContract(Action action, string label)
+    {
+        bool rejected = false;
+        try { action(); }
+        catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, label);
     }
 
     private static long CommonGroupProbe(
@@ -551,13 +629,16 @@ internal static class Program
             "standard selector RVA contract");
         Check(source.Contains("AssassinSelectorRva = 0xE0970"),
             "assassin selector RVA contract");
-        Check(source.Contains("DisplacedByteCount != ExpectedSelectorDisplacedBytes"),
-            "RedBird displaced-span check");
-        Check(source.Contains("ExpectedSelectorDisplacedBytes = 10"),
-            "selector detours use the observed 10-byte span");
-        Check(source.Contains("CommonGroupMoveRva = 0x118E00") &&
-              source.Contains("ExpectedCommonGroupDisplacedBytes = 10"),
-            "common group path RVA and displaced-span contract");
+        Check(source.Contains("NativeDetourEntryContract.Capture") &&
+              source.Contains("NativeDetourEntryContract.Validate") &&
+              source.Contains("detour.Scheme.ToString()") &&
+              source.Contains("detour.ChainDepth"),
+            "native detours validate the live entry against the selected backend scheme");
+        Check(!source.Contains("ExpectedSelectorDisplacedBytes") &&
+              !source.Contains("ExpectedCommonGroupDisplacedBytes"),
+            "native detour compatibility is not fixed to an obsolete backend span");
+        Check(source.Contains("CommonGroupMoveRva = 0x118E00"),
+            "common group path RVA contract");
         Check(source.Contains("UnitMoveTargetRva = 0x196280") &&
               source.Contains("ExpectedUnitMoveTargetAuditBytes = 14"),
             "terminal unit target RVA and native audit-span contract");

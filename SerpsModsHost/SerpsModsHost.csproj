@@ -60,6 +60,7 @@
     <Compile Include="src\LobbyChatMessageFormatter.cs" />
     <Compile Include="src\ModInventoryCompatibility.cs" />
     <Compile Include="src\ModHashCompatibility.cs" />
+    <Compile Include="src\ModSettingsRegistrationOrder.cs" />
     <Compile Include="src\ModSettingsSearchPolicy.cs" />
     <Compile Include="src\ModSettingsSearchViewModel.cs" />
     <Compile Include="src\ScriptExtenderCompatibility.cs" />

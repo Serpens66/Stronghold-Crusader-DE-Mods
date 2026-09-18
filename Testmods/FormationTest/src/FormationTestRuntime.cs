@@ -59,8 +59,6 @@ namespace FormationTest
         private const int NativePathManagerRva = 0x60AD660;
         private const int NativeTribeManagerRva = 0x7CC6720;
         private const int MovementTargetAvailabilityRva = 0x3A11EA4;
-        private const int ExpectedSelectorDisplacedBytes = 10;
-        private const int ExpectedCommonGroupDisplacedBytes = 10;
         private const int ExpectedUnitMoveTargetAuditBytes = 14;
         private const int MaximumPreviewCandidates = 8192;
         private const int MinimumDragTileDistance = 2;
@@ -201,6 +199,12 @@ namespace FormationTest
                 mainThreadId = Environment.CurrentManagedThreadId;
                 ulong libraryBase = unchecked((ulong)libraryContext.ModuleHandle.ToInt64());
                 ValidateNativeContracts(libraryContext.Memory);
+                byte[] standardSelectorEntry = NativeDetourEntryContract.Capture(
+                    libraryBase + StandardSelectorRva);
+                byte[] assassinSelectorEntry = NativeDetourEntryContract.Capture(
+                    libraryBase + AssassinSelectorRva);
+                byte[] commonGroupMoveEntry = NativeDetourEntryContract.Capture(
+                    libraryBase + CommonGroupMoveRva);
                 pendingMarkerRenderer = new FormationPreviewMarkerRenderer(
                     log,
                     FormationPreviewOverlay.Clear);
@@ -255,20 +259,32 @@ namespace FormationTest
                     !assassinSelectorHandle.Success ||
                     !commonGroupMoveHandle.Success ||
                     standardDetour == null || assassinDetour == null ||
-                    commonDetour == null ||
-                    standardDetour.TargetAddress != libraryBase + StandardSelectorRva ||
-                    assassinDetour.TargetAddress != libraryBase + AssassinSelectorRva ||
-                    commonDetour.TargetAddress != libraryBase + CommonGroupMoveRva ||
-                    standardDetour.DisplacedByteCount != ExpectedSelectorDisplacedBytes ||
-                    assassinDetour.DisplacedByteCount != ExpectedSelectorDisplacedBytes ||
-                    commonDetour.DisplacedByteCount != ExpectedCommonGroupDisplacedBytes)
+                    commonDetour == null)
                 {
                     throw new InvalidOperationException(
-                        $"Formation selector transaction failed or displaced an unexpected span: " +
+                        $"Formation selector transaction failed: " +
                         $"result={nativeResult}, standard={standardDetour?.DisplacedByteCount}, " +
                         $"assassin={assassinDetour?.DisplacedByteCount}, " +
                         $"common={commonDetour?.DisplacedByteCount}.");
                 }
+                string standardContract = ValidateNativeDetourContract(
+                    standardDetour,
+                    libraryBase + StandardSelectorRva,
+                    standardSelectorEntry,
+                    StandardSelectorPrefix,
+                    "standardSelector");
+                string assassinContract = ValidateNativeDetourContract(
+                    assassinDetour,
+                    libraryBase + AssassinSelectorRva,
+                    assassinSelectorEntry,
+                    AssassinSelectorPrefix,
+                    "assassinSelector");
+                string commonContract = ValidateNativeDetourContract(
+                    commonDetour,
+                    libraryBase + CommonGroupMoveRva,
+                    commonGroupMoveEntry,
+                    CommonGroupMovePrefix,
+                    "commonGroup");
 
                 leftMouseStateField = RequireEditorField("leftMouseStateForEngine", typeof(int));
                 rightMouseUpField = RequireEditorField("rightUpForEngine", typeof(bool));
@@ -336,9 +352,7 @@ namespace FormationTest
                     log,
                     "FormationTest active: synchronized Chore packet, mouse gesture hooks, " +
                     $"mainThread={mainThreadId}, " +
-                    $"standardSelector=0x{StandardSelectorRva:X}/span{ExpectedSelectorDisplacedBytes}, " +
-                    $"assassinSelector=0x{AssassinSelectorRva:X}/span{ExpectedSelectorDisplacedBytes}, " +
-                    $"commonGroup=0x{CommonGroupMoveRva:X}/span{ExpectedCommonGroupDisplacedBytes}, " +
+                    $"{standardContract}, {assassinContract}, {commonContract}, " +
                     $"unitTarget=0x{UnitMoveTargetRva:X}/extender-event, " +
                     $"nativeAuditSpan={ExpectedUnitMoveTargetAuditBytes}.");
             }
@@ -357,6 +371,45 @@ namespace FormationTest
                 pendingMarkerRenderer?.RollbackUnpublished();
                 throw;
             }
+        }
+
+        private static string ValidateNativeDetourContract<TFunction>(
+            NativeDetour<TFunction> detour,
+            ulong expectedTarget,
+            byte[] entrySnapshot,
+            byte[] vanillaPrefix,
+            string name)
+            where TFunction : Delegate
+        {
+            if (!detour.IsInstalled || detour.TargetAddress != expectedTarget ||
+                detour.TrampolineAddress == IntPtr.Zero || detour.TrampolineSize <= 0 ||
+                detour.HookEntryPointAddress == IntPtr.Zero ||
+                detour.OriginalEntryPointAddress == IntPtr.Zero || detour.ChainDepth < 1)
+            {
+                throw new InvalidOperationException(
+                    $"{name} did not publish a complete native detour contract: " +
+                    $"installed={detour.IsInstalled}, target=0x{detour.TargetAddress:X}, " +
+                    $"expected=0x{expectedTarget:X}, trampoline=0x{detour.TrampolineAddress.ToInt64():X}, " +
+                    $"trampolineSize={detour.TrampolineSize}, hookEntry=0x{detour.HookEntryPointAddress.ToInt64():X}, " +
+                    $"originalEntry=0x{detour.OriginalEntryPointAddress.ToInt64():X}, chain={detour.ChainDepth}.");
+            }
+
+            string scheme = detour.Scheme.ToString();
+            if (scheme == "Indirect" && detour.PointerSlot == IntPtr.Zero)
+                throw new InvalidOperationException($"{name} selected Indirect without a pointer slot.");
+            if (scheme != "Indirect" && detour.PointerSlot != IntPtr.Zero)
+                throw new InvalidOperationException(
+                    $"{name} selected {scheme} with an unexpected pointer slot.");
+
+            NativeDetourEntryContract.Validate(
+                entrySnapshot,
+                vanillaPrefix,
+                scheme,
+                detour.DisplacedByteCount,
+                out bool chainedEntry);
+            return $"{name}=0x{expectedTarget:X}/scheme{scheme}/" +
+                $"span{detour.DisplacedByteCount}/chain{detour.ChainDepth}/" +
+                $"entry{(chainedEntry ? "hook" : "vanilla")}";
         }
 
         private void OnKeyDown(UnityInputEventArgs args)

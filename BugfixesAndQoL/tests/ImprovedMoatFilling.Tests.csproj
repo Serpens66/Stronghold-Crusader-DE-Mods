@@ -38,6 +38,7 @@
     <Compile Include="..\src\MovementLoggingStateTracker.cs"><Link>MovementLoggingStateTracker.cs</Link></Compile>
     <Compile Include="..\src\AiDefensePatrolNativeDefinition.cs"><Link>AiDefensePatrolNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AiDefensePatrolPolicy.cs"><Link>AiDefensePatrolPolicy.cs</Link></Compile>
+    <Compile Include="..\src\AiStoneReservePolicy.cs"><Link>AiStoneReservePolicy.cs</Link></Compile>
     <Compile Include="..\src\AIResourceShortageSleepNativeDefinition.cs"><Link>AIResourceShortageSleepNativeDefinition.cs</Link></Compile>
     <Compile Include="..\src\AIResourceShortageSleepPolicy.cs"><Link>AIResourceShortageSleepPolicy.cs</Link></Compile>
     <Compile Include="..\src\AicDropdownPolicy.cs"><Link>AicDropdownPolicy.cs</Link></Compile>

@@ -39,6 +39,7 @@
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Backends.NativeX64"><HintPath>$(ExtenderDir)\RedBird.Backends.NativeX64.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Core"><HintPath>$(ExtenderDir)\RedBird.Core.dll</HintPath><Private>false</Private></Reference>
@@ -54,6 +55,7 @@
     <Compile Include="src\FormationPreviewOverlay.cs" />
     <Compile Include="src\FormationTestPlugin.cs" />
     <Compile Include="src\FormationTestRuntime.cs" />
+    <Compile Include="src\NativeDetourEntryContract.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\UnityMainThreadDispatch.cs"><Link>Shared\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>

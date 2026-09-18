@@ -422,8 +422,10 @@ namespace SerpsModsHost
                     PluginGuid,
                     diagnostics,
                     "ScriptExtenderUI/SerpsModsStatus.xaml");
-                LobbyModSettingsEntry registration = GameXAMLManagerAPI.Instance.RegisteredModSettings
+                var registrations = GameXAMLManagerAPI.Instance.RegisteredModSettings;
+                LobbyModSettingsEntry registration = registrations
                     .FirstOrDefault(entry => ReferenceEquals(entry.ViewModel, diagnostics));
+                ModSettingsRegistrationOrder.PromoteToFront(registrations, registration);
                 NoesisTextBox searchTextBox = registration?.View?.FindName("SerpsModSettingsSearchTextBox") as NoesisTextBox;
                 if (searchTextBox != null)
                     searchTextBox.PreviewKeyDown += OnSearchTextBoxPreviewKeyDown;

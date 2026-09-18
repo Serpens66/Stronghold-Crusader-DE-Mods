@@ -72,9 +72,6 @@ namespace EnemyGatePathfindingTest
             if (context.ModuleHandle == IntPtr.Zero)
                 throw new InvalidOperationException("native library handle is null");
             Version redBirdVersion = typeof(X64InlineHook).Assembly.GetName().Version;
-            if (redBirdVersion != new Version(1, 1, 0, 0))
-                throw new InvalidOperationException(
-                    $"RedBird.X64 {redBirdVersion} is not the audited 1.1.0 implementation");
 
             Shared.NativeResolution pclGraphCompareResolution = Shared.NativePatternResolver.ResolveUnique(
                 memory,
