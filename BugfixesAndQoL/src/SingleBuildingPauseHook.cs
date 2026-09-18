@@ -531,14 +531,14 @@ namespace BugfixesAndQoL
                     if (packet.SynchronizeAfterReset)
                         synchronizeSleepStates.Invoke();
 
-                    int selectedBuildingId = TryGetSelectedBuildingId();
-                    if (selectedBuildingId > 0 &&
-                        GameBuildingManagerAPI.Instance.TryGetBuildingById(selectedBuildingId, out GameBuilding* selectedBuilding) &&
-                        selectedBuilding->r_PlayerIdOwner == packet.PlayerId &&
-                        selectedBuilding->r_BuildingType == building->r_BuildingType)
-                    {
-                        UpdateSleepButtonVisibility(MainViewModel.Instance, packet.TargetSleeping);
-                    }
+                    int ownerSnapshot = packet.PlayerId;
+                    int buildingTypeSnapshot = building->r_BuildingType;
+                    bool sleepingSnapshot = packet.TargetSleeping;
+                    Shared.UnityMainThreadDispatch.TryEnqueue(() =>
+                        RefreshSelectedBuildingTypeVisibility(
+                            ownerSnapshot,
+                            buildingTypeSnapshot,
+                            sleepingSnapshot));
                     LogInfo(
                         $"building-type sleep Chore executed: operationId={packet.OperationId}, " +
                         $"buildingType={building->r_BuildingType}, playerId={packet.PlayerId}, " +
@@ -554,8 +554,13 @@ namespace BugfixesAndQoL
                 }
 
                 synchronizeSleepStates?.Invoke();
-                if (TryGetSelectedBuildingId() == buildingId)
-                    UpdateSleepButtonVisibility(MainViewModel.Instance, packet.TargetSleeping);
+                int buildingIdSnapshot = buildingId;
+                bool selectedSleepingSnapshot = packet.TargetSleeping;
+                Shared.UnityMainThreadDispatch.TryEnqueue(() =>
+                {
+                    if (TryGetSelectedBuildingId() == buildingIdSnapshot)
+                        UpdateSleepButtonVisibility(MainViewModel.Instance, selectedSleepingSnapshot);
+                });
                 LogInfo($"single-building pause Chore executed: operationId={packet.OperationId}, action={packet.Action}, buildingId={buildingId}, buildingGlobalId={packet.BuildingGlobalId}, targetSleeping={packet.TargetSleeping}.");
             }
             catch (Exception ex)
@@ -912,14 +917,33 @@ namespace BugfixesAndQoL
             }
         }
 
+        private unsafe void RefreshSelectedBuildingTypeVisibility(
+            int playerId,
+            int buildingType,
+            bool isSleeping)
+        {
+            int selectedBuildingId = TryGetSelectedBuildingId();
+            if (selectedBuildingId > 0 &&
+                GameBuildingManagerAPI.Instance.TryGetBuildingById(
+                    selectedBuildingId,
+                    out GameBuilding* selectedBuilding) &&
+                selectedBuilding->r_PlayerIdOwner == playerId &&
+                selectedBuilding->r_BuildingType == buildingType)
+            {
+                UpdateSleepButtonVisibility(MainViewModel.Instance, isSleeping);
+            }
+        }
+
         private void LogError(string message)
         {
-            log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}"));
         }
 
         private void LogInfo(string message)
         {
-            log.LogInfo($"[{TimestampNow()}] Bugfixes and QoL {message}");
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => log.LogInfo($"[{TimestampNow()}] Bugfixes and QoL {message}"));
         }
 
         private static string TimestampNow()

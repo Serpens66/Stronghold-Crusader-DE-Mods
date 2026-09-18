@@ -26,6 +26,7 @@ namespace FormationTest
 
         private void Awake()
         {
+            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             persistentLog = Logger;
             formation = Config.Bind(
                 "Formation", "Kind", FormationKind.Block,

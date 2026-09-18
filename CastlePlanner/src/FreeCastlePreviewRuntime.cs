@@ -675,11 +675,10 @@ namespace CastlePlanner
             {
                 packetDispatchQueue.Enqueue(queued);
             }
-            catch (Exception ex)
+            catch
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Failed to schedule a free-castle packet on Unity's main thread: {ex}");
+                // Raw packet callbacks may run on a Timer worker. Logging here would
+                // reintroduce an off-main BepInEx call after dispatch itself failed.
             }
         }
 

@@ -2252,10 +2252,27 @@ namespace ExtendedData
 
             private void OnCoopCustomizePacket(ReceiveCustomPacketEventArgs<CoopCustomizePacket> args)
             {
+                CoopCustomizePacket source = args?.Packet;
+                if (source == null || !args.SenderSteamId.HasValue)
+                    return;
+                var packet = new CoopCustomizePacket
+                {
+                    ProtocolVersion = source.ProtocolVersion,
+                    TrailId = source.TrailId,
+                    MissionId = source.MissionId,
+                    Launch = source.Launch
+                };
+                ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
+                UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                    () => ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId)));
+            }
+
+            private void ProcessCoopCustomizePacket(CoopCustomizePacket packet, CSteamID senderSteamId)
+            {
                 try
                 {
                     CSteamID? host = GameNetworkAPI.GetHostSteamId();
-                    if (!args.SenderSteamId.HasValue || !host.HasValue || args.SenderSteamId.Value != host.Value)
+                    if (!host.HasValue || senderSteamId != host.Value)
                     {
                         DebugLogHelper.LogError(
                             log,
@@ -2263,7 +2280,6 @@ namespace ExtendedData
                         return;
                     }
 
-                    CoopCustomizePacket packet = args.Packet;
                     if (packet == null || packet.ProtocolVersion != CoopCustomizeProtocolVersion ||
                         packet.TrailId < 0 || packet.TrailId > 3 || packet.MissionId < 1 || packet.MissionId > 10)
                     {
@@ -2301,10 +2317,28 @@ namespace ExtendedData
             private void OnBuiltInCustomizeOriginPacket(
                 ReceiveCustomPacketEventArgs<BuiltInCustomizeOriginPacket> args)
             {
+                BuiltInCustomizeOriginPacket source = args?.Packet;
+                if (source == null || !args.SenderSteamId.HasValue)
+                    return;
+                var packet = new BuiltInCustomizeOriginPacket
+                {
+                    ProtocolVersion = source.ProtocolVersion,
+                    TrailType = source.TrailType,
+                    MissionId = source.MissionId
+                };
+                ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
+                UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                    () => ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId)));
+            }
+
+            private void ProcessBuiltInCustomizeOriginPacket(
+                BuiltInCustomizeOriginPacket packet,
+                CSteamID senderSteamId)
+            {
                 try
                 {
                     CSteamID? host = GameNetworkAPI.GetHostSteamId();
-                    if (!args.SenderSteamId.HasValue || !host.HasValue || args.SenderSteamId.Value != host.Value)
+                    if (!host.HasValue || senderSteamId != host.Value)
                     {
                         DebugLogHelper.LogError(
                             log,
@@ -2312,7 +2346,6 @@ namespace ExtendedData
                         return;
                     }
 
-                    BuiltInCustomizeOriginPacket packet = args.Packet;
                     if (!BuiltInCustomizeOriginPacket.IsValid(packet))
                     {
                         ExtendedDataLaunchOriginApi.Clear();

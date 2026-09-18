@@ -95,7 +95,11 @@ namespace ExtremePowers.API
         }
         internal void Log(string message)
         {
-            try { diagnostic?.Invoke(message ?? string.Empty); } catch { }
+            string snapshot = message ?? string.Empty;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                try { diagnostic?.Invoke(snapshot); } catch { }
+            });
         }
         internal void LogState(string key, string message)
         {

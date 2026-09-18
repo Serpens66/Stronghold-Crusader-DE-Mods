@@ -811,7 +811,7 @@ namespace ExtraFeatures
             }
             finally
             {
-                RefreshButtonVisibility();
+                Shared.UnityMainThreadDispatch.TryEnqueue(RefreshButtonVisibility);
             }
         }
 
@@ -1680,17 +1680,20 @@ namespace ExtraFeatures
 
         private void LogDebug(string message)
         {
-            log.LogDebug($"[{TimestampNow()}] Extra Features {message}");
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => log.LogDebug($"[{TimestampNow()}] Extra Features {message}"));
         }
 
         private void LogError(string message)
         {
-            log.LogError($"[{TimestampNow()}] Extra Features {message}");
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => log.LogError($"[{TimestampNow()}] Extra Features {message}"));
         }
 
         private void LogWarning(string message)
         {
-            log.LogWarning($"[{TimestampNow()}] Extra Features {message}");
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => log.LogWarning($"[{TimestampNow()}] Extra Features {message}"));
         }
 
         private static string TimestampNow()

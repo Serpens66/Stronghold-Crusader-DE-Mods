@@ -31,6 +31,7 @@ namespace ExtraFeatures
 
         private void Awake()
         {
+            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Shared.CrashBreadcrumbDiagnostics.Initialize(
                 Logger,
                 PluginGuid,

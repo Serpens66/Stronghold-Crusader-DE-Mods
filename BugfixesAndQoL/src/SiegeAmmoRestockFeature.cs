@@ -489,9 +489,12 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        private void LogInfo(string message) => Shared.DebugLogHelper.LogInfo(log, message);
-        private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
-        private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
+        private void LogInfo(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogInfo(log, message));
+        private void LogWarning(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogWarning(log, message));
+        private void LogError(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => Shared.DebugLogHelper.LogError(log, message));
 
         private readonly struct ResolvedTarget
         {

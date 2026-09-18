@@ -27,6 +27,7 @@ namespace ExtendedData
 
         private void Awake()
         {
+            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Shared.DebugLogHelper.LogInfo(Logger, PluginName + " " + PluginVersion + " loaded.");
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
         }

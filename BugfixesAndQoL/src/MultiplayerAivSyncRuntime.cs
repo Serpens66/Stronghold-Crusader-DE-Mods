@@ -264,16 +264,37 @@ namespace BugfixesAndQoL
 
         private void OnPacketReceived(ReceiveCustomPacketEventArgs<MultiplayerAivSyncPacket> args)
         {
-            MultiplayerAivSyncPacket packet = args?.Packet;
-            if (packet == null || packet.ProtocolVersion != MultiplayerAivSyncProtocol.ProtocolVersion ||
-                !args.SenderSteamId.HasValue)
+            MultiplayerAivSyncPacket source = args?.Packet;
+            if (source == null || !args.SenderSteamId.HasValue)
+                return;
+            var packet = new MultiplayerAivSyncPacket
+            {
+                ProtocolVersion = source.ProtocolVersion,
+                Kind = source.Kind,
+                LobbyId = source.LobbyId,
+                Generation = source.Generation,
+                VanillaChecksum = source.VanillaChecksum,
+                ManifestHash = source.ManifestHash,
+                UncompressedLength = source.UncompressedLength,
+                CompressedLength = source.CompressedLength,
+                ChunkIndex = source.ChunkIndex,
+                ChunkCount = source.ChunkCount,
+                DataBase64 = source.DataBase64,
+                Message = source.Message
+            };
+            ulong sender = args.SenderSteamId.Value.m_SteamID;
+            Shared.UnityMainThreadDispatch.TryEnqueue(() => ProcessPacket(packet, sender));
+        }
+
+        private void ProcessPacket(MultiplayerAivSyncPacket packet, ulong sender)
+        {
+            if (packet == null || packet.ProtocolVersion != MultiplayerAivSyncProtocol.ProtocolVersion)
                 return;
             Platform_Multiplayer platform = Platform_Multiplayer.Instance;
             Platform_Multiplayer.MPLobby lobby = platform?.activeLobby;
             if (lobby == null || packet.LobbyId != lobby.id.m_SteamID)
                 return;
 
-            ulong sender = args.SenderSteamId.Value.m_SteamID;
             MultiplayerAivSyncPacketKind kind = (MultiplayerAivSyncPacketKind)packet.Kind;
             if (kind == MultiplayerAivSyncPacketKind.Ack || kind == MultiplayerAivSyncPacketKind.Reject)
             {

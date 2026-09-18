@@ -4,12 +4,15 @@ using SHCDESE.API;
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 internal static class Program
 {
     private static int failures;
     private static void Main(string[] args)
     {
+        SynchronizationContext.SetSynchronizationContext(
+            new UnityEngine.UnitySynchronizationContext());
         TestValidation(); TestRegistrationAndRestore(); TestAccumulator(); TestTargeting(); TestPacket(); TestChoreSender(); TestCompatibility(); TestSafety(); TestBaselineSemantics(); TestOperationDedupe(); TestArchitecture();
         if (args.Length == 1 && File.Exists(args[0])) TestBuildGuard(args[0]);
         if (failures != 0) throw new Exception(failures + " ExtremePowers API test(s) failed.");
@@ -152,7 +155,7 @@ internal static class Program
         string pluginSource = File.ReadAllText(Path.Combine(modRoot, "src", "ExtremePowersPlugin.cs"));
         string sharedPresetSystem = File.ReadAllText(Path.Combine(modRoot, "..", "Shared", "PresetLobbyModSettingsViewModel.cs"));
         Check(!project.Contains("Include=\"src\\") && !project.Contains("Include=\"Locales\\") && !project.Contains("Include=\"Override\\") && !project.Contains("Include=\"Patches\\"), "extractable API project inputs");
-        string[] allowedSharedApiSources = { "..\\Shared\\DebugLogHelper.cs", "..\\Shared\\GameplaySessionLifecycle.cs" };
+        string[] allowedSharedApiSources = { "..\\Shared\\DebugLogHelper.cs", "..\\Shared\\GameplaySessionLifecycle.cs", "..\\Shared\\UnityMainThreadDispatch.cs" };
         foreach (string line in project.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Where(value => value.Contains("<Compile Include=")))
             Check(line.Contains("Include=\"api\\") || allowedSharedApiSources.Any(path => line.Contains("Include=\"" + path + "\"")), "API compile inputs are API sources or approved lifecycle links");
         Check(allowedSharedApiSources.All(path => project.Contains("Include=\"" + path + "\"")), "API project contains the complete approved lifecycle source set");
@@ -163,6 +166,11 @@ internal static class Program
         Check(sharedPresetSystem.Contains("TryGetLobbyState") && sharedPresetSystem.Contains("TryRegisterObserver") && !sharedPresetSystem.Contains("Application.onBeforeRender"), "per-player settings use the shared lobby observer without a local render poller");
         Check(sharedPresetSystem.IndexOf("TryRegisterObserver", StringComparison.Ordinal) < sharedPresetSystem.IndexOf("Shared per-player lobby convergence activated", StringComparison.Ordinal), "activation is logged only after observer registration");
         Check(sharedPresetSystem.Contains("Shared per-player lobby convergence activation failed"), "observer registration failures are logged before propagation");
+        string bootstrapText = File.ReadAllText(Path.Combine(apiRoot, "Bootstrap", "ExtremePowersBootstrap.cs"));
+        string apiText = File.ReadAllText(Path.Combine(apiRoot, "Native", "ExtremePowersApi.cs"));
+        Check(bootstrapText.Contains("UnityMainThreadDispatch.InitializeForCurrentThread()") &&
+            apiText.Contains("UnityMainThreadDispatch.TryRunInlineOrEnqueue"),
+            "API packet diagnostics are marshalled through the validated Unity main-thread dispatcher");
         string integrationAdapter = Path.GetFullPath(Path.Combine(modRoot, "src", "Integration", "LocalExtremePowersApiClient.cs"));
         foreach (string file in Directory.GetFiles(Path.Combine(modRoot, "src"), "*.cs", SearchOption.AllDirectories).Where(value => File.ReadAllText(value).Contains("ExtremePowers.API")))
             Check(string.Equals(Path.GetFullPath(file), integrationAdapter, StringComparison.OrdinalIgnoreCase), "API types are isolated to the replaceable adapter: " + file);
@@ -229,4 +237,12 @@ internal static class Program
     private static void Check(bool condition, string name) { if (!condition) { failures++; Console.Error.WriteLine("FAIL: " + name); } }
     private static void Throws(Action action, string name) { try { action(); Check(false, name); } catch (ArgumentException) { } catch (InvalidOperationException) { } }
     private static void ThrowsAny(Action action, string name) { try { action(); Check(false, name); } catch { } }
+}
+
+namespace UnityEngine
+{
+    internal sealed class UnitySynchronizationContext : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback d, object state) => d(state);
+    }
 }

@@ -351,7 +351,7 @@ namespace BugfixesAndQoL
             }
 
             ApplyState(packet.PlayerId, packet.OperationId, packet.AllowClimbing, "multiplayer-chore");
-            RefreshButtonVisibility();
+            Shared.UnityMainThreadDispatch.TryEnqueue(RefreshButtonVisibility);
         }
 
         private void ApplyState(int playerId, int operationId, bool allowClimbing, string source)
@@ -549,8 +549,10 @@ namespace BugfixesAndQoL
             lastRenderFrame = -1;
         }
 
-        private void LogDebug(string message) => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}");
-        private void LogError(string message) => log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}");
+        private void LogDebug(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => log.LogDebug($"[{TimestampNow()}] Bugfixes and QoL {message}"));
+        private void LogError(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => log.LogError($"[{TimestampNow()}] Bugfixes and QoL {message}"));
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
     }
 }

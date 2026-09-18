@@ -673,6 +673,14 @@ internal static class Program
         Check(!source.Contains("SendPacketToAllEx2") &&
               !source.Contains("SendPacketToAll(packet"),
             "no unsynchronized Steam fallback");
+        string packetReceiver = ExtractMethodBody(
+            source, "private void OnPacketReceived(");
+        Check(packetReceiver.Contains("LogErrorNoThrow") &&
+              !packetReceiver.Contains("DebugLogHelper"),
+            "Chore receiver logging is deferred away from the simulation callback");
+        Check(source.Contains("UnityMainThreadDispatch.InitializeForCurrentThread()") &&
+              source.Contains("UnityMainThreadDispatch.TryRunInlineOrEnqueue"),
+            "FormationTest captures and uses the validated main-thread dispatcher");
     }
 
     private static string FindProjectRoot()

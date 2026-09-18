@@ -9,6 +9,7 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop;
+using Steamworks;
 using System;
 using System.Diagnostics;
 using System.Reflection;
@@ -552,11 +553,54 @@ namespace BugfixesAndQoL
 
         private void OnPacketReceived(ReceiveCustomPacketEventArgs<MultiplayerGameSpeedChangePacket> args)
         {
-            MultiplayerGameSpeedChangePacket packet = args?.Packet;
+            MultiplayerGameSpeedChangePacket source = args?.Packet;
+            if (source == null)
+            {
+                QueueLogError("rejected a multiplayer time-control packet with an invalid payload.");
+                return;
+            }
+            var packet = new MultiplayerGameSpeedChangePacket
+            {
+                ProtocolVersion = source.ProtocolVersion,
+                Action = source.Action,
+                TargetSpeed = source.TargetSpeed,
+                PauseState = source.PauseState
+            };
+            bool directDelivery = args.SenderSteamId.HasValue;
+            ulong senderSteamId = directDelivery
+                ? args.SenderSteamId.Value.m_SteamID
+                : 0UL;
+            if (directDelivery)
+            {
+                Shared.UnityMainThreadDispatch.TryEnqueue(
+                    () => ProcessPacket(
+                        packet,
+                        directDelivery: true,
+                        senderSteamId: senderSteamId));
+                return;
+            }
+            ProcessPacket(packet, directDelivery: false, senderSteamId: 0UL);
+        }
+
+        private void ProcessPacket(
+            MultiplayerGameSpeedChangePacket packet,
+            bool directDelivery,
+            ulong senderSteamId)
+        {
             if (packet == null || packet.ProtocolVersion != MultiplayerGameSpeedPolicy.ProtocolVersion)
             {
                 LogError("rejected a multiplayer time-control packet with an invalid payload.");
                 return;
+            }
+
+            if (directDelivery)
+            {
+                CSteamID? host = GameNetworkAPI.GetHostSteamId();
+                if (!host.HasValue || host.Value.m_SteamID != senderSteamId)
+                {
+                    LogError("rejected a direct multiplayer time-control packet from a sender that is not the current host.");
+                    return;
+                }
             }
 
             try
@@ -591,6 +635,12 @@ namespace BugfixesAndQoL
                         return;
                     }
 
+                    if ((delivery == MultiplayerTimeControlDelivery.Direct) != directDelivery)
+                    {
+                        LogError("rejected a multiplayer pause packet with a mismatched transport.");
+                        return;
+                    }
+
                     string deliveryName = delivery == MultiplayerTimeControlDelivery.Direct
                         ? "direct unpause"
                         : "pause Chore";
@@ -613,14 +663,26 @@ namespace BugfixesAndQoL
                     return;
                 }
 
+                if (directDelivery)
+                {
+                    LogError("rejected a direct game-speed packet outside the Chore transport.");
+                    return;
+                }
+
                 int previousSpeed = GetCurrentSpeed();
                 if (resolvedSpeed != previousSpeed)
                 {
                     director.SetEngineFrameRate(resolvedSpeed);
-                    OnScreenText.Instance?.addOSTEntry(Enums.eOnScreenText.OST_GAME_SPEED, resolvedSpeed);
+                    int speedSnapshot = resolvedSpeed;
+                    Shared.UnityMainThreadDispatch.TryEnqueue(
+                        () => OnScreenText.Instance?.addOSTEntry(
+                            Enums.eOnScreenText.OST_GAME_SPEED,
+                            speedSnapshot));
                 }
 
-                RefreshOpenOptionsUi(resolvedSpeed);
+                int uiSpeedSnapshot = resolvedSpeed;
+                Shared.UnityMainThreadDispatch.TryEnqueue(
+                    () => RefreshOpenOptionsUi(uiSpeedSnapshot));
                 LogInfo($"game-speed Chore executed: action={packet.Action}, requestedTarget={packet.TargetSpeed}, previousSpeed={previousSpeed}, resolvedSpeed={resolvedSpeed}.");
             }
             catch (Exception ex)
@@ -649,14 +711,17 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            OnScreenText.Instance?.addOSTEntry(Enums.eOnScreenText.OST_GAME_PAUSED, appliedPaused ? 1 : 0);
-            if (SFXManager.instance != null)
+            bool pausedSnapshot = appliedPaused;
+            Shared.UnityMainThreadDispatch.TryEnqueue(() =>
             {
-                SFXManager.instance.playGenieSpeech(
+                OnScreenText.Instance?.addOSTEntry(
+                    Enums.eOnScreenText.OST_GAME_PAUSED,
+                    pausedSnapshot ? 1 : 0);
+                SFXManager.instance?.playGenieSpeech(
                     3,
-                    appliedPaused ? "game_paused.wav" : "game_running.wav",
+                    pausedSnapshot ? "game_paused.wav" : "game_running.wav",
                     1f);
-            }
+            });
 
             string outcome = deliveryName == "direct unpause" ? "applied" : "executed";
             LogInfo($"{deliveryName} {outcome}: previousPaused={previousPaused}, appliedPaused={appliedPaused}.");
@@ -836,9 +901,15 @@ namespace BugfixesAndQoL
         }
 
         private void LogInfo(string message) =>
-            Shared.DebugLogHelper.LogInfo(log, $"Bugfixes and QoL multiplayer game speed: {message}");
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+                Shared.DebugLogHelper.LogInfo(log, $"Bugfixes and QoL multiplayer game speed: {message}"));
 
         private void LogError(string message) =>
-            Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL multiplayer game speed: {message}");
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL multiplayer game speed: {message}"));
+
+        private void QueueLogError(string message) =>
+            Shared.UnityMainThreadDispatch.TryEnqueue(() =>
+                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL multiplayer game speed: {message}"));
     }
 }

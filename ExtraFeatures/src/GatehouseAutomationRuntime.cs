@@ -172,7 +172,7 @@ namespace ExtraFeatures
             else
                 ReleaseManualGateTimers();
 
-            RefreshButtonVisibility();
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
         }
 
         public void BeginMap()
@@ -462,7 +462,7 @@ namespace ExtraFeatures
                 building->r_GateDoNotCloseForTicks = -1;
             }
 
-            RefreshButtonVisibility();
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
             LogInfo($"gatehouse automatic state applied: source={source}, buildingId={buildingId}, globalId={globalId}, owner={playerId}, automaticEnabled={automaticEnabled}, gateState={building->r_GateState}.");
         }
 
@@ -918,9 +918,12 @@ namespace ExtraFeatures
             LogWarning($"{message}. Vanilla remains authoritative ({failureLogs}/{MaximumFailureLogs}).");
         }
 
-        private void LogInfo(string message) => log.LogInfo($"[{TimestampNow()}] Extra Features {message}");
-        private void LogWarning(string message) => log.LogWarning($"[{TimestampNow()}] Extra Features {message}");
-        private void LogError(string message) => log.LogError($"[{TimestampNow()}] Extra Features {message}");
+        private void LogInfo(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => log.LogInfo($"[{TimestampNow()}] Extra Features {message}"));
+        private void LogWarning(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => log.LogWarning($"[{TimestampNow()}] Extra Features {message}"));
+        private void LogError(string message) => Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+            () => log.LogError($"[{TimestampNow()}] Extra Features {message}"));
         private static string TimestampNow() => DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff", CultureInfo.InvariantCulture);
 
     }

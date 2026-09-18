@@ -40,6 +40,7 @@ var tests = new (string Name, Action Run)[]
     ("customized launch origin is persisted and fail-closed", TestCustomizedLaunchOriginIntegration),
     ("customized launch origin save roundtrip", TestCustomizedLaunchOriginRoundtrip),
     ("Built-in Customize origin packet roundtrip", TestBuiltInCustomizeOriginPacketRoundtrip),
+    ("lobby packets retain main-thread ordering", TestLobbyPacketThreadMarshalling),
     ("Steam Workshop discovery waits for Steamworks", TestSteamWorkshopReadinessGate),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
     ("Script Extender manifest range contract is explicit", TestScriptExtenderManifestRangeContract),
@@ -649,7 +650,8 @@ static void TestCustomizedLaunchOriginIntegration()
         coordinator.Contains("BroadcastBuiltInCustomizeOrigin(self)") &&
         coordinator.Contains("GetPacketEventFor<BuiltInCustomizeOriginPacket>") &&
         coordinator.Contains("OnBuiltInCustomizeOriginPacket") &&
-        coordinator.Contains("args.SenderSteamId.Value != host.Value") &&
+        coordinator.Contains("senderSteamId != host.Value") &&
+        coordinator.Contains("ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId))") &&
         coordinator.Contains("GameNetworkAPI.SendPacketToAllLobby") &&
         originPacket.Contains("IMessagePackFormatter<BuiltInCustomizeOriginPacket>"),
         "Built-in Customize back-navigation cleanup or authenticated host/client origin synchronization is missing");
@@ -702,6 +704,21 @@ static void TestBuiltInCustomizeOriginPacketRoundtrip()
     ExtendedData.BuiltInCustomizeOriginPacket truncated =
         MessagePack.MessagePackSerializer.Deserialize<ExtendedData.BuiltInCustomizeOriginPacket>(truncatedBytes);
     Assert(truncated == null, "truncated Built-in Customize origin packet was accepted");
+}
+
+static void TestLobbyPacketThreadMarshalling()
+{
+    string root = FindProjectRoot();
+    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
+    string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
+    Assert(coordinator.Contains("new CoopCustomizePacket", StringComparison.Ordinal) &&
+        coordinator.Contains("new BuiltInCustomizeOriginPacket", StringComparison.Ordinal) &&
+        coordinator.Contains("UnityMainThreadDispatch.TryRunInlineOrEnqueue", StringComparison.Ordinal) &&
+        coordinator.Contains("ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId))", StringComparison.Ordinal) &&
+        coordinator.Contains("ProcessBuiltInCustomizeOriginPacket(packet, new CSteamID(senderSteamId))", StringComparison.Ordinal),
+        "lobby packet callbacks do not copy and conditionally dispatch before UI/lobby access");
+    Assert(project.Contains("Shared\\UnityMainThreadDispatch.cs", StringComparison.Ordinal),
+        "ExtendedData does not source-link the validated main-thread dispatcher");
 }
 
 static void TestCustomizedLaunchOriginRoundtrip()
@@ -1096,7 +1113,8 @@ static void TestCoopExporterIntegration()
         "Coop Customize does not reapply the mission Trail preset after rebuilding the setup UI");
     Assert(coordinator.Contains("GetPacketEventFor<CoopCustomizePacket>") &&
         coordinator.Contains("GameNetworkAPI.GetHostSteamId()") &&
-        coordinator.Contains("args.SenderSteamId.Value != host.Value") &&
+        coordinator.Contains("senderSteamId != host.Value") &&
+        coordinator.Contains("ProcessCoopCustomizePacket(packet, new CSteamID(senderSteamId))") &&
         coordinator.Contains("BroadcastCoopCustomize(trailId, mission)") &&
         coordinator.Contains("BroadcastCoopLaunch") &&
         coordinator.Contains("CoopLaunchReceived?.Invoke") &&

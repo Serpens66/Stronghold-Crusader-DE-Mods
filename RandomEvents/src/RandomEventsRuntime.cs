@@ -12,6 +12,7 @@ using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -44,6 +45,8 @@ namespace RandomEvents
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly List<PendingBanditGroup> pendingBanditGroups = new List<PendingBanditGroup>();
         private readonly HashSet<int> initializationAcknowledgedPlayerIds = new HashSet<int>();
+        private readonly ConcurrentQueue<QueuedInitializationAck> initializationAckQueue =
+            new ConcurrentQueue<QueuedInitializationAck>();
         private bool initialized;
         private bool disposed;
         private bool tickSubscribed;
@@ -272,6 +275,7 @@ namespace RandomEvents
         {
             try
             {
+                DrainInitializationAcks();
                 if (!Shared.GameplayModActivationGate.IsAllowed)
                     return;
 
@@ -816,6 +820,35 @@ namespace RandomEvents
         private void OnInitializationAckPacketReceived(
             ReceiveCustomPacketEventArgs<RandomEventsInitializationAckPacket> args)
         {
+            RandomEventsInitializationAckPacket packet = args?.Packet;
+            if (packet == null)
+                return;
+            ulong? senderSteamId = args.SenderSteamId.HasValue
+                ? args.SenderSteamId.Value.m_SteamID
+                : (ulong?)null;
+            initializationAckQueue.Enqueue(new QueuedInitializationAck(
+                new RandomEventsInitializationAckPacket
+                {
+                    ProtocolVersion = packet.ProtocolVersion,
+                    OperationId = packet.OperationId,
+                    PlayerId = packet.PlayerId,
+                    StateDigest = packet.StateDigest == null
+                        ? Array.Empty<byte>()
+                        : (byte[])packet.StateDigest.Clone()
+                },
+                senderSteamId));
+        }
+
+        private void DrainInitializationAcks()
+        {
+            while (initializationAckQueue.TryDequeue(out QueuedInitializationAck queued))
+                ProcessInitializationAckPacket(queued.Packet, queued.SenderSteamId);
+        }
+
+        private void ProcessInitializationAckPacket(
+            RandomEventsInitializationAckPacket packet,
+            ulong? senderSteamId)
+        {
             if (!Shared.GameplayModActivationGate.IsAllowed)
                 return;
             if (!isRealMultiplayer || !isLocalHost || multiplayerInitializationConfirmed)
@@ -823,7 +856,6 @@ namespace RandomEvents
 
             try
             {
-                RandomEventsInitializationAckPacket packet = args?.Packet;
                 if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion ||
                     packet.OperationId != initializationOperationId ||
                     packet.PlayerId < 1 || packet.PlayerId > GamePlayerManagerAPI.MAX_PLAYERS ||
@@ -2469,9 +2501,29 @@ namespace RandomEvents
                 $"Network details: {details}.");
         }
 
-        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
-        private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
-        private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
+        private void LogDebug(string message) =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogDebug(log, message));
+        private void LogWarning(string message) =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogWarning(log, message));
+        private void LogError(string message) =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogError(log, message));
+
+        private readonly struct QueuedInitializationAck
+        {
+            public QueuedInitializationAck(
+                RandomEventsInitializationAckPacket packet,
+                ulong? senderSteamId)
+            {
+                Packet = packet;
+                SenderSteamId = senderSteamId;
+            }
+
+            public RandomEventsInitializationAckPacket Packet { get; }
+            public ulong? SenderSteamId { get; }
+        }
 
 
         private readonly struct BanditUnitReference

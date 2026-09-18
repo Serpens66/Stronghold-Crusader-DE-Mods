@@ -772,8 +772,7 @@ namespace BugfixesAndQoL
             QuarryPileRelocationPacket packet = args?.Packet;
             if (packet == null || packet.ProtocolVersion != ChoreProtocolVersion)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
+                LogErrorThreadSafe(
                     $"Bugfixes and QoL rejected a quarry-pile Chore with an unsupported payload: protocolVersion={packet?.ProtocolVersion.ToString() ?? "null"}.");
                 return;
             }
@@ -792,8 +791,7 @@ namespace BugfixesAndQoL
             {
                 if (!initialized || setupBuildingEntrancesOffset == null)
                 {
-                    Shared.DebugLogHelper.LogError(
-                        log,
+                    LogErrorThreadSafe(
                         $"Bugfixes and QoL cannot execute quarry-pile Chore because the relocation runtime is unavailable: operationId={operation.OperationId}, initialized={initialized}, nativeCandidateHelperAvailable={setupBuildingEntrancesOffset != null}.");
                     return;
                 }
@@ -801,8 +799,7 @@ namespace BugfixesAndQoL
                 if (!TryApplyRotation(operation, "multiplayer-chore", targetAlreadyValidated: false))
                 {
                     RememberFailedRotationTarget(operation);
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
+                    LogWarningThreadSafe(
                         $"Bugfixes and QoL quarry-pile Chore completed without relocation: operationId={operation.OperationId}, target={operation.TargetTileX},{operation.TargetTileY}.");
                     return;
                 }
@@ -812,13 +809,12 @@ namespace BugfixesAndQoL
             catch (Exception ex)
             {
                 RememberFailedRotationTarget(operation);
-                Shared.DebugLogHelper.LogError(
-                    log,
+                LogErrorThreadSafe(
                     $"Bugfixes and QoL quarry-pile Chore execution failed: operationId={operation.OperationId}, exception={ex}");
             }
             finally
             {
-                RefreshButtonVisibility();
+                Shared.UnityMainThreadDispatch.TryEnqueue(RefreshButtonVisibility);
             }
         }
 
@@ -863,8 +859,7 @@ namespace BugfixesAndQoL
                 oldPile->r_UsedInSiegeAttemptId);
             if (!groupResolution.CanUse)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
+                LogErrorThreadSafe(
                     $"Bugfixes and QoL rejected quarry-pile relocation because Vanilla structure groups are inconsistent: operationId={operation.OperationId}, quarryId={quarryId}, oldPileId={oldPileId}, quarryGroupId={quarry->r_UsedInSiegeAttemptId}, oldPileGroupId={oldPile->r_UsedInSiegeAttemptId}, status={groupResolution.Status}.");
                 return false;
             }
@@ -1230,8 +1225,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
+                LogErrorThreadSafe(
                     $"Bugfixes and QoL quarry-pile Vanilla candidate generation failed: candidateIndex={candidateIndex}, " +
                     $"placementTry={placementTry}: {ex}");
                 return false;
@@ -1272,8 +1266,7 @@ namespace BugfixesAndQoL
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
+                LogErrorThreadSafe(
                     $"Bugfixes and QoL quarry-pile native placement validation failed: operationId={operationId}, vanillaTry={placementTry}, candidateIndex={candidateIndex}, target={candidate.X},{candidate.Y}: {ex}");
                 return false;
             }
@@ -1333,8 +1326,7 @@ namespace BugfixesAndQoL
             {
                 int fallbackPileId = FindFreshPileAtTarget(oldPileId, playerId, target, out _);
                 CleanupFailedPrefabSpawns(capture, oldPileId, operationId, "prefab-exception", fallbackPileId);
-                Shared.DebugLogHelper.LogError(
-                    log,
+                LogErrorThreadSafe(
                     $"Bugfixes and QoL quarry-pile prefab replacement spawn failed: operationId={operationId}, fallbackPileId={fallbackPileId}, exception={prefabException}");
                 return false;
             }
@@ -1356,8 +1348,7 @@ namespace BugfixesAndQoL
                 newPile->r_OccupyTileGridSize == oldPile->r_OccupyTileGridSize;
             if (!replacementVerified)
             {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
+                LogWarningThreadSafe(
                     $"Bugfixes and QoL quarry-pile replacement verification failed; spawned candidates are being cleaned up: operationId={operationId}, playerId={playerId}, target={target.X},{target.Y}.");
                 CleanupFailedPrefabSpawns(capture, oldPileId, operationId, "verification-failed", newPileId);
                 newPile = null;
@@ -1462,8 +1453,7 @@ namespace BugfixesAndQoL
                 bool markedForDeletion = DeleteBuildingSafely(buildingId);
                 if (!markedForDeletion)
                 {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
+                    LogWarningThreadSafe(
                         $"Bugfixes and QoL could not clean up an invalid quarry-pile prefab: operationId={operationId}, reason={reason}, buildingId={buildingId}.");
                 }
             }
@@ -1760,8 +1750,17 @@ namespace BugfixesAndQoL
 
         private void LogInfo(string message)
         {
-            Shared.DebugLogHelper.LogDebug(log, $"Bugfixes and QoL quarry-pile runtime: {message}");
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+                Shared.DebugLogHelper.LogDebug(log, $"Bugfixes and QoL quarry-pile runtime: {message}"));
         }
+
+        private void LogWarningThreadSafe(string message) =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogWarning(log, message));
+
+        private void LogErrorThreadSafe(string message) =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogError(log, message));
 
         private void DisposeSubscriptions()
         {

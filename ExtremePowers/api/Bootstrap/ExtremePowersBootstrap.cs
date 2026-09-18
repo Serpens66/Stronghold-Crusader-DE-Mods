@@ -9,6 +9,7 @@ namespace ExtremePowers.API
         public static IExtremePowersApi Instance => instance ?? throw new InvalidOperationException("ExtremePowers API has not been initialized.");
         public static IExtremePowersApi Initialize(string crusaderDllPath)
         {
+            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             lock (Gate) return instance ?? (instance = new ExtremePowersApi(crusaderDllPath));
         }
 
@@ -17,6 +18,7 @@ namespace ExtremePowers.API
 
         public static IExtremePowersApi Initialize(string crusaderDllPath, IntPtr libraryHandle, ReadOnlySpan<byte> libraryMemory, ExtremePowersBootstrapOptions options)
         {
+            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             lock (Gate)
             {
                 if (instance != null) return instance;

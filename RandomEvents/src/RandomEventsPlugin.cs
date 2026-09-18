@@ -22,6 +22,7 @@ namespace RandomEvents
 
         private void Awake()
         {
+            Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Settings = new RandomEventsSettingsViewModel();
             runtime = new RandomEventsRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;

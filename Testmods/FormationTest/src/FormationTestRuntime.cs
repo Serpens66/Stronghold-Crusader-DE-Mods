@@ -706,9 +706,7 @@ namespace FormationTest
             }
             catch (Exception exception)
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Formation Chore execution failed: {exception}");
+                LogErrorNoThrow($"Formation Chore execution failed: {exception}");
             }
         }
 
@@ -716,9 +714,7 @@ namespace FormationTest
         {
             if (!ValidatePacket(packet, out string rejection))
             {
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Rejected Formation Chore: {rejection}.");
+                LogErrorNoThrow($"Rejected Formation Chore: {rejection}.");
                 return;
             }
 
@@ -1164,24 +1160,44 @@ namespace FormationTest
 
         private void LogDebugNoThrow(string message)
         {
-            try
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
-                Shared.DebugLogHelper.LogDebug(log, message);
-            }
-            catch
-            {
-            }
+                try
+                {
+                    Shared.DebugLogHelper.LogDebug(log, message);
+                }
+                catch
+                {
+                }
+            });
         }
 
         private void LogWarningNoThrow(string message)
         {
-            try
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
-                Shared.DebugLogHelper.LogWarning(log, message);
-            }
-            catch
+                try
+                {
+                    Shared.DebugLogHelper.LogWarning(log, message);
+                }
+                catch
+                {
+                }
+            });
+        }
+
+        private void LogErrorNoThrow(string message)
+        {
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
             {
-            }
+                try
+                {
+                    Shared.DebugLogHelper.LogError(log, message);
+                }
+                catch
+                {
+                }
+            });
         }
 
         private bool Matches(

@@ -458,15 +458,31 @@ namespace BugfixesAndQoL
 
         private void OnPacket(ReceiveCustomPacketEventArgs<TrailCustomizationPacket> args)
         {
+            TrailCustomizationPacket source = args?.Packet;
+            if (source == null || !args.SenderSteamId.HasValue)
+                return;
+            var packet = new TrailCustomizationPacket
+            {
+                ProtocolVersion = source.ProtocolVersion,
+                TrailId = source.TrailId,
+                MissionId = source.MissionId,
+                Launch = source.Launch
+            };
+            ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => ProcessPacket(packet, new CSteamID(senderSteamId)));
+        }
+
+        private void ProcessPacket(TrailCustomizationPacket packet, CSteamID senderSteamId)
+        {
             try
             {
                 CSteamID? host = GameNetworkAPI.GetHostSteamId();
-                if (!args.SenderSteamId.HasValue || !host.HasValue || args.SenderSteamId.Value != host.Value)
+                if (!host.HasValue || senderSteamId != host.Value)
                 {
                     Shared.DebugLogHelper.LogError(log, "Rejected Trail customization packet from a sender that is not the lobby host.");
                     return;
                 }
-                TrailCustomizationPacket packet = args.Packet;
                 if (packet == null || packet.ProtocolVersion != TrailCustomizationPacket.CurrentProtocolVersion ||
                     packet.TrailId < 0 || packet.TrailId > 3 || packet.MissionId < 1 || packet.MissionId > 10)
                 {

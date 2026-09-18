@@ -609,8 +609,7 @@ namespace BugfixesAndQoL
                     activeSessionId <= 0 || lordDeathSessionIds[playerId] != activeSessionId ||
                     !IsHumanMember(member))
                 {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
+                    LogPacketWarning(
                         $"Rejected stale or invalid eliminated-player spectator Chore: playerId={playerId}, hasSteamSender={args?.SenderSteamId.HasValue}, activeSessionId={activeSessionId}, observedLordDeathSessionId={(playerId >= 1 && playerId <= 8 ? lordDeathSessionIds[playerId] : 0)}.");
                     return;
                 }
@@ -621,22 +620,29 @@ namespace BugfixesAndQoL
                 spectatorChoreExecutedPlayers[playerId] = true;
                 int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
                 int executionTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogPacketInfo(
                     $"Eliminated-player spectator Chore executed: sessionId={activeSessionId}, playerId={playerId}, lordDeathTick={lordDeathSimulationTicks[playerId]}, executionTick={executionTick}, localPlayerId={localPlayerId}.");
 
                 if (localPlayerId != playerId)
                     return;
 
                 spectatorPromotionChoreExpected = false;
-                TryActivateLocalSpectator(
-                    playerId,
-                    Shared.GameModeHelper.Capture(),
-                    "synchronized eliminated-player spectator Chore");
+                int sessionSnapshot = activeSessionId;
+                Shared.GameModeSnapshot gameModeSnapshot = Shared.GameModeHelper.Capture();
+                Shared.UnityMainThreadDispatch.TryEnqueue(() =>
+                {
+                    if (activeSessionId != sessionSnapshot ||
+                        lordDeathSessionIds[playerId] != sessionSnapshot)
+                        return;
+                    TryActivateLocalSpectator(
+                        playerId,
+                        gameModeSnapshot,
+                        "synchronized eliminated-player spectator Chore");
+                });
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Eliminated-player spectator Chore failed closed: {ex}");
+                LogPacketError($"Eliminated-player spectator Chore failed closed: {ex}");
             }
         }
 
@@ -1560,7 +1566,21 @@ namespace BugfixesAndQoL
 
         private void OnRequestReceived(ReceiveCustomPacketEventArgs<SurrenderRequestPacket> args)
         {
-            SurrenderRequestPacket request = args?.Packet;
+            SurrenderRequestPacket source = args?.Packet;
+            if (source == null || !args.SenderSteamId.HasValue)
+                return;
+            var request = new SurrenderRequestPacket
+            {
+                ProtocolVersion = source.ProtocolVersion,
+                RequestId = source.RequestId
+            };
+            ulong senderSteamId = args.SenderSteamId.Value.m_SteamID;
+            Shared.UnityMainThreadDispatch.TryEnqueue(
+                () => ProcessRequest(request, new CSteamID(senderSteamId)));
+        }
+
+        private void ProcessRequest(SurrenderRequestPacket request, CSteamID senderSteamId)
+        {
             try
             {
                 if (request == null || request.ProtocolVersion != RequestProtocolVersion || request.RequestId == 0)
@@ -1569,13 +1589,13 @@ namespace BugfixesAndQoL
                     return;
                 }
 
-                if (!args.SenderSteamId.HasValue || !TryResolveHumanSender(args.SenderSteamId.Value, out int playerId))
+                if (!TryResolveHumanSender(senderSteamId, out int playerId))
                 {
                     Shared.DebugLogHelper.LogWarning(log, "Rejected surrender request without a known authenticated human sender.");
                     return;
                 }
 
-                string requestKey = args.SenderSteamId.Value.m_SteamID + ":" + request.RequestId;
+                string requestKey = senderSteamId.m_SteamID + ":" + request.RequestId;
                 if (acceptedRequests.Contains(requestKey))
                 {
                     Shared.DebugLogHelper.LogWarning(log, $"Rejected duplicate surrender request: playerId={playerId}, requestId={request.RequestId}.");
@@ -1615,7 +1635,7 @@ namespace BugfixesAndQoL
                 // non-lockstep injection and must never execute a simulation mutation.
                 if (packet == null || !SurrenderPolicy.IsChoreDelivery(args.SenderSteamId.HasValue))
                 {
-                    Shared.DebugLogHelper.LogWarning(log, "Rejected surrender execution outside the Chore transport or with an empty payload.");
+                    LogPacketWarning("Rejected surrender execution outside the Chore transport or with an empty payload.");
                     return;
                 }
 
@@ -1632,8 +1652,7 @@ namespace BugfixesAndQoL
                         lord,
                         resolvedUnitId))
                 {
-                    Shared.DebugLogHelper.LogWarning(
-                        log,
+                    LogPacketWarning(
                         $"Rejected stale or mismatched surrender Chore: " +
                         $"playerId={packet.PlayerId}, decodedBodyHex={decodedBodyHex}, " +
                         $"currentLordUnitId={lord.UnitId}, currentLordGlobalId={lord.GlobalId}, " +
@@ -1643,16 +1662,27 @@ namespace BugfixesAndQoL
                 }
 
                 GameUnitManagerAPI.Instance.KillUnit(resolvedUnitId);
-                Shared.DebugLogHelper.LogInfo(
-                    log,
+                LogPacketInfo(
                     $"Surrender Chore executed: playerId={packet.PlayerId}, unitId={resolvedUnitId}, " +
                     $"locallyResolvedGlobalId={lord.GlobalId}, decodedBodyHex={decodedBodyHex}.");
             }
             catch (Exception ex)
             {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL surrender Chore failed closed: {ex}");
+                LogPacketError($"Bugfixes and QoL surrender Chore failed closed: {ex}");
             }
         }
+
+        private void LogPacketInfo(string message) =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogInfo(log, message));
+
+        private void LogPacketWarning(string message) =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogWarning(log, message));
+
+        private void LogPacketError(string message) =>
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(
+                () => Shared.DebugLogHelper.LogError(log, message));
 
         private bool TryQueueExecution(SurrenderLordSnapshot lord)
         {

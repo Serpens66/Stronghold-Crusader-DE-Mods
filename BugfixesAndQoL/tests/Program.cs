@@ -69,6 +69,7 @@ namespace BugfixesAndQoL
             TestSpriteAnimationGroup26Contract();
             TestMapFileManagerContract();
             TestMultiplayerSafetyPolicy();
+            TestPacketThreadMarshallingContracts();
             TestWorkshopUploadLordSelectionPolicy();
             TestMultiplayerLobbyReturnIntegration();
             TestClassicMapSizeReader();
@@ -94,6 +95,48 @@ namespace BugfixesAndQoL
                     tracker.TryUpdate(false, true, true) &&
                     tracker.TryUpdate(false, false, false),
                 "movement logging summarizes only distinct effective states");
+        }
+
+        private static void TestPacketThreadMarshallingContracts()
+        {
+            string aiv = File.ReadAllText(Path.Combine("src", "MultiplayerAivSyncRuntime.cs"));
+            string gameSpeed = File.ReadAllText(Path.Combine("src", "MultiplayerGameSpeedRuntime.cs"));
+            string surrender = File.ReadAllText(Path.Combine("src", "SurrenderFeature.cs"));
+            string trail = File.ReadAllText(Path.Combine("src", "TrailCustomizationFeature.cs"));
+            string singlePause = File.ReadAllText(Path.Combine("src", "SingleBuildingPauseHook.cs"));
+            string siegeAmmo = File.ReadAllText(Path.Combine("src", "SiegeAmmoRestockFeature.cs"));
+            string project = File.ReadAllText("BugfixesAndQoL.csproj");
+
+            Check(aiv.Contains("new MultiplayerAivSyncPacket") &&
+                    aiv.Contains("UnityMainThreadDispatch.TryEnqueue(() => ProcessPacket(packet, sender))") &&
+                    aiv.IndexOf("private void ProcessPacket(", StringComparison.Ordinal) >
+                    aiv.IndexOf("private void OnPacketReceived(", StringComparison.Ordinal),
+                "AIV Steam packets are copied and deferred before lobby/runtime access");
+            Check(gameSpeed.Contains("bool directDelivery = args.SenderSteamId.HasValue") &&
+                    gameSpeed.Contains("mismatched transport") &&
+                    gameSpeed.Contains("sender that is not the current host") &&
+                    gameSpeed.Contains("UnityMainThreadDispatch.TryEnqueue(") &&
+                    gameSpeed.Contains("OnScreenText.Instance?.addOSTEntry"),
+                "game-speed direct and Chore transports retain distinct thread contracts");
+            Check(surrender.Contains("new SurrenderRequestPacket") &&
+                    surrender.Contains("() => ProcessRequest(request, new CSteamID(senderSteamId))") &&
+                    surrender.Contains("sessionSnapshot") &&
+                    surrender.Contains("UnityMainThreadDispatch.TryEnqueue(() =>"),
+                "surrender requests and spectator UI are deferred with copied state");
+            Check(trail.Contains("TryRunInlineOrEnqueue") &&
+                    trail.Contains("new TrailCustomizationPacket") &&
+                    trail.Contains("ProcessPacket(packet, new CSteamID(senderSteamId))"),
+                "Trail lobby packets preserve main-thread ordering with copied payloads");
+            Check(singlePause.Contains("RefreshSelectedBuildingTypeVisibility") &&
+                    singlePause.Contains("selectedSleepingSnapshot") &&
+                    singlePause.Contains("UnityMainThreadDispatch.TryEnqueue"),
+                "single-building Chore UI no longer runs in the simulation callback");
+            Check(siegeAmmo.Contains("UnityMainThreadDispatch.TryRunInlineOrEnqueue") &&
+                    siegeAmmo.Contains("private void LogWarning") &&
+                    siegeAmmo.Contains("private void LogError"),
+                "siege-ammunition Chore logging is not marshalled away from the simulation callback");
+            Check(project.Contains("Shared\\UnityMainThreadDispatch.cs"),
+                "BugfixesAndQoL does not source-link the validated main-thread dispatcher");
         }
 
         private static void TestSurrenderGameOverPolicy()
@@ -2418,7 +2461,8 @@ namespace BugfixesAndQoL
                     feature.Contains("foreach (UIElement child in host.Children)") &&
                     feature.Contains("TryCustomizeCustomTrail(out bool providerActive)") &&
                     feature.Contains("TryCustomizeCoopTrail(out bool providerActive)") &&
-                    feature.Contains("args.SenderSteamId.Value != host.Value") &&
+                    feature.Contains("senderSteamId != host.Value") &&
+                    feature.Contains("ProcessPacket(packet, new CSteamID(senderSteamId))") &&
                     feature.Contains("TrailCustomizationLaunchOriginApi.Clear();") &&
                     feature.Contains("throw;"),
                 "Trail customization owns idempotent buttons and authenticated provider-aware transitions");
