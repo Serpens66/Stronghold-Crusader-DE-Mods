@@ -148,7 +148,11 @@ namespace CastlePlanner
         public bool CanConfirm => state == PreviewState.Selecting && !localConfirmed;
         public bool HasSelectedCastle =>
             IsPreviewActive &&
-            !string.Equals(selectedChoice, NoneText, StringComparison.Ordinal);
+            !string.Equals(selectedChoice, NothingText, StringComparison.Ordinal) &&
+            !string.Equals(selectedChoice, KeepOnlyText, StringComparison.Ordinal);
+        public bool HasRotatableSelection =>
+            IsPreviewActive &&
+            !string.Equals(selectedChoice, NothingText, StringComparison.Ordinal);
         public int SelectedNativeRotation => RotationTextToNative(selectedRotation);
         public string TitleText => SerpLocalization.Get("CastlePlanner.Preview.Title");
         public string TimerText
@@ -177,12 +181,14 @@ namespace CastlePlanner
                     return;
                 selectedChoice = normalized;
                 bool updatesPersistedSelection =
-                    !string.Equals(normalized, NoneText, StringComparison.Ordinal) &&
+                    !string.Equals(normalized, NothingText, StringComparison.Ordinal) &&
+                    !string.Equals(normalized, KeepOnlyText, StringComparison.Ordinal) &&
                     !string.Equals(settings.SelectedCastle, normalized, StringComparison.Ordinal);
                 if (updatesPersistedSelection)
                     settings.SelectedCastle = normalized;
                 Notify(nameof(SelectedChoice));
                 Notify(nameof(HasSelectedCastle));
+                Notify(nameof(HasRotatableSelection));
                 // SettingsChanged already rebuilds a newly persisted castle. None
                 // and reselecting the persisted castle need this preview-only path.
                 if (!updatesPersistedSelection)
@@ -208,8 +214,11 @@ namespace CastlePlanner
             }
         }
 
-        public string NoneText => SerpLocalization.Get("CastlePlanner.Preview.None");
+        public string NothingText => SerpLocalization.Get("CastlePlanner.Preview.Nothing");
+        public string KeepOnlyText => SerpLocalization.Get("CastlePlanner.Preview.RotateKeepOnly");
         public event Action SelectionVisualChanged;
+        internal Func<IReadOnlyCollection<FreeCastleSelection>, string>
+            RestartCompatibilityValidator { get; set; }
 
         private bool IsOnUnityMainThread =>
             unityMainThreadId != 0 &&
@@ -287,7 +296,10 @@ namespace CastlePlanner
             selections = null;
             if (!IsFeatureModeAllowed() || state != PreviewState.SpawnMap)
                 return false;
-            selections = committedSelections.Select(item => item.Clone()).ToList();
+            selections = committedSelections
+                .Where(item => item.Mode != FreeCastleSelectionMode.Nothing)
+                .Select(item => item.Clone())
+                .ToList();
             return selections.Count > 0;
         }
 
@@ -300,6 +312,21 @@ namespace CastlePlanner
                 committedSelections,
                 playerId,
                 out rotation);
+        }
+
+        public bool TryGetCommittedSelection(
+            int playerId,
+            out FreeCastleSelection selection)
+        {
+            selection = null;
+            if (!IsFeatureModeAllowed() || state != PreviewState.SpawnMap)
+                return false;
+            FreeCastleSelection committed = committedSelections.FirstOrDefault(
+                item => item != null && item.PlayerId == playerId);
+            if (committed == null)
+                return false;
+            selection = committed.Clone();
+            return true;
         }
 
         private void StartGameHook(
@@ -481,8 +508,28 @@ namespace CastlePlanner
                     $"Free-castle confirmation requested: playerId={localPlayerId}, " +
                     $"choice='{SelectedChoice}', uiRotation={SelectedRotation}, " +
                     $"nativeRotation={SelectedNativeRotation}.");
-                FreeCastleSelection selection = null;
-                if (!string.Equals(SelectedChoice, NoneText, StringComparison.Ordinal))
+                FreeCastleSelection selection;
+                if (string.Equals(SelectedChoice, NothingText, StringComparison.Ordinal))
+                {
+                    selection = new FreeCastleSelection
+                    {
+                        Mode = FreeCastleSelectionMode.Nothing,
+                        PlayerId = localPlayerId,
+                        Rotation = 0
+                    };
+                    FreeCastleProtocol.ValidateSelection(selection);
+                }
+                else if (string.Equals(SelectedChoice, KeepOnlyText, StringComparison.Ordinal))
+                {
+                    selection = new FreeCastleSelection
+                    {
+                        Mode = FreeCastleSelectionMode.RotateKeepOnly,
+                        PlayerId = localPlayerId,
+                        Rotation = SelectedNativeRotation
+                    };
+                    FreeCastleProtocol.ValidateSelection(selection);
+                }
+                else
                 {
                     if (!settings.TryPrepareSelectedCastle(
                             localPlayerId,
@@ -521,24 +568,27 @@ namespace CastlePlanner
         private void UploadSelectionToHost(FreeCastleSelection selection)
         {
             if (selection == null)
-            {
-                FreeCastlePacket packet = NewPacket(FreeCastlePacketKind.SelectionBegin, localPlayerId);
-                packet.Rotation = -1;
-                SendToHost(packet);
-                return;
-            }
+                throw new ArgumentNullException(nameof(selection));
             byte[] encoded = FreeCastleProtocol.EncodeSelections(new[] { selection });
             SendTransferToHost(selection.PlayerId, selection.Rotation, selection.DisplayName, encoded);
         }
 
         private void AcceptHostDecision(int playerId, FreeCastleSelection selection)
         {
-            if (selection != null)
+            if (selection?.HasCastle == true)
                 selection.SpawnBraziersAndFlags = settings.SpawnBraziersAndFlags;
             if (!roster.Contains(playerId) || decisions.ContainsKey(playerId) || noneDecisions.Contains(playerId))
                 throw new InvalidOperationException("Duplicate or foreign castle decision.");
-            if (selection == null)
+            if (selection == null || selection.Mode == FreeCastleSelectionMode.Nothing)
+            {
+                if (selection != null)
+                {
+                    FreeCastleProtocol.ValidateSelection(selection);
+                    if (selection.PlayerId != playerId)
+                        throw new InvalidOperationException("Castle decision player mismatch.");
+                }
                 noneDecisions.Add(playerId);
+            }
             else
             {
                 FreeCastleProtocol.ValidateSelection(selection);
@@ -561,9 +611,29 @@ namespace CastlePlanner
                 return;
             }
 
+            byte[] encoded;
+            try
+            {
+                IEnumerable<FreeCastleSelection> manifestSelections =
+                    decisions.Values.Concat(noneDecisions.Select(playerId =>
+                        new FreeCastleSelection
+                        {
+                            Mode = FreeCastleSelectionMode.Nothing,
+                            PlayerId = playerId,
+                            Rotation = 0
+                        }));
+                encoded = FreeCastleProtocol.EncodeSelections(manifestSelections);
+                committedSelections = FreeCastleProtocol.DecodeSelections(encoded);
+                ValidateRestartCompatibility(committedSelections);
+            }
+            catch (Exception ex)
+            {
+                committedSelections.Clear();
+                FailBeforeCommit(ex.GetBaseException().Message);
+                return;
+            }
+
             state = PreviewState.Distributing;
-            byte[] encoded = FreeCastleProtocol.EncodeSelections(decisions.Values);
-            committedSelections = FreeCastleProtocol.DecodeSelections(encoded);
             if (!realMultiplayer)
             {
                 CommitRestart();
@@ -740,15 +810,7 @@ namespace CastlePlanner
                 TryBeginSelectionAsHost();
             }
             else if (kind == FreeCastlePacketKind.SelectionBegin && state == PreviewState.Selecting)
-            {
-                if (packet.Rotation == -1)
-                {
-                    AcceptHostDecision(senderPlayer, null);
-                    TryFinalizeAsHost();
-                }
-                else
-                    AcceptTransferBegin(packet, senderPlayer, false);
-            }
+                AcceptTransferBegin(packet, senderPlayer, false);
             else if (kind == FreeCastlePacketKind.SelectionChunk && state == PreviewState.Selecting)
             {
                 AcceptTransferChunk(packet, senderPlayer, false);
@@ -816,9 +878,15 @@ namespace CastlePlanner
             List<FreeCastleSelection> decoded = FreeCastleProtocol.DecodeSelections(encoded);
             if (manifest)
             {
-                if (decoded.Any(item => !roster.Contains(item.PlayerId)))
-                    throw new InvalidOperationException("Manifest contains a foreign player.");
+                if (decoded.Count != roster.Count ||
+                    decoded.Any(item => !roster.Contains(item.PlayerId)) ||
+                    roster.Any(playerId => !decoded.Any(item => item.PlayerId == playerId)))
+                {
+                    throw new InvalidOperationException(
+                        "Manifest does not contain exactly one decision for every player.");
+                }
                 committedSelections = decoded;
+                ValidateRestartCompatibility(committedSelections);
                 SendToHost(NewPacket(FreeCastlePacketKind.SelectionReady, localPlayerId));
             }
             else
@@ -1326,10 +1394,10 @@ namespace CastlePlanner
         {
             settings.EnsureCastleCatalogLoaded();
             castleChoices.ReplaceWith(
-                new[] { NoneText }.Concat(settings.CastleOptions));
+                new[] { NothingText, KeepOnlyText }.Concat(settings.CastleOptions));
             selectedChoice = settings.CastleOptions.Contains(settings.SelectedCastle)
                 ? settings.SelectedCastle
-                : NoneText;
+                : NothingText;
             Notify(nameof(CastleChoices));
             Notify(nameof(SelectedChoice));
         }
@@ -1473,6 +1541,7 @@ namespace CastlePlanner
             Notify(nameof(IsLocalConfirmed));
             Notify(nameof(CanConfirm));
             Notify(nameof(HasSelectedCastle));
+            Notify(nameof(HasRotatableSelection));
             Notify(nameof(StatusText));
             Notify(nameof(TimerText));
             (ConfirmCommand as RelayCommand)?.RaiseCanExecuteChanged();
@@ -1480,6 +1549,14 @@ namespace CastlePlanner
 
         private void Notify(string property) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+
+        private void ValidateRestartCompatibility(
+            IReadOnlyCollection<FreeCastleSelection> selections)
+        {
+            string error = RestartCompatibilityValidator?.Invoke(selections);
+            if (!string.IsNullOrEmpty(error))
+                throw new InvalidOperationException(error);
+        }
 
         private sealed class IncomingTransfer
         {

@@ -584,7 +584,18 @@ namespace CastlePlanner
             int keepY,
             string reason)
         {
-            if (preview.IsPreviewActive && !preview.HasSelectedCastle)
+            bool previewHasNoCastle =
+                preview.IsPreviewActive && !preview.HasSelectedCastle;
+            bool committedPlayerHasNoCastle = false;
+            if (preview.IsSpawnMapPass)
+            {
+                committedPlayerHasNoCastle =
+                    !preview.TryGetCommittedSelection(
+                        GetControlledPlayerId(),
+                        out FreeCastleSelection committed) ||
+                    !committed.HasCastle;
+            }
+            if (previewHasNoCastle || committedPlayerHasNoCastle)
             {
                 layout = null;
                 layoutKeepX = int.MinValue;
@@ -592,7 +603,7 @@ namespace CastlePlanner
                 renderer.Clear();
                 Shared.DebugLogHelper.LogInfo(
                     log,
-                    "Blueprint hidden because No castle is selected for the start preview.");
+                    "Blueprint hidden because the start selection contains no castle.");
                 return false;
             }
 

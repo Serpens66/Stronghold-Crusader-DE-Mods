@@ -955,8 +955,6 @@ namespace BugfixesAndQoL
             ValidateGameUnitFieldOffset(
                 nameof(GameUnit.UnknownRelevant1), UnitMoatPathConsumptionModeOffset + 1);
             ValidateStructFieldOffset(
-                typeof(GameUnitManager), nameof(GameUnitManager.LastOrderedUnit), NativeUnitSlotDataOffset);
-            ValidateStructFieldOffset(
                 typeof(GameCursorManager), nameof(GameCursorManager.r_HoverOverUnitId), 0x30);
             if (Marshal.SizeOf(typeof(GameUnit)) != NativeUnitStride)
             {
@@ -966,7 +964,7 @@ namespace BugfixesAndQoL
             }
             ValidateStructFieldOffset(
                 typeof(GameUnitManager), nameof(GameUnitManager.GameUnitArray),
-                NativeUnitSlotDataOffset + NativeUnitStride);
+                NativeUnitSlotDataOffset);
             if (Marshal.SizeOf(typeof(GameUnit)) <= UnitAdditionalMovementSubstepsOffset + 1)
             {
                 throw new InvalidOperationException(
@@ -7356,13 +7354,13 @@ namespace BugfixesAndQoL
             }
 
             int minX = Math.Max(0, Math.Min(
-                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
+                (int)building->r_TilePositionXBegin, (int)building->r_AccessTilePositionX));
             int maxX = Math.Min(MapWidth - 1, Math.Max(
-                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
+                (int)building->r_TilePositionXBegin, (int)building->r_AccessTilePositionX));
             int minY = Math.Max(0, Math.Min(
-                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
+                (int)building->r_TilePositionYBegin, (int)building->r_AccessTilePositionY));
             int maxY = Math.Min(MapWidth - 1, Math.Max(
-                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
+                (int)building->r_TilePositionYBegin, (int)building->r_AccessTilePositionY));
             long bestDistanceSquared = long.MaxValue;
             for (int y = minY; y <= maxY; y++)
             {
@@ -7431,13 +7429,13 @@ namespace BugfixesAndQoL
                 return false;
 
             int minX = Math.Max(0, Math.Min(
-                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
+                (int)building->r_TilePositionXBegin, (int)building->r_AccessTilePositionX));
             int maxX = Math.Min(MapWidth - 1, Math.Max(
-                (int)building->r_TilePositionXBegin, (int)building->r_TilePositionXEnd));
+                (int)building->r_TilePositionXBegin, (int)building->r_AccessTilePositionX));
             int minY = Math.Max(0, Math.Min(
-                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
+                (int)building->r_TilePositionYBegin, (int)building->r_AccessTilePositionY));
             int maxY = Math.Min(MapWidth - 1, Math.Max(
-                (int)building->r_TilePositionYBegin, (int)building->r_TilePositionYEnd));
+                (int)building->r_TilePositionYBegin, (int)building->r_AccessTilePositionY));
             for (int y = minY; y <= maxY; y++)
             {
                 for (int x = minX; x <= maxX; x++)
@@ -7653,10 +7651,10 @@ namespace BugfixesAndQoL
                 return false;
             }
 
-            int minX = Math.Min(building->r_TilePositionXBegin, building->r_TilePositionXEnd);
-            int maxX = Math.Max(building->r_TilePositionXBegin, building->r_TilePositionXEnd);
-            int minY = Math.Min(building->r_TilePositionYBegin, building->r_TilePositionYEnd);
-            int maxY = Math.Max(building->r_TilePositionYBegin, building->r_TilePositionYEnd);
+            int minX = Math.Min(building->r_TilePositionXBegin, building->r_AccessTilePositionX);
+            int maxX = Math.Max(building->r_TilePositionXBegin, building->r_AccessTilePositionX);
+            int minY = Math.Min(building->r_TilePositionYBegin, building->r_AccessTilePositionY);
+            int maxY = Math.Max(building->r_TilePositionYBegin, building->r_AccessTilePositionY);
             minX = Math.Max(0, minX - 1);
             minY = Math.Max(0, minY - 1);
             maxX = Math.Min(MapWidth - 1, maxX + 1);

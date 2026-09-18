@@ -1,6 +1,7 @@
 using BepInEx.Logging;
 using BepInEx.Bootstrap;
 using AIVParser.Core;
+using AivRotation = AIVParser.Core.AivRotation;
 using R3;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
@@ -122,6 +123,7 @@ namespace CastlePlanner
         private readonly ManualLogSource log;
         private readonly CastlePlannerSettingsViewModel settings;
         private readonly FreeCastlePreviewRuntime preview;
+        private readonly FixesKeepRotationCompatibility fixesKeepRotation;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
 
         private AllocateSpecDelegate allocateSpec;
@@ -143,6 +145,8 @@ namespace CastlePlanner
         private bool handledCurrentMap;
         private readonly Dictionary<int, PendingAivImport> pendingAivImports =
             new Dictionary<int, PendingAivImport>();
+        private readonly Dictionary<int, int> pendingKeepRotations =
+            new Dictionary<int, int>();
         private readonly Dictionary<int, PreparedAivCastle> preparedAivCastles =
             new Dictionary<int, PreparedAivCastle>();
         private readonly Dictionary<int, PreparedAivCastle> executedAivCastles =
@@ -174,6 +178,9 @@ namespace CastlePlanner
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.preview = preview ?? throw new ArgumentNullException(nameof(preview));
+            fixesKeepRotation = new FixesKeepRotationCompatibility(log);
+            preview.RestartCompatibilityValidator =
+                fixesKeepRotation.Validate;
         }
 
         public void Install(CrusaderLibraryLoadContext context, bool referenceHashMatches)
@@ -240,7 +247,9 @@ namespace CastlePlanner
 
         private void ClearMapSpawnState()
         {
+            fixesKeepRotation.Restore("map-state-clear");
             pendingAivImports.Clear();
+            pendingKeepRotations.Clear();
             preparedAivCastles.Clear();
             executedAivCastles.Clear();
             expectedAivCastlePlayers.Clear();
@@ -264,28 +273,28 @@ namespace CastlePlanner
                 $"keepPreSpawns={preparedAivCastles.Count}, " +
                 $"keepPostSpawns={executedAivCastles.Count}.");
 
-            GameModeSnapshot gameMode = CaptureGameMode(args);
-            LogGameModeDiagnostics(gameMode);
-
-            if (handledCurrentMap)
-            {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "OnStartMap(Post) ignored because this map was already handled or is a loaded savegame.");
-                return;
-            }
-
-            handledCurrentMap = true;
-            if (!preview.IsSpawnMapPass)
-            {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Native castle spawning skipped because this is not the committed restart pass.");
-                return;
-            }
-
             try
             {
+                GameModeSnapshot gameMode = CaptureGameMode(args);
+                LogGameModeDiagnostics(gameMode);
+
+                if (handledCurrentMap)
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        "OnStartMap(Post) ignored because this map was already handled or is a loaded savegame.");
+                    return;
+                }
+
+                handledCurrentMap = true;
+                if (!preview.IsSpawnMapPass)
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        "Native castle spawning skipped because this is not the committed restart pass.");
+                    return;
+                }
+
                 EnsureSupportedGameMode(gameMode);
                 Shared.DebugLogHelper.LogInfo(
                     log,
@@ -299,13 +308,14 @@ namespace CastlePlanner
                     $"realNetworkGameMembers={gameMode.RealNetworkGameMemberCount}.");
 
                 int pendingCount = pendingAivImports.Count;
+                int pendingKeepRotationCount = pendingKeepRotations.Count;
                 int preparedCount = preparedAivCastles.Count;
                 int executedCount = executedAivCastles.Count;
                 int[] expectedPlayers = expectedAivCastlePlayers.OrderBy(id => id).ToArray();
                 int[] executedPlayers = executedAivCastles.Keys.OrderBy(id => id).ToArray();
                 int[] failedPlayers = failedAivCastlePlayers.OrderBy(id => id).ToArray();
                 if (!string.IsNullOrEmpty(spawnPlanFailure) ||
-                    pendingCount != 0 || preparedCount != 0 ||
+                    pendingCount != 0 || pendingKeepRotationCount != 0 || preparedCount != 0 ||
                     !expectedPlayers.Except(failedPlayers).SequenceEqual(executedPlayers))
                 {
                     Shared.DebugLogHelper.LogWarning(
@@ -314,6 +324,7 @@ namespace CastlePlanner
                         $"expected=[{string.Join(",", expectedPlayers)}], " +
                         $"executed=[{string.Join(",", executedPlayers)}], " +
                         $"failed=[{string.Join(",", failedPlayers)}], pending={pendingCount}, " +
+                        $"pendingKeepRotations={pendingKeepRotationCount}, " +
                         $"prepared={preparedCount}, executedCount={executedCount}, " +
                         $"preImportFailure='{spawnPlanFailure}'.");
                 }
@@ -355,7 +366,14 @@ namespace CastlePlanner
 
                 // Parse and encode every file before the first native mutation. A single
                 // malformed AIV therefore aborts the whole transaction without partial imports.
-                List<PendingAivImport> preparedImports = requests
+                fixesKeepRotation.Apply(requests);
+                foreach (FreeCastleSelection request in requests)
+                    pendingKeepRotations.Add(request.PlayerId, request.Rotation);
+
+                List<FreeCastleSelection> castleRequests = requests
+                    .Where(request => request.HasCastle)
+                    .ToList();
+                List<PendingAivImport> preparedImports = castleRequests
                     .Select(request =>
                     {
                         AivSpawnOptions options = settings.GetSpawnOptions(request.PlayerId);
@@ -366,24 +384,27 @@ namespace CastlePlanner
                         return PreparePlayerImport(request, options);
                     })
                     .ToList();
-                foreach (FreeCastleSelection request in requests)
+                foreach (FreeCastleSelection request in castleRequests)
                     expectedAivCastlePlayers.Add(request.PlayerId);
                 // Validate every native candidate slot before the first import so
                 // an unavailable table cannot leave a partially imported set.
-                foreach (FreeCastleSelection request in requests)
+                foreach (FreeCastleSelection request in castleRequests)
                     CaptureImportedCandidates(request.PlayerId - 1);
-                for (int index = 0; index < requests.Count; index++)
-                    ImportPlayerCastle(requests[index], preparedImports[index]);
+                for (int index = 0; index < castleRequests.Count; index++)
+                    ImportPlayerCastle(castleRequests[index], preparedImports[index]);
 
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     $"Native AIV pre-import transaction completed: " +
                     $"humanPlayers=[{string.Join(",", humanPlayerIds)}], " +
-                    $"selectedPlayers=[{string.Join(",", requests.Select(request => request.PlayerId))}].");
+                    $"selectedPlayers=[{string.Join(",", requests.Select(request => request.PlayerId))}], " +
+                    $"castlePlayers=[{string.Join(",", castleRequests.Select(request => request.PlayerId))}].");
             }
             catch (Exception ex)
             {
                 pendingAivImports.Clear();
+                pendingKeepRotations.Clear();
+                fixesKeepRotation.Restore("pre-import-failure");
                 preparedAivCastles.Clear();
                 executedAivCastles.Clear();
                 foreach (int playerId in expectedAivCastlePlayers)
@@ -605,7 +626,7 @@ namespace CastlePlanner
                 components.Add(
                     $"{spanIndex + 1}:{building.r_BuildingType}:" +
                     $"({building.r_TilePositionXBegin},{building.r_TilePositionYBegin})-" +
-                    $"({building.r_TilePositionXEnd},{building.r_TilePositionYEnd}):" +
+                    $"({building.r_AccessTilePositionX},{building.r_AccessTilePositionY}):" +
                     $"tile={building.r_TileIdBegin}:global={building.r_GlobalId}");
             }
 
@@ -1698,9 +1719,21 @@ namespace CastlePlanner
 
             X64SmartCPUContext* registers = context.Pointer;
             int playerId = unchecked((int)registers->RSI);
-            if (!pendingAivImports.TryGetValue(playerId, out PendingAivImport imported) ||
+            if (!pendingKeepRotations.TryGetValue(playerId, out int rotation) ||
                 preparedAivCastles.ContainsKey(playerId))
             {
+                return;
+            }
+
+            pendingKeepRotations.Remove(playerId);
+            if (!pendingAivImports.TryGetValue(playerId, out PendingAivImport imported))
+            {
+                *(int*)(registers->RSP + 0x30) = rotation;
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"Vanilla human Keep rotation prepared without an AIV castle: " +
+                    $"playerId={playerId}, orientation={rotation} " +
+                    $"({DescribeOrientation(rotation)}).");
                 return;
             }
 
@@ -1899,7 +1932,7 @@ namespace CastlePlanner
                     "The native AIV candidate table only contains eight player slots.");
             }
 
-            ulong tableVirtualAddress = GameGlobalsManager.Instance.AIVDataTableVA;
+            ulong tableVirtualAddress = GameGlobalsManager.Instance.AIVImportedVariantsVA;
             if (tableVirtualAddress == 0)
             {
                 throw new InvalidOperationException(
@@ -2143,7 +2176,7 @@ namespace CastlePlanner
                     $"buildingId={spanIndex + 1}, globalId={building.r_GlobalId}, " +
                     $"type={building.r_BuildingType}, aliveState={building.r_AliveState}, " +
                     $"tiles=({building.r_TilePositionXBegin},{building.r_TilePositionYBegin})-" +
-                    $"({building.r_TilePositionXEnd},{building.r_TilePositionYEnd}), " +
+                    $"({building.r_AccessTilePositionX},{building.r_AccessTilePositionY}), " +
                     $"gridSize={building.r_OccupyTileGridSize}, " +
                     $"height={building.r_HeightElevation}, " +
                     $"spritePlayerColorId={building.r_SpritePlayerColorId}, " +

@@ -3,13 +3,25 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.153",
+  "Version": "1.0.154",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.6.0",
   "MaximumScriptExtenderVersion": "",
+  "Dependencies": [
+    {
+      "GUID": "000shcdese",
+      "MinimumVersion": "2.6.0"
+    }
+  ],
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.154",
+      "Changes": [
+        "Kept synchronized movement cadence discovery stable when Fixes patches unit-selection slowdown first."
+      ]
+    },
     {
       "Version": "1.0.153",
       "Changes": [

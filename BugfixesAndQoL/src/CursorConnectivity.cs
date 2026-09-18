@@ -382,10 +382,10 @@ namespace BugfixesAndQoL
         private void DirtyCursorBuilding(int id)
         {
             if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(id, out GameBuilding* building) || building == null) return;
-            int minX = Math.Max(0, Math.Min(building->r_TilePositionXBegin, building->r_TilePositionXEnd) - 2);
-            int maxX = Math.Min(MapWidth - 1, Math.Max(building->r_TilePositionXBegin, building->r_TilePositionXEnd) + 2);
-            int minY = Math.Max(0, Math.Min(building->r_TilePositionYBegin, building->r_TilePositionYEnd) - 2);
-            int maxY = Math.Min(MapWidth - 1, Math.Max(building->r_TilePositionYBegin, building->r_TilePositionYEnd) + 2);
+            int minX = Math.Max(0, Math.Min(building->r_TilePositionXBegin, building->r_AccessTilePositionX) - 2);
+            int maxX = Math.Min(MapWidth - 1, Math.Max(building->r_TilePositionXBegin, building->r_AccessTilePositionX) + 2);
+            int minY = Math.Max(0, Math.Min(building->r_TilePositionYBegin, building->r_AccessTilePositionY) - 2);
+            int maxY = Math.Min(MapWidth - 1, Math.Max(building->r_TilePositionYBegin, building->r_AccessTilePositionY) + 2);
             for (int y = minY; y <= maxY; y++) for (int x = minX; x <= maxX; x++)
             {
                 int tile = GameTileManagerAPI.Instance.GetTileId(x, y);

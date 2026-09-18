@@ -167,8 +167,8 @@ namespace BugfixesAndQoL
             // Despite their public names, Vanilla writes the selected entrance coordinates
             // to these two fields immediately before returning accessibility result 2.
             GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
-            int x = building->r_TilePositionXEnd;
-            int y = building->r_TilePositionYEnd;
+            int x = building->r_AccessTilePositionX;
+            int y = building->r_AccessTilePositionY;
             if (!tiles.IsTileInsideMapBounds(x, y))
             {
                 pcl = 0;

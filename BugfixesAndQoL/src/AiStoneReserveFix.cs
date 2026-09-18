@@ -53,7 +53,7 @@ namespace BugfixesAndQoL
                 log: null);
             ValidateAivNativeLayout(memory, referenceHashMatches);
 
-            ulong tableAddress = GameGlobalsManager.Instance.AIVCastleLayoutTableRVA;
+            ulong tableAddress = GameGlobalsManager.Instance.AIVSystemVA;
             ulong libraryEnd = checked(libraryBase + unchecked((ulong)memory.Length));
             ulong tableEnd = checked(
                 tableAddress +

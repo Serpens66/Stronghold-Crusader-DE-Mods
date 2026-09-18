@@ -44,6 +44,7 @@ namespace BugfixesAndQoL
             TestSynchronizedGatehouseReachabilityPolicy();
             TestMovementFastPathParity();
             TestMovementLoggingState();
+            TestMovementHandlerSnapshotIsolation();
             TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
@@ -1301,8 +1302,8 @@ namespace BugfixesAndQoL
             Check(managedContractMatches,
                 "resolution-aware zoom reflection targets match the installed Vanilla managed contract");
             Check(typeof(SHCDESE.API.GamePlayerManagerAPI).Assembly.GetName().Version ==
-                    new Version(2, 6, 0, 0),
-                "resolution-aware zoom is tested against installed Script Extender 2.6.0");
+                    new Version(2, 7, 0, 0),
+                "resolution-aware zoom is tested against installed Script Extender 2.7.0");
             Check(viewModel.Contains("public bool EnableResolutionAwareExtendedZoom") &&
                     viewModel.Contains("new LocalPerPlayerSetting<bool>(true)"),
                 "resolution-aware zoom is a default-on per-player setting");
@@ -2971,6 +2972,58 @@ namespace BugfixesAndQoL
                 "fast recruit rally help text documents the human-only behavior");
         }
 
+        private static void TestMovementHandlerSnapshotIsolation()
+        {
+            const ulong libraryBase = 0x180000000;
+            var snapshot = new byte[]
+            {
+                0x10, 0x11, 0x12, 0x13,
+                0x20, 0x21, 0x22, 0x23,
+                0x30, 0x31, 0x32, 0x33
+            };
+            byte[] liveMemory = (byte[])snapshot.Clone();
+            liveMemory[4] = 0x90;
+            liveMemory[5] = 0x90;
+            liveMemory[6] = 0x90;
+            liveMemory[7] = 0x90;
+
+            byte[] copied = NativeHandlerSnapshot.Copy(
+                snapshot,
+                libraryBase + 4,
+                4,
+                libraryBase);
+            Check(copied.SequenceEqual(new byte[] { 0x20, 0x21, 0x22, 0x23 }) &&
+                    !copied.SequenceEqual(liveMemory.Skip(4).Take(4)),
+                "movement handler decoding uses the pristine load-time snapshot instead of patched live bytes");
+
+            bool rejected = false;
+            try
+            {
+                NativeHandlerSnapshot.Copy(
+                    snapshot,
+                    libraryBase + 10,
+                    4,
+                    libraryBase);
+            }
+            catch (InvalidOperationException)
+            {
+                rejected = true;
+            }
+            Check(rejected,
+                "movement handler snapshot rejects ranges outside the native module");
+
+            string plugin = File.ReadAllText(Path.Combine(
+                "src", "BugfixesAndQoLPlugin.cs"));
+            string manifest = File.ReadAllText("info.json");
+            Check(plugin.Contains(
+                    "BepInDependency(\"fixes\", BepInDependency.DependencyFlags.SoftDependency)"),
+                "BugfixesAndQoL loads after Fixes when the optional mod is installed");
+            Check(manifest.Contains("\"GUID\": \"000shcdese\"") &&
+                    manifest.Contains("\"MinimumVersion\": \"2.6.0\"") &&
+                    !manifest.Contains("\"GUID\": \"fixes\""),
+                "BugfixesAndQoL manifest keeps Fixes optional while requiring Script Extender 2.6.0");
+        }
+
         private static void TestMovementFastPathParity()
         {
             List<string> parityFailures = MovementFastPathParityHarness.Run();
@@ -3361,11 +3414,11 @@ namespace BugfixesAndQoL
                 "AI accessibility hook replaces the woodcutter counter hook with the audited general sweep decision");
             Check(hook.Contains("registers->RSI") && hook.Contains("registers->R14") &&
                     hook.Contains("registers->RAX = unchecked((uint)effectiveResult)") &&
-                    hook.Contains("nameof(GameBuilding.r_TilePositionXEnd), 0xFE") &&
+                    hook.Contains("nameof(GameBuilding.r_AccessTilePositionX), 0xFE") &&
                     hook.Contains("nameof(GamePlayerResources.r_KeepTileId), 0xA0"),
                 "AI accessibility hook uses the audited register and managed-layout contracts");
-            Check(classifier.Contains("r_TilePositionXEnd") &&
-                    classifier.Contains("r_TilePositionYEnd") &&
+            Check(classifier.Contains("r_AccessTilePositionX") &&
+                    classifier.Contains("r_AccessTilePositionY") &&
                     classifier.Contains("r_KeepTileId") &&
                     classifier.Contains("PortalThirdPclOffsetDwords = 0x883") &&
                     classifier.Contains("IsPlayerAlliedTo") &&
@@ -3722,8 +3775,8 @@ namespace BugfixesAndQoL
                     Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_BuildingType)).ToInt32() == 0xD2 &&
                     Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_PlayerIdOwner)).ToInt32() == 0xD6 &&
                     Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_GlobalId)).ToInt32() == 0xD8 &&
-                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionXEnd)).ToInt32() == 0xFE &&
-                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_TilePositionYEnd)).ToInt32() == 0x100 &&
+                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionX)).ToInt32() == 0xFE &&
+                    Marshal.OffsetOf(typeof(GameBuilding), nameof(GameBuilding.r_AccessTilePositionY)).ToInt32() == 0x100 &&
                     Marshal.OffsetOf(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId)).ToInt32() == 0xA0,
                 "AI accessibility managed building and player-resource offsets match the native contract");
             Check(image.CountNearCalls(DispatcherRva, DispatcherSize, FindRva) >= 2 &&

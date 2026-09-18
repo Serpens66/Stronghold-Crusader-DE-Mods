@@ -780,6 +780,7 @@ namespace CastlePlanner
                 short[] raw = AivRawDataEncoder.Encode(AivJsonReader.Parse(json));
                 selection = new FreeCastleSelection
                 {
+                    Mode = FreeCastleSelectionMode.Castle,
                     PlayerId = playerId,
                     Rotation = rotation,
                     SpawnBraziersAndFlags = SpawnBraziersAndFlags,

@@ -9,6 +9,13 @@ using System.Text;
 
 namespace CastlePlanner
 {
+    internal enum FreeCastleSelectionMode : byte
+    {
+        Nothing = 0,
+        RotateKeepOnly = 1,
+        Castle = 2
+    }
+
     internal enum FreeCastlePacketKind
     {
         PreviewReady = 1,
@@ -81,6 +88,8 @@ namespace CastlePlanner
             {
                 if (selection == null || selection.PlayerId != playerId)
                     continue;
+                if (selection.Mode == FreeCastleSelectionMode.Nothing)
+                    return false;
                 if (selection.Rotation != 0 && selection.Rotation != 2 &&
                     selection.Rotation != 4 && selection.Rotation != 6)
                 {
@@ -190,6 +199,7 @@ namespace CastlePlanner
 
     internal sealed class FreeCastleSelection
     {
+        public FreeCastleSelectionMode Mode;
         public int PlayerId;
         public int Rotation;
         public bool SpawnBraziersAndFlags;
@@ -198,10 +208,11 @@ namespace CastlePlanner
         public string ContentHash = string.Empty;
         public short[] RawData = Array.Empty<short>();
 
-        public bool HasCastle => RawData != null && RawData.Length > 0;
+        public bool HasCastle => Mode == FreeCastleSelectionMode.Castle;
 
         public FreeCastleSelection Clone() => new FreeCastleSelection
         {
+            Mode = Mode,
             PlayerId = PlayerId,
             Rotation = Rotation,
             SpawnBraziersAndFlags = SpawnBraziersAndFlags,
@@ -214,7 +225,7 @@ namespace CastlePlanner
 
     internal static class FreeCastleProtocol
     {
-        internal const int ProtocolVersion = 4;
+        internal const int ProtocolVersion = 5;
         internal const int PreviewTimeoutSeconds = 120;
         internal const int MaximumChunkBytes = 24 * 1024;
         internal const int MaximumUncompressedBytes = 8 * 1024 * 1024;
@@ -243,6 +254,7 @@ namespace CastlePlanner
                         throw new InvalidDataException(
                             "Free-castle selections are not in unique player order.");
                     previousPlayerId = selection.PlayerId;
+                    writer.Write((byte)selection.Mode);
                     writer.Write(selection.PlayerId);
                     writer.Write(selection.Rotation);
                     writer.Write(selection.SpawnBraziersAndFlags);
@@ -285,6 +297,8 @@ namespace CastlePlanner
                 int previousPlayerId = 0;
                 for (int index = 0; index < count; index++)
                 {
+                    FreeCastleSelectionMode mode =
+                        (FreeCastleSelectionMode)reader.ReadByte();
                     int playerId = reader.ReadInt32();
                     int rotation = reader.ReadInt32();
                     bool spawnBraziersAndFlags = reader.ReadBoolean();
@@ -299,13 +313,16 @@ namespace CastlePlanner
 
                     var selection = new FreeCastleSelection
                     {
+                        Mode = mode,
                         PlayerId = playerId,
                         Rotation = rotation,
                         SpawnBraziersAndFlags = spawnBraziersAndFlags,
                         FlagProjectileType = flagProjectileType,
                         DisplayName = displayName,
                         RawData = raw,
-                        ContentHash = HashSelectionContent(raw, flagProjectileType)
+                        ContentHash = mode == FreeCastleSelectionMode.Castle
+                            ? HashSelectionContent(raw, flagProjectileType)
+                            : string.Empty
                     };
                     ValidateSelection(selection);
                     if (playerId <= previousPlayerId)
@@ -416,6 +433,12 @@ namespace CastlePlanner
         {
             if (selection == null || selection.PlayerId < 1 || selection.PlayerId > 8)
                 throw new InvalidDataException("Invalid selected player ID.");
+            if (selection.Mode != FreeCastleSelectionMode.Nothing &&
+                selection.Mode != FreeCastleSelectionMode.RotateKeepOnly &&
+                selection.Mode != FreeCastleSelectionMode.Castle)
+            {
+                throw new InvalidDataException("Invalid castle selection mode.");
+            }
             if (selection.Rotation != 0 && selection.Rotation != 2 &&
                 selection.Rotation != 4 && selection.Rotation != 6)
             {
@@ -426,7 +449,28 @@ namespace CastlePlanner
             {
                 throw new InvalidDataException("Invalid castle display name.");
             }
-            if (selection.RawData == null || selection.RawData.Length == 0)
+            if (selection.RawData == null)
+                throw new InvalidDataException("Selected castle has null AIV data.");
+            if (selection.Mode != FreeCastleSelectionMode.Castle)
+            {
+                if (selection.RawData.Length != 0 ||
+                    selection.DisplayName.Length != 0 ||
+                    selection.SpawnBraziersAndFlags ||
+                    selection.FlagProjectileType != 0 ||
+                    !string.IsNullOrEmpty(selection.ContentHash))
+                {
+                    throw new InvalidDataException(
+                        "Non-castle selection contains castle data.");
+                }
+                if (selection.Mode == FreeCastleSelectionMode.Nothing &&
+                    selection.Rotation != 0)
+                {
+                    throw new InvalidDataException(
+                        "Nothing selection contains a castle rotation.");
+                }
+                return;
+            }
+            if (selection.RawData.Length == 0)
                 throw new InvalidDataException("Selected castle has no AIV data.");
             string hash = HashSelectionContent(
                 selection.RawData,

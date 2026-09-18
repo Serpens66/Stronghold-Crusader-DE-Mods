@@ -1,4 +1,5 @@
 using AIVParser.Core;
+using AivRotation = AIVParser.Core.AivRotation;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;

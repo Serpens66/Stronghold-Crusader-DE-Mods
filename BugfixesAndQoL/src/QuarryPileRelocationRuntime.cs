@@ -1074,8 +1074,8 @@ namespace BugfixesAndQoL
                     isCurrentPosition: false));
             }
 
-            int keepCenterXTimesTwo = keep->r_TilePositionXBegin + keep->r_TilePositionXEnd;
-            int keepCenterYTimesTwo = keep->r_TilePositionYBegin + keep->r_TilePositionYEnd;
+            int keepCenterXTimesTwo = keep->r_TilePositionXBegin + keep->r_AccessTilePositionX;
+            int keepCenterYTimesTwo = keep->r_TilePositionYBegin + keep->r_AccessTilePositionY;
             if (!QuarryPileTargetSelectionPolicy.TrySelectNearestAtPlacementTry(
                 candidates,
                 VanillaMinimumPlacementTry,

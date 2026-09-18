@@ -103,7 +103,7 @@ namespace CastlePlanner
             preview.RotationChoices;
         public bool CanConfirmCastle => preview.CanConfirm;
         public bool CanSelectCastle => !PreviewVisible || preview.CanConfirm;
-        public bool CanSelectRotation => preview.CanConfirm && preview.HasSelectedCastle;
+        public bool CanSelectRotation => preview.CanConfirm && preview.HasRotatableSelection;
         public double PanelWidth => ClampPanelExtent(
             DesiredPanelWidth,
             viewportWidth);
@@ -127,10 +127,7 @@ namespace CastlePlanner
                 string option = PreviewVisible
                     ? preview.SelectedChoice
                     : settings.SelectedCastle;
-                return PreviewVisible && string.Equals(
-                    option,
-                    preview.NoneText,
-                    StringComparison.Ordinal)
+                return PreviewVisible && IsPreviewSpecialChoice(option)
                     ? option
                     : settings.GetCastleDisplayName(option);
             }
@@ -138,12 +135,9 @@ namespace CastlePlanner
             {
                 if (PreviewVisible)
                 {
-                    if (string.Equals(
-                            value,
-                            preview.NoneText,
-                            StringComparison.Ordinal))
+                    if (IsPreviewSpecialChoice(value))
                     {
-                        preview.SelectedChoice = preview.NoneText;
+                        preview.SelectedChoice = value;
                     }
                     else if (settings.TryResolveCastleDisplayName(
                         value,
@@ -1247,6 +1241,7 @@ namespace CastlePlanner
                     RefreshCastleOptionsFilter();
                     break;
                 case nameof(FreeCastlePreviewRuntime.HasSelectedCastle):
+                case nameof(FreeCastlePreviewRuntime.HasRotatableSelection):
                     OnPropertyChanged(nameof(CanSelectRotation));
                     break;
                 case nameof(FreeCastlePreviewRuntime.SelectedRotation):
@@ -1263,10 +1258,7 @@ namespace CastlePlanner
             var matches = new System.Collections.Generic.List<string>();
             foreach (string option in source)
             {
-                string displayName = PreviewVisible && string.Equals(
-                    option,
-                    preview.NoneText,
-                    StringComparison.Ordinal)
+                string displayName = PreviewVisible && IsPreviewSpecialChoice(option)
                     ? option
                     : settings.GetCastleDisplayName(option);
                 if (BlueprintSearchPolicy.Matches(displayName, castleSearchText))
@@ -1275,6 +1267,10 @@ namespace CastlePlanner
 
             filteredCastleOptions.ReplaceWith(matches);
         }
+
+        private bool IsPreviewSpecialChoice(string value) =>
+            string.Equals(value, preview.NothingText, StringComparison.Ordinal) ||
+            string.Equals(value, preview.KeepOnlyText, StringComparison.Ordinal);
 
         private bool SetField(
             ref bool field,

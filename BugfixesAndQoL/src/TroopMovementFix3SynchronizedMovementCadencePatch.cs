@@ -1345,6 +1345,7 @@ namespace BugfixesAndQoL
                         checked((int)(handlerEnd - handlerStart));
                     animationTransitions =
                         TryExtractIndividualFastMovementCadence(
+                            memory,
                             handlerStart,
                             handlerLength,
                             libraryBase,
@@ -1438,14 +1439,17 @@ namespace BugfixesAndQoL
         }
 
         private AnimationTransitions TryExtractIndividualFastMovementCadence(
+            ReadOnlySpan<byte> memory,
             ulong handlerStart,
             int handlerLength,
             ulong libraryBase,
             ulong moduleEnd)
         {
-            byte[] codeBytes = new ReadOnlySpan<byte>(
-                (byte*)handlerStart,
-                handlerLength).ToArray();
+            byte[] codeBytes = NativeHandlerSnapshot.Copy(
+                memory,
+                handlerStart,
+                handlerLength,
+                libraryBase);
             Decoder decoder = Decoder.Create(
                 64,
                 new ByteArrayCodeReader(codeBytes));

@@ -232,6 +232,7 @@
     <Compile Include="src\ExtraFeaturesFlagBridge.cs" />
     <Compile Include="src\FreeCastleProtocol.cs" />
     <Compile Include="src\FreeCastlePreviewRuntime.cs" />
+    <Compile Include="src\FixesKeepRotationCompatibility.cs" />
     <Compile Include="src\CastlePlannerRuntime.cs" />
     <Compile Include="src\CastlePlannerSettingsViewModel.cs" />
   </ItemGroup>

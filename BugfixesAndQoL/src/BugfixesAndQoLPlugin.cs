@@ -13,6 +13,7 @@ namespace BugfixesAndQoL
     [BepInDependency(ApiSharedGuid, "0.3.6")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInIncompatibility(LegacyTroopMovementFixGuid)]
     [BepInIncompatibility(TroopMovementFix2Guid)]
     [BepInIncompatibility(TroopMovementFix3Guid)]
@@ -34,7 +35,7 @@ namespace BugfixesAndQoL
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.153";
+        public const string PluginVersion = "1.0.154";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static ResolutionAwareZoomHook resolutionAwareZoomHook;

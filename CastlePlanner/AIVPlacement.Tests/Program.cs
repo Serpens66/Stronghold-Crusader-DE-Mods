@@ -1,4 +1,5 @@
 using AIVParser.Core;
+using AivRotation = AIVParser.Core.AivRotation;
 using AIVPlacement.Core;
 using CastlePlanner;
 using CastlePlanner.AIVPlacement.Core;
@@ -58,6 +59,8 @@ internal static class Program
             ("randomizes every complete tie", FindsEveryCompleteTie),
             ("randomizes every highest partial score tie", FindsEveryHighestPartialScoreTie),
             ("roundtrips strict native AIV spawn data", RoundtripsStrictNativeSpawnData),
+            ("roundtrips nothing, keep-only and castle decisions", RoundtripsFreeCastleDecisions),
+            ("rejects invalid free-castle decisions", RejectsInvalidFreeCastleDecisions),
             ("roundtrips Vanilla no-op AIV frames", RoundtripsVanillaNoOpFrames),
             ("accepts native Int16 AIV frame counts", AcceptsNativeInt16FrameCounts),
             ("resolves LordJSON flag types deterministically", ResolvesLordJsonFlagTypesDeterministically),
@@ -79,6 +82,7 @@ internal static class Program
             ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
             ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder),
             ("preserves the Vanilla Blueprint HUD interaction contract", PreservesVanillaBlueprintHudContract),
+            ("exposes nothing and keep-only start choices", ExposesKeepOnlyStartChoices),
             ("coalesces synchronization-context packet dispatch in FIFO order", CoalescesSynchronizationContextPacketDispatch),
             ("marshals free-castle packets before protocol handling", MarshalsFreeCastlePacketsBeforeProtocolHandling),
             ("validates the installed RedBird overwrite span", ValidatesInstalledRedBirdOverwriteSpan),
@@ -216,6 +220,130 @@ internal static class Program
         Equal(AivRotation.Degrees90, fixture.Build(slot: Slot(rotationIndex: 2)).InitialRotation);
         Equal(AivRotation.Degrees180, fixture.Build(slot: Slot(rotationIndex: 3)).InitialRotation);
         Equal(AivRotation.Degrees270, fixture.Build(slot: Slot(rotationIndex: 4)).InitialRotation);
+    }
+
+    private static void RoundtripsFreeCastleDecisions()
+    {
+        var castle = new FreeCastleSelection
+        {
+            Mode = FreeCastleSelectionMode.Castle,
+            PlayerId = 2,
+            Rotation = 6,
+            SpawnBraziersAndFlags = true,
+            FlagProjectileType = 14,
+            DisplayName = "Test castle",
+            RawData = new short[] { 1, 2, 3 }
+        };
+        castle.ContentHash = FreeCastleProtocol.HashSelectionContent(
+            castle.RawData,
+            castle.FlagProjectileType);
+        var keepOnly = new FreeCastleSelection
+        {
+            Mode = FreeCastleSelectionMode.RotateKeepOnly,
+            PlayerId = 1,
+            Rotation = 2
+        };
+        var nothing = new FreeCastleSelection
+        {
+            Mode = FreeCastleSelectionMode.Nothing,
+            PlayerId = 3,
+            Rotation = 0
+        };
+
+        List<FreeCastleSelection> decoded = FreeCastleProtocol.DecodeSelections(
+            FreeCastleProtocol.EncodeSelections(new[] { nothing, castle, keepOnly }));
+        Equal(3, decoded.Count);
+        Equal(FreeCastleSelectionMode.RotateKeepOnly, decoded[0].Mode);
+        Equal(1, decoded[0].PlayerId);
+        Equal(2, decoded[0].Rotation);
+        Assert(!decoded[0].HasCastle && decoded[0].RawData.Length == 0,
+            "keep-only decision acquired castle data");
+        Equal(FreeCastleSelectionMode.Castle, decoded[1].Mode);
+        Equal(2, decoded[1].PlayerId);
+        Equal(6, decoded[1].Rotation);
+        Assert(decoded[1].HasCastle && decoded[1].RawData.SequenceEqual(castle.RawData),
+            "castle decision lost AIV data");
+        Equal(FreeCastleSelectionMode.Nothing, decoded[2].Mode);
+        Equal(3, decoded[2].PlayerId);
+        Equal(0, decoded[2].Rotation);
+        Assert(!decoded[2].HasCastle && decoded[2].RawData.Length == 0,
+            "nothing decision acquired CastlePlanner data");
+
+        foreach (int rotation in new[] { 0, 2, 4, 6 })
+        {
+            var rotatedKeep = new FreeCastleSelection
+            {
+                Mode = FreeCastleSelectionMode.RotateKeepOnly,
+                PlayerId = 1,
+                Rotation = rotation
+            };
+            FreeCastleSelection roundtrip = FreeCastleProtocol.DecodeSelections(
+                FreeCastleProtocol.EncodeSelections(new[] { rotatedKeep })).Single();
+            Equal(rotation, roundtrip.Rotation);
+            Assert(!roundtrip.HasCastle && roundtrip.RawData.Length == 0,
+                $"keep-only rotation {rotation} acquired castle data");
+        }
+    }
+
+    private static void RejectsInvalidFreeCastleDecisions()
+    {
+        AssertThrows(() => FreeCastleProtocol.ValidateSelection(
+            new FreeCastleSelection
+            {
+                Mode = (FreeCastleSelectionMode)99,
+                PlayerId = 1,
+                Rotation = 0
+            }), "invalid selection mode accepted");
+        AssertThrows(() => FreeCastleProtocol.ValidateSelection(
+            new FreeCastleSelection
+            {
+                Mode = FreeCastleSelectionMode.RotateKeepOnly,
+                PlayerId = 1,
+                Rotation = 4,
+                RawData = new short[] { 1 }
+            }), "keep-only decision accepted AIV data");
+        AssertThrows(() => FreeCastleProtocol.ValidateSelection(
+            new FreeCastleSelection
+            {
+                Mode = FreeCastleSelectionMode.RotateKeepOnly,
+                PlayerId = 1,
+                Rotation = 3
+            }), "invalid keep-only rotation accepted");
+        AssertThrows(() => FreeCastleProtocol.ValidateSelection(
+            new FreeCastleSelection
+            {
+                Mode = FreeCastleSelectionMode.Nothing,
+                PlayerId = 1,
+                Rotation = 2
+            }), "nothing decision accepted a rotation");
+        AssertThrows(() => FreeCastleProtocol.EncodeSelections(new[]
+        {
+            new FreeCastleSelection
+            {
+                Mode = FreeCastleSelectionMode.RotateKeepOnly,
+                PlayerId = 1,
+                Rotation = 0
+            },
+            new FreeCastleSelection
+            {
+                Mode = FreeCastleSelectionMode.RotateKeepOnly,
+                PlayerId = 1,
+                Rotation = 2
+            }
+        }), "duplicate player decision accepted");
+    }
+
+    private static void AssertThrows(Action action, string message)
+    {
+        try
+        {
+            action();
+        }
+        catch
+        {
+            return;
+        }
+        throw new InvalidOperationException(message);
     }
 
     private static void ResolvesMapFacingRotations()
@@ -534,6 +662,43 @@ internal static class Program
         }
     }
 
+    private static void ExposesKeepOnlyStartChoices()
+    {
+        string root = FindCastlePlannerRoot();
+        string preview = File.ReadAllText(Path.Combine(
+            root, "src", "FreeCastlePreviewRuntime.cs"));
+        string hud = File.ReadAllText(Path.Combine(
+            root, "src", "BlueprintHudViewModel.cs"));
+        string runtime = File.ReadAllText(Path.Combine(
+            root, "src", "CastlePlannerRuntime.cs"));
+        string fixesCompatibility = File.ReadAllText(Path.Combine(
+            root, "src", "FixesKeepRotationCompatibility.cs"));
+        Assert(preview.Contains("new[] { NothingText, KeepOnlyText }", StringComparison.Ordinal) &&
+                preview.Contains("Mode = FreeCastleSelectionMode.RotateKeepOnly", StringComparison.Ordinal) &&
+                hud.Contains("preview.HasRotatableSelection", StringComparison.Ordinal),
+            "preview does not distinguish Nothing, keep-only and castle choices");
+        Assert(runtime.Contains("pendingKeepRotations", StringComparison.Ordinal) &&
+                runtime.Contains("registers->RSP + 0x30", StringComparison.Ordinal) &&
+                runtime.Contains("request.HasCastle", StringComparison.Ordinal),
+            "keep-only selection does not use the audited orientation-only start path");
+        Assert(fixesCompatibility.Contains("AllowCustomPlayerKeepRotations", StringComparison.Ordinal) &&
+                fixesCompatibility.Contains("PlayerKeepRotationData", StringComparison.Ordinal) &&
+                fixesCompatibility.Contains("originalValues", StringComparison.Ordinal) &&
+                runtime.Contains("fixesKeepRotation.Restore(\"pre-import-failure\")", StringComparison.Ordinal) &&
+                runtime.Contains("fixesKeepRotation.Restore(\"map-state-clear\")", StringComparison.Ordinal),
+            "Fixes keep rotations are not validated, temporarily aligned, and restored on every map path");
+
+        string localeDirectory = Path.Combine(
+            root, "BepInEx", "plugins", "CastlePlanner_Serp", "Locales");
+        foreach (string locale in Directory.GetFiles(localeDirectory, "*.txt"))
+        {
+            string text = File.ReadAllText(locale);
+            Assert(text.Contains("CastlePlanner.Preview.Nothing=", StringComparison.Ordinal) &&
+                    text.Contains("CastlePlanner.Preview.RotateKeepOnly=", StringComparison.Ordinal),
+                "keep-only localization is missing in " + Path.GetFileName(locale));
+        }
+    }
+
     private static void PinsCastlePlannerToManifestExtenderRange()
     {
         string root = FindCastlePlannerRoot();
@@ -550,6 +715,8 @@ internal static class Program
             .GetProperty("MinimumScriptExtenderVersion").GetString() ?? string.Empty;
         string maximumExtenderVersion = manifestJson.RootElement
             .GetProperty("MaximumScriptExtenderVersion").GetString() ?? string.Empty;
+        JsonElement dependency = manifestJson.RootElement
+            .GetProperty("Dependencies")[0];
 
         Assert(Version.TryParse(minimumExtenderVersion, out Version? minimum),
             "Manifest minimum Script Extender version is invalid");
@@ -558,6 +725,12 @@ internal static class Program
             "Manifest maximum Script Extender version is invalid or below the minimum");
         Assert(plugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")", StringComparison.Ordinal),
             "Script Extender dependency does not match the manifest minimum");
+        Assert(plugin.Contains("BepInDependency(\"fixes\", BepInDependency.DependencyFlags.SoftDependency)", StringComparison.Ordinal),
+            "CastlePlanner does not load after Fixes when the optional mod is installed");
+        Assert(dependency.GetProperty("GUID").GetString() == "000shcdese" &&
+                dependency.GetProperty("MinimumVersion").GetString() == minimumExtenderVersion &&
+                !manifest.Contains("\"GUID\": \"fixes\"", StringComparison.Ordinal),
+            "CastlePlanner manifest dependencies do not preserve optional Fixes integration");
         Assert(plugin.Contains("OnCrusaderLibraryLoaded(CrusaderLibraryLoadContext context)", StringComparison.Ordinal) &&
             plugin.Contains("runtime.Install(context, currentNativeLayout)", StringComparison.Ordinal),
             "CastlePlanner does not propagate the Script Extender load context");

@@ -19,8 +19,17 @@
     <Compile Include="..\..\Shared\DependencyFreeJson.cs" Link="Shared\DependencyFreeJson.cs" />
     <Compile Include="..\src\BlueprintHudPolicy.cs" Link="Blueprint\BlueprintHudPolicy.cs" />
     <Compile Include="..\src\CoalescedSynchronizationContextQueue.cs" Link="Protocol\CoalescedSynchronizationContextQueue.cs" />
+    <Compile Include="..\src\FreeCastleProtocol.cs" Link="Protocol\FreeCastleProtocol.cs" />
     <Reference Include="SHCDESE">
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\SHCDESE.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="MessagePack">
+      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="MessagePack.Annotations">
+      <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.Annotations.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>
