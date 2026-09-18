@@ -116,6 +116,7 @@ namespace BugfixesAndQoL
         private string selectedLordName = string.Empty;
         private string selectedDisplayName = string.Empty;
         private TextureSource selectedPortrait;
+        private IAivImportBackend aivImportBackend;
         private bool customSelectionActive;
         private bool initialized;
 
@@ -785,9 +786,10 @@ namespace BugfixesAndQoL
                 return;
             }
 
+            IAivImportBackend importBackend = GetAivImportBackend();
             for (int index = 0; index < info.aivs.Count; index++)
             {
-                if (!GameAIVManagerAPI.Instance.ImportAIV(
+                if (!importBackend.ImportAIV(
                         playerId - 1,
                         index,
                         info.aivs[index].data,
@@ -801,6 +803,17 @@ namespace BugfixesAndQoL
             }
             if (!info.builtInLord && info.lordConfig != null)
                 EngineInterface.setCustomLordConfig(ref info.lordConfig.lordData, playerId);
+        }
+
+        private IAivImportBackend GetAivImportBackend()
+        {
+            if (aivImportBackend == null)
+            {
+                aivImportBackend = ShcdeSeCoarseGridBufferWorkaround.CreateAivImportBackend(
+                    log,
+                    "Coop custom-lord selection");
+            }
+            return aivImportBackend;
         }
 
         private void InitCoopGameHook(ulong steamId, string userName, string coaString)

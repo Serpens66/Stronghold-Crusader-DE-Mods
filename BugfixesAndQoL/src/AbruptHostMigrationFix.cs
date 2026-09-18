@@ -2,6 +2,7 @@
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
 using SHCDESE.API;
+using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,7 +10,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    internal sealed class AbruptHostMigrationFix : IDisposable
+    internal sealed unsafe class AbruptHostMigrationFix : IDisposable
     {
         private delegate void KickPlayerFromGameDelegate(
             Platform_Multiplayer self,
@@ -46,6 +47,7 @@ namespace BugfixesAndQoL
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
         private readonly MethodInfo promoteNewHostMethod;
         private readonly HashSet<int> recoveryTargets = new HashSet<int>();
+        private readonly ResyncDiagnosticHistory resyncDiagnostics = new ResyncDiagnosticHistory();
         private Hook kickHook;
         private Hook sendChoresHook;
         private Hook startMultiplayerGameHook;
@@ -129,6 +131,12 @@ namespace BugfixesAndQoL
 
         internal void ResetMapState()
         {
+            ResetRecoveryState();
+            resyncDiagnostics.Reset();
+        }
+
+        private void ResetRecoveryState()
+        {
             recoveryPhase = RecoveryPhase.Idle;
             recoveryDeadlineUtc = DateTime.MinValue;
             recoveryBaseline = default;
@@ -201,7 +209,7 @@ namespace BugfixesAndQoL
 
             try
             {
-                LogOutgoingResyncChores(choreBuffer);
+                ObserveOutgoingResyncDiagnostics(choreBuffer);
                 ObserveRecoverySaveChores(choreBuffer);
             }
             catch (Exception ex)
@@ -212,32 +220,108 @@ namespace BugfixesAndQoL
             }
         }
 
-        private void LogOutgoingResyncChores(byte[] choreBuffer)
+        private void ObserveOutgoingResyncDiagnostics(byte[] choreBuffer)
         {
-            if (choreBuffer == null)
-                return;
-
-            int offset = 0;
-            for (int recordCount = 0; recordCount < 10000; recordCount++)
+            int tick = GameTimeManagerAPI.Instance?.GetElapsedMapTicks() ?? -1;
+            if (SurrenderFeature.TryGetResyncDiagnosticAnchor(out long generation, out int surrenderTick))
             {
-                if (offset < 0 || offset + sizeof(int) > choreBuffer.Length)
-                    return;
-                int payloadLength = BitConverter.ToInt32(choreBuffer, offset);
-                if (payloadLength < 1 || payloadLength > choreBuffer.Length - offset - 5)
-                    return;
-                byte opcode = choreBuffer[offset + 5];
-                if (opcode == 54 || opcode == 67)
+                resyncDiagnostics.ObserveAnchor(generation, surrenderTick);
+                foreach (int checkpointOffset in resyncDiagnostics.TakeDueCheckpointOffsets(tick))
                 {
-                    int tick = GameTimeManagerAPI.Instance?.GetElapsedMapTicks() ?? -1;
-                    int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
-                    Shared.DebugLogHelper.LogInfo(
-                        log,
-                        $"RESYNC_CHORE_OUTGOING: opcode={opcode}, offset={offset}, payloadLength={payloadLength}, " +
-                        $"isHost={GameNetworkAPI.IsLocalHost()}, tick={tick}, localPlayerId={localPlayerId}, " +
-                        SurrenderFeature.CaptureResyncDiagnostic() + ".");
+                    string snapshot = CaptureResyncSnapshot(surrenderTick, checkpointOffset, tick);
+                    resyncDiagnostics.AddSnapshot(snapshot);
+                    Shared.DebugLogHelper.LogInfo(log, "RESYNC_CHECKPOINT: " + snapshot);
                 }
-                offset += payloadLength + 5;
             }
+
+            resyncDiagnostics.AddBuffer(choreBuffer, tick, out bool containsStart, out bool containsEnd);
+            if (containsStart || containsEnd)
+            {
+                int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+                if (containsStart)
+                    LogOutgoingResyncChore(54, tick, localPlayerId);
+                if (containsEnd)
+                    LogOutgoingResyncChore(67, tick, localPlayerId);
+            }
+
+            if (containsStart && resyncDiagnostics.TryClaimStartDump())
+                DumpResyncDiagnostics(tick);
+        }
+
+        private void LogOutgoingResyncChore(int opcode, int tick, int localPlayerId)
+        {
+            if (opcode == 54 || opcode == 67)
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"RESYNC_CHORE_OUTGOING: opcode={opcode}, isHost={GameNetworkAPI.IsLocalHost()}, " +
+                    $"tick={tick}, localPlayerId={localPlayerId}, " +
+                    SurrenderFeature.CaptureResyncDiagnostic() + ".");
+            }
+        }
+
+        private void DumpResyncDiagnostics(int tick)
+        {
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"RESYNC_DIAGNOSTIC_DUMP_BEGIN: firstOpcode54Tick={tick}, " +
+                SurrenderFeature.CaptureResyncDiagnostic() + ".");
+            foreach (string buffer in resyncDiagnostics.GetBuffers())
+                Shared.DebugLogHelper.LogInfo(log, "RESYNC_CHORE_HISTORY: " + buffer);
+            foreach (string snapshot in resyncDiagnostics.GetSnapshots())
+                Shared.DebugLogHelper.LogInfo(log, "RESYNC_SNAPSHOT_HISTORY: " + snapshot);
+            Shared.DebugLogHelper.LogInfo(log, "RESYNC_DIAGNOSTIC_DUMP_END.");
+        }
+
+        private static string CaptureResyncSnapshot(
+            int surrenderTick,
+            int checkpointOffset,
+            int actualTick)
+        {
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+            int[] alivePlayerIds = playerApi?.GetAlivePlayerIds() ?? Array.Empty<int>();
+            Array.Sort(alivePlayerIds);
+            var lordRows = new List<string>(8);
+            for (int playerId = 1; playerId <= 8; playerId++)
+            {
+                int lordUnitId = playerApi?.GetLordUnitId(playerId) ?? -1;
+                if (lordUnitId > 0 &&
+                    unitApi != null &&
+                    unitApi.TryGetUnitById(lordUnitId, out GameUnit* lord) &&
+                    lord != null)
+                {
+                    lordRows.Add(
+                        $"{playerId}:unit={lordUnitId},global={lord->r_GlobalId},alive={(int)lord->r_AliveState}");
+                }
+                else
+                {
+                    lordRows.Add($"{playerId}:unit={lordUnitId},global=-1,alive=missing");
+                }
+            }
+
+            string peerState =
+                $"alivePlayers=[{string.Join(",", alivePlayerIds)}],lords=[{string.Join(";", lordRows)}]";
+            EngineInterface.PlayState localState = GameData.Instance?.lastGameState;
+            int selectedCount = localState?.numSelectedChimps ?? -1;
+            string localUiState =
+                $"localPlayer={playerApi?.GetLocalPlayerId() ?? -1},spectator={localState?.spectatorMode ?? -1}," +
+                $"selectedCount={selectedCount},selectedIds={CaptureSelectedIds(localState, selectedCount)}";
+            return
+                $"surrenderTick={surrenderTick},offset={checkpointOffset},actualTick={actualTick}," +
+                $"peerSha256={ResyncDiagnosticHistory.ComputeSha256(peerState)},peerState=[{peerState}]," +
+                $"localUi=[{localUiState}]";
+        }
+
+        private static string CaptureSelectedIds(EngineInterface.PlayState state, int selectedCount)
+        {
+            if (state?.selectedChimps == null || selectedCount <= 0)
+                return "[]";
+            int count = Math.Min(Math.Min(selectedCount, state.selectedChimps.Length), 16);
+            int[] ids = new int[count];
+            Array.Copy(state.selectedChimps, ids, count);
+            string suffix = selectedCount > count ? ",..." : string.Empty;
+            return "[" + string.Join(",", ids) + suffix + "]";
         }
 
         private bool TryDelayNativeLagKick(
@@ -286,14 +370,14 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Connection-recovery save eligibility failed; Vanilla removal continues: {ex}");
-                ResetMapState();
+                ResetRecoveryState();
                 return false;
             }
 
             if (!shouldDelay)
             {
                 if (forceKickFromHost && recoveryPhase != RecoveryPhase.Idle)
-                    ResetMapState();
+                    ResetRecoveryState();
                 return false;
             }
 
@@ -319,7 +403,7 @@ namespace BugfixesAndQoL
             }
 
             if (recoveryTargets.Count == 0)
-                ResetMapState();
+                ResetRecoveryState();
             return false;
         }
 
@@ -341,7 +425,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Could not identify the host for the connection-recovery save; Vanilla removal continues: {ex}");
-                ResetMapState();
+                ResetRecoveryState();
                 return false;
             }
 
@@ -366,7 +450,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Host could not queue [{MultiplayerSafetyPolicy.RecoverySaveFileName}]; Vanilla removal continues immediately: {ex}");
-                ResetMapState();
+                ResetRecoveryState();
                 return false;
             }
         }

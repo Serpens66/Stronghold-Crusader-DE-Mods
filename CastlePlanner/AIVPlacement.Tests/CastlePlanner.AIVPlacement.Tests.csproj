@@ -21,7 +21,9 @@
     <Compile Include="..\src\BlueprintHudPolicy.cs" Link="Blueprint\BlueprintHudPolicy.cs" />
     <Compile Include="..\src\CastleRotationOptions.cs" Link="Protocol\CastleRotationOptions.cs" />
     <Compile Include="..\src\CoalescedSynchronizationContextQueue.cs" Link="Protocol\CoalescedSynchronizationContextQueue.cs" />
+    <Compile Include="..\src\DecorationVerificationPolicy.cs" Link="SpawnPlan\DecorationVerificationPolicy.cs" />
     <Compile Include="..\src\FreeCastleProtocol.cs" Link="Protocol\FreeCastleProtocol.cs" />
+    <Compile Include="..\src\MultiplayerLoadingWarningGate.cs" Link="Protocol\MultiplayerLoadingWarningGate.cs" />
     <Reference Include="SHCDESE">
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\SHCDESE.dll</HintPath>
       <Private>true</Private>

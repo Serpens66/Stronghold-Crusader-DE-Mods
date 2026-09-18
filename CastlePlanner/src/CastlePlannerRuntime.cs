@@ -1052,6 +1052,7 @@ namespace CastlePlanner
 
                     if (!TryCreateDecoration(
                             castle.PlayerId,
+                            tileId,
                             tile.X,
                             tile.Y,
                             height,
@@ -1101,6 +1102,7 @@ namespace CastlePlanner
 
         private bool TryCreateDecoration(
             int playerId,
+            int tileId,
             int worldX,
             int worldY,
             int height,
@@ -1133,9 +1135,9 @@ namespace CastlePlanner
                     projectileX,
                     projectileY,
                     height,
-                    projectileX,
-                    projectileY,
-                    height,
+                    0,
+                    0,
+                    0,
                     projectileType,
                     0);
             }
@@ -1151,20 +1153,31 @@ namespace CastlePlanner
                 return false;
 
             projectileId = (int)result;
+            short flyGridProjectileId = GameTileManagerAPI.Instance.TileManager.FlyGrid[tileId];
             if (!GameProjectileManagerAPI.Instance.TryGetProjectileById(projectileId, out GameProjectile* projectile) ||
-                (projectile->r_AliveState != AliveState.NeedsInit && projectile->r_AliveState != AliveState.IsAlive) ||
-                projectile->r_ProjectileType != projectileType ||
-                projectile->r_PlayerSourceId != (uint)playerId ||
-                projectile->r_SourceWorldTileX != projectileX ||
-                projectile->r_SourceWorldTileY != projectileY ||
-                projectile->r_SourceElevation != height ||
-                projectile->r_TargetWorldTileX != projectileX ||
-                projectile->r_TargetWorldTileY != projectileY ||
-                projectile->r_TargetElevation != height)
+                projectile == null ||
+                !DecorationVerificationPolicy.IsStableMatch(
+                    projectileId,
+                    flyGridProjectileId,
+                    projectile->r_AliveState,
+                    projectile->r_ProjectileType,
+                    projectileType,
+                    projectile->r_PlayerSourceId,
+                    playerId,
+                    projectile->r_SourceWorldTileX,
+                    projectile->r_SourceWorldTileY,
+                    projectileX,
+                    projectileY,
+                    projectile->r_CurrentTileX,
+                    projectile->r_CurrentTileY,
+                    worldX,
+                    worldY,
+                    projectile->r_CurrentTileId,
+                    tileId))
             {
                 string observed = projectile == null
                     ? "unavailable"
-                    : $"state={projectile->r_AliveState}, type={projectile->r_ProjectileType}, owner={projectile->r_PlayerSourceId}, source=({projectile->r_SourceWorldTileX},{projectile->r_SourceWorldTileY},{projectile->r_SourceElevation}), target=({projectile->r_TargetWorldTileX},{projectile->r_TargetWorldTileY},{projectile->r_TargetElevation}), current=({projectile->r_CurrentTileX},{projectile->r_CurrentTileY})";
+                    : $"state={projectile->r_AliveState}, type={projectile->r_ProjectileType}, owner={projectile->r_PlayerSourceId}, source=({projectile->r_SourceWorldTileX},{projectile->r_SourceWorldTileY},{projectile->r_SourceElevation}), target=({projectile->r_TargetWorldTileX},{projectile->r_TargetWorldTileY},{projectile->r_TargetElevation}), current=({projectile->r_CurrentTileX},{projectile->r_CurrentTileY},{projectile->r_CurrentTileId}), flyGrid={flyGridProjectileId}";
                 Shared.DebugLogHelper.LogWarning(
                     log,
                     $"Supplemental decoration verification failed: playerId={playerId}, projectileId={projectileId}, mapper={mapper}, projectileType={projectileType}, tile=({worldX},{worldY}), projectilePosition=({projectileX},{projectileY}), observed={observed}.");

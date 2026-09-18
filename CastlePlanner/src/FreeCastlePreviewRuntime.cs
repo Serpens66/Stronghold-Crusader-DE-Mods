@@ -9,6 +9,7 @@ using SHCDESE.EventAPI.Network;
 using SHCDESE.Interop.Enums;
 using Steamworks;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -38,6 +39,7 @@ namespace CastlePlanner
             FileHeader map,
             int coopTrailId,
             int coopMissionId);
+        private delegate void DelayShowDisconnectDelegate(Director self);
 
         private enum PreviewState
         {
@@ -78,6 +80,8 @@ namespace CastlePlanner
             new BulkObservableCollection<string>();
         private readonly CastleRotationOptions rotationOptions;
         private readonly ObservableCollection<string> rotations;
+        private readonly MultiplayerLoadingWarningGate loadingWarningGate =
+            new MultiplayerLoadingWarningGate();
 
         private R3PacketEventHook<FreeCastlePacket> packetHook;
         private CoalescedSynchronizationContextQueue<QueuedPacket> packetDispatchQueue;
@@ -88,6 +92,7 @@ namespace CastlePlanner
         private Hook gameActionHook;
         private Hook leaveLobbyHook;
         private Hook startGameHook;
+        private Hook delayShowDisconnectHook;
         private MethodInfo initFastMethod;
         private GameActionDelegate gameActionTrampoline;
         private LeaveLobbyDelegate leaveLobbyTrampoline;
@@ -273,6 +278,12 @@ namespace CastlePlanner
                     typeof(int), typeof(int)
                 },
                 null) ?? throw new MissingMethodException("Platform_Multiplayer.StartGame");
+            MethodInfo delayShowDisconnect = typeof(Director).GetMethod(
+                nameof(Director.DelayShowDisconnect),
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                null,
+                Type.EmptyTypes,
+                null) ?? throw new MissingMethodException("Director.DelayShowDisconnect");
             initFastMethod = typeof(Platform_Multiplayer).GetMethod(
                 "initFast",
                 BindingFlags.NonPublic | BindingFlags.Instance,
@@ -286,12 +297,16 @@ namespace CastlePlanner
             leaveLobbyTrampoline = leaveLobbyHook.GenerateTrampoline<LeaveLobbyDelegate>();
             startGameHook = new Hook(start, (StartGameDelegate)StartGameHook);
             startGameTrampoline = startGameHook.GenerateTrampoline<StartGameDelegate>();
+            delayShowDisconnectHook = new Hook(
+                delayShowDisconnect,
+                (DelayShowDisconnectDelegate)DelayShowDisconnectHook);
             Application.onBeforeRender += OnBeforeRender;
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Free-castle preview initialized: packetId={packetHook.GetPacketId()}, " +
                 $"timeout={TimeoutSeconds}s, mainThread={unityMainThreadId}, " +
-                $"synchronizationContext={unitySynchronizationContext.GetType().FullName}.");
+                $"synchronizationContext={unitySynchronizationContext.GetType().FullName}, " +
+                "loadingWarningGuard=managed-generation.");
         }
 
         public bool TryGetCommittedSelections(out List<FreeCastleSelection> selections)
@@ -347,6 +362,37 @@ namespace CastlePlanner
                 capturedCoopMissionId = coopMissionId;
             }
             startGameTrampoline(self, setup, map, coopTrailId, coopMissionId);
+        }
+
+        private void DelayShowDisconnectHook(Director self)
+        {
+            if (self == null)
+                throw new ArgumentNullException(nameof(self));
+
+            int generation = loadingWarningGate.BeginLoading();
+            self.StartCoroutine(ShowLoadingWarningAfterDelay(generation));
+        }
+
+        private IEnumerator ShowLoadingWarningAfterDelay(int generation)
+        {
+            yield return new WaitForSeconds(9f);
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (viewModel == null ||
+                !loadingWarningGate.IsCurrent(generation, viewModel.Show_MP_LoadingBlack))
+            {
+                yield break;
+            }
+
+            viewModel.Show_MP_LoadingWarning = true;
+            yield return new WaitForSeconds(2f);
+            viewModel = MainViewModel.Instance;
+            if (viewModel == null ||
+                !loadingWarningGate.IsCurrent(generation, viewModel.Show_MP_LoadingBlack))
+            {
+                yield break;
+            }
+
+            viewModel.Show_MP_LoadingButton = true;
         }
 
         private int GameActionHook(

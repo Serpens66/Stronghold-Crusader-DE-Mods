@@ -78,6 +78,7 @@ internal static class Program
             ("projects supplemental items for every rotation", ProjectsSupplementalItemsForEveryRotation),
             ("keeps supplemental items on the native reference anchor", KeepsSupplementalItemsOnNativeReferenceAnchor),
             ("converts decoration tiles to projectile coordinates", ConvertsDecorationTilesToProjectileCoordinates),
+            ("verifies decorations after Vanilla height normalization", VerifiesDecorationsAfterVanillaHeightNormalization),
             ("aligns native rotation to the live Keep footprint", AlignsNativeRotationToLiveKeepFootprint),
             ("resolves rotated BuildStructure origins", ResolvesRotatedBuildStructureOrigins),
             ("preserves compound storage placement order", PreservesCompoundStoragePlacementOrder),
@@ -87,6 +88,7 @@ internal static class Program
             ("marshals free-castle packets before protocol handling", MarshalsFreeCastlePacketsBeforeProtocolHandling),
             ("validates the installed RedBird overwrite span", ValidatesInstalledRedBirdOverwriteSpan),
             ("guards multiplayer preview liveness across pause and resume", GuardsMultiplayerPreviewLiveness),
+            ("invalidates stale multiplayer loading warnings", InvalidatesStaleMultiplayerLoadingWarnings),
             ("pins CastlePlanner to the manifest Script Extender range", PinsCastlePlannerToManifestExtenderRange),
             ("maps localized castle rotation labels to Vanilla directions", MapsLocalizedCastleRotationLabels),
             ("falls back to English castle rotation directions", FallsBackToEnglishCastleRotationDirections),
@@ -821,6 +823,14 @@ internal static class Program
             "continue/abort path does not release the liveness guard before unpausing");
         Assert(source.Contains("member.lastTimePacketRecieved = now;", StringComparison.Ordinal),
             "continue/abort path does not refresh remote human packet timestamps");
+        Assert(source.Contains("nameof(Director.DelayShowDisconnect)", StringComparison.Ordinal) &&
+               source.Contains("delayShowDisconnectHook = new Hook(", StringComparison.Ordinal) &&
+               source.Contains("(DelayShowDisconnectDelegate)DelayShowDisconnectHook", StringComparison.Ordinal),
+            "CastlePlanner does not replace Vanilla's uncancellable multiplayer loading-warning timer");
+        Assert(CountOccurrences(
+                source,
+                "loadingWarningGate.IsCurrent(generation, viewModel.Show_MP_LoadingBlack)") == 2,
+            "loading warning and leave button are not both guarded by the current visible loading generation");
 
         int leaveBypassReset = source.IndexOf(
             "bypassLeaveLobbyHook = false;",
@@ -843,6 +853,22 @@ internal static class Program
                pauseFinally > continueMethod && pauseBypassReset > pauseFinally &&
                pauseBypassReset - pauseFinally < 120,
             "preview bypass flags are not protected by finally blocks");
+    }
+
+    private static void InvalidatesStaleMultiplayerLoadingWarnings()
+    {
+        var gate = new MultiplayerLoadingWarningGate();
+        int first = gate.BeginLoading();
+        Assert(gate.IsCurrent(first, loadingBlackVisible: true),
+            "the current visible loading generation was rejected");
+        Assert(!gate.IsCurrent(first, loadingBlackVisible: false),
+            "a hidden loading screen was allowed to publish a warning");
+
+        int second = gate.BeginLoading();
+        Assert(!gate.IsCurrent(first, loadingBlackVisible: true),
+            "a superseded loading generation remained current");
+        Assert(gate.IsCurrent(second, loadingBlackVisible: true),
+            "the replacement loading generation was rejected");
     }
 
     private static void CoalescesSynchronizationContextPacketDispatch()
@@ -2262,6 +2288,53 @@ internal static class Program
         Equal(0, CastlePlanner.AivProjectileTransform.ToProjectileCoordinate(0));
         Equal(4040, CastlePlanner.AivProjectileTransform.ToProjectileCoordinate(505));
         Equal(6392, CastlePlanner.AivProjectileTransform.ToProjectileCoordinate(799));
+    }
+
+    private static void VerifiesDecorationsAfterVanillaHeightNormalization()
+    {
+        foreach (ProjectileType projectileType in new[]
+                 {
+                     ProjectileType.Brazier,
+                     ProjectileType.CrusaderFlag,
+                     ProjectileType.Flag1,
+                     ProjectileType.Flag2,
+                     ProjectileType.Flag3,
+                     ProjectileType.Disease
+                 })
+        {
+            bool matches = DecorationVerificationPolicy.IsStableMatch(
+                321,
+                321,
+                AliveState.IsAlive,
+                projectileType,
+                projectileType,
+                4,
+                4,
+                800,
+                960,
+                800,
+                960,
+                100,
+                120,
+                100,
+                120,
+                48100,
+                48100);
+            Assert(matches, $"stable {projectileType} invariants should match independently of normalized height and unused target fields");
+        }
+
+        Assert(!DecorationVerificationPolicy.IsStableMatch(
+                321, 322, AliveState.IsAlive, ProjectileType.Brazier, ProjectileType.Brazier,
+                4, 4, 800, 960, 800, 960, 100, 120, 100, 120, 48100, 48100),
+            "FlyGrid mismatch must reject a created decoration");
+        Assert(!DecorationVerificationPolicy.IsStableMatch(
+                0, 0, AliveState.IsAlive, ProjectileType.Brazier, ProjectileType.Brazier,
+                4, 4, 800, 960, 800, 960, 100, 120, 100, 120, 48100, 48100),
+            "invalid projectile IDs must be rejected");
+        Assert(!DecorationVerificationPolicy.IsStableMatch(
+                321, 321, AliveState.MarkedForDeletion, ProjectileType.Brazier, ProjectileType.Brazier,
+                4, 4, 800, 960, 800, 960, 100, 120, 100, 120, 48100, 48100),
+            "dead projectiles must be rejected");
     }
 
     private static void AlignsNativeRotationToLiveKeepFootprint()

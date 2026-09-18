@@ -229,6 +229,9 @@ namespace BugfixesAndQoL
         private readonly int[] lordDeathSimulationTicks = new int[9];
         private static string lastSurrenderChoreDiagnostic = "none";
         private static string lastSpectatorChoreDiagnostic = "none";
+        private static readonly object resyncDiagnosticSync = new object();
+        private static long resyncDiagnosticGeneration;
+        private static int lastSurrenderExecutionTick = -1;
         private readonly bool[] spectatorChoreQueuedPlayers = new bool[9];
         private readonly bool[] spectatorChoreExecutedPlayers = new bool[9];
         private long activeSessionId;
@@ -622,8 +625,11 @@ namespace BugfixesAndQoL
                 spectatorChoreExecutedPlayers[playerId] = true;
                 int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
                 int executionTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-                lastSpectatorChoreDiagnostic =
-                    $"session={activeSessionId},player={playerId},lordDeathTick={lordDeathSimulationTicks[playerId]},executionTick={executionTick},localPlayer={localPlayerId}";
+                lock (resyncDiagnosticSync)
+                {
+                    lastSpectatorChoreDiagnostic =
+                        $"session={activeSessionId},player={playerId},lordDeathTick={lordDeathSimulationTicks[playerId]},executionTick={executionTick},localPlayer={localPlayerId}";
+                }
                 LogPacketInfo(
                     $"Eliminated-player spectator Chore executed: sessionId={activeSessionId}, playerId={playerId}, lordDeathTick={lordDeathSimulationTicks[playerId]}, executionTick={executionTick}, localPlayerId={localPlayerId}.");
 
@@ -1667,8 +1673,13 @@ namespace BugfixesAndQoL
 
                 GameUnitManagerAPI.Instance.KillUnit(resolvedUnitId);
                 int executionTick = GameTimeManagerAPI.Instance.GetElapsedMapTicks();
-                lastSurrenderChoreDiagnostic =
-                    $"player={packet.PlayerId},unit={resolvedUnitId},global={lord.GlobalId},executionTick={executionTick}";
+                lock (resyncDiagnosticSync)
+                {
+                    lastSurrenderChoreDiagnostic =
+                        $"player={packet.PlayerId},unit={resolvedUnitId},global={lord.GlobalId},executionTick={executionTick}";
+                    lastSurrenderExecutionTick = executionTick;
+                    resyncDiagnosticGeneration++;
+                }
                 LogPacketInfo(
                     $"Surrender Chore executed: playerId={packet.PlayerId}, unitId={resolvedUnitId}, " +
                     $"locallyResolvedGlobalId={lord.GlobalId}, decodedBodyHex={decodedBodyHex}.");
@@ -1739,8 +1750,21 @@ namespace BugfixesAndQoL
         private static string ToCompactHex(byte[] bytes) =>
             bytes == null ? "<null>" : BitConverter.ToString(bytes).Replace("-", string.Empty);
 
-        internal static string CaptureResyncDiagnostic() =>
-            $"lastSurrender=[{lastSurrenderChoreDiagnostic}],lastSpectator=[{lastSpectatorChoreDiagnostic}]";
+        internal static string CaptureResyncDiagnostic()
+        {
+            lock (resyncDiagnosticSync)
+                return $"lastSurrender=[{lastSurrenderChoreDiagnostic}],lastSpectator=[{lastSpectatorChoreDiagnostic}]";
+        }
+
+        internal static bool TryGetResyncDiagnosticAnchor(out long generation, out int executionTick)
+        {
+            lock (resyncDiagnosticSync)
+            {
+                generation = resyncDiagnosticGeneration;
+                executionTick = lastSurrenderExecutionTick;
+                return executionTick >= 0;
+            }
+        }
 
         private SurrenderLordSnapshot CaptureLord(int playerId)
         {
@@ -1853,8 +1877,13 @@ namespace BugfixesAndQoL
             acceptedRequests.Clear();
             nextRequestId = 0;
             activeSessionId = 0;
-            lastSurrenderChoreDiagnostic = "none";
-            lastSpectatorChoreDiagnostic = "none";
+            lock (resyncDiagnosticSync)
+            {
+                lastSurrenderChoreDiagnostic = "none";
+                lastSpectatorChoreDiagnostic = "none";
+                lastSurrenderExecutionTick = -1;
+                resyncDiagnosticGeneration++;
+            }
             Array.Clear(lordDeathSessionIds, 0, lordDeathSessionIds.Length);
             Array.Clear(lordDeathSimulationTicks, 0, lordDeathSimulationTicks.Length);
             Array.Clear(spectatorChoreQueuedPlayers, 0, spectatorChoreQueuedPlayers.Length);

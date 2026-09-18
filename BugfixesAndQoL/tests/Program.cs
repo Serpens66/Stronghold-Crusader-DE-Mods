@@ -76,6 +76,7 @@ namespace BugfixesAndQoL
             TestMultiplayerSafetyPolicy();
             TestPacketThreadMarshallingContracts();
             TestTransientSelectionGuards();
+            TestResyncDiagnosticHistory();
             TestWorkshopUploadLordSelectionPolicy();
             TestMultiplayerLobbyReturnIntegration();
             TestClassicMapSizeReader();
@@ -108,6 +109,89 @@ namespace BugfixesAndQoL
                   migration.Contains("RESYNC_CHORE_OUTGOING") &&
                   migration.Contains("opcode == 54 || opcode == 67"),
                 "resync diagnostics observe state transitions and outgoing start/end Chores");
+        }
+
+        private static void TestResyncDiagnosticHistory()
+        {
+            byte[] firstPayload = { 54, 0xAA, 0xBB };
+            byte[] secondPayload = { 67, 0xCC };
+            byte[] ordered = BuildChoreBuffer(
+                BuildChoreRecord(2, firstPayload),
+                BuildChoreRecord(5, secondPayload));
+            string description = ResyncDiagnosticHistory.DescribeBuffer(
+                ordered,
+                403,
+                out bool containsStart,
+                out bool containsEnd);
+            Check(containsStart && containsEnd &&
+                  description.IndexOf("target=2,opcode=54,length=3", StringComparison.Ordinal) >= 0 &&
+                  description.IndexOf("target=5,opcode=67,length=2", StringComparison.Ordinal) >
+                  description.IndexOf("target=2,opcode=54,length=3", StringComparison.Ordinal) &&
+                  description.IndexOf("payload=36AABB", StringComparison.Ordinal) >= 0 &&
+                  description.IndexOf("sha256=", StringComparison.Ordinal) >= 0,
+                "resync Chore diagnostics preserve record order, target, opcode, length, hash and payload");
+
+            byte[] longPayload = Enumerable.Range(0, 80).Select(value => (byte)value).ToArray();
+            string bounded = ResyncDiagnosticHistory.DescribeBuffer(
+                BuildChoreRecord(1, longPayload),
+                404,
+                out _,
+                out _);
+            string expectedPrefix = BitConverter.ToString(longPayload, 0, 64).Replace("-", string.Empty) + "...";
+            Check(bounded.IndexOf("payload=" + expectedPrefix, StringComparison.Ordinal) >= 0,
+                "resync Chore diagnostics cap payload hex at 64 bytes");
+
+            string malformed = ResyncDiagnosticHistory.DescribeBuffer(
+                new byte[] { 4, 0, 0, 0, 1, 54 },
+                405,
+                out _,
+                out _);
+            Check(malformed.IndexOf("malformed=", StringComparison.Ordinal) >= 0,
+                "resync Chore diagnostics reject truncated records without throwing");
+
+            var history = new ResyncDiagnosticHistory();
+            for (int tick = 0; tick < 35; tick++)
+                history.AddBuffer(BuildChoreRecord(1, new byte[] { 1 }), tick, out _, out _);
+            string[] retained = history.GetBuffers();
+            Check(retained.Length == 32 && retained[0].StartsWith("tick=3,", StringComparison.Ordinal) &&
+                  retained[31].StartsWith("tick=34,", StringComparison.Ordinal),
+                "resync Chore history is a 32-buffer ring");
+
+            Check(history.ObserveAnchor(7, 100) &&
+                  history.TakeDueCheckpointOffsets(100).SequenceEqual(new[] { 0 }) &&
+                  history.TakeDueCheckpointOffsets(103).SequenceEqual(new[] { 1, 2 }) &&
+                  history.TakeDueCheckpointOffsets(196).SequenceEqual(new[] { 4, 8, 16, 32, 64, 96 }),
+                "resync checkpoints are emitted once at every requested surrender offset");
+            history.AddSnapshot("snapshot");
+            Check(history.GetSnapshots().SequenceEqual(new[] { "snapshot" }) &&
+                  history.TryClaimStartDump() && !history.TryClaimStartDump(),
+                "opcode-54 diagnostics dump only once per surrender anchor");
+            history.Reset();
+            Check(history.GetBuffers().Length == 0 && history.GetSnapshots().Length == 0 &&
+                  history.TryClaimStartDump(),
+                "map reset clears resync diagnostic buffers and one-shot state");
+        }
+
+        private static byte[] BuildChoreRecord(byte targetPlayerId, byte[] payload)
+        {
+            byte[] record = new byte[5 + payload.Length];
+            BitConverter.GetBytes(payload.Length).CopyTo(record, 0);
+            record[4] = targetPlayerId;
+            Buffer.BlockCopy(payload, 0, record, 5, payload.Length);
+            return record;
+        }
+
+        private static byte[] BuildChoreBuffer(params byte[][] records)
+        {
+            int length = records.Sum(record => record.Length);
+            byte[] buffer = new byte[length];
+            int offset = 0;
+            foreach (byte[] record in records)
+            {
+                Buffer.BlockCopy(record, 0, buffer, offset, record.Length);
+                offset += record.Length;
+            }
+            return buffer;
         }
 
         private static unsafe void TestProjectileSlotContract()
@@ -3342,12 +3426,15 @@ namespace BugfixesAndQoL
                 "AI stone-reserve runtime uses its validated typed AIV data-source boundary");
             Check(fix.Contains("ShcdeSeCoarseGridBufferWorkaround.SelectBackend") &&
                     workaround.Contains("SHCDESE_COARSE_GRID_BUFFER_WORKAROUND") &&
+                    workaround.Contains("CreateAivImportBackend(") &&
+                    workaround.Contains("new OfficialAivImportBackend(GameAIVManagerAPI.Instance)") &&
+                    workaround.Contains("new EngineInterfaceAivImportBackend()") &&
                     workaround.Contains("officialFactory()") &&
                     workaround.IndexOf("officialFactory()", StringComparison.Ordinal) <
                     workaround.IndexOf("workaroundFactory()", StringComparison.Ordinal) &&
                     workaround.Contains("internal const string Marker = \"SHCDESE_COARSE_GRID_BUFFER_WORKAROUND\"") &&
                     workaround.Contains("IsKnownFailure(Exception exception)"),
-                "AI stone-reserve workaround is isolated, searchable, failure-scoped, and official-first");
+                "shared AIV workarounds are isolated, searchable, failure-scoped, and official-first");
             Check(viewModel.Contains("private bool enableAiStoneReserveFix = true;") &&
                     viewModel.Contains("public bool EnableAiStoneReserveFix") &&
                     viewModel.Contains("EnableAiStoneReserveFix = true;"),
@@ -3399,7 +3486,7 @@ namespace BugfixesAndQoL
                 out Exception knownFailure);
             Check(selected == "official" && officialCalls == 1 && workaroundCalls == 0 &&
                     !workaroundActive && knownFailure == null,
-                "AI stone-reserve selects the official Extender API before considering its workaround");
+                "AIV compatibility selects the official Extender API before considering its workaround");
 
             var monoFailure = new InvalidOperationException(
                 "outer",
@@ -3413,7 +3500,7 @@ namespace BugfixesAndQoL
                 out knownFailure);
             Check(selected == "workaround" && workaroundActive &&
                     ReferenceEquals(knownFailure, monoFailure),
-                "AI stone-reserve recognizes the exact nested Unity Mono fixed-buffer failure");
+                "AIV compatibility recognizes the exact nested Unity Mono fixed-buffer failure");
 
             bool unrelatedRethrown = false;
             try
@@ -3429,7 +3516,19 @@ namespace BugfixesAndQoL
                 unrelatedRethrown = true;
             }
             Check(unrelatedRethrown,
-                "AI stone-reserve rejects similar but unrecognized Extender failures");
+                "AIV compatibility rejects similar but unrecognized Extender failures");
+
+            short[] payload = { 1 };
+            Check(
+                ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, 0, payload) &&
+                ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(7, 999, payload) &&
+                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(-1, 0, payload) &&
+                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(8, 0, payload) &&
+                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, -1, payload) &&
+                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, 1000, payload) &&
+                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, 0, null) &&
+                !ShcdeSeCoarseGridBufferWorkaround.AreValidImportArguments(0, 0, Array.Empty<short>()),
+                "AIV import workaround mirrors the official bank, candidate and payload validation");
 
             const ulong moduleAddress = 0x180000000;
             int moduleLength = 0x4000000;
@@ -3441,6 +3540,46 @@ namespace BugfixesAndQoL
                     !ShcdeSeCoarseGridBufferWorkaround.IsAivSystemRangeInsideModule(
                         moduleAddress + (ulong)moduleLength - 4, moduleAddress, moduleLength),
                 "AI stone-reserve raw fallback validates AIVSystem alignment and complete module range");
+
+            string sourceDirectory = Path.Combine(FindProjectDirectory(), "src");
+            string[] sourceFiles = Directory.GetFiles(sourceDirectory, "*.cs");
+            string[] officialApiFiles = sourceFiles
+                .Where(path => File.ReadAllText(path).Contains("GameAIVManagerAPI"))
+                .Select(Path.GetFileName)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            Check(
+                officialApiFiles.SequenceEqual(
+                    new[] { "AiStoneReserveFix.cs", "ShcdeSeCoarseGridBufferWorkaround.cs" }),
+                "all BugfixesAndQoL GameAIVManagerAPI references are protected by official-first selection");
+
+            string[] directImportFiles = sourceFiles
+                .Where(path => File.ReadAllText(path).Contains("EngineInterface.ImportAIV("))
+                .Select(Path.GetFileName)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            Check(
+                directImportFiles.SequenceEqual(new[] { "ShcdeSeCoarseGridBufferWorkaround.cs" }),
+                "direct Vanilla AIV imports remain isolated in the marked compatibility workaround");
+
+            string coopSource = File.ReadAllText(Path.Combine(
+                sourceDirectory,
+                "CoopCustomLordSelectionFeature.cs"));
+            string multiplayerSource = File.ReadAllText(Path.Combine(
+                sourceDirectory,
+                "MultiplayerAivSyncRuntime.cs"));
+            Check(
+                coopSource.Contains("IAivImportBackend importBackend = GetAivImportBackend();") &&
+                coopSource.Contains("for (int index = 0; index < info.aivs.Count; index++)") &&
+                coopSource.Contains("importBackend.ImportAIV(") &&
+                !coopSource.Contains("GameAIVManagerAPI.Instance"),
+                "Coop custom-lord imports use the protected backend starting at candidate zero");
+            Check(
+                multiplayerSource.Contains("IAivImportBackend importBackend = GetAivImportBackend();") &&
+                multiplayerSource.Contains("for (int candidateId = 1; candidateId < slot.Candidates.Count; candidateId++)") &&
+                multiplayerSource.Contains("importBackend.ImportAIV(") &&
+                !multiplayerSource.Contains("GameAIVManagerAPI.Instance"),
+                "multiplayer AIV synchronization uses the protected backend only for extra candidates");
         }
 
         private static void TestQuarryKeepCenterPolicy()

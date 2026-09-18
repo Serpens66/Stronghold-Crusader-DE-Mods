@@ -1,7 +1,8 @@
 // SHCDESE_COARSE_GRID_BUFFER_WORKAROUND
 // Temporary compatibility code for SHCDE-SE 2.7.1's Unity Mono TypeLoadException.
-// Remove this entire file once GameAIVManagerAPI.Instance and its official live-village and
-// build-step spans initialize successfully under the game's Unity Mono runtime.
+// Remove this entire file once GameAIVManagerAPI.Instance and its official imports,
+// live-village and build-step spans initialize successfully under the game's Unity Mono runtime.
+using BepInEx.Logging;
 using SHCDESE.API;
 using SHCDESE.GameGlobals;
 using SHCDESE.Interop;
@@ -9,6 +10,24 @@ using System;
 
 namespace BugfixesAndQoL
 {
+    internal interface IAivImportBackend
+    {
+        bool ImportAIV(int bankIndex, int candidateId, short[] data, bool isCustom);
+    }
+
+    internal sealed class OfficialAivImportBackend : IAivImportBackend
+    {
+        private readonly GameAIVManagerAPI api;
+
+        public OfficialAivImportBackend(GameAIVManagerAPI api)
+        {
+            this.api = api ?? throw new ArgumentNullException(nameof(api));
+        }
+
+        public bool ImportAIV(int bankIndex, int candidateId, short[] data, bool isCustom) =>
+            api.ImportAIV(bankIndex, candidateId, data, isCustom);
+    }
+
     internal unsafe interface IAiStoneReserveAivDataSource
     {
         Span<AivVillageState> GetLiveVillageSlots();
@@ -39,6 +58,51 @@ namespace BugfixesAndQoL
         internal const int VillageStride = 0x6D98;
         internal const int VillageBuildStepsOffset = 0x34;
         internal const int BuildStepCapacity = 1_000;
+        internal const int AivBankCount = 8;
+        internal const int AivCandidatesPerBank = 1_000;
+
+        internal static IAivImportBackend CreateAivImportBackend(
+            ManualLogSource log,
+            string consumer)
+        {
+            if (log == null)
+                throw new ArgumentNullException(nameof(log));
+            if (string.IsNullOrWhiteSpace(consumer))
+                throw new ArgumentException("The AIV import consumer must be named.", nameof(consumer));
+
+            IAivImportBackend backend = SelectBackend(
+                () => (IAivImportBackend)new OfficialAivImportBackend(GameAIVManagerAPI.Instance),
+                () => new EngineInterfaceAivImportBackend(),
+                out bool workaroundActive,
+                out Exception knownScriptExtenderFailure);
+            Version extenderVersion = typeof(GameAIVManagerAPI).Assembly.GetName().Version;
+            if (workaroundActive)
+            {
+                Shared.DebugLogHelper.LogWarning(
+                    log,
+                    $"{Marker}: {consumer} compatibility workaround active; " +
+                    $"SHCDE-SE {extenderVersion} could not initialize GameAIVManagerAPI. " +
+                    $"AIV imports use Vanilla's EngineInterface.ImportAIV wrapper. " +
+                    $"The official API will be selected automatically after the Extender is fixed. " +
+                    $"Detected failure: {knownScriptExtenderFailure.Message}");
+            }
+            else
+            {
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"{consumer} AIV import backend: official SHCDE-SE {extenderVersion} " +
+                    $"GameAIVManagerAPI; {Marker} workaround inactive.");
+            }
+            return backend;
+        }
+
+        internal static bool AreValidImportArguments(
+            int bankIndex,
+            int candidateId,
+            short[] data) =>
+            (uint)bankIndex < AivBankCount &&
+            (uint)candidateId < AivCandidatesPerBank &&
+            data != null && data.Length > 0;
 
         internal static T SelectBackend<T>(
             Func<T> officialFactory,
@@ -119,6 +183,19 @@ namespace BugfixesAndQoL
         private static bool Contains(string value, string expected)
         {
             return value?.IndexOf(expected, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        // SHCDESE_COARSE_GRID_BUFFER_WORKAROUND: Vanilla-equivalent import backend.
+        private sealed class EngineInterfaceAivImportBackend : IAivImportBackend
+        {
+            public bool ImportAIV(int bankIndex, int candidateId, short[] data, bool isCustom)
+            {
+                if (!AreValidImportArguments(bankIndex, candidateId, data))
+                    return false;
+
+                EngineInterface.ImportAIV(bankIndex, candidateId, data, isCustom ? 1 : 0);
+                return true;
+            }
         }
 
         private sealed unsafe class RawAiStoneReserveAivDataSource : IAiStoneReserveAivDataSource
