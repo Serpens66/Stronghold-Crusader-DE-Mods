@@ -53,6 +53,7 @@
     <Compile Include="src\FormationPreviewMarkerModel.cs" />
     <Compile Include="src\FormationPreviewMarkerRenderer.cs" />
     <Compile Include="src\FormationPreviewOverlay.cs" />
+    <Compile Include="src\FormationReleaseStateModel.cs" />
     <Compile Include="src\FormationTestPlugin.cs" />
     <Compile Include="src\FormationTestRuntime.cs" />
     <Compile Include="src\NativeDetourEntryContract.cs" />

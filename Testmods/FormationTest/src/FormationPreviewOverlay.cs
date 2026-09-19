@@ -1,4 +1,5 @@
 using System;
+using BepInEx.Logging;
 using UnityEngine;
 
 namespace FormationTest
@@ -7,13 +8,22 @@ namespace FormationTest
     {
         private static readonly object Sync = new object();
         private static PreviewSnapshot snapshot = PreviewSnapshot.Empty;
+        private static ManualLogSource log;
+        private static int nextGeneration;
+        private static int diagnosedGeneration;
+        private static int diagnosticUpdates;
+        private static int diagnosticVisible;
+        private static int diagnosticSkipped;
+        private static int diagnosticErrors;
+        private static Texture2D outlineTexture;
         private static Texture2D frontTexture;
         private static Texture2D protectedTexture;
         private static Texture2D neutralTexture;
         private static Texture2D rearTexture;
 
-        internal static FormationPreviewOverlay CreateProcessLifetimeInstance()
+        internal static FormationPreviewOverlay CreateProcessLifetimeInstance(ManualLogSource logger)
         {
+            log = logger;
             var root = new GameObject("FormationTest.PreviewOverlay");
             UnityEngine.Object.DontDestroyOnLoad(root);
             return root.AddComponent<FormationPreviewOverlay>();
@@ -22,13 +32,45 @@ namespace FormationTest
         internal static void Publish(FormationPreviewPoint[] points)
         {
             lock (Sync)
-                snapshot = new PreviewSnapshot(points ?? Array.Empty<FormationPreviewPoint>());
+                snapshot = new PreviewSnapshot(
+                    points ?? Array.Empty<FormationPreviewPoint>(),
+                    unchecked(++nextGeneration));
         }
 
         internal static void Clear()
         {
+            int updates;
+            int visible;
+            int skipped;
+            int errors;
             lock (Sync)
+            {
                 snapshot = PreviewSnapshot.Empty;
+                updates = diagnosticUpdates;
+                visible = diagnosticVisible;
+                skipped = diagnosticSkipped;
+                errors = diagnosticErrors;
+                diagnosticUpdates = 0;
+                diagnosticVisible = 0;
+                diagnosticSkipped = 0;
+                diagnosticErrors = 0;
+            }
+            if (updates <= 0)
+                return;
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(() =>
+            {
+                try
+                {
+                    Shared.DebugLogHelper.LogDebug(
+                        log,
+                        $"FORMATION_OVERLAY_SUMMARY: updates={updates}, " +
+                        $"visible={visible}, skipped={skipped}, errors={errors}.");
+                }
+                catch
+                {
+                    // Overlay diagnostics must never affect rendering or command execution.
+                }
+            });
         }
 
         private void OnGUI()
@@ -43,6 +85,11 @@ namespace FormationTest
                 return;
 
             EnsureTextures();
+            int previousDepth = GUI.depth;
+            GUI.depth = -1000;
+            int visible = 0;
+            int skipped = 0;
+            int errors = 0;
             for (int index = 0; index < current.Points.Length; index++)
             {
                 FormationPreviewPoint point = current.Points[index];
@@ -53,17 +100,43 @@ namespace FormationTest
                             new System.Numerics.Vector2(point.X, point.Y));
                     Vector3 screen = camera.WorldToScreenPoint(
                         new Vector3(world.X, world.Y, 0f));
-                    if (screen.z < 0f)
+                    if (float.IsNaN(screen.x) || float.IsNaN(screen.y) ||
+                        float.IsInfinity(screen.x) || float.IsInfinity(screen.y) ||
+                        screen.x < -16f || screen.x > Screen.width + 16f ||
+                        screen.y < -16f || screen.y > Screen.height + 16f)
+                    {
+                        skipped++;
                         continue;
-                    float size = point.Role == FormationRole.Protected ? 10f : 8f;
+                    }
+                    float size = point.Role == FormationRole.Protected ? 12f : 10f;
+                    float outlineSize = size + 4f;
+                    float guiY = Screen.height - screen.y;
+                    GUI.DrawTexture(
+                        new Rect(screen.x - outlineSize / 2f,
+                            guiY - outlineSize / 2f, outlineSize, outlineSize),
+                        outlineTexture);
                     GUI.DrawTexture(
                         new Rect(screen.x - size / 2f,
-                            Screen.height - screen.y - size / 2f, size, size),
+                            guiY - size / 2f, size, size),
                         TextureFor(point.Role));
+                    visible++;
                 }
-                catch
+                catch (Exception)
                 {
-                    // Preview drawing must never affect the simulation or command path.
+                    errors++;
+                }
+            }
+            GUI.depth = previousDepth;
+            lock (Sync)
+            {
+                if (diagnosedGeneration != current.Generation &&
+                    snapshot.Generation == current.Generation)
+                {
+                    diagnosedGeneration = current.Generation;
+                    diagnosticUpdates++;
+                    diagnosticVisible += visible;
+                    diagnosticSkipped += skipped;
+                    diagnosticErrors += errors;
                 }
             }
         }
@@ -83,6 +156,7 @@ namespace FormationTest
         {
             if (frontTexture != null)
                 return;
+            outlineTexture = CreateTexture(new Color(0.04f, 0.04f, 0.04f, 0.95f));
             frontTexture = CreateTexture(new Color(0.9f, 0.22f, 0.15f, 0.9f));
             protectedTexture = CreateTexture(new Color(0.15f, 0.85f, 0.35f, 0.9f));
             neutralTexture = CreateTexture(new Color(0.95f, 0.85f, 0.2f, 0.9f));
@@ -100,14 +174,16 @@ namespace FormationTest
         private sealed class PreviewSnapshot
         {
             internal static readonly PreviewSnapshot Empty =
-                new PreviewSnapshot(Array.Empty<FormationPreviewPoint>());
+                new PreviewSnapshot(Array.Empty<FormationPreviewPoint>(), 0);
 
-            internal PreviewSnapshot(FormationPreviewPoint[] points)
+            internal PreviewSnapshot(FormationPreviewPoint[] points, int generation)
             {
                 Points = points;
+                Generation = generation;
             }
 
             internal FormationPreviewPoint[] Points { get; }
+            internal int Generation { get; }
         }
     }
 

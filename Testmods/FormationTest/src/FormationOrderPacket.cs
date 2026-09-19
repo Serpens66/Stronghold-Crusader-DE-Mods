@@ -19,11 +19,13 @@ namespace FormationTest
         [Key(9)] public bool RearSorting;
         [Key(10)] public byte DirectionSector;
         [Key(11)] public ushort Width;
+        [Key(12)] public ushort UnitCount;
+        [Key(13)] public ulong PlanHash;
     }
 
     public sealed class FormationOrderPacketFormatter : IMessagePackFormatter<FormationOrderPacket>
     {
-        private const int FieldCount = 12;
+        private const int FieldCount = 14;
 
         public void Serialize(
             ref MessagePackWriter writer,
@@ -49,6 +51,8 @@ namespace FormationTest
             writer.Write(value.RearSorting);
             writer.Write(value.DirectionSector);
             writer.Write(value.Width);
+            writer.Write(value.UnitCount);
+            writer.Write(value.PlanHash);
         }
 
         public FormationOrderPacket Deserialize(
@@ -76,6 +80,8 @@ namespace FormationTest
                     case 9: packet.RearSorting = reader.ReadBoolean(); break;
                     case 10: packet.DirectionSector = reader.ReadByte(); break;
                     case 11: packet.Width = reader.ReadUInt16(); break;
+                    case 12: packet.UnitCount = reader.ReadUInt16(); break;
+                    case 13: packet.PlanHash = reader.ReadUInt64(); break;
                     default: reader.Skip(); break;
                 }
             }

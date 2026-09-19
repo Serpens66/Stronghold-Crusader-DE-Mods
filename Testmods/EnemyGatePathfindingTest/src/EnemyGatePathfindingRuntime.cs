@@ -270,13 +270,13 @@ namespace EnemyGatePathfindingTest
                 if (comparison.MatchesCanonical)
                 {
                     Shared.DebugLogHelper.LogInfo(log,
-                        "Script Extender 2.6 pathfinding globals match the canonical " +
+                        "Script Extender pathfinding globals match the canonical " +
                         $"FBCB9319 process-start tables: {counts}.");
                     return;
                 }
 
                 Shared.DebugLogHelper.LogWarning(log,
-                    "Script Extender 2.6 pathfinding globals differ from the canonical " +
+                    "Script Extender pathfinding globals differ from the canonical " +
                     "FBCB9319 process-start tables. Another component may have changed " +
                     "process-wide unit-type behavior; the enemy-gate policy remains " +
                     $"read-only and unchanged: {counts}, " +
@@ -285,7 +285,7 @@ namespace EnemyGatePathfindingTest
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogWarning(log,
-                    "Script Extender 2.6 pathfinding-global startup comparison failed; " +
+                    "Script Extender pathfinding-global startup comparison failed; " +
                     $"the enemy-gate policy remains active and read-only: {ex.GetType().Name}: {ex.Message}");
             }
         }

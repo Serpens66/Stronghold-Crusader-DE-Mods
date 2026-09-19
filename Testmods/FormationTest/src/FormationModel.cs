@@ -401,6 +401,51 @@ namespace FormationTest
             doubled >= 0 ? (doubled + 1) / 2 : (doubled - 1) / 2;
     }
 
+    internal static class FormationPlanHash
+    {
+        private const ulong OffsetBasis = 14695981039346656037UL;
+        private const ulong Prime = 1099511628211UL;
+
+        internal static ulong Begin(int unitCount)
+        {
+            ulong hash = OffsetBasis;
+            AddInt32(ref hash, unitCount);
+            return hash;
+        }
+
+        internal static void AddEntry(
+            ref ulong hash,
+            int unitId,
+            uint globalId,
+            int x,
+            int y,
+            FormationRole role)
+        {
+            AddInt32(ref hash, unitId);
+            AddUInt32(ref hash, globalId);
+            AddInt32(ref hash, x);
+            AddInt32(ref hash, y);
+            AddByte(ref hash, (byte)role);
+        }
+
+        private static void AddInt32(ref ulong hash, int value) =>
+            AddUInt32(ref hash, unchecked((uint)value));
+
+        private static void AddUInt32(ref ulong hash, uint value)
+        {
+            AddByte(ref hash, (byte)value);
+            AddByte(ref hash, (byte)(value >> 8));
+            AddByte(ref hash, (byte)(value >> 16));
+            AddByte(ref hash, (byte)(value >> 24));
+        }
+
+        private static void AddByte(ref ulong hash, byte value)
+        {
+            hash ^= value;
+            hash *= Prime;
+        }
+    }
+
     internal static class FormationOrderMatchModel
     {
         internal static bool Matches(

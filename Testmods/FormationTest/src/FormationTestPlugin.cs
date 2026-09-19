@@ -6,7 +6,7 @@ using System;
 
 namespace FormationTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.6.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.8.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class FormationTestPlugin : BaseUnityPlugin
     {
@@ -56,7 +56,7 @@ namespace FormationTest
             }
 
             if (overlay == null)
-                overlay = FormationPreviewOverlay.CreateProcessLifetimeInstance();
+                overlay = FormationPreviewOverlay.CreateProcessLifetimeInstance(persistentLog);
 
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,

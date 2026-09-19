@@ -1,11 +1,11 @@
 # Vorplatzierte Gebäude und Vanilla-KI – aktueller Wissensstand
 
-- Stand: 12. September 2026
+- Stand: 19. September 2026
 - Native Version: `CrusaderDE.dll`, SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
-- Getesteter Script Extender: 2.5.0
-- Wesentliche Laufzeitevidenz: `Log_057.log`, `Log_058.log`, `Log_063.log`, die aktiven Ruinen-/Mauerläufe vom 11. und 12. September 2026 sowie `SHCDESE-crash-2026-09-11-20-27-48-152-pid48388-tid50040.log`
+- Getestete Laufzeit: Script Extender 2.8.0 (Commit `5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33`), APIShared 0.3.7 und RedBird 1.3.2
+- Wesentliche Laufzeitevidenz: `Log_057.log`, `Log_058.log`, `Log_063.log`, die aktiven Ruinen-/Mauerläufe vom 11., 12. und 19. September 2026 sowie `SHCDESE-crash-2026-09-11-20-27-48-152-pid48388-tid50040.log`
 
-Aktiv waren bei den maßgeblichen Tests nur UU-ImGUI, Script Extender und `PreplacedTest`. Spieler-IDs und Farben sind keine festen Testrollen. Torhaus-KI und torlose Kontroll-KI werden bei jedem Kartenstart aus den aktuellen Gebäude- und Tile-Daten neu bestimmt.
+Spieler-IDs und Farben sind keine festen Testrollen. Torhaus-KI und torlose Kontroll-KI werden bei jedem Kartenstart aus den aktuellen Gebäude- und Tile-Daten neu bestimmt. Der abschließende Lauf am 19. September enthielt zusätzlich Fixes 1.17.1 und bestätigt damit auch diese Kombination.
 
 ## Gesicherte Erkenntnisse
 
@@ -44,7 +44,7 @@ Der Kartenstart-Census darf jedoch nicht sofort mit dem Overlay wiederholt werde
 
 Eine vollständige XRef-Prüfung der Baseline findet außer Rasteraufbau, Census und den vier Wirtschaftssuchen noch zwei Leser von `byte+04`: `0x583A0` wird ausschließlich aus dem alternativen AIV-Ausführungspfad `0x52270` aufgerufen und sucht eine freie 3×3-Fläche; `0x58BE0` wird ausschließlich aus `0x54CC0` aufgerufen und prüft freie AIV-Platzierungsflächen zusätzlich selbst über `0xE2610`. Beide gehören zur AIV-Layoutplatzierung, nicht zur externen Wirtschaftsentscheidung. Sie werden als separate Verträge überwacht, aber vom eng begrenzten Wirtschaftsfix bewusst nicht verändert.
 
-### Das aktive Overlay ermöglicht der Torhaus-KI externe Wirtschaftsbauten
+### Das aktive Overlay ermöglicht externe Wirtschaftsbauten über Tore und nach einem Durchbruch
 
 Im neuesten Mauerlauf war Spieler 7 die dynamisch ermittelte Torhaus-KI. Sie baute um `20:27:10.435` einen Holzfäller bei `(500,375)` und um `20:27:25.423` einen zweiten bei `(505,375)`. Der erste Holzfäller entstand etwa sieben Sekunden vor dem bestätigten Durchbruch der Einfassung von Spieler 8 ohne Torhäuser um `20:27:17.024`. Damit liegt erstmals positive Laufzeitevidenz vor, dass das spielerspezifische `byte+04`-Overlay die Holzsuche der Torhaus-KI über die vorplatzierten Portale hinaus erweitert.
 
@@ -56,9 +56,9 @@ Der erste Lauf mit der daraufhin zunächst nach `OnLoadMap Post` verschobenen Er
 
 Der native Diagnosepfad liefert den korrekten früheren Grenzpunkt. Beim ersten Eintritt in `0x50680` um `00:51:28.578` existierten genau die vier kartenplatzierten Torhäuser mit IDs `19..22`; die späteren AIV-Burggebäude waren noch nicht vorhanden. Baselineidentitäten und Wall-Tiles werden deshalb nun unmittelbar vor dem ersten Originalaufruf von `AllocateSpec` einmalig festgehalten. `OnLoadMap Post` ist nur ein fail-closed Fallback und darf eine vorhandene frühe Baseline nicht überschreiben. Bei `OnStartMap Post` werden die Records über stabile Game-ID, Global-ID und Typ mit dem aktuellen Besitzer abgeglichen. Spätere AIV-Bauten können den Vorplatzierungsfix damit nicht mehr aktivieren.
 
-Farm-, Steinbruch-, Eisen- und Pechsuche waren in diesem Lauf keine negativen Gegenproben: Die nativen Eintrittsdaten meldeten jeweils `built=0, desired=0`, weshalb Vanilla diese Suchen legitim vor der Traversierung beendete. Sie müssen bei einem Test mit echter Nachfrage oder über die proaktiven Modelle beurteilt werden.
+Der Lauf unter Script Extender 2.8.0 bestätigte den Torhauspfad vollständig. Die dynamisch erkannte Torhaus-KI wechselte nach Bereitstellung des nativen Portalgraphen zu `ActivePortal`. Der einmalige Re-Census projizierte 13.882 Zellen und stellte alle Werte exakt wieder her. Anschließend baute Vanilla außerhalb der Einfassung Farmen, vier Eisenminen, zwei Steinbrüche mit Ochsenjochen und acht Holzfäller. Der Holzscore-Fix griff zweimal bei 42 formalen Kandidaten und Bestwerten von `-105` beziehungsweise `-114`; die originale Vanilla-Suche lieferte danach jeweils den passenden Kandidaten. Modellabweichungen, Restaurierungsfehler, Exceptions oder Crashes traten nicht auf.
 
-Nach dem Durchbruch der torlosen KI lief deren echte Holzsuche noch rund 30 Sekunden mehrfach mit Ergebnis `(-1,-1)` weiter. In dieser kurzen Zeit entstand kein Holzfäller. Das kann ein noch unvollständiges Modell, die native Kandidatenbewertung oder den Such-Cooldown betreffen und ist noch kein Beleg gegen die physische Öffnung.
+Der abschließende Durchbruchtest bestätigt nun auch die torlose KI. In diesem Lauf war sie Spieler 1 und blieb bis zum tatsächlichen Verlust der Baseline-Mauertiles `194817` und `194818` im Zustand `PendingBreach`. Um `22:25:27.039` meldete die kombinierte Tile-/Ankerprüfung `CONFIRMED_WALL_BREACH`. Der unmittelbar folgende Übergang zu `ActiveBreach` führte genau einmal den Re-Census aus: 14.064 Zellen wurden temporär projiziert, die Verfügbarkeitsfelder wurden freigegeben und das Raster mit `restoredExactly=true` wiederhergestellt. Um `22:25:27.575` fand Vanillas originale Holzsuche 46 formale Kandidaten; der beste Score `-114` lag unter dem Vanilla-Startwert `-100`, der direkte Score-Fix ließ Vanilla selbst den Kandidaten `(102,83)` auswählen, und der Holzfäller bei `(510,410)` wurde erfolgreich gebaut. Weitere Holzfäller sowie erfolgreiche Steinbruch- und Eisensuchen folgten. Es gab keine Suspension, Modellabweichung oder fehlerhafte Restaurierung. Damit sind Portal- und Durchbruchpfad praktisch vollständig abgenommen.
 
 Die bisherige Gegenrechnung mit einem manuell rekonstruierten Portalgraphen war nützlich, aber kein Beweis für Vanillas spielerspezifische Entscheidung. Der aktive Overlaypfad verwendet deshalb ausschließlich `GamePathingManagerAPI.FindNextComponentTowardDestination` mit `PathConnectionQueryMode.ExcludeLadderClimb`. Eine neue Routenmatrix vergleicht zusätzlich `IncludeAll`, `LadderClimbOnly` und die umgekehrte Richtung, ohne diese Vergleichswerte für den Fix zu verwenden.
 
@@ -84,7 +84,7 @@ Der tödliche Schaden am zweiten Holzfäller aktivierte für dessen Besitzer den
 
 Dieser Crash stammte ausschließlich aus der Diagnose. Weder die enge Ruinen-Timernormalisierung noch das temporäre Wirtschaftsraster-Overlay lagen auf dem abstürzenden Kontrollflusspfad. Der Inline-Hook bei `0x7F074` ist vollständig entfernt. Schadensereignisse des Script Extenders und die bereits vorhandenen Timervergleiche bleiben als passive Verlustkontrolle erhalten. Ein statischer Regressionstest verwirft künftig jeden Inline-Hook-Span, in dessen Inneres ein nativer Sprung zielt.
 
-## Aktive Fixerprobung in PreplacedTest 0.1.1
+## Bestätigte Fixerprobung in PreplacedTest 0.1.2
 
 1. Der Ruinenfix normalisiert ausschließlich den eng belegten, aus einer passenden Altformat-Turmruinenbaseline übernommenen Startwert.
 2. Jede KI besitzt einen kartenlokalen Zustand `None`, `PendingPortal`, `PendingBreach`, `ActivePortal`, `ActiveBreach` oder `Suspended`. Saves und offene KIs bleiben `None`.
@@ -94,7 +94,7 @@ Dieser Crash stammte ausschließlich aus der Diagnose. Weder die enge Ruinen-Tim
 6. Als erreichbar gelten nur PCLs, für die Vanillas eigene Routenabfrage vom Burg-PCL mit `ExcludeLadderClimb` einen positiven nächsten Schritt liefert. Leiterpfade, feindliche Tore, nur später von der AIV gebaute Tore und echte Isolation aktivieren den Portalpfad nicht.
 7. Verliert eine aktive Portal-KI ihre Route oder wird der bestätigte Durchbruch wieder unzugänglich, wird der Fix ausgesetzt. Eine später wieder gültige Topologie kann einen neuen Re-Census auslösen. Vertrags-, Verschachtelungs- oder Restaurierungsfehler deaktivieren den Wirtschaftstestfix prozessweit.
 8. Projektionen werden pro Spieler und Topologie-/Portalsignatur wiederverwendet. Vanillas aktuelles `byte+04` wird bei jedem Originalaufruf weiterhin separat gesichert und vollständig restauriert; gewöhnliche Abbauwerte erzwingen aber keine erneute 320.800-Tile-Analyse.
-9. `PreplacedTest` ist dadurch gameplayverändernd und verwendet `NetworkMode=1`. Eine Übernahme nach `BugfixesAndQoL` erfolgt erst nach erfolgreicher Laufzeitabnahme.
+9. `PreplacedTest` ist dadurch gameplayverändernd und verwendet `NetworkMode=1`. Die Laufzeitabnahme ist für Ruinen-, Portal- und Durchbruchpfad einschließlich Holz abgeschlossen; die produktive Übernahme nach `BugfixesAndQoL` kann getrennt von der umfangreichen Diagnose erfolgen.
 
 Die frühere Vollanalyse jeder Wirtschaftssuche war für die Ursachenfindung nützlich, erzeugte auf der Mauerkarte aber erhebliche Last. Im aktuellen Testprofil werden vollständige Routing-, Portal-, Traversierungs- und Shadow-Ausgaben nicht mehr aus Hot Paths aufgerufen. AIV-Zuweisung und Platzierungsfestlegung erzeugen ebenfalls keine vollständigen Building-Inventare mehr. Such-, Validator-, Bau- und native Konstruktionsereignisse werden mit stabilen Schlüsseln ohne wechselnde Frame-, Tile- oder Positionswerte aggregiert; periodische Intervalle laufen im Mauerprofil alle fünf Sekunden. Die Durchbruchüberwachung prüft im Normalfall nur Baseline-Mauertiles und deren feste Anker. Der frühere globale Flood-Fill war bei den tatsächlich verwendeten, in Bauwerksfootprints integrierten Mauern kein verlässlicher Vertragsnachweis und ist deshalb kein Aktivierungs-Gate mehr.
 
@@ -108,10 +108,8 @@ Für den Holzfällerpfad ist die vollständige Vanilla-Kette festgehalten: `0x51
 - Eine feste Spieler-ID, Farbe oder Portal-Owner-Rohwertsemantik.
 - Vorplatzierte Gebäude in globalen KI-Sollzählungen; diese Hypothese wurde nicht isoliert belegt und wird nicht aktiv korrigiert.
 
-## Nächste Laufzeitabnahme
+## Abschlussstatus
 
-- Ruinenkarte: `LEGACY_TIMER_FIX_APPLIED` muss erscheinen und die betroffene KI ohne 49-Tick-Sperre beginnen.
-- Mauerkarte: Die dynamisch identifizierte Torhaus-KI muss zunächst `PendingPortal` und beim ersten belastbaren späteren Routennachweis `ActivePortal` erreichen. `ECONOMY_CENSUS_RECONCILED` muss dabei die zehn Verfügbarkeits-/Cooldownfelder sowie eine exakte Rasterrestaurierung ausweisen. Die torlose Kontrolle bleibt davor Vanilla.
-- Nach einem sichtbaren Durchbruch der torlosen KI müssen der anhand der Schaden-Tile-ID aufgelöste Baseline-Tileverlust, das zugehörige verbundene Innen-/Außenankerpaar und die native PCL-Reichweite gemeinsam `CONFIRMED_WALL_BREACH` und danach `ActiveBreach` auslösen. Der erneute Census muss externe Verfügbarkeiten freigeben; anschließend soll die KI außerhalb wirtschaftlich bauen.
-- Jede Overlaymeldung muss `restoredExactly=true` ausgeben. Erst danach sind Ruinen- und Wirtschaftskorrektur für eine getrennt schaltbare Übernahme nach `BugfixesAndQoL` freigegeben.
-- Beim nächsten Mauerlauf muss `PREPLACED_WOOD_SCORE_FIX_APPLIED` einen positiven formalen Kandidatenbestand, einen Vanilla-Bestscore von höchstens `-100`, den aktiven direkten Score-Fix und anschließend ein von Vanillas eigener Suche geliefertes Ergebnis korrelieren. Die Torhaus-KI soll dadurch ohne lange scorebedingte Verzögerung Holzfäller außerhalb bauen. Die torlose KI bleibt vor dem Durchbruch Vanilla und soll nach `ActiveBreach` dieselbe Korrektur erhalten.
+Die beiden Fehlerbilder sind funktional abgeschlossen. Der Ruinen-Starttimer wird nur unter den eng belegten Frischkartenbedingungen normalisiert. Die Wirtschaftskorrektur bleibt bis zu einer bestätigten freundlichen Portalroute beziehungsweise einem echten Mauerdurchbruch inaktiv, führt dann den originalen Census und jede originale Suche genau einmal aus und restauriert das temporäre Raster vollständig. Sowohl `ActivePortal` als auch `ActiveBreach` sind einschließlich externer Holzfäller durch echte Laufzeitkonstruktionen bestätigt.
+
+Vor einer produktiven Übernahme verbleibt keine weitere Ursachen- oder Funktionsdiagnose. Nötig ist nur noch, Timerfix und Wirtschaftskorrektur ohne die umfangreichen Testlogs als getrennt schaltbare, synchronisierte `NetworkMode=1`-Funktionen nach `BugfixesAndQoL` zu übertragen.

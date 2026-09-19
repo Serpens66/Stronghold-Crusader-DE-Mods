@@ -6,6 +6,7 @@ set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBu
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
+set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
 set "PLUGIN_NAME=PreplacedTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
@@ -23,6 +24,10 @@ if errorlevel 1 (
 
 if not exist "%MSBUILD%" goto build_failed
 if not exist "%EXTENDER_DIR%\SHCDESE.dll" goto build_failed
+if not exist "%API_SHARED_DIR%\APIShared.dll" goto api_shared_missing
+if not exist "%API_SHARED_DIR%\info.json" goto api_shared_missing
+powershell.exe -NoProfile -Command "$manifest = Get-Content -LiteralPath '%API_SHARED_DIR%\info.json' -Raw | ConvertFrom-Json; if ([version]$manifest.Version -lt [version]'0.3.6') { exit 1 }"
+if errorlevel 1 goto api_shared_too_old
 
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" tests\PreplacedTest.Tests.csproj /p:Configuration=Debug
@@ -63,6 +68,16 @@ exit /b 0
 popd
 :build_failed
 echo Build failed.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
+
+:api_shared_missing
+echo Build aborted: APIShared_Serp 0.3.6 or newer is required. Build and install APIShared\build.bat first.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
+
+:api_shared_too_old
+echo Build aborted: installed APIShared_Serp is older than 0.3.6. Build and install APIShared\build.bat first.
 if "%NO_PAUSE%"=="0" pause
 exit /b 1
 

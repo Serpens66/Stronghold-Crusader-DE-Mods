@@ -5,7 +5,7 @@
   "Description": "Standalone multiplayer prototype for mouse-controlled troop formations.",
   "Version": "0.1.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.6.0",
+  "MinimumScriptExtenderVersion": "2.8.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,

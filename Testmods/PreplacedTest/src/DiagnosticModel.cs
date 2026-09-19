@@ -1271,6 +1271,100 @@ namespace PreplacedTest
         }
     }
 
+    internal static class DiagnosticCounterSummary
+    {
+        public static KeyValuePair<string, long>[] Compact(IEnumerable<KeyValuePair<string, long>> counters)
+        {
+            var visible = new List<KeyValuePair<string, long>>();
+            var summaries = new SortedDictionary<string, CounterSummary>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, long> pair in counters.OrderBy(value => value.Key, StringComparer.Ordinal))
+            {
+                string category = CompactCategory(pair.Key);
+                if (category == null)
+                {
+                    visible.Add(pair);
+                    continue;
+                }
+
+                if (!summaries.TryGetValue(category, out CounterSummary summary))
+                    summary = new CounterSummary(0, 0, 1469598103934665603UL);
+                summaries[category] = new CounterSummary(
+                    checked(summary.Events + pair.Value),
+                    checked(summary.DistinctKeys + 1),
+                    HashPair(summary.Signature, pair));
+            }
+
+            foreach (KeyValuePair<string, CounterSummary> pair in summaries)
+            {
+                visible.Add(new KeyValuePair<string, long>(
+                    $"summary.{pair.Key}.events/distinct={pair.Value.DistinctKeys}/signature={pair.Value.Signature:X16}",
+                    pair.Value.Events));
+            }
+            return visible.OrderBy(value => value.Key, StringComparer.Ordinal).ToArray();
+        }
+
+        private static string CompactCategory(string key)
+        {
+            if (key.StartsWith("native-validator ", StringComparison.Ordinal)) return "validator";
+            if (key.StartsWith("placement-helper ", StringComparison.Ordinal) ||
+                key.StartsWith("placement-reachability ", StringComparison.Ordinal)) return "placement";
+            if (key.StartsWith("accessibility-", StringComparison.Ordinal) ||
+                key.StartsWith("building-accessibility ", StringComparison.Ordinal)) return "accessibility";
+            if (key.StartsWith("resource-gate ", StringComparison.Ordinal) ||
+                key.StartsWith("mapper-wait-", StringComparison.Ordinal)) return "build-gates";
+            if (key.StartsWith("execute.", StringComparison.Ordinal) ||
+                key.StartsWith("execute ", StringComparison.Ordinal)) return "aiv-execution";
+            if (key.StartsWith("scheduler.", StringComparison.Ordinal)) return "scheduler";
+            if (key.StartsWith("phase.", StringComparison.Ordinal) ||
+                key.StartsWith("candidate-fit ", StringComparison.Ordinal) ||
+                key.StartsWith("maintenance.", StringComparison.Ordinal)) return "aiv-phases";
+            if (key.StartsWith("global-count ", StringComparison.Ordinal)) return "building-counts";
+            if (key.StartsWith("construct-building context=aiv-layout ", StringComparison.Ordinal)) return "aiv-construction";
+            if (key.StartsWith("event.placement", StringComparison.Ordinal) ||
+                key.StartsWith("event.build", StringComparison.Ordinal)) return "script-events";
+            if (key.StartsWith("event.bulldoze ", StringComparison.Ordinal) ||
+                key.StartsWith("event.delete ", StringComparison.Ordinal) ||
+                key.StartsWith("event.spawn ", StringComparison.Ordinal)) return "building-events";
+            if (key.StartsWith("damage owner=", StringComparison.Ordinal) ||
+                (key.StartsWith("owner=", StringComparison.Ordinal) && key.Contains("damage.")) ||
+                key.StartsWith("event.damage.", StringComparison.Ordinal)) return "damage-events";
+            return null;
+        }
+
+        private static ulong HashPair(ulong hash, KeyValuePair<string, long> pair)
+        {
+            foreach (char value in pair.Key)
+            {
+                hash ^= value;
+                hash *= 1099511628211UL;
+            }
+            unchecked
+            {
+                ulong value = (ulong)pair.Value;
+                for (int index = 0; index < sizeof(long); index++)
+                {
+                    hash ^= (byte)(value >> (index * 8));
+                    hash *= 1099511628211UL;
+                }
+            }
+            return hash;
+        }
+
+        private readonly struct CounterSummary
+        {
+            public CounterSummary(long events, long distinctKeys, ulong signature)
+            {
+                Events = events;
+                DistinctKeys = distinctKeys;
+                Signature = signature;
+            }
+
+            public long Events { get; }
+            public long DistinctKeys { get; }
+            public ulong Signature { get; }
+        }
+    }
+
     internal readonly struct SchedulerGateState
     {
         public SchedulerGateState(int activeAivSlot, int crushedCounter, int crushedDelay,

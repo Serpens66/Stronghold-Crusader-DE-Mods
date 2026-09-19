@@ -140,8 +140,11 @@ namespace EnemyGatePathfindingTest
         public const int RecordSecondPclOffset = -0x1E4;
         public const int RecordThirdPclOffset = -0x34;
 
+        public const string AuditedScriptExtenderVersion = "2.8.0";
+        public const string AuditedScriptExtenderTag = "v2.8.0";
         public const string AuditedScriptExtenderCommit =
-            "68ebf5380d711dfa7b7f84c9d4326ff81e42854c";
+            "5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33";
+        public const string AuditedRedBirdVersion = "1.3.2.0";
 
         internal static bool PclGraphCaptureCompareIsEqual(ushort nativeCapturedByPlayerId) =>
             nativeCapturedByPlayerId == 0;

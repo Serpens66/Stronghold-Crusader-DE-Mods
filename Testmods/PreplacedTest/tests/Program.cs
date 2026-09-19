@@ -17,6 +17,7 @@ namespace PreplacedTest.Tests
             try
             {
                 TestCountersHaveNoCap();
+                TestCounterSummariesAreCompactAndDeterministic();
                 TestChunkingIsLossless();
                 TestLosslessGridCoordinateFormatting();
                 TestSchedulerModels();
@@ -64,6 +65,28 @@ namespace PreplacedTest.Tests
             Check(counters.TotalFor("attempt") == 250000, "terminal observation window kept accumulating");
             counters.Clear();
             Check(counters.SnapshotTotal().Length == 0, "session reset retained totals");
+        }
+
+        private static void TestCounterSummariesAreCompactAndDeterministic()
+        {
+            var input = new[]
+            {
+                new KeyValuePair<string, long>("native-validator outcome=allowed mapper=A", 250000),
+                new KeyValuePair<string, long>("native-validator outcome=rejected mapper=B", 17),
+                new KeyValuePair<string, long>("accessibility-sweep.call", 99),
+                new KeyValuePair<string, long>("confirmed-wall-breach reason=test", 1),
+                new KeyValuePair<string, long>("wood-score formal=46 accepted=0 recovered=True", 2)
+            };
+            KeyValuePair<string, long>[] first = DiagnosticCounterSummary.Compact(input);
+            KeyValuePair<string, long>[] second = DiagnosticCounterSummary.Compact(input.Reverse());
+            Check(first.SequenceEqual(second), "counter summary depends on input order");
+            Check(first.Single(value => value.Key.StartsWith("summary.validator.", StringComparison.Ordinal)).Value == 250017,
+                "validator summary lost events");
+            Check(first.Single(value => value.Key.StartsWith("summary.accessibility.", StringComparison.Ordinal)).Value == 99,
+                "accessibility summary lost events");
+            Check(first.Any(value => value.Key == "confirmed-wall-breach reason=test" && value.Value == 1) &&
+                first.Any(value => value.Key == "wood-score formal=46 accepted=0 recovered=True" && value.Value == 2),
+                "acceptance-critical counters were compacted away");
         }
 
         private static void TestChunkingIsLossless()
@@ -984,10 +1007,34 @@ namespace PreplacedTest.Tests
             string minimumExtenderVersion = minimumMatch.Success ? minimumMatch.Groups[1].Value : string.Empty;
             Check(!string.IsNullOrEmpty(minimumExtenderVersion) &&
                 plugin.Contains($"BepInDependency(ScriptExtenderGuid, \"{minimumExtenderVersion}\")") &&
-                plugin.Contains("testedScriptExtender=2.7.1") &&
-                plugin.Contains("68ebf5380d711dfa7b7f84c9d4326ff81e42854c") &&
+                plugin.Contains("TestedScriptExtenderVersion = \"2.8.0\"") &&
+                plugin.Contains("5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33") &&
+                plugin.Contains("TestedApiSharedVersion = \"0.3.7\"") &&
+                plugin.Contains("TestedRedBirdVersion = \"1.3.2.0\"") &&
+                plugin.Contains("BepInDependency(\"fixes\", BepInDependency.DependencyFlags.SoftDependency)") &&
+                plugin.Contains("EnemyGatePathfindingTest_Serp") &&
+                plugin.Contains("PREPLACED_COMPATIBILITY:") &&
                 manifest.Contains("\"NetworkMode\": 1"),
                 "Script Extender compatibility or active test-fix network contract is inconsistent");
+
+            string buildDriver = File.ReadAllText("build.bat");
+            Check(buildDriver.Contains("API_SHARED_DIR") &&
+                buildDriver.Contains("APIShared.dll") && buildDriver.Contains("APIShared_Serp 0.3.6 or newer") &&
+                buildDriver.Contains("[version]$manifest.Version -lt [version]'0.3.6'") &&
+                buildDriver.IndexOf("APIShared.dll", StringComparison.Ordinal) <
+                buildDriver.IndexOf("tests\\PreplacedTest.Tests.csproj", StringComparison.Ordinal),
+                "APIShared build hard-gate is missing or runs after tests");
+            string installedApiShared = @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\APIShared_Serp";
+            string installedApiManifest = Path.Combine(installedApiShared, "info.json");
+            Check(File.Exists(Path.Combine(installedApiShared, "APIShared.dll")) && File.Exists(installedApiManifest),
+                "installed APIShared package required for this build is incomplete");
+            Match apiVersion = Regex.Match(File.ReadAllText(installedApiManifest), @"""Version""\s*:\s*""([^""]+)""");
+            Check(apiVersion.Success && new Version(apiVersion.Groups[1].Value).CompareTo(new Version(0, 3, 6)) >= 0,
+                "installed APIShared manifest does not satisfy 0.3.6");
+            Check(source.Contains("DiagnosticCounterSummary.Compact(interval)") &&
+                source.Contains("DiagnosticCounterSummary.Compact(session.Counters.SnapshotTotal())") &&
+                source.Contains("DiagnosticCounterSummary.Compact(total)"),
+                "hot interval, final, or unattributed totals bypass compact summaries");
         }
 
         private static void TestNativeSignaturesAgainstCanonicalDll()

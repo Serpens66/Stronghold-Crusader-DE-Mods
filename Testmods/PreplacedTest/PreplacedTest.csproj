@@ -48,6 +48,8 @@
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(GameDir)\BepInEx\core\BepInEx.dll')" Text="BepInEx.dll was not found below GameDir: $(GameDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\SHCDESE.dll')" Text="SHCDESE.dll was not found: $(ExtenderDir)" />
+    <Error Condition="!Exists('$(ApiSharedDir)\APIShared.dll')" Text="APIShared.dll 0.3.6 or newer was not found. Build and install APIShared\build.bat first: $(ApiSharedDir)" />
+    <Error Condition="!Exists('$(ApiSharedDir)\info.json')" Text="APIShared info.json was not found. Build and install APIShared\build.bat first: $(ApiSharedDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\R3.dll')" Text="R3.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\System.Memory.dll')" Text="System.Memory.dll was not found: $(ExtenderDir)" />
     <Error Condition="!Exists('$(ExtenderDir)\RedBird.Abstractions.dll')" Text="RedBird.Abstractions.dll was not found: $(ExtenderDir)" />

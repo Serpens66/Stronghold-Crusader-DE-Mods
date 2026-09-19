@@ -10,6 +10,8 @@ if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_
 set "PLUGIN_NAME=EnemyGatePathfindingTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"
 set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\%PLUGIN_NAME%"
+set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
+if defined APISHARED_DIR set "API_SHARED_DIR=%APISHARED_DIR%"
 set "EXTENDER_DIR="
 set "NO_PAUSE=0"
 set "NO_INSTALL=0"
@@ -29,6 +31,11 @@ if not exist "%MSBUILD%" goto build_failed
 if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
   set "EXTENDER_DIR=%GAME_SCRIPT_EXTENDER_DIR%"
 ) else goto build_failed
+
+rem Editor lifecycle is a hard runtime dependency. Validate it before replacing
+rem either the local package or the installed test mod.
+powershell.exe -NoProfile -Command "$p='%API_SHARED_DIR%\APIShared.dll'; $m='%API_SHARED_DIR%\info.json'; if (-not (Test-Path -LiteralPath $p -PathType Leaf) -or -not (Test-Path -LiteralPath $m -PathType Leaf)) { exit 2 }; try { $v=[Version]((Get-Content -Raw -LiteralPath $m | ConvertFrom-Json).Version) } catch { exit 3 }; if ($v -lt [Version]'0.3.6') { exit 4 }; Write-Host ('Using APIShared ' + $v + ' from ' + $p)"
+if errorlevel 1 goto api_shared_failed
 
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
@@ -79,6 +86,12 @@ exit /b 1
 popd
 :build_failed
 echo Build failed.
+if "%NO_PAUSE%"=="0" pause
+exit /b 1
+
+:api_shared_failed
+echo Build and installation aborted: APIShared.dll version 0.3.6 or newer was not found in "%API_SHARED_DIR%".
+echo Build and install APIShared_Serp first. The local package and installed test mod were not changed.
 if "%NO_PAUSE%"=="0" pause
 exit /b 1
 

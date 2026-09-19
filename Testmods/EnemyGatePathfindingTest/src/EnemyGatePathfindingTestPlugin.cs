@@ -41,7 +41,8 @@ namespace EnemyGatePathfindingTest
             LogScriptExtenderIdentity();
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
-                $"{PluginName} {PluginVersion} loaded; no settings and no hard dependency beyond Script Extender are used.");
+                $"{PluginName} {PluginVersion} loaded; no settings are used; " +
+                "APIShared provides the editor-capable mission lifecycle.");
 
             // UPDATE REVIEW (Script Extender): revalidate map event phases and lifetime;
             // the BaseUnityPlugin component itself is intentionally not the runtime owner.
@@ -130,18 +131,23 @@ namespace EnemyGatePathfindingTest
                 string fileVersion = string.IsNullOrEmpty(location)
                     ? "unknown"
                     : FileVersionInfo.GetVersionInfo(location).FileVersion;
-                bool auditedVersion = assembly.GetName().Version == new Version(2, 7, 1, 0);
+                bool auditedVersion = assembly.GetName().Version == new Version(2, 8, 0, 0);
                 Shared.DebugLogHelper.LogInfo(
                     persistentLog,
                     $"Script Extender identity: manifestVersionRange=true, " +
+                    $"auditedVersion={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion}, " +
+                    $"auditedTag={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag}, " +
                     $"auditedCommit={EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit}, " +
                     $"assembly={assembly.FullName}, fileVersion={fileVersion}, informationalVersion={informational}, " +
-                    $"auditedVersionMatch={auditedVersion}.");
+                    $"auditedVersionMatch={auditedVersion}, " +
+                    $"redBirdAudited={EnemyGatePathfindingNativeDefinition.AuditedRedBirdVersion}.");
                 if (!auditedVersion)
                 {
                     Shared.DebugLogHelper.LogWarning(
                         persistentLog,
-                        "Script Extender differs from audited version 2.7.1. Review native and API contracts before accepting test results.");
+                        $"Script Extender differs from audited version " +
+                        $"{EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion}. " +
+                        "Review native and API contracts before accepting test results.");
                 }
             }
             catch (Exception ex)

@@ -4949,11 +4949,12 @@ namespace PreplacedTest
                 : "unresolved-invalid-index";
             string stateText = $"state activeAiv={gate.ActiveAivSlot}, activeAic={ReadPlayerGlobal(playerId, ActiveAicRelativeOffset)}, crushed={gate.CrushedCounter}/{gate.CrushedDelay}, gold={gate.Gold}, build={gate.BuildCounter}/{gate.BuildRate}, pause={gate.PauseCounter}, pauseIndex={pauseIndex}, pauseThreshold={pauseThreshold}, pauseConfigured={ReadPlayerGlobal(playerId, PauseConfiguredRelativeOffset)}, economyPhase={ReadPlayerGlobal(playerId, EconomyPhaseRelativeOffset)}, goal={gate.CurrentStepGoal}, highest={gate.HighestPreparedFrame}";
             KeyValuePair<string, long>[] interval = session.Counters.DrainInterval();
-            if (interval.Length != 0) EmitCounters(playerId, "INTERVAL", interval, stateText);
+            if (interval.Length != 0)
+                EmitCounters(playerId, "INTERVAL", DiagnosticCounterSummary.Compact(interval), stateText);
             if (!session.StartSummaryEmitted && session.FirstBuilding.FollowUpComplete(now))
             {
                 session.StartSummaryEmitted = true;
-                EmitCounters(playerId, "AIV_START_TOTAL", session.Counters.SnapshotTotal(),
+                EmitCounters(playerId, "AIV_START_TOTAL", DiagnosticCounterSummary.Compact(session.Counters.SnapshotTotal()),
                     "reason=first-building-follow-up-complete; observationContinues=" +
                     (!(ruinsProfile && !walledEconomyProfile)));
                 if (ruinsProfile && !walledEconomyProfile)
@@ -4966,8 +4967,9 @@ namespace PreplacedTest
             if (!players.TryGetValue(playerId, out PlayerSession session) || session.Finalized) return;
             session.Finalized = true;
             KeyValuePair<string, long>[] remaining = session.Counters.DrainInterval();
-            if (remaining.Length != 0) EmitCounters(playerId, "FINAL_PENDING", remaining, "reason=" + reason);
-            EmitCounters(playerId, "FINAL_TOTAL", session.Counters.SnapshotTotal(), "reason=" + reason);
+            if (remaining.Length != 0)
+                EmitCounters(playerId, "FINAL_PENDING", DiagnosticCounterSummary.Compact(remaining), "reason=" + reason);
+            EmitCounters(playerId, "FINAL_TOTAL", DiagnosticCounterSummary.Compact(session.Counters.SnapshotTotal()), "reason=" + reason);
             if (ruinsProfile)
             {
                 KeyValuePair<string, long>[] damagePending = session.DamageCounters.DrainInterval();
@@ -5555,7 +5557,8 @@ namespace PreplacedTest
         {
             KeyValuePair<string, long>[] interval = unattributedCounters.DrainInterval();
             if (interval.Length == 0) return;
-            string payload = "reason=" + reason + "; " + string.Join("; ", interval.Select(p => p.Key + "=" + p.Value));
+            KeyValuePair<string, long>[] compact = DiagnosticCounterSummary.Compact(interval);
+            string payload = "reason=" + reason + "; " + string.Join("; ", compact.Select(p => p.Key + "=" + p.Value));
             EmitChunked("PREPLACED_UNATTRIBUTED: ", payload);
         }
 
@@ -5566,7 +5569,8 @@ namespace PreplacedTest
             KeyValuePair<string, long>[] total = unattributedCounters.SnapshotTotal();
             if (total.Length != 0)
             {
-                string payload = "reason=" + reason + "; " + string.Join("; ", total.Select(p => p.Key + "=" + p.Value));
+                KeyValuePair<string, long>[] compact = DiagnosticCounterSummary.Compact(total);
+                string payload = "reason=" + reason + "; " + string.Join("; ", compact.Select(p => p.Key + "=" + p.Value));
                 EmitChunked("PREPLACED_UNATTRIBUTED_TOTAL: ", payload);
             }
             unattributedFinalized = true;

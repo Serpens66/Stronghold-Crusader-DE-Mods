@@ -57,7 +57,8 @@ namespace EnemyGatePathfindingTest
                 TileRouteNativeContractIsPinned();
                 NativeRouteHotPathsRemainPrimitiveOnly();
                 UnsafeGlobalMutationAndWholePclDetourAreAbsent();
-                ScriptExtender26PathfindingGlobalsAreComparedReadOnly();
+                ScriptExtenderPathfindingGlobalsAreComparedReadOnly();
+                ScriptExtender280AndFixesContractsArePinned();
                 Console.WriteLine("EnemyGatePathfindingPolicy: {0} assertions passed.", assertions);
                 return 0;
             }
@@ -68,7 +69,7 @@ namespace EnemyGatePathfindingTest
             }
         }
 
-        private static void ScriptExtender26PathfindingGlobalsAreComparedReadOnly()
+        private static void ScriptExtenderPathfindingGlobalsAreComparedReadOnly()
         {
             var profiles = new int[PathfindingGlobalsBaseline.UnitTypeCount];
             var permissions = new int[PathfindingGlobalsBaseline.PermissionCount];
@@ -88,7 +89,7 @@ namespace EnemyGatePathfindingTest
             PathfindingGlobalsComparison canonical =
                 PathfindingGlobalsBaseline.Compare(profiles, permissions);
             Assert(canonical.MatchesCanonical,
-                "canonical SE 2.6 pathfinding globals compare without mismatches");
+                "canonical pathfinding globals compare without mismatches");
             Assert(canonical.LargeProfiles == 13 && canonical.DefaultProfiles == 77,
                 "canonical profile counts remain pinned to FBCB9319");
             Assert(canonical.AllowedByClass.Length == 6 &&
@@ -171,12 +172,101 @@ namespace EnemyGatePathfindingTest
                 Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             Assert(runtimeSource.IndexOf(
                     "GetUnitTypePathfindingConnectionClasses()", StringComparison.Ordinal) >= 0,
-                "startup comparison consumes the public SE 2.6 connection-class span");
+                "startup comparison consumes the public Script Extender connection-class span");
             Assert(runtimeSource.IndexOf(
                     "PathfindingConnectionPermissionTableRva", StringComparison.Ordinal) < 0 &&
                 runtimeSource.IndexOf("new ReadOnlySpan<int>(", StringComparison.Ordinal) < 0,
                 "startup comparison contains no direct native connection-table view");
         }
+
+        private static void ScriptExtender280AndFixesContractsArePinned()
+        {
+            Assert(EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderVersion == "2.8.0" &&
+                EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderTag == "v2.8.0" &&
+                EnemyGatePathfindingNativeDefinition.AuditedScriptExtenderCommit ==
+                    "5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33",
+                "Script Extender 2.8.0 provenance is pinned to the audited commit");
+            Assert(EnemyGatePathfindingNativeDefinition.AuditedRedBirdVersion == "1.3.2.0",
+                "installed RedBird audit version is documented without replacing byte contracts");
+
+            string pluginSource = File.ReadAllText(
+                Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
+            string runtimeSource = File.ReadAllText(
+                Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            Assert(pluginSource.IndexOf("new Version(2, 8, 0, 0)",
+                    StringComparison.Ordinal) >= 0 &&
+                pluginSource.IndexOf("audited version 2.7.1",
+                    StringComparison.Ordinal) < 0 &&
+                runtimeSource.IndexOf("Script Extender 2.6 pathfinding",
+                    StringComparison.Ordinal) < 0,
+                "runtime diagnostics contain no stale Script Extender audit identity");
+
+            string buildDriver = File.ReadAllText("build.bat");
+            int dependencyCheck = buildDriver.IndexOf("API_SHARED_DIR%\\APIShared.dll",
+                StringComparison.Ordinal);
+            int packageReplacement = buildDriver.IndexOf(
+                "if exist \"%LOCAL_PLUGIN_DIR%\\\" rmdir", StringComparison.Ordinal);
+            Assert(dependencyCheck >= 0 &&
+                buildDriver.IndexOf("API_SHARED_DIR%\\info.json", StringComparison.Ordinal) >= 0 &&
+                buildDriver.IndexOf("[Version]'0.3.6'", StringComparison.Ordinal) >= 0 &&
+                packageReplacement > dependencyCheck,
+                "APIShared DLL and manifest version are checked before package replacement");
+
+            // Fixes 1.17.1 extends PCL rebuild storage at these FBCB9319 spans.
+            // They are deliberately separate from this mod's search-time filters.
+            var fixesSpans = new[]
+            {
+                Tuple.Create(0xE4AA3, 0xE4ABB),
+                Tuple.Create(0xE4B61, 0xE4B70),
+                Tuple.Create(0xE4DF4, 0xE4E00),
+                Tuple.Create(0xE7CE6, 0xE7CF9),
+                Tuple.Create(0xE7E92, 0xE7EB4)
+            };
+            foreach (Tuple<int, int> fixes in fixesSpans)
+            {
+                Assert(!Overlaps(fixes.Item1, fixes.Item2,
+                        EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterRva,
+                        EnemyGatePathfindingNativeDefinition.PclGraphCapturedByFilterEndRva) &&
+                    !Overlaps(fixes.Item1, fixes.Item2,
+                        EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterRva,
+                        EnemyGatePathfindingNativeDefinition.BuilderPrecheckCapturedByFilterEndRva),
+                    "Fixes PCL-rebuild spans do not overlap capturer filters");
+                Assert(!Overlaps(fixes.Item1, fixes.Item2,
+                        EnemyGatePathfindingNativeDefinition.DirectCursorSearchBlockRva,
+                        EnemyGatePathfindingNativeDefinition.DirectCursorSearchReturnRva) &&
+                    !Overlaps(fixes.Item1, fixes.Item2,
+                        EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva,
+                        EnemyGatePathfindingNativeDefinition.CursorPclDecisionReturnRva),
+                    "Fixes PCL-rebuild spans do not overlap cursor adapters");
+                for (int index = 0;
+                     index < EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length;
+                     index++)
+                {
+                    int start = EnemyGatePathfindingNativeDefinition.DirectionFilterRvas[index];
+                    int end = start +
+                        EnemyGatePathfindingNativeDefinition.DirectionFilterLengths[index];
+                    Assert(!Overlaps(fixes.Item1, fixes.Item2, start, end),
+                        "Fixes PCL-rebuild spans do not overlap direction adapter " + index);
+                }
+                int[] scopeRvas =
+                {
+                    EnemyGatePathfindingNativeDefinition.PathBuilderRva,
+                    EnemyGatePathfindingNativeDefinition.AttackApproachRva,
+                    EnemyGatePathfindingNativeDefinition.BuildingApproachRva,
+                    EnemyGatePathfindingNativeDefinition.BuildingConsumerRva,
+                    EnemyGatePathfindingNativeDefinition.AlternateBuildingConsumerRva,
+                    EnemyGatePathfindingNativeDefinition.CursorMoveStagerRva,
+                    EnemyGatePathfindingNativeDefinition.PlayerAwareCandidateSearchRva
+                };
+                for (int index = 0; index < scopeRvas.Length; index++)
+                    Assert(!Overlaps(fixes.Item1, fixes.Item2,
+                            scopeRvas[index], scopeRvas[index] + 32),
+                        "Fixes PCL-rebuild spans do not overlap search scope " + index);
+            }
+        }
+
+        private static bool Overlaps(int leftStart, int leftEnd, int rightStart, int rightEnd) =>
+            leftStart < rightEnd && rightStart < leftEnd;
 
         private static void UncapturedEnemyPreservesVanillaExclusion()
         {

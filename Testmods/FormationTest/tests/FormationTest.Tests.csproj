@@ -30,6 +30,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="..\src\FormationModel.cs"><Link>FormationModel.cs</Link></Compile>
     <Compile Include="..\src\FormationPreviewMarkerModel.cs"><Link>FormationPreviewMarkerModel.cs</Link></Compile>
+    <Compile Include="..\src\FormationReleaseStateModel.cs"><Link>FormationReleaseStateModel.cs</Link></Compile>
     <Compile Include="..\src\NativeDetourEntryContract.cs"><Link>NativeDetourEntryContract.cs</Link></Compile>
   </ItemGroup>
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">

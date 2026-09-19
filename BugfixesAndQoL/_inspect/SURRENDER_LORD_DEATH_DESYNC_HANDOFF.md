@@ -147,16 +147,6 @@ Diese Punkte sind ergebnisoffen und in dieser Reihenfolge zu untersuchen:
 - Diagnosecode vollständig mit einem eindeutigen `TEMP_..._DIAG`-Marker kapseln, begrenzen und nach Ursachenfund wieder entfernen.
 - Alternativ beziehungsweise ergänzend einen binären Isolationstest planen: Surrender-Chore mit Lordtod aber ohne Spectator-Aktion, danach Spectator-Aktion ohne modseitigen Kill. Eine solche Verhaltensänderung ist ein separater Testbuild und darf erst nach Audit und ausdrücklicher Festlegung erfolgen.
 
-## Weitere gefundene Modfehler
-
-Diese Fehler wurden in denselben oder vorangegangenen Logs gefunden, sind aber nicht als Ursache des Surrender-Desyncs belegt:
-
-- **BugfixesAndQoL / Assassin Climb:** `CaptureSelectionState` ruft `GetSelectedChimps()` auf, während der Extender transient eine negative Auswahlanzahl liefert. Das erzeugt clientseitig `ArgumentOutOfRangeException`. Vor dem Aufruf `GetSelectedChimpsCount()` prüfen; negative oder unplausible Werte als transient behandeln und das Feature nicht dauerhaft deaktivieren.
-- **ExtraFeatures / Knight Mount-Dismount:** Derselbe transiente Auswahlfehler tritt in `GetSelectedChimpsSafe()` auf. Die Ausnahme wird abgefangen, aber doppelt geloggt. Ebenfalls Count-Guard verwenden und transient leer zurückkehren.
-- **CastlePlanner / Vanilla-Human-Start:** Es wird nur AIV-Kandidat 0 importiert, während die native Auswahl anschließend Kandidat 3 zurückgeben kann. Der Code bricht fail-closed ab und lässt Vanilla weiterarbeiten. Der Fehler trat auf beiden Peers gleich auf und erklärt den Desync nicht; Kandidatenbank/Reset und Auswahlvertrag müssen separat korrigiert werden.
-- **CastlePlanner / Fearfactor:** Ein ergänzendes `MAPPER_STOCKS`-Objekt wurde wegen `footprint-out-of-bounds` ausgelassen. Nicht fatal, aber die geplante Ergänzung fehlt.
-- **Unit Limit:** Wiederholte, bereits gedrosselte Warnungen über nicht passende Transition-Owner; siehe offene Hypothese oben.
-- Fehlende optionale Modlogos, `MapArchive`-Hinweise, fehlende Lua-Quellen und die bekannten CoarseGrid-/`GameAIVManagerAPI`-Workarounds sind für diesen Desync nicht relevant. Die `GameAIVManagerAPI`-Fälle werden laut Nutzer bereits in einem anderen Chat bearbeitet und sollen hier unberührt bleiben.
 
 ## Arbeitsbaum und Schutzregeln für den nächsten Chat
 

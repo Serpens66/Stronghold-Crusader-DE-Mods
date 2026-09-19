@@ -1,6 +1,6 @@
 # EnemyGatePathfindingTest – konsolidierte Erkenntnisse
 
-Stand: 13. September 2026
+Stand: 19. September 2026
 
 ## Ziel und aktueller Umfang
 
@@ -13,11 +13,25 @@ Same-PCL-KI-Routen und cursorlose Befehle verwenden in der isolierten Testkonfig
 ## Referenzumgebung
 
 - Kanonische `CrusaderDE.dll`: SHA-256 `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
-- Script Extender 2.6.0: Commit `2cee24e33b5a5d81d1c275efabc714ac59917b7b`
-- RedBird.X64 1.1.0
-- Modversion während des Tests: `0.1.4`
+- Script Extender 2.8.0: Tag `v2.8.0`, Commit `5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33`
+- RedBird.X64 1.3.2.0
+- APIShared 0.3.7 für den editorfähigen Mission-Lifecycle
+- gleichzeitig geprüfter Fixes-Mod: 1.17.1, lokaler Commit `d79b2267e22f49b02a9363f93c3c0836475b3e44`
+- Modversion während des Tests: `0.1.5`
 
 Der Runtime-Mod verweigert die Installation bei einem abweichenden nativen Hash oder einer abweichenden Bytefolge. Die Projektdatei verwendet standardmäßig ausschließlich die installierte Extender-Assembly unter `BepInEx\plugins\000shcdese`; ein anderer Pfad muss ausdrücklich über `ExtenderDir` beziehungsweise `SHCDESE_EXTENDER_DIR` gesetzt werden.
+
+## SE-2.8.0-Audit und ungültiger Editorlauf vom 19. September 2026
+
+Der Editorlauf ab 22:04 Uhr war kein Test des Gatefilters. Der Asset-Loader fand zwar das Paketverzeichnis, BepInEx verweigerte aber das Laden von `Enemy Gate Pathfinding Test 0.1.5`, weil `APIShared_Serp >= 0.3.6` fehlte. In einem späteren Start ab 22:15 Uhr wurde `APIShared 0.3.7` erfolgreich geladen, der Testmod war zu diesem Zeitpunkt jedoch nicht installiert. Die beobachtete Tor-/Zugbrückenbewegung war deshalb in beiden Fällen Vanilla- beziehungsweise Fixes-Verhalten. Die jeweils etwa 47 MB großen Dumps entstanden vor der Plugininitialisierung und gehören zum bekannten, von Mono behandelten SE-Startfehler; es gab keinen Dump eines aktiven EnemyGatePathfindingTest-Hooks.
+
+Der vollständige featurebezogene Audit der unveränderten DLL `FBCB9319…` bestätigt den Befehlsfluss. `0x18E1E0` und `0x196280` prüfen zunächst Quell- und Ziel-PCL. Bei verschiedenen PCLs wählen `0xE2610` und anschließend `0xDF720` den erreichbaren Übergang; bei gleichem PCL geht der Auftrag direkt an `0xF4930`. Dieser Dispatcher verwendet die vollständig abgedeckten Suchen `0xD9C40`, `0xDA590`, `0xDAAC0`, `0xDAFD0`, `0xF3060` und `0xF32B0` und rekonstruiert erfolgreiche Routen über `0xE1640`. `0xDB650` bleibt der boolesche Direkt- und Cursorpfad. Die elf Direction-Adapter des Mods liegen ausschließlich in diesen spielergebundenen Suchpfaden.
+
+Vanilla lässt in `0xE2610` feindliche, nicht eroberte Gate-Verbindungen bereits aus, nimmt eroberte Verbindungen aber wieder in den PCL-Graphen auf. Die beiden 20-Byte-Capturer-Hooks ergänzen genau dort die Besitzer-/Allianz-/Erobererpolicy. Same-PCL-Suchen erhalten dagegen ausschließlich die vorab berechnete Richtungsmaske. Es werden weiterhin keine PCLs erzeugt, keine verwaltete BFS gestartet und keine Ersatzrouten publiziert.
+
+Der Vergleich `v2.7.1..v2.8.0` im kanonischen Extender-Fork enthält keine Änderung an `GamePathingManagerAPI`, den Player-Pathfinding-Detours oder den verwendeten Eventverträgen. RedBird bleibt bei 1.3.2. Die konkrete Kompatibilitätsentscheidung basiert weiterhin auf Hash, Bytefolgen, echter Assemblierung/Disassemblierung, Sprungzielen und `DisplacedByteCount`; die Versionsnummer wird diagnostisch protokolliert und ist kein Ersatz für diese Verträge.
+
+Fixes 1.17.1 erweitert den PCL-Neuaufbau an `0xE4AA3`, `0xE4B61`, `0xE4DF4`, `0xE7CE6` und `0xE7E92`. Diese Intervalle überschneiden weder die Capturer-Hooks noch den Builder, die Cursoradapter oder einen der elf Direction-Adapter. Fixes verändert damit die PCL-Speicherkapazität und den Neuaufbau, besitzt aber keinen konkurrierenden Hook auf den querylokalen Gatefiltern.
 
 ## Crashreport vom 11. September 2026
 

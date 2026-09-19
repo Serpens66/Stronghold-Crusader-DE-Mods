@@ -15,7 +15,8 @@
     {
       "Version": "0.1.2",
       "Changes": [
-        "Validated the Script Extender 2.7.1 building access fields at offsets 0xFE and 0x100."
+        "Validated the active fixes with Script Extender 2.8.0, APIShared 0.3.7, RedBird 1.3.2, and Fixes 1.17.1.",
+        "Reduced high-volume final-test diagnostics while preserving exact internal counters and deterministic summaries."
       ]
     },
     {
