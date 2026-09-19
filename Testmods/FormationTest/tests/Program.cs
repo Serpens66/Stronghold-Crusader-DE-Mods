@@ -20,6 +20,7 @@ internal static class Program
         {
             TestFormationCycleAndDensity();
             TestAutomaticWidths();
+            TestNativeVanillaCandidateRules();
             TestDirectionQuantization();
             TestShapesAndDensity();
             TestRoleAssignment();
@@ -49,7 +50,7 @@ internal static class Program
     {
         FormationKind current = FormationKind.Vanilla;
         var observed = new List<FormationKind>();
-        for (int index = 0; index < 5; index++)
+        for (int index = 0; index < 6; index++)
         {
             observed.Add(current);
             current = FormationModel.Next(current);
@@ -60,7 +61,8 @@ internal static class Program
             FormationKind.Block,
             FormationKind.Line,
             FormationKind.Column,
-            FormationKind.Wedge
+            FormationKind.Wedge,
+            FormationKind.Circle
         }), "formation cycle order");
         Check(current == FormationKind.Vanilla, "formation cycle wraps");
         Check(FormationModel.ChangeDensity(2, 1) == 1, "wheel up tightens");
@@ -93,7 +95,8 @@ internal static class Program
         foreach (FormationKind kind in new[]
         {
             FormationKind.Block, FormationKind.Line,
-            FormationKind.Column, FormationKind.Wedge
+            FormationKind.Column, FormationKind.Wedge,
+            FormationKind.Vanilla, FormationKind.Circle
         })
         {
             for (int count = 1; count <= 100; count++)
@@ -103,7 +106,8 @@ internal static class Program
                 {
                     int width = FormationModel.ResolveDraggedWidth(kind, distance, count);
                     int rows = FormationModel.ResolveActualRows(kind, count, width);
-                    Check(width >= 1 && width <= count && rows >= 1 &&
+                    Check(width >= 1 &&
+                          (kind == FormationKind.Circle || width <= count) && rows >= 1 &&
                           rows <= previousRows,
                         $"drag depth is valid and monotonic kind={kind}, count={count}, distance={distance}");
                     previousRows = rows;
@@ -123,6 +127,32 @@ internal static class Program
         Check(FormationModel.QuantizeDirection(0, 4) == 4, "south sector");
         Check(FormationModel.QuantizeDirection(-4, 0) == 6, "west sector");
         Check(FormationModel.QuantizeDirection(0, 0, 7) == 7, "zero drag fallback");
+    }
+
+    private static void TestNativeVanillaCandidateRules()
+    {
+        for (int density = 1; density <= 4; density++)
+        {
+            for (int distance = 0; distance <= 16; distance++)
+            {
+                Check(FormationModel.IsNativeVanillaSlotCandidate(
+                        distance, 0, 1, 0, density, assassinOnly: false) ==
+                      (distance % density == 0),
+                    $"Vanilla density modulo density={density}, distance={distance}");
+            }
+        }
+        Check(!FormationModel.IsNativeVanillaSlotCandidate(
+                0, 0, 0, 0, 1, assassinOnly: false) &&
+              !FormationModel.IsNativeVanillaSlotCandidate(
+                0, 0, 4000, 0, 1, assassinOnly: false) &&
+              FormationModel.IsNativeVanillaSlotCandidate(
+                0, 0, 3999, 0, 1, assassinOnly: false),
+            "Vanilla path-distance bounds match the native selectors");
+        Check(!FormationModel.IsNativeVanillaSlotCandidate(
+                0, 0, 1, 0x10000100, 1, assassinOnly: true) &&
+              FormationModel.IsNativeVanillaSlotCandidate(
+                0, 0, 1, 0x10000100, 1, assassinOnly: false),
+            "Assassin-only Vanilla slots apply the native logic-mask filter");
     }
 
     private static void TestPlanHash()
@@ -216,7 +246,8 @@ internal static class Program
             FormationKind.Block,
             FormationKind.Line,
             FormationKind.Column,
-            FormationKind.Wedge
+            FormationKind.Wedge,
+            FormationKind.Circle
         })
         {
             List<FormationPoint> slots = FormationModel.BuildRelativeSlots(
@@ -237,6 +268,34 @@ internal static class Program
         int tightExtent = tight.Max(point => Math.Abs(point.X) + Math.Abs(point.Y));
         int looseExtent = loose.Max(point => Math.Abs(point.X) + Math.Abs(point.Y));
         Check(looseExtent > tightExtent, "density changes geometric extent");
+
+        int vanillaAutomatic = FormationModel.ResolveAutomaticWidth(
+            FormationKind.Vanilla, 40);
+        int vanillaDragged = FormationModel.ResolveDraggedWidth(
+            FormationKind.Vanilla, 10, 40);
+        Check(vanillaDragged == vanillaAutomatic,
+            "Vanilla drag never changes the native slot shape");
+        bool rejectedSyntheticVanilla = false;
+        try
+        {
+            FormationModel.BuildRelativeSlots(
+                FormationKind.Vanilla, 40, vanillaAutomatic, 1, 0);
+        }
+        catch (InvalidOperationException)
+        {
+            rejectedSyntheticVanilla = true;
+        }
+        Check(rejectedSyntheticVanilla,
+            "Vanilla cannot silently fall back to a synthetic blob");
+
+        List<FormationPoint> circle = FormationModel.BuildRelativeSlots(
+            FormationKind.Circle, 41,
+            FormationModel.ResolveAutomaticWidth(FormationKind.Circle, 41), 1, 0);
+        Check(circle.Count == 41 &&
+              circle.Select(point => point.X + ":" + point.Y).Distinct().Count() == 41,
+            "filled circle has a complete unique deterministic slot set");
+        Check(circle.Any(point => point.X == 0 && point.Y == 0),
+            "odd filled circles include their center");
     }
 
     private static void TestRoleAssignment()
@@ -311,6 +370,49 @@ internal static class Program
         Check(meleeRadius > coreRadius && centered.Distinct().Count() == 25,
             "Center mode places melee outside a deterministic protected core");
 
+        List<FormationPoint> circleSlots = FormationModel.BuildRelativeSlots(
+            FormationKind.Circle, 25,
+            FormationModel.ResolveAutomaticWidth(FormationKind.Circle, 25), 1, 3);
+        int[] circleCentered = FormationModel.AssignSlotsByRole(
+            centerUnits, circleSlots, RangedPlacementMode.Center, FormationKind.Circle);
+        double circleMeleeRadius = centerUnits.Select((unit, index) => new { unit, index })
+            .Where(value => value.unit.Role == FormationRole.Front)
+            .Average(value => SquaredRadius(circleSlots[circleCentered[value.index]]));
+        double circleCoreRadius = centerUnits.Select((unit, index) => new { unit, index })
+            .Where(value => value.unit.Role == FormationRole.Rear)
+            .Average(value => SquaredRadius(circleSlots[circleCentered[value.index]]));
+        Check(circleMeleeRadius > circleCoreRadius &&
+              circleCentered.Distinct().Count() == 25,
+            "Circle Center mode places melee around its filled protected core");
+
+        var vanillaNativeSlots = new List<FormationPoint>
+        {
+            new FormationPoint(0, 0, 2, 0),
+            new FormationPoint(-1, 0, 2, -1),
+            new FormationPoint(1, 0, 2, 1),
+            new FormationPoint(0, -1, 3, 0),
+            new FormationPoint(0, 1, 1, 0),
+            new FormationPoint(-1, -1, 3, -1),
+            new FormationPoint(1, -1, 3, 1),
+            new FormationPoint(-1, 1, 1, -1),
+            new FormationPoint(1, 1, 1, 1)
+        };
+        var vanillaUnits = Enumerable.Range(1, 9)
+            .Select(id => new FormationUnit(
+                id, 0, id <= 5 ? FormationRole.Front : FormationRole.Rear))
+            .ToList();
+        int[] vanillaCentered = FormationModel.AssignSlotsByRole(
+            vanillaUnits, vanillaNativeSlots,
+            RangedPlacementMode.Center, FormationKind.Vanilla);
+        double vanillaMeleeRadius = vanillaUnits.Select((unit, index) => new { unit, index })
+            .Where(value => value.unit.Role == FormationRole.Front)
+            .Average(value => SquaredRadius(vanillaNativeSlots[vanillaCentered[value.index]]));
+        double vanillaCoreRadius = vanillaUnits.Select((unit, index) => new { unit, index })
+            .Where(value => value.unit.Role == FormationRole.Rear)
+            .Average(value => SquaredRadius(vanillaNativeSlots[vanillaCentered[value.index]]));
+        Check(vanillaMeleeRadius > vanillaCoreRadius,
+            "Vanilla Center mode assigns melee to the outside of native slots");
+
         List<FormationPoint> lineSlots = FormationModel.BuildRelativeSlots(
             FormationKind.Line, 7, 7, 1, 0);
         var lineUnits = Enumerable.Range(1, 7)
@@ -346,22 +448,30 @@ internal static class Program
         {
             Check(FormationModel.QuantizeDirection(vector.X, vector.Y) == vector.Sector,
                 "eight-sector quantization " + vector.Sector);
-            List<FormationPoint> tightTopology = FormationModel.BuildRelativeSlots(
-                FormationKind.Block, 31, 7, 1, vector.Sector);
-            for (int density = 1; density <= 4; density++)
+            foreach (FormationKind kind in new[]
             {
-                List<FormationPoint> first = FormationModel.BuildRelativeSlots(
-                    FormationKind.Block, 31, 7, density, vector.Sector);
-                List<FormationPoint> second = FormationModel.BuildRelativeSlots(
-                    FormationKind.Block, 31, 7, density, vector.Sector);
-                Check(first.Select(point => point.X + ":" + point.Y)
-                        .SequenceEqual(second.Select(point => point.X + ":" + point.Y)),
-                    $"deterministic slots sector={vector.Sector}, density={density}");
-                Check(first.Select(point => point.X + ":" + point.Y).Distinct().Count() == 31,
-                    $"unique slots sector={vector.Sector}, density={density}");
-                Check(first.Select(point => point.Rank + ":" + point.File)
-                        .SequenceEqual(tightTopology.Select(point => point.Rank + ":" + point.File)),
-                    $"density preserves rank/file topology sector={vector.Sector}, density={density}");
+                FormationKind.Block, FormationKind.Line,
+                FormationKind.Column, FormationKind.Wedge, FormationKind.Circle
+            })
+            {
+                int width = FormationModel.ResolveAutomaticWidth(kind, 31);
+                List<FormationPoint> tightTopology = FormationModel.BuildRelativeSlots(
+                    kind, 31, width, 1, vector.Sector);
+                for (int density = 1; density <= 4; density++)
+                {
+                    List<FormationPoint> first = FormationModel.BuildRelativeSlots(
+                        kind, 31, width, density, vector.Sector);
+                    List<FormationPoint> second = FormationModel.BuildRelativeSlots(
+                        kind, 31, width, density, vector.Sector);
+                    Check(first.Select(point => point.X + ":" + point.Y)
+                            .SequenceEqual(second.Select(point => point.X + ":" + point.Y)),
+                        $"deterministic slots kind={kind}, sector={vector.Sector}, density={density}");
+                    Check(first.Select(point => point.X + ":" + point.Y).Distinct().Count() == 31,
+                        $"unique slots kind={kind}, sector={vector.Sector}, density={density}");
+                    Check(first.Select(point => point.Rank + ":" + point.File)
+                            .SequenceEqual(tightTopology.Select(point => point.Rank + ":" + point.File)),
+                        $"density preserves topology kind={kind}, sector={vector.Sector}, density={density}");
+                }
             }
         }
 
@@ -480,8 +590,16 @@ internal static class Program
             FormationKind.Vanilla, 2, RangedPlacementMode.Off, 0, 4, 100, 200, 40);
         FormationPreviewKey vanillaDragged = FormationPreviewKey.Create(
             FormationKind.Vanilla, 2, RangedPlacementMode.Center, 7, 30, 100, 200, 40);
-        Check(vanilla.Equals(vanillaDragged),
-            "Vanilla preview ignores direction, width, and rear sorting");
+        Check(!vanilla.Equals(vanillaDragged),
+            "managed Vanilla preview includes direction and placement");
+        Check(vanilla.Equals(FormationPreviewKey.Create(
+                FormationKind.Vanilla, 2, RangedPlacementMode.Off, 0, 99, 100, 200, 40)),
+            "Vanilla preview ignores synthetic width changes");
+        FormationPreviewKey circle = FormationPreviewKey.Create(
+            FormationKind.Circle, 2, RangedPlacementMode.Rear, 3, 5, 100, 200, 40);
+        Check(circle.Equals(FormationPreviewKey.Create(
+                FormationKind.Circle, 2, RangedPlacementMode.Rear, 3, 99, 100, 200, 40)),
+            "Circle preview ignores synthetic width changes");
         Check(!vanilla.Equals(FormationPreviewKey.Create(
                 FormationKind.Vanilla, 3, RangedPlacementMode.Off, 0, 4, 100, 200, 40)),
             "Vanilla preview changes for density");
@@ -918,12 +1036,12 @@ internal static class Program
         Check(source.Contains("ComputePlanHash(") &&
               source.Contains("RangedPlacementMode placementMode") &&
               source.Contains("Formation plan hash mismatch") &&
-              source.Contains("ProtocolVersion = 3") &&
+              source.Contains("ProtocolVersion = 5") &&
               source.Contains("private const int FieldCount = 14") &&
               source.Contains("[Key(9)] public byte PlacementMode") &&
               source.Contains("[Key(12)] public ushort UnitCount") &&
               source.Contains("[Key(13)] public ulong PlanHash"),
-            "protocol 3 validates placement mode and reconstructed unit-to-slot plan");
+            "protocol 5 validates placement mode and reconstructed unit-to-slot plan");
         Check(source.Contains("result.Sort((left, right) => left.UnitId.CompareTo(right.UnitId))"),
             "dispatch units use canonical one-based unit ID order");
         Check(source.Contains("ExpectedVisibleTileDisplacedBytes = 17") &&
@@ -992,19 +1110,44 @@ internal static class Program
               source.Contains("Canvas.SetLeft") &&
               source.Contains("FORMATION_OVERLAY_SUMMARY"),
             "Noesis role overlay uses the gameplay camera and canvas scale");
+        Check(source.Contains("pointCount = showRoleMarkers ? current.Points.Length : 0") &&
+              source.Contains("RenderArrow(camera, host, current.Direction)") &&
+              source.Contains("default: return neutralBrush"),
+            "role-marker visibility leaves the arrow active and unknown roles yellow");
         Check(source.Contains("FormationDirectionIndicator") &&
               source.Contains("BuildDirectionIndicator(") &&
               source.Contains("RenderArrow(camera, host") &&
-              source.Contains("FormationDirectionIndicator.Hidden"),
-            "custom previews publish a directional arrow while Vanilla hides it");
+              source.Contains("FormationDirectionIndicator.Hidden") &&
+              source.Contains("lengthScale = direction.ExplicitDirection ? 0.5f : 0.2f") &&
+              source.Contains("strokeThickness = direction.ExplicitDirection ? 2f : 1f") &&
+              source.Contains("opacity = direction.ExplicitDirection ? 0.72f : 0.4f"),
+            "all managed previews publish distinct subtle click and drag arrows");
+        Check(source.Contains("CaptureVanillaDestinations(") &&
+              source.Contains("MaximumVanillaSelectorCandidates = 4001") &&
+              source.Contains("IsNativeVanillaSlotCandidate(") &&
+              source.Contains("(logicFlags & 0x10000100) == 0") &&
+              source.Contains("BuildVanillaSlotMetadata(") &&
+              !source.Contains("BuildVanillaBlob"),
+            "Vanilla uses native BFS ordering with density and Assassin filtering");
         Check(troopPatch.Contains("FormationTestButtonHost") &&
               troopPatch.Contains("FormationTestMenuHost") &&
+              troopPatch.Contains("FormationTestRolloverHost") &&
               troopPatch.Contains("Margin=\"480,11,0,0\"") &&
+              troopPatch.Contains("Margin=\"140,3,0,0\"") &&
+              troopPatch.Contains("VerticalAlignment=\"Top\"") &&
               troopPatch.Contains("SelectFormationCommand") &&
               troopPatch.Contains("SelectDensityCommand") &&
               troopPatch.Contains("SelectPlacementCommand") &&
+              troopPatch.Contains("SelectRoleMarkersCommand") &&
+              troopPatch.Contains("CommandParameter=\"Circle\"") &&
+              troopPatch.Contains("Width=\"40\" Height=\"40\"") &&
+              !troopPatch.Contains("ToolTip=\"Formations\"") &&
               troopPatch.Contains("CommandParameter=\"Center\"") &&
-              CountOccurrences(troopPatch, "<Operation Type=\"Add\"") == 2 &&
+              CountOccurrences(troopPatch, "x:Name=\"FormationTestRoleMarker") == 3 &&
+              troopPatch.Contains("x:Name=\"FormationTestRoleMarkerFront\"") &&
+              troopPatch.Contains("x:Name=\"FormationTestRoleMarkerProtected\"") &&
+              troopPatch.Contains("x:Name=\"FormationTestRoleMarkerRear\"") &&
+              CountOccurrences(troopPatch, "<Operation Type=\"Add\"") == 3 &&
               screenPatch.Contains("FormationTestPreviewCanvas") &&
               screenPatch.Contains("IsHitTestVisible=\"False\""),
             "compact formation menu and click-through preview host are patched into Noesis");
@@ -1015,8 +1158,10 @@ internal static class Program
         Check(source.Contains("\"Formation\", \"Kind\", FormationKind.Block") &&
               source.Contains("FormationDefaultsMigration.Resolve(") &&
               source.Contains("PlacementDefaultsMigration.Resolve(") &&
-              source.Contains("\"Formation\", \"RangedPlacement\""),
-            "Block default and one-time placement migration are wired");
+              source.Contains("\"Formation\", \"RangedPlacement\"") &&
+              source.Contains("\"Formation\", \"ShowRoleMarkers\"") &&
+              source.Contains("SetRoleMarkersVisible"),
+            "Block default, placement migration, and local role-marker setting are wired");
         Check(engineRun.Contains("TryClaimVanillaRelease(inputState)") &&
               !engineRun.Contains("!nativeRelease || !releaseObserved") &&
               source.Contains("FORMATION_RELEASE_CLAIMED") &&
@@ -1049,6 +1194,7 @@ internal static class Program
             "obsolete auxiliary-button hooks, middle-click controls, and capture state are absent");
         Check(source.Contains("\"FormationTestButtonHost\", formationMenu") &&
               source.Contains("\"FormationTestMenuHost\", formationMenu") &&
+              source.Contains("\"FormationTestRolloverHost\", formationMenu") &&
               source.Contains("main.Show_HUD_ControlGroups = false") &&
               source.Contains("Formation menu unavailable; movement runtime remains active"),
             "formation menu is bound, mutually exclusive, and fails independently of movement");

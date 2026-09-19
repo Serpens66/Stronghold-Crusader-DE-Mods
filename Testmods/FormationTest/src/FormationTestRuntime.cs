@@ -42,7 +42,7 @@ namespace FormationTest
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int GetGroupUnitIdDelegate(IntPtr tribeManager, int tribeId, int ordinal);
 
-        private const int ProtocolVersion = 3;
+        private const int ProtocolVersion = 5;
         private const int MapWidth = 800;
         private const int MaximumUnitCount = 10000;
         private const int MaximumTribeCount = 4500;
@@ -59,6 +59,7 @@ namespace FormationTest
         private const int MovementTargetAvailabilityRva = 0x3A11EA4;
         private const int ExpectedUnitMoveTargetAuditBytes = 14;
         private const int MaximumPreviewCandidates = 8192;
+        private const int MaximumVanillaSelectorCandidates = 4001;
         private const int MinimumDragTileDistance = 2;
 
         private static readonly byte[] StandardSelectorPrefix =
@@ -766,11 +767,9 @@ namespace FormationTest
                 DirectionSector = (byte)direction,
                 Width = (ushort)width,
                 UnitCount = checked((ushort)state.Selection.Length),
-                PlanHash = state.Kind == FormationKind.Vanilla
-                    ? 0UL
-                    : state.PreviewPlanHash
+                PlanHash = state.PreviewPlanHash
             };
-            return state.Kind == FormationKind.Vanilla || state.HasPreviewPlan;
+            return state.HasPreviewPlan;
         }
 
         private DispatchDisposition TryDispatch(
@@ -948,28 +947,25 @@ namespace FormationTest
                             $"current={units.Length}.");
                     }
 
-                    NativeDestination[] destinations = Array.Empty<NativeDestination>();
-                    if (kind != FormationKind.Vanilla)
+                    NativeDestination[] destinations = BuildManagedDestinations(
+                        packet.TargetX,
+                        packet.TargetY,
+                        kind,
+                        density,
+                        packet.DirectionSector,
+                        packet.Width,
+                        FormationModel.NormalizePlacementMode(packet.PlacementMode),
+                        units,
+                        explicitDirection: false,
+                        out _);
+                    ulong actualPlanHash = ComputePlanHash(
+                        units, destinations,
+                        FormationModel.NormalizePlacementMode(packet.PlacementMode));
+                    if (actualPlanHash != packet.PlanHash)
                     {
-                        destinations = BuildManagedDestinations(
-                            packet.TargetX,
-                            packet.TargetY,
-                            kind,
-                            density,
-                            packet.DirectionSector,
-                            packet.Width,
-                            FormationModel.NormalizePlacementMode(packet.PlacementMode),
-                            units,
-                            out _);
-                        ulong actualPlanHash = ComputePlanHash(
-                            units, destinations,
-                            FormationModel.NormalizePlacementMode(packet.PlacementMode));
-                        if (actualPlanHash != packet.PlanHash)
-                        {
-                            throw new InvalidOperationException(
-                                $"Formation plan hash mismatch: packet=0x{packet.PlanHash:X16}, " +
-                                $"current=0x{actualPlanHash:X16}.");
-                        }
+                        throw new InvalidOperationException(
+                            $"Formation plan hash mismatch: packet=0x{packet.PlanHash:X16}, " +
+                            $"current=0x{actualPlanHash:X16}.");
                     }
 
                     ActiveFormationCommand active = new ActiveFormationCommand(
@@ -1033,27 +1029,6 @@ namespace FormationTest
 
             if (completed == null)
                 return;
-            if (!completed.Managed)
-            {
-                if (completed.AssignedCount > 0)
-                {
-                    LogDebugNoThrow(
-                        $"FORMATION_ORDER_APPLIED: source={completed.Pending.Source}, " +
-                        $"operation={completed.Pending.Packet.OperationId}, " +
-                        $"tribe={completed.TribeId}, path={completed.AssignmentPath}, " +
-                        $"assigned={completed.AssignedCount}, expected={completed.ExpectedCount}.");
-                }
-                else
-                {
-                    LogWarningNoThrow(
-                        $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: " +
-                        $"source={completed.Pending.Source}, " +
-                        $"operation={completed.Pending.Packet.OperationId}, " +
-                        $"tribe={completed.TribeId}, reason=no-native-assignments.");
-                }
-                return;
-            }
-
             int successfulFormationTargets = completed.SuccessfulTerminalCount;
             UnitFallbackSummary fallbackSummary = RunUnitFallbacks(completed);
             string common =
@@ -1154,12 +1129,6 @@ namespace FormationTest
                 standardSelectorHandle.Original(manager, spacing, x, y);
                 return;
             }
-            if (!command.Managed)
-            {
-                standardSelectorHandle.Original(manager, command.Density, x, y);
-                RecordSelectorAssignment(command, false);
-                return;
-            }
             if (!TryTakeDestination(command, out NativeDestination destination))
             {
                 standardSelectorHandle.Original(manager, command.Density, x, y);
@@ -1176,12 +1145,6 @@ namespace FormationTest
                 command = activeCommand;
             if (!Matches(command, manager, x, y))
                 return assassinSelectorHandle.Original(manager, spacing, x, y);
-            if (!command.Managed)
-            {
-                int result = assassinSelectorHandle.Original(manager, command.Density, x, y);
-                RecordSelectorAssignment(command, true);
-                return result;
-            }
             if (!TryTakeDestination(command, out NativeDestination destination))
                 return assassinSelectorHandle.Original(manager, command.Density, x, y);
             WriteFormationOutput(destination);
@@ -1207,7 +1170,7 @@ namespace FormationTest
                 ActiveFormationCommand candidate = activeCommand;
                 commonGroupCommand = null;
                 unitAssignmentFrame = null;
-                if (candidate != null && candidate.Managed &&
+                if (candidate != null &&
                     manager == nativeTribeManager && candidate.TribeId == tribeId &&
                     candidate.TargetX == x && candidate.TargetY == y &&
                     patrol == 0 && candidate.IsNewOrder == newOrder)
@@ -1248,7 +1211,7 @@ namespace FormationTest
                     {
                         PruneUnitAssignmentFrames();
                         ActiveFormationCommand command = activeCommand;
-                        if (command == null || !command.Managed ||
+                        if (command == null ||
                              !command.TryGetUnitDestination(
                                  args.UnitId,
                                  out NativeDestination destination,
@@ -1513,21 +1476,36 @@ namespace FormationTest
             int width,
             RangedPlacementMode placementMode,
             FormationUnit[] units,
+            bool explicitDirection,
             out FormationDirectionIndicator directionIndicator)
         {
             directionIndicator = FormationDirectionIndicator.Hidden;
-            List<FormationPoint> slots = FormationModel.BuildRelativeSlots(
-                kind, units.Length, Math.Max(1, width), density, direction);
             bool assassinOnly = IsAssassinOnly(units);
-            List<NativeDestination> candidates = CaptureReachableCandidates(
-                anchorX, anchorY, Math.Min(MaximumPreviewCandidates,
-                    Math.Max(256, units.Length * 16)), assassinOnly);
-            if (candidates.Count == 0)
-                throw new InvalidOperationException("No reachable formation destination exists.");
-
-            NativeDestination[] snapped = SnapSlots(anchorX, anchorY, slots, candidates);
-            directionIndicator = BuildDirectionIndicator(slots, snapped, direction);
-            int[] assignment = FormationModel.AssignSlotsByRole(units, slots, placementMode);
+            List<FormationPoint> slots;
+            NativeDestination[] snapped;
+            if (kind == FormationKind.Vanilla)
+            {
+                snapped = CaptureVanillaDestinations(
+                    anchorX, anchorY, units.Length, density, assassinOnly);
+                slots = BuildVanillaSlotMetadata(
+                    anchorX, anchorY, snapped, direction);
+            }
+            else
+            {
+                slots = FormationModel.BuildRelativeSlots(
+                    kind, units.Length, Math.Max(1, width), density, direction);
+                List<NativeDestination> candidates = CaptureReachableCandidates(
+                    anchorX, anchorY, Math.Min(MaximumPreviewCandidates,
+                        Math.Max(256, units.Length * 16)), assassinOnly);
+                if (candidates.Count == 0)
+                    throw new InvalidOperationException(
+                        "No reachable formation destination exists.");
+                snapped = SnapSlots(anchorX, anchorY, slots, candidates);
+            }
+            directionIndicator = BuildDirectionIndicator(
+                slots, snapped, direction, explicitDirection);
+            int[] assignment = FormationModel.AssignSlotsByRole(
+                units, slots, placementMode, kind);
             var result = new NativeDestination[units.Length];
             for (int unitIndex = 0; unitIndex < result.Length; unitIndex++)
             {
@@ -1545,7 +1523,8 @@ namespace FormationTest
         private static FormationDirectionIndicator BuildDirectionIndicator(
             IReadOnlyList<FormationPoint> slots,
             IReadOnlyList<NativeDestination> snapped,
-            int directionSector)
+            int directionSector,
+            bool explicitDirection)
         {
             int count = Math.Min(slots?.Count ?? 0, snapped?.Count ?? 0);
             if (count == 0)
@@ -1575,7 +1554,146 @@ namespace FormationTest
                 centerX + forwardX,
                 centerY + forwardY,
                 centerX + forwardX * 4,
-                centerY + forwardY * 4);
+                centerY + forwardY * 4,
+                explicitDirection);
+        }
+
+        private NativeDestination[] CaptureVanillaDestinations(
+            int anchorX,
+            int anchorY,
+            int requiredCount,
+            int density,
+            bool assassinOnly)
+        {
+            GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager ??
+                throw new InvalidOperationException("Native tile manager is unavailable.");
+            Span<byte> edges = tileManager.PathEdgeMaskGrid;
+            Span<ushort> components = tileManager.PathConnectionGrid;
+            Span<int> logic = tileManager.LogicGrid;
+            if ((uint)anchorX >= MapWidth || (uint)anchorY >= MapWidth ||
+                movementTargetAvailability == null ||
+                movementTargetAvailability[anchorY * MapWidth + anchorX] == 0)
+            {
+                throw new InvalidOperationException(
+                    "The Vanilla formation anchor is not pathable.");
+            }
+            int anchorTile = GameTileManagerAPI.Instance.GetTileId(anchorX, anchorY);
+            if (
+                (uint)anchorTile >= (uint)components.Length ||
+                (uint)anchorTile >= (uint)edges.Length || components[anchorTile] == 0)
+            {
+                throw new InvalidOperationException(
+                    "The Vanilla formation anchor is not pathable.");
+            }
+
+            int normalizedDensity = FormationModel.NormalizeDensity(density);
+            int capacity = Math.Min(components.Length, MapWidth * MapWidth);
+            var visited = new bool[capacity];
+            var queue = new Queue<VanillaSearchNode>();
+            var result = new List<NativeDestination>(requiredCount);
+            ushort component = components[anchorTile];
+            visited[anchorTile] = true;
+            queue.Enqueue(new VanillaSearchNode(anchorTile, anchorX, anchorY, 1));
+            int inspected = 0;
+            while (queue.Count != 0 &&
+                   inspected < MaximumVanillaSelectorCandidates &&
+                   result.Count < requiredCount)
+            {
+                VanillaSearchNode current = queue.Dequeue();
+                inspected++;
+                int logicFlags = (uint)current.TileId < (uint)logic.Length
+                    ? logic[current.TileId]
+                    : 0x10000100;
+                if (FormationModel.IsNativeVanillaSlotCandidate(
+                        current.X - anchorX,
+                        current.Y - anchorY,
+                        current.PathDistance,
+                        logicFlags,
+                        normalizedDensity,
+                        assassinOnly))
+                {
+                    result.Add(new NativeDestination(
+                        current.TileId, current.X, current.Y, FormationRole.Neutral));
+                }
+
+                byte mask = edges[current.TileId];
+                TryEnqueueVanillaCandidate(current.X - 1, current.Y, 0x40, mask,
+                    current.PathDistance + 1, component, edges, components, visited, queue);
+                TryEnqueueVanillaCandidate(current.X + 1, current.Y, 0x04, mask,
+                    current.PathDistance + 1, component, edges, components, visited, queue);
+                TryEnqueueVanillaCandidate(current.X, current.Y - 1, 0x01, mask,
+                    current.PathDistance + 1, component, edges, components, visited, queue);
+                TryEnqueueVanillaCandidate(current.X - 1, current.Y - 1, 0x80, mask,
+                    current.PathDistance + 2, component, edges, components, visited, queue);
+                TryEnqueueVanillaCandidate(current.X + 1, current.Y - 1, 0x02, mask,
+                    current.PathDistance + 2, component, edges, components, visited, queue);
+                TryEnqueueVanillaCandidate(current.X, current.Y + 1, 0x10, mask,
+                    current.PathDistance + 1, component, edges, components, visited, queue);
+                TryEnqueueVanillaCandidate(current.X - 1, current.Y + 1, 0x20, mask,
+                    current.PathDistance + 2, component, edges, components, visited, queue);
+                TryEnqueueVanillaCandidate(current.X + 1, current.Y + 1, 0x08, mask,
+                    current.PathDistance + 2, component, edges, components, visited, queue);
+            }
+            if (result.Count != requiredCount)
+            {
+                throw new InvalidOperationException(
+                    $"Vanilla supplied {result.Count} of {requiredCount} required slots.");
+            }
+            return result.ToArray();
+        }
+
+        private static List<FormationPoint> BuildVanillaSlotMetadata(
+            int anchorX,
+            int anchorY,
+            IReadOnlyList<NativeDestination> destinations,
+            int directionSector)
+        {
+            FormationModel.GetForwardVector(
+                directionSector, out int forwardX, out int forwardY);
+            int rightX = -forwardY;
+            int rightY = forwardX;
+            int maximumProjection = int.MinValue;
+            var projections = new int[destinations.Count];
+            for (int index = 0; index < destinations.Count; index++)
+            {
+                int localX = destinations[index].X - anchorX;
+                int localY = destinations[index].Y - anchorY;
+                projections[index] = localX * forwardX + localY * forwardY;
+                maximumProjection = Math.Max(maximumProjection, projections[index]);
+            }
+            var result = new List<FormationPoint>(destinations.Count);
+            for (int index = 0; index < destinations.Count; index++)
+            {
+                int localX = destinations[index].X - anchorX;
+                int localY = destinations[index].Y - anchorY;
+                int file = localX * rightX + localY * rightY;
+                result.Add(new FormationPoint(
+                    localX, localY, maximumProjection - projections[index], file));
+            }
+            return result;
+        }
+
+        private static void TryEnqueueVanillaCandidate(
+            int x,
+            int y,
+            byte requiredMask,
+            byte sourceMask,
+            int pathDistance,
+            ushort component,
+            Span<byte> edges,
+            Span<ushort> components,
+            bool[] visited,
+            Queue<VanillaSearchNode> queue)
+        {
+            if ((sourceMask & requiredMask) == 0 ||
+                (uint)x >= MapWidth || (uint)y >= MapWidth)
+                return;
+            int tileId = GameTileManagerAPI.Instance.GetTileId(x, y);
+            if ((uint)tileId >= (uint)visited.Length || visited[tileId] ||
+                (uint)tileId >= (uint)edges.Length || components[tileId] != component)
+                return;
+            visited[tileId] = true;
+            queue.Enqueue(new VanillaSearchNode(tileId, x, y, pathDistance));
         }
 
         private static NativeDestination[] SnapSlots(
@@ -1851,50 +1969,17 @@ namespace FormationTest
 
             try
             {
-                NativeDestination[] destinations;
-                FormationDirectionIndicator directionIndicator =
-                    FormationDirectionIndicator.Hidden;
-                if (state.Kind == FormationKind.Vanilla)
-                {
-                    List<NativeDestination> reachable = CaptureReachableCandidates(
-                        state.Target.NativeX,
-                        state.Target.NativeY,
-                        Math.Max(units.Length * state.Density * 2, units.Length),
-                        IsAssassinOnly(units));
-                    if (reachable.Count == 0)
-                        throw new InvalidOperationException(
-                            "No reachable Vanilla preview destination exists.");
-                    destinations = new NativeDestination[units.Length];
-                    int cursor = 0;
-                    for (int index = 0; index < reachable.Count && cursor < destinations.Length; index++)
-                    {
-                        NativeDestination candidate = reachable[index];
-                        int distance = Math.Abs(candidate.X - state.Target.NativeX) +
-                            Math.Abs(candidate.Y - state.Target.NativeY);
-                        if (distance % state.Density != 0)
-                            continue;
-                        destinations[cursor++] = new NativeDestination(
-                            candidate.TileId, candidate.X, candidate.Y, FormationRole.Neutral);
-                    }
-                    while (cursor < destinations.Length)
-                    {
-                        destinations[cursor] = destinations[Math.Max(0, cursor - 1)];
-                        cursor++;
-                    }
-                }
-                else
-                {
-                    destinations = BuildManagedDestinations(
-                        state.Target.NativeX,
-                        state.Target.NativeY,
-                        state.Kind,
-                        state.Density,
-                        direction,
-                        width,
-                        state.PlacementMode,
-                        units,
-                        out directionIndicator);
-                }
+                NativeDestination[] destinations = BuildManagedDestinations(
+                    state.Target.NativeX,
+                    state.Target.NativeY,
+                    state.Kind,
+                    state.Density,
+                    direction,
+                    width,
+                    state.PlacementMode,
+                    units,
+                    HasExplicitDirection(state),
+                    out FormationDirectionIndicator directionIndicator);
 
                 var points = new FormationPreviewPoint[destinations.Length];
                 for (int index = 0; index < destinations.Length; index++)
@@ -1904,11 +1989,9 @@ namespace FormationTest
                         destinations[index].Y,
                         destinations[index].Role);
                 }
-                state.PreviewPlanHash = state.Kind == FormationKind.Vanilla
-                    ? 0UL
-                    : ComputePlanHash(units, destinations, state.PlacementMode);
-                state.HasPreviewPlan = state.Kind == FormationKind.Vanilla ||
-                    destinations.Length == units.Length;
+                state.PreviewPlanHash = ComputePlanHash(
+                    units, destinations, state.PlacementMode);
+                state.HasPreviewPlan = destinations.Length == units.Length;
                 var markerTiles = new int[destinations.Length];
                 for (int index = 0; index < destinations.Length; index++)
                     markerTiles[index] = destinations[index].TileId;
@@ -1958,6 +2041,10 @@ namespace FormationTest
                     state.Kind, state.Selection.Length);
             }
         }
+
+        private static bool HasExplicitDirection(ActiveDrag state) =>
+            Math.Max(Math.Abs(state.DragDeltaX), Math.Abs(state.DragDeltaY)) >=
+            MinimumDragTileDistance;
 
         private static bool TryCaptureSelection(
             out SelectionIdentity[] identities,
@@ -2149,7 +2236,7 @@ namespace FormationTest
                 rejection = "invalid tribe ID";
             else if ((uint)packet.TargetX >= MapWidth || (uint)packet.TargetY >= MapWidth)
                 rejection = "invalid target";
-            else if (packet.Formation > (byte)FormationKind.Wedge)
+            else if (packet.Formation > (byte)FormationKind.Circle)
                 rejection = "invalid formation";
             else if (packet.Density < 1 || packet.Density > 4)
                 rejection = "invalid density";
@@ -2162,11 +2249,7 @@ namespace FormationTest
             else if (packet.UnitCount < 2 ||
                      packet.UnitCount > FormationPreviewMarkerModel.MaximumMarkers)
                 rejection = "invalid unit count";
-            else if (packet.Formation == (byte)FormationKind.Vanilla &&
-                     packet.PlanHash != 0UL)
-                rejection = "Vanilla packet unexpectedly contains a plan hash";
-            else if (packet.Formation != (byte)FormationKind.Vanilla &&
-                     packet.PlanHash == 0UL)
+            else if (packet.PlanHash == 0UL)
                 rejection = "managed formation packet has no plan hash";
             else if (packet.IsNewOrder != 0 && packet.IsNewOrder != 1)
                 rejection = "invalid new-order flag";
@@ -2436,12 +2519,12 @@ namespace FormationTest
                 Destinations = destinations ?? Array.Empty<NativeDestination>();
                 destinationsByUnitId = new Dictionary<int, NativeDestination>(ExpectedCount);
                 globalIdsByUnitId = new Dictionary<int, uint>(ExpectedCount);
-                if (Managed && Destinations.Length != ExpectedCount)
+                if (Destinations.Length != ExpectedCount)
                 {
                     throw new InvalidOperationException(
                         "The native unit and destination counts do not match.");
                 }
-                for (int index = 0; Managed && index < ExpectedCount; index++)
+                for (int index = 0; index < ExpectedCount; index++)
                 {
                     int unitId = units[index].UnitId;
                     uint globalId = units[index].GlobalId;
@@ -2461,7 +2544,6 @@ namespace FormationTest
             internal int TargetY => Pending.Packet.TargetY;
             internal int IsNewOrder => Pending.Packet.IsNewOrder;
             internal int Density { get; }
-            internal bool Managed => Kind != FormationKind.Vanilla;
             internal int ExpectedCount { get; }
             internal NativeDestination[] Destinations { get; }
             internal int Cursor { get; set; }
@@ -2692,6 +2774,23 @@ namespace FormationTest
             internal int X { get; }
             internal int Y { get; }
             internal FormationRole Role { get; }
+        }
+
+        private readonly struct VanillaSearchNode
+        {
+            internal VanillaSearchNode(
+                int tileId, int x, int y, int pathDistance)
+            {
+                TileId = tileId;
+                X = x;
+                Y = y;
+                PathDistance = pathDistance;
+            }
+
+            internal int TileId { get; }
+            internal int X { get; }
+            internal int Y { get; }
+            internal int PathDistance { get; }
         }
     }
 }

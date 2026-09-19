@@ -37,7 +37,11 @@ namespace EnemyGatePathfindingTest
             long slotConflicts, long poolExhaustions, long exceptions,
             long aiQueries, long aiNoRoutes, long attackQueries,
             long buildingApproachQueries, long buildingConsumerQueries,
-            long alternateBuildingConsumerQueries, long candidateQueries)
+            long alternateBuildingConsumerQueries, long candidateQueries,
+            long aiTacticalTargetQueries, long aiTacticalBuildingEdges,
+            long aiTacticalUnitEdges, long aiTacticalFallbackEdges,
+            long aiTacticalInvalidPlayers, long aiTacticalScopeConflicts,
+            long aiTacticalExceptions)
         {
             Installed = installed; OwnerConflict = ownerConflict; Queries = queries;
             Preserved = preserved; RejectedEdges = rejectedEdges; Detours = detours;
@@ -67,6 +71,13 @@ namespace EnemyGatePathfindingTest
             BuildingConsumerQueries = buildingConsumerQueries;
             AlternateBuildingConsumerQueries = alternateBuildingConsumerQueries;
             CandidateQueries = candidateQueries;
+            AiTacticalTargetQueries = aiTacticalTargetQueries;
+            AiTacticalBuildingEdges = aiTacticalBuildingEdges;
+            AiTacticalUnitEdges = aiTacticalUnitEdges;
+            AiTacticalFallbackEdges = aiTacticalFallbackEdges;
+            AiTacticalInvalidPlayers = aiTacticalInvalidPlayers;
+            AiTacticalScopeConflicts = aiTacticalScopeConflicts;
+            AiTacticalExceptions = aiTacticalExceptions;
         }
         internal bool Installed { get; }
         internal bool OwnerConflict { get; }
@@ -114,11 +125,19 @@ namespace EnemyGatePathfindingTest
         internal long BuildingConsumerQueries { get; }
         internal long AlternateBuildingConsumerQueries { get; }
         internal long CandidateQueries { get; }
+        internal long AiTacticalTargetQueries { get; }
+        internal long AiTacticalBuildingEdges { get; }
+        internal long AiTacticalUnitEdges { get; }
+        internal long AiTacticalFallbackEdges { get; }
+        internal long AiTacticalInvalidPlayers { get; }
+        internal long AiTacticalScopeConflicts { get; }
+        internal long AiTacticalExceptions { get; }
     }
 
     // Vanilla remains the only route finder. Managed detours merely bind an immutable
-    // player mask for the duration of a complete query; eleven native adapters AND that
-    // mask into Vanilla's own direction loads without changing the global grid.
+    // player mask for the duration of a complete query; eleven movement adapters and
+    // three tactical-target adapters AND that mask into Vanilla's own edge checks
+    // without changing the global grid.
     internal sealed unsafe class SamePclGateRouteRuntime
     {
         private const int ThreadSlotStride = 32;
@@ -129,7 +148,7 @@ namespace EnemyGatePathfindingTest
         {
             HumanBuilder, AiBuilder, Attack, BuildingApproach,
             AlternateBuildingApproach, CandidateSearch, CursorCommand, DirectCursor,
-            CursorPreview
+            CursorPreview, AiTacticalTarget
         }
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
@@ -157,6 +176,8 @@ namespace EnemyGatePathfindingTest
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int CursorPclDecisionDelegate(IntPtr manager, int player,
             int targetPcl, int sourcePcl, int mode, int unitId);
+        [UnmanagedFunctionPointer(CallingConvention.Winapi)]
+        private delegate void AiTacticalTargetDelegate(IntPtr tribeManager, int tribeId);
 
         private sealed class DetourCandidate<T> where T : Delegate
         {
@@ -219,6 +240,7 @@ namespace EnemyGatePathfindingTest
 
         private readonly ManualLogSource log;
         private readonly IntPtr threadSlots;
+        private readonly IntPtr tacticalThreadSlots;
         private HookTransaction transaction;
         private readonly ScanRegion region;
         private readonly ulong libraryBase;
@@ -237,6 +259,7 @@ namespace EnemyGatePathfindingTest
         private DetourCandidate<BuildingConsumerDelegate> alternateConsumer;
         private DetourCandidate<CursorMoveDelegate> cursor;
         private DetourCandidate<CandidateSearchDelegate> candidateSearch;
+        private DetourCandidate<AiTacticalTargetDelegate> aiTacticalTarget;
         private PathBuilderDelegate originalBuilder, rootedBuilder;
         private AttackApproachDelegate originalAttack, rootedAttack;
         private BuildingApproachDelegate originalBuilding, rootedBuilding;
@@ -244,6 +267,7 @@ namespace EnemyGatePathfindingTest
         private BuildingConsumerDelegate originalAlternateConsumer, rootedAlternateConsumer;
         private CursorMoveDelegate originalCursor, rootedCursor;
         private CandidateSearchDelegate originalCandidateSearch, rootedCandidateSearch;
+        private AiTacticalTargetDelegate originalAiTacticalTarget, rootedAiTacticalTarget;
         private readonly DirectTileSearchDelegate originalDirectTileSearch;
         private readonly DirectTileSearchDelegate rootedDirectCursorSearch;
         private readonly PclReachabilityDelegate originalPclReachability;
@@ -253,6 +277,8 @@ namespace EnemyGatePathfindingTest
             new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook>[] edgeHooks =
             new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.DirectionFilterRvas.Length];
+        private readonly HookHandle<X64InlineHook>[] tacticalEdgeHooks =
+            new HookHandle<X64InlineHook>[EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas.Length];
         private long queries, preserved, rejectedEdges, detours, noRoutes;
         private long humanDetours, aiDetours, attackEdges, buildingEdges, candidateEdges;
         private long cursorCommandEdges, directCursorQueries, directCursorEdges;
@@ -268,12 +294,19 @@ namespace EnemyGatePathfindingTest
         private long slotConflicts, poolExhaustions, exceptions;
         private long aiQueries, aiNoRoutes, attackQueries, buildingApproachQueries,
             buildingConsumerQueries, alternateBuildingConsumerQueries, candidateQueries;
+        private long aiTacticalTargetQueries, aiTacticalBuildingEdges,
+            aiTacticalUnitEdges, aiTacticalFallbackEdges, aiTacticalInvalidPlayers,
+            aiTacticalScopeConflicts, aiTacticalExceptions;
         private int lastPoolExhaustionGeneration = -1;
-        private readonly int[] samplePublished = new int[9];
-        private readonly int[] sampleRequested = new int[9];
-        private readonly int[] sampleNative = new int[9];
-        private readonly int[] sampleTribe = new int[9];
-        private readonly int[] sampleUsed = new int[9];
+        private readonly int[] samplePublished = new int[10];
+        private readonly int[] sampleRequested = new int[10];
+        private readonly int[] sampleNative = new int[10];
+        private readonly int[] sampleTribe = new int[10];
+        private readonly int[] sampleUsed = new int[10];
+        private readonly int[] tacticalEdgeSampleState = new int[3];
+        private readonly int[] tacticalEdgeSampleSource = new int[3];
+        private readonly int[] tacticalEdgeSampleTarget = new int[3];
+        private readonly int[] tacticalEdgeSampleDirection = new int[3];
         private int cursorRequestSequence, cursorRequestWriter;
         private int cursorRequestPlayer, cursorRequestUnit, cursorRequestTargetX,
             cursorRequestTargetY, cursorRequestTargetTile, cursorRequestTargetPcl,
@@ -331,6 +364,14 @@ namespace EnemyGatePathfindingTest
                  index < DirectionFilterAdapterEmitter.ThreadSlotCount * ThreadSlotStride;
                  index++)
                 ((byte*)threadSlots)[index] = 0;
+            tacticalThreadSlots = Marshal.AllocHGlobal(
+                AiTacticalTargetAdapterEmitter.ThreadSlotCount *
+                AiTacticalTargetAdapterEmitter.ThreadSlotStride);
+            for (int index = 0;
+                 index < AiTacticalTargetAdapterEmitter.ThreadSlotCount *
+                    AiTacticalTargetAdapterEmitter.ThreadSlotStride;
+                 index++)
+                ((byte*)tacticalThreadSlots)[index] = 0;
         }
 
         private void InstallHooks()
@@ -354,6 +395,9 @@ namespace EnemyGatePathfindingTest
             candidateSearch = AddDetour(
                 EnemyGatePathfindingNativeDefinition.PlayerAwareCandidateSearchRva,
                 rootedCandidateSearch = FilterCandidateSearch, libraryBase);
+            aiTacticalTarget = AddDetour(
+                EnemyGatePathfindingNativeDefinition.AiTacticalTargetSelectionRva,
+                rootedAiTacticalTarget = FilterAiTacticalTarget, libraryBase);
             ulong directCursorWrapper = unchecked((ulong)Marshal.GetFunctionPointerForDelegate(
                 rootedDirectCursorSearch).ToInt64());
             DirectCursorCallAdapterEmitter.AssembleAndValidate(
@@ -414,10 +458,37 @@ namespace EnemyGatePathfindingTest
                     (asm, original, returnAddress) => DirectionFilterAdapterEmitter.Emit(
                         asm, original, captured, unchecked((ulong)threadSlots.ToInt64())), hookSize: 14);
             }
+            for (int index = 0; index < tacticalEdgeHooks.Length; index++)
+            {
+                tacticalEdgeHooks[index] = new HookHandle<X64InlineHook>();
+                int captured = index;
+                int rva = EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas[index];
+                int length = EnemyGatePathfindingNativeDefinition.AiTacticalFilterLengths[index];
+                ulong reject = libraryBase + unchecked((ulong)
+                    EnemyGatePathfindingNativeDefinition.AiTacticalRejectRvas[index]);
+                AiTacticalTargetAdapterEmitter.AssembleAndValidate(
+                    EnemyGatePathfindingNativeDefinition.GetAiTacticalFilterBytes(index),
+                    libraryBase + unchecked((ulong)rva), index,
+                    unchecked((ulong)tacticalThreadSlots.ToInt64()), reject,
+                    libraryBase + 0x02300000UL + unchecked((ulong)(index * 0x1000)));
+                using (var probe = new X64InlineHook(libraryBase + unchecked((ulong)rva), length))
+                    if (probe.DisplacedByteCount != length)
+                        throw new InvalidOperationException(
+                            $"RedBird AI tactical-filter span {index} was " +
+                            $"{probe.DisplacedByteCount}, expected {length}.");
+                transaction.AddInline(tacticalEdgeHooks[index],
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)rva)),
+                    (asm, original, returnAddress) => AiTacticalTargetAdapterEmitter.Emit(
+                        asm, original, captured,
+                        unchecked((ulong)tacticalThreadSlots.ToInt64()),
+                        libraryBase + unchecked((ulong)
+                            EnemyGatePathfindingNativeDefinition.AiTacticalRejectRvas[captured])),
+                    hookSize: length);
+            }
             CommitResult result = transaction.Commit();
             if (!result.IsCompleteSuccess || !builder.Committed || !attack.Committed ||
                 !building.Committed || !consumer.Committed || !alternateConsumer.Committed ||
-                !cursor.Committed || !candidateSearch.Committed ||
+                !cursor.Committed || !candidateSearch.Committed || !aiTacticalTarget.Committed ||
                 !directCursorHook.Success || !directCursorHook.IsInstalled ||
                 directCursorHook.Failure != null ||
                 !cursorPclDecisionHook.Success || !cursorPclDecisionHook.IsInstalled ||
@@ -440,15 +511,29 @@ namespace EnemyGatePathfindingTest
                     throw new InvalidOperationException($"Direction-filter hook {index} failed its committed contract.");
                 }
             }
+            for (int index = 0; index < tacticalEdgeHooks.Length; index++)
+            {
+                if (!tacticalEdgeHooks[index].Success || !tacticalEdgeHooks[index].IsInstalled ||
+                    tacticalEdgeHooks[index].Failure != null ||
+                    tacticalEdgeHooks[index].Hook.DisplacedByteCount !=
+                        EnemyGatePathfindingNativeDefinition.AiTacticalFilterLengths[index])
+                {
+                    transaction.DisableAll();
+                    throw new InvalidOperationException(
+                        $"AI tactical-filter hook {index} failed its committed contract.");
+                }
+            }
             originalBuilder = builder.Handle.Original; originalAttack = attack.Handle.Original;
             originalBuilding = building.Handle.Original; originalConsumer = consumer.Handle.Original;
             originalAlternateConsumer = alternateConsumer.Handle.Original;
             originalCursor = cursor.Handle.Original;
             originalCandidateSearch = candidateSearch.Handle.Original;
+            originalAiTacticalTarget = aiTacticalTarget.Handle.Original;
             Shared.DebugLogHelper.LogInfo(log,
                 "Vanilla player-aware gate filter installed: " +
                 "scopes=builder/attack/building/consumer/alternateConsumer/candidateSearch/" +
-                "cursorCommand/directCursorDB650/cursorPclCallAdapter, directionAdapters=11, " +
+                "cursorCommand/directCursorDB650/cursorPclCallAdapter/aiTacticalTarget, " +
+                "directionAdapters=11, tacticalAdapters=3, " +
                 "cursorPclCallAdapter=" +
                 $"0x{EnemyGatePathfindingNativeDefinition.CursorPclDecisionRva:X}/" +
                 $"{EnemyGatePathfindingNativeDefinition.CursorPclDecisionLength}, directCursorCallsite=" +
@@ -457,7 +542,8 @@ namespace EnemyGatePathfindingTest
                 "managedReplacementSearches=0, cursorRefreshMs=200, representativeUnits=1, " +
                 "globalDirectionGridWrites=0, tileBounds=unsigned<" +
                 EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive + ", contracts=[" +
-                DirectionFilterAdapterEmitter.DescribeContracts() + "].");
+                DirectionFilterAdapterEmitter.DescribeContracts() + "], tacticalContracts=[" +
+                AiTacticalTargetAdapterEmitter.DescribeContracts() + "].");
         }
 
         internal bool Installed => builder != null && builder.Committed;
@@ -878,7 +964,11 @@ namespace EnemyGatePathfindingTest
                 Read(ref slotConflicts), Read(ref poolExhaustions), Read(ref exceptions),
                 Read(ref aiQueries), Read(ref aiNoRoutes), Read(ref attackQueries),
                 Read(ref buildingApproachQueries), Read(ref buildingConsumerQueries),
-                Read(ref alternateBuildingConsumerQueries), Read(ref candidateQueries));
+                Read(ref alternateBuildingConsumerQueries), Read(ref candidateQueries),
+                Read(ref aiTacticalTargetQueries), Read(ref aiTacticalBuildingEdges),
+                Read(ref aiTacticalUnitEdges), Read(ref aiTacticalFallbackEdges),
+                Read(ref aiTacticalInvalidPlayers), Read(ref aiTacticalScopeConflicts),
+                Read(ref aiTacticalExceptions));
         internal void ResetCounters()
         {
             Reset(ref queries); Reset(ref preserved); Reset(ref rejectedEdges); Reset(ref detours);
@@ -901,6 +991,10 @@ namespace EnemyGatePathfindingTest
             Reset(ref aiQueries); Reset(ref aiNoRoutes); Reset(ref attackQueries);
             Reset(ref buildingApproachQueries); Reset(ref buildingConsumerQueries);
             Reset(ref alternateBuildingConsumerQueries); Reset(ref candidateQueries);
+            Reset(ref aiTacticalTargetQueries); Reset(ref aiTacticalBuildingEdges);
+            Reset(ref aiTacticalUnitEdges); Reset(ref aiTacticalFallbackEdges);
+            Reset(ref aiTacticalInvalidPlayers); Reset(ref aiTacticalScopeConflicts);
+            Reset(ref aiTacticalExceptions);
             Volatile.Write(ref cursorRequestSequence, 0);
             Volatile.Write(ref cursorRequestWriter, 0);
             Volatile.Write(ref cursorCacheSequence, 0);
@@ -910,6 +1004,8 @@ namespace EnemyGatePathfindingTest
             Volatile.Write(ref nextCursorValidationAt, 0);
             for (int index = 0; index < samplePublished.Length; index++)
                 Volatile.Write(ref samplePublished[index], 0);
+            for (int index = 0; index < tacticalEdgeSampleState.Length; index++)
+                Volatile.Write(ref tacticalEdgeSampleState[index], 0);
         }
 
         private int FilterBuilder(IntPtr manager, int player, int profile)
@@ -974,6 +1070,36 @@ namespace EnemyGatePathfindingTest
                     targetPcl, player, mode, candidateClass); }
             catch { Interlocked.Increment(ref exceptions); throw; }
             finally { Complete(scope, QueryKind.CandidateSearch, false, false); }
+        }
+        private void FilterAiTacticalTarget(IntPtr tribeManager, int tribe)
+        {
+            Interlocked.Increment(ref aiTacticalTargetQueries);
+            int snapshotPlayer = ResolveTribePlayer(tribe);
+            int nativePlayer = -1;
+            int player = -1;
+            if (tribeManager != IntPtr.Zero && snapshotPlayer > 0 && snapshotPlayer <= 8)
+            {
+                nativePlayer = *(int*)((byte*)tribeManager +
+                    tribe * EnemyGatePathfindingNativeDefinition.NativeTribeRecordStride +
+                    EnemyGatePathfindingNativeDefinition.NativeTribePlayerIdOffset);
+                if (nativePlayer > 0 && nativePlayer <= 8)
+                {
+                    if (nativePlayer == snapshotPlayer) player = nativePlayer;
+                    else Interlocked.Increment(ref aiTacticalScopeConflicts);
+                }
+            }
+            if (player < 1) Interlocked.Increment(ref aiTacticalInvalidPlayers);
+            CaptureScopeSample(QueryKind.AiTacticalTarget, snapshotPlayer,
+                nativePlayer, snapshotPlayer, player);
+            TacticalQueryScope scope = EnterTactical(player);
+            try { originalAiTacticalTarget(tribeManager, tribe); }
+            catch
+            {
+                Interlocked.Increment(ref aiTacticalExceptions);
+                Interlocked.Increment(ref exceptions);
+                throw;
+            }
+            finally { CompleteTactical(scope); }
         }
         private void FilterCursor(IntPtr manager, int tribe, int x, int y, int context, int flags)
         {
@@ -1072,6 +1198,22 @@ namespace EnemyGatePathfindingTest
                 ",finalResult=" + cursorDecisionSampleFinalResult;
         }
 
+        internal string DescribeAiTacticalEdgeSamples()
+        {
+            string[] names = { "building", "unit", "fallback" };
+            var text = new System.Text.StringBuilder();
+            for (int index = 0; index < tacticalEdgeSampleState.Length; index++)
+            {
+                if (Volatile.Read(ref tacticalEdgeSampleState[index]) != 2) continue;
+                if (text.Length > 0) text.Append(';');
+                text.Append(names[index]).Append("(source=")
+                    .Append(tacticalEdgeSampleSource[index]).Append(",target=")
+                    .Append(tacticalEdgeSampleTarget[index]).Append(",directionBit=0x")
+                    .Append(tacticalEdgeSampleDirection[index].ToString("X2")).Append(')');
+            }
+            return text.Length == 0 ? "none" : text.ToString();
+        }
+
         private QueryScope Enter(int player)
         {
             Interlocked.Increment(ref queries);
@@ -1108,6 +1250,91 @@ namespace EnemyGatePathfindingTest
             *(IntPtr*)(slot + DirectionFilterAdapterEmitter.SlotMaskOffset) = mask;
             *(long*)(slot + DirectionFilterAdapterEmitter.SlotTouchedOffset) = 0;
             return new QueryScope(snapshot, slot, previous, previousTouched);
+        }
+
+        private TacticalQueryScope EnterTactical(int player)
+        {
+            NativeMaskSnapshot snapshot;
+            IntPtr mask;
+            lock (maskGate)
+            {
+                snapshot = currentMasks;
+                snapshot.Readers++;
+                mask = player > 0 && player < snapshot.PlayerMasks.Length
+                    ? snapshot.PlayerMasks[player] : IntPtr.Zero;
+            }
+            uint thread = GetCurrentThreadId();
+            byte* slot = (byte*)tacticalThreadSlots + ((thread &
+                (AiTacticalTargetAdapterEmitter.ThreadSlotCount - 1)) *
+                AiTacticalTargetAdapterEmitter.ThreadSlotStride);
+            int owner = Volatile.Read(ref *(int*)(slot +
+                AiTacticalTargetAdapterEmitter.SlotOwnerOffset));
+            if (owner != 0 || (owner == 0 && Interlocked.CompareExchange(
+                    ref *(int*)(slot + AiTacticalTargetAdapterEmitter.SlotOwnerOffset),
+                    unchecked((int)thread), 0) != 0))
+            {
+                Interlocked.Increment(ref aiTacticalScopeConflicts);
+                return new TacticalQueryScope(snapshot, null);
+            }
+            *(IntPtr*)(slot + AiTacticalTargetAdapterEmitter.SlotMaskOffset) = mask;
+            *(long*)(slot + AiTacticalTargetAdapterEmitter.SlotBuildingTouchedOffset) = 0;
+            *(long*)(slot + AiTacticalTargetAdapterEmitter.SlotUnitTouchedOffset) = 0;
+            *(long*)(slot + AiTacticalTargetAdapterEmitter.SlotFallbackTouchedOffset) = 0;
+            *(int*)(slot + AiTacticalTargetAdapterEmitter.SlotDepthOffset) = 1;
+            return new TacticalQueryScope(snapshot, slot);
+        }
+
+        private void CompleteTactical(TacticalQueryScope scope)
+        {
+            if (scope.Slot != null)
+            {
+                long building = *(long*)(scope.Slot +
+                    AiTacticalTargetAdapterEmitter.SlotBuildingTouchedOffset);
+                long unit = *(long*)(scope.Slot +
+                    AiTacticalTargetAdapterEmitter.SlotUnitTouchedOffset);
+                long fallback = *(long*)(scope.Slot +
+                    AiTacticalTargetAdapterEmitter.SlotFallbackTouchedOffset);
+                if (building != 0)
+                {
+                    Interlocked.Add(ref aiTacticalBuildingEdges, building);
+                    CaptureTacticalEdgeSample(0, scope.Slot,
+                        AiTacticalTargetAdapterEmitter.SlotBuildingSourceOffset,
+                        AiTacticalTargetAdapterEmitter.SlotBuildingTargetOffset,
+                        AiTacticalTargetAdapterEmitter.SlotBuildingDirectionOffset);
+                }
+                if (unit != 0)
+                {
+                    Interlocked.Add(ref aiTacticalUnitEdges, unit);
+                    CaptureTacticalEdgeSample(1, scope.Slot,
+                        AiTacticalTargetAdapterEmitter.SlotUnitSourceOffset,
+                        AiTacticalTargetAdapterEmitter.SlotUnitTargetOffset,
+                        AiTacticalTargetAdapterEmitter.SlotUnitDirectionOffset);
+                }
+                if (fallback != 0)
+                {
+                    Interlocked.Add(ref aiTacticalFallbackEdges, fallback);
+                    CaptureTacticalEdgeSample(2, scope.Slot,
+                        AiTacticalTargetAdapterEmitter.SlotFallbackSourceOffset,
+                        AiTacticalTargetAdapterEmitter.SlotFallbackTargetOffset,
+                        AiTacticalTargetAdapterEmitter.SlotFallbackDirectionOffset);
+                }
+                *(IntPtr*)(scope.Slot + AiTacticalTargetAdapterEmitter.SlotMaskOffset) = IntPtr.Zero;
+                *(int*)(scope.Slot + AiTacticalTargetAdapterEmitter.SlotDepthOffset) = 0;
+                Volatile.Write(ref *(int*)(scope.Slot +
+                    AiTacticalTargetAdapterEmitter.SlotOwnerOffset), 0);
+            }
+            lock (maskGate) scope.Snapshot.Readers--;
+        }
+
+        private void CaptureTacticalEdgeSample(int category, byte* slot,
+            int sourceOffset, int targetOffset, int directionOffset)
+        {
+            if (Interlocked.CompareExchange(ref tacticalEdgeSampleState[category], 1, 0) != 0)
+                return;
+            tacticalEdgeSampleSource[category] = *(int*)(slot + sourceOffset);
+            tacticalEdgeSampleTarget[category] = *(int*)(slot + targetOffset);
+            tacticalEdgeSampleDirection[category] = *(int*)(slot + directionOffset);
+            Volatile.Write(ref tacticalEdgeSampleState[category], 2);
         }
 
         private long Complete(QueryScope scope, QueryKind kind, bool hasResultContract, bool success)
@@ -1173,6 +1400,14 @@ namespace EnemyGatePathfindingTest
             internal byte* Slot { get; }
             internal IntPtr PreviousMask { get; }
             internal long PreviousTouched { get; }
+        }
+
+        private readonly struct TacticalQueryScope
+        {
+            internal TacticalQueryScope(NativeMaskSnapshot snapshot, byte* slot)
+            { Snapshot = snapshot; Slot = slot; }
+            internal NativeMaskSnapshot Snapshot { get; }
+            internal byte* Slot { get; }
         }
 
         [DllImport("kernel32.dll")]

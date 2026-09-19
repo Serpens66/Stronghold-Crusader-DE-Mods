@@ -39,6 +39,7 @@ namespace EnemyGatePathfindingTest
                 RectangleDistanceSupportsSpatialBridgeDiagnosis();
                 NativeHookByteContractsRejectMutation();
                 VanillaDirectionFilterContractsAreAtomic();
+                AiTacticalTargetContractsAreAtomicAndExecutable();
                 DirectionAdapterTileRegistersMatchNativeDataFlow();
                 CrashDumpRegisterRegressionsFailOpen();
                 DirectionAdaptersActuallyAssembleAndDecode();
@@ -251,6 +252,16 @@ namespace EnemyGatePathfindingTest
                     Assert(!Overlaps(fixes.Item1, fixes.Item2, start, end),
                         "Fixes PCL-rebuild spans do not overlap direction adapter " + index);
                 }
+                for (int index = 0;
+                     index < EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas.Length;
+                     index++)
+                {
+                    int start = EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas[index];
+                    int end = start +
+                        EnemyGatePathfindingNativeDefinition.AiTacticalFilterLengths[index];
+                    Assert(!Overlaps(fixes.Item1, fixes.Item2, start, end),
+                        "Fixes PCL-rebuild spans do not overlap AI tactical adapter " + index);
+                }
                 int[] scopeRvas =
                 {
                     EnemyGatePathfindingNativeDefinition.PathBuilderRva,
@@ -259,13 +270,26 @@ namespace EnemyGatePathfindingTest
                     EnemyGatePathfindingNativeDefinition.BuildingConsumerRva,
                     EnemyGatePathfindingNativeDefinition.AlternateBuildingConsumerRva,
                     EnemyGatePathfindingNativeDefinition.CursorMoveStagerRva,
-                    EnemyGatePathfindingNativeDefinition.PlayerAwareCandidateSearchRva
+                    EnemyGatePathfindingNativeDefinition.PlayerAwareCandidateSearchRva,
+                    EnemyGatePathfindingNativeDefinition.AiTacticalTargetSelectionRva
                 };
                 for (int index = 0; index < scopeRvas.Length; index++)
                     Assert(!Overlaps(fixes.Item1, fixes.Item2,
                             scopeRvas[index], scopeRvas[index] + 32),
                         "Fixes PCL-rebuild spans do not overlap search scope " + index);
             }
+            Assert(!Overlaps(0x10ECC3, 0x10ECC8,
+                    EnemyGatePathfindingNativeDefinition.AiTacticalTargetSelectionRva,
+                    EnemyGatePathfindingNativeDefinition.AiTacticalTargetSelectionRva + 32),
+                "BugfixesAndQoL AiWallTargetingFix does not overlap the tactical target scope");
+            for (int index = 0;
+                 index < EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas.Length;
+                 index++)
+                Assert(!Overlaps(0x10ECC3, 0x10ECC8,
+                        EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas[index],
+                        EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas[index] +
+                            EnemyGatePathfindingNativeDefinition.AiTacticalFilterLengths[index]),
+                    "BugfixesAndQoL AiWallTargetingFix does not overlap AI tactical adapter " + index);
         }
 
         private static bool Overlaps(int leftStart, int leftEnd, int rightStart, int rightEnd) =>
@@ -974,6 +998,8 @@ namespace EnemyGatePathfindingTest
             string runtimeSource = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
             string samePclSource = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
             string emitterSource = File.ReadAllText(Path.Combine("src", "DirectionFilterAdapterEmitter.cs"));
+            string tacticalEmitterSource = File.ReadAllText(
+                Path.Combine("src", "AiTacticalTargetAdapterEmitter.cs"));
             string[] forbidden =
             {
                 "GamePlayerManagerAPI", "GameUnitManagerAPI", "DebugLogHelper",
@@ -993,6 +1019,7 @@ namespace EnemyGatePathfindingTest
                         method + " hot path excludes " + token);
             }
             string builderBody = ExtractMethodBody(emitterSource, "Emit");
+            string tacticalBody = ExtractMethodBody(tacticalEmitterSource, "Emit");
             foreach (string token in new[]
             {
                 "GameUnitManagerAPI", "GamePlayerManagerAPI", "DebugLogHelper",
@@ -1000,6 +1027,13 @@ namespace EnemyGatePathfindingTest
             })
                 Assert(builderBody.IndexOf(token, StringComparison.Ordinal) < 0,
                     "native direction adapter excludes " + token);
+            foreach (string token in new[]
+            {
+                "GameUnitManagerAPI", "GamePlayerManagerAPI", "DebugLogHelper",
+                "Monitor.", "lock (", "StringBuilder", "Console.", "Interlocked"
+            })
+                Assert(tacticalBody.IndexOf(token, StringComparison.Ordinal) < 0,
+                    "native AI tactical adapter excludes " + token);
             Assert(samePclSource.IndexOf("managedReplacementSearches=0", StringComparison.Ordinal) >= 0 &&
                     samePclSource.IndexOf("managedCursorSearches=0", StringComparison.Ordinal) >= 0 &&
                     samePclSource.IndexOf("GateGridRouteSearch", StringComparison.Ordinal) < 0 &&
@@ -1009,7 +1043,7 @@ namespace EnemyGatePathfindingTest
             {
                 "FilterBuilder", "FilterAttack", "FilterBuilding", "FilterConsumer",
                 "FilterAlternateConsumer", "FilterCandidateSearch", "FilterCursor",
-                "FilterDirectCursorSearch", "FilterCursorPclDecision"
+                "FilterDirectCursorSearch", "FilterCursorPclDecision", "FilterAiTacticalTarget"
             })
             {
                 string body = ExtractMethodBody(samePclSource, wrapper);
@@ -1102,6 +1136,89 @@ namespace EnemyGatePathfindingTest
                         body.IndexOf("for (int index = 0; index < original.Length", StringComparison.Ordinal) < 0,
                     method + " emits its original load once and has no duplicate full replay");
             }
+        }
+
+        private static void AiTacticalTargetContractsAreAtomicAndExecutable()
+        {
+            const ulong library = 0x180000000UL;
+            const ulong slots = 0x123456789ABC0000UL;
+            int[] rvas = { 0xF1910, 0xEF1F0, 0xEEAD0 };
+            int[] lengths = { 17, 17, 18 };
+            int[] rejects = { 0xF1A17, 0xEF2D4, 0xEEC1B };
+            Register[] sources = { Register.R14, Register.R11, Register.RDI };
+            Register[] targets = { Register.R8, Register.R10, Register.None };
+            Register[] directions = { Register.RSI, Register.R9, Register.AL };
+            Assert(EnemyGatePathfindingNativeDefinition.AiTacticalTargetSelectionRva == 0x113BC0,
+                "AI tactical target-selection scope is pinned to the audited Vanilla entry");
+            Assert(EnemyGatePathfindingNativeDefinition.NativeTribeRecordStride == 0x688 &&
+                    EnemyGatePathfindingNativeDefinition.NativeTribePlayerIdOffset == 0x2C,
+                "AI tactical scope uses the audited tribe player field");
+            for (int site = 0; site < rvas.Length; site++)
+            {
+                Assert(EnemyGatePathfindingNativeDefinition.AiTacticalFilterRvas[site] == rvas[site] &&
+                        EnemyGatePathfindingNativeDefinition.AiTacticalFilterLengths[site] == lengths[site] &&
+                        EnemyGatePathfindingNativeDefinition.AiTacticalRejectRvas[site] == rejects[site],
+                    "AI tactical adapter " + site + " has its exact span and rejection target");
+                Assert(AiTacticalTargetAdapterEmitter.GetSourceRegister(site) == sources[site] &&
+                        AiTacticalTargetAdapterEmitter.GetTargetRegister(site) == targets[site] &&
+                        AiTacticalTargetAdapterEmitter.GetDirectionRegister(site) == directions[site],
+                    "AI tactical adapter " + site + " uses the audited source/target/direction registers");
+                byte[] original = EnemyGatePathfindingNativeDefinition.GetAiTacticalFilterBytes(site);
+                ulong ip = library + unchecked((ulong)rvas[site]);
+                ulong reject = library + unchecked((ulong)rejects[site]);
+                ulong stub = library + 0x02300000UL + unchecked((ulong)(site * 0x1000));
+                byte[] emitted = AiTacticalTargetAdapterEmitter.AssembleAndValidate(
+                    original, ip, site, slots, reject, stub);
+                Assert(emitted.Length > original.Length,
+                    "AI tactical adapter " + site + " really assembles");
+                var decoder = Decoder.Create(64, new ByteArrayCodeReader(emitted)); decoder.IP = stub;
+                int invalid = 0, bounds = 0, rejectionBranches = 0;
+                while (decoder.IP < stub + (ulong)emitted.Length)
+                {
+                    decoder.Decode(out Instruction instruction);
+                    if (instruction.Code == Code.INVALID) invalid++;
+                    if (instruction.Mnemonic == Mnemonic.Cmp &&
+                        instruction.Op1Kind == OpKind.Immediate32 &&
+                        instruction.Immediate32 == EnemyGatePathfindingNativeDefinition.MaximumTileIdExclusive)
+                        bounds++;
+                    if ((instruction.Mnemonic == Mnemonic.Jmp || instruction.Mnemonic == Mnemonic.Je) &&
+                        instruction.NearBranchTarget == reject) rejectionBranches++;
+                }
+                Assert(invalid == 0 && bounds == (site == 2 ? 1 : 2) && rejectionBranches == 1,
+                    "AI tactical adapter " + site + " disassembles with complete bounds and reject flow");
+
+                byte[] probeBytes = new byte[64];
+                for (int index = 0; index < probeBytes.Length; index++) probeBytes[index] = 0x90;
+                Array.Copy(original, probeBytes, original.Length);
+                IntPtr probeMemory = Marshal.AllocHGlobal(probeBytes.Length);
+                try
+                {
+                    Marshal.Copy(probeBytes, 0, probeMemory, probeBytes.Length);
+                    using (var probe = new X64InlineHook(
+                        unchecked((ulong)probeMemory.ToInt64()), lengths[site]))
+                        Assert(probe.DisplacedByteCount == lengths[site],
+                            "RedBird displaces the exact AI tactical span " + site);
+                }
+                finally { Marshal.FreeHGlobal(probeMemory); }
+            }
+            Assert(!AiTacticalTargetAdapterEmitter.IsTileIndexInRange(-1) &&
+                    !AiTacticalTargetAdapterEmitter.IsTileIndexInRange(320800) &&
+                    AiTacticalTargetAdapterEmitter.IsTileIndexInRange(320799),
+                "AI tactical adapters fail open outside the native tile capacity");
+            Assert((0xFF & 0x04) != 0 && (0xFB & 0x04) == 0,
+                "the immutable direction mask leaves ordinary edges visible and hides only cleared gate edges");
+
+            string runtime = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            Assert(runtime.IndexOf("aiTacticalTarget = AddDetour", StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("for (int index = 0; index < tacticalEdgeHooks.Length; index++)",
+                        StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("!aiTacticalTarget.Committed", StringComparison.Ordinal) >= 0,
+                "AI tactical scope and all three adapters are members of the atomic hook transaction");
+            string filter = ExtractMethodBody(runtime, "FilterAiTacticalTarget");
+            Assert(filter.IndexOf("NativeTribeRecordStride", StringComparison.Ordinal) >= 0 &&
+                    filter.IndexOf("NativeTribePlayerIdOffset", StringComparison.Ordinal) >= 0 &&
+                    filter.IndexOf("ResolveTribePlayer(tribe)", StringComparison.Ordinal) >= 0,
+                "AI tactical player comes from the native tribe record and is checked against the snapshot");
         }
 
         private static void SnapshotGateIdentityRequiresBothIds()

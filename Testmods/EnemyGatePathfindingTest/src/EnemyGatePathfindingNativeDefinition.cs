@@ -70,6 +70,38 @@ namespace EnemyGatePathfindingTest
         public const int CursorMoveStagerRva = 0x195E30;
         public const int PlayerAwareCandidateSearchRva = 0xDC3C0;
 
+        // AI tactical target selection. The function owns all three local flood
+        // searches used by planner state 0x419: building, unit and fallback tile.
+        public const int AiTacticalTargetSelectionRva = 0x113BC0;
+        public const int NativeTribeRecordStride = 0x688;
+        public const int NativeTribePlayerIdOffset = 0x2C;
+
+        internal static readonly int[] AiTacticalFilterRvas =
+        {
+            0xF1910, 0xEF1F0, 0xEEAD0
+        };
+        internal static readonly int[] AiTacticalFilterLengths =
+        {
+            17, 17, 18
+        };
+        internal static readonly int[] AiTacticalRejectRvas =
+        {
+            0xF1A17, 0xEF2D4, 0xEEC1B
+        };
+        private static readonly byte[][] AiTacticalFilterBytes =
+        {
+            new byte[] { 0x48,0x63,0xC6,0x45,0x8B,0x84,0x81,0xB0,0xED,0x05,0x04,0x45,0x03,0xC6,0x49,0x63,0xC0 },
+            new byte[] { 0x49,0x63,0xC1,0x45,0x8B,0x94,0x86,0xB0,0xED,0x05,0x04,0x45,0x03,0xD3,0x49,0x63,0xC2 },
+            new byte[] { 0x42,0x0F,0xB6,0x84,0x02,0x20,0x26,0x31,0x00,0x84,0x04,0x3E,0x0F,0x84,0x39,0x01,0x00,0x00 }
+        };
+
+        internal static byte[] GetAiTacticalFilterBytes(int index)
+        {
+            if ((uint)index >= (uint)AiTacticalFilterBytes.Length)
+                throw new ArgumentOutOfRangeException(nameof(index));
+            return (byte[])AiTacticalFilterBytes[index].Clone();
+        }
+
         // The final four hooks begin at the direction-bit producer immediately before
         // the documented DB650 DirectionGrid tests (DB860/DB950/DBA3F/DBB2F).
         internal static readonly int[] DirectionFilterRvas =
@@ -226,6 +258,10 @@ namespace EnemyGatePathfindingTest
             ValidateBytes(memory, PlayerAwareCandidateSearchRva,
                 new byte[] { 0x48,0x89,0x5C,0x24,0x20,0x55,0x56,0x57,0x41,0x54,0x41,0x55,0x41,0x56 },
                 "player-aware candidate-search entry");
+            ValidateBytes(memory, AiTacticalTargetSelectionRva,
+                new byte[] { 0x48,0x89,0x5C,0x24,0x08,0x48,0x89,0x6C,0x24,0x10,0x48,0x89,0x74,0x24,0x18,0x57,
+                    0x41,0x54,0x41,0x55,0x41,0x56,0x41,0x57,0x48,0x83,0xEC,0x40,0x48,0x63,0xEA },
+                "AI tactical target-selection entry");
             if (DirectionFilterRvas.Length != DirectionFilterLengths.Length ||
                 DirectionFilterRvas.Length != DirectionFilterBytes.Length)
                 throw new InvalidOperationException("Direction-filter contract tables differ in length.");
@@ -235,6 +271,20 @@ namespace EnemyGatePathfindingTest
                     throw new InvalidOperationException($"Direction-filter span {index} has inconsistent length.");
                 ValidateBytes(memory, DirectionFilterRvas[index], DirectionFilterBytes[index],
                     $"direction-filter block {index}");
+            }
+            if (AiTacticalFilterRvas.Length != AiTacticalFilterLengths.Length ||
+                AiTacticalFilterRvas.Length != AiTacticalRejectRvas.Length ||
+                AiTacticalFilterRvas.Length != AiTacticalFilterBytes.Length)
+                throw new InvalidOperationException("AI tactical-filter contract tables differ in length.");
+            for (int index = 0; index < AiTacticalFilterRvas.Length; index++)
+            {
+                if (AiTacticalFilterBytes[index].Length != AiTacticalFilterLengths[index])
+                    throw new InvalidOperationException($"AI tactical-filter span {index} has inconsistent length.");
+                ValidateBytes(memory, AiTacticalFilterRvas[index], AiTacticalFilterBytes[index],
+                    $"AI tactical-filter block {index}");
+                if (AiTacticalRejectRvas[index] <=
+                    AiTacticalFilterRvas[index] + AiTacticalFilterLengths[index])
+                    throw new InvalidOperationException($"AI tactical-filter reject target {index} is not external.");
             }
         }
 

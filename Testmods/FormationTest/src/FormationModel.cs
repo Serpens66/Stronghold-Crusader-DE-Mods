@@ -9,7 +9,8 @@ namespace FormationTest
         Block = 1,
         Line = 2,
         Column = 3,
-        Wedge = 4
+        Wedge = 4,
+        Circle = 5
     }
 
     internal enum FormationRole : byte
@@ -107,13 +108,14 @@ namespace FormationTest
             int unitCount)
         {
             FormationKind normalizedKind = FormationModel.NormalizeKind((int)kind);
-            bool vanilla = normalizedKind == FormationKind.Vanilla;
+            bool fixedShape = normalizedKind == FormationKind.Vanilla ||
+                normalizedKind == FormationKind.Circle;
             return new FormationPreviewKey(
                 normalizedKind,
                 FormationModel.NormalizeDensity(density),
-                vanilla ? RangedPlacementMode.Off : FormationModel.NormalizePlacementMode((int)placementMode),
-                vanilla ? 0 : directionSector & 7,
-                vanilla ? 0 : Math.Max(1, width),
+                FormationModel.NormalizePlacementMode((int)placementMode),
+                directionSector & 7,
+                fixedShape ? 1 : Math.Max(1, width),
                 targetX,
                 targetY,
                 Math.Max(0, unitCount));
@@ -233,7 +235,7 @@ namespace FormationTest
         private static readonly int[] ForwardY = { -1, -1, 0, 1, 1, 1, 0, -1 };
 
         internal static FormationKind NormalizeKind(int value) =>
-            value >= (int)FormationKind.Vanilla && value <= (int)FormationKind.Wedge
+            value >= (int)FormationKind.Vanilla && value <= (int)FormationKind.Circle
                 ? (FormationKind)value
                 : FormationKind.Vanilla;
 
@@ -246,12 +248,23 @@ namespace FormationTest
                 : RangedPlacementMode.Off;
 
         internal static FormationKind Next(FormationKind kind) =>
-            kind == FormationKind.Wedge
+            kind == FormationKind.Circle
                 ? FormationKind.Vanilla
                 : (FormationKind)((byte)kind + 1);
 
         internal static int ChangeDensity(int density, int wheelDirection) =>
             Math.Max(1, Math.Min(4, NormalizeDensity(density) - Math.Sign(wheelDirection)));
+
+        internal static bool IsNativeVanillaSlotCandidate(
+            int relativeX,
+            int relativeY,
+            int pathDistance,
+            int logicFlags,
+            int density,
+            bool assassinOnly) =>
+            pathDistance > 0 && pathDistance < 4000 &&
+            (Math.Abs(relativeX) + Math.Abs(relativeY)) % NormalizeDensity(density) == 0 &&
+            (!assassinOnly || (logicFlags & 0x10000100) == 0);
 
         internal static int QuantizeDirection(int deltaX, int deltaY, int fallbackSector = 0)
         {
@@ -283,6 +296,8 @@ namespace FormationTest
                 return Math.Min(count, Math.Max(3,
                     MakeOdd((int)Math.Ceiling(wedgeRoot * 1.5))));
             }
+            if (kind == FormationKind.Circle)
+                return ResolveCircleDiameter(count);
             int rows = ResolveAutomaticRows(kind, count);
             return Math.Max(1, Math.Min(count, (count + rows - 1) / rows));
         }
@@ -300,6 +315,8 @@ namespace FormationTest
                     return Math.Min(count, Math.Max(2, (int)Math.Ceiling(root * 2.0)));
                 case FormationKind.Wedge:
                     return CountWedgeRows(count, ResolveAutomaticWidth(kind, count));
+                case FormationKind.Circle:
+                    return ResolveCircleDiameter(count);
                 default:
                     return Math.Min(count, Math.Max(1, (int)Math.Ceiling(root)));
             }
@@ -313,6 +330,8 @@ namespace FormationTest
             if (count <= 0)
                 return 0;
             int automaticWidth = ResolveAutomaticWidth(kind, count);
+            if (kind == FormationKind.Vanilla || kind == FormationKind.Circle)
+                return automaticWidth;
             int depthReduction = Math.Max(0, (Math.Max(2, tileDistance) - 2) / 2);
             if (depthReduction == 0)
                 return automaticWidth;
@@ -336,6 +355,8 @@ namespace FormationTest
             int normalizedWidth = Math.Max(1, Math.Min(count, width));
             return kind == FormationKind.Wedge
                 ? CountWedgeRows(count, normalizedWidth)
+                : kind == FormationKind.Circle
+                ? ResolveCircleDiameter(count)
                 : (count + normalizedWidth - 1) / normalizedWidth;
         }
 
@@ -358,7 +379,13 @@ namespace FormationTest
             int rightX = -forwardY;
             int rightY = forwardX;
 
-            if (kind == FormationKind.Wedge)
+            if (kind == FormationKind.Vanilla)
+                throw new InvalidOperationException(
+                    "Vanilla slots require the native pathfinding candidate order.");
+            if (kind == FormationKind.Circle)
+                BuildCircle(count, normalizedDensity,
+                    forwardX, forwardY, rightX, rightY, result);
+            else if (kind == FormationKind.Wedge)
                 BuildWedge(count, normalizedWidth, normalizedDensity,
                     forwardX, forwardY, rightX, rightY, result);
             else
@@ -371,7 +398,8 @@ namespace FormationTest
         internal static int[] AssignSlotsByRole(
             IReadOnlyList<FormationUnit> units,
             IReadOnlyList<FormationPoint> slots,
-            RangedPlacementMode placementMode)
+            RangedPlacementMode placementMode,
+            FormationKind kind = FormationKind.Block)
         {
             int count = Math.Min(units?.Count ?? 0, slots?.Count ?? 0);
             var assignment = new int[count];
@@ -382,7 +410,7 @@ namespace FormationTest
                 return assignment;
 
             if (normalizedMode == RangedPlacementMode.Center)
-                return AssignSlotsToProtectedCenter(units, slots, count);
+                return AssignSlotsToProtectedCenter(units, slots, count, kind);
 
             var unitIndices = new List<int>(count);
             for (int index = 0; index < count; index++)
@@ -413,7 +441,8 @@ namespace FormationTest
         private static int[] AssignSlotsToProtectedCenter(
             IReadOnlyList<FormationUnit> units,
             IReadOnlyList<FormationPoint> slots,
-            int count)
+            int count,
+            FormationKind kind)
         {
             var assignment = new int[count];
             var unitIndices = new List<int>(count);
@@ -450,6 +479,15 @@ namespace FormationTest
 
             slotIndices.Sort((left, right) =>
             {
+                if (kind == FormationKind.Circle || kind == FormationKind.Vanilla)
+                {
+                    long leftCircleRadius = (long)slots[left].X * slots[left].X +
+                        (long)slots[left].Y * slots[left].Y;
+                    long rightCircleRadius = (long)slots[right].X * slots[right].X +
+                        (long)slots[right].Y * slots[right].Y;
+                    int radiusOrder = rightCircleRadius.CompareTo(leftCircleRadius);
+                    return radiusOrder != 0 ? radiusOrder : left.CompareTo(right);
+                }
                 int leftDepth = BoundaryDepth(slots[left], rowPositions[left],
                     rowCounts[slots[left].Rank], maximumRank);
                 int rightDepth = BoundaryDepth(slots[right], rowPositions[right],
@@ -498,6 +536,117 @@ namespace FormationTest
                 rank++;
             }
             return rank;
+        }
+
+        private static int ResolveCircleDiameter(int count)
+        {
+            if (count <= 1)
+                return Math.Max(1, count);
+            int radius = 0;
+            while (CountCirclePoints(radius) < count)
+                radius++;
+            return radius * 2 + 1;
+        }
+
+        private static int CountCirclePoints(int radius)
+        {
+            int count = 0;
+            int squaredRadius = radius * radius;
+            for (int y = -radius; y <= radius; y++)
+                for (int x = -radius; x <= radius; x++)
+                    if (x * x + y * y <= squaredRadius)
+                        count++;
+            return count;
+        }
+
+        private static void BuildCircle(
+            int count,
+            int spacing,
+            int forwardX,
+            int forwardY,
+            int rightX,
+            int rightY,
+            List<FormationPoint> destination)
+        {
+            int radius = (ResolveCircleDiameter(count) - 1) / 2;
+            var candidates = new List<CirclePoint>();
+            int squaredRadius = radius * radius;
+            for (int y = -radius; y <= radius; y++)
+            {
+                for (int x = -radius; x <= radius; x++)
+                {
+                    int squared = x * x + y * y;
+                    if (squared <= squaredRadius)
+                        candidates.Add(new CirclePoint(x, y, squared));
+                }
+            }
+            candidates.Sort((left, right) =>
+            {
+                int distance = left.SquaredRadius.CompareTo(right.SquaredRadius);
+                if (distance != 0)
+                    return distance;
+                int axis = Math.Abs(left.Y).CompareTo(Math.Abs(right.Y));
+                if (axis != 0)
+                    return axis;
+                int y = left.Y.CompareTo(right.Y);
+                return y != 0 ? y : left.X.CompareTo(right.X);
+            });
+
+            var used = new HashSet<long>();
+            if ((count & 1) == 0)
+                used.Add(CircleKey(0, 0));
+            for (int index = 0; index < candidates.Count && destination.Count < count; index++)
+            {
+                CirclePoint point = candidates[index];
+                long key = CircleKey(point.X, point.Y);
+                if (!used.Add(key))
+                    continue;
+                AddCirclePoint(point.X, point.Y, spacing,
+                    forwardX, forwardY, rightX, rightY, radius, destination);
+                if (destination.Count >= count || (point.X == 0 && point.Y == 0))
+                    continue;
+                long oppositeKey = CircleKey(-point.X, -point.Y);
+                if (used.Add(oppositeKey))
+                    AddCirclePoint(-point.X, -point.Y, spacing,
+                        forwardX, forwardY, rightX, rightY, radius, destination);
+            }
+        }
+
+        private static void AddCirclePoint(
+            int localX,
+            int localY,
+            int spacing,
+            int forwardX,
+            int forwardY,
+            int rightX,
+            int rightY,
+            int maximumProjection,
+            List<FormationPoint> destination)
+        {
+            int baseX = rightX * localX + forwardX * localY;
+            int baseY = rightY * localX + forwardY * localY;
+            int x = baseX * spacing;
+            int y = baseY * spacing;
+            int projection = baseX * forwardX + baseY * forwardY;
+            int rank = maximumProjection - projection;
+            int file = baseX * rightX + baseY * rightY;
+            destination.Add(new FormationPoint(x, y, rank, file));
+        }
+
+        private static long CircleKey(int x, int y) =>
+            ((long)(uint)x << 32) | (uint)y;
+
+        private readonly struct CirclePoint
+        {
+            internal CirclePoint(int x, int y, int squaredRadius)
+            {
+                X = x;
+                Y = y;
+                SquaredRadius = squaredRadius;
+            }
+            internal int X { get; }
+            internal int Y { get; }
+            internal int SquaredRadius { get; }
         }
 
         private static void BuildRanks(

@@ -632,11 +632,19 @@ namespace EnemyGatePathfindingTest
                 $"scopeMismatch={same.ScopeMismatches},threadSlotConflict={same.SlotConflicts}," +
                 $"snapshotPoolExhaustion={same.PoolExhaustions},exceptions={same.Exceptions}," +
                 $"aiQueries={same.AiQueries},aiNoRoute={same.AiNoRoutes}," +
-                $"attackQueries={same.AttackQueries},buildingApproachQueries={same.BuildingApproachQueries}," +
+                $"attackApproachQueries={same.AttackQueries},buildingApproachQueries={same.BuildingApproachQueries}," +
                 $"buildingConsumerQueries={same.BuildingConsumerQueries}," +
                 $"alternateBuildingConsumerQueries={same.AlternateBuildingConsumerQueries}," +
                 $"candidateQueries={same.CandidateQueries}," +
+                $"aiTacticalTargetQueries={same.AiTacticalTargetQueries}," +
+                $"aiTacticalBuildingEdgesFiltered={same.AiTacticalBuildingEdges}," +
+                $"aiTacticalUnitEdgesFiltered={same.AiTacticalUnitEdges}," +
+                $"aiTacticalFallbackEdgesFiltered={same.AiTacticalFallbackEdges}," +
+                $"aiTacticalInvalidPlayer={same.AiTacticalInvalidPlayers}," +
+                $"aiTacticalScopeConflict={same.AiTacticalScopeConflicts}," +
+                $"aiTacticalExceptions={same.AiTacticalExceptions}," +
                 $"scopeSamples=[{samePclRouteRuntime?.DescribeScopeSamples() ?? "none"}]," +
+                $"aiTacticalEdgeSamples=[{samePclRouteRuntime?.DescribeAiTacticalEdgeSamples() ?? "none"}]," +
                 $"cursorDecisionSample=[{samePclRouteRuntime?.DescribeCursorDecisionSample() ?? "none"}]," +
                 $"cursorPreviewSample=[{samePclRouteRuntime?.DescribeCursorPreviewSample() ?? "none"}]," +
                 "managedCursorSearches=0,managedReplacementSearches=0,directionGridWrites=0.");
@@ -664,6 +672,8 @@ namespace EnemyGatePathfindingTest
                 topology.Errors != 0 ||
                 same.Exceptions != 0 || same.SlotConflicts != 0 || same.ScopeMismatches != 0 ||
                 same.InvalidPlayers != 0 || same.PoolExhaustions != 0 ||
+                same.AiTacticalInvalidPlayers != 0 ||
+                same.AiTacticalScopeConflicts != 0 || same.AiTacticalExceptions != 0 ||
                 Read(ref untrackedUnexpectedGate) != 0 || policyFailures != 0;
             DiagnosticVerdict sameHookVerdict = same.OwnerConflict
                 ? DiagnosticVerdict.NOT_APPLICABLE
@@ -701,6 +711,9 @@ namespace EnemyGatePathfindingTest
                 $"aiDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiDetours)}," +
                 $"aiQuery={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiQueries)}," +
                 $"aiNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiNoRoutes)}," +
+                $"aiTargetSelectionExecution={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalTargetQueries)}," +
+                $"aiInteriorTargetEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalBuildingEdges + same.AiTacticalUnitEdges)}," +
+                $"aiFallbackPositionFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalFallbackEdges)}," +
                 $"attackEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.AttackEdges)}," +
                 $"buildingEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.BuildingEdges)}," +
                 $"candidateEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.CandidateEdges)}," +

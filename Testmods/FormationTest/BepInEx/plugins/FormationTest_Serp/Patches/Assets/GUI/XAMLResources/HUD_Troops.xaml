@@ -1,68 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:b="http://schemas.microsoft.com/xaml/behaviors">
   <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
     <Content>
-      <Grid x:Name="FormationTestButtonHost" Width="35" Height="35" Margin="480,11,0,0"
-            HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="20">
-        <Button Width="35" Height="35" Padding="0" ToolTip="Formations"
-                Command="{Binding ToggleMenuCommand}">
+      <Grid x:Name="FormationTestButtonHost" Width="35" Height="35" Margin="480,11,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="20">
+        <Button Width="35" Height="35" Padding="0" Command="{Binding ToggleMenuCommand}">
           <Grid Width="27" Height="27" IsHitTestVisible="False">
-            <Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="3,4,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-            <Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="11,4,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-            <Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="19,4,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-            <Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="7,12,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-            <Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="15,12,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
-            <Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="11,20,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            <Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="3,4,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/><Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="11,4,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/><Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="19,4,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/><Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="7,12,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/><Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="15,12,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/><Ellipse Width="5" Height="5" Fill="#FF65D84B" Margin="11,20,0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
           </Grid>
+          <b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowRolloverCommand}" CommandParameter="Formations"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideRolloverCommand}"/></b:EventTrigger></b:Interaction.Triggers>
         </Button>
       </Grid>
     </Content>
   </Operation>
   <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
     <Content>
-      <Grid x:Name="FormationTestMenuHost" Width="520" Height="132" Margin="-1000,-1000,80,150"
-            HorizontalAlignment="Right" VerticalAlignment="Bottom" Panel.ZIndex="100"
-            Visibility="{Binding MenuVisible, Converter={StaticResource booleanToVisibilityConverter}}">
+      <Grid x:Name="FormationTestMenuHost" Width="520" Height="178" Margin="-1000,-1000,80,150" HorizontalAlignment="Right" VerticalAlignment="Bottom" Panel.ZIndex="100" Visibility="{Binding MenuVisible, Converter={StaticResource booleanToVisibilityConverter}}">
         <Border Background="#CC17130E" BorderBrush="#AA806B45" BorderThickness="1" CornerRadius="12" Padding="10,8">
           <Grid>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="38"/><RowDefinition Height="38"/><RowDefinition Height="38"/>
-            </Grid.RowDefinitions>
-            <Border Grid.Row="0" Background="#66000000" CornerRadius="6"/>
-            <Border Grid.Row="2" Background="#66000000" CornerRadius="6"/>
+            <Grid.RowDefinitions><RowDefinition Height="46"/><RowDefinition Height="38"/><RowDefinition Height="38"/><RowDefinition Height="38"/></Grid.RowDefinitions>
+            <Border Grid.Row="0" Background="#66000000" CornerRadius="6"/><Border Grid.Row="2" Background="#66000000" CornerRadius="6"/>
             <Grid Grid.Row="0">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="118"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="104"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
               <TextBlock Margin="8,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" FontSize="15" Text="Formation"/>
               <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Width="68" Height="28" Margin="2" Content="Vanilla" Background="{Binding VanillaBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Vanilla"/>
-                <Button Width="58" Height="28" Margin="2" Content="Block" Background="{Binding BlockBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Block"/>
-                <Button Width="54" Height="28" Margin="2" Content="Line" Background="{Binding LineBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Line"/>
-                <Button Width="66" Height="28" Margin="2" Content="Column" Background="{Binding ColumnBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Column"/>
-                <Button Width="62" Height="28" Margin="2" Content="Wedge" Background="{Binding WedgeBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Wedge"/>
+                <Button Width="40" Height="40" Margin="2" Padding="0" Background="{Binding VanillaBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Vanilla">
+                  <Canvas Width="32" Height="32" IsHitTestVisible="False"><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="3"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="8" Canvas.Top="9"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="9"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="20" Canvas.Top="9"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="4" Canvas.Top="15"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="10" Canvas.Top="15"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="16" Canvas.Top="15"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="22" Canvas.Top="15"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="8" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="20" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="27"/></Canvas>
+                  <b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowRolloverCommand}" CommandParameter="Vanilla"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideRolloverCommand}"/></b:EventTrigger></b:Interaction.Triggers>
+                </Button>
+                <Button Width="40" Height="40" Margin="2" Padding="0" Background="{Binding BlockBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Block">
+                  <Canvas Width="32" Height="32" IsHitTestVisible="False"><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="7" Canvas.Top="7"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="7"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="21" Canvas.Top="7"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="7" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="21" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="7" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="21" Canvas.Top="21"/></Canvas>
+                  <b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowRolloverCommand}" CommandParameter="Block"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideRolloverCommand}"/></b:EventTrigger></b:Interaction.Triggers>
+                </Button>
+                <Button Width="40" Height="40" Margin="2" Padding="0" Background="{Binding LineBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Line"><Canvas Width="32" Height="32" IsHitTestVisible="False"><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="2" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="8" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="20" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="26" Canvas.Top="14"/></Canvas><b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowRolloverCommand}" CommandParameter="Line"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideRolloverCommand}"/></b:EventTrigger></b:Interaction.Triggers></Button>
+                <Button Width="40" Height="40" Margin="2" Padding="0" Background="{Binding ColumnBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Column"><Canvas Width="32" Height="32" IsHitTestVisible="False"><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="2"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="8"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="20"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="26"/></Canvas><b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowRolloverCommand}" CommandParameter="Column"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideRolloverCommand}"/></b:EventTrigger></b:Interaction.Triggers></Button>
+                <Button Width="40" Height="40" Margin="2" Padding="0" Background="{Binding WedgeBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Wedge"><Canvas Width="32" Height="32" IsHitTestVisible="False"><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="4"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="8" Canvas.Top="12"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="12"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="20" Canvas.Top="12"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="2" Canvas.Top="20"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="8" Canvas.Top="20"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="20"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="20" Canvas.Top="20"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="26" Canvas.Top="20"/></Canvas><b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowRolloverCommand}" CommandParameter="Wedge"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideRolloverCommand}"/></b:EventTrigger></b:Interaction.Triggers></Button>
+                <Button Width="40" Height="40" Margin="2" Padding="0" Background="{Binding CircleBackground}" Command="{Binding SelectFormationCommand}" CommandParameter="Circle"><Canvas Width="32" Height="32" IsHitTestVisible="False"><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="3"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="7" Canvas.Top="7"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="21" Canvas.Top="7"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="3" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="10" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="18" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="25" Canvas.Top="14"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="7" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="21" Canvas.Top="21"/><Ellipse Width="4" Height="4" Fill="#FFF1E2B7" Canvas.Left="14" Canvas.Top="25"/></Canvas><b:Interaction.Triggers><b:EventTrigger EventName="MouseEnter"><b:InvokeCommandAction Command="{Binding ShowRolloverCommand}" CommandParameter="Circle"/></b:EventTrigger><b:EventTrigger EventName="MouseLeave"><b:InvokeCommandAction Command="{Binding HideRolloverCommand}"/></b:EventTrigger></b:Interaction.Triggers></Button>
               </StackPanel>
             </Grid>
-            <Grid Grid.Row="1">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="118"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <TextBlock Margin="8,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" FontSize="15" Text="Density"/>
-              <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Width="72" Height="28" Margin="2" Content="Tight" Background="{Binding TightBackground}" Command="{Binding SelectDensityCommand}" CommandParameter="1"/>
-                <Button Width="76" Height="28" Margin="2" Content="Normal" Background="{Binding NormalBackground}" Command="{Binding SelectDensityCommand}" CommandParameter="2"/>
-                <Button Width="68" Height="28" Margin="2" Content="Far" Background="{Binding FarBackground}" Command="{Binding SelectDensityCommand}" CommandParameter="3"/>
-                <Button Width="88" Height="28" Margin="2" Content="Very Far" Background="{Binding VeryFarBackground}" Command="{Binding SelectDensityCommand}" CommandParameter="4"/>
-              </StackPanel>
-            </Grid>
-            <Grid Grid.Row="2">
-              <Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-              <TextBlock Margin="8,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" FontSize="15" Text="Ranged / siege"/>
-              <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button Width="76" Height="28" Margin="2" Content="Off" Background="{Binding PlacementOffBackground}" Command="{Binding SelectPlacementCommand}" CommandParameter="Off"/>
-                <Button Width="76" Height="28" Margin="2" Content="Rear" Background="{Binding PlacementRearBackground}" Command="{Binding SelectPlacementCommand}" CommandParameter="Rear"/>
-                <Button Width="86" Height="28" Margin="2" Content="Center" Background="{Binding PlacementCenterBackground}" Command="{Binding SelectPlacementCommand}" CommandParameter="Center"/>
-              </StackPanel>
-            </Grid>
+            <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="118"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Margin="8,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" FontSize="15" Text="Density"/><StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button Width="72" Height="28" Margin="2" Content="Tight" Background="{Binding TightBackground}" Command="{Binding SelectDensityCommand}" CommandParameter="1"/><Button Width="76" Height="28" Margin="2" Content="Normal" Background="{Binding NormalBackground}" Command="{Binding SelectDensityCommand}" CommandParameter="2"/><Button Width="68" Height="28" Margin="2" Content="Far" Background="{Binding FarBackground}" Command="{Binding SelectDensityCommand}" CommandParameter="3"/><Button Width="88" Height="28" Margin="2" Content="Very Far" Background="{Binding VeryFarBackground}" Command="{Binding SelectDensityCommand}" CommandParameter="4"/></StackPanel></Grid>
+            <Grid Grid.Row="2"><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Margin="8,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" FontSize="15" Text="Ranged / siege"/><StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button Width="76" Height="28" Margin="2" Content="Off" Background="{Binding PlacementOffBackground}" Command="{Binding SelectPlacementCommand}" CommandParameter="Off"/><Button Width="76" Height="28" Margin="2" Content="Rear" Background="{Binding PlacementRearBackground}" Command="{Binding SelectPlacementCommand}" CommandParameter="Rear"/><Button Width="86" Height="28" Margin="2" Content="Center" Background="{Binding PlacementCenterBackground}" Command="{Binding SelectPlacementCommand}" CommandParameter="Center"/></StackPanel></Grid>
+            <Grid Grid.Row="3"><Grid.ColumnDefinitions><ColumnDefinition Width="180"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Margin="8,0" VerticalAlignment="Center" Foreground="#FFF1E2B7" FontSize="15" Text="Role markers"/><StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button Width="76" Height="28" Margin="2" Content="On" Background="{Binding RoleMarkersOnBackground}" Command="{Binding SelectRoleMarkersCommand}" CommandParameter="True"/><Button Width="76" Height="28" Margin="2" Content="Off" Background="{Binding RoleMarkersOffBackground}" Command="{Binding SelectRoleMarkersCommand}" CommandParameter="False"/></StackPanel></Grid>
           </Grid>
         </Border>
       </Grid>
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="//n:Grid[@x:Name='LayoutRoot']">
+    <Content>
+      <TextBlock x:Name="FormationTestRolloverHost" Padding="4,2,4,0" Margin="140,3,0,0" HorizontalAlignment="Left" VerticalAlignment="Top" Panel.ZIndex="101" FontSize="16" Foreground="#FFDDDDDD" Background="#55000000" IsHitTestVisible="False" Tag="Ignore" Text="{Binding RolloverText}" Visibility="{Binding RolloverVisible, Converter={StaticResource booleanToVisibilityConverter}}"><TextBlock.Effect><DropShadowEffect ShadowDepth="2" Direction="315" Color="#CC000000" BlurRadius="0"/></TextBlock.Effect></TextBlock>
     </Content>
   </Operation>
 </Patch>

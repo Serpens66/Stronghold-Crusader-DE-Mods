@@ -21,6 +21,7 @@ namespace FormationTest
         private static int renderedGeneration;
         private static bool missingHostLogged;
         private static bool renderFailureLogged;
+        private static volatile bool showRoleMarkers = true;
         private static SolidColorBrush outlineBrush;
         private static SolidColorBrush frontBrush;
         private static SolidColorBrush protectedBrush;
@@ -28,7 +29,17 @@ namespace FormationTest
         private static SolidColorBrush rearBrush;
         private static SolidColorBrush arrowBrush;
 
-        internal static void Initialize(ManualLogSource logger) => log = logger;
+        internal static void Initialize(ManualLogSource logger, bool roleMarkersVisible)
+        {
+            log = logger;
+            showRoleMarkers = roleMarkersVisible;
+        }
+
+        internal static void SetRoleMarkersVisible(bool visible)
+        {
+            showRoleMarkers = visible;
+            Refresh();
+        }
 
         internal static void Publish(FormationPreviewPoint[] points, FormationDirectionIndicator direction)
         {
@@ -69,10 +80,11 @@ namespace FormationTest
                     return;
 
                 EnsureBrushes();
-                EnsurePointPool(host, current.Points.Length);
+                int pointCount = showRoleMarkers ? current.Points.Length : 0;
+                EnsurePointPool(host, pointCount);
                 int visible = 0;
                 int skipped = 0;
-                for (int index = 0; index < current.Points.Length; index++)
+                for (int index = 0; index < pointCount; index++)
                 {
                     Ellipse ellipse = PointPool[index];
                     FormationPreviewPoint point = current.Points[index];
@@ -91,7 +103,7 @@ namespace FormationTest
                     Canvas.SetTop(ellipse, y - size * 0.5f);
                     visible++;
                 }
-                for (int index = current.Points.Length; index < PointPool.Count; index++)
+                for (int index = pointCount; index < PointPool.Count; index++)
                     PointPool[index].Visibility = Visibility.Collapsed;
 
                 RenderArrow(camera, host, current.Direction);
@@ -99,7 +111,7 @@ namespace FormationTest
                 {
                     renderedGeneration = current.Generation;
                     Shared.DebugLogHelper.LogDebug(log,
-                        $"FORMATION_OVERLAY_SUMMARY: generation={current.Generation}, visible={visible}, skipped={skipped}, arrow={current.Direction.Visible}.");
+                        $"FORMATION_OVERLAY_SUMMARY: generation={current.Generation}, roleMarkers={showRoleMarkers}, visible={visible}, skipped={skipped}, arrow={current.Direction.Visible}, explicitDirection={current.Direction.ExplicitDirection}.");
                 }
             }
             catch (Exception exception)
@@ -176,23 +188,38 @@ namespace FormationTest
             }
             dx /= length;
             dy /= length;
-            float bx = ex - dx * 10f;
-            float by = ey - dy * 10f;
-            float px = -dy * 6f;
-            float py = dx * 6f;
-            SetLine(ArrowLines[0], sx, sy, ex, ey);
-            SetLine(ArrowLines[1], ex, ey, bx + px, by + py);
-            SetLine(ArrowLines[2], ex, ey, bx - px, by - py);
+            float lengthScale = direction.ExplicitDirection ? 0.5f : 0.2f;
+            float strokeThickness = direction.ExplicitDirection ? 2f : 1f;
+            float opacity = direction.ExplicitDirection ? 0.72f : 0.4f;
+            float headDepth = direction.ExplicitDirection ? 5f : 2f;
+            float headWidth = direction.ExplicitDirection ? 3f : 1.5f;
+            ex = sx + (ex - sx) * lengthScale;
+            ey = sy + (ey - sy) * lengthScale;
+            float bx = ex - dx * headDepth;
+            float by = ey - dy * headDepth;
+            float px = -dy * headWidth;
+            float py = dx * headWidth;
+            SetLine(ArrowLines[0], sx, sy, ex, ey, strokeThickness, opacity);
+            SetLine(ArrowLines[1], ex, ey, bx + px, by + py, strokeThickness, opacity);
+            SetLine(ArrowLines[2], ex, ey, bx - px, by - py, strokeThickness, opacity);
         }
 
-        private static void SetLine(Line line, float x1, float y1, float x2, float y2)
+        private static void SetLine(
+            Line line,
+            float x1,
+            float y1,
+            float x2,
+            float y2,
+            float strokeThickness,
+            float opacity)
         {
             line.X1 = x1;
             line.Y1 = y1;
             line.X2 = x2;
             line.Y2 = y2;
             line.Stroke = arrowBrush;
-            line.StrokeThickness = 4f;
+            line.StrokeThickness = strokeThickness;
+            line.Opacity = opacity;
             line.Visibility = Visibility.Visible;
         }
 
@@ -278,13 +305,28 @@ namespace FormationTest
 
     internal readonly struct FormationDirectionIndicator
     {
-        internal static readonly FormationDirectionIndicator Hidden = new FormationDirectionIndicator(false, 0, 0, 0, 0);
-        internal FormationDirectionIndicator(bool visible, int startX, int startY, int endX, int endY)
-        { Visible = visible; StartX = startX; StartY = startY; EndX = endX; EndY = endY; }
+        internal static readonly FormationDirectionIndicator Hidden =
+            new FormationDirectionIndicator(false, 0, 0, 0, 0, false);
+        internal FormationDirectionIndicator(
+            bool visible,
+            int startX,
+            int startY,
+            int endX,
+            int endY,
+            bool explicitDirection)
+        {
+            Visible = visible;
+            StartX = startX;
+            StartY = startY;
+            EndX = endX;
+            EndY = endY;
+            ExplicitDirection = explicitDirection;
+        }
         internal bool Visible { get; }
         internal int StartX { get; }
         internal int StartY { get; }
         internal int EndX { get; }
         internal int EndY { get; }
+        internal bool ExplicitDirection { get; }
     }
 }

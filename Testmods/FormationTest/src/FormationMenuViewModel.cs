@@ -18,30 +18,39 @@ namespace FormationTest
         private readonly ConfigEntry<FormationKind> formation;
         private readonly ConfigEntry<int> density;
         private readonly ConfigEntry<RangedPlacementMode> placementMode;
+        private readonly ConfigEntry<bool> showRoleMarkers;
         private MainViewModel subscribedMainViewModel;
         private bool menuVisible;
+        private bool rolloverVisible;
+        private string rolloverText = string.Empty;
 
         internal FormationMenuViewModel(
             ManualLogSource log,
             ConfigFile configFile,
             ConfigEntry<FormationKind> formation,
             ConfigEntry<int> density,
-            ConfigEntry<RangedPlacementMode> placementMode)
+            ConfigEntry<RangedPlacementMode> placementMode,
+            ConfigEntry<bool> showRoleMarkers)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.configFile = configFile ?? throw new ArgumentNullException(nameof(configFile));
             this.formation = formation ?? throw new ArgumentNullException(nameof(formation));
             this.density = density ?? throw new ArgumentNullException(nameof(density));
             this.placementMode = placementMode ?? throw new ArgumentNullException(nameof(placementMode));
+            this.showRoleMarkers = showRoleMarkers ?? throw new ArgumentNullException(nameof(showRoleMarkers));
 
             ToggleMenuCommand = new ParameterCommand(_ => ToggleMenu());
             SelectFormationCommand = new ParameterCommand(SelectFormation);
             SelectDensityCommand = new ParameterCommand(SelectDensity);
             SelectPlacementCommand = new ParameterCommand(SelectPlacement);
+            SelectRoleMarkersCommand = new ParameterCommand(SelectRoleMarkers);
+            ShowRolloverCommand = new ParameterCommand(ShowRollover);
+            HideRolloverCommand = new ParameterCommand(_ => HideRollover());
 
             formation.SettingChanged += ConfigurationChanged;
             density.SettingChanged += ConfigurationChanged;
             placementMode.SettingChanged += ConfigurationChanged;
+            showRoleMarkers.SettingChanged += ConfigurationChanged;
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -50,13 +59,19 @@ namespace FormationTest
         public ICommand SelectFormationCommand { get; }
         public ICommand SelectDensityCommand { get; }
         public ICommand SelectPlacementCommand { get; }
+        public ICommand SelectRoleMarkersCommand { get; }
+        public ICommand ShowRolloverCommand { get; }
+        public ICommand HideRolloverCommand { get; }
 
         public bool MenuVisible => menuVisible;
+        public bool RolloverVisible => rolloverVisible;
+        public string RolloverText => rolloverText;
         public SolidColorBrush VanillaBackground => FormationBrush(FormationKind.Vanilla);
         public SolidColorBrush BlockBackground => FormationBrush(FormationKind.Block);
         public SolidColorBrush LineBackground => FormationBrush(FormationKind.Line);
         public SolidColorBrush ColumnBackground => FormationBrush(FormationKind.Column);
         public SolidColorBrush WedgeBackground => FormationBrush(FormationKind.Wedge);
+        public SolidColorBrush CircleBackground => FormationBrush(FormationKind.Circle);
         public SolidColorBrush TightBackground => DensityBrush(1);
         public SolidColorBrush NormalBackground => DensityBrush(2);
         public SolidColorBrush FarBackground => DensityBrush(3);
@@ -64,6 +79,8 @@ namespace FormationTest
         public SolidColorBrush PlacementOffBackground => PlacementBrush(RangedPlacementMode.Off);
         public SolidColorBrush PlacementRearBackground => PlacementBrush(RangedPlacementMode.Rear);
         public SolidColorBrush PlacementCenterBackground => PlacementBrush(RangedPlacementMode.Center);
+        public SolidColorBrush RoleMarkersOnBackground => BooleanBrush(showRoleMarkers.Value);
+        public SolidColorBrush RoleMarkersOffBackground => BooleanBrush(!showRoleMarkers.Value);
 
         internal void RefreshHostState()
         {
@@ -132,6 +149,35 @@ namespace FormationTest
             SaveConfiguration("rangedPlacement", normalized.ToString());
         }
 
+        private void SelectRoleMarkers(object parameter)
+        {
+            if (!bool.TryParse(parameter as string, out bool requested) ||
+                showRoleMarkers.Value == requested)
+                return;
+            showRoleMarkers.Value = requested;
+            FormationPreviewOverlay.SetRoleMarkersVisible(requested);
+            SaveConfiguration("showRoleMarkers", requested.ToString());
+        }
+
+        private void ShowRollover(object parameter)
+        {
+            string text = parameter as string;
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+            rolloverText = text;
+            rolloverVisible = true;
+            OnChanged(nameof(RolloverText));
+            OnChanged(nameof(RolloverVisible));
+        }
+
+        private void HideRollover()
+        {
+            if (!rolloverVisible)
+                return;
+            rolloverVisible = false;
+            OnChanged(nameof(RolloverVisible));
+        }
+
         private void SaveConfiguration(string setting, string value)
         {
             configFile.Save();
@@ -184,6 +230,8 @@ namespace FormationTest
             if (menuVisible == value)
                 return;
             menuVisible = value;
+            if (!value)
+                HideRollover();
             OnChanged(nameof(MenuVisible));
             Shared.DebugLogHelper.LogDebug(
                 log, $"FORMATION_MENU_VISIBILITY: visible={value}.");
@@ -196,6 +244,7 @@ namespace FormationTest
             OnChanged(nameof(LineBackground));
             OnChanged(nameof(ColumnBackground));
             OnChanged(nameof(WedgeBackground));
+            OnChanged(nameof(CircleBackground));
             OnChanged(nameof(TightBackground));
             OnChanged(nameof(NormalBackground));
             OnChanged(nameof(FarBackground));
@@ -203,12 +252,18 @@ namespace FormationTest
             OnChanged(nameof(PlacementOffBackground));
             OnChanged(nameof(PlacementRearBackground));
             OnChanged(nameof(PlacementCenterBackground));
+            OnChanged(nameof(RoleMarkersOnBackground));
+            OnChanged(nameof(RoleMarkersOffBackground));
+            FormationPreviewOverlay.SetRoleMarkersVisible(showRoleMarkers.Value);
         }
 
         private SolidColorBrush PlacementBrush(RangedPlacementMode mode) =>
             FormationModel.NormalizePlacementMode((int)placementMode.Value) == mode
                 ? SelectedBrush
                 : UnselectedBrush;
+
+        private static SolidColorBrush BooleanBrush(bool selected) =>
+            selected ? SelectedBrush : UnselectedBrush;
 
         private void OnChanged(string property) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));

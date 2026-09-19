@@ -31,6 +31,7 @@ namespace PreplacedTest.Tests
                 TestEconomyPclModels();
                 TestEconomyOverlayProjection();
                 TestEconomyFixActivationStates();
+                TestPortalOwnerSynchronizationEligibility();
                 TestPreplacedIdentityAndCountProjection();
                 TestPortalRoutes();
                 TestPclConnectivityTransitions();
@@ -289,6 +290,34 @@ namespace PreplacedTest.Tests
                 EconomyFixActivationState.PendingBreach, "closed control did not resume breach observation");
             Check(EconomyFixActivationModel.Resume(false, false, WallTestRole.None) ==
                 EconomyFixActivationState.None, "open topology resumed an economy correction");
+        }
+
+        private static void TestPortalOwnerSynchronizationEligibility()
+        {
+            Check(PortalOwnerSynchronizationModel.IsEligible(false, true, true, true, true, true,
+                true, true, true, true, true), "valid preplaced portal was rejected");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(true, true, true, true, true, true,
+                true, true, true, true, true), "savegame portal was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, false, true, true, true, true,
+                true, true, true, true, true), "runtime-built portal was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, true, false, true, true, true,
+                true, true, true, true, true), "unstable building identity was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, true, true, false, true, true,
+                true, true, true, true, true), "dead portal building was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, true, true, true, false, true,
+                true, true, true, true, true), "inactive portal record was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, true, true, true, true, false,
+                true, true, true, true, true), "closed portal record was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, true, true, true, true, true,
+                false, true, true, true, true), "mismatched building link was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, true, true, true, true, true,
+                true, false, true, true, true), "mismatched subject global was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, true, true, true, true, true,
+                true, true, false, true, true), "invalid entry PCL was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, true, true, true, true, true,
+                true, true, true, false, true), "invalid exit PCL was accepted");
+            Check(!PortalOwnerSynchronizationModel.IsEligible(false, true, true, true, true, true,
+                true, true, true, true, false), "invalid owner was accepted");
         }
 
         private static void TestPortalRoutes()
@@ -1088,6 +1117,26 @@ namespace PreplacedTest.Tests
                 source.Contains("HasParticipatingFriendlyBaselinePortal") &&
                 source.Contains("HasConfirmedBreachEconomyAccess"),
                 "portal and breach eligibility contracts are incomplete");
+            Check(source.Contains("SynchronizePreplacedPortalOwnersAndActivate()") &&
+                source.Contains("SynchronizePreplacedPortalOwnersAndActivateCore()") &&
+                source.Contains("record->r_OwnerOrAccessPlayerId = building.OwnerId") &&
+                source.Contains("TryActivateOrRefreshEconomyFix(lastAivState, session.PlayerId, \"map-start-owner-sync\")") &&
+                source.Contains("PREPLACED_PORTAL_OWNER_SYNC") &&
+                source.Contains("DisableEconomyFix(\"portal-owner-synchronization\", ex)"),
+                "validated preplaced portal owners are not synchronized and activated at map start");
+            foreach (string portalLayout in new[]
+            {
+                "r_PathComponentA), 0x34", "r_PathComponentB), 0x38",
+                "r_OwnerOrAccessPlayerId), 0x1E4", "r_PathComponentC), 0x1E8"
+            })
+                Check(source.Contains(portalLayout), "portal layout contract missing: " + portalLayout);
+            Check(source.Contains("hash = Hash(hash, record->r_PathComponentA)") &&
+                source.Contains("hash = Hash(hash, record->r_PathComponentB)") &&
+                source.Contains("hash = Hash(hash, record->r_PathComponentC)") &&
+                source.Contains("hash = Hash(hash, record->r_OwnerOrAccessPlayerId)") &&
+                source.Contains("economy-access-signature-entry") &&
+                source.Contains("economy-access-signature-exit"),
+                "economy access cache omits portal owner, components, or endpoint PCLs");
             Check(source.Contains("registers->RBX = unchecked((ulong)(uint)int.MinValue)") &&
                 source.Contains("session.EconomyFixState != EconomyFixActivationState.ActivePortal") &&
                 source.Contains("session.EconomyFixState != EconomyFixActivationState.ActiveBreach"),

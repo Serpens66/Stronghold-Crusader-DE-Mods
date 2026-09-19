@@ -51,6 +51,7 @@
     <Compile Include="src\PathfindingGlobalsBaseline.cs" />
     <Compile Include="src\DirectCursorCallAdapterEmitter.cs" />
     <Compile Include="src\DirectionFilterAdapterEmitter.cs" />
+    <Compile Include="src\AiTacticalTargetAdapterEmitter.cs" />
     <Compile Include="src\SamePclGateRouteRuntime.cs" />
     <Compile Include="src\EnemyGatePathfindingRuntime.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>

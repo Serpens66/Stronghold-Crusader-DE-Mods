@@ -24,6 +24,7 @@ namespace FormationTest
         private static ConfigEntry<int> density;
         private static ConfigEntry<bool> legacyRearSorting;
         private static ConfigEntry<RangedPlacementMode> placementMode;
+        private static ConfigEntry<bool> showRoleMarkers;
         private static ConfigEntry<int> defaultsRevision;
 
         private void Awake()
@@ -43,6 +44,9 @@ namespace FormationTest
             placementMode = Config.Bind(
                 "Formation", "RangedPlacement", RangedPlacementMode.Off,
                 "Placement of ranged, siege, healer, shield, and support units.");
+            showRoleMarkers = Config.Bind(
+                "Formation", "ShowRoleMarkers", true,
+                "Show colored role markers above the native green formation preview.");
             defaultsRevision = Config.Bind(
                 "Formation", "DefaultsRevision", 0,
                 "Internal prototype defaults migration revision.");
@@ -77,8 +81,10 @@ namespace FormationTest
                 Config.Save();
 
             formationMenu = new FormationMenuViewModel(
-                persistentLog, Config, formation, density, placementMode);
-            FormationPreviewOverlay.Initialize(persistentLog);
+                persistentLog, Config, formation, density, placementMode,
+                showRoleMarkers);
+            FormationPreviewOverlay.Initialize(
+                persistentLog, showRoleMarkers.Value);
 
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
@@ -101,6 +107,8 @@ namespace FormationTest
                         "FormationTestButtonHost", formationMenu);
                     GameXAMLManagerAPI.Instance.RegisterBinding(
                         "FormationTestMenuHost", formationMenu);
+                    GameXAMLManagerAPI.Instance.RegisterBinding(
+                        "FormationTestRolloverHost", formationMenu);
                 }
                 catch (Exception uiException)
                 {

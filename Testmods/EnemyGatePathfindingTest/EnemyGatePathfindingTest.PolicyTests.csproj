@@ -43,6 +43,7 @@
     <Compile Include="src\SparseBuildingFootprint.cs"><Link>SparseBuildingFootprint.cs</Link></Compile>
     <Compile Include="src\PathfindingGlobalsBaseline.cs"><Link>PathfindingGlobalsBaseline.cs</Link></Compile>
     <Compile Include="src\DirectionFilterAdapterEmitter.cs"><Link>DirectionFilterAdapterEmitter.cs</Link></Compile>
+    <Compile Include="src\AiTacticalTargetAdapterEmitter.cs"><Link>AiTacticalTargetAdapterEmitter.cs</Link></Compile>
     <Compile Include="src\DirectCursorCallAdapterEmitter.cs"><Link>DirectCursorCallAdapterEmitter.cs</Link></Compile>
     <Compile Include="tests\Program.cs" />
   </ItemGroup>
