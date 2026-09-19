@@ -316,6 +316,46 @@ namespace MoatMove
             originalBuildingCursorReachability=(manager,id,unit)=>AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1010,1017,0);
             Check(CallBuildingCursorWithRegions(IntPtr.Zero,1,1)==1 && nativePairs==2 && activeBuildingCursorConnectivity==null,
                 "native building candidate uses reversed pair and restores scope");
+            // Invalid IDs must not reach either API, including inside an outer scope.
+            var cursorOriginal = originalBuildingCursorReachability;
+            var outerCursor = new BuildingCursorConnectivityScope { UnitId=1, BuildingId=1, UnitGlobalId=first->r_GlobalId, BuildingGlobalId=42 };
+            foreach (var outer in new BuildingCursorConnectivityScope[] { null, outerCursor })
+            foreach (int invalid in new[] { -1, 0 })
+            foreach (bool badUnit in new[] { false, true })
+            {
+                activeBuildingCursorConnectivity = outer;
+                int unitCalls = GameUnitManagerAPI.Instance.LookupCalls;
+                int buildingCalls = GameBuildingManagerAPI.Instance.LookupCalls;
+                int calls = 0, expectedUnit = badUnit ? invalid : 1, expectedBuilding = badUnit ? 1 : invalid;
+                originalBuildingCursorReachability = (manager,id,unit) => {
+                    calls++;
+                    Check(manager==new IntPtr(123) && id==expectedBuilding && unit==expectedUnit, "invalid cursor preserves original arguments");
+                    Check(ReferenceEquals(activeBuildingCursorConnectivity,outer), "invalid cursor creates no additional scope");
+                    return 37;
+                };
+                Check(CallBuildingCursorWithRegions(new IntPtr(123),expectedBuilding,expectedUnit)==37 && calls==1,
+                    "invalid cursor calls original once and preserves its result");
+                Check(GameUnitManagerAPI.Instance.LookupCalls==unitCalls && GameBuildingManagerAPI.Instance.LookupCalls==buildingCalls,
+                    "nonpositive cursor IDs bypass both API lookups");
+                Check(ReferenceEquals(activeBuildingCursorConnectivity,outer), "invalid cursor preserves outer scope");
+            }
+            activeBuildingCursorConnectivity = outerCursor;
+            int validCursorCalls = 0;
+            originalBuildingCursorReachability = (manager,id,unit) => {
+                validCursorCalls++;
+                Check(activeBuildingCursorConnectivity!=null && !ReferenceEquals(activeBuildingCursorConnectivity,outerCursor),
+                    "valid nested cursor creates its own scope");
+                return 41;
+            };
+            Check(CallBuildingCursorWithRegions(IntPtr.Zero,1,1)==41 && validCursorCalls==1 &&
+                ReferenceEquals(activeBuildingCursorConnectivity,outerCursor), "valid cursor restores outer scope and result");
+            originalBuildingCursorReachability = (manager,id,unit) => { throw new InvalidOperationException("cursor-fixture"); };
+            bool cursorThrew = false;
+            try { CallBuildingCursorWithRegions(IntPtr.Zero,1,1); }
+            catch (InvalidOperationException ex) when (ex.Message=="cursor-fixture") { cursorThrew=true; }
+            Check(cursorThrew && ReferenceEquals(activeBuildingCursorConnectivity,outerCursor), "throwing cursor restores outer scope");
+            activeBuildingCursorConnectivity = null;
+            originalBuildingCursorReachability = cursorOriginal;
             GameBuildingManagerAPI.Instance.Building=null;
 
             // Native first-phase portal filter: owned open connection, then blocked kind.

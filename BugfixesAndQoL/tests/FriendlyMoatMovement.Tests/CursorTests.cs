@@ -320,6 +320,12 @@ namespace BugfixesAndQoL
             originalBuildingCursorReachability=(manager,id,unit)=>AllowAttackCursorTilePairThroughCompletedMoat(nativePathManager,1010,1017,0);
             Check(CallBuildingCursorWithRegions(IntPtr.Zero,1,1)==1 && nativePairs==2 && activeBuildingCursorConnectivity==null,
                 "native building candidate uses reversed pair and restores scope");
+            int invalidCalls=0, capturedBuilding=99, capturedUnit=99;
+            originalBuildingCursorReachability=(manager,id,unit)=>{ invalidCalls++; capturedBuilding=id; capturedUnit=unit; return 23; };
+            Check(CallBuildingCursorWithRegions(IntPtr.Zero,-1,-1)==23 && invalidCalls==1 && capturedBuilding==-1 && capturedUnit==-1,
+                "negative building/unit IDs bypass lookups and reach Vanilla unchanged exactly once");
+            Check(CallBuildingCursorWithRegions(IntPtr.Zero,0,0)==23 && invalidCalls==2 && capturedBuilding==0 && capturedUnit==0,
+                "zero building/unit IDs bypass lookups and reach Vanilla unchanged exactly once");
             GameBuildingManagerAPI.Instance.Building=null;
 
             // Native first-phase portal filter: owned open connection, then blocked kind.

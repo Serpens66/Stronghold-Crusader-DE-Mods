@@ -415,6 +415,7 @@ namespace BugfixesAndQoL
         {
             string directory = Path.GetDirectoryName(storePath);
             string temporaryPath = storePath + ".tmp-" + Guid.NewGuid().ToString("N");
+            string backupPath = storePath + ".bak-" + Guid.NewGuid().ToString("N");
             try
             {
                 Directory.CreateDirectory(directory);
@@ -423,7 +424,7 @@ namespace BugfixesAndQoL
                     LobbyMapSelectionCodec.Serialize(current),
                     new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
                 if (File.Exists(storePath))
-                    File.Replace(temporaryPath, storePath, null);
+                    File.Replace(temporaryPath, storePath, backupPath);
                 else
                     File.Move(temporaryPath, storePath);
             }
@@ -439,6 +440,8 @@ namespace BugfixesAndQoL
                 {
                     if (File.Exists(temporaryPath))
                         File.Delete(temporaryPath);
+                    if (File.Exists(backupPath))
+                        File.Delete(backupPath);
                 }
                 catch (Exception exception)
                 {

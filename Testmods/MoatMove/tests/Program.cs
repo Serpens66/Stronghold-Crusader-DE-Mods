@@ -7,6 +7,7 @@ using System.Reflection;
 // assembly is produced or installed by this standalone regression runner.
 string root = Path.GetFullPath(args.Length == 0 ? "." : args[0]);
 if (args.Contains("--native-only")) { FastNativeBackendTests.Validate(root); return; }
+if (args.Contains("--redbird-only")) { InstalledRedBirdContract.Validate(); return; }
 string sourceDir = Path.Combine(root, "Testmods", "MoatMove", "src");
 string testDir = Path.Combine(root, "Testmods", "MoatMove", "tests");
 if (args.Contains("--fast-model-only"))
@@ -358,9 +359,10 @@ void ValidateRuntimeSources()
         Include(Path.Combine(extender,file));
     foreach(string file in new[]{"UnityEngine.dll","UnityEngine.CoreModule.dll","UnityEngine.InputLegacyModule.dll","Assembly-CSharp.dll","Noesis.NoesisGUI.dll","com.rlabrecque.steamworks.net.dll"})
         Include(Path.Combine(game,"Stronghold Crusader Definitive Edition_Data","Managed",file));
+    Include(Path.Combine(game,"BepInEx","plugins","APIShared_Serp","APIShared.dll"));
     var sources = Directory.GetFiles(sourceDir, "*.cs")
         .Select(file => CSharpSyntaxTree.ParseText(File.ReadAllText(file), path: file))
-        .Concat(new[]{"DebugLogHelper.cs", "NativePatternResolver.cs", "GameplaySessionLifecycle.cs", "GameModeHelper.cs"}.Select(file =>
+        .Concat(new[]{"DebugLogHelper.cs", "NativePatternResolver.cs", "GameplaySessionLifecycle.cs", "GameModeHelper.cs", "GameBuildingFootprint.cs"}.Select(file =>
             CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),

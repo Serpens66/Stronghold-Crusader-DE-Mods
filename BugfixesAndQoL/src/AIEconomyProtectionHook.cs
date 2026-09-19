@@ -516,20 +516,24 @@ namespace BugfixesAndQoL
         {
             X64SmartCPUContext* registers = context.Pointer;
             ulong originalRax = registers->RAX;
+            int vanillaResult = unchecked((int)(uint)registers->RAX);
+            int buildingId = unchecked((int)(uint)registers->RSI);
+            int playerId = unchecked((int)(uint)registers->R14);
+            int mode = settings.InaccessibleAIBuildingDemolitionProtection;
             try
             {
-                int mode = settings.InaccessibleAIBuildingDemolitionProtection;
                 if (!settings.EnableMod || !inaccessibleBuildingProtectionSupported ||
                     mode == TemporaryGateBlockagePolicy.VanillaMode)
+                {
                     return;
+                }
 
-                int vanillaResult = unchecked((int)(uint)registers->RAX);
                 if (vanillaResult != TemporaryGateBlockagePolicy.NoEntranceResult &&
                     vanillaResult != TemporaryGateBlockagePolicy.DisconnectedEntranceResult)
+                {
                     return;
+                }
 
-                int buildingId = unchecked((int)(uint)registers->RSI);
-                int playerId = unchecked((int)(uint)registers->R14);
                 GameBuilding* building = null;
                 bool isLivingAiBuilding =
                     buildingId > 0 &&
@@ -539,11 +543,13 @@ namespace BugfixesAndQoL
                     building->r_PlayerIdOwner == playerId &&
                     GamePlayerManagerAPI.Instance.IsAIPlayer(building->r_PlayerIdOwner);
                 if (!isLivingAiBuilding)
+                {
                     return;
+                }
 
+                bool classificationAvailable = false;
                 AIBuildingAccessDiagnostic diagnostic =
                     AIBuildingAccessDiagnostic.Unavailable(int.MinValue, "classification-not-required");
-                bool classificationAvailable = false;
                 if (mode == TemporaryGateBlockagePolicy.ImprovedReachabilityMode &&
                     vanillaResult == TemporaryGateBlockagePolicy.DisconnectedEntranceResult &&
                     building->r_BuildingType != eStructs.STRUCT_STABLES)

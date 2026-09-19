@@ -76,6 +76,7 @@ namespace BugfixesAndQoL
             TestMultiplayerSafetyPolicy();
             TestPacketThreadMarshallingContracts();
             TestTransientSelectionGuards();
+            TestFriendlyMoatCursorIdGuard();
             TestResyncDiagnosticHistory();
             TestWorkshopUploadLordSelectionPolicy();
             TestMultiplayerLobbyReturnIntegration();
@@ -109,6 +110,15 @@ namespace BugfixesAndQoL
                   migration.Contains("RESYNC_CHORE_OUTGOING") &&
                   migration.Contains("opcode == 54 || opcode == 67"),
                 "resync diagnostics observe state transitions and outgoing start/end Chores");
+        }
+
+        private static void TestFriendlyMoatCursorIdGuard()
+        {
+            string moatCursor = File.ReadAllText(Path.Combine("src", "CursorConnectivity.cs"));
+            Check(moatCursor.Contains("disposed || unitId <= 0 || buildingId <= 0") &&
+                  moatCursor.IndexOf("unitId <= 0", StringComparison.Ordinal) <
+                  moatCursor.IndexOf("TryGetUnitById", StringComparison.Ordinal),
+                "friendly-moat cursor rejects non-positive IDs before ID API lookups");
         }
 
         private static void TestResyncDiagnosticHistory()
@@ -4270,6 +4280,18 @@ namespace BugfixesAndQoL
                 0x40, 0x56, 0x57, 0x41, 0x56, 0x48, 0x83, 0xEC,
                 0x20, 0xBE, 0x01, 0x00, 0x00, 0x00, 0x44, 0x8B,
                 0xF2, 0x48, 0x8B, 0xF9 }, "general AI accessibility sweep entry bytes");
+            CheckBytes(image, 0xC90E0, new byte[] {
+                0x44, 0x89, 0x44, 0x24, 0x18, 0x55, 0x41, 0x57,
+                0x48, 0x83, 0xEC, 0x58, 0x48, 0x63, 0xEA, 0x4C,
+                0x8B, 0xF9 }, "building accessibility function entry bytes");
+            CheckBytes(image, 0xBFFB0, new byte[] {
+                0x8D, 0x42, 0xFF, 0x44, 0x8B, 0xDA, 0x4C, 0x8B,
+                0xD1, 0x83, 0xF8, 0x0C, 0x0F, 0x87, 0xEF, 0x01,
+                0x00, 0x00, 0x48, 0x98 }, "primary entrance-candidate generator entry bytes");
+            CheckBytes(image, 0xC0270, new byte[] {
+                0x48, 0x89, 0x5C, 0x24, 0x08, 0x8D, 0x42, 0xFF,
+                0x41, 0x8B, 0xD8, 0x44, 0x8B, 0xDA, 0x4C, 0x8B,
+                0xD1, 0x83, 0xF8, 0x0C }, "secondary entrance-candidate generator entry bytes");
             CheckBytes(image, 0xC8FD7, new byte[] {
                 0x85, 0xC0, 0x75, 0x06, 0x66, 0x44, 0x89, 0x3B,
                 0xEB, 0x11, 0x83, 0xF8, 0x02, 0x75, 0x06 },

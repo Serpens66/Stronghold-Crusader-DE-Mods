@@ -914,7 +914,7 @@ internal static class Program
         Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 44 &&
               production.Contains("DetourHandle<ResetDrawListDelegate>") &&
               production.Contains("HookTarget.FromAddress(unchecked((ulong)(libraryHandle + ResetDrawListRva).ToInt64()))"),
-            "BugfixesAndQoL owns the audited RedBird hook handles including the Vanilla draw-list reset");
+            "BugfixesAndQoL owns the audited production RedBird hook handles including the Vanilla draw-list reset");
         Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 21,
             "BugfixesAndQoL performs one checked transaction commit for each audited hook group");
         Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 22,

@@ -37,7 +37,8 @@ namespace MoatMove
 
         private int CallBuildingCursorWithRegions(IntPtr manager, int buildingId, int unitId)
         {
-            if (disposed || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
+            if (disposed || unitId <= 0 || buildingId <= 0 ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) || unit == null ||
                 !CanDigMoat(unit) || !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) || building == null)
                 return originalBuildingCursorReachability(manager, buildingId, unitId);
             var previous = activeBuildingCursorConnectivity;

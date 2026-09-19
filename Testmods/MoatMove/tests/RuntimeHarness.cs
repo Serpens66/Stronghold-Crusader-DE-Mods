@@ -43,9 +43,10 @@ namespace MoatMove
     {
         public static GameUnitManagerAPI Instance = new GameUnitManagerAPI();
         public GameUnit* Units;
+        public int LookupCalls;
         public Span<GameUnit> GetUnitsAsSpan() => new Span<GameUnit>(Units+1,1024);
         public bool TryGetUnitById(int id, out GameUnit* unit)
-        { unit = id > 0 && id < 1025 ? Units + id : null; return unit != null; }
+        { LookupCalls++; unit = id > 0 && id < 1025 ? Units + id : null; return unit != null; }
     }
     internal unsafe class GamePlayerManagerAPI
     {
@@ -1183,7 +1184,8 @@ namespace MoatMove {
     internal unsafe class GameBuildingManagerAPI {
         public static GameBuildingManagerAPI Instance = new GameBuildingManagerAPI();
         public GameBuilding* Building;
-        public bool TryGetBuildingById(int id,out GameBuilding* building) { building=id==1?Building:null;return building!=null; }
+        public int LookupCalls;
+        public bool TryGetBuildingById(int id,out GameBuilding* building) { LookupCalls++; building=id==1?Building:null;return building!=null; }
     }
 }
 

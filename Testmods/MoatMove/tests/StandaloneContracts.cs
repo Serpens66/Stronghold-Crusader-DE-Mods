@@ -46,10 +46,10 @@ internal static class StandaloneContracts
             bool optimized = name == "MoatSearchKernel.cs";
             string expectedHash = nativeChanges.TryGetValue(name, out string? nativeReviewed) ? nativeReviewed : seChanges.TryGetValue(name, out string? seReviewed) ? seReviewed : fastChanges.TryGetValue(name, out string? reviewed) ? reviewed :
                 optimized ? optimization.RootElement.GetProperty("kernelSha256").GetString()! : item.GetProperty("copySha256").GetString()!;
-            Check(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(copied))) == expectedHash, "Unreviewed source change: " + name);
+            Check(Convert.ToHexString(SHA256.HashData(ReadBeforeCursorIdGuard(sourceDir, name))) == expectedHash, "Unreviewed source change: " + name);
             string expected = System.Text.Encoding.UTF8.GetString(original).TrimStart('\uFEFF').Replace("BugfixesAndQoLViewModel", "MoatMoveOptions")
                 .Replace("BugfixesAndQoL", "MoatMove").Replace("Bugfixes and QoL", "MoatMove");
-            if (!optimized && !fastChanges.ContainsKey(name) && !seChanges.ContainsKey(name)) Check(expected == File.ReadAllText(copied), "Unexpected behavioral edit: " + name);
+            if (!optimized && !fastChanges.ContainsKey(name) && !seChanges.ContainsKey(name)) Check(expected == System.Text.Encoding.UTF8.GetString(ReadBeforeCursorIdGuard(sourceDir, name)), "Unexpected behavioral edit: " + name);
             count++;
         }
         Check(count == 22, "Incomplete source closure");
@@ -102,6 +102,17 @@ internal static class StandaloneContracts
             plugin.Contains("BepInDependency(\"000shcdese\", \"2.7.1\")"), "SE 2.7.1 dependency mismatch");
         Check(manifest.RootElement.GetProperty("GUID").GetString() == "MoatMove_Serp" && manifest.RootElement.GetProperty("Version").GetString() == "0.1.2" && manifest.RootElement.GetProperty("NetworkMode").GetInt32() == 1, "Wrong plugin identity/network contract");
         Console.WriteLine("PASS: original source hashes, explicit Fast replacement inventory, pinned Precise kernel, startup config, unrelated-feature gates, conflicts, process lifetime and manifest.");
+    }
+
+    private static byte[] ReadBeforeCursorIdGuard(string sourceDir, string name)
+    {
+        if (name != "CursorConnectivity.cs") return File.ReadAllBytes(Path.Combine(sourceDir, name));
+        string source = File.ReadAllText(Path.Combine(sourceDir, name));
+        const string guarded = "if (disposed || unitId <= 0 || buildingId <= 0 ||\r\n                !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit)";
+        const string original = "if (disposed || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit)";
+        Check(source.Split(new[] { guarded }, StringSplitOptions.None).Length == 2, "Missing or duplicated cursor ID guard");
+        // Only this exact early guard is exempted; all historical source hashes stay unchanged.
+        return System.Text.Encoding.UTF8.GetBytes(source.Replace(guarded, original));
     }
 
     private static byte[] ReadBeforeEditorLifecycle(string sourceDir, string name)
