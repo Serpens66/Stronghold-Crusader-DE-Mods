@@ -95,6 +95,41 @@ function Resolve-SteamPackVersion {
     return $(if ($prepared -gt $minimum) { $prepared.ToString(3) } else { $minimum.ToString(3) })
 }
 
+function Resolve-ApiSharedReleaseAction {
+    param(
+        [Parameter(Mandatory)][string]$PreparedVersion,
+        [AllowNull()][string]$PublishedVersion,
+        [bool]$PublishedContentIsCurrent = $false,
+        [bool]$PublishedArtifactIsValid = $false
+    )
+
+    if ($PreparedVersion -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+        throw "Invalid prepared APIShared version '$PreparedVersion'."
+    }
+    if ([string]::IsNullOrWhiteSpace($PublishedVersion)) {
+        return [pscustomobject]@{ NeedsRelease = $true; Reason = 'No published APIShared release exists.' }
+    }
+    if ($PublishedVersion -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$') {
+        throw "Invalid published APIShared version '$PublishedVersion'."
+    }
+
+    $prepared = [version]($PreparedVersion -replace '[-+].*$', '')
+    $published = [version]($PublishedVersion -replace '[-+].*$', '')
+    if ($prepared -lt $published) {
+        throw "Prepared APIShared version $PreparedVersion is older than published $PublishedVersion."
+    }
+    if ($prepared -gt $published) {
+        return [pscustomobject]@{ NeedsRelease = $true; Reason = "Prepared APIShared v$PreparedVersion is newer than published v$PublishedVersion." }
+    }
+    if (-not $PublishedContentIsCurrent) {
+        throw "APIShared has changed packaged content but no prepared higher version/changelog."
+    }
+    if (-not $PublishedArtifactIsValid) {
+        throw "Published APIShared/v$PreparedVersion is missing or invalid and cannot be replaced automatically."
+    }
+    return [pscustomobject]@{ NeedsRelease = $false; Reason = "Published APIShared/v$PreparedVersion is current and valid." }
+}
+
 function Get-MissingSteamPackPaths {
     param(
         [AllowEmptyCollection()][string[]]$PreviousPaths = @(),

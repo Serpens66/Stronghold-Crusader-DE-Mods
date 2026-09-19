@@ -494,6 +494,115 @@ function Get-ReleasePackage {
     return [pscustomobject]@{ Zip = $zip; Sha256 = $actual; Provenance = $prov; PackageDirectory = $roots[0].FullName }
 }
 
+function Get-ApiSharedReleasePackage {
+    param(
+        [Parameter(Mandatory)]$Infrastructure,
+        [switch]$ForceDownload
+    )
+
+    $tag = "APIShared/v$($Infrastructure.Version)"
+    $base = "APIShared-v$($Infrastructure.Version)"
+    $expectedAssetNames = @("$base.zip", "$base.zip.sha256", "$base.provenance.json")
+    $releaseResult = Invoke-Checked -FilePath 'gh' -Arguments @(
+        'release','view',$tag,'--repo',$script:Repository,'--json','tagName,isDraft,targetCommitish,url,assets'
+    ) -FailureCode 7 -AllowFailure
+    if ($releaseResult.ExitCode -ne 0) { Fail-Pack 7 "Required APIShared release $tag is not published." }
+    $release = ($releaseResult.Output -join "`n") | ConvertFrom-Json
+    if ([string]$release.tagName -cne $tag -or [bool]$release.isDraft) {
+        Fail-Pack 7 "APIShared release $tag is missing, still a draft, or resolved to an unexpected tag."
+    }
+    foreach ($assetName in $expectedAssetNames) {
+        if (@($release.assets | Where-Object { [string]$_.name -ceq $assetName }).Count -ne 1) {
+            Fail-Pack 7 "APIShared release $tag must contain exactly one $assetName asset."
+        }
+    }
+
+    $cache = Join-Path $script:OutputRoot "cache\APIShared\v$($Infrastructure.Version)"
+    [void](New-Item -ItemType Directory -Path $cache -Force)
+    $zip = Join-Path $cache "$base.zip"
+    $shaPath = Join-Path $cache "$base.zip.sha256"
+    $provenancePath = Join-Path $cache "$base.provenance.json"
+    if ($ForceDownload -or -not (Test-Path -LiteralPath $zip -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $shaPath -PathType Leaf) -or
+        -not (Test-Path -LiteralPath $provenancePath -PathType Leaf)) {
+        Invoke-Checked -FilePath 'gh' -Arguments @(
+            'release','download',$tag,'--repo',$script:Repository,'--pattern',"$base.*",'--dir',$cache,'--clobber'
+        ) -FailureCode 7 | Out-Null
+    }
+    foreach ($path in @($zip,$shaPath,$provenancePath)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { Fail-Pack 7 "Missing APIShared release asset: $path" }
+    }
+
+    $actualHash = Get-Sha256 $zip
+    $shaText = [IO.File]::ReadAllText($shaPath)
+    $declaredMatch = [regex]::Match($shaText, '(?i)\b([0-9a-f]{64})\b')
+    if (-not $declaredMatch.Success -or $declaredMatch.Groups[1].Value.ToLowerInvariant() -ne $actualHash) {
+        Fail-Pack 7 "SHA-256 file mismatch for $tag."
+    }
+    $provenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
+    if ([string]$provenance.Mod -cne 'APIShared' -or
+        [string]$provenance.PluginGuid -cne $Infrastructure.Guid -or
+        [string]$provenance.Version -cne $Infrastructure.Version -or
+        [string]$provenance.Tag -cne $tag -or
+        [string]$provenance.Package.Sha256 -cne $actualHash -or
+        [string]::IsNullOrWhiteSpace([string]$provenance.Commit) -or
+        [string]$provenance.Commit -cne [string]$release.targetCommitish) {
+        Fail-Pack 7 "Provenance mismatch for $tag."
+    }
+
+    $audit = Join-Path $cache 'audit'
+    if (Test-Path -LiteralPath $audit) { Remove-Item -LiteralPath $audit -Recurse -Force }
+    Expand-Archive -LiteralPath $zip -DestinationPath $audit
+    $roots = @(Get-ChildItem -LiteralPath $audit -Directory)
+    $outerFiles = @(Get-ChildItem -LiteralPath $audit -File)
+    if ($roots.Count -ne 1 -or $outerFiles.Count -ne 0 -or $roots[0].Name -cne $Infrastructure.Guid) {
+        Fail-Pack 7 "APIShared release ZIP must contain exactly the $($Infrastructure.Guid) root directory."
+    }
+    $packageDirectory = $roots[0].FullName
+    $manifestPath = Join-Path $packageDirectory 'info.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) { Fail-Pack 7 "APIShared release package lacks info.json." }
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ([string]$manifest.GUID -cne $Infrastructure.Guid -or [string]$manifest.Version -cne $Infrastructure.Version) {
+        Fail-Pack 7 "APIShared release manifest identity mismatch for $tag."
+    }
+    $actualFileRecords = @(Get-FileRecords $packageDirectory | ForEach-Object {
+        [ordered]@{
+            Path = "$($Infrastructure.Guid)/$($_.Path)"
+            Sha256 = $_.Sha256
+            Size = $_.Size
+        }
+    })
+    if (($actualFileRecords | ConvertTo-Json -Depth 5 -Compress) -cne
+        (@($provenance.Files) | ConvertTo-Json -Depth 5 -Compress)) {
+        Fail-Pack 7 "APIShared release files differ from provenance for $tag."
+    }
+    try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $packageDirectory) }
+    catch { Fail-Pack 7 "APIShared release $tag violates the XAML patch contract: $($_.Exception.Message)" }
+    $forbidden = @(Get-ChildItem -LiteralPath $packageDirectory -File -Recurse | Where-Object {
+        $_.Name -ieq 'SHCDESE.dll' -or $_.Name -like 'RedBird*.dll'
+    })
+    $apiCopies = @(Get-ChildItem -LiteralPath $packageDirectory -File -Recurse -Filter 'APIShared.dll')
+    if ($forbidden.Count -ne 0 -or $apiCopies.Count -ne 1) {
+        Fail-Pack 7 "APIShared release package must contain exactly one APIShared.dll and no private SHCDESE/RedBird DLLs."
+    }
+    $assembly = Get-CecilPluginMetadata -Directory $packageDirectory
+    if ($assembly.Guid -cne $Infrastructure.Guid -or
+        $assembly.Version -cne $Infrastructure.Version -or
+        $assembly.HostDependencyCount -ne 0) {
+        Fail-Pack 7 "APIShared release DLL identity/dependency mismatch for $tag."
+    }
+
+    return [pscustomobject]@{
+        Zip = $zip
+        Sha256 = $actualHash
+        Provenance = $provenance
+        PackageDirectory = $packageDirectory
+        ReleaseTag = $tag
+        ReleaseUrl = [string]$release.url
+        TargetCommit = [string]$release.targetCommitish
+    }
+}
+
 function Get-PackagedContentComparison {
     param(
         [Parameter(Mandatory)]$Mod,
@@ -624,6 +733,17 @@ function Invoke-ModRelease {
     Invoke-Checked -FilePath $Mod.ReleaseBat -Arguments @('/noprompt','/nopause') -FailureCode 6 -WorkingDirectory $Mod.Directory | Out-Null
     $Mod.LatestTag = "$($Mod.Name)/v$($Mod.TargetVersion)"
     $Mod.LatestUrl = "https://github.com/$($script:Repository)/releases/tag/$([Uri]::EscapeDataString($Mod.LatestTag))"
+}
+
+function Invoke-ApiSharedRelease {
+    param([Parameter(Mandatory)]$Infrastructure)
+    $releaseBat = Join-Path $Infrastructure.ProjectDirectory 'release.bat'
+    if (-not (Test-Path -LiteralPath $releaseBat -PathType Leaf)) {
+        Fail-Pack 6 "Missing APIShared release.bat: $releaseBat"
+    }
+    Write-RunLog "Publishing required infrastructure release APIShared v$($Infrastructure.Version)."
+    Invoke-Checked -FilePath $releaseBat -Arguments @('/noprompt','/nopause') -FailureCode 6 `
+        -WorkingDirectory $Infrastructure.ProjectDirectory | Out-Null
 }
 
 function Get-NextPatchVersion {
@@ -1265,12 +1385,26 @@ try {
         $apiSharedAssembly.Version -cne [string]$apiSharedSourceInfo.Version) {
         Fail-Pack 3 "Built APIShared infrastructure DLL differs from the source manifest v$([string]$apiSharedSourceInfo.Version)."
     }
+    $apiSharedChanges = @($apiSharedSourceInfo.SerpChangelog | Where-Object {
+        [string]$_.Version -ceq [string]$apiSharedSourceInfo.Version
+    })
+    if ($apiSharedChanges.Count -ne 1 -or @($apiSharedChanges[0].Changes).Count -eq 0) {
+        Fail-Pack 3 "APIShared lacks exactly one non-empty current changelog entry for v$([string]$apiSharedSourceInfo.Version)."
+    }
     $apiSharedInfrastructure = [pscustomobject]@{
         Name = [string]$apiSharedInfo.Name
         Guid = [string]$apiSharedInfo.GUID
         Version = [string]$apiSharedInfo.Version
+        ProjectDirectory = Split-Path -Parent $apiSharedSourceInfoPath
         Directory = $apiSharedDirectory
         DirectorySha256 = Get-DirectorySignature $apiSharedDirectory
+        NeedsRelease = $false
+        ReleaseReason = ''
+        ReleaseTag = $null
+        ReleaseUrl = $null
+        SourceCommit = $null
+        PackageSha256 = $null
+        ReleasePackage = $null
     }
     try { [void](Assert-ScriptExtenderXamlPatchContract -Directory $apiSharedDirectory) }
     catch { Fail-Pack 3 "APIShared infrastructure violates the XAML patch contract: $($_.Exception.Message)" }
@@ -1281,6 +1415,48 @@ try {
     Write-RunLog "Loaded $($script:ReleaseList.Count) published/draft release records from GitHub."
     . (Join-Path $script:Root 'Shared\Release\Release.Common.ps1')
     $headCommit = ((Invoke-Git @('rev-parse','HEAD')).Output -join '').Trim()
+
+    $apiSharedLatest = Get-LatestReleaseForMod -ModName 'APIShared' -Releases $script:ReleaseList
+    $apiSharedPublishedVersion = if ($null -eq $apiSharedLatest) { $null } else { [string]$apiSharedLatest.Version }
+    $apiSharedContentIsCurrent = $false
+    $apiSharedArtifactIsValid = $false
+    if ($null -ne $apiSharedLatest) {
+        $apiComparisonTarget = [pscustomobject]@{ Name = 'APIShared'; PackageDirectory = $apiSharedDirectory }
+        $apiSharedComparison = Get-PackagedContentComparison -Mod $apiComparisonTarget `
+            -BaseCommit $apiSharedLatest.Commit -HeadCommit $headCommit
+        $apiSharedContentIsCurrent = [bool]$apiSharedComparison.IsCurrent
+        if (-not $apiSharedContentIsCurrent) {
+            Write-RunLog "Packaged APIShared content changed: $(@($apiSharedComparison.Paths) -join ', ')"
+        }
+        if ([string]$apiSharedLatest.Version -ceq $apiSharedInfrastructure.Version -and $apiSharedContentIsCurrent) {
+            try {
+                $apiSharedInfrastructure.ReleasePackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure
+                $apiSharedArtifactIsValid = $true
+            } catch {
+                Write-RunLog "Published APIShared artifact validation failed: $($_.Exception.Message)" 'WARN'
+            }
+        }
+    }
+    try {
+        $apiSharedAction = Resolve-ApiSharedReleaseAction `
+            -PreparedVersion $apiSharedInfrastructure.Version `
+            -PublishedVersion $apiSharedPublishedVersion `
+            -PublishedContentIsCurrent $apiSharedContentIsCurrent `
+            -PublishedArtifactIsValid $apiSharedArtifactIsValid
+    } catch {
+        Fail-Pack 3 $_.Exception.Message
+    }
+    $apiSharedInfrastructure.NeedsRelease = [bool]$apiSharedAction.NeedsRelease
+    $apiSharedInfrastructure.ReleaseReason = [string]$apiSharedAction.Reason
+    if ($null -ne $apiSharedInfrastructure.ReleasePackage) {
+        $apiPackage = $apiSharedInfrastructure.ReleasePackage
+        $apiSharedInfrastructure.Directory = $apiPackage.PackageDirectory
+        $apiSharedInfrastructure.DirectorySha256 = Get-DirectorySignature $apiPackage.PackageDirectory
+        $apiSharedInfrastructure.ReleaseTag = $apiPackage.ReleaseTag
+        $apiSharedInfrastructure.ReleaseUrl = $apiPackage.ReleaseUrl
+        $apiSharedInfrastructure.SourceCommit = [string]$apiPackage.Provenance.Commit
+        $apiSharedInfrastructure.PackageSha256 = $apiPackage.Sha256
+    }
 
     foreach ($mod in $mods) {
         $mod.NeedsProjectRegistration = $mod.Name -notin @($releaseConfig.Projects)
@@ -1316,6 +1492,8 @@ try {
     }
 
     Write-RunLog 'Planned actions:'
+    Write-RunLog ("  APIShared: infrastructure=True, release={0}, target=v{1} ({2})" -f `
+        $apiSharedInfrastructure.NeedsRelease, $apiSharedInfrastructure.Version, $apiSharedInfrastructure.ReleaseReason)
     foreach ($mod in $mods) {
         Write-RunLog ("  {0}: dependency={1}, sourceEdit={2}, release={3}, target=v{4}" -f $mod.Name, $mod.HasDependency, $mod.NeedsSourceEdit, $mod.NeedsRelease, $mod.TargetVersion)
     }
@@ -1377,6 +1555,28 @@ try {
     if ($unexpectedStatus.Count -gt 0) {
         Fail-Pack 5 "Unexpected working-tree changes remain after source preparation. They were not committed:`r`n$($unexpectedStatus -join "`r`n")"
     }
+
+    if ($apiSharedInfrastructure.NeedsRelease) {
+        Invoke-ApiSharedRelease $apiSharedInfrastructure
+        $journal.CompletedReleases = @($journal.CompletedReleases) + "APIShared/v$($apiSharedInfrastructure.Version)"
+        Write-JsonCrLf -Path $script:JournalPath -Value $journal
+    }
+    $apiPackage = Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure `
+        -ForceDownload:$apiSharedInfrastructure.NeedsRelease
+    $apiSharedInfrastructure.ReleasePackage = $apiPackage
+    $apiSharedInfrastructure.Directory = $apiPackage.PackageDirectory
+    $apiSharedInfrastructure.DirectorySha256 = Get-DirectorySignature $apiPackage.PackageDirectory
+    $apiSharedInfrastructure.ReleaseTag = $apiPackage.ReleaseTag
+    $apiSharedInfrastructure.ReleaseUrl = $apiPackage.ReleaseUrl
+    $apiSharedInfrastructure.SourceCommit = [string]$apiPackage.Provenance.Commit
+    $apiSharedInfrastructure.PackageSha256 = $apiPackage.Sha256
+    [void](Assert-HistoricalDeletionPolicyPreflight `
+        -HistoricalIndex $historicalSteamFiles `
+        -PackGuid $PackGuid `
+        -Mods $mods `
+        -Infrastructure $apiSharedInfrastructure `
+        -RetiredMods $retiredMods)
+    Write-RunLog 'Published APIShared artifact passed the historical deletion preflight.' 'OK'
 
     foreach ($mod in @($mods | Where-Object NeedsRelease)) {
         Invoke-ModRelease $mod
@@ -1443,9 +1643,9 @@ try {
     $infrastructureRecords = @([ordered]@{
         Name = $apiSharedInfrastructure.Name; Guid = $apiSharedInfrastructure.Guid; Version = $apiSharedInfrastructure.Version
         State = 'Infrastructure'; RelativePath = $infrastructureRelative
-        ReleaseUrl = "https://github.com/$($script:Repository)/releases/tag/$([Uri]::EscapeDataString("APIShared/v$($apiSharedInfrastructure.Version)"))"
-        ReleaseTag = "APIShared/v$($apiSharedInfrastructure.Version)"; SourceCommit = $commit
-        PackageSha256 = $apiSharedInfrastructure.DirectorySha256; ExpectedSoftDependency = ''; Files = @(Get-FileRecords $infrastructureStage)
+        ReleaseUrl = $apiSharedInfrastructure.ReleaseUrl
+        ReleaseTag = $apiSharedInfrastructure.ReleaseTag; SourceCommit = $apiSharedInfrastructure.SourceCommit
+        PackageSha256 = $apiSharedInfrastructure.PackageSha256; ExpectedSoftDependency = ''; Files = @(Get-FileRecords $infrastructureStage)
     })
     $packRecords = @()
     foreach ($mod in $mods) {

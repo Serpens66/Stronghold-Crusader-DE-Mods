@@ -98,9 +98,37 @@ $sourceTombstonePath = Join-Path $workspace 'BugfixesAndQoL\Patches\Assets\GUI\X
 $sourceTombstoneBytes = [IO.File]::ReadAllBytes($sourceTombstonePath)
 Assert-True ($sourceTombstoneBytes.Length -eq 106) 'the source HUD_ControlGroups tombstone must be 106 bytes'
 Assert-True ([Convert]::ToBase64String($sourceTombstoneBytes) -ceq [Convert]::ToBase64String($tombstoneBytes)) 'the source HUD_ControlGroups tombstone must equal the standard no-op patch'
+$missingApiRelease = Resolve-ApiSharedReleaseAction -PreparedVersion '0.3.7' -PublishedVersion $null
+Assert-True $missingApiRelease.NeedsRelease 'a missing APIShared release must be planned automatically'
+$newerApiRelease = Resolve-ApiSharedReleaseAction -PreparedVersion '0.3.7' -PublishedVersion '0.3.6'
+Assert-True $newerApiRelease.NeedsRelease 'a prepared newer APIShared version must be released'
+$currentApiRelease = Resolve-ApiSharedReleaseAction -PreparedVersion '0.3.7' -PublishedVersion '0.3.7' `
+    -PublishedContentIsCurrent $true -PublishedArtifactIsValid $true
+Assert-True (-not $currentApiRelease.NeedsRelease) 'a current valid APIShared release must be reused'
+$staleSameVersionRejected = $false
+try {
+    [void](Resolve-ApiSharedReleaseAction -PreparedVersion '0.3.7' -PublishedVersion '0.3.7' `
+        -PublishedContentIsCurrent $false -PublishedArtifactIsValid $true)
+} catch {
+    $staleSameVersionRejected = $_.Exception.Message -match 'changed packaged content but no prepared higher version/changelog'
+}
+Assert-True $staleSameVersionRejected 'changed APIShared content at the published version must require a higher prepared version'
+$invalidApiArtifactRejected = $false
+try {
+    [void](Resolve-ApiSharedReleaseAction -PreparedVersion '0.3.7' -PublishedVersion '0.3.7' `
+        -PublishedContentIsCurrent $true -PublishedArtifactIsValid $false)
+} catch {
+    $invalidApiArtifactRejected = $_.Exception.Message -match 'missing or invalid and cannot be replaced automatically'
+}
+Assert-True $invalidApiArtifactRejected 'an invalid published APIShared artifact must fail closed'
 $createScriptText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Create-SteamModPack.ps1'))
 Assert-True ($createScriptText.Contains('$apiSharedAssembly.Version -cne [string]$apiSharedSourceInfo.Version')) 'Steam staging must compare the APIShared DLL version with the source manifest'
 Assert-True (-not $createScriptText.Contains('releaseConfig.ApiShared.Version')) 'Steam staging must not depend on a duplicated configured APIShared version'
+Assert-True ($createScriptText.Contains('Get-ApiSharedReleasePackage -Infrastructure $apiSharedInfrastructure')) 'Steam staging must consume a validated published APIShared package'
+Assert-True ($createScriptText.Contains('SHA-256 file mismatch for $tag.')) 'APIShared release validation must reject a mismatched hash file'
+Assert-True ($createScriptText.Contains('Provenance mismatch for $tag.')) 'APIShared release validation must reject mismatched provenance'
+Assert-True ($createScriptText.Contains('APIShared release ZIP must contain exactly the $($Infrastructure.Guid) root directory.')) 'APIShared release validation must enforce the package root'
+Assert-True ($createScriptText.Contains('APIShared release DLL identity/dependency mismatch for $tag.')) 'APIShared release validation must enforce DLL identity and dependencies'
 Assert-True ($createScriptText.Contains('$assets = @($ZipPath,$ZipShaPath,$MapPath,$MapShaPath,$ProvenancePath)')) 'pack releases must publish ZIP, ZIP hash, map, map hash and provenance together'
 Assert-True ($createScriptText.Contains('Package = [ordered]@{ File = $zipPackage.File; RootDirectory = $zipPackage.RootDirectory; Sha256 = $zipPackage.Sha256; Size = $zipPackage.Size; Files = $zipPackage.Files }')) 'pack provenance must describe the audited ZIP package'
 Assert-True ($createScriptText.Contains("-CurrentMod 'SerpsMods'")) 'pack publication must update the README release index through the SerpsMods special entry'
@@ -109,8 +137,13 @@ Assert-True ($outerPathGuard -ge 0) 'existing-tombstone detection must skip oute
 $archiveTraversalGuard = $createScriptText.IndexOf("Where-Object { `$_ -in @('','.', '..') }", [StringComparison]::Ordinal)
 Assert-True ($archiveTraversalGuard -ge 0) 'historical map inventory must reject empty, current-directory and parent-directory path segments'
 $preflightCall = $createScriptText.IndexOf('$safeHistoricalReplacements = Assert-HistoricalDeletionPolicyPreflight', [StringComparison]::Ordinal)
+$apiReleaseCall = $createScriptText.IndexOf('Invoke-ApiSharedRelease $apiSharedInfrastructure', [StringComparison]::Ordinal)
 $releaseCall = $createScriptText.IndexOf('Invoke-ModRelease $mod', [StringComparison]::Ordinal)
 Assert-True ($preflightCall -ge 0 -and $releaseCall -gt $preflightCall) 'fail-closed historical deletion preflight must run before GitHub mod releases'
+Assert-True ($preflightCall -ge 0 -and $apiReleaseCall -gt $preflightCall -and $releaseCall -gt $apiReleaseCall) 'APIShared must publish after deletion preflight and before consumer releases'
+Assert-True ($createScriptText.Contains('$journal.CompletedReleases = @($journal.CompletedReleases) + "APIShared/v$($apiSharedInfrastructure.Version)"')) 'APIShared publication must be recorded for safe reruns'
+Assert-True ($createScriptText.Contains('ReleaseUrl = $apiSharedInfrastructure.ReleaseUrl')) 'pack provenance must use the validated APIShared release URL'
+Assert-True ($createScriptText.Contains('SourceCommit = $apiSharedInfrastructure.SourceCommit')) 'pack provenance must use the APIShared release source commit'
 $uploadScriptText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Upload-Workshop.ps1'))
 $steamConfirmationCheck = $uploadScriptText.IndexOf('if (-not $updated)', [StringComparison]::Ordinal)
 $historyAppendCall = $uploadScriptText.LastIndexOf('Add-SteamWorkshopUploadHistoryEntry', [StringComparison]::Ordinal)
