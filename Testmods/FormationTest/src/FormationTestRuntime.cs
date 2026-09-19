@@ -27,8 +27,6 @@ namespace FormationTest
     internal sealed unsafe class FormationTestRuntime
     {
         private delegate int EngineRunDelegate(bool mpFrameSkip);
-        private delegate void StartSelectionDelegate(
-            TroopSelector self, UnityEngine.Vector2 start, UnityEngine.Vector2 current);
         private delegate void CameraUpdateDelegate(CameraControls2D self);
 
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
@@ -44,7 +42,7 @@ namespace FormationTest
         [UnmanagedFunctionPointer(CallingConvention.Winapi)]
         private delegate int GetGroupUnitIdDelegate(IntPtr tribeManager, int tribeId, int ordinal);
 
-        private const int ProtocolVersion = 2;
+        private const int ProtocolVersion = 3;
         private const int MapWidth = 800;
         private const int MaximumUnitCount = 10000;
         private const int MaximumTribeCount = 4500;
@@ -118,7 +116,8 @@ namespace FormationTest
         private readonly CrusaderLibraryLoadContext libraryContext;
         private readonly ConfigEntry<FormationKind> formationConfig;
         private readonly ConfigEntry<int> densityConfig;
-        private readonly ConfigEntry<bool> rearSortingConfig;
+        private readonly ConfigEntry<RangedPlacementMode> placementModeConfig;
+        private readonly FormationMenuViewModel menuViewModel;
         private readonly object stateSync = new object();
         private readonly DetourHandle<FormationSlotDelegate> standardSelectorHandle =
             new DetourHandle<FormationSlotDelegate>();
@@ -130,10 +129,8 @@ namespace FormationTest
         private FormationPreviewMarkerRenderer markerRenderer;
         private HookTransaction nativeTransaction;
         private Hook engineRunHook;
-        private Hook startSelectionHook;
         private Hook cameraUpdateHook;
         private EngineRunDelegate engineRunOriginal;
-        private StartSelectionDelegate startSelectionOriginal;
         private CameraUpdateDelegate cameraUpdateOriginal;
         private IDisposable keyDownSubscription;
         private IDisposable keyHeldSubscription;
@@ -143,6 +140,7 @@ namespace FormationTest
         private IDisposable unitMoveSubscription;
         private R3PacketEventHook<FormationOrderPacket> packetHook;
         private FieldInfo leftMouseStateField;
+        private FieldInfo rightMouseDownField;
         private FieldInfo rightMouseUpField;
         private FieldInfo mouseStateReadField;
         private FieldInfo mouseUpPendingField;
@@ -169,7 +167,8 @@ namespace FormationTest
             CrusaderLibraryLoadContext libraryContext,
             ConfigEntry<FormationKind> formationConfig,
             ConfigEntry<int> densityConfig,
-            ConfigEntry<bool> rearSortingConfig)
+            ConfigEntry<RangedPlacementMode> placementModeConfig,
+            FormationMenuViewModel menuViewModel)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.libraryContext = libraryContext ??
@@ -178,8 +177,10 @@ namespace FormationTest
                 throw new ArgumentNullException(nameof(formationConfig));
             this.densityConfig = densityConfig ??
                 throw new ArgumentNullException(nameof(densityConfig));
-            this.rearSortingConfig = rearSortingConfig ??
-                throw new ArgumentNullException(nameof(rearSortingConfig));
+            this.placementModeConfig = placementModeConfig ??
+                throw new ArgumentNullException(nameof(placementModeConfig));
+            this.menuViewModel = menuViewModel ??
+                throw new ArgumentNullException(nameof(menuViewModel));
         }
 
         internal void Initialize()
@@ -189,7 +190,6 @@ namespace FormationTest
 
             HookTransaction pendingNative = null;
             Hook pendingEngineRun = null;
-            Hook pendingStartSelection = null;
             Hook pendingCameraUpdate = null;
             IDisposable pendingKeyDown = null;
             IDisposable pendingKeyHeld = null;
@@ -291,6 +291,7 @@ namespace FormationTest
                     "commonGroup");
 
                 leftMouseStateField = RequireEditorField("leftMouseStateForEngine", typeof(int));
+                rightMouseDownField = RequireEditorField("rightDownForEngine", typeof(bool));
                 rightMouseUpField = RequireEditorField("rightUpForEngine", typeof(bool));
                 mouseStateReadField = RequireEditorField("stateRead", typeof(bool));
                 mouseUpPendingField = RequireEditorField("upPending", typeof(bool));
@@ -298,23 +299,12 @@ namespace FormationTest
                     "run", BindingFlags.Static | BindingFlags.Public,
                     null, new[] { typeof(bool) }, null) ??
                     throw new MissingMethodException(typeof(EngineInterface).FullName, "run(bool)");
-                MethodInfo startSelection = typeof(TroopSelector).GetMethod(
-                    "startSelection", BindingFlags.Instance | BindingFlags.Public,
-                    null,
-                    new[] { typeof(UnityEngine.Vector2), typeof(UnityEngine.Vector2) },
-                    null) ?? throw new MissingMethodException(
-                        typeof(TroopSelector).FullName,
-                        "startSelection(Vector2, Vector2)");
                 MethodInfo cameraUpdate = typeof(CameraControls2D).GetMethod(
                     "Update", BindingFlags.Instance | BindingFlags.NonPublic) ??
                     throw new MissingMethodException(typeof(CameraControls2D).FullName, "Update()");
 
                 pendingEngineRun = new Hook(engineRun, (EngineRunDelegate)EngineRunHook);
                 engineRunOriginal = pendingEngineRun.GenerateTrampoline<EngineRunDelegate>();
-                pendingStartSelection = new Hook(
-                    startSelection, (StartSelectionDelegate)StartSelectionHook);
-                startSelectionOriginal =
-                    pendingStartSelection.GenerateTrampoline<StartSelectionDelegate>();
                 pendingCameraUpdate = new Hook(cameraUpdate, (CameraUpdateDelegate)CameraUpdateHook);
                 cameraUpdateOriginal =
                     pendingCameraUpdate.GenerateTrampoline<CameraUpdateDelegate>();
@@ -333,8 +323,6 @@ namespace FormationTest
                 pendingNative = null;
                 engineRunHook = pendingEngineRun;
                 pendingEngineRun = null;
-                startSelectionHook = pendingStartSelection;
-                pendingStartSelection = null;
                 cameraUpdateHook = pendingCameraUpdate;
                 pendingCameraUpdate = null;
                 packetSubscription = pendingPacket;
@@ -371,7 +359,6 @@ namespace FormationTest
                 pendingKeyDown?.Dispose();
                 pendingPacket?.Dispose();
                 pendingCameraUpdate?.Dispose();
-                pendingStartSelection?.Dispose();
                 pendingEngineRun?.Dispose();
                 pendingNative?.Dispose();
                 pendingMarkerRenderer?.RollbackUnpublished();
@@ -420,11 +407,13 @@ namespace FormationTest
 
         private void OnKeyDown(UnityInputEventArgs args)
         {
-            if (!initialized || failed || args == null || args.Phase != EventHookPhase.Post)
+            if (!initialized || failed || args == null)
                 return;
             try
             {
                 RequireMainThread("input-down");
+                if (args.Phase != EventHookPhase.Post)
+                    return;
                 ActiveDrag state;
                 lock (stateSync)
                     state = drag;
@@ -441,36 +430,6 @@ namespace FormationTest
                     }
                     if (!state.ReleaseGate.CanModify)
                         return;
-                    if (args.Key == ToKeyCode(1 - state.CommandButton))
-                    {
-                        FormationKind kind;
-                        lock (stateSync)
-                        {
-                            if (!ReferenceEquals(drag, state) ||
-                                !state.ReleaseGate.CanModify)
-                                return;
-                            state.Kind = FormationModel.Next(state.Kind);
-                            PublishPreview(state, force: false);
-                            kind = state.Kind;
-                        }
-                        Shared.DebugLogHelper.LogDebug(
-                            log,
-                            $"FORMATION_KIND_CHANGED: kind={kind}, " +
-                            $"thread={Environment.CurrentManagedThreadId}.");
-                        return;
-                    }
-                    if (args.Key == KeyCode.Mouse2)
-                    {
-                        lock (stateSync)
-                        {
-                            if (!ReferenceEquals(drag, state) ||
-                                !state.ReleaseGate.CanModify)
-                                return;
-                            state.RearSorting = !state.RearSorting;
-                            PublishPreview(state, force: false);
-                        }
-                        return;
-                    }
                     return;
                 }
 
@@ -486,11 +445,13 @@ namespace FormationTest
 
         private void OnKeyHeld(UnityInputEventArgs args)
         {
-            if (!initialized || failed || args == null || args.Phase != EventHookPhase.Post)
+            if (!initialized || failed || args == null)
                 return;
             try
             {
                 RequireMainThread("input-held");
+                if (args.Phase != EventHookPhase.Post)
+                    return;
                 ActiveDrag state;
                 lock (stateSync)
                     state = drag;
@@ -507,16 +468,24 @@ namespace FormationTest
 
         private void OnKeyUp(UnityInputEventArgs args)
         {
-            if (!initialized || failed || args == null || args.Phase != EventHookPhase.Post)
+            if (!initialized || failed || args == null)
                 return;
             try
             {
                 RequireMainThread("input-up");
+                if (args.Phase != EventHookPhase.Post)
+                    return;
                 ActiveDrag state;
                 lock (stateSync)
                     state = drag;
                 if (state == null || args.Key != ToKeyCode(state.CommandButton))
                     return;
+                if (FatControler.instance != null &&
+                    FatControler.instance.overNoesisGUI())
+                {
+                    AbortDrag("release-over-ui");
+                    return;
+                }
 
                 UpdateGesture(state);
                 bool releaseObserved = false;
@@ -545,41 +514,40 @@ namespace FormationTest
                 return engineRunOriginal(mpFrameSkip);
 
             bool originalEntered = false;
-            ActiveDrag state;
+            FormationMouseState inputState = default;
             try
             {
                 AgeReleaseConsumptionWatch();
+                EditorDirector director = EditorDirector.instance;
+                if (director == null)
+                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
+
+                inputState = CaptureMouseState(director);
+
+                ActiveDrag state;
                 lock (stateSync)
                     state = drag;
                 if (state == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
 
-                EditorDirector director = EditorDirector.instance;
-                if (director == null)
-                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-                FormationMouseState releaseState = CaptureMouseState(director);
                 bool releaseClaimed;
                 lock (stateSync)
                 {
                     releaseClaimed = ReferenceEquals(drag, state) &&
-                        state.ReleaseGate.TryClaimVanillaRelease(releaseState);
+                        state.ReleaseGate.TryClaimVanillaRelease(inputState);
                     if (releaseClaimed)
                         drag = null;
                 }
                 if (!releaseClaimed)
-                    return RunOriginalWithReleaseTemporarilyDeferred(
-                        state,
-                        director,
-                        mpFrameSkip,
-                        ref originalEntered);
+                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
                 ClearPreview();
                 LogDebugNoThrow(
                     $"FORMATION_RELEASE_CLAIMED: tribe={state.TribeId}, " +
                     $"button={state.CommandButton}, " +
                     $"releaseEventSeen={state.ReleaseGate.ReleaseEventSeen}, " +
-                    $"left={releaseState.LeftState}, rightUp={releaseState.RightUp}, " +
-                    $"stateRead={releaseState.StateRead}, " +
-                    $"upPending={releaseState.UpPending}.");
+                    $"left={inputState.LeftState}, rightDown={inputState.RightDown}, " +
+                    $"rightUp={inputState.RightUp}, stateRead={inputState.StateRead}, " +
+                    $"upPending={inputState.UpPending}.");
 
                 // The full release state was captured before dispatch. Once dispatch
                 // is accepted, no fallible reflection read may stand between
@@ -601,7 +569,7 @@ namespace FormationTest
                     director,
                     mpFrameSkip,
                     packet,
-                    releaseState,
+                    inputState,
                     ref originalEntered);
             }
             catch (Exception exception)
@@ -610,29 +578,6 @@ namespace FormationTest
                 if (originalEntered)
                     throw;
                 return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-            }
-        }
-
-        private int RunOriginalWithReleaseTemporarilyDeferred(
-            ActiveDrag state,
-            EditorDirector director,
-            bool mpFrameSkip,
-            ref bool originalEntered)
-        {
-            if (director == null)
-                return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-            FormationMouseState originalState = CaptureMouseState(director);
-            FormationMouseState suppressedState =
-                FormationReleaseStateModel.SuppressAuxiliaryReleaseForOneRun(
-                    originalState, state.CommandButton);
-            try
-            {
-                ApplyMouseState(director, suppressedState);
-                return RunOriginalOnce(mpFrameSkip, ref originalEntered);
-            }
-            finally
-            {
-                ApplyMouseState(director, originalState);
             }
         }
 
@@ -656,7 +601,7 @@ namespace FormationTest
             }
             finally
             {
-                // clearMouseStateForEngine does not clear rightUpForEngine. Applying
+                // clearMouseStateForEngine does not clear rightDown/rightUp. Applying
                 // the audited terminal state also makes consumption robust if that
                 // method changes part of the state before reporting a failure.
                 ApplyMouseState(director, FormationReleaseStateModel.Consume());
@@ -669,7 +614,8 @@ namespace FormationTest
             LogDebugNoThrow(
                 $"FORMATION_RELEASE_CONSUMED: operation={packet.OperationId}, " +
                 $"tribe={state.TribeId}, button={state.CommandButton}, " +
-                $"left={originalState.LeftState}, rightUp={originalState.RightUp}, " +
+                $"left={originalState.LeftState}, rightDown={originalState.RightDown}, " +
+                $"rightUp={originalState.RightUp}, " +
                 $"stateRead={originalState.StateRead}, " +
                 $"upPending={originalState.UpPending}.");
 
@@ -677,13 +623,14 @@ namespace FormationTest
             {
                 formationConfig.Value = state.Kind;
                 densityConfig.Value = FormationModel.NormalizeDensity(state.Density);
-                rearSortingConfig.Value = state.RearSorting;
+                placementModeConfig.Value = state.PlacementMode;
                 LogDebugNoThrow(
                     $"FORMATION_ORDER_QUEUED: operation={packet.OperationId}, " +
                     $"tribe={packet.TribeId}, target={packet.TargetX},{packet.TargetY}, " +
                     $"kind={(FormationKind)packet.Formation}, density={packet.Density}, " +
-                    $"rear={packet.RearSorting}, direction={packet.DirectionSector}, " +
-                    $"width={packet.Width}, units={packet.UnitCount}, " +
+                    $"placement={(RangedPlacementMode)packet.PlacementMode}, direction={packet.DirectionSector}, " +
+                    $"width={packet.Width}, rows={FormationModel.ResolveActualRows((FormationKind)packet.Formation, packet.UnitCount, packet.Width)}, " +
+                    $"units={packet.UnitCount}, " +
                     $"plan=0x{packet.PlanHash:X16}.");
             }
             catch (Exception exception)
@@ -708,23 +655,6 @@ namespace FormationTest
             return engineRunOriginal(mpFrameSkip);
         }
 
-        private void StartSelectionHook(
-            TroopSelector self,
-            UnityEngine.Vector2 start,
-            UnityEngine.Vector2 current)
-        {
-            ActiveDrag state;
-            lock (stateSync)
-                state = drag;
-            if (!failed && state != null)
-            {
-                if (MainControls.instance != null)
-                    MainControls.instance.CurrentAction = 0;
-                return;
-            }
-            startSelectionOriginal(self, start, current);
-        }
-
         private void CameraUpdateHook(CameraControls2D self)
         {
             ActiveDrag state;
@@ -733,11 +663,14 @@ namespace FormationTest
             if (!failed && state != null)
                 self.AllowZoom = false;
             cameraUpdateOriginal(self);
+            menuViewModel.RefreshHostState();
+            FormationPreviewOverlay.Refresh();
         }
 
         private void UpdateGesture(ActiveDrag state)
         {
             bool abort;
+            int changedDensity = 0;
             lock (stateSync)
             {
                 if (!ReferenceEquals(drag, state) || !state.ReleaseGate.CanModify)
@@ -750,8 +683,13 @@ namespace FormationTest
                     if (wheel != 0f && lastWheelFrame != frame)
                     {
                         lastWheelFrame = frame;
-                        state.Density = FormationModel.ChangeDensity(
+                        int newDensity = FormationModel.ChangeDensity(
                             state.Density, wheel > 0f ? 1 : -1);
+                        if (newDensity != state.Density)
+                        {
+                            state.Density = newDensity;
+                            changedDensity = newDensity;
+                        }
                     }
 
                     if (TryCaptureTarget(out GroundTarget endpoint))
@@ -764,6 +702,10 @@ namespace FormationTest
             }
             if (abort)
                 AbortDrag("state-changed");
+            else if (changedDensity != 0)
+                LogDebugNoThrow(
+                    $"FORMATION_DENSITY_CHANGED: density={changedDensity}, " +
+                    $"thread={Environment.CurrentManagedThreadId}.");
         }
 
         private void TryStartDrag(int commandButton)
@@ -772,6 +714,8 @@ namespace FormationTest
                 !markerRenderer.ReplacementAvailable || FatControler.instance == null ||
                 FatControler.instance.overNoesisGUI() || IsShiftHeld())
                 return;
+
+            menuViewModel.CloseMenu();
             if (!TryCaptureSelection(out SelectionIdentity[] selection, out int tribeId) ||
                 !TryCaptureTarget(out GroundTarget target))
                 return;
@@ -783,7 +727,7 @@ namespace FormationTest
                 selection,
                 FormationModel.NormalizeKind((int)formationConfig.Value),
                 FormationModel.NormalizeDensity(densityConfig.Value),
-                rearSortingConfig.Value);
+                FormationModel.NormalizePlacementMode((int)placementModeConfig.Value));
             ResolveDirectionAndWidth(state, out int direction, out int width);
             state.DirectionSector = direction;
             state.Width = width;
@@ -797,7 +741,7 @@ namespace FormationTest
                 log,
                 $"FORMATION_DRAG_START: tribe={tribeId}, units={selection.Length}, " +
                 $"target={target.NativeX},{target.NativeY}, kind={state.Kind}, " +
-                $"density={state.Density}, rear={state.RearSorting}.");
+                $"density={state.Density}, placement={state.PlacementMode}.");
         }
 
         private bool TryCreatePacket(ActiveDrag state, out FormationOrderPacket packet)
@@ -818,7 +762,7 @@ namespace FormationTest
                 MoveType = (int)TribeMoveType.DefaultInSync,
                 Formation = (byte)state.Kind,
                 Density = (byte)FormationModel.NormalizeDensity(state.Density),
-                RearSorting = state.RearSorting,
+                PlacementMode = (byte)state.PlacementMode,
                 DirectionSector = (byte)direction,
                 Width = (ushort)width,
                 UnitCount = checked((ushort)state.Selection.Length),
@@ -899,7 +843,7 @@ namespace FormationTest
             if (!ValidatePacket(packet, out string rejection))
             {
                 LogErrorNoThrow($"Rejected Formation Chore: {rejection}.");
-                return false;
+                return TryIssuePacketVanillaFallback(packet, source, rejection);
             }
 
             var command = new PendingFormationCommand(packet, source);
@@ -947,6 +891,31 @@ namespace FormationTest
             }
         }
 
+        private bool TryIssuePacketVanillaFallback(
+            FormationOrderPacket packet,
+            string source,
+            string reason)
+        {
+            if (packet == null || packet.TribeId <= 0 ||
+                packet.TribeId >= MaximumTribeCount ||
+                (uint)packet.TargetX >= MapWidth || (uint)packet.TargetY >= MapWidth ||
+                (packet.IsNewOrder != 0 && packet.IsNewOrder != 1) ||
+                (packet.MoveType != (int)TribeMoveType.DefaultInSync &&
+                 packet.MoveType != (int)TribeMoveType.Fast))
+                return false;
+            bool issued = GameTribeManagerAPI.Instance.IssueMoveHereCommand(
+                packet.TribeId,
+                packet.TargetX,
+                packet.TargetY,
+                isPatrolPath: false,
+                bIsNewOrder: packet.IsNewOrder,
+                tribeMoveType: (TribeMoveType)packet.MoveType);
+            LogWarningNoThrow(
+                $"FORMATION_ORDER_FELL_BACK_TO_VANILLA: source={source}, " +
+                $"operation={packet.OperationId}, reason={reason}, issued={issued}.");
+            return issued;
+        }
+
         private void OnTribeIssueOrderMoveHere(TribeIssueOrderMoveHereEventArgs args)
         {
             if (!initialized || failed || args == null)
@@ -989,9 +958,12 @@ namespace FormationTest
                             density,
                             packet.DirectionSector,
                             packet.Width,
-                            packet.RearSorting,
-                            units);
-                        ulong actualPlanHash = ComputePlanHash(units, destinations);
+                            FormationModel.NormalizePlacementMode(packet.PlacementMode),
+                            units,
+                            out _);
+                        ulong actualPlanHash = ComputePlanHash(
+                            units, destinations,
+                            FormationModel.NormalizePlacementMode(packet.PlacementMode));
                         if (actualPlanHash != packet.PlanHash)
                         {
                             throw new InvalidOperationException(
@@ -1539,9 +1511,11 @@ namespace FormationTest
             int density,
             int direction,
             int width,
-            bool rearSorting,
-            FormationUnit[] units)
+            RangedPlacementMode placementMode,
+            FormationUnit[] units,
+            out FormationDirectionIndicator directionIndicator)
         {
+            directionIndicator = FormationDirectionIndicator.Hidden;
             List<FormationPoint> slots = FormationModel.BuildRelativeSlots(
                 kind, units.Length, Math.Max(1, width), density, direction);
             bool assassinOnly = IsAssassinOnly(units);
@@ -1552,7 +1526,8 @@ namespace FormationTest
                 throw new InvalidOperationException("No reachable formation destination exists.");
 
             NativeDestination[] snapped = SnapSlots(anchorX, anchorY, slots, candidates);
-            int[] assignment = FormationModel.AssignSlotsByRole(units, slots, rearSorting);
+            directionIndicator = BuildDirectionIndicator(slots, snapped, direction);
+            int[] assignment = FormationModel.AssignSlotsByRole(units, slots, placementMode);
             var result = new NativeDestination[units.Length];
             for (int unitIndex = 0; unitIndex < result.Length; unitIndex++)
             {
@@ -1565,6 +1540,42 @@ namespace FormationTest
                     units[unitIndex].Role);
             }
             return result;
+        }
+
+        private static FormationDirectionIndicator BuildDirectionIndicator(
+            IReadOnlyList<FormationPoint> slots,
+            IReadOnlyList<NativeDestination> snapped,
+            int directionSector)
+        {
+            int count = Math.Min(slots?.Count ?? 0, snapped?.Count ?? 0);
+            if (count == 0)
+                return FormationDirectionIndicator.Hidden;
+            int frontRank = int.MaxValue;
+            for (int index = 0; index < count; index++)
+                frontRank = Math.Min(frontRank, slots[index].Rank);
+            long totalX = 0;
+            long totalY = 0;
+            int frontCount = 0;
+            for (int index = 0; index < count; index++)
+            {
+                if (slots[index].Rank != frontRank)
+                    continue;
+                totalX += snapped[index].X;
+                totalY += snapped[index].Y;
+                frontCount++;
+            }
+            if (frontCount == 0)
+                return FormationDirectionIndicator.Hidden;
+            int centerX = (int)Math.Round((double)totalX / frontCount);
+            int centerY = (int)Math.Round((double)totalY / frontCount);
+            FormationModel.GetForwardVector(
+                directionSector, out int forwardX, out int forwardY);
+            return new FormationDirectionIndicator(
+                true,
+                centerX + forwardX,
+                centerY + forwardY,
+                centerX + forwardX * 4,
+                centerY + forwardY * 4);
         }
 
         private static NativeDestination[] SnapSlots(
@@ -1731,10 +1742,11 @@ namespace FormationTest
 
         private static ulong ComputePlanHash(
             IReadOnlyList<FormationUnit> units,
-            IReadOnlyList<NativeDestination> destinations)
+            IReadOnlyList<NativeDestination> destinations,
+            RangedPlacementMode placementMode)
         {
             int count = Math.Min(units?.Count ?? 0, destinations?.Count ?? 0);
-            ulong hash = FormationPlanHash.Begin(count);
+            ulong hash = FormationPlanHash.Begin(count, placementMode);
             for (int index = 0; index < count; index++)
             {
                 FormationUnit unit = units[index];
@@ -1812,7 +1824,7 @@ namespace FormationTest
             FormationPreviewKey previewKey = FormationPreviewKey.Create(
                 state.Kind,
                 state.Density,
-                state.RearSorting,
+                state.PlacementMode,
                 direction,
                 width,
                 state.Target.NativeX,
@@ -1840,6 +1852,8 @@ namespace FormationTest
             try
             {
                 NativeDestination[] destinations;
+                FormationDirectionIndicator directionIndicator =
+                    FormationDirectionIndicator.Hidden;
                 if (state.Kind == FormationKind.Vanilla)
                 {
                     List<NativeDestination> reachable = CaptureReachableCandidates(
@@ -1877,8 +1891,9 @@ namespace FormationTest
                         state.Density,
                         direction,
                         width,
-                        state.RearSorting,
-                        units);
+                        state.PlacementMode,
+                        units,
+                        out directionIndicator);
                 }
 
                 var points = new FormationPreviewPoint[destinations.Length];
@@ -1891,7 +1906,7 @@ namespace FormationTest
                 }
                 state.PreviewPlanHash = state.Kind == FormationKind.Vanilla
                     ? 0UL
-                    : ComputePlanHash(units, destinations);
+                    : ComputePlanHash(units, destinations, state.PlacementMode);
                 state.HasPreviewPlan = state.Kind == FormationKind.Vanilla ||
                     destinations.Length == units.Length;
                 var markerTiles = new int[destinations.Length];
@@ -1902,12 +1917,13 @@ namespace FormationTest
                     FormationPreviewOverlay.Clear();
                     return;
                 }
-                FormationPreviewOverlay.Publish(points);
+                FormationPreviewOverlay.Publish(points, directionIndicator);
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"FORMATION_PREVIEW_UPDATED: kind={previewKey.Kind}, " +
-                    $"density={previewKey.Density}, rear={previewKey.RearSorting}, " +
+                    $"density={previewKey.Density}, placement={previewKey.PlacementMode}, " +
                     $"direction={previewKey.DirectionSector}, width={previewKey.Width}, " +
+                    $"rows={FormationModel.ResolveActualRows(previewKey.Kind, previewKey.UnitCount, previewKey.Width)}, " +
                     $"markers={new HashSet<int>(markerTiles).Count}, " +
                     $"plan=0x{state.PreviewPlanHash:X16}, " +
                     $"thread={Environment.CurrentManagedThreadId}.");
@@ -1933,7 +1949,7 @@ namespace FormationTest
                 direction = FormationModel.QuantizeDirection(
                     state.DragDeltaX, state.DragDeltaY, state.DefaultDirectionSector);
                 width = FormationModel.ResolveDraggedWidth(
-                    dragDistance, state.Density, state.Selection.Length);
+                    state.Kind, dragDistance, state.Selection.Length);
             }
             else
             {
@@ -2066,11 +2082,6 @@ namespace FormationTest
                 mouseButton = 1;
                 return true;
             }
-            if (key == KeyCode.Mouse2)
-            {
-                mouseButton = 2;
-                return true;
-            }
             mouseButton = -1;
             return false;
         }
@@ -2078,6 +2089,7 @@ namespace FormationTest
         private FormationMouseState CaptureMouseState(EditorDirector director) =>
             new FormationMouseState(
                 (int)leftMouseStateField.GetValue(director),
+                (bool)rightMouseDownField.GetValue(director),
                 (bool)rightMouseUpField.GetValue(director),
                 (bool)mouseStateReadField.GetValue(director),
                 (bool)mouseUpPendingField.GetValue(director));
@@ -2087,6 +2099,7 @@ namespace FormationTest
             FormationMouseState state)
         {
             leftMouseStateField.SetValue(director, state.LeftState);
+            rightMouseDownField.SetValue(director, state.RightDown);
             rightMouseUpField.SetValue(director, state.RightUp);
             mouseStateReadField.SetValue(director, state.StateRead);
             mouseUpPendingField.SetValue(director, state.UpPending);
@@ -2140,6 +2153,8 @@ namespace FormationTest
                 rejection = "invalid formation";
             else if (packet.Density < 1 || packet.Density > 4)
                 rejection = "invalid density";
+            else if (packet.PlacementMode > (byte)RangedPlacementMode.Center)
+                rejection = "invalid ranged placement mode";
             else if (packet.DirectionSector > 7)
                 rejection = "invalid direction";
             else if (packet.Width == 0 || packet.Width > MaximumUnitCount)
@@ -2194,6 +2209,7 @@ namespace FormationTest
                 releaseConsumptionWatch = null;
             }
             ClearPreview();
+            menuViewModel.CloseMenu();
             Shared.DebugLogHelper.LogError(
                 log,
                 $"FORMATION_TEST_DISABLED: contract={contract}; Vanilla remains active; {exception}");
@@ -2292,7 +2308,7 @@ namespace FormationTest
                 SelectionIdentity[] selection,
                 FormationKind kind,
                 int density,
-                bool rearSorting)
+                RangedPlacementMode placementMode)
             {
                 CommandButton = commandButton;
                 TribeId = tribeId;
@@ -2300,7 +2316,7 @@ namespace FormationTest
                 Selection = selection;
                 Kind = kind;
                 Density = density;
-                RearSorting = rearSorting;
+                PlacementMode = placementMode;
                 ReleaseGate = new FormationReleaseGate(commandButton);
                 int sumX = 0;
                 int sumY = 0;
@@ -2323,7 +2339,7 @@ namespace FormationTest
             internal SelectionIdentity[] Selection { get; }
             internal FormationKind Kind { get; set; }
             internal int Density { get; set; }
-            internal bool RearSorting { get; set; }
+            internal RangedPlacementMode PlacementMode { get; set; }
             internal FormationReleaseGate ReleaseGate { get; }
             internal int DragDeltaX { get; set; }
             internal int DragDeltaY { get; set; }

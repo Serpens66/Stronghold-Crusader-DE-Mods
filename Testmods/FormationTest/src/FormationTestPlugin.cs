@@ -1,6 +1,7 @@
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using System;
 
@@ -17,11 +18,12 @@ namespace FormationTest
 
         private static ManualLogSource persistentLog;
         private static FormationTestRuntime runtime;
-        private static FormationPreviewOverlay overlay;
+        private static FormationMenuViewModel formationMenu;
         private static bool librarySubscriptionInstalled;
         private static ConfigEntry<FormationKind> formation;
         private static ConfigEntry<int> density;
-        private static ConfigEntry<bool> rearSorting;
+        private static ConfigEntry<bool> legacyRearSorting;
+        private static ConfigEntry<RangedPlacementMode> placementMode;
         private static ConfigEntry<int> defaultsRevision;
 
         private void Awake()
@@ -35,9 +37,12 @@ namespace FormationTest
                 "Formation", "Density", 2,
                 new ConfigDescription("Formation density/spacing.",
                     new AcceptableValueRange<int>(1, 4)));
-            rearSorting = Config.Bind(
+            legacyRearSorting = Config.Bind(
                 "Formation", "RearSorting", false,
-                "Places melee units in front and ranged/siege/support units behind.");
+                "Legacy migration value; use RangedPlacement instead.");
+            placementMode = Config.Bind(
+                "Formation", "RangedPlacement", RangedPlacementMode.Off,
+                "Placement of ranged, siege, healer, shield, and support units.");
             defaultsRevision = Config.Bind(
                 "Formation", "DefaultsRevision", 0,
                 "Internal prototype defaults migration revision.");
@@ -48,19 +53,36 @@ namespace FormationTest
             {
                 formation.Value = migration.Kind;
                 defaultsRevision.Value = migration.Revision;
-                Config.Save();
                 Shared.DebugLogHelper.LogInfo(
                     persistentLog,
                     $"Formation defaults migrated: revision={migration.Revision}, " +
                     $"kind={migration.Kind}, kindChanged={migration.KindChanged}.");
             }
 
-            if (overlay == null)
-                overlay = FormationPreviewOverlay.CreateProcessLifetimeInstance(persistentLog);
+            PlacementDefaultsMigration placementMigration =
+                PlacementDefaultsMigration.Resolve(
+                    defaultsRevision.Value,
+                    legacyRearSorting.Value,
+                    placementMode.Value);
+            if (placementMigration.Changed)
+            {
+                placementMode.Value = placementMigration.Mode;
+                defaultsRevision.Value = placementMigration.Revision;
+                Shared.DebugLogHelper.LogInfo(
+                    persistentLog,
+                    $"Formation placement migrated: revision={placementMigration.Revision}, " +
+                    $"mode={placementMigration.Mode}.");
+            }
+            if (migration.RevisionChanged || placementMigration.Changed)
+                Config.Save();
+
+            formationMenu = new FormationMenuViewModel(
+                persistentLog, Config, formation, density, placementMode);
+            FormationPreviewOverlay.Initialize(persistentLog);
 
             Shared.DebugLogHelper.LogInfo(
                 persistentLog,
-                $"{PluginName} {PluginVersion} loaded; standalonePrototype=true, networkMode=1, HUD=false.");
+                $"{PluginName} {PluginVersion} loaded; standalonePrototype=true, networkMode=1, HUD=true.");
             if (librarySubscriptionInstalled)
                 return;
             CrusaderLibrary.Instance.LibraryLoaded += OnLibraryLoaded;
@@ -73,6 +95,20 @@ namespace FormationTest
                 return;
             try
             {
+                try
+                {
+                    GameXAMLManagerAPI.Instance.RegisterBinding(
+                        "FormationTestButtonHost", formationMenu);
+                    GameXAMLManagerAPI.Instance.RegisterBinding(
+                        "FormationTestMenuHost", formationMenu);
+                }
+                catch (Exception uiException)
+                {
+                    Shared.DebugLogHelper.LogWarning(
+                        persistentLog,
+                        $"Formation menu unavailable; movement runtime remains active: {uiException.Message}");
+                }
+
                 bool hashMatches = Shared.DebugLogHelper.ReportNativeLibraryVersion(
                     persistentLog,
                     PluginName,
@@ -86,7 +122,8 @@ namespace FormationTest
                     context,
                     formation,
                     density,
-                    rearSorting);
+                    placementMode,
+                    formationMenu);
                 candidate.Initialize();
                 runtime = candidate;
             }

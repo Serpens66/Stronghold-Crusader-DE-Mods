@@ -16,7 +16,7 @@ namespace FormationTest
         [Key(6)] public int MoveType;
         [Key(7)] public byte Formation;
         [Key(8)] public byte Density;
-        [Key(9)] public bool RearSorting;
+        [Key(9)] public byte PlacementMode;
         [Key(10)] public byte DirectionSector;
         [Key(11)] public ushort Width;
         [Key(12)] public ushort UnitCount;
@@ -48,7 +48,7 @@ namespace FormationTest
             writer.Write(value.MoveType);
             writer.Write(value.Formation);
             writer.Write(value.Density);
-            writer.Write(value.RearSorting);
+            writer.Write(value.PlacementMode);
             writer.Write(value.DirectionSector);
             writer.Write(value.Width);
             writer.Write(value.UnitCount);
@@ -77,7 +77,7 @@ namespace FormationTest
                     case 6: packet.MoveType = reader.ReadInt32(); break;
                     case 7: packet.Formation = reader.ReadByte(); break;
                     case 8: packet.Density = reader.ReadByte(); break;
-                    case 9: packet.RearSorting = reader.ReadBoolean(); break;
+                    case 9: packet.PlacementMode = reader.ReadByte(); break;
                     case 10: packet.DirectionSector = reader.ReadByte(); break;
                     case 11: packet.Width = reader.ReadUInt16(); break;
                     case 12: packet.UnitCount = reader.ReadUInt16(); break;

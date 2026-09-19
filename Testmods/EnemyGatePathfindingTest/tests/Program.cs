@@ -50,6 +50,9 @@ namespace EnemyGatePathfindingTest
                 PassageAxisEvidenceIsDeterministic();
                 TopologyRejectionClassificationIsDeterministic();
                 FootprintAdjacencyIgnoresBrokenEditorBounds();
+                SparseFootprintsFollowVanillaSlotSemantics();
+                InvalidFootprintsRemainEntityLocal();
+                TopologySignatureAndOrphanDiagnosticsAreNonThrowing();
                 UniqueSpatialGateAssociationFailsOpenWhenAmbiguous();
                 DirectionEdgesRequireBothNativeDirections();
                 DirectionMaskBlocksOnlyTheGatePassage();
@@ -809,6 +812,92 @@ namespace EnemyGatePathfindingTest
                 "distant footprints are not associated");
             Assert(!EnemyGatePathfindingPolicy.AreFootprintsCardinallyAdjacent(null, gate),
                 "missing footprint fails open");
+        }
+
+        private static void SparseFootprintsFollowVanillaSlotSemantics()
+        {
+            SparseFootprintAccumulator dense3 = BuildFootprint(3, -1, -1);
+            Assert(dense3.IsValid && dense3.ValidTileCount == 9 && dense3.EmptyCellCount == 0,
+                "dense 3x3 footprint is valid");
+
+            SparseFootprintAccumulator sparse3 = BuildFootprint(3, 4, -1);
+            Assert(sparse3.IsValid && sparse3.ValidTileCount == 8 && sparse3.EmptyCellCount == 1,
+                "zero is an unused sparse 3x3 cell");
+            Assert(sparse3.MinX == 0 && sparse3.MinY == 0 &&
+                sparse3.MaxX == 2 && sparse3.MaxY == 2,
+                "sparse bounds come from valid occupied tiles");
+
+            SparseFootprintAccumulator sparse5 = BuildFootprint(5, 0, 24);
+            Assert(sparse5.IsValid && sparse5.ValidTileCount == 23 &&
+                sparse5.EmptyCellCount == 2,
+                "sparse 5x5 footprint accepts multiple holes");
+            SparseFootprintAccumulator sparse6 = BuildFootprint(6, 7, 29);
+            Assert(sparse6.IsValid && sparse6.ValidTileCount == 34 &&
+                sparse6.CellCount == SparseFootprintAccumulator.MaximumCellCount,
+                "sparse 6x6 footprint stays within inline capacity");
+
+            var invalidTile = new SparseFootprintAccumulator(3);
+            invalidTile.AddCell(0, 320801, false, 0, 0);
+            Assert(invalidTile.Status == SparseFootprintStatus.InvalidNonZeroTile &&
+                invalidTile.InvalidCellIndex == 0 && invalidTile.InvalidTileId == 320801,
+                "invalid nonzero tile is categorized and retained for diagnosis");
+            var empty = new SparseFootprintAccumulator(3);
+            for (int index = 0; index < empty.CellCount; index++)
+                empty.AddCell(index, 0, false, 0, 0);
+            Assert(empty.Status == SparseFootprintStatus.Empty,
+                "all-zero footprint is categorized as empty");
+            Assert(new SparseFootprintAccumulator(0).Status == SparseFootprintStatus.InvalidGridSize &&
+                new SparseFootprintAccumulator(7).Status == SparseFootprintStatus.InvalidGridSize,
+                "grid sizes outside one through six are rejected before inline reads");
+        }
+
+        private static SparseFootprintAccumulator BuildFootprint(
+            uint gridSize, int firstHole, int secondHole)
+        {
+            var result = new SparseFootprintAccumulator(gridSize);
+            for (int index = 0; index < result.CellCount; index++)
+            {
+                if (index == firstHole || index == secondHole)
+                    result.AddCell(index, 0, false, 0, 0);
+                else
+                    result.AddCell(index, (uint)(1000 + index), true,
+                        index % (int)gridSize, index / (int)gridSize);
+            }
+            return result;
+        }
+
+        private static void InvalidFootprintsRemainEntityLocal()
+        {
+            var rejected = new SparseFootprintAccumulator(3);
+            rejected.AddCell(0, uint.MaxValue, false, 0, 0);
+            SparseFootprintAccumulator valid = BuildFootprint(3, 4, -1);
+            Assert(!rejected.IsValid && valid.IsValid,
+                "one rejected building cannot invalidate another building footprint");
+            Assert(rejected.Fingerprint != valid.Fingerprint,
+                "failure marker and valid sparse footprint signatures differ");
+        }
+
+        private static void TopologySignatureAndOrphanDiagnosticsAreNonThrowing()
+        {
+            string topology = File.ReadAllText(
+                Path.Combine("src", "GateTopologySnapshotProvider.cs"));
+            Assert(topology.IndexOf("Shared.GameBuildingFootprint", StringComparison.Ordinal) < 0,
+                "topology provider no longer invokes strict shared footprint bounds");
+            Assert(topology.IndexOf("GetOccupiedTileIds", StringComparison.Ordinal) < 0,
+                "bounded inline reader replaces allocating occupied-tile API");
+            Assert(topology.IndexOf("TryReadSparseFootprint", StringComparison.Ordinal) >= 0 &&
+                topology.IndexOf("footprint.Status", StringComparison.Ordinal) >= 0,
+                "builder and topology signature share sparse-footprint semantics");
+            Assert(topology.IndexOf("!IsDiagnosticActive(building.r_AliveState) || building.r_GlobalId == 0",
+                StringComparison.Ordinal) >= 0,
+                "dead, deleted and zero-global slots cannot poison the signature");
+            Assert(topology.IndexOf("record->r_SubjectGlobalId", StringComparison.Ordinal) >= 0 &&
+                topology.IndexOf("record->r_EntryTilePositionX", StringComparison.Ordinal) >= 0 &&
+                topology.IndexOf("record->r_ExitTilePositionY", StringComparison.Ordinal) >= 0,
+                "connection identity and geometry participate in topology signatures");
+            Assert(topology.IndexOf("GetSpatialGateCandidates(tiles, gateInfos)",
+                StringComparison.Ordinal) >= 0,
+                "orphan diagnostics derive distances only from validated tile diagnostics");
         }
 
         private static void UniqueSpatialGateAssociationFailsOpenWhenAmbiguous()

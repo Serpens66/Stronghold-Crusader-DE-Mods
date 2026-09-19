@@ -386,9 +386,30 @@ namespace BugfixesAndQoL
         private int CaptureSelectionState(int playerId, out bool selectedOwnAssassin)
         {
             selectedOwnAssassin = false;
-            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+            GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+            SelectedUnitInfo[] selected = Array.Empty<SelectedUnitInfo>();
+            int selectedCount = playerApi.GetSelectedChimpsCount();
+            bool selectionCountTransient =
+                !Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(selectedCount);
+            if (!selectionCountTransient)
+            {
+                try
+                {
+                    selected = playerApi.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    // The native count can change between the guarded read and the Extender call.
+                    selectionCountTransient = true;
+                }
+                catch (OverflowException)
+                {
+                    selectionCountTransient = true;
+                }
+            }
+
             GameUnitManagerAPI api = GameUnitManagerAPI.Instance;
-            int signature = 17;
+            int signature = unchecked((17 * 31) + selectedCount);
             for (int index = 0; index < selected.Length; index++)
             {
                 int unitId = selected[index].UnitId;
@@ -401,7 +422,7 @@ namespace BugfixesAndQoL
             signature = unchecked((signature * 31) + expectedSelectedCount);
             // During the first editor click the managed ID list can trail the native selection
             // flags for one frame. Scan only while the game reports a non-empty selection.
-            if (!selectedOwnAssassin && expectedSelectedCount > 0)
+            if (!selectedOwnAssassin && (selectionCountTransient || expectedSelectedCount > 0))
             {
                 Span<GameUnit> units = api.GetUnitsAsSpan();
                 for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)

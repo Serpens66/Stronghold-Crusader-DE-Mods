@@ -1,0 +1,72 @@
+{
+  "OldVersion": "2.7.1",
+  "NewVersion": "2.8.0",
+  "TargetCommit": "5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33",
+  "ImpactReview": {
+    "BaselinePreviousCommit": "68ebf5380d711dfa7b7f84c9d4326ff81e42854c",
+    "CrusaderNativeFiles": [],
+    "ExternalNativeFiles": [
+      "src/SHCDESE.BepInEx/Detours/BulkMonoDetours.cs"
+    ],
+    "NonSemanticArtifacts": [
+      "ReverseEngineering/structs/Data.xml",
+      "ReverseEngineering/structs/scde-main-2802-v6.rcnet",
+      "ReverseEngineering/structs/test.rcnet"
+    ],
+    "ChangedPublicContracts": [
+      {
+        "Path": "src/SHCDESE.BepInEx/API/GamePitchManagerAPI.cs",
+        "Symbol": "GamePitchManagerAPI pitch array and QueryPitch",
+        "Compatibility": "Corrected reserved-slot view; no workspace consumers",
+        "Consumers": []
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/API/GameProjectileManagerAPI.cs",
+        "Symbol": "GameProjectileManagerAPI projectile bounds and QueryProjectiles",
+        "Compatibility": "Corrected native bound; existing compatibility adapter accepts old and corrected views",
+        "Consumers": [
+          "Shared.GameProjectileSlotPolicy"
+        ]
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/API/GameTribeManagerAPI.cs",
+        "Symbol": "GameTribeManagerAPI.QueryTribes",
+        "Compatibility": "Corrected reserved-slot view; no workspace consumers",
+        "Consumers": []
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Interop/Enums/AivRotation.cs",
+        "Symbol": "AivRotation.North and AivRotation.South values",
+        "Compatibility": "Corrected enum semantics; no workspace runtime consumer and Fixes 1.17.1 uses the corrected contract",
+        "Consumers": []
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Extensions/TextureExtensions.cs",
+        "Symbol": "TextureExtensions.LoadTexture(string, TextureFormat, bool, bool) and LoadTexture(byte[], TextureFormat, bool, bool)",
+        "Compatibility": "Source-compatible optional parameter but binary-incompatible signature replacement; no workspace or Fixes callers",
+        "Consumers": []
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/Extensions/TextureExtensions.cs",
+        "Symbol": "TextureExtensions.IsDds and TextureExtensions.LoadDds",
+        "Compatibility": "Additive DDS API",
+        "Consumers": []
+      },
+      {
+        "Path": "src/SHCDESE.BepInEx/API/GameAssetManagerAPI.cs",
+        "Symbol": "DDS texture and atlas discovery",
+        "Compatibility": "Additive DDS behavior; existing PNG/JPG/TGA behavior retained",
+        "Consumers": []
+      }
+    ],
+    "AffectedMods": [],
+    "BuildMods": []
+  },
+  "Mods": {},
+  "CompatibilityNotes": [
+    "No workspace mod requires a source change, version bump, changelog entry, or higher MinimumScriptExtenderVersion for Script Extender 2.8.0.",
+    "SHCDESE-WORKAROUND(2.7.1-projectile-slot-view) remains intentionally because all supported minimum versions still include 2.7.1; its adapter is behavior-neutral with the corrected 2.7.2+ view.",
+    "BulkMonoDetours scans and patches mono-2.0-bdwgc.dll and is not a CrusaderDE.dll hook interaction.",
+    "The .rcnet files are reverse-engineering project artifacts and are not semantic header or Ghidra inputs."
+  ]
+}

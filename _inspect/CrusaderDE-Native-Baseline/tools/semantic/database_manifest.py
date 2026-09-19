@@ -117,6 +117,7 @@ def assert_identities(manifest, semantic: Path, comparison: Path):
         "managedHash": semantic_identity["managedHash"],
         "oldNativeHash": comparison_identity["oldNativeHash"],
         "scriptExtenderCommit": semantic_identity["scriptExtenderCommit"],
+        "scriptExtenderTree": semantic_identity["scriptExtenderTree"],
     }
     if actual != expected:
         raise ValueError(f"Identity mismatch: {actual} != {expected}")
@@ -143,6 +144,7 @@ def create(args):
         "managedHash": args.managed_hash.upper(),
         "oldNativeHash": args.old_hash.upper(),
         "scriptExtenderCommit": args.se_commit,
+        "scriptExtenderTree": args.se_tree,
     }
     manifest = {
         "manifestSchemaVersion": 2,
@@ -227,7 +229,7 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     create_parser = commands.add_parser("create")
     add_common(create_parser)
-    for name in ["raw-root", "managed-dir", "current-hash", "managed-hash", "old-hash", "se-commit", "current-index"]:
+    for name in ["raw-root", "managed-dir", "current-hash", "managed-hash", "old-hash", "se-commit", "se-tree", "current-index"]:
         create_parser.add_argument(f"--{name}", required=True)
     verify_parser = commands.add_parser("verify-inputs")
     add_common(verify_parser)

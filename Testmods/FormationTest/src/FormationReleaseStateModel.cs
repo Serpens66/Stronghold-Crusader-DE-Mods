@@ -4,17 +4,20 @@ namespace FormationTest
     {
         internal FormationMouseState(
             int leftState,
+            bool rightDown,
             bool rightUp,
             bool stateRead,
             bool upPending)
         {
             LeftState = leftState;
+            RightDown = rightDown;
             RightUp = rightUp;
             StateRead = stateRead;
             UpPending = upPending;
         }
 
         internal int LeftState { get; }
+        internal bool RightDown { get; }
         internal bool RightUp { get; }
         internal bool StateRead { get; }
         internal bool UpPending { get; }
@@ -27,30 +30,8 @@ namespace FormationTest
             int commandButton) =>
             commandButton == 0 ? state.LeftState == 3 : state.RightUp;
 
-        internal static FormationMouseState SuppressAuxiliaryReleaseForOneRun(
-            FormationMouseState state,
-            int commandButton)
-        {
-            int leftState = state.LeftState;
-            bool rightUp = state.RightUp;
-            if (commandButton == 0)
-            {
-                rightUp = false;
-            }
-            else
-            {
-                if (leftState == 3)
-                    leftState = 0;
-            }
-            return new FormationMouseState(
-                leftState,
-                rightUp,
-                state.StateRead,
-                state.UpPending);
-        }
-
         internal static FormationMouseState Consume() =>
-            new FormationMouseState(0, false, true, false);
+            new FormationMouseState(0, false, false, true, false);
     }
 
     internal sealed class FormationReleaseGate
@@ -82,4 +63,5 @@ namespace FormationTest
             return true;
         }
     }
+
 }

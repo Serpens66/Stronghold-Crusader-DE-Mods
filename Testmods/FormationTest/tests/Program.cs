@@ -28,6 +28,7 @@ internal static class Program
             TestEffectivePreviewKeys();
             TestDefaultsMigration();
             TestReleaseStateModel();
+            TestStatusTextAndDirectionVectors();
             TestPlanHash();
             TestMoveOrderMatching();
             TestPreviewMarkerNormalization();
@@ -74,10 +75,44 @@ internal static class Program
         int line = FormationModel.ResolveAutomaticWidth(FormationKind.Line, 100);
         int column = FormationModel.ResolveAutomaticWidth(FormationKind.Column, 100);
         Check(line > block && block > column, "automatic aspect ordering");
-        Check(FormationModel.ResolveDraggedWidth(20, 2, 100) == 10,
-            "drag distance maps to width");
-        Check(FormationModel.ResolveDraggedWidth(999, 1, 12) == 12,
-            "drag width clamps to unit count");
+        Check(FormationModel.ResolveAutomaticRows(FormationKind.Block, 20) == 5 &&
+              FormationModel.ResolveAutomaticWidth(FormationKind.Block, 20) == 4,
+            "twenty-unit Block starts as five ranks of four");
+        Check(FormationModel.ResolveDraggedWidth(FormationKind.Block, 2, 20) == 4 &&
+              FormationModel.ResolveDraggedWidth(FormationKind.Block, 4, 20) == 5 &&
+              FormationModel.ResolveDraggedWidth(FormationKind.Block, 10, 20) == 20,
+            "each two drag tiles reduces Block depth by one rank");
+        Check(FormationModel.ResolveActualRows(FormationKind.Block, 20, 4) == 5 &&
+              FormationModel.ResolveActualRows(FormationKind.Block, 20, 20) == 1,
+            "resolved width produces the requested Block depth");
+        int wedgeAutomatic = FormationModel.ResolveAutomaticWidth(FormationKind.Wedge, 100);
+        int wedgeExpanded = FormationModel.ResolveDraggedWidth(FormationKind.Wedge, 50, 100);
+        Check(wedgeExpanded >= wedgeAutomatic &&
+              FormationModel.ResolveActualRows(FormationKind.Wedge, 100, wedgeExpanded) >= 10,
+            "Wedge drag preserves its geometric minimum depth");
+        foreach (FormationKind kind in new[]
+        {
+            FormationKind.Block, FormationKind.Line,
+            FormationKind.Column, FormationKind.Wedge
+        })
+        {
+            for (int count = 1; count <= 100; count++)
+            {
+                int previousRows = int.MaxValue;
+                for (int distance = 2; distance <= 30; distance += 2)
+                {
+                    int width = FormationModel.ResolveDraggedWidth(kind, distance, count);
+                    int rows = FormationModel.ResolveActualRows(kind, count, width);
+                    Check(width >= 1 && width <= count && rows >= 1 &&
+                          rows <= previousRows,
+                        $"drag depth is valid and monotonic kind={kind}, count={count}, distance={distance}");
+                    previousRows = rows;
+                }
+            }
+        }
+        for (int density = 1; density <= 4; density++)
+            Check(FormationModel.ResolveDraggedWidth(FormationKind.Block, 6, 20) == 7,
+                "drag width is independent of density " + density);
     }
 
     private static void TestDirectionQuantization()
@@ -92,69 +127,39 @@ internal static class Program
 
     private static void TestPlanHash()
     {
-        ulong first = FormationPlanHash.Begin(2);
+        ulong first = FormationPlanHash.Begin(2, RangedPlacementMode.Rear);
         FormationPlanHash.AddEntry(
             ref first, 1, 1001, 400, 401, FormationRole.Front);
         FormationPlanHash.AddEntry(
             ref first, 2, 1002, 402, 403, FormationRole.Rear);
 
-        ulong repeated = FormationPlanHash.Begin(2);
+        ulong repeated = FormationPlanHash.Begin(2, RangedPlacementMode.Rear);
         FormationPlanHash.AddEntry(
             ref repeated, 1, 1001, 400, 401, FormationRole.Front);
         FormationPlanHash.AddEntry(
             ref repeated, 2, 1002, 402, 403, FormationRole.Rear);
         Check(first == repeated, "formation plan hash is deterministic");
 
-        ulong reordered = FormationPlanHash.Begin(2);
+        ulong reordered = FormationPlanHash.Begin(2, RangedPlacementMode.Rear);
         FormationPlanHash.AddEntry(
             ref reordered, 2, 1002, 402, 403, FormationRole.Rear);
         FormationPlanHash.AddEntry(
             ref reordered, 1, 1001, 400, 401, FormationRole.Front);
         Check(first != reordered, "formation plan hash includes canonical unit order");
 
-        ulong changedTarget = FormationPlanHash.Begin(2);
+        ulong changedTarget = FormationPlanHash.Begin(2, RangedPlacementMode.Rear);
         FormationPlanHash.AddEntry(
             ref changedTarget, 1, 1001, 400, 401, FormationRole.Front);
         FormationPlanHash.AddEntry(
             ref changedTarget, 2, 1002, 402, 404, FormationRole.Rear);
         Check(first != changedTarget, "formation plan hash includes destinations");
+        Check(first != FormationPlanHash.Begin(2, RangedPlacementMode.Center),
+            "formation plan hash includes ranged placement mode");
     }
 
     private static void TestReleaseStateModel()
     {
-        var leftCommandWithAuxiliaryRelease = new FormationMouseState(
-            leftState: 2,
-            rightUp: true,
-            stateRead: false,
-            upPending: true);
-        FormationMouseState deferredLeft =
-            FormationReleaseStateModel.SuppressAuxiliaryReleaseForOneRun(
-                leftCommandWithAuxiliaryRelease, commandButton: 0);
-        Check(deferredLeft.LeftState == 2 && !deferredLeft.RightUp,
-            "left-command drag suppresses only the auxiliary right release");
-        Check(!deferredLeft.StateRead && deferredLeft.UpPending,
-            "temporary left suppression preserves the queued state machine");
-        Check(leftCommandWithAuxiliaryRelease.RightUp &&
-              leftCommandWithAuxiliaryRelease.UpPending,
-            "temporary suppression does not mutate its snapshot");
-
-        var rightCommandWithAuxiliaryRelease = new FormationMouseState(
-            leftState: 3,
-            rightUp: false,
-            stateRead: true,
-            upPending: false);
-        FormationMouseState deferredRight =
-            FormationReleaseStateModel.SuppressAuxiliaryReleaseForOneRun(
-                rightCommandWithAuxiliaryRelease, commandButton: 1);
-        Check(!deferredRight.RightUp && deferredRight.LeftState == 0,
-            "right-command drag suppresses only the auxiliary left release");
-        Check(deferredRight.StateRead && !deferredRight.UpPending,
-            "temporary right suppression preserves the queued state machine");
-
-        var leftRelease = new FormationMouseState(3, false, false, true);
-        Check(FormationReleaseStateModel.SuppressAuxiliaryReleaseForOneRun(
-                  leftRelease, commandButton: 0).LeftState == 3,
-            "temporary deferral never hides the authoritative left release");
+        var leftRelease = new FormationMouseState(3, false, false, false, true);
         var inputFirst = new FormationReleaseGate(commandButton: 0);
         Check(inputFirst.ObserveInputRelease() && inputFirst.ReleaseEventSeen &&
               !inputFirst.VanillaReleaseClaimed && !inputFirst.CanModify,
@@ -164,10 +169,7 @@ internal static class Program
               !inputFirst.TryClaimVanillaRelease(leftRelease),
             "input-first release is claimed exactly once");
 
-        var rightRelease = new FormationMouseState(0, true, true, false);
-        Check(FormationReleaseStateModel.SuppressAuxiliaryReleaseForOneRun(
-                  rightRelease, commandButton: 1).RightUp,
-            "temporary deferral never hides the authoritative right release");
+        var rightRelease = new FormationMouseState(0, false, true, true, false);
         var nativeFirst = new FormationReleaseGate(commandButton: 1);
         Check(nativeFirst.TryClaimVanillaRelease(rightRelease) &&
               !nativeFirst.ReleaseEventSeen && !nativeFirst.CanModify,
@@ -182,12 +184,29 @@ internal static class Program
             "the auxiliary release cannot claim the active command drag");
 
         FormationMouseState consumed = FormationReleaseStateModel.Consume();
-        Check(consumed.LeftState == 0 && !consumed.RightUp &&
+        Check(consumed.LeftState == 0 && !consumed.RightDown && !consumed.RightUp &&
               consumed.StateRead && !consumed.UpPending,
             "accepted dispatch permanently consumes both release mechanisms");
         Check(!FormationReleaseStateModel.HasCommandRelease(consumed, 0) &&
               !FormationReleaseStateModel.HasCommandRelease(consumed, 1),
             "consumed state cannot issue a follow-up command");
+    }
+
+    private static void TestStatusTextAndDirectionVectors()
+    {
+        var expected = new[]
+        {
+            new { X = 0, Y = -1 }, new { X = 1, Y = -1 },
+            new { X = 1, Y = 0 }, new { X = 1, Y = 1 },
+            new { X = 0, Y = 1 }, new { X = -1, Y = 1 },
+            new { X = -1, Y = 0 }, new { X = -1, Y = -1 }
+        };
+        for (int sector = 0; sector < expected.Length; sector++)
+        {
+            FormationModel.GetForwardVector(sector, out int x, out int y);
+            Check(x == expected[sector].X && y == expected[sector].Y,
+                "direction indicator sector " + sector);
+        }
     }
 
     private static void TestShapesAndDensity()
@@ -239,7 +258,8 @@ internal static class Program
             new FormationUnit(2, 0, FormationRole.Rear),
             new FormationUnit(1, 0, FormationRole.Neutral)
         };
-        int[] assignment = FormationModel.AssignSlotsByRole(units, slots, true);
+        int[] assignment = FormationModel.AssignSlotsByRole(
+            units, slots, RangedPlacementMode.Rear);
         int maximumFrontRank = units
             .Select((unit, index) => new { unit, index })
             .Where(value => value.unit.Role == FormationRole.Front)
@@ -251,9 +271,62 @@ internal static class Program
         Check(maximumFrontRank <= minimumRearRank, "melee precedes rear units");
         Check(assignment.Distinct().Count() == units.Count, "role assignment is bijective");
 
-        int[] unchanged = FormationModel.AssignSlotsByRole(units, slots, false);
+        int[] unchanged = FormationModel.AssignSlotsByRole(
+            units, slots, RangedPlacementMode.Off);
         Check(unchanged.SequenceEqual(Enumerable.Range(0, units.Count)),
             "disabled role sorting preserves order");
+        Check(!assignment.SequenceEqual(unchanged),
+            "mixed canonical IDs visibly change when role sorting is enabled");
+
+        var alreadyOrdered = new List<FormationUnit>
+        {
+            new FormationUnit(1, 0, FormationRole.Front),
+            new FormationUnit(2, 0, FormationRole.Front),
+            new FormationUnit(3, 0, FormationRole.Protected),
+            new FormationUnit(4, 0, FormationRole.Neutral),
+            new FormationUnit(5, 0, FormationRole.Rear)
+        };
+        List<FormationPoint> orderedSlots = FormationModel.BuildRelativeSlots(
+            FormationKind.Column, alreadyOrdered.Count, 1, 1, 0);
+        Check(FormationModel.AssignSlotsByRole(
+                alreadyOrdered, orderedSlots, RangedPlacementMode.Rear)
+                .SequenceEqual(Enumerable.Range(0, alreadyOrdered.Count)),
+            "already role-ordered IDs remain stable when sorting is enabled");
+
+        List<FormationPoint> centerSlots = FormationModel.BuildRelativeSlots(
+            FormationKind.Block, 25, 5, 1, 0);
+        var centerUnits = Enumerable.Range(1, 25)
+            .Select(id => new FormationUnit(
+                id, 0, id <= 16 ? FormationRole.Front :
+                id <= 18 ? FormationRole.Neutral : FormationRole.Rear))
+            .ToList();
+        int[] centered = FormationModel.AssignSlotsByRole(
+            centerUnits, centerSlots, RangedPlacementMode.Center);
+        double meleeRadius = centerUnits.Select((unit, index) => new { unit, index })
+            .Where(value => value.unit.Role == FormationRole.Front)
+            .Average(value => SquaredRadius(centerSlots[centered[value.index]]));
+        double coreRadius = centerUnits.Select((unit, index) => new { unit, index })
+            .Where(value => value.unit.Role == FormationRole.Rear)
+            .Average(value => SquaredRadius(centerSlots[centered[value.index]]));
+        Check(meleeRadius > coreRadius && centered.Distinct().Count() == 25,
+            "Center mode places melee outside a deterministic protected core");
+
+        List<FormationPoint> lineSlots = FormationModel.BuildRelativeSlots(
+            FormationKind.Line, 7, 7, 1, 0);
+        var lineUnits = Enumerable.Range(1, 7)
+            .Select(id => new FormationUnit(
+                id, 0, id <= 4 ? FormationRole.Front : FormationRole.Rear))
+            .ToList();
+        int[] lineCentered = FormationModel.AssignSlotsByRole(
+            lineUnits, lineSlots, RangedPlacementMode.Center);
+        int maximumCoreDistance = lineUnits.Select((unit, index) => new { unit, index })
+            .Where(value => value.unit.Role == FormationRole.Rear)
+            .Max(value => Math.Abs(lineSlots[lineCentered[value.index]].File));
+        int minimumMeleeDistance = lineUnits.Select((unit, index) => new { unit, index })
+            .Where(value => value.unit.Role == FormationRole.Front)
+            .Min(value => Math.Abs(lineSlots[lineCentered[value.index]].File));
+        Check(maximumCoreDistance <= minimumMeleeDistance,
+            "single-rank Center mode puts melee at both outer ends");
     }
 
     private static void TestDirectionAndDensityMatrix()
@@ -273,6 +346,8 @@ internal static class Program
         {
             Check(FormationModel.QuantizeDirection(vector.X, vector.Y) == vector.Sector,
                 "eight-sector quantization " + vector.Sector);
+            List<FormationPoint> tightTopology = FormationModel.BuildRelativeSlots(
+                FormationKind.Block, 31, 7, 1, vector.Sector);
             for (int density = 1; density <= 4; density++)
             {
                 List<FormationPoint> first = FormationModel.BuildRelativeSlots(
@@ -284,13 +359,16 @@ internal static class Program
                     $"deterministic slots sector={vector.Sector}, density={density}");
                 Check(first.Select(point => point.X + ":" + point.Y).Distinct().Count() == 31,
                     $"unique slots sector={vector.Sector}, density={density}");
+                Check(first.Select(point => point.Rank + ":" + point.File)
+                        .SequenceEqual(tightTopology.Select(point => point.Rank + ":" + point.File)),
+                    $"density preserves rank/file topology sector={vector.Sector}, density={density}");
             }
         }
 
         Check(FormationModel.ResolveAutomaticWidth(FormationKind.Block, 1) == 1,
             "single-unit automatic width");
-        Check(FormationModel.ResolveDraggedWidth(1, 4, 20) == 1,
-            "short drag clamps to one file");
+        Check(FormationModel.ResolveDraggedWidth(FormationKind.Block, 1, 20) == 4,
+            "short drag retains automatic Block depth");
         Check(FormationModel.BuildRelativeSlots(
             FormationKind.Wedge, 1, 1, 4, 7).Single().Rank == 0,
             "single-unit wedge remains at the tip");
@@ -306,8 +384,10 @@ internal static class Program
                 0,
                 id <= 6 ? FormationRole.Protected : FormationRole.Rear))
             .ToList();
-        int[] first = FormationModel.AssignSlotsByRole(withoutFront, slots, true);
-        int[] second = FormationModel.AssignSlotsByRole(withoutFront, slots, true);
+        int[] first = FormationModel.AssignSlotsByRole(
+            withoutFront, slots, RangedPlacementMode.Rear);
+        int[] second = FormationModel.AssignSlotsByRole(
+            withoutFront, slots, RangedPlacementMode.Rear);
         Check(first.SequenceEqual(second), "role sorting without melee is deterministic");
         Check(first.Distinct().Count() == withoutFront.Count,
             "protected overflow remains bijective");
@@ -320,9 +400,30 @@ internal static class Program
         };
         List<FormationPoint> tinySlots = FormationModel.BuildRelativeSlots(
             FormationKind.Column, tiny.Count, 1, 2, 4);
-        int[] tinyAssignment = FormationModel.AssignSlotsByRole(tiny, tinySlots, true);
+        int[] tinyAssignment = FormationModel.AssignSlotsByRole(
+            tiny, tinySlots, RangedPlacementMode.Rear);
         Check(tinySlots[tinyAssignment[2]].Rank <= tinySlots[tinyAssignment[0]].Rank,
             "tiny army keeps melee ahead of rear unit");
+
+        int[] noMeleeCenter = FormationModel.AssignSlotsByRole(
+            withoutFront, slots, RangedPlacementMode.Center);
+        int[] noMeleeCenterAgain = FormationModel.AssignSlotsByRole(
+            withoutFront, slots, RangedPlacementMode.Center);
+        Check(noMeleeCenter.SequenceEqual(noMeleeCenterAgain) &&
+              noMeleeCenter.Distinct().Count() == withoutFront.Count,
+            "Center mode without melee remains deterministic and bijective");
+
+        List<FormationPoint> wedgeSlots = FormationModel.BuildRelativeSlots(
+            FormationKind.Wedge, 15, 7, 2, 3);
+        var wedgeUnits = Enumerable.Range(1, 15)
+            .Select(id => new FormationUnit(
+                id, 0, id <= 4 ? FormationRole.Front :
+                id <= 7 ? FormationRole.Neutral : FormationRole.Protected))
+            .ToList();
+        int[] wedgeCenter = FormationModel.AssignSlotsByRole(
+            wedgeUnits, wedgeSlots, RangedPlacementMode.Center);
+        Check(wedgeCenter.Distinct().Count() == wedgeUnits.Count,
+            "Center mode handles protected overflow in a wedge");
     }
 
     private static void TestPreviewMarkerNormalization()
@@ -376,32 +477,32 @@ internal static class Program
     private static void TestEffectivePreviewKeys()
     {
         FormationPreviewKey vanilla = FormationPreviewKey.Create(
-            FormationKind.Vanilla, 2, false, 0, 4, 100, 200, 40);
+            FormationKind.Vanilla, 2, RangedPlacementMode.Off, 0, 4, 100, 200, 40);
         FormationPreviewKey vanillaDragged = FormationPreviewKey.Create(
-            FormationKind.Vanilla, 2, true, 7, 30, 100, 200, 40);
+            FormationKind.Vanilla, 2, RangedPlacementMode.Center, 7, 30, 100, 200, 40);
         Check(vanilla.Equals(vanillaDragged),
             "Vanilla preview ignores direction, width, and rear sorting");
         Check(!vanilla.Equals(FormationPreviewKey.Create(
-                FormationKind.Vanilla, 3, false, 0, 4, 100, 200, 40)),
+                FormationKind.Vanilla, 3, RangedPlacementMode.Off, 0, 4, 100, 200, 40)),
             "Vanilla preview changes for density");
         Check(!vanilla.Equals(FormationPreviewKey.Create(
-                FormationKind.Vanilla, 2, false, 0, 4, 101, 200, 40)),
+                FormationKind.Vanilla, 2, RangedPlacementMode.Off, 0, 4, 101, 200, 40)),
             "Vanilla preview changes for target");
 
         FormationPreviewKey block = FormationPreviewKey.Create(
-            FormationKind.Block, 2, false, 3, 8, 100, 200, 40);
+            FormationKind.Block, 2, RangedPlacementMode.Off, 3, 8, 100, 200, 40);
         Check(block.Equals(FormationPreviewKey.Create(
-                FormationKind.Block, 2, false, 3, 8, 100, 200, 40)),
+                FormationKind.Block, 2, RangedPlacementMode.Off, 3, 8, 100, 200, 40)),
             "same effective custom formation reuses preview");
         Check(!block.Equals(FormationPreviewKey.Create(
-                FormationKind.Block, 2, false, 4, 8, 100, 200, 40)),
+                FormationKind.Block, 2, RangedPlacementMode.Off, 4, 8, 100, 200, 40)),
             "custom preview changes for direction sector");
         Check(!block.Equals(FormationPreviewKey.Create(
-                FormationKind.Block, 2, false, 3, 9, 100, 200, 40)),
+                FormationKind.Block, 2, RangedPlacementMode.Off, 3, 9, 100, 200, 40)),
             "custom preview changes for width");
         Check(!block.Equals(FormationPreviewKey.Create(
-                FormationKind.Block, 2, true, 3, 8, 100, 200, 40)),
-            "custom preview changes for rear sorting");
+                FormationKind.Block, 2, RangedPlacementMode.Center, 3, 8, 100, 200, 40)),
+            "custom preview changes for ranged placement mode");
     }
 
     private static void TestDefaultsMigration()
@@ -427,6 +528,19 @@ internal static class Program
         Check(deliberateVanilla.Kind == FormationKind.Vanilla &&
               !deliberateVanilla.KindChanged && !deliberateVanilla.RevisionChanged,
             "deliberate Vanilla choice survives later starts");
+
+        PlacementDefaultsMigration oldRear = PlacementDefaultsMigration.Resolve(
+            1, legacyRearSorting: true, currentMode: RangedPlacementMode.Off);
+        PlacementDefaultsMigration oldOff = PlacementDefaultsMigration.Resolve(
+            1, legacyRearSorting: false, currentMode: RangedPlacementMode.Rear);
+        PlacementDefaultsMigration migratedCenter = PlacementDefaultsMigration.Resolve(
+            PlacementDefaultsMigration.CurrentRevision,
+            legacyRearSorting: false,
+            currentMode: RangedPlacementMode.Center);
+        Check(oldRear.Mode == RangedPlacementMode.Rear && oldRear.Changed &&
+              oldOff.Mode == RangedPlacementMode.Off && oldOff.Changed &&
+              migratedCenter.Mode == RangedPlacementMode.Center && !migratedCenter.Changed,
+            "legacy rear bool migrates once without overwriting later Center selection");
     }
 
     private static void TestInstalledRedBirdMarkerSpan()
@@ -718,6 +832,10 @@ internal static class Program
         string[] sourceFiles = Directory.GetFiles(
             Path.Combine(projectRoot, "src"), "*.cs", SearchOption.AllDirectories);
         string source = string.Join("\n", sourceFiles.Select(File.ReadAllText));
+        string troopPatch = File.ReadAllText(Path.Combine(projectRoot,
+            "Patches", "Assets", "GUI", "XAMLResources", "HUD_Troops.xaml"));
+        string screenPatch = File.ReadAllText(Path.Combine(projectRoot,
+            "Patches", "Assets", "GUI", "XAML", "IngameUIScreens.xaml"));
         foreach (string forbidden in new[]
         {
             "System.Text.Json", "Newtonsoft.Json", "JavaScriptSerializer",
@@ -797,13 +915,15 @@ internal static class Program
               source.Contains("UnitFallbackAttempt") &&
               source.Contains("FORMATION_UNIT_FELL_BACK_TO_VANILLA"),
             "failed terminal targets retry the command anchor under a scoped guard");
-        Check(source.Contains("ComputePlanHash(units, destinations)") &&
+        Check(source.Contains("ComputePlanHash(") &&
+              source.Contains("RangedPlacementMode placementMode") &&
               source.Contains("Formation plan hash mismatch") &&
-              source.Contains("ProtocolVersion = 2") &&
+              source.Contains("ProtocolVersion = 3") &&
               source.Contains("private const int FieldCount = 14") &&
+              source.Contains("[Key(9)] public byte PlacementMode") &&
               source.Contains("[Key(12)] public ushort UnitCount") &&
               source.Contains("[Key(13)] public ulong PlanHash"),
-            "protocol 2 validates the reconstructed unit-to-slot plan");
+            "protocol 3 validates placement mode and reconstructed unit-to-slot plan");
         Check(source.Contains("result.Sort((left, right) => left.UnitId.CompareTo(right.UnitId))"),
             "dispatch units use canonical one-based unit ID order");
         Check(source.Contains("ExpectedVisibleTileDisplacedBytes = 17") &&
@@ -818,8 +938,10 @@ internal static class Program
         Check(source.Contains("MainViewModel.instance.IsMapEditorMode") &&
               source.Contains("if (!isMapEditor"),
             "map editor bypasses only normal ownership filtering");
-        Check(!source.Contains("GUI.Label("),
-            "preview has no HUD text label");
+        Check(!source.Contains("private void OnGUI()") &&
+              source.Contains("FindGlobalElement(\"FormationTestPreviewCanvas\")") &&
+              source.Contains("List<Ellipse>") && source.Contains("Line[] ArrowLines"),
+            "preview uses pooled Noesis shapes instead of Unity IMGUI");
         Check(source.Contains("selected.Length > FormationPreviewMarkerModel.MaximumMarkers"),
             "commands cannot exceed the complete green preview capacity");
         Check(source.Contains("markerRenderer?.ClearPreviewMarkerTiles()") &&
@@ -864,20 +986,38 @@ internal static class Program
               !source.Contains("LastPreviewDeltaX") &&
               !source.Contains("LastPreviewDeltaY"),
             "preview cache uses effective parameters instead of raw mouse tiles");
-        Check(source.Contains("Event.current.type != EventType.Repaint") &&
-              source.Contains("Camera camera = Camera.main") &&
-              !source.Contains("screen.z < 0f") &&
-              source.Contains("outlineTexture") &&
+        Check(source.Contains("CameraControls2D.instance") &&
+              source.Contains("result != null ? result : Camera.main") &&
+              source.Contains("host.ActualWidth / Screen.width") &&
+              source.Contains("Canvas.SetLeft") &&
               source.Contains("FORMATION_OVERLAY_SUMMARY"),
-            "role overlay renders only during repaint and caches the camera");
+            "Noesis role overlay uses the gameplay camera and canvas scale");
+        Check(source.Contains("FormationDirectionIndicator") &&
+              source.Contains("BuildDirectionIndicator(") &&
+              source.Contains("RenderArrow(camera, host") &&
+              source.Contains("FormationDirectionIndicator.Hidden"),
+            "custom previews publish a directional arrow while Vanilla hides it");
+        Check(troopPatch.Contains("FormationTestButtonHost") &&
+              troopPatch.Contains("FormationTestMenuHost") &&
+              troopPatch.Contains("Margin=\"480,11,0,0\"") &&
+              troopPatch.Contains("SelectFormationCommand") &&
+              troopPatch.Contains("SelectDensityCommand") &&
+              troopPatch.Contains("SelectPlacementCommand") &&
+              troopPatch.Contains("CommandParameter=\"Center\"") &&
+              CountOccurrences(troopPatch, "<Operation Type=\"Add\"") == 2 &&
+              screenPatch.Contains("FormationTestPreviewCanvas") &&
+              screenPatch.Contains("IsHitTestVisible=\"False\""),
+            "compact formation menu and click-through preview host are patched into Noesis");
         string publishPreview = ExtractMethodBody(source, "private void PublishPreview(");
         Check(!publishPreview.Contains("? destinations[index].Role") &&
               publishPreview.Contains("destinations[index].Role"),
-            "role colors are published independently of rear sorting");
+            "role colors are published independently of placement mode");
         Check(source.Contains("\"Formation\", \"Kind\", FormationKind.Block") &&
-              source.Contains("FormationDefaultsMigration.Resolve("),
-            "Block default and one-time defaults migration are wired");
-        Check(engineRun.Contains("TryClaimVanillaRelease(releaseState)") &&
+              source.Contains("FormationDefaultsMigration.Resolve(") &&
+              source.Contains("PlacementDefaultsMigration.Resolve(") &&
+              source.Contains("\"Formation\", \"RangedPlacement\""),
+            "Block default and one-time placement migration are wired");
+        Check(engineRun.Contains("TryClaimVanillaRelease(inputState)") &&
               !engineRun.Contains("!nativeRelease || !releaseObserved") &&
               source.Contains("FORMATION_RELEASE_CLAIMED") &&
               source.Contains("releaseEventSeen="),
@@ -896,11 +1036,22 @@ internal static class Program
             "moving selected units do not invalidate a drag solely by position");
         Check(source.Contains("RequireEditorField(\"stateRead\", typeof(bool))") &&
               source.Contains("RequireEditorField(\"upPending\", typeof(bool))") &&
-              source.Contains("RunOriginalWithReleaseTemporarilyDeferred") &&
-              source.Contains("ApplyMouseState(director, originalState)") &&
-              source.Contains("SuppressAuxiliaryReleaseForOneRun") &&
-              !source.Contains("suppressCommandRelease"),
-            "deferred release restores the complete managed input state machine");
+              source.Contains("RequireEditorField(\"rightDownForEngine\", typeof(bool))") &&
+              !source.Contains("ConsumeAuxiliaryInput") &&
+              !source.Contains("FORMATION_AUXILIARY_CONSUMED") &&
+              !source.Contains("args.Result = false") &&
+              !source.Contains("RunOriginalWithReleaseTemporarilyDeferred"),
+            "auxiliary mouse input is never blocked or retained");
+        Check(!source.Contains("RightClickOpenHook") &&
+              !source.Contains("StartSelectionHook") &&
+              !source.Contains("AuxiliaryMouseCapture") &&
+              !source.Contains("KeyCode.Mouse2"),
+            "obsolete auxiliary-button hooks, middle-click controls, and capture state are absent");
+        Check(source.Contains("\"FormationTestButtonHost\", formationMenu") &&
+              source.Contains("\"FormationTestMenuHost\", formationMenu") &&
+              source.Contains("main.Show_HUD_ControlGroups = false") &&
+              source.Contains("Formation menu unavailable; movement runtime remains active"),
+            "formation menu is bound, mutually exclusive, and fails independently of movement");
         string consumedRelease = ExtractMethodBody(
             source, "private int RunOriginalAfterReleaseConsumed(");
         Check(consumedRelease.Contains("clearMouseStateForEngine()") &&
@@ -912,6 +1063,10 @@ internal static class Program
         Check(source.Contains("DispatchDisposition.Accepted") &&
               source.Contains("FORMATION_UNEXPECTED_SECOND_ORDER"),
             "dispatch acceptance and duplicate-order diagnostics are explicit");
+        Check(source.Contains("TryIssuePacketVanillaFallback(") &&
+              source.Contains("reason={reason}, issued={issued}") &&
+              source.Contains("packet.PlacementMode > (byte)RangedPlacementMode.Center"),
+            "unknown protocol or placement values use the packet's safe Vanilla fallback");
         Check(source.Contains("RunOriginalOnce(mpFrameSkip, ref originalEntered)") &&
               source.Contains("if (originalEntered)") &&
               source.Contains("throw;"),
@@ -980,6 +1135,9 @@ internal static class Program
         }
         return count;
     }
+
+    private static long SquaredRadius(FormationPoint point) =>
+        (long)point.X * point.X + (long)point.Y * point.Y;
 
     private static void Check(bool condition, string message)
     {

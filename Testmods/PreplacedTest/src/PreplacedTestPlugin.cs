@@ -48,8 +48,6 @@ namespace PreplacedTest
 
         private void Start() => WarnAboutConflicts("Start");
 
-        private void Update() => persistentRuntime?.PollFrame();
-
         private void WarnAboutConflicts(string phase)
         {
             List<string> loaded = new List<string>();

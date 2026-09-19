@@ -95,7 +95,8 @@ internal static class Program
             ("selects the official AIV API when available", SelectsOfficialAivApiWhenAvailable),
             ("recognizes the known nested CoarseGridBuffer failure", RecognizesKnownNestedCoarseGridBufferFailure),
             ("rejects unrelated AIV API failures", RejectsUnrelatedAivApiFailures),
-            ("validates workaround AIV table and import boundaries", ValidatesWorkaroundAivBoundaries)
+            ("validates workaround AIV table and import boundaries", ValidatesWorkaroundAivBoundaries),
+            ("uses explicit candidate zero for human spawn", UsesExplicitCandidateZeroForHumanSpawn)
         };
 
         int failures = 0;
@@ -705,6 +706,26 @@ internal static class Program
                     text.Contains("CastlePlanner.Preview.RotateKeepOnly=", StringComparison.Ordinal),
                 "keep-only localization is missing in " + Path.GetFileName(locale));
         }
+    }
+
+    private static void UsesExplicitCandidateZeroForHumanSpawn()
+    {
+        string root = FindCastlePlannerRoot();
+        string runtime = File.ReadAllText(Path.Combine(
+            root, "src", "CastlePlannerRuntime.cs"));
+
+        Assert(runtime.Contains(
+                "uint explicitFit = testSpecificCandidate(aivState, specIndex, 0);",
+                StringComparison.Ordinal),
+            "human spawn does not test the explicitly imported candidate zero");
+        Assert(!runtime.Contains("SelectBestFitPattern", StringComparison.Ordinal) &&
+                !runtime.Contains("SelectBestFitDelegate", StringComparison.Ordinal) &&
+                !runtime.Contains("selectBestFit", StringComparison.Ordinal),
+            "human spawn still binds or invokes Vanilla best-fit candidate selection");
+        Assert(runtime.Contains("if (placementState != 1 && placementState != 2)", StringComparison.Ordinal) &&
+                runtime.Contains("if (candidateId != 0)", StringComparison.Ordinal) &&
+                runtime.Contains("explicitCandidateFitSigned", StringComparison.Ordinal),
+            "explicit candidate placement does not validate state, identity and native result diagnostics");
     }
 
     private static void PinsCastlePlannerToManifestExtenderRange()

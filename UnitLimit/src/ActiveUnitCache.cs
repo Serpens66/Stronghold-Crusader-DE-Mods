@@ -24,6 +24,7 @@ namespace UnitLimit
         private DateTime nextTransitionTypeWarningUtc;
         private int suppressedTransitionOwnerWarnings;
         private int suppressedTransitionTypeWarnings;
+        private bool workerOwnerMismatchLogged;
         private bool subscribed;
 
         public event Action<ActiveUnitChangedEventArgs> OnActiveUnitChanged;
@@ -233,7 +234,25 @@ namespace UnitLimit
             // transition source; revalidate event semantics after every Extender update.
             if (args.PlayerOwnerId != snapshot.OwnerId)
             {
-                if (TryReserveTransitionWarning(
+                if (args.Source == UnitTransitionSource.Worker)
+                {
+                    bool shouldLog;
+                    lock (syncRoot)
+                    {
+                        shouldLog = !workerOwnerMismatchLogged;
+                        workerOwnerMismatchLogged = true;
+                    }
+                    if (shouldLog)
+                    {
+                        LogWarning(
+                            "ActiveUnitCache normalized the known unreliable Worker transition owner; " +
+                            "further Worker owner mismatches are suppressed for this session: " +
+                            "unitId=" + args.UnitId +
+                            ", eventOwner=" + args.PlayerOwnerId +
+                            ", snapshotOwner=" + snapshot.OwnerId + ".");
+                    }
+                }
+                else if (TryReserveTransitionWarning(
                     ref nextTransitionOwnerWarningUtc,
                     ref suppressedTransitionOwnerWarnings,
                     out int suppressedWarnings))
@@ -679,6 +698,7 @@ namespace UnitLimit
                 suppressedTypeWarnings = suppressedTransitionTypeWarnings;
                 suppressedTransitionOwnerWarnings = 0;
                 suppressedTransitionTypeWarnings = 0;
+                workerOwnerMismatchLogged = false;
                 nextTransitionOwnerWarningUtc = default(DateTime);
                 nextTransitionTypeWarningUtc = default(DateTime);
             }

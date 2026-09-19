@@ -406,6 +406,15 @@ namespace PreplacedTest
                 : EconomyFixActivationState.None;
     }
 
+    internal static class PortalOwnerSynchronizationModel
+    {
+        public static bool IsEligible(bool isSave, bool isPreplaced, bool identityMatches,
+            bool isLiving, bool recordActive, bool recordOpen, bool buildingIdMatches,
+            bool subjectGlobalMatches, bool entryPclValid, bool exitPclValid, bool ownerValid) =>
+            !isSave && isPreplaced && identityMatches && isLiving && recordActive && recordOpen &&
+            buildingIdMatches && subjectGlobalMatches && entryPclValid && exitPclValid && ownerValid;
+    }
+
     internal enum WallOwnerEncoding
     {
         Unresolved,

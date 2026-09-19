@@ -20,6 +20,13 @@ namespace FormationTest
         Rear = 3
     }
 
+    internal enum RangedPlacementMode : byte
+    {
+        Off = 0,
+        Rear = 1,
+        Center = 2
+    }
+
     internal readonly struct FormationPoint
     {
         internal FormationPoint(int x, int y, int rank, int file)
@@ -63,7 +70,7 @@ namespace FormationTest
         private FormationPreviewKey(
             FormationKind kind,
             int density,
-            bool rearSorting,
+            RangedPlacementMode placementMode,
             int directionSector,
             int width,
             int targetX,
@@ -72,7 +79,7 @@ namespace FormationTest
         {
             Kind = kind;
             Density = density;
-            RearSorting = rearSorting;
+            PlacementMode = placementMode;
             DirectionSector = directionSector;
             Width = width;
             TargetX = targetX;
@@ -82,7 +89,7 @@ namespace FormationTest
 
         internal FormationKind Kind { get; }
         internal int Density { get; }
-        internal bool RearSorting { get; }
+        internal RangedPlacementMode PlacementMode { get; }
         internal int DirectionSector { get; }
         internal int Width { get; }
         internal int TargetX { get; }
@@ -92,7 +99,7 @@ namespace FormationTest
         internal static FormationPreviewKey Create(
             FormationKind kind,
             int density,
-            bool rearSorting,
+            RangedPlacementMode placementMode,
             int directionSector,
             int width,
             int targetX,
@@ -104,7 +111,7 @@ namespace FormationTest
             return new FormationPreviewKey(
                 normalizedKind,
                 FormationModel.NormalizeDensity(density),
-                vanilla ? false : rearSorting,
+                vanilla ? RangedPlacementMode.Off : FormationModel.NormalizePlacementMode((int)placementMode),
                 vanilla ? 0 : directionSector & 7,
                 vanilla ? 0 : Math.Max(1, width),
                 targetX,
@@ -114,7 +121,7 @@ namespace FormationTest
 
         public bool Equals(FormationPreviewKey other) =>
             Kind == other.Kind && Density == other.Density &&
-            RearSorting == other.RearSorting &&
+            PlacementMode == other.PlacementMode &&
             DirectionSector == other.DirectionSector && Width == other.Width &&
             TargetX == other.TargetX && TargetY == other.TargetY &&
             UnitCount == other.UnitCount;
@@ -128,7 +135,7 @@ namespace FormationTest
             {
                 int hash = (int)Kind;
                 hash = hash * 397 ^ Density;
-                hash = hash * 397 ^ RearSorting.GetHashCode();
+                hash = hash * 397 ^ PlacementMode.GetHashCode();
                 hash = hash * 397 ^ DirectionSector;
                 hash = hash * 397 ^ Width;
                 hash = hash * 397 ^ TargetX;
@@ -181,6 +188,45 @@ namespace FormationTest
         }
     }
 
+    internal readonly struct PlacementDefaultsMigration
+    {
+        internal const int CurrentRevision = 2;
+
+        internal PlacementDefaultsMigration(
+            RangedPlacementMode mode,
+            int revision,
+            bool changed)
+        {
+            Mode = mode;
+            Revision = revision;
+            Changed = changed;
+        }
+
+        internal RangedPlacementMode Mode { get; }
+        internal int Revision { get; }
+        internal bool Changed { get; }
+
+        internal static PlacementDefaultsMigration Resolve(
+            int currentRevision,
+            bool legacyRearSorting,
+            RangedPlacementMode currentMode)
+        {
+            if (currentRevision >= CurrentRevision)
+            {
+                return new PlacementDefaultsMigration(
+                    FormationModel.NormalizePlacementMode((int)currentMode),
+                    currentRevision,
+                    changed: false);
+            }
+            return new PlacementDefaultsMigration(
+                legacyRearSorting
+                    ? RangedPlacementMode.Rear
+                    : RangedPlacementMode.Off,
+                CurrentRevision,
+                changed: true);
+        }
+    }
+
     internal static class FormationModel
     {
         private static readonly int[] ForwardX = { 0, 1, 1, 1, 0, -1, -1, -1 };
@@ -193,6 +239,11 @@ namespace FormationTest
 
         internal static int NormalizeDensity(int value) =>
             value < 1 || value > 4 ? 2 : value;
+
+        internal static RangedPlacementMode NormalizePlacementMode(int value) =>
+            value >= (int)RangedPlacementMode.Off && value <= (int)RangedPlacementMode.Center
+                ? (RangedPlacementMode)value
+                : RangedPlacementMode.Off;
 
         internal static FormationKind Next(FormationKind kind) =>
             kind == FormationKind.Wedge
@@ -212,7 +263,31 @@ namespace FormationTest
             return sector;
         }
 
+        internal static void GetForwardVector(
+            int directionSector,
+            out int forwardX,
+            out int forwardY)
+        {
+            int sector = directionSector & 7;
+            forwardX = ForwardX[sector];
+            forwardY = ForwardY[sector];
+        }
+
         internal static int ResolveAutomaticWidth(FormationKind kind, int count)
+        {
+            if (count <= 1)
+                return Math.Max(1, count);
+            if (kind == FormationKind.Wedge)
+            {
+                double wedgeRoot = Math.Sqrt(count);
+                return Math.Min(count, Math.Max(3,
+                    MakeOdd((int)Math.Ceiling(wedgeRoot * 1.5))));
+            }
+            int rows = ResolveAutomaticRows(kind, count);
+            return Math.Max(1, Math.Min(count, (count + rows - 1) / rows));
+        }
+
+        internal static int ResolveAutomaticRows(FormationKind kind, int count)
         {
             if (count <= 1)
                 return Math.Max(1, count);
@@ -220,23 +295,48 @@ namespace FormationTest
             switch (kind)
             {
                 case FormationKind.Line:
-                    return Math.Min(count, Math.Max(2, (int)Math.Ceiling(root * 2.0)));
+                    return Math.Min(count, Math.Max(2, (int)Math.Ceiling(root / 2.0)));
                 case FormationKind.Column:
-                    return Math.Min(count, Math.Max(1, (int)Math.Ceiling(root * 0.5)));
+                    return Math.Min(count, Math.Max(2, (int)Math.Ceiling(root * 2.0)));
                 case FormationKind.Wedge:
-                    return Math.Min(count, Math.Max(3, MakeOdd((int)Math.Ceiling(root * 1.5))));
+                    return CountWedgeRows(count, ResolveAutomaticWidth(kind, count));
                 default:
                     return Math.Min(count, Math.Max(1, (int)Math.Ceiling(root)));
             }
         }
 
-        internal static int ResolveDraggedWidth(int tileDistance, int density, int count)
+        internal static int ResolveDraggedWidth(
+            FormationKind kind,
+            int tileDistance,
+            int count)
         {
             if (count <= 0)
                 return 0;
-            int width = (int)Math.Round((double)Math.Max(1, tileDistance) /
-                NormalizeDensity(density));
-            return Math.Max(1, Math.Min(count, width));
+            int automaticWidth = ResolveAutomaticWidth(kind, count);
+            int depthReduction = Math.Max(0, (Math.Max(2, tileDistance) - 2) / 2);
+            if (depthReduction == 0)
+                return automaticWidth;
+            int targetRows = Math.Max(1,
+                ResolveAutomaticRows(kind, count) - depthReduction);
+            if (kind != FormationKind.Wedge)
+                return Math.Max(1, Math.Min(count, (count + targetRows - 1) / targetRows));
+
+            for (int width = MakeOdd(automaticWidth); width <= count; width += 2)
+            {
+                if (CountWedgeRows(count, width) <= targetRows)
+                    return Math.Min(count, width);
+            }
+            return count;
+        }
+
+        internal static int ResolveActualRows(FormationKind kind, int count, int width)
+        {
+            if (count <= 0)
+                return 0;
+            int normalizedWidth = Math.Max(1, Math.Min(count, width));
+            return kind == FormationKind.Wedge
+                ? CountWedgeRows(count, normalizedWidth)
+                : (count + normalizedWidth - 1) / normalizedWidth;
         }
 
         internal static List<FormationPoint> BuildRelativeSlots(
@@ -271,14 +371,18 @@ namespace FormationTest
         internal static int[] AssignSlotsByRole(
             IReadOnlyList<FormationUnit> units,
             IReadOnlyList<FormationPoint> slots,
-            bool rearSorting)
+            RangedPlacementMode placementMode)
         {
             int count = Math.Min(units?.Count ?? 0, slots?.Count ?? 0);
             var assignment = new int[count];
             for (int index = 0; index < count; index++)
                 assignment[index] = index;
-            if (!rearSorting || count < 2)
+            RangedPlacementMode normalizedMode = NormalizePlacementMode((int)placementMode);
+            if (normalizedMode == RangedPlacementMode.Off || count < 2)
                 return assignment;
+
+            if (normalizedMode == RangedPlacementMode.Center)
+                return AssignSlotsToProtectedCenter(units, slots, count);
 
             var unitIndices = new List<int>(count);
             for (int index = 0; index < count; index++)
@@ -304,6 +408,96 @@ namespace FormationTest
             for (int order = 0; order < count; order++)
                 assignment[unitIndices[order]] = slotIndices[order];
             return assignment;
+        }
+
+        private static int[] AssignSlotsToProtectedCenter(
+            IReadOnlyList<FormationUnit> units,
+            IReadOnlyList<FormationPoint> slots,
+            int count)
+        {
+            var assignment = new int[count];
+            var unitIndices = new List<int>(count);
+            var slotIndices = new List<int>(count);
+            int maximumRank = 0;
+            for (int index = 0; index < count; index++)
+            {
+                assignment[index] = index;
+                unitIndices.Add(index);
+                slotIndices.Add(index);
+                maximumRank = Math.Max(maximumRank, slots[index].Rank);
+            }
+
+            unitIndices.Sort((left, right) =>
+            {
+                int group = CenterRoleOrder(units[left].Role).CompareTo(
+                    CenterRoleOrder(units[right].Role));
+                return group != 0 ? group : units[left].UnitId.CompareTo(units[right].UnitId);
+            });
+
+            var rowPositions = new int[count];
+            var rowCounts = new int[maximumRank + 1];
+            for (int rank = 0; rank <= maximumRank; rank++)
+            {
+                var row = new List<int>();
+                for (int index = 0; index < count; index++)
+                    if (slots[index].Rank == rank)
+                        row.Add(index);
+                row.Sort((left, right) => slots[left].File.CompareTo(slots[right].File));
+                rowCounts[rank] = row.Count;
+                for (int position = 0; position < row.Count; position++)
+                    rowPositions[row[position]] = position;
+            }
+
+            slotIndices.Sort((left, right) =>
+            {
+                int leftDepth = BoundaryDepth(slots[left], rowPositions[left],
+                    rowCounts[slots[left].Rank], maximumRank);
+                int rightDepth = BoundaryDepth(slots[right], rowPositions[right],
+                    rowCounts[slots[right].Rank], maximumRank);
+                int depth = leftDepth.CompareTo(rightDepth);
+                if (depth != 0)
+                    return depth;
+                long leftRadius = (long)slots[left].X * slots[left].X +
+                    (long)slots[left].Y * slots[left].Y;
+                long rightRadius = (long)slots[right].X * slots[right].X +
+                    (long)slots[right].Y * slots[right].Y;
+                int radius = rightRadius.CompareTo(leftRadius);
+                return radius != 0 ? radius : left.CompareTo(right);
+            });
+
+            for (int order = 0; order < count; order++)
+                assignment[unitIndices[order]] = slotIndices[order];
+            return assignment;
+        }
+
+        private static int CenterRoleOrder(FormationRole role)
+        {
+            switch (role)
+            {
+                case FormationRole.Front: return 0;
+                case FormationRole.Neutral: return 1;
+                default: return 2;
+            }
+        }
+
+        private static int BoundaryDepth(
+            FormationPoint point,
+            int rowPosition,
+            int rowCount,
+            int maximumRank) => Math.Min(
+                Math.Min(point.Rank, maximumRank - point.Rank),
+                Math.Min(rowPosition, rowCount - 1 - rowPosition));
+
+        private static int CountWedgeRows(int count, int maximumWidth)
+        {
+            int produced = 0;
+            int rank = 0;
+            while (produced < count)
+            {
+                produced += Math.Min(maximumWidth, 1 + rank * 2);
+                rank++;
+            }
+            return rank;
         }
 
         private static void BuildRanks(
@@ -406,10 +600,11 @@ namespace FormationTest
         private const ulong OffsetBasis = 14695981039346656037UL;
         private const ulong Prime = 1099511628211UL;
 
-        internal static ulong Begin(int unitCount)
+        internal static ulong Begin(int unitCount, RangedPlacementMode placementMode)
         {
             ulong hash = OffsetBasis;
             AddInt32(ref hash, unitCount);
+            AddByte(ref hash, (byte)FormationModel.NormalizePlacementMode((int)placementMode));
             return hash;
         }
 

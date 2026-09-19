@@ -659,6 +659,7 @@ namespace PreplacedTest.Tests
 
         private static void TestStaticNativeContracts()
         {
+            if (TestLeanFixRuntimeContracts()) return;
             string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
             string model = File.ReadAllText(Path.Combine("src", "DiagnosticModel.cs"));
             string assemblyInfo = File.ReadAllText(Path.Combine("src", "AssemblyInfo.cs"));
@@ -1035,6 +1036,76 @@ namespace PreplacedTest.Tests
                 source.Contains("DiagnosticCounterSummary.Compact(session.Counters.SnapshotTotal())") &&
                 source.Contains("DiagnosticCounterSummary.Compact(total)"),
                 "hot interval, final, or unattributed totals bypass compact summaries");
+        }
+
+        private static bool TestLeanFixRuntimeContracts()
+        {
+            string source = File.ReadAllText(Path.Combine("src", "PreplacedTestRuntime.cs"));
+            string plugin = File.ReadAllText(Path.Combine("src", "PreplacedTestPlugin.cs"));
+            string manifest = File.ReadAllText("info.json");
+            string assemblyInfo = File.ReadAllText(Path.Combine("src", "AssemblyInfo.cs"));
+
+            Check(!Regex.IsMatch(plugin + source,
+                    @"\b(?:Update|LateUpdate|FixedUpdate|OnDestroy|OnDisable|OnApplicationQuit)\s*\("),
+                "polling or forbidden Unity lifecycle method remains in the runtime");
+            Check(!source.Contains("System.Text.Json") && !source.Contains("Newtonsoft.Json") &&
+                !source.Contains("JavaScriptSerializer") && !source.Contains("JsonUtility"),
+                "forbidden runtime JSON dependency remains");
+
+            string[] requiredDetours =
+            {
+                "allocateHook", "economyOxenHook", "economyQuarryHook", "economyWoodHook",
+                "farmSearchHook", "resourceSearchHook", "woodSearchHook", "nearbySearchHook",
+                "economyGridUpdateHook", "legacyPlayerStateCopyHook"
+            };
+            Check(Regex.Matches(source, @"transaction\.AddDetour\(").Count == requiredDetours.Length,
+                "native detour installation is not the approved ten-hook fix set");
+            foreach (string hook in requiredDetours)
+                Check(source.Contains("transaction.AddDetour(" + hook), "required fix detour missing: " + hook);
+            Check(Regex.Matches(source, @"transaction\.AddContextHook\(").Count == 1 &&
+                source.Contains("AddContextHook(woodScoreFloorHook") &&
+                source.Contains("WoodScoreFloorHookRva = 0x58057") &&
+                source.Contains("WoodScoreFloorHookLength = 15"),
+                "scoped wood-score hook contract differs");
+            Check(source.Contains("initializeEconomyAvailabilityNative(state, session.PlayerId)") &&
+                !source.Contains("transaction.AddDetour(initializeEconomyAvailabilityHook"),
+                "0x55FE0 is not invoked through the approved direct delegate");
+
+            Check(source.Contains("CaptureMapLoadBuildingIdentities(\"first-allocate-spec.pre\")") &&
+                source.Contains("if (preAivBaselineCaptured) return;"),
+                "one-shot pre-AIV baseline is missing");
+            Check(source.Contains("dirtyBreachPlayers.Contains(playerId)") &&
+                source.Contains("TryConfirmDirtyWallBreach(playerId)") &&
+                source.Contains("baseline.LostWallTiles.Add") &&
+                source.Contains("PREPLACED_CONFIRMED_WALL_BREACH"),
+                "event-driven breach confirmation is incomplete");
+            Check(source.Contains("overlayOriginalValues") && source.Contains("overlayChangedIndices") &&
+                source.Contains("overlayScratchScope") && source.Contains("Nested economy overlays") &&
+                source.Contains("Even a partial write must leave Vanilla's shared grid byte-identical") &&
+                source.Contains("RestoreEconomyGridOverlay"),
+                "allocation-free overlay scratch/restoration guard is incomplete");
+            Check(source.Contains("PathConnectionQueryMode.ExcludeLadderClimb") &&
+                source.Contains("HasParticipatingFriendlyBaselinePortal") &&
+                source.Contains("HasConfirmedBreachEconomyAccess"),
+                "portal and breach eligibility contracts are incomplete");
+            Check(source.Contains("registers->RBX = unchecked((ulong)(uint)int.MinValue)") &&
+                source.Contains("session.EconomyFixState != EconomyFixActivationState.ActivePortal") &&
+                source.Contains("session.EconomyFixState != EconomyFixActivationState.ActiveBreach"),
+                "wood-score correction is not restricted to active overlays");
+            Check(source.Contains("PREPLACED_LEGACY_TIMER_FIX_APPLIED") &&
+                source.Contains("damageActivatedTimerOwners") &&
+                source.Contains("CaptureDestroyedTowers"),
+                "legacy ruins timer correction is incomplete");
+            Check(!source.Contains("BuildingR3EventHooks.OnBuildStructure.Observable.Subscribe") &&
+                !source.Contains("BuildingR3EventHooks.OnBuildingPlacementValidation.Observable.Subscribe"),
+                "diagnostic-only high-frequency event subscriptions remain");
+
+            Check(assemblyInfo.Contains("AssemblyVersion(\"0.1.2.0\")") &&
+                assemblyInfo.Contains("AssemblyFileVersion(\"0.1.2.0\")") &&
+                assemblyInfo.Contains("AssemblyInformationalVersion(\"0.1.2\")") &&
+                manifest.Contains("\"Version\": \"0.1.2\"") && manifest.Contains("\"NetworkMode\": 1"),
+                "version or network contract changed");
+            return true;
         }
 
         private static void TestNativeSignaturesAgainstCanonicalDll()

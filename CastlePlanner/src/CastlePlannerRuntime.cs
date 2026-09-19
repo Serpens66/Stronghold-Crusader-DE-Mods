@@ -45,9 +45,6 @@ namespace CastlePlanner
             "48 8D 81 9C 6D 00 00";
         private const string SetPlacementPattern =
             "40 53 48 83 EC 30 48 63 C2 45 8B D1 48 69 D8 98 6D 00 00";
-        private const string SelectBestFitPattern =
-            "44 88 44 24 18 89 54 24 10 55 56 41 54 41 55 41 56 41 57 " +
-            "48 83 EC 58";
         private const string TestSpecificCandidatePattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 " +
             "48 89 7C 24 20 41 56 48 83 EC 20 41 8B F0 48 63 EA " +
@@ -73,7 +70,6 @@ namespace CastlePlanner
             "44 8B CF 45 8B C4 66 89 44 24 20";
         private const int AllocateSpecRva = 0x50680;
         private const int SetPlacementRva = 0x54EC0;
-        private const int SelectBestFitRva = 0x54F60;
         private const int TestSpecificCandidateRva = 0x54DE0;
         private const int PrepareLayoutRva = 0x53D00;
         private const int ExecuteToPercentageRva = 0x55F50;
@@ -94,12 +90,6 @@ namespace CastlePlanner
             int keepX,
             int keepY,
             int orientation);
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private delegate void SelectBestFitDelegate(
-            IntPtr aivState,
-            int specIndex,
-            byte tryOtherRotations);
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate uint TestSpecificCandidateDelegate(
@@ -127,7 +117,6 @@ namespace CastlePlanner
 
         private AllocateSpecDelegate allocateSpec;
         private SetPlacementDelegate setPlacement;
-        private SelectBestFitDelegate selectBestFit;
         private TestSpecificCandidateDelegate testSpecificCandidate;
         private PrepareLayoutDelegate prepareLayout;
         private ExecuteToPercentageDelegate executeToPercentage;
@@ -742,7 +731,7 @@ namespace CastlePlanner
                 keepX,
                 keepY,
                 prepared.Rotation);
-            selectBestFit(aivState, specIndex, 0);
+            uint explicitFit = testSpecificCandidate(aivState, specIndex, 0);
 
             IntPtr spec = IntPtr.Add(aivState, checked(specIndex * AivSpecStride));
             int copiedPlayerAivValue =
@@ -752,10 +741,6 @@ namespace CastlePlanner
             int placementState = Marshal.ReadInt32(spec, SpecPlacementStateOffset);
             if (placementState != 1 && placementState != 2)
             {
-                uint explicitFit = testSpecificCandidate(aivState, specIndex, 0);
-                placementState = Marshal.ReadInt32(spec, SpecPlacementStateOffset);
-                candidateId = Marshal.ReadInt32(spec, SpecCandidateIdOffset);
-                orientation = Marshal.ReadInt32(spec, SpecOrientationOffset);
                 throw new InvalidOperationException(
                     $"Vanilla could not place the selected AIV: specIndex={specIndex}, " +
                     $"candidateId={candidateId}, orientation={orientation}, " +
@@ -1602,11 +1587,6 @@ namespace CastlePlanner
                 memory,
                 SetPlacementPattern,
                 SetPlacementRva);
-            selectBestFit = Bind<SelectBestFitDelegate>(
-                libraryHandle,
-                memory,
-                SelectBestFitPattern,
-                SelectBestFitRva);
             testSpecificCandidate = Bind<TestSpecificCandidateDelegate>(
                 libraryHandle,
                 memory,

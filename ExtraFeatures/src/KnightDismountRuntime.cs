@@ -1650,12 +1650,25 @@ namespace ExtraFeatures
         {
             try
             {
+                GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
+                int selectedCount = playerApi.GetSelectedChimpsCount();
+                if (!Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(selectedCount))
+                    return Array.Empty<int>();
+
                 SelectedUnitInfo[] selected =
-                    GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+                    playerApi.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
                 int[] unitIds = new int[selected.Length];
                 for (int index = 0; index < selected.Length; index++)
                     unitIds[index] = selected[index].UnitId;
                 return unitIds;
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return Array.Empty<int>();
+            }
+            catch (OverflowException)
+            {
+                return Array.Empty<int>();
             }
             catch (Exception ex)
             {

@@ -20,7 +20,6 @@ because its code patterns match.
 | --- | ---: | --- |
 | `AllocateSpecPattern` | `0x50680` | `AllocateSpecDelegate` |
 | `SetPlacementPattern` | `0x54EC0` | `SetPlacementDelegate` |
-| `SelectBestFitPattern` | `0x54F60` | `SelectBestFitDelegate` |
 | `TestSpecificCandidatePattern` | `0x54DE0` | `TestSpecificCandidateDelegate` |
 | `PrepareLayoutPattern` | `0x53D00` | `PrepareLayoutDelegate` |
 | `ExecuteToPercentagePattern` | `0x55F50` | `ExecuteToPercentageDelegate` |

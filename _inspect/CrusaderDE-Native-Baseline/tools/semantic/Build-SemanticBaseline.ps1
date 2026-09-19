@@ -67,6 +67,54 @@ function Normalize-GeneratedText([string]$Path) {
     [IO.File]::WriteAllText($Path, $normalized, [Text.UTF8Encoding]::new($false))
 }
 
+function Get-InputHashes([string[]]$Paths) {
+    $result = [ordered]@{}
+    foreach ($path in $Paths) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            $result[$path] = 'MISSING'
+            continue
+        }
+        if ([IO.Path]::GetFileName($path) -eq 'combined-labels.tsv') {
+            $semanticRows = foreach ($line in @(Get-Content -LiteralPath $path | Select-Object -Skip 1)) {
+                $fields = $line -split "`t", -1
+                if ($fields.Count -ge 2) { $fields[0] + "`t" + $fields[1] }
+            }
+            $semanticText = [string]::Join("`n", @($semanticRows)) + "`n"
+            $bytes = [Text.Encoding]::UTF8.GetBytes($semanticText)
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try { $result[$path] = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '') }
+            finally { $sha.Dispose() }
+        }
+        else {
+            $result[$path] = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+        }
+    }
+    $result
+}
+
+function Get-ChangedInputPaths([System.Collections.IDictionary]$Before, [System.Collections.IDictionary]$After) {
+    @($After.Keys | Where-Object { -not $Before.Contains($_) -or [string]$Before[$_] -ne [string]$After[$_] })
+}
+
+function Update-SemanticInfo([string]$Path, [string]$Commit, [string]$Tree) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Semantic information file is missing: $Path" }
+    $tag = (& git -C $seRoot describe --tags --exact-match $Commit 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or -not $tag) { $tag = $Commit.Substring(0, 12) }
+    $versionLabel = if ($tag.StartsWith('v', [StringComparison]::OrdinalIgnoreCase)) { $tag.Substring(1) } else { $tag }
+    $text = [IO.File]::ReadAllText($Path)
+    $text = [regex]::Replace(
+        $text,
+        '(?m)^- Created: (?<created>[^;\r\n]+); Script Extender knowledge refreshed for .*$',
+        "- Created: `${created}; Script Extender knowledge refreshed for $versionLabel on $(Get-Date -Format 'yyyy-MM-dd'), Europe/Berlin")
+    $text = [regex]::Replace(
+        $text,
+        '(?m)^- Script Extender commit: .*$',
+        "- Script Extender commit: ``$Commit`` (``$tag``), Git tree ``$Tree``")
+    $normalized = [regex]::Replace($text, '\r?\n', [Environment]::NewLine)
+    if (-not $normalized.EndsWith([Environment]::NewLine, [StringComparison]::Ordinal)) { $normalized += [Environment]::NewLine }
+    [IO.File]::WriteAllText($Path, $normalized, [Text.UTF8Encoding]::new($false))
+}
+
 function Initialize-Identity([string]$Path, [hashtable]$Expected) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         [IO.Directory]::CreateDirectory((Split-Path -Parent $Path)) | Out-Null
@@ -143,6 +191,7 @@ $expectedSemanticIdentity = @{ schemaVersion = 1; pathKey = $currentKey; current
 if ($Stage -eq 'UpdateForScriptExtender') {
     $identityJson = ($expectedSemanticIdentity | ConvertTo-Json -Depth 4) + [Environment]::NewLine
     [IO.File]::WriteAllText($semanticIdentityPath, $identityJson, [Text.UTF8Encoding]::new($false))
+    Update-SemanticInfo (Join-Path $semantic 'SEMANTIC_INFO.md') $seCommit $seTree
 }
 Initialize-Identity $semanticIdentityPath $expectedSemanticIdentity
 Initialize-Identity $comparisonIdentityPath @{ schemaVersion = 1; pathKey = "${oldKey}-${currentKey}"; oldNativeHash = $oldHash; currentNativeHash = $currentHash }
@@ -159,12 +208,13 @@ $runSourceKnowledge = $Stage -in @('Knowledge', 'UpdateForScriptExtender', 'All'
 $runManagedKnowledge = $Stage -in @('Knowledge', 'All')
 $runCurated = $Stage -in @('Curated', 'GhidraCurrent', 'GhidraHistorical', 'GhidraExports', 'Index', 'ValidateFast', 'Validate', 'UpdateForScriptExtender', 'All')
 $runResources = $Stage -in @('Resources', 'All')
-$nativeRelevantChanges = @()
-if ($PreviousScriptExtenderCommit) {
-    $nativeRelevantChanges = @(& git -C $seRoot diff --name-only "$PreviousScriptExtenderCommit..$seCommit" -- 'ReverseEngineering/structs/**' 'src/SHCDESE.BepInEx/Detours/**' 'src/SHCDESE.BepInEx/Interop/**')
-    Assert-LastExitCode 'Script Extender native relevance diff'
-}
-$runGhidraCurrent = $Stage -in @('GhidraCurrent', 'GhidraExports', 'All') -or ($Stage -eq 'UpdateForScriptExtender' -and (-not $PreviousScriptExtenderCommit -or $nativeRelevantChanges.Count -gt 0))
+$ghidraInputPaths = @(
+    (Join-Path $semantic 'knowledge\combined-labels.tsv'),
+    (Join-Path $semantic 'sources\pinvoke-prototypes.tsv'),
+    (Join-Path $semantic 'sources\script-extender-types-ghidra.h')
+)
+$ghidraInputsBefore = Get-InputHashes $ghidraInputPaths
+$runGhidraCurrent = $Stage -in @('GhidraCurrent', 'GhidraExports', 'All')
 $runGhidraHistorical = $Stage -in @('GhidraHistorical', 'GhidraExports', 'All')
 $runIndex = $Stage -in @('Index', 'UpdateForScriptExtender', 'All')
 
@@ -195,6 +245,27 @@ if ($runManagedKnowledge) {
 
 if ($runCurated) {
     Invoke-CuratedKnowledgeValidation
+}
+
+if ($Stage -eq 'UpdateForScriptExtender') {
+    $ghidraInputsAfter = Get-InputHashes $ghidraInputPaths
+    $changedGhidraInputs = @(Get-ChangedInputPaths $ghidraInputsBefore $ghidraInputsAfter)
+    $missingGhidraInputs = @($ghidraInputsAfter.Keys | Where-Object { $ghidraInputsAfter[$_] -eq 'MISSING' })
+    $runGhidraCurrent = -not $PreviousScriptExtenderCommit -or $changedGhidraInputs.Count -gt 0 -or $missingGhidraInputs.Count -gt 0
+    $decision = [ordered]@{
+        previousScriptExtenderCommit = $PreviousScriptExtenderCommit
+        scriptExtenderCommit = $seCommit
+        scriptExtenderTree = $seTree
+        ghidraRequired = $runGhidraCurrent
+        changedInputs = $changedGhidraInputs
+        missingInputs = $missingGhidraInputs
+        before = $ghidraInputsBefore
+        after = $ghidraInputsAfter
+    }
+    $decisionPath = Join-Path $semantic 'validation\script-extender-update.json'
+    [IO.Directory]::CreateDirectory((Split-Path -Parent $decisionPath)) | Out-Null
+    [IO.File]::WriteAllText($decisionPath, (($decision | ConvertTo-Json -Depth 6) + [Environment]::NewLine), [Text.UTF8Encoding]::new($false))
+    Write-Host "Script Extender semantic input review: Ghidra required=$runGhidraCurrent; changed inputs=$($changedGhidraInputs.Count)."
 }
 
 if ($runResources) {
@@ -259,7 +330,7 @@ if ($runIndex) {
     & $python $semanticTools xaml --xaml-root (Join-Path $semantic 'resources\xaml') --managed-methods (Join-Path $managedDirectory 'managed-methods.jsonl') --output (Join-Path $semantic 'resources\xaml-index.jsonl') --links (Join-Path $semantic 'resources\xaml-managed-links.jsonl')
     Assert-LastExitCode 'XAML index'
     Invoke-DatabaseBuild (Get-Item -LiteralPath $native).Length (Get-Item -LiteralPath $oldNative).Length (Get-Item -LiteralPath $managed).Length $native $oldNative $managed
-    & $python $databaseManifestTool create --baseline-root $baselineRoot --semantic $semantic --comparison $comparison --database $database --manifest $databaseManifest --raw-root $rawHashRoot --managed-dir $managedDirectory --current-hash $currentHash --managed-hash $managedHash --old-hash $oldHash --se-commit $seCommit --current-index $currentIndex
+    & $python $databaseManifestTool create --baseline-root $baselineRoot --semantic $semantic --comparison $comparison --database $database --manifest $databaseManifest --raw-root $rawHashRoot --managed-dir $managedDirectory --current-hash $currentHash --managed-hash $managedHash --old-hash $oldHash --se-commit $seCommit --se-tree $seTree --current-index $currentIndex
     Assert-LastExitCode 'Database manifest creation'
     Invoke-DatabaseManifest 'validate'
 }

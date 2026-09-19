@@ -95,16 +95,29 @@ namespace BugfixesAndQoL
 
         private static void TestTransientSelectionGuards()
         {
+            Check(!Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(-1) &&
+                  !Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(int.MinValue) &&
+                  !Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(10001) &&
+                  Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(0) &&
+                  Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(1) &&
+                  Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(10000),
+                "selection count policy accepts only Vanilla's 0..10000 capacity");
             string health = File.ReadAllText(Path.Combine("src", "SelectedUnitHealthFeature.cs"));
             string drag = File.ReadAllText(Path.Combine("src", "MoveFormationDragRuntime.cs"));
             string resync = File.ReadAllText(Path.Combine("src", "ResyncHostKickFeature.cs"));
             string migration = File.ReadAllText(Path.Combine("src", "AbruptHostMigrationFix.cs"));
+            string assassin = File.ReadAllText(Path.Combine("src", "AssassinClimbRuntime.cs"));
             Check(health.Contains(
                     "int unitId = state.selectedChimps[index];" + Environment.NewLine +
                     "                    if (unitId <= 0) continue;") &&
                   drag.Contains("GetSelectedChimpsCount()") &&
                   drag.Contains("catch (ArgumentOutOfRangeException)") &&
-                  drag.Contains("selection-count-transient"),
+                  drag.Contains("selection-count-transient") &&
+                  assassin.Contains("GetSelectedChimpsCount()") &&
+                  assassin.Contains("SelectedChimpsSnapshotPolicy.IsPlausibleCount(selectedCount)") &&
+                  assassin.Contains("catch (ArgumentOutOfRangeException)") &&
+                  assassin.Contains("catch (OverflowException)") &&
+                  assassin.Contains("selectionCountTransient || expectedSelectedCount > 0"),
                 "transient dead-unit and invalid selection states remain local fail-closed HUD rejections");
             Check(resync.Contains("RESYNC_STATE_CHANGED") &&
                   migration.Contains("RESYNC_CHORE_OUTGOING") &&

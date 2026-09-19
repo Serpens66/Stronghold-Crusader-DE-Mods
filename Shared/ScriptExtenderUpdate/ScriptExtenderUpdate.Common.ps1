@@ -1,11 +1,97 @@
 function Get-SEChangeCategories([string[]]$Paths) {
     [ordered]@{
-        Native = @($Paths | Where-Object { $_ -match '(^ReverseEngineering/structs/|/Detours/|/Interop/)' })
-        ManagedApi = @($Paths | Where-Object { $_ -match '^src/SHCDESE\.BepInEx/(API|EventAPI|LUA|GameGlobals)/' })
+        NativeHookCandidates = @($Paths | Where-Object { $_ -match '^src/SHCDESE\.BepInEx/(Detours|NativeHooks)/.*\.cs$' })
+        InteropContracts = @($Paths | Where-Object { $_ -match '^src/SHCDESE\.BepInEx/Interop/.*\.cs$' })
+        SemanticHeaders = @($Paths | Where-Object { $_ -match '^ReverseEngineering/structs/.*\.h$' })
+        NativeProjectArtifacts = @($Paths | Where-Object { $_ -match '^ReverseEngineering/structs/.*\.rcnet$' })
+        ManagedApi = @($Paths | Where-Object { $_ -match '^src/SHCDESE\.BepInEx/(API|EventAPI|LUA|GameGlobals|Extensions)/' })
         Assets = @($Paths | Where-Object { $_ -match '(^deps/(Override|Patches)/|Assets|XAML|\.semod)' })
         Packaging = @($Paths | Where-Object { $_ -match '(^deps/|\.csproj$|mod-types|asset-api)' })
         Documentation = @($Paths | Where-Object { $_ -match '(^docs/|README|CHANGELOG)' })
     }
+}
+
+function Get-SEBaselinePreviousCommit([string]$IdentityPath, [string]$ExtenderRoot, [string]$TargetCommit) {
+    if (-not (Test-Path -LiteralPath $IdentityPath -PathType Leaf)) {
+        throw "Semantic baseline identity is missing: $IdentityPath"
+    }
+    $identity = Get-Content -Raw -LiteralPath $IdentityPath | ConvertFrom-Json
+    $previousCommit = [string]$identity.scriptExtenderCommit
+    if (-not $previousCommit) { throw 'Semantic baseline identity has no scriptExtenderCommit.' }
+    & git -C $ExtenderRoot cat-file -e "$previousCommit^{commit}"
+    if ($LASTEXITCODE -ne 0) { throw "Semantic baseline commit is unavailable in the extender repository: $previousCommit" }
+    & git -C $ExtenderRoot merge-base --is-ancestor $previousCommit $TargetCommit
+    if ($LASTEXITCODE -ne 0) { throw "Semantic baseline commit $previousCommit is not an ancestor of target $TargetCommit." }
+    $previousCommit
+}
+
+function Get-SEBuildSelection([object[]]$Mods, [string[]]$AffectedNames, [string[]]$RequestedBuildNames) {
+    $runtimeMods = @($Mods | Where-Object Plugin)
+    $byName = @{}
+    foreach ($mod in $runtimeMods) { $byName[[string]$mod.Name] = $mod }
+    $selected = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in @($AffectedNames) + @($RequestedBuildNames)) {
+        if (-not $name) { continue }
+        if (-not $byName.ContainsKey([string]$name)) { throw "Impact review references an unknown active runtime mod: $name" }
+        $selected.Add([string]$name) | Out-Null
+    }
+
+    $changed = $true
+    while ($changed) {
+        $changed = $false
+        foreach ($name in @($selected)) {
+            foreach ($dependency in @($byName[$name].DependsOn)) {
+                if (-not $byName.ContainsKey([string]$dependency)) { throw "$name has an unknown active dependency: $dependency" }
+                if ($selected.Add([string]$dependency)) { $changed = $true }
+            }
+        }
+        foreach ($mod in $runtimeMods) {
+            if (@($mod.DependsOn | Where-Object { $selected.Contains([string]$_) }).Count -gt 0 -and $selected.Add([string]$mod.Name)) {
+                $changed = $true
+            }
+        }
+    }
+    @($runtimeMods | Where-Object { $selected.Contains([string]$_.Name) })
+}
+
+function Assert-SEImpactReview(
+    [object]$Review,
+    [string[]]$ChangedFiles,
+    [object[]]$ActiveMods,
+    [string]$BaselinePreviousCommit
+) {
+    if ($null -eq $Review) { throw 'Compatibility plan must contain ImpactReview.' }
+    if ([string]$Review.BaselinePreviousCommit -ne $BaselinePreviousCommit) {
+        throw "ImpactReview baseline commit does not match semantic provenance: expected $BaselinePreviousCommit."
+    }
+
+    $changedSet = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($path in $ChangedFiles) { $changedSet.Add([string]$path) | Out-Null }
+    $classified = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($propertyName in @('CrusaderNativeFiles','ExternalNativeFiles','NonSemanticArtifacts')) {
+        if ($null -eq $Review.PSObject.Properties[$propertyName]) { throw "ImpactReview is missing $propertyName." }
+        foreach ($path in @($Review.$propertyName | ForEach-Object { [string]$_ })) {
+            if (-not $changedSet.Contains($path)) { throw "ImpactReview classifies an unchanged file: $path" }
+            if (-not $classified.Add($path)) { throw "ImpactReview classifies a file more than once: $path" }
+        }
+    }
+    if ($null -eq $Review.PSObject.Properties['ChangedPublicContracts']) { throw 'ImpactReview is missing ChangedPublicContracts.' }
+    foreach ($contract in @($Review.ChangedPublicContracts)) {
+        if (-not [string]$contract.Path -or -not [string]$contract.Symbol -or -not [string]$contract.Compatibility) {
+            throw 'ImpactReview contains an incomplete public-contract entry.'
+        }
+        if (-not $changedSet.Contains([string]$contract.Path)) { throw "ImpactReview public contract refers to an unchanged file: $($contract.Path)" }
+    }
+
+    $affected = @($Review.AffectedMods | ForEach-Object { [string]$_ })
+    $requested = @($Review.BuildMods | ForEach-Object { [string]$_ })
+    $selection = @(Get-SEBuildSelection $ActiveMods $affected $requested)
+    $expectedNames = @($selection.Name | Sort-Object)
+    $declaredNames = @($requested | Sort-Object -Unique)
+    if (($expectedNames -join "`n") -cne ($declaredNames -join "`n")) {
+        throw "ImpactReview BuildMods must equal the affected dependency closure. Expected: $($expectedNames -join ', ')."
+    }
+    $selection
 }
 
 function Test-SEGitIdentity([string]$Repository, [string]$Commit, [string]$Tree) {

@@ -1,0 +1,18 @@
+{
+  "previousScriptExtenderCommit": "68ebf5380d711dfa7b7f84c9d4326ff81e42854c",
+  "scriptExtenderCommit": "5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33",
+  "scriptExtenderTree": "4c61d50f177fef443b0b98657d8fb16d4891c935",
+  "ghidraRequired": false,
+  "changedInputs": [],
+  "missingInputs": [],
+  "before": {
+    "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\knowledge\\combined-labels.tsv": "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+    "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\pinvoke-prototypes.tsv": "7F3B338A7F75F81FB9BAA736100672A6458093ED5573C85B3885CF0760062ECA",
+    "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\script-extender-types-ghidra.h": "67B0FE6D02BCEE541161779119558AF65FD862EFCD91BCEDF1E630CEAD2EA2D3"
+  },
+  "after": {
+    "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\knowledge\\combined-labels.tsv": "01BA4719C80B6FE911B091A7C05124B64EEECE964E09C058EF8F9805DACA546B",
+    "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\pinvoke-prototypes.tsv": "7F3B338A7F75F81FB9BAA736100672A6458093ED5573C85B3885CF0760062ECA",
+    "D:\\CDesktopLink\\Unterlagen\\Mods\\Stronghold Crusader DE\\Meine Mods\\_inspect\\CrusaderDE-Native-Baseline\\sem\\FBCB9319\\sources\\script-extender-types-ghidra.h": "67B0FE6D02BCEE541161779119558AF65FD862EFCD91BCEDF1E630CEAD2EA2D3"
+  }
+}

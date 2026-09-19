@@ -8,12 +8,14 @@ import hashlib
 import json
 import re
 import struct
+import subprocess
 from pathlib import Path
 
 
 CRLF = "\r\n"
 CONFIDENCE = {"candidate": 0, "probable": 1, "confirmed": 2}
 STRONG_KINDS = {"data-flow", "callgraph", "managed-bridge", "export-bridge", "runtime", "version", "structure"}
+HISTORICAL_SOURCE_CACHE = {}
 
 
 def read_jsonl(path: Path):
@@ -84,6 +86,34 @@ def assert_confidence(value, context):
         raise ValueError(f"Invalid confidence {value!r} in {context}")
 
 
+def evidence_source_matches(source_root: Path, source: str, expected_hash: str) -> bool:
+    source_path = source_root / Path(source)
+    if source_path.is_file() and sha256(source_path) == expected_hash.upper():
+        return True
+
+    cache_key = (str(source_root), source, expected_hash.upper())
+    if cache_key in HISTORICAL_SOURCE_CACHE:
+        return HISTORICAL_SOURCE_CACHE[cache_key]
+
+    commits = subprocess.check_output(
+        ["git", "-C", str(source_root), "log", "--format=%H", "--", source],
+        text=True,
+        encoding="utf-8",
+    ).splitlines()
+    matched = False
+    for commit in commits:
+        content = subprocess.check_output(
+            ["git", "-C", str(source_root), "show", f"{commit}:{source}"],
+        )
+        normalized_crlf = content.replace(b"\r\n", b"\n").replace(b"\r", b"\n").replace(b"\n", b"\r\n")
+        if hashlib.sha256(content).hexdigest().upper() == expected_hash.upper() or \
+                hashlib.sha256(normalized_crlf).hexdigest().upper() == expected_hash.upper():
+            matched = True
+            break
+    HISTORICAL_SOURCE_CACHE[cache_key] = matched
+    return matched
+
+
 def validate_evidence(claim, source_root: Path):
     evidence = claim.get("evidence") or []
     identifiers = set()
@@ -106,8 +136,7 @@ def validate_evidence(claim, source_root: Path):
         source = item.get("source")
         source_hash = item.get("sourceFileHash")
         if source and source_hash:
-            source_path = source_root / Path(source)
-            if not source_path.is_file() or sha256(source_path) != source_hash.upper():
+            if not evidence_source_matches(source_root, source, source_hash):
                 raise ValueError(f"Evidence source hash mismatch in {claim['claimId']}: {source}")
     semantic = claim["semanticConfidence"]
     unresolved = [item for item in claim.get("counterEvidence", []) if item.get("status", "open") == "open"]

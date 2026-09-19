@@ -137,6 +137,13 @@ def section_for_rva(sections, rva):
 
 def command_scan_aobs(args):
     patterns = read_jsonl(Path(args.patterns))
+    unresolved = [pattern for pattern in patterns if (pattern.get("targetModule") or "CrusaderDE.dll").lower() == "unknown"]
+    if unresolved:
+        raise ValueError(f"Unresolved target module for {len(unresolved)} AOB patterns; refusing to scan the wrong binary")
+    selected_patterns = [
+        pattern for pattern in patterns
+        if (pattern.get("targetModule") or "CrusaderDE.dll").lower() == args.module.lower()
+    ]
     rows = []
     label_lines = ["rva\tsymbol\tsourcePath\tsourceLine\tpattern\n"]
     for binary_spec in args.binary:
@@ -145,7 +152,7 @@ def command_scan_aobs(args):
         if sha256_file(path) != binary_hash.upper():
             raise ValueError(f"Hash mismatch for {path}")
         image, image_base, sections = load_pe_image(path)
-        for pattern in patterns:
+        for pattern in selected_patterns:
             values, masks = compile_pattern(pattern["pattern"])
             matches = find_pattern(image, values, masks)
             for rva in matches:
@@ -176,7 +183,13 @@ def command_scan_aobs(args):
     write_jsonl(Path(args.output), rows)
     write_text(Path(args.labels), "".join(label_lines))
     counts = Counter((row["binaryHash"], row["matchCount"]) for row in rows)
-    print(json.dumps({"records": len(rows), "counts": {str(key): value for key, value in counts.items()}}))
+    print(json.dumps({
+        "module": args.module,
+        "selectedPatterns": len(selected_patterns),
+        "skippedExternalPatterns": len(patterns) - len(selected_patterns),
+        "records": len(rows),
+        "counts": {str(key): value for key, value in counts.items()},
+    }))
 
 
 def command_snapshot(args):
@@ -672,7 +685,7 @@ def command_build_index(args):
         CREATE TABLE pinvokes(binary_hash TEXT, token TEXT, display TEXT, entry_point TEXT, signature TEXT, native_address TEXT, native_rva TEXT, resolved INTEGER);
         CREATE TABLE managed_calls(binary_hash TEXT, caller_token TEXT, caller TEXT, target_token TEXT, target TEXT, il_offset TEXT, opcode TEXT);
         CREATE TABLE managed_native_links(binary_hash TEXT, managed_method TEXT, pinvoke TEXT, entry_point TEXT, native_rva TEXT, distance INTEGER, path TEXT, confirmed INTEGER);
-        CREATE TABLE patterns(binary_hash TEXT, pattern TEXT, symbol TEXT, source_path TEXT, source_file_hash TEXT, source_line INTEGER, git_commit TEXT, context TEXT, resolution_kind TEXT, direct_function INTEGER, match_count INTEGER, address TEXT, rva TEXT, section TEXT, unique_match INTEGER);
+        CREATE TABLE patterns(binary_hash TEXT, target_module TEXT, pattern TEXT, symbol TEXT, source_path TEXT, source_file_hash TEXT, source_line INTEGER, git_commit TEXT, context TEXT, resolution_kind TEXT, direct_function INTEGER, match_count INTEGER, address TEXT, rva TEXT, section TEXT, unique_match INTEGER);
         CREATE TABLE data_types(binary_hash TEXT, name TEXT, kind TEXT, length INTEGER, category TEXT, declaration TEXT, source_path TEXT);
         CREATE TABLE source_types(git_commit TEXT, source_path TEXT, source_file_hash TEXT, source_line INTEGER, kind TEXT, name TEXT, declaration TEXT);
         CREATE TABLE type_fields(git_commit TEXT, source_path TEXT, source_file_hash TEXT, source_line INTEGER, type_name TEXT, field_name TEXT, field_type TEXT, ordinal INTEGER, slot_span INTEGER, offset_evidence TEXT, declaration TEXT);
@@ -693,7 +706,7 @@ def command_build_index(args):
         (old_hash, "historical-native", args.old_native, int(args.old_native_size)),
         (args.managed_hash.upper(), "current-managed", args.managed_assembly, int(args.managed_size)),
     ])
-    connection.executemany("INSERT INTO metadata VALUES(?,?)", [("schema_version", "3"), ("current_native_hash", current_hash), ("managed_hash", args.managed_hash.upper())])
+    connection.executemany("INSERT INTO metadata VALUES(?,?)", [("schema_version", "4"), ("current_native_hash", current_hash), ("managed_hash", args.managed_hash.upper())])
 
     decomp_map = {}
     decomp_path = semantic_dir / "exports" / "semantic-decompiled-functions.c"
@@ -834,7 +847,7 @@ def command_build_index(args):
     for row in read_jsonl(Path(args.managed_dir) / "managed-native-links.jsonl"):
         connection.execute("INSERT INTO managed_native_links VALUES(?,?,?,?,?,?,?,?)", (row.get("binaryHash"), row.get("managedMethod"), row.get("pinvoke"), row.get("entryPoint"), row.get("nativeRva"), row.get("distance"), json.dumps(row.get("path")), int(row.get("confirmed", False))))
     for row in read_jsonl(Path(args.patterns)):
-        connection.execute("INSERT INTO patterns VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (row.get("binaryHash"), row.get("pattern"), row.get("symbol"), row.get("sourcePath"), row.get("sourceFileHash"), row.get("sourceLine"), row.get("gitCommit"), row.get("context"), row.get("resolutionKind"), int(row.get("directFunction", False)), row.get("matchCount"), row.get("address"), row.get("rva"), row.get("section"), int(row.get("unique", False))))
+        connection.execute("INSERT INTO patterns VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (row.get("binaryHash"), row.get("targetModule") or "CrusaderDE.dll", row.get("pattern"), row.get("symbol"), row.get("sourcePath"), row.get("sourceFileHash"), row.get("sourceLine"), row.get("gitCommit"), row.get("context"), row.get("resolutionKind"), int(row.get("directFunction", False)), row.get("matchCount"), row.get("address"), row.get("rva"), row.get("section"), int(row.get("unique", False))))
     for row in read_jsonl(semantic_dir / "exports" / "data-types.jsonl"):
         connection.execute("INSERT INTO data_types VALUES(?,?,?,?,?,?,?)", (current_hash, row.get("name"), row.get("kind"), row.get("length"), row.get("category"), row.get("declaration"), row.get("sourcePath")))
     for row in read_jsonl(Path(args.source_types)):
@@ -877,7 +890,7 @@ def build_parser():
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     scan = sub.add_parser("scan-aobs")
-    scan.add_argument("--patterns", required=True); scan.add_argument("--binary", action="append", required=True)
+    scan.add_argument("--patterns", required=True); scan.add_argument("--binary", action="append", required=True); scan.add_argument("--module", default="CrusaderDE.dll")
     scan.add_argument("--current-hash", required=True); scan.add_argument("--output", required=True); scan.add_argument("--labels", required=True)
     scan.set_defaults(func=command_scan_aobs)
     snapshot = sub.add_parser("snapshot")

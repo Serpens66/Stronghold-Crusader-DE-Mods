@@ -198,6 +198,7 @@ internal static class Program
             string text = File.ReadAllText(path);
             SyntaxTree tree = CSharpSyntaxTree.ParseText(text, path: path);
             CompilationUnitSyntax syntaxRoot = tree.GetCompilationUnitRoot();
+            string targetModule = InferPatternTargetModule(syntaxRoot);
             files.Add(new { gitCommit, path = relative, sha256 = hash, bytes = bytes.Length });
 
             foreach (LiteralExpressionSyntax literal in syntaxRoot.DescendantNodes().OfType<LiteralExpressionSyntax>())
@@ -236,6 +237,7 @@ internal static class Program
                     context,
                     directFunction,
                     resolutionKind,
+                    targetModule,
                     pattern = Regex.Replace(value, @"\s+", " ").ToUpperInvariant()
                 });
             }
@@ -379,6 +381,34 @@ internal static class Program
         WriteJson(Path.Combine(outputDir, "source-summary.json"), summary);
         Console.WriteLine(JsonSerializer.Serialize(summary, JsonOptions));
         return 0;
+    }
+
+    private static string InferPatternTargetModule(CompilationUnitSyntax syntaxRoot)
+    {
+        HashSet<string> modules = new(StringComparer.OrdinalIgnoreCase);
+        bool unresolvedModule = false;
+        foreach (InvocationExpressionSyntax invocation in syntaxRoot.DescendantNodes().OfType<InvocationExpressionSyntax>())
+        {
+            if (!invocation.Expression.ToString().EndsWith("ScanRegion.FromModule", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            SeparatedSyntaxList<ArgumentSyntax> arguments = invocation.ArgumentList.Arguments;
+            if (arguments.Count < 2 || arguments[1].Expression is not LiteralExpressionSyntax literal ||
+                !literal.IsKind(SyntaxKind.StringLiteralExpression))
+            {
+                unresolvedModule = true;
+                continue;
+            }
+            modules.Add(literal.Token.ValueText);
+        }
+
+        if (unresolvedModule || modules.Count > 1)
+        {
+            return "unknown";
+        }
+        return modules.Count == 1 ? modules.Single() : "CrusaderDE.dll";
     }
 
     private static IEnumerable<(int Offset, int Token, string Opcode)> EnumerateCalls(byte[] il)

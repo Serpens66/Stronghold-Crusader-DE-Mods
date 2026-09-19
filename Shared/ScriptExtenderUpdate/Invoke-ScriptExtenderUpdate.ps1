@@ -157,15 +157,58 @@ if ($LASTEXITCODE -ne 0) { throw 'Tracked Script Extender worktree is not clean.
 if ($LASTEXITCODE -ne 0) { throw 'Script Extender index is not clean.' }
 
 [IO.Directory]::CreateDirectory($runRoot) | Out-Null
-$changedFiles = @(& git -C $extenderRoot diff --name-only "$OldTag..$NewTag")
+$semanticIdentityPath = Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\sem\FBCB9319\IDENTITY.json'
+$analysisPath = Join-Path $runRoot 'analysis.json'
+if ($Resume -and (Test-Path -LiteralPath $analysisPath -PathType Leaf)) {
+    $previousAnalysis = Get-Content -Raw -LiteralPath $analysisPath | ConvertFrom-Json
+    if ([string]$previousAnalysis.targetCommit -ne $TargetCommit -or -not [string]$previousAnalysis.baselinePreviousCommit) {
+        throw 'Resume analysis belongs to another target or has no baseline provenance.'
+    }
+    $baselinePreviousCommit = [string]$previousAnalysis.baselinePreviousCommit
+    $currentIdentity = Get-Content -Raw -LiteralPath $semanticIdentityPath | ConvertFrom-Json
+    if ([string]$currentIdentity.scriptExtenderCommit -notin @($baselinePreviousCommit, $TargetCommit)) {
+        throw 'Semantic baseline identity diverged from both the recorded predecessor and target commit.'
+    }
+}
+else {
+    $baselinePreviousCommit = Get-SEBaselinePreviousCommit $semanticIdentityPath $extenderRoot $TargetCommit
+}
+$changedFiles = @(& git -C $extenderRoot diff --name-only "$baselinePreviousCommit..$TargetCommit")
+$releaseChangedFiles = @(& git -C $extenderRoot diff --name-only "$OldTag..$NewTag")
 $categories = Get-SEChangeCategories $changedFiles
+
+$compatibilityPlan = $null
+$plannedMods = @{}
+$impactReview = $null
+$buildMods = @($activeMods)
+if ($CompatibilityPlanFile) {
+    $resolvedPlan = (Resolve-Path -LiteralPath $CompatibilityPlanFile).Path
+    $compatibilityPlan = Get-Content -Raw -LiteralPath $resolvedPlan | ConvertFrom-Json
+    if ([string]$compatibilityPlan.OldVersion -ne $OldVersion -or
+        [string]$compatibilityPlan.NewVersion -ne $NewVersion -or
+        [string]$compatibilityPlan.TargetCommit -ne $TargetCommit) {
+        throw 'Compatibility plan identity does not match the requested update.'
+    }
+    foreach ($property in $compatibilityPlan.Mods.PSObject.Properties) {
+        if (-not @($activeMods | Where-Object Name -eq $property.Name)) {
+            throw "Compatibility plan references a missing or inactive mod: $($property.Name)."
+        }
+        $plannedMods[$property.Name] = $property.Value
+    }
+    $impactReview = $compatibilityPlan.ImpactReview
+    $buildMods = @(Assert-SEImpactReview $impactReview $changedFiles $activeMods $baselinePreviousCommit)
+    Write-CrlfFile (Join-Path $runRoot 'compatibility-plan.json') (($compatibilityPlan | ConvertTo-Json -Depth 30) + [Environment]::NewLine)
+}
 $diffReport = [ordered]@{
     oldTag=$OldTag
     newTag=$NewTag
     targetCommit=$TargetCommit
     treeHash=$treeHash
+    baselinePreviousCommit=$baselinePreviousCommit
     changedFiles=$changedFiles
+    releaseChangedFiles=$releaseChangedFiles
     categories=$categories
+    selectedBuilds=@($buildMods | ForEach-Object Name)
     activeInventory=@($activeMods | ForEach-Object Name)
     inactiveInventory=@($inactiveMods | ForEach-Object { [ordered]@{ Name=$_.Name; Reason=$_.InactiveReason } })
 }
@@ -177,10 +220,13 @@ $nativePath = Join-Path $gameRoot 'Stronghold Crusader Definitive Edition_Data\P
 $current = Get-Content -Raw -LiteralPath (Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\CURRENT.json') | ConvertFrom-Json
 $nativeHash = (Get-FileHash -LiteralPath $nativePath -Algorithm SHA256).Hash
 if ($nativeHash -ne $current.currentNativeHash) { throw 'Native DLL hash changed. A full new hash-bound baseline is required; the Script-Extender-only fast path is forbidden.' }
-if (@($categories.Native).Count -gt 0) {
+if ($impactReview -and @($impactReview.CrusaderNativeFiles).Count -gt 0) {
     $hookAuditPath = Join-Path $scriptRoot "$runKey.release-hooks.json"
     $hookAudit = Assert-SEReleaseHookAudit $hookAuditPath $workspace $extenderRoot $nativePath
     Write-CrlfFile (Join-Path $runRoot 'release-hook-audit.json') (($hookAudit | ConvertTo-Json -Depth 8) + [Environment]::NewLine)
+}
+elseif (-not $impactReview -and (@($categories.NativeHookCandidates).Count -gt 0 -or @($categories.SemanticHeaders).Count -gt 0)) {
+    throw 'Native Script Extender candidates require an ImpactReview before the update can continue.'
 }
 
 if (-not $ExtenderDir) { $ExtenderDir = $installedExtender }
@@ -203,24 +249,6 @@ if (-not $SkipExtenderBuild -and -not $state.ExtenderBuilt) {
 }
 $selectedExtender = Assert-TargetExtender $ExtenderDir
 
-$compatibilityPlan = $null
-$plannedMods = @{}
-if ($CompatibilityPlanFile) {
-    $resolvedPlan = (Resolve-Path -LiteralPath $CompatibilityPlanFile).Path
-    $compatibilityPlan = Get-Content -Raw -LiteralPath $resolvedPlan | ConvertFrom-Json
-    if ([string]$compatibilityPlan.OldVersion -ne $OldVersion -or
-        [string]$compatibilityPlan.NewVersion -ne $NewVersion -or
-        [string]$compatibilityPlan.TargetCommit -ne $TargetCommit) {
-        throw 'Compatibility plan identity does not match the requested update.'
-    }
-    foreach ($property in $compatibilityPlan.Mods.PSObject.Properties) {
-        if (-not @($activeMods | Where-Object Name -eq $property.Name)) {
-            throw "Compatibility plan references a missing or inactive mod: $($property.Name)."
-        }
-        $plannedMods[$property.Name] = $property.Value
-    }
-    Write-CrlfFile (Join-Path $runRoot 'compatibility-plan.json') (($compatibilityPlan | ConvertTo-Json -Depth 30) + [Environment]::NewLine)
-}
 foreach ($mod in $activeMods) {
     $manifestPath = Join-Path $workspace $mod.Manifest
     $json = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
@@ -264,7 +292,7 @@ foreach ($mod in $activeMods) {
         }
         Write-CrlfFile $manifestPath (($json | ConvertTo-Json -Depth 30) + [Environment]::NewLine)
     }
-    if ($mod.Plugin) {
+    if ($hasPlan -and $mod.Plugin) {
         $pluginPath=Join-Path $workspace $mod.Plugin; $text=[IO.File]::ReadAllText($pluginPath)
         $updatedText = Set-PluginMetadata $text $targetModVersion $targetMinimum
         if ($updatedText -cne $text) { Write-CrlfFile $pluginPath $updatedText }
@@ -278,14 +306,14 @@ if ($PrepareOnly) {
 
 if (-not $SkipBaseline -and -not $state.BaselineValidated) {
     $baseline = Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\tools\semantic\Build-SemanticBaseline.ps1'
-    & $baseline UpdateForScriptExtender -ScriptExtenderCommit $TargetCommit -PreviousScriptExtenderCommit (& git -C $extenderRoot rev-list -n 1 $OldTag).Trim()
+    & $baseline UpdateForScriptExtender -ScriptExtenderCommit $TargetCommit -PreviousScriptExtenderCommit $baselinePreviousCommit
     if ($LASTEXITCODE -ne 0) { throw "Semantic baseline update failed with exit code $LASTEXITCODE." }
     $state.BaselineValidated=$true; Save-State $state
 }
 
 $env:SHCDESE_EXTENDER_DIR = (Resolve-Path -LiteralPath $ExtenderDir).Path
 try {
-    Invoke-SECheckpointBuild $activeMods $workspace $runRoot $state ${function:Save-State} {
+    Invoke-SECheckpointBuild $buildMods $workspace $runRoot $state ${function:Save-State} {
         Assert-TargetExtender $env:SHCDESE_EXTENDER_DIR | Out-Null
     }
 }
@@ -294,16 +322,12 @@ finally { Remove-Item Env:SHCDESE_EXTENDER_DIR -ErrorAction SilentlyContinue }
 $verification=@()
 foreach ($mod in $activeMods) {
     $source = Join-Path $workspace $mod.Package; $installed = Join-Path (Join-Path $gameRoot 'BepInEx\plugins') $mod.Install
-    if ($mod.Plugin -and -not (Test-Path -LiteralPath $installed -PathType Container)) { throw "$($mod.Name) is not installed: $installed" }
+    $selectedForBuild = @($buildMods | Where-Object Name -eq $mod.Name).Count -eq 1
+    if ($selectedForBuild -and -not (Test-Path -LiteralPath $installed -PathType Container)) { throw "$($mod.Name) is not installed: $installed" }
     $manifest=Get-Content -Raw -LiteralPath (Join-Path $workspace $mod.Manifest)|ConvertFrom-Json
     Assert-SENoGenericExtenderDependency $manifest $mod.Name
     if ($manifest.PSObject.Properties['SerpChangelog'] -and @($manifest.SerpChangelog | Where-Object { $null -eq $_ }).Count) {
         throw "$($mod.Name) contains a null changelog entry."
-    }
-    $packageManifest=Get-Content -Raw -LiteralPath (Join-Path $source 'info.json')|ConvertFrom-Json
-    Assert-SENoGenericExtenderDependency $packageManifest "$($mod.Name) package"
-    if (($manifest|ConvertTo-Json -Depth 30 -Compress) -cne ($packageManifest|ConvertTo-Json -Depth 30 -Compress)) {
-        throw "$($mod.Name) source and package manifests differ."
     }
     Assert-SEManifestExtenderRange $manifest $NewVersion $mod.Name
     $expectedMinimum = if ($plannedMods.ContainsKey($mod.Name)) { [string]$plannedMods[$mod.Name].MinimumScriptExtenderVersion } else { [string]$manifest.MinimumScriptExtenderVersion }
@@ -314,6 +338,13 @@ foreach ($mod in $activeMods) {
         if(-not $pluginVersionMatch.Success -or $pluginVersionMatch.Groups[1].Value -ne [string]$manifest.Version){throw "$($mod.Name) PluginVersion does not match info.json."}
         $dependency=Get-ScriptExtenderDependency $pluginText
         if($dependency.Version -ne [string]$manifest.MinimumScriptExtenderVersion){throw "$($mod.Name) BepInDependency does not match info.json minimum."}
+    }
+    if ($selectedForBuild) {
+        $packageManifest=Get-Content -Raw -LiteralPath (Join-Path $source 'info.json')|ConvertFrom-Json
+        Assert-SENoGenericExtenderDependency $packageManifest "$($mod.Name) package"
+        if (($manifest|ConvertTo-Json -Depth 30 -Compress) -cne ($packageManifest|ConvertTo-Json -Depth 30 -Compress)) {
+            throw "$($mod.Name) source and package manifests differ."
+        }
         $localRelative=@(Get-ChildItem -LiteralPath $source -Recurse -File|ForEach-Object{$_.FullName.Substring($source.Length+1)})
         foreach($file in Get-ChildItem -LiteralPath $source -Recurse -File) {
             $rel=$file.FullName.Substring($source.Length+1);$target=Join-Path $installed $rel
@@ -327,7 +358,7 @@ foreach ($mod in $activeMods) {
         $dll=Join-Path $source ($mod.Name+'.dll')
         if(-not(Test-Path -LiteralPath $dll -PathType Leaf)){throw "$($mod.Name) primary assembly missing: $dll"}
     }
-    $verification += [pscustomobject]@{Name=$mod.Name;Version=$manifest.Version;Minimum=$manifest.MinimumScriptExtenderVersion;Maximum=$manifest.MaximumScriptExtenderVersion;Built=[bool]$mod.Plugin}
+    $verification += [pscustomobject]@{Name=$mod.Name;Version=$manifest.Version;Minimum=$manifest.MinimumScriptExtenderVersion;Maximum=$manifest.MaximumScriptExtenderVersion;SelectedForBuild=$selectedForBuild;Built=$selectedForBuild}
 }
 Write-CrlfFile (Join-Path $runRoot 'verification.json') (($verification|ConvertTo-Json -Depth 5)+[Environment]::NewLine)
-Write-Host "PASS: Script Extender $NewVersion and $(@($activeMods|Where-Object Plugin).Count) active C# runtime mods verified; $($inactiveMods.Count) inactive inventory entries skipped. Extender SHA-256: $($selectedExtender.Hash)"
+Write-Host "PASS: Script Extender $NewVersion verified; $($buildMods.Count) affected runtime mods built, $(@($activeMods|Where-Object Plugin).Count - $buildMods.Count) unaffected runtime mods statically verified, and $($inactiveMods.Count) inactive inventory entries skipped. Extender SHA-256: $($selectedExtender.Hash)"

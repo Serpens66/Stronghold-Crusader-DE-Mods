@@ -4,13 +4,14 @@ Diese Datei ist die allgemeingültige Arbeitsgrundlage für Updates des lokalen 
 
 Der bevorzugte Einstieg ist der idempotente Gesamt-Treiber:
 
-    & 'Shared\ScriptExtenderUpdate\Invoke-ScriptExtenderUpdate.ps1' -OldVersion <alt> -NewVersion <neu> -OldTag <alter-tag> -NewTag <neuer-tag> -TargetCommit <commit> -VersionMode <Existing|Patch|Explicit>
+    & 'Shared\ScriptExtenderUpdate\Invoke-ScriptExtenderUpdate.ps1' -OldVersion <alt> -NewVersion <neu> -OldTag <alter-tag> -NewTag <neuer-tag> -TargetCommit <commit> -VersionMode Existing -CompatibilityPlanFile <plan.json>
 
-Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. `-Resume` setzt nach einem Fehler am letzten erfolgreichen Build fort. Ohne `-ExtenderDir` wird ausschließlich die installierte DLL in `BepInEx\plugins\000shcdese` verwendet; fehlt sie, muss ein alternativer Pfad ausdrücklich angegeben werden.
+Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. Der Kompatibilitätsplan enthält einen `ImpactReview`; dessen Ausgangscommit wird gegen die tatsächlich eingetragene Baseline-Provenienz geprüft. `-Resume` setzt nach einem Fehler am letzten erfolgreichen Build fort. Ohne `-ExtenderDir` wird ausschließlich die installierte DLL in `BepInEx\plugins\000shcdese` verwendet; fehlt sie, muss ein alternativer Pfad ausdrücklich angegeben werden.
 
 ## Fast Path
 
-- [ ] Alte Version/Tag: `<alt>` / `<alter-tag>`
+- [ ] Baseline-Ausgangscommit aus `IDENTITY.json`: `<vollständiger-commit>`
+- [ ] Alte Version/Tag zur Release-Dokumentation: `<alt>` / `<alter-tag>`
 - [ ] Neue Version/Tag: `<neu>` / `<neuer-tag>`
 - [ ] Zielcommit: `<vollständiger-commit>`
 - [ ] `origin/main`, `upstream/main`, lokaler Branch und Zieltag verglichen
@@ -18,12 +19,13 @@ Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. `-Resume` s
 - [ ] `CURRENT.json` und semantische Baseline stimmen mit DLL und Extender-Commit überein
 - [ ] Commitliste, Changelog und vollständiger Tag-Diff ausgewertet
 - [ ] Öffentliche C#- und Lua-Verträge sowie native/RedBird-Verträge verglichen
+- [ ] Jeden Eintrag unter `Aktuell bekannte Script-Extender-Bugs` gegen Quellstand und erforderlichenfalls neue Laufzeitartefakte geprüft
 - [ ] Betroffene Runtime-Mods: `<liste>`
 - [ ] Notwendige Codeänderungen: `<liste-oder-keine>`
 - [ ] Mindestversionen, Pluginabhängigkeiten, Modversionen und Changelogs konsistent
 - [ ] JSON, CRLF, Lifecycle und Paketgrenzen geprüft
 - [ ] Extender gebaut und installierte Version/Hashes bestätigt
-- [ ] Mods in Abhängigkeitsreihenfolge gebaut und installiert
+- [ ] Nur `AffectedMods` samt notwendiger Anbieter-/Konsumenten-Closure in Abhängigkeitsreihenfolge gebaut und installiert
 - [ ] Lokale und installierte Pakete per Dateiliste und SHA-256 identisch
 - [ ] Tests/Abnahme: `<ergebnis>`
 
@@ -41,8 +43,8 @@ Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. `-Resume` s
 
 ## 2. Änderungen zwischen den Releases analysieren
 
-1. Changelog, chronologische Commitliste, Dateistatistik und vollständigen Diff von `<alter-tag>..<neuer-tag>` erfassen.
-2. Änderungen nach Vertrag klassifizieren:
+1. Changelog, chronologische Commitliste, Dateistatistik und vollständigen Diff vom in `IDENTITY.json` eingetragenen Baseline-Ausgangscommit bis zum Zielcommit erfassen. Tags bleiben beschreibende Release-Grenzen, ersetzen aber nicht die Baseline-Provenienz.
+2. Änderungen im `ImpactReview` getrennt klassifizieren:
    - öffentliche C#-Methoden, Properties, Felder und Typen;
    - Signaturen, Rückgabewerte, Null-/Fallbackverhalten und Sichtbarkeit;
    - Enums, numerische Werte und umbenannte Member;
@@ -50,11 +52,13 @@ Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. `-Resume` s
    - Lua-Exporte, Namen, Argumente und Rückgabestrukturen;
    - Interop-Strukturen, Feldnamen, Offsets, Größen und Alignment;
    - ID-/Indexbasis und Konvertierungsgrenzen;
-   - native Detours, Context-Hooks, AOBs, Funktionsziele, Call-Sites und RedBird/PolyHook-Verträge;
+   - native Detours, Context-Hooks, AOBs, Funktionsziele, Call-Sites und RedBird/PolyHook-Verträge, getrennt nach Zielmodul;
+   - semantische Header (`.h`) als Ghidra-Eingänge; `.rcnet`-Projektdateien sind dagegen reine Reverse-Engineering-Artefakte;
    - Assets, XAML, Modformate, Konfigurationsdefaults und paketierte Abhängigkeiten.
 3. Reine Implementierungs- oder Performanceänderungen von echten Aufruferänderungen trennen.
 4. Neue Features separat dokumentieren. Sie werden nicht automatisch in vorhandene Mods eingebaut.
 5. Verdächtige Extender-Verträge im Extender-Quellcode und, falls nötig, gegen die kanonische native Analyse belegen. Den Extender-Fork nicht ändern; stattdessen einen kurzen englischen Markdown-Report für den Autor verfassen.
+6. Die versionsneutralen Einträge unter `Aktuell bekannte Script-Extender-Bugs` einzeln erneut prüfen. Laufzeitfehler benötigen einen geeigneten Laufzeittest oder aktuelle Log-/Dump-Artefakte; Versionswechsel und Changelog allein reichen nicht. Fortbestehende Fehler unverändert dokumentiert lassen und nur nach positivem Behebungsnachweis entfernen.
 
 ## 3. Workspace und Kompatibilität inventarisieren
 
@@ -71,7 +75,7 @@ Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. `-Resume` s
    - Jeden geänderten Manager getrennt prüfen: Speicherbasis, reservierte Header-/Sentinelslots, physische Kapazität, inklusive oder exklusive Obergrenze sowie die Abbildung von Spanindex zu öffentlicher ID. Ein bestätigter Unit-/Building-Vertrag darf nicht auf Projectile-, Tribe-, Pitch- oder andere Manager übertragen werden.
    - Generische `GameStructQuery`-ID-Ausgaben sind nur dann korrekt, wenn Index 0 der übergebenen Sicht die öffentliche Entity-ID 1 repräsentiert. Enthält die Sicht einen reservierten Slot 0, verschiebt `index + 1` sämtliche Query-IDs.
 5. Bei API-Änderungen den kleinsten bestätigten Ersatz verwenden. Alte Adapter oder Fallbacks nur nach ausdrücklicher Entscheidung behalten.
-6. Auch bei keinem Suchtreffer jeden Runtime-Mod gegen die neue Extender-DLL kompilieren; nur der echte Compiler deckt Signatur-, Assembly- und transitive Abhängigkeitsprobleme vollständig auf.
+6. `AffectedMods` aus der Vertragsanalyse ableiten. Der zentrale Treiber baut nur diese Mods einschließlich notwendiger Anbieter und nachgelagerter Konsumenten. Eine leere, begründete Betroffenenliste löst keine Mod-Builds aus; Manifestgrenzen, Workaround-Marker, JSON-, Lifecycle- und verbotene-JSON-Regeln werden trotzdem workspaceweit statisch geprüft.
 7. Modseitige Absicherungen gegen bestätigte Extenderfehler einheitlich mit `SHCDESE-WORKAROUND(<version>-<kurzname>)` markieren. Bei jedem späteren Extender-Update alle Marker inventarisieren und den Upstreamvertrag erneut prüfen. Einen behobenen Workaround sofort entfernen, wenn er mit dem korrigierten Vertrag kollidiert; ein ausdrücklich gegen fehlerhaften und korrigierten Vertrag getesteter, verhaltensneutraler Kompatibilitätsadapter darf bis zum nächsten geplanten Modrelease beziehungsweise bis zur Anhebung der Mindestversion bestehen bleiben. Dann den Adapter und ausschließlich dafür vorhandene Tests gemeinsam entfernen.
 
 ## 4. Native Baseline und Sicherheitsverträge
@@ -79,16 +83,18 @@ Die feste Inventur liegt in `Shared\ScriptExtenderUpdate\mods.json`. `-Resume` s
 1. Vor jeder nativen Schlussfolgerung `_inspect\CrusaderDE-Native-Baseline\CURRENT.md` und `CURRENT.json` lesen.
 2. SHA-256 der installierten kanonischen `CrusaderDE.dll` ermitteln und mit `CURRENT.json` sowie dem `binaryHash` der verwendeten Datensätze vergleichen.
 3. Bei Hashabweichung fail-closed arbeiten: alte RVAs, VAs, AOBs und semantische Aussagen nur als historische Hinweise behandeln und keine alten Adressen anwenden.
-4. Bei unverändertem Spielhash `Build-SemanticBaseline.ps1 UpdateForScriptExtender` mit Ziel- und Vorgängercommit verwenden. Der Modus erneuert Quellenwissen, AOB-Ergebnisse, Index und schnelle Validierung; aktuelles Ghidra läuft nur bei Änderungen an Detours, Interop oder nativen Headern.
-5. Die Extender-Provenienz wird über vollständigen Commit, Git-Tree-Hash und einen sauberen getrackten Arbeitsbaum gesichert. Ignorierte lokale Buildartefakte gehören nicht zur Quellenidentität.
-6. Neue oder geänderte native Hooks zusätzlich auf Funktionsgrenzen, Call-Site-vs.-Funktionsziel, Register-Liveness, Stack, Flags, ABI und vollständige Ersatzblocklänge prüfen.
+4. Bei unverändertem Spielhash `Build-SemanticBaseline.ps1 UpdateForScriptExtender` mit Ziel- und dem aus `IDENTITY.json` gelesenen Vorgängercommit verwenden. Der Modus erneuert Quellenwissen, modulgefilterte AOB-Ergebnisse, Index und schnelle Validierung. Jedes AOB trägt ein `targetModule`; Muster externer Module werden dokumentiert, aber weder gegen `CrusaderDE.dll` gescannt noch in deren Labels aufgenommen.
+5. Den Ghidra-Schritt anhand der tatsächlich erzeugten Eingänge entscheiden: konsumierte Header, P/Invoke-Prototypen und eindeutige `CrusaderDE.dll`-AOB-/Kuratorenlabels. Nur wenn mindestens einer dieser Inhalte geändert oder nicht eindeutig zugeordnet ist, aktuelles Ghidra ausführen. Bei unklarer Modulzuordnung fail-closed abbrechen beziehungsweise Ghidra ausführen, niemals das Muster stillschweigend `CrusaderDE.dll` zuordnen.
+6. Die Extender-Provenienz wird über vollständigen Commit, Git-Tree-Hash und einen sauberen getrackten Arbeitsbaum gesichert. Ignorierte lokale Buildartefakte gehören nicht zur Quellenidentität.
+7. Neue oder geänderte native Hooks zusätzlich auf Funktionsgrenzen, Call-Site-vs.-Funktionsziel, Register-Liveness, Stack, Flags, ABI und vollständige Ersatzblocklänge prüfen.
 
 ### Prüfmatrix
 
 | Änderung | Erforderliche Baseline-Schritte |
 |---|---|
 | Nur Managed API, Lua, Dokumentation oder Paketlogik; Native-Hash unverändert | Extender-Quellenwissen, AOB-Abgleich, Index, `ValidateFast` |
-| Detours, AOBs, Interop oder native Header; Native-Hash unverändert | Zusätzlich aktueller Ghidra-Import/-Export; keine historische Neuerzeugung |
+| Externe Modul-AOBs oder `.rcnet`-Projektartefakte; Native-Hash unverändert | Dokumentieren und modulfiltern; kein `CrusaderDE.dll`-Scan und allein deshalb kein Ghidra-Lauf |
+| Tatsächlich geänderte konsumierte Header, P/Invoke-Prototypen oder eindeutige `CrusaderDE.dll`-Labels; Native-Hash unverändert | Zusätzlich aktueller Ghidra-Import/-Export; keine historische Neuerzeugung |
 | `Assembly-CSharp.dll` geändert | Managed-Metadaten, Decompilation und Managed/native-Links erneuern |
 | `sharedassets1.assets` oder Extraktionswerkzeug geändert | Ressourcen/XAML erneut extrahieren und indizieren |
 | `CrusaderDE.dll` geändert | Vollständige neue hashgebundene Roh- und semantische Baseline; Fast Path gesperrt |
@@ -120,11 +126,11 @@ Historische Ghidra-Exporte werden bei reinen Extender-Updates nicht neu erzeugt.
 
 ## 7. Build, Installation und Abnahme
 
-1. Zuerst die unveränderte Extender-`build.bat` direkt aus PowerShell mit erhöhten Rechten und `/nopause` ausführen. Nicht über `cmd /c` oder `Start-Process` verschachteln.
+1. Die Extender-`build.bat` nur ausführen, wenn Quellstand, Buildausgabe und Installation nicht bereits nach Version und SHA-256 bytegleich bestätigt sind. Falls ein Build nötig ist, direkt aus PowerShell mit erhöhten Rechten und `/nopause` ausführen; nicht über `cmd /c` oder `Start-Process` verschachteln.
 2. Extender-Buildausgabe, `mod_output` und Installation auf Assembly-, Datei-, Produkt- und Manifestversion sowie relevante Dateihashes prüfen. Bei Mods ist `PluginVersion` der bestehende aktive Versionsvertrag; eine nicht gepflegte Windows-`FileVersion` darf nicht mit der Modversion verwechselt werden.
-3. Mod-Builds nacheinander in Abhängigkeitsreihenfolge ausführen. Harte Bibliotheks-/API-Anbieter vor Konsumenten bauen. Jeder Treiber übernimmt Build, Paketierung und Installation.
+3. Nur die vom `ImpactReview` ausgewählten Mod-Builds nacheinander in Abhängigkeitsreihenfolge ausführen. Die Closure umfasst benötigte Anbieter und Konsumenten betroffener Anbieter. Jeder Treiber übernimmt Build, Paketierung und Installation.
 4. Bei einem Fehler den betroffenen Treiber, Exitcode und letzten erfolgreichen Stand festhalten. Eindeutige Infrastrukturfehler sicher wiederholen; bei mehreren fachlichen Lösungswegen anhalten und den Benutzer entscheiden lassen.
-5. Nach allen Builds Quell- und Paketmanifeste erneut prüfen. Lokale und installierte Modpakete anhand relativer Dateiliste, Größe und SHA-256 vergleichen.
+5. Nach allen Builds sämtliche Quellmanifeste und Extender-Grenzen erneut statisch prüfen. Nur tatsächlich gebaute Modpakete anhand relativer Dateiliste, Größe und SHA-256 mit der Installation vergleichen.
 6. Prüfen, dass keine unerlaubten privaten Abhängigkeiten, veralteten Dateien oder abweichenden Manifestkopien im Paket verblieben sind.
 7. Git-Status und Diff auf unerwartete oder sachfremde Änderungen kontrollieren.
 8. Ein Spielstart gehört nur dann zur Abnahme, wenn er angefordert oder für den Vertrag erforderlich ist. Dann im aktuellen BepInEx-Log den neuen Startabschnitt und mod-eigene Marker nach dem Startup-Cleanup nachweisen.

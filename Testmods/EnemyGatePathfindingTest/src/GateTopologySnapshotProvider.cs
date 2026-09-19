@@ -397,7 +397,6 @@ namespace EnemyGatePathfindingTest
             GameTileManagerAPI tileApi = GameTileManagerAPI.Instance;
             Span<GameBuilding> buildings = buildingApi.GetBuildingsAsSpan();
             var gateInfosById = new Dictionary<int, GateBridgeInfo>();
-            var gateBuildingsById = new Dictionary<int, GameBuilding>();
             var combinations = new List<GateBridgeInfo>();
             var detail = includeDetail ? new StringBuilder() : null;
             TopologyRejections rejections = default;
@@ -467,13 +466,15 @@ namespace EnemyGatePathfindingTest
                 int entryPcl = doorTilesValid ? ReadPcl(tileApi, entryTile) : -1;
                 int exitPcl = doorTilesValid ? ReadPcl(tileApi, exitTile) : -1;
                 if (!TryCollectBuildingTiles(
-                        tileApi, buildingApi, gateId, gateSnapshot, out TileDiagnostic[] gateTiles))
+                        tileApi, ref gateSnapshot, out TileDiagnostic[] gateTiles,
+                        out SparseFootprintAccumulator gateFootprint))
                 {
                     RecordRejection(ref rejections, rejectionSamples,
                         TopologyDiagnosticDisposition.InvalidFootprint,
                         gateId, gateSnapshot.r_GlobalId, gateSnapshot.r_PlayerIdOwner,
                         gateSnapshot.r_CapturedByPlayerId, (int)gateSnapshot.r_AliveState,
-                        "gate uses door-tile fallback");
+                        FormatFootprintFailure(gateSnapshot, gateFootprint,
+                            entryTile, exitTile, "gate uses door-tile fallback"));
                     gateTiles = CollectDoorTiles(tileApi, entryTile, exitTile);
                 }
                 int[] relevantPcls = CollectRelevantPcls(gateTiles);
@@ -489,7 +490,6 @@ namespace EnemyGatePathfindingTest
                     0, 0, 0, 0, relevantPcls, gateTiles, unrelatedByPlayer,
                     0, doorTilesValid ? "standalone-gate" : "connection-record-coordinate-fallback");
                 gateInfosById.Add(gateId, gateInfo);
-                gateBuildingsById.Add(gateId, gateSnapshot);
                 combinations.Add(gateInfo);
                 rejections.AcceptedGatehouses++;
                 fingerprint = MixRoutePolicy(fingerprint, gateInfo);
@@ -523,12 +523,14 @@ namespace EnemyGatePathfindingTest
                     continue;
                 }
                 if (!TryCollectBuildingTiles(
-                        tileApi, buildingApi, gateId, gate, out TileDiagnostic[] gateTiles))
+                        tileApi, ref gate, out TileDiagnostic[] gateTiles,
+                        out SparseFootprintAccumulator gateFootprint))
                 {
                     RecordRejection(ref rejections, rejectionSamples,
                         TopologyDiagnosticDisposition.InvalidFootprint,
                         gateId, gate.r_GlobalId, gate.r_PlayerIdOwner,
-                        gate.r_CapturedByPlayerId, (int)gate.r_AliveState, "fallback gate");
+                        gate.r_CapturedByPlayerId, (int)gate.r_AliveState,
+                        FormatFootprintFailure(gate, gateFootprint, -1, -1, "fallback gate"));
                     continue;
                 }
                 bool[] unrelatedByPlayer = BuildUnrelatedPlayers(
@@ -540,7 +542,6 @@ namespace EnemyGatePathfindingTest
                     0, 0, 0, 0, CollectRelevantPcls(gateTiles),
                     gateTiles, unrelatedByPlayer, 0, "building-footprint-fallback");
                 gateInfosById.Add(gateId, fallbackInfo);
-                gateBuildingsById.Add(gateId, gate);
                 combinations.Add(fallbackInfo);
                 rejections.AcceptedGatehouses++;
                 rejections.FallbackGatehouses++;
@@ -575,12 +576,14 @@ namespace EnemyGatePathfindingTest
                     continue;
                 }
                 if (!TryCollectBuildingTiles(
-                        tileApi, buildingApi, buildingId, building, out TileDiagnostic[] bridgeTiles))
+                        tileApi, ref building, out TileDiagnostic[] bridgeTiles,
+                        out SparseFootprintAccumulator bridgeFootprint))
                 {
                     RecordRejection(ref rejections, rejectionSamples,
                         TopologyDiagnosticDisposition.InvalidFootprint,
                         buildingId, building.r_GlobalId, building.r_PlayerIdOwner,
-                        building.r_CapturedByPlayerId, (int)building.r_AliveState, "drawbridge");
+                        building.r_CapturedByPlayerId, (int)building.r_AliveState,
+                        FormatFootprintFailure(building, bridgeFootprint, -1, -1, "drawbridge"));
                     continue;
                 }
                 int rawGatehouseId = building.r_GatehouseId;
@@ -609,7 +612,7 @@ namespace EnemyGatePathfindingTest
                     {
                         string orphan = FormatOrphanBridge(
                             buildingId, building, rawGatehouseId, bridgeTiles,
-                            gateBuildingsById, gateInfosById);
+                            gateInfosById);
                         AppendTopologyDetail(detail, orphan);
                     }
                     continue;
@@ -734,6 +737,7 @@ namespace EnemyGatePathfindingTest
         private static ulong ComputeTopologySignature(ulong accessFingerprint)
         {
             ulong signature = accessFingerprint;
+            GameTileManagerAPI tiles = GameTileManagerAPI.Instance;
             Span<GameBuilding> buildings = GameBuildingManagerAPI.Instance.GetBuildingsAsSpan();
             for (int index = 0; index < buildings.Length; index++)
             {
@@ -741,24 +745,65 @@ namespace EnemyGatePathfindingTest
                 if (!IsGatehouseBuildingType(building.r_BuildingType) &&
                     building.r_BuildingType != eStructs.STRUCT_DRAWBRIDGE)
                     continue;
+                if (!IsDiagnosticActive(building.r_AliveState) || building.r_GlobalId == 0)
+                    continue;
                 unchecked
                 {
-                    signature = (signature ^ (uint)(index + 1)) * 1099511628211UL;
-                    signature = (signature ^ (uint)building.r_BuildingType) * 1099511628211UL;
-                    signature = (signature ^ building.r_GlobalId) * 1099511628211UL;
-                    signature = (signature ^ (uint)building.r_AliveState) * 1099511628211UL;
-                    signature = (signature ^ (uint)building.r_PlayerIdOwner) * 1099511628211UL;
-                    signature = (signature ^ (uint)building.r_CapturedByPlayerId) * 1099511628211UL;
-                    signature = (signature ^ (uint)building.r_GatehouseId) * 1099511628211UL;
-                    if (!Shared.GameBuildingFootprint.TryGetBounds(ref building, out Shared.GameBuildingFootprintBounds bounds))
-                        throw new InvalidOperationException($"Building {index + 1} has an invalid occupied-tile footprint.");
-                    signature = (signature ^ (uint)bounds.MinX) * 1099511628211UL;
-                    signature = (signature ^ (uint)bounds.MinY) * 1099511628211UL;
-                    signature = (signature ^ (uint)bounds.MaxX) * 1099511628211UL;
-                    signature = (signature ^ (uint)bounds.MaxY) * 1099511628211UL;
+                    signature = MixSignature(signature, (uint)(index + 1));
+                    signature = MixSignature(signature, (uint)building.r_BuildingType);
+                    signature = MixSignature(signature, building.r_GlobalId);
+                    signature = MixSignature(signature, (uint)building.r_PlayerIdOwner);
+                    signature = MixSignature(signature, (uint)building.r_CapturedByPlayerId);
+                    signature = MixSignature(signature, (uint)building.r_GatehouseId);
+                    signature = MixSignature(signature, building.r_TilePositionXBegin);
+                    signature = MixSignature(signature, building.r_TilePositionYBegin);
+                    signature = MixSignature(signature, building.r_OccupyTileGridSize);
+                    TryReadSparseFootprint(tiles, ref building, null,
+                        out SparseFootprintAccumulator footprint);
+                    signature = MixSignature(signature, (uint)footprint.Status);
+                    signature = MixSignature(signature, (uint)footprint.ValidTileCount);
+                    signature = MixSignature(signature, (uint)footprint.EmptyCellCount);
+                    signature = MixSignature(signature, footprint.InvalidTileId);
+                    signature = MixSignature(signature, (uint)(footprint.InvalidCellIndex + 1));
+                    signature = MixSignature(signature, (uint)footprint.Fingerprint);
+                    signature = MixSignature(signature, (uint)(footprint.Fingerprint >> 32));
+                }
+            }
+
+            var connections = GamePathingManagerAPI.Instance.GetPathConnectionArray();
+            for (int index = 0; index < connections.Length; index++)
+            {
+                PathConnectionRecord* record = connections.GetValuePointer(index);
+                if (record == null || record->r_IsActive == 0 || record->r_BuildingId <= 0)
+                    continue;
+                int buildingIndex = record->r_BuildingId - 1;
+                if (buildingIndex < 0 || buildingIndex >= buildings.Length)
+                    continue;
+                ref GameBuilding gate = ref buildings[buildingIndex];
+                if (!IsDiagnosticActive(gate.r_AliveState) || gate.r_GlobalId == 0 ||
+                    !IsGatehouseBuildingType(gate.r_BuildingType) ||
+                    gate.r_GlobalId != record->r_SubjectGlobalId)
+                    continue;
+                unchecked
+                {
+                    signature = MixSignature(signature, (uint)index);
+                    signature = MixSignature(signature, (uint)record->r_BuildingId);
+                    signature = MixSignature(signature, (uint)record->r_SubjectGlobalId);
+                    signature = MixSignature(signature, (uint)record->r_EntryTileId);
+                    signature = MixSignature(signature, (uint)record->r_ExitTileId);
+                    signature = MixSignature(signature, (uint)record->r_EntryTilePositionX);
+                    signature = MixSignature(signature, (uint)record->r_EntryTilePositionY);
+                    signature = MixSignature(signature, (uint)record->r_ExitTilePositionX);
+                    signature = MixSignature(signature, (uint)record->r_ExitTilePositionY);
+                    signature = MixSignature(signature, (uint)record->r_SubtypeOrOrientation);
                 }
             }
             return signature;
+        }
+
+        private static ulong MixSignature(ulong hash, uint value)
+        {
+            unchecked { return (hash ^ value) * 1099511628211UL; }
         }
 
         private static bool TryFindUniqueAdjacentGate(
@@ -1117,29 +1162,66 @@ namespace EnemyGatePathfindingTest
         private static int horizontalDirection(int direction) => (direction + 8) & 7;
 
         private static bool TryCollectBuildingTiles(GameTileManagerAPI tiles,
-            GameBuildingManagerAPI buildings, int bridgeId, GameBuilding bridge,
-            out TileDiagnostic[] diagnostics)
+            ref GameBuilding building, out TileDiagnostic[] diagnostics,
+            out SparseFootprintAccumulator footprintSummary)
         {
             diagnostics = Array.Empty<TileDiagnostic>();
             var footprint = new HashSet<int>();
-            uint gridSize = bridge.r_OccupyTileGridSize;
-            if (gridSize == 0 || gridSize > 6)
+            if (!TryReadSparseFootprint(tiles, ref building, footprint, out footprintSummary))
                 return false;
-            // Script Extender contract: this API reads gridSize squared
-            // inline UInt32 entries. The size is bounded before calling it.
-            int[] occupied = buildings.GetOccupiedTileIds(bridgeId);
-            int cells = Math.Min(occupied.Length, checked((int)(gridSize * gridSize)));
-            for (int index = 0; index < cells; index++)
-            {
-                int tileId = occupied[index];
-                if (tileId > 0 && tiles.IsValidTileId(tileId))
-                    footprint.Add(tileId);
-            }
-            if (footprint.Count == 0)
-                return false;
-
             diagnostics = BuildTileDiagnostics(tiles, footprint);
             return diagnostics.Length != 0;
+        }
+
+        private static bool TryReadSparseFootprint(
+            GameTileManagerAPI tiles,
+            ref GameBuilding building,
+            HashSet<int> destination,
+            out SparseFootprintAccumulator summary)
+        {
+            summary = new SparseFootprintAccumulator(building.r_OccupyTileGridSize);
+            if (summary.Status == SparseFootprintStatus.InvalidGridSize)
+                return false;
+
+            fixed (GameBuilding* buildingPointer = &building)
+            {
+                uint* occupiedTileIds = &buildingPointer->r_OccupiedTileIdsArrayBegin;
+                for (int index = 0; index < summary.CellCount; index++)
+                {
+                    uint rawTileId = occupiedTileIds[index];
+                    if (rawTileId == 0)
+                    {
+                        summary.AddCell(index, 0, false, 0, 0);
+                        continue;
+                    }
+                    bool valid = rawTileId <= int.MaxValue &&
+                        tiles.IsValidTileId(unchecked((int)rawTileId));
+                    if (!valid)
+                    {
+                        summary.AddCell(index, rawTileId, false, 0, 0);
+                        return false;
+                    }
+                    int tileId = unchecked((int)rawTileId);
+                    UnmanagedVector2<ushort> position = tiles.GetTileVectorFromId(tileId);
+                    summary.AddCell(index, rawTileId, true, position.X, position.Y);
+                    destination?.Add(tileId);
+                }
+            }
+            return summary.IsValid;
+        }
+
+        private static string FormatFootprintFailure(
+            GameBuilding building,
+            SparseFootprintAccumulator footprint,
+            int entryTile,
+            int exitTile,
+            string context)
+        {
+            return $"{context}; reason={footprint.Status}; type={(int)building.r_BuildingType}; " +
+                $"grid={building.r_OccupyTileGridSize}; start={building.r_TilePositionXBegin}/" +
+                $"{building.r_TilePositionYBegin}; valid={footprint.ValidTileCount}; " +
+                $"holes={footprint.EmptyCellCount}; invalidCell={footprint.InvalidCellIndex}; " +
+                $"invalidTile={footprint.InvalidTileId}; entry={entryTile}; exit={exitTile}";
         }
 
         private static TileDiagnostic[] CollectDoorTiles(
@@ -1252,20 +1334,24 @@ namespace EnemyGatePathfindingTest
             GameBuilding bridge,
             int rawGatehouseId,
             TileDiagnostic[] tiles,
-            Dictionary<int, GameBuilding> gates,
             Dictionary<int, GateBridgeInfo> gateInfos)
         {
-            List<KeyValuePair<int, int>> candidates = GetSpatialGateCandidates(bridge, gates);
+            List<KeyValuePair<int, int>> candidates = GetSpatialGateCandidates(tiles, gateInfos);
             var text = new StringBuilder();
-            Shared.GameBuildingFootprintBounds bridgeBounds = GetFootprintBounds(ref bridge);
+            bool hasBridgeBounds = TryGetFootprintBounds(tiles,
+                out int bridgeMinX, out int bridgeMinY, out int bridgeMaxX, out int bridgeMaxY);
             text.Append("orphanBridge#").Append(bridgeId).Append("/g").Append(bridge.r_GlobalId)
                 .Append(" state=").Append((int)bridge.r_AliveState)
                 .Append(" owner=").Append(bridge.r_PlayerIdOwner)
                 .Append(" captured=").Append(bridge.r_CapturedByPlayerId)
                 .Append(" rawGatehouseId=").Append(rawGatehouseId)
-                .Append(" bounds=").Append(bridgeBounds.MinX).Append('/')
-                .Append(bridgeBounds.MinY).Append('-')
-                .Append(bridgeBounds.MaxX).Append('/').Append(bridgeBounds.MaxY)
+                .Append(" bounds=");
+            if (hasBridgeBounds)
+                text.Append(bridgeMinX).Append('/').Append(bridgeMinY).Append('-')
+                    .Append(bridgeMaxX).Append('/').Append(bridgeMaxY);
+            else
+                text.Append("unavailable");
+            text
                 .Append(" pcls=").Append(string.Join("/", CollectRelevantPcls(tiles)))
                 .Append(" footprintAdjacentSameOwnerGates=[");
             bool firstAdjacent = true;
@@ -1285,14 +1371,14 @@ namespace EnemyGatePathfindingTest
             {
                 if (index > 0) text.Append(';');
                 int gateId = candidates[index].Key;
-                GameBuilding gate = gates[gateId];
-                Shared.GameBuildingFootprintBounds gateBounds = GetFootprintBounds(ref gate);
-                text.Append("gate#").Append(gateId).Append("/g").Append(gate.r_GlobalId)
-                    .Append("/distance=").Append(candidates[index].Value)
-                    .Append("/bounds=").Append(gateBounds.MinX).Append('/')
-                    .Append(gateBounds.MinY).Append('-')
-                    .Append(gateBounds.MaxX).Append('/')
-                    .Append(gateBounds.MaxY);
+                GateBridgeInfo gate = gateInfos[gateId];
+                text.Append("gate#").Append(gateId).Append("/g").Append(gate.GateGlobal)
+                    .Append("/distance=").Append(candidates[index].Value);
+                if (TryGetFootprintBounds(gate.Tiles,
+                        out int gateMinX, out int gateMinY, out int gateMaxX, out int gateMaxY))
+                    text.Append("/bounds=").Append(gateMinX).Append('/')
+                        .Append(gateMinY).Append('-').Append(gateMaxX).Append('/')
+                        .Append(gateMaxY);
             }
             if (candidates.Count > 8) text.Append(";+").Append(candidates.Count - 8);
             text.Append("] tiles=[");
@@ -1305,56 +1391,28 @@ namespace EnemyGatePathfindingTest
         }
 
         private static List<KeyValuePair<int, int>> GetSpatialGateCandidates(
-            GameBuilding bridge, Dictionary<int, GameBuilding> gates)
+            TileDiagnostic[] bridgeTiles, Dictionary<int, GateBridgeInfo> gates)
         {
             var candidates = new List<KeyValuePair<int, int>>(gates.Count);
-            foreach (KeyValuePair<int, GameBuilding> pair in gates)
-                candidates.Add(new KeyValuePair<int, int>(pair.Key, RectDistance(bridge, pair.Value)));
+            if (!TryGetFootprintBounds(bridgeTiles,
+                    out int bridgeMinX, out int bridgeMinY, out int bridgeMaxX, out int bridgeMaxY))
+                return candidates;
+            foreach (KeyValuePair<int, GateBridgeInfo> pair in gates)
+            {
+                if (!TryGetFootprintBounds(pair.Value.Tiles,
+                        out int gateMinX, out int gateMinY, out int gateMaxX, out int gateMaxY))
+                    continue;
+                int distance = EnemyGatePathfindingPolicy.CalculateRectangleDistance(
+                    bridgeMinX, bridgeMinY, bridgeMaxX, bridgeMaxY,
+                    gateMinX, gateMinY, gateMaxX, gateMaxY);
+                candidates.Add(new KeyValuePair<int, int>(pair.Key, distance));
+            }
             candidates.Sort((left, right) =>
             {
                 int compare = left.Value.CompareTo(right.Value);
                 return compare != 0 ? compare : left.Key.CompareTo(right.Key);
             });
             return candidates;
-        }
-
-        private static int RectDistance(GameBuilding first, GameBuilding second)
-        {
-            Shared.GameBuildingFootprintBounds firstBounds = GetFootprintBounds(ref first);
-            Shared.GameBuildingFootprintBounds secondBounds = GetFootprintBounds(ref second);
-            return EnemyGatePathfindingPolicy.CalculateRectangleDistance(
-                firstBounds.MinX, firstBounds.MinY, firstBounds.MaxX, firstBounds.MaxY,
-                secondBounds.MinX, secondBounds.MinY, secondBounds.MaxX, secondBounds.MaxY);
-        }
-
-        private static Shared.GameBuildingFootprintBounds GetFootprintBounds(ref GameBuilding building)
-        {
-            if (!Shared.GameBuildingFootprint.TryGetBounds(ref building, out Shared.GameBuildingFootprintBounds bounds))
-                throw new InvalidOperationException($"Building {building.r_GlobalId} has an invalid occupied-tile footprint.");
-            return bounds;
-        }
-
-        private static ulong MixOrphanBridge(
-            ulong hash,
-            int bridgeId,
-            GameBuilding bridge,
-            int rawGatehouseId,
-            Dictionary<int, GameBuilding> gates)
-        {
-            unchecked
-            {
-                hash = (hash ^ (uint)bridgeId) * 1099511628211UL;
-                hash = (hash ^ bridge.r_GlobalId) * 1099511628211UL;
-                hash = (hash ^ (uint)rawGatehouseId) * 1099511628211UL;
-                hash = (hash ^ bridge.r_TilePositionXBegin) * 1099511628211UL;
-                hash = (hash ^ bridge.r_TilePositionYBegin) * 1099511628211UL;
-                foreach (KeyValuePair<int, int> candidate in GetSpatialGateCandidates(bridge, gates))
-                {
-                    hash = (hash ^ (uint)candidate.Key) * 1099511628211UL;
-                    hash = (hash ^ (uint)candidate.Value) * 1099511628211UL;
-                }
-                return hash;
-            }
         }
 
         private static void AddPerimeter(GameTileManagerAPI tiles, Dictionary<int, bool> all,

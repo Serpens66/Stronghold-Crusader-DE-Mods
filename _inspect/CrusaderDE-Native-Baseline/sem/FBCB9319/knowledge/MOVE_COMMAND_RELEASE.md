@@ -60,6 +60,15 @@ active, and misinterpret later mouse presses as controls for the stale drag.
 After an observed input release, a new mouse-down must first discard any stale
 unclaimed drag before it may start or modify another gesture.
 
+An input event rejected in a Script Extender 2.8.0 Pre handler is not merely
+hidden from the current subscriber: the extender clears the corresponding
+`KeyManager.keys` entry. Code must therefore never reject an auxiliary mouse
+down and then wait for its later held or release event. In particular, doing
+so for the opposite primary button can suppress Vanilla deselection and leave
+a permanent capture state. Auxiliary primary and middle clicks must remain
+with Vanilla unless their complete down/held/up lifecycle is handled without
+depending on the cleared `KeyManager` state.
+
 ## Confidence
 
 - Managed state transitions: confirmed-static.
@@ -74,3 +83,6 @@ unclaimed drag before it may start or modify another gesture.
   managed game assembly.
 - Missing `OnKeyUp` leaving a FormationTest drag active while the native
   release was repeatedly deferred: confirmed-runtime in the 2026-09-19 log.
+- Rejected Pre events clearing the corresponding Script Extender 2.8.0
+  `KeyManager.keys` entry: confirmed-static and confirmed-runtime by the lost
+  auxiliary release and subsequent blocked Vanilla deselection.
