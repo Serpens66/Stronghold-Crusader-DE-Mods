@@ -482,7 +482,7 @@ namespace ExtendedData
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/blob/main/Guides/ExtendedData/Mod%20Compatibilty%20ExtendedData.md",
+                    FileName = "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main/Guides/ExtendedData",
                     UseShellExecute = true,
                 });
             }

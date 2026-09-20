@@ -85,7 +85,7 @@ namespace UnitLimit
             if (!activeUnitLimits.TryGetValue(unitType, out int limit) || limit < 0)
                 return;
 
-            int count = CountAliveUnits(playerId, unitType) + GetPendingRecruitmentCount(playerId, unitType);
+            int count = GetEffectiveUnitCount(playerId, unitType);
             if (count >= limit)
                 button.IsEnabled = false;
         }

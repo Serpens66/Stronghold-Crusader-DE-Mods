@@ -32,6 +32,7 @@ namespace ExtraFeatures
         private readonly Dictionary<string, ResourceEventCountGuard> marketBuyResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly Dictionary<string, ResourceEventCountGuard> refundResourceGuards = new Dictionary<string, ResourceEventCountGuard>();
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
+        private readonly UnitLimitBridge unitLimitBridge;
         private readonly Shared.TroopActionHudCoordinator troopActionHudCoordinator;
         private readonly KnightDismountRuntime knightDismountRuntime;
         private readonly ChurchPriestCountRuntime churchPriestCountRuntime;
@@ -67,8 +68,10 @@ namespace ExtraFeatures
             Shared.GameplayModActivationGate.Initialize(log, ExtraFeaturesPlugin.PluginGuid, ExtraFeaturesPlugin.PluginName, () => settings.EnableMod);
             Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
             multiplayerFeatureGate = new MultiplayerFeatureGate(log);
+            unitLimitBridge = new UnitLimitBridge(log);
             troopActionHudCoordinator = new Shared.TroopActionHudCoordinator(log);
-            knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate);
+            knightDismountRuntime = new KnightDismountRuntime(log, settings, multiplayerFeatureGate, unitLimitBridge);
+            unitLimitBridge.RegisterStateChanged(knightDismountRuntime.OnUnitLimitStateChanged);
             troopActionHudCoordinator.Register(knightDismountRuntime.RefreshButtonVisibility);
             churchPriestCountRuntime = new ChurchPriestCountRuntime(log, settings);
             gatehouseAutomationRuntime = new GatehouseAutomationRuntime(log, settings, multiplayerFeatureGate);

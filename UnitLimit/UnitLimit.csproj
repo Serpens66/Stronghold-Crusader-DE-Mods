@@ -125,12 +125,14 @@
     <Compile Include="src\RecruitmentAvailabilityUiHook.cs" />
     <Compile Include="src\SiegeBuildHoverHook.cs" />
     <Compile Include="src\UnitLimitRuntime.cs" />
+    <Compile Include="src\UnitLimitRuntime.Integration.cs" />
     <Compile Include="src\UnitLimitRuntime.RecruitmentAvailability.cs" />
     <Compile Include="src\UnitLimitRuntime.Settings.cs" />
     <Compile Include="src\UnitLimitRuntime.Tooltips.cs" />
     <Compile Include="src\UnitLimitRuntime.Localization.cs" />
     <Compile Include="src\UnitLimitRuntime.Helpers.cs" />
     <Compile Include="src\UnitLimitPlugin.cs" />
+    <Compile Include="src\UnitLimitIntegration.cs" />
     <Compile Include="src\UnitLimitLobbyViewModel.cs" />
     <Compile Include="src\UnitLimitRuntime.UnitLimits.cs" />
     <Compile Include="src\UnitLimitRuntime.Notifications.cs" />

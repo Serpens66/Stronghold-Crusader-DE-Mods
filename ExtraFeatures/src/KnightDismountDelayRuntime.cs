@@ -248,6 +248,9 @@ namespace ExtraFeatures
                 : null;
             int startLimit = action == MountAction ? Math.Min(affordableCount, allocations.Count) : affordableCount;
             int started = 0;
+            eChimps targetType = action == MountAction
+                ? eChimps.CHIMP_TYPE_KNIGHT
+                : eChimps.CHIMP_TYPE_SWORDSMAN;
 
             for (int index = 0; index < ordered.Count && started < startLimit; index++)
             {
@@ -264,36 +267,75 @@ namespace ExtraFeatures
                     continue;
                 }
 
-                if (goldCost > 0 && !GamePlayerManagerAPI.Instance.HasGoodsAmount(playerId, eGoods.STORED_GOLD, goldCost))
-                    break;
-
-                if (goldCost > 0)
-                    GamePlayerManagerAPI.Instance.RemoveGood(playerId, eGoods.STORED_GOLD, goldCost);
-
-                HorseAllocation allocation = default;
-                if (action == MountAction)
+                if (!unitLimitBridge.TryReserveOne(
+                        playerId,
+                        targetType,
+                        out long limitReservationId,
+                        out _,
+                        out _))
                 {
-                    allocation = allocations[started];
-                    if (!TryConsumeStableHorse(allocation, currentUnitId, snapshot.GlobalId, reason + "-reserve"))
-                    {
-                        RefundGold(playerId, goldCost, reason + "-reservation-failed");
-                        continue;
-                    }
+                    break;
                 }
 
-                snapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
-                pendingTransformations.Add(snapshot.GlobalId, new PendingKnightTransformation
+                HorseAllocation allocation = default;
+                bool horseReserved = false;
+                bool pendingAdded = false;
+                bool goldRemoved = false;
+
+                try
                 {
-                    Snapshot = snapshot,
-                    Action = action,
-                    PlayerId = playerId,
-                    StartTime = GameTimeManagerAPI.Instance.CaptureTimeStamp(),
-                    DelayMilliseconds = delaySeconds * 1000,
-                    PaidGold = goldCost,
-                    HasHorseAllocation = action == MountAction,
-                    Allocation = allocation
-                });
-                started++;
+                    if (goldCost > 0 &&
+                        !GamePlayerManagerAPI.Instance.HasGoodsAmount(playerId, eGoods.STORED_GOLD, goldCost))
+                    {
+                        break;
+                    }
+
+                    if (goldCost > 0)
+                    {
+                        GamePlayerManagerAPI.Instance.RemoveGood(playerId, eGoods.STORED_GOLD, goldCost);
+                        goldRemoved = true;
+                    }
+
+                    if (action == MountAction)
+                    {
+                        allocation = allocations[started];
+                        if (!TryConsumeStableHorse(allocation, currentUnitId, snapshot.GlobalId, reason + "-reserve"))
+                            continue;
+
+                        horseReserved = true;
+                    }
+
+                    snapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
+                    pendingTransformations.Add(snapshot.GlobalId, new PendingKnightTransformation
+                    {
+                        Snapshot = snapshot,
+                        Action = action,
+                        PlayerId = playerId,
+                        StartTime = GameTimeManagerAPI.Instance.CaptureTimeStamp(),
+                        DelayMilliseconds = delaySeconds * 1000,
+                        PaidGold = goldCost,
+                        LimitReservationId = limitReservationId,
+                        HasHorseAllocation = action == MountAction,
+                        Allocation = allocation
+                    });
+                    pendingAdded = true;
+                    started++;
+                }
+                catch (Exception ex)
+                {
+                    LogError($"Knight transformation could not create its pending state and was rolled back: reason={reason}, globalId={snapshot.GlobalId}, error={ex.GetBaseException().Message}");
+                }
+                finally
+                {
+                    if (!pendingAdded)
+                    {
+                        unitLimitBridge.ReleaseReservation(limitReservationId);
+                        if (horseReserved)
+                            ReleaseExactHorseLink(allocation, currentUnitId, snapshot.GlobalId, reason + "-pending-add-rollback");
+                        if (goldRemoved)
+                            RefundGold(playerId, goldCost, reason + "-pending-add-rollback");
+                    }
+                }
             }
 
             if (localAction && started > 0)
@@ -377,7 +419,7 @@ namespace ExtraFeatures
                 readyCount++;
                 bool completed = pending.Action == MountAction
                     ? CompleteReservedMount(pending, "delay-complete")
-                    : ApplyDismount(pending.Snapshot, "delay-complete");
+                    : ApplyDismount(pending.Snapshot, "delay-complete", pending.LimitReservationId);
                 if (completed)
                 {
                     FinishPending(pending);
@@ -408,7 +450,12 @@ namespace ExtraFeatures
             }
 
             UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(swordsmanUnitId, swordsman);
-            int knightUnitId = CreateUnitFromSnapshot(currentSnapshot, eChimps.CHIMP_TYPE_KNIGHT, "mount", reason);
+            int knightUnitId = CreateUnitFromSnapshot(
+                currentSnapshot,
+                eChimps.CHIMP_TYPE_KNIGHT,
+                "mount",
+                reason,
+                pending.LimitReservationId);
             if (knightUnitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(knightUnitId, out GameUnit* knight))
             {
                 if (knightUnitId > 0)
@@ -615,6 +662,7 @@ namespace ExtraFeatures
         {
             pendingTransformations.Remove(pending.Snapshot.GlobalId);
             RemoveProgressVisual(pending.Snapshot.GlobalId);
+            unitLimitBridge.ReleaseReservation(pending.LimitReservationId);
         }
 
         private void CancelPending(
@@ -625,6 +673,7 @@ namespace ExtraFeatures
         {
             pendingTransformations.Remove(pending.Snapshot.GlobalId);
             RemoveProgressVisual(pending.Snapshot.GlobalId);
+            unitLimitBridge.ReleaseReservation(pending.LimitReservationId);
 
             if (releaseReservedHorse && pending.HasHorseAllocation)
             {
@@ -928,6 +977,7 @@ namespace ExtraFeatures
             public GameTimeStamp StartTime;
             public int DelayMilliseconds;
             public int PaidGold;
+            public long LimitReservationId;
             public bool HasHorseAllocation;
             public HorseAllocation Allocation;
 

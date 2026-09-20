@@ -66,8 +66,7 @@ namespace UnitLimit
             }
 
             RemoveExpiredPendingRecruitments();
-            int count = CountAliveUnits(playerId, currentTooltipUnitType) +
-                GetPendingRecruitmentCount(playerId, currentTooltipUnitType);
+            int count = GetEffectiveUnitCount(playerId, currentTooltipUnitType);
             UnitLimitTooltip.Show(count, limit);
         }
 

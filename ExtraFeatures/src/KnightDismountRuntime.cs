@@ -24,6 +24,7 @@ namespace ExtraFeatures
         private Visibility dismountButtonVisibility = Visibility.Hidden;
         private Visibility mountButtonVisibility = Visibility.Hidden;
         private bool mountButtonEnabled;
+        private bool dismountButtonEnabled;
 
         public KnightDismountButtonViewModel(
             Action dismount,
@@ -106,20 +107,35 @@ namespace ExtraFeatures
             }
         }
 
+        public bool DismountButtonEnabled
+        {
+            get => dismountButtonEnabled;
+            private set
+            {
+                if (dismountButtonEnabled == value)
+                    return;
+
+                dismountButtonEnabled = value;
+                OnPropertyChanged(nameof(DismountButtonEnabled));
+            }
+        }
+
         public void Hide()
         {
             SetWantsVisibility(false);
             DismountButtonVisibility = Visibility.Hidden;
             MountButtonVisibility = Visibility.Hidden;
             MountButtonEnabled = false;
+            DismountButtonEnabled = false;
         }
 
-        public void ShowDismount()
+        public void ShowDismount(bool enabled)
         {
             SetWantsVisibility(true);
             DismountButtonVisibility = Visibility.Visible;
             MountButtonVisibility = Visibility.Hidden;
             MountButtonEnabled = false;
+            DismountButtonEnabled = enabled;
         }
 
         public void ShowMount(bool enabled)
@@ -128,6 +144,7 @@ namespace ExtraFeatures
             DismountButtonVisibility = Visibility.Hidden;
             MountButtonVisibility = Visibility.Visible;
             MountButtonEnabled = enabled;
+            DismountButtonEnabled = false;
         }
 
         private void SetWantsVisibility(bool value)
@@ -154,6 +171,7 @@ namespace ExtraFeatures
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel settings;
         private readonly MultiplayerFeatureGate multiplayerFeatureGate;
+        private readonly UnitLimitBridge unitLimitBridge;
         private readonly KnightDismountButtonViewModel buttonViewModel;
         private Button hookedDismountButton;
         private Button hookedMountButton;
@@ -175,11 +193,13 @@ namespace ExtraFeatures
         public KnightDismountRuntime(
             ManualLogSource log,
             ExtraFeaturesViewModel settings,
-            MultiplayerFeatureGate multiplayerFeatureGate)
+            MultiplayerFeatureGate multiplayerFeatureGate,
+            UnitLimitBridge unitLimitBridge)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             this.multiplayerFeatureGate = multiplayerFeatureGate ?? throw new ArgumentNullException(nameof(multiplayerFeatureGate));
+            this.unitLimitBridge = unitLimitBridge ?? throw new ArgumentNullException(nameof(unitLimitBridge));
             buttonViewModel = new KnightDismountButtonViewModel(
                 OnDismountCommand,
                 OnMountCommand,
@@ -266,13 +286,13 @@ namespace ExtraFeatures
                 int localPlayerId = GetControlledPlayerId();
                 if (HasSelectedOwnKnight(localPlayerId))
                 {
-                    buttonViewModel.ShowDismount();
+                    buttonViewModel.ShowDismount(HasUnitLimitCapacity(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN));
                     return;
                 }
 
                 if (HasSelectedOwnSwordsman(localPlayerId))
                 {
-                    buttonViewModel.ShowMount(enabled: true);
+                    buttonViewModel.ShowMount(HasUnitLimitCapacity(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT));
                     return;
                 }
 
@@ -365,7 +385,8 @@ namespace ExtraFeatures
             ShowTooltip(
                 SerpLocalization.Get(SerpLocalization.KnightDismountTooltip),
                 SerpLocalization.Get(SerpLocalization.KnightDismountTooltipBody),
-                "dismount");
+                "dismount",
+                eChimps.CHIMP_TYPE_SWORDSMAN);
         }
 
         private void ShowMountTooltip()
@@ -373,10 +394,11 @@ namespace ExtraFeatures
             ShowTooltip(
                 SerpLocalization.Get(SerpLocalization.KnightMountTooltip),
                 SerpLocalization.Get(SerpLocalization.KnightMountTooltipBody),
-                "mount");
+                "mount",
+                eChimps.CHIMP_TYPE_KNIGHT);
         }
 
-        private void ShowTooltip(string title, string body, string label)
+        private void ShowTooltip(string title, string body, string label, eChimps targetUnitType)
         {
             try
             {
@@ -387,6 +409,14 @@ namespace ExtraFeatures
 
                 mainViewModel.TroopsPanelRollover = title;
                 mainViewModel.TroopsPanelRollover_AmountReq1 = string.Empty;
+                int playerId = GetControlledPlayerId();
+                if (unitLimitBridge.TryGetCapacity(playerId, targetUnitType, out int count, out int limit))
+                {
+                    body += Environment.NewLine +
+                        SerpLocalization.Get(SerpLocalization.Limit) + ": " +
+                        count.ToString(CultureInfo.CurrentCulture) + "/" +
+                        limit.ToString(CultureInfo.CurrentCulture);
+                }
                 mainViewModel.TroopsPanelRollover_AmountGot1 = body;
                 mainViewModel.TroopsPanelRollover_GoodsImage1 = null;
                 UpdateTooltipMetadata(troopPanel, mainViewModel);
@@ -538,6 +568,17 @@ namespace ExtraFeatures
         private bool HasSelectedOwnSwordsman(int localPlayerId)
         {
             return HasSelectedOwnUnit(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN);
+        }
+
+        private bool HasUnitLimitCapacity(int playerId, eChimps targetUnitType)
+        {
+            return !unitLimitBridge.TryGetCapacity(playerId, targetUnitType, out int count, out int limit) ||
+                count < limit;
+        }
+
+        internal void OnUnitLimitStateChanged()
+        {
+            Shared.UnityMainThreadDispatch.TryRunInlineOrEnqueue(RefreshButtonVisibility);
         }
 
         private bool HasSelectedOwnUnit(int localPlayerId, eChimps unitType)
@@ -1004,7 +1045,7 @@ namespace ExtraFeatures
             }
         }
 
-        private bool ApplyDismount(UnitTransformSnapshot snapshot, string reason)
+        private bool ApplyDismount(UnitTransformSnapshot snapshot, string reason, long limitReservationId = 0)
         {
             if (!TryResolveAliveUnitByGlobalId(snapshot, eChimps.CHIMP_TYPE_KNIGHT, out int currentUnitId))
                 return false;
@@ -1013,7 +1054,12 @@ namespace ExtraFeatures
                 return false;
 
             UnitTransformSnapshot currentSnapshot = CreateSnapshotFromUnit(currentUnitId, currentUnit);
-            int swordsmanUnitId = CreateUnitFromSnapshot(currentSnapshot, eChimps.CHIMP_TYPE_SWORDSMAN, "dismount", reason);
+            int swordsmanUnitId = CreateUnitFromSnapshot(
+                currentSnapshot,
+                eChimps.CHIMP_TYPE_SWORDSMAN,
+                "dismount",
+                reason,
+                limitReservationId);
             if (swordsmanUnitId <= 0)
                 return false;
 
@@ -1141,15 +1187,37 @@ namespace ExtraFeatures
             return true;
         }
 
-        private int CreateUnitFromSnapshot(UnitTransformSnapshot snapshot, eChimps unitType, string label, string reason)
+        private int CreateUnitFromSnapshot(
+            UnitTransformSnapshot snapshot,
+            eChimps unitType,
+            string label,
+            string reason,
+            long limitReservationId = 0)
         {
-            long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(
-                playerOwnerId: snapshot.OwnerPlayerId,
-                playerColorId: snapshot.ColorPlayerId,
-                localTileX: snapshot.TileX,
-                localTileY: snapshot.TileY,
-                heightElevation: snapshot.Height,
-                chimp: unitType);
+            if (!unitLimitBridge.ArmReservation(limitReservationId))
+            {
+                LogDebug(
+                    $"Knight {label} stopped because its UnitLimit reservation is no longer valid: " +
+                    $"reason={reason}, originalUnitId={snapshot.UnitId}, globalId={snapshot.GlobalId}, " +
+                    $"reservationId={limitReservationId}.");
+                return -1;
+            }
+
+            long createdId;
+            try
+            {
+                createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(
+                    playerOwnerId: snapshot.OwnerPlayerId,
+                    playerColorId: snapshot.ColorPlayerId,
+                    localTileX: snapshot.TileX,
+                    localTileY: snapshot.TileY,
+                    heightElevation: snapshot.Height,
+                    chimp: unitType);
+            }
+            finally
+            {
+                unitLimitBridge.ReleaseReservation(limitReservationId);
+            }
 
             if (createdId <= 0 || createdId > int.MaxValue)
             {

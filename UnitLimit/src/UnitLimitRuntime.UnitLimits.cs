@@ -126,7 +126,7 @@ namespace UnitLimit
             RemoveExpiredPendingRecruitments();
             int liveCount = CountAliveUnits(playerId, unitType);
             int pendingCount = GetPendingRecruitmentCount(playerId, unitType);
-            int effectiveCount = liveCount + pendingCount;
+            int effectiveCount = GetEffectiveUnitCount(playerId, unitType);
             int remaining = limit - effectiveCount;
             int vanillaRequestedAmount = amount;
             if (remaining > 0 &&
@@ -366,6 +366,7 @@ namespace UnitLimit
 
             DateTime expiration = DateTime.UtcNow + PendingRecruitmentLifetime;
             pending.Add(expiration, amount);
+            UnitLimitIntegration.NotifyStateChanged();
         }
 
         private bool ConsumePendingRecruitment(int playerId, eChimps unitType)
@@ -389,11 +390,13 @@ namespace UnitLimit
 
             DateTime now = DateTime.UtcNow;
             List<PendingRecruitmentKey> emptyKeys = null;
+            bool changed = false;
             foreach (KeyValuePair<PendingRecruitmentKey, PendingRecruitmentQueue> entry in pendingRecruitments)
             {
                 int expired = entry.Value.RemoveExpired(now);
                 if (expired > 0)
                 {
+                    changed = true;
                     if (ShouldLogHumanPlayer(entry.Key.PlayerId))
                         LogDebug("Pending recruit expired:", entry.Key.UnitType, "player", entry.Key.PlayerId, "expired", expired, "remaining", entry.Value.Count);
                 }
@@ -407,19 +410,25 @@ namespace UnitLimit
                 }
             }
 
-            if (emptyKeys == null)
-                return;
+            if (emptyKeys != null)
+            {
+                foreach (PendingRecruitmentKey key in emptyKeys)
+                    pendingRecruitments.Remove(key);
+            }
 
-            foreach (PendingRecruitmentKey key in emptyKeys)
-                pendingRecruitments.Remove(key);
+            if (changed)
+                UnitLimitIntegration.NotifyStateChanged();
         }
 
         private void ClearPendingRecruitments(string reason)
         {
-            if (pendingRecruitments.Count > 0)
-                LogDebug("Clearing pending recruitments:", reason, "keys", pendingRecruitments.Count);
+            int count = pendingRecruitments.Count;
+            if (count == 0)
+                return;
 
+            LogDebug("Clearing pending recruitments:", reason, "keys", count);
             pendingRecruitments.Clear();
+            UnitLimitIntegration.NotifyStateChanged();
         }
 
         private void OnActiveUnitChanged(ActiveUnitCache.ActiveUnitChangedEventArgs args)
@@ -434,12 +443,16 @@ namespace UnitLimit
                     args.Reason == ActiveUnitCache.ActiveUnitChangeReason.TypeChanged))
             {
                 eChimps pendingUnitType = GetPendingRecruitmentUnitType(args.NewSnapshot);
-                bool consumed = ConsumePendingRecruitment(args.NewSnapshot.OwnerId, pendingUnitType);
+                bool consumedExternal = args.Reason == ActiveUnitCache.ActiveUnitChangeReason.Created &&
+                    TryConsumeArmedExternalReservation(args.NewSnapshot.OwnerId, pendingUnitType);
+                bool consumed = consumedExternal ||
+                    ConsumePendingRecruitment(args.NewSnapshot.OwnerId, pendingUnitType);
                 if (consumed && ShouldLogHumanPlayer(args.NewSnapshot.OwnerId))
-                    LogDebug("Active unit change consumed pending recruitment:", "unitId", args.UnitId, "player", args.NewSnapshot.OwnerId, "reason", args.Reason, "unitType", args.NewSnapshot.UnitType, "pendingUnitType", pendingUnitType);
+                    LogDebug("Active unit change consumed pending capacity:", "unitId", args.UnitId, "player", args.NewSnapshot.OwnerId, "reason", args.Reason, "unitType", args.NewSnapshot.UnitType, "pendingUnitType", pendingUnitType, "external", consumedExternal);
             }
 
             RefreshCurrentUnitLimitTooltip();
+            UnitLimitIntegration.NotifyStateChanged();
         }
 
         private void OnActiveSiegeTentChanged(ActiveSiegeTentCache.ActiveSiegeTentChangedEventArgs args)
@@ -496,6 +509,7 @@ namespace UnitLimit
 
         private void ApplyUnitLimits()
         {
+            ClearExternalReservations("ApplyUnitLimits");
             activeUnitLimits.Clear();
             configuredRecruitmentButtons.Clear();
             Dictionary<eChimps, int> parsedLimits = ParseEnumAmounts<eChimps>(settings.UnitLimits);
@@ -515,6 +529,7 @@ namespace UnitLimit
             RebuildConfiguredRecruitmentButtons();
             LogDebug("Applied active unit limit rules:", activeUnitLimits.Count);
             RefreshCurrentUnitLimitTooltip();
+            UnitLimitIntegration.NotifyStateChanged();
         }
 
         private void ResetUnitRecruitableTracking()

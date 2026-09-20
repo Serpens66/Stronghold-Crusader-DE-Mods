@@ -19,6 +19,7 @@
                 Height="37"
                 Margin="0"
                 Command="{Binding DismountCommand}"
+                IsEnabled="{Binding DismountButtonEnabled}"
                 Content=""
                 Style="{StaticResource BTN_Image}"
                 Visibility="{Binding DismountButtonVisibility}">
@@ -40,6 +41,7 @@
                 Height="37"
                 Margin="0"
                 Command="{Binding MountCommand}"
+                IsEnabled="{Binding MountButtonEnabled}"
                 Content=""
                 Style="{StaticResource BTN_Image}"
                 Visibility="{Binding MountButtonVisibility}">

@@ -1033,11 +1033,30 @@ static void TestLocalActivationSetting()
     Assert(xaml.Contains("PracticalEffectsText") && viewModel.Contains("ExtendedData.PracticalEffects"),
         "player-facing practical-effects text is not bound below the activation setting");
     int descriptionPosition = xaml.IndexOf("PracticalEffectsText", StringComparison.Ordinal);
+    int guidePosition = xaml.IndexOf("OpenCompatibilityGuideCommand", StringComparison.Ordinal);
     int hostOptionsPosition = xaml.IndexOf("HostOptionsText", StringComparison.Ordinal);
     int modSelectionPosition = xaml.IndexOf("SupportedTrailSettingsTitle", StringComparison.Ordinal);
-    Assert(descriptionPosition >= 0 && descriptionPosition < modSelectionPosition &&
+    Assert(descriptionPosition >= 0 && descriptionPosition < guidePosition &&
+        guidePosition < modSelectionPosition &&
         modSelectionPosition < hostOptionsPosition,
-        "local Trail settings are not shown before host Coop Trail options");
+        "the ExtendedData guide or local Trail settings are not shown in the intended order");
+    Assert(viewModel.Contains("https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main/Guides/ExtendedData") &&
+        !viewModel.Contains("Mod%20Compatibilty%20ExtendedData.md"),
+        "the settings guide link does not target the canonical ExtendedData guide");
+    foreach (string localePath in Directory.GetFiles(Path.Combine(root, "Locales"), "*.txt"))
+    {
+        string locale = File.ReadAllText(localePath);
+        bool isGerman = string.Equals(Path.GetFileName(localePath), "de-DE.txt", StringComparison.Ordinal);
+        string customLordText = isGerman
+            ? "lädt beim Hochladen von Custom Lords auch deren Custom Data hoch"
+            : "uploads custom data together with Custom Lords";
+        string guideText = isGerman
+            ? "ExtendedData-Guide öffnen"
+            : "Open the ExtendedData guide";
+        Assert(locale.Contains(customLordText, StringComparison.Ordinal) &&
+            locale.Contains("ExtendedData.CompatibilityGuide=" + guideText + "\r\n", StringComparison.Ordinal),
+            Path.GetFileName(localePath) + " does not describe Custom Lord data uploads or link the guide clearly");
+    }
     Assert(xaml.Contains("CompatibleTrailMods") && xaml.Contains("IncompatibleTrailModsText") &&
         viewModel.Contains("PlayerTrailPropertyIds") &&
         viewModel.Contains("FixedTrailPropertyIds") &&

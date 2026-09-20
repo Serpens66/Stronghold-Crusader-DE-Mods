@@ -86,6 +86,7 @@ namespace UnitLimit
             Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
             activeUnitCache = new ActiveUnitCache(log, verboseUnitEventLogging);
             activeSiegeTentCache = new ActiveSiegeTentCache(log);
+            UnitLimitIntegration.Attach(this);
         }
 
         private bool EffectsEnabled => Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod);
@@ -192,6 +193,7 @@ namespace UnitLimit
             hooksSubscribed = false;
             HideLimitMessage();
             ClearPendingRecruitments("Dispose");
+            ClearExternalReservations("Dispose");
             TryDisposeFeature("recruitment enforcement", makeTroopGameActionHook);
             makeTroopGameActionHook = null;
             TryDisposeFeature("recruitment tooltip", createTroopHoverHook);
@@ -210,6 +212,7 @@ namespace UnitLimit
 
             activeUnitLimits.Clear();
             configuredRecruitmentButtons.Clear();
+            UnitLimitIntegration.NotifyStateChanged();
         }
 
         private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
@@ -223,6 +226,7 @@ namespace UnitLimit
         {
             LogDebug("OnUnloadMap");
             ClearPendingRecruitments("OnUnloadMap");
+            ClearExternalReservations("OnUnloadMap");
             HideLimitMessage();
             ClearUnitLimitTooltip();
         }
