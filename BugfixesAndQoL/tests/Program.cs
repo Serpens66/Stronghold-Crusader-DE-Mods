@@ -771,171 +771,215 @@ namespace BugfixesAndQoL
         {
             MethodInfo fatUpdate = typeof(FatControler).GetMethod(
                 "Update",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            byte[] fatUpdateIl = fatUpdate?.GetMethodBody()?.GetILAsByteArray();
-            int viewModelLoadedReads = 0;
-            int rolloverCalls = 0;
-            int frontendUpdateCalls = 0;
-            if (fatUpdateIl != null)
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                Type.EmptyTypes,
+                null);
+            bool realContextUsesLabels = false;
+            int realInsertionIndex = -1;
+            if (fatUpdate != null)
             {
-                int viewModelLoadedToken = typeof(MainViewModel)
-                    .GetField(nameof(MainViewModel.viewModelLoaded), BindingFlags.Static | BindingFlags.Public)
-                    .MetadataToken;
-                for (int offset = 0; offset <= fatUpdateIl.Length - 5; offset++)
+                using (var definition = new MonoMod.Utils.DynamicMethodDefinition(fatUpdate))
+                using (var context = new MonoMod.Cil.ILContext(definition.Definition))
                 {
-                    try
+                    context.Invoke(il =>
                     {
-                        if (fatUpdateIl[offset] == 0x7e &&
-                            BitConverter.ToInt32(fatUpdateIl, offset + 1) == viewModelLoadedToken)
-                        {
-                            viewModelLoadedReads++;
-                        }
-                        else if (fatUpdateIl[offset] == 0x6f)
-                        {
-                            MethodInfo called = fatUpdate.Module.ResolveMethod(
-                                BitConverter.ToInt32(fatUpdateIl, offset + 1)) as MethodInfo;
-                            if (called?.DeclaringType == typeof(MainViewModel) &&
-                                called.Name == nameof(MainViewModel.CrossThreadRolloverUpdate))
-                            {
-                                rolloverCalls++;
-                            }
-                            else if (called?.DeclaringType == typeof(FrontendMenus) &&
-                                called.Name == nameof(FrontendMenus.Update))
-                            {
-                                frontendUpdateCalls++;
-                            }
-                        }
-                    }
-                    catch (ArgumentException)
-                    {
-                        // Operand bytes can resemble metadata-bearing instructions.
-                    }
+                        realContextUsesLabels = il.Body.Instructions.Any(instruction =>
+                            (instruction.OpCode == Mono.Cecil.Cil.OpCodes.Brfalse ||
+                             instruction.OpCode == Mono.Cecil.Cil.OpCodes.Brfalse_S) &&
+                            instruction.Operand is MonoMod.Cil.ILLabel);
+                        realInsertionIndex =
+                            StartupUiReadinessGuardIlContract.FindUniqueInsertionIndex(il);
+                    });
                 }
             }
             Check(fatUpdate != null && fatUpdate.ReturnType == typeof(void) &&
                     fatUpdate.GetParameters().Length == 0 &&
-                    viewModelLoadedReads >= 1 && rolloverCalls == 1 && frontendUpdateCalls == 1 &&
-                    CountVanillaStartupUiGuardCandidates() == 1,
-                "installed Vanilla exposes exactly one guarded FatControler UI block with both unconditional UI calls");
+                    realContextUsesLabels && realInsertionIndex >= 0,
+                "installed Vanilla exposes one complete startup UI block in a real ILLabel hook context");
 
-            Check(!StartupUiReadinessGuardPolicy.ShouldRunVanillaUiUpdateBlock(
-                    viewModelLoaded: false,
-                    hudMainAvailable: true,
-                    frontEndMenuAvailable: true),
-                "startup UI guard remains closed before the view model is loaded");
-            Check(!StartupUiReadinessGuardPolicy.ShouldRunVanillaUiUpdateBlock(
-                    viewModelLoaded: true,
-                    hudMainAvailable: false,
-                    frontEndMenuAvailable: true) &&
-                  !StartupUiReadinessGuardPolicy.ShouldRunVanillaUiUpdateBlock(
-                    viewModelLoaded: true,
-                    hudMainAvailable: true,
-                    frontEndMenuAvailable: false),
-                "startup UI guard remains closed while either Noesis root is unavailable");
-            Check(StartupUiReadinessGuardPolicy.ShouldRunVanillaUiUpdateBlock(
-                    viewModelLoaded: true,
-                    hudMainAvailable: true,
-                    frontEndMenuAvailable: true),
-                "startup UI guard opens when both Noesis roots are available");
+            CheckStartupUiGuardRejectedContract(candidateCount: 0, unsupportedOperand: false,
+                "startup UI guard rejects a missing block without mutation");
+            CheckStartupUiGuardRejectedContract(candidateCount: 2, unsupportedOperand: false,
+                "startup UI guard rejects multiple blocks without mutation");
+            CheckStartupUiGuardRejectedContract(candidateCount: 1, unsupportedOperand: true,
+                "startup UI guard rejects an unsupported branch operand without mutation");
+
+            var startupState = new StartupUiReadinessGuardState();
+            bool initiallyComplete = startupState.IsComplete;
+            startupState.MarkComplete();
+            bool completeAfterLatch = startupState.IsComplete;
+            startupState.MarkComplete();
+            Check(!initiallyComplete && completeAfterLatch && startupState.IsComplete,
+                "startup UI guard completion latch is one-way and idempotent");
+
+            CheckStartupUiGuardManualApplyRollback();
 
             string hook = File.ReadAllText(Path.Combine("src", "StartupUiReadinessGuardHook.cs"));
+            string contract = File.ReadAllText(Path.Combine("src", "StartupUiReadinessGuardIlContract.cs"));
             string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
             string project = File.ReadAllText("BugfixesAndQoL.csproj");
-            Check(hook.Contains("new ILHook(target, PatchUiUpdateReadinessBranch)") &&
-                    hook.Contains("Expected exactly one FatControler.Update UI block") &&
-                    hook.Contains("rolloverCalls == 1 && frontendUpdateCalls == 1") &&
-                    hook.Contains("Index = matches[0] + 1") &&
-                    hook.Contains("EmitDelegate<Func<bool, bool>>(IsVanillaUiUpdateReady)") &&
+            Check(hook.Contains("ManualApply = true") &&
+                    hook.Contains("candidate.Apply()") &&
                     hook.Contains("target.ReturnType != typeof(void)") &&
                     hook.Contains("candidate?.Dispose()") &&
                     !hook.Contains("public void Dispose()"),
-                "startup UI guard validates one complete Vanilla block before its single IL insertion");
-            Check(hook.Contains("if (!viewModelLoaded)") &&
-                    hook.Contains("main?.HUDmain != null") &&
-                    hook.Contains("main?.FrontEndMenu != null") &&
+                "startup UI guard manually applies and can roll back its unpublished candidate");
+            Check(contract.Contains("operand is ILLabel label") &&
+                    contract.Contains("operand as Instruction") &&
+                    contract.Contains("HasExpectedPostBlockTail") &&
+                    contract.Contains("RadarScrollMapMethodName = \"RadarScrollMap\"") &&
+                    contract.Contains("rolloverCalls == 1 && frontendUpdateCalls == 1") &&
+                    CountOccurrences(hook,
+                        "EmitDelegate<Func<bool, bool>>(IsVanillaUiUpdateReady)") == 1,
+                "startup UI guard validates the complete Vanilla block before one IL insertion");
+            int fastPath = hook.IndexOf("if (startupState.IsComplete)", StringComparison.Ordinal);
+            int loadedGate = hook.IndexOf("if (!viewModelLoaded)", StringComparison.Ordinal);
+            int singletonAccess = hook.IndexOf("MainViewModel main = MainViewModel.Instance", StringComparison.Ordinal);
+            Check(fastPath >= 0 && loadedGate > fastPath && singletonAccess > loadedGate &&
+                    hook.Contains("main?.HUDmain == null || main.FrontEndMenu == null") &&
+                    hook.Contains("startupState.MarkComplete()") &&
+                    hook.Contains("RequireInstanceField(nameof(MainViewModel.HUDmain), typeof(HUD_Main))") &&
+                    hook.Contains("RequireInstanceField(nameof(MainViewModel.FrontEndMenu), typeof(FrontendMenus))") &&
                     plugin.Contains("private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;") &&
                     plugin.Contains("new StartupUiReadinessGuardHook(Logger)") &&
                     project.Contains("src\\StartupUiReadinessGuardHook.cs") &&
+                    project.Contains("src\\StartupUiReadinessGuardIlContract.cs") &&
                     project.Contains("src\\StartupUiReadinessGuardPolicy.cs") &&
                     !project.Contains("StartupRolloverNullGuard"),
-                "startup UI guard is readiness-scoped, process-rooted and replaces the obsolete rollover detour");
+                "startup UI guard latches before its permanent identity fast path and validates UI member types");
         }
 
-        private static int CountVanillaStartupUiGuardCandidates()
+        private static void CheckStartupUiGuardRejectedContract(
+            int candidateCount,
+            bool unsupportedOperand,
+            string description)
         {
-            using (Mono.Cecil.AssemblyDefinition assembly =
-                Mono.Cecil.AssemblyDefinition.ReadAssembly(typeof(FatControler).Assembly.Location))
+            using (Mono.Cecil.ModuleDefinition module = Mono.Cecil.ModuleDefinition.CreateModule(
+                "StartupUiGuardSynthetic",
+                Mono.Cecil.ModuleKind.Dll))
             {
-                Mono.Cecil.TypeDefinition type = assembly.MainModule.Types
-                    .Single(candidate => candidate.FullName == typeof(FatControler).FullName);
-                Mono.Cecil.MethodDefinition update = type.Methods.Single(candidate =>
-                    candidate.Name == "Update" &&
-                    !candidate.IsStatic &&
-                    candidate.Parameters.Count == 0 &&
-                    candidate.ReturnType.MetadataType == Mono.Cecil.MetadataType.Void);
-                IList<Mono.Cecil.Cil.Instruction> instructions = update.Body.Instructions;
-                int matches = 0;
-                for (int index = 0; index < instructions.Count - 1; index++)
+                Mono.Cecil.MethodDefinition method = CreateSyntheticStartupUiGuardMethod(
+                    module,
+                    candidateCount,
+                    unsupportedOperand);
+                using (var context = new MonoMod.Cil.ILContext(method))
                 {
-                    Mono.Cecil.Cil.Instruction read = instructions[index];
-                    Mono.Cecil.Cil.Instruction branch = instructions[index + 1];
-                    if (read.OpCode != Mono.Cecil.Cil.OpCodes.Ldsfld ||
-                        !(read.Operand is Mono.Cecil.FieldReference field) ||
-                        field.DeclaringType.FullName != typeof(MainViewModel).FullName ||
-                        field.Name != nameof(MainViewModel.viewModelLoaded) ||
-                        (branch.OpCode != Mono.Cecil.Cil.OpCodes.Brfalse &&
-                         branch.OpCode != Mono.Cecil.Cil.OpCodes.Brfalse_S) ||
-                        !(branch.Operand is Mono.Cecil.Cil.Instruction blockEnd))
+                    int before = method.Body.Instructions.Count;
+                    bool rejected = false;
+                    try
                     {
-                        continue;
+                        context.Invoke(il =>
+                            StartupUiReadinessGuardIlContract.FindUniqueInsertionIndex(il));
                     }
-
-                    int blockEndIndex = instructions.IndexOf(blockEnd);
-                    if (blockEndIndex <= index + 1)
-                        continue;
-
-                    int rollover = CountCecilCalls(
-                        instructions,
-                        index + 2,
-                        blockEndIndex,
-                        typeof(MainViewModel),
-                        nameof(MainViewModel.CrossThreadRolloverUpdate));
-                    int frontend = CountCecilCalls(
-                        instructions,
-                        index + 2,
-                        blockEndIndex,
-                        typeof(FrontendMenus),
-                        nameof(FrontendMenus.Update));
-                    if (rollover == 1 && frontend == 1)
-                        matches++;
+                    catch (InvalidOperationException)
+                    {
+                        rejected = true;
+                    }
+                    Check(rejected && method.Body.Instructions.Count == before, description);
                 }
-                return matches;
             }
         }
 
-        private static int CountCecilCalls(
-            IList<Mono.Cecil.Cil.Instruction> instructions,
-            int startIndex,
-            int endIndex,
-            Type declaringType,
-            string methodName)
+        private static Mono.Cecil.MethodDefinition CreateSyntheticStartupUiGuardMethod(
+            Mono.Cecil.ModuleDefinition module,
+            int candidateCount,
+            bool unsupportedOperand)
         {
-            int count = 0;
-            for (int index = startIndex; index < endIndex; index++)
+            var type = new Mono.Cecil.TypeDefinition(
+                "BugfixesAndQoL.Tests",
+                "SyntheticStartupUiGuard",
+                Mono.Cecil.TypeAttributes.NotPublic | Mono.Cecil.TypeAttributes.Class,
+                module.TypeSystem.Object);
+            module.Types.Add(type);
+            var method = new Mono.Cecil.MethodDefinition(
+                "Update",
+                Mono.Cecil.MethodAttributes.Private | Mono.Cecil.MethodAttributes.HideBySig,
+                module.TypeSystem.Void)
             {
-                Mono.Cecil.Cil.Instruction instruction = instructions[index];
-                if ((instruction.OpCode == Mono.Cecil.Cil.OpCodes.Call ||
-                     instruction.OpCode == Mono.Cecil.Cil.OpCodes.Callvirt) &&
-                    instruction.Operand is Mono.Cecil.MethodReference method &&
-                    method.DeclaringType.FullName == declaringType.FullName &&
-                    method.Name == methodName &&
-                    method.Parameters.Count == 0 &&
-                    method.ReturnType.MetadataType == Mono.Cecil.MetadataType.Void)
+                HasThis = true
+            };
+            type.Methods.Add(method);
+
+            Mono.Cecil.Cil.ILProcessor il = method.Body.GetILProcessor();
+            if (candidateCount == 0)
+            {
+                il.Append(il.Create(Mono.Cecil.Cil.OpCodes.Ret));
+                return method;
+            }
+
+            FieldInfo loadedField = typeof(MainViewModel).GetField(
+                nameof(MainViewModel.viewModelLoaded),
+                BindingFlags.Static | BindingFlags.Public);
+            MethodInfo rollover = typeof(MainViewModel).GetMethod(
+                nameof(MainViewModel.CrossThreadRolloverUpdate),
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo frontend = typeof(FrontendMenus).GetMethod(
+                nameof(FrontendMenus.Update),
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo radar = typeof(FatControler).GetMethod(
+                StartupUiReadinessGuardIlContract.RadarScrollMapMethodName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            for (int candidate = 0; candidate < candidateCount; candidate++)
+            {
+                Mono.Cecil.Cil.Instruction blockEnd = il.Create(Mono.Cecil.Cil.OpCodes.Ldarg_0);
+                Mono.Cecil.Cil.Instruction branch = il.Create(Mono.Cecil.Cil.OpCodes.Brfalse, blockEnd);
+                if (unsupportedOperand)
+                    branch.Operand = "unsupported-branch-target";
+
+                il.Append(il.Create(Mono.Cecil.Cil.OpCodes.Ldsfld, module.ImportReference(loadedField)));
+                il.Append(branch);
+                il.Append(il.Create(Mono.Cecil.Cil.OpCodes.Callvirt, module.ImportReference(rollover)));
+                il.Append(il.Create(Mono.Cecil.Cil.OpCodes.Callvirt, module.ImportReference(frontend)));
+                il.Append(blockEnd);
+                il.Append(il.Create(Mono.Cecil.Cil.OpCodes.Call, module.ImportReference(radar)));
+                il.Append(il.Create(Mono.Cecil.Cil.OpCodes.Ret));
+            }
+
+            return method;
+        }
+
+        private static void CheckStartupUiGuardManualApplyRollback()
+        {
+            MethodInfo probe = typeof(Program).GetMethod(
+                nameof(StartupUiGuardRollbackProbe),
+                BindingFlags.Static | BindingFlags.NonPublic);
+            var config = new MonoMod.RuntimeDetour.ILHookConfig { ManualApply = true };
+            MonoMod.RuntimeDetour.ILHook candidate = null;
+            bool applyRejected = false;
+            bool replacementApplied = false;
+            try
+            {
+                candidate = new MonoMod.RuntimeDetour.ILHook(
+                    probe,
+                    _ => throw new InvalidOperationException("intentional startup guard test failure"),
+                    config);
+                try
                 {
-                    count++;
+                    candidate.Apply();
+                }
+                catch (InvalidOperationException)
+                {
+                    applyRejected = true;
                 }
             }
-            return count;
+            finally
+            {
+                candidate?.Dispose();
+            }
+
+            using (var replacement = new MonoMod.RuntimeDetour.ILHook(probe, _ => { }, config))
+            {
+                replacement.Apply();
+                replacementApplied = replacement.IsApplied;
+            }
+            Check(applyRejected && replacementApplied,
+                "startup UI guard failed manual apply can be disposed without poisoning the hook target");
+        }
+
+        private static void StartupUiGuardRollbackProbe()
+        {
         }
 
         private static void TestResolutionAwareZoomPolicy()

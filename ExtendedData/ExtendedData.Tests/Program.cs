@@ -748,19 +748,28 @@ static void TestMapModSettingsRuntimeIntegration()
         coordinator.Contains("MatchesLobby(packet, lobby)") &&
         coordinator.Contains("ProtocolVersion != MapModSettingsPacket.CurrentProtocolVersion"),
         "Map packets are not authenticated and bound to the selected map");
-    Assert(coordinator.Contains("mapList.SelectionChanged") &&
+    Assert(coordinator.Contains("mapList.SelectionChanged += OnMapListSelectionChanged") &&
+        coordinator.Contains("selected != null && !MatchesActiveMap(selected)") &&
         coordinator.Contains("LeaveLobbyHook") && coordinator.Contains("StartSkirmishGameHook") &&
         coordinator.Contains("!launchInProgress && !mapMissionActive") &&
         coordinator.Contains("MissionEvents.Ended") &&
         coordinator.Contains("BroadcastCurrentState(apply: true)"),
         "Map preset cleanup or late-join convergence is incomplete");
+    Assert(coordinator.Contains("!MatchesLobby(packet, lobby) && !MatchesActiveContext(packet)") &&
+        coordinator.Contains("UnregisterModDataHandler(SaveDataIdentifier)") &&
+        coordinator.Contains("payload.Length > MaxPayloadBytes"),
+        "Map clear ordering, initialization rollback, or capture size validation is incomplete");
     Assert(trailCoordinator.Contains("EnterStrict") &&
+        trailCoordinator.Contains("internal ModSettingsDefinition ValidateStrict") &&
         trailCoordinator.Contains("ValidateDocumentValues") &&
         trailCoordinator.Contains("System_EnterMissionPreset\", item.Item3, presetLabel, editable"),
         "the shared Trail/Map preset service does not validate or expose contextual labels");
     Assert(runtime.Contains("mapSettingsCoordinator?.TryHandleCommand") &&
+        runtime.Contains("ActivateSelectedMissionSettingsUnlessMap") &&
+        runtime.Contains("mapSettingsCoordinator?.IsActiveForLobby(lobby) == true") &&
+        coordinator.Contains("settingsCoordinator.ValidateStrict(document, \"embedded Map\")") &&
         xaml.Contains("ExtendedDataUseMapModSettings") && xaml.Contains("Visibility=\"Collapsed\""),
-        "the manually activated Map preset button is not connected to the runtime");
+        "the manually activated Map preset button is not connected to every launch path");
     Assert(!coordinator.Contains("modmap.json", StringComparison.OrdinalIgnoreCase),
         "Map presets were mixed into modmap.json");
     string[] mapLocaleKeys =
@@ -1187,7 +1196,8 @@ static void TestCoopExporterIntegration()
         "early package refresh can still construct Vanilla's MainViewModel before the UI is ready");
     Assert(coordinator.Contains("CoopSetupOpened?.Invoke()") &&
         runtime.Contains("CoopSetupOpened += OnCoopSetupOpened") &&
-        runtime.Contains("ActivateSelectedMissionSettings(editable: true, source: \"custom Coop mission setup\")"),
+        runtime.Contains("source: \"custom Coop mission setup\"") &&
+        runtime.Contains("ActivateSelectedMissionSettingsUnlessMap("),
         "Coop Customize does not reapply the mission Trail preset after rebuilding the setup UI");
     Assert(coordinator.Contains("GetPacketEventFor<CoopCustomizePacket>") &&
         coordinator.Contains("GameNetworkAPI.GetHostSteamId()") &&
@@ -1203,7 +1213,8 @@ static void TestCoopExporterIntegration()
         "Coop setup/launch transitions are not synchronized from the authenticated lobby host to clients");
     Assert(runtime.Contains("Type.EmptyTypes") &&
         runtime.Contains("selected != null && IsLaunchCommand(command)") &&
-        runtime.Contains("ActivateSelectedMissionSettings(editable: false, source: \"custom Coop mission \" + command)") &&
+        runtime.Contains("source: \"custom Coop mission \" + command") &&
+        runtime.Contains("ActivateSelectedMissionSettingsUnlessMap(") &&
         runtime.Contains("CoopLaunchReceived += OnCoopLaunchReceived") &&
         runtime.Contains("source: \"authenticated host Coop launch\"") &&
         runtime.Contains("coopLaunchPending") && runtime.Contains("OnMapStarted()") && runtime.Contains("OnMapUnloaded()"),

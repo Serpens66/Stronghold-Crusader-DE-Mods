@@ -893,7 +893,7 @@ internal static class Program
 
         Check(!production.Contains("Zhuqiaomon") && !project.Contains("Zhuqiaomon"),
             "P6b removed Zhuqiaomon source and project references");
-        Check(!production.Contains("NativeDetour") && !production.Contains("ManualApply"),
+        Check(!production.Contains("NativeDetour"),
             "P6b removed every direct PolyHook NativeDetour path");
         Check(!production.Contains("HookRef<") && !production.Contains(".Unload()") &&
               !production.Contains("Value.Hook.Trampoline") && !production.Contains("VirtualProtect"),

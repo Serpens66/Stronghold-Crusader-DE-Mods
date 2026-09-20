@@ -449,11 +449,17 @@ namespace ExtendedData
                 string source,
                 string presetLabel)
             {
-                document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
-                ValidateDocumentValues(document);
+                document = ValidateStrict(document, source);
                 ApplyDocument(document, editable, presetLabel);
                 DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
                 return GetMissingMentionedMods(document);
+            }
+
+            internal ModSettingsDefinition ValidateStrict(ModSettingsDefinition document, string source)
+            {
+                document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
+                ValidateDocumentValues(document);
+                return document;
             }
 
             internal ModSettingsDefinition CaptureCurrentDocument() => CaptureDocument();

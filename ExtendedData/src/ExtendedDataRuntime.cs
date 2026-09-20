@@ -228,7 +228,10 @@ namespace ExtendedData
             try
             {
                 ApplySelectedMission(self, true);
-                ActivateSelectedMissionSettings(editable: false, source: "custom Coop mission selection");
+                ActivateSelectedMissionSettingsUnlessMap(
+                    self,
+                    editable: false,
+                    source: "custom Coop mission selection");
             }
             catch (Exception ex)
             {
@@ -281,7 +284,10 @@ namespace ExtendedData
                 {
                     if (IsStartCommand(command))
                         ApplySelectedMission(self, false);
-                    ActivateSelectedMissionSettings(editable: false, source: "custom Coop mission " + command);
+                    ActivateSelectedMissionSettingsUnlessMap(
+                        self,
+                        editable: false,
+                        source: "custom Coop mission " + command);
                     if (IsStartCommand(command))
                     {
                         coopLaunchPending = true;
@@ -363,8 +369,11 @@ namespace ExtendedData
                 return;
             try
             {
-                ActivateSelectedMissionSettings(editable: true, source: "custom Coop mission setup");
-                LogInfo("Reapplied custom Coop mission Trail preset after opening the setup screen.");
+                ActivateSelectedMissionSettingsUnlessMap(
+                    GetExistingMainViewModel()?.FRONTMultiplayer,
+                    editable: true,
+                    source: "custom Coop mission setup");
+                LogInfo("Refreshed custom Coop mission mod-settings context after opening the setup screen.");
             }
             catch (Exception exception)
             {
@@ -782,6 +791,19 @@ namespace ExtendedData
                 source);
         }
 
+        private void ActivateSelectedMissionSettingsUnlessMap(
+            FRONT_Multiplayer lobby,
+            bool editable,
+            string source)
+        {
+            if (mapSettingsCoordinator?.IsActiveForLobby(lobby) == true)
+            {
+                LogInfo("Retained the manually selected Map mod-settings preset during " + source + ".");
+                return;
+            }
+            ActivateSelectedMissionSettings(editable, source);
+        }
+
         private void OnMapStarted()
         {
             ExtendedDataLaunchOriginApi.MarkMapStarted();
@@ -789,7 +811,7 @@ namespace ExtendedData
                 return;
             coopLaunchPending = false;
             coopMapActive = true;
-            LogInfo("Custom Coop mission map started; retaining its Trail mod-settings preset.");
+            LogInfo("Custom Coop mission map started; retaining its active mod-settings preset.");
         }
 
         private void OnCoopLaunchReceived(int trailId, int missionId)
@@ -812,10 +834,13 @@ namespace ExtendedData
             // Clients do not execute the host's COOP_START button handler. The authenticated
             // transition supplies the missing launch boundary before OnUnloadMap clears presets.
             selected = mission;
-            ActivateSelectedMissionSettings(editable: false, source: "authenticated host Coop launch");
+            ActivateSelectedMissionSettingsUnlessMap(
+                GetExistingMainViewModel()?.FRONTMultiplayer,
+                editable: false,
+                source: "authenticated host Coop launch");
             coopLaunchPending = true;
             coopMapActive = false;
-            LogInfo($"Prepared authenticated Coop Trail launch trail={trailId + 1}, mission={missionId}; retaining its Trail preset across map unload.");
+            LogInfo($"Prepared authenticated Coop Trail launch trail={trailId + 1}, mission={missionId}; retaining its active mod-settings preset across map unload.");
         }
 
         private void OnMapUnloaded()

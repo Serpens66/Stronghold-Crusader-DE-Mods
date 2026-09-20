@@ -1,11 +1,13 @@
+using System.Threading;
+
 namespace BugfixesAndQoL
 {
-    internal static class StartupUiReadinessGuardPolicy
+    internal sealed class StartupUiReadinessGuardState
     {
-        internal static bool ShouldRunVanillaUiUpdateBlock(
-            bool viewModelLoaded,
-            bool hudMainAvailable,
-            bool frontEndMenuAvailable) =>
-            viewModelLoaded && hudMainAvailable && frontEndMenuAvailable;
+        private int complete;
+
+        internal bool IsComplete => Volatile.Read(ref complete) != 0;
+
+        internal void MarkComplete() => Volatile.Write(ref complete, 1);
     }
 }

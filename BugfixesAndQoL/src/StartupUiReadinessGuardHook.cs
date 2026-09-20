@@ -1,18 +1,18 @@
 // Feature: Keep Vanilla's UI update block dormant until its Noesis roots exist.
 using BepInEx.Logging;
 using CrusaderDE;
-using Mono.Cecil;
-using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using MonoMod.RuntimeDetour;
 using System;
-using System.Collections.Generic;
 using System.Reflection;
 
 namespace BugfixesAndQoL
 {
     internal sealed class StartupUiReadinessGuardHook
     {
+        private static readonly StartupUiReadinessGuardState startupState =
+            new StartupUiReadinessGuardState();
+
         private readonly ILHook hook;
 
         internal StartupUiReadinessGuardHook(ManualLogSource log)
@@ -29,10 +29,20 @@ namespace BugfixesAndQoL
             if (target == null || target.ReturnType != typeof(void))
                 throw new MissingMethodException(typeof(FatControler).FullName, "Update");
 
+            ValidateUiMemberContracts();
+
             ILHook candidate = null;
             try
             {
-                candidate = new ILHook(target, PatchUiUpdateReadinessBranch);
+                candidate = new ILHook(
+                    target,
+                    PatchUiUpdateReadinessBranch,
+                    new ILHookConfig
+                    {
+                        ManualApply = true,
+                        ID = "BugfixesAndQoL.StartupUiReadinessGuard"
+                    });
+                candidate.Apply();
                 hook = candidate;
             }
             catch
@@ -48,101 +58,51 @@ namespace BugfixesAndQoL
 
         private static void PatchUiUpdateReadinessBranch(ILContext context)
         {
-            IList<Instruction> instructions = context.Body.Instructions;
-            var matches = new List<int>();
-
-            for (int index = 0; index < instructions.Count - 1; index++)
-            {
-                if (!MatchesField(
-                        instructions[index],
-                        OpCodes.Ldsfld,
-                        typeof(MainViewModel),
-                        nameof(MainViewModel.viewModelLoaded)) ||
-                    !IsFalseBranch(instructions[index + 1]) ||
-                    !(instructions[index + 1].Operand is Instruction blockEnd))
-                {
-                    continue;
-                }
-
-                int blockEndIndex = instructions.IndexOf(blockEnd);
-                if (blockEndIndex <= index + 1)
-                    continue;
-
-                int rolloverCalls = CountCalls(
-                    instructions,
-                    index + 2,
-                    blockEndIndex,
-                    typeof(MainViewModel),
-                    nameof(MainViewModel.CrossThreadRolloverUpdate));
-                int frontendUpdateCalls = CountCalls(
-                    instructions,
-                    index + 2,
-                    blockEndIndex,
-                    typeof(FrontendMenus),
-                    nameof(FrontendMenus.Update));
-
-                if (rolloverCalls == 1 && frontendUpdateCalls == 1)
-                    matches.Add(index);
-            }
-
-            if (matches.Count != 1)
-            {
-                throw new InvalidOperationException(
-                    "Expected exactly one FatControler.Update UI block guarded by " +
-                    $"MainViewModel.viewModelLoaded, found {matches.Count}.");
-            }
-
-            var cursor = new ILCursor(context) { Index = matches[0] + 1 };
+            int insertionIndex = StartupUiReadinessGuardIlContract.FindUniqueInsertionIndex(context);
+            var cursor = new ILCursor(context) { Index = insertionIndex };
             cursor.EmitDelegate<Func<bool, bool>>(IsVanillaUiUpdateReady);
         }
 
         private static bool IsVanillaUiUpdateReady(bool viewModelLoaded)
         {
+            if (startupState.IsComplete)
+                return viewModelLoaded;
+
             if (!viewModelLoaded)
                 return false;
 
             MainViewModel main = MainViewModel.Instance;
-            return StartupUiReadinessGuardPolicy.ShouldRunVanillaUiUpdateBlock(
-                viewModelLoaded,
-                main?.HUDmain != null,
-                main?.FrontEndMenu != null);
+            if (main?.HUDmain == null || main.FrontEndMenu == null)
+                return false;
+
+            startupState.MarkComplete();
+            return true;
         }
 
-        private static int CountCalls(
-            IList<Instruction> instructions,
-            int startIndex,
-            int endIndex,
-            Type declaringType,
-            string methodName)
+        private static void ValidateUiMemberContracts()
         {
-            int count = 0;
-            for (int index = startIndex; index < endIndex; index++)
-            {
-                if ((instructions[index].OpCode == OpCodes.Call ||
-                     instructions[index].OpCode == OpCodes.Callvirt) &&
-                    instructions[index].Operand is MethodReference method &&
-                    method.DeclaringType.FullName == declaringType.FullName &&
-                    method.Name == methodName &&
-                    method.Parameters.Count == 0 &&
-                    method.ReturnType.MetadataType == MetadataType.Void)
-                {
-                    count++;
-                }
-            }
-            return count;
+            RequireInstanceField(nameof(MainViewModel.HUDmain), typeof(HUD_Main));
+            RequireInstanceField(nameof(MainViewModel.FrontEndMenu), typeof(FrontendMenus));
+
+            MethodInfo radarScrollMap = typeof(FatControler).GetMethod(
+                StartupUiReadinessGuardIlContract.RadarScrollMapMethodName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                Type.EmptyTypes,
+                null);
+            if (radarScrollMap == null || radarScrollMap.ReturnType != typeof(void))
+                throw new MissingMethodException(
+                    typeof(FatControler).FullName,
+                    StartupUiReadinessGuardIlContract.RadarScrollMapMethodName);
         }
 
-        private static bool MatchesField(
-            Instruction instruction,
-            OpCode opcode,
-            Type declaringType,
-            string fieldName) =>
-            instruction.OpCode == opcode &&
-            instruction.Operand is FieldReference field &&
-            field.DeclaringType.FullName == declaringType.FullName &&
-            field.Name == fieldName;
-
-        private static bool IsFalseBranch(Instruction instruction) =>
-            instruction.OpCode == OpCodes.Brfalse || instruction.OpCode == OpCodes.Brfalse_S;
+        private static void RequireInstanceField(string fieldName, Type expectedType)
+        {
+            FieldInfo field = typeof(MainViewModel).GetField(
+                fieldName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field == null || field.IsStatic || field.FieldType != expectedType)
+                throw new MissingFieldException(typeof(MainViewModel).FullName, fieldName);
+        }
     }
 }

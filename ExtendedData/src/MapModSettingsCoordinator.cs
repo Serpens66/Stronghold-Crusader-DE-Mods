@@ -52,7 +52,8 @@ namespace ExtendedData
         private readonly ManualLogSource log;
         private readonly TrailMissionSettingsCoordinator settingsCoordinator;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly HashSet<FRONT_Multiplayer> observedLobbies = new HashSet<FRONT_Multiplayer>();
+        private readonly Dictionary<ListView, FRONT_Multiplayer> observedMapLists =
+            new Dictionary<ListView, FRONT_Multiplayer>();
         private Hook saveHook;
         private Hook leaveLobbyHook;
         private Hook startSkirmishGameHook;
@@ -70,6 +71,7 @@ namespace ExtendedData
         private uint activeMapCrc;
         private string activeJson = string.Empty;
         private short packetId;
+        private bool saveHandlerRegistered;
         private ulong? lastLobbyId;
         private string lastRosterSignature = string.Empty;
 
@@ -91,6 +93,7 @@ namespace ExtendedData
                 (_, __) => { });
             if (!registered)
                 throw new InvalidOperationException("The Map mod-settings save-data identifier is already registered.");
+            saveHandlerRegistered = true;
 
             MethodInfo saveMethod = typeof(EditorDirector).GetMethod(
                 nameof(EditorDirector.SaveSaveGameOrMap),
@@ -167,12 +170,20 @@ namespace ExtendedData
         public void Dispose()
         {
             settingsCoordinator.LobbyOpened -= OnLobbyOpened;
+            foreach (ListView mapList in observedMapLists.Keys)
+                mapList.SelectionChanged -= OnMapListSelectionChanged;
+            observedMapLists.Clear();
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
             subscriptions.Clear();
             startSkirmishGameHook?.Dispose();
             leaveLobbyHook?.Dispose();
             saveHook?.Dispose();
+            if (saveHandlerRegistered)
+            {
+                ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
+                saveHandlerRegistered = false;
+            }
         }
 
         private void LeaveLobbyHook(
@@ -216,7 +227,10 @@ namespace ExtendedData
                 {
                     ModSettingsDefinition document = settingsCoordinator.CaptureCurrentDocument();
                     string json = ModSettingsJson.Serialize(document);
-                    pendingMapSavePayload = StrictUtf8.GetBytes(json);
+                    byte[] payload = StrictUtf8.GetBytes(json);
+                    if (payload.Length > MaxPayloadBytes)
+                        throw new InvalidDataException("Captured Map mod settings exceed the supported payload size.");
+                    pendingMapSavePayload = payload;
                     pendingMapSavePath = NormalizePath(path);
                     DebugLogHelper.LogInfo(
                         log,
@@ -253,6 +267,7 @@ namespace ExtendedData
 
             string contextPath = NormalizePath(context.FilePath);
             if (!string.IsNullOrEmpty(pendingMapSavePath) &&
+                !string.IsNullOrEmpty(contextPath) &&
                 !string.Equals(pendingMapSavePath, contextPath, StringComparison.OrdinalIgnoreCase))
             {
                 DebugLogHelper.LogError(
@@ -269,17 +284,46 @@ namespace ExtendedData
             if (lobby == null)
                 return;
             ListView mapList = lobby.FindName("MapList") as ListView;
-            if (mapList != null && observedLobbies.Add(lobby))
-                mapList.SelectionChanged += (_, __) => OnMapSelectionChanged(lobby);
+            if (mapList != null && !observedMapLists.ContainsKey(mapList))
+            {
+                observedMapLists.Add(mapList, lobby);
+                mapList.SelectionChanged += OnMapListSelectionChanged;
+            }
             RefreshButton(lobby);
+        }
+
+        private void OnMapListSelectionChanged(object sender, SelectionChangedEventArgs args)
+        {
+            if (sender is ListView mapList && observedMapLists.TryGetValue(mapList, out FRONT_Multiplayer lobby))
+                OnMapSelectionChanged(lobby);
         }
 
         private void OnMapSelectionChanged(FRONT_Multiplayer lobby)
         {
             FileHeader selected = GetSelectedHeader(lobby);
-            if (mapContextActive && !MatchesActiveMap(selected))
+            // Vanilla clears the selection transiently while rebuilding the same map list.
+            // Only a new, concrete map identity counts as a map change.
+            if (mapContextActive && selected != null && !MatchesActiveMap(selected))
                 ExitMapContext(broadcast: IsHostLobby(lobby), "selected map changed");
             RefreshButton(lobby);
+        }
+
+        internal bool IsActiveForLobby(FRONT_Multiplayer lobby)
+        {
+            if (!IsMapContextCurrent() || lobby == null)
+                return false;
+            FileHeader selected = GetSelectedHeader(lobby);
+            if (selected != null)
+                return MatchesActiveMap(selected);
+            if (lobby.currentLobby != null)
+            {
+                return string.Equals(
+                        activeMapFileName,
+                        lobby.currentLobby.mapFileName,
+                        StringComparison.OrdinalIgnoreCase) &&
+                    activeMapCrc == unchecked((uint)EditorDirector.getIntFromString(lobby.currentLobby.crc));
+            }
+            return false;
         }
 
         private void RefreshButton(FRONT_Multiplayer lobby)
@@ -383,6 +427,7 @@ namespace ExtendedData
                     if (json.Length > 0 && json[0] == '\uFEFF')
                         json = json.Substring(1);
                     document = ModSettingsJson.ParseObject(json);
+                    document = settingsCoordinator.ValidateStrict(document, "embedded Map");
                     return true;
                 }
             }
@@ -464,14 +509,19 @@ namespace ExtendedData
             {
                 return;
             }
+            if (!packet.Apply)
+            {
+                if (!MatchesLobby(packet, lobby) && !MatchesActiveContext(packet))
+                {
+                    DebugLogHelper.LogWarning(log, "Ignored Map mod-settings clear for an unrelated map.");
+                    return;
+                }
+                ExitMapContext(broadcast: false, "authenticated host clear");
+                return;
+            }
             if (!MatchesLobby(packet, lobby))
             {
                 DebugLogHelper.LogWarning(log, "Ignored Map mod-settings packet for a different lobby map.");
-                return;
-            }
-            if (!packet.Apply)
-            {
-                ExitMapContext(broadcast: false, "authenticated host clear");
                 return;
             }
             if (string.IsNullOrEmpty(packet.Json) ||
@@ -580,6 +630,11 @@ namespace ExtendedData
         private bool MatchesLobby(MapModSettingsPacket packet, FRONT_Multiplayer lobby) =>
             string.Equals(packet.MapFileName, lobby.currentLobby.mapFileName, StringComparison.OrdinalIgnoreCase) &&
             packet.MapCrc == unchecked((uint)EditorDirector.getIntFromString(lobby.currentLobby.crc));
+
+        private bool MatchesActiveContext(MapModSettingsPacket packet) =>
+            mapContextActive &&
+            string.Equals(packet.MapFileName, activeMapFileName, StringComparison.OrdinalIgnoreCase) &&
+            packet.MapCrc == activeMapCrc;
 
         private bool MatchesActiveMap(FileHeader header)
         {
