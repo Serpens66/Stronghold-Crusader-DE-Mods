@@ -3236,6 +3236,31 @@ namespace BugfixesAndQoL
                     !spearmanPatch.Contains(
                         "Native Spearman movement-option branch replaced"),
                 "movement logging omits commands and redundant component success messages");
+            int assignHandlerStart = troopMovement.IndexOf(
+                "private void OnTribeAssignUnit(",
+                StringComparison.Ordinal);
+            int assignHandlerEnd = troopMovement.IndexOf(
+                "private bool TryApplyMixedGroupSynchronization(",
+                assignHandlerStart,
+                StringComparison.Ordinal);
+            string assignHandler = troopMovement.Substring(
+                assignHandlerStart,
+                assignHandlerEnd - assignHandlerStart);
+            Check(assignHandler.Contains(
+                      "RemoveSynchronization(previousTribeId, restoreSpeed: true)") &&
+                    assignHandler.Contains(
+                      "RemoveSynchronization(args.TribeId, restoreSpeed: true)") &&
+                    !assignHandler.Contains("restoreSpeed: false") &&
+                    assignHandler.IndexOf(
+                      "activeMoveOrderTribeIds.Contains(previousTribeId)",
+                      StringComparison.Ordinal) >= 0 &&
+                    assignHandler.IndexOf(
+                      "activeMoveOrderTribeIds.Contains(args.TribeId)",
+                      StringComparison.Ordinal) >= 0 &&
+                    troopMovement.Contains("OnTribeCreate.Observable") &&
+                    assignHandler.Contains("pendingTribeSourcesByTargetId.TryGetValue(") &&
+                    assignHandler.Contains("pendingSource.MemberGlobalIds.TryGetValue("),
+                "external tribe reassignment restores source and destination synchronization independently");
             Check(!cadencePatch.Contains("AddContextHook") &&
                     !cadencePatch.Contains("NativePointer<X64SmartCPUContext>") &&
                     !cadencePatch.Contains("TryGetCadenceDelegate") &&

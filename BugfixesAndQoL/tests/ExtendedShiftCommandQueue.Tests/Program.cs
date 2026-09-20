@@ -1246,6 +1246,15 @@ internal static class Program
             "large Move renderer uses reset-bound reusable overflow buffers and activity windows");
         Check(queueRuntime.Contains("OwnsHooks = false"),
             "integrated queue declares process-lifetime hook ownership");
+        Check(queueRuntime.Contains("OnTribeAssignUnit.Observable") &&
+            queueRuntime.Contains("OnTribeCreate.Observable") &&
+            queueRuntime.Contains("private void MirrorTransientTribeState(") &&
+            queueRuntime.Contains("targetTribe->r_UnitsInGroup != 0") &&
+            queueRuntime.Contains("sourceTribe->r_PlayerIdOwner == targetTribe->r_PlayerIdOwner") &&
+            queueRuntime.Contains("pendingSource.MemberGlobalIds.TryGetValue(") &&
+            queueRuntime.Contains("ReferenceEquals(target.Command, source.Command)") &&
+            queueRuntime.Contains("target.ExpiresAfterTick == source.ExpiresAfterTick"),
+            "Fixes-style empty-tribe splits preserve attack and Move deduplication state idempotently");
         Check(!queueRuntime.Contains("CrashBreadcrumbDiagnostics.Enter(") &&
             !queueRuntime.Contains("\"ShiftQueueTick\"") &&
             !queueRuntime.Contains("\"ShiftQueueMoveOrder\"") &&

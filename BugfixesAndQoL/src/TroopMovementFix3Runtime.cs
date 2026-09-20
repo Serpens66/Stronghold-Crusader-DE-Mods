@@ -30,6 +30,9 @@ namespace BugfixesAndQoL
                 new Dictionary<int, TribeSynchronization>();
         private readonly HashSet<int> activeMoveOrderTribeIds =
             new HashSet<int>();
+        private readonly Dictionary<int, PendingTribeSource>
+            pendingTribeSourcesByTargetId =
+                new Dictionary<int, PendingTribeSource>();
         private readonly List<int> unitIds =
             new List<int>(ExpectedMaximumTrackedUnits);
         private readonly Dictionary<eChimps, UnitTypeMovementInfo>
@@ -37,7 +40,7 @@ namespace BugfixesAndQoL
                 new Dictionary<eChimps, UnitTypeMovementInfo>(
                     (int)eChimps.CHIMP_NUM_TYPES);
         private readonly List<IDisposable> troopSubscriptions =
-            new List<IDisposable>(4);
+            new List<IDisposable>(5);
         private readonly MovementLoggingStateTracker movementLoggingState =
             new MovementLoggingStateTracker();
 
@@ -252,6 +255,9 @@ namespace BugfixesAndQoL
                     TribeR3EventHooks.OnTribeAssignUnit.Observable
                         .Subscribe(OnTribeAssignUnit));
                 newSubscriptions.Add(
+                    TribeR3EventHooks.OnTribeCreate.Observable
+                        .Subscribe(OnTribeCreate));
+                newSubscriptions.Add(
                     TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                         .Subscribe(OnTribeIssueOrderMoveHere));
                 newSubscriptions.Add(
@@ -358,8 +364,7 @@ namespace BugfixesAndQoL
         {
             if (!IsFeatureEnabled ||
                 args.Phase != EventHookPhase.Pre ||
-                args.UnitId <= 0 ||
-                activeMoveOrderTribeIds.Contains(args.TribeId))
+                args.UnitId <= 0)
             {
                 return;
             }
@@ -373,9 +378,85 @@ namespace BugfixesAndQoL
                 previousTribeId = unit->r_TribeId;
             }
 
-            RemoveSynchronization(previousTribeId, restoreSpeed: false);
-            if (args.TribeId != previousTribeId)
-                RemoveSynchronization(args.TribeId, restoreSpeed: false);
+            if (previousTribeId > 0)
+            {
+                pendingTribeSourcesByTargetId.Remove(args.TribeId);
+            }
+            else if (unit != null &&
+                pendingTribeSourcesByTargetId.TryGetValue(
+                    args.TribeId,
+                    out PendingTribeSource pendingSource))
+            {
+                pendingTribeSourcesByTargetId.Remove(args.TribeId);
+                if (TryGetTribe(args.TribeId, out GameTribe* targetTribe) &&
+                    targetTribe->r_GlobalId == pendingSource.TargetTribeGlobalId &&
+                    targetTribe->r_UnitsInGroup == 0 &&
+                    TryGetTribe(pendingSource.SourceTribeId, out GameTribe* sourceTribe) &&
+                    sourceTribe->r_GlobalId == pendingSource.SourceTribeGlobalId &&
+                    pendingSource.MemberGlobalIds.TryGetValue(
+                        args.UnitId,
+                        out uint expectedGlobalId) &&
+                    unit->r_GlobalId == expectedGlobalId)
+                {
+                    previousTribeId = pendingSource.SourceTribeId;
+                }
+            }
+
+            if (!activeMoveOrderTribeIds.Contains(previousTribeId))
+                RemoveSynchronization(previousTribeId, restoreSpeed: true);
+            if (args.TribeId != previousTribeId &&
+                !activeMoveOrderTribeIds.Contains(args.TribeId))
+            {
+                RemoveSynchronization(args.TribeId, restoreSpeed: true);
+            }
+        }
+
+        private void OnTribeCreate(TribeCreateEventArgs args)
+        {
+            if (!IsFeatureEnabled || args.Phase != EventHookPhase.Post ||
+                args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
+            {
+                return;
+            }
+
+            GameTribeManager* manager =
+                GameTribeManagerAPI.Instance.GetTribeManager().Pointer;
+            if (manager == null || manager->CurrentSelectedTribeId > int.MaxValue)
+                return;
+
+            int sourceTribeId = unchecked((int)manager->CurrentSelectedTribeId);
+            int targetTribeId = unchecked((int)args.ReturnValue);
+            if (!synchronizationByTribeId.ContainsKey(sourceTribeId) ||
+                !TryGetTribe(sourceTribeId, out GameTribe* sourceTribe) ||
+                !TryGetTribe(targetTribeId, out GameTribe* targetTribe) ||
+                sourceTribe->r_PlayerIdOwner != args.PlayerIdOwner ||
+                targetTribe->r_PlayerIdOwner != args.PlayerIdOwner ||
+                targetTribe->r_UnitsInGroup != 0)
+            {
+                return;
+            }
+
+            var memberIds = new List<int>();
+            GameTribeManagerAPI.Instance.GetUnits(sourceTribeId, memberIds);
+            var memberGlobalIds = new Dictionary<int, uint>(memberIds.Count);
+            foreach (int unitId in memberIds)
+            {
+                if (unitId > 0 &&
+                    GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    unit != null)
+                {
+                    memberGlobalIds[unitId] = unit->r_GlobalId;
+                }
+            }
+
+            if (memberGlobalIds.Count != 0)
+            {
+                pendingTribeSourcesByTargetId[targetTribeId] = new PendingTribeSource(
+                    sourceTribeId,
+                    sourceTribe->r_GlobalId,
+                    targetTribe->r_GlobalId,
+                    memberGlobalIds);
+            }
         }
 
         private bool TryApplyMixedGroupSynchronization(int tribeId)
@@ -542,8 +623,29 @@ namespace BugfixesAndQoL
             cadencePatch?.ClearAllSynchronization();
             synchronizationByTribeId.Clear();
             activeMoveOrderTribeIds.Clear();
+            pendingTribeSourcesByTargetId.Clear();
             unitIds.Clear();
             unitTypeMovementInfoByType.Clear();
+        }
+
+        private sealed class PendingTribeSource
+        {
+            public PendingTribeSource(
+                int sourceTribeId,
+                uint sourceTribeGlobalId,
+                uint targetTribeGlobalId,
+                Dictionary<int, uint> memberGlobalIds)
+            {
+                SourceTribeId = sourceTribeId;
+                SourceTribeGlobalId = sourceTribeGlobalId;
+                TargetTribeGlobalId = targetTribeGlobalId;
+                MemberGlobalIds = memberGlobalIds;
+            }
+
+            public int SourceTribeId { get; }
+            public uint SourceTribeGlobalId { get; }
+            public uint TargetTribeGlobalId { get; }
+            public Dictionary<int, uint> MemberGlobalIds { get; }
         }
 
         private static bool TryGetTribe(

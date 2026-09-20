@@ -8,8 +8,13 @@ set "LOCAL_SCRIPT_EXTENDER_ROOT=%PROJECT_DIR%..\shcde-script-extender"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\mod_output\000shcdese"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%LOCAL_SCRIPT_EXTENDER_ROOT%\src\SHCDESE.BepInEx\bin\net481"
 set "GAME_SCRIPT_EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
+set "API_SHARED_DIR=%GAME_DIR%\BepInEx\plugins\APIShared_Serp"
+set "LOCAL_API_SHARED_DIR=%PROJECT_DIR%..\APIShared\BepInEx\plugins\APIShared_Serp"
 rem The installed release is canonical; SHCDESE_EXTENDER_DIR is the explicit override.
 if defined SHCDESE_EXTENDER_DIR set "GAME_SCRIPT_EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
+rem Release automation can explicitly use the validated workspace package.
+if defined SHCDE_API_SHARED_DIR set "API_SHARED_DIR=%SHCDE_API_SHARED_DIR%"
+if not exist "%API_SHARED_DIR%\APIShared.dll" if exist "%LOCAL_API_SHARED_DIR%\APIShared.dll" set "API_SHARED_DIR=%LOCAL_API_SHARED_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_BUILD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "LOCAL_SCRIPT_EXTENDER_MOD_OUTPUT=%GAME_SCRIPT_EXTENDER_DIR%"
 set "EXTENDER_DIR="
@@ -69,12 +74,22 @@ if not exist "%EXTENDER_DIR%\SHCDESE.dll" (
   exit /b 1
 )
 
+if not exist "%API_SHARED_DIR%\APIShared.dll" (
+  echo APIShared.dll wurde nicht gefunden:
+  echo !API_SHARED_DIR!\APIShared.dll
+  echo.
+  if "!NO_PAUSE!"=="0" pause
+  exit /b 1
+)
+
 echo Verwende Script Extender Referenzen:
 echo !EXTENDER_DIR!
+echo Verwende APIShared Referenz:
+echo !API_SHARED_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
-"%MSBUILD%" StartConditions.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+"%MSBUILD%" StartConditions.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"
 set "BUILD_EXIT_CODE=%ERRORLEVEL%"
 popd
 
@@ -87,6 +102,7 @@ if "%BUILD_EXIT_CODE%"=="0" (
   set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\!PLUGIN_NAME!"
   set "GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!PLUGIN_NAME!"
   set "OLD_GAME_PLUGIN_DIR=%GAME_DIR%\BepInEx\plugins\!OLD_PLUGIN_NAME!"
+  echo Installationsziel: !GAME_PLUGIN_DIR!
 
   if not exist "!LOCAL_PLUGIN_DIR!\" (
     echo Lokaler Plugin-Ordner wurde nicht gefunden:
@@ -112,6 +128,11 @@ if "%BUILD_EXIT_CODE%"=="0" (
   )
   xcopy "!LOCAL_PLUGIN_DIR!" "!GAME_PLUGIN_DIR!\" /E /I /Y
   if errorlevel 1 goto copy_failed
+  if not exist "!GAME_PLUGIN_DIR!\StartConditions.dll" (
+    echo Installierte StartConditions.dll wurde nach xcopy nicht gefunden:
+    echo !GAME_PLUGIN_DIR!\StartConditions.dll
+    goto copy_failed
+  )
   if exist "!OLD_GAME_PLUGIN_DIR!\" (
     rem Remove legacy packaged files but retain any player-created lobby settings.
     for /D %%D in ("!OLD_GAME_PLUGIN_DIR!\*") do (

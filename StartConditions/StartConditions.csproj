@@ -116,6 +116,9 @@
     <Compile Include="src\StartConditionsRuntime.cs" />
     <Compile Include="src\StartConditionsRuntime.StartTroops.cs" />
     <Compile Include="src\StartConditionsRuntime.AIStartTroopIsolation.cs" />
+    <Compile Include="src\AIStartTroopIsolationSaveState.cs" />
+    <Compile Include="src\StartTroopSpawnCompletionContract.cs" />
+    <Compile Include="src\VanillaStartTroopSpawnState.cs" />
     <Compile Include="src\StartConditionsRuntime.StartResources.cs" />
     <Compile Include="src\StartGoldPolicy.cs" />
     <Compile Include="src\StartConditionsRuntime.MapLifecycle.cs" />

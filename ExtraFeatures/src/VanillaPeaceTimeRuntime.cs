@@ -4,6 +4,7 @@ using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using Noesis;
 using R3;
+using SHCDESE.API;
 using SHCDESE.Interop;
 using System;
 using System.Reflection;

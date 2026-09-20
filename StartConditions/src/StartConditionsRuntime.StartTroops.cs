@@ -16,7 +16,7 @@ namespace StartConditions
     public sealed partial class StartConditionsRuntime
     {
         // SetPlayerSkirmishDefaultUnitsAmount and the old InternalAIC table patch do not
-        // reliably affect live start troops, so this mod only uses delayed unit counting.
+        // reliably affect live start troops, so this mod counts them after Vanilla finishes spawning.
 
         private void AddStartTroops()
         {
@@ -40,7 +40,7 @@ namespace StartConditions
                     if (multiplier == 0 || multiplier > 1)
                     {
                         plan.PendingPlayers.Add(new PendingStartTroopPlayer(playerId, multiplier));
-                        LogDebug("Scheduling delayed start troop processing for player", playerId, "multiplier", multiplier);
+                        LogDebug("Scheduling start troop processing for player", playerId, "multiplier", multiplier);
                     }
                 });
 
@@ -50,13 +50,16 @@ namespace StartConditions
                     return;
                 }
 
-                if (vanillaPeaceTimeState.TryGetIsActive(out bool peaceTimeActive) && peaceTimeActive)
+                if (plan.PendingPlayers.Count > 0)
+                {
+                    if (vanillaStartTroopSpawnState.TryGetIsComplete(out _))
+                        WaitForVanillaStartTroopCompletion(plan);
+                    else
+                        StartLegacyStartTroopTiming(plan, "Vanilla's completion state is unavailable");
+                }
+                else if (vanillaPeaceTimeState.TryGetIsActive(out bool peaceTimeActive) && peaceTimeActive)
                 {
                     WaitForPeaceTimeEnd(plan);
-                }
-                else if (plan.PendingPlayers.Count > 0)
-                {
-                    ScheduleDelayedStartTroopProcessing(plan, "map start");
                 }
                 else
                 {
@@ -67,6 +70,78 @@ namespace StartConditions
             {
                 LogDebug("AddStartTroops failed:", ex);
             }
+        }
+
+        private void WaitForVanillaStartTroopCompletion(StartTroopPlan plan)
+        {
+            pendingStartTroopPlan = plan;
+            startTroopCompletionWaitState.Reset();
+            if (waitingForVanillaStartTroopCompletion)
+                return;
+
+            GameTimeManagerAPI.Instance.OnTick += OnVanillaStartTroopCompletionTick;
+            waitingForVanillaStartTroopCompletion = true;
+            LogDebug("Waiting for Vanilla to finish spawning and initializing all start troops.");
+        }
+
+        private void OnVanillaStartTroopCompletionTick(int gameTick)
+        {
+            try
+            {
+                ProcessVanillaStartTroopCompletionTick(gameTick);
+            }
+            catch (Exception ex)
+            {
+                StartTroopPlan plan = pendingStartTroopPlan;
+                StopWaitingForVanillaStartTroopCompletion();
+                if (plan != null)
+                    StartLegacyStartTroopTiming(plan, $"the completion tick handler failed: {ex.Message}");
+                else
+                    LogError("Vanilla start-troop completion processing failed after consuming its plan:", ex);
+            }
+        }
+
+        private void ProcessVanillaStartTroopCompletionTick(int gameTick)
+        {
+            StartTroopPlan plan = pendingStartTroopPlan;
+            if (plan == null)
+            {
+                StopWaitingForVanillaStartTroopCompletion();
+                return;
+            }
+
+            if (!vanillaStartTroopSpawnState.TryGetIsComplete(out bool complete))
+            {
+                StopWaitingForVanillaStartTroopCompletion();
+                StartLegacyStartTroopTiming(plan, "Vanilla's completion state became unavailable");
+                return;
+            }
+
+            StartTroopCompletionWaitResult result =
+                startTroopCompletionWaitState.Observe(complete, gameTick);
+            if (result == StartTroopCompletionWaitResult.Waiting)
+                return;
+
+            if (result == StartTroopCompletionWaitResult.Settling)
+            {
+                LogDebug(
+                    "Vanilla reported complete start-troop spawning at game tick",
+                    gameTick,
+                    "waiting one additional simulation tick for unit initialization.");
+                return;
+            }
+
+            StopWaitingForVanillaStartTroopCompletion();
+            ExecuteStartTroopPlan(plan, "Vanilla completion signal");
+        }
+
+        private void StopWaitingForVanillaStartTroopCompletion()
+        {
+            if (waitingForVanillaStartTroopCompletion)
+                GameTimeManagerAPI.Instance.OnTick -= OnVanillaStartTroopCompletionTick;
+
+            waitingForVanillaStartTroopCompletion = false;
+            startTroopCompletionWaitState.Reset();
         }
 
         private void WaitForPeaceTimeEnd(StartTroopPlan plan)
@@ -154,6 +229,15 @@ namespace StartConditions
             }
         }
 
+        private void StartLegacyStartTroopTiming(StartTroopPlan plan, string reason)
+        {
+            LogDebug("Using legacy start-troop timing because", reason);
+            if (vanillaPeaceTimeState.TryGetIsActive(out bool peaceTimeActive) && peaceTimeActive)
+                WaitForPeaceTimeEnd(plan);
+            else
+                ResumeStartTroopPlanWithLegacyTiming(plan, reason);
+        }
+
         private void ScheduleDelayedStartTroopProcessing(StartTroopPlan plan, string origin)
         {
             pendingStartTroopPlan = plan;
@@ -175,7 +259,6 @@ namespace StartConditions
         private void RunDelayedStartTroopProcessing()
         {
             StartTroopPlan plan = pendingStartTroopPlan;
-            pendingStartTroopPlan = null;
             pendingStartTroopTimerHandle = null;
 
             if (plan == null)
@@ -190,23 +273,35 @@ namespace StartConditions
                     return;
                 }
 
-                LogDebug("Running delayed start troop processing for", plan.PendingPlayers.Count, "players");
-                var troopCounts = new Dictionary<int, Dictionary<eChimps, int>>();
-                if (plan.PendingPlayers.Count > 0)
-                    TryRunFeature("delayed start troop counting", () => troopCounts = CountSoldiersForPlayers());
-                foreach (PendingStartTroopPlayer pending in plan.PendingPlayers)
-                {
-                    TryRunFeature(
-                        $"delayed start troops for player {pending.PlayerId}",
-                        () => ProcessDelayedStartTroopsForPlayer(pending, troopCounts));
-                }
-
-                SpawnConfiguredStartTroops(plan.AiTroops, plan.HumanTroops);
+                ExecuteStartTroopPlan(plan, "legacy delay");
             }
             catch (Exception ex)
             {
                 LogDebug("RunDelayedStartTroopProcessing failed:", ex);
             }
+        }
+
+        private void ExecuteStartTroopPlan(StartTroopPlan plan, string origin)
+        {
+            pendingStartTroopPlan = null;
+            LogDebug(
+                "Running start troop processing after",
+                origin,
+                "for",
+                plan.PendingPlayers.Count,
+                "players");
+
+            var troopCounts = new Dictionary<int, Dictionary<eChimps, int>>();
+            if (plan.PendingPlayers.Count > 0)
+                TryRunFeature("start troop counting", () => troopCounts = CountSoldiersForPlayers());
+            foreach (PendingStartTroopPlayer pending in plan.PendingPlayers)
+            {
+                TryRunFeature(
+                    $"start troops for player {pending.PlayerId}",
+                    () => ProcessDelayedStartTroopsForPlayer(pending, troopCounts));
+            }
+
+            SpawnConfiguredStartTroops(plan.AiTroops, plan.HumanTroops);
         }
 
         private void ProcessDelayedStartTroopsForPlayer(
@@ -232,13 +327,14 @@ namespace StartConditions
             }
 
             if (troopCounts.TryGetValue(pending.PlayerId, out Dictionary<eChimps, int> playerCounts))
-                SpawnMultipliedStartTroops(pending.PlayerId, playerCounts, pending.Multiplier, "delayed count");
+                SpawnMultipliedStartTroops(pending.PlayerId, playerCounts, pending.Multiplier, "completed start-troop count");
             else
                 LogDebug("No start troop counts available for player", pending.PlayerId, "multiplier skipped.");
         }
 
         private void CancelPendingStartTroopProcessing()
         {
+            StopWaitingForVanillaStartTroopCompletion();
             StopWaitingForPeaceTimeEnd();
             if (!string.IsNullOrEmpty(pendingStartTroopTimerHandle))
             {

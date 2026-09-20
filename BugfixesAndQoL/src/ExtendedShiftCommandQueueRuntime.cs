@@ -101,6 +101,8 @@ namespace BugfixesAndQoL
         private readonly Dictionary<QueueUnitIdentity, long> unitToCohort =
             new Dictionary<QueueUnitIdentity, long>();
         private readonly Dictionary<int, ObservedAttack> observedAttacks = new Dictionary<int, ObservedAttack>();
+        private readonly Dictionary<int, PendingTribeSource> pendingTribeSourcesByTargetId =
+            new Dictionary<int, PendingTribeSource>();
         private readonly HashSet<int> loggedUnsupportedCommands = new HashSet<int>();
         private readonly HashSet<long> loggedPredecessorRedispatchFailures = new HashSet<long>();
         private readonly HashSet<long> loggedIsolationFailures = new HashSet<long>();
@@ -337,6 +339,10 @@ namespace BugfixesAndQoL
                 .Subscribe(OnTargetOrder));
             subscriptions.Add(TribeR3EventHooks.OnTribeIssueOrderMoveHere.Observable
                 .Subscribe(OnMoveOrder));
+            subscriptions.Add(TribeR3EventHooks.OnTribeAssignUnit.Observable
+                .Subscribe(OnTribeAssignUnit));
+            subscriptions.Add(TribeR3EventHooks.OnTribeCreate.Observable
+                .Subscribe(OnTribeCreate));
             subscriptions.Add(Shared.MissionEvents.Started
                 .Subscribe(args => { if (args.Context.IsSave) RefreshMapContext(); else OnMapStart(); }));
             subscriptions.Add(Shared.MissionEvents.SaveLoading
@@ -747,6 +753,7 @@ namespace BugfixesAndQoL
             expectedMoveChores.Clear();
             expectedMoveEvents.Clear();
             observedAttacks.Clear();
+            pendingTribeSourcesByTargetId.Clear();
             loggedPredecessorRedispatchFailures.Clear();
             loggedIsolationFailures.Clear();
             RefreshMapContext();
@@ -768,6 +775,7 @@ namespace BugfixesAndQoL
             expectedMoveChores.Clear();
             expectedMoveEvents.Clear();
             observedAttacks.Clear();
+            pendingTribeSourcesByTargetId.Clear();
             loggedPredecessorRedispatchFailures.Clear();
             loggedIsolationFailures.Clear();
             cachedRealMultiplayerMode = null;
@@ -902,6 +910,171 @@ namespace BugfixesAndQoL
             // Both phases fire for ordinary AI movement as well. Queue actions are recorded
             // centrally after they have passed the local/Shift/marker classification.
             OnMoveOrderCore(args);
+        }
+
+        private void OnTribeAssignUnit(TribeAssignUnitEventArgs args)
+        {
+            if (!installed || !FeatureEnabled || args.Phase != EventHookPhase.Pre ||
+                args.UnitId <= 0 || args.TribeId <= 0 ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(args.UnitId, out GameUnit* unit) ||
+                unit == null)
+            {
+                return;
+            }
+
+            int sourceTribeId = unit->r_TribeId;
+            int targetTribeId = args.TribeId;
+            if (!TryGetAliveTribe(targetTribeId, out GameTribe* targetTribe) ||
+                targetTribe->r_UnitsInGroup != 0)
+            {
+                return;
+            }
+
+            uint sourceTribeGlobalId;
+            if (sourceTribeId > 0 && sourceTribeId != targetTribeId &&
+                TryGetAliveTribe(sourceTribeId, out GameTribe* sourceTribe) &&
+                sourceTribe->r_PlayerIdOwner == targetTribe->r_PlayerIdOwner)
+            {
+                sourceTribeGlobalId = sourceTribe->r_GlobalId;
+                pendingTribeSourcesByTargetId.Remove(targetTribeId);
+            }
+            else if (pendingTribeSourcesByTargetId.TryGetValue(
+                         targetTribeId,
+                         out PendingTribeSource pendingSource))
+            {
+                pendingTribeSourcesByTargetId.Remove(targetTribeId);
+                if (targetTribe->r_GlobalId != pendingSource.TargetTribeGlobalId ||
+                    !pendingSource.MemberGlobalIds.TryGetValue(
+                        args.UnitId,
+                        out uint expectedGlobalId) ||
+                    unit->r_GlobalId != expectedGlobalId)
+                {
+                    return;
+                }
+
+                sourceTribeId = pendingSource.SourceTribeId;
+                sourceTribeGlobalId = pendingSource.SourceTribeGlobalId;
+            }
+            else
+            {
+                return;
+            }
+
+            MirrorTransientTribeState(
+                sourceTribeId,
+                sourceTribeGlobalId,
+                targetTribeId,
+                targetTribe->r_GlobalId);
+        }
+
+        private void OnTribeCreate(TribeCreateEventArgs args)
+        {
+            if (!installed || !FeatureEnabled || args.Phase != EventHookPhase.Post ||
+                args.ReturnValue <= 0 || args.ReturnValue > int.MaxValue)
+            {
+                return;
+            }
+
+            GameTribeManager* manager =
+                GameTribeManagerAPI.Instance.GetTribeManager().Pointer;
+            if (manager == null || manager->CurrentSelectedTribeId > int.MaxValue)
+                return;
+
+            int sourceTribeId = unchecked((int)manager->CurrentSelectedTribeId);
+            int targetTribeId = unchecked((int)args.ReturnValue);
+            PruneExpectedMoveSignals(expectedMoveChores);
+            PruneExpectedMoveSignals(expectedMoveEvents);
+            bool hasTransientState = observedAttacks.ContainsKey(sourceTribeId) ||
+                expectedMoveChores.Exists(signal => signal.TribeId == sourceTribeId) ||
+                expectedMoveEvents.Exists(signal => signal.TribeId == sourceTribeId);
+            if (!hasTransientState ||
+                !TryGetAliveTribe(sourceTribeId, out GameTribe* sourceTribe) ||
+                !TryGetAliveTribe(targetTribeId, out GameTribe* targetTribe) ||
+                sourceTribe->r_PlayerIdOwner != args.PlayerIdOwner ||
+                targetTribe->r_PlayerIdOwner != args.PlayerIdOwner ||
+                targetTribe->r_UnitsInGroup != 0)
+            {
+                return;
+            }
+
+            var memberIds = new List<int>();
+            GameTribeManagerAPI.Instance.GetUnits(sourceTribeId, memberIds);
+            var memberGlobalIds = new Dictionary<int, uint>(memberIds.Count);
+            foreach (int unitId in memberIds)
+            {
+                if (unitId > 0 &&
+                    GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) &&
+                    unit != null)
+                {
+                    memberGlobalIds[unitId] = unit->r_GlobalId;
+                }
+            }
+
+            if (memberGlobalIds.Count != 0)
+            {
+                pendingTribeSourcesByTargetId[targetTribeId] = new PendingTribeSource(
+                    sourceTribeId,
+                    sourceTribe->r_GlobalId,
+                    targetTribe->r_GlobalId,
+                    memberGlobalIds);
+            }
+        }
+
+        private void MirrorTransientTribeState(
+            int sourceTribeId,
+            uint sourceTribeGlobalId,
+            int targetTribeId,
+            uint targetTribeGlobalId)
+        {
+            if (observedAttacks.TryGetValue(sourceTribeId, out ObservedAttack observed) &&
+                observed.TribeGlobalId == sourceTribeGlobalId &&
+                IsTargetAlive(observed.Command) &&
+                (!observedAttacks.TryGetValue(targetTribeId, out ObservedAttack targetObserved) ||
+                 targetObserved.TribeGlobalId != targetTribeGlobalId))
+            {
+                observedAttacks[targetTribeId] = new ObservedAttack(
+                    targetTribeGlobalId,
+                    observed.Command);
+            }
+
+            MirrorExpectedMoveSignals(expectedMoveChores, sourceTribeId, targetTribeId);
+            MirrorExpectedMoveSignals(expectedMoveEvents, sourceTribeId, targetTribeId);
+        }
+
+        private void MirrorExpectedMoveSignals(
+            List<RuntimeExpectedMove> signals,
+            int sourceTribeId,
+            int targetTribeId)
+        {
+            PruneExpectedMoveSignals(signals);
+            int sourceCount = signals.Count;
+            for (int sourceIndex = 0; sourceIndex < sourceCount; sourceIndex++)
+            {
+                RuntimeExpectedMove source = signals[sourceIndex];
+                if (source.TribeId != sourceTribeId)
+                    continue;
+
+                bool alreadyMirrored = false;
+                for (int targetIndex = 0; targetIndex < signals.Count; targetIndex++)
+                {
+                    RuntimeExpectedMove target = signals[targetIndex];
+                    if (target.TribeId == targetTribeId &&
+                        ReferenceEquals(target.Command, source.Command) &&
+                        target.ExpiresAfterTick == source.ExpiresAfterTick)
+                    {
+                        alreadyMirrored = true;
+                        break;
+                    }
+                }
+
+                if (!alreadyMirrored)
+                {
+                    signals.Add(new RuntimeExpectedMove(
+                        targetTribeId,
+                        source.Command,
+                        source.ExpiresAfterTick));
+                }
+            }
         }
 
         private void OnMoveOrderCore(TribeIssueOrderMoveHereEventArgs args)
@@ -2571,6 +2744,26 @@ namespace BugfixesAndQoL
             public int TribeId { get; }
             public QueueCommand Command { get; }
             public int ExpiresAfterTick { get; }
+        }
+
+        private sealed class PendingTribeSource
+        {
+            public PendingTribeSource(
+                int sourceTribeId,
+                uint sourceTribeGlobalId,
+                uint targetTribeGlobalId,
+                Dictionary<int, uint> memberGlobalIds)
+            {
+                SourceTribeId = sourceTribeId;
+                SourceTribeGlobalId = sourceTribeGlobalId;
+                TargetTribeGlobalId = targetTribeGlobalId;
+                MemberGlobalIds = memberGlobalIds;
+            }
+
+            public int SourceTribeId { get; }
+            public uint SourceTribeGlobalId { get; }
+            public uint TargetTribeGlobalId { get; }
+            public Dictionary<int, uint> MemberGlobalIds { get; }
         }
 
     }

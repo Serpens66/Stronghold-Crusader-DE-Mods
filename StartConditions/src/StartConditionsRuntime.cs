@@ -18,6 +18,7 @@ namespace StartConditions
         private readonly ManualLogSource log;
         private readonly IStartConditionsSettings settings;
         private readonly VanillaPeaceTimeState vanillaPeaceTimeState;
+        private readonly VanillaStartTroopSpawnState vanillaStartTroopSpawnState;
         private IStartConditionsSettings activeSettings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly StartConditionsMapSessionState mapSessionState =
@@ -32,6 +33,9 @@ namespace StartConditions
         private string pendingStartTroopTimerHandle;
         private StartTroopPlan pendingStartTroopPlan;
         private bool waitingForPeaceTimeEnd;
+        private bool waitingForVanillaStartTroopCompletion;
+        private readonly StartTroopCompletionWaitState startTroopCompletionWaitState =
+            new StartTroopCompletionWaitState();
         private Shared.ActivePlayerKeepWaitHandle pendingKeepReadiness;
         private int[] activePlayerIds = Array.Empty<int>();
 
@@ -70,6 +74,7 @@ namespace StartConditions
             this.log = log;
             this.settings = settings;
             vanillaPeaceTimeState = new VanillaPeaceTimeState(log);
+            vanillaStartTroopSpawnState = new VanillaStartTroopSpawnState(log);
             activeSettings = settings;
             Shared.GameplayModActivationGate.Initialize(log, StartConditionsPlugin.PluginGuid, StartConditionsPlugin.PluginName, () => settings.EnableMod);
             Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
@@ -122,6 +127,7 @@ namespace StartConditions
                 return;
 
             vanillaPeaceTimeState.Initialize(context, currentNativeVersion);
+            vanillaStartTroopSpawnState.Initialize(context, currentNativeVersion);
             InitializeAIStartTroopIsolation();
             SubscribeSettingsChanges();
             SubscribeHooks();

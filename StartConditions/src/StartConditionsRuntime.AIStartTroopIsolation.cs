@@ -1,5 +1,3 @@
-using MessagePack;
-using MessagePack.Formatters;
 using R3;
 using SHCDESE.API;
 using SHCDESE.API.Components.SaveData;
@@ -16,7 +14,7 @@ namespace StartConditions
     public sealed unsafe partial class StartConditionsRuntime
     {
         private const string AIStartTroopSaveDataIdentifier = "StartConditions_Serp.AIStartTroops";
-        private const int AIStartTroopSaveSchemaVersion = 1;
+        private const int AIStartTroopSaveSchemaVersion = AIStartTroopIsolationSaveState.SchemaVersionCurrent;
         private const int AIStartTroopValidationIntervalTicks = 250;
         private const short ProtectedAIBehaviourTypeValue = -1;
         private const ushort ProtectedAIBehaviourType = ushort.MaxValue;
@@ -46,6 +44,7 @@ namespace StartConditions
 
             var candidates = new List<IDisposable>();
             bool saveHandlerRegistered = false;
+            bool tickHandlerSubscribed = false;
             try
             {
                 saveHandlerRegistered = ModSaveDataAPI.Instance.RegisterModDataHandler(
@@ -83,6 +82,7 @@ namespace StartConditions
                     aiStartTroopLifetimeSubscriptions.Add(candidate);
 
                 GameTimeManagerAPI.Instance.OnTick += OnAIStartTroopValidationTick;
+                tickHandlerSubscribed = true;
                 aiStartTroopIsolationInitialized = true;
                 LogDebug(
                     "AI start-troop isolation initialized; validation interval ticks",
@@ -95,6 +95,8 @@ namespace StartConditions
             catch
             {
                 // Disposal is permitted here because initialization has not been published.
+                if (tickHandlerSubscribed)
+                    GameTimeManagerAPI.Instance.OnTick -= OnAIStartTroopValidationTick;
                 foreach (IDisposable candidate in candidates)
                     candidate.Dispose();
                 if (saveHandlerRegistered)
@@ -184,18 +186,19 @@ namespace StartConditions
             var records = new List<AIStartTroopIsolationSaveRecord>();
             foreach (ProtectedAIStartTroop protectedTroop in protectedAIStartTroopsByUnitId.Values)
             {
-                if (!TryGetExactProtectedAIStartTroop(protectedTroop, out GameUnit* unit) ||
-                    unit->r_ControllableForPlayerId != protectedTroop.OwnerPlayerId)
+                if (protectedTroop.PendingDeletion ||
+                    !TryGetExactProtectedAIStartTroop(protectedTroop, out GameUnit* unit) ||
+                    unit->r_ControllableForPlayerId != protectedTroop.OwnerPlayerId ||
+                    !GamePlayerManagerAPI.Instance.IsAIPlayer(protectedTroop.OwnerPlayerId))
                 {
                     continue;
                 }
 
-                records.Add(new AIStartTroopIsolationSaveRecord
-                {
-                    UnitGlobalId = protectedTroop.UnitGlobalId,
-                    OwnerPlayerId = protectedTroop.OwnerPlayerId,
-                    PrivateTribeGlobalId = protectedTroop.PrivateTribeGlobalId,
-                });
+                EnsureProtectedAIStartTroopBehaviour(unit);
+                records.Add(new AIStartTroopIsolationSaveRecord(
+                    protectedTroop.UnitGlobalId,
+                    protectedTroop.OwnerPlayerId,
+                    protectedTroop.PrivateTribeGlobalId));
             }
 
             if (records.Count == 0)
@@ -238,9 +241,13 @@ namespace StartConditions
                 unit->r_GlobalId != saved.UnitGlobalId ||
                 !IsActiveAIStartTroopUnit(unit->r_AliveState) ||
                 unit->r_ControllableForPlayerId != saved.OwnerPlayerId ||
-                !GamePlayerManagerAPI.Instance.IsAIPlayer(saved.OwnerPlayerId))
+                !GamePlayerManagerAPI.Instance.IsAIPlayer(saved.OwnerPlayerId) ||
+                unit->r_AITribeRole != ProtectedAIBehaviourType ||
+                unit->r_AITribeRoleRelatedUnknown != ProtectedAIBehaviourRelatedValue)
             {
-                failureReason = $"saved unit {saved.UnitGlobalId} is absent, inactive, has a different owner, or is no longer AI-owned";
+                failureReason =
+                    $"saved unit {saved.UnitGlobalId} is absent, inactive, has a different owner, " +
+                    "is no longer AI-owned, or lacks the persisted isolation marker";
                 return false;
             }
 
@@ -252,15 +259,34 @@ namespace StartConditions
             if (saved.PrivateTribeGlobalId != 0 && saved.PrivateTribeGlobalId <= int.MaxValue)
             {
                 int tribeId = GameTribeManagerAPI.Instance.GetByGlobalId((int)saved.PrivateTribeGlobalId);
-                if (tribeId > 0 &&
-                    GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) &&
-                    tribe != null &&
-                    tribe->r_GlobalId == saved.PrivateTribeGlobalId)
+                if (tribeId > 0)
                 {
+                    if (!GameTribeManagerAPI.Instance.TryGetTribeById(tribeId, out GameTribe* tribe) ||
+                        tribe == null ||
+                        tribe->r_GlobalId != saved.PrivateTribeGlobalId ||
+                        !IsActiveAIStartTroopTribe(tribe->r_AliveState) ||
+                        tribe->r_PlayerIdOwner != saved.OwnerPlayerId ||
+                        unit->r_TribeId != tribeId ||
+                        !TribeContainsOnlyProtectedUnit(tribe, unitId))
+                    {
+                        failureReason = $"saved private tribe {saved.PrivateTribeGlobalId} has conflicting live state";
+                        return false;
+                    }
+
                     protectedTroop.PrivateTribeId = tribeId;
                     protectedTroop.PrivateTribeGlobalId = saved.PrivateTribeGlobalId;
                     protectedAIStartTroopsByTribeId[tribeId] = protectedTroop;
                 }
+            }
+
+            if (protectedTroop.PrivateTribeId == 0 &&
+                unit->r_TribeId != 0 &&
+                GameTribeManagerAPI.Instance.TryGetTribeById(unit->r_TribeId, out GameTribe* currentTribe) &&
+                currentTribe != null &&
+                IsActiveAIStartTroopTribe(currentTribe->r_AliveState))
+            {
+                failureReason = $"saved unit {saved.UnitGlobalId} belongs to conflicting live tribe {unit->r_TribeId}";
+                return false;
             }
 
             protectedAIStartTroopsByUnitId[unitId] = protectedTroop;
@@ -287,6 +313,7 @@ namespace StartConditions
                     unit == null ||
                     !IsActiveAIStartTroopUnit(unit->r_AliveState) ||
                     unit->r_GlobalId == 0 ||
+                    unit->r_GlobalId > int.MaxValue ||
                     unit->r_ControllableForPlayerId != ownerPlayerId ||
                     !GamePlayerManagerAPI.Instance.IsAIPlayer(ownerPlayerId))
                 {
@@ -318,19 +345,56 @@ namespace StartConditions
             }
             catch (Exception ex)
             {
-                if (unitId > 0 && protectedAIStartTroopsByUnitId.TryGetValue(unitId, out ProtectedAIStartTroop failed))
+                Exception cleanupException = null;
+                protectedAIStartTroopsByUnitId.TryGetValue(unitId, out ProtectedAIStartTroop failed);
+                if (failed != null)
                 {
-                    CleanupFailedAIStartTroopProtection(failed);
-                    RemoveProtectedAIStartTroop(failed);
+                    try
+                    {
+                        CleanupFailedAIStartTroopProtection(failed);
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        cleanupException = cleanupEx;
+                    }
                 }
 
-                bool deleteMarked = unitId > 0 && GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
+                bool deleteMarked = false;
+                Exception deleteException = null;
+                if (unitId > 0)
+                {
+                    try
+                    {
+                        deleteMarked = GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId);
+                    }
+                    catch (Exception deleteEx)
+                    {
+                        deleteException = deleteEx;
+                    }
+                }
+
+                if (failed != null)
+                {
+                    if (deleteMarked || !TryGetExactProtectedAIStartTroop(failed, out GameUnit* failedUnit))
+                    {
+                        RemoveProtectedAIStartTroop(failed);
+                    }
+                    else
+                    {
+                        EnsureProtectedAIStartTroopBehaviour(failedUnit);
+                        failed.PendingDeletion = true;
+                        nextAIStartTroopValidationTick = 0;
+                    }
+                }
+
                 LogError(
                     "AI start troop isolation failed; spawned unit was rejected fail-closed.",
                     "unitId", unitId,
                     "owner", ownerPlayerId,
                     "type", unitType,
                     "deleteMarked", deleteMarked,
+                    "cleanupException", cleanupException,
+                    "deleteException", deleteException,
                     ex);
             }
         }
@@ -346,8 +410,24 @@ namespace StartConditions
 
             try
             {
+                bool targetsPrivateTribe = protectedAIStartTroopsByTribeId.TryGetValue(
+                    args.TribeId,
+                    out ProtectedAIStartTroop privateTribeOwner);
                 if (!TryGetProtectedAIStartTroop(args.UnitId, out ProtectedAIStartTroop protectedTroop, out GameUnit* unit))
+                {
+                    if (targetsPrivateTribe)
+                    {
+                        args.SkipOriginalFunction = true;
+                        args.ReturnValue = 0;
+                        LogDebug(
+                            "Blocked foreign unit assignment to private AI start-troop tribe",
+                            "unitId", args.UnitId,
+                            "requestedTribeId", args.TribeId,
+                            "protectedUnitId", privateTribeOwner.UnitId);
+                    }
+
                     return;
+                }
 
                 EnsureProtectedAIStartTroopBehaviour(unit);
                 args.SkipOriginalFunction = true;
@@ -373,8 +453,15 @@ namespace StartConditions
                 return;
             }
 
-            ClearProtectedAIStartTroopTribeTracking(protectedTroop);
-            nextAIStartTroopValidationTick = GetCurrentGameTick();
+            try
+            {
+                ClearProtectedAIStartTroopTribeTracking(protectedTroop);
+                nextAIStartTroopValidationTick = GetCurrentGameTick();
+            }
+            catch (Exception ex)
+            {
+                LogError("AI start-troop tribe-delete tracking failed:", ex);
+            }
         }
 
         private void OnProtectedAIStartTroopDelete(UnitDeleteEventArgs args)
@@ -382,9 +469,24 @@ namespace StartConditions
             if (!aiStartTroopMapActive)
                 return;
 
-            int unitId = unchecked((int)args.UnitId);
-            if (protectedAIStartTroopsByUnitId.TryGetValue(unitId, out ProtectedAIStartTroop protectedTroop))
-                RemoveProtectedAIStartTroop(protectedTroop);
+            try
+            {
+                int unitId = unchecked((int)args.UnitId);
+                if (protectedAIStartTroopsByUnitId.TryGetValue(unitId, out ProtectedAIStartTroop protectedTroop))
+                {
+                    if (TryGetExactProtectedAIStartTroopTribe(protectedTroop, out GameTribe* tribe) &&
+                        IsActiveAIStartTroopTribe(tribe->r_AliveState))
+                    {
+                        GameTribeManagerAPI.Instance.DeleteTribeSafe(protectedTroop.PrivateTribeId);
+                    }
+
+                    RemoveProtectedAIStartTroop(protectedTroop);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError("AI start-troop unit-delete tracking failed:", ex);
+            }
         }
 
         private void OnAIStartTroopValidationTick(int tick)
@@ -407,9 +509,20 @@ namespace StartConditions
                         continue;
                     }
 
+                    if (protectedTroop.PendingDeletion)
+                    {
+                        EnsureProtectedAIStartTroopBehaviour(unit);
+                        if (GameUnitManagerAPI.Instance.DeleteUnitSafe(protectedTroop.UnitId))
+                            RemoveProtectedAIStartTroop(protectedTroop);
+                        continue;
+                    }
+
                     if (unit->r_ControllableForPlayerId != protectedTroop.OwnerPlayerId ||
                         !GamePlayerManagerAPI.Instance.IsAIPlayer(protectedTroop.OwnerPlayerId))
                     {
+                        CleanupFailedAIStartTroopProtection(protectedTroop);
+                        unit->r_AITribeRoleRelatedUnknown = 0;
+                        unit->r_AITribeRole = 0;
                         RemoveProtectedAIStartTroop(protectedTroop);
                         continue;
                     }
@@ -487,6 +600,7 @@ namespace StartConditions
                 privateTribe == null ||
                 !IsActiveAIStartTroopTribe(privateTribe->r_AliveState) ||
                 privateTribe->r_GlobalId == 0 ||
+                privateTribe->r_GlobalId > int.MaxValue ||
                 privateTribe->r_PlayerIdOwner != protectedTroop.OwnerPlayerId)
             {
                 tribeApi.DeleteTribeSafe(privateTribeId);
@@ -511,18 +625,21 @@ namespace StartConditions
                 permittedAIStartTroopAssignmentTribeId = 0;
             }
 
-            bool stanceSet = assignmentIssued &&
+            bool membershipValid = assignmentIssued &&
                 unit->r_TribeId == privateTribeId &&
+                TribeContainsOnlyProtectedUnit(privateTribe, protectedTroop.UnitId);
+            bool stanceSet = membershipValid &&
                 tribeApi.SetStance(privateTribeId, TribeStance.Aggressive);
             EnsureProtectedAIStartTroopBehaviour(unit);
 
-            if (!assignmentIssued || unit->r_TribeId != privateTribeId || !stanceSet ||
+            if (!membershipValid || !stanceSet ||
                 privateTribe->r_TribeStance != TribeStance.Aggressive)
             {
                 CleanupFailedAIStartTroopProtection(protectedTroop);
                 failureReason =
                     $"private tribe setup failed for tribe {privateTribeId} " +
-                    $"(assignment={assignmentIssued}, unitTribe={unit->r_TribeId}, stanceSet={stanceSet}, stance={privateTribe->r_TribeStance})";
+                    $"(assignment={assignmentIssued}, membership={membershipValid}, unitTribe={unit->r_TribeId}, " +
+                    $"stanceSet={stanceSet}, stance={privateTribe->r_TribeStance})";
                 return false;
             }
 
@@ -550,7 +667,8 @@ namespace StartConditions
                 tribe != null &&
                 tribe->r_GlobalId == protectedTroop.PrivateTribeGlobalId &&
                 IsActiveAIStartTroopTribe(tribe->r_AliveState) &&
-                tribe->r_PlayerIdOwner == protectedTroop.OwnerPlayerId;
+                tribe->r_PlayerIdOwner == protectedTroop.OwnerPlayerId &&
+                TribeContainsOnlyProtectedUnit(tribe, protectedTroop.UnitId);
         }
 
         private bool TryRemoveUnitFromTribeOrClearStaleBackReference(
@@ -562,7 +680,7 @@ namespace StartConditions
                 tribe != null &&
                 IsActiveAIStartTroopTribe(tribe->r_AliveState))
             {
-                return TryUnassignAIStartTroop(tribeId, unitId, unit);
+                return TryUnassignAIStartTroop(tribeId, unitId, unit, tribe);
             }
 
             unit->r_TribeId = 0;
@@ -570,13 +688,27 @@ namespace StartConditions
             return true;
         }
 
-        private bool TryUnassignAIStartTroop(int tribeId, int unitId, GameUnit* unit)
+        private bool TryUnassignAIStartTroop(
+            int tribeId,
+            int unitId,
+            GameUnit* unit,
+            GameTribe* tribe)
         {
-            if (unit == null || unit->r_TribeId != tribeId)
+            if (unit == null ||
+                tribe == null ||
+                unit->r_TribeId != tribeId ||
+                tribe->r_UnitsInGroup == 0 ||
+                !DoesTribeMembershipIncludeUnit(tribe, unitId))
+            {
                 return false;
+            }
 
+            ushort membersBefore = tribe->r_UnitsInGroup;
             bool issued = GameTribeManagerAPI.Instance.UnassignUnit(tribeId, unitId);
-            return issued && unit->r_TribeId != tribeId;
+            return issued &&
+                unit->r_TribeId != tribeId &&
+                !DoesTribeMembershipIncludeUnit(tribe, unitId) &&
+                tribe->r_UnitsInGroup < membersBefore;
         }
 
         private void CleanupStaleAIStartTroopTribe(ProtectedAIStartTroop protectedTroop, GameUnit* unit)
@@ -586,7 +718,20 @@ namespace StartConditions
             if (unit->r_TribeId == staleTribeId)
             {
                 if (exactTribeFound && IsActiveAIStartTroopTribe(staleTribe->r_AliveState))
-                    TryUnassignAIStartTroop(staleTribeId, protectedTroop.UnitId, unit);
+                {
+                    if (!TryUnassignAIStartTroop(
+                            staleTribeId,
+                            protectedTroop.UnitId,
+                            unit,
+                            staleTribe))
+                    {
+                        if (GameTribeManagerAPI.Instance.DeleteTribeSafe(staleTribeId))
+                        {
+                            unit->r_TribeId = 0;
+                            unit->r_TribeLeaderUnitId = 0;
+                        }
+                    }
+                }
                 else
                 {
                     unit->r_TribeId = 0;
@@ -613,7 +758,7 @@ namespace StartConditions
             if (tribeId > 0 && unit->r_TribeId == tribeId &&
                 exactTribeFound && IsActiveAIStartTroopTribe(tribe->r_AliveState))
             {
-                TryUnassignAIStartTroop(tribeId, protectedTroop.UnitId, unit);
+                TryUnassignAIStartTroop(tribeId, protectedTroop.UnitId, unit, tribe);
             }
 
             if (exactTribeFound && IsActiveAIStartTroopTribe(tribe->r_AliveState))
@@ -633,6 +778,7 @@ namespace StartConditions
 
             if (!TryGetExactProtectedAIStartTroop(protectedTroop, out unit))
             {
+                DeleteExactProtectedAIStartTroopTribe(protectedTroop);
                 RemoveProtectedAIStartTroop(protectedTroop);
                 protectedTroop = null;
                 return false;
@@ -671,6 +817,40 @@ namespace StartConditions
             unit->r_AITribeRole = ProtectedAIBehaviourType;
         }
 
+        private static bool DoesTribeMembershipIncludeUnit(GameTribe* tribe, int unitId)
+        {
+            if (tribe == null || unitId <= 0 || unitId >= 10000)
+                return false;
+
+            ushort* membershipWords = &tribe->r_UnitIdsInGroupBitfield;
+            int wordIndex = unitId >> 4;
+            int bitIndex = unitId & 15;
+            return (membershipWords[wordIndex] & (1 << bitIndex)) != 0;
+        }
+
+        private static bool TribeContainsOnlyProtectedUnit(GameTribe* tribe, int unitId)
+        {
+            if (tribe == null ||
+                tribe->r_UnitsInGroup != 1 ||
+                tribe->r_LeaderUnitId != unitId ||
+                !DoesTribeMembershipIncludeUnit(tribe, unitId))
+            {
+                return false;
+            }
+
+            ushort* membershipWords = &tribe->r_UnitIdsInGroupBitfield;
+            int expectedWordIndex = unitId >> 4;
+            ushort expectedWord = (ushort)(1 << (unitId & 15));
+            for (int wordIndex = 0; wordIndex < 625; wordIndex++)
+            {
+                ushort expected = wordIndex == expectedWordIndex ? expectedWord : (ushort)0;
+                if (membershipWords[wordIndex] != expected)
+                    return false;
+            }
+
+            return true;
+        }
+
         private void RemoveProtectedAIStartTroop(ProtectedAIStartTroop protectedTroop)
         {
             if (protectedTroop == null)
@@ -685,6 +865,16 @@ namespace StartConditions
             }
 
             ClearProtectedAIStartTroopTribeTracking(protectedTroop);
+        }
+
+        private void DeleteExactProtectedAIStartTroopTribe(ProtectedAIStartTroop protectedTroop)
+        {
+            if (TryGetExactProtectedAIStartTroopTribe(protectedTroop, out GameTribe* tribe) &&
+                IsActiveAIStartTroopTribe(tribe->r_AliveState) &&
+                tribe->r_PlayerIdOwner == protectedTroop.OwnerPlayerId)
+            {
+                GameTribeManagerAPI.Instance.DeleteTribeSafe(protectedTroop.PrivateTribeId);
+            }
         }
 
         private void ClearProtectedAIStartTroopTribeTracking(ProtectedAIStartTroop protectedTroop)
@@ -726,140 +916,8 @@ namespace StartConditions
             public int OwnerPlayerId { get; }
             public int PrivateTribeId { get; set; }
             public uint PrivateTribeGlobalId { get; set; }
+            public bool PendingDeletion { get; set; }
         }
 
-    }
-
-    internal readonly struct AIStartTroopIsolationSaveRecord
-    {
-        internal AIStartTroopIsolationSaveRecord(
-            uint unitGlobalId,
-            int ownerPlayerId,
-            uint privateTribeGlobalId)
-        {
-            UnitGlobalId = unitGlobalId;
-            OwnerPlayerId = ownerPlayerId;
-            PrivateTribeGlobalId = privateTribeGlobalId;
-        }
-
-        internal uint UnitGlobalId { get; }
-        internal int OwnerPlayerId { get; }
-        internal uint PrivateTribeGlobalId { get; }
-    }
-
-    [MessagePackObject]
-    [MessagePackFormatter(typeof(AIStartTroopIsolationSaveStateFormatter))]
-    internal sealed class AIStartTroopIsolationSaveState
-    {
-        internal const int MaximumRecords = 10000;
-        internal const int MaximumPayloadBytes = 262144;
-
-        [IgnoreMember]
-        internal int SchemaVersion;
-
-        [IgnoreMember]
-        internal AIStartTroopIsolationSaveRecord[] Records;
-
-        internal static byte[] Encode(AIStartTroopIsolationSaveRecord[] records)
-        {
-            return MessagePackSerializer.Serialize(new AIStartTroopIsolationSaveState
-            {
-                SchemaVersion = 1,
-                Records = records,
-            });
-        }
-
-        internal static AIStartTroopIsolationSaveState Decode(byte[] bytes)
-        {
-            if (bytes == null || bytes.Length == 0 || bytes.Length > MaximumPayloadBytes)
-                throw new InvalidOperationException("AI start-troop payload has an invalid length.");
-
-            var reader = new MessagePackReader(bytes);
-            AIStartTroopIsolationSaveState state = new AIStartTroopIsolationSaveStateFormatter()
-                .Deserialize(ref reader, MessagePackSerializerOptions.Standard);
-            if (!reader.End)
-                throw new InvalidOperationException("Trailing AI start-troop save data.");
-            return state;
-        }
-    }
-
-    internal sealed class AIStartTroopIsolationSaveStateFormatter :
-        IMessagePackFormatter<AIStartTroopIsolationSaveState>
-    {
-        public void Serialize(
-            ref MessagePackWriter writer,
-            AIStartTroopIsolationSaveState value,
-            MessagePackSerializerOptions options)
-        {
-            AIStartTroopIsolationSaveRecord[] records = value?.Records;
-            if (value == null ||
-                value.SchemaVersion != 1 ||
-                records == null ||
-                records.Length > AIStartTroopIsolationSaveState.MaximumRecords)
-            {
-                throw new MessagePackSerializationException("Invalid AI start-troop save state.");
-            }
-
-            var unitGlobalIds = new HashSet<uint>();
-            writer.WriteArrayHeader(1 + records.Length * 3);
-            writer.Write(value.SchemaVersion);
-            foreach (AIStartTroopIsolationSaveRecord record in records)
-            {
-                Validate(record, unitGlobalIds);
-                writer.Write(record.UnitGlobalId);
-                writer.Write(record.OwnerPlayerId);
-                writer.Write(record.PrivateTribeGlobalId);
-            }
-        }
-
-        public AIStartTroopIsolationSaveState Deserialize(
-            ref MessagePackReader reader,
-            MessagePackSerializerOptions options)
-        {
-            int count = reader.ReadArrayHeader();
-            if (count < 1 ||
-                count > 1 + AIStartTroopIsolationSaveState.MaximumRecords * 3 ||
-                (count - 1) % 3 != 0)
-            {
-                throw new MessagePackSerializationException("Invalid AI start-troop save-data field count.");
-            }
-
-            int schemaVersion = reader.ReadInt32();
-            if (schemaVersion != 1)
-                throw new MessagePackSerializationException("Unsupported AI start-troop save-data schema.");
-
-            var records = new AIStartTroopIsolationSaveRecord[(count - 1) / 3];
-            var unitGlobalIds = new HashSet<uint>();
-            for (int index = 0; index < records.Length; index++)
-            {
-                var record = new AIStartTroopIsolationSaveRecord(
-                    reader.ReadUInt32(),
-                    reader.ReadInt32(),
-                    reader.ReadUInt32());
-                Validate(record, unitGlobalIds);
-                records[index] = record;
-            }
-
-            return new AIStartTroopIsolationSaveState
-            {
-                SchemaVersion = schemaVersion,
-                Records = records,
-            };
-        }
-
-        private static void Validate(
-            AIStartTroopIsolationSaveRecord record,
-            HashSet<uint> unitGlobalIds)
-        {
-            if (record.UnitGlobalId == 0 ||
-                record.UnitGlobalId > int.MaxValue ||
-                record.OwnerPlayerId < 1 ||
-                record.OwnerPlayerId > 8 ||
-                record.PrivateTribeGlobalId > int.MaxValue ||
-                !unitGlobalIds.Add(record.UnitGlobalId))
-            {
-                throw new MessagePackSerializationException("Invalid or duplicate AI start-troop identity.");
-            }
-        }
     }
 }
