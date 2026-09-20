@@ -76,7 +76,8 @@ namespace FormationTest
             int width,
             int targetX,
             int targetY,
-            int unitCount)
+            int unitCount,
+            bool explicitDirection)
         {
             Kind = kind;
             Density = density;
@@ -86,6 +87,7 @@ namespace FormationTest
             TargetX = targetX;
             TargetY = targetY;
             UnitCount = unitCount;
+            ExplicitDirection = explicitDirection;
         }
 
         internal FormationKind Kind { get; }
@@ -96,6 +98,7 @@ namespace FormationTest
         internal int TargetX { get; }
         internal int TargetY { get; }
         internal int UnitCount { get; }
+        internal bool ExplicitDirection { get; }
 
         internal static FormationPreviewKey Create(
             FormationKind kind,
@@ -105,7 +108,8 @@ namespace FormationTest
             int width,
             int targetX,
             int targetY,
-            int unitCount)
+            int unitCount,
+            bool explicitDirection = false)
         {
             FormationKind normalizedKind = FormationModel.NormalizeKind((int)kind);
             bool fixedShape = normalizedKind == FormationKind.Vanilla ||
@@ -118,7 +122,8 @@ namespace FormationTest
                 fixedShape ? 1 : Math.Max(1, width),
                 targetX,
                 targetY,
-                Math.Max(0, unitCount));
+                Math.Max(0, unitCount),
+                explicitDirection);
         }
 
         public bool Equals(FormationPreviewKey other) =>
@@ -126,7 +131,8 @@ namespace FormationTest
             PlacementMode == other.PlacementMode &&
             DirectionSector == other.DirectionSector && Width == other.Width &&
             TargetX == other.TargetX && TargetY == other.TargetY &&
-            UnitCount == other.UnitCount;
+            UnitCount == other.UnitCount &&
+            ExplicitDirection == other.ExplicitDirection;
 
         public override bool Equals(object obj) =>
             obj is FormationPreviewKey other && Equals(other);
@@ -142,7 +148,8 @@ namespace FormationTest
                 hash = hash * 397 ^ Width;
                 hash = hash * 397 ^ TargetX;
                 hash = hash * 397 ^ TargetY;
-                return hash * 397 ^ UnitCount;
+                hash = hash * 397 ^ UnitCount;
+                return hash * 397 ^ ExplicitDirection.GetHashCode();
             }
         }
     }
@@ -284,6 +291,38 @@ namespace FormationTest
             int sector = directionSector & 7;
             forwardX = ForwardX[sector];
             forwardY = ForwardY[sector];
+        }
+
+        internal static List<FormationPoint> OrientNativeSlots(
+            IReadOnlyList<FormationPoint> nativeSlots,
+            int directionSector)
+        {
+            int count = nativeSlots?.Count ?? 0;
+            var result = new List<FormationPoint>(count);
+            if (count == 0)
+                return result;
+            GetForwardVector(directionSector, out int forwardX, out int forwardY);
+            int rightX = -forwardY;
+            int rightY = forwardX;
+            int maximumProjection = int.MinValue;
+            var projections = new int[count];
+            for (int index = 0; index < count; index++)
+            {
+                FormationPoint point = nativeSlots[index];
+                projections[index] = point.X * forwardX + point.Y * forwardY;
+                maximumProjection = Math.Max(maximumProjection, projections[index]);
+            }
+            for (int index = 0; index < count; index++)
+            {
+                FormationPoint point = nativeSlots[index];
+                int file = point.X * rightX + point.Y * rightY;
+                result.Add(new FormationPoint(
+                    point.X,
+                    point.Y,
+                    maximumProjection - projections[index],
+                    file));
+            }
+            return result;
         }
 
         internal static int ResolveAutomaticWidth(FormationKind kind, int count)

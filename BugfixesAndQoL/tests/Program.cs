@@ -42,7 +42,8 @@ namespace BugfixesAndQoL
             TestFriendlyMoatMovementPolicy();
             TestFriendlyMoatMovementIntegration();
             TestReachableEnemyGatehouseUnitIdContract();
-            TestProjectileSlotContract();
+            TestKeepFlagRotationIntegration();
+            KeepFlagRotationTests.Run(Check);
             TestSynchronizedGatehouseReachabilityPolicy();
             TestMovementFastPathParity();
             TestMovementLoggingState();
@@ -91,6 +92,37 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestKeepFlagRotationIntegration()
+        {
+            string viewModel = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLViewModel.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "KeepFlagRotationRuntime.cs"));
+            string orchestrator = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
+            string manifest = File.ReadAllText("info.json");
+            string xaml = File.ReadAllText(Path.Combine(
+                "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+
+            Check(viewModel.Contains("private bool enableKeepFlagRotationFix = true;") &&
+                  viewModel.Contains("[SyncHostOnly]" + Environment.NewLine +
+                    "        public bool EnableKeepFlagRotationFix") &&
+                  viewModel.Contains("EnableKeepFlagRotationFix = true;"),
+                "keep-flag rotation option is host-synchronized and enabled by default/reset");
+            Check(runtime.Contains(
+                    "private bool Enabled => settings.EnableMod && settings.EnableKeepFlagRotationFix;") &&
+                  runtime.Contains("LoadedMapScanDelayTicks = 3") &&
+                  runtime.Contains("for (int spanIndex = 1; spanIndex < projectiles.Length; spanIndex++)"),
+                "keep-flag runtime obeys both settings, delays scanning, and uses bounded direct projectile IDs");
+            Check(orchestrator.Contains("private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;") &&
+                  orchestrator.Contains("candidate.Install();" + Environment.NewLine +
+                    "            processKeepFlagRotationRuntime = candidate;"),
+                "keep-flag runtime is rooted only after successful installation");
+            Check(xaml.Contains("IsChecked=\"{Binding EnableKeepFlagRotationFix, Mode=TwoWay}\""),
+                "keep-flag host option is exposed in the settings UI");
+            Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.7.2\")]") &&
+                  manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.7.2\""),
+                "BugfixesAndQoL requires the corrected Script Extender projectile bounds from 2.7.2");
         }
 
         private static void TestTransientSelectionGuards()
@@ -215,69 +247,6 @@ namespace BugfixesAndQoL
                 offset += record.Length;
             }
             return buffer;
-        }
-
-        private static unsafe void TestProjectileSlotContract()
-        {
-            const int liveCount = 4;
-            GameProjectile* legacyStorage = stackalloc GameProjectile[liveCount + 4];
-            Span<GameProjectile> legacySpan = new Span<GameProjectile>(legacyStorage, liveCount + 4);
-            *(uint*)((byte*)legacyStorage + sizeof(uint)) = liveCount + 1;
-
-            GameProjectile* correctedStorage = stackalloc GameProjectile[liveCount];
-            Span<GameProjectile> correctedSpan = new Span<GameProjectile>(correctedStorage, liveCount);
-
-            bool legacyResolved = Shared.GameProjectileSlotPolicy.TryResolve(
-                legacySpan,
-                legacyStorage + 1,
-                out Shared.GameProjectileSlotLayout legacyLayout);
-            bool correctedResolved = Shared.GameProjectileSlotPolicy.TryResolve(
-                correctedSpan,
-                correctedStorage,
-                out Shared.GameProjectileSlotLayout correctedLayout);
-
-            Check(legacyResolved &&
-                    legacyLayout.FirstLiveSpanIndex == 1 &&
-                    legacyLayout.ExclusiveUpperBound == liveCount + 1 &&
-                    legacyLayout.LiveCount == liveCount &&
-                    correctedResolved &&
-                    correctedLayout.FirstLiveSpanIndex == 0 &&
-                    correctedLayout.ExclusiveUpperBound == liveCount + 1 &&
-                    correctedLayout.LiveCount == liveCount,
-                "legacy and corrected projectile views resolve to the same live ID range");
-
-            bool equivalentMappings = legacyResolved && correctedResolved;
-            for (int projectileId = 1; projectileId <= liveCount && equivalentMappings; projectileId++)
-            {
-                equivalentMappings =
-                    legacyLayout.TryGetSpanIndex(projectileId, out int legacyIndex) &&
-                    correctedLayout.TryGetSpanIndex(projectileId, out int correctedIndex) &&
-                    legacyIndex == projectileId &&
-                    correctedIndex == projectileId - 1;
-            }
-            Check(equivalentMappings &&
-                    !legacyLayout.IsAddressableId(0) &&
-                    !legacyLayout.IsAddressableId(liveCount + 1) &&
-                    !correctedLayout.IsAddressableId(0) &&
-                    !correctedLayout.IsAddressableId(liveCount + 1),
-                "projectile ID mapping preserves both boundaries across view layouts");
-
-            *(uint*)((byte*)legacyStorage + sizeof(uint)) = 0;
-            bool rejectsMissingBoundary = !Shared.GameProjectileSlotPolicy.TryResolve(
-                legacySpan,
-                legacyStorage + 1,
-                out _);
-            *(uint*)((byte*)legacyStorage + sizeof(uint)) = (uint)legacySpan.Length + 1;
-            bool rejectsOversizedBoundary = !Shared.GameProjectileSlotPolicy.TryResolve(
-                legacySpan,
-                legacyStorage + 1,
-                out _);
-
-            Check(rejectsMissingBoundary &&
-                    rejectsOversizedBoundary &&
-                    !Shared.GameProjectileSlotPolicy.TryResolve(legacySpan, legacyStorage + 2, out _) &&
-                    !Shared.GameProjectileSlotPolicy.TryResolve(Span<GameProjectile>.Empty, null, out _),
-                "unknown or inconsistent projectile view layouts fail closed");
         }
 
         private static void TestMovementLoggingState()

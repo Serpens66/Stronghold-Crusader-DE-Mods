@@ -4,6 +4,7 @@ using R3;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
+using SHCDESE.EventAPI.Tribes;
 using System;
 using System.Diagnostics;
 using System.Reflection;
@@ -30,6 +31,7 @@ namespace EnemyGatePathfindingTest
         private static EnemyGatePathfindingRuntime runtime;
         private static IDisposable mapStartSubscription;
         private static IDisposable mapUnloadSubscription;
+        private static IDisposable targetOrderSubscription;
         private static bool librarySubscriptionInstalled;
         private static bool beforeRenderInstalled;
         private static bool gameTickInstalled;
@@ -56,6 +58,13 @@ namespace EnemyGatePathfindingTest
             {
                 mapUnloadSubscription = Shared.MissionEvents.Ended
                     .Subscribe(_ => runtime?.EndMap("MissionEnd"));
+            }
+            if (targetOrderSubscription == null)
+            {
+                // The public Script Extender event brackets Vanilla 0x11E960. This
+                // observer never mutates or suppresses the order.
+                targetOrderSubscription = TribeR3EventHooks.OnTribeIssueOrderWithTarget.Observable
+                    .Subscribe(ObserveTargetOrder);
             }
             if (!beforeRenderInstalled)
             {
@@ -116,6 +125,9 @@ namespace EnemyGatePathfindingTest
         }
 
         private static void ProcessGameTick(int tick) => runtime?.OnGameTick();
+
+        private static void ObserveTargetOrder(TribeIssueOrderWithTargetEventArgs args) =>
+            runtime?.ObserveTargetOrder(args);
 
         private static void LogScriptExtenderIdentity()
         {

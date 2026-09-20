@@ -283,3 +283,5 @@ BugfixesAndQoL.FriendlyMoatMovementExact=Precise
 BugfixesAndQoL.FriendlyMoatMovementRequiredOnly=Fast
 BugfixesAndQoL.QolTitle=QoL
 BugfixesAndQoL.FixesTitle=Fixes
+BugfixesAndQoL.EnableKeepFlagRotationFix=Rotate Keep flags with their Keeps
+BugfixesAndQoL.EnableKeepFlagRotationFixHelp=Keeps each main flag in the same entrance-relative corner when Vanilla, CastlePlanner, or Fixes rotates a human or AI Keep. Applies in every game mode and supports all Keep sizes.

@@ -3,13 +3,20 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.154",
+  "Version": "1.0.155",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.7.1",
+  "MinimumScriptExtenderVersion": "2.7.2",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.155",
+      "Changes": [
+        "Rotated human and AI Keep main flags with their final Keep orientation in every game mode, including CastlePlanner, Fixes, and alternate Keep sizes.",
+        "Raised the minimum Script Extender version to 2.7.2 and removed BugfixesAndQoL's obsolete 2.7.1 projectile-span workaround."
+      ]
+    },
     {
       "Version": "1.0.154",
       "Changes": [

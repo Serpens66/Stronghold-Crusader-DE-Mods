@@ -30,7 +30,7 @@ namespace PreplacedTest
         private void Awake()
         {
             Shared.DebugLogHelper.LogInfo(Logger,
-                $"{PluginName} {PluginVersion} loaded; activeTestFixes=legacy-tower-timer+player-specific-economy-grid+scoped-wood-score-floor, NetworkMode=1, settings=false, " +
+                $"{PluginName} {PluginVersion} loaded; fixes=legacy-tower-timer+player-specific-economy-grid+scoped-wood-score-floor, NetworkMode=1, settings=false, " +
                 "compatibility=manifest+native-contracts.");
             WarnAboutConflicts("Awake");
             if (!handled && !subscribed)

@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.154.0</AssemblyVersion>
-    <FileVersion>1.0.154.0</FileVersion>
+    <AssemblyVersion>1.0.155.0</AssemblyVersion>
+    <FileVersion>1.0.155.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -154,6 +154,8 @@
     <Compile Include="src\Properties\AssemblyInfo.cs" />
     <Compile Include="src\BugfixesAndQoLRuntime.cs" />
     <Compile Include="src\BugfixesAndQoLViewModel.cs" />
+    <Compile Include="src\KeepFlagRotationPolicy.cs" />
+    <Compile Include="src\KeepFlagRotationRuntime.cs" />
     <Compile Include="src\AssassinSelectionAdapters.cs" />
     <Compile Include="src\CursorConnectivity.cs" />
     <Compile Include="src\CursorRegionGraph.cs" />
@@ -209,7 +211,6 @@
     <Compile Include="src\MovementCadenceIntegration.cs" />
     <Compile Include="src\MovementLoggingStateTracker.cs" />
     <Compile Include="src\PlaguePopularityFix.cs" />
-    <Compile Include="..\Shared\GameProjectileSlotPolicy.cs"><Link>Shared\GameProjectileSlotPolicy.cs</Link></Compile>
     <Compile Include="src\PlagueTreatmentFadeFix.cs" />
     <Compile Include="src\PlagueTargetReservationFix.cs" />
     <Compile Include="src\PlagueApothecaryStateTransitionFix.cs" />

@@ -40,6 +40,7 @@ namespace EnemyGatePathfindingTest
                 NativeHookByteContractsRejectMutation();
                 VanillaDirectionFilterContractsAreAtomic();
                 AiTacticalTargetContractsAreAtomicAndExecutable();
+                AttackOrderCorrelationIsBoundedAndObservational();
                 DirectionAdapterTileRegistersMatchNativeDataFlow();
                 CrashDumpRegisterRegressionsFailOpen();
                 DirectionAdaptersActuallyAssembleAndDecode();
@@ -1136,6 +1137,48 @@ namespace EnemyGatePathfindingTest
                         body.IndexOf("for (int index = 0; index < original.Length", StringComparison.Ordinal) < 0,
                     method + " emits its original load once and has no duplicate full replay");
             }
+        }
+
+        private static void AttackOrderCorrelationIsBoundedAndObservational()
+        {
+            string plugin = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingTestPlugin.cs"));
+            string runtime = File.ReadAllText(Path.Combine("src", "EnemyGatePathfindingRuntime.cs"));
+            string samePcl = File.ReadAllText(Path.Combine("src", "SamePclGateRouteRuntime.cs"));
+            string correlation = File.ReadAllText(
+                Path.Combine("src", "AttackOrderCorrelationDiagnostics.cs"));
+
+            Assert(plugin.IndexOf("OnTribeIssueOrderWithTarget.Observable", StringComparison.Ordinal) >= 0 &&
+                    plugin.IndexOf("Subscribe(ObserveTargetOrder)", StringComparison.Ordinal) >= 0,
+                "AI order correlation uses the existing Script Extender event");
+            Assert(correlation.IndexOf("MaximumNestedOrders = 8", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("MaximumSamples = 32", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("[ThreadStatic]", StringComparison.Ordinal) >= 0,
+                "AI order correlation bounds nested state and samples");
+            Assert(correlation.IndexOf("EventHookPhase.Pre", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("EventHookPhase.Post", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("postMismatches", StringComparison.Ordinal) >= 0,
+                "AI order correlation handles nested pre/post event phases defensively");
+            Assert(correlation.IndexOf("AttackUnit", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("Unknown32", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("AttackBuilding", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("AttackWallTileId", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("DigMoatTileId", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("AttackTilePosition", StringComparison.Ordinal) >= 0,
+                "all requested attack commands are classified");
+            Assert(correlation.IndexOf("IsAIPlayer(player)", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("samples[sampleIndex].Matches(frame)", StringComparison.Ordinal) >= 0,
+                "only AI orders are retained and repeated tribe/targets are deduplicated");
+            Assert(correlation.IndexOf("FindPath", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    correlation.IndexOf("Breadth", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    correlation.IndexOf("Queue<", StringComparison.Ordinal) < 0,
+                "order diagnostics start no managed route search");
+            Assert(samePcl.IndexOf("attackOrderDiagnostics?.ObserveBuilder", StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("plannerState0x419Queries", StringComparison.Ordinal) >= 0 &&
+                    runtime.IndexOf("Enemy-gate AI order checkpoint", StringComparison.Ordinal) >= 0,
+                "F4930 results are correlated and state 0x419 is named separately");
+            Assert(correlation.IndexOf("DebugLogHelper.LogInfo", StringComparison.Ordinal) >= 0 &&
+                    correlation.IndexOf("while (publishedSamples < sampleCount)", StringComparison.Ordinal) >= 0,
+                "full samples are emitted once from the deferred path");
         }
 
         private static void AiTacticalTargetContractsAreAtomicAndExecutable()

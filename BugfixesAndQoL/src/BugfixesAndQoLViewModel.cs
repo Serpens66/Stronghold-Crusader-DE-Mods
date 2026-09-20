@@ -41,6 +41,7 @@ namespace BugfixesAndQoL
         private bool enableStuckApothecaryFix = true;
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
+        private bool enableKeepFlagRotationFix = true;
         private bool enableTunnelPlacementDistanceFix = true;
         private bool enableFairSiegeAmmoRestock = true;
         private bool enableSurrenderAndStatistics = true;
@@ -320,6 +321,8 @@ namespace BugfixesAndQoL
             SerpLocalization.Get("BugfixesAndQoL.EnableDisbandedUnitControlGroupCleanupHelp");
         public string EnableAssemblyPointPlacementFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFix");
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
+        public string EnableKeepFlagRotationFixText => SerpLocalization.Get("BugfixesAndQoL.EnableKeepFlagRotationFix");
+        public string EnableKeepFlagRotationFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableKeepFlagRotationFixHelp");
         public string EnableTunnelPlacementDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFix");
         public string EnableTunnelPlacementDistanceFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
@@ -962,6 +965,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableKeepFlagRotationFix
+        {
+            get => enableKeepFlagRotationFix;
+            set => SetSetting(ref enableKeepFlagRotationFix, value, nameof(EnableKeepFlagRotationFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableTunnelPlacementDistanceFix
         {
             get => enableTunnelPlacementDistanceFix;
@@ -1134,6 +1144,7 @@ namespace BugfixesAndQoL
                 EnableStuckApothecaryFix = true;
                 EnablePlagueTargetReservationFix = true;
                 EnableAssemblyPointPlacementFix = true;
+                EnableKeepFlagRotationFix = true;
                 EnableTunnelPlacementDistanceFix = true;
                 EnableFairSiegeAmmoRestock = true;
                 EnableSurrenderAndStatistics = true;

@@ -73,6 +73,7 @@ namespace BugfixesAndQoL
         private static FriendlyMoatMovementRuntime processFriendlyMoatMovementRuntime;
         private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;
         private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;
+        private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private NotificationSkipFeature notificationSkipFeature;
         private IntPtr libraryHandle;
@@ -276,6 +277,9 @@ namespace BugfixesAndQoL
             nativeRegion = context.Region;
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
+            TryInitializePersistentFeature(
+                "Keep-flag rotation fix",
+                EnsureKeepFlagRotationRuntime);
             TryInitializePersistentFeature(
                 "complete notification skip",
                 () => notificationSkipFeature = new NotificationSkipFeature(
@@ -504,6 +508,16 @@ namespace BugfixesAndQoL
             var candidate = new PlacementCancelMoveSuppressionFeature(log, settings);
             candidate.Install();
             processPlacementCancelMoveSuppressionFeature = candidate;
+        }
+
+        private void EnsureKeepFlagRotationRuntime()
+        {
+            if (processKeepFlagRotationRuntime != null)
+                return;
+
+            var candidate = new KeepFlagRotationRuntime(log, settings);
+            candidate.Install();
+            processKeepFlagRotationRuntime = candidate;
         }
 
         public void Dispose()

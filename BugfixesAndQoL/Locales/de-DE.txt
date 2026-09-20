@@ -283,3 +283,5 @@ BugfixesAndQoL.FriendlyMoatMovementExact=Präzise
 BugfixesAndQoL.FriendlyMoatMovementRequiredOnly=Schnell
 BugfixesAndQoL.QolTitle=QoL
 BugfixesAndQoL.FixesTitle=Fixes
+BugfixesAndQoL.EnableKeepFlagRotationFix=Hauptflaggen mit den Bergfrieden drehen
+BugfixesAndQoL.EnableKeepFlagRotationFixHelp=Behält die Hauptflagge relativ zum Eingang in derselben Ecke, wenn Vanilla, CastlePlanner oder Fixes einen menschlichen oder KI-Bergfried dreht. Gilt in jedem Spielmodus und unterstützt alle Bergfriedgrößen.

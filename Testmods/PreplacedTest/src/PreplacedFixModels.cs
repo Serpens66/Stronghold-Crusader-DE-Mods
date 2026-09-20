@@ -4,9 +4,61 @@ using System.Linq;
 
 namespace PreplacedTest
 {
+    internal sealed class LegacyRuinTimerFix
+    {
+        public string ClassifyTransfer(bool isAi, bool isSave, int mapVersion, int legacyVersionExclusive,
+            int sourceBefore, int sourceAfter, int destinationBefore, int destinationAfter) =>
+            LegacyTimerFixEligibility.Classify(isAi, isSave, mapVersion, legacyVersionExclusive,
+                sourceBefore, sourceAfter, destinationBefore, destinationAfter);
+
+        public bool IsTransferEligible(string classification) =>
+            LegacyTimerFixEligibility.IsEligible(classification);
+
+        public string ClassifyApplication(string transferClassification, bool hasMatchingDestroyedTower,
+            bool damageWriterObserved, int currentTimer) =>
+            LegacyTimerFixEligibility.ClassifyAtApplication(transferClassification,
+                hasMatchingDestroyedTower, damageWriterObserved, currentTimer);
+
+        public bool IsApplicationEligible(string classification) =>
+            LegacyTimerFixEligibility.IsApplicationEligible(classification);
+    }
+
+    internal sealed class PreplacedEconomyAccessFix
+    {
+        public EconomyFixActivationState InitialState(bool isSave, WallAccessRole role,
+            bool hasFriendlyPreplacedPortal) =>
+            EconomyFixActivationModel.Initial(isSave, role, hasFriendlyPreplacedPortal);
+
+        public EconomyFixActivationState Activate(EconomyFixActivationState state) =>
+            EconomyFixActivationModel.Activate(state);
+
+        public EconomyFixActivationState Resume(bool confirmedBreach,
+            bool hasFriendlyPreplacedPortal, WallAccessRole role) =>
+            EconomyFixActivationModel.Resume(confirmedBreach, hasFriendlyPreplacedPortal, role);
+
+        public bool IsPortalOwnerSynchronizationEligible(bool isSave, bool isPreplaced,
+            bool identityMatches, bool isLiving, bool recordActive, bool recordOpen,
+            bool buildingIdMatches, bool subjectGlobalMatches, bool entryPclValid,
+            bool exitPclValid, bool ownerValid) =>
+            PortalOwnerSynchronizationModel.IsEligible(isSave, isPreplaced, identityMatches,
+                isLiving, recordActive, recordOpen, buildingIdMatches, subjectGlobalMatches,
+                entryPclValid, exitPclValid, ownerValid);
+
+        public bool IsConfirmedBreach(bool baselineWallLost, int oldInsidePcl, int oldOutsidePcl,
+            int newInsidePcl, int newOutsidePcl) =>
+            WallBreachConfirmation.IsConfirmed(baselineWallLost, oldInsidePcl, oldOutsidePcl,
+                newInsidePcl, newOutsidePcl);
+    }
+
     internal static class CrushedTimerTransition
     {
         public static bool IsActivation(int before, int after) => before == 0 && after == 1;
+    }
+
+    internal static class DamageObservationModel
+    {
+        public static bool IsLethalInput(int currentHealth, int damage) =>
+            currentHealth > 0 && damage >= currentHealth;
     }
 
     internal readonly struct PreplacedIdentity : IEquatable<PreplacedIdentity>
@@ -48,18 +100,18 @@ namespace PreplacedTest
         }
     }
 
-    internal enum WallTestRole
+    internal enum WallAccessRole
     {
         None,
         GatedWallCandidate,
         ClosedWallCandidate
     }
 
-    internal static class WallTestRoleClassifier
+    internal static class WallAccessRoleClassifier
     {
-        public static WallTestRole Classify(int livingWallCount, int livingPortalCount) =>
-            livingWallCount <= 0 ? WallTestRole.None :
-            livingPortalCount > 0 ? WallTestRole.GatedWallCandidate : WallTestRole.ClosedWallCandidate;
+        public static WallAccessRole Classify(int livingWallCount, int livingPortalCount) =>
+            livingWallCount <= 0 ? WallAccessRole.None :
+            livingPortalCount > 0 ? WallAccessRole.GatedWallCandidate : WallAccessRole.ClosedWallCandidate;
     }
 
     internal enum EconomyFixActivationState
@@ -74,12 +126,12 @@ namespace PreplacedTest
 
     internal static class EconomyFixActivationModel
     {
-        public static EconomyFixActivationState Initial(bool isSave, WallTestRole role,
+        public static EconomyFixActivationState Initial(bool isSave, WallAccessRole role,
             bool hasFriendlyPreplacedPortal)
         {
-            if (isSave || role == WallTestRole.None) return EconomyFixActivationState.None;
+            if (isSave || role == WallAccessRole.None) return EconomyFixActivationState.None;
             if (hasFriendlyPreplacedPortal) return EconomyFixActivationState.PendingPortal;
-            return role == WallTestRole.ClosedWallCandidate
+            return role == WallAccessRole.ClosedWallCandidate
                 ? EconomyFixActivationState.PendingBreach
                 : EconomyFixActivationState.None;
         }
@@ -92,10 +144,10 @@ namespace PreplacedTest
                     : state;
 
         public static EconomyFixActivationState Resume(bool confirmedBreach,
-            bool hasFriendlyPreplacedPortal, WallTestRole role) =>
+            bool hasFriendlyPreplacedPortal, WallAccessRole role) =>
             confirmedBreach ? EconomyFixActivationState.PendingBreach :
-            role != WallTestRole.None && hasFriendlyPreplacedPortal ? EconomyFixActivationState.PendingPortal :
-            role == WallTestRole.ClosedWallCandidate ? EconomyFixActivationState.PendingBreach :
+            role != WallAccessRole.None && hasFriendlyPreplacedPortal ? EconomyFixActivationState.PendingPortal :
+            role == WallAccessRole.ClosedWallCandidate ? EconomyFixActivationState.PendingBreach :
             EconomyFixActivationState.None;
     }
 

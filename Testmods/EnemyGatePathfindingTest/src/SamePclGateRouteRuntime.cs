@@ -239,6 +239,7 @@ namespace EnemyGatePathfindingTest
         }
 
         private readonly ManualLogSource log;
+        private readonly AttackOrderCorrelationDiagnostics attackOrderDiagnostics;
         private readonly IntPtr threadSlots;
         private readonly IntPtr tacticalThreadSlots;
         private HookTransaction transaction;
@@ -333,11 +334,13 @@ namespace EnemyGatePathfindingTest
         private int installAttempted;
 
         internal SamePclGateRouteRuntime(ManualLogSource log, ReadOnlySpan<byte> memory,
-            ScanRegion region, ulong libraryBase, bool existingHookOwner)
+            ScanRegion region, ulong libraryBase, bool existingHookOwner,
+            AttackOrderCorrelationDiagnostics attackOrderDiagnostics)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.region = region;
             this.libraryBase = libraryBase;
+            this.attackOrderDiagnostics = attackOrderDiagnostics;
             ownerConflict = existingHookOwner;
             maskPool = new NativeMaskSnapshot[existingHookOwner ? 0 : NativeSnapshotPoolSize];
             for (int index = 0; index < maskPool.Length; index++)
@@ -1016,7 +1019,12 @@ namespace EnemyGatePathfindingTest
             QueryScope scope = Enter(player); int result = 0; bool completed = false;
             try { result = originalBuilder(manager, player, profile); completed = true; return result; }
             catch { Interlocked.Increment(ref exceptions); throw; }
-            finally { Complete(scope, kind, true, completed && result > 0); }
+            finally
+            {
+                long touched = Complete(scope, kind, true, completed && result > 0);
+                attackOrderDiagnostics?.ObserveBuilder(player, completed, result > 0,
+                    touched, scope.Snapshot.Fingerprint);
+            }
         }
         private void FilterAttack(IntPtr manager, int unused2, int unused3, uint x, uint y,
             int count, int targetPcl, int player)

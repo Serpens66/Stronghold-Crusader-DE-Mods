@@ -1578,8 +1578,7 @@ namespace FormationTest
                     "The Vanilla formation anchor is not pathable.");
             }
             int anchorTile = GameTileManagerAPI.Instance.GetTileId(anchorX, anchorY);
-            if (
-                (uint)anchorTile >= (uint)components.Length ||
+            if ((uint)anchorTile >= (uint)components.Length ||
                 (uint)anchorTile >= (uint)edges.Length || components[anchorTile] == 0)
             {
                 throw new InvalidOperationException(
@@ -1648,29 +1647,14 @@ namespace FormationTest
             IReadOnlyList<NativeDestination> destinations,
             int directionSector)
         {
-            FormationModel.GetForwardVector(
-                directionSector, out int forwardX, out int forwardY);
-            int rightX = -forwardY;
-            int rightY = forwardX;
-            int maximumProjection = int.MinValue;
-            var projections = new int[destinations.Count];
+            var relative = new List<FormationPoint>(destinations.Count);
             for (int index = 0; index < destinations.Count; index++)
             {
                 int localX = destinations[index].X - anchorX;
                 int localY = destinations[index].Y - anchorY;
-                projections[index] = localX * forwardX + localY * forwardY;
-                maximumProjection = Math.Max(maximumProjection, projections[index]);
+                relative.Add(new FormationPoint(localX, localY, 0, 0));
             }
-            var result = new List<FormationPoint>(destinations.Count);
-            for (int index = 0; index < destinations.Count; index++)
-            {
-                int localX = destinations[index].X - anchorX;
-                int localY = destinations[index].Y - anchorY;
-                int file = localX * rightX + localY * rightY;
-                result.Add(new FormationPoint(
-                    localX, localY, maximumProjection - projections[index], file));
-            }
-            return result;
+            return FormationModel.OrientNativeSlots(relative, directionSector);
         }
 
         private static void TryEnqueueVanillaCandidate(
@@ -1947,7 +1931,8 @@ namespace FormationTest
                 width,
                 state.Target.NativeX,
                 state.Target.NativeY,
-                state.Selection.Length);
+                state.Selection.Length,
+                HasExplicitDirection(state));
             if (!force && state.HasLastPreviewKey &&
                 state.LastPreviewKey.Equals(previewKey))
                 return;
@@ -2005,7 +1990,8 @@ namespace FormationTest
                     log,
                     $"FORMATION_PREVIEW_UPDATED: kind={previewKey.Kind}, " +
                     $"density={previewKey.Density}, placement={previewKey.PlacementMode}, " +
-                    $"direction={previewKey.DirectionSector}, width={previewKey.Width}, " +
+                    $"direction={previewKey.DirectionSector}, explicitDirection={previewKey.ExplicitDirection}, " +
+                    $"width={previewKey.Width}, " +
                     $"rows={FormationModel.ResolveActualRows(previewKey.Kind, previewKey.UnitCount, previewKey.Width)}, " +
                     $"markers={new HashSet<int>(markerTiles).Count}, " +
                     $"plan=0x{state.PreviewPlanHash:X16}, " +

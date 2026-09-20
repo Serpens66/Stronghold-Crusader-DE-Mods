@@ -43,6 +43,9 @@ Each active plague outbreak now applies exactly one point of negative popularity
 ### Allow unrestricted rally-point placement
 Barracks, mercenary posts, engineer guilds, tunneler guilds, keeps, and Bedouin tents no longer reject a rally point merely because the game considers the destination unreachable. Their rally flags can be placed anywhere the normal rally-point controls allow.
 
+### Rotate Keep flags with their Keeps
+The main flag stays in the same corner relative to the entrance when Vanilla, CastlePlanner, or Fixes rotates a human or AI Keep. This enabled-by-default host fix works in every game mode and supports Keep1, Keep2, and the larger Keep3.
+
 ### Keep buildings away from enemy buildings and moats
 This enabled-by-default host fix requires a one-tile gap around every human-placed building when an enemy completed moat is nearby. Tunnels and tunnel construction sites additionally retain the same gap from enemy buildings and walls (same like woodcutters and so on already do).
 

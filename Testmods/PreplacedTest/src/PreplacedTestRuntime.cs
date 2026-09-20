@@ -25,61 +25,16 @@ namespace PreplacedTest
     internal sealed unsafe class PreplacedTestRuntime
     {
         private const int MaxPlayablePlayerId = 8;
-        private const int MaxAivSpecIndex = 8;
-        private const int AivSpecStride = 0x6D98;
         private const int PlayerRuntimeStateStride = 0x583C;
-        private const int PreparedLayoutFrameCount = 0x922;
-        private const int PreparedEntrySize = 0x0C;
-        private const int PreparedEntryBaseOffset = 0x38;
-        private const int PlayerIdOffset = 0x04;
-        private const int OrientationOffset = 0x0C;
-        private const int CandidateIdOffset = 0x10;
-        private const int PlacementStateOffset = 0x14;
-        private const int CurrentStepGoalOffset = 0x18;
-        private const int BuildCounterOffset = 0x1C;
-        private const int BuildRateOffset = 0x20;
-        private const int HighestPreparedFrameOffset = 0x24;
-        private const int OriginXOffset = 0x28;
-        private const int OriginYOffset = 0x2C;
-        private const int KeepXOffset = 0x30;
-        private const int KeepYOffset = 0x34;
-        private const int ActiveAicRelativeOffset = 0x04;
         private const int CrushedCounterRelativeOffset = 0x7E4;
-        private const int EconomyPhaseRelativeOffset = 0x1564;
-        private const int PauseIndexRelativeOffset = 0x1568;
-        private const int PauseCounterRelativeOffset = 0x156C;
-        private const int PauseTableRelativeOffset = 0x1570;
-        private const int PauseConfiguredRelativeOffset = 0x1598;
-        private const int PauseTableEntryCount =
-            (PauseConfiguredRelativeOffset - PauseTableRelativeOffset) / sizeof(short);
         private const int WoodSearchCooldownRelativeOffset = 0x167C;
-        private const int WoodAvailabilityCountRelativeOffset = 0x1686;
-        private const int FarmSearchCooldownRelativeOffset = 0x167E;
-        private const int QuarrySearchCooldownRelativeOffset = 0x1680;
-        private const int IronSearchCooldownRelativeOffset = 0x1682;
-        private const int PitchSearchCooldownRelativeOffset = 0x1684;
-        private const int FarmBuiltCountRelativeOffset = 0x162C;
-        private const int FarmDesiredCountRelativeOffset = 0x1688;
-        private const int QuarryDesiredCountRelativeOffset = 0x168A;
-        private const int IronDesiredCountRelativeOffset = 0x168C;
-        private const int PitchDesiredCountRelativeOffset = 0x168E;
-        private const int IronBuiltCountRelativeOffset = 0x1690;
-        private const int PitchBuiltCountRelativeOffset = 0x1694;
-        private const int QuarryBuiltCountRelativeOffset = 0x1698;
-        private const int FarmSearchMapGateRva = 0x64CCC04;
         private const int ConstructBuildingErrorRva = 0x60AD4AC;
         private const int FarmPlacementOffsetTableRva = 0x2D13B0;
-        private const int EconomyNeighborOffsetTableRva = 0x2D2E50;
-        private const int AivGridSize = 100;
-        private const int LogPayloadLength = 1600;
-        private const int BuildingCountModeFieldOffset = 0x2C8;
         private const int NativePathManagerRva = 0x60AD660;
         private const int NativePclGridRva = 0x50EC690;
         private const int NativePclGridEndRva = 0x51890D0;
         private const int NativePclEntrySize = sizeof(ushort);
         private const int NativePclEntryCount = (NativePclGridEndRva - NativePclGridRva) / NativePclEntrySize;
-        private const int BuildingDamageFunctionRva = 0x7EB00;
-        private const int BuildingDamageFunctionLength = 0xD7A;
         private const int LegacyPlayerStateCopyRva = 0xD4290;
         private const int LegacyPlayerStateCopyCallSiteRva = 0x96CE;
         private const int LegacyPlayerStateSourceRva = 0x37CC7EC;
@@ -97,122 +52,24 @@ namespace PreplacedTest
         private const int LegacyPlayerStateCopyVersionExclusive = 0xD5;
         private const int LegacyPlayerStateStride = 0x39F4;
         private const int SerializedPlayerRecordCount = 9;
-        private const int PlayerStateChoreRva = 0x15B90;
-        private const int PlayerStateRecordCopyCallSiteRva = 0x15C4A;
-        private const int ChoreCopyFieldRva = 0x1F5F0;
-        private const int ChoreCopyFieldMemcpyCallSiteRva = 0x1F65D;
-        private const int ChoreCopyFieldEndRva = 0x1F68D;
-        private const int NativeChoreManagerRva = 0x8574320;
-        private const int CurrentChoreRecordIndexRva = 0x86C132C;
-        private const int ChoreDirectionRva = 0x85F8FEC;
-        private const int ChoreBlockedRva = 0x8574CC0;
-        private const int ChoreCursorOffset = 0x370BF8;
-        private const int ChoreLinearBufferOffset = 0x84CD8;
-        private const int ChorePlayerIndexFieldSize = sizeof(int);
-        private const int ChoreBufferCapacity = 180000;
-        private const int PlayerClassTableRva = 0x37EDF3C;
-        // Literal protocol/layout values of the audited PCL and accessibility functions.
         private const int MaximumPortalRecordCount = 200;
         private const int PortalRecordStrideDwords = 0x81;
-        private const int PortalStateOffsetDwords = 0x809;
-        private const int PortalKindOffsetDwords = 0x80A;
-        private const int PortalBuildingIdOffsetDwords = 0x80C;
-        private const int PortalActiveOffsetDwords = 0x80F;
-        private const int PortalFirstPclOffsetDwords = 0x816;
-        private const int PortalSecondPclOffsetDwords = 0x817;
-        private const int PortalOwnerOffsetDwords = 0x882;
         private const int PortalThirdPclOffsetDwords = 0x883;
-        private const int NativePortalLiveState = 1;
-        private const int NativePortalExcludedKindForEconomyModeZero = 1;
-        // Audited AI economy flood-fill layout for FBCB9319. These names intentionally
-        // describe storage only; the individual cell bytes are not assigned semantics.
         private const int EconomyGridWidth = 160;
         private const int NativeTileGridWidth = 800;
         private const int EconomyGridCellCount = EconomyGridWidth * EconomyGridWidth;
         private const int EconomyGridCellStride = 0x30;
         private const int EconomyGridBaseOffset = 0x5B830;
-        private const int EconomyVisitGenerationOffset = 0x5B50C;
-        private const int EconomyQueueDepthOffset = 0x187830;
-        private const int EconomyQueueReadOffset = 0x187834;
-        private const int EconomyQueueWriteOffset = 0x187838;
-        private const int EconomyResultXOffset = 0x1B983C;
-        private const int EconomyResultYOffset = 0x1B9840;
-        private const int EconomyReferencePclOffset = 0x5B504;
-        private const int EconomyOrientationOffset = 0x5B508;
         private const int PlacementReachabilityRouteCallSiteRva = 0xC3C5D;
-        // RVA 0x57330 advances this shared ring index through 0..30. RVA 0x575B0
-        // uses it directly against a 32-pair table; pair 31 is not selected by this writer.
         private const int FarmPlacementOffsetTablePairCount = 32;
-        private const int FarmPlacementSelectableOffsetCount = 31;
-        private const int EconomyNeighborOffsetCount = 8;
         private const int EconomyCoarseCellTileSize = 5;
-        // Signed comparison thresholds taken directly from the audited FBCB9319 pseudocode.
-        private const int WoodExpansionCellValueExclusive = 0x10;
-        private const int FarmExpansionCellValueExclusive = 0x11;
-        private const int ResourceExpansionDifferenceExclusive = 0x10;
-        private const int NearbyExpansionCellValueExclusive = 0x0F;
 
         private const string AllocateSpecPattern =
             "48 89 74 24 10 57 48 83 EC 20 BF 01 00 00 00 48 8D 81 9C 6D 00 00";
-        private const string SetPlacementPattern =
-            "40 53 48 83 EC 30 48 63 C2 45 8B D1 48 69 D8 98 6D 00 00";
-        private const string SelectBestFitPattern =
-            "44 88 44 24 18 89 54 24 10 55 56 41 54 41 55 41 56 41 57 48 83 EC 58";
-        private const string TestSpecificCandidatePattern =
-            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 56 48 83 EC 20 41 8B F0 48 63 EA";
-        private const string LoadCandidatePattern =
-            "40 53 56 57 41 55 48 83 EC 38 8B 05 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? 41 8B D8 48 63 FA 85 C0";
-        private const string ApplyRotationPattern =
-            "85 D2 0F 84 ?? ?? ?? ?? 53 48 83 EC 20 48 89 74 24 30 48 8B D9 48 89 7C 24 38 83 FA 06";
-        private const string EvaluateCandidateFitPattern =
-            "89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 48 45 33 C9 48 8D 81 44 98 1B 00";
-        private const string PrepareLayoutPattern =
-            "44 89 44 24 18 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 68";
-        private const string SchedulerPattern =
-            "48 89 6C 24 10 48 89 74 24 18 57 41 54 41 55 41 56 41 57 48 83 EC 30 48 63 F2 48 8D 05 ?? ?? ?? ??";
-        private const string ExecuteBuildStepPattern =
-            "40 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 78 4C 63 F2";
-        private const string AlternativeExecutionPattern =
-            "44 89 44 24 18 89 54 24 10 48 89 4C 24 08 53 55 56 57 41 54 41 55 41 56 41 57 48 81 EC C8 00 00 00";
-        private const string PlacementHelperPattern =
-            "44 89 4C 24 20 44 89 44 24 18 89 54 24 10 53 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 48 " +
-            "44 8B BC 24 B8 00 00 00 45 8B E1 41 8B E8 89 54 24 20 45 8B C4 8B D5";
-        private const string ValidatorPattern =
-            "40 53 55 56 57 41 56 48 83 EC 40 33 C0 49 63 E8 83 BC 24 90 00 00 00 02";
-        private const string ResourceGatePattern =
-            "48 89 5C 24 20 44 89 44 24 18 89 54 24 10 48 89 4C 24 08 55 56 57 41 54 41 55 41 56 41 57 48 83";
-        private const string MapperWaitOnePattern =
-            "41 83 F8 36 75 4D 48 63 C2 48 8D 15 ?? ?? ?? ?? 48 69 C8 3C 58 00 00";
-        private const string MapperWaitTwoPattern =
-            "48 63 C2 48 69 C8 3C 58 00 00 48 8D 05 ?? ?? ?? ?? 83 BC 01 B0 24 13 00 00";
-        private const string MapperWaitThreePattern =
-            "41 81 C0 60 FF FF FF 41 81 F8 A8 00 00 00 77 52 49 63 C0 4C 8D 05 ?? ?? ?? ??";
-        private const string MapperWaitFourPattern =
-            "41 81 C0 50 FF FF FF 41 81 F8 87 00 00 00 77 57 49 63 C0 4C 8D 05 ?? ?? ?? ??";
-        private const string DeleteHovelPattern =
-            "48 89 5C 24 08 57 48 83 EC 20 48 63 FA 48 8D 15 ?? ?? ?? ?? 48 69 CF 3C 58 00 00";
-        private const string MaintenanceOnePattern =
-            "48 8B C4 55 41 57 48 83 EC 68 48 63 EA 4C 8D 3D ?? ?? ?? ?? 48 69 CD 3C 58 00 00";
-        private const string MaintenanceTwoPattern =
-            "4C 8B DC 55 41 56 41 57 48 83 EC 60 4C 8D 3D ?? ?? ?? ?? 48 63 EA 48 69 D5 3C 58 00 00";
         private const string ActiveLayoutReferencePattern =
             "48 63 F2 48 8D 05 ?? ?? ?? ?? 4C 69 CE 3C 58 00 00";
-        private const string CountBuildingsPattern =
-            "4C 63 59 50 45 33 D2 49 83 FB 01 7E 40 48 81 C1 5E 04 00 00 49 FF CB 66 83 79 FA 02";
-        private const string PlacementReachabilityPattern =
-            "48 83 EC 38 49 63 C0 4C 8D 15 ?? ?? ?? ?? 41 83 BC 82 E0 4F 2E 00 00 75 62 48 63 C2";
-        private const string AccessibilitySweepPattern =
-            "40 56 57 41 56 48 83 EC 20 BE 01 00 00 00 44 8B F2 48 8B F9 39 71 50";
-        private const string BuildingAccessibilityPattern =
-            "44 89 44 24 18 55 41 57 48 83 EC 58 48 63 EA 4C 8B F9 85 D2 7F 0A 33 C0";
-        private const string EconomyFarmPattern =
-            "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 41 8B D8";
-        private const string EconomyIronPattern =
-            "40 56 57 41 54 48 83 EC 50 8B F2 48 8B F9 44 8B C2";
         private const string EconomyOxenPattern =
             "48 89 5C 24 20 56 57 41 54 48 83 EC 40 48 63 FA";
-        private const string EconomyPitchPattern =
-            "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 40 8B FA 48 8B D9 44 8B C2 48 8D 0D ?? ?? ?? ?? BE 5B 00 00 00";
         private const string EconomyQuarryPattern =
             "40 53 55 56 48 83 EC 50 8B F2 48 8B D9 44 8B C2";
         private const string EconomyWoodPattern =
@@ -223,74 +80,18 @@ namespace PreplacedTest
             "41 54 41 55 48 83 EC 18 45 33 ED 48 C7 81 30 78 18 00 01 00 00 00";
         private const string WoodSearchPattern =
             "40 53 55 41 56 41 57 48 83 EC 18 33 C0 48 C7 81 30 78 18 00 01 00 00 00";
-        private const string InaccessibleBuildingCheckPattern =
-            "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 8D 35 ?? ?? ?? ?? 48 63 FA 4C 69 CF 2C 03 00 00";
-        private const string InaccessibleBuildingSelectionPattern =
-            "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 48 63 FA 48 8D 05 ?? ?? ?? ?? 48 69 CF 3C 58 00 00";
-        private const string EconomyCellPenaltyPattern =
-            "4C 8B D1 B8 67 66 66 66 F7 EA B8 67 66 66 66 D1 FA 44 8B CA 41 C1 E9 1F 41 03 D1 48 63 D2";
         private const string NearbySearchPattern =
             "41 56 48 83 EC 10 48 C7 81 30 78 18 00 01 00 00 00 45 33 F6";
-        private const string ConstructBuildingPattern =
-            "89 54 24 10 53 55 56 57 41 55 41 56 41 57 48 83 EC 70";
-        private const string RegionPairReachabilityPattern =
-            "40 55 41 54 41 55 41 56 48 8D AC 24 78 F7 FF FF 48 81 EC 88 09 00 00";
         private const string EconomyGridUpdatePattern =
             "40 53 56 48 83 EC 38 83 3D ?? ?? ?? ?? 00 8B F2 48 8B D9 0F 84";
         private const string InitializeEconomyAvailabilityPattern =
             "48 89 5C 24 10 55 56 57 41 54 41 55 41 56 41 57 48 83 EC 10 4C 8B D1 48 63 C2 4C 69 C0 3C 58 00 00";
-        private const string SelectDominantPclPattern =
-            "40 53 48 83 EC 20 48 8D 1D ?? ?? ?? ?? 45 33 C0 4C 8B CB 48 8D 0D";
-        private const string InitializePlayerBuildingsPattern =
-            "48 89 6C 24 10 48 89 74 24 18 57 48 83 EC 20 BF 01 00 00 00 8B EA";
-        private const string InitializeBuildingPattern =
-            "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 41 BF 03 00 00 00 48 63";
-        private const string ClearBuildingRecordPattern =
-            "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 20 83 3D ?? ?? ?? ?? 10";
         private const string LegacyPlayerStateCopyPattern =
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 20 48 8D 2D ?? ?? ?? ?? BB 60 0D 03 00";
-        private const string PlayerStateChorePattern =
-            "48 89 5C 24 08 57 48 83 EC 30 48 63 05 ?? ?? ?? ?? 48 8D 1D ?? ?? ?? ?? 33 FF 48 8D 0C 80 48 C1 E1 08 " +
-            "89 BC 19 F8 0B 0B 00 8B 05 ?? ?? ?? ?? C7 05 ?? ?? ?? ?? 40 58 00 00 83 F8 01 75 ?? 45 33 C9";
-        private const string ChoreCopyFieldPattern =
-            "45 85 C0 0F 8E ?? ?? ?? ?? 48 89 5C 24 08 57 48 83 EC 20 41 8B F8 48 8B D9 48 85 D2 74 ?? 4C 63 91 F8 0B 37 00";
-        private const string InitializeUnitSubsystemPattern =
-            "48 83 EC 28 4C 8D 0D ?? ?? ?? ?? 45 33 C0 BA 5C 37 10 00 48 8D 0D ?? ?? ?? ?? E8 ?? ?? ?? ??";
-        private const string ResetMapObjectSubsystemPattern =
-            "40 53 48 83 EC 20 83 39 00 48 8B D9 74 15 E8 ?? ?? ?? ?? C7 83 4C 09 00 00 00 00 00 00";
-        private const string InitializePlayerPathingPattern =
-            "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 41 56 48 83 EC 30 BB 01 00 00 00 4C 8D 35 ?? ?? ?? ??";
 
         private const int AllocateSpecRva = 0x50680;
-        private const int SetPlacementRva = 0x54EC0;
-        private const int SelectBestFitRva = 0x54F60;
-        private const int TestSpecificCandidateRva = 0x54DE0;
-        private const int LoadCandidateRva = 0x55320;
-        private const int ApplyRotationRva = 0x56670;
-        private const int EvaluateCandidateFitRva = 0x57080;
-        private const int PrepareLayoutRva = 0x53D00;
-        private const int SchedulerRva = 0x539B0;
-        private const int ExecuteBuildStepRva = 0x51790;
-        private const int AlternativeExecutionRva = 0x52270;
-        private const int PlacementHelperRva = 0x5CD90;
-        private const int ValidatorRva = 0x7B060;
         private const int ActiveLayoutReferenceRva = 0x55F64;
-        private const int ResourceGateRva = 0xCC420;
-        private const int MapperWaitOneRva = 0x414A0;
-        private const int MapperWaitTwoRva = 0x41230;
-        private const int MapperWaitThreeRva = 0x41380;
-        private const int MapperWaitFourRva = 0x41280;
-        private const int DeleteHovelRva = 0x3B1D0;
-        private const int MaintenanceOneRva = 0x50340;
-        private const int MaintenanceTwoRva = 0x504F0;
-        private const int CountBuildingsRva = 0xB8270;
-        private const int PlacementReachabilityRva = 0xC3BF0;
-        private const int AccessibilitySweepRva = 0xC8F50;
-        private const int BuildingAccessibilityRva = 0xC90E0;
-        private const int EconomyFarmRva = 0x50D80;
-        private const int EconomyIronRva = 0x50E00;
         private const int EconomyOxenRva = 0x50F90;
-        private const int EconomyPitchRva = 0x51190;
         private const int EconomyQuarryRva = 0x51270;
         private const int EconomyWoodRva = 0x51540;
         private const int FarmSearchRva = 0x575B0;
@@ -298,10 +99,6 @@ namespace PreplacedTest
         private const int WoodSearchRva = 0x58020;
         private const int WoodScoreFloorHookRva = 0x58057;
         private const int WoodScoreFloorHookLength = 15;
-        private const int VanillaWoodScoreFloor = -100;
-        private const int InaccessibleBuildingCheckRva = 0x3B270;
-        private const int InaccessibleBuildingSelectionRva = 0x3B360;
-        private const int EconomyCellPenaltyRva = 0x55E10;
         // Audited separately: this AIV open-area search also reads byte+04, but it
         // is not part of the external economy census/search pipeline fixed here.
         private const int AlternativeOpenAreaSearchRva = 0x583A0;
@@ -309,22 +106,9 @@ namespace PreplacedTest
         // It is deliberately outside the player-specific external-economy overlay.
         private const int AivReachableOpenAreaSearchRva = 0x58BE0;
         private const int NearbySearchRva = 0x58950;
-        private const int ConstructBuildingRva = 0x6D580;
         private const int RegionPairReachabilityRva = 0xE2610;
         private const int EconomyGridUpdateRva = 0x50720;
         private const int InitializeEconomyAvailabilityRva = 0x55FE0;
-        private const int InitializeEconomyAvailabilityCallSiteRva = 0x96E30;
-        private const int SelectDominantPclRva = 0x572B0;
-        private const int InitializePlayerBuildingsRva = 0xC3FA0;
-        private const int InitializeBuildingRva = 0xC43A0;
-        private const int ClearBuildingRecordRva = 0xB8310;
-        private const int InitializeUnitSubsystemRva = 0x115830;
-        private const int ResetMapObjectSubsystemRva = 0x102C30;
-        private const int InitializePlayerPathingRva = 0x2A340;
-        private const int FinalMapStartUnitCallSiteRva = 0x96D2C;
-        private const int FinalMapStartObjectCallSiteRva = 0x96D38;
-        private const int FinalMapStartEconomyGridCallSiteRva = 0x96D49;
-        private const int FinalMapStartPathingCallSiteRva = 0x96D55;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private delegate int AllocateSpecDelegate(ulong state, int playerId);
@@ -354,6 +138,8 @@ namespace PreplacedTest
         private delegate void LegacyPlayerStateCopyDelegate();
 
         private readonly ManualLogSource log;
+        private readonly LegacyRuinTimerFix legacyRuinTimerFix = new LegacyRuinTimerFix();
+        private readonly PreplacedEconomyAccessFix economyAccessFix = new PreplacedEconomyAccessFix();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, PlayerSession> players = new Dictionary<int, PlayerSession>();
         private readonly Stack<DamageContext> pendingDamage = new Stack<DamageContext>();
@@ -517,12 +303,12 @@ namespace PreplacedTest
                     woodScoreFloorHook.Hook.DisplacedByteCount != WoodScoreFloorHookLength)
                     throw new InvalidOperationException("atomic native hook transaction was incomplete: " + result);
                 Shared.DebugLogHelper.LogInfo(log,
-                    $"PREPLACED_NATIVE_READY: 10 fix detours and one scoped wood-score context hook installed atomically; no diagnostic hot-path hooks or frame polling; activeLayoutBase=0x{activeLayoutIndexBase:X}, pclRange=0x{NativePclGridRva:X}-0x{NativePclGridEndRva:X} ({NativePclEntryCount} ushorts)." );
+                    $"PREPLACED_NATIVE_READY: 10 fix detours and one scoped wood-score context hook installed atomically; activeLayoutBase=0x{activeLayoutIndexBase:X}, pclRange=0x{NativePclGridRva:X}-0x{NativePclGridEndRva:X} ({NativePclEntryCount} ushorts)." );
             }
             catch (Exception ex)
             {
                 // RollbackAndThrow handles commit failures; this also covers a defensive
-                // post-commit handle-consistency failure before exposing native diagnostics.
+                // post-commit handle-consistency failure before exposing native fixes.
                 try { transaction?.DisableAll(); } catch { }
                 activeLayoutIndexBase = 0;
                 nativeModuleBase = 0;
@@ -710,7 +496,7 @@ namespace PreplacedTest
             return result;
         }
 
-        private void ApplyLegacyTimerTestFix()
+        private void ApplyLegacyRuinTimerFix()
         {
             if (lastLegacyCopySourceBefore == null || lastLegacyCopyDestinationBefore == null ||
                 lastLegacyCopySource == null || lastLegacyCopyDestination == null || activeLayoutIndexBase == 0)
@@ -722,7 +508,7 @@ namespace PreplacedTest
 
             for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
             {
-                string transfer = LegacyTimerFixEligibility.Classify(IsAi(playerId), currentMapIsSave,
+                string transfer = legacyRuinTimerFix.ClassifyTransfer(IsAi(playerId), currentMapIsSave,
                     lastLegacyCopyMapVersion, LegacyPlayerStateCopyVersionExclusive,
                     lastLegacyCopySourceBefore[playerId], lastLegacyCopySource[playerId],
                     lastLegacyCopyDestinationBefore[playerId], lastLegacyCopyDestination[playerId]);
@@ -735,11 +521,11 @@ namespace PreplacedTest
                     .Select(group => group.First())
                     .ToArray();
                 int currentTimer = ReadPlayerGlobal(playerId, CrushedCounterRelativeOffset);
-                string decision = LegacyTimerFixEligibility.ClassifyAtApplication(transfer,
+                string decision = legacyRuinTimerFix.ClassifyApplication(transfer,
                     matchingTowers.Length != 0, damageActivatedTimerOwners.Contains(playerId), currentTimer);
-                if (!LegacyTimerFixEligibility.IsApplicationEligible(decision))
+                if (!legacyRuinTimerFix.IsApplicationEligible(decision))
                 {
-                    if (LegacyTimerFixEligibility.IsEligible(transfer))
+                    if (legacyRuinTimerFix.IsTransferEligible(transfer))
                         Shared.DebugLogHelper.LogInfo(log,
                             $"PREPLACED_LEGACY_TIMER_FIX_SKIPPED: sequence={mapSequence}; player={playerId}; " +
                             $"reason={decision}; currentTimer={currentTimer}; matchingDestroyedTowers={matchingTowers.Length}.");
@@ -752,7 +538,7 @@ namespace PreplacedTest
                 int verified = *timer;
                 if (verified != 0)
                     throw new InvalidOperationException("The eligible legacy crushed-building timer could not be normalized.");
-                EmitChunked("PREPLACED_LEGACY_TIMER_FIX_APPLIED: ",
+                Shared.DebugLogHelper.LogInfo(log, "PREPLACED_LEGACY_TIMER_FIX_APPLIED: " +
                     $"sequence={mapSequence}; player={playerId}; timer=1->0; mapVersion={lastLegacyCopyMapVersion}; " +
                     $"matchingDestroyedTowers=[{string.Join(",", matchingTowers.Select(value => value.Id + "/" +
                         value.GlobalId + "/" + value.Type + "/ownerAtTransfer=" + value.OwnerId))}]; " +
@@ -933,8 +719,8 @@ namespace PreplacedTest
 
                 if (activationState == EconomyFixActivationState.Suspended)
                 {
-                    activationState = EconomyFixActivationModel.Resume(session.ConfirmedWallBreach,
-                        HasFriendlyPreplacedPortalBuilding(playerId), session.WallTestRole);
+                    activationState = economyAccessFix.Resume(session.ConfirmedWallBreach,
+                        HasFriendlyPreplacedPortalBuilding(playerId), session.WallAccessRole);
                     session.EconomyFixState = activationState;
                     if (activationState == EconomyFixActivationState.None) return;
                     EmitEconomyFixState("PENDING", session, helper, "topology-recheck");
@@ -956,10 +742,9 @@ namespace PreplacedTest
 
                 if (!accessReady)
                 {
-                    string waitSignature = activationState + "/" + economyTopologyRevision;
-                    if (!string.Equals(session.LastEconomyFixWaitSignature, waitSignature, StringComparison.Ordinal))
+                    if (!session.MatchesWaitState(activationState, economyTopologyRevision, false))
                     {
-                        session.LastEconomyFixWaitSignature = waitSignature;
+                        session.SetWaitState(activationState, economyTopologyRevision, false);
                         EmitEconomyFixState("WAITING_FOR_ROUTE", session, helper,
                             activationState == EconomyFixActivationState.PendingPortal
                                 ? "native-portal-graph-not-ready"
@@ -972,19 +757,18 @@ namespace PreplacedTest
 
                 if (!ReconcileEconomyAvailability(state, session, helper, cause))
                 {
-                    string waitSignature = activationState + "/" + economyTopologyRevision + "/census-overlay";
-                    if (!string.Equals(session.LastEconomyFixWaitSignature, waitSignature, StringComparison.Ordinal))
+                    if (!session.MatchesWaitState(activationState, economyTopologyRevision, true))
                     {
-                        session.LastEconomyFixWaitSignature = waitSignature;
+                        session.SetWaitState(activationState, economyTopologyRevision, true);
                         EmitEconomyFixState("WAITING_FOR_ROUTE", session, helper,
                             "census-overlay-unavailable-or-no-byte04-change");
                     }
                     return;
                 }
-                session.EconomyFixState = EconomyFixActivationModel.Activate(activationState);
+                session.EconomyFixState = economyAccessFix.Activate(activationState);
                 session.EconomyFixActivationEpoch++;
                 session.EconomyFixValidatedRevision = economyTopologyRevision;
-                session.LastEconomyFixWaitSignature = null;
+                session.ClearWaitState();
                 economyFixEligiblePlayers.Add(playerId);
                 EmitEconomyFixState("ACTIVATED", session, helper, cause);
             }
@@ -1007,7 +791,7 @@ namespace PreplacedTest
             foreach (WallAnchorPair anchor in baseline.Anchors)
             {
                 if (!baseline.LostWallTiles.Contains(anchor.WallTileId)) continue;
-                if (!WallBreachConfirmation.IsConfirmed(true, anchor.OldInsidePcl, anchor.OldOutsidePcl,
+                if (!economyAccessFix.IsConfirmedBreach(true, anchor.OldInsidePcl, anchor.OldOutsidePcl,
                     CurrentPcl(anchor.InsideTileId), CurrentPcl(anchor.OutsideTileId))) continue;
                 if (!HasLostWallAnchorEconomyAccess(playerId, baseline, anchor)) continue;
                 confirmed = anchor;
@@ -1021,7 +805,7 @@ namespace PreplacedTest
                 ? EconomyFixActivationState.None
                 : EconomyFixActivationState.PendingBreach;
             session.EconomyFixValidatedRevision = -1;
-            session.LastEconomyFixWaitSignature = null;
+            session.ClearWaitState();
             dirtyBreachPlayers.Remove(playerId);
             InvalidateEconomyOverlayCaches("confirmed-wall-breach-player-" + playerId);
             Shared.DebugLogHelper.LogInfo(log,
@@ -1517,11 +1301,11 @@ namespace PreplacedTest
             if (!args.IsBeforeInitialization)
             {
                 CapturePreplacedBaseline();
-                ApplyLegacyTimerTestFix();
+                ApplyLegacyRuinTimerFix();
                 bool hasBaselinePortal = preplacedBuildings.Values.Any(identity =>
                     IsPortalStructure((eStructs)identity.StructureType));
                 if (hasBaselinePortal || mapLoadWallTiles.Count != 0)
-                    ResolveWallTestRoles();
+                    ResolveWallAccessRoles();
                 ResolveEconomyProfile();
                 SynchronizePreplacedPortalOwnersAndActivate();
             }
@@ -1564,7 +1348,7 @@ namespace PreplacedTest
                 bool exitPclValid = recordResolved &&
                     TryGetPclByTileId(record->r_ExitTileId, out int exitPcl, "portal-owner-sync-exit") &&
                     exitPcl > 0;
-                bool valid = PortalOwnerSynchronizationModel.IsEligible(
+                bool valid = economyAccessFix.IsPortalOwnerSynchronizationEligible(
                     currentMapIsSave,
                     preplacedBuildings.ContainsKey(identity.BuildingId),
                     identityMatches,
@@ -1713,8 +1497,8 @@ namespace PreplacedTest
             {
                 PlayerSession session = Session(playerId);
                 bool hasFriendlyPreplacedPortal = HasFriendlyPreplacedPortalBuilding(playerId);
-                session.EconomyFixState = EconomyFixActivationModel.Initial(currentMapIsSave,
-                    session.WallTestRole, hasFriendlyPreplacedPortal);
+                session.EconomyFixState = economyAccessFix.InitialState(currentMapIsSave,
+                    session.WallAccessRole, hasFriendlyPreplacedPortal);
             }
 
             economyMapRelevant = wallBaselines.Count != 0 || players.Values.Any(session =>
@@ -1774,12 +1558,10 @@ namespace PreplacedTest
             dirtyBreachPlayers.Add(ownerId);
         }
 
-        private void ResolveWallTestRoles()
+        private void ResolveWallAccessRoles()
         {
             List<BuildingSnapshot> buildings = CaptureCurrentPreplacedBuildings();
-            WallOwnerEncoding encoding = ResolveWallOwnerEncoding(buildings, out int oneBasedMatches,
-                out int zeroBasedMatches, out string correlation);
-            var rows = new List<string>();
+            WallOwnerEncoding encoding = ResolveWallOwnerEncoding(buildings);
             for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
             {
                 if (!IsAi(playerId)) continue;
@@ -1791,42 +1573,21 @@ namespace PreplacedTest
                     (building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit) &&
                     BuildingFootprintOverlaps(building, baseline.ComponentBlockers)).ToArray();
                 int portalCount = componentPortals.Length;
-                WallTestRole role = WallTestRoleClassifier.Classify(wallCount, portalCount);
+                WallAccessRole role = WallAccessRoleClassifier.Classify(wallCount, portalCount);
                 PlayerSession session = Session(playerId);
-                session.WallTestRole = role;
-                string gatehouseDetails = string.Join(",", componentPortals.Select(building =>
-                    building.Id + "/global=" + building.GlobalId + "/owner=" + building.OwnerId +
-                    "/type=" + building.Type + "/rawGatehouseId=" + building.GatehouseId +
-                    "/footprint=(" + building.TileX + "," + building.TileY + ")-(" +
-                    building.EndX + "," + building.EndY + ")"));
-                rows.Add($"player={playerId}/role={role}/wallTiles={wallCount}/portals={portalCount}" +
-                    $"/keep=({baseline?.KeepX.ToString() ?? "unknown"},{baseline?.KeepY.ToString() ?? "unknown"})" +
-                    $"/componentTiles={(baseline?.ComponentTiles.Count ?? 0)}/anchors={(baseline?.Anchors.Count ?? 0)}" +
-                    $"/gatehouses=[{gatehouseDetails}]" +
-                    $"/geometryClosed={baseline?.GeometryClosed}/confidence={(baseline != null && baseline.GeometryClosed ? "geometry+pcl" : "pcl-component-candidate")}");
+                session.WallAccessRole = role;
             }
-            string ambiguity = rows.Count(row => row.Contains("role=GatedWallCandidate")) > 1 ||
-                rows.Count(row => row.Contains("role=ClosedWallCandidate")) > 1
-                ? "multiple-candidates-observed" : "none";
-            if (wallBaselines.Count != 0)
-                EmitChunked("PREPLACED_DYNAMIC_WALL_ROLES: ",
-                $"sequence={mapSequence}; wallOwnerEncoding={encoding}; oneBasedMatches={oneBasedMatches}; " +
-                $"zeroBasedMatches={zeroBasedMatches}; correlation=[{correlation}]; ambiguity={ambiguity}; " +
-                $"roles=[{string.Join("; ", rows)}]; roles are derived anew from tile walls and current portal-building owners");
         }
 
-        private WallOwnerEncoding ResolveWallOwnerEncoding(List<BuildingSnapshot> buildings,
-            out int oneBasedMatches, out int zeroBasedMatches, out string correlation)
+        private WallOwnerEncoding ResolveWallOwnerEncoding(List<BuildingSnapshot> buildings)
         {
-            oneBasedMatches = 0;
-            zeroBasedMatches = 0;
-            var rows = new List<string>();
+            int oneBasedMatches = 0;
+            int zeroBasedMatches = 0;
             GameTileManagerAPI api = GameTileManagerAPI.Instance;
             var tiles = api.TileManager;
             foreach (BuildingSnapshot building in buildings.Where(value => IsCurrentPreplaced(value.Id) &&
                 IsLiving(value) && IsPortalStructure(value.Type)))
             {
-                var rawCounts = new SortedDictionary<int, int>();
                 for (int x = building.TileX; x <= building.EndX; x++)
                     for (int y = building.TileY; y <= building.EndY; y++)
                     {
@@ -1834,13 +1595,10 @@ namespace PreplacedTest
                         int tileId = api.GetTileId(x, y);
                         if ((tiles.LogicGrid[tileId] & (int)TilePropertyFlag.IsWall) == 0) continue;
                         byte raw = tiles.WallOwnerGrid[tileId];
-                        rawCounts[raw] = rawCounts.TryGetValue(raw, out int count) ? count + 1 : 1;
                         if (raw == building.OwnerId) oneBasedMatches++;
                         if (raw + 1 == building.OwnerId) zeroBasedMatches++;
                     }
-                rows.Add($"building={building.Id}/owner={building.OwnerId}/raw=[{string.Join(",", rawCounts.Select(pair => pair.Key + "=" + pair.Value))}]");
             }
-            correlation = string.Join(";", rows);
             return WallOwnerEncodingResolver.Resolve(oneBasedMatches, zeroBasedMatches);
         }
 
@@ -1885,11 +1643,7 @@ namespace PreplacedTest
                         if (api.IsTileInsideMapBounds(x, y)) all.Remove(api.GetTileId(x, y));
             if (all.Count == 0) return null;
 
-            var wallOnlyBlockers = new HashSet<int>(all.Keys);
             int keepTileId = api.GetTileId(keepX, keepY);
-            HashSet<int> wallOnlyInterior = FloodPassable(new[] { keepTileId }, wallOnlyBlockers, api);
-            HashSet<int> wallOnlyExterior = FloodPassable(EnumerateMapBoundaryTiles(wallOnlyBlockers, api), wallOnlyBlockers, api);
-
             var blockers = new HashSet<int>(all.Keys);
             foreach (BuildingSnapshot enclosure in buildings.Where(value => value.OwnerId == playerId &&
                 IsCurrentPreplaced(value.Id) && IsLiving(value) && IsEnclosureBuilding(value.Type)))
@@ -1900,7 +1654,7 @@ namespace PreplacedTest
             HashSet<int> interior = FloodPassable(new[] { keepTileId }, blockers, api);
             HashSet<int> exterior = FloodPassable(EnumerateMapBoundaryTiles(blockers, api), blockers, api);
             HashSet<int> componentBlockers = SelectEnclosureBlockerComponent(blockers, all,
-                interior, exterior, api, out List<HashSet<int>> candidateComponents);
+                interior, exterior, api);
             var component = new HashSet<int>(componentBlockers.Where(all.ContainsKey));
             var anchors = new List<WallAnchorPair>();
             foreach (int wallTileId in component)
@@ -1915,15 +1669,6 @@ namespace PreplacedTest
                 anchors.Add(new WallAnchorPair(wallTileId, insideTile, outsideTile, insidePcl, outsidePcl));
             }
             AddPclAdjacencyAnchors(component, anchors, keepTileId, api);
-            Shared.DebugLogHelper.LogInfo(log,
-                $"PREPLACED_WALL_BASELINE_COMPACT: player={playerId}; " +
-                $"encoding={encoding}; keep=({keepX},{keepY}); ownedWallTiles={all.Count}; " +
-                $"wallOnlyClosed={!wallOnlyInterior.Overlaps(wallOnlyExterior)}; wallAwareClosed={!interior.Overlaps(exterior)}; " +
-                $"interiorTiles={interior.Count}; exteriorTiles={exterior.Count}; " +
-                $"selectedComponentTiles={component.Count}; selectedBlockers={componentBlockers.Count}; anchors={anchors.Count}; " +
-                $"candidateComponents=[{string.Join(";", candidateComponents.Select((value, index) =>
-                    index + ":blockers=" + value.Count + "/walls=" + value.Count(all.ContainsKey) +
-                    "/selected=" + ReferenceEquals(value, componentBlockers)))}].");
             return new WallTileBaseline(playerId, keepX, keepY, all, component,
                 componentBlockers, !interior.Overlaps(exterior), anchors);
         }
@@ -1964,12 +1709,12 @@ namespace PreplacedTest
 
         private static HashSet<int> SelectEnclosureBlockerComponent(HashSet<int> blockers,
             Dictionary<int, WallTileState> walls, HashSet<int> interior, HashSet<int> exterior,
-            GameTileManagerAPI api, out List<HashSet<int>> candidateComponents)
+            GameTileManagerAPI api)
         {
             var remaining = new HashSet<int>(blockers);
             HashSet<int> best = new HashSet<int>();
             int bestWallCount = 0;
-            candidateComponents = new List<HashSet<int>>();
+            var candidateComponents = new List<HashSet<int>>();
             while (remaining.Count != 0)
             {
                 int seed = remaining.First();
@@ -2144,11 +1889,6 @@ namespace PreplacedTest
                 players.Add(playerId, session);
             }
             return session;
-        }
-
-        private void EmitChunked(string prefix, string payload)
-        {
-            Shared.DebugLogHelper.LogInfo(log, prefix + (payload.Length == 0 ? "<empty>" : payload));
         }
 
         private int ReadPlayerGlobal(int playerId, int relativeOffset)
@@ -2367,12 +2107,26 @@ namespace PreplacedTest
             public PlayerSession(int playerId) => PlayerId = playerId;
 
             public int PlayerId { get; }
-            public WallTestRole WallTestRole { get; set; }
+            public WallAccessRole WallAccessRole { get; set; }
             public EconomyFixActivationState EconomyFixState { get; set; }
             public int EconomyFixActivationEpoch { get; set; }
             public int EconomyFixValidatedRevision { get; set; } = -1;
-            public string LastEconomyFixWaitSignature { get; set; }
+            private EconomyFixActivationState lastWaitState;
+            private int lastWaitRevision = int.MinValue;
+            private bool lastWaitWasCensus;
             public bool ConfirmedWallBreach { get; set; }
+
+            public bool MatchesWaitState(EconomyFixActivationState state, int revision, bool census) =>
+                lastWaitRevision == revision && lastWaitState == state && lastWaitWasCensus == census;
+
+            public void SetWaitState(EconomyFixActivationState state, int revision, bool census)
+            {
+                lastWaitState = state;
+                lastWaitRevision = revision;
+                lastWaitWasCensus = census;
+            }
+
+            public void ClearWaitState() => lastWaitRevision = int.MinValue;
         }
 
         private sealed class EconomyOverlayCache

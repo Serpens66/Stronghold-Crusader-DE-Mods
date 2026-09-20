@@ -287,6 +287,23 @@ internal static class Program
         }
         Check(rejectedSyntheticVanilla,
             "Vanilla cannot silently fall back to a synthetic blob");
+        var nativeShape = new List<FormationPoint>
+        {
+            new FormationPoint(0, 0, 0, 0),
+            new FormationPoint(-1, 0, 0, 0),
+            new FormationPoint(1, 0, 0, 0),
+            new FormationPoint(0, -1, 0, 0),
+            new FormationPoint(0, 1, 0, 0)
+        };
+        List<FormationPoint> northFacing = FormationModel.OrientNativeSlots(
+            nativeShape, 0);
+        List<FormationPoint> eastFacing = FormationModel.OrientNativeSlots(
+            nativeShape, 2);
+        Check(northFacing.Select(point => point.X + ":" + point.Y)
+                  .SequenceEqual(eastFacing.Select(point => point.X + ":" + point.Y)) &&
+              !northFacing.Select(point => point.Rank + ":" + point.File)
+                  .SequenceEqual(eastFacing.Select(point => point.Rank + ":" + point.File)),
+            "Vanilla direction changes role metadata without changing native slots");
 
         List<FormationPoint> circle = FormationModel.BuildRelativeSlots(
             FormationKind.Circle, 41,
@@ -595,6 +612,10 @@ internal static class Program
         Check(vanilla.Equals(FormationPreviewKey.Create(
                 FormationKind.Vanilla, 2, RangedPlacementMode.Off, 0, 99, 100, 200, 40)),
             "Vanilla preview ignores synthetic width changes");
+        Check(!vanilla.Equals(FormationPreviewKey.Create(
+                FormationKind.Vanilla, 2, RangedPlacementMode.Off,
+                0, 4, 100, 200, 40, explicitDirection: true)),
+            "Vanilla preview refreshes when the same sector becomes an explicit drag");
         FormationPreviewKey circle = FormationPreviewKey.Create(
             FormationKind.Circle, 2, RangedPlacementMode.Rear, 3, 5, 100, 200, 40);
         Check(circle.Equals(FormationPreviewKey.Create(
@@ -1129,6 +1150,29 @@ internal static class Program
               source.Contains("BuildVanillaSlotMetadata(") &&
               !source.Contains("BuildVanillaBlob"),
             "Vanilla uses native BFS ordering with density and Assassin filtering");
+        string vanillaCapture = ExtractMethodBody(
+            source, "private NativeDestination[] CaptureVanillaDestinations(");
+        int vanillaLeft = vanillaCapture.IndexOf(
+            "current.X - 1, current.Y, 0x40", StringComparison.Ordinal);
+        int vanillaRight = vanillaCapture.IndexOf(
+            "current.X + 1, current.Y, 0x04", StringComparison.Ordinal);
+        int vanillaUp = vanillaCapture.IndexOf(
+            "current.X, current.Y - 1, 0x01", StringComparison.Ordinal);
+        int vanillaUpLeft = vanillaCapture.IndexOf(
+            "current.X - 1, current.Y - 1, 0x80", StringComparison.Ordinal);
+        int vanillaUpRight = vanillaCapture.IndexOf(
+            "current.X + 1, current.Y - 1, 0x02", StringComparison.Ordinal);
+        int vanillaDown = vanillaCapture.IndexOf(
+            "current.X, current.Y + 1, 0x10", StringComparison.Ordinal);
+        int vanillaDownLeft = vanillaCapture.IndexOf(
+            "current.X - 1, current.Y + 1, 0x20", StringComparison.Ordinal);
+        int vanillaDownRight = vanillaCapture.IndexOf(
+            "current.X + 1, current.Y + 1, 0x08", StringComparison.Ordinal);
+        Check(vanillaLeft >= 0 && vanillaLeft < vanillaRight &&
+              vanillaRight < vanillaUp && vanillaUp < vanillaUpLeft &&
+              vanillaUpLeft < vanillaUpRight && vanillaUpRight < vanillaDown &&
+              vanillaDown < vanillaDownLeft && vanillaDownLeft < vanillaDownRight,
+            "Vanilla BFS expands neighbors in the audited native order");
         Check(troopPatch.Contains("FormationTestButtonHost") &&
               troopPatch.Contains("FormationTestMenuHost") &&
               troopPatch.Contains("FormationTestRolloverHost") &&

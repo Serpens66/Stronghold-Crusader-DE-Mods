@@ -1,7 +1,7 @@
 using System.Reflection;
 
 [assembly: AssemblyTitle("PreplacedTest")]
-[assembly: AssemblyDescription("Passive Vanilla AIV startup diagnosis")]
+[assembly: AssemblyDescription("Fixes AI startup and economy interference from preplaced buildings")]
 [assembly: AssemblyCompany("Serpens66")]
 [assembly: AssemblyProduct("PreplacedTest")]
 [assembly: AssemblyVersion("0.1.2.0")]

@@ -10,6 +10,53 @@ using System.Threading;
 
 namespace EnemyGatePathfindingTest
 {
+    internal readonly struct AttackGateDiagnostic
+    {
+        internal AttackGateDiagnostic(bool found, int gateId, uint gateGlobal,
+            int bridgeId, uint bridgeGlobal, int owner, int capturedBy, bool isOpen,
+            int entryPcl, int exitPcl, int entryTile, int exitTile,
+            byte entryDirection, byte exitDirection, byte entryMask, byte exitMask,
+            ulong policyFingerprint)
+        {
+            Found = found; GateId = gateId; GateGlobal = gateGlobal;
+            BridgeId = bridgeId; BridgeGlobal = bridgeGlobal; Owner = owner;
+            CapturedBy = capturedBy; IsOpen = isOpen; EntryPcl = entryPcl;
+            ExitPcl = exitPcl; EntryTile = entryTile; ExitTile = exitTile;
+            EntryDirection = entryDirection; ExitDirection = exitDirection;
+            EntryMask = entryMask; ExitMask = exitMask;
+            PolicyFingerprint = policyFingerprint;
+        }
+
+        internal bool Found { get; }
+        internal int GateId { get; }
+        internal uint GateGlobal { get; }
+        internal int BridgeId { get; }
+        internal uint BridgeGlobal { get; }
+        internal int Owner { get; }
+        internal int CapturedBy { get; }
+        internal bool IsOpen { get; }
+        internal int EntryPcl { get; }
+        internal int ExitPcl { get; }
+        internal int EntryTile { get; }
+        internal int ExitTile { get; }
+        internal byte EntryDirection { get; }
+        internal byte ExitDirection { get; }
+        internal byte EntryMask { get; }
+        internal byte ExitMask { get; }
+        internal ulong PolicyFingerprint { get; }
+
+        internal string Format() => !Found
+            ? "none/fingerprint=0x" + PolicyFingerprint.ToString("X16")
+            : "gate#" + GateId + "/g" + GateGlobal + ",bridge#" + BridgeId +
+                "/g" + BridgeGlobal + ",owner=" + Owner + ",captured=" + CapturedBy +
+                ",isOpen=" + IsOpen + ",entryExitPcl=" + EntryPcl + "/" + ExitPcl +
+                ",entryTile=" + EntryTile + "/vanilla=0x" + EntryDirection.ToString("X2") +
+                "/mod=0x" + EntryMask.ToString("X2") + ",exitTile=" + ExitTile +
+                "/vanilla=0x" + ExitDirection.ToString("X2") + "/mod=0x" +
+                ExitMask.ToString("X2") + ",fingerprint=0x" +
+                PolicyFingerprint.ToString("X16");
+    }
+
     internal readonly struct TopologyCoverageSnapshot
     {
         internal TopologyCoverageSnapshot(int errors, long accessScans, long accessChanges,
@@ -88,6 +135,72 @@ namespace EnemyGatePathfindingTest
         {
             routePolicyConsumer = consumer;
             consumer?.Invoke(snapshot.RoutePolicy);
+        }
+
+        internal AttackGateDiagnostic CaptureAttackGateDiagnostic(
+            int playerId,
+            int sourcePcl,
+            int targetPcl)
+        {
+            TopologySnapshot captured = snapshot;
+            RouteTilePolicySnapshot policy = captured.RoutePolicy;
+            GateBridgeInfo selectedGate = default;
+            GateBridgeInfo selectedBridge = default;
+            int bestScore = -1;
+            for (int index = 0; index < captured.Combinations.Length; index++)
+            {
+                GateBridgeInfo candidate = captured.Combinations[index];
+                if (candidate.GateId <= 0 || candidate.BridgeId != 0 ||
+                    playerId <= 0 || playerId >= candidate.UnrelatedByPlayer.Length ||
+                    !candidate.UnrelatedByPlayer[playerId])
+                    continue;
+                int score = 0;
+                if (ContainsPcl(candidate, sourcePcl)) score += 2;
+                if (ContainsPcl(candidate, targetPcl)) score += 4;
+                if (candidate.EntryPcl == sourcePcl || candidate.ExitPcl == sourcePcl) score += 2;
+                if (candidate.EntryPcl == targetPcl || candidate.ExitPcl == targetPcl) score += 4;
+                if (score <= 0 || score <= bestScore) continue;
+                bestScore = score;
+                selectedGate = candidate;
+            }
+            if (selectedGate.GateId <= 0)
+                return new AttackGateDiagnostic(false, 0, 0, 0, 0, 0, 0, false,
+                    0, 0, 0, 0, 0, 0, 0, 0, policy.TopologyFingerprint);
+            for (int index = 0; index < captured.Combinations.Length; index++)
+            {
+                GateBridgeInfo candidate = captured.Combinations[index];
+                if (candidate.GateId == selectedGate.GateId && candidate.BridgeId > 0)
+                {
+                    selectedBridge = candidate;
+                    break;
+                }
+            }
+
+            Span<byte> vanilla = GameTileManagerAPI.Instance.GetGatePathLayer();
+            byte[] mask = policy.DirectionMasks != null && playerId > 0 &&
+                playerId < policy.DirectionMasks.Length ? policy.DirectionMasks[playerId] : null;
+            int entryTile = selectedGate.EntryTile;
+            int exitTile = selectedGate.ExitTile;
+            byte entryDirection = (uint)entryTile < (uint)vanilla.Length ? vanilla[entryTile] : (byte)0;
+            byte exitDirection = (uint)exitTile < (uint)vanilla.Length ? vanilla[exitTile] : (byte)0;
+            byte entryMask = mask != null && (uint)entryTile < (uint)mask.Length
+                ? mask[entryTile] : (byte)0xFF;
+            byte exitMask = mask != null && (uint)exitTile < (uint)mask.Length
+                ? mask[exitTile] : (byte)0xFF;
+            return new AttackGateDiagnostic(true, selectedGate.GateId,
+                selectedGate.GateGlobal, selectedBridge.BridgeId, selectedBridge.BridgeGlobal,
+                selectedGate.Owner, selectedGate.CapturedBy, selectedGate.IsOpen,
+                selectedGate.EntryPcl, selectedGate.ExitPcl, entryTile, exitTile,
+                entryDirection, exitDirection, entryMask, exitMask,
+                policy.TopologyFingerprint);
+        }
+
+        private static bool ContainsPcl(GateBridgeInfo info, int pcl)
+        {
+            if (pcl <= 0 || info.RelevantPcls == null) return false;
+            for (int index = 0; index < info.RelevantPcls.Length; index++)
+                if (info.RelevantPcls[index] == pcl) return true;
+            return false;
         }
 
         internal void SetGateAccessConsumer(Action<NativeGateAccessSnapshot> consumer)

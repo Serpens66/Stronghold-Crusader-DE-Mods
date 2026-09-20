@@ -34,6 +34,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="KeepFlagRotationTests.cs" />
     <Compile Include="MovementFastPathParityHarness.cs" />
     <Compile Include="..\src\MovementLoggingStateTracker.cs"><Link>MovementLoggingStateTracker.cs</Link></Compile>
     <Compile Include="..\src\AiDefensePatrolNativeDefinition.cs"><Link>AiDefensePatrolNativeDefinition.cs</Link></Compile>
@@ -59,7 +60,7 @@
     <Compile Include="..\src\NotificationQueueNativeContract.cs"><Link>NotificationQueueNativeContract.cs</Link></Compile>
     <Compile Include="..\src\NotificationSkipPolicy.cs"><Link>NotificationSkipPolicy.cs</Link></Compile>
     <Compile Include="..\src\QuarryKeepCenterPolicy.cs"><Link>QuarryKeepCenterPolicy.cs</Link></Compile>
-    <Compile Include="..\..\Shared\GameProjectileSlotPolicy.cs"><Link>GameProjectileSlotPolicy.cs</Link></Compile>
+    <Compile Include="..\src\KeepFlagRotationPolicy.cs"><Link>KeepFlagRotationPolicy.cs</Link></Compile>
     <Compile Include="..\src\NativeHandlerSnapshot.cs"><Link>NativeHandlerSnapshot.cs</Link></Compile>
     <Compile Include="..\src\AllyGoodsTransferPolicy.cs"><Link>AllyGoodsTransferPolicy.cs</Link></Compile>
     <Compile Include="..\src\PlacementCancelRightClickPolicy.cs"><Link>PlacementCancelRightClickPolicy.cs</Link></Compile>

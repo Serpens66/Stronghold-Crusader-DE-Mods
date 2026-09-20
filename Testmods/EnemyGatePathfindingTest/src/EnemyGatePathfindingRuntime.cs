@@ -9,6 +9,7 @@ using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.API;
 using SHCDESE.API.LowLevel;
+using SHCDESE.EventAPI.Tribes;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
@@ -31,6 +32,7 @@ namespace EnemyGatePathfindingTest
         private readonly ManualLogSource log;
         private GateTopologySnapshotProvider topologyProvider;
         private SamePclGateRouteRuntime samePclRouteRuntime;
+        private AttackOrderCorrelationDiagnostics attackOrderDiagnostics;
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> pclGraphCapturedByFilterHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> builderPrecheckCapturedByFilterHook = new HookHandle<X64InlineHook>();
@@ -112,6 +114,7 @@ namespace EnemyGatePathfindingTest
                 "builder-precheck captured-player filter");
             topologyProvider = new GateTopologySnapshotProvider(log);
             topologyProvider.SetGateAccessConsumer(UpdateGateAccess);
+            attackOrderDiagnostics = new AttackOrderCorrelationDiagnostics(log, topologyProvider);
 
             // The displaced integer-only blocks define RCX/RDX before the callback.
             // RedBird's BeforeCallback stub changes flags while saving context, so the
@@ -169,7 +172,8 @@ namespace EnemyGatePathfindingTest
             try
             {
                 samePclRouteRuntime = new SamePclGateRouteRuntime(
-                    log, memory, context.Region, libraryBase, friendlyMoatHookOwnerLoaded);
+                    log, memory, context.Region, libraryBase, friendlyMoatHookOwnerLoaded,
+                    attackOrderDiagnostics);
             }
             catch (Exception ex)
             {
@@ -213,6 +217,7 @@ namespace EnemyGatePathfindingTest
             if (Interlocked.CompareExchange(ref mapActive, 1, 0) != 0) return;
             ResetMapCounters();
             samePclRouteRuntime?.ResetCounters();
+            attackOrderDiagnostics?.Reset();
             topologyProvider?.BeginExplicitEpoch(reason);
             Shared.DebugLogHelper.LogInfo(log,
                 "Enemy-gate map started: Different-PCL filter and native Same-PCL " +
@@ -237,6 +242,7 @@ namespace EnemyGatePathfindingTest
                 ComparePathfindingGlobalsOnce();
                 topologyProvider?.ProcessDeferred();
                 samePclRouteRuntime?.ProcessDeferred();
+                attackOrderDiagnostics?.ProcessDeferred();
                 long now = Stopwatch.GetTimestamp();
                 if (Volatile.Read(ref mapActive) != 0 &&
                     now >= Volatile.Read(ref nextDiagnosticAt))
@@ -341,6 +347,12 @@ namespace EnemyGatePathfindingTest
         {
             try { topologyProvider?.OnGameTick(); }
             catch { topologyProvider?.RecordSnapshotFailure(); }
+        }
+
+        internal void ObserveTargetOrder(TribeIssueOrderWithTargetEventArgs args)
+        {
+            try { attackOrderDiagnostics?.ObserveOrder(args); }
+            catch (Exception ex) { TryLogDiagnosticFailure(ex); }
         }
 
         private void UpdateGateAccess(NativeGateAccessSnapshot updated)
@@ -636,18 +648,25 @@ namespace EnemyGatePathfindingTest
                 $"buildingConsumerQueries={same.BuildingConsumerQueries}," +
                 $"alternateBuildingConsumerQueries={same.AlternateBuildingConsumerQueries}," +
                 $"candidateQueries={same.CandidateQueries}," +
-                $"aiTacticalTargetQueries={same.AiTacticalTargetQueries}," +
-                $"aiTacticalBuildingEdgesFiltered={same.AiTacticalBuildingEdges}," +
-                $"aiTacticalUnitEdgesFiltered={same.AiTacticalUnitEdges}," +
-                $"aiTacticalFallbackEdgesFiltered={same.AiTacticalFallbackEdges}," +
-                $"aiTacticalInvalidPlayer={same.AiTacticalInvalidPlayers}," +
-                $"aiTacticalScopeConflict={same.AiTacticalScopeConflicts}," +
-                $"aiTacticalExceptions={same.AiTacticalExceptions}," +
+                $"plannerState0x419Queries={same.AiTacticalTargetQueries}," +
+                $"plannerState0x419BuildingEdges={same.AiTacticalBuildingEdges}," +
+                $"plannerState0x419UnitEdges={same.AiTacticalUnitEdges}," +
+                $"plannerState0x419FallbackEdges={same.AiTacticalFallbackEdges}," +
+                $"plannerState0x419InvalidPlayer={same.AiTacticalInvalidPlayers}," +
+                $"plannerState0x419ScopeConflict={same.AiTacticalScopeConflicts}," +
+                $"plannerState0x419Exceptions={same.AiTacticalExceptions}," +
                 $"scopeSamples=[{samePclRouteRuntime?.DescribeScopeSamples() ?? "none"}]," +
                 $"aiTacticalEdgeSamples=[{samePclRouteRuntime?.DescribeAiTacticalEdgeSamples() ?? "none"}]," +
                 $"cursorDecisionSample=[{samePclRouteRuntime?.DescribeCursorDecisionSample() ?? "none"}]," +
                 $"cursorPreviewSample=[{samePclRouteRuntime?.DescribeCursorPreviewSample() ?? "none"}]," +
                 "managedCursorSearches=0,managedReplacementSearches=0,directionGridWrites=0.");
+            Shared.DebugLogHelper.LogInfo(log,
+                $"Enemy-gate AI order checkpoint: kind={kind}, " +
+                (attackOrderDiagnostics?.DescribeCheckpoint() ?? "unavailable") +
+                ",plannerState0x419Queries=" + same.AiTacticalTargetQueries +
+                ",plannerState0x419Edges=" +
+                (same.AiTacticalBuildingEdges + same.AiTacticalUnitEdges +
+                    same.AiTacticalFallbackEdges) + ".");
             LogNewCapturerSamples();
             if (string.Equals(kind, "final", StringComparison.Ordinal))
                 LogAcceptanceVerdict(reason);
@@ -711,9 +730,9 @@ namespace EnemyGatePathfindingTest
                 $"aiDetour={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiDetours)}," +
                 $"aiQuery={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiQueries)}," +
                 $"aiNoRoute={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiNoRoutes)}," +
-                $"aiTargetSelectionExecution={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalTargetQueries)}," +
-                $"aiInteriorTargetEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalBuildingEdges + same.AiTacticalUnitEdges)}," +
-                $"aiFallbackPositionFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalFallbackEdges)}," +
+                $"plannerState0x419Execution={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalTargetQueries)}," +
+                $"plannerState0x419InteriorEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalBuildingEdges + same.AiTacticalUnitEdges)}," +
+                $"plannerState0x419FallbackEdges={EnemyGatePathfindingPolicy.ObservationVerdict(same.AiTacticalFallbackEdges)}," +
                 $"attackEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.AttackEdges)}," +
                 $"buildingEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.BuildingEdges)}," +
                 $"candidateEdgesFiltered={EnemyGatePathfindingPolicy.ObservationVerdict(same.CandidateEdges)}," +

@@ -164,16 +164,24 @@ namespace LordSpawnSlotFixTest
 
             var guard = new LordSpawnSlotGuardInput(
                 sessionEligible,
+                correctionWindowOpen: observationTick <= DetailedSnapshotTicks,
                 hasResources,
                 inRoster: true,
                 member.Kicked,
                 alreadyAttempted: false,
                 snapshot.WinLossState == WinLossState.Loss,
                 snapshot.LordUnitId,
+                snapshot.LordGlobalId,
+                snapshot.LordIdentity.Exists,
+                snapshot.LordIdentity.OwnerPlayerId,
+                snapshot.LordIdentity.Type == eChimps.CHIMP_TYPE_NULL,
+                snapshot.LordIdentity.AliveState == AliveState.None,
+                snapshot.LordIdentity.GlobalId,
+                snapshot.LordIdentity.CurrentHealth,
                 snapshot.ValidOwnedKeep,
-                snapshot.ValidOwnedKeepDoor);
+                snapshot.ValidOwnedKeepDoorReference);
             LordSpawnSlotDecision decision = LordSpawnSlotFixPolicy.Evaluate(in guard);
-            if (decision != LordSpawnSlotDecision.Correct)
+            if (decision != LordSpawnSlotDecision.ClearStaleLordReference)
             {
                 if (observationTick == 1)
                     log.LogInfo(
@@ -185,16 +193,17 @@ namespace LordSpawnSlotFixTest
             sessionState.MarkAttempted(member.PlayerId);
             log.LogWarning(
                 $"LSS_TEST_CAUSE_CONFIRMED: session={sessionState.SessionId}; player={member.PlayerId}; " +
-                $"reason=active-roster-player-has-valid-owned-keep-and-door-but-started-Loss-without-Lord; " +
+                $"reason=active-roster-player-has-valid-owned-keep-and-door-reference-and-exact-zeroed-unit-tombstone-blocks-Vanilla-spawn; " +
                 $"before={snapshot.Describe()}.");
-            players.SetWinLossState(member.PlayerId, WinLossState.None);
+            players.SetLordUnitGlobalId(member.PlayerId, 0);
+            players.SetLordUnitId(member.PlayerId, 0);
 
             if (!players.TryGetPlayerResourcesById(member.PlayerId, out GamePlayerResources* updated) ||
-                updated == null || updated->r_WinLossState != WinLossState.None)
+                updated == null || updated->r_LordUnitId != 0 || updated->r_LordUnitGlobalId != 0)
             {
                 log.LogError(
                     $"LSS_TEST_CORRECTION_FAILED: session={sessionState.SessionId}; player={member.PlayerId}; " +
-                    "SetWinLossState did not produce WinLossState.None; no retry will be attempted this session.");
+                    "the public Lord identity setters did not produce 0/0; no retry will be attempted this session.");
                 return;
             }
 
@@ -202,7 +211,7 @@ namespace LordSpawnSlotFixTest
             lastSnapshots[member.PlayerId] = corrected.Fingerprint;
             log.LogWarning(
                 $"LSS_TEST_CORRECTED: session={sessionState.SessionId}; player={member.PlayerId}; " +
-                $"method=GamePlayerManagerAPI.SetWinLossState(None); after={corrected.Describe()}; " +
+                $"method=GamePlayerManagerAPI.SetLordUnitGlobalId(0)+SetLordUnitId(0); after={corrected.Describe()}; " +
                 "lordCreation=left-to-Vanilla.");
         }
 
@@ -216,7 +225,7 @@ namespace LordSpawnSlotFixTest
                 $"LSS_TEST_VANILLA_LORD_CONFIRMED: session={sessionState.SessionId}; player={playerId}; " +
                 $"observationTick={observationTick}; simulationTick={simulationTick}; " +
                 $"lordUnitId={snapshot.LordUnitId}; lordGlobalId={snapshot.LordGlobalId}; " +
-                "creationPath=Vanilla-after-WinLoss-correction.");
+                "creationPath=Vanilla-after-stale-identity-clear.");
         }
 
         private void LogOutstandingConfirmations(int simulationTick)
@@ -227,7 +236,7 @@ namespace LordSpawnSlotFixTest
                     log.LogError(
                         $"LSS_TEST_LORD_TIMEOUT: session={sessionState.SessionId}; player={member.PlayerId}; " +
                         $"observationTick={observationTick}; simulationTick={simulationTick}; " +
-                        "the guarded WinLoss correction was applied but no valid Vanilla Lord was observed.");
+                        "the guarded stale Lord identity clear was applied but no valid Vanilla Lord was observed.");
             }
         }
 
@@ -259,25 +268,36 @@ namespace LordSpawnSlotFixTest
             BuildingIdentity keep = CaptureBuilding(keepId);
             BuildingIdentity keepDoor = CaptureBuilding(keepDoorId);
             bool validOwnedKeep = keep.Exists && keep.OwnerPlayerId == playerId && keep.IsAlive && IsKeep(keep.Type);
-            bool validOwnedKeepDoor = keepDoor.Exists && keepDoor.OwnerPlayerId == playerId &&
-                keepDoor.IsAlive && IsKeepDoor(keepDoor.Type);
-            bool validOwnedLord = false;
+            bool validOwnedKeepDoorReference = keepDoor.Exists && keepDoor.OwnerPlayerId == playerId &&
+                keepDoor.IsAlive;
+            UnitIdentity lordIdentity = UnitIdentity.Missing(lordUnitId);
+            bool validLordReference = false;
             if (lordUnitId > 0 &&
                 GameUnitManagerAPI.Instance.TryGetUnitById(lordUnitId, out GameUnit* lord) &&
                 lord != null)
             {
-                validOwnedLord = lord->r_AliveState == AliveState.IsAlive &&
+                lordIdentity = new UnitIdentity(
+                    lordUnitId, true, lord->r_ControllableForPlayerId,
+                    lord->r_UnitChimp, lord->r_AliveState,
+                    (int)lord->r_GlobalId, (int)lord->r_CurrentHealth);
+                validLordReference =
+                    (lord->r_AliveState == AliveState.NeedsInit || lord->r_AliveState == AliveState.IsAlive) &&
                     lord->r_ControllableForPlayerId == playerId &&
                     lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
-                    lord->r_CurrentHealth > 0 &&
                     lord->r_GlobalId != 0 &&
-                    (lordGlobalId == 0 || lord->r_GlobalId == lordGlobalId);
+                    lordGlobalId != 0 &&
+                    lord->r_GlobalId == lordGlobalId;
             }
+
+            bool validOwnedLord = validLordReference &&
+                lordIdentity.AliveState == AliveState.IsAlive &&
+                lordIdentity.CurrentHealth > 0;
 
             return new PlayerSnapshot(
                 playerId, true, resources->r_WinLossState, keepId, keepDoorId,
-                lordUnitId, lordGlobalId, keep, keepDoor,
-                validOwnedKeep, validOwnedKeepDoor, validOwnedLord);
+                lordUnitId, lordGlobalId, keep, keepDoor, lordIdentity,
+                validOwnedKeep, validOwnedKeepDoorReference,
+                validLordReference, validOwnedLord);
         }
 
         private static BuildingIdentity CaptureBuilding(int buildingId)
@@ -302,11 +322,6 @@ namespace LordSpawnSlotFixTest
             type == eStructs.STRUCT_KEEP_THREE ||
             type == eStructs.STRUCT_KEEP_FOUR ||
             type == eStructs.STRUCT_KEEP_FIVE;
-
-        private static bool IsKeepDoor(eStructs type) =>
-            type == eStructs.STRUCT_KEEPDOOR_LEFT ||
-            type == eStructs.STRUCT_KEEPDOOR_RIGHT ||
-            type == eStructs.STRUCT_KEEPDOOR;
 
         private readonly struct RosterPlayer
         {
@@ -348,13 +363,45 @@ namespace LordSpawnSlotFixTest
                 $"id={Id},exists={Exists},owner={OwnerPlayerId},type={Type},alive={AliveState}";
         }
 
+        private readonly struct UnitIdentity
+        {
+            internal UnitIdentity(
+                int id, bool exists, int ownerPlayerId, eChimps type,
+                AliveState aliveState, int globalId, int currentHealth)
+            {
+                Id = id;
+                Exists = exists;
+                OwnerPlayerId = ownerPlayerId;
+                Type = type;
+                AliveState = aliveState;
+                GlobalId = globalId;
+                CurrentHealth = currentHealth;
+            }
+
+            internal int Id { get; }
+            internal bool Exists { get; }
+            internal int OwnerPlayerId { get; }
+            internal eChimps Type { get; }
+            internal AliveState AliveState { get; }
+            internal int GlobalId { get; }
+            internal int CurrentHealth { get; }
+
+            internal static UnitIdentity Missing(int id) =>
+                new UnitIdentity(id, false, 0, default, AliveState.None, 0, 0);
+
+            public override string ToString() =>
+                $"id={Id},exists={Exists},owner={OwnerPlayerId},type={Type},alive={AliveState}," +
+                $"globalId={GlobalId},health={CurrentHealth}";
+        }
+
         private readonly struct PlayerSnapshot
         {
             internal PlayerSnapshot(
                 int playerId, bool hasResources, WinLossState winLossState,
                 int keepId, int keepDoorId, int lordUnitId, int lordGlobalId,
-                BuildingIdentity keep, BuildingIdentity keepDoor,
-                bool validOwnedKeep, bool validOwnedKeepDoor, bool validOwnedLord)
+                BuildingIdentity keep, BuildingIdentity keepDoor, UnitIdentity lordIdentity,
+                bool validOwnedKeep, bool validOwnedKeepDoorReference,
+                bool validLordReference, bool validOwnedLord)
             {
                 PlayerId = playerId;
                 HasResources = hasResources;
@@ -365,8 +412,10 @@ namespace LordSpawnSlotFixTest
                 LordGlobalId = lordGlobalId;
                 Keep = keep;
                 KeepDoor = keepDoor;
+                LordIdentity = lordIdentity;
                 ValidOwnedKeep = validOwnedKeep;
-                ValidOwnedKeepDoor = validOwnedKeepDoor;
+                ValidOwnedKeepDoorReference = validOwnedKeepDoorReference;
+                ValidLordReference = validLordReference;
                 ValidOwnedLord = validOwnedLord;
             }
 
@@ -379,25 +428,30 @@ namespace LordSpawnSlotFixTest
             internal int LordGlobalId { get; }
             internal BuildingIdentity Keep { get; }
             internal BuildingIdentity KeepDoor { get; }
+            internal UnitIdentity LordIdentity { get; }
             internal bool ValidOwnedKeep { get; }
-            internal bool ValidOwnedKeepDoor { get; }
+            internal bool ValidOwnedKeepDoorReference { get; }
+            internal bool ValidLordReference { get; }
             internal bool ValidOwnedLord { get; }
 
             internal string Fingerprint =>
                 $"{HasResources}|{(int)WinLossState}|{KeepId}|{KeepDoorId}|{LordUnitId}|{LordGlobalId}|" +
-                $"{ValidOwnedKeep}|{ValidOwnedKeepDoor}|{ValidOwnedLord}|{Keep.OwnerPlayerId}|{KeepDoor.OwnerPlayerId}";
+                $"{ValidOwnedKeep}|{ValidOwnedKeepDoorReference}|{ValidLordReference}|{ValidOwnedLord}|" +
+                $"{Keep.OwnerPlayerId}|{KeepDoor.OwnerPlayerId}|{LordIdentity.Exists}|{LordIdentity.OwnerPlayerId}|" +
+                $"{LordIdentity.Type}|{LordIdentity.AliveState}|{LordIdentity.GlobalId}|{LordIdentity.CurrentHealth}";
 
             internal string Describe() =>
                 $"player={PlayerId}; resources={HasResources}; winLoss={WinLossState}; " +
                 $"keep=[{Keep}]; validOwnedKeep={ValidOwnedKeep}; " +
-                $"keepDoor=[{KeepDoor}]; validOwnedKeepDoor={ValidOwnedKeepDoor}; " +
-                $"lordUnitId={LordUnitId}; lordGlobalId={LordGlobalId}; validOwnedLord={ValidOwnedLord}";
+                $"keepDoor=[{KeepDoor}]; validOwnedKeepDoorReference={ValidOwnedKeepDoorReference}; " +
+                $"lordReference=[storedUnitId={LordUnitId},storedGlobalId={LordGlobalId},unit=[{LordIdentity}]]; " +
+                $"validLordReference={ValidLordReference}; validOwnedLord={ValidOwnedLord}";
 
             internal static PlayerSnapshot Missing(int playerId) =>
                 new PlayerSnapshot(
                     playerId, false, WinLossState.None, 0, 0, 0, 0,
-                    BuildingIdentity.Missing(0), BuildingIdentity.Missing(0),
-                    false, false, false);
+                    BuildingIdentity.Missing(0), BuildingIdentity.Missing(0), UnitIdentity.Missing(0),
+                    false, false, false, false);
         }
     }
 }

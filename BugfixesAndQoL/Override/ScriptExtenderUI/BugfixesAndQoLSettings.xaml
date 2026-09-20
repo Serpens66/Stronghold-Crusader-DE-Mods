@@ -422,6 +422,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAssemblyPointPlacementFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-keep-flag-rotation-fix" shared:ModSettingsSearch.Title="{Binding EnableKeepFlagRotationFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableKeepFlagRotationFixHelpText}"><CheckBox IsChecked="{Binding EnableKeepFlagRotationFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableKeepFlagRotationFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableKeepFlagRotationFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-tunnel-placement-distance-fix" shared:ModSettingsSearch.Title="{Binding EnableTunnelPlacementDistanceFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTunnelPlacementDistanceFixHelpText}"><CheckBox IsChecked="{Binding EnableTunnelPlacementDistanceFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTunnelPlacementDistanceFixHelpText}"
