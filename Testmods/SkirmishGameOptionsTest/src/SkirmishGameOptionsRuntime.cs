@@ -224,9 +224,18 @@ namespace SkirmishGameOptionsTest
             }
 
             if (MainViewModel.Instance.Show_MPSettings &&
+                SkirmishGameOptionsPolicy.IsPresetSaveCommand(command))
+            {
+                SaveSharedPreset(self, command);
+                return;
+            }
+
+            if (MainViewModel.Instance.Show_MPSettings &&
                 SkirmishGameOptionsPolicy.IsWorkingCopyCommand(command))
             {
                 RouteCommandToWorkingCopy(self, command);
+                if (SkirmishGameOptionsPolicy.IsPresetLoadCommand(command))
+                    NormalizeLoadedSharedPreset(self, command);
                 return;
             }
 
@@ -271,7 +280,7 @@ namespace SkirmishGameOptionsTest
             viewModel.Show_MPOnlySettings = true;
             viewModel.Show_MPSettings_MaxPlayers = false;
             viewModel.Show_MPPeacetime = extraFeaturesSettings.EnableMod;
-            viewModel.MPSettingHeight = "560";
+            viewModel.MPSettingHeight = "640";
             viewModel.MPSettings_ExTroops_Opacity =
                 SkirmishGameOptionsPolicy.GetExtremeTroopsOpacity(localSkirmish: true);
             bool mapAllowsOutposts = viewModel.Show_SkirmishAllowOutposts;
@@ -280,6 +289,7 @@ namespace SkirmishGameOptionsTest
             outpostsUnavailableLogged = false;
             if (!noDogsNativeAvailable)
                 viewModel.MPSettings_Dogs_Opacity = 0.3f;
+            UpdatePresetButtonAvailability();
 
             Shared.DebugLogHelper.LogInfo(
                 log,
@@ -316,6 +326,11 @@ namespace SkirmishGameOptionsTest
                 return;
             }
 
+            working.allow_outposts = SkirmishGameOptionsPolicy.NormalizeOutpostsForApply(
+                localSkirmish: true,
+                MainViewModel.Instance.Show_SkirmishAllowOutposts,
+                working.allow_outposts);
+
             bool advancedRequested = working.advanced_options != 0;
             int advancedSkirmishFlag = SkirmishGameOptionsPolicy.ToSkirmishAdvancedFlag(
                 advancedRequested,
@@ -334,6 +349,10 @@ namespace SkirmishGameOptionsTest
             EngineInterface.MultiplayerSetupData committed = GetAuthoritativeSetupData(self);
             if (committed == null)
                 throw new InvalidOperationException("Applied Skirmish MPsetupData is unavailable.");
+
+            EngineInterface.MultiplayerSetupData previous = CloneSetupData(working);
+            CanonicalizeSharedAdvancedState(previous, acceptEitherModeFlag: true);
+            FRONT_Multiplayer.MPLastSetupData = previous;
 
             setupTransaction.ApplyTo(committed, CopySetupData);
             committed.advanced_skirmish_options = advancedSkirmishFlag;
@@ -357,6 +376,83 @@ namespace SkirmishGameOptionsTest
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"SKIRMISH_GAME_OPTIONS_TEST_APPLY: peace={committed.peacetime}, advancedSkirmish={committed.advanced_skirmish_options}, strongWalls={committed.no_knockdown_walls}, noCows={committed.no_cows}, noDogs={committed.no_dogs}, autoTrading={committed.allow_autotrading}.");
+        }
+
+        private void NormalizeLoadedSharedPreset(FRONT_Multiplayer self, string command)
+        {
+            EngineInterface.MultiplayerSetupData working = GetActiveWorkingCopy(self);
+            if (working == null)
+                return;
+
+            CanonicalizeSharedAdvancedState(working, acceptEitherModeFlag: true);
+            ApplySkirmishDialogConstraints(working);
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"SKIRMISH_GAME_OPTIONS_TEST_PRESET_LOADED: command={command}, peace={working.peacetime}, advanced={working.advanced_options}.");
+        }
+
+        private void SaveSharedPreset(FRONT_Multiplayer self, string command)
+        {
+            EngineInterface.MultiplayerSetupData working = GetActiveWorkingCopy(self);
+            if (working == null)
+            {
+                multiplayerButtonClickedOriginal(self, command);
+                return;
+            }
+
+            CanonicalizeSharedAdvancedState(working, acceptEitherModeFlag: false);
+            multiplayerButtonClickedOriginal(self, command);
+            UpdatePresetButtonAvailability();
+            Shared.DebugLogHelper.LogInfo(
+                log,
+                $"SKIRMISH_GAME_OPTIONS_TEST_PRESET_SAVED: command={command}, sharedWithMultiplayer=true.");
+        }
+
+        private void ApplySkirmishDialogConstraints(
+            EngineInterface.MultiplayerSetupData working)
+        {
+            MainViewModel viewModel = MainViewModel.Instance;
+            viewModel.MPSettingHeight = "640";
+            viewModel.MPSettings_ExTroops_Opacity =
+                SkirmishGameOptionsPolicy.GetExtremeTroopsOpacity(localSkirmish: true);
+            viewModel.MPSettings_AllowOutposts_Opacity =
+                SkirmishGameOptionsPolicy.GetOutpostOpacity(
+                    viewModel.Show_SkirmishAllowOutposts);
+            viewModel.MPSettings_Dogs_Opacity = noDogsNativeAvailable ? 1f : 0.3f;
+            viewModel.Show_MPSettings_AdvancedOptions = working.advanced_options != 0;
+            viewModel.MPSettings_AdvancedButtonText = Translate.Instance.lookUpText(
+                Enums.eTextSections.TEXT_SKIRMISH_MISC,
+                working.advanced_options != 0 ? 20 : 19);
+            UpdatePresetButtonAvailability();
+        }
+
+        private static void CanonicalizeSharedAdvancedState(
+            EngineInterface.MultiplayerSetupData setup,
+            bool acceptEitherModeFlag)
+        {
+            int flag = acceptEitherModeFlag
+                ? SkirmishGameOptionsPolicy.ToSharedAdvancedFlag(
+                    setup.advanced_options,
+                    setup.advanced_skirmish_options,
+                    CaptureAdvancedState(setup))
+                : SkirmishGameOptionsPolicy.ToSkirmishAdvancedFlag(
+                    setup.advanced_options != 0,
+                    CaptureAdvancedState(setup));
+            setup.advanced_options = flag;
+            setup.advanced_skirmish_options = flag;
+        }
+
+        private static void UpdatePresetButtonAvailability()
+        {
+            FRONT_Multiplayer_Setup setup = FRONT_Multiplayer_Setup.Instance;
+            if (setup == null)
+                return;
+
+            setup.RefMP_UsePrevious.IsEnabled = FRONT_Multiplayer.MPLastSetupData != null;
+            setup.RefMP_UsePresets1.IsEnabled =
+                !string.IsNullOrEmpty(ConfigSettings.Settings_MPPresets1);
+            setup.RefMP_UsePresets2.IsEnabled =
+                !string.IsNullOrEmpty(ConfigSettings.Settings_MPPresets2);
         }
 
         private void OnExtraFeaturesSettingChanged(string propertyName)
@@ -577,7 +673,7 @@ namespace SkirmishGameOptionsTest
             EngineInterface.MultiplayerSetupData source)
         {
             var clone = new EngineInterface.MultiplayerSetupData();
-            CopySetupData(source, clone);
+            clone.FromString(source.ToString());
             return clone;
         }
 

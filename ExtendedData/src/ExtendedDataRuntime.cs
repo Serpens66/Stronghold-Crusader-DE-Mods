@@ -48,12 +48,7 @@ namespace ExtendedData
             .ToArray();
         private static readonly FieldInfo MainViewModelInstanceField = typeof(MainViewModel)
             .GetField("instance", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-        private static readonly MethodInfo UpdateHostInfoMethod = typeof(FRONT_Multiplayer).GetMethod(
-            "UpdateHostInfo",
-            BindingFlags.Instance | BindingFlags.NonPublic,
-            null,
-            Type.EmptyTypes,
-            null);
+        private static readonly MethodInfo UpdateHostInfoMethod = RequireMethod("UpdateHostInfo", typeof(bool));
         private static readonly FieldInfo MpSetupDataField = typeof(FRONT_Multiplayer).GetField("MPsetupData", BindingFlags.Instance | BindingFlags.NonPublic);
 
         private readonly ManualLogSource log;
@@ -83,6 +78,7 @@ namespace ExtendedData
         private bool coopMapActive;
         private string lastShownLocalBlockSignature = string.Empty;
         private string lastPackageRosterDiagnostic = string.Empty;
+        private string lastCompatibilityLogSignature = string.Empty;
         private bool enabled;
 
         public ExtendedDataRuntime(
@@ -161,8 +157,28 @@ namespace ExtendedData
 
         public void RefreshModCompatibility()
         {
-            if (missionSettingsCoordinator != null)
-                settings.RefreshModCompatibility(missionSettingsCoordinator.DiscoverModCompatibility());
+            if (missionSettingsCoordinator == null)
+                return;
+            TrailModCompatibilityInfo[] catalog = missionSettingsCoordinator
+                .DiscoverModCompatibility()
+                .ToArray();
+            settings.RefreshModCompatibility(catalog);
+            string compatible = string.Join(", ", catalog
+                .Where(item => item.IsCompatible)
+                .Select(item => item.DisplayName)
+                .OrderBy(item => item, StringComparer.Ordinal));
+            string incompatible = string.Join(", ", catalog
+                .Where(item => !item.IsCompatible)
+                .Select(item => item.DisplayName)
+                .OrderBy(item => item, StringComparer.Ordinal));
+            string signature = compatible + "\n" + incompatible;
+            if (string.Equals(lastCompatibilityLogSignature, signature, StringComparison.Ordinal))
+                return;
+            lastCompatibilityLogSignature = signature;
+            LogInfo(
+                "Map/Trail mod-settings compatibility refreshed: compatible=" +
+                catalog.Count(item => item.IsCompatible) + " [" + compatible + "], incompatible=" +
+                catalog.Count(item => !item.IsCompatible) + " [" + incompatible + "].");
         }
 
         public void Dispose()
@@ -520,7 +536,7 @@ namespace ExtendedData
             MainViewModel.Instance.CoopMissionTitle = selected.Loaded.Definition.DisplayName;
             MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
             if (updateHost && self.currentLobby != null && self.currentLobby.isHost)
-                UpdateHostInfoMethod?.Invoke(self, null);
+                UpdateHostInfoMethod.Invoke(self, new object[] { false });
         }
 
         private string BuildMissionDescription()

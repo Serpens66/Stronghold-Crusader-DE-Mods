@@ -87,6 +87,19 @@ namespace ExtendedData
 
         internal void Initialize()
         {
+            MethodInfo saveMethod = RequireInstanceMethod(
+                typeof(EditorDirector),
+                nameof(EditorDirector.SaveSaveGameOrMap),
+                typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(bool));
+            MethodInfo leaveLobbyMethod = RequireInstanceMethod(
+                typeof(FRONT_Multiplayer),
+                "LeaveLobby",
+                typeof(bool), typeof(bool));
+            MethodInfo startSkirmishGameMethod = RequireInstanceMethod(
+                typeof(FRONT_Multiplayer),
+                "StartSkirmishGame",
+                typeof(HUD_IngameMenu.RestartSkirmishMapInfo));
+
             bool registered = ModSaveDataAPI.Instance.RegisterModDataHandler(
                 SaveDataIdentifier,
                 SaveMapSettings,
@@ -95,30 +108,12 @@ namespace ExtendedData
                 throw new InvalidOperationException("The Map mod-settings save-data identifier is already registered.");
             saveHandlerRegistered = true;
 
-            MethodInfo saveMethod = typeof(EditorDirector).GetMethod(
-                nameof(EditorDirector.SaveSaveGameOrMap),
-                BindingFlags.Instance | BindingFlags.Public,
-                null,
-                new[] { typeof(string), typeof(string), typeof(bool), typeof(bool), typeof(bool) },
-                null) ?? throw new MissingMethodException(typeof(EditorDirector).FullName, nameof(EditorDirector.SaveSaveGameOrMap));
             saveHook = new Hook(saveMethod, (SaveSaveGameOrMapDelegate)SaveSaveGameOrMapHook);
             saveOriginal = saveHook.GenerateTrampoline<SaveSaveGameOrMapDelegate>();
 
-            MethodInfo leaveLobbyMethod = typeof(FRONT_Multiplayer).GetMethod(
-                "LeaveLobby",
-                BindingFlags.Instance | BindingFlags.Public,
-                null,
-                new[] { typeof(bool), typeof(bool) },
-                null) ?? throw new MissingMethodException(typeof(FRONT_Multiplayer).FullName, "LeaveLobby");
             leaveLobbyHook = new Hook(leaveLobbyMethod, (LeaveLobbyDelegate)LeaveLobbyHook);
             leaveLobbyOriginal = leaveLobbyHook.GenerateTrampoline<LeaveLobbyDelegate>();
 
-            MethodInfo startSkirmishGameMethod = typeof(FRONT_Multiplayer).GetMethod(
-                "StartSkirmishGame",
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                null,
-                new[] { typeof(HUD_IngameMenu.RestartSkirmishMapInfo) },
-                null) ?? throw new MissingMethodException(typeof(FRONT_Multiplayer).FullName, "StartSkirmishGame");
             startSkirmishGameHook = new Hook(
                 startSkirmishGameMethod,
                 (StartSkirmishGameDelegate)StartSkirmishGameHook);
@@ -685,6 +680,21 @@ namespace ExtendedData
                 return string.Empty;
             try { return IOPath.GetFullPath(path); }
             catch { return path; }
+        }
+
+        private static MethodInfo RequireInstanceMethod(Type type, string name, params Type[] parameterTypes)
+        {
+            MethodInfo method = type.GetMethod(
+                name,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                parameterTypes,
+                null);
+            if (method != null)
+                return method;
+            throw new MissingMethodException(
+                type.FullName,
+                name + "(" + string.Join(", ", parameterTypes.Select(item => item.FullName)) + ")");
         }
 
         private static void ShowMessage(string title, string message) =>

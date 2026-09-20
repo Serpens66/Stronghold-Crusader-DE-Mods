@@ -15,6 +15,7 @@ namespace SkirmishGameOptionsTest
         {
             TestWorkingCopyRouting();
             TestWorkingCopyApplyAndCancel();
+            TestSharedPresetPolicies();
             TestPeaceTimeSynchronization();
             TestGameplayGuards();
             TestAdvancedFlagConversion();
@@ -147,12 +148,70 @@ namespace SkirmishGameOptionsTest
                 "troop availability is transactional");
             Assert(SkirmishGameOptionsPolicy.IsWorkingCopyCommand("GOODS_24"),
                 "trade availability is transactional");
+            Assert(SkirmishGameOptionsPolicy.IsWorkingCopyCommand("UsePrevious"),
+                "previous settings load into the working copy");
+            Assert(SkirmishGameOptionsPolicy.IsWorkingCopyCommand("UseDefault"),
+                "defaults load into the working copy");
+            Assert(SkirmishGameOptionsPolicy.IsWorkingCopyCommand("UsePresets1") &&
+                   SkirmishGameOptionsPolicy.IsWorkingCopyCommand("UsePresets2"),
+                "both shared presets load into the working copy");
+            Assert(SkirmishGameOptionsPolicy.IsPresetSaveCommand("SavePresets1") &&
+                   SkirmishGameOptionsPolicy.IsPresetSaveCommand("SavePresets2"),
+                "both shared preset save commands are recognized");
+            Assert(!SkirmishGameOptionsPolicy.IsWorkingCopyCommand("SavePresets1"),
+                "saving a preset remains an immediate persistent action");
             Assert(!SkirmishGameOptionsPolicy.IsWorkingCopyCommand("Setup"),
                 "open has dedicated handling");
             Assert(!SkirmishGameOptionsPolicy.IsWorkingCopyCommand("ApplySettings"),
                 "apply has dedicated handling");
             Assert(!SkirmishGameOptionsPolicy.IsWorkingCopyCommand("CancelSettings"),
                 "cancel has dedicated handling");
+        }
+
+        private static void TestSharedPresetPolicies()
+        {
+            SkirmishGameOptionsPolicy.AdvancedState state = DefaultAdvancedState();
+            state.Goods[1] = 0;
+            Assert(SkirmishGameOptionsPolicy.ToSharedAdvancedFlag(1, 0, state) == 1,
+                "a multiplayer advanced preset is enabled in Skirmish");
+            Assert(SkirmishGameOptionsPolicy.ToSharedAdvancedFlag(0, 1, state) == 1,
+                "a Skirmish advanced preset is enabled in multiplayer");
+            Assert(SkirmishGameOptionsPolicy.ToSharedAdvancedFlag(0, 0, state) == 0,
+                "disabled shared advanced flags remain disabled");
+            Assert(SkirmishGameOptionsPolicy.NormalizeOutpostsForApply(true, false, 1) == 0,
+                "unsupported Skirmish maps normalize preset outposts to off on Apply");
+            Assert(SkirmishGameOptionsPolicy.NormalizeOutpostsForApply(true, true, 1) == 1,
+                "supported Skirmish maps retain preset outposts");
+            Assert(SkirmishGameOptionsPolicy.NormalizeOutpostsForApply(false, false, 1) == 1,
+                "multiplayer outposts remain Vanilla-owned");
+
+            var committed = TestSettings.CreateDefaults();
+            committed.PeaceTime = 3;
+            committed.StartOrder = new[] { 7, 6, 5, 4, 3, 2, 1, 0 };
+            var preset = TestSettings.CreateDefaults();
+            preset.Fairness = 5;
+            preset.PeaceTime = 18;
+            preset.StrongWalls = 1;
+            preset.Buildings[1] = 0;
+            preset.StartOrder = new[] { 0, 1, 2, 3, 4, 5, 6, 7 };
+
+            var transaction = new WorkingCopyTransaction<TestSettings>(CloneTestSettings);
+            TestSettings working = transaction.Begin(committed);
+            ApplyVisiblePresetFields(preset, working);
+            transaction.Cancel();
+            Assert(committed.PeaceTime == 3 && committed.StrongWalls == 0,
+                "Cancel discards a loaded shared preset");
+            Assert(ArraysEqual(committed.StartOrder, new[] { 7, 6, 5, 4, 3, 2, 1, 0 }),
+                "Cancel preserves the active start-position order");
+
+            working = transaction.Begin(committed);
+            ApplyVisiblePresetFields(preset, working);
+            transaction.ApplyTo(committed, CopyVisiblePresetFields);
+            Assert(committed.Fairness == 5 && committed.PeaceTime == 18 &&
+                   committed.StrongWalls == 1 && committed.Buildings[1] == 0,
+                "Apply commits every visible shared preset field");
+            Assert(ArraysEqual(committed.StartOrder, new[] { 7, 6, 5, 4, 3, 2, 1, 0 }),
+                "Apply does not transfer hidden preset start-position data");
         }
 
         private static void TestGameplayGuards()
@@ -364,6 +423,30 @@ namespace SkirmishGameOptionsTest
             Assert(((string)settingsButton.Attribute("Visibility"))?.Contains(
                 "SkirmishSetupMode") == true,
                 "Settings button remains restricted to the Skirmish setup UI");
+
+            string setupPatchPath = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                @"..\..\Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer_Setup.xaml"));
+            Assert(File.Exists(setupPatchPath), "FRONT_Multiplayer_Setup XAML patch exists");
+            XDocument setupPatch = XDocument.Load(setupPatchPath);
+            XElement presetVisibility = setupPatch.Root
+                .Elements("Operation")
+                .Single(element =>
+                    (string)element.Attribute("Type") == "SetAttribute" &&
+                    (string)element.Attribute("AttributeName") == "Visibility");
+            Assert(((string)presetVisibility.Attribute("XPath"))?.Contains(
+                "Show_MPNotSkirmishIsHost") == true,
+                "preset patch targets the Vanilla host-only preset container");
+            Assert(((string)presetVisibility.Attribute("Value"))?.Contains(
+                "Show_MPIsHost") == true,
+                "preset container is visible to hosts including local Skirmish");
+
+            string runtimePath = Path.GetFullPath(Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                @"..\..\src\SkirmishGameOptionsRuntime.cs"));
+            string runtimeSource = File.ReadAllText(runtimePath);
+            Assert(runtimeSource.Contains("viewModel.MPSettingHeight = \"640\";"),
+                "Skirmish Game Options reserves Vanilla's full preset height");
         }
 
         private static void TestInstalledNativeBinary()
@@ -458,6 +541,7 @@ namespace SkirmishGameOptionsTest
             target.Buildings = (int[])source.Buildings.Clone();
             target.Goods = (int[])source.Goods.Clone();
             target.Troops = (int[])source.Troops.Clone();
+            target.StartOrder = (int[])source.StartOrder.Clone();
             target.Gameplay = new SkirmishGameOptionsPolicy.AdvancedState
             {
                 Buildings = (int[])source.Gameplay.Buildings.Clone(),
@@ -480,6 +564,16 @@ namespace SkirmishGameOptionsTest
             };
         }
 
+        private static void ApplyVisiblePresetFields(TestSettings source, TestSettings target)
+        {
+            int[] preservedStartOrder = (int[])target.StartOrder.Clone();
+            CopyTestSettings(source, target);
+            target.StartOrder = preservedStartOrder;
+        }
+
+        private static void CopyVisiblePresetFields(TestSettings source, TestSettings target) =>
+            ApplyVisiblePresetFields(source, target);
+
         private static bool TestSettingsEqual(TestSettings left, TestSettings right) =>
             left.Fairness == right.Fairness &&
             left.StartingGoods == right.StartingGoods &&
@@ -498,6 +592,7 @@ namespace SkirmishGameOptionsTest
             ArraysEqual(left.Buildings, right.Buildings) &&
             ArraysEqual(left.Goods, right.Goods) &&
             ArraysEqual(left.Troops, right.Troops) &&
+            ArraysEqual(left.StartOrder, right.StartOrder) &&
             AdvancedStatesEqual(left.Gameplay, right.Gameplay);
 
         private static bool AdvancedStatesEqual(
@@ -552,6 +647,7 @@ namespace SkirmishGameOptionsTest
             internal int[] Buildings;
             internal int[] Goods;
             internal int[] Troops;
+            internal int[] StartOrder;
             internal SkirmishGameOptionsPolicy.AdvancedState Gameplay;
 
             internal static TestSettings CreateDefaults() => new TestSettings
@@ -561,6 +657,7 @@ namespace SkirmishGameOptionsTest
                 Buildings = new[] { 1, 1, 1 },
                 Goods = new[] { 1, 1, 1 },
                 Troops = new[] { 1, 1, 1 },
+                StartOrder = new[] { -1, -1, -1, -1, -1, -1, -1, -1 },
                 Gameplay = DefaultAdvancedState()
             };
         }

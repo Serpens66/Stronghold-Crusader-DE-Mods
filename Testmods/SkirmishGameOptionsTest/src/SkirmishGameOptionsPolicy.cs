@@ -40,8 +40,19 @@ namespace SkirmishGameOptionsTest
                    command.StartsWith("GameType", StringComparison.Ordinal) ||
                    command.StartsWith("GOODS_", StringComparison.Ordinal) ||
                    command.StartsWith("STRUCT_", StringComparison.Ordinal) ||
-                   command.StartsWith("TROOPS_", StringComparison.Ordinal);
+                   command.StartsWith("TROOPS_", StringComparison.Ordinal) ||
+                   IsPresetLoadCommand(command);
         }
+
+        internal static bool IsPresetLoadCommand(string command) =>
+            string.Equals(command, "UsePrevious", StringComparison.Ordinal) ||
+            string.Equals(command, "UseDefault", StringComparison.Ordinal) ||
+            string.Equals(command, "UsePresets1", StringComparison.Ordinal) ||
+            string.Equals(command, "UsePresets2", StringComparison.Ordinal);
+
+        internal static bool IsPresetSaveCommand(string command) =>
+            string.Equals(command, "SavePresets1", StringComparison.Ordinal) ||
+            string.Equals(command, "SavePresets2", StringComparison.Ordinal);
 
         internal static bool ShouldBlockCow(bool localSkirmish, bool noCows) =>
             localSkirmish && noCows;
@@ -96,6 +107,20 @@ namespace SkirmishGameOptionsTest
             bool localSkirmish,
             bool mapAllowsOutposts) =>
             !localSkirmish || mapAllowsOutposts;
+
+        internal static int NormalizeOutpostsForApply(
+            bool localSkirmish,
+            bool mapAllowsOutposts,
+            int requestedValue) =>
+            localSkirmish && !mapAllowsOutposts ? 0 : requestedValue;
+
+        internal static int ToSharedAdvancedFlag(
+            int multiplayerFlag,
+            int skirmishFlag,
+            AdvancedState state) =>
+            ToSkirmishAdvancedFlag(
+                multiplayerFlag != 0 || skirmishFlag != 0,
+                state);
 
         private static bool HasDisabledEntry(int[] values)
         {

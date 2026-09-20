@@ -1,4 +1,4 @@
-// Feature: Keep Vanilla's UI update block dormant until its Noesis roots exist.
+// Feature: Keep Vanilla's UI and radar update tail dormant until its roots exist.
 using BepInEx.Logging;
 using CrusaderDE;
 using MonoMod.Cil;
@@ -30,6 +30,8 @@ namespace BugfixesAndQoL
                 throw new MissingMethodException(typeof(FatControler).FullName, "Update");
 
             ValidateUiMemberContracts();
+            StartupUiReadinessGuardIlContract.ValidateVulnerableRadarScrollMap(
+                FindRadarScrollMapMethod());
 
             ILHook candidate = null;
             try
@@ -58,42 +60,49 @@ namespace BugfixesAndQoL
 
         private static void PatchUiUpdateReadinessBranch(ILContext context)
         {
-            int insertionIndex = StartupUiReadinessGuardIlContract.FindUniqueInsertionIndex(context);
-            var cursor = new ILCursor(context) { Index = insertionIndex };
-            cursor.EmitDelegate<Func<bool, bool>>(IsVanillaUiUpdateReady);
+            StartupUiReadinessGuardIlContract.ApplyPatch(
+                context,
+                IsVanillaUiUpdateReady);
         }
 
         private static bool IsVanillaUiUpdateReady(bool viewModelLoaded)
         {
-            if (startupState.IsComplete)
-                return viewModelLoaded;
+            return startupState.Evaluate(viewModelLoaded, AreUiAndControlsReady);
+        }
 
-            if (!viewModelLoaded)
-                return false;
-
+        private static bool AreUiAndControlsReady()
+        {
             MainViewModel main = MainViewModel.Instance;
-            if (main?.HUDmain == null || main.FrontEndMenu == null)
-                return false;
-
-            startupState.MarkComplete();
-            return true;
+            return main?.GlobalUIRoot != null &&
+                main.HUDmain != null &&
+                main.FrontEndMenu != null &&
+                MainControls.instance != null;
         }
 
         private static void ValidateUiMemberContracts()
         {
+            RequireInstanceField(nameof(MainViewModel.GlobalUIRoot), typeof(MasterController));
             RequireInstanceField(nameof(MainViewModel.HUDmain), typeof(HUD_Main));
             RequireInstanceField(nameof(MainViewModel.FrontEndMenu), typeof(FrontendMenus));
+            RequireStaticField(typeof(MainControls), nameof(MainControls.instance), typeof(MainControls));
 
-            MethodInfo radarScrollMap = typeof(FatControler).GetMethod(
+            FindRadarScrollMapMethod();
+        }
+
+        private static MethodInfo FindRadarScrollMapMethod()
+        {
+            MethodInfo method = typeof(FatControler).GetMethod(
                 StartupUiReadinessGuardIlContract.RadarScrollMapMethodName,
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null,
                 Type.EmptyTypes,
                 null);
-            if (radarScrollMap == null || radarScrollMap.ReturnType != typeof(void))
+            if (method == null || method.ReturnType != typeof(void))
                 throw new MissingMethodException(
                     typeof(FatControler).FullName,
                     StartupUiReadinessGuardIlContract.RadarScrollMapMethodName);
+
+            return method;
         }
 
         private static void RequireInstanceField(string fieldName, Type expectedType)
@@ -103,6 +112,15 @@ namespace BugfixesAndQoL
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             if (field == null || field.IsStatic || field.FieldType != expectedType)
                 throw new MissingFieldException(typeof(MainViewModel).FullName, fieldName);
+        }
+
+        private static void RequireStaticField(Type declaringType, string fieldName, Type expectedType)
+        {
+            FieldInfo field = declaringType.GetField(
+                fieldName,
+                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field == null || !field.IsStatic || field.FieldType != expectedType)
+                throw new MissingFieldException(declaringType.FullName, fieldName);
         }
     }
 }

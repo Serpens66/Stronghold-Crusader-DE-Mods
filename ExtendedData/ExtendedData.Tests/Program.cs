@@ -759,6 +759,18 @@ static void TestMapModSettingsRuntimeIntegration()
         coordinator.Contains("UnregisterModDataHandler(SaveDataIdentifier)") &&
         coordinator.Contains("payload.Length > MaxPayloadBytes"),
         "Map clear ordering, initialization rollback, or capture size validation is incomplete");
+    int mapContractResolution = coordinator.IndexOf("MethodInfo saveMethod = RequireInstanceMethod(", StringComparison.Ordinal);
+    int mapHandlerRegistration = coordinator.IndexOf("RegisterModDataHandler(", StringComparison.Ordinal);
+    Assert(mapContractResolution >= 0 && mapContractResolution < mapHandlerRegistration &&
+        coordinator.Contains("BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic") &&
+        coordinator.Contains("\"LeaveLobby\",\r\n                typeof(bool), typeof(bool)") &&
+        coordinator.Contains("\"StartSkirmishGame\",\r\n                typeof(HUD_IngameMenu.RestartSkirmishMapInfo)") &&
+        !coordinator.Contains("BindingFlags.Instance | BindingFlags.Public,\r\n                null,\r\n                new[] { typeof(bool), typeof(bool) }"),
+        "Map hook contracts are not resolved exactly before initialization side effects");
+    Assert(runtime.Contains("RequireMethod(\"UpdateHostInfo\", typeof(bool))") &&
+        runtime.Contains("UpdateHostInfoMethod.Invoke(self, new object[] { false })") &&
+        !runtime.Contains("UpdateHostInfoMethod?.Invoke"),
+        "UpdateHostInfo(bool) is not treated as a required exact runtime contract");
     Assert(trailCoordinator.Contains("EnterStrict") &&
         trailCoordinator.Contains("internal ModSettingsDefinition ValidateStrict") &&
         trailCoordinator.Contains("ValidateDocumentValues") &&
@@ -770,6 +782,13 @@ static void TestMapModSettingsRuntimeIntegration()
         coordinator.Contains("settingsCoordinator.ValidateStrict(document, \"embedded Map\")") &&
         xaml.Contains("ExtendedDataUseMapModSettings") && xaml.Contains("Visibility=\"Collapsed\""),
         "the manually activated Map preset button is not connected to every launch path");
+    string settingsXaml = File.ReadAllText(Path.Combine(projectRoot, "Override", "ScriptExtenderUI", "ExtendedDataSettings.xaml"));
+    Assert(settingsXaml.Contains("TextWrapping=\"Wrap\"\r\n                 Width=\"623\"") &&
+        settingsXaml.Contains("Width=\"623\" HorizontalAlignment=\"Left\"") &&
+        settingsXaml.Contains("<ColumnDefinition Width=\"230\"/><ColumnDefinition Width=\"190\"/>") &&
+        settingsXaml.Contains("Width=\"569\" HorizontalAlignment=\"Left\"") &&
+        !settingsXaml.Contains("Width=\"723\""),
+        "Map/Trail setting rows still force unnecessary horizontal scrolling");
     Assert(!coordinator.Contains("modmap.json", StringComparison.OrdinalIgnoreCase),
         "Map presets were mixed into modmap.json");
     string[] mapLocaleKeys =
@@ -1008,10 +1027,10 @@ static void TestLocalActivationSetting()
         viewModel.Contains("TrailSettingMode.Fixed") &&
         runtime.Contains("DiscoverModCompatibility()"),
         "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
-    Assert(xaml.Contains("Width=\"723\" HorizontalAlignment=\"Left\"") &&
-        xaml.Contains("<ColumnDefinition Width=\"300\"/><ColumnDefinition Width=\"220\"/><ColumnDefinition Width=\"175\"/><ColumnDefinition Width=\"28\"/>") &&
-        xaml.Contains("Width=\"669\" HorizontalAlignment=\"Left\"") &&
-        xaml.Contains("<ColumnDefinition Width=\"494\"/><ColumnDefinition Width=\"175\"/>"),
+    Assert(xaml.Contains("Width=\"623\" HorizontalAlignment=\"Left\"") &&
+        xaml.Contains("<ColumnDefinition Width=\"230\"/><ColumnDefinition Width=\"190\"/><ColumnDefinition Width=\"175\"/><ColumnDefinition Width=\"28\"/>") &&
+        xaml.Contains("Width=\"569\" HorizontalAlignment=\"Left\"") &&
+        xaml.Contains("<ColumnDefinition Width=\"394\"/><ColumnDefinition Width=\"175\"/>"),
         "Trail mod and feature selectors are not arranged as a compact left-aligned table");
     Assert(coordinator.Contains("getPropertyMode(participant.Key, property.Name)") &&
         coordinator.Contains("TrailSettingMode.Player") &&
@@ -1211,7 +1230,7 @@ static void TestCoopExporterIntegration()
         packet.Contains("[Key(0)]") && packet.Contains("[Key(3)]") &&
         project.Contains("src\\CoopCustomizePacket.cs"),
         "Coop setup/launch transitions are not synchronized from the authenticated lobby host to clients");
-    Assert(runtime.Contains("Type.EmptyTypes") &&
+    Assert(runtime.Contains("RequireMethod(\"InitCoopMissions\")") &&
         runtime.Contains("selected != null && IsLaunchCommand(command)") &&
         runtime.Contains("source: \"custom Coop mission \" + command") &&
         runtime.Contains("ActivateSelectedMissionSettingsUnlessMap(") &&

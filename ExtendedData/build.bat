@@ -65,7 +65,7 @@ echo !EXTENDER_DIR!
 echo.
 
 pushd "%PROJECT_DIR%"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%PROJECT_DIR%Test-RuntimePreflight.ps1" -GameDir "%GAME_DIR%"
 if errorlevel 1 goto forbidden_source_popd
 dotnet run --project ExtendedData.Tests -c Release
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
@@ -137,7 +137,7 @@ exit /b 1
 :forbidden_source_popd
 popd
 echo.
-echo Verbotenes JSON- oder Lifecyclemuster in den ExtendedData-Quellen gefunden.
+echo ExtendedData Runtime-Preflight fehlgeschlagen.
 if "%NO_PAUSE%"=="0" pause
 exit /b 1
 

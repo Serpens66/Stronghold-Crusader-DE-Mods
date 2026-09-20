@@ -775,8 +775,15 @@ namespace BugfixesAndQoL
                 null,
                 Type.EmptyTypes,
                 null);
+            MethodInfo radarScrollMap = typeof(FatControler).GetMethod(
+                StartupUiReadinessGuardIlContract.RadarScrollMapMethodName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                Type.EmptyTypes,
+                null);
             bool realContextUsesLabels = false;
-            int realInsertionIndex = -1;
+            bool realPatchRetargetedOnlySelectedBranch = false;
+            bool realRadarCallRemainsReachable = false;
             if (fatUpdate != null)
             {
                 using (var definition = new MonoMod.Utils.DynamicMethodDefinition(fatUpdate))
@@ -788,15 +795,52 @@ namespace BugfixesAndQoL
                             (instruction.OpCode == Mono.Cecil.Cil.OpCodes.Brfalse ||
                              instruction.OpCode == Mono.Cecil.Cil.OpCodes.Brfalse_S) &&
                             instruction.Operand is MonoMod.Cil.ILLabel);
-                        realInsertionIndex =
-                            StartupUiReadinessGuardIlContract.FindUniqueInsertionIndex(il);
+                        StartupUiReadinessGuardIlContract.PatchSite site =
+                            StartupUiReadinessGuardIlContract.FindUniquePatchSite(il);
+                        var originalLabel = site.Branch.Operand as MonoMod.Cil.ILLabel;
+                        Mono.Cecil.Cil.Instruction originalTarget = originalLabel?.Target;
+                        int before = il.Body.Instructions.Count;
+                        StartupUiReadinessGuardIlContract.ApplyPatchCore(
+                            il,
+                            cursor => cursor.Emit(Mono.Cecil.Cil.OpCodes.Nop));
+                        Mono.Cecil.Cil.Instruction newTarget =
+                            GetStartupUiGuardBranchTarget(site.Branch.Operand);
+                        realPatchRetargetedOnlySelectedBranch =
+                            il.Body.Instructions.Count == before + 1 &&
+                            site.Branch.Operand is MonoMod.Cil.ILLabel &&
+                            ReferenceEquals(newTarget, site.FinalReturn) &&
+                            originalLabel != null &&
+                            ReferenceEquals(originalLabel.Target, originalTarget);
+                        int radarIndex = il.Body.Instructions.IndexOf(site.RadarCall);
+                        realRadarCallRemainsReachable = radarIndex > 0 &&
+                            il.Body.Instructions[radarIndex - 1].OpCode ==
+                                Mono.Cecil.Cil.OpCodes.Ldarg_0;
                     });
                 }
             }
             Check(fatUpdate != null && fatUpdate.ReturnType == typeof(void) &&
                     fatUpdate.GetParameters().Length == 0 &&
-                    realContextUsesLabels && realInsertionIndex >= 0,
-                "installed Vanilla exposes one complete startup UI block in a real ILLabel hook context");
+                    realContextUsesLabels &&
+                    realPatchRetargetedOnlySelectedBranch &&
+                    realRadarCallRemainsReachable,
+                "installed Vanilla startup tail retargets one ILLabel branch while retaining the ready radar path");
+
+            bool vulnerableRadarAccepted = false;
+            if (radarScrollMap != null)
+            {
+                try
+                {
+                    StartupUiReadinessGuardIlContract.ValidateVulnerableRadarScrollMap(
+                        radarScrollMap);
+                    vulnerableRadarAccepted = true;
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+            Check(vulnerableRadarAccepted,
+                "installed Vanilla exposes the proven unguarded MainControls radar prefix");
+            CheckStartupUiGuardRejectsNullSafeRadar(radarScrollMap);
 
             CheckStartupUiGuardRejectedContract(candidateCount: 0, unsupportedOperand: false,
                 "startup UI guard rejects a missing block without mutation");
@@ -805,13 +849,7 @@ namespace BugfixesAndQoL
             CheckStartupUiGuardRejectedContract(candidateCount: 1, unsupportedOperand: true,
                 "startup UI guard rejects an unsupported branch operand without mutation");
 
-            var startupState = new StartupUiReadinessGuardState();
-            bool initiallyComplete = startupState.IsComplete;
-            startupState.MarkComplete();
-            bool completeAfterLatch = startupState.IsComplete;
-            startupState.MarkComplete();
-            Check(!initiallyComplete && completeAfterLatch && startupState.IsComplete,
-                "startup UI guard completion latch is one-way and idempotent");
+            CheckStartupUiGuardReadinessPolicy();
 
             CheckStartupUiGuardManualApplyRollback();
 
@@ -827,20 +865,24 @@ namespace BugfixesAndQoL
                 "startup UI guard manually applies and can roll back its unpublished candidate");
             Check(contract.Contains("operand is ILLabel label") &&
                     contract.Contains("operand as Instruction") &&
-                    contract.Contains("HasExpectedPostBlockTail") &&
+                    contract.Contains("TryGetExpectedPostBlockTail") &&
                     contract.Contains("RadarScrollMapMethodName = \"RadarScrollMap\"") &&
                     contract.Contains("rolloverCalls == 1 && frontendUpdateCalls == 1") &&
-                    CountOccurrences(hook,
-                        "EmitDelegate<Func<bool, bool>>(IsVanillaUiUpdateReady)") == 1,
-                "startup UI guard validates the complete Vanilla block before one IL insertion");
-            int fastPath = hook.IndexOf("if (startupState.IsComplete)", StringComparison.Ordinal);
-            int loadedGate = hook.IndexOf("if (!viewModelLoaded)", StringComparison.Ordinal);
-            int singletonAccess = hook.IndexOf("MainViewModel main = MainViewModel.Instance", StringComparison.Ordinal);
-            Check(fastPath >= 0 && loadedGate > fastPath && singletonAccess > loadedGate &&
-                    hook.Contains("main?.HUDmain == null || main.FrontEndMenu == null") &&
-                    hook.Contains("startupState.MarkComplete()") &&
+                    contract.Contains("context.DefineLabel(site.FinalReturn)") &&
+                    contract.Contains("site.Branch.Operand = finalReturnTarget") &&
+                    contract.Contains("ValidateVulnerableRadarScrollMap") &&
+                    contract.Contains("ApplyPatchCore(context, cursor => cursor.EmitDelegate(readinessGuard))") &&
+                    CountOccurrences(contract, "emitGuard(cursor)") == 1,
+                "startup UI guard validates and retargets the complete Vanilla tail before one IL insertion");
+            Check(hook.Contains("startupState.Evaluate(viewModelLoaded, AreUiAndControlsReady)") &&
+                    hook.Contains("main?.GlobalUIRoot != null") &&
+                    hook.Contains("main.HUDmain != null") &&
+                    hook.Contains("main.FrontEndMenu != null") &&
+                    hook.Contains("MainControls.instance != null") &&
+                    hook.Contains("RequireInstanceField(nameof(MainViewModel.GlobalUIRoot), typeof(MasterController))") &&
                     hook.Contains("RequireInstanceField(nameof(MainViewModel.HUDmain), typeof(HUD_Main))") &&
                     hook.Contains("RequireInstanceField(nameof(MainViewModel.FrontEndMenu), typeof(FrontendMenus))") &&
+                    hook.Contains("RequireStaticField(typeof(MainControls), nameof(MainControls.instance), typeof(MainControls))") &&
                     plugin.Contains("private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;") &&
                     plugin.Contains("new StartupUiReadinessGuardHook(Logger)") &&
                     project.Contains("src\\StartupUiReadinessGuardHook.cs") &&
@@ -848,6 +890,95 @@ namespace BugfixesAndQoL
                     project.Contains("src\\StartupUiReadinessGuardPolicy.cs") &&
                     !project.Contains("StartupRolloverNullGuard"),
                 "startup UI guard latches before its permanent identity fast path and validates UI member types");
+        }
+
+        private static void CheckStartupUiGuardReadinessPolicy()
+        {
+            bool[][] readinessCases =
+            {
+                new[] { false, true, true, true },
+                new[] { true, false, true, true },
+                new[] { true, true, false, true },
+                new[] { true, true, true, false },
+            };
+            bool everyMissingRootBlocked = true;
+            foreach (bool[] roots in readinessCases)
+            {
+                var state = new StartupUiReadinessGuardState();
+                everyMissingRootBlocked &= !state.Evaluate(
+                    viewModelLoaded: true,
+                    () => roots[0] && roots[1] && roots[2] && roots[3]);
+                everyMissingRootBlocked &= !state.IsComplete;
+            }
+
+            var unloadedState = new StartupUiReadinessGuardState();
+            int unloadedProbeCount = 0;
+            bool unloadedResult = unloadedState.Evaluate(false, () =>
+            {
+                unloadedProbeCount++;
+                return true;
+            });
+
+            var completedState = new StartupUiReadinessGuardState();
+            int completedProbeCount = 0;
+            bool opened = completedState.Evaluate(true, () =>
+            {
+                completedProbeCount++;
+                return true;
+            });
+            bool completedIdentityTrue = completedState.Evaluate(true, () =>
+            {
+                completedProbeCount++;
+                return false;
+            });
+            bool completedIdentityFalse = completedState.Evaluate(false, () =>
+            {
+                completedProbeCount++;
+                return false;
+            });
+
+            Check(!unloadedResult && unloadedProbeCount == 0,
+                "startup UI guard does not probe roots before the Vanilla view model is loaded");
+            Check(everyMissingRootBlocked,
+                "startup UI guard blocks when any UI or MainControls root is missing");
+            Check(opened && completedState.IsComplete &&
+                    completedIdentityTrue && !completedIdentityFalse &&
+                    completedProbeCount == 1,
+                "startup UI guard opens once and then uses only its identity fast path");
+        }
+
+        private static void CheckStartupUiGuardRejectsNullSafeRadar(MethodInfo radarScrollMap)
+        {
+            bool rejected = false;
+            if (radarScrollMap != null)
+            {
+                using (var definition = new MonoMod.Utils.DynamicMethodDefinition(radarScrollMap))
+                using (var context = new MonoMod.Cil.ILContext(definition.Definition))
+                {
+                    context.Invoke(il =>
+                    {
+                        Mono.Cecil.Cil.Instruction callVisibility = il.Body.Instructions[7];
+                        il.Body.Instructions.Insert(
+                            7,
+                            Mono.Cecil.Cil.Instruction.Create(Mono.Cecil.Cil.OpCodes.Dup));
+                        il.Body.Instructions.Insert(
+                            8,
+                            Mono.Cecil.Cil.Instruction.Create(
+                                Mono.Cecil.Cil.OpCodes.Brtrue,
+                                callVisibility));
+                        rejected = !StartupUiReadinessGuardIlContract.HasVulnerableRadarPrefix(il);
+                    });
+                }
+            }
+            Check(rejected,
+                "startup UI guard disables itself when Vanilla's radar prefix becomes null-safe");
+        }
+
+        private static Mono.Cecil.Cil.Instruction GetStartupUiGuardBranchTarget(object operand)
+        {
+            if (operand is MonoMod.Cil.ILLabel label)
+                return label.Target;
+            return operand as Mono.Cecil.Cil.Instruction;
         }
 
         private static void CheckStartupUiGuardRejectedContract(
@@ -870,7 +1001,7 @@ namespace BugfixesAndQoL
                     try
                     {
                         context.Invoke(il =>
-                            StartupUiReadinessGuardIlContract.FindUniqueInsertionIndex(il));
+                            StartupUiReadinessGuardIlContract.FindUniquePatchSite(il));
                     }
                     catch (InvalidOperationException)
                     {

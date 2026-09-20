@@ -60,11 +60,13 @@
         </StackPanel>
         <TextBlock Text="{Binding System_ModSettingsSearchNoResultsText}" Visibility="{Binding System_ModSettingsSearchNoResultsVisibility}" Foreground="#FFCC66" HorizontalAlignment="Left" Margin="0,4,0,0"/>
       </StackPanel>
-      <TextBlock Text="{Binding ActionsScopeNoticeText}" Visibility="{Binding ActionsScopeNoticeVisibility}" Foreground="#BBBBBB" TextWrapping="Wrap" Margin="0,0,0,8"/>
-      <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFFFCC66" FontWeight="Bold" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding ActionsScopeNoticeText}" Visibility="{Binding ActionsScopeNoticeVisibility}" Foreground="#BBBBBB" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFFFCC66" FontWeight="Bold" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding PracticalEffectsText}"
                  Foreground="#FFDDDDDD"
                  TextWrapping="Wrap"
+                 MaxWidth="700"
+                 HorizontalAlignment="Left"
                  Margin="0,10,0,0"/>
       <TextBlock Text="{Binding ClientOptionsText}" Style="{StaticResource ClientRoleHeader}" Margin="0,16,0,6"/>
       <StackPanel IsEnabled="{Binding CanEditClientSettings}">
@@ -75,13 +77,16 @@
                  Margin="0,16,0,4"/></Grid>
       <TextBlock Text="{Binding SupportedTrailSettingsHelpText}"
                  Foreground="#FFCCCCCC"
-                 TextWrapping="Wrap" Visibility="{Binding System_ModSettingsSearchInactiveVisibility}"/>
+                 TextWrapping="Wrap"
+                 Width="623"
+                 HorizontalAlignment="Left"
+                 Visibility="{Binding System_ModSettingsSearchInactiveVisibility}"/>
       <ItemsControl ItemsSource="{Binding CompatibleTrailMods}" Margin="12,6,0,0">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <StackPanel Margin="0,2">
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding ModId}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding SearchText}" Width="723" HorizontalAlignment="Left">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="300"/><ColumnDefinition Width="220"/><ColumnDefinition Width="175"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding ModId}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding SearchText}" Width="623" HorizontalAlignment="Left">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="190"/><ColumnDefinition Width="175"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"/>
                 <TextBlock Grid.Column="1" Text="{Binding SummaryText}" Foreground="#FFCCCCCC" VerticalAlignment="Center" Margin="0,0,8,0"/>
                 <ComboBox Grid.Column="2" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" VerticalAlignment="Center" ToolTipService.ShowDuration="60000">
@@ -100,8 +105,8 @@
               <ItemsControl ItemsSource="{Binding Settings}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="26,4,0,5">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding Key}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding HelpText}" Margin="0,1" Width="669" HorizontalAlignment="Left">
-                      <Grid.ColumnDefinitions><ColumnDefinition Width="494"/><ColumnDefinition Width="175"/></Grid.ColumnDefinitions>
+                    <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding Key}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding HelpText}" Margin="0,1" Width="569" HorizontalAlignment="Left">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="394"/><ColumnDefinition Width="175"/></Grid.ColumnDefinitions>
                       <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="White" VerticalAlignment="Center" Margin="0,0,12,0"/>
                       <ComboBox Grid.Column="1" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" VerticalAlignment="Center" ToolTipService.ShowDuration="60000">
                         <ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ComboBox.ToolTip>
@@ -121,6 +126,8 @@
         <TextBlock Text="{Binding IncompatibleTrailModsText}"
                    Foreground="#FFCCCCCC"
                    TextWrapping="Wrap"
+                   Width="611"
+                   HorizontalAlignment="Left"
                    Margin="12,4,0,0"/>
       </StackPanel>
       <TextBlock Margin="0,10,0,0">

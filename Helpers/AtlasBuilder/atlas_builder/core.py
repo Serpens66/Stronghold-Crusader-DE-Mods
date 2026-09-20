@@ -114,6 +114,11 @@ def _progress(callback: ProgressCallback | None, message: str) -> None:
         callback(message)
 
 
+def _diagnostic_prefix(prefix: str, example_path: Path) -> str:
+    code_points = " ".join(f"U+{ord(character):04X}" for character in prefix)
+    return f"{prefix!r} (example file: {example_path.name!r}; code points: {code_points})"
+
+
 def _parse_source_stem(stem: str, configured_prefix: str) -> tuple[str, FrameKey] | None:
     match = re.fullmatch(r"(.*?)(\d+)(x?)", stem, flags=re.IGNORECASE)
     if not match:
@@ -184,7 +189,7 @@ def _collect_pngs(
     if not directory.is_dir():
         raise AtlasBuilderError(f"Source directory does not exist: {directory}")
     found: dict[FrameKey, Path] = {}
-    prefixes: dict[str, str] = {}
+    prefixes: dict[str, tuple[str, Path]] = {}
     for path in sorted(directory.glob("*.png"), key=lambda item: item.name.casefold()):
         stem = path.stem
         is_mask = stem.casefold().endswith("_m")
@@ -202,16 +207,22 @@ def _collect_pngs(
             continue
         if key in found:
             raise AtlasBuilderError(f"Duplicate frame index {key.index}{'x' if key.alternate else ''}: {path}")
-        prefixes.setdefault(prefix.casefold(), prefix)
+        prefixes.setdefault(prefix.casefold(), (prefix, path))
         found[key] = path
     if not found:
         label = "mask" if "mask" in kind else "colour"
         raise AtlasBuilderError(f"No matching {label} PNG files found in: {directory}")
     if configured_prefix == "auto" and len(prefixes) != 1:
-        raise AtlasBuilderError(
-            f"Automatic source-prefix detection is ambiguous in {directory}: {sorted(prefixes.values())!r}"
+        prefix_details = "\n".join(
+            f"- {_diagnostic_prefix(prefix, example_path)}"
+            for prefix, example_path in sorted(prefixes.values(), key=lambda item: item[0].casefold())
         )
-    return found, next(iter(prefixes.values()))
+        raise AtlasBuilderError(
+            f"Automatic source-prefix detection found multiple prefixes in {directory}:\n"
+            f"{prefix_details}\n"
+            "Rename the selected files so they use exactly one prefix, or enter the intended source prefix manually."
+        )
+    return found, next(iter(prefixes.values()))[0]
 
 
 def discover_source_group(project: ProjectConfig, config: GroupConfig) -> tuple[list[SourceFrame], str]:

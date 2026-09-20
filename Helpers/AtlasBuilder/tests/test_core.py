@@ -144,6 +144,32 @@ class DiscoveryTests(unittest.TestCase):
         frames, _ = discover_source_group(self.project(group), group)
         self.assertEqual(frames[0].mask_path.name, "body-0.png")
 
+    def test_ambiguous_prefix_error_exposes_unicode_typo(self) -> None:
+        write_png(self.root / "images" / "tree_birch-0.png")
+        write_png(self.root / "images" / "tree_birch\N{NON-BREAKING HYPHEN}1.png")
+        group = GroupConfig("tree_birch", "images")
+        with self.assertRaises(AtlasBuilderError) as raised:
+            discover_source_group(self.project(group), group)
+        message = str(raised.exception)
+        self.assertIn("tree_birch-0.png", message)
+        self.assertIn("tree_birch\N{NON-BREAKING HYPHEN}1.png", message)
+        self.assertIn("U+002D", message)
+        self.assertIn("U+2011", message)
+
+    def test_genuinely_different_source_prefixes_remain_ambiguous(self) -> None:
+        write_png(self.root / "images" / "tree_birch-0.png")
+        write_png(self.root / "images" / "other_birch-1.png")
+        group = GroupConfig("tree_birch", "images")
+        with self.assertRaises(AtlasBuilderError) as raised:
+            discover_source_group(self.project(group), group)
+        message = str(raised.exception)
+        self.assertIn("multiple prefixes", message)
+        self.assertIn("tree_birch-", message)
+        self.assertIn("other_birch-", message)
+        self.assertIn("tree_birch-0.png", message)
+        self.assertIn("other_birch-1.png", message)
+        self.assertIn("U+002D", message)
+
     def test_missing_mask_is_rejected(self) -> None:
         write_png(self.root / "images" / "body-0.png")
         group = GroupConfig("tile_ruins", "images", "same-directory")

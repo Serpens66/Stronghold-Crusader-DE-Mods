@@ -42,6 +42,7 @@ if not "%BUILD_EXIT_CODE%"=="0" goto failed
 if not exist "%LOCAL_PLUGIN_DIR%\SkirmishGameOptionsTest.dll" goto failed
 if not exist "%LOCAL_PLUGIN_DIR%\info.json" goto failed
 if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer.xaml" goto failed
+if not exist "%LOCAL_PLUGIN_DIR%\Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer_Setup.xaml" goto failed
 
 if "%NO_INSTALL%"=="1" (
   echo Build and tests successful. Installation skipped.
