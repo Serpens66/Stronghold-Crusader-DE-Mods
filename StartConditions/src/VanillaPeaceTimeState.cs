@@ -46,13 +46,7 @@ namespace StartConditions
             activeFlagAddress = IntPtr.Add(context.ModuleHandle, ActiveFlagRva);
             available = true;
 
-            if (TryGetIsActive(out bool active))
-            {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Start Conditions initialized the Vanilla peace-time state reader: " +
-                    $"rva=0x{ActiveFlagRva:X}, active={active}.");
-            }
+            TryGetIsActive(out _);
         }
 
         internal bool TryGetIsActive(out bool active)

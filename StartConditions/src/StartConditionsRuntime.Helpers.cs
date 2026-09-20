@@ -26,7 +26,6 @@ namespace StartConditions
             for (int i = 0; i < activePlayerIds.Length; i++)
             {
                 int playerId = activePlayerIds[i];
-                LogDebug("ForEachActivePlayer synchronized ready player", "playerId", playerId);
                 try
                 {
                     callback(playerId);
@@ -57,6 +56,7 @@ namespace StartConditions
                 return result;
 
             string[] lines = text.Split(new[] { '\r', '\n', ';', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            int invalidEntries = 0;
             foreach (string rawLine in lines)
             {
                 string line = rawLine.Trim();
@@ -66,7 +66,7 @@ namespace StartConditions
                 string[] parts = line.Split(new[] { '=' }, 2);
                 if (parts.Length != 2)
                 {
-                    LogDebug("Invalid setting line:", line);
+                    invalidEntries++;
                     continue;
                 }
 
@@ -74,17 +74,27 @@ namespace StartConditions
                 string amountText = parts[1].Trim();
                 if (!Enum.TryParse(enumName, true, out TEnum enumValue))
                 {
-                    LogDebug("Unknown enum value:", enumName);
+                    invalidEntries++;
                     continue;
                 }
 
                 if (!int.TryParse(amountText, out int amount))
                 {
-                    LogDebug("Invalid amount for", enumName, ":", amountText);
+                    invalidEntries++;
                     continue;
                 }
 
                 result[enumValue] = Math.Max(minimum, Math.Min(maximum, amount));
+            }
+
+            if (invalidEntries > 0)
+            {
+                LogWarning(
+                    "Start Conditions ignored",
+                    invalidEntries,
+                    "invalid",
+                    typeof(TEnum).Name,
+                    "configuration entries.");
             }
 
             return result;
@@ -98,25 +108,5 @@ namespace StartConditions
             return Enum.IsDefined(enumType, typedValue);
         }
 
-        private void LogConfiguredTroops(string label, Dictionary<eChimps, int> troops)
-        {
-            if (!Shared.DebugLogHelper.IsDebugEnabled())
-                return;
-
-            string formattedTroops = FormatTroopCounts(troops);
-            LogDebug(label, formattedTroops);
-        }
-
-        private static string FormatTroopCounts(Dictionary<eChimps, int> troops)
-        {
-            List<string> parts = new List<string>();
-            foreach (KeyValuePair<eChimps, int> entry in troops)
-            {
-                if (entry.Value > 0)
-                    parts.Add(entry.Key + "=" + entry.Value);
-            }
-
-            return parts.Count == 0 ? "<none>" : string.Join(", ", parts);
-        }
     }
 }

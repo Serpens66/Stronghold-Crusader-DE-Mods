@@ -1,9 +1,9 @@
+using APIShared;
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
-using SHCDESE.EventAPI.MapLoader;
 using SHCDESE.EventAPI.Projectiles;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
@@ -14,7 +14,7 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class KeepFlagRotationRuntime
     {
-        private const int LoadedMapScanDelayTicks = 3;
+        private const int NewMapScanDelayTicks = 3;
 
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
@@ -28,6 +28,7 @@ namespace BugfixesAndQoL
         private int alreadyCorrectBeforeSpawnCount;
         private int rejectedCount;
         private bool warningLogged;
+        private bool newMapActive;
 
         internal KeepFlagRotationRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
@@ -50,11 +51,15 @@ namespace BugfixesAndQoL
                 candidates.Add(ProjectileR3EventHooks.OnProjectileSpawn.Observable
                     .Where(args => args.Phase == EventHookPhase.Pre)
                     .Subscribe(OnProjectileSpawnPre));
-                candidates.Add(MapLoaderR3EventHooks.OnStartMap.Observable
-                    .Subscribe(OnStartMap));
-                candidates.Add(MapLoaderR3EventHooks.OnUnloadMap.Observable
-                    .Where(args => args.Phase == EventHookPhase.Pre)
-                    .Subscribe(OnUnloadMapPre));
+                // SaveLifecycle: NewMapOnly - saved and editor sessions already contain placed flags.
+                candidates.Add(Shared.MissionEvents.Loading
+                    .Where(args => args.Phase == MissionInitializationPhase.BeforeLoad)
+                    .Subscribe(OnBeforeMapLoad));
+                candidates.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
+                    log,
+                    OnSessionStarted));
+                candidates.Add(Shared.MissionEvents.Ended
+                    .Subscribe(_ => ResetMapState()));
                 GameTimeManagerAPI.Instance.OnTick += OnGameTick;
                 tickSubscribed = true;
                 subscriptions = candidates;
@@ -70,10 +75,10 @@ namespace BugfixesAndQoL
 
             Shared.DebugLogHelper.LogDebug(
                 log,
-                $"Keep-flag rotation fix installed; scanDelayTicks={LoadedMapScanDelayTicks}, modeFilter=none.");
+                $"Keep-flag rotation fix installed; scanDelayTicks={NewMapScanDelayTicks}, modeFilter=new-map-only.");
         }
 
-        private bool Enabled => settings.EnableMod && settings.EnableKeepFlagRotationFix;
+        private bool Enabled => newMapActive && settings.EnableMod && settings.EnableKeepFlagRotationFix;
 
         private void OnBuildStructurePre(BuildStructureEventArgs args)
         {
@@ -180,22 +185,28 @@ namespace BugfixesAndQoL
                 correctedBeforeSpawnCount++;
         }
 
-        private void OnStartMap(MapStartEventArgs args)
+        private void OnBeforeMapLoad(MissionLifecycleNotification args)
         {
-            if (args.Phase == EventHookPhase.Pre)
+            ResetMapState();
+            newMapActive = args.Context.StartKind == MissionStartKind.NewGame;
+        }
+
+        private void OnSessionStarted(Shared.GameplaySessionStartedContext context)
+        {
+            if (context.Kind != Shared.GameplaySessionStartKind.NewMap || context.IsReplay)
             {
-                sessionNumber++;
                 ResetMapState();
                 return;
             }
 
-            remainingScanTicks = Enabled ? LoadedMapScanDelayTicks : -1;
+            newMapActive = true;
+            sessionNumber++;
+            remainingScanTicks = Enabled ? NewMapScanDelayTicks : -1;
         }
-
-        private void OnUnloadMapPre(MapUnloadEventArgs args) => ResetMapState();
 
         private void ResetMapState()
         {
+            newMapActive = false;
             pendingKeeps.Clear();
             capturedKeeps.Clear();
             remainingScanTicks = -1;
@@ -218,20 +229,20 @@ namespace BugfixesAndQoL
                 return;
             try
             {
-                ScanAndCorrectLoadedFlags(tick);
+                ScanAndCorrectStartedFlags(tick);
             }
             catch (Exception ex)
             {
                 Shared.DebugLogHelper.LogError(
                     log,
-                    $"Keep-flag delayed scan failed: session={sessionNumber}, tick={tick}, error={ex}");
+                    $"Keep-flag post-start scan failed: session={sessionNumber}, tick={tick}, error={ex}");
             }
         }
 
-        private void ScanAndCorrectLoadedFlags(int tick)
+        private void ScanAndCorrectStartedFlags(int tick)
         {
             int keeps = 0;
-            int correctedAfterLoad = 0;
+            int correctedAfterStart = 0;
             int verified = 0;
             int delayedRejected = 0;
             for (int playerId = 1; playerId <= 8; playerId++)
@@ -364,7 +375,7 @@ namespace BugfixesAndQoL
                 flag->r_CurrentTileId = checked((uint)GameTileManagerAPI.Instance.GetTileId(
                     desiredTile.X,
                     desiredTile.Y));
-                correctedAfterLoad++;
+                correctedAfterStart++;
             }
 
             Shared.DebugLogHelper.LogDebug(
@@ -372,7 +383,7 @@ namespace BugfixesAndQoL
                 $"Keep-flag rotation summary: session={sessionNumber}, tick={tick}, enabled={Enabled}, " +
                 $"captured={capturedCount}, correctedBeforeSpawn={correctedBeforeSpawnCount}, " +
                 $"alreadyCorrectBeforeSpawn={alreadyCorrectBeforeSpawnCount}, keeps={keeps}, " +
-                $"correctedAfterLoad={correctedAfterLoad}, verified={verified}, " +
+                $"correctedAfterStart={correctedAfterStart}, verified={verified}, " +
                 $"rejected={rejectedCount + delayedRejected}.");
         }
 

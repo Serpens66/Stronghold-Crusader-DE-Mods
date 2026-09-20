@@ -25,8 +25,7 @@ namespace StartConditions
 
         private void Awake()
         {
-            Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
-
+            SerpLocalization.SetRoutineLoggingEnabled(false);
             Settings = new StartConditionsLobbyViewModel();
             runtime = new StartConditionsRuntime(Logger, Settings);
             CrusaderLibrary.Instance.LibraryLoaded += OnCrusaderLibraryLoaded;
@@ -43,8 +42,11 @@ namespace StartConditions
             bool currentNativeVersion = false;
             TryInitializeStage(
                 "native version diagnostics",
-                () => currentNativeVersion = Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName));
-            TryInitializeStage("localized names", () => Settings.RefreshLocalizedNames(message => Shared.DebugLogHelper.LogDebug(Logger, message)));
+                () => currentNativeVersion = Shared.DebugLogHelper.ReportNativeLibraryVersion(
+                    Logger,
+                    PluginName,
+                    logSuccess: false));
+            TryInitializeStage("localized names", () => Settings.RefreshLocalizedNames());
             try
             {
                 Shared.LobbyModSettingsPresetRegistration.Register(
@@ -52,7 +54,8 @@ namespace StartConditions
                     Logger,
                     "StartConditions_Serp",
                     Settings,
-                    "ScriptExtenderUI/StartConditionsSettings.xaml");
+                    "ScriptExtenderUI/StartConditionsSettings.xaml",
+                    logRoutineActivity: false);
             }
             catch (Exception ex)
             {
@@ -63,7 +66,6 @@ namespace StartConditions
             try
             {
                 runtime.InitializeAfterLibraryLoaded(context, currentNativeVersion);
-                Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; StartConditions runtime initialized.");
             }
             catch (Exception ex)
             {

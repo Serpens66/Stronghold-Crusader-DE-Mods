@@ -133,6 +133,7 @@ namespace ExtendedData
             private CoopTrail3ConstructorDelegate coopTrail3ConstructorOriginal;
             private CoopTrail4ConstructorDelegate coopTrail4ConstructorOriginal;
             private bool trailContext;
+            private string activeContextLabel = "Trail";
             private bool preserveContextForLaunch;
             private bool customTrailLaunchActive;
             private bool cleanupDeferralLogged;
@@ -167,6 +168,7 @@ namespace ExtendedData
             public event Action CoopPackagesChanged;
             public event Action CoopSetupOpened;
             public event Action<int, int> CoopLaunchReceived;
+            public event Action<FRONT_Multiplayer> LobbyOpened;
 
             public IReadOnlyList<TrailModCompatibilityInfo> DiscoverModCompatibility()
             {
@@ -213,7 +215,7 @@ namespace ExtendedData
                     {
                         DebugLogHelper.LogInfo(
                             log,
-                            $"Trail mod settings [{item.DisplayName}] ({item.ModId}) are not included in Trail mission presets: " +
+                            $"Map/Trail mod settings [{item.DisplayName}] ({item.ModId}) are not included in creator presets: " +
                             item.IncompatibilityReason + ".");
                     }
                 }
@@ -417,18 +419,61 @@ namespace ExtendedData
 
             public string[] Enter(ModSettingsDefinition document, bool editable, string source)
             {
+                return Enter(document, editable, source, "Trail");
+            }
+
+            internal string[] Enter(
+                ModSettingsDefinition document,
+                bool editable,
+                string source,
+                string presetLabel)
+            {
                 try
                 {
                     document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
-                    ApplyDocument(document, editable);
+                    ApplyDocument(document, editable, presetLabel);
                     DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
                     return GetMissingMentionedMods(document);
                 }
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(log, $"Could not load {source} mod settings; sidecar mod settings are ignored: {exception}");
-                    ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable);
+                    ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable, presetLabel);
                     return Array.Empty<string>();
+                }
+            }
+
+            internal string[] EnterStrict(
+                ModSettingsDefinition document,
+                bool editable,
+                string source,
+                string presetLabel)
+            {
+                document = ModSettingsJson.NormalizeAndValidate(document, source + ".modSettings");
+                ValidateDocumentValues(document);
+                ApplyDocument(document, editable, presetLabel);
+                DebugLogHelper.LogInfo(log, $"Loaded {source} mod settings; editable={editable}.");
+                return GetMissingMentionedMods(document);
+            }
+
+            internal ModSettingsDefinition CaptureCurrentDocument() => CaptureDocument();
+
+            internal bool IsContextActive(string presetLabel) =>
+                trailContext && string.Equals(activeContextLabel, presetLabel, StringComparison.Ordinal);
+
+            private void ValidateDocumentValues(ModSettingsDefinition document)
+            {
+                Dictionary<string, object> participants = FindCompatibleViewModels();
+                foreach (KeyValuePair<string, object> participant in participants)
+                {
+                    if (!document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry) || entry == null)
+                        continue;
+                    Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
+                    foreach (KeyValuePair<string, object> setting in entry.Overrides)
+                    {
+                        if (properties.TryGetValue(setting.Key, out PropertyInfo property))
+                            ConvertJsonValue(setting.Value, property.PropertyType);
+                    }
                 }
             }
 
@@ -472,7 +517,8 @@ namespace ExtendedData
                 customTrailSetupHeader = null;
                 cleanupDeferralLogged = false;
                 ClearActiveSidecar();
-                DebugLogHelper.LogInfo(log, "Left Trail mod-settings context.");
+                DebugLogHelper.LogInfo(log, "Left " + activeContextLabel + " mod-settings context.");
+                activeContextLabel = "Trail";
             }
 
             private void SaveCustomTrailMapHook(
@@ -1549,6 +1595,7 @@ namespace ExtendedData
                     return;
                 if (preserve)
                     preserveContextForLaunch = false;
+                LobbyOpened?.Invoke(self);
             }
 
             private void StartSkirmishGameHook(
@@ -2451,10 +2498,13 @@ namespace ExtendedData
                     if (target.PlayerSettings.Length != 0 || target.Overrides.Count != 0)
                         document.Mods[participant.Key] = target;
                 }
-                return ModSettingsJson.NormalizeAndValidate(document, "captured Trail mod settings");
+                return ModSettingsJson.NormalizeAndValidate(document, "captured Map/Trail mod settings");
             }
 
-            private void ApplyDocument(ModSettingsDefinition document, bool editable)
+            private void ApplyDocument(
+                ModSettingsDefinition document,
+                bool editable,
+                string presetLabel = "Trail")
             {
                 ClearActiveSidecar();
                 Dictionary<string, object> allParticipants = FindCompatibleViewModels();
@@ -2471,7 +2521,7 @@ namespace ExtendedData
                     {
                         DebugLogHelper.LogInfo(
                             log,
-                            $"Ignored obsolete Trail settings for [{participant.Key}]: " +
+                            $"Ignored obsolete Map/Trail settings for [{participant.Key}]: " +
                             string.Join(", ", removedSettings) + ". They will be omitted on the next save.");
                     }
 
@@ -2513,10 +2563,11 @@ namespace ExtendedData
                 {
                     foreach (Tuple<string, object, Dictionary<string, byte[]>> item in prepared)
                     {
-                        Invoke(item.Item2, "System_EnterMissionPreset", item.Item3, "Trail", editable);
+                        Invoke(item.Item2, "System_EnterMissionPreset", item.Item3, presetLabel, editable);
                         activeParticipantIds.Add(item.Item1);
                     }
                     trailContext = true;
+                    activeContextLabel = string.IsNullOrWhiteSpace(presetLabel) ? "Trail" : presetLabel;
                 }
                 catch
                 {
@@ -2527,7 +2578,7 @@ namespace ExtendedData
                     }
                     catch (Exception rollbackException)
                     {
-                        DebugLogHelper.LogError(log, "Could not fully roll back Trail mod settings: " + rollbackException);
+                        DebugLogHelper.LogError(log, "Could not fully roll back Map/Trail mod settings: " + rollbackException);
                     }
                     trailContext = activeParticipantIds.Count != 0;
                     throw;
@@ -2541,7 +2592,7 @@ namespace ExtendedData
                 {
                     if (!participants.TryGetValue(modId, out object viewModel))
                     {
-                        DebugLogHelper.LogWarning(log, $"Could not leave missing active Trail settings endpoint [{modId}].");
+                        DebugLogHelper.LogWarning(log, $"Could not leave missing active Map/Trail settings endpoint [{modId}].");
                         continue;
                     }
                     Invoke(viewModel, "System_ExitMissionPreset");

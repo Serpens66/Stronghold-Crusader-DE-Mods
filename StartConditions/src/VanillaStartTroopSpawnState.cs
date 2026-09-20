@@ -34,13 +34,7 @@ namespace StartConditions
                 return;
             }
 
-            if (TryGetIsComplete(out bool complete))
-            {
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    $"Start Conditions initialized the Vanilla start-troop completion reader: " +
-                    $"rva=0x{StartTroopSpawnCompletionContract.CompletionStateRva:X}, complete={complete}.");
-            }
+            TryGetIsComplete(out _);
         }
 
         internal bool TryGetIsComplete(out bool complete)

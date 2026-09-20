@@ -139,6 +139,8 @@
     <Compile Include="src\MountedStockpileMovementPolicy.cs" />
     <Compile Include="src\AutoTradeSellZeroHook.cs" />
     <Compile Include="src\CameraMovementModifierHook.cs" />
+    <Compile Include="src\StartupUiReadinessGuardHook.cs" />
+    <Compile Include="src\StartupUiReadinessGuardPolicy.cs" />
     <Compile Include="src\ResolutionAwareZoomHook.cs" />
     <Compile Include="src\ResolutionAwareZoomPolicy.cs" />
     <Compile Include="src\ClassicMapSizeReader.cs" />

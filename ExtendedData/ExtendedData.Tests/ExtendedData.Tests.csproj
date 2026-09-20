@@ -13,6 +13,7 @@
     <Compile Include="..\src\ExtendedDataLaunchOriginApi.cs" Link="ExtendedDataLaunchOriginApi.cs" />
     <Compile Include="..\src\ExtendedDataModDataApi.cs" Link="ExtendedDataModDataApi.cs" />
     <Compile Include="..\src\BuiltInCustomizeOriginPacket.cs" Link="BuiltInCustomizeOriginPacket.cs" />
+    <Compile Include="..\src\MapModSettingsPacket.cs" Link="MapModSettingsPacket.cs" />
     <Reference Include="MessagePack">
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.dll</HintPath>
     </Reference>

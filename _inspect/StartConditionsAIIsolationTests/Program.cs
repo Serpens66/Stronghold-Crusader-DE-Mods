@@ -15,6 +15,7 @@ internal static class Program
 
             TestSaveRoundTrip();
             TestSaveValidation();
+            TestRepairFailureLogState();
             TestSourceContracts(workspaceRoot);
             Console.WriteLine("PASS: StartConditions AI start-troop isolation codec and source contracts.");
             return 0;
@@ -24,6 +25,17 @@ internal static class Program
             Console.Error.WriteLine("FAIL: " + ex);
             return 1;
         }
+    }
+
+    private static void TestRepairFailureLogState()
+    {
+        var state = new RepairFailureLogState();
+        Require(state.ShouldLog("failure-a"), "the first repair failure must be logged");
+        Require(!state.ShouldLog("failure-a"), "an identical repair failure must be deduplicated");
+        Require(state.ShouldLog("failure-b"), "a changed repair failure must be logged");
+        Require(!state.ShouldLog("failure-b"), "the changed failure must then be deduplicated");
+        state.MarkRecovered();
+        Require(state.ShouldLog("failure-b"), "a failure after recovery must be logged again");
     }
 
     private static void TestSaveRoundTrip()
@@ -105,6 +117,25 @@ internal static class Program
             "StartConditions",
             "src",
             "StartConditionsRuntime.AIStartTroopIsolation.cs"));
+        string plugin = File.ReadAllText(Path.Combine(
+            workspaceRoot,
+            "StartConditions",
+            "src",
+            "StartConditionsPlugin.cs"));
+        string mapLifecycle = File.ReadAllText(Path.Combine(
+            workspaceRoot,
+            "StartConditions",
+            "src",
+            "StartConditionsRuntime.MapLifecycle.cs"));
+        string presetSupport = File.ReadAllText(Path.Combine(
+            workspaceRoot,
+            "Shared",
+            "PresetLobbyModSettingsViewModel.cs"));
+        string activationGate = File.ReadAllText(Path.Combine(
+            workspaceRoot,
+            "Shared",
+            "GameplayModActivationGate.cs"));
+        string normalizedPresetSupport = presetSupport.Replace(Environment.NewLine, "\n");
 
         RequireContains(startTroops, "long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(");
         RequireContains(startTroops, "bool isolateFromAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);");
@@ -123,13 +154,29 @@ internal static class Program
         RequireContains(isolation, "unit->r_GlobalId > int.MaxValue");
         RequireContains(isolation, "privateTribe->r_GlobalId > int.MaxValue");
         RequireContains(isolation, "DeleteExactProtectedAIStartTroopTribe(protectedTroop);");
-        RequireContains(isolation, "Blocked foreign unit assignment to private AI start-troop tribe");
         RequireContains(isolation, "TribeContainsOnlyProtectedUnit(tribe, protectedTroop.UnitId)");
         RequireContains(isolation, "DoesTribeMembershipIncludeUnit(tribe, unitId)");
         RequireContains(isolation, "tribe->r_UnitsInGroup < membersBefore");
         RequireContains(isolation, "unit->r_AITribeRole != ProtectedAIBehaviourType");
         RequireContains(isolation, "saved private tribe {saved.PrivateTribeGlobalId} has conflicting live state");
         RequireContains(isolation, "belongs to conflicting live tribe");
+        RequireContains(isolation, "RepairFailureLog.ShouldLog(failureSignature)");
+        RequireContains(isolation, "RepairFailureLog.MarkRecovered()");
+        RequireContains(startTroops, "LogError(\"AddStartTroops failed:\"");
+        RequireContains(startTroops, "LogError(\"RunDelayedStartTroopProcessing failed:\"");
+        RequireContains(mapLifecycle, "LogError(\"OnStartMap failed:\"");
+        RequireContains(plugin, "logSuccess: false");
+        RequireContains(plugin, "logRoutineActivity: false");
+        RequireContains(plugin, "SerpLocalization.SetRoutineLoggingEnabled(false)");
+        RequireContains(presetSupport, "internal static void Register(");
+        RequireContains(normalizedPresetSupport, "xamlSourceFile,\n                true);");
+        RequireContains(activationGate, "bool logRoutineActivity = true");
+        Require(isolation.IndexOf("Protected spawned AI start troop", StringComparison.Ordinal) < 0,
+            "per-unit protection success logs must remain disabled");
+        Require(isolation.IndexOf("Created private aggressive AI start-troop tribe", StringComparison.Ordinal) < 0,
+            "private-tribe success logs must remain disabled");
+        Require(plugin.IndexOf("Goods localization diagnostics", StringComparison.Ordinal) < 0,
+            "goods localization diagnostics must not be wired into the plugin logger");
         Require(isolation.IndexOf("OnUnitMoveHere", StringComparison.Ordinal) < 0, "movement commands must not be blocked");
         Require(isolation.IndexOf("OnTribeIssueOrder", StringComparison.Ordinal) < 0, "tribe orders must not be blocked");
         Require(isolation.IndexOf("r_TotalArmy", StringComparison.Ordinal) < 0, "total-army accounting must remain untouched");

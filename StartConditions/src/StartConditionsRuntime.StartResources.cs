@@ -12,7 +12,6 @@ namespace StartConditions
         {
             ForEachActivePlayer(playerId =>
             {
-                LogDebug("Applying start resources for player", playerId);
                 TryRunFeature($"start gold for player {playerId}", () => ApplyStartGold(playerId));
                 TryRunFeature($"start goods for player {playerId}", () => ReplaceStartGoods(playerId));
             });
@@ -32,18 +31,15 @@ namespace StartConditions
             {
                 GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, eGoods.STORED_GOLD, 1000000);
                 GamePlayerManagerAPI.Instance.SetPlayerGold(playerId, setGold);
-                LogDebug("Set gold of player", playerId, "to", setGold);
             }
 
             if (addGold > 0)
             {
                 GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, eGoods.STORED_GOLD, addGold);
-                LogDebug("Add gold to player", playerId, addGold);
             }
             else if (addGold < 0)
             {
                 GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, eGoods.STORED_GOLD, -addGold);
-                LogDebug("Subtract incoming gold from player", playerId, -addGold);
             }
         }
 
@@ -62,7 +58,6 @@ namespace StartConditions
 
                 if (!IsConfigurableStoredGood(entry.Key))
                 {
-                    LogDebug("Ignoring non-storage start good", entry.Key, "for player", playerId);
                     continue;
                 }
 
@@ -71,7 +66,6 @@ namespace StartConditions
                     GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, entry.Key, IncomingGoodClearAmount);
                     if (entry.Value > 0)
                         GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, entry.Key, entry.Value);
-                    LogDebug("Set incoming good", entry.Key, "to", entry.Value, "for player", playerId);
                 }
                 catch (System.Exception ex)
                 {

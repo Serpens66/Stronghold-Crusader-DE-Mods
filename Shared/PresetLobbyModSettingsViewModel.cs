@@ -121,6 +121,7 @@ namespace Shared
         private readonly string modName;
         private readonly string ownerGuid;
         private readonly PerPlayerLobbySettingsContract contract;
+        private readonly bool routineLoggingEnabled;
         private readonly Dictionary<int, ulong> playersById = new Dictionary<int, ulong>();
         private ulong lobbyId;
         private bool hasLobby;
@@ -142,13 +143,15 @@ namespace Shared
             ManualLogSource log,
             string modName,
             string ownerGuid,
-            PerPlayerLobbySettingsContract contract)
+            PerPlayerLobbySettingsContract contract,
+            bool logRoutineActivity)
         {
             this.owner = owner;
             this.log = log;
             this.modName = modName;
             this.ownerGuid = ownerGuid;
             this.contract = contract;
+            routineLoggingEnabled = logRoutineActivity;
         }
 
         internal bool IsReady => isReady;
@@ -203,11 +206,12 @@ namespace Shared
                     "Per-player lobby settings require the APIShared lobby-state bridge.");
 #endif
 #endif
-                DebugLogHelper.LogInfo(
-                    log,
+#if SHARED_PRESET_TESTS || API_SHARED_LOBBY_OBSERVER
+                LogRoutine(
                     $"[{modName}] Shared per-player lobby convergence activated: " +
                     $"settings=[{string.Join(",", contract.Settings.Select(item => item.Property.Name))}], " +
                     $"required=[{string.Join(",", contract.Settings.Where(item => item.IsReportRequired).Select(item => item.Property.Name))}].");
+#endif
             }
             catch (Exception ex)
             {
@@ -368,8 +372,7 @@ namespace Shared
             SetReadiness(true, string.Empty);
             if (changed)
             {
-                DebugLogHelper.LogInfo(
-                    log,
+                LogRoutine(
                     $"[{modName}] Shared personal settings remapped to final game slots: " +
                     $"players=[{FormatRoster(playersById)}], localPlayerId={finalLocalPlayerId}.");
             }
@@ -440,8 +443,7 @@ namespace Shared
                 foreach (KeyValuePair<int, ulong> player in normalized)
                     playersById[player.Key] = player.Value;
                 publishPending = true;
-                DebugLogHelper.LogInfo(
-                    log,
+                LogRoutine(
                     $"[{modName}] Shared per-player lobby roster changed: lobby={currentLobbyId.Value}, " +
                     $"sessionChanged={sessionChanged}, players=[{string.Join(",", normalized.Keys.OrderBy(id => id))}], " +
                     $"unresolved={hasUnresolvedPlayers}, resetSlots=[{string.Join(",", slotsToReset)}].");
@@ -483,8 +485,7 @@ namespace Shared
             }
             publishPending = false;
             contract.Published?.Invoke();
-            DebugLogHelper.LogInfo(
-                log,
+            LogRoutine(
                 $"[{modName}] Shared personal settings advertised for playerId={localPlayerId}, " +
                 $"properties={contract.Settings.Count}.");
         }
@@ -659,6 +660,12 @@ namespace Shared
         }
 
 #endif
+
+        private void LogRoutine(string message)
+        {
+            if (routineLoggingEnabled)
+                DebugLogHelper.LogInfo(log, message);
+        }
 
         private static string FormatRoster(IReadOnlyDictionary<int, ulong> players) =>
             string.Join(",", (players ?? new Dictionary<int, ulong>())
@@ -1262,7 +1269,8 @@ namespace Shared
         internal void PreparePresets(
             ManualLogSource log,
             string pluginAssemblyLocation,
-            string modName)
+            string modName,
+            bool logRoutineActivity = true)
         {
             if (presetController != null)
                 throw new InvalidOperationException($"Preset storage for [{modName}] was already prepared.");
@@ -1278,7 +1286,8 @@ namespace Shared
                 this,
                 log,
                 pluginAssemblyLocation,
-                modName);
+                modName,
+                logRoutineActivity);
             presetController.CaptureDefaults();
             PropertyChanged += (_, __) => System_RefreshSettingsAccess();
             System_RefreshSettingsAccess();
@@ -1295,7 +1304,8 @@ namespace Shared
         internal void PreparePerPlayerLobbySettings(
             ManualLogSource log,
             string modName,
-            string ownerGuid)
+            string ownerGuid,
+            bool logRoutineActivity = true)
         {
             if (perPlayerSettingsCoordinator != null)
                 throw new InvalidOperationException($"Per-player lobby settings for [{modName}] were already prepared.");
@@ -1307,7 +1317,8 @@ namespace Shared
                 log,
                 modName,
                 ownerGuid,
-                builder.Build());
+                builder.Build(),
+                logRoutineActivity);
         }
 
         internal void ActivatePerPlayerLobbySettings()
@@ -1476,6 +1487,7 @@ namespace Shared
             private readonly PresetLobbyModSettingsViewModel owner;
             private readonly ManualLogSource log;
             private readonly string modName;
+            private readonly bool routineLoggingEnabled;
             private readonly string filePath;
             private readonly PropertyInfo[] persistedProperties;
             private readonly PropertyInfo[] hostProperties;
@@ -1496,11 +1508,13 @@ namespace Shared
                 PresetLobbyModSettingsViewModel owner,
                 ManualLogSource log,
                 string pluginAssemblyLocation,
-                string modName)
+                string modName,
+                bool logRoutineActivity)
             {
                 this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
                 this.log = log;
                 this.modName = modName ?? throw new ArgumentNullException(nameof(modName));
+                routineLoggingEnabled = logRoutineActivity;
 
                 string pluginDirectory = Path.GetDirectoryName(pluginAssemblyLocation)
                     ?? throw new ArgumentException(
@@ -1586,8 +1600,7 @@ namespace Shared
                             MessagePackSerializer.Deserialize<int>(payload[ActivePresetKey]));
                         preset1 = ReadSnapshot(payload, Preset1Key) ?? Clone(defaults);
                         preset2 = ReadSnapshot(payload, Preset2Key);
-                        DebugLogHelper.LogInfo(
-                            log,
+                        LogRoutine(
                             $"[{modName}] Loaded lobby-settings presets; active preset={selected + 1}, preset2Saved={preset2 != null}.");
                     }
                     catch (Exception exception)
@@ -1608,8 +1621,7 @@ namespace Shared
                     preset1 = CaptureCurrentSettings();
                     preset2 = null;
                     selected = 0;
-                    DebugLogHelper.LogInfo(
-                        log,
+                    LogRoutine(
                         fileExists
                             ? $"[{modName}] Migrated legacy lobby settings to preset 1."
                             : $"[{modName}] Initialized preset 1 from code defaults.");
@@ -1631,14 +1643,13 @@ namespace Shared
                 if (owner.missionPresetContext && selected == 2)
                 {
                     ApplySnapshot(missionPreset, 2, writeLocalStorage: false);
-                    DebugLogHelper.LogInfo(log, $"[{modName}] Restored the active mission preset.");
+                    LogRoutine($"[{modName}] Restored the active mission preset.");
                     return;
                 }
 
                 localSelectedPreset = selected;
                 ApplyPreset(selected);
-                DebugLogHelper.LogInfo(
-                    log,
+                LogRoutine(
                     $"[{modName}] Switched to preset {selected + 1}; saved={GetPreset(selected) != null}.");
             }
 
@@ -1660,14 +1671,14 @@ namespace Shared
                 // Property setters invoked by the Trail can make the Extender write its
                 // normal storage file. Replace that transient file with locally owned data.
                 WriteCombinedPayload();
-                DebugLogHelper.LogInfo(log, $"[{modName}] Entered {(editable ? "editable" : "read-only")} mission preset.");
+                LogRoutine($"[{modName}] Entered {(editable ? "editable" : "read-only")} mission preset.");
             }
 
             public void ExitMissionPreset()
             {
                 missionPreset = null;
                 ApplyPreset(localSelectedPreset);
-                DebugLogHelper.LogInfo(log, $"[{modName}] Left mission preset and restored preset {localSelectedPreset + 1}.");
+                LogRoutine($"[{modName}] Left mission preset and restored preset {localSelectedPreset + 1}.");
             }
 
             public void AfterPropertyChanged(string propertyName)
@@ -2090,6 +2101,12 @@ namespace Shared
                 return result;
             }
 
+            private void LogRoutine(string message)
+            {
+                if (routineLoggingEnabled)
+                    DebugLogHelper.LogInfo(log, message);
+            }
+
             private static Dictionary<string, byte[]> Clone(
                 Dictionary<string, byte[]> source)
             {
@@ -2311,6 +2328,23 @@ namespace Shared
             PresetLobbyModSettingsViewModel viewModel,
             string xamlSourceFile)
         {
+            Register(
+                plugin,
+                log,
+                modName,
+                viewModel,
+                xamlSourceFile,
+                true);
+        }
+
+        internal static void Register(
+            BaseUnityPlugin plugin,
+            ManualLogSource log,
+            string modName,
+            PresetLobbyModSettingsViewModel viewModel,
+            string xamlSourceFile,
+            bool logRoutineActivity)
+        {
             if (plugin == null)
                 throw new ArgumentNullException(nameof(plugin));
             if (viewModel == null)
@@ -2326,13 +2360,18 @@ namespace Shared
                 ModSettingsSearch.RegisterSource(viewModel, absoluteXamlSourceFile, log, modName);
             }
 #endif
-            viewModel.PreparePresets(log, plugin.Info.Location, modName);
+            viewModel.PreparePresets(
+                log,
+                plugin.Info.Location,
+                modName,
+                logRoutineActivity);
             // Structural validation must happen before the ViewModel can enter the
             // Extender registry. An invalid personal setting therefore fails closed.
             viewModel.PreparePerPlayerLobbySettings(
                 log,
                 modName,
-                plugin.Info.Metadata.GUID);
+                plugin.Info.Metadata.GUID,
+                logRoutineActivity);
             object registeredView = null;
             try
             {

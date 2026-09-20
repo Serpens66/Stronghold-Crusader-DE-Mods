@@ -75,6 +75,8 @@
     <Compile Include="src\ExtendedDataModDataApi.cs" />
     <Compile Include="src\CoopCustomizePacket.cs" />
     <Compile Include="src\BuiltInCustomizeOriginPacket.cs" />
+    <Compile Include="src\MapModSettingsPacket.cs" />
+    <Compile Include="src\MapModSettingsCoordinator.cs" />
     <Compile Include="src\BugfixesAndQoLTrailCustomizationBridge.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
@@ -103,6 +105,9 @@
       <Link>Override\ScriptExtenderUI\ExtendedDataSettings.xaml</Link>
     </Content>
     <Content Include="Patches\Assets\GUI\XAMLResources\FRONT_EditorSetup.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Patches\Assets\GUI\XAMLResources\HUD_ConfirmationPopup.xaml">

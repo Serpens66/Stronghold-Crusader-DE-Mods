@@ -4,6 +4,27 @@ namespace SkirmishGameOptionsTest
 {
     internal static class SkirmishGameOptionsPolicy
     {
+        internal sealed class AdvancedState
+        {
+            internal int[] Buildings = Array.Empty<int>();
+            internal int[] Goods = Array.Empty<int>();
+            internal int[] Troops = Array.Empty<int>();
+            internal int PreBuild;
+            internal int ImprovedArabSwordsmen;
+            internal int ImprovedLaddermen;
+            internal int ImprovedSpearmen;
+            internal int RebalancedHorseArchers;
+            internal int ImprovedFletchers;
+            internal int UncappedPeasants;
+            internal int FasterPeasants;
+            internal int EnemyHitPoints = 1;
+            internal int ImprovedSieging;
+            internal int ImprovedSieging2;
+            internal int Healers;
+            internal int Eunuchs;
+            internal int NoGold;
+        }
+
         internal static bool IsWorkingCopyCommand(string command)
         {
             if (string.IsNullOrEmpty(command) ||
@@ -28,7 +49,65 @@ namespace SkirmishGameOptionsTest
         internal static bool ShouldBlockAutoTrading(bool localSkirmish, bool allowAutoTrading) =>
             localSkirmish && !allowAutoTrading;
 
-        internal static int ToSkirmishAdvancedFlag(int normalizedAdvancedOptions) =>
-            normalizedAdvancedOptions == 0 ? 0 : 1;
+        internal static bool ShouldAllowNoDogsToggle(bool nativePatchAvailable) =>
+            nativePatchAvailable;
+
+        internal static bool HasConfiguredAdvancedOptions(AdvancedState state)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+
+            return HasDisabledEntry(state.Buildings) ||
+                   HasDisabledEntry(state.Goods) ||
+                   HasDisabledEntry(state.Troops) ||
+                   state.PreBuild > 0 ||
+                   state.ImprovedArabSwordsmen > 0 ||
+                   state.ImprovedLaddermen > 0 ||
+                   state.ImprovedSpearmen > 0 ||
+                   state.RebalancedHorseArchers > 0 ||
+                   state.ImprovedFletchers > 0 ||
+                   state.UncappedPeasants > 0 ||
+                   state.FasterPeasants > 0 ||
+                   state.EnemyHitPoints != 1 ||
+                   state.ImprovedSieging > 0 ||
+                   state.ImprovedSieging2 > 0 ||
+                   state.Healers > 0 ||
+                   state.Eunuchs > 0 ||
+                   state.NoGold > 0;
+        }
+
+        internal static int ToSkirmishAdvancedFlag(
+            bool advancedRequested,
+            AdvancedState state) =>
+            advancedRequested && HasConfiguredAdvancedOptions(state) ? 1 : 0;
+
+        internal static bool ShouldShowAdvancedIndicator(
+            int advancedSkirmishFlag,
+            AdvancedState state) =>
+            advancedSkirmishFlag != 0 && HasConfiguredAdvancedOptions(state);
+
+        internal static float GetExtremeTroopsOpacity(bool localSkirmish) =>
+            localSkirmish ? 1f : 0.5f;
+
+        internal static float GetOutpostOpacity(bool mapAllowsOutposts) =>
+            mapAllowsOutposts ? 1f : 0.3f;
+
+        internal static bool ShouldAllowOutpostToggle(
+            bool localSkirmish,
+            bool mapAllowsOutposts) =>
+            !localSkirmish || mapAllowsOutposts;
+
+        private static bool HasDisabledEntry(int[] values)
+        {
+            if (values == null)
+                return false;
+
+            for (int index = 0; index < values.Length; index++)
+            {
+                if (values[index] == 0)
+                    return true;
+            }
+            return false;
+        }
     }
 }

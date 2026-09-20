@@ -29,6 +29,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\StartConditions\src\AIStartTroopIsolationSaveState.cs"><Link>AIStartTroopIsolationSaveState.cs</Link></Compile>
+    <Compile Include="..\..\StartConditions\src\RepairFailureLogState.cs"><Link>RepairFailureLogState.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

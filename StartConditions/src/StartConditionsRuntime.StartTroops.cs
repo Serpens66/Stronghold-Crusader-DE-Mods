@@ -24,12 +24,8 @@ namespace StartConditions
             {
                 IStartConditionsSettings current = EffectiveSettings;
                 CancelPendingStartTroopProcessing();
-                LogDebug("Raw AI AddStartTroops:", current.AddStartTroopsAI);
-                LogDebug("Raw Human AddStartTroops:", current.AddStartTroopsHuman);
                 Dictionary<eChimps, int> aiTroops = ParseEnumAmounts<eChimps>(current.AddStartTroopsAI, 0, 1000);
                 Dictionary<eChimps, int> humanTroops = ParseEnumAmounts<eChimps>(current.AddStartTroopsHuman, 0, 1000);
-                LogConfiguredTroops("AI AddStartTroops", aiTroops);
-                LogConfiguredTroops("Human AddStartTroops", humanTroops);
 
                 StartTroopPlan plan = new StartTroopPlan(aiTroops, humanTroops);
                 ForEachActivePlayer(playerId =>
@@ -40,15 +36,11 @@ namespace StartConditions
                     if (multiplier == 0 || multiplier > 1)
                     {
                         plan.PendingPlayers.Add(new PendingStartTroopPlayer(playerId, multiplier));
-                        LogDebug("Scheduling start troop processing for player", playerId, "multiplier", multiplier);
                     }
                 });
 
                 if (!plan.HasWork)
-                {
-                    LogDebug("No start-troop changes are configured.");
                     return;
-                }
 
                 if (plan.PendingPlayers.Count > 0)
                 {
@@ -68,7 +60,7 @@ namespace StartConditions
             }
             catch (Exception ex)
             {
-                LogDebug("AddStartTroops failed:", ex);
+                LogError("AddStartTroops failed:", ex);
             }
         }
 
@@ -81,7 +73,6 @@ namespace StartConditions
 
             GameTimeManagerAPI.Instance.OnTick += OnVanillaStartTroopCompletionTick;
             waitingForVanillaStartTroopCompletion = true;
-            LogDebug("Waiting for Vanilla to finish spawning and initializing all start troops.");
         }
 
         private void OnVanillaStartTroopCompletionTick(int gameTick)
@@ -123,16 +114,10 @@ namespace StartConditions
                 return;
 
             if (result == StartTroopCompletionWaitResult.Settling)
-            {
-                LogDebug(
-                    "Vanilla reported complete start-troop spawning at game tick",
-                    gameTick,
-                    "waiting one additional simulation tick for unit initialization.");
                 return;
-            }
 
             StopWaitingForVanillaStartTroopCompletion();
-            ExecuteStartTroopPlan(plan, "Vanilla completion signal");
+            ExecuteStartTroopPlan(plan);
         }
 
         private void StopWaitingForVanillaStartTroopCompletion()
@@ -152,17 +137,13 @@ namespace StartConditions
 
             GameTimeManagerAPI.Instance.OnTick += OnPeaceTimeWaitTick;
             waitingForPeaceTimeEnd = true;
-            LogDebug(
-                "Vanilla peace time is active; start-troop processing will begin",
-                DelayedStartTroopCountSeconds,
-                "seconds after it ends.");
         }
 
         private void OnPeaceTimeWaitTick(int gameTick)
         {
             try
             {
-                ProcessPeaceTimeWaitTick(gameTick);
+                ProcessPeaceTimeWaitTick();
             }
             catch (Exception ex)
             {
@@ -184,7 +165,7 @@ namespace StartConditions
             }
         }
 
-        private void ProcessPeaceTimeWaitTick(int gameTick)
+        private void ProcessPeaceTimeWaitTick()
         {
             StartTroopPlan plan = pendingStartTroopPlan;
             if (plan == null)
@@ -204,8 +185,7 @@ namespace StartConditions
                 return;
 
             StopWaitingForPeaceTimeEnd();
-            LogDebug("Vanilla peace time ended at game tick", gameTick);
-            ScheduleDelayedStartTroopProcessing(plan, "peace-time end");
+            ScheduleDelayedStartTroopProcessing(plan);
         }
 
         private void StopWaitingForPeaceTimeEnd()
@@ -219,9 +199,8 @@ namespace StartConditions
 
         private void ResumeStartTroopPlanWithLegacyTiming(StartTroopPlan plan, string reason)
         {
-            LogDebug("Resuming start-troop plan with legacy timing because", reason);
             if (plan.PendingPlayers.Count > 0)
-                ScheduleDelayedStartTroopProcessing(plan, "legacy fallback");
+                ScheduleDelayedStartTroopProcessing(plan);
             else
             {
                 pendingStartTroopPlan = null;
@@ -231,14 +210,13 @@ namespace StartConditions
 
         private void StartLegacyStartTroopTiming(StartTroopPlan plan, string reason)
         {
-            LogDebug("Using legacy start-troop timing because", reason);
             if (vanillaPeaceTimeState.TryGetIsActive(out bool peaceTimeActive) && peaceTimeActive)
                 WaitForPeaceTimeEnd(plan);
             else
                 ResumeStartTroopPlanWithLegacyTiming(plan, reason);
         }
 
-        private void ScheduleDelayedStartTroopProcessing(StartTroopPlan plan, string origin)
+        private void ScheduleDelayedStartTroopProcessing(StartTroopPlan plan)
         {
             pendingStartTroopPlan = plan;
             pendingStartTroopTimerHandle = GameTimeManagerAPI.Instance.GetTimerEngine().AddDelayedAction(
@@ -246,14 +224,6 @@ namespace StartConditions
                 RunDelayedStartTroopProcessing,
                 string.Empty);
 
-            LogDebug(
-                "Scheduled delayed start troop processing in",
-                DelayedStartTroopCountMilliseconds,
-                "ms after",
-                origin,
-                "for",
-                plan.PendingPlayers.Count,
-                "players. Timer is not save/load persistent.");
         }
 
         private void RunDelayedStartTroopProcessing()
@@ -268,28 +238,21 @@ namespace StartConditions
             {
                 if (vanillaPeaceTimeState.TryGetIsActive(out bool peaceTimeActive) && peaceTimeActive)
                 {
-                    LogDebug("Vanilla peace time became active again before start-troop processing.");
                     WaitForPeaceTimeEnd(plan);
                     return;
                 }
 
-                ExecuteStartTroopPlan(plan, "legacy delay");
+                ExecuteStartTroopPlan(plan);
             }
             catch (Exception ex)
             {
-                LogDebug("RunDelayedStartTroopProcessing failed:", ex);
+                LogError("RunDelayedStartTroopProcessing failed:", ex);
             }
         }
 
-        private void ExecuteStartTroopPlan(StartTroopPlan plan, string origin)
+        private void ExecuteStartTroopPlan(StartTroopPlan plan)
         {
             pendingStartTroopPlan = null;
-            LogDebug(
-                "Running start troop processing after",
-                origin,
-                "for",
-                plan.PendingPlayers.Count,
-                "players");
 
             var troopCounts = new Dictionary<int, Dictionary<eChimps, int>>();
             if (plan.PendingPlayers.Count > 0)
@@ -310,7 +273,7 @@ namespace StartConditions
         {
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(pending.PlayerId))
             {
-                LogDebug("Delayed start troop processing skipped; player no longer valid:", pending.PlayerId);
+                LogWarning("Start-troop processing skipped because the player is no longer valid:", pending.PlayerId);
                 return;
             }
 
@@ -322,14 +285,14 @@ namespace StartConditions
 
             if (!Shared.ActivePlayerKeepReadiness.TryGetReadyKeep(pending.PlayerId, out _))
             {
-                LogDebug("Delayed start troop multiply skipped; player has no keep:", pending.PlayerId);
+                LogWarning("Start-troop multiplication skipped because the player has no ready Keep:", pending.PlayerId);
                 return;
             }
 
             if (troopCounts.TryGetValue(pending.PlayerId, out Dictionary<eChimps, int> playerCounts))
-                SpawnMultipliedStartTroops(pending.PlayerId, playerCounts, pending.Multiplier, "completed start-troop count");
+                SpawnMultipliedStartTroops(pending.PlayerId, playerCounts, pending.Multiplier);
             else
-                LogDebug("No start troop counts available for player", pending.PlayerId, "multiplier skipped.");
+                LogWarning("Start-troop multiplication skipped because no troop counts are available for player", pending.PlayerId);
         }
 
         private void CancelPendingStartTroopProcessing()
@@ -341,11 +304,10 @@ namespace StartConditions
                 try
                 {
                     GameTimeManagerAPI.Instance.GetTimerEngine().RemoveAction(pendingStartTroopTimerHandle);
-                    LogDebug("Cancelled pending start troop timer", pendingStartTroopTimerHandle);
                 }
                 catch (Exception ex)
                 {
-                    LogDebug("Could not cancel pending start troop timer:", ex.Message);
+                    LogWarning("Could not cancel pending start-troop timer:", ex.Message);
                 }
             }
 
@@ -353,14 +315,13 @@ namespace StartConditions
             pendingStartTroopPlan = null;
         }
 
-        private void SpawnMultipliedStartTroops(int playerId, Dictionary<eChimps, int> playerCounts, int multiplier, string source)
+        private void SpawnMultipliedStartTroops(int playerId, Dictionary<eChimps, int> playerCounts, int multiplier)
         {
             foreach (KeyValuePair<eChimps, int> entry in playerCounts)
             {
                 int amount = entry.Value * (multiplier - 1);
                 if (amount > 0)
                 {
-                    LogDebug("Spawning multiplied start troops from", source, "for player", playerId, entry.Key, entry.Value, "x", multiplier, "=> add", amount);
                     TryRunFeature(
                         $"multiplied {entry.Key} start troops for player {playerId}",
                         () => SpawnUnitsNearKeep(playerId, entry.Key, amount));
@@ -372,8 +333,7 @@ namespace StartConditions
         {
             List<int> unitIds = new List<int>();
             GameUnitManagerAPI.Instance.GetAllUnits(unitIds, AliveState.IsAlive);
-            int deleted = 0;
-            int failed = 0;
+            int rejected = 0;
 
             foreach (int unitId in unitIds)
             {
@@ -389,24 +349,21 @@ namespace StartConditions
 
                 try
                 {
-                    if (GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId))
-                        deleted++;
-                    else
-                        failed++;
+                    if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(unitId))
+                        rejected++;
                 }
                 catch (Exception ex)
                 {
-                    failed++;
                     LogError("Start Conditions could not delete one start soldier; remaining units continue:", unitId, ex);
                 }
             }
 
-            LogDebug("Deleted start soldiers for player", playerId, "deleted", deleted, "failed", failed);
+            if (rejected > 0)
+                LogWarning("Start Conditions could not mark", rejected, "start soldiers for deletion for player", playerId);
         }
 
         private void SpawnConfiguredStartTroops(Dictionary<eChimps, int> aiTroops, Dictionary<eChimps, int> humanTroops)
         {
-            LogDebug("Applying configured AddStartTroops after multiplier phase");
             ForEachActivePlayer(playerId =>
             {
                 bool isAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
@@ -454,7 +411,7 @@ namespace StartConditions
             }
 
             if (skippedInvalidUnitIds > 0)
-                LogDebug("CountSoldiersForPlayers skipped invalid unit ids:", skippedInvalidUnitIds);
+                LogWarning("Start-troop counting skipped invalid unit IDs:", skippedInvalidUnitIds);
 
             return troopCounts;
         }
@@ -463,11 +420,10 @@ namespace StartConditions
         {
             if (!TryGetTileNearKeep(playerId, out int x, out int y, out int height))
             {
-                LogDebug("Could not find spawn tile near keep for player", playerId, "unit", unitType, "amount", amount);
+                LogWarning("Could not find a spawn tile near the Keep for player", playerId, "unit", unitType, "amount", amount);
                 return;
             }
 
-            LogDebug("CreateLocal", amount, unitType, "for player", playerId, "at", x, y, height);
             bool isolateFromAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
             for (int i = 0; i < amount; i++)
             {
@@ -492,20 +448,14 @@ namespace StartConditions
 
             if (!GamePlayerManagerAPI.Instance.IsPlayerIdValid(playerId) ||
                 !Shared.ActivePlayerKeepReadiness.TryGetReadyKeep(playerId, out _))
-            {
-                LogDebug("Cannot find keep spawn tile; player is invalid or has no keep:", playerId);
                 return false;
-            }
 
             var door = GamePlayerManagerAPI.Instance.GetPlayerKeepDoorPosition(playerId);
             var position = GameTileManagerAPI.Instance.GetNearestUnoccupiedTile(door.X, door.Y, 12);
             int tileId = GameTileManagerAPI.Instance.GetTileId(position.X, position.Y);
 
             if (!GameTileManagerAPI.Instance.IsValidTileId(tileId) || !GameTileManagerAPI.Instance.IsTileWalkableAndUnoccupied(tileId))
-            {
-                LogDebug("Nearest keep tile is not valid/walkable/unoccupied for player", playerId, "door", door.X, door.Y, "candidate", position.X, position.Y, "tile", tileId);
                 return false;
-            }
 
             x = position.X;
             y = position.Y;

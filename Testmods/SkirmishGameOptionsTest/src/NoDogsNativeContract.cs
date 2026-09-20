@@ -13,6 +13,17 @@ namespace SkirmishGameOptionsTest
         internal static readonly byte[] ExpectedBytes = { 0x74, 0x31 };
         internal static readonly byte[] ReplacementBytes = { 0x90, 0x90 };
 
+        internal static void EmitReplacement(Assembler assembler)
+        {
+            if (assembler == null)
+                throw new ArgumentNullException(nameof(assembler));
+
+            // Iced's nop(2) emits the single two-byte instruction 66 90. Two explicit
+            // instructions preserve the audited replacement contract 90 90.
+            assembler.nop();
+            assembler.nop();
+        }
+
         internal static void Validate(
             ReadOnlySpan<byte> memory,
             ulong imageBase,

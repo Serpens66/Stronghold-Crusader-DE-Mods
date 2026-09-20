@@ -1,8 +1,8 @@
 # Extended Data compatibility for mod authors
 
-This guide is for mod authors. Trail creators should use [Custom Trail Mod Settings](Custom%20Trail%20Mod%20Settings.md).
+This guide is for mod authors. Map and Trail creators should use [Map and Custom Trail Mod Settings](Custom%20Trail%20Mod%20Settings.md).
 
-`ExtendedData` can save and restore another mod's host-controlled lobby settings without a compile-time reference to that mod. Compatible installed mods are discovered automatically and appear as per-setting mode selectors in the `ExtendedData` settings.
+`ExtendedData` can save and restore another mod's host-controlled lobby settings for Maps and Trails without a compile-time reference to that mod. Compatible installed mods are discovered automatically and appear as per-setting mode selectors in the `ExtendedData` settings.
 
 Your mod does **not** need to reference `ExtendedData.dll` or contain mod-specific integration code.
 
@@ -19,11 +19,11 @@ A mod is detected as compatible when all of the following are true:
 
 `ExtendedData` uses the owning BepInEx plugin GUID as the stable identity. The display name and the name passed to `RegisterLobbyModSettings` may be different.
 
-Only host-controlled settings belong in a Trail. `[SyncPerPlayer]`, `[PresetLocal]`, and `[PersistLocal]` values remain owned by each player and are never captured.
+Only host-controlled settings belong in a Map or Trail. `[SyncPerPlayer]`, `[PresetLocal]`, and `[PersistLocal]` values remain owned by each player and are never captured.
 
 ## Recommended integration
 
-The easiest and safest integration is to use this repository's shared preset system. It already implements mission snapshots, Trail locking, restoration of the player's previous preset, host/client authority, and persistence isolation.
+The easiest and safest integration is to use this repository's shared preset system. It already implements mission snapshots, Map/Trail locking, restoration of the player's previous preset, host/client authority, and persistence isolation.
 
 Use the current versions of these three source files together:
 
@@ -101,7 +101,7 @@ Register exactly one lobby-modsettings ViewModel for each BepInEx plugin GUID. I
 
 ## Explicit opt-out
 
-A mod whose settings must never be owned by a Trail can opt out without referencing `ExtendedData`. Add this exact public constant to the BepInEx plugin class that owns the registered modsettings panel:
+A mod whose settings must never be owned by a Map or Trail can opt out without referencing `ExtendedData`. Add this exact public constant to the BepInEx plugin class that owns the registered modsettings panel:
 
     public const bool ExtendedDataModSettingsOptOut = true;
 
@@ -126,10 +126,10 @@ A custom implementation must provide the same safety guarantees as the shared ba
 - `System_CreateDisabledMissionPresetSnapshot()` is side-effect free, returns a non-null dictionary, and includes a MessagePack value for every persistent `[SyncHostOnly]` property;
 - when `[SyncHostOnly] bool EnableMod` exists, that snapshot contains `false` for it; all other values are the mod's current defaults;
 - `System_EnterMissionPreset(...)` applies only the supplied host snapshot, records the exact prior local preset state, and sets `IsMissionPresetActive` to `true` after success;
-- applying a Trail snapshot must not overwrite the player's normal local settings file;
-- leaving the Trail must restore the exact previous local preset;
+- applying a Map/Trail snapshot must not overwrite the player's normal local settings file;
+- leaving the Map/Trail context must restore the exact previous local preset;
 - `System_ExitMissionPreset()` is a safe no-op while inactive and sets `IsMissionPresetActive` to `false` after restoration;
-- read-only Trail host settings must reject local client edits;
+- read-only Map/Trail host settings must reject local client edits;
 - personal settings must remain unchanged;
 - snapshot application and restoration must be atomic from the ViewModel's perspective;
 - all four contract members must be public instance members with the exact signatures shown above and must not throw during normal operation.
@@ -138,7 +138,7 @@ Unless there is a strong reason to maintain a separate implementation, use the s
 
 ## Property rules
 
-- Use `[SyncHostOnly]` for settings that define shared match rules and should be stored in a Trail.
+- Use `[SyncHostOnly]` for settings that define shared match rules and should be stored in a Map or Trail.
 - Use `[SyncPerPlayer]` for synchronized personal preferences. They are not stored in a Trail.
 - Use `[PresetLocal]` for local settings participating in presets. They are not stored in a Trail.
 - Use `[PersistLocal]` for local settings outside the preset system. They are not stored in a Trail.
@@ -146,11 +146,11 @@ Unless there is a strong reason to maintain a separate implementation, use the s
 - Public `[SyncHostOnly]` properties must have both a getter and setter.
 - Property values must be non-null and MessagePack-serializable while compatibility is checked and while a Trail is saved. Primitive values and arrays are the simplest choices; explicitly attributed MessagePack models are suitable for complex values.
 
-Do not write a second JSON serializer for Trail integration. `ExtendedData` owns the `.modtrail.json` format and serializes complex compatible values through MessagePack.
+Do not write a second JSON serializer for Map/Trail integration. `ExtendedData` owns the schema-3 document and serializes complex compatible values through MessagePack. Trail sidecars use `.modtrail.json`; Map archives use `_SE_ModData_ExtendedData-MapModSettings.msgpack` with UTF-8 JSON content.
 
 ## UI expectations
 
-Bind host-controlled interactive elements to the shared access properties, especially `CanEditHostSettings`. During a read-only Trail mission, the shared base class then locks only the Trail-owned host values while client settings remain editable.
+Bind host-controlled interactive elements to the shared access properties, especially `CanEditHostSettings`. During a read-only Map or Trail context, the shared base class then locks only the context-owned host values while client settings remain editable.
 
 Commands and property setters must both enforce the same authority. UI disablement alone is not a security boundary.
 
@@ -161,12 +161,14 @@ Before publishing a compatible mod, verify that:
 - the mod appears with mode selectors under compatible mods in `ExtendedData`;
 - `Mod default` uses the snapshot returned by `System_CreateDisabledMissionPresetSnapshot()`;
 - `Player/host` uses the normal saved host preset without storing its current value in the Trail;
-- `Fixed Trail value` stores and restores the value visible while the Trail is saved;
+- `Fixed creator value` stores and restores the value visible while the Map or Trail is saved;
 - leaving every setting on `Mod default` omits the mod from the sidecar;
 - `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and `[DoNotPersist]` values are absent;
 - playing a Trail applies its host settings without changing the local `.msgpack` file;
+- manually choosing **Use Map modsettings** applies the read-only `Map` preset without changing the local `.msgpack` file;
+- selecting a different Map, leaving the lobby, or ending the mission restores the previous local preset;
 - leaving the Trail restores the previously selected local preset;
 - a multiplayer client cannot alter read-only Trail host settings;
 - disabling the mod itself is captured correctly when it exposes `[SyncHostOnly] bool EnableMod`.
 
-If the mod is listed as incompatible, open `BepInEx/LogOutput.log` and search for `Trail mod-settings compatibility rejected`. `ExtendedData` writes the plugin GUID and the concrete reason there, while the in-game settings intentionally show only the comma-separated mod names. Then confirm that the mod uses `LobbyModSettingsPresetRegistration.Register(...)`, has one registered panel and at least one persistent `[SyncHostOnly]` property, returns a complete disabled snapshot, and was built against the currently supported Script Extender API.
+If the mod is listed as incompatible, open `BepInEx/LogOutput.log` and search for `Map/Trail mod settings`. `ExtendedData` writes the plugin GUID and the concrete reason there, while the in-game settings intentionally show only the comma-separated mod names. Then confirm that the mod uses `LobbyModSettingsPresetRegistration.Register(...)`, has one registered panel and at least one persistent `[SyncHostOnly]` property, returns a complete disabled snapshot, and was built against the currently supported Script Extender API.

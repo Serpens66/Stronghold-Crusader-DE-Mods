@@ -44,7 +44,7 @@ namespace SkirmishGameOptionsTest
                 pending.AddAssemblyPatch(
                     patchHandle,
                     HookTarget.FromAddress(imageBase + NoDogsNativeContract.PatchRva),
-                    (assembler, _) => assembler.nop(NoDogsNativeContract.ReplacementBytes.Length),
+                    (assembler, _) => NoDogsNativeContract.EmitReplacement(assembler),
                     maxByteCount: NoDogsNativeContract.ReplacementBytes.Length,
                     name: "SkirmishGameOptionsTest_NoDogsMode99Gate");
 

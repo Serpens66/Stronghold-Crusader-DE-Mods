@@ -17,12 +17,15 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
     <Reference Include="Iced"><HintPath>$(ExtenderDir)\Iced.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="..\src\SkirmishGameOptionsPolicy.cs"><Link>SkirmishGameOptionsPolicy.cs</Link></Compile>
+    <Compile Include="..\src\WorkingCopyTransaction.cs"><Link>WorkingCopyTransaction.cs</Link></Compile>
     <Compile Include="..\src\NoDogsNativeContract.cs"><Link>NoDogsNativeContract.cs</Link></Compile>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

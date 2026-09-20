@@ -6,6 +6,7 @@ set "MSBUILD=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\MSBu
 set "GAME_DIR=E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
 set "EXTENDER_DIR=%GAME_DIR%\BepInEx\plugins\000shcdese"
 set "EXTRAFEATURES_DIR=%GAME_DIR%\BepInEx\plugins\ExtraFeatures_Serp"
+if not exist "%EXTRAFEATURES_DIR%\ExtraFeatures.dll" set "EXTRAFEATURES_DIR=%PROJECT_DIR%..\..\ExtraFeatures\BepInEx\plugins\ExtraFeatures_Serp"
 if defined SHCDESE_EXTENDER_DIR set "EXTENDER_DIR=%SHCDESE_EXTENDER_DIR%"
 set "PLUGIN_NAME=SkirmishGameOptionsTest_Serp"
 set "LOCAL_PLUGIN_DIR=%PROJECT_DIR%BepInEx\plugins\%PLUGIN_NAME%"

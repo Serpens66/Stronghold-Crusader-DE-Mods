@@ -21,20 +21,18 @@ namespace StartConditions
             if (args.IsReplay) { mapSessionState.MarkSaveLoaded(); return; }
             try
             {
-                LogDebug("OnStartMap");
                 if (!mapSessionState.TryBeginNewMap())
                     return;
                 CodeOnNewGame();
             }
             catch (Exception ex)
             {
-                LogDebug("OnStartMap failed:", ex);
+                LogError("OnStartMap failed:", ex);
             }
         }
 
         private void OnLoadSave(APIShared.MissionLifecycleNotification args)
         {
-            LogDebug("OnLoadSave");
             CancelPendingKeepReadiness();
             CancelPendingStartTroopProcessing();
             mapSessionState.MarkSaveLoaded();
@@ -43,7 +41,6 @@ namespace StartConditions
 
         private void OnUnloadMap(APIShared.MissionLifecycleNotification args)
         {
-            LogDebug("OnUnloadMap");
             ResetMapSession();
         }
 
@@ -60,17 +57,11 @@ namespace StartConditions
                 message => LogError(message),
                 "Start Conditions could not apply start resources or troops within 30 seconds because not every active player had a ready Keep.",
                 OnKeepReadinessCompleted);
-            LogDebug("Waiting up to 30 seconds for the synchronized active-player roster and all Keeps.");
         }
 
         private void OnActivePlayerKeepsReady(Shared.ActivePlayerKeepSnapshot snapshot)
         {
             activePlayerIds = (int[])snapshot.PlayerIds.Clone();
-            LogInfo(
-                "Start Conditions Keep readiness succeeded; applying start conditions for players",
-                $"[{string.Join(",", activePlayerIds)}]",
-                "keeps",
-                $"[{string.Join(",", snapshot.KeepBuildingIds)}]");
             TryRunFeature("start resources", ApplyStartResources);
             TryRunFeature("start troops", AddStartTroops);
         }

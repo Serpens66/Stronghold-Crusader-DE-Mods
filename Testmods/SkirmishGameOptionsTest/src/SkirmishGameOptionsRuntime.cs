@@ -31,6 +31,8 @@ namespace SkirmishGameOptionsTest
 
         private readonly ManualLogSource log;
         private readonly ExtraFeaturesViewModel extraFeaturesSettings;
+        private readonly WorkingCopyTransaction<EngineInterface.MultiplayerSetupData>
+            setupTransaction;
 
         // The plugin owns this runtime statically. These hooks intentionally remain installed
         // until process exit and are never tied to a Unity component teardown path.
@@ -47,6 +49,7 @@ namespace SkirmishGameOptionsTest
         private bool synchronizingPeaceTime;
         private bool noDogsNativeAvailable;
         private bool noDogsUnavailableLogged;
+        private bool outpostsUnavailableLogged;
         private bool initialized;
 
         internal SkirmishGameOptionsRuntime(
@@ -56,6 +59,8 @@ namespace SkirmishGameOptionsTest
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.extraFeaturesSettings = extraFeaturesSettings ??
                 throw new ArgumentNullException(nameof(extraFeaturesSettings));
+            setupTransaction =
+                new WorkingCopyTransaction<EngineInterface.MultiplayerSetupData>(CloneSetupData);
         }
 
         internal void Initialize()
@@ -157,7 +162,7 @@ namespace SkirmishGameOptionsTest
             }
 
             if (string.Equals(command, "Settings_Dogs", StringComparison.Ordinal) &&
-                !noDogsNativeAvailable)
+                !SkirmishGameOptionsPolicy.ShouldAllowNoDogsToggle(noDogsNativeAvailable))
             {
                 MainViewModel.Instance.MPSettings_Dogs_Opacity = 0.3f;
                 if (!noDogsUnavailableLogged)
@@ -170,6 +175,22 @@ namespace SkirmishGameOptionsTest
                 return;
             }
 
+            if (string.Equals(command, "Settings_AllowOutposts", StringComparison.Ordinal) &&
+                !SkirmishGameOptionsPolicy.ShouldAllowOutpostToggle(
+                    localSkirmish: true,
+                    MainViewModel.Instance.Show_SkirmishAllowOutposts))
+            {
+                MainViewModel.Instance.MPSettings_AllowOutposts_Opacity = 0.3f;
+                if (!outpostsUnavailableLogged)
+                {
+                    outpostsUnavailableLogged = true;
+                    Shared.DebugLogHelper.LogWarning(
+                        log,
+                        "SKIRMISH_GAME_OPTIONS_TEST_OUTPOSTS_CLICK_REJECTED: the selected map does not support outposts.");
+                }
+                return;
+            }
+
             if (string.Equals(command, "ApplySettings", StringComparison.Ordinal))
             {
                 ApplySkirmishOptions(self);
@@ -178,11 +199,27 @@ namespace SkirmishGameOptionsTest
 
             if (string.Equals(command, "CancelSettings", StringComparison.Ordinal))
             {
-                multiplayerButtonClickedOriginal(self, command);
-                RefreshCommittedSkirmishView(self);
+                try
+                {
+                    multiplayerButtonClickedOriginal(self, command);
+                }
+                finally
+                {
+                    setupTransaction.Cancel();
+                }
+                RefreshAllSkirmishViews(self);
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "SKIRMISH_GAME_OPTIONS_TEST_CANCEL: working settings discarded.");
+                return;
+            }
+
+            if (string.Equals(command, "CloseSkirmishAdvanced", StringComparison.Ordinal))
+            {
+                multiplayerButtonClickedOriginal(self, command);
+                NormalizeCommittedAdvancedState(self);
+                UpdateHostInfoMethod.Invoke(self, new object[] { false });
+                RefreshAllSkirmishViews(self);
                 return;
             }
 
@@ -202,8 +239,7 @@ namespace SkirmishGameOptionsTest
             if (committed == null)
                 throw new InvalidOperationException("Skirmish MPsetupData is unavailable.");
 
-            var shadow = new EngineInterface.MultiplayerSetupData();
-            shadow.FromString(committed.ToString(), ignoreKeepOrder: true);
+            EngineInterface.MultiplayerSetupData shadow = setupTransaction.Begin(committed);
             shadow.advanced_options = shadow.advanced_skirmish_options;
             if (extraFeaturesSettings.EnableMod)
                 shadow.peacetime = extraFeaturesSettings.VanillaPeaceTimeMinutes;
@@ -213,16 +249,35 @@ namespace SkirmishGameOptionsTest
             {
                 multiplayerButtonClickedOriginal(self, "Setup");
             }
+            catch
+            {
+                setupTransaction.Cancel();
+                throw;
+            }
             finally
             {
                 AuthoritativeSetupDataField.SetValue(self, committed);
             }
+
+            EngineInterface.MultiplayerSetupData working = GetTemporarySetupData(self);
+            if (working == null)
+            {
+                setupTransaction.Cancel();
+                throw new InvalidOperationException("Skirmish MPTEMPsetupData is unavailable.");
+            }
+            setupTransaction.Attach(working);
 
             MainViewModel viewModel = MainViewModel.Instance;
             viewModel.Show_MPOnlySettings = true;
             viewModel.Show_MPSettings_MaxPlayers = false;
             viewModel.Show_MPPeacetime = extraFeaturesSettings.EnableMod;
             viewModel.MPSettingHeight = "560";
+            viewModel.MPSettings_ExTroops_Opacity =
+                SkirmishGameOptionsPolicy.GetExtremeTroopsOpacity(localSkirmish: true);
+            bool mapAllowsOutposts = viewModel.Show_SkirmishAllowOutposts;
+            viewModel.MPSettings_AllowOutposts_Opacity =
+                SkirmishGameOptionsPolicy.GetOutpostOpacity(mapAllowsOutposts);
+            outpostsUnavailableLogged = false;
             if (!noDogsNativeAvailable)
                 viewModel.MPSettings_Dogs_Opacity = 0.3f;
 
@@ -234,7 +289,7 @@ namespace SkirmishGameOptionsTest
         private void RouteCommandToWorkingCopy(FRONT_Multiplayer self, string command)
         {
             EngineInterface.MultiplayerSetupData committed = GetAuthoritativeSetupData(self);
-            EngineInterface.MultiplayerSetupData working = GetTemporarySetupData(self);
+            EngineInterface.MultiplayerSetupData working = GetActiveWorkingCopy(self);
             if (committed == null || working == null)
             {
                 multiplayerButtonClickedOriginal(self, command);
@@ -254,23 +309,34 @@ namespace SkirmishGameOptionsTest
 
         private void ApplySkirmishOptions(FRONT_Multiplayer self)
         {
-            EngineInterface.MultiplayerSetupData working = GetTemporarySetupData(self);
+            EngineInterface.MultiplayerSetupData working = GetActiveWorkingCopy(self);
             if (working == null)
             {
                 multiplayerButtonClickedOriginal(self, "ApplySettings");
                 return;
             }
 
-            working.advanced_skirmish_options =
-                SkirmishGameOptionsPolicy.ToSkirmishAdvancedFlag(working.advanced_options);
-            multiplayerButtonClickedOriginal(self, "ApplySettings");
+            bool advancedRequested = working.advanced_options != 0;
+            int advancedSkirmishFlag = SkirmishGameOptionsPolicy.ToSkirmishAdvancedFlag(
+                advancedRequested,
+                CaptureAdvancedState(working));
+            working.advanced_skirmish_options = advancedSkirmishFlag;
+            try
+            {
+                multiplayerButtonClickedOriginal(self, "ApplySettings");
+            }
+            catch
+            {
+                setupTransaction.Cancel();
+                throw;
+            }
 
             EngineInterface.MultiplayerSetupData committed = GetAuthoritativeSetupData(self);
             if (committed == null)
                 throw new InvalidOperationException("Applied Skirmish MPsetupData is unavailable.");
 
-            committed.advanced_skirmish_options =
-                SkirmishGameOptionsPolicy.ToSkirmishAdvancedFlag(committed.advanced_options);
+            setupTransaction.ApplyTo(committed, CopySetupData);
+            committed.advanced_skirmish_options = advancedSkirmishFlag;
             committed.advanced_options = 0;
 
             if (extraFeaturesSettings.EnableMod)
@@ -287,7 +353,7 @@ namespace SkirmishGameOptionsTest
             }
 
             UpdateHostInfoMethod.Invoke(self, new object[] { false });
-            RefreshCommittedSkirmishView(self);
+            RefreshAllSkirmishViews(self);
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"SKIRMISH_GAME_OPTIONS_TEST_APPLY: peace={committed.peacetime}, advancedSkirmish={committed.advanced_skirmish_options}, strongWalls={committed.no_knockdown_walls}, noCows={committed.no_cows}, noDogs={committed.no_dogs}, autoTrading={committed.allow_autotrading}.");
@@ -314,7 +380,7 @@ namespace SkirmishGameOptionsTest
 
                 int minutes = extraFeaturesSettings.VanillaPeaceTimeMinutes;
                 EngineInterface.MultiplayerSetupData committed = GetAuthoritativeSetupData(front);
-                EngineInterface.MultiplayerSetupData working = GetTemporarySetupData(front);
+                EngineInterface.MultiplayerSetupData working = setupTransaction.Working;
                 if (committed != null)
                     committed.peacetime = minutes;
                 if (working != null)
@@ -412,9 +478,114 @@ namespace SkirmishGameOptionsTest
             FRONT_Multiplayer front) =>
             TemporarySetupDataField.GetValue(front) as EngineInterface.MultiplayerSetupData;
 
-        private static void RefreshCommittedSkirmishView(FRONT_Multiplayer front)
+        private EngineInterface.MultiplayerSetupData GetActiveWorkingCopy(
+            FRONT_Multiplayer front)
+        {
+            EngineInterface.MultiplayerSetupData working = setupTransaction.Working;
+            if (working != null)
+                return working;
+
+            working = GetTemporarySetupData(front);
+            if (working != null)
+                setupTransaction.Attach(working);
+            return working;
+        }
+
+        private static void RefreshAllSkirmishViews(FRONT_Multiplayer front)
         {
             SetupSkirmishModeSettingsMethod.Invoke(front, null);
+
+            EngineInterface.MultiplayerSetupData committed = GetAuthoritativeSetupData(front);
+            MainViewModel viewModel = MainViewModel.Instance;
+            if (committed == null || viewModel == null)
+                return;
+
+            bool advancedEnabled = committed.advanced_skirmish_options != 0;
+            bool effectiveAdvanced =
+                SkirmishGameOptionsPolicy.ShouldShowAdvancedIndicator(
+                    committed.advanced_skirmish_options,
+                    CaptureAdvancedState(committed));
+            viewModel.Show_SkirmishAdvancedEnabled = effectiveAdvanced;
+            viewModel.MPSettings_AdvSkirmish_Opacity = advancedEnabled ? 1f : 0.5f;
+            CopyAvailabilityToViewModel(
+                committed.MP_BuildingsAvailable,
+                viewModel.MPSetupBuildingsBool);
+            CopyAvailabilityToViewModel(
+                committed.MP_GoodsAvailable,
+                viewModel.TradingGoodsBool);
+            CopyAvailabilityToViewModel(
+                committed.MP_TroopsAvailable,
+                viewModel.MPSetupTroopsBool);
+
+            if (viewModel.Show_MP_SkirmishAdvanced &&
+                front.RefEnableAdvancedSkirmishCheck != null &&
+                front.RefEnableAdvancedSkirmishCheck.IsChecked != advancedEnabled)
+            {
+                front.RefEnableAdvancedSkirmishCheck.IsChecked = advancedEnabled;
+            }
+        }
+
+        private static void NormalizeCommittedAdvancedState(FRONT_Multiplayer front)
+        {
+            EngineInterface.MultiplayerSetupData committed = GetAuthoritativeSetupData(front);
+            if (committed == null)
+                return;
+
+            committed.advanced_skirmish_options =
+                SkirmishGameOptionsPolicy.ToSkirmishAdvancedFlag(
+                    committed.advanced_skirmish_options != 0,
+                    CaptureAdvancedState(committed));
+            committed.advanced_options = 0;
+        }
+
+        private static void CopyAvailabilityToViewModel(
+            int[] source,
+            System.Collections.ObjectModel.ObservableCollection<bool> target)
+        {
+            if (source == null || target == null)
+                return;
+
+            int count = Math.Min(source.Length, target.Count);
+            for (int index = 0; index < count; index++)
+                target[index] = source[index] != 0;
+        }
+
+        private static SkirmishGameOptionsPolicy.AdvancedState CaptureAdvancedState(
+            EngineInterface.MultiplayerSetupData setup) =>
+            new SkirmishGameOptionsPolicy.AdvancedState
+            {
+                Buildings = setup.MP_BuildingsAvailable,
+                Goods = setup.MP_GoodsAvailable,
+                Troops = setup.MP_TroopsAvailable,
+                PreBuild = setup.advopt_pre_build,
+                ImprovedArabSwordsmen = setup.advopt_improved_arabswordsmen,
+                ImprovedLaddermen = setup.advopt_improved_laddermen,
+                ImprovedSpearmen = setup.advopt_improved_spearmen,
+                RebalancedHorseArchers = setup.advopt_rebalanced_horsearchers,
+                ImprovedFletchers = setup.advopt_improved_fletchers,
+                UncappedPeasants = setup.advopt_uncapped_peasants,
+                FasterPeasants = setup.advopt_faster_peasants,
+                EnemyHitPoints = setup.advopt_enemy_hps,
+                ImprovedSieging = setup.global_improved_sieging,
+                ImprovedSieging2 = setup.global_improved_sieging2,
+                Healers = setup.advopt_healers,
+                Eunuchs = setup.advopt_eunuchs,
+                NoGold = setup.advopt_nogold
+            };
+
+        private static EngineInterface.MultiplayerSetupData CloneSetupData(
+            EngineInterface.MultiplayerSetupData source)
+        {
+            var clone = new EngineInterface.MultiplayerSetupData();
+            CopySetupData(source, clone);
+            return clone;
+        }
+
+        private static void CopySetupData(
+            EngineInterface.MultiplayerSetupData source,
+            EngineInterface.MultiplayerSetupData target)
+        {
+            target.FromString(source.ToString(), ignoreKeepOrder: true);
         }
 
         private static void UpdatePeaceTimeText(int minutes)

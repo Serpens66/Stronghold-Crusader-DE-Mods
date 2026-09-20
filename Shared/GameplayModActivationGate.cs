@@ -20,6 +20,7 @@ namespace Shared
         private static GameModeSnapshot snapshot;
         private static volatile bool isAllowed;
         private static bool initialized;
+        private static bool routineLoggingEnabled = true;
         internal static event Action<bool> StateChanged;
 
         internal static bool IsAllowed => isAllowed;
@@ -30,7 +31,8 @@ namespace Shared
             ManualLogSource logger,
             string modGuid,
             string displayName,
-            Func<bool> isConfiguredEnabled)
+            Func<bool> isConfiguredEnabled,
+            bool logRoutineActivity = true)
         {
             if (initialized)
                 return;
@@ -38,6 +40,7 @@ namespace Shared
             log = logger;
             profile = GameplayModModePolicy.GetProfile(modGuid, displayName);
             configuredEnabledProvider = isConfiguredEnabled ?? throw new ArgumentNullException(nameof(isConfiguredEnabled));
+            routineLoggingEnabled = logRoutineActivity;
 
             MissionEvents.SetOwner(modGuid);
             MissionEvents.SetGate(e =>
@@ -100,6 +103,9 @@ namespace Shared
         private static void LogTransition(string source, bool policyChanged)
         {
             bool configuredEnabled = ReadConfiguredEnabled();
+            if (!routineLoggingEnabled)
+                return;
+
             bool effectiveEnabled = configuredEnabled && IsAllowed;
             GameplayModModePolicy.IsAllowed(profile, snapshot, out string reason);
             string action = effectiveEnabled

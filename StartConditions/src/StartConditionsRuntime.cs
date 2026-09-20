@@ -76,7 +76,12 @@ namespace StartConditions
             vanillaPeaceTimeState = new VanillaPeaceTimeState(log);
             vanillaStartTroopSpawnState = new VanillaStartTroopSpawnState(log);
             activeSettings = settings;
-            Shared.GameplayModActivationGate.Initialize(log, StartConditionsPlugin.PluginGuid, StartConditionsPlugin.PluginName, () => settings.EnableMod);
+            Shared.GameplayModActivationGate.Initialize(
+                log,
+                StartConditionsPlugin.PluginGuid,
+                StartConditionsPlugin.PluginName,
+                () => settings.EnableMod,
+                logRoutineActivity: false);
             Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
         }
 
@@ -93,8 +98,6 @@ namespace StartConditions
             if (hooksSubscribed)
                 return;
 
-            LogDebug("Subscribing start conditions runtime hooks");
-
             subscriptions.Add(Shared.GameplaySessionLifecycle.SubscribeStarted(
                 log,
                 context =>
@@ -110,7 +113,6 @@ namespace StartConditions
             subscriptions.Add(Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap));
 
-            LogDebug("Start conditions runtime hooks subscribed");
             hooksSubscribed = true;
         }
 
@@ -131,7 +133,6 @@ namespace StartConditions
             InitializeAIStartTroopIsolation();
             SubscribeSettingsChanges();
             SubscribeHooks();
-            LogDebug("Start conditions initialized");
             libraryInitialized = true;
         }
 
@@ -207,14 +208,9 @@ namespace StartConditions
             activePlayerIds = Array.Empty<int>();
         }
 
-        private void LogDebug(params object[] parts)
+        private void LogWarning(params object[] parts)
         {
-            Shared.DebugLogHelper.LogDebug(log, parts);
-        }
-
-        private void LogInfo(params object[] parts)
-        {
-            Shared.DebugLogHelper.LogInfo(log, string.Join(" ", parts));
+            Shared.DebugLogHelper.LogWarning(log, string.Join(" ", parts));
         }
 
         private void LogError(params object[] parts)

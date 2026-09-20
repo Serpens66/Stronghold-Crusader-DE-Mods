@@ -72,6 +72,7 @@ namespace ExtendedData
         private CoopMissionChangedDelegate missionTrampoline;
         private ButtonClickedDelegate buttonTrampoline;
         private TrailMissionSettingsCoordinator missionSettingsCoordinator;
+        private MapModSettingsCoordinator mapSettingsCoordinator;
         private string[] missingMods = Array.Empty<string>();
         private ResolvedMission selected;
         private CoopTrailPackage activePackage;
@@ -107,6 +108,8 @@ namespace ExtendedData
             missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
             missionSettingsCoordinator.CoopLaunchReceived += OnCoopLaunchReceived;
             missionSettingsCoordinator.Initialize();
+            mapSettingsCoordinator = new MapModSettingsCoordinator(log, enabled, missionSettingsCoordinator);
+            mapSettingsCoordinator.Initialize();
             RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
             subscriptions.Add(Shared.MissionEvents.Ended
@@ -138,6 +141,7 @@ namespace ExtendedData
 
             enabled = value;
             missionSettingsCoordinator?.SetEnabled(value);
+            mapSettingsCoordinator?.SetEnabled(value);
             selected = null;
             missingMods = Array.Empty<string>();
             if (!value)
@@ -178,6 +182,7 @@ namespace ExtendedData
                 missionSettingsCoordinator.CoopLaunchReceived -= OnCoopLaunchReceived;
             }
             missionSettingsCoordinator?.ExitContext(force: true);
+            mapSettingsCoordinator?.Dispose();
             missionSettingsCoordinator?.Dispose();
         }
 
@@ -236,6 +241,8 @@ namespace ExtendedData
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string command)
         {
+            if (mapSettingsCoordinator?.TryHandleCommand(self, command) == true)
+                return;
             if (enabled && IsLaunchCommand(command) && CurrentSlotRequiresPackage(self))
             {
                 if (!IsLocalPackageReady())

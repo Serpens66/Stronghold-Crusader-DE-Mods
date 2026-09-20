@@ -41,6 +41,7 @@
   <ItemGroup>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="src\SkirmishGameOptionsPolicy.cs" />
+    <Compile Include="src\WorkingCopyTransaction.cs" />
     <Compile Include="src\NoDogsNativeContract.cs" />
     <Compile Include="src\NoDogsNativePatch.cs" />
     <Compile Include="src\SkirmishGameOptionsRuntime.cs" />

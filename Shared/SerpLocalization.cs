@@ -246,6 +246,12 @@ public static class SerpLocalization
     private static string cachedSteamLanguage;
     private static string cachedSteamLanguageSource;
     private static BepInEx.Logging.ManualLogSource localizationLog;
+    private static bool routineLoggingEnabled = true;
+
+    internal static void SetRoutineLoggingEnabled(bool enabled)
+    {
+        routineLoggingEnabled = enabled;
+    }
 
     private static readonly Dictionary<string, string> SteamLanguageLocales =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -331,8 +337,8 @@ public static class SerpLocalization
         { EnableTrailCustomizationButtons, "Customize buttons for Custom and Coop Trails" },
         { EnableTrailCustomizationButtonsHelp, "Shows Customize for Custom Trails and adds it to all four Coop Trails. The host can open the normal skirmish setup before starting the selected mission." },
         { "ExtendedData.HostOptions", "HOST OPTIONS" },
-        { "ExtendedData.SupportedTrailSettings", "MOD SETTINGS IN CUSTOM TRAILS" },
-        { "ExtendedData.SupportedTrailSettingsHelp", "Select which compatible mods are saved with newly created Custom Trail missions. Enabled by default. Unselected mods remain unchanged when the Trail is played." },
+        { "ExtendedData.SupportedTrailSettings", "MOD SETTINGS IN MAPS AND CUSTOM TRAILS" },
+        { "ExtendedData.SupportedTrailSettingsHelp", "Choose whether each host-controlled setting uses the mod default, the normal player/host preset, or a fixed creator value when Maps and Custom Trail missions are saved." },
         { "ExtendedData.IncompatibleTrailMods", "Installed mods with incompatible mod settings:" },
         { "ExtendedData.CompatibilityGuide", "How can mod authors add compatibility?" },
         { "ExtendedData.CompatibilityGuideHelp", "Opens the Extended Data compatibility guide in your browser." },
@@ -358,6 +364,13 @@ public static class SerpLocalization
         { "ExtendedData.TrailMakerCoopHelp", "Exports the first 40 existing missions as a portable Coop package. Missions 1-10 become Coop Trail 1, 11-20 Trail 2, 21-30 Trail 3 and 31-40 Trail 4. Later missions remain normal Custom Trail missions. The first two occupied player slots become host and guest." },
         { "ExtendedData.ExportFailedTitle", "Coop Trail export failed" },
         { "ExtendedData.ExportFailed", "The normal Trail was not exported because the Coop package could not be created." },
+        { "ExtendedData.UseMapModSettings", "Use Map modsettings" },
+        { "ExtendedData.UseMapModSettingsHelp", "Applies the mod settings embedded in the selected Map. Selecting a Map alone never changes presets." },
+        { "ExtendedData.MapModSettingsActive", "Map modsettings active" },
+        { "ExtendedData.MapModSettingsErrorTitle", "Map mod settings unavailable" },
+        { "ExtendedData.MapModSettingsUnavailable", "The selected Map contains no valid embedded mod settings." },
+        { "ExtendedData.MapModSettingsMissingTitle", "Map mods missing" },
+        { "ExtendedData.MapModSettingsMissing", "The Map mentions mods that are not installed:" },
         { PresetHelp, "Selects a saved preset. Clients change only their personal settings." },
         { Preset, "Preset" },
         { ActionsScopeHost, "Preset and reset affect host settings and your local client settings." },
@@ -948,6 +961,9 @@ public static class SerpLocalization
         string englishPath,
         string localePath)
     {
+        if (!routineLoggingEnabled)
+            return;
+
         try
         {
             if (localizationLog == null)

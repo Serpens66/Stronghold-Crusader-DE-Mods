@@ -16,7 +16,6 @@ namespace StartConditions
         private const string AIStartTroopSaveDataIdentifier = "StartConditions_Serp.AIStartTroops";
         private const int AIStartTroopSaveSchemaVersion = AIStartTroopIsolationSaveState.SchemaVersionCurrent;
         private const int AIStartTroopValidationIntervalTicks = 250;
-        private const short ProtectedAIBehaviourTypeValue = -1;
         private const ushort ProtectedAIBehaviourType = ushort.MaxValue;
         private const ushort ProtectedAIBehaviourRelatedValue = 0;
 
@@ -84,13 +83,6 @@ namespace StartConditions
                 GameTimeManagerAPI.Instance.OnTick += OnAIStartTroopValidationTick;
                 tickHandlerSubscribed = true;
                 aiStartTroopIsolationInitialized = true;
-                LogDebug(
-                    "AI start-troop isolation initialized; validation interval ticks",
-                    AIStartTroopValidationIntervalTicks,
-                    "protected behaviour type",
-                    ProtectedAIBehaviourTypeValue,
-                    "stance",
-                    TribeStance.Aggressive);
             }
             catch
             {
@@ -122,10 +114,7 @@ namespace StartConditions
             AIStartTroopIsolationSaveState state = pendingAIStartTroopSaveState;
             pendingAIStartTroopSaveState = null;
             if (state == null)
-            {
-                LogDebug("Loaded save has no Start Conditions AI start-troop isolation data; no legacy migration is attempted.");
                 return;
-            }
 
             if (state.SchemaVersion != AIStartTroopSaveSchemaVersion || state.Records == null)
             {
@@ -137,13 +126,10 @@ namespace StartConditions
                 return;
             }
 
-            int restored = 0;
-            int rejected = 0;
             foreach (AIStartTroopIsolationSaveRecord saved in state.Records)
             {
                 if (!TryRestoreProtectedAIStartTroop(saved, out string failureReason))
                 {
-                    rejected++;
                     LogError(
                         "Could not restore one protected AI start troop:",
                         failureReason,
@@ -151,11 +137,8 @@ namespace StartConditions
                         saved.UnitGlobalId);
                     continue;
                 }
-
-                restored++;
             }
 
-            LogDebug("Restored protected AI start troops from save; restored", restored, "rejected", rejected);
         }
 
         private int GetCurrentGameTick()
@@ -290,7 +273,7 @@ namespace StartConditions
             }
 
             protectedAIStartTroopsByUnitId[unitId] = protectedTroop;
-            if (!TryEnsureProtectedAIStartTroopState(protectedTroop, unit, "save restoration", out failureReason))
+            if (!TryEnsureProtectedAIStartTroopState(protectedTroop, unit, out failureReason))
             {
                 // Retain the record. The periodic event-based repair may succeed after native
                 // post-load state has fully settled.
@@ -326,22 +309,11 @@ namespace StartConditions
                 if (!TryEnsureProtectedAIStartTroopState(
                         protectedTroop,
                         unit,
-                        "spawn initialization",
                         out string failureReason))
                 {
                     throw new InvalidOperationException(failureReason);
                 }
 
-                LogDebug(
-                    "Protected spawned AI start troop",
-                    "unitId", unitId,
-                    "unitGlobalId", protectedTroop.UnitGlobalId,
-                    "owner", ownerPlayerId,
-                    "type", unitType,
-                    "tribeId", protectedTroop.PrivateTribeId,
-                    "tribeGlobalId", protectedTroop.PrivateTribeGlobalId,
-                    "role", (short)unit->r_AITribeRole,
-                    "stance", TribeStance.Aggressive);
             }
             catch (Exception ex)
             {
@@ -412,18 +384,13 @@ namespace StartConditions
             {
                 bool targetsPrivateTribe = protectedAIStartTroopsByTribeId.TryGetValue(
                     args.TribeId,
-                    out ProtectedAIStartTroop privateTribeOwner);
+                    out _);
                 if (!TryGetProtectedAIStartTroop(args.UnitId, out ProtectedAIStartTroop protectedTroop, out GameUnit* unit))
                 {
                     if (targetsPrivateTribe)
                     {
                         args.SkipOriginalFunction = true;
                         args.ReturnValue = 0;
-                        LogDebug(
-                            "Blocked foreign unit assignment to private AI start-troop tribe",
-                            "unitId", args.UnitId,
-                            "requestedTribeId", args.TribeId,
-                            "protectedUnitId", privateTribeOwner.UnitId);
                     }
 
                     return;
@@ -432,12 +399,6 @@ namespace StartConditions
                 EnsureProtectedAIStartTroopBehaviour(unit);
                 args.SkipOriginalFunction = true;
                 args.ReturnValue = 0;
-                LogDebug(
-                    "Blocked unexpected AI start-troop tribe assignment",
-                    "unitId", args.UnitId,
-                    "unitGlobalId", protectedTroop.UnitGlobalId,
-                    "requestedTribeId", args.TribeId,
-                    "privateTribeId", protectedTroop.PrivateTribeId);
             }
             catch (Exception ex)
             {
@@ -530,31 +491,51 @@ namespace StartConditions
                     if (!TryEnsureProtectedAIStartTroopState(
                             protectedTroop,
                             unit,
-                            "periodic validation",
                             out string failureReason))
                     {
-                        LogError(
-                            "Could not repair protected AI start troop",
-                            protectedTroop.UnitId,
-                            protectedTroop.UnitGlobalId,
-                            failureReason);
+                        LogProtectedAIStartTroopRepairFailure(protectedTroop, failureReason, null);
                     }
+                    else
+                        protectedTroop.RepairFailureLog.MarkRecovered();
                 }
                 catch (Exception ex)
                 {
-                    LogError(
-                        "AI start-troop validation failed for",
-                        protectedTroop.UnitId,
-                        protectedTroop.UnitGlobalId,
-                        ex);
+                    string failureSignature = $"{ex.GetType().FullName}: {ex.Message}";
+                    LogProtectedAIStartTroopRepairFailure(protectedTroop, failureSignature, ex);
                 }
+            }
+        }
+
+        private void LogProtectedAIStartTroopRepairFailure(
+            ProtectedAIStartTroop protectedTroop,
+            string failureSignature,
+            Exception exception)
+        {
+            failureSignature = failureSignature ?? "unknown repair failure";
+            if (!protectedTroop.RepairFailureLog.ShouldLog(failureSignature))
+                return;
+
+            if (exception == null)
+            {
+                LogError(
+                    "Could not repair protected AI start troop",
+                    protectedTroop.UnitId,
+                    protectedTroop.UnitGlobalId,
+                    failureSignature);
+            }
+            else
+            {
+                LogError(
+                    "AI start-troop validation failed for",
+                    protectedTroop.UnitId,
+                    protectedTroop.UnitGlobalId,
+                    exception);
             }
         }
 
         private bool TryEnsureProtectedAIStartTroopState(
             ProtectedAIStartTroop protectedTroop,
             GameUnit* unit,
-            string reason,
             out string failureReason)
         {
             failureReason = null;
@@ -643,14 +624,6 @@ namespace StartConditions
                 return false;
             }
 
-            LogDebug(
-                "Created private aggressive AI start-troop tribe",
-                "unitId", protectedTroop.UnitId,
-                "unitGlobalId", protectedTroop.UnitGlobalId,
-                "owner", protectedTroop.OwnerPlayerId,
-                "tribeId", privateTribeId,
-                "tribeGlobalId", protectedTroop.PrivateTribeGlobalId,
-                "reason", reason);
             return true;
         }
 
@@ -917,6 +890,7 @@ namespace StartConditions
             public int PrivateTribeId { get; set; }
             public uint PrivateTribeGlobalId { get; set; }
             public bool PendingDeletion { get; set; }
+            public RepairFailureLogState RepairFailureLog { get; } = new RepairFailureLogState();
         }
 
     }

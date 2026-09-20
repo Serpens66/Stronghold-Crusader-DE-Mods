@@ -139,9 +139,14 @@ internal static class Program
             "StartConditions",
             "src",
             "VanillaStartTroopSpawnState.cs"));
+        string contract = File.ReadAllText(Path.Combine(
+            workspaceRoot,
+            "StartConditions",
+            "src",
+            "StartTroopSpawnCompletionContract.cs"));
 
         RequireContains(reader, "referenceHashMatches");
-        RequireContains(reader, "StartTroopSpawnCompletionContract.CompletionStateRva");
+        RequireContains(contract, "CompletionStateRva = 0x37EDBD0");
         RequireContains(runtime, "GameTimeManagerAPI.Instance.OnTick += OnVanillaStartTroopCompletionTick;");
         RequireContains(runtime, "GameTimeManagerAPI.Instance.OnTick -= OnVanillaStartTroopCompletionTick;");
         RequireContains(runtime, "StartLegacyStartTroopTiming(plan");

@@ -63,6 +63,7 @@ namespace BugfixesAndQoL
             TestAIResourceShortageSleepIntegration();
             TestTemporaryGateBlockagePolicy();
             TestTemporaryGateBlockageIntegration();
+            TestStartupUiReadinessGuard();
             TestResolutionAwareZoomPolicy();
             TestResolutionAwareZoomIntegration();
             TestNotificationSkipPolicy();
@@ -213,10 +214,20 @@ namespace BugfixesAndQoL
                   viewModel.Contains("EnableKeepFlagRotationFix = true;"),
                 "keep-flag rotation option is host-synchronized and enabled by default/reset");
             Check(runtime.Contains(
-                    "private bool Enabled => settings.EnableMod && settings.EnableKeepFlagRotationFix;") &&
-                  runtime.Contains("LoadedMapScanDelayTicks = 3") &&
+                    "private bool Enabled => newMapActive && settings.EnableMod && settings.EnableKeepFlagRotationFix;") &&
+                  runtime.Contains("NewMapScanDelayTicks = 3") &&
                   runtime.Contains("for (int spanIndex = 1; spanIndex < projectiles.Length; spanIndex++)"),
                 "keep-flag runtime obeys both settings, delays scanning, and uses bounded direct projectile IDs");
+            Check(runtime.Contains("SaveLifecycle: NewMapOnly") &&
+                  runtime.Contains("Shared.MissionEvents.Loading") &&
+                  runtime.Contains("MissionInitializationPhase.BeforeLoad") &&
+                  runtime.Contains("args.Context.StartKind == MissionStartKind.NewGame") &&
+                  runtime.Contains("Shared.GameplaySessionLifecycle.SubscribeStarted") &&
+                  runtime.Contains("context.Kind != Shared.GameplaySessionStartKind.NewMap || context.IsReplay") &&
+                  runtime.Contains("Shared.MissionEvents.Ended") &&
+                  !runtime.Contains("MapLoaderR3EventHooks.OnStartMap") &&
+                  !runtime.Contains("MapLoaderR3EventHooks.OnUnloadMap"),
+                "keep-flag runtime uses the shared lifecycle and excludes saves, editors, and replayed sessions");
             Check(orchestrator.Contains("private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;") &&
                   orchestrator.Contains("candidate.Install();" + Environment.NewLine +
                     "            processKeepFlagRotationRuntime = candidate;"),
@@ -754,6 +765,177 @@ namespace BugfixesAndQoL
                     return false;
             }
             return true;
+        }
+
+        private static void TestStartupUiReadinessGuard()
+        {
+            MethodInfo fatUpdate = typeof(FatControler).GetMethod(
+                "Update",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            byte[] fatUpdateIl = fatUpdate?.GetMethodBody()?.GetILAsByteArray();
+            int viewModelLoadedReads = 0;
+            int rolloverCalls = 0;
+            int frontendUpdateCalls = 0;
+            if (fatUpdateIl != null)
+            {
+                int viewModelLoadedToken = typeof(MainViewModel)
+                    .GetField(nameof(MainViewModel.viewModelLoaded), BindingFlags.Static | BindingFlags.Public)
+                    .MetadataToken;
+                for (int offset = 0; offset <= fatUpdateIl.Length - 5; offset++)
+                {
+                    try
+                    {
+                        if (fatUpdateIl[offset] == 0x7e &&
+                            BitConverter.ToInt32(fatUpdateIl, offset + 1) == viewModelLoadedToken)
+                        {
+                            viewModelLoadedReads++;
+                        }
+                        else if (fatUpdateIl[offset] == 0x6f)
+                        {
+                            MethodInfo called = fatUpdate.Module.ResolveMethod(
+                                BitConverter.ToInt32(fatUpdateIl, offset + 1)) as MethodInfo;
+                            if (called?.DeclaringType == typeof(MainViewModel) &&
+                                called.Name == nameof(MainViewModel.CrossThreadRolloverUpdate))
+                            {
+                                rolloverCalls++;
+                            }
+                            else if (called?.DeclaringType == typeof(FrontendMenus) &&
+                                called.Name == nameof(FrontendMenus.Update))
+                            {
+                                frontendUpdateCalls++;
+                            }
+                        }
+                    }
+                    catch (ArgumentException)
+                    {
+                        // Operand bytes can resemble metadata-bearing instructions.
+                    }
+                }
+            }
+            Check(fatUpdate != null && fatUpdate.ReturnType == typeof(void) &&
+                    fatUpdate.GetParameters().Length == 0 &&
+                    viewModelLoadedReads >= 1 && rolloverCalls == 1 && frontendUpdateCalls == 1 &&
+                    CountVanillaStartupUiGuardCandidates() == 1,
+                "installed Vanilla exposes exactly one guarded FatControler UI block with both unconditional UI calls");
+
+            Check(!StartupUiReadinessGuardPolicy.ShouldRunVanillaUiUpdateBlock(
+                    viewModelLoaded: false,
+                    hudMainAvailable: true,
+                    frontEndMenuAvailable: true),
+                "startup UI guard remains closed before the view model is loaded");
+            Check(!StartupUiReadinessGuardPolicy.ShouldRunVanillaUiUpdateBlock(
+                    viewModelLoaded: true,
+                    hudMainAvailable: false,
+                    frontEndMenuAvailable: true) &&
+                  !StartupUiReadinessGuardPolicy.ShouldRunVanillaUiUpdateBlock(
+                    viewModelLoaded: true,
+                    hudMainAvailable: true,
+                    frontEndMenuAvailable: false),
+                "startup UI guard remains closed while either Noesis root is unavailable");
+            Check(StartupUiReadinessGuardPolicy.ShouldRunVanillaUiUpdateBlock(
+                    viewModelLoaded: true,
+                    hudMainAvailable: true,
+                    frontEndMenuAvailable: true),
+                "startup UI guard opens when both Noesis roots are available");
+
+            string hook = File.ReadAllText(Path.Combine("src", "StartupUiReadinessGuardHook.cs"));
+            string plugin = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLPlugin.cs"));
+            string project = File.ReadAllText("BugfixesAndQoL.csproj");
+            Check(hook.Contains("new ILHook(target, PatchUiUpdateReadinessBranch)") &&
+                    hook.Contains("Expected exactly one FatControler.Update UI block") &&
+                    hook.Contains("rolloverCalls == 1 && frontendUpdateCalls == 1") &&
+                    hook.Contains("Index = matches[0] + 1") &&
+                    hook.Contains("EmitDelegate<Func<bool, bool>>(IsVanillaUiUpdateReady)") &&
+                    hook.Contains("target.ReturnType != typeof(void)") &&
+                    hook.Contains("candidate?.Dispose()") &&
+                    !hook.Contains("public void Dispose()"),
+                "startup UI guard validates one complete Vanilla block before its single IL insertion");
+            Check(hook.Contains("if (!viewModelLoaded)") &&
+                    hook.Contains("main?.HUDmain != null") &&
+                    hook.Contains("main?.FrontEndMenu != null") &&
+                    plugin.Contains("private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;") &&
+                    plugin.Contains("new StartupUiReadinessGuardHook(Logger)") &&
+                    project.Contains("src\\StartupUiReadinessGuardHook.cs") &&
+                    project.Contains("src\\StartupUiReadinessGuardPolicy.cs") &&
+                    !project.Contains("StartupRolloverNullGuard"),
+                "startup UI guard is readiness-scoped, process-rooted and replaces the obsolete rollover detour");
+        }
+
+        private static int CountVanillaStartupUiGuardCandidates()
+        {
+            using (Mono.Cecil.AssemblyDefinition assembly =
+                Mono.Cecil.AssemblyDefinition.ReadAssembly(typeof(FatControler).Assembly.Location))
+            {
+                Mono.Cecil.TypeDefinition type = assembly.MainModule.Types
+                    .Single(candidate => candidate.FullName == typeof(FatControler).FullName);
+                Mono.Cecil.MethodDefinition update = type.Methods.Single(candidate =>
+                    candidate.Name == "Update" &&
+                    !candidate.IsStatic &&
+                    candidate.Parameters.Count == 0 &&
+                    candidate.ReturnType.MetadataType == Mono.Cecil.MetadataType.Void);
+                IList<Mono.Cecil.Cil.Instruction> instructions = update.Body.Instructions;
+                int matches = 0;
+                for (int index = 0; index < instructions.Count - 1; index++)
+                {
+                    Mono.Cecil.Cil.Instruction read = instructions[index];
+                    Mono.Cecil.Cil.Instruction branch = instructions[index + 1];
+                    if (read.OpCode != Mono.Cecil.Cil.OpCodes.Ldsfld ||
+                        !(read.Operand is Mono.Cecil.FieldReference field) ||
+                        field.DeclaringType.FullName != typeof(MainViewModel).FullName ||
+                        field.Name != nameof(MainViewModel.viewModelLoaded) ||
+                        (branch.OpCode != Mono.Cecil.Cil.OpCodes.Brfalse &&
+                         branch.OpCode != Mono.Cecil.Cil.OpCodes.Brfalse_S) ||
+                        !(branch.Operand is Mono.Cecil.Cil.Instruction blockEnd))
+                    {
+                        continue;
+                    }
+
+                    int blockEndIndex = instructions.IndexOf(blockEnd);
+                    if (blockEndIndex <= index + 1)
+                        continue;
+
+                    int rollover = CountCecilCalls(
+                        instructions,
+                        index + 2,
+                        blockEndIndex,
+                        typeof(MainViewModel),
+                        nameof(MainViewModel.CrossThreadRolloverUpdate));
+                    int frontend = CountCecilCalls(
+                        instructions,
+                        index + 2,
+                        blockEndIndex,
+                        typeof(FrontendMenus),
+                        nameof(FrontendMenus.Update));
+                    if (rollover == 1 && frontend == 1)
+                        matches++;
+                }
+                return matches;
+            }
+        }
+
+        private static int CountCecilCalls(
+            IList<Mono.Cecil.Cil.Instruction> instructions,
+            int startIndex,
+            int endIndex,
+            Type declaringType,
+            string methodName)
+        {
+            int count = 0;
+            for (int index = startIndex; index < endIndex; index++)
+            {
+                Mono.Cecil.Cil.Instruction instruction = instructions[index];
+                if ((instruction.OpCode == Mono.Cecil.Cil.OpCodes.Call ||
+                     instruction.OpCode == Mono.Cecil.Cil.OpCodes.Callvirt) &&
+                    instruction.Operand is Mono.Cecil.MethodReference method &&
+                    method.DeclaringType.FullName == declaringType.FullName &&
+                    method.Name == methodName &&
+                    method.Parameters.Count == 0 &&
+                    method.ReturnType.MetadataType == Mono.Cecil.MetadataType.Void)
+                {
+                    count++;
+                }
+            }
+            return count;
         }
 
         private static void TestResolutionAwareZoomPolicy()

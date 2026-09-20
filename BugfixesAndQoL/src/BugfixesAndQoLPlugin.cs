@@ -42,6 +42,7 @@ namespace BugfixesAndQoL
         public const string PluginVersion = "1.0.159";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
+        private static StartupUiReadinessGuardHook startupUiReadinessGuardHook;
         private static ResolutionAwareZoomHook resolutionAwareZoomHook;
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private static SteamInviteBlacklistStore steamInviteBlacklist;
@@ -56,6 +57,17 @@ namespace BugfixesAndQoL
             Shared.UnityMainThreadDispatch.InitializeForCurrentThread();
             Shared.CrashBreadcrumbDiagnostics.Initialize(Logger, PluginGuid, PluginName, PluginVersion);
             Shared.DebugLogHelper.LogDebug(Logger, $"{PluginName} {PluginVersion} loaded.");
+            try
+            {
+                if (startupUiReadinessGuardHook == null)
+                    startupUiReadinessGuardHook = new StartupUiReadinessGuardHook(Logger);
+            }
+            catch (Exception ex)
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    $"Bugfixes and QoL startup UI-readiness guard could not be initialized; Vanilla behavior remains active: {ex}");
+            }
             bool legacySomeSettingsLoaded = Chainloader.PluginInfos.ContainsKey(LegacySomeSettingsGuid);
             if (legacySomeSettingsLoaded)
             {

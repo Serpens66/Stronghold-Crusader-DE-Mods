@@ -40,6 +40,8 @@ var tests = new (string Name, Action Run)[]
     ("customized launch origin is persisted and fail-closed", TestCustomizedLaunchOriginIntegration),
     ("customized launch origin save roundtrip", TestCustomizedLaunchOriginRoundtrip),
     ("Built-in Customize origin packet roundtrip", TestBuiltInCustomizeOriginPacketRoundtrip),
+    ("Map mod-settings packet roundtrip", TestMapModSettingsPacketRoundtrip),
+    ("Map mod-settings runtime integration is fail-closed", TestMapModSettingsRuntimeIntegration),
     ("lobby packets retain main-thread ordering", TestLobbyPacketThreadMarshalling),
     ("Steam Workshop discovery waits for Steamworks", TestSteamWorkshopReadinessGate),
     ("local activation setting gates the complete runtime", TestLocalActivationSetting),
@@ -706,6 +708,82 @@ static void TestBuiltInCustomizeOriginPacketRoundtrip()
     Assert(truncated == null, "truncated Built-in Customize origin packet was accepted");
 }
 
+static void TestMapModSettingsPacketRoundtrip()
+{
+    var expected = new MapModSettingsPacket
+    {
+        ProtocolVersion = MapModSettingsPacket.CurrentProtocolVersion,
+        Apply = true,
+        MapFileName = "Workshop_Test.map",
+        MapCrc = 0xDEADBEEFu,
+        Json = ModSettingsJson.Serialize(ModSettingsDefinition.CreateModDefaults()),
+    };
+    byte[] bytes = MessagePack.MessagePackSerializer.Serialize(expected);
+    MapModSettingsPacket actual = MessagePack.MessagePackSerializer.Deserialize<MapModSettingsPacket>(bytes);
+    Assert(actual != null && actual.ProtocolVersion == expected.ProtocolVersion &&
+        actual.Apply == expected.Apply && actual.MapFileName == expected.MapFileName &&
+        actual.MapCrc == expected.MapCrc && actual.Json == expected.Json,
+        "Map mod-settings packet changed during MessagePack roundtrip");
+}
+
+static void TestMapModSettingsRuntimeIntegration()
+{
+    string projectRoot = FindProjectRoot();
+    string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "MapModSettingsCoordinator.cs"));
+    string trailCoordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
+    string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
+    string xaml = File.ReadAllText(Path.Combine(projectRoot, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_Multiplayer.xaml"));
+
+    Assert(coordinator.Contains("SaveDataIdentifier = \"ExtendedData-MapModSettings\"") &&
+        coordinator.Contains("context.IsMapEditorSave") && coordinator.Contains("context.IsSaveFile") &&
+        coordinator.Contains("pendingMapSavePayload == null") && coordinator.Contains("return null;"),
+        "Map archive capture is not restricted to successful editor map captures");
+    Assert(coordinator.Contains("new UTF8Encoding(false, true)") &&
+        coordinator.Contains("MapArchive.TryLoad(header.filePath") &&
+        coordinator.Contains("ModSettingsJson.ParseObject") &&
+        coordinator.Contains("EnterStrict("),
+        "Map archive loading is not strict and transactional");
+    Assert(coordinator.Contains("GetHostSteamId") &&
+        coordinator.Contains("sender != host.Value") &&
+        coordinator.Contains("MatchesLobby(packet, lobby)") &&
+        coordinator.Contains("ProtocolVersion != MapModSettingsPacket.CurrentProtocolVersion"),
+        "Map packets are not authenticated and bound to the selected map");
+    Assert(coordinator.Contains("mapList.SelectionChanged") &&
+        coordinator.Contains("LeaveLobbyHook") && coordinator.Contains("StartSkirmishGameHook") &&
+        coordinator.Contains("!launchInProgress && !mapMissionActive") &&
+        coordinator.Contains("MissionEvents.Ended") &&
+        coordinator.Contains("BroadcastCurrentState(apply: true)"),
+        "Map preset cleanup or late-join convergence is incomplete");
+    Assert(trailCoordinator.Contains("EnterStrict") &&
+        trailCoordinator.Contains("ValidateDocumentValues") &&
+        trailCoordinator.Contains("System_EnterMissionPreset\", item.Item3, presetLabel, editable"),
+        "the shared Trail/Map preset service does not validate or expose contextual labels");
+    Assert(runtime.Contains("mapSettingsCoordinator?.TryHandleCommand") &&
+        xaml.Contains("ExtendedDataUseMapModSettings") && xaml.Contains("Visibility=\"Collapsed\""),
+        "the manually activated Map preset button is not connected to the runtime");
+    Assert(!coordinator.Contains("modmap.json", StringComparison.OrdinalIgnoreCase),
+        "Map presets were mixed into modmap.json");
+    string[] mapLocaleKeys =
+    {
+        "ExtendedData.UseMapModSettings=",
+        "ExtendedData.UseMapModSettingsHelp=",
+        "ExtendedData.MapModSettingsActive=",
+        "ExtendedData.MapModSettingsErrorTitle=",
+        "ExtendedData.MapModSettingsUnavailable=",
+        "ExtendedData.MapModSettingsMissingTitle=",
+        "ExtendedData.MapModSettingsMissing=",
+    };
+    foreach (string localePath in Directory.GetFiles(Path.Combine(projectRoot, "Locales"), "*.txt"))
+    {
+        string locale = File.ReadAllText(localePath);
+        foreach (string key in mapLocaleKeys)
+        {
+            Assert(CountOccurrences(locale, key) == 1,
+                Path.GetFileName(localePath) + " does not define exactly one " + key);
+        }
+    }
+}
+
 static void TestLobbyPacketThreadMarshalling()
 {
     string root = FindProjectRoot();
@@ -936,9 +1014,9 @@ static void TestLocalActivationSetting()
     Assert(coordinator.Contains("GetRegistrationGroups()") && coordinator.Contains("group.Skip(1).Any()"),
         "duplicate mod-settings registrations are not rejected per plugin GUID");
     Assert(coordinator.Contains("DebugLogHelper.LogInfo(") &&
-        coordinator.Contains("are not included in Trail mission presets") &&
+        coordinator.Contains("are not included in creator presets") &&
         !coordinator.Contains("Trail mod-settings compatibility rejected"),
-        "unsupported Trail settings are not reported as informational exclusions");
+        "unsupported Map/Trail settings are not reported as informational exclusions");
     Assert(plugin.Contains("ScheduleDeferredCompatibilityRefresh()") &&
         plugin.Contains("Application.onBeforeRender += RefreshCompatibilityAfterRegistrations") &&
         plugin.Contains("Application.onBeforeRender -= RefreshCompatibilityAfterRegistrations"),
