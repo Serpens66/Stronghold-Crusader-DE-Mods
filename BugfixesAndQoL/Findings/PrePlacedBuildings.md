@@ -99,8 +99,12 @@ Der Runtime-Orchestrator installiert nur zehn Funktionsdetours und einen Context
 statisch verwurzelten Delegate direkt aufgerufen.
 
 Es gibt keine Unity-`Update`-/`LateUpdate`-/`FixedUpdate`-Methode, keinen Timer und kein
-periodisches Polling. Gebäude- und Mauerdaten werden einmal vor der ersten AIV-Zuweisung
-erfasst. Cacheaufbau erfolgt nur bei Aktivierung oder echter Topologieänderung; normale
+periodisches Polling. Gebäude- und Mauerdaten werden einmal im Pre-Callback von `0x50680`
+unmittelbar vor der ersten AIV-Zuweisung erfasst. Das APIShared-`BeforeLoad`-Signal setzt nur
+den Sitzungszustand zurück, weil die nativen Kartendaten dort noch nicht geladen sind. Fehlt
+der `0x50680`-Checkpoint trotz vorhandener KI, bleibt der Wirtschaftspfad für diese Karte
+fail-closed; eine verspätete Erfassung könnte bereits AIV-erzeugte Gebäude fälschlich als
+vorplatziert einstufen. Cacheaufbau erfolgt nur bei Aktivierung oder echter Topologieänderung; normale
 Suchaufrufe verwenden wiederverwendbare Arrays und ändern/restaurieren nur abweichende
 Zellen. Vertrags-, Verschachtelungs- oder Restaurierungsfehler schalten den Wirtschaftspfad
 prozessweit fail-closed auf Vanilla zurück.

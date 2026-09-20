@@ -13,6 +13,7 @@ namespace BugfixesAndQoL
                 "exact corrupt-Lord tombstone is repaired");
             CheckEveryGuard(check);
             CheckSessionState(check);
+            CheckObservationPolicy(check);
             CheckRuntimeIntegration(check);
         }
 
@@ -54,9 +55,46 @@ namespace BugfixesAndQoL
                 "Lord fix performs at most one attempt per player and session");
             check(state.MarkConfirmed(8) && !state.MarkConfirmed(8) && state.IsConfirmed(8),
                 "Lord fix records Vanilla confirmation once");
+            check(state.AttemptedCount == 1 && state.ConfirmedCount == 1 &&
+                  !state.HasOutstandingConfirmations && !state.IsOutstanding(8),
+                "Lord fix recognizes a fully confirmed session");
             state.Reset(11);
-            check(state.SessionId == 11 && !state.WasAttempted(8) && !state.IsConfirmed(8),
+            check(state.SessionId == 11 && !state.WasAttempted(8) && !state.IsConfirmed(8) &&
+                  state.AttemptedCount == 0 && state.ConfirmedCount == 0 &&
+                  !state.HasOutstandingConfirmations,
                 "Lord fix session reset clears attempt and confirmation state");
+        }
+
+        private static void CheckObservationPolicy(Action<bool, string> check)
+        {
+            check(CorruptLordDataSpawnObservationPolicy.IsCorrectionWindow(1) &&
+                  CorruptLordDataSpawnObservationPolicy.IsCorrectionWindow(2) &&
+                  CorruptLordDataSpawnObservationPolicy.IsCorrectionWindow(3) &&
+                  !CorruptLordDataSpawnObservationPolicy.IsCorrectionWindow(0) &&
+                  !CorruptLordDataSpawnObservationPolicy.IsCorrectionWindow(4),
+                "Lord fix scans correction candidates for exactly ticks 1-3");
+            check(!CorruptLordDataSpawnObservationPolicy.ShouldStopAfterTick(2, false) &&
+                  CorruptLordDataSpawnObservationPolicy.ShouldStopAfterTick(3, false) &&
+                  !CorruptLordDataSpawnObservationPolicy.ShouldStopAfterTick(3, true),
+                "Lord fix stops immediately after an empty correction window");
+            check(!CorruptLordDataSpawnObservationPolicy.ShouldTimeoutAfterConfirmation(179, true) &&
+                  CorruptLordDataSpawnObservationPolicy.ShouldTimeoutAfterConfirmation(180, true) &&
+                  !CorruptLordDataSpawnObservationPolicy.ShouldTimeoutAfterConfirmation(180, false),
+                "Lord fix times out outstanding confirmations exactly once at tick 180");
+
+            var state = new CorruptLordDataSpawnSessionState();
+            state.Reset(20);
+            state.MarkAttempted(7);
+            state.MarkAttempted(8);
+            state.MarkConfirmed(7);
+            check(state.IsOutstanding(8) && !state.IsOutstanding(7) &&
+                  state.HasOutstandingConfirmations,
+                "Lord fix observes only corrected players still awaiting confirmation");
+            state.MarkConfirmed(8);
+            check(CorruptLordDataSpawnObservationPolicy.ShouldStopAfterTick(
+                    97,
+                    state.HasOutstandingConfirmations),
+                "Lord fix stops in the tick that confirms the final Vanilla Lord");
         }
 
         private static void CheckRuntimeIntegration(Action<bool, string> check)
@@ -76,6 +114,16 @@ namespace BugfixesAndQoL
                   runtime.Contains("MissionInitializationPhase.AfterNativeStart") &&
                   runtime.Contains("MissionInitializationPhase.NativeLoaded"),
                 "Lord fix uses simulation ticks and both supported native initialization phases");
+            check(!runtime.Contains("ObservationStopTicks") &&
+                  runtime.Contains("ScanCorrectionCandidates(simulationTick)") &&
+                  runtime.Contains("ObserveOutstandingPlayers(simulationTick)") &&
+                  runtime.Contains("if (!sessionState.IsOutstanding(playerId))") &&
+                  runtime.Contains("TryCaptureValidOwnedLord("),
+                "Lord fix stops broad scans after tick 3 and observes only outstanding Lords");
+            check(runtime.Contains("catch (Exception ex)" + Environment.NewLine +
+                    "            {" + Environment.NewLine +
+                    "                mapActive = false;"),
+                "Lord fix stops observation after an unexpected runtime failure");
             check(runtime.Contains("notification.Context.StartKind == MissionStartKind.NewGame") &&
                   !runtime.Contains("== Shared.GameModeKind") &&
                   !runtime.Contains("== GameModeKind"),

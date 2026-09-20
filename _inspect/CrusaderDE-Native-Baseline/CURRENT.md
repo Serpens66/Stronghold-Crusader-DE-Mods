@@ -26,6 +26,7 @@ Semantic reverse-engineering baseline:
 
 - [Editor map lifecycle audit](./sem/FBCB9319/knowledge/EDITOR_MAP_LIFECYCLE.md): native creation/loading paths, managed completion, and event boundaries.
 - [Unified mission lifecycle audit](./sem/FBCB9319/knowledge/MISSION_LIFECYCLE.md): gameplay, save, editor and multiplayer operation boundaries and central mode permissions.
+- [Vanilla peace-time gameplay audit](./sem/FBCB9319/knowledge/VANILLA_PEACE_TIME.md): all 36 active-flag references, mode-gated gameplay predicates, and the starting-troop dispatcher entry contract.
 - [ExtraFeatures session callbacks](./sem/FBCB9319/knowledge/EXTRAFEATURES_SESSION_CALLBACKS.md): Lord creation/HP normalization, persisted actual bases and market helper callers.
 - [Remapped-player Lord spawn audit](./sem/FBCB9319/knowledge/LORD_SLOT_REMAP.md): map-slot reassignment, stale Lord identity fields and the Vanilla spawn suppression path.
 - [Move-command release contract](./sem/FBCB9319/knowledge/MOVE_COMMAND_RELEASE.md): managed release state machine, native troop-input consumption and the single-command handoff rule.

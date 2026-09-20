@@ -51,7 +51,11 @@ namespace ExtraFeatures
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         internal const ulong PreferredImageBase = 0x180000000;
         internal const int PeaceTimeActiveFlagRva = 0x38722DC;
+        internal const int PeaceTimeUpdateModeGateRva = 0xCE304;
+        internal const int PeaceTimeUpdateCallRva = 0xCE309;
+        internal const int PeaceTimeUpdateFunctionRva = 0xCA870;
         internal const int StartingTroopsDispatcherRva = 0x119050;
+        internal const int StartingTroopsDispatcherLength = 2459;
         internal const int StartingTroopsHookLength = 16;
 
         private static readonly byte[] StartingTroopsHookBytes =
@@ -77,6 +81,7 @@ namespace ExtraFeatures
             new VanillaPeaceTimePatchSite(0xABC8E, "74 1A", VanillaPeaceTimePatchKind.JumpEqual, 0xABC9D, "group update mode-99 peace redirect"),
             new VanillaPeaceTimePatchSite(0xC70BA, "74 0D", VanillaPeaceTimePatchKind.Nop, 0, "combat damage mode-0 bypass"),
             new VanillaPeaceTimePatchSite(0xCDD85, "75 45", VanillaPeaceTimePatchKind.Jump, 0xCDDCC, "combat state active-peace exit"),
+            new VanillaPeaceTimePatchSite(PeaceTimeUpdateModeGateRva, "74 08", VanillaPeaceTimePatchKind.Nop, 0, "timer display and expiry mode-0 bypass"),
             new VanillaPeaceTimePatchSite(0x105520, "74 1F", VanillaPeaceTimePatchKind.JumpEqual, 0x105534, "recruitment mode-0 peace redirect"),
             new VanillaPeaceTimePatchSite(0x105525, "74 1A", VanillaPeaceTimePatchKind.JumpEqual, 0x105534, "recruitment mode-99 peace redirect"),
             new VanillaPeaceTimePatchSite(0x124BB4, "0F 85 9C 02 00 00", VanillaPeaceTimePatchKind.Jump, 0x124E56, "tribe state active-peace exit A"),
@@ -115,6 +120,7 @@ namespace ExtraFeatures
             ValidateBytes(memory, StartingTroopsDispatcherRva, StartingTroopsHookBytes,
                 "starting-troop dispatcher entry");
             ValidateStartingTroopsHook(memory, imageBase);
+            ValidatePeaceTimeUpdateCaller(memory, imageBase);
 
             foreach (VanillaPeaceTimePatchSite site in PatchSites)
             {
@@ -125,8 +131,10 @@ namespace ExtraFeatures
             ValidatePeaceFlagReferences(memory, imageBase);
             ValidateNoIncomingDirectBranchTargets(
                 memory,
+                imageBase,
                 StartingTroopsDispatcherRva,
-                checked(StartingTroopsDispatcherRva + StartingTroopsHookLength));
+                checked(StartingTroopsDispatcherRva + StartingTroopsHookLength),
+                StartingTroopsDispatcherLength);
         }
 
         internal static void EmitPatch(
@@ -209,6 +217,52 @@ namespace ExtraFeatures
                 throw new InvalidOperationException("The starting-troop hook boundary changed.");
         }
 
+        private static void ValidatePeaceTimeUpdateCaller(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase)
+        {
+            byte[] expectedSequence =
+            {
+                0x83, 0x3D, 0x8C, 0x68, 0x4A, 0x08, 0x00,
+                0x74, 0x08,
+                0x48, 0x8B, 0xCB,
+                0xE8, 0x62, 0xC5, 0xFF, 0xFF,
+                0x48, 0x8B, 0xCB
+            };
+            const int sequenceRva = 0xCE2FD;
+            ValidateBytes(memory, sequenceRva, expectedSequence,
+                "peace-time update caller");
+
+            Decoder decoder = CreateDecoder(
+                memory,
+                imageBase,
+                sequenceRva,
+                expectedSequence.Length);
+            Instruction[] instructions = new Instruction[5];
+            for (int index = 0; index < instructions.Length; index++)
+            {
+                decoder.Decode(out instructions[index]);
+                if (instructions[index].IsInvalid)
+                    throw new InvalidOperationException("The peace-time update caller no longer decodes.");
+            }
+
+            ulong gateAddress = imageBase + unchecked((ulong)PeaceTimeUpdateModeGateRva);
+            ulong callAddress = imageBase + unchecked((ulong)PeaceTimeUpdateCallRva);
+            ulong functionAddress = imageBase + unchecked((ulong)PeaceTimeUpdateFunctionRva);
+            if (instructions[1].IP != gateAddress ||
+                instructions[1].Mnemonic != Mnemonic.Je ||
+                instructions[1].NearBranchTarget !=
+                    imageBase + unchecked((ulong)(PeaceTimeUpdateCallRva + 5)) ||
+                instructions[3].IP != callAddress ||
+                instructions[3].Mnemonic != Mnemonic.Call ||
+                instructions[3].NearBranchTarget != functionAddress ||
+                decoder.IP != imageBase + unchecked((ulong)(sequenceRva + expectedSequence.Length)))
+            {
+                throw new InvalidOperationException(
+                    "The audited Vanilla peace-time update control flow changed.");
+            }
+        }
+
         private static void ValidateSingleInstruction(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
@@ -229,30 +283,28 @@ namespace ExtraFeatures
             ulong imageBase)
         {
             ulong flagAddress = imageBase + PeaceTimeActiveFlagRva;
-            var actual = new List<int>();
-            foreach (Shared.NativeCodeRange range in Shared.NativePatternResolver.GetExecutableCodeRanges(memory))
+            int previousRva = -1;
+            foreach (int referenceRva in PeaceFlagReferenceRvas)
             {
-                Decoder decoder = CreateDecoder(memory, imageBase, range.Offset, range.Length);
-                ulong end = imageBase + unchecked((ulong)(range.Offset + range.Length));
-                while (decoder.IP < end)
+                if (referenceRva <= previousRva)
                 {
-                    decoder.Decode(out Instruction instruction);
-                    if (instruction.IsInvalid)
-                        throw new InvalidOperationException("The executable image contains invalid code.");
-                    if (instruction.IsIPRelativeMemoryOperand &&
-                        instruction.IPRelativeMemoryAddress == flagAddress)
-                    {
-                        actual.Add(checked((int)(instruction.IP - imageBase)));
-                    }
+                    throw new InvalidOperationException(
+                        "The audited Vanilla peace-time flag references are not unique and ordered.");
                 }
-                if (decoder.IP != end)
-                    throw new InvalidOperationException("An executable native range ended inside an instruction.");
-            }
 
-            if (!actual.SequenceEqual(PeaceFlagReferenceRvas))
-            {
-                throw new InvalidOperationException(
-                    $"The Vanilla peace-time flag reference set changed: expected={PeaceFlagReferenceRvas.Length}, actual={actual.Count}.");
+                int available = Math.Min(15, memory.Length - referenceRva);
+                Decoder decoder = CreateDecoder(memory, imageBase, referenceRva, available);
+                decoder.Decode(out Instruction instruction);
+                if (instruction.IsInvalid || instruction.IP !=
+                    imageBase + unchecked((ulong)referenceRva) ||
+                    !instruction.IsIPRelativeMemoryOperand ||
+                    instruction.IPRelativeMemoryAddress != flagAddress)
+                {
+                    throw new InvalidOperationException(
+                        $"The audited Vanilla peace-time flag reference at RVA 0x{referenceRva:X} changed.");
+                }
+
+                previousRva = referenceRva;
             }
         }
 
@@ -291,49 +343,39 @@ namespace ExtraFeatures
 
         private static void ValidateNoIncomingDirectBranchTargets(
             ReadOnlySpan<byte> memory,
+            ulong imageBase,
             int hookStart,
-            int hookEnd)
+            int hookEnd,
+            int functionLength)
         {
-            foreach (Shared.NativeCodeRange range in Shared.NativePatternResolver.GetExecutableCodeRanges(memory))
+            Decoder decoder = CreateDecoder(memory, imageBase, hookStart, functionLength);
+            ulong functionEnd = imageBase + unchecked((ulong)(hookStart + functionLength));
+            while (decoder.IP < functionEnd)
             {
-                int end = checked(range.Offset + range.Length);
-                for (int source = range.Offset; source < end; source++)
+                decoder.Decode(out Instruction instruction);
+                if (instruction.IsInvalid || instruction.NextIP > functionEnd)
                 {
-                    int instructionLength;
-                    int displacement;
-                    byte opcode = memory[source];
-                    if ((opcode == 0xE8 || opcode == 0xE9) && source <= end - 5)
-                    {
-                        instructionLength = 5;
-                        displacement = Shared.NativePatternResolver.ReadInt32(memory, source + 1);
-                    }
-                    else if ((opcode == 0xEB || (opcode >= 0x70 && opcode <= 0x7F) ||
-                        (opcode >= 0xE0 && opcode <= 0xE3)) && source <= end - 2)
-                    {
-                        instructionLength = 2;
-                        displacement = unchecked((sbyte)memory[source + 1]);
-                    }
-                    else if (opcode == 0x0F && source <= end - 6 &&
-                        memory[source + 1] >= 0x80 && memory[source + 1] <= 0x8F)
-                    {
-                        instructionLength = 6;
-                        displacement = Shared.NativePatternResolver.ReadInt32(memory, source + 2);
-                    }
-                    else
-                    {
-                        continue;
-                    }
+                    throw new InvalidOperationException(
+                        "The starting-troop dispatcher no longer decodes on its audited boundaries.");
+                }
 
-                    long target = (long)source + instructionLength + displacement;
-                    bool sourceInsideSpan = source >= hookStart && source < hookEnd;
-                    if (!sourceInsideSpan && target > hookStart && target < hookEnd)
-                    {
-                        throw new InvalidOperationException(
-                            $"A direct control transfer at RVA 0x{source:X} targets the interior " +
-                            $"of the starting-troop hook at RVA 0x{target:X}.");
-                    }
+                bool directControlTransfer =
+                    instruction.FlowControl == FlowControl.ConditionalBranch ||
+                    instruction.FlowControl == FlowControl.UnconditionalBranch ||
+                    instruction.FlowControl == FlowControl.Call;
+                ulong target = instruction.NearBranchTarget;
+                ulong interiorStart = imageBase + unchecked((ulong)(hookStart + 1));
+                ulong interiorEnd = imageBase + unchecked((ulong)hookEnd);
+                if (directControlTransfer && target >= interiorStart && target < interiorEnd)
+                {
+                    throw new InvalidOperationException(
+                        $"A direct control transfer at RVA 0x{instruction.IP - imageBase:X} targets " +
+                        $"the interior of the starting-troop hook at RVA 0x{target - imageBase:X}.");
                 }
             }
+
+            if (decoder.IP != functionEnd)
+                throw new InvalidOperationException("The starting-troop dispatcher boundary changed.");
         }
     }
 }

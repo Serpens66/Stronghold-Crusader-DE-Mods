@@ -218,10 +218,15 @@ namespace ExtraFeatures
             if (synchronizingLobby)
                 return;
 
+            // Settings are restored before MainViewModel can be constructed safely. The lobby
+            // observer performs the authoritative initial push once a real lobby exists.
+            if (!lobbyId.HasValue)
+                return;
+
             try
             {
                 FRONT_Multiplayer front = MainViewModel.Instance?.FRONTMultiplayer;
-                if (lobbyId.HasValue && settings.EnableMod && IsRealLobbyHost(front) &&
+                if (settings.EnableMod && IsRealLobbyHost(front) &&
                     TryPushSettingToVanilla(front))
                 {
                     initializedForLobby = true;

@@ -129,6 +129,23 @@ namespace BugfixesAndQoL
         }
     }
 
+    internal static class CorruptLordDataSpawnObservationPolicy
+    {
+        internal const int CorrectionWindowEndTick = 3;
+        internal const int ConfirmationTimeoutTick = 180;
+
+        internal static bool IsCorrectionWindow(int observationTick) =>
+            observationTick >= 1 && observationTick <= CorrectionWindowEndTick;
+
+        internal static bool ShouldStopAfterTick(int observationTick, bool hasOutstandingConfirmations) =>
+            observationTick >= CorrectionWindowEndTick && !hasOutstandingConfirmations;
+
+        internal static bool ShouldTimeoutAfterConfirmation(
+            int observationTick,
+            bool hasOutstandingConfirmations) =>
+            observationTick >= ConfirmationTimeoutTick && hasOutstandingConfirmations;
+    }
+
     internal sealed class CorruptLordDataSpawnSessionState
     {
         private readonly HashSet<int> attemptedPlayers = new HashSet<int>();
@@ -145,7 +162,13 @@ namespace BugfixesAndQoL
 
         internal bool WasAttempted(int playerId) => attemptedPlayers.Contains(playerId);
         internal bool IsConfirmed(int playerId) => confirmedPlayers.Contains(playerId);
+        internal bool IsOutstanding(int playerId) =>
+            attemptedPlayers.Contains(playerId) && !confirmedPlayers.Contains(playerId);
+        internal int AttemptedCount => attemptedPlayers.Count;
+        internal int ConfirmedCount => confirmedPlayers.Count;
+        internal bool HasOutstandingConfirmations => attemptedPlayers.Count > confirmedPlayers.Count;
         internal bool MarkAttempted(int playerId) => attemptedPlayers.Add(playerId);
-        internal bool MarkConfirmed(int playerId) => confirmedPlayers.Add(playerId);
+        internal bool MarkConfirmed(int playerId) =>
+            attemptedPlayers.Contains(playerId) && confirmedPlayers.Add(playerId);
     }
 }

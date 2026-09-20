@@ -12,10 +12,6 @@ namespace BugfixesAndQoL
 {
     internal sealed unsafe class CorruptLordDataSpawnRuntime
     {
-        private const int CorrectionWindowTicks = 3;
-        private const int ConfirmationTimeoutTicks = 180;
-        private const int ObservationStopTicks = 240;
-
         private readonly ManualLogSource log;
         private readonly BugfixesAndQoLViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
@@ -95,33 +91,55 @@ namespace BugfixesAndQoL
 
         private void OnGameTick(int simulationTick)
         {
-            if (!mapActive || observationTick >= ObservationStopTicks)
+            if (!mapActive)
                 return;
 
             observationTick++;
             try
             {
-                HashSet<int> kickedPlayerIds = CaptureKickedPlayerIds();
+                if (CorruptLordDataSpawnObservationPolicy.IsCorrectionWindow(observationTick))
+                    ScanCorrectionCandidates(simulationTick);
+                else
+                    ObserveOutstandingPlayers(simulationTick);
 
-                // gameMembers is populated by only some launch paths. Iterating all native
-                // one-based records makes detection mode-independent; a live owned Keep and
-                // start marker establish actual participation. When a roster exists, kicked is
-                // retained as an additional veto, never as an allowlist.
-                for (int playerId = 1; playerId <= 8; playerId++)
-                    ObservePlayer(playerId, kickedPlayerIds.Contains(playerId), simulationTick);
-
-                if (observationTick == ConfirmationTimeoutTicks)
+                if (CorruptLordDataSpawnObservationPolicy.ShouldTimeoutAfterConfirmation(
+                        observationTick,
+                        sessionState.HasOutstandingConfirmations))
+                {
                     LogOutstandingConfirmations(simulationTick);
+                    mapActive = false;
+                    return;
+                }
+
+                if (CorruptLordDataSpawnObservationPolicy.ShouldStopAfterTick(
+                        observationTick,
+                        sessionState.HasOutstandingConfirmations))
+                {
+                    mapActive = false;
+                }
             }
             catch (Exception ex)
             {
+                mapActive = false;
                 log.LogError(
                     $"Corrupt Lord-data spawn fix failed during observation: session={sessionState.SessionId}, " +
                     $"tick={observationTick}, simulationTick={simulationTick}, error={ex}");
             }
         }
 
-        private void ObservePlayer(int playerId, bool kicked, int simulationTick)
+        private void ScanCorrectionCandidates(int simulationTick)
+        {
+            HashSet<int> kickedPlayerIds = CaptureKickedPlayerIds();
+
+            // gameMembers is populated by only some launch paths. Iterating all native
+            // one-based records makes detection mode-independent; a live owned Keep and
+            // start marker establish actual participation. When a roster exists, kicked is
+            // retained as an additional veto, never as an allowlist.
+            for (int playerId = 1; playerId <= 8; playerId++)
+                ObserveCorrectionCandidate(playerId, kickedPlayerIds.Contains(playerId), simulationTick);
+        }
+
+        private void ObserveCorrectionCandidate(int playerId, bool kicked, int simulationTick)
         {
             GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
             bool hasResources = players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) &&
@@ -139,7 +157,7 @@ namespace BugfixesAndQoL
             var guard = new CorruptLordDataSpawnGuardInput(
                 Enabled,
                 sessionEligible,
-                observationTick <= CorrectionWindowTicks,
+                CorruptLordDataSpawnObservationPolicy.IsCorrectionWindow(observationTick),
                 hasResources,
                 kicked,
                 alreadyAttempted: false,
@@ -185,15 +203,54 @@ namespace BugfixesAndQoL
                 "Lord creation remains with Vanilla.");
         }
 
+        private void ObserveOutstandingPlayers(int simulationTick)
+        {
+            for (int playerId = 1; playerId <= 8; playerId++)
+            {
+                if (!sessionState.IsOutstanding(playerId))
+                    continue;
+
+                if (!TryCaptureValidOwnedLord(
+                        playerId,
+                        out int lordUnitId,
+                        out int lordGlobalId))
+                {
+                    continue;
+                }
+
+                TryConfirmVanillaLord(
+                    playerId,
+                    lordUnitId,
+                    lordGlobalId,
+                    validOwnedLord: true,
+                    simulationTick: simulationTick);
+            }
+        }
+
         private void TryConfirmVanillaLord(int playerId, PlayerSnapshot snapshot, int simulationTick)
         {
-            if (sessionState.IsConfirmed(playerId) || !snapshot.ValidOwnedLord)
+            TryConfirmVanillaLord(
+                playerId,
+                snapshot.LordUnitId,
+                snapshot.LordGlobalId,
+                snapshot.ValidOwnedLord,
+                simulationTick);
+        }
+
+        private void TryConfirmVanillaLord(
+            int playerId,
+            int lordUnitId,
+            int lordGlobalId,
+            bool validOwnedLord,
+            int simulationTick)
+        {
+            if (sessionState.IsConfirmed(playerId) || !validOwnedLord)
                 return;
 
             sessionState.MarkConfirmed(playerId);
             log.LogInfo(
                 $"Vanilla Lord spawn confirmed after corrupt-data repair: session={sessionState.SessionId}, " +
-                $"player={playerId}, unit/global={snapshot.LordUnitId}/{snapshot.LordGlobalId}, " +
+                $"player={playerId}, unit/global={lordUnitId}/{lordGlobalId}, " +
                 $"observationTick={observationTick}, simulationTick={simulationTick}.");
         }
 
@@ -207,6 +264,38 @@ namespace BugfixesAndQoL
                         $"session={sessionState.SessionId}, player={playerId}, " +
                         $"observationTick={observationTick}, simulationTick={simulationTick}.");
             }
+        }
+
+        private static bool TryCaptureValidOwnedLord(
+            int playerId,
+            out int lordUnitId,
+            out int lordGlobalId)
+        {
+            lordUnitId = 0;
+            lordGlobalId = 0;
+            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(
+                    playerId,
+                    out GamePlayerResources* resources) ||
+                resources == null)
+            {
+                return false;
+            }
+
+            lordUnitId = (int)resources->r_LordUnitId;
+            lordGlobalId = (int)resources->r_LordUnitGlobalId;
+            if (lordUnitId <= 0 || lordGlobalId <= 0 ||
+                !GameUnitManagerAPI.Instance.TryGetUnitById(lordUnitId, out GameUnit* lord) ||
+                lord == null)
+            {
+                return false;
+            }
+
+            return lord->r_AliveState == AliveState.IsAlive &&
+                lord->r_ControllableForPlayerId == playerId &&
+                lord->r_UnitChimp == eChimps.CHIMP_TYPE_LORD &&
+                lord->r_GlobalId != 0 &&
+                lord->r_GlobalId == lordGlobalId &&
+                lord->r_CurrentHealth > 0;
         }
 
         private static HashSet<int> CaptureKickedPlayerIds()

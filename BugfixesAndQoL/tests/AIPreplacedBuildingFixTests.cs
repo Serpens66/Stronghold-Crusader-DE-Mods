@@ -75,6 +75,22 @@ namespace BugfixesAndQoL
             string runtime = File.ReadAllText(Path.Combine(root, "src", "AIPreplacedBuildingFixRuntime.cs"));
             string plugin = File.ReadAllText(Path.Combine(root, "src", "BugfixesAndQoLPlugin.cs"));
             string viewModel = File.ReadAllText(Path.Combine(root, "src", "BugfixesAndQoLViewModel.cs"));
+            string processMapLoad = ExtractMethod(runtime, "ProcessMapLoad");
+            string processMapStart = ExtractMethod(runtime, "ProcessMapStart");
+            string allocateSpec = ExtractMethod(runtime, "AllocateSpec");
+            string captureBaseline = ExtractMethod(runtime, "CaptureMapLoadBuildingIdentities");
+            check(processMapLoad.Contains("MissionInitializationPhase.BeforeLoad") &&
+                processMapLoad.Contains("MissionInitializationPhase.NativeLoaded") &&
+                !processMapLoad.Contains("CaptureMapLoadBuildingIdentities"),
+                "BeforeLoad resets and NativeLoaded observes without capturing the pre-AIV baseline");
+            check(allocateSpec.IndexOf("CaptureMapLoadBuildingIdentities", StringComparison.Ordinal) >= 0 &&
+                allocateSpec.IndexOf("CaptureMapLoadBuildingIdentities", StringComparison.Ordinal) <
+                allocateSpec.LastIndexOf("allocateHook.Original", StringComparison.Ordinal),
+                "0x50680 captures the authoritative baseline before its single Vanilla call");
+            check(captureBaseline.Contains("preAivBaselineCaptured || preAivBaselineCaptureClosed") &&
+                processMapStart.Contains("preAivBaselineCaptureClosed = true") &&
+                processMapStart.Contains("PREPLACED_BASELINE_MISSING"),
+                "the pre-AIV capture is one-shot, closes at AfterNativeStart, and fails closed when missing");
             check(Regex.Matches(runtime, @"transaction\.AddDetour\(").Count == 10 &&
                 Regex.Matches(runtime, @"transaction\.AddContextHook\(").Count == 1,
                 "AI preplaced-building fix has exactly ten detours and one context hook");
@@ -100,6 +116,17 @@ namespace BugfixesAndQoL
             check(runtime.Contains("finally") && runtime.Contains("RestoreEconomyGridOverlay") &&
                 runtime.Contains("IsExpectedAivState"),
                 "AI preplaced-building fix restores overlays and validates the public AIV pointer");
+            string economyStart = ExtractMethod(runtime, "TryGetNativeEconomyStart");
+            string runtimeField = ExtractMethod(runtime, "TryGetPlayerRuntimeFieldPointer");
+            check(runtime.Contains("ActivePlayerRuntimeStateBaseRva = 0x379D0CC") &&
+                runtime.Contains("NativeEconomyStartXRva = 0x379AFA8") &&
+                runtime.Contains("NativeEconomyStartYRva = 0x379AFAC") &&
+                economyStart.Contains("nativeModuleBase") &&
+                economyStart.Contains("playerId * PlayerRuntimeStateStride") &&
+                !economyStart.Contains("TryGetPlayerResourcesById") &&
+                runtimeField.Contains("activeLayoutIndexBase") &&
+                !runtimeField.Contains("TryGetPlayerResourcesById"),
+                "AI runtime timer, census, and economy-start fields use Vanilla's separate active-player state");
             check(runtime.Contains("Registers = X64SmartCPUContextRegs.All") &&
                 runtime.Contains("Placement = OverwrittenInstructionPlacement.BeforeCallback") &&
                 runtime.Contains("DisplacedByteCount != WoodScoreFloorHookLength"),
@@ -136,10 +163,17 @@ namespace BugfixesAndQoL
                 "AI wood-score hook has the audited exact 15-byte span");
             check(!HasRelativeBranchTargetInside(image, hookRva, returnRva),
                 "AI wood-score hook span has no incoming relative branch target");
+            const int activeLayoutReferenceRva = 0x55F64;
+            int activeLayoutReferenceOffset = RvaToFileOffset(image, activeLayoutReferenceRva);
+            int activeLayoutTarget = activeLayoutReferenceRva + 10 +
+                BitConverter.ToInt32(image, activeLayoutReferenceOffset + 6);
+            check(activeLayoutTarget == 0x379D0CC,
+                "AI active-player runtime-state RIP reference resolves to the audited Vanilla table");
 
             var contracts = new Dictionary<string, int>
             {
                 ["AllocateSpecPattern"] = 0x50680,
+                ["ActiveLayoutReferencePattern"] = activeLayoutReferenceRva,
                 ["EconomyOxenPattern"] = 0x50F90,
                 ["EconomyQuarryPattern"] = 0x51270,
                 ["EconomyWoodPattern"] = 0x51540,
@@ -253,7 +287,8 @@ namespace BugfixesAndQoL
         private static string ExtractMethod(string source, string methodName)
         {
             Match declaration = Regex.Match(source,
-                @"private[^\x0D\x0A]+\s+" + Regex.Escape(methodName) + @"\s*\(");
+                @"(?m)^[ \t]*private(?:[ \t]+static)?(?:[ \t]+unsafe)?[ \t]+" +
+                @"[^\x0D\x0A(]+?[ \t]+" + Regex.Escape(methodName) + @"[ \t]*\(");
             if (!declaration.Success) throw new InvalidOperationException("Method missing: " + methodName);
             int open = source.IndexOf('{', declaration.Index + declaration.Length);
             int depth = 0;

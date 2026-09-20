@@ -33,10 +33,12 @@ namespace BugfixesAndQoL
         private const int LegacyPlayerStateCopyCallSiteRva = 0x96CE;
         private const int LegacyPlayerStateSourceRva = 0x37CC7EC;
         private const int CurrentPlayerStateDestinationRva = 0x379ADD0;
+        private const int ActivePlayerRuntimeStateBaseRva = 0x379D0CC;
         // These are the exact per-player coordinates used as the BFS origin by
-        // RVAs 0x575B0, 0x57B80 and 0x58020, relative to GamePlayerResources.
-        private const int NativeEconomyStartXOffset = 0x5614;
-        private const int NativeEconomyStartYOffset = 0x5618;
+        // RVAs 0x575B0, 0x57B80 and 0x58020. They are not GamePlayerResources
+        // fields and retain Vanilla's native 1-based player stride.
+        private const int NativeEconomyStartXRva = 0x379AFA8;
+        private const int NativeEconomyStartYRva = 0x379AFAC;
         private const int SerializedCrushedCounterOffset =
             PlayerResourcesOffsetInSerializedRecord + CrushedCounterRelativeOffset;
         private const int MapFormatVersionRva = 0x32DC084;
@@ -51,6 +53,8 @@ namespace BugfixesAndQoL
 
         private const string AllocateSpecPattern =
             "48 89 74 24 10 57 48 83 EC 20 BF 01 00 00 00 48 8D 81 9C 6D 00 00";
+        private const string ActiveLayoutReferencePattern =
+            "48 63 F2 48 8D 05 ?? ?? ?? ?? 4C 69 CE 3C 58 00 00";
         private const string EconomyOxenPattern =
             "48 89 5C 24 20 56 57 41 54 48 83 EC 40 48 63 FA";
         private const string EconomyQuarryPattern =
@@ -73,6 +77,7 @@ namespace BugfixesAndQoL
             "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 48 89 7C 24 20 41 54 41 56 41 57 48 83 EC 20 48 8D 2D ?? ?? ?? ?? BB 60 0D 03 00";
 
         private const int AllocateSpecRva = 0x50680;
+        private const int ActiveLayoutReferenceRva = 0x55F64;
         private const int EconomyOxenRva = 0x50F90;
         private const int EconomyQuarryRva = 0x51270;
         private const int EconomyWoodRva = 0x51540;
@@ -146,6 +151,7 @@ namespace BugfixesAndQoL
 
         private InitializeEconomyAvailabilityDelegate initializeEconomyAvailabilityNative;
         private HookTransaction transaction;
+        private ulong activeLayoutIndexBase;
         private ulong nativeModuleBase;
         private ulong lastAivState;
         private int mapSequence;
@@ -164,6 +170,8 @@ namespace BugfixesAndQoL
             new Dictionary<int, PreplacedIdentity>();
         private readonly HashSet<int> mapLoadWallTiles = new HashSet<int>();
         private bool preAivBaselineCaptured;
+        private bool preAivBaselineCaptureClosed;
+        private bool preAivBaselineMissingLogged;
         private readonly Dictionary<int, PreplacedIdentity> preplacedBuildings =
             new Dictionary<int, PreplacedIdentity>();
         private readonly Dictionary<int, WallTileBaseline> wallBaselines =
@@ -226,6 +234,11 @@ namespace BugfixesAndQoL
                 Dictionary<string, int> rvas = ResolveAll(context.Memory);
                 ValidateManagedLayouts();
                 ulong module = unchecked((ulong)context.ModuleHandle.ToInt64());
+                activeLayoutIndexBase = ResolveRipAddress(context,
+                    rvas["active-layout-reference"] + 3, 3, 7);
+                if (activeLayoutIndexBase != module + ActivePlayerRuntimeStateBaseRva)
+                    throw new InvalidOperationException(
+                        "active player runtime-state base differs from the audited Vanilla record");
                 nativeModuleBase = module;
                 if (GameAIVManagerAPI.Instance.GetAIVSystemPointer() == null)
                     throw new InvalidOperationException("Script Extender returned no live AIV-system pointer");
@@ -274,13 +287,15 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException("atomic native hook transaction was incomplete: " + result);
                 nativeReady = true;
                 Shared.DebugLogHelper.LogInfo(log,
-                    $"AI_PREPLACED_BUILDING_FIX_NATIVE_READY: 10 detours and one scoped wood-score context hook installed atomically; pclEntries={NativePclEntryCount}." );
+                    $"AI_PREPLACED_BUILDING_FIX_NATIVE_READY: 10 detours and one scoped wood-score context hook installed atomically; " +
+                    $"activeLayoutBase=0x{activeLayoutIndexBase:X}; pclEntries={NativePclEntryCount}." );
             }
             catch (Exception ex)
             {
                 // RollbackAndThrow handles commit failures; this also covers a defensive
                 // post-commit handle-consistency failure before exposing native fixes.
                 try { transaction?.DisableAll(); } catch { }
+                activeLayoutIndexBase = 0;
                 nativeModuleBase = 0;
                 nativeReady = false;
                 initializeEconomyAvailabilityNative = null;
@@ -304,7 +319,8 @@ namespace BugfixesAndQoL
                 Def("economy-grid-update", EconomyGridUpdatePattern, EconomyGridUpdateRva),
                 Def("initialize-economy-availability", InitializeEconomyAvailabilityPattern, InitializeEconomyAvailabilityRva),
                 Def("legacy-player-state-copy", LegacyPlayerStateCopyPattern, LegacyPlayerStateCopyRva),
-                Def("allocate", AllocateSpecPattern, AllocateSpecRva)
+                Def("allocate", AllocateSpecPattern, AllocateSpecRva),
+                Def("active-layout-reference", ActiveLayoutReferencePattern, ActiveLayoutReferenceRva)
             };
             Dictionary<string, int> result = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (NativeDefinition definition in definitions)
@@ -333,7 +349,9 @@ namespace BugfixesAndQoL
                 (long)SerializedPlayerRecordCount * PlayerRuntimeStateStride;
             if (sourceEnd > memory.Length || destinationEnd > memory.Length ||
                 MapFormatVersionRva + sizeof(int) > memory.Length ||
-                SerializedCrushedCounterOffset + sizeof(int) > LegacyPlayerStateStride)
+                SerializedCrushedCounterOffset + sizeof(int) > LegacyPlayerStateStride ||
+                CurrentPlayerStateDestinationRva + PlayerResourcesOffsetInSerializedRecord !=
+                    ActivePlayerRuntimeStateBaseRva)
                 throw new InvalidOperationException("legacy player-state copy data ranges differ");
         }
 
@@ -348,8 +366,6 @@ namespace BugfixesAndQoL
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_IsSleeping), 0x296);
             ValidateOffset(typeof(GameBuilding), nameof(GameBuilding.r_GatehouseId), 0x2D2);
             ValidateOffset(typeof(GamePlayerResources), nameof(GamePlayerResources.r_KeepTileId), 0xA0);
-            ValidateOffset(typeof(GamePlayerResources), "N00005A83", NativeEconomyStartXOffset);
-            ValidateOffset(typeof(GamePlayerResources), "N000044BA", NativeEconomyStartYOffset);
             ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_RecordGlobalId), 0x08);
             ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_BuildingId), 0x0C);
             ValidateOffset(typeof(PathConnectionRecord), nameof(PathConnectionRecord.r_SubjectGlobalId), 0x14);
@@ -386,11 +402,21 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException($"managed layout mismatch: sizeof({type.Name})=0x{actual:X}, expected=0x{expected:X}");
         }
 
+        private static ulong ResolveRipAddress(CrusaderLibraryLoadContext context, int instructionRva,
+            int displacementOffset, int length)
+        {
+            int targetRva = Shared.NativePatternResolver.ResolveRelativeTarget(context.Memory,
+                instructionRva + displacementOffset, instructionRva + length);
+            if (targetRva < 0 || targetRva >= context.Memory.Length)
+                throw new InvalidOperationException("RIP-relative active-layout target is outside the image.");
+            return unchecked((ulong)context.ModuleHandle.ToInt64()) + (ulong)targetRva;
+        }
+
         private bool AllHooksSucceeded() => allocateHook.Success && economyOxenHook.Success &&
             economyQuarryHook.Success && economyWoodHook.Success && farmSearchHook.Success &&
             resourceSearchHook.Success && woodSearchHook.Success && nearbySearchHook.Success &&
             economyGridUpdateHook.Success && legacyPlayerStateCopyHook.Success && woodScoreFloorHook.Success &&
-            initializeEconomyAvailabilityNative != null;
+            initializeEconomyAvailabilityNative != null && activeLayoutIndexBase != 0;
 
         private void EconomyGridUpdate(ulong state, int mode)
         {
@@ -1023,9 +1049,12 @@ namespace BugfixesAndQoL
 
         private static void ValidateNativeEconomyStartRanges(ReadOnlySpan<byte> memory)
         {
-            if (memory.Length == 0 || NativeEconomyStartXOffset < 0 ||
-                NativeEconomyStartYOffset != NativeEconomyStartXOffset + sizeof(int) ||
-                NativeEconomyStartYOffset + sizeof(int) > PlayerRuntimeStateStride)
+            long lastPlayerOffset = (long)MaxPlayablePlayerId * PlayerRuntimeStateStride;
+            if (NativeEconomyStartXRva < 0 ||
+                NativeEconomyStartYRva != NativeEconomyStartXRva + sizeof(int) ||
+                NativeEconomyStartYRva + lastPlayerOffset + sizeof(int) > memory.Length ||
+                ActivePlayerRuntimeStateBaseRva < 0 ||
+                ActivePlayerRuntimeStateBaseRva + lastPlayerOffset + PlayerRuntimeStateStride > memory.Length)
                 throw new InvalidOperationException("native per-player economy-start coordinate range differs");
         }
 
@@ -1168,12 +1197,10 @@ namespace BugfixesAndQoL
         {
             x = 0;
             y = 0;
-            if (!IsValidOwner(playerId) ||
-                !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(playerId,
-                    out GamePlayerResources* resources) || resources == null)
-                return false;
-            x = *(int*)((byte*)resources + NativeEconomyStartXOffset);
-            y = *(int*)((byte*)resources + NativeEconomyStartYOffset);
+            if (nativeModuleBase == 0 || !IsValidOwner(playerId)) return false;
+            long playerOffset = checked((long)playerId * PlayerRuntimeStateStride);
+            x = *(int*)(nativeModuleBase + (ulong)NativeEconomyStartXRva + (ulong)playerOffset);
+            y = *(int*)(nativeModuleBase + (ulong)NativeEconomyStartYRva + (ulong)playerOffset);
             return GameTileManagerAPI.Instance.IsTileInsideMapBounds(x, y);
         }
 
@@ -1263,19 +1290,22 @@ namespace BugfixesAndQoL
 
         private void ProcessMapLoad(APIShared.MissionLifecycleNotification args)
         {
-            if (args.IsBeforeInitialization)
+            if (args.Phase == APIShared.MissionInitializationPhase.BeforeLoad)
             {
                 ResetMap("OnLoadMap(Pre)");
                 sessionEnabled = nativeReady && isEnabled();
                 mapActive = sessionEnabled;
                 currentMapIsSave = args.Context.IsSave;
+                if (sessionEnabled)
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"PREPLACED_MAP_LOAD: phase={args.Phase}, sequence={mapSequence}.");
+                return;
             }
             if (!sessionEnabled) return;
-            Safe(() =>
-            {
-                CaptureMapLoadBuildingIdentities("map-load.post-fallback");
-            });
-            Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_MAP_LOAD: phase={args.Phase}, sequence={mapSequence}.");
+            if (args.Phase == APIShared.MissionInitializationPhase.NativeLoaded)
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"PREPLACED_MAP_LOAD: phase={args.Phase}, sequence={mapSequence}; " +
+                    $"preAivBaselineCaptured={preAivBaselineCaptured}.");
         }
 
         private void OnMapStart(APIShared.MissionLifecycleNotification args) => Safe(() => ProcessMapStart(args));
@@ -1286,14 +1316,30 @@ namespace BugfixesAndQoL
             if (args.IsBeforeInitialization && args.Context.IsSave && args.Context.Mode.IsRealMultiplayer) currentMapIsSave = true;
             if (!args.IsBeforeInitialization)
             {
-                CapturePreplacedBaseline();
+                preAivBaselineCaptureClosed = true;
                 ApplyLegacyRuinTimerFix();
-                bool hasBaselinePortal = preplacedBuildings.Values.Any(identity =>
-                    IsPortalStructure((eStructs)identity.StructureType));
-                if (hasBaselinePortal || mapLoadWallTiles.Count != 0)
-                    ResolveWallAccessRoles();
-                ResolveEconomyProfile();
-                SynchronizePreplacedPortalOwnersAndActivate();
+                if (!preAivBaselineCaptured)
+                {
+                    economyProfileResolved = true;
+                    economyMapRelevant = false;
+                    if (HasAnyAiPlayer() && !preAivBaselineMissingLogged)
+                    {
+                        preAivBaselineMissingLogged = true;
+                        Shared.DebugLogHelper.LogWarning(log,
+                            $"PREPLACED_BASELINE_MISSING: sequence={mapSequence}; checkpoint=0x{AllocateSpecRva:X}; " +
+                            "economy fix disabled for this map; legacy ruin timer handling remains independent.");
+                    }
+                }
+                else
+                {
+                    CapturePreplacedBaseline();
+                    bool hasBaselinePortal = preplacedBuildings.Values.Any(identity =>
+                        IsPortalStructure((eStructs)identity.StructureType));
+                    if (hasBaselinePortal || mapLoadWallTiles.Count != 0)
+                        ResolveWallAccessRoles();
+                    ResolveEconomyProfile();
+                    SynchronizePreplacedPortalOwnersAndActivate();
+                }
             }
             Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_MAP_START: phase={args.Phase}, sequence={mapSequence}.");
         }
@@ -1843,6 +1889,8 @@ namespace BugfixesAndQoL
             mapLoadBuildingIdentities.Clear();
             mapLoadWallTiles.Clear();
             preAivBaselineCaptured = false;
+            preAivBaselineCaptureClosed = false;
+            preAivBaselineMissingLogged = false;
             preplacedBuildings.Clear();
             wallBaselines.Clear();
             mapActive = false;
@@ -1897,15 +1945,14 @@ namespace BugfixesAndQoL
             return *(short*)field;
         }
 
-        private static bool TryGetPlayerRuntimeFieldPointer(int playerId, int relativeOffset, out byte* field)
+        private bool TryGetPlayerRuntimeFieldPointer(int playerId, int relativeOffset, out byte* field)
         {
             field = null;
             if (!IsValidOwner(playerId) || relativeOffset < 0 ||
-                relativeOffset + sizeof(int) > PlayerRuntimeStateStride ||
-                !GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(playerId,
-                    out GamePlayerResources* resources) || resources == null)
+                relativeOffset + sizeof(int) > PlayerRuntimeStateStride || activeLayoutIndexBase == 0)
                 return false;
-            field = (byte*)resources + relativeOffset;
+            field = (byte*)activeLayoutIndexBase +
+                checked(playerId * PlayerRuntimeStateStride + relativeOffset);
             return true;
         }
 
@@ -1981,7 +2028,7 @@ namespace BugfixesAndQoL
 
         private void CaptureMapLoadBuildingIdentities(string source)
         {
-            if (preAivBaselineCaptured) return;
+            if (preAivBaselineCaptured || preAivBaselineCaptureClosed) return;
             mapLoadBuildingIdentities.Clear();
             mapLoadWallTiles.Clear();
             foreach (BuildingSnapshot building in CaptureRawBuildings())
@@ -2002,6 +2049,13 @@ namespace BugfixesAndQoL
                 $"PREPLACED_PRE_AIV_BASELINE: sequence={mapSequence}; source={source}; " +
                 $"stableRecords={mapLoadBuildingIdentities.Count}; " +
                 $"wallTiles={mapLoadWallTiles.Count}.");
+        }
+
+        private bool HasAnyAiPlayer()
+        {
+            for (int playerId = 1; playerId <= MaxPlayablePlayerId; playerId++)
+                if (IsAi(playerId)) return true;
+            return false;
         }
 
         private bool IsCurrentPreplaced(int buildingId)
