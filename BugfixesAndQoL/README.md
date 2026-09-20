@@ -46,6 +46,9 @@ Barracks, mercenary posts, engineer guilds, tunneler guilds, keeps, and Bedouin 
 ### Rotate Keep flags with their Keeps
 The main flag stays in the same corner relative to the entrance when Vanilla, CastlePlanner, or Fixes rotates a human or AI Keep. This enabled-by-default host fix works in every game mode and supports Keep1, Keep2, and the larger Keep3.
 
+### Spawn Lords on maps with corrupt Lord data
+Maps that contain stale or corrupt Lord references now correctly spawn Lords for affected human and AI player slots. This includes player slots 7 and 8 on `The Ford Across the River`; valid existing Lords, loaded saves, and unaffected maps remain unchanged.
+
 ### Keep buildings away from enemy buildings and moats
 This enabled-by-default host fix requires a one-tile gap around every human-placed building when an enemy completed moat is nearby. Tunnels and tunnel construction sites additionally retain the same gap from enemy buildings and walls (same like woodcutters and so on already do).
 
@@ -60,6 +63,9 @@ Vanilla DE already reads the correct positions from user-supplied `.aivjson` fil
 
 ### Improve AI wall targeting
 Vanilla reserves each reachable wall segment for only one attacker at a time, which can leave the rest of an AI attack force idle until additional targets become accessible. This enabled-by-default host fix allows multiple AI attackers to target the same reachable wall segment simultaneously.
+
+### Fix AI issues from preplaced map buildings
+Preplaced destroyed tower decorations can wrongly delay an AI's castle construction, while preplaced walls can prevent its economy from using otherwise reachable land. This enabled-by-default host fix removes the false ruin delay, lets Vanilla's economy searches use areas reached through friendly preplaced gates, and refreshes that access after a genuine wall breach. Closed enclosures without a passable friendly gate remain blocked until they are actually opened.
 
 ### Fix AI tower rebuilding
 When an AI tries to rebuild a tower from its castle plan, its own tower ruin can block the placement forever. The fix safely removes only the matching ruin owned by that AI; human, enemy, unrelated, and non-tower ruins remain untouched. (vanilla was only able to remove ruins within close range to the keep)

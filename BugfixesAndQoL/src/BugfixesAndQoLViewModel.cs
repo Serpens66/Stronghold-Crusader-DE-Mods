@@ -23,6 +23,7 @@ namespace BugfixesAndQoL
         private bool enableAiDefensePatrolFix = true;
         private bool enableAiWallTargetingFix = true;
         private bool enableAivDefenderPositionFix = true;
+        private bool fixAIPreplacedMapBuildings = true;
         private bool fixAITowerRepair = true;
         private bool betterAIOverbuildRules = true;
         private bool enableTroopMovementFix = true;
@@ -42,6 +43,7 @@ namespace BugfixesAndQoL
         private bool enablePlagueTargetReservationFix = true;
         private bool enableAssemblyPointPlacementFix = true;
         private bool enableKeepFlagRotationFix = true;
+        private bool enableCorruptLordDataSpawnFix = true;
         private bool enableTunnelPlacementDistanceFix = true;
         private bool enableFairSiegeAmmoRestock = true;
         private bool enableSurrenderAndStatistics = true;
@@ -221,6 +223,8 @@ namespace BugfixesAndQoL
         public string EnableAiWallTargetingFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAiWallTargetingFixHelp");
         public string EnableAivDefenderPositionFixText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFix");
         public string EnableAivDefenderPositionFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAivDefenderPositionFixHelp");
+        public string FixAIPreplacedMapBuildingsText => SerpLocalization.Get("BugfixesAndQoL.FixAIPreplacedMapBuildings");
+        public string FixAIPreplacedMapBuildingsHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAIPreplacedMapBuildingsHelp");
         public string FixAITowerRepairText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepair");
         public string FixAITowerRepairHelpText => SerpLocalization.Get("BugfixesAndQoL.FixAITowerRepairHelp");
         public string BetterAIOverbuildRulesText => SerpLocalization.Get("BugfixesAndQoL.BetterAIOverbuildRules");
@@ -323,6 +327,8 @@ namespace BugfixesAndQoL
         public string EnableAssemblyPointPlacementFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableAssemblyPointPlacementFixHelp");
         public string EnableKeepFlagRotationFixText => SerpLocalization.Get("BugfixesAndQoL.EnableKeepFlagRotationFix");
         public string EnableKeepFlagRotationFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableKeepFlagRotationFixHelp");
+        public string EnableCorruptLordDataSpawnFixText => SerpLocalization.Get("BugfixesAndQoL.EnableCorruptLordDataSpawnFix");
+        public string EnableCorruptLordDataSpawnFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableCorruptLordDataSpawnFixHelp");
         public string EnableTunnelPlacementDistanceFixText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFix");
         public string EnableTunnelPlacementDistanceFixHelpText => SerpLocalization.Get("BugfixesAndQoL.EnableTunnelPlacementDistanceFixHelp");
         public string EnableFairSiegeAmmoRestockText => SerpLocalization.Get("BugfixesAndQoL.EnableFairSiegeAmmoRestock");
@@ -722,6 +728,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool FixAIPreplacedMapBuildings
+        {
+            get => fixAIPreplacedMapBuildings;
+            set => SetSetting(ref fixAIPreplacedMapBuildings, value, nameof(FixAIPreplacedMapBuildings));
+        }
+
+        [SyncHostOnly]
         public bool FixAITowerRepair
         {
             get => fixAITowerRepair;
@@ -972,6 +985,13 @@ namespace BugfixesAndQoL
         }
 
         [SyncHostOnly]
+        public bool EnableCorruptLordDataSpawnFix
+        {
+            get => enableCorruptLordDataSpawnFix;
+            set => SetSetting(ref enableCorruptLordDataSpawnFix, value, nameof(EnableCorruptLordDataSpawnFix));
+        }
+
+        [SyncHostOnly]
         public bool EnableTunnelPlacementDistanceFix
         {
             get => enableTunnelPlacementDistanceFix;
@@ -1113,6 +1133,7 @@ namespace BugfixesAndQoL
                 EnableAiDefensePatrolFix = true;
                 EnableAiWallTargetingFix = true;
                 EnableAivDefenderPositionFix = true;
+                FixAIPreplacedMapBuildings = true;
                 FixAITowerRepair = true;
                 BetterAIOverbuildRules = true;
                 RememberAiAivSettings = true;
@@ -1145,6 +1166,7 @@ namespace BugfixesAndQoL
                 EnablePlagueTargetReservationFix = true;
                 EnableAssemblyPointPlacementFix = true;
                 EnableKeepFlagRotationFix = true;
+                EnableCorruptLordDataSpawnFix = true;
                 EnableTunnelPlacementDistanceFix = true;
                 EnableFairSiegeAmmoRestock = true;
                 EnableSurrenderAndStatistics = true;

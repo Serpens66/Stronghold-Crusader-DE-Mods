@@ -428,6 +428,12 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableKeepFlagRotationFixText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-corrupt-lord-data-spawn-fix" shared:ModSettingsSearch.Title="{Binding EnableCorruptLordDataSpawnFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableCorruptLordDataSpawnFixHelpText}"><CheckBox IsChecked="{Binding EnableCorruptLordDataSpawnFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableCorruptLordDataSpawnFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableCorruptLordDataSpawnFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.enable-tunnel-placement-distance-fix" shared:ModSettingsSearch.Title="{Binding EnableTunnelPlacementDistanceFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableTunnelPlacementDistanceFixHelpText}"><CheckBox IsChecked="{Binding EnableTunnelPlacementDistanceFix, Mode=TwoWay}"
                 Foreground="White"
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableTunnelPlacementDistanceFixHelpText}"
@@ -460,6 +466,12 @@
                 ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableAivDefenderPositionFixHelpText}"
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding EnableAivDefenderPositionFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.fix-ai-preplaced-map-buildings" shared:ModSettingsSearch.Title="{Binding FixAIPreplacedMapBuildingsText}" shared:ModSettingsSearch.ToolTipText="{Binding FixAIPreplacedMapBuildingsHelpText}"><CheckBox IsChecked="{Binding FixAIPreplacedMapBuildings, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding FixAIPreplacedMapBuildingsHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding FixAIPreplacedMapBuildingsText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.fix-aitower-repair" shared:ModSettingsSearch.Title="{Binding FixAITowerRepairText}" shared:ModSettingsSearch.ToolTipText="{Binding FixAITowerRepairHelpText}"><CheckBox IsChecked="{Binding FixAITowerRepair, Mode=TwoWay}"
                 Foreground="White"

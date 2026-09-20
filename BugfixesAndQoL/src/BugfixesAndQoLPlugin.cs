@@ -19,6 +19,8 @@ namespace BugfixesAndQoL
     [BepInIncompatibility(TroopMovementFix3Guid)]
     [BepInIncompatibility(LegacyMoveMoatGuid)]
     [BepInIncompatibility(LegacyQueueTestGuid)]
+    [BepInIncompatibility(PreplacedTestGuid)]
+    [BepInIncompatibility(EnemyGatePathfindingTestGuid)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
@@ -32,10 +34,12 @@ namespace BugfixesAndQoL
         private const string LegacyMoveMoatGuid = "MoveMoatTest_Serp";
         private const string LegacyQueueTestGuid = "QueueTest_Serp";
         private const string LegacySomeSettingsGuid = "SomeSettings_Serp";
+        private const string PreplacedTestGuid = "PreplacedTest_Serp";
+        private const string EnemyGatePathfindingTestGuid = "EnemyGatePathfindingTest_Serp";
 
         public const string PluginGuid = "BugfixesAndQoL_Serp";
         public const string PluginName = "Bugfixes and QoL";
-        public const string PluginVersion = "1.0.156";
+        public const string PluginVersion = "1.0.158";
 
         private static DisplayResolutionPersistenceHook displayResolutionPersistenceHook;
         private static ResolutionAwareZoomHook resolutionAwareZoomHook;

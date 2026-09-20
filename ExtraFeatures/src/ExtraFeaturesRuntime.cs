@@ -40,11 +40,13 @@ namespace ExtraFeatures
         private readonly LordHealthRuntime lordHealthRuntime;
         private readonly MarketTradeGuardBridge marketTradeGuardBridge;
         private readonly ElevatedMoatRuntime elevatedMoatRuntime;
+        private readonly VanillaPeaceTimeRuntime vanillaPeaceTimeRuntime;
 
         private PendingStockpileRefund pendingStockpileRefund;
         private AIMarketVanillaPriceHook aiMarketVanillaPriceHook;
         private MonkAlwaysRunPatch monkAlwaysRunPatch;
         private FearFactorNeutralizationRuntime fearFactorRuntime;
+        private VanillaPeaceTimeGameplayPatch vanillaPeaceTimeGameplayPatch;
         private PlagueDurationPatch plagueDurationPatch;
         private PlagueApothecarySearchRangePatch plagueApothecarySearchRangePatch;
         private IntPtr libraryHandle;
@@ -76,6 +78,7 @@ namespace ExtraFeatures
             lordHealthRuntime = new LordHealthRuntime(log, settings);
             marketTradeGuardBridge = new MarketTradeGuardBridge(log, this);
             elevatedMoatRuntime = new ElevatedMoatRuntime(log);
+            vanillaPeaceTimeRuntime = new VanillaPeaceTimeRuntime(log, settings);
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
         }
@@ -101,6 +104,7 @@ namespace ExtraFeatures
             TryRunFeature("gatehouse automation lifecycle", gatehouseAutomationRuntime.Initialize);
             TryRunFeature("AI defense repair lifecycle", aiDefenseRepairRuntime.Initialize);
             TryRunFeature("Lord health lifecycle", lordHealthRuntime.Initialize);
+            TryRunFeature("Vanilla peace time", vanillaPeaceTimeRuntime.Initialize);
         }
 
         public void InitializeNative(CrusaderLibraryLoadContext context, bool isFixedLayoutHashValidated)
@@ -120,6 +124,23 @@ namespace ExtraFeatures
             fixedLayoutHashValidated = isFixedLayoutHashValidated;
             nativeLibraryAvailable = true;
             elevatedMoatRuntime.InitializeNative(context, fixedLayoutHashValidated);
+
+            try
+            {
+                vanillaPeaceTimeGameplayPatch = new VanillaPeaceTimeGameplayPatch(
+                    log,
+                    newLibraryHandle,
+                    nativeRegion,
+                    memory,
+                    fixedLayoutHashValidated);
+            }
+            catch (Exception ex)
+            {
+                // A published patch is intentionally process-lifetime. The constructor rolls
+                // back only an unpublished, incomplete transaction before throwing.
+                vanillaPeaceTimeGameplayPatch = null;
+                LogFeatureFailure("complete Vanilla peace-time gameplay", ex);
+            }
 
             try
             {

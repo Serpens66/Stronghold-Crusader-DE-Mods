@@ -1,11 +1,11 @@
-using System;
 using System.Collections.Generic;
 
-namespace LordSpawnSlotFixTest
+namespace BugfixesAndQoL
 {
-    internal enum LordSpawnSlotDecision
+    internal enum CorruptLordDataSpawnDecision
     {
         ClearStaleLordReference,
+        RejectDisabled,
         RejectNotNewGameSession,
         RejectOutsideCorrectionWindow,
         RejectMissingPlayerRecord,
@@ -24,9 +24,10 @@ namespace LordSpawnSlotFixTest
         RejectInvalidKeepDoorReference
     }
 
-    internal readonly struct LordSpawnSlotGuardInput
+    internal readonly struct CorruptLordDataSpawnGuardInput
     {
-        internal LordSpawnSlotGuardInput(
+        internal CorruptLordDataSpawnGuardInput(
+            bool enabled,
             bool isNewGameSession,
             bool correctionWindowOpen,
             bool hasPlayerRecord,
@@ -44,6 +45,7 @@ namespace LordSpawnSlotFixTest
             bool validOwnedKeep,
             bool validOwnedKeepDoorReference)
         {
+            Enabled = enabled;
             IsNewGameSession = isNewGameSession;
             CorrectionWindowOpen = correctionWindowOpen;
             HasPlayerRecord = hasPlayerRecord;
@@ -62,6 +64,7 @@ namespace LordSpawnSlotFixTest
             ValidOwnedKeepDoorReference = validOwnedKeepDoorReference;
         }
 
+        internal bool Enabled { get; }
         internal bool IsNewGameSession { get; }
         internal bool CorrectionWindowOpen { get; }
         internal bool HasPlayerRecord { get; }
@@ -80,51 +83,53 @@ namespace LordSpawnSlotFixTest
         internal bool ValidOwnedKeepDoorReference { get; }
     }
 
-    internal static class LordSpawnSlotFixPolicy
+    internal static class CorruptLordDataSpawnPolicy
     {
-        internal static LordSpawnSlotDecision Evaluate(in LordSpawnSlotGuardInput input)
+        internal static CorruptLordDataSpawnDecision Evaluate(in CorruptLordDataSpawnGuardInput input)
         {
+            if (!input.Enabled)
+                return CorruptLordDataSpawnDecision.RejectDisabled;
             if (!input.IsNewGameSession)
-                return LordSpawnSlotDecision.RejectNotNewGameSession;
+                return CorruptLordDataSpawnDecision.RejectNotNewGameSession;
             if (!input.CorrectionWindowOpen)
-                return LordSpawnSlotDecision.RejectOutsideCorrectionWindow;
+                return CorruptLordDataSpawnDecision.RejectOutsideCorrectionWindow;
             if (!input.HasPlayerRecord)
-                return LordSpawnSlotDecision.RejectMissingPlayerRecord;
+                return CorruptLordDataSpawnDecision.RejectMissingPlayerRecord;
             if (input.Kicked)
-                return LordSpawnSlotDecision.RejectKicked;
+                return CorruptLordDataSpawnDecision.RejectKicked;
             if (input.AlreadyAttempted)
-                return LordSpawnSlotDecision.RejectAlreadyAttempted;
+                return CorruptLordDataSpawnDecision.RejectAlreadyAttempted;
             if (input.IsDefeated)
-                return LordSpawnSlotDecision.RejectDefeated;
+                return CorruptLordDataSpawnDecision.RejectDefeated;
             if (!input.ValidOwnedKeep)
-                return LordSpawnSlotDecision.RejectInvalidKeep;
+                return CorruptLordDataSpawnDecision.RejectInvalidKeep;
             if (!input.ValidOwnedKeepDoorReference)
-                return LordSpawnSlotDecision.RejectInvalidKeepDoorReference;
+                return CorruptLordDataSpawnDecision.RejectInvalidKeepDoorReference;
             if (input.LordUnitId <= 0)
-                return LordSpawnSlotDecision.RejectMissingStoredLordUnitId;
+                return CorruptLordDataSpawnDecision.RejectMissingStoredLordUnitId;
             if (input.LordGlobalId <= 0)
-                return LordSpawnSlotDecision.RejectMissingStoredLordGlobalId;
+                return CorruptLordDataSpawnDecision.RejectMissingStoredLordGlobalId;
             if (!input.LordUnitResolved)
-                return LordSpawnSlotDecision.RejectLordUnitUnresolved;
+                return CorruptLordDataSpawnDecision.RejectLordUnitUnresolved;
             if (input.LordOwnerPlayerId != 0)
-                return LordSpawnSlotDecision.RejectLordOwnerNotZero;
+                return CorruptLordDataSpawnDecision.RejectLordOwnerNotZero;
             if (!input.LordTypeIsNull)
-                return LordSpawnSlotDecision.RejectLordTypeNotNull;
+                return CorruptLordDataSpawnDecision.RejectLordTypeNotNull;
             if (!input.LordAliveStateIsNone)
-                return LordSpawnSlotDecision.RejectLordAliveStateNotNone;
+                return CorruptLordDataSpawnDecision.RejectLordAliveStateNotNone;
             if (input.LordUnitGlobalId != 0)
-                return LordSpawnSlotDecision.RejectLordUnitGlobalIdNotZero;
+                return CorruptLordDataSpawnDecision.RejectLordUnitGlobalIdNotZero;
             if (input.LordCurrentHealth != 0)
-                return LordSpawnSlotDecision.RejectLordHealthNotZero;
+                return CorruptLordDataSpawnDecision.RejectLordHealthNotZero;
 
             // Do not broaden this into a generic "invalid Lord" repair. The complete zeroed
             // unit-slot identity is the evidence that distinguishes the remap tombstone from a
             // live, initializing, dying, restored, or otherwise meaningful Vanilla unit state.
-            return LordSpawnSlotDecision.ClearStaleLordReference;
+            return CorruptLordDataSpawnDecision.ClearStaleLordReference;
         }
     }
 
-    internal sealed class LordSpawnSlotSessionState
+    internal sealed class CorruptLordDataSpawnSessionState
     {
         private readonly HashSet<int> attemptedPlayers = new HashSet<int>();
         private readonly HashSet<int> confirmedPlayers = new HashSet<int>();

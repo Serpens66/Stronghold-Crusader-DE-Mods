@@ -74,6 +74,8 @@ namespace BugfixesAndQoL
         private static AllyGoodsAmountModifierHook processAllyGoodsAmountModifierHook;
         private static WorkshopUploadLordSelectionFix processWorkshopUploadLordSelectionFix;
         private static KeepFlagRotationRuntime processKeepFlagRotationRuntime;
+        private static CorruptLordDataSpawnRuntime processCorruptLordDataSpawnRuntime;
+        private static AIPreplacedBuildingFixRuntime processAIPreplacedBuildingFixRuntime;
         private CtrlMarketTradeHook ctrlMarketTradeHook;
         private NotificationSkipFeature notificationSkipFeature;
         private IntPtr libraryHandle;
@@ -281,6 +283,9 @@ namespace BugfixesAndQoL
                 "Keep-flag rotation fix",
                 EnsureKeepFlagRotationRuntime);
             TryInitializePersistentFeature(
+                "corrupt Lord-data spawn fix",
+                EnsureCorruptLordDataSpawnRuntime);
+            TryInitializePersistentFeature(
                 "complete notification skip",
                 () => notificationSkipFeature = new NotificationSkipFeature(
                     log,
@@ -399,6 +404,15 @@ namespace BugfixesAndQoL
             TryInitializeFeature("AI defense patrol fix", EnsureAiDefensePatrolFix);
             TryInitializeFeature("AI wall-targeting fix", EnsureAiWallTargetingFix);
             TryInitializeFeature("AIV defender-position fix", EnsureAivDefenderPositionFix);
+            TryInitializePersistentFeature("AI preplaced-map-building fix", () =>
+            {
+                var candidate = new AIPreplacedBuildingFixRuntime(
+                    log,
+                    () => settings.EnableMod && settings.FixAIPreplacedMapBuildings);
+                candidate.TryInstallNativeFixes(context, isFixedLayoutHashValidated);
+                candidate.InstallEventHandlers();
+                processAIPreplacedBuildingFixRuntime = candidate;
+            });
             TryInitializeFeature("AI tower-ruin repair fix", EnsureAiTowerRuinRepairFix);
             TryInitializeFeature("better AI overbuild rules", EnsureBetterAIOverbuildRulesFix);
             TryInitializeFeature("ally goods amount modifiers", InstallAllyGoodsAmountModifierHook);
@@ -518,6 +532,16 @@ namespace BugfixesAndQoL
             var candidate = new KeepFlagRotationRuntime(log, settings);
             candidate.Install();
             processKeepFlagRotationRuntime = candidate;
+        }
+
+        private void EnsureCorruptLordDataSpawnRuntime()
+        {
+            if (processCorruptLordDataSpawnRuntime != null)
+                return;
+
+            var candidate = new CorruptLordDataSpawnRuntime(log, settings);
+            candidate.Install();
+            processCorruptLordDataSpawnRuntime = candidate;
         }
 
         public void Dispose()

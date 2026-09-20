@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace PreplacedTest
+namespace BugfixesAndQoL
 {
     internal sealed class LegacyRuinTimerFix
     {

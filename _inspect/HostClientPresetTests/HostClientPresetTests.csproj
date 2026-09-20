@@ -155,6 +155,9 @@
     <Compile Include="..\..\ExtraFeatures\src\EnemyProximityPolicy.cs">
       <Link>EnemyProximityPolicy.cs</Link>
     </Compile>
+    <Compile Include="..\..\ExtraFeatures\src\VanillaPeaceTimePolicy.cs">
+      <Link>VanillaPeaceTimePolicy.cs</Link>
+    </Compile>
     <Compile Include="..\..\ExtraFeatures\src\ExtraFeaturesChoreSender.cs">
       <Link>ExtraFeaturesChoreSender.cs</Link>
     </Compile>

@@ -911,7 +911,7 @@ internal static class Program
               runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
               !production.Contains("context.Region.Dispose()"),
             "P6b borrows all native load-context values without disposing the ScanRegion");
-        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 44 &&
+        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 55 &&
               production.Contains("DetourHandle<ResetDrawListDelegate>") &&
               production.Contains("HookTarget.FromAddress(unchecked((ulong)(libraryHandle + ResetDrawListRva).ToInt64()))"),
             "BugfixesAndQoL owns the audited production RedBird hook handles including the Vanilla draw-list reset");

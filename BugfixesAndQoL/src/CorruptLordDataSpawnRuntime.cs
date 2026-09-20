@@ -8,42 +8,37 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace LordSpawnSlotFixTest
+namespace BugfixesAndQoL
 {
-    internal sealed unsafe class LordSpawnSlotFixTestRuntime
+    internal sealed unsafe class CorruptLordDataSpawnRuntime
     {
-        private const int DetailedSnapshotTicks = 3;
-        private const int VanillaLordWindowStart = 94;
-        private const int VanillaLordWindowEnd = 96;
+        private const int CorrectionWindowTicks = 3;
         private const int ConfirmationTimeoutTicks = 180;
         private const int ObservationStopTicks = 240;
 
         private readonly ManualLogSource log;
+        private readonly BugfixesAndQoLViewModel settings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
-        private readonly LordSpawnSlotSessionState sessionState = new LordSpawnSlotSessionState();
-        private readonly Dictionary<int, string> lastSnapshots = new Dictionary<int, string>();
+        private readonly CorruptLordDataSpawnSessionState sessionState = new CorruptLordDataSpawnSessionState();
         private bool mapActive;
         private bool sessionEligible;
         private int observationTick;
 
-        internal LordSpawnSlotFixTestRuntime(ManualLogSource log)
+        internal CorruptLordDataSpawnRuntime(ManualLogSource log, BugfixesAndQoLViewModel settings)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
+            this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
         }
 
         internal void Install()
         {
-            Shared.MissionEvents.SetOwner(LordSpawnSlotFixTestPluginGuid);
+            Shared.MissionEvents.SetOwner(BugfixesAndQoLPlugin.PluginGuid);
             subscriptions.Add(Shared.MissionEvents.Initialization.Subscribe(OnInitialization));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnMissionEnded));
             GameTimeManagerAPI.Instance.OnTick += OnGameTick;
-            log.LogInfo(
-                "LSS_TEST_INSTALL: correctionThread=GameTimeManagerAPI.OnTick; nativeHooks=0; " +
-                "modeGate=none; eligibleLifecycle=NewGame; saves=false; editor=false; " +
-                "playerScan=native records 1-8; gameMembers=optional kicked veto only.");
         }
 
-        private const string LordSpawnSlotFixTestPluginGuid = "LordSpawnSlotFixTest_Serp";
+        private bool Enabled => settings.EnableMod && settings.EnableCorruptLordDataSpawnFix;
 
         private void OnInitialization(MissionLifecycleNotification notification)
         {
@@ -55,11 +50,6 @@ namespace LordSpawnSlotFixTest
                     mapActive = false;
                     sessionEligible = false;
                     observationTick = 0;
-                    lastSnapshots.Clear();
-                    log.LogInfo(
-                        $"LSS_TEST_SESSION_RESET: session={notification.Context.SessionId}; " +
-                        $"startKind={notification.Context.StartKind}; mode={notification.Context.Mode.Kind}; " +
-                        $"isSave={notification.Context.IsSave}; isEditor={notification.Context.IsEditor}.");
                 }
 
                 if (notification.Phase == MissionInitializationPhase.BeforeLoad ||
@@ -77,24 +67,23 @@ namespace LordSpawnSlotFixTest
                 if (mapActive)
                     return;
 
-                // Mode classification is diagnostic-only. The faulty remap was proven in a
-                // CustomGame, but neither its exact tombstone nor Vanilla's later Lord creation
-                // depends on APIShared assigning that mode label. NewGame is the safety boundary:
-                // saves restore authoritative identities without promising another Lord spawn,
-                // while editor sessions do not have the normal gameplay Lord-spawn contract.
+                // Mode classification is diagnostic-only. The corrupt reference was proven in
+                // a CustomGame, but neither the exact tombstone nor Vanilla's Lord creation
+                // depends on that label. NewGame is the safety boundary: saves restore
+                // authoritative identities without guaranteeing another Lord spawn, while the
+                // editor has no equivalent gameplay-spawn contract.
                 sessionEligible = notification.Context.StartKind == MissionStartKind.NewGame;
                 mapActive = true;
-                log.LogInfo(
-                    $"LSS_TEST_SESSION_ARMED: session={notification.Context.SessionId}; eligible={sessionEligible}; " +
-                    $"phase={notification.Phase}; " +
-                    $"startKind={notification.Context.StartKind}; mode={notification.Context.Mode.Kind}; " +
-                    $"isSave={notification.Context.IsSave}; isEditor={notification.Context.IsEditor}.");
+                log.LogDebug(
+                    $"Corrupt Lord-data spawn fix session armed: session={notification.Context.SessionId}, " +
+                    $"eligible={sessionEligible}, phase={notification.Phase}, " +
+                    $"startKind={notification.Context.StartKind}, mode={notification.Context.Mode.Kind}.");
             }
             catch (Exception ex)
             {
                 mapActive = false;
                 sessionEligible = false;
-                log.LogError($"LSS_TEST_SESSION_FAILED: {ex}");
+                log.LogError($"Corrupt Lord-data spawn fix could not arm the session: {ex}");
             }
         }
 
@@ -102,9 +91,6 @@ namespace LordSpawnSlotFixTest
         {
             mapActive = false;
             sessionEligible = false;
-            log.LogInfo(
-                $"LSS_TEST_SESSION_ENDED: session={sessionState.SessionId}; observationTick={observationTick}; " +
-                $"reason={notification.EndReason}.");
         }
 
         private void OnGameTick(int simulationTick)
@@ -117,7 +103,7 @@ namespace LordSpawnSlotFixTest
             {
                 HashSet<int> kickedPlayerIds = CaptureKickedPlayerIds();
 
-                // gameMembers is populated by only some launch paths. Iterating the native
+                // gameMembers is populated by only some launch paths. Iterating all native
                 // one-based records makes detection mode-independent; a live owned Keep and
                 // start marker establish actual participation. When a roster exists, kicked is
                 // retained as an additional veto, never as an allowlist.
@@ -126,16 +112,12 @@ namespace LordSpawnSlotFixTest
 
                 if (observationTick == ConfirmationTimeoutTicks)
                     LogOutstandingConfirmations(simulationTick);
-                if (observationTick == ObservationStopTicks)
-                    log.LogInfo(
-                        $"LSS_TEST_OBSERVATION_COMPLETE: session={sessionState.SessionId}; " +
-                        $"observationTick={observationTick}; simulationTick={simulationTick}.");
             }
             catch (Exception ex)
             {
                 log.LogError(
-                    $"LSS_TEST_TICK_FAILED: session={sessionState.SessionId}; observationTick={observationTick}; " +
-                    $"simulationTick={simulationTick}; error={ex}");
+                    $"Corrupt Lord-data spawn fix failed during observation: session={sessionState.SessionId}, " +
+                    $"tick={observationTick}, simulationTick={simulationTick}, error={ex}");
             }
         }
 
@@ -148,27 +130,16 @@ namespace LordSpawnSlotFixTest
                 ? CaptureSnapshot(playerId, resources)
                 : PlayerSnapshot.Missing(playerId);
 
-            bool logDetailed = observationTick <= DetailedSnapshotTicks ||
-                (observationTick >= VanillaLordWindowStart && observationTick <= VanillaLordWindowEnd);
-            string fingerprint = snapshot.Fingerprint;
-            if (logDetailed || !lastSnapshots.TryGetValue(playerId, out string previous) || previous != fingerprint)
-            {
-                log.LogInfo(
-                    $"LSS_TEST_SNAPSHOT: session={sessionState.SessionId}; observationTick={observationTick}; " +
-                    $"simulationTick={simulationTick}; player={playerId}; kickedVeto={kicked}; " +
-                    $"eligibleSession={sessionEligible}; {snapshot.Describe()}.");
-                lastSnapshots[playerId] = fingerprint;
-            }
-
             if (sessionState.WasAttempted(playerId))
             {
                 TryConfirmVanillaLord(playerId, snapshot, simulationTick);
                 return;
             }
 
-            var guard = new LordSpawnSlotGuardInput(
-                isNewGameSession: sessionEligible,
-                correctionWindowOpen: observationTick <= DetailedSnapshotTicks,
+            var guard = new CorruptLordDataSpawnGuardInput(
+                Enabled,
+                sessionEligible,
+                observationTick <= CorrectionWindowTicks,
                 hasResources,
                 kicked,
                 alreadyAttempted: false,
@@ -183,21 +154,11 @@ namespace LordSpawnSlotFixTest
                 snapshot.LordIdentity.CurrentHealth,
                 snapshot.ValidOwnedKeep,
                 snapshot.ValidOwnedKeepDoorReference);
-            LordSpawnSlotDecision decision = LordSpawnSlotFixPolicy.Evaluate(in guard);
-            if (decision != LordSpawnSlotDecision.ClearStaleLordReference)
-            {
-                if (observationTick == 1)
-                    log.LogInfo(
-                        $"LSS_TEST_DECISION: session={sessionState.SessionId}; player={playerId}; " +
-                        $"decision={decision}; noMutation=true.");
+            CorruptLordDataSpawnDecision decision = CorruptLordDataSpawnPolicy.Evaluate(in guard);
+            if (decision != CorruptLordDataSpawnDecision.ClearStaleLordReference)
                 return;
-            }
 
             sessionState.MarkAttempted(playerId);
-            log.LogWarning(
-                $"LSS_TEST_CAUSE_CONFIRMED: session={sessionState.SessionId}; player={playerId}; " +
-                $"reason=active-player-has-valid-owned-keep-and-door-reference-and-exact-zeroed-unit-tombstone-blocks-Vanilla-spawn; " +
-                $"before={snapshot.Describe()}.");
 
             // Native audit (FBCB9319): 0xC6810 transfers Keep-related fields but omits both
             // Lord identity fields. 0xC23C0 then treats any nonzero LordUnitId as present and
@@ -213,17 +174,15 @@ namespace LordSpawnSlotFixTest
                 updated == null || updated->r_LordUnitId != 0 || updated->r_LordUnitGlobalId != 0)
             {
                 log.LogError(
-                    $"LSS_TEST_CORRECTION_FAILED: session={sessionState.SessionId}; player={playerId}; " +
-                    "the public Lord identity setters did not produce 0/0; no retry will be attempted this session.");
+                    $"Corrupt Lord-data spawn fix failed to clear player {playerId}'s stale reference " +
+                    $"in session {sessionState.SessionId}; no retry will be attempted.");
                 return;
             }
 
-            PlayerSnapshot corrected = CaptureSnapshot(playerId, updated);
-            lastSnapshots[playerId] = corrected.Fingerprint;
             log.LogWarning(
-                $"LSS_TEST_CORRECTED: session={sessionState.SessionId}; player={playerId}; " +
-                $"method=GamePlayerManagerAPI.SetLordUnitGlobalId(0)+SetLordUnitId(0); after={corrected.Describe()}; " +
-                "lordCreation=left-to-Vanilla.");
+                $"Cleared corrupt Lord data for player {playerId} in session {sessionState.SessionId} " +
+                $"(stale unit/global reference {snapshot.LordUnitId}/{snapshot.LordGlobalId}); " +
+                "Lord creation remains with Vanilla.");
         }
 
         private void TryConfirmVanillaLord(int playerId, PlayerSnapshot snapshot, int simulationTick)
@@ -232,11 +191,10 @@ namespace LordSpawnSlotFixTest
                 return;
 
             sessionState.MarkConfirmed(playerId);
-            log.LogWarning(
-                $"LSS_TEST_VANILLA_LORD_CONFIRMED: session={sessionState.SessionId}; player={playerId}; " +
-                $"observationTick={observationTick}; simulationTick={simulationTick}; " +
-                $"lordUnitId={snapshot.LordUnitId}; lordGlobalId={snapshot.LordGlobalId}; " +
-                "creationPath=Vanilla-after-stale-identity-clear.");
+            log.LogInfo(
+                $"Vanilla Lord spawn confirmed after corrupt-data repair: session={sessionState.SessionId}, " +
+                $"player={playerId}, unit/global={snapshot.LordUnitId}/{snapshot.LordGlobalId}, " +
+                $"observationTick={observationTick}, simulationTick={simulationTick}.");
         }
 
         private void LogOutstandingConfirmations(int simulationTick)
@@ -245,9 +203,9 @@ namespace LordSpawnSlotFixTest
             {
                 if (sessionState.WasAttempted(playerId) && !sessionState.IsConfirmed(playerId))
                     log.LogError(
-                        $"LSS_TEST_LORD_TIMEOUT: session={sessionState.SessionId}; player={playerId}; " +
-                        $"observationTick={observationTick}; simulationTick={simulationTick}; " +
-                        "the guarded stale Lord identity clear was applied but no valid Vanilla Lord was observed.");
+                        $"No Vanilla Lord was observed after corrupt-data repair: " +
+                        $"session={sessionState.SessionId}, player={playerId}, " +
+                        $"observationTick={observationTick}, simulationTick={simulationTick}.");
             }
         }
 
@@ -287,9 +245,8 @@ namespace LordSpawnSlotFixTest
                 lord != null)
             {
                 lordIdentity = new UnitIdentity(
-                    lordUnitId, true, lord->r_ControllableForPlayerId,
-                    lord->r_UnitChimp, lord->r_AliveState,
-                    (int)lord->r_GlobalId, (int)lord->r_CurrentHealth);
+                    true, lord->r_ControllableForPlayerId, lord->r_UnitChimp,
+                    lord->r_AliveState, (int)lord->r_GlobalId, (int)lord->r_CurrentHealth);
                 validLordReference =
                     (lord->r_AliveState == AliveState.NeedsInit || lord->r_AliveState == AliveState.IsAlive) &&
                     lord->r_ControllableForPlayerId == playerId &&
@@ -304,10 +261,8 @@ namespace LordSpawnSlotFixTest
                 lordIdentity.CurrentHealth > 0;
 
             return new PlayerSnapshot(
-                playerId, true, resources->r_WinLossState, keepId, keepDoorId,
-                lordUnitId, lordGlobalId, keep, keepDoor, lordIdentity,
-                validOwnedKeep, validOwnedKeepDoorReference,
-                validLordReference, validOwnedLord);
+                resources->r_WinLossState, lordUnitId, lordGlobalId, lordIdentity,
+                validOwnedKeep, validOwnedKeepDoorReference, validOwnedLord);
         }
 
         private static BuildingIdentity CaptureBuilding(int buildingId)
@@ -316,14 +271,13 @@ namespace LordSpawnSlotFixTest
                 !GameBuildingManagerAPI.Instance.TryGetBuildingById(buildingId, out GameBuilding* building) ||
                 building == null)
             {
-                return BuildingIdentity.Missing(buildingId);
+                return BuildingIdentity.Missing;
             }
 
             bool alive = building->r_AliveState == AliveState.NeedsInit ||
                 building->r_AliveState == AliveState.IsAlive;
             return new BuildingIdentity(
-                buildingId, true, building->r_PlayerIdOwner,
-                building->r_BuildingType, building->r_AliveState, alive);
+                true, building->r_PlayerIdOwner, building->r_BuildingType, alive);
         }
 
         private static bool IsKeep(eStructs type) =>
@@ -335,39 +289,29 @@ namespace LordSpawnSlotFixTest
 
         private readonly struct BuildingIdentity
         {
-            internal BuildingIdentity(
-                int id, bool exists, int ownerPlayerId, eStructs type,
-                AliveState aliveState, bool isAlive)
+            internal BuildingIdentity(bool exists, int ownerPlayerId, eStructs type, bool isAlive)
             {
-                Id = id;
                 Exists = exists;
                 OwnerPlayerId = ownerPlayerId;
                 Type = type;
-                AliveState = aliveState;
                 IsAlive = isAlive;
             }
 
-            internal int Id { get; }
             internal bool Exists { get; }
             internal int OwnerPlayerId { get; }
             internal eStructs Type { get; }
-            internal AliveState AliveState { get; }
             internal bool IsAlive { get; }
 
-            internal static BuildingIdentity Missing(int id) =>
-                new BuildingIdentity(id, false, 0, eStructs.STRUCT_NULL, AliveState.None, false);
-
-            public override string ToString() =>
-                $"id={Id},exists={Exists},owner={OwnerPlayerId},type={Type},alive={AliveState}";
+            internal static BuildingIdentity Missing =>
+                new BuildingIdentity(false, 0, eStructs.STRUCT_NULL, false);
         }
 
         private readonly struct UnitIdentity
         {
             internal UnitIdentity(
-                int id, bool exists, int ownerPlayerId, eChimps type,
+                bool exists, int ownerPlayerId, eChimps type,
                 AliveState aliveState, int globalId, int currentHealth)
             {
-                Id = id;
                 Exists = exists;
                 OwnerPlayerId = ownerPlayerId;
                 Type = type;
@@ -376,7 +320,6 @@ namespace LordSpawnSlotFixTest
                 CurrentHealth = currentHealth;
             }
 
-            internal int Id { get; }
             internal bool Exists { get; }
             internal int OwnerPlayerId { get; }
             internal eChimps Type { get; }
@@ -384,72 +327,38 @@ namespace LordSpawnSlotFixTest
             internal int GlobalId { get; }
             internal int CurrentHealth { get; }
 
-            internal static UnitIdentity Missing(int id) =>
-                new UnitIdentity(id, false, 0, default, AliveState.None, 0, 0);
-
-            public override string ToString() =>
-                $"id={Id},exists={Exists},owner={OwnerPlayerId},type={Type},alive={AliveState}," +
-                $"globalId={GlobalId},health={CurrentHealth}";
+            internal static UnitIdentity Missing(int unitId) =>
+                new UnitIdentity(false, 0, default, AliveState.None, 0, 0);
         }
 
         private readonly struct PlayerSnapshot
         {
             internal PlayerSnapshot(
-                int playerId, bool hasResources, WinLossState winLossState,
-                int keepId, int keepDoorId, int lordUnitId, int lordGlobalId,
-                BuildingIdentity keep, BuildingIdentity keepDoor, UnitIdentity lordIdentity,
-                bool validOwnedKeep, bool validOwnedKeepDoorReference,
-                bool validLordReference, bool validOwnedLord)
+                WinLossState winLossState, int lordUnitId, int lordGlobalId,
+                UnitIdentity lordIdentity, bool validOwnedKeep,
+                bool validOwnedKeepDoorReference, bool validOwnedLord)
             {
-                PlayerId = playerId;
-                HasResources = hasResources;
                 WinLossState = winLossState;
-                KeepId = keepId;
-                KeepDoorId = keepDoorId;
                 LordUnitId = lordUnitId;
                 LordGlobalId = lordGlobalId;
-                Keep = keep;
-                KeepDoor = keepDoor;
                 LordIdentity = lordIdentity;
                 ValidOwnedKeep = validOwnedKeep;
                 ValidOwnedKeepDoorReference = validOwnedKeepDoorReference;
-                ValidLordReference = validLordReference;
                 ValidOwnedLord = validOwnedLord;
             }
 
-            internal int PlayerId { get; }
-            internal bool HasResources { get; }
             internal WinLossState WinLossState { get; }
-            internal int KeepId { get; }
-            internal int KeepDoorId { get; }
             internal int LordUnitId { get; }
             internal int LordGlobalId { get; }
-            internal BuildingIdentity Keep { get; }
-            internal BuildingIdentity KeepDoor { get; }
             internal UnitIdentity LordIdentity { get; }
             internal bool ValidOwnedKeep { get; }
             internal bool ValidOwnedKeepDoorReference { get; }
-            internal bool ValidLordReference { get; }
             internal bool ValidOwnedLord { get; }
-
-            internal string Fingerprint =>
-                $"{HasResources}|{(int)WinLossState}|{KeepId}|{KeepDoorId}|{LordUnitId}|{LordGlobalId}|" +
-                $"{ValidOwnedKeep}|{ValidOwnedKeepDoorReference}|{ValidLordReference}|{ValidOwnedLord}|" +
-                $"{Keep.OwnerPlayerId}|{KeepDoor.OwnerPlayerId}|{LordIdentity.Exists}|{LordIdentity.OwnerPlayerId}|" +
-                $"{LordIdentity.Type}|{LordIdentity.AliveState}|{LordIdentity.GlobalId}|{LordIdentity.CurrentHealth}";
-
-            internal string Describe() =>
-                $"player={PlayerId}; resources={HasResources}; winLoss={WinLossState}; " +
-                $"keep=[{Keep}]; validOwnedKeep={ValidOwnedKeep}; " +
-                $"keepDoor=[{KeepDoor}]; validOwnedKeepDoorReference={ValidOwnedKeepDoorReference}; " +
-                $"lordReference=[storedUnitId={LordUnitId},storedGlobalId={LordGlobalId},unit=[{LordIdentity}]]; " +
-                $"validLordReference={ValidLordReference}; validOwnedLord={ValidOwnedLord}";
 
             internal static PlayerSnapshot Missing(int playerId) =>
                 new PlayerSnapshot(
-                    playerId, false, WinLossState.None, 0, 0, 0, 0,
-                    BuildingIdentity.Missing(0), BuildingIdentity.Missing(0), UnitIdentity.Missing(0),
-                    false, false, false, false);
+                    WinLossState.None, 0, 0, UnitIdentity.Missing(0),
+                    false, false, false);
         }
     }
 }

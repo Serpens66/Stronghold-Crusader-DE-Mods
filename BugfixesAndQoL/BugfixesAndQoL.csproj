@@ -8,8 +8,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>BugfixesAndQoL</AssemblyName>
-    <AssemblyVersion>1.0.156.0</AssemblyVersion>
-    <FileVersion>1.0.156.0</FileVersion>
+    <AssemblyVersion>1.0.158.0</AssemblyVersion>
+    <FileVersion>1.0.158.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -65,6 +65,8 @@
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="src\AiAivSelectionCodec.cs" />
     <Compile Include="src\AIBuildingTemporaryAccessClassifier.cs" />
+    <Compile Include="src\AIPreplacedBuildingFixPolicy.cs" />
+    <Compile Include="src\AIPreplacedBuildingFixRuntime.cs" />
     <Compile Include="src\AIEconomyProtectionHook.cs" />
     <Compile Include="src\AIResourceShortageSleepNativeDefinition.cs" />
     <Compile Include="src\AIResourceShortageSleepPolicy.cs" />
@@ -156,6 +158,8 @@
     <Compile Include="src\BugfixesAndQoLViewModel.cs" />
     <Compile Include="src\KeepFlagRotationPolicy.cs" />
     <Compile Include="src\KeepFlagRotationRuntime.cs" />
+    <Compile Include="src\CorruptLordDataSpawnPolicy.cs" />
+    <Compile Include="src\CorruptLordDataSpawnRuntime.cs" />
     <Compile Include="src\AssassinSelectionAdapters.cs" />
     <Compile Include="src\CursorConnectivity.cs" />
     <Compile Include="src\CursorRegionGraph.cs" />
@@ -198,7 +202,7 @@
     <Compile Include="src\MapOriginSortHook.cs" />
     <Compile Include="src\MapOriginSortPolicy.cs" />
     <Compile Include="src\LobbyMapSelectionMemory.cs" />
-    <Compile Include="src\MapPlayerCountConverter.cs" />
+    <Compile Include="src\MapPlayerCountCellBehavior.cs" />
     <Compile Include="src\VanillaMapEditorHook.cs" />
     <Compile Include="src\VanillaMapEditorPolicy.cs" />
     <Compile Include="src\MinimapInputFeature.cs" />

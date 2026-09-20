@@ -85,9 +85,9 @@ Startwert nur während eines berechtigten `ActivePortal`- oder `ActiveBreach`-Ho
 `int.MinValue`. Traversierung, Prädikate, Scoring und Bestkandidatenauswahl bleiben Vanilla;
 es gibt weder eine eigene Suche noch einen zweiten Durchlauf.
 
-## Finaler Fixaufbau
+## Finaler Fixaufbau in BugfixesAndQoL
 
-`PreplacedTest 0.1.2` enthält zwei getrennte interne Fixkomponenten:
+`BugfixesAndQoL 1.0.158` enthält zwei getrennte interne Fixkomponenten:
 
 1. `LegacyRuinTimerFix` für den eng belegten Altformat-Timertransfer.
 2. `PreplacedEconomyAccessFix` für Portalbesitzer, Durchbruchaktivierung, Re-Census,
@@ -105,8 +105,13 @@ Suchaufrufe verwenden wiederverwendbare Arrays und ändern/restaurieren nur abwe
 Zellen. Vertrags-, Verschachtelungs- oder Restaurierungsfehler schalten den Wirtschaftspfad
 prozessweit fail-closed auf Vanilla zurück.
 
-`PreplacedTest` aktiviert beide Fixe fest und verwendet `NetworkMode=1`. Für die Übernahme in
-`BugfixesAndQoL` können beide Komponenten getrennt an synchronisierte Einstellungen gebunden
-werden. Der Wirtschaftszugriffsfix bleibt vom dortigen `AIEconomyProtectionHook` getrennt,
-weil dieser nachgelagerte Schlaf-/Abriss- und Accessibility-Folgen behandelt, nicht die
-vorgelagerten Census- und Suchentscheidungen.
+Die hostverwaltete, standardmäßig aktive Einstellung `FixAIPreplacedMapBuildings` steuert
+beide Fehlerbereiche gemeinsam und wird bei jedem Kartenstart fest übernommen. Änderungen
+während einer Mission gelten ab der nächsten Karte. Der Wirtschaftszugriffsfix bleibt vom
+vorhandenen `AIEconomyProtectionHook` getrennt, weil dieser nachgelagerte Schlaf-/Abriss- und
+Accessibility-Folgen behandelt, nicht die vorgelagerten Census- und Suchentscheidungen.
+
+Die Runtime ist prozessweit statisch verwurzelt und gehört ausdrücklich nicht zum normalen
+`BugfixesAndQoLRuntime.Dispose()`-Pfad. Bei einem Fehler in Hash-, Signatur-, ABI-, Portal-,
+Verschachtelungs- oder Restaurierungsverträgen fällt ausschließlich dieser Fixbereich
+fail-closed auf Vanilla zurück; alle übrigen Funktionen des Mods bleiben aktiv.

@@ -3,13 +3,27 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.156",
+  "Version": "1.0.158",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.7.2",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.158",
+      "Changes": [
+        "Added an enabled-by-default host fix for AI problems caused by preplaced map buildings: destroyed tower decorations no longer delay castle construction, friendly preplaced gates allow external economy placement, and a breached enclosure refreshes economy access including woodcutters.",
+        "Fixed the map editor's maximum-player-count column by replacing its unsupported inserted CLR converter element with a Noesis-compatible attached behavior."
+      ]
+    },
+    {
+      "Version": "1.0.157",
+      "Changes": [
+        "Fixed blank values in the map editor's maximum-player-count column by explicitly binding each cell to its map row.",
+        "Fixed missing Lords on maps with corrupt Lord data, including human and AI player slots 7 and 8 on The Ford Across the River."
+      ]
+    },
     {
       "Version": "1.0.156",
       "Changes": [

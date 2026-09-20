@@ -44,6 +44,7 @@ namespace BugfixesAndQoL
             TestReachableEnemyGatehouseUnitIdContract();
             TestKeepFlagRotationIntegration();
             KeepFlagRotationTests.Run(Check);
+            CorruptLordDataSpawnTests.Run(Check);
             TestSynchronizedGatehouseReachabilityPolicy();
             TestMovementFastPathParity();
             TestMovementLoggingState();
@@ -51,6 +52,7 @@ namespace BugfixesAndQoL
             TestMovementSafetyIntegration();
             TestAiDefensePatrolPolicy();
             TestAiDefensePatrolIntegration();
+            AIPreplacedBuildingFixTests.Run(Check);
             TestAiStoneReservePolicy();
             TestShcdeSeCoarseGridBufferWorkaround();
             TestAiStoneReserveIntegration();
@@ -131,8 +133,8 @@ namespace BugfixesAndQoL
             string projectDirectory = FindProjectDirectory();
             string hook = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "VanillaMapEditorHook.cs"));
-            string converter = File.ReadAllText(Path.Combine(
-                projectDirectory, "src", "MapPlayerCountConverter.cs"));
+            string behavior = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "MapPlayerCountCellBehavior.cs"));
             string xaml = File.ReadAllText(Path.Combine(
                 projectDirectory,
                 "Patches",
@@ -143,9 +145,13 @@ namespace BugfixesAndQoL
 
             Check(xaml.Contains("x:Name=\"BugfixesAndQoLMaxPlayersHeader\"") &&
                   xaml.Contains("Tag=\"MaxPlayers\">#</GridViewColumnHeader>") &&
-                  xaml.Contains("<mod:MapPlayerCountConverter />") &&
+                  xaml.Contains("Type=\"AddNamespace\"") &&
+                  xaml.Contains("AttributeName=\"bugfixes\"") &&
+                  xaml.Contains("bugfixes:MapPlayerCountCellBehavior.IsEnabled=\"True\"") &&
+                  !xaml.Contains("<bugfixes:") &&
+                  !xaml.Contains("MapPlayerCountConverter") &&
                   xaml.IndexOf("Tag=\"Type\"", StringComparison.Ordinal) < 0,
-                "editor map player-count XAML appends an isolated fifth converted column");
+                "editor map player-count XAML appends an isolated fifth column with an attached cell behavior");
             int configureCall = hook.IndexOf(
                 "ConfigurePlayerCountColumn(self, requesterType)",
                 StringComparison.Ordinal);
@@ -165,10 +171,30 @@ namespace BugfixesAndQoL
                   hook.Contains("state.Active = false;") &&
                   hook.Contains("PanelActiveField.GetValue(requester)"),
                 "editor map player-count UI reuses established header and stable row-move patterns");
-            Check(converter.Contains("value as FileRow") &&
-                  converter.Contains("header?.maxPlayers ?? 0") &&
-                  converter.Contains("throw new NotSupportedException()"),
-                "editor map player-count converter is one-way and reads Vanilla FileHeader data");
+            int loadedDetach = behavior.IndexOf("textBlock.Loaded -= OnLoaded;", StringComparison.Ordinal);
+            int loadedAttach = behavior.IndexOf("textBlock.Loaded += OnLoaded;", StringComparison.Ordinal);
+            int contextDetach = behavior.IndexOf(
+                "textBlock.DataContextChanged -= OnDataContextChanged;",
+                StringComparison.Ordinal);
+            int contextAttach = behavior.IndexOf(
+                "textBlock.DataContextChanged += OnDataContextChanged;",
+                StringComparison.Ordinal);
+            Check(behavior.Contains("DependencyProperty.RegisterAttached") &&
+                  loadedDetach >= 0 && loadedAttach > loadedDetach &&
+                  contextDetach >= 0 && contextAttach > contextDetach &&
+                  Regex.Matches(behavior, "textBlock\\.Loaded \\+= OnLoaded;").Count == 1 &&
+                  Regex.Matches(
+                      behavior,
+                      "textBlock\\.DataContextChanged \\+= OnDataContextChanged;").Count == 1 &&
+                  behavior.Contains("UpdateText(textBlock);") &&
+                  behavior.Contains("textBlock.DataContext as FileRow") &&
+                  behavior.Contains("header?.maxPlayers ?? 0") &&
+                  behavior.Contains("VanillaMapEditorPolicy.FormatPlayerCount"),
+                "editor map player-count behavior handles initial and changed row contexts without duplicate registrations");
+            Check(!hook.Contains("Shared.DebugLogHelper.LogDebug(") &&
+                  hook.Contains("LogUiFailure(\"configure the map player-count column\", ex)") &&
+                  hook.Contains("LogUiFailure(\"apply the editor map player-count sort\", ex)"),
+                "editor map logging omits routine lifecycle noise while retaining actionable failures");
         }
 
         private static void TestKeepFlagRotationIntegration()
@@ -3619,8 +3645,13 @@ namespace BugfixesAndQoL
                 .ToArray();
             Check(
                 officialApiFiles.SequenceEqual(
-                    new[] { "AiStoneReserveFix.cs", "ShcdeSeCoarseGridBufferWorkaround.cs" }),
-                "all BugfixesAndQoL GameAIVManagerAPI references are protected by official-first selection");
+                    new[]
+                    {
+                        "AIPreplacedBuildingFixRuntime.cs",
+                        "AiStoneReserveFix.cs",
+                        "ShcdeSeCoarseGridBufferWorkaround.cs"
+                    }),
+                "all BugfixesAndQoL GameAIVManagerAPI references are confined to audited consumers");
 
             string[] directImportFiles = sourceFiles
                 .Where(path => File.ReadAllText(path).Contains("EngineInterface.ImportAIV("))

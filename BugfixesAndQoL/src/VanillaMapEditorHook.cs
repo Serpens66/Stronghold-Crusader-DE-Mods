@@ -147,10 +147,6 @@ namespace BugfixesAndQoL
                 DisposeHook(ref populateListHook);
                 throw;
             }
-
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL Vanilla map-editor hooks installed.");
         }
 
         public void Dispose()
@@ -171,9 +167,6 @@ namespace BugfixesAndQoL
             DisposeHook(ref editableMapsHook);
             DisposeHook(ref fileListHeaderClickedHook);
             DisposeHook(ref populateListHook);
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL Vanilla map-editor hooks disposed.");
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
