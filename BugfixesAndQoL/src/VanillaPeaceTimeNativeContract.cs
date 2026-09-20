@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using static Iced.Intel.AssemblerRegisters;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal enum VanillaPeaceTimePatchKind
     {

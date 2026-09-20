@@ -3,6 +3,10 @@
        xmlns:local="clr-namespace:CrusaderDE"
        xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL"
        xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Visibility='{Binding Show_MPSettings, Converter={StaticResource booleanToVisibilityConverter}}']"
+             AttributeName="Panel.ZIndex"
+             Value="1000" />
   <Operation Type="Replace" XPath="//n:ListView[@Name='CustomLordList']/n:ListView.View/n:GridView">
     <Content>
       <GridView AllowsColumnReorder="False"
@@ -279,6 +283,29 @@
                  Margin="0,0,165,22" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                  Foreground="White" FontSize="17" TextAlignment="Right" TextWrapping="Wrap"
                  Text="{Binding SyncStatusText}" Visibility="{Binding SyncStatusVisibility}" />
+    </Content>
+  </Operation>
+  <Operation Type="InsertBefore" XPath="//n:Button[@CommandParameter='Settings_SkirmishAdvanced']">
+    <Content>
+      <Grid x:Name="BugfixesAndQoLSkirmishGameOptionsButtonHost"
+            Width="280"
+            Margin="52,5,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="{Binding ButtonVisibility}">
+        <Button x:Name="BugfixesAndQoLSkirmishGameOptionsButton"
+                Width="280"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Top"
+                local:PropEx.TextCentre="{Binding MP_Settings_Button}"
+                local:PropEx.TextLeft=""
+                local:PropEx.TextRight=""
+                Command="{Binding MultiplayerMenuCommand}"
+                CommandParameter="Setup"
+                MouseEnter="CommonRedButtonEnter"
+                Visibility="{Binding SkirmishSetupMode, Converter={StaticResource booleanToVisibilityConverter}}"
+                Style="{StaticResource BTN_SH_GlowS}" />
+      </Grid>
     </Content>
   </Operation>
 </Patch>

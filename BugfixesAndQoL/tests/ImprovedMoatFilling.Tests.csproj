@@ -23,6 +23,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>true</Private></Reference>
     <Reference Include="UnityEngine.AudioModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.AudioModule.dll</HintPath><Private>true</Private></Reference>
@@ -41,6 +42,7 @@
     <Compile Include="KeepFlagRotationTests.cs" />
     <Compile Include="CorruptLordDataSpawnTests.cs" />
     <Compile Include="AIPreplacedBuildingFixTests.cs" />
+    <Compile Include="SkirmishGameOptionsTests.cs" />
     <Compile Include="MovementFastPathParityHarness.cs" />
     <Compile Include="..\src\MovementLoggingStateTracker.cs"><Link>MovementLoggingStateTracker.cs</Link></Compile>
     <Compile Include="..\src\AiDefensePatrolNativeDefinition.cs"><Link>AiDefensePatrolNativeDefinition.cs</Link></Compile>
@@ -78,6 +80,9 @@
     <Compile Include="..\src\MultiplayerGameSpeedPolicy.cs"><Link>MultiplayerGameSpeedPolicy.cs</Link></Compile>
     <Compile Include="..\src\MultiplayerSafetyPolicy.cs"><Link>MultiplayerSafetyPolicy.cs</Link></Compile>
     <Compile Include="..\src\WorkshopUploadLordSelectionPolicy.cs"><Link>WorkshopUploadLordSelectionPolicy.cs</Link></Compile>
+    <Compile Include="..\src\SkirmishGameOptionsPolicy.cs"><Link>SkirmishGameOptionsPolicy.cs</Link></Compile>
+    <Compile Include="..\src\WorkingCopyTransaction.cs"><Link>WorkingCopyTransaction.cs</Link></Compile>
+    <Compile Include="..\src\NoDogsNativeContract.cs"><Link>NoDogsNativeContract.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>

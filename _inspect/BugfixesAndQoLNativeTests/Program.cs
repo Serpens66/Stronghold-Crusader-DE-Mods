@@ -911,14 +911,10 @@ internal static class Program
               runtime.Contains("context.Region") && !production.Contains("nativeRegion.Dispose()") &&
               !production.Contains("context.Region.Dispose()"),
             "P6b borrows all native load-context values without disposing the ScanRegion");
-        Check(Regex.Matches(production, @"new\s+(?:DetourHandle|HookHandle)<").Count == 55 &&
-              production.Contains("DetourHandle<ResetDrawListDelegate>") &&
+        Check(production.Contains("DetourHandle<ResetDrawListDelegate>") &&
               production.Contains("HookTarget.FromAddress(unchecked((ulong)(libraryHandle + ResetDrawListRva).ToInt64()))"),
             "BugfixesAndQoL owns the audited production RedBird hook handles including the Vanilla draw-list reset");
-        Check(Regex.Matches(production, @"CommitResult\s+commitResult\s*=\s*[^;]+\.Commit\(\)").Count == 21,
-            "BugfixesAndQoL performs one checked transaction commit for each audited hook group");
-        Check(Regex.Matches(production, @"!commitResult\.IsCompleteSuccess").Count == 22,
-            "BugfixesAndQoL checks every aggregate RedBird commit result");
+        CheckRedBirdOwnershipAndCommitContracts(sourcePaths);
 
         foreach (string fileName in new[]
         {
@@ -968,6 +964,47 @@ internal static class Program
             "Assassin command subscriptions are released only through the rooted runtime disposal path");
         Check(manifest.Contains("\"Version\": \"1.0.129\"") && manifest.Contains("\"NetworkMode\": 1"),
             "integrated manifest version and gameplay NetworkMode 1");
+    }
+
+    private static void CheckRedBirdOwnershipAndCommitContracts(IEnumerable<string> sourcePaths)
+    {
+        Regex localHandleDeclaration = new Regex(
+            @"(?m)^\s*(?!private\s+readonly\s)(?:HookHandle|DetourHandle)<[^>\r\n]+>\s+(?<name>\w+)\s*=\s*new\s+(?:HookHandle|DetourHandle)<");
+        Regex commitAssignment = new Regex(
+            @"(?:CommitResult|var)\s+(?<name>\w+)\s*=\s*[^;]+\.Commit\(\)\s*;",
+            RegexOptions.Singleline);
+
+        foreach (string sourcePath in sourcePaths)
+        {
+            string source = File.ReadAllText(sourcePath);
+            string fileName = Path.GetFileName(sourcePath);
+
+            foreach (Match localHandle in localHandleDeclaration.Matches(source))
+            {
+                string handleName = localHandle.Groups["name"].Value;
+                string following = source.Substring(localHandle.Index);
+                Check(following.Contains(".Add(" + handleName + ");") &&
+                      Regex.IsMatch(source,
+                          @"private\s+readonly\s+(?:List|IList)<HookHandle<[^>]+>>\s+\w+"),
+                    fileName + " roots method-local RedBird handle " + handleName +
+                    " in an instance-owned collection before publication");
+            }
+
+            MatchCollection commits = commitAssignment.Matches(source);
+            foreach (Match commit in commits)
+            {
+                string resultName = commit.Groups["name"].Value;
+                int followingStart = commit.Index + commit.Length;
+                string following = source.Substring(followingStart);
+                Check(Regex.IsMatch(following,
+                          @"\b" + Regex.Escape(resultName) + @"\.IsCompleteSuccess\b"),
+                    fileName + " checks the result of RedBird transaction " + resultName);
+            }
+
+            int rawCommitCount = Regex.Matches(source, @"\.Commit\(\)").Count;
+            Check(rawCommitCount == commits.Count,
+                fileName + " assigns every RedBird Commit() result before validating it");
+        }
     }
 
     private static void CheckSuppressMessagesCompatibility(string workspace)

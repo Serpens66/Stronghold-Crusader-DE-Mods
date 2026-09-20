@@ -17,6 +17,7 @@ namespace BugfixesAndQoL
 
         private bool enableMod = true;
         private bool allowFullAiMultiplayerLobby = true;
+        private bool showMpAdvancedSettingsInSingleplayer = true;
         private bool rememberAiAivSettings = true;
         private bool enableCustomLordListEnhancements = true;
         private bool enableAiStoneReserveFix = true;
@@ -188,7 +189,7 @@ namespace BugfixesAndQoL
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string QolTitleText => SerpLocalization.Get("BugfixesAndQoL.QolTitle");
         public string FixesTitleText => SerpLocalization.Get("BugfixesAndQoL.FixesTitle");
-        public string ClientInterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.ClientInterfaceTitle");
+        public string InterfaceTitleText => SerpLocalization.Get("BugfixesAndQoL.InterfaceTitle");
         public string DisplayTitleText => SerpLocalization.Get("BugfixesAndQoL.DisplayTitle");
         public string AiAivTitleText => SerpLocalization.Get("BugfixesAndQoL.AiAivTitle");
         public string AiEconomyProtectionTitleText => SerpLocalization.Get(SerpLocalization.AiEconomyProtectionTitle);
@@ -245,6 +246,8 @@ namespace BugfixesAndQoL
         public string MultiplayerTitleText => SerpLocalization.Get("BugfixesAndQoL.MultiplayerTitle");
         public string AllowFullAiMultiplayerLobbyText => SerpLocalization.Get("BugfixesAndQoL.AllowFullAiMultiplayerLobby");
         public string AllowFullAiMultiplayerLobbyHelpText => SerpLocalization.Get("BugfixesAndQoL.AllowFullAiMultiplayerLobbyHelp");
+        public string ShowMpAdvancedSettingsInSingleplayerText => SerpLocalization.Get("BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayer");
+        public string ShowMpAdvancedSettingsInSingleplayerHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayerHelp");
         public string EnableCtrlSingleMarketTradeText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTrade);
         public string EnableCtrlSingleMarketTradeHelpText => SerpLocalization.Get(SerpLocalization.EnableCtrlSingleMarketTradeHelp);
         public string EnableAllyGoodsAmountModifiersText => SerpLocalization.Get(SerpLocalization.EnableAllyGoodsAmountModifiers);
@@ -625,6 +628,16 @@ namespace BugfixesAndQoL
         {
             get => allowFullAiMultiplayerLobby;
             set => SetSetting(ref allowFullAiMultiplayerLobby, value, nameof(AllowFullAiMultiplayerLobby));
+        }
+
+        [SyncHostOnly]
+        public bool ShowMpAdvancedSettingsInSingleplayer
+        {
+            get => showMpAdvancedSettingsInSingleplayer;
+            set => SetSetting(
+                ref showMpAdvancedSettingsInSingleplayer,
+                value,
+                nameof(ShowMpAdvancedSettingsInSingleplayer));
         }
 
         [SyncPerPlayer]
@@ -1129,6 +1142,7 @@ namespace BugfixesAndQoL
             {
                 EnableMod = true;
                 AllowFullAiMultiplayerLobby = true;
+                ShowMpAdvancedSettingsInSingleplayer = true;
                 EnableAiStoneReserveFix = true;
                 EnableAiDefensePatrolFix = true;
                 EnableAiWallTargetingFix = true;

@@ -243,6 +243,14 @@
     <Compile Include="src\SiegeAmmoRestockPacket.cs" />
     <Compile Include="src\SiegeAmmoRestockPolicy.cs" />
     <Compile Include="src\SkirmishAiSelectionMemoryHook.cs" />
+    <Compile Include="src\SkirmishGameOptionsAccessViewModel.cs" />
+    <Compile Include="src\SkirmishGameOptionsPolicy.cs" />
+    <Compile Include="src\SkirmishGameOptionsRuntime.cs" />
+    <Compile Include="src\WorkingCopyTransaction.cs" />
+    <Compile Include="src\NoDogsNativeContract.cs" />
+    <Compile Include="src\NoDogsNativePatch.cs" />
+    <Compile Include="src\VanillaPeaceTimeNativeContract.cs" />
+    <Compile Include="src\VanillaPeaceTimeGameplayPatch.cs" />
     <Compile Include="src\SteamLobbyInvitePrompt.cs" />
     <Compile Include="src\SteamLobbyInvitePolicy.cs" />
     <Compile Include="src\SteamInviteBlacklistStore.cs" />

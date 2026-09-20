@@ -96,12 +96,6 @@
 
       <StackPanel shared:ModSettingsSearch.SectionKey="extra.section.new-features" shared:ModSettingsSearch.SectionTitle="{Binding NewFeaturesTitleText}">
       <Grid Style="{StaticResource ModSettingsSearchSectionGrid}" shared:ModSettingsSearch.IsSection="True"><TextBlock Text="{Binding NewFeaturesTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,8"/></Grid>
-      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.vanilla-peace-time" shared:ModSettingsSearch.Title="{Binding VanillaPeaceTimeText}" shared:ModSettingsSearch.ToolTipText="{Binding VanillaPeaceTimeHelpText}" Margin="0,0,0,8" ToolTipService.ShowDuration="60000" ToolTip="{Binding VanillaPeaceTimeHelpText}">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="260"/><ColumnDefinition Width="220"/><ColumnDefinition Width="55"/></Grid.ColumnDefinitions>
-        <TextBlock Grid.Column="0" Text="{Binding VanillaPeaceTimeText}" Foreground="White" TextWrapping="Wrap" VerticalAlignment="Center"/>
-        <Slider Grid.Column="1" Minimum="0" Maximum="60" Value="{Binding VanillaPeaceTimeMinutes, Mode=TwoWay}" TickFrequency="1" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding VanillaPeaceTimeHelpText}"/>
-        <TextBox ui:KeyboardCaptureBinding.Enabled="True" Grid.Column="2" Text="{Binding VanillaPeaceTimeMinutesText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding VanillaPeaceTimeHelpText}" MinWidth="56" MaxWidth="120" Padding="4,1" TextAlignment="Center" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1"/>
-      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="extra.lord-health" shared:ModSettingsSearch.Title="{Binding LordHealthTitleText}" shared:ModSettingsSearch.ToolTipText="{Binding LordHealthHelpText}">
         <StackPanel>
           <TextBlock Text="{Binding LordHealthTitleText}" Foreground="#DDDDDD" FontWeight="Bold" Margin="0,0,0,4"/>

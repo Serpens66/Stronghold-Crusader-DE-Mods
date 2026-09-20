@@ -1,4 +1,6 @@
 # Serp mod localization
+BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayer=MP-Erweiterteinstellungen im Einzelspieler anzeigen
+BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayerHelp=Zeigt Vanillas Multiplayer-Spieloptionen in lokalen Gefechten. Friedenszeit, Einschränkungen, erweiterte Optionen und gemeinsame Presets verwenden Vanillas Setup-Daten.
 # Format: key=value
 SomeSettings.EnableImprovedAssassinPathfinding=Verbesserte Meuchelmoerder-Wegfindung
 SomeSettings.EnableImprovedAssassinPathfindingHelp=Waehlt Wege fuer Meuchelmoerder nach der erwarteten Dauer einschliesslich Kletteranimationen und aktiviert den spielerbezogenen Klettermodus-Button.
@@ -106,7 +108,7 @@ Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen K
 Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
 Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
 
-BugfixesAndQoL.ClientInterfaceTitle=Oberfläche und Steuerung
+BugfixesAndQoL.InterfaceTitle=Oberfläche und Steuerung
 BugfixesAndQoL.AiAivTitle=KI und AIV
 BugfixesAndQoL.TroopMovementTitle=Truppenbewegung
 BugfixesAndQoL.EnableExtendedShiftCommandQueue=Erweiterte Shift-Befehlswarteschlangen aktivieren

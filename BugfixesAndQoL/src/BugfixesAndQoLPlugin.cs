@@ -6,12 +6,14 @@ using SHCDESE.API;
 using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using System;
+using System.Reflection;
 
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.7.2")]
     [BepInDependency(ApiSharedGuid, "0.3.6")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInIncompatibility(LegacyTroopMovementFixGuid)]
@@ -47,6 +49,11 @@ namespace BugfixesAndQoL
         private static SteamLobbyInvitePrompt steamLobbyInvitePrompt;
         private static SteamInviteBlacklistStore steamInviteBlacklist;
         private static IDisposable gameplaySessionSubscription;
+        private static SkirmishGameOptionsRuntime skirmishGameOptionsRuntime;
+        private static SkirmishGameOptionsAccessViewModel skirmishGameOptionsAccess;
+        private static VanillaPeaceTimeGameplayPatch vanillaPeaceTimeGameplayPatch;
+        private static NoDogsNativePatch noDogsNativePatch;
+        private static bool skirmishGameOptionsCompatible;
         private BugfixesAndQoLRuntime runtime;
         private bool marketGoodsVisualRefreshFailureLogged;
 
@@ -80,6 +87,23 @@ namespace BugfixesAndQoL
             // Pass the startup result into the view model so the warning occupies no UI space otherwise.
             steamInviteBlacklist = new SteamInviteBlacklistStore(SteamInviteBlacklistStore.GetDefaultPath());
             Settings = new BugfixesAndQoLViewModel(legacySomeSettingsLoaded, steamInviteBlacklist, Logger);
+            skirmishGameOptionsCompatible = !HasLegacyExtraFeaturesPeaceTimeSetting();
+            skirmishGameOptionsAccess = new SkirmishGameOptionsAccessViewModel(
+                Settings,
+                skirmishGameOptionsCompatible,
+                Logger);
+            if (skirmishGameOptionsCompatible)
+            {
+                skirmishGameOptionsRuntime = new SkirmishGameOptionsRuntime(Logger);
+            }
+            else
+            {
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_DISABLED_LEGACY_EXTRAFEATURES: " +
+                    "the installed ExtraFeatures still owns the synchronized Peace Time setting. " +
+                    "Update ExtraFeatures before enabling the integrated Singleplayer Game Options dialog.");
+            }
             try
             {
                 if (resolutionAwareZoomHook == null)
@@ -212,6 +236,22 @@ namespace BugfixesAndQoL
             try
             {
                 GameXAMLManagerAPI.Instance.RegisterBinding(
+                    "BugfixesAndQoLSkirmishGameOptionsButtonHost",
+                    skirmishGameOptionsAccess);
+                skirmishGameOptionsRuntime?.Initialize();
+            }
+            catch (Exception ex)
+            {
+                skirmishGameOptionsRuntime = null;
+                skirmishGameOptionsAccess.SetRuntimeAvailable(false);
+                Shared.DebugLogHelper.LogError(
+                    Logger,
+                    "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_MANAGED_FAILED: " + ex);
+            }
+
+            try
+            {
+                GameXAMLManagerAPI.Instance.RegisterBinding(
                     "SerpTroopAction_0200_BugfixesAndQoLAssassinClimb",
                     runtime.AssassinClimbButton);
             }
@@ -276,6 +316,49 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL native runtime initialization failed; unaffected features may continue: {ex}");
             }
 
+            if (skirmishGameOptionsCompatible)
+            {
+                bool currentNative = Shared.DebugLogHelper.IsCurrentNativeLibraryVersion();
+                try
+                {
+                    vanillaPeaceTimeGameplayPatch = new VanillaPeaceTimeGameplayPatch(
+                        Logger,
+                        context.ModuleHandle,
+                        context.Region,
+                        context.Memory,
+                        currentNative);
+                    skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(true);
+                }
+                catch (Exception ex)
+                {
+                    skirmishGameOptionsRuntime?.SetPeaceTimeNativeAvailable(false);
+                    Shared.DebugLogHelper.LogError(
+                        Logger,
+                        "BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_FAILED: " + ex);
+                }
+
+                if (skirmishGameOptionsRuntime != null)
+                {
+                    try
+                    {
+                        noDogsNativePatch = new NoDogsNativePatch(
+                            Logger,
+                            context.ModuleHandle,
+                            context.Region,
+                            context.Memory,
+                            currentNative);
+                        skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        skirmishGameOptionsRuntime.SetNoDogsNativeAvailable(false);
+                        Shared.DebugLogHelper.LogError(
+                            Logger,
+                            "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_NO_DOGS_PATCH_FAILED: " + ex);
+                    }
+                }
+            }
+
             try
             {
                 object allyGoodsAmountDisplay = runtime.AllyGoodsAmountDisplay;
@@ -313,6 +396,58 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(Logger, $"Bugfixes and QoL settings reconciliation failed; already initialized features remain active: {ex}");
             }
             diagnostic.Complete();
+            }
+        }
+
+        private static bool HasLegacyExtraFeaturesPeaceTimeSetting()
+        {
+            if (!Chainloader.PluginInfos.TryGetValue("ExtraFeatures_Serp", out PluginInfo pluginInfo))
+                return false;
+
+            try
+            {
+                object plugin = pluginInfo.Instance;
+                Type settingsType = null;
+                if (plugin != null)
+                {
+                    PropertyInfo settingsProperty = plugin.GetType().GetProperty(
+                        "Settings",
+                        BindingFlags.Instance | BindingFlags.Public);
+                    settingsType = settingsProperty?.GetValue(plugin)?.GetType();
+                    if (settingsType == null)
+                    {
+                        settingsType = plugin.GetType().Assembly.GetType(
+                            "ExtraFeatures.ExtraFeaturesViewModel",
+                            throwOnError: false);
+                    }
+                }
+
+                if (settingsType == null)
+                    return true;
+
+                PropertyInfo peaceProperty = settingsType.GetProperty(
+                    "VanillaPeaceTimeMinutes",
+                    BindingFlags.Instance | BindingFlags.Public);
+                if (peaceProperty == null)
+                    return false;
+
+                foreach (object attribute in peaceProperty.GetCustomAttributes(false))
+                {
+                    if (string.Equals(
+                            attribute.GetType().Name,
+                            "SyncHostOnlyAttribute",
+                            StringComparison.Ordinal))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Exception)
+            {
+                // Unknown ExtraFeatures metadata must not be allowed to install a second native
+                // Peace Time owner. Other BugfixesAndQoL features remain available.
+                return true;
             }
         }
     }

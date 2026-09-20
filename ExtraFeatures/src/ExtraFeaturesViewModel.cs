@@ -102,7 +102,9 @@ namespace ExtraFeatures
         public string EnableExtraChurchPriestsHelpText => SerpLocalization.Get(SerpLocalization.EnableExtraChurchPriestsHelp);
         public string CampfirePeasantsText => SerpLocalization.Get(SerpLocalization.CampfirePeasants);
         public string CampfirePeasantsHelpText => SerpLocalization.Get(SerpLocalization.CampfirePeasantsHelp);
+        [Obsolete("Peace Time is now configured through Vanilla Game Options in BugfixesAndQoL.")]
         public string VanillaPeaceTimeText => SerpLocalization.Get("SomeSettings.VanillaPeaceTime");
+        [Obsolete("Peace Time is now configured through Vanilla Game Options in BugfixesAndQoL.")]
         public string VanillaPeaceTimeHelpText => SerpLocalization.Get("SomeSettings.VanillaPeaceTimeHelp");
         public string PlagueDurationMultiplierText => SerpLocalization.Get(SerpLocalization.PlagueDurationMultiplier);
         public string PlagueDurationMultiplierHelpText => SerpLocalization.Get(SerpLocalization.PlagueDurationMultiplierHelp);
@@ -197,7 +199,13 @@ namespace ExtraFeatures
         [SyncHostOnly] public double PlagueDurationMultiplier { get => plagueDurationMultiplier; set => SetDoubleSetting(ref plagueDurationMultiplier, value, PlagueDurationPatch.MinimumMultiplier, PlagueDurationPatch.MaximumMultiplier, nameof(PlagueDurationMultiplier), nameof(PlagueDurationMultiplierValueText)); }
         [SyncHostOnly] public int ApothecaryPlagueSearchDistance { get => apothecaryPlagueSearchDistance; set => SetIntSetting(ref apothecaryPlagueSearchDistance, value, PlagueApothecarySearchRangePatch.MinimumDistance, PlagueApothecarySearchRangePatch.MaximumDistance, nameof(ApothecaryPlagueSearchDistance), nameof(ApothecaryPlagueSearchDistanceValueText)); }
         [SyncHostOnly] public int CampfirePeasantsLimit { get => campfirePeasantsLimit; set => SetIntSetting(ref campfirePeasantsLimit, value, -1, 200, nameof(CampfirePeasantsLimit), nameof(CampfirePeasantsLimitText)); }
-        [SyncHostOnly] public int VanillaPeaceTimeMinutes { get => vanillaPeaceTimeMinutes; set => SetIntSetting(ref vanillaPeaceTimeMinutes, value, VanillaPeaceTimePolicy.MinimumMinutes, VanillaPeaceTimePolicy.MaximumMinutes, nameof(VanillaPeaceTimeMinutes), nameof(VanillaPeaceTimeMinutesText)); }
+        [Obsolete("Peace Time is now configured through Vanilla Game Options in BugfixesAndQoL.")]
+        [SHCDESE.API.Components.ModManager.DoNotPersist]
+        public int VanillaPeaceTimeMinutes
+        {
+            get => vanillaPeaceTimeMinutes;
+            set => SetLegacyPeaceTimeMinutes(value);
+        }
         [SyncHostOnly] public int HumanLordHealthPercent { get => humanLordHealthPercent; set => SetIntSetting(ref humanLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(HumanLordHealthPercent), nameof(HumanLordHealthPercentText)); }
         [SyncHostOnly] public int AILordHealthPercent { get => aiLordHealthPercent; set => SetIntSetting(ref aiLordHealthPercent, value, LordHealthMultiplierPolicy.MinimumPercent, LordHealthMultiplierPolicy.MaximumPercent, nameof(AILordHealthPercent), nameof(AILordHealthPercentText)); }
         [SyncHostOnly] public bool EnableFearFactorNeutralization { get => enableFearFactorNeutralization; set => SetSetting(ref enableFearFactorNeutralization, value, nameof(EnableFearFactorNeutralization)); }
@@ -243,7 +251,12 @@ namespace ExtraFeatures
             set => SetIntValueText(value, parsed => ApothecaryPlagueSearchDistance = parsed, nameof(ApothecaryPlagueSearchDistanceValueText));
         }
         public string CampfirePeasantsLimitText { get => CampfirePeasantsLimit.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => CampfirePeasantsLimit = parsed, nameof(CampfirePeasantsLimitText)); }
-        public string VanillaPeaceTimeMinutesText { get => VanillaPeaceTimeMinutes.ToString(CultureInfo.InvariantCulture); set => SetIntValueText(value, parsed => VanillaPeaceTimeMinutes = parsed, nameof(VanillaPeaceTimeMinutesText)); }
+        [Obsolete("Peace Time is now configured through Vanilla Game Options in BugfixesAndQoL.")]
+        public string VanillaPeaceTimeMinutesText
+        {
+            get => vanillaPeaceTimeMinutes.ToString(CultureInfo.InvariantCulture);
+            set => SetIntValueText(value, SetLegacyPeaceTimeMinutes, nameof(VanillaPeaceTimeMinutesText));
+        }
         public string HumanGateReopenDelayValueText { get => FormatSeconds(HumanGateReopenDelaySeconds); set => SetDoubleValueText(value, parsed => HumanGateReopenDelaySeconds = parsed, nameof(HumanGateReopenDelayValueText)); }
         public string AIGateReopenDelayValueText { get => FormatSeconds(AIGateReopenDelaySeconds); set => SetDoubleValueText(value, parsed => AIGateReopenDelaySeconds = parsed, nameof(AIGateReopenDelayValueText)); }
         public string HumanGateClosingDistanceValueText { get => FormatTiles(HumanGateClosingDistanceTiles); set => SetDoubleValueText(value, parsed => HumanGateClosingDistanceTiles = parsed, nameof(HumanGateClosingDistanceValueText)); }
@@ -255,6 +268,16 @@ namespace ExtraFeatures
         public string AITowerGateRebuildDelayValueText { get => FormatWholeSeconds(AITowerGateRebuildDelaySeconds); set => SetIntValueText(value, parsed => AITowerGateRebuildDelaySeconds = parsed, nameof(AITowerGateRebuildDelayValueText)); }
         public string HumanLordHealthPercentText { get => FormatPercent(HumanLordHealthPercent); set => SetIntValueText(value, parsed => HumanLordHealthPercent = parsed, nameof(HumanLordHealthPercentText)); }
         public string AILordHealthPercentText { get => FormatPercent(AILordHealthPercent); set => SetIntValueText(value, parsed => AILordHealthPercent = parsed, nameof(AILordHealthPercentText)); }
+
+        private void SetLegacyPeaceTimeMinutes(int value)
+        {
+            int normalized = value < 0 ? 0 : value > 60 ? 60 : value;
+            if (vanillaPeaceTimeMinutes == normalized)
+                return;
+            vanillaPeaceTimeMinutes = normalized;
+            OnPropertyChanged(nameof(VanillaPeaceTimeMinutes));
+            OnPropertyChanged(nameof(VanillaPeaceTimeMinutesText));
+        }
 
         private void ResetToDefault()
         {
@@ -279,7 +302,6 @@ namespace ExtraFeatures
                 PlagueDurationMultiplier = 4.0;
                 ApothecaryPlagueSearchDistance = 50;
                 CampfirePeasantsLimit = -1;
-                VanillaPeaceTimeMinutes = 0;
                 HumanLordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 AILordHealthPercent = LordHealthMultiplierPolicy.DefaultPercent;
                 EnableMonksAlwaysRun = false;

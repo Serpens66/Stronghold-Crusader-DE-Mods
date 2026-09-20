@@ -10,7 +10,7 @@ using RedBird.X64.Hooks.Transaction;
 using System;
 using System.Collections.Generic;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal sealed class VanillaPeaceTimeGameplayPatch
     {
@@ -38,7 +38,7 @@ namespace ExtraFeatures
             HookTransaction pending = null;
             try
             {
-                pending = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
+                pending = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
                 foreach (VanillaPeaceTimePatchSite site in VanillaPeaceTimeNativeContract.PatchSites)
                 {
                     HookHandle<X64AssemblyPatch> handle = new HookHandle<X64AssemblyPatch>();
@@ -71,8 +71,8 @@ namespace ExtraFeatures
                     hookSize: VanillaPeaceTimeNativeContract.StartingTroopsHookLength,
                     name: "VanillaPeaceTime_StartingTroops");
 
-                CommitResult result = pending.Commit();
-                if (!result.IsCompleteSuccess || !startingTroopsHook.Success ||
+                CommitResult commitResult = pending.Commit();
+                if (!commitResult.IsCompleteSuccess || !startingTroopsHook.Success ||
                     gameplayPatches.Exists(handle => !handle.Success))
                 {
                     throw new InvalidOperationException(
@@ -102,9 +102,9 @@ namespace ExtraFeatures
                 "VanillaPeaceTimeGameplayPatchInstalled",
                 VanillaPeaceTimeNativeContract.PatchSites.Length,
                 VanillaPeaceTimeNativeContract.StartingTroopsHookLength);
-            Shared.DebugLogHelper.LogInfo(
+            Shared.DebugLogHelper.LogDebug(
                 log,
-                $"Extra Features Vanilla peace-time gameplay patch installed: " +
+                $"BUGFIXES_AND_QOL_VANILLA_PEACE_TIME_PATCH_INSTALLED: " +
                 $"sha256={VanillaPeaceTimeNativeContract.ReferenceSha256}, " +
                 $"branchPatches={VanillaPeaceTimeNativeContract.PatchSites.Length}, " +
                 $"startingTroopsRva=0x{VanillaPeaceTimeNativeContract.StartingTroopsDispatcherRva:X}, " +

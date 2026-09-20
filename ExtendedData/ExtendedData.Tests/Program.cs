@@ -782,6 +782,18 @@ static void TestMapModSettingsRuntimeIntegration()
         coordinator.Contains("settingsCoordinator.ValidateStrict(document, \"embedded Map\")") &&
         xaml.Contains("ExtendedDataUseMapModSettings") && xaml.Contains("Visibility=\"Collapsed\""),
         "the manually activated Map preset button is not connected to every launch path");
+    Assert(xaml.Contains("Type=\"InsertAfter\" XPath=\"(//n:Button[@CommandParameter='Back'])[1]\"") &&
+        xaml.Contains("Width=\"180\"\r\n              Height=\"45\"") &&
+        xaml.Contains("Margin=\"410,0,0,20\"") &&
+        xaml.Contains("HorizontalAlignment=\"Left\"") &&
+        xaml.Contains("Style=\"{StaticResource BTN_SH_GlowS}\"") &&
+        !xaml.Contains("Opacity=") &&
+        !xaml.Contains("Background=") &&
+        !xaml.Contains("OptionsButton") &&
+        coordinator.Contains("bool hasMapSettings = selected != null && TryReadDocument(selected, out _, out _, logFailure: false);") &&
+        coordinator.Contains("button.IsEnabled = hasMapSettings;") &&
+        coordinator.Contains("button.Opacity = hasMapSettings ? 1f : 0.5f;"),
+        "the Map mod-settings button is not positioned beside Mod Options or does not mirror Vanilla's disabled opacity");
     string settingsXaml = File.ReadAllText(Path.Combine(projectRoot, "Override", "ScriptExtenderUI", "ExtendedDataSettings.xaml"));
     Assert(settingsXaml.Contains("TextWrapping=\"Wrap\"\r\n                 Width=\"623\"") &&
         settingsXaml.Contains("Width=\"623\" HorizontalAlignment=\"Left\"") &&
@@ -804,11 +816,18 @@ static void TestMapModSettingsRuntimeIntegration()
     foreach (string localePath in Directory.GetFiles(Path.Combine(projectRoot, "Locales"), "*.txt"))
     {
         string locale = File.ReadAllText(localePath);
+        string localeName = Path.GetFileName(localePath);
         foreach (string key in mapLocaleKeys)
         {
             Assert(CountOccurrences(locale, key) == 1,
-                Path.GetFileName(localePath) + " does not define exactly one " + key);
+                localeName + " does not define exactly one " + key);
         }
+
+        string expectedUseLabel = localeName == "de-DE.txt" ? "Map-Modsettings" : "Map preset";
+        string expectedActiveLabel = localeName == "de-DE.txt" ? "Map-Modsettings aktiv" : "Map preset active";
+        Assert(locale.Contains("ExtendedData.UseMapModSettings=" + expectedUseLabel + "\r\n") &&
+            locale.Contains("ExtendedData.MapModSettingsActive=" + expectedActiveLabel + "\r\n"),
+            localeName + " does not use the compact Map preset labels");
     }
 }
 

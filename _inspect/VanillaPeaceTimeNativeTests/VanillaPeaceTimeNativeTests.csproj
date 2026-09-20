@@ -6,7 +6,7 @@
     <Platform Condition="'$(Platform)' == ''">AnyCPU</Platform>
     <ProjectGuid>{D620D6BE-C1AB-42FB-97B4-22DFD75B7B5E}</ProjectGuid>
     <OutputType>Exe</OutputType>
-    <RootNamespace>ExtraFeatures</RootNamespace>
+    <RootNamespace>BugfixesAndQoL</RootNamespace>
     <AssemblyName>VanillaPeaceTimeNativeTests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
@@ -24,7 +24,7 @@
     <Reference Include="System.Memory"><HintPath>$(GameDir)\BepInEx\plugins\000shcdese\System.Memory.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\ExtraFeatures\src\VanillaPeaceTimeNativeContract.cs"><Link>VanillaPeaceTimeNativeContract.cs</Link></Compile>
+    <Compile Include="..\..\BugfixesAndQoL\src\VanillaPeaceTimeNativeContract.cs"><Link>VanillaPeaceTimeNativeContract.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

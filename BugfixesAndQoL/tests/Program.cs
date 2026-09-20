@@ -83,6 +83,7 @@ namespace BugfixesAndQoL
             TestFriendlyMoatCursorIdGuard();
             TestResyncDiagnosticHistory();
             TestWorkshopUploadLordSelectionPolicy();
+            SkirmishGameOptionsTests.Run(Check);
             TestMultiplayerLobbyReturnIntegration();
             TestClassicMapSizeReader();
             TestVanillaMapEditorPlayerCountColumn();

@@ -51,6 +51,10 @@ if errorlevel 1 goto build_failed_popd
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%..\_inspect\BugfixesAndQoLNativeTests\bin\BugfixesAndQoLNativeTests.exe"
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\VanillaPeaceTimeNativeTests\VanillaPeaceTimeNativeTests.csproj" /p:Configuration=Release
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\VanillaPeaceTimeNativeTests\bin\VanillaPeaceTimeNativeTests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" tests\ImprovedMoatFilling.Tests.csproj /p:Configuration=Debug
 if errorlevel 1 goto build_failed_popd
 "%PROJECT_DIR%tests\bin\ImprovedMoatFilling.Tests.exe"

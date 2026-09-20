@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch>
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Visibility='{Binding Show_MPNotSkirmishIsHost, Converter={StaticResource booleanToVisibilityConverter}}']"
+             AttributeName="Visibility"
+             Value="{Binding Show_MPIsHost, Converter={StaticResource booleanToVisibilityConverter}}" />
+</Patch>

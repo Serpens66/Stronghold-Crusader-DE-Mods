@@ -343,7 +343,9 @@ namespace ExtendedData
                 return;
             }
 
-            button.IsEnabled = selected != null && TryReadDocument(selected, out _, out _, logFailure: false);
+            bool hasMapSettings = selected != null && TryReadDocument(selected, out _, out _, logFailure: false);
+            button.IsEnabled = hasMapSettings;
+            button.Opacity = hasMapSettings ? 1f : 0.5f;
         }
 
         private void ApplySelectedMap(FRONT_Multiplayer lobby)

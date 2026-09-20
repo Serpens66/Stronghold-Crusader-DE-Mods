@@ -7,7 +7,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
-namespace ExtraFeatures
+namespace BugfixesAndQoL
 {
     internal static class Program
     {

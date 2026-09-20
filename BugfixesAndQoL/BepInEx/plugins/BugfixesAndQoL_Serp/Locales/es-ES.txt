@@ -1,4 +1,6 @@
 # Serp mod localization
+BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayer=Show MP advanced Settings in SP
+BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayerHelp=Shows Vanilla's multiplayer Game Options dialog in local Skirmish games. Peace Time, restrictions, advanced options and shared presets use Vanilla's setup data.
 # Format: key=value
 SomeSettings.EnableImprovedAssassinPathfinding=Improved Assassin pathfinding
 SomeSettings.EnableImprovedAssassinPathfindingHelp=Chooses Assassin routes by expected travel time, including climbing animations, and enables the per-player climbing-mode button.
@@ -104,7 +106,7 @@ Common.ResetToDefaultHelp=Resets the settings you can control in the current con
 Common.EnableModHelp=Enables or disables this mod for the match.
 Common.PresetHelp=Selects a saved preset. Clients change only their personal settings.
 
-BugfixesAndQoL.ClientInterfaceTitle=Interface and Controls
+BugfixesAndQoL.InterfaceTitle=Interface and Controls
 BugfixesAndQoL.AiAivTitle=AI and AIV
 BugfixesAndQoL.TroopMovementTitle=Troop Movement
 BugfixesAndQoL.EnableExtendedShiftCommandQueue=Enable extended Shift command queues
