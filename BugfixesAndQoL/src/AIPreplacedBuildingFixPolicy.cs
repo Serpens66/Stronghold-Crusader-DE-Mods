@@ -11,9 +11,6 @@ namespace BugfixesAndQoL
             LegacyTimerFixEligibility.Classify(isAi, isSave, mapVersion, legacyVersionExclusive,
                 sourceBefore, sourceAfter, destinationBefore, destinationAfter);
 
-        public bool IsTransferEligible(string classification) =>
-            LegacyTimerFixEligibility.IsEligible(classification);
-
         public string ClassifyApplication(string transferClassification, bool hasMatchingDestroyedTower,
             bool damageWriterObserved, int currentTimer) =>
             LegacyTimerFixEligibility.ClassifyAtApplication(transferClassification,

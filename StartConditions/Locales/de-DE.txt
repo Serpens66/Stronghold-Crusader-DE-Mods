@@ -19,8 +19,8 @@ StartConditions.SetStartGoldHelp=Setzt die anfängliche Goldmenge für jeden Spi
 StartConditions.AddStartGold=Startgold hinzufügen
 StartConditions.AddStartGoldHelp=Fügt jedem Spieler die angegebene Goldmenge zu seiner anfänglichen Goldmenge hinzu.
 StartConditions.MultiplyStartTroops=Starttruppen-Armeen multiplizieren
-StartConditions.StartTroopsMultiplierHelp=Multiplikator: 0 = offizielle Starttruppen nach 20 Sekunden entfernen, 1 = unverändert, 2 = doppelt. Erlaubter Bereich: 0 bis 100.
-StartConditions.StartTroopsMultiplierToolTip=Multiplikator fuer Starttruppen-Armeen. Wird nach {DelayedStartTroopCountMilliseconds} ms angewendet, aktuell {DelayedStartTroopCountSeconds} Sekunden nach Kartenstart. 0 = entfernen, 1 = unveraendert, 2 = doppelt. Erlaubter Bereich: 0 bis 100.
+StartConditions.StartTroopsMultiplierHelp=Multiplikator: 0 = offizielle Starttruppen nach der 20-Sekunden-Verzoegerung entfernen, 1 = unveraendert, 2 = doppelt. Eine aktive Vanilla-Waffenruhe verschiebt den Beginn dieser Verzoegerung bis zu ihrem Ende. Erlaubter Bereich: 0 bis 100.
+StartConditions.StartTroopsMultiplierToolTip=Multiplikator fuer Starttruppen-Armeen. Wird {DelayedStartTroopCountMilliseconds} ms (aktuell {DelayedStartTroopCountSeconds} Sekunden) nach Kartenstart oder nach dem Ende einer aktiven Vanilla-Waffenruhe angewendet. 0 = entfernen, 1 = unveraendert, 2 = doppelt. Erlaubter Bereich: 0 bis 100.
 StartConditions.ExtraStartUnitsHelp=Extra-Start-Einheiten: 0 = keine Extra-Einheiten. Erlaubter Bereich: 0 bis 1000.
 
 Common.HostOptions=HOST-OPTIONEN

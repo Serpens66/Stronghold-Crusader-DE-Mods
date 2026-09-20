@@ -9,6 +9,7 @@ namespace ExtraFeatures
 {
     internal enum VanillaPeaceTimePatchKind
     {
+        MultiplyEdxByForty,
         Nop,
         MoveEbxEdi,
         MoveEdiEbx,
@@ -51,6 +52,11 @@ namespace ExtraFeatures
             "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2";
         internal const ulong PreferredImageBase = 0x180000000;
         internal const int PeaceTimeActiveFlagRva = 0x38722DC;
+        internal const int StartingGameSpeedRva = 0x87ECA00;
+        internal const int PeaceTimeInitializerRva = 0xCA900;
+        internal const int PeaceTimeInitializerLength = 64;
+        internal const int PeaceTimeFixedRatePatchRva = 0xCA904;
+        internal const int PeaceTimeTicksPerSecond = 40;
         internal const int PeaceTimeUpdateModeGateRva = 0xCE304;
         internal const int PeaceTimeUpdateCallRva = 0xCE309;
         internal const int PeaceTimeUpdateFunctionRva = 0xCA870;
@@ -66,6 +72,7 @@ namespace ExtraFeatures
 
         internal static readonly VanillaPeaceTimePatchSite[] PatchSites =
         {
+            new VanillaPeaceTimePatchSite(PeaceTimeFixedRatePatchRva, "0F AF 15 F5 20 72 08", VanillaPeaceTimePatchKind.MultiplyEdxByForty, 0, "initializer fixed 40-tick basis"),
             new VanillaPeaceTimePatchSite(0x8A148, "74 4E", VanillaPeaceTimePatchKind.Nop, 0, "player action mode-0 bypass"),
             new VanillaPeaceTimePatchSite(0x8D366, "74 0F", VanillaPeaceTimePatchKind.Nop, 0, "command gate mode-0 bypass A"),
             new VanillaPeaceTimePatchSite(0x8D7C4, "74 09", VanillaPeaceTimePatchKind.Nop, 0, "command gate mode-0 bypass B"),
@@ -121,6 +128,7 @@ namespace ExtraFeatures
                 "starting-troop dispatcher entry");
             ValidateStartingTroopsHook(memory, imageBase);
             ValidatePeaceTimeUpdateCaller(memory, imageBase);
+            ValidatePeaceTimeInitializerFactor(memory, imageBase);
 
             foreach (VanillaPeaceTimePatchSite site in PatchSites)
             {
@@ -133,8 +141,18 @@ namespace ExtraFeatures
                 memory,
                 imageBase,
                 StartingTroopsDispatcherRva,
+                StartingTroopsDispatcherLength,
+                StartingTroopsDispatcherRva,
                 checked(StartingTroopsDispatcherRva + StartingTroopsHookLength),
-                StartingTroopsDispatcherLength);
+                "starting-troop hook");
+            ValidateNoIncomingDirectBranchTargets(
+                memory,
+                imageBase,
+                PeaceTimeInitializerRva,
+                PeaceTimeInitializerLength,
+                PeaceTimeFixedRatePatchRva,
+                checked(PeaceTimeFixedRatePatchRva + 7),
+                "peace-time fixed-rate patch");
         }
 
         internal static void EmitPatch(
@@ -144,6 +162,13 @@ namespace ExtraFeatures
         {
             switch (site.Kind)
             {
+                case VanillaPeaceTimePatchKind.MultiplyEdxByForty:
+                    assembler.imul(edx, edx, PeaceTimeTicksPerSecond);
+                    assembler.nop();
+                    assembler.nop();
+                    assembler.nop();
+                    assembler.nop();
+                    break;
                 case VanillaPeaceTimePatchKind.Nop:
                     assembler.nop(site.ExpectedBytes.Length);
                     break;
@@ -263,6 +288,28 @@ namespace ExtraFeatures
             }
         }
 
+        private static void ValidatePeaceTimeInitializerFactor(
+            ReadOnlySpan<byte> memory,
+            ulong imageBase)
+        {
+            Decoder decoder = CreateDecoder(
+                memory,
+                imageBase,
+                PeaceTimeFixedRatePatchRva,
+                7);
+            decoder.Decode(out Instruction instruction);
+            if (instruction.IsInvalid || instruction.Length != 7 ||
+                instruction.Mnemonic != Mnemonic.Imul ||
+                instruction.Op0Register != Register.EDX ||
+                !instruction.IsIPRelativeMemoryOperand ||
+                instruction.IPRelativeMemoryAddress !=
+                    imageBase + unchecked((ulong)StartingGameSpeedRva))
+            {
+                throw new InvalidOperationException(
+                    "Vanilla's audited peace-time StartingGameSpeed multiplication changed.");
+            }
+        }
+
         private static void ValidateSingleInstruction(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
@@ -344,19 +391,21 @@ namespace ExtraFeatures
         private static void ValidateNoIncomingDirectBranchTargets(
             ReadOnlySpan<byte> memory,
             ulong imageBase,
-            int hookStart,
-            int hookEnd,
-            int functionLength)
+            int functionStart,
+            int functionLength,
+            int protectedStart,
+            int protectedEnd,
+            string protectedName)
         {
-            Decoder decoder = CreateDecoder(memory, imageBase, hookStart, functionLength);
-            ulong functionEnd = imageBase + unchecked((ulong)(hookStart + functionLength));
+            Decoder decoder = CreateDecoder(memory, imageBase, functionStart, functionLength);
+            ulong functionEnd = imageBase + unchecked((ulong)(functionStart + functionLength));
             while (decoder.IP < functionEnd)
             {
                 decoder.Decode(out Instruction instruction);
                 if (instruction.IsInvalid || instruction.NextIP > functionEnd)
                 {
                     throw new InvalidOperationException(
-                        "The starting-troop dispatcher no longer decodes on its audited boundaries.");
+                        $"The function containing the {protectedName} no longer decodes on its audited boundaries.");
                 }
 
                 bool directControlTransfer =
@@ -364,18 +413,19 @@ namespace ExtraFeatures
                     instruction.FlowControl == FlowControl.UnconditionalBranch ||
                     instruction.FlowControl == FlowControl.Call;
                 ulong target = instruction.NearBranchTarget;
-                ulong interiorStart = imageBase + unchecked((ulong)(hookStart + 1));
-                ulong interiorEnd = imageBase + unchecked((ulong)hookEnd);
+                ulong interiorStart = imageBase + unchecked((ulong)(protectedStart + 1));
+                ulong interiorEnd = imageBase + unchecked((ulong)protectedEnd);
                 if (directControlTransfer && target >= interiorStart && target < interiorEnd)
                 {
                     throw new InvalidOperationException(
                         $"A direct control transfer at RVA 0x{instruction.IP - imageBase:X} targets " +
-                        $"the interior of the starting-troop hook at RVA 0x{target - imageBase:X}.");
+                        $"the interior of the {protectedName} at RVA 0x{target - imageBase:X}.");
                 }
             }
 
             if (decoder.IP != functionEnd)
-                throw new InvalidOperationException("The starting-troop dispatcher boundary changed.");
+                throw new InvalidOperationException(
+                    $"The function boundary containing the {protectedName} changed.");
         }
     }
 }

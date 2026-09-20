@@ -79,10 +79,11 @@ namespace BugfixesAndQoL
             string processMapStart = ExtractMethod(runtime, "ProcessMapStart");
             string allocateSpec = ExtractMethod(runtime, "AllocateSpec");
             string captureBaseline = ExtractMethod(runtime, "CaptureMapLoadBuildingIdentities");
+            string processDamage = ExtractMethod(runtime, "ProcessBuildingDamage");
             check(processMapLoad.Contains("MissionInitializationPhase.BeforeLoad") &&
-                processMapLoad.Contains("MissionInitializationPhase.NativeLoaded") &&
-                !processMapLoad.Contains("CaptureMapLoadBuildingIdentities"),
-                "BeforeLoad resets and NativeLoaded observes without capturing the pre-AIV baseline");
+                !processMapLoad.Contains("CaptureMapLoadBuildingIdentities") &&
+                !processMapLoad.Contains("LogInfo"),
+                "BeforeLoad resets without capturing or logging the pre-AIV baseline");
             check(allocateSpec.IndexOf("CaptureMapLoadBuildingIdentities", StringComparison.Ordinal) >= 0 &&
                 allocateSpec.IndexOf("CaptureMapLoadBuildingIdentities", StringComparison.Ordinal) <
                 allocateSpec.LastIndexOf("allocateHook.Original", StringComparison.Ordinal),
@@ -110,6 +111,28 @@ namespace BugfixesAndQoL
             check(!Regex.IsMatch(runtime,
                 @"\b(?:Update|LateUpdate|FixedUpdate|OnDestroy|OnDisable|OnApplicationQuit)\s*\("),
                 "AI preplaced-building fix has no polling or Unity teardown method");
+            check(!runtime.Contains("PREPLACED_MAP_LOAD") &&
+                !runtime.Contains("PREPLACED_MAP_START") &&
+                !runtime.Contains("PREPLACED_SESSION_RESET") &&
+                !runtime.Contains("PREPLACED_PRE_AIV_BASELINE") &&
+                !runtime.Contains("PREPLACED_ECONOMY_PROFILE") &&
+                !runtime.Contains("PREPLACED_ECONOMY_FIX_PENDING") &&
+                !runtime.Contains("PREPLACED_ECONOMY_FIX_WAITING_FOR_ROUTE") &&
+                !runtime.Contains("PREPLACED_ECONOMY_CENSUS_RECONCILED") &&
+                !runtime.Contains("PREPLACED_PORTAL_OWNER_SYNC"),
+                "AI preplaced-building fix omits routine lifecycle and diagnostic logging");
+            check(!runtime.Contains("CaptureEconomyAvailabilityFields") &&
+                !runtime.Contains("ComputeEconomyAccessSignature") &&
+                !runtime.Contains("EmitEconomyFixState"),
+                "logging cannot trigger census snapshots, portal scans, or route-cache construction");
+            check(processDamage.Contains("CaptureDamageContext(args, economyProfileResolved)") &&
+                processDamage.Contains("pendingDamage.Push(null)") &&
+                processDamage.Contains("if (completed == null) return"),
+                "ordinary combat damage uses an allocation-free balanced event sentinel after profile resolution");
+            string wallBaseline = ExtractMethod(runtime, "CaptureWallBaseline");
+            check(wallBaseline.Contains("foreach (int tileId in mapLoadWallTiles)") &&
+                !wallBaseline.Contains("for (int x = 0; x < NativeTileGridWidth"),
+                "per-player wall baselines iterate only the captured wall tiles");
             check(!runtime.Contains("System.Text.Json") && !runtime.Contains("Newtonsoft") &&
                 !runtime.Contains("JavaScriptSerializer") && !runtime.Contains("JsonUtility"),
                 "AI preplaced-building fix has no runtime JSON parser");

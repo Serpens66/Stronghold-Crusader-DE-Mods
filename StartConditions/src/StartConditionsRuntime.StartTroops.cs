@@ -44,10 +44,24 @@ namespace StartConditions
                     }
                 });
 
-                if (plan.PendingPlayers.Count > 0)
-                    ScheduleDelayedStartTroopProcessing(plan);
+                if (!plan.HasWork)
+                {
+                    LogDebug("No start-troop changes are configured.");
+                    return;
+                }
+
+                if (vanillaPeaceTimeState.TryGetIsActive(out bool peaceTimeActive) && peaceTimeActive)
+                {
+                    WaitForPeaceTimeEnd(plan);
+                }
+                else if (plan.PendingPlayers.Count > 0)
+                {
+                    ScheduleDelayedStartTroopProcessing(plan, "map start");
+                }
                 else
+                {
                     SpawnConfiguredStartTroops(aiTroops, humanTroops);
+                }
             }
             catch (Exception ex)
             {
@@ -55,7 +69,92 @@ namespace StartConditions
             }
         }
 
-        private void ScheduleDelayedStartTroopProcessing(StartTroopPlan plan)
+        private void WaitForPeaceTimeEnd(StartTroopPlan plan)
+        {
+            pendingStartTroopPlan = plan;
+            if (waitingForPeaceTimeEnd)
+                return;
+
+            GameTimeManagerAPI.Instance.OnTick += OnPeaceTimeWaitTick;
+            waitingForPeaceTimeEnd = true;
+            LogDebug(
+                "Vanilla peace time is active; start-troop processing will begin",
+                DelayedStartTroopCountSeconds,
+                "seconds after it ends.");
+        }
+
+        private void OnPeaceTimeWaitTick(int gameTick)
+        {
+            try
+            {
+                ProcessPeaceTimeWaitTick(gameTick);
+            }
+            catch (Exception ex)
+            {
+                LogError("Start Conditions peace-time wait tick failed; attempting legacy timing:", ex);
+                StartTroopPlan plan = pendingStartTroopPlan;
+                try
+                {
+                    StopWaitingForPeaceTimeEnd();
+                    if (plan != null)
+                        ResumeStartTroopPlanWithLegacyTiming(plan, "the peace-time tick handler failed");
+                }
+                catch (Exception fallbackException)
+                {
+                    pendingStartTroopTimerHandle = null;
+                    pendingStartTroopPlan = null;
+                    waitingForPeaceTimeEnd = false;
+                    LogError("Start Conditions could not recover its start-troop plan:", fallbackException);
+                }
+            }
+        }
+
+        private void ProcessPeaceTimeWaitTick(int gameTick)
+        {
+            StartTroopPlan plan = pendingStartTroopPlan;
+            if (plan == null)
+            {
+                StopWaitingForPeaceTimeEnd();
+                return;
+            }
+
+            if (!vanillaPeaceTimeState.TryGetIsActive(out bool peaceTimeActive))
+            {
+                StopWaitingForPeaceTimeEnd();
+                ResumeStartTroopPlanWithLegacyTiming(plan, "peace-time state became unavailable");
+                return;
+            }
+
+            if (peaceTimeActive)
+                return;
+
+            StopWaitingForPeaceTimeEnd();
+            LogDebug("Vanilla peace time ended at game tick", gameTick);
+            ScheduleDelayedStartTroopProcessing(plan, "peace-time end");
+        }
+
+        private void StopWaitingForPeaceTimeEnd()
+        {
+            if (!waitingForPeaceTimeEnd)
+                return;
+
+            GameTimeManagerAPI.Instance.OnTick -= OnPeaceTimeWaitTick;
+            waitingForPeaceTimeEnd = false;
+        }
+
+        private void ResumeStartTroopPlanWithLegacyTiming(StartTroopPlan plan, string reason)
+        {
+            LogDebug("Resuming start-troop plan with legacy timing because", reason);
+            if (plan.PendingPlayers.Count > 0)
+                ScheduleDelayedStartTroopProcessing(plan, "legacy fallback");
+            else
+            {
+                pendingStartTroopPlan = null;
+                SpawnConfiguredStartTroops(plan.AiTroops, plan.HumanTroops);
+            }
+        }
+
+        private void ScheduleDelayedStartTroopProcessing(StartTroopPlan plan, string origin)
         {
             pendingStartTroopPlan = plan;
             pendingStartTroopTimerHandle = GameTimeManagerAPI.Instance.GetTimerEngine().AddDelayedAction(
@@ -63,7 +162,14 @@ namespace StartConditions
                 RunDelayedStartTroopProcessing,
                 string.Empty);
 
-            LogDebug("Scheduled delayed start troop processing in", DelayedStartTroopCountMilliseconds, "ms for", plan.PendingPlayers.Count, "players. Timer is not save/load persistent.");
+            LogDebug(
+                "Scheduled delayed start troop processing in",
+                DelayedStartTroopCountMilliseconds,
+                "ms after",
+                origin,
+                "for",
+                plan.PendingPlayers.Count,
+                "players. Timer is not save/load persistent.");
         }
 
         private void RunDelayedStartTroopProcessing()
@@ -77,9 +183,17 @@ namespace StartConditions
 
             try
             {
+                if (vanillaPeaceTimeState.TryGetIsActive(out bool peaceTimeActive) && peaceTimeActive)
+                {
+                    LogDebug("Vanilla peace time became active again before start-troop processing.");
+                    WaitForPeaceTimeEnd(plan);
+                    return;
+                }
+
                 LogDebug("Running delayed start troop processing for", plan.PendingPlayers.Count, "players");
                 var troopCounts = new Dictionary<int, Dictionary<eChimps, int>>();
-                TryRunFeature("delayed start troop counting", () => troopCounts = CountSoldiersForPlayers());
+                if (plan.PendingPlayers.Count > 0)
+                    TryRunFeature("delayed start troop counting", () => troopCounts = CountSoldiersForPlayers());
                 foreach (PendingStartTroopPlayer pending in plan.PendingPlayers)
                 {
                     TryRunFeature(
@@ -125,6 +239,7 @@ namespace StartConditions
 
         private void CancelPendingStartTroopProcessing()
         {
+            StopWaitingForPeaceTimeEnd();
             if (!string.IsNullOrEmpty(pendingStartTroopTimerHandle))
             {
                 try
@@ -257,8 +372,20 @@ namespace StartConditions
             }
 
             LogDebug("CreateLocal", amount, unitType, "for player", playerId, "at", x, y, height);
+            bool isolateFromAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);
             for (int i = 0; i < amount; i++)
-                GameUnitManagerAPI.Instance.CreateUnitLocal(playerId, playerId, x, y, height, unitType);
+            {
+                long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(
+                    playerId,
+                    playerId,
+                    x,
+                    y,
+                    height,
+                    unitType);
+
+                if (isolateFromAI)
+                    TryProtectSpawnedAIStartTroop(createdId, playerId, unitType);
+            }
         }
 
         private bool TryGetTileNearKeep(int playerId, out int x, out int y, out int height)
@@ -297,10 +424,26 @@ namespace StartConditions
             public readonly Dictionary<eChimps, int> HumanTroops;
             public readonly List<PendingStartTroopPlayer> PendingPlayers = new List<PendingStartTroopPlayer>();
 
+            public bool HasWork =>
+                PendingPlayers.Count > 0 ||
+                HasPositiveAmount(AiTroops) ||
+                HasPositiveAmount(HumanTroops);
+
             public StartTroopPlan(Dictionary<eChimps, int> aiTroops, Dictionary<eChimps, int> humanTroops)
             {
                 AiTroops = aiTroops;
                 HumanTroops = humanTroops;
+            }
+
+            private static bool HasPositiveAmount(Dictionary<eChimps, int> troops)
+            {
+                foreach (int amount in troops.Values)
+                {
+                    if (amount > 0)
+                        return true;
+                }
+
+                return false;
             }
         }
 

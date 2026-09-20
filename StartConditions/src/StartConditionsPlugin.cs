@@ -16,7 +16,7 @@ namespace StartConditions
 
         public const string PluginGuid = "StartConditions_Serp";
         public const string PluginName = "Start Conditions";
-        public const string PluginVersion = "1.0.27";
+        public const string PluginVersion = "1.0.28";
 
         private StartConditionsRuntime runtime;
         private int libraryInitializationStarted;
@@ -40,7 +40,10 @@ namespace StartConditions
 
             CrusaderLibrary.Instance.LibraryLoaded -= OnCrusaderLibraryLoaded;
 
-            TryInitializeStage("native version diagnostics", () => Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName));
+            bool currentNativeVersion = false;
+            TryInitializeStage(
+                "native version diagnostics",
+                () => currentNativeVersion = Shared.DebugLogHelper.ReportNativeLibraryVersion(Logger, PluginName));
             TryInitializeStage("localized names", () => Settings.RefreshLocalizedNames(message => Shared.DebugLogHelper.LogDebug(Logger, message)));
             try
             {
@@ -59,7 +62,7 @@ namespace StartConditions
 
             try
             {
-                runtime.InitializeAfterLibraryLoaded();
+                runtime.InitializeAfterLibraryLoaded(context, currentNativeVersion);
                 Shared.DebugLogHelper.LogDebug(Logger, "Crusader library loaded; StartConditions runtime initialized.");
             }
             catch (Exception ex)

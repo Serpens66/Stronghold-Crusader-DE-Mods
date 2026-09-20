@@ -1,6 +1,7 @@
 using BepInEx.Logging;
 using R3;
 using SHCDESE.API;
+using SHCDESE.API.LowLevel;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.MapLoader;
@@ -16,6 +17,7 @@ namespace StartConditions
     {
         private readonly ManualLogSource log;
         private readonly IStartConditionsSettings settings;
+        private readonly VanillaPeaceTimeState vanillaPeaceTimeState;
         private IStartConditionsSettings activeSettings;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly StartConditionsMapSessionState mapSessionState =
@@ -29,6 +31,7 @@ namespace StartConditions
         private const int IncomingGoodClearAmount = 100000;
         private string pendingStartTroopTimerHandle;
         private StartTroopPlan pendingStartTroopPlan;
+        private bool waitingForPeaceTimeEnd;
         private Shared.ActivePlayerKeepWaitHandle pendingKeepReadiness;
         private int[] activePlayerIds = Array.Empty<int>();
 
@@ -66,6 +69,7 @@ namespace StartConditions
         {
             this.log = log;
             this.settings = settings;
+            vanillaPeaceTimeState = new VanillaPeaceTimeState(log);
             activeSettings = settings;
             Shared.GameplayModActivationGate.Initialize(log, StartConditionsPlugin.PluginGuid, StartConditionsPlugin.PluginName, () => settings.EnableMod);
             Shared.GameplayModActivationGate.StateChanged += OnModeAllowedChanged;
@@ -107,9 +111,18 @@ namespace StartConditions
 
         public void InitializeAfterLibraryLoaded()
         {
+            InitializeAfterLibraryLoaded(null, false);
+        }
+
+        internal void InitializeAfterLibraryLoaded(
+            CrusaderLibraryLoadContext context,
+            bool currentNativeVersion)
+        {
             if (libraryInitialized)
                 return;
 
+            vanillaPeaceTimeState.Initialize(context, currentNativeVersion);
+            InitializeAIStartTroopIsolation();
             SubscribeSettingsChanges();
             SubscribeHooks();
             LogDebug("Start conditions initialized");

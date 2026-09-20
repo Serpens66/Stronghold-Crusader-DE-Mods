@@ -27,7 +27,6 @@ namespace BugfixesAndQoL
         private const int PlayerRuntimeStateStride = 0x583C;
         private const int PlayerResourcesOffsetInSerializedRecord = 0x22FC;
         private const int CrushedCounterRelativeOffset = 0x7E4;
-        private const int WoodSearchCooldownRelativeOffset = 0x167C;
         private const int NativePclEntryCount = 320800;
         private const int LegacyPlayerStateCopyRva = 0xD4290;
         private const int LegacyPlayerStateCopyCallSiteRva = 0x96CE;
@@ -124,7 +123,7 @@ namespace BugfixesAndQoL
         private readonly PreplacedEconomyAccessFix economyAccessFix = new PreplacedEconomyAccessFix();
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<int, PlayerSession> players = new Dictionary<int, PlayerSession>();
-        private readonly Stack<DamageContext> pendingDamage = new Stack<DamageContext>();
+        private readonly Stack<DamageContext> pendingDamage = new Stack<DamageContext>(8);
 
         private readonly DetourHandle<AllocateSpecDelegate> allocateHook =
             new DetourHandle<AllocateSpecDelegate>();
@@ -154,7 +153,6 @@ namespace BugfixesAndQoL
         private ulong activeLayoutIndexBase;
         private ulong nativeModuleBase;
         private ulong lastAivState;
-        private int mapSequence;
 
         [ThreadStatic] private static int nearbyEconomyPlayerId;
         [ThreadStatic] private static ulong nearbyEconomyState;
@@ -218,7 +216,6 @@ namespace BugfixesAndQoL
             subscriptions.Add(BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable.Subscribe(OnBuildingDamage));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingBulldoze.Observable.Subscribe(OnBuildingBulldoze));
             subscriptions.Add(BuildingR3EventHooks.OnBuildingDelete.Observable.Subscribe(OnBuildingDelete));
-            Shared.DebugLogHelper.LogInfo(log, "PREPLACED_EVENTS_READY: event-driven fix lifecycle installed; no frame polling.");
         }
 
         public void TryInstallNativeFixes(CrusaderLibraryLoadContext context, bool hashMatches)
@@ -286,9 +283,6 @@ namespace BugfixesAndQoL
                     woodScoreFloorHook.Hook.DisplacedByteCount != WoodScoreFloorHookLength)
                     throw new InvalidOperationException("atomic native hook transaction was incomplete: " + result);
                 nativeReady = true;
-                Shared.DebugLogHelper.LogInfo(log,
-                    $"AI_PREPLACED_BUILDING_FIX_NATIVE_READY: 10 detours and one scoped wood-score context hook installed atomically; " +
-                    $"activeLayoutBase=0x{activeLayoutIndexBase:X}; pclEntries={NativePclEntryCount}." );
             }
             catch (Exception ex)
             {
@@ -425,21 +419,13 @@ namespace BugfixesAndQoL
             lastAivState = state;
             if (economyProfileResolved && economyMapRelevant && mode != 0)
             {
-                InvalidateEconomyOverlayCaches("economy-grid-full-rebuild");
+                InvalidateEconomyOverlayCaches();
                 foreach (KeyValuePair<int, WallTileBaseline> entry in wallBaselines)
                 {
                     if (entry.Value.LostWallTiles.Count != 0)
                         dirtyBreachPlayers.Add(entry.Key);
                 }
             }
-        }
-
-        private short[] CaptureEconomyAvailabilityFields(int playerId)
-        {
-            var result = new short[10];
-            for (int index = 0; index < result.Length; index++)
-                result[index] = ReadPlayerInt16(playerId, WoodSearchCooldownRelativeOffset, index);
-            return result;
         }
 
         private void LegacyPlayerStateCopy()
@@ -497,8 +483,6 @@ namespace BugfixesAndQoL
             if (lastLegacyCopySourceBefore == null || lastLegacyCopyDestinationBefore == null ||
                 lastLegacyCopySource == null || lastLegacyCopyDestination == null)
             {
-                Shared.DebugLogHelper.LogInfo(log,
-                    $"PREPLACED_LEGACY_TIMER_FIX_SKIPPED: sequence={mapSequence}; reason=no-complete-legacy-transfer-capture.");
                 return;
             }
 
@@ -519,14 +503,7 @@ namespace BugfixesAndQoL
                 int currentTimer = ReadPlayerGlobal(playerId, CrushedCounterRelativeOffset);
                 string decision = legacyRuinTimerFix.ClassifyApplication(transfer,
                     matchingTowers.Length != 0, damageActivatedTimerOwners.Contains(playerId), currentTimer);
-                if (!legacyRuinTimerFix.IsApplicationEligible(decision))
-                {
-                    if (legacyRuinTimerFix.IsTransferEligible(transfer))
-                        Shared.DebugLogHelper.LogInfo(log,
-                            $"PREPLACED_LEGACY_TIMER_FIX_SKIPPED: sequence={mapSequence}; player={playerId}; " +
-                            $"reason={decision}; currentTimer={currentTimer}; matchingDestroyedTowers={matchingTowers.Length}.");
-                    continue;
-                }
+                if (!legacyRuinTimerFix.IsApplicationEligible(decision)) continue;
 
                 if (!TryGetPlayerRuntimeFieldPointer(playerId, CrushedCounterRelativeOffset, out byte* timerField))
                     throw new InvalidOperationException("The eligible AI player runtime record is unavailable.");
@@ -535,11 +512,9 @@ namespace BugfixesAndQoL
                 int verified = *timer;
                 if (verified != 0)
                     throw new InvalidOperationException("The eligible legacy crushed-building timer could not be normalized.");
-                Shared.DebugLogHelper.LogInfo(log, "PREPLACED_LEGACY_TIMER_FIX_APPLIED: " +
-                    $"sequence={mapSequence}; player={playerId}; timer=1->0; mapVersion={lastLegacyCopyMapVersion}; " +
-                    $"matchingDestroyedTowers=[{string.Join(",", matchingTowers.Select(value => value.Id + "/" +
-                        value.GlobalId + "/" + value.Type + "/ownerAtTransfer=" + value.OwnerId))}]; " +
-                    "serializedSourceUnchanged=true; buildingRecordsUnchanged=true");
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"PREPLACED_LEGACY_TIMER_FIX_APPLIED: player={playerId}; timer=1->0; " +
+                    $"matchingDestroyedTowers={matchingTowers.Length}.");
             }
         }
 
@@ -548,21 +523,20 @@ namespace BugfixesAndQoL
             if (!sessionEnabled || !IsExpectedAivState(state))
                 return allocateHook.Original(state, playerId);
             lastAivState = state;
-            Safe(() => CaptureMapLoadBuildingIdentities("first-allocate-spec.pre"));
+            Safe(CaptureMapLoadBuildingIdentities);
             return allocateHook.Original(state, playerId);
         }
 
         private void EconomyOxen(ulong state, int playerId) => RunEconomyPlayer(
-            economyOxenHook, state, playerId, "oxen", eStructs.STRUCT_OXEN_BASE);
+            economyOxenHook, state, playerId);
 
         private void EconomyQuarry(ulong state, int playerId) => RunEconomyPlayer(
-            economyQuarryHook, state, playerId, "quarry", eStructs.STRUCT_QUARRY);
+            economyQuarryHook, state, playerId);
 
         private void EconomyWood(ulong state, int playerId) => RunEconomyPlayer(
-            economyWoodHook, state, playerId, "wood", eStructs.STRUCT_WOODCUTTERS_HUT);
+            economyWoodHook, state, playerId);
 
-        private void RunEconomyPlayer(DetourHandle<EconomyPlayerDelegate> hook, ulong state, int playerId,
-            string phase, eStructs desiredType)
+        private void RunEconomyPlayer(DetourHandle<EconomyPlayerDelegate> hook, ulong state, int playerId)
         {
             if (!sessionEnabled || !IsExpectedAivState(state))
             {
@@ -585,7 +559,7 @@ namespace BugfixesAndQoL
         {
             if (!sessionEnabled || !IsExpectedAivState(state) || !economyMapRelevant)
                 return farmSearchHook.Original(state, playerId, desiredStructureType);
-            TryActivateOrRefreshEconomyFix(state, playerId, "farm-search");
+            TryActivateOrRefreshEconomyFix(state, playerId);
             EconomyGridOverlayScope overlay = EnterEconomyOverlay(state, playerId, "farm-search");
             try { return farmSearchHook.Original(state, playerId, desiredStructureType); }
             finally { ExitEconomyOverlay(overlay); }
@@ -598,7 +572,7 @@ namespace BugfixesAndQoL
                 resourceSearchHook.Original(state, playerId, mode);
                 return;
             }
-            TryActivateOrRefreshEconomyFix(state, playerId, "resource-search");
+            TryActivateOrRefreshEconomyFix(state, playerId);
             EconomyGridOverlayScope overlay = EnterEconomyOverlay(state, playerId, "resource-search");
             try { resourceSearchHook.Original(state, playerId, mode); }
             finally { ExitEconomyOverlay(overlay); }
@@ -611,7 +585,7 @@ namespace BugfixesAndQoL
                 woodSearchHook.Original(state, playerId);
                 return;
             }
-            TryActivateOrRefreshEconomyFix(state, playerId, "wood-search");
+            TryActivateOrRefreshEconomyFix(state, playerId);
             EconomyGridOverlayScope overlay = EnterEconomyOverlay(state, playerId, "wood-search");
             try { woodSearchHook.Original(state, playerId); }
             finally { ExitEconomyOverlay(overlay); }
@@ -627,7 +601,7 @@ namespace BugfixesAndQoL
             int playerId = nearbyEconomyState == state ? nearbyEconomyPlayerId : 0;
             if (IsAi(playerId))
             {
-                TryActivateOrRefreshEconomyFix(state, playerId, "nearby-search");
+                TryActivateOrRefreshEconomyFix(state, playerId);
                 EconomyGridOverlayScope overlay = EnterEconomyOverlay(state, playerId, "nearby-search");
                 try { nearbySearchHook.Original(state, coarseX, coarseY); }
                 finally { ExitEconomyOverlay(overlay); }
@@ -687,7 +661,7 @@ namespace BugfixesAndQoL
                 throw new InvalidOperationException("C3BF0 route-call target differs from E2610");
         }
 
-        private void TryActivateOrRefreshEconomyFix(ulong state, int playerId, string helper)
+        private void TryActivateOrRefreshEconomyFix(ulong state, int playerId)
         {
             if (!sessionEnabled || !IsExpectedAivState(state) || !economyFixEnabled ||
                 reconcilingEconomyAvailability || !economyProfileResolved ||
@@ -715,10 +689,8 @@ namespace BugfixesAndQoL
                     }
                     economyFixEligiblePlayers.Remove(playerId);
                     session.EconomyFixState = EconomyFixActivationState.Suspended;
-                    EmitEconomyFixState("SUSPENDED", session, helper,
-                        activationState == EconomyFixActivationState.ActivePortal
-                            ? "preplaced-portal-route-unavailable"
-                            : "confirmed-breach-route-unavailable");
+                    Shared.DebugLogHelper.LogInfo(log,
+                        $"PREPLACED_ECONOMY_FIX_SUSPENDED: player={playerId}; mode={activationState}.");
                     activationState = EconomyFixActivationState.Suspended;
                 }
 
@@ -728,54 +700,27 @@ namespace BugfixesAndQoL
                         HasFriendlyPreplacedPortalBuilding(playerId), session.WallAccessRole);
                     session.EconomyFixState = activationState;
                     if (activationState == EconomyFixActivationState.None) return;
-                    EmitEconomyFixState("PENDING", session, helper, "topology-recheck");
                 }
 
                 bool accessReady;
-                string cause;
                 if (activationState == EconomyFixActivationState.PendingPortal)
                 {
-                    cause = "preplaced-friendly-portal";
                     accessReady = HasParticipatingFriendlyBaselinePortal(playerId, true);
                 }
                 else if (activationState == EconomyFixActivationState.PendingBreach)
                 {
-                    cause = "confirmed-wall-breach";
                     accessReady = HasConfirmedBreachEconomyAccess(playerId);
                 }
                 else return;
 
-                if (!accessReady)
-                {
-                    if (!session.MatchesWaitState(activationState, economyTopologyRevision, false))
-                    {
-                        session.SetWaitState(activationState, economyTopologyRevision, false);
-                        EmitEconomyFixState("WAITING_FOR_ROUTE", session, helper,
-                            activationState == EconomyFixActivationState.PendingPortal
-                                ? "native-portal-graph-not-ready"
-                                : session.ConfirmedWallBreach
-                                    ? "breach-access-not-currently-reachable"
-                                    : "wall-breach-not-confirmed");
-                    }
-                    return;
-                }
+                if (!accessReady) return;
 
-                if (!ReconcileEconomyAvailability(state, session, helper, cause))
-                {
-                    if (!session.MatchesWaitState(activationState, economyTopologyRevision, true))
-                    {
-                        session.SetWaitState(activationState, economyTopologyRevision, true);
-                        EmitEconomyFixState("WAITING_FOR_ROUTE", session, helper,
-                            "census-overlay-unavailable-or-no-byte04-change");
-                    }
-                    return;
-                }
+                if (!ReconcileEconomyAvailability(state, session)) return;
                 session.EconomyFixState = economyAccessFix.Activate(activationState);
-                session.EconomyFixActivationEpoch++;
                 session.EconomyFixValidatedRevision = economyTopologyRevision;
-                session.ClearWaitState();
                 economyFixEligiblePlayers.Add(playerId);
-                EmitEconomyFixState("ACTIVATED", session, helper, cause);
+                Shared.DebugLogHelper.LogInfo(log,
+                    $"PREPLACED_ECONOMY_FIX_ACTIVATED: player={playerId}; mode={session.EconomyFixState}.");
             }
             catch (Exception ex)
             {
@@ -810,48 +755,31 @@ namespace BugfixesAndQoL
                 ? EconomyFixActivationState.None
                 : EconomyFixActivationState.PendingBreach;
             session.EconomyFixValidatedRevision = -1;
-            session.ClearWaitState();
             dirtyBreachPlayers.Remove(playerId);
-            InvalidateEconomyOverlayCaches("confirmed-wall-breach-player-" + playerId);
+            InvalidateEconomyOverlayCaches();
             Shared.DebugLogHelper.LogInfo(log,
-                $"PREPLACED_CONFIRMED_WALL_BREACH: sequence={mapSequence}; player={playerId}; " +
-                $"wallTile={confirmed.WallTileId}; insideTile={confirmed.InsideTileId}; " +
-                $"outsideTile={confirmed.OutsideTileId}; pcl={CurrentPcl(confirmed.InsideTileId)}.");
-            EmitEconomyFixState("PENDING", session, "economy-search",
-                "confirmed-wall-breach-awaiting-reconciliation");
+                $"PREPLACED_CONFIRMED_WALL_BREACH: player={playerId}; wallTile={confirmed.WallTileId}.");
         }
 
-        private bool ReconcileEconomyAvailability(ulong state, PlayerSession session, string helper, string cause)
+        private bool ReconcileEconomyAvailability(ulong state, PlayerSession session)
         {
             EconomyGridOverlayScope overlay = null;
-            short[] before = CaptureEconomyAvailabilityFields(session.PlayerId);
-            short[] after = null;
             try
             {
                 overlay = TryApplyEconomyGridOverlay(state, session.PlayerId,
-                    "economy-census-reconcile-" + cause, true);
+                    "economy-census-reconcile", true);
                 if (overlay == null) return false;
                 reconcilingEconomyAvailability = true;
                 if (initializeEconomyAvailabilityNative == null)
                     throw new InvalidOperationException("The validated economy-census delegate is unavailable.");
                 initializeEconomyAvailabilityNative(state, session.PlayerId);
-                after = CaptureEconomyAvailabilityFields(session.PlayerId);
             }
             finally
             {
                 reconcilingEconomyAvailability = false;
                 if (overlay != null) RestoreEconomyGridOverlay(overlay);
             }
-            if (!economyFixEnabled || overlay == null || after == null) return false;
-
-            string fields = string.Join(",", before.Select((value, index) =>
-                $"+0x{WoodSearchCooldownRelativeOffset + index * sizeof(short):X}={value}->{after[index]}"));
-            Shared.DebugLogHelper.LogInfo(log,
-                $"PREPLACED_ECONOMY_CENSUS_RECONCILED: sequence={mapSequence}; player={session.PlayerId}; " +
-                $"cause={cause}; trigger={helper}; nativeStart={DescribeNativeEconomyStart(session.PlayerId)}; " +
-                $"keepPcl={overlay.KeepPcl}; reachablePcls=[{string.Join(",", overlay.ReachablePcls)}]; " +
-                $"changedCells={overlay.ChangedCells}; fields=[{fields}]; restoredExactly=true.");
-            return true;
+            return economyFixEnabled && overlay != null;
         }
 
         private bool HasConfirmedBreachEconomyAccess(int playerId)
@@ -859,7 +787,7 @@ namespace BugfixesAndQoL
             if (!players.TryGetValue(playerId, out PlayerSession session) || !session.ConfirmedWallBreach ||
                 !wallBaselines.TryGetValue(playerId, out WallTileBaseline baseline) ||
                 !baseline.LostWallTiles.Any(baseline.ComponentTiles.Contains) ||
-                !TryResolveNativeReachablePcls(playerId, out _, out HashSet<int> reachablePcls, out _))
+                !TryResolveNativeReachablePcls(playerId, out _, out HashSet<int> reachablePcls))
                 return false;
             return baseline.Anchors.Any(anchor =>
             {
@@ -887,22 +815,6 @@ namespace BugfixesAndQoL
             return false;
         }
 
-        private string DescribeNativeEconomyStart(int playerId) =>
-            TryGetNativeEconomyStart(playerId, out int x, out int y)
-                ? $"({x},{y})/coarse=({x / EconomyCoarseCellTileSize},{y / EconomyCoarseCellTileSize})"
-                : "unavailable";
-
-        private void EmitEconomyFixState(string transition, PlayerSession session, string helper, string reason)
-        {
-            string route = TryGetEconomyOverlayCache(session.PlayerId, out EconomyOverlayCache cache)
-                ? $"keepPcl={cache.StartPcl}; presentPcls={cache.PresentPclCount}; reachablePcls=[{string.Join(",", cache.ReachablePcls)}]"
-                : "route=unresolved";
-            Shared.DebugLogHelper.LogInfo(log,
-                $"PREPLACED_ECONOMY_FIX_{transition}: sequence={mapSequence}; player={session.PlayerId}; " +
-                $"state={session.EconomyFixState}; epoch={session.EconomyFixActivationEpoch}; trigger={helper}; " +
-                $"reason={reason}; nativeStart={DescribeNativeEconomyStart(session.PlayerId)}; {route}.");
-        }
-
         private void ApplyWoodScoreFloor(NativePointer<X64SmartCPUContext> context)
         {
             try
@@ -919,7 +831,6 @@ namespace BugfixesAndQoL
                      session.EconomyFixState != EconomyFixActivationState.ActiveBreach)) return;
 
                 registers->RBX = unchecked((ulong)(uint)int.MinValue);
-                overlay.WoodScoreFloorApplied = true;
             }
             catch (Exception ex)
             {
@@ -978,8 +889,7 @@ namespace BugfixesAndQoL
                 throw;
             }
 
-            overlayScratchScope.Reset(state, playerId, helper, cache.StartPcl,
-                cache.ReachablePcls, cache.PresentPclCount, changedCells);
+            overlayScratchScope.Reset(state, playerId, helper, changedCells);
             return overlayScratchScope;
         }
 
@@ -1083,9 +993,8 @@ namespace BugfixesAndQoL
                 cache = existing;
                 return true;
             }
-            ulong accessSignature = ComputeEconomyAccessSignature(playerId);
             if (!TryResolveNativeReachablePcls(playerId, out int startPcl,
-                    out HashSet<int> reachablePcls, out int presentPclCount))
+                    out HashSet<int> reachablePcls))
                 return false;
 
             var projected = new byte[EconomyGridCellCount];
@@ -1094,50 +1003,19 @@ namespace BugfixesAndQoL
                 projected[index] = checked((byte)CountPclTilesOutsideSet(
                     index / EconomyGridWidth, index % EconomyGridWidth, reachablePcls));
             }
-            cache = new EconomyOverlayCache(economyTopologyRevision, accessSignature, startPcl,
-                reachablePcls.OrderBy(value => value).ToArray(), presentPclCount, projected);
+            cache = new EconomyOverlayCache(economyTopologyRevision, startPcl,
+                reachablePcls.OrderBy(value => value).ToArray(), projected);
             economyOverlayCaches[playerId] = cache;
             return true;
-        }
-
-        private ulong ComputeEconomyAccessSignature(int playerId)
-        {
-            ulong hash = 1469598103934665603UL;
-            for (int otherPlayerId = 1; otherPlayerId <= MaxPlayablePlayerId; otherPlayerId++)
-                hash = Hash(hash, IsAllied(playerId, otherPlayerId) ? 1 : 0);
-            var records = GamePathingManagerAPI.Instance.GetPathConnectionArray();
-            for (int spanIndex = 0; spanIndex < records.Length; spanIndex++)
-            {
-                PathConnectionRecord* record = records.GetValuePointer(spanIndex);
-                if (record == null || record->r_IsActive == 0) continue;
-                hash = Hash(hash, spanIndex);
-                hash = Hash(hash, unchecked((int)record->r_RecordGlobalId));
-                hash = Hash(hash, record->r_BuildingId);
-                hash = Hash(hash, record->r_IsEnabledOrOpen);
-                hash = Hash(hash, (int)record->r_ConnectionClass);
-                hash = Hash(hash, record->r_EntryTileId);
-                hash = Hash(hash, record->r_ExitTileId);
-                hash = Hash(hash, record->r_PathComponentA);
-                hash = Hash(hash, record->r_PathComponentB);
-                hash = Hash(hash, record->r_PathComponentC);
-                hash = Hash(hash, record->r_OwnerOrAccessPlayerId);
-                hash = Hash(hash, TryGetPclByTileId(record->r_EntryTileId, out int entryPcl,
-                    "economy-access-signature-entry") ? entryPcl : 0);
-                hash = Hash(hash, TryGetPclByTileId(record->r_ExitTileId, out int exitPcl,
-                    "economy-access-signature-exit") ? exitPcl : 0);
-            }
-            return hash;
         }
 
         private bool TryResolveNativeReachablePcls(
             int playerId,
             out int keepPcl,
-            out HashSet<int> reachablePcls,
-            out int presentPclCount)
+            out HashSet<int> reachablePcls)
         {
             keepPcl = 0;
             reachablePcls = new HashSet<int>();
-            presentPclCount = 0;
             // The BFS begins at AFA8/AFAC, while the downstream C3BF0 route contract
             // uses the keep tile stored at AFB0. Require both and use C3BF0's source
             // PCL for the player-specific reachability closure.
@@ -1160,10 +1038,7 @@ namespace BugfixesAndQoL
                 if (pcl <= 0) continue;
                 if (pcl >= present.Length) return false;
                 if (!present[pcl])
-                {
                     present[pcl] = true;
-                    presentPclCount++;
-                }
             }
 
             reachablePcls.Add(keepPcl);
@@ -1187,7 +1062,7 @@ namespace BugfixesAndQoL
             return true;
         }
 
-        private void InvalidateEconomyOverlayCaches(string reason)
+        private void InvalidateEconomyOverlayCaches()
         {
             economyTopologyRevision = unchecked(economyTopologyRevision + 1);
             economyOverlayCaches.Clear();
@@ -1269,21 +1144,12 @@ namespace BugfixesAndQoL
             WallAnchorPair anchor)
         {
             if (anchor == null || !baseline.LostWallTiles.Contains(anchor.WallTileId) ||
-                !TryResolveNativeReachablePcls(playerId, out _, out HashSet<int> reachablePcls, out _))
+                !TryResolveNativeReachablePcls(playerId, out _, out HashSet<int> reachablePcls))
                 return false;
             int insidePcl = CurrentPcl(anchor.InsideTileId);
             int outsidePcl = CurrentPcl(anchor.OutsideTileId);
             return insidePcl > 0 && outsidePcl > 0 && insidePcl == outsidePcl &&
                 reachablePcls.Contains(insidePcl);
-        }
-
-        private static ulong Hash(ulong value, int data)
-        {
-            unchecked
-            {
-                value ^= (uint)data;
-                return value * 1099511628211UL;
-            }
         }
 
         private void OnMapLoad(APIShared.MissionLifecycleNotification args) => Safe(() => ProcessMapLoad(args));
@@ -1292,20 +1158,11 @@ namespace BugfixesAndQoL
         {
             if (args.Phase == APIShared.MissionInitializationPhase.BeforeLoad)
             {
-                ResetMap("OnLoadMap(Pre)");
+                ResetMap();
                 sessionEnabled = nativeReady && isEnabled();
                 mapActive = sessionEnabled;
                 currentMapIsSave = args.Context.IsSave;
-                if (sessionEnabled)
-                    Shared.DebugLogHelper.LogInfo(log,
-                        $"PREPLACED_MAP_LOAD: phase={args.Phase}, sequence={mapSequence}.");
-                return;
             }
-            if (!sessionEnabled) return;
-            if (args.Phase == APIShared.MissionInitializationPhase.NativeLoaded)
-                Shared.DebugLogHelper.LogInfo(log,
-                    $"PREPLACED_MAP_LOAD: phase={args.Phase}, sequence={mapSequence}; " +
-                    $"preAivBaselineCaptured={preAivBaselineCaptured}.");
         }
 
         private void OnMapStart(APIShared.MissionLifecycleNotification args) => Safe(() => ProcessMapStart(args));
@@ -1326,7 +1183,7 @@ namespace BugfixesAndQoL
                     {
                         preAivBaselineMissingLogged = true;
                         Shared.DebugLogHelper.LogWarning(log,
-                            $"PREPLACED_BASELINE_MISSING: sequence={mapSequence}; checkpoint=0x{AllocateSpecRva:X}; " +
+                            $"PREPLACED_BASELINE_MISSING: checkpoint=0x{AllocateSpecRva:X}; " +
                             "economy fix disabled for this map; legacy ruin timer handling remains independent.");
                     }
                 }
@@ -1341,7 +1198,6 @@ namespace BugfixesAndQoL
                     SynchronizePreplacedPortalOwnersAndActivate();
                 }
             }
-            Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_MAP_START: phase={args.Phase}, sequence={mapSequence}.");
         }
 
         private void SynchronizePreplacedPortalOwnersAndActivate()
@@ -1361,10 +1217,7 @@ namespace BugfixesAndQoL
 
         private void SynchronizePreplacedPortalOwnersAndActivateCore()
         {
-            int eligible = 0;
             int changed = 0;
-            int alreadyCorrect = 0;
-            int skipped = 0;
             foreach (PreplacedIdentity identity in preplacedBuildings.Values)
             {
                 if (!IsPortalStructure((eStructs)identity.StructureType)) continue;
@@ -1395,14 +1248,11 @@ namespace BugfixesAndQoL
                     identityMatches && IsValidOwner(building.OwnerId));
                 if (!valid)
                 {
-                    skipped++;
                     continue;
                 }
 
-                eligible++;
                 if (record->r_OwnerOrAccessPlayerId == building.OwnerId)
                 {
-                    alreadyCorrect++;
                     continue;
                 }
 
@@ -1419,22 +1269,10 @@ namespace BugfixesAndQoL
                 changed++;
             }
 
-            if (eligible != 0 || skipped != 0)
-                Shared.DebugLogHelper.LogInfo(log,
-                    $"PREPLACED_PORTAL_OWNER_SYNC: sequence={mapSequence}; eligible={eligible}; " +
-                    $"changed={changed}; alreadyCorrect={alreadyCorrect}; skipped={skipped}.");
-
             if (changed != 0)
-                InvalidateEconomyOverlayCaches("preplaced-portal-owner-synchronized");
+                InvalidateEconomyOverlayCaches();
 
-            if (lastAivState == 0)
-            {
-                if (eligible != 0)
-                    Shared.DebugLogHelper.LogInfo(log,
-                        $"PREPLACED_ECONOMY_FIX_PENDING: sequence={mapSequence}; trigger=map-start-owner-sync; " +
-                        "reason=native-state-not-yet-captured.");
-                return;
-            }
+            if (lastAivState == 0) return;
 
             PlayerSession[] pending = players.Values
                 .Where(session => session.EconomyFixState == EconomyFixActivationState.PendingPortal)
@@ -1442,7 +1280,7 @@ namespace BugfixesAndQoL
                 .ToArray();
             foreach (PlayerSession session in pending)
             {
-                TryActivateOrRefreshEconomyFix(lastAivState, session.PlayerId, "map-start-owner-sync");
+                TryActivateOrRefreshEconomyFix(lastAivState, session.PlayerId);
                 if (!economyFixEnabled) return;
             }
         }
@@ -1472,17 +1310,15 @@ namespace BugfixesAndQoL
                 // Once startup is complete, the ruins fix no longer needs combat
                 // telemetry. Wall maps retain only enclosure-related observations.
                 if (economyProfileResolved && !economyMapRelevant) return;
-                DamageContext context = CaptureDamageContext(args);
-                bool relevantEnclosure = context.Building.HasValue && IsCurrentPreplaced(context.Building.Value.Id) &&
-                    IsEnclosureBuilding(context.Building.Value.Type);
-                if (economyProfileResolved && !context.WallBefore.HasValue && !relevantEnclosure)
+                DamageContext context = CaptureDamageContext(args, economyProfileResolved);
+                if (context == null)
                 {
-                    pendingDamage.Push(DamageContext.Unmatched(args));
+                    pendingDamage.Push(null);
                     return;
                 }
                 if (!IsValidOwner(context.OwnerId))
                 {
-                    pendingDamage.Push(DamageContext.Unmatched(args));
+                    pendingDamage.Push(null);
                     return;
                 }
                 pendingDamage.Push(context);
@@ -1491,6 +1327,7 @@ namespace BugfixesAndQoL
 
             if (pendingDamage.Count == 0) return;
             DamageContext completed = pendingDamage.Pop();
+            if (completed == null) return;
             int afterCounter = IsValidOwner(completed.OwnerId) ? ReadPlayerGlobal(completed.OwnerId, CrushedCounterRelativeOffset) : -1;
             if (completed.WallBefore.HasValue)
             {
@@ -1501,7 +1338,7 @@ namespace BugfixesAndQoL
                 {
                     if (wallBaselines.TryGetValue(completed.OwnerId, out WallTileBaseline baseline))
                         baseline.LostWallTiles.Add(completed.WallBefore.Value.TileId);
-                    InvalidateEconomyOverlayCaches("baseline-wall-tile-lost-by-damage");
+                    InvalidateEconomyOverlayCaches();
                     dirtyBreachPlayers.Add(completed.OwnerId);
                 }
             }
@@ -1517,7 +1354,7 @@ namespace BugfixesAndQoL
                      remaining.Alive != AliveState.IsAlive);
                 if (mayHaveChangedRouting)
                 {
-                    InvalidateEconomyOverlayCaches("wall-or-portal-damage");
+                    InvalidateEconomyOverlayCaches();
                     dirtyBreachPlayers.Add(completed.OwnerId);
                 }
             }
@@ -1538,18 +1375,6 @@ namespace BugfixesAndQoL
             economyMapRelevant = wallBaselines.Count != 0 || players.Values.Any(session =>
                 session.EconomyFixState != EconomyFixActivationState.None);
             economyProfileResolved = true;
-            Shared.DebugLogHelper.LogInfo(log,
-                $"PREPLACED_ECONOMY_PROFILE: sequence={mapSequence}; relevant={economyMapRelevant}; " +
-                $"fixStates=[{string.Join(",", players.Values.Where(session =>
-                    session.EconomyFixState != EconomyFixActivationState.None).OrderBy(session => session.PlayerId)
-                    .Select(session => session.PlayerId + ":" + session.EconomyFixState))}].");
-            foreach (PlayerSession session in players.Values.Where(value =>
-                value.EconomyFixState == EconomyFixActivationState.PendingPortal ||
-                value.EconomyFixState == EconomyFixActivationState.PendingBreach))
-                EmitEconomyFixState("PENDING", session, "map-start-post",
-                    session.EconomyFixState == EconomyFixActivationState.PendingPortal
-                        ? "preplaced-friendly-portal-awaiting-native-route"
-                        : "closed-baseline-wall-awaiting-confirmed-breach");
         }
 
         private static bool IsAllied(int firstPlayerId, int secondPlayerId)
@@ -1590,7 +1415,7 @@ namespace BugfixesAndQoL
             }
             if (!pendingRelevantRemovals.TryGetValue(buildingId, out int ownerId)) return;
             pendingRelevantRemovals.Remove(buildingId);
-            InvalidateEconomyOverlayCaches(kind + "-preplaced-enclosure");
+            InvalidateEconomyOverlayCaches();
             dirtyBreachPlayers.Add(ownerId);
         }
 
@@ -1656,17 +1481,17 @@ namespace BugfixesAndQoL
             GameTileManagerAPI api = GameTileManagerAPI.Instance;
             var manager = api.TileManager;
             var all = new Dictionary<int, WallTileState>();
-            for (int x = 0; x < NativeTileGridWidth; x++)
-                for (int y = 0; y < NativeTileGridWidth; y++)
-                {
-                    if (!api.IsTileInsideMapBounds(x, y)) continue;
-                    int tileId = api.GetTileId(x, y);
-                    if (!mapLoadWallTiles.Contains(tileId)) continue;
-                    if ((manager.LogicGrid[tileId] & (int)TilePropertyFlag.IsWall) == 0) continue;
-                    byte rawOwner = manager.WallOwnerGrid[tileId];
-                    if (WallOwnerEncodingResolver.Decode(rawOwner, encoding) != playerId) continue;
-                    all[tileId] = CaptureWallTileState(tileId, x, y);
-                }
+            foreach (int tileId in mapLoadWallTiles)
+            {
+                if ((manager.LogicGrid[tileId] & (int)TilePropertyFlag.IsWall) == 0) continue;
+                byte rawOwner = manager.WallOwnerGrid[tileId];
+                if (WallOwnerEncodingResolver.Decode(rawOwner, encoding) != playerId) continue;
+                var position = api.GetTileVectorFromId(tileId);
+                int x = checked((int)position.X);
+                int y = checked((int)position.Y);
+                if (!api.IsTileInsideMapBounds(x, y)) continue;
+                all[tileId] = CaptureWallTileState(tileId, x, y);
+            }
             if (all.Count == 0) return null;
 
             // Keeps expose wall flags themselves. They are not part of a surrounding
@@ -1880,10 +1705,9 @@ namespace BugfixesAndQoL
         private static bool IsLiving(BuildingSnapshot building) =>
             building.Alive == AliveState.IsAlive || building.Alive == AliveState.NeedsInit;
 
-        private void ResetMap(string reason)
+        private void ResetMap()
         {
             players.Clear();
-            mapSequence++;
             activeEconomyOverlayScopes?.Clear();
             pendingDamage.Clear();
             mapLoadBuildingIdentities.Clear();
@@ -1915,7 +1739,6 @@ namespace BugfixesAndQoL
             resolvingEconomyOverlayRoutes = false;
             economyTopologyRevision = 0;
             lastAivState = 0;
-            Shared.DebugLogHelper.LogInfo(log, $"PREPLACED_SESSION_RESET: reason={reason}, sequence={mapSequence}.");
         }
 
         private PlayerSession Session(int playerId)
@@ -1935,14 +1758,6 @@ namespace BugfixesAndQoL
             return TryGetPlayerRuntimeFieldPointer(playerId, relativeOffset, out byte* field)
                 ? *(int*)field
                 : 0;
-        }
-
-        private short ReadPlayerInt16(int playerId, int relativeOffset, int elementIndex)
-        {
-            if (elementIndex < 0 || !TryGetPlayerRuntimeFieldPointer(playerId,
-                relativeOffset + checked(elementIndex * sizeof(short)), out byte* field))
-                return 0;
-            return *(short*)field;
         }
 
         private bool TryGetPlayerRuntimeFieldPointer(int playerId, int relativeOffset, out byte* field)
@@ -2026,7 +1841,7 @@ namespace BugfixesAndQoL
             return result;
         }
 
-        private void CaptureMapLoadBuildingIdentities(string source)
+        private void CaptureMapLoadBuildingIdentities()
         {
             if (preAivBaselineCaptured || preAivBaselineCaptureClosed) return;
             mapLoadBuildingIdentities.Clear();
@@ -2045,10 +1860,6 @@ namespace BugfixesAndQoL
                         mapLoadWallTiles.Add(tileId);
                 }
             preAivBaselineCaptured = true;
-            Shared.DebugLogHelper.LogInfo(log,
-                $"PREPLACED_PRE_AIV_BASELINE: sequence={mapSequence}; source={source}; " +
-                $"stableRecords={mapLoadBuildingIdentities.Count}; " +
-                $"wallTiles={mapLoadWallTiles.Count}.");
         }
 
         private bool HasAnyAiPlayer()
@@ -2115,14 +1926,18 @@ namespace BugfixesAndQoL
                 building.r_AccessTilePositionX, building.r_AccessTilePositionY,
                 building.r_CurrentHealth, building.r_GatehouseId);
 
-        private DamageContext CaptureDamageContext(BuildingTileTakeDamageEventArgs args)
+        private DamageContext CaptureDamageContext(BuildingTileTakeDamageEventArgs args, bool enclosureOnly)
         {
             try
             {
                 int buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
                 if (buildingId > 0 && TryCaptureBuilding(buildingId, out BuildingSnapshot building))
-                    return new DamageContext(building, ReadPlayerGlobal(building.OwnerId, CrushedCounterRelativeOffset),
-                        IsCurrentPreplaced(buildingId));
+                {
+                    if (!enclosureOnly || IsCurrentPreplaced(buildingId) && IsEnclosureBuilding(building.Type))
+                        return new DamageContext(building,
+                            ReadPlayerGlobal(building.OwnerId, CrushedCounterRelativeOffset));
+                    return null;
+                }
                 foreach (WallTileBaseline baseline in wallBaselines.Values)
                 {
                     if (!baseline.Tiles.ContainsKey(args.TileId)) continue;
@@ -2136,7 +1951,7 @@ namespace BugfixesAndQoL
                 Shared.DebugLogHelper.LogError(log,
                     "PREPLACED_EVENT_ERROR: damage-context; " + ex);
             }
-            return DamageContext.Unmatched(args);
+            return null;
         }
 
         private bool IsAi(int playerId)
@@ -2174,44 +1989,24 @@ namespace BugfixesAndQoL
             public int PlayerId { get; }
             public WallAccessRole WallAccessRole { get; set; }
             public EconomyFixActivationState EconomyFixState { get; set; }
-            public int EconomyFixActivationEpoch { get; set; }
             public int EconomyFixValidatedRevision { get; set; } = -1;
-            private EconomyFixActivationState lastWaitState;
-            private int lastWaitRevision = int.MinValue;
-            private bool lastWaitWasCensus;
             public bool ConfirmedWallBreach { get; set; }
-
-            public bool MatchesWaitState(EconomyFixActivationState state, int revision, bool census) =>
-                lastWaitRevision == revision && lastWaitState == state && lastWaitWasCensus == census;
-
-            public void SetWaitState(EconomyFixActivationState state, int revision, bool census)
-            {
-                lastWaitState = state;
-                lastWaitRevision = revision;
-                lastWaitWasCensus = census;
-            }
-
-            public void ClearWaitState() => lastWaitRevision = int.MinValue;
         }
 
         private sealed class EconomyOverlayCache
         {
-            public EconomyOverlayCache(int revision, ulong accessSignature, int startPcl,
-                int[] reachablePcls, int presentPclCount, byte[] projected)
+            public EconomyOverlayCache(int revision, int startPcl,
+                int[] reachablePcls, byte[] projected)
             {
                 Revision = revision;
-                AccessSignature = accessSignature;
                 StartPcl = startPcl;
                 ReachablePcls = reachablePcls ?? Array.Empty<int>();
-                PresentPclCount = presentPclCount;
                 Projected = projected ?? throw new ArgumentNullException(nameof(projected));
             }
 
             public int Revision { get; }
-            public ulong AccessSignature { get; }
             public int StartPcl { get; }
             public int[] ReachablePcls { get; }
-            public int PresentPclCount { get; }
             public byte[] Projected { get; }
         }
 
@@ -2233,27 +2028,18 @@ namespace BugfixesAndQoL
 
         private sealed class EconomyGridOverlayScope
         {
-            public void Reset(ulong state, int playerId, string helper, int keepPcl,
-                int[] reachablePcls, int presentPclCount, int changedCells)
+            public void Reset(ulong state, int playerId, string helper, int changedCells)
             {
                 State = state;
                 PlayerId = playerId;
                 Helper = helper ?? "unknown";
-                KeepPcl = keepPcl;
-                ReachablePcls = reachablePcls ?? Array.Empty<int>();
-                PresentPclCount = presentPclCount;
                 ChangedCells = changedCells;
-                WoodScoreFloorApplied = false;
             }
 
             public ulong State { get; private set; }
             public int PlayerId { get; private set; }
             public string Helper { get; private set; }
-            public int KeepPcl { get; private set; }
-            public int[] ReachablePcls { get; private set; }
-            public int PresentPclCount { get; private set; }
             public int ChangedCells { get; private set; }
-            public bool WoodScoreFloorApplied { get; set; }
         }
 
         private sealed class WallTileBaseline
@@ -2398,14 +2184,11 @@ namespace BugfixesAndQoL
             public int WallOwnerId { get; }
             public int DelayBefore { get; }
 
-            public static DamageContext Unmatched(BuildingTileTakeDamageEventArgs args) =>
-                new DamageContext(null, null, 0, -1);
-
             public static DamageContext ForBaselineWall(
                 WallTileState wall, int ownerId, int delayBefore) =>
                 new DamageContext(null, wall, ownerId, delayBefore);
 
-            public DamageContext(BuildingSnapshot building, int delayBefore, bool wasPreplaced) :
+            public DamageContext(BuildingSnapshot building, int delayBefore) :
                 this(building, null, 0, delayBefore)
             {
             }

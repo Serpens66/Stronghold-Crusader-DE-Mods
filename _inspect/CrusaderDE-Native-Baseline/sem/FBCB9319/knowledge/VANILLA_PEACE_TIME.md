@@ -4,15 +4,22 @@
 
 - Native SHA-256: `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
 - Native image base: `0x180000000`
+- Current simulation tick: RVA `0x3665F58`
 - Active flag: RVA `0x38722DC`
+- End tick: RVA `0x38722E0`
+- Start tick: RVA `0x38722E8`
 - Multiplayer mode: RVA `0x8574B90` (`0` singleplayer, `1` custom multiplayer, `99` skirmish/co-op preparation)
 - Static evidence: Ghidra functions, decompiler, Xrefs, raw bytes, and Iced.Intel decoding from the current baseline.
 
 ## State flow
 
-Initializer `0xCA900` converts the configured minute value into Vanilla's timer state and active flag. It stores the current simulation tick as the start and computes the end as `minutes * 60 * 40 + start`; the scenario reconstruction at `0x100530` independently confirms the `0x960` ticks-per-minute constant. Save/load at `0x15C60` and `0x100530`, the checksum paths, and the AI military scheduler at `0x2AE40` are not restricted to multiplayer mode.
+Initializer `0xCA900` converts the configured minute value into Vanilla's timer state and active flag. It stores the current simulation tick as the start and originally computes the end as `minutes * StartingGameSpeed * 60 + start`: the seven-byte instruction at `0xCA904` is `imul edx,[0x87ECA00]`, where `0x87ECA00` is the Chore `StartingGameSpeed` field, and the following instruction at `0xCA91E` multiplies by 60. With Vanilla's multiplayer default of 40 this yields `0x960` ticks per minute, while a singleplayer start speed of 300 yields 18,000 ticks per minute. The scenario reconstruction at `0x100530` uses the fixed `0x960` conversion for its separate persisted-time path. Save/load at `0x15C60` and `0x100530`, the checksum paths, and the AI military scheduler at `0x2AE40` are not restricted to multiplayer mode.
+
+ExtraFeatures deliberately replaces only `0xCA904–0xCA90A` with `imul edx,edx,40` plus four one-byte NOPs. Vanilla's following multiplication by 60, timer state, display, expiry, gameplay consumers, event, and save/load remain authoritative. Thus every newly initialized Peace Time minute has a fixed distance of 2,400 simulation ticks regardless of the starting gamespeed; the actual simulation throughput still determines its real-time duration. The initializer has no direct branch or call target entering the replacement interior `0xCA905–0xCA90A`.
 
 Display and expiry are implemented entirely by `0xCA870`: it publishes `OST_PEACETIMER` from the remaining and total simulation ticks, clears the active flag once the current tick exceeds the end tick, removes the OST, and emits Vanilla event/sound `0x123`. The function itself has no mode check, but its sole regular code caller is gated in the main simulation update `0xCDE60`: `je` at `0xCE304` skips the call at `0xCE309` only when multiplayer mode is `0`. Modes `1` and `99` already fall through. Extending Peace Time to ordinary singleplayer therefore requires neutralizing this two-byte caller gate; reimplementing the timer would diverge from Vanilla.
+
+The state addresses above are additionally tied to the exact RIP-relative reads in `0xCA870` at `0xCA87D` (start), `0xCA889` (end), and `0xCA89C` (current tick). The mode read at `0xCE2FD` resolves to `0x8574B90`. Temporary hash-gated runtime diagnostics used these references to confirm identical 2,400-tick distances in modes 99 and 1; the finalized implementation removes that permanent tick subscription and retains this evidence only in the baseline.
 
 The alternative update at `0xD1E50` is reached only for the special mode/submode/enable-state combination checked at `0xCE2DA-0xCE2F3`. It coordinates Freebuild/scenario timers and is not a substitute for `0xCA870` in ordinary singleplayer custom games.
 
@@ -28,8 +35,9 @@ The other 22 are gameplay consumers in the audited predicate/dispatcher function
 
 ## Mode-gate patch contract
 
-The 28 single-instruction spans are:
+The 29 single-instruction spans are:
 
+- Replace the Vanilla `StartingGameSpeed` factor at `CA904` (`0F AF 15 F5 20 72 08`) with the fixed canonical factor 40 while preserving the seven-byte span.
 - NOP mode bypasses: `8A148`, `8D366`, `8D7C4`, `8E05E`, `8E0DE`, `8E5FF`, `8EA59`, `8EC9E`, `C70BA`, `186976`, `18697A`, `1869A3`.
 - Replace conditional selections with their peace-aware move: `8E062`, `8EA5D`, `8ECA2`.
 - Redirect mode 0/99 directly to the Vanilla flag check, skipping the multiplayer-network flag: `ABC88 -> ABC9D`, `ABC8E -> ABC9D`, `105520 -> 105534`, `105525 -> 105534`.

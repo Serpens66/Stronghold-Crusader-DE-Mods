@@ -115,12 +115,14 @@
     <Compile Include="src\StartConditionsLobbyViewModel.cs" />
     <Compile Include="src\StartConditionsRuntime.cs" />
     <Compile Include="src\StartConditionsRuntime.StartTroops.cs" />
+    <Compile Include="src\StartConditionsRuntime.AIStartTroopIsolation.cs" />
     <Compile Include="src\StartConditionsRuntime.StartResources.cs" />
     <Compile Include="src\StartGoldPolicy.cs" />
     <Compile Include="src\StartConditionsRuntime.MapLifecycle.cs" />
     <Compile Include="src\StartConditionsRuntime.Helpers.cs" />
     <Compile Include="src\StartConditionsRuntime.Localization.cs" />
     <Compile Include="src\StartConditionsMapSessionState.cs" />
+    <Compile Include="src\VanillaPeaceTimeState.cs" />
   </ItemGroup>
 
   <ItemGroup>

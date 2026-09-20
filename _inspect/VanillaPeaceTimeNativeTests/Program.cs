@@ -37,8 +37,8 @@ namespace ExtraFeatures
 
         private static void TestNativeContract(byte[] image)
         {
-            Check(VanillaPeaceTimeNativeContract.PatchSites.Length == 28,
-                "catalog contains every audited gameplay and timer mode bypass");
+            Check(VanillaPeaceTimeNativeContract.PatchSites.Length == 29,
+                "catalog contains the fixed-rate initializer and every audited gameplay and timer mode bypass");
             Check(VanillaPeaceTimeNativeContract.PeaceFlagReferenceRvas.Length == 36,
                 "audit accounts for all active-flag references");
             int[] alreadyModeIndependentReferences =
@@ -68,6 +68,7 @@ namespace ExtraFeatures
                 TestPatchGenerator(site);
 
             TestPeaceTimeUpdateCaller(image);
+            TestPeaceTimeFixedRatePatch(image);
             TestStartingTroopsGuardGenerator(image);
         }
 
@@ -112,6 +113,70 @@ namespace ExtraFeatures
                 "timer patch only removes the mode-0 skip; modes 1 and 99 retain their fallthrough");
         }
 
+        private static void TestPeaceTimeFixedRatePatch(byte[] image)
+        {
+            Instruction original = DecodeAt(
+                image,
+                VanillaPeaceTimeNativeContract.PeaceTimeFixedRatePatchRva,
+                7,
+                "Vanilla peace-time StartingGameSpeed multiplication");
+            Check(original.Mnemonic == Mnemonic.Imul &&
+                original.Op0Register == Register.EDX &&
+                original.IsIPRelativeMemoryOperand &&
+                original.IPRelativeMemoryAddress == unchecked((ulong)(Base +
+                    VanillaPeaceTimeNativeContract.StartingGameSpeedRva)),
+                "Vanilla initializer originally multiplies minutes by StartingGameSpeed");
+
+            VanillaPeaceTimePatchSite site =
+                VanillaPeaceTimeNativeContract.PatchSites.Single(candidate =>
+                    candidate.Rva == VanillaPeaceTimeNativeContract.PeaceTimeFixedRatePatchRva);
+            var assembler = new Assembler(64);
+            VanillaPeaceTimeNativeContract.EmitPatch(
+                assembler,
+                site,
+                unchecked((ulong)Base));
+            byte[] bytes = Assemble(
+                assembler,
+                unchecked((ulong)(Base + site.Rva)),
+                site.Name);
+            Check(bytes.SequenceEqual(new byte[] { 0x6B, 0xD2, 0x28, 0x90, 0x90, 0x90, 0x90 }),
+                "fixed-rate patch emits imul edx, edx, 40 followed by four one-byte NOPs");
+            Instruction[] patched = DecodeExact(
+                bytes,
+                unchecked((ulong)(Base + site.Rva)),
+                site.Name);
+            Check(patched.Length == 5 &&
+                patched[0].Mnemonic == Mnemonic.Imul &&
+                patched[0].Op0Register == Register.EDX &&
+                patched[0].Op1Register == Register.EDX &&
+                patched[0].Immediate8 == VanillaPeaceTimeNativeContract.PeaceTimeTicksPerSecond &&
+                patched.Skip(1).All(instruction => instruction.Mnemonic == Mnemonic.Nop),
+                "fixed-rate replacement fully decodes to the intended seven-byte sequence");
+
+            byte[] initializer = new byte[VanillaPeaceTimeNativeContract.PeaceTimeInitializerLength];
+            Buffer.BlockCopy(
+                image,
+                VanillaPeaceTimeNativeContract.PeaceTimeInitializerRva,
+                initializer,
+                0,
+                initializer.Length);
+            Instruction[] initializerInstructions = DecodeExact(
+                initializer,
+                unchecked((ulong)(Base + VanillaPeaceTimeNativeContract.PeaceTimeInitializerRva)),
+                "Vanilla peace-time initializer");
+            ulong interiorStart = unchecked((ulong)(Base +
+                VanillaPeaceTimeNativeContract.PeaceTimeFixedRatePatchRva + 1));
+            ulong interiorEnd = unchecked((ulong)(Base +
+                VanillaPeaceTimeNativeContract.PeaceTimeFixedRatePatchRva + 7));
+            Check(!initializerInstructions.Any(instruction =>
+                (instruction.FlowControl == FlowControl.ConditionalBranch ||
+                 instruction.FlowControl == FlowControl.UnconditionalBranch ||
+                 instruction.FlowControl == FlowControl.Call) &&
+                instruction.NearBranchTarget >= interiorStart &&
+                instruction.NearBranchTarget < interiorEnd),
+                "no direct control transfer enters RVA CA905-CA90A");
+        }
+
         private static void TestPatchGenerator(VanillaPeaceTimePatchSite site)
         {
             ulong origin = unchecked((ulong)(Base + site.Rva));
@@ -127,6 +192,16 @@ namespace ExtraFeatures
             Instruction original = DecodeExact(originalBytes, origin, site.Name + " original")[0];
             switch (site.Kind)
             {
+                case VanillaPeaceTimePatchKind.MultiplyEdxByForty:
+                    Check(instructions.Length == 5 &&
+                        instructions[0].Mnemonic == Mnemonic.Imul &&
+                        instructions[0].Op0Register == Register.EDX &&
+                        instructions[0].Op1Register == Register.EDX &&
+                        instructions[0].Immediate8 ==
+                            VanillaPeaceTimeNativeContract.PeaceTimeTicksPerSecond &&
+                        instructions.Skip(1).All(instruction => instruction.Mnemonic == Mnemonic.Nop),
+                        site.Name + " fixes the initializer at 40 ticks per second");
+                    break;
                 case VanillaPeaceTimePatchKind.Nop:
                     foreach (Instruction instruction in instructions)
                         Check(instruction.Mnemonic == Mnemonic.Nop, site.Name + " emits only NOPs");

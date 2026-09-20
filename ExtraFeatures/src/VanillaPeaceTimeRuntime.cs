@@ -4,7 +4,6 @@ using CrusaderDE;
 using MonoMod.RuntimeDetour;
 using Noesis;
 using R3;
-using SHCDESE.API;
 using SHCDESE.Interop;
 using System;
 using System.Reflection;
@@ -18,6 +17,19 @@ namespace ExtraFeatures
                 "MPTEMPsetupData",
                 BindingFlags.Instance | BindingFlags.NonPublic) ??
             throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "MPTEMPsetupData");
+        private static readonly FieldInfo AuthoritativeSetupDataField =
+            typeof(FRONT_Multiplayer).GetField(
+                "MPsetupData",
+                BindingFlags.Instance | BindingFlags.NonPublic) ??
+            throw new MissingFieldException(typeof(FRONT_Multiplayer).FullName, "MPsetupData");
+        private static readonly MethodInfo UpdateHostInfoMethod =
+            typeof(FRONT_Multiplayer).GetMethod(
+                "UpdateHostInfo",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(bool) },
+                null) ??
+            throw new MissingMethodException(typeof(FRONT_Multiplayer).FullName, "UpdateHostInfo");
 
         private delegate void ImportSettingsDelegate(
             FRONT_Multiplayer self,
@@ -145,7 +157,8 @@ namespace ExtraFeatures
                 }
 
                 FRONT_Multiplayer front = MainViewModel.Instance?.FRONTMultiplayer;
-                if (front != null && IsRealLobbyHost(front) && settings.EnableMod &&
+                if (!initializedForLobby && front != null && IsRealLobbyHost(front) &&
+                    settings.EnableMod &&
                     TryPushSettingToVanilla(front))
                 {
                     initializedForLobby = true;
@@ -240,19 +253,31 @@ namespace ExtraFeatures
 
         private bool TryPushSettingToVanilla(FRONT_Multiplayer front)
         {
-            EngineInterface.MultiplayerSetupData setupData = GetTemporarySetupData(front);
-            if (setupData == null)
+            EngineInterface.MultiplayerSetupData authoritativeSetupData =
+                GetAuthoritativeSetupData(front);
+            if (authoritativeSetupData == null)
                 return false;
 
             int minutes = VanillaPeaceTimePolicy.NormalizeMinutes(settings.VanillaPeaceTimeMinutes);
+            bool authoritativeChanged = authoritativeSetupData.peacetime != minutes;
             synchronizingLobby = true;
             try
             {
-                setupData.peacetime = minutes;
-                Slider slider = FRONT_Multiplayer_Setup.Instance?.RefMP_Settings_Peacetime_Slider;
-                if (slider != null)
-                    slider.Value = minutes;
-                UpdateVanillaLobbyText(minutes);
+                authoritativeSetupData.peacetime = minutes;
+
+                EngineInterface.MultiplayerSetupData temporarySetupData =
+                    GetTemporarySetupData(front);
+                if (temporarySetupData != null)
+                {
+                    temporarySetupData.peacetime = minutes;
+                    Slider slider = FRONT_Multiplayer_Setup.Instance?.RefMP_Settings_Peacetime_Slider;
+                    if (slider != null && (int)slider.Value != minutes)
+                        slider.Value = minutes;
+                    UpdateVanillaLobbyText(minutes);
+                }
+
+                if (authoritativeChanged)
+                    UpdateHostInfoMethod.Invoke(front, new object[] { true });
             }
             finally
             {
@@ -391,5 +416,11 @@ namespace ExtraFeatures
             front == null
                 ? null
                 : TemporarySetupDataField.GetValue(front) as EngineInterface.MultiplayerSetupData;
+
+        private static EngineInterface.MultiplayerSetupData GetAuthoritativeSetupData(
+            FRONT_Multiplayer front) =>
+            front == null
+                ? null
+                : AuthoritativeSetupDataField.GetValue(front) as EngineInterface.MultiplayerSetupData;
     }
 }
