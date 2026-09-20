@@ -1,0 +1,12 @@
+{
+  "GUID": "UnitSpawnReturnProbe_Serp",
+  "Author": "Serpens66",
+  "Name": "Unit Spawn Return Probe",
+  "Description": "Local diagnostic probe for SHCDE unit-spawn return values and RedBird ABI behavior.",
+  "Version": "0.1.0",
+  "Website": "",
+  "MinimumScriptExtenderVersion": "2.8.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0
+}

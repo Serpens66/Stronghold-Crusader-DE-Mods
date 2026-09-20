@@ -54,6 +54,40 @@
             </b:EventTrigger>
           </b:Interaction.Triggers>
         </Button>
+        <Border x:Name="ExtraFeaturesKnightDismountDisabledTooltipHover"
+                Width="36"
+                Height="37"
+                Margin="0"
+                Panel.ZIndex="1"
+                Background="Transparent"
+                IsHitTestVisible="{Binding DismountDisabledTooltipHitTestVisible}"
+                Visibility="{Binding DismountButtonVisibility}">
+          <b:Interaction.Triggers>
+            <b:EventTrigger EventName="MouseEnter">
+              <b:InvokeCommandAction Command="{Binding DismountMouseEnterCommand}" />
+            </b:EventTrigger>
+            <b:EventTrigger EventName="MouseLeave">
+              <b:InvokeCommandAction Command="{Binding MouseLeaveCommand}" />
+            </b:EventTrigger>
+          </b:Interaction.Triggers>
+        </Border>
+        <Border x:Name="ExtraFeaturesKnightMountDisabledTooltipHover"
+                Width="36"
+                Height="37"
+                Margin="0"
+                Panel.ZIndex="1"
+                Background="Transparent"
+                IsHitTestVisible="{Binding MountDisabledTooltipHitTestVisible}"
+                Visibility="{Binding MountButtonVisibility}">
+          <b:Interaction.Triggers>
+            <b:EventTrigger EventName="MouseEnter">
+              <b:InvokeCommandAction Command="{Binding MountMouseEnterCommand}" />
+            </b:EventTrigger>
+            <b:EventTrigger EventName="MouseLeave">
+              <b:InvokeCommandAction Command="{Binding MouseLeaveCommand}" />
+            </b:EventTrigger>
+          </b:Interaction.Triggers>
+        </Border>
       </Grid>
     </Content>
   </Operation>

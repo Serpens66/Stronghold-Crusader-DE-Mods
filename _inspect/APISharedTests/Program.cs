@@ -701,11 +701,12 @@ namespace APISharedTests
             string castleBindings = bindStart >= 0 && hookStart > bindStart
                 ? castlePlanner.Substring(bindStart, hookStart - bindStart)
                 : string.Empty;
-            Assert(castleBindings.Contains("selectBestFit = Bind<SelectBestFitDelegate>") &&
+            Assert(castleBindings.Contains("setPlacement = Bind<SetPlacementDelegate>") &&
                 castleBindings.Contains("testSpecificCandidate = Bind<TestSpecificCandidateDelegate>") &&
                 castleBindings.Contains("prepareLayout = Bind<PrepareLayoutDelegate>") &&
+                castleBindings.Contains("executeToPercentage = Bind<ExecuteToPercentageDelegate>") &&
                 !castleBindings.Contains("AddDetour") && !castleBindings.Contains("AddContextHook"),
-                "CastlePlanner AIV targets 0x54F60, 0x54DE0, and 0x53D00 must remain bind-only");
+                "CastlePlanner AIV targets 0x54EC0, 0x54DE0, 0x53D00, and 0x55F50 must remain bind-only");
             Assert(Count(lobbyState, "Application.onBeforeRender += OnBeforeRender") == 1 &&
                 lobbyState.Contains("ObserveDirtyNow();") &&
                 Count(lobbyState, "getActiveLobbyMembersOriginal(self, coopGame)") == 1 &&

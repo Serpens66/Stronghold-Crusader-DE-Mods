@@ -25,6 +25,8 @@ namespace ExtraFeatures
         private Visibility mountButtonVisibility = Visibility.Hidden;
         private bool mountButtonEnabled;
         private bool dismountButtonEnabled;
+        private bool mountDisabledTooltipHitTestVisible;
+        private bool dismountDisabledTooltipHitTestVisible;
 
         public KnightDismountButtonViewModel(
             Action dismount,
@@ -120,6 +122,32 @@ namespace ExtraFeatures
             }
         }
 
+        public bool MountDisabledTooltipHitTestVisible
+        {
+            get => mountDisabledTooltipHitTestVisible;
+            private set
+            {
+                if (mountDisabledTooltipHitTestVisible == value)
+                    return;
+
+                mountDisabledTooltipHitTestVisible = value;
+                OnPropertyChanged(nameof(MountDisabledTooltipHitTestVisible));
+            }
+        }
+
+        public bool DismountDisabledTooltipHitTestVisible
+        {
+            get => dismountDisabledTooltipHitTestVisible;
+            private set
+            {
+                if (dismountDisabledTooltipHitTestVisible == value)
+                    return;
+
+                dismountDisabledTooltipHitTestVisible = value;
+                OnPropertyChanged(nameof(DismountDisabledTooltipHitTestVisible));
+            }
+        }
+
         public void Hide()
         {
             SetWantsVisibility(false);
@@ -127,6 +155,8 @@ namespace ExtraFeatures
             MountButtonVisibility = Visibility.Hidden;
             MountButtonEnabled = false;
             DismountButtonEnabled = false;
+            MountDisabledTooltipHitTestVisible = false;
+            DismountDisabledTooltipHitTestVisible = false;
         }
 
         public void ShowDismount(bool enabled)
@@ -136,6 +166,8 @@ namespace ExtraFeatures
             MountButtonVisibility = Visibility.Hidden;
             MountButtonEnabled = false;
             DismountButtonEnabled = enabled;
+            MountDisabledTooltipHitTestVisible = false;
+            DismountDisabledTooltipHitTestVisible = !enabled;
         }
 
         public void ShowMount(bool enabled)
@@ -145,6 +177,8 @@ namespace ExtraFeatures
             MountButtonVisibility = Visibility.Visible;
             MountButtonEnabled = enabled;
             DismountButtonEnabled = false;
+            MountDisabledTooltipHitTestVisible = !enabled;
+            DismountDisabledTooltipHitTestVisible = false;
         }
 
         private void SetWantsVisibility(bool value)
