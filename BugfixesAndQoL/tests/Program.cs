@@ -82,6 +82,7 @@ namespace BugfixesAndQoL
             TestWorkshopUploadLordSelectionPolicy();
             TestMultiplayerLobbyReturnIntegration();
             TestClassicMapSizeReader();
+            TestVanillaMapEditorPlayerCountColumn();
             TestLobbyMapSelectionMemory();
             TestNativePatternSearch();
             TestNativeContracts();
@@ -92,6 +93,82 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestVanillaMapEditorPlayerCountColumn()
+        {
+            Check(VanillaMapEditorPolicy.ComparePlayerCounts(2, 8, true) < 0 &&
+                  VanillaMapEditorPolicy.ComparePlayerCounts(2, 8, false) > 0 &&
+                  VanillaMapEditorPolicy.ComparePlayerCounts(4, 4, true) == 0 &&
+                  VanillaMapEditorPolicy.ComparePlayerCounts(4, 4, false) == 0,
+                "editor map player counts sort in both directions with stable ties");
+            Check(VanillaMapEditorPolicy.FormatPlayerCount(8) == "8" &&
+                  VanillaMapEditorPolicy.FormatPlayerCount(1) == "1" &&
+                  VanillaMapEditorPolicy.FormatPlayerCount(0) == "" &&
+                  VanillaMapEditorPolicy.FormatPlayerCount(-1) == "",
+                "editor map player counts hide unavailable values");
+
+            var ordered = new List<Tuple<int, int>>
+            {
+                Tuple.Create(4, 0),
+                Tuple.Create(8, 1),
+                Tuple.Create(4, 2),
+                Tuple.Create(2, 3),
+            };
+            ordered.Sort((left, right) =>
+            {
+                int comparison = VanillaMapEditorPolicy.ComparePlayerCounts(
+                    left.Item1,
+                    right.Item1,
+                    ascending: false);
+                return comparison != 0
+                    ? comparison
+                    : left.Item2.CompareTo(right.Item2);
+            });
+            Check(ordered.Select(item => item.Item2).SequenceEqual(new[] { 1, 0, 2, 3 }),
+                "editor map player-count ordering retains source order for equal counts");
+
+            string projectDirectory = FindProjectDirectory();
+            string hook = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "VanillaMapEditorHook.cs"));
+            string converter = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "MapPlayerCountConverter.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "Patches",
+                "Assets",
+                "GUI",
+                "XAMLResources",
+                "HUD_LoadSaveRequester.xaml"));
+
+            Check(xaml.Contains("x:Name=\"BugfixesAndQoLMaxPlayersHeader\"") &&
+                  xaml.Contains("Tag=\"MaxPlayers\">#</GridViewColumnHeader>") &&
+                  xaml.Contains("<mod:MapPlayerCountConverter />") &&
+                  xaml.IndexOf("Tag=\"Type\"", StringComparison.Ordinal) < 0,
+                "editor map player-count XAML appends an isolated fifth converted column");
+            int configureCall = hook.IndexOf(
+                "ConfigurePlayerCountColumn(self, requesterType)",
+                StringComparison.Ordinal);
+            int editorGuardAfterConfigure = configureCall < 0
+                ? -1
+                : hook.IndexOf(
+                    "if (editorMapRequester)",
+                    configureCall,
+                    StringComparison.Ordinal);
+            Check(hook.Contains("requester.FindName(\"BugfixesAndQoLMaxPlayersHeader\")") &&
+                  hook.Contains("playerHeader.Click += PlayerCountHeaderClicked") &&
+                  hook.Contains("rows.Move(currentIndex, targetIndex)") &&
+                  hook.Contains("left.OriginalIndex.CompareTo(right.OriginalIndex)") &&
+                  hook.Contains("requesterType == Enums.RequesterTypes.LoadEditorMap") &&
+                  hook.Contains("view.Columns[4].Width = visible ? 60 : 0") &&
+                  configureCall >= 0 && editorGuardAfterConfigure > configureCall &&
+                  hook.Contains("state.Active = false;") &&
+                  hook.Contains("PanelActiveField.GetValue(requester)"),
+                "editor map player-count UI reuses established header and stable row-move patterns");
+            Check(converter.Contains("value as FileRow") &&
+                  converter.Contains("header?.maxPlayers ?? 0") &&
+                  converter.Contains("throw new NotSupportedException()"),
+                "editor map player-count converter is one-way and reads Vanilla FileHeader data");
         }
 
         private static void TestKeepFlagRotationIntegration()

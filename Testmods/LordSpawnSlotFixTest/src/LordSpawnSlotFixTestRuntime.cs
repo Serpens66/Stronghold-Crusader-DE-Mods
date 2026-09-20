@@ -24,7 +24,6 @@ namespace LordSpawnSlotFixTest
         private readonly Dictionary<int, string> lastSnapshots = new Dictionary<int, string>();
         private bool mapActive;
         private bool sessionEligible;
-        private bool rosterUnavailableLogged;
         private int observationTick;
 
         internal LordSpawnSlotFixTestRuntime(ManualLogSource log)
@@ -35,46 +34,59 @@ namespace LordSpawnSlotFixTest
         internal void Install()
         {
             Shared.MissionEvents.SetOwner(LordSpawnSlotFixTestPluginGuid);
-            subscriptions.Add(Shared.MissionEvents.NativeStart.Subscribe(OnNativeStart));
+            subscriptions.Add(Shared.MissionEvents.Initialization.Subscribe(OnInitialization));
             subscriptions.Add(Shared.MissionEvents.Ended.Subscribe(OnMissionEnded));
             GameTimeManagerAPI.Instance.OnTick += OnGameTick;
             log.LogInfo(
                 "LSS_TEST_INSTALL: correctionThread=GameTimeManagerAPI.OnTick; nativeHooks=0; " +
-                "eligibleMode=new CustomGame only; saves=false; trails=false; editor=false.");
+                "modeGate=none; eligibleLifecycle=NewGame; saves=false; editor=false; " +
+                "playerScan=native records 1-8; gameMembers=optional kicked veto only.");
         }
 
         private const string LordSpawnSlotFixTestPluginGuid = "LordSpawnSlotFixTest_Serp";
 
-        private void OnNativeStart(MissionLifecycleNotification notification)
+        private void OnInitialization(MissionLifecycleNotification notification)
         {
             try
             {
-                if (notification.Phase == MissionInitializationPhase.BeforeNativeStart)
+                if (sessionState.SessionId != notification.Context.SessionId)
                 {
                     sessionState.Reset(notification.Context.SessionId);
                     mapActive = false;
                     sessionEligible = false;
                     observationTick = 0;
-                    rosterUnavailableLogged = false;
                     lastSnapshots.Clear();
                     log.LogInfo(
                         $"LSS_TEST_SESSION_RESET: session={notification.Context.SessionId}; " +
                         $"startKind={notification.Context.StartKind}; mode={notification.Context.Mode.Kind}; " +
                         $"isSave={notification.Context.IsSave}; isEditor={notification.Context.IsEditor}.");
+                }
+
+                if (notification.Phase == MissionInitializationPhase.BeforeLoad ||
+                    notification.Phase == MissionInitializationPhase.BeforeNativeStart)
+                {
+                    mapActive = false;
+                    sessionEligible = false;
                     return;
                 }
 
-                if (notification.Phase != MissionInitializationPhase.AfterNativeStart)
+                if (notification.Phase != MissionInitializationPhase.AfterNativeStart &&
+                    notification.Phase != MissionInitializationPhase.NativeLoaded)
                     return;
 
-                sessionEligible =
-                    notification.Context.StartKind == MissionStartKind.NewGame &&
-                    notification.Context.Mode.Kind == Shared.GameModeKind.CustomGame &&
-                    !notification.Context.IsSave &&
-                    !notification.Context.IsEditor;
+                if (mapActive)
+                    return;
+
+                // Mode classification is diagnostic-only. The faulty remap was proven in a
+                // CustomGame, but neither its exact tombstone nor Vanilla's later Lord creation
+                // depends on APIShared assigning that mode label. NewGame is the safety boundary:
+                // saves restore authoritative identities without promising another Lord spawn,
+                // while editor sessions do not have the normal gameplay Lord-spawn contract.
+                sessionEligible = notification.Context.StartKind == MissionStartKind.NewGame;
                 mapActive = true;
                 log.LogInfo(
                     $"LSS_TEST_SESSION_ARMED: session={notification.Context.SessionId}; eligible={sessionEligible}; " +
+                    $"phase={notification.Phase}; " +
                     $"startKind={notification.Context.StartKind}; mode={notification.Context.Mode.Kind}; " +
                     $"isSave={notification.Context.IsSave}; isEditor={notification.Context.IsEditor}.");
             }
@@ -103,22 +115,14 @@ namespace LordSpawnSlotFixTest
             observationTick++;
             try
             {
-                RosterPlayer[] roster = CaptureRawRoster();
-                if (roster.Length == 0)
-                {
-                    if (!rosterUnavailableLogged)
-                    {
-                        rosterUnavailableLogged = true;
-                        log.LogWarning(
-                            $"LSS_TEST_ROSTER_UNAVAILABLE: session={sessionState.SessionId}; " +
-                            $"observationTick={observationTick}; simulationTick={simulationTick}; no mutation performed.");
-                    }
-                    return;
-                }
+                HashSet<int> kickedPlayerIds = CaptureKickedPlayerIds();
 
-                rosterUnavailableLogged = false;
-                foreach (RosterPlayer member in roster)
-                    ObservePlayer(member, simulationTick);
+                // gameMembers is populated by only some launch paths. Iterating the native
+                // one-based records makes detection mode-independent; a live owned Keep and
+                // start marker establish actual participation. When a roster exists, kicked is
+                // retained as an additional veto, never as an allowlist.
+                for (int playerId = 1; playerId <= 8; playerId++)
+                    ObservePlayer(playerId, kickedPlayerIds.Contains(playerId), simulationTick);
 
                 if (observationTick == ConfirmationTimeoutTicks)
                     LogOutstandingConfirmations(simulationTick);
@@ -135,39 +139,38 @@ namespace LordSpawnSlotFixTest
             }
         }
 
-        private void ObservePlayer(RosterPlayer member, int simulationTick)
+        private void ObservePlayer(int playerId, bool kicked, int simulationTick)
         {
             GamePlayerManagerAPI players = GamePlayerManagerAPI.Instance;
-            bool hasResources = players.TryGetPlayerResourcesById(member.PlayerId, out GamePlayerResources* resources) &&
+            bool hasResources = players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) &&
                 resources != null;
             PlayerSnapshot snapshot = hasResources
-                ? CaptureSnapshot(member.PlayerId, resources)
-                : PlayerSnapshot.Missing(member.PlayerId);
+                ? CaptureSnapshot(playerId, resources)
+                : PlayerSnapshot.Missing(playerId);
 
             bool logDetailed = observationTick <= DetailedSnapshotTicks ||
                 (observationTick >= VanillaLordWindowStart && observationTick <= VanillaLordWindowEnd);
             string fingerprint = snapshot.Fingerprint;
-            if (logDetailed || !lastSnapshots.TryGetValue(member.PlayerId, out string previous) || previous != fingerprint)
+            if (logDetailed || !lastSnapshots.TryGetValue(playerId, out string previous) || previous != fingerprint)
             {
                 log.LogInfo(
                     $"LSS_TEST_SNAPSHOT: session={sessionState.SessionId}; observationTick={observationTick}; " +
-                    $"simulationTick={simulationTick}; rosterPlayer={member.PlayerId}; kicked={member.Kicked}; " +
+                    $"simulationTick={simulationTick}; player={playerId}; kickedVeto={kicked}; " +
                     $"eligibleSession={sessionEligible}; {snapshot.Describe()}.");
-                lastSnapshots[member.PlayerId] = fingerprint;
+                lastSnapshots[playerId] = fingerprint;
             }
 
-            if (sessionState.WasAttempted(member.PlayerId))
+            if (sessionState.WasAttempted(playerId))
             {
-                TryConfirmVanillaLord(member.PlayerId, snapshot, simulationTick);
+                TryConfirmVanillaLord(playerId, snapshot, simulationTick);
                 return;
             }
 
             var guard = new LordSpawnSlotGuardInput(
-                sessionEligible,
+                isNewGameSession: sessionEligible,
                 correctionWindowOpen: observationTick <= DetailedSnapshotTicks,
                 hasResources,
-                inRoster: true,
-                member.Kicked,
+                kicked,
                 alreadyAttempted: false,
                 snapshot.WinLossState == WinLossState.Loss,
                 snapshot.LordUnitId,
@@ -185,32 +188,40 @@ namespace LordSpawnSlotFixTest
             {
                 if (observationTick == 1)
                     log.LogInfo(
-                        $"LSS_TEST_DECISION: session={sessionState.SessionId}; player={member.PlayerId}; " +
+                        $"LSS_TEST_DECISION: session={sessionState.SessionId}; player={playerId}; " +
                         $"decision={decision}; noMutation=true.");
                 return;
             }
 
-            sessionState.MarkAttempted(member.PlayerId);
+            sessionState.MarkAttempted(playerId);
             log.LogWarning(
-                $"LSS_TEST_CAUSE_CONFIRMED: session={sessionState.SessionId}; player={member.PlayerId}; " +
-                $"reason=active-roster-player-has-valid-owned-keep-and-door-reference-and-exact-zeroed-unit-tombstone-blocks-Vanilla-spawn; " +
+                $"LSS_TEST_CAUSE_CONFIRMED: session={sessionState.SessionId}; player={playerId}; " +
+                $"reason=active-player-has-valid-owned-keep-and-door-reference-and-exact-zeroed-unit-tombstone-blocks-Vanilla-spawn; " +
                 $"before={snapshot.Describe()}.");
-            players.SetLordUnitGlobalId(member.PlayerId, 0);
-            players.SetLordUnitId(member.PlayerId, 0);
 
-            if (!players.TryGetPlayerResourcesById(member.PlayerId, out GamePlayerResources* updated) ||
+            // Native audit (FBCB9319): 0xC6810 transfers Keep-related fields but omits both
+            // Lord identity fields. 0xC23C0 then treats any nonzero LordUnitId as present and
+            // skips the authoritative 0x17FEF0 creation path. A hook at either native site
+            // would be closer to the defect, but would add version-sensitive displaced-code
+            // and detour-conflict risk. At ticks 1-3 the remap has finished and Vanilla's Lord
+            // window has not: clearing only the proven tombstone, global ID first, lets Vanilla
+            // create and initialize the complete Lord through its own path.
+            players.SetLordUnitGlobalId(playerId, 0);
+            players.SetLordUnitId(playerId, 0);
+
+            if (!players.TryGetPlayerResourcesById(playerId, out GamePlayerResources* updated) ||
                 updated == null || updated->r_LordUnitId != 0 || updated->r_LordUnitGlobalId != 0)
             {
                 log.LogError(
-                    $"LSS_TEST_CORRECTION_FAILED: session={sessionState.SessionId}; player={member.PlayerId}; " +
+                    $"LSS_TEST_CORRECTION_FAILED: session={sessionState.SessionId}; player={playerId}; " +
                     "the public Lord identity setters did not produce 0/0; no retry will be attempted this session.");
                 return;
             }
 
-            PlayerSnapshot corrected = CaptureSnapshot(member.PlayerId, updated);
-            lastSnapshots[member.PlayerId] = corrected.Fingerprint;
+            PlayerSnapshot corrected = CaptureSnapshot(playerId, updated);
+            lastSnapshots[playerId] = corrected.Fingerprint;
             log.LogWarning(
-                $"LSS_TEST_CORRECTED: session={sessionState.SessionId}; player={member.PlayerId}; " +
+                $"LSS_TEST_CORRECTED: session={sessionState.SessionId}; player={playerId}; " +
                 $"method=GamePlayerManagerAPI.SetLordUnitGlobalId(0)+SetLordUnitId(0); after={corrected.Describe()}; " +
                 "lordCreation=left-to-Vanilla.");
         }
@@ -230,33 +241,32 @@ namespace LordSpawnSlotFixTest
 
         private void LogOutstandingConfirmations(int simulationTick)
         {
-            foreach (RosterPlayer member in CaptureRawRoster())
+            for (int playerId = 1; playerId <= 8; playerId++)
             {
-                if (sessionState.WasAttempted(member.PlayerId) && !sessionState.IsConfirmed(member.PlayerId))
+                if (sessionState.WasAttempted(playerId) && !sessionState.IsConfirmed(playerId))
                     log.LogError(
-                        $"LSS_TEST_LORD_TIMEOUT: session={sessionState.SessionId}; player={member.PlayerId}; " +
+                        $"LSS_TEST_LORD_TIMEOUT: session={sessionState.SessionId}; player={playerId}; " +
                         $"observationTick={observationTick}; simulationTick={simulationTick}; " +
                         "the guarded stale Lord identity clear was applied but no valid Vanilla Lord was observed.");
             }
         }
 
-        private static RosterPlayer[] CaptureRawRoster()
+        private static HashSet<int> CaptureKickedPlayerIds()
         {
             Platform_Multiplayer.MPGameMember[] members =
                 Platform_Multiplayer.Instance?.gameMembers?.ToArray();
             if (members == null || members.Length == 0)
-                return Array.Empty<RosterPlayer>();
+                return new HashSet<int>();
 
-            var byPlayer = new Dictionary<int, RosterPlayer>();
+            var kickedPlayerIds = new HashSet<int>();
             foreach (Platform_Multiplayer.MPGameMember member in members)
             {
-                if (member == null || member.playerID < 1 || member.playerID > 8)
+                if (member == null || !member.kicked || member.playerID < 1 || member.playerID > 8)
                     continue;
-                byPlayer[member.playerID] = new RosterPlayer(member.playerID, member.kicked);
+                kickedPlayerIds.Add(member.playerID);
             }
 
-            RosterPlayer[] result = byPlayer.Values.OrderBy(member => member.PlayerId).ToArray();
-            return result;
+            return kickedPlayerIds;
         }
 
         private static PlayerSnapshot CaptureSnapshot(int playerId, GamePlayerResources* resources)
@@ -322,18 +332,6 @@ namespace LordSpawnSlotFixTest
             type == eStructs.STRUCT_KEEP_THREE ||
             type == eStructs.STRUCT_KEEP_FOUR ||
             type == eStructs.STRUCT_KEEP_FIVE;
-
-        private readonly struct RosterPlayer
-        {
-            internal RosterPlayer(int playerId, bool kicked)
-            {
-                PlayerId = playerId;
-                Kicked = kicked;
-            }
-
-            internal int PlayerId { get; }
-            internal bool Kicked { get; }
-        }
 
         private readonly struct BuildingIdentity
         {

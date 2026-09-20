@@ -10,6 +10,12 @@ namespace BugfixesAndQoL
         internal static bool ShouldExposeBuiltIns(bool featureActive, bool isLoadEditorMap) =>
             featureActive && isLoadEditorMap;
 
+        internal static int ComparePlayerCounts(int left, int right, bool ascending) =>
+            ascending ? left.CompareTo(right) : right.CompareTo(left);
+
+        internal static string FormatPlayerCount(int playerCount) =>
+            playerCount > 0 ? playerCount.ToString() : string.Empty;
+
         internal static List<T> MergeEditableBuiltIns<T>(
             IEnumerable<T> vanillaItems,
             IEnumerable<IEnumerable<T>> builtInGroups,

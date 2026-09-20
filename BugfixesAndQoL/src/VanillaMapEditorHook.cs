@@ -7,6 +7,7 @@ using SHCDESE.API;
 using SHCDESE.NoesisUtil;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Reflection;
@@ -17,6 +18,10 @@ namespace BugfixesAndQoL
     internal sealed class VanillaMapEditorHook : INotifyPropertyChanged, IDisposable
     {
         private delegate void PopulateListDelegate(HUD_LoadSaveRequester self);
+        private delegate void FileListHeaderClickedDelegate(
+            HUD_LoadSaveRequester self,
+            object sender,
+            RoutedEventArgs args);
         private delegate List<FileHeader> GetMapEditableMapsDelegate(
             MapFileManager self,
             int sortMode,
@@ -41,6 +46,9 @@ namespace BugfixesAndQoL
         private static readonly FieldInfo SelectedHeaderField = FindRequiredField(
             typeof(HUD_LoadSaveRequester),
             "selectedHeader");
+        private static readonly FieldInfo PanelActiveField = FindRequiredField(
+            typeof(HUD_LoadSaveRequester),
+            "panelActive");
         private static readonly MethodInfo PopulateListMethod = FindRequiredMethod(
             typeof(HUD_LoadSaveRequester),
             "populateList");
@@ -61,10 +69,16 @@ namespace BugfixesAndQoL
         private readonly BugfixesAndQoLViewModel settings;
         private readonly Dictionary<ListView, HUD_LoadSaveRequester> requesterByList =
             new Dictionary<ListView, HUD_LoadSaveRequester>();
+        private readonly Dictionary<GridViewColumnHeader, HUD_LoadSaveRequester> requesterByPlayerHeader =
+            new Dictionary<GridViewColumnHeader, HUD_LoadSaveRequester>();
+        private readonly Dictionary<HUD_LoadSaveRequester, PlayerCountSortState> playerSortByRequester =
+            new Dictionary<HUD_LoadSaveRequester, PlayerCountSortState>();
         private Hook populateListHook;
+        private Hook fileListHeaderClickedHook;
         private Hook editableMapsHook;
         private Hook saveMapHook;
         private PopulateListDelegate populateListOriginal;
+        private FileListHeaderClickedDelegate fileListHeaderClickedOriginal;
         private GetMapEditableMapsDelegate editableMapsOriginal;
         private SaveSaveGameOrMapDelegate saveMapOriginal;
         private bool listFailureLogged;
@@ -85,6 +99,16 @@ namespace BugfixesAndQoL
                     FindRequiredMethod(typeof(HUD_LoadSaveRequester), "populateList"),
                     (PopulateListDelegate)PopulateListHook);
                 populateListOriginal = populateListHook.GenerateTrampoline<PopulateListDelegate>();
+
+                fileListHeaderClickedHook = new Hook(
+                    FindRequiredMethod(
+                        typeof(HUD_LoadSaveRequester),
+                        "FileListHeaderClickedHandler",
+                        typeof(object),
+                        typeof(RoutedEventArgs)),
+                    (FileListHeaderClickedDelegate)FileListHeaderClickedHook);
+                fileListHeaderClickedOriginal =
+                    fileListHeaderClickedHook.GenerateTrampoline<FileListHeaderClickedDelegate>();
 
                 editableMapsHook = new Hook(
                     FindRequiredMethod(
@@ -119,6 +143,7 @@ namespace BugfixesAndQoL
             {
                 DisposeHook(ref saveMapHook);
                 DisposeHook(ref editableMapsHook);
+                DisposeHook(ref fileListHeaderClickedHook);
                 DisposeHook(ref populateListHook);
                 throw;
             }
@@ -137,9 +162,14 @@ namespace BugfixesAndQoL
             settings.PropertyChanged -= SettingsPropertyChanged;
             foreach (KeyValuePair<ListView, HUD_LoadSaveRequester> pair in requesterByList)
                 pair.Key.SelectionChanged -= RequesterSelectionChanged;
+            foreach (GridViewColumnHeader header in requesterByPlayerHeader.Keys)
+                header.Click -= PlayerCountHeaderClicked;
             requesterByList.Clear();
+            requesterByPlayerHeader.Clear();
+            playerSortByRequester.Clear();
             DisposeHook(ref saveMapHook);
             DisposeHook(ref editableMapsHook);
+            DisposeHook(ref fileListHeaderClickedHook);
             DisposeHook(ref populateListHook);
             Shared.DebugLogHelper.LogDebug(
                 log,
@@ -195,13 +225,17 @@ namespace BugfixesAndQoL
 
             try
             {
+                ConfigurePlayerCountColumn(self, requesterType);
                 if (editorMapRequester)
                 {
                     activeRequester = self;
                     AttachRequester(self);
+                    ResetPlayerSortForNewDialog(self);
                     RefreshUiState();
                 }
                 populateListOriginal(self);
+                if (requesterType == Enums.RequesterTypes.LoadEditorMap)
+                    ApplyPlayerCountSort(self);
             }
             finally
             {
@@ -213,6 +247,16 @@ namespace BugfixesAndQoL
 
             if (editorMapRequester)
                 RefreshUiState();
+        }
+
+        private void FileListHeaderClickedHook(
+            HUD_LoadSaveRequester self,
+            object sender,
+            RoutedEventArgs args)
+        {
+            if (playerSortByRequester.TryGetValue(self, out PlayerCountSortState state))
+                state.Active = false;
+            fileListHeaderClickedOriginal(self, sender, args);
         }
 
         private List<FileHeader> GetMapEditableMapsHook(
@@ -304,17 +348,149 @@ namespace BugfixesAndQoL
             try
             {
                 ListView list = (ListView)FileListField.GetValue(requester);
-                if (list == null || requesterByList.ContainsKey(list))
+                if (list == null)
                     return;
 
-                requesterByList.Add(list, requester);
-                list.SelectionChanged += RequesterSelectionChanged;
+                if (!requesterByList.ContainsKey(list))
+                {
+                    requesterByList.Add(list, requester);
+                    list.SelectionChanged += RequesterSelectionChanged;
+                }
+
+                GridViewColumnHeader playerHeader =
+                    requester.FindName("BugfixesAndQoLMaxPlayersHeader") as GridViewColumnHeader;
+                if (playerHeader == null)
+                {
+                    throw new InvalidOperationException(
+                        "The patched maximum-player header was not found.");
+                }
+                if (!requesterByPlayerHeader.ContainsKey(playerHeader))
+                {
+                    requesterByPlayerHeader.Add(playerHeader, requester);
+                    playerHeader.Click += PlayerCountHeaderClicked;
+                }
+                if (!playerSortByRequester.ContainsKey(requester))
+                    playerSortByRequester.Add(requester, new PlayerCountSortState());
             }
             catch (Exception ex)
             {
-                LogUiFailure("attach the map-menu selection handler", ex);
+                LogUiFailure("attach the map-menu handlers", ex);
             }
         }
+
+        private void ConfigurePlayerCountColumn(
+            HUD_LoadSaveRequester requester,
+            Enums.RequesterTypes requesterType)
+        {
+            try
+            {
+                ListView list = (ListView)FileListField.GetValue(requester);
+                GridView view = list?.View as GridView;
+                if (view == null || view.Columns.Count < 5)
+                    throw new InvalidOperationException("The patched map list has no player-count column.");
+
+                bool visible = FeatureEnabled &&
+                    requesterType == Enums.RequesterTypes.LoadEditorMap;
+                view.Columns[4].Width = visible ? 60 : 0;
+
+                if (requesterType != Enums.RequesterTypes.LoadEditorMap)
+                    return;
+
+                MainViewModel.Instance.ColumnWidthName = visible ? "230" : "284";
+                MainViewModel.Instance.ColumnWidthDate = visible ? "134" : "140";
+                MainViewModel.Instance.ColumnWidthSize = "40";
+                MainViewModel.Instance.ColumnWidthType = "200";
+            }
+            catch (Exception ex)
+            {
+                LogUiFailure("configure the map player-count column", ex);
+            }
+        }
+
+        private void ResetPlayerSortForNewDialog(HUD_LoadSaveRequester requester)
+        {
+            if (!playerSortByRequester.TryGetValue(requester, out PlayerCountSortState state))
+                return;
+
+            if (!FeatureEnabled || !(bool)PanelActiveField.GetValue(requester))
+                state.Active = false;
+        }
+
+        private void PlayerCountHeaderClicked(object sender, RoutedEventArgs args)
+        {
+            try
+            {
+                if (!(sender is GridViewColumnHeader header) ||
+                    !requesterByPlayerHeader.TryGetValue(
+                        header,
+                        out HUD_LoadSaveRequester requester) ||
+                    !FeatureEnabled ||
+                    GetRequesterType(requester) != Enums.RequesterTypes.LoadEditorMap ||
+                    !playerSortByRequester.TryGetValue(requester, out PlayerCountSortState state))
+                {
+                    return;
+                }
+
+                state.Ascending = state.Active && !state.Ascending;
+                state.Active = true;
+                activeRequester = requester;
+                RefreshRequesterList(requester);
+            }
+            catch (Exception ex)
+            {
+                LogUiFailure("sort the editor map list by maximum players", ex);
+            }
+        }
+
+        private void ApplyPlayerCountSort(HUD_LoadSaveRequester requester)
+        {
+            try
+            {
+                if (!FeatureEnabled ||
+                    !playerSortByRequester.TryGetValue(
+                        requester,
+                        out PlayerCountSortState state) ||
+                    !state.Active)
+                {
+                    return;
+                }
+
+                ListView list = (ListView)FileListField.GetValue(requester);
+                ObservableCollection<FileRow> rows =
+                    list?.ItemsSource as ObservableCollection<FileRow>;
+                if (rows == null || rows.Count < 2)
+                    return;
+
+                List<IndexedFileRow> orderedRows = new List<IndexedFileRow>(rows.Count);
+                for (int index = 0; index < rows.Count; index++)
+                    orderedRows.Add(new IndexedFileRow(rows[index], index));
+
+                orderedRows.Sort((left, right) =>
+                {
+                    int comparison = VanillaMapEditorPolicy.ComparePlayerCounts(
+                        GetPlayerCount(left.Row),
+                        GetPlayerCount(right.Row),
+                        state.Ascending);
+                    return comparison != 0
+                        ? comparison
+                        : left.OriginalIndex.CompareTo(right.OriginalIndex);
+                });
+
+                for (int targetIndex = 0; targetIndex < orderedRows.Count; targetIndex++)
+                {
+                    FileRow expected = orderedRows[targetIndex].Row;
+                    int currentIndex = rows.IndexOf(expected);
+                    if (currentIndex >= 0 && currentIndex != targetIndex)
+                        rows.Move(currentIndex, targetIndex);
+                }
+            }
+            catch (Exception ex)
+            {
+                LogUiFailure("apply the editor map player-count sort", ex);
+            }
+        }
+
+        private static int GetPlayerCount(FileRow row) => row?.fileHeader?.maxPlayers ?? 0;
 
         private void RequesterSelectionChanged(object sender, SelectionChangedEventArgs args)
         {
@@ -578,6 +754,24 @@ namespace BugfixesAndQoL
 
             current.Undo();
             current.Dispose();
+        }
+
+        private sealed class PlayerCountSortState
+        {
+            internal bool Active;
+            internal bool Ascending;
+        }
+
+        private readonly struct IndexedFileRow
+        {
+            internal IndexedFileRow(FileRow row, int originalIndex)
+            {
+                Row = row;
+                OriginalIndex = originalIndex;
+            }
+
+            internal FileRow Row { get; }
+            internal int OriginalIndex { get; }
         }
     }
 }

@@ -46,6 +46,7 @@
     <Compile Include="..\src\AicDropdownPolicy.cs"><Link>AicDropdownPolicy.cs</Link></Compile>
     <Compile Include="..\src\ClassicMapSizeReader.cs"><Link>ClassicMapSizeReader.cs</Link></Compile>
     <Compile Include="..\src\LobbyMapSelectionMemory.cs"><Link>LobbyMapSelectionMemory.cs</Link></Compile>
+    <Compile Include="..\src\VanillaMapEditorPolicy.cs"><Link>VanillaMapEditorPolicy.cs</Link></Compile>
     <Compile Include="..\src\CoopCustomLordSelectionPolicy.cs"><Link>CoopCustomLordSelectionPolicy.cs</Link></Compile>
     <Compile Include="..\src\SingleBuildingPauseOverrideStore.cs"><Link>SingleBuildingPauseOverrideStore.cs</Link></Compile>
     <Compile Include="..\src\TemporaryGateBlockagePolicy.cs"><Link>TemporaryGateBlockagePolicy.cs</Link></Compile>

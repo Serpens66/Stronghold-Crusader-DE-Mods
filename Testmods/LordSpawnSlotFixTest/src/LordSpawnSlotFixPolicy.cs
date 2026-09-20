@@ -6,10 +6,9 @@ namespace LordSpawnSlotFixTest
     internal enum LordSpawnSlotDecision
     {
         ClearStaleLordReference,
-        RejectIneligibleSession,
+        RejectNotNewGameSession,
         RejectOutsideCorrectionWindow,
         RejectMissingPlayerRecord,
-        RejectNotInRoster,
         RejectKicked,
         RejectAlreadyAttempted,
         RejectDefeated,
@@ -28,10 +27,9 @@ namespace LordSpawnSlotFixTest
     internal readonly struct LordSpawnSlotGuardInput
     {
         internal LordSpawnSlotGuardInput(
-            bool sessionEligible,
+            bool isNewGameSession,
             bool correctionWindowOpen,
             bool hasPlayerRecord,
-            bool inRoster,
             bool kicked,
             bool alreadyAttempted,
             bool isDefeated,
@@ -46,10 +44,9 @@ namespace LordSpawnSlotFixTest
             bool validOwnedKeep,
             bool validOwnedKeepDoorReference)
         {
-            SessionEligible = sessionEligible;
+            IsNewGameSession = isNewGameSession;
             CorrectionWindowOpen = correctionWindowOpen;
             HasPlayerRecord = hasPlayerRecord;
-            InRoster = inRoster;
             Kicked = kicked;
             AlreadyAttempted = alreadyAttempted;
             IsDefeated = isDefeated;
@@ -65,10 +62,9 @@ namespace LordSpawnSlotFixTest
             ValidOwnedKeepDoorReference = validOwnedKeepDoorReference;
         }
 
-        internal bool SessionEligible { get; }
+        internal bool IsNewGameSession { get; }
         internal bool CorrectionWindowOpen { get; }
         internal bool HasPlayerRecord { get; }
-        internal bool InRoster { get; }
         internal bool Kicked { get; }
         internal bool AlreadyAttempted { get; }
         internal bool IsDefeated { get; }
@@ -88,14 +84,12 @@ namespace LordSpawnSlotFixTest
     {
         internal static LordSpawnSlotDecision Evaluate(in LordSpawnSlotGuardInput input)
         {
-            if (!input.SessionEligible)
-                return LordSpawnSlotDecision.RejectIneligibleSession;
+            if (!input.IsNewGameSession)
+                return LordSpawnSlotDecision.RejectNotNewGameSession;
             if (!input.CorrectionWindowOpen)
                 return LordSpawnSlotDecision.RejectOutsideCorrectionWindow;
             if (!input.HasPlayerRecord)
                 return LordSpawnSlotDecision.RejectMissingPlayerRecord;
-            if (!input.InRoster)
-                return LordSpawnSlotDecision.RejectNotInRoster;
             if (input.Kicked)
                 return LordSpawnSlotDecision.RejectKicked;
             if (input.AlreadyAttempted)
@@ -122,6 +116,10 @@ namespace LordSpawnSlotFixTest
                 return LordSpawnSlotDecision.RejectLordUnitGlobalIdNotZero;
             if (input.LordCurrentHealth != 0)
                 return LordSpawnSlotDecision.RejectLordHealthNotZero;
+
+            // Do not broaden this into a generic "invalid Lord" repair. The complete zeroed
+            // unit-slot identity is the evidence that distinguishes the remap tombstone from a
+            // live, initializing, dying, restored, or otherwise meaningful Vanilla unit state.
             return LordSpawnSlotDecision.ClearStaleLordReference;
         }
     }

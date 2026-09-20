@@ -2,7 +2,7 @@
   "GUID": "LordSpawnSlotFixTest_Serp",
   "Author": "Serpens66",
   "Name": "Lord Spawn Slot Fix Test",
-  "Description": "Diagnoses and narrowly corrects active remapped Skirmish players that incorrectly start in Vanilla's defeated state.",
+  "Description": "Diagnoses and narrowly clears exact stale Lord tombstones before Vanilla's new-game Lord creation.",
   "Version": "0.1.0",
   "MinimumScriptExtenderVersion": "2.8.0",
   "MaximumScriptExtenderVersion": "",
@@ -15,8 +15,8 @@
     {
       "Version": "0.1.0",
       "Changes": [
-        "Adds guarded diagnostics for Keep, Keep door, defeat, and Lord state during new Custom Game startup.",
-        "Clears an erroneous initial Loss state only for an active roster player with a valid owned Keep and Keep door and no Lord.",
+        "Diagnoses Keep, start-marker, defeat, and Lord identity state during every new gameplay session without a game-mode gate.",
+        "Clears Lord IDs only for a valid active player whose referenced unit slot has the exact zeroed tombstone signature.",
         "Leaves Lord and Lady creation to Vanilla and records the resulting Lord identity."
       ]
     }

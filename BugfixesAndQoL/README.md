@@ -126,6 +126,7 @@ Four independent settings prevent affected AI production buildings from entering
 
 ### Open and safely manage Vanilla maps in the map editor
 The map editor's Load Map dialog includes a **Show Vanilla maps** checkbox. When enabled, it adds the editable built-in Skirmish, Free Build, and multiplayer maps to the normal list. Campaign and tutorial maps remain hidden. Saving a loaded Vanilla map always creates or overwrites a separate copy in your user `Maps` folder; the original game files are never changed.
+Its **#** column shows each map's maximum player count and can be clicked to sort the list in either direction.
 The Load Map and Save Map dialogs also include a **Delete Map** button. It asks for confirmation and can delete only maps stored directly in your user `Maps` folder. Vanilla maps and Steam Workshop maps are always protected from deletion.
 
 ### Customize the detailed market's goods order

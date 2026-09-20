@@ -14,6 +14,7 @@ namespace LordSpawnSlotFixTest.Tests
             {
                 CheckPositiveDecision();
                 CheckEveryGuard();
+                CheckRosterAbsenceDoesNotBlockDecision();
                 CheckValidLordIsNeverCleared();
                 CheckOneAttemptPerSession();
                 CheckSessionReset();
@@ -35,10 +36,9 @@ namespace LordSpawnSlotFixTest.Tests
 
         private static void CheckEveryGuard()
         {
-            Check(Evaluate(sessionEligible: false) == LordSpawnSlotDecision.RejectIneligibleSession, "session guard");
+            Check(Evaluate(isNewGameSession: false) == LordSpawnSlotDecision.RejectNotNewGameSession, "new-game lifecycle guard");
             Check(Evaluate(correctionWindowOpen: false) == LordSpawnSlotDecision.RejectOutsideCorrectionWindow, "correction-window guard");
             Check(Evaluate(hasPlayerRecord: false) == LordSpawnSlotDecision.RejectMissingPlayerRecord, "resource guard");
-            Check(Evaluate(inRoster: false) == LordSpawnSlotDecision.RejectNotInRoster, "roster guard");
             Check(Evaluate(kicked: true) == LordSpawnSlotDecision.RejectKicked, "kick guard");
             Check(Evaluate(alreadyAttempted: true) == LordSpawnSlotDecision.RejectAlreadyAttempted, "attempt guard");
             Check(Evaluate(isDefeated: true) == LordSpawnSlotDecision.RejectDefeated, "defeat guard");
@@ -52,6 +52,15 @@ namespace LordSpawnSlotFixTest.Tests
             Check(Evaluate(lordAliveStateIsNone: false) == LordSpawnSlotDecision.RejectLordAliveStateNotNone, "none-alive-state guard");
             Check(Evaluate(lordUnitGlobalId: 517) == LordSpawnSlotDecision.RejectLordUnitGlobalIdNotZero, "zero-unit-global-ID guard");
             Check(Evaluate(lordCurrentHealth: 1) == LordSpawnSlotDecision.RejectLordHealthNotZero, "zero-health guard");
+        }
+
+        private static void CheckRosterAbsenceDoesNotBlockDecision()
+        {
+            string policy = File.ReadAllText(Path.Combine("src", "LordSpawnSlotFixPolicy.cs"));
+            Check(!policy.Contains("InRoster") && !policy.Contains("RejectNotInRoster"),
+                "roster membership still gates the state-based correction");
+            Check(Evaluate() == LordSpawnSlotDecision.ClearStaleLordReference,
+                "the exact tombstone was rejected without a roster-membership input");
         }
 
         private static void CheckValidLordIsNeverCleared()
@@ -93,11 +102,17 @@ namespace LordSpawnSlotFixTest.Tests
         {
             string runtime = File.ReadAllText(Path.Combine("src", "LordSpawnSlotFixTestRuntime.cs"));
             string plugin = File.ReadAllText(Path.Combine("src", "LordSpawnSlotFixTestPlugin.cs"));
-            Check(runtime.Contains("Platform_Multiplayer.Instance?.gameMembers?.ToArray()"), "raw roster is not used");
+            Check(runtime.Contains("for (int playerId = 1; playerId <= 8; playerId++)"), "native player records 1-8 are not scanned");
+            Check(runtime.Contains("CaptureKickedPlayerIds()"), "optional kicked-player veto is absent");
             Check(!runtime.Contains("ActivePlayerHelper"), "loss-filtering ActivePlayerHelper is used");
             Check(runtime.Contains("GameTimeManagerAPI.Instance.OnTick += OnGameTick"), "simulation tick is not used");
-            Check(runtime.Contains("SetLordUnitGlobalId(member.PlayerId, 0)"), "public global Lord identity setter is not used");
-            Check(runtime.Contains("SetLordUnitId(member.PlayerId, 0)"), "public Lord unit identity setter is not used");
+            Check(runtime.Contains("Shared.MissionEvents.Initialization.Subscribe(OnInitialization)"), "complete initialization lifecycle is not observed");
+            Check(runtime.Contains("MissionInitializationPhase.AfterNativeStart") &&
+                runtime.Contains("MissionInitializationPhase.NativeLoaded"), "native-start fallback phases are incomplete");
+            Check(runtime.Contains("notification.Context.StartKind == MissionStartKind.NewGame"), "new-game lifecycle is not the correction boundary");
+            Check(!runtime.Contains("== Shared.GameModeKind") && !runtime.Contains("== GameModeKind"), "a game-mode equality still gates correction");
+            Check(runtime.Contains("SetLordUnitGlobalId(playerId, 0)"), "public global Lord identity setter is not used");
+            Check(runtime.Contains("SetLordUnitId(playerId, 0)"), "public Lord unit identity setter is not used");
             Check(runtime.Contains("snapshot.LordIdentity.Type == eChimps.CHIMP_TYPE_NULL"), "exact null-type tombstone guard is absent");
             Check(runtime.Contains("snapshot.LordIdentity.AliveState == AliveState.None"), "exact none-state tombstone guard is absent");
             Check(!runtime.Contains("SetWinLossState"), "disproved WinLoss correction remains in runtime");
@@ -107,10 +122,9 @@ namespace LordSpawnSlotFixTest.Tests
         }
 
         private static LordSpawnSlotDecision Evaluate(
-            bool sessionEligible = true,
+            bool isNewGameSession = true,
             bool correctionWindowOpen = true,
             bool hasPlayerRecord = true,
-            bool inRoster = true,
             bool kicked = false,
             bool alreadyAttempted = false,
             bool isDefeated = false,
@@ -126,7 +140,7 @@ namespace LordSpawnSlotFixTest.Tests
             bool validOwnedKeepDoorReference = true)
         {
             var input = new LordSpawnSlotGuardInput(
-                sessionEligible, correctionWindowOpen, hasPlayerRecord, inRoster, kicked,
+                isNewGameSession, correctionWindowOpen, hasPlayerRecord, kicked,
                 alreadyAttempted, isDefeated, lordUnitId,
                 lordGlobalId, lordUnitResolved, lordOwnerPlayerId,
                 lordTypeIsNull, lordAliveStateIsNone, lordUnitGlobalId,
