@@ -12,6 +12,7 @@
     <FileVersion>1.0.1.0</FileVersion>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
+    <Nullable>annotations</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>BepInEx\plugins\ExtendedData_Serp\</OutputPath>
     <DebugSymbols>true</DebugSymbols>

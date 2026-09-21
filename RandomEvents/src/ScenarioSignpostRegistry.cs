@@ -331,9 +331,14 @@ namespace RandomEvents
                 return false;
             }
 
-            if (!TryGetPlayerAnchor(targetPlayerId, out double anchorX, out double anchorY, out string distanceReference))
+            if (!TryGetPlayerAnchor(
+                    targetPlayerId,
+                    out double anchorX,
+                    out double anchorY,
+                    out string distanceReference,
+                    out string anchorFailure))
             {
-                failure = $"target player {targetPlayerId} has neither a usable keep nor a living Lord anchor.";
+                failure = $"target player {targetPlayerId} has neither a usable Keep nor a living Lord anchor: {anchorFailure}";
                 return false;
             }
 
@@ -500,39 +505,106 @@ namespace RandomEvents
             int playerId,
             out double tileX,
             out double tileY,
-            out string reference)
+            out string reference,
+            out string failure)
         {
             tileX = 0;
             tileY = 0;
             reference = string.Empty;
+            failure = string.Empty;
 
             int keepId = GamePlayerManagerAPI.Instance.GetPlayerKeepId(playerId);
-            if (keepId > 0 &&
-                GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) &&
-                (keep->r_AliveState == AliveState.NeedsInit || keep->r_AliveState == AliveState.IsAlive))
+            bool keepUsable = false;
+            double keepX = 0;
+            double keepY = 0;
+            string keepFailure;
+            if (keepId <= 0)
             {
-                if (!GameBuildingFootprint.TryGetBounds(keep, out GameBuildingFootprintBounds footprint))
-                    return false;
-                tileX = footprint.CenterXTimesTwo / 2.0;
-                tileY = footprint.CenterYTimesTwo / 2.0;
-                reference = "keep";
-                return true;
+                keepFailure = $"no Keep is registered (keepId={keepId})";
+            }
+            else if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) || keep == null)
+            {
+                keepFailure = $"registered Keep {keepId} cannot be resolved";
+            }
+            else if (keep->r_PlayerIdOwner != playerId || !IsKeepType(keep->r_BuildingType) ||
+                     (keep->r_AliveState != AliveState.NeedsInit && keep->r_AliveState != AliveState.IsAlive))
+            {
+                keepFailure =
+                    $"registered Keep {keepId} is unusable: owner={keep->r_PlayerIdOwner}, " +
+                    $"type={keep->r_BuildingType}, aliveState={keep->r_AliveState}";
+            }
+            else if (!KeepAnchorResolver.TryGetCenter(
+                         keep,
+                         out keepX,
+                         out keepY,
+                         out _,
+                         out string geometryFailure))
+            {
+                keepFailure = $"registered Keep {keepId} geometry is unusable: {geometryFailure}";
+            }
+            else
+            {
+                keepUsable = true;
+                keepFailure = string.Empty;
             }
 
-            if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) ||
-                resources == null || resources->r_LordUnitId == 0 || resources->r_LordUnitId > int.MaxValue ||
-                !GameUnitManagerAPI.Instance.TryGetUnitById((int)resources->r_LordUnitId, out GameUnit* lord) ||
-                lord == null || lord->r_AliveState != AliveState.IsAlive ||
-                lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD || lord->r_ControllableForPlayerId != playerId)
+            bool lordUsable = false;
+            double lordX = 0;
+            double lordY = 0;
+            string lordFailure = string.Empty;
+            if (!keepUsable)
             {
-                return false;
+                if (!GamePlayerManagerAPI.Instance.TryGetPlayerResourcesById(playerId, out GamePlayerResources* resources) ||
+                    resources == null)
+                {
+                    lordFailure = "player resources are unavailable";
+                }
+                else if (resources->r_LordUnitId == 0 || resources->r_LordUnitId > int.MaxValue)
+                {
+                    lordFailure = $"no valid Lord unit is registered (lordUnitId={resources->r_LordUnitId})";
+                }
+                else if (!GameUnitManagerAPI.Instance.TryGetUnitById((int)resources->r_LordUnitId, out GameUnit* lord) ||
+                         lord == null)
+                {
+                    lordFailure = $"registered Lord unit {resources->r_LordUnitId} cannot be resolved";
+                }
+                else if (lord->r_AliveState != AliveState.IsAlive ||
+                         lord->r_UnitChimp != eChimps.CHIMP_TYPE_LORD ||
+                         lord->r_ControllableForPlayerId != playerId)
+                {
+                    lordFailure =
+                        $"registered Lord unit {resources->r_LordUnitId} is unusable: " +
+                        $"owner={lord->r_ControllableForPlayerId}, type={lord->r_UnitChimp}, aliveState={lord->r_AliveState}";
+                }
+                else
+                {
+                    lordUsable = true;
+                    lordX = lord->r_CurrentTilePositionX;
+                    lordY = lord->r_CurrentTilePositionY;
+                }
             }
 
-            tileX = lord->r_CurrentTilePositionX;
-            tileY = lord->r_CurrentTilePositionY;
-            reference = "living-lord";
-            return true;
+            bool selected = SignpostAnchorSelection.TrySelect(
+                keepUsable,
+                keepX,
+                keepY,
+                lordUsable,
+                lordX,
+                lordY,
+                out tileX,
+                out tileY,
+                out reference);
+            if (!selected)
+                failure = $"Keep: {keepFailure}; Lord: {lordFailure}";
+            return selected;
         }
+
+        private static bool IsKeepType(eStructs buildingType) =>
+            buildingType == eStructs.STRUCT_KEEP_ONE ||
+            buildingType == eStructs.STRUCT_KEEP_TWO ||
+            buildingType == eStructs.STRUCT_KEEP_THREE ||
+            buildingType == eStructs.STRUCT_KEEP_FOUR ||
+            buildingType == eStructs.STRUCT_KEEP_FIVE;
 
         private NativeLookupResolution ResolveLookup(ReadOnlySpan<byte> memory, bool referenceHashMatches)
         {

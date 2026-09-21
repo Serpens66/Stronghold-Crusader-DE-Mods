@@ -4,6 +4,79 @@ using System.Runtime.InteropServices;
 
 namespace RandomEvents
 {
+    internal static class KeepAnchorGeometry
+    {
+        internal const uint MaximumGridSize = 6;
+
+        public static bool TryGetGridCenter(
+            int beginX,
+            int beginY,
+            uint gridSize,
+            Func<int, int, bool> isInsideMapBounds,
+            out double centerX,
+            out double centerY)
+        {
+            centerX = 0;
+            centerY = 0;
+            if (gridSize == 0 || gridSize > MaximumGridSize ||
+                isInsideMapBounds == null)
+            {
+                return false;
+            }
+
+            int endX = checked(beginX + (int)gridSize - 1);
+            int endY = checked(beginY + (int)gridSize - 1);
+            if (!isInsideMapBounds(beginX, beginY) ||
+                !isInsideMapBounds(endX, beginY) ||
+                !isInsideMapBounds(beginX, endY) ||
+                !isInsideMapBounds(endX, endY))
+                return false;
+
+            centerX = (beginX + endX) / 2.0;
+            centerY = (beginY + endY) / 2.0;
+            return true;
+        }
+    }
+
+    internal static class SignpostAnchorSelection
+    {
+        public static bool TrySelect(
+            bool keepUsable,
+            double keepX,
+            double keepY,
+            bool lordUsable,
+            double lordX,
+            double lordY,
+            out double tileX,
+            out double tileY,
+            out string reference)
+        {
+            tileX = 0;
+            tileY = 0;
+            reference = string.Empty;
+            if (keepUsable)
+            {
+                tileX = keepX;
+                tileY = keepY;
+                reference = "keep";
+                return true;
+            }
+            if (!lordUsable)
+                return false;
+
+            tileX = lordX;
+            tileY = lordY;
+            reference = "living-lord";
+            return true;
+        }
+    }
+
+    internal static class RandomEventsSignpostGate
+    {
+        public static bool ShouldDeferScheduling(bool requiresSignposts, bool signpostsInitialized) =>
+            requiresSignposts && !signpostsInitialized;
+    }
+
     internal readonly struct SignpostTarget
     {
         public SignpostTarget(int buildingId, int tileX, int tileY, double distance, string distanceReference)

@@ -12,7 +12,7 @@
               Margin="52,5,0,0"
               HorizontalAlignment="Left"
               VerticalAlignment="Top"
-              local:PropEx.TextCentre="{Binding MP_Settings_Button}"
+              local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
               local:PropEx.TextLeft=""
               local:PropEx.TextRight=""
               Command="{Binding MultiplayerMenuCommand}"

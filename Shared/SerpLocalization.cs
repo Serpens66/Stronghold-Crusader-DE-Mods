@@ -463,7 +463,7 @@ public static class SerpLocalization
         { "RandomEvents.Event.Bard", "Bard" },
         { "RandomEvents.Event.GranaryTheft", "Granary theft" },
         { "RandomEvents.Event.Fire", "Fire" },
-        { "BugfixesAndQoL.ClientInterfaceTitle", "Interface and Controls" },
+        { "BugfixesAndQoL.InterfaceTitle", "Interface and Controls" },
         { "BugfixesAndQoL.AiAivTitle", "AI and AIV" },
         { "BugfixesAndQoL.TroopMovementTitle", "Troop Movement" },
         { EnableImprovedMoatFilling, "Improved moat filling" },

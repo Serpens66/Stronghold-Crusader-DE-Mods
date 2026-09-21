@@ -275,8 +275,10 @@ namespace ExtraFeatures
             if (vanillaPeaceTimeMinutes == normalized)
                 return;
             vanillaPeaceTimeMinutes = normalized;
+#pragma warning disable CS0618 // Notify legacy bindings while keeping the compatibility API obsolete for callers.
             OnPropertyChanged(nameof(VanillaPeaceTimeMinutes));
             OnPropertyChanged(nameof(VanillaPeaceTimeMinutesText));
+#pragma warning restore CS0618
         }
 
         private void ResetToDefault()

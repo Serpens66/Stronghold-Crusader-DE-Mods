@@ -60,6 +60,7 @@
     <Compile Include="src\RandomEventsSaveState.cs" />
     <Compile Include="src\RandomEventsState.cs" />
     <Compile Include="src\RandomEventsSettingsViewModel.cs" />
+    <Compile Include="src\KeepAnchorResolver.cs" />
     <Compile Include="src\ScenarioSignpostRegistry.cs" />
     <Compile Include="src\SignpostTargeting.cs" />
     <Compile Include="src\SignpostPlacementService.cs" />

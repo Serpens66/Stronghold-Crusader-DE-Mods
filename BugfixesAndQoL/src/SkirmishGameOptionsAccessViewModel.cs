@@ -59,8 +59,7 @@ namespace BugfixesAndQoL
                     "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BIND_FAILED: " +
                     $"hostAvailable={element != null}, buttonAvailable={button != null}, " +
                     $"mainViewModelAvailable={vanillaViewModel != null}, " +
-                    $"commandAvailable={vanillaViewModel?.MultiplayerMenuCommand != null}, " +
-                    $"textAvailable={!string.IsNullOrEmpty(vanillaViewModel?.MP_Settings_Button)}.");
+                    $"commandAvailable={vanillaViewModel?.MultiplayerMenuCommand != null}.");
                 return;
             }
 
@@ -68,7 +67,6 @@ namespace BugfixesAndQoL
             Shared.DebugLogHelper.LogDebug(
                 log,
                 "BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BOUND: " +
-                $"textReady={!string.IsNullOrEmpty(vanillaViewModel.MP_Settings_Button)}, " +
                 "commandAvailable=true, " +
                 "dataContext=MainViewModel.Instance.");
         }

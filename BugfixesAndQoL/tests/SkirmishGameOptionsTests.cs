@@ -160,8 +160,8 @@ namespace BugfixesAndQoL
                   (string)button.Attribute("Visibility") ==
                       "{Binding SkirmishSetupMode, Converter={StaticResource booleanToVisibilityConverter}}" &&
                   (string)button.Attribute(XName.Get("PropEx.TextCentre", "clr-namespace:CrusaderDE")) ==
-                      "{Binding MP_Settings_Button}",
-                "registered host owns only mod visibility while the named button retains the working Vanilla bindings");
+                      "{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}",
+                "registered host owns only mod visibility while the named button retains the working Vanilla command and stable localized text");
             check(front.Root.Elements("Operation").Any(operation =>
                     (string)operation.Attribute("AttributeName") == "Panel.ZIndex" &&
                     (string)operation.Attribute("Value") == "1000"),
@@ -204,6 +204,12 @@ namespace BugfixesAndQoL
                     File.ReadAllText(localePath).Contains("BugfixesAndQoL.InterfaceTitle=") &&
                     !File.ReadAllText(localePath).Contains("BugfixesAndQoL.ClientInterfaceTitle=")),
                 "every supported locale exposes only the generalized Interface title key");
+            string localizationFallbacks = File.ReadAllText(Path.Combine(
+                project,
+                @"..\Shared\SerpLocalization.cs"));
+            check(localizationFallbacks.Contains("{ \"BugfixesAndQoL.InterfaceTitle\",") &&
+                  !localizationFallbacks.Contains("{ \"BugfixesAndQoL.ClientInterfaceTitle\","),
+                "the Shared fallback uses only the generalized Interface title key");
 
             string setupPath = Path.Combine(
                 project,
@@ -242,11 +248,23 @@ namespace BugfixesAndQoL
                   bindingGuard.Contains("vanillaViewModel.MultiplayerMenuCommand == null") &&
                   !bindingGuard.Contains("MP_Settings_Button") &&
                   bindingAssignment >= 0 &&
-                  access.Contains(
-                      "$\"textReady={!string.IsNullOrEmpty(vanillaViewModel.MP_Settings_Button)}, \"") &&
+                  !access.Contains("textReady=") &&
+                  !access.Contains("textAvailable=") &&
                   access.Contains("BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BIND_FAILED") &&
                   access.Contains("BUGFIXES_AND_QOL_SKIRMISH_GAME_OPTIONS_BUTTON_BOUND"),
-                "button binding callback accepts Vanilla's initially empty text, restores MainViewModel and logs structural failures");
+                "button binding callback restores MainViewModel and logs only structural failures");
+
+            string testModFront = File.ReadAllText(Path.Combine(
+                project,
+                @"..\Testmods\SkirmishGameOptionsTest\Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer.xaml"));
+            string productionFront = File.ReadAllText(frontPath);
+            string stableSettingsTextBinding =
+                "{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}";
+            check(productionFront.Contains(stableSettingsTextBinding) &&
+                  testModFront.Contains(stableSettingsTextBinding) &&
+                  !productionFront.Contains("{Binding MP_Settings_Button}") &&
+                  !testModFront.Contains("{Binding MP_Settings_Button}"),
+                "injected Settings buttons never depend on Vanilla's initially empty MP_Settings_Button property");
             string noDogsPatch = File.ReadAllText(Path.Combine(
                 project,
                 @"src\NoDogsNativePatch.cs"));

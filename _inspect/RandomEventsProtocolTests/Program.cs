@@ -22,6 +22,9 @@ namespace RandomEvents
             TestSaveState();
             TestPresentationTargeting();
             TestEventSoundNativeLayout();
+            TestKeepAnchorGeometry();
+            TestSignpostAnchorSelection();
+            TestSignpostSchedulingGate();
             TestSignpostSelection();
             TestBanditTargetEligibility();
             TestArcherSourceTargetingScope();
@@ -229,6 +232,71 @@ namespace RandomEvents
             var lordFallback = new[] { new SignpostTarget(11, 50, 60, 10.0, "living-lord") };
             Assert(SignpostTargetSelection.TrySelectClosest(lordFallback, out SignpostTarget lordSelected) &&
                 lordSelected.DistanceReference == "living-lord", "the living-Lord anchor is preserved for diagnostics");
+        }
+
+        private static void TestKeepAnchorGeometry()
+        {
+            Func<int, int, bool> inside = (x, y) => x >= 0 && x < 800 && y >= 0 && y < 800;
+            Assert(
+                KeepAnchorGeometry.TryGetGridCenter(10, 20, 4, inside, out double centerX, out double centerY) &&
+                centerX == 11.5 && centerY == 21.5,
+                "a validated square Keep grid supplies its half-tile-safe center");
+            Assert(
+                KeepAnchorGeometry.TryGetGridCenter(794, 794, KeepAnchorGeometry.MaximumGridSize, inside, out centerX, out centerY) &&
+                centerX == 796.5 && centerY == 796.5,
+                "the maximum native Keep grid is accepted inside map bounds");
+            Assert(
+                !KeepAnchorGeometry.TryGetGridCenter(795, 795, KeepAnchorGeometry.MaximumGridSize, inside, out _, out _),
+                "a Keep grid extending outside the map fails closed");
+            Assert(
+                !KeepAnchorGeometry.TryGetGridCenter(10, 20, KeepAnchorGeometry.MaximumGridSize + 1, inside, out _, out _),
+                "an oversized Keep grid fails closed");
+            Assert(
+                !KeepAnchorGeometry.TryGetGridCenter(
+                    10,
+                    20,
+                    4,
+                    (x, y) => !(x == 13 && y == 20),
+                    out _,
+                    out _),
+                "all four Keep grid corners must be inside the playable map shape");
+        }
+
+        private static void TestSignpostAnchorSelection()
+        {
+            Assert(
+                SignpostAnchorSelection.TrySelect(
+                    true, 100.5, 200.5,
+                    true, 300, 400,
+                    out double x, out double y, out string reference) &&
+                x == 100.5 && y == 200.5 && reference == "keep",
+                "a usable Keep remains the preferred signpost-distance anchor");
+            Assert(
+                SignpostAnchorSelection.TrySelect(
+                    false, 0, 0,
+                    true, 300, 400,
+                    out x, out y, out reference) &&
+                x == 300 && y == 400 && reference == "living-lord",
+                "an invalid Keep geometry falls through to the living Lord anchor");
+            Assert(
+                !SignpostAnchorSelection.TrySelect(
+                    false, 0, 0,
+                    false, 0, 0,
+                    out _, out _, out _),
+                "missing Keep and Lord anchors fail closed");
+        }
+
+        private static void TestSignpostSchedulingGate()
+        {
+            Assert(
+                RandomEventsSignpostGate.ShouldDeferScheduling(true, false),
+                "signpost-dependent batches wait for signpost initialization");
+            Assert(
+                !RandomEventsSignpostGate.ShouldDeferScheduling(true, true),
+                "signpost-dependent batches proceed after initialization");
+            Assert(
+                !RandomEventsSignpostGate.ShouldDeferScheduling(false, false),
+                "events without signpost dependencies remain schedulable");
         }
 
         private static void TestBanditTargetEligibility()

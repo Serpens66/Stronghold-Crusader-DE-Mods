@@ -32,6 +32,7 @@ namespace RandomEvents
         private int captureX;
         private int captureY;
         private int capturedBuildingId = -1;
+        private string lastDeferredReason = string.Empty;
 
         public SignpostPlacementService(ManualLogSource log, ScenarioSignpostRegistry registry)
         {
@@ -64,14 +65,23 @@ namespace RandomEvents
                 return true;
             }
 
-            if (!TryGetParticipatingKeepCenters(out List<MapPoint> keeps))
+            if (!TryGetParticipatingKeepCenters(out List<MapPoint> keeps, out string keepFailure))
+            {
+                LogDeferredReason(keepFailure);
                 return false;
+            }
 
             List<PlayerReachability> participantReachability;
             try
             {
-                if (!TryBuildParticipantReachability(state.IncludeAIPlayers, out participantReachability, out _))
+                if (!TryBuildParticipantReachability(
+                        state.IncludeAIPlayers,
+                        out participantReachability,
+                        out string reachabilityFailure))
+                {
+                    LogDeferredReason(reachabilityFailure);
                     return false;
+                }
             }
             catch (Exception ex)
             {
@@ -81,6 +91,8 @@ namespace RandomEvents
                 state.SignpostsInitialized = true;
                 return true;
             }
+
+            lastDeferredReason = string.Empty;
 
             int[] selected = new[] { -1, -1, -1, -1 };
             HashSet<int> used = new HashSet<int>();
@@ -180,7 +192,19 @@ namespace RandomEvents
         public void ResetMapState()
         {
             protectedSignpostIds.Clear();
+            lastDeferredReason = string.Empty;
             registry.ResetMapState();
+        }
+
+        private void LogDeferredReason(string reason)
+        {
+            string normalized = string.IsNullOrWhiteSpace(reason)
+                ? "startup prerequisites are not ready"
+                : reason.Trim();
+            if (string.Equals(lastDeferredReason, normalized, StringComparison.Ordinal))
+                return;
+            lastDeferredReason = normalized;
+            LogDebug($"Signpost initialization deferred: {normalized}");
         }
 
         private bool TryPlaceForSide(
@@ -649,26 +673,45 @@ namespace RandomEvents
             }
         }
 
-        private static bool TryGetParticipatingKeepCenters(out List<MapPoint> keeps)
+        private bool TryGetParticipatingKeepCenters(out List<MapPoint> keeps, out string failure)
         {
             keeps = new List<MapPoint>();
             if (!Shared.ActivePlayerKeepReadiness.TryCapture(
                     out Shared.ActivePlayerKeepSnapshot snapshot,
-                    out _))
+                    out failure))
             {
                 return false;
             }
 
-            foreach (int keepId in snapshot.KeepBuildingIds)
+            for (int index = 0; index < snapshot.KeepBuildingIds.Length; index++)
             {
-                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep))
+                int playerId = snapshot.PlayerIds[index];
+                int keepId = snapshot.KeepBuildingIds[index];
+                if (!GameBuildingManagerAPI.Instance.TryGetBuildingById(keepId, out GameBuilding* keep) || keep == null)
+                {
+                    failure = $"player {playerId} Keep {keepId} cannot be resolved.";
                     return false;
-                if (!GameBuildingFootprint.TryGetBounds(keep, out GameBuildingFootprintBounds footprint))
+                }
+                if (!KeepAnchorResolver.TryGetCenter(
+                        keep,
+                        out double centerX,
+                        out double centerY,
+                        out string geometrySource,
+                        out string geometryFailure))
+                {
+                    failure = $"player {playerId} Keep {keepId} geometry is unavailable: {geometryFailure}.";
                     return false;
-                keeps.Add(new MapPoint(
-                    footprint.CenterXTimesTwo / 2.0,
-                    footprint.CenterYTimesTwo / 2.0));
+                }
+                keeps.Add(new MapPoint(centerX, centerY));
+                if (geometrySource == "validated-grid-fallback")
+                {
+                    LogDebug(
+                        $"Keep anchor used validated grid fallback: playerId={playerId}, " +
+                        $"keepId={keepId}, begin=({keep->r_TilePositionXBegin},{keep->r_TilePositionYBegin}), " +
+                        $"gridSize={keep->r_OccupyTileGridSize}, center=({centerX:0.0},{centerY:0.0}).");
+                }
             }
+            failure = string.Empty;
             return true;
         }
 
@@ -707,6 +750,7 @@ namespace RandomEvents
             return minimum;
         }
 
+        private void LogDebug(string message) => Shared.DebugLogHelper.LogDebug(log, message);
         private void LogWarning(string message) => Shared.DebugLogHelper.LogWarning(log, message);
         private void LogError(string message) => Shared.DebugLogHelper.LogError(log, message);
 

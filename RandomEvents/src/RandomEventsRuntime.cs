@@ -312,7 +312,9 @@ namespace RandomEvents
 
                     RetrySignpostInitialization(tick);
                     if (!isLocalHost || initializationChoreQueued || batchChoreQueued || signpostChoreQueued ||
-                        (RandomEventDefinitions.RequiresSignposts(state.Chances) && !state.SignpostsInitialized))
+                        RandomEventsSignpostGate.ShouldDeferScheduling(
+                            RandomEventDefinitions.RequiresSignposts(state.Chances),
+                            state.SignpostsInitialized))
                         return;
 
                     if (currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
@@ -324,6 +326,14 @@ namespace RandomEvents
                     return;
                 }
 
+                RetrySignpostInitialization(tick);
+                if (RandomEventsSignpostGate.ShouldDeferScheduling(
+                        RandomEventDefinitions.RequiresSignposts(state.Chances),
+                        state.SignpostsInitialized))
+                {
+                    return;
+                }
+
                 if (state.BatchPrepared && currentAbsoluteMonth >= state.NextDueAbsoluteMonth)
                 {
                     ExecuteDueBatch();
@@ -332,8 +342,6 @@ namespace RandomEvents
 
                 if (!state.BatchPrepared)
                     PrepareBatch();
-
-                RetrySignpostInitialization(tick);
             }
             catch (Exception ex)
             {
