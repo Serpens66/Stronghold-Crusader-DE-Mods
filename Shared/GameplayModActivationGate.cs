@@ -1,6 +1,6 @@
 using BepInEx.Logging;
 using System;
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
 using R3;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.MapLoader;
@@ -134,7 +134,7 @@ namespace Shared
             }
         }
 
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
         internal static void SetSnapshotForTests(GameModeSnapshot next) => Update(next, "test");
         internal static void SetLoadSnapshotForTests(GameModeSnapshot next) => Update(next, "test-load");
         internal static void SetStartSnapshotForTests(GameModeSnapshot next) => Update(next, "test-start");

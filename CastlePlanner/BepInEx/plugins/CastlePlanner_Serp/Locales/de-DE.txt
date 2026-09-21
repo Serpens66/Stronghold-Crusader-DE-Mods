@@ -1,4 +1,31 @@
 # CastlePlanner localization
+Common.CopyPreset=In Preset 1/2 kopieren
+Common.ExportPreset=Als teilbares Preset exportieren
+Common.PresetExportName=Presetname
+Common.PresetExportDescription=Beschreibung (optional)
+Common.PresetExportAll=Alle
+Common.PresetExportHostOnly=Nur Host
+Common.PresetExportBulkMode=Alle Modi setzen
+Common.PresetExportConfirm=Exportieren
+Common.PresetExportCancel=Abbrechen
+Common.PresetModeDefault=Standard
+Common.PresetModePlayer=Spieler
+Common.PresetModeFixed=Fest
+Common.PresetModeMixed=Gemischt
+Common.PresetScopeHost=Host
+Common.PresetScopePlayer=Spieler
+Common.PresetScopeLocal=Lokal
+Common.CopyPresetChooseTitle=Aktuelle Einstellungen kopieren
+Common.CopyPresetChooseOne=Die übernommenen Einstellungen in Preset 1 kopieren? Wähle Nein, um Preset 2 auszuwählen.
+Common.CopyPresetChooseTwo=Die übernommenen Einstellungen in Preset 2 kopieren?
+Common.CopyPresetConfirmTitle=Lokales Preset überschreiben
+Common.CopyPresetConfirm=Preset {0} wird vollständig überschrieben.
+Common.PresetExportOverwriteTitle=Presetdatei überschreiben
+Common.PresetExportOverwrite=Ein Preset mit diesem Dateinamen ist bereits vorhanden. Soll es vollständig ersetzt werden?
+Common.PresetExportCompletedHelp=Verwende möglichst einen eindeutigen Presetnamen. Kopiere den angezeigten Override-Ordner in die Ziel-Mod oder behalte dieselbe Override-Struktur in einer losen Script-Extender-Asset-Mod bei.
+Common.PresetExportCompletedTitle=Preset exportiert
+Common.PresetExportFailedTitle=Presetexport fehlgeschlagen
+
 CastlePlanner.SpawnBuildings=Auch Gebäude erzeugen
 CastlePlanner.SpawnFortifications=Auch Befestigungen erzeugen
 CastlePlanner.SpawnFortificationsHelp=Erzeugt Mauern, Zinnen, Türme, Tore, Zugbrücken und Treppen aus der gewählten AIV.

@@ -2,6 +2,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
       xmlns:b="http://schemas.microsoft.com/xaml/behaviors"
+      xmlns:sys="clr-namespace:System;assembly=mscorlib"
       xmlns:shared="clr-namespace:Shared;assembly=APIShared"
       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE"
       shared:ModSettingsSearch.FilterText="{Binding System_ModSettingsSearchText}"
@@ -63,8 +64,13 @@
           <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
             <Button Content="{Binding System_PresetExportAllText}" Command="{Binding System_SelectAllPresetExportSettingsCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportAllText}" Padding="8,2"/>
             <Button Content="{Binding System_PresetExportHostOnlyText}" Command="{Binding System_SelectHostPresetExportSettingsCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportHostOnlyText}" Padding="8,2" Margin="6,0,0,0"/>
+            <TextBlock Text="{Binding System_PresetExportBulkModeText}" Foreground="White" VerticalAlignment="Center" Margin="16,0,6,0"/>
+            <ComboBox ItemsSource="{Binding System_PresetExportBulkModeOptions}" SelectedIndex="{Binding System_PresetExportBulkModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportBulkModeText}" Width="130"/>
           </StackPanel>
-          <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="220">
+          <ScrollViewer HorizontalAlignment="Left" Width="530" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" MaxHeight="220">
+            <ScrollViewer.Resources>
+              <sys:Double x:Key="Size.ScrollBar">8</sys:Double>
+            </ScrollViewer.Resources>
           <ItemsControl ItemsSource="{Binding System_PresetExportSettings}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>

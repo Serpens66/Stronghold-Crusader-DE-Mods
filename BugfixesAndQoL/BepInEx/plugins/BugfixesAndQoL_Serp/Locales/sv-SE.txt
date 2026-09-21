@@ -1,4 +1,33 @@
 # Serp mod localization
+Common.CopyPreset=Copy to Preset 1/2
+Common.ExportPreset=Export as shared preset
+Common.PresetExportName=Preset name
+Common.PresetExportDescription=Description (optional)
+Common.PresetExportAll=All
+Common.PresetExportHostOnly=Host only
+Common.PresetExportBulkMode=Set all modes
+Common.PresetExportConfirm=Export
+Common.PresetExportCancel=Cancel
+Common.PresetModeDefault=Default
+Common.PresetModePlayer=Player
+Common.PresetModeFixed=Fixed
+Common.PresetModeMixed=Mixed
+Common.PresetScopeHost=Host
+Common.PresetScopePlayer=Player
+Common.PresetScopeLocal=Local
+Common.CopyPresetChooseTitle=Copy current settings
+Common.CopyPresetChooseOne=Copy the materialized settings to Preset 1? Choose No to select Preset 2.
+Common.CopyPresetChooseTwo=Copy the materialized settings to Preset 2?
+Common.CopyPresetConfirmTitle=Overwrite local preset
+Common.CopyPresetConfirm=Preset {0} will be completely overwritten.
+Common.PresetExportOverwriteTitle=Overwrite preset file
+Common.PresetExportOverwrite=A preset with this filename already exists. Replace it completely?
+Common.PresetExportCompletedHelp=Use a distinctive preset name. Copy the shown Override folder into the target mod, or keep the same Override structure in a loose Script Extender asset mod.
+Common.PresetExportCompletedTitle=Preset exported
+Common.PresetExportFailedTitle=Preset export failed
+BugfixesAndQoL.EnableConnectionRecoverySave=Save before removing a lagging player
+BugfixesAndQoL.EnableConnectionRecoverySaveHelp=Before Vanilla removes a player for falling too far behind in multiplayer ticks, the host creates the synchronized multiplayer save "Connection Recovery.msv" while all players are still present. Removal waits at most 30 seconds for the save and continues even if saving fails. This is a host setting.
+
 BugfixesAndQoL.EnableBriefingNoStartingGoldFix=Correct "No Starting Gold" briefing display
 BugfixesAndQoL.EnableBriefingNoStartingGoldFixHelp=Shows 0 gold for human players in the mission briefing when Vanilla's advanced "No Starting Gold" option is enabled. AI players and gameplay remain unchanged. This is a per-player setting.
 BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayer=Show MP advanced Settings in SP

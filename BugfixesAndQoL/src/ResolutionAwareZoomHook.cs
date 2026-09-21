@@ -106,7 +106,7 @@ namespace BugfixesAndQoL
                 CameraControls2D.instance.isMapLocked(),
                 self.CanUserExtraZoom(),
                 ConfigSettings.Settings_ExtraZoom,
-                MainViewModel.Instance.IsMapEditorMode,
+                Shared.GameModeHelper.IsMapEditor(),
                 loop);
             SetFloat(ZoomPositionField, self, position);
             ApplyZoomTarget(self, position);
@@ -189,7 +189,7 @@ namespace BugfixesAndQoL
                 float validPosition = ResolutionAwareZoomPolicy.NormalizeLockedPosition(
                     currentPosition,
                     self.CanUserExtraZoom(),
-                    MainViewModel.Instance.IsMapEditorMode,
+                    Shared.GameModeHelper.IsMapEditor(),
                     allowExtendedFarZoom: true,
                     useHalfSteps: ConfigSettings.Settings_ExtraZoom);
                 if (Math.Abs(validPosition - currentPosition) > 0.0001f)
@@ -204,7 +204,7 @@ namespace BugfixesAndQoL
             {
                 float vanillaMinimum = ResolutionAwareZoomPolicy.GetLockedMinimumPosition(
                     canUserExtraZoomOriginal(self),
-                    MainViewModel.Instance.IsMapEditorMode,
+                    Shared.GameModeHelper.IsMapEditor(),
                     allowExtendedFarZoom: false,
                     useHalfSteps: ConfigSettings.Settings_ExtraZoom);
                 float currentPosition = GetFloat(ZoomPositionField, self);

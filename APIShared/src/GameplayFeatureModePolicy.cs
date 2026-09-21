@@ -249,7 +249,7 @@ namespace Shared
             }
         }
 
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
         /// <summary>RecordDecisionForTests in the centralized mission policy contract.</summary>
         public static bool RecordDecisionForTests(GameplayFeatureId featureId, bool allowed) =>
             RecordDecision(featureId, allowed);

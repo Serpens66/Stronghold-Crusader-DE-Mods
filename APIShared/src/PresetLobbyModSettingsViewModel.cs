@@ -10,20 +10,21 @@ using SHCDESE.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.CompilerServices;
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
 using R3;
 using SHCDESE.EventAPI;
 using SHCDESE.NoesisUtil;
 #endif
 using ComboBoxItem = Noesis.ComboBoxItem;
 using Visibility = Noesis.Visibility;
-#if API_SHARED_LOBBY_OBSERVER && !SHARED_PRESET_TESTS
+#if API_SHARED_LOBBY_OBSERVER && !API_SHARED_PRESET_TESTS
 using APIShared;
 #endif
 
@@ -162,7 +163,7 @@ namespace Shared
         private bool isReady = true;
         private string readinessError = string.Empty;
         private bool active;
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
         private IDisposable mapStartSubscription;
         private string lastIdentityDiagnostic = string.Empty;
 #endif
@@ -196,7 +197,7 @@ namespace Shared
             try
             {
                 owner.PropertyChanged += OnOwnerPropertyChanged;
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
                 // SaveLifecycle: this finalizes a multiplayer lobby roster before map entry;
                 // saved-game loads have no lobby roster to converge through this coordinator.
                 mapStartSubscription = Shared.MissionEvents.NativeStart.Subscribe(args =>
@@ -209,7 +210,7 @@ namespace Shared
 #endif
                 active = true;
                 RequestPublish();
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
 #if API_SHARED_LOBBY_OBSERVER
                 IApiShared api = ApiShared.Current;
                 if (!api.TryGetLobbyState(
@@ -235,7 +236,7 @@ namespace Shared
                     "Per-player lobby settings require the APIShared lobby-state bridge.");
 #endif
 #endif
-#if SHARED_PRESET_TESTS || API_SHARED_LOBBY_OBSERVER
+#if API_SHARED_PRESET_TESTS || API_SHARED_LOBBY_OBSERVER
                 LogRoutine(
                     $"[{modName}] Shared per-player lobby convergence activated: " +
                     $"settings=[{string.Join(",", contract.Settings.Select(item => item.Property.Name))}], " +
@@ -255,7 +256,7 @@ namespace Shared
         internal void Deactivate()
         {
             owner.PropertyChanged -= OnOwnerPropertyChanged;
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
             mapStartSubscription?.Dispose();
             mapStartSubscription = null;
 #endif
@@ -604,7 +605,7 @@ namespace Shared
                 SetReadiness(true, string.Empty);
         }
 
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
         private void FinalizeRosterForMapTransition(bool multiplayerSave)
         {
             if (!hasLobby || !GameModeHelper.IsRealMultiplayer(multiplayerSave))
@@ -867,7 +868,7 @@ namespace Shared
         private bool isRealMultiplayer;
         private bool isLocalHost = true;
         private PerPlayerLobbySettingsCoordinator perPlayerSettingsCoordinator;
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
         private string modSettingsSearchText = string.Empty;
         private string modSettingsSearchExactKey = string.Empty;
         private bool modSettingsSearchIncludeToolTips;
@@ -876,13 +877,14 @@ namespace Shared
         private bool presetExportPanelOpen;
         private string presetExportName = string.Empty;
         private string presetExportDescription = string.Empty;
+        private bool applyingPresetExportBulkMode;
         private readonly ObservableCollection<PresetExportSettingViewModel> presetExportSettings =
             new ObservableCollection<PresetExportSettingViewModel>();
 #endif
 
         protected PresetLobbyModSettingsViewModel()
         {
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
             System_ToggleModSettingsSearchCommand = new RelayCommand(ToggleModSettingsSearch);
             System_ClearModSettingsSearchCommand = new RelayCommand(ClearModSettingsSearch);
             System_PresetActionCommand = new RelayCommand(ExecutePresetAction);
@@ -956,22 +958,22 @@ namespace Shared
                 : Visibility.Collapsed;
 
         public string HostOptionsText =>
-            ResolveSettingsUiText("Common.HostOptions", "HOST OPTIONS");
+            ResolveSettingsUiTextSafe("Common.HostOptions", "HOST OPTIONS");
 
         public string ClientOptionsText =>
-            ResolveSettingsUiText("Common.ClientOptions", "LOCAL CLIENT OPTIONS");
+            ResolveSettingsUiTextSafe("Common.ClientOptions", "LOCAL CLIENT OPTIONS");
 
         public string PresetText =>
-            ResolveSettingsUiText("Common.Preset", "Preset");
+            ResolveSettingsUiTextSafe("Common.Preset", "Preset");
 
         public string ModEnabledText =>
-            ResolveSettingsUiText("Common.EnableMod", "Enable Mod");
+            ResolveSettingsUiTextSafe("Common.EnableMod", "Enable Mod");
 
         public string HostActivationLabelText =>
-            ResolveSettingsUiText("Common.HostActivationLabel", "(Host-)");
+            ResolveSettingsUiTextSafe("Common.HostActivationLabel", "(Host-)");
 
         public string ClientActivationLabelText =>
-            ResolveSettingsUiText("Common.ClientActivationLabel", "(Client settings)");
+            ResolveSettingsUiTextSafe("Common.ClientActivationLabel", "(Client settings)");
 
         public Visibility ActionsScopeNoticeVisibility =>
             isRealMultiplayer && HasClientSettings
@@ -980,36 +982,36 @@ namespace Shared
 
         public string ActionsScopeNoticeText =>
             HasHostSettings && isLocalHost
-                ? ResolveSettingsUiText(
+                ? ResolveSettingsUiTextSafe(
                     "Common.ActionsScopeHost",
                     "Preset and reset affect host settings and your local client settings.")
-                : ResolveSettingsUiText(
+                : ResolveSettingsUiTextSafe(
                     "Common.ActionsScopeClient",
                     "Preset and reset affect only your local client settings.");
 
         public string HostReadOnlyNoticeText =>
-            ResolveSettingsUiText("Common.HostReadOnly", "Values from host - read-only");
+            ResolveSettingsUiTextSafe("Common.HostReadOnly", "Values from host - read-only");
 
         public string ResetToDefaultHelpText =>
-            ResolveSettingsUiText("Common.ResetToDefaultHelp", "Resets the settings you can control in the current context.");
+            ResolveSettingsUiTextSafe("Common.ResetToDefaultHelp", "Resets the settings you can control in the current context.");
 
         public string EnableModHelpText =>
-            ResolveSettingsUiText("Common.EnableModHelp", "Enables or disables this mod for the match.");
+            ResolveSettingsUiTextSafe("Common.EnableModHelp", "Enables or disables this mod for the match.");
 
         public string HostSettingsActivationHelpText =>
-            ResolveSettingsUiText("Common.HostSettingsActivationHelp", "Enables or disables all host-controlled settings of this mod.");
+            ResolveSettingsUiTextSafe("Common.HostSettingsActivationHelp", "Enables or disables all host-controlled settings of this mod.");
 
         public string ClientSettingsActivationHelpText =>
-            ResolveSettingsUiText("Common.ClientSettingsActivationHelp", "Enables or disables all local and personal client settings of this mod.");
+            ResolveSettingsUiTextSafe("Common.ClientSettingsActivationHelp", "Enables or disables all local and personal client settings of this mod.");
 
         public string PresetHelpText =>
-            ResolveSettingsUiText("Common.PresetHelp", "Selects a saved preset. Clients change only their personal settings.");
+            ResolveSettingsUiTextSafe("Common.PresetHelp", "Selects a saved preset. Clients change only their personal settings.");
 
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
         public string System_PresetActionText =>
             IsPublishedPresetSelected || IsMissionPresetSelected
-                ? ResolveSettingsUiText("Common.CopyPreset", "Copy to Preset 1/2")
-                : ResolveSettingsUiText("Common.ExportPreset", "Export as shared preset");
+                ? ResolveSettingsUiTextSafe("Common.CopyPreset", "Copy to Preset 1/2")
+                : ResolveSettingsUiTextSafe("Common.ExportPreset", "Export as shared preset");
 
         public Visibility System_PresetExportPanelVisibility =>
             presetExportPanelOpen ? Visibility.Visible : Visibility.Collapsed;
@@ -1042,22 +1044,64 @@ namespace Shared
             presetExportSettings;
 
         public string System_PresetExportNameText =>
-            ResolveSettingsUiText("Common.PresetExportName", "Preset name");
+            ResolveSettingsUiTextSafe("Common.PresetExportName", "Preset name");
 
         public string System_PresetExportDescriptionText =>
-            ResolveSettingsUiText("Common.PresetExportDescription", "Description (optional)");
+            ResolveSettingsUiTextSafe("Common.PresetExportDescription", "Description (optional)");
 
         public string System_PresetExportAllText =>
-            ResolveSettingsUiText("Common.PresetExportAll", "All");
+            ResolveSettingsUiTextSafe("Common.PresetExportAll", "All");
 
         public string System_PresetExportHostOnlyText =>
-            ResolveSettingsUiText("Common.PresetExportHostOnly", "Host only");
+            ResolveSettingsUiTextSafe("Common.PresetExportHostOnly", "Host only");
+
+        public string System_PresetExportBulkModeText =>
+            ResolveSettingsUiTextSafe("Common.PresetExportBulkMode", "Set all modes");
+
+        public ComboBoxItem[] System_PresetExportBulkModeOptions => new[]
+        {
+            new ComboBoxItem { Content = ResolveSettingsUiTextSafe("Common.PresetModeDefault", "Default") },
+            new ComboBoxItem { Content = ResolveSettingsUiTextSafe("Common.PresetModePlayer", "Player") },
+            new ComboBoxItem { Content = ResolveSettingsUiTextSafe("Common.PresetModeFixed", "Fixed") },
+            new ComboBoxItem
+            {
+                Content = ResolveSettingsUiTextSafe("Common.PresetModeMixed", "Mixed"),
+                IsEnabled = false,
+            },
+        };
+
+        public int System_PresetExportBulkModeIndex
+        {
+            get
+            {
+                if (presetExportSettings.Count == 0)
+                    return (int)PublishedPresetValueMode.Fixed;
+                int[] modes = presetExportSettings.Select(item => item.SelectedModeIndex).Distinct().ToArray();
+                return modes.Length == 1 ? modes[0] : 3;
+            }
+            set
+            {
+                if (value < 0 || value > (int)PublishedPresetValueMode.Fixed)
+                    return;
+                applyingPresetExportBulkMode = true;
+                try
+                {
+                    foreach (PresetExportSettingViewModel setting in presetExportSettings)
+                        setting.SelectedModeIndex = value;
+                }
+                finally
+                {
+                    applyingPresetExportBulkMode = false;
+                }
+                base.OnPropertyChanged(nameof(System_PresetExportBulkModeIndex));
+            }
+        }
 
         public string System_PresetExportConfirmText =>
-            ResolveSettingsUiText("Common.PresetExportConfirm", "Export");
+            ResolveSettingsUiTextSafe("Common.PresetExportConfirm", "Export");
 
         public string System_PresetExportCancelText =>
-            ResolveSettingsUiText("Common.PresetExportCancel", "Cancel");
+            ResolveSettingsUiTextSafe("Common.PresetExportCancel", "Cancel");
 
         public RelayCommand System_PresetActionCommand { get; }
 
@@ -1123,25 +1167,25 @@ namespace Shared
                 : Visibility.Collapsed;
 
         public string System_ModSettingsSearchLabelText =>
-            ResolveSettingsUiText("Common.ModSettingsSearchLabel", "Search");
+            ResolveSettingsUiTextSafe("Common.ModSettingsSearchLabel", "Search");
 
         public string System_ModSettingsSearchHelpText =>
-            ResolveSettingsUiText("Common.ModSettingsSearchHelp", "Search setting titles. Optionally include tooltips.");
+            ResolveSettingsUiTextSafe("Common.ModSettingsSearchHelp", "Search setting titles. Optionally include tooltips.");
 
         public string System_ModSettingsSearchToggleHelpText =>
-            ResolveSettingsUiText("Common.ModSettingsSearchToggleHelp", "Show or hide the settings search.");
+            ResolveSettingsUiTextSafe("Common.ModSettingsSearchToggleHelp", "Show or hide the settings search.");
 
         public string System_ModSettingsSearchIncludeToolTipsText =>
-            ResolveSettingsUiText("Common.ModSettingsSearchIncludeToolTips", "Search tooltips");
+            ResolveSettingsUiTextSafe("Common.ModSettingsSearchIncludeToolTips", "Search tooltips");
 
         public string System_ModSettingsSearchIncludeToolTipsHelpText =>
-            ResolveSettingsUiText("Common.ModSettingsSearchIncludeToolTipsHelp", "Also search the explanatory tooltips of settings.");
+            ResolveSettingsUiTextSafe("Common.ModSettingsSearchIncludeToolTipsHelp", "Also search the explanatory tooltips of settings.");
 
         public string System_ModSettingsSearchClearHelpText =>
-            ResolveSettingsUiText("Common.ModSettingsSearchClearHelp", "Clear the settings filter.");
+            ResolveSettingsUiTextSafe("Common.ModSettingsSearchClearHelp", "Clear the settings filter.");
 
         public string System_ModSettingsSearchNoResultsText =>
-            ResolveSettingsUiText("Common.ModSettingsSearchNoResults", "No matching settings found.");
+            ResolveSettingsUiTextSafe("Common.ModSettingsSearchNoResults", "No matching settings found.");
 
         public RelayCommand System_ToggleModSettingsSearchCommand { get; }
 
@@ -1156,12 +1200,23 @@ namespace Shared
             }
 
             presetExportSettings.Clear();
+            string[] modeOptions =
+            {
+                ResolveSettingsUiTextSafe("Common.PresetModeDefault", "Default"),
+                ResolveSettingsUiTextSafe("Common.PresetModePlayer", "Player"),
+                ResolveSettingsUiTextSafe("Common.PresetModeFixed", "Fixed"),
+            };
             foreach (PresetSettingDescriptor descriptor in System_GetPresetSettingDescriptors())
             {
-                presetExportSettings.Add(new PresetExportSettingViewModel(descriptor)
+                var setting = new PresetExportSettingViewModel(
+                    descriptor,
+                    ResolvePresetSettingScopeText(descriptor.Scope),
+                    modeOptions)
                 {
                     IsSelected = true,
-                });
+                };
+                setting.PropertyChanged += OnPresetExportSettingPropertyChanged;
+                presetExportSettings.Add(setting);
             }
             presetExportName = string.Empty;
             presetExportDescription = string.Empty;
@@ -1172,10 +1227,10 @@ namespace Shared
         private void AskCopyToPresetOne()
         {
             CrusaderDE.HUD_ConfirmationPopup.ShowConfirmationMessage(
-                ResolveSettingsUiText("Common.CopyPresetChooseTitle", "Copy current settings"),
+                ResolveSettingsUiTextSafe("Common.CopyPresetChooseTitle", "Copy current settings"),
                 () => ConfirmCopyToPreset(1),
                 AskCopyToPresetTwo,
-                ResolveSettingsUiText(
+                ResolveSettingsUiTextSafe(
                     "Common.CopyPresetChooseOne",
                     "Copy the materialized settings to Preset 1? Choose No to select Preset 2."));
         }
@@ -1183,20 +1238,20 @@ namespace Shared
         private void AskCopyToPresetTwo()
         {
             CrusaderDE.HUD_ConfirmationPopup.ShowConfirmationMessage(
-                ResolveSettingsUiText("Common.CopyPresetChooseTitle", "Copy current settings"),
+                ResolveSettingsUiTextSafe("Common.CopyPresetChooseTitle", "Copy current settings"),
                 () => ConfirmCopyToPreset(2),
                 delegate { },
-                ResolveSettingsUiText("Common.CopyPresetChooseTwo", "Copy the materialized settings to Preset 2?"));
+                ResolveSettingsUiTextSafe("Common.CopyPresetChooseTwo", "Copy the materialized settings to Preset 2?"));
         }
 
         private void ConfirmCopyToPreset(int slot)
         {
             CrusaderDE.HUD_ConfirmationPopup.ShowConfirmationMessage(
-                ResolveSettingsUiText("Common.CopyPresetConfirmTitle", "Overwrite local preset"),
+                ResolveSettingsUiTextSafe("Common.CopyPresetConfirmTitle", "Overwrite local preset"),
                 () => System_CopyCurrentSettingsToLocalPreset(slot),
                 delegate { },
                 string.Format(
-                    ResolveSettingsUiText("Common.CopyPresetConfirm", "Preset {0} will be completely overwritten."),
+                    ResolveSettingsUiTextSafe("Common.CopyPresetConfirm", "Preset {0} will be completely overwritten."),
                     slot));
         }
 
@@ -1204,6 +1259,30 @@ namespace Shared
         {
             foreach (PresetExportSettingViewModel setting in presetExportSettings)
                 setting.IsSelected = !hostOnly || setting.Scope == PresetSettingScope.Host;
+        }
+
+        private void OnPresetExportSettingPropertyChanged(object sender, PropertyChangedEventArgs args)
+        {
+            if (!applyingPresetExportBulkMode &&
+                string.Equals(args?.PropertyName, nameof(PresetExportSettingViewModel.SelectedModeIndex), StringComparison.Ordinal))
+            {
+                base.OnPropertyChanged(nameof(System_PresetExportBulkModeIndex));
+            }
+        }
+
+        private string ResolvePresetSettingScopeText(PresetSettingScope scope)
+        {
+            switch (scope)
+            {
+                case PresetSettingScope.Host:
+                    return ResolveSettingsUiTextSafe("Common.PresetScopeHost", "Host");
+                case PresetSettingScope.Player:
+                    return ResolveSettingsUiTextSafe("Common.PresetScopePlayer", "Player");
+                case PresetSettingScope.Local:
+                    return ResolveSettingsUiTextSafe("Common.PresetScopeLocal", "Local");
+                default:
+                    return scope.ToString();
+            }
         }
 
         private void ConfirmPresetExport()
@@ -1228,10 +1307,10 @@ namespace Shared
                 catch (PresetExportFileExistsException)
                 {
                     CrusaderDE.HUD_ConfirmationPopup.ShowConfirmationMessage(
-                        ResolveSettingsUiText("Common.PresetExportOverwriteTitle", "Overwrite preset file"),
+                        ResolveSettingsUiTextSafe("Common.PresetExportOverwriteTitle", "Overwrite preset file"),
                         () => CompletePresetExport(id, selections, overwrite: true),
                         delegate { },
-                        ResolveSettingsUiText("Common.PresetExportOverwrite", "A preset with this filename already exists. Replace it completely?"));
+                        ResolveSettingsUiTextSafe("Common.PresetExportOverwrite", "A preset with this filename already exists. Replace it completely?"));
                     return;
                 }
                 ShowPresetExportCompleted(path);
@@ -1265,11 +1344,11 @@ namespace Shared
             presetExportPanelOpen = false;
             RaisePresetExportProperties();
             string message = path + Environment.NewLine + Environment.NewLine +
-                ResolveSettingsUiText(
+                ResolveSettingsUiTextSafe(
                     "Common.PresetExportCompletedHelp",
                     "Use a distinctive preset name. Copy the shown Override folder into the target mod, or keep the same Override structure in a loose Script Extender asset mod.");
             CrusaderDE.HUD_ConfirmationPopup.ShowConfirmationOKMessage(
-                ResolveSettingsUiText("Common.PresetExportCompletedTitle", "Preset exported"),
+                ResolveSettingsUiTextSafe("Common.PresetExportCompletedTitle", "Preset exported"),
                 delegate { },
                 message,
                 Sands: false);
@@ -1278,7 +1357,7 @@ namespace Shared
         private void ShowPresetExportError(Exception exception)
         {
             CrusaderDE.HUD_ConfirmationPopup.ShowConfirmationOKMessage(
-                ResolveSettingsUiText("Common.PresetExportFailedTitle", "Preset export failed"),
+                ResolveSettingsUiTextSafe("Common.PresetExportFailedTitle", "Preset export failed"),
                 delegate { },
                 exception.Message,
                 Sands: false);
@@ -1296,6 +1375,7 @@ namespace Shared
             base.OnPropertyChanged(nameof(System_PresetExportName));
             base.OnPropertyChanged(nameof(System_PresetExportDescription));
             base.OnPropertyChanged(nameof(System_PresetExportSettings));
+            base.OnPropertyChanged(nameof(System_PresetExportBulkModeIndex));
         }
 
         private static string CreatePublishedPresetId(string name)
@@ -1381,6 +1461,14 @@ namespace Shared
 
         protected virtual string ResolveSettingsUiText(string key, string fallback) => fallback;
 
+        private string ResolveSettingsUiTextSafe(string key, string fallback)
+        {
+            string resolved = ResolveSettingsUiText(key, fallback);
+            return string.IsNullOrWhiteSpace(resolved) || string.Equals(resolved, key, StringComparison.Ordinal)
+                ? fallback
+                : resolved;
+        }
+
         protected bool IsApplyingSettingsSnapshot =>
             presetController?.IsApplyingSnapshot == true;
 
@@ -1408,7 +1496,7 @@ namespace Shared
             perPlayerSettingsCoordinator?.RequestPublish();
         }
 
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
         // SerpsModsHost discovers this method by reflection. Keeping the bridge on the
         // common base type lets every mod remain usable without the optional pack host.
         public IReadOnlyList<ModSettingsSearchEntry> System_GetModSettingsSearchEntries(
@@ -1430,7 +1518,7 @@ namespace Shared
             return perPlayerSettingsCoordinator.ArePlayersReady(playerIds, out error);
         }
 
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
         internal void System_TestObservePerPlayerLobby(
             ulong? lobbyId,
             IReadOnlyDictionary<int, ulong> players,
@@ -1585,7 +1673,7 @@ namespace Shared
             System_RefreshSettingsAccess();
         }
 
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
         internal void PreparePresets(
             ManualLogSource log,
             string pluginAssemblyLocation,
@@ -1772,7 +1860,7 @@ namespace Shared
             base.OnPropertyChanged(nameof(ActionsScopeNoticeText));
             base.OnPropertyChanged(nameof(AreSettingsEditable));
             base.OnPropertyChanged(nameof(IsMissionPresetActive));
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
             base.OnPropertyChanged(nameof(System_PresetActionText));
 #endif
         }
@@ -2721,7 +2809,7 @@ namespace Shared
         }
     }
 
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
     internal static class ModSettingsHorizontalFocusScrollGuard
     {
         private static readonly Dictionary<Noesis.ScrollViewer, DiagnosticState> AttachedScrollViewers =
@@ -2949,7 +3037,7 @@ namespace Shared
             if (viewModel == null)
                 throw new ArgumentNullException(nameof(viewModel));
 
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
             if (GameAssetManagerAPI.Instance.GetModifiedFilePath(
                 xamlSourceFile,
                 out string absoluteXamlSourceFile))
@@ -2983,7 +3071,7 @@ namespace Shared
                     xamlSourceFile);
                 var registration = GameXAMLManagerAPI.Instance.RegisteredModSettings
                     .FirstOrDefault(entry => ReferenceEquals(entry.ViewModel, viewModel));
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
                 // The classic test harness deliberately does not load Noesis.NoesisGUI.
                 // Reflection keeps the registration semantics under test without
                 // introducing a runtime-only FrameworkElement assembly dependency.
@@ -3014,7 +3102,7 @@ namespace Shared
                 modName);
             viewModel.ActivatePresets();
             viewModel.ActivatePerPlayerLobbySettings();
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
             // Views are created before a lobby exists. Refresh the cached role whenever
             // the persistent settings hub opens or changes its selected tab.
             Plugin.ModSettingsHubViewModel.PropertyChanged += (_, __) =>

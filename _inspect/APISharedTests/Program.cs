@@ -2,6 +2,7 @@ using APIShared;
 using Shared;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -40,6 +41,7 @@ namespace APISharedTests
             TestPublicSurface();
             TestPublishedPresetJson();
             TestPublishedPresetDiscovery();
+            TestPresetExportUiModel();
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestLobbyStateCapability();
@@ -220,6 +222,72 @@ namespace APISharedTests
             {
                 Directory.Delete(root, recursive: true);
             }
+        }
+
+        private static void TestPresetExportUiModel()
+        {
+            var viewModel = new PresetExportTestViewModel();
+            Assert(viewModel.HostOptionsText == "HOST OPTIONS",
+                "an unresolved settings localization key must use the APIShared fallback");
+            Assert(viewModel.ClientOptionsText == "Translated client options",
+                "a resolved settings localization value must win over the APIShared fallback");
+            Assert(viewModel.System_PresetExportBulkModeIndex == (int)PublishedPresetValueMode.Fixed,
+                "an empty preset-export list must report the safe fixed default, not mixed");
+
+            PresetSettingDescriptor CreateDescriptor(string name, PresetSettingScope scope)
+            {
+                var descriptor = new PresetSettingDescriptor();
+                typeof(PresetSettingDescriptor).GetProperty(nameof(PresetSettingDescriptor.PropertyName))
+                    .SetValue(descriptor, name);
+                typeof(PresetSettingDescriptor).GetProperty(nameof(PresetSettingDescriptor.PropertyType))
+                    .SetValue(descriptor, typeof(int));
+                typeof(PresetSettingDescriptor).GetProperty(nameof(PresetSettingDescriptor.Scope))
+                    .SetValue(descriptor, scope);
+                return descriptor;
+            }
+
+            var first = new PresetExportSettingViewModel(
+                CreateDescriptor("First", PresetSettingScope.Host),
+                "Host",
+                new[] { "Default", "Player", "Fixed" }) { IsSelected = true };
+            var second = new PresetExportSettingViewModel(
+                CreateDescriptor("Second", PresetSettingScope.Local),
+                "Local",
+                new[] { "Default", "Player", "Fixed" }) { IsSelected = false };
+            MethodInfo changedMethod = typeof(PresetLobbyModSettingsViewModel).GetMethod(
+                "OnPresetExportSettingPropertyChanged",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            first.PropertyChanged += (PropertyChangedEventHandler)Delegate.CreateDelegate(
+                typeof(PropertyChangedEventHandler), viewModel, changedMethod);
+            second.PropertyChanged += (PropertyChangedEventHandler)Delegate.CreateDelegate(
+                typeof(PropertyChangedEventHandler), viewModel, changedMethod);
+            viewModel.System_PresetExportSettings.Add(first);
+            viewModel.System_PresetExportSettings.Add(second);
+
+            bool bulkChanged = false;
+            viewModel.PropertyChanged += (_, args) =>
+                bulkChanged |= args.PropertyName == nameof(viewModel.System_PresetExportBulkModeIndex);
+            viewModel.System_PresetExportBulkModeIndex = (int)PublishedPresetValueMode.Player;
+            Assert(first.SelectedModeIndex == (int)PublishedPresetValueMode.Player &&
+                second.SelectedModeIndex == (int)PublishedPresetValueMode.Player,
+                "the preset-export bulk mode must update every displayed row");
+            Assert(first.IsSelected && !second.IsSelected,
+                "the preset-export bulk mode must not change inclusion checkboxes");
+            Assert(viewModel.System_PresetExportBulkModeIndex == (int)PublishedPresetValueMode.Player,
+                "uniform preset-export rows must report their common bulk mode");
+
+            bulkChanged = false;
+            second.SelectedModeIndex = (int)PublishedPresetValueMode.Fixed;
+            Assert(viewModel.System_PresetExportBulkModeIndex == 3 && bulkChanged,
+                "an individual preset-export mode change must publish the mixed bulk state");
+            string presetSource = File.ReadAllText(Path.Combine(
+                FindWorkspaceRoot(),
+                "APIShared",
+                "src",
+                "PresetLobbyModSettingsViewModel.cs"));
+            Assert(presetSource.Contains("Common.PresetModeMixed") &&
+                presetSource.Contains("IsEnabled = false"),
+                "the mixed preset-export option must be visible but not selectable");
         }
 
         private static void TestCompiledPatternSearch()
@@ -1912,6 +1980,12 @@ namespace APISharedTests
                 if (fail)
                     throw new InvalidOperationException("injected completion failure");
             }
+        }
+
+        private sealed class PresetExportTestViewModel : PresetLobbyModSettingsViewModel
+        {
+            protected override string ResolveSettingsUiText(string key, string fallback) =>
+                key == "Common.ClientOptions" ? "Translated client options" : key;
         }
 
         private sealed class FakeMemory : INativeMemory

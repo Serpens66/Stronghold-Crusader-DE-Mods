@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
 using Steamworks;
 #endif
 
@@ -134,7 +134,7 @@ namespace Shared
                 $"Steam identity {senderSteamId} belongs to final slot {resolution.PlayerId}.");
         }
 
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
         internal static PlayerIdentityResolution CaptureLocalPlayerId(
             bool preferInGameRoster) =>
             CaptureLocalPlayerId(

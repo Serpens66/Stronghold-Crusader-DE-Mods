@@ -31,7 +31,7 @@ namespace Shared
         private static Action<MissionLifecycleNotification> priority;
         private static MissionLifecycleNotification latest;
         private static string ownerGuid;
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
         private static readonly ManualLogSource log = null;
 #else
         private static readonly ManualLogSource log = BepInEx.Logging.Logger.CreateLogSource("Mission adapter");
@@ -46,7 +46,7 @@ namespace Shared
         }
         private static void EnsureConnected()
         {
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
             if (capability != null) return;
             string owner = ownerGuid ?? typeof(MissionEvents).Assembly.GetTypes()
                 .SelectMany(t => t.GetCustomAttributes(typeof(BepInPlugin), false).Cast<BepInPlugin>())
@@ -58,7 +58,7 @@ namespace Shared
             { capability = null; throw new InvalidOperationException("Mission lifecycle registration failed: " + diagnostic?.Reason); }
 #endif
         }
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
         internal static void ResetForTests() { observers.Clear(); latest = null; priority = null; capability = null; }
         internal static void PublishForTests(MissionLifecycleNotification e) => Deliver(e);
 #endif

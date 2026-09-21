@@ -3,7 +3,7 @@ using System;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
 using Noesis;
 using System.Collections.Generic;
 using System.IO;
@@ -96,7 +96,7 @@ namespace Shared
     }
 }
 
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
 namespace Shared
 {
     /// <summary>

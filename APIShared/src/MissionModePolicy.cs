@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-#if !SHARED_PRESET_TESTS
+#if !API_SHARED_PRESET_TESTS
 using Steamworks;
 #endif
 
@@ -401,7 +401,7 @@ namespace Shared
 
         private static bool TryCaptureVanillaCustomizedTrail(out int trailType, out int trailId)
         {
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
             trailType = NoGameValue;
             trailId = NoGameValue;
             return false;
@@ -414,7 +414,7 @@ namespace Shared
 
         private static ExternalCustomizedOrigin CaptureExternalCustomizedOrigin()
         {
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
             return default;
 #else
             try
@@ -752,7 +752,7 @@ namespace Shared
         /// <summary>HasConflictingCustomizedOrigin in the centralized mission policy contract.</summary>
         public bool HasConflictingCustomizedOrigin { get; }
 
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
         internal GameModeSnapshot WithModeEvidenceForTests(
             GameModeKind kind,
             GameModeLaunchVariant launchVariant,

@@ -172,6 +172,33 @@ foreach ($entry in $settings.GetEnumerator()) {
     $manager.AddNamespace('x', 'http://schemas.microsoft.com/winfx/2006/xaml')
     $editableBindings = @()
 
+    $presetExportList = $xml.SelectSingleNode("//*[local-name()='ItemsControl' and @ItemsSource='{Binding System_PresetExportSettings}']")
+    if ($null -ne $presetExportList) {
+        $presetScroll = $presetExportList.ParentNode
+        if ($presetScroll.LocalName -ne 'ScrollViewer' -or
+            $presetScroll.GetAttribute('HorizontalAlignment') -ne 'Left' -or
+            $presetScroll.GetAttribute('Width') -ne '530' -or
+            $presetScroll.GetAttribute('MaxHeight') -ne '220' -or
+            $presetScroll.GetAttribute('HorizontalScrollBarVisibility') -ne 'Disabled' -or
+            $presetScroll.GetAttribute('VerticalScrollBarVisibility') -ne 'Auto') {
+            throw "$($entry.Key): preset export list lacks its separate bounded scroll area."
+        }
+        $thinScrollBar = $presetScroll.SelectSingleNode(
+            "./*[local-name()='ScrollViewer.Resources']/*[local-name()='Double' and @x:Key='Size.ScrollBar']",
+            $manager)
+        if ($null -eq $thinScrollBar -or $thinScrollBar.InnerText -ne '8') {
+            throw "$($entry.Key): preset export list lacks its 8 px local scrollbar resource."
+        }
+        foreach ($requiredBinding in @(
+            '{Binding System_PresetExportBulkModeText}',
+            '{Binding System_PresetExportBulkModeOptions}',
+            '{Binding System_PresetExportBulkModeIndex, Mode=TwoWay}')) {
+            if (-not [IO.File]::ReadAllText($path).Contains($requiredBinding)) {
+                throw "$($entry.Key): preset export bulk-mode binding is missing: $requiredBinding"
+            }
+        }
+    }
+
     foreach ($elementName in $interactiveNames) {
         foreach ($element in $xml.SelectNodes("//p:$elementName", $manager)) {
             $isSearchUi = Test-IsInsideExcludedModSettingsSearchArea $element
@@ -783,7 +810,33 @@ foreach ($modName in $selectedModNames) {
                 'Common.ModSettingsSearchIncludeToolTips',
                 'Common.ModSettingsSearchIncludeToolTipsHelp',
                 'Common.ModSettingsSearchClearHelp',
-                'Common.ModSettingsSearchNoResults')) {
+                'Common.ModSettingsSearchNoResults',
+                'Common.CopyPreset',
+                'Common.ExportPreset',
+                'Common.PresetExportName',
+                'Common.PresetExportDescription',
+                'Common.PresetExportAll',
+                'Common.PresetExportHostOnly',
+                'Common.PresetExportBulkMode',
+                'Common.PresetExportConfirm',
+                'Common.PresetExportCancel',
+                'Common.PresetModeDefault',
+                'Common.PresetModePlayer',
+                'Common.PresetModeFixed',
+                'Common.PresetModeMixed',
+                'Common.PresetScopeHost',
+                'Common.PresetScopePlayer',
+                'Common.PresetScopeLocal',
+                'Common.CopyPresetChooseTitle',
+                'Common.CopyPresetChooseOne',
+                'Common.CopyPresetChooseTwo',
+                'Common.CopyPresetConfirmTitle',
+                'Common.CopyPresetConfirm',
+                'Common.PresetExportOverwriteTitle',
+                'Common.PresetExportOverwrite',
+                'Common.PresetExportCompletedHelp',
+                'Common.PresetExportCompletedTitle',
+                'Common.PresetExportFailedTitle')) {
                 if (-not $values.Contains($requiredSearchLocaleKey)) {
                     throw "$($entry.Key)/$($file.Name): missing shared search locale key $requiredSearchLocaleKey"
                 }
@@ -878,6 +931,7 @@ foreach ($viewModelFile in $settingsViewModels) {
 }
 
 $sharedSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/PresetLobbyModSettingsViewModel.cs'))
+$sharedLobbyStateSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/LobbyStateCapability.cs'))
 foreach ($required in @(
     'ActivatePerPlayerLobbySettings',
     'PerPlayerLobbySettingsBuilder',
@@ -1222,8 +1276,8 @@ if ([Text.RegularExpressions.Regex]::Matches(
     throw 'APIShared must compile one common per-player coordinator in production and tests.'
 }
 foreach ($required in @(
-    'OnStartMap.Observable.Subscribe',
-    'args.Phase == EventHookPhase.Pre',
+    'TryGetLobbyState(',
+    'API_SHARED_LOBBY_OBSERVER',
     'PlayerIdentityHelper.TryCaptureHumanRoster(',
     'PlayerIdentityHelper.CaptureLocalPlayerId(',
     'preferInGameRoster: true',
@@ -1237,13 +1291,19 @@ foreach ($required in @(
         throw "APIShared per-player lifecycle/roster marker is missing: $required"
     }
 }
+foreach ($required in @(
+    '.Subscribe(_ => OnMapStarting())',
+    '.Subscribe(_ => OnMapUnloaded())')) {
+    if (-not $sharedLobbyStateSource.Contains($required)) {
+        throw "APIShared lobby-state lifecycle marker is missing: $required"
+    }
+}
 if ($sharedSettingsSource.Contains('sendPacketToSteamIdMethod')) {
     throw 'APIShared reliable lobby delivery must not route back through gameMembers-aware SendPacketToSteamId.'
 }
-$sharedGameModeSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/GameModeHelper.cs'))
+$sharedGameModeSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/MissionModePolicy.cs'))
 foreach ($required in @(
     'public static bool IsMapEditor()',
-    'if (!MainViewModel.viewModelLoaded)',
     'if (member.SkirmishMember)',
     'member != null && !member.skirmishAI',
     'bool mapEditor =',

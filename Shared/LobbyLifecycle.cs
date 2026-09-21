@@ -17,7 +17,7 @@ namespace Shared
         private const string SubscribersKey = "SerpsMods.Shared.LobbyLifecycle.v1.Subscribers";
         private const string GateKey = "SerpsMods.Shared.LobbyLifecycle.v1.Gate";
 
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
         private const string TestInstallCountKey = "SerpsMods.Shared.LobbyLifecycle.v1.TestInstallCount";
 #endif
 
@@ -59,7 +59,7 @@ namespace Shared
             if (AppDomain.CurrentDomain.GetData(AnchorKey) != null)
                 return;
 
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
             int count = (AppDomain.CurrentDomain.GetData(TestInstallCountKey) as int?) ?? 0;
             AppDomain.CurrentDomain.SetData(TestInstallCountKey, count + 1);
             AppDomain.CurrentDomain.SetData(AnchorKey, new object());
@@ -182,7 +182,7 @@ namespace Shared
             }
         }
 
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
         internal static int System_TestInstallCount =>
             (AppDomain.CurrentDomain.GetData(TestInstallCountKey) as int?) ?? 0;
 

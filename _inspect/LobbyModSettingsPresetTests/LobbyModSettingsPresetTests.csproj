@@ -10,7 +10,7 @@
     <AssemblyName>LobbyModSettingsPresetTests</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
-    <DefineConstants>$(DefineConstants);SHARED_PRESET_TESTS</DefineConstants>
+    <DefineConstants>$(DefineConstants);API_SHARED_PRESET_TESTS</DefineConstants>
     <PlatformTarget>x64</PlatformTarget>
     <Prefer32Bit>false</Prefer32Bit>
     <OutputPath>bin\</OutputPath>
@@ -40,7 +40,7 @@
   <ItemGroup>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
-    <Compile Include="..\..\APIShared\src\ModSettingsPresetDocuments.cs"><Link>Shared\ModSettingsPresetDocuments.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\ModSettingsPresetDocuments.cs"><Link>APIShared\ModSettingsPresetDocuments.cs</Link></Compile>
     <Compile Include="..\..\APIShared\src\PresetLobbyModSettingsViewModel.cs"><Link>APIShared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
     <Compile Include="..\..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>

@@ -60,15 +60,28 @@ namespace Shared
         private int selectedModeIndex = (int)PublishedPresetValueMode.Fixed;
 
         public PresetExportSettingViewModel(PresetSettingDescriptor descriptor)
+            : this(descriptor, descriptor?.Scope.ToString(), null)
         {
+        }
+
+        public PresetExportSettingViewModel(
+            PresetSettingDescriptor descriptor,
+            string scopeText,
+            string[] modeOptions)
+        {
+            if (descriptor == null) throw new ArgumentNullException(nameof(descriptor));
             PropertyName = descriptor.PropertyName;
             Scope = descriptor.Scope;
+            ScopeText = string.IsNullOrWhiteSpace(scopeText) ? descriptor.Scope.ToString() : scopeText;
+            ModeOptions = modeOptions != null && modeOptions.Length == 3
+                ? (string[])modeOptions.Clone()
+                : new[] { "ModDefault", "Player", "Fixed" };
         }
 
         public string PropertyName { get; }
         public PresetSettingScope Scope { get; }
-        public string ScopeText => Scope.ToString();
-        public string[] ModeOptions { get; } = new[] { "ModDefault", "Player", "Fixed" };
+        public string ScopeText { get; }
+        public string[] ModeOptions { get; }
 
         public bool IsSelected
         {
