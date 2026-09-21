@@ -3041,21 +3041,6 @@ namespace BugfixesAndQoL
                     LobbyYellowResourceState.Foreign),
                 "later foreign and mixed resource changes are never overwritten or restored");
 
-            int[] remap = ReadStaticInt32ArrayInitializer(
-                typeof(FRONT_Multiplayer).Assembly.Location,
-                "CrusaderDE.FRONT_Multiplayer",
-                "MP_orig_remap_colour_order");
-            Check(
-                remap != null &&
-                remap.Length == 9 &&
-                remap[LobbyYellowContrastPolicy.YellowSelectableColourId] ==
-                    LobbyYellowContrastPolicy.YellowRemappedColourId,
-                "installed lobby colour mapping retains selectable colour 3 to remap colour 4/yellow");
-            Check(
-                Enumerable.Range(0, remap.Length).Where(index =>
-                    LobbyYellowContrastPolicy.IsYellowColour(index, remap))
-                    .SequenceEqual(new[] { LobbyYellowContrastPolicy.YellowSelectableColourId }),
-                "only the yellow selectable player colour is classified for replacement");
             Check(
                 LobbyYellowContrastPolicy.TeamBrushAlpha == 184 &&
                 LobbyYellowContrastPolicy.GoldRed == 184 &&
@@ -3088,12 +3073,18 @@ namespace BugfixesAndQoL
                 spriteResources.TryGetValue(465, out string mapKey) &&
                     mapKey == "UI-Buttons H033",
                 "installed sprite setup maps yellow normal/hover/selected/map states to H013/H014/H015/H033");
+            Check(
+                HasYellowAuthoritativeUiContract(
+                    typeof(FRONT_Multiplayer).Assembly.Location),
+                "installed UI lifecycle has a lazy MainViewModel plus the authoritative MasterController INIT path");
 
             string projectDirectory = FindProjectDirectory();
             string feature = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "LobbyYellowContrastFeature.cs"));
             string runtime = File.ReadAllText(Path.Combine(
                 projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            string policy = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "LobbyYellowContrastPolicy.cs"));
             Check(
                 feature.Contains("\"UI-Buttons H013\"") &&
                 feature.Contains("\"UI-Buttons H014\"") &&
@@ -3103,15 +3094,47 @@ namespace BugfixesAndQoL
                 feature.Contains("mutation.GetState()") &&
                 feature.Contains("CanApplyGold") &&
                 feature.Contains("ShouldRestoreBaseline") &&
+                feature.Contains("BugfixesAndQoL.YellowContrast.MainViewModelInit") &&
+                feature.Contains("mainViewModelInitOriginal();") &&
+                feature.Contains("if (!resourcesReady)") &&
+                feature.Contains("viewModel.GameSprites[VanillaShieldSpriteIndexes[index]]") &&
+                feature.Contains("109,") &&
+                feature.Contains("354,") &&
+                feature.Contains("362,") &&
+                feature.Contains("465,") &&
                 feature.Contains("Target.SourceRect = goldSourceRect;") &&
                 feature.Contains("Target.Source = baselineSource;") &&
                 !feature.Contains("PlayerRowUpdateHook") &&
                 !feature.Contains("UpdateColourShieldsHook") &&
-                !feature.Contains("MonoMod.RuntimeDetour") &&
+                feature.Contains("using MonoMod.RuntimeDetour;") &&
+                feature.Split(new[] { "new Hook(" }, StringSplitOptions.None).Length == 2 &&
                 !feature.Contains("class LobbyYellowContrastFeature : IDisposable") &&
                 runtime.Contains("static LobbyYellowContrastFeature processLobbyYellowContrastFeature") &&
                 !runtime.Contains("processLobbyYellowContrastFeature?.Dispose"),
                 "yellow shields use reversible resource mutation without per-screen hooks and remain process rooted");
+            Check(
+                feature.IndexOf("mainViewModelInitOriginal();", StringComparison.Ordinal) <
+                    feature.IndexOf("bool firstBinding = !resourcesReady;", StringComparison.Ordinal) &&
+                feature.Contains("post-MainViewModel.INIT application") &&
+                feature.Contains("TryResolveResources(viewModel)") &&
+                feature.Contains("if (firstBinding && !faulted)") &&
+                feature.Split(
+                    new[] { "high-contrast yellow presentation ready" },
+                    StringSplitOptions.None).Length == 2 &&
+                !feature.Contains("authoritativeUiReady") &&
+                !feature.Contains("applicationLogged") &&
+                !feature.Contains("SetupSpritesPostHook") &&
+                feature.Contains("failed during resource resolution") == false &&
+                !feature.Contains("Application.onBeforeRender") &&
+                !feature.Contains("PlayerRowUpdateHook") &&
+                !feature.Contains("UpdateColourShieldsHook"),
+                "yellow resource resolution is deferred until INIT and logs one success diagnostic");
+            Check(
+                !policy.Contains("YellowSelectableColourId") &&
+                !policy.Contains("YellowRemappedColourId") &&
+                !policy.Contains("IsYellowColour") &&
+                !policy.Contains("System.Collections.Generic"),
+                "obsolete lobby-hook colour mapping policy has been removed");
             Check(
                 new[]
                 {
@@ -3275,58 +3298,6 @@ namespace BugfixesAndQoL
                 Check(!ClassicMapSizeReader.TryRead(stream, out _), name);
         }
 
-        private static int[] ReadStaticInt32ArrayInitializer(
-            string assemblyPath,
-            string typeFullName,
-            string fieldName)
-        {
-            using (Mono.Cecil.AssemblyDefinition assembly =
-                Mono.Cecil.AssemblyDefinition.ReadAssembly(assemblyPath))
-            {
-                Mono.Cecil.TypeDefinition type = assembly.MainModule.Types.SingleOrDefault(
-                    candidate => candidate.FullName == typeFullName);
-                Mono.Cecil.FieldDefinition targetField = type?.Fields.SingleOrDefault(
-                    field => field.Name == fieldName);
-                Mono.Cecil.MethodDefinition constructor = type?.Methods.SingleOrDefault(
-                    method => method.IsConstructor && method.IsStatic);
-                if (targetField == null || constructor?.Body == null)
-                    return Array.Empty<int>();
-
-                IList<Mono.Cecil.Cil.Instruction> instructions = constructor.Body.Instructions;
-                for (int storeIndex = 0; storeIndex < instructions.Count; storeIndex++)
-                {
-                    Mono.Cecil.Cil.Instruction store = instructions[storeIndex];
-                    if (store.OpCode != Mono.Cecil.Cil.OpCodes.Stsfld ||
-                        !(store.Operand is Mono.Cecil.FieldReference storedField) ||
-                        storedField.Name != targetField.Name)
-                    {
-                        continue;
-                    }
-
-                    for (int index = storeIndex - 1; index >= 0; index--)
-                    {
-                        Mono.Cecil.Cil.Instruction instruction = instructions[index];
-                        if (instruction.OpCode != Mono.Cecil.Cil.OpCodes.Ldtoken ||
-                            !(instruction.Operand is Mono.Cecil.FieldReference dataReference))
-                        {
-                            continue;
-                        }
-
-                        byte[] data = dataReference.Resolve()?.InitialValue;
-                        if (data == null || data.Length == 0 || data.Length % sizeof(int) != 0)
-                            return Array.Empty<int>();
-
-                        int[] values = new int[data.Length / sizeof(int)];
-                        for (int valueIndex = 0; valueIndex < values.Length; valueIndex++)
-                            values[valueIndex] = BitConverter.ToInt32(data, valueIndex * sizeof(int));
-                        return values;
-                    }
-                }
-            }
-
-            return Array.Empty<int>();
-        }
-
         private static Dictionary<int, string> ReadGameSpriteResourceKeys(
             string assemblyPath,
             params int[] targetIndexes)
@@ -3437,6 +3408,122 @@ namespace BugfixesAndQoL
             }
 
             return result;
+        }
+
+        private static bool HasYellowAuthoritativeUiContract(
+            string assemblyPath)
+        {
+            using (Mono.Cecil.AssemblyDefinition assembly =
+                Mono.Cecil.AssemblyDefinition.ReadAssembly(assemblyPath))
+            {
+                Mono.Cecil.TypeDefinition type = assembly.MainModule.Types.SingleOrDefault(
+                    candidate => candidate.FullName == "CrusaderDE.MainViewModel");
+                Mono.Cecil.MethodDefinition setup = type?.Methods.SingleOrDefault(
+                    candidate => candidate.Name == "setupSprites" &&
+                        !candidate.IsStatic &&
+                        candidate.IsPublic &&
+                        candidate.Parameters.Count == 0 &&
+                        candidate.ReturnType.FullName == "System.Void" &&
+                        candidate.HasBody);
+                Mono.Cecil.MethodDefinition constructor = type?.Methods.SingleOrDefault(
+                    candidate => candidate.IsConstructor &&
+                        !candidate.IsStatic &&
+                        candidate.Parameters.Count == 0 &&
+                        candidate.HasBody);
+                Mono.Cecil.MethodDefinition init = type?.Methods.SingleOrDefault(
+                    candidate => candidate.Name == "INIT" &&
+                        candidate.IsStatic &&
+                        candidate.IsPublic &&
+                        candidate.Parameters.Count == 0 &&
+                        candidate.ReturnType.FullName == type.FullName &&
+                        candidate.HasBody);
+                Mono.Cecil.MethodDefinition instanceGetter = type?.Properties
+                    .SingleOrDefault(candidate => candidate.Name == "Instance")?
+                    .GetMethod;
+                Mono.Cecil.TypeDefinition masterController = assembly.MainModule.Types
+                    .SingleOrDefault(candidate =>
+                        candidate.FullName == "CrusaderDE.MasterController");
+                Mono.Cecil.MethodDefinition masterConstructor = masterController?.Methods
+                    .SingleOrDefault(candidate => candidate.IsConstructor &&
+                        !candidate.IsStatic &&
+                        candidate.Parameters.Count == 0 &&
+                        candidate.HasBody);
+                if (setup == null || constructor == null || init == null ||
+                    instanceGetter == null || masterConstructor == null)
+                    return false;
+
+                IList<Mono.Cecil.Cil.Instruction> constructorInstructions =
+                    constructor.Body.Instructions;
+                int[] setupCalls = constructorInstructions
+                    .Select((instruction, index) => new { instruction, index })
+                    .Where(item =>
+                        item.instruction.Operand is Mono.Cecil.MethodReference method &&
+                        method.DeclaringType.FullName == type.FullName &&
+                        method.Name == setup.Name &&
+                        method.Parameters.Count == 0)
+                    .Select(item => item.index)
+                    .ToArray();
+                int loadedStore = constructorInstructions
+                    .Select((instruction, index) => new { instruction, index })
+                    .Where(item =>
+                        item.instruction.OpCode == Mono.Cecil.Cil.OpCodes.Stsfld &&
+                        item.instruction.Operand is Mono.Cecil.FieldReference field &&
+                        field.DeclaringType.FullName == type.FullName &&
+                        field.Name == "viewModelLoaded")
+                    .Select(item => item.index)
+                    .DefaultIfEmpty(-1)
+                    .Last();
+                if (setupCalls.Length != 1 || loadedStore <= setupCalls[0])
+                    return false;
+
+                int resourceLookups = setup.Body.Instructions.Count(instruction =>
+                    instruction.Operand is Mono.Cecil.MethodReference method &&
+                    method.Name == "get_Item" &&
+                    method.DeclaringType.FullName == "Noesis.ResourceDictionary");
+                int spriteAdds = setup.Body.Instructions.Count(instruction =>
+                    instruction.Operand is Mono.Cecil.MethodReference method &&
+                    method.Name == "Add" &&
+                    method.DeclaringType.FullName ==
+                        "System.Collections.Generic.List`1<Noesis.ImageSource>");
+                bool readsApplicationResources = setup.Body.Instructions.Any(instruction =>
+                    instruction.Operand is Mono.Cecil.MethodReference method &&
+                    method.Name == "GetApplicationResources" &&
+                    method.DeclaringType.FullName == "Noesis.GUI");
+
+                bool lazyGetterConstructs = instanceGetter.Body.Instructions.Any(instruction =>
+                    instruction.OpCode == Mono.Cecil.Cil.OpCodes.Newobj &&
+                    instruction.Operand is Mono.Cecil.MethodReference method &&
+                    method.DeclaringType.FullName == type.FullName &&
+                    method.Name == ".ctor");
+                bool initConstructs = init.Body.Instructions.Any(instruction =>
+                    instruction.OpCode == Mono.Cecil.Cil.OpCodes.Newobj &&
+                    instruction.Operand is Mono.Cecil.MethodReference method &&
+                    method.DeclaringType.FullName == type.FullName &&
+                    method.Name == ".ctor");
+                bool initPublishesInstance = init.Body.Instructions.Any(instruction =>
+                    instruction.OpCode == Mono.Cecil.Cil.OpCodes.Stsfld &&
+                    instruction.Operand is Mono.Cecil.FieldReference field &&
+                    field.DeclaringType.FullName == type.FullName &&
+                    field.Name == "instance");
+                bool masterCallsInit = masterConstructor.Body.Instructions.Any(instruction =>
+                    instruction.Operand is Mono.Cecil.MethodReference method &&
+                    method.DeclaringType.FullName == type.FullName &&
+                    method.Name == init.Name &&
+                    method.Parameters.Count == 0);
+                int initCallers = assembly.MainModule.Types
+                    .SelectMany(candidate => candidate.Methods)
+                    .Where(candidate => candidate.HasBody)
+                    .SelectMany(candidate => candidate.Body.Instructions)
+                    .Count(instruction =>
+                        instruction.Operand is Mono.Cecil.MethodReference method &&
+                        method.DeclaringType.FullName == type.FullName &&
+                        method.Name == init.Name &&
+                        method.Parameters.Count == 0);
+
+                return readsApplicationResources && resourceLookups > 0 &&
+                    spriteAdds > 465 && lazyGetterConstructs && initConstructs &&
+                    initPublishesInstance && masterCallsInit && initCallers == 1;
+            }
         }
 
         private static byte[] BuildClassicMapFixture(

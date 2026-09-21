@@ -1,6 +1,4 @@
 // Feature: Pure policy for the local high-contrast yellow presentation.
-using System.Collections.Generic;
-
 namespace BugfixesAndQoL
 {
     internal enum LobbyYellowResourceState
@@ -12,8 +10,6 @@ namespace BugfixesAndQoL
 
     internal static class LobbyYellowContrastPolicy
     {
-        internal const int YellowSelectableColourId = 3;
-        internal const int YellowRemappedColourId = 4;
         internal const byte TeamBrushAlpha = 184;
         internal const byte GoldRed = 184;
         internal const byte GoldGreen = 134;
@@ -24,16 +20,6 @@ namespace BugfixesAndQoL
             bool enableClientFeatures,
             bool improveYellowLobbyContrast) =>
             enableMod && enableClientFeatures && improveYellowLobbyContrast;
-
-        internal static bool IsYellowColour(
-            int colourId,
-            IReadOnlyList<int> remapOrder)
-        {
-            return remapOrder != null &&
-                colourId >= 0 &&
-                colourId < remapOrder.Count &&
-                remapOrder[colourId] == YellowRemappedColourId;
-        }
 
         internal static LobbyYellowResourceState ClassifyResourceState(
             bool sourceIsBaseline,

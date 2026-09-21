@@ -1,4 +1,5 @@
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
+. (Join-Path $PSScriptRoot 'SCDEModManagerPackage.ps1')
 . (Join-Path $PSScriptRoot 'ReleaseStatus.Common.ps1')
 
 function Assert-True {
@@ -28,6 +29,51 @@ Assert-True ($apiSharedPackage.Directory -ceq (Join-Path $config.Root 'APIShared
 Assert-True (Test-Path -LiteralPath $apiSharedPackage.DllPath -PathType Leaf) 'The resolved workspace APIShared package must contain APIShared.dll.'
 $apiSharedSourceInfo = Get-Content -LiteralPath $apiSharedPackage.SourceInfoPath -Raw | ConvertFrom-Json
 Assert-True ($apiSharedPackage.Version -ceq [string]$apiSharedSourceInfo.Version) 'The validated APIShared version must come from the source manifest.'
+
+$apiSharedManagerId = Get-SCDEModManagerPackageId -Guid 'APIShared_Serp'
+Assert-True ($apiSharedManagerId -ceq 'se-b991ac82774809392e0b952c5433f351') 'The APIShared manager ID must follow the manager GUID hash contract.'
+foreach ($project in $config.Projects) {
+    $projectMetadata = Get-PluginMetadata -ModName $project
+    $isApiConsumer = -not [string]::IsNullOrWhiteSpace((Get-ApiSharedConsumerMinimum -Config $config -ModName $project))
+    $projectManifest = New-SCDEModManagerManifest -Info $projectMetadata.Manifest -ApiSharedGuid ([string]$config.ApiShared.Guid) -ApiSharedConsumer:$isApiConsumer
+    $expectedProjectId = Get-SCDEModManagerPackageId -Guid ([string]$projectMetadata.Manifest.GUID)
+    Assert-True -Condition ([string]$projectManifest.id -ceq $expectedProjectId) -Message "$project must have a stable manager ID derived from its GUID."
+    Assert-True -Condition ([string]$projectManifest.scriptExtender.minimumVersion -ceq [string]$projectMetadata.Manifest.MinimumScriptExtenderVersion) -Message "$project must copy its Script Extender minimum from info.json."
+    Assert-True -Condition (@($projectManifest.dependencies | Where-Object { $_.Contains('version') }).Count -eq 0) -Message "$project must not declare exact manager dependency versions."
+    $expectedDependencyCount = if ($isApiConsumer) { 2 } else { 1 }
+    Assert-True -Condition (@($projectManifest.dependencies).Count -eq $expectedDependencyCount) -Message "$project has an unexpected manager hard dependency."
+}
+$managerTestRoot = Join-Path ([IO.Path]::GetTempPath()) ('shcde-manager-package-' + [Guid]::NewGuid().ToString('N'))
+try {
+    [void](New-Item -ItemType Directory -Path $managerTestRoot -Force)
+    $apiMetadata = Get-PluginMetadata -ModName 'APIShared'
+    $consumerMetadata = Get-PluginMetadata -ModName 'BuildingCosts'
+    $orders = @(
+        @($apiMetadata, $consumerMetadata),
+        @($consumerMetadata, $apiMetadata)
+    )
+    foreach ($order in $orders) {
+        $installed = @{}
+        foreach ($item in $order) {
+            $isConsumer = [string]$item.ModName -ceq 'BuildingCosts'
+            $packagePath = Join-Path $managerTestRoot "$([string]$item.ModName)-$($installed.Count).scdemod"
+            $record = New-SCDEModManagerPackage -PluginDirectory $item.PackageDir -Info $item.Manifest `
+                -DestinationPath $packagePath -WorkingDirectory (Join-Path $managerTestRoot "work-$([string]$item.ModName)-$($installed.Count)") `
+                -ApiSharedGuid ([string]$config.ApiShared.Guid) -ApiSharedConsumer:$isConsumer
+            $installed[[string]$record.Id] = $record
+        }
+        Assert-True ($installed.ContainsKey($apiSharedManagerId)) 'APIShared must retain its stable manager identity in either import order.'
+        $consumerId = Get-SCDEModManagerPackageId -Guid ([string]$consumerMetadata.Manifest.GUID)
+        Assert-True ($installed.ContainsKey($consumerId)) 'The consumer must retain its stable manager identity in either import order.'
+        $consumerDependencies = @($installed[$consumerId].Manifest.dependencies | ForEach-Object { [string]$_.id })
+        Assert-True (($consumerDependencies -join ',') -ceq "shcde-script-extender,$apiSharedManagerId") 'An APIShared consumer must declare only Script Extender and the stable APIShared package dependency.'
+    }
+    $consumerBounds = Get-SCDEModManagerVersionBounds -Info $consumerMetadata.Manifest
+    Assert-True ([string]$consumerBounds.MinimumVersion -ceq [string]$consumerMetadata.Manifest.MinimumScriptExtenderVersion) 'Manager metadata must retain the authoritative Script Extender minimum.'
+    Assert-True ([string]$consumerBounds.MaximumVersion -ceq '') 'An absent Script Extender maximum must remain unbounded.'
+} finally {
+    if (Test-Path -LiteralPath $managerTestRoot) { Remove-Item -LiteralPath $managerTestRoot -Recurse -Force }
+}
 
 function Assert-ApiSharedValidationFails {
     param(
@@ -73,6 +119,9 @@ Assert-True ($releaseModSource -match 'SchemaVersion = 2') 'Release provenance m
 Assert-True ($releaseModSource -match 'ValidatedVersion = \[string\]\$apiSharedPackage\.Version') 'Release provenance must record the validated APIShared build version.'
 Assert-True ($releaseModSource -match 'ReleaseTag = \[string\]\$apiSharedRelease\.Tag' -and $releaseModSource -match 'ReleaseUrl = \[string\]\$apiSharedRelease\.Url') 'Release provenance must record the validated APIShared release.'
 Assert-True ($releaseModSource -match 'DllSha256 = Get-Sha256Hex -Path \$apiSharedPackage\.DllPath') 'Release provenance must record the APIShared DLL hash.'
+Assert-True ($releaseModSource -match 'New-SCDEModManagerPackage') 'Every standalone release must create an SCDE Mod Manager package.'
+Assert-True ($releaseModSource -match 'ManagerPackage = \[ordered\]') 'Release provenance must describe the SCDE Mod Manager package.'
+Assert-True ($releaseModSource -match '\$releaseAssets = @\(\$zipPath, \$shaPath, \$managerPackagePath, \$managerPackageHashPath, \$provenancePath\)') 'GitHub releases must publish ZIP and manager package artifacts with hashes and provenance.'
 Assert-True ($releaseModSource -notmatch 'with-APIShared' -and $releaseModSource -notmatch "Profile = 'Bundle'" -and $releaseModSource -notmatch 'BundledVersion') 'Consumer releases must not generate or describe bundle artifacts.'
 Assert-True ($releaseModSource -match "'release', 'delete-asset'" -and $releaseModSource.IndexOf("'release', 'delete-asset'") -lt $releaseModSource.IndexOf("'--draft=false'")) 'Resumed drafts must remove unexpected legacy assets before publication.'
 $releaseCommonSource = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'Release.Common.ps1'))

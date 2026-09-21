@@ -226,12 +226,40 @@ namespace CastlePlanner
     internal static class FreeCastleProtocol
     {
         internal const int ProtocolVersion = 5;
-        internal const int PreviewTimeoutSeconds = 120;
+        internal const int MinimumPreviewTimeoutSeconds = 60;
+        internal const int DefaultPreviewTimeoutSeconds = 120;
+        internal const int MaximumPreviewTimeoutSeconds = 600;
         internal const int MaximumChunkBytes = 24 * 1024;
         internal const int MaximumUncompressedBytes = 8 * 1024 * 1024;
         internal const int MaximumCompressedBytes =
             MaximumUncompressedBytes + MaximumChunkBytes;
         private const int Magic = 0x50434653; // "SFCP" in little endian.
+
+        internal static int NormalizePreviewTimeoutSeconds(int value) =>
+            Math.Max(
+                MinimumPreviewTimeoutSeconds,
+                Math.Min(MaximumPreviewTimeoutSeconds, value));
+
+        internal static bool IsValidPreviewTimeoutSeconds(int value) =>
+            value >= MinimumPreviewTimeoutSeconds &&
+            value <= MaximumPreviewTimeoutSeconds;
+
+        internal static int GetRemainingPreviewSeconds(
+            int timeoutSeconds,
+            long elapsedSeconds)
+        {
+            int normalizedTimeout = NormalizePreviewTimeoutSeconds(timeoutSeconds);
+            long normalizedElapsed = Math.Max(0L, elapsedSeconds);
+            return normalizedElapsed >= normalizedTimeout
+                ? 0
+                : normalizedTimeout - (int)normalizedElapsed;
+        }
+
+        internal static string FormatPreviewTimer(int remainingSeconds)
+        {
+            int normalized = Math.Max(0, remainingSeconds);
+            return $"{normalized / 60:00}:{normalized % 60:00}";
+        }
 
         public static byte[] EncodeSelections(
             IEnumerable<FreeCastleSelection> selections)

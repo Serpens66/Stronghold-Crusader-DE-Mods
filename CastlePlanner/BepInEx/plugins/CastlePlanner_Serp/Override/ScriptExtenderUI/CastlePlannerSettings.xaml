@@ -79,6 +79,12 @@
                 ToolTip="{Binding SpawnCastleHelpText}"
                 Foreground="White"
                 Margin="0,0,0,6"/></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="castle-planner.selection-timeout" shared:ModSettingsSearch.Title="{Binding CastleSelectionTimeoutText}" shared:ModSettingsSearch.ToolTipText="{Binding CastleSelectionTimeoutHelpText}" Margin="18,0,0,6">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="210"/><ColumnDefinition Width="220"/><ColumnDefinition Width="65"/></Grid.ColumnDefinitions>
+        <TextBlock Grid.Column="0" Text="{Binding CastleSelectionTimeoutText}" Foreground="White" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding CastleSelectionTimeoutHelpText}"/>
+        <Slider Grid.Column="1" Minimum="60" Maximum="600" Value="{Binding CastleSelectionTimeoutSeconds, Mode=TwoWay}" TickFrequency="1" SmallChange="1" LargeChange="30" IsSnapToTickEnabled="True" Margin="3" ToolTipService.ShowDuration="60000" ToolTip="{Binding CastleSelectionTimeoutHelpText}"/>
+        <TextBlock Grid.Column="2" Text="{Binding CastleSelectionTimeoutValueText}" Foreground="White" TextAlignment="Right" VerticalAlignment="Center" ToolTipService.ShowDuration="60000" ToolTip="{Binding CastleSelectionTimeoutHelpText}"/>
+      </Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="castle-planner.spawn-fortifications" shared:ModSettingsSearch.Title="{Binding SpawnFortificationsText}" shared:ModSettingsSearch.ToolTipText="{Binding SpawnFortificationsHelpText}"><CheckBox IsChecked="{Binding SpawnFortifications, Mode=TwoWay}"
                 Content="{Binding SpawnFortificationsText}"
                 ToolTipService.ShowDuration="60000"

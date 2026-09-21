@@ -46,6 +46,8 @@ namespace CastlePlanner
         private bool blueprintShowDefensiveGroundFeatures = true;
         private bool blueprintShowFearFactorBuildings = true;
         private bool spawnCastle;
+        private int castleSelectionTimeoutSeconds =
+            FreeCastleProtocol.DefaultPreviewTimeoutSeconds;
         private bool spawnFortifications =
             CastleSpawnContentPolicy.DefaultFortifications;
         private bool spawnBuildings = CastleSpawnContentPolicy.DefaultBuildings;
@@ -292,6 +294,14 @@ namespace CastlePlanner
         public string BlueprintsHelpText => SerpLocalization.Get("CastlePlanner.BlueprintsHelp");
         public string SpawnCastleText => SerpLocalization.Get("CastlePlanner.SpawnCastle");
         public string SpawnCastleHelpText => SerpLocalization.Get("CastlePlanner.SpawnCastleHelp");
+        public string CastleSelectionTimeoutText =>
+            SerpLocalization.Get("CastlePlanner.CastleSelectionTimeout");
+        public string CastleSelectionTimeoutHelpText =>
+            SerpLocalization.Get("CastlePlanner.CastleSelectionTimeoutHelp");
+        public string CastleSelectionTimeoutValueText =>
+            SerpLocalization.Get(
+                "CastlePlanner.CastleSelectionTimeoutValue",
+                CastleSelectionTimeoutSeconds);
         public string SpawnFortificationsText => SerpLocalization.Get("CastlePlanner.SpawnFortifications");
         public string SpawnFortificationsHelpText => SerpLocalization.Get("CastlePlanner.SpawnFortificationsHelp");
         public string SpawnBuildingsText => SerpLocalization.Get("CastlePlanner.SpawnBuildings");
@@ -460,6 +470,30 @@ namespace CastlePlanner
                     log,
                     $"CastlePlanner host Spawn Castle changed to {spawnCastle}.");
                 PumpCastleCatalogLoad();
+                SettingsChanged?.Invoke();
+            }
+        }
+
+        [SyncHostOnly]
+        public int CastleSelectionTimeoutSeconds
+        {
+            get => castleSelectionTimeoutSeconds;
+            set
+            {
+                if (!CanMutateSetting(nameof(CastleSelectionTimeoutSeconds)))
+                    return;
+
+                int normalized =
+                    FreeCastleProtocol.NormalizePreviewTimeoutSeconds(value);
+                if (castleSelectionTimeoutSeconds == normalized)
+                    return;
+
+                castleSelectionTimeoutSeconds = normalized;
+                OnPropertyChanged(nameof(CastleSelectionTimeoutSeconds));
+                OnPropertyChanged(nameof(CastleSelectionTimeoutValueText));
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    $"CastlePlanner host castle-selection timeout changed to {castleSelectionTimeoutSeconds} real seconds.");
                 SettingsChanged?.Invoke();
             }
         }
@@ -1099,6 +1133,8 @@ namespace CastlePlanner
                 EnableMod = true;
                 EnableAivPlacementLobby = false;
                 SpawnCastle = false;
+                CastleSelectionTimeoutSeconds =
+                    FreeCastleProtocol.DefaultPreviewTimeoutSeconds;
                 ResetHostSpawnContentToDefaults();
             }
 

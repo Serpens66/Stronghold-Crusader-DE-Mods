@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Bugfixes and QoL",
   "Description": "Bug fixes and quality-of-life improvements for Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.159",
+  "Version": "1.0.160",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.7.2",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.160",
+      "Changes": [
+        "Added an enabled-by-default local high-contrast yellow option for yellow lobby team rows and the yellow player shield throughout the interface, without changing units, buildings, minimap colours, team shields, or other yellow elements."
+      ]
+    },
     {
       "Version": "1.0.159",
       "Changes": [

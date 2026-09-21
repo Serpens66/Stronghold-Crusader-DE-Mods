@@ -60,6 +60,9 @@ internal static class Program
             ("randomizes every highest partial score tie", FindsEveryHighestPartialScoreTie),
             ("roundtrips strict native AIV spawn data", RoundtripsStrictNativeSpawnData),
             ("roundtrips nothing, keep-only and castle decisions", RoundtripsFreeCastleDecisions),
+            ("normalizes and formats castle-selection timeouts", NormalizesAndFormatsCastleSelectionTimeouts),
+            ("roundtrips castle-selection timeout packets", RoundtripsCastleSelectionTimeoutPackets),
+            ("wires the host castle-selection timeout setting", WiresHostCastleSelectionTimeoutSetting),
             ("rejects invalid free-castle decisions", RejectsInvalidFreeCastleDecisions),
             ("roundtrips Vanilla no-op AIV frames", RoundtripsVanillaNoOpFrames),
             ("accepts native Int16 AIV frame counts", AcceptsNativeInt16FrameCounts),
@@ -292,6 +295,71 @@ internal static class Program
             Assert(!roundtrip.HasCastle && roundtrip.RawData.Length == 0,
                 $"keep-only rotation {rotation} acquired castle data");
         }
+    }
+
+    private static void NormalizesAndFormatsCastleSelectionTimeouts()
+    {
+        Equal(60, FreeCastleProtocol.NormalizePreviewTimeoutSeconds(0));
+        Equal(60, FreeCastleProtocol.NormalizePreviewTimeoutSeconds(60));
+        Equal(120, FreeCastleProtocol.NormalizePreviewTimeoutSeconds(120));
+        Equal(600, FreeCastleProtocol.NormalizePreviewTimeoutSeconds(600));
+        Equal(600, FreeCastleProtocol.NormalizePreviewTimeoutSeconds(999));
+        Assert(FreeCastleProtocol.IsValidPreviewTimeoutSeconds(60),
+            "minimum castle-selection timeout was rejected");
+        Assert(FreeCastleProtocol.IsValidPreviewTimeoutSeconds(600),
+            "maximum castle-selection timeout was rejected");
+        Assert(!FreeCastleProtocol.IsValidPreviewTimeoutSeconds(59) &&
+                !FreeCastleProtocol.IsValidPreviewTimeoutSeconds(601),
+            "out-of-range castle-selection timeout was accepted");
+        Equal(120, FreeCastleProtocol.GetRemainingPreviewSeconds(120, 0));
+        Equal(60, FreeCastleProtocol.GetRemainingPreviewSeconds(120, 60));
+        Equal(0, FreeCastleProtocol.GetRemainingPreviewSeconds(120, 120));
+        Equal("01:00", FreeCastleProtocol.FormatPreviewTimer(60));
+        Equal("02:00", FreeCastleProtocol.FormatPreviewTimer(120));
+        Equal("10:00", FreeCastleProtocol.FormatPreviewTimer(600));
+    }
+
+    private static void RoundtripsCastleSelectionTimeoutPackets()
+    {
+        var packet = new FreeCastlePacket
+        {
+            ProtocolVersion = FreeCastleProtocol.ProtocolVersion,
+            Kind = (int)FreeCastlePacketKind.PreviewBegin,
+            OperationId = 42,
+            TimeoutSeconds = 600
+        };
+
+        byte[] encoded = MessagePack.MessagePackSerializer.Serialize(packet);
+        FreeCastlePacket decoded =
+            MessagePack.MessagePackSerializer.Deserialize<FreeCastlePacket>(encoded);
+        Equal(600, decoded.TimeoutSeconds);
+        Equal(42, decoded.OperationId);
+    }
+
+    private static void WiresHostCastleSelectionTimeoutSetting()
+    {
+        string root = FindCastlePlannerRoot();
+        string settings = File.ReadAllText(Path.Combine(
+            root, "src", "CastlePlannerSettingsViewModel.cs"));
+        string preview = File.ReadAllText(Path.Combine(
+            root, "src", "FreeCastlePreviewRuntime.cs"));
+        string xaml = File.ReadAllText(Path.Combine(
+            root, "BepInEx", "plugins", "CastlePlanner_Serp", "Override",
+            "ScriptExtenderUI", "CastlePlannerSettings.xaml"));
+
+        Assert(settings.Contains("[SyncHostOnly]", StringComparison.Ordinal) &&
+                settings.Contains("public int CastleSelectionTimeoutSeconds", StringComparison.Ordinal) &&
+                settings.Contains("FreeCastleProtocol.DefaultPreviewTimeoutSeconds", StringComparison.Ordinal),
+            "host timeout setting or its default is missing");
+        Assert(xaml.Contains("Minimum=\"60\" Maximum=\"600\"", StringComparison.Ordinal) &&
+                xaml.Contains("TickFrequency=\"1\"", StringComparison.Ordinal) &&
+                xaml.Contains("IsSnapToTickEnabled=\"True\"", StringComparison.Ordinal) &&
+                xaml.Contains("CastleSelectionTimeoutValueText", StringComparison.Ordinal),
+            "castle-selection timeout slider contract is incomplete");
+        Assert(preview.Contains("activeTimeoutSeconds = packet.TimeoutSeconds;", StringComparison.Ordinal) &&
+                preview.Contains("IsValidPreviewTimeoutSeconds", StringComparison.Ordinal) &&
+                !preview.Contains("private const int TimeoutSeconds", StringComparison.Ordinal),
+            "preview runtime does not use the validated host timeout");
     }
 
     private static void RejectsInvalidFreeCastleDecisions()

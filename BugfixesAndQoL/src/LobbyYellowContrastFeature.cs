@@ -1,6 +1,7 @@
 // Feature: Improve the yellow lobby team brush and yellow player shields everywhere.
 using BepInEx.Logging;
 using CrusaderDE;
+using MonoMod.RuntimeDetour;
 using Noesis;
 using System;
 using System.Reflection;
@@ -9,6 +10,8 @@ namespace BugfixesAndQoL
 {
     internal sealed class LobbyYellowContrastFeature
     {
+        private delegate MainViewModel MainViewModelInitDelegate();
+
         private const string GoldNormalResourceKey =
             "BugfixesAndQoL-LobbyGoldShieldNormal";
         private const string GoldHoverResourceKey =
@@ -26,6 +29,14 @@ namespace BugfixesAndQoL
             "UI-Buttons H033",
         };
 
+        private static readonly int[] VanillaShieldSpriteIndexes =
+        {
+            109,
+            354,
+            362,
+            465,
+        };
+
         private static readonly string[] GoldShieldResourceKeys =
         {
             GoldNormalResourceKey,
@@ -39,6 +50,8 @@ namespace BugfixesAndQoL
         private readonly FieldInfo teamYellowBarColourField;
         private readonly SolidColorBrush baselineTeamYellowBrush;
         private readonly SolidColorBrush goldTeamYellowBrush;
+        private readonly Hook mainViewModelInitHook;
+        private readonly MainViewModelInitDelegate mainViewModelInitOriginal;
 
         private ShieldMutation[] shieldMutations;
         private bool resourcesReady;
@@ -72,9 +85,43 @@ namespace BugfixesAndQoL
                 LobbyYellowContrastPolicy.GoldGreen,
                 LobbyYellowContrastPolicy.GoldBlue));
 
-            Shared.DebugLogHelper.LogDebug(
-                log,
-                "Bugfixes and QoL high-contrast yellow presentation initialized.");
+            Hook pending = null;
+            try
+            {
+                MethodInfo initMethod = typeof(MainViewModel).GetMethod(
+                    nameof(MainViewModel.INIT),
+                    BindingFlags.Static | BindingFlags.Public,
+                    null,
+                    Type.EmptyTypes,
+                    null);
+                if (initMethod == null || initMethod.ReturnType != typeof(MainViewModel))
+                {
+                    throw new MissingMethodException(
+                        typeof(MainViewModel).FullName,
+                        nameof(MainViewModel.INIT));
+                }
+
+                pending = new Hook(
+                    initMethod,
+                    (MainViewModelInitDelegate)MainViewModelInitPostHook,
+                    new HookConfig
+                    {
+                        ManualApply = true,
+                        ID = "BugfixesAndQoL.YellowContrast.MainViewModelInit",
+                    });
+                mainViewModelInitOriginal =
+                    pending.GenerateTrampoline<MainViewModelInitDelegate>();
+                pending.Apply();
+                mainViewModelInitHook = pending;
+                pending = null;
+            }
+            catch
+            {
+                try { pending?.Undo(); } catch { }
+                try { pending?.Dispose(); } catch { }
+                throw;
+            }
+
         }
 
         internal void ApplySetting()
@@ -85,10 +132,39 @@ namespace BugfixesAndQoL
                 return;
             }
 
-            if (!resourcesReady && !TryResolveResources())
+            // ApplySettings runs before Vanilla loads UI-MasterAtlas. Until INIT binds
+            // the authoritative resources, the enabled setting is only stored state.
+            if (!resourcesReady)
                 return;
 
             ApplyGoldPresentation();
+        }
+
+        private MainViewModel MainViewModelInitPostHook()
+        {
+            MainViewModel viewModel = mainViewModelInitOriginal();
+            bool firstBinding = !resourcesReady;
+            try
+            {
+                if (TryResolveResources(viewModel))
+                {
+                    ApplySetting();
+                    if (firstBinding && !faulted)
+                    {
+                        Shared.DebugLogHelper.LogDebug(
+                            log,
+                            "Bugfixes and QoL high-contrast yellow presentation ready; " +
+                            $"shields=4, enabled={IsActive}.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Never let a presentation failure escape through Vanilla's constructor.
+                DisableFailClosed("post-MainViewModel.INIT application", ex);
+            }
+
+            return viewModel;
         }
 
         private bool IsActive => LobbyYellowContrastPolicy.IsEnabled(
@@ -96,10 +172,17 @@ namespace BugfixesAndQoL
             settings.EnableClientFeatures,
             settings.ImproveYellowLobbyContrast);
 
-        private bool TryResolveResources()
+        private bool TryResolveResources(MainViewModel viewModel)
         {
             try
             {
+                if (viewModel == null || viewModel.GameSprites == null ||
+                    viewModel.GameSprites.Count <= VanillaShieldSpriteIndexes[3])
+                {
+                    throw new InvalidOperationException(
+                        "The authoritative MainViewModel has no complete GameSprites collection.");
+                }
+
                 ResourceDictionary resources = GUI.GetApplicationResources();
                 if (resources == null)
                 {
@@ -110,9 +193,14 @@ namespace BugfixesAndQoL
                 var resolved = new ShieldMutation[VanillaShieldResourceKeys.Length];
                 for (int index = 0; index < resolved.Length; index++)
                 {
-                    CroppedBitmap vanilla = RequireCroppedBitmap(
-                        resources,
-                        VanillaShieldResourceKeys[index]);
+                    CroppedBitmap vanilla =
+                        viewModel.GameSprites[VanillaShieldSpriteIndexes[index]] as CroppedBitmap;
+                    if (vanilla == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"GameSprites[{VanillaShieldSpriteIndexes[index]}] is not the " +
+                            $"expected CroppedBitmap for {VanillaShieldResourceKeys[index]}.");
+                    }
                     CroppedBitmap gold = RequireCroppedBitmap(
                         resources,
                         GoldShieldResourceKeys[index]);
@@ -141,6 +229,27 @@ namespace BugfixesAndQoL
                     }
                 }
 
+                if (resourcesReady && shieldMutations != null)
+                {
+                    bool sameGeneration = true;
+                    for (int index = 0; index < resolved.Length; index++)
+                    {
+                        if (!shieldMutations[index].Matches(resolved[index]))
+                        {
+                            sameGeneration = false;
+                            break;
+                        }
+                    }
+
+                    if (sameGeneration)
+                        return true;
+
+                    ReleaseCurrentGeneration();
+                    // Re-resolve after restoring the previous generation so overlapping
+                    // target objects capture their real, mod-effective baseline.
+                    return TryResolveResources(viewModel);
+                }
+
                 shieldMutations = resolved;
                 resourcesReady = true;
                 return true;
@@ -150,6 +259,35 @@ namespace BugfixesAndQoL
                 DisableFailClosed("resource resolution", ex);
                 return false;
             }
+        }
+
+        private void ReleaseCurrentGeneration()
+        {
+            foreach (ShieldMutation mutation in shieldMutations)
+            {
+                if (mutation.GetState() == LobbyYellowResourceState.Foreign)
+                {
+                    throw new InvalidOperationException(
+                        $"Yellow shield resource '{mutation.ResourceKey}' was changed by " +
+                        "another owner; its UI generation cannot be replaced safely.");
+                }
+            }
+
+            object currentTeamBrush = teamYellowBarColourField.GetValue(null);
+            if (!ReferenceEquals(currentTeamBrush, baselineTeamYellowBrush) &&
+                !ReferenceEquals(currentTeamBrush, goldTeamYellowBrush))
+            {
+                throw new InvalidOperationException(
+                    "The yellow lobby-team brush was changed by another owner; " +
+                    "its UI generation cannot be replaced safely.");
+            }
+
+            RestoreVanillaPresentation(false);
+            if (faulted)
+                throw new InvalidOperationException("The previous UI generation could not be restored.");
+
+            shieldMutations = null;
+            resourcesReady = false;
         }
 
         private void ApplyGoldPresentation()
@@ -318,6 +456,12 @@ namespace BugfixesAndQoL
 
             internal string ResourceKey { get; }
             internal CroppedBitmap Target { get; }
+
+            internal bool Matches(ShieldMutation candidate) =>
+                candidate != null &&
+                ReferenceEquals(Target, candidate.Target) &&
+                ReferenceEquals(goldSource, candidate.goldSource) &&
+                goldSourceRect.Equals(candidate.goldSourceRect);
 
             internal LobbyYellowResourceState GetState()
             {

@@ -97,6 +97,9 @@ Gatehouses now measure the distance to enemy based on their center, not based on
 
 ## Quality-of-life features
 
+### Improve yellow contrast
+The enabled-by-default local **Improve yellow contrast** option gives yellow lobby team rows a darker gold background and replaces the yellow player's shield with a matching dark-gold version throughout the interface. It changes only that player shield: unit and building colours, minimap colours, team shields, and other yellow interface elements remain unchanged.
+
 ### Skip AI and event notifications completely
 Right-click an AI or event notification video to stop its video, audio, and message text and immediately advance to the next queued notification. If the notification has no video, right-click the minimap instead. Left-clicking notification videos and normal minimap use keep their Vanilla behavior. This is an enabled-by-default per-player option.
 

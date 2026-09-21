@@ -65,7 +65,6 @@ namespace CastlePlanner
             public ulong SenderSteamId { get; }
         }
 
-        private const int TimeoutSeconds = 120;
         private readonly ManualLogSource log;
         private readonly CastlePlannerSettingsViewModel settings;
         private readonly HashSet<int> roster = new HashSet<int>();
@@ -107,6 +106,8 @@ namespace CastlePlanner
         private int operationId;
         private int unityMainThreadId;
         private int localPlayerId;
+        private int activeTimeoutSeconds =
+            FreeCastleProtocol.DefaultPreviewTimeoutSeconds;
         private bool realMultiplayer;
         private bool localConfirmed;
         private bool bypassPauseHook;
@@ -166,9 +167,12 @@ namespace CastlePlanner
             get
             {
                 int remaining = countdownStarted == 0
-                    ? TimeoutSeconds
-                    : Math.Max(0, TimeoutSeconds - (int)((Stopwatch.GetTimestamp() - countdownStarted) / Stopwatch.Frequency));
-                return $"{remaining / 60:00}:{remaining % 60:00}";
+                    ? activeTimeoutSeconds
+                    : FreeCastleProtocol.GetRemainingPreviewSeconds(
+                        activeTimeoutSeconds,
+                        (Stopwatch.GetTimestamp() - countdownStarted) /
+                            Stopwatch.Frequency);
+                return FreeCastleProtocol.FormatPreviewTimer(remaining);
             }
         }
         public string StatusText => localConfirmed
@@ -304,7 +308,10 @@ namespace CastlePlanner
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"Free-castle preview initialized: packetId={packetHook.GetPacketId()}, " +
-                $"timeout={TimeoutSeconds}s, mainThread={unityMainThreadId}, " +
+                $"defaultTimeout={FreeCastleProtocol.DefaultPreviewTimeoutSeconds}s, " +
+                $"timeoutRange={FreeCastleProtocol.MinimumPreviewTimeoutSeconds}-" +
+                $"{FreeCastleProtocol.MaximumPreviewTimeoutSeconds}s, " +
+                $"mainThread={unityMainThreadId}, " +
                 $"synchronizationContext={unitySynchronizationContext.GetType().FullName}, " +
                 "loadingWarningGuard=managed-generation.");
         }
@@ -442,6 +449,9 @@ namespace CastlePlanner
 
                 ResetPreview();
                 state = PreviewState.AwaitingGameplay;
+                activeTimeoutSeconds =
+                    FreeCastleProtocol.NormalizePreviewTimeoutSeconds(
+                        settings.CastleSelectionTimeoutSeconds);
                 operationId = unchecked((int)DateTime.UtcNow.Ticks) & int.MaxValue;
                 realMultiplayer = Shared.GameplayModActivationGate.Snapshot.IsRealMultiplayer;
                 localPlayerId = ResolveLocalPlayerId(out string identityError);
@@ -877,7 +887,16 @@ namespace CastlePlanner
         {
             if (kind == FreeCastlePacketKind.PreviewBegin)
             {
+                if (!FreeCastleProtocol.IsValidPreviewTimeoutSeconds(
+                        packet.TimeoutSeconds))
+                {
+                    throw new InvalidOperationException(
+                        $"Invalid host castle-selection timeout {packet.TimeoutSeconds}; " +
+                        $"expected {FreeCastleProtocol.MinimumPreviewTimeoutSeconds}-" +
+                        $"{FreeCastleProtocol.MaximumPreviewTimeoutSeconds} seconds.");
+                }
                 operationId = packet.OperationId;
+                activeTimeoutSeconds = packet.TimeoutSeconds;
                 countdownStarted = Stopwatch.GetTimestamp();
                 BeginSelection();
             }
@@ -1012,7 +1031,8 @@ namespace CastlePlanner
                 TrySendPreviewReady();
             }
             if (countdownStarted == 0 ||
-                Stopwatch.GetTimestamp() - countdownStarted < TimeoutSeconds * Stopwatch.Frequency)
+                Stopwatch.GetTimestamp() - countdownStarted <
+                    (long)activeTimeoutSeconds * Stopwatch.Frequency)
                 return;
             if (Platform_Multiplayer.Instance?.activeLobby?.isHost == true || !realMultiplayer)
             {
@@ -1457,7 +1477,7 @@ namespace CastlePlanner
                 Kind = (int)kind,
                 OperationId = operationId,
                 PlayerId = playerId,
-                TimeoutSeconds = TimeoutSeconds
+                TimeoutSeconds = activeTimeoutSeconds
             };
 
         private void SendToHost(FreeCastlePacket packet)
@@ -1537,6 +1557,7 @@ namespace CastlePlanner
             briefingObserved = false;
             localCatalogReady = false;
             catalogWaitLogged = false;
+            activeTimeoutSeconds = FreeCastleProtocol.DefaultPreviewTimeoutSeconds;
             countdownStarted = 0;
             lastReadySent = 0;
             lastAbortSent = 0;

@@ -5,6 +5,7 @@ param(
 )
 
 . (Join-Path $PSScriptRoot 'Release.Common.ps1')
+. (Join-Path $PSScriptRoot 'SCDEModManagerPackage.ps1')
 
 $metadata = $null
 $trackedChangesAfterBuild = @()
@@ -131,6 +132,14 @@ try {
     Compress-Archive -LiteralPath $stagePackage -DestinationPath $zipPath -CompressionLevel Optimal
     $zipHash = Get-Sha256Hex -Path $zipPath
 
+    $managerPackagePath = Join-Path $outputRoot "$baseName.scdemod"
+    $managerPackage = New-SCDEModManagerPackage -PluginDirectory $metadata.PackageDir -Info $metadata.Manifest `
+        -DestinationPath $managerPackagePath -WorkingDirectory $outputRoot -ApiSharedGuid ([string]$config.ApiShared.Guid) `
+        -ApiSharedConsumer:$apiSharedConsumer
+    $managerPackageHash = [string]$managerPackage.Sha256
+    $managerPackageHashPath = Join-Path $outputRoot "$baseName.scdemod.sha256"
+    Write-Utf8CrLfFile -Path $managerPackageHashPath -Text "$managerPackageHash  $baseName.scdemod"
+
     $auditRoot = Join-Path $outputRoot 'audit'
     Expand-Archive -LiteralPath $zipPath -DestinationPath $auditRoot
     $auditFiles = @(Get-ChildItem -LiteralPath $auditRoot -File -Recurse | Sort-Object FullName)
@@ -157,6 +166,15 @@ try {
         BuildStartedUtc = $buildStart.ToString('o')
         BuildCompletedUtc = [DateTime]::UtcNow.ToString('o')
         Package = [ordered]@{ Profile = 'Thin'; File = [IO.Path]::GetFileName($zipPath); Sha256 = $zipHash; Size = (Get-Item -LiteralPath $zipPath).Length }
+        ManagerPackage = [ordered]@{
+            Format = 'scdemod'
+            Id = [string]$managerPackage.Id
+            File = [IO.Path]::GetFileName($managerPackagePath)
+            Sha256 = $managerPackageHash
+            Size = [long]$managerPackage.Size
+            ScriptExtenderMinimum = [string]$managerPackage.Manifest.scriptExtender.minimumVersion
+            ScriptExtenderMaximum = [string]$managerPackage.Manifest.scriptExtender.maximumVersion
+        }
         ApiSharedRequirement = $(if ($apiSharedConsumer) { [ordered]@{
             MinimumVersion = $apiSharedMinimum
             ValidatedVersion = [string]$apiSharedPackage.Version
@@ -204,17 +222,19 @@ try {
         '',
         "Source commit: https://github.com/$($config.Repository)/commit/$commit",
         "Thin SHA-256: ``$zipHash``",
+        "SCDE Mod Manager SHA-256: ``$managerPackageHash``",
         ''
     ) + @(
         'Verify on Windows:',
         '',
         "    Get-FileHash $baseName.zip -Algorithm SHA256",
+        "    Get-FileHash $baseName.scdemod -Algorithm SHA256",
         '',
         'The attached provenance JSON records the package files, build tools, and dependency hashes. It is a documented statement by the repository owner, not an independently executed build.'
     )
     Write-Utf8CrLfFile -Path $notesPath -Text ($noteLines -join "`r`n")
 
-    $releaseAssets = @($zipPath, $shaPath, $provenancePath)
+    $releaseAssets = @($zipPath, $shaPath, $managerPackagePath, $managerPackageHashPath, $provenancePath)
 
     if ($null -eq $existingDraft) {
         [void](Invoke-CheckedCommand -FilePath 'gh' -Arguments (@('release', 'create', $metadata.Tag, '--repo', $config.Repository, '--draft', '--target', $commit, '--title', "$($metadata.Manifest.Name) v$($metadata.Version)", '--notes-file', $notesPath) + $releaseAssets))
