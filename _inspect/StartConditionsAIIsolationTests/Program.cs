@@ -117,6 +117,11 @@ internal static class Program
             "StartConditions",
             "src",
             "StartConditionsRuntime.AIStartTroopIsolation.cs"));
+        string diagnostics = File.ReadAllText(Path.Combine(
+            workspaceRoot,
+            "StartConditions",
+            "src",
+            "StartConditionsRuntime.AIStartTroopDiagnostics.cs"));
         string plugin = File.ReadAllText(Path.Combine(
             workspaceRoot,
             "StartConditions",
@@ -139,7 +144,8 @@ internal static class Program
 
         RequireContains(startTroops, "long createdId = GameUnitManagerAPI.Instance.CreateUnitLocal(");
         RequireContains(startTroops, "bool isolateFromAI = GamePlayerManagerAPI.Instance.IsAIPlayer(playerId);");
-        RequireContains(startTroops, "TryProtectSpawnedAIStartTroop(createdId, playerId, unitType);");
+        RequireContains(startTroops, "TryProtectSpawnedAIStartTroop(createdId, playerId, unitType)");
+        RequireContains(startTroops, "RecordAIStartTroopDiagnosticBatch(");
         RequireContains(isolation, "private const ushort ProtectedAIBehaviourType = ushort.MaxValue;");
         RequireContains(isolation, "private const ushort ProtectedAIBehaviourRelatedValue = 0;");
         RequireContains(isolation, "GameTribeManagerAPI.Instance.UnassignUnit(tribeId, unitId)");
@@ -162,6 +168,14 @@ internal static class Program
         RequireContains(isolation, "belongs to conflicting live tribe");
         RequireContains(isolation, "RepairFailureLog.ShouldLog(failureSignature)");
         RequireContains(isolation, "RepairFailureLog.MarkRecovered()");
+        RequireContains(diagnostics, "AIStartTroopDiagnosticOffsets = { 0, 1, 10, 250 }");
+        RequireContains(diagnostics, "int unitId = checked(spanIndex + 1);");
+        RequireContains(diagnostics, "defensiveTotal={resources->N00004014}");
+        RequireContains(diagnostics, "armySizeLimit={resources->N00003EF1}");
+        RequireContains(diagnostics, "roleBuckets=[{units.RoleBuckets}]");
+        RequireContains(diagnostics, "markerCorrect={units.MarkerCorrect}");
+        RequireContains(diagnostics, "privateTribeCorrect={units.PrivateTribeCorrect}");
+        RequireContains(diagnostics, "Shared.DebugLogHelper.IsCurrentNativeLibraryVersion()");
         RequireContains(startTroops, "LogError(\"AddStartTroops failed:\"");
         RequireContains(startTroops, "LogError(\"RunDelayedStartTroopProcessing failed:\"");
         RequireContains(mapLifecycle, "LogError(\"OnStartMap failed:\"");

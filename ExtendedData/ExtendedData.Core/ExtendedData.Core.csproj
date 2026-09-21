@@ -3,8 +3,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <RootNamespace>ExtendedData.Core</RootNamespace>
     <AssemblyName>ExtendedData.Core</AssemblyName>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
   </PropertyGroup>

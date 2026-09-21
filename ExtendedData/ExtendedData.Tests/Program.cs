@@ -18,6 +18,9 @@ var tests = new (string Name, Action Run)[]
     ("locally edited mission JSON reloads from the same slot", TestEditedMissionReload),
     ("invalid mod settings are isolated", TestInvalidModSettings),
     ("first two active players become allied humans", TestHumanProjection),
+    ("source alliances are normalized for Vanilla Coop", TestCanonicalTeamProjection),
+    ("complete multiplayer setup roundtrips", TestMultiplayerSetupRoundtrip),
+    ("malformed multiplayer setup is rejected", TestInvalidMultiplayerSetup),
     ("preferred AIV permits differing rotations", TestPreferredAiv),
     ("fourth trail tenth slot is addressable", TestLastCatalogSlot),
     ("package fingerprint detects content changes", TestPackageFingerprint),
@@ -1194,6 +1197,11 @@ static void TestCoopExporterIntegration()
         coordinator.Contains("CoopTrailPackageCatalog.Load(source)"),
         "Coop packages are not validated, listed, and staged through the unified Workshop uploader");
     Assert(exporter.Contains("ordinal < 40") && exporter.Contains("activeSlots.Count < 2"), "export limits or two-human validation are missing");
+    Assert(exporter.Contains("MissionProjection.Create(definition)") &&
+        exporter.Contains("Colour = Math.Max(1, Math.Min(8, colour))") &&
+        exporter.Contains("NativePreferredAiv = restart.MPsetupData.preferredAIVs[slot]") &&
+        exporter.Contains("MultiplayerSetup = new MultiplayerSetupSettings"),
+        "Coop export does not preserve normalized teams, colours, preferred AIVs, and complete setup data");
     Assert(exporter.Contains("ModSettingsJson.Read(sidecar)") &&
         exporter.Contains("ModSettingsJson.WriteAtomic(MissionLoader.GetModSettingsPath(jsonPath), modSettings)") &&
         !File.ReadAllText(Path.Combine(root, "ExtendedData.Core", "MissionDefinitionJson.cs")).Contains("[\"modSettings\"]"),
@@ -1226,6 +1234,12 @@ static void TestCoopExporterIntegration()
         "the ineffective timing-based first-visit refresh still exists");
     Assert(runtime.Contains("ReadyLock") && runtime.Contains("COOP_START") && runtime.Contains("AreAllHumanPlayersPackageReady"),
         "Ready/Play/COOP_START package validation is missing");
+    Assert(runtime.Contains("if (IsStartCommand(command))") &&
+        runtime.Contains("ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(") &&
+        runtime.IndexOf("ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(", StringComparison.Ordinal) <
+            runtime.IndexOf("buttonTrampoline(self, command)", StringComparison.Ordinal) &&
+        runtime.Contains("ApplyMultiplayerSetup(setupData, selected.Loaded.Definition.Settings.MultiplayerSetup)"),
+        "direct Coop start does not establish its launch origin and full setup before Vanilla starts");
     Assert(runtime.Contains("PlayerIdentityHelper.TryCaptureHumanRoster") &&
         runtime.Contains("requireAuthoritativeLobbyRoster: true") &&
         runtime.Contains("PlayerIdentityHelper.ResolvePlayerIdForSteamId") &&
@@ -1462,6 +1476,8 @@ static void TestOldMissionSchemasRejected()
     ExpectFailure(() => new MissionLoader().Load(schemaOne.JsonPath, 1, 1), "mission schema 1 was accepted");
     using Fixture schemaTwo = Fixture.Create(schemaVersion: 2);
     ExpectFailure(() => new MissionLoader().Load(schemaTwo.JsonPath, 1, 1), "mission schema 2 was accepted");
+    using Fixture schemaThree = Fixture.Create(schemaVersion: 3);
+    ExpectFailure(() => new MissionLoader().Load(schemaThree.JsonPath, 1, 1), "mission schema 3 was accepted");
 }
 
 static void TestOldPackageSchemaRejected()
@@ -1505,6 +1521,51 @@ static void TestHumanProjection()
     Assert(projection.Teams[0] == 1 && projection.Teams[1] == 1, "guest was not moved to host team");
     Assert(projection.Teams[2] == 2, "AI team changed");
     Assert(projection.KeepOrder.Take(3).SequenceEqual(new[] { 1, 2, 3 }), "keep order changed");
+}
+
+static void TestCanonicalTeamProjection()
+{
+    using Fixture fixture = Fixture.Create();
+    LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    loaded.Definition.Players = new List<PlayerDefinition>
+    {
+        new PlayerDefinition { Active = true, Team = 2, KeepPosition = 1 },
+        new PlayerDefinition { Active = true, Team = 2, KeepPosition = 2 },
+        new PlayerDefinition { Active = true, Team = 1, KeepPosition = 3, Lord = new LordReference { Source = "builtIn", Id = 1 } },
+        new PlayerDefinition { Active = true, Team = 1, KeepPosition = 4, Lord = new LordReference { Source = "builtIn", Id = 2 } },
+        new PlayerDefinition { Active = true, Team = 3, KeepPosition = 5, Lord = new LordReference { Source = "builtIn", Id = 3 } },
+    };
+    MissionProjection projection = MissionProjection.Create(loaded.Definition);
+    Assert(projection.Teams.Take(5).SequenceEqual(new[] { 1, 1, 2, 2, 3 }),
+        "source team equivalence was not normalized to Vanilla Coop team ids");
+}
+
+static void TestMultiplayerSetupRoundtrip()
+{
+    using Fixture fixture = Fixture.Create();
+    LoadedMission loaded = new MissionLoader().Load(fixture.JsonPath, 1, 1);
+    MultiplayerSetupSettings setup = loaded.Definition.Settings.MultiplayerSetup;
+    Assert(setup.StartingGameSpeed == 40 && setup.PeaceTime == 15 && setup.PreBuild == 1 &&
+        setup.Eunuchs == 1 && setup.ImprovedSieging2 == 1,
+        "multiplayer setup scalar values did not roundtrip");
+    Assert(setup.BuildingsAvailable.Length == 13 && setup.GoodsAvailable.Length == 25 &&
+        setup.TroopsAvailable.Length == 32 && setup.BuildingsAvailable.All(value => value == 1) &&
+        setup.GoodsAvailable.All(value => value == 1) && setup.TroopsAvailable.All(value => value == 1),
+        "multiplayer availability arrays did not roundtrip");
+    Assert(loaded.Definition.Players[0].Colour == 8, "player colour 8 did not roundtrip");
+    Assert(loaded.Definition.Players[2].NativePreferredAiv == 100,
+        "native preferred AIV did not roundtrip");
+}
+
+static void TestInvalidMultiplayerSetup()
+{
+    using Fixture fixture = Fixture.Create();
+    string json = File.ReadAllText(fixture.JsonPath);
+    string edited = json.Replace("\"buildingsAvailable\": [", "\"buildingsAvailable\": [2,");
+    Assert(!string.Equals(json, edited, StringComparison.Ordinal), "test fixture buildings array was not found");
+    File.WriteAllText(fixture.JsonPath, edited, new UTF8Encoding(false));
+    ExpectFailure(() => new MissionLoader().Load(fixture.JsonPath, 1, 1),
+        "invalid multiplayer availability value was accepted");
 }
 
 static void TestPreferredAiv()
@@ -1698,7 +1759,7 @@ sealed class Fixture : IDisposable
     public string JsonPath { get; private set; }
     public string SidecarPath { get; private set; }
 
-    public static Fixture Create(int aivRotation = 90, int? secondAivRotation = null, int preferredAiv = -1, int schemaVersion = 3, int startGold = 500, bool includeLegacyModSetting = false)
+    public static Fixture Create(int aivRotation = 90, int? secondAivRotation = null, int preferredAiv = -1, int schemaVersion = MissionLoader.CurrentSchemaVersion, int startGold = 500, bool includeLegacyModSetting = false)
     {
         string root = Path.Combine(Path.GetTempPath(), "ExtendedDataTests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
@@ -1711,9 +1772,37 @@ sealed class Fixture : IDisposable
             SchemaVersion = schemaVersion,
             DisplayName = "Test",
             Map = new MapReference { Source = "bundled", File = "map.map" },
+            Settings = new CoopSettings
+            {
+                Fairness = 3,
+                StartingGoodsLevel = 1,
+                MultiplayerSetup = new MultiplayerSetupSettings
+                {
+                    StartingGameSpeed = 40,
+                    WinCondition = 0,
+                    AllowAutoTrading = 1,
+                    NoKnockdownWalls = 1,
+                    AutoSave = 10,
+                    PeaceTime = 15,
+                    AdvancedSkirmishOptions = 1,
+                    PreBuild = 1,
+                    ImprovedArabSwordsmen = 1,
+                    ImprovedLaddermen = 1,
+                    ImprovedSpearmen = 1,
+                    RebalancedHorseArchers = 1,
+                    ImprovedFletchers = 1,
+                    ImprovedSieging = 1,
+                    Healers = 1,
+                    Eunuchs = 1,
+                    ImprovedSieging2 = 1,
+                    BuildingsAvailable = Enumerable.Repeat(1, 13).ToArray(),
+                    GoodsAvailable = Enumerable.Repeat(1, 25).ToArray(),
+                    TroopsAvailable = Enumerable.Repeat(1, 32).ToArray(),
+                },
+            },
             Players = new List<PlayerDefinition>
             {
-                new PlayerDefinition { KeepPosition = 1, Team = 1, Colour = 0 },
+                new PlayerDefinition { KeepPosition = 1, Team = 1, Colour = 8 },
                 new PlayerDefinition { KeepPosition = 2, Team = 4, Colour = 1 },
                 new PlayerDefinition
                 {
@@ -1726,6 +1815,7 @@ sealed class Fixture : IDisposable
                         new AivReference { Source = "bundled", File = "castle.aivjson", Rotation = aivRotation },
                     },
                     PreferredAiv = preferredAiv,
+                    NativePreferredAiv = 100,
                 },
             },
             ModSettings = ModSettingsDefinition.CreateModDefaults(),
@@ -1751,7 +1841,7 @@ sealed class Fixture : IDisposable
         {
             string json = File.ReadAllText(jsonPath, Encoding.UTF8);
             if (requestedSchemaVersion != MissionLoader.CurrentSchemaVersion)
-                json = json.Replace("\"schemaVersion\": 3", "\"schemaVersion\": " + requestedSchemaVersion, StringComparison.Ordinal);
+                json = json.Replace("\"schemaVersion\": " + MissionLoader.CurrentSchemaVersion, "\"schemaVersion\": " + requestedSchemaVersion, StringComparison.Ordinal);
             if (requestedAivRotation != definition.Players[2].Aivs[0].Rotation)
                 json = json.Replace("\"rotation\": 90", "\"rotation\": " + requestedAivRotation, StringComparison.Ordinal);
             File.WriteAllText(jsonPath, json, new UTF8Encoding(false));

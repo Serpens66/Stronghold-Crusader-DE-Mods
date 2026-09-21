@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "displayName": "Meine Coop-Mission",
   "description": "Host und Gast verteidigen gemeinsam die Oase.",
   "map": {
@@ -14,13 +14,46 @@
     "allowStockadeHost": true,
     "allowBarracksGuest": true,
     "allowMercenaryPostGuest": true,
-    "allowStockadeGuest": true
+    "allowStockadeGuest": true,
+    "multiplayerSetup": {
+      "startingGameSpeed": 40,
+      "winCondition": 0,
+      "allowAutoTrading": 1,
+      "noKnockdownWalls": 1,
+      "autoSave": 10,
+      "peaceTime": 15,
+      "noCows": 0,
+      "noDogs": 0,
+      "extremeTroops": 1,
+      "extremePowers": 0,
+      "extremePowersAroundLord": 0,
+      "allowOutposts": 0,
+      "advancedOptions": 0,
+      "advancedSkirmishOptions": 1,
+      "preBuild": 1,
+      "improvedArabSwordsmen": 1,
+      "improvedLaddermen": 1,
+      "improvedSpearmen": 1,
+      "rebalancedHorseArchers": 1,
+      "improvedFletchers": 1,
+      "uncappedPeasants": 0,
+      "fasterPeasants": 0,
+      "enemyHitPoints": 0,
+      "improvedSieging": 1,
+      "healers": 1,
+      "eunuchs": 1,
+      "noGold": 0,
+      "improvedSieging2": 1,
+      "buildingsAvailable": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      "goodsAvailable": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+      "troopsAvailable": [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    }
   },
   "players": [
     {
       "active": true,
       "team": 1,
-      "colour": 0,
+      "colour": 8,
       "keepPosition": 1
     },
     {
@@ -53,7 +86,8 @@
           "rotation": 90
         }
       ],
-      "preferredAiv": -1
+      "preferredAiv": -1,
+      "nativePreferredAiv": 100
     }
   ]
 }

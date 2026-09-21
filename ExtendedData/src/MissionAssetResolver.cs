@@ -35,10 +35,9 @@ namespace ExtendedData
                 FRONT_Multiplayer.MPAIVInfo info = ResolveAi(loaded, player);
                 resolved.AiInfoByPlayerIndex[index] = info;
                 aiIds.Add(MissionProjection.GetBaseLordId(player) + 1);
-                int rotation = player.PreferredAiv >= 0
-                    ? player.Aivs[player.PreferredAiv].Rotation
-                    : (player.Aivs.Count > 0 ? player.Aivs[0].Rotation : 0);
-                preferredAivs.Add(-(rotation / 90) - 1);
+                int preferredAiv = player.NativePreferredAiv.Value;
+                preferredAivs.Add(preferredAiv);
+                resolved.PreferredAivByPlayerIndex[index] = preferredAiv;
             }
 
             CoopSettings settings = definition.Settings;

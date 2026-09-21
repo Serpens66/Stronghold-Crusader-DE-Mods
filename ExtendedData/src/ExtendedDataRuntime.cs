@@ -299,7 +299,12 @@ namespace ExtendedData
                 try
                 {
                     if (IsStartCommand(command))
+                    {
                         ApplySelectedMission(self, false);
+                        ExtendedDataLaunchOriginApi.SetCustomizedCoopTrail(
+                            selected.Loaded.TrailNumber - 1,
+                            selected.Loaded.MissionNumber);
+                    }
                     ActivateSelectedMissionSettingsUnlessMap(
                         self,
                         editable: false,
@@ -513,16 +518,17 @@ namespace ExtendedData
 
         private void ApplySelectedMission(FRONT_Multiplayer self, bool updateHost)
         {
-            if (selected == null)
+            if (selected == null || self == null)
                 return;
             if (self.AIVs == null || self.AIVs.Length != 8)
                 self.AIVs = Enumerable.Range(0, 8).Select(_ => new FRONT_Multiplayer.MPAIVInfo()).ToArray();
 
             EngineInterface.MultiplayerSetupData setupData = (EngineInterface.MultiplayerSetupData)MpSetupDataField.GetValue(self);
+            ApplyMultiplayerSetup(setupData, selected.Loaded.Definition.Settings.MultiplayerSetup);
             foreach (KeyValuePair<int, FRONT_Multiplayer.MPAIVInfo> entry in selected.AiInfoByPlayerIndex)
             {
                 self.AIVs[entry.Key] = entry.Value;
-                setupData.preferredAIVs[entry.Key] = -entry.Value.rotation - 1;
+                setupData.preferredAIVs[entry.Key] = selected.PreferredAivByPlayerIndex[entry.Key];
             }
 
             List<PlayerDefinition> players = selected.Loaded.Definition.Players.Where(player => player != null && player.Active).ToList();
@@ -537,6 +543,46 @@ namespace ExtendedData
             MainViewModel.Instance.StandaloneMissionText = BuildMissionDescription();
             if (updateHost && self.currentLobby != null && self.currentLobby.isHost)
                 UpdateHostInfoMethod.Invoke(self, new object[] { false });
+        }
+
+        private static void ApplyMultiplayerSetup(
+            EngineInterface.MultiplayerSetupData target,
+            MultiplayerSetupSettings source)
+        {
+            if (target == null || source == null)
+                return;
+            target.starting_gamespeed = source.StartingGameSpeed;
+            target.win_condition = source.WinCondition;
+            target.allow_autotrading = source.AllowAutoTrading;
+            target.no_knockdown_walls = source.NoKnockdownWalls;
+            target.autosave = source.AutoSave;
+            target.peacetime = source.PeaceTime;
+            target.no_cows = source.NoCows;
+            target.no_dogs = source.NoDogs;
+            target.extreme_troops = source.ExtremeTroops;
+            target.extreme_powers = source.ExtremePowers;
+            target.extreme_powers_around_lord = source.ExtremePowersAroundLord;
+            target.allow_outposts = source.AllowOutposts;
+            target.advanced_options = source.AdvancedOptions;
+            target.advanced_skirmish_options = source.AdvancedSkirmishOptions;
+            target.advopt_pre_build = source.PreBuild;
+            target.advopt_improved_arabswordsmen = source.ImprovedArabSwordsmen;
+            target.advopt_improved_laddermen = source.ImprovedLaddermen;
+            target.advopt_improved_spearmen = source.ImprovedSpearmen;
+            target.advopt_rebalanced_horsearchers = source.RebalancedHorseArchers;
+            target.advopt_improved_fletchers = source.ImprovedFletchers;
+            target.advopt_uncapped_peasants = source.UncappedPeasants;
+            target.advopt_faster_peasants = source.FasterPeasants;
+            target.advopt_enemy_hps = source.EnemyHitPoints;
+            target.global_improved_sieging = source.ImprovedSieging;
+            target.advopt_healers = source.Healers;
+            target.advopt_eunuchs = source.Eunuchs;
+            target.advopt_nogold = source.NoGold;
+            target.global_improved_sieging2 = source.ImprovedSieging2;
+            for (int index = 3; index < source.BuildingsAvailable.Length; index++)
+                target.MP_BuildingsAvailable[index] = source.BuildingsAvailable[index];
+            Array.Copy(source.GoodsAvailable, target.MP_GoodsAvailable, source.GoodsAvailable.Length);
+            Array.Copy(source.TroopsAvailable, target.MP_TroopsAvailable, source.TroopsAvailable.Length);
         }
 
         private string BuildMissionDescription()
@@ -850,6 +896,7 @@ namespace ExtendedData
             // Clients do not execute the host's COOP_START button handler. The authenticated
             // transition supplies the missing launch boundary before OnUnloadMap clears presets.
             selected = mission;
+            ApplySelectedMission(GetExistingMainViewModel()?.FRONTMultiplayer, false);
             ActivateSelectedMissionSettingsUnlessMap(
                 GetExistingMainViewModel()?.FRONTMultiplayer,
                 editable: false,

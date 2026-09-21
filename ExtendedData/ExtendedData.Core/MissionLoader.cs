@@ -8,7 +8,7 @@ namespace ExtendedData.Core
 {
     public sealed class MissionLoader
     {
-        public const int CurrentSchemaVersion = 3;
+        public const int CurrentSchemaVersion = 4;
         public const string ModSettingsFileSuffix = ".modtrail.json";
         private static readonly HashSet<int> Rotations = new HashSet<int> { 0, 90, 180, 270 };
 
@@ -96,6 +96,9 @@ namespace ExtendedData.Core
                 throw new InvalidDataException("settings.fairness must be between 1 and 5.");
             if (mission.Settings.StartingGoodsLevel < 1 || mission.Settings.StartingGoodsLevel > 4)
                 throw new InvalidDataException("settings.startingGoodsLevel must be between 1 and 4.");
+            if (mission.Settings.MultiplayerSetup == null)
+                throw new InvalidDataException("settings.multiplayerSetup is required.");
+            ValidateMultiplayerSetup(mission.Settings.MultiplayerSetup);
             if (mission.Players == null)
                 throw new InvalidDataException("players is required.");
 
@@ -110,8 +113,8 @@ namespace ExtendedData.Core
                     throw new InvalidDataException("Every active player needs a unique keepPosition from 1 through 8.");
                 if (player.Team < 1 || player.Team > 8)
                     throw new InvalidDataException("Player team must be between 1 and 8.");
-                if (player.Colour < 0 || player.Colour > 7)
-                    throw new InvalidDataException("Player colour must be between 0 and 7.");
+                if (player.Colour < 1 || player.Colour > 8)
+                    throw new InvalidDataException("Player colour must be between 1 and 8.");
                 if (i < 2)
                     continue;
                 if (player.Lord == null)
@@ -131,8 +134,67 @@ namespace ExtendedData.Core
                     throw new InvalidDataException("preferredAiv must be -1 or an index into aivs.");
                 if (player.PreferredAiv < 0 && player.Aivs.Select(aiv => aiv.Rotation).Distinct().Count() > 1)
                     throw new InvalidDataException("All selectable AIVs need the same rotation unless preferredAiv selects one explicitly.");
+                if (player.NativePreferredAiv.HasValue &&
+                    (player.NativePreferredAiv.Value < -4 || player.NativePreferredAiv.Value > 99999))
+                    throw new InvalidDataException("nativePreferredAiv must be between -4 and 99999.");
+                if (!player.NativePreferredAiv.HasValue)
+                    throw new InvalidDataException("Every AI player requires nativePreferredAiv.");
             }
 
+        }
+
+        private static void ValidateMultiplayerSetup(MultiplayerSetupSettings setup)
+        {
+            if (setup == null)
+                return;
+            ValidateRange(setup.StartingGameSpeed, 0, 1000, "settings.multiplayerSetup.startingGameSpeed");
+            ValidateRange(setup.WinCondition, 0, 100, "settings.multiplayerSetup.winCondition");
+            ValidateRange(setup.AutoSave, 0, 10000, "settings.multiplayerSetup.autoSave");
+            ValidateRange(setup.PeaceTime, 0, 10000, "settings.multiplayerSetup.peaceTime");
+            ValidateFlag(setup.AllowAutoTrading, "allowAutoTrading");
+            ValidateFlag(setup.NoKnockdownWalls, "noKnockdownWalls");
+            ValidateFlag(setup.NoCows, "noCows");
+            ValidateFlag(setup.NoDogs, "noDogs");
+            ValidateFlag(setup.ExtremeTroops, "extremeTroops");
+            ValidateFlag(setup.ExtremePowers, "extremePowers");
+            ValidateFlag(setup.ExtremePowersAroundLord, "extremePowersAroundLord");
+            ValidateFlag(setup.AllowOutposts, "allowOutposts");
+            ValidateFlag(setup.AdvancedOptions, "advancedOptions");
+            ValidateFlag(setup.AdvancedSkirmishOptions, "advancedSkirmishOptions");
+            ValidateFlag(setup.PreBuild, "preBuild");
+            ValidateFlag(setup.ImprovedArabSwordsmen, "improvedArabSwordsmen");
+            ValidateFlag(setup.ImprovedLaddermen, "improvedLaddermen");
+            ValidateFlag(setup.ImprovedSpearmen, "improvedSpearmen");
+            ValidateFlag(setup.RebalancedHorseArchers, "rebalancedHorseArchers");
+            ValidateFlag(setup.ImprovedFletchers, "improvedFletchers");
+            ValidateFlag(setup.UncappedPeasants, "uncappedPeasants");
+            ValidateFlag(setup.FasterPeasants, "fasterPeasants");
+            ValidateRange(setup.EnemyHitPoints, 0, 3, "settings.multiplayerSetup.enemyHitPoints");
+            ValidateFlag(setup.ImprovedSieging, "improvedSieging");
+            ValidateFlag(setup.Healers, "healers");
+            ValidateFlag(setup.Eunuchs, "eunuchs");
+            ValidateFlag(setup.NoGold, "noGold");
+            ValidateFlag(setup.ImprovedSieging2, "improvedSieging2");
+            ValidateAvailability(setup.BuildingsAvailable, 13, "buildingsAvailable");
+            ValidateAvailability(setup.GoodsAvailable, 25, "goodsAvailable");
+            ValidateAvailability(setup.TroopsAvailable, 32, "troopsAvailable");
+        }
+
+        private static void ValidateFlag(int value, string name) =>
+            ValidateRange(value, 0, 1, "settings.multiplayerSetup." + name);
+
+        private static void ValidateAvailability(int[] values, int expectedLength, string name)
+        {
+            if (values == null || values.Length != expectedLength)
+                throw new InvalidDataException("settings.multiplayerSetup." + name + " must contain exactly " + expectedLength + " entries.");
+            for (int index = 0; index < values.Length; index++)
+                ValidateRange(values[index], 0, 1, "settings.multiplayerSetup." + name + "[" + index + "]");
+        }
+
+        private static void ValidateRange(int value, int minimum, int maximum, string name)
+        {
+            if (value < minimum || value > maximum)
+                throw new InvalidDataException(name + " must be between " + minimum + " and " + maximum + ".");
         }
 
         private static void ValidateAsset(AssetReference asset, string label, string extension)

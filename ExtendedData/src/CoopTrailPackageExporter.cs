@@ -184,12 +184,15 @@ namespace ExtendedData
                     Active = true,
                     KeepPosition = keepPosition,
                     Team = Math.Max(1, Math.Min(8, team)),
-                    Colour = Math.Max(0, Math.Min(7, colour)),
+                    Colour = Math.Max(1, Math.Min(8, colour)),
                 };
                 if (activeIndex >= 2)
                     PopulateAi(player, restart, slot, assetRoot, activeIndex + 1);
                 definition.Players.Add(player);
             }
+            MissionProjection projection = MissionProjection.Create(definition);
+            for (int index = 0; index < projection.ActivePlayers.Count; index++)
+                projection.ActivePlayers[index].Team = projection.Teams[index];
             return definition;
         }
 
@@ -218,7 +221,48 @@ namespace ExtendedData
                 AllowBarracksGuest = barracks,
                 AllowMercenaryPostGuest = mercenaryPost,
                 AllowStockadeGuest = stockade,
+                MultiplayerSetup = new MultiplayerSetupSettings
+                {
+                    StartingGameSpeed = setup.starting_gamespeed,
+                    WinCondition = setup.win_condition,
+                    AllowAutoTrading = setup.allow_autotrading,
+                    NoKnockdownWalls = setup.no_knockdown_walls,
+                    AutoSave = setup.autosave,
+                    PeaceTime = setup.peacetime,
+                    NoCows = setup.no_cows,
+                    NoDogs = setup.no_dogs,
+                    ExtremeTroops = setup.extreme_troops,
+                    ExtremePowers = setup.extreme_powers,
+                    ExtremePowersAroundLord = setup.extreme_powers_around_lord,
+                    AllowOutposts = setup.allow_outposts,
+                    AdvancedOptions = setup.advanced_options,
+                    AdvancedSkirmishOptions = setup.advanced_skirmish_options,
+                    PreBuild = setup.advopt_pre_build,
+                    ImprovedArabSwordsmen = setup.advopt_improved_arabswordsmen,
+                    ImprovedLaddermen = setup.advopt_improved_laddermen,
+                    ImprovedSpearmen = setup.advopt_improved_spearmen,
+                    RebalancedHorseArchers = setup.advopt_rebalanced_horsearchers,
+                    ImprovedFletchers = setup.advopt_improved_fletchers,
+                    UncappedPeasants = setup.advopt_uncapped_peasants,
+                    FasterPeasants = setup.advopt_faster_peasants,
+                    EnemyHitPoints = setup.advopt_enemy_hps,
+                    ImprovedSieging = setup.global_improved_sieging,
+                    Healers = setup.advopt_healers,
+                    Eunuchs = setup.advopt_eunuchs,
+                    NoGold = setup.advopt_nogold,
+                    ImprovedSieging2 = setup.global_improved_sieging2,
+                    BuildingsAvailable = CopyRequiredArray(setup.MP_BuildingsAvailable, 13, "buildings"),
+                    GoodsAvailable = CopyRequiredArray(setup.MP_GoodsAvailable, 25, "goods"),
+                    TroopsAvailable = CopyRequiredArray(setup.MP_TroopsAvailable, 32, "troops"),
+                },
             };
+        }
+
+        private static int[] CopyRequiredArray(int[] source, int expectedLength, string label)
+        {
+            if (source == null || source.Length != expectedLength)
+                throw new InvalidDataException("Saved multiplayer setup has no complete " + label + " availability array.");
+            return source.ToArray();
         }
 
         private static void PopulateAi(
@@ -281,6 +325,9 @@ namespace ExtendedData
                 }
             }
             player.PreferredAiv = -1;
+            if (restart.MPsetupData.preferredAIVs == null || restart.MPsetupData.preferredAIVs.Length != 8)
+                throw new InvalidDataException("Saved multiplayer setup has no complete preferred-AIV array.");
+            player.NativePreferredAiv = restart.MPsetupData.preferredAIVs[slot];
         }
 
         private static string ResolveLordConfigFile(FRONT_Multiplayer.MPAIVInfo info)

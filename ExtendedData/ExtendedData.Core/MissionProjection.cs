@@ -16,10 +16,23 @@ namespace ExtendedData.Core
             int[] keepOrder = Enumerable.Repeat(-1, 8).ToArray();
             int[] teams = new int[8];
             int humanTeam = players[0].Team;
+            var normalizedTeams = new Dictionary<int, int>();
+            normalizedTeams[humanTeam] = 1;
+            int nextTeam = 2;
             for (int index = 0; index < players.Count; index++)
             {
                 keepOrder[index] = players[index].KeepPosition;
-                teams[index] = index < 2 ? humanTeam : players[index].Team;
+                if (index < 2 || players[index].Team == humanTeam)
+                {
+                    teams[index] = 1;
+                    continue;
+                }
+                if (!normalizedTeams.TryGetValue(players[index].Team, out int normalizedTeam))
+                {
+                    normalizedTeam = nextTeam++;
+                    normalizedTeams[players[index].Team] = normalizedTeam;
+                }
+                teams[index] = normalizedTeam;
             }
 
             return new MissionProjection

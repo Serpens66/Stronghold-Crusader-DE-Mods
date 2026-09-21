@@ -50,6 +50,42 @@ namespace ExtendedData.Core
         public bool AllowBarracksGuest { get; set; } = true;
         public bool AllowMercenaryPostGuest { get; set; } = true;
         public bool AllowStockadeGuest { get; set; } = true;
+        public MultiplayerSetupSettings MultiplayerSetup { get; set; }
+    }
+
+    public sealed class MultiplayerSetupSettings
+    {
+        public int StartingGameSpeed { get; set; }
+        public int WinCondition { get; set; }
+        public int AllowAutoTrading { get; set; }
+        public int NoKnockdownWalls { get; set; }
+        public int AutoSave { get; set; }
+        public int PeaceTime { get; set; }
+        public int NoCows { get; set; }
+        public int NoDogs { get; set; }
+        public int ExtremeTroops { get; set; }
+        public int ExtremePowers { get; set; }
+        public int ExtremePowersAroundLord { get; set; }
+        public int AllowOutposts { get; set; }
+        public int AdvancedOptions { get; set; }
+        public int AdvancedSkirmishOptions { get; set; }
+        public int PreBuild { get; set; }
+        public int ImprovedArabSwordsmen { get; set; }
+        public int ImprovedLaddermen { get; set; }
+        public int ImprovedSpearmen { get; set; }
+        public int RebalancedHorseArchers { get; set; }
+        public int ImprovedFletchers { get; set; }
+        public int UncappedPeasants { get; set; }
+        public int FasterPeasants { get; set; }
+        public int EnemyHitPoints { get; set; }
+        public int ImprovedSieging { get; set; }
+        public int Healers { get; set; }
+        public int Eunuchs { get; set; }
+        public int NoGold { get; set; }
+        public int ImprovedSieging2 { get; set; }
+        public int[] BuildingsAvailable { get; set; }
+        public int[] GoodsAvailable { get; set; }
+        public int[] TroopsAvailable { get; set; }
     }
 
     public sealed class PlayerDefinition
@@ -61,6 +97,7 @@ namespace ExtendedData.Core
         public LordReference Lord { get; set; }
         public List<AivReference> Aivs { get; set; } = new List<AivReference>();
         public int PreferredAiv { get; set; } = -1;
+        public int? NativePreferredAiv { get; set; }
     }
 
     public class AssetReference
