@@ -89,6 +89,10 @@ namespace BugfixesAndQoL
         private readonly LocalPerPlayerSetting<bool> enableEnemyProximityBulldozeCursorFix = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> enableIngameSteamInvitePrompt = new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<bool> showSelectedUnitHealth = new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> improveYellowLobbyContrast =
+            new LocalPerPlayerSetting<bool>(true);
+        private readonly LocalPerPlayerSetting<bool> enableBriefingNoStartingGoldFix =
+            new LocalPerPlayerSetting<bool>(true);
         private readonly LocalPerPlayerSetting<int> statisticsTeamBadgeMode =
             new LocalPerPlayerSetting<int>(SurrenderPolicy.DefaultStatisticsTeamBadgeMode);
         private readonly LocalPerPlayerSetting<bool> enableTroopHudMiddleClickCameraJump =
@@ -128,6 +132,8 @@ namespace BugfixesAndQoL
                 nameof(EnableEnemyProximityBulldozeCursorFix),
                 nameof(EnableIngameSteamInvitePrompt),
                 nameof(ShowSelectedUnitHealth),
+                nameof(ImproveYellowLobbyContrast),
+                nameof(EnableBriefingNoStartingGoldFix),
                 nameof(EnableTroopHudMiddleClickCameraJump),
                 nameof(EnableClientFeatures),
                 nameof(AllowMinimapWhilePlacingBuilding),
@@ -289,6 +295,14 @@ namespace BugfixesAndQoL
         public string ClearSteamInviteBlacklistHelpText => SerpLocalization.Get("BugfixesAndQoL.ClearSteamInviteBlacklistHelp");
         public string ShowSelectedUnitHealthText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealth");
         public string ShowSelectedUnitHealthHelpText => SerpLocalization.Get("BugfixesAndQoL.ShowSelectedUnitHealthHelp");
+        public string ImproveYellowLobbyContrastText =>
+            SerpLocalization.Get("BugfixesAndQoL.ImproveYellowLobbyContrast");
+        public string ImproveYellowLobbyContrastHelpText =>
+            SerpLocalization.Get("BugfixesAndQoL.ImproveYellowLobbyContrastHelp");
+        public string EnableBriefingNoStartingGoldFixText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableBriefingNoStartingGoldFix");
+        public string EnableBriefingNoStartingGoldFixHelpText =>
+            SerpLocalization.Get("BugfixesAndQoL.EnableBriefingNoStartingGoldFixHelp");
         public string StatisticsTeamBadgeModeText =>
             SerpLocalization.Get("BugfixesAndQoL.StatisticsTeamBadgeMode");
         public string StatisticsTeamBadgeModeHelpText =>
@@ -431,6 +445,8 @@ namespace BugfixesAndQoL
         public bool[] EnableEnemyProximityBulldozeCursorFixData => enableEnemyProximityBulldozeCursorFix.Data;
         public bool[] EnableIngameSteamInvitePromptData => enableIngameSteamInvitePrompt.Data;
         public bool[] ShowSelectedUnitHealthData => showSelectedUnitHealth.Data;
+        public bool[] ImproveYellowLobbyContrastData => improveYellowLobbyContrast.Data;
+        public bool[] EnableBriefingNoStartingGoldFixData => enableBriefingNoStartingGoldFix.Data;
         public int[] StatisticsTeamBadgeModeData => statisticsTeamBadgeMode.Data;
         public bool[] EnableTroopHudMiddleClickCameraJumpData => enableTroopHudMiddleClickCameraJump.Data;
         public bool[] EnableClientFeaturesData => enableClientFeatures.Data;
@@ -521,6 +537,26 @@ namespace BugfixesAndQoL
         {
             get => showSelectedUnitHealth.Value;
             set => SetPlayerSetting(showSelectedUnitHealth, value, nameof(ShowSelectedUnitHealth));
+        }
+
+        [SyncPerPlayer]
+        public bool ImproveYellowLobbyContrast
+        {
+            get => improveYellowLobbyContrast.Value;
+            set => SetPlayerSetting(
+                improveYellowLobbyContrast,
+                value,
+                nameof(ImproveYellowLobbyContrast));
+        }
+
+        [SyncPerPlayer]
+        public bool EnableBriefingNoStartingGoldFix
+        {
+            get => enableBriefingNoStartingGoldFix.Value;
+            set => SetPlayerSetting(
+                enableBriefingNoStartingGoldFix,
+                value,
+                nameof(EnableBriefingNoStartingGoldFix));
         }
 
         [SyncPerPlayer]
@@ -1213,6 +1249,8 @@ namespace BugfixesAndQoL
             EnableEnemyProximityBulldozeCursorFix = true;
             EnableIngameSteamInvitePrompt = true;
             ShowSelectedUnitHealth = true;
+            ImproveYellowLobbyContrast = true;
+            EnableBriefingNoStartingGoldFix = true;
             StatisticsTeamBadgeMode = SurrenderPolicy.DefaultStatisticsTeamBadgeMode;
             EnableTroopHudMiddleClickCameraJump = true;
             EnableDisbandedUnitControlGroupCleanup = true;
@@ -1269,6 +1307,8 @@ namespace BugfixesAndQoL
             enableEnemyProximityBulldozeCursorFix.TrySetLocalPlayerId(playerId);
             enableIngameSteamInvitePrompt.TrySetLocalPlayerId(playerId);
             showSelectedUnitHealth.TrySetLocalPlayerId(playerId);
+            improveYellowLobbyContrast.TrySetLocalPlayerId(playerId);
+            enableBriefingNoStartingGoldFix.TrySetLocalPlayerId(playerId);
             statisticsTeamBadgeMode.TrySetLocalPlayerId(playerId);
             allowMinimapWhilePlacingBuilding.TrySetLocalPlayerId(playerId);
             preventMoveOrderOnPlacementCancel.TrySetLocalPlayerId(playerId);

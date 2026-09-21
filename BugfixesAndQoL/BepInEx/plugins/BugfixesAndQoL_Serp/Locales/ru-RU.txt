@@ -1,4 +1,6 @@
 # Serp mod localization
+BugfixesAndQoL.EnableBriefingNoStartingGoldFix=Correct "No Starting Gold" briefing display
+BugfixesAndQoL.EnableBriefingNoStartingGoldFixHelp=Shows 0 gold for human players in the mission briefing when Vanilla's advanced "No Starting Gold" option is enabled. AI players and gameplay remain unchanged. This is a per-player setting.
 BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayer=Show MP advanced Settings in SP
 BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayerHelp=Shows Vanilla's multiplayer Game Options dialog in local Skirmish games. Peace Time, restrictions, advanced options and shared presets use Vanilla's setup data.
 # Format: key=value
@@ -167,6 +169,8 @@ BugfixesAndQoL.SurrenderConfirmationTitle=Surrender
 BugfixesAndQoL.SurrenderConfirmationMessage=Are you sure you want to surrender the current match? This is final and counts as a defeat.
 BugfixesAndQoL.ShowSelectedUnitHealth=Show selected unit health in the troop HUD
 BugfixesAndQoL.ShowSelectedUnitHealthHelp=Shows current and maximum health for the selected units in the troop HUD. Multiple units are displayed as summed values. This is a per-player setting.
+BugfixesAndQoL.ImproveYellowLobbyContrast=Higher-contrast yellow
+BugfixesAndQoL.ImproveYellowLobbyContrastHelp=Uses dark gold for the yellow player shield throughout the game and for yellow team rows in the skirmish and multiplayer lobby. Units, buildings, the minimap, team shields, and other yellow interface elements remain unchanged. This is a per-player setting.
 BugfixesAndQoL.StatisticsTeamBadgeMode=Team markers in statistics
 BugfixesAndQoL.StatisticsTeamBadgeModeHelp=Shows each player's team at the lower-left corner of their personal shield on both statistics pages. This is a per-player setting.
 BugfixesAndQoL.StatisticsTeamBadgeModeOff=Off

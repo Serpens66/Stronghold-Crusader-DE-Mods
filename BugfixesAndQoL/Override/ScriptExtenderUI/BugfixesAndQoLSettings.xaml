@@ -85,6 +85,18 @@
                 Margin="0,0,14,8">
         <TextBlock Text="{Binding ShowSelectedUnitHealthText}" Foreground="White" TextWrapping="Wrap"/>
       </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.improve-yellow-lobby-contrast" shared:ModSettingsSearch.Title="{Binding ImproveYellowLobbyContrastText}" shared:ModSettingsSearch.ToolTipText="{Binding ImproveYellowLobbyContrastHelpText}"><CheckBox IsChecked="{Binding ImproveYellowLobbyContrast, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding ImproveYellowLobbyContrastHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding ImproveYellowLobbyContrastText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
+      <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.briefing-no-starting-gold" shared:ModSettingsSearch.Title="{Binding EnableBriefingNoStartingGoldFixText}" shared:ModSettingsSearch.ToolTipText="{Binding EnableBriefingNoStartingGoldFixHelpText}"><CheckBox IsChecked="{Binding EnableBriefingNoStartingGoldFix, Mode=TwoWay}"
+                Foreground="White"
+                ToolTipService.ShowDuration="60000" ToolTip="{Binding EnableBriefingNoStartingGoldFixHelpText}"
+                Margin="0,0,14,8">
+        <TextBlock Text="{Binding EnableBriefingNoStartingGoldFixText}" Foreground="White" TextWrapping="Wrap"/>
+      </CheckBox></Grid>
       <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="bugfixes.statistics-team-badge-mode" shared:ModSettingsSearch.Title="{Binding StatisticsTeamBadgeModeText}" shared:ModSettingsSearch.ToolTipText="{Binding StatisticsTeamBadgeModeHelpText}"
             ToolTipService.ShowDuration="60000" ToolTip="{Binding StatisticsTeamBadgeModeHelpText}" Margin="0,0,0,8">
         <Grid.ColumnDefinitions><ColumnDefinition Width="170"/><ColumnDefinition Width="220"/><ColumnDefinition Width="190"/></Grid.ColumnDefinitions>

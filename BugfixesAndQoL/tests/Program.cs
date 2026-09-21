@@ -88,6 +88,8 @@ namespace BugfixesAndQoL
             TestClassicMapSizeReader();
             TestVanillaMapEditorPlayerCountColumn();
             TestLobbyMapSelectionMemory();
+            TestLobbyYellowContrast();
+            TestBriefingNoStartingGoldFix();
             TestNativePatternSearch();
             TestNativeContracts();
             if (failures == 0)
@@ -2959,10 +2961,482 @@ namespace BugfixesAndQoL
             }
         }
 
+        private static void TestBriefingNoStartingGoldFix()
+        {
+            Check(
+                BriefingNoStartingGoldFixPolicy.IsEnabled(true, true, true) &&
+                !BriefingNoStartingGoldFixPolicy.IsEnabled(false, true, true) &&
+                !BriefingNoStartingGoldFixPolicy.IsEnabled(true, false, true) &&
+                !BriefingNoStartingGoldFixPolicy.IsEnabled(true, true, false),
+                "briefing No Starting Gold correction follows all three gates");
+            Check(
+                BriefingNoStartingGoldFixPolicy.Apply(2000, 0, true, true, true) == 0 &&
+                BriefingNoStartingGoldFixPolicy.Apply(2000, 2000, false, true, true) == 2000 &&
+                BriefingNoStartingGoldFixPolicy.Apply(2000, 0, true, false, true) == 2000 &&
+                BriefingNoStartingGoldFixPolicy.Apply(2000, 2000, true, true, false) == 2000,
+                "briefing No Starting Gold changes only humans with a resolved active Vanilla option");
+
+            string projectDirectory = FindProjectDirectory();
+            string viewModel = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "BugfixesAndQoLViewModel.cs"));
+            string registration = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "BriefingNoStartingGoldFixRegistration.cs"));
+            string runtime = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                projectDirectory, "Override", "ScriptExtenderUI", "BugfixesAndQoLSettings.xaml"));
+            Check(
+                viewModel.Contains("new LocalPerPlayerSetting<bool>(true)") &&
+                viewModel.Contains("nameof(EnableBriefingNoStartingGoldFix)") &&
+                xaml.Contains("EnableBriefingNoStartingGoldFix, Mode=TwoWay") &&
+                xaml.Contains("bugfixes.briefing-no-starting-gold"),
+                "briefing No Starting Gold setting is default-on, per-player, and searchable in the UI");
+            Check(
+                registration.Contains("BriefingGoldAdjustmentStage.VanillaCorrection") &&
+                registration.Contains("settings.EnableMod") &&
+                registration.Contains("settings.EnableClientFeatures") &&
+                runtime.Contains("static BriefingNoStartingGoldFixRegistration") &&
+                !runtime.Contains("processBriefingNoStartingGoldFixRegistration?.Dispose"),
+                "briefing No Starting Gold registration uses the shared correction stage and remains process rooted");
+
+            foreach (string localePath in Directory.GetFiles(
+                Path.Combine(projectDirectory, "Locales"), "*.txt"))
+            {
+                string locale = File.ReadAllText(localePath);
+                Check(
+                    locale.Contains("BugfixesAndQoL.EnableBriefingNoStartingGoldFix=") &&
+                    locale.Contains("BugfixesAndQoL.EnableBriefingNoStartingGoldFixHelp="),
+                    "briefing No Starting Gold locale bindings exist in " + Path.GetFileName(localePath));
+            }
+        }
+
+        private static void TestLobbyYellowContrast()
+        {
+            Check(
+                LobbyYellowContrastPolicy.IsEnabled(true, true, true) &&
+                !LobbyYellowContrastPolicy.IsEnabled(false, true, true) &&
+                !LobbyYellowContrastPolicy.IsEnabled(true, false, true) &&
+                !LobbyYellowContrastPolicy.IsEnabled(true, true, false),
+                "high-contrast lobby yellow follows mod, client-feature, and local setting gates");
+            Check(
+                LobbyYellowContrastPolicy.ClassifyResourceState(
+                    true, true, false, false) == LobbyYellowResourceState.Baseline &&
+                LobbyYellowContrastPolicy.CanApplyGold(
+                    LobbyYellowResourceState.Baseline) &&
+                LobbyYellowContrastPolicy.ClassifyResourceState(
+                    false, false, true, true) == LobbyYellowResourceState.Gold &&
+                LobbyYellowContrastPolicy.CanApplyGold(
+                    LobbyYellowResourceState.Gold) &&
+                LobbyYellowContrastPolicy.ShouldRestoreBaseline(
+                    LobbyYellowResourceState.Gold),
+                "a previously loaded atlas state is captured as the reversible baseline");
+            Check(
+                LobbyYellowContrastPolicy.ClassifyResourceState(
+                    false, false, false, false) == LobbyYellowResourceState.Foreign &&
+                LobbyYellowContrastPolicy.ClassifyResourceState(
+                    true, false, false, true) == LobbyYellowResourceState.Foreign &&
+                !LobbyYellowContrastPolicy.CanApplyGold(
+                    LobbyYellowResourceState.Foreign) &&
+                !LobbyYellowContrastPolicy.ShouldRestoreBaseline(
+                    LobbyYellowResourceState.Foreign),
+                "later foreign and mixed resource changes are never overwritten or restored");
+
+            int[] remap = ReadStaticInt32ArrayInitializer(
+                typeof(FRONT_Multiplayer).Assembly.Location,
+                "CrusaderDE.FRONT_Multiplayer",
+                "MP_orig_remap_colour_order");
+            Check(
+                remap != null &&
+                remap.Length == 9 &&
+                remap[LobbyYellowContrastPolicy.YellowSelectableColourId] ==
+                    LobbyYellowContrastPolicy.YellowRemappedColourId,
+                "installed lobby colour mapping retains selectable colour 3 to remap colour 4/yellow");
+            Check(
+                Enumerable.Range(0, remap.Length).Where(index =>
+                    LobbyYellowContrastPolicy.IsYellowColour(index, remap))
+                    .SequenceEqual(new[] { LobbyYellowContrastPolicy.YellowSelectableColourId }),
+                "only the yellow selectable player colour is classified for replacement");
+            Check(
+                LobbyYellowContrastPolicy.TeamBrushAlpha == 184 &&
+                LobbyYellowContrastPolicy.GoldRed == 184 &&
+                LobbyYellowContrastPolicy.GoldGreen == 134 &&
+                LobbyYellowContrastPolicy.GoldBlue == 11,
+                "team-row replacement brush is exactly ARGB(184,184,134,11)");
+
+            FieldInfo teamBrush = typeof(FRONT_Multiplayer).GetField(
+                "teamYellowBarColour",
+                BindingFlags.Static | BindingFlags.NonPublic);
+            Check(
+                teamBrush?.FieldType == typeof(Noesis.SolidColorBrush) &&
+                typeof(Noesis.CroppedBitmap).GetProperty("Source")?.CanWrite == true &&
+                typeof(Noesis.CroppedBitmap).GetProperty("SourceRect")?.CanWrite == true,
+                "installed contracts expose the lobby brush and mutable CroppedBitmap state");
+
+            Dictionary<int, string> spriteResources = ReadGameSpriteResourceKeys(
+                typeof(FRONT_Multiplayer).Assembly.Location,
+                109,
+                354,
+                362,
+                465);
+            Check(
+                spriteResources.TryGetValue(109, out string normalKey) &&
+                    normalKey == "UI-Buttons H013" &&
+                spriteResources.TryGetValue(354, out string hoverKey) &&
+                    hoverKey == "UI-Buttons H014" &&
+                spriteResources.TryGetValue(362, out string selectedKey) &&
+                    selectedKey == "UI-Buttons H015" &&
+                spriteResources.TryGetValue(465, out string mapKey) &&
+                    mapKey == "UI-Buttons H033",
+                "installed sprite setup maps yellow normal/hover/selected/map states to H013/H014/H015/H033");
+
+            string projectDirectory = FindProjectDirectory();
+            string feature = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "LobbyYellowContrastFeature.cs"));
+            string runtime = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "BugfixesAndQoLRuntime.cs"));
+            Check(
+                feature.Contains("\"UI-Buttons H013\"") &&
+                feature.Contains("\"UI-Buttons H014\"") &&
+                feature.Contains("\"UI-Buttons H015\"") &&
+                feature.Contains("\"UI-Buttons H033\"") &&
+                feature.Contains("ShieldMutation") &&
+                feature.Contains("mutation.GetState()") &&
+                feature.Contains("CanApplyGold") &&
+                feature.Contains("ShouldRestoreBaseline") &&
+                feature.Contains("Target.SourceRect = goldSourceRect;") &&
+                feature.Contains("Target.Source = baselineSource;") &&
+                !feature.Contains("PlayerRowUpdateHook") &&
+                !feature.Contains("UpdateColourShieldsHook") &&
+                !feature.Contains("MonoMod.RuntimeDetour") &&
+                !feature.Contains("class LobbyYellowContrastFeature : IDisposable") &&
+                runtime.Contains("static LobbyYellowContrastFeature processLobbyYellowContrastFeature") &&
+                !runtime.Contains("processLobbyYellowContrastFeature?.Dispose"),
+                "yellow shields use reversible resource mutation without per-screen hooks and remain process rooted");
+            Check(
+                new[]
+                {
+                    "\"UI-Buttons H013\"",
+                    "\"UI-Buttons H014\"",
+                    "\"UI-Buttons H015\"",
+                    "\"UI-Buttons H033\"",
+                }.All(key => feature.Split(new[] { key }, StringSplitOptions.None).Length == 2) &&
+                feature.Contains("Validate every target before the first write") &&
+                feature.Contains("by another owner and was left untouched"),
+                "yellow presentation owns exactly four resource keys and preflights conflicts before writing");
+
+            string spriteXamlPath = Path.Combine(
+                projectDirectory, "Patches", "Assets", "GUI", "Sprites", "UI-MasterAtlas.xaml");
+            string spriteXaml = File.ReadAllText(spriteXamlPath);
+            var spritePatchDocument = new XmlDocument();
+            spritePatchDocument.Load(spriteXamlPath);
+            XmlNodeList spriteContentNodes =
+                spritePatchDocument.SelectNodes("/Patch/Operation/Content");
+            Check(
+                spriteXaml.Contains("x:Key=\"BugfixesAndQoL-LobbyGoldShieldNormal\"") &&
+                spriteXaml.Contains("SourceRect=\"0,0,128,132\"") &&
+                spriteXaml.Contains("x:Key=\"BugfixesAndQoL-LobbyGoldShieldHover\"") &&
+                spriteXaml.Contains("SourceRect=\"128,0,128,132\"") &&
+                spriteXaml.Contains("x:Key=\"BugfixesAndQoL-LobbyGoldShieldSelected\"") &&
+                spriteXaml.Contains("SourceRect=\"256,0,128,132\"") &&
+                spriteXaml.Contains("x:Key=\"BugfixesAndQoL-LobbyGoldShieldMap\"") &&
+                spriteXaml.Contains("SourceRect=\"384,0,32,34\""),
+                "gold shield resources use unique keys and four exact atlas crops");
+            Check(
+                spriteContentNodes != null &&
+                spriteContentNodes.Count == 7 &&
+                spriteContentNodes.Cast<XmlNode>().All(content =>
+                    content.ChildNodes.Cast<XmlNode>().Count(child =>
+                        child.NodeType == XmlNodeType.Element) == 1),
+                "every UI master-atlas patch operation has exactly one direct Content element");
+
+            string[] xamlPatchFiles = Directory.GetFiles(
+                Path.Combine(projectDirectory, "Patches"),
+                "*.xaml",
+                SearchOption.AllDirectories);
+            Check(
+                xamlPatchFiles.All(path =>
+                {
+                    var document = new XmlDocument();
+                    document.Load(path);
+                    XmlNodeList contentNodes = document.SelectNodes("/Patch/Operation/Content");
+                    return contentNodes != null && contentNodes.Cast<XmlNode>().All(content =>
+                        content.ChildNodes.Cast<XmlNode>().Count(child =>
+                            child.NodeType == XmlNodeType.Element) == 1);
+                }),
+                "all BugfixesAndQoL Script Extender XAML patches satisfy the single-root Content contract");
+
+            string settingsXaml = File.ReadAllText(Path.Combine(
+                projectDirectory,
+                "Override",
+                "ScriptExtenderUI",
+                "BugfixesAndQoLSettings.xaml"));
+            Check(
+                settingsXaml.Contains("IsChecked=\"{Binding ImproveYellowLobbyContrast, Mode=TwoWay}\"") &&
+                settingsXaml.Contains("ImproveYellowLobbyContrastHelpText"),
+                "client settings UI binds the high-contrast yellow toggle and help text");
+
+            string assetPath = Path.Combine(
+                projectDirectory,
+                "Override",
+                "Assets",
+                "GUI",
+                "Sprites",
+                "BugfixesAndQoL-LobbyGoldShields.png");
+            Check(File.Exists(assetPath), "global gold shield atlas exists");
+            Check(
+                !Directory.GetFiles(
+                    Path.Combine(projectDirectory, "Override"),
+                    "UI-MasterAtlas.*",
+                    SearchOption.AllDirectories).Any() &&
+                spritePatchDocument.SelectNodes(
+                    "/Patch/Operation[@Type!='Add']")?.Count == 0,
+                "gold shield asset is additive and does not replace a Vanilla atlas or resource");
+            if (File.Exists(assetPath))
+            {
+                using (var bitmap = new System.Drawing.Bitmap(assetPath))
+                {
+                    int[] visible = new int[4];
+                    int[] transparent = new int[4];
+                    byte[] alphaMask = new byte[bitmap.Width * bitmap.Height];
+                    for (int y = 0; y < bitmap.Height; y++)
+                    {
+                        for (int x = 0; x < bitmap.Width; x++)
+                        {
+                            int state = x < 384 ? x / 128 : 3;
+                            byte alpha = bitmap.GetPixel(x, y).A;
+                            alphaMask[(y * bitmap.Width) + x] = alpha;
+                            if (alpha == 0)
+                                transparent[state]++;
+                            else
+                                visible[state]++;
+                        }
+                    }
+                    Check(
+                        bitmap.Width == 416 && bitmap.Height == 132 &&
+                        visible.All(count => count > 0) &&
+                        transparent.All(count => count > 0),
+                        "gold shield atlas has three 128x132 states and one 32x34 map state");
+
+                    using (SHA256 sha = SHA256.Create())
+                    {
+                        string alphaHash = BitConverter.ToString(sha.ComputeHash(alphaMask))
+                            .Replace("-", string.Empty);
+                        Check(
+                            alphaHash == "2BF9B5390E53D4761539BF32B098061454790C14F050F16250D2AD9D4E6C3907",
+                            "gold shield atlas retains the reviewed H013/H014/H015/H033 alpha masks");
+                    }
+
+                    Check(
+                        bitmap.GetPixel(20, 20).ToArgb() ==
+                            System.Drawing.Color.FromArgb(255, 198, 144, 12).ToArgb() &&
+                        bitmap.GetPixel(90, 20).ToArgb() ==
+                            System.Drawing.Color.FromArgb(255, 175, 175, 175).ToArgb() &&
+                        bitmap.GetPixel(389, 5).ToArgb() ==
+                            System.Drawing.Color.FromArgb(255, 201, 145, 12).ToArgb() &&
+                        bitmap.GetPixel(400, 8).ToArgb() ==
+                            System.Drawing.Color.FromArgb(255, 188, 180, 172).ToArgb(),
+                        "gold shield atlas recolours both sizes while preserving adjacent metal");
+                }
+
+                using (SHA256 sha = SHA256.Create())
+                {
+                    string hash = BitConverter.ToString(sha.ComputeHash(File.ReadAllBytes(assetPath)))
+                        .Replace("-", string.Empty);
+                    Check(
+                        hash == "368E9D7D268DA7D2EE8340FAEC4FC51D7D2E146164025000FA039C6ABC233269",
+                        "global gold shield atlas matches the reviewed deterministic asset");
+                }
+            }
+
+            string[] localeFiles = Directory.GetFiles(
+                Path.Combine(projectDirectory, "Locales"), "*.txt");
+            Check(
+                localeFiles.Length > 0 && localeFiles.All(path =>
+                    File.ReadAllText(path).Contains("BugfixesAndQoL.ImproveYellowLobbyContrast=") &&
+                    File.ReadAllText(path).Contains("BugfixesAndQoL.ImproveYellowLobbyContrastHelp=")),
+                "every shipped locale contains the high-contrast yellow label and help text");
+            string englishLocale = File.ReadAllText(Path.Combine(
+                projectDirectory, "Locales", "en-US.txt"));
+            string germanLocale = File.ReadAllText(Path.Combine(
+                projectDirectory, "Locales", "de-DE.txt"));
+            Check(
+                englishLocale.Contains(
+                    "BugfixesAndQoL.ImproveYellowLobbyContrast=Higher-contrast yellow") &&
+                englishLocale.Contains("yellow player shield throughout the game") &&
+                germanLocale.Contains(
+                    "BugfixesAndQoL.ImproveYellowLobbyContrast=Kontrastreicheres Gelb") &&
+                germanLocale.Contains("gelbe Spielerwappen im gesamten Spiel"),
+                "localized setting text describes the global shield and lobby-row scope");
+        }
+
         private static void CheckClassicMapFixtureRejected(byte[] bytes, string name)
         {
             using (var stream = new MemoryStream(bytes))
                 Check(!ClassicMapSizeReader.TryRead(stream, out _), name);
+        }
+
+        private static int[] ReadStaticInt32ArrayInitializer(
+            string assemblyPath,
+            string typeFullName,
+            string fieldName)
+        {
+            using (Mono.Cecil.AssemblyDefinition assembly =
+                Mono.Cecil.AssemblyDefinition.ReadAssembly(assemblyPath))
+            {
+                Mono.Cecil.TypeDefinition type = assembly.MainModule.Types.SingleOrDefault(
+                    candidate => candidate.FullName == typeFullName);
+                Mono.Cecil.FieldDefinition targetField = type?.Fields.SingleOrDefault(
+                    field => field.Name == fieldName);
+                Mono.Cecil.MethodDefinition constructor = type?.Methods.SingleOrDefault(
+                    method => method.IsConstructor && method.IsStatic);
+                if (targetField == null || constructor?.Body == null)
+                    return Array.Empty<int>();
+
+                IList<Mono.Cecil.Cil.Instruction> instructions = constructor.Body.Instructions;
+                for (int storeIndex = 0; storeIndex < instructions.Count; storeIndex++)
+                {
+                    Mono.Cecil.Cil.Instruction store = instructions[storeIndex];
+                    if (store.OpCode != Mono.Cecil.Cil.OpCodes.Stsfld ||
+                        !(store.Operand is Mono.Cecil.FieldReference storedField) ||
+                        storedField.Name != targetField.Name)
+                    {
+                        continue;
+                    }
+
+                    for (int index = storeIndex - 1; index >= 0; index--)
+                    {
+                        Mono.Cecil.Cil.Instruction instruction = instructions[index];
+                        if (instruction.OpCode != Mono.Cecil.Cil.OpCodes.Ldtoken ||
+                            !(instruction.Operand is Mono.Cecil.FieldReference dataReference))
+                        {
+                            continue;
+                        }
+
+                        byte[] data = dataReference.Resolve()?.InitialValue;
+                        if (data == null || data.Length == 0 || data.Length % sizeof(int) != 0)
+                            return Array.Empty<int>();
+
+                        int[] values = new int[data.Length / sizeof(int)];
+                        for (int valueIndex = 0; valueIndex < values.Length; valueIndex++)
+                            values[valueIndex] = BitConverter.ToInt32(data, valueIndex * sizeof(int));
+                        return values;
+                    }
+                }
+            }
+
+            return Array.Empty<int>();
+        }
+
+        private static Dictionary<int, string> ReadGameSpriteResourceKeys(
+            string assemblyPath,
+            params int[] targetIndexes)
+        {
+            var result = new Dictionary<int, string>();
+            var targets = new HashSet<int>(targetIndexes ?? Array.Empty<int>());
+            if (targets.Count == 0)
+                return result;
+
+            int maximumTarget = targets.Max();
+            using (Mono.Cecil.AssemblyDefinition assembly =
+                Mono.Cecil.AssemblyDefinition.ReadAssembly(assemblyPath))
+            {
+                Mono.Cecil.TypeDefinition type = assembly.MainModule.Types.SingleOrDefault(
+                    candidate => candidate.FullName == "CrusaderDE.MainViewModel");
+                Mono.Cecil.MethodDefinition method = type?.Methods.SingleOrDefault(
+                    candidate => candidate.Name == "setupSprites" && candidate.HasBody);
+                if (method == null)
+                    return result;
+
+                IList<Mono.Cecil.Cil.Instruction> instructions = method.Body.Instructions;
+                var incomingCounts = instructions.ToDictionary(
+                    instruction => instruction,
+                    instruction => new HashSet<int>());
+                var work = new Queue<Mono.Cecil.Cil.Instruction>();
+                incomingCounts[instructions[0]].Add(0);
+                work.Enqueue(instructions[0]);
+
+                while (work.Count > 0)
+                {
+                    Mono.Cecil.Cil.Instruction instruction = work.Dequeue();
+                    bool addsGameSprite =
+                        instruction.Operand is Mono.Cecil.MethodReference calledMethod &&
+                        calledMethod.Name == "Add" &&
+                        calledMethod.DeclaringType.FullName ==
+                            "System.Collections.Generic.List`1<Noesis.ImageSource>";
+
+                    if (addsGameSprite)
+                    {
+                        foreach (int count in incomingCounts[instruction])
+                        {
+                            if (!targets.Contains(count))
+                                continue;
+
+                            string key = null;
+                            Mono.Cecil.Cil.Instruction previous = instruction.Previous;
+                            for (int distance = 0;
+                                distance < 16 && previous != null;
+                                distance++, previous = previous.Previous)
+                            {
+                                if (previous.OpCode == Mono.Cecil.Cil.OpCodes.Ldstr)
+                                {
+                                    key = previous.Operand as string;
+                                    break;
+                                }
+                            }
+
+                            if (key == null)
+                                continue;
+                            if (result.TryGetValue(count, out string existing) && existing != key)
+                                result[count] = string.Empty;
+                            else
+                                result[count] = key;
+                        }
+                    }
+
+                    var successors = new List<Mono.Cecil.Cil.Instruction>();
+                    switch (instruction.OpCode.FlowControl)
+                    {
+                        case Mono.Cecil.Cil.FlowControl.Branch:
+                            successors.Add((Mono.Cecil.Cil.Instruction)instruction.Operand);
+                            break;
+                        case Mono.Cecil.Cil.FlowControl.Cond_Branch:
+                            if (instruction.OpCode == Mono.Cecil.Cil.OpCodes.Switch)
+                            {
+                                successors.AddRange(
+                                    (Mono.Cecil.Cil.Instruction[])instruction.Operand);
+                            }
+                            else
+                            {
+                                successors.Add((Mono.Cecil.Cil.Instruction)instruction.Operand);
+                            }
+                            if (instruction.Next != null)
+                                successors.Add(instruction.Next);
+                            break;
+                        case Mono.Cecil.Cil.FlowControl.Return:
+                        case Mono.Cecil.Cil.FlowControl.Throw:
+                            break;
+                        default:
+                            if (instruction.Next != null)
+                                successors.Add(instruction.Next);
+                            break;
+                    }
+
+                    foreach (Mono.Cecil.Cil.Instruction successor in successors)
+                    {
+                        foreach (int count in incomingCounts[instruction])
+                        {
+                            int nextCount = count + (addsGameSprite ? 1 : 0);
+                            if (nextCount <= maximumTarget &&
+                                incomingCounts[successor].Add(nextCount))
+                            {
+                                work.Enqueue(successor);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return result;
         }
 
         private static byte[] BuildClassicMapFixture(

@@ -39,6 +39,8 @@ var tests = new (string Name, Action Run)[]
     ("invalid mod-settings documents are rejected", TestInvalidModSettingsDocuments),
     ("atomic sidecar write replaces existing file", TestAtomicSidecarWrite),
     ("Trail coordinator ownership is centralized", TestCoordinatorOwnership),
+    ("mission preset lifecycle preserves only expected replacements", TestMissionPresetLifecycleState),
+    ("Trail Maker authoring preset survives test returns", TestTrailMakerAuthoringSessionIntegration),
     ("BugfixesAndQoL Customize button delegation is optional", TestCustomizeButtonDelegation),
     ("customized launch origin is persisted and fail-closed", TestCustomizedLaunchOriginIntegration),
     ("customized launch origin save roundtrip", TestCustomizedLaunchOriginRoundtrip),
@@ -588,6 +590,107 @@ static void TestCoordinatorOwnership()
         "capture failures can still overwrite a sidecar with an all-disabled fallback");
 }
 
+static void TestTrailMakerAuthoringSessionIntegration()
+{
+    string projectRoot = FindProjectRoot();
+    string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
+    string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
+
+    Assert(coordinator.Contains("private ModSettingsDefinition trailMakerWorkingDocument;") &&
+        coordinator.Contains("private string pendingTrailMakerTrailPath;") &&
+        coordinator.Contains("private bool pendingTrailMakerLoad;") &&
+        coordinator.Contains("private bool trailMakerAuthoringActive;") &&
+        coordinator.Contains("MissionPresetLifecycleState missionPresetLifecycle") &&
+        !coordinator.Contains("trailMakerTransitionPending") &&
+        !coordinator.Contains("trailMakerResumePending"),
+        "Trail Maker authoring state is incomplete");
+    Assert(coordinator.Contains("pendingTrailMakerTrailPath = loadedHeader?.filePath;") &&
+        coordinator.Contains("ActivateTrailMakerLobby(restartInfo);") &&
+        coordinator.Contains("EnterSidecar(requestedTrailPath, editable: true)"),
+        "loaded Trail Maker missions are not activated from their selected sidecar exactly at lobby entry");
+    Assert(coordinator.Contains("trailMakerWorkingDocument ??") &&
+        coordinator.Contains("ModSettingsDefinition.CreateModDefaults();") &&
+        coordinator.Contains("ApplyDocument(document, editable: true);") &&
+        coordinator.Contains("\"new mission defaults\""),
+        "new unsaved Trail Maker missions do not receive an editable Trail preset");
+
+    int startIndex = coordinator.IndexOf("private void StartSkirmishGameHook", StringComparison.Ordinal);
+    int frontendOpenIndex = coordinator.IndexOf("private void FrontendOpenCustomTrailHook", startIndex, StringComparison.Ordinal);
+    Assert(startIndex >= 0 && frontendOpenIndex > startIndex, "Trail Maker launch hook could not be isolated");
+    string startHook = coordinator.Substring(startIndex, frontendOpenIndex - startIndex);
+    int vanillaStartIndex = startHook.LastIndexOf("startSkirmishGameOriginal(self, customTrailRestartInfo);", StringComparison.Ordinal);
+    Assert(startHook.Contains("self?.trailMakerMode == true") &&
+        startHook.Contains("PrepareTrailMakerTestLaunch()") && vanillaStartIndex >= 0 &&
+        coordinator.Contains("CaptureTrailMakerWorkingDocument(\"test launch\")") &&
+        coordinator.Contains("MissionPresetLaunchKind.TrailMakerTest") &&
+        coordinator.Contains("ApplyDocument("),
+        "the editable Trail Maker draft is not captured before Vanilla starts a test mission");
+    Assert(runtime.Contains("string.Equals(command, \"TMTest\"") &&
+        runtime.Contains("PrepareTrailMakerTestLaunch()"),
+        "Trail Maker test launch is not armed before the lifecycle replacement can fire");
+
+    Assert(runtime.Contains("MissionEvents.Ended.Subscribe(OnMissionEnded)") &&
+        runtime.Contains("missionSettingsCoordinator?.HandleMissionEnded(notification)") &&
+        coordinator.Contains("Suspended the Trail Maker mission preset") &&
+        coordinator.Contains("restartInfo?.customTestMission == true") &&
+        coordinator.Contains("\"test return draft\""),
+        "mission end and test return do not preserve and reactivate the Trail Maker draft");
+    Assert(coordinator.Contains("UpdateTrailMakerWorkingDocument(document, trailPath);") &&
+        coordinator.Contains("Saved Trail mod settings") &&
+        coordinator.Contains("ClearTrailMakerAuthoringState();") &&
+        coordinator.Contains("if (!trailMaker)") &&
+        coordinator.Contains("ExitContext(force: true);"),
+        "saving does not refresh the draft or genuine context exits do not discard it");
+    Assert(coordinator.Contains("applying editable defaults") &&
+        coordinator.Contains("fail-closed defaults") &&
+        coordinator.Contains("Could not fully clean up the failed Trail Maker context"),
+        "Trail Maker restoration failures are not fail-closed and diagnosable");
+}
+
+static void TestMissionPresetLifecycleState()
+{
+    var state = new MissionPresetLifecycleState();
+
+    state.Prepare(MissionPresetLaunchKind.CustomTrail);
+    Assert(state.End(MissionPresetEndKind.Replaced) == MissionPresetEndAction.Preserve,
+        "a prepared direct Custom Trail was not preserved across replacement");
+    Assert(state.ConfirmStarted(MissionPresetLaunchKind.CustomTrail),
+        "the direct Custom Trail did not become active");
+    Assert(state.End(MissionPresetEndKind.SceneChanged) == MissionPresetEndAction.Exit,
+        "a genuinely exited Custom Trail retained its preset");
+
+    state.Prepare(MissionPresetLaunchKind.TrailMakerTest);
+    Assert(state.End(MissionPresetEndKind.Replaced) == MissionPresetEndAction.Preserve,
+        "the initial Trail Maker test replacement was not preserved");
+    Assert(state.ConfirmStarted(MissionPresetLaunchKind.TrailMakerTest),
+        "the Trail Maker test did not become active");
+    Assert(state.End(MissionPresetEndKind.Replaced) == MissionPresetEndAction.SuspendTrailMaker &&
+        state.AwaitingTrailMakerReturn,
+        "a Trail Maker test restart did not suspend its authoring draft");
+    state.Prepare(MissionPresetLaunchKind.TrailMakerTest);
+    Assert(state.End(MissionPresetEndKind.Replaced) == MissionPresetEndAction.Preserve &&
+        state.ConfirmStarted(MissionPresetLaunchKind.TrailMakerTest),
+        "the restarted Trail Maker test did not reactivate its preset");
+    Assert(state.End(MissionPresetEndKind.Unloaded) == MissionPresetEndAction.SuspendTrailMaker &&
+        state.AwaitingTrailMakerReturn,
+        "the Trail Maker draft was not retained for the authoring return");
+    state.CompleteTrailMakerReturn();
+    Assert(!state.AwaitingTrailMakerReturn,
+        "the Trail Maker return remained pending after lobby activation");
+
+    state.Prepare(MissionPresetLaunchKind.CoopTrail);
+    Assert(state.End(MissionPresetEndKind.Replaced) == MissionPresetEndAction.Preserve &&
+        state.ConfirmStarted(MissionPresetLaunchKind.CoopTrail),
+        "the initial Coop launch did not retain its preset");
+    Assert(state.End(MissionPresetEndKind.Replaced) == MissionPresetEndAction.Exit,
+        "an unprepared Coop restart incorrectly retained stale settings");
+    state.Prepare(MissionPresetLaunchKind.CoopTrail);
+    Assert(state.ConfirmStarted(MissionPresetLaunchKind.CoopTrail),
+        "the revalidated Coop restart did not become active");
+    Assert(state.End(MissionPresetEndKind.Failed) == MissionPresetEndAction.Exit,
+        "a failed Coop restart retained its preset");
+}
+
 static void TestCustomizedLaunchOriginIntegration()
 {
     string projectRoot = FindProjectRoot();
@@ -665,6 +768,57 @@ static void TestCustomizedLaunchOriginIntegration()
         coordinator.Contains("ExtendedDataLaunchOriginApi.MarkRestartPending()") &&
         coordinator.Contains("ExtendedDataLaunchOriginApi.Clear()"),
         "direct follow-up and restarted Custom Trails do not separate stale from active origin");
+    int customTrailHookIndex = coordinator.IndexOf("private void StartCustomTrailHook", StringComparison.Ordinal);
+    int multiplayerOpenIndex = coordinator.IndexOf("private void MultiplayerOpenHook", StringComparison.Ordinal);
+    Assert(customTrailHookIndex >= 0 && multiplayerOpenIndex > customTrailHookIndex,
+        "the direct Custom Trail hook could not be isolated");
+    string customTrailHook = coordinator.Substring(
+        customTrailHookIndex,
+        multiplayerOpenIndex - customTrailHookIndex);
+    int validSidecarIndex = customTrailHook.IndexOf("bool validSidecar = EnterSidecar", StringComparison.Ordinal);
+    int directOriginIndex = customTrailHook.IndexOf(
+        "ExtendedDataLaunchOriginApi.SetCustomizedCustomTrail(",
+        validSidecarIndex,
+        StringComparison.Ordinal);
+    int vanillaStartIndex = customTrailHook.LastIndexOf(
+        "startCustomTrailOriginal(self, trailName, missionId, difficulty);",
+        StringComparison.Ordinal);
+    Assert(validSidecarIndex >= 0 &&
+        customTrailHook.Contains("ResolveCustomTrailHeader(trailName, missionId)") &&
+        customTrailHook.Contains("EnterSidecar(header.filePath, editable: false)") &&
+        customTrailHook.Contains("if (validSidecar && !customizedRestart)") &&
+        customTrailHook.Contains("FrontendMenus.CurrentSelectedTrail") &&
+        directOriginIndex > validSidecarIndex &&
+        vanillaStartIndex > directOriginIndex,
+        "a verified direct Custom Trail sidecar does not establish its origin before Vanilla starts");
+    int directCatchIndex = customTrailHook.IndexOf("catch (Exception exception)", validSidecarIndex, StringComparison.Ordinal);
+    int failClosedClearIndex = customTrailHook.IndexOf(
+        "ExtendedDataLaunchOriginApi.Clear();",
+        directCatchIndex,
+        StringComparison.Ordinal);
+    int failClosedDefaultsIndex = customTrailHook.IndexOf(
+        "ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);",
+        directCatchIndex,
+        StringComparison.Ordinal);
+    Assert(directCatchIndex > validSidecarIndex &&
+        failClosedClearIndex > directCatchIndex &&
+        failClosedDefaultsIndex > failClosedClearIndex,
+        "an invalid direct Custom Trail sidecar does not clear its origin before applying defaults");
+    Assert(coordinator.Contains("private static FileHeader ResolveCustomTrailHeader") &&
+        coordinator.Contains("missionId <= 0") &&
+        coordinator.Contains("IOPath.GetExtension(trailPath), \".trail\"") &&
+        coordinator.Contains("!File.Exists(trailPath)"),
+        "direct Custom Trail starts do not validate their name, 1-based mission number, and .trail path");
+    int enterSidecarIndex = coordinator.IndexOf("private bool EnterSidecar", StringComparison.Ordinal);
+    int captureDocumentIndex = coordinator.IndexOf("private ModSettingsDefinition CaptureDocument", StringComparison.Ordinal);
+    Assert(enterSidecarIndex >= 0 && captureDocumentIndex > enterSidecarIndex,
+        "the sidecar loader could not be isolated");
+    string enterSidecar = coordinator.Substring(
+        enterSidecarIndex,
+        captureDocumentIndex - enterSidecarIndex);
+    Assert(enterSidecar.Contains("bool exists = File.Exists(sidecar);") &&
+        enterSidecar.Split(new[] { "return exists;" }, StringSplitOptions.None).Length == 3,
+        "fresh and cached sidecar loads do not report the same validated existence status");
     Assert(sharedGameMode.Contains("BugfixesAndQoL.TrailCustomizationLaunchOriginApi, BugfixesAndQoL") &&
         sharedGameMode.Contains("ExtendedData.ExtendedDataLaunchOriginApi, ExtendedData") &&
         sharedGameMode.Contains("if (hasActive)") &&
@@ -1288,12 +1442,20 @@ static void TestCoopExporterIntegration()
         runtime.Contains("ActivateSelectedMissionSettingsUnlessMap(") &&
         runtime.Contains("CoopLaunchReceived += OnCoopLaunchReceived") &&
         runtime.Contains("source: \"authenticated host Coop launch\"") &&
-        runtime.Contains("coopLaunchPending") && runtime.Contains("OnMapStarted()") && runtime.Contains("OnMapUnloaded()"),
+        runtime.Contains("coopLaunchPending") && runtime.Contains("OnMapStarted()") &&
+        runtime.Contains("OnMissionEnded(MissionLifecycleNotification notification)"),
         "direct Coop launch does not retain the shared Trail preset across the map transition");
     Assert(runtime.Contains("if (!coopLaunchPending)") && runtime.Contains("BlockLaunch(command") &&
         coordinator.Contains("MpLocalReadyField") && coordinator.Contains("MpLocalReadyLockedField") &&
         coordinator.Contains(".SetValue(self, false)"),
         "Coop launch refresh retention, visible blocking, or Customize ready-state reset is missing");
+    Assert(coordinator.Contains("SinglePlayerCoopStarting") &&
+        runtime.Contains("PrepareSinglePlayerCoopStart") &&
+        runtime.Contains("packageCatalog.Scan(roots, LogInfo, LogError)") &&
+        runtime.Contains("source: \"single-player Coop restart\"") &&
+        runtime.Contains("missionSettingsCoordinator.PrepareCoopMissionLaunch()") &&
+        runtime.Contains("Blocked custom single-player Coop restart"),
+        "single-player Coop restart does not revalidate and reactivate its package mission");
     Assert(!runtime.Contains("Path.Combine(pluginRoot, \"CoopTrails\")"), "legacy plugin-local package layout is still active");
 }
 

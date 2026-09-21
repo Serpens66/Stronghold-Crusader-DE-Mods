@@ -205,6 +205,10 @@
     <Compile Include="src\MapOriginSortHook.cs" />
     <Compile Include="src\MapOriginSortPolicy.cs" />
     <Compile Include="src\LobbyMapSelectionMemory.cs" />
+    <Compile Include="src\LobbyYellowContrastFeature.cs" />
+    <Compile Include="src\LobbyYellowContrastPolicy.cs" />
+    <Compile Include="src\BriefingNoStartingGoldFixPolicy.cs" />
+    <Compile Include="src\BriefingNoStartingGoldFixRegistration.cs" />
     <Compile Include="src\MapPlayerCountCellBehavior.cs" />
     <Compile Include="src\VanillaMapEditorHook.cs" />
     <Compile Include="src\VanillaMapEditorPolicy.cs" />

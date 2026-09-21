@@ -67,6 +67,9 @@
         <member name="F:APIShared.NativeCapabilityIds.PlayerDefeat">
             <summary>Capability for observing player lord deaths and official defeat transitions.</summary>
         </member>
+        <member name="F:APIShared.NativeCapabilityIds.BriefingGoldPresentation">
+            <summary>Capability for deterministic post-Vanilla mission-briefing gold presentation.</summary>
+        </member>
         <member name="T:APIShared.NativeCapabilityDiagnostic">
             <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
         </member>
@@ -114,6 +117,9 @@
         </member>
         <member name="M:APIShared.IApiShared.TryGetPlayerDefeat(System.String,APIShared.IPlayerDefeatCapability@,APIShared.NativeCapabilityDiagnostic@)">
             <summary>Attempts to acquire the process-wide managed player-defeat observer.</summary>
+        </member>
+        <member name="M:APIShared.IApiShared.TryGetBriefingGoldPresentation(System.String,APIShared.IBriefingGoldPresentationCapability@,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Attempts to acquire the process-wide mission-briefing gold presentation capability.</summary>
         </member>
         <member name="T:APIShared.ApiShared">
             <summary>Static access to the process-wide API and its readiness notification.</summary>
@@ -780,6 +786,51 @@
         </member>
         <member name="M:APIShared.IUnitHudPresentationCapability.RequestRefresh">
             <summary>Requests a safe Unity-thread presentation refresh.</summary>
+        </member>
+        <member name="T:APIShared.BriefingGoldAdjustmentStage">
+            <summary>Fixed ordering stages for mission-briefing starting-gold adjustments.</summary>
+        </member>
+        <member name="F:APIShared.BriefingGoldAdjustmentStage.VanillaCorrection">
+            <summary>Corrections that make the displayed Vanilla base match Vanilla gameplay.</summary>
+        </member>
+        <member name="F:APIShared.BriefingGoldAdjustmentStage.ModAdjustment">
+            <summary>Adjustments contributed by gameplay mods after the effective Vanilla base is known.</summary>
+        </member>
+        <member name="T:APIShared.BriefingGoldContext">
+            <summary>Immutable state for one visible player slot in the mission briefing.</summary>
+        </member>
+        <member name="M:APIShared.BriefingGoldContext.#ctor(System.Int32,System.Boolean,System.Int32,System.Int32,System.Int32,System.Boolean,System.Boolean)">
+            <summary>Creates a mission-briefing starting-gold context.</summary>
+        </member>
+        <member name="P:APIShared.BriefingGoldContext.SlotIndex">
+            <summary>Zero-based slot in the eight-player briefing presentation.</summary>
+        </member>
+        <member name="P:APIShared.BriefingGoldContext.IsHuman">
+            <summary>Whether Vanilla classified this slot as a human player.</summary>
+        </member>
+        <member name="P:APIShared.BriefingGoldContext.VanillaDisplayedGold">
+            <summary>Gold written by Vanilla's briefing method before shared adjustments.</summary>
+        </member>
+        <member name="P:APIShared.BriefingGoldContext.EffectiveVanillaGold">
+            <summary>Vanilla's actual starting gold after its No Starting Gold rule.</summary>
+        </member>
+        <member name="P:APIShared.BriefingGoldContext.CurrentGold">
+            <summary>Value produced by all earlier adjustment stages.</summary>
+        </member>
+        <member name="P:APIShared.BriefingGoldContext.HasNoStartingGoldState">
+            <summary>Whether the current native No Starting Gold state was resolved safely.</summary>
+        </member>
+        <member name="P:APIShared.BriefingGoldContext.NoStartingGoldEnabled">
+            <summary>Whether Vanilla's effective No Starting Gold flag is enabled.</summary>
+        </member>
+        <member name="T:APIShared.BriefingGoldAdjuster">
+            <summary>Returns the non-negative gold value to pass to later adjustments.</summary>
+        </member>
+        <member name="T:APIShared.IBriefingGoldPresentationCapability">
+            <summary>Owner-bound process-wide mission-briefing gold presentation service.</summary>
+        </member>
+        <member name="M:APIShared.IBriefingGoldPresentationCapability.TryRegisterAdjustment(System.String,APIShared.BriefingGoldAdjustmentStage,APIShared.BriefingGoldAdjuster,APIShared.NativeCapabilityDiagnostic@)">
+            <summary>Registers one deterministic process-lifetime adjustment.</summary>
         </member>
         <member name="T:APIShared.GatehouseDistanceOrigin">
             <summary>Selects the native coordinate used as the origin of gatehouse enemy distance checks.</summary>

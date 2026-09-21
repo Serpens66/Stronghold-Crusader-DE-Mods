@@ -1,3 +1,4 @@
+using APIShared;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
 using ExtendedData.Core;
@@ -113,6 +114,7 @@ namespace ExtendedData
             private readonly Dictionary<string, ModSettingsDefinition> capturedDocumentsByTrailPath =
                 new Dictionary<string, ModSettingsDefinition>(StringComparer.OrdinalIgnoreCase);
             private readonly HashSet<string> activeParticipantIds = new HashSet<string>(StringComparer.Ordinal);
+            private readonly MissionPresetLifecycleState missionPresetLifecycle = new MissionPresetLifecycleState();
             private SaveCustomTrailMapDelegate saveCustomTrailMapOriginal;
             private ManageTrailButtonDelegate manageTrailButtonOriginal;
             private EditorSetupButtonDelegate editorSetupButtonOriginal;
@@ -140,6 +142,11 @@ namespace ExtendedData
             private bool openingCustomTrailSetup;
             private HUD_IngameMenu.RestartSkirmishMapInfo customTrailSetupRestartInfo;
             private FileHeader customTrailSetupHeader;
+            private ModSettingsDefinition trailMakerWorkingDocument;
+            private string trailMakerTrailPath;
+            private string pendingTrailMakerTrailPath;
+            private bool pendingTrailMakerLoad;
+            private bool trailMakerAuthoringActive;
             private string activeSidecarPath;
             private long activeSidecarLength = -1;
             private long activeSidecarWriteTicks;
@@ -169,6 +176,7 @@ namespace ExtendedData
             public event Action CoopSetupOpened;
             public event Action<int, int> CoopLaunchReceived;
             public event Action<FRONT_Multiplayer> LobbyOpened;
+            public event Func<FRONT_Multiplayer, bool> SinglePlayerCoopStarting;
 
             public IReadOnlyList<TrailModCompatibilityInfo> DiscoverModCompatibility()
             {
@@ -512,6 +520,8 @@ namespace ExtendedData
                     customTrailSetupHeader = null;
                     cleanupDeferralLogged = false;
                     ClearActiveSidecar();
+                    ClearTrailMakerAuthoringState();
+                    missionPresetLifecycle.Reset();
                     return;
                 }
 
@@ -523,8 +533,120 @@ namespace ExtendedData
                 customTrailSetupHeader = null;
                 cleanupDeferralLogged = false;
                 ClearActiveSidecar();
+                ClearTrailMakerAuthoringState();
+                missionPresetLifecycle.Reset();
                 DebugLogHelper.LogInfo(log, "Left " + activeContextLabel + " mod-settings context.");
                 activeContextLabel = "Trail";
+            }
+
+            public bool HandleMissionEnded(MissionLifecycleNotification notification)
+            {
+                MissionEndReason reason = notification == null
+                    ? MissionEndReason.Unloaded
+                    : notification.EndReason;
+                MissionPresetEndAction action = missionPresetLifecycle.End(MapEndKind(reason));
+                if (action == MissionPresetEndAction.Preserve)
+                {
+                    DebugLogHelper.LogInfo(
+                        log,
+                        "Retained the active Map/Trail mod-settings preset across an expected mission replacement.");
+                    return true;
+                }
+
+                if (action == MissionPresetEndAction.SuspendTrailMaker && trailMakerAuthoringActive)
+                {
+                    if (trailContext)
+                    {
+                        ExitActiveParticipants();
+                        trailContext = false;
+                    }
+                    DebugLogHelper.LogInfo(
+                        log,
+                        "Suspended the Trail Maker mission preset until the authoring lobby returns.");
+                    preserveContextForLaunch = false;
+                    customTrailLaunchActive = false;
+                    customTrailSetupRestartInfo = null;
+                    customTrailSetupHeader = null;
+                    cleanupDeferralLogged = false;
+                    activeContextLabel = "Trail";
+                    ClearActiveSidecar();
+                    return false;
+                }
+
+                ExitContext(force: true);
+                return false;
+            }
+
+            public bool HandleMissionStarted(MissionLifecycleNotification notification)
+            {
+                MissionPresetLaunchKind pending = missionPresetLifecycle.PendingLaunch;
+                if (pending == MissionPresetLaunchKind.None)
+                    return true;
+
+                GameModeKind actual = notification == null || notification.Context == null
+                    ? GameModeKind.Unknown
+                    : notification.Context.Mode.Kind;
+                bool matches =
+                    (pending == MissionPresetLaunchKind.CustomTrail && actual == GameModeKind.CustomTrail) ||
+                    (pending == MissionPresetLaunchKind.CoopTrail && actual == GameModeKind.CoopTrail) ||
+                    (pending == MissionPresetLaunchKind.TrailMakerTest && actual == GameModeKind.CustomGame);
+                if (!matches || !missionPresetLifecycle.ConfirmStarted(pending))
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        "The prepared Map/Trail mod-settings preset did not match the started mission; " +
+                        "expected=" + pending + ", actual=" + actual + ".");
+                    ExitContext(force: true);
+                    return false;
+                }
+
+                DebugLogHelper.LogInfo(log, "Confirmed active mission preset: " + pending + ".");
+                return true;
+            }
+
+            internal void PrepareCoopMissionLaunch()
+            {
+                missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CoopTrail);
+            }
+
+            internal bool PrepareTrailMakerTestLaunch()
+            {
+                if (!enabled)
+                    return true;
+                if (missionPresetLifecycle.PendingLaunch == MissionPresetLaunchKind.TrailMakerTest)
+                    return true;
+                try
+                {
+                    CaptureTrailMakerWorkingDocument("test launch");
+                    ApplyDocument(
+                        trailMakerWorkingDocument ?? ModSettingsDefinition.CreateModDefaults(),
+                        editable: false);
+                    missionPresetLifecycle.Prepare(MissionPresetLaunchKind.TrailMakerTest);
+                    return true;
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(log, "Could not prepare Trail Maker test mod settings: " + exception);
+                    ExitContext(force: true);
+                    ShowInformation(
+                        SerpLocalization.Get("ExtendedData.StartBlockedTitle"),
+                        SerpLocalization.Get("ExtendedData.ErrorPackageInvalid") + " " + exception.Message);
+                    return false;
+                }
+            }
+
+            private static MissionPresetEndKind MapEndKind(MissionEndReason reason)
+            {
+                switch (reason)
+                {
+                    case MissionEndReason.Replaced: return MissionPresetEndKind.Replaced;
+                    case MissionEndReason.Unloaded: return MissionPresetEndKind.Unloaded;
+                    case MissionEndReason.SceneChanged: return MissionPresetEndKind.SceneChanged;
+                    case MissionEndReason.Failed: return MissionPresetEndKind.Failed;
+                    case MissionEndReason.Exception: return MissionPresetEndKind.Exception;
+                    case MissionEndReason.ApplicationExit: return MissionPresetEndKind.ApplicationExit;
+                    default: return MissionPresetEndKind.Unloaded;
+                }
             }
 
             private void SaveCustomTrailMapHook(
@@ -587,6 +709,8 @@ namespace ExtendedData
                     activeSidecarLength = info.Length;
                     activeSidecarWriteTicks = info.LastWriteTimeUtc.Ticks;
                     activeSidecarEditable = true;
+                    UpdateTrailMakerWorkingDocument(document, trailPath);
+                    missionPresetLifecycle.CompleteTrailMakerReturn();
                 }
                 catch (Exception exception)
                 {
@@ -619,27 +743,19 @@ namespace ExtendedData
                         DebugLogHelper.LogError(log, $"Could not load editable Trail mod settings: {exception}");
                     }
                 }
-
-                manageTrailButtonOriginal(self, command);
-
-                // Vanilla rebuilds the setup UI while loading. Apply the Trail snapshot only
-                // afterwards so that cleanup cannot immediately restore the local preset.
-                if (string.Equals(command, "Load", StringComparison.Ordinal))
+                pendingTrailMakerLoad = string.Equals(command, "Load", StringComparison.Ordinal);
+                pendingTrailMakerTrailPath = loadedHeader?.filePath;
+                try
                 {
-                    try
-                    {
-                        if (loadedHeader != null)
-                            EnterSidecar(loadedHeader.filePath, editable: true);
-                        else
-                            ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: true);
-                    }
-                    catch (Exception exception)
-                    {
-                        DebugLogHelper.LogError(log, $"Could not activate editable Trail mod settings: {exception}");
-                        ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: true);
-                    }
+                    manageTrailButtonOriginal(self, command);
                 }
-                else if (string.Equals(command, "Import", StringComparison.Ordinal))
+                finally
+                {
+                    pendingTrailMakerTrailPath = null;
+                    pendingTrailMakerLoad = false;
+                }
+
+                if (string.Equals(command, "Import", StringComparison.Ordinal))
                 {
                     TryFileOperation("add Coop Trails to Vanilla's import list", () => AddCoopImportRows(self));
                 }
@@ -1514,11 +1630,12 @@ namespace ExtendedData
 
             private void StartCustomTrailHook(MainViewModel self, string trailName, int missionId, int difficulty)
             {
+                bool customizedRestart = false;
                 if (!preserveContextForLaunch)
                 {
                     HUD_IngameMenu.RestartSkirmishMapInfo restartInfo =
                         MainViewModel.Instance?.HUDIngameMenu?.restartSkirmishMapInfo;
-                    bool customizedRestart =
+                    customizedRestart =
                         ExtendedDataLaunchOriginApi.Origin ==
                             ExtendedDataLaunchOriginKind.CustomizedCustomTrail &&
                         restartInfo?.customTrail == true &&
@@ -1538,20 +1655,25 @@ namespace ExtendedData
                 {
                     try
                     {
-                        FileHeader header = MapFileManager.Instance.GetHeaderFromCustomTrail(
-                            trailName,
-                            FRONT_ManageTrail.GetMakerFileName(missionId - 1));
-                        if (header != null)
-                            EnterSidecar(header.filePath, editable: false);
+                        FileHeader header = ResolveCustomTrailHeader(trailName, missionId);
+                        bool validSidecar = EnterSidecar(header.filePath, editable: false);
+                        if (validSidecar && !customizedRestart)
+                        {
+                            ExtendedDataLaunchOriginApi.SetCustomizedCustomTrail(
+                                FrontendMenus.CurrentSelectedTrail,
+                                missionId);
+                        }
                     }
                     catch (Exception exception)
                     {
+                        ExtendedDataLaunchOriginApi.Clear();
                         DebugLogHelper.LogError(log, $"Could not prepare Custom Trail mod settings: {exception}");
                         ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
                     }
                 }
                 preserveContextForLaunch = false;
                 customTrailLaunchActive = true;
+                missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CustomTrail);
                 startCustomTrailOriginal(self, trailName, missionId, difficulty);
             }
 
@@ -1568,6 +1690,14 @@ namespace ExtendedData
                 // Origin tracking is shared infrastructure for the other gameplay mods and must
                 // remain active even when ExtendedData's own visible features are disabled.
                 bool preserve = enabled && preserveContextForLaunch;
+                if (enabled && trailMaker && !pendingTrailMakerLoad &&
+                    trailMakerAuthoringActive && trailContext)
+                {
+                    CaptureTrailMakerWorkingDocument("lobby rebuild");
+                    missionPresetLifecycle.AwaitTrailMakerReturn();
+                }
+                if (!trailMaker)
+                    ClearTrailMakerAuthoringState();
                 if (!trailMaker && !preserve)
                 {
                     ExtendedDataLaunchOriginApi.Clear();
@@ -1601,6 +1731,18 @@ namespace ExtendedData
                     return;
                 if (preserve)
                     preserveContextForLaunch = false;
+                if (trailMaker)
+                {
+                    if (IsConfirmedTrailMakerLobby(self))
+                        ActivateTrailMakerLobby(restartInfo);
+                    else
+                    {
+                        DebugLogHelper.LogWarning(
+                            log,
+                            "Trail Maker lobby transition did not complete; discarded its pending mod-settings state.");
+                        ExitContext(force: true);
+                    }
+                }
                 LobbyOpened?.Invoke(self);
             }
 
@@ -1618,6 +1760,17 @@ namespace ExtendedData
                 {
                     startSkirmishGameOriginal(self, customTrailRestartInfo);
                     return;
+                }
+                if (self?.trailMakerMode == true)
+                {
+                    if (!PrepareTrailMakerTestLaunch())
+                        return;
+                }
+                if (enabled && self?.singlePlayerCoop == true && self.currentLobby?.coopTrailGame == true)
+                {
+                    Func<FRONT_Multiplayer, bool> prepare = SinglePlayerCoopStarting;
+                    if (prepare != null && !prepare(self))
+                        return;
                 }
                 if (customTrailRestartInfo == null && customTrailSetupRestartInfo != null)
                 {
@@ -1695,6 +1848,11 @@ namespace ExtendedData
                         DebugLogHelper.LogError(log, $"Could not open Custom Trail setup: {exception}");
                     }
                     return;
+                }
+                if (preserveTrailMakerMapEditor)
+                {
+                    CaptureTrailMakerWorkingDocument("Map Editor transition");
+                    missionPresetLifecycle.AwaitTrailMakerReturn();
                 }
                 frontendButtonOriginal(self, command);
                 if (string.Equals(command, "Coops", StringComparison.Ordinal))
@@ -1949,6 +2107,26 @@ namespace ExtendedData
                 return MapFileManager.Instance.GetHeaderFromCustomTrail(
                     menus.CustomTrailName,
                     FRONT_ManageTrail.GetMakerFileName(mission - 1));
+            }
+
+            private static FileHeader ResolveCustomTrailHeader(string trailName, int missionId)
+            {
+                if (string.IsNullOrWhiteSpace(trailName) || missionId <= 0)
+                    throw new InvalidDataException("The Custom Trail name or 1-based mission number is invalid.");
+
+                FileHeader header = MapFileManager.Instance.GetHeaderFromCustomTrail(
+                    trailName,
+                    FRONT_ManageTrail.GetMakerFileName(missionId - 1));
+                if (header == null || string.IsNullOrWhiteSpace(header.filePath))
+                    throw new InvalidDataException("The Custom Trail mission could not be resolved.");
+
+                string trailPath = IOPath.GetFullPath(header.filePath);
+                if (!string.Equals(IOPath.GetExtension(trailPath), ".trail", StringComparison.OrdinalIgnoreCase) ||
+                    !File.Exists(trailPath))
+                {
+                    throw new InvalidDataException("The resolved Custom Trail mission has no valid .trail file.");
+                }
+                return header;
             }
 
             internal void EnsureCoopCustomizeButtons()
@@ -2438,7 +2616,134 @@ namespace ExtendedData
                 if (trailId == 3) FrontendMenus.CurrentSelectedTrailCoop4Mission = missionId;
             }
 
-            private void EnterSidecar(string trailPath, bool editable)
+            private static bool IsConfirmedTrailMakerLobby(FRONT_Multiplayer self) =>
+                self?.currentLobby != null &&
+                self.trailMakerMode &&
+                ReferenceEquals(Platform_Multiplayer.Instance?.activeLobby, self.currentLobby) &&
+                MainViewModel.Instance?.Show_MultiplayerSetup == true;
+
+            private void ActivateTrailMakerLobby(HUD_IngameMenu.RestartSkirmishMapInfo restartInfo)
+            {
+                string requestedTrailPath = pendingTrailMakerTrailPath;
+                string source;
+                try
+                {
+                    if (pendingTrailMakerLoad && !string.IsNullOrWhiteSpace(requestedTrailPath))
+                    {
+                        bool sidecarExists = EnterSidecar(requestedTrailPath, editable: true);
+                        UpdateTrailMakerWorkingDocument(CaptureDocument(), requestedTrailPath);
+                        source = sidecarExists ? "loaded mission sidecar" : "loaded mission defaults";
+                    }
+                    else if (pendingTrailMakerLoad)
+                    {
+                        ModSettingsDefinition defaults = ModSettingsDefinition.CreateModDefaults();
+                        ApplyDocument(defaults, editable: true);
+                        UpdateTrailMakerWorkingDocument(CaptureDocument(), null);
+                        source = "unavailable loaded mission defaults";
+                    }
+                    else if (missionPresetLifecycle.AwaitingTrailMakerReturn && trailMakerWorkingDocument != null)
+                    {
+                        ModSettingsDefinition document = trailMakerWorkingDocument;
+                        ApplyDocument(document, editable: true);
+                        UpdateTrailMakerWorkingDocument(CaptureDocument(), trailMakerTrailPath);
+                        source = restartInfo?.customTestMission == true
+                            ? "test return draft"
+                            : "authoring session draft";
+                    }
+                    else
+                    {
+                        ModSettingsDefinition defaults = ModSettingsDefinition.CreateModDefaults();
+                        ApplyDocument(defaults, editable: true);
+                        UpdateTrailMakerWorkingDocument(CaptureDocument(), null);
+                        source = "new mission defaults";
+                    }
+                    missionPresetLifecycle.CompleteTrailMakerReturn();
+                    DebugLogHelper.LogInfo(
+                        log,
+                        "Activated editable Trail Maker mod-settings context from " + source + ".");
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(
+                        log,
+                        "Could not activate the Trail Maker mod-settings draft; applying editable defaults: " + exception);
+                    try
+                    {
+                        ModSettingsDefinition defaults = ModSettingsDefinition.CreateModDefaults();
+                        ApplyDocument(defaults, editable: true);
+                        UpdateTrailMakerWorkingDocument(CaptureDocument(), null);
+                        missionPresetLifecycle.CompleteTrailMakerReturn();
+                        DebugLogHelper.LogInfo(
+                            log,
+                            "Activated editable Trail Maker mod-settings context from fail-closed defaults.");
+                    }
+                    catch (Exception fallbackException)
+                    {
+                        DebugLogHelper.LogError(
+                            log,
+                            "Could not activate fail-closed Trail Maker defaults; leaving the authoring context: " +
+                            fallbackException);
+                        try
+                        {
+                            ExitContext(force: true);
+                        }
+                        catch (Exception cleanupException)
+                        {
+                            DebugLogHelper.LogError(
+                                log,
+                                "Could not fully clean up the failed Trail Maker context: " + cleanupException);
+                        }
+                    }
+                }
+            }
+
+            private void CaptureTrailMakerWorkingDocument(string transition)
+            {
+                try
+                {
+                    ModSettingsDefinition document = trailContext &&
+                        string.Equals(activeContextLabel, "Trail", StringComparison.Ordinal)
+                        ? CaptureDocument()
+                        : trailMakerWorkingDocument ?? ModSettingsDefinition.CreateModDefaults();
+                    UpdateTrailMakerWorkingDocument(document, trailMakerTrailPath);
+                    DebugLogHelper.LogInfo(
+                        log,
+                        "Captured editable Trail Maker mod-settings draft before " + transition + ".");
+                }
+                catch (Exception exception)
+                {
+                    trailMakerWorkingDocument = ModSettingsDefinition.CreateModDefaults();
+                    trailMakerTrailPath = null;
+                    trailMakerAuthoringActive = true;
+                    DebugLogHelper.LogError(
+                        log,
+                        "Could not capture the Trail Maker mod-settings draft before " + transition +
+                        "; the return will use editable defaults: " + exception);
+                }
+            }
+
+            private void UpdateTrailMakerWorkingDocument(ModSettingsDefinition document, string trailPath)
+            {
+                // Store an independent normalized copy because ApplyDocument removes obsolete
+                // properties from the instance it receives.
+                trailMakerWorkingDocument = ModSettingsJson.ParseObject(ModSettingsJson.Serialize(document));
+                trailMakerTrailPath = string.IsNullOrWhiteSpace(trailPath)
+                    ? null
+                    : IOPath.GetFullPath(trailPath);
+                trailMakerAuthoringActive = true;
+            }
+
+            private void ClearTrailMakerAuthoringState()
+            {
+                trailMakerWorkingDocument = null;
+                trailMakerTrailPath = null;
+                pendingTrailMakerTrailPath = null;
+                pendingTrailMakerLoad = false;
+                trailMakerAuthoringActive = false;
+                missionPresetLifecycle.Reset();
+            }
+
+            private bool EnterSidecar(string trailPath, bool editable)
             {
                 string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 bool exists = File.Exists(sidecar);
@@ -2456,7 +2761,7 @@ namespace ExtendedData
                     activeSidecarLength == length && activeSidecarWriteTicks == writeTicks &&
                     AreAllTrailPresetsActive())
                 {
-                    return;
+                    return exists;
                 }
 
                 ModSettingsDefinition document = exists
@@ -2472,6 +2777,7 @@ namespace ExtendedData
                 activeSidecarLength = length;
                 activeSidecarWriteTicks = writeTicks;
                 activeSidecarEditable = editable;
+                return exists;
             }
 
             private ModSettingsDefinition CaptureDocument()

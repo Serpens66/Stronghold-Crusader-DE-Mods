@@ -1,4 +1,6 @@
 # Serp mod localization
+BugfixesAndQoL.EnableBriefingNoStartingGoldFix=Korrekte "Kein Startgold"-Anzeige
+BugfixesAndQoL.EnableBriefingNoStartingGoldFixHelp=Zeigt in der Missionsvorschau fuer menschliche Spieler 0 Gold an, wenn Vanillas erweiterte Option "Kein Startgold" aktiv ist. KI-Spieler und das Gameplay bleiben unveraendert. Diese Einstellung gilt pro Spieler.
 BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayer=MP-Erweiterteinstellungen im Einzelspieler anzeigen
 BugfixesAndQoL.ShowMpAdvancedSettingsInSingleplayerHelp=Zeigt Vanillas Multiplayer-Spieloptionen in lokalen Gefechten. Friedenszeit, Einschränkungen, erweiterte Optionen und gemeinsame Presets verwenden Vanillas Setup-Daten.
 # Format: key=value
@@ -171,6 +173,8 @@ BugfixesAndQoL.SurrenderConfirmationTitle=Partie aufgeben
 BugfixesAndQoL.SurrenderConfirmationMessage=Möchtest du die aktuelle Partie wirklich aufgeben? Diese Entscheidung ist endgültig und zählt als Niederlage.
 BugfixesAndQoL.ShowSelectedUnitHealth=Lebenspunkte ausgewaehlter Einheiten im Truppen-HUD anzeigen
 BugfixesAndQoL.ShowSelectedUnitHealthHelp=Zeigt die aktuellen und maximalen Lebenspunkte der ausgewaehlten Einheiten im Truppen-HUD an. Bei mehreren Einheiten werden die Werte summiert. Diese Einstellung gilt pro Spieler.
+BugfixesAndQoL.ImproveYellowLobbyContrast=Kontrastreicheres Gelb
+BugfixesAndQoL.ImproveYellowLobbyContrastHelp=Verwendet dunkles Gold fuer das gelbe Spielerwappen im gesamten Spiel und fuer gelbe Teamzeilen in der Skirmish- und Multiplayer-Lobby. Einheiten, Gebaeude, Minimap, Teamwappen und andere gelbe Oberflaechenelemente bleiben unveraendert. Diese Einstellung gilt pro Spieler.
 BugfixesAndQoL.StatisticsTeamBadgeMode=Teammarkierungen in Statistiken
 BugfixesAndQoL.StatisticsTeamBadgeModeHelp=Zeigt auf beiden Statistikseiten das Team jedes Spielers unten links an seinem persoenlichen Schild. Diese Einstellung gilt pro Spieler.
 BugfixesAndQoL.StatisticsTeamBadgeModeOff=Aus

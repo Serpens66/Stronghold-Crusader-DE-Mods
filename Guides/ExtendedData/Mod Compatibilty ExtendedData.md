@@ -1,174 +1,363 @@
-# Extended Data compatibility for mod authors
+# ExtendedData compatibility for mod authors / ExtendedData-Kompatibilität für Modentwickler
 
-This guide is for mod authors. Map and Trail creators should use [Map and Custom Trail Mod Settings](Custom%20Trail%20Mod%20Settings.md).
+[English](#english) | [Deutsch](#deutsch)
 
-`ExtendedData` can save and restore another mod's host-controlled lobby settings for Maps and Trails without a compile-time reference to that mod. Compatible installed mods are discovered automatically and appear as per-setting mode selectors in the `ExtendedData` settings.
+## English
 
-Your mod does **not** need to reference `ExtendedData.dll` or contain mod-specific integration code.
+This guide is for mod authors. Map and Trail creators should use [Mod settings in Maps and Custom Trails](Custom%20Trail%20Mod%20Settings.md#english).
 
-## Compatibility requirements
+`ExtendedData` can save and restore another mod's host-controlled lobby settings for Maps and Trails without a compile-time reference from that mod to `ExtendedData.dll`. Compatible installed mods are discovered automatically and appear as per-setting mode selectors in the `ExtendedData` settings.
 
-A mod is detected as compatible when all of the following are true:
+### Compatibility requirements
+
+A mod is compatible when all of these conditions are met:
 
 1. It registers a lobby-modsettings ViewModel through `GameXAMLManagerAPI`.
-2. The ViewModel exposes at least one public readable and writable property marked `[SyncHostOnly]` and not marked `[DoNotPersist]`.
+2. The ViewModel exposes at least one public readable and writable `[SyncHostOnly]` property that is not `[DoNotPersist]`.
 3. The ViewModel exposes the mission-preset API listed below.
-4. Every captured `[SyncHostOnly]` value is non-null and can be serialized by MessagePack.
+4. Every captured value is non-null and MessagePack-serializable.
 5. Its disabled/default mission snapshot contains a valid MessagePack value for every captured property.
 6. The owning BepInEx plugin GUID has exactly one registered lobby-modsettings panel.
 
-`ExtendedData` uses the owning BepInEx plugin GUID as the stable identity. The display name and the name passed to `RegisterLobbyModSettings` may be different.
+ExtendedData uses the owning BepInEx plugin GUID as the stable identity. The display name and the name passed to `RegisterLobbyModSettings` may differ.
 
-Only host-controlled settings belong in a Map or Trail. `[SyncPerPlayer]`, `[PresetLocal]`, and `[PersistLocal]` values remain owned by each player and are never captured.
+Only host-controlled match rules belong in a Map or Trail. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and transient `[DoNotPersist]` values are never captured.
 
-## Recommended integration
+### Recommended integration
 
-The easiest and safest integration is to use this repository's shared preset system. It already implements mission snapshots, Map/Trail locking, restoration of the player's previous preset, host/client authority, and persistence isolation.
+Use the repository's current shared preset implementation. It already implements mission snapshots, Map/Trail locking, restoration of the previous local preset, host/client authority, persistence isolation, mission lifecycle handling, and process-wide lobby observation.
 
-Use the current versions of these three source files together:
+Vendor these source files together and update them as one unit:
 
 - [`Shared/PresetLobbyModSettingsViewModel.cs`](../../Shared/PresetLobbyModSettingsViewModel.cs)
 - [`Shared/GameModeHelper.cs`](../../Shared/GameModeHelper.cs)
+- [`Shared/GameplaySessionLifecycle.cs`](../../Shared/GameplaySessionLifecycle.cs)
 - [`Shared/DebugLogHelper.cs`](../../Shared/DebugLogHelper.cs)
+- [`Shared/ModSettingsSearch.cs`](../../Shared/ModSettingsSearch.cs)
 
-For a separate repository, download or vendor the files into a directory such as `Compatibility/SerpShared` and update all three together when the shared contract changes. A Git submodule is also suitable. Do not manually reimplement fragments of the files.
+The runtime project must reference BepInEx, `Assembly-CSharp.dll`, `SHCDESE.dll`, `R3.dll`, `MessagePack.dll`, `Noesis.NoesisGUI.dll`, Steamworks.NET, and `APIShared.dll`. Reference `APIShared.dll` with `Private=false`, define `API_SHARED_LOBBY_OBSERVER`, and require the same APIShared version at runtime instead of copying a private DLL beside the consuming mod.
 
-Example project entries for vendored files:
+Example project fragments:
 
-    <Compile Include="Compatibility\SerpShared\PresetLobbyModSettingsViewModel.cs">
-      <Link>Shared\PresetLobbyModSettingsViewModel.cs</Link>
-    </Compile>
-    <Compile Include="Compatibility\SerpShared\GameModeHelper.cs">
-      <Link>Shared\GameModeHelper.cs</Link>
-    </Compile>
-    <Compile Include="Compatibility\SerpShared\DebugLogHelper.cs">
-      <Link>Shared\DebugLogHelper.cs</Link>
-    </Compile>
+```xml
+<PropertyGroup>
+  <DefineConstants>$(DefineConstants);API_SHARED_LOBBY_OBSERVER</DefineConstants>
+</PropertyGroup>
 
-The runtime project must already reference BepInEx, `SHCDESE.dll`, `MessagePack.dll`, and `Noesis.NoesisGUI.dll`. Add these namespaces to the settings source:
-
-    using Shared;
-    using SHCDESE.API.Components.Network;
+<ItemGroup>
+  <Reference Include="APIShared">
+    <HintPath>$(ApiSharedDir)\APIShared.dll</HintPath>
+    <Private>false</Private>
+  </Reference>
+  <Compile Include="Compatibility\SerpShared\PresetLobbyModSettingsViewModel.cs">
+    <Link>Shared\PresetLobbyModSettingsViewModel.cs</Link>
+  </Compile>
+  <Compile Include="Compatibility\SerpShared\GameModeHelper.cs">
+    <Link>Shared\GameModeHelper.cs</Link>
+  </Compile>
+  <Compile Include="Compatibility\SerpShared\GameplaySessionLifecycle.cs">
+    <Link>Shared\GameplaySessionLifecycle.cs</Link>
+  </Compile>
+  <Compile Include="Compatibility\SerpShared\DebugLogHelper.cs">
+    <Link>Shared\DebugLogHelper.cs</Link>
+  </Compile>
+  <Compile Include="Compatibility\SerpShared\ModSettingsSearch.cs">
+    <Link>Shared\ModSettingsSearch.cs</Link>
+  </Compile>
+</ItemGroup>
+```
 
 Derive the settings ViewModel from `PresetLobbyModSettingsViewModel`:
 
-    public sealed class ExampleSettingsViewModel : PresetLobbyModSettingsViewModel
+```csharp
+using Shared;
+using SHCDESE.API.Components.Network;
+
+public sealed class ExampleSettingsViewModel : PresetLobbyModSettingsViewModel
+{
+    private bool enableMod = true;
+    private int strength = 100;
+
+    [SyncHostOnly]
+    public bool EnableMod
     {
-        private bool enableMod = true;
-        private int strength = 100;
-
-        [SyncHostOnly]
-        public bool EnableMod
+        get => enableMod;
+        set
         {
-            get => enableMod;
-            set
-            {
-                if (!CanMutateSetting() || enableMod == value)
-                    return;
-                enableMod = value;
-                OnPropertyChanged(nameof(EnableMod));
-            }
-        }
-
-        [SyncHostOnly]
-        public int Strength
-        {
-            get => strength;
-            set
-            {
-                if (!CanMutateSetting() || strength == value)
-                    return;
-                strength = value;
-                OnPropertyChanged(nameof(Strength));
-            }
+            if (!CanMutateSetting() || enableMod == value)
+                return;
+            enableMod = value;
+            OnPropertyChanged(nameof(EnableMod));
         }
     }
 
-Register it with the shared registration helper after the Script Extender library is ready:
+    [SyncHostOnly]
+    public int Strength
+    {
+        get => strength;
+        set
+        {
+            if (!CanMutateSetting() || strength == value)
+                return;
+            strength = value;
+            OnPropertyChanged(nameof(Strength));
+        }
+    }
+}
+```
 
-    LobbyModSettingsPresetRegistration.Register(
-        this,
-        Logger,
-        PluginGuid,
-        Settings,
-        "ScriptExtenderUI/ExampleSettings.xaml");
+Register it after the Script Extender library is ready:
 
-Use the stable BepInEx `PluginGuid` as `modName`. This also keeps multiplayer synchronization and local preset storage stable.
+```csharp
+LobbyModSettingsPresetRegistration.Register(
+    this,
+    Logger,
+    PluginGuid,
+    Settings,
+    "ScriptExtenderUI/ExampleSettings.xaml");
+```
 
-Register exactly one lobby-modsettings ViewModel for each BepInEx plugin GUID. If a mod currently uses several panels, combine their settings behind one registered ViewModel before enabling Trail compatibility. This prevents two panels from competing for the same stable Trail identity.
+Use the stable BepInEx `PluginGuid` as `modName`. Register exactly one lobby-modsettings ViewModel per plugin GUID.
 
-`EnableMod` is optional for compatibility, but strongly recommended. If present as a Boolean `[SyncHostOnly]` property, a Trail can explicitly restore the mod's enabled or disabled state. Without it, the compatible host settings are still captured and restored.
+`EnableMod` is optional but recommended. When it is a Boolean `[SyncHostOnly]` property, a mission can explicitly restore the mod's enabled or disabled state. Its disabled snapshot must contain `false`.
 
-## Explicit opt-out
+### Explicit opt-out
 
-A mod whose settings must never be owned by a Map or Trail can opt out without referencing `ExtendedData`. Add this exact public constant to the BepInEx plugin class that owns the registered modsettings panel:
+A mod whose settings must never be owned by a Map or Trail can opt out without referencing ExtendedData. Add this exact public constant to the BepInEx plugin class that owns the registered panel:
 
-    public const bool ExtendedDataModSettingsOptOut = true;
+```csharp
+public const bool ExtendedDataModSettingsOptOut = true;
+```
 
-The marker is intentionally a compile-time constant rather than a configurable setting. `ExtendedData` checks it before inspecting the ViewModel. An opted-out plugin is omitted completely: it receives no checkbox, does not appear in the incompatible-mod list, is not mentioned by compatibility warnings, and its settings are never captured or applied. The member name is case-sensitive; a property, mutable field, or value of `false` does not opt out.
+The member name is case-sensitive and must be a public compile-time constant. A property, mutable field, or `false` value does not opt out. An opted-out plugin is omitted from discovery, compatibility warnings, and capture.
 
-## Required mission-preset API
+### Required mission-preset API
 
-Mods using `PresetLobbyModSettingsViewModel` receive this API automatically. A custom implementation must expose these exact public members:
+`PresetLobbyModSettingsViewModel` provides this API automatically. A custom implementation must expose these exact public instance members:
 
-    public Dictionary<string, byte[]> System_CreateDisabledMissionPresetSnapshot();
-    public void System_EnterMissionPreset(
-        Dictionary<string, byte[]> snapshot,
-        string label,
-        bool editable);
-    public void System_ExitMissionPreset();
-    public bool IsMissionPresetActive { get; }
+```csharp
+public Dictionary<string, byte[]> System_CreateDisabledMissionPresetSnapshot();
+public void System_EnterMissionPreset(
+    Dictionary<string, byte[]> snapshot,
+    string label,
+    bool editable);
+public void System_ExitMissionPreset();
+public bool IsMissionPresetActive { get; }
+```
 
-The contract is discovered by member shape, so no shared interface assembly and no `ExtendedData` reference are required.
+The contract is discovered by member shape, so the consuming mod needs no `ExtendedData.dll` reference.
 
-A custom implementation must provide the same safety guarantees as the shared base class:
+A custom implementation must provide the same guarantees:
 
-- `System_CreateDisabledMissionPresetSnapshot()` is side-effect free, returns a non-null dictionary, and includes a MessagePack value for every persistent `[SyncHostOnly]` property;
-- when `[SyncHostOnly] bool EnableMod` exists, that snapshot contains `false` for it; all other values are the mod's current defaults;
-- `System_EnterMissionPreset(...)` applies only the supplied host snapshot, records the exact prior local preset state, and sets `IsMissionPresetActive` to `true` after success;
-- applying a Map/Trail snapshot must not overwrite the player's normal local settings file;
-- leaving the Map/Trail context must restore the exact previous local preset;
-- `System_ExitMissionPreset()` is a safe no-op while inactive and sets `IsMissionPresetActive` to `false` after restoration;
-- read-only Map/Trail host settings must reject local client edits;
-- personal settings must remain unchanged;
-- snapshot application and restoration must be atomic from the ViewModel's perspective;
-- all four contract members must be public instance members with the exact signatures shown above and must not throw during normal operation.
+- Snapshot creation is side-effect free, returns a non-null dictionary, and includes every persistent `[SyncHostOnly]` property.
+- `[SyncHostOnly] bool EnableMod`, when present, is `false` in the disabled snapshot; other values use the mod's safe defaults.
+- Entering a mission preset applies only the supplied host snapshot, records the exact previous local preset, and does not overwrite the normal local settings file.
+- Exiting restores that exact preset; calling exit while inactive is a safe no-op.
+- A read-only Map/Trail context rejects local changes to host settings while personal settings remain editable.
+- Application and restoration are atomic from the ViewModel's perspective and do not throw during normal operation.
 
-Unless there is a strong reason to maintain a separate implementation, use the shared base class.
+### Property rules
 
-## Property rules
+- `[SyncHostOnly]`: persistent shared match rules eligible for Map/Trail storage.
+- `[SyncPerPlayer]`: synchronized personal settings; never captured.
+- `[PresetLocal]`: local settings participating in normal presets; never captured.
+- `[PersistLocal]`: local settings outside the preset system; never captured.
+- `[DoNotPersist]`: transient values; excluded even when also `[SyncHostOnly]`.
+- Captured properties require public getters and setters and non-null MessagePack-serializable values.
+- Use property setters and commands to enforce authority; disabled UI alone is not a security boundary.
 
-- Use `[SyncHostOnly]` for settings that define shared match rules and should be stored in a Map or Trail.
-- Use `[SyncPerPlayer]` for synchronized personal preferences. They are not stored in a Trail.
-- Use `[PresetLocal]` for local settings participating in presets. They are not stored in a Trail.
-- Use `[PersistLocal]` for local settings outside the preset system. They are not stored in a Trail.
-- Add `[DoNotPersist]` to transient network/status properties. Such properties are deliberately excluded from Trail capture even when they are `[SyncHostOnly]`.
-- Public `[SyncHostOnly]` properties must have both a getter and setter.
-- Property values must be non-null and MessagePack-serializable while compatibility is checked and while a Trail is saved. Primitive values and arrays are the simplest choices; explicitly attributed MessagePack models are suitable for complex values.
+ExtendedData owns the schema-3 JSON document. Compatible mods serialize only their property values through MessagePack and must not implement a second Map/Trail document serializer.
 
-Do not write a second JSON serializer for Map/Trail integration. `ExtendedData` owns the schema-3 document and serializes complex compatible values through MessagePack. Trail sidecars use `.modtrail.json`; Map archives use `_SE_ModData_ExtendedData-MapModSettings.msgpack` with UTF-8 JSON content.
+### Verification checklist
 
-## UI expectations
+- The mod appears with per-setting modes under compatible mods in ExtendedData.
+- **Mod default**, **Player/host**, and **Fixed creator value** each produce the documented result.
+- An all-default selection omits the mod from the active document.
+- Personal, local, and transient values are absent.
+- Map/Trail activation does not modify the normal local preset file.
+- Map changes, lobby exit, mission end, restarts, and Trail Maker test returns restore or retain the correct context.
+- Multiplayer clients cannot alter read-only host settings.
+- The mod builds and runs with the current shared source set and required APIShared dependency.
 
-Bind host-controlled interactive elements to the shared access properties, especially `CanEditHostSettings`. During a read-only Map or Trail context, the shared base class then locks only the context-owned host values while client settings remain editable.
+If compatibility fails, search `BepInEx/LogOutput.log` for `Map/Trail mod settings`; ExtendedData records the plugin GUID and concrete rejection reason there.
 
-Commands and property setters must both enforce the same authority. UI disablement alone is not a security boundary.
+---
 
-## Verification checklist
+## Deutsch
 
-Before publishing a compatible mod, verify that:
+Dieser Guide richtet sich an Modentwickler. Map- und Trail-Ersteller verwenden [Mod-Einstellungen in Maps und Custom Trails](Custom%20Trail%20Mod%20Settings.md#deutsch).
 
-- the mod appears with mode selectors under compatible mods in `ExtendedData`;
-- `Mod default` uses the snapshot returned by `System_CreateDisabledMissionPresetSnapshot()`;
-- `Player/host` uses the normal saved host preset without storing its current value in the Trail;
-- `Fixed creator value` stores and restores the value visible while the Map or Trail is saved;
-- leaving every setting on `Mod default` omits the mod from the sidecar;
-- `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and `[DoNotPersist]` values are absent;
-- playing a Trail applies its host settings without changing the local `.msgpack` file;
-- manually choosing **Use Map modsettings** applies the read-only `Map` preset without changing the local `.msgpack` file;
-- selecting a different Map, leaving the lobby, or ending the mission restores the previous local preset;
-- leaving the Trail restores the previously selected local preset;
-- a multiplayer client cannot alter read-only Trail host settings;
-- disabling the mod itself is captured correctly when it exposes `[SyncHostOnly] bool EnableMod`.
+`ExtendedData` kann hostverwaltete Lobby-Einstellungen eines anderen Mods für Maps und Trails speichern und wiederherstellen, ohne dass dieser Mod zur Kompilierzeit `ExtendedData.dll` referenziert. Installierte kompatible Mods werden automatisch erkannt und erscheinen mit einem Modus pro Einstellung in den `ExtendedData`-Einstellungen.
 
-If the mod is listed as incompatible, open `BepInEx/LogOutput.log` and search for `Map/Trail mod settings`. `ExtendedData` writes the plugin GUID and the concrete reason there, while the in-game settings intentionally show only the comma-separated mod names. Then confirm that the mod uses `LobbyModSettingsPresetRegistration.Register(...)`, has one registered panel and at least one persistent `[SyncHostOnly]` property, returns a complete disabled snapshot, and was built against the currently supported Script Extender API.
+### Kompatibilitätsanforderungen
+
+Ein Mod ist kompatibel, wenn alle folgenden Bedingungen erfüllt sind:
+
+1. Er registriert über `GameXAMLManagerAPI` ein Lobby-Modsettings-ViewModel.
+2. Das ViewModel stellt mindestens eine öffentliche les- und schreibbare `[SyncHostOnly]`-Eigenschaft bereit, die nicht mit `[DoNotPersist]` markiert ist.
+3. Das ViewModel stellt die unten aufgeführte Missions-Preset-API bereit.
+4. Jeder erfasste Wert ist nicht null und mit MessagePack serialisierbar.
+5. Der deaktivierte Standard-Missionssnapshot enthält für jede erfasste Eigenschaft einen gültigen MessagePack-Wert.
+6. Für die zugehörige BepInEx-Plugin-GUID ist genau ein Lobby-Modsettings-Panel registriert.
+
+ExtendedData verwendet die BepInEx-Plugin-GUID des Besitzers als stabile Identität. Anzeigename und der an `RegisterLobbyModSettings` übergebene Name dürfen davon abweichen.
+
+Nur hostverwaltete Spielregeln gehören in eine Map oder einen Trail. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]` und vorübergehende `[DoNotPersist]`-Werte werden niemals erfasst.
+
+### Empfohlene Integration
+
+Verwende die aktuelle gemeinsame Preset-Implementierung dieses Repositories. Sie implementiert bereits Missionssnapshots, Map-/Trail-Sperren, die Wiederherstellung des vorherigen lokalen Presets, Host-/Client-Autorität, isolierte Persistenz, den Missionslebenszyklus und die prozessweite Lobby-Beobachtung.
+
+Übernimm diese Quelldateien gemeinsam und aktualisiere sie immer als Einheit:
+
+- [`Shared/PresetLobbyModSettingsViewModel.cs`](../../Shared/PresetLobbyModSettingsViewModel.cs)
+- [`Shared/GameModeHelper.cs`](../../Shared/GameModeHelper.cs)
+- [`Shared/GameplaySessionLifecycle.cs`](../../Shared/GameplaySessionLifecycle.cs)
+- [`Shared/DebugLogHelper.cs`](../../Shared/DebugLogHelper.cs)
+- [`Shared/ModSettingsSearch.cs`](../../Shared/ModSettingsSearch.cs)
+
+Das Runtime-Projekt muss BepInEx, `Assembly-CSharp.dll`, `SHCDESE.dll`, `R3.dll`, `MessagePack.dll`, `Noesis.NoesisGUI.dll`, Steamworks.NET und `APIShared.dll` referenzieren. Referenziere `APIShared.dll` mit `Private=false`, definiere `API_SHARED_LOBBY_OBSERVER` und verlange dieselbe APIShared-Version zur Laufzeit, statt eine private DLL neben den konsumierenden Mod zu kopieren.
+
+Beispielhafte Projektelemente:
+
+```xml
+<PropertyGroup>
+  <DefineConstants>$(DefineConstants);API_SHARED_LOBBY_OBSERVER</DefineConstants>
+</PropertyGroup>
+
+<ItemGroup>
+  <Reference Include="APIShared">
+    <HintPath>$(ApiSharedDir)\APIShared.dll</HintPath>
+    <Private>false</Private>
+  </Reference>
+  <Compile Include="Compatibility\SerpShared\PresetLobbyModSettingsViewModel.cs">
+    <Link>Shared\PresetLobbyModSettingsViewModel.cs</Link>
+  </Compile>
+  <Compile Include="Compatibility\SerpShared\GameModeHelper.cs">
+    <Link>Shared\GameModeHelper.cs</Link>
+  </Compile>
+  <Compile Include="Compatibility\SerpShared\GameplaySessionLifecycle.cs">
+    <Link>Shared\GameplaySessionLifecycle.cs</Link>
+  </Compile>
+  <Compile Include="Compatibility\SerpShared\DebugLogHelper.cs">
+    <Link>Shared\DebugLogHelper.cs</Link>
+  </Compile>
+  <Compile Include="Compatibility\SerpShared\ModSettingsSearch.cs">
+    <Link>Shared\ModSettingsSearch.cs</Link>
+  </Compile>
+</ItemGroup>
+```
+
+Leite das Einstellungs-ViewModel von `PresetLobbyModSettingsViewModel` ab:
+
+```csharp
+using Shared;
+using SHCDESE.API.Components.Network;
+
+public sealed class ExampleSettingsViewModel : PresetLobbyModSettingsViewModel
+{
+    private bool enableMod = true;
+    private int strength = 100;
+
+    [SyncHostOnly]
+    public bool EnableMod
+    {
+        get => enableMod;
+        set
+        {
+            if (!CanMutateSetting() || enableMod == value)
+                return;
+            enableMod = value;
+            OnPropertyChanged(nameof(EnableMod));
+        }
+    }
+
+    [SyncHostOnly]
+    public int Strength
+    {
+        get => strength;
+        set
+        {
+            if (!CanMutateSetting() || strength == value)
+                return;
+            strength = value;
+            OnPropertyChanged(nameof(Strength));
+        }
+    }
+}
+```
+
+Registriere es, nachdem die Script-Extender-Bibliothek bereit ist:
+
+```csharp
+LobbyModSettingsPresetRegistration.Register(
+    this,
+    Logger,
+    PluginGuid,
+    Settings,
+    "ScriptExtenderUI/ExampleSettings.xaml");
+```
+
+Verwende die stabile BepInEx-`PluginGuid` als `modName`. Registriere genau ein Lobby-Modsettings-ViewModel pro Plugin-GUID.
+
+`EnableMod` ist optional, aber empfohlen. Ist es eine boolesche `[SyncHostOnly]`-Eigenschaft, kann eine Mission den aktivierten oder deaktivierten Zustand des Mods ausdrücklich wiederherstellen. Der deaktivierte Snapshot muss `false` enthalten.
+
+### Explizites Opt-out
+
+Ein Mod, dessen Einstellungen niemals einer Map oder einem Trail gehören dürfen, kann ohne ExtendedData-Referenz aussteigen. Ergänze exakt diese öffentliche Konstante in der BepInEx-Plugin-Klasse, der das registrierte Panel gehört:
+
+```csharp
+public const bool ExtendedDataModSettingsOptOut = true;
+```
+
+Der Membername beachtet Groß-/Kleinschreibung und muss eine öffentliche Compilezeitkonstante sein. Eine Property, ein veränderliches Feld oder der Wert `false` bewirken kein Opt-out. Ein ausgestiegenes Plugin wird bei Erkennung, Kompatibilitätswarnungen und Erfassung ausgelassen.
+
+### Erforderliche Missions-Preset-API
+
+`PresetLobbyModSettingsViewModel` stellt diese API automatisch bereit. Eine eigene Implementierung muss exakt diese öffentlichen Instanzmember anbieten:
+
+```csharp
+public Dictionary<string, byte[]> System_CreateDisabledMissionPresetSnapshot();
+public void System_EnterMissionPreset(
+    Dictionary<string, byte[]> snapshot,
+    string label,
+    bool editable);
+public void System_ExitMissionPreset();
+public bool IsMissionPresetActive { get; }
+```
+
+Der Vertrag wird anhand der Memberform erkannt, daher benötigt der konsumierende Mod keine Referenz auf `ExtendedData.dll`.
+
+Eine eigene Implementierung muss dieselben Garantien bieten:
+
+- Die Snapshoterstellung ist nebenwirkungsfrei, gibt ein nicht-null Dictionary zurück und enthält jede dauerhafte `[SyncHostOnly]`-Eigenschaft.
+- Eine vorhandene `[SyncHostOnly] bool EnableMod` ist im deaktivierten Snapshot `false`; andere Werte verwenden die sicheren Standardwerte des Mods.
+- Beim Eintritt wird nur der übergebene Host-Snapshot angewendet und das genaue vorherige lokale Preset gespeichert, ohne die normale lokale Einstellungsdatei zu überschreiben.
+- Beim Austritt wird genau dieses Preset wiederhergestellt; ein Austritt im inaktiven Zustand ist ein sicherer No-op.
+- Ein schreibgeschützter Map-/Trail-Kontext weist lokale Änderungen an Host-Einstellungen ab, während persönliche Einstellungen bearbeitbar bleiben.
+- Anwendung und Wiederherstellung sind aus Sicht des ViewModels atomar und werfen im Normalbetrieb keine Exceptions.
+
+### Eigenschaftsregeln
+
+- `[SyncHostOnly]`: dauerhafte gemeinsame Spielregeln, die für Map-/Trail-Speicherung infrage kommen.
+- `[SyncPerPlayer]`: synchronisierte persönliche Einstellungen; werden nie erfasst.
+- `[PresetLocal]`: lokale Einstellungen in normalen Presets; werden nie erfasst.
+- `[PersistLocal]`: lokale Einstellungen außerhalb des Preset-Systems; werden nie erfasst.
+- `[DoNotPersist]`: vorübergehende Werte; auch zusammen mit `[SyncHostOnly]` ausgeschlossen.
+- Erfasste Properties benötigen öffentliche Getter und Setter sowie nicht-null, MessagePack-serialisierbare Werte.
+- Autorität muss in Settern und Commands erzwungen werden; eine deaktivierte Oberfläche allein ist keine Sicherheitsgrenze.
+
+ExtendedData besitzt das Schema-3-JSON-Dokument. Kompatible Mods serialisieren ausschließlich ihre Eigenschaftswerte mit MessagePack und implementieren keinen zweiten Map-/Trail-Dokumentserializer.
+
+### Prüfliste
+
+- Der Mod erscheint mit Modi pro Einstellung unter den kompatiblen Mods in ExtendedData.
+- **Mod default**, **Player/host** und **Fixed creator value** erzeugen jeweils das dokumentierte Ergebnis.
+- Eine reine Standardauswahl lässt den Mod im aktiven Dokument aus.
+- Persönliche, lokale und vorübergehende Werte fehlen.
+- Die Map-/Trail-Aktivierung verändert die normale lokale Preset-Datei nicht.
+- Map-Wechsel, Lobby-Austritt, Missionsende, Neustarts und Trail-Maker-Test-Rückkehr behalten oder restaurieren den richtigen Kontext.
+- Multiplayer-Clients können schreibgeschützte Host-Einstellungen nicht ändern.
+- Der Mod baut und läuft mit dem aktuellen Shared-Quellsatz und der erforderlichen APIShared-Abhängigkeit.
+
+Schlägt die Kompatibilität fehl, suche in `BepInEx/LogOutput.log` nach `Map/Trail mod settings`; ExtendedData protokolliert dort Plugin-GUID und konkreten Ablehnungsgrund.

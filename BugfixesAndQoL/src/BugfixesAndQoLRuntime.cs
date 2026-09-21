@@ -31,6 +31,8 @@ namespace BugfixesAndQoL
         private readonly TrailCustomizationFeature trailCustomizationFeature;
         private readonly CoopCustomLordSelectionFeature coopCustomLordSelectionFeature;
         private static PlacementCancelMoveSuppressionFeature processPlacementCancelMoveSuppressionFeature;
+        private static LobbyYellowContrastFeature processLobbyYellowContrastFeature;
+        private static BriefingNoStartingGoldFixRegistration processBriefingNoStartingGoldFixRegistration;
         private ExtendedShiftCommandQueueRuntime extendedShiftCommandQueueRuntime;
         private static ExtendedShiftCommandQueueRuntime processExtendedShiftCommandQueueRuntime;
         private IDisposable playerMarketSubscription;
@@ -124,6 +126,7 @@ namespace BugfixesAndQoL
             tunnelPlacementDistanceFeature = new TunnelPlacementDistanceFeature(log, settings);
             trailCustomizationFeature = new TrailCustomizationFeature(log, settings);
             coopCustomLordSelectionFeature = new CoopCustomLordSelectionFeature(log, settings);
+            EnsureBriefingNoStartingGoldFixRegistration();
             InitializeMovedFeatures();
             settings.SettingChanged += OnSettingChanged;
             settingsSubscribed = true;
@@ -442,6 +445,12 @@ namespace BugfixesAndQoL
             TryApplyFeature("AI castle/settings selection memory", () => skirmishAiSelectionMemoryHook?.ApplySetting());
             TryInitializeFeature("custom-lord list enhancements", EnsureCustomLordListEnhancementHook);
             TryApplyFeature("custom-lord list enhancements", () => customLordListEnhancementHook?.ApplySetting());
+            TryInitializePersistentFeature(
+                "high-contrast yellow presentation",
+                EnsureLobbyYellowContrastFeature);
+            TryApplyFeature(
+                "high-contrast yellow presentation",
+                () => processLobbyYellowContrastFeature?.ApplySetting());
             TryInitializeFeature("AI castle/settings list enhancements", EnsureAiCastleSettingsListEnhancementHook);
             TryApplyFeature("AI castle/settings list enhancements", () => aiCastleSettingsListEnhancementHook?.ApplySetting());
             TryInitializeFeature("map-origin sorting", EnsureMapOriginSortHook);
@@ -778,6 +787,26 @@ namespace BugfixesAndQoL
             {
                 customLordListEnhancementHook = new CustomLordListEnhancementHook(log, settings);
             }
+        }
+
+        private void EnsureLobbyYellowContrastFeature()
+        {
+            if (processLobbyYellowContrastFeature != null)
+                return;
+
+            // Hooks and UI resources are process-lifetime state. Publish only the fully
+            // initialized candidate and never route it through plugin/component teardown.
+            var candidate = new LobbyYellowContrastFeature(log, settings);
+            processLobbyYellowContrastFeature = candidate;
+        }
+
+        private void EnsureBriefingNoStartingGoldFixRegistration()
+        {
+            if (processBriefingNoStartingGoldFixRegistration != null)
+                return;
+
+            processBriefingNoStartingGoldFixRegistration =
+                new BriefingNoStartingGoldFixRegistration(log, settings);
         }
 
         private void EnsureAiCastleSettingsListEnhancementHook()

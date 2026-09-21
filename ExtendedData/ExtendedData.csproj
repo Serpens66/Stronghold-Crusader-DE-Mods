@@ -78,6 +78,7 @@
     <Compile Include="src\MapModSettingsPacket.cs" />
     <Compile Include="src\MapModSettingsCoordinator.cs" />
     <Compile Include="src\BugfixesAndQoLTrailCustomizationBridge.cs" />
+    <Compile Include="src\MissionPresetLifecycleState.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />

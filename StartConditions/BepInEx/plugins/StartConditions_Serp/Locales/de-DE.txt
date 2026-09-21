@@ -15,9 +15,9 @@ StartConditions.UnchangedRangeHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 
 StartConditions.NormalCrusade=Normal/Kreuzzug
 StartConditions.Deathmatch=Deathmatch
 StartConditions.SetStartGold=Startgold setzen (-1 = unverändert)
-StartConditions.SetStartGoldHelp=Setzt die anfängliche Goldmenge für jeden Spieler. -1 bedeutet unverändert.
+StartConditions.SetStartGoldHelp=Ersetzt das effektive Vanilla-Startgold. Fuer Menschen setzt Vanillas Option "Kein Startgold" diese Basis zuvor auf 0. -1 behaelt die effektive Vanilla-Basis bei.
 StartConditions.AddStartGold=Startgold hinzufügen
-StartConditions.AddStartGoldHelp=Fügt jedem Spieler die angegebene Goldmenge zu seiner anfänglichen Goldmenge hinzu.
+StartConditions.AddStartGoldHelp=Eine vorzeichenbehaftete Anpassung nach der effektiven Vanilla-Basis beziehungsweise einem aktiven Set-Wert. Das Ergebnis wird mindestens auf 0 begrenzt.
 StartConditions.MultiplyStartTroops=Starttruppen-Armeen multiplizieren
 StartConditions.StartTroopsMultiplierHelp=Multiplikator: 0 = offizielle Starttruppen nach der 20-Sekunden-Verzoegerung entfernen, 1 = unveraendert, 2 = doppelt. Eine aktive Vanilla-Waffenruhe verschiebt den Beginn dieser Verzoegerung bis zu ihrem Ende. Erlaubter Bereich: 0 bis 100.
 StartConditions.StartTroopsMultiplierToolTip=Multiplikator fuer Starttruppen-Armeen. Wird {DelayedStartTroopCountMilliseconds} ms (aktuell {DelayedStartTroopCountSeconds} Sekunden) nach Kartenstart oder nach dem Ende einer aktiven Vanilla-Waffenruhe angewendet. 0 = entfernen, 1 = unveraendert, 2 = doppelt. Erlaubter Bereich: 0 bis 100.

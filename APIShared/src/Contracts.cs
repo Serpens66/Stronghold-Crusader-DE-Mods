@@ -51,6 +51,8 @@ namespace APIShared
         public const string LobbyState = "lobby-state";
         /// <summary>Capability for observing player lord deaths and official defeat transitions.</summary>
         public const string PlayerDefeat = "player-defeat";
+        /// <summary>Capability for deterministic post-Vanilla mission-briefing gold presentation.</summary>
+        public const string BriefingGoldPresentation = "briefing-gold-presentation";
     }
 
     /// <summary>Immutable diagnostic information returned by capability acquisition and mutation.</summary>
@@ -120,6 +122,11 @@ namespace APIShared
         bool TryGetPlayerDefeat(
             string ownerGuid,
             out IPlayerDefeatCapability capability,
+            out NativeCapabilityDiagnostic diagnostic);
+        /// <summary>Attempts to acquire the process-wide mission-briefing gold presentation capability.</summary>
+        bool TryGetBriefingGoldPresentation(
+            string ownerGuid,
+            out IBriefingGoldPresentationCapability capability,
             out NativeCapabilityDiagnostic diagnostic);
     }
 

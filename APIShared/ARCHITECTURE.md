@@ -30,6 +30,10 @@ Both capabilities validate the complete native function and their own instructio
 
 Current consumers are `BugfixesAndQoL`, `Testmods/SkinTest` and `Testmods/VirtualUnitsPrototype`. Registrations are process-lifetime publications and request a deferred HUD refresh only after the Vanilla view model is ready.
 
+## Briefing-gold presentation capability
+
+`briefing-gold-presentation` owns the single managed post-Vanilla hook on `MainViewModel.ButtonGotoBriefing`. It derives Vanilla's effective human starting-gold base from the current `AdvOpt_NoGold` state and invokes process-lifetime adjustments in fixed stage, owner-GUID and registration-ID order. `BugfixesAndQoL` publishes the optional Vanilla display correction; `StartConditions` publishes its own gameplay-setting projection. Callback failures and invalid negative results retain the last safe value.
+
 ## AIV build-step capability
 
 `aiv-build-step` owns the single permanent RedBird detour at RVA `0x51790`. It validates the full native SHA-256, executable range, unique prolog and full function hash before publication. Observers begin in ordinal owner-GUID and registration-ID order; successful per-call invocations complete in reverse order after exactly one unchanged Vanilla call. Exceptions are isolated, while a Vanilla exception is reported to completions and then propagates normally.

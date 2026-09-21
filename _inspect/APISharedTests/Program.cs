@@ -40,6 +40,7 @@ namespace APISharedTests
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestLobbyStateCapability();
+            TestBriefingGoldPresentation();
             MissionLifecycleTests.Run(Assert);
             TestUnitHudVariantContracts();
             TestUnitHudLiveSelectionCounts();
@@ -893,6 +894,10 @@ namespace APISharedTests
                 "APIShared.ILobbyStateCapability",
                 "APIShared.LobbyStateSnapshot",
                 "APIShared.IPlayerDefeatCapability",
+                "APIShared.IBriefingGoldPresentationCapability",
+                "APIShared.BriefingGoldAdjustmentStage",
+                "APIShared.BriefingGoldContext",
+                "APIShared.BriefingGoldAdjuster",
                 "APIShared.PlayerLordDeathNotification",
                 "APIShared.PlayerDefeatNotification",
                 "APIShared.IAivBuildStepObserver",
@@ -961,7 +966,8 @@ namespace APISharedTests
                 "TryGetAivBuildStep",
                 "TryGetLobbyState",
                 "TryGetMissionLifecycle",
-                "TryGetPlayerDefeat"
+                "TryGetPlayerDefeat",
+                "TryGetBriefingGoldPresentation"
             };
             foreach (MethodInfo method in typeof(IApiShared).GetMethods())
                 expectedAcquisitionMethods.Remove(method.Name);
@@ -980,6 +986,97 @@ namespace APISharedTests
                 "lobby-state capability ID must remain stable");
             Assert(NativeCapabilityIds.PlayerDefeat == "player-defeat",
                 "player-defeat capability ID must remain stable");
+            Assert(NativeCapabilityIds.BriefingGoldPresentation == "briefing-gold-presentation",
+                "briefing-gold capability ID must remain stable");
+        }
+
+        private static void TestBriefingGoldPresentation()
+        {
+            MethodInfo briefing = typeof(CrusaderDE.MainViewModel).GetMethod(
+                "ButtonGotoBriefing",
+                BindingFlags.Instance | BindingFlags.Public,
+                null,
+                new[] { typeof(object) },
+                null);
+            Assert(briefing != null && briefing.ReturnType == typeof(void),
+                "installed managed baseline retains ButtonGotoBriefing(object)");
+
+            var service = new BriefingGoldPresentationService(null);
+            var calls = new List<string>();
+            IBriefingGoldPresentationCapability zOwner = service.Bind("z.owner");
+            IBriefingGoldPresentationCapability aOwner = service.Bind("a.owner");
+
+            Assert(zOwner.TryRegisterAdjustment(
+                "mod",
+                BriefingGoldAdjustmentStage.ModAdjustment,
+                context => { calls.Add("mod"); return context.CurrentGold + 100; },
+                out _), "briefing-gold mod adjustment registers");
+            Assert(aOwner.TryRegisterAdjustment(
+                "vanilla-b",
+                BriefingGoldAdjustmentStage.VanillaCorrection,
+                context => { calls.Add("vanilla-b"); return context.EffectiveVanillaGold; },
+                out _), "briefing-gold Vanilla correction registers");
+            Assert(aOwner.TryRegisterAdjustment(
+                "vanilla-a",
+                BriefingGoldAdjustmentStage.VanillaCorrection,
+                context => { calls.Add("vanilla-a"); return context.CurrentGold + 1; },
+                out _), "briefing-gold same-owner correction registers");
+            Assert(aOwner.TryRegisterAdjustment(
+                "failure",
+                BriefingGoldAdjustmentStage.ModAdjustment,
+                context => throw new InvalidOperationException("expected"),
+                out _), "briefing-gold throwing adjustment registers");
+            Assert(aOwner.TryRegisterAdjustment(
+                "negative",
+                BriefingGoldAdjustmentStage.ModAdjustment,
+                context => -1,
+                out _), "briefing-gold invalid-result adjustment registers");
+            Assert(!aOwner.TryRegisterAdjustment(
+                "negative",
+                BriefingGoldAdjustmentStage.ModAdjustment,
+                context => 0,
+                out NativeCapabilityDiagnostic duplicate) &&
+                duplicate.State == NativeCapabilityState.Conflict,
+                "briefing-gold duplicate owner-local IDs fail closed");
+
+            int human = service.EvaluateForTests(2, true, 2000, true, true);
+            Assert(human == 100 && calls.SequenceEqual(new[]
+            {
+                "vanilla-a", "vanilla-b", "mod"
+            }), "briefing-gold adjustments use stage, owner and ID order with failure isolation");
+
+            calls.Clear();
+            int ai = service.EvaluateForTests(3, false, 2000, true, true);
+            Assert(ai == 2100,
+                "No Starting Gold affects the effective human base but leaves AI gold unchanged");
+            calls.Clear();
+            int unresolved = service.EvaluateForTests(0, true, 4000, false, true);
+            Assert(unresolved == 4100,
+                "unresolved No Starting Gold state retains Vanilla's displayed base");
+
+            var context = new BriefingGoldContext(4, true, 8000, 0, 0, true, true);
+            Assert(context.SlotIndex == 4 && context.IsHuman &&
+                context.VanillaDisplayedGold == 8000 && context.EffectiveVanillaGold == 0 &&
+                context.CurrentGold == 0 && context.HasNoStartingGoldState &&
+                context.NoStartingGoldEnabled,
+                "briefing-gold context exposes immutable audited inputs");
+
+            string projectDirectory = Path.Combine(FindWorkspaceRoot(), "APIShared");
+            string source = File.ReadAllText(Path.Combine(
+                projectDirectory, "src", "BriefingGoldPresentationCapability.cs"));
+            int originalCall = source.IndexOf(
+                "briefingOriginal(self, parameter);",
+                StringComparison.Ordinal);
+            int visibleSlotPass = source.IndexOf(
+                "ApplyToVisibleSlots(self);",
+                StringComparison.Ordinal);
+            Assert(originalCall >= 0 && visibleSlotPass > originalCall &&
+                Count(source, "briefingOriginal(self, parameter);") == 1,
+                "briefing hook invokes Vanilla exactly once before presentation adjustments");
+            Assert(source.Contains("self.SkirmishBriefingAlly[slotIndex]") &&
+                source.Contains("self.AlliesHumanFaceVis[slotIndex]") &&
+                source.Contains("AdvOpt_NoGold"),
+                "briefing hook filters visible slots and resolves human/AI plus No Starting Gold state");
         }
 
         private static void TestAivBuildStepBroker()

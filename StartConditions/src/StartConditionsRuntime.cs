@@ -23,6 +23,7 @@ namespace StartConditions
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly StartConditionsMapSessionState mapSessionState =
             new StartConditionsMapSessionState();
+        private static StartConditionsBriefingGoldRegistration processBriefingGoldRegistration;
         private bool settingsChangedSubscribed;
         private bool hooksSubscribed;
         private bool libraryInitialized;
@@ -131,9 +132,39 @@ namespace StartConditions
             vanillaPeaceTimeState.Initialize(context, currentNativeVersion);
             vanillaStartTroopSpawnState.Initialize(context, currentNativeVersion);
             InitializeAIStartTroopIsolation();
+            EnsureBriefingGoldRegistration();
             SubscribeSettingsChanges();
             SubscribeHooks();
             libraryInitialized = true;
+        }
+
+        private void EnsureBriefingGoldRegistration()
+        {
+            if (processBriefingGoldRegistration != null)
+                return;
+
+            processBriefingGoldRegistration =
+                new StartConditionsBriefingGoldRegistration(log, AdjustBriefingGold);
+        }
+
+        private int AdjustBriefingGold(APIShared.BriefingGoldContext context)
+        {
+            if (!EffectsEnabled || !mapSessionState.IsNewGame)
+                return context.CurrentGold;
+            if (context.IsHuman && !context.HasNoStartingGoldState)
+                return context.CurrentGold;
+
+            IStartConditionsSettings current = EffectiveSettings;
+            int setGold = context.IsHuman
+                ? current.SetStartGoldHuman
+                : current.SetStartGoldAI;
+            int addGold = context.IsHuman
+                ? current.AddStartGoldHuman
+                : current.AddStartGoldAI;
+            return StartGoldPolicy.CalculateGold(
+                context.EffectiveVanillaGold,
+                setGold,
+                addGold);
         }
 
         public void Dispose()

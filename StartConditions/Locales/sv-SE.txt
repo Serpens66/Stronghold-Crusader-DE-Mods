@@ -15,9 +15,9 @@ StartConditions.UnchangedRangeHelp=-1 = unchanged. Allowed range: -1 to 10000.
 StartConditions.NormalCrusade=Normal/Crusade
 StartConditions.Deathmatch=Deathmatch
 StartConditions.SetStartGold=Set start gold (-1 = unchanged)
-StartConditions.SetStartGoldHelp=Sets the initial amount of gold for each player. -1 means unchanged.
+StartConditions.SetStartGoldHelp=Replaces the effective Vanilla starting gold. For humans, Vanilla's "No Starting Gold" option first makes this base 0. -1 keeps the effective Vanilla base.
 StartConditions.AddStartGold=Add start gold
-StartConditions.AddStartGoldHelp=Adds the specified amount of gold to the initial amount for each player.
+StartConditions.AddStartGoldHelp=Applies a signed adjustment after the effective Vanilla base or an active Set value. The result is clamped to at least 0.
 StartConditions.MultiplyStartTroops=Multiply Start Troop armies
 StartConditions.StartTroopsMultiplierHelp=Multiplier: 0 = remove official start troops after the 20-second processing delay, 1 = unchanged, 2 = double. Active Vanilla Peace Time postpones that delay until it ends. Allowed range: 0 to 100.
 StartConditions.StartTroopsMultiplierToolTip=Multiplier for Start Troop armies. Applied after {DelayedStartTroopCountMilliseconds} ms (currently {DelayedStartTroopCountSeconds} seconds) following map start, or following the end of an active Vanilla Peace Time. 0 = remove, 1 = unchanged, 2 = double. Allowed range: 0 to 100.

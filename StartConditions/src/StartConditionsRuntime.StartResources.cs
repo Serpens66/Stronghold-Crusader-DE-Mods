@@ -30,14 +30,17 @@ namespace StartConditions
             if (setGold >= 0)
             {
                 GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, eGoods.STORED_GOLD, 1000000);
-                GamePlayerManagerAPI.Instance.SetPlayerGold(playerId, setGold);
+                int directlySetGold = addGold < 0
+                    ? StartGoldPolicy.CalculateGold(0, setGold, addGold)
+                    : setGold;
+                GamePlayerManagerAPI.Instance.SetPlayerGold(playerId, directlySetGold);
             }
 
             if (addGold > 0)
             {
                 GamePlayerManagerAPI.Instance.AddIncomingGood(playerId, eGoods.STORED_GOLD, addGold);
             }
-            else if (addGold < 0)
+            else if (addGold < 0 && setGold < 0)
             {
                 GamePlayerManagerAPI.Instance.SubtractIncomingGood(playerId, eGoods.STORED_GOLD, -addGold);
             }

@@ -122,6 +122,7 @@
     <Compile Include="src\VanillaStartTroopSpawnState.cs" />
     <Compile Include="src\StartConditionsRuntime.StartResources.cs" />
     <Compile Include="src\StartGoldPolicy.cs" />
+    <Compile Include="src\StartConditionsBriefingGoldRegistration.cs" />
     <Compile Include="src\StartConditionsRuntime.MapLifecycle.cs" />
     <Compile Include="src\StartConditionsRuntime.Helpers.cs" />
     <Compile Include="src\StartConditionsRuntime.Localization.cs" />

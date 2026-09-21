@@ -21,6 +21,7 @@ namespace APIShared
         private LobbyStateService lobbyState;
         private PlayerDefeatService playerDefeat;
         private MissionLifecycleService missionLifecycle;
+        private BriefingGoldPresentationService briefingGoldPresentation;
         private NativeCapabilityDiagnostic missionLifecycleDiagnostic = Pending(NativeCapabilityIds.MissionLifecycle);
         private NativeCapabilityDiagnostic gatehouseDistanceOriginDiagnostic = Pending(NativeCapabilityIds.GatehouseDistanceOrigin);
         private NativeCapabilityDiagnostic gatehouseDiagnostic = Pending(NativeCapabilityIds.GatehouseTiming);
@@ -28,6 +29,7 @@ namespace APIShared
         private NativeCapabilityDiagnostic aivBuildStepDiagnostic = Pending(NativeCapabilityIds.AivBuildStep);
         private NativeCapabilityDiagnostic lobbyStateDiagnostic = Pending(NativeCapabilityIds.LobbyState);
         private NativeCapabilityDiagnostic playerDefeatDiagnostic = Pending(NativeCapabilityIds.PlayerDefeat);
+        private NativeCapabilityDiagnostic briefingGoldDiagnostic = Pending(NativeCapabilityIds.BriefingGoldPresentation);
         private ManualLogSource log;
 
         internal static ApiSharedRuntime ProcessInstance { get; } = new ApiSharedRuntime();
@@ -55,6 +57,11 @@ namespace APIShared
             {
                 if (missionLifecycleDiagnostic.State == NativeCapabilityState.Pending)
                     MissionLifecycleService.TryCreate(logger, out missionLifecycle, out missionLifecycleDiagnostic);
+                if (briefingGoldDiagnostic.State == NativeCapabilityState.Pending)
+                    BriefingGoldPresentationService.TryCreate(
+                        logger,
+                        out briefingGoldPresentation,
+                        out briefingGoldDiagnostic);
                 if (playerDefeatDiagnostic.State == NativeCapabilityState.Pending)
                     PlayerDefeatService.TryCreate(
                         logger,
@@ -176,7 +183,7 @@ namespace APIShared
                 callbacks = readyCallbacks.ToArray();
                 readyCallbacks.Clear();
             }
-            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, lobbyState={lobbyStateDiagnostic.State}, playerDefeat={playerDefeatDiagnostic.State}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, unitHudPresentation={unitHudDiagnostic.State}, aivBuildStep={aivBuildStepDiagnostic.State}.");
+            NativeApiLog.Info(log, $"APIShared initialized: state={terminalState}, build={binaryHash}, lobbyState={lobbyStateDiagnostic.State}, playerDefeat={playerDefeatDiagnostic.State}, briefingGold={briefingGoldDiagnostic.State}, gatehouseDistanceOrigin={gatehouseDistanceOriginDiagnostic.State}, gatehouseTiming={gatehouseDiagnostic.State}, unitHudPresentation={unitHudDiagnostic.State}, aivBuildStep={aivBuildStepDiagnostic.State}.");
             foreach (Action<IApiShared> callback in callbacks)
             {
                 try { callback(this); }
@@ -333,6 +340,31 @@ namespace APIShared
                 }
                 capability = playerDefeat.Bind(ownerGuid);
                 diagnostic = playerDefeatDiagnostic;
+                return true;
+            }
+        }
+
+        public bool TryGetBriefingGoldPresentation(
+            string ownerGuid,
+            out IBriefingGoldPresentationCapability capability,
+            out NativeCapabilityDiagnostic diagnostic)
+        {
+            capability = null;
+            if (string.IsNullOrWhiteSpace(ownerGuid))
+            {
+                diagnostic = new NativeCapabilityDiagnostic(
+                    NativeCapabilityIds.BriefingGoldPresentation,
+                    NativeCapabilityState.ValidationFailed,
+                    string.Empty,
+                    "A non-empty BepInEx owner GUID is required.");
+                return false;
+            }
+            lock (sync)
+            {
+                diagnostic = briefingGoldDiagnostic;
+                if (briefingGoldPresentation == null)
+                    return false;
+                capability = briefingGoldPresentation.Bind(ownerGuid);
                 return true;
             }
         }

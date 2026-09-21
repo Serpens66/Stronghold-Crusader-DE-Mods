@@ -13,4 +13,27 @@ if ($mod.Count -ne 1) {
 }
 
 Assert-SERuntimeModPreflight $mod[0] $workspace
-Write-Output 'BugfixesAndQoL runtime JSON/lifecycle preflight succeeded.'
+
+$patchRoot = Join-Path $PSScriptRoot 'Patches'
+$xamlViolations = @(foreach ($file in Get-ChildItem -LiteralPath $patchRoot -Filter '*.xaml' -Recurse) {
+    [xml]$document = Get-Content -Raw -LiteralPath $file.FullName
+    foreach ($contentNode in @($document.SelectNodes('/Patch/Operation/Content'))) {
+        $directElementCount = @(
+            $contentNode.ChildNodes |
+                Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element }
+        ).Count
+        if ($directElementCount -ne 1) {
+            [pscustomobject]@{
+                Path = $file.FullName
+                DirectElementCount = $directElementCount
+            }
+        }
+    }
+})
+if ($xamlViolations.Count -ne 0) {
+    $details = $xamlViolations |
+        ForEach-Object { "$($_.Path) (direct elements: $($_.DirectElementCount))" }
+    throw "Script Extender XAML patch <Content> contract failed: $($details -join '; ')"
+}
+
+Write-Output 'BugfixesAndQoL runtime JSON/lifecycle and XAML patch preflight succeeded.'

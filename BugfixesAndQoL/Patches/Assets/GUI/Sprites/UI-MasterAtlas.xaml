@@ -14,4 +14,38 @@
                      SourceRect="67,42,105,179" />
     </Content>
   </Operation>
+  <Operation Type="Add" XPath="/n:ResourceDictionary">
+    <Content>
+      <BitmapImage x:Key="BugfixesAndQoL-LobbyGoldShieldSource"
+                   UriSource="BugfixesAndQoL-LobbyGoldShields.png" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="/n:ResourceDictionary">
+    <Content>
+      <CroppedBitmap x:Key="BugfixesAndQoL-LobbyGoldShieldNormal"
+                     Source="{StaticResource BugfixesAndQoL-LobbyGoldShieldSource}"
+                     SourceRect="0,0,128,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="/n:ResourceDictionary">
+    <Content>
+      <CroppedBitmap x:Key="BugfixesAndQoL-LobbyGoldShieldHover"
+                     Source="{StaticResource BugfixesAndQoL-LobbyGoldShieldSource}"
+                     SourceRect="128,0,128,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="/n:ResourceDictionary">
+    <Content>
+      <CroppedBitmap x:Key="BugfixesAndQoL-LobbyGoldShieldSelected"
+                     Source="{StaticResource BugfixesAndQoL-LobbyGoldShieldSource}"
+                     SourceRect="256,0,128,132" />
+    </Content>
+  </Operation>
+  <Operation Type="Add" XPath="/n:ResourceDictionary">
+    <Content>
+      <CroppedBitmap x:Key="BugfixesAndQoL-LobbyGoldShieldMap"
+                     Source="{StaticResource BugfixesAndQoL-LobbyGoldShieldSource}"
+                     SourceRect="384,0,32,34" />
+    </Content>
+  </Operation>
 </Patch>

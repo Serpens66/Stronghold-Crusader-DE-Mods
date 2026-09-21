@@ -1,37 +1,42 @@
-# Mod-specific data for maps
+# Mod-specific data for maps / Mod-spezifische Daten für Maps
 
-`modmap.json` stores static, map-specific data that mods can interpret. It is not a lobby-settings file, save data, or general Script Extender metadata. A typical use is adding spawn regions, scenario rules, identifiers, or other structured information that does not exist in Vanilla's map format.
+[English](#english) | [Deutsch](#deutsch)
 
-## Where the file is stored
+## English
 
-A Script Extender map consists of the unchanged Vanilla map followed by a ZIP archive:
+`modmap.json` stores static, map-specific data that mods can interpret. It is not a lobby-settings file, save data, or general Script Extender metadata. Typical uses include spawn regions, scenario rules, identifiers, and other structured information outside the base map format.
+
+### Where the file is stored
+
+A Script Extender map consists of the base map followed by an appended ZIP archive:
 
 ```text
 example.map
-├─ Vanilla map data
+├─ base map data
 └─ appended ZIP archive
    ├─ info.json
    ├─ init.lua
    └─ modmap.json
 ```
 
-Place `modmap.json` at the root of the appended archive, next to `info.json` and `init.lua`. Do not place it merely beside the `.map` file.
+Place `modmap.json` at the root of the appended archive beside `info.json` and `init.lua`, not merely beside the `.map` file. See the current [Script Extender Map Creation Guide](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/map-creation-guide.md?ref_type=heads) for archive creation and packaging.
 
-This layout preserves Vanilla compatibility. Vanilla reads the indexed map records and ignores the appended ZIP data. The same `.map` therefore remains loadable without the Script Extender or ExtendedData; the additional mod values are simply unavailable. See the current [Script Extender Map Creation Guide](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/map-creation-guide.md?ref_type=heads) for creating and packaging Script Extender maps.
+The base map can still be opened without ExtendedData; only the supplemental namespaced values are unavailable.
 
-## File responsibilities
+### File responsibilities
 
 | Data | Purpose |
 |---|---|
 | `info.json` | General Script Extender map/package metadata. |
-| `modmap.json` | Static, mod-specific data authored as part of the map. |
+| `modmap.json` | Static, mod-specific source data authored with the map. |
 | `_SE_ModData_<ModId>.msgpack` | Mutable runtime/save data managed by the Script Extender `ModSaveDataAPI`. |
+| `_SE_ModData_ExtendedData-MapModSettings.msgpack` | ExtendedData's schema-3 Map settings document; its content is UTF-8 JSON. |
 
-`modmap.json` remains static source data even when the Script Extender preserves archive entries while saving. It does not replace synchronized multiplayer or mutable save-state data.
+`modmap.json` does not replace multiplayer synchronization or mutable save state.
 
-## JSON structure
+### JSON structure
 
-The root is an object whose keys are mod GUIDs. Every value is an object owned by that mod:
+The root is an object whose case-insensitive keys are mod GUIDs. Every value is an object owned by that mod:
 
 ```json
 {
@@ -44,17 +49,6 @@ The root is an object whose keys are mod GUIDs. Every value is an object owned b
         "y": 340
       }
     ]
-  }
-}
-```
-
-There is no global schema version. Each mod may version and validate its own namespace. Multiple mods share the document through separate namespaces:
-
-```json
-{
-  "author.example-mod": {
-    "schemaVersion": 1,
-    "scenarioId": "desert-crossing"
   },
   "org.example.spawn-control": {
     "schemaVersion": 2,
@@ -69,11 +63,11 @@ There is no global schema version. Each mod may version and validate its own nam
 }
 ```
 
-GUID identity is case-insensitive. Keys that differ only by casing conflict and make the container invalid. Prefer the stable BepInEx plugin GUID in lowercase ASCII. Empty GUIDs and non-object namespace values are invalid.
+There is no global schema version. Prefer a stable BepInEx plugin GUID in lowercase ASCII. Keys differing only by casing conflict and invalidate the container. Empty GUIDs and non-object namespace values are invalid.
 
-## Reading a namespace
+### Reading a namespace
 
-Reference `ExtendedData.dll` and `ExtendedData.Core.dll`, then request only your own namespace:
+Reference `ExtendedData.dll` and `ExtendedData.Core.dll`, then request only your namespace:
 
 ```csharp
 using ExtendedData;
@@ -88,38 +82,136 @@ if (result.Success)
 }
 ```
 
-`Data` is a deeply read-only snapshot. Nested JSON objects are exposed as `IReadOnlyDictionary<string, object>` and arrays as `IReadOnlyList<object>`. `Json` contains only the requested namespace, never the complete shared document. ExtendedData validates the shared container but deliberately does not interpret `schemaVersion` or other mod-owned fields.
+`Data` is a deeply read-only snapshot. Nested objects implement `IReadOnlyDictionary<string, object>` and arrays implement `IReadOnlyList<object>`. `Json` contains only the requested namespace. ExtendedData validates the shared container but leaves `schemaVersion` and all mod-owned fields to the consumer.
 
-The result status is one of:
+Possible status values are:
 
-- `Success`: the requested object was returned.
+- `Success`: the requested namespace was returned.
 - `FileNotFound`: no active archive or no `modmap.json` exists.
 - `NamespaceNotFound`: the document is valid but has no matching GUID.
 - `InvalidDocument`: JSON, UTF-8, the root object, GUID keys, or namespace objects are invalid.
 - `ReadError`: the archive could not be read.
 - `InvalidRequest`: the supplied mod GUID is empty.
 
-Missing files and namespaces mean normal default behavior. For any other failure, log `Diagnostic` and disable only the feature that needs the data. Never make the underlying map unplayable.
+Missing files and namespaces mean normal default behavior. For other failures, log `Diagnostic` and disable only the dependent feature.
 
-Call the API after the Script Extender has loaded the map archive. The API reads on demand and does not cache values or poll. A mod should retain its own validated model only for the lifetime of the corresponding map.
+Call the API after the Script Extender has loaded the Map archive. It reads on demand and does not cache or poll. Retain a validated model only for the lifetime of the corresponding Map.
 
-## Authoring and update rules
+### Authoring and validation
 
-- Encode the document as UTF-8 JSON without comments or trailing commas.
-- Store static map information, not user preferences or mutable runtime state.
+- Use strict UTF-8 JSON without comments or trailing commas.
+- Store static Map information, not user preferences or mutable runtime state.
 - Read and assign meaning only to your own GUID namespace.
-- Ignore unknown fields inside your namespace unless your schema explicitly rejects them.
-- When a tool updates one namespace, parse the current document, replace only that namespace, preserve every other namespace, and safely rewrite the complete file.
-- The presence of a namespace does not install its mod or declare an automatically resolved dependency.
-- Gameplay-relevant data must still be handled consistently by every multiplayer participant.
+- Ignore unknown fields unless your schema explicitly rejects them.
+- When updating one namespace, preserve all foreign namespaces and their unknown fields.
+- Handle gameplay-relevant data consistently on every multiplayer participant.
+- Test missing files, missing namespaces, malformed data, and every combination of consuming mods.
+- Inspect the final archive and verify that all expected entries remain present.
 
-## Validation checklist
+---
 
-1. Confirm `modmap.json` is at the appended archive root.
-2. Validate strict UTF-8 JSON, an object root, unique case-insensitive GUIDs, and object namespace values.
-3. Validate each namespace against its owning mod's schema.
-4. Test the API with the file missing, the namespace missing, and malformed data.
-5. Test every consuming mod alone and together with the other consumers.
-6. Load the final `.map` with ExtendedData and verify the expected namespace values.
-7. Load that exact `.map` in a true no-mod/Vanilla startup and verify that the base map remains playable.
-8. Reopen the distributed `.map` as an archive and confirm that all expected entries remain present.
+## Deutsch
+
+`modmap.json` speichert statische, map-spezifische Daten, die Mods auswerten können. Sie ist keine Lobby-Einstellungsdatei, kein Spielstand und keine allgemeine Script-Extender-Metadatendatei. Typische Anwendungen sind Spawn-Bereiche, Szenarioregeln, Kennungen und andere strukturierte Informationen außerhalb des grundlegenden Map-Formats.
+
+### Ablageort der Datei
+
+Eine Script-Extender-Map besteht aus der zugrunde liegenden Map und einem angehängten ZIP-Archiv:
+
+```text
+example.map
+├─ base map data
+└─ appended ZIP archive
+   ├─ info.json
+   ├─ init.lua
+   └─ modmap.json
+```
+
+Lege `modmap.json` an der Wurzel des angehängten Archivs neben `info.json` und `init.lua` ab, nicht lediglich neben der `.map`-Datei. Der aktuelle [Script Extender Map Creation Guide](https://gitlab.com/rawra-stronghold-crusader/shcde-script-extender/-/blob/main/docs/guides/map-creation-guide.md?ref_type=heads) beschreibt Erstellung und Paketierung des Archivs.
+
+Die zugrunde liegende Map kann weiterhin ohne ExtendedData geöffnet werden; lediglich die zusätzlichen Namensraumwerte stehen dann nicht zur Verfügung.
+
+### Aufgaben der Dateien
+
+| Daten | Zweck |
+|---|---|
+| `info.json` | Allgemeine Script-Extender-Metadaten für Map oder Paket. |
+| `modmap.json` | Statische, mod-spezifische Quelldaten, die mit der Map erstellt werden. |
+| `_SE_ModData_<ModId>.msgpack` | Veränderliche Laufzeit-/Speicherdaten der Script-Extender-`ModSaveDataAPI`. |
+| `_SE_ModData_ExtendedData-MapModSettings.msgpack` | Schema-3-Dokument für ExtendedData-Map-Einstellungen; der Inhalt ist UTF-8-JSON. |
+
+`modmap.json` ersetzt weder Multiplayer-Synchronisierung noch veränderlichen Speicherzustand.
+
+### JSON-Struktur
+
+Die Wurzel ist ein Objekt, dessen Schlüssel ohne Beachtung der Groß-/Kleinschreibung Mod-GUIDs darstellen. Jeder Wert ist ein Objekt im Besitz des jeweiligen Mods:
+
+```json
+{
+  "author.example-mod": {
+    "schemaVersion": 1,
+    "spawnRegions": [
+      {
+        "name": "northern-reinforcements",
+        "x": 120,
+        "y": 340
+      }
+    ]
+  },
+  "org.example.spawn-control": {
+    "schemaVersion": 2,
+    "waves": [
+      {
+        "startTick": 1200,
+        "unit": "ArabianSwordsman",
+        "count": 20
+      }
+    ]
+  }
+}
+```
+
+Es gibt keine globale Schemaversion. Bevorzuge eine stabile BepInEx-Plugin-GUID in ASCII-Kleinbuchstaben. Schlüssel, die sich nur durch Groß-/Kleinschreibung unterscheiden, stehen im Konflikt und machen den Container ungültig. Leere GUIDs und Namensraumwerte, die keine Objekte sind, sind ungültig.
+
+### Einen Namensraum lesen
+
+Referenziere `ExtendedData.dll` und `ExtendedData.Core.dll` und fordere anschließend ausschließlich deinen Namensraum an:
+
+```csharp
+using ExtendedData;
+
+ExtendedDataModDataReadResult result =
+    ExtendedDataModDataApi.ReadCurrentMapNamespace("author.example-mod");
+
+if (result.Success)
+{
+    IReadOnlyDictionary<string, object> data = result.Data;
+    string namespaceJson = result.Json;
+}
+```
+
+`Data` ist eine tief schreibgeschützte Momentaufnahme. Verschachtelte Objekte implementieren `IReadOnlyDictionary<string, object>`, Arrays implementieren `IReadOnlyList<object>`. `Json` enthält ausschließlich den angeforderten Namensraum. ExtendedData validiert den gemeinsamen Container, überlässt `schemaVersion` und alle mod-eigenen Felder jedoch dem Konsumenten.
+
+Mögliche Statuswerte sind:
+
+- `Success`: Der angeforderte Namensraum wurde zurückgegeben.
+- `FileNotFound`: Es gibt kein aktives Archiv oder keine `modmap.json`.
+- `NamespaceNotFound`: Das Dokument ist gültig, besitzt aber keine passende GUID.
+- `InvalidDocument`: JSON, UTF-8, Wurzelobjekt, GUID-Schlüssel oder Namensraumobjekte sind ungültig.
+- `ReadError`: Das Archiv konnte nicht gelesen werden.
+- `InvalidRequest`: Die übergebene Mod-GUID ist leer.
+
+Fehlende Dateien und Namensräume bedeuten normales Standardverhalten. Protokolliere bei anderen Fehlern `Diagnostic` und deaktiviere ausschließlich das abhängige Feature.
+
+Rufe die API auf, nachdem der Script Extender das Map-Archiv geladen hat. Sie liest bei Bedarf und verwendet weder Cache noch Polling. Bewahre ein validiertes Modell nur für die Lebensdauer der zugehörigen Map auf.
+
+### Erstellung und Validierung
+
+- Verwende striktes UTF-8-JSON ohne Kommentare oder abschließende Kommas.
+- Speichere statische Map-Informationen, keine Benutzereinstellungen oder veränderlichen Laufzeitzustände.
+- Lies und interpretiere ausschließlich deinen eigenen GUID-Namensraum.
+- Ignoriere unbekannte Felder, sofern dein Schema sie nicht ausdrücklich ablehnt.
+- Erhalte beim Aktualisieren eines Namensraums alle fremden Namensräume und deren unbekannte Felder.
+- Verarbeite gameplay-relevante Daten auf allen Multiplayer-Teilnehmern konsistent.
+- Teste fehlende Dateien, fehlende Namensräume, fehlerhafte Daten und jede Kombination konsumierender Mods.
+- Untersuche das endgültige Archiv und prüfe, dass alle erwarteten Einträge erhalten sind.
