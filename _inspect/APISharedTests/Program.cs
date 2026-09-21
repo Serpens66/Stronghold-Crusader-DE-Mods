@@ -1,4 +1,5 @@
 using APIShared;
+using Shared;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -37,6 +38,8 @@ namespace APISharedTests
                     : null;
             PlayerDefeatTests.Run();
             TestPublicSurface();
+            TestPublishedPresetJson();
+            TestPublishedPresetDiscovery();
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestLobbyStateCapability();
@@ -110,6 +113,113 @@ namespace APISharedTests
                 "image-only owner satisfies the render idle guard after refresh");
             Assert(((IUnitHudActivationCapability)image).SetImageOverrideActive("skin", false) && !(bool)field("activeImages"), "individual image override disables");
             Assert((bool)field("restoreImages"), "image disable requests Vanilla restoration");
+        }
+
+        private static void TestPublishedPresetJson()
+        {
+            var settings = new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal)
+            {
+                ["Count"] = new PublishedPresetSetting { Mode = PublishedPresetValueMode.Fixed, Value = 12 },
+                ["Mode"] = new PublishedPresetSetting { Mode = PublishedPresetValueMode.ModDefault },
+                ["Local"] = new PublishedPresetSetting { Mode = PublishedPresetValueMode.Player },
+            };
+            string json = ModSettingsPresetJson.Serialize(
+                "ThirdParty.Target",
+                "balanced",
+                "Balanced",
+                "Round-trip",
+                "1.0.0",
+                "2.0.0",
+                settings);
+            PublishedModSettingsPreset parsed = ModSettingsPresetJson.Parse(
+                json,
+                "Provider.Guid",
+                "Provider",
+                "ThirdParty.Target",
+                "preset_balanced.json");
+            Assert(parsed.Id == "balanced" && parsed.Name == "Balanced" &&
+                parsed.Settings.Count == 3 &&
+                parsed.Settings["Count"].Mode == PublishedPresetValueMode.Fixed &&
+                Convert.ToInt32(parsed.Settings["Count"].Value) == 12,
+                "published preset JSON round-trip preserves identity, metadata, modes, and fixed values");
+
+            int[] converted = (int[])ModSettingsPresetJson.ConvertValue(
+                new object[] { 1, 2, 3 },
+                typeof(int[]));
+            Assert(converted.SequenceEqual(new[] { 1, 2, 3 }),
+                "published preset conversion supports one-dimensional primitive arrays");
+            Assert((DayOfWeek)ModSettingsPresetJson.ConvertValue("Friday", typeof(DayOfWeek)) == DayOfWeek.Friday &&
+                (DayOfWeek)ModSettingsPresetJson.ConvertValue(2, typeof(DayOfWeek)) == DayOfWeek.Tuesday,
+                "published preset conversion supports enum names and integral legacy values");
+            AssertThrows<InvalidDataException>(
+                () => ModSettingsPresetJson.ConvertValue(1.0, typeof(DayOfWeek)),
+                "floating-point enum values must fail closed");
+            AssertThrows<InvalidDataException>(
+                () => ModSettingsPresetJson.ConvertValue("1", typeof(DayOfWeek)),
+                "numeric enum strings must fail closed");
+
+            Guid expected = Guid.NewGuid();
+            object encoded = ModSettingsPresetJson.ToJsonValue(typeof(Guid), expected);
+            Assert(encoded is string text && text.StartsWith(ModSettingsPresetJson.EncodedMessagePackPrefix, StringComparison.Ordinal) &&
+                (Guid)ModSettingsPresetJson.ConvertValue(encoded, typeof(Guid)) == expected,
+                "published preset conversion round-trips MessagePack fallback values");
+
+            AssertThrows<InvalidDataException>(
+                () => ModSettingsPresetJson.Parse(
+                    "{\"schemaVersion\":1,\"id\":\"x\",\"name\":\"X\",\"targetGuid\":\"ThirdParty.Target\",\"unknown\":true,\"settings\":{\"Count\":{\"mode\":\"fixed\",\"value\":1}}}",
+                    "Provider.Guid", "Provider", "ThirdParty.Target", "unknown.json"),
+                "unknown published preset members must fail closed");
+            AssertThrows<InvalidDataException>(
+                () => ModSettingsPresetJson.Parse(
+                    "{\"schemaVersion\":1,\"id\":\"x\",\"name\":\"X\",\"targetGuid\":\"Wrong.Target\",\"settings\":{\"Count\":{\"mode\":\"fixed\",\"value\":1}}}",
+                    "Provider.Guid", "Provider", "ThirdParty.Target", "wrong-target.json"),
+                "misplaced published preset files must fail closed");
+        }
+
+        private static void TestPublishedPresetDiscovery()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "APISharedPresetDiscovery-" + Guid.NewGuid().ToString("N"));
+            string target = "APISharedTests.Target." + Guid.NewGuid().ToString("N");
+            string directory = Path.Combine(root, "Override", target);
+            Directory.CreateDirectory(directory);
+            try
+            {
+                Func<string, string, string, string> create = (id, name, minimum) =>
+                    ModSettingsPresetJson.Serialize(
+                        target,
+                        id,
+                        name,
+                        string.Empty,
+                        minimum,
+                        string.Empty,
+                        new Dictionary<string, PublishedPresetSetting>
+                        {
+                            ["Count"] = new PublishedPresetSetting
+                            {
+                                Mode = PublishedPresetValueMode.Fixed,
+                                Value = 1,
+                            },
+                        });
+                File.WriteAllText(Path.Combine(directory, "preset_valid.json"), create("valid", "Valid", "1.0.0"));
+                File.WriteAllText(Path.Combine(directory, "preset_future.json"), create("future", "Future", "9.0.0"));
+                File.WriteAllText(Path.Combine(directory, "preset_duplicate-a.json"), create("duplicate", "Duplicate A", string.Empty));
+                File.WriteAllText(Path.Combine(directory, "preset_duplicate-b.json"), create("duplicate", "Duplicate B", string.Empty));
+
+                IReadOnlyList<PublishedModSettingsPreset> discovered = ModSettingsPresetCatalog.Discover(
+                    target,
+                    new Version(2, 0, 0),
+                    root,
+                    log: null);
+                Assert(discovered.Count == 1 && discovered[0].Id == "valid",
+                    "preset discovery accepts compatible direct files while rejecting version mismatches and all duplicate IDs");
+                AssertThrows<InvalidDataException>(
+                    () => ModSettingsPresetCatalog.Discover("..", new Version(1, 0), root, null),
+                    "preset discovery must reject unsafe target GUID path segments");
+            }
+            finally
+            {
+                Directory.Delete(root, recursive: true);
+            }
         }
 
         private static void TestCompiledPatternSearch()
@@ -423,7 +533,7 @@ namespace APISharedTests
             string project = File.ReadAllText(Path.Combine(workspace, "APIShared", "APIShared.csproj"));
             string unitHud = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "UnitHudPresentationCapability.cs"));
             string lobbyState = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "LobbyStateCapability.cs"));
-            string sharedPreset = File.ReadAllText(Path.Combine(workspace, "Shared", "PresetLobbyModSettingsViewModel.cs"));
+            string sharedPreset = File.ReadAllText(Path.Combine(workspace, "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
             string virtualRuntime = File.ReadAllText(Path.Combine(workspace, "Testmods", "VirtualUnitsPrototype", "src", "VirtualEntityRuntime.cs"));
             string bugfixLord = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "LordUnitHudRegistration.cs"));
             string bugfixGatehouse = File.ReadAllText(Path.Combine(workspace, "BugfixesAndQoL", "src", "GatehouseDistanceOriginRegistration.cs"));
@@ -719,29 +829,19 @@ namespace APISharedTests
             Assert(sharedPreset.Contains("TryGetLobbyState") &&
                 sharedPreset.Contains("API_SHARED_LOBBY_OBSERVER") &&
                 !sharedPreset.Contains("Application.onBeforeRender"),
-                "the source-linked preset coordinator must consume APIShared without a local render poller");
+                "the APIShared-owned preset coordinator must consume the lobby capability without a local render poller");
             string[] lobbyObserverProjects = FindRuntimeProjectFiles(workspace)
                 .Where(path => File.ReadAllText(path).Contains("API_SHARED_LOBBY_OBSERVER"))
                 .Select(Path.GetFileNameWithoutExtension)
                 .OrderBy(name => name, StringComparer.Ordinal)
                 .ToArray();
-            string[] knownLobbyObserverProjects =
-                {
-                    "BugfixesAndQoL",
-                    "CastlePlanner",
-                    "ExtendedData",
-                    "ExtremePowers"
-                };
-            Assert(knownLobbyObserverProjects.All(name => lobbyObserverProjects.Contains(name, StringComparer.Ordinal)),
-                "all known per-player consumers must enable the APIShared lobby bridge; additional consumers are permitted");
-            Assert(bugfixProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
-                bugfixProject.Contains("<Reference Include=\"APIShared\">") && bugfixProject.Contains("<Private>false</Private>") &&
-                castleProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
+            Assert(lobbyObserverProjects.SequenceEqual(new[] { "APIShared" }, StringComparer.Ordinal),
+                "only APIShared may compile the shared lobby bridge");
+            Assert(bugfixProject.Contains("<Reference Include=\"APIShared\">") && bugfixProject.Contains("<Private>false</Private>") &&
                 castleProject.Contains("<Reference Include=\"APIShared\">") && castleProject.Contains("<Private>false</Private>") &&
-                customProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
                 customProject.Contains("<Reference Include=\"APIShared\">") && customProject.Contains("<Private>false</Private>") &&
-                extremeProject.Contains("API_SHARED_LOBBY_OBSERVER") &&
                 extremeProject.Contains("<Reference Include=\"APIShared\">") && extremeProject.Contains("<Private>false</Private>") &&
+                apiDependencyMatchesRelease(bugfixPlugin, "BugfixesAndQoL") &&
                 apiDependencyMatchesRelease(castlePlugin, "CastlePlanner") &&
                 apiDependencyMatchesRelease(customPlugin, "ExtendedData") &&
                 apiDependencyMatchesRelease(extremePlugin, "ExtremePowers"),
@@ -883,6 +983,24 @@ namespace APISharedTests
                 "Shared.GameplayFeatureId",
                 "Shared.GameplayFeatureActivationProfile",
                 "Shared.GameplayFeatureModePolicy",
+                "Shared.ModSettingsSearchMatcher",
+                "Shared.ModSettingsSearch",
+                "Shared.ModSettingsSearchVisibilityConverter",
+                "Shared.ModSettingsSearchEntry",
+                "Shared.PerPlayerLobbySettingsBuilder",
+                "Shared.PerPlayerLobbySnapshot",
+                "Shared.PresetLocalAttribute",
+                "Shared.PresetLobbyModSettingsViewModel",
+                "Shared.LobbyModSettingsPresetRegistration",
+                "Shared.IModSettingsPresetEndpoint",
+                "Shared.PublishedPresetValueMode",
+                "Shared.PresetSettingScope",
+                "Shared.PresetSettingDescriptor",
+                "Shared.PresetExportSelection",
+                "Shared.PresetExportSettingViewModel",
+                "Shared.PublishedPresetSetting",
+                "Shared.PublishedModSettingsPreset",
+                "Shared.ModSettingsPresetJson",
                 "APIShared.GatehouseDistanceOrigin",
                 "APIShared.GatehouseTimingSettings",
                 "APIShared.GatehouseTimingValues",
@@ -1162,11 +1280,18 @@ namespace APISharedTests
         {
             while (type.IsByRef || type.IsArray)
                 type = type.GetElementType();
+            if (type.IsGenericType)
+            {
+                foreach (Type argument in type.GetGenericArguments())
+                    AssertSafePublicType(argument, location + " generic argument");
+            }
+            string typeName = type.Name;
             bool forbidden = type.IsPointer || type == typeof(IntPtr) || type == typeof(UIntPtr) ||
-                type.FullName.IndexOf("NativeDetour", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.FullName.IndexOf("MemoryWriter", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.FullName.IndexOf("Pattern", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                type.FullName.IndexOf("Rva", StringComparison.OrdinalIgnoreCase) >= 0;
+                typeName.IndexOf("NativeDetour", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                typeName.IndexOf("MemoryWriter", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                typeName.IndexOf("Pattern", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                typeName.StartsWith("Rva", StringComparison.OrdinalIgnoreCase) ||
+                typeName.EndsWith("Rva", StringComparison.OrdinalIgnoreCase);
             Assert(!forbidden, $"forbidden native implementation type at {location}: {type.FullName}");
         }
 

@@ -234,8 +234,15 @@ namespace ExtendedData
 
             private TrailModCompatibilityResult GetCompatibility(object viewModel)
             {
+                if (!(viewModel is IModSettingsPresetEndpoint endpoint))
+                {
+                    return new TrailModCompatibilityResult(
+                        Array.Empty<PropertyInfo>(),
+                        "missing typed APIShared preset endpoint");
+                }
                 return TrailModCompatibilityContract.Evaluate(
                     viewModel,
+                    endpoint.System_CreateDisabledMissionPresetSnapshot,
                     (property, value) => MessagePackSerializer.Serialize(property.PropertyType, value),
                     (type, bytes) => MessagePackSerializer.Deserialize(type, bytes));
             }
@@ -477,8 +484,8 @@ namespace ExtendedData
 
             private void ValidateDocumentValues(ModSettingsDefinition document)
             {
-                Dictionary<string, object> participants = FindCompatibleViewModels();
-                foreach (KeyValuePair<string, object> participant in participants)
+                Dictionary<string, IModSettingsPresetEndpoint> participants = FindCompatibleViewModels();
+                foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
                 {
                     if (!document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry) || entry == null)
                         continue;
@@ -2783,11 +2790,11 @@ namespace ExtendedData
             private ModSettingsDefinition CaptureDocument()
             {
                 ModSettingsDefinition document = ModSettingsDefinition.CreateModDefaults();
-                Dictionary<string, object> participants = FindCompatibleViewModels();
+                Dictionary<string, IModSettingsPresetEndpoint> participants = FindCompatibleViewModels();
 
-                foreach (KeyValuePair<string, object> participant in participants)
+                foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in participants)
                 {
-                    object viewModel = participant.Value;
+                    IModSettingsPresetEndpoint viewModel = participant.Value;
                     Dictionary<string, PropertyInfo> properties = GetPersistedProperties(viewModel);
                     var target = new ModSettingsEntry();
                     foreach (PropertyInfo property in properties.Values)
@@ -2819,10 +2826,10 @@ namespace ExtendedData
                 string presetLabel = "Trail")
             {
                 ClearActiveSidecar();
-                Dictionary<string, object> allParticipants = FindCompatibleViewModels();
+                Dictionary<string, IModSettingsPresetEndpoint> allParticipants = FindCompatibleViewModels();
                 ExitActiveParticipants(allParticipants);
-                var prepared = new List<Tuple<string, object, Dictionary<string, byte[]>>>(allParticipants.Count);
-                foreach (KeyValuePair<string, object> participant in allParticipants)
+                var prepared = new List<Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>>>(allParticipants.Count);
+                foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)
                 {
                     Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
                     string[] removedSettings = ModSettingsJson.RemoveUnknownSettings(
@@ -2841,9 +2848,7 @@ namespace ExtendedData
                     // The participant owns its Trail-safe baseline. Missing mods and settings
                     // therefore retain their own defaults, normally EnableMod=false.
                     Dictionary<string, byte[]> snapshot =
-                        (Dictionary<string, byte[]>)Invoke(
-                            participant.Value,
-                            "System_CreateDisabledMissionPresetSnapshot");
+                        participant.Value.System_CreateDisabledMissionPresetSnapshot();
                     if (entry != null)
                     {
                         // ExitActiveParticipants restored the normal local preset. On the host
@@ -2873,9 +2878,9 @@ namespace ExtendedData
 
                 try
                 {
-                    foreach (Tuple<string, object, Dictionary<string, byte[]>> item in prepared)
+                    foreach (Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>> item in prepared)
                     {
-                        Invoke(item.Item2, "System_EnterMissionPreset", item.Item3, presetLabel, editable);
+                        item.Item2.System_EnterMissionPreset(item.Item3, presetLabel, editable);
                         activeParticipantIds.Add(item.Item1);
                     }
                     trailContext = true;
@@ -2897,24 +2902,24 @@ namespace ExtendedData
                 }
             }
 
-            private void ExitActiveParticipants(Dictionary<string, object> participants = null)
+            private void ExitActiveParticipants(Dictionary<string, IModSettingsPresetEndpoint> participants = null)
             {
                 participants = participants ?? FindCompatibleViewModels();
                 foreach (string modId in activeParticipantIds.ToArray())
                 {
-                    if (!participants.TryGetValue(modId, out object viewModel))
+                    if (!participants.TryGetValue(modId, out IModSettingsPresetEndpoint viewModel))
                     {
                         DebugLogHelper.LogWarning(log, $"Could not leave missing active Map/Trail settings endpoint [{modId}].");
                         continue;
                     }
-                    Invoke(viewModel, "System_ExitMissionPreset");
+                    viewModel.System_ExitMissionPreset();
                     activeParticipantIds.Remove(modId);
                 }
             }
 
-            private Dictionary<string, object> FindCompatibleViewModels()
+            private Dictionary<string, IModSettingsPresetEndpoint> FindCompatibleViewModels()
             {
-                var result = new Dictionary<string, object>(StringComparer.Ordinal);
+                var result = new Dictionary<string, IModSettingsPresetEndpoint>(StringComparer.Ordinal);
                 foreach (IGrouping<string, LobbyModSettingsEntry> group in GetRegistrationGroups())
                 {
                     if (IsRegistrationGroupOptedOut(group))
@@ -2924,12 +2929,13 @@ namespace ExtendedData
                         continue;
                     LobbyModSettingsEntry entry = group.First();
                     if (entry == null ||
+                        !(entry.ViewModel is IModSettingsPresetEndpoint endpoint) ||
                         string.Equals(modId, ExtendedDataPlugin.PluginGuid, StringComparison.Ordinal) ||
                         GetIncompatibilityReason(entry.ViewModel) != null)
                     {
                         continue;
                     }
-                    result[modId] = entry.ViewModel;
+                    result[modId] = endpoint;
                 }
                 return result;
             }
@@ -2949,13 +2955,12 @@ namespace ExtendedData
 
             private bool AreAllTrailPresetsActive()
             {
-                Dictionary<string, object> participants = FindCompatibleViewModels();
+                Dictionary<string, IModSettingsPresetEndpoint> participants = FindCompatibleViewModels();
                 return activeParticipantIds.All(id =>
                 {
-                    if (!participants.TryGetValue(id, out object viewModel))
+                    if (!participants.TryGetValue(id, out IModSettingsPresetEndpoint viewModel))
                         return false;
-                    PropertyInfo property = viewModel.GetType().GetProperty("IsMissionPresetActive", BindingFlags.Instance | BindingFlags.Public);
-                    return property != null && property.PropertyType == typeof(bool) && (bool)property.GetValue(viewModel);
+                    return viewModel.IsMissionPresetActive;
                 });
             }
 
@@ -2968,37 +2973,7 @@ namespace ExtendedData
             }
 
             private static object ConvertJsonValue(object value, Type targetType)
-            {
-                if (value == null)
-                    throw new InvalidDataException($"Null cannot be assigned to [{targetType.FullName}].");
-                if (targetType != typeof(string) && value is string encoded &&
-                    encoded.StartsWith(EncodedSettingPrefix, StringComparison.Ordinal))
-                {
-                    byte[] bytes = Convert.FromBase64String(encoded.Substring(EncodedSettingPrefix.Length));
-                    return MessagePackSerializer.Deserialize(targetType, bytes);
-                }
-                Type effectiveType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-                if (effectiveType.IsInstanceOfType(value))
-                    return value;
-                if (effectiveType.IsArray && value is IEnumerable sequence && !(value is string))
-                {
-                    Type elementType = effectiveType.GetElementType();
-                    var converted = new List<object>();
-                    foreach (object item in sequence)
-                        converted.Add(ConvertJsonValue(item, elementType));
-                    Array array = Array.CreateInstance(elementType, converted.Count);
-                    for (int index = 0; index < converted.Count; index++)
-                        array.SetValue(converted[index], index);
-                    return array;
-                }
-                if (TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(value, effectiveType))
-                {
-                    // Let the target enum's formatter migrate old primitive representations.
-                    byte[] primitive = MessagePackSerializer.Serialize(value.GetType(), value);
-                    return MessagePackSerializer.Deserialize(effectiveType, primitive);
-                }
-                return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
-            }
+                => ModSettingsPresetJson.ConvertValue(value, targetType);
 
             private static string EncodeSettingValue(Type propertyType, object value)
             {
@@ -3087,12 +3062,5 @@ namespace ExtendedData
                 }
             }
 
-            private static object Invoke(object target, string method, params object[] arguments)
-            {
-                MethodInfo found = target.GetType().GetMethod(method, BindingFlags.Instance | BindingFlags.Public);
-                if (found == null)
-                    throw new MissingMethodException(target.GetType().FullName, method);
-                return found.Invoke(target, arguments);
-            }
         }
 }

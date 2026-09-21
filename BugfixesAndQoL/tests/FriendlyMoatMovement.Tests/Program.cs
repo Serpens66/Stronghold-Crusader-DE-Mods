@@ -565,7 +565,7 @@ void ValidateRuntimeSources()
         "PortalStateOffsetDwords=0x809, PortalKindOffsetDwords=0x80A, PortalBuildingIdOffsetDwords=0x80C, " +
         "PortalActiveOffsetDwords=0x80F, PortalFirstPclOffsetDwords=0x816, PortalSecondPclOffsetDwords=0x817, " +
         "PortalOwnerOffsetDwords=0x882, PortalThirdPclOffsetDwords=0x883; } }");
-    var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","PresetLobbyModSettingsViewModel.cs","ModSettingsSearch.cs","ToolTipPresentation.cs","GameModeHelper.cs","GameplaySessionLifecycle.cs","GameBuildingFootprint.cs"}.Select(file=>
+    var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","ToolTipPresentation.cs","GameModeHelper.cs","GameplaySessionLifecycle.cs","GameBuildingFootprint.cs"}.Select(file=>
         CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),

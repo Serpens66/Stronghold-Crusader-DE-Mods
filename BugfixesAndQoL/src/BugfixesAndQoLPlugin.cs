@@ -11,7 +11,7 @@ using System.Reflection;
 namespace BugfixesAndQoL
 {
     [BepInDependency(ScriptExtenderGuid, "2.7.2")]
-    [BepInDependency(ApiSharedGuid, "0.3.6")]
+    [BepInDependency(ApiSharedGuid, "0.4.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
@@ -24,7 +24,6 @@ namespace BugfixesAndQoL
     [BepInIncompatibility(PreplacedTestGuid)]
     [BepInIncompatibility(EnemyGatePathfindingTestGuid)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class BugfixesAndQoLPlugin : BaseUnityPlugin
     {

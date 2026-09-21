@@ -42,13 +42,11 @@
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
     <Compile Include="..\Shared\LobbyLifecycle.cs"><Link>Shared\LobbyLifecycle.cs</Link></Compile>
-    <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
-    <Compile Include="..\Shared\ModSettingsSearch.cs"><Link>Shared\ModSettingsSearch.cs</Link></Compile>
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="src\PackManifest.cs" />

@@ -34,6 +34,8 @@ if errorlevel 1 goto build_failed_popd
 if not "%ERRORLEVEL%"=="0" goto build_failed_popd
 "%MSBUILD%" APIShared.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
 if errorlevel 1 goto build_failed_popd
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\APISharedPresetConsumerTests\APISharedPresetConsumerTests.csproj" /t:Rebuild /p:Configuration=Release /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%"
+if errorlevel 1 goto build_failed_popd
 popd
 copy /Y "%PROJECT_DIR%info.json" "%LOCAL_PLUGIN_DIR%\info.json" >nul
 xcopy "%PROJECT_DIR%Patches" "%LOCAL_PLUGIN_DIR%\Patches\" /E /I /Q /Y >nul

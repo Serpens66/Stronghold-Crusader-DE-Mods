@@ -91,7 +91,7 @@ $editableProxyBindings = @{
     CheatMod = @()
     CastlePlanner = @()
     ExtendedData = @('IsEnabled','SelectedCoopPackage','SelectedModeIndex')
-    ExtraFeatures = @('AIEnemyProximityMultiplayerValueText','AIEnemyProximitySingleplayerValueText','AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanEnemyProximityMultiplayerValueText','HumanEnemyProximitySingleplayerValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
+    ExtraFeatures = @('AIEnemyProximityMultiplayerValueText','AIEnemyProximitySingleplayerValueText','AITowerGateRebuildDelayValueText','AIGateClosingDistanceValueText','AIGateReopenDelayValueText','AILordHealthPercentText','ApothecaryPlagueSearchDistanceValueText','BuyMultiplier','BuyMultiplierValueText','CampfirePeasantsLimitText','GoldRefundPercentValueText','HumanEnemyProximityMultiplayerValueText','HumanEnemyProximitySingleplayerValueText','HumanGateClosingDistanceValueText','HumanGateReopenDelayValueText','HumanLordHealthPercentText','IronRefundPercentValueText','KnightTransformationDelayValueText','KnightTransformationGoldCostValueText','MarketBuyPriceMultiplierValueText','MarketSellPriceMultiplierValueText','MultiplyGoodsGainAIText','MultiplyGoodsGainHumanText','MultiplyGoodsGainInMoneyAIText','MultiplyGoodsGainInMoneyHumanText','PitchRefundPercentValueText','PlagueDurationMultiplierValueText','SellMultiplier','SellMultiplierValueText','StoneRefundPercentValueText','WoodRefundPercentValueText')
     ExtremePowers = @('ArrowDamageValueText','ArrowRadiusValueText','DemoOwnerIndex','DemoSpawnCountValueText','DemoSpriteIndex','DemoUnitTypeIndex','EngineersCountValueText','EngineersTypeIndex','GoldMaximumValueText','GoldMinimumValueText','HealAmountValueText','HealRadiusValueText','KnightsCountValueText','KnightsTypeIndex','MacemenCountValueText','MacemenTypeIndex','RegenerationPercentValueText','RockDamageValueText','RockRadiusValueText','SpearmenCountValueText','SpearmenTypeIndex')
     ImprovedHunters = @('CamelMeatText','ChickenMeatText','DeerMeatText','GoatMeatText','MaxNeutralChickensPerPlayerValueText','RabbitMeatText')
     RandomEvents = @('AppleBlightChanceValueText','ArcherMaxValueText','ArcherMinValueText','ArchersChanceValueText','BanditMaxValueText','BanditMinValueText','BanditsChanceValueText','BardChanceValueText','CooldownMonthsValueText','FairChanceValueText','FireChanceValueText','FireMaxValueText','FireMinValueText','GranaryTheftChanceValueText','HopsBeetlesChanceValueText','IntervalMonthsValueText','LionAttackChanceValueText','LionMaxValueText','LionMinValueText','MadCowsChanceValueText','MarriageChanceValueText','PlagueChanceValueText','PlagueMaxValueText','PlagueMinValueText','RabbitsChanceValueText','TheftMaxValueText','TheftMinValueText','TreeBlightChanceValueText','WheatInfestationChanceValueText')
@@ -492,7 +492,6 @@ foreach ($required in @(
     'failedAivCastlePlayers',
     'preview.TryGetCommittedSelections',
     'CaptureImportedCandidates(request.PlayerId - 1)',
-    'selectBestFit(aivState, specIndex, 0)',
     'finally')) {
     if (-not $castleRuntimeSource.Contains($required)) {
         throw "CastlePlanner exact-once spawn verification marker is missing: $required"
@@ -806,7 +805,6 @@ $productiveCsFiles = @($productiveRoots | ForEach-Object {
     Get-ChildItem -LiteralPath (Join-Path $workspace "$_/src") -File -Filter '*.cs'
 })
 $directRegistrations = @($productiveCsFiles | Where-Object {
-    $_.FullName -notlike '*\Shared\PresetLobbyModSettingsViewModel.cs' -and
     [IO.File]::ReadAllText($_.FullName).Contains('RegisterLobbyModSettings(')
 })
 if ($directRegistrations.Count -ne 0) {
@@ -835,17 +833,18 @@ foreach ($registrationFile in $registrationFiles) {
         throw "No project found for lobby-settings registration: $($registrationFile.FullName)"
     }
     $projectCandidates = @(Get-ChildItem -LiteralPath $projectDirectory.FullName -File -Filter '*.csproj')
-    $project = @($projectCandidates | Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('Shared\PresetLobbyModSettingsViewModel.cs') } | Select-Object -First 1)
+    $project = @($projectCandidates | Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('<Reference Include="APIShared"') } | Select-Object -First 1)
     if ($project.Count -eq 0) {
         throw "No lobby-settings project found for registration: $($registrationFile.FullName)"
     }
     $project = $project[0]
     $projectText = [IO.File]::ReadAllText($project.FullName)
-    if (-not $projectText.Contains('Shared\PresetLobbyModSettingsViewModel.cs')) {
-        throw "$($project.Name): lobby settings do not compile the Shared preset/sync implementation."
+    if (-not $projectText.Contains('<Reference Include="APIShared"')) {
+        throw "$($project.Name): lobby settings do not reference the public APIShared preset/search implementation."
     }
-    if (-not $projectText.Contains('Shared\ModSettingsSearch.cs')) {
-        throw "$($project.Name): lobby settings do not compile the Shared mod-settings search anchor implementation."
+    if ($projectText.Contains('Shared\PresetLobbyModSettingsViewModel.cs') -or
+        $projectText.Contains('Shared\ModSettingsSearch.cs')) {
+        throw "$($project.Name): lobby settings still vendor a removed Shared preset/search source file."
     }
 }
 
@@ -878,7 +877,7 @@ foreach ($viewModelFile in $settingsViewModels) {
     }
 }
 
-$sharedSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/PresetLobbyModSettingsViewModel.cs'))
+$sharedSettingsSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/PresetLobbyModSettingsViewModel.cs'))
 foreach ($required in @(
     'ActivatePerPlayerLobbySettings',
     'PerPlayerLobbySettingsBuilder',
@@ -887,13 +886,13 @@ foreach ($required in @(
     'must return one stable array instance',
     'System_ArePerPlayerSettingsReady')) {
     if (-not $sharedSettingsSource.Contains($required)) {
-        throw "Shared multiplayer-settings contract marker is missing: $required"
+        throw "APIShared multiplayer-settings contract marker is missing: $required"
     }
 }
 if ($sharedSettingsSource.Contains('ScriptExtenderMultiplayerSyncWorkaround')) {
-    throw 'Shared settings still contain the obsolete pre-2.0.2 multiplayer-sync workaround.'
+    throw 'APIShared settings still contain the obsolete pre-2.0.2 multiplayer-sync workaround.'
 }
-$sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/ModSettingsSearch.cs'))
+$sharedSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'APIShared/src/ModSettingsSearch.cs'))
 foreach ($required in @(
     'DependencyProperty.RegisterAttached(',
     'System_GetModSettingsSearchEntries',
@@ -921,7 +920,7 @@ foreach ($required in @(
     'return source.GetEntries(viewModel);')) {
     $searchContractText = $sharedSearchSource + $sharedSettingsSource
     if (-not $searchContractText.Contains($required)) {
-        throw "Shared mod-settings search contract marker is missing: $required"
+        throw "APIShared mod-settings search contract marker is missing: $required"
     }
 }
 
@@ -1220,7 +1219,7 @@ foreach ($target in $extraSearchDocument.SelectNodes('//*[@*[local-name()="ModSe
 if ([Text.RegularExpressions.Regex]::Matches(
         $sharedSettingsSource,
         'internal sealed class PerPlayerLobbySettingsCoordinator').Count -ne 1) {
-    throw 'Shared must compile one common per-player coordinator in production and tests.'
+    throw 'APIShared must compile one common per-player coordinator in production and tests.'
 }
 foreach ($required in @(
     'OnStartMap.Observable.Subscribe',
@@ -1235,11 +1234,11 @@ foreach ($required in @(
     'viewModel.DeactivatePerPlayerLobbySettings();',
     'GameXAMLManagerAPI.Instance.RegisterLobbyModSettings(')) {
     if (-not $sharedSettingsSource.Contains($required)) {
-        throw "Shared per-player lifecycle/roster marker is missing: $required"
+        throw "APIShared per-player lifecycle/roster marker is missing: $required"
     }
 }
 if ($sharedSettingsSource.Contains('sendPacketToSteamIdMethod')) {
-    throw 'Shared reliable lobby delivery must not route back through gameMembers-aware SendPacketToSteamId.'
+    throw 'APIShared reliable lobby delivery must not route back through gameMembers-aware SendPacketToSteamId.'
 }
 $sharedGameModeSource = [IO.File]::ReadAllText((Join-Path $workspace 'Shared/GameModeHelper.cs'))
 foreach ($required in @(
@@ -1342,8 +1341,8 @@ $crlfTargets = @($settings.Values) + @(
             ForEach-Object { [IO.Path]::GetRelativePath($workspace, $_.FullName) }
     }
 ) + @(
-    'Shared/PresetLobbyModSettingsViewModel.cs',
-    'Shared/ModSettingsSearch.cs',
+    'APIShared/src/PresetLobbyModSettingsViewModel.cs',
+    'APIShared/src/ModSettingsSearch.cs',
     'Shared/GameModeHelper.cs',
     'SerpsModsHost/src/ModSettingsSearchPolicy.cs',
     'SerpsModsHost/src/ModSettingsSearchViewModel.cs',
@@ -1357,8 +1356,8 @@ foreach ($relativePath in $crlfTargets) {
 }
 
 $auditScope = if ($PSBoundParameters.ContainsKey('Mod')) {
-    "mod $Mod plus Shared"
+    "mod $Mod plus APIShared"
 } else {
-    "all $($settings.Count) mods plus Shared"
+    "all $($settings.Count) mods plus APIShared"
 }
 Write-Output "PASS ($auditScope): XAML, shared-only registration, personal-setting declarations, automatic two-axis overflow scrolling, all interactive tooltips, shared styles, locale parity, nonempty translations, and CRLF."

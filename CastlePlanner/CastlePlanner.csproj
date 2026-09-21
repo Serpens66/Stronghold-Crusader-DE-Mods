@@ -20,7 +20,7 @@
     <DebugType>portable</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>BepInEx\plugins\CastlePlanner_Serp\</OutputPath>
-    <DefineConstants>DEBUG;TRACE;API_SHARED_LOBBY_OBSERVER</DefineConstants>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -29,7 +29,7 @@
     <DebugType>portable</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>BepInEx\plugins\CastlePlanner_Serp\</OutputPath>
-    <DefineConstants>TRACE;API_SHARED_LOBBY_OBSERVER</DefineConstants>
+    <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -165,15 +165,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Shared\DependencyFreeJson.cs">
-      <Link>Shared\DependencyFreeJson.cs</Link>
-    </Compile>
     <Compile Include="..\Shared\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="..\Shared\ActivePlayerHelper.cs">
       <Link>Shared\ActivePlayerHelper.cs</Link>
     </Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs">
       <Link>Shared\DebugLogHelper.cs</Link>
+    </Compile>
+    <Compile Include="..\Shared\DependencyFreeJson.cs">
+      <Link>Shared\DependencyFreeJson.cs</Link>
     </Compile>
     <Compile Include="..\Shared\NativePatternResolver.cs">
       <Link>Shared\NativePatternResolver.cs</Link>
@@ -186,12 +186,6 @@
     </Compile>
     <Compile Include="..\Shared\GameplayModActivationGate.cs">
       <Link>Shared\GameplayModActivationGate.cs</Link>
-    </Compile>
-    <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs">
-      <Link>Shared\PresetLobbyModSettingsViewModel.cs</Link>
-    </Compile>
-    <Compile Include="..\Shared\ModSettingsSearch.cs">
-      <Link>Shared\ModSettingsSearch.cs</Link>
     </Compile>
     <Compile Include="..\Shared\SerpLocalization.cs">
       <Link>Shared\SerpLocalization.cs</Link>

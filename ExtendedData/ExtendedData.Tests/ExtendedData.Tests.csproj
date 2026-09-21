@@ -15,6 +15,9 @@
     <Compile Include="..\src\BuiltInCustomizeOriginPacket.cs" Link="BuiltInCustomizeOriginPacket.cs" />
     <Compile Include="..\src\MapModSettingsPacket.cs" Link="MapModSettingsPacket.cs" />
     <Compile Include="..\src\MissionPresetLifecycleState.cs" Link="MissionPresetLifecycleState.cs" />
+    <Reference Include="APIShared">
+      <HintPath>..\..\APIShared\BepInEx\plugins\APIShared_Serp\APIShared.dll</HintPath>
+    </Reference>
     <Reference Include="MessagePack">
       <HintPath>..\..\shcde-script-extender\src\SHCDESE.BepInEx\bin\net481\MessagePack.dll</HintPath>
     </Reference>

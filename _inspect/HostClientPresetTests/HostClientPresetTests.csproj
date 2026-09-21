@@ -68,10 +68,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="..\..\Shared\PresetLobbyModSettingsViewModel.cs">
+    <Compile Include="..\..\APIShared\src\ModSettingsPresetDocuments.cs">
+      <Link>ModSettingsPresetDocuments.cs</Link>
+    </Compile>
+    <Compile Include="..\..\APIShared\src\PresetLobbyModSettingsViewModel.cs">
       <Link>PresetLobbyModSettingsViewModel.cs</Link>
     </Compile>
-    <Compile Include="..\..\Shared\ModSettingsSearch.cs">
+    <Compile Include="..\..\APIShared\src\ModSettingsSearch.cs">
       <Link>ModSettingsSearch.cs</Link>
     </Compile>
     <Compile Include="..\..\SerpsModsHost\src\ModSettingsSearchPolicy.cs">
@@ -154,9 +157,6 @@
     </Compile>
     <Compile Include="..\..\ExtraFeatures\src\EnemyProximityPolicy.cs">
       <Link>EnemyProximityPolicy.cs</Link>
-    </Compile>
-    <Compile Include="..\..\ExtraFeatures\src\VanillaPeaceTimePolicy.cs">
-      <Link>VanillaPeaceTimePolicy.cs</Link>
     </Compile>
     <Compile Include="..\..\ExtraFeatures\src\ExtraFeaturesChoreSender.cs">
       <Link>ExtraFeaturesChoreSender.cs</Link>

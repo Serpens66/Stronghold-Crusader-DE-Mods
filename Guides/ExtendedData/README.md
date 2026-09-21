@@ -8,6 +8,7 @@ This directory collects user and developer documentation for `ExtendedData` and 
 
 ### Contents
 
+- [Extensible ModSettings presets](ModSettings%20Presets.md#english) — For target-mod and preset authors using APIShared to add, export, copy, and distribute normal loose JSON presets without requiring ExtendedData.
 - [Mod settings in Maps and Custom Trails](Custom%20Trail%20Mod%20Settings.md#english) — For Map and Trail authors who want to configure compatible gameplay mods and distribute those settings with normal or Coop Trails.
 - [ExtendedData compatibility for mod authors](Mod%20Compatibilty%20ExtendedData.md#english) — For mod developers whose lobby settings should participate in ExtendedData mission presets without referencing `ExtendedData.dll`.
 - [Custom Lord packages with Script Extender](CustomLordExtendedPackages.md#english) — For Custom Lord authors who want to add Script Extender metadata, localized descriptions, media, Lua, or supported Workshop content.
@@ -22,6 +23,7 @@ Dieses Verzeichnis enthält Benutzer- und Entwicklerdokumentation für `Extended
 
 ### Inhalt
 
+- [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch) — Für Ziel-Mod- und Preset-Autoren, die mit APIShared normale lose JSON-Presets ohne ExtendedData-Abhängigkeit hinzufügen, exportieren, kopieren und verteilen möchten.
 - [Mod-Einstellungen in Maps und Custom Trails](Custom%20Trail%20Mod%20Settings.md#deutsch) — Für Map- und Trail-Ersteller, die kompatible Gameplay-Mods konfigurieren und diese Einstellungen mit normalen oder Koop-Trails verteilen möchten.
 - [ExtendedData-Kompatibilität für Modentwickler](Mod%20Compatibilty%20ExtendedData.md#deutsch) — Für Modentwickler, deren Lobby-Einstellungen ohne Referenz auf `ExtendedData.dll` an ExtendedData-Missions-Presets teilnehmen sollen.
 - [Custom-Lord-Pakete mit Script Extender](CustomLordExtendedPackages.md#deutsch) — Für Custom-Lord-Ersteller, die Script-Extender-Metadaten, lokalisierte Beschreibungen, Medien, Lua oder unterstützte Workshop-Inhalte ergänzen möchten.

@@ -66,8 +66,6 @@
   </ItemGroup>
   <ItemGroup><Content Include="Locales\*.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content></ItemGroup>
   <ItemGroup>
-    <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
-    <Compile Include="..\Shared\ModSettingsSearch.cs"><Link>Shared\ModSettingsSearch.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\NumericTextInput.cs"><Link>Shared\NumericTextInput.cs</Link></Compile>
   </ItemGroup>

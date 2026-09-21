@@ -1,3 +1,4 @@
+#pragma warning disable 1591 // XAML binding surface is documented by the APIShared preset guide.
 using System;
 using System.Globalization;
 using System.Linq;
@@ -580,8 +581,7 @@ namespace Shared
     }
 
     /// <summary>
-    /// Reflection-friendly export shape. Consumers must inspect the public properties instead
-    /// of casting because Shared is compiled into each standalone mod assembly.
+    /// Public APIShared export shape used by the optional global settings-search host.
     /// </summary>
     public sealed class ModSettingsSearchEntry
     {

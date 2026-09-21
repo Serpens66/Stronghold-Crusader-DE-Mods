@@ -8,13 +8,12 @@ using System;
 namespace ExtraFeatures
 {
     [BepInDependency(ScriptExtenderGuid, "2.7.1")]
-    [BepInDependency(ApiSharedGuid, "0.3.6")]
+    [BepInDependency(ApiSharedGuid, "0.4.0")]
     [BepInDependency(LegacySomeSettingsGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("FearFactorNeutralizationTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("fixes", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("UnitLimit_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtraFeaturesPlugin : BaseUnityPlugin
     {

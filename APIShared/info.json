@@ -2,14 +2,20 @@
   "GUID": "APIShared_Serp",
   "Author": "Serpens66",
   "Name": "APIShared",
-  "Description": "Shared typed and conflict-aware native patch and hook infrastructure for Serps mods.",
-  "Version": "0.3.7",
+  "Description": "Shared typed native infrastructure and extensible lobby ModSettings preset API for Serps and third-party mods.",
+  "Version": "0.4.0",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "0.4.0",
+      "Changes": [
+        "Added the public extensible lobby ModSettings preset API, loose JSON discovery, typed ExtendedData integration, copy actions, and atomic preset export."
+      ]
+    },
     {
       "Version": "0.3.7",
       "Changes": [

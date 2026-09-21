@@ -10,6 +10,7 @@
     <AssemblyName>APIShared</AssemblyName>
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <LangVersion>latest</LangVersion>
+    <DefineConstants>$(DefineConstants);API_SHARED_LOBBY_OBSERVER;API_SHARED_INTERNAL_JSON</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputPath>BepInEx\plugins\APIShared_Serp\</OutputPath>
     <DebugSymbols>true</DebugSymbols>
@@ -23,6 +24,8 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
     <Reference Include="BepInEx"><HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="com.rlabrecque.steamworks.net"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MonoMod.RuntimeDetour"><HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath><Private>false</Private></Reference>
@@ -32,6 +35,8 @@
     <Reference Include="UnityEngine"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="SHCDESE"><HintPath>$(ExtenderDir)\SHCDESE.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Microsoft.Extensions.Logging.Abstractions"><HintPath>$(ExtenderDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="RedBird.Abstractions"><HintPath>$(ExtenderDir)\RedBird.Abstractions.dll</HintPath><Private>false</Private></Reference>
@@ -45,7 +50,12 @@
     <Compile Include="src\GameplayModModePolicy.cs" />
     <Compile Include="src\GameplayFeatureModePolicy.cs" />
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
+    <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
+    <Compile Include="src\ModSettingsSearch.cs" />
+    <Compile Include="src\PresetLobbyModSettingsViewModel.cs" />
+    <Compile Include="src\ModSettingsPresetDocuments.cs" />
     <Compile Include="src\MissionLifecycleContracts.cs" />
     <Compile Include="src\MissionLifecycleState.cs" />
     <Compile Include="src\MissionLifecycleCapability.cs" />

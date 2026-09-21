@@ -10,10 +10,10 @@ function Assert-True {
 $config = Get-ReleaseConfiguration
 Assert-True ([string]$config.ApiShared.Guid -ceq 'APIShared_Serp') 'The resolved release configuration must expose the APIShared GUID.'
 Assert-True ($null -eq $config.ApiShared.PSObject.Properties['Version']) 'The release configuration must not duplicate the current APIShared version.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.3.6') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.3.6') 'ExtraFeatures must be recognized as an APIShared consumer.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtendedData') -ceq '0.3.6') 'ExtendedData must be recognized as an APIShared consumer.'
-Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts') -ceq '0.3.6') 'BuildingCosts must be classified as an editor lifecycle APIShared consumer.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BugfixesAndQoL') -ceq '0.4.0') 'BugfixesAndQoL must be recognized as an APIShared consumer.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtraFeatures') -ceq '0.4.0') 'ExtraFeatures must be recognized as an APIShared consumer.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'ExtendedData') -ceq '0.4.0') 'ExtendedData must be recognized as an APIShared consumer.'
+Assert-True ((Get-ApiSharedConsumerMinimum -Config $config -ModName 'BuildingCosts') -ceq '0.4.0') 'BuildingCosts must be classified as an editor lifecycle APIShared consumer.'
 $releaseIndexEntries = @(Get-ReleaseIndexEntries -Config $config)
 Assert-True ([string]$releaseIndexEntries[0].Project -ceq 'SerpsMods') 'The SerpsMods release-index entry must be first.'
 Assert-True ([string]$releaseIndexEntries[0].DisplayName -ceq 'SerpsMods (Modpack)') 'The SerpsMods release-index display name must identify the modpack.'

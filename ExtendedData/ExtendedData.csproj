@@ -17,7 +17,6 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>portable</DebugType>
     <WarningLevel>4</WarningLevel>
-    <DefineConstants>$(DefineConstants);API_SHARED_LOBBY_OBSERVER</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(GameDir)' == ''">
     <GameDir>E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
@@ -61,8 +60,6 @@
     <Compile Include="..\Shared\UnityMainThreadDispatch.cs"><Link>Shared\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
-    <Compile Include="..\Shared\PresetLobbyModSettingsViewModel.cs"><Link>Shared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
-    <Compile Include="..\Shared\ModSettingsSearch.cs"><Link>Shared\ModSettingsSearch.cs</Link></Compile>
     <Compile Include="..\Shared\SerpLocalization.cs"><Link>Shared\SerpLocalization.cs</Link></Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs"><Link>Shared\ToolTipPresentation.cs</Link></Compile>
     <Compile Include="..\Shared\WorkshopContentPaths.cs"><Link>Shared\WorkshopContentPaths.cs</Link></Compile>

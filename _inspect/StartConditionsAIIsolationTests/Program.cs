@@ -134,7 +134,8 @@ internal static class Program
             "StartConditionsRuntime.MapLifecycle.cs"));
         string presetSupport = File.ReadAllText(Path.Combine(
             workspaceRoot,
-            "Shared",
+            "APIShared",
+            "src",
             "PresetLobbyModSettingsViewModel.cs"));
         string activationGate = File.ReadAllText(Path.Combine(
             workspaceRoot,

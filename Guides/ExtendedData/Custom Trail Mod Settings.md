@@ -8,6 +8,8 @@
 
 This guide is for Map and Trail authors. Mod developers should use [ExtendedData compatibility for mod authors](Mod%20Compatibilty%20ExtendedData.md#english).
 
+APIShared distinguishes local Preset 1/2, loose external JSON presets, and temporary mission presets. Maps and Trails use the temporary mission form: it can be editable in Trail Maker, is read-only during play, and restores the previously active local or external preset afterwards. Normal external preset creation and distribution are documented in [Extensible ModSettings Presets](ModSettings%20Presets.md#english).
+
 ### Choose the settings to store
 
 1. Install and enable `ExtendedData` and every compatible gameplay mod the Map or Trail should use.
@@ -106,6 +108,8 @@ See `ExtendedData/Examples/01.modtrail.json.example` for a larger example.
 `ExtendedData` kann gemeinsame Gameplay-Einstellungen in einer Map oder neben einer Trail-Mission speichern. Installierte kompatible Mods werden automatisch erkannt, sodass Ersteller normalerweise alles im Map Editor oder Trail Maker konfigurieren und kein JSON von Hand bearbeiten müssen.
 
 Dieser Guide richtet sich an Map- und Trail-Ersteller. Modentwickler verwenden [ExtendedData-Kompatibilität für Modentwickler](Mod%20Compatibilty%20ExtendedData.md#deutsch).
+
+APIShared unterscheidet lokale Presets 1/2, lose externe JSON-Presets und temporäre Missionspresets. Maps und Trails verwenden die temporäre Missionsform: Im Trail Maker kann sie bearbeitbar sein, während des Spiels ist sie schreibgeschützt und anschließend wird das zuvor aktive lokale oder externe Preset wiederhergestellt. Erstellung und Verteilung normaler externer Presets beschreibt [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch).
 
 ### Zu speichernde Einstellungen auswählen
 

@@ -1277,5 +1277,96 @@
         <member name="M:Shared.GameplayFeatureModePolicy.LogDecisions(BepInEx.Logging.ManualLogSource,System.String,Shared.GameModeSnapshot,System.String)">
             <summary>LogDecisions in the centralized mission policy contract.</summary>
         </member>
+        <member name="T:Shared.ModSettingsSearchMatcher">
+            <summary>Pure matching policy shared by runtime filtering and isolated tests.</summary>
+        </member>
+        <member name="T:Shared.ModSettingsSearch">
+            <summary>
+            Explicit, localized metadata for one logical mod-setting entry. The properties are
+            attached to the smallest container that represents the logical setting.
+            </summary>
+        </member>
+        <member name="M:Shared.ModSettingsSearch.RegisterSource(System.Object,System.String,BepInEx.Logging.ManualLogSource,System.String)">
+            <summary>
+            Registers the immutable XAML catalog used by the optional SerpsModsHost. Each mod
+            remains standalone because the host consumes only the reflection-friendly data shape.
+            </summary>
+        </member>
+        <member name="T:Shared.ModSettingsSearchEntry">
+            <summary>
+            Public APIShared export shape used by the optional global settings-search host.
+            </summary>
+        </member>
+        <member name="T:Shared.PresetLocalAttribute">
+            <summary>
+            Persists a setting in the shared local preset file without exposing it to
+            the Script Extender's multiplayer synchronization layer.
+            </summary>
+        </member>
+        <member name="T:Shared.PresetLobbyModSettingsViewModel">
+            <summary>
+            Adds two local presets to a Script Extender lobby-settings ViewModel while
+            keeping the outer MessagePack dictionary readable by the Script Extender.
+            </summary>
+        </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_ApplyModSettingsSearchTarget(System.String,System.String)">
+            <summary>Safe reflection bridge used by the optional global search host.</summary>
+        </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.ConfigurePerPlayerLobbySettings(Shared.PerPlayerLobbySettingsBuilder)">
+            <summary>
+            Declares the few domain-specific parts of personal settings. Transport,
+            player-slot ownership, lobby convergence and readiness stay in APIShared.
+            </summary>
+        </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.CanMutateSetting(System.String)">
+            <summary>
+            Authorizes a settings mutation before any backing state is changed.
+            Preset and Trail snapshots are trusted internal applications; all other
+            writes use the Script Extender's ownership gate.
+            </summary>
+        </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.CanMutateSettingWithDependents(System.String,System.String[])">
+            <summary>
+            Also refreshes editable proxy properties after a rejected write. The
+            Extender's private revert path keeps these notifications out of sync
+            and storage just like the primary property notification.
+            </summary>
+        </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_GetPresetSettingDescriptors">
+            <summary>Returns the persistent settings available to shared preset authoring UI.</summary>
+        </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_CopyCurrentSettingsToLocalPreset(System.Int32)">
+            <summary>Copies the currently visible settings into local preset 1 or 2 and selects that slot.</summary>
+        </member>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_ExportPublishedPreset(System.String,System.String,System.String,System.Collections.Generic.IEnumerable{Shared.PresetExportSelection},System.Boolean)">
+            <summary>Exports selected settings to a loose published-preset JSON file.</summary>
+        </member>
+        <member name="T:Shared.IModSettingsPresetEndpoint">
+            <summary>Typed APIShared endpoint consumed by optional mission-setting providers such as ExtendedData.</summary>
+        </member>
+        <member name="T:Shared.PublishedPresetValueMode">
+            <summary>Determines how a published preset resolves one selected setting.</summary>
+        </member>
+        <member name="T:Shared.PresetSettingScope">
+            <summary>Describes the ownership of a persistent lobby setting.</summary>
+        </member>
+        <member name="T:Shared.PresetSettingDescriptor">
+            <summary>One persistent setting exposed to preset authoring UI.</summary>
+        </member>
+        <member name="T:Shared.PresetExportSelection">
+            <summary>One author-selected setting passed to the shared JSON exporter.</summary>
+        </member>
+        <member name="T:Shared.PresetExportSettingViewModel">
+            <summary>Mutable row model used by the standard preset-export XAML block.</summary>
+        </member>
+        <member name="T:Shared.PublishedPresetSetting">
+            <summary>One setting selected by a published preset.</summary>
+        </member>
+        <member name="T:Shared.PublishedModSettingsPreset">
+            <summary>A validated, provider-qualified preset offered by a target mod.</summary>
+        </member>
+        <member name="T:Shared.ModSettingsPresetJson">
+            <summary>Shared JSON contract for loose <c>preset_*.json</c> files.</summary>
+        </member>
     </members>
 </doc>

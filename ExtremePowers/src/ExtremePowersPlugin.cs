@@ -14,7 +14,7 @@ namespace ExtremePowers
 {
     [BepInDependency("000shcdese", "2.3.0")]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
-    [BepInDependency("APIShared_Serp", "0.3.6")]
+    [BepInDependency("APIShared_Serp", "0.4.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class ExtremePowersPlugin : BaseUnityPlugin
     {

@@ -1,10 +1,10 @@
 # APIShared migration plan and current state
 
-Status: 15 September 2026. Development and compatibility checks target installed Script Extender 2.6.0, commit `2cee24e33b5a5d81d1c275efabc714ac59917b7b`. APIShared retains Script Extender 2.3.0 as its minimum because its five current contracts do not require a newer API. Consumers that use newer pathing or other contracts require the corresponding version themselves.
+Status: 21 September 2026. Development and compatibility checks target installed Script Extender 2.6.0, commit `2cee24e33b5a5d81d1c275efabc714ac59917b7b`. APIShared retains Script Extender 2.3.0 as its minimum because its current contracts do not require a newer API. Consumers that use newer pathing or other contracts require the corresponding version themselves.
 
 ## Implemented API boundary
 
-APIShared exposes exactly five process-wide capabilities:
+APIShared exposes the following process-wide capabilities in addition to its public ModSettings preset integration:
 
 - `IGatehouseDistanceOriginCapability`
 - `IGatehouseTimingCapability`
@@ -15,6 +15,8 @@ APIShared exposes exactly five process-wide capabilities:
 The former selected-unit broker was removed. Consumers subscribe directly to `TribeR3EventHooks.OnTribeIssueOrderWithTarget` and choose the required Pre or Post phase. APIShared does not wrap `GamePathingManagerAPI`, `PathConnectionRecord`, `GamePlayerManagerAPI.PlayMessage`, or another public Script Extender 2.4.0 contract.
 
 Native addresses, patterns, memory writers, detours, concrete services and ownership state remain internal. The managed lobby observer initializes in `Awake()`; native capabilities initialize from `CrusaderLibrary.LibraryLoaded`. Process-wide hooks and callbacks remain rooted for the process lifetime. Capability failures are isolated and fail closed.
+
+The public preset integration in APIShared 0.4.0 owns `PresetLobbyModSettingsViewModel`, registration, property scopes, JSON discovery/export, copy commands, and the typed `IModSettingsPresetEndpoint`. Consumers reference APIShared directly; they no longer source-link the former `Shared` implementations or compile their own lobby observer. ExtendedData is an optional typed consumer of the same contract.
 
 ## Completed consumers
 
@@ -55,7 +57,7 @@ Current classification after the final overlap audit:
 - Workspace release projects live at root, under `Testmods`, or under `Helpers` according to `Shared/Release/release-projects.json` and `Shared/ScriptExtenderUpdate/mods.json`; do not assume a fixed mod count.
 - Runtime projects compile against the installed `BepInEx/plugins/000shcdese/SHCDESE.dll`. `ExtenderDir` is the explicit override; local Script Extender output is not an implicit fallback.
 - APIShared is referenced with `<Private>false>` and must never be copied privately beside a consumer DLL.
-- Consumers that call a surface first introduced in APIShared 0.3.0 require 0.3.0 themselves. The three lobby-state consumers are pinned to the current test contract 0.3.6; the next final version release must assign the new lobby contract its own unambiguous minimum version atomically. Older consumers retain their actual minimum.
+- Consumers that call a surface first introduced in APIShared 0.3.0 require 0.3.0 themselves. Preset-capable ModSettings consumers require APIShared 0.4.0. Older consumers retain their actual minimum.
 - Release metadata identifies APIShared consumers and their minimum versions. Thin archives exclude APIShared; bundle archives contain one validated APIShared copy. The SerpsMods package stages APIShared once as infrastructure and keeps consumers thin.
 - Version changes are atomic across active plugin and manifest metadata. Minimum Script Extender versions remain based on actual API use rather than the workspace-wide target.
 

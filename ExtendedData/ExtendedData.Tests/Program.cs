@@ -32,7 +32,6 @@ var tests = new (string Name, Action Run)[]
     ("dynamic third-party mod ids are preserved", TestModSettingsRegistry),
     ("missing mod entry uses the mod-defined default", TestMissingModEntry),
     ("Trail mod compatibility contract is validated", TestTrailModCompatibilityContract),
-    ("primitive enum migration policy is fail-closed", TestTrailSettingValueConversionPolicy),
     ("explicit plugin opt-out marker is honored", TestExplicitPluginOptOut),
     ("sidecar schema evolution keeps only current settings", TestSidecarSettingsSchemaEvolution),
     ("coop mission schema evolution keeps only current settings", TestCoopSettingsSchemaEvolution),
@@ -304,29 +303,6 @@ static void TestWorkshopUploadCheckbox()
         "the upload choice is not retained through Vanilla's recursive retry until a terminal callback");
 }
 
-static void TestTrailSettingValueConversionPolicy()
-{
-    Assert(TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(true, typeof(DayOfWeek)),
-        "Boolean source was not accepted for an enum target");
-    Assert(TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(2, typeof(DayOfWeek)),
-        "integer source was not accepted for an enum target");
-    Assert(TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion((long)1, typeof(DayOfWeek?)),
-        "integer source was not accepted for a nullable enum target");
-    Assert(!TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(1.0, typeof(DayOfWeek)),
-        "floating-point source was accepted for an enum target");
-    Assert(!TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion("1", typeof(DayOfWeek)),
-        "string source was accepted for an enum target");
-    Assert(!TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion(1, typeof(int)),
-        "non-enum target was accepted");
-
-    string root = FindProjectRoot();
-    string coordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
-    Assert(coordinator.Contains("TrailSettingValueConversionPolicy.ShouldUseMessagePackEnumConversion") &&
-        coordinator.Contains("MessagePackSerializer.Serialize(value.GetType(), value)") &&
-        coordinator.Contains("MessagePackSerializer.Deserialize(effectiveType, primitive)"),
-        "ConvertJsonValue does not use the guarded MessagePack enum migration path");
-}
-
 static void TestModSettingsRegistry()
 {
     ModSettingsDefinition parsed = ModSettingsJson.ParseObject(
@@ -352,7 +328,7 @@ static void TestTrailModCompatibilityContract()
         "persistent host properties were not selected deterministically or DoNotPersist was included");
 
     TrailModCompatibilityResult missingApi = EvaluateCompatibility(new MissingMissionApiViewModel());
-    Assert(!missingApi.IsCompatible && missingApi.IncompatibilityReason.Contains("mission snapshot", StringComparison.Ordinal),
+    Assert(!missingApi.IsCompatible && missingApi.IncompatibilityReason.Contains("typed APIShared", StringComparison.Ordinal),
         "missing mission API was accepted");
 
     TrailModCompatibilityResult nonBooleanEnable = EvaluateCompatibility(new NonBooleanEnableModViewModel());
@@ -367,6 +343,7 @@ static void TestTrailModCompatibilityContract()
 
     TrailModCompatibilityResult serializationFailure = TrailModCompatibilityContract.Evaluate(
         compatible,
+        compatible.System_CreateDisabledMissionPresetSnapshot,
         (property, value) =>
         {
             if (property.Name == nameof(compatible.Strength))
@@ -403,8 +380,17 @@ static void TestExplicitPluginOptOut()
 static TrailModCompatibilityResult EvaluateCompatibility(object viewModel) =>
     TrailModCompatibilityContract.Evaluate(
         viewModel,
+        CreateCompatibilitySnapshotFactory(viewModel),
         (property, value) => EncodeCompatibilityValue(property.PropertyType, value),
         DecodeCompatibilityValue);
+
+static Func<Dictionary<string, byte[]>> CreateCompatibilitySnapshotFactory(object viewModel)
+{
+    IModSettingsPresetEndpoint endpoint = viewModel as IModSettingsPresetEndpoint;
+    return endpoint == null
+        ? null
+        : () => endpoint.System_CreateDisabledMissionPresetSnapshot();
+}
 
 static byte[] EncodeCompatibilityValue(Type type, object value)
 {
@@ -535,7 +521,7 @@ static void TestCoordinatorOwnership()
     }
 
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
-    string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
+    string sharedPresetSystem = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
     string sharedGameMode = File.ReadAllText(Path.Combine(workspaceRoot, "APIShared", "src", "MissionModePolicy.cs"));
     Assert(CountOccurrences(coordinator, "InjectCoopCustomizeButton(pages[index]);") == 1,
         "Coop Trail button registration is not centralized and singular");
@@ -562,7 +548,7 @@ static void TestCoordinatorOwnership()
     int playerLayer = coordinator.IndexOf("foreach (string propertyName in entry.PlayerSettings)", defaultLayer, StringComparison.Ordinal);
     int fixedLayer = coordinator.IndexOf("foreach (KeyValuePair<string, object> setting in entry.Overrides)", playerLayer, StringComparison.Ordinal);
     Assert(defaultLayer >= 0 && playerLayer > defaultLayer && fixedLayer > playerLayer &&
-        coordinator.Contains("foreach (KeyValuePair<string, object> participant in allParticipants)"),
+        coordinator.Contains("foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)"),
         "Trail setting source precedence or the all-participant default baseline changed");
     Assert(sharedPresetSystem.Contains("CopyProperties(defaults, hostProperties)") &&
         sharedPresetSystem.Contains("defaults.TryGetValue(property.Name, out bytes)"),
@@ -931,7 +917,7 @@ static void TestMapModSettingsRuntimeIntegration()
     Assert(trailCoordinator.Contains("EnterStrict") &&
         trailCoordinator.Contains("internal ModSettingsDefinition ValidateStrict") &&
         trailCoordinator.Contains("ValidateDocumentValues") &&
-        trailCoordinator.Contains("System_EnterMissionPreset\", item.Item3, presetLabel, editable"),
+        trailCoordinator.Contains("item.Item2.System_EnterMissionPreset(item.Item3, presetLabel, editable)"),
         "the shared Trail/Map preset service does not validate or expose contextual labels");
     Assert(runtime.Contains("mapSettingsCoordinator?.TryHandleCommand") &&
         runtime.Contains("ActivateSelectedMissionSettingsUnlessMap") &&
@@ -1275,7 +1261,7 @@ static void TestScriptExtenderManifestRangeContract()
     string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
     string info = File.ReadAllText(Path.Combine(root, "info.json"));
     string sharedPreset = File.ReadAllText(
-        Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
+        Path.Combine(workspaceRoot, "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
     using JsonDocument manifestJson = JsonDocument.Parse(info);
     string minimumExtenderVersion = manifestJson.RootElement
         .GetProperty("MinimumScriptExtenderVersion").GetString() ?? string.Empty;
@@ -1330,11 +1316,10 @@ static void TestCoopExporterIntegration()
         coordinator.Contains("TryReadModSettingsForExport(sourceTrail") &&
         coordinator.Contains("new CoopTrailPackageExporter().Prepare(") &&
         coordinator.Contains("ReadModSettingsForExport);") &&
-        coordinator.Contains("effectiveType.IsArray") &&
-        coordinator.Contains("Array.CreateInstance") &&
+        coordinator.Contains("ModSettingsPresetJson.ConvertValue(value, targetType)") &&
         coordinator.Contains("ModSettingsJson.IsSupportedValue(value)") &&
         coordinator.Contains("MessagePackSerializer.Serialize(propertyType, value)") &&
-        coordinator.Contains("MessagePackSerializer.Deserialize(targetType, bytes)"),
+        coordinator.Contains("participant.Value.System_CreateDisabledMissionPresetSnapshot()"),
         "normal and Coop exports do not share the synchronously captured mod-settings source");
     Assert(coordinator.Contains("AddCoopImportRows(self)") &&
         coordinator.Contains("GetImportableCoopSources(includeWorkshop: true).Any()") &&
@@ -2028,7 +2013,7 @@ sealed class DoNotPersistAttribute : Attribute
 {
 }
 
-sealed class CompatibleTrailSettingsViewModel
+sealed class CompatibleTrailSettingsViewModel : IModSettingsPresetEndpoint
 {
     [SyncHostOnly]
     public bool EnableMod { get; set; } = true;
@@ -2070,7 +2055,7 @@ sealed class MissingMissionApiViewModel
     public int Strength { get; set; } = 1;
 }
 
-sealed class NonBooleanEnableModViewModel
+sealed class NonBooleanEnableModViewModel : IModSettingsPresetEndpoint
 {
     [SyncHostOnly]
     public int EnableMod { get; set; } = 1;

@@ -1,3 +1,4 @@
+#pragma warning disable 1591 // Runtime utility surface is documented by the APIShared preset guide.
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -10,7 +11,11 @@ using System.Text;
 namespace Shared
 {
     // Shared JSON codec for Unity runtime projects that cannot safely load serializer assemblies.
+#if API_SHARED_INTERNAL_JSON
+    internal static class DependencyFreeJson
+#else
     public static class DependencyFreeJson
+#endif
     {
         public const int MaximumDepth = 64;
 

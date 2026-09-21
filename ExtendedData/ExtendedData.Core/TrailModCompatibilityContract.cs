@@ -40,6 +40,7 @@ namespace ExtendedData.Core
 
         public static TrailModCompatibilityResult Evaluate(
             object viewModel,
+            Func<Dictionary<string, byte[]>> createDisabledSnapshot,
             Action<PropertyInfo, object> serializationProbe,
             Func<Type, byte[], object> deserializationProbe)
         {
@@ -60,29 +61,8 @@ namespace ExtendedData.Core
             if (enableMod != null && enableMod.PropertyType != typeof(bool))
                 return Incompatible("EnableMod must be Boolean");
 
-            MethodInfo createSnapshot = GetPublicInstanceMethod(
-                type,
-                "System_CreateDisabledMissionPresetSnapshot",
-                Type.EmptyTypes);
-            if (createSnapshot == null || createSnapshot.ReturnType != typeof(Dictionary<string, byte[]>))
-            {
-                return Incompatible("missing mission snapshot creation");
-            }
-            MethodInfo enterPreset = GetPublicInstanceMethod(
-                type,
-                "System_EnterMissionPreset",
-                new[] { typeof(Dictionary<string, byte[]>), typeof(string), typeof(bool) });
-            if (enterPreset == null || enterPreset.ReturnType != typeof(void))
-            {
-                return Incompatible("missing mission preset entry");
-            }
-            MethodInfo exitPreset = GetPublicInstanceMethod(type, "System_ExitMissionPreset", Type.EmptyTypes);
-            if (exitPreset == null || exitPreset.ReturnType != typeof(void))
-                return Incompatible("missing mission preset exit");
-
-            PropertyInfo active = type.GetProperty("IsMissionPresetActive", BindingFlags.Instance | BindingFlags.Public);
-            if (active == null || !active.CanRead || active.PropertyType != typeof(bool))
-                return Incompatible("missing mission preset state");
+            if (createDisabledSnapshot == null)
+                return Incompatible("missing typed APIShared preset endpoint");
 
             foreach (PropertyInfo property in properties)
             {
@@ -112,7 +92,7 @@ namespace ExtendedData.Core
             Dictionary<string, byte[]> snapshot;
             try
             {
-                snapshot = (Dictionary<string, byte[]>)createSnapshot.Invoke(viewModel, null);
+                snapshot = createDisabledSnapshot();
             }
             catch (Exception exception)
             {
@@ -156,14 +136,6 @@ namespace ExtendedData.Core
         private static bool HasAttribute(PropertyInfo property, string attributeTypeName) =>
             property.GetCustomAttributes(false)
                 .Any(attribute => attribute.GetType().Name == attributeTypeName);
-
-        private static MethodInfo GetPublicInstanceMethod(Type type, string name, Type[] parameterTypes) =>
-            type.GetMethod(
-                name,
-                BindingFlags.Public | BindingFlags.Instance,
-                binder: null,
-                types: parameterTypes,
-                modifiers: null);
 
         private static TrailModCompatibilityResult Incompatible(string reason) =>
             new TrailModCompatibilityResult(Array.Empty<PropertyInfo>(), reason);

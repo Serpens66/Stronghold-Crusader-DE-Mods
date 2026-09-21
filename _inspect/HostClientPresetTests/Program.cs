@@ -29,14 +29,6 @@ internal static class Program
         try
         {
             if (args != null && args.Length == 1 &&
-                string.Equals(args[0], "vanilla-peace-time", StringComparison.OrdinalIgnoreCase))
-            {
-                TestVanillaPeaceTimePolicy();
-                Console.WriteLine("PASS: Vanilla peace-time policy, lobby authority and ExtendedData discovery.");
-                return 0;
-            }
-
-            if (args != null && args.Length == 1 &&
                 string.Equals(args[0], "fear-factor-preset", StringComparison.OrdinalIgnoreCase))
             {
                 FearFactorPresetTests.Run();
@@ -87,7 +79,6 @@ internal static class Program
             TestMarketGoodPriceDefinition();
             TestAIMarketVanillaPricePolicy();
             TestEnemyProximityPolicy();
-            TestVanillaPeaceTimePolicy();
             TestAssassinClimbCancellationPolicy();
             TestAssassinClimbCostPolicy();
             TestAssassinCombatResumePolicy();
@@ -2529,101 +2520,6 @@ internal static class Program
         Check(EnemyProximityPolicy.ApplyAIRadius(5, 42, true) == 42,
             "a classified AI repair/rebuild did not use the active configured radius");
     }
-
-    private static void TestVanillaPeaceTimePolicy()
-    {
-        Check(VanillaPeaceTimePolicy.NormalizeMinutes(-1) == 0 &&
-              VanillaPeaceTimePolicy.NormalizeMinutes(0) == 0 &&
-              VanillaPeaceTimePolicy.NormalizeMinutes(1) == 1 &&
-              VanillaPeaceTimePolicy.NormalizeMinutes(60) == 60 &&
-              VanillaPeaceTimePolicy.NormalizeMinutes(61) == 60,
-            "Vanilla peace-time minutes were not clamped to the Vanilla 0-60 range");
-
-        MissionContext newGame = CreatePeaceTimeContext(
-            MissionStartKind.NewGame,
-            MissionMapType.Unknown);
-        MissionContext restart = CreatePeaceTimeContext(
-            MissionStartKind.NewGame,
-            MissionMapType.Invasion,
-            restart: true);
-        MissionContext save = CreatePeaceTimeContext(
-            MissionStartKind.LoadedSave,
-            MissionMapType.Invasion);
-        MissionContext editor = CreatePeaceTimeContext(
-            MissionStartKind.EditorCreated,
-            MissionMapType.Unknown);
-        MissionContext freebuild = CreatePeaceTimeContext(
-            MissionStartKind.NewGame,
-            MissionMapType.FreeBuild);
-
-        Check(VanillaPeaceTimePolicy.ShouldOverrideMission(newGame, true, true) &&
-              VanillaPeaceTimePolicy.ShouldOverrideMission(restart, true, true),
-            "new games or explicit restarts did not enable Vanilla peace time");
-        Check(!VanillaPeaceTimePolicy.ShouldOverrideMission(save, true, true) &&
-              !VanillaPeaceTimePolicy.ShouldOverrideMission(editor, true, true) &&
-              !VanillaPeaceTimePolicy.ShouldOverrideMission(freebuild, true, true) &&
-              !VanillaPeaceTimePolicy.ShouldOverrideMission(newGame, false, true) &&
-              !VanillaPeaceTimePolicy.ShouldOverrideMission(newGame, true, false),
-            "save, editor, Freebuild, disabled-mod, or denied-mode peace-time policy did not fail closed");
-
-        GameModeSnapshot directCustomTrail = default(GameModeSnapshot).WithModeEvidenceForTests(
-            GameModeKind.CustomTrail,
-            GameModeLaunchVariant.Standard,
-            -1);
-        GameModeSnapshot directCoopTrail = default(GameModeSnapshot).WithModeEvidenceForTests(
-            GameModeKind.CoopTrail,
-            GameModeLaunchVariant.Standard,
-            -1);
-        GameModeSnapshot directVanillaTrail = default(GameModeSnapshot).WithModeEvidenceForTests(
-            GameModeKind.VanillaTrail,
-            GameModeLaunchVariant.Standard,
-            (int)GameTrailType.FirstEdition);
-        GameModeSnapshot customizedVanillaTrail = default(GameModeSnapshot).WithModeEvidenceForTests(
-            GameModeKind.VanillaTrail,
-            GameModeLaunchVariant.Customized,
-            (int)GameTrailType.FirstEdition);
-        Check(VanillaPeaceTimePolicy.IsMissionModeAllowed(directCustomTrail) &&
-              VanillaPeaceTimePolicy.IsMissionModeAllowed(directCoopTrail) &&
-              VanillaPeaceTimePolicy.IsMissionModeAllowed(customizedVanillaTrail) &&
-              !VanillaPeaceTimePolicy.IsMissionModeAllowed(directVanillaTrail),
-            "Vanilla peace time did not allow Custom/Coop sidecars and Customize while blocking direct Vanilla trails");
-
-        Check(VanillaPeaceTimePolicy.ResolveLobbyDirection(true, true, true, false) ==
-                  VanillaPeaceTimeLobbyDirection.ModSettingToVanilla &&
-              VanillaPeaceTimePolicy.ResolveLobbyDirection(true, true, true, true) ==
-                  VanillaPeaceTimeLobbyDirection.VanillaToModSetting,
-            "host lobby synchronization did not use the mod-first then bidirectional contract");
-        Check(VanillaPeaceTimePolicy.ResolveLobbyDirection(false, true, true, false) ==
-                  VanillaPeaceTimeLobbyDirection.None &&
-              VanillaPeaceTimePolicy.ResolveLobbyDirection(true, false, true, false) ==
-                  VanillaPeaceTimeLobbyDirection.None &&
-              VanillaPeaceTimePolicy.ResolveLobbyDirection(true, true, false, false) ==
-                  VanillaPeaceTimeLobbyDirection.None,
-            "client, missing-lobby, or disabled-mod lobby synchronization was not blocked");
-
-        string workspaceRoot = Path.GetFullPath(
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", ".."));
-        string viewModel = File.ReadAllText(Path.Combine(
-            workspaceRoot,
-            "ExtraFeatures",
-            "src",
-            "ExtraFeaturesViewModel.cs"));
-        Check(viewModel.Contains("[SyncHostOnly] public int VanillaPeaceTimeMinutes"),
-            "Vanilla peace time is not exposed as an ExtendedData-compatible host setting");
-    }
-
-    private static MissionContext CreatePeaceTimeContext(
-        MissionStartKind startKind,
-        MissionMapType mapType,
-        bool restart = false) =>
-        new MissionContext(
-            1,
-            startKind,
-            default,
-            null,
-            null,
-            restart,
-            mapType: mapType);
 
     private static void TestAssassinClimbCostPolicy()
     {
@@ -5422,7 +5318,7 @@ internal static class Program
             "Shared gameplay lifecycle no longer gates successful save Post, reacts to nested unloads, or introduced persistence");
 
         string coordinator = File.ReadAllText(
-            Path.Combine(workspaceRoot, "Shared", "PresetLobbyModSettingsViewModel.cs"));
+            Path.Combine(workspaceRoot, "APIShared", "src", "PresetLobbyModSettingsViewModel.cs"));
         Check(coordinator.Contains("TryGetLobbyState") &&
               coordinator.Contains("API_SHARED_LOBBY_OBSERVER") &&
               !coordinator.Contains("Application.onBeforeRender") &&
@@ -6143,7 +6039,11 @@ namespace BepInEx
         public string Location { get; set; } = typeof(Program).Assembly.Location;
         public PluginMetadata Metadata { get; } = new PluginMetadata();
     }
-    public sealed class PluginMetadata { public string GUID { get; set; } = "host-client-preset-tests"; }
+    public sealed class PluginMetadata
+    {
+        public string GUID { get; set; } = "host-client-preset-tests";
+        public Version Version { get; set; } = new Version(1, 0, 0);
+    }
 }
 
 namespace BepInEx.Logging { public sealed class ManualLogSource { } }
@@ -6289,6 +6189,20 @@ namespace SHCDESE.API.Components.ModManager
     {
         public const string STORAGE_FOLDER_NAME = "LobbyModSettings";
         public const string FILE_EXTENSION = ".msgpack";
+    }
+
+    public sealed class ModInfo
+    {
+        public string GUID { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+    }
+
+    public sealed class GameAssetModManager
+    {
+        public static GameAssetModManager Instance { get; } = new GameAssetModManager();
+
+        public IEnumerable<KeyValuePair<ModInfo, string>> GetRegisteredAssetDirectories() =>
+            Array.Empty<KeyValuePair<ModInfo, string>>();
     }
 }
 

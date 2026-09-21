@@ -252,6 +252,28 @@ namespace LobbyModSettingsPresetTests
 
         private static void TestPresetAtomicPublisher()
         {
+            string realDirectory = Path.Combine(
+                Path.GetTempPath(),
+                "SerpPresetAtomicPublisher-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(realDirectory);
+            try
+            {
+                string temporaryPath = Path.Combine(realDirectory, "preset.tmp");
+                string destinationPath = Path.Combine(realDirectory, "preset.json");
+                File.WriteAllText(temporaryPath, "new");
+                File.WriteAllText(destinationPath, "old");
+                PresetAtomicPublishResult realResult =
+                    PresetAtomicFilePublisher.Publish(temporaryPath, destinationPath);
+                Assert(realResult.Succeeded &&
+                        File.ReadAllText(destinationPath) == "new" &&
+                        Directory.GetFiles(realDirectory, "*.replace-backup-*").Length == 0,
+                    "Atomic preset publishing did not replace a real file without leaving a backup.");
+            }
+            finally
+            {
+                Directory.Delete(realDirectory, true);
+            }
+
             var retries = new FakeAtomicFileOperations(
                 new[] { true, true, true },
                 new Exception[]
