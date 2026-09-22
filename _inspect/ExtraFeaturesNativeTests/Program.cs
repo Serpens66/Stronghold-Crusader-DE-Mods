@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
+using Iced.Intel;
+using RedBird.X64.Hooks;
 
 namespace ExtraFeatures
 {
@@ -21,6 +25,7 @@ namespace ExtraFeatures
                 byte[] image = MapPeImage(file);
                 TestPermanentRuntimeContracts(FindWorkspace());
                 TestNativeTargetMap(image);
+                TestApothecarySearchRangeHook(image);
                 Console.WriteLine($"PASS: ExtraFeatures native tests ({assertions} assertions).");
                 return 0;
             }
@@ -40,6 +45,10 @@ namespace ExtraFeatures
             string plugin = File.ReadAllText(Path.Combine(sourceDirectory, "ExtraFeaturesPlugin.cs"));
             string runtime = File.ReadAllText(Path.Combine(sourceDirectory, "ExtraFeaturesRuntime.cs"));
             string plague = File.ReadAllText(Path.Combine(sourceDirectory, "PlagueDurationPatch.cs"));
+            string apothecary = File.ReadAllText(Path.Combine(
+                sourceDirectory, "PlagueApothecarySearchRangePatch.cs"));
+            string apothecaryEmitter = File.ReadAllText(Path.Combine(
+                sourceDirectory, "PlagueApothecarySearchRangeEmitter.cs"));
             string monk = File.ReadAllText(Path.Combine(sourceDirectory, "MonkAlwaysRunPatch.cs"));
             string manifest = File.ReadAllText(Path.Combine(workspace, "ExtraFeatures", "info.json"));
             Match minimumMatch = Regex.Match(manifest,
@@ -76,6 +85,21 @@ namespace ExtraFeatures
                   monk.Contains("assembler.AddUnrestrictedJmp(") &&
                   monk.Contains("hookSize: HookSize"),
                 "Monk generator retains audited unrestricted jumps and hook boundary");
+            Check(apothecary.Contains("HookRva = 0x9F866") &&
+                  apothecary.Contains("HookDisplacedBytes = 14") &&
+                  apothecary.Contains("rootedPublishedInstance") &&
+                  apothecary.Contains("Interlocked.Exchange") &&
+                  apothecary.Contains("RollbackUnpublishedCandidate") &&
+                  !apothecary.Contains("IDisposable") &&
+                  !apothecary.Contains("AddContextHook"),
+                "apothecary range uses one rooted permanent 14-byte inline hook");
+            Check(apothecaryEmitter.Contains("CloneInstructionsWithoutIP()") &&
+                  apothecaryEmitter.Contains("assembler.jg(rejectAddress)") &&
+                  runtime.Contains("PlagueApothecarySearchRangePatch.Install(") &&
+                  runtime.Contains("ApplyPlagueApothecarySearchRangeSetting();") &&
+                  !runtime.Contains("plagueApothecarySearchRangePatch?.Dispose()") &&
+                  !runtime.Contains("plagueApothecarySearchRangePatch = null"),
+                "apothecary enable-disable-enable retains the same published hook");
             Check(Regex.Matches(production, @"RollbackUnpublished\w*\(").Count > 0 &&
                   !Regex.IsMatch(production, @"(?:OnDestroy|OnDisable|OnApplicationQuit)\s*\([^)]*\)[\s\S]{0,500}?\.Dispose\s*\("),
                 "rollback is limited to unpublished initialization candidates");
@@ -106,10 +130,142 @@ namespace ExtraFeatures
             CheckFunction(image, 0xCEB90, 31, "D428FAE5C2A3BED0B48195B2661F56550E5B53F6E8EE9A603FADA56DAEE8F670", "AI sell-price helper");
             CheckFunction(image, 0x151090, 3969, "785E5FB37D378726A55C84609FFD307CDC81865B964BB631EB98A3EBE5B1CB58", "Monk handler");
             CheckPattern(image, 0x9A164, "41 0F BF 44 18 18 03 D0 B8 ?? ?? ?? ?? 41 89 54 18 14 66 41 39 84 18 D0 00 00 00 7C 06", "plague lifetime and comparison span");
-            CheckPattern(image, 0x9F86B, "83 3D ?? ?? ?? ?? 1E 7F ?? 0F BF 4B 1C 48 8D 15 ?? ?? ?? ?? 44 0F BF 4B 1A", "apothecary distance hook span");
+            CheckPattern(image, 0x9F866, "E8 ?? ?? ?? ?? 83 3D ?? ?? ?? ?? 1E 7F ?? 0F BF 4B 1C 48 8D 15 ?? ?? ?? ??", "apothecary distance hook span and return boundary");
             CheckPattern(image, 0x151436, "66 46 39 B4 2B 14 09 00 00 75 22 66 46 39 B4 2B 9E 09 00 00 74 17", "Monk movement hook and following branch");
             Check(ReadInt32(image, 0x9A16D) == 800, "plague lifetime immediate");
             Check(image[0x9F871] == 30, "apothecary Vanilla distance immediate");
+        }
+
+        private static void TestApothecarySearchRangeHook(byte[] image)
+        {
+            const ulong imageBase = 0x180000000UL;
+            const int hookRva = 0x9F866;
+            const int hookLength = 14;
+            const int returnRva = 0x9F874;
+            const int rejectRva = 0x9F8CD;
+            const int distanceCalculationRva = 0x79C0;
+            const ulong distanceResultAddress = imageBase + 0x34A9F5CUL;
+
+            byte[] original = new byte[hookLength];
+            Buffer.BlockCopy(image, hookRva, original, 0, original.Length);
+            Instruction[] instructions = DecodeExact(
+                original,
+                imageBase + hookRva,
+                hookLength,
+                "apothecary Vanilla block");
+            Check(instructions.Length == 3 &&
+                  instructions[0].FlowControl == FlowControl.Call &&
+                  instructions[0].NearBranchTarget == imageBase + distanceCalculationRva &&
+                  instructions[1].Mnemonic == Mnemonic.Cmp &&
+                  instructions[1].IPRelativeMemoryAddress == distanceResultAddress &&
+                  instructions[1].Immediate8 == 30 &&
+                  instructions[2].Mnemonic == Mnemonic.Jg &&
+                  instructions[2].NearBranchTarget == imageBase + rejectRva,
+                "apothecary Vanilla CALL/CMP/JG semantics");
+            Check(instructions.Select(value => value.IP).Distinct().Count() == instructions.Length,
+                "apothecary Vanilla instructions have unique IPs");
+
+            IntPtr probeMemory = Marshal.AllocHGlobal(64);
+            try
+            {
+                Marshal.Copy(original, 0, probeMemory, original.Length);
+                using (var probe = new X64InlineHook(
+                    unchecked((ulong)probeMemory.ToInt64()),
+                    hookLength,
+                    null,
+                    "ExtraFeaturesApothecarySpanProbe"))
+                {
+                    Check(probe.DisplacedByteCount == hookLength && !probe.IsInstalled,
+                        "installed RedBird decodes exactly 14 apothecary bytes without publishing");
+                }
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(probeMemory);
+            }
+
+            const ulong stubIp = imageBase + 0x2100000UL;
+            const ulong effectiveMaximumAddress = imageBase + 0x3500000UL;
+            var assembler = new Assembler(64);
+            PlagueApothecarySearchRangeEmitter.Emit(
+                assembler,
+                instructions,
+                distanceResultAddress,
+                effectiveMaximumAddress,
+                imageBase + distanceCalculationRva,
+                imageBase + rejectRva);
+            byte[] stub = Assemble(assembler, stubIp);
+            Instruction[] decodedStub = DecodeExact(
+                stub,
+                stubIp,
+                stub.Length,
+                "apothecary generated stub");
+            Check(decodedStub.All(value => !value.IsInvalid),
+                "apothecary generated stub contains no invalid instruction");
+            Check(decodedStub.Count(value => value.FlowControl == FlowControl.Call &&
+                      value.NearBranchTarget == imageBase + distanceCalculationRva) == 1 &&
+                  decodedStub.Count(value => value.Mnemonic == Mnemonic.Jg &&
+                      value.NearBranchTarget == imageBase + rejectRva) == 1,
+                "apothecary stub retains one distance call and one signed reject branch");
+            Check(decodedStub.Count(value => value.Mnemonic == Mnemonic.Push) == 2 &&
+                  decodedStub.Count(value => value.Mnemonic == Mnemonic.Pop) == 2 &&
+                  decodedStub.Any(value => value.Mnemonic == Mnemonic.Cmp),
+                "apothecary stub balances scratch registers around its comparison");
+
+            Instruction firstExternalEntry = DecodeAt(image, imageBase, 0x9F823);
+            Instruction secondExternalEntry = DecodeAt(image, imageBase, 0x9F838);
+            Check(firstExternalEntry.NearBranchTarget == imageBase + returnRva &&
+                  secondExternalEntry.NearBranchTarget == imageBase + returnRva &&
+                  returnRva == hookRva + hookLength,
+                "external Vanilla branches land exactly after the apothecary hook");
+        }
+
+        private static Instruction DecodeAt(byte[] image, ulong imageBase, int rva)
+        {
+            var reader = new ByteArrayCodeReader(image.Skip(rva).Take(15).ToArray());
+            var decoder = Decoder.Create(64, reader);
+            decoder.IP = imageBase + unchecked((uint)rva);
+            return decoder.Decode();
+        }
+
+        private static Instruction[] DecodeExact(
+            byte[] bytes,
+            ulong instructionPointer,
+            int expectedLength,
+            string label)
+        {
+            var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+            decoder.IP = instructionPointer;
+            var result = new List<Instruction>();
+            int decodedLength = 0;
+            while (decodedLength < expectedLength)
+            {
+                Instruction instruction = decoder.Decode();
+                Check(!instruction.IsInvalid, label + " decodes without invalid instructions");
+                result.Add(instruction);
+                decodedLength += instruction.Length;
+            }
+            Check(decodedLength == expectedLength, label + " decodes to the exact byte boundary");
+            return result.ToArray();
+        }
+
+        private static byte[] Assemble(Assembler assembler, ulong instructionPointer)
+        {
+            using (var stream = new MemoryStream())
+            {
+                var writer = new StreamCodeWriter(stream);
+                if (!assembler.TryAssemble(
+                    writer,
+                    instructionPointer,
+                    out string errorMessage,
+                    out _,
+                    BlockEncoderOptions.None))
+                {
+                    throw new InvalidOperationException(
+                        "Apothecary stub assembly failed: " + errorMessage);
+                }
+                return stream.ToArray();
+            }
         }
 
         private static void CheckFunction(byte[] image, int rva, int size, string expectedHash, string label)

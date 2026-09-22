@@ -67,6 +67,32 @@ $permanentManagedContracts = @(
         Path = 'BugfixesAndQoL\src\QuarryPileRelocationRuntime.cs'
         Required = @('Keep the published', 'MonoMod hook')
         Forbidden = @('setUpInbuildingHook?.Undo()', 'setUpInbuildingHook?.Dispose()')
+    },
+    @{
+        Path = 'ExtraFeatures\src\PlagueApothecarySearchRangePatch.cs'
+        Required = @(
+            'HookRva = 0x9F866',
+            'HookDisplacedBytes = 14',
+            'rootedPublishedInstance',
+            'Interlocked.Exchange',
+            'RollbackUnpublishedCandidate'
+        )
+        Forbidden = @(
+            'BuildingDistanceComparisonRva = 0x9F86B',
+            'AddContextHook(',
+            'IDisposable'
+        )
+    },
+    @{
+        Path = 'ExtraFeatures\src\ExtraFeaturesRuntime.cs'
+        Required = @(
+            'PlagueApothecarySearchRangePatch.Install(',
+            'ApplyPlagueApothecarySearchRangeSetting();'
+        )
+        Forbidden = @(
+            'plagueApothecarySearchRangePatch?.Dispose()',
+            'plagueApothecarySearchRangePatch = null'
+        )
     }
 )
 

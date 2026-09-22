@@ -161,6 +161,7 @@ namespace ExtraFeatures
             ReconcileElevatedMoatRuntime();
             TryRunFeature("fear-factor configuration", ApplyFearFactorSetting);
             TryRunFeature("AI defense repair configuration", ReconcileAIDefenseRepairRuntime);
+            ApplyPlagueApothecarySearchRangeSetting();
             if (!Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod))
             {
                 TryRunFeature("gatehouse automation", gatehouseAutomationRuntime.ApplySettings);
@@ -221,8 +222,10 @@ namespace ExtraFeatures
             monkAlwaysRunPatch = null;
             plagueDurationPatch?.Dispose();
             plagueDurationPatch = null;
-            plagueApothecarySearchRangePatch?.Dispose();
-            plagueApothecarySearchRangePatch = null;
+            TryRunFeature("apothecary plague-search restoration", () =>
+                plagueApothecarySearchRangePatch?.SetEffectiveMaximum(
+                    false,
+                    PlagueApothecarySearchRangePatch.VanillaMaximumDistance));
             troopActionHudCoordinator.Dispose();
             knightDismountRuntime.Dispose();
             gatehouseAutomationRuntime.Dispose();
@@ -421,6 +424,7 @@ namespace ExtraFeatures
             }
             if (propertyName == nameof(ExtraFeaturesViewModel.ApothecaryPlagueSearchDistance))
             {
+                ApplyPlagueApothecarySearchRangeSetting();
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Extra Features apothecary plague-search distance changed to " +
@@ -578,13 +582,13 @@ namespace ExtraFeatures
 
             try
             {
-                plagueApothecarySearchRangePatch = new PlagueApothecarySearchRangePatch(
+                plagueApothecarySearchRangePatch = PlagueApothecarySearchRangePatch.Install(
                     log,
-                    settings,
                     nativeLibraryHandle,
                     region,
                     memory,
                     fixedLayoutHashValidated);
+                ApplyPlagueApothecarySearchRangeSetting();
                 if (!fixedLayoutHashValidated)
                 {
                     Shared.DebugLogHelper.LogWarning(
@@ -596,8 +600,6 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 plagueApothecarySearchRangePatchUnavailable = true;
-                plagueApothecarySearchRangePatch?.Dispose();
-                plagueApothecarySearchRangePatch = null;
                 Shared.DebugLogHelper.LogError(
                     log,
                     $"Extra Features apothecary plague-search range is disabled for this process; " +
@@ -619,6 +621,35 @@ namespace ExtraFeatures
             catch (Exception ex)
             {
                 DisablePlagueDurationPatch(ex);
+            }
+        }
+
+        private void ApplyPlagueApothecarySearchRangeSetting()
+        {
+            if (plagueApothecarySearchRangePatch == null ||
+                plagueApothecarySearchRangePatchUnavailable)
+                return;
+
+            try
+            {
+                plagueApothecarySearchRangePatch.SetEffectiveMaximum(
+                    Shared.GameplayModActivationGate.IsEnabled(settings.EnableMod),
+                    settings.ApothecaryPlagueSearchDistance);
+            }
+            catch (Exception ex)
+            {
+                plagueApothecarySearchRangePatchUnavailable = true;
+                try
+                {
+                    plagueApothecarySearchRangePatch.SetEffectiveMaximum(
+                        false,
+                        PlagueApothecarySearchRangePatch.VanillaMaximumDistance);
+                }
+                catch { }
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    $"Extra Features apothecary plague-search range is disabled for this process; " +
+                    $"Vanilla distance 30 and all other features remain active: {ex}");
             }
         }
 

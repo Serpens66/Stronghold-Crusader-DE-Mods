@@ -31,8 +31,8 @@ namespace ExtraFeatures
                     "UI callback preserves live volatile registers including render-cache R11");
                 Check(runtime.Contains("Placement = OverwrittenInstructionPlacement.BeforeCallback"),
                     "fear load executes before neutralizing its result");
-                Check(runtime.Contains("int originalDamage = damageHook.Original(unitManager, baseDamage, playerIndex);") &&
-                    runtime.Contains("return originalDamage;"), "disabled damage delegates to Vanilla");
+                Check(runtime.Contains("return damageHook.Original(unitManager, baseDamage, playerIndex);"),
+                    "disabled damage delegates to Vanilla");
                 Check(runtime.Contains("if (!enabled) return;"), "disabled overlay preserves loaded value");
                 Check(runtime.Contains("pending.Dispose()") && runtime.Contains("DisplacedByteCount != FearFactorNativeDefinition.UiHookLength"), "partial installation rolls back");
                 Check(runtime.Contains("FearFactorNeutralizationTest_Serp"), "legacy hook conflict guard");
