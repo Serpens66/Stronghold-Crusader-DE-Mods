@@ -1237,7 +1237,10 @@ static void TestLocalActivationSetting()
     Assert(coordinator.Contains("ExitActiveParticipants") &&
         coordinator.Contains("activeParticipantIds.Add(item.Item1)"),
         "Trail lifecycle is not limited to participants whose preset entry completed");
-    Assert(xaml.Contains("SelectedPreset") && xaml.Contains("PresetOptions") &&
+    Assert(xaml.Contains("System_OpenPresetLoadCommand") &&
+        xaml.Contains("System_OpenPresetSaveCommand") &&
+        xaml.Contains("System_PresetLoadEntries") &&
+        !xaml.Contains("{Binding SelectedPreset") && !xaml.Contains("{Binding PresetOptions") &&
         plugin.Contains("LobbyModSettingsPresetRegistration.Register"),
         "shared preset UI or registration is missing");
     Assert(xaml.Contains("CoopPackageOptions") && xaml.Contains("CanEditCoopPackage"), "host package dropdown is missing");

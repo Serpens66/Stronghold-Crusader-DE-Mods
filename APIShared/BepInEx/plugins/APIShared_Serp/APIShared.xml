@@ -1335,11 +1335,8 @@
         <member name="M:Shared.PresetLobbyModSettingsViewModel.System_GetPresetSettingDescriptors">
             <summary>Returns the persistent settings available to shared preset authoring UI.</summary>
         </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_CopyCurrentSettingsToLocalPreset(System.Int32)">
-            <summary>Copies the currently visible settings into local preset 1 or 2 and selects that slot.</summary>
-        </member>
-        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_ExportPublishedPreset(System.String,System.String,System.String,System.Collections.Generic.IEnumerable{Shared.PresetExportSelection},System.Boolean)">
-            <summary>Exports selected settings to a loose published-preset JSON file.</summary>
+        <member name="M:Shared.PresetLobbyModSettingsViewModel.System_SavePersonalPreset(System.String,System.String,System.String,System.Collections.Generic.IEnumerable{Shared.PresetSaveSelection},System.Boolean)">
+            <summary>Saves selected settings as a persistent, personal preset JSON file.</summary>
         </member>
         <member name="T:Shared.IModSettingsPresetEndpoint">
             <summary>Typed APIShared endpoint consumed by optional mission-setting providers such as ExtendedData.</summary>
@@ -1350,20 +1347,29 @@
         <member name="T:Shared.PresetSettingScope">
             <summary>Describes the ownership of a persistent lobby setting.</summary>
         </member>
+        <member name="T:Shared.ModSettingsPresetSourceKind">
+            <summary>Identifies who owns a preset and whether it may be replaced by the player.</summary>
+        </member>
         <member name="T:Shared.PresetSettingDescriptor">
             <summary>One persistent setting exposed to preset authoring UI.</summary>
         </member>
-        <member name="T:Shared.PresetExportSelection">
-            <summary>One author-selected setting passed to the shared JSON exporter.</summary>
+        <member name="T:Shared.PresetSaveSelection">
+            <summary>One author-selected setting passed to personal-preset persistence.</summary>
         </member>
-        <member name="T:Shared.PresetExportSettingViewModel">
-            <summary>Mutable row model used by the standard preset-export XAML block.</summary>
+        <member name="T:Shared.PresetSaveSettingViewModel">
+            <summary>Mutable row model used by the standard personal-preset save dialog.</summary>
         </member>
         <member name="T:Shared.PublishedPresetSetting">
             <summary>One setting selected by a published preset.</summary>
         </member>
         <member name="T:Shared.PublishedModSettingsPreset">
             <summary>A validated, provider-qualified preset offered by a target mod.</summary>
+        </member>
+        <member name="T:Shared.ModSettingsPresetListEntry">
+            <summary>One source-labelled row shown by the standard preset load/save dialogs.</summary>
+        </member>
+        <member name="T:Shared.ModSettingsPresetSaveTarget">
+            <summary>A deliberate destination offered by the personal-preset save dialog.</summary>
         </member>
         <member name="T:Shared.ModSettingsPresetJson">
             <summary>Shared JSON contract for loose <c>preset_*.json</c> files.</summary>

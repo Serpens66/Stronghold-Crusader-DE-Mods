@@ -73,35 +73,52 @@
         <Border Style="{StaticResource ClientActivationBorder}" Visibility="{Binding ClientSettingsActivationVisibility}" Margin="8,0,0,0">
           <CheckBox IsEnabled="{Binding CanToggleClientSettings}" IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}" Content="{Binding ClientActivationLabelText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClientSettingsActivationHelpText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
         </Border>
-        <ComboBox IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" ItemsSource="{Binding PresetOptions}" SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}" Width="145" VerticalAlignment="Center" Margin="14,0,0,0"/>
+        <Button IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" Content="{Binding System_PresetLoadText}" Command="{Binding System_OpenPresetLoadCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PresetHelpText}" Padding="10,3" Margin="14,0,0,0"/>
+        <Button IsEnabled="{Binding CanChangePreset}" Visibility="{Binding PresetVisibility}" Content="{Binding System_PresetSaveText}" Command="{Binding System_OpenPresetSaveCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveText}" Padding="10,3" Margin="8,0,0,0"/>
+        <Button Visibility="{Binding System_RestoreMissionPresetVisibility}" Content="{Binding System_RestoreMissionPresetText}" Command="{Binding System_RestoreMissionPresetCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_RestoreMissionPresetText}" Padding="10,3" Margin="8,0,0,0"/>
         <Button Command="{Binding System_ToggleModSettingsSearchCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_ModSettingsSearchToggleHelpText}" Width="30" Height="28" Padding="5" Margin="8,0,0,0">
           <Viewbox Width="16" Height="16"><Path Style="{StaticResource ModSettingsSearchIcon}" StrokeThickness="2" Data="M 7,1 A 6,6 0 1 1 6.99,1 M 11.5,11.5 L 16,16"/></Viewbox>
         </Button>
-        <Button Content="{Binding System_PresetActionText}" Command="{Binding System_PresetActionCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetActionText}" Padding="10,3" Margin="14,0,0,0"/>
         <Button IsEnabled="{Binding CanResetSettings}" Content="{Binding ResetToDefaultText}" Command="{Binding ResetToDefaultCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding ResetToDefaultHelpText}" HorizontalAlignment="Left" Padding="10,3" Margin="14,0,0,0"/>
       </StackPanel>
-      <Border Visibility="{Binding System_PresetExportPanelVisibility}" BorderBrush="#FFF2D48A" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
+      <TextBlock Text="{Binding System_PresetStatusText}" Visibility="{Binding System_PresetStatusVisibility}" Foreground="#FFF2D48A" FontStyle="Italic" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True"/>
+      <Border Visibility="{Binding System_PresetLoadPanelVisibility}" BorderBrush="#FF77AAFF" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
         <StackPanel>
-          <TextBlock Text="{Binding System_PresetActionText}" Foreground="White" FontWeight="Bold" Margin="0,0,0,6"/>
+          <TextBlock Text="{Binding System_PresetLoadText}" Foreground="White" FontWeight="Bold" Margin="0,0,0,6"/>
+          <ComboBox ItemsSource="{Binding System_PresetLoadEntries}" SelectedItem="{Binding System_SelectedPresetLoadEntry, Mode=TwoWay}" Width="530" HorizontalAlignment="Left" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_SelectedPresetLoadEntry.Description}"/>
+          <TextBlock Text="{Binding System_SelectedPresetLoadEntry.Description}" Foreground="#CCCCCC" TextWrapping="Wrap" MaxWidth="530" HorizontalAlignment="Left" Margin="0,5,0,0"/>
+          <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+            <Button Content="{Binding System_PresetLoadConfirmText}" Command="{Binding System_ConfirmPresetLoadCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetLoadConfirmText}" Padding="10,3"/>
+            <Button Content="{Binding System_PresetLoadCancelText}" Command="{Binding System_CancelPresetLoadCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetLoadCancelText}" Padding="10,3" Margin="8,0,0,0"/>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <Border Visibility="{Binding System_PresetSavePanelVisibility}" BorderBrush="#FFF2D48A" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
+        <StackPanel>
+          <TextBlock Text="{Binding System_PresetSaveText}" Foreground="White" FontWeight="Bold" Margin="0,0,0,6"/>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+            <TextBlock Text="{Binding System_PresetSaveTargetText}" Foreground="White" VerticalAlignment="Center" Width="140"/>
+            <ComboBox ItemsSource="{Binding System_PresetSaveTargets}" SelectedItem="{Binding System_SelectedPresetSaveTarget, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveTargetText}" Width="260"/>
+          </StackPanel>
           <StackPanel Orientation="Horizontal">
-            <TextBlock Text="{Binding System_PresetExportNameText}" Foreground="White" VerticalAlignment="Center" Width="140"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding System_PresetExportName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportNameText}" Width="260" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="5,2"/>
+            <TextBlock Text="{Binding System_PresetSaveNameText}" Foreground="White" VerticalAlignment="Center" Width="140"/>
+            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding System_PresetSaveName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveNameText}" Width="260" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="5,2"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-            <TextBlock Text="{Binding System_PresetExportDescriptionText}" Foreground="White" VerticalAlignment="Center" Width="140"/>
-            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding System_PresetExportDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportDescriptionText}" Width="420" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="5,2"/>
+            <TextBlock Text="{Binding System_PresetSaveDescriptionText}" Foreground="White" VerticalAlignment="Center" Width="140"/>
+            <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding System_PresetSaveDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveDescriptionText}" Width="420" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="5,2"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
-            <Button Content="{Binding System_PresetExportAllText}" Command="{Binding System_SelectAllPresetExportSettingsCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportAllText}" Padding="8,2"/>
-            <Button Content="{Binding System_PresetExportHostOnlyText}" Command="{Binding System_SelectHostPresetExportSettingsCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportHostOnlyText}" Padding="8,2" Margin="6,0,0,0"/>
-            <TextBlock Text="{Binding System_PresetExportBulkModeText}" Foreground="White" VerticalAlignment="Center" Margin="16,0,6,0"/>
-            <ComboBox ItemsSource="{Binding System_PresetExportBulkModeOptions}" SelectedIndex="{Binding System_PresetExportBulkModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportBulkModeText}" Width="130"/>
+            <Button Content="{Binding System_PresetSaveAllText}" Command="{Binding System_SelectAllPresetSaveSettingsCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveAllText}" Padding="8,2"/>
+            <Button Content="{Binding System_PresetSaveHostOnlyText}" Command="{Binding System_SelectHostPresetSaveSettingsCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveHostOnlyText}" Padding="8,2" Margin="6,0,0,0"/>
+            <TextBlock Text="{Binding System_PresetSaveBulkModeText}" Foreground="White" VerticalAlignment="Center" Margin="16,0,6,0"/>
+            <ComboBox ItemsSource="{Binding System_PresetSaveBulkModeOptions}" SelectedIndex="{Binding System_PresetSaveBulkModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveBulkModeText}" Width="130"/>
           </StackPanel>
           <ScrollViewer HorizontalAlignment="Left" Width="530" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" MaxHeight="220">
             <ScrollViewer.Resources>
               <sys:Double x:Key="Size.ScrollBar">8</sys:Double>
             </ScrollViewer.Resources>
-          <ItemsControl ItemsSource="{Binding System_PresetExportSettings}">
+          <ItemsControl ItemsSource="{Binding System_PresetSaveSettings}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <StackPanel Orientation="Horizontal" Margin="0,1">
@@ -114,8 +131,8 @@
           </ItemsControl>
           </ScrollViewer>
           <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
-            <Button Content="{Binding System_PresetExportConfirmText}" Command="{Binding System_ConfirmPresetExportCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportConfirmText}" Padding="10,3"/>
-            <Button Content="{Binding System_PresetExportCancelText}" Command="{Binding System_CancelPresetExportCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetExportCancelText}" Padding="10,3" Margin="8,0,0,0"/>
+            <Button Content="{Binding System_PresetSaveConfirmText}" Command="{Binding System_ConfirmPresetSaveCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveConfirmText}" Padding="10,3"/>
+            <Button Content="{Binding System_PresetSaveCancelText}" Command="{Binding System_CancelPresetSaveCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveCancelText}" Padding="10,3" Margin="8,0,0,0"/>
           </StackPanel>
         </StackPanel>
       </Border>

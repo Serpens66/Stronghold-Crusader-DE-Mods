@@ -86,7 +86,7 @@ Use this namespace in the settings XAML because the shared controls now live in 
 xmlns:shared="clr-namespace:Shared;assembly=APIShared"
 ```
 
-The minimal preset row binds `PresetOptions`, `SelectedPreset`, `System_PresetActionText`, and `System_PresetActionCommand`. Copy the complete standard export block from [Extensible ModSettings Presets](ModSettings%20Presets.md#target-mod-xaml).
+The minimal preset row binds `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText`, and `System_OpenPresetSaveCommand`. Copy the complete standard Load/Save block from [Extensible ModSettings Presets](ModSettings%20Presets.md#target-mod-integration).
 
 ### ExtendedData contract
 
@@ -94,7 +94,7 @@ The minimal preset row binds `PresetOptions`, `SelectedPreset`, `System_PresetAc
 
 Only public readable/writable `[SyncHostOnly]` properties without `[DoNotPersist]` enter Map/Trail documents. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and transient values remain player-owned. A Boolean host property named `EnableMod` is set to `false` in the safe disabled mission snapshot.
 
-Map/Trail application keeps the existing schema-3 sidecars and packages compatible. During play, mission-owned host values are read-only; personal and local settings stay editable. Trail Maker presets remain editable and the previous local or external preset is restored on exit.
+Map/Trail application keeps the existing schema-3 sidecars and packages compatible. A directly started mission context is entirely read-only. Customize and Trail Maker use an editable temporary mission context; normal presets can be loaded into that context without changing their source files, and the previous normal working state is restored on exit.
 
 ### Explicit opt-out
 
@@ -140,7 +140,7 @@ Im XAML muss der gemeinsame Namespace auf APIShared zeigen:
 xmlns:shared="clr-namespace:Shared;assembly=APIShared"
 ```
 
-Die minimale Preset-Zeile bindet `PresetOptions`, `SelectedPreset`, `System_PresetActionText` und `System_PresetActionCommand`. Den vollständigen Standardblock für den Export findest du in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#xaml-des-ziel-mods).
+Die minimale Preset-Zeile bindet `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText` und `System_OpenPresetSaveCommand`. Den vollständigen Standardblock für Laden/Speichern findest du in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#integration-des-ziel-mods).
 
 ### ExtendedData-Vertrag
 
@@ -148,7 +148,7 @@ Die minimale Preset-Zeile bindet `PresetOptions`, `SelectedPreset`, `System_Pres
 
 Nur öffentliche les- und schreibbare `[SyncHostOnly]`-Properties ohne `[DoNotPersist]` gelangen in Map-/Trail-Dokumente. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]` und transiente Werte bleiben im Besitz des Spielers. Eine boolesche Host-Property namens `EnableMod` wird im sicheren deaktivierten Missionssnapshot auf `false` gesetzt.
 
-Die vorhandenen Sidecars und Pakete mit Schema 3 bleiben kompatibel. Während des Spiels sind missionsgesteuerte Hostwerte schreibgeschützt; persönliche und lokale Einstellungen bleiben editierbar. Trail-Maker-Presets bleiben bearbeitbar und beim Verlassen wird das vorherige lokale oder externe Preset wiederhergestellt.
+Die vorhandenen Sidecars und Pakete mit Schema 3 bleiben kompatibel. Ein direkt gestarteter Missionskontext ist vollständig schreibgeschützt. Customize und Trail Maker verwenden einen bearbeitbaren temporären Missionskontext; normale Presets können darin geladen werden, ohne ihre Quelldateien zu verändern, und beim Verlassen wird der vorherige normale Arbeitsstand wiederhergestellt.
 
 ### Explizites Opt-out
 

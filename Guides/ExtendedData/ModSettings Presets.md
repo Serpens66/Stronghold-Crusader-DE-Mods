@@ -1,54 +1,68 @@
-# Extensible ModSettings Presets / Erweiterbare ModSettings-Presets
+# Extensible ModSettings presets / Erweiterbare ModSettings-Presets
 
 [English](#english) | [Deutsch](#deutsch)
 
 ## English
 
-APIShared lets a target mod offer local Preset 1/2 plus presets supplied as loose, human-readable JSON files. ExtendedData uses the same property scopes, modes, and conversion rules for Map and Trail presets, but it is not required for normal presets.
+APIShared gives every compatible target mod two normal actions: **Load preset** and **Save preset**. Loading materializes a preset into the current working settings. Those settings remain editable; editing them never changes the source JSON. Saving creates or deliberately replaces a personal preset.
+
+ExtendedData is optional. It uses the same typed property contract for Maps and Trails, while normal preset support requires only APIShared.
 
 ### Target-mod integration
 
-Follow [ExtendedData compatibility for mod authors](Mod%20Compatibilty%20ExtendedData.md#english): reference APIShared 0.4.0+, derive the ViewModel from `PresetLobbyModSettingsViewModel`, use guarded persistent setters, and call `LobbyModSettingsPresetRegistration.Register`.
+1. Add a reference and hard dependency on the required APIShared version.
+2. Derive the settings ViewModel from `Shared.PresetLobbyModSettingsViewModel`.
+3. In every persistent setter, call `CanMutateSetting()` before changing state and `OnPropertyChanged()` afterwards.
+4. Register through `LobbyModSettingsPresetRegistration.Register`.
+5. Copy the standard Load/Save XAML block from a preset-capable mod in this repository.
 
-The dropdown is dynamic: Preset 1, Preset 2, compatible external presets, and—when applicable—a temporary Map/Trail entry. The stable external identity is stored in the normal local MessagePack file. If that preset disappears, the last local Preset 1/2 is restored.
-
-### Target-mod XAML
-
-Use `xmlns:shared="clr-namespace:Shared;assembly=APIShared"`. The essential row is:
+No Shared source links, preset compile symbols, or ExtendedData reference are required. A minimal header contains:
 
 ```xml
-<ComboBox IsEnabled="{Binding CanChangePreset}"
-          Visibility="{Binding PresetVisibility}"
-          ItemsSource="{Binding PresetOptions}"
-          SelectedIndex="{Binding SelectedPreset, Mode=TwoWay}"/>
-<Button Content="{Binding System_PresetActionText}"
-        Command="{Binding System_PresetActionCommand}"/>
+<Button IsEnabled="{Binding CanChangePreset}"
+        Content="{Binding System_PresetLoadText}"
+        Command="{Binding System_OpenPresetLoadCommand}"/>
+<Button IsEnabled="{Binding CanChangePreset}"
+        Content="{Binding System_PresetSaveText}"
+        Command="{Binding System_OpenPresetSaveCommand}"/>
+<TextBlock Text="{Binding System_PresetStatusText}"
+           Visibility="{Binding System_PresetStatusVisibility}"/>
 ```
 
-The standard export editor additionally binds:
+The complete block also binds `System_PresetLoadEntries`, `System_SelectedPresetLoadEntry`, `System_PresetSaveTargets`, `System_PresetSaveSettings`, the bulk mode selector, and the corresponding confirm/cancel commands.
 
-- `System_PresetExportPanelVisibility`, `System_PresetExportName`, and `System_PresetExportDescription`;
-- `System_PresetExportSettings` with `IsSelected`, `PropertyName`, `ScopeText`, `ModeOptions`, and `SelectedModeIndex`;
-- the All, Host only, Export, and Cancel commands exposed by the base ViewModel.
+### Sources and locations
 
-The repository's preset-capable mod XAML files contain a complete copyable block.
+The load list visibly distinguishes:
 
-### JSON location and schema
+- **Personal presets**, stored at `LobbyModSettings/Presets/Override/<target GUID>/preset_<id>.json`;
+- **Bundled with this mod**, stored below the target mod at `Override/<target GUID>/preset_<id>.json`;
+- **External presets**, stored in the same `Override/<target GUID>/` structure of another registered loose asset mod, with its provider name shown.
 
-Place every file at:
+Display names need not be unique. Identity is based on source kind, provider GUID, target GUID, and preset ID. Only personal entries can be overwritten. Saving an external or bundled preset therefore creates an independent personal file, even when the display name is identical.
+
+Loose asset mods may serve several targets:
 
 ```text
-Override/<target BepInEx GUID>/preset_<unique-id>.json
+MyPresetPack/
+  info.json
+  Override/
+    BuildingCosts_Serp/
+      preset_competitive-economy.json
+    UnitLimit_Serp/
+      preset_large-armies.json
 ```
 
-Example:
+Version 1 supports loose registered asset folders. `.semod` providers are skipped with a log message.
+
+### JSON schema
 
 ```json
 {
   "schemaVersion": 1,
   "id": "competitive-economy",
   "name": "Competitive Economy",
-  "description": "Higher costs with the player's preferred local UI settings.",
+  "description": "Higher costs while retaining selected player preferences.",
   "targetGuid": "BuildingCosts_Serp",
   "minimumTargetVersion": "1.2.0",
   "maximumTargetVersion": "2.0.0",
@@ -61,98 +75,76 @@ Example:
 }
 ```
 
-Modes:
+- `fixed` applies the JSON value.
+- `player` keeps the current normal working value. In a Map/Trail context it uses the normal value saved before entering that context.
+- `modDefault` applies the target mod's captured code default.
 
-- `modDefault`: use the target mod's captured code default;
-- `player`: use the same property from the player's underlying local Preset 1/2;
-- `fixed`: use the JSON `value`.
+Only listed properties are changed. All resulting settings remain editable according to their normal Host, Player, or Local ownership. Primitive values, strings, enums, and one-dimensional arrays use readable JSON; other MessagePack-compatible values may use `messagepack-base64:<data>`.
 
-Only listed properties are applied and locked. Unlisted properties remain unchanged and editable. Host properties can be selected only by the host and then use normal Script Extender synchronization. Personal and local values apply only to that player.
+Unknown members, properties or modes, invalid values, incompatible target versions, unsafe paths, duplicate IDs within one provider/target, oversized files, and overly deep documents fail closed.
 
-Primitive values, strings, enums, and one-dimensional arrays are readable JSON. APIShared writes other MessagePack-compatible values as `messagepack-base64:<data>`. Do not hand-edit that payload.
+### Loading, saving, and migration
 
-Unknown members, properties, modes, malformed values, unsafe paths, oversized/deep documents, duplicate IDs in one provider/target, and incompatible target versions fail closed and are logged. Equal display names from different providers remain available with the provider name appended.
+Selecting a row does nothing until **Load** is pressed. The status then shows the preset name and source; later edits add “modified”. If the source disappears, the materialized working values stay intact and only the source association is cleared.
 
-### Distribution
+The save dialog can create a new personal preset or select an existing personal preset. Existing files require a second overwrite confirmation and are atomically replaced. Bundled, external, Map, Trail, archive, and Coop-package data are never overwrite targets.
 
-For direct installation, copy the JSON file unchanged into the target mod's matching `Override/<target GUID>/` folder.
+Old Preset 1 is migrated to `legacy-preset-1`; Preset 2 is migrated only when it existed. The formerly active slot becomes the editable working state. Old files from `LobbyModSettings/PresetExports/` are copied once into the personal folder and the originals are retained.
 
-A loose Script Extender asset mod can provide presets for several targets:
+### Maps and Trails
 
-```text
-MyPresetPack/
-  info.json
-  Override/
-    BuildingCosts_Serp/
-      preset_competitive-economy.json
-    UnitLimit_Serp/
-      preset_large-armies.json
-```
-
-Version 1 scans loose registered asset-mod folders only. `.semod` providers are deliberately skipped with a log message because the Script Extender does not expose safe archive enumeration through this contract.
-
-### Copy and export
-
-For an external or Map/Trail preset, the action copies the materialized result into Preset 1 or 2 after slot selection and overwrite confirmation. The local slot then becomes active and editable.
-
-For local Preset 1/2, the action opens the export editor. Choose a name, optional description, properties, and a mode per property. Output is written atomically to:
-
-```text
-LobbyModSettings/PresetExports/Override/<target GUID>/preset_<sanitized-name>.json
-```
-
-Existing files require confirmation and are replaced completely. Use distinctive names and stable IDs to avoid confusing users; a provider must not contain the same ID twice for one target.
+Direct Map/Trail starts are read-only. In Customize/Trail Maker, the temporary mission context is editable: normal presets may be loaded into it, **Restore mission preset** restores the original mission values, and the current result may be saved as a personal preset. Leaving the context restores the previous normal working values and status. Existing `.modtrail.json`, Map archives, and Coop packages remain separate and schema-compatible.
 
 ---
 
 ## Deutsch
 
-APIShared ermöglicht einem Ziel-Mod lokale Presets 1/2 sowie Presets aus losen, menschenlesbaren JSON-Dateien. ExtendedData verwendet dieselben Property-Scopes, Modi und Konvertierungsregeln für Map-/Trail-Presets, ist für normale Presets aber nicht erforderlich.
+APIShared gibt jedem kompatiblen Ziel-Mod zwei normale Aktionen: **Preset laden** und **Preset speichern**. Laden materialisiert ein Preset in die aktuellen Arbeitswerte. Diese bleiben frei bearbeitbar; Änderungen schreiben niemals in die Quelldatei. Speichern erstellt ein persönliches Preset oder ersetzt nach ausdrücklicher Bestätigung ein vorhandenes persönliches Preset.
+
+ExtendedData ist optional. Es verwendet denselben typisierten Property-Vertrag für Maps und Trails; normale Presets benötigen nur APIShared.
 
 ### Integration des Ziel-Mods
 
-Folge [ExtendedData-Kompatibilität für Modentwickler](Mod%20Compatibilty%20ExtendedData.md#deutsch): APIShared ab 0.4.0 referenzieren, das ViewModel von `PresetLobbyModSettingsViewModel` ableiten, persistente Setter absichern und über `LobbyModSettingsPresetRegistration.Register` registrieren.
+1. APIShared referenzieren und als harte Abhängigkeit mit passender Mindestversion angeben.
+2. Das Settings-ViewModel von `Shared.PresetLobbyModSettingsViewModel` ableiten.
+3. In jedem persistenten Setter vor der Änderung `CanMutateSetting()` und danach `OnPropertyChanged()` aufrufen.
+4. Mit `LobbyModSettingsPresetRegistration.Register` registrieren.
+5. Den Standard-XAML-Block für Laden/Speichern aus einem presetfähigen Mod dieses Repositories übernehmen.
 
-Das Dropdown enthält dynamisch Preset 1, Preset 2, kompatible externe Presets und bei Bedarf einen temporären Map-/Trail-Eintrag. Die stabile externe Identität wird in der normalen lokalen MessagePack-Datei gespeichert. Fehlt das externe Preset später, wird das zuletzt aktive lokale Preset 1/2 wiederhergestellt.
+Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind nicht nötig. Das minimale XAML-Beispiel im englischen Abschnitt sowie die vollständigen Blöcke der vorhandenen Mods zeigen alle Bindings.
 
-### XAML des Ziel-Mods
+### Quellen und Ablageorte
 
-Verwende `xmlns:shared="clr-namespace:Shared;assembly=APIShared"`. Der minimale Dropdown-/Aktionsblock und die Bindings des vollständigen Exporteditors stehen im englischen Abschnitt. Die presetfähigen Mods dieses Repositories enthalten einen vollständig kopierbaren Standardblock.
+Der Ladedialog unterscheidet sichtbar:
 
-### JSON-Ablage und Schema
+- **Eigene Presets** unter `LobbyModSettings/Presets/Override/<Ziel-GUID>/preset_<id>.json`;
+- **Mit diesem Mod geliefert** unter `Override/<Ziel-GUID>/preset_<id>.json` des Ziel-Mods;
+- **Externe Presets** in derselben Override-Struktur eines anderen registrierten losen Asset-Mods, einschließlich Providername.
 
-Jede Datei liegt unter:
+Anzeigenamen müssen nicht eindeutig sein. Die Identität besteht aus Quellentyp, Provider-GUID, Ziel-GUID und Preset-ID. Nur eigene Presets dürfen überschrieben werden. Aus einem mitgelieferten oder externen Preset entsteht beim Speichern daher immer eine unabhängige persönliche Datei – ausdrücklich auch mit demselben Anzeigenamen.
 
-```text
-Override/<BepInEx-GUID des Ziels>/preset_<eindeutige-id>.json
-```
+Ein loser Asset-Mod kann Presets für mehrere Ziele enthalten; das Verzeichnisbeispiel steht im englischen Abschnitt. `.semod`-Provider werden in Version 1 mit einem Loghinweis übersprungen.
 
-Das vollständige Beispiel im englischen Abschnitt gilt unverändert. Die Modi bedeuten:
+### JSON-Schema und Modi
 
-- `modDefault`: erfasster Code-Standard des Ziel-Mods;
-- `player`: dieselbe Property aus dem zugrunde liegenden lokalen Preset 1/2 des Spielers;
-- `fixed`: der Wert aus `value`.
+Das vollständige JSON-Beispiel im englischen Abschnitt gilt unverändert.
 
-Nur aufgeführte Properties werden angewendet und gesperrt. Nicht aufgeführte Properties bleiben unverändert und editierbar. Host-Properties können nur vom Host ausgewählt werden und werden danach normal über den Script Extender synchronisiert. Persönliche und lokale Werte gelten nur für den jeweiligen Spieler.
+- `fixed` übernimmt den JSON-Wert.
+- `player` behält den aktuellen normalen Arbeitswert; im Map-/Trail-Kontext ist das der vor Eintritt gesicherte normale Wert.
+- `modDefault` übernimmt den beim Start erfassten Code-Standard des Ziel-Mods.
 
-Primitive Werte, Strings, Enums und eindimensionale Arrays bleiben lesbares JSON. Andere MessagePack-kompatible Werte schreibt APIShared als `messagepack-base64:<data>`; dieser Payload sollte nicht von Hand bearbeitet werden.
+Nur aufgeführte Properties werden geändert. Danach bleiben alle Werte gemäß ihrer normalen Host-, Player- oder Local-Besitzregeln editierbar. Primitive Werte, Strings, Enums und eindimensionale Arrays bleiben lesbares JSON; andere MessagePack-kompatible Typen dürfen `messagepack-base64:<daten>` verwenden.
 
-Unbekannte Member, Properties oder Modi, ungültige Werte, unsichere Pfade, zu große/tiefe Dokumente, doppelte IDs desselben Providers/Ziels und unpassende Zielversionen werden fail-closed abgelehnt und protokolliert. Gleiche Anzeigenamen verschiedener Provider bleiben erhalten und erhalten einen Providerzusatz.
+Unbekannte Member, Properties oder Modi, ungültige Werte, unpassende Zielversionen, unsichere Pfade, doppelte IDs desselben Providers/Ziels, zu große Dateien und zu tiefe Dokumente werden fail-closed abgelehnt.
 
-### Verteilung
+### Laden, Speichern und Migration
 
-Für eine direkte Installation wird die JSON-Datei unverändert in den passenden Ordner `Override/<Ziel-GUID>/` des Ziel-Mods kopiert.
+Die Auswahl eines Eintrags ändert noch nichts; erst **Laden** übernimmt ihn. Die Statuszeile zeigt danach Name und Quelle und kennzeichnet spätere Änderungen mit „geändert“. Verschwindet die Quelle, bleiben die materialisierten Arbeitswerte erhalten; nur die Quellenverknüpfung wird entfernt.
 
-Ein loser Script-Extender-Asset-Mod darf dieselbe `Override`-Struktur für mehrere Ziel-Mods enthalten; das Verzeichnisbeispiel steht im englischen Abschnitt. Version 1 durchsucht ausschließlich lose registrierte Asset-Mod-Ordner. `.semod`-Provider werden mit einem Loghinweis übersprungen, weil der Script Extender für diesen Vertrag keine sichere Archiv-Auflistung bereitstellt.
+Der Speicherdialog erstellt ein neues eigenes Preset oder wählt gezielt ein vorhandenes eigenes Preset. Das vollständige atomare Ersetzen erfordert eine zweite Bestätigung. Mitgelieferte, externe, Map-, Trail-, Archiv- und Koop-Paket-Daten sind niemals Überschreibziele.
 
-### Kopieren und Exportieren
+Altes Preset 1 wird als `legacy-preset-1` migriert, Preset 2 nur wenn es vorhanden war. Der vorher aktive Slot wird zum editierbaren Arbeitsstand. Alte Dateien aus `LobbyModSettings/PresetExports/` werden einmalig in den persönlichen Ordner kopiert; die Originale bleiben erhalten.
 
-Bei einem externen oder Map-/Trail-Preset kopiert die Aktion das materialisierte Ergebnis nach Slotwahl und Überschreibbestätigung in Preset 1 oder 2. Anschließend ist der lokale Slot aktiv und frei editierbar.
+### Maps und Trails
 
-Bei lokalem Preset 1/2 öffnet die Aktion den Exporteditor. Wähle Name, optionale Beschreibung, Properties und je einen Modus. Die atomar geschriebene Ausgabe liegt unter:
-
-```text
-LobbyModSettings/PresetExports/Override/<Ziel-GUID>/preset_<bereinigter-name>.json
-```
-
-Vorhandene Dateien werden nur nach Bestätigung vollständig ersetzt. Verwende möglichst eindeutige Namen und stabile IDs; ein Provider darf dieselbe ID für ein Ziel nicht doppelt enthalten.
+Direkt gestartete Maps und Trails sind schreibgeschützt. In Customize beziehungsweise im Trail Maker ist der temporäre Missionskontext editierbar: normale Presets können hineingeladen werden, **Missions-Preset wiederherstellen** stellt die ursprünglichen Missionswerte wieder her, und der aktuelle Stand kann als eigenes Preset gespeichert werden. Beim Verlassen werden die vorherigen normalen Arbeitswerte und ihr Status wiederhergestellt. Vorhandene `.modtrail.json`, Map-Archive und Koop-Pakete bleiben getrennt und schemakompatibel.

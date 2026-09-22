@@ -172,29 +172,29 @@ foreach ($entry in $settings.GetEnumerator()) {
     $manager.AddNamespace('x', 'http://schemas.microsoft.com/winfx/2006/xaml')
     $editableBindings = @()
 
-    $presetExportList = $xml.SelectSingleNode("//*[local-name()='ItemsControl' and @ItemsSource='{Binding System_PresetExportSettings}']")
-    if ($null -ne $presetExportList) {
-        $presetScroll = $presetExportList.ParentNode
+    $presetSaveList = $xml.SelectSingleNode("//*[local-name()='ItemsControl' and @ItemsSource='{Binding System_PresetSaveSettings}']")
+    if ($null -ne $presetSaveList) {
+        $presetScroll = $presetSaveList.ParentNode
         if ($presetScroll.LocalName -ne 'ScrollViewer' -or
             $presetScroll.GetAttribute('HorizontalAlignment') -ne 'Left' -or
             $presetScroll.GetAttribute('Width') -ne '530' -or
             $presetScroll.GetAttribute('MaxHeight') -ne '220' -or
             $presetScroll.GetAttribute('HorizontalScrollBarVisibility') -ne 'Disabled' -or
             $presetScroll.GetAttribute('VerticalScrollBarVisibility') -ne 'Auto') {
-            throw "$($entry.Key): preset export list lacks its separate bounded scroll area."
+            throw "$($entry.Key): preset save list lacks its separate bounded scroll area."
         }
         $thinScrollBar = $presetScroll.SelectSingleNode(
             "./*[local-name()='ScrollViewer.Resources']/*[local-name()='Double' and @x:Key='Size.ScrollBar']",
             $manager)
         if ($null -eq $thinScrollBar -or $thinScrollBar.InnerText -ne '8') {
-            throw "$($entry.Key): preset export list lacks its 8 px local scrollbar resource."
+            throw "$($entry.Key): preset save list lacks its 8 px local scrollbar resource."
         }
         foreach ($requiredBinding in @(
-            '{Binding System_PresetExportBulkModeText}',
-            '{Binding System_PresetExportBulkModeOptions}',
-            '{Binding System_PresetExportBulkModeIndex, Mode=TwoWay}')) {
+            '{Binding System_PresetSaveBulkModeText}',
+            '{Binding System_PresetSaveBulkModeOptions}',
+            '{Binding System_PresetSaveBulkModeIndex, Mode=TwoWay}')) {
             if (-not [IO.File]::ReadAllText($path).Contains($requiredBinding)) {
-                throw "$($entry.Key): preset export bulk-mode binding is missing: $requiredBinding"
+                throw "$($entry.Key): preset save bulk-mode binding is missing: $requiredBinding"
             }
         }
     }
@@ -266,7 +266,6 @@ foreach ($entry in $settings.GetEnumerator()) {
     $unclassifiedBindings = @($editableBindings |
         Sort-Object -Unique |
         Where-Object {
-            $_ -ne 'SelectedPreset' -and
             $_ -notin @('HostSettingsEnabled', 'ClientSettingsEnabled') -and
             $_ -notin $classifiedProperties -and
             $_ -notin $allowedProxies
@@ -370,7 +369,8 @@ foreach ($entry in $settings.GetEnumerator()) {
 
     if ($entry.Key -ne 'SerpsModsHost') {
         $headerIndex = $text.IndexOf('Text="{Binding ModEnabledText}"', [StringComparison]::Ordinal)
-        $presetIndex = $text.IndexOf('ItemsSource="{Binding PresetOptions}"', [StringComparison]::Ordinal)
+        $presetLoadIndex = $text.IndexOf('Command="{Binding System_OpenPresetLoadCommand}"', [StringComparison]::Ordinal)
+        $presetSaveIndex = $text.IndexOf('Command="{Binding System_OpenPresetSaveCommand}"', [StringComparison]::Ordinal)
         $resetIndex = $text.IndexOf('Command="{Binding ResetToDefaultCommand}"', [StringComparison]::Ordinal)
         $orderedHeaderIndices = @($headerIndex)
         if ($actualActivationBindings -contains 'HostSettingsEnabled') {
@@ -379,7 +379,7 @@ foreach ($entry in $settings.GetEnumerator()) {
         if ($actualActivationBindings -contains 'ClientSettingsEnabled') {
             $orderedHeaderIndices += $text.IndexOf('IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}"', [StringComparison]::Ordinal)
         }
-        $orderedHeaderIndices += @($presetIndex, $resetIndex)
+        $orderedHeaderIndices += @($presetLoadIndex, $presetSaveIndex, $resetIndex)
         $headerOrderValid = $orderedHeaderIndices -notcontains -1
         for ($index = 1; $headerOrderValid -and $index -lt $orderedHeaderIndices.Count; $index++) {
             $headerOrderValid = $orderedHeaderIndices[$index - 1] -lt $orderedHeaderIndices[$index]
@@ -811,15 +811,25 @@ foreach ($modName in $selectedModNames) {
                 'Common.ModSettingsSearchIncludeToolTipsHelp',
                 'Common.ModSettingsSearchClearHelp',
                 'Common.ModSettingsSearchNoResults',
-                'Common.CopyPreset',
-                'Common.ExportPreset',
-                'Common.PresetExportName',
-                'Common.PresetExportDescription',
-                'Common.PresetExportAll',
-                'Common.PresetExportHostOnly',
-                'Common.PresetExportBulkMode',
-                'Common.PresetExportConfirm',
-                'Common.PresetExportCancel',
+                'Common.PresetLoad',
+                'Common.PresetSave',
+                'Common.PresetBasedOn',
+                'Common.PresetModified',
+                'Common.PresetRestoreMission',
+                'Common.PresetLoadConfirm',
+                'Common.PresetLoadCancel',
+                'Common.PresetSaveTarget',
+                'Common.PresetSaveNew',
+                'Common.PresetSourcePersonal',
+                'Common.PresetSourceBundled',
+                'Common.PresetSourceExternal',
+                'Common.PresetSaveName',
+                'Common.PresetSaveDescription',
+                'Common.PresetSaveAll',
+                'Common.PresetSaveHostOnly',
+                'Common.PresetSaveBulkMode',
+                'Common.PresetSaveConfirm',
+                'Common.PresetSaveCancel',
                 'Common.PresetModeDefault',
                 'Common.PresetModePlayer',
                 'Common.PresetModeFixed',
@@ -827,16 +837,11 @@ foreach ($modName in $selectedModNames) {
                 'Common.PresetScopeHost',
                 'Common.PresetScopePlayer',
                 'Common.PresetScopeLocal',
-                'Common.CopyPresetChooseTitle',
-                'Common.CopyPresetChooseOne',
-                'Common.CopyPresetChooseTwo',
-                'Common.CopyPresetConfirmTitle',
-                'Common.CopyPresetConfirm',
-                'Common.PresetExportOverwriteTitle',
-                'Common.PresetExportOverwrite',
-                'Common.PresetExportCompletedHelp',
-                'Common.PresetExportCompletedTitle',
-                'Common.PresetExportFailedTitle')) {
+                'Common.PresetSaveOverwriteTitle',
+                'Common.PresetSaveOverwrite',
+                'Common.PresetSaveCompletedHelp',
+                'Common.PresetSaveCompletedTitle',
+                'Common.PresetSaveFailedTitle')) {
                 if (-not $values.Contains($requiredSearchLocaleKey)) {
                     throw "$($entry.Key)/$($file.Name): missing shared search locale key $requiredSearchLocaleKey"
                 }
@@ -1062,7 +1067,8 @@ foreach ($entry in $settings.GetEnumerator()) {
     $searchPath = Join-Path $workspace $entry.Value
     $searchXaml = [IO.File]::ReadAllText($searchPath)
     foreach ($required in @(
-        'Width="145"',
+        'System_PresetLoadEntries',
+        'System_PresetSaveSettings',
         'System_ToggleModSettingsSearchCommand',
         'System_ClearModSettingsSearchCommand',
         'System_ModSettingsSearchFocusRequest',
@@ -1169,7 +1175,8 @@ if ([Text.RegularExpressions.Regex]::Matches(
 $extraSearchPath = Join-Path $workspace 'ExtraFeatures/Override/ScriptExtenderUI/ExtraFeaturesSettings.xaml'
 $extraSearchXaml = [IO.File]::ReadAllText($extraSearchPath)
 foreach ($required in @(
-    'Width="145"',
+    'System_PresetLoadEntries',
+    'System_PresetSaveSettings',
     'System_ToggleModSettingsSearchCommand',
     'System_ClearModSettingsSearchCommand',
     'System_ModSettingsSearchPanelVisibility',

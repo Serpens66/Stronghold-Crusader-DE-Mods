@@ -297,7 +297,7 @@
                 Width="280"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Top"
-                local:PropEx.TextCentre="{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}"
+                local:PropEx.TextCentre="{Binding Source={x:Static local:MainViewModel.Instance}, Path=MP_Settings_Button}"
                 local:PropEx.TextLeft=""
                 local:PropEx.TextRight=""
                 Command="{Binding MultiplayerMenuCommand}"

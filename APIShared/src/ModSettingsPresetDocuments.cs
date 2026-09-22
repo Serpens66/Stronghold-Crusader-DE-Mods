@@ -38,6 +38,15 @@ namespace Shared
         Local = 2,
     }
 
+    /// <summary>Identifies who owns a preset and whether it may be replaced by the player.</summary>
+    public enum ModSettingsPresetSourceKind
+    {
+        Personal = 0,
+        Bundled = 1,
+        External = 2,
+        Mission = 3,
+    }
+
     /// <summary>One persistent setting exposed to preset authoring UI.</summary>
     public sealed class PresetSettingDescriptor
     {
@@ -46,25 +55,25 @@ namespace Shared
         public PresetSettingScope Scope { get; internal set; }
     }
 
-    /// <summary>One author-selected setting passed to the shared JSON exporter.</summary>
-    public sealed class PresetExportSelection
+    /// <summary>One author-selected setting passed to personal-preset persistence.</summary>
+    public sealed class PresetSaveSelection
     {
         public string PropertyName { get; set; } = string.Empty;
         public PublishedPresetValueMode Mode { get; set; } = PublishedPresetValueMode.Fixed;
     }
 
-    /// <summary>Mutable row model used by the standard preset-export XAML block.</summary>
-    public sealed class PresetExportSettingViewModel : INotifyPropertyChanged
+    /// <summary>Mutable row model used by the standard personal-preset save dialog.</summary>
+    public sealed class PresetSaveSettingViewModel : INotifyPropertyChanged
     {
         private bool isSelected;
         private int selectedModeIndex = (int)PublishedPresetValueMode.Fixed;
 
-        public PresetExportSettingViewModel(PresetSettingDescriptor descriptor)
+        public PresetSaveSettingViewModel(PresetSettingDescriptor descriptor)
             : this(descriptor, descriptor?.Scope.ToString(), null)
         {
         }
 
-        public PresetExportSettingViewModel(
+        public PresetSaveSettingViewModel(
             PresetSettingDescriptor descriptor,
             string scopeText,
             string[] modeOptions)
@@ -108,7 +117,7 @@ namespace Shared
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public PresetExportSelection ToSelection() => new PresetExportSelection
+        public PresetSaveSelection ToSelection() => new PresetSaveSelection
         {
             PropertyName = PropertyName,
             Mode = (PublishedPresetValueMode)SelectedModeIndex,
@@ -125,6 +134,7 @@ namespace Shared
     /// <summary>A validated, provider-qualified preset offered by a target mod.</summary>
     public sealed class PublishedModSettingsPreset
     {
+        public ModSettingsPresetSourceKind SourceKind { get; internal set; }
         public string ProviderGuid { get; internal set; } = string.Empty;
         public string ProviderName { get; internal set; } = string.Empty;
         public string TargetGuid { get; internal set; } = string.Empty;
@@ -137,7 +147,36 @@ namespace Shared
             new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal);
         public string SourcePath { get; internal set; } = string.Empty;
 
-        public string StableId => ProviderGuid + "\n" + TargetGuid + "\n" + Id;
+        public bool CanOverwrite => SourceKind == ModSettingsPresetSourceKind.Personal;
+        public string StableId => SourceKind + "\n" + ProviderGuid + "\n" + TargetGuid + "\n" + Id;
+    }
+
+    /// <summary>One source-labelled row shown by the standard preset load/save dialogs.</summary>
+    public sealed class ModSettingsPresetListEntry
+    {
+        internal PublishedModSettingsPreset Preset { get; set; }
+        public string StableId => Preset?.StableId ?? string.Empty;
+        public string Name => Preset?.Name ?? string.Empty;
+        public string Description => Preset?.Description ?? string.Empty;
+        public string ProviderGuid => Preset?.ProviderGuid ?? string.Empty;
+        public string ProviderName => Preset?.ProviderName ?? string.Empty;
+        public ModSettingsPresetSourceKind SourceKind =>
+            Preset?.SourceKind ?? ModSettingsPresetSourceKind.Personal;
+        public bool CanOverwrite => Preset?.CanOverwrite == true;
+        public string SourceLabel { get; internal set; } = string.Empty;
+        public string DisplayText => SourceLabel + " · " + Name;
+        public override string ToString() => DisplayText;
+    }
+
+    /// <summary>A deliberate destination offered by the personal-preset save dialog.</summary>
+    public sealed class ModSettingsPresetSaveTarget
+    {
+        internal PublishedModSettingsPreset Preset { get; set; }
+        public bool IsNew => Preset == null;
+        public string Name => Preset?.Name ?? string.Empty;
+        public string StableId => Preset?.StableId ?? string.Empty;
+        public string DisplayText { get; internal set; } = string.Empty;
+        public override string ToString() => DisplayText;
     }
 
     /// <summary>Shared JSON contract for loose <c>preset_*.json</c> files.</summary>
@@ -410,16 +449,64 @@ namespace Shared
         private const int MaximumFilesPerProvider = 512;
         private const int MaximumPresetsPerTarget = 2048;
 
+        internal static string ValidateTargetGuid(string targetGuid) =>
+            RequireSafePathSegment(targetGuid, "target plugin GUID");
+
+        internal static void ValidatePersonalWritePath(
+            string providerRoot,
+            string personalDirectory,
+            string path)
+        {
+            string root = Path.GetFullPath(providerRoot);
+            string directory = Path.GetFullPath(personalDirectory);
+            string fullPath = Path.GetFullPath(path);
+            if (!IsAtOrBelow(root, directory) || !IsBelow(directory, fullPath))
+                throw new InvalidDataException("Personal preset path leaves its target directory.");
+            EnsureExistingPathSegmentsNoReparse(root, directory);
+            if (File.Exists(fullPath) &&
+                (File.GetAttributes(fullPath) & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new InvalidDataException("Personal preset paths may not use reparse points.");
+            }
+        }
+
         public static IReadOnlyList<PublishedModSettingsPreset> Discover(
             string targetGuid,
             Version targetVersion,
             string targetPluginDirectory,
+            ManualLogSource log) => Discover(
+                targetGuid,
+                targetVersion,
+                targetPluginDirectory,
+                Path.Combine(targetPluginDirectory, "LobbyModSettings", "Presets", "Override", targetGuid),
+                log);
+
+        public static IReadOnlyList<PublishedModSettingsPreset> Discover(
+            string targetGuid,
+            Version targetVersion,
+            string targetPluginDirectory,
+            string personalPresetRoot,
             ManualLogSource log)
         {
             targetGuid = RequireSafePathSegment(targetGuid, "target plugin GUID");
-            var providers = new List<Tuple<string, string, string>>();
+            var providers = new List<PresetProvider>();
             var seenDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            AddProvider(providers, seenDirectories, targetGuid, targetGuid, targetPluginDirectory);
+            AddProvider(
+                providers,
+                seenDirectories,
+                "personal:" + targetGuid,
+                "Personal",
+                personalPresetRoot,
+                ModSettingsPresetSourceKind.Personal,
+                directoryIsTarget: true);
+            AddProvider(
+                providers,
+                seenDirectories,
+                targetGuid,
+                targetGuid,
+                targetPluginDirectory,
+                ModSettingsPresetSourceKind.Bundled,
+                directoryIsTarget: false);
             foreach (KeyValuePair<ModInfo, string> provider in GameAssetModManager.Instance.GetRegisteredAssetDirectories())
             {
                 if (!Directory.Exists(provider.Value))
@@ -428,26 +515,37 @@ namespace Shared
                         DebugLogHelper.LogWarning(log, "Preset provider [" + provider.Key.Name + "] is a .semod archive and is skipped; published presets currently require a loose folder.");
                     continue;
                 }
-                AddProvider(providers, seenDirectories, provider.Key.GUID, provider.Key.Name, provider.Value);
+                AddProvider(
+                    providers,
+                    seenDirectories,
+                    provider.Key.GUID,
+                    provider.Key.Name,
+                    provider.Value,
+                    string.Equals(provider.Key.GUID, targetGuid, StringComparison.OrdinalIgnoreCase)
+                        ? ModSettingsPresetSourceKind.Bundled
+                        : ModSettingsPresetSourceKind.External,
+                    directoryIsTarget: false);
             }
 
             var result = new List<PublishedModSettingsPreset>();
             var identities = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (Tuple<string, string, string> provider in providers)
+            foreach (PresetProvider provider in providers)
             {
                 try
                 {
                 var providerPresets = new List<PublishedModSettingsPreset>();
-                string root = Path.GetFullPath(provider.Item3);
-                string presetDirectory = Path.GetFullPath(Path.Combine(root, "Override", targetGuid));
-                if (!IsBelow(root, presetDirectory) || !Directory.Exists(presetDirectory)) continue;
+                string root = Path.GetFullPath(provider.Root);
+                string presetDirectory = provider.DirectoryIsTarget
+                    ? root
+                    : Path.GetFullPath(Path.Combine(root, "Override", targetGuid));
+                if (!IsAtOrBelow(root, presetDirectory) || !Directory.Exists(presetDirectory)) continue;
                 EnsureNoReparsePoints(root, presetDirectory);
                 string[] files = Directory.GetFiles(presetDirectory, "preset_*.json", SearchOption.TopDirectoryOnly)
                     .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
                     .Take(MaximumFilesPerProvider + 1).ToArray();
                 if (files.Length > MaximumFilesPerProvider)
                 {
-                    DebugLogHelper.LogError(log, "Preset provider [" + provider.Item2 + "] exceeds the per-target file limit and is ignored.");
+                    DebugLogHelper.LogError(log, "Preset provider [" + provider.Name + "] exceeds the per-target file limit and is ignored.");
                     continue;
                 }
                 foreach (string file in files)
@@ -460,7 +558,8 @@ namespace Shared
                         var info = new FileInfo(fullPath);
                         if (info.Length <= 0 || info.Length > MaximumFileBytes) throw new InvalidDataException("Preset file size is outside the supported range.");
                         PublishedModSettingsPreset preset = ModSettingsPresetJson.Parse(
-                            ReadPresetText(fullPath), provider.Item1, provider.Item2, targetGuid, fullPath);
+                            ReadPresetText(fullPath), provider.Guid, provider.Name, targetGuid, fullPath);
+                        preset.SourceKind = provider.SourceKind;
                         if (!MatchesVersion(targetVersion, preset.MinimumTargetVersion, preset.MaximumTargetVersion)) continue;
                         providerPresets.Add(preset);
                     }
@@ -479,7 +578,7 @@ namespace Shared
                 {
                     DebugLogHelper.LogError(
                         log,
-                        "Preset provider [" + provider.Item2 + "] contains duplicate id [" + duplicateId + "] for target [" + targetGuid + "]; all duplicates are ignored.");
+                        "Preset provider [" + provider.Name + "] contains duplicate id [" + duplicateId + "] for target [" + targetGuid + "]; all duplicates are ignored.");
                 }
                 foreach (PublishedModSettingsPreset preset in providerPresets.Where(item => !duplicatedIds.Contains(item.Id)))
                 {
@@ -500,34 +599,48 @@ namespace Shared
                 {
                     DebugLogHelper.LogError(
                         log,
-                        "Preset provider [" + provider.Item2 + "] was rejected: " + exception.Message);
+                        "Preset provider [" + provider.Name + "] was rejected: " + exception.Message);
                 }
             }
 
-            ILookup<string, PublishedModSettingsPreset> names = result.ToLookup(item => item.Name, StringComparer.CurrentCultureIgnoreCase);
-            PublishedModSettingsPreset[] ordered = result.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
+            return result.OrderBy(item => item.SourceKind)
+                .ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
                 .ThenBy(item => item.ProviderName, StringComparer.CurrentCultureIgnoreCase)
-                .Select(item =>
-                {
-                    if (names[item.Name].Skip(1).Any()) item.Name = item.Name + " — " + item.ProviderName;
-                    return item;
-                }).ToArray();
-            foreach (IGrouping<string, PublishedModSettingsPreset> duplicateDisplay in ordered
-                .GroupBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase)
-                .Where(group => group.Skip(1).Any()))
-            {
-                foreach (PublishedModSettingsPreset item in duplicateDisplay)
-                    item.Name = item.Name + " [" + item.ProviderGuid + "]";
-            }
-            return ordered;
+                .ToArray();
         }
 
-        private static void AddProvider(List<Tuple<string, string, string>> providers, HashSet<string> seen, string guid, string name, string path)
+        private static void AddProvider(
+            List<PresetProvider> providers,
+            HashSet<string> seen,
+            string guid,
+            string name,
+            string path,
+            ModSettingsPresetSourceKind sourceKind,
+            bool directoryIsTarget)
         {
             if (string.IsNullOrWhiteSpace(guid) || guid.Any(char.IsControl) ||
                 string.IsNullOrWhiteSpace(path) || !Directory.Exists(path)) return;
             string full = Path.GetFullPath(path);
-            if (seen.Add(full)) providers.Add(Tuple.Create(guid, name ?? guid, full));
+            if (seen.Add(full))
+            {
+                providers.Add(new PresetProvider
+                {
+                    Guid = guid,
+                    Name = name ?? guid,
+                    Root = full,
+                    SourceKind = sourceKind,
+                    DirectoryIsTarget = directoryIsTarget,
+                });
+            }
+        }
+
+        private sealed class PresetProvider
+        {
+            public string Guid;
+            public string Name;
+            public string Root;
+            public ModSettingsPresetSourceKind SourceKind;
+            public bool DirectoryIsTarget;
         }
 
         private static string ReadPresetText(string path)
@@ -552,11 +665,21 @@ namespace Shared
             return full.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
         }
 
+        private static bool IsAtOrBelow(string root, string path)
+        {
+            string canonicalRoot = Path.GetFullPath(root)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string canonicalPath = Path.GetFullPath(path)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return string.Equals(canonicalRoot, canonicalPath, StringComparison.OrdinalIgnoreCase) ||
+                IsBelow(canonicalRoot, canonicalPath);
+        }
+
         private static void EnsureNoReparsePoints(string root, string path)
         {
             string canonicalRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             string canonicalPath = Path.GetFullPath(path);
-            if (!IsBelow(canonicalRoot, canonicalPath))
+            if (!IsAtOrBelow(canonicalRoot, canonicalPath))
                 throw new InvalidDataException("Preset path leaves its provider directory.");
             string relative = canonicalPath.Substring(canonicalRoot.Length)
                 .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -564,6 +687,28 @@ namespace Shared
             foreach (string segment in relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries))
             {
                 current = Path.Combine(current, segment);
+                if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Preset paths may not traverse reparse points.");
+            }
+        }
+
+        private static void EnsureExistingPathSegmentsNoReparse(string root, string path)
+        {
+            string canonicalRoot = Path.GetFullPath(root)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string canonicalPath = Path.GetFullPath(path);
+            if (!IsAtOrBelow(canonicalRoot, canonicalPath))
+                throw new InvalidDataException("Preset path leaves its provider directory.");
+            string relative = canonicalPath.Substring(canonicalRoot.Length)
+                .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string current = canonicalRoot;
+            foreach (string segment in relative.Split(
+                new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, segment);
+                if (!Directory.Exists(current) && !File.Exists(current))
+                    break;
                 if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
                     throw new InvalidDataException("Preset paths may not traverse reparse points.");
             }

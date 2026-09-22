@@ -160,8 +160,8 @@ namespace BugfixesAndQoL
                   (string)button.Attribute("Visibility") ==
                       "{Binding SkirmishSetupMode, Converter={StaticResource booleanToVisibilityConverter}}" &&
                   (string)button.Attribute(XName.Get("PropEx.TextCentre", "clr-namespace:CrusaderDE")) ==
-                      "{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}",
-                "registered host owns only mod visibility while the named button retains the working Vanilla command and stable localized text");
+                      "{Binding Source={x:Static local:MainViewModel.Instance}, Path=MP_Settings_Button}",
+                "registered host owns only mod visibility while the button binds directly to Vanilla's live Settings label");
             check(front.Root.Elements("Operation").Any(operation =>
                     (string)operation.Attribute("AttributeName") == "Panel.ZIndex" &&
                     (string)operation.Attribute("Value") == "1000"),
@@ -259,12 +259,12 @@ namespace BugfixesAndQoL
                 @"..\Testmods\SkirmishGameOptionsTest\Patches\Assets\GUI\XAMLResources\FRONT_Multiplayer.xaml"));
             string productionFront = File.ReadAllText(frontPath);
             string stableSettingsTextBinding =
-                "{Binding Source={x:Static local:Translate.Instance}, Path=GameTexts[TEXT_NEW_TEXT2_058]}";
+                "{Binding Source={x:Static local:MainViewModel.Instance}, Path=MP_Settings_Button}";
             check(productionFront.Contains(stableSettingsTextBinding) &&
                   testModFront.Contains(stableSettingsTextBinding) &&
-                  !productionFront.Contains("{Binding MP_Settings_Button}") &&
-                  !testModFront.Contains("{Binding MP_Settings_Button}"),
-                "injected Settings buttons never depend on Vanilla's initially empty MP_Settings_Button property");
+                  !productionFront.Contains("TEXT_NEW_TEXT2_058") &&
+                  !testModFront.Contains("TEXT_NEW_TEXT2_058"),
+                "injected Settings buttons use MainViewModel.Instance.MP_Settings_Button and never the Invite text key");
             string noDogsPatch = File.ReadAllText(Path.Combine(
                 project,
                 @"src\NoDogsNativePatch.cs"));

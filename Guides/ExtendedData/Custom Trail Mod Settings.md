@@ -8,7 +8,7 @@
 
 This guide is for Map and Trail authors. Mod developers should use [ExtendedData compatibility for mod authors](Mod%20Compatibilty%20ExtendedData.md#english).
 
-APIShared distinguishes local Preset 1/2, loose external JSON presets, and temporary mission presets. Maps and Trails use the temporary mission form: it can be editable in Trail Maker, is read-only during play, and restores the previously active local or external preset afterwards. Normal external preset creation and distribution are documented in [Extensible ModSettings Presets](ModSettings%20Presets.md#english).
+APIShared distinguishes editable normal working settings, personal/bundled/external JSON presets, and temporary mission contexts. Maps and Trails use the temporary mission form: it is editable in Customize or Trail Maker, read-only when started directly, and restores the previous normal working settings and preset status afterwards. Normal preset creation and distribution are documented in [Extensible ModSettings Presets](ModSettings%20Presets.md#english).
 
 ### Choose the settings to store
 
@@ -27,9 +27,9 @@ Only persistent `[SyncHostOnly]` settings can become Map or Trail rules. Persona
 
 ### Trail Maker authoring and tests
 
-Opening a saved Trail Maker mission loads its matching sidecar into an editable **Trail** preset. A new unsaved mission starts from the safe mod defaults.
+Opening a saved Trail Maker mission loads its matching sidecar into an editable temporary **Trail** context. A new unsaved mission starts from the safe mod defaults. Personal, bundled, and external normal presets can be loaded into this draft; **Restore mission preset** restores the original Trail values.
 
-ExtendedData keeps the editable authoring draft while the mission is tested, restarted, opened in the Map Editor, or returned to the Trail Maker. Saving refreshes the draft and writes the sidecar. Leaving the authoring context discards the draft and restores the previous normal preset. If a draft cannot be loaded or restored safely, ExtendedData falls back to editable mod defaults rather than retaining a partial preset.
+ExtendedData keeps the editable authoring draft while the mission is tested, restarted, opened in the Map Editor, or returned to the Trail Maker. Saving refreshes the draft and writes the sidecar. The normal preset Save dialog can create a personal preset from the draft, but can never overwrite a Trail, Map archive, or Coop package. Leaving the authoring context discards the draft and restores the previous normal working settings and status. If a draft cannot be loaded or restored safely, ExtendedData falls back to editable mod defaults rather than retaining a partial preset.
 
 ### Resulting files
 
@@ -62,7 +62,7 @@ When uploading a normal or Coop Trail, keep **Include mod settings** enabled to 
 
 Players need `ExtendedData` and every mod explicitly mentioned by the Map or mission. A missing mentioned mod is reported when the preset is activated. Unmentioned mods and settings use their mod-defined safe baseline instead of arbitrary local gameplay values.
 
-After the mission ends, compatible mods restore the player's previous normal preset. Trail-owned host settings remain read-only during play; personal client settings remain editable.
+After the mission ends, compatible mods restore the player's previous normal working settings and preset status. A directly started mission context is read-only for all included settings.
 
 For a free Singleplayer Skirmish, Multiplayer host lobby, or Trail opened through **Customize**, select the Map and press **Use Map modsettings**. Selecting a Map alone does not activate its preset. The button is disabled when the archive has no valid settings, hidden in Trail Maker, and hidden for Multiplayer clients. Changing the selected Map or leaving the lobby restores the previous local preset; otherwise the Map context remains active until the mission ends.
 
@@ -109,7 +109,7 @@ See `ExtendedData/Examples/01.modtrail.json.example` for a larger example.
 
 Dieser Guide richtet sich an Map- und Trail-Ersteller. Modentwickler verwenden [ExtendedData-Kompatibilität für Modentwickler](Mod%20Compatibilty%20ExtendedData.md#deutsch).
 
-APIShared unterscheidet lokale Presets 1/2, lose externe JSON-Presets und temporäre Missionspresets. Maps und Trails verwenden die temporäre Missionsform: Im Trail Maker kann sie bearbeitbar sein, während des Spiels ist sie schreibgeschützt und anschließend wird das zuvor aktive lokale oder externe Preset wiederhergestellt. Erstellung und Verteilung normaler externer Presets beschreibt [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch).
+APIShared unterscheidet bearbeitbare normale Arbeitswerte, persönliche/mitgelieferte/externe JSON-Presets und temporäre Missionskontexte. Maps und Trails verwenden die temporäre Missionsform: In Customize oder im Trail Maker ist sie bearbeitbar, beim direkten Start schreibgeschützt, und anschließend werden die vorherigen normalen Arbeitswerte samt Presetstatus wiederhergestellt. Erstellung und Verteilung normaler Presets beschreibt [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#deutsch).
 
 ### Zu speichernde Einstellungen auswählen
 
@@ -128,9 +128,9 @@ Nur dauerhafte `[SyncHostOnly]`-Einstellungen können zu Map- oder Trail-Regeln 
 
 ### Trail-Maker-Bearbeitung und Tests
 
-Beim Öffnen einer gespeicherten Trail-Maker-Mission wird das passende Sidecar als bearbeitbares **Trail**-Preset geladen. Eine neue ungespeicherte Mission beginnt mit den sicheren Mod-Standardwerten.
+Beim Öffnen einer gespeicherten Trail-Maker-Mission wird das passende Sidecar als bearbeitbarer temporärer **Trail**-Kontext geladen. Eine neue ungespeicherte Mission beginnt mit den sicheren Mod-Standardwerten. Persönliche, mitgelieferte und externe normale Presets können in diesen Entwurf geladen werden; **Missions-Preset wiederherstellen** stellt die ursprünglichen Trail-Werte wieder her.
 
-ExtendedData behält den bearbeitbaren Entwurf während eines Tests, Neustarts, Wechsels in den Map Editor oder der Rückkehr zum Trail Maker bei. Beim Speichern wird der Entwurf aktualisiert und das Sidecar geschrieben. Beim Verlassen des Bearbeitungskontexts wird der Entwurf verworfen und das vorherige normale Preset wiederhergestellt. Kann ein Entwurf nicht sicher geladen oder wiederhergestellt werden, verwendet ExtendedData bearbeitbare Mod-Standardwerte statt eines unvollständigen Presets.
+ExtendedData behält den bearbeitbaren Entwurf während eines Tests, Neustarts, Wechsels in den Map Editor oder der Rückkehr zum Trail Maker bei. Beim Speichern wird der Entwurf aktualisiert und das Sidecar geschrieben. Über den normalen Preset-Speicherdialog kann daraus ein persönliches Preset entstehen; Trail-, Map- und Koop-Dateien können dort niemals überschrieben werden. Beim Verlassen des Bearbeitungskontexts wird der Entwurf verworfen und der vorherige normale Arbeitsstand samt Status wiederhergestellt. Kann ein Entwurf nicht sicher geladen oder wiederhergestellt werden, verwendet ExtendedData bearbeitbare Mod-Standardwerte statt eines unvollständigen Presets.
 
 ### Erzeugte Dateien
 
@@ -163,7 +163,7 @@ Beim Workshop-Upload eines normalen oder Koop-Trails muss **Include mod settings
 
 Spieler benötigen `ExtendedData` und jeden von der Map oder Mission ausdrücklich genannten Mod. Ein fehlender genannter Mod wird bei der Aktivierung des Presets gemeldet. Nicht genannte Mods und Einstellungen verwenden ihre moddefinierte sichere Ausgangslage statt beliebiger lokaler Gameplay-Werte.
 
-Nach Missionsende stellen kompatible Mods das vorherige normale Preset des Spielers wieder her. Vom Trail vorgegebene Host-Einstellungen bleiben während des Spiels schreibgeschützt; persönliche Client-Einstellungen bleiben bearbeitbar.
+Nach Missionsende stellen kompatible Mods die vorherigen normalen Arbeitswerte und den Presetstatus des Spielers wieder her. Ein direkt gestarteter Missionskontext ist für alle enthaltenen Einstellungen schreibgeschützt.
 
 Wähle für ein freies Einzelspieler-Scharmützel, eine Multiplayer-Host-Lobby oder einen über **Customize** geöffneten Trail zuerst die Map und drücke anschließend **Use Map modsettings**. Allein die Map-Auswahl aktiviert kein Preset. Der Knopf ist deaktiviert, wenn das Archiv keine gültigen Einstellungen besitzt, und wird im Trail Maker sowie für Multiplayer-Clients ausgeblendet. Die Auswahl einer anderen Map oder das Verlassen der Lobby stellt das vorherige lokale Preset wieder her; andernfalls bleibt der Map-Kontext bis zum Missionsende aktiv.
 

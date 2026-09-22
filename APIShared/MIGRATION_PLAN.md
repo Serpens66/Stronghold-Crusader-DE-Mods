@@ -16,7 +16,7 @@ The former selected-unit broker was removed. Consumers subscribe directly to `Tr
 
 Native addresses, patterns, memory writers, detours, concrete services and ownership state remain internal. The managed lobby observer initializes in `Awake()`; native capabilities initialize from `CrusaderLibrary.LibraryLoaded`. Process-wide hooks and callbacks remain rooted for the process lifetime. Capability failures are isolated and fail closed.
 
-The public preset integration in APIShared 0.4.0 owns `PresetLobbyModSettingsViewModel`, registration, property scopes, JSON discovery/export, copy commands, and the typed `IModSettingsPresetEndpoint`. Consumers reference APIShared directly; they no longer source-link the former `Shared` implementations or compile their own lobby observer. ExtendedData is an optional typed consumer of the same contract.
+The public preset integration in APIShared 0.4.0 owns `PresetLobbyModSettingsViewModel`, registration, property scopes, JSON discovery, personal Save/Load commands, and the typed `IModSettingsPresetEndpoint`. Loading materializes editable working settings; only personal presets can be overwritten. Consumers reference APIShared directly; they no longer source-link the former `Shared` implementations or compile their own lobby observer. ExtendedData is an optional typed consumer of the same contract.
 
 ## Completed consumers
 

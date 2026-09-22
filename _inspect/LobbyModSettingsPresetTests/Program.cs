@@ -13,10 +13,16 @@ namespace LobbyModSettingsPresetTests
     internal static class Program
     {
         private const string ModName = "PresetTest_Serp";
+        private const string TargetGuid = "Tests.PresetTest_Serp";
         private const string SchemaKey = "__SerpPresetSchemaVersion";
         private const string ActiveKey = "__SerpActivePreset";
         private const string Preset1Key = "__SerpPreset1";
         private const string Preset2Key = "__SerpPreset2";
+        private const string PublishedPresetKey = "__SerpPublishedPreset";
+        private const string CurrentSettingsKey = "__SerpCurrentSettings";
+        private const string BasedOnPresetKey = "__SerpBasedOnPreset";
+        private const string PresetDirtyKey = "__SerpPresetDirty";
+        private const string LegacyPresetImportCompletedKey = "__SerpLegacyPresetImportCompleted";
 
         private static int Main(string[] args)
         {
@@ -44,29 +50,113 @@ namespace LobbyModSettingsPresetTests
                 FakeSettings migrated = Start(assemblyPath, settingsPath, () => false);
                 Assert(!migrated.EnableMod && migrated.Number == 42, "Legacy values were not restored.");
                 Dictionary<string, byte[]> payload = Read(settingsPath);
-                Assert(payload.ContainsKey(SchemaKey), "Legacy file was not migrated.");
-                Assert(!payload.ContainsKey(Preset2Key), "Preset 2 must remain unset after migration.");
-
-                migrated.SelectedPreset = 1;
-                Assert(migrated.EnableMod && migrated.Number == 5, "Unset preset 2 did not show defaults.");
-                payload = Read(settingsPath);
-                Assert(MessagePackSerializer.Deserialize<int>(payload[ActiveKey]) == 1, "Active preset was not saved.");
-                Assert(!payload.ContainsKey(Preset2Key), "Switching alone must not save preset 2.");
+                Assert(MessagePackSerializer.Deserialize<int>(payload[SchemaKey]) == 3,
+                    "Legacy file was not migrated to working-state schema 3.");
+                Assert(payload.ContainsKey(CurrentSettingsKey) &&
+                        MessagePackSerializer.Deserialize<bool>(payload[LegacyPresetImportCompletedKey]) &&
+                        !payload.ContainsKey(ActiveKey) &&
+                        !payload.ContainsKey(Preset1Key) &&
+                        !payload.ContainsKey(Preset2Key),
+                    "Migrated MessagePack still contains retired slot storage.");
+                string personalDirectory = Path.Combine(
+                    root, "LobbyModSettings", "Presets", "Override", TargetGuid);
+                string legacyOnePath = Path.Combine(personalDirectory, "preset_legacy-preset-1.json");
+                Assert(File.Exists(legacyOnePath), "Legacy values were not published as a personal preset file.");
+                PublishedModSettingsPreset legacyOne = ModSettingsPresetJson.Parse(
+                    File.ReadAllText(legacyOnePath), "personal:" + TargetGuid, "Personal", TargetGuid, legacyOnePath);
+                Assert(legacyOne.Settings.Count == 2 && legacyOne.Settings.Values.All(item =>
+                        item.Mode == PublishedPresetValueMode.Fixed),
+                    "Migrated legacy preset did not materialize every value as fixed.");
 
                 migrated.Number = 7;
                 payload = Read(settingsPath);
-                Assert(payload.ContainsKey(Preset2Key), "First setting change did not create preset 2.");
-
-                migrated.SelectedPreset = 0;
-                Assert(!migrated.EnableMod && migrated.Number == 42, "Preset 1 was not restored.");
-                migrated.SelectedPreset = 1;
-                Assert(migrated.EnableMod && migrated.Number == 7, "Preset 2 was not restored.");
-
+                Assert(MessagePackSerializer.Deserialize<bool>(payload[PresetDirtyKey]),
+                    "Editing a loaded migrated preset did not mark its working state as modified.");
                 FakeSettings restarted = Start(assemblyPath, settingsPath, () => false);
-                Assert(restarted.SelectedPreset == 1, "Active preset did not survive restart.");
-                Assert(restarted.EnableMod && restarted.Number == 7, "Active values did not survive restart.");
+                Assert(!restarted.EnableMod && restarted.Number == 7,
+                    "Editable working values did not survive restart.");
 
-                RemovePresetProperty(settingsPath, Preset2Key, nameof(FakeSettings.Number));
+                string dualRoot = Path.Combine(root, "DualSlot");
+                string dualAssembly = Path.Combine(dualRoot, "PresetTest.dll");
+                string dualSettings = Path.Combine(dualRoot, "LobbyModSettings", ModName + ".msgpack");
+                Directory.CreateDirectory(Path.GetDirectoryName(dualSettings));
+                string legacyPublishedDirectory = Path.Combine(dualRoot, "Override", TargetGuid);
+                Directory.CreateDirectory(legacyPublishedDirectory);
+                File.WriteAllText(
+                    Path.Combine(legacyPublishedDirectory, "preset_old-published.json"),
+                    ModSettingsPresetJson.Serialize(
+                        TargetGuid,
+                        "old-published",
+                        "Old published preset",
+                        "",
+                        "",
+                        "",
+                        new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal)
+                        {
+                            [nameof(FakeSettings.EnableMod)] = new PublishedPresetSetting
+                            {
+                                Mode = PublishedPresetValueMode.Player,
+                            },
+                            [nameof(FakeSettings.Number)] = new PublishedPresetSetting
+                            {
+                                Mode = PublishedPresetValueMode.Fixed,
+                                Value = 88L,
+                            },
+                        }));
+                WriteLegacySlots(dualSettings, active: 1,
+                    preset1Enabled: false, preset1Number: 11,
+                    preset2Enabled: true, preset2Number: 22,
+                    publishedStableId: TargetGuid + "\n" + TargetGuid + "\nold-published");
+                FakeSettings dualMigrated = Start(dualAssembly, dualSettings, () => false);
+                Assert(dualMigrated.EnableMod && dualMigrated.Number == 88,
+                    "The active legacy published preset was not materialized over its underlying player slot.");
+                Dictionary<string, byte[]> dualPayload = Read(dualSettings);
+                Assert(MessagePackSerializer.Deserialize<string>(dualPayload[BasedOnPresetKey]).EndsWith(
+                        "\n" + TargetGuid + "\nold-published", StringComparison.Ordinal),
+                    "The migrated published preset did not retain its new stable source identity.");
+                string dualPersonal = Path.Combine(dualRoot, "LobbyModSettings", "Presets", "Override", TargetGuid);
+                Assert(File.Exists(Path.Combine(dualPersonal, "preset_legacy-preset-1.json")) &&
+                        File.Exists(Path.Combine(dualPersonal, "preset_legacy-preset-2.json")),
+                    "Both populated legacy slots were not preserved as personal JSON presets.");
+
+                string stagedRoot = Path.Combine(root, "StagedExport");
+                string stagedAssembly = Path.Combine(stagedRoot, "PresetTest.dll");
+                string stagedDirectory = Path.Combine(
+                    stagedRoot, "LobbyModSettings", "PresetExports", "Override", TargetGuid);
+                Directory.CreateDirectory(stagedDirectory);
+                string stagedSource = Path.Combine(stagedDirectory, "preset_old-export.json");
+                File.WriteAllText(stagedSource, ModSettingsPresetJson.Serialize(
+                    TargetGuid,
+                    "old-export",
+                    "Old export",
+                    "",
+                    "",
+                    "",
+                    new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal)
+                    {
+                        [nameof(FakeSettings.Number)] = new PublishedPresetSetting
+                        {
+                            Mode = PublishedPresetValueMode.Fixed,
+                            Value = 73L,
+                        },
+                    }));
+                Start(
+                    stagedAssembly,
+                    Path.Combine(stagedRoot, "LobbyModSettings", ModName + ".msgpack"),
+                    () => false);
+                string stagedDestination = Path.Combine(
+                    stagedRoot, "LobbyModSettings", "Presets", "Override", TargetGuid, "preset_old-export.json");
+                Assert(File.Exists(stagedSource) && File.Exists(stagedDestination),
+                    "Legacy PresetExports file was not copied into personal presets without deleting the source.");
+                File.Delete(stagedDestination);
+                Start(
+                    stagedAssembly,
+                    Path.Combine(stagedRoot, "LobbyModSettings", ModName + ".msgpack"),
+                    () => false);
+                Assert(!File.Exists(stagedDestination),
+                    "Legacy PresetExports was imported again after its migration status was persisted.");
+
+                RemoveCurrentProperty(settingsPath, nameof(FakeSettings.Number));
                 bool incomingNetworkUpdate = false;
                 FakeSettings missingProperty = Start(
                     assemblyPath,
@@ -85,13 +175,14 @@ namespace LobbyModSettingsPresetTests
                     SetNetworkSyncInProgress(false);
                     incomingNetworkUpdate = false;
                 }
-                missingProperty.SelectedPreset = 0;
-                missingProperty.SelectedPreset = 1;
-                Assert(missingProperty.Number == 5, "Incoming network value polluted the local preset.");
+                FakeSettings afterNetwork = Start(assemblyPath, settingsPath, () => false);
+                Assert(afterNetwork.Number == 5, "Incoming network value polluted the editable working state.");
 
                 CorruptMetadata(settingsPath);
                 FakeSettings recovered = Start(assemblyPath, settingsPath, () => false);
-                Assert(recovered.SelectedPreset == 0, "Corrupt metadata did not recover as preset 1.");
+                Assert(!recovered.EnableMod && recovered.Number == 5,
+                    $"Corrupt metadata did not recover the last safe top-level working values " +
+                    $"(EnableMod={recovered.EnableMod}, Number={recovered.Number}).");
                 Assert(Directory.GetFiles(
                     Path.GetDirectoryName(settingsPath),
                     ModName + ".msgpack.corrupt-*").Length > 0,
@@ -113,6 +204,26 @@ namespace LobbyModSettingsPresetTests
             {
                 Dictionary<string, byte[]> payload = Read(path);
                 int schema = MessagePackSerializer.Deserialize<int>(payload[SchemaKey]);
+                if (schema == 3)
+                {
+                    Dictionary<string, byte[]> current =
+                        MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(payload[CurrentSettingsKey]);
+                    string basedOn = payload.TryGetValue(BasedOnPresetKey, out byte[] basedOnBytes)
+                        ? MessagePackSerializer.Deserialize<string>(basedOnBytes)
+                        : string.Empty;
+                    bool dirty = payload.TryGetValue(PresetDirtyKey, out byte[] dirtyBytes) &&
+                        MessagePackSerializer.Deserialize<bool>(dirtyBytes);
+                    string[] retired = { ActiveKey, Preset1Key, Preset2Key, PublishedPresetKey };
+                    string[] unexpected = retired.Where(payload.ContainsKey).ToArray();
+                    Console.WriteLine($"Path: {path}");
+                    Console.WriteLine($"Schema: {schema}");
+                    Console.WriteLine($"Working properties: {current.Count}");
+                    Console.WriteLine($"Based on: {basedOn}");
+                    Console.WriteLine($"Modified: {dirty}");
+                    Console.WriteLine($"Legacy import completed: {MessagePackSerializer.Deserialize<bool>(payload[LegacyPresetImportCompletedKey])}");
+                    Console.WriteLine($"Retired keys: {unexpected.Length}");
+                    return unexpected.Length == 0 ? 0 : 1;
+                }
                 int active = MessagePackSerializer.Deserialize<int>(payload[ActiveKey]);
                 Dictionary<string, byte[]> preset1 =
                     MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(payload[Preset1Key]);
@@ -163,7 +274,10 @@ namespace LobbyModSettingsPresetTests
                 "BuildingCosts_Serp",
                 "BuildingLimit_Serp",
                 "ExtraFeatures_Serp",
-                "ImprovedHunters_Serp",
+                "CastlePlanner_Serp",
+                "CheatMod_Serp",
+                "ExtendedData_Serp",
+                "ExtremePowers_Serp",
                 "RandomEvents_Serp",
                 "StartConditions_Serp",
                 "UnitCosts_Serp",
@@ -355,6 +469,38 @@ namespace LobbyModSettingsPresetTests
             File.WriteAllBytes(path, MessagePackSerializer.Serialize(payload));
         }
 
+        private static void WriteLegacySlots(
+            string path,
+            int active,
+            bool preset1Enabled,
+            int preset1Number,
+            bool preset2Enabled,
+            int preset2Number,
+            string publishedStableId = "")
+        {
+            Dictionary<string, byte[]> preset1 = CreateSnapshot(preset1Enabled, preset1Number);
+            Dictionary<string, byte[]> preset2 = CreateSnapshot(preset2Enabled, preset2Number);
+            Dictionary<string, byte[]> activeSnapshot = active == 1 ? preset2 : preset1;
+            Dictionary<string, byte[]> payload = activeSnapshot.ToDictionary(
+                item => item.Key,
+                item => (byte[])item.Value.Clone(),
+                StringComparer.Ordinal);
+            payload[SchemaKey] = MessagePackSerializer.Serialize(2);
+            payload[ActiveKey] = MessagePackSerializer.Serialize(active);
+            payload[Preset1Key] = MessagePackSerializer.Serialize(preset1);
+            payload[Preset2Key] = MessagePackSerializer.Serialize(preset2);
+            if (!string.IsNullOrEmpty(publishedStableId))
+                payload[PublishedPresetKey] = MessagePackSerializer.Serialize(publishedStableId);
+            File.WriteAllBytes(path, MessagePackSerializer.Serialize(payload));
+        }
+
+        private static Dictionary<string, byte[]> CreateSnapshot(bool enabled, int number) =>
+            new Dictionary<string, byte[]>(StringComparer.Ordinal)
+            {
+                [nameof(FakeSettings.EnableMod)] = MessagePackSerializer.Serialize(enabled),
+                [nameof(FakeSettings.Number)] = MessagePackSerializer.Serialize(number),
+            };
+
         private static void WriteTopLevelSettings(string path, FakeSettings settings)
         {
             WriteLegacy(path, settings.EnableMod, settings.Number);
@@ -366,16 +512,13 @@ namespace LobbyModSettingsPresetTests
                 File.ReadAllBytes(path));
         }
 
-        private static void RemovePresetProperty(
-            string path,
-            string presetKey,
-            string propertyName)
+        private static void RemoveCurrentProperty(string path, string propertyName)
         {
             Dictionary<string, byte[]> payload = Read(path);
-            Dictionary<string, byte[]> preset =
-                MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(payload[presetKey]);
-            preset.Remove(propertyName);
-            payload[presetKey] = MessagePackSerializer.Serialize(preset);
+            Dictionary<string, byte[]> current =
+                MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(payload[CurrentSettingsKey]);
+            current.Remove(propertyName);
+            payload[CurrentSettingsKey] = MessagePackSerializer.Serialize(current);
             File.WriteAllBytes(path, MessagePackSerializer.Serialize(payload));
         }
 

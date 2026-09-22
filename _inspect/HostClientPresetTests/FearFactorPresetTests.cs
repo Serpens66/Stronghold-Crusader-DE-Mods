@@ -42,8 +42,8 @@ internal static class FearFactorPresetTests
         vm.PreparePresets(null, plugin, guid);
         vm.ActivatePresets();
         Check(vm.EnableFearFactorNeutralization, "stored host preset was not loaded");
-        Check(ReadPresetBool(file, "__SerpPreset1", nameof(vm.EnableFearFactorNeutralization)),
-            "host preset fixture is not enabled");
+        Check(ReadWorkingBool(file, nameof(vm.EnableFearFactorNeutralization)),
+            "migrated host working state is not enabled");
         GameNetworkAPI.LocalHost = false;
         vm.System_RefreshSettingsAccess();
         vm.EnableFearFactorNeutralization = false;
@@ -52,9 +52,9 @@ internal static class FearFactorPresetTests
         GameXAMLManagerAPI.Instance.ApplyNetworkSync(vm, () => vm.EnableFearFactorNeutralization = false);
         Check(!vm.EnableFearFactorNeutralization, "host sync accepted on client");
         Check(stored.SequenceEqual(File.ReadAllBytes(file)), "remote value not persisted locally");
-        Check(ReadPresetBool(file, "__SerpPreset1", nameof(vm.EnableFearFactorNeutralization)),
-            "remote sync changed the locally stored host preset");
-        Console.WriteLine("PASS: fear-factor host preset, client lock, sync and persistence");
+        Check(ReadWorkingBool(file, nameof(vm.EnableFearFactorNeutralization)),
+            "remote sync changed the locally stored host working state");
+        Console.WriteLine("PASS: fear-factor host working state, client lock, sync and persistence");
     }
 
     private static void WritePresetBool(string file, string propertyName, bool value)
@@ -72,11 +72,11 @@ internal static class FearFactorPresetTests
         File.WriteAllBytes(file, MessagePackSerializer.Serialize(payload));
     }
 
-    private static bool ReadPresetBool(string file, string presetKey, string propertyName)
+    private static bool ReadWorkingBool(string file, string propertyName)
     {
         Dictionary<string, byte[]> payload =
             MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(file));
-        Check(payload.TryGetValue(presetKey, out byte[] presetBytes), "stored preset payload missing");
+        Check(payload.TryGetValue("__SerpCurrentSettings", out byte[] presetBytes), "stored working-state payload missing");
         Dictionary<string, byte[]> preset =
             MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(presetBytes);
         Check(preset.TryGetValue(propertyName, out byte[] valueBytes), "stored fear-factor value missing");

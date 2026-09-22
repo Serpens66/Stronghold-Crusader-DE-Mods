@@ -105,6 +105,7 @@ internal static class Program
             TestMarketOrderPresetRoundTrip();
             TestPresetLocalRoundTrip();
             TestDoNotPersistPresetExclusion();
+            TestPersonalBundledExternalPresetSaveLoad();
             TestCastlePlannerBlueprintHudPolicies();
             TestCastleSpawnContentPolicy();
             TestSnapshotCompletionHook();
@@ -127,11 +128,9 @@ internal static class Program
             vm.HostValue = 111;
             vm.ClientValue = 211;
             vm.LocalValue = 311;
-            vm.SelectedPreset = 1;
             vm.HostValue = 122;
             vm.ClientValue = 222;
             vm.LocalValue = 322;
-            vm.SelectedPreset = 0;
 
             AssertState(vm, host: true, mission: false, editable: false, true, true, true, "host normal");
             Check(vm.ActionsScopeNoticeVisibility == Noesis.Visibility.Visible, "mixed mod omitted the action-scope notice");
@@ -180,7 +179,7 @@ internal static class Program
             Check(dependentRevertNotifications == 1, "rejected client edit did not revert its editable proxy property");
             Check(beforeRejectedEdit.SequenceEqual(File.ReadAllBytes(settingsPath)), "revert notification wrote the msgpack file");
             AssertNoSentinel(settingsPath, RemoteSentinel + 1);
-            AssertStoredHostValues(settingsPath, 111, 111, 122);
+            AssertStoredHostValue(settingsPath, 122);
             GameXAMLManagerAPI.Instance.ApplyNetworkSync(vm, () => vm.HostValue = RemoteSentinel);
 
             vm.ClientValue = 233;
@@ -188,13 +187,13 @@ internal static class Program
             Check(vm.ClientValue == 233, "client could not mutate its per-player setting");
             Check(vm.LocalValue == 333, "client could not mutate its preset-local setting");
             AssertNoSentinel(settingsPath, RemoteSentinel);
-            AssertStoredHostValues(settingsPath, 111, 111, 122);
+            AssertStoredHostValue(settingsPath, 122);
 
             vm.System_EnterMissionPreset(
                 new Dictionary<string, byte[]> { [nameof(vm.HostValue)] = MessagePackSerializer.Serialize(TrailSentinel) },
                 "Trail",
                 editable: false);
-            AssertState(vm, host: false, mission: true, editable: false, false, true, true, "client read-only Trail");
+            AssertState(vm, host: false, mission: true, editable: false, false, false, false, "client read-only Trail");
             AssertNoSentinel(settingsPath, TrailSentinel);
             byte[] beforeTrailReceive = File.ReadAllBytes(settingsPath);
             GameXAMLManagerAPI.Instance.ApplyNetworkSync(
@@ -210,19 +209,21 @@ internal static class Program
                 "client locally mutated a host-only value while read-only Trail was selected");
             vm.SelectedPreset = 1;
             Check(vm.HostValue == AuthoritativeTrailSentinel,
-                "client preset changed the Trail-owned host property");
-            Check(vm.ClientValue == 222 && vm.LocalValue == 322,
-                "client preset did not apply personal settings inside the Trail context");
+                "read-only Trail selection changed the authoritative host property");
+            Check(vm.ClientValue == 233 && vm.LocalValue == 333,
+                "read-only Trail selection changed personal settings");
             vm.SelectedPreset = 0;
             Check(vm.HostValue == AuthoritativeTrailSentinel && vm.ClientValue == 233 && vm.LocalValue == 333,
-                "client could not switch between personal presets inside the Trail context");
+                "read-only Trail allowed switching to normal working settings");
             vm.SelectedPreset = 2;
             Check(vm.HostValue == AuthoritativeTrailSentinel && vm.ClientValue == 233 && vm.LocalValue == 333,
                 "restoring the Trail preset lost authoritative host state or changed personal client settings");
             vm.ClientValue = 244;
             vm.LocalValue = 344;
+            Check(vm.ClientValue == 233 && vm.LocalValue == 333,
+                "read-only Trail accepted personal setting edits");
             AssertNoSentinel(settingsPath, TrailSentinel);
-            AssertStoredHostValues(settingsPath, 111, 111, 122);
+            AssertStoredHostValue(settingsPath, 122);
 
             vm.System_RefreshSettingsAccess();
             Check(vm.IsMissionPresetActive && !vm.CanEditHostSettings, "role refresh removed the Trail/client lock");
@@ -232,8 +233,8 @@ internal static class Program
             GameXAMLManagerAPI.Instance.ApplyNetworkSync(vm, () => vm.HostValue = RemoteSentinel + 2);
             vm.SelectedPreset = 1;
             Check(vm.HostValue == RemoteSentinel + 2, "client preset changed a host property");
-            Check(vm.ClientValue == 222, "client preset did not apply its personal snapshot");
-            Check(vm.LocalValue == 322, "client preset did not apply its preset-local snapshot");
+            Check(vm.ClientValue == 233, "normal working client value changed unexpectedly");
+            Check(vm.LocalValue == 333, "normal working local value changed unexpectedly");
 
             var compound = new CompoundViewModel();
             int originalMinimum = compound.Minimum;
@@ -261,15 +262,10 @@ internal static class Program
                 new Dictionary<string, byte[]> { [nameof(vm.HostValue)] = MessagePackSerializer.Serialize(TrailSentinel) },
                 "Trail",
                 editable: false);
-            AssertState(vm, host: true, mission: true, editable: false, false, true, true, "host read-only Trail");
+            AssertState(vm, host: true, mission: true, editable: false, false, false, false, "host read-only Trail");
             vm.SelectedPreset = 0;
-            Check(vm.IsMissionPresetActive && vm.CanEditHostSettings,
-                "local preset remained locked inside the Trail context");
-            Check(vm.SelectedPreset == 0 && vm.HostValue == 111 && vm.ClientValue == 244 && vm.LocalValue == 344,
-                "local preset was not applied inside the read-only Trail context");
-            vm.SelectedPreset = 2;
-            Check(vm.SelectedPreset == 2 && vm.HostValue == TrailSentinel,
-                "Trail preset could not be restored after selecting a local preset");
+            Check(vm.IsMissionPresetActive && !vm.CanEditHostSettings && vm.HostValue == TrailSentinel,
+                "read-only Trail allowed switching to normal working settings");
             vm.System_ExitMissionPreset();
             vm.System_EnterMissionPreset(
                 new Dictionary<string, byte[]> { [nameof(vm.HostValue)] = MessagePackSerializer.Serialize(TrailSentinel) },
@@ -309,7 +305,7 @@ internal static class Program
                 new Dictionary<string, byte[]> { [nameof(singleplayer.HostValue)] = MessagePackSerializer.Serialize(TrailSentinel) },
                 "Trail",
                 editable: false);
-            AssertState(singleplayer, host: true, mission: true, editable: false, false, true, true, "singleplayer Trail selected");
+            AssertState(singleplayer, host: true, mission: true, editable: false, false, false, false, "singleplayer Trail selected");
             Check(singleplayer.HostReadOnlyNoticeVisibility == Noesis.Visibility.Collapsed,
                 "singleplayer displayed the multiplayer host-read-only notice");
             Check(singleplayer.ActionsScopeNoticeVisibility == Noesis.Visibility.Collapsed,
@@ -319,17 +315,14 @@ internal static class Program
                 "read-only Trail preset accepted a direct host-setting edit");
 
             singleplayer.SelectedPreset = 0;
-            Check(singleplayer.IsMissionPresetActive && singleplayer.CanEditHostSettings,
-                "local preset remained locked inside the singleplayer Trail context");
+            Check(singleplayer.IsMissionPresetActive && !singleplayer.CanEditHostSettings,
+                "singleplayer read-only Trail allowed switching to normal working settings");
             singleplayer.HostValue = 522;
-            Check(singleplayer.HostValue == 522,
-                "singleplayer local preset rejected an editable host setting");
-            singleplayer.SelectedPreset = 2;
-            Check(!singleplayer.CanEditHostSettings && singleplayer.HostValue == TrailSentinel,
-                "returning to Trail did not restore and lock the Trail snapshot");
-            singleplayer.SelectedPreset = 0;
-            Check(singleplayer.CanEditHostSettings && singleplayer.HostValue == 522,
-                "edited singleplayer preset was not persisted across a Trail round-trip");
+            Check(singleplayer.HostValue == TrailSentinel,
+                "singleplayer read-only Trail accepted an edit after a selection attempt");
+            singleplayer.System_ExitMissionPreset();
+            Check(singleplayer.CanEditHostSettings && singleplayer.HostValue == 511,
+                "leaving the singleplayer Trail did not restore normal working settings");
 
             GameNetworkAPI.MultiplayerGame = true;
 
@@ -1881,19 +1874,6 @@ internal static class Program
         setting.EnableAbruptHostMigrationFix = false;
         setting.EnableReturnToMultiplayerLobby = false;
         setting.AllowFullAiMultiplayerLobby = false;
-        setting.SelectedPreset = 1;
-        Check(setting.EnableAiFixes, "new shared preset did not retain the EnableAiFixes default true value");
-        Check(setting.EnableSurrenderAndStatistics, "new shared preset did not retain the default true value");
-        Check(setting.EnableLordUnitControls, "new shared preset did not retain the Lord-controls default true value");
-        Check(setting.EnableEliminatedPlayersBecomeSpectators,
-            "new shared preset did not retain the spectator-promotion default true value");
-        Check(setting.EnableAbruptHostMigrationFix,
-            "new shared preset did not retain the abrupt host-migration default true value");
-        Check(setting.EnableReturnToMultiplayerLobby,
-            "new shared preset did not retain the lobby-return default true value");
-        Check(setting.AllowFullAiMultiplayerLobby,
-            "new shared preset did not retain the full-AI-lobby default true value");
-        setting.SelectedPreset = 0;
         Check(!setting.EnableAiFixes, "EnableAiFixes did not round-trip through presets");
         Check(!setting.EnableSurrenderAndStatistics, "shared host value did not round-trip through presets");
         Check(!setting.EnableLordUnitControls, "Lord-controls host value did not round-trip through presets");
@@ -1909,12 +1889,12 @@ internal static class Program
         Dictionary<string, byte[]> stalePayload =
             MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(settingsPath));
         Dictionary<string, byte[]> stalePreset =
-            MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(stalePayload["__SerpPreset1"]);
-        // Keep this migration fixture independent from the preceding live preset-switch checks.
+            MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(stalePayload["__SerpCurrentSettings"]);
+        // Keep this stale-property fixture independent from the preceding live working-state checks.
         stalePreset[nameof(setting.EnableAiFixes)] = MessagePackSerializer.Serialize(false);
         stalePreset[nameof(setting.EnableSurrenderAndStatistics)] = MessagePackSerializer.Serialize(false);
         stalePreset["EnableCustomLordExtendedPackages"] = MessagePackSerializer.Serialize(true);
-        stalePayload["__SerpPreset1"] = MessagePackSerializer.Serialize(stalePreset);
+        stalePayload["__SerpCurrentSettings"] = MessagePackSerializer.Serialize(stalePreset);
         File.WriteAllBytes(settingsPath, MessagePackSerializer.Serialize(stalePayload));
         bool storedAiFixes = MessagePackSerializer.Deserialize<bool>(stalePreset[nameof(setting.EnableAiFixes)]);
         bool storedSurrender = MessagePackSerializer.Deserialize<bool>(stalePreset[nameof(setting.EnableSurrenderAndStatistics)]);
@@ -4355,26 +4335,19 @@ internal static class Program
 
         int[] hd = MarketGoodsOrderDefinition.CreateHdOrder();
         int[] preset1 = MarketGoodsOrderDefinition.SwapGoodWithNeighbor(hd, hd[2], 1);
-        int[] preset2 = MarketGoodsOrderDefinition.SwapGoodWithNeighbor(hd, hd[10], -1);
 
         var first = new MarketOrderPresetViewModel();
         first.PreparePresets(null, pluginPath, "MarketOrderPresetTest");
         first.ActivatePresets();
         first.Order = preset1;
-        first.SelectedPreset = 1;
-        first.Order = preset2;
-        first.SelectedPreset = 0;
         Check(MarketGoodsOrderDefinition.AreEqual(first.Order, preset1),
-            "preset 1 did not restore its market order");
+            "editable working state did not retain its market order");
 
         var restored = new MarketOrderPresetViewModel();
         restored.PreparePresets(null, pluginPath, "MarketOrderPresetTest");
         restored.ActivatePresets();
         Check(MarketGoodsOrderDefinition.AreEqual(restored.Order, preset1),
-            "persisted preset 1 market order did not survive restart");
-        restored.SelectedPreset = 1;
-        Check(MarketGoodsOrderDefinition.AreEqual(restored.Order, preset2),
-            "persisted preset 2 market order did not survive restart");
+            "persisted working-state market order did not survive restart");
 
         int[] getterCopy = restored.Order;
         getterCopy[0] = 123456;
@@ -4397,18 +4370,13 @@ internal static class Program
         first.PreparePresets(null, pluginPath, "PresetLocalRoundTrip");
         first.ActivatePresets();
         first.LocalValue = 411;
-        first.SelectedPreset = 1;
         first.LocalValue = 422;
-        first.SelectedPreset = 0;
 
         var restored = new MixedViewModel();
         restored.PreparePresets(null, pluginPath, "PresetLocalRoundTrip");
         restored.ActivatePresets();
-        Check(restored.LocalValue == 411,
-            "PresetLocal value from preset 1 did not survive restart");
-        restored.SelectedPreset = 1;
         Check(restored.LocalValue == 422,
-            "PresetLocal value from preset 2 did not survive restart");
+            "PresetLocal working value did not survive restart");
 
         string castlePlannerPluginPath = Path.Combine(
             AppDomain.CurrentDomain.BaseDirectory,
@@ -4438,10 +4406,8 @@ internal static class Program
         castlePlanner.SpawnFortifications = false;
         castlePlanner.BlueprintShowFortifications = false;
         castlePlanner.BlueprintShowDefensiveGroundFeatures = false;
-        castlePlanner.SelectedPreset = 1;
         castlePlanner.BlueprintShowBuildings = false;
         castlePlanner.BlueprintShowFearFactorBuildings = false;
-        castlePlanner.SelectedPreset = 0;
 
         GameNetworkAPI.LocalHost = false;
         castlePlanner.System_RefreshSettingsAccess();
@@ -4450,9 +4416,9 @@ internal static class Program
         Check(castlePlanner.Blueprints &&
               !castlePlanner.SpawnFortifications &&
               !castlePlanner.BlueprintShowFortifications &&
-              castlePlanner.BlueprintShowBuildings &&
+              !castlePlanner.BlueprintShowBuildings &&
               !castlePlanner.BlueprintShowDefensiveGroundFeatures &&
-              castlePlanner.BlueprintShowFearFactorBuildings,
+              !castlePlanner.BlueprintShowFearFactorBuildings,
             "CastlePlanner local Blueprint filters changed during multiplayer role refresh");
 
         var restoredCastlePlanner = new CastlePlannerPresetProbeViewModel();
@@ -4464,16 +4430,10 @@ internal static class Program
         Check(restoredCastlePlanner.Blueprints &&
               !restoredCastlePlanner.SpawnFortifications &&
               !restoredCastlePlanner.BlueprintShowFortifications &&
-              restoredCastlePlanner.BlueprintShowBuildings &&
-              !restoredCastlePlanner.BlueprintShowDefensiveGroundFeatures &&
-              restoredCastlePlanner.BlueprintShowFearFactorBuildings,
-            "CastlePlanner Blueprint filters from preset 1 did not survive restart");
-        restoredCastlePlanner.SelectedPreset = 1;
-        Check(restoredCastlePlanner.BlueprintShowFortifications &&
               !restoredCastlePlanner.BlueprintShowBuildings &&
-              restoredCastlePlanner.BlueprintShowDefensiveGroundFeatures &&
+              !restoredCastlePlanner.BlueprintShowDefensiveGroundFeatures &&
               !restoredCastlePlanner.BlueprintShowFearFactorBuildings,
-            "CastlePlanner Blueprint filters from preset 2 did not survive restart");
+            "CastlePlanner Blueprint working values did not survive restart");
     }
 
     private static void TestDoNotPersistPresetExclusion()
@@ -4490,9 +4450,8 @@ internal static class Program
         var viewModel = new MixedViewModel();
         viewModel.PreparePresets(null, pluginPath, "DoNotPersistPreset");
         viewModel.ActivatePresets();
-        viewModel.SelectedPreset = 1;
+        viewModel.LocalValue = 734;
         viewModel.TransientHostValue = 733;
-        viewModel.SelectedPreset = 0;
 
         Dictionary<string, byte[]> disabledSnapshot = viewModel.System_CreateDisabledMissionPresetSnapshot();
         Check(!disabledSnapshot.ContainsKey(nameof(viewModel.TransientHostValue)),
@@ -4502,7 +4461,7 @@ internal static class Program
             File.ReadAllBytes(settingsPath));
         Check(!payload.ContainsKey(nameof(viewModel.TransientHostValue)),
             "DoNotPersist host value entered the top-level preset payload");
-        foreach (string key in new[] { "__SerpPreset1", "__SerpPreset2" })
+        foreach (string key in new[] { "__SerpCurrentSettings" })
         {
             if (!payload.TryGetValue(key, out byte[] bytes))
                 continue;
@@ -4510,6 +4469,161 @@ internal static class Program
             Check(!preset.ContainsKey(nameof(viewModel.TransientHostValue)),
                 "DoNotPersist host value entered " + key);
         }
+    }
+
+    private static void TestPersonalBundledExternalPresetSaveLoad()
+    {
+        const string modName = "PresetCatalogProbe";
+        const string targetGuid = "Tests.PresetCatalogProbe";
+        string root = Path.Combine(Path.GetTempPath(), "PresetCatalogProbe-" + Guid.NewGuid().ToString("N"));
+        string pluginPath = Path.Combine(root, "Probe.dll");
+        string personalDirectory = Path.Combine(root, "LobbyModSettings", "Presets", "Override", targetGuid);
+        string bundledDirectory = Path.Combine(root, "Override", targetGuid);
+        string externalRoot = Path.Combine(root, "ExternalProvider");
+        string externalDirectory = Path.Combine(externalRoot, "Override", targetGuid);
+        Directory.CreateDirectory(personalDirectory);
+        Directory.CreateDirectory(bundledDirectory);
+        Directory.CreateDirectory(externalDirectory);
+        GameAssetModManager.RegisteredAssetDirectories.Clear();
+        GameAssetModManager.RegisteredAssetDirectories.Add(new KeyValuePair<ModInfo, string>(
+            new ModInfo { GUID = "Tests.ExternalProvider", Name = "External Provider" },
+            externalRoot));
+        try
+        {
+            bool rejectedUnsafeTarget = false;
+            try
+            {
+                var unsafeTarget = new MixedViewModel();
+                unsafeTarget.PreparePresets(
+                    null,
+                    pluginPath,
+                    modName,
+                    "..",
+                    new Version(1, 0, 0));
+            }
+            catch (InvalidDataException)
+            {
+                rejectedUnsafeTarget = true;
+            }
+            Check(rejectedUnsafeTarget,
+                "preset preparation accepted an unsafe target GUID before building personal paths");
+
+            WritePreset(Path.Combine(personalDirectory, "preset_personal.json"), targetGuid, "personal", "Same name", 501);
+            WritePreset(Path.Combine(bundledDirectory, "preset_bundled.json"), targetGuid, "bundled", "Same name", 502);
+            var externalSettings = new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal)
+            {
+                [nameof(MixedViewModel.HostValue)] = new PublishedPresetSetting { Mode = PublishedPresetValueMode.Fixed, Value = 503L },
+                [nameof(MixedViewModel.ClientValue)] = new PublishedPresetSetting { Mode = PublishedPresetValueMode.Player },
+                [nameof(MixedViewModel.LocalValue)] = new PublishedPresetSetting { Mode = PublishedPresetValueMode.ModDefault },
+            };
+            string externalPath = Path.Combine(externalDirectory, "preset_external.json");
+            File.WriteAllText(externalPath,
+                ModSettingsPresetJson.Serialize(targetGuid, "external", "Same name", "", "", "", externalSettings));
+
+            GameNetworkAPI.LocalHost = true;
+            var vm = new MixedViewModel();
+            vm.PreparePresets(null, pluginPath, modName);
+            vm.ActivatePresets();
+            PublishedModSettingsPreset[] catalog = vm.System_TestPublishedPresets.ToArray();
+            Check(catalog.Length == 3 && catalog.Select(item => item.SourceKind).Distinct().Count() == 3,
+                "personal, bundled and external presets were not discovered as separate sources");
+            Check(catalog.Select(item => item.StableId).Distinct(StringComparer.Ordinal).Count() == 3,
+                "same-name presets did not receive distinct stable identities");
+            Check(catalog.Single(item => item.SourceKind == ModSettingsPresetSourceKind.Personal).CanOverwrite &&
+                  catalog.Where(item => item.SourceKind != ModSettingsPresetSourceKind.Personal).All(item => !item.CanOverwrite),
+                "non-personal preset source was exposed as overwriteable");
+
+            vm.ClientValue = 611;
+            vm.LocalValue = 612;
+            PublishedModSettingsPreset external = catalog.Single(item => item.SourceKind == ModSettingsPresetSourceKind.External);
+            vm.System_TestLoadPreset(external.StableId);
+            Check(vm.HostValue == 503 && vm.ClientValue == 611 && vm.LocalValue == 301,
+                "fixed/player/default load modes did not materialize the editable working state");
+            vm.HostValue = 504;
+            Dictionary<string, byte[]> payload = MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(
+                File.ReadAllBytes(Path.Combine(root, "LobbyModSettings", modName + ".msgpack")));
+            Check(MessagePackSerializer.Deserialize<bool>(payload["__SerpPresetDirty"]),
+                "editing loaded values did not persist the modified state");
+
+            string personalCopy = vm.System_SavePersonalPreset(
+                "external-copy",
+                "Same name",
+                "personal copy",
+                new[] { new PresetSaveSelection { PropertyName = nameof(MixedViewModel.HostValue), Mode = PublishedPresetValueMode.Fixed } },
+                overwrite: false);
+            PublishedModSettingsPreset unchangedExternal = ModSettingsPresetJson.Parse(
+                File.ReadAllText(externalPath), "Tests.ExternalProvider", "External Provider", targetGuid, externalPath);
+            Check(File.Exists(personalCopy) && unchangedExternal.Id == "external" && unchangedExternal.Settings.Count == 3,
+                "saving an external preset did not create an independent personal file");
+            Check(vm.System_TestPublishedPresets.Count == 4 &&
+                  vm.System_TestPublishedPresets.Count(item => item.Name == "Same name") == 4,
+                "catalog did not refresh immediately or rejected duplicate display names");
+
+            bool refusedUnconfirmedOverwrite = false;
+            try
+            {
+                vm.System_SavePersonalPreset(
+                    "external-copy",
+                    "Same name",
+                    "unconfirmed replacement",
+                    new[] { new PresetSaveSelection { PropertyName = nameof(MixedViewModel.HostValue), Mode = PublishedPresetValueMode.Fixed } },
+                    overwrite: false);
+            }
+            catch (PresetSaveFileExistsException)
+            {
+                refusedUnconfirmedOverwrite = true;
+            }
+            Check(refusedUnconfirmedOverwrite,
+                "an existing personal preset was overwritten without explicit confirmation");
+            vm.HostValue = 505;
+            vm.System_SavePersonalPreset(
+                "external-copy",
+                "Same name",
+                "confirmed replacement",
+                new[] { new PresetSaveSelection { PropertyName = nameof(MixedViewModel.HostValue), Mode = PublishedPresetValueMode.Fixed } },
+                overwrite: true);
+            PublishedModSettingsPreset overwrittenPersonal = ModSettingsPresetJson.Parse(
+                File.ReadAllText(personalCopy), "personal:" + targetGuid, "Personal", targetGuid, personalCopy);
+            PublishedModSettingsPreset stillUnchangedExternal = ModSettingsPresetJson.Parse(
+                File.ReadAllText(externalPath), "Tests.ExternalProvider", "External Provider", targetGuid, externalPath);
+            Check(overwrittenPersonal.Description == "confirmed replacement" &&
+                  Convert.ToInt64(overwrittenPersonal.Settings[nameof(MixedViewModel.HostValue)].Value) == 505L &&
+                  stillUnchangedExternal.Settings.Count == 3,
+                "confirmed personal overwrite changed the wrong source or did not replace the personal file");
+
+            vm.System_EnterMissionPreset(
+                new Dictionary<string, byte[]> { [nameof(MixedViewModel.HostValue)] = MessagePackSerializer.Serialize(900) },
+                "Trail",
+                editable: true);
+            vm.System_TestLoadPreset(external.StableId);
+            Check(vm.HostValue == 503 && vm.ClientValue == 611 && vm.LocalValue == 301,
+                "Customize load did not resolve player values from the suspended normal working state");
+            vm.HostValue = 777;
+            vm.System_TestRestoreMissionPreset();
+            Check(vm.HostValue == 900 && vm.ClientValue == 611 && vm.LocalValue == 301,
+                "restoring the Trail preset did not recover the original Customize snapshot");
+            vm.System_ExitMissionPreset();
+            Check(vm.HostValue == 505 && vm.ClientValue == 611 && vm.LocalValue == 301,
+                "leaving Customize did not restore the normal working values and edits");
+        }
+        finally
+        {
+            GameAssetModManager.RegisteredAssetDirectories.Clear();
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
+    }
+
+    private static void WritePreset(string path, string targetGuid, string id, string name, int hostValue)
+    {
+        var settings = new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal)
+        {
+            [nameof(MixedViewModel.HostValue)] = new PublishedPresetSetting
+            {
+                Mode = PublishedPresetValueMode.Fixed,
+                Value = (long)hostValue,
+            },
+        };
+        File.WriteAllText(path, ModSettingsPresetJson.Serialize(targetGuid, id, name, "", "", "", settings));
     }
 
     private static void TestCastlePlannerBlueprintHudPolicies()
@@ -4623,7 +4737,7 @@ internal static class Program
         Check(vm.IsMissionPresetActive == mission, context + ": mission state");
         Check(vm.MissionPresetEditable == editable, context + ": editable state");
         Check(vm.CanEditHostSettings == canEditHost, context + ": host editability");
-        Check(vm.CanEditClientSettings, context + ": client editability");
+        Check(vm.CanEditClientSettings == (!mission || editable), context + ": client editability");
         Check(vm.CanResetSettings == canReset, context + ": reset availability");
         Check(vm.CanChangePreset == canChangePreset, context + ": preset availability");
     }
@@ -4632,19 +4746,22 @@ internal static class Program
     {
         Dictionary<string, byte[]> payload = MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(path));
         Check(!ContainsInt(payload, sentinel), "sentinel appeared in top-level msgpack");
-        foreach (string key in new[] { "__SerpPreset1", "__SerpPreset2" })
+        foreach (string key in new[] { "__SerpCurrentSettings" })
         {
             if (payload.TryGetValue(key, out byte[] bytes))
                 Check(!ContainsInt(MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(bytes), sentinel), "sentinel appeared in " + key);
         }
     }
 
-    private static void AssertStoredHostValues(string path, int top, int preset1, int preset2)
+    private static void AssertStoredHostValue(string path, int expected)
     {
         Dictionary<string, byte[]> payload = MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(File.ReadAllBytes(path));
-        Check(ReadInt(payload, nameof(MixedViewModel.HostValue)) == top, "top-level local host value was not preserved");
-        Check(ReadInt(MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(payload["__SerpPreset1"]), nameof(MixedViewModel.HostValue)) == preset1, "preset 1 host value changed");
-        Check(ReadInt(MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(payload["__SerpPreset2"]), nameof(MixedViewModel.HostValue)) == preset2, "preset 2 host value changed");
+        Check(ReadInt(payload, nameof(MixedViewModel.HostValue)) == expected,
+            "top-level local host working value was not preserved");
+        Check(ReadInt(
+                MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(payload["__SerpCurrentSettings"]),
+                nameof(MixedViewModel.HostValue)) == expected,
+            "nested local host working value changed");
     }
 
     private static bool ContainsInt(Dictionary<string, byte[]> values, int sentinel) =>
@@ -5469,10 +5586,10 @@ internal sealed class MixedViewModel : PresetLobbyModSettingsViewModel
     public string HostValueText => HostValue.ToString();
 
     [SyncPerPlayer]
-    public int ClientValue { get => clientValue; set { if (clientValue == value) return; clientValue = value; OnPropertyChanged(nameof(ClientValue)); } }
+    public int ClientValue { get => clientValue; set { if (!CanMutateSetting(nameof(ClientValue)) || clientValue == value) return; clientValue = value; OnPropertyChanged(nameof(ClientValue)); } }
 
     [PresetLocal]
-    public int LocalValue { get => localValue; set { if (localValue == value) return; localValue = value; OnPropertyChanged(nameof(LocalValue)); } }
+    public int LocalValue { get => localValue; set { if (!CanMutateSetting(nameof(LocalValue)) || localValue == value) return; localValue = value; OnPropertyChanged(nameof(LocalValue)); } }
 
     [SyncHostOnly, DoNotPersist]
     public int TransientHostValue
@@ -6201,8 +6318,11 @@ namespace SHCDESE.API.Components.ModManager
     {
         public static GameAssetModManager Instance { get; } = new GameAssetModManager();
 
+        public static List<KeyValuePair<ModInfo, string>> RegisteredAssetDirectories { get; } =
+            new List<KeyValuePair<ModInfo, string>>();
+
         public IEnumerable<KeyValuePair<ModInfo, string>> GetRegisteredAssetDirectories() =>
-            Array.Empty<KeyValuePair<ModInfo, string>>();
+            RegisteredAssetDirectories;
     }
 }
 

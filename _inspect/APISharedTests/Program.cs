@@ -41,7 +41,7 @@ namespace APISharedTests
             TestPublicSurface();
             TestPublishedPresetJson();
             TestPublishedPresetDiscovery();
-            TestPresetExportUiModel();
+            TestPresetSaveUiModel();
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestLobbyStateCapability();
@@ -183,7 +183,9 @@ namespace APISharedTests
             string root = Path.Combine(Path.GetTempPath(), "APISharedPresetDiscovery-" + Guid.NewGuid().ToString("N"));
             string target = "APISharedTests.Target." + Guid.NewGuid().ToString("N");
             string directory = Path.Combine(root, "Override", target);
+            string personalDirectory = Path.Combine(root, "LobbyModSettings", "Presets", "Override", target);
             Directory.CreateDirectory(directory);
+            Directory.CreateDirectory(personalDirectory);
             try
             {
                 Func<string, string, string, string> create = (id, name, minimum) =>
@@ -206,17 +208,30 @@ namespace APISharedTests
                 File.WriteAllText(Path.Combine(directory, "preset_future.json"), create("future", "Future", "9.0.0"));
                 File.WriteAllText(Path.Combine(directory, "preset_duplicate-a.json"), create("duplicate", "Duplicate A", string.Empty));
                 File.WriteAllText(Path.Combine(directory, "preset_duplicate-b.json"), create("duplicate", "Duplicate B", string.Empty));
+                File.WriteAllText(Path.Combine(personalDirectory, "preset_personal.json"), create("personal", "Valid", string.Empty));
 
                 IReadOnlyList<PublishedModSettingsPreset> discovered = ModSettingsPresetCatalog.Discover(
                     target,
                     new Version(2, 0, 0),
                     root,
                     log: null);
-                Assert(discovered.Count == 1 && discovered[0].Id == "valid",
-                    "preset discovery accepts compatible direct files while rejecting version mismatches and all duplicate IDs");
+                Assert(discovered.Count == 2 && discovered.Any(item => item.Id == "valid" &&
+                        item.SourceKind == ModSettingsPresetSourceKind.Bundled && !item.CanOverwrite) &&
+                        discovered.Any(item => item.Id == "personal" &&
+                        item.SourceKind == ModSettingsPresetSourceKind.Personal && item.CanOverwrite),
+                    "preset discovery did not separate compatible bundled and personal files or reject invalid duplicates");
+                Assert(discovered.Select(item => item.StableId).Distinct(StringComparer.Ordinal).Count() == 2 &&
+                        discovered.All(item => item.Name == "Valid"),
+                    "same-name source entries did not retain distinct stable identities");
                 AssertThrows<InvalidDataException>(
                     () => ModSettingsPresetCatalog.Discover("..", new Version(1, 0), root, null),
                     "preset discovery must reject unsafe target GUID path segments");
+                AssertThrows<InvalidDataException>(
+                    () => ModSettingsPresetCatalog.ValidatePersonalWritePath(
+                        root,
+                        personalDirectory,
+                        Path.Combine(personalDirectory, "..", "escaped.json")),
+                    "personal preset writes must not escape their target directory");
             }
             finally
             {
@@ -224,15 +239,15 @@ namespace APISharedTests
             }
         }
 
-        private static void TestPresetExportUiModel()
+        private static void TestPresetSaveUiModel()
         {
-            var viewModel = new PresetExportTestViewModel();
+            var viewModel = new PresetSaveTestViewModel();
             Assert(viewModel.HostOptionsText == "HOST OPTIONS",
                 "an unresolved settings localization key must use the APIShared fallback");
             Assert(viewModel.ClientOptionsText == "Translated client options",
                 "a resolved settings localization value must win over the APIShared fallback");
-            Assert(viewModel.System_PresetExportBulkModeIndex == (int)PublishedPresetValueMode.Fixed,
-                "an empty preset-export list must report the safe fixed default, not mixed");
+            Assert(viewModel.System_PresetSaveBulkModeIndex == (int)PublishedPresetValueMode.Fixed,
+                "an empty preset-save list must report the safe fixed default, not mixed");
 
             PresetSettingDescriptor CreateDescriptor(string name, PresetSettingScope scope)
             {
@@ -246,40 +261,40 @@ namespace APISharedTests
                 return descriptor;
             }
 
-            var first = new PresetExportSettingViewModel(
+            var first = new PresetSaveSettingViewModel(
                 CreateDescriptor("First", PresetSettingScope.Host),
                 "Host",
                 new[] { "Default", "Player", "Fixed" }) { IsSelected = true };
-            var second = new PresetExportSettingViewModel(
+            var second = new PresetSaveSettingViewModel(
                 CreateDescriptor("Second", PresetSettingScope.Local),
                 "Local",
                 new[] { "Default", "Player", "Fixed" }) { IsSelected = false };
             MethodInfo changedMethod = typeof(PresetLobbyModSettingsViewModel).GetMethod(
-                "OnPresetExportSettingPropertyChanged",
+                "OnPresetSaveSettingPropertyChanged",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             first.PropertyChanged += (PropertyChangedEventHandler)Delegate.CreateDelegate(
                 typeof(PropertyChangedEventHandler), viewModel, changedMethod);
             second.PropertyChanged += (PropertyChangedEventHandler)Delegate.CreateDelegate(
                 typeof(PropertyChangedEventHandler), viewModel, changedMethod);
-            viewModel.System_PresetExportSettings.Add(first);
-            viewModel.System_PresetExportSettings.Add(second);
+            viewModel.System_PresetSaveSettings.Add(first);
+            viewModel.System_PresetSaveSettings.Add(second);
 
             bool bulkChanged = false;
             viewModel.PropertyChanged += (_, args) =>
-                bulkChanged |= args.PropertyName == nameof(viewModel.System_PresetExportBulkModeIndex);
-            viewModel.System_PresetExportBulkModeIndex = (int)PublishedPresetValueMode.Player;
+                bulkChanged |= args.PropertyName == nameof(viewModel.System_PresetSaveBulkModeIndex);
+            viewModel.System_PresetSaveBulkModeIndex = (int)PublishedPresetValueMode.Player;
             Assert(first.SelectedModeIndex == (int)PublishedPresetValueMode.Player &&
                 second.SelectedModeIndex == (int)PublishedPresetValueMode.Player,
-                "the preset-export bulk mode must update every displayed row");
+                "the preset-save bulk mode must update every displayed row");
             Assert(first.IsSelected && !second.IsSelected,
-                "the preset-export bulk mode must not change inclusion checkboxes");
-            Assert(viewModel.System_PresetExportBulkModeIndex == (int)PublishedPresetValueMode.Player,
-                "uniform preset-export rows must report their common bulk mode");
+                "the preset-save bulk mode must not change inclusion checkboxes");
+            Assert(viewModel.System_PresetSaveBulkModeIndex == (int)PublishedPresetValueMode.Player,
+                "uniform preset-save rows must report their common bulk mode");
 
             bulkChanged = false;
             second.SelectedModeIndex = (int)PublishedPresetValueMode.Fixed;
-            Assert(viewModel.System_PresetExportBulkModeIndex == 3 && bulkChanged,
-                "an individual preset-export mode change must publish the mixed bulk state");
+            Assert(viewModel.System_PresetSaveBulkModeIndex == 3 && bulkChanged,
+                "an individual preset-save mode change must publish the mixed bulk state");
             string presetSource = File.ReadAllText(Path.Combine(
                 FindWorkspaceRoot(),
                 "APIShared",
@@ -287,7 +302,7 @@ namespace APISharedTests
                 "PresetLobbyModSettingsViewModel.cs"));
             Assert(presetSource.Contains("Common.PresetModeMixed") &&
                 presetSource.Contains("IsEnabled = false"),
-                "the mixed preset-export option must be visible but not selectable");
+                "the mixed preset-save option must be visible but not selectable");
         }
 
         private static void TestCompiledPatternSearch()
@@ -1064,8 +1079,11 @@ namespace APISharedTests
                 "Shared.PublishedPresetValueMode",
                 "Shared.PresetSettingScope",
                 "Shared.PresetSettingDescriptor",
-                "Shared.PresetExportSelection",
-                "Shared.PresetExportSettingViewModel",
+                "Shared.PresetSaveSelection",
+                "Shared.PresetSaveSettingViewModel",
+                "Shared.ModSettingsPresetSourceKind",
+                "Shared.ModSettingsPresetListEntry",
+                "Shared.ModSettingsPresetSaveTarget",
                 "Shared.PublishedPresetSetting",
                 "Shared.PublishedModSettingsPreset",
                 "Shared.ModSettingsPresetJson",
@@ -1982,7 +2000,7 @@ namespace APISharedTests
             }
         }
 
-        private sealed class PresetExportTestViewModel : PresetLobbyModSettingsViewModel
+        private sealed class PresetSaveTestViewModel : PresetLobbyModSettingsViewModel
         {
             protected override string ResolveSettingsUiText(string key, string fallback) =>
                 key == "Common.ClientOptions" ? "Translated client options" : key;
