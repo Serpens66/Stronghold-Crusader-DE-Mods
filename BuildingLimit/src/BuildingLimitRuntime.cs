@@ -83,7 +83,7 @@ namespace BuildingLimit
                 .Subscribe(OnBuildingPlacementValidation));
 
             TrySubscribeFeature("gameplay session start", () =>
-                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted));
+                Shared.GameplaySessionLifecycle.SubscribeStarted(log, OnSessionStarted, () => OnUnloadMap(null)));
 
             TrySubscribeFeature("map unload", () => Shared.MissionEvents.Ended
                 .Subscribe(OnUnloadMap));

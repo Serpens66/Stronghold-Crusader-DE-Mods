@@ -3,8 +3,8 @@
   "database": {
     "path": "sem/FBCB9319/CrusaderDE-semantic.sqlite",
     "schemaVersion": 4,
-    "referenceSize": 154755072,
-    "referenceSha256": "B06893BD1B0B84EC6DE142E5867E516901CC641E647C1B5BDFF69924ABD43D8C",
+    "referenceSize": 154763264,
+    "referenceSha256": "B2D789D39BF8B4C335BDA34688318A8AF70E956EB1FF51E717E0B18970A7C173",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
@@ -44,9 +44,9 @@
     "counts": {
       "binaries": 3,
       "functions": 8954,
-      "function_claims": 26,
-      "claim_evidence": 55,
-      "hook_spans": 3,
+      "function_claims": 27,
+      "claim_evidence": 57,
+      "hook_spans": 4,
       "api_contracts": 0,
       "chore_opcodes": 43,
       "chore_contracts": 8,
@@ -112,13 +112,13 @@
     },
     {
       "path": "sem/FBCB9319/knowledge/function-claims.jsonl",
-      "sha256": "C8B8FB68B5628E9E60919964E64617B97A76621F97D6BA0E668889536DA56540",
-      "bytes": 42833
+      "sha256": "822D137A600C2F947E49DAC92E8CBD59D1B9E8BBF99768D5EA8168106B4EB4CE",
+      "bytes": 44926
     },
     {
       "path": "sem/FBCB9319/knowledge/hook-spans.jsonl",
-      "sha256": "42A48B7E2B05BDC0BE09715D4A379C6229D6B5A6F6A5D0816802269E8663BCF6",
-      "bytes": 2923
+      "sha256": "49ADE06CA84046C0F131009889BD2B7E18791F26380CA6F58E62819B934853C9",
+      "bytes": 4097
     },
     {
       "path": "sem/FBCB9319/knowledge/api-contracts.jsonl",

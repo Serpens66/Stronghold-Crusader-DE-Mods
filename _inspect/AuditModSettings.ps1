@@ -1039,6 +1039,8 @@ foreach ($required in @(
 }
 
 $hostSearchSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/ModSettingsSearchViewModel.cs'))
+$hostDiagnosticsSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/SerpsModsDiagnosticsViewModel.cs'))
+$hostResetPolicySource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/GlobalSettingsResetPolicy.cs'))
 $hostSettingsXaml = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/Override/ScriptExtenderUI/SerpsModsStatus.xaml'))
 $hostPluginSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/src/SerpsModsHostPlugin.cs'))
 $hostBuildSource = [IO.File]::ReadAllText((Join-Path $workspace 'SerpsModsHost/build.bat'))
@@ -1057,10 +1059,54 @@ foreach ($required in @(
     'ModSettingsSearch.Exclude="True"',
     'HorizontalScrollBarVisibility="Disabled"',
     'ToolTip="{Binding DisplayToolTip}"',
+    'Text="{Binding GlobalSettingsSourceText}"',
+    'ToolTip="{Binding GlobalSettingsSourceHelpText}"',
+    'IsEnabled="{Binding CanSelectGlobalSettingsSource}"',
+    'Command="{Binding LoadGlobalSettingsSourceCommand}"',
+    'Visibility="{Binding GlobalSettingsResetConfirmationVisibility}"',
+    'Command="{Binding ConfirmGlobalSettingsResetCommand}"',
+    'Command="{Binding CancelGlobalSettingsResetCommand}"',
+    'Visibility="{Binding GlobalSettingsResetSuccessVisibility}"',
+    'Visibility="{Binding GlobalSettingsResetErrorVisibility}"',
+    'Command="{Binding DismissGlobalSettingsResetStatusCommand}"',
     'diagnostics.SetSearch')) {
     if (-not ($hostSearchSource + $hostSettingsXaml + $hostPluginSource).Contains($required)) {
         throw "SerpsModsHost search implementation marker is missing: $required"
     }
+}
+foreach ($required in @(
+    'PropertyChanged += OnDiagnosticsPropertyChanged',
+    'nameof(IsLocalSettingsHost)',
+    'GlobalSettingsResetPolicy.CanReset(',
+    'endpoints.Any(IsReadOnlyMissionEndpoint)',
+    'ModSettingsWorkingSourceRegistry.ApplyMany(presetTargetGuids, source.Id)',
+    'GlobalSettingsResetPolicy.ApplyAtomically(',
+    'endpoint => endpoint.System_CreateCurrentWorkingSnapshot()',
+    '(endpoint, snapshot) => endpoint.System_ApplyWorkingSnapshot(snapshot)',
+    'globalResetConfirmationVisible = true',
+    'globalResetConfirmationVisible = false')) {
+    if (-not $hostDiagnosticsSource.Contains($required)) {
+        throw "SerpsModsHost reset implementation marker is missing: $required"
+    }
+}
+foreach ($required in @(
+    'targetCount > 0',
+    'snapshots.Add(',
+    'restore(snapshot.Key, snapshot.Value)',
+    'throw new AggregateException(')) {
+    if (-not $hostResetPolicySource.Contains($required)) {
+        throw "SerpsModsHost reset transaction marker is missing: $required"
+    }
+}
+$hostErrorsIndex = $hostSettingsXaml.IndexOf('Text="{Binding ErrorsText}"', [StringComparison]::Ordinal)
+$hostResetIndex = $hostSettingsXaml.IndexOf('Command="{Binding LoadGlobalSettingsSourceCommand}"', [StringComparison]::Ordinal)
+$hostSearchIndex = $hostSettingsXaml.IndexOf('x:Name="SerpsModSettingsSearchTextBox"', [StringComparison]::Ordinal)
+if ($hostErrorsIndex -lt 0 -or $hostResetIndex -le $hostErrorsIndex -or $hostSearchIndex -le $hostResetIndex) {
+    throw 'SerpsModsHost reset controls must follow the current error list and precede the settings search.'
+}
+if ($hostSettingsXaml.Contains('ToolTip="{Binding LoadGlobalSettingsSourceText}"') -or
+    $hostSettingsXaml.Contains('ToolTip="{Binding GlobalSettingsSourceText}"')) {
+    throw 'SerpsModsHost reset controls must use the explanatory reset tooltip instead of their short labels.'
 }
 if ($hostSearchSource.Contains('InvalidateAfterSelectedTabChange') -or
     $hostSearchSource.Contains('ResolveCurrentTarget') -or

@@ -26,13 +26,37 @@
         <Button Content="{Binding RefreshText}" Command="{Binding RefreshCommand}" Padding="10,3" Margin="0,0,8,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding RefreshHelpText}"/>
         <Button Content="{Binding ClearErrorsText}" Command="{Binding ClearErrorsCommand}" Padding="10,3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClearErrorsHelpText}"/>
       </StackPanel>
-      <StackPanel Orientation="Horizontal" Margin="0,0,0,12" shared:ModSettingsSearch.Exclude="True">
-        <TextBlock Text="{Binding GlobalSettingsSourceText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
-        <ComboBox ItemsSource="{Binding GlobalSettingsSources}" SelectedItem="{Binding SelectedGlobalSettingsSource, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsSourceText}" Width="260" Margin="8,0,0,0"/>
-        <Button IsEnabled="{Binding CanLoadGlobalSettingsSource}" Content="{Binding LoadGlobalSettingsSourceText}" Command="{Binding LoadGlobalSettingsSourceCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding LoadGlobalSettingsSourceText}" Padding="10,3" Margin="8,0,0,0"/>
-      </StackPanel>
         <TextBlock Text="{Binding ErrorsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
         <TextBlock Text="{Binding ErrorsText}" Foreground="#FFFF7777" TextWrapping="Wrap"/>
+        <StackPanel Margin="0,14,0,0" shared:ModSettingsSearch.Exclude="True">
+          <StackPanel Orientation="Horizontal" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsSourceHelpText}">
+            <TextBlock Text="{Binding GlobalSettingsSourceText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+            <ComboBox IsEnabled="{Binding CanSelectGlobalSettingsSource}" ItemsSource="{Binding GlobalSettingsSources}" SelectedItem="{Binding SelectedGlobalSettingsSource, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsSourceHelpText}" Width="260" Margin="8,0,0,0"/>
+            <Button IsEnabled="{Binding CanLoadGlobalSettingsSource}" Content="{Binding LoadGlobalSettingsSourceText}" Command="{Binding LoadGlobalSettingsSourceCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsSourceHelpText}" Padding="10,3" Margin="8,0,0,0"/>
+          </StackPanel>
+          <Border Visibility="{Binding GlobalSettingsResetConfirmationVisibility}" BorderBrush="#FFFFCC66" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
+            <StackPanel>
+              <TextBlock Text="{Binding GlobalSettingsResetConfirmationTitle}" Foreground="#FFFFCC66" FontWeight="Bold"/>
+              <TextBlock Text="{Binding GlobalSettingsResetConfirmationText}" Foreground="White" TextWrapping="Wrap" MaxWidth="700" Margin="0,4,0,0"/>
+              <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                <Button Content="{Binding GlobalSettingsResetConfirmText}" Command="{Binding ConfirmGlobalSettingsResetCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsResetConfirmationText}" Padding="10,3"/>
+                <Button Content="{Binding GlobalSettingsResetCancelText}" Command="{Binding CancelGlobalSettingsResetCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsResetCancelText}" Padding="10,3" Margin="8,0,0,0"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Visibility="{Binding GlobalSettingsResetSuccessVisibility}" BorderBrush="#FF77AAFF" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{Binding GlobalSettingsResetStatusText}" Foreground="White" TextWrapping="Wrap" MaxWidth="650"/>
+              <Button Content="{Binding GlobalSettingsResetDismissText}" Command="{Binding DismissGlobalSettingsResetStatusCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsResetDismissText}" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Top"/>
+            </StackPanel>
+          </Border>
+          <Border Visibility="{Binding GlobalSettingsResetErrorVisibility}" BorderBrush="#FFFF7777" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{Binding GlobalSettingsResetStatusText}" Foreground="#FFFFAAAA" TextWrapping="Wrap" MaxWidth="650"/>
+              <Button Content="{Binding GlobalSettingsResetDismissText}" Command="{Binding DismissGlobalSettingsResetStatusCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsResetDismissText}" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Top"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
         <Border shared:ModSettingsSearch.Exclude="True" Background="#33251D13" BorderBrush="#887B674B" BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,14,0,0">
           <StackPanel>
             <TextBlock Text="{Binding Search.SearchLabelText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,5"/>

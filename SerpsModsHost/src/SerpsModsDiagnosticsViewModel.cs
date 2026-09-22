@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Shared;
 using SHCDESE.API;
 using SHCDESE.API.Components.ModManager;
@@ -24,13 +25,21 @@ namespace SerpsModsHost
         private string[] presetTargetGuids = Array.Empty<string>();
         private readonly ObservableCollection<ModSettingsWorkingSource> globalSources = new ObservableCollection<ModSettingsWorkingSource>();
         private ModSettingsWorkingSource selectedGlobalSource;
+        private ModSettingsWorkingSource pendingGlobalSource;
+        private bool globalResetConfirmationVisible;
+        private string globalResetStatus = string.Empty;
+        private bool globalResetStatusIsError;
 
         public SerpsModsDiagnosticsViewModel()
         {
             RefreshCommand = new RelayCommand(() => refreshAction?.Invoke());
             ClearErrorsCommand = new RelayCommand(ClearErrors);
-            LoadGlobalSettingsSourceCommand = new RelayCommand(LoadGlobalSettingsSource);
+            LoadGlobalSettingsSourceCommand = new RelayCommand(RequestGlobalSettingsReset);
+            ConfirmGlobalSettingsResetCommand = new RelayCommand(ConfirmGlobalSettingsReset);
+            CancelGlobalSettingsResetCommand = new RelayCommand(CancelGlobalSettingsReset);
+            DismissGlobalSettingsResetStatusCommand = new RelayCommand(DismissGlobalSettingsResetStatus);
             ModSettingsWorkingSourceRegistry.SourcesChanged += RefreshGlobalSources;
+            PropertyChanged += OnDiagnosticsPropertyChanged;
             RefreshGlobalSources();
         }
 
@@ -40,15 +49,71 @@ namespace SerpsModsHost
         public RelayCommand RefreshCommand { get; }
         public RelayCommand ClearErrorsCommand { get; }
         public RelayCommand LoadGlobalSettingsSourceCommand { get; }
+        public RelayCommand ConfirmGlobalSettingsResetCommand { get; }
+        public RelayCommand CancelGlobalSettingsResetCommand { get; }
+        public RelayCommand DismissGlobalSettingsResetStatusCommand { get; }
         public ObservableCollection<ModSettingsWorkingSource> GlobalSettingsSources => globalSources;
         public ModSettingsWorkingSource SelectedGlobalSettingsSource
         {
             get => selectedGlobalSource;
-            set { selectedGlobalSource = value; OnPropertyChanged(nameof(SelectedGlobalSettingsSource)); OnPropertyChanged(nameof(CanLoadGlobalSettingsSource)); }
+            set
+            {
+                if (ReferenceEquals(selectedGlobalSource, value))
+                    return;
+                selectedGlobalSource = value;
+                CancelGlobalSettingsReset();
+                OnPropertyChanged(nameof(SelectedGlobalSettingsSource));
+                RaiseGlobalSettingsResetProperties();
+            }
         }
-        public bool CanLoadGlobalSettingsSource => IsLocalSettingsHost && selectedGlobalSource != null && presetTargetGuids.Length != 0;
-        public string GlobalSettingsSourceText => SerpLocalization.Get("Common.SettingsSource");
-        public string LoadGlobalSettingsSourceText => SerpLocalization.Get("Common.SettingsSourceLoad");
+        public bool CanLoadGlobalSettingsSource
+        {
+            get
+            {
+                IModSettingsWorkingCopyEndpoint[] endpoints = GetTargetEndpoints();
+                return GlobalSettingsResetPolicy.CanReset(
+                    globalResetConfirmationVisible,
+                    IsLocalSettingsHost,
+                    selectedGlobalSource != null,
+                    endpoints.Length,
+                    endpoints.Any(IsReadOnlyMissionEndpoint));
+            }
+        }
+        public bool CanSelectGlobalSettingsSource
+        {
+            get
+            {
+                IModSettingsWorkingCopyEndpoint[] endpoints = GetTargetEndpoints();
+                return GlobalSettingsResetPolicy.CanSelect(
+                    globalResetConfirmationVisible,
+                    IsLocalSettingsHost,
+                    endpoints.Length,
+                    endpoints.Any(IsReadOnlyMissionEndpoint));
+            }
+        }
+        public string GlobalSettingsSourceText => SerpLocalization.Get(SerpLocalization.SerpsModsResetSettingsTo);
+        public string LoadGlobalSettingsSourceText => SerpLocalization.Get(SerpLocalization.SerpsModsResetSettings);
+        public string GlobalSettingsSourceHelpText => SerpLocalization.Get(SerpLocalization.SerpsModsResetSettingsHelp);
+        public string GlobalSettingsResetConfirmationTitle => SerpLocalization.Get(SerpLocalization.SerpsModsResetSettingsConfirmTitle);
+        public string GlobalSettingsResetConfirmationText => SerpLocalization.Get(
+            SerpLocalization.SerpsModsResetSettingsConfirm,
+            "Source", pendingGlobalSource?.DisplayName ?? selectedGlobalSource?.DisplayName ?? string.Empty);
+        public string GlobalSettingsResetConfirmText => SerpLocalization.Get(SerpLocalization.SerpsModsResetSettingsConfirmButton);
+        public string GlobalSettingsResetCancelText => SerpLocalization.Get(SerpLocalization.SerpsModsResetSettingsCancelButton);
+        public Visibility GlobalSettingsResetConfirmationVisibility =>
+            globalResetConfirmationVisible ? Visibility.Visible : Visibility.Collapsed;
+        public string GlobalSettingsResetStatusText => globalResetStatus;
+        public Visibility GlobalSettingsResetStatusVisibility =>
+            string.IsNullOrWhiteSpace(globalResetStatus) ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility GlobalSettingsResetErrorVisibility =>
+            globalResetStatusIsError && !string.IsNullOrWhiteSpace(globalResetStatus)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        public Visibility GlobalSettingsResetSuccessVisibility =>
+            !globalResetStatusIsError && !string.IsNullOrWhiteSpace(globalResetStatus)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        public string GlobalSettingsResetDismissText => SerpLocalization.Get(SerpLocalization.SerpsModsResetSettingsDismiss);
         public ModSettingsSearchViewModel Search => search;
         public string TitleText => SerpLocalization.Get(SerpLocalization.SerpsModsStatusTitle);
         public string GameModeNoticeText => SerpLocalization.Get(SerpLocalization.SerpsModsGameModeNotice);
@@ -92,7 +157,7 @@ namespace SerpsModsHost
         public void SetPresetTargetGuids(IEnumerable<string> guids)
         {
             presetTargetGuids = (guids ?? Enumerable.Empty<string>()).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal).ToArray();
-            OnPropertyChanged(nameof(CanLoadGlobalSettingsSource));
+            RaiseGlobalSettingsResetProperties();
         }
 
         private void RefreshGlobalSources()
@@ -109,38 +174,117 @@ namespace SerpsModsHost
             selectedGlobalSource = globalSources.FirstOrDefault(item => string.Equals(item.Id, selectedId, StringComparison.Ordinal)) ?? globalSources.FirstOrDefault();
             OnPropertyChanged(nameof(GlobalSettingsSources));
             OnPropertyChanged(nameof(SelectedGlobalSettingsSource));
-            OnPropertyChanged(nameof(CanLoadGlobalSettingsSource));
+            CancelGlobalSettingsReset();
+            RaiseGlobalSettingsResetProperties();
         }
 
-        private void LoadGlobalSettingsSource()
+        private void RequestGlobalSettingsReset()
         {
-            if (!CanLoadGlobalSettingsSource) return;
+            if (!CanLoadGlobalSettingsSource)
+                return;
+            pendingGlobalSource = selectedGlobalSource;
+            globalResetConfirmationVisible = true;
+            DismissGlobalSettingsResetStatus();
+            RaiseGlobalSettingsResetProperties();
+        }
+
+        private void ConfirmGlobalSettingsReset()
+        {
+            ModSettingsWorkingSource source = pendingGlobalSource;
+            if (!globalResetConfirmationVisible || source == null)
+                return;
+
+            pendingGlobalSource = null;
+            globalResetConfirmationVisible = false;
             try
             {
-                if (!string.Equals(selectedGlobalSource.Id, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal))
+                IModSettingsWorkingCopyEndpoint[] endpoints = GetTargetEndpoints();
+                if (endpoints.Length == 0 || !IsLocalSettingsHost || endpoints.Any(IsReadOnlyMissionEndpoint))
+                    throw new InvalidOperationException("The shared ModSettings reset is not available in the current context.");
+
+                bool missionContext = endpoints.Any(endpoint => endpoint.IsMissionPresetActive);
+                if (missionContext || !string.Equals(source.Id, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal))
                 {
-                    ModSettingsWorkingSourceRegistry.ApplyMany(presetTargetGuids, selectedGlobalSource.Id);
-                    return;
+                    ModSettingsWorkingSourceRegistry.ApplyMany(presetTargetGuids, source.Id);
                 }
-                var endpoints = GameXAMLManagerAPI.Instance.RegisteredModSettings
-                    .Where(entry => entry?.Plugin?.Info?.Metadata != null && presetTargetGuids.Contains(entry.Plugin.Info.Metadata.GUID, StringComparer.Ordinal))
-                    .Select(entry => entry.ViewModel as IModSettingsWorkingCopyEndpoint)
-                    .Where(endpoint => endpoint != null)
-                    .Distinct()
-                    .ToArray();
-                var rollback = endpoints.ToDictionary(endpoint => endpoint, endpoint => endpoint.System_CreateCurrentWorkingSnapshot());
-                try
+                else
                 {
-                    foreach (IModSettingsWorkingCopyEndpoint endpoint in endpoints) endpoint.System_LoadModDefaults();
+                    GlobalSettingsResetPolicy.ApplyAtomically(
+                        endpoints,
+                        endpoint => endpoint.System_CreateCurrentWorkingSnapshot(),
+                        endpoint => endpoint.System_LoadModDefaults(),
+                        (endpoint, snapshot) => endpoint.System_ApplyWorkingSnapshot(snapshot));
                 }
-                catch
-                {
-                    foreach (KeyValuePair<IModSettingsWorkingCopyEndpoint, Dictionary<string, byte[]>> item in rollback)
-                        item.Key.System_ApplyWorkingSnapshot(item.Value);
-                    throw;
-                }
+
+                globalResetStatusIsError = false;
+                globalResetStatus = SerpLocalization.Get(
+                    SerpLocalization.SerpsModsResetSettingsCompleted,
+                    "Source", source.DisplayName ?? string.Empty);
             }
-            catch (Exception exception) { RecordError("Could not load the shared ModSettings source: " + exception.Message); }
+            catch (Exception exception)
+            {
+                globalResetStatusIsError = true;
+                globalResetStatus = SerpLocalization.Get(
+                    SerpLocalization.SerpsModsResetSettingsFailed,
+                    "Reason", exception.Message);
+                RecordError("Could not reset the shared ModSettings source: " + exception.Message);
+            }
+            RaiseGlobalSettingsResetProperties();
+        }
+
+        private void CancelGlobalSettingsReset()
+        {
+            if (!globalResetConfirmationVisible && pendingGlobalSource == null)
+                return;
+            pendingGlobalSource = null;
+            globalResetConfirmationVisible = false;
+            RaiseGlobalSettingsResetProperties();
+        }
+
+        private void DismissGlobalSettingsResetStatus()
+        {
+            if (globalResetStatus.Length == 0)
+                return;
+            globalResetStatus = string.Empty;
+            globalResetStatusIsError = false;
+            RaiseGlobalSettingsResetProperties();
+        }
+
+        private IModSettingsWorkingCopyEndpoint[] GetTargetEndpoints() =>
+            GameXAMLManagerAPI.Instance.RegisteredModSettings
+                .Where(entry => entry?.Plugin?.Info?.Metadata != null &&
+                    presetTargetGuids.Contains(entry.Plugin.Info.Metadata.GUID, StringComparer.Ordinal))
+                .Select(entry => entry.ViewModel as IModSettingsWorkingCopyEndpoint)
+                .Where(endpoint => endpoint != null)
+                .Distinct()
+                .ToArray();
+
+        private static bool IsReadOnlyMissionEndpoint(IModSettingsWorkingCopyEndpoint endpoint) =>
+            endpoint.IsMissionPresetActive &&
+            endpoint is PresetLobbyModSettingsViewModel settings &&
+            !settings.MissionPresetEditable;
+
+        private void OnDiagnosticsPropertyChanged(object sender, PropertyChangedEventArgs args)
+        {
+            if (args == null ||
+                string.Equals(args.PropertyName, nameof(IsLocalSettingsHost), StringComparison.Ordinal) ||
+                string.Equals(args.PropertyName, nameof(IsMissionPresetActive), StringComparison.Ordinal) ||
+                string.Equals(args.PropertyName, nameof(MissionPresetEditable), StringComparison.Ordinal))
+            {
+                RaiseGlobalSettingsResetProperties();
+            }
+        }
+
+        private void RaiseGlobalSettingsResetProperties()
+        {
+            OnPropertyChanged(nameof(CanLoadGlobalSettingsSource));
+            OnPropertyChanged(nameof(CanSelectGlobalSettingsSource));
+            OnPropertyChanged(nameof(GlobalSettingsResetConfirmationText));
+            OnPropertyChanged(nameof(GlobalSettingsResetConfirmationVisibility));
+            OnPropertyChanged(nameof(GlobalSettingsResetStatusText));
+            OnPropertyChanged(nameof(GlobalSettingsResetStatusVisibility));
+            OnPropertyChanged(nameof(GlobalSettingsResetErrorVisibility));
+            OnPropertyChanged(nameof(GlobalSettingsResetSuccessVisibility));
         }
 
         public void SetSearch(ModSettingsSearchViewModel value)

@@ -188,5 +188,12 @@
     "callerObservations": 0,
     "observedSignatures": [],
     "compatible": true
+  },
+  {
+    "claimId": "fn-fireman-find-nearest-burning-building",
+    "abiConfidence": "probable",
+    "callerObservations": 1,
+    "observedSignatures": [],
+    "compatible": true
   }
 ]

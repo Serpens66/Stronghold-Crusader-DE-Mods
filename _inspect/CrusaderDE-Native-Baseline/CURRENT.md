@@ -18,6 +18,7 @@ Primary reusable artifacts:
 
 Semantic reverse-engineering baseline:
 
+- [Fireman targeting and extinguishing audit](./sem/FBCB9319/knowledge/FIREMAN_TARGETING.md): target selection, states, compound fires, one-throw extinguishing and verified detour entry.
 - [HUD presentation scheduling audit](./sem/FBCB9319/knowledge/HUD_PRESENTATION.md): Vanilla writers, render-state flow, visibility and active-consumer boundaries.
 
 - [Drawbridge native contracts](./sem/FBCB9319/knowledge/DRAWBRIDGES.md): tile topology, shared building height, three rendering paths, unit height and verified RedBird spans.

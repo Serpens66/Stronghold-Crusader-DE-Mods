@@ -109,5 +109,17 @@
         "confidence": "probable"
       }
     ]
+  },
+  {
+    "claimId": "fn-fireman-find-nearest-burning-building",
+    "currentRva": "0xB8F40",
+    "historicalRva": "0xB8150",
+    "versionMatchConfidence": "confirmed",
+    "functionChanged": true,
+    "fieldAccesses": [
+      "manager+buildingId*0x32C+0x304 compound key (GameBuilding view +0x2A8)",
+      "manager+buildingId*0x32C+0x31A r_OnFireTicks (GameBuilding view +0x2BE)",
+      "GameUnit target identity at +0x39A/+0x39C"
+    ]
   }
 ]

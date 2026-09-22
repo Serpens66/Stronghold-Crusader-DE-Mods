@@ -12,6 +12,7 @@ namespace SerpsModsHostDuplicateTests
     {
         private static int Main()
         {
+            TestGlobalSettingsResetPolicy();
             TestModSettingsRegistrationOrder();
             TestScriptExtenderCompatibility();
             TestModInventoryCompatibility();
@@ -179,6 +180,67 @@ namespace SerpsModsHostDuplicateTests
             Console.WriteLine("PASS: host diagnostics, mod-hash comparison, and deterministic serialization.");
             Console.WriteLine("Duplicate: " + duplicates[0]);
             return 0;
+        }
+
+        private static void TestGlobalSettingsResetPolicy()
+        {
+            if (GlobalSettingsResetPolicy.CanReset(false, false, true, 2, false) ||
+                GlobalSettingsResetPolicy.CanReset(false, true, true, 0, false) ||
+                GlobalSettingsResetPolicy.CanReset(false, true, true, 2, true) ||
+                GlobalSettingsResetPolicy.CanReset(true, true, true, 2, false) ||
+                !GlobalSettingsResetPolicy.CanReset(false, true, true, 2, false))
+            {
+                throw new InvalidOperationException("Global reset availability does not follow host, target, confirmation, and mission ownership.");
+            }
+
+            var first = new ResetTarget(10, false);
+            var second = new ResetTarget(20, true);
+            bool failed = false;
+            try
+            {
+                GlobalSettingsResetPolicy.ApplyAtomically(
+                    new[] { first, second },
+                    target => target.Value,
+                    target => target.ApplyDefault(),
+                    (target, value) => target.Value = value);
+            }
+            catch (InvalidOperationException)
+            {
+                failed = true;
+            }
+
+            if (!failed || first.Value != 10 || second.Value != 20 || first.ApplyCount != 1 || second.ApplyCount != 1)
+                throw new InvalidOperationException("A failed global reset did not restore every captured working value exactly once.");
+
+            second.Fail = false;
+            GlobalSettingsResetPolicy.ApplyAtomically(
+                new[] { first, second },
+                target => target.Value,
+                target => target.ApplyDefault(),
+                (target, value) => target.Value = value);
+            if (first.Value != 0 || second.Value != 0)
+                throw new InvalidOperationException("A successful global reset did not apply defaults to every target.");
+        }
+
+        private sealed class ResetTarget
+        {
+            internal ResetTarget(int value, bool fail)
+            {
+                Value = value;
+                Fail = fail;
+            }
+
+            internal int Value { get; set; }
+            internal bool Fail { get; set; }
+            internal int ApplyCount { get; private set; }
+
+            internal void ApplyDefault()
+            {
+                ApplyCount++;
+                Value = 0;
+                if (Fail)
+                    throw new InvalidOperationException("Expected reset failure.");
+            }
         }
 
         private static void TestPluginLoadDiagnostics()

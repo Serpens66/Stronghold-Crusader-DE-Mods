@@ -4,6 +4,7 @@ using Shared;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -37,9 +38,10 @@ namespace LobbyModSettingsPresetTests
             try
             {
                 TestPresetAtomicPublisher();
-                ValidateInstalledLegacyFiles();
+                ValidatePublishedReleaseSchemaContracts();
                 TestViewModelWithoutPersistentSettings(root);
                 TestLegacyPublicationFailureRetainsValidStorage(root);
+                TestLegacyPartialPublicationRetry(root);
                 TestPersonalPresetDeletion(root);
 
                 string assemblyPath = Path.Combine(root, "PresetTest.dll");
@@ -121,6 +123,32 @@ namespace LobbyModSettingsPresetTests
                 Assert(File.Exists(Path.Combine(dualPersonal, "preset_legacy-preset-1.json")) &&
                         File.Exists(Path.Combine(dualPersonal, "preset_legacy-preset-2.json")),
                     "Both populated legacy slots were not preserved as personal JSON presets.");
+                PublishedModSettingsPreset migratedOne = dualMigrated.System_TestPublishedPresets.Single(item =>
+                    item.Id == "legacy-preset-1" && item.SourceKind == ModSettingsPresetSourceKind.Personal);
+                PublishedModSettingsPreset migratedTwo = dualMigrated.System_TestPublishedPresets.Single(item =>
+                    item.Id == "legacy-preset-2" && item.SourceKind == ModSettingsPresetSourceKind.Personal);
+                Assert(migratedOne.CanOverwrite && migratedTwo.CanOverwrite,
+                    "Migrated slots were not exposed as overwriteable personal presets.");
+                dualMigrated.System_TestLoadPreset(migratedOne.StableId);
+                Assert(!dualMigrated.EnableMod && dualMigrated.Number == 11,
+                    "Migrated Preset 1 could not be loaded.");
+                dualMigrated.System_TestLoadPreset(migratedTwo.StableId);
+                Assert(dualMigrated.EnableMod && dualMigrated.Number == 22,
+                    "Migrated Preset 2 could not be loaded.");
+                dualMigrated.Number = 44;
+                dualMigrated.System_SavePersonalPreset(
+                    "legacy-preset-2",
+                    "Preset 2 (migrated)",
+                    "Migrated from the previous local Preset 1/2 storage.",
+                    new[]
+                    {
+                        new PresetSaveSelection { PropertyName = nameof(FakeSettings.EnableMod), Mode = PublishedPresetValueMode.Fixed },
+                        new PresetSaveSelection { PropertyName = nameof(FakeSettings.Number), Mode = PublishedPresetValueMode.Fixed },
+                    },
+                    overwrite: true);
+                dualMigrated.System_TestLoadPreset(migratedTwo.StableId);
+                Assert(dualMigrated.EnableMod && dualMigrated.Number == 44,
+                    "Migrated Preset 2 could not be overwritten and loaded again.");
 
                 string stagedRoot = Path.Combine(root, "StagedExport");
                 string stagedAssembly = Path.Combine(stagedRoot, "PresetTest.dll");
@@ -414,72 +442,164 @@ namespace LobbyModSettingsPresetTests
                 "A failed personal-preset deletion changed the file or catalog state.");
         }
 
-        private static void ValidateInstalledLegacyFiles()
+        private static void ValidatePublishedReleaseSchemaContracts()
         {
-            const string pluginRoot =
-                @"E:\ProgrammeE\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins";
-            if (!Directory.Exists(pluginRoot))
-                return;
-
-            string[] selectedModFolders =
+            string workspace = FindWorkspaceRoot();
+            var releases = new[]
             {
-                "BugfixesAndQoL_Serp",
-                "BuildingCosts_Serp",
-                "BuildingLimit_Serp",
-                "ExtraFeatures_Serp",
-                "CastlePlanner_Serp",
-                "CheatMod_Serp",
-                "ExtendedData_Serp",
-                "ExtremePowers_Serp",
-                "RandomEvents_Serp",
-                "StartConditions_Serp",
-                "UnitCosts_Serp",
-                "UnitLimit_Serp",
+                new { Mod = "BugfixesAndQoL", Version = "1.0.154", Commit = "f674e9aee" },
+                new { Mod = "BuildingCosts", Version = "1.0.106", Commit = "4185561af" },
+                new { Mod = "BuildingLimit", Version = "1.0.24", Commit = "9f580bbc7" },
+                new { Mod = "CastlePlanner", Version = "0.8.29", Commit = "1a8523d6c" },
+                new { Mod = "ExtraFeatures", Version = "1.0.98", Commit = "cf337ec23" },
+                new { Mod = "RandomEvents", Version = "1.0.42", Commit = "3729ba298" },
+                new { Mod = "StartConditions", Version = "1.0.27", Commit = "b30c09299" },
+                new { Mod = "UnitCosts", Version = "1.0.29", Commit = "597b3dbd1" },
+                new { Mod = "UnitLimit", Version = "1.0.99", Commit = "4e5980a39" },
             };
 
-            int validated = 0;
-            foreach (string folder in selectedModFolders)
+            foreach (var release in releases)
             {
-                string directPath = Path.Combine(
-                    pluginRoot, folder, "LobbyModSettings", folder + ".msgpack");
-                string bundledPath = Path.Combine(
-                    pluginRoot, "SerpsMods_Serp_steam", "Mods", folder,
-                    "LobbyModSettings", folder + ".msgpack");
-                string path = File.Exists(directPath) ? directPath : bundledPath;
-                if (!File.Exists(path))
-                    continue;
+                string provenance = Path.Combine(
+                    workspace,
+                    ".release-output",
+                    release.Mod,
+                    "v" + release.Version,
+                    release.Mod + "-v" + release.Version + ".provenance.json");
+                Assert(File.Exists(provenance), $"Published provenance is missing for {release.Mod} {release.Version}.");
+                string stagePluginDirectory = Path.Combine(
+                    workspace,
+                    ".release-output",
+                    release.Mod,
+                    "v" + release.Version,
+                    "stage",
+                    release.Mod + "_Serp");
+                Assert(
+                    File.Exists(Path.Combine(stagePluginDirectory, release.Mod + ".dll")) &&
+                    File.Exists(Path.Combine(stagePluginDirectory, "info.json")),
+                    $"Published stage baseline is incomplete for {release.Mod} {release.Version}.");
+                string provenanceText = File.ReadAllText(provenance);
+                Assert(provenanceText.Contains(release.Commit),
+                    $"Published provenance commit changed for {release.Mod} {release.Version}.");
 
-                Dictionary<string, byte[]> original = Read(path);
-                Dictionary<string, byte[]> augmented = original.ToDictionary(
-                    entry => entry.Key,
-                    entry => (byte[])entry.Value.Clone(),
-                    StringComparer.Ordinal);
-                if (!original.ContainsKey(SchemaKey))
-                {
-                    augmented[SchemaKey] = MessagePackSerializer.Serialize(1);
-                    augmented[ActiveKey] = MessagePackSerializer.Serialize(0);
-                    augmented[Preset1Key] = MessagePackSerializer.Serialize(original);
-                }
-
-                Dictionary<string, byte[]> roundTrip =
-                    MessagePackSerializer.Deserialize<Dictionary<string, byte[]>>(
-                        MessagePackSerializer.Serialize(augmented));
-                foreach (KeyValuePair<string, byte[]> entry in original)
-                {
-                    Assert(
-                        roundTrip.TryGetValue(entry.Key, out byte[] bytes) &&
-                        bytes.SequenceEqual(entry.Value),
-                        $"Extender-compatible key [{entry.Key}] changed for [{path}].");
-                }
-
-                validated++;
+                string source = ReadGitFile(
+                    workspace,
+                    release.Commit,
+                    "Shared/PresetLobbyModSettingsViewModel.cs");
+                Assert(source.Contains("private const int SchemaVersion = 1;") &&
+                        source.Contains("__SerpActivePreset") &&
+                        source.Contains("__SerpPreset1") &&
+                        source.Contains("__SerpPreset2"),
+                    $"Published preset contract changed for {release.Mod} {release.Version} ({release.Commit}).");
             }
 
-            string installedBundle = Path.Combine(pluginRoot, "SerpsMods_Serp_steam", "Mods");
-            if (Directory.Exists(installedBundle))
-                Assert(validated >= 9, "Fewer than the nine installed legacy MessagePack examples were validated.");
+            Console.WriteLine($"Validated {releases.Length} published schema-1 preset contracts from release stage provenance.");
+        }
 
-            Console.WriteLine($"Validated {validated} installed legacy MessagePack files in memory.");
+        private static void TestLegacyPartialPublicationRetry(string root)
+        {
+            string retryRoot = Path.Combine(root, "PartialRetry");
+            string assemblyPath = Path.Combine(retryRoot, "PresetTest.dll");
+            string settingsPath = Path.Combine(retryRoot, "LobbyModSettings", ModName + ".msgpack");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath));
+            WriteLegacySlots(settingsPath, active: 1,
+                preset1Enabled: false, preset1Number: 31,
+                preset2Enabled: true, preset2Number: 32,
+                publishedStableId: string.Empty);
+
+            string personalDirectory = Path.Combine(
+                retryRoot, "LobbyModSettings", "Presets", "Override", TargetGuid);
+            Directory.CreateDirectory(personalDirectory);
+            string presetOnePath = Path.Combine(personalDirectory, "preset_legacy-preset-1.json");
+            File.WriteAllText(presetOnePath, CreateLegacyPresetJson(
+                "legacy-preset-1", "Preset 1 (migrated)", false, 31));
+
+            FakeSettings retried = Start(assemblyPath, settingsPath, () => false);
+            Assert(retried.EnableMod && retried.Number == 32,
+                "A partial legacy publication retry did not restore the active Preset 2 working values.");
+            Assert(File.Exists(Path.Combine(personalDirectory, "preset_legacy-preset-2.json")) &&
+                    MessagePackSerializer.Deserialize<int>(Read(settingsPath)[SchemaKey]) == 3,
+                "A valid partially published migration was not completed atomically on retry.");
+
+            string conflictRoot = Path.Combine(root, "PartialConflict");
+            string conflictAssembly = Path.Combine(conflictRoot, "PresetTest.dll");
+            string conflictSettings = Path.Combine(conflictRoot, "LobbyModSettings", ModName + ".msgpack");
+            Directory.CreateDirectory(Path.GetDirectoryName(conflictSettings));
+            WriteLegacySlots(conflictSettings, active: 0,
+                preset1Enabled: false, preset1Number: 41,
+                preset2Enabled: true, preset2Number: 42,
+                publishedStableId: string.Empty);
+            byte[] original = File.ReadAllBytes(conflictSettings);
+            string conflictDirectory = Path.Combine(
+                conflictRoot, "LobbyModSettings", "Presets", "Override", TargetGuid);
+            Directory.CreateDirectory(conflictDirectory);
+            string conflictPath = Path.Combine(conflictDirectory, "preset_legacy-preset-1.json");
+            File.WriteAllText(conflictPath, "{\"unrelated\":true}");
+
+            Start(conflictAssembly, conflictSettings, () => false);
+            Assert(File.ReadAllBytes(conflictSettings).SequenceEqual(original),
+                "A conflicting personal migration file caused the valid schema-1 MessagePack to be rewritten.");
+            Assert(File.ReadAllText(conflictPath) == "{\"unrelated\":true}" &&
+                    Directory.GetFiles(Path.GetDirectoryName(conflictSettings), "*.corrupt-*").Length == 0,
+                "A conflicting personal migration file was overwritten or mislabeled the valid MessagePack as corrupt.");
+        }
+
+        private static string CreateLegacyPresetJson(string id, string name, bool enabled, int number) =>
+            ModSettingsPresetJson.Serialize(
+                TargetGuid,
+                id,
+                name,
+                "Migrated from the previous local Preset 1/2 storage.",
+                string.Empty,
+                string.Empty,
+                new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal)
+                {
+                    [nameof(FakeSettings.EnableMod)] = new PublishedPresetSetting
+                    {
+                        Mode = PublishedPresetValueMode.Fixed,
+                        Value = enabled,
+                    },
+                    [nameof(FakeSettings.Number)] = new PublishedPresetSetting
+                    {
+                        Mode = PublishedPresetValueMode.Fixed,
+                        Value = (long)number,
+                    },
+                });
+
+        private static string FindWorkspaceRoot()
+        {
+            DirectoryInfo directory = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+            while (directory != null)
+            {
+                if (Directory.Exists(Path.Combine(directory.FullName, ".git")) &&
+                    Directory.Exists(Path.Combine(directory.FullName, ".release-output")))
+                    return directory.FullName;
+                directory = directory.Parent;
+            }
+            throw new DirectoryNotFoundException("Could not locate the repository root and .release-output baseline.");
+        }
+
+        private static string ReadGitFile(string workspace, string commit, string path)
+        {
+            var start = new ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = "show " + commit + ":" + path,
+                WorkingDirectory = workspace,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            using (Process process = Process.Start(start))
+            {
+                string output = process.StandardOutput.ReadToEnd();
+                string error = process.StandardError.ReadToEnd();
+                process.WaitForExit();
+                if (process.ExitCode != 0)
+                    throw new InvalidOperationException($"Could not read release source {commit}:{path}: {error}");
+                return output;
+            }
         }
 
         private static FakeSettings Start(

@@ -1,0 +1,19 @@
+{
+  "GUID": "WaterboyTargetReservationTest_Serp",
+  "Author": "Serpens66",
+  "Name": "Waterboy Target Reservation Test",
+  "Description": "Test mod that assigns water carriers to distinct burning buildings while preserving Vanilla target selection.",
+  "Version": "0.1.0",
+  "MinimumScriptExtenderVersion": "2.7.2",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 1,
+  "SerpChangelog": [
+    {
+      "Version": "0.1.0",
+      "Changes": [
+        "Added process-wide reservations so well and water-pot workers select different burning buildings or linked building compounds."
+      ]
+    }
+  ]
+}

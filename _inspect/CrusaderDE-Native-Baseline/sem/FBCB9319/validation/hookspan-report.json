@@ -16,5 +16,11 @@
     "status": "validated",
     "startRva": "0x151436",
     "endRva": "0x15144A"
+  },
+  {
+    "spanId": "hook-fireman-target-search-entry",
+    "status": "validated",
+    "startRva": "0xB8F40",
+    "endRva": "0xB8F4F"
   }
 ]

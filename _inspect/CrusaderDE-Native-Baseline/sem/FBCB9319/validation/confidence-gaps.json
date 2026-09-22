@@ -152,5 +152,12 @@
     "canonicalName": "chore_adjust_delay_tick",
     "versionMatchConfidence": "confirmed",
     "semanticConfidence": "probable"
+  },
+  {
+    "claimId": "fn-fireman-find-nearest-burning-building",
+    "functionRva": "0xB8F40",
+    "canonicalName": "fireman_find_nearest_burning_building",
+    "versionMatchConfidence": "confirmed",
+    "semanticConfidence": "probable"
   }
 ]

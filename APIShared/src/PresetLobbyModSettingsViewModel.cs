@@ -2949,8 +2949,6 @@ namespace Shared
             {
                 Directory.CreateDirectory(personalPresetDirectory);
                 string path = Path.Combine(personalPresetDirectory, "preset_" + id + ".json");
-                if (File.Exists(path))
-                    return;
                 var settings = new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal);
                 foreach (PropertyInfo property in persistedProperties)
                 {
@@ -2963,14 +2961,23 @@ namespace Shared
                         Value = ModSettingsPresetJson.ToJsonValue(property.PropertyType, value),
                     };
                 }
-                PublishPresetJson(path, ModSettingsPresetJson.Serialize(
+                string json = ModSettingsPresetJson.Serialize(
                     targetGuid,
                     id,
                     name,
                     "Migrated from the previous local Preset 1/2 storage.",
                     string.Empty,
                     string.Empty,
-                    settings), overwrite: false);
+                    settings);
+                if (File.Exists(path))
+                {
+                    string existing = File.ReadAllText(path);
+                    if (string.Equals(existing, json, StringComparison.Ordinal))
+                        return;
+                    throw new InvalidDataException(
+                        $"The migration target [{path}] already exists with different contents.");
+                }
+                PublishPresetJson(path, json, overwrite: false);
             }
 
             public IReadOnlyList<PresetSettingDescriptor> GetSettingDescriptors() =>

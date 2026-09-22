@@ -62,6 +62,7 @@
     <Compile Include="src\ModSettingsSearchPolicy.cs" />
     <Compile Include="src\ModSettingsSearchViewModel.cs" />
     <Compile Include="src\ScriptExtenderCompatibility.cs" />
+    <Compile Include="src\GlobalSettingsResetPolicy.cs" />
     <Compile Include="src\SerpsModsDiagnosticsViewModel.cs" />
     <Compile Include="src\SerpsModsHostPlugin.cs" />
   </ItemGroup>

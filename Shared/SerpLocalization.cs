@@ -230,6 +230,16 @@ public static class SerpLocalization
     public const string SerpsModsSearchResultCount = "SerpsModsHost.SearchResultCount";
     public const string SerpsModsSearchAllMods = "SerpsModsHost.SearchAllMods";
     public const string SerpsModsSearchOpenResultHelp = "SerpsModsHost.SearchOpenResultHelp";
+    public const string SerpsModsResetSettingsTo = "SerpsModsHost.ResetSettingsTo";
+    public const string SerpsModsResetSettings = "SerpsModsHost.ResetSettings";
+    public const string SerpsModsResetSettingsHelp = "SerpsModsHost.ResetSettingsHelp";
+    public const string SerpsModsResetSettingsConfirmTitle = "SerpsModsHost.ResetSettingsConfirmTitle";
+    public const string SerpsModsResetSettingsConfirm = "SerpsModsHost.ResetSettingsConfirm";
+    public const string SerpsModsResetSettingsConfirmButton = "SerpsModsHost.ResetSettingsConfirmButton";
+    public const string SerpsModsResetSettingsCancelButton = "SerpsModsHost.ResetSettingsCancelButton";
+    public const string SerpsModsResetSettingsCompleted = "SerpsModsHost.ResetSettingsCompleted";
+    public const string SerpsModsResetSettingsFailed = "SerpsModsHost.ResetSettingsFailed";
+    public const string SerpsModsResetSettingsDismiss = "SerpsModsHost.ResetSettingsDismiss";
     public const string PreventHovelDeletionHelp = "BugfixesAndQoL.PreventHovelDeletionHelp";
     public const string AivPlacementComplete = "CastlePlanner.AIVPlacement.Complete";
     public const string AivPlacementPartial = "CastlePlanner.AIVPlacement.Partial";
@@ -323,6 +333,16 @@ public static class SerpLocalization
         { SerpsModsSearchResultCount, "{Count} results" },
         { SerpsModsSearchAllMods, "All mods" },
         { SerpsModsSearchOpenResultHelp, "Open this setting in its mod." },
+        { SerpsModsResetSettingsTo, "Reset settings to" },
+        { SerpsModsResetSettings, "Reset" },
+        { SerpsModsResetSettingsHelp, "Resets all compatible Serps mods to the selected source. Personal presets are not changed. In multiplayer, only the host can do this." },
+        { SerpsModsResetSettingsConfirmTitle, "Reset settings for all Serps mods?" },
+        { SerpsModsResetSettingsConfirm, "All compatible Serps mods will be reset to '{Source}'. Personal presets are not changed." },
+        { SerpsModsResetSettingsConfirmButton, "Reset" },
+        { SerpsModsResetSettingsCancelButton, "Cancel" },
+        { SerpsModsResetSettingsCompleted, "All compatible Serps mods were reset to '{Source}'." },
+        { SerpsModsResetSettingsFailed, "The Serps mod settings could not be reset: {Reason}" },
+        { SerpsModsResetSettingsDismiss, "Close" },
         { ResetToDefault, "Reset to Default" },
         { EnableMod, "Enable Mod" },
         { HostActivationLabel, "(Host-)" },
