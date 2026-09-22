@@ -38,6 +38,7 @@
   <Compile Include="..\..\APIShared\src\MissionModePolicy.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\Shared\AtomicFileReplacement.cs"><Link>Shared\AtomicFileReplacement.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\APIShared\src\ModSettingsPresetDocuments.cs"><Link>APIShared\ModSettingsPresetDocuments.cs</Link></Compile>

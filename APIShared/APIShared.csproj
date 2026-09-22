@@ -50,6 +50,7 @@
     <Compile Include="src\MissionModePolicy.cs" />
     <Compile Include="src\GameplayModModePolicy.cs" />
     <Compile Include="src\GameplayFeatureModePolicy.cs" />
+    <Compile Include="..\Shared\AtomicFileReplacement.cs"><Link>Shared\AtomicFileReplacement.cs</Link></Compile>
     <Compile Include="..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>

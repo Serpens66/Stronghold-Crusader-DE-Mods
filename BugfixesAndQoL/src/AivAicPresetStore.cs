@@ -342,7 +342,7 @@ namespace BugfixesAndQoL
                 File.WriteAllText(temporaryPath, Shared.DependencyFreeJson.Serialize(root),
                     new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
                 if (File.Exists(storePath))
-                    File.Replace(temporaryPath, storePath, null);
+                    Shared.AtomicFileReplacement.Replace(temporaryPath, storePath);
                 else
                     File.Move(temporaryPath, storePath);
             }

@@ -111,6 +111,12 @@
     <Content Include="Patches\Assets\GUI\XAMLResources\HUD_ConfirmationPopup.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\HUD_LoadSaveRequester.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Patches\Assets\GUI\XAMLResources\FRONT_ManageTrail.xaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ValidateApiSharedReference" BeforeTargets="BeforeBuild">

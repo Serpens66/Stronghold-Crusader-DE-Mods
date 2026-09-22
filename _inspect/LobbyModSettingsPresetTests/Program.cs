@@ -538,8 +538,23 @@ namespace LobbyModSettingsPresetTests
                     PresetAtomicFilePublisher.Publish(temporaryPath, destinationPath);
                 Assert(realResult.Succeeded &&
                         File.ReadAllText(destinationPath) == "new" &&
+                        !File.Exists(temporaryPath) &&
                         Directory.GetFiles(realDirectory, "*.replace-backup-*").Length == 0,
-                    "Atomic preset publishing did not replace a real file without leaving a backup.");
+                    "Atomic preset publishing did not replace a real file and consume its temporary source.");
+
+                string missingSourcePath = Path.Combine(realDirectory, "missing.tmp");
+                File.WriteAllText(destinationPath, "preserved");
+                bool failedWithIoException = false;
+                try
+                {
+                    AtomicFileReplacement.Replace(missingSourcePath, destinationPath);
+                }
+                catch (IOException exception)
+                {
+                    failedWithIoException = exception.InnerException is System.ComponentModel.Win32Exception;
+                }
+                Assert(failedWithIoException && File.ReadAllText(destinationPath) == "preserved",
+                    "Failed atomic replacement did not preserve the destination and expose an IOException.");
             }
             finally
             {

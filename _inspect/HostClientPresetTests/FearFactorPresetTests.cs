@@ -68,13 +68,14 @@ internal static class FearFactorPresetTests
     private static void WritePresetBool(string file, string propertyName, bool value)
     {
         byte[] valueBytes = MessagePackSerializer.Serialize(value);
-        var preset = new Dictionary<string, byte[]> { [propertyName] = valueBytes };
+        var currentSettings = new Dictionary<string, byte[]> { [propertyName] = valueBytes };
         var payload = new Dictionary<string, byte[]>
         {
             [propertyName] = valueBytes,
-            ["__SerpPresetSchemaVersion"] = MessagePackSerializer.Serialize(1),
-            ["__SerpActivePreset"] = MessagePackSerializer.Serialize(0),
-            ["__SerpPreset1"] = MessagePackSerializer.Serialize(preset)
+            ["__SerpPresetSchemaVersion"] = MessagePackSerializer.Serialize(3),
+            ["__SerpCurrentSettings"] = MessagePackSerializer.Serialize(currentSettings),
+            ["__SerpPresetDirty"] = MessagePackSerializer.Serialize(false),
+            ["__SerpLegacyPresetImportCompleted"] = MessagePackSerializer.Serialize(true)
         };
         Directory.CreateDirectory(Path.GetDirectoryName(file));
         File.WriteAllBytes(file, MessagePackSerializer.Serialize(payload));

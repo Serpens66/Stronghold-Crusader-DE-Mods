@@ -86,6 +86,7 @@
     <Compile Include="..\src\SkirmishGameOptionsPolicy.cs"><Link>SkirmishGameOptionsPolicy.cs</Link></Compile>
     <Compile Include="..\src\WorkingCopyTransaction.cs"><Link>WorkingCopyTransaction.cs</Link></Compile>
     <Compile Include="..\src\NoDogsNativeContract.cs"><Link>NoDogsNativeContract.cs</Link></Compile>
+    <Compile Include="..\..\Shared\AtomicFileReplacement.cs"><Link>AtomicFileReplacement.cs</Link></Compile>
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>GatehouseQueryUnitIdPolicy.cs</Link></Compile>

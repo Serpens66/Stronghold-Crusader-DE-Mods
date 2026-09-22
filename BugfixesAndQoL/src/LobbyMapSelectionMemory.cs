@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace BugfixesAndQoL
@@ -321,8 +320,6 @@ namespace BugfixesAndQoL
     {
         private const long MaximumStoreBytes = 64L * 1024L;
         private const string StoreFileName = "LobbyMapSelectionMemory.json";
-        private const int MoveFileReplaceExisting = 0x1;
-        private const int MoveFileWriteThrough = 0x8;
         private readonly ManualLogSource log;
         private readonly string storePath;
         private LobbyMapSelectionSnapshot current;
@@ -418,7 +415,6 @@ namespace BugfixesAndQoL
         {
             string directory = Path.GetDirectoryName(storePath);
             string temporaryPath = storePath + ".tmp-" + Guid.NewGuid().ToString("N");
-            string backupPath = storePath + ".bak-" + Guid.NewGuid().ToString("N");
             try
             {
                 Directory.CreateDirectory(directory);
@@ -427,7 +423,7 @@ namespace BugfixesAndQoL
                     LobbyMapSelectionCodec.Serialize(current),
                     new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
                 if (File.Exists(storePath))
-                    ReplaceExistingStore(temporaryPath, backupPath);
+                    Shared.AtomicFileReplacement.Replace(temporaryPath, storePath);
                 else
                     File.Move(temporaryPath, storePath);
             }
@@ -443,8 +439,6 @@ namespace BugfixesAndQoL
                 {
                     if (File.Exists(temporaryPath))
                         File.Delete(temporaryPath);
-                    if (File.Exists(backupPath))
-                        File.Delete(backupPath);
                 }
                 catch (Exception exception)
                 {
@@ -454,42 +448,6 @@ namespace BugfixesAndQoL
                 }
             }
         }
-
-        private void ReplaceExistingStore(string temporaryPath, string backupPath)
-        {
-            try
-            {
-                File.Replace(temporaryPath, storePath, backupPath);
-            }
-            catch (UnauthorizedAccessException replaceException)
-            {
-                // Some restricted Windows environments deny ReplaceFileW because it creates a
-                // backup, while still allowing an atomic, write-through rename in the same
-                // directory. Keep the completed old file unless that rename succeeds.
-                if (!MoveFileEx(
-                        temporaryPath,
-                        storePath,
-                        MoveFileReplaceExisting | MoveFileWriteThrough))
-                {
-                    int error = Marshal.GetLastWin32Error();
-                    throw new IOException(
-                        $"Atomic lobby map-memory replacement failed after File.Replace was " +
-                        $"denied (MoveFileEx error {error}).",
-                        replaceException);
-                }
-
-                LogDebug(
-                    "Bugfixes and QoL used the restricted-filesystem atomic replacement " +
-                    "fallback for lobby map-selection memory.");
-            }
-        }
-
-        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool MoveFileEx(
-            string existingFileName,
-            string newFileName,
-            int flags);
 
         private static bool SameMap(LobbyMapIdentity left, LobbyMapIdentity right) =>
             left != null && right != null &&

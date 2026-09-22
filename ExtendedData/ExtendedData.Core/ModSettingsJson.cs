@@ -181,7 +181,7 @@ namespace ExtendedData.Core
             try
             {
                 File.WriteAllText(temporary, Serialize(document), new UTF8Encoding(false));
-                if (File.Exists(fullPath)) File.Replace(temporary, fullPath, null);
+                if (File.Exists(fullPath)) Shared.AtomicFileReplacement.Replace(temporary, fullPath);
                 else File.Move(temporary, fullPath);
             }
             finally

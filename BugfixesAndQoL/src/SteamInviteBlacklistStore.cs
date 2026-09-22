@@ -153,7 +153,7 @@ namespace BugfixesAndQoL
                 if (new FileInfo(temporaryPath).Length > MaximumStoreBytes)
                     throw new InvalidDataException("The serialized blacklist is too large.");
                 if (File.Exists(StorePath))
-                    File.Replace(temporaryPath, StorePath, null);
+                    Shared.AtomicFileReplacement.Replace(temporaryPath, StorePath);
                 else
                     File.Move(temporaryPath, StorePath);
                 error = string.Empty;

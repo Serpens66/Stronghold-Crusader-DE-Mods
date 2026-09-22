@@ -111,28 +111,8 @@ namespace Shared
 
             public bool Exists(string path) => File.Exists(path);
 
-            public void Replace(string sourcePath, string destinationPath)
-            {
-                string backupPath = destinationPath + ".replace-backup-" + Guid.NewGuid().ToString("N");
-                bool replaced = false;
-                try
-                {
-                    File.Replace(sourcePath, destinationPath, backupPath);
-                    replaced = true;
-                }
-                finally
-                {
-                    // A failed replace may have produced the only recoverable copy. Keep it.
-                    // Cleanup after a successful atomic publish is best-effort and must not
-                    // turn an already committed destination into a reported save failure.
-                    if (replaced && File.Exists(backupPath))
-                    {
-                        try { File.Delete(backupPath); }
-                        catch (IOException) { }
-                        catch (UnauthorizedAccessException) { }
-                    }
-                }
-            }
+            public void Replace(string sourcePath, string destinationPath) =>
+                AtomicFileReplacement.Replace(sourcePath, destinationPath);
 
             public void Move(string sourcePath, string destinationPath) =>
                 File.Move(sourcePath, destinationPath);

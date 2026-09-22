@@ -221,6 +221,9 @@
     <Compile Include="..\..\Shared\DependencyFreeJson.cs">
       <Link>DependencyFreeJson.cs</Link>
     </Compile>
+    <Compile Include="..\..\Shared\AtomicFileReplacement.cs">
+      <Link>AtomicFileReplacement.cs</Link>
+    </Compile>
     <Compile Include="..\..\BugfixesAndQoL\src\MarketTradeIntegration.cs">
       <Link>MarketTradeIntegration.cs</Link>
     </Compile>

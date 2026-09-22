@@ -969,6 +969,7 @@ static void TestEditorSaveModSettingsOptions()
     string mapCoordinator = File.ReadAllText(Path.Combine(root, "src", "MapModSettingsCoordinator.cs"));
     string trailCoordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
     string viewModel = File.ReadAllText(Path.Combine(root, "src", "EditorModSettingsSaveOptionsViewModel.cs"));
+    string project = File.ReadAllText(Path.Combine(root, "ExtendedData.csproj"));
     string mapXamlPath = Path.Combine(root, "Patches", "Assets", "GUI", "XAMLResources", "HUD_LoadSaveRequester.xaml");
     string trailXamlPath = Path.Combine(root, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_ManageTrail.xaml");
     string mapXaml = File.ReadAllText(mapXamlPath);
@@ -992,6 +993,9 @@ static void TestEditorSaveModSettingsOptions()
         trailCoordinator.Contains("File.Delete(sidecar)") &&
         trailCoordinator.Contains("trailSourceDocument = null"),
         "Trail Maker save does not explicitly write or remove only its sidecar");
+    Assert(project.Contains("Patches\\Assets\\GUI\\XAMLResources\\HUD_LoadSaveRequester.xaml") &&
+        project.Contains("Patches\\Assets\\GUI\\XAMLResources\\FRONT_ManageTrail.xaml"),
+        "Editor save-option XAML patches are not included in the distributable ExtendedData package");
     Assert(mapXaml.Contains("ExtendedDataMapEditorSaveOptionsHost") &&
         mapXaml.Contains("IncludeMapModSettings, Mode=TwoWay") &&
         mapXaml.Contains("MapHelpText") &&
