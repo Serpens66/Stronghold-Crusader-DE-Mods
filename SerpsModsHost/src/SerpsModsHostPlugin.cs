@@ -54,6 +54,7 @@ namespace SerpsModsHost
             try
             {
                 LoadValidateAndRegisterPack();
+                diagnostics.SetPresetTargetGuids(activeMods.Select(mod => mod.Guid));
             }
             catch (Exception ex)
             {

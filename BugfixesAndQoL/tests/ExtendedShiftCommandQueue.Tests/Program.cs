@@ -1,4 +1,5 @@
 using BugfixesAndQoL;
+using Shared;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -30,11 +31,82 @@ internal static class Program
         CheckMoveFormationSpacing();
         CheckMoveFormationPlanner();
         CheckMoveFormationGesture();
+        CheckGroundMovePreviewEligibility();
         CheckLargeMoveTargetOverflow();
         CheckMigrationSourceContracts();
         CheckNativeReference();
         Console.WriteLine($"Extended Shift command queue static tests passed: {checks} checks.");
     }
+
+    private static void CheckGroundMovePreviewEligibility()
+    {
+        Check(GroundMovePreviewEligibility.EvaluateInitial(PreviewSnapshot()) ==
+              GroundMovePreviewRejection.None,
+            "clean pathable ground permits the Dense formation preview");
+        Check(GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(underCursor: 1)) ==
+                  GroundMovePreviewRejection.UnderCursorUnit &&
+              GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(hoveredUnit: 1)) ==
+                  GroundMovePreviewRejection.HoveredUnit &&
+              GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(tileUnit: 1)) ==
+                  GroundMovePreviewRejection.TileOccupiedByUnit,
+            "all immediate and native unit targets suppress Dense preview");
+        Check(GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(hoveredBuilding: 1)) ==
+                  GroundMovePreviewRejection.HoveredBuilding &&
+              GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(hoveringWall: true)) ==
+                  GroundMovePreviewRejection.HoveredWall &&
+              GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(tileBuilding: 1)) ==
+                  GroundMovePreviewRejection.TileOccupiedByBuilding,
+            "buildings, tall hovered structures, and walls suppress Dense preview");
+        Check(GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(insideMap: false)) ==
+                  GroundMovePreviewRejection.OutsideMap &&
+              GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(targetAvailable: false)) ==
+                  GroundMovePreviewRejection.TargetUnavailable &&
+              GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(hasComponent: false)) ==
+                  GroundMovePreviewRejection.MissingPathComponent,
+            "invalid and unpathable ground suppresses Dense preview");
+        Check(GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(cursorInGame: false)) ==
+                  GroundMovePreviewRejection.CursorOutsideGame &&
+              GroundMovePreviewEligibility.EvaluateInitial(
+                  PreviewSnapshot(cursorMatches: false)) ==
+                  GroundMovePreviewRejection.CursorSnapshotMismatch,
+            "ambiguous cursor snapshots fail closed to Vanilla");
+        Check(GroundMovePreviewEligibility.EvaluateFixedTarget(
+                  true, 0, 0, true, true) == GroundMovePreviewRejection.None &&
+              GroundMovePreviewEligibility.EvaluateFixedTarget(
+                  true, 2, 0, true, true) ==
+                  GroundMovePreviewRejection.TileOccupiedByUnit &&
+              GroundMovePreviewEligibility.EvaluateFixedTarget(
+                  true, 0, 2, true, true) ==
+                  GroundMovePreviewRejection.TileOccupiedByBuilding,
+            "held and release revalidation detects later target occupancy");
+    }
+
+    private static GroundMovePreviewSnapshot PreviewSnapshot(
+        bool insideMap = true,
+        bool cursorInGame = true,
+        bool cursorMatches = true,
+        int underCursor = 0,
+        int hoveredUnit = 0,
+        int tileUnit = 0,
+        int hoveredBuilding = 0,
+        bool hoveringWall = false,
+        int tileBuilding = 0,
+        bool targetAvailable = true,
+        bool hasComponent = true) =>
+        new GroundMovePreviewSnapshot(
+            insideMap, cursorInGame, cursorMatches, underCursor,
+            hoveredUnit, tileUnit, hoveredBuilding, hoveringWall,
+            tileBuilding, targetAvailable, hasComponent);
 
     private static void CheckMoveFormationSpacing()
     {
@@ -1325,6 +1397,13 @@ internal static class Program
               moveFormationDrag.Contains("state.Target.TroopDepth") &&
               moveFormationDrag.Contains("state.Target.OverTopHalf") &&
               moveFormationDrag.Contains("grabTroopsOnScreen(") &&
+              moveFormationDrag.Contains("EvaluateInitialGroundTarget(") &&
+              moveFormationDrag.Contains("EvaluateFixedGroundTarget(") &&
+              moveFormationDrag.Contains("r_HoverOverUnitId") &&
+              moveFormationDrag.Contains("r_HoverOverBuildingId") &&
+              moveFormationDrag.Contains("r_HoveringOverWall") &&
+              moveFormationDrag.Contains("TileUnitIdGrid") &&
+              moveFormationDrag.Contains("StructureGrid") &&
               !moveFormationDrag.Contains("\"unit-target\"") &&
               !moveFormationDrag.Contains("\"structure-target\"") &&
               !moveFormationDrag.Contains("\"unwalkable-ground\"") &&

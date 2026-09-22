@@ -8,6 +8,7 @@ using SHCDESE.EventAPI.Input;
 using SHCDESE.EventAPI.Tribes;
 using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
+using Shared;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -473,6 +474,13 @@ namespace BugfixesAndQoL
                     AbortPreview("state-changed");
                     return;
                 }
+                GroundMovePreviewRejection targetRejection =
+                    EvaluateFixedGroundTarget(state.Target);
+                if (targetRejection != GroundMovePreviewRejection.None)
+                {
+                    AbortPreview("target-" + ToRejectionReason(targetRejection));
+                    return;
+                }
 
                 MoveFormationGestureResult heldResult;
                 lock (dragSync)
@@ -642,6 +650,14 @@ namespace BugfixesAndQoL
                     ClearCompletedDrag("coordinate-mapping-changed");
                     return engineRunOriginal(mpFrameSkip);
                 }
+                GroundMovePreviewRejection targetRejection =
+                    EvaluateFixedGroundTarget(state.Target);
+                if (targetRejection != GroundMovePreviewRejection.None)
+                {
+                    ClearCompletedDrag(
+                        "target-" + ToRejectionReason(targetRejection));
+                    return engineRunOriginal(mpFrameSkip);
+                }
             }
             catch (Exception exception)
             {
@@ -768,6 +784,13 @@ namespace BugfixesAndQoL
             previewTiles.Clear();
             try
             {
+                GroundMovePreviewRejection rejection =
+                    EvaluateFixedGroundTarget(state.Target);
+                if (rejection != GroundMovePreviewRejection.None)
+                {
+                    markers.ClearPreview();
+                    return;
+                }
                 previewPlanner.Plan(
                     state.Target.NativeX,
                     state.Target.NativeY,
@@ -931,9 +954,86 @@ namespace BugfixesAndQoL
                 rejection = "native-coordinate-outside-map";
                 return false;
             }
+            GroundMovePreviewRejection targetRejection =
+                EvaluateInitialGroundTarget(target, target.UnderCursorUnitIds.Length);
+            if (targetRejection != GroundMovePreviewRejection.None)
+            {
+                rejection = ToRejectionReason(targetRejection);
+                return false;
+            }
             rejection = null;
             return true;
         }
+
+        private GroundMovePreviewRejection EvaluateInitialGroundTarget(
+            GroundTarget target,
+            int underCursorUnitCount)
+        {
+            GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager;
+            int tileId = GameTileManagerAPI.Instance.GetTileId(
+                target.NativeX, target.NativeY);
+            bool insideMap = IsTargetInsideNativeMap(target, tileId, tileManager);
+            int tileUnitId = insideMap
+                ? tileManager.TileUnitIdGrid[tileId]
+                : 0;
+            int tileBuildingId = insideMap
+                ? tileManager.StructureGrid[tileId]
+                : 0;
+            bool hasPathComponent = insideMap &&
+                tileManager.PathConnectionGrid[tileId] != 0;
+
+            GameCursorManager* cursor =
+                GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;
+            bool cursorInGame = cursor != null && cursor->r_IsCursorInGame == 1;
+            bool cursorSnapshotMatches = cursor != null &&
+                cursor->r_MouseTileX == (uint)target.NativeX &&
+                cursor->r_MouseTileY == (uint)target.NativeY;
+            return GroundMovePreviewEligibility.EvaluateInitial(
+                new GroundMovePreviewSnapshot(
+                    insideMap,
+                    cursorInGame,
+                    cursorSnapshotMatches,
+                    underCursorUnitCount,
+                    cursor != null && cursor->r_HoverOverUnitId != 0 ? 1 : 0,
+                    tileUnitId,
+                    cursor != null && cursor->r_HoverOverBuildingId != 0 ? 1 : 0,
+                    cursor != null && cursor->r_HoveringOverWall != 0,
+                    tileBuildingId,
+                    insideMap && targetAvailable(target.NativeX, target.NativeY),
+                    hasPathComponent));
+        }
+
+        private GroundMovePreviewRejection EvaluateFixedGroundTarget(
+            GroundTarget target)
+        {
+            GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager;
+            int tileId = GameTileManagerAPI.Instance.GetTileId(
+                target.NativeX, target.NativeY);
+            bool insideMap = IsTargetInsideNativeMap(target, tileId, tileManager);
+            return GroundMovePreviewEligibility.EvaluateFixedTarget(
+                insideMap,
+                insideMap ? tileManager.TileUnitIdGrid[tileId] : 0,
+                insideMap ? tileManager.StructureGrid[tileId] : 0,
+                insideMap && targetAvailable(target.NativeX, target.NativeY),
+                insideMap && tileManager.PathConnectionGrid[tileId] != 0);
+        }
+
+        private static bool IsTargetInsideNativeMap(
+            GroundTarget target,
+            int tileId,
+            GameTileManagerView tileManager)
+        {
+            return tileManager != null &&
+                (uint)target.NativeX < NativeMapWidth &&
+                (uint)target.NativeY < NativeMapWidth &&
+                (uint)tileId < (uint)tileManager.TileUnitIdGrid.Length &&
+                (uint)tileId < (uint)tileManager.StructureGrid.Length &&
+                (uint)tileId < (uint)tileManager.PathConnectionGrid.Length;
+        }
+
+        private static string ToRejectionReason(
+            GroundMovePreviewRejection rejection) =>
+            rejection.ToString().ToLowerInvariant();
 
         private static bool StoredCoordinateMappingMatches(GroundTarget target)
         {

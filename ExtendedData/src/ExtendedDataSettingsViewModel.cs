@@ -327,6 +327,20 @@ namespace ExtendedData
             SetTrailPropertyModeIds(NormalizePropertyIds(player), NormalizePropertyIds(fixedValues));
         }
 
+        internal void ApplyTrailSettingModesForMod(string modId, ModSettingsDefinition document)
+        {
+            if (string.IsNullOrWhiteSpace(modId)) return;
+            string prefix = modId + ".";
+            var player = playerTrailPropertyIds.Where(id => !id.StartsWith(prefix, StringComparison.Ordinal)).ToList();
+            var fixedValues = fixedTrailPropertyIds.Where(id => !id.StartsWith(prefix, StringComparison.Ordinal)).ToList();
+            if (document?.Mods != null && document.Mods.TryGetValue(modId, out ModSettingsEntry entry) && entry != null)
+            {
+                player.AddRange((entry.PlayerSettings ?? Array.Empty<string>()).Select(name => BuildPropertyId(modId, name)));
+                fixedValues.AddRange((entry.Overrides ?? new Dictionary<string, object>(StringComparer.Ordinal)).Keys.Select(name => BuildPropertyId(modId, name)));
+            }
+            SetTrailPropertyModeIds(NormalizePropertyIds(player), NormalizePropertyIds(fixedValues));
+        }
+
         internal void RefreshModCompatibility(IEnumerable<TrailModCompatibilityInfo> entries)
         {
             TrailModCompatibilityInfo[] catalog = (entries ?? Enumerable.Empty<TrailModCompatibilityInfo>()).ToArray();

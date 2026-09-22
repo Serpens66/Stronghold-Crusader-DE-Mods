@@ -29,7 +29,7 @@ No Shared source links, preset compile symbols, or ExtendedData reference are re
            Visibility="{Binding System_PresetStatusVisibility}"/>
 ```
 
-The complete block also binds `System_PresetLoadEntries`, `System_SelectedPresetLoadEntry`, the personal-only delete command, `System_PresetSaveTargets`, `System_PresetSaveSettings`, the bulk mode selector, and the corresponding confirm/cancel commands. Pressing an already open Load or Save button closes its panel again.
+The complete block also binds `System_PresetLoadEntries`, `System_SelectedPresetLoadEntry`, the personal-only delete command, `System_PresetSaveTargets`, `System_PresetSaveSettings`, the bulk mode selector, inline overwrite/delete confirmation and result status, and the corresponding confirm/cancel commands. Pressing an already open Load or Save button closes its panel again. No Vanilla popup is opened and the ModSettings hub remains visible.
 
 ### Sources and locations
 
@@ -87,15 +87,17 @@ Unknown members, properties or modes, invalid values, incompatible target versio
 
 Selecting a row does nothing until **Load** is pressed. The status then shows the preset name and source; later edits add “modified”. If the source disappears, the materialized working values stay intact and only the source association is cleared.
 
-The standard save dialog always writes every persistent property. Each row selects `Default`, `Player`, or `Fixed`; the `Host Fixed` bulk choice sets Host properties to `Fixed` and Player/Local properties to `Player`. Partial presets remain supported through the public save API and hand-authored JSON. Existing partial presets initialize omitted rows as `Player` when edited, so overwriting them does not unexpectedly fix previously omitted values. A nonempty name is required before Save becomes available.
+The standard save dialog always writes every persistent property. Each row selects `Default`, `Player`, or `Fixed`; the `Host Fixed` bulk choice sets Host properties to `Fixed` and Player/Local properties to `Player`. Partial presets remain supported through the public save API and hand-authored JSON. Existing partial presets initialize omitted rows as `Player` when edited, so overwriting them does not unexpectedly fix previously omitted values. A new personal preset starts with an empty name, while selecting an existing personal preset fills its name and description for deliberate replacement. A nonempty name is required before Save becomes available.
 
-The dialog can create a new personal preset or select an existing personal preset. Existing files require a second overwrite confirmation and are atomically replaced. Bundled, external, Map, Trail, archive, and Coop-package data are never overwrite targets.
+Descriptions support line breaks and up to 8192 characters. The standard editor shows five lines and scrolls vertically for longer text. The dialog can create a new personal preset or select an existing personal preset. Existing files require a second overwrite confirmation and are atomically replaced. Bundled, external, Map, Trail, archive, and Coop-package data are never overwrite targets.
 
 Old Preset 1 is migrated to `legacy-preset-1`; Preset 2 is migrated only when it existed. The formerly active slot becomes the editable working state. Old files from `LobbyModSettings/PresetExports/` are copied once into the personal folder and the originals are retained.
 
 ### Maps and Trails
 
-Direct Map/Trail starts are read-only. In Customize/Trail Maker, the temporary mission context is editable: normal presets may be loaded into it, **Restore mission preset** restores the original mission values, and the current result may be saved as a personal preset. Leaving the context restores the previous normal working values and status. Existing `.modtrail.json`, Map archives, and Coop packages remain separate and schema-compatible.
+Every compatible mod has one settings-source selector. **Mod defaults** is always available; **Trail settings** and **Map settings** appear only when a valid source exists. Selecting a source changes nothing until **Load** is pressed. Loading always replaces only the working copy: it never writes a Trail sidecar or Map archive.
+
+Direct Map/Trail starts are read-only. Customize and Trail Maker use a freely editable temporary working copy, just like a normal Custom Game. For a Trail, Trail settings have initial precedence and embedded Map settings are ignored until the author explicitly loads **Map settings**. Only the normal Trail Maker mission-save action may replace a Trail sidecar; only the Map Editor save path may replace embedded Map settings. Leaving Customize restores the previous normal working values and status.
 
 ---
 
@@ -113,7 +115,7 @@ ExtendedData ist optional. Es verwendet denselben typisierten Property-Vertrag f
 4. Mit `LobbyModSettingsPresetRegistration.Register` registrieren.
 5. Den Standard-XAML-Block für Laden/Speichern aus einem presetfähigen Mod dieses Repositories übernehmen.
 
-Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind nicht nötig. Das minimale XAML-Beispiel im englischen Abschnitt sowie die vollständigen Blöcke der vorhandenen Mods zeigen alle Bindings einschließlich des ausschließlich für eigene Presets sichtbaren Löschbefehls. Ein erneuter Klick auf den bereits geöffneten Laden- oder Speichern-Button schließt sein Panel wieder.
+Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind nicht nötig. Das minimale XAML-Beispiel im englischen Abschnitt sowie die vollständigen Blöcke der vorhandenen Mods zeigen alle Bindings einschließlich des ausschließlich für eigene Presets sichtbaren Löschbefehls sowie der Inline-Bestätigung. Der ModSettings-Hub bleibt dabei sichtbar. Ein erneuter Klick auf den bereits geöffneten Laden- oder Speichern-Button schließt sein Panel wieder.
 
 ### Quellen und Ablageorte
 
@@ -143,12 +145,14 @@ Unbekannte Member, Properties oder Modi, ungültige Werte, unpassende Zielversio
 
 Die Auswahl eines Eintrags ändert noch nichts; erst **Laden** übernimmt ihn. Die Statuszeile zeigt danach Name und Quelle und kennzeichnet spätere Änderungen mit „geändert“. Verschwindet die Quelle, bleiben die materialisierten Arbeitswerte erhalten; nur die Quellenverknüpfung wird entfernt.
 
-Der Standardspeicherdialog schreibt immer alle persistenten Properties. Pro Zeile stehen `Standard`, `Spieler` und `Fest` zur Wahl. Die Sammelwahl `Host fest` setzt Host-Properties auf `Fest` und Player-/Local-Properties auf `Spieler`. Teil-Presets bleiben über die öffentliche Speicher-API und handgeschriebenes JSON möglich. Beim Bearbeiten eines vorhandenen Teil-Presets werden fehlende Properties als `Spieler` vorbelegt, damit das Überschreiben zuvor ausgelassene Werte nicht unerwartet fixiert. Speichern wird erst mit einem nicht leeren Namen aktiviert.
+Der Standardspeicherdialog schreibt immer alle persistenten Properties. Pro Zeile stehen `Standard`, `Spieler` und `Fest` zur Wahl. Die Sammelwahl `Host fest` setzt Host-Properties auf `Fest` und Player-/Local-Properties auf `Spieler`. Teil-Presets bleiben über die öffentliche Speicher-API und handgeschriebenes JSON möglich. Beim Bearbeiten eines vorhandenen Teil-Presets werden fehlende Properties als `Spieler` vorbelegt, damit das Überschreiben zuvor ausgelassene Werte nicht unerwartet fixiert. Ein neues eigenes Preset beginnt mit leerem Namen; erst die Auswahl eines vorhandenen eigenen Presets übernimmt dessen Namen und Beschreibung zum bewussten Ersetzen. Speichern wird erst mit einem nicht leeren Namen aktiviert.
 
-Der Speicherdialog erstellt ein neues eigenes Preset oder wählt gezielt ein vorhandenes eigenes Preset. Das vollständige atomare Ersetzen erfordert eine zweite Bestätigung. Mitgelieferte, externe, Map-, Trail-, Archiv- und Koop-Paket-Daten sind niemals Überschreibziele.
+Beschreibungen unterstützen Zeilenumbrüche und bis zu 8192 Zeichen. Der Standardeditor zeigt fünf Zeilen und scrollt bei längerem Text vertikal. Der Speicherdialog erstellt ein neues eigenes Preset oder wählt gezielt ein vorhandenes eigenes Preset. Das vollständige atomare Ersetzen erfordert eine zweite Bestätigung. Mitgelieferte, externe, Map-, Trail-, Archiv- und Koop-Paket-Daten sind niemals Überschreibziele.
 
 Altes Preset 1 wird als `legacy-preset-1` migriert, Preset 2 nur wenn es vorhanden war. Der vorher aktive Slot wird zum editierbaren Arbeitsstand. Alte Dateien aus `LobbyModSettings/PresetExports/` werden einmalig in den persönlichen Ordner kopiert; die Originale bleiben erhalten.
 
 ### Maps und Trails
 
-Direkt gestartete Maps und Trails sind schreibgeschützt. In Customize beziehungsweise im Trail Maker ist der temporäre Missionskontext editierbar: normale Presets können hineingeladen werden, **Missions-Preset wiederherstellen** stellt die ursprünglichen Missionswerte wieder her, und der aktuelle Stand kann als eigenes Preset gespeichert werden. Beim Verlassen werden die vorherigen normalen Arbeitswerte und ihr Status wiederhergestellt. Vorhandene `.modtrail.json`, Map-Archive und Koop-Pakete bleiben getrennt und schemakompatibel.
+Jeder kompatible Mod besitzt einen einheitlichen Einstellungsquellen-Wähler. **Mod-Standards** ist immer verfügbar; **Trail-Einstellungen** und **Map-Einstellungen** erscheinen nur bei einer gültigen Quelle. Die Auswahl allein ändert nichts, erst **Laden** ersetzt die Arbeitskopie. Dabei werden weder Trail-Sidecar noch Maparchiv geschrieben.
+
+Direkt gestartete Maps und Trails sind schreibgeschützt. Customize und Trail Maker verwenden dagegen eine vollständig editierbare temporäre Arbeitskopie wie ein normales Custom Game. Bei einem Trail haben zunächst ausschließlich die Trail-Einstellungen Vorrang; Map-Einstellungen werden erst übernommen, wenn der Autor sie ausdrücklich lädt. Nur der normale Missions-Speicherpfad des Trail Makers darf ein Sidecar ersetzen, nur der Speicherpfad des Map Editors darf ModSettings in ein Maparchiv schreiben. Beim Verlassen werden die vorherigen normalen Arbeitswerte und ihr Status wiederhergestellt.

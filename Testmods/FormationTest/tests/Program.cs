@@ -1,4 +1,5 @@
 using FormationTest;
+using Shared;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -29,6 +30,7 @@ internal static class Program
             TestEffectivePreviewKeys();
             TestDefaultsMigration();
             TestReleaseStateModel();
+            TestGroundMovePreviewEligibility();
             TestStatusTextAndDirectionVectors();
             TestPlanHash();
             TestMoveOrderMatching();
@@ -45,6 +47,61 @@ internal static class Program
             return 1;
         }
     }
+
+    private static void TestGroundMovePreviewEligibility()
+    {
+        GroundMovePreviewSnapshot ground = PreviewSnapshot();
+        Check(GroundMovePreviewEligibility.EvaluateInitial(ground) ==
+              GroundMovePreviewRejection.None,
+            "clean pathable ground permits a formation preview");
+
+        var rejected = new Dictionary<GroundMovePreviewRejection, GroundMovePreviewSnapshot>
+        {
+            [GroundMovePreviewRejection.OutsideMap] = PreviewSnapshot(insideMap: false),
+            [GroundMovePreviewRejection.CursorOutsideGame] = PreviewSnapshot(cursorInGame: false),
+            [GroundMovePreviewRejection.CursorSnapshotMismatch] = PreviewSnapshot(cursorMatches: false),
+            [GroundMovePreviewRejection.UnderCursorUnit] = PreviewSnapshot(underCursor: 1),
+            [GroundMovePreviewRejection.HoveredUnit] = PreviewSnapshot(hoveredUnit: 4),
+            [GroundMovePreviewRejection.TileOccupiedByUnit] = PreviewSnapshot(tileUnit: 5),
+            [GroundMovePreviewRejection.HoveredBuilding] = PreviewSnapshot(hoveredBuilding: 6),
+            [GroundMovePreviewRejection.HoveredWall] = PreviewSnapshot(hoveringWall: true),
+            [GroundMovePreviewRejection.TileOccupiedByBuilding] = PreviewSnapshot(tileBuilding: 7),
+            [GroundMovePreviewRejection.TargetUnavailable] = PreviewSnapshot(targetAvailable: false),
+            [GroundMovePreviewRejection.MissingPathComponent] = PreviewSnapshot(hasComponent: false)
+        };
+        foreach (KeyValuePair<GroundMovePreviewRejection, GroundMovePreviewSnapshot> item in rejected)
+        {
+            Check(GroundMovePreviewEligibility.EvaluateInitial(item.Value) == item.Key,
+                $"{item.Key} suppresses the formation preview");
+        }
+
+        Check(GroundMovePreviewEligibility.EvaluateFixedTarget(
+                  true, 0, 0, true, true) == GroundMovePreviewRejection.None &&
+              GroundMovePreviewEligibility.EvaluateFixedTarget(
+                  true, 9, 0, true, true) ==
+                  GroundMovePreviewRejection.TileOccupiedByUnit &&
+              GroundMovePreviewEligibility.EvaluateFixedTarget(
+                  true, 0, 9, true, true) ==
+                  GroundMovePreviewRejection.TileOccupiedByBuilding,
+            "fixed-target revalidation catches later unit and building occupancy");
+    }
+
+    private static GroundMovePreviewSnapshot PreviewSnapshot(
+        bool insideMap = true,
+        bool cursorInGame = true,
+        bool cursorMatches = true,
+        int underCursor = 0,
+        int hoveredUnit = 0,
+        int tileUnit = 0,
+        int hoveredBuilding = 0,
+        bool hoveringWall = false,
+        int tileBuilding = 0,
+        bool targetAvailable = true,
+        bool hasComponent = true) =>
+        new GroundMovePreviewSnapshot(
+            insideMap, cursorInGame, cursorMatches, underCursor,
+            hoveredUnit, tileUnit, hoveredBuilding, hoveringWall,
+            tileBuilding, targetAvailable, hasComponent);
 
     private static void TestFormationCycleAndDensity()
     {
@@ -1103,11 +1160,26 @@ internal static class Program
         Check(!engineRun.Contains("UpdateGesture(") &&
               !engineRun.Contains("Input.") &&
               !engineRun.Contains("TryCaptureTarget(") &&
-              !engineRun.Contains("CalcMapTileFromMousePos"),
+              !engineRun.Contains("CalcMapTileFromMousePos") &&
+              engineRun.Contains("EvaluateFixedGroundTarget(state.Target)") &&
+              engineRun.IndexOf("EvaluateFixedGroundTarget(state.Target)",
+                  StringComparison.Ordinal) <
+              engineRun.IndexOf("TryClaimVanillaRelease(inputState)",
+                  StringComparison.Ordinal),
             "simulation hook performs no Unity cursor or map query");
         string held = ExtractMethodBody(source, "private void OnKeyHeld(");
-        Check(held.Contains("UpdateGesture(state)"),
-            "held input owns live gesture updates");
+        Check(held.Contains("EvaluateFixedGroundTarget(state.Target)") &&
+              held.Contains("AbortDrag(") && held.Contains("UpdateGesture(state)"),
+            "held input revalidates the fixed ground target before live updates");
+        Check(source.Contains("TryCaptureCommandTarget(") &&
+              source.Contains("grabTroopsOnScreen(") &&
+              source.Contains("r_HoverOverUnitId") &&
+              source.Contains("r_HoverOverBuildingId") &&
+              source.Contains("r_HoveringOverWall") &&
+              source.Contains("TileUnitIdGrid") &&
+              source.Contains("StructureGrid") &&
+              source.Contains("movementTargetAvailability"),
+            "formation drag starts only from a coherent object-free native ground target");
         string updateGesture = ExtractMethodBody(
             source, "private void UpdateGesture(");
         Check(updateGesture.Contains("lock (stateSync)") &&

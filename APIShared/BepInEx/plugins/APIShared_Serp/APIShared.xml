@@ -1341,6 +1341,21 @@
         <member name="T:Shared.IModSettingsPresetEndpoint">
             <summary>Typed APIShared endpoint consumed by optional mission-setting providers such as ExtendedData.</summary>
         </member>
+        <member name="T:Shared.IModSettingsWorkingCopyEndpoint">
+            <summary>Extended endpoint for replacing an editable mission working copy without touching its source.</summary>
+        </member>
+        <member name="T:Shared.ModSettingsWorkingSourceKind">
+            <summary>Identifies a read-only source which can be materialized into editable working settings.</summary>
+        </member>
+        <member name="T:Shared.ModSettingsWorkingSource">
+            <summary>One source shown by the common ModSettings source selector.</summary>
+        </member>
+        <member name="T:Shared.IModSettingsWorkingSourceProvider">
+            <summary>Optional provider implemented by mission-data mods such as ExtendedData.</summary>
+        </member>
+        <member name="T:Shared.ModSettingsWorkingSourceRegistry">
+            <summary>Process-wide bridge between APIShared consumers and the optional mission source provider.</summary>
+        </member>
         <member name="T:Shared.PublishedPresetValueMode">
             <summary>Determines how a published preset resolves one selected setting.</summary>
         </member>

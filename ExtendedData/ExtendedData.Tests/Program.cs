@@ -875,7 +875,7 @@ static void TestMapModSettingsRuntimeIntegration()
     string coordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "MapModSettingsCoordinator.cs"));
     string trailCoordinator = File.ReadAllText(Path.Combine(projectRoot, "src", "TrailMissionSettingsCoordinator.cs"));
     string runtime = File.ReadAllText(Path.Combine(projectRoot, "src", "ExtendedDataRuntime.cs"));
-    string xaml = File.ReadAllText(Path.Combine(projectRoot, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_Multiplayer.xaml"));
+    string oldMapButtonXaml = Path.Combine(projectRoot, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_Multiplayer.xaml");
 
     Assert(coordinator.Contains("SaveDataIdentifier = \"ExtendedData-MapModSettings\"") &&
         coordinator.Contains("context.IsMapEditorSave") && coordinator.Contains("context.IsSaveFile") &&
@@ -919,24 +919,16 @@ static void TestMapModSettingsRuntimeIntegration()
         trailCoordinator.Contains("ValidateDocumentValues") &&
         trailCoordinator.Contains("item.Item2.System_EnterMissionPreset(item.Item3, presetLabel, editable)"),
         "the shared Trail/Map preset service does not validate or expose contextual labels");
-    Assert(runtime.Contains("mapSettingsCoordinator?.TryHandleCommand") &&
+    Assert(!runtime.Contains("mapSettingsCoordinator?.TryHandleCommand") &&
         runtime.Contains("ActivateSelectedMissionSettingsUnlessMap") &&
         runtime.Contains("mapSettingsCoordinator?.IsActiveForLobby(lobby) == true") &&
         coordinator.Contains("settingsCoordinator.ValidateStrict(document, \"embedded Map\")") &&
-        xaml.Contains("ExtendedDataUseMapModSettings") && xaml.Contains("Visibility=\"Collapsed\""),
-        "the manually activated Map preset button is not connected to every launch path");
-    Assert(xaml.Contains("Type=\"InsertAfter\" XPath=\"(//n:Button[@CommandParameter='Back'])[1]\"") &&
-        xaml.Contains("Width=\"180\"\r\n              Height=\"45\"") &&
-        xaml.Contains("Margin=\"410,0,0,20\"") &&
-        xaml.Contains("HorizontalAlignment=\"Left\"") &&
-        xaml.Contains("Style=\"{StaticResource BTN_SH_GlowS}\"") &&
-        !xaml.Contains("Opacity=") &&
-        !xaml.Contains("Background=") &&
-        !xaml.Contains("OptionsButton") &&
-        coordinator.Contains("bool hasMapSettings = selected != null && TryReadDocument(selected, out _, out _, logFailure: false);") &&
-        coordinator.Contains("button.IsEnabled = hasMapSettings;") &&
-        coordinator.Contains("button.Opacity = hasMapSettings ? 1f : 0.5f;"),
-        "the Map mod-settings button is not positioned beside Mod Options or does not mirror Vanilla's disabled opacity");
+        coordinator.Contains("SetMapSourceDocument(document)") &&
+        coordinator.Contains("editable: true") &&
+        coordinator.Contains("CaptureCurrentDocument()") &&
+        !File.Exists(oldMapButtonXaml) &&
+        !coordinator.Contains("ExtendedDataUseMapModSettings"),
+        "Map settings must use the common source selector, remain editable in Customize, and lock the materialized copy at launch");
     string settingsXaml = File.ReadAllText(Path.Combine(projectRoot, "Override", "ScriptExtenderUI", "ExtendedDataSettings.xaml"));
     Assert(settingsXaml.Contains("TextWrapping=\"Wrap\"\r\n                 Width=\"623\"") &&
         settingsXaml.Contains("Width=\"623\" HorizontalAlignment=\"Left\"") &&
@@ -948,9 +940,6 @@ static void TestMapModSettingsRuntimeIntegration()
         "Map presets were mixed into modmap.json");
     string[] mapLocaleKeys =
     {
-        "ExtendedData.UseMapModSettings=",
-        "ExtendedData.UseMapModSettingsHelp=",
-        "ExtendedData.MapModSettingsActive=",
         "ExtendedData.MapModSettingsErrorTitle=",
         "ExtendedData.MapModSettingsUnavailable=",
         "ExtendedData.MapModSettingsMissingTitle=",
@@ -966,11 +955,10 @@ static void TestMapModSettingsRuntimeIntegration()
                 localeName + " does not define exactly one " + key);
         }
 
-        string expectedUseLabel = localeName == "de-DE.txt" ? "Map-Modsettings" : "Map preset";
-        string expectedActiveLabel = localeName == "de-DE.txt" ? "Map-Modsettings aktiv" : "Map preset active";
-        Assert(locale.Contains("ExtendedData.UseMapModSettings=" + expectedUseLabel + "\r\n") &&
-            locale.Contains("ExtendedData.MapModSettingsActive=" + expectedActiveLabel + "\r\n"),
-            localeName + " does not use the compact Map preset labels");
+        Assert(!locale.Contains("ExtendedData.UseMapModSettings=") &&
+            !locale.Contains("ExtendedData.UseMapModSettingsHelp=") &&
+            !locale.Contains("ExtendedData.MapModSettingsActive="),
+            localeName + " still contains labels for the removed separate Map button");
     }
 }
 

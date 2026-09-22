@@ -196,12 +196,30 @@ foreach ($entry in $settings.GetEnumerator()) {
             '{Binding System_PresetSaveBulkModeIndex, Mode=TwoWay}',
             '{Binding System_CanConfirmPresetSave}',
             '{Binding System_PresetSaveConfirmHelpText}',
-            '{Binding System_PresetLoadSelectionHelpText}')) {
+            '{Binding System_PresetLoadSelectionHelpText}',
+            '{Binding System_PresetInlineConfirmationVisibility}',
+            '{Binding System_ConfirmPresetInlineActionCommand}',
+            '{Binding System_PresetOperationStatusVisibility}',
+            '{Binding System_DismissPresetStatusCommand}',
+            '{Binding System_SettingsSources}',
+            '{Binding System_LoadSettingsSourceCommand}')) {
             if (-not [IO.File]::ReadAllText($path).Contains($requiredBinding)) {
                 throw "$($entry.Key): preset save bulk-mode binding is missing: $requiredBinding"
             }
         }
         $presetText = [IO.File]::ReadAllText($path)
+        $descriptionEditor = $xml.SelectSingleNode(
+            "//p:TextBox[@Text='{Binding System_PresetSaveDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}']",
+            $manager)
+        if ($null -eq $descriptionEditor -or
+            $descriptionEditor.GetAttribute('MaxLength') -ne '8192' -or
+            $descriptionEditor.GetAttribute('Height') -ne '120' -or
+            $descriptionEditor.GetAttribute('AcceptsReturn') -ne 'True' -or
+            $descriptionEditor.GetAttribute('TextWrapping') -ne 'Wrap' -or
+            $descriptionEditor.GetAttribute('HorizontalScrollBarVisibility') -ne 'Disabled' -or
+            $descriptionEditor.GetAttribute('VerticalScrollBarVisibility') -ne 'Auto') {
+            throw "$($entry.Key): preset description editor is not the bounded five-line multiline editor."
+        }
         foreach ($forbiddenBinding in @(
             'System_SelectAllPresetSaveSettingsCommand',
             'System_SelectHostPresetSaveSettingsCommand',
@@ -390,7 +408,7 @@ foreach ($entry in $settings.GetEnumerator()) {
         $headerIndex = $text.IndexOf('Text="{Binding ModEnabledText}"', [StringComparison]::Ordinal)
         $presetLoadIndex = $text.IndexOf('Command="{Binding System_OpenPresetLoadCommand}"', [StringComparison]::Ordinal)
         $presetSaveIndex = $text.IndexOf('Command="{Binding System_OpenPresetSaveCommand}"', [StringComparison]::Ordinal)
-        $resetIndex = $text.IndexOf('Command="{Binding ResetToDefaultCommand}"', [StringComparison]::Ordinal)
+        $sourceIndex = $text.IndexOf('Command="{Binding System_LoadSettingsSourceCommand}"', [StringComparison]::Ordinal)
         $orderedHeaderIndices = @($headerIndex)
         if ($actualActivationBindings -contains 'HostSettingsEnabled') {
             $orderedHeaderIndices += $text.IndexOf('IsChecked="{Binding HostSettingsEnabled, Mode=TwoWay}"', [StringComparison]::Ordinal)
@@ -398,13 +416,17 @@ foreach ($entry in $settings.GetEnumerator()) {
         if ($actualActivationBindings -contains 'ClientSettingsEnabled') {
             $orderedHeaderIndices += $text.IndexOf('IsChecked="{Binding ClientSettingsEnabled, Mode=TwoWay}"', [StringComparison]::Ordinal)
         }
-        $orderedHeaderIndices += @($presetLoadIndex, $presetSaveIndex, $resetIndex)
+        $orderedHeaderIndices += @($presetLoadIndex, $presetSaveIndex, $sourceIndex)
         $headerOrderValid = $orderedHeaderIndices -notcontains -1
         for ($index = 1; $headerOrderValid -and $index -lt $orderedHeaderIndices.Count; $index++) {
             $headerOrderValid = $orderedHeaderIndices[$index - 1] -lt $orderedHeaderIndices[$index]
         }
         if (-not $headerOrderValid) {
             throw "$($entry.Key): shared header controls are not in the required order."
+        }
+        if ($text.Contains('System_RestoreMissionPresetCommand') -or
+            $text.Contains('Command="{Binding ResetToDefaultCommand}"')) {
+            throw "$($entry.Key): obsolete separate restore/reset control remains."
         }
         if ($text.Contains('IsChecked="{Binding EnableMod, Mode=TwoWay}"') -or
             $text.Contains('IsChecked="{Binding EnableClientFeatures, Mode=TwoWay}"')) {
@@ -834,7 +856,6 @@ foreach ($modName in $selectedModNames) {
                 'Common.PresetSave',
                 'Common.PresetBasedOn',
                 'Common.PresetModified',
-                'Common.PresetRestoreMission',
                 'Common.PresetLoadConfirm',
                 'Common.PresetLoadSelectionHelp',
                 'Common.PresetLoadCancel',
@@ -866,7 +887,16 @@ foreach ($modName in $selectedModNames) {
                 'Common.PresetSaveOverwrite',
                 'Common.PresetSaveCompletedHelp',
                 'Common.PresetSaveCompletedTitle',
-                'Common.PresetSaveFailedTitle')) {
+                'Common.PresetSaveFailedTitle',
+                'Common.SettingsSource',
+                'Common.SettingsSourceLoad',
+                'Common.SettingsSourceDefaults',
+                'Common.SettingsSourceTrail',
+                'Common.SettingsSourceMap',
+                'Common.SettingsSourceLoaded',
+                'Common.SettingsSourceLoadFailed',
+                'Common.PresetConfirm',
+                'Common.PresetStatusDismiss')) {
                 if (-not $values.Contains($requiredSearchLocaleKey)) {
                     throw "$($entry.Key)/$($file.Name): missing shared search locale key $requiredSearchLocaleKey"
                 }

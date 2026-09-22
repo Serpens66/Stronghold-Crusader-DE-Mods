@@ -58,6 +58,7 @@
     <Compile Include="src\FormationTestRuntime.cs" />
     <Compile Include="src\NativeDetourEntryContract.cs" />
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
+    <Compile Include="..\..\Shared\GroundMovePreviewEligibility.cs"><Link>Shared\GroundMovePreviewEligibility.cs</Link></Compile>
     <Compile Include="..\..\Shared\UnityMainThreadDispatch.cs"><Link>Shared\UnityMainThreadDispatch.cs</Link></Compile>
     <Compile Include="..\..\Shared\NativePatternResolver.cs"><Link>Shared\NativePatternResolver.cs</Link></Compile>
   </ItemGroup>

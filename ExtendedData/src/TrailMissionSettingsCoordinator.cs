@@ -48,7 +48,7 @@ namespace ExtendedData
     }
 
     /// <summary>Owns the process-wide Custom Trail settings and customization integration.</summary>
-        internal sealed class TrailMissionSettingsCoordinator : IDisposable
+        internal sealed class TrailMissionSettingsCoordinator : IDisposable, IModSettingsWorkingSourceProvider
         {
             private const string CoopTrailMakerSourceDirectory = "TrailMakerSource";
             private const string EncodedSettingPrefix = "messagepack-base64:";
@@ -106,6 +106,7 @@ namespace ExtendedData
             private readonly BugfixesAndQoLTrailCustomizationBridge customizationBridge;
             private readonly Func<string, string, TrailSettingMode> getPropertyMode;
             private readonly Action<ModSettingsDefinition> applyEditorModes;
+            private readonly Action<string, ModSettingsDefinition> applyEditorModesForMod;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
             private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
                 new Dictionary<Type, Dictionary<string, PropertyInfo>>();
@@ -151,6 +152,9 @@ namespace ExtendedData
             private long activeSidecarLength = -1;
             private long activeSidecarWriteTicks;
             private bool activeSidecarEditable;
+            private bool workingContextEditable;
+            private ModSettingsDefinition trailSourceDocument;
+            private ModSettingsDefinition mapSourceDocument;
             private bool enabled;
             private bool externalButtonOwner;
             private readonly List<Button> injectedCoopButtons = new List<Button>();
@@ -177,6 +181,7 @@ namespace ExtendedData
             public event Action<int, int> CoopLaunchReceived;
             public event Action<FRONT_Multiplayer> LobbyOpened;
             public event Func<FRONT_Multiplayer, bool> SinglePlayerCoopStarting;
+            public event Action SourcesChanged;
 
             public IReadOnlyList<TrailModCompatibilityInfo> DiscoverModCompatibility()
             {
@@ -277,12 +282,14 @@ namespace ExtendedData
                 ManualLogSource log,
                 bool enabled,
                 Func<string, string, TrailSettingMode> getPropertyMode,
-                Action<ModSettingsDefinition> applyEditorModes)
+                Action<ModSettingsDefinition> applyEditorModes,
+                Action<string, ModSettingsDefinition> applyEditorModesForMod)
             {
                 this.log = log;
                 this.enabled = enabled;
                 this.getPropertyMode = getPropertyMode ?? ((_, __) => TrailSettingMode.ModDefault);
                 this.applyEditorModes = applyEditorModes;
+                this.applyEditorModesForMod = applyEditorModesForMod;
                 customizationBridge = new BugfixesAndQoLTrailCustomizationBridge(log);
             }
 
@@ -307,6 +314,7 @@ namespace ExtendedData
 
             public void Initialize()
             {
+                ModSettingsWorkingSourceRegistry.Register(this);
                 externalButtonOwner = customizationBridge.TryRegister(
                     () => enabled,
                     HandleExternalCustomTrailCustomize,
@@ -426,6 +434,7 @@ namespace ExtendedData
 
             public void Dispose()
             {
+                ModSettingsWorkingSourceRegistry.Unregister(this);
                 SetCoopPackagePresentation(null, 0);
                 foreach (IDisposable hook in hooks)
                     hook.Dispose();
@@ -479,6 +488,95 @@ namespace ExtendedData
 
             internal ModSettingsDefinition CaptureCurrentDocument() => CaptureDocument();
 
+            internal void SetMapSourceDocument(ModSettingsDefinition document)
+            {
+                mapSourceDocument = CloneDocument(document);
+                SourcesChanged?.Invoke();
+            }
+
+            public IReadOnlyList<ModSettingsWorkingSource> GetSources(string targetGuid)
+            {
+                var result = new List<ModSettingsWorkingSource>();
+                if (trailSourceDocument != null)
+                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail settings" });
+                if (mapSourceDocument != null)
+                    result.Add(new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map settings" });
+                return result;
+            }
+
+            public void Apply(string targetGuid, string sourceId) => ApplyMany(new[] { targetGuid }, sourceId);
+
+            public void ApplyMany(IEnumerable<string> targetGuids, string sourceId)
+            {
+                if (!trailContext || !workingContextEditable)
+                    throw new InvalidOperationException("Mission ModSettings are not currently editable.");
+                ModSettingsDefinition source = ResolveWorkingSource(sourceId);
+                Dictionary<string, IModSettingsPresetEndpoint> participants = FindCompatibleViewModels();
+                string[] ids = (targetGuids ?? Enumerable.Empty<string>()).Where(participants.ContainsKey).Distinct(StringComparer.Ordinal).ToArray();
+                var workingEndpoints = new Dictionary<string, IModSettingsWorkingCopyEndpoint>(StringComparer.Ordinal);
+                var prepared = new Dictionary<string, Dictionary<string, byte[]>>(StringComparer.Ordinal);
+                var rollback = new Dictionary<string, Dictionary<string, byte[]>>(StringComparer.Ordinal);
+                foreach (string id in ids)
+                {
+                    if (!(participants[id] is IModSettingsWorkingCopyEndpoint endpoint))
+                        throw new InvalidOperationException("The selected mod does not support editable mission working sources: " + id);
+                    workingEndpoints[id] = endpoint;
+                    rollback[id] = endpoint.System_CreateCurrentMissionPresetSnapshot();
+                    prepared[id] = MaterializeSource(id, endpoint, source);
+                }
+                ModSettingsDefinition oldModes = CaptureDocument();
+                try
+                {
+                    foreach (string id in ids)
+                    {
+                        applyEditorModesForMod?.Invoke(id, source);
+                        workingEndpoints[id].System_ApplyMissionPresetSnapshot(prepared[id], DescribeWorkingSource(sourceId));
+                    }
+                }
+                catch
+                {
+                    foreach (string id in ids)
+                    {
+                        try { workingEndpoints[id].System_ApplyMissionPresetSnapshot(rollback[id], activeContextLabel); }
+                        catch (Exception rollbackException) { DebugLogHelper.LogError(log, "Could not roll back source application for [" + id + "]: " + rollbackException); }
+                    }
+                    applyEditorModes?.Invoke(oldModes);
+                    throw;
+                }
+            }
+
+            private ModSettingsDefinition ResolveWorkingSource(string sourceId)
+            {
+                if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal))
+                    return ModSettingsDefinition.CreateModDefaults();
+                if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal) && trailSourceDocument != null)
+                    return CloneDocument(trailSourceDocument);
+                if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.MapId, StringComparison.Ordinal) && mapSourceDocument != null)
+                    return CloneDocument(mapSourceDocument);
+                throw new InvalidOperationException("The selected ModSettings source is unavailable.");
+            }
+
+            private Dictionary<string, byte[]> MaterializeSource(string modId, IModSettingsWorkingCopyEndpoint endpoint, ModSettingsDefinition document)
+            {
+                Dictionary<string, byte[]> snapshot = endpoint.System_CreateModDefaultSnapshot();
+                if (document?.Mods == null || !document.Mods.TryGetValue(modId, out ModSettingsEntry entry) || entry == null)
+                    return snapshot;
+                Dictionary<string, PropertyInfo> properties = GetPersistedProperties(endpoint);
+                Dictionary<string, byte[]> player = endpoint.System_CreatePlayerMissionPresetSnapshot();
+                foreach (string propertyName in entry.PlayerSettings ?? Array.Empty<string>())
+                    if (properties.ContainsKey(propertyName) && player.TryGetValue(propertyName, out byte[] bytes)) snapshot[propertyName] = (byte[])bytes.Clone();
+                foreach (KeyValuePair<string, object> setting in entry.Overrides ?? new Dictionary<string, object>(StringComparer.Ordinal))
+                    if (properties.TryGetValue(setting.Key, out PropertyInfo property)) snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, ConvertJsonValue(setting.Value, property.PropertyType));
+                return snapshot;
+            }
+
+            private static string DescribeWorkingSource(string sourceId) =>
+                string.Equals(sourceId, ModSettingsWorkingSourceRegistry.TrailId, StringComparison.Ordinal) ? "Trail" :
+                string.Equals(sourceId, ModSettingsWorkingSourceRegistry.MapId, StringComparison.Ordinal) ? "Map" : "Mod defaults";
+
+            private static ModSettingsDefinition CloneDocument(ModSettingsDefinition document) =>
+                document == null ? null : ModSettingsJson.ParseObject(ModSettingsJson.Serialize(document));
+
             internal bool IsContextActive(string presetLabel) =>
                 trailContext && string.Equals(activeContextLabel, presetLabel, StringComparison.Ordinal);
 
@@ -529,11 +627,16 @@ namespace ExtendedData
                     ClearActiveSidecar();
                     ClearTrailMakerAuthoringState();
                     missionPresetLifecycle.Reset();
+                    workingContextEditable = false;
+                    trailSourceDocument = null;
+                    mapSourceDocument = null;
+                    SourcesChanged?.Invoke();
                     return;
                 }
 
                 ExitActiveParticipants();
                 trailContext = false;
+                workingContextEditable = false;
                 preserveContextForLaunch = false;
                 customTrailLaunchActive = false;
                 customTrailSetupRestartInfo = null;
@@ -542,6 +645,9 @@ namespace ExtendedData
                 ClearActiveSidecar();
                 ClearTrailMakerAuthoringState();
                 missionPresetLifecycle.Reset();
+                trailSourceDocument = null;
+                mapSourceDocument = null;
+                SourcesChanged?.Invoke();
                 DebugLogHelper.LogInfo(log, "Left " + activeContextLabel + " mod-settings context.");
                 activeContextLabel = "Trail";
             }
@@ -566,6 +672,7 @@ namespace ExtendedData
                     {
                         ExitActiveParticipants();
                         trailContext = false;
+                        workingContextEditable = false;
                     }
                     DebugLogHelper.LogInfo(
                         log,
@@ -698,6 +805,8 @@ namespace ExtendedData
                     if (!File.Exists(trailPath))
                         throw new FileNotFoundException("The game did not create the expected Trail mission.", trailPath);
                     ModSettingsJson.WriteAtomic(sidecar, document);
+                    trailSourceDocument = CloneDocument(document);
+                    SourcesChanged?.Invoke();
                     capturedDocumentsByTrailPath.Remove(IOPath.GetFullPath(trailPath));
                     DebugLogHelper.LogInfo(log, $"Saved Trail mod settings beside [{trailPath}].");
                 }
@@ -1678,6 +1787,12 @@ namespace ExtendedData
                         ApplyDocument(ModSettingsDefinition.CreateModDefaults(), editable: false);
                     }
                 }
+                else if (workingContextEditable)
+                {
+                    // Customize is an editable draft. The launched mission receives the
+                    // materialized result as a read-only working snapshot.
+                    ApplyDocument(CaptureDocument(), editable: false, presetLabel: "Trail");
+                }
                 preserveContextForLaunch = false;
                 customTrailLaunchActive = true;
                 missionPresetLifecycle.Prepare(MissionPresetLaunchKind.CustomTrail);
@@ -2099,7 +2214,7 @@ namespace ExtendedData
                 }
                 // doOpen can trigger unrelated context cleanup; apply the selected mission again
                 // after all lobby view models exist so Trail is visible and selected immediately.
-                EnterSidecar(header.filePath, editable: false);
+                EnterSidecar(header.filePath, editable: true);
                 DebugLogHelper.LogInfo(
                     log,
                     $"Opened Custom Trail setup [{menus.CustomTrailName}] mission {missionId}; " +
@@ -2774,6 +2889,8 @@ namespace ExtendedData
                 ModSettingsDefinition document = exists
                     ? ModSettingsJson.Read(sidecar)
                     : ModSettingsDefinition.CreateModDefaults();
+                trailSourceDocument = exists ? CloneDocument(document) : null;
+                SourcesChanged?.Invoke();
                 ApplyDocument(document, editable);
                 string[] mentionedMods = document.Mods.Keys.ToArray();
                 DebugLogHelper.LogInfo(
@@ -2884,6 +3001,7 @@ namespace ExtendedData
                         activeParticipantIds.Add(item.Item1);
                     }
                     trailContext = true;
+                    workingContextEditable = editable;
                     activeContextLabel = string.IsNullOrWhiteSpace(presetLabel) ? "Trail" : presetLabel;
                 }
                 catch

@@ -99,7 +99,8 @@ namespace ExtendedData
                 log,
                 enabled,
                 settings.GetTrailPropertyMode,
-                settings.ApplyTrailSettingModes);
+                settings.ApplyTrailSettingModes,
+                settings.ApplyTrailSettingModesForMod);
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
             missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
             missionSettingsCoordinator.CoopLaunchReceived += OnCoopLaunchReceived;
@@ -262,8 +263,6 @@ namespace ExtendedData
 
         private void ButtonClickedHook(FRONT_Multiplayer self, string command)
         {
-            if (mapSettingsCoordinator?.TryHandleCommand(self, command) == true)
-                return;
             if (enabled && string.Equals(command, "TMTest", StringComparison.Ordinal) &&
                 !missionSettingsCoordinator.PrepareTrailMakerTestLaunch())
             {

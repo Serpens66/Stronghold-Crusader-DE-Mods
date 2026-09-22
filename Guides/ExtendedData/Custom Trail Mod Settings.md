@@ -27,7 +27,7 @@ Only persistent `[SyncHostOnly]` settings can become Map or Trail rules. Persona
 
 ### Trail Maker authoring and tests
 
-Opening a saved Trail Maker mission loads its matching sidecar into an editable temporary **Trail** context. A new unsaved mission starts from the safe mod defaults. Personal, bundled, and external normal presets can be loaded into this draft; **Restore mission preset** restores the original Trail values.
+Opening a saved Trail Maker mission loads its matching sidecar into an editable temporary **Trail** context. A new unsaved mission starts from the safe mod defaults. Personal, bundled, and external normal presets can be loaded into this draft. The common source selector always offers **Mod defaults**, and additionally offers **Trail settings** or **Map settings** when those valid sources exist. This lets an author deliberately restore the Trail draft or use the selected Map as a template without modifying either source.
 
 ExtendedData keeps the editable authoring draft while the mission is tested, restarted, opened in the Map Editor, or returned to the Trail Maker. Saving refreshes the draft and writes the sidecar. The normal preset Save dialog can create a personal preset from the draft, but can never overwrite a Trail, Map archive, or Coop package. Leaving the authoring context discards the draft and restores the previous normal working settings and status. If a draft cannot be loaded or restored safely, ExtendedData falls back to editable mod defaults rather than retaining a partial preset.
 
@@ -64,7 +64,7 @@ Players need `ExtendedData` and every mod explicitly mentioned by the Map or mis
 
 After the mission ends, compatible mods restore the player's previous normal working settings and preset status. A directly started mission context is read-only for all included settings.
 
-For a free Singleplayer Skirmish, Multiplayer host lobby, or Trail opened through **Customize**, select the Map and press **Use Map modsettings**. Selecting a Map alone does not activate its preset. The button is disabled when the archive has no valid settings, hidden in Trail Maker, and hidden for Multiplayer clients. Changing the selected Map or leaving the lobby restores the previous local preset; otherwise the Map context remains active until the mission ends.
+For a free Singleplayer Skirmish or Multiplayer host lobby, selecting a Map with valid embedded settings initializes an editable Map working copy. A Trail opened through **Customize** initializes the editable Trail working copy instead; its Map settings remain available only as an explicit source in the common selector. Changing the selected Map or leaving the lobby restores the previous normal working state; the launched mission receives the materialized result as a read-only snapshot.
 
 Only the Multiplayer host can activate or clear Map settings. ExtendedData authenticates the host packet and binds it to the selected Map name and CRC. Late joiners receive the active state, while malformed data is rejected without partially applying it.
 
@@ -128,7 +128,7 @@ Nur dauerhafte `[SyncHostOnly]`-Einstellungen können zu Map- oder Trail-Regeln 
 
 ### Trail-Maker-Bearbeitung und Tests
 
-Beim Öffnen einer gespeicherten Trail-Maker-Mission wird das passende Sidecar als bearbeitbarer temporärer **Trail**-Kontext geladen. Eine neue ungespeicherte Mission beginnt mit den sicheren Mod-Standardwerten. Persönliche, mitgelieferte und externe normale Presets können in diesen Entwurf geladen werden; **Missions-Preset wiederherstellen** stellt die ursprünglichen Trail-Werte wieder her.
+Beim Öffnen einer gespeicherten Trail-Maker-Mission wird das passende Sidecar als bearbeitbarer temporärer **Trail**-Kontext geladen. Eine neue ungespeicherte Mission beginnt mit den sicheren Mod-Standardwerten. Persönliche, mitgelieferte und externe normale Presets können in diesen Entwurf geladen werden. Der gemeinsame Quellenwähler bietet immer **Mod-Standards** und bei gültiger Quelle zusätzlich **Trail-Einstellungen** beziehungsweise **Map-Einstellungen**. Damit kann der Autor bewusst den Trail-Entwurf wiederherstellen oder die ausgewählte Map als Vorlage laden, ohne eine der Quelldateien zu verändern.
 
 ExtendedData behält den bearbeitbaren Entwurf während eines Tests, Neustarts, Wechsels in den Map Editor oder der Rückkehr zum Trail Maker bei. Beim Speichern wird der Entwurf aktualisiert und das Sidecar geschrieben. Über den normalen Preset-Speicherdialog kann daraus ein persönliches Preset entstehen; Trail-, Map- und Koop-Dateien können dort niemals überschrieben werden. Beim Verlassen des Bearbeitungskontexts wird der Entwurf verworfen und der vorherige normale Arbeitsstand samt Status wiederhergestellt. Kann ein Entwurf nicht sicher geladen oder wiederhergestellt werden, verwendet ExtendedData bearbeitbare Mod-Standardwerte statt eines unvollständigen Presets.
 
@@ -165,7 +165,7 @@ Spieler benötigen `ExtendedData` und jeden von der Map oder Mission ausdrückli
 
 Nach Missionsende stellen kompatible Mods die vorherigen normalen Arbeitswerte und den Presetstatus des Spielers wieder her. Ein direkt gestarteter Missionskontext ist für alle enthaltenen Einstellungen schreibgeschützt.
 
-Wähle für ein freies Einzelspieler-Scharmützel, eine Multiplayer-Host-Lobby oder einen über **Customize** geöffneten Trail zuerst die Map und drücke anschließend **Use Map modsettings**. Allein die Map-Auswahl aktiviert kein Preset. Der Knopf ist deaktiviert, wenn das Archiv keine gültigen Einstellungen besitzt, und wird im Trail Maker sowie für Multiplayer-Clients ausgeblendet. Die Auswahl einer anderen Map oder das Verlassen der Lobby stellt das vorherige lokale Preset wieder her; andernfalls bleibt der Map-Kontext bis zum Missionsende aktiv.
+In einem freien Einzelspieler-Scharmützel oder einer Multiplayer-Host-Lobby initialisiert die Auswahl einer Map mit gültigen eingebetteten Einstellungen eine bearbeitbare Map-Arbeitskopie. Ein über **Customize** geöffneter Trail initialisiert stattdessen seine bearbeitbare Trail-Arbeitskopie; die Map-Einstellungen stehen nur als ausdrücklich ladbare Quelle im gemeinsamen Wähler bereit. Die Auswahl einer anderen Map oder das Verlassen der Lobby stellt den vorherigen normalen Arbeitsstand wieder her. Beim Start erhält die Mission das materialisierte Ergebnis als schreibgeschützten Snapshot.
 
 Nur der Multiplayer-Host kann Map-Einstellungen aktivieren oder löschen. ExtendedData authentifiziert das Host-Paket und bindet es an Namen und CRC der ausgewählten Map. Später beitretende Spieler erhalten den aktiven Zustand; fehlerhafte Daten werden ohne teilweise Anwendung abgelehnt.
 

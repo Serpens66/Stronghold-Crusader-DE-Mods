@@ -22,9 +22,14 @@
         </Border>
         <TextBlock Text="{Binding SummaryTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
       <TextBlock Text="{Binding SummaryText}" Foreground="White" TextWrapping="Wrap" Margin="0,0,0,12"/>
-      <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,12" shared:ModSettingsSearch.Exclude="True">
         <Button Content="{Binding RefreshText}" Command="{Binding RefreshCommand}" Padding="10,3" Margin="0,0,8,0" ToolTipService.ShowDuration="60000" ToolTip="{Binding RefreshHelpText}"/>
         <Button Content="{Binding ClearErrorsText}" Command="{Binding ClearErrorsCommand}" Padding="10,3" ToolTipService.ShowDuration="60000" ToolTip="{Binding ClearErrorsHelpText}"/>
+      </StackPanel>
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,12" shared:ModSettingsSearch.Exclude="True">
+        <TextBlock Text="{Binding GlobalSettingsSourceText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+        <ComboBox ItemsSource="{Binding GlobalSettingsSources}" SelectedItem="{Binding SelectedGlobalSettingsSource, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsSourceText}" Width="260" Margin="8,0,0,0"/>
+        <Button IsEnabled="{Binding CanLoadGlobalSettingsSource}" Content="{Binding LoadGlobalSettingsSourceText}" Command="{Binding LoadGlobalSettingsSourceCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding LoadGlobalSettingsSourceText}" Padding="10,3" Margin="8,0,0,0"/>
       </StackPanel>
         <TextBlock Text="{Binding ErrorsTitleText}" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
         <TextBlock Text="{Binding ErrorsText}" Foreground="#FFFF7777" TextWrapping="Wrap"/>

@@ -28,7 +28,6 @@ namespace ExtendedData
     {
         internal const string SaveDataIdentifier = "ExtendedData-MapModSettings";
         internal const string ArchiveEntryName = "_SE_ModData_" + SaveDataIdentifier + ".msgpack";
-        internal const string UseMapCommand = "ExtendedDataUseMapModSettings";
         private const int MaxPayloadBytes = 1024 * 1024;
 
         private delegate void SaveSaveGameOrMapDelegate(
@@ -150,18 +149,6 @@ namespace ExtendedData
                 OnLobbyOpened(lobby);
         }
 
-        internal bool TryHandleCommand(FRONT_Multiplayer lobby, string command)
-        {
-            if (string.Equals(command, UseMapCommand, StringComparison.Ordinal))
-            {
-                if (enabled)
-                    ApplySelectedMap(lobby);
-                return true;
-            }
-
-            return false;
-        }
-
         public void Dispose()
         {
             settingsCoordinator.LobbyOpened -= OnLobbyOpened;
@@ -198,6 +185,14 @@ namespace ExtendedData
             launchInProgress = IsMapContextCurrent();
             try
             {
+                if (launchInProgress)
+                {
+                    settingsCoordinator.EnterStrict(
+                        settingsCoordinator.CaptureCurrentDocument(),
+                        editable: false,
+                        source: "Map launch working copy",
+                        presetLabel: "Map");
+                }
                 startSkirmishGameOriginal(self, restartInfo);
             }
             finally
@@ -284,7 +279,7 @@ namespace ExtendedData
                 observedMapLists.Add(mapList, lobby);
                 mapList.SelectionChanged += OnMapListSelectionChanged;
             }
-            RefreshButton(lobby);
+            OnMapSelectionChanged(lobby);
         }
 
         private void OnMapListSelectionChanged(object sender, SelectionChangedEventArgs args)
@@ -300,7 +295,17 @@ namespace ExtendedData
             // Only a new, concrete map identity counts as a map change.
             if (mapContextActive && selected != null && !MatchesActiveMap(selected))
                 ExitMapContext(broadcast: IsHostLobby(lobby), "selected map changed");
-            RefreshButton(lobby);
+            if (enabled && selected != null &&
+                TryReadDocument(selected, out ModSettingsDefinition document, out _, logFailure: false))
+            {
+                settingsCoordinator.SetMapSourceDocument(document);
+                if (HasLocalAuthority(lobby) && !settingsCoordinator.IsContextActive("Trail") && !lobby.trailMakerMode)
+                    ApplySelectedMap(lobby);
+            }
+            else
+            {
+                settingsCoordinator.SetMapSourceDocument(null);
+            }
         }
 
         internal bool IsActiveForLobby(FRONT_Multiplayer lobby)
@@ -321,33 +326,6 @@ namespace ExtendedData
             return false;
         }
 
-        private void RefreshButton(FRONT_Multiplayer lobby)
-        {
-            Button button = lobby?.FindName("ExtendedDataUseMapModSettings") as Button;
-            if (button == null)
-                return;
-
-            FileHeader selected = GetSelectedHeader(lobby);
-            bool activeForSelection = IsMapContextCurrent() && MatchesActiveMap(selected);
-            PropEx.SetTextCentre(
-                button,
-                SerpLocalization.Get(activeForSelection
-                    ? "ExtendedData.MapModSettingsActive"
-                    : "ExtendedData.UseMapModSettings"));
-            button.ToolTip = SerpLocalization.Get("ExtendedData.UseMapModSettingsHelp");
-            bool authority = HasLocalAuthority(lobby) && !lobby.trailMakerMode;
-            button.Visibility = enabled && authority ? Visibility.Visible : Visibility.Collapsed;
-            if (button.Visibility != Visibility.Visible)
-            {
-                button.IsEnabled = false;
-                return;
-            }
-
-            bool hasMapSettings = selected != null && TryReadDocument(selected, out _, out _, logFailure: false);
-            button.IsEnabled = hasMapSettings;
-            button.Opacity = hasMapSettings ? 1f : 0.5f;
-        }
-
         private void ApplySelectedMap(FRONT_Multiplayer lobby)
         {
             if (!HasLocalAuthority(lobby) || lobby.trailMakerMode)
@@ -359,16 +337,17 @@ namespace ExtendedData
                 ShowMessage(
                     SerpLocalization.Get("ExtendedData.MapModSettingsErrorTitle"),
                     SerpLocalization.Get("ExtendedData.MapModSettingsUnavailable"));
-                RefreshButton(lobby);
+                settingsCoordinator.SetMapSourceDocument(null);
                 return;
             }
 
             string[] missing;
             try
             {
+                settingsCoordinator.SetMapSourceDocument(document);
                 missing = settingsCoordinator.EnterStrict(
                 document,
-                editable: false,
+                editable: true,
                 source: "selected Map",
                 presetLabel: "Map");
             }
@@ -398,7 +377,6 @@ namespace ExtendedData
             }
             if (IsHostLobby(lobby))
                 BroadcastCurrentState(apply: true);
-            RefreshButton(lobby);
         }
 
         private bool TryReadDocument(
@@ -537,9 +515,10 @@ namespace ExtendedData
             try
             {
                 ModSettingsDefinition document = ModSettingsJson.ParseObject(packet.Json ?? string.Empty);
+                settingsCoordinator.SetMapSourceDocument(document);
                 string[] missing = settingsCoordinator.EnterStrict(
                     document,
-                    editable: false,
+                    editable: true,
                     source: "authenticated host Map",
                     presetLabel: "Map");
                 mapContextActive = true;

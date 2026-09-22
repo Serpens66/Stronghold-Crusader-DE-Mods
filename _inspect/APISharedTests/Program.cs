@@ -42,6 +42,7 @@ namespace APISharedTests
             TestPublishedPresetJson();
             TestPublishedPresetDiscovery();
             TestPresetSaveUiModel();
+            TestWorkingSourceRegistry();
             TestCompiledPatternSearch();
             TestUnitHudSnapshotImmutability();
             TestLobbyStateCapability();
@@ -144,6 +145,47 @@ namespace APISharedTests
                 parsed.Settings["Count"].Mode == PublishedPresetValueMode.Fixed &&
                 Convert.ToInt32(parsed.Settings["Count"].Value) == 12,
                 "published preset JSON round-trip preserves identity, metadata, modes, and fixed values");
+
+            string maximumDescription = "Line one\r\n" +
+                new string('x', ModSettingsPresetJson.MaximumDescriptionLength - 10);
+            string maximumDescriptionJson = ModSettingsPresetJson.Serialize(
+                "ThirdParty.Target",
+                "multiline",
+                "Multiline",
+                maximumDescription,
+                string.Empty,
+                string.Empty,
+                settings);
+            PublishedModSettingsPreset maximumDescriptionPreset = ModSettingsPresetJson.Parse(
+                maximumDescriptionJson,
+                "Provider.Guid",
+                "Provider",
+                "ThirdParty.Target",
+                "preset_multiline.json");
+            Assert(maximumDescriptionPreset.Description == maximumDescription &&
+                    maximumDescriptionPreset.Description.Length == 8192,
+                "preset descriptions must preserve line breaks and round-trip at the 8192-character limit");
+            AssertThrows<InvalidDataException>(
+                () => ModSettingsPresetJson.Serialize(
+                    "ThirdParty.Target",
+                    "too-long",
+                    "Too long",
+                    new string('x', ModSettingsPresetJson.MaximumDescriptionLength + 1),
+                    string.Empty,
+                    string.Empty,
+                    settings),
+                "preset serialization must reject descriptions longer than 8192 characters before writing");
+            string oversizedDescriptionJson = maximumDescriptionJson.Replace(
+                new string('x', ModSettingsPresetJson.MaximumDescriptionLength - 10),
+                new string('x', ModSettingsPresetJson.MaximumDescriptionLength - 9));
+            AssertThrows<InvalidDataException>(
+                () => ModSettingsPresetJson.Parse(
+                    oversizedDescriptionJson,
+                    "Provider.Guid",
+                    "Provider",
+                    "ThirdParty.Target",
+                    "preset_oversized-description.json"),
+                "preset parsing must reject descriptions longer than 8192 characters");
 
             int[] converted = (int[])ModSettingsPresetJson.ConvertValue(
                 new object[] { 1, 2, 3 },
@@ -355,8 +397,33 @@ namespace APISharedTests
                 "pressing Load again must close its panel");
             openSave.Invoke(viewModel, null);
             Assert(viewModel.System_PresetSavePanelVisibility == Noesis.Visibility.Visible &&
-                viewModel.System_PresetLoadPanelVisibility == Noesis.Visibility.Collapsed,
-                "opening Save must show only the save panel");
+                viewModel.System_PresetLoadPanelVisibility == Noesis.Visibility.Collapsed &&
+                viewModel.System_PresetSaveName == string.Empty &&
+                viewModel.System_PresetSaveDescription == string.Empty,
+                "opening Save must show only the save panel and start a new preset with blank metadata");
+
+            var existingPreset = new PublishedModSettingsPreset();
+            typeof(PublishedModSettingsPreset).GetProperty(nameof(PublishedModSettingsPreset.Name))
+                .SetValue(existingPreset, "Existing preset");
+            typeof(PublishedModSettingsPreset).GetProperty(nameof(PublishedModSettingsPreset.Description))
+                .SetValue(existingPreset, "Existing\r\ndescription");
+            typeof(PublishedModSettingsPreset).GetProperty(nameof(PublishedModSettingsPreset.Settings))
+                .SetValue(existingPreset, new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal)
+                {
+                    ["First"] = new PublishedPresetSetting { Mode = PublishedPresetValueMode.Fixed, Value = 1 },
+                });
+            var existingTarget = new ModSettingsPresetSaveTarget();
+            typeof(ModSettingsPresetSaveTarget).GetProperty("Preset", BindingFlags.Instance | BindingFlags.NonPublic)
+                .SetValue(existingTarget, existingPreset);
+            viewModel.System_SelectedPresetSaveTarget = existingTarget;
+            Assert(viewModel.System_PresetSaveName == "Existing preset" &&
+                    viewModel.System_PresetSaveDescription == "Existing\r\ndescription",
+                "selecting an existing personal preset must fill its editable name and description");
+            viewModel.System_SelectedPresetSaveTarget = new ModSettingsPresetSaveTarget();
+            Assert(viewModel.System_PresetSaveName == string.Empty &&
+                    viewModel.System_PresetSaveDescription == string.Empty,
+                "returning to the new-personal-preset target must clear name and description");
+
             openLoad.Invoke(viewModel, null);
             Assert(viewModel.System_PresetLoadPanelVisibility == Noesis.Visibility.Visible &&
                 viewModel.System_PresetSavePanelVisibility == Noesis.Visibility.Collapsed,
@@ -383,6 +450,44 @@ namespace APISharedTests
                     presetSource.Contains("Common.PresetDeleteConfirm") &&
                     presetSource.Contains("preset.SourceKind != ModSettingsPresetSourceKind.Personal"),
                 "personal preset deletion must be confirmed and fail closed by source kind");
+            Assert(presetSource.Contains("System_PresetInlineConfirmationVisibility") &&
+                    presetSource.Contains("ConfirmPresetInlineAction") &&
+                    presetSource.Contains("System_PresetOperationStatusVisibility") &&
+                    !presetSource.Contains("LobbyPresetDialogSession") &&
+                    !presetSource.Contains("ShowLobbyPresetConfirmation") &&
+                    !presetSource.Contains("ModSettingsHubViewModel.WindowVisibility = Visibility.Collapsed"),
+                "preset confirmations and result messages must stay inline without hiding the ModSettings hub");
+            Assert(!presetSource.Contains("SuggestedSaveName"),
+                "the new-personal-preset form must not inherit the active preset name");
+        }
+
+        private static void TestWorkingSourceRegistry()
+        {
+            var provider = new RecordingWorkingSourceProvider();
+            int changes = 0;
+            Action changed = () => changes++;
+            ModSettingsWorkingSourceRegistry.SourcesChanged += changed;
+            try
+            {
+                ModSettingsWorkingSourceRegistry.Register(provider);
+                IReadOnlyList<ModSettingsWorkingSource> sources = ModSettingsWorkingSourceRegistry.GetProviderSources("Target");
+                Assert(sources.Count == 2 && sources[0].Kind == ModSettingsWorkingSourceKind.Trail &&
+                    sources[1].Kind == ModSettingsWorkingSourceKind.Map,
+                    "working-source registry must expose optional Trail and Map sources in provider order");
+                ModSettingsWorkingSourceRegistry.Apply("Target", ModSettingsWorkingSourceRegistry.MapId);
+                ModSettingsWorkingSourceRegistry.ApplyMany(new[] { "A", "B" }, ModSettingsWorkingSourceRegistry.TrailId);
+                Assert(provider.Calls.SequenceEqual(new[] { "one:Target:map", "many:A,B:trail" }),
+                    "working-source registry must forward single and atomic multi-target applications");
+                provider.RaiseChanged();
+                ModSettingsWorkingSourceRegistry.Unregister(provider);
+                Assert(changes == 3 && !ModSettingsWorkingSourceRegistry.HasProvider,
+                    "working-source registration, provider refresh, and failed-initialization rollback must notify consumers");
+            }
+            finally
+            {
+                ModSettingsWorkingSourceRegistry.Unregister(provider);
+                ModSettingsWorkingSourceRegistry.SourcesChanged -= changed;
+            }
         }
 
         private static void TestCompiledPatternSearch()
@@ -1156,6 +1261,11 @@ namespace APISharedTests
                 "Shared.PresetLobbyModSettingsViewModel",
                 "Shared.LobbyModSettingsPresetRegistration",
                 "Shared.IModSettingsPresetEndpoint",
+                "Shared.IModSettingsWorkingCopyEndpoint",
+                "Shared.ModSettingsWorkingSourceKind",
+                "Shared.ModSettingsWorkingSource",
+                "Shared.IModSettingsWorkingSourceProvider",
+                "Shared.ModSettingsWorkingSourceRegistry",
                 "Shared.PublishedPresetValueMode",
                 "Shared.PresetSaveBulkMode",
                 "Shared.PresetSettingScope",
@@ -2079,6 +2189,20 @@ namespace APISharedTests
                 if (fail)
                     throw new InvalidOperationException("injected completion failure");
             }
+        }
+
+        private sealed class RecordingWorkingSourceProvider : IModSettingsWorkingSourceProvider
+        {
+            public event Action SourcesChanged;
+            public List<string> Calls { get; } = new List<string>();
+            public IReadOnlyList<ModSettingsWorkingSource> GetSources(string targetGuid) => new[]
+            {
+                new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.TrailId, Kind = ModSettingsWorkingSourceKind.Trail, DisplayName = "Trail" },
+                new ModSettingsWorkingSource { Id = ModSettingsWorkingSourceRegistry.MapId, Kind = ModSettingsWorkingSourceKind.Map, DisplayName = "Map" },
+            };
+            public void Apply(string targetGuid, string sourceId) => Calls.Add("one:" + targetGuid + ":" + sourceId);
+            public void ApplyMany(IEnumerable<string> targetGuids, string sourceId) => Calls.Add("many:" + string.Join(",", targetGuids) + ":" + sourceId);
+            public void RaiseChanged() => SourcesChanged?.Invoke();
         }
 
         private sealed class PresetSaveTestViewModel : PresetLobbyModSettingsViewModel

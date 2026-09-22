@@ -43,6 +43,26 @@ The release is an edge-triggered transaction. A mod that sends an equivalent
 authoritative move before the original run must still call the original run
 once with neutral release state, and must not restore that consumed edge.
 
+## Preview target eligibility
+
+The held-button preview precedes the terminal command decision, so it must not
+infer a ground Move from the mouse button alone. `DLL_RunTick` supplies the
+current map coordinates and object-depth inputs to RVA `0x8B7E0`; the cursor
+target resolver at RVA `0x79B90` rejects out-of-map and unavailable movement
+targets and publishes building, unit, wall, and ground identities. The command
+dispatcher at RVA `0x8C5F0` handles object attacks and interactions before its
+remaining ground branch reaches RVA `0x195E30`.
+
+A managed preview may therefore start only from a coherent cursor snapshot for
+the captured native tile with no hovered or tile-resident unit, building, or
+wall, nonzero movement-target availability, and a nonzero path component. The
+immediate managed `grabTroopsOnScreen` result is part of the same object-target
+decision and must also be empty. If the managed tile, native cursor tile, or
+native grids disagree, the classification is ambiguous and must fail closed to
+Vanilla without consuming the release. While the cursor later supplies drag
+direction, only the fixed command tile is revalidated; the live hover identity
+must not be mistaken for a replacement command target.
+
 ## Managed event ordering
 
 Script Extender 2.8.0 raises `OnKeyDown`, `OnKey`, and `OnKeyUp` from the
@@ -75,6 +95,10 @@ depending on the cleared `KeyManager` state.
 - `DLL_TroopSelection` and `DLL_RunTick` parameter/global flow:
   confirmed-static.
 - `0x8C5F0` release branches and ground-move staging: confirmed-static.
+- `0x79B90` cursor target rejection and unit/building/wall/ground publication:
+  confirmed-static.
+- Object-command dispatch preceding the `0x195E30` ground branch at `0x8C5F0`:
+  confirmed-static.
 - Duplicate-order consequence from restoring the release: confirmed-runtime
   by a formation command completing all terminal assignments before a later
   Vanilla order replaced its targets.

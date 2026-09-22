@@ -32,6 +32,7 @@
     <Compile Include="..\src\FormationPreviewMarkerModel.cs"><Link>FormationPreviewMarkerModel.cs</Link></Compile>
     <Compile Include="..\src\FormationReleaseStateModel.cs"><Link>FormationReleaseStateModel.cs</Link></Compile>
     <Compile Include="..\src\NativeDetourEntryContract.cs"><Link>NativeDetourEntryContract.cs</Link></Compile>
+    <Compile Include="..\..\..\Shared\GroundMovePreviewEligibility.cs"><Link>GroundMovePreviewEligibility.cs</Link></Compile>
   </ItemGroup>
   <Target Name="ValidateReferences" BeforeTargets="BeforeBuild">
     <Error Condition="!Exists('$(ExtenderDir)\Iced.dll')" Text="Iced.dll was not found: $(ExtenderDir)" />

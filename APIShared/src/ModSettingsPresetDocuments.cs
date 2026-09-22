@@ -22,6 +22,111 @@ namespace Shared
         bool IsMissionPresetActive { get; }
     }
 
+    /// <summary>Extended endpoint for replacing an editable mission working copy without touching its source.</summary>
+    public interface IModSettingsWorkingCopyEndpoint : IModSettingsPresetEndpoint
+    {
+        Dictionary<string, byte[]> System_CreateModDefaultSnapshot();
+        Dictionary<string, byte[]> System_CreateCurrentMissionPresetSnapshot();
+        Dictionary<string, byte[]> System_CreatePlayerMissionPresetSnapshot();
+        void System_ApplyMissionPresetSnapshot(Dictionary<string, byte[]> snapshot, string label);
+        Dictionary<string, byte[]> System_CreateCurrentWorkingSnapshot();
+        void System_ApplyWorkingSnapshot(Dictionary<string, byte[]> snapshot);
+        void System_LoadModDefaults();
+    }
+
+    /// <summary>Identifies a read-only source which can be materialized into editable working settings.</summary>
+    public enum ModSettingsWorkingSourceKind
+    {
+        ModDefault = 0,
+        Trail = 1,
+        Map = 2,
+    }
+
+    /// <summary>One source shown by the common ModSettings source selector.</summary>
+    public sealed class ModSettingsWorkingSource
+    {
+        public string Id { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public ModSettingsWorkingSourceKind Kind { get; set; }
+        public override string ToString() => DisplayName;
+    }
+
+    /// <summary>Optional provider implemented by mission-data mods such as ExtendedData.</summary>
+    public interface IModSettingsWorkingSourceProvider
+    {
+        event Action SourcesChanged;
+        IReadOnlyList<ModSettingsWorkingSource> GetSources(string targetGuid);
+        void Apply(string targetGuid, string sourceId);
+        void ApplyMany(IEnumerable<string> targetGuids, string sourceId);
+    }
+
+    /// <summary>Process-wide bridge between APIShared consumers and the optional mission source provider.</summary>
+    public static class ModSettingsWorkingSourceRegistry
+    {
+        public const string ModDefaultsId = "mod-default";
+        public const string TrailId = "trail";
+        public const string MapId = "map";
+        private static readonly object Sync = new object();
+        private static IModSettingsWorkingSourceProvider provider;
+        public static event Action SourcesChanged;
+
+        public static void Register(IModSettingsWorkingSourceProvider value)
+        {
+            if (value == null) throw new ArgumentNullException(nameof(value));
+            lock (Sync)
+            {
+                if (provider != null && !ReferenceEquals(provider, value))
+                    throw new InvalidOperationException("A ModSettings working-source provider is already registered.");
+                if (ReferenceEquals(provider, value)) return;
+                provider = value;
+                provider.SourcesChanged += ForwardSourcesChanged;
+            }
+            ForwardSourcesChanged();
+        }
+
+        public static void Unregister(IModSettingsWorkingSourceProvider value)
+        {
+            if (value == null) return;
+            lock (Sync)
+            {
+                if (!ReferenceEquals(provider, value)) return;
+                provider.SourcesChanged -= ForwardSourcesChanged;
+                provider = null;
+            }
+            ForwardSourcesChanged();
+        }
+
+        public static IReadOnlyList<ModSettingsWorkingSource> GetProviderSources(string targetGuid)
+        {
+            IModSettingsWorkingSourceProvider current;
+            lock (Sync) current = provider;
+            return current?.GetSources(targetGuid) ?? Array.Empty<ModSettingsWorkingSource>();
+        }
+
+        public static bool HasProvider
+        {
+            get { lock (Sync) return provider != null; }
+        }
+
+        public static void Apply(string targetGuid, string sourceId)
+        {
+            IModSettingsWorkingSourceProvider current;
+            lock (Sync) current = provider;
+            if (current == null) throw new InvalidOperationException("No mission ModSettings source provider is registered.");
+            current.Apply(targetGuid, sourceId);
+        }
+
+        public static void ApplyMany(IEnumerable<string> targetGuids, string sourceId)
+        {
+            IModSettingsWorkingSourceProvider current;
+            lock (Sync) current = provider;
+            if (current == null) throw new InvalidOperationException("No mission ModSettings source provider is registered.");
+            current.ApplyMany(targetGuids, sourceId);
+        }
+
+        private static void ForwardSourcesChanged() => SourcesChanged?.Invoke();
+    }
+
     /// <summary>Determines how a published preset resolves one selected setting.</summary>
     public enum PublishedPresetValueMode
     {
@@ -184,6 +289,7 @@ namespace Shared
         public const int SchemaVersion = 1;
         public const string EncodedMessagePackPrefix = "messagepack-base64:";
         public const int MaximumSettings = 1024;
+        public const int MaximumDescriptionLength = 8192;
 
         public static PublishedModSettingsPreset Parse(
             string json,
@@ -207,7 +313,7 @@ namespace Shared
             if (!string.Equals(targetGuid, expectedTargetGuid, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Preset targetGuid does not match its Override directory.");
 
-            string description = OptionalText(root, "description", 2048);
+            string description = OptionalText(root, "description", MaximumDescriptionLength);
             string minimum = OptionalText(root, "minimumTargetVersion", 80);
             string maximum = OptionalText(root, "maximumTargetVersion", 80);
             if (!root.TryGetValue("settings", out object settingsValue) ||
@@ -270,6 +376,10 @@ namespace Shared
             targetGuid = ValidateIdentifier(targetGuid, "targetGuid", 200);
             id = ValidateIdentifier(id, "id", 128);
             name = ValidateText(name, "name", 256);
+            description = ValidateOptionalText(
+                description,
+                "description",
+                MaximumDescriptionLength);
             if (settings == null || settings.Count == 0 || settings.Count > MaximumSettings)
                 throw new InvalidDataException("Preset settings count is outside the supported range.");
 

@@ -288,6 +288,7 @@
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
     <Compile Include="..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
+    <Compile Include="..\Shared\GroundMovePreviewEligibility.cs"><Link>Shared\GroundMovePreviewEligibility.cs</Link></Compile>
     <Compile Include="..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>
     <Compile Include="..\Shared\GameBuildingFootprint.cs"><Link>Shared\GameBuildingFootprint.cs</Link></Compile>
     <Compile Include="..\Shared\GatehouseQueryUnitIdPolicy.cs"><Link>Shared\GatehouseQueryUnitIdPolicy.cs</Link></Compile>

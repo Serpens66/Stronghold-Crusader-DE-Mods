@@ -22,7 +22,7 @@ s=s.replace('        SandsOfTime,','        SandsOfTime,\n        Tutorial,')
 capture_start=s.index('        public static GameModeSnapshot Capture(bool')
 capture_end=s.index('        internal static bool AllowsCustomGameMods',capture_start)
 s=s[:capture_start]+'''        public static GameModeSnapshot Capture(bool multiplayerSave = false) =>
-#if SHARED_PRESET_TESTS
+#if API_SHARED_PRESET_TESTS
             CaptureCore(multiplayerSave, 0, -1, false);
 #else
             APIShared.MissionLifecycleService.Snapshot;

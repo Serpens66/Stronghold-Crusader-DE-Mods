@@ -30,9 +30,17 @@ internal static class FearFactorPresetTests
     internal static void Run()
     {
         string guid = "FearFactorPresetProbe";
+        string targetGuid = "Tests." + guid;
         string plugin = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TestPlugin.dll");
         string file = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LobbyModSettings", guid + ".msgpack");
+        string personalPresetDirectory = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory,
+            "LobbyModSettings",
+            "Presets",
+            "Override",
+            targetGuid);
         if (File.Exists(file)) File.Delete(file);
+        if (Directory.Exists(personalPresetDirectory)) Directory.Delete(personalPresetDirectory, true);
         GameNetworkAPI.ThrowOnRoleQuery = false;
         GameNetworkAPI.LocalHost = true;
         GameNetworkAPI.Networked = true;

@@ -120,6 +120,8 @@ namespace FormationTest
         private readonly ConfigEntry<RangedPlacementMode> placementModeConfig;
         private readonly FormationMenuViewModel menuViewModel;
         private readonly object stateSync = new object();
+        private readonly HashSet<string> loggedTargetRejections =
+            new HashSet<string>(StringComparer.Ordinal);
         private readonly DetourHandle<FormationSlotDelegate> standardSelectorHandle =
             new DetourHandle<FormationSlotDelegate>();
         private readonly DetourHandle<AssassinFormationSlotDelegate> assassinSelectorHandle =
@@ -459,6 +461,13 @@ namespace FormationTest
                 if (state == null || !state.ReleaseGate.CanModify ||
                     args.Key != ToKeyCode(state.CommandButton))
                     return;
+                Shared.GroundMovePreviewRejection targetRejection =
+                    EvaluateFixedGroundTarget(state.Target);
+                if (targetRejection != Shared.GroundMovePreviewRejection.None)
+                {
+                    AbortDrag("target-" + ToRejectionReason(targetRejection));
+                    return;
+                }
                 UpdateGesture(state);
             }
             catch (Exception exception)
@@ -530,6 +539,15 @@ namespace FormationTest
                     state = drag;
                 if (state == null)
                     return RunOriginalOnce(mpFrameSkip, ref originalEntered);
+
+                Shared.GroundMovePreviewRejection targetRejection =
+                    EvaluateFixedGroundTarget(state.Target);
+                if (targetRejection != Shared.GroundMovePreviewRejection.None)
+                {
+                    AbortDrag("release-target-" +
+                        ToRejectionReason(targetRejection));
+                    return RunOriginalOnce(mpFrameSkip, ref originalEntered);
+                }
 
                 bool releaseClaimed;
                 lock (stateSync)
@@ -717,9 +735,16 @@ namespace FormationTest
                 return;
 
             menuViewModel.CloseMenu();
-            if (!TryCaptureSelection(out SelectionIdentity[] selection, out int tribeId) ||
-                !TryCaptureTarget(out GroundTarget target))
+            if (!TryCaptureSelection(out SelectionIdentity[] selection, out int tribeId))
                 return;
+            if (!TryCaptureCommandTarget(
+                    out GroundTarget target,
+                    out Shared.GroundMovePreviewRejection targetRejection))
+            {
+                if (targetRejection != Shared.GroundMovePreviewRejection.None)
+                    LogTargetRejection(targetRejection, target);
+                return;
+            }
 
             var state = new ActiveDrag(
                 commandButton,
@@ -1920,6 +1945,15 @@ namespace FormationTest
 
         private void PublishPreview(ActiveDrag state, bool force)
         {
+            Shared.GroundMovePreviewRejection targetRejection =
+                EvaluateFixedGroundTarget(state.Target);
+            if (targetRejection != Shared.GroundMovePreviewRejection.None)
+            {
+                state.HasPreviewPlan = false;
+                state.PreviewPlanHash = 0UL;
+                ClearPreview();
+                return;
+            }
             ResolveDirectionAndWidth(state, out int direction, out int width);
             state.DirectionSector = direction;
             state.Width = width;
@@ -2117,6 +2151,107 @@ namespace FormationTest
             target = new GroundTarget(mapTile.gameMapX, mapTile.gameMapY);
             return true;
         }
+
+        private bool TryCaptureCommandTarget(
+            out GroundTarget target,
+            out Shared.GroundMovePreviewRejection rejection)
+        {
+            rejection = Shared.GroundMovePreviewRejection.OutsideMap;
+            if (!TryCaptureTarget(out target))
+                return false;
+
+            int[] underCursor = null;
+            int troopDepth = -1;
+            GameMap.instance.grabTroopsOnScreen(
+                Vector2.zero,
+                Vector2.zero,
+                ref underCursor,
+                Input.mousePosition,
+                ref troopDepth);
+
+            GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager;
+            int tileId = GameTileManagerAPI.Instance.GetTileId(
+                target.NativeX, target.NativeY);
+            bool insideMap = IsTargetInsideNativeMap(target, tileId, tileManager);
+            int tileUnitId = insideMap
+                ? tileManager.TileUnitIdGrid[tileId]
+                : 0;
+            int tileBuildingId = insideMap
+                ? tileManager.StructureGrid[tileId]
+                : 0;
+            bool hasPathComponent = insideMap &&
+                tileManager.PathConnectionGrid[tileId] != 0;
+            GameCursorManager* cursor =
+                GamePlayerManagerAPI.Instance.GetCursorManager().Pointer;
+            bool cursorInGame = cursor != null && cursor->r_IsCursorInGame == 1;
+            bool cursorSnapshotMatches = cursor != null &&
+                cursor->r_MouseTileX == (uint)target.NativeX &&
+                cursor->r_MouseTileY == (uint)target.NativeY;
+
+            rejection = Shared.GroundMovePreviewEligibility.EvaluateInitial(
+                new Shared.GroundMovePreviewSnapshot(
+                    insideMap,
+                    cursorInGame,
+                    cursorSnapshotMatches,
+                    underCursor?.Length ?? 0,
+                    cursor != null && cursor->r_HoverOverUnitId != 0 ? 1 : 0,
+                    tileUnitId,
+                    cursor != null && cursor->r_HoverOverBuildingId != 0 ? 1 : 0,
+                    cursor != null && cursor->r_HoveringOverWall != 0,
+                    tileBuildingId,
+                    insideMap && movementTargetAvailability != null &&
+                        movementTargetAvailability[
+                            target.NativeY * MapWidth + target.NativeX] != 0,
+                    hasPathComponent));
+            return rejection == Shared.GroundMovePreviewRejection.None;
+        }
+
+        private Shared.GroundMovePreviewRejection EvaluateFixedGroundTarget(
+            GroundTarget target)
+        {
+            GameTileManagerView tileManager = GameTileManagerAPI.Instance.TileManager;
+            int tileId = GameTileManagerAPI.Instance.GetTileId(
+                target.NativeX, target.NativeY);
+            bool insideMap = IsTargetInsideNativeMap(target, tileId, tileManager);
+            return Shared.GroundMovePreviewEligibility.EvaluateFixedTarget(
+                insideMap,
+                insideMap ? tileManager.TileUnitIdGrid[tileId] : 0,
+                insideMap ? tileManager.StructureGrid[tileId] : 0,
+                insideMap && movementTargetAvailability != null &&
+                    movementTargetAvailability[
+                        target.NativeY * MapWidth + target.NativeX] != 0,
+                insideMap && tileManager.PathConnectionGrid[tileId] != 0);
+        }
+
+        private static bool IsTargetInsideNativeMap(
+            GroundTarget target,
+            int tileId,
+            GameTileManagerView tileManager)
+        {
+            return tileManager != null &&
+                (uint)target.NativeX < MapWidth &&
+                (uint)target.NativeY < MapWidth &&
+                (uint)tileId < (uint)tileManager.TileUnitIdGrid.Length &&
+                (uint)tileId < (uint)tileManager.StructureGrid.Length &&
+                (uint)tileId < (uint)tileManager.PathConnectionGrid.Length;
+        }
+
+        private void LogTargetRejection(
+            Shared.GroundMovePreviewRejection rejection,
+            GroundTarget target)
+        {
+            string reason = ToRejectionReason(rejection);
+            if (!loggedTargetRejections.Add(reason))
+                return;
+            LogDebugNoThrow(
+                $"FORMATION_DRAG_REJECTED: reason={reason}, " +
+                $"target={target.NativeX},{target.NativeY}; " +
+                "further occurrences of this reason are suppressed.");
+        }
+
+        private static string ToRejectionReason(
+            Shared.GroundMovePreviewRejection rejection) =>
+            rejection.ToString().ToLowerInvariant();
 
         private bool ValidateActiveDrag(ActiveDrag state) =>
             state != null && markerRenderer != null &&

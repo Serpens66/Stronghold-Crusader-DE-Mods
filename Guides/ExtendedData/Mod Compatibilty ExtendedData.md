@@ -86,15 +86,15 @@ Use this namespace in the settings XAML because the shared controls now live in 
 xmlns:shared="clr-namespace:Shared;assembly=APIShared"
 ```
 
-The minimal preset row binds `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText`, and `System_OpenPresetSaveCommand`. Copy the complete standard Load/Save block from [Extensible ModSettings Presets](ModSettings%20Presets.md#target-mod-integration).
+The minimal preset row binds `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText`, and `System_OpenPresetSaveCommand`. Copy the complete standard Load/Save and settings-source block from [Extensible ModSettings Presets](ModSettings%20Presets.md#target-mod-integration). APIShared supplies **Mod defaults** by itself; an optional typed provider such as ExtendedData adds Trail and Map sources.
 
 ### ExtendedData contract
 
-`PresetLobbyModSettingsViewModel` implements the public, typed `IModSettingsPresetEndpoint`. ExtendedData accepts only that interface; the former reflection-by-member-name contract is no longer supported.
+`PresetLobbyModSettingsViewModel` implements the public typed `IModSettingsPresetEndpoint` and its working-copy extension `IModSettingsWorkingCopyEndpoint`. ExtendedData accepts the typed contract; the former reflection-by-member-name contract is no longer supported. Mods deriving from the public base class need no additional implementation.
 
 Only public readable/writable `[SyncHostOnly]` properties without `[DoNotPersist]` enter Map/Trail documents. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]`, and transient values remain player-owned. A Boolean host property named `EnableMod` is set to `false` in the safe disabled mission snapshot.
 
-Map/Trail application keeps the existing schema-3 sidecars and packages compatible. A directly started mission context is entirely read-only. Customize and Trail Maker use an editable temporary mission context; normal presets can be loaded into that context without changing their source files, and the previous normal working state is restored on exit.
+Map/Trail application keeps the existing schema-3 sidecars and packages compatible. A directly started mission context is entirely read-only. Customize and Trail Maker use an editable temporary working copy; normal presets and available Mod-default/Trail/Map sources can be loaded without changing source files, and the previous normal working state is restored on exit. A Trail initially uses only its Trail document even when its Map also contains settings.
 
 ### Explicit opt-out
 
@@ -140,15 +140,15 @@ Im XAML muss der gemeinsame Namespace auf APIShared zeigen:
 xmlns:shared="clr-namespace:Shared;assembly=APIShared"
 ```
 
-Die minimale Preset-Zeile bindet `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText` und `System_OpenPresetSaveCommand`. Den vollständigen Standardblock für Laden/Speichern findest du in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#integration-des-ziel-mods).
+Die minimale Preset-Zeile bindet `System_PresetLoadText`, `System_OpenPresetLoadCommand`, `System_PresetSaveText` und `System_OpenPresetSaveCommand`. Den vollständigen Standardblock für Laden/Speichern und Einstellungsquellen findest du in [Erweiterbare ModSettings-Presets](ModSettings%20Presets.md#integration-des-ziel-mods). APIShared stellt **Mod-Standards** selbst bereit; ein optionaler typisierter Provider wie ExtendedData ergänzt Trail- und Map-Quellen.
 
 ### ExtendedData-Vertrag
 
-`PresetLobbyModSettingsViewModel` implementiert die öffentliche typisierte Schnittstelle `IModSettingsPresetEndpoint`. ExtendedData akzeptiert ausschließlich diese Schnittstelle; der frühere Reflection-Vertrag über Membernamen wird nicht mehr unterstützt.
+`PresetLobbyModSettingsViewModel` implementiert die öffentliche typisierte Schnittstelle `IModSettingsPresetEndpoint` sowie deren Arbeitskopie-Erweiterung `IModSettingsWorkingCopyEndpoint`. ExtendedData akzeptiert den typisierten Vertrag; der frühere Reflection-Vertrag über Membernamen wird nicht mehr unterstützt. Von der öffentlichen Basisklasse abgeleitete Mods benötigen keine zusätzliche Implementierung.
 
 Nur öffentliche les- und schreibbare `[SyncHostOnly]`-Properties ohne `[DoNotPersist]` gelangen in Map-/Trail-Dokumente. `[SyncPerPlayer]`, `[PresetLocal]`, `[PersistLocal]` und transiente Werte bleiben im Besitz des Spielers. Eine boolesche Host-Property namens `EnableMod` wird im sicheren deaktivierten Missionssnapshot auf `false` gesetzt.
 
-Die vorhandenen Sidecars und Pakete mit Schema 3 bleiben kompatibel. Ein direkt gestarteter Missionskontext ist vollständig schreibgeschützt. Customize und Trail Maker verwenden einen bearbeitbaren temporären Missionskontext; normale Presets können darin geladen werden, ohne ihre Quelldateien zu verändern, und beim Verlassen wird der vorherige normale Arbeitsstand wiederhergestellt.
+Die vorhandenen Sidecars und Pakete mit Schema 3 bleiben kompatibel. Ein direkt gestarteter Missionskontext ist vollständig schreibgeschützt. Customize und Trail Maker verwenden eine bearbeitbare temporäre Arbeitskopie; normale Presets sowie verfügbare Mod-Standard-, Trail- und Map-Quellen können geladen werden, ohne ihre Quelldateien zu verändern. Beim Verlassen wird der vorherige normale Arbeitsstand wiederhergestellt. Ein Trail verwendet anfangs ausschließlich sein Trail-Dokument, auch wenn seine Map ebenfalls Einstellungen enthält.
 
 ### Explizites Opt-out
 

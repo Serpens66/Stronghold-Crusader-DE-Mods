@@ -4599,9 +4599,11 @@ internal static class Program
             Check(vm.HostValue == 503 && vm.ClientValue == 611 && vm.LocalValue == 301,
                 "Customize load did not resolve player values from the suspended normal working state");
             vm.HostValue = 777;
-            vm.System_TestRestoreMissionPreset();
+            vm.System_ApplyMissionPresetSnapshot(
+                new Dictionary<string, byte[]> { [nameof(MixedViewModel.HostValue)] = MessagePackSerializer.Serialize(900) },
+                "Trail");
             Check(vm.HostValue == 900 && vm.ClientValue == 611 && vm.LocalValue == 301,
-                "restoring the Trail preset did not recover the original Customize snapshot");
+                "loading the Trail source did not recover its Customize working snapshot");
             vm.System_ExitMissionPreset();
             Check(vm.HostValue == 505 && vm.ClientValue == 611 && vm.LocalValue == 301,
                 "leaving Customize did not restore the normal working values and edits");
