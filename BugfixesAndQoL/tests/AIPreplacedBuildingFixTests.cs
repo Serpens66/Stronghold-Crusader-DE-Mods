@@ -48,6 +48,17 @@ namespace BugfixesAndQoL
                 !WallBreachConfirmation.IsConfirmed(true, 4, 4, 7, 7),
                 "damage, a closed wall, and pure PCL relabeling do not confirm a breach");
 
+            const int nativePackedTileCapacity = 320800;
+            const int wallFlag = 0x10000000;
+            var logicGrid = new int[nativePackedTileCapacity];
+            logicGrid[0] = wallFlag;
+            logicGrid[nativePackedTileCapacity - 1] = wallFlag | 7;
+            var collectedWallTiles = new HashSet<int>();
+            WallTileBaselineCollector.Collect(logicGrid, wallFlag, collectedWallTiles);
+            check(collectedWallTiles.SetEquals(new[] { 0, nativePackedTileCapacity - 1 }) &&
+                collectedWallTiles.All(tileId => (uint)tileId < nativePackedTileCapacity),
+                "pre-AIV wall capture includes boundary slots and cannot emit an invalid packed tile ID");
+
             check(EconomyGridOverlayProjection.ProjectOutsideCount(
                 new[] { 1, 1, 2, 0, 3 }, new HashSet<int> { 1, 3 }) == 2,
                 "player-specific economy PCL projection is exact");
@@ -92,6 +103,10 @@ namespace BugfixesAndQoL
                 processMapStart.Contains("preAivBaselineCaptureClosed = true") &&
                 processMapStart.Contains("PREPLACED_BASELINE_MISSING"),
                 "the pre-AIV capture is one-shot, closes at AfterNativeStart, and fails closed when missing");
+            check(captureBaseline.Contains("WallTileBaselineCollector.Collect(") &&
+                !captureBaseline.Contains("GetTileId(") &&
+                !captureBaseline.Contains("LogicGrid[tileId]"),
+                "the pre-AIV wall capture iterates only the bounded packed grid without early coordinate lookup");
             check(Regex.Matches(runtime, @"transaction\.AddDetour\(").Count == 10 &&
                 Regex.Matches(runtime, @"transaction\.AddContextHook\(").Count == 1,
                 "AI preplaced-building fix has exactly ten detours and one context hook");

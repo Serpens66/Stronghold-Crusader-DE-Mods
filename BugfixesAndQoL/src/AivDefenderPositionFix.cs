@@ -1,8 +1,9 @@
 // Feature: Restore defender positions excluded from game-provided AIV sets.
 //
 // Native baseline FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2:
-// the permanent hook displaces RVA 0x5472A..0x5473D (20 bytes). Enabled skips
-// only the six-byte JB and replays XOR/MOV; disabled replays complete Vanilla.
+// the permanent hook displaces the complete decision at RVA 0x5471F..0x5472F
+// (17 bytes). Enabled skips only the final six-byte JB; disabled replays complete
+// Vanilla. Both paths return at the externally targeted RVA 0x54730.
 using BepInEx.Logging;
 using RedBird.Core.Memory;
 using System;
@@ -15,11 +16,19 @@ namespace BugfixesAndQoL
             "42 83 BC 93 3C 40 8D 00 00 C7 01 00 00 00 00 75 " +
             "0F 83 F8 12 77 0A 41 0F A3 C3 0F 82 9D 03 00 00";
         private const int ReferencePatternRva = 0x54710;
-        private const int RejectJumpOffset = 26;
-        private const int ReferenceRejectJumpRva = 0x5472A;
-        private const int MinimumHookSize = 6;
-        private const int ExpectedDisplacedByteCount = 20;
-        private static readonly byte[] OriginalRejectJump = { 0x0F, 0x82, 0x9D, 0x03, 0x00, 0x00 };
+        private const int DecisionHookOffset = 15;
+        private const int ReferenceDecisionHookRva = 0x5471F;
+        private const int MinimumHookSize = 17;
+        private const int ExpectedDisplacedByteCount = 17;
+        private const int RejectJumpInstructionIndex = 4;
+        private static readonly byte[] OriginalDecision =
+        {
+            0x75, 0x0F,
+            0x83, 0xF8, 0x12,
+            0x77, 0x0A,
+            0x41, 0x0F, 0xA3, 0xC3,
+            0x0F, 0x82, 0x9D, 0x03, 0x00, 0x00
+        };
 
         private readonly BugfixesAndQoLViewModel settings;
         private readonly PermanentInstructionSkipPatch patch;
@@ -40,12 +49,12 @@ namespace BugfixesAndQoL
 
             int patternRva = Shared.NativePatternResolver.FindUniquePattern(
                 memory, AivDefenderPositionContextPattern, "AIV defender-position exclusion branch");
-            int patchRva = checked(patternRva + RejectJumpOffset);
-            if (patternRva != ReferencePatternRva || patchRva != ReferenceRejectJumpRva ||
-                patchRva < 0 || patchRva + OriginalRejectJump.Length > memory.Length ||
-                !memory.Slice(patchRva, OriginalRejectJump.Length).SequenceEqual(OriginalRejectJump))
+            int patchRva = checked(patternRva + DecisionHookOffset);
+            if (patternRva != ReferencePatternRva || patchRva != ReferenceDecisionHookRva ||
+                patchRva < 0 || patchRva + OriginalDecision.Length > memory.Length ||
+                !memory.Slice(patchRva, OriginalDecision.Length).SequenceEqual(OriginalDecision))
             {
-                throw new InvalidOperationException("The AIV defender-position exclusion branch does not match the audited Vanilla bytes.");
+                throw new InvalidOperationException("The AIV defender-position decision does not match the audited Vanilla bytes.");
             }
 
             patch = new PermanentInstructionSkipPatch(
@@ -54,6 +63,7 @@ namespace BugfixesAndQoL
                     libraryBase + unchecked((ulong)patchRva),
                     MinimumHookSize,
                     ExpectedDisplacedByteCount,
+                    RejectJumpInstructionIndex,
                     1,
                     "AIV defender-position exclusion"));
             Shared.DebugLogHelper.LogInfo(

@@ -1430,7 +1430,12 @@ namespace BugfixesAndQoL
 
         private void InstallMountedStockpileMovementPatch()
         {
-            if (mountedStockpileMovementPatch != null || mountedStockpileMovementPatchUnavailable)
+            if (mountedStockpileMovementPatch != null)
+            {
+                mountedStockpileMovementPatch.SetEnabled(true);
+                return;
+            }
+            if (mountedStockpileMovementPatchUnavailable)
                 return;
 
             try
@@ -1550,8 +1555,7 @@ namespace BugfixesAndQoL
 
         private void DisableMountedStockpileMovementPatch()
         {
-            mountedStockpileMovementPatch?.Dispose();
-            mountedStockpileMovementPatch = null;
+            mountedStockpileMovementPatch?.SetEnabled(false);
         }
 
     }

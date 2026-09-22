@@ -19,6 +19,7 @@ using SHCDESE.Interop;
 using SHCDESE.Interop.Enums;
 using System;
 using System.Runtime.InteropServices;
+using System.Threading;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Abstractions.Hooks;
 using RedBird.Core.Memory;
@@ -29,7 +30,7 @@ using RedBird.X64.Hooks.Context;
 
 namespace BugfixesAndQoL
 {
-    internal sealed unsafe class MountedStockpileMovementPatch : IDisposable
+    internal sealed unsafe class MountedStockpileMovementPatch
     {
         internal const string CursorMountedClassificationPattern =
             "E8 ?? ?? ?? ?? 85 C0 74 66 4C 63 0D ?? ?? ?? ?? 48 8D 15 ?? ?? ?? ?? 4E 0F BF 94 4A E4 C4 09 00";
@@ -94,7 +95,7 @@ namespace BugfixesAndQoL
         private IntPtr endpointZeroFlags;
         private bool classificationCallbackFailureLogged;
         private bool endpointCallbackFailureLogged;
-        private bool disposed;
+        private int enabled;
 
         public MountedStockpileMovementPatch(
             ManualLogSource log,
@@ -178,6 +179,7 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException(
                         "The mounted-stockpile cursor, order-feedback, and endpoint hooks were not installed atomically.");
                 }
+                SetEnabled(true);
             }
             catch
             {
@@ -195,13 +197,14 @@ namespace BugfixesAndQoL
                 $"endpoint=0x{endpointResolution.Rva + MountedEndpointWallGateHookOffset:X}.");
         }
 
-        public void Dispose()
+        internal void SetEnabled(bool value)
         {
-            if (disposed)
-                return;
-
-            disposed = true;
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL mounted-stockpile movement hooks disabled logically.");
+            Volatile.Write(ref enabled, value ? 1 : 0);
+            Shared.DebugLogHelper.LogDebug(
+                log,
+                value
+                    ? "Bugfixes and QoL mounted-stockpile movement hooks enabled logically."
+                    : "Bugfixes and QoL mounted-stockpile movement hooks disabled logically.");
         }
 
         private void CorrectCursorMountedClassification(NativePointer<X64SmartCPUContext> context) =>
@@ -214,7 +217,7 @@ namespace BugfixesAndQoL
             NativePointer<X64SmartCPUContext> context,
             int* targetTilePointer)
         {
-            if (disposed || unchecked((long)context.Pointer->RAX) <= 0)
+            if (Volatile.Read(ref enabled) == 0 || unchecked((long)context.Pointer->RAX) <= 0)
                 return;
 
             try
@@ -265,7 +268,7 @@ namespace BugfixesAndQoL
         {
             // This callback runs immediately before the displaced test/jne pair and
             // only on Vanilla's movement-class-zero path.
-            if (disposed || endpointZeroFlags == IntPtr.Zero)
+            if (Volatile.Read(ref enabled) == 0 || endpointZeroFlags == IntPtr.Zero)
                 return;
 
             try

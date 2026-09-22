@@ -4,6 +4,17 @@ using System.Linq;
 
 namespace BugfixesAndQoL
 {
+    internal static class WallTileBaselineCollector
+    {
+        internal static void Collect(ReadOnlySpan<int> logicGrid, int wallFlag, ISet<int> destination)
+        {
+            if (destination == null) throw new ArgumentNullException(nameof(destination));
+            for (int tileId = 0; tileId < logicGrid.Length; tileId++)
+                if ((logicGrid[tileId] & wallFlag) != 0)
+                    destination.Add(tileId);
+        }
+    }
+
     internal sealed class LegacyRuinTimerFix
     {
         public string ClassifyTransfer(bool isAi, bool isSave, int mapVersion, int legacyVersionExclusive,

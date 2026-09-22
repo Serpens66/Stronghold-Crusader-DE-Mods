@@ -1851,14 +1851,10 @@ namespace BugfixesAndQoL
                     mapLoadBuildingIdentities[building.Id] = building.Identity;
             GameTileManagerAPI api = GameTileManagerAPI.Instance;
             var tiles = api.TileManager;
-            for (int x = 0; x < NativeTileGridWidth; x++)
-                for (int y = 0; y < NativeTileGridWidth; y++)
-                {
-                    if (!api.IsTileInsideMapBounds(x, y)) continue;
-                    int tileId = api.GetTileId(x, y);
-                    if ((tiles.LogicGrid[tileId] & (int)TilePropertyFlag.IsWall) != 0)
-                        mapLoadWallTiles.Add(tileId);
-                }
+            WallTileBaselineCollector.Collect(
+                tiles.LogicGrid,
+                (int)TilePropertyFlag.IsWall,
+                mapLoadWallTiles);
             preAivBaselineCaptured = true;
         }
 

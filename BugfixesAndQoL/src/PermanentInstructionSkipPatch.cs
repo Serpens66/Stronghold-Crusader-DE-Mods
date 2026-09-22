@@ -3,14 +3,12 @@ using Iced.Intel;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
-using RedBird.X64.Extensions;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Transaction;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
-using static Iced.Intel.AssemblerRegisters;
 
 namespace BugfixesAndQoL
 {
@@ -24,10 +22,23 @@ namespace BugfixesAndQoL
                 int expectedDisplacedByteCount,
                 int skippedInstructionCount,
                 string label)
+                : this(address, minimumHookSize, expectedDisplacedByteCount, 0,
+                    skippedInstructionCount, label)
+            {
+            }
+
+            internal Site(
+                ulong address,
+                int minimumHookSize,
+                int expectedDisplacedByteCount,
+                int skippedInstructionIndex,
+                int skippedInstructionCount,
+                string label)
             {
                 Address = address;
                 MinimumHookSize = minimumHookSize;
                 ExpectedDisplacedByteCount = expectedDisplacedByteCount;
+                SkippedInstructionIndex = skippedInstructionIndex;
                 SkippedInstructionCount = skippedInstructionCount;
                 Label = label ?? throw new ArgumentNullException(nameof(label));
             }
@@ -35,6 +46,7 @@ namespace BugfixesAndQoL
             internal ulong Address { get; }
             internal int MinimumHookSize { get; }
             internal int ExpectedDisplacedByteCount { get; }
+            internal int SkippedInstructionIndex { get; }
             internal int SkippedInstructionCount { get; }
             internal string Label { get; }
         }
@@ -61,7 +73,7 @@ namespace BugfixesAndQoL
                 {
                     if (site.Address == 0 || site.MinimumHookSize <= 0 ||
                         site.ExpectedDisplacedByteCount < site.MinimumHookSize ||
-                        site.SkippedInstructionCount <= 0)
+                        site.SkippedInstructionIndex < 0 || site.SkippedInstructionCount <= 0)
                     {
                         throw new ArgumentException($"Invalid permanent native skip site '{site.Label}'.");
                     }
@@ -76,6 +88,7 @@ namespace BugfixesAndQoL
                                 assembler,
                                 instructions,
                                 flagAddress,
+                                site.SkippedInstructionIndex,
                                 site.SkippedInstructionCount,
                                 site.Label),
                         hookSize: site.MinimumHookSize);
@@ -151,37 +164,17 @@ namespace BugfixesAndQoL
             Assembler assembler,
             ReadOnlySpan<Instruction> overwrittenInstructions,
             ulong enabledFlagAddress,
+            int skippedInstructionIndex,
             int skippedInstructionCount,
             string label)
         {
-            if (overwrittenInstructions.Length <= skippedInstructionCount)
-            {
-                throw new InvalidOperationException(
-                    $"Permanent native skip hook '{label}' has no fallthrough instructions to replay.");
-            }
-
-            Label vanilla = assembler.CreateLabel(label + "Vanilla");
-            Label done = assembler.CreateLabel(label + "Done");
-
-            assembler.pushfq();
-            assembler.push(rax);
-            assembler.mov(rax, enabledFlagAddress);
-            assembler.cmp(__dword_ptr[rax], 0);
-            assembler.je(vanilla);
-            assembler.pop(rax);
-            assembler.popfq();
-            for (int index = skippedInstructionCount; index < overwrittenInstructions.Length; index++)
-                assembler.AddInstruction(overwrittenInstructions[index]);
-            assembler.jmp(done);
-
-            assembler.Label(ref vanilla);
-            assembler.pop(rax);
-            assembler.popfq();
-            foreach (Instruction instruction in overwrittenInstructions)
-                assembler.AddInstruction(instruction);
-
-            assembler.Label(ref done);
-            assembler.nop();
+            NativeInstructionReplayEmitter.EmitConditionalSkip(
+                assembler,
+                overwrittenInstructions,
+                enabledFlagAddress,
+                skippedInstructionIndex,
+                skippedInstructionCount,
+                label);
         }
     }
 }

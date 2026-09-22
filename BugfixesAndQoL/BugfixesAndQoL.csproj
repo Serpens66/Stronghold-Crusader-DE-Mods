@@ -111,6 +111,7 @@
     <Compile Include="src\BugfixesAndQoLChoreSender.cs" />
     <Compile Include="src\BugfixesHookInfrastructure.cs" />
     <Compile Include="src\PermanentInstructionSkipPatch.cs" />
+    <Compile Include="src\NativeInstructionReplayEmitter.cs" />
     <Compile Include="src\CtrlMarketTradeHook.cs" />
     <Compile Include="src\GameSpeedRepeatScheduler.cs" />
     <Compile Include="src\FastRecruitMovementBridge.cs" />

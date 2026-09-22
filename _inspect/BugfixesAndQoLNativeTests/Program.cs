@@ -414,7 +414,7 @@ internal static class Program
             "notification finalizer promotes queue entry zero");
         CheckBytes(image, 0x102BB3, "89 8B 4C 09 00 00",
             "notification finalizer commits the decremented queue count");
-        CheckBytes(image, 0x912B4, "0F 44 D8", "assembly preview original span");
+        CheckBytes(image, 0x912AF, "BB 0D 00 00 00 0F 44 D8", "assembly preview safe hook prefix");
         foreach (int rva in new[] { 0x929D5, 0x928E2, 0x926FC, 0x912E2, 0x913D1, 0x927EF })
             CheckBytes(image, rva, "0F 84", $"assembly rejection original span 0x{rva:X}");
         CheckBytes(image, 0x3F156,
@@ -496,16 +496,16 @@ internal static class Program
             "BugfixesAndQoL",
             "src",
             "AivDefenderPositionFix.cs"));
-        Check(source.Contains("private const int RejectJumpOffset = 26;") &&
-              source.Contains("private const int ReferenceRejectJumpRva = 0x5472A;"),
-            "AIV production patch selects only the final six-byte rejection jump");
-        Check(source.Contains("{ 0x0F, 0x82, 0x9D, 0x03, 0x00, 0x00 }") &&
-              source.Contains("MinimumHookSize = 6") &&
-              source.Contains("ExpectedDisplacedByteCount = 20") &&
+        Check(source.Contains("private const int DecisionHookOffset = 15;") &&
+              source.Contains("private const int ReferenceDecisionHookRva = 0x5471F;") &&
+              source.Contains("RejectJumpInstructionIndex = 4"),
+            "AIV production patch starts at the complete decision and skips only its final rejection jump");
+        Check(source.Contains("MinimumHookSize = 17") &&
+              source.Contains("ExpectedDisplacedByteCount = 17") &&
               source.Contains("new PermanentInstructionSkipPatch.Site(") &&
               source.Contains("patch.SetEnabled(settings.EnableMod && settings.EnableAivDefenderPositionFix)") &&
               !source.Contains("CodePatch.Write("),
-            "AIV production patch permanently hooks the audited JB and switches only its logical skip gate");
+            "AIV production patch permanently hooks the safe audited span and switches only its logical skip gate");
     }
 
     private static void CheckHealerAttackCommandContracts(byte[] image)
@@ -939,6 +939,13 @@ internal static class Program
               !permanentSkip.Contains("Hook.Enable()") &&
               !permanentSkip.Contains("Hook.Disable()"),
             "instruction-skip replacements use a permanent hook with a logical gate");
+
+        string assemblyPoint = File.ReadAllText(
+            Path.Combine(sourceDirectory, "AssemblyPointPlacementPatch.cs"));
+        Check(assemblyPoint.Contains("referenceHashMatches, 17,") &&
+              assemblyPoint.Contains("0xBB, 0x0D, 0x00, 0x00, 0x00, 0x0F, 0x44, 0xD8") &&
+              assemblyPoint.Contains("16, 16, \"shared preview failure status\", log, 1"),
+            "assembly-point production hook starts at the safe MOV and skips only CMOVE");
 
         string infrastructure = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesHookInfrastructure.cs"));
         Check(infrastructure.Contains("FailureMode = TransactionFailureMode.RollbackAndThrow") &&

@@ -4,7 +4,6 @@ using Iced.Intel;
 using RedBird.Abstractions.Hooks;
 using RedBird.Abstractions.Hooks.Transaction;
 using RedBird.Core.Memory;
-using RedBird.X64.Extensions;
 using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Transaction;
 using SHCDESE.Interop;
@@ -12,7 +11,6 @@ using SHCDESE.Interop.Enums;
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using static Iced.Intel.AssemblerRegisters;
 
 namespace BugfixesAndQoL
 {
@@ -119,39 +117,13 @@ namespace BugfixesAndQoL
             ulong enabledFlagAddress,
             int prefixInstructionCount)
         {
-            if (overwrittenInstructions.Length < prefixInstructionCount)
-                throw new InvalidOperationException("Unexpected Healer classifier hook boundary.");
-
-            Label vanilla = assembler.CreateLabel("healerClassifierVanilla");
-            Label mapped = assembler.CreateLabel("healerClassifierMapped");
-            Label done = assembler.CreateLabel("healerClassifierDone");
-            assembler.pushfq();
-            assembler.push(rax);
-            assembler.mov(rax, enabledFlagAddress);
-            assembler.cmp(__dword_ptr[rax], 0);
-            assembler.je(vanilla);
-            assembler.pop(rax);
-            assembler.popfq();
-
-            for (int index = 0; index < prefixInstructionCount; index++)
-                assembler.AddInstruction(overwrittenInstructions[index]);
-            assembler.cmp(eax, HealerIndex);
-            assembler.jne(mapped);
-            assembler.mov(eax, EngineerIndex);
-
-            assembler.Label(ref mapped);
-            for (int index = prefixInstructionCount; index < overwrittenInstructions.Length; index++)
-                assembler.AddInstruction(overwrittenInstructions[index]);
-            assembler.jmp(done);
-
-            assembler.Label(ref vanilla);
-            assembler.pop(rax);
-            assembler.popfq();
-            foreach (Instruction instruction in overwrittenInstructions)
-                assembler.AddInstruction(instruction);
-
-            assembler.Label(ref done);
-            assembler.nop();
+            NativeInstructionReplayEmitter.EmitClassifier(
+                assembler,
+                overwrittenInstructions,
+                enabledFlagAddress,
+                prefixInstructionCount,
+                HealerIndex,
+                EngineerIndex);
         }
 
         private static int EngineerIndex => HealerAttackCommandFixNativeDefinition.EngineerType -

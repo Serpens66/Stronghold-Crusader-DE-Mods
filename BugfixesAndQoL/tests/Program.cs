@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using CrusaderDE;
 using Iced.Intel;
+using RedBird.X64.Hooks;
 using SHCDESE.Interop;
 
 namespace BugfixesAndQoL
@@ -74,6 +75,8 @@ namespace BugfixesAndQoL
             TestAllyGoodsTransferIntegration();
             TestMinimapInputIntegration();
             TestPermanentManagedRuntimeHooks();
+            TestNativeInstructionReplayEmitters();
+            TestMountedStockpilePermanentLifecycle();
             TestPlacementCancelMoveSuppressionPolicy();
             TestPlacementCancelMoveSuppressionIntegration();
             TestSpriteAnimationGroup26Contract();
@@ -124,6 +127,72 @@ namespace BugfixesAndQoL
                   customTrail.Contains("settings.EnableCustomTrailExtremeGoldFix") &&
                   enemyCursor.Contains("!settings.EnableEnemyProximityBulldozeCursorFix"),
                 "permanent managed runtime hooks retain explicit logical settings gates");
+        }
+
+        private static void TestNativeInstructionReplayEmitters()
+        {
+            const ulong originalIp = 0x18010ECC3;
+            byte[] conditionalBytes =
+            {
+                0x75, 0x63,
+                0x8B, 0x05, 0x78, 0x56, 0x34, 0x12,
+                0x4C, 0x8D, 0x3D, 0x10, 0x00, 0x00, 0x00
+            };
+            Instruction[] conditionalInstructions = DecodeInstructions(conditionalBytes, originalIp);
+            ulong originalMemoryTarget = conditionalInstructions[1].IPRelativeMemoryAddress;
+            ulong originalBranchTarget = conditionalInstructions[0].NearBranchTarget;
+            var conditionalAssembler = new Assembler(64);
+            NativeInstructionReplayEmitter.EmitConditionalSkip(
+                conditionalAssembler,
+                conditionalInstructions,
+                0x180700000,
+                0,
+                1,
+                "testConditionalSkip");
+            Instruction[] conditionalStub = AssembleAndDecode(conditionalAssembler, 0x180200000);
+            Check(conditionalStub.All(instruction => instruction.Code != Code.INVALID) &&
+                    conditionalStub.Count(instruction => instruction.IsIPRelativeMemoryOperand &&
+                        instruction.IPRelativeMemoryAddress == originalMemoryTarget) == 2 &&
+                    conditionalStub.Count(instruction => instruction.FlowControl == FlowControl.ConditionalBranch &&
+                        instruction.NearBranchTarget == originalBranchTarget) == 1,
+                "conditional native replay assembles both paths with relocated RIP memory and one original branch");
+
+            byte[] classifierBytes =
+            {
+                0x0F, 0xBF, 0x84, 0x1F, 0xE6, 0x06, 0x00, 0x00,
+                0x83, 0xC0, 0xFB,
+                0x89, 0xB4, 0x1F, 0x48, 0x07, 0x00, 0x00
+            };
+            Instruction[] classifierInstructions = DecodeInstructions(classifierBytes, 0x18011EBF5);
+            var classifierAssembler = new Assembler(64);
+            NativeInstructionReplayEmitter.EmitClassifier(
+                classifierAssembler,
+                classifierInstructions,
+                0x180700100,
+                3,
+                74,
+                25);
+            Instruction[] classifierStub = AssembleAndDecode(classifierAssembler, 0x180210000);
+            Check(classifierStub.All(instruction => instruction.Code != Code.INVALID) &&
+                    classifierStub.Count(instruction => instruction.Mnemonic == Mnemonic.Movsx) == 2 &&
+                    classifierStub.Count(instruction => instruction.Mnemonic == Mnemonic.Add) == 2,
+                "Healer classifier replay assembles mapped and Vanilla paths without duplicate instruction IPs");
+        }
+
+        private static void TestMountedStockpilePermanentLifecycle()
+        {
+            string runtime = File.ReadAllText(Path.Combine(
+                FindProjectDirectory(), "src", "BugfixesAndQoLRuntime.cs"));
+            string patch = File.ReadAllText(Path.Combine(
+                FindProjectDirectory(), "src", "MountedStockpileMovementPatch.cs"));
+            Check(runtime.Contains("mountedStockpileMovementPatch.SetEnabled(true)") &&
+                    runtime.Contains("mountedStockpileMovementPatch?.SetEnabled(false)") &&
+                    !runtime.Contains("mountedStockpileMovementPatch?.Dispose()") &&
+                    !runtime.Contains("mountedStockpileMovementPatch = null;") &&
+                    patch.Contains("Volatile.Write(ref enabled") &&
+                    patch.Contains("Volatile.Read(ref enabled) == 0") &&
+                    !patch.Contains("class MountedStockpileMovementPatch : IDisposable"),
+                "mounted-stockpile hooks remain rooted and use only an atomic logical activation gate");
         }
 
         private static void TestVanillaMapEditorPlayerCountColumn()
@@ -5372,6 +5441,192 @@ namespace BugfixesAndQoL
                     image.CountNearCalls(DispatcherRva, DispatcherSize, ResolveRva) >= 3 &&
                     image.CountNearCalls(DispatcherRva, DispatcherSize, PlannerRva) >= 1,
                 "dispatcher contains initial and follow-up moat-work call chain");
+
+            var hookSpans = new[]
+            {
+                (0xE19D8, 6, 18, "Assassin current-tile building rejection"),
+                (0xE19F9, 6, 23, "Assassin neighbor-tile building rejection"),
+                (0x912AF, 16, 16, "assembly-point shared failure status"),
+                (0x912E2, 6, 16, "assembly-point tunneler rejection"),
+                (0x913D1, 6, 18, "assembly-point knight rejection"),
+                (0x926FC, 6, 17, "assembly-point engineer rejection"),
+                (0x927EF, 6, 17, "assembly-point Bedouin rejection"),
+                (0x928E2, 6, 17, "assembly-point mercenary rejection"),
+                (0x929D5, 6, 17, "assembly-point European rejection"),
+                (0x11EBF5, 18, 18, "Healer first classifier"),
+                (0x11EF39, 16, 16, "Healer second classifier"),
+                (0xCAF1C, 6, 14, "control-group Add Lord rejection"),
+                (0xD1020, 6, 16, "control-group Replace Lord rejection"),
+                (0x10ECC3, 2, 15, "AI wall reservation rejection"),
+                (0x5471F, 17, 17, "AIV defender-position rejection"),
+                (0x8F20E, 18, 18, "mounted-stockpile cursor classification"),
+                (0x195F63, 18, 18, "mounted-stockpile feedback classification"),
+                (0x19648D, 17, 17, "mounted-stockpile endpoint wall gate")
+            };
+            foreach (var span in hookSpans)
+            {
+                CheckRedBirdDecodeSpan(
+                    image.ReadRva(span.Item1, Math.Max(span.Item3 + 16, 48)),
+                    span.Item2,
+                    span.Item3,
+                    span.Item4);
+            }
+
+            Instruction[] assemblyPointInstructions = DecodeInstructions(
+                image.ReadRva(0x912AF, 16),
+                0x1800912AF);
+            var assemblyPointAssembler = new Assembler(64);
+            NativeInstructionReplayEmitter.EmitConditionalSkip(
+                assemblyPointAssembler,
+                assemblyPointInstructions,
+                0x180700200,
+                1,
+                1,
+                "assemblyPointSafeSpan");
+            Instruction[] assemblyPointStub = AssembleAndDecode(assemblyPointAssembler, 0x180220000);
+            Check(assemblyPointStub.All(instruction => instruction.Code != Code.INVALID) &&
+                    assemblyPointStub.Count(instruction => instruction.Mnemonic == Mnemonic.Mov &&
+                        instruction.Op0Register == Register.EBX && instruction.Immediate32 == 0xD) == 2 &&
+                    assemblyPointStub.Count(instruction => instruction.Mnemonic == Mnemonic.Cmove) == 1 &&
+                    !HasBranchIntoOriginalInterior(assemblyPointStub, 0x1800912AF, 16),
+                "assembly-point real replay preserves both MOV paths, omits only enabled CMOVE, and has no interior target");
+
+            Instruction[] aivInstructions = DecodeInstructions(
+                image.ReadRva(0x5471F, 17),
+                0x18005471F);
+            var aivAssembler = new Assembler(64);
+            NativeInstructionReplayEmitter.EmitConditionalSkip(
+                aivAssembler,
+                aivInstructions,
+                0x180700300,
+                4,
+                1,
+                "aivDefenderSafeSpan");
+            Instruction[] aivStub = AssembleAndDecode(aivAssembler, 0x180230000);
+            Check(aivStub.All(instruction => instruction.Code != Code.INVALID) &&
+                    aivStub.Count(instruction => instruction.Mnemonic == Mnemonic.Jne &&
+                        instruction.NearBranchTarget == 0x180054730) == 2 &&
+                    aivStub.Count(instruction => instruction.Mnemonic == Mnemonic.Ja &&
+                        instruction.NearBranchTarget == 0x180054730) == 2 &&
+                    aivStub.Count(instruction => instruction.Mnemonic == Mnemonic.Bt) == 2 &&
+                    aivStub.Count(instruction => instruction.Mnemonic == Mnemonic.Jb &&
+                        instruction.NearBranchTarget == 0x180054ACD) == 1 &&
+                    !HasBranchIntoOriginalInterior(aivStub, 0x18005471F, 17),
+                "AIV real replay preserves both decision paths, omits only enabled JB, and returns at safe RVA 0x54730");
+
+            string xrefsPath = Path.GetFullPath(Path.Combine(
+                FindProjectDirectory(),
+                "..",
+                "_inspect",
+                "CrusaderDE-Native-Baseline",
+                "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+                "exports",
+                "xrefs.jsonl"));
+            if (!File.Exists(xrefsPath))
+            {
+                Check(false, "native hook interior-target regression requires the canonical xrefs export");
+            }
+            else
+            {
+                var incomingInteriorTargets = new List<string>();
+                var xrefPattern = new Regex(
+                    "\"fromRva\":\"0x([0-9A-Fa-f]+)\".*" +
+                    "\"toRva\":\"0x([0-9A-Fa-f]+)\".*" +
+                    "\"type\":\"(CONDITIONAL_JUMP|UNCONDITIONAL_JUMP|UNCONDITIONAL_CALL)\"");
+                foreach (string line in File.ReadLines(xrefsPath))
+                {
+                    Match match = xrefPattern.Match(line);
+                    if (!match.Success) continue;
+                    int fromRva = Convert.ToInt32(match.Groups[1].Value, 16);
+                    int toRva = Convert.ToInt32(match.Groups[2].Value, 16);
+                    foreach (var span in hookSpans)
+                    {
+                        int endRva = span.Item1 + span.Item3;
+                        if (toRva > span.Item1 && toRva < endRva &&
+                            (fromRva < span.Item1 || fromRva >= endRva))
+                        {
+                            incomingInteriorTargets.Add(
+                                $"{span.Item4}: 0x{fromRva:X}->0x{toRva:X}");
+                        }
+                    }
+                }
+                Check(incomingInteriorTargets.Count == 0,
+                    "all permanent replay spans reject external control-flow into their interiors" +
+                    (incomingInteriorTargets.Count == 0
+                        ? string.Empty
+                        : ": " + string.Join(", ", incomingInteriorTargets)));
+            }
+        }
+
+        private static Instruction[] DecodeInstructions(byte[] bytes, ulong ip)
+        {
+            var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+            decoder.IP = ip;
+            var instructions = new List<Instruction>();
+            ulong end = ip + unchecked((uint)bytes.Length);
+            while (decoder.IP < end)
+            {
+                decoder.Decode(out Instruction instruction);
+                if (instruction.Code == Code.INVALID || decoder.IP > end)
+                    throw new InvalidOperationException("Test instruction fixture is not exactly decodable.");
+                instructions.Add(instruction);
+            }
+            return instructions.ToArray();
+        }
+
+        private static Instruction[] AssembleAndDecode(Assembler assembler, ulong ip)
+        {
+            using (var stream = new MemoryStream())
+            {
+                if (!assembler.TryAssemble(new StreamCodeWriter(stream), ip, out string error, out _))
+                    throw new InvalidOperationException("Iced assembly failed: " + error);
+                return DecodeInstructions(stream.ToArray(), ip);
+            }
+        }
+
+        private static bool HasBranchIntoOriginalInterior(
+            IEnumerable<Instruction> instructions,
+            ulong originalStart,
+            int originalLength)
+        {
+            ulong originalEnd = originalStart + unchecked((uint)originalLength);
+            foreach (Instruction instruction in instructions)
+            {
+                if (instruction.FlowControl != FlowControl.ConditionalBranch &&
+                    instruction.FlowControl != FlowControl.UnconditionalBranch)
+                    continue;
+                ulong target = instruction.NearBranchTarget;
+                if (target > originalStart && target < originalEnd)
+                    return true;
+            }
+            return false;
+        }
+
+        private static void CheckRedBirdDecodeSpan(
+            byte[] bytes,
+            int minimumHookSize,
+            int expectedDisplacedBytes,
+            string name)
+        {
+            IntPtr fixture = Marshal.AllocHGlobal(bytes.Length);
+            try
+            {
+                Marshal.Copy(bytes, 0, fixture, bytes.Length);
+                using (var hook = new X64InlineHook(
+                    unchecked((ulong)fixture.ToInt64()), minimumHookSize, null, name))
+                {
+                    Check(hook.DisplacedByteCount == expectedDisplacedBytes && !hook.IsInstalled,
+                        name + " matches the installed RedBird decode boundary without publication");
+                }
+            }
+            catch (Exception exception)
+            {
+                Check(false, name + " RedBird decode-only probe: " + exception.Message);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(fixture);
+            }
         }
 
         private static byte[] MapPeImage(byte[] file)

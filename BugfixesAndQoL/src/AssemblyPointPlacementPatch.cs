@@ -39,8 +39,9 @@ namespace BugfixesAndQoL
             var sites = new List<PermanentInstructionSkipPatch.Site>
             {
                 ResolveSite(memory, libraryBase, ConstructingFailureStatusPattern,
-                    ConstructingFailureStatusRva, referenceHashMatches, 22,
-                    new byte[] { 0x0F, 0x44, 0xD8 }, 3, 16, "shared preview failure status", log),
+                    ConstructingFailureStatusRva, referenceHashMatches, 17,
+                    new byte[] { 0xBB, 0x0D, 0x00, 0x00, 0x00, 0x0F, 0x44, 0xD8 },
+                    16, 16, "shared preview failure status", log, 1),
                 ResolveSite(memory, libraryBase, EuropeanPlacementRejectPattern,
                     EuropeanPlacementRejectRva, referenceHashMatches, 2,
                     new byte[] { 0x0F, 0x84 }, 6, 17, "European troop placement rejection", log),
@@ -88,7 +89,8 @@ namespace BugfixesAndQoL
             int minimumHookSize,
             int expectedDisplacedBytes,
             string label,
-            ManualLogSource log)
+            ManualLogSource log,
+            int skippedInstructionIndex = 0)
         {
             int resolvedRva = Shared.NativePatternResolver.ResolveUnique(
                 memory, pattern, referenceRva, referenceHashMatches, label, log).Rva;
@@ -100,7 +102,7 @@ namespace BugfixesAndQoL
             }
             return new PermanentInstructionSkipPatch.Site(
                 libraryBase + unchecked((ulong)siteRva), minimumHookSize,
-                expectedDisplacedBytes, 1, label);
+                expectedDisplacedBytes, skippedInstructionIndex, 1, label);
         }
     }
 }
