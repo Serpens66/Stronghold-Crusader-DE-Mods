@@ -220,6 +220,10 @@ namespace APISharedTests
                         discovered.Any(item => item.Id == "personal" &&
                         item.SourceKind == ModSettingsPresetSourceKind.Personal && item.CanOverwrite),
                     "preset discovery did not separate compatible bundled and personal files or reject invalid duplicates");
+                var entries = discovered.Select(item => new ModSettingsPresetListEntry { Preset = item }).ToArray();
+                Assert(entries.Single(item => item.SourceKind == ModSettingsPresetSourceKind.Personal).CanDelete &&
+                        !entries.Single(item => item.SourceKind == ModSettingsPresetSourceKind.Bundled).CanDelete,
+                    "only personal preset list entries may expose deletion");
                 Assert(discovered.Select(item => item.StableId).Distinct(StringComparer.Ordinal).Count() == 2 &&
                         discovered.All(item => item.Name == "Valid"),
                     "same-name source entries did not retain distinct stable identities");
@@ -246,7 +250,7 @@ namespace APISharedTests
                 "an unresolved settings localization key must use the APIShared fallback");
             Assert(viewModel.ClientOptionsText == "Translated client options",
                 "a resolved settings localization value must win over the APIShared fallback");
-            Assert(viewModel.System_PresetSaveBulkModeIndex == (int)PublishedPresetValueMode.Fixed,
+            Assert(viewModel.System_PresetSaveBulkModeIndex == (int)PresetSaveBulkMode.Fixed,
                 "an empty preset-save list must report the safe fixed default, not mixed");
 
             PresetSettingDescriptor CreateDescriptor(string name, PresetSettingScope scope)
@@ -264,11 +268,11 @@ namespace APISharedTests
             var first = new PresetSaveSettingViewModel(
                 CreateDescriptor("First", PresetSettingScope.Host),
                 "Host",
-                new[] { "Default", "Player", "Fixed" }) { IsSelected = true };
+                new[] { "Default", "Player", "Fixed" });
             var second = new PresetSaveSettingViewModel(
                 CreateDescriptor("Second", PresetSettingScope.Local),
                 "Local",
-                new[] { "Default", "Player", "Fixed" }) { IsSelected = false };
+                new[] { "Default", "Player", "Fixed" });
             MethodInfo changedMethod = typeof(PresetLobbyModSettingsViewModel).GetMethod(
                 "OnPresetSaveSettingPropertyChanged",
                 BindingFlags.Instance | BindingFlags.NonPublic);
@@ -286,15 +290,78 @@ namespace APISharedTests
             Assert(first.SelectedModeIndex == (int)PublishedPresetValueMode.Player &&
                 second.SelectedModeIndex == (int)PublishedPresetValueMode.Player,
                 "the preset-save bulk mode must update every displayed row");
-            Assert(first.IsSelected && !second.IsSelected,
-                "the preset-save bulk mode must not change inclusion checkboxes");
             Assert(viewModel.System_PresetSaveBulkModeIndex == (int)PublishedPresetValueMode.Player,
                 "uniform preset-save rows must report their common bulk mode");
 
+            viewModel.System_PresetSaveBulkModeIndex = (int)PresetSaveBulkMode.ModDefault;
+            Assert(first.SelectedModeIndex == (int)PublishedPresetValueMode.ModDefault &&
+                second.SelectedModeIndex == (int)PublishedPresetValueMode.ModDefault &&
+                viewModel.System_PresetSaveBulkModeIndex == (int)PresetSaveBulkMode.ModDefault,
+                "uniform default rows must report the default bulk state");
+
+            viewModel.System_PresetSaveBulkModeIndex = (int)PresetSaveBulkMode.HostFixed;
+            Assert(first.SelectedModeIndex == (int)PublishedPresetValueMode.Fixed &&
+                second.SelectedModeIndex == (int)PublishedPresetValueMode.Player &&
+                viewModel.System_PresetSaveBulkModeIndex == (int)PresetSaveBulkMode.HostFixed,
+                "Host Fixed must fix host rows, preserve player/local rows, and report its aggregate state");
+
             bulkChanged = false;
             second.SelectedModeIndex = (int)PublishedPresetValueMode.Fixed;
-            Assert(viewModel.System_PresetSaveBulkModeIndex == 3 && bulkChanged,
+            Assert(viewModel.System_PresetSaveBulkModeIndex == (int)PresetSaveBulkMode.Fixed && bulkChanged,
+                "uniform fixed rows must report the fixed bulk state");
+            second.SelectedModeIndex = (int)PublishedPresetValueMode.ModDefault;
+            Assert(viewModel.System_PresetSaveBulkModeIndex == (int)PresetSaveBulkMode.Mixed,
                 "an individual preset-save mode change must publish the mixed bulk state");
+
+            var partial = new PublishedModSettingsPreset();
+            typeof(PublishedModSettingsPreset).GetProperty(nameof(PublishedModSettingsPreset.Settings))
+                .SetValue(partial, new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal)
+                {
+                    ["First"] = new PublishedPresetSetting { Mode = PublishedPresetValueMode.ModDefault },
+                });
+            typeof(PresetLobbyModSettingsViewModel).GetMethod(
+                    "ApplyPresetToSaveRows",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(viewModel, new object[] { partial });
+            Assert(first.SelectedModeIndex == (int)PublishedPresetValueMode.ModDefault &&
+                second.SelectedModeIndex == (int)PublishedPresetValueMode.Player,
+                "editing a partial preset must initialize omitted properties as Player");
+            var selections = (PresetSaveSelection[])typeof(PresetLobbyModSettingsViewModel).GetMethod(
+                    "CreatePresetSaveSelections",
+                    BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(viewModel, null);
+            Assert(selections.Length == 2 &&
+                selections.Any(item => item.PropertyName == "First") &&
+                selections.Any(item => item.PropertyName == "Second"),
+                "the standard save dialog must include every persistent property row");
+
+            viewModel.System_PresetSaveName = "   ";
+            Assert(!viewModel.System_CanConfirmPresetSave,
+                "whitespace-only preset names must disable saving");
+            viewModel.System_PresetSaveName = "Named preset";
+            Assert(viewModel.System_CanConfirmPresetSave,
+                "a nonempty preset name must enable saving");
+
+            MethodInfo openLoad = typeof(PresetLobbyModSettingsViewModel).GetMethod(
+                "OpenPresetLoad", BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo openSave = typeof(PresetLobbyModSettingsViewModel).GetMethod(
+                "OpenPresetSave", BindingFlags.Instance | BindingFlags.NonPublic);
+            openLoad.Invoke(viewModel, null);
+            Assert(viewModel.System_PresetLoadPanelVisibility == Noesis.Visibility.Visible &&
+                viewModel.System_PresetSavePanelVisibility == Noesis.Visibility.Collapsed,
+                "opening Load must show only the load panel");
+            openLoad.Invoke(viewModel, null);
+            Assert(viewModel.System_PresetLoadPanelVisibility == Noesis.Visibility.Collapsed,
+                "pressing Load again must close its panel");
+            openSave.Invoke(viewModel, null);
+            Assert(viewModel.System_PresetSavePanelVisibility == Noesis.Visibility.Visible &&
+                viewModel.System_PresetLoadPanelVisibility == Noesis.Visibility.Collapsed,
+                "opening Save must show only the save panel");
+            openLoad.Invoke(viewModel, null);
+            Assert(viewModel.System_PresetLoadPanelVisibility == Noesis.Visibility.Visible &&
+                viewModel.System_PresetSavePanelVisibility == Noesis.Visibility.Collapsed,
+                "switching from Save to Load must never leave both panels open");
+
             string presetSource = File.ReadAllText(Path.Combine(
                 FindWorkspaceRoot(),
                 "APIShared",
@@ -303,6 +370,19 @@ namespace APISharedTests
             Assert(presetSource.Contains("Common.PresetModeMixed") &&
                 presetSource.Contains("IsEnabled = false"),
                 "the mixed preset-save option must be visible but not selectable");
+            Assert(Enum.GetValues(typeof(PresetSaveBulkMode)).Length == 5 &&
+                    (int)PresetSaveBulkMode.HostFixed == 3 &&
+                    (int)PresetSaveBulkMode.Mixed == 4,
+                "the bulk selector contract must expose four actions plus the Mixed status");
+            Assert(presetSource.Contains("Common.PresetModeHostFixed") &&
+                    presetSource.Contains("System_PresetSaveBulkModeHelpText") &&
+                    !presetSource.Contains("System_SelectAllPresetSaveSettingsCommand") &&
+                    !presetSource.Contains("System_SelectHostPresetSaveSettingsCommand"),
+                "the standard save UI must expose Host Fixed, explain modes, and save every row without inclusion controls");
+            Assert(presetSource.Contains("System_DeletePresetCommand") &&
+                    presetSource.Contains("Common.PresetDeleteConfirm") &&
+                    presetSource.Contains("preset.SourceKind != ModSettingsPresetSourceKind.Personal"),
+                "personal preset deletion must be confirmed and fail closed by source kind");
         }
 
         private static void TestCompiledPatternSearch()
@@ -1077,6 +1157,7 @@ namespace APISharedTests
                 "Shared.LobbyModSettingsPresetRegistration",
                 "Shared.IModSettingsPresetEndpoint",
                 "Shared.PublishedPresetValueMode",
+                "Shared.PresetSaveBulkMode",
                 "Shared.PresetSettingScope",
                 "Shared.PresetSettingDescriptor",
                 "Shared.PresetSaveSelection",

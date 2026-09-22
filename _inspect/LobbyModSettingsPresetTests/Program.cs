@@ -38,6 +38,9 @@ namespace LobbyModSettingsPresetTests
             {
                 TestPresetAtomicPublisher();
                 ValidateInstalledLegacyFiles();
+                TestViewModelWithoutPersistentSettings(root);
+                TestLegacyPublicationFailureRetainsValidStorage(root);
+                TestPersonalPresetDeletion(root);
 
                 string assemblyPath = Path.Combine(root, "PresetTest.dll");
                 string settingsPath = Path.Combine(
@@ -259,6 +262,156 @@ namespace LobbyModSettingsPresetTests
                 Console.Error.WriteLine(exception);
                 return 1;
             }
+        }
+
+        private static void TestViewModelWithoutPersistentSettings(string root)
+        {
+            string emptyRoot = Path.Combine(root, "EmptyViewModel");
+            string assemblyPath = Path.Combine(emptyRoot, "Empty.dll");
+            string settingsDirectory = Path.Combine(emptyRoot, "LobbyModSettings");
+            string settingsPath = Path.Combine(settingsDirectory, "EmptySettings.msgpack");
+            Directory.CreateDirectory(settingsDirectory);
+            byte[] original = MessagePackSerializer.Serialize(
+                new Dictionary<string, byte[]>(StringComparer.Ordinal)
+                {
+                    ["LegacyValue"] = MessagePackSerializer.Serialize(17),
+                });
+            File.WriteAllBytes(settingsPath, original);
+
+            var settings = new EmptySettings();
+            settings.PreparePresets(null, assemblyPath, "EmptySettings");
+            settings.ActivatePresets();
+
+            Assert(File.ReadAllBytes(settingsPath).SequenceEqual(original),
+                "A ViewModel without persistent settings rewrote its legacy MessagePack file.");
+            Assert(!Directory.Exists(Path.Combine(settingsDirectory, "Presets")),
+                "A ViewModel without persistent settings created a preset catalog directory.");
+            Assert(Directory.GetFiles(settingsDirectory, "*.corrupt-*").Length == 0,
+                "A ViewModel without persistent settings produced a false corrupt backup.");
+        }
+
+        private static void TestLegacyPublicationFailureRetainsValidStorage(string root)
+        {
+            string failureRoot = Path.Combine(root, "PublicationFailure");
+            string assemblyPath = Path.Combine(failureRoot, "PresetTest.dll");
+            string settingsPath = Path.Combine(failureRoot, "LobbyModSettings", ModName + ".msgpack");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath));
+            WriteLegacy(settingsPath, false, 64);
+            byte[] original = File.ReadAllBytes(settingsPath);
+
+            var settings = new FakeSettings();
+            settings.PreparePresets(null, assemblyPath, ModName);
+            string presetsPath = Path.Combine(failureRoot, "LobbyModSettings", "Presets");
+            Directory.Delete(presetsPath, recursive: true);
+            File.WriteAllText(presetsPath, "blocks the preset directory");
+            ApplyTopLevelSettings(settings, Read(settingsPath));
+            AttachExtenderSave(settings, settingsPath, () => false);
+            settings.ActivatePresets();
+
+            Assert(File.ReadAllBytes(settingsPath).SequenceEqual(original),
+                "A failed legacy JSON publication overwrote valid MessagePack data.");
+            Assert(Directory.GetFiles(Path.GetDirectoryName(settingsPath),
+                    ModName + ".msgpack.corrupt-*").Length == 0,
+                "A failed legacy JSON publication mislabeled valid MessagePack data as corrupt.");
+            Assert(!File.Exists(Path.Combine(presetsPath, "Override", TargetGuid, "preset_legacy-preset-1.json")),
+                "A failed legacy JSON publication unexpectedly produced a personal preset.");
+        }
+
+        private static void TestPersonalPresetDeletion(string root)
+        {
+            string deleteRoot = Path.Combine(root, "DeletePersonal");
+            string assemblyPath = Path.Combine(deleteRoot, "PresetTest.dll");
+            string settingsPath = Path.Combine(deleteRoot, "LobbyModSettings", ModName + ".msgpack");
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath));
+            WriteLegacy(settingsPath, false, 91);
+            FakeSettings settings = Start(assemblyPath, settingsPath, () => false);
+            PublishedModSettingsPreset personal = settings.System_TestPublishedPresets.Single(item =>
+                item.SourceKind == ModSettingsPresetSourceKind.Personal &&
+                item.Id == "legacy-preset-1");
+            string stableId = personal.StableId;
+            string personalPath = personal.SourcePath;
+            bool enabled = settings.EnableMod;
+            int number = settings.Number;
+
+            settings.System_EnterMissionPreset(
+                new Dictionary<string, byte[]>
+                {
+                    [nameof(FakeSettings.Number)] = MessagePackSerializer.Serialize(12),
+                },
+                "Delete mission",
+                editable: true);
+            settings.System_TestDeletePreset(stableId);
+            Assert(!File.Exists(personalPath), "Deleting a personal preset did not remove its JSON file.");
+            Assert(settings.System_TestPublishedPresets.All(item => item.StableId != stableId),
+                "Deleting a personal preset did not refresh the catalog immediately.");
+            settings.System_ExitMissionPreset();
+            Assert(settings.EnableMod == enabled && settings.Number == number,
+                "Deleting the loaded personal preset changed its materialized working values.");
+            Dictionary<string, byte[]> payload = Read(settingsPath);
+            Assert(!payload.ContainsKey(BasedOnPresetKey),
+                "Deleting the loaded personal preset retained its stable basis identity.");
+
+            string bundledDirectory = Path.Combine(deleteRoot, "Override", TargetGuid);
+            Directory.CreateDirectory(bundledDirectory);
+            string bundledPath = Path.Combine(bundledDirectory, "preset_bundled.json");
+            File.WriteAllText(bundledPath, ModSettingsPresetJson.Serialize(
+                TargetGuid,
+                "bundled",
+                "Preset 1 (migrated)",
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                new Dictionary<string, PublishedPresetSetting>(StringComparer.Ordinal)
+                {
+                    [nameof(FakeSettings.Number)] = new PublishedPresetSetting
+                    {
+                        Mode = PublishedPresetValueMode.Fixed,
+                        Value = 33L,
+                    },
+                }));
+            settings.System_TestRefreshPresetCatalog();
+            PublishedModSettingsPreset bundled = settings.System_TestPublishedPresets.Single(item =>
+                item.SourceKind == ModSettingsPresetSourceKind.Bundled && item.Id == "bundled");
+            bool rejected = false;
+            try { settings.System_TestDeletePreset(bundled.StableId); }
+            catch (InvalidDataException) { rejected = true; }
+            Assert(rejected && File.Exists(bundledPath),
+                "A bundled preset was deletable through the personal-preset API.");
+
+            string protectedPath = settings.System_SavePersonalPreset(
+                "protected",
+                "Protected",
+                string.Empty,
+                new[]
+                {
+                    new PresetSaveSelection
+                    {
+                        PropertyName = nameof(FakeSettings.Number),
+                        Mode = PublishedPresetValueMode.Fixed,
+                    },
+                },
+                overwrite: false);
+            PublishedModSettingsPreset protectedPreset = settings.System_TestPublishedPresets.Single(item =>
+                item.SourceKind == ModSettingsPresetSourceKind.Personal && item.Id == "protected");
+            string outsidePath = Path.Combine(deleteRoot, "outside.json");
+            File.WriteAllText(outsidePath, "outside");
+            protectedPreset.SourcePath = outsidePath;
+            rejected = false;
+            try { settings.System_TestDeletePreset(protectedPreset.StableId); }
+            catch (InvalidDataException) { rejected = true; }
+            Assert(rejected && File.Exists(outsidePath) && File.Exists(protectedPath),
+                "A manipulated personal preset path escaped its target directory during deletion.");
+            protectedPreset.SourcePath = protectedPath;
+
+            bool lockedFailure = false;
+            using (var locked = new FileStream(protectedPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                try { settings.System_TestDeletePreset(protectedPreset.StableId); }
+                catch (IOException) { lockedFailure = true; }
+            }
+            Assert(lockedFailure && File.Exists(protectedPath) &&
+                    settings.System_TestPublishedPresets.Any(item => item.StableId == protectedPreset.StableId),
+                "A failed personal-preset deletion changed the file or catalog state.");
         }
 
         private static void ValidateInstalledLegacyFiles()
@@ -611,6 +764,10 @@ namespace LobbyModSettingsPresetTests
                     OnPropertyChanged(nameof(Number));
                 }
             }
+        }
+
+        private sealed class EmptySettings : PresetLobbyModSettingsViewModel
+        {
         }
     }
 }

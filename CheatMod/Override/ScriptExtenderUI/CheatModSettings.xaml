@@ -41,8 +41,10 @@
           <TextBlock Text="{Binding System_PresetLoadText}" Foreground="White" FontWeight="Bold" Margin="0,0,0,6"/>
           <ComboBox ItemsSource="{Binding System_PresetLoadEntries}" SelectedItem="{Binding System_SelectedPresetLoadEntry, Mode=TwoWay}" Width="530" HorizontalAlignment="Left" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_SelectedPresetLoadEntry.Description}"/>
           <TextBlock Text="{Binding System_SelectedPresetLoadEntry.Description}" Foreground="#CCCCCC" TextWrapping="Wrap" MaxWidth="530" HorizontalAlignment="Left" Margin="0,5,0,0"/>
+          <TextBlock Text="{Binding System_PresetLoadSelectionHelpText}" Foreground="#FFBFCFE8" TextWrapping="Wrap" MaxWidth="530" HorizontalAlignment="Left" Margin="0,5,0,0"/>
           <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
             <Button Content="{Binding System_PresetLoadConfirmText}" Command="{Binding System_ConfirmPresetLoadCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetLoadConfirmText}" Padding="10,3"/>
+            <Button IsEnabled="{Binding System_CanDeleteSelectedPreset}" Visibility="{Binding System_PresetDeleteVisibility}" Content="{Binding System_PresetDeleteText}" Command="{Binding System_DeletePresetCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetDeleteText}" Padding="10,3" Margin="8,0,0,0"/>
             <Button Content="{Binding System_PresetLoadCancelText}" Command="{Binding System_CancelPresetLoadCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetLoadCancelText}" Padding="10,3" Margin="8,0,0,0"/>
           </StackPanel>
         </StackPanel>
@@ -63,10 +65,8 @@
             <TextBox ui:KeyboardCaptureBinding.Enabled="True" Text="{Binding System_PresetSaveDescription, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveDescriptionText}" Width="420" Foreground="White" Background="#CC1A1A1A" BorderBrush="#FFB08A4A" BorderThickness="1" Padding="5,2"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal" Margin="0,6,0,4">
-            <Button Content="{Binding System_PresetSaveAllText}" Command="{Binding System_SelectAllPresetSaveSettingsCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveAllText}" Padding="8,2"/>
-            <Button Content="{Binding System_PresetSaveHostOnlyText}" Command="{Binding System_SelectHostPresetSaveSettingsCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveHostOnlyText}" Padding="8,2" Margin="6,0,0,0"/>
-            <TextBlock Text="{Binding System_PresetSaveBulkModeText}" Foreground="White" VerticalAlignment="Center" Margin="16,0,6,0"/>
-            <ComboBox ItemsSource="{Binding System_PresetSaveBulkModeOptions}" SelectedIndex="{Binding System_PresetSaveBulkModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveBulkModeText}" Width="130"/>
+            <TextBlock Text="{Binding System_PresetSaveBulkModeText}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveBulkModeHelpText}" Foreground="White" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <ComboBox ItemsSource="{Binding System_PresetSaveBulkModeOptions}" SelectedIndex="{Binding System_PresetSaveBulkModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveBulkModeHelpText}" Width="150"/>
           </StackPanel>
           <ScrollViewer HorizontalAlignment="Left" Width="530" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" MaxHeight="220">
             <ScrollViewer.Resources>
@@ -76,7 +76,7 @@
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <StackPanel Orientation="Horizontal" Margin="0,1">
-                  <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Content="{Binding PropertyName}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PropertyName}" Foreground="White" Width="300"/>
+                  <TextBlock Text="{Binding PropertyName}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PropertyName}" Foreground="White" Width="300" VerticalAlignment="Center"/>
                   <TextBlock Text="{Binding ScopeText}" Foreground="#BBBBBB" Width="70" VerticalAlignment="Center"/>
                   <ComboBox ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" ToolTipService.ShowDuration="60000" ToolTip="{Binding PropertyName}" Width="130"/>
                 </StackPanel>
@@ -85,7 +85,7 @@
           </ItemsControl>
           </ScrollViewer>
           <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
-            <Button Content="{Binding System_PresetSaveConfirmText}" Command="{Binding System_ConfirmPresetSaveCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveConfirmText}" Padding="10,3"/>
+            <Button IsEnabled="{Binding System_CanConfirmPresetSave}" Content="{Binding System_PresetSaveConfirmText}" Command="{Binding System_ConfirmPresetSaveCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveConfirmHelpText}" Padding="10,3"/>
             <Button Content="{Binding System_PresetSaveCancelText}" Command="{Binding System_CancelPresetSaveCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetSaveCancelText}" Padding="10,3" Margin="8,0,0,0"/>
           </StackPanel>
         </StackPanel>

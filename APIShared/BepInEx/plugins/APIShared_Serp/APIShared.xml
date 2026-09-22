@@ -1344,6 +1344,9 @@
         <member name="T:Shared.PublishedPresetValueMode">
             <summary>Determines how a published preset resolves one selected setting.</summary>
         </member>
+        <member name="T:Shared.PresetSaveBulkMode">
+            <summary>Bulk choices offered by the standard personal-preset save dialog.</summary>
+        </member>
         <member name="T:Shared.PresetSettingScope">
             <summary>Describes the ownership of a persistent lobby setting.</summary>
         </member>

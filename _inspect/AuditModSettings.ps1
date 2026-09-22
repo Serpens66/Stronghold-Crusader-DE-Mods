@@ -191,10 +191,25 @@ foreach ($entry in $settings.GetEnumerator()) {
         }
         foreach ($requiredBinding in @(
             '{Binding System_PresetSaveBulkModeText}',
+            '{Binding System_PresetSaveBulkModeHelpText}',
             '{Binding System_PresetSaveBulkModeOptions}',
-            '{Binding System_PresetSaveBulkModeIndex, Mode=TwoWay}')) {
+            '{Binding System_PresetSaveBulkModeIndex, Mode=TwoWay}',
+            '{Binding System_CanConfirmPresetSave}',
+            '{Binding System_PresetSaveConfirmHelpText}',
+            '{Binding System_PresetLoadSelectionHelpText}')) {
             if (-not [IO.File]::ReadAllText($path).Contains($requiredBinding)) {
                 throw "$($entry.Key): preset save bulk-mode binding is missing: $requiredBinding"
+            }
+        }
+        $presetText = [IO.File]::ReadAllText($path)
+        foreach ($forbiddenBinding in @(
+            'System_SelectAllPresetSaveSettingsCommand',
+            'System_SelectHostPresetSaveSettingsCommand',
+            'System_PresetSaveAllText',
+            'System_PresetSaveHostOnlyText',
+            'IsChecked="{Binding IsSelected, Mode=TwoWay}"')) {
+            if ($presetText.Contains($forbiddenBinding)) {
+                throw "$($entry.Key): obsolete preset inclusion binding remains: $forbiddenBinding"
             }
         }
     }
@@ -344,6 +359,10 @@ foreach ($entry in $settings.GetEnumerator()) {
     }
     if ($entry.Key -ne 'SerpsModsHost') {
         $requiredMarkers += @('x:Key="SectionHeader"', 'Text="{Binding ModEnabledText}"')
+        $requiredMarkers += @(
+            'Command="{Binding System_DeletePresetCommand}"',
+            'IsEnabled="{Binding System_CanDeleteSelectedPreset}"',
+            'Visibility="{Binding System_PresetDeleteVisibility}"')
         if ($hasHostSettings) {
             $requiredMarkers += 'x:Key="HostRoleHeader"'
         }
@@ -817,7 +836,12 @@ foreach ($modName in $selectedModNames) {
                 'Common.PresetModified',
                 'Common.PresetRestoreMission',
                 'Common.PresetLoadConfirm',
+                'Common.PresetLoadSelectionHelp',
                 'Common.PresetLoadCancel',
+                'Common.PresetDelete',
+                'Common.PresetDeleteTitle',
+                'Common.PresetDeleteConfirm',
+                'Common.PresetDeleteFailedTitle',
                 'Common.PresetSaveTarget',
                 'Common.PresetSaveNew',
                 'Common.PresetSourcePersonal',
@@ -825,14 +849,15 @@ foreach ($modName in $selectedModNames) {
                 'Common.PresetSourceExternal',
                 'Common.PresetSaveName',
                 'Common.PresetSaveDescription',
-                'Common.PresetSaveAll',
-                'Common.PresetSaveHostOnly',
                 'Common.PresetSaveBulkMode',
+                'Common.PresetSaveBulkModeHelp',
                 'Common.PresetSaveConfirm',
+                'Common.PresetSaveNameRequired',
                 'Common.PresetSaveCancel',
                 'Common.PresetModeDefault',
                 'Common.PresetModePlayer',
                 'Common.PresetModeFixed',
+                'Common.PresetModeHostFixed',
                 'Common.PresetModeMixed',
                 'Common.PresetScopeHost',
                 'Common.PresetScopePlayer',

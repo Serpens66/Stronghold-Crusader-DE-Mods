@@ -29,7 +29,7 @@ No Shared source links, preset compile symbols, or ExtendedData reference are re
            Visibility="{Binding System_PresetStatusVisibility}"/>
 ```
 
-The complete block also binds `System_PresetLoadEntries`, `System_SelectedPresetLoadEntry`, `System_PresetSaveTargets`, `System_PresetSaveSettings`, the bulk mode selector, and the corresponding confirm/cancel commands.
+The complete block also binds `System_PresetLoadEntries`, `System_SelectedPresetLoadEntry`, the personal-only delete command, `System_PresetSaveTargets`, `System_PresetSaveSettings`, the bulk mode selector, and the corresponding confirm/cancel commands. Pressing an already open Load or Save button closes its panel again.
 
 ### Sources and locations
 
@@ -39,7 +39,7 @@ The load list visibly distinguishes:
 - **Bundled with this mod**, stored below the target mod at `Override/<target GUID>/preset_<id>.json`;
 - **External presets**, stored in the same `Override/<target GUID>/` structure of another registered loose asset mod, with its provider name shown.
 
-Display names need not be unique. Identity is based on source kind, provider GUID, target GUID, and preset ID. Only personal entries can be overwritten. Saving an external or bundled preset therefore creates an independent personal file, even when the display name is identical.
+Display names need not be unique. Identity is based on source kind, provider GUID, target GUID, and preset ID. Only personal entries can be overwritten or deleted. Deletion is permanent after explicit confirmation and leaves the materialized working settings unchanged. Saving an external or bundled preset therefore creates an independent personal file, even when the display name is identical.
 
 Loose asset mods may serve several targets:
 
@@ -87,7 +87,9 @@ Unknown members, properties or modes, invalid values, incompatible target versio
 
 Selecting a row does nothing until **Load** is pressed. The status then shows the preset name and source; later edits add “modified”. If the source disappears, the materialized working values stay intact and only the source association is cleared.
 
-The save dialog can create a new personal preset or select an existing personal preset. Existing files require a second overwrite confirmation and are atomically replaced. Bundled, external, Map, Trail, archive, and Coop-package data are never overwrite targets.
+The standard save dialog always writes every persistent property. Each row selects `Default`, `Player`, or `Fixed`; the `Host Fixed` bulk choice sets Host properties to `Fixed` and Player/Local properties to `Player`. Partial presets remain supported through the public save API and hand-authored JSON. Existing partial presets initialize omitted rows as `Player` when edited, so overwriting them does not unexpectedly fix previously omitted values. A nonempty name is required before Save becomes available.
+
+The dialog can create a new personal preset or select an existing personal preset. Existing files require a second overwrite confirmation and are atomically replaced. Bundled, external, Map, Trail, archive, and Coop-package data are never overwrite targets.
 
 Old Preset 1 is migrated to `legacy-preset-1`; Preset 2 is migrated only when it existed. The formerly active slot becomes the editable working state. Old files from `LobbyModSettings/PresetExports/` are copied once into the personal folder and the originals are retained.
 
@@ -111,7 +113,7 @@ ExtendedData ist optional. Es verwendet denselben typisierten Property-Vertrag f
 4. Mit `LobbyModSettingsPresetRegistration.Register` registrieren.
 5. Den Standard-XAML-Block für Laden/Speichern aus einem presetfähigen Mod dieses Repositories übernehmen.
 
-Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind nicht nötig. Das minimale XAML-Beispiel im englischen Abschnitt sowie die vollständigen Blöcke der vorhandenen Mods zeigen alle Bindings.
+Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind nicht nötig. Das minimale XAML-Beispiel im englischen Abschnitt sowie die vollständigen Blöcke der vorhandenen Mods zeigen alle Bindings einschließlich des ausschließlich für eigene Presets sichtbaren Löschbefehls. Ein erneuter Klick auf den bereits geöffneten Laden- oder Speichern-Button schließt sein Panel wieder.
 
 ### Quellen und Ablageorte
 
@@ -121,7 +123,7 @@ Der Ladedialog unterscheidet sichtbar:
 - **Mit diesem Mod geliefert** unter `Override/<Ziel-GUID>/preset_<id>.json` des Ziel-Mods;
 - **Externe Presets** in derselben Override-Struktur eines anderen registrierten losen Asset-Mods, einschließlich Providername.
 
-Anzeigenamen müssen nicht eindeutig sein. Die Identität besteht aus Quellentyp, Provider-GUID, Ziel-GUID und Preset-ID. Nur eigene Presets dürfen überschrieben werden. Aus einem mitgelieferten oder externen Preset entsteht beim Speichern daher immer eine unabhängige persönliche Datei – ausdrücklich auch mit demselben Anzeigenamen.
+Anzeigenamen müssen nicht eindeutig sein. Die Identität besteht aus Quellentyp, Provider-GUID, Ziel-GUID und Preset-ID. Nur eigene Presets dürfen überschrieben oder gelöscht werden. Das Löschen ist nach ausdrücklicher Bestätigung endgültig und verändert die bereits materialisierten Arbeitswerte nicht. Aus einem mitgelieferten oder externen Preset entsteht beim Speichern daher immer eine unabhängige persönliche Datei – ausdrücklich auch mit demselben Anzeigenamen.
 
 Ein loser Asset-Mod kann Presets für mehrere Ziele enthalten; das Verzeichnisbeispiel steht im englischen Abschnitt. `.semod`-Provider werden in Version 1 mit einem Loghinweis übersprungen.
 
@@ -140,6 +142,8 @@ Unbekannte Member, Properties oder Modi, ungültige Werte, unpassende Zielversio
 ### Laden, Speichern und Migration
 
 Die Auswahl eines Eintrags ändert noch nichts; erst **Laden** übernimmt ihn. Die Statuszeile zeigt danach Name und Quelle und kennzeichnet spätere Änderungen mit „geändert“. Verschwindet die Quelle, bleiben die materialisierten Arbeitswerte erhalten; nur die Quellenverknüpfung wird entfernt.
+
+Der Standardspeicherdialog schreibt immer alle persistenten Properties. Pro Zeile stehen `Standard`, `Spieler` und `Fest` zur Wahl. Die Sammelwahl `Host fest` setzt Host-Properties auf `Fest` und Player-/Local-Properties auf `Spieler`. Teil-Presets bleiben über die öffentliche Speicher-API und handgeschriebenes JSON möglich. Beim Bearbeiten eines vorhandenen Teil-Presets werden fehlende Properties als `Spieler` vorbelegt, damit das Überschreiben zuvor ausgelassene Werte nicht unerwartet fixiert. Speichern wird erst mit einem nicht leeren Namen aktiviert.
 
 Der Speicherdialog erstellt ein neues eigenes Preset oder wählt gezielt ein vorhandenes eigenes Preset. Das vollständige atomare Ersetzen erfordert eine zweite Bestätigung. Mitgelieferte, externe, Map-, Trail-, Archiv- und Koop-Paket-Daten sind niemals Überschreibziele.
 

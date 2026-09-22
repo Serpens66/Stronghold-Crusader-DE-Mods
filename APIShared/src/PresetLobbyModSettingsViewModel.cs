@@ -895,11 +895,10 @@ namespace Shared
             System_ClearModSettingsSearchCommand = new RelayCommand(ClearModSettingsSearch);
             System_OpenPresetLoadCommand = new RelayCommand(OpenPresetLoad);
             System_ConfirmPresetLoadCommand = new RelayCommand(ConfirmPresetLoad);
+            System_DeletePresetCommand = new RelayCommand(DeleteSelectedPreset);
             System_CancelPresetLoadCommand = new RelayCommand(CancelPresetLoad);
             System_OpenPresetSaveCommand = new RelayCommand(OpenPresetSave);
             System_RestoreMissionPresetCommand = new RelayCommand(RestoreMissionPreset);
-            System_SelectAllPresetSaveSettingsCommand = new RelayCommand(() => SelectPresetSaveSettings(hostOnly: false));
-            System_SelectHostPresetSaveSettingsCommand = new RelayCommand(() => SelectPresetSaveSettings(hostOnly: true));
             System_ConfirmPresetSaveCommand = new RelayCommand(ConfirmPresetSave);
             System_CancelPresetSaveCommand = new RelayCommand(CancelPresetSave);
 #endif
@@ -1051,6 +1050,8 @@ namespace Shared
                 if (ReferenceEquals(selectedPresetLoadEntry, value)) return;
                 selectedPresetLoadEntry = value;
                 base.OnPropertyChanged(nameof(System_SelectedPresetLoadEntry));
+                base.OnPropertyChanged(nameof(System_CanDeleteSelectedPreset));
+                base.OnPropertyChanged(nameof(System_PresetDeleteVisibility));
             }
         }
 
@@ -1059,6 +1060,15 @@ namespace Shared
 
         public string System_PresetLoadCancelText =>
             ResolveSettingsUiTextSafe("Common.PresetLoadCancel", "Cancel");
+
+        public string System_PresetDeleteText =>
+            ResolveSettingsUiTextSafe("Common.PresetDelete", "Delete");
+
+        public bool System_CanDeleteSelectedPreset =>
+            selectedPresetLoadEntry?.CanDelete == true;
+
+        public Visibility System_PresetDeleteVisibility =>
+            System_CanDeleteSelectedPreset ? Visibility.Visible : Visibility.Collapsed;
 
         public ObservableCollection<ModSettingsPresetSaveTarget> System_PresetSaveTargets =>
             presetSaveTargets;
@@ -1083,6 +1093,8 @@ namespace Shared
                 base.OnPropertyChanged(nameof(System_SelectedPresetSaveTarget));
                 base.OnPropertyChanged(nameof(System_PresetSaveName));
                 base.OnPropertyChanged(nameof(System_PresetSaveDescription));
+                base.OnPropertyChanged(nameof(System_CanConfirmPresetSave));
+                base.OnPropertyChanged(nameof(System_PresetSaveConfirmHelpText));
             }
         }
 
@@ -1101,6 +1113,8 @@ namespace Shared
                 if (string.Equals(presetSaveName, normalized, StringComparison.Ordinal)) return;
                 presetSaveName = normalized;
                 base.OnPropertyChanged(nameof(System_PresetSaveName));
+                base.OnPropertyChanged(nameof(System_CanConfirmPresetSave));
+                base.OnPropertyChanged(nameof(System_PresetSaveConfirmHelpText));
             }
         }
 
@@ -1125,20 +1139,25 @@ namespace Shared
         public string System_PresetSaveDescriptionText =>
             ResolveSettingsUiTextSafe("Common.PresetSaveDescription", "Description (optional)");
 
-        public string System_PresetSaveAllText =>
-            ResolveSettingsUiTextSafe("Common.PresetSaveAll", "All");
-
-        public string System_PresetSaveHostOnlyText =>
-            ResolveSettingsUiTextSafe("Common.PresetSaveHostOnly", "Host only");
-
         public string System_PresetSaveBulkModeText =>
             ResolveSettingsUiTextSafe("Common.PresetSaveBulkMode", "Set all modes");
+
+        public string System_PresetSaveBulkModeHelpText =>
+            ResolveSettingsUiTextSafe(
+                "Common.PresetSaveBulkModeHelp",
+                "Default: use the mod default. Player: keep the player's current value. Fixed: apply the saved value. Host Fixed: fix host settings and keep player/local values.");
+
+        public string System_PresetLoadSelectionHelpText =>
+            ResolveSettingsUiTextSafe(
+                "Common.PresetLoadSelectionHelp",
+                "Selecting a preset changes nothing until you choose Load.");
 
         public ComboBoxItem[] System_PresetSaveBulkModeOptions => new[]
         {
             new ComboBoxItem { Content = ResolveSettingsUiTextSafe("Common.PresetModeDefault", "Default") },
             new ComboBoxItem { Content = ResolveSettingsUiTextSafe("Common.PresetModePlayer", "Player") },
             new ComboBoxItem { Content = ResolveSettingsUiTextSafe("Common.PresetModeFixed", "Fixed") },
+            new ComboBoxItem { Content = ResolveSettingsUiTextSafe("Common.PresetModeHostFixed", "Host Fixed") },
             new ComboBoxItem
             {
                 Content = ResolveSettingsUiTextSafe("Common.PresetModeMixed", "Mixed"),
@@ -1151,19 +1170,34 @@ namespace Shared
             get
             {
                 if (presetSaveSettings.Count == 0)
-                    return (int)PublishedPresetValueMode.Fixed;
+                    return (int)PresetSaveBulkMode.Fixed;
                 int[] modes = presetSaveSettings.Select(item => item.SelectedModeIndex).Distinct().ToArray();
-                return modes.Length == 1 ? modes[0] : 3;
+                if (modes.Length == 1)
+                    return modes[0];
+                if (presetSaveSettings.All(item =>
+                    item.SelectedModeIndex == (int)(item.Scope == PresetSettingScope.Host
+                        ? PublishedPresetValueMode.Fixed
+                        : PublishedPresetValueMode.Player)))
+                {
+                    return (int)PresetSaveBulkMode.HostFixed;
+                }
+                return (int)PresetSaveBulkMode.Mixed;
             }
             set
             {
-                if (value < 0 || value > (int)PublishedPresetValueMode.Fixed)
+                if (value < 0 || value > (int)PresetSaveBulkMode.HostFixed)
                     return;
                 applyingPresetSaveBulkMode = true;
                 try
                 {
                     foreach (PresetSaveSettingViewModel setting in presetSaveSettings)
-                        setting.SelectedModeIndex = value;
+                    {
+                        setting.SelectedModeIndex = value == (int)PresetSaveBulkMode.HostFixed
+                            ? (int)(setting.Scope == PresetSettingScope.Host
+                                ? PublishedPresetValueMode.Fixed
+                                : PublishedPresetValueMode.Player)
+                            : value;
+                    }
                 }
                 finally
                 {
@@ -1176,6 +1210,13 @@ namespace Shared
         public string System_PresetSaveConfirmText =>
             ResolveSettingsUiTextSafe("Common.PresetSaveConfirm", "Save");
 
+        public bool System_CanConfirmPresetSave =>
+            !string.IsNullOrWhiteSpace(presetSaveName);
+
+        public string System_PresetSaveConfirmHelpText => System_CanConfirmPresetSave
+            ? System_PresetSaveConfirmText
+            : ResolveSettingsUiTextSafe("Common.PresetSaveNameRequired", "Enter a preset name before saving.");
+
         public string System_PresetSaveCancelText =>
             ResolveSettingsUiTextSafe("Common.PresetSaveCancel", "Cancel");
 
@@ -1183,15 +1224,13 @@ namespace Shared
 
         public RelayCommand System_ConfirmPresetLoadCommand { get; }
 
+        public RelayCommand System_DeletePresetCommand { get; }
+
         public RelayCommand System_CancelPresetLoadCommand { get; }
 
         public RelayCommand System_OpenPresetSaveCommand { get; }
 
         public RelayCommand System_RestoreMissionPresetCommand { get; }
-
-        public RelayCommand System_SelectAllPresetSaveSettingsCommand { get; }
-
-        public RelayCommand System_SelectHostPresetSaveSettingsCommand { get; }
 
         public RelayCommand System_ConfirmPresetSaveCommand { get; }
 
@@ -1277,6 +1316,12 @@ namespace Shared
 
         private void OpenPresetLoad()
         {
+            if (presetLoadPanelOpen)
+            {
+                presetLoadPanelOpen = false;
+                RaisePresetDialogProperties();
+                return;
+            }
             presetSavePanelOpen = false;
             presetController?.RefreshCatalog();
             RebuildPresetDialogCatalogs();
@@ -1309,8 +1354,51 @@ namespace Shared
             RaisePresetDialogProperties();
         }
 
+        private void DeleteSelectedPreset()
+        {
+            PublishedModSettingsPreset preset = selectedPresetLoadEntry?.Preset;
+            if (preset == null || !System_CanDeleteSelectedPreset)
+                return;
+
+            string message = ResolveSettingsUiTextSafe(
+                "Common.PresetDeleteConfirm",
+                "The personal preset will be permanently deleted. Continue?") +
+                Environment.NewLine + Environment.NewLine + preset.Name;
+            CrusaderDE.HUD_ConfirmationPopup.ShowConfirmationMessage(
+                ResolveSettingsUiTextSafe("Common.PresetDeleteTitle", "Delete personal preset"),
+                () => CompletePresetDelete(preset),
+                delegate { },
+                message);
+        }
+
+        private void CompletePresetDelete(PublishedModSettingsPreset preset)
+        {
+            try
+            {
+                presetController?.DeletePersonalPreset(preset);
+                RebuildPresetDialogCatalogs();
+                selectedPresetLoadEntry = presetLoadEntries.FirstOrDefault();
+                RaisePresetDialogProperties();
+                RaiseAccessProperties();
+            }
+            catch (Exception exception)
+            {
+                CrusaderDE.HUD_ConfirmationPopup.ShowConfirmationOKMessage(
+                    ResolveSettingsUiTextSafe("Common.PresetDeleteFailedTitle", "Preset deletion failed"),
+                    delegate { },
+                    exception.Message,
+                    Sands: false);
+            }
+        }
+
         private void OpenPresetSave()
         {
+            if (presetSavePanelOpen)
+            {
+                presetSavePanelOpen = false;
+                RaisePresetSaveProperties();
+                return;
+            }
             presetLoadPanelOpen = false;
             presetController?.RefreshCatalog();
             RebuildPresetDialogCatalogs();
@@ -1375,12 +1463,11 @@ namespace Shared
             {
                 if (preset.Settings.TryGetValue(row.PropertyName, out PublishedPresetSetting setting))
                 {
-                    row.IsSelected = true;
                     row.SelectedModeIndex = (int)setting.Mode;
                 }
                 else
                 {
-                    row.IsSelected = false;
+                    row.SelectedModeIndex = (int)PublishedPresetValueMode.Player;
                 }
             }
         }
@@ -1388,8 +1475,11 @@ namespace Shared
         private void RaisePresetDialogProperties()
         {
             base.OnPropertyChanged(nameof(System_PresetLoadPanelVisibility));
+            base.OnPropertyChanged(nameof(System_PresetSavePanelVisibility));
             base.OnPropertyChanged(nameof(System_PresetLoadEntries));
             base.OnPropertyChanged(nameof(System_SelectedPresetLoadEntry));
+            base.OnPropertyChanged(nameof(System_CanDeleteSelectedPreset));
+            base.OnPropertyChanged(nameof(System_PresetDeleteVisibility));
             base.OnPropertyChanged(nameof(System_PresetSaveTargets));
             base.OnPropertyChanged(nameof(System_SelectedPresetSaveTarget));
             base.OnPropertyChanged(nameof(System_PresetStatusText));
@@ -1410,10 +1500,7 @@ namespace Shared
                 var setting = new PresetSaveSettingViewModel(
                     descriptor,
                     ResolvePresetSettingScopeText(descriptor.Scope),
-                    modeOptions)
-                {
-                    IsSelected = true,
-                };
+                    modeOptions);
                 setting.PropertyChanged += OnPresetSaveSettingPropertyChanged;
                 presetSaveSettings.Add(setting);
             }
@@ -1426,18 +1513,11 @@ namespace Shared
         {
             foreach (PresetSaveSettingViewModel setting in presetSaveSettings)
             {
-                setting.IsSelected = true;
                 setting.SelectedModeIndex = (int)PublishedPresetValueMode.Fixed;
             }
             presetSaveName = presetController?.SuggestedSaveName ?? string.Empty;
             presetSaveDescription = string.Empty;
             base.OnPropertyChanged(nameof(System_PresetSaveBulkModeIndex));
-        }
-
-        private void SelectPresetSaveSettings(bool hostOnly)
-        {
-            foreach (PresetSaveSettingViewModel setting in presetSaveSettings)
-                setting.IsSelected = !hostOnly || setting.Scope == PresetSettingScope.Host;
         }
 
         private void OnPresetSaveSettingPropertyChanged(object sender, PropertyChangedEventArgs args)
@@ -1468,10 +1548,7 @@ namespace Shared
         {
             try
             {
-                PresetSaveSelection[] selections = presetSaveSettings
-                    .Where(item => item.IsSelected)
-                    .Select(item => item.ToSelection())
-                    .ToArray();
+                PresetSaveSelection[] selections = CreatePresetSaveSelections();
                 PublishedModSettingsPreset existing = selectedPresetSaveTarget?.Preset;
                 if (existing != null)
                 {
@@ -1498,6 +1575,9 @@ namespace Shared
                 ShowPresetSaveError(exception);
             }
         }
+
+        private PresetSaveSelection[] CreatePresetSaveSelections() =>
+            presetSaveSettings.Select(item => item.ToSelection()).ToArray();
 
         private void CompletePresetSave(string id, PresetSaveSelection[] selections, bool overwrite)
         {
@@ -1556,6 +1636,8 @@ namespace Shared
             base.OnPropertyChanged(nameof(System_PresetSaveDescription));
             base.OnPropertyChanged(nameof(System_PresetSaveSettings));
             base.OnPropertyChanged(nameof(System_PresetSaveBulkModeIndex));
+            base.OnPropertyChanged(nameof(System_CanConfirmPresetSave));
+            base.OnPropertyChanged(nameof(System_PresetSaveConfirmHelpText));
             RaisePresetDialogProperties();
         }
 
@@ -1668,18 +1750,24 @@ namespace Shared
                 case "Common.PresetRestoreMission": return "Missions-Preset wiederherstellen";
                 case "Common.PresetLoadConfirm": return "Laden";
                 case "Common.PresetLoadCancel": return "Abbrechen";
+                case "Common.PresetDelete": return "Löschen";
+                case "Common.PresetDeleteTitle": return "Eigenes Preset löschen";
+                case "Common.PresetDeleteConfirm": return "Das eigene Preset wird endgültig gelöscht. Fortfahren?";
+                case "Common.PresetDeleteFailedTitle": return "Preset konnte nicht gelöscht werden";
                 case "Common.PresetSaveTarget": return "Speichern als";
                 case "Common.PresetSaveNew": return "Neues persönliches Preset";
                 case "Common.PresetSaveName": return "Presetname";
                 case "Common.PresetSaveDescription": return "Beschreibung (optional)";
-                case "Common.PresetSaveAll": return "Alle";
-                case "Common.PresetSaveHostOnly": return "Nur Host";
                 case "Common.PresetSaveBulkMode": return "Alle Modi setzen";
+                case "Common.PresetSaveBulkModeHelp": return "Standard: Mod-Standard verwenden. Spieler: aktuellen Spielerwert behalten. Fest: gespeicherten Wert anwenden. Host fest: Hostwerte festlegen, Spieler-/lokale Werte behalten.";
+                case "Common.PresetLoadSelectionHelp": return "Die Auswahl ändert noch nichts. Erst Laden wendet das Preset an.";
                 case "Common.PresetSaveCancel": return "Abbrechen";
                 case "Common.PresetSourcePersonal": return "Eigene Presets";
                 case "Common.PresetSourceBundled": return "Mit diesem Mod geliefert";
                 case "Common.PresetSourceExternal": return "Externe Presets";
                 case "Common.PresetSaveConfirm": return "Speichern";
+                case "Common.PresetSaveNameRequired": return "Vor dem Speichern einen Presetnamen eingeben.";
+                case "Common.PresetModeHostFixed": return "Host fest";
                 case "Common.PresetSaveOverwriteTitle": return "Eigenes Preset überschreiben";
                 case "Common.PresetSaveOverwrite": return "Das gewählte eigene Preset wird vollständig ersetzt. Fortfahren?";
                 case "Common.PresetSaveCompletedTitle": return "Preset gespeichert";
@@ -1966,6 +2054,15 @@ namespace Shared
             presetController.LoadPreset(preset);
         }
 
+        internal void System_TestDeletePreset(string stableId)
+        {
+            PublishedModSettingsPreset preset = presetController?.PublishedPresets.FirstOrDefault(item =>
+                string.Equals(item.StableId, stableId, StringComparison.Ordinal));
+            if (preset == null)
+                throw new InvalidDataException("The requested test preset is unavailable.");
+            presetController.DeletePersonalPreset(preset);
+        }
+
         internal void System_TestRestoreMissionPreset() => presetController?.RestoreMissionPreset();
 #endif
 
@@ -2152,6 +2249,7 @@ namespace Shared
             private string basedOnSource = string.Empty;
             private bool presetDirty;
             private bool legacyPresetImportCompleted;
+            private bool legacyMigrationPending;
             private string suspendedBasedOnStableId = string.Empty;
             private string suspendedBasedOnName = string.Empty;
             private string suspendedBasedOnSource = string.Empty;
@@ -2201,7 +2299,8 @@ namespace Shared
                 clientProperties = persistedProperties.Where(IsClientProperty).ToArray();
                 hostSettingsActivationProperty = FindSettingsActivationProperty(hostProperties, "EnableMod");
                 clientSettingsActivationProperty = FindSettingsActivationProperty(clientProperties, "EnableClientFeatures", "EnableMod");
-                RefreshCatalog();
+                if (persistedProperties.Length != 0)
+                    RefreshCatalog();
             }
 
             public IReadOnlyList<PublishedModSettingsPreset> PublishedPresets => publishedPresets;
@@ -2236,6 +2335,12 @@ namespace Shared
 
             public void RefreshCatalog()
             {
+                if (persistedProperties.Length == 0)
+                {
+                    publishedPresets.Clear();
+                    return;
+                }
+
                 Directory.CreateDirectory(personalPresetDirectory);
                 var refreshed = new List<PublishedModSettingsPreset>();
                 foreach (PublishedModSettingsPreset preset in ModSettingsPresetCatalog.Discover(
@@ -2402,6 +2507,13 @@ namespace Shared
                 if (active)
                     return;
 
+                if (persistedProperties.Length == 0)
+                {
+                    active = true;
+                    LogRoutine($"[{modName}] Preset storage skipped because the ViewModel has no persistent settings.");
+                    return;
+                }
+
                 Dictionary<string, byte[]> payload = null;
                 bool fileExists = File.Exists(filePath);
                 if (fileExists && !TryReadPayload(out payload))
@@ -2412,11 +2524,17 @@ namespace Shared
 
                 bool needsRewrite = false;
                 PublishedModSettingsPreset legacyPublishedToMaterialize = null;
+                Dictionary<string, byte[]> legacyPreset1 = null;
+                Dictionary<string, byte[]> legacyPreset2 = null;
+                int legacySelected = 0;
+                int loadedSchemaVersion = 0;
+                string oldPublishedId = string.Empty;
                 if (payload != null && payload.ContainsKey(SchemaVersionKey))
                 {
                     try
                     {
                         int schemaVersion = MessagePackSerializer.Deserialize<int>(payload[SchemaVersionKey]);
+                        loadedSchemaVersion = schemaVersion;
                         if (schemaVersion < 1 || schemaVersion > SchemaVersion)
                             throw new InvalidDataException($"Unsupported preset schema version [{schemaVersion}].");
                         if (schemaVersion == SchemaVersion)
@@ -2431,34 +2549,13 @@ namespace Shared
                         }
                         else
                         {
-                            int selected = payload.TryGetValue(ActivePresetKey, out byte[] selectedBytes)
+                            legacySelected = payload.TryGetValue(ActivePresetKey, out byte[] selectedBytes)
                                 ? NormalizePreset(MessagePackSerializer.Deserialize<int>(selectedBytes))
                                 : 0;
-                            Dictionary<string, byte[]> legacyPreset1 = ReadSnapshot(payload, Preset1Key) ?? CaptureCurrentSettings();
-                            Dictionary<string, byte[]> legacyPreset2 = ReadSnapshot(payload, Preset2Key);
-                            SaveLegacySnapshotAsPersonalPreset("legacy-preset-1", "Preset 1 (migrated)", legacyPreset1);
-                            if (legacyPreset2 != null)
-                                SaveLegacySnapshotAsPersonalPreset("legacy-preset-2", "Preset 2 (migrated)", legacyPreset2);
-                            RefreshCatalog();
-
-                            string oldPublishedId = string.Empty;
+                            legacyPreset1 = ReadSnapshot(payload, Preset1Key) ?? CaptureCurrentSettings();
+                            legacyPreset2 = ReadSnapshot(payload, Preset2Key);
                             if (schemaVersion >= 2 && payload.TryGetValue(PublishedPresetKey, out byte[] publishedBytes))
                                 oldPublishedId = MessagePackSerializer.Deserialize<string>(publishedBytes) ?? string.Empty;
-                            PublishedModSettingsPreset oldPublished = FindLegacyPublishedPreset(oldPublishedId);
-                            preset1 = Clone(selected == 1 && legacyPreset2 != null ? legacyPreset2 : legacyPreset1);
-                            if (oldPublished != null)
-                            {
-                                legacyPublishedToMaterialize = oldPublished;
-                            }
-                            else
-                            {
-                                PublishedModSettingsPreset migrated = publishedPresets.FirstOrDefault(item =>
-                                    item.SourceKind == ModSettingsPresetSourceKind.Personal &&
-                                    string.Equals(item.Id, selected == 1 ? "legacy-preset-2" : "legacy-preset-1", StringComparison.OrdinalIgnoreCase));
-                                SetBasedOn(migrated, modified: false);
-                            }
-                            needsRewrite = true;
-                            LogRoutine($"[{modName}] Migrated legacy Preset 1/2 storage to personal JSON presets.");
                         }
                     }
                     catch (Exception exception)
@@ -2471,6 +2568,35 @@ namespace Shared
                     }
                 }
 
+                if (payload != null && loadedSchemaVersion > 0 && loadedSchemaVersion < SchemaVersion)
+                {
+                    preset1 = Clone(legacySelected == 1 && legacyPreset2 != null ? legacyPreset2 : legacyPreset1);
+                    legacyPublishedToMaterialize = FindLegacyPublishedPreset(oldPublishedId);
+                    try
+                    {
+                        SaveLegacySnapshotAsPersonalPreset("legacy-preset-1", "Preset 1 (migrated)", legacyPreset1);
+                        if (legacyPreset2 != null)
+                            SaveLegacySnapshotAsPersonalPreset("legacy-preset-2", "Preset 2 (migrated)", legacyPreset2);
+                        RefreshCatalog();
+                        if (legacyPublishedToMaterialize == null)
+                        {
+                            PublishedModSettingsPreset migrated = publishedPresets.FirstOrDefault(item =>
+                                item.SourceKind == ModSettingsPresetSourceKind.Personal &&
+                                string.Equals(item.Id, legacySelected == 1 ? "legacy-preset-2" : "legacy-preset-1", StringComparison.OrdinalIgnoreCase));
+                            SetBasedOn(migrated, modified: false);
+                        }
+                        needsRewrite = true;
+                        LogRoutine($"[{modName}] Migrated legacy Preset 1/2 storage to personal JSON presets.");
+                    }
+                    catch (Exception exception)
+                    {
+                        legacyMigrationPending = true;
+                        DebugLogHelper.LogError(
+                            log,
+                            $"[{modName}] Could not publish legacy presets; the valid MessagePack data was retained for retry: {exception}");
+                    }
+                }
+
                 if (payload == null || !payload.ContainsKey(SchemaVersionKey))
                 {
                     // RegisterLobbyModSettings has already restored a legacy file here.
@@ -2479,20 +2605,32 @@ namespace Shared
                     preset1 = CaptureCurrentSettings();
                     if (fileExists)
                     {
-                        SaveLegacySnapshotAsPersonalPreset("legacy-preset-1", "Preset 1 (migrated)", preset1);
-                        RefreshCatalog();
-                        SetBasedOn(publishedPresets.FirstOrDefault(item =>
-                            item.SourceKind == ModSettingsPresetSourceKind.Personal &&
-                            string.Equals(item.Id, "legacy-preset-1", StringComparison.OrdinalIgnoreCase)), modified: false);
+                        try
+                        {
+                            SaveLegacySnapshotAsPersonalPreset("legacy-preset-1", "Preset 1 (migrated)", preset1);
+                            RefreshCatalog();
+                            SetBasedOn(publishedPresets.FirstOrDefault(item =>
+                                item.SourceKind == ModSettingsPresetSourceKind.Personal &&
+                                string.Equals(item.Id, "legacy-preset-1", StringComparison.OrdinalIgnoreCase)), modified: false);
+                            needsRewrite = true;
+                        }
+                        catch (Exception exception)
+                        {
+                            legacyMigrationPending = true;
+                            DebugLogHelper.LogError(
+                                log,
+                                $"[{modName}] Could not publish the legacy lobby-settings preset; the original file was retained for retry: {exception}");
+                        }
                     }
-                    needsRewrite = fileExists;
                     LogRoutine(
-                        fileExists
+                        fileExists && !legacyMigrationPending
                             ? $"[{modName}] Migrated legacy lobby settings to a personal preset."
+                            : fileExists
+                                ? $"[{modName}] Deferred legacy lobby-settings migration after a publication failure."
                             : $"[{modName}] Initialized editable settings from code defaults.");
                 }
 
-                if (!legacyPresetImportCompleted)
+                if (!legacyMigrationPending && !legacyPresetImportCompleted)
                 {
                     legacyPresetImportCompleted = MigrateStagedExports();
                     RefreshCatalog();
@@ -2513,7 +2651,7 @@ namespace Shared
                 // Persist the envelope immediately after reading a legacy top-level payload.
                 // Otherwise an unchanged legacy file would be re-imported on every startup and
                 // could never retain the stable identity of a subsequently selected public preset.
-                if (needsRewrite)
+                if (needsRewrite && !legacyMigrationPending)
                     WriteCombinedPayload();
             }
 
@@ -2693,6 +2831,52 @@ namespace Shared
                 PublishPresetJson(path, json, overwrite);
                 RefreshCatalog();
                 return path;
+            }
+
+            public void DeletePersonalPreset(PublishedModSettingsPreset preset)
+            {
+                if (preset == null ||
+                    preset.SourceKind != ModSettingsPresetSourceKind.Personal ||
+                    !publishedPresets.Contains(preset))
+                {
+                    throw new InvalidDataException("Only an available personal preset can be deleted.");
+                }
+
+                string path = Path.GetFullPath(preset.SourcePath ?? string.Empty);
+                ModSettingsPresetCatalog.ValidatePersonalWritePath(
+                    pluginDirectory,
+                    personalPresetDirectory,
+                    path);
+                if (!File.Exists(path))
+                    throw new FileNotFoundException("The selected personal preset no longer exists.", path);
+
+                string stableId = preset.StableId;
+                File.Delete(path);
+
+                bool metadataChanged = false;
+                if (string.Equals(basedOnStableId, stableId, StringComparison.OrdinalIgnoreCase))
+                {
+                    activePublishedPreset = null;
+                    basedOnStableId = string.Empty;
+                    basedOnName = string.Empty;
+                    basedOnSource = string.Empty;
+                    presetDirty = false;
+                    metadataChanged = true;
+                }
+                if (string.Equals(suspendedBasedOnStableId, stableId, StringComparison.OrdinalIgnoreCase))
+                {
+                    suspendedPublishedPreset = null;
+                    suspendedBasedOnStableId = string.Empty;
+                    suspendedBasedOnName = string.Empty;
+                    suspendedBasedOnSource = string.Empty;
+                    suspendedPresetDirty = false;
+                    metadataChanged = true;
+                }
+
+                RefreshCatalog();
+                if (metadataChanged && active)
+                    WriteCombinedPayload();
+                LogRoutine($"[{modName}] Deleted personal preset [{stableId}].");
             }
 
             private void PublishPresetJson(string path, string json, bool overwrite)
@@ -3037,6 +3221,9 @@ namespace Shared
 
             private void WriteCombinedPayload()
             {
+                if (persistedProperties.Length == 0 || legacyMigrationPending)
+                    return;
+
                 Dictionary<string, byte[]> payload = ComposeSafeTopLevelSnapshot();
                 payload[SchemaVersionKey] = MessagePackSerializer.Serialize(SchemaVersion);
                 payload[CurrentSettingsKey] = MessagePackSerializer.Serialize(preset1 ?? Clone(defaults));

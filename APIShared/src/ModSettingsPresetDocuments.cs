@@ -30,6 +30,16 @@ namespace Shared
         Fixed = 2,
     }
 
+    /// <summary>Bulk choices offered by the standard personal-preset save dialog.</summary>
+    public enum PresetSaveBulkMode
+    {
+        ModDefault = 0,
+        Player = 1,
+        Fixed = 2,
+        HostFixed = 3,
+        Mixed = 4,
+    }
+
     /// <summary>Describes the ownership of a persistent lobby setting.</summary>
     public enum PresetSettingScope
     {
@@ -65,7 +75,6 @@ namespace Shared
     /// <summary>Mutable row model used by the standard personal-preset save dialog.</summary>
     public sealed class PresetSaveSettingViewModel : INotifyPropertyChanged
     {
-        private bool isSelected;
         private int selectedModeIndex = (int)PublishedPresetValueMode.Fixed;
 
         public PresetSaveSettingViewModel(PresetSettingDescriptor descriptor)
@@ -91,17 +100,6 @@ namespace Shared
         public PresetSettingScope Scope { get; }
         public string ScopeText { get; }
         public string[] ModeOptions { get; }
-
-        public bool IsSelected
-        {
-            get => isSelected;
-            set
-            {
-                if (isSelected == value) return;
-                isSelected = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
-            }
-        }
 
         public int SelectedModeIndex
         {
@@ -163,6 +161,7 @@ namespace Shared
         public ModSettingsPresetSourceKind SourceKind =>
             Preset?.SourceKind ?? ModSettingsPresetSourceKind.Personal;
         public bool CanOverwrite => Preset?.CanOverwrite == true;
+        public bool CanDelete => Preset?.SourceKind == ModSettingsPresetSourceKind.Personal;
         public string SourceLabel { get; internal set; } = string.Empty;
         public string DisplayText => SourceLabel + " · " + Name;
         public override string ToString() => DisplayText;
