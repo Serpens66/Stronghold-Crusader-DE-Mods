@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using Shared;
 using SHCDESE.API;
@@ -22,7 +23,6 @@ namespace SerpsModsHost
         private int registeredCount;
         private string scriptExtenderCompatibilityWarning = string.Empty;
         private ModSettingsSearchViewModel search;
-        private string[] presetTargetGuids = Array.Empty<string>();
         private readonly ObservableCollection<ModSettingsWorkingSource> globalSources = new ObservableCollection<ModSettingsWorkingSource>();
         private ModSettingsWorkingSource selectedGlobalSource;
         private ModSettingsWorkingSource pendingGlobalSource;
@@ -39,6 +39,7 @@ namespace SerpsModsHost
             CancelGlobalSettingsResetCommand = new RelayCommand(CancelGlobalSettingsReset);
             DismissGlobalSettingsResetStatusCommand = new RelayCommand(DismissGlobalSettingsResetStatus);
             ModSettingsWorkingSourceRegistry.SourcesChanged += RefreshGlobalSources;
+            GameXAMLManagerAPI.Instance.RegisteredModSettings.CollectionChanged += OnRegisteredModSettingsChanged;
             PropertyChanged += OnDiagnosticsPropertyChanged;
             RefreshGlobalSources();
         }
@@ -70,7 +71,7 @@ namespace SerpsModsHost
         {
             get
             {
-                IModSettingsWorkingCopyEndpoint[] endpoints = GetTargetEndpoints();
+                IModSettingsWorkingCopyEndpoint[] endpoints = GetTargets().Select(target => target.Endpoint).ToArray();
                 return GlobalSettingsResetPolicy.CanReset(
                     globalResetConfirmationVisible,
                     IsLocalSettingsHost,
@@ -83,7 +84,7 @@ namespace SerpsModsHost
         {
             get
             {
-                IModSettingsWorkingCopyEndpoint[] endpoints = GetTargetEndpoints();
+                IModSettingsWorkingCopyEndpoint[] endpoints = GetTargets().Select(target => target.Endpoint).ToArray();
                 return GlobalSettingsResetPolicy.CanSelect(
                     globalResetConfirmationVisible,
                     IsLocalSettingsHost,
@@ -152,12 +153,6 @@ namespace SerpsModsHost
 
         public void SetRefreshAction(Action action) => refreshAction = action;
 
-        public void SetPresetTargetGuids(IEnumerable<string> guids)
-        {
-            presetTargetGuids = (guids ?? Enumerable.Empty<string>()).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.Ordinal).ToArray();
-            RaiseGlobalSettingsResetProperties();
-        }
-
         private void RefreshGlobalSources()
         {
             string selectedId = selectedGlobalSource?.Id;
@@ -196,14 +191,15 @@ namespace SerpsModsHost
             globalResetConfirmationVisible = false;
             try
             {
-                IModSettingsWorkingCopyEndpoint[] endpoints = GetTargetEndpoints();
+                ResetTarget[] targets = GetTargets();
+                IModSettingsWorkingCopyEndpoint[] endpoints = targets.Select(target => target.Endpoint).ToArray();
                 if (endpoints.Length == 0 || !IsLocalSettingsHost || endpoints.Any(IsReadOnlyMissionEndpoint))
                     throw new InvalidOperationException("The shared ModSettings reset is not available in the current context.");
 
                 bool missionContext = endpoints.Any(endpoint => endpoint.IsMissionPresetActive);
                 if (missionContext || !string.Equals(source.Id, ModSettingsWorkingSourceRegistry.ModDefaultsId, StringComparison.Ordinal))
                 {
-                    ModSettingsWorkingSourceRegistry.ApplyMany(presetTargetGuids, source.Id);
+                    ModSettingsWorkingSourceRegistry.ApplyMany(targets.Select(target => target.Guid), source.Id);
                 }
                 else
                 {
@@ -246,14 +242,31 @@ namespace SerpsModsHost
             RaiseGlobalSettingsResetProperties();
         }
 
-        private IModSettingsWorkingCopyEndpoint[] GetTargetEndpoints() =>
+        private ResetTarget[] GetTargets() =>
             GameXAMLManagerAPI.Instance.RegisteredModSettings
-                .Where(entry => entry?.Plugin?.Info?.Metadata != null &&
-                    presetTargetGuids.Contains(entry.Plugin.Info.Metadata.GUID, StringComparer.Ordinal))
-                .Select(entry => entry.ViewModel as IModSettingsWorkingCopyEndpoint)
-                .Where(endpoint => endpoint != null)
-                .Distinct()
+                .Where(entry => GlobalSettingsResetPolicy.IsSupportedSerpsTarget(
+                    entry?.Plugin?.Info?.Metadata?.GUID,
+                    entry?.ViewModel is IModSettingsWorkingCopyEndpoint))
+                .GroupBy(entry => entry.Plugin.Info.Metadata.GUID, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new ResetTarget(
+                    group.Key,
+                    (IModSettingsWorkingCopyEndpoint)group.First().ViewModel))
                 .ToArray();
+
+        private void OnRegisteredModSettingsChanged(object sender, NotifyCollectionChangedEventArgs args) =>
+            RaiseGlobalSettingsResetProperties();
+
+        private sealed class ResetTarget
+        {
+            public ResetTarget(string guid, IModSettingsWorkingCopyEndpoint endpoint)
+            {
+                Guid = guid;
+                Endpoint = endpoint;
+            }
+
+            public string Guid { get; }
+            public IModSettingsWorkingCopyEndpoint Endpoint { get; }
+        }
 
         private static bool IsReadOnlyMissionEndpoint(IModSettingsWorkingCopyEndpoint endpoint) =>
             endpoint.IsMissionPresetActive &&

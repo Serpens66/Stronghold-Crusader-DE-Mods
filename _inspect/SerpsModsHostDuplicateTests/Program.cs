@@ -185,6 +185,14 @@ namespace SerpsModsHostDuplicateTests
 
         private static void TestGlobalSettingsResetPolicy()
         {
+            if (!GlobalSettingsResetPolicy.IsSupportedSerpsTarget("CastlePlanner_Serp", true) ||
+                GlobalSettingsResetPolicy.IsSupportedSerpsTarget("CastlePlanner_Serp", false) ||
+                GlobalSettingsResetPolicy.IsSupportedSerpsTarget("fixes", true) ||
+                GlobalSettingsResetPolicy.IsSupportedSerpsTarget("SerpsMods_Serp", true))
+            {
+                throw new InvalidOperationException("Global reset target discovery accepts an unsupported registration.");
+            }
+
             if (GlobalSettingsResetPolicy.CanReset(false, false, true, 2, false) ||
                 GlobalSettingsResetPolicy.CanReset(false, true, true, 0, false) ||
                 GlobalSettingsResetPolicy.CanReset(false, true, true, 2, true) ||
@@ -237,6 +245,13 @@ namespace SerpsModsHostDuplicateTests
             {
                 throw new InvalidOperationException(
                     "The global reset must stay silent after success and retain a visible error-only status.");
+            }
+            if (source.Contains("presetTargetGuids") ||
+                !source.Contains("RegisteredModSettings.CollectionChanged += OnRegisteredModSettingsChanged") ||
+                !source.Contains("ApplyMany(targets.Select(target => target.Guid), source.Id)"))
+            {
+                throw new InvalidOperationException(
+                    "The global reset must discover registered supported mods and refresh its availability.");
             }
         }
 

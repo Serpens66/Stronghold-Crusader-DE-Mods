@@ -105,7 +105,7 @@ namespace ExtendedData
             private readonly ManualLogSource log;
             private readonly BugfixesAndQoLTrailCustomizationBridge customizationBridge;
             private readonly Func<string, string, TrailSettingMode> getPropertyMode;
-            private readonly Action<ModSettingsDefinition> applyEditorModes;
+            private readonly Action<ModSettingsDefinition, bool> applyEditorModes;
             private readonly Action<string, ModSettingsDefinition> applyEditorModesForMod;
             private readonly EditorModSettingsSaveOptionsViewModel editorSaveOptions;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
@@ -283,7 +283,7 @@ namespace ExtendedData
                 ManualLogSource log,
                 bool enabled,
                 Func<string, string, TrailSettingMode> getPropertyMode,
-                Action<ModSettingsDefinition> applyEditorModes,
+                Action<ModSettingsDefinition, bool> applyEditorModes,
                 Action<string, ModSettingsDefinition> applyEditorModesForMod,
                 EditorModSettingsSaveOptionsViewModel editorSaveOptions)
             {
@@ -543,7 +543,7 @@ namespace ExtendedData
                         try { workingEndpoints[id].System_ApplyMissionPresetSnapshot(rollback[id], activeContextLabel); }
                         catch (Exception rollbackException) { DebugLogHelper.LogError(log, "Could not roll back source application for [" + id + "]: " + rollbackException); }
                     }
-                    applyEditorModes?.Invoke(oldModes);
+                    applyEditorModes?.Invoke(oldModes, false);
                     throw;
                 }
             }
@@ -2808,7 +2808,7 @@ namespace ExtendedData
                     else
                     {
                         ModSettingsDefinition defaults = ModSettingsDefinition.CreateModDefaults();
-                        ApplyDocument(defaults, editable: true);
+                        ApplyDocument(defaults, editable: true, useFixedDefaults: true);
                         UpdateTrailMakerWorkingDocument(CaptureDocument(), null);
                         source = "new mission defaults";
                     }
@@ -2825,7 +2825,7 @@ namespace ExtendedData
                     try
                     {
                         ModSettingsDefinition defaults = ModSettingsDefinition.CreateModDefaults();
-                        ApplyDocument(defaults, editable: true);
+                        ApplyDocument(defaults, editable: true, useFixedDefaults: true);
                         UpdateTrailMakerWorkingDocument(CaptureDocument(), null);
                         missionPresetLifecycle.CompleteTrailMakerReturn();
                         DebugLogHelper.LogInfo(
@@ -2924,7 +2924,7 @@ namespace ExtendedData
                     : ModSettingsDefinition.CreateModDefaults();
                 trailSourceDocument = exists ? CloneDocument(document) : null;
                 SourcesChanged?.Invoke();
-                ApplyDocument(document, editable);
+                ApplyDocument(document, editable, useFixedDefaults: !exists && editable);
                 string[] mentionedMods = document.Mods.Keys.ToArray();
                 DebugLogHelper.LogInfo(
                     log,
@@ -2973,7 +2973,8 @@ namespace ExtendedData
             private void ApplyDocument(
                 ModSettingsDefinition document,
                 bool editable,
-                string presetLabel = "Trail")
+                string presetLabel = "Trail",
+                bool useFixedDefaults = false)
             {
                 ClearActiveSidecar();
                 Dictionary<string, IModSettingsPresetEndpoint> allParticipants = FindCompatibleViewModels();
@@ -3024,7 +3025,7 @@ namespace ExtendedData
                 }
 
                 if (editable)
-                    applyEditorModes?.Invoke(document);
+                    applyEditorModes?.Invoke(document, useFixedDefaults);
 
                 try
                 {

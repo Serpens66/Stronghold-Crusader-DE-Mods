@@ -301,7 +301,7 @@ namespace CastlePlanner
         public string CastleSelectionTimeoutValueText =>
             SerpLocalization.Get(
                 "CastlePlanner.CastleSelectionTimeoutValue",
-                CastleSelectionTimeoutSeconds);
+                "0", CastleSelectionTimeoutSeconds);
         public string SpawnFortificationsText => SerpLocalization.Get("CastlePlanner.SpawnFortifications");
         public string SpawnFortificationsHelpText => SerpLocalization.Get("CastlePlanner.SpawnFortificationsHelp");
         public string SpawnBuildingsText => SerpLocalization.Get("CastlePlanner.SpawnBuildings");

@@ -34,6 +34,8 @@ namespace ExtendedData
         private string[] coopPackageIds = Array.Empty<string>();
         private string[] playerTrailPropertyIds = Array.Empty<string>();
         private string[] fixedTrailPropertyIds = Array.Empty<string>();
+        private readonly HashSet<string> initializedTrailPropertyIds = new HashSet<string>(StringComparer.Ordinal);
+        private bool useFixedDefaultsForNewProperties = true;
         private TrailModSelectionItem[] compatibleTrailMods = Array.Empty<TrailModSelectionItem>();
         private string incompatibleTrailModsText = string.Empty;
         private string coopPackageStatus = string.Empty;
@@ -304,8 +306,9 @@ namespace ExtendedData
             return TrailSettingMode.ModDefault;
         }
 
-        internal void ApplyTrailSettingModes(ModSettingsDefinition document)
+        internal void ApplyTrailSettingModes(ModSettingsDefinition document, bool useFixedDefaults)
         {
+            useFixedDefaultsForNewProperties = useFixedDefaults;
             var player = new List<string>();
             var fixedValues = new List<string>();
             foreach (KeyValuePair<string, ModSettingsEntry> mod in
@@ -321,13 +324,26 @@ namespace ExtendedData
                         : entry.Overrides.Keys)
                     .Select(propertyName => BuildPropertyId(mod.Key, propertyName)));
             }
+            foreach (TrailModSelectionItem mod in compatibleTrailMods)
+            {
+                foreach (TrailSettingSelectionItem setting in mod.Settings)
+                {
+                    foreach (string propertyName in setting.PropertyNames)
+                    {
+                        string id = BuildPropertyId(mod.ModId, propertyName);
+                        initializedTrailPropertyIds.Add(id);
+                        if (useFixedDefaults && !player.Contains(id) && !fixedValues.Contains(id))
+                            fixedValues.Add(id);
+                    }
+                }
+            }
             SetTrailPropertyModeIds(NormalizePropertyIds(player), NormalizePropertyIds(fixedValues));
         }
 
         internal void ApplyTrailSettingModesForMod(string modId, ModSettingsDefinition document)
         {
             if (string.IsNullOrWhiteSpace(modId)) return;
-            string prefix = modId + ".";
+            string prefix = modId + "\u001f";
             var player = playerTrailPropertyIds.Where(id => !id.StartsWith(prefix, StringComparison.Ordinal)).ToList();
             var fixedValues = fixedTrailPropertyIds.Where(id => !id.StartsWith(prefix, StringComparison.Ordinal)).ToList();
             if (document?.Mods != null && document.Mods.TryGetValue(modId, out ModSettingsEntry entry) && entry != null)
@@ -335,12 +351,32 @@ namespace ExtendedData
                 player.AddRange((entry.PlayerSettings ?? Array.Empty<string>()).Select(name => BuildPropertyId(modId, name)));
                 fixedValues.AddRange((entry.Overrides ?? new Dictionary<string, object>(StringComparer.Ordinal)).Keys.Select(name => BuildPropertyId(modId, name)));
             }
+            foreach (TrailModSelectionItem mod in compatibleTrailMods.Where(item =>
+                string.Equals(item.ModId, modId, StringComparison.Ordinal)))
+            {
+                foreach (TrailSettingSelectionItem setting in mod.Settings)
+                    foreach (string propertyName in setting.PropertyNames)
+                        initializedTrailPropertyIds.Add(BuildPropertyId(modId, propertyName));
+            }
             SetTrailPropertyModeIds(NormalizePropertyIds(player), NormalizePropertyIds(fixedValues));
         }
 
         internal void RefreshModCompatibility(IEnumerable<TrailModCompatibilityInfo> entries)
         {
             TrailModCompatibilityInfo[] catalog = (entries ?? Enumerable.Empty<TrailModCompatibilityInfo>()).ToArray();
+            var fixedValues = new HashSet<string>(fixedTrailPropertyIds, StringComparer.Ordinal);
+            foreach (TrailModCompatibilityInfo entry in catalog.Where(item => item.IsCompatible))
+            {
+                foreach (string propertyName in entry.Properties.Select(property => property.Name))
+                {
+                    string id = BuildPropertyId(entry.ModId, propertyName);
+                    if (initializedTrailPropertyIds.Add(id) &&
+                        useFixedDefaultsForNewProperties &&
+                        !playerTrailPropertyIds.Contains(id, StringComparer.Ordinal))
+                        fixedValues.Add(id);
+                }
+            }
+            SetTrailPropertyModeIds(playerTrailPropertyIds, NormalizePropertyIds(fixedValues));
             compatibleTrailMods = catalog
                 .Where(entry => entry.IsCompatible)
                 .Select(entry => new TrailModSelectionItem(
@@ -369,6 +405,7 @@ namespace ExtendedData
             foreach (string propertyName in propertyNames ?? Enumerable.Empty<string>())
             {
                 string id = BuildPropertyId(modId, propertyName);
+                initializedTrailPropertyIds.Add(id);
                 player.Remove(id);
                 fixedValues.Remove(id);
                 if (mode == TrailSettingMode.Player)
@@ -565,12 +602,6 @@ namespace ExtendedData
         public TrailSettingSelectionItem[] Settings { get; }
         public string SearchText => string.Join(" ",
             new[] { DisplayName }.Concat(Settings.Select(item => item.DisplayName)));
-        public string SummaryText => string.Format(
-            SerpLocalization.Get("ExtendedData.TrailSettingModeSummary"),
-            Settings.Count(item => item.SelectedModeIndex == (int)TrailSettingMode.ModDefault),
-            Settings.Count(item => item.SelectedModeIndex == (int)TrailSettingMode.Player),
-            Settings.Count(item => item.SelectedModeIndex == (int)TrailSettingMode.Fixed));
-
         public bool IsExpanded
         {
             get => isExpanded;
@@ -608,13 +639,11 @@ namespace ExtendedData
             foreach (TrailSettingSelectionItem setting in Settings)
                 setting.RefreshState();
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedModeIndex)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SummaryText)));
         }
 
         private void OnSettingChanged()
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedModeIndex)));
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SummaryText)));
         }
 
         internal static ComboBoxItem[] CreateModeOptions(bool includeMixed)

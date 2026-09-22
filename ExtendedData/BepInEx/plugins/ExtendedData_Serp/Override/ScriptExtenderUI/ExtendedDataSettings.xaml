@@ -54,7 +54,7 @@
       </StackPanel>
       <TextBlock Text="{Binding System_PresetStatusText}" Visibility="{Binding System_PresetStatusVisibility}" Foreground="#FFF2D48A" FontStyle="Italic" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True"/>
       <Border Visibility="{Binding System_PresetInlineConfirmationVisibility}" BorderBrush="#FFFFCC66" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
-        <StackPanel><TextBlock Text="{Binding System_PresetInlineConfirmationTitle}" Foreground="#FFFFCC66" FontWeight="Bold"/><TextBlock Text="{Binding System_PresetInlineConfirmationMessage}" Foreground="White" TextWrapping="Wrap" MaxWidth="700" Margin="0,4,0,0"/><StackPanel Orientation="Horizontal" Margin="0,7,0,0"><Button Content="{Binding System_PresetInlineConfirmText}" Command="{Binding System_ConfirmPresetInlineActionCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetInlineConfirmText}" Padding="10,3"/><Button Content="{Binding System_PresetInlineCancelText}" Command="{Binding System_CancelPresetInlineActionCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetInlineCancelText}" Padding="10,3" Margin="8,0,0,0"/></StackPanel></StackPanel>
+        <StackPanel><TextBlock Text="{Binding System_PresetInlineConfirmationTitle}" Foreground="#FFFFCC66" FontWeight="Bold"/><TextBlock Text="{Binding System_PresetInlineConfirmationMessage}" Foreground="White" TextWrapping="Wrap" MaxWidth="580" Margin="0,4,0,0"/><StackPanel Orientation="Horizontal" Margin="0,7,0,0"><Button Content="{Binding System_PresetInlineConfirmText}" Command="{Binding System_ConfirmPresetInlineActionCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetInlineConfirmText}" Padding="10,3"/><Button Content="{Binding System_PresetInlineCancelText}" Command="{Binding System_CancelPresetInlineActionCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetInlineCancelText}" Padding="10,3" Margin="8,0,0,0"/></StackPanel></StackPanel>
       </Border>
       <Border Visibility="{Binding System_PresetOperationErrorVisibility}" BorderBrush="#FFFF7777" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,0,0,8" shared:ModSettingsSearch.Exclude="True">
         <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding System_PresetOperationStatusText}" Foreground="#FFFFAAAA" TextWrapping="Wrap" MaxWidth="650"/><Button Content="{Binding System_PresetStatusDismissText}" Command="{Binding System_DismissPresetStatusCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding System_PresetStatusDismissText}" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Top"/></StackPanel>
@@ -127,12 +127,12 @@
         </StackPanel>
         <TextBlock Text="{Binding System_ModSettingsSearchNoResultsText}" Visibility="{Binding System_ModSettingsSearchNoResultsVisibility}" Foreground="#FFCC66" HorizontalAlignment="Left" Margin="0,4,0,0"/>
       </StackPanel>
-      <TextBlock Text="{Binding ActionsScopeNoticeText}" Visibility="{Binding ActionsScopeNoticeVisibility}" Foreground="#BBBBBB" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left" Margin="0,0,0,8"/>
-      <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFFFCC66" FontWeight="Bold" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding ActionsScopeNoticeText}" Visibility="{Binding ActionsScopeNoticeVisibility}" Foreground="#BBBBBB" TextWrapping="Wrap" MaxWidth="580" HorizontalAlignment="Left" Margin="0,0,0,8"/>
+      <TextBlock Text="{Binding HostReadOnlyNoticeText}" Visibility="{Binding HostReadOnlyNoticeVisibility}" Foreground="#FFFFCC66" FontWeight="Bold" TextWrapping="Wrap" MaxWidth="580" HorizontalAlignment="Left" Margin="0,0,0,8"/>
       <TextBlock Text="{Binding PracticalEffectsText}"
                  Foreground="#FFDDDDDD"
                  TextWrapping="Wrap"
-                 MaxWidth="700"
+                 MaxWidth="580"
                  HorizontalAlignment="Left"
                  Margin="0,10,0,0"/>
       <TextBlock Margin="0,4,0,0">
@@ -152,21 +152,21 @@
       <TextBlock Text="{Binding SupportedTrailSettingsHelpText}"
                  Foreground="#FFCCCCCC"
                  TextWrapping="Wrap"
-                 Width="623"
+                 Width="580"
                  HorizontalAlignment="Left"
                  Visibility="{Binding System_ModSettingsSearchInactiveVisibility}"/>
       <ItemsControl ItemsSource="{Binding CompatibleTrailMods}" Margin="12,6,0,0">
         <ItemsControl.ItemTemplate>
           <DataTemplate>
             <StackPanel Margin="0,2">
-              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding ModId}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding SearchText}" Width="623" HorizontalAlignment="Left">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="190"/><ColumnDefinition Width="175"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <TextBlock Grid.Column="1" Text="{Binding SummaryText}" Foreground="#FFCCCCCC" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                <ComboBox Grid.Column="2" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" VerticalAlignment="Center" ToolTipService.ShowDuration="60000">
+              <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding ModId}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding SearchText}" Width="580" HorizontalAlignment="Left">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="28"/></Grid.ColumnDefinitions>
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding DisplayName}" TextWrapping="Wrap" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <ComboBox Grid.Row="1" Grid.Column="0" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,3,0,0" ToolTipService.ShowDuration="60000">
                   <ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ComboBox.ToolTip>
                 </ComboBox>
-                <ToggleButton Grid.Column="3" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Foreground="White" Width="28" Height="24" Padding="0" ToolTipService.ShowDuration="60000">
+                <ToggleButton Grid.Row="0" Grid.Column="1" IsChecked="{Binding IsExpanded, Mode=TwoWay}" Foreground="White" Width="28" Height="24" Padding="0" ToolTipService.ShowDuration="60000">
                   <ToggleButton.Style>
                     <Style TargetType="{x:Type ToggleButton}">
                       <Setter Property="Content" Value="▶"/>
@@ -179,9 +179,9 @@
               <ItemsControl ItemsSource="{Binding Settings}" Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}" Margin="26,4,0,5">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding Key}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding HelpText}" Margin="0,1" Width="569" HorizontalAlignment="Left">
-                      <Grid.ColumnDefinitions><ColumnDefinition Width="394"/><ColumnDefinition Width="175"/></Grid.ColumnDefinitions>
-                      <TextBlock Grid.Column="0" Text="{Binding DisplayName}" Foreground="White" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                    <Grid Style="{StaticResource ModSettingsSearchTargetGrid}" shared:ModSettingsSearch.Key="{Binding Key}" shared:ModSettingsSearch.Title="{Binding DisplayName}" shared:ModSettingsSearch.ToolTipText="{Binding HelpText}" Margin="0,1" Width="530" HorizontalAlignment="Left">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="175"/></Grid.ColumnDefinitions>
+                      <TextBlock Grid.Column="0" Text="{Binding DisplayName}" TextWrapping="Wrap" Foreground="White" VerticalAlignment="Center" Margin="0,0,12,0"/>
                       <ComboBox Grid.Column="1" ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex, Mode=TwoWay}" Width="175" VerticalAlignment="Center" ToolTipService.ShowDuration="60000">
                         <ComboBox.ToolTip><ToolTip Style="{StaticResource ModSettingsToolTipStyle}" Content="{Binding HelpText}"/></ComboBox.ToolTip>
                       </ComboBox>
@@ -200,7 +200,7 @@
         <TextBlock Text="{Binding IncompatibleTrailModsText}"
                    Foreground="#FFCCCCCC"
                    TextWrapping="Wrap"
-                   Width="611"
+                   Width="560"
                    HorizontalAlignment="Left"
                    Margin="12,4,0,0"/>
       </StackPanel>
@@ -217,7 +217,7 @@
           <ComboBox ItemsSource="{Binding CoopPackageOptions}" SelectedItem="{Binding SelectedCoopPackage, Mode=TwoWay}" IsEnabled="{Binding CanEditCoopPackage}" Width="520" HorizontalAlignment="Left" ToolTipService.ShowDuration="60000" ToolTip="{Binding CoopPackageHelpText}"/>
           <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
             <TextBlock Text="{Binding CoopPackageStatusLabel}" Foreground="#FFCCCCCC"/>
-            <TextBlock Text="{Binding CoopPackageStatusText}" Foreground="White" TextWrapping="Wrap" MaxWidth="700" Margin="5,0,0,0"/>
+            <TextBlock Text="{Binding CoopPackageStatusText}" Foreground="White" TextWrapping="Wrap" MaxWidth="580" Margin="5,0,0,0"/>
           </StackPanel>
         </StackPanel>
       </Border>

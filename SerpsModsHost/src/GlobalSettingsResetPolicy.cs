@@ -6,6 +6,12 @@ namespace SerpsModsHost
 {
     internal static class GlobalSettingsResetPolicy
     {
+        internal static bool IsSupportedSerpsTarget(string guid, bool supportsWorkingCopy) =>
+            supportsWorkingCopy &&
+            !string.IsNullOrWhiteSpace(guid) &&
+            guid.EndsWith("_Serp", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(guid, "SerpsMods_Serp", StringComparison.OrdinalIgnoreCase);
+
         internal static bool CanReset(
             bool confirmationVisible,
             bool isLocalHost,

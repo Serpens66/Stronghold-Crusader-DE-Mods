@@ -931,12 +931,13 @@ static void TestMapModSettingsRuntimeIntegration()
         !coordinator.Contains("ExtendedDataUseMapModSettings"),
         "Map settings must use the common source selector, remain editable in Customize, and lock the materialized copy at launch");
     string settingsXaml = File.ReadAllText(Path.Combine(projectRoot, "Override", "ScriptExtenderUI", "ExtendedDataSettings.xaml"));
-    Assert(settingsXaml.Contains("TextWrapping=\"Wrap\"\r\n                 Width=\"623\"") &&
-        settingsXaml.Contains("Width=\"623\" HorizontalAlignment=\"Left\"") &&
-        settingsXaml.Contains("<ColumnDefinition Width=\"230\"/><ColumnDefinition Width=\"190\"/>") &&
-        settingsXaml.Contains("Width=\"569\" HorizontalAlignment=\"Left\"") &&
+    Assert(settingsXaml.Contains("TextWrapping=\"Wrap\"\r\n                 Width=\"580\"") &&
+        settingsXaml.Contains("Width=\"580\" HorizontalAlignment=\"Left\"") &&
+        settingsXaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"28\"/>") &&
+        settingsXaml.Contains("Width=\"530\" HorizontalAlignment=\"Left\"") &&
+        settingsXaml.Contains("HorizontalScrollBarVisibility=\"Auto\"") &&
         !settingsXaml.Contains("Width=\"723\""),
-        "Map/Trail setting rows still force unnecessary horizontal scrolling");
+        "Map/Trail controls should fit normally while allowing long names to scroll horizontally");
     Assert(!coordinator.Contains("modmap.json", StringComparison.OrdinalIgnoreCase),
         "Map presets were mixed into modmap.json");
     string[] mapLocaleKeys =
@@ -1252,6 +1253,10 @@ static void TestLocalActivationSetting()
         Assert(locale.Contains(customLordText, StringComparison.Ordinal) &&
             locale.Contains("ExtendedData.CompatibilityGuide=" + guideText + "\r\n", StringComparison.Ordinal),
             Path.GetFileName(localePath) + " does not describe Custom Lord data uploads or link the guide clearly");
+        Assert(!locale.Contains("ExtendedData.TrailSettingModeSummary=", StringComparison.Ordinal) &&
+            !locale.Contains("Fixed Trail value", StringComparison.Ordinal) &&
+            !locale.Contains("Fester Trailwert", StringComparison.Ordinal),
+            Path.GetFileName(localePath) + " retains obsolete Trail-only mode text or a removed counter.");
     }
     Assert(xaml.Contains("CompatibleTrailMods") && xaml.Contains("IncompatibleTrailModsText") &&
         viewModel.Contains("PlayerTrailPropertyIds") &&
@@ -1261,10 +1266,17 @@ static void TestLocalActivationSetting()
         viewModel.Contains("TrailSettingMode.Fixed") &&
         runtime.Contains("DiscoverModCompatibility()"),
         "the dynamic compatible/incompatible Trail-mod catalog is not shown or persisted");
-    Assert(xaml.Contains("Width=\"623\" HorizontalAlignment=\"Left\"") &&
-        xaml.Contains("<ColumnDefinition Width=\"230\"/><ColumnDefinition Width=\"190\"/><ColumnDefinition Width=\"175\"/><ColumnDefinition Width=\"28\"/>") &&
-        xaml.Contains("Width=\"569\" HorizontalAlignment=\"Left\"") &&
-        xaml.Contains("<ColumnDefinition Width=\"394\"/><ColumnDefinition Width=\"175\"/>"),
+    Assert(viewModel.Contains("useFixedDefaultsForNewProperties") &&
+        viewModel.Contains("initializedTrailPropertyIds.Add(id)") &&
+        coordinator.Contains("useFixedDefaults: !exists && editable") &&
+        coordinator.Contains("applyEditorModes?.Invoke(document, useFixedDefaults)"),
+        "new Map/Trail settings must start fixed without reinterpreting loaded documents.");
+    Assert(xaml.Contains("Width=\"580\" HorizontalAlignment=\"Left\"") &&
+        xaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"28\"/>") &&
+        xaml.Contains("Width=\"530\" HorizontalAlignment=\"Left\"") &&
+        xaml.Contains("<ColumnDefinition Width=\"*\"/><ColumnDefinition Width=\"175\"/>") &&
+        xaml.Contains("HorizontalScrollBarVisibility=\"Auto\"") &&
+        !xaml.Contains("{Binding SummaryText}"),
         "Trail mod and feature selectors are not arranged as a compact left-aligned table");
     Assert(coordinator.Contains("getPropertyMode(participant.Key, property.Name)") &&
         coordinator.Contains("TrailSettingMode.Player") &&

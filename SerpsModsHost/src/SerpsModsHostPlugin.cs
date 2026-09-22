@@ -26,7 +26,7 @@ namespace SerpsModsHost
         private const string InfoFileName = "info.json";
         public const string PluginGuid = "SerpsMods_Serp";
         public const string PluginName = "Serps Mods";
-        public const string PluginVersion = "1.0.14";
+        public const string PluginVersion = "1.0.15";
         public const bool ExtendedDataModSettingsOptOut = true;
         private const string ManifestFileName = "serps-modpack.json";
 
@@ -54,7 +54,6 @@ namespace SerpsModsHost
             try
             {
                 LoadValidateAndRegisterPack();
-                diagnostics.SetPresetTargetGuids(activeMods.Select(mod => mod.Guid));
             }
             catch (Exception ex)
             {
