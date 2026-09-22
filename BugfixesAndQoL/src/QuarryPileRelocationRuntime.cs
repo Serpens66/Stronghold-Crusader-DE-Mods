@@ -251,16 +251,12 @@ namespace BugfixesAndQoL
             if (!initialized)
                 return;
 
-            initialized = false;
+            // This runtime is toggled by live settings. Keep the published
+            // MonoMod hook and its event publishers rooted for the process
+            // lifetime; every behavior path is guarded by the current settings.
             buttonViewModel.Hide();
             EndMapState();
             UnhookRelocationButton();
-            UnsubscribeTick();
-            DisposeSubscriptions();
-            setUpInbuildingHook?.Undo();
-            setUpInbuildingHook?.Dispose();
-            setUpInbuildingHook = null;
-            setUpInbuildingTrampoline = null;
         }
 
         public void ApplySetting()

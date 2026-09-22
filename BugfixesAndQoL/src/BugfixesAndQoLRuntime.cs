@@ -646,36 +646,32 @@ namespace BugfixesAndQoL
                 () => minimapInputFeature != null,
                 () => minimapInputFeature = new MinimapInputFeature(log, settings),
                 DeactivateMinimapInputFeature);
-            ReconcileClientHook(
+            ReconcilePermanentClientHook(
                 "market autotrade sell threshold",
                 settings.EnableAutoTradeSellZeroFix,
                 () => autoTradeSellZeroHook != null,
-                () => autoTradeSellZeroHook = new AutoTradeSellZeroHook(log, settings),
-                () => DisposeFeature("market autotrade sell threshold", ref autoTradeSellZeroHook));
+                () => autoTradeSellZeroHook = new AutoTradeSellZeroHook(log, settings));
             ReconcileClientHook(
                 "market key main-menu return",
                 settings.EnableMarketKeyMainMenuFix,
                 () => marketKeyMainTradeMenuHook != null,
                 () => marketKeyMainTradeMenuHook = new MarketKeyMainTradeMenuHook(log, settings),
                 () => DisposeFeature("market key main-menu return", ref marketKeyMainTradeMenuHook));
-            ReconcileClientHook(
+            ReconcilePermanentClientHook(
                 "HD market view",
                 settings.HdMarketView,
                 () => hdMarketViewHook != null,
-                () => hdMarketViewHook = new HdMarketViewHook(log, settings),
-                () => DisposeFeature("HD market view", ref hdMarketViewHook));
-            ReconcileClientHook(
+                () => hdMarketViewHook = new HdMarketViewHook(log, settings));
+            ReconcilePermanentClientHook(
                 "camera movement modifier",
                 settings.AllowCameraMovementWithModifiers,
                 () => cameraMovementModifierHook != null,
-                () => cameraMovementModifierHook = new CameraMovementModifierHook(log, settings),
-                () => DisposeFeature("camera movement modifier", ref cameraMovementModifierHook));
-            ReconcileClientHook(
+                () => cameraMovementModifierHook = new CameraMovementModifierHook(log, settings));
+            ReconcilePermanentClientHook(
                 "Custom Trail starting-gold fix",
                 settings.EnableCustomTrailExtremeGoldFix,
                 () => customTrailExtremeGoldFixHook != null,
-                () => customTrailExtremeGoldFixHook = new CustomTrailExtremeGoldFixHook(log, settings),
-                () => DisposeFeature("Custom Trail starting-gold fix", ref customTrailExtremeGoldFixHook));
+                () => customTrailExtremeGoldFixHook = new CustomTrailExtremeGoldFixHook(log, settings));
 
             if (nativeLibraryAvailable && fixedLayoutHashValidated && settings.EnableEnemyProximityBulldozeCursorFix)
             {
@@ -687,7 +683,6 @@ namespace BugfixesAndQoL
             }
             else
             {
-                DisposeFeature("enemy-proximity bulldoze cursor", ref enemyProximityBulldozeCursorHook);
                 if (StartupDiagnosticPolicy.ShouldReportFixedLayoutFailure(
                     nativeLibraryAvailable,
                     fixedLayoutHashValidated,
@@ -707,12 +702,7 @@ namespace BugfixesAndQoL
         private void UnsubscribeHooks()
         {
             DeactivateMinimapInputFeature();
-            DisposeFeature("market autotrade sell threshold", ref autoTradeSellZeroHook);
-            DisposeFeature("enemy-proximity bulldoze cursor", ref enemyProximityBulldozeCursorHook);
             DisposeFeature("market key main-menu return", ref marketKeyMainTradeMenuHook);
-            DisposeFeature("HD market view", ref hdMarketViewHook);
-            DisposeFeature("camera movement modifier", ref cameraMovementModifierHook);
-            DisposeFeature("Custom Trail starting-gold fix", ref customTrailExtremeGoldFixHook);
         }
 
         private void DeactivateMinimapInputFeature()
@@ -745,6 +735,20 @@ namespace BugfixesAndQoL
                 TryInitializeFeature(featureName, install);
             else if (!enabled)
                 uninstall();
+        }
+
+        private void ReconcilePermanentClientHook(
+            string featureName,
+            bool enabled,
+            Func<bool> isInstalled,
+            Action install)
+        {
+            // MonoMod rewrites executable method entry points. Once a hook has
+            // been published, keep it and its trampoline rooted for the process
+            // lifetime; each callback performs the corresponding settings gate
+            // and follows its original trampoline while logically disabled.
+            if (enabled && !isInstalled())
+                TryInitializeFeature(featureName, install);
         }
 
         private void DisposeFeature<T>(string featureName, ref T feature) where T : class, IDisposable
@@ -1145,11 +1149,12 @@ namespace BugfixesAndQoL
 
             try
             {
-                // Retain the validated site so synchronized host-setting changes can
-                // alternate between Vanilla's reservation rejection and the two NOPs.
+                // Install once; synchronized setting changes only update the hook's
+                // logical decision between Vanilla rejection and the fixed path.
                 aiWallTargetingFix = new AiWallTargetingFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1190,11 +1195,12 @@ namespace BugfixesAndQoL
 
             try
             {
-                // Retain the validated patch site so synchronized host-setting changes can
-                // physically alternate between the audited Vanilla jump and the six NOPs.
+                // Install once; synchronized setting changes only update the hook's
+                // logical decision between the audited Vanilla and fixed paths.
                 aivDefenderPositionFix = new AivDefenderPositionFix(
                     log,
                     settings,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1392,13 +1398,19 @@ namespace BugfixesAndQoL
 
         private void InstallAssemblyPointPlacementPatch()
         {
-            if (assemblyPointPlacementPatch != null || assemblyPointPlacementPatchUnavailable)
+            if (assemblyPointPlacementPatch != null)
+            {
+                assemblyPointPlacementPatch.SetEnabled(true);
+                return;
+            }
+            if (assemblyPointPlacementPatchUnavailable)
                 return;
 
             try
             {
                 assemblyPointPlacementPatch = new AssemblyPointPlacementPatch(
                     log,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1413,8 +1425,7 @@ namespace BugfixesAndQoL
 
         private void DisableAssemblyPointPlacementPatch()
         {
-            assemblyPointPlacementPatch?.Dispose();
-            assemblyPointPlacementPatch = null;
+            assemblyPointPlacementPatch?.SetEnabled(false);
         }
 
         private void InstallMountedStockpileMovementPatch()
@@ -1442,13 +1453,19 @@ namespace BugfixesAndQoL
 
         private void InstallHealerAttackCommandPatch()
         {
-            if (healerAttackCommandPatch != null || healerAttackCommandPatchUnavailable)
+            if (healerAttackCommandPatch != null)
+            {
+                healerAttackCommandPatch.SetEnabled(true);
+                return;
+            }
+            if (healerAttackCommandPatchUnavailable)
                 return;
 
             try
             {
                 healerAttackCommandPatch = new HealerAttackCommandPatch(
                     log,
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1464,18 +1481,23 @@ namespace BugfixesAndQoL
 
         private void DisableHealerAttackCommandPatch()
         {
-            healerAttackCommandPatch?.Dispose();
-            healerAttackCommandPatch = null;
+            healerAttackCommandPatch?.SetEnabled(false);
         }
 
         private void InstallLordControlGroupNativePatch()
         {
-            if (lordControlGroupNativePatch != null || lordControlGroupNativePatchUnavailable)
+            if (lordControlGroupNativePatch != null)
+            {
+                lordControlGroupNativePatch.SetEnabled(true);
+                return;
+            }
+            if (lordControlGroupNativePatchUnavailable)
                 return;
 
             try
             {
                 lordControlGroupNativePatch = new LordControlGroupNativePatch(
+                    nativeRegion,
                     GetNativeLibraryMemory(),
                     unchecked((ulong)libraryHandle.ToInt64()),
                     fixedLayoutHashValidated);
@@ -1520,29 +1542,10 @@ namespace BugfixesAndQoL
         private void DisableLordControlGroupNativePatch()
         {
             bool wasInstalled = lordControlGroupNativePatch != null;
-            Exception firstFailure = null;
-            bool nativeRemoved = false;
-            try
-            {
-                lordControlGroupNativePatch?.Dispose();
-                nativeRemoved = true;
-            }
-            catch (Exception ex)
-            {
-                if (firstFailure == null)
-                    firstFailure = ex;
-            }
-            if (nativeRemoved)
-                lordControlGroupNativePatch = null;
+            lordControlGroupNativePatch?.SetEnabled(false);
             CrusaderDE.MainViewModel main = CrusaderDE.MainViewModel.Instance;
-            if (wasInstalled && firstFailure == null && main?.Show_HUD_ControlGroups == true)
+            if (wasInstalled && main?.Show_HUD_ControlGroups == true)
                 main.HUDControlGroups?.Update();
-            if (firstFailure != null)
-            {
-                throw new InvalidOperationException(
-                    "The Lord control-group native/UI patch could not be removed completely.",
-                    firstFailure);
-            }
         }
 
         private void DisableMountedStockpileMovementPatch()

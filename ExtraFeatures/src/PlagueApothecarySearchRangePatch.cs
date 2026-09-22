@@ -105,8 +105,6 @@ namespace ExtraFeatures
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Dispose();
-            transaction = null;
             distanceResultAddress = IntPtr.Zero;
         }
 

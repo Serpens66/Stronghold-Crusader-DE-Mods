@@ -73,6 +73,7 @@ namespace BugfixesAndQoL
             TestAllyGoodsTransferPolicy();
             TestAllyGoodsTransferIntegration();
             TestMinimapInputIntegration();
+            TestPermanentManagedRuntimeHooks();
             TestPlacementCancelMoveSuppressionPolicy();
             TestPlacementCancelMoveSuppressionIntegration();
             TestSpriteAnimationGroup26Contract();
@@ -99,6 +100,30 @@ namespace BugfixesAndQoL
             }
             Console.Error.WriteLine($"BugfixesAndQoL policy and native-contract tests failed: {failures}.");
             return 1;
+        }
+
+        private static void TestPermanentManagedRuntimeHooks()
+        {
+            string runtime = File.ReadAllText(Path.Combine("src", "BugfixesAndQoLRuntime.cs"));
+            string autoTrade = File.ReadAllText(Path.Combine("src", "AutoTradeSellZeroHook.cs"));
+            string hdMarket = File.ReadAllText(Path.Combine("src", "HdMarketViewHook.cs"));
+            string camera = File.ReadAllText(Path.Combine("src", "CameraMovementModifierHook.cs"));
+            string customTrail = File.ReadAllText(Path.Combine("src", "CustomTrailExtremeGoldFixHook.cs"));
+            string enemyCursor = File.ReadAllText(Path.Combine("src", "EnemyProximityBulldozeCursorHook.cs"));
+
+            Check(CountOccurrences(runtime, "ReconcilePermanentClientHook(") == 5 &&
+                  !runtime.Contains("DisposeFeature(\"market autotrade sell threshold\"") &&
+                  !runtime.Contains("DisposeFeature(\"enemy-proximity bulldoze cursor\"") &&
+                  !runtime.Contains("DisposeFeature(\"HD market view\"") &&
+                  !runtime.Contains("DisposeFeature(\"camera movement modifier\"") &&
+                  !runtime.Contains("DisposeFeature(\"Custom Trail starting-gold fix\""),
+                "published managed runtime hooks remain rooted across setting changes and teardown");
+            Check(autoTrade.Contains("!settings.EnableAutoTradeSellZeroFix") &&
+                  hdMarket.Contains("!settings.HdMarketView") &&
+                  camera.Contains("!settings.AllowCameraMovementWithModifiers") &&
+                  customTrail.Contains("settings.EnableCustomTrailExtremeGoldFix") &&
+                  enemyCursor.Contains("!settings.EnableEnemyProximityBulldozeCursorFix"),
+                "permanent managed runtime hooks retain explicit logical settings gates");
         }
 
         private static void TestVanillaMapEditorPlayerCountColumn()
@@ -4683,9 +4708,12 @@ namespace BugfixesAndQoL
             Check(patch.Contains("settings.EnableMod &&") &&
                     patch.Contains("settings.EnableAiWallTargetingFix") &&
                     patch.Contains("OriginalReservationRejectJump = { 0x75, 0x63 }") &&
-                    patch.Contains("EnabledBytes = { 0x90, 0x90 }") &&
-                    patch.Contains("TryRollback(targetState, currentState)"),
-                "AI wall-targeting patch has its specific setting gates, audited states, and rollback");
+                    patch.Contains("ExpectedDisplacedByteCount = 15") &&
+                    patch.Contains("PermanentInstructionSkipPatch") &&
+                    !patch.Contains("CodePatch.Write") &&
+                    !patch.Contains("Hook.Enable()") &&
+                    !patch.Contains("Hook.Disable()"),
+                "AI wall-targeting patch has audited permanent-hook bounds and a logical setting gate");
             Check(runtime.Contains("EnsureAiWallTargetingFix") &&
                     runtime.Contains("aiWallTargetingFix?.Dispose()") &&
                     runtime.Contains("aiWallTargetingFix.ApplySetting()"),
@@ -4790,40 +4818,40 @@ namespace BugfixesAndQoL
             Check(runtime.Contains("ApplySingleBuildingSleepOverrideDuringSynchronization") &&
                     runtime.Contains("SleepStateComparisonDisplacedLength = 20") &&
                     runtime.Contains("sleepStateHook.Hook.DisplacedByteCount != SleepStateComparisonDisplacedLength") &&
-                    runtime.Contains("sleepStateHook.Hook.Disable()") &&
+                    runtime.Contains("singleBuildingOverrideInterceptionEnabled = enabled") &&
+                    !runtime.Contains("sleepStateHook.Hook.Enable()") &&
+                    !runtime.Contains("sleepStateHook.Hook.Disable()") &&
                     runtime.Contains("SetSingleBuildingOverrideInterceptionEnabled") &&
                     !runtime.Contains("requestedState != SleepingState") &&
                     !runtime.Contains("PlayerOwnerDistanceFromSleeping"),
                 "general sleep synchronization is limited to single-building overrides");
             Check(!singlePause.Contains("NoesisGUIUpdateChecksInGame") &&
                     singlePause.Contains("addChimpActions") &&
-                    singlePause.Contains("addChimpActionsHook.Apply()") &&
-                    singlePause.Contains("addChimpActionsHook.Undo()") &&
+                    !singlePause.Contains("addChimpActionsHook.Apply()") &&
+                    !singlePause.Contains("addChimpActionsHook.Undo()") &&
+                    singlePause.Contains("!localHooksInstalled || !IsFeatureActive()") &&
                     singlePause.Contains("buildingDeleteSubscription?.Dispose()") &&
-                    movedFeatures.Contains("singleBuildingPauseHook?.Dispose()") &&
-                    movedFeatures.Contains("singleBuildingPauseHook = null;"),
-                "single-building pause keeps its render correction dormant without overrides");
+                    movedFeatures.Contains("singleBuildingPauseHook?.Dispose()"),
+                "single-building pause keeps its published UI hook permanent and logically gated");
             int nativeCommit = runtime.IndexOf("CommitResult commitResult = transaction.Commit()", StringComparison.Ordinal);
-            int initialNativeDisable = runtime.IndexOf("sleepStateHook.Hook.Disable()", StringComparison.Ordinal);
+            int initialLogicalDisable = runtime.IndexOf(
+                "singleBuildingOverrideInterceptionEnabled = false", nativeCommit, StringComparison.Ordinal);
             int activationBeforeStore = singlePause.IndexOf(
                 "overrides.Count == 0 && !TryActivateOverrideHooks()", StringComparison.Ordinal);
             int activationMethod = singlePause.IndexOf(
                 "private bool TryActivateOverrideHooks()", StringComparison.Ordinal);
-            int uiActivationBeforeStore = singlePause.IndexOf(
-                "addChimpActionsHook.Apply()", activationMethod, StringComparison.Ordinal);
             int nativeActivationBeforeStore = singlePause.IndexOf(
                 "setSleepOverrideInterceptionEnabled(true)", activationMethod, StringComparison.Ordinal);
             int storeAfterActivation = singlePause.IndexOf(
                 "overrides.Set(new SingleBuildingPauseOverride", StringComparison.Ordinal);
-            Check(nativeCommit >= 0 && initialNativeDisable > nativeCommit &&
+            Check(nativeCommit >= 0 && initialLogicalDisable > nativeCommit &&
                     activationBeforeStore >= 0 &&
                     storeAfterActivation > activationBeforeStore &&
                     activationMethod > storeAfterActivation &&
-                    uiActivationBeforeStore > activationMethod &&
-                    nativeActivationBeforeStore > uiActivationBeforeStore &&
+                    nativeActivationBeforeStore > activationMethod &&
                     singlePause.Contains(
                         "!settings.EnableMod || !settings.EnableSingleBuildingPause"),
-                "single-building native interception is dormant initially and activates before storing the first override");
+                "single-building native interception stays installed and its logical gate activates before storing the first override");
             Check(english.Contains("AI sleep mode during resource shortages") &&
                     english.Contains("required input resource is unavailable") &&
                     english.Contains("production or transit") &&

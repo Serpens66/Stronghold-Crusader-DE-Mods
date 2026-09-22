@@ -2,6 +2,7 @@ using APIShared;
 using BepInEx.Logging;
 using CrusaderDE;
 using ExtendedData.Core;
+using ICSharpCode.SharpZipLib.Zip;
 using MessagePack;
 using MonoMod.RuntimeDetour;
 using Noesis;
@@ -47,20 +48,34 @@ namespace ExtendedData
             FRONT_Multiplayer self,
             HUD_IngameMenu.RestartSkirmishMapInfo restartInfo);
 
+        private delegate void OpenLoadSaveRequesterDelegate(
+            Enums.RequesterTypes requesterType,
+            Action<string, FileHeader> okAction,
+            Action cancelAction,
+            int mpCrcCount,
+            bool skirmishScreen,
+            bool trailsScreen);
+
         private static readonly Encoding StrictUtf8 = new UTF8Encoding(false, true);
         private readonly ManualLogSource log;
         private readonly TrailMissionSettingsCoordinator settingsCoordinator;
+        private readonly EditorModSettingsSaveOptionsViewModel editorSaveOptions;
         private readonly List<IDisposable> subscriptions = new List<IDisposable>();
         private readonly Dictionary<ListView, FRONT_Multiplayer> observedMapLists =
             new Dictionary<ListView, FRONT_Multiplayer>();
         private Hook saveHook;
         private Hook leaveLobbyHook;
         private Hook startSkirmishGameHook;
+        private Hook openLoadSaveRequesterHook;
         private SaveSaveGameOrMapDelegate saveOriginal;
         private LeaveLobbyDelegate leaveLobbyOriginal;
         private StartSkirmishGameDelegate startSkirmishGameOriginal;
+        private OpenLoadSaveRequesterDelegate openLoadSaveRequesterOriginal;
         private byte[] pendingMapSavePayload;
         private string pendingMapSavePath;
+        private bool pendingMapSaveDecision;
+        private bool pendingMapSaveIncludesSettings;
+        private bool pendingMapSaveHadEntry;
         private bool enabled;
         private bool mapContextActive;
         private bool mapMissionActive;
@@ -77,11 +92,13 @@ namespace ExtendedData
         internal MapModSettingsCoordinator(
             ManualLogSource log,
             bool enabled,
-            TrailMissionSettingsCoordinator settingsCoordinator)
+            TrailMissionSettingsCoordinator settingsCoordinator,
+            EditorModSettingsSaveOptionsViewModel editorSaveOptions)
         {
             this.log = log;
             this.enabled = enabled;
             this.settingsCoordinator = settingsCoordinator ?? throw new ArgumentNullException(nameof(settingsCoordinator));
+            this.editorSaveOptions = editorSaveOptions ?? throw new ArgumentNullException(nameof(editorSaveOptions));
         }
 
         internal void Initialize()
@@ -98,6 +115,18 @@ namespace ExtendedData
                 typeof(FRONT_Multiplayer),
                 "StartSkirmishGame",
                 typeof(HUD_IngameMenu.RestartSkirmishMapInfo));
+            MethodInfo openLoadSaveRequesterMethod = typeof(HUD_LoadSaveRequester).GetMethod(
+                nameof(HUD_LoadSaveRequester.OpenLoadSaveRequester),
+                BindingFlags.Static | BindingFlags.Public,
+                null,
+                new[]
+                {
+                    typeof(Enums.RequesterTypes), typeof(Action<string, FileHeader>), typeof(Action),
+                    typeof(int), typeof(bool), typeof(bool)
+                },
+                null) ?? throw new MissingMethodException(
+                    typeof(HUD_LoadSaveRequester).FullName,
+                    nameof(HUD_LoadSaveRequester.OpenLoadSaveRequester));
 
             bool registered = ModSaveDataAPI.Instance.RegisterModDataHandler(
                 SaveDataIdentifier,
@@ -117,6 +146,12 @@ namespace ExtendedData
                 startSkirmishGameMethod,
                 (StartSkirmishGameDelegate)StartSkirmishGameHook);
             startSkirmishGameOriginal = startSkirmishGameHook.GenerateTrampoline<StartSkirmishGameDelegate>();
+
+            openLoadSaveRequesterHook = new Hook(
+                openLoadSaveRequesterMethod,
+                (OpenLoadSaveRequesterDelegate)OpenLoadSaveRequesterHook);
+            openLoadSaveRequesterOriginal =
+                openLoadSaveRequesterHook.GenerateTrampoline<OpenLoadSaveRequesterDelegate>();
 
             R3PacketEventHook<MapModSettingsPacket> packetHook =
                 GameNetworkAPI.Instance.GetPacketEventFor<MapModSettingsPacket>();
@@ -159,6 +194,7 @@ namespace ExtendedData
                 subscription.Dispose();
             subscriptions.Clear();
             startSkirmishGameHook?.Dispose();
+            openLoadSaveRequesterHook?.Dispose();
             leaveLobbyHook?.Dispose();
             saveHook?.Dispose();
             if (saveHandlerRegistered)
@@ -166,6 +202,79 @@ namespace ExtendedData
                 ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
                 saveHandlerRegistered = false;
             }
+        }
+
+        private void OpenLoadSaveRequesterHook(
+            Enums.RequesterTypes requesterType,
+            Action<string, FileHeader> okAction,
+            Action cancelAction,
+            int mpCrcCount,
+            bool skirmishScreen,
+            bool trailsScreen)
+        {
+            if (!enabled || requesterType != Enums.RequesterTypes.SaveEditorMap)
+            {
+                openLoadSaveRequesterOriginal(
+                    requesterType, okAction, cancelAction, mpCrcCount, skirmishScreen, trailsScreen);
+                return;
+            }
+
+            bool hasExistingEntry =
+                GameMapArchiveManagerAPI.Instance.TryReadBinaryFile(ArchiveEntryName, ignoreCase: true) != null;
+            editorSaveOptions.OpenMap(hasExistingEntry);
+            Action<string, FileHeader> wrappedOk = (fileName, header) =>
+            {
+                string targetPath = IOPath.Combine(ConfigSettings.GetUserMapsPath(), fileName + ".map");
+                try
+                {
+                    ArmMapEditorSave(
+                        targetPath,
+                        editorSaveOptions.IncludeMapModSettings,
+                        hasExistingEntry);
+                    okAction?.Invoke(fileName, header);
+                }
+                catch (Exception exception)
+                {
+                    DebugLogHelper.LogError(log, "Could not execute the confirmed Map Editor save safely: " + exception);
+                    ShowEditorSaveError();
+                }
+                finally
+                {
+                    ClearMapEditorSaveDecision();
+                    editorSaveOptions.CloseMap();
+                }
+            };
+            Action wrappedCancel = () =>
+            {
+                editorSaveOptions.CloseMap();
+                cancelAction?.Invoke();
+            };
+            openLoadSaveRequesterOriginal(
+                requesterType, wrappedOk, wrappedCancel, mpCrcCount, skirmishScreen, trailsScreen);
+        }
+
+        private void ArmMapEditorSave(string path, bool includeSettings, bool hadEntry)
+        {
+            string mapsRoot = IOPath.GetFullPath(ConfigSettings.GetUserMapsPath())
+                .TrimEnd(IOPath.DirectorySeparatorChar, IOPath.AltDirectorySeparatorChar) +
+                IOPath.DirectorySeparatorChar;
+            string fullPath = IOPath.GetFullPath(path);
+            if (!fullPath.StartsWith(mapsRoot, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The confirmed Map target is outside the user Maps directory.");
+            pendingMapSaveDecision = true;
+            pendingMapSaveIncludesSettings = includeSettings;
+            pendingMapSaveHadEntry = hadEntry;
+            pendingMapSavePath = fullPath;
+            pendingMapSavePayload = null;
+        }
+
+        private void ClearMapEditorSaveDecision()
+        {
+            pendingMapSaveDecision = false;
+            pendingMapSaveIncludesSettings = false;
+            pendingMapSaveHadEntry = false;
+            pendingMapSavePayload = null;
+            pendingMapSavePath = null;
         }
 
         private void LeaveLobbyHook(
@@ -210,10 +319,37 @@ namespace ExtendedData
             bool mapSave)
         {
             pendingMapSavePayload = null;
-            pendingMapSavePath = null;
-            if (enabled && mapSave)
+            if (!enabled || !mapSave || !pendingMapSaveDecision)
             {
-                try
+                saveOriginal(self, path, mapName, lockMap, tempLockOnly, mapSave);
+                return;
+            }
+
+            string normalizedPath = NormalizePath(path);
+            if (string.IsNullOrEmpty(pendingMapSavePath) ||
+                string.IsNullOrEmpty(normalizedPath) ||
+                !string.Equals(pendingMapSavePath, normalizedPath, StringComparison.OrdinalIgnoreCase))
+            {
+                DebugLogHelper.LogError(
+                    log,
+                    "Blocked Map mod-settings save because the confirmed target path did not match [" +
+                    pendingMapSavePath + "]: [" + normalizedPath + "].");
+                ShowEditorSaveError();
+                return;
+            }
+
+            byte[] removedEntry = null;
+            string targetBackup = null;
+            bool targetExisted = File.Exists(normalizedPath);
+            try
+            {
+                if (targetExisted)
+                {
+                    targetBackup = normalizedPath + ".extendeddata-backup-" + Guid.NewGuid().ToString("N");
+                    File.Copy(normalizedPath, targetBackup, overwrite: false);
+                }
+
+                if (pendingMapSaveIncludesSettings)
                 {
                     ModSettingsDefinition document = settingsCoordinator.CaptureCurrentDocument();
                     string json = ModSettingsJson.Serialize(document);
@@ -227,29 +363,36 @@ namespace ExtendedData
                         "Captured Map mod settings before save; mentioned=[" +
                         string.Join(", ", document.Mods.Keys) + "].");
                 }
-                catch (Exception exception)
+                else
                 {
-                    DebugLogHelper.LogError(
-                        log,
-                        "Could not capture Map mod settings before saving [" + path +
-                        "]; the existing embedded settings will be preserved: " + exception);
+                    removedEntry = RemoveActiveMapSettingsEntry(pendingMapSaveHadEntry);
+                    DebugLogHelper.LogInfo(log, "Removed Map mod settings for the confirmed editor save.");
                 }
-            }
-
-            try
-            {
                 saveOriginal(self, path, mapName, lockMap, tempLockOnly, mapSave);
+                VerifySavedMapSettings(normalizedPath, pendingMapSaveIncludesSettings, pendingMapSavePayload);
+                TryDeleteTemporaryFile(targetBackup);
+                DebugLogHelper.LogInfo(
+                    log,
+                    pendingMapSaveIncludesSettings
+                        ? "Saved and verified Map mod settings."
+                        : "Saved and verified Map without ExtendedData mod settings.");
             }
-            finally
+            catch (Exception exception)
             {
-                pendingMapSavePayload = null;
-                pendingMapSavePath = null;
+                TryRestoreActiveMapSettingsEntry(removedEntry);
+                TryRollbackMapFile(normalizedPath, targetBackup, targetExisted);
+                DebugLogHelper.LogError(
+                    log,
+                    "The confirmed Map save was rolled back because its mod-settings state could not be published safely: " +
+                    exception);
+                ShowEditorSaveError();
             }
         }
 
         private byte[] SaveMapSettings(SaveContext context)
         {
-            if (!enabled || context == null || !context.IsMapEditorSave || context.IsSaveFile ||
+            if (!enabled || !pendingMapSaveDecision || !pendingMapSaveIncludesSettings ||
+                context == null || !context.IsMapEditorSave || context.IsSaveFile ||
                 pendingMapSavePayload == null)
             {
                 return null;
@@ -267,6 +410,111 @@ namespace ExtendedData
                 return null;
             }
             return (byte[])pendingMapSavePayload.Clone();
+        }
+
+        private static byte[] RemoveActiveMapSettingsEntry(bool entryWasExpected)
+        {
+            MapArchive mapArchive = GameMapArchiveManagerAPI.Instance.GetMapArchive();
+            ZipFile archive = mapArchive?.Archive;
+            if (archive == null)
+            {
+                if (entryWasExpected)
+                    throw new InvalidOperationException("The active Map archive disappeared before its mod settings could be removed.");
+                return null;
+            }
+
+            int index = archive.FindEntry(ArchiveEntryName, ignoreCase: true);
+            if (index < 0)
+            {
+                if (entryWasExpected)
+                    throw new InvalidDataException("The Map mod-settings entry disappeared before saving.");
+                return null;
+            }
+
+            byte[] previous = mapArchive.TryReadBinaryFile(ArchiveEntryName, ignoreCase: true);
+            if (previous == null)
+                throw new InvalidDataException("The existing Map mod-settings entry could not be read before removal.");
+            string actualName = archive[index].Name;
+            if (!archive.IsUpdating)
+                archive.BeginUpdate();
+            archive.Delete(actualName);
+            return previous;
+        }
+
+        private static void VerifySavedMapSettings(string path, bool included, byte[] expectedPayload)
+        {
+            if (!File.Exists(path))
+                throw new FileNotFoundException("The game did not create the expected Map file.", path);
+            if (!MapArchive.TryLoad(path, out MapArchive archive))
+                throw new InvalidDataException("The saved Map archive could not be reopened for verification.");
+            using (archive)
+            {
+                byte[] actual = archive.TryReadBinaryFile(ArchiveEntryName, ignoreCase: true);
+                if (!included)
+                {
+                    if (actual != null)
+                        throw new InvalidDataException("The saved Map still contains ExtendedData mod settings.");
+                    return;
+                }
+                if (expectedPayload == null || actual == null || !actual.SequenceEqual(expectedPayload))
+                    throw new InvalidDataException("The saved Map does not contain the expected mod-settings payload.");
+            }
+        }
+
+        private static void TryRestoreActiveMapSettingsEntry(byte[] previous)
+        {
+            if (previous == null)
+                return;
+            try
+            {
+                GameMapArchiveManagerAPI.Instance.TryWriteBinaryFile(
+                    ArchiveEntryName,
+                    previous,
+                    ignoreCase: true,
+                    overwrite: true);
+            }
+            catch
+            {
+                // The disk rollback below remains authoritative; this only restores the live editor archive.
+            }
+        }
+
+        private static void TryRollbackMapFile(string path, string backup, bool targetExisted)
+        {
+            try
+            {
+                if (targetExisted && !string.IsNullOrEmpty(backup) && File.Exists(backup))
+                    File.Copy(backup, path, overwrite: true);
+                else if (!targetExisted && File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+                // The caller reports the original publication failure; rollback is best effort.
+            }
+            TryDeleteTemporaryFile(backup);
+        }
+
+        private static void TryDeleteTemporaryFile(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+                return;
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch
+            {
+                // A leftover backup is safer than turning a successful Map save into a rollback.
+            }
+        }
+
+        private static void ShowEditorSaveError()
+        {
+            HUD_ConfirmationPopup.ShowOK(
+                SerpLocalization.Get("EditorSave.ModSettingsSaveFailed"),
+                delegate { });
         }
 
         private void OnLobbyOpened(FRONT_Multiplayer lobby)

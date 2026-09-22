@@ -135,6 +135,7 @@ namespace APIShared
                     gatehouseMutationSync,
                     log,
                     gateTarget ?? GatehouseBuildTarget.Supported,
+                    nativeRegion,
                     out gatehouseDistanceOrigin,
                     out gatehouseDistanceOriginDiagnostic,
                     out gatehouse,

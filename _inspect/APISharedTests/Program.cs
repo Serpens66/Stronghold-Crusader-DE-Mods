@@ -1,4 +1,5 @@
 using APIShared;
+using Iced.Intel;
 using Shared;
 using System;
 using System.Collections.Generic;
@@ -7,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Xml;
 
 namespace APISharedTests
@@ -60,6 +62,8 @@ namespace APISharedTests
             TestGatehouseDistanceOriginTransaction();
             TestGatehouseTransactionAndRounding();
             TestGatehouseRollbackAndPageCleanup();
+            TestGatehouseConcurrentPublication();
+            TestGatehouseAssemblerContracts();
             TestAivBuildStepBroker();
             TestMigrationContracts();
             if (failures == 0)
@@ -1753,58 +1757,45 @@ namespace APISharedTests
 
         private static void TestGatehouseDistanceOriginTransaction()
         {
-            FakeMemory memory = SeedDirectGateMemory();
             var ownership = new NativeOwnershipRegistry();
             var mutationSync = new object();
+            GatehousePermanentRuntimeState state = GatehousePermanentRuntimeState.CreateTestState();
             IGatehouseDistanceOriginCapability origin =
-                CreateOriginService(memory, ownership, mutationSync).Bind("BugfixesAndQoL_Serp");
+                CreateOriginService(state, ownership, mutationSync).Bind("BugfixesAndQoL_Serp");
             IGatehouseTimingCapability timing =
-                CreateGateService(memory, ownership, mutationSync).Bind("ExtraFeatures_Serp");
+                CreateGateService(state, ownership, mutationSync).Bind("ExtraFeatures_Serp");
 
             Assert(!origin.TryApply((GatehouseDistanceOrigin)99, out NativeCapabilityDiagnostic invalid) &&
-                invalid.State == NativeCapabilityState.ValidationFailed && memory.WriteCount == 0,
-                "unknown distance-origin values fail before native mutation");
+                invalid.State == NativeCapabilityState.ValidationFailed,
+                "unknown distance-origin values fail before logical publication");
             Assert(origin.TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out NativeCapabilityDiagnostic centered) &&
-                centered.CapabilityId == NativeCapabilityIds.GatehouseDistanceOrigin,
+                centered.CapabilityId == NativeCapabilityIds.GatehouseDistanceOrigin &&
+                state.Origin == GatehouseDistanceOrigin.BuildingBoundsCenter,
                 "Bugfixes owner should apply the centered distance origin");
-            AssertBytes(memory, ModuleBase + 0xB7B70, CenteredDistanceBytes,
-                "distance-origin capability writes only the centered block");
-            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
-                "distance-origin mutation leaves all timing values Vanilla");
-            int writes = memory.WriteCount;
-            Assert(origin.TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out _) && memory.WriteCount == writes,
+            state.ReadTiming(out int aiDistance, out int aiDelay, out int humanDistance, out int humanDelay);
+            Assert(aiDistance == 200 && aiDelay == 1200 && humanDistance == 140 && humanDelay == 100,
+                "distance-origin publication leaves all timing values Vanilla");
+            Assert(origin.TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out _) &&
+                state.Origin == GatehouseDistanceOrigin.BuildingBoundsCenter,
                 "identical distance-origin apply is idempotent");
 
             Assert(timing.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out NativeCapabilityDiagnostic timingApplied) &&
                 timingApplied.CapabilityId == NativeCapabilityIds.GatehouseTiming,
                 "different owners can reserve the adjacent timing and origin intervals");
-            AssertBytes(memory, ModuleBase + 0xB7B70, CenteredDistanceBytes,
-                "timing mutation leaves the independently selected origin unchanged");
+            Assert(state.Origin == GatehouseDistanceOrigin.BuildingBoundsCenter,
+                "timing publication leaves the independently selected origin unchanged");
 
             Assert(origin.TryApply(GatehouseDistanceOrigin.VanillaBuildingBegin, out _),
                 "distance-origin capability restores Vanilla on explicit request");
-            AssertBytes(memory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
-                "Vanilla distance-origin request restores all original bytes");
-            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 120 && memory.ReadRaw(ModuleBase + 0xB7C35) == 40,
+            Assert(state.Origin == GatehouseDistanceOrigin.VanillaBuildingBegin,
+                "Vanilla distance-origin request changes only the logical gate");
+            state.ReadTiming(out aiDistance, out aiDelay, out humanDistance, out humanDelay);
+            Assert(aiDistance == 120 && aiDelay == 200 && humanDistance == 80 && humanDelay == 40,
                 "restoring the origin does not change customized timing values");
 
-            memory.SetByte(ModuleBase + 0xB7B70, 0x90);
-            Assert(!origin.TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out NativeCapabilityDiagnostic changed) &&
-                changed.State == NativeCapabilityState.ValidationFailed,
-                "external distance-block mutation fails closed");
-
-            FakeMemory rollbackMemory = SeedDirectGateMemory();
-            origin = CreateOriginService(rollbackMemory, new NativeOwnershipRegistry(), new object()).Bind("owner");
-            rollbackMemory.FailNextWriteByteAddress = ModuleBase + 0xB7B72;
-            Assert(!origin.TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out _),
-                "partial centered-block write fails");
-            AssertBytes(rollbackMemory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
-                "partial centered-block write restores the complete Vanilla block");
-
-            FakeMemory conflictMemory = SeedDirectGateMemory();
             var conflictRegistry = new NativeOwnershipRegistry();
             GatehouseDistanceOriginService originService =
-                CreateOriginService(conflictMemory, conflictRegistry, new object());
+                CreateOriginService(GatehousePermanentRuntimeState.CreateTestState(), conflictRegistry, new object());
             Assert(originService.Bind("A").TryApply(GatehouseDistanceOrigin.BuildingBoundsCenter, out _),
                 "first distance-origin owner applies");
             Assert(!originService.Bind("B").TryApply(GatehouseDistanceOrigin.VanillaBuildingBegin, out NativeCapabilityDiagnostic conflict) &&
@@ -1814,8 +1805,9 @@ namespace APISharedTests
 
         private static void TestGatehouseTransactionAndRounding()
         {
-            FakeMemory memory = SeedDirectGateMemory();
-            IGatehouseTimingCapability capability = CreateGateService(memory, new NativeOwnershipRegistry(), new object()).Bind("owner");
+            GatehousePermanentRuntimeState state = GatehousePermanentRuntimeState.CreateTestState();
+            IGatehouseTimingCapability capability = CreateGateService(
+                state, new NativeOwnershipRegistry(), new object()).Bind("owner");
             Assert(!capability.TryApply(new GatehouseTimingSettings(true, double.NaN, 0, 5, 5), out NativeCapabilityDiagnostic invalid) &&
                 invalid.State == NativeCapabilityState.ValidationFailed, "non-finite gatehouse input should fail");
             AssertThrows<ArgumentOutOfRangeException>(
@@ -1825,86 +1817,143 @@ namespace APISharedTests
             Assert(capability.TryApply(rounded, out NativeCapabilityDiagnostic applied) &&
                 applied.Reason.Contains("41units") && applied.Reason.Contains("1ticks"),
                 "AwayFromZero values and verified native units should be diagnosed");
-            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 41 && memory.ReadRaw(ModuleBase + 0xB7BCA) == 1 &&
-                memory.ReadRaw(ModuleBase + 0xB7BD3) == 41 && memory.ReadRaw(ModuleBase + 0xB7C35) == 1,
-                "all four rounded values should be written");
-            AssertBytes(memory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
-                "timing apply must not change the independently owned distance-origin block");
-            int writes = memory.WriteCount;
-            Assert(capability.TryApply(rounded, out _) && memory.WriteCount == writes, "identical apply should be idempotent");
-            memory.Set(ModuleBase + 0xB7BC3, 42);
-            Assert(!capability.TryApply(rounded, out NativeCapabilityDiagnostic identicalChanged) &&
-                identicalChanged.State == NativeCapabilityState.ValidationFailed,
-                "idempotent apply must still detect external memory changes");
-            memory.Set(ModuleBase + 0xB7BC3, 41);
+            state.ReadTiming(out int aiDistance, out int aiDelay, out int humanDistance, out int humanDelay);
+            Assert(aiDistance == 41 && aiDelay == 1 && humanDistance == 41 && humanDelay == 1,
+                "all four rounded values should be atomically published");
+            Assert(capability.TryApply(rounded, out _), "identical apply should be idempotent");
             Assert(capability.TryApply(new GatehouseTimingSettings(false, double.NaN, double.NaN, double.NaN, double.NaN), out _),
                 "disabled settings restore Vanilla without validating unused values");
-            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
-                "disabled settings restore all Vanilla values");
-            AssertBytes(memory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
-                "disabled timing must not change the independently owned distance origin");
-
-            memory.Set(ModuleBase + 0xB7BC3, 201);
-            Assert(!capability.TryApply(rounded, out NativeCapabilityDiagnostic changed) &&
-                changed.State == NativeCapabilityState.ValidationFailed, "external immediate mutation fails closed");
-            memory.Set(ModuleBase + 0xB7BC3, 200);
-            memory.SetByte(ModuleBase + 0xB7C39, 0xFF);
-            Assert(capability.TryApply(rounded, out changed),
-                "an adjacent hook beginning immediately after the owned human-delay immediate must remain compatible");
-            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 41 && memory.ReadRaw(ModuleBase + 0xB7C35) == 1,
-                "an adjacent hook must not prevent all four owned timing values from being applied and verified");
-
-            memory.SetByte(ModuleBase + 0xB7B70, 0x90);
-            Assert(capability.TryApply(rounded, out changed),
-                "timing capability ignores mutations outside its owned intervals");
+            state.ReadTiming(out aiDistance, out aiDelay, out humanDistance, out humanDelay);
+            Assert(aiDistance == 200 && aiDelay == 1200 && humanDistance == 140 && humanDelay == 100,
+                "disabled settings atomically publish all Vanilla values");
         }
 
         private static void TestGatehouseRollbackAndPageCleanup()
         {
-            FakeMemory memory = SeedDirectGateMemory();
-            IGatehouseTimingCapability capability = CreateGateService(memory, new NativeOwnershipRegistry(), new object()).Bind("owner");
-            memory.FailNextWriteAddress = ModuleBase + 0xB7BCA;
-            Assert(!capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _), "partial write should fail");
-            Assert(memory.ReadRaw(ModuleBase + 0xB7BC3) == 200 && memory.ReadRaw(ModuleBase + 0xB7BCA) == 1200 &&
-                memory.ReadRaw(ModuleBase + 0xB7BD3) == 140 && memory.ReadRaw(ModuleBase + 0xB7C35) == 100,
-                "partial write should roll back all four values");
-            AssertBytes(memory, ModuleBase + 0xB7B70, VanillaDistanceBytes,
-                "timing rollback leaves the distance-origin block untouched");
-            Assert(memory.WritablePages.Count == 1 && memory.RestoredProtections.Count == 1,
-                "the four current RVAs share one 4 KiB page");
-
-            FakeMemory changedDuringAcquire = SeedDirectGateMemory();
-            capability = CreateGateService(changedDuringAcquire, new NativeOwnershipRegistry(), new object()).Bind("owner");
-            changedDuringAcquire.MutateOnMakeWritableAddress = ModuleBase + 0xB7BC3;
-            changedDuringAcquire.MutateOnMakeWritableValue = 202;
-            Assert(!capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _) &&
-                changedDuringAcquire.ReadRaw(ModuleBase + 0xB7BC3) == 202 && changedDuringAcquire.WriteCount == 0,
-                "a change during protection acquisition fails closed without overwriting or rollback adoption");
-
-            FakeMemory crossPageMemory = SeedCrossPageGateMemory();
-            capability = CreateCrossPageGateService(crossPageMemory).Bind("owner");
-            Assert(capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _),
-                "generic gatehouse transaction should support targets crossing a page boundary");
-            Assert(crossPageMemory.WritablePages.Count == 2 && crossPageMemory.RestoredProtections.Count == 2,
-                "cross-page transaction should protect both pages separately");
-            Assert(crossPageMemory.RestoredProtections[0].Protection != crossPageMemory.RestoredProtections[1].Protection,
-                "each page should restore its own original protection");
-
-            memory = SeedDirectGateMemory();
-            capability = CreateGateService(memory, new NativeOwnershipRegistry(), new object()).Bind("owner");
-            memory.FailNextWriteAddress = ModuleBase + 0xB7BCA;
-            memory.FailRestore = true;
-            memory.FailFlush = true;
-            Assert(!capability.TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out NativeCapabilityDiagnostic combined) &&
-                combined.Reason.Contains("transaction and cleanup"), "write, restore, and flush failures should remain combined");
-
-            memory = SeedDirectGateMemory();
             var registry = new NativeOwnershipRegistry();
-            GatehouseTimingService service = CreateGateService(memory, registry, new object());
+            GatehousePermanentRuntimeState state = GatehousePermanentRuntimeState.CreateTestState();
+            GatehouseTimingService service = CreateGateService(state, registry, new object());
             Assert(service.Bind("A").TryApply(new GatehouseTimingSettings(true, 1, 5, 10, 15), out _), "first owner applies");
             Assert(!service.Bind("B").TryApply(new GatehouseTimingSettings(true, 2, 6, 11, 16), out NativeCapabilityDiagnostic conflict) &&
                 conflict.State == NativeCapabilityState.Conflict && conflict.ConflictOwnerGuid == "A",
                 "second owner receives conflict diagnostics");
+            state.ReadTiming(out int aiDistance, out int aiDelay, out int humanDistance, out int humanDelay);
+            Assert(aiDistance == 120 && aiDelay == 200 && humanDistance == 80 && humanDelay == 40,
+                "conflicting owner cannot alter the atomically published timing snapshot");
+        }
+
+        private static void TestGatehouseConcurrentPublication()
+        {
+            GatehousePermanentRuntimeState state = GatehousePermanentRuntimeState.CreateTestState();
+            Exception writerFailure = null;
+            var writer = new Thread(() =>
+            {
+                try
+                {
+                    for (int index = 0; index < 10000; index++)
+                    {
+                        if ((index & 1) == 0)
+                            state.PublishTiming(11, 22, 33, 44);
+                        else
+                            state.PublishTiming(101, 202, 303, 404);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    writerFailure = ex;
+                }
+            });
+            writer.Start();
+            for (int index = 0; index < 10000; index++)
+            {
+                state.ReadTiming(out int aiDistance, out int aiDelay, out int humanDistance, out int humanDelay);
+                bool vanilla = aiDistance == 200 && aiDelay == 1200 && humanDistance == 140 && humanDelay == 100;
+                bool first = aiDistance == 11 && aiDelay == 22 && humanDistance == 33 && humanDelay == 44;
+                bool second = aiDistance == 101 && aiDelay == 202 && humanDistance == 303 && humanDelay == 404;
+                if (!vanilla && !first && !second)
+                {
+                    Assert(false, "parallel gatehouse readers must observe one complete immutable timing snapshot");
+                    break;
+                }
+            }
+            writer.Join();
+            Assert(writerFailure == null, "parallel gatehouse publication must not fail");
+        }
+
+        private static void TestGatehouseAssemblerContracts()
+        {
+            const ulong moduleBase = 0x00007FF940F90000;
+            const ulong stubAddress = 0x00007FF8D1144000;
+            Instruction[] displaced = DecodeInstructions(
+                GatehouseBuildTarget.Supported.VanillaDistanceBlockBytes,
+                moduleBase + GatehousePermanentRuntimeState.DistanceHookRva);
+            var distanceAssembler = new Assembler(64);
+            GatehousePermanentRuntimeState.GenerateDistanceOrigin(
+                distanceAssembler,
+                displaced,
+                0x000001A000001000);
+            byte[] distanceStub = AssembleAndDecode(distanceAssembler, stubAddress);
+            Assert(distanceStub.Length > displaced.Length,
+                "gatehouse distance generator assembles its logical gate and relocated Vanilla fallback");
+
+            var decisionAssembler = new Assembler(64);
+            GatehousePermanentRuntimeState.GenerateDecision(
+                decisionAssembler,
+                new[] { Instruction.Create(Code.Nopd) },
+                0x000001A000002000,
+                moduleBase,
+                moduleBase + GatehousePermanentRuntimeState.DecisionReturnRva,
+                moduleBase + GatehousePermanentRuntimeState.ClosePathRva);
+            byte[] decisionStub = AssembleAndDecode(decisionAssembler, stubAddress + 0x1000);
+            Assert(decisionStub.Length > 0,
+                "gatehouse timing generator assembles with one label per emitted instruction");
+        }
+
+        private static Instruction[] DecodeInstructions(byte[] bytes, ulong address)
+        {
+            var decoder = Decoder.Create(64, new ByteArrayCodeReader(bytes));
+            decoder.IP = address;
+            var result = new List<Instruction>();
+            ulong end = address + unchecked((ulong)bytes.Length);
+            while (decoder.IP < end)
+            {
+                Instruction instruction = decoder.Decode();
+                Assert(!instruction.IsInvalid && instruction.NextIP <= end,
+                    "gatehouse displaced Vanilla bytes decode without invalid instructions");
+                result.Add(instruction);
+            }
+            return result.ToArray();
+        }
+
+        private static byte[] AssembleAndDecode(Assembler assembler, ulong address)
+        {
+            using (var stream = new MemoryStream())
+            {
+                assembler.Assemble(new StreamCodeWriter(stream), address);
+                byte[] bytes = stream.ToArray();
+                int offset = 0;
+                while (offset < bytes.Length)
+                {
+                    if (offset <= bytes.Length - 14 &&
+                        bytes[offset] == 0xFF && bytes[offset + 1] == 0x25 &&
+                        bytes[offset + 2] == 0 && bytes[offset + 3] == 0 &&
+                        bytes[offset + 4] == 0 && bytes[offset + 5] == 0)
+                    {
+                        offset += 14;
+                        continue;
+                    }
+                    var remaining = new byte[bytes.Length - offset];
+                    Buffer.BlockCopy(bytes, offset, remaining, 0, remaining.Length);
+                    var decoder = Decoder.Create(64, new ByteArrayCodeReader(remaining));
+                    decoder.IP = address + unchecked((ulong)offset);
+                    Instruction instruction = decoder.Decode();
+                    Assert(!instruction.IsInvalid && instruction.Length <= remaining.Length,
+                        "generated gatehouse stub decodes completely");
+                    offset += instruction.Length;
+                }
+                Assert(offset == bytes.Length, "generated gatehouse stub consumes its complete encoded span");
+                return bytes;
+            }
         }
 
         private static ApiSharedRuntime InitializeRuntime(
@@ -1972,7 +2021,7 @@ namespace APISharedTests
         }
 
         private static GatehouseDistanceOriginService CreateOriginService(
-            FakeMemory memory,
+            GatehousePermanentRuntimeState state,
             NativeOwnershipRegistry ownership,
             object mutationSync)
         {
@@ -1980,11 +2029,11 @@ namespace APISharedTests
                 ModuleBase + 0xB7B70,
                 VanillaDistanceBytes,
                 CenteredDistanceBytes);
-            return new GatehouseDistanceOriginService("hash", target, memory, ownership, mutationSync, null);
+            return new GatehouseDistanceOriginService("hash", target, state, ownership, mutationSync, null);
         }
 
         private static GatehouseTimingService CreateGateService(
-            FakeMemory memory,
+            GatehousePermanentRuntimeState state,
             NativeOwnershipRegistry ownership,
             object mutationSync)
         {
@@ -1998,7 +2047,7 @@ namespace APISharedTests
             var target = new GatehouseTimingTarget(
                 ModuleBase + 0xB7BC3, ModuleBase + 0xB7BCA,
                 ModuleBase + 0xB7BD3, ModuleBase + 0xB7C35, invariants);
-            return new GatehouseTimingService("hash", target, memory, ownership, mutationSync, null);
+            return new GatehouseTimingService("hash", target, state, ownership, mutationSync, null);
         }
 
         private static FakeMemory SeedDirectGateMemory()
@@ -2022,7 +2071,9 @@ namespace APISharedTests
             var target = new GatehouseTimingTarget(
                 ModuleBase + 0x1FF0, ModuleBase + 0x1FF4,
                 ModuleBase + 0x1FF8, ModuleBase + 0x2004);
-            return new GatehouseTimingService("hash", target, memory, new NativeOwnershipRegistry(), new object(), null);
+            return new GatehouseTimingService(
+                "hash", target, GatehousePermanentRuntimeState.CreateTestState(),
+                new NativeOwnershipRegistry(), new object(), null);
         }
 
         private static FakeMemory SeedCrossPageGateMemory()

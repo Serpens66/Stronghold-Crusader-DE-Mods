@@ -201,10 +201,7 @@ namespace BugfixesAndQoL
                 return;
 
             disposed = true;
-            transaction?.Dispose();
-            transaction = null;
-            FreeEndpointZeroFlags();
-            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL mounted-stockpile movement hooks disposed.");
+            Shared.DebugLogHelper.LogDebug(log, "Bugfixes and QoL mounted-stockpile movement hooks disabled logically.");
         }
 
         private void CorrectCursorMountedClassification(NativePointer<X64SmartCPUContext> context) =>

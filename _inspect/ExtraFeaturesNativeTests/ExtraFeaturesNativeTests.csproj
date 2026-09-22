@@ -21,7 +21,6 @@
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath></Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\ExtraFeatures\src\GatehouseTimingPatch.cs"><Link>GatehouseTimingPatch.cs</Link></Compile>
     <Compile Include="Program.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

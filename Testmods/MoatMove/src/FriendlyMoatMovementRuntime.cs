@@ -1192,8 +1192,8 @@ namespace MoatMove
                     GameTimeManagerAPI.Instance.OnTick -= ObserveTrackedAttackStates;
                     attackTickSubscribed = false;
                 }
-                try { DisposeConnectivityHooks(); } catch { }
-                try { DisposeMoatWorkTargetSelection(); } catch { }
+                try { RollbackUnpublishedConnectivityHooks(); } catch { }
+                try { RollbackUnpublishedMoatWorkTargetSelection(); } catch { }
                 try { attackApproachHookTransaction?.Dispose(); } catch { }
                 attackApproachHookTransaction = null;
                 try { buildingCursorHookTransaction?.Dispose(); } catch { }
@@ -1209,26 +1209,6 @@ namespace MoatMove
                 return;
 
             disposed = true;
-            tribeMoveSubscription?.Dispose();
-            unitMoveSubscription?.Dispose();
-            tribeTargetSubscription?.Dispose();
-            mapLoadSubscription?.Dispose();
-            mapStartSubscription?.Dispose();
-            mapUnloadSubscription?.Dispose();
-            if (attackTickSubscribed)
-            {
-                GameTimeManagerAPI.Instance.OnTick -= ObserveTrackedAttackStates;
-                attackTickSubscribed = false;
-            }
-            DisposeMoatWorkTargetSelection();
-            attackApproachHookTransaction?.Dispose();
-            attackApproachHookTransaction = null;
-            buildingCursorHookTransaction?.Dispose();
-            buildingCursorHookTransaction = null;
-            UnityEngine.Application.onBeforeRender -= ObserveCursorPerformance;
-            DisposeConnectivityHooks();
-            mainHookTransaction?.Dispose();
-            mainHookTransaction = null;
             ClearUnitMoveFrames();
             activeMoveCommand = null;
             activePlan = null;

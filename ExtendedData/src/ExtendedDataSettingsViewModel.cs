@@ -46,7 +46,6 @@ namespace ExtendedData
             };
             coopPackageIds = new[] { string.Empty };
             OpenCompatibilityGuideCommand = new ActionCommand(OpenCompatibilityGuide);
-            ResetToDefaultCommand = new RelayCommand(ResetToDefault);
         }
 
         protected override string ResolveSettingsUiText(string key, string fallback) =>
@@ -65,8 +64,6 @@ namespace ExtendedData
         public event Action<bool> RuntimeActivationChanged;
         public event Action ActiveCoopPackageChanged;
 
-        public RelayCommand ResetToDefaultCommand { get; }
-        public string ResetToDefaultText => SerpLocalization.Get("Common.ResetToDefault");
         public string EnableClientFeaturesText => SerpLocalization.Get("ExtendedData.EnableClientFeatures");
         public string EnableClientFeaturesHelpText => SerpLocalization.Get("ExtendedData.EnableClientFeaturesHelp");
         public string EnableHostFeaturesText => SerpLocalization.Get("ExtendedData.EnableHostFeatures");
@@ -510,17 +507,6 @@ namespace ExtendedData
         {
             System_RefreshSettingsAccess();
             OnPropertyChanged(nameof(CanEditCoopPackage));
-        }
-
-        private void ResetToDefault()
-        {
-            EnableClientFeatures = true;
-            SetTrailPropertyModeIds(Array.Empty<string>(), Array.Empty<string>());
-            if (CanEditHostSettings)
-            {
-                EnableMod = true;
-                ActiveCoopPackageId = string.Empty;
-            }
         }
 
         private string GetLocalStatus() => coopPackageStatus;

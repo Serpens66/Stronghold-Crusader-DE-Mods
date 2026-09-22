@@ -21,7 +21,8 @@ namespace ImprovedHunters
                 new HookTransactionOptions
                 {
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
-                    // These feature objects are disposed only on a real toggle/final teardown.
+                    // Committed hooks are process-lifetime objects. Dispose paths only
+                    // deactivate logical feature state; this ownership is never released.
                     OwnsHooks = true
                 });
 

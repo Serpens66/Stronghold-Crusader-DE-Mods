@@ -169,8 +169,6 @@ namespace BugfixesAndQoL
             disposed = true;
             correctionAvailable = false;
             ClearReservations("feature disposed", logRelease: false);
-            transaction?.Dispose();
-            transaction = null;
         }
 
         private int FindNearestUnreservedDisease(IntPtr projectileManager, int nativeUnitId)

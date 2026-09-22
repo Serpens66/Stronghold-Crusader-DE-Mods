@@ -510,8 +510,8 @@ void ValidateScriptExtenderIntegration()
     int constructorRollback = constructor.IndexOf("pendingTransaction?.Dispose()", StringComparison.Ordinal);
     if (constructorCommit < 0 || constructorOriginal < constructorCommit ||
         constructorRollback < constructorCommit ||
-        !constructor.Contains("DisposeConnectivityHooks()", StringComparison.Ordinal) ||
-        !constructor.Contains("DisposeMoatWorkTargetSelection()", StringComparison.Ordinal))
+        !constructor.Contains("RollbackUnpublishedConnectivityHooks()", StringComparison.Ordinal) ||
+        !constructor.Contains("RollbackUnpublishedMoatWorkTargetSelection()", StringComparison.Ordinal))
         throw new Exception("Central RedBird constructor rollback is incomplete.");
     Console.WriteLine("PASS: integrated ownership, RedBird references, selection, atomic commits and rollbacks.");
 }

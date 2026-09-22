@@ -119,8 +119,6 @@ namespace ExtraFeatures
                 return;
 
             disposed = true;
-            transaction?.Dispose();
-            transaction = null;
         }
 
         private int GetBuyPrice(IntPtr playerManager, int playerId, int good, int amount)

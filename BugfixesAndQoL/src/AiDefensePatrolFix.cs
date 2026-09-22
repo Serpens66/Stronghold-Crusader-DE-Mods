@@ -24,10 +24,9 @@ namespace BugfixesAndQoL
         private readonly object stateLock = new object();
         private readonly HookHandle<X64InlineHook> assignmentDecisionHook =
             new HookHandle<X64InlineHook>();
-        private readonly ulong hookAddress;
-        private readonly byte[] originalHookBytes;
         private HookTransaction transaction;
-        private bool correctionAvailable = true;
+        private volatile bool correctionAvailable = true;
+        private volatile bool logicallyEnabled;
         private bool callbackFailureLogged;
         private bool disposed;
 
@@ -52,13 +51,8 @@ namespace BugfixesAndQoL
 
             try
             {
-                hookAddress = checked(
+                ulong hookAddress = checked(
                     libraryBase + unchecked((ulong)AiDefensePatrolNativeDefinition.DecisionHookRva));
-                originalHookBytes = memory
-                    .Slice(
-                        AiDefensePatrolNativeDefinition.DecisionHookRva,
-                        AiDefensePatrolNativeDefinition.DecisionHookLength)
-                    .ToArray();
                 transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
                 BugfixesHookInfrastructure.AddContextHook(
                     transaction,
@@ -87,7 +81,10 @@ namespace BugfixesAndQoL
             }
             catch
             {
-                Dispose();
+                correctionAvailable = false;
+                transaction?.Dispose();
+                transaction = null;
+                disposed = true;
                 throw;
             }
         }
@@ -99,31 +96,17 @@ namespace BugfixesAndQoL
                 if (disposed || !assignmentDecisionHook.Success)
                     return;
 
-                if (!correctionAvailable || !IsEnabled)
-                {
-                    DisableNativeHookAndVerify();
-                    return;
-                }
-
-                if (assignmentDecisionHook.IsInstalled)
-                    return;
-
-                if (!HookBytesMatchOriginal())
+                if (!assignmentDecisionHook.IsInstalled)
                 {
                     correctionAvailable = false;
+                    logicallyEnabled = false;
                     Shared.DebugLogHelper.LogError(
                         log,
-                        "Bugfixes and QoL AI defense patrol hook was not re-enabled because its native target no longer contains the verified Vanilla bytes.");
+                        "Bugfixes and QoL AI defense patrol fix was disabled because its permanent native hook is no longer installed.");
                     return;
                 }
 
-                assignmentDecisionHook.Hook.Enable();
-                if (!assignmentDecisionHook.IsInstalled)
-                    throw new InvalidOperationException("The AI defense patrol hook did not become active.");
-
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Bugfixes and QoL AI defense patrol hook enabled by the synchronized host setting.");
+                logicallyEnabled = settings.EnableMod && settings.EnableAiDefensePatrolFix;
             }
         }
 
@@ -135,10 +118,8 @@ namespace BugfixesAndQoL
                     return;
 
                 correctionAvailable = false;
-                DisableNativeHookAndVerify();
+                logicallyEnabled = false;
                 disposed = true;
-                transaction?.Dispose();
-                transaction = null;
             }
         }
 
@@ -219,78 +200,6 @@ namespace BugfixesAndQoL
             }
         }
 
-        private bool DisableNativeHookAndVerify()
-        {
-            if (!assignmentDecisionHook.Success)
-                return true;
-
-            bool disableCallSucceeded = true;
-            if (assignmentDecisionHook.IsInstalled)
-            {
-                try
-                {
-                    assignmentDecisionHook.Hook.Disable();
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        "Bugfixes and QoL AI defense patrol hook disabled; Vanilla code restoration requested.");
-                }
-                catch (Exception exception)
-                {
-                    disableCallSucceeded = false;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL AI defense patrol hook disable failed; exact Vanilla-byte restoration will be attempted: {exception}");
-                }
-            }
-
-            bool restorationSucceeded = true;
-            if (!HookBytesMatchOriginal())
-            {
-                try
-                {
-                    CodePatch.Write(hookAddress, originalHookBytes);
-                    restorationSucceeded = HookBytesMatchOriginal();
-                }
-                catch (Exception exception)
-                {
-                    restorationSucceeded = false;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL AI defense patrol Vanilla-byte restoration failed: {exception}");
-                }
-            }
-
-            bool bytesRestored = restorationSucceeded && HookBytesMatchOriginal();
-            bool hookStateConsistent = disableCallSucceeded && !assignmentDecisionHook.IsInstalled;
-            if (!bytesRestored || !hookStateConsistent)
-            {
-                correctionAvailable = false;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL AI defense patrol hook disable verification failed: " +
-                    $"vanillaBytesRestored={bytesRestored}, hookStateConsistent={hookStateConsistent}.");
-            }
-
-            return bytesRestored;
-        }
-
-        private bool HookBytesMatchOriginal()
-        {
-            if (originalHookBytes == null || originalHookBytes.Length == 0 || hookAddress == 0)
-                return false;
-
-            byte* current = (byte*)hookAddress;
-            for (int index = 0; index < originalHookBytes.Length; index++)
-            {
-                if (current[index] != originalHookBytes[index])
-                    return false;
-            }
-
-            return true;
-        }
-
-        private bool IsEnabled =>
-            settings.EnableMod &&
-            settings.EnableAiDefensePatrolFix;
+        private bool IsEnabled => logicallyEnabled;
     }
 }

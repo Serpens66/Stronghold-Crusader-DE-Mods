@@ -1269,8 +1269,6 @@ namespace ImprovedHunters
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Dispose();
-            transaction = null;
             lock (stateLock)
             {
                 activeAttempts.Clear();

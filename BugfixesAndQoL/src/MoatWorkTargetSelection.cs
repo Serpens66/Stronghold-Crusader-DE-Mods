@@ -143,8 +143,6 @@ namespace BugfixesAndQoL
 
                 findMoatWorkTargetDetour = pendingFind;
                 resolveMoatWorkTileDetour = pendingResolve;
-                hasFillMoatApproachDetour = pendingFillApproach;
-                moatWorkHookTransaction = pendingTransaction;
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "Bugfixes and QoL friendly-moat-movement moat-work target selection installed: " +
@@ -152,6 +150,8 @@ namespace BugfixesAndQoL
                     $"fillApproach=0x{fillApproachResolution.Rva:X}, " +
                     $"regionPair=0x{RegionPairReachabilityRva:X}, " +
                     $"regionSearch=0x{RegionReachabilityRva:X}.");
+                hasFillMoatApproachDetour = pendingFillApproach;
+                moatWorkHookTransaction = pendingTransaction;
             }
             catch (Exception ex)
             {
@@ -1125,7 +1125,7 @@ namespace BugfixesAndQoL
 
 
 
-        private void DisposeMoatWorkTargetSelection()
+        private void RollbackUnpublishedMoatWorkTargetSelection()
         {
             moatWorkHookTransaction?.Dispose();
             moatWorkHookTransaction = null;

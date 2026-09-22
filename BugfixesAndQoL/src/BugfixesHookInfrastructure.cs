@@ -17,7 +17,8 @@ namespace BugfixesAndQoL
                 new HookTransactionOptions
                 {
                     FailureMode = TransactionFailureMode.RollbackAndThrow,
-                    // Feature disposal is used only for an actual setting change or final teardown.
+                    // Ownership is retained for process lifetime after publication. Disposal is
+                    // reserved for rolling back an unpublished initialization candidate.
                     OwnsHooks = true
                 });
 

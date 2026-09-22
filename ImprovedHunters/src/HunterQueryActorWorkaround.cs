@@ -175,8 +175,6 @@ namespace ImprovedHunters
 
             disposed = true;
             available = false;
-            transaction?.Dispose();
-            transaction = null;
             ClearThreadCapture();
         }
     }

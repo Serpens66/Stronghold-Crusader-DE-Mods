@@ -107,7 +107,7 @@ namespace BugfixesAndQoL
             }
             catch
             {
-                Dispose();
+                RollbackUnpublishedInitialization();
                 throw;
             }
         }
@@ -119,12 +119,17 @@ namespace BugfixesAndQoL
 
             disposed = true;
             nativeReady = false;
+            Shared.DebugLogHelper.LogInfo(log, "Bugfixes and QoL Ctrl single-unit market hooks disabled logically.");
+        }
+
+        private void RollbackUnpublishedInitialization()
+        {
+            nativeReady = false;
             uiUpdateHook?.Undo();
             uiUpdateHook?.Dispose();
             gameActionHook?.Undo();
             gameActionHook?.Dispose();
             nativeTransaction?.Dispose();
-            Shared.DebugLogHelper.LogInfo(log, "Bugfixes and QoL Ctrl single-unit market hooks disposed.");
         }
 
         internal void ExecuteSingleMarketTrade(PlayerMarketInteractionEventArgs args)

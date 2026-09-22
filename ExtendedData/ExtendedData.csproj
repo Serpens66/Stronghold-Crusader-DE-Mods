@@ -54,6 +54,7 @@
     <Reference Include="System.Memory"><HintPath>$(ExtenderDir)\System.Memory.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack"><HintPath>$(ExtenderDir)\MessagePack.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="MessagePack.Annotations"><HintPath>$(ExtenderDir)\MessagePack.Annotations.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ICSharpCode.SharpZipLib"><HintPath>$(ExtenderDir)\ICSharpCode.SharpZipLib.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="ExtendedData.Core"><HintPath>$(CoreOutput)\ExtendedData.Core.dll</HintPath><Private>true</Private></Reference>
   </ItemGroup>
   <ItemGroup>
@@ -79,6 +80,7 @@
     <Compile Include="src\MissionPresetLifecycleState.cs" />
     <Compile Include="src\TrailMissionSettingsCoordinator.cs" />
     <Compile Include="src\TrailWorkshopUploadOptionsViewModel.cs" />
+    <Compile Include="src\EditorModSettingsSaveOptionsViewModel.cs" />
     <Compile Include="src\MissionAssetResolver.cs" />
     <Compile Include="src\CoopTrailPackageExporter.cs" />
     <Compile Include="src\ResolvedMission.cs" />

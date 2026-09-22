@@ -440,11 +440,12 @@ namespace LobbyModSettingsPresetTests
             int validated = 0;
             foreach (string folder in selectedModFolders)
             {
-                string path = Path.Combine(
-                    pluginRoot,
-                    folder,
-                    "LobbyModSettings",
-                    folder + ".msgpack");
+                string directPath = Path.Combine(
+                    pluginRoot, folder, "LobbyModSettings", folder + ".msgpack");
+                string bundledPath = Path.Combine(
+                    pluginRoot, "SerpsMods_Serp_steam", "Mods", folder,
+                    "LobbyModSettings", folder + ".msgpack");
+                string path = File.Exists(directPath) ? directPath : bundledPath;
                 if (!File.Exists(path))
                     continue;
 
@@ -473,6 +474,10 @@ namespace LobbyModSettingsPresetTests
 
                 validated++;
             }
+
+            string installedBundle = Path.Combine(pluginRoot, "SerpsMods_Serp_steam", "Mods");
+            if (Directory.Exists(installedBundle))
+                Assert(validated >= 9, "Fewer than the nine installed legacy MessagePack examples were validated.");
 
             Console.WriteLine($"Validated {validated} installed legacy MessagePack files in memory.");
         }

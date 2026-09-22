@@ -24,8 +24,9 @@ namespace BugfixesAndQoL
         private const string MapperSelectionPattern =
             "83 EB 36 74 ?? 83 EB 19 74 ?? 83 EB 07 74 ?? 83 FB 01 74 ??";
         private const int MapperSelectionRva = 0x5CEAB;
-        // sub/je/sub/je occupy exactly ten bytes and preserve the remaining Vanilla chain.
+        // sub/je/sub/je require ten bytes; RedBird displaces the complete 15-byte instruction span.
         private const int MapperSelectionHookSize = 10;
+        private const int MapperSelectionDisplacedLength = 15;
 
         private const string BroadBlockerLoadPattern =
             "49 69 C0 2C 03 00 00 0F B7 8C 38 2E 01 00 00";
@@ -56,6 +57,7 @@ namespace BugfixesAndQoL
         private readonly HookHandle<X64InlineHook> broadBlockerProtectionHook = new HookHandle<X64InlineHook>();
         private readonly HookHandle<X64InlineHook> narrowBlockerProtectionHook = new HookHandle<X64InlineHook>();
         private bool callbackFailureLogged;
+        private volatile bool logicallyEnabled;
         private bool disposed;
 
         internal BetterAIOverbuildRulesFix(
@@ -126,6 +128,13 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException(
                         "The three AI overbuild hooks were not installed atomically.");
                 }
+                if (mapperSelectionHook.Hook.DisplacedByteCount != MapperSelectionDisplacedLength ||
+                    broadBlockerProtectionHook.Hook.DisplacedByteCount != BroadBlockerLoadHookSize ||
+                    narrowBlockerProtectionHook.Hook.DisplacedByteCount != NarrowBlockerLoadHookSize)
+                {
+                    throw new InvalidOperationException(
+                        "An AI overbuild hook displaced an unexpected native span.");
+                }
 
                 InitializeConflictTracking();
 
@@ -146,19 +155,20 @@ namespace BugfixesAndQoL
                 !narrowBlockerProtectionHook.Success)
                 return;
 
-            bool enabled = IsEnabled;
-            if (enabled)
+            if (!mapperSelectionHook.IsInstalled || !broadBlockerProtectionHook.IsInstalled ||
+                !narrowBlockerProtectionHook.IsInstalled)
             {
-                if (!mapperSelectionHook.IsInstalled) mapperSelectionHook.Hook.Enable();
-                if (!broadBlockerProtectionHook.IsInstalled) broadBlockerProtectionHook.Hook.Enable();
-                if (!narrowBlockerProtectionHook.IsInstalled) narrowBlockerProtectionHook.Hook.Enable();
+                logicallyEnabled = false;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "Better AI overbuild rules were disabled because a permanent native hook is no longer installed.");
+                return;
             }
-            else
+
+            logicallyEnabled = settings.EnableMod && settings.BetterAIOverbuildRules;
+            if (!logicallyEnabled)
             {
                 ResetConflictState();
-                if (mapperSelectionHook.IsInstalled) mapperSelectionHook.Hook.Disable();
-                if (broadBlockerProtectionHook.IsInstalled) broadBlockerProtectionHook.Hook.Disable();
-                if (narrowBlockerProtectionHook.IsInstalled) narrowBlockerProtectionHook.Hook.Disable();
             }
 
         }
@@ -167,11 +177,9 @@ namespace BugfixesAndQoL
         {
             if (disposed)
                 return;
+            logicallyEnabled = false;
             disposed = true;
-            DisposeSubscriptions();
             conflictState.Reset();
-            transaction?.Dispose();
-            transaction = null;
         }
 
         private void PromoteAddedMapper(NativePointer<X64SmartCPUContext> context)
@@ -492,11 +500,12 @@ namespace BugfixesAndQoL
             }
         }
 
-        private bool IsEnabled =>
-            settings.EnableMod && settings.BetterAIOverbuildRules;
+        private bool IsEnabled => logicallyEnabled;
 
         private void LogCallbackFailure(string operation, Exception ex)
         {
+            logicallyEnabled = false;
+            conflictState.Reset();
             if (callbackFailureLogged)
                 return;
             callbackFailureLogged = true;

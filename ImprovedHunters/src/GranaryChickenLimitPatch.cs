@@ -110,8 +110,6 @@ namespace ImprovedHunters
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Dispose();
-            transaction = null;
         }
 
         private void ApplyConfiguredLimit(NativePointer<X64SmartCPUContext> context)

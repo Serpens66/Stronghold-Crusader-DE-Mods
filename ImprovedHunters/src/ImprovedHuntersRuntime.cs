@@ -1165,6 +1165,7 @@ namespace ImprovedHunters
             {
                 automaticChickenTargetPatch = new AutomaticChickenTargetPatch(
                     log,
+                    hookRegion,
                     memory,
                     imageBase,
                     referenceHashMatches);
@@ -1621,6 +1622,7 @@ namespace ImprovedHunters
             {
                 hunterHutVisibilityPatch = new HunterHutVisibilityPatch(
                     log,
+                    hookRegion,
                     memory,
                     imageBase,
                     referenceHashMatches);

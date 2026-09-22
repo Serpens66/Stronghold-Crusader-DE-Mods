@@ -107,53 +107,14 @@ namespace APIShared
 
     internal interface INativeMemory
     {
-        int PageSize { get; }
         byte ReadByte(long address);
         int ReadInt32(long address);
-        void WriteByte(long address, byte value);
-        void WriteInt32(long address, int value);
-        uint MakeWritable(long address, int length);
-        void RestoreProtection(long address, int length, uint protection);
-        void Flush(long address, int length);
     }
 
     internal sealed class ProcessNativeMemory : INativeMemory
     {
-        private const uint PageExecuteReadWrite = 0x40;
-
-        public int PageSize => Environment.SystemPageSize;
         public byte ReadByte(long address) => Marshal.ReadByte(new IntPtr(address));
         public int ReadInt32(long address) => Marshal.ReadInt32(new IntPtr(address));
-        public void WriteByte(long address, byte value) => Marshal.WriteByte(new IntPtr(address), value);
-        public void WriteInt32(long address, int value) => Marshal.WriteInt32(new IntPtr(address), value);
-
-        public uint MakeWritable(long address, int length)
-        {
-            if (!VirtualProtect(new IntPtr(address), (UIntPtr)(uint)length, PageExecuteReadWrite, out uint oldProtection))
-                throw new InvalidOperationException($"VirtualProtect failed with Win32 error {Marshal.GetLastWin32Error()}.");
-            return oldProtection;
-        }
-
-        public void RestoreProtection(long address, int length, uint protection)
-        {
-            if (!VirtualProtect(new IntPtr(address), (UIntPtr)(uint)length, protection, out _))
-                throw new InvalidOperationException($"Restoring memory protection failed with Win32 error {Marshal.GetLastWin32Error()}.");
-        }
-
-        public void Flush(long address, int length)
-        {
-            if (!FlushInstructionCache(GetCurrentProcess(), new IntPtr(address), (UIntPtr)(uint)length))
-                throw new InvalidOperationException($"FlushInstructionCache failed with Win32 error {Marshal.GetLastWin32Error()}.");
-        }
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool VirtualProtect(IntPtr address, UIntPtr size, uint newProtection, out uint oldProtection);
-
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr GetCurrentProcess();
-
-        [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool FlushInstructionCache(IntPtr process, IntPtr address, UIntPtr size);
     }
 
     internal sealed class NativeResolutionException : Exception

@@ -55,6 +55,7 @@ var tests = new (string Name, Action Run)[]
     ("mission and manifest JSON use CRLF", TestCoopJsonLineEndings),
     ("Workshop Trail staging filters sidecars", TestWorkshopTrailSidecars),
     ("Workshop upload checkbox is unified", TestWorkshopUploadCheckbox),
+    ("editor saves require an explicit modsettings decision", TestEditorSaveModSettingsOptions),
     ("mod-data namespaces are isolated and immutable", TestModDataNamespaces),
     ("invalid mod-data containers fail closed", TestInvalidModDataContainers),
     ("map mod-data API distinguishes file and namespace absence", TestMapModDataApi),
@@ -959,6 +960,66 @@ static void TestMapModSettingsRuntimeIntegration()
             !locale.Contains("ExtendedData.UseMapModSettingsHelp=") &&
             !locale.Contains("ExtendedData.MapModSettingsActive="),
             localeName + " still contains labels for the removed separate Map button");
+    }
+}
+
+static void TestEditorSaveModSettingsOptions()
+{
+    string root = FindProjectRoot();
+    string mapCoordinator = File.ReadAllText(Path.Combine(root, "src", "MapModSettingsCoordinator.cs"));
+    string trailCoordinator = File.ReadAllText(Path.Combine(root, "src", "TrailMissionSettingsCoordinator.cs"));
+    string viewModel = File.ReadAllText(Path.Combine(root, "src", "EditorModSettingsSaveOptionsViewModel.cs"));
+    string mapXamlPath = Path.Combine(root, "Patches", "Assets", "GUI", "XAMLResources", "HUD_LoadSaveRequester.xaml");
+    string trailXamlPath = Path.Combine(root, "Patches", "Assets", "GUI", "XAMLResources", "FRONT_ManageTrail.xaml");
+    string mapXaml = File.ReadAllText(mapXamlPath);
+    string trailXaml = File.ReadAllText(trailXamlPath);
+
+    Assert(mapCoordinator.Contains("requesterType != Enums.RequesterTypes.SaveEditorMap") &&
+        mapCoordinator.Contains("ArmMapEditorSave(") &&
+        mapCoordinator.Contains("pendingMapSaveDecision") &&
+        mapCoordinator.Contains("pendingMapSaveIncludesSettings") &&
+        mapCoordinator.Contains("string.Equals(pendingMapSavePath, normalizedPath, StringComparison.OrdinalIgnoreCase)") &&
+        mapCoordinator.Contains("VerifySavedMapSettings(") &&
+        mapCoordinator.Contains("RemoveActiveMapSettingsEntry(") &&
+        mapCoordinator.Contains("TryRollbackMapFile("),
+        "Map Editor saves are not explicitly armed, path-bound, verified, and rollback-safe");
+    Assert(mapCoordinator.Contains("TryReadBinaryFile(ArchiveEntryName, ignoreCase: true) != null") &&
+        viewModel.Contains("IncludeMapModSettings = hasExistingEntry") &&
+        viewModel.Contains("includeTrailModSettings = true"),
+        "Map/Trail checkbox defaults do not match existing-source and Trail authoring rules");
+    Assert(trailCoordinator.Contains("editorSaveOptions.IncludeTrailModSettings") &&
+        trailCoordinator.Contains("ModSettingsJson.WriteAtomic(sidecar, document)") &&
+        trailCoordinator.Contains("File.Delete(sidecar)") &&
+        trailCoordinator.Contains("trailSourceDocument = null"),
+        "Trail Maker save does not explicitly write or remove only its sidecar");
+    Assert(mapXaml.Contains("ExtendedDataMapEditorSaveOptionsHost") &&
+        mapXaml.Contains("IncludeMapModSettings, Mode=TwoWay") &&
+        mapXaml.Contains("MapHelpText") &&
+        trailXaml.Contains("ExtendedDataTrailMakerSaveOptionsHost") &&
+        trailXaml.Contains("IncludeTrailModSettings, Mode=TwoWay") &&
+        trailXaml.Contains("TrailHelpText"),
+        "editor save checkboxes or their explanatory tooltips are missing");
+
+    foreach (string xamlPath in new[] { mapXamlPath, trailXamlPath })
+    {
+        System.Xml.Linq.XDocument document = System.Xml.Linq.XDocument.Load(xamlPath);
+        foreach (System.Xml.Linq.XElement content in document.Descendants().Where(element => element.Name.LocalName == "Content"))
+            Assert(content.Elements().Count() == 1, Path.GetFileName(xamlPath) + " has a Content operation without exactly one root");
+    }
+
+    string[] keys =
+    {
+        "EditorSave.IncludeModSettings=",
+        "EditorSave.IncludeMapModSettingsHelp=",
+        "EditorSave.IncludeTrailModSettingsHelp=",
+        "EditorSave.ModSettingsSaveFailedTitle=",
+        "EditorSave.ModSettingsSaveFailed=",
+    };
+    foreach (string localePath in Directory.GetFiles(Path.Combine(root, "Locales"), "*.txt"))
+    {
+        string locale = File.ReadAllText(localePath);
+        foreach (string key in keys)
+            Assert(CountOccurrences(locale, key) == 1, Path.GetFileName(localePath) + " does not define exactly one " + key);
     }
 }
 

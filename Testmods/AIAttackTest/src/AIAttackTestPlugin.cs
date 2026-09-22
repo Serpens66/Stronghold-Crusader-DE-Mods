@@ -90,6 +90,7 @@ namespace AIAttackTest
                 candidateSessionSubscription = null;
                 mapUnloadSubscription = candidateUnloadSubscription;
                 candidateUnloadSubscription = null;
+                candidate.MarkPublished();
                 runtime = candidate;
                 candidate = null;
                 if (!tickSubscriptionInstalled)

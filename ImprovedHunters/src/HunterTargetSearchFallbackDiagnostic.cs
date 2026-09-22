@@ -1079,8 +1079,6 @@ namespace ImprovedHunters
 
             disposed = true;
             featureAvailable = false;
-            transaction?.Dispose();
-            transaction = null;
             lock (observationLock)
             {
                 acceptedMoveObservations.Clear();

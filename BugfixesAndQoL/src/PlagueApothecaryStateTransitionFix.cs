@@ -103,8 +103,6 @@ namespace BugfixesAndQoL
 
             disposed = true;
             correctionAvailable = false;
-            transaction?.Dispose();
-            transaction = null;
         }
 
         private void CompleteVanillaStateTransition(NativePointer<X64SmartCPUContext> context)

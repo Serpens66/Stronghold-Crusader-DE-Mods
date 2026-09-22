@@ -46,7 +46,7 @@ namespace APIShared
     {
         private readonly string binaryHash;
         private readonly GatehouseDistanceOriginTarget target;
-        private readonly INativeMemory memory;
+        private readonly GatehousePermanentRuntimeState runtimeState;
         private readonly NativeOwnershipRegistry ownership;
         private readonly object mutationSync;
         private readonly ManualLogSource log;
@@ -55,14 +55,14 @@ namespace APIShared
         public GatehouseDistanceOriginService(
             string binaryHash,
             GatehouseDistanceOriginTarget target,
-            INativeMemory memory,
+            GatehousePermanentRuntimeState runtimeState,
             NativeOwnershipRegistry ownership,
             object mutationSync,
             ManualLogSource log)
         {
             this.binaryHash = binaryHash;
             this.target = target ?? throw new ArgumentNullException(nameof(target));
-            this.memory = memory ?? throw new ArgumentNullException(nameof(memory));
+            this.runtimeState = runtimeState ?? throw new ArgumentNullException(nameof(runtimeState));
             this.ownership = ownership ?? throw new ArgumentNullException(nameof(ownership));
             this.mutationSync = mutationSync ?? throw new ArgumentNullException(nameof(mutationSync));
             this.log = log;
@@ -114,23 +114,7 @@ namespace APIShared
                         return true;
                     }
 
-                    byte[] oldBytes = BytesFor(expectedOrigin);
-                    byte[] desiredBytes = BytesFor(origin);
-                    GatehouseNativeMutation.Execute(
-                        memory,
-                        target.Intervals,
-                        VerifyExpected,
-                        () =>
-                        {
-                            WriteBytes(desiredBytes);
-                            VerifyBytes(desiredBytes, "requested distance-origin block");
-                        },
-                        () =>
-                        {
-                            WriteBytes(oldBytes);
-                            VerifyBytes(oldBytes, "rolled-back distance-origin block");
-                        });
-
+                    runtimeState.PublishOrigin(origin);
                     expectedOrigin = origin;
                     VerifyExpected();
                     diagnostic = Diagnostic(
@@ -152,29 +136,11 @@ namespace APIShared
             }
         }
 
-        private byte[] BytesFor(GatehouseDistanceOrigin origin) =>
-            origin == GatehouseDistanceOrigin.BuildingBoundsCenter ? target.CenteredBytes : target.VanillaBytes;
-
-        private void VerifyExpected() =>
-            VerifyBytes(BytesFor(expectedOrigin), expectedOrigin == GatehouseDistanceOrigin.BuildingBoundsCenter
-                ? "centered distance-origin block"
-                : "Vanilla distance-origin block");
-
-        private void WriteBytes(byte[] values)
+        private void VerifyExpected()
         {
-            for (int index = 0; index < values.Length; index++)
-                memory.WriteByte(target.Block + index, values[index]);
-        }
-
-        private void VerifyBytes(byte[] expected, string name)
-        {
-            for (int index = 0; index < expected.Length; index++)
-            {
-                byte actual = memory.ReadByte(target.Block + index);
-                if (actual != expected[index])
-                    throw new InvalidOperationException(
-                        $"Gatehouse {name} changed unexpectedly at +0x{index:X}: expected=0x{expected[index]:X2}, actual=0x{actual:X2}.");
-            }
+            if (!runtimeState.IsDistanceInstalled || runtimeState.Origin != expectedOrigin)
+                throw new InvalidOperationException(
+                    $"Gatehouse distance-origin logical state changed unexpectedly: expected={expectedOrigin}, actual={runtimeState.Origin}.");
         }
 
         private NativeCapabilityDiagnostic Diagnostic(NativeCapabilityState state, string reason) =>
@@ -209,128 +175,4 @@ namespace APIShared
         }
     }
 
-    internal static class GatehouseNativeMutation
-    {
-        public static void Execute(
-            INativeMemory memory,
-            IReadOnlyList<NativeInterval> intervals,
-            Action verifyExpected,
-            Action writeAndVerify,
-            Action rollbackAndVerify)
-        {
-            if (memory == null)
-                throw new ArgumentNullException(nameof(memory));
-            if (intervals == null || intervals.Count == 0)
-                throw new ArgumentException("At least one native interval is required.", nameof(intervals));
-            if (verifyExpected == null)
-                throw new ArgumentNullException(nameof(verifyExpected));
-            if (writeAndVerify == null)
-                throw new ArgumentNullException(nameof(writeAndVerify));
-            if (rollbackAndVerify == null)
-                throw new ArgumentNullException(nameof(rollbackAndVerify));
-
-            List<PageProtection> protections = AcquireWritablePages(memory, intervals);
-            Exception primary = null;
-            Exception cleanup = null;
-            bool writesStarted = false;
-            try
-            {
-                try
-                {
-                    // Close the race between the public preflight and acquiring page write access.
-                    verifyExpected();
-                    writesStarted = true;
-                    writeAndVerify();
-                }
-                catch (Exception ex)
-                {
-                    primary = ex;
-                    if (writesStarted)
-                    {
-                        try { rollbackAndVerify(); }
-                        catch (Exception rollback)
-                        {
-                            primary = new AggregateException("The native write and rollback both failed.", primary, rollback);
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                for (int index = protections.Count - 1; index >= 0; index--)
-                {
-                    PageProtection protection = protections[index];
-                    try { memory.RestoreProtection(protection.Address, memory.PageSize, protection.Protection); }
-                    catch (Exception ex) { cleanup = Combine(cleanup, ex); }
-                }
-                foreach (NativeInterval interval in intervals)
-                {
-                    try { memory.Flush(interval.Start, checked((int)(interval.End - interval.Start))); }
-                    catch (Exception ex) { cleanup = Combine(cleanup, ex); }
-                }
-            }
-
-            if (primary != null && cleanup != null)
-                throw new AggregateException("The gatehouse transaction and cleanup both failed.", primary, cleanup);
-            if (primary != null)
-                throw primary;
-            if (cleanup != null)
-                throw cleanup;
-        }
-
-        private static List<PageProtection> AcquireWritablePages(
-            INativeMemory memory,
-            IReadOnlyList<NativeInterval> intervals)
-        {
-            if (memory.PageSize <= 0)
-                throw new InvalidOperationException("The native memory adapter returned an invalid page size.");
-
-            var pages = new SortedSet<long>();
-            foreach (NativeInterval interval in intervals)
-            {
-                long firstPage = PageStart(interval.Start, memory.PageSize);
-                long lastPage = PageStart(interval.End - 1, memory.PageSize);
-                for (long page = firstPage; page <= lastPage; page = checked(page + memory.PageSize))
-                    pages.Add(page);
-            }
-
-            var protections = new List<PageProtection>();
-            try
-            {
-                foreach (long page in pages)
-                    protections.Add(new PageProtection(page, memory.MakeWritable(page, memory.PageSize)));
-                return protections;
-            }
-            catch (Exception primary)
-            {
-                Exception cleanup = null;
-                for (int index = protections.Count - 1; index >= 0; index--)
-                {
-                    PageProtection protection = protections[index];
-                    try { memory.RestoreProtection(protection.Address, memory.PageSize, protection.Protection); }
-                    catch (Exception ex) { cleanup = Combine(cleanup, ex); }
-                }
-                if (cleanup != null)
-                    throw new AggregateException("Acquiring writable native pages and cleanup both failed.", primary, cleanup);
-                throw;
-            }
-        }
-
-        private static long PageStart(long address, int pageSize) => address - address % pageSize;
-
-        private static Exception Combine(Exception current, Exception next) =>
-            current == null ? next : new AggregateException(current, next);
-
-        private readonly struct PageProtection
-        {
-            public PageProtection(long address, uint protection)
-            {
-                Address = address;
-                Protection = protection;
-            }
-
-            public long Address { get; }
-            public uint Protection { get; }
-        }
-    }
 }

@@ -9,6 +9,7 @@ using RedBird.X64.Hooks;
 using RedBird.X64.Hooks.Context;
 using RedBird.X64.Hooks.Transaction;
 using System.Runtime.InteropServices;
+using System.Threading;
 using SHCDESE.Interop;
 
 namespace ExtraFeatures
@@ -21,6 +22,8 @@ namespace ExtraFeatures
         private const int VanillaLifetime = 800;
         private const int LifetimeImmediateOffset = 9;
         private const int LifetimeComparisonOffset = 18;
+        private const int LifetimeComparisonMinimumHookSize = 9;
+        private const int LifetimeComparisonDisplacedBytes = 17;
         private const int LifetimePatternRva = 0x9A164;
 
         // Disease update signature at reference RVA 0x9A164; the lifetime opcode
@@ -73,18 +76,7 @@ namespace ExtraFeatures
                     $"The plague lifetime has an unexpected native value: expected={VanillaLifetime}, actual={currentLifetime}.");
             }
 
-            if (referenceHashMatches)
-            {
-                TryInitializeAiFlagException(libraryHandle, region, memory, referenceHashMatches, matchOffset);
-            }
-            else
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    "Extra Features AI flag and Cesspit Disease lifetime exceptions are disabled " +
-                    "for this unknown CrusaderDE.dll; only the signature-validated global plague " +
-                    "duration is available.");
-            }
+            TryInitializeAiFlagException(libraryHandle, region, memory, referenceHashMatches, matchOffset);
         }
 
         public void Apply(double multiplier, bool enabled)
@@ -109,12 +101,8 @@ namespace ExtraFeatures
 
             try
             {
+                Volatile.Write(ref expectedLifetime, VanillaLifetime);
                 conditionalExceptionAvailable = false;
-                conditionalTransaction?.Dispose();
-                conditionalTransaction = null;
-                aiFlagDiseaseTracker?.Dispose();
-                aiFlagDiseaseTracker = null;
-                RestoreVanilla();
             }
             finally
             {
@@ -129,40 +117,62 @@ namespace ExtraFeatures
             bool referenceHashMatches,
             int lifetimePatternRva)
         {
+            HookTransaction candidate = null;
+            bool hookPublished = false;
             try
             {
-                aiFlagDiseaseTracker = new AiFlagDiseaseTracker(
-                    log,
-                    libraryHandle,
-                    region,
-                    memory,
-                    referenceHashMatches);
-
                 ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
-                conditionalTransaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
+                candidate = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
                 ExtraFeaturesHookInfrastructure.AddContextHook(
-                    conditionalTransaction,
+                    candidate,
                     lifetimeComparisonHook,
                     libraryBase + unchecked((ulong)(lifetimePatternRva + LifetimeComparisonOffset)),
                     ApplyConditionalLifetime,
                     registers: X64SmartCPUContextRegs.Volatile | X64SmartCPUContextRegs.RBX,
+                    hookSize: LifetimeComparisonMinimumHookSize,
                     errorMode: CallbackErrorMode.LogAndContinue,
                     placement: OverwrittenInstructionPlacement.AfterCallback);
-                CommitResult commitResult = conditionalTransaction.Commit();
+                CommitResult commitResult = candidate.Commit();
                 if (!commitResult.IsCompleteSuccess || !lifetimeComparisonHook.Success)
                     throw new InvalidOperationException("The conditional plague-lifetime hook was not installed.");
 
+                if (!lifetimeComparisonHook.IsInstalled)
+                    throw new InvalidOperationException("The permanent plague-lifetime hook is not active.");
+                if (lifetimeComparisonHook.Hook.DisplacedByteCount != LifetimeComparisonDisplacedBytes)
+                    throw new InvalidOperationException("The plague-lifetime hook displaced an unexpected native span.");
+
                 conditionalExceptionAvailable = true;
+                if (referenceHashMatches)
+                {
+                    try
+                    {
+                        aiFlagDiseaseTracker = new AiFlagDiseaseTracker(
+                            log,
+                            libraryHandle,
+                            region,
+                            memory,
+                            referenceHashMatches);
+                    }
+                    catch (Exception ex)
+                    {
+                        Shared.DebugLogHelper.LogWarning(
+                            log,
+                            "Extra Features could not initialize AI flag Disease tracking; " +
+                            $"the permanent lifetime hook remains active without that exception: {ex}");
+                    }
+                }
+
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Extra Features AI flag and Cesspit Disease lifetime exceptions initialized: " +
                     $"comparisonRva=0x{lifetimePatternRva + LifetimeComparisonOffset:X}, vanilla={VanillaLifetime}.");
+                conditionalTransaction = candidate;
+                hookPublished = true;
             }
             catch (Exception ex)
             {
                 conditionalExceptionAvailable = false;
-                conditionalTransaction?.Dispose();
-                conditionalTransaction = null;
+                RollbackUnpublishedLifetimeComparisonHook(candidate, hookPublished);
                 aiFlagDiseaseTracker?.Dispose();
                 aiFlagDiseaseTracker = null;
                 Shared.DebugLogHelper.LogWarning(
@@ -172,9 +182,17 @@ namespace ExtraFeatures
             }
         }
 
+        private static void RollbackUnpublishedLifetimeComparisonHook(
+            HookTransaction candidate,
+            bool hookPublished)
+        {
+            if (!hookPublished)
+                candidate?.Dispose();
+        }
+
         private void ApplyConditionalLifetime(NativePointer<X64SmartCPUContext> context)
         {
-            if (!conditionalExceptionAvailable || aiFlagDiseaseTracker == null)
+            if (!conditionalExceptionAvailable)
                 return;
 
             try
@@ -183,9 +201,14 @@ namespace ExtraFeatures
                 if (registers->R8 == 0)
                     throw new InvalidOperationException("The Disease update supplied a null projectile-array base.");
 
-                GameProjectile* projectile = (GameProjectile*)(registers->R8 + registers->RBX);
-                if (aiFlagDiseaseTracker.IsTracked(projectile))
-                    registers->RAX = VanillaLifetime;
+                int lifetime = Volatile.Read(ref expectedLifetime);
+                if (aiFlagDiseaseTracker != null)
+                {
+                    GameProjectile* projectile = (GameProjectile*)(registers->R8 + registers->RBX);
+                    if (aiFlagDiseaseTracker.IsTracked(projectile))
+                        lifetime = VanillaLifetime;
+                }
+                registers->RAX = unchecked((uint)lifetime);
             }
             catch (Exception ex)
             {
@@ -196,8 +219,8 @@ namespace ExtraFeatures
                 conditionalCallbackFailureLogged = true;
                 Shared.DebugLogHelper.LogError(
                     log,
-                    "Extra Features AI flag and Cesspit Disease lifetime exceptions were disabled for this process; " +
-                    $"the configured global plague duration remains active: {ex}");
+                    "Extra Features plague lifetime callback was disabled for this process; " +
+                    $"the physically installed hook now preserves Vanilla behavior: {ex}");
             }
         }
 
@@ -208,28 +231,12 @@ namespace ExtraFeatures
 
         private void SetLifetime(int desiredLifetime)
         {
-            if (desiredLifetime == expectedLifetime)
+            if (desiredLifetime == Volatile.Read(ref expectedLifetime))
                 return;
+            if (!conditionalExceptionAvailable || !lifetimeComparisonHook.IsInstalled)
+                throw new InvalidOperationException("The permanent plague-lifetime hook is unavailable.");
 
-            int currentLifetime = Marshal.ReadInt32(lifetimeAddress);
-            if (currentLifetime != expectedLifetime)
-            {
-                throw new InvalidOperationException(
-                    $"The plague lifetime bytes changed unexpectedly: expected={expectedLifetime}, actual={currentLifetime}.");
-            }
-
-            CodePatch.Write(
-                unchecked((ulong)lifetimeAddress.ToInt64()),
-                BitConverter.GetBytes(desiredLifetime));
-
-            int verifiedLifetime = Marshal.ReadInt32(lifetimeAddress);
-            if (verifiedLifetime != desiredLifetime)
-            {
-                throw new InvalidOperationException(
-                    $"The plague lifetime patch verification failed: expected={desiredLifetime}, actual={verifiedLifetime}.");
-            }
-
-            expectedLifetime = desiredLifetime;
+            Volatile.Write(ref expectedLifetime, desiredLifetime);
         }
 
         private static double ClampMultiplier(double value)

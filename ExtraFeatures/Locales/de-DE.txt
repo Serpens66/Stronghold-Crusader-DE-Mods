@@ -48,7 +48,6 @@ Common.PresetScopeLocal=Lokal
 
 # Format: key=value
 Common.LegacySomeSettingsWarning=FEHLER: Der veraltete Mod SomeSettings_Serp ist ebenfalls geladen. Bitte deinstalliere SomeSettings_Serp, um doppelte oder widerspruechliche Funktionen zu vermeiden.
-Common.ResetToDefault=Zurücksetzen
 Common.EnableMod=Mod aktivieren
 Common.HostActivationLabel=(Host-)
 Common.ClientActivationLabel=(Client-Settings)
@@ -106,14 +105,13 @@ SomeSettings.ApothecaryPlagueSearchDistanceHelp=Maximale Manhattan-Distanz vom z
 Common.HostOptions=HOST-OPTIONEN
 Common.ClientOptions=LOKALE CLIENT-OPTIONEN
 Common.HostReadOnly=Werte vom Host – schreibgeschützt
-Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern kannst.
 Common.EnableModHelp=Aktiviert oder deaktiviert diese Mod für die Partie.
 Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern damit nur ihre persönlichen Einstellungen.
 
 SomeSettings.PlagueTitle=Pest
 Common.Preset=Preset
-Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
-Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.
+Common.ActionsScopeHost=Geladene Presets und Einstellungsquellen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Geladene Presets und Einstellungsquellen betreffen nur deine lokalen Client-Optionen.
 SomeSettings.BuildingsProductionTitle=Gebäude und Produktion
 SomeSettings.CampfirePeasants=Wartende Bauern am Burgfeuer
 SomeSettings.CampfirePeasantsHelp=-1 = unverändert. Erlaubter Bereich: -1 bis 200. Legt die maximale Anzahl Bauern fest, die am Burgfeuer warten.

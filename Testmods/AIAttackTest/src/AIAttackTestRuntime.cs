@@ -21,20 +21,14 @@ namespace AIAttackTest
 
         private readonly ManualLogSource log;
         private readonly AIAttackTestSettings settings;
-        private readonly ulong recruitImmediateAddress;
-        private readonly ulong lordBranchAddress;
+        private readonly AIAttackPermanentNativeOverrides nativeOverrides;
         private readonly Dictionary<int, AicOverrideState> aicOverrides =
             new Dictionary<int, AicOverrideState>();
         private readonly Dictionary<int, AttackDiagnosticState> diagnostics =
             new Dictionary<int, AttackDiagnosticState>();
         private readonly List<int> activeAiPlayerIds = new List<int>();
 
-        private byte[] lastWrittenRecruitBytes =
-            (byte[])AIAttackNativeContract.VanillaRecruitTicks.Clone();
-        private byte[] lastWrittenLordBytes =
-            (byte[])AIAttackNativeContract.VanillaLordBranch.Clone();
         private bool mapActive;
-        private bool nativeOwnershipLost;
 
         internal AIAttackTestRuntime(
             ManualLogSource log,
@@ -82,8 +76,10 @@ namespace AIAttackTest
                 "post-breach lord limiter branch");
 
             ulong moduleBase = unchecked((ulong)context.ModuleHandle.ToInt64());
-            recruitImmediateAddress = checked(moduleBase + (ulong)recruitRva);
-            lordBranchAddress = checked(moduleBase + (ulong)lordRva);
+            nativeOverrides = new AIAttackPermanentNativeOverrides(
+                context.Region,
+                context.Memory,
+                moduleBase);
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"AI attack native patches resolved: recruitImmediateRva=0x{recruitRva:X}, " +
@@ -144,7 +140,7 @@ namespace AIAttackTest
             }
             try
             {
-                RestoreNativeBytes(reason);
+                RestoreNativeOverrides();
             }
             catch (Exception ex)
             {
@@ -166,7 +162,12 @@ namespace AIAttackTest
         }
 
         internal void RollbackUnpublishedInitialization() =>
-            EndMap("unpublished initialization rollback");
+            nativeOverrides.RollbackUnpublished();
+
+        internal void MarkPublished()
+        {
+            nativeOverrides.MarkPublished();
+        }
 
         internal unsafe void OnGameTick(int tick)
         {
@@ -214,51 +215,9 @@ namespace AIAttackTest
 
         private void ApplyNativeSettings()
         {
-            if (nativeOwnershipLost)
-            {
-                throw new InvalidOperationException(
-                    "A native AI patch span was changed by another owner; AIAttackTest remains fail-closed for this process.");
-            }
-
-            byte[] desiredLord = settings.AttackLordAfterBreach
-                ? AIAttackNativeContract.AttackAllEligibleLordBranch
-                : AIAttackNativeContract.VanillaLordBranch;
-            byte[] desiredRecruit = AIAttackNativeContract.EncodeInt32(
-                AIAttackPolicy.CalculateInitialDefenseTicks(settings.InitialDefenseOnlyMonths));
-
-            byte[] previousLord = (byte[])lastWrittenLordBytes.Clone();
-            TransitionPatch(
-                lordBranchAddress,
-                ref lastWrittenLordBytes,
-                desiredLord,
-                "post-breach lord limiter");
-            try
-            {
-                TransitionPatch(
-                    recruitImmediateAddress,
-                    ref lastWrittenRecruitBytes,
-                    desiredRecruit,
-                    "initial recruitment comparison");
-            }
-            catch (Exception recruitError)
-            {
-                try
-                {
-                    TransitionPatch(
-                        lordBranchAddress,
-                        ref lastWrittenLordBytes,
-                        previousLord,
-                        "post-breach lord limiter rollback");
-                }
-                catch (Exception rollbackError)
-                {
-                    throw new AggregateException(
-                        "Recruitment patch application and lord patch rollback both failed.",
-                        recruitError,
-                        rollbackError);
-                }
-                throw;
-            }
+            nativeOverrides.Apply(
+                AIAttackPolicy.CalculateInitialDefenseTicks(settings.InitialDefenseOnlyMonths),
+                settings.AttackLordAfterBreach);
         }
 
         private void ResolveActiveAiPlayers()
@@ -375,82 +334,9 @@ namespace AIAttackTest
             }
         }
 
-        private void RestoreNativeBytes(string reason)
+        private void RestoreNativeOverrides()
         {
-            RestoreOwnedPatch(
-                recruitImmediateAddress,
-                ref lastWrittenRecruitBytes,
-                AIAttackNativeContract.VanillaRecruitTicks,
-                "initial recruitment comparison",
-                reason);
-            RestoreOwnedPatch(
-                lordBranchAddress,
-                ref lastWrittenLordBytes,
-                AIAttackNativeContract.VanillaLordBranch,
-                "post-breach lord limiter",
-                reason);
-        }
-
-        private void RestoreOwnedPatch(
-            ulong address,
-            ref byte[] lastWritten,
-            byte[] vanilla,
-            string label,
-            string reason)
-        {
-            byte[] current = ReadBytes(address, lastWritten.Length);
-            if (!current.AsSpan().SequenceEqual(lastWritten))
-            {
-                Shared.DebugLogHelper.LogWarning(
-                    log,
-                    $"Native cooperative restore skipped a foreign change: patch={label}, reason={reason}, " +
-                    $"expectedOwned={ToHex(lastWritten)}, actual={ToHex(current)}.");
-                nativeOwnershipLost = true;
-                return;
-            }
-            TransitionPatch(address, ref lastWritten, vanilla, label + " restore");
-        }
-
-        private static void TransitionPatch(
-            ulong address,
-            ref byte[] lastWritten,
-            byte[] desired,
-            string label)
-        {
-            byte[] current = ReadBytes(address, lastWritten.Length);
-            if (!current.AsSpan().SequenceEqual(lastWritten))
-            {
-                throw new InvalidOperationException(
-                    $"Cannot change {label}; native bytes changed from owned state: " +
-                    $"expected={ToHex(lastWritten)}, actual={ToHex(current)}.");
-            }
-            if (current.AsSpan().SequenceEqual(desired))
-                return;
-
-            byte[] previous = (byte[])current.Clone();
-            try
-            {
-                CodePatch.Write(address, desired);
-                byte[] verified = ReadBytes(address, desired.Length);
-                if (!verified.AsSpan().SequenceEqual(desired))
-                    throw new InvalidOperationException($"{label} write verification failed.");
-                lastWritten = (byte[])desired.Clone();
-            }
-            catch
-            {
-                byte[] afterFailure = ReadBytes(address, desired.Length);
-                if (afterFailure.AsSpan().SequenceEqual(desired))
-                    CodePatch.Write(address, previous);
-                lastWritten = previous;
-                throw;
-            }
-        }
-
-        private static byte[] ReadBytes(ulong address, int length)
-        {
-            byte[] bytes = new byte[length];
-            Marshal.Copy(unchecked((IntPtr)(long)address), bytes, 0, length);
-            return bytes;
+            nativeOverrides.RestoreVanilla();
         }
 
         private static void ValidateLoadedBytes(

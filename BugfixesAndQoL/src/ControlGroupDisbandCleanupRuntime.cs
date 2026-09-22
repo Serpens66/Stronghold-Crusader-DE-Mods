@@ -73,8 +73,7 @@ namespace BugfixesAndQoL
 
         public void Dispose()
         {
-            transaction?.Dispose();
-            transaction = null;
+            // Published process-lifetime detour remains rooted and installed.
         }
 
         private byte DisbandUnit(IntPtr unitManager, int unitId, byte playSound)

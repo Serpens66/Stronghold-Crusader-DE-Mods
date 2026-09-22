@@ -22,11 +22,10 @@ namespace BugfixesAndQoL
         private readonly IAiStoneReserveAivDataSource aivDataSource;
         private readonly Func<short, int?> stoneCostResolver;
         private readonly object stateLock = new object();
-        private readonly ulong hookAddress;
-        private readonly byte[] originalHookBytes;
         private HookTransaction transaction;
         private readonly HookHandle<X64InlineHook> reserveHook = new HookHandle<X64InlineHook>();
-        private bool correctionAvailable = true;
+        private volatile bool correctionAvailable = true;
+        private volatile bool logicallyEnabled;
         private bool firstCalculationLogged;
         private bool firstPositiveReserveLogged;
         private bool disposed;
@@ -100,10 +99,7 @@ namespace BugfixesAndQoL
                     throw new InvalidOperationException("The AI stone-reserve hook span is outside CrusaderDE.dll.");
                 }
 
-                hookAddress = libraryBase + unchecked((ulong)hookRva);
-                originalHookBytes = memory
-                    .Slice(hookRva, AiStoneReserveNativeDefinition.SellerReserveOverwriteLength)
-                    .ToArray();
+                ulong hookAddress = libraryBase + unchecked((ulong)hookRva);
                 transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);
                 BugfixesHookInfrastructure.AddContextHook(transaction, reserveHook,
                     hookAddress,
@@ -116,6 +112,12 @@ namespace BugfixesAndQoL
 
                 if (!commitResult.IsCompleteSuccess || !reserveHook.Success)
                     throw new InvalidOperationException("The AI seller stone-reserve hook was not installed.");
+                if (reserveHook.Hook.DisplacedByteCount !=
+                    AiStoneReserveNativeDefinition.SellerReserveOverwriteLength)
+                {
+                    throw new InvalidOperationException(
+                        "The AI seller stone-reserve hook displaced an unexpected native span.");
+                }
 
                 ApplySetting();
 
@@ -133,7 +135,10 @@ namespace BugfixesAndQoL
             }
             catch
             {
-                Dispose();
+                correctionAvailable = false;
+                transaction?.Dispose();
+                transaction = null;
+                disposed = true;
                 throw;
             }
         }
@@ -146,10 +151,8 @@ namespace BugfixesAndQoL
                     return;
 
                 correctionAvailable = false;
-                DisableNativeHookAndVerify();
+                logicallyEnabled = false;
                 disposed = true;
-                transaction?.Dispose();
-                transaction = null;
             }
         }
 
@@ -160,31 +163,17 @@ namespace BugfixesAndQoL
                 if (disposed || !reserveHook.Success)
                     return;
 
-                if (!correctionAvailable || !IsEnabled)
-                {
-                    DisableNativeHookAndVerify();
-                    return;
-                }
-
-                if (reserveHook.IsInstalled)
-                    return;
-
-                if (!HookBytesMatchOriginal())
+                if (!reserveHook.IsInstalled)
                 {
                     correctionAvailable = false;
+                    logicallyEnabled = false;
                     Shared.DebugLogHelper.LogError(
                         log,
-                        "Bugfixes and QoL AI stone-reserve hook was not re-enabled because its native target no longer contains the verified Vanilla bytes.");
+                        "Bugfixes and QoL AI stone-reserve fix was disabled because its permanent native hook is no longer installed.");
                     return;
                 }
 
-                reserveHook.Hook.Enable();
-                if (!reserveHook.IsInstalled)
-                    throw new InvalidOperationException("The AI stone-reserve native hook did not become active.");
-
-                Shared.DebugLogHelper.LogDebug(
-                    log,
-                    "Bugfixes and QoL AI stone-reserve native hook enabled by its synchronized host setting.");
+                logicallyEnabled = settings.EnableMod && settings.EnableAiStoneReserveFix;
             }
         }
 
@@ -330,14 +319,14 @@ namespace BugfixesAndQoL
                 return;
 
             correctionAvailable = false;
-            bool vanillaRestored = DisableNativeHookAndVerify();
+            logicallyEnabled = false;
             Shared.DebugLogHelper.LogError(
                 log,
-                $"Bugfixes and QoL AI stone-reserve fix disabled for this process; " +
-                $"nativeVanillaBytesRestored={vanillaRestored}: {ex}");
+                $"Bugfixes and QoL AI stone-reserve fix disabled logically for this process; " +
+                $"the permanent native hook remains installed and its callback is now a no-op: {ex}");
         }
 
-        private bool IsEnabled => settings.EnableMod && settings.EnableAiStoneReserveFix;
+        private bool IsEnabled => logicallyEnabled;
 
         private static bool IsExcludedMultiTileCommand(eMappers mapper)
         {
@@ -417,86 +406,6 @@ namespace BugfixesAndQoL
                 referenceHashMatches,
                 "AI AIV placement-retry state",
                 log: null);
-        }
-
-        private bool DisableNativeHookAndVerify()
-        {
-            if (!reserveHook.Success)
-                return true;
-
-            bool disableCallSucceeded = true;
-            if (reserveHook.IsInstalled)
-            {
-                try
-                {
-                    reserveHook.Hook.Disable();
-                    Shared.DebugLogHelper.LogDebug(
-                        log,
-                        "Bugfixes and QoL AI stone-reserve native hook disabled; Vanilla code restoration requested.");
-                }
-                catch (Exception ex)
-                {
-                    disableCallSucceeded = false;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL AI stone-reserve hook disable call failed; " +
-                        $"an exact Vanilla-byte restoration will be attempted: {ex}");
-                }
-            }
-
-            // X64InlineHook currently falls back to reassembly when its internal original-byte
-            // snapshot is unavailable. Restore our independently captured bytes if that roundtrip
-            // was not byte-exact.
-            bool restorationSucceeded = true;
-            if (!HookBytesMatchOriginal())
-            {
-                try
-                {
-                    restorationSucceeded = RestoreCapturedOriginalBytes();
-                }
-                catch (Exception ex)
-                {
-                    restorationSucceeded = false;
-                    Shared.DebugLogHelper.LogError(
-                        log,
-                        $"Bugfixes and QoL AI stone-reserve exact Vanilla-byte restoration failed: {ex}");
-                }
-            }
-
-            bool bytesRestored = restorationSucceeded && HookBytesMatchOriginal();
-            bool hookStateConsistent = disableCallSucceeded && !reserveHook.IsInstalled;
-            if (!bytesRestored || !hookStateConsistent)
-            {
-                correctionAvailable = false;
-                Shared.DebugLogHelper.LogError(
-                    log,
-                    $"Bugfixes and QoL AI stone-reserve native hook disable verification failed: " +
-                    $"vanillaBytesRestored={bytesRestored}, hookStateConsistent={hookStateConsistent}.");
-            }
-            return bytesRestored;
-        }
-
-        private bool HookBytesMatchOriginal()
-        {
-            if (originalHookBytes == null || originalHookBytes.Length == 0 || hookAddress == 0)
-                return false;
-
-            byte* current = (byte*)hookAddress;
-            for (int index = 0; index < originalHookBytes.Length; index++)
-            {
-                if (current[index] != originalHookBytes[index])
-                    return false;
-            }
-            return true;
-        }
-
-        private bool RestoreCapturedOriginalBytes()
-        {
-            if (originalHookBytes == null || originalHookBytes.Length == 0 || hookAddress == 0)
-                return false;
-
-            CodePatch.Write(hookAddress, originalHookBytes);
-            return HookBytesMatchOriginal();
         }
 
     }

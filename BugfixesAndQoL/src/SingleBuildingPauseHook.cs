@@ -73,6 +73,12 @@ namespace BugfixesAndQoL
             if (localHooksInstalled)
                 return;
 
+            if (buttonHook != null && addChimpActionsHook != null)
+            {
+                localHooksInstalled = true;
+                return;
+            }
+
             MethodInfo buttonMethod = FindButtonToggleZzzModeMethod();
             MethodInfo addChimpActionsMethod = FindAddChimpActionsMethod();
             Hook installedButtonHook = null;
@@ -87,10 +93,6 @@ namespace BugfixesAndQoL
                     (AddChimpActionsDelegate)AddChimpActionsHook);
                 AddChimpActionsDelegate installedAddChimpActionsTrampoline =
                     installedAddChimpActionsHook.GenerateTrampoline<AddChimpActionsDelegate>();
-                // Individual state does not exist yet, so keep the render-time correction dormant.
-                installedAddChimpActionsHook.Undo();
-                if (installedAddChimpActionsHook.IsApplied)
-                    throw new InvalidOperationException("The building-action UI hook remained active after preparation.");
 
                 buttonHook = installedButtonHook;
                 buttonTrampoline = installedButtonTrampoline;
@@ -123,39 +125,10 @@ namespace BugfixesAndQoL
             if (!localHooksInstalled)
                 return;
 
-            // Clear gameplay state before disposing the prepared managed hooks.
+            // Published MonoMod hooks remain rooted for the process lifetime.
+            // The callbacks use localHooksInstalled and the settings as logical gates.
             localHooksInstalled = false;
             ClearManualSleepOverrides();
-            ReleaseHook("button", ref buttonHook);
-            buttonTrampoline = null;
-            ReleaseHook("building action UI", ref addChimpActionsHook);
-            addChimpActionsTrampoline = null;
-        }
-
-        private void ReleaseHook(string hookName, ref Hook hook)
-        {
-            Hook current = hook;
-            hook = null;
-            if (current == null)
-                return;
-
-            try
-            {
-                current.Undo();
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL single-building pause {hookName} hook undo failed: {ex}");
-            }
-
-            try
-            {
-                current.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Shared.DebugLogHelper.LogError(log, $"Bugfixes and QoL single-building pause {hookName} hook disposal failed: {ex}");
-            }
         }
 
         public void InitializeNetwork()
@@ -325,6 +298,9 @@ namespace BugfixesAndQoL
             bool islamic)
         {
             bool result = addChimpActionsTrampoline(self, state, ref line1, ref line2, islamic);
+
+            if (!localHooksInstalled || !IsFeatureActive())
+                return result;
 
             try
             {
@@ -779,12 +755,8 @@ namespace BugfixesAndQoL
 
             try
             {
-                // Apply both dependencies before the store transition. If either
-                // activation fails, the caller discards the individual pause.
-                if (!addChimpActionsHook.IsApplied)
-                    addChimpActionsHook.Apply();
-                if (!addChimpActionsHook.IsApplied)
-                    throw new InvalidOperationException("The building-action UI hook did not become active.");
+                // Both published hooks remain installed. Only enable the native
+                // sleep-state interception before publishing the first override.
                 setSleepOverrideInterceptionEnabled(true);
                 overrideHooksActive = true;
                 return true;
@@ -799,17 +771,6 @@ namespace BugfixesAndQoL
                 {
                     ex = new AggregateException(ex, rollbackEx);
                 }
-
-                try
-                {
-                    if (addChimpActionsHook.IsApplied)
-                        addChimpActionsHook.Undo();
-                }
-                catch (Exception rollbackEx)
-                {
-                    ex = new AggregateException(ex, rollbackEx);
-                }
-
                 overrideHooksActive = false;
                 LogOverrideHookActivationFailure(ex.ToString());
                 return false;
@@ -867,34 +828,8 @@ namespace BugfixesAndQoL
                 if (!localHooksInstalled || addChimpActionsHook == null)
                     return;
 
-                bool shouldApply = overrides.Count > 0;
-                try
-                {
-                    if (shouldApply)
-                    {
-                        if (!addChimpActionsHook.IsApplied)
-                            addChimpActionsHook.Apply();
-                    }
-                    else if (addChimpActionsHook.IsApplied)
-                    {
-                        addChimpActionsHook.Undo();
-                        if (addChimpActionsHook.IsApplied)
-                            throw new InvalidOperationException("The building-action UI hook remained active.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    if (shouldApply && !overrideHookActivationFailureLogged)
-                    {
-                        overrideHookActivationFailureLogged = true;
-                        LogError($"single-building pause UI hook could not be activated: {ex}");
-                    }
-                    else if (!shouldApply && !overrideHookDeactivationFailureLogged)
-                    {
-                        overrideHookDeactivationFailureLogged = true;
-                        LogError($"single-building pause UI hook could not be deactivated: {ex}");
-                    }
-                }
+                // The permanent callback observes the override store directly;
+                // enqueueing preserves the former main-thread refresh ordering.
             });
         }
 

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+  <Operation Type="Add"
+             XPath="//n:Grid[n:Button[@Name='ButtonAction'] and n:Button[@Name='ButtonCancel']]">
+    <Content>
+      <Grid x:Name="ExtendedDataMapEditorSaveOptionsHost"
+            Width="270"
+            Height="34"
+            Margin="45,455,0,0"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Top"
+            Visibility="{Binding MapOptionVisibility}">
+        <CheckBox HorizontalAlignment="Left"
+                  VerticalAlignment="Center"
+                  Foreground="Black"
+                  Content="{Binding IncludeText}"
+                  IsChecked="{Binding IncludeMapModSettings, Mode=TwoWay}"
+                  ToolTipService.ShowDuration="60000">
+          <CheckBox.ToolTip>
+            <ToolTip seui:ToolTipResolutionScale.Enabled="True"
+                     Content="{Binding MapHelpText}"
+                     Background="#FF1D1710"
+                     Foreground="White"
+                     BorderBrush="#FFF2D48A"
+                     BorderThickness="1">
+              <ToolTip.Template>
+                <ControlTemplate TargetType="{x:Type ToolTip}">
+                  <Border Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="2"
+                          Padding="{TemplateBinding Padding}"
+                          MaxWidth="520">
+                    <TextBlock Text="{TemplateBinding Content}"
+                               Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}"
+                               TextWrapping="Wrap" />
+                  </Border>
+                </ControlTemplate>
+              </ToolTip.Template>
+            </ToolTip>
+          </CheckBox.ToolTip>
+        </CheckBox>
+      </Grid>
+    </Content>
+  </Operation>
+</Patch>

@@ -132,12 +132,13 @@ namespace AIAttackTest
             string plugin = Read(root, "src", "AIAttackTestPlugin.cs");
             string settings = Read(root, "src", "AIAttackTestSettings.cs");
             string runtime = Read(root, "src", "AIAttackTestRuntime.cs");
+            string nativeOverrides = Read(root, "src", "AIAttackPermanentNativeOverrides.cs");
             string project = Read(root, "AIAttackTest.csproj");
             string manifest = Read(root, "info.json");
             string assemblyInfo = Read(root, "Properties", "AssemblyInfo.cs");
             string future = Read(root, "FUTURE_WORK.md");
             string build = Read(root, "build.bat");
-            string combinedRuntime = plugin + settings + runtime + project;
+            string combinedRuntime = plugin + settings + runtime + nativeOverrides + project;
 
             Check(Count(settings, "[SyncHostOnly]") == 5,
                 "all five gameplay settings are host synchronized");
@@ -157,8 +158,13 @@ namespace AIAttackTest
                   runtime.Contains("lordCap={current.siege_max_troops} (preserved)"),
                 "full AIC writes preserve the lord-specific cap");
             Check(runtime.Contains("Only unchanged owned fields will be restored") &&
-                  runtime.Contains("Native cooperative restore skipped a foreign change"),
-                "cooperative non-cumulative restoration is present");
+                  runtime.Contains("nativeOverrides.RestoreVanilla()") &&
+                  nativeOverrides.Contains("RecruitDisplacedBytes = 15") &&
+                  nativeOverrides.Contains("LordDisplacedBytes = 14") &&
+                  nativeOverrides.Contains("MarkPublished()") &&
+                  nativeOverrides.Contains("RollbackUnpublished()") &&
+                  !nativeOverrides.Contains("CodePatch.Write("),
+                "cooperative AIC restoration and permanent native logical restoration are present");
             Check(runtime.Contains("GamePlayerManagerAPI.Instance.GetAILord(playerId)") &&
                   runtime.Contains("ResolveUniqueAicIndices"),
                 "active AI AIC resolution and deduplication are present");

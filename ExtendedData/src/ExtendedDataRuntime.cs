@@ -57,6 +57,8 @@ namespace ExtendedData
         private readonly ExtendedDataSettingsViewModel settings;
         private readonly CoopTrailPackageCatalog packageCatalog = new CoopTrailPackageCatalog();
         private readonly MissionCatalog catalog = new MissionCatalog();
+        private readonly EditorModSettingsSaveOptionsViewModel editorSaveOptions =
+            new EditorModSettingsSaveOptionsViewModel();
         private readonly Dictionary<int, ResolvedMission> resolved = new Dictionary<int, ResolvedMission>();
         private readonly Dictionary<int, FRONT_Multiplayer.CoopMissionSetupData> vanillaMissions =
             new Dictionary<int, FRONT_Multiplayer.CoopMissionSetupData>();
@@ -95,18 +97,30 @@ namespace ExtendedData
         public void Initialize()
         {
             ExtendedDataLaunchOriginApi.Initialize(log);
+            editorSaveOptions.SetEnabled(enabled);
+            GameXAMLManagerAPI.Instance.RegisterBinding(
+                "ExtendedDataMapEditorSaveOptionsHost",
+                editorSaveOptions);
+            GameXAMLManagerAPI.Instance.RegisterBinding(
+                "ExtendedDataTrailMakerSaveOptionsHost",
+                editorSaveOptions);
             missionSettingsCoordinator = new TrailMissionSettingsCoordinator(
                 log,
                 enabled,
                 settings.GetTrailPropertyMode,
                 settings.ApplyTrailSettingModes,
-                settings.ApplyTrailSettingModesForMod);
+                settings.ApplyTrailSettingModesForMod,
+                editorSaveOptions);
             missionSettingsCoordinator.CoopPackagesChanged += OnActiveCoopPackageChanged;
             missionSettingsCoordinator.CoopSetupOpened += OnCoopSetupOpened;
             missionSettingsCoordinator.CoopLaunchReceived += OnCoopLaunchReceived;
             missionSettingsCoordinator.SinglePlayerCoopStarting += PrepareSinglePlayerCoopStart;
             missionSettingsCoordinator.Initialize();
-            mapSettingsCoordinator = new MapModSettingsCoordinator(log, enabled, missionSettingsCoordinator);
+            mapSettingsCoordinator = new MapModSettingsCoordinator(
+                log,
+                enabled,
+                missionSettingsCoordinator,
+                editorSaveOptions);
             mapSettingsCoordinator.Initialize();
             RefreshModCompatibility();
             settings.ActiveCoopPackageChanged += OnActiveCoopPackageChanged;
@@ -139,6 +153,7 @@ namespace ExtendedData
                 return;
 
             enabled = value;
+            editorSaveOptions.SetEnabled(value);
             missionSettingsCoordinator?.SetEnabled(value);
             mapSettingsCoordinator?.SetEnabled(value);
             selected = null;

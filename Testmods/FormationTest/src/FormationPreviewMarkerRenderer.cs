@@ -93,7 +93,8 @@ namespace FormationTest
         }
 
         internal bool ReplacementAvailable =>
-            installed && !failed && visibleTileHook.Success && resetDrawListHook.Success;
+            installed && !failed && visibleTileHook.Success && visibleTileHook.IsInstalled &&
+            resetDrawListHook.Success;
 
         internal void Install(CrusaderLibraryLoadContext context)
         {
@@ -164,15 +165,14 @@ namespace FormationTest
                         $"result={result}, visible={visibleTileHook.Hook?.DisplacedByteCount}.");
                 }
 
-                transaction = candidate;
-                installed = true;
-                renderingActive = true;
-                SetRenderingActiveCore(false);
                 Shared.DebugLogHelper.LogInfo(
                     log,
                     "Formation preview marker renderer ready: " +
                     $"reset=0x{ResetDrawListRva:X}/span{ResetDrawListLength}, " +
                     $"visible=0x{VisibleTileHookRva:X}/span{ExpectedVisibleTileDisplacedBytes}.");
+                transaction = candidate;
+                installed = true;
+                renderingActive = false;
             }
             catch
             {
@@ -281,23 +281,10 @@ namespace FormationTest
 
         private void SetRenderingActiveCore(bool shouldBeActive)
         {
-            if (renderingActive == shouldBeActive)
-                return;
-            if (shouldBeActive)
-            {
-                visibleTileHook.Hook.Enable();
-                if (!visibleTileHook.IsInstalled)
-                    throw new InvalidOperationException(
-                        "Formation preview visible-tile hook could not be enabled.");
-                renderingActive = true;
-                return;
-            }
-
-            visibleTileHook.Hook.Disable();
-            if (visibleTileHook.IsInstalled)
+            if (!visibleTileHook.IsInstalled)
                 throw new InvalidOperationException(
-                    "Formation preview visible-tile hook could not be disabled.");
-            renderingActive = false;
+                    "Formation preview visible-tile hook is no longer installed.");
+            renderingActive = shouldBeActive;
         }
 
         private void RenderVisiblePreview(NativePointer<X64SmartCPUContext> context)
@@ -367,18 +354,7 @@ namespace FormationTest
         {
             failed = true;
             publishedPreview = EmptyPreview;
-            if (renderingActive)
-            {
-                try
-                {
-                    visibleTileHook.Hook.Disable();
-                }
-                catch
-                {
-                    // Vanilla remains authoritative after the fail-open transition.
-                }
-                renderingActive = false;
-            }
+            renderingActive = false;
             previewFailed();
             if (failureLogged)
                 return;

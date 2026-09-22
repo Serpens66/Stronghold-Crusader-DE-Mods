@@ -118,7 +118,7 @@ namespace BugfixesAndQoL
             catch
             {
                 try { pendingTransaction?.Dispose(); } catch { }
-                DisposeConnectivityHooks();
+                RollbackUnpublishedConnectivityHooks();
                 throw;
             }
         }
@@ -145,7 +145,7 @@ namespace BugfixesAndQoL
             foreach (var instruction in original) asm.AddInstruction(instruction);
         }
 
-        private void DisposeConnectivityHooks()
+        private void RollbackUnpublishedConnectivityHooks()
         {
             connectivityHookTransaction?.Dispose();
             connectivityHookTransaction = null;

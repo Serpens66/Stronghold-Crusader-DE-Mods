@@ -1,4 +1,5 @@
 using BepInEx.Logging;
+using RedBird.Core.Memory;
 using System;
 using System.Collections.Generic;
 
@@ -162,6 +163,7 @@ namespace APIShared
             object mutationSync,
             ManualLogSource log,
             GatehouseBuildTarget target,
+            ScanRegion nativeRegion,
             out GatehouseDistanceOriginService distanceOriginService,
             out NativeCapabilityDiagnostic distanceOriginDiagnostic,
             out GatehouseTimingService timingService,
@@ -170,6 +172,9 @@ namespace APIShared
             distanceOriginService = null;
             timingService = null;
             NativeSection functionSection;
+            GatehousePermanentRuntimeState runtimeState;
+            NativeResolutionException distanceLiveFailure = null;
+            NativeResolutionException timingLiveFailure = null;
 
             if (!string.Equals(binaryHash, target.BuildHash, StringComparison.OrdinalIgnoreCase))
             {
@@ -204,6 +209,23 @@ namespace APIShared
                 string actualFunctionHash = ApiSharedRuntime.ComputeSha256(memory.Slice(target.FunctionRva, target.FunctionSize));
                 if (!string.Equals(actualFunctionHash, target.FunctionHash, StringComparison.OrdinalIgnoreCase))
                     throw new NativeResolutionException(NativeCapabilityState.ValidationFailed, $"The gatehouse handler function hash changed: expected={target.FunctionHash}, actual={actualFunctionHash}.");
+
+                try { ValidateLiveDistance(nativeMemory, moduleBase, target); }
+                catch (NativeResolutionException ex) { distanceLiveFailure = ex; }
+                try { ValidateLiveTiming(nativeMemory, moduleBase, target); }
+                catch (NativeResolutionException ex) { timingLiveFailure = ex; }
+
+                bool installDistance = distanceLiveFailure == null;
+                bool installTiming = timingLiveFailure == null;
+                runtimeState = nativeRegion == null
+                    ? GatehousePermanentRuntimeState.CreateTestState(installDistance, installTiming)
+                    : installDistance || installTiming
+                        ? new GatehousePermanentRuntimeState(
+                            nativeRegion,
+                            unchecked((ulong)moduleBase),
+                            installDistance,
+                            installTiming)
+                        : GatehousePermanentRuntimeState.CreateTestState(false, false);
             }
             catch (NativeResolutionException ex)
             {
@@ -218,7 +240,8 @@ namespace APIShared
                 return;
             }
 
-            ResolveDistanceOrigin(
+            if (distanceLiveFailure == null)
+                ResolveDistanceOrigin(
                 binaryHash,
                 moduleBase,
                 memory,
@@ -228,9 +251,18 @@ namespace APIShared
                 log,
                 target,
                 functionSection,
+                runtimeState,
                 out distanceOriginService,
                 out distanceOriginDiagnostic);
-            ResolveTiming(
+            else
+                distanceOriginDiagnostic = Diagnostic(
+                    NativeCapabilityIds.GatehouseDistanceOrigin,
+                    distanceLiveFailure.State,
+                    binaryHash,
+                    distanceLiveFailure.Message);
+
+            if (timingLiveFailure == null)
+                ResolveTiming(
                 binaryHash,
                 moduleBase,
                 memory,
@@ -240,8 +272,60 @@ namespace APIShared
                 log,
                 target,
                 functionSection,
+                runtimeState,
                 out timingService,
                 out timingDiagnostic);
+            else
+                timingDiagnostic = Diagnostic(
+                    NativeCapabilityIds.GatehouseTiming,
+                    timingLiveFailure.State,
+                    binaryHash,
+                    timingLiveFailure.Message);
+        }
+
+        private static void ValidateLiveDistance(
+            INativeMemory memory,
+            long moduleBase,
+            GatehouseBuildTarget target) =>
+            RequireLiveBytes(
+                memory,
+                moduleBase + target.DistanceBlockRva,
+                target.VanillaDistanceBlockBytes,
+                "live gatehouse distance block");
+
+        private static void ValidateLiveTiming(
+            INativeMemory memory,
+            long moduleBase,
+            GatehouseBuildTarget target)
+        {
+            RequireLiveBytes(
+                memory,
+                moduleBase + target.DecisionBlockRva,
+                target.DecisionBlockBytes,
+                "live gatehouse decision block");
+            RequireLiveBytes(
+                memory,
+                moduleBase + target.HumanDelayBlockRva,
+                target.HumanDelayBlockBytes,
+                "live gatehouse human-delay block");
+        }
+
+        private static void RequireLiveBytes(
+            INativeMemory memory,
+            long address,
+            byte[] expected,
+            string name)
+        {
+            for (int index = 0; index < expected.Length; index++)
+            {
+                byte actual = memory.ReadByte(address + index);
+                if (actual != expected[index])
+                {
+                    throw new NativeResolutionException(
+                        NativeCapabilityState.ValidationFailed,
+                        $"{name} changed at +0x{index:X}: expected=0x{expected[index]:X2}, actual=0x{actual:X2}.");
+                }
+            }
         }
 
         private static void ResolveDistanceOrigin(
@@ -254,6 +338,7 @@ namespace APIShared
             ManualLogSource log,
             GatehouseBuildTarget target,
             NativeSection functionSection,
+            GatehousePermanentRuntimeState runtimeState,
             out GatehouseDistanceOriginService service,
             out NativeCapabilityDiagnostic diagnostic)
         {
@@ -271,7 +356,8 @@ namespace APIShared
                     moduleBase + target.DistanceBlockRva,
                     target.VanillaDistanceBlockBytes,
                     target.CenteredDistanceBlockBytes);
-                service = new GatehouseDistanceOriginService(binaryHash, memoryTarget, nativeMemory, ownership, mutationSync, log);
+                service = new GatehouseDistanceOriginService(
+                    binaryHash, memoryTarget, runtimeState, ownership, mutationSync, log);
                 diagnostic = AvailableDiagnostic(NativeCapabilityIds.GatehouseDistanceOrigin, binaryHash, target);
             }
             catch (NativeResolutionException ex)
@@ -294,6 +380,7 @@ namespace APIShared
             ManualLogSource log,
             GatehouseBuildTarget target,
             NativeSection functionSection,
+            GatehousePermanentRuntimeState runtimeState,
             out GatehouseTimingService service,
             out NativeCapabilityDiagnostic diagnostic)
         {
@@ -322,7 +409,8 @@ namespace APIShared
                     moduleBase + target.HumanCloseDistanceRva,
                     moduleBase + target.HumanReopenDelayRva,
                     invariants);
-                service = new GatehouseTimingService(binaryHash, memoryTarget, nativeMemory, ownership, mutationSync, log);
+                service = new GatehouseTimingService(
+                    binaryHash, memoryTarget, runtimeState, ownership, mutationSync, log);
                 diagnostic = AvailableDiagnostic(NativeCapabilityIds.GatehouseTiming, binaryHash, target);
             }
             catch (NativeResolutionException ex)
@@ -464,7 +552,7 @@ namespace APIShared
         private const int UnitsPerTile = 8;
         private readonly string binaryHash;
         private readonly GatehouseTimingTarget target;
-        private readonly INativeMemory memory;
+        private readonly GatehousePermanentRuntimeState runtimeState;
         private readonly NativeOwnershipRegistry ownership;
         private readonly object mutationSync;
         private readonly ManualLogSource log;
@@ -476,14 +564,14 @@ namespace APIShared
         public GatehouseTimingService(
             string binaryHash,
             GatehouseTimingTarget target,
-            INativeMemory memory,
+            GatehousePermanentRuntimeState runtimeState,
             NativeOwnershipRegistry ownership,
             object mutationSync,
             ManualLogSource log)
         {
             this.binaryHash = binaryHash;
             this.target = target ?? throw new ArgumentNullException(nameof(target));
-            this.memory = memory ?? throw new ArgumentNullException(nameof(memory));
+            this.runtimeState = runtimeState ?? throw new ArgumentNullException(nameof(runtimeState));
             this.ownership = ownership ?? throw new ArgumentNullException(nameof(ownership));
             this.mutationSync = mutationSync ?? throw new ArgumentNullException(nameof(mutationSync));
             this.log = log;
@@ -552,7 +640,7 @@ namespace APIShared
                         diagnostic = Diagnostic(NativeCapabilityState.Available, "The requested gatehouse timing values are already active and were verified.");
                         return true;
                     }
-                    WriteTransaction(aiDistance, aiDelay, humanDistance, humanDelay);
+                    runtimeState.PublishTiming(aiDistance, aiDelay, humanDistance, humanDelay);
                     expectedAiDistance = aiDistance;
                     expectedAiDelay = aiDelay;
                     expectedHumanDistance = humanDistance;
@@ -572,50 +660,8 @@ namespace APIShared
             }
         }
 
-        private void WriteTransaction(int aiDistance, int aiDelay, int humanDistance, int humanDelay)
-        {
-            int oldAiDistance = expectedAiDistance;
-            int oldAiDelay = expectedAiDelay;
-            int oldHumanDistance = expectedHumanDistance;
-            int oldHumanDelay = expectedHumanDelay;
-            GatehouseNativeMutation.Execute(
-                memory,
-                target.Intervals,
-                VerifyOwnedValues,
-                () =>
-                {
-                    memory.WriteInt32(target.AiDistance, aiDistance);
-                    memory.WriteInt32(target.AiDelay, aiDelay);
-                    memory.WriteInt32(target.HumanDistance, humanDistance);
-                    memory.WriteInt32(target.HumanDelay, humanDelay);
-                    Verify(target.AiDistance, aiDistance, "AI distance");
-                    Verify(target.AiDelay, aiDelay, "AI delay");
-                    Verify(target.HumanDistance, humanDistance, "human distance");
-                    Verify(target.HumanDelay, humanDelay, "human delay");
-                },
-                () =>
-                {
-                    memory.WriteInt32(target.AiDistance, oldAiDistance);
-                    memory.WriteInt32(target.AiDelay, oldAiDelay);
-                    memory.WriteInt32(target.HumanDistance, oldHumanDistance);
-                    memory.WriteInt32(target.HumanDelay, oldHumanDelay);
-                    Verify(target.AiDistance, oldAiDistance, "rolled-back AI distance");
-                    Verify(target.AiDelay, oldAiDelay, "rolled-back AI delay");
-                    Verify(target.HumanDistance, oldHumanDistance, "rolled-back human distance");
-                    Verify(target.HumanDelay, oldHumanDelay, "rolled-back human delay");
-                });
-        }
-
         private void VerifyInitialLayoutAndOwnedValues()
         {
-            foreach (NativeByteInvariant invariant in target.InstructionInvariants)
-            {
-                byte actual = memory.ReadByte(invariant.Address);
-                if (actual != invariant.Value)
-                    throw new NativeResolutionException(
-                        NativeCapabilityState.ValidationFailed,
-                        $"Gatehouse instruction byte changed unexpectedly at target offset: expected=0x{invariant.Value:X2}, actual=0x{actual:X2}.");
-            }
             try
             {
                 VerifyOwnedValues();
@@ -628,17 +674,18 @@ namespace APIShared
 
         private void VerifyOwnedValues()
         {
-            Verify(target.AiDistance, expectedAiDistance, "AI distance");
-            Verify(target.AiDelay, expectedAiDelay, "AI delay");
-            Verify(target.HumanDistance, expectedHumanDistance, "human distance");
-            Verify(target.HumanDelay, expectedHumanDelay, "human delay");
-        }
-
-        private void Verify(long address, int expected, string name)
-        {
-            int actual = memory.ReadInt32(address);
-            if (actual != expected)
-                throw new InvalidOperationException($"Gatehouse {name} changed unexpectedly: expected={expected}, actual={actual}.");
+            runtimeState.ReadTiming(
+                out int aiDistance,
+                out int aiDelay,
+                out int humanDistance,
+                out int humanDelay);
+            if (!runtimeState.IsTimingInstalled ||
+                aiDistance != expectedAiDistance || aiDelay != expectedAiDelay ||
+                humanDistance != expectedHumanDistance || humanDelay != expectedHumanDelay)
+            {
+                throw new InvalidOperationException(
+                    "Gatehouse timing logical state changed unexpectedly.");
+            }
         }
 
         private NativeCapabilityDiagnostic Diagnostic(NativeCapabilityState state, string reason) =>

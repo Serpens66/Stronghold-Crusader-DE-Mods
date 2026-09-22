@@ -90,8 +90,6 @@ namespace BugfixesAndQoL
 
             disposed = true;
             correctionAvailable = false;
-            transaction?.Dispose();
-            transaction = null;
         }
 
         public void SetTreatmentCompletedObserver(Action<int> observer)

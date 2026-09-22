@@ -32,6 +32,13 @@ if exist "%GAME_SCRIPT_EXTENDER_DIR%\SHCDESE.dll" (
 ) else goto build_failed
 if not exist "%API_SHARED_DIR%\APIShared.dll" goto build_failed
 
+pushd "%PROJECT_DIR%"
+"%MSBUILD%" "%PROJECT_DIR%..\_inspect\ExtraFeaturesNativeTests\ExtraFeaturesNativeTests.csproj" /p:Configuration=Release /p:GameDir="%GAME_DIR%"
+if errorlevel 1 goto build_failed_popd
+"%PROJECT_DIR%..\_inspect\ExtraFeaturesNativeTests\bin\ExtraFeaturesNativeTests.exe"
+if not "%ERRORLEVEL%"=="0" goto build_failed_popd
+popd
+
 if exist "%LOCAL_PLUGIN_DIR%\" rmdir /S /Q "%LOCAL_PLUGIN_DIR%"
 pushd "%PROJECT_DIR%"
 "%MSBUILD%" ExtraFeatures.csproj /p:Configuration=Debug /p:GameDir="%GAME_DIR%" /p:ExtenderDir="%EXTENDER_DIR%" /p:ApiSharedDir="%API_SHARED_DIR%"

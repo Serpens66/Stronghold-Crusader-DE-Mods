@@ -500,10 +500,12 @@ internal static class Program
               source.Contains("private const int ReferenceRejectJumpRva = 0x5472A;"),
             "AIV production patch selects only the final six-byte rejection jump");
         Check(source.Contains("{ 0x0F, 0x82, 0x9D, 0x03, 0x00, 0x00 }") &&
-              source.Contains("{ 0x90, 0x90, 0x90, 0x90, 0x90, 0x90 }") &&
-              Regex.Matches(source, @"CodePatch\.Write\(patchAddress,").Count == 2 &&
-              !Regex.IsMatch(source, @"CodePatch\.Write\((?!patchAddress,)"),
-            "AIV production patch replaces only the audited JB with six NOPs");
+              source.Contains("MinimumHookSize = 6") &&
+              source.Contains("ExpectedDisplacedByteCount = 20") &&
+              source.Contains("new PermanentInstructionSkipPatch.Site(") &&
+              source.Contains("patch.SetEnabled(settings.EnableMod && settings.EnableAivDefenderPositionFix)") &&
+              !source.Contains("CodePatch.Write("),
+            "AIV production patch permanently hooks the audited JB and switches only its logical skip gate");
     }
 
     private static void CheckHealerAttackCommandContracts(byte[] image)
@@ -926,9 +928,17 @@ internal static class Program
         })
         {
             string source = File.ReadAllText(Path.Combine(sourceDirectory, fileName));
-            Check(source.Contains("CodePatch.Write("), fileName + " does not use RedBird CodePatch.Write");
+            Check(!source.Contains("CodePatch.Write("), fileName + " still changes executable bytes at runtime");
             Check(!source.Contains("VirtualProtect"), fileName + " retains manual page protection");
         }
+
+        string permanentSkip = File.ReadAllText(
+            Path.Combine(sourceDirectory, "PermanentInstructionSkipPatch.cs"));
+        Check(permanentSkip.Contains("DisplacedByteCount") &&
+              permanentSkip.Contains("SetEnabled(bool enabled)") &&
+              !permanentSkip.Contains("Hook.Enable()") &&
+              !permanentSkip.Contains("Hook.Disable()"),
+            "instruction-skip replacements use a permanent hook with a logical gate");
 
         string infrastructure = File.ReadAllText(Path.Combine(sourceDirectory, "BugfixesHookInfrastructure.cs"));
         Check(infrastructure.Contains("FailureMode = TransactionFailureMode.RollbackAndThrow") &&
@@ -1051,30 +1061,30 @@ internal static class Program
             "Healer attack-command unknown-hash gate");
         Check(lordControlGroups.Contains("if (!referenceHashMatches)"),
             "Lord control-group unknown-hash gate");
-        Check(lordControlGroups.Contains("addBranch.ValidateOriginal()") &&
-              lordControlGroups.Contains("replaceBranch.ValidateOriginal()") &&
-              lordControlGroups.IndexOf("replaceBranch.ValidateOriginal()", StringComparison.Ordinal) <
-                  lordControlGroups.IndexOf("addBranch.Apply()", StringComparison.Ordinal),
-            "Lord control-group transaction validates both remaining classifier sites before applying either site");
-        Check(lordControlGroups.Contains("RestoreSite(replaceBranch") &&
-              lordControlGroups.Contains("RestoreSite(addBranch") &&
-              lordControlGroups.Contains("applied = CurrentBytesMatch(replacement)"),
-            "Lord control-group transaction rolls back both classifier sites in reverse order, including late write failures");
+        Check(lordControlGroups.Contains("new PermanentInstructionSkipPatch(") &&
+              lordControlGroups.Contains("AddExpectedDisplacedBytes = 14") &&
+              lordControlGroups.Contains("ReplaceExpectedDisplacedBytes = 16") &&
+              lordControlGroups.Contains("patch.SetEnabled(enabled)") &&
+              !lordControlGroups.Contains("CodePatch.Write("),
+            "Lord control-group exclusions use one permanent, length-validated logical patch");
         Check(runtime.Contains("settings.EnableMod && settings.EnableLordUnitControls") &&
               runtime.Contains("DisableLordControlGroupNativePatch()"),
             "Lord control-group patch follows the existing synchronized Lord-control setting reversibly");
-        Check(healerAttackCommand.Contains("FindUniquePattern") &&
-              healerAttackCommand.Contains("ReadAbsoluteTableRva") &&
-              healerAttackCommand.Contains("ValidateDispatchTargets"),
-            "Healer attack-command derives and validates both tables from unique code signatures");
-        Check(healerAttackCommand.Contains("firstHealerEntry") &&
-              healerAttackCommand.Contains("secondHealerEntry"),
-            "Healer attack-command changes both audited table entries");
-        Check(!healerAttackCommand.Contains("X64InlineHook") &&
+        Check(healerAttackCommand.Contains("ResolveUniqueClassifier") &&
+              healerAttackCommand.Contains("ValidateNativeTables") &&
+              healerAttackCommand.Contains("FirstExpectedDisplacedBytes = 18") &&
+              healerAttackCommand.Contains("SecondExpectedDisplacedBytes = 16"),
+            "Healer attack-command validates both classifier sites and displaced spans");
+        Check(healerAttackCommand.Contains("firstClassifierHook") &&
+              healerAttackCommand.Contains("secondClassifierHook") &&
+              healerAttackCommand.Contains("SetEnabled(bool value)") &&
+              !healerAttackCommand.Contains("CodePatch.Write("),
+            "Healer attack-command uses permanent classifier hooks with one logical gate");
+        Check(healerAttackCommand.Contains("AddInline") &&
               !healerAttackCommand.Contains("AddDetour") &&
               !healerAttackCommand.Contains("OnTick") &&
               !healerAttackCommand.Contains("OnStartMap"),
-            "Healer attack-command uses no hook or recurring diagnostics");
+            "Healer attack-command uses inline hooks without recurring diagnostics");
         Check(mountedStockpile.Contains("ClassificationHookSize = 18"),
             "mounted-stockpile complete classification hook size");
         Check(mountedStockpile.Contains("MountedEndpointWallGateHookSize = 17"),
@@ -1085,9 +1095,11 @@ internal static class Program
         Check(mountedStockpile.Contains("BugfixesHookInfrastructure.CreateOwnedTransaction(region)"),
             "mounted-stockpile atomic hook transaction");
         Check(!mountedStockpile.Contains("transaction?.Unload()") &&
+              mountedStockpile.Contains("catch") &&
               mountedStockpile.Contains("transaction?.Dispose()") &&
-              mountedStockpile.Contains("FreeEndpointZeroFlags()"),
-            "mounted-stockpile reversible hook disposal");
+              mountedStockpile.Contains("FreeEndpointZeroFlags()") &&
+              mountedStockpile.Contains("hooks disabled logically"),
+            "mounted-stockpile rolls back only failed initialization and otherwise disables logically");
         Check(mountedStockpile.Contains("!cursorClassificationHook.Success") &&
               mountedStockpile.Contains("!feedbackClassificationHook.Success") &&
               mountedStockpile.Contains("!mountedEndpointWallGateHook.Success"),

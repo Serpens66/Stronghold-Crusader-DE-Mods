@@ -148,8 +148,6 @@ namespace BugfixesAndQoL
                 ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
                 saveHandlerRegistered = false;
             }
-            transaction?.Dispose();
-            transaction = null;
             ResetMapState();
         }
 

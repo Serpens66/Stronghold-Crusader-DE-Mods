@@ -1306,8 +1306,10 @@ internal static class Program
             largeMoveRenderer.Contains("DrawRecordNextOffset = 0x18") &&
             largeMoveRenderer.Contains("TileDrawHeadRva = 0x47BDD30") &&
             largeMoveRenderer.Contains("OnVanillaDrawListReset()") &&
-            largeMoveRenderer.Contains("visibleTileHook.Hook.Enable()") &&
-            largeMoveRenderer.Contains("visibleTileHook.Hook.Disable()") &&
+            largeMoveRenderer.Contains("ExpectedVisibleTileDisplacedBytes = 17") &&
+            largeMoveRenderer.Contains("renderingActive = shouldBeActive") &&
+            !largeMoveRenderer.Contains("visibleTileHook.Hook.Enable()") &&
+            !largeMoveRenderer.Contains("visibleTileHook.Hook.Disable()") &&
             largeMoveRenderer.Contains("record.Flags >> 16") &&
             !largeMoveRenderer.Contains("new Dictionary<int, int>(stableIdentityByTile)") &&
             !largeMoveRenderer.Contains("public void Shutdown()") &&

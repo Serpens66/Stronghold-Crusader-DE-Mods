@@ -291,6 +291,8 @@ namespace MoatMove
 
         private void ObserveCursorPerformance()
         {
+            if (disposed)
+                return;
             if (cursorQueries == cursorLastLogQueries)
                 return;
 

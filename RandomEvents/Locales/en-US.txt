@@ -46,7 +46,6 @@ Common.PresetScopeLocal=Local
 
 # Random Events localization
 
-Common.ResetToDefault=Reset to Default
 Common.EnableMod=Enable Mod
 Common.HostActivationLabel=(Host-)
 Common.ClientActivationLabel=(Client settings)
@@ -91,15 +90,14 @@ RandomEvents.Event.Fire=Fire
 Common.HostOptions=HOST OPTIONS
 Common.ClientOptions=LOCAL CLIENT OPTIONS
 Common.HostReadOnly=Values from host - read-only
-Common.ResetToDefaultHelp=Resets the settings you can control in the current context.
 Common.EnableModHelp=Enables or disables this mod for the match.
 Common.PresetHelp=Selects a saved preset. Clients change only their personal settings.
 
 RandomEvents.ScheduleTitle=Schedule
 RandomEvents.MultiplayerTitle=Multiplayer
 Common.Preset=Preset
-Common.ActionsScopeHost=Preset and reset affect host settings and your local client settings.
-Common.ActionsScopeClient=Preset and reset affect only your local client settings.
+Common.ActionsScopeHost=Loaded presets and settings sources affect host settings and your local client settings.
+Common.ActionsScopeClient=Loaded presets and settings sources affect only your local client settings.
 RandomEvents.PositiveEventsTitle=Positive Events
 RandomEvents.NegativeEventsTitle=Negative Events
 RandomEvents.MonthsValueFormat={0} months

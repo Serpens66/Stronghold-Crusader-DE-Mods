@@ -95,12 +95,10 @@ ExtendedData.MapModSettingsMissingTitle=Map-Mods fehlen
 ExtendedData.MapModSettingsMissing=Die Map nennt Mods, die nicht installiert sind:
 Common.Preset=Preset
 Common.PresetHelp=Wählt ein gespeichertes Preset. Clients ändern nur ihre persönlichen Einstellungen.
-Common.ResetToDefault=Zurücksetzen
-Common.ResetToDefaultHelp=Setzt die Einstellungen zurück, die du im aktuellen Kontext ändern darfst.
 Common.HostOptions=HOST-OPTIONEN
 Common.ClientOptions=LOKALE CLIENT-OPTIONEN
-Common.ActionsScopeHost=Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
-Common.ActionsScopeClient=Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.
+Common.ActionsScopeHost=Geladene Presets und Einstellungsquellen betreffen Host-Einstellungen und deine lokalen Client-Optionen.
+Common.ActionsScopeClient=Geladene Presets und Einstellungsquellen betreffen nur deine lokalen Client-Optionen.
 Common.HostReadOnly=Werte vom Host – schreibgeschützt
 ExtendedData.EnableClientFeatures=Lokale Client-Funktionen aktivieren
 ExtendedData.EnableClientFeaturesHelp=Steuert für diesen Spieler lokale Map-/Trail-Modsettings, die Anpassungsintegration und Koop-Ersatzmissionen.
@@ -116,6 +114,11 @@ Common.ModSettingsSearchNoResults=Keine passenden Einstellungen gefunden.
 WorkshopUpload.IncludeModSettings=Modsettings aufnehmen
 WorkshopUpload.IncludeModSettingsHelp=Nimmt die Modsettings der ausgewählten kompatiblen Mods in den Workshop-Upload auf. Konfiguriere sie in Extended Data unter "MODSETTINGS IN MAPS UND CUSTOM TRAILS". Deaktivieren, um keine Modsettings hochzuladen.
 WorkshopUpload.StagingCleanupFailed=Der temporäre Workshop-Uploadordner konnte nicht sicher vorbereitet werden. Der Upload wurde abgebrochen. Weitere Informationen stehen im Log.
+EditorSave.IncludeModSettings=Modsettings einschließen
+EditorSave.IncludeMapModSettingsHelp=Speichert die aktuellen Einstellungen kompatibler Mods in dieser Map. Welche Einstellungen Standard, Spieler/Host oder Fest verwenden, legst du in Extended Data unter "MODSETTINGS IN MAPS UND CUSTOM TRAILS" fest. Beim Deaktivieren werden vorhandene ExtendedData-Modsettings beim Speichern aus der Map entfernt.
+EditorSave.IncludeTrailModSettingsHelp=Speichert die aktuellen Einstellungen kompatibler Mods neben dieser Trail-Mission. Welche Einstellungen Standard, Spieler/Host oder Fest verwenden, legst du in Extended Data unter "MODSETTINGS IN MAPS UND CUSTOM TRAILS" fest. Beim Deaktivieren wird das vorhandene Modsettings-Sidecar der Mission beim Speichern entfernt.
+EditorSave.ModSettingsSaveFailedTitle=Modsettings konnten nicht gespeichert werden
+EditorSave.ModSettingsSaveFailed=Der ausgewählte Modsettings-Stand konnte nicht sicher veröffentlicht werden. Der Vorgang wurde abgebrochen oder zurückgerollt. Weitere Informationen stehen im Log.
 
 # Extended Data Custom Lord upload localization
 ExtendedData.LordUpload.GenericOverrideAssetNames={Count} Override-Assets verwenden generische globale Namen ({Examples}). Ein anderer geladener Mod kann sie ersetzen, da Override nach Last-Write-Wins arbeitet. Verwende einen Lord- oder GUID-spezifischen Dateinamenspraefix, sofern dies kein beabsichtigter Vanilla-Override ist.

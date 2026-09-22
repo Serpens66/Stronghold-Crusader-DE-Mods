@@ -19,8 +19,9 @@ namespace BugfixesAndQoL
         internal const int ResetDrawListLength = 80;
         internal const int VisibleTileRendererRva = 0x41D60;
         internal const int VisibleTileHookRva = 0x436DE;
-        internal const int VisibleTileHookLength = 9;
-        internal const int VisibleTileHookEndRva = 0x436E7;
+        internal const int VisibleTileMinimumHookLength = 9;
+        internal const int ExpectedVisibleTileDisplacedBytes = 17;
+        internal const int VisibleTileHookEndRva = 0x436EF;
         internal const int SpriteBuilderRva = 0x1A13C0;
 
         private const int DrawManagerRva = 0xA98820;
@@ -97,7 +98,8 @@ namespace BugfixesAndQoL
         }
 
         public bool ReplacementAvailable =>
-            installed && !failed && visibleTileHook.Success && resetDrawListHook.Success;
+            installed && !failed && visibleTileHook.Success && visibleTileHook.IsInstalled &&
+            resetDrawListHook.Success;
 
         public void Install(CrusaderLibraryLoadContext context, bool fixedLayoutHashValidated)
         {
@@ -121,7 +123,7 @@ namespace BugfixesAndQoL
                 "native sprite builder", null);
             if (reset.Rva != ResetDrawListRva || traversal.Rva + 7 != VisibleTileHookRva ||
                 builder.Rva != SpriteBuilderRva ||
-                VisibleTileHookRva + VisibleTileHookLength != VisibleTileHookEndRva ||
+                VisibleTileHookRva + ExpectedVisibleTileDisplacedBytes != VisibleTileHookEndRva ||
                 LargeMoveTargetOverflowModel.NativeMode8IdentityCapacity !=
                     (0x1025580 - 0x203A16 * sizeof(long)) / sizeof(long))
             {
@@ -145,17 +147,26 @@ namespace BugfixesAndQoL
                     candidate, visibleTileHook,
                     unchecked((ulong)(libraryHandle + VisibleTileHookRva).ToInt64()),
                     RenderVisibleLargeMoveTarget, X64SmartCPUContextRegs.All,
-                    VisibleTileHookLength, CallbackErrorMode.LogAndContinue,
+                    VisibleTileMinimumHookLength, CallbackErrorMode.LogAndContinue,
                     OverwrittenInstructionPlacement.AfterCallback);
                 CommitResult result = candidate.Commit();
                 if (!result.IsCompleteSuccess || !visibleTileHook.Success ||
-                    !visibleTileHook.IsInstalled || !resetDrawListHook.Success)
-                    throw new InvalidOperationException("Large Move marker overflow hooks reported no success.");
+                    !visibleTileHook.IsInstalled || !resetDrawListHook.Success ||
+                    visibleTileHook.Hook.DisplacedByteCount != ExpectedVisibleTileDisplacedBytes)
+                {
+                    throw new InvalidOperationException(
+                        "Large Move marker overflow hooks failed or displaced an unexpected span: " +
+                        $"result={result}, visible={visibleTileHook.Hook?.DisplacedByteCount}.");
+                }
 
+                Shared.DebugLogHelper.LogInfo(
+                    log,
+                    "Large Move marker renderer ready: " +
+                    $"reset=0x{ResetDrawListRva:X}/span{ResetDrawListLength}, " +
+                    $"visible=0x{VisibleTileHookRva:X}/span{ExpectedVisibleTileDisplacedBytes}.");
                 transaction = candidate;
                 installed = true;
-                renderingActive = true;
-                SetRenderingActiveCore(false);
+                renderingActive = false;
             }
             catch
             {
@@ -351,20 +362,9 @@ namespace BugfixesAndQoL
 
         private void SetRenderingActiveCore(bool shouldBeActive)
         {
-            if (renderingActive == shouldBeActive)
-                return;
-            if (shouldBeActive)
-            {
-                visibleTileHook.Hook.Enable();
-                if (!visibleTileHook.IsInstalled)
-                    throw new InvalidOperationException("Visible-tile marker hook could not be enabled.");
-                renderingActive = true;
-                return;
-            }
-            visibleTileHook.Hook.Disable();
-            if (visibleTileHook.IsInstalled)
-                throw new InvalidOperationException("Visible-tile marker hook could not be disabled.");
-            renderingActive = false;
+            if (!visibleTileHook.IsInstalled)
+                throw new InvalidOperationException("Visible-tile marker hook is no longer installed.");
+            renderingActive = shouldBeActive;
         }
 
         private void RenderVisibleLargeMoveTarget(NativePointer<X64SmartCPUContext> context)
@@ -467,18 +467,7 @@ namespace BugfixesAndQoL
             publishedOverflow = null;
             publishedPreview = EmptyPreview;
             previewRequestBuffer.Clear();
-            if (renderingActive)
-            {
-                try
-                {
-                    visibleTileHook.Hook.Disable();
-                }
-                catch
-                {
-                    // Vanilla remains authoritative after a fail-open transition.
-                }
-                renderingActive = false;
-            }
+            renderingActive = false;
             if (failureLogged)
                 return;
             failureLogged = true;

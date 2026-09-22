@@ -94,8 +94,6 @@ namespace KnightArmorAIBuyFixBackup
                 return;
 
             disposed = true;
-            transaction?.Dispose();
-            transaction = null;
         }
 
         private int RecruitEuropeanUnit(

@@ -29,17 +29,17 @@ Only persistent `[SyncHostOnly]` settings can become Map or Trail rules. Persona
 
 Opening a saved Trail Maker mission loads its matching sidecar into an editable temporary **Trail** context. A new unsaved mission starts from the safe mod defaults. Personal, bundled, and external normal presets can be loaded into this draft. The common source selector always offers **Mod defaults**, and additionally offers **Trail settings** or **Map settings** when those valid sources exist. This lets an author deliberately restore the Trail draft or use the selected Map as a template without modifying either source.
 
-ExtendedData keeps the editable authoring draft while the mission is tested, restarted, opened in the Map Editor, or returned to the Trail Maker. Saving refreshes the draft and writes the sidecar. The normal preset Save dialog can create a personal preset from the draft, but can never overwrite a Trail, Map archive, or Coop package. Leaving the authoring context discards the draft and restores the previous normal working settings and status. If a draft cannot be loaded or restored safely, ExtendedData falls back to editable mod defaults rather than retaining a partial preset.
+ExtendedData keeps the editable authoring draft while the mission is tested, restarted, opened in the Map Editor, or returned to the Trail Maker. **Include modsettings** beside the Trail Maker Save button controls whether saving writes the draft as a sidecar; it is enabled by default. Disabling it deliberately removes an existing sidecar after the mission is saved. The normal preset Save dialog can create a personal preset from the draft, but can never overwrite a Trail, Map archive, or Coop package. Leaving the authoring context discards the draft and restores the previous normal working settings and status. If a draft cannot be loaded or restored safely, ExtendedData falls back to editable mod defaults rather than retaining a partial preset.
 
 ### Resulting files
 
-Saving a `.map` from the Map Editor writes the schema-3 document into the appended Map archive as:
+The Map Editor Save dialog shows **Include modsettings**. It is disabled for a new Map or a Map without ExtendedData settings, and enabled when the opened Map already contains the entry. Its tooltip points to Extended Data's **MOD SETTINGS IN MAPS AND CUSTOM TRAILS** section, where the stored Default, Player/host, and Fixed modes are selected. Saving with the option enabled writes the schema-3 document into the appended Map archive as:
 
 ```text
 _SE_ModData_ExtendedData-MapModSettings.msgpack
 ```
 
-Despite its suffix, this entry contains UTF-8 JSON. It is separate from `modmap.json`, whose GUID-based namespaces remain unchanged. A successful empty capture records safe defaults for all compatible mods. If capture fails, an existing archive entry is retained.
+Despite its suffix, this entry contains UTF-8 JSON. It is separate from `modmap.json`, whose GUID-based namespaces remain unchanged. Disabling the option deliberately removes only this ExtendedData entry; other archive and mod data remain untouched. Capture, removal, path binding, and the resulting file are verified fail-closed, so an unsafe publication is cancelled or rolled back.
 
 Saving `Trail_Mission_1.trail` creates the optional sidecar:
 
@@ -130,17 +130,17 @@ Nur dauerhafte `[SyncHostOnly]`-Einstellungen können zu Map- oder Trail-Regeln 
 
 Beim Öffnen einer gespeicherten Trail-Maker-Mission wird das passende Sidecar als bearbeitbarer temporärer **Trail**-Kontext geladen. Eine neue ungespeicherte Mission beginnt mit den sicheren Mod-Standardwerten. Persönliche, mitgelieferte und externe normale Presets können in diesen Entwurf geladen werden. Der gemeinsame Quellenwähler bietet immer **Mod-Standards** und bei gültiger Quelle zusätzlich **Trail-Einstellungen** beziehungsweise **Map-Einstellungen**. Damit kann der Autor bewusst den Trail-Entwurf wiederherstellen oder die ausgewählte Map als Vorlage laden, ohne eine der Quelldateien zu verändern.
 
-ExtendedData behält den bearbeitbaren Entwurf während eines Tests, Neustarts, Wechsels in den Map Editor oder der Rückkehr zum Trail Maker bei. Beim Speichern wird der Entwurf aktualisiert und das Sidecar geschrieben. Über den normalen Preset-Speicherdialog kann daraus ein persönliches Preset entstehen; Trail-, Map- und Koop-Dateien können dort niemals überschrieben werden. Beim Verlassen des Bearbeitungskontexts wird der Entwurf verworfen und der vorherige normale Arbeitsstand samt Status wiederhergestellt. Kann ein Entwurf nicht sicher geladen oder wiederhergestellt werden, verwendet ExtendedData bearbeitbare Mod-Standardwerte statt eines unvollständigen Presets.
+ExtendedData behält den bearbeitbaren Entwurf während eines Tests, Neustarts, Wechsels in den Map Editor oder der Rückkehr zum Trail Maker bei. **Modsettings einschließen** neben dem Speichern-Button des Trail Makers legt fest, ob der Entwurf als Sidecar geschrieben wird; die Option ist standardmäßig aktiv. Beim Deaktivieren wird ein vorhandenes Sidecar nach dem Speichern der Mission bewusst entfernt. Über den normalen Preset-Speicherdialog kann aus dem Entwurf ein persönliches Preset entstehen; Trail-, Map- und Koop-Dateien können dort niemals überschrieben werden. Beim Verlassen des Bearbeitungskontexts wird der Entwurf verworfen und der vorherige normale Arbeitsstand samt Status wiederhergestellt. Kann ein Entwurf nicht sicher geladen oder wiederhergestellt werden, verwendet ExtendedData bearbeitbare Mod-Standardwerte statt eines unvollständigen Presets.
 
 ### Erzeugte Dateien
 
-Beim Speichern einer `.map` aus dem Map Editor wird das Schema-3-Dokument unter folgendem Namen in das angehängte Map-Archiv geschrieben:
+Der Speicherdialog des Map Editors zeigt **Modsettings einschließen**. Bei einer neuen Map oder einer Map ohne ExtendedData-Einstellungen ist die Option deaktiviert; enthält die geöffnete Map den Eintrag bereits, ist sie aktiviert. Der Tooltip verweist auf den Abschnitt **MODSETTINGS IN MAPS UND CUSTOM TRAILS** in Extended Data, in dem die zu speichernden Modi Standard, Spieler/Host und Fest gewählt werden. Ist die Option aktiv, wird das Schema-3-Dokument unter folgendem Namen in das angehängte Map-Archiv geschrieben:
 
 ```text
 _SE_ModData_ExtendedData-MapModSettings.msgpack
 ```
 
-Trotz der Dateiendung enthält dieser Eintrag UTF-8-JSON. Er ist von `modmap.json` getrennt, deren GUID-basierte Namensräume unverändert bleiben. Eine erfolgreiche leere Erfassung speichert die sicheren Standardwerte aller kompatiblen Mods. Schlägt die Erfassung fehl, bleibt ein vorhandener Archiveintrag erhalten.
+Trotz der Dateiendung enthält dieser Eintrag UTF-8-JSON. Er ist von `modmap.json` getrennt, deren GUID-basierte Namensräume unverändert bleiben. Beim Deaktivieren wird bewusst nur dieser ExtendedData-Eintrag entfernt; andere Archiv- und Moddaten bleiben unangetastet. Erfassung, Entfernung, Pfadbindung und Ergebnisdatei werden fehlersicher geprüft, sodass eine unsichere Veröffentlichung abgebrochen oder zurückgerollt wird.
 
 Beim Speichern von `Trail_Mission_1.trail` entsteht das optionale Sidecar:
 

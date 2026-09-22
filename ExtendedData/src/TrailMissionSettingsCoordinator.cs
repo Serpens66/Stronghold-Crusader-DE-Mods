@@ -107,6 +107,7 @@ namespace ExtendedData
             private readonly Func<string, string, TrailSettingMode> getPropertyMode;
             private readonly Action<ModSettingsDefinition> applyEditorModes;
             private readonly Action<string, ModSettingsDefinition> applyEditorModesForMod;
+            private readonly EditorModSettingsSaveOptionsViewModel editorSaveOptions;
             private readonly List<IDisposable> hooks = new List<IDisposable>();
             private readonly Dictionary<Type, Dictionary<string, PropertyInfo>> persistedPropertiesByType =
                 new Dictionary<Type, Dictionary<string, PropertyInfo>>();
@@ -283,13 +284,15 @@ namespace ExtendedData
                 bool enabled,
                 Func<string, string, TrailSettingMode> getPropertyMode,
                 Action<ModSettingsDefinition> applyEditorModes,
-                Action<string, ModSettingsDefinition> applyEditorModesForMod)
+                Action<string, ModSettingsDefinition> applyEditorModesForMod,
+                EditorModSettingsSaveOptionsViewModel editorSaveOptions)
             {
                 this.log = log;
                 this.enabled = enabled;
                 this.getPropertyMode = getPropertyMode ?? ((_, __) => TrailSettingMode.ModDefault);
                 this.applyEditorModes = applyEditorModes;
                 this.applyEditorModesForMod = applyEditorModesForMod;
+                this.editorSaveOptions = editorSaveOptions ?? throw new ArgumentNullException(nameof(editorSaveOptions));
                 customizationBridge = new BugfixesAndQoLTrailCustomizationBridge(log);
             }
 
@@ -785,34 +788,55 @@ namespace ExtendedData
                     DebugLogHelper.LogInfo(
                         log,
                         "Captured Trail mod settings before save; mentioned=[" + string.Join(", ", mentionedMods) + "].");
-                    // Vanilla can enter Trail export before this save call returns. Keep the
-                    // synchronous capture available to both exporters until it reaches disk.
-                    capturedDocumentsByTrailPath[IOPath.GetFullPath(trailPath)] = document;
+                    if (editorSaveOptions.IncludeTrailModSettings)
+                    {
+                        // Vanilla can enter Trail export before this save call returns. Keep the
+                        // synchronous capture available to both exporters until it reaches disk.
+                        capturedDocumentsByTrailPath[IOPath.GetFullPath(trailPath)] = document;
+                    }
                 }
                 catch (Exception exception)
                 {
                     DebugLogHelper.LogError(
                         log,
-                        $"Could not capture Trail mod settings before saving [{trailPath}]; its sidecar will not be changed: {exception}");
+                        $"Could not capture the Trail Maker working settings before saving [{trailPath}]: {exception}");
+                    ShowInformation(
+                        SerpLocalization.Get("EditorSave.ModSettingsSaveFailedTitle"),
+                        SerpLocalization.Get("EditorSave.ModSettingsSaveFailed"));
+                    return;
                 }
 
                 saveCustomTrailMapOriginal(self, mapPath, mapName, trailPath, restartInfo);
-                if (document == null)
-                    return;
                 string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 try
                 {
                     if (!File.Exists(trailPath))
                         throw new FileNotFoundException("The game did not create the expected Trail mission.", trailPath);
-                    ModSettingsJson.WriteAtomic(sidecar, document);
-                    trailSourceDocument = CloneDocument(document);
+                    if (editorSaveOptions.IncludeTrailModSettings)
+                    {
+                        ModSettingsJson.WriteAtomic(sidecar, document);
+                        trailSourceDocument = CloneDocument(document);
+                    }
+                    else
+                    {
+                        if (File.Exists(sidecar))
+                            File.Delete(sidecar);
+                        trailSourceDocument = null;
+                    }
                     SourcesChanged?.Invoke();
                     capturedDocumentsByTrailPath.Remove(IOPath.GetFullPath(trailPath));
-                    DebugLogHelper.LogInfo(log, $"Saved Trail mod settings beside [{trailPath}].");
+                    DebugLogHelper.LogInfo(
+                        log,
+                        editorSaveOptions.IncludeTrailModSettings
+                            ? $"Saved Trail mod settings beside [{trailPath}]."
+                            : $"Saved Trail mission without a mod-settings sidecar [{trailPath}].");
                 }
                 catch (Exception exception)
                 {
-                    DebugLogHelper.LogError(log, $"Could not save Trail mod settings for [{trailPath}]: {exception}");
+                    DebugLogHelper.LogError(log, $"Could not publish the selected Trail mod-settings state for [{trailPath}]: {exception}");
+                    ShowInformation(
+                        SerpLocalization.Get("EditorSave.ModSettingsSaveFailedTitle"),
+                        SerpLocalization.Get("EditorSave.ModSettingsSaveFailed"));
                     return;
                 }
 
@@ -820,10 +844,19 @@ namespace ExtendedData
                 {
                     // Keep the just-saved mission editable even if Vanilla rebuilt the UI.
                     ApplyDocument(document, editable: true);
-                    var info = new FileInfo(sidecar);
-                    activeSidecarPath = sidecar;
-                    activeSidecarLength = info.Length;
-                    activeSidecarWriteTicks = info.LastWriteTimeUtc.Ticks;
+                    if (editorSaveOptions.IncludeTrailModSettings)
+                    {
+                        var info = new FileInfo(sidecar);
+                        activeSidecarPath = sidecar;
+                        activeSidecarLength = info.Length;
+                        activeSidecarWriteTicks = info.LastWriteTimeUtc.Ticks;
+                    }
+                    else
+                    {
+                        activeSidecarPath = null;
+                        activeSidecarLength = -1;
+                        activeSidecarWriteTicks = 0;
+                    }
                     activeSidecarEditable = true;
                     UpdateTrailMakerWorkingDocument(document, trailPath);
                     missionPresetLifecycle.CompleteTrailMakerReturn();

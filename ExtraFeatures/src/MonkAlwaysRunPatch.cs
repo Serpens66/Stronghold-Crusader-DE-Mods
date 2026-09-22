@@ -138,13 +138,6 @@ namespace ExtraFeatures
             if (enabledFlag != IntPtr.Zero)
                 Marshal.WriteInt32(enabledFlag, 0);
             enabled = false;
-            transaction?.Dispose();
-            transaction = null;
-            if (enabledFlag != IntPtr.Zero)
-            {
-                Marshal.FreeHGlobal(enabledFlag);
-                enabledFlag = IntPtr.Zero;
-            }
             disposed = true;
         }
 

@@ -1004,16 +1004,13 @@ namespace Shared
             HasHostSettings && isLocalHost
                 ? ResolveSettingsUiTextSafe(
                     "Common.ActionsScopeHost",
-                    "Preset and reset affect host settings and your local client settings.")
+                    "Loaded presets and settings sources affect host settings and your local client settings.")
                 : ResolveSettingsUiTextSafe(
                     "Common.ActionsScopeClient",
-                    "Preset and reset affect only your local client settings.");
+                    "Loaded presets and settings sources affect only your local client settings.");
 
         public string HostReadOnlyNoticeText =>
             ResolveSettingsUiTextSafe("Common.HostReadOnly", "Values from host - read-only");
-
-        public string ResetToDefaultHelpText =>
-            ResolveSettingsUiTextSafe("Common.ResetToDefaultHelp", "Resets the settings you can control in the current context.");
 
         public string EnableModHelpText =>
             ResolveSettingsUiTextSafe("Common.EnableModHelp", "Enables or disables this mod for the match.");

@@ -53,27 +53,19 @@ namespace ExtraFeatures
             bool referenceHashMatches)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
-            Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
-            int routineRva = Shared.NativePatternResolver.ResolveUnique(
-                memory,
-                AiFlagRoutinePattern,
-                AiFlagRoutineRva,
-                referenceHashMatches,
-                "AI flag projectile routine",
-                log).Rva;
-
+            HookTransaction candidate = null;
+            bool hookPublished = false;
             try
             {
+                int routineRva = Shared.NativePatternResolver.ResolveUnique(
+                    memory,
+                    AiFlagRoutinePattern,
+                    AiFlagRoutineRva,
+                    referenceHashMatches,
+                    "AI flag projectile routine",
+                    log).Rva;
+                Shared.GameplayModActivationGate.StateChanged += OnModeStateChanged;
                 ulong libraryBase = unchecked((ulong)libraryHandle.ToInt64());
-                transaction = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
-                transaction.AddDetour(
-                    aiFlagRoutineHook,
-                    HookTarget.FromAddress(libraryBase + unchecked((ulong)routineRva)),
-                    RunAiFlagRoutine);
-                CommitResult commitResult = transaction.Commit();
-                if (!commitResult.IsCompleteSuccess || !aiFlagRoutineHook.Success)
-                    throw new InvalidOperationException("The AI flag projectile hook was not installed.");
-
                 subscriptions.Add(ProjectileR3EventHooks.OnProjectileSpawn.Observable
                     .Where(args => args.Phase == EventHookPhase.Post)
                     .Subscribe(OnProjectileSpawn));
@@ -93,13 +85,24 @@ namespace ExtraFeatures
                 }
                 saveHandlerRegistered = true;
 
+                candidate = ExtraFeaturesHookInfrastructure.CreateOwnedTransaction(region);
+                candidate.AddDetour(
+                    aiFlagRoutineHook,
+                    HookTarget.FromAddress(libraryBase + unchecked((ulong)routineRva)),
+                    RunAiFlagRoutine);
+                CommitResult commitResult = candidate.Commit();
+                if (!commitResult.IsCompleteSuccess || !aiFlagRoutineHook.Success)
+                    throw new InvalidOperationException("The AI flag projectile hook was not installed.");
                 Shared.DebugLogHelper.LogDebug(
                     log,
                     $"Extra Features AI flag disease tracking initialized: routineRva=0x{routineRva:X}.");
+                transaction = candidate;
+                hookPublished = true;
             }
             catch
             {
-                Dispose();
+                RollbackUnpublishedHook(candidate, hookPublished);
+                DisposeManagedState();
                 throw;
             }
         }
@@ -151,6 +154,12 @@ namespace ExtraFeatures
                 return;
 
             disposed = true;
+            trackingAvailable = false;
+            DisposeManagedState();
+        }
+
+        private void DisposeManagedState()
+        {
             Shared.GameplayModActivationGate.StateChanged -= OnModeStateChanged;
             foreach (IDisposable subscription in subscriptions)
                 subscription.Dispose();
@@ -160,9 +169,13 @@ namespace ExtraFeatures
                 ModSaveDataAPI.Instance.UnregisterModDataHandler(SaveDataIdentifier);
                 saveHandlerRegistered = false;
             }
-            transaction?.Dispose();
-            transaction = null;
             ResetMapState();
+        }
+
+        private static void RollbackUnpublishedHook(HookTransaction candidate, bool hookPublished)
+        {
+            if (!hookPublished)
+                candidate?.Dispose();
         }
 
         private void RunAiFlagRoutine(IntPtr aiManager, int playerId)

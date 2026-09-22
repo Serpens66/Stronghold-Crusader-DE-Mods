@@ -169,6 +169,7 @@ namespace BugfixesAndQoL
                 pendingReconstructionPatch = new AssassinPathReconstructionPatch(
                     log,
                     newLibraryHandle,
+                    region,
                     memory,
                     referenceHashMatches: true);
                 transaction = BugfixesHookInfrastructure.CreateOwnedTransaction(region);

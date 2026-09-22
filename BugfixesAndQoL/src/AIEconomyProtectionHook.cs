@@ -91,6 +91,7 @@ namespace BugfixesAndQoL
             new HashSet<InaccessibleDiagnosticKey>();
         private int lastInaccessibleDiagnosticTick = int.MinValue;
         private bool inaccessibleDiagnosticSamplingCompleteLogged;
+        private volatile bool singleBuildingOverrideInterceptionEnabled;
         private bool disposed;
 
         public AIEconomyProtectionHook(
@@ -232,19 +233,10 @@ namespace BugfixesAndQoL
                     "Unexpected actual inaccessible-building overwrite length; hook transaction rolled back.");
             }
 
-            // The callback is inside the manager loop and is only needed while at least
-            // one individual building override exists.
-            try
-            {
-                sleepStateHook.Hook.Disable();
-                if (sleepStateHook.IsInstalled)
-                    throw new InvalidOperationException("The building sleep-state hook remained active after preparation.");
-            }
-            catch
-            {
-                transaction.Dispose();
-                throw;
-            }
+            // Published native hooks remain installed for the lifetime of the process.
+            // The callback is gated logically because RedBird rewrites the complete
+            // displaced instruction span when Enable/Disable is called.
+            singleBuildingOverrideInterceptionEnabled = false;
         }
 
         private int Resolve(
@@ -351,20 +343,10 @@ namespace BugfixesAndQoL
                 throw new ObjectDisposedException(nameof(AIEconomyProtectionHook));
             if (!sleepStateHook.Success)
                 throw new InvalidOperationException("The single-building sleep-state hook is unavailable.");
+            if (!sleepStateHook.IsInstalled)
+                throw new InvalidOperationException("The permanent single-building sleep-state hook is no longer installed.");
 
-            if (enabled)
-            {
-                if (!sleepStateHook.IsInstalled)
-                    sleepStateHook.Hook.Enable();
-                if (!sleepStateHook.IsInstalled)
-                    throw new InvalidOperationException("The single-building sleep-state hook did not become active.");
-            }
-            else if (sleepStateHook.IsInstalled)
-            {
-                sleepStateHook.Hook.Disable();
-                if (sleepStateHook.IsInstalled)
-                    throw new InvalidOperationException("The single-building sleep-state hook remained active.");
-            }
+            singleBuildingOverrideInterceptionEnabled = enabled;
         }
 
         public void Dispose()
@@ -372,13 +354,16 @@ namespace BugfixesAndQoL
             if (disposed)
                 return;
 
+            singleBuildingOverrideInterceptionEnabled = false;
             disposed = true;
-            transaction.Dispose();
         }
 
         private void ApplySingleBuildingSleepOverrideDuringSynchronization(
             NativePointer<X64SmartCPUContext> context)
         {
+            if (disposed || !singleBuildingOverrideInterceptionEnabled)
+                return;
+
             ApplySingleBuildingSleepOverride(context.Pointer);
         }
 

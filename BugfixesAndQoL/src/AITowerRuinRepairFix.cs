@@ -62,6 +62,7 @@ namespace BugfixesAndQoL
         private readonly HookHandle<X64InlineHook> broadRuinClassifierHook = new HookHandle<X64InlineHook>();
         private bool callbackFailureLogged;
         private bool mapActive;
+        private volatile bool logicallyEnabled;
         private bool disposed;
 
         public AITowerRuinRepairFix(
@@ -133,6 +134,12 @@ namespace BugfixesAndQoL
             CommitResult commitResult = classifierTransaction.Commit();
             if (!commitResult.IsCompleteSuccess || !narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
                 throw new InvalidOperationException("The AI tower-ruin classifier hooks were not installed atomically.");
+            if (narrowRuinClassifierHook.Hook.DisplacedByteCount != NarrowRuinClassifierHookSize ||
+                broadRuinClassifierHook.Hook.DisplacedByteCount != BroadRuinClassifierHookSize)
+            {
+                throw new InvalidOperationException(
+                    "The AI tower-ruin classifier hooks displaced an unexpected native span.");
+            }
 
             Shared.DebugLogHelper.LogDebug(
                 log,
@@ -145,34 +152,25 @@ namespace BugfixesAndQoL
             if (disposed || !narrowRuinClassifierHook.Success || !broadRuinClassifierHook.Success)
                 return;
 
-            if (IsEnabled)
+            if (!narrowRuinClassifierHook.IsInstalled || !broadRuinClassifierHook.IsInstalled)
             {
-                if (!narrowRuinClassifierHook.IsInstalled)
-                    narrowRuinClassifierHook.Hook.Enable();
-                if (!broadRuinClassifierHook.IsInstalled)
-                    broadRuinClassifierHook.Hook.Enable();
+                logicallyEnabled = false;
+                Shared.DebugLogHelper.LogError(
+                    log,
+                    "AI tower-ruin repair was disabled because a permanent native classifier hook is no longer installed.");
+                return;
             }
-            else
-            {
-                if (narrowRuinClassifierHook.IsInstalled)
-                    narrowRuinClassifierHook.Hook.Disable();
-                if (broadRuinClassifierHook.IsInstalled)
-                    broadRuinClassifierHook.Hook.Disable();
-                runtimeRuins.Clear();
-            }
+
+            logicallyEnabled = settings.EnableMod && settings.FixAITowerRepair;
         }
 
         public void Dispose()
         {
             if (disposed)
                 return;
+            logicallyEnabled = false;
             disposed = true;
-            foreach (IDisposable subscription in subscriptions)
-                subscription.Dispose();
-            subscriptions.Clear();
             runtimeRuins.Clear();
-            classifierTransaction?.Dispose();
-            classifierTransaction = null;
         }
 
         private void RouteTrackedRuinThroughNarrowCleanup(NativePointer<X64SmartCPUContext> context) =>
@@ -373,12 +371,12 @@ namespace BugfixesAndQoL
             }
         }
 
-        private bool IsEnabled =>
-            narrowRuinClassifierHook.Success && broadRuinClassifierHook.Success &&
-            settings.EnableMod && settings.FixAITowerRepair;
+        private bool IsEnabled => logicallyEnabled;
 
         private void LogCallbackFailure(string operation, Exception ex)
         {
+            logicallyEnabled = false;
+            runtimeRuins.Clear();
             if (callbackFailureLogged)
                 return;
             callbackFailureLogged = true;
