@@ -405,6 +405,22 @@ namespace APISharedTests
                 viewModel.System_PresetSaveName == string.Empty &&
                 viewModel.System_PresetSaveDescription == string.Empty,
                 "opening Save must show only the save panel and start a new preset with blank metadata");
+            Assert(viewModel.System_SettingsSourceText == "Reset settings to" &&
+                    viewModel.System_SettingsSourceLoadText == "Reset" &&
+                    viewModel.System_SettingsSourceHelpText.StartsWith("Resets this mod's settings", StringComparison.Ordinal),
+                "the common settings reset controls must use understandable fallback text without raw localization keys");
+
+            MethodInfo setStatus = typeof(PresetLobbyModSettingsViewModel).GetMethod(
+                "SetPresetStatus",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            setStatus.Invoke(viewModel, new object[] { "injected failure", true });
+            Assert(viewModel.System_PresetOperationStatusVisibility == Noesis.Visibility.Visible &&
+                    viewModel.System_PresetOperationErrorVisibility == Noesis.Visibility.Visible,
+                "preset operation failures must remain visible");
+            setStatus.Invoke(viewModel, new object[] { "obsolete success", false });
+            Assert(viewModel.System_PresetOperationStatusVisibility == Noesis.Visibility.Collapsed &&
+                    viewModel.System_PresetOperationSuccessVisibility == Noesis.Visibility.Collapsed,
+                "successful preset operations must never expose a result banner");
 
             var existingPreset = new PublishedModSettingsPreset();
             typeof(PublishedModSettingsPreset).GetProperty(nameof(PublishedModSettingsPreset.Name))
@@ -461,6 +477,17 @@ namespace APISharedTests
                     !presetSource.Contains("ShowLobbyPresetConfirmation") &&
                     !presetSource.Contains("ModSettingsHubViewModel.WindowVisibility = Visibility.Collapsed"),
                 "preset confirmations and result messages must stay inline without hiding the ModSettings hub");
+            Assert(!presetSource.Contains("Common.SettingsSourceLoaded") &&
+                    !presetSource.Contains("Common.PresetDeleteCompleted") &&
+                    !presetSource.Contains("Common.PresetSaveCompletedTitle") &&
+                    presetSource.Contains("DismissPresetStatus();") &&
+                    presetSource.Contains("Could not reset settings"),
+                "successful preset and settings-reset actions must stay silent while failures remain explicit");
+            Assert(presetSource.Contains("ResolveSettingsUiTextSafe(\"Common.PresetLoadFailedTitle\", \"Preset load failed\")"),
+                "preset-load failures must not be reported as save failures");
+            Assert(presetSource.Contains("RaiseAccessProperties();\r\n                DismissPresetStatus();") ||
+                    presetSource.Contains("RaiseAccessProperties();\n                DismissPresetStatus();"),
+                "a successful preset load must clear a stale error status");
             Assert(!presetSource.Contains("SuggestedSaveName"),
                 "the new-personal-preset form must not inherit the active preset name");
         }

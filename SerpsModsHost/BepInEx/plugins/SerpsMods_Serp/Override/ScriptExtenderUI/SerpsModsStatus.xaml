@@ -44,12 +44,6 @@
               </StackPanel>
             </StackPanel>
           </Border>
-          <Border Visibility="{Binding GlobalSettingsResetSuccessVisibility}" BorderBrush="#FF77AAFF" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
-            <StackPanel Orientation="Horizontal">
-              <TextBlock Text="{Binding GlobalSettingsResetStatusText}" Foreground="White" TextWrapping="Wrap" MaxWidth="650"/>
-              <Button Content="{Binding GlobalSettingsResetDismissText}" Command="{Binding DismissGlobalSettingsResetStatusCommand}" ToolTipService.ShowDuration="60000" ToolTip="{Binding GlobalSettingsResetDismissText}" Padding="8,2" Margin="8,0,0,0" VerticalAlignment="Top"/>
-            </StackPanel>
-          </Border>
           <Border Visibility="{Binding GlobalSettingsResetErrorVisibility}" BorderBrush="#FFFF7777" BorderThickness="1" CornerRadius="3" Padding="8" Margin="0,8,0,0">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="{Binding GlobalSettingsResetStatusText}" Foreground="#FFFFAAAA" TextWrapping="Wrap" MaxWidth="650"/>

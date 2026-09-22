@@ -2,6 +2,7 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
+using BepInEx.Bootstrap;
 using Noesis;
 using System;
 using System.Collections.Generic;
@@ -69,6 +70,11 @@ CHIMP_TYPE_BEDOUIN_DEMOLISHER=-1";
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string TitleText => SerpLocalization.Get(SerpLocalization.UnitLimitsTitle);
         public string HelpText => SerpLocalization.Get(SerpLocalization.UnitLimitsHelp);
+        public string CrusaderDeTweakerWarningText => SerpLocalization.Get(SerpLocalization.UnitLimitCrusaderDeTweakerWarning);
+        public Visibility CrusaderDeTweakerWarningVisibility =>
+            Chainloader.PluginInfos.ContainsKey(UnitLimitPlugin.CrusaderDeTweakerGuid)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
 
         public void RefreshLocalizedNames()
         {

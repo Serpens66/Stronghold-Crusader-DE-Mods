@@ -984,10 +984,10 @@ namespace Shared
             HasHostSettings && isLocalHost
                 ? ResolveSettingsUiTextSafe(
                     "Common.ActionsScopeHost",
-                    "Loaded presets and settings sources affect host settings and your local client settings.")
+                    "Loading a preset or resetting settings affects host settings and your local client settings.")
                 : ResolveSettingsUiTextSafe(
                     "Common.ActionsScopeClient",
-                    "Loaded presets and settings sources affect only your local client settings.");
+                    "Loading a preset or resetting settings affects only your local client settings.");
 
         public string HostReadOnlyNoticeText =>
             ResolveSettingsUiTextSafe("Common.HostReadOnly", "Values from host - read-only");
@@ -1012,10 +1012,15 @@ namespace Shared
             ResolveSettingsUiTextSafe("Common.PresetSave", "Save preset");
 
         public string System_SettingsSourceText =>
-            ResolveSettingsUiTextSafe("Common.SettingsSource", "Settings source");
+            ResolveSettingsUiTextSafe("Common.SettingsSource", "Reset settings to");
 
         public string System_SettingsSourceLoadText =>
-            ResolveSettingsUiTextSafe("Common.SettingsSourceLoad", "Load");
+            ResolveSettingsUiTextSafe("Common.SettingsSourceLoad", "Reset");
+
+        public string System_SettingsSourceHelpText =>
+            ResolveSettingsUiTextSafe(
+                "Common.SettingsSourceHelp",
+                "Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings.");
 
         public ObservableCollection<ModSettingsWorkingSource> System_SettingsSources => settingsSources;
 
@@ -1261,11 +1266,13 @@ namespace Shared
         public string System_PresetInlineCancelText => ResolveSettingsUiTextSafe("Common.PresetSaveCancel", "Cancel");
         public string System_PresetOperationStatusText => presetOperationStatus;
         public Visibility System_PresetOperationStatusVisibility =>
-            string.IsNullOrWhiteSpace(presetOperationStatus) ? Visibility.Collapsed : Visibility.Visible;
+            presetOperationFailed && !string.IsNullOrWhiteSpace(presetOperationStatus)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         public Visibility System_PresetOperationErrorVisibility =>
             presetOperationFailed && !string.IsNullOrWhiteSpace(presetOperationStatus) ? Visibility.Visible : Visibility.Collapsed;
         public Visibility System_PresetOperationSuccessVisibility =>
-            !presetOperationFailed && !string.IsNullOrWhiteSpace(presetOperationStatus) ? Visibility.Visible : Visibility.Collapsed;
+            Visibility.Collapsed;
         public string System_PresetStatusDismissText => ResolveSettingsUiTextSafe("Common.PresetStatusDismiss", "Close");
 
         public string System_ModSettingsSearchText
@@ -1373,10 +1380,13 @@ namespace Shared
                 presetLoadPanelOpen = false;
                 RaisePresetDialogProperties();
                 RaiseAccessProperties();
+                DismissPresetStatus();
             }
             catch (Exception exception)
             {
-                ShowPresetSaveError(exception);
+                SetPresetStatus(
+                    ResolveSettingsUiTextSafe("Common.PresetLoadFailedTitle", "Preset load failed") + ": " + exception.Message,
+                    true);
             }
         }
 
@@ -1451,12 +1461,12 @@ namespace Shared
                 {
                     ModSettingsWorkingSourceRegistry.Apply(presetController.TargetGuid, source.Id);
                 }
-                SetPresetStatus(ResolveSettingsUiTextSafe("Common.SettingsSourceLoaded", "Settings source loaded") + ": " + source.DisplayName, false);
+                DismissPresetStatus();
                 RaiseAccessProperties();
             }
             catch (Exception exception)
             {
-                SetPresetStatus(ResolveSettingsUiTextSafe("Common.SettingsSourceLoadFailed", "Could not load settings source") + ": " + exception.Message, true);
+                SetPresetStatus(ResolveSettingsUiTextSafe("Common.SettingsSourceLoadFailed", "Could not reset settings") + ": " + exception.Message, true);
             }
         }
 
@@ -1469,9 +1479,7 @@ namespace Shared
                 selectedPresetLoadEntry = presetLoadEntries.FirstOrDefault();
                 RaisePresetDialogProperties();
                 RaiseAccessProperties();
-                SetPresetStatus(ResolveSettingsUiTextSafe(
-                    "Common.PresetDeleteCompleted",
-                    "The personal preset was permanently deleted. Current working values were not changed."), false);
+                DismissPresetStatus();
             }
             catch (Exception exception)
             {
@@ -1646,13 +1654,13 @@ namespace Shared
 
                 string id = presetController?.CreateUniquePersonalPresetId(presetSaveName) ??
                     CreatePublishedPresetId(presetSaveName);
-                string path = System_SavePersonalPreset(
+                System_SavePersonalPreset(
                     id,
                     presetSaveName,
                     presetSaveDescription,
                     selections,
                     overwrite: false);
-                ShowPresetSaveCompleted(path);
+                ShowPresetSaveCompleted();
             }
             catch (Exception exception)
             {
@@ -1668,13 +1676,13 @@ namespace Shared
         {
             try
             {
-                string path = System_SavePersonalPreset(
+                System_SavePersonalPreset(
                     id,
                     presetSaveName,
                     presetSaveDescription,
                     selections,
                     overwrite);
-                ShowPresetSaveCompleted(path);
+                ShowPresetSaveCompleted();
             }
             catch (Exception exception)
             {
@@ -1683,17 +1691,13 @@ namespace Shared
             }
         }
 
-        private void ShowPresetSaveCompleted(string path)
+        private void ShowPresetSaveCompleted()
         {
             presetSavePanelOpen = false;
             presetController?.RefreshCatalog();
             RebuildPresetDialogCatalogs();
             RaisePresetSaveProperties();
-            string message = path + Environment.NewLine + Environment.NewLine +
-                ResolveSettingsUiTextSafe(
-                    "Common.PresetSaveCompletedHelp",
-                    "The personal preset is available immediately. Its Override folder can also be copied into a loose Script Extender asset mod.");
-            SetPresetStatus(ResolveSettingsUiTextSafe("Common.PresetSaveCompletedTitle", "Preset saved") + ": " + message, false);
+            DismissPresetStatus();
         }
 
         private void ShowPresetSaveError(Exception exception)
@@ -1877,8 +1881,6 @@ namespace Shared
                 case "Common.PresetDelete": return "Löschen";
                 case "Common.PresetDeleteTitle": return "Eigenes Preset löschen";
                 case "Common.PresetDeleteConfirm": return "Das eigene Preset wird endgültig gelöscht. Fortfahren?";
-                case "Common.PresetDeleteCompletedTitle": return "Preset gelöscht";
-                case "Common.PresetDeleteCompleted": return "Das eigene Preset wurde endgültig gelöscht. Die aktuellen Arbeitswerte wurden nicht verändert.";
                 case "Common.PresetDeleteFailedTitle": return "Preset konnte nicht gelöscht werden";
                 case "Common.PresetSaveTarget": return "Speichern als";
                 case "Common.PresetSaveNew": return "Neues persönliches Preset";
@@ -1896,16 +1898,15 @@ namespace Shared
                 case "Common.PresetModeHostFixed": return "Host fest";
                 case "Common.PresetSaveOverwriteTitle": return "Eigenes Preset überschreiben";
                 case "Common.PresetSaveOverwrite": return "Das gewählte eigene Preset wird vollständig ersetzt. Fortfahren?";
-                case "Common.PresetSaveCompletedTitle": return "Preset gespeichert";
-                case "Common.PresetSaveCompletedHelp": return "Das eigene Preset ist sofort verfügbar. Sein Override-Ordner kann außerdem in eine lose Script-Extender-Asset-Mod kopiert werden.";
                 case "Common.PresetSaveFailedTitle": return "Preset konnte nicht gespeichert werden";
-                case "Common.SettingsSource": return "Einstellungsquelle";
-                case "Common.SettingsSourceLoad": return "Laden";
+                case "Common.PresetLoadFailedTitle": return "Preset konnte nicht geladen werden";
+                case "Common.SettingsSource": return "Einstellungen zurücksetzen auf";
+                case "Common.SettingsSourceLoad": return "Zurücksetzen";
+                case "Common.SettingsSourceHelp": return "Setzt die Einstellungen dieser Mod auf die gewählte Quelle zurück. Eigene Presets bleiben unverändert. Im Mehrspieler kann nur der Host die Host-Einstellungen zurücksetzen.";
                 case "Common.SettingsSourceDefaults": return "Mod-Standards";
                 case "Common.SettingsSourceTrail": return "Trail-Einstellungen";
                 case "Common.SettingsSourceMap": return "Map-Einstellungen";
-                case "Common.SettingsSourceLoaded": return "Einstellungsquelle geladen";
-                case "Common.SettingsSourceLoadFailed": return "Einstellungsquelle konnte nicht geladen werden";
+                case "Common.SettingsSourceLoadFailed": return "Einstellungen konnten nicht zurückgesetzt werden";
                 case "Common.PresetConfirm": return "Bestätigen";
                 case "Common.PresetStatusDismiss": return "Schließen";
                 default: return english;

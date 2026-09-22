@@ -7,6 +7,7 @@ using System.Threading;
 namespace UnitCosts
 {
     [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(CrusaderDeTweakerGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency(UnitLimitGuid, BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("SerpsMods_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("APIShared_Serp", "0.4.0")]
@@ -14,11 +15,12 @@ namespace UnitCosts
     public sealed class UnitCostsPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
+        private const string CrusaderDeTweakerGuid = "CrusaderDETweaker";
         private const string UnitLimitGuid = "UnitLimit_Serp";
 
         public const string PluginGuid = "UnitCosts_Serp";
         public const string PluginName = "Unit Costs";
-        public const string PluginVersion = "1.0.29";
+        public const string PluginVersion = "1.0.30";
 
         private UnitCostsRuntime runtime;
         private int libraryInitializationStarted;

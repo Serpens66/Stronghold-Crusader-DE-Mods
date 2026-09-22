@@ -2,6 +2,7 @@ using SHCDESE.API.Components.Network;
 using SHCDESE.Interop;
 using SHCDESE.NoesisUtil;
 using SHCDESE.ViewModels;
+using BepInEx.Bootstrap;
 using Noesis;
 using System;
 using System.Collections.Generic;
@@ -97,6 +98,11 @@ MAPPER_POND1=-1";
         public string ResetToDefaultText => SerpLocalization.Get(SerpLocalization.ResetToDefault);
         public string TitleText => SerpLocalization.Get(SerpLocalization.BuildingLimitsTitle);
         public string HelpText => SerpLocalization.Get(SerpLocalization.BuildingLimitsHelp);
+        public string CrusaderDeTweakerWarningText => SerpLocalization.Get(SerpLocalization.BuildingLimitCrusaderDeTweakerWarning);
+        public Visibility CrusaderDeTweakerWarningVisibility =>
+            Chainloader.PluginInfos.ContainsKey(BuildingLimitPlugin.CrusaderDeTweakerGuid)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
 
         public void RefreshLocalizedNames()
         {

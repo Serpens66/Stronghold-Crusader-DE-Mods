@@ -29,7 +29,7 @@ No Shared source links, preset compile symbols, or ExtendedData reference are re
            Visibility="{Binding System_PresetStatusVisibility}"/>
 ```
 
-The complete block also binds `System_PresetLoadEntries`, `System_SelectedPresetLoadEntry`, the personal-only delete command, `System_PresetSaveTargets`, `System_PresetSaveSettings`, the bulk mode selector, inline overwrite/delete confirmation and result status, and the corresponding confirm/cancel commands. Pressing an already open Load or Save button closes its panel again. No Vanilla popup is opened and the ModSettings hub remains visible.
+The complete block also binds `System_PresetLoadEntries`, `System_SelectedPresetLoadEntry`, the personal-only delete command, `System_PresetSaveTargets`, `System_PresetSaveSettings`, the bulk mode selector, inline overwrite/delete confirmation and error status, and the corresponding confirm/cancel commands. Successful Load, Reset, Save, Overwrite, and Delete operations do not show a result banner; failures remain visible and dismissible. Pressing an already open Load or Save button closes its panel again. No Vanilla popup is opened and the ModSettings hub remains visible.
 
 ### Sources and locations
 
@@ -95,7 +95,7 @@ Old Preset 1 is migrated to `legacy-preset-1`; Preset 2 is migrated only when it
 
 ### Maps and Trails
 
-Every compatible mod has one settings-source selector. **Mod defaults** is always available; **Trail settings** and **Map settings** appear only when a valid source exists. Selecting a source changes nothing until **Load** is pressed. Loading always replaces only the working copy: it never writes a Trail sidecar or Map archive.
+Every compatible mod has one **Reset settings to** selector. **Mod defaults** is always available; **Trail settings** and **Map settings** appear only when a valid source exists. Selecting an entry changes nothing until **Reset** is pressed. Resetting replaces only the working copy: it never writes a Trail sidecar or Map archive, and it never changes personal presets.
 
 Direct Map/Trail starts are read-only. Customize and Trail Maker use a freely editable temporary working copy, just like a normal Custom Game. For a Trail, Trail settings have initial precedence and embedded Map settings are ignored until the author explicitly loads **Map settings**. Only the visible **Include modsettings** options on the normal Trail Maker and Map Editor save paths may write or remove a sidecar or the ExtendedData archive entry. Saving a personal preset never modifies these mission sources. Leaving Customize restores the previous normal working values and status.
 
@@ -115,7 +115,7 @@ ExtendedData ist optional. Es verwendet denselben typisierten Property-Vertrag f
 4. Mit `LobbyModSettingsPresetRegistration.Register` registrieren.
 5. Den Standard-XAML-Block für Laden/Speichern aus einem presetfähigen Mod dieses Repositories übernehmen.
 
-Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind nicht nötig. Das minimale XAML-Beispiel im englischen Abschnitt sowie die vollständigen Blöcke der vorhandenen Mods zeigen alle Bindings einschließlich des ausschließlich für eigene Presets sichtbaren Löschbefehls sowie der Inline-Bestätigung. Der ModSettings-Hub bleibt dabei sichtbar. Ein erneuter Klick auf den bereits geöffneten Laden- oder Speichern-Button schließt sein Panel wieder.
+Shared-Quelllinks, Preset-Compile-Symbole und eine ExtendedData-Referenz sind nicht nötig. Das minimale XAML-Beispiel im englischen Abschnitt sowie die vollständigen Blöcke der vorhandenen Mods zeigen alle Bindings einschließlich des ausschließlich für eigene Presets sichtbaren Löschbefehls sowie der Inline-Bestätigung. Erfolgreiches Laden, Zurücksetzen, Speichern, Überschreiben und Löschen zeigt kein zusätzliches Ergebnisbanner; Fehler bleiben sichtbar und schließbar. Der ModSettings-Hub bleibt dabei sichtbar. Ein erneuter Klick auf den bereits geöffneten Laden- oder Speichern-Button schließt sein Panel wieder.
 
 ### Quellen und Ablageorte
 
@@ -153,6 +153,6 @@ Altes Preset 1 wird als `legacy-preset-1` migriert, Preset 2 nur wenn es vorhand
 
 ### Maps und Trails
 
-Jeder kompatible Mod besitzt einen einheitlichen Einstellungsquellen-Wähler. **Mod-Standards** ist immer verfügbar; **Trail-Einstellungen** und **Map-Einstellungen** erscheinen nur bei einer gültigen Quelle. Die Auswahl allein ändert nichts, erst **Laden** ersetzt die Arbeitskopie. Dabei werden weder Trail-Sidecar noch Maparchiv geschrieben.
+Jeder kompatible Mod besitzt einen einheitlichen Wähler **Einstellungen zurücksetzen auf**. **Mod-Standards** ist immer verfügbar; **Trail-Einstellungen** und **Map-Einstellungen** erscheinen nur bei einer gültigen Quelle. Die Auswahl allein ändert nichts, erst **Zurücksetzen** ersetzt die Arbeitskopie. Dabei werden weder persönliche Presets noch Trail-Sidecar oder Maparchiv verändert.
 
 Direkt gestartete Maps und Trails sind schreibgeschützt. Customize und Trail Maker verwenden dagegen eine vollständig editierbare temporäre Arbeitskopie wie ein normales Custom Game. Bei einem Trail haben zunächst ausschließlich die Trail-Einstellungen Vorrang; Map-Einstellungen werden erst übernommen, wenn der Autor sie ausdrücklich lädt. Nur die sichtbaren Optionen **Modsettings einschließen** an den normalen Speicherpfaden von Trail Maker und Map Editor dürfen ein Sidecar beziehungsweise den ExtendedData-Archiveintrag schreiben oder entfernen. Persönliches Preset-Speichern verändert diese Missionsquellen nie. Beim Verlassen werden die vorherigen normalen Arbeitswerte und ihr Status wiederhergestellt.

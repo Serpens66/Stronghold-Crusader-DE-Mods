@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Building Costs",
   "Description": "Lets you change construction costs for buildings in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.106",
+  "Version": "1.0.107",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.107",
+      "Changes": [
+        "Loads after Crusader DE Tweaker when both mods are installed so Building Costs settings have defined precedence."
+      ]
+    },
     {
       "Version": "1.0.106",
       "Changes": [

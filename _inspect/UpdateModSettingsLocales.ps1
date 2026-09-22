@@ -57,7 +57,9 @@ $localeDirectories = @(
     'BugfixesAndQoL\Locales',
     'BuildingCosts\Locales',
     'BuildingLimit\Locales',
+    'CheatMod\Locales',
     'ExtraFeatures\Locales',
+    'ExtremePowers\Locales',
     'ImprovedHunters\Locales',
     'RandomEvents\Locales',
     'CastlePlanner\BepInEx\plugins\CastlePlanner_Serp\Locales',
@@ -76,8 +78,18 @@ foreach ($relativeDirectory in $localeDirectories) {
         Set-LocaleKey $file.FullName 'Common.HostSettingsActivationHelp' $(if ($german) { 'Aktiviert oder deaktiviert alle vom Host gesteuerten Einstellungen dieser Mod.' } else { 'Enables or disables all host-controlled settings of this mod.' })
         Set-LocaleKey $file.FullName 'Common.ClientSettingsActivationHelp' $(if ($german) { 'Aktiviert oder deaktiviert alle lokalen und persönlichen Client-Einstellungen dieser Mod.' } else { 'Enables or disables all local and personal client settings of this mod.' })
         Set-LocaleKey $file.FullName 'Common.Preset' 'Preset'
-        Set-LocaleKey $file.FullName 'Common.ActionsScopeHost' $(if ($german) { 'Preset und Zurücksetzen betreffen Host-Einstellungen und deine lokalen Client-Optionen.' } else { 'Preset and reset affect host settings and your local client settings.' })
-        Set-LocaleKey $file.FullName 'Common.ActionsScopeClient' $(if ($german) { 'Preset und Zurücksetzen betreffen nur deine lokalen Client-Optionen.' } else { 'Preset and reset affect only your local client settings.' })
+        Set-LocaleKey $file.FullName 'Common.ActionsScopeHost' $(if ($german) { 'Das Laden eines Presets oder Zurücksetzen der Einstellungen betrifft Host-Einstellungen und deine lokalen Client-Optionen.' } else { 'Loading a preset or resetting settings affects host settings and your local client settings.' })
+        Set-LocaleKey $file.FullName 'Common.ActionsScopeClient' $(if ($german) { 'Das Laden eines Presets oder Zurücksetzen der Einstellungen betrifft nur deine lokalen Client-Optionen.' } else { 'Loading a preset or resetting settings affects only your local client settings.' })
+        Set-LocaleKey $file.FullName 'Common.SettingsSource' $(if ($german) { 'Einstellungen zurücksetzen auf' } else { 'Reset settings to' })
+        Set-LocaleKey $file.FullName 'Common.SettingsSourceLoad' $(if ($german) { 'Zurücksetzen' } else { 'Reset' })
+        Set-LocaleKey $file.FullName 'Common.SettingsSourceHelp' $(if ($german) { 'Setzt die Einstellungen dieser Mod auf die gewählte Quelle zurück. Eigene Presets bleiben unverändert. Im Mehrspieler kann nur der Host die Host-Einstellungen zurücksetzen.' } else { "Resets this mod's settings to the selected source. Personal presets are not changed. In multiplayer, only the host can reset host settings." })
+        Set-LocaleKey $file.FullName 'Common.SettingsSourceLoadFailed' $(if ($german) { 'Einstellungen konnten nicht zurückgesetzt werden' } else { 'Could not reset settings' })
+        Set-LocaleKey $file.FullName 'Common.PresetLoadFailedTitle' $(if ($german) { 'Preset konnte nicht geladen werden' } else { 'Preset load failed' })
+        Remove-LocaleKey $file.FullName 'Common.SettingsSourceLoaded'
+        Remove-LocaleKey $file.FullName 'Common.PresetDeleteCompletedTitle'
+        Remove-LocaleKey $file.FullName 'Common.PresetDeleteCompleted'
+        Remove-LocaleKey $file.FullName 'Common.PresetSaveCompletedTitle'
+        Remove-LocaleKey $file.FullName 'Common.PresetSaveCompletedHelp'
     }
 }
 
@@ -87,7 +99,7 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $workspace 'BugfixesAndQ
     Set-LocaleKey $file.FullName 'BugfixesAndQoL.EnableClientFeaturesHelp' $(if ($german) { 'Aktiviert oder deaktiviert die lokalen Oberflächen- und Steuerungsfunktionen dieses Mods nur für dich.' } else { "Enables or disables this mod's local interface and control features for you." })
     Set-LocaleKey $file.FullName 'BugfixesAndQoL.EnableHostFeatures' $(if ($german) { 'Host-Funktionen aktivieren' } else { 'Enable host features' })
     Set-LocaleKey $file.FullName 'BugfixesAndQoL.EnableHostFeaturesHelp' $(if ($german) { 'Aktiviert oder deaktiviert die vom Host gesteuerten Fehlerbehebungen für das Match.' } else { 'Enables or disables the host-controlled fixes for the match.' })
-    Set-LocaleKey $file.FullName 'BugfixesAndQoL.ClientInterfaceTitle' $(if ($german) { 'Oberfläche und Steuerung' } else { 'Interface and Controls' })
+    Remove-LocaleKey $file.FullName 'BugfixesAndQoL.ClientInterfaceTitle'
     Set-LocaleKey $file.FullName 'BugfixesAndQoL.AiAivTitle' $(if ($german) { 'KI und AIV' } else { 'AI and AIV' })
     Set-LocaleKey $file.FullName 'BugfixesAndQoL.TroopMovementTitle' $(if ($german) { 'Truppenbewegung' } else { 'Troop Movement' })
     Set-LocaleKey $file.FullName 'BugfixesAndQoL.PlagueTitle' $(if ($german) { 'Pest' } else { 'Plague' })

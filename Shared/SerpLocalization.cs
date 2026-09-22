@@ -28,11 +28,13 @@ public static class SerpLocalization
     public const string Max = "Common.Max";
     public const string UnitLimitsTitle = "UnitLimit.Title";
     public const string UnitLimitsHelp = "UnitLimit.Help";
+    public const string UnitLimitCrusaderDeTweakerWarning = "UnitLimit.CrusaderDeTweakerWarning";
     public const string BuildingsProductionTitle = "SomeSettings.BuildingsProductionTitle";
     public const string CampfirePeasants = "SomeSettings.CampfirePeasants";
     public const string CampfirePeasantsHelp = "SomeSettings.CampfirePeasantsHelp";
     public const string BuildingLimitsTitle = "BuildingLimit.Title";
     public const string BuildingLimitsHelp = "BuildingLimit.Help";
+    public const string BuildingLimitCrusaderDeTweakerWarning = "BuildingLimit.CrusaderDeTweakerWarning";
     public const string UnitCostsTitle = "UnitCosts.Title";
     public const string UnitCostsHelp = "UnitCosts.Help";
     public const string UnitCostsExtraTitle = "UnitCosts.ExtraTitle";
@@ -237,7 +239,6 @@ public static class SerpLocalization
     public const string SerpsModsResetSettingsConfirm = "SerpsModsHost.ResetSettingsConfirm";
     public const string SerpsModsResetSettingsConfirmButton = "SerpsModsHost.ResetSettingsConfirmButton";
     public const string SerpsModsResetSettingsCancelButton = "SerpsModsHost.ResetSettingsCancelButton";
-    public const string SerpsModsResetSettingsCompleted = "SerpsModsHost.ResetSettingsCompleted";
     public const string SerpsModsResetSettingsFailed = "SerpsModsHost.ResetSettingsFailed";
     public const string SerpsModsResetSettingsDismiss = "SerpsModsHost.ResetSettingsDismiss";
     public const string PreventHovelDeletionHelp = "BugfixesAndQoL.PreventHovelDeletionHelp";
@@ -340,7 +341,6 @@ public static class SerpLocalization
         { SerpsModsResetSettingsConfirm, "All compatible Serps mods will be reset to '{Source}'. Personal presets are not changed." },
         { SerpsModsResetSettingsConfirmButton, "Reset" },
         { SerpsModsResetSettingsCancelButton, "Cancel" },
-        { SerpsModsResetSettingsCompleted, "All compatible Serps mods were reset to '{Source}'." },
         { SerpsModsResetSettingsFailed, "The Serps mod settings could not be reset: {Reason}" },
         { SerpsModsResetSettingsDismiss, "Close" },
         { ResetToDefault, "Reset to Default" },
@@ -521,11 +521,13 @@ public static class SerpLocalization
         { Max, "Max" },
         { UnitLimitsTitle, "Unit Limits (Human)" },
         { UnitLimitsHelp, "Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Existing living units count against the limit." },
+        { UnitLimitCrusaderDeTweakerWarning, "Crusader DE Tweaker is loaded. Configure unit limits in only one of the two mods; if both define limits, the stricter limit applies." },
         { BuildingsProductionTitle, "Buildings and Production" },
         { CampfirePeasants, "Peasants waiting at the campfire" },
         { CampfirePeasantsHelp, "-1 = unchanged. Allowed range: -1 to 500. Sets the maximum peasants waiting at the campfire." },
         { BuildingLimitsTitle, "Building Limits (Human)" },
         { BuildingLimitsHelp, "Only for Human! -1 = unlimited. Allowed range: -1 to 10000. Variants such as gardens, statues, shrines and ponds are counted together." },
+        { BuildingLimitCrusaderDeTweakerWarning, "Crusader DE Tweaker is loaded. Configure building limits in only one of the two mods; if both define limits, the stricter limit applies." },
         { UnitCostsTitle, "Base Costs (Human and AI)" },
         { UnitCostsHelp, "Good slots apply to European units. unchanged keeps the vanilla slot; gold -1 stays unchanged." },
         { UnitCostsExtraTitle, "Additional Costs (Human only)" },

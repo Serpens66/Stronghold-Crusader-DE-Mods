@@ -13,6 +13,7 @@ namespace SerpsModsHostDuplicateTests
         private static int Main()
         {
             TestGlobalSettingsResetPolicy();
+            TestGlobalSettingsResetUiContract();
             TestModSettingsRegistrationOrder();
             TestScriptExtenderCompatibility();
             TestModInventoryCompatibility();
@@ -220,6 +221,23 @@ namespace SerpsModsHostDuplicateTests
                 (target, value) => target.Value = value);
             if (first.Value != 0 || second.Value != 0)
                 throw new InvalidOperationException("A successful global reset did not apply defaults to every target.");
+        }
+
+        private static void TestGlobalSettingsResetUiContract()
+        {
+            string workspace = FindWorkspaceRoot();
+            string source = File.ReadAllText(Path.Combine(
+                workspace, "SerpsModsHost", "src", "SerpsModsDiagnosticsViewModel.cs"));
+            string xaml = File.ReadAllText(Path.Combine(
+                workspace, "SerpsModsHost", "Override", "ScriptExtenderUI", "SerpsModsStatus.xaml"));
+            if (source.Contains("SerpsModsResetSettingsCompleted") ||
+                xaml.Contains("GlobalSettingsResetSuccessVisibility") ||
+                !source.Contains("globalResetStatus = string.Empty;") ||
+                !xaml.Contains("GlobalSettingsResetErrorVisibility"))
+            {
+                throw new InvalidOperationException(
+                    "The global reset must stay silent after success and retain a visible error-only status.");
+            }
         }
 
         private sealed class ResetTarget

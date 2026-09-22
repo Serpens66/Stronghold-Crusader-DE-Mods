@@ -3,13 +3,19 @@
   "Author": "Serpens66",
   "Name": "Unit Costs",
   "Description": "Configure recruit costs in Stronghold Crusader Definitive Edition.",
-  "Version": "1.0.29",
+  "Version": "1.0.30",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
   "MinimumScriptExtenderVersion": "2.3.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,
   "SerpChangelog": [
+    {
+      "Version": "1.0.30",
+      "Changes": [
+        "Loads after Crusader DE Tweaker when both mods are installed so Unit Costs settings have defined precedence."
+      ]
+    },
     {
       "Version": "1.0.29",
       "Changes": [

@@ -14,10 +14,11 @@ namespace UnitLimit
     public sealed class UnitLimitPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
+        internal const string CrusaderDeTweakerGuid = "CrusaderDETweaker";
 
         public const string PluginGuid = "UnitLimit_Serp";
         public const string PluginName = "Unit Limit";
-        public const string PluginVersion = "1.0.99";
+        public const string PluginVersion = "1.0.100";
 
         private UnitLimitRuntime runtime;
         private int libraryInitializationStarted;

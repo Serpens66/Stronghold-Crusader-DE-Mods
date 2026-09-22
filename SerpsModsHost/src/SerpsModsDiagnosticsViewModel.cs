@@ -110,9 +110,7 @@ namespace SerpsModsHost
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         public Visibility GlobalSettingsResetSuccessVisibility =>
-            !globalResetStatusIsError && !string.IsNullOrWhiteSpace(globalResetStatus)
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            Visibility.Collapsed;
         public string GlobalSettingsResetDismissText => SerpLocalization.Get(SerpLocalization.SerpsModsResetSettingsDismiss);
         public ModSettingsSearchViewModel Search => search;
         public string TitleText => SerpLocalization.Get(SerpLocalization.SerpsModsStatusTitle);
@@ -217,9 +215,7 @@ namespace SerpsModsHost
                 }
 
                 globalResetStatusIsError = false;
-                globalResetStatus = SerpLocalization.Get(
-                    SerpLocalization.SerpsModsResetSettingsCompleted,
-                    "Source", source.DisplayName ?? string.Empty);
+                globalResetStatus = string.Empty;
             }
             catch (Exception exception)
             {
@@ -227,7 +223,7 @@ namespace SerpsModsHost
                 globalResetStatus = SerpLocalization.Get(
                     SerpLocalization.SerpsModsResetSettingsFailed,
                     "Reason", exception.Message);
-                RecordError("Could not reset the shared ModSettings source: " + exception.Message);
+                RecordError(globalResetStatus);
             }
             RaiseGlobalSettingsResetProperties();
         }

@@ -13,10 +13,11 @@ namespace BuildingLimit
     public sealed class BuildingLimitPlugin : BaseUnityPlugin
     {
         private const string ScriptExtenderGuid = "000shcdese";
+        internal const string CrusaderDeTweakerGuid = "CrusaderDETweaker";
 
         public const string PluginGuid = "BuildingLimit_Serp";
         public const string PluginName = "Building Limit";
-        public const string PluginVersion = "1.0.24";
+        public const string PluginVersion = "1.0.25";
 
         private BuildingLimitRuntime runtime;
         private int libraryInitializationStarted;

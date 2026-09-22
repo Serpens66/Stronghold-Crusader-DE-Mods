@@ -199,8 +199,9 @@ foreach ($entry in $settings.GetEnumerator()) {
             '{Binding System_PresetLoadSelectionHelpText}',
             '{Binding System_PresetInlineConfirmationVisibility}',
             '{Binding System_ConfirmPresetInlineActionCommand}',
-            '{Binding System_PresetOperationStatusVisibility}',
+            '{Binding System_PresetOperationErrorVisibility}',
             '{Binding System_DismissPresetStatusCommand}',
+            '{Binding System_SettingsSourceHelpText}',
             '{Binding System_SettingsSources}',
             '{Binding System_LoadSettingsSourceCommand}')) {
             if (-not [IO.File]::ReadAllText($path).Contains($requiredBinding)) {
@@ -885,20 +886,29 @@ foreach ($modName in $selectedModNames) {
                 'Common.PresetScopeLocal',
                 'Common.PresetSaveOverwriteTitle',
                 'Common.PresetSaveOverwrite',
-                'Common.PresetSaveCompletedHelp',
-                'Common.PresetSaveCompletedTitle',
                 'Common.PresetSaveFailedTitle',
+                'Common.PresetLoadFailedTitle',
                 'Common.SettingsSource',
                 'Common.SettingsSourceLoad',
+                'Common.SettingsSourceHelp',
                 'Common.SettingsSourceDefaults',
                 'Common.SettingsSourceTrail',
                 'Common.SettingsSourceMap',
-                'Common.SettingsSourceLoaded',
                 'Common.SettingsSourceLoadFailed',
                 'Common.PresetConfirm',
                 'Common.PresetStatusDismiss')) {
                 if (-not $values.Contains($requiredSearchLocaleKey)) {
                     throw "$($entry.Key)/$($file.Name): missing shared search locale key $requiredSearchLocaleKey"
+                }
+            }
+            foreach ($obsoleteSuccessKey in @(
+                'Common.SettingsSourceLoaded',
+                'Common.PresetDeleteCompletedTitle',
+                'Common.PresetDeleteCompleted',
+                'Common.PresetSaveCompletedTitle',
+                'Common.PresetSaveCompletedHelp')) {
+                if ($values.Contains($obsoleteSuccessKey)) {
+                    throw "$($entry.Key)/$($file.Name): obsolete success-status locale key remains: $obsoleteSuccessKey"
                 }
             }
         }
@@ -1066,7 +1076,6 @@ foreach ($required in @(
     'Visibility="{Binding GlobalSettingsResetConfirmationVisibility}"',
     'Command="{Binding ConfirmGlobalSettingsResetCommand}"',
     'Command="{Binding CancelGlobalSettingsResetCommand}"',
-    'Visibility="{Binding GlobalSettingsResetSuccessVisibility}"',
     'Visibility="{Binding GlobalSettingsResetErrorVisibility}"',
     'Command="{Binding DismissGlobalSettingsResetStatusCommand}"',
     'diagnostics.SetSearch')) {
@@ -1107,6 +1116,17 @@ if ($hostErrorsIndex -lt 0 -or $hostResetIndex -le $hostErrorsIndex -or $hostSea
 if ($hostSettingsXaml.Contains('ToolTip="{Binding LoadGlobalSettingsSourceText}"') -or
     $hostSettingsXaml.Contains('ToolTip="{Binding GlobalSettingsSourceText}"')) {
     throw 'SerpsModsHost reset controls must use the explanatory reset tooltip instead of their short labels.'
+}
+if ($hostSettingsXaml.Contains('GlobalSettingsResetSuccessVisibility')) {
+    throw 'SerpsModsHost must not display a success banner after resetting settings.'
+}
+foreach ($settingsEntry in $settingsByMod.GetEnumerator()) {
+    if (-not (Test-ModSelected $settingsEntry.Key)) { continue }
+    $settingsXaml = [IO.File]::ReadAllText((Join-Path $workspace $settingsEntry.Value))
+    if ($settingsXaml.Contains('ToolTip="{Binding System_SettingsSourceText}"') -or
+        $settingsXaml.Contains('ToolTip="{Binding System_SettingsSourceLoadText}"')) {
+        throw "$($settingsEntry.Key): reset controls must use the explanatory settings-reset tooltip."
+    }
 }
 if ($hostSearchSource.Contains('InvalidateAfterSelectedTabChange') -or
     $hostSearchSource.Contains('ResolveCurrentTarget') -or

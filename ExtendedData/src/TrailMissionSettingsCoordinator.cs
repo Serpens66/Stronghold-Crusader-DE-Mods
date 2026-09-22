@@ -556,7 +556,7 @@ namespace ExtendedData
                     return CloneDocument(trailSourceDocument);
                 if (string.Equals(sourceId, ModSettingsWorkingSourceRegistry.MapId, StringComparison.Ordinal) && mapSourceDocument != null)
                     return CloneDocument(mapSourceDocument);
-                throw new InvalidOperationException("The selected ModSettings source is unavailable.");
+                throw new InvalidOperationException("The selected reset source is unavailable.");
             }
 
             private Dictionary<string, byte[]> MaterializeSource(string modId, IModSettingsWorkingCopyEndpoint endpoint, ModSettingsDefinition document)
