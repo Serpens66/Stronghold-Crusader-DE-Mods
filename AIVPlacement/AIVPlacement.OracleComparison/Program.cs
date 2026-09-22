@@ -971,7 +971,7 @@ internal static class Program
                     .Select(item => new OracleCase
                     {
                         Id = $"oracle-{item.Sequence:D3}-{item.Attempt:D2}-" +
-                            $"{MakeFileStem(item.AivName)}-r{item.Rotation}",
+                            $"{MakeFileStem(item.AivName)}-r{item.Rotation}-{item.SessionId}",
                         AivPath = item.AivPath,
                         AivSha256 = item.AivSha256,
                         SessionId = item.SessionId,

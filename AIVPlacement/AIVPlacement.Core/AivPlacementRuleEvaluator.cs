@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using MapParser.Core;
 
 namespace AIVPlacement.Core
@@ -79,17 +78,20 @@ namespace AIVPlacement.Core
                     lastClaimantByCoordinate[tile.MapCoordinate] = element.OriginalIndex;
             }
 
+            var effectiveCoordinatesByElement =
+                new Dictionary<int, HashSet<MapCoordinate>>(castle.Elements.Count);
+            foreach (AivProjectedElement element in castle.Elements)
+                effectiveCoordinatesByElement.Add(element.OriginalIndex, new HashSet<MapCoordinate>());
+            foreach (KeyValuePair<MapCoordinate, int> claimant in lastClaimantByCoordinate)
+                effectiveCoordinatesByElement[claimant.Value].Add(claimant.Key);
+
             var firstClaimants = new Dictionary<MapCoordinate, int>();
             foreach (AivProjectedElement element in castle.Elements)
             {
-                var effectiveCoordinates = new HashSet<MapCoordinate>(
-                    lastClaimantByCoordinate
-                        .Where(pair => pair.Value == element.OriginalIndex)
-                        .Select(pair => pair.Key));
                 List<AivPlacementIssue> issues = EvaluateMapRules(
                     map,
                     element,
-                    effectiveCoordinates);
+                    effectiveCoordinatesByElement[element.OriginalIndex]);
                 AddInternalOverlapIssues(map, element, firstClaimants, issues);
                 results.Add(new AivElementPlacementResult(element, issues));
             }

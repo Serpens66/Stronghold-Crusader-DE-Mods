@@ -35,6 +35,7 @@ namespace CastlePlanner.AIVPlacement
         private readonly ManualLogSource log;
         private readonly AivSelectionListViewModel selectionList;
         private readonly Func<bool> isEnabled;
+        private readonly Action requestRefresh;
         private readonly Dictionary<FRONT_Multiplayer.MPAIVInfo, int> playerIdsByInfo =
             new Dictionary<FRONT_Multiplayer.MPAIVInfo, int>();
         private readonly Dictionary<int, IReadOnlyDictionary<int, AivCandidateVisualState>> statesByPlayer =
@@ -54,11 +55,14 @@ namespace CastlePlanner.AIVPlacement
         public AivSelectionDialogRuntime(
             ManualLogSource log,
             AivSelectionListViewModel selectionList,
-            Func<bool> isEnabled)
+            Func<bool> isEnabled,
+            Action requestRefresh)
         {
             this.log = log ?? throw new ArgumentNullException(nameof(log));
             this.selectionList = selectionList ?? throw new ArgumentNullException(nameof(selectionList));
             this.isEnabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled));
+            this.requestRefresh = requestRefresh ??
+                throw new ArgumentNullException(nameof(requestRefresh));
         }
 
         public void Install()
@@ -300,6 +304,7 @@ namespace CastlePlanner.AIVPlacement
             }
 
             buttonTrampoline(self, param);
+            requestRefresh();
             try
             {
                 RefreshSelectionList(self);
@@ -334,6 +339,7 @@ namespace CastlePlanner.AIVPlacement
                 }
 
                 info.aivs.RemoveAt(index);
+                requestRefresh();
                 RefreshSelectionList(instance);
             }
             catch (Exception ex)

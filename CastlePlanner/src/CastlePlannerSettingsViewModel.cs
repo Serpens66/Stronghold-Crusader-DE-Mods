@@ -227,12 +227,13 @@ namespace CastlePlanner
                 Shared.DebugLogHelper.LogWarning(log, warning);
 
             catalog = result.Catalog;
-            RefreshCastleOptions(result.Options, notifySelectionChange: true);
+            RefreshCastleOptions(result.Options);
+            // Catalog readiness must retry Blueprint preparation even when the selection is unchanged.
+            SettingsChanged?.Invoke();
         }
 
         private void RefreshCastleOptions(
-            IReadOnlyList<string> discovered,
-            bool notifySelectionChange)
+            IReadOnlyList<string> discovered)
         {
             castleCatalogLoaded = true;
             if (CastleOptions.Count == discovered.Count)
@@ -255,8 +256,6 @@ namespace CastlePlanner
             OnPropertyChanged(nameof(AvailableFileCount));
             if (selectionChanged)
                 OnPropertyChanged(nameof(SelectedCastle));
-            if (notifySelectionChange && selectionChanged)
-                SettingsChanged?.Invoke();
             Shared.DebugLogHelper.LogInfo(
                 log,
                 $"CastlePlanner cached AIVJSON choices including Steam Workshop content; " +

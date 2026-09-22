@@ -1,11 +1,97 @@
 # Native AIV placement rule inventory
 
+## Current native baseline: lobby fit, Steam build 24816905
+
+The installed `CrusaderDE.dll` has SHA-256
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+The preferred image base is `0x180000000`. The function identities below were
+matched to the earlier build by the current semantic baseline's unique
+normalized hash and control-flow comparison, then checked against its
+decompiled caller/callee chain. Their RVA, VA and role are:
+
+| Role | RVA | VA | Confidence |
+| --- | ---: | ---: | --- |
+| Skirmish start and per-player loop | `0x94350` | `0x180094350` | confirmed caller chain; probable semantics |
+| Import one encoded candidate into the 100×100 grids | `0x55320` | `0x180055320` | confirmed identity; probable field semantics |
+| Test a specific candidate | `0x54DE0` | `0x180054DE0` | confirmed identity and call chain |
+| Rotate the prepared candidate grids | `0x56670` | `0x180056670` | confirmed identity and call chain |
+| Scan the projected candidate against map tiles | `0x57080` | `0x180057080` | confirmed identity; probable parameter roles |
+| Shared tile placement validator | `0x7B060` | `0x18007B060` | confirmed identity; probable rule semantics |
+| Select a rotation for one candidate | `0x54F60` | `0x180054F60` | confirmed identity; probable selection semantics |
+| Prepare the selected live layout | `0x53D00` | `0x180053D00` | confirmed identity; probable side effects |
+| Execute prepared frames up to a percentage | `0x55F50` | `0x180055F50` | confirmed identity and call chain |
+| Execute one prepared build step | `0x51790` | `0x180051790` | confirmed identity; probable side effects |
+
+`0x94350` scans AI players in ID order and passes the native AIV-system pointer,
+a zero-based spec index and a zero-based variant index to `0x54DE0`. The latter
+loads the variant with `0x55320`, applies the spec's initial rotation with
+`0x56670`, then runs `0x57080`. An absent or rejected variant returns `-2`;
+a positive prefix score yields placement state `1`, while `999999` yields state
+`2`. Its return value is an integer percentage. The selection path at
+`0x54F60` also considers alternatives in a specific order and applies
+percentage thresholds; the offline lobby aggregation must retain candidate
+order and both native score dimensions. Exact automatic rotation selection for
+all supported AIV structures remains an Oracle validation task.
+
+`0x57080` scans the final 100×100 mapper and frame-score grids row by row.
+The later imported frame wins when two frames claim one cell. For each
+nonempty cell, the spec's signed X/Y origins plus the grid column/row are
+checked as unsigned coordinates in `0..799`, then against the native validity
+mask and row lookup. The validator receives `(tileManager, tileId, 0,
+mapperValue, 0)`: player ID zero and call mode zero. Nonzero validator results
+count as blocked cells; the minimum blocked frame ordinal determines the
+sequential score. The current `0x7B060` still reads the documented height,
+BuildingId, Logic, owner, organism and entity layers. In this call mode,
+the entity walk is skipped for player zero; the Skirmish mode and player zero
+also preserve the documented organism bypass. Mapper profile lookup and
+single-cell height preparation moved to `0xC77C0` and `0x696D0`.
+
+After selection, `0x53D00` prepares native construction state. With completed
+enemy castles enabled, `0x55F50` calls `0x51790` in frame order. Its
+mapper-specific constructors can change subsequent map tiles differently
+from the fit grid, so a preceding AIV plan cannot stand in for the resulting
+live state. The lobby evaluator therefore remains `NotEvaluable` for later AI
+players in that mode until a sequential model has independent Oracle evidence.
+
+The Script Extender 2.8.0 AIV API exposes imported-variant pointers, live
+village slots, build-step spans and layout grids. These are useful for
+diagnostics after native import, but provide no fit query against an unloaded
+`.map` in the lobby. The offline parser and snapshot remain the lobby input.
+`AivSystem` is 1,930,456 bytes and must be accessed only through pointers or
+the Extender's bounded views, never copied as a CLR value.
+
+### Archived Oracle cross-checks
+
+The archived `Log_009.log` (SHA-256
+`DDB5D7E89CDDE3638852D72A724DA273746A6E849E4429DAA78E06D90024A654`)
+contains 212 imported attempts on `Target Zone.map` (map SHA-256
+`AA7E4C0538448C25C9514B4A2FB2C490DF8B56D483921680C13BDADD1EFD85`),
+all with `advopt_pre_build=0`. With all 19 AIV sources verified against their
+logged SHA-256 values, the offline comparison is exact in all 212 cases,
+including native raw score, fit percentage, and evaluated/blocked cell counts.
+
+The archived `Log_019.log` (SHA-256
+`01489B611C8AAB4CBD965F45E77A9D2E9AD65196B99D782627B62641D64F258E`)
+contains 145 attempts on the custom `test AI overbuild eachother.map` (map
+SHA-256 `D63CD2FF3AEABA80BC3BC173BB615207666F1EAF759ECAC573FAD0DA61979DF3`),
+also with `advopt_pre_build=0`. With all 27 AIV sources hash-verified, 7 cases
+match exactly and 138 differ in status, sequential score, blocked-cell count,
+or fit percentage. The
+first discrepancy occurs for player 3 after player 2's selection; the offline
+evidence includes an owner-marked wall tile. The exact source of the state
+difference remains unproven. These archived logs do not record the native DLL
+hash, so neither result alone validates the currently installed binary.
+
+All older RVAs, field claims and trace references in the sections below belong
+to the historical `17F8DD4A…` DLL. They are retained as provenance and must
+not be used as current addresses without the current-hash mapping above.
+
 This document fixes the evidence boundary established in Chat 7 of
 `AIV_PLACEMENT_ROADMAP.md` and records the offline implementation completed in
 Chat 8. It inventories the rejection families used by the native AIV fit path,
 assigns stable reason codes and records the Skirmish-specific organism bypass.
 
-## Binary and entry points
+## Historical binary and entry points
 
 - file: `x86_64/CrusaderDE.dll`
 - SHA-256: `17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4`

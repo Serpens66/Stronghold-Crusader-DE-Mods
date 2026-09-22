@@ -115,10 +115,12 @@ namespace CastlePlanner
                     () => Settings.EnableAivPlacementLobby);
                 Settings.PropertyChanged += (_, args) =>
                 {
-                    if (args.PropertyName == nameof(CastlePlannerSettingsViewModel.EnableAivPlacementLobby) &&
-                        !Settings.EnableAivPlacementLobby)
+                    if (args.PropertyName == nameof(CastlePlannerSettingsViewModel.EnableAivPlacementLobby))
                     {
-                        aivPlacementRuntime?.Deactivate();
+                        if (Settings.EnableAivPlacementLobby)
+                            aivPlacementRuntime?.RequestRefresh();
+                        else
+                            aivPlacementRuntime?.Deactivate();
                     }
                 };
             }, failedOptionalStages);

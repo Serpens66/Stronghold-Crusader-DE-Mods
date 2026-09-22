@@ -77,10 +77,17 @@ namespace CastlePlanner.AIVPlacement
             this.isEnabled = isEnabled ?? throw new ArgumentNullException(nameof(isEnabled));
             string pluginDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             vanillaAivDirectory = Path.Combine(pluginDirectory ?? string.Empty, "VanillaAIV");
-            selectionDialog = new AivSelectionDialogRuntime(log, selectionList, isEnabled);
+            selectionDialog = new AivSelectionDialogRuntime(
+                log, selectionList, isEnabled, RequestRefresh);
         }
 
         public object SelectionList => selectionList;
+
+        public void RequestRefresh()
+        {
+            nextSourcePollTimestamp = 0;
+            capturePoll.Invalidate();
+        }
 
         public void Install()
         {
@@ -255,6 +262,8 @@ namespace CastlePlanner.AIVPlacement
                     fingerprint,
                     lastFingerprint,
                     StringComparison.Ordinal);
+                // Frontend button actions invalidate the gate immediately; the periodic
+                // check also catches map, lobby and file changes without a reliable event.
                 if (!force && !stateChanged && now < nextSourcePollTimestamp)
                     return;
 

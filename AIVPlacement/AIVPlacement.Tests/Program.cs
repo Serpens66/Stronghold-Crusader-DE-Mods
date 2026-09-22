@@ -592,6 +592,17 @@ internal static class Program
         AssertEqual((int?)0, results[1].Issues[0].ConflictingElementIndex);
         AssertEqual(1, results[1].Issues[0].ElementIndex);
 
+        var occupiedMap = new SparsePlacementMap();
+        occupiedMap.Set(castle.Elements[0].OccupiedTiles[0].MapCoordinate,
+            Evidence(buildingId: 7));
+        IReadOnlyList<AivElementPlacementResult> occupiedResults =
+            RuleEvaluator.EvaluateElements(occupiedMap, castle);
+        AssertEqual(AivElementPlacementStatus.Placeable, occupiedResults[0].Status);
+        AssertEqual(AivElementPlacementStatus.Blocked, occupiedResults[1].Status);
+        Assert(occupiedResults[1].Issues.Any(issue =>
+                issue.Kind.HasFlag(AivPlacementIssueKind.BuildingOccupied)),
+            "The final claimant must receive the live-map rejection.");
+
         AivPlacementResult placement = PlacementEvaluator.Evaluate(
             new SparsePlacementMap(),
             blueprint,
