@@ -11,6 +11,7 @@ string testDir = Path.Combine(root, "BugfixesAndQoL", "tests", "FriendlyMoatMove
 string[] runtimeSourceNames =
 {
     "CursorConnectivity.cs", "CursorRegionGraph.cs", "DirectMoatCommandScopes.cs",
+    "LocalSelectionSnapshot.cs",
     "AssassinSelectionAdapters.cs",
     "FastMoatBridge.cs", "FillWeightedRoutes.cs", "FriendlyMoatMovementPolicy.cs",
     "FriendlyMoatMovementRuntime.cs", "FriendlyMoatMovementRuntime.LadderAttackFix.cs",
@@ -136,6 +137,8 @@ var compilation = CSharpCompilation.Create("Assembly-CSharp", new[] {
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "MoatPlacement.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.EventAPI.Units;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "CursorRegionGraph.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "CursorConnectivity.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "").Replace("using SHCDESE.Interop.Enums;", "")),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(sourceDir, "LocalSelectionSnapshot.cs")).Replace("using SHCDESE.API;", "").Replace("using SHCDESE.Interop;", "")),
+    CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root, "Shared", "SelectedChimpsSnapshotPolicy.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "CursorTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "PlacementTests.cs"))),
     CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(testDir, "FillFormationTests.cs"))),
@@ -478,7 +481,7 @@ void ValidateScriptExtenderIntegration()
         !runtime.Contains("Handle.Failure == null", StringComparison.Ordinal) ||
         !runtime.Contains("Handle.ResolvedAddress == targetAddress", StringComparison.Ordinal) ||
         !runtime.Contains("Handle.IsInstalled", StringComparison.Ordinal) ||
-        !runtime.Contains("GetSelectedChimps(localPlayerId) ?? Array.Empty<SelectedUnitInfo>()", StringComparison.Ordinal))
+        !runtime.Contains("LocalSelectionSnapshot.TryCapture(localPlayerId, out SelectedUnitInfo[] selected)", StringComparison.Ordinal))
         throw new Exception("Friendly moat movement is missing a required transaction or selection guard.");
     if (runtime.Contains("RegisterImprovedMoatFillingProvider", StringComparison.Ordinal) ||
         Directory.Exists(Path.Combine(root, "MoveMoatTest")) ||
@@ -565,7 +568,7 @@ void ValidateRuntimeSources()
         "PortalStateOffsetDwords=0x809, PortalKindOffsetDwords=0x80A, PortalBuildingIdOffsetDwords=0x80C, " +
         "PortalActiveOffsetDwords=0x80F, PortalFirstPclOffsetDwords=0x816, PortalSecondPclOffsetDwords=0x817, " +
         "PortalOwnerOffsetDwords=0x882, PortalThirdPclOffsetDwords=0x883; } }");
-    var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","ToolTipPresentation.cs","GameModeHelper.cs","GameplaySessionLifecycle.cs","GameBuildingFootprint.cs"}.Select(file=>
+    var sources=trees.Concat(new[]{settingsStub}).Concat(new[]{"DebugLogHelper.cs","NativePatternResolver.cs","SerpLocalization.cs","ToolTipPresentation.cs","GameModeHelper.cs","GameplaySessionLifecycle.cs","GameBuildingFootprint.cs","SelectedChimpsSnapshotPolicy.cs"}.Select(file=>
         CSharpSyntaxTree.ParseText(File.ReadAllText(Path.Combine(root,"Shared",file)),path:file))).ToArray();
     var check=CSharpCompilation.Create("FriendlyMoatMovementSourceContract",sources,
         paths.Values.Select(p=>MetadataReference.CreateFromFile(p)),

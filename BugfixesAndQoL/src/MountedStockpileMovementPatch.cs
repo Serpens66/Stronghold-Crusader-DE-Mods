@@ -366,7 +366,11 @@ namespace BugfixesAndQoL
                 allResolved = false;
                 return;
             }
-            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps(localPlayerId);
+            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out SelectedUnitInfo[] selected))
+            {
+                allResolved = false;
+                return;
+            }
             if (selected == null || selected.Length == 0 || GameUnitManagerAPI.Instance == null)
             {
                 allResolved = false;

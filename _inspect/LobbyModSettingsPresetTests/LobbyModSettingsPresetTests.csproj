@@ -42,6 +42,7 @@
     <Compile Include="..\..\Shared\DebugLogHelper.cs"><Link>Shared\DebugLogHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\DependencyFreeJson.cs"><Link>Shared\DependencyFreeJson.cs</Link></Compile>
     <Compile Include="..\..\APIShared\src\ModSettingsPresetDocuments.cs"><Link>APIShared\ModSettingsPresetDocuments.cs</Link></Compile>
+    <Compile Include="..\..\APIShared\src\GameplayModModePolicy.cs"><Link>APIShared\GameplayModModePolicy.cs</Link></Compile>
     <Compile Include="..\..\APIShared\src\PresetLobbyModSettingsViewModel.cs"><Link>APIShared\PresetLobbyModSettingsViewModel.cs</Link></Compile>
     <Compile Include="..\..\Shared\GameModeHelper.cs"><Link>Shared\GameModeHelper.cs</Link></Compile>
     <Compile Include="..\..\Shared\GameplaySessionLifecycle.cs"><Link>Shared\GameplaySessionLifecycle.cs</Link></Compile>

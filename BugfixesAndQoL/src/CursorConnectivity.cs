@@ -421,8 +421,13 @@ namespace BugfixesAndQoL
                 cursorSelectionAvailable = false;
                 return false;
             }
-            SelectedUnitInfo[] selected =
-                GamePlayerManagerAPI.Instance.GetSelectedChimps(localPlayerId) ?? Array.Empty<SelectedUnitInfo>();
+            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out SelectedUnitInfo[] selected))
+            {
+                ids = Array.Empty<int>();
+                token = string.Empty;
+                cursorSelectionAvailable = false;
+                return false;
+            }
             int count = selected.Length;
             ids = selectedCursorIds; token = cursorSelectionToken;
             cursorSelectionAvailable = true;

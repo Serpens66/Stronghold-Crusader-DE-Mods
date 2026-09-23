@@ -153,6 +153,7 @@ namespace ExtendedData
             private long activeSidecarLength = -1;
             private long activeSidecarWriteTicks;
             private bool activeSidecarEditable;
+            private bool activeSidecarPreviewOnly;
             private bool workingContextEditable;
             private ModSettingsDefinition trailSourceDocument;
             private ModSettingsDefinition mapSourceDocument;
@@ -863,6 +864,7 @@ namespace ExtendedData
                         activeSidecarWriteTicks = 0;
                     }
                     activeSidecarEditable = true;
+                    activeSidecarPreviewOnly = false;
                     UpdateTrailMakerWorkingDocument(document, trailPath);
                     missionPresetLifecycle.CompleteTrailMakerReturn();
                 }
@@ -2183,7 +2185,7 @@ namespace ExtendedData
                 {
                     FileHeader header = GetSelectedCustomTrailHeader(menus);
                     if (header != null)
-                        EnterSidecar(header.filePath, editable: false);
+                        EnterSidecar(header.filePath, editable: false, previewOnly: true);
                 }
                 catch (Exception exception)
                 {
@@ -2903,7 +2905,7 @@ namespace ExtendedData
                 missionPresetLifecycle.Reset();
             }
 
-            private bool EnterSidecar(string trailPath, bool editable)
+            private bool EnterSidecar(string trailPath, bool editable, bool previewOnly = false)
             {
                 string sidecar = MissionLoader.GetTrailModSettingsPath(trailPath);
                 bool exists = File.Exists(sidecar);
@@ -2917,6 +2919,7 @@ namespace ExtendedData
                 }
 
                 if (trailContext && activeSidecarEditable == editable &&
+                    activeSidecarPreviewOnly == previewOnly &&
                     string.Equals(activeSidecarPath, sidecar, StringComparison.OrdinalIgnoreCase) &&
                     activeSidecarLength == length && activeSidecarWriteTicks == writeTicks &&
                     AreAllTrailPresetsActive())
@@ -2930,7 +2933,8 @@ namespace ExtendedData
                 trailSourceDocument = exists ? CloneDocument(document) : null;
                 workingSourceContextId = "trail:" + IOPath.GetFullPath(sidecar);
                 SourcesChanged?.Invoke();
-                ApplyDocument(document, editable, useFixedDefaults: !exists && editable);
+                ApplyDocument(document, editable, useFixedDefaults: !exists && editable,
+                    previewOnly: previewOnly);
                 string[] mentionedMods = document.Mods.Keys.ToArray();
                 DebugLogHelper.LogInfo(
                     log,
@@ -2940,6 +2944,7 @@ namespace ExtendedData
                 activeSidecarLength = length;
                 activeSidecarWriteTicks = writeTicks;
                 activeSidecarEditable = editable;
+                activeSidecarPreviewOnly = previewOnly;
                 return exists;
             }
 
@@ -2980,12 +2985,13 @@ namespace ExtendedData
                 ModSettingsDefinition document,
                 bool editable,
                 string presetLabel = "Trail",
-                bool useFixedDefaults = false)
+                bool useFixedDefaults = false,
+                bool previewOnly = false)
             {
                 ClearActiveSidecar();
                 Dictionary<string, IModSettingsPresetEndpoint> allParticipants = FindCompatibleViewModels();
                 ExitActiveParticipants(allParticipants);
-                var prepared = new List<Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>>>(allParticipants.Count);
+                var prepared = new List<Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>, bool>>(allParticipants.Count);
                 foreach (KeyValuePair<string, IModSettingsPresetEndpoint> participant in allParticipants)
                 {
                     Dictionary<string, PropertyInfo> properties = GetPersistedProperties(participant.Value);
@@ -3002,6 +3008,10 @@ namespace ExtendedData
                     }
 
                     document.Mods.TryGetValue(participant.Key, out ModSettingsEntry entry);
+                    // A direct Trail selection is only a preview. Mods absent from its
+                    // sidecar keep their editable personal values until launch.
+                    if (previewOnly && entry == null)
+                        continue;
                     // The participant owns its Trail-safe baseline. Missing mods and settings
                     // therefore retain their own defaults, normally EnableMod=false.
                     Dictionary<string, byte[]> snapshot =
@@ -3027,7 +3037,7 @@ namespace ExtendedData
                             snapshot[property.Name] = MessagePackSerializer.Serialize(property.PropertyType, converted);
                         }
                     }
-                    prepared.Add(Tuple.Create(participant.Key, participant.Value, snapshot));
+                    prepared.Add(Tuple.Create(participant.Key, participant.Value, snapshot, entry != null));
                 }
 
                 if (editable)
@@ -3035,8 +3045,10 @@ namespace ExtendedData
 
                 try
                 {
-                    foreach (Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>> item in prepared)
+                    foreach (Tuple<string, IModSettingsPresetEndpoint, Dictionary<string, byte[]>, bool> item in prepared)
                     {
+                        if (item.Item2 is IModSettingsMissionSourceEndpoint sourceEndpoint)
+                            sourceEndpoint.System_SetExplicitMissionSettings(item.Item4);
                         item.Item2.System_EnterMissionPreset(item.Item3, presetLabel, editable);
                         activeParticipantIds.Add(item.Item1);
                     }
@@ -3128,6 +3140,7 @@ namespace ExtendedData
                 activeSidecarLength = -1;
                 activeSidecarWriteTicks = 0;
                 activeSidecarEditable = false;
+                activeSidecarPreviewOnly = false;
             }
 
             private static object ConvertJsonValue(object value, Type targetType)

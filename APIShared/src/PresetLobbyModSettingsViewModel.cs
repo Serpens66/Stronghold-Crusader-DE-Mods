@@ -827,8 +827,9 @@ namespace Shared
     /// Adds two local presets to a Script Extender lobby-settings ViewModel while
     /// keeping the outer MessagePack dictionary readable by the Script Extender.
     /// </summary>
-    public abstract class PresetLobbyModSettingsViewModel : LobbyModSettingsBaseViewModel, IModSettingsWorkingCopyEndpoint
+    public abstract class PresetLobbyModSettingsViewModel : LobbyModSettingsBaseViewModel, IModSettingsWorkingCopyEndpoint, IModSettingsMissionSourceEndpoint
     {
+        private enum SettingsMenuContext { Other, Campaign, DirectTrail, CustomizeSetup }
         private static readonly MethodInfo NotifyRevertMethod =
             typeof(LobbyModSettingsBaseViewModel).GetMethod(
                 "NotifyRevert",
@@ -838,6 +839,10 @@ namespace Shared
         private int selectedPreset;
         private bool missionPresetContext;
         private bool missionPresetEditable;
+        private bool missionPresetHasExplicitSettings;
+        private bool showDirectLaunchNotice;
+        private bool isCastlePlannerSettings;
+        private SettingsMenuContext settingsMenuContext;
         private bool isRealMultiplayer;
         private bool isLocalHost = true;
         private PerPlayerLobbySettingsCoordinator perPlayerSettingsCoordinator;
@@ -920,6 +925,28 @@ namespace Shared
         public bool MissionPresetEditable => missionPresetEditable;
 
         public bool IsMissionPresetSelected => missionPresetContext && selectedPreset == (presetController?.MissionPresetIndex ?? 2);
+
+        public Visibility System_DirectLaunchNoticeVisibility =>
+            showDirectLaunchNotice &&
+            (settingsMenuContext == SettingsMenuContext.Campaign ||
+             (settingsMenuContext == SettingsMenuContext.DirectTrail &&
+              (!missionPresetContext || !missionPresetHasExplicitSettings)))
+                ? Visibility.Visible : Visibility.Collapsed;
+
+        public string System_DirectLaunchNoticeText => isCastlePlannerSettings
+            ? ResolveSettingsUiTextSafe("Common.DirectLaunchCastlePlannerNotice",
+                "Castle spawning and gameplay changes are inactive for this direct start. Blueprints remain available. Use Customize to play with these changes; edits here are saved for later games.")
+            : ResolveSettingsUiTextSafe("Common.DirectLaunchNotice",
+                "This mod's gameplay changes are inactive for this direct start. Use Customize to play with them; edits here are saved for later games.");
+
+        public Visibility System_TrailSourceNoticeVisibility =>
+            settingsMenuContext == SettingsMenuContext.DirectTrail &&
+            missionPresetContext && !missionPresetEditable && missionPresetHasExplicitSettings
+                ? Visibility.Visible : Visibility.Collapsed;
+
+        public string System_TrailSourceNoticeText =>
+            ResolveSettingsUiTextSafe("Common.TrailSourceReadOnlyNotice",
+                "These settings come from the selected Trail and are read-only here. Use Customize to change them.");
 
         public bool CanEditHostSettings =>
             isLocalHost && (!IsMissionPresetSelected || missionPresetEditable);
@@ -1917,6 +1944,9 @@ namespace Shared
                 case "Common.SettingsSourceTrail": return "Trail-Einstellungen";
                 case "Common.SettingsSourceMap": return "Map-Einstellungen";
                 case "Common.SettingsSourceLoadFailed": return "Einstellungen konnten nicht zurückgesetzt werden";
+                case "Common.DirectLaunchNotice": return "Die Spieländerungen dieser Mod sind für diesen direkten Start inaktiv. Über „Customize“ starten, um damit zu spielen. Änderungen hier werden für spätere Partien gespeichert.";
+                case "Common.DirectLaunchCastlePlannerNotice": return "Burgplatzierung und Spieländerungen sind für diesen direkten Start inaktiv; Blaupausen bleiben verfügbar. Über „Customize“ starten, um die Spieländerungen zu nutzen. Änderungen hier werden gespeichert.";
+                case "Common.TrailSourceReadOnlyNotice": return "Diese Werte stammen aus dem gewählten Trail und sind hier schreibgeschützt. Zum Ändern „Customize“ wählen.";
                 case "Common.PresetConfirm": return "Bestätigen";
                 case "Common.PresetStatusDismiss": return "Schließen";
                 default: return english;
@@ -2260,6 +2290,12 @@ namespace Shared
 
 #endif
 
+        public void System_SetExplicitMissionSettings(bool hasExplicitSettings)
+        {
+            missionPresetHasExplicitSettings = hasExplicitSettings;
+            RaiseAccessProperties();
+        }
+
         public void System_EnterMissionPreset(Dictionary<string, byte[]> snapshot, string label, bool editable)
         {
             if (presetController == null)
@@ -2278,6 +2314,7 @@ namespace Shared
 
             missionPresetContext = false;
             missionPresetEditable = false;
+            missionPresetHasExplicitSettings = false;
             presetController.ExitMissionPreset();
             RaiseAccessProperties();
         }
@@ -2286,12 +2323,14 @@ namespace Shared
         {
             bool currentIsRealMultiplayer;
             bool currentIsHost;
+            SettingsMenuContext currentMenuContext;
             try
             {
                 currentIsRealMultiplayer = GameModeHelper.IsRealMultiplayer();
                 // Authority and game-mode presentation are independent. The Extender
                 // correctly reports local Skirmish and Trail lobbies as local host.
                 currentIsHost = GameNetworkAPI.IsLocalHost();
+                currentMenuContext = CaptureSettingsMenuContext();
             }
             catch
             {
@@ -2300,11 +2339,77 @@ namespace Shared
                 return;
             }
 
-            if (isLocalHost == currentIsHost && isRealMultiplayer == currentIsRealMultiplayer)
+            if (isLocalHost == currentIsHost && isRealMultiplayer == currentIsRealMultiplayer &&
+                settingsMenuContext == currentMenuContext)
                 return;
 
             isLocalHost = currentIsHost;
             isRealMultiplayer = currentIsRealMultiplayer;
+            settingsMenuContext = currentMenuContext;
+            RaiseAccessProperties();
+        }
+
+        private static SettingsMenuContext CaptureSettingsMenuContext()
+        {
+#if API_SHARED_PRESET_TESTS
+            return SettingsMenuContext.Other;
+#else
+            try
+            {
+                CrusaderDE.MainViewModel viewModel = CrusaderDE.MainViewModel.Instance;
+                if (viewModel == null)
+                    return SettingsMenuContext.Other;
+                bool campaign = viewModel.Show_Historical1CampaignMenu || viewModel.Show_Historical2CampaignMenu ||
+                    viewModel.Show_Historical3CampaignMenu || viewModel.Show_Historical4CampaignMenu ||
+                    viewModel.Show_Historical5CampaignMenu || viewModel.Show_Historical6CampaignMenu ||
+                    viewModel.Show_Historical7CampaignMenu;
+                bool trail = viewModel.Show_TrailCampaignMenu || viewModel.Show_Trail2CampaignMenu ||
+                    viewModel.Show_Trail3CampaignMenu || viewModel.Show_SandsTrail1Menu ||
+                    viewModel.Show_SandsTrail2Menu || viewModel.Show_SandsTrail3Menu ||
+                    viewModel.Show_SandsTrail4Menu || viewModel.Show_SandsTrail5Menu ||
+                    viewModel.Show_SandsTrail6Menu || viewModel.Show_SandsTrail7Menu ||
+                    viewModel.Show_SandsTrail8Menu;
+                return ResolveSettingsMenuContext(viewModel.Show_MultiplayerSetup, campaign, trail);
+            }
+            catch
+            {
+                // An unavailable front-end view never proves that a direct launch is active.
+            }
+            return SettingsMenuContext.Other;
+#endif
+        }
+
+        private static SettingsMenuContext ResolveSettingsMenuContext(bool customizeSetup, bool campaign, bool trail)
+        {
+            if (customizeSetup) return SettingsMenuContext.CustomizeSetup;
+            if (campaign && !trail) return SettingsMenuContext.Campaign;
+            if (trail && !campaign) return SettingsMenuContext.DirectTrail;
+            return SettingsMenuContext.Other;
+        }
+
+#if API_SHARED_PRESET_TESTS
+        public void System_TestSetSettingsMenuContext(bool customizeSetup, bool campaign, bool trail)
+        {
+            settingsMenuContext = ResolveSettingsMenuContext(customizeSetup, campaign, trail);
+            RaiseAccessProperties();
+        }
+#endif
+
+        public void System_ConfigureDirectLaunchNotice(string modGuid)
+        {
+            if (string.IsNullOrWhiteSpace(modGuid))
+                return;
+            try
+            {
+                GameplayModModePolicy.GetProfile(modGuid, modGuid);
+                showDirectLaunchNotice = true;
+                isCastlePlannerSettings = string.Equals(modGuid, "CastlePlanner_Serp", StringComparison.Ordinal);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                showDirectLaunchNotice = false;
+                isCastlePlannerSettings = false;
+            }
             RaiseAccessProperties();
         }
 
@@ -2364,6 +2469,10 @@ namespace Shared
             base.OnPropertyChanged(nameof(ActionsScopeNoticeText));
             base.OnPropertyChanged(nameof(AreSettingsEditable));
             base.OnPropertyChanged(nameof(IsMissionPresetActive));
+            base.OnPropertyChanged(nameof(System_DirectLaunchNoticeVisibility));
+            base.OnPropertyChanged(nameof(System_DirectLaunchNoticeText));
+            base.OnPropertyChanged(nameof(System_TrailSourceNoticeVisibility));
+            base.OnPropertyChanged(nameof(System_TrailSourceNoticeText));
 #if !API_SHARED_PRESET_TESTS
             base.OnPropertyChanged(nameof(System_PresetStatusText));
             base.OnPropertyChanged(nameof(System_PresetStatusVisibility));
@@ -3986,6 +4095,7 @@ namespace Shared
                 plugin.Info.Metadata.GUID,
                 plugin.Info.Metadata.Version,
                 logRoutineActivity);
+            viewModel.System_ConfigureDirectLaunchNotice(plugin.Info.Metadata.GUID);
             // Structural validation must happen before the ViewModel can enter the
             // Extender registry. An invalid personal setting therefore fails closed.
             viewModel.PreparePerPlayerLobbySettings(

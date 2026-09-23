@@ -153,6 +153,22 @@ namespace BugfixesAndQoL
                 Check(Hover()==1 && nativeCalls==0,"complete selection -> scope -> pair -> native positive cursor branch without a ground detour");
                 Check(GamePlayerManagerAPI.Instance.GetSelectedChimps(1)[0].UnitId==1,
                     "the selected-unit projection preserves the 1-based unit ID");
+                Check(!LocalSelectionSnapshot.TryCapture(0, out _) &&
+                    !LocalSelectionSnapshot.TryCapture(9, out _),
+                    "invalid player IDs do not reach the native selection count");
+                GamePlayerManagerAPI.Instance.SelectionCountOverride = -1;
+                Check(!LocalSelectionSnapshot.TryCapture(1, out _),
+                    "negative transient selection count is rejected");
+                GamePlayerManagerAPI.Instance.SelectionCountOverride = 10001;
+                Check(!LocalSelectionSnapshot.TryCapture(1, out _),
+                    "oversized selection count is rejected");
+                GamePlayerManagerAPI.Instance.SelectionCountOverride = 2;
+                Check(!LocalSelectionSnapshot.TryCapture(1, out _),
+                    "a count and snapshot mismatch is rejected");
+                GamePlayerManagerAPI.Instance.SelectionCountOverride = null;
+                Check(LocalSelectionSnapshot.TryCapture(1, out SelectedUnitInfo[] checkedSelection) &&
+                    checkedSelection.Length == 1 && checkedSelection[0].UnitId == 1,
+                    "a coherent local selection remains available");
                 foreach(int count in new[]{1,120,1000})
                 {
                     int[] selected=new int[count*2]; for(int i=0;i<count;i++) selected[i*2]=i+1;

@@ -1396,6 +1396,7 @@ namespace APISharedTests
                 "Shared.PresetLobbyModSettingsViewModel",
                 "Shared.LobbyModSettingsPresetRegistration",
                 "Shared.IModSettingsPresetEndpoint",
+                "Shared.IModSettingsMissionSourceEndpoint",
                 "Shared.IModSettingsWorkingCopyEndpoint",
                 "Shared.ModSettingsWorkingSourceKind",
                 "Shared.ModSettingsWorkingSource",

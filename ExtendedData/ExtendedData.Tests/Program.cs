@@ -918,6 +918,7 @@ static void TestMapModSettingsRuntimeIntegration()
     Assert(trailCoordinator.Contains("EnterStrict") &&
         trailCoordinator.Contains("internal ModSettingsDefinition ValidateStrict") &&
         trailCoordinator.Contains("ValidateDocumentValues") &&
+        trailCoordinator.Contains("sourceEndpoint.System_SetExplicitMissionSettings(item.Item4)") &&
         trailCoordinator.Contains("item.Item2.System_EnterMissionPreset(item.Item3, presetLabel, editable)"),
         "the shared Trail/Map preset service does not validate or expose contextual labels");
     Assert(!runtime.Contains("mapSettingsCoordinator?.TryHandleCommand") &&

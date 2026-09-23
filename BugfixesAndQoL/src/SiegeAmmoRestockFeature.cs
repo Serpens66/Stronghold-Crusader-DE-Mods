@@ -408,7 +408,8 @@ namespace BugfixesAndQoL
             globalIds = null;
             if (playerId < 1 || playerId > 8)
                 return false;
-            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps(playerId) ?? Array.Empty<SelectedUnitInfo>();
+            if (!LocalSelectionSnapshot.TryCapture(playerId, out SelectedUnitInfo[] selected))
+                return false;
             var ids = new List<int>();
             var unique = new HashSet<int>();
             for (int index = 0; index < selected.Length; index++)

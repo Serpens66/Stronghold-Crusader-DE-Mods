@@ -509,7 +509,7 @@ namespace ExtraFeatures
         private static bool ShouldTransferSelection(int ownerPlayerId, GameUnit* source)
         {
             return source != null && source->r_AliveState == AliveState.IsAlive &&
-                IsSelected(source) && ownerPlayerId == GetControlledPlayerId();
+                IsSelected(source) && ownerPlayerId == GetSelectionPlayerId();
         }
 
         private void PrunePendingSelectionRequest()
@@ -517,7 +517,7 @@ namespace ExtraFeatures
             if (pendingSelectionRequestIds.Count == 0)
                 return;
 
-            int localPlayerId = GetControlledPlayerId();
+            int localPlayerId = GetSelectionPlayerId();
             var invalidIds = new List<int>();
             foreach (int unitId in pendingSelectionRequestIds)
             {
@@ -557,7 +557,7 @@ namespace ExtraFeatures
 
             try
             {
-                int localPlayerId = GetControlledPlayerId();
+                int localPlayerId = GetSelectionPlayerId();
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
                 foreach (int unitId in unitApi.GetAllAliveUnits())
                 {
@@ -582,7 +582,7 @@ namespace ExtraFeatures
 
             try
             {
-                int localPlayerId = GetControlledPlayerId();
+                int localPlayerId = GetSelectionPlayerId();
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
                 foreach (int unitId in pendingSelectionTransferIds)
                 {
@@ -882,7 +882,7 @@ namespace ExtraFeatures
 
         private void OnPlayerStopCommand()
         {
-            int playerId = GetControlledPlayerId();
+            int playerId = GetSelectionPlayerId();
             int[] globalIds = CaptureSelectedPendingGlobalIds(playerId);
             if (globalIds.Length == 0)
                 return;

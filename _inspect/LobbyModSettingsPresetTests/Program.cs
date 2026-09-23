@@ -40,6 +40,7 @@ namespace LobbyModSettingsPresetTests
                 TestPresetAtomicPublisher();
                 ValidatePublishedReleaseSchemaContracts();
                 TestViewModelWithoutPersistentSettings(root);
+                TestDirectLaunchNotices(root);
                 TestLegacyPublicationFailureRetainsValidStorage(root);
                 TestLegacyPartialPublicationRetry(root);
                 TestPersonalPresetDeletion(root);
@@ -618,6 +619,44 @@ namespace LobbyModSettingsPresetTests
             return settings;
         }
 
+        private static void TestDirectLaunchNotices(string root)
+        {
+            string folder = Path.Combine(root, "DirectLaunchNotices");
+            string path = Path.Combine(folder, "LobbyModSettings", ModName + ".msgpack");
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            FakeSettings settings = Start(Path.Combine(folder, "PresetTest.dll"), path, () => true);
+            settings.System_ConfigureDirectLaunchNotice("BuildingCosts_Serp");
+
+            settings.System_TestSetSettingsMenuContext(false, true, false);
+            Assert(settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Visible,
+                "Direct campaign does not explain why gameplay settings are inactive.");
+            settings.System_TestSetSettingsMenuContext(false, false, true);
+            Assert(settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Visible,
+                "Direct Trail without its own settings does not show the inactive notice.");
+
+            settings.System_SetExplicitMissionSettings(true);
+            settings.System_EnterMissionPreset(new Dictionary<string, byte[]>(), "Trail", false);
+            settings.System_TestSetSettingsMenuContext(false, false, true);
+            Assert(settings.System_TrailSourceNoticeVisibility == Noesis.Visibility.Visible &&
+                   settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Collapsed &&
+                   !settings.CanEditHostSettings && !settings.CanChangePreset,
+                "Trail-owned settings are not shown as read-only.");
+            settings.System_ExitMissionPreset();
+
+            settings.System_SetExplicitMissionSettings(true);
+            settings.System_EnterMissionPreset(new Dictionary<string, byte[]>(), "Trail", true);
+            settings.System_TestSetSettingsMenuContext(true, false, true);
+            Assert(settings.System_TrailSourceNoticeVisibility == Noesis.Visibility.Collapsed &&
+                   settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Collapsed &&
+                   settings.CanEditHostSettings,
+                "Customize did not restore editable Trail settings.");
+            settings.System_ExitMissionPreset();
+
+            settings.System_TestSetSettingsMenuContext(false, true, true);
+            Assert(settings.System_DirectLaunchNoticeVisibility == Noesis.Visibility.Collapsed,
+                "Ambiguous front-end state incorrectly claims a direct launch.");
+        }
+
         private static void AttachExtenderSave(
             FakeSettings settings,
             string settingsPath,
@@ -633,13 +672,19 @@ namespace LobbyModSettingsPresetTests
 
         private static void SetNetworkSyncInProgress(bool value)
         {
-            FieldInfo field = typeof(SHCDESE.API.GameXAMLManagerAPI).GetField(
-                "_isProcessingNetworkSync",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field == null)
-                throw new InvalidOperationException("Script Extender network-sync scope field was not found.");
+            PropertyInfo property = typeof(SHCDESE.API.GameXAMLManagerAPI).GetProperty(
+                nameof(SHCDESE.API.GameXAMLManagerAPI.CurrentLobbyModSettingsChangeOrigin),
+                BindingFlags.Instance | BindingFlags.Public);
+            MethodInfo setter = property?.GetSetMethod(true);
+            if (setter == null)
+                throw new InvalidOperationException("Script Extender change-origin property was not found.");
 
-            field.SetValue(SHCDESE.API.GameXAMLManagerAPI.Instance, value);
+            setter.Invoke(SHCDESE.API.GameXAMLManagerAPI.Instance, new object[]
+            {
+                value
+                    ? SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin.IncomingNetwork
+                    : SHCDESE.API.Components.ModManager.LobbyModSettingsChangeOrigin.Local
+            });
         }
 
         private static void TestPresetAtomicPublisher()

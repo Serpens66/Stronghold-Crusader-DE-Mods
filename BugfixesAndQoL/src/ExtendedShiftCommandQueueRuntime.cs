@@ -2584,7 +2584,8 @@ namespace BugfixesAndQoL
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             if (localPlayerId < 1 || localPlayerId > 8)
                 return false;
-            SelectedUnitInfo[] selectedUnits = GamePlayerManagerAPI.Instance.GetSelectedChimps(localPlayerId);
+            if (!LocalSelectionSnapshot.TryCapture(localPlayerId, out SelectedUnitInfo[] selectedUnits))
+                return false;
             for (int index = 0; index < selectedUnits.Length; index++)
             {
                 int unitId = selectedUnits[index].UnitId;

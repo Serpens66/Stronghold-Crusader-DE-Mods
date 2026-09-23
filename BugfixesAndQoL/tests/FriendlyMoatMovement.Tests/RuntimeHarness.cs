@@ -85,6 +85,8 @@ namespace BugfixesAndQoL
         public bool IsPlayerIdValid(int id) => id > 0 && id <= 8;
         public bool IsPlayerAlliedTo(int a, int b) => a == b;
         public int GetLocalPlayerId() => 1;
+        public int? SelectionCountOverride;
+        public int GetSelectedChimpsCount(int playerId) => SelectionCountOverride ?? EngineInterface.Selection.Length / 2;
         public SelectedUnitInfo[] GetSelectedChimps(int playerId)
         {
             int[] selected = EngineInterface.Selection;

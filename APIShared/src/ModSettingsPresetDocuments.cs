@@ -22,6 +22,12 @@ namespace Shared
         bool IsMissionPresetActive { get; }
     }
 
+    /// <summary>Optional source metadata supplied before entering a mission preset.</summary>
+    public interface IModSettingsMissionSourceEndpoint
+    {
+        void System_SetExplicitMissionSettings(bool hasExplicitSettings);
+    }
+
     /// <summary>Extended endpoint for replacing an editable mission working copy without touching its source.</summary>
     public interface IModSettingsWorkingCopyEndpoint : IModSettingsPresetEndpoint
     {

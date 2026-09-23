@@ -320,7 +320,7 @@ namespace ExtraFeatures
 
                 HookButtonEvents(troopPanel);
 
-                int localPlayerId = GetControlledPlayerId();
+                int localPlayerId = GetSelectionPlayerId();
                 if (HasSelectedOwnKnight(localPlayerId))
                 {
                     buttonViewModel.ShowDismount(HasUnitLimitCapacity(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN));
@@ -620,6 +620,8 @@ namespace ExtraFeatures
 
         private bool HasSelectedOwnUnit(int localPlayerId, eChimps unitType)
         {
+            if (localPlayerId < 1 || localPlayerId > 8)
+                return false;
             int[] selectedUnits = GetSelectedChimpsSafe();
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
 
@@ -666,7 +668,7 @@ namespace ExtraFeatures
                 if (!IsFeatureActive())
                     return;
 
-                int localPlayerId = GetControlledPlayerId();
+                int localPlayerId = GetSelectionPlayerId();
                 List<UnitTransformSnapshot> snapshots = CaptureSelectedUnitSnapshots(localPlayerId, eChimps.CHIMP_TYPE_KNIGHT);
                 if (snapshots.Count == 0)
                 {
@@ -710,7 +712,7 @@ namespace ExtraFeatures
                     return;
                 }
 
-                int localPlayerId = GetControlledPlayerId();
+                int localPlayerId = GetSelectionPlayerId();
 
                 List<UnitTransformSnapshot> snapshots = CaptureSelectedUnitSnapshots(localPlayerId, eChimps.CHIMP_TYPE_SWORDSMAN);
                 if (snapshots.Count == 0)
@@ -958,6 +960,8 @@ namespace ExtraFeatures
         private List<UnitTransformSnapshot> CaptureSelectedUnitSnapshots(int localPlayerId, eChimps unitType)
         {
             List<UnitTransformSnapshot> snapshots = new List<UnitTransformSnapshot>();
+            if (localPlayerId < 1 || localPlayerId > 8)
+                return snapshots;
             int[] selectedUnits = GetSelectedChimpsSafe();
             GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
             HashSet<int> seenGlobalIds = new HashSet<int>();
@@ -1762,7 +1766,7 @@ namespace ExtraFeatures
             try
             {
                 GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-                int playerId = GetControlledPlayerId();
+                int playerId = GetSelectionPlayerId();
                 if (playerId < 1 || playerId > 8)
                     return Array.Empty<int>();
                 int selectedCount = playerApi.GetSelectedChimpsCount(playerId);
@@ -1771,6 +1775,8 @@ namespace ExtraFeatures
 
                 SelectedUnitInfo[] selected =
                     playerApi.GetSelectedChimps(playerId) ?? Array.Empty<SelectedUnitInfo>();
+                if (selected.Length != selectedCount)
+                    return Array.Empty<int>();
                 int[] unitIds = new int[selected.Length];
                 for (int index = 0; index < selected.Length; index++)
                     unitIds[index] = selected[index].UnitId;
@@ -1801,6 +1807,13 @@ namespace ExtraFeatures
 
             int localPlayerId = GamePlayerManagerAPI.Instance.GetLocalPlayerId();
             return localPlayerId > 0 ? localPlayerId : 1;
+        }
+
+        private static int GetSelectionPlayerId()
+        {
+            if (Shared.GameModeHelper.IsMapEditor())
+                return EditorDirector.instance?.ActivePlayerID ?? -1;
+            return GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
         }
 
         private static bool IsMapEditor() => Shared.GameModeHelper.IsMapEditor();
