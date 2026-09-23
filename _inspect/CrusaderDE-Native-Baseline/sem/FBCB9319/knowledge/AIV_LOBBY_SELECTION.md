@@ -185,3 +185,35 @@ complete spatial side effects. A fixed AIV-raster padding cannot yet be
 treated as a proven all-constructor write bound. A targeted build capture of
 candidate 5 can close the observed branch gap; a general lobby guarantee
 still requires the native effect bound or equivalent exact state modeling.
+
+## 2026-09-23 17:58 Crater Lake control capture
+
+The installed DLL and map hashes remained `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`
+and `C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`.
+The native chain under comparison remains the audited `0x94350` player start,
+`0x54F60` candidate selector, `0x53D00` preparation, `0x55F50` / `0x51790`
+prebuild, and `0x57080` / `0x7B060` fit read. Seven AI sequences were captured
+with `advopt_pre_build=1`, all provenance- and frame-complete with zero pointer
+or capture errors. The following `advopt_pre_build=0` start used the same
+positions and lords, with random AIV selection. The enabled run provided 47
+fit attempts; the disabled run 42. Among 39 common player/AIV-hash/rotation
+attempts, native status, raw score, fit percentage, evaluated cells, and
+blocked cells agreed exactly. In the enabled run, all 46 later-player cell
+traces had zero intersection between their observed validator-read tile IDs
+and the prior captured build-frame writes in the eight validator-input tile
+layers. The build order was Nox, Marshal, Jewel, Abbot, Wolf, Nizar, Nomad;
+the chosen Nizar variant was built-in `Default 5`, not `Default 6`.
+
+Confidence is high for these observed traces and the zero intersections.
+This does not close the constructor-side-effect or unchosen-variant branches:
+building records are only partially snapshotted, and the capture cannot
+establish an all-variant write bound. No general later-player lobby fit with
+completed castles is released from this observation. The comparison reads
+player order and file hashes from trace metadata instead of assuming a
+fixed player ID or AIV filename.
+The two-start log was imported as 89 Oracle cases and compared with the
+current offline implementation: 43 exact (all 42 prebuild-off attempts and
+the first prebuild-on attempt), 46 intentionally not evaluable (later
+prebuild-on attempts), zero mismatches, and zero comparison errors. This
+confirms current fail-closed behavior for the observed capture; it does not
+validate later-player simulation.

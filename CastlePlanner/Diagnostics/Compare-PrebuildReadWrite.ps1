@@ -46,6 +46,7 @@ if ($buildFiles.Count -eq 0 -or $fitFiles.Count -eq 0) {
 $buildByPlayer = @{}
 $nativeHash = $null
 $mapHash = $null
+$excludedDisabledFitTraces = 0
 foreach ($file in $buildFiles) {
     $header = Read-TraceHeader $file.FullName
     $playerId = [int]$header['playerId']
@@ -66,6 +67,12 @@ foreach ($file in $buildFiles) {
 $rows = @(
     foreach ($file in $fitFiles) {
         $header = Read-TraceHeader $file.FullName
+        # A capture pattern may cover consecutive starts with prebuild on and off.
+        # Only the enabled start has corresponding synchronous build traces.
+        if ($header['preBuildSetting'] -eq '0') {
+            $excludedDisabledFitTraces++
+            continue
+        }
         $playerId = [int]$header['playerId']
         if ($header['nativeDllSha256'] -ne $nativeHash -or $header['mapFileSha256'] -ne $mapHash -or
             $header['preBuildSetting'] -ne '1') {
@@ -93,7 +100,9 @@ Write-Output ([pscustomobject]@{
     NativeSha256 = $nativeHash
     MapSha256 = $mapHash
     CompleteBuildSequences = $buildByPlayer.Count
+    CapturedBuildPlayerIds = @( $buildByPlayer.Keys | Sort-Object ) -join ','
     LaterFitTraces = $rows.Count
+    ExcludedPrebuildOffFitTraces = $excludedDisabledFitTraces
     TracesWithTileIntersection = @($rows | Where-Object { $_.IntersectingTileCount -gt 0 }).Count
 })
 $rows | Sort-Object PlayerId, CandidateId, Orientation

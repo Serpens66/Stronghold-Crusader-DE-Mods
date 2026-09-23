@@ -43,8 +43,8 @@ namespace ActiveAIVDetector
                 Config.Bind("Oracle cell trace", "Orientation", -1).Value,
                 Config.Bind("Oracle cell trace", "KeepX", -1).Value,
                 Config.Bind("Oracle cell trace", "KeepY", -1).Value,
-                Config.Bind("Oracle cell trace", "MaximumCaptureCount", 256,
-                    "Maximum fit-grid captures per map load; lower this if trace files grow too large.").Value,
+                Config.Bind("Oracle cell trace", "MaximumCaptureCount", 2048,
+                    "Maximum fit-grid captures per map load; 2048 covers eight AI players with 50 AIVs and four rotations. Lower this if trace files grow too large.").Value,
                 Path.Combine(Paths.PluginPath, PluginGuid, "CellTraces"));
             var prebuildTraceOptions = new OraclePrebuildTraceOptions(
                 Config.Bind(

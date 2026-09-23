@@ -226,7 +226,8 @@ ActiveAIVDetector-Konfiguration sowohl `Oracle cell trace/Enabled` als auch
 `Oracle prebuild trace/Enabled` auf `true` zu setzen. `PlayerId=-1` folgt
 allen Spielern; die Cell-Trace-Filter `CandidateId`, `Orientation`, `KeepX`
 und `KeepY` akzeptieren ebenfalls `-1` als Wildcard. Die Standardquoten sind
-256 Fit-Grids und acht KI-Bausequenzen **je Kartenstart**. Die Dateien liegen
+2048 Fit-Grids und acht KI-Bausequenzen **je Kartenstart**. Die Fit-Quote
+deckt acht KI-Spieler mit je 50 Kandidaten und vier Drehungen ab. Die Dateien liegen
 unter `BepInEx/plugins/ActiveAIVDetector_Serp/CellTraces` beziehungsweise
 `PrebuildTraces`. Vier Matches in einem Prozess sind der erste Durchlauf:
 Crater Lake und `test AI overbuild eachother`, jeweils Sofortspawn aus und an.
@@ -276,8 +277,95 @@ Die vorherige Aufforderung, die zufällige Acht-Spieler-Aufstellung „unveränd
 | 7 | Jewel | 3 | `(105,84)` | `(379,353)` | Default | `jewel5.aivjson` |
 | 8 | Nomade | 7 | `(37,174)` | `(423,667)` | Default | `nomad4.aivjson` |
 
-Die Positionsgrafik [`CraterLake-Referenzsetup.png`](Diagnostics/CraterLake-Referenzsetup.png) zeigt die Radarplätze. Die genauen zufälligen Varianten der übrigen Spieler müssen für den ersten Nizar-zu-Wolf-Vergleich nicht als festes Setup vorgegeben werden, weil sie in der nativen Spielerreihenfolge erst später verarbeitet werden. Als reproduzierbarer kleiner Test wird daher `Crater Lake` mit P1 Mensch auf S0, P2 Nizar auf S6 und P3 Wolf auf S5 festgelegt; alle weiteren Spieler bleiben leer. Zuerst eine Lobby-Aufnahme dieser drei Zuordnungen sichern. Danach können bei unveränderten Positionen ein Lauf ohne Sofortspawn als Fit-Basis und gezielte Sofortspawn-Läufe mit ausschließlich `nizar5.aivjson` beziehungsweise `nizar6.aivjson` für Nizar aufgenommen werden. Beim Reduzieren der Kandidatenliste kann die native Kandidaten-ID neu nummeriert werden; die Aufnahmen sind anhand der AIV-Datei-Hashes, Drehungen und nativen Startoptionen zuzuordnen. Die Diagnose erfasst die synchronen Bau-Frames beim Laden der Karte; ein Warten auf regulären KI-Bau ist nicht nötig. Auch vollständige Varianten-Traces allein ersetzen den noch offenen nativen Beweis der räumlichen Nebenwirkungen nicht.
+Die Positionsgrafik [`CraterLake-Referenzsetup.png`](Diagnostics/CraterLake-Referenzsetup.png) zeigt die Radarplätze. Der Screenshot der neuen Lobby zeigt dieselben Kartenplätze, aber eine andere Spielerfolge: Mensch, Nox, Marschall, Jewel, Abt, Wolf, Nizar, Nomade. Nizar ist dort P7 und Wolf P6. Das ist als räumlich getrennter Kontrollfall geeignet, nicht als isolierter Nizar-zu-Wolf-Bauvergleich. Die native Spielerreihenfolge bleibt bei Sofortspawn relevant, selbst wenn die geplanten Burgflächen nicht überlappen. Für die acht Kartenplätze beträgt die kleinste Chebyshev-Distanz zweier nativer Keep-Anker 133 Tiles (Abt/Nizar). Die projizierten 100×100-AIV-Raster können sich an diesen Ankern daher nicht direkt überschneiden; native Konstruktor- und Bereinigungseffekte außerhalb des Rasters sind damit noch nicht begrenzt.
+
+Für die eingebaute Nizar-Auswahl heißen die relevanten Einträge in der **Lobby** `Default 5` und `Default 6`. Der Detector bezeichnet ihre äquivalenten Editor-Exporte als `nizar5.aivjson` beziehungsweise `nizar6.aivjson`. Das ist nicht gleichbedeutend mit einer lokal installierten Extended-AIV namens `nizar5` oder `nizar6`. `CustomisationFileManager.BuildExtendedLordDirectory` erzeugt `Default N` aus `AIVLoader.getAIVData(lordType, N-1)`; separat eingelesene Dateien erhalten den Dateinamen als Anzeigenamen. Soll nur eine eingebaute Variante zugelassen werden, muss die User-Auswahl genau den betreffenden `Default N`-Eintrag enthalten. Dabei kann die native Kandidaten-ID neu nummeriert werden; Datei-/Datenhash, Drehung und native Startoptionen müssen später verglichen werden.
+
+Ein isolierter Vergleich könnte mit `Crater Lake`, P1 Mensch auf S0, P2 Nizar auf S6 und P3 Wolf auf S5 erfolgen; weitere Spieler bleiben leer. Drei Kartenstarts in einem Prozess würden die Fit-Basis ohne Sofortspawn und beide einzeln erzwungenen Nizar-Bauvarianten abdecken. Diese Messung wird erst angefordert, wenn der weitere statische Konstruktor-Audit bestimmt hat, welche fehlende Beobachtung für eine sichere Freigabe tatsächlich benötigt wird. Weitere identische Starts auf der großen Karte liefern allein keinen Beweis für eine allgemeine Schreibreichweite. Die Diagnose erfasst synchronen Sofortbau bereits beim Laden der Karte; ein Warten auf regulären KI-Bau ist nicht nötig.
 Weiterführende Quellen: [aktuelle Native-Baseline](../_inspect/CrusaderDE-Native-Baseline/CURRENT.md),
 [aktueller AIV-Auswahlaudit](../_inspect/CrusaderDE-Native-Baseline/sem/FBCB9319/knowledge/AIV_LOBBY_SELECTION.md),
 [Fit-Regelinventar](../Helpers/MapParser/Docs/AIV_PLACEMENT_RULES.md) und
 [historischer Sofortspawn-Audit](../Helpers/MapParser/Docs/AIV_PREBUILD_AND_OVERLAP_ORDER.md).
+
+## Crater-Lake-Aufnahme vom 23.09.2026, 17:58 Uhr
+
+Erneut geprüft: installierte Native-DLL
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`,
+`Crater Lake.map` mit SHA-256
+`C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`.
+Ein Kartenstart erfolgte mit `advopt_pre_build=1`, ein zweiter mit `0`.
+Der Detector nahm beim eingeschalteten Sofortspawn alle sieben KI-Auswahlen,
+sieben Bau-Sequenzen und 47 native Fitversuche auf. Alle sieben Bau-Traces
+melden `frameSnapshotsComplete=True`, `provenanceComplete=True` und je null
+Pointer- und Aufnahmefehler. Der Vergleichslauf ohne Sofortspawn enthält
+42 Fitversuche. Die Dateihashes der AIVs stehen in den einzelnen Oracle-
+und Bau-Traces; die bloße Kandidatennummer ist nur innerhalb der jeweiligen
+Auswahl aussagekräftig.
+
+| Spielerfolge | Lord | Keep | mit Sofortspawn gewählte AIV | Drehung | Bau-Frames | Tile-Werte / Gebäudedatensätze geändert |
+| ---: | --- | --- | --- | ---: | ---: | ---: |
+| 2 | Nox | `(406,121)` | `nox 1` (Custom) | 180° | 504 | 6.795 / 123 |
+| 3 | Marschall | `(525,274)` | `Default 7` | 180° | 80 | 3.159 / 46 |
+| 4 | Jewel | `(379,353)` | `jewel1` (Custom) | 180° | 125 | 5.073 / 52 |
+| 5 | Abt | `(187,407)` | `Default 2` | 270° | 118 | 5.225 / 57 |
+| 6 | Wolf | `(254,580)` | `wolf8` | 0° | 337 | 3.543 / 295 |
+| 7 | Nizar | `(241,274)` | `Default 5` | 270° | 260 | 4.230 / 203 |
+| 8 | Nomade | `(423,667)` | `nomad1` | 0° | 106 | 907 / 79 |
+
+Für 39 in beiden Läufen gemeinsame Kombinationen aus Spieler, AIV-Dateihash
+und Drehung stimmen nativer Status, Rohscore, Fit-Prozent, geprüfte und
+blockierte Zellzahl exakt überein. Von den 47 Cell-Traces mit Sofortspawn
+betreffen 46 spätere KI-Spieler. Bei keinem dieser 46 überschneiden sich die
+von `0x7B060` tatsächlich gelesenen Tile-IDs mit den in vorherigen erfassten
+`0x51790`-Frames geänderten IDs der acht beobachteten Tile-Schichten. Der
+Abgleich erfolgt über die Spielerfolge aus den Trace-Metadaten, ohne fest
+eingetragene Spieler-ID. Der Vergleichshelfer ignoriert Fit-Traces mit
+`preBuildSetting=0`, wenn beide Kartenstarts im selben Zeitmuster liegen.
+
+Dies ist ein **beobachteter** Kontrollfall mit räumlich getrennten Starts.
+Insbesondere wurde Nizar erst als Spieler 7 gebaut; seine Burg kann in
+diesem Lauf die bereits erfolgte Wolf-Auswahl nicht beeinflussen. Auch
+`nizar6.aivjson` / Lobby-Name `Default 6` wurde nicht gebaut. Die Aufnahme
+begrenzt weder die Schreibreichweite aller ungewählten AIV-Varianten noch
+alle Nebenwirkungen der nativen Konstruktoren. Die acht Tile-Schichten und
+ausgewählten Gebäudefelder sind keine vollständige Spielzustandskopie.
+Spätere KI-Fits mit Sofortspawn bleiben daher im Produkt `NotEvaluable`.
+Für weitere Diagnose gilt weiter: alle aktiven Spieler und Kandidaten mit
+Map-, AIV- und Native-Hash protokollieren; keine feste Spieler-ID oder
+zufällig beobachtete AIV als allgemeine Voraussetzung einbauen.
+
+Der aus genau diesen beiden Kartenstarts importierte
+[`Oracle-Korpus`](Diagnostics/CraterLake-20260923-1758-Oracle/unknown.json)
+enthält 89 Native-Versuche. Der unveränderte Offline-Vergleicher meldet
+43 `ExactMatch` (alle 42 Versuche ohne Sofortspawn plus den ersten mit
+Sofortspawn), 46 absichtliche `NotEvaluable` für spätere Spieler mit
+Sofortspawn, null Abweichungen und null Auswertungsfehler. Der
+[`Vergleichsbericht`](Diagnostics/CraterLake-20260923-1758-Oracle/report.json)
+und der dazu isolierte [`Logabschnitt`](Diagnostics/CraterLake-20260923-1758.log)
+halten diese Prüfung reproduzierbar fest. Die 46 gesperrten Fälle sind keine
+fehlgeschlagenen Fit-Vergleiche; deren Zustand wird bewusst nicht simuliert.
+
+### Gezielter Folgetest ohne feste Spieler-ID
+
+Der noch nicht erfasste eingebaute Nizar-Kandidat `Default 6` lässt sich mit
+zwei Kartenstarts in einem Spielprozess prüfen. In `Crater Lake` bleiben ein
+menschlicher Spieler am östlichen Keep `(654,448)`, Nizar am nordwestlichen
+Keep `(241,274)` und Wolf am südwestlichen Keep `(254,580)` aktiv; alle
+anderen KI-Plätze können leer sein. Entscheidend ist nur, dass Nizar in der
+Lobby-Reihenfolge **vor** Wolf steht. Nizar erhält im Benutzer-AIV-Modus
+ausschließlich den Eintrag `Default 6` (eingebaute AIV), Wolf eine unveränderte
+Auswahl. Dieselbe Aufstellung wird einmal ohne und einmal mit `Completed
+Castles` kurz bis zum geladenen Kartenbildschirm gestartet. Die Diagnose
+zeichnet weiterhin alle tatsächlichen Spieler-IDs, Kandidaten, Hashes und
+Bau-Frames auf; keine ID oder AIV wird im Code fest verdrahtet. Danach sind
+insbesondere Nizars Dateihash und Wolfs Native-Fit zu vergleichen. Auch
+dieses Paar wäre ein gezielter Variantenbeleg, kein Beweis für beliebige
+Maps und Konstruktoren.
+
+Für weitere Aufnahmen wurde die opt-in Cell-Trace-Standardquote am 23.09.2026
+von 256 auf 2048 pro Kartenstart erhöht und der Detector über seine
+`build.bat` erfolgreich installiert (0 Warnungen, 0 Fehler). Die vorhandene
+lokale Konfiguration verwendet nun ebenfalls 2048, beide `PlayerId`-Filter
+stehen auf `-1`, und die sieben KI-Bausequenzen bleiben innerhalb der Quote
+von acht. Die installierte DLL stimmt per SHA-256 mit dem Build-Artefakt
+überein. Ein erneuter Ingame-Lauf dieser Quotenerhöhung steht noch aus.
