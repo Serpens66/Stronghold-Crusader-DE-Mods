@@ -241,14 +241,6 @@ if ($Resume -and (Test-Path -LiteralPath $statePath)) {
     $state.CompletedBuilds = @($oldState.CompletedBuilds)
 }
 
-if (-not $SkipExtenderBuild -and -not $state.ExtenderBuilt) {
-    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')] Building Script Extender $NewVersion..."
-    & (Join-Path $extenderRoot 'build.bat') /nopause
-    if ($LASTEXITCODE -ne 0) { throw "Script Extender build failed with exit code $LASTEXITCODE." }
-    $state.ExtenderBuilt = $true; Save-State $state
-}
-$selectedExtender = Assert-TargetExtender $ExtenderDir
-
 foreach ($mod in $activeMods) {
     $manifestPath = Join-Path $workspace $mod.Manifest
     $json = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
@@ -303,6 +295,14 @@ if ($PrepareOnly) {
     Write-Host "PASS: Prepared Script Extender $OldVersion-$NewVersion compatibility metadata without building."
     return
 }
+
+if (-not $SkipExtenderBuild -and -not $state.ExtenderBuilt) {
+    Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')] Building Script Extender $NewVersion..."
+    & (Join-Path $extenderRoot 'build.bat') /nopause
+    if ($LASTEXITCODE -ne 0) { throw "Script Extender build failed with exit code $LASTEXITCODE." }
+    $state.ExtenderBuilt = $true; Save-State $state
+}
+$selectedExtender = Assert-TargetExtender $ExtenderDir
 
 if (-not $SkipBaseline -and -not $state.BaselineValidated) {
     $baseline = Join-Path $workspace '_inspect\CrusaderDE-Native-Baseline\tools\semantic\Build-SemanticBaseline.ps1'

@@ -10,7 +10,7 @@ using System.Reflection;
 
 namespace BugfixesAndQoL
 {
-    [BepInDependency(ScriptExtenderGuid, "2.7.2")]
+    [BepInDependency(ScriptExtenderGuid, "2.9.0")]
     [BepInDependency(ApiSharedGuid, "0.4.0")]
     [BepInDependency("ActiveAIVDetector_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ExtraFeatures_Serp", BepInDependency.DependencyFlags.SoftDependency)]

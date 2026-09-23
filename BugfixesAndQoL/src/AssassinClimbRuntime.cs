@@ -386,16 +386,18 @@ namespace BugfixesAndQoL
         private int CaptureSelectionState(int playerId, out bool selectedOwnAssassin)
         {
             selectedOwnAssassin = false;
+            if (playerId < 1 || playerId > 8)
+                return 0;
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
             SelectedUnitInfo[] selected = Array.Empty<SelectedUnitInfo>();
-            int selectedCount = playerApi.GetSelectedChimpsCount();
+            int selectedCount = playerApi.GetSelectedChimpsCount(playerId);
             bool selectionCountTransient =
                 !Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(selectedCount);
             if (!selectionCountTransient)
             {
                 try
                 {
-                    selected = playerApi.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+                    selected = playerApi.GetSelectedChimps(playerId) ?? Array.Empty<SelectedUnitInfo>();
                 }
                 catch (ArgumentOutOfRangeException)
                 {
@@ -428,7 +430,7 @@ namespace BugfixesAndQoL
                 for (int spanIndex = 0; spanIndex < units.Length; spanIndex++)
                 {
                     ref GameUnit unit = ref units[spanIndex];
-                    if ((unit.r_UnitSelected != 0 || unit.r_UnitSelected2 != 0) &&
+                    if (unit.r_UnitSelected != 0 &&
                         unit.r_AliveState == AliveState.IsAlive &&
                         unit.r_UnitChimp == eChimps.CHIMP_TYPE_ARAB_ASSASIN &&
                         unit.r_ControllableForPlayerId == playerId)

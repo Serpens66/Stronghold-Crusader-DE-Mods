@@ -4,15 +4,15 @@
     "path": "sem/FBCB9319/CrusaderDE-semantic.sqlite",
     "schemaVersion": 4,
     "referenceSize": 154763264,
-    "referenceSha256": "B2D789D39BF8B4C335BDA34688318A8AF70E956EB1FF51E717E0B18970A7C173",
+    "referenceSha256": "18E240E535498130447B70304267FB4CEE0D3744F8FAEB7BFDA4A10F1941FD68",
     "referenceSqliteVersion": "3.45.3"
   },
   "identities": {
     "currentNativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
     "managedHash": "BC8B6A395F01D48557DB413600C8DD8D1FDFD3ABDF97BFBBB68A3C56B04FD789",
     "oldNativeHash": "17F8DD4A92FF6125BD6A3A70ABC80C727682E489696C218D146A7EA6D2F88BF4",
-    "scriptExtenderCommit": "5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33",
-    "scriptExtenderTree": "4c61d50f177fef443b0b98657d8fb16d4891c935"
+    "scriptExtenderCommit": "70a4483fe606733219f0cd9fb1adbc0d08b926ea",
+    "scriptExtenderTree": "069c568917d48c05ccca83cd67aed9098a857a2f"
   },
   "binaries": [
     {
@@ -63,10 +63,10 @@
       "managed_native_links": 56123,
       "patterns": 712,
       "data_types": 305,
-      "source_types": 136,
-      "type_fields": 8260,
+      "source_types": 138,
+      "type_fields": 8252,
       "vtable_members": 345,
-      "delegates": 143,
+      "delegates": 145,
       "rtti_vtables": 142,
       "xaml_resources": 105,
       "xaml_links": 7860,
@@ -77,7 +77,7 @@
   "inputs": [
     {
       "path": "sem/FBCB9319/IDENTITY.json",
-      "sha256": "286FE449660C363B927BC9A31FA9607674E9679BFBEDCB273ABCF65100118813",
+      "sha256": "E4D5CBDD3B1EE08985A2F854FB5D645D04677A6A42949CD6007D5F2642B643A3",
       "bytes": 405
     },
     {
@@ -217,28 +217,28 @@
     },
     {
       "path": "sem/FBCB9319/sources/pattern-matches.jsonl",
-      "sha256": "8074D5C94AD35C1860E9DB7C6AF52A21A1E3649C5BDD377628B58847DA951BF6",
+      "sha256": "1B9091D26233A302EC2674900834F09BB8BB77613CD7E184EED59BD2A2274FB5",
       "bytes": 421300
     },
     {
       "path": "sem/FBCB9319/sources/source-types.jsonl",
-      "sha256": "9DC9D8773FDB24C0C9A984415CD27A497A1F45932682AB81DBCF14F3D1DC0A8D",
-      "bytes": 579871
+      "sha256": "3B8BB6E673F7D427263A585FF54D60362473CF73CAF212E55336872E65476F27",
+      "bytes": 580860
     },
     {
       "path": "sem/FBCB9319/sources/type-fields.jsonl",
-      "sha256": "C86CDA247B443CC63E5DDF1470BD8249AF9E5364E4C7D0F1D673738A3F391387",
-      "bytes": 3293903
+      "sha256": "F612718CDD2A6DBCB99DB930970A9DF98922C7746257A5C4A940676D55128F79",
+      "bytes": 3290832
     },
     {
       "path": "sem/FBCB9319/sources/vtable-members.jsonl",
-      "sha256": "C9D826093857F86BF7088AA2721BBBB038C070FF4CA373673D977D016FC2E8D2",
+      "sha256": "003F1C6522E5EAE7162C7F1275D2287DB14DD6EA09792E93CF93D076536B35BB",
       "bytes": 170249
     },
     {
       "path": "sem/FBCB9319/sources/delegates.jsonl",
-      "sha256": "E81485DE7D0ACCB84A426FFD0E0A15067486B23BFA079ACF6B9C3B48FE9AC7E4",
-      "bytes": 92045
+      "sha256": "849A627BA4E6BF7501DC261B66AAD6A8DBE1C43BF3AE125F23CDB264977728C5",
+      "bytes": 93878
     },
     {
       "path": "sem/FBCB9319/resources/xaml-index.jsonl",

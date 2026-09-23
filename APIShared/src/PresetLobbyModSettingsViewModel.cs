@@ -11,7 +11,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -830,11 +829,6 @@ namespace Shared
     /// </summary>
     public abstract class PresetLobbyModSettingsViewModel : LobbyModSettingsBaseViewModel, IModSettingsWorkingCopyEndpoint
     {
-        private static readonly FieldInfo NetworkSyncInProgressField =
-            typeof(GameXAMLManagerAPI).GetField(
-                "_isProcessingNetworkSync",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-
         private static readonly MethodInfo NotifyRevertMethod =
             typeof(LobbyModSettingsBaseViewModel).GetMethod(
                 "NotifyRevert",
@@ -3704,25 +3698,9 @@ namespace Shared
 
             public static bool IsNetworkSyncInProgress()
             {
-                try
-                {
-                    if (NetworkSyncInProgressField != null)
-                    {
-                        return (bool)NetworkSyncInProgressField.GetValue(
-                            GameXAMLManagerAPI.Instance);
-                    }
-
-                    // Retain safe behavior if a later Extender only renames the field.
-                    return new StackTrace().GetFrames()?.Any(frame =>
-                        frame.GetMethod()?.DeclaringType == typeof(GameXAMLManagerAPI) &&
-                        (frame.GetMethod().Name == "ReceiveSettingsUpdate" ||
-                            frame.GetMethod().Name == "ApplyHostOnlyUpdate" ||
-                            frame.GetMethod().Name == "ApplyPerPlayerUpdate")) == true;
-                }
-                catch
-                {
-                    return false;
-                }
+                return GameXAMLManagerAPI.Instance != null &&
+                    GameXAMLManagerAPI.Instance.CurrentLobbyModSettingsChangeOrigin ==
+                    LobbyModSettingsChangeOrigin.IncomingNetwork;
             }
 
             private static Dictionary<string, byte[]> CopyProperties(

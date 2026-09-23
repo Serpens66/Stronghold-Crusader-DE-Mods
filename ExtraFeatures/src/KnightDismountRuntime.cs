@@ -1745,7 +1745,7 @@ namespace ExtraFeatures
 
         private static bool IsSelected(GameUnit* unit)
         {
-            return unit != null && (unit->r_UnitSelected != 0 || unit->r_UnitSelected2 != 0);
+            return unit != null && unit->r_UnitSelected != 0;
         }
 
         private int[] GetSelectedChimpsSafe()
@@ -1753,12 +1753,15 @@ namespace ExtraFeatures
             try
             {
                 GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-                int selectedCount = playerApi.GetSelectedChimpsCount();
+                int playerId = GetControlledPlayerId();
+                if (playerId < 1 || playerId > 8)
+                    return Array.Empty<int>();
+                int selectedCount = playerApi.GetSelectedChimpsCount(playerId);
                 if (!Shared.SelectedChimpsSnapshotPolicy.IsPlausibleCount(selectedCount))
                     return Array.Empty<int>();
 
                 SelectedUnitInfo[] selected =
-                    playerApi.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+                    playerApi.GetSelectedChimps(playerId) ?? Array.Empty<SelectedUnitInfo>();
                 int[] unitIds = new int[selected.Length];
                 for (int index = 0; index < selected.Length; index++)
                     unitIds[index] = selected[index].UnitId;

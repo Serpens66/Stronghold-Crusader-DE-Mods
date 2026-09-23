@@ -478,7 +478,7 @@ void ValidateScriptExtenderIntegration()
         !runtime.Contains("Handle.Failure == null", StringComparison.Ordinal) ||
         !runtime.Contains("Handle.ResolvedAddress == targetAddress", StringComparison.Ordinal) ||
         !runtime.Contains("Handle.IsInstalled", StringComparison.Ordinal) ||
-        !runtime.Contains("GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>()", StringComparison.Ordinal))
+        !runtime.Contains("GetSelectedChimps(localPlayerId) ?? Array.Empty<SelectedUnitInfo>()", StringComparison.Ordinal))
         throw new Exception("Friendly moat movement is missing a required transaction or selection guard.");
     if (runtime.Contains("RegisterImprovedMoatFillingProvider", StringComparison.Ordinal) ||
         Directory.Exists(Path.Combine(root, "MoveMoatTest")) ||

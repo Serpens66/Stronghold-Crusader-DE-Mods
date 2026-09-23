@@ -1348,11 +1348,11 @@ internal static class Program
         Check(source.Contains("UnityMainThreadDispatch.InitializeForCurrentThread()") &&
               source.Contains("UnityMainThreadDispatch.TryRunInlineOrEnqueue"),
             "FormationTest captures and uses the validated main-thread dispatcher");
-        Check(source.Contains("BepInDependency(ScriptExtenderGuid, \"2.8.0\")"),
-            "runtime requires Script Extender 2.8.0 identity semantics");
+        Check(source.Contains("BepInDependency(ScriptExtenderGuid, \"2.9.0\")"),
+            "runtime requires Script Extender 2.9.0 selection semantics");
         string manifest = File.ReadAllText(Path.Combine(projectRoot, "info.json"));
-        Check(manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.8.0\""),
-            "manifest requires Script Extender 2.8.0");
+        Check(manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.9.0\""),
+            "manifest requires Script Extender 2.9.0");
     }
 
     private static string FindProjectRoot()

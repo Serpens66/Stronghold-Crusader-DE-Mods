@@ -331,9 +331,9 @@ namespace BugfixesAndQoL
                 "keep-flag runtime is rooted only after successful installation");
             Check(xaml.Contains("IsChecked=\"{Binding EnableKeepFlagRotationFix, Mode=TwoWay}\""),
                 "keep-flag host option is exposed in the settings UI");
-            Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.7.2\")]") &&
-                  manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.7.2\""),
-                "BugfixesAndQoL requires the corrected Script Extender projectile bounds from 2.7.2");
+            Check(plugin.Contains("[BepInDependency(ScriptExtenderGuid, \"2.9.0\")]") &&
+                  manifest.Contains("\"MinimumScriptExtenderVersion\": \"2.9.0\""),
+                "BugfixesAndQoL requires the player-specific selection API from Script Extender 2.9.0");
         }
 
         private static void TestTransientSelectionGuards()
@@ -353,10 +353,10 @@ namespace BugfixesAndQoL
             Check(health.Contains(
                     "int unitId = state.selectedChimps[index];" + Environment.NewLine +
                     "                    if (unitId <= 0) continue;") &&
-                  drag.Contains("GetSelectedChimpsCount()") &&
+                  drag.Contains("GetSelectedChimpsCount(localPlayerId)") &&
                   drag.Contains("catch (ArgumentOutOfRangeException)") &&
                   drag.Contains("selection-count-transient") &&
-                  assassin.Contains("GetSelectedChimpsCount()") &&
+                  assassin.Contains("GetSelectedChimpsCount(playerId)") &&
                   assassin.Contains("SelectedChimpsSnapshotPolicy.IsPlausibleCount(selectedCount)") &&
                   assassin.Contains("catch (ArgumentOutOfRangeException)") &&
                   assassin.Contains("catch (OverflowException)") &&

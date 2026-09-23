@@ -822,14 +822,17 @@ namespace BugfixesAndQoL
             rejection = "selection-count";
 
             GamePlayerManagerAPI playerApi = GamePlayerManagerAPI.Instance;
-            int selectedCount = playerApi.GetSelectedChimpsCount();
+            int localPlayerId = playerApi.GetLocalPlayerId();
+            if (localPlayerId < 1 || localPlayerId > 8)
+                return false;
+            int selectedCount = playerApi.GetSelectedChimpsCount(localPlayerId);
             if (!MoveFormationDragEligibility.IsUsableSelectionCount(selectedCount))
                 return false;
 
             SelectedUnitInfo[] selected;
             try
             {
-                selected = playerApi.GetSelectedChimps();
+                selected = playerApi.GetSelectedChimps(localPlayerId);
             }
             catch (ArgumentOutOfRangeException)
             {

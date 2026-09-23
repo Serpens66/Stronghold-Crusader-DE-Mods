@@ -406,7 +406,9 @@ namespace BugfixesAndQoL
         private bool TryCaptureSelectedGlobalIds(int playerId, out int[] globalIds)
         {
             globalIds = null;
-            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+            if (playerId < 1 || playerId > 8)
+                return false;
+            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps(playerId) ?? Array.Empty<SelectedUnitInfo>();
             var ids = new List<int>();
             var unique = new HashSet<int>();
             for (int index = 0; index < selected.Length; index++)

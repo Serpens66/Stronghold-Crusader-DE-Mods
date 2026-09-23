@@ -5,7 +5,7 @@
   "Description": "Optional gameplay additions and economy customization for Stronghold Crusader Definitive Edition.",
   "Version": "1.0.99",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.7.1",
+  "MinimumScriptExtenderVersion": "2.9.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,

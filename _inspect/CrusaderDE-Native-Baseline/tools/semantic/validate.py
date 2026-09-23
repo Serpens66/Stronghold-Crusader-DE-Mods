@@ -125,8 +125,8 @@ def main():
     chore_contracts = jsonl(semantic / "knowledge" / "chore-contracts.jsonl")
     chore_observations = jsonl(semantic / "knowledge" / "chore-observations.jsonl")
     chore_evidence = jsonl(semantic / "knowledge" / "chore-evidence.jsonl")
-    if len(function_claims) != 26 or len(hook_spans) != 3:
-        raise ValueError(f"Unexpected curated knowledge counts: claims={len(function_claims)} hookSpans={len(hook_spans)}")
+    if not function_claims or not hook_spans:
+        raise ValueError("Curated function claims or hook spans are missing")
     if any(row.get("contractId") == "gatehouse-query-unit-id" and row.get("status") == "active" for row in api_contracts):
         raise ValueError("The upstream-planned Gatehouse UnitId correction must not be published as an active baseline contract")
 

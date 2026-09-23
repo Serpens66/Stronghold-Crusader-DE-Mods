@@ -223,7 +223,10 @@ namespace VirtualUnitsPrototype
             selection = Array.Empty<VirtualUnitSelectionSnapshot>();
             try
             {
-                SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance?.GetSelectedChimps() ?? Array.Empty<SelectedUnitInfo>();
+                int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+                if (localPlayerId < 1 || localPlayerId > 8)
+                    return Result(VirtualApiResultCode.UnsupportedGameMode, "No unambiguous local player is available.");
+                SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps(localPlayerId);
                 var grouped = new Dictionary<string, List<VirtualEntityInstance>>(StringComparer.Ordinal);
                 foreach (SelectedUnitInfo item in selected)
                 {

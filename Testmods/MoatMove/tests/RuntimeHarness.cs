@@ -33,7 +33,7 @@ namespace MoatMove
         public int r_AI_LastIssuedTribeCommand;
         public int r_AIState;
         public AliveState r_AliveState;
-        public int r_UnitSelected, r_UnitSelected2;
+        public int r_UnitSelected, r_UnitHover;
         public bool Digger;
         public int r_UnitChimp;
     }
@@ -55,7 +55,8 @@ namespace MoatMove
         public CursorPointer GetCursorManager() => new CursorPointer { Pointer=Cursor };
         public bool IsPlayerIdValid(int id) => id > 0 && id <= 8;
         public bool IsPlayerAlliedTo(int a, int b) => a == b;
-        public SelectedUnitInfo[] GetSelectedChimps()
+        public int GetLocalPlayerId() => 1;
+        public SelectedUnitInfo[] GetSelectedChimps(int playerId)
         {
             int[] selected = EngineInterface.Selection;
             var result = new SelectedUnitInfo[selected.Length / 2];

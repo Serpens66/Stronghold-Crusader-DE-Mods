@@ -5,7 +5,7 @@
   "Description": "Unmodified precise friendly/allied moat movement comparison. Always active; test alone or with APIShared.",
   "Version": "0.1.2",
   "Website": "https://github.com/Serpens66/Stronghold-Crusader-DE-Mods/tree/main",
-  "MinimumScriptExtenderVersion": "2.7.1",
+  "MinimumScriptExtenderVersion": "2.9.0",
   "MaximumScriptExtenderVersion": "",
   "Manifest": 1,
   "NetworkMode": 1,

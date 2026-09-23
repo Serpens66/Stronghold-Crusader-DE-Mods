@@ -7,7 +7,7 @@ using System;
 
 namespace FormationTest
 {
-    [BepInDependency(ScriptExtenderGuid, "2.8.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.9.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class FormationTestPlugin : BaseUnityPlugin
     {

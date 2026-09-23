@@ -5,7 +5,7 @@ using VirtualUnitsPrototype.API;
 
 namespace VirtualUnitsPrototype
 {
-    [BepInDependency(ScriptExtenderGuid, "2.7.1")]
+    [BepInDependency(ScriptExtenderGuid, "2.9.0")]
     [BepInDependency(ApiSharedGuid, "0.3.2")]
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]

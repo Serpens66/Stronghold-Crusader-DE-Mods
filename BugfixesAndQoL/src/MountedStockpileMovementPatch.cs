@@ -360,7 +360,13 @@ namespace BugfixesAndQoL
             selectedCount = 0;
             mountedCount = 0;
             allResolved = true;
-            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance?.GetSelectedChimps();
+            int localPlayerId = GamePlayerManagerAPI.Instance?.GetLocalPlayerId() ?? -1;
+            if (localPlayerId < 1 || localPlayerId > 8)
+            {
+                allResolved = false;
+                return;
+            }
+            SelectedUnitInfo[] selected = GamePlayerManagerAPI.Instance.GetSelectedChimps(localPlayerId);
             if (selected == null || selected.Length == 0 || GameUnitManagerAPI.Instance == null)
             {
                 allResolved = false;

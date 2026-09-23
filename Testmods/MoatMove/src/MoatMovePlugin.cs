@@ -17,7 +17,7 @@ namespace MoatMove
 {
     [BepInDependency("APIShared_Serp", "0.3.6")]
     [BepInPlugin(PluginGuid, "MoatMove", PluginVersion)]
-    [BepInDependency("000shcdese", "2.7.1")]
+    [BepInDependency("000shcdese", "2.9.0")]
     [BepInDependency("BugfixesAndQoL_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("EnemyGatePathfindingTest_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     public sealed class MoatMovePlugin : BaseUnityPlugin

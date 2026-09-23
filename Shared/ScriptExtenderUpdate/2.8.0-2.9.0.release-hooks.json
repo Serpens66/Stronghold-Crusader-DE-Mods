@@ -1,0 +1,54 @@
+{
+  "OldVersion": "2.8.0",
+  "NewVersion": "2.9.0",
+  "ExtenderCommit": "70a4483fe606733219f0cd9fb1adbc0d08b926ea",
+  "ExtenderTree": "069c568917d48c05ccca83cd67aed9098a857a2f",
+  "NativeHash": "FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2",
+  "ReleaseProjects": [
+    "APIShared",
+    "BugfixesAndQoL",
+    "BuildingCosts",
+    "BuildingLimit",
+    "CheatMod",
+    "ExtendedData",
+    "ExtraFeatures",
+    "ImprovedHunters",
+    "RandomEvents",
+    "CastlePlanner",
+    "StartConditions",
+    "UnitCosts",
+    "UnitLimit"
+  ],
+  "SourceFileCount": 48,
+  "OperationCount": 107,
+  "SourceFingerprint": "296CD8584133F2D974C0D815747CB039FEB2886EC802D8D1856C6C61CBAD4111",
+  "ExtenderChangesReviewed": true,
+  "Result": "Compatible",
+  "ReviewedInteractions": [
+    {
+      "Id": "SHCDESE.BulkUnitDetours.owner",
+      "Rationale": "The changed unit transition callback derives player ID through GetOwner at the same owned hook; release mod call-site hooks do not patch this function entry.",
+      "Classification": "NoOverlap"
+    },
+    {
+      "Id": "SHCDESE.BulkPathingDetours.warning",
+      "Rationale": "Only the missing-scan warning text changed; no executable hook bytes or target changed.",
+      "Classification": "NoOverlap"
+    },
+    {
+      "Id": "BugfixesAndQoL.FriendlyMoat.AssassinSelection",
+      "Rationale": "Existing call-site adapters consume the extender-owned result at RVA 0x196870 and preserve a positive result.",
+      "Classification": "CallSiteAfterOwnedDetour"
+    },
+    {
+      "Id": "ExtraFeatures.ElevatedMoat.MapEditorTileType",
+      "Rationale": "The inline site at RVA 0x704CC remains in the original trampoline of the extender hook at RVA 0x6FE90.",
+      "Classification": "NestedOriginalPath"
+    },
+    {
+      "Id": "Fixes1.19.0.AIVOrderedTiles",
+      "Rationale": "Fixes AIV relocation hooks operate on ordered-map-tile buffer sites; our release native hooks do not write those sites. Its save/load copy issue is documented separately.",
+      "Classification": "NoOverlap"
+    }
+  ]
+}

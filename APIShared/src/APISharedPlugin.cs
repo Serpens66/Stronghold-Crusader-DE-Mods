@@ -7,7 +7,7 @@ using System.Security.Cryptography;
 namespace APIShared
 {
     /// <summary>BepInEx host for the process-wide APIShared.</summary>
-    [BepInDependency(ScriptExtenderGuid, "2.3.0")]
+    [BepInDependency(ScriptExtenderGuid, "2.9.0")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public sealed class APISharedPlugin : BaseUnityPlugin
     {

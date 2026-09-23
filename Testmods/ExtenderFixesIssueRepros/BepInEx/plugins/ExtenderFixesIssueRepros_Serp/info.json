@@ -1,0 +1,12 @@
+{
+  "GUID": "ExtenderFixesIssueRepros_Serp",
+  "Author": "Serpens66",
+  "Name": "Extender and Fixes Issue Repros",
+  "Description": "Local read-only diagnostic probes for three Script Extender and Fixes findings.",
+  "Version": "0.1.0",
+  "Website": "",
+  "MinimumScriptExtenderVersion": "2.9.0",
+  "MaximumScriptExtenderVersion": "",
+  "Manifest": 1,
+  "NetworkMode": 0
+}

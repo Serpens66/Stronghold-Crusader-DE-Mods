@@ -1,0 +1,152 @@
+{
+  "OldVersion": "2.8.0",
+  "NewVersion": "2.9.0",
+  "TargetCommit": "70a4483fe606733219f0cd9fb1adbc0d08b926ea",
+  "ImpactReview": {
+    "BaselinePreviousCommit": "5b4d48e732e9b6e2e93c135f0b28ce5b9d8bcd33",
+    "CrusaderNativeFiles": [
+      "src/SHCDESE.BepInEx/Detours/BulkUnitDetours.cs",
+      "src/SHCDESE.BepInEx/Detours/BulkPathingDetours.cs"
+    ],
+    "ExternalNativeFiles": [
+      "src/SHCDESE.BepInEx/ManagedHooks/EngineInterface_Hooks.cs",
+      "src/SHCDESE.BepInEx/ManagedHooks/EditorDirector_Hooks.cs"
+    ],
+    "NonSemanticArtifacts": [
+      "ReverseEngineering/structs/scde-main-2802-v6.rcnet"
+    ],
+    "ChangedPublicContracts": [
+      {
+        "Consumers": [
+          "BugfixesAndQoL",
+          "ExtraFeatures",
+          "FormationTest",
+          "VirtualUnitsPrototype"
+        ],
+        "Symbol": "GetSelectedChimpsCount(int) and GetSelectedChimps(int)",
+        "Path": "src/SHCDESE.BepInEx/API/GamePlayerManagerAPI.cs",
+        "Compatibility": "Required player argument; selected units consumers migrated to guarded local player ID"
+      },
+      {
+        "Consumers": [
+          "BugfixesAndQoL",
+          "ExtraFeatures"
+        ],
+        "Symbol": "r_UnitHover and r_UnitSelected",
+        "Path": "src/SHCDESE.BepInEx/Interop/GameUnit.cs",
+        "Compatibility": "Offset 0x30 is hover; selection remains offset 0xAE; consumers corrected"
+      },
+      {
+        "Consumers": [
+          "APIShared"
+        ],
+        "Symbol": "CurrentLobbyModSettingsChangeOrigin",
+        "Path": "src/SHCDESE.BepInEx/API/GameXAMLManagerAPI.cs",
+        "Compatibility": "Replaces removed private network sync field in APIShared"
+      },
+      {
+        "Consumers": [],
+        "Symbol": "ILobbyModSettingsResettable",
+        "Path": "src/SHCDESE.BepInEx/API/Components/ModManager/ILobbyModSettingsResettable.cs",
+        "Compatibility": "Additive optional reset; existing mod reset controls retained"
+      },
+      {
+        "Consumers": [],
+        "Symbol": "ILobbyModSettingsStorage",
+        "Path": "src/SHCDESE.BepInEx/API/Components/ModManager/ILobbyModSettingsStorage.cs",
+        "Compatibility": "Additive optional storage; existing preset persistence retained"
+      },
+      {
+        "Consumers": [],
+        "Symbol": "SetSelectedChimps",
+        "Path": "src/SHCDESE.BepInEx/API/Components/Selection/SelectionSetter.cs",
+        "Compatibility": "Additive selection setter; no current consumer needs programmatic selection"
+      },
+      {
+        "Consumers": [],
+        "Symbol": "OnPostLoad",
+        "Path": "src/SHCDESE.BepInEx/EventAPI/MapLoader/MapPostLoadEventArgs.cs",
+        "Compatibility": "Additive post-load event; current map initialization has no demonstrated ordering defect"
+      }
+    ],
+    "AffectedMods": [
+      "APIShared",
+      "BugfixesAndQoL",
+      "ExtraFeatures",
+      "FormationTest",
+      "VirtualUnitsPrototype"
+    ],
+    "BuildMods": [
+      "APIShared",
+      "ActiveAIVDetector",
+      "AIDefenseTest",
+      "BuildingCosts",
+      "BuildingLimit",
+      "CastlePlanner",
+      "CheatMod",
+      "ExtendedData",
+      "EnemyGatePathfindingTest",
+      "ExtraFeatures",
+      "FormationTest",
+      "ExtremePowers",
+      "ImprovedHunters",
+      "OxTetherIdleFixTest",
+      "OutpostTest",
+      "RandomEvents",
+      "SerpsModsHost",
+      "StartConditions",
+      "StockpileAccessFixTest",
+      "UnitCosts",
+      "UnitLimit",
+      "BugfixesAndQoL",
+      "MainViewModelInitProbe",
+      "SkirmishGameOptionsTest",
+      "UnitSpawnReturnProbe",
+      "SkinTest",
+      "VirtualUnitsPrototype"
+    ]
+  },
+  "Mods": {
+    "APIShared": {
+      "Version": "0.4.1",
+      "Changes": [
+        "Use Script Extender 2.9.0 change-origin API for lobby preset network updates."
+      ],
+      "MinimumScriptExtenderVersion": "2.9.0"
+    },
+    "BugfixesAndQoL": {
+      "Version": "1.0.161",
+      "Changes": [
+        "Adapt selected-unit queries and unit selection flags to Script Extender 2.9.0."
+      ],
+      "MinimumScriptExtenderVersion": "2.9.0"
+    },
+    "ExtraFeatures": {
+      "Version": "1.0.100",
+      "Changes": [
+        "Adapt knight selection and dismounting to Script Extender 2.9.0."
+      ],
+      "MinimumScriptExtenderVersion": "2.9.0"
+    },
+    "FormationTest": {
+      "Version": "0.1.1",
+      "Changes": [
+        "Use guarded player-specific selection in Script Extender 2.9.0."
+      ],
+      "MinimumScriptExtenderVersion": "2.9.0"
+    },
+    "VirtualUnitsPrototype": {
+      "Version": "0.1.2",
+      "Changes": [
+        "Use guarded local player selection in Script Extender 2.9.0."
+      ],
+      "MinimumScriptExtenderVersion": "2.9.0"
+    }
+  },
+  "CompatibilityNotes": [
+    "MoatMove is an inactive comparison copy: update source compatibility only; do not build or install it.",
+    "All other active mods retain existing minimum Script Extender and mod versions.",
+    "Central reset, custom storage, OnPostLoad and SetSelectedChimps have no demonstrated benefit for the current mod workflows.",
+    "The new Script Extender selection-list API and Fixes 1.19.0 AIV persistence require separate author reports and runtime reproduction."
+  ]
+}

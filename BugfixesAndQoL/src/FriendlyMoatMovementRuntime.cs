@@ -3407,7 +3407,7 @@ namespace BugfixesAndQoL
                 GameUnitManagerAPI.Instance.TryGetUnitById(preferredUnitId, out GameUnit* preferred) &&
                 preferred != null && preferred->r_AliveState == AliveState.IsAlive &&
                 (expectedPlayerId < 0 || preferred->r_ControllableForPlayerId == expectedPlayerId) &&
-                (preferred->r_UnitSelected != 0 || preferred->r_UnitSelected2 != 0) &&
+                preferred->r_UnitSelected != 0 &&
                 CanDigMoat(preferred))
             {
                 unitId = preferredUnitId;
