@@ -7,7 +7,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
+using UnityEngine;
 
 namespace AivLobbyPresetTest
 {
@@ -22,6 +24,10 @@ namespace AivLobbyPresetTest
         private static FileHeader pendingMap;
         private static Dictionary<int, CustomisationFileManager.CustomAIV> pendingAivs;
         private static readonly string PresetPath = Path.Combine(Paths.ConfigPath, "AivLobbyPresetTest.json");
+        private static Platform_Multiplayer.MPLobby observedLobby;
+        private static bool renderCallbackObserved;
+        private static bool observerFailureLogged;
+        private static bool readyStateObserved;
 
         private void Awake()
         {
@@ -34,7 +40,9 @@ namespace AivLobbyPresetTest
                 if (!File.Exists(PresetPath) && File.Exists(samplePath))
                     File.Copy(samplePath, PresetPath);
                 LobbyPreparationOverride.Register("AivLobbyPresetTest_Serp", Prepare, Apply);
+                Application.onBeforeRender += ObserveLobbyBeforeRender;
                 Logger.LogInfo("AIV lobby preset registered; config=" + PresetPath);
+                Logger.LogInfo("Lobby bridge after registration: " + DescribeBridgeState(null));
             }
             catch (Exception exception)
             {
@@ -42,8 +50,99 @@ namespace AivLobbyPresetTest
             }
         }
 
+        private static void ObserveLobbyBeforeRender()
+        {
+            if (log == null)
+                return;
+            try
+            {
+                if (!renderCallbackObserved)
+                {
+                    renderCallbackObserved = true;
+                    log.LogInfo("Persistent lobby render observer active.");
+                }
+                MainViewModel model = MainViewModel.Instance;
+                FRONT_Multiplayer view = model?.FRONTMultiplayer;
+                Platform_Multiplayer.MPLobby lobby = view?.currentLobby;
+                bool changedLobby = !ReferenceEquals(observedLobby, lobby);
+                if (changedLobby)
+                {
+                    observedLobby = lobby;
+                    readyStateObserved = false;
+                    if (lobby != null)
+                        log.LogInfo("Lobby observed: skirmish=" + FRONT_Multiplayer.skirmishGame +
+                            ", host=" + lobby.isHost + ", visible=" +
+                            (model.Show_MPGameCreation == true) + ", panelActive=" + view.panelActive +
+                            ", managedViewNull=" + ReferenceEquals(view, null) +
+                            ", noesisViewNull=" + (view == null));
+                }
+
+                bool ready = lobby != null && view.panelActive &&
+                    model.Show_MPGameCreation == true;
+                bool traceBridge = lobby != null &&
+                    (changedLobby || (ready && !readyStateObserved));
+                if (traceBridge)
+                    log.LogInfo("Lobby bridge before Tick: " + DescribeBridgeState(lobby));
+                LobbyPreparationOverride.Tick(view);
+                if (traceBridge)
+                    log.LogInfo("Lobby bridge after Tick: " + DescribeBridgeState(lobby));
+                if (ready)
+                    readyStateObserved = true;
+            }
+            catch (Exception exception)
+            {
+                if (observerFailureLogged)
+                    return;
+                observerFailureLogged = true;
+                log.LogError("Lobby observation failed: " + exception);
+            }
+        }
+
+        private static string DescribeBridgeState(Platform_Multiplayer.MPLobby lobby)
+        {
+            Type bridge = typeof(LobbyPreparationOverride);
+            const BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Static;
+            object Read(string name) => bridge.GetField(name, flags)?.GetValue(null);
+            var callback = Read("prepare") as Delegate;
+            return "assembly=" + bridge.Assembly.Location +
+                ", owner=" + (Read("owner") ?? "<null>") +
+                ", callback=" + (callback?.Method.DeclaringType?.FullName ?? "<null>") +
+                ", sameLobby=" + ReferenceEquals(Read("currentLobby"), lobby) +
+                ", prepared=" + Read("prepared") +
+                ", active=" + Read("active") +
+                ", applyAttempted=" + Read("applyAttempted");
+        }
+
+        private static T LobbyField<T>(FRONT_Multiplayer view, string name)
+        {
+            FieldInfo field = typeof(FRONT_Multiplayer).GetField(name,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null || !typeof(T).IsAssignableFrom(field.FieldType))
+                throw new MissingFieldException("FRONT_Multiplayer." + name +
+                    " does not match the installed game assembly.");
+            return (T)field.GetValue(view);
+        }
+
+        private static void InvokeLobbyMethod(FRONT_Multiplayer view, string name,
+            Type[] parameterTypes, params object[] arguments)
+        {
+            MethodInfo method = typeof(FRONT_Multiplayer).GetMethod(name,
+                BindingFlags.Instance | BindingFlags.NonPublic, null, parameterTypes, null);
+            if (method == null)
+                throw new MissingMethodException("FRONT_Multiplayer." + name +
+                    " does not match the installed game assembly.");
+            try { method.Invoke(view, arguments); }
+            catch (TargetInvocationException exception)
+            {
+                throw new InvalidOperationException("Vanilla lobby method " + name + " failed.",
+                    exception.InnerException ?? exception);
+            }
+        }
+
         private static bool Prepare(FRONT_Multiplayer view)
         {
+            log.LogInfo("Preset Prepare entered; config=" + PresetPath +
+                ", lobby=" + (view?.currentLobby != null));
             pending = null;
             pendingMap = null;
             pendingAivs = null;
@@ -55,7 +154,10 @@ namespace AivLobbyPresetTest
                 return false;
             }
             if (!preset.Enabled)
+            {
+                log.LogInfo("Preset disabled in config; no lobby changes.");
                 return false;
+            }
             if (!FRONT_Multiplayer.skirmishGame || FRONT_Multiplayer.coopGame ||
                 FRONT_Multiplayer.customCoopGame || view.trailMakerMode ||
                 view.currentLobby == null || !view.currentLobby.isHost ||
@@ -83,7 +185,8 @@ namespace AivLobbyPresetTest
                 if (matches.Count != 1)
                     throw new InvalidDataException("Expected exactly one map named " + preset.MapFileName);
                 FileHeader map = matches[0];
-                if (map.maxPlayers < preset.Players.Count || view.PlayerCap < preset.Players.Count)
+                if (map.maxPlayers < preset.Players.Count ||
+                    LobbyField<int>(view, "PlayerCap") < preset.Players.Count)
                     throw new InvalidDataException("The selected map or lobby player cap is too small.");
                 using (var stream = File.OpenRead(map.filePath))
                 using (var sha = SHA256.Create())
@@ -126,7 +229,10 @@ namespace AivLobbyPresetTest
 
         private static void Apply(FRONT_Multiplayer view)
         {
-            var rows = view.RefFileLists.ItemsSource as IEnumerable;
+            log.LogInfo("Preset Apply entered; map=" + pendingMap?.filePath +
+                ", players=" + pending?.Players.Count);
+            Noesis.ListView mapList = LobbyField<Noesis.ListView>(view, "RefFileLists");
+            var rows = mapList?.ItemsSource as IEnumerable;
             if (rows == null)
                 throw new InvalidOperationException("Vanilla map list is not ready.");
             FileRow targetRow = null;
@@ -142,8 +248,9 @@ namespace AivLobbyPresetTest
             }
             if (targetRow == null)
                 throw new InvalidOperationException("The validated map is not visible in the lobby list.");
-            view.RefFileLists.SelectedItem = targetRow;
-            if (!string.Equals(view.selectedMPHeader?.filePath, pendingMap.filePath,
+            mapList.SelectedItem = targetRow;
+            if (!string.Equals(LobbyField<FileHeader>(view, "selectedMPHeader")?.filePath,
+                    pendingMap.filePath,
                     StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Vanilla did not select the requested map.");
 
@@ -158,9 +265,9 @@ namespace AivLobbyPresetTest
                     throw new InvalidOperationException("Unexpected human opponent; preset aborted.");
                 Platform_Multiplayer.Instance.kickSkirmishPlayer(member.id.m_SteamID);
                 view.currentLobby.validateTeams();
-                view.updateSteamIDMappings();
+                InvokeLobbyMethod(view, "updateSteamIDMappings", Type.EmptyTypes);
             }
-            view.ReSortTeamInfo();
+            InvokeLobbyMethod(view, "ReSortTeamInfo", Type.EmptyTypes);
             foreach (var player in pending.Players.Where(player => !player.Human))
             {
                 int before = view.currentLobby.members.Count;
@@ -178,15 +285,17 @@ namespace AivLobbyPresetTest
             }
             if (view.currentLobby.members.Count != pending.Players.Count)
                 throw new InvalidOperationException("Unexpected lobby member count after AI addition.");
+            EngineInterface.MultiplayerSetupData setup =
+                LobbyField<EngineInterface.MultiplayerSetupData>(view, "MPsetupData");
             for (int slot = 0; slot < 8; slot++)
-                view.MPsetupData.start_keep_location_order[slot] = -10;
+                setup.start_keep_location_order[slot] = -10;
             foreach (var player in pending.Players)
-                view.MPsetupData.start_keep_location_order[player.KeepSlot] = player.Id - 1;
-            view.UpdateHostInfo(false);
-            view.UpdateRadarShieldPositions();
+                setup.start_keep_location_order[player.KeepSlot] = player.Id - 1;
+            InvokeLobbyMethod(view, "UpdateHostInfo", new[] { typeof(bool) }, false);
+            InvokeLobbyMethod(view, "UpdateRadarShieldPositions", Type.EmptyTypes);
             foreach (var player in pending.Players)
             {
-                if (view.MPsetupData.start_keep_location_order[player.KeepSlot] != player.Id - 1)
+                if (setup.start_keep_location_order[player.KeepSlot] != player.Id - 1)
                     throw new InvalidOperationException("Keep-slot validation failed for player " + player.Id);
                 log.LogInfo("Preset player=" + player.Id +
                     " lord=" + (player.Human ? "human" : player.LordType.ToString()) +

@@ -403,8 +403,11 @@
         <member name="M:APIShared.LobbyPreparationOverride.Register(System.String,System.Func{CrusaderDE.FRONT_Multiplayer,System.Boolean},System.Action{CrusaderDE.FRONT_Multiplayer})">
             <summary>Registers rooted callbacks before the lobby is opened.</summary>
         </member>
+        <member name="M:APIShared.LobbyPreparationOverride.Tick(CrusaderDE.FRONT_Multiplayer)">
+            <summary>Observes the ready lobby from a process-lifetime frontend callback.</summary>
+        </member>
         <member name="M:APIShared.LobbyPreparationOverride.Begin(CrusaderDE.FRONT_Multiplayer)">
-            <summary>Reads and validates the preset once before Vanilla opens a lobby.</summary>
+            <summary>Reads and validates the preset once for each newly opened lobby.</summary>
         </member>
         <member name="P:APIShared.LobbyPreparationOverride.IsActive">
             <summary>Whether an owner has accepted the current lobby opening.</summary>

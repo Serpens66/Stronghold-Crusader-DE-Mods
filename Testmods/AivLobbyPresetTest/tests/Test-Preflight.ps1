@@ -24,6 +24,18 @@ if (@(Select-String -LiteralPath $sources -Pattern $badJson).Count) { throw 'For
 $runtime = [IO.File]::ReadAllText((Join-Path $root 'src\AivLobbyPresetTestPlugin.cs'))
 if ($runtime -match '\b(OnDestroy|OnDisable|OnApplicationQuit)\s*\(') { throw 'Lifecycle teardown requires audit.' }
 if ($runtime -match 'CodePatch\.Write|Marshal\.Write|VirtualProtect|\.Undo\(|\.Disable\(') { throw 'Unexpected runtime hook mutation.' }
+$projectText = [IO.File]::ReadAllText($project)
+if ($projectText.Contains('Assembly-CSharp-publicized.dll')) {
+    throw 'The test mod must compile against the installed runtime Assembly-CSharp.dll.'
+}
+$sharedLobby = [IO.File]::ReadAllText((Join-Path $root '..\..\APIShared\src\LobbyPreparationOverride.cs'))
+if ($sharedLobby -match '\b(view|lobby)\s*==\s*null') {
+    throw 'FRONT_Multiplayer null checks must use ReferenceEquals; Noesis overloads ==.'
+}
+$privateMemberAccess = '\b(?:view|lobby)\.(?:PlayerCap|MPsetupData|selectedMPHeader|RefFileLists|UpdateHostInfo|UpdateRadarShieldPositions|updateSteamIDMappings|ReSortTeamInfo)\b'
+if ($runtime -match $privateMemberAccess -or $sharedLobby -match $privateMemberAccess) {
+    throw 'Direct access to a private FRONT_Multiplayer member is invalid at runtime.'
+}
 $document = [xml][IO.File]::ReadAllText($project)
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'CraterLakePreset.json') | ConvertFrom-Json
 $null = Get-Content -Raw -LiteralPath (Join-Path $root 'info.json') | ConvertFrom-Json

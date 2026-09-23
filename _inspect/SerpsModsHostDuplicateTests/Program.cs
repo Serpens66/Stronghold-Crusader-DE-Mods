@@ -589,6 +589,34 @@ namespace SerpsModsHostDuplicateTests
                 throw new InvalidOperationException("A later registration did not remain behind Serps Mods.");
             }
 
+            var names = new Dictionary<object, string>
+            {
+                [fixes] = "Fixes",
+                [serpsMods] = "SerpsMods_Serp",
+                [laterMod] = "UnitLimit_Serp",
+            };
+            object buildingCosts = new object();
+            object bugfixes = new object();
+            names[buildingCosts] = "BuildingCosts_Serp";
+            names[bugfixes] = "BugfixesAndQoL_Serp";
+            registrations.Add(bugfixes);
+            registrations.Add(buildingCosts);
+            if (!ModSettingsRegistrationOrder.SortAlphabetically(registrations, serpsMods, entry => names[entry]) ||
+                !ReferenceEquals(registrations[0], serpsMods) ||
+                !ReferenceEquals(registrations[1], bugfixes) ||
+                !ReferenceEquals(registrations[2], buildingCosts) ||
+                !ReferenceEquals(registrations[3], fixes) ||
+                !ReferenceEquals(registrations[4], laterMod))
+            {
+                throw new InvalidOperationException("Modsettings entries were not alphabetized behind Serps Mods.");
+            }
+            collectionChanges = 0;
+            if (ModSettingsRegistrationOrder.SortAlphabetically(registrations, serpsMods, entry => names[entry]) ||
+                collectionChanges != 0)
+            {
+                throw new InvalidOperationException("An already sorted modsettings list was changed.");
+            }
+
             string workspace = FindWorkspaceRoot();
             string hostSource = File.ReadAllText(Path.Combine(
                 workspace, "SerpsModsHost", "src", "SerpsModsHostPlugin.cs"));

@@ -217,3 +217,52 @@ the first prebuild-on attempt), 46 intentionally not evaluable (later
 prebuild-on attempts), zero mismatches, and zero comparison errors. This
 confirms current fail-closed behavior for the observed capture; it does not
 validate later-player simulation.
+
+## 2026-09-23 lobby preset activation boundary
+
+This finding concerns the managed frontend before the native start chain; the
+installed native hash is still `FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+In the 23:21 game session, the test plugin's persistent render callback ran
+and observed a managed `MainViewModel.FRONTMultiplayer` with a non-null lobby,
+`skirmishGame=True`, `Show_MPGameCreation=True`, and `panelActive=True`.
+There was no preset `Prepare` result or exception. The installed APIShared
+`LobbyPreparationOverride.Tick` checked `view == null` before calling
+`Begin`. `FRONT_Multiplayer` derives from Noesis `BaseComponent`, whose
+installed `operator ==` treats a non-null wrapper with zero `swigCPtr.Handle`
+as equal to null. The installed Noesis assembly SHA-256 is
+`98476D3CA84AE0F2DCFBADDCC64B01A1F65474BD44402673FD6856D1B5347648`.
+Confidence is high for the managed branch and equality contract. The initial
+deduction that this lobby had a zero native handle was disproved by the next
+session: at 23:31 the test plugin logged `noesisViewNull=False` alongside
+`skirmish=True`, `Show_MPGameCreation=True`, and `panelActive=True`, yet still
+logged no `Prepare` outcome. The cause is therefore unresolved within the
+managed preparation bridge. Its registered owner, callback, current-lobby,
+prepared, active and apply-attempted state must be observed before and after
+`Tick`; the test plugin now records these once per lobby-ready transition.
+The offline AIV fit and native selection contracts are unaffected.
+
+The installed Script Extender 2.9.0 detours
+`FRONT_Multiplayer.SkirmishAIAddClick` and forwards ordinary lord choices
+through Vanilla. Vanilla's managed `SkirmishAIAddClick` calls
+`Platform_Multiplayer.AddSkirmishPlayerLocal`, refreshes player-ID mappings,
+and initializes the corresponding `AIVs[playerId - 1]`. At match start,
+`StartSkirmishGame` serializes the lobby members, Keep order and AIV choices;
+the native `0x94350` chain consumes those start inputs later. Confidence is
+high for this current managed and extender source path.
+
+## 2026-09-23 runtime visibility of lobby members
+
+The installed game's real `Assembly-CSharp.dll`, rather than the publicized
+compile-time copy, declares `FRONT_Multiplayer.PlayerCap`, `MPsetupData`,
+`selectedMPHeader`, and `RefFileLists` private. It also declares
+`UpdateHostInfo`, `UpdateRadarShieldPositions`, `updateSteamIDMappings`, and
+`ReSortTeamInfo` private. `SkirmishAIAddClick`, `currentLobby`, `AIVs`,
+`panelActive`, and `trailMakerMode` are public. Confidence is high from
+decompilation of the installed managed assembly. The 23:37 runtime trace
+confirms the boundary: `LobbyPreparationOverride.Begin` marked preparation
+attempted, but the test callback threw `System.FieldAccessException` for
+`FRONT_Multiplayer.PlayerCap` before its first log statement. The exception
+was written to Unity `Player.log`, not BepInEx `LogOutput.log`. A mod compiled
+against `Assembly-CSharp-publicized.dll` cannot directly access these private
+members at runtime; any required access needs an explicitly audited runtime
+mechanism or a public Vanilla route.

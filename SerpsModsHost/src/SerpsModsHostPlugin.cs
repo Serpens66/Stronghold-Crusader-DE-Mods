@@ -9,11 +9,13 @@ using SHCDESE.API.Components.ModManager;
 using SHCDESE.API.LowLevel;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Threading;
 
 namespace SerpsModsHost
 {
@@ -34,6 +36,7 @@ namespace SerpsModsHost
         private static PackLogListener packLogListener;
         private static IDisposable lobbyJoinSubscription;
         private static LobbyModHashWarning lobbyModHashWarning;
+        private static int settingsSortQueued;
         private readonly List<PackModRecord> activeMods = new List<PackModRecord>();
         private readonly HashSet<string> expectedLogSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private SerpsModsDiagnosticsViewModel diagnostics;
@@ -430,6 +433,10 @@ namespace SerpsModsHost
                     ModSettingsRegistrationOrder.PromoteToFront(registrations, registration);
                     SHCDESE.BepInEx.Bootstrap.Plugin.ModSettingsHubViewModel.SelectedTab = registration;
                 }
+                // Registration order follows BepInEx dependencies, so sort after each batch of additions.
+                // Deferring avoids mutating ObservableCollection inside its CollectionChanged callback.
+                registrations.CollectionChanged += OnModSettingsRegistered;
+                QueueModSettingsSort();
                 NoesisTextBox searchTextBox = registration?.View?.FindName("SerpsModSettingsSearchTextBox") as NoesisTextBox;
                 if (searchTextBox != null)
                     searchTextBox.PreviewKeyDown += OnSearchTextBoxPreviewKeyDown;
@@ -439,6 +446,34 @@ namespace SerpsModsHost
             {
                 ReportError("H005", $"Diagnostics UI registration failed: {ex}");
             }
+        }
+
+        private static void OnModSettingsRegistered(object sender, NotifyCollectionChangedEventArgs args)
+        {
+            if (args.Action == NotifyCollectionChangedAction.Add)
+                QueueModSettingsSort();
+        }
+
+        private static void QueueModSettingsSort()
+        {
+            if (Interlocked.Exchange(ref settingsSortQueued, 1) != 0)
+                return;
+
+            UnityMainThreadDispatcher.EnqueueStatic(() =>
+            {
+                Interlocked.Exchange(ref settingsSortQueued, 0);
+                try
+                {
+                    var registrations = GameXAMLManagerAPI.Instance.RegisteredModSettings;
+                    LobbyModSettingsEntry host = registrations.FirstOrDefault(entry =>
+                        string.Equals(entry.Name, PluginGuid, StringComparison.Ordinal));
+                    ModSettingsRegistrationOrder.SortAlphabetically(registrations, host, entry => entry.Name);
+                }
+                catch (Exception ex)
+                {
+                    Shared.DebugLogHelper.LogError(instance.Logger, $"Modsettings ordering failed: {ex}");
+                }
+            });
         }
 
         private static void OnSearchTextBoxPreviewKeyDown(object sender, NoesisKeyEventArgs args)
