@@ -33,8 +33,8 @@ namespace ExtraFeatures
         private readonly Dictionary<int, PendingKnightTransformation> pendingTransformations =
             new Dictionary<int, PendingKnightTransformation>();
         private readonly HashSet<int> pendingSelectionRequestIds = new HashSet<int>();
-        // TEMP DIAGNOSTIC: Knight selection transfer; remove after in-game validation.
-        private int selectionDiagnosticPendingTicks;
+        private readonly HashSet<int> pendingSelectionTransferIds = new HashSet<int>();
+        private int pendingSelectionTransferTicks;
         private readonly Dictionary<int, ProgressVisual> progressVisuals =
             new Dictionary<int, ProgressVisual>();
         private DeferredSaveRequest deferredSave;
@@ -207,6 +207,8 @@ namespace ExtraFeatures
 
             runtime.CancelAllPending("map-unload", refundGold: true, releaseReservedHorse: true);
             runtime.pendingSelectionRequestIds.Clear();
+            runtime.pendingSelectionTransferIds.Clear();
+            runtime.pendingSelectionTransferTicks = 0;
             runtime.ClearAllProgressVisuals();
             runtime.deferredSave = null;
             runtime.deferredSaveReadyAfterTick = long.MaxValue;
@@ -375,7 +377,10 @@ namespace ExtraFeatures
 
         private void UpdatePendingTransformations()
         {
-            PrunePendingSelectionRequest();
+            if (pendingSelectionTransferIds.Count == 0)
+                PrunePendingSelectionRequest();
+            else
+                TryPublishReadySelectionTransfers();
             if (pendingTransformations.Count == 0)
                 return;
 
@@ -484,8 +489,6 @@ namespace ExtraFeatures
             }
 
             bool transferSelection = ShouldTransferSelection(currentSnapshot.OwnerPlayerId, swordsman);
-            // TEMP DIAGNOSTIC: Knight selection transfer; remove after in-game validation.
-            LogDebug($"Knight selection source: action=mount, sourceId={swordsmanUnitId}, replacementId={knightUnitId}, owner={currentSnapshot.OwnerPlayerId}, local={GetControlledPlayerId()}, alive={swordsman->r_AliveState}, localFlag={swordsman->r_UnitHover}, playerFlag={swordsman->r_UnitSelected}, apiContains={Array.IndexOf(GetSelectedChimpsSafe(), swordsmanUnitId) >= 0}, transfer={transferSelection}.");
             if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(swordsmanUnitId))
             {
                 ReleaseExactHorseLink(allocation, knightUnitId, (int)knight->r_GlobalId, reason + "-delete-rollback");
@@ -533,18 +536,11 @@ namespace ExtraFeatures
                 if (!GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* unit) ||
                     !IsSelected(unit))
                 {
-                    // TEMP DIAGNOSTIC: Knight selection transfer; remove after in-game validation.
-                    selectionDiagnosticPendingTicks++;
-                    if (selectionDiagnosticPendingTicks == 1 || selectionDiagnosticPendingTicks == 3 || selectionDiagnosticPendingTicks == 6)
-                        LogDebug($"Knight selection awaiting Vanilla: unitId={unitId}, localFlag={(unit == null ? 0 : unit->r_UnitHover)}, tick={selectionDiagnosticPendingTicks}.");
                     return;
                 }
             }
 
             // Every member of the last request is now reflected in Vanilla's selection.
-            // TEMP DIAGNOSTIC: Knight selection transfer; remove after in-game validation.
-            LogDebug($"Knight selection committed: unitIds={string.Join(",", pendingSelectionRequestIds)}, ticks={selectionDiagnosticPendingTicks}.");
-            selectionDiagnosticPendingTicks = 0;
             pendingSelectionRequestIds.Clear();
         }
 
@@ -554,25 +550,68 @@ namespace ExtraFeatures
                 return;
 
             foreach (int unitId in newUnitIds)
+            {
                 pendingSelectionRequestIds.Add(unitId);
+                pendingSelectionTransferIds.Add(unitId);
+            }
 
             try
             {
                 int localPlayerId = GetControlledPlayerId();
-                var selectedUnitIds = new List<int>();
-                var seen = new HashSet<int>();
                 GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
                 foreach (int unitId in unitApi.GetAllAliveUnits())
                 {
                     if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) &&
                         unit->r_ControllableForPlayerId == localPlayerId &&
-                        IsSelected(unit) && seen.Add(unitId))
+                        IsSelected(unit))
+                        pendingSelectionRequestIds.Add(unitId);
+                }
+
+                TryPublishReadySelectionTransfers();
+            }
+            catch (Exception ex)
+            {
+                LogError($"Knight transformation selection transfer failed: {ex}");
+            }
+        }
+
+        private void TryPublishReadySelectionTransfers()
+        {
+            if (pendingSelectionTransferIds.Count == 0)
+                return;
+
+            try
+            {
+                int localPlayerId = GetControlledPlayerId();
+                GameUnitManagerAPI unitApi = GameUnitManagerAPI.Instance;
+                foreach (int unitId in pendingSelectionTransferIds)
+                {
+                    bool found = unitApi.TryGetUnitById(unitId, out GameUnit* unit);
+                    if (!found || unit->r_AliveState != AliveState.IsAlive ||
+                        unit->r_ControllableForPlayerId != localPlayerId)
                     {
-                        selectedUnitIds.Add(unitId);
+                        pendingSelectionTransferTicks++;
+                        if (pendingSelectionTransferTicks < 100)
+                            return;
+                        LogError($"Knight selection replacement did not become selectable: unitId={unitId}.");
+                        pendingSelectionTransferIds.Clear();
+                        pendingSelectionRequestIds.Clear();
+                        pendingSelectionTransferTicks = 0;
+                        return;
                     }
                 }
 
-                // Keep the previous complete request until its multi-frame gesture commits.
+                var selectedUnitIds = new List<int>();
+                var seen = new HashSet<int>();
+                foreach (int unitId in unitApi.GetAllAliveUnits())
+                {
+                    if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) &&
+                        unit->r_ControllableForPlayerId == localPlayerId &&
+                        IsSelected(unit) && seen.Add(unitId))
+                        selectedUnitIds.Add(unitId);
+                }
+
+                // Keep the previous request and replacements until the new gesture commits.
                 foreach (int unitId in pendingSelectionRequestIds)
                 {
                     if (unitApi.TryGetUnitById(unitId, out GameUnit* unit) &&
@@ -585,11 +624,10 @@ namespace ExtraFeatures
 
                 pendingSelectionRequestIds.Clear();
                 pendingSelectionRequestIds.UnionWith(selectedUnitIds);
-                // TEMP DIAGNOSTIC: Knight selection transfer; remove after in-game validation.
-                selectionDiagnosticPendingTicks = 0;
-                LogDebug($"Knight selection queued: replacements={string.Join(",", newUnitIds)}, fullSelection={string.Join(",", selectedUnitIds)}, localPlayerId={localPlayerId}.");
                 if (!GamePlayerManagerAPI.Instance.SetSelectedChimps(selectedUnitIds))
                     LogError("Knight transformation selection transfer was rejected by the Script Extender.");
+                pendingSelectionTransferIds.Clear();
+                pendingSelectionTransferTicks = 0;
             }
             catch (Exception ex)
             {

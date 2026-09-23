@@ -288,6 +288,8 @@ namespace ExtraFeatures
             initialized = false;
             CancelAllPending("feature-disabled", refundGold: true, releaseReservedHorse: true);
             pendingSelectionRequestIds.Clear();
+            pendingSelectionTransferIds.Clear();
+            pendingSelectionTransferTicks = 0;
             buttonViewModel.Hide();
             UnhookButtonEvents();
         }
@@ -1114,8 +1116,6 @@ namespace ExtraFeatures
             }
 
             bool transferSelection = ShouldTransferSelection(currentSnapshot.OwnerPlayerId, currentKnight);
-            // TEMP DIAGNOSTIC: Knight selection transfer; remove after in-game validation.
-            LogDebug($"Knight selection source: action=dismount, sourceId={currentKnightId}, replacementId={swordsmanUnitId}, owner={currentSnapshot.OwnerPlayerId}, local={GetControlledPlayerId()}, alive={currentKnight->r_AliveState}, localFlag={currentKnight->r_UnitHover}, playerFlag={currentKnight->r_UnitSelected}, apiContains={Array.IndexOf(GetSelectedChimpsSafe(), currentKnightId) >= 0}, transfer={transferSelection}.");
             if (!GameUnitManagerAPI.Instance.DeleteUnitSafe(currentKnightId))
             {
                 RollbackConsumedStableHorse(consumedHorse, reason);
