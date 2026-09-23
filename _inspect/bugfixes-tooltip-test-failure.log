@@ -1,0 +1,1617 @@
+PASS only a valid local-player lord event sets the spectator latch
+PASS spectator promotion remains fail-closed and requires the defeat-event latch
+PASS eliminated-player spectator promotion presents Vanilla victory as defeat
+PASS eliminated-player spectator promotion preserves an existing defeat
+PASS spectator promotion preserves running and unknown game-over states
+PASS ordinary victory and initial spectators retain Vanilla presentation
+PASS spectator promotion consumes APIShared lord deaths and activates Vanilla spectator mode only through the synchronized path in multiplayer
+PASS spectator Chore uses only the stable scalar player slot and validates session state locally
+PASS game-over hook forwards the corrected state once and preserves screen and date
+PASS OST hook corrects only the game-over result and forwards all auxiliary data once
+PASS both presentation boundaries share the one-shot correction diagnostic
+PASS statistics team-badge modes use stable slider values and default to Vanilla icons
+PASS statistics team-badge mode normalization preserves valid values and restores the default
+PASS statistics team-badge preference keeps independent per-player values
+PASS statistics team badges follow Vanilla's standard ranking order
+PASS statistics team badges follow Vanilla's reversed ranking order
+PASS statistics team badges mirror all 16 Vanilla sort-to-ranking mappings
+PASS statistics team badges compact fewer than eight valid participants like Vanilla
+PASS statistics team badges fail closed for invalid ranked player IDs
+PASS statistics team members resolve to the shared Vanilla badge for teams 1 through 4
+PASS statistics solo and invalid team values remain badge-free
+PASS statistics team badges use opaque Vanilla lobby colours and a contrasting number colour
+PASS statistics team-badge styles reject solo and invalid team IDs
+PASS HUD_MissionOver patch adds lower-left Vanilla and Easy Read icons to every row on both pages
+PASS statistics team badges select Vanilla or Easy Read visuals and cache the chosen mode
+PASS statistics team badges use the independent client gate and support Off mode
+PASS team-badge patch leaves Vanilla row backgrounds, visibility, and personal shield bindings unchanged
+PASS statistics team-badge mode is stored and reset as a per-player client preference
+PASS client slider exposes all three modes and previews Team 3 in both icon styles
+PASS Team 3 Vanilla preview resolves at the existing safe ModSettings visual refresh point
+PASS all locales define the statistics team-badge slider and its three values
+PASS Coop custom partner maps SK_X2 to the shared Vanilla progress ID
+PASS Coop custom partner selection is gated to enabled singleplayer Coop
+PASS Coop custom AIV replacement is limited to the active player-2 partner
+PASS Coop custom preview names are limited to the active partner identity
+PASS Coop team registration is limited to the active custom partner in slot 2
+PASS Coop custom partner team registration mirrors Vanilla's one-member normalization
+PASS Coop portrait scrolling starts with the eighth custom lord
+PASS Coop lord power is appended exactly once
+PASS Coop history marker and delete visibility are display-only and setting-gated
+PASS Coop progress deletion rejects changed or inconsistent rows at confirmation
+PASS six occupied Coop rows show exactly six delete buttons
+PASS all four Coop Trail patches preserve Vanilla portraits, order, hover and DLC visibility while adding custom slots
+PASS Coop hover power and progress deletion preserve Vanilla UI and use Script Extender metadata
+PASS Coop custom preview and registration hooks stay rooted, scoped and fail closed
+PASS Coop custom partner restoration inherits Vanilla's position, colour and team without changing enemy teams
+PASS Coop delete buttons do not consume or reroute Vanilla multiplayer commands
+PASS the Custom Lord history marker is not persisted to coop.cfg
+PASS Trail customization keeps provider standalone ownership until the host is attached
+PASS Trail customization rejects an invalid provider identity
+PASS Trail customization rejects an incompatible provider API
+PASS Trail customization accepts the compatible ExtendedData provider
+PASS Trail customization refreshes visibility after attach and provider registration
+PASS active provider owns each Customize transition exactly once
+PASS Trail customization rejects an unexpected competing provider
+PASS active provider rejection remains fail-closed without a second transition
+PASS disabled provider yields to the BugfixesAndQoL standalone fallback
+PASS Trail customization owns idempotent buttons and authenticated provider-aware transitions
+PASS Trail customization exposes the default-enabled host setting
+PASS launch origin is captured before cleanup and conflicting providers fail closed
+PASS placement clearance retains the tunnel-only structure rule
+PASS placement clearance includes ordinary buildings, tunnels and every siege tent
+PASS placement clearance excludes walls, moats, map objects, markers and units
+PASS placement clearance accepts human ordinary, tunnel and siege buildings
+PASS placement clearance preserves disabled, editor, AI and non-building placement
+PASS placement clearance distinguishes Vanilla sentinel modes from positive footprints
+PASS tunnel distance policy scans the complete 16-tile outer ring only
+PASS placement clearance detects hostile tiles on every side and corner
+PASS placement clearance scans the complete outer ring for varied building sizes
+PASS tunnel distance policy ignores ring coordinates outside the map
+PASS wall ownership is converted exactly once from zero-based to game player ID
+PASS own and allied owners remain allowed while enemy owners block
+PASS completed moat ownership preserves the one-based record owner
+PASS completed moat ownership rejects invalid IDs, counts, tile links and owners
+PASS placement clearance uses public placement APIs and the validated moat record contract
+PASS tunnel distance feature only adds a placement rejection
+PASS placement clearance silently ignores non-positive Vanilla validator modes before mismatch diagnostics
+PASS placement clearance silently ignores Nature while retaining diagnostics for other invalid player IDs
+PASS placement clearance has no extra native hook and preserves one-based IDs
+PASS placement clearance is registered persistently and receives hash validation
+PASS tunnel distance fix is an enabled-by-default synchronized host setting
+PASS tunnel distance fix is exposed in the settings UI
+PASS client QoL category uses the neutral Grid search target wrapper
+PASS AIC dropdown pins Default before custom configurations
+PASS AIC dropdown sorts custom configurations by name
+PASS AIC dropdown uses origin and power as deterministic name tie-breakers
+PASS AIC dropdown formats custom power and Default labels
+PASS AIC dropdown search matches names, power, and Default without changing case semantics
+PASS AIC dropdown resolves Default, local, and Workshop icons explicitly
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownHost' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownSelector' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownOpenSurface' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownPopup' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownSearchBox' is present
+PASS AIC dropdown control 'BugfixesAndQoLAicDropdownResults' is present
+PASS rotation controls use the compact two-row layout
+PASS Save/Load keeps its width and sits ten units left of Clear
+PASS AIC dropdown updates Vanilla state, selection memory, and the legacy list
+FAIL AIC dropdown exposes searchable, scrollable icon and power rows
+PASS AIC dropdown labels have English fallbacks and German translations
+PASS Off is the default mode while the feature remains experimental
+PASS all three public mode values are preserved
+PASS invalid friendly-moat modes fail closed to Off
+PASS friendly-moat slider is ordered Off, Fast, Precise without changing persisted values
+PASS friendly-moat slider maps back to stable modes and fails closed
+PASS integrated native runtime remains process-rooted and is not disposed by plugin teardown
+PASS XAML SetAttribute operations use the audited Script Extender patch contract
+PASS hostile filling remains independent while Off blocks every friendly moat work route
+PASS friendly moat movement is a default-required synchronized host setting
+PASS friendly moat movement exposes the ordered slider adapter and value label
+PASS friendly moat movement uses the standard three-position slider layout
+PASS friendly moat tooltips start with the experimental warning and mention precise-mode group lag
+PASS legacy standalone plugin is explicitly incompatible
+PASS friendly moat selection uses six call-site adapters and removes the unsafe post-call hooks
+PASS selection adapters validate the SE call, exact complete spans, and installed displacement
+PASS selection adapters preserve stack, volatile SIMD state, flags, and relocated instructions
+PASS friendly moat selection preserves full-width nonzero SE results and only lifts rejection
+PASS gatehouse event ID 1 remains game ID 1 and converts to span index 0 only at a direct-span boundary
+PASS gatehouse event accepts the highest valid one-based Unit game ID unchanged
+PASS gatehouse event rejects zero, negative and above-span Unit IDs
+PASS gatehouse source documents and diagnoses the current one-based event contract
+PASS gatehouse source exposes the expected event-handler boundary
+PASS gatehouse handler passes the validated one-based Unit ID unchanged to lookup and pathing
+PASS gatehouse handler applies no obsolete +1 conversion to the event Unit ID
+PASS gatehouse runtime uses Vanilla's building grid and exterior approaches without mutating live pathing state
+PASS keep-flag rotation option is host-synchronized and enabled by default/reset
+PASS keep-flag runtime obeys both settings, delays scanning, and uses bounded direct projectile IDs
+PASS keep-flag runtime uses the shared lifecycle and excludes saves, editors, and replayed sessions
+PASS keep-flag runtime is rooted only after successful installation
+PASS keep-flag host option is exposed in the settings UI
+PASS BugfixesAndQoL requires the corrected Script Extender projectile bounds from 2.7.2
+PASS keep flag resolves orientation 0, scale 7
+PASS keep flag Vanilla position for orientation 0, scale 7
+PASS keep flag corrected position for orientation 0, scale 7
+PASS keep flag mutation expectation for orientation 0, scale 7
+PASS keep flag resolves orientation 2, scale 7
+PASS keep flag Vanilla position for orientation 2, scale 7
+PASS keep flag corrected position for orientation 2, scale 7
+PASS keep flag mutation expectation for orientation 2, scale 7
+PASS keep flag resolves orientation 4, scale 7
+PASS keep flag Vanilla position for orientation 4, scale 7
+PASS keep flag corrected position for orientation 4, scale 7
+PASS keep flag mutation expectation for orientation 4, scale 7
+PASS keep flag resolves orientation 6, scale 7
+PASS keep flag Vanilla position for orientation 6, scale 7
+PASS keep flag corrected position for orientation 6, scale 7
+PASS keep flag mutation expectation for orientation 6, scale 7
+PASS keep flag resolves orientation 15, scale 7
+PASS keep flag Vanilla position for orientation 15, scale 7
+PASS keep flag corrected position for orientation 15, scale 7
+PASS keep flag mutation expectation for orientation 15, scale 7
+PASS keep flag resolves orientation 0, scale 11
+PASS keep flag Vanilla position for orientation 0, scale 11
+PASS keep flag corrected position for orientation 0, scale 11
+PASS keep flag mutation expectation for orientation 0, scale 11
+PASS keep flag resolves orientation 2, scale 11
+PASS keep flag Vanilla position for orientation 2, scale 11
+PASS keep flag corrected position for orientation 2, scale 11
+PASS keep flag mutation expectation for orientation 2, scale 11
+PASS keep flag resolves orientation 4, scale 11
+PASS keep flag Vanilla position for orientation 4, scale 11
+PASS keep flag corrected position for orientation 4, scale 11
+PASS keep flag mutation expectation for orientation 4, scale 11
+PASS keep flag resolves orientation 6, scale 11
+PASS keep flag Vanilla position for orientation 6, scale 11
+PASS keep flag corrected position for orientation 6, scale 11
+PASS keep flag mutation expectation for orientation 6, scale 11
+PASS keep flag resolves orientation 15, scale 11
+PASS keep flag Vanilla position for orientation 15, scale 11
+PASS keep flag corrected position for orientation 15, scale 11
+PASS keep flag mutation expectation for orientation 15, scale 11
+PASS keep flag resolves orientation 4, scale 7
+PASS keep flag Vanilla position for orientation 4, scale 7
+PASS keep flag corrected position for orientation 4, scale 7
+PASS keep flag mutation expectation for orientation 4, scale 7
+PASS keep flag resolves orientation 6, scale 7
+PASS keep flag Vanilla position for orientation 6, scale 7
+PASS keep flag corrected position for orientation 6, scale 7
+PASS keep flag mutation expectation for orientation 6, scale 7
+PASS keep flag resolves orientation 2, scale 7
+PASS keep flag Vanilla position for orientation 2, scale 7
+PASS keep flag corrected position for orientation 2, scale 7
+PASS keep flag mutation expectation for orientation 2, scale 7
+PASS keep flag resolves orientation 2, scale 7
+PASS keep flag Vanilla position for orientation 2, scale 7
+PASS keep flag corrected position for orientation 2, scale 7
+PASS keep flag mutation expectation for orientation 2, scale 7
+PASS keep flag resolves orientation 0, scale 7
+PASS keep flag Vanilla position for orientation 0, scale 7
+PASS keep flag corrected position for orientation 0, scale 7
+PASS keep flag mutation expectation for orientation 0, scale 7
+PASS keep flag resolves orientation 15, scale 7
+PASS keep flag Vanilla position for orientation 15, scale 7
+PASS keep flag corrected position for orientation 15, scale 7
+PASS keep flag mutation expectation for orientation 15, scale 7
+PASS keep flag accepts Vanilla view variant (135,160)
+PASS keep flag preserves resolved Vanilla variant (135,160)
+PASS keep flag rotates Vanilla view variant (135,160)
+PASS keep flag recognizes native micro anchor (7,0)
+PASS keep flag delayed scan resolves corrected position (80,160)
+PASS keep flag delayed scan retains pair for (135,160)
+PASS keep flag accepts Vanilla view variant (135,167)
+PASS keep flag preserves resolved Vanilla variant (135,167)
+PASS keep flag rotates Vanilla view variant (135,167)
+PASS keep flag recognizes native micro anchor (7,7)
+PASS keep flag delayed scan resolves corrected position (87,160)
+PASS keep flag delayed scan retains pair for (135,167)
+PASS keep flag accepts Vanilla view variant (128,167)
+PASS keep flag preserves resolved Vanilla variant (128,167)
+PASS keep flag rotates Vanilla view variant (128,167)
+PASS keep flag recognizes native micro anchor (0,7)
+PASS keep flag delayed scan resolves corrected position (87,167)
+PASS keep flag delayed scan retains pair for (128,167)
+PASS keep flag accepts Vanilla view variant (128,160)
+PASS keep flag preserves resolved Vanilla variant (128,160)
+PASS keep flag rotates Vanilla view variant (128,160)
+PASS keep flag recognizes native micro anchor (0,0)
+PASS keep flag delayed scan resolves corrected position (80,167)
+PASS keep flag delayed scan retains pair for (128,160)
+PASS keep flag accepts Vanilla view variant (135,160)
+PASS keep flag preserves resolved Vanilla variant (135,160)
+PASS keep flag rotates Vanilla view variant (135,160)
+PASS keep flag recognizes native micro anchor (7,0)
+PASS keep flag delayed scan resolves corrected position (135,215)
+PASS keep flag delayed scan retains pair for (135,160)
+PASS keep flag accepts Vanilla view variant (135,167)
+PASS keep flag preserves resolved Vanilla variant (135,167)
+PASS keep flag rotates Vanilla view variant (135,167)
+PASS keep flag recognizes native micro anchor (7,7)
+PASS keep flag delayed scan resolves corrected position (128,215)
+PASS keep flag delayed scan retains pair for (135,167)
+PASS keep flag accepts Vanilla view variant (128,167)
+PASS keep flag preserves resolved Vanilla variant (128,167)
+PASS keep flag rotates Vanilla view variant (128,167)
+PASS keep flag recognizes native micro anchor (0,7)
+PASS keep flag delayed scan resolves corrected position (128,208)
+PASS keep flag delayed scan retains pair for (128,167)
+PASS keep flag accepts Vanilla view variant (128,160)
+PASS keep flag preserves resolved Vanilla variant (128,160)
+PASS keep flag rotates Vanilla view variant (128,160)
+PASS keep flag recognizes native micro anchor (0,0)
+PASS keep flag delayed scan resolves corrected position (135,208)
+PASS keep flag delayed scan retains pair for (128,160)
+PASS keep flag accepts Vanilla view variant (160,167)
+PASS keep flag preserves resolved Vanilla variant (160,167)
+PASS keep flag rotates Vanilla view variant (160,167)
+PASS keep flag recognizes native micro anchor (0,7)
+PASS keep flag delayed scan resolves corrected position (87,167)
+PASS keep flag delayed scan retains pair for (160,167)
+PASS keep flag accepts Vanilla view variant (160,167)
+PASS keep flag preserves resolved Vanilla variant (160,167)
+PASS keep flag rotates Vanilla view variant (160,167)
+PASS keep flag recognizes native micro anchor (0,7)
+PASS keep flag delayed scan resolves corrected position (160,240)
+PASS keep flag delayed scan retains pair for (160,167)
+PASS keep flag accepts Vanilla view variant (2288,3263)
+PASS keep flag preserves resolved Vanilla variant (2288,3263)
+PASS keep flag rotates Vanilla view variant (2288,3263)
+PASS keep flag recognizes native micro anchor (0,7)
+PASS keep flag delayed scan resolves corrected position (2288,3304)
+PASS keep flag delayed scan retains pair for (2288,3263)
+PASS keep flag accepts Vanilla view variant (4224,3191)
+PASS keep flag preserves resolved Vanilla variant (4224,3191)
+PASS keep flag rotates Vanilla view variant (4224,3191)
+PASS keep flag recognizes native micro anchor (0,7)
+PASS keep flag delayed scan resolves corrected position (4183,3191)
+PASS keep flag delayed scan retains pair for (4224,3191)
+PASS keep flag rejects unsupported Vanilla micro anchors
+PASS keep flag rejects positions outside Vanilla and corrected corners
+PASS keep main flag accepts a stationary source/target pair
+PASS keep main flag rejects a moving target
+PASS keep main flag rejects different elevations
+PASS keep main flag rejects mismatched players
+PASS keep main flag rejects invalid players
+PASS keep main flag rejects unit-owned Flag3 projectiles
+PASS keep main flag rejects attacking Flag3 projectiles
+PASS keep main flag accepts the exact Vanilla source and target
+PASS keep main flag rejects a deviating source
+PASS keep main flag rejects a deviating target
+PASS Keep1 scale is seven
+PASS Keep2 scale is seven
+PASS Keep3 scale is eleven
+PASS unknown Keep scale is rejected
+PASS odd Keep orientation is rejected
+PASS zero Keep scale is rejected
+PASS Keep sentinel 15 normalizes to South
+PASS orientation 0 is South
+PASS orientation 2 is East
+PASS orientation 4 is North
+PASS orientation 6 is West
+PASS orientation 0 targets NorthEast
+PASS orientation 2 targets NorthWest
+PASS orientation 4 targets SouthWest
+PASS orientation 6 targets SouthEast
+PASS keep flag converts micro coordinates to tiles
+PASS keep flag projectile ID equals its span index
+PASS keep flag skips reserved projectile slot zero
+PASS keep flag accepts a unique projectile match
+PASS keep flag rejects a missing projectile match
+PASS keep flag rejects ambiguous projectile matches
+PASS keep-flag regression suite retains all 169 checks (actual 169)
+PASS exact corrupt-Lord tombstone is repaired
+PASS Lord fix setting guard
+PASS Lord fix new-game guard
+PASS Lord fix tick-window guard
+PASS Lord fix player-record guard
+PASS Lord fix kicked-player guard
+PASS Lord fix single-attempt guard
+PASS Lord fix defeat-state guard
+PASS Lord fix Keep guard
+PASS Lord fix start-marker guard
+PASS Lord fix stored unit-ID guard
+PASS Lord fix stored global-ID guard
+PASS Lord fix missing unit-slot guard
+PASS Lord fix zero-owner guard
+PASS Lord fix null-type guard
+PASS Lord fix empty-state guard
+PASS Lord fix empty-global-ID guard
+PASS Lord fix zero-health guard
+PASS valid Lord is never cleared
+PASS Lord fix performs at most one attempt per player and session
+PASS Lord fix records Vanilla confirmation once
+PASS Lord fix recognizes a fully confirmed session
+PASS Lord fix session reset clears attempt and confirmation state
+PASS Lord fix scans correction candidates for exactly ticks 1-3
+PASS Lord fix stops immediately after an empty correction window
+PASS Lord fix times out outstanding confirmations exactly once at tick 180
+PASS Lord fix observes only corrected players still awaiting confirmation
+PASS Lord fix stops in the tick that confirms the final Vanilla Lord
+PASS Lord fix scans native records 1-8 and treats the roster only as a kicked veto
+PASS Lord fix uses simulation ticks and both supported native initialization phases
+PASS Lord fix stops broad scans after tick 3 and observes only outstanding Lords
+PASS Lord fix stops observation after an unexpected runtime failure
+PASS Lord fix is bounded by NewGame lifecycle rather than game-mode classification
+PASS Lord fix keeps the exact tombstone guard and clears global ID before unit ID
+PASS Lord fix documents the Vanilla cause and managed-workaround tradeoff
+PASS Lord fix adds neither native hooks nor teardown paths
+PASS Lord fix is host-synchronized and enabled by default and reset
+PASS Lord fix runtime is statically rooted only after successful installation
+PASS Lord fix host setting is exposed in Gameplay fixes
+PASS Lord fix label and help exist in all 21 locales
+PASS gatehouse footprint size 5 yields Vanilla's exact 20 edge candidates in order
+PASS dead or non-drawbridge candidates are skipped and only Vanilla's first two distinct bridges are coupled
+PASS a live foreign-owner drawbridge remains eligible because Vanilla's lookup has no owner filter
+PASS open and raised drawbridge states resolve to the same stable exterior approach without a path record
+PASS rotated drawbridges follow the candidate's outward direction
+PASS out-of-map geometry and exterior PCL zero fail closed
+PASS either of two coupled drawbridge exteriors can establish reachability without unrelated components
+PASS more than two supplied drawbridges fail closed even though discovery selects only two
+PASS drawbridge cache signature changes with Global ID and exterior PCL
+PASS already-closed gates need no remembered open state and cache only within one tick
+PASS managed reference and fixed-table movement kernels have identical golden-matrix results
+PASS movement logging summarizes only distinct effective states
+PASS movement handler decoding uses the pristine load-time snapshot instead of patched live bytes
+PASS movement handler snapshot rejects ranges outside the native module
+PASS BugfixesAndQoL loads after Fixes when the optional mod is installed
+PASS BugfixesAndQoL uses the precise host warning, matches its plugin dependency, and keeps Fixes optional
+PASS fast recruit rally tracks only valid human owners and preserves owner identity
+PASS fast recruit rally omits routine per-unit lifecycle logging
+PASS disabled fast recruit handlers exit before tribe queries and unit loops
+PASS tribe synchronization validates one-based IDs and performs one direct array conversion
+PASS movement logging omits commands and redundant component success messages
+PASS external tribe reassignment restores source and destination synchronization independently
+PASS movement hotpaths use native inline tables without managed callbacks
+PASS independent native flags bypass disabled kernels and obsolete managed animation queries are removed
+PASS native tables preserve rally identity, interrupted-path state and rally precedence
+PASS temporary rally animation diagnostics are completely removed
+PASS Arab bow rally cadence preserves Vanilla Animation 0x81 and SpeedBonus 1
+PASS Knight rally cadence preserves Vanilla Animation 0x81 and SpeedBonus 2
+PASS native movement hooks validate exact fields and replay Vanilla with preserved flags
+PASS cadence fastpath preserves the managed outer alive gate before all rally and synchronization table access
+PASS native fastpath offsets match the installed Script Extender GameUnit layout
+PASS fast recruit rally help text documents the human-only behavior
+PASS AI defense patrol detects wall-defense underfill
+PASS AI defense patrol preserves patrol assignment after the wall quota is met
+PASS AI defense patrol handles zero DefWalls and DefTotal
+PASS AI defense patrol handles integer boundary quotas
+PASS AI defense patrol emits signed-jl comparison sentinels
+PASS AI defense patrol runtime uses the owned before-callback hook and its specific setting gates
+PASS AI defense patrol retains Vanilla fallback and explicit ID/index contracts
+PASS AI defense patrol participates in native initialization, setting reconciliation and final disposal
+PASS AI defense patrol host setting defaults and resets to enabled
+PASS AI defense patrol setting is searchable and bound in XAML
+PASS preplaced AI ruin legacy transfer is eligible
+PASS preplaced AI ruin fix rejects saves
+PASS preplaced AI ruin fix rejects a missing serialized activation
+PASS preplaced AI ruin fix accepts a stable matching tower identity
+PASS preplaced AI ruin fix preserves later real damage activations
+PASS validated preplaced portal is synchronized
+PASS save portal is not synchronized
+PASS later-built portal is not synchronized
+PASS destroyed or ambiguous portal is not synchronized
+PASS friendly portal waits for native route readiness
+PASS closed enclosure remains pending until a breach
+PASS lost wall tile plus connected stable anchors confirms a breach
+PASS damage, a closed wall, and pure PCL relabeling do not confirm a breach
+PASS pre-AIV wall capture includes boundary slots and cannot emit an invalid packed tile ID
+PASS player-specific economy PCL projection is exact
+PASS economy overlay is byte-exact after an exception
+PASS BeforeLoad resets without capturing or logging the pre-AIV baseline
+PASS 0x50680 captures the authoritative baseline before its single Vanilla call
+PASS the pre-AIV capture is one-shot, closes at AfterNativeStart, and fails closed when missing
+PASS the pre-AIV wall capture iterates only the bounded packed grid without early coordinate lookup
+PASS AI preplaced-building fix has exactly ten detours and one context hook
+PASS FarmSearch retains mutually exclusive paths with one Vanilla call each
+PASS ResourceSearch retains mutually exclusive paths with one Vanilla call each
+PASS WoodSearch retains mutually exclusive paths with one Vanilla call each
+PASS NearbySearch retains mutually exclusive paths with one Vanilla call each
+PASS AI economy Re-Census invokes Vanilla exactly once per activation
+PASS AI preplaced-building fix has no polling or Unity teardown method
+PASS AI preplaced-building fix omits routine lifecycle and diagnostic logging
+PASS logging cannot trigger census snapshots, portal scans, or route-cache construction
+PASS ordinary combat damage uses an allocation-free balanced event sentinel after profile resolution
+PASS per-player wall baselines iterate only the captured wall tiles
+PASS AI preplaced-building fix has no runtime JSON parser
+PASS AI preplaced-building fix restores overlays and validates the public AIV pointer
+PASS AI runtime timer, census, and economy-start fields use Vanilla's separate active-player state
+PASS AI wood-score hook preserves the audited registers and exact displaced span
+PASS AI preplaced-building host setting is synchronized and enabled by default
+PASS overlapping AI preplaced-building test mods are incompatible
+PASS AI preplaced-building native hash is current
+PASS AI wood-score hook has the audited exact 15-byte span
+PASS AI wood-score hook span has no incoming relative branch target
+PASS AI active-player runtime-state RIP reference resolves to the audited Vanilla table
+PASS AI native signature exists: AllocateSpecPattern
+PASS AI native signature matches reference RVA: AllocateSpecPattern
+PASS AI native signature is unique: AllocateSpecPattern
+PASS AI native signature exists: ActiveLayoutReferencePattern
+PASS AI native signature matches reference RVA: ActiveLayoutReferencePattern
+PASS AI native signature is unique: ActiveLayoutReferencePattern
+PASS AI native signature exists: EconomyOxenPattern
+PASS AI native signature matches reference RVA: EconomyOxenPattern
+PASS AI native signature is unique: EconomyOxenPattern
+PASS AI native signature exists: EconomyQuarryPattern
+PASS AI native signature matches reference RVA: EconomyQuarryPattern
+PASS AI native signature is unique: EconomyQuarryPattern
+PASS AI native signature exists: EconomyWoodPattern
+PASS AI native signature matches reference RVA: EconomyWoodPattern
+PASS AI native signature is unique: EconomyWoodPattern
+PASS AI native signature exists: FarmSearchPattern
+PASS AI native signature matches reference RVA: FarmSearchPattern
+PASS AI native signature is unique: FarmSearchPattern
+PASS AI native signature exists: ResourceSearchPattern
+PASS AI native signature matches reference RVA: ResourceSearchPattern
+PASS AI native signature is unique: ResourceSearchPattern
+PASS AI native signature exists: WoodSearchPattern
+PASS AI native signature matches reference RVA: WoodSearchPattern
+PASS AI native signature is unique: WoodSearchPattern
+PASS AI native signature exists: NearbySearchPattern
+PASS AI native signature matches reference RVA: NearbySearchPattern
+PASS AI native signature is unique: NearbySearchPattern
+PASS AI native signature exists: EconomyGridUpdatePattern
+PASS AI native signature matches reference RVA: EconomyGridUpdatePattern
+PASS AI native signature is unique: EconomyGridUpdatePattern
+PASS AI native signature exists: InitializeEconomyAvailabilityPattern
+PASS AI native signature matches reference RVA: InitializeEconomyAvailabilityPattern
+PASS AI native signature is unique: InitializeEconomyAvailabilityPattern
+PASS AI native signature exists: LegacyPlayerStateCopyPattern
+PASS AI native signature matches reference RVA: LegacyPlayerStateCopyPattern
+PASS AI native signature is unique: LegacyPlayerStateCopyPattern
+PASS AI stone-reserve derives only aligned live player IDs from resource offsets
+PASS AI stone-reserve finds the unique live AIV slot independently of slot order
+PASS AI stone-reserve rejects duplicate owners and incomplete live-slot views
+PASS AI stone-reserve validates the highest build-step index against the supplied view capacity
+PASS AI stone-reserve keeps the maximum pending first-build cost and ignores completed or non-stone steps
+PASS AI stone-reserve fails closed for unknown states and invalid costs
+PASS AI stone-reserve validates the final threshold without overflow
+PASS AIV compatibility selects the official Extender API before considering its workaround
+PASS AIV compatibility recognizes the exact nested Unity Mono fixed-buffer failure
+PASS AIV compatibility rejects similar but unrecognized Extender failures
+PASS AIV import workaround mirrors the official bank, candidate and payload validation
+PASS AI stone-reserve raw fallback validates AIVSystem alignment and complete module range
+PASS all BugfixesAndQoL GameAIVManagerAPI references are confined to audited consumers
+PASS direct Vanilla AIV imports remain isolated in the marked compatibility workaround
+PASS Coop custom-lord imports use the protected backend starting at candidate zero
+PASS multiplayer AIV synchronization uses the protected backend only for extra candidates
+PASS AI stone-reserve runtime uses the mod and specific host setting gates
+PASS AI stone-reserve runtime uses its validated typed AIV data-source boundary
+PASS shared AIV workarounds are isolated, searchable, failure-scoped, and official-first
+PASS AI stone-reserve host setting defaults and resets to enabled
+PASS AI stone-reserve setting is searchable, bound, and localized
+PASS custom Lord package template isolates provider-owned assets
+PASS the removed aggregate AI-fixes setting is absent from active sources, XAML, and localization
+PASS AI quarry resolves a 7x7 Keep center without occupied-tile reads
+PASS AI quarry resolves an 11x11 Keep center without occupied-tile reads
+PASS AI quarry retries a recognized Keep whose grid is not initialized yet
+PASS AI quarry rejects non-Keeps, unsupported grids, and map-edge overflow
+PASS AI quarry runtime retries only an uninitialized Keep and no longer reads its truncated footprint
+PASS AI wall-targeting patch has audited permanent-hook bounds and a logical setting gate
+PASS AI wall-targeting fix participates in initialization, reconciliation, and final disposal
+PASS AI wall-targeting host setting defaults and resets to enabled
+PASS AI wall-targeting setting is searchable and bound in XAML
+PASS AI wall-targeting help text documents shared reachable wall targets
+PASS single-building override store reports the first active override
+PASS single-building override store updates without a second activation transition
+PASS single-building override store adds further entries without reactivation
+PASS single-building override type reset preserves unrelated entries
+PASS single-building override deletion reports the last-entry transition
+PASS single-building override type reset reports the last-entry transition
+PASS single-building override clear removes id and address indexes
+PASS AI resource-shortage policy leaves outputs untouched when the native planner exits early
+PASS AI resource-shortage policy accepts a valid one-based player id
+PASS AI resource-shortage policy clears exactly the 21 audited building sleep requests
+PASS AI resource-shortage policy leaves the neighboring player untouched
+PASS AI resource-shortage policy rejects invalid player ids and null managers
+PASS AI resource-shortage hook runs Vanilla before clearing its sleep outputs
+PASS general sleep synchronization is limited to single-building overrides
+PASS single-building pause keeps its published UI hook permanent and logically gated
+PASS single-building native interception stays installed and its logical gate activates before storing the first override
+PASS AI sleep title and help text describe the intended resource-shortage fix directly
+PASS AI accessibility policy preserves Vanilla mode and accessible results
+PASS AI accessibility policy exempts stables for both inaccessible results
+PASS improved AI accessibility only relaxes result 2 with a proven friendly portal route
+PASS always-prevent remains scoped to living AI buildings and results 0/2
+PASS friendly portal graph follows a third PCL and a multiple-gate chain
+PASS friendly portal graph distinguishes permanent separation and an existing PCL connection
+PASS portal ownership accepts own and allied gates but rejects enemy gates
+PASS portal type policy includes gates and drawbridges but excludes unrelated linkages
+PASS AI accessibility hook replaces the woodcutter counter hook with the audited general sweep decision
+PASS AI accessibility hook uses the audited register and managed-layout contracts
+PASS AI accessibility classifier uses Vanilla entrance/keep PCLs and native three-sided portals only
+PASS installed Vanilla startup tail retargets one ILLabel branch while retaining the ready radar path
+PASS installed Vanilla exposes the proven unguarded MainControls radar prefix
+PASS startup UI guard disables itself when Vanilla's radar prefix becomes null-safe
+PASS startup UI guard rejects a missing block without mutation
+PASS startup UI guard rejects multiple blocks without mutation
+PASS startup UI guard rejects an unsupported branch operand without mutation
+PASS startup UI guard does not probe roots before the Vanilla view model is loaded
+PASS startup UI guard blocks when any UI or MainControls root is missing
+PASS startup UI guard opens once and then uses only its identity fast path
+PASS startup UI guard failed manual apply can be disposed without poisoning the hook target
+PASS startup UI guard manually applies and can roll back its unpublished candidate
+PASS startup UI guard validates and retargets the complete Vanilla tail before one IL insertion
+PASS startup UI guard latches before its permanent identity fast path and validates UI member types
+PASS resolution-aware zoom leaves sub-1080p scale unchanged
+PASS resolution-aware zoom uses 1080p as its reference
+PASS resolution-aware zoom scales 1440p proportionally
+PASS resolution-aware zoom doubles the effective 4K scale
+PASS 4K normal zoom matches the 1080p world height
+PASS resolution normalization preserves visible vertical world size
+PASS the retained distant position preserves world height between 1080p and 4K
+PASS retained far zoom limits tile-area growth to about 2x instead of 4x
+PASS 1080p and 4K expose identical zoom positions for every Vanilla map size
+PASS standard maps keep the distant 1080p zoom positions at 4K
+PASS normalized policy retains Vanilla's small-map limits
+PASS normalized policy retains Vanilla's horizontal ultrawide limit
+PASS sub-1080p resolutions retain their unscaled Vanilla policy
+PASS extended far zoom only relaxes maps allowed by Vanilla's extra-zoom policy
+PASS whole steps, disabled feature and editor restore their Vanilla minimum positions
+PASS extra-zoom steps reach but do not pass the retained distant position
+PASS whole-step zoom retains Vanilla's far limit and normalizes a live half step
+PASS cyclic zoom wraps between both extended limits
+PASS Vanilla-limited maps do not receive the additional distant positions
+PASS extra zoom reaches the added 1.5x and 2x close positions
+PASS whole-step zoom reaches the extended maximum directly
+PASS locked cyclic zoom wraps to Vanilla's resolution-limited minimum
+PASS editor minimum and unlocked-camera limits retain Vanilla behavior
+PASS resolution-aware zoom hook is rooted for the process lifetime
+PASS zoom hook is fail-closed and dynamically setting-gated
+PASS resolution-aware zoom reflection targets match the installed Vanilla managed contract
+PASS resolution-aware zoom is a default-on per-player setting
+PASS resolution-aware zoom setting is exposed in searchable client UI
+PASS resolution-aware zoom localization exists in ar.txt
+PASS resolution-aware zoom localization exists in cs-CZ.txt
+PASS resolution-aware zoom localization exists in de-DE.txt
+PASS resolution-aware zoom localization exists in el-GR.txt
+PASS resolution-aware zoom localization exists in en-US.txt
+PASS resolution-aware zoom localization exists in es-ES.txt
+PASS resolution-aware zoom localization exists in fr-FR.txt
+PASS resolution-aware zoom localization exists in hu-HU.txt
+PASS resolution-aware zoom localization exists in it-IT.txt
+PASS resolution-aware zoom localization exists in ja-JP.txt
+PASS resolution-aware zoom localization exists in ko-KR.txt
+PASS resolution-aware zoom localization exists in nl-NL.txt
+PASS resolution-aware zoom localization exists in pl-PL.txt
+PASS resolution-aware zoom localization exists in pt-BR.txt
+PASS resolution-aware zoom localization exists in ru-RU.txt
+PASS resolution-aware zoom localization exists in sv-SE.txt
+PASS resolution-aware zoom localization exists in th-TH.txt
+PASS resolution-aware zoom localization exists in tr-TR.txt
+PASS resolution-aware zoom localization exists in uk-UA.txt
+PASS resolution-aware zoom localization exists in zh-CN.txt
+PASS resolution-aware zoom localization exists in zh-HK.txt
+PASS active visible queued video notification arms complete skip
+PASS disabled, idle, videoless, hidden, stopped, and briefing video notifications remain untouched
+PASS active videoless notification arms complete skip from the minimap
+PASS disabled, idle, video, and briefing notifications do not arm minimap skip
+PASS single right-click event on an armed notification surface completes it
+PASS unarmed, left-click, and non-single-click events do not complete notifications
+PASS notification audio loads are matched by portable case-insensitive filename
+PASS message-bar OST state fields retain their managed types
+PASS message-bar lookup and visibility contracts remain writable
+PASS production near-call resolver reads rel32 after E8 and uses the five-byte return address
+PASS production near-call resolver rejects wrong opcodes and truncated calls
+PASS notification right-click closes video, stops only channel 1, hides only the message bar, and marks queue state
+PASS complete notification skip uses only notification-surface right-click UI events and no polling or HUD hook
+PASS left-click exits in the static behavior before feature inspection and paused channel 1 stops
+PASS video and videoless minimap clicks are classified separately, including a transparent RadarME overlay, and only matching notification audio is stopped
+PASS audio and native hook failures have distinct context and share fail-closed publication
+PASS central single-message finalizer is called only from the validated native update callback
+PASS notification requests remain identity-bound while routine click logs and diagnostic-only state are omitted
+PASS superseded channel-1 loads cannot replay skipped notification audio
+PASS notification hooks are process-lifetime rooted with initialization-only rollback
+PASS notification feature is retained by the process-lifetime runtime
+PASS notification completion does not interfere with Script Extender or fixes-mod message suppression at enqueue time
+PASS complete notification skip is a default-on per-player preference
+PASS complete notification skip is exposed in searchable client UI
+PASS MainHUD patch targets only RadarME and RadarMapImage with both click behaviors
+PASS current canonical MainHUD contains exactly one RadarME target for the patch XPath
+PASS current canonical MainHUD contains exactly one RadarMapImage target for the patch XPath
+PASS complete notification skip localization exists in ar.txt
+PASS complete notification skip localization exists in cs-CZ.txt
+PASS complete notification skip localization exists in de-DE.txt
+PASS complete notification skip localization exists in el-GR.txt
+PASS complete notification skip localization exists in en-US.txt
+PASS complete notification skip localization exists in es-ES.txt
+PASS complete notification skip localization exists in fr-FR.txt
+PASS complete notification skip localization exists in hu-HU.txt
+PASS complete notification skip localization exists in it-IT.txt
+PASS complete notification skip localization exists in ja-JP.txt
+PASS complete notification skip localization exists in ko-KR.txt
+PASS complete notification skip localization exists in nl-NL.txt
+PASS complete notification skip localization exists in pl-PL.txt
+PASS complete notification skip localization exists in pt-BR.txt
+PASS complete notification skip localization exists in ru-RU.txt
+PASS complete notification skip localization exists in sv-SE.txt
+PASS complete notification skip localization exists in th-TH.txt
+PASS complete notification skip localization exists in tr-TR.txt
+PASS complete notification skip localization exists in uk-UA.txt
+PASS complete notification skip localization exists in zh-CN.txt
+PASS complete notification skip localization exists in zh-HK.txt
+PASS installed Vanilla RadarME exposes the Noesis mouse-event contract used by the behavior
+PASS installed Vanilla channel-1 reflection contract matches the notification feature
+PASS ally goods confirm remains visible for a valid send selection
+PASS disabled client features or ally amount setting preserve Vanilla visibility
+PASS ally goods requests preserve Vanilla visibility
+PASS invalid goods or non-positive amounts do not expose ally goods confirm
+PASS only ally goods result zero succeeds and positive results reject
+PASS ally goods confirmation submits exactly one Vanilla action and preserves the open panel and selection on success
+PASS rejected ally goods sends warn, remain open and are never retried
+PASS ally goods visibility extends Vanilla UpdateGoods without polling
+PASS ally request confirmation remains owned by Vanilla
+PASS ally goods setting refresh updates bindings without touching the MainViewModel factory or polling
+PASS ally goods hook is process-rooted and never torn down normally
+PASS minimap input attaches movement and release events only for a captured gesture
+PASS minimap gesture callbacks are dynamically armed and fail-safe detached
+PASS minimap improvements install no frame, render, or held-input polling callback
+PASS minimap input logs only its one-shot unexpected failure diagnostic
+PASS minimap events preserve placement clicks, cursor following, and Vanilla action exclusions
+PASS minimap gesture normalization preserves active video and clears held movement
+PASS stale radar overlay replacement is sender-independent and forwards exactly the swallowed click
+PASS active videos exit before replacement and the Vanilla stroke is cleared before forwarding
+PASS runtime and project use only the event-driven minimap implementation
+PASS installed Vanilla radar image exposes the required Noesis gesture contract
+PASS installed Vanilla minimap delay and drag fields retain their managed contracts
+PASS published managed runtime hooks remain rooted across setting changes and teardown
+PASS permanent managed runtime hooks retain explicit logical settings gates
+PASS conditional native replay assembles both paths with relocated RIP memory and one original branch
+PASS Healer classifier replay assembles mapped and Vanilla paths without duplicate instruction IPs
+PASS mounted-stockpile hooks remain rooted and use only an atomic logical activation gate
+PASS DE right-click placement cancellation is not forwarded to the engine
+PASS ordinary and non-building right-clicks retain Vanilla forwarding
+PASS SH1 controls retain Vanilla placement-cancel forwarding
+PASS disabled mod, client features, or local option retain Vanilla forwarding
+PASS DE placement cancellation suppresses Down and exactly one matching Up
+PASS a later ordinary Down replaces a stale placement-cancel Up marker
+PASS disabled placement suppression forwards the complete right-click gesture
+PASS placement cancellation replaces both unique Vanilla right-click gesture IL blocks before engine input
+PASS placement-cancel suppression has no MoveHere, selection, frame-detour, held-key, engine-run, or tick callback
+PASS placement-cancel classification fails open and invokes Vanilla cleanup exactly once
+PASS placement-cancel suppression logs only its once-guarded fail-open classification error
+PASS placement-cancel runtime is process-rooted and never torn down normally
+PASS placement-cancel IL implementation and dependencies are compiled into the runtime project
+PASS placement-cancel suppression is an enabled-by-default per-player client setting
+PASS placement-cancel handling no longer patches individual MoveHere consumers
+PASS installed Assembly-CSharp contains exactly one expected right-click Down and Up IL block
+PASS all locales contain placement-cancel setting labels and help text
+PASS SE 2.6 sprite-animation group keeps the audited GameUnit offset
+PASS SE 2.6 sprite-animation group reads and writes the installed layout
+PASS native movement fastpath uses the audited SE 2.6 sprite-animation group offset
+PASS MapFileManager exposes the public GetFileInfoFromFileName hook contract
+PASS post-game lobby map restoration targets retain their installed Vanilla contracts
+PASS multiplayer safety counts only connected non-AI Steam players
+PASS the host multiplayer maximum is clamped to 40-200 and normalized to five-speed steps
+PASS real multiplayer with at least two connected humans uses the synchronized host maximum without raising the Script Extender limit
+PASS relative and absolute in-game requests immediately clamp an existing or requested speed above the host maximum
+PASS recovery save delays only the native forced lag kick in compatible real multiplayer
+PASS connection recovery is a default-enabled host setting backed by the synchronized Vanilla save lifecycle
+PASS AIV Steam packets are copied and deferred before lobby/runtime access
+PASS game-speed direct and Chore transports retain distinct thread contracts
+PASS surrender requests and spectator UI are deferred with copied state
+PASS Trail lobby packets preserve main-thread ordering with copied payloads
+PASS single-building Chore UI no longer runs in the simulation callback
+PASS siege-ammunition Chore logging is not marshalled away from the simulation callback
+PASS BugfixesAndQoL does not source-link the validated main-thread dispatcher
+PASS selection count policy accepts only Vanilla's 0..10000 capacity
+PASS transient dead-unit and invalid selection states remain local fail-closed HUD rejections
+PASS resync diagnostics observe state transitions and outgoing start/end Chores
+PASS friendly-moat cursor rejects non-positive IDs before ID API lookups
+PASS resync Chore diagnostics preserve record order, target, opcode, length, hash and payload
+PASS resync Chore diagnostics cap payload hex at 64 bytes
+PASS resync Chore diagnostics reject truncated records without throwing
+PASS resync Chore history is a 32-buffer ring
+PASS resync checkpoints are emitted once at every requested surrender offset
+PASS opcode-54 diagnostics dump only once per surrender anchor
+PASS map reset clears resync diagnostic buffers and one-shot state
+PASS successful Extended CPU Lord uploads retain the selected non-Rat Lord slot
+PASS successful Extended AIV Castle uploads retain the selected non-Rat Lord slot
+PASS Rat uploads remain fully delegated to Vanilla
+PASS a mismatched upload refresh clears pending Lord-selection state
+PASS a matching refresh command with a changed live mode clears pending state
+PASS closing or aborting the uploader clears pending Lord-selection state
+PASS a synchronously failed upload start explicitly cancels pending state
+PASS the reachable post-failure command Upload clears pending state
+PASS the reachable post-failure command CloseDoUpload clears pending state
+PASS the reachable post-failure command CloseUpload clears pending state
+PASS the reachable post-failure command Lord_07 clears pending state
+PASS disabling the fix clears pending state and preserves Vanilla behavior
+PASS invalid and unrelated upload selections never arm the fix
+PASS a repeated upload replaces and then consumes pending state exactly once
+PASS the fix validates Vanilla contracts, falls back safely, avoids Steam hooks, and remains process rooted
+PASS Skirmish Game Options Cancel leaves every committed value unchanged
+PASS Skirmish Game Options Apply commits general and availability values
+PASS Skirmish Game Options Apply closes the transaction
+PASS empty advanced settings normalize to disabled
+PASS a goods-only restriction keeps Skirmish advanced settings enabled
+PASS shared presets accept the Skirmish advanced flag
+PASS gameplay-only changes update the advanced indicator
+PASS No Cows blocks local Skirmish cow throwing
+PASS No Cows guard does not alter multiplayer
+PASS disabled Auto-Trading blocks local Skirmish actions
+PASS unsupported Skirmish outposts are disabled and normalized
+PASS shared Previous and persistent preset commands use the working copy
+PASS installed Iced assembles the No Dogs replacement: 
+PASS No Dogs production emitter produces exactly 90 90
+PASS No Dogs replacement decodes completely as two one-byte NOPs
+PASS installed native DLL exists for Skirmish regression
+PASS installed native DLL matches the audited Skirmish hash
+PASS installed No Dogs byte window is the audited JE rel8
+PASS Skirmish Settings button keeps its audited position and Vanilla command
+PASS registered host owns only mod visibility while the button binds directly to Vanilla's live Settings label
+PASS Game Options host retains foreground Z-index
+PASS bugfixes.show-mp-advanced-settings-in-sp exists exactly once in the Host Interface section
+PASS bugfixes.enable-custom-lord-list-enhancements exists exactly once in the Host Interface section
+PASS bugfixes.enable-trail-customization-buttons exists exactly once in the Host Interface section
+PASS client and host sections share the generalized Interface title binding
+PASS every supported locale exposes only the generalized Interface title key
+PASS the Shared fallback uses only the generalized Interface title key
+PASS Vanilla preset strip is enabled for local Skirmish hosts
+PASS integrated dialog owns Vanilla Peace Time, fails closed and normalizes Skirmish advanced state
+PASS button binding callback restores MainViewModel and logs only structural failures
+PASS injected Settings buttons use MainViewModel.Instance.MP_Settings_Button and never the Invite text key
+PASS successful initialization and routine Skirmish actions are debug-only
+PASS feature degradation and structural binding failures remain visible
+PASS ExtraFeatures no longer initializes Peace Time runtime or native patches
+PASS Singleplayer Game Options host setting exists and defaults to enabled
+PASS ExtraFeatures Peace Time compatibility shim is hidden, unsynchronized and unpersisted
+PASS post-game host transition preserves map metadata and role across the synchronous mission-end reset
+PASS classic map size reader supports directory tag 2036
+PASS classic map size reader supports directory tag 3036
+PASS classic map size reader supports directory tag 4036
+PASS classic map size policy changes only missing enabled classic map metadata
+PASS classic map size reader rejects a missing map-size section
+PASS classic map size reader rejects a compressed map-size section
+PASS classic map size reader rejects a wrongly sized map-size section
+PASS classic map size reader rejects a map-size offset outside the payload
+PASS classic map size reader rejects a zero map size
+PASS classic map size reader rejects a map size above the engine maximum
+PASS classic map size reader rejects a truncated payload
+PASS Brother's Strife exposes its HD map size through section 1050
+PASS editor map player counts sort in both directions with stable ties
+PASS editor map player counts hide unavailable values
+PASS editor map player-count ordering retains source order for equal counts
+PASS editor map player-count XAML appends an isolated fifth column with an attached cell behavior
+PASS editor map player-count UI reuses established header and stable row-move patterns
+PASS editor map player-count behavior handles initial and changed row contexts without duplicate registrations
+PASS editor map logging omits routine lifecycle noise while retaining actionable failures
+PASS lobby map memory is gated by the existing enhancement setting
+PASS lobby map memory accepts sort column 0
+PASS lobby map memory accepts sort column 1
+PASS lobby map memory accepts sort column 2
+PASS lobby map memory accepts sort column 3
+PASS lobby map memory accepts sort column 4
+PASS lobby map memory accepts sort column 5
+PASS lobby map memory accepts sort column 10
+PASS lobby map memory accepts sort column 11
+PASS lobby map memory accepts sort column 12
+PASS lobby map memory accepts sort column 13
+PASS lobby map memory accepts sort column 14
+PASS lobby map memory accepts sort column 15
+PASS lobby map memory accepts sort column 16
+PASS lobby map memory rejects unsupported sort columns
+PASS lobby map memory grants map authority only to local modes and multiplayer hosts
+PASS lobby map memory prefers the exact origin and path match
+PASS lobby map memory rejects an ambiguous origin and name fallback
+PASS lobby map memory accepts one unambiguous origin and name fallback
+PASS lobby map memory JSON roundtrip preserves map and special player sort mode
+PASS lobby map memory rejects invalid persisted sort data
+PASS lobby map memory rejects unknown schemas and non-integral schema values
+PASS lobby map memory store persists state atomically across instances
+PASS lobby map memory store ignores malformed data
+PASS lobby map memory store ignores oversized data
+PASS high-contrast lobby yellow follows mod, client-feature, and local setting gates
+PASS a previously loaded atlas state is captured as the reversible baseline
+PASS later foreign and mixed resource changes are never overwritten or restored
+PASS team-row replacement brush is exactly ARGB(184,184,134,11)
+PASS installed contracts expose the lobby brush and mutable CroppedBitmap state
+PASS installed sprite setup maps yellow normal/hover/selected/map states to H013/H014/H015/H033
+PASS installed UI lifecycle has a lazy MainViewModel plus the authoritative MasterController INIT path
+PASS yellow shields use reversible resource mutation without per-screen hooks and remain process rooted
+PASS yellow resource resolution is deferred until INIT and logs one success diagnostic
+PASS obsolete lobby-hook colour mapping policy has been removed
+PASS yellow presentation owns exactly four resource keys and preflights conflicts before writing
+PASS gold shield resources use unique keys and four exact atlas crops
+PASS every UI master-atlas patch operation has exactly one direct Content element
+PASS all BugfixesAndQoL Script Extender XAML patches satisfy the single-root Content contract
+PASS client settings UI binds the high-contrast yellow toggle and help text
+PASS global gold shield atlas exists
+PASS gold shield asset is additive and does not replace a Vanilla atlas or resource
+PASS gold shield atlas has three 128x132 states and one 32x34 map state
+PASS gold shield atlas retains the reviewed H013/H014/H015/H033 alpha masks
+PASS gold shield atlas recolours both sizes while preserving adjacent metal
+PASS global gold shield atlas matches the reviewed deterministic asset
+PASS every shipped locale contains the high-contrast yellow label and help text
+PASS localized setting text describes the global shield and lobby-row scope
+PASS briefing No Starting Gold correction follows all three gates
+PASS briefing No Starting Gold changes only humans with a resolved active Vanilla option
+PASS briefing No Starting Gold setting is default-on, per-player, and searchable in the UI
+PASS briefing No Starting Gold registration uses the shared correction stage and remains process rooted
+PASS briefing No Starting Gold locale bindings exist in ar.txt
+PASS briefing No Starting Gold locale bindings exist in cs-CZ.txt
+PASS briefing No Starting Gold locale bindings exist in de-DE.txt
+PASS briefing No Starting Gold locale bindings exist in el-GR.txt
+PASS briefing No Starting Gold locale bindings exist in en-US.txt
+PASS briefing No Starting Gold locale bindings exist in es-ES.txt
+PASS briefing No Starting Gold locale bindings exist in fr-FR.txt
+PASS briefing No Starting Gold locale bindings exist in hu-HU.txt
+PASS briefing No Starting Gold locale bindings exist in it-IT.txt
+PASS briefing No Starting Gold locale bindings exist in ja-JP.txt
+PASS briefing No Starting Gold locale bindings exist in ko-KR.txt
+PASS briefing No Starting Gold locale bindings exist in nl-NL.txt
+PASS briefing No Starting Gold locale bindings exist in pl-PL.txt
+PASS briefing No Starting Gold locale bindings exist in pt-BR.txt
+PASS briefing No Starting Gold locale bindings exist in ru-RU.txt
+PASS briefing No Starting Gold locale bindings exist in sv-SE.txt
+PASS briefing No Starting Gold locale bindings exist in th-TH.txt
+PASS briefing No Starting Gold locale bindings exist in tr-TR.txt
+PASS briefing No Starting Gold locale bindings exist in uk-UA.txt
+PASS briefing No Starting Gold locale bindings exist in zh-CN.txt
+PASS briefing No Starting Gold locale bindings exist in zh-HK.txt
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for AA BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for ? BB CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA ? CC
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for AA BB ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for ? ?
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS anchored native-pattern search retains reference semantics for 10 ? ? 40
+PASS canonical native DLL exists
+PASS canonical native SHA-256 matches the audited baseline
+PASS shared native SHA-256 matches the AI defense patrol baseline
+PASS AI defense patrol GameUnit layout, unique signature, instruction span, branches and call targets
+PASS AI resource-shortage sleep planner signature, calls, and 21 output stores
+PASS notification DLL_RunTick update, single finalizer, presentation start, and manager offsets match the audited contract
+PASS selector entry bytes
+PASS resolver entry bytes
+PASS movement planner entry bytes
+PASS movement low-flag gate bytes
+PASS movement structure-flag gate bytes
+PASS cursor fallback call 1 still targets the SE-owned selector
+PASS cursor fallback result hook 1 exact displaced bytes
+PASS cursor fallback result hook 1 instruction boundaries
+PASS cursor fallback call 2 still targets the SE-owned selector
+PASS cursor fallback result hook 2 exact displaced bytes
+PASS cursor fallback result hook 2 instruction boundaries
+PASS cursor fallback call 3 still targets the SE-owned selector
+PASS cursor fallback result hook 3 exact displaced bytes
+PASS cursor fallback result hook 3 instruction boundaries
+PASS cursor fallback call 4 still targets the SE-owned selector
+PASS cursor fallback result hook 4 exact displaced bytes
+PASS cursor fallback result hook 4 instruction boundaries
+PASS cursor fallback call 5 still targets the SE-owned selector
+PASS cursor fallback result hook 5 exact displaced bytes
+PASS cursor fallback result hook 5 instruction boundaries
+PASS cursor fallback call 6 still targets the SE-owned selector
+PASS cursor fallback result hook 6 exact displaced bytes
+PASS cursor fallback result hook 6 instruction boundaries
+PASS primary move rejection branch
+PASS building attack rejection branch
+PASS alternative attack rejection branch
+PASS wall attack rejection branch
+PASS approach scan acceptance branch
+PASS AI wall-targeting context is unique at the audited RVA
+PASS AI wall reservation rejection branch bytes
+PASS AI wall approach-tile validation remains separate and intact
+PASS general AI accessibility sweep entry bytes
+PASS building accessibility function entry bytes
+PASS primary entrance-candidate generator entry bytes
+PASS secondary entrance-candidate generator entry bytes
+PASS general AI accessibility decision exact 15-byte hook span
+PASS general AI sweep calls the audited building accessibility classifier immediately before the hook
+PASS AI accessibility managed building and player-resource offsets match the native contract
+PASS dispatcher contains initial and follow-up moat-work call chain
+PASS Assassin current-tile building rejection matches the installed RedBird decode boundary without publication
+PASS Assassin neighbor-tile building rejection matches the installed RedBird decode boundary without publication
+PASS assembly-point shared failure status matches the installed RedBird decode boundary without publication
+PASS assembly-point tunneler rejection matches the installed RedBird decode boundary without publication
+PASS assembly-point knight rejection matches the installed RedBird decode boundary without publication
+PASS assembly-point engineer rejection matches the installed RedBird decode boundary without publication
+PASS assembly-point Bedouin rejection matches the installed RedBird decode boundary without publication
+PASS assembly-point mercenary rejection matches the installed RedBird decode boundary without publication
+PASS assembly-point European rejection matches the installed RedBird decode boundary without publication
+PASS Healer first classifier matches the installed RedBird decode boundary without publication
+PASS Healer second classifier matches the installed RedBird decode boundary without publication
+PASS control-group Add Lord rejection matches the installed RedBird decode boundary without publication
+PASS control-group Replace Lord rejection matches the installed RedBird decode boundary without publication
+PASS AI wall reservation rejection matches the installed RedBird decode boundary without publication
+PASS AIV defender-position rejection matches the installed RedBird decode boundary without publication
+PASS mounted-stockpile cursor classification matches the installed RedBird decode boundary without publication
+PASS mounted-stockpile feedback classification matches the installed RedBird decode boundary without publication
+PASS mounted-stockpile endpoint wall gate matches the installed RedBird decode boundary without publication
+PASS assembly-point real replay preserves both MOV paths, omits only enabled CMOVE, and has no interior target
+PASS AIV real replay preserves both decision paths, omits only enabled JB, and returns at safe RVA 0x54730
+PASS all permanent replay spans reject external control-flow into their interiors
+BugfixesAndQoL policy and native-contract tests failed: 1.

@@ -188,7 +188,6 @@ namespace CastlePlanner.AIVPlacement
                 CaptureIfChanged(self, false);
                 PublishCandidateProgress(false);
                 PublishCompletedEvaluations();
-                selectionList.UpdateToolTipScale(CalculateFrontendToolTipScale());
                 UpdateHostReadyButton(self);
             }
             catch (Exception ex)
@@ -686,26 +685,6 @@ namespace CastlePlanner.AIVPlacement
             }
             foreach (KeyValuePair<int, List<AivPlacementCandidateEvaluation>> pair in byPlayer)
                 selectionDialog.PublishCandidates(pair.Key, pair.Value);
-        }
-
-        private static float CalculateFrontendToolTipScale()
-        {
-            float width = UnityEngine.Screen.width;
-            float height = UnityEngine.Screen.height;
-            float scale = 1f;
-            if (width < 1920f || height < 1080f)
-            {
-                float widthRatio = width / 1920f;
-                float heightRatio = height / 1080f;
-                scale = 1f / Math.Min(widthRatio, heightRatio);
-                if (scale < 1f)
-                    scale = 1f;
-            }
-
-            // Mirror FrontendMenus.UpdateFrontMenuPopupScale so popup text follows resolution and UI scale.
-            if (UnityEngine.Screen.width > 1366 && UnityEngine.Screen.height > 768)
-                scale = (1.6f - scale) * ConfigSettings.Settings_UIScale + scale;
-            return scale;
         }
 
         private static LobbyAivMode GetMode(FRONT_Multiplayer.MPAIVInfo info)

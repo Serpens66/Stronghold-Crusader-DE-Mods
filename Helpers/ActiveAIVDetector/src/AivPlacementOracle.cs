@@ -874,7 +874,8 @@ namespace ActiveAIVDetector
         {
             if (session == null ||
                 !prebuildTraceOptions.Enabled ||
-                session.PlayerId != prebuildTraceOptions.PlayerId)
+                (prebuildTraceOptions.PlayerId >= 0 &&
+                    session.PlayerId != prebuildTraceOptions.PlayerId))
             {
                 return null;
             }

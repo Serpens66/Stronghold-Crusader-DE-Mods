@@ -31,7 +31,6 @@ namespace CastlePlanner.AIVPlacement
         public event Action<CustomisationFileManager.CustomAIV> RemoveRequested;
 
         private string countText = "0 / 8";
-        private float toolTipScale = 1f;
 
         public string CountText
         {
@@ -87,17 +86,6 @@ namespace CastlePlanner.AIVPlacement
             CountText = $"{entryIndex} / {maximumEntries}";
         }
 
-        public void UpdateToolTipScale(float scale)
-        {
-            float normalized = Math.Max(1f, Math.Min(4f, scale));
-            if (Math.Abs(toolTipScale - normalized) < 0.001f)
-                return;
-
-            toolTipScale = normalized;
-            foreach (AivSelectionRowViewModel entry in Entries)
-                entry.UpdateToolTipScale(toolTipScale);
-        }
-
         private AivSelectionRowViewModel CreateRow(
             CustomisationFileManager.CustomAIV aiv,
             int candidateId,
@@ -120,7 +108,6 @@ namespace CastlePlanner.AIVPlacement
                 icon,
                 allowRemoval,
                 state,
-                toolTipScale,
                 () => RemoveRequested?.Invoke(aiv));
         }
     }
@@ -133,7 +120,6 @@ namespace CastlePlanner.AIVPlacement
         private Visibility impossibleVisibility;
         private Visibility notEvaluableVisibility;
         private string statusToolTip = string.Empty;
-        private float toolTipScale = 1f;
 
         public AivSelectionRowViewModel(
             CustomisationFileManager.CustomAIV aiv,
@@ -141,14 +127,12 @@ namespace CastlePlanner.AIVPlacement
             ImageSource icon,
             bool allowRemoval,
             AivCandidateVisualState state,
-            float initialToolTipScale,
             Action remove)
         {
             Aiv = aiv ?? throw new ArgumentNullException(nameof(aiv));
             CandidateId = candidateId;
             Icon = icon;
             RemoveCommand = new RelayCommand(remove ?? throw new ArgumentNullException(nameof(remove)));
-            toolTipScale = initialToolTipScale;
             Update(candidateId, allowRemoval, state);
         }
 
@@ -165,7 +149,6 @@ namespace CastlePlanner.AIVPlacement
         public Visibility NotEvaluableVisibility => notEvaluableVisibility;
         public string StatusToolTip => statusToolTip;
         public string RemoveHelpText => SerpLocalization.Get("CastlePlanner.AivRemoveHelp");
-        public float ToolTipScale => toolTipScale;
 
         public bool Matches(CustomisationFileManager.CustomAIV aiv) =>
             aiv != null && (ReferenceEquals(Aiv, aiv) || Aiv.checksum == aiv.checksum);
@@ -186,14 +169,6 @@ namespace CastlePlanner.AIVPlacement
                 statusToolTip = toolTip;
                 OnPropertyChanged(nameof(StatusToolTip));
             }
-        }
-
-        public void UpdateToolTipScale(float scale)
-        {
-            if (Math.Abs(toolTipScale - scale) < 0.001f)
-                return;
-            toolTipScale = scale;
-            OnPropertyChanged(nameof(ToolTipScale));
         }
 
         private void Set(ref Visibility field, Visibility value, string propertyName)

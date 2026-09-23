@@ -220,6 +220,7 @@ namespace CastlePlanner.AIVPlacement
 
         public void Reset()
         {
+            Shared.AiSettingsHelpHover.ClearCurrentHelp();
             foreach (FRONT_Multiplayer.MPAIVInfo previous in playerIdsByInfo.Keys)
                 BugfixAivStatusBridge.Clear(previous);
             playerIdsByInfo.Clear();
@@ -268,6 +269,11 @@ namespace CastlePlanner.AIVPlacement
             initTrampoline(self, aivInfo, mpMode);
             try
             {
+                FrameworkElement helpCard = self.FindName("AiSettingsHelpCard") as FrameworkElement;
+                if (helpCard != null)
+                    Shared.AiSettingsHelpHover.RegisterScope(helpCard);
+                else
+                    LogWarningOnce("help-card", "The AI-settings help card was not found.");
                 ApplySelectionListMode(self, true);
                 RefreshSelectionList(self);
             }
@@ -417,7 +423,7 @@ namespace CastlePlanner.AIVPlacement
             if (candidate.Selection != null)
             {
                 string rotations = string.Join(" | ", candidate.Selection.Variants.Select(
-                    variant => $"{(int)variant.Rotation}°: " +
+                    variant => $"{FormatRotation((int)variant.Rotation)}: " +
                         (variant.Status == AivPlacementStatus.Partial
                             ? $"{variant.Score.FitPercentage}%"
                             : SerpLocalization.Get(variant.Status == AivPlacementStatus.Complete
@@ -438,11 +444,28 @@ namespace CastlePlanner.AIVPlacement
                     : autoDecision.CandidateId.Value == candidate.CandidateId
                         ? SerpLocalization.Get(
                             SerpLocalization.AivPlacementAutoSelected,
-                            "Rotation", (int)candidate.Selection.Variants[autoDecision.RotationIndex].Rotation)
+                            "Rotation", (int)candidate.Selection.Variants[autoDecision.RotationIndex].Rotation) +
+                            FormatDirectionSuffix(
+                                (int)candidate.Selection.Variants[autoDecision.RotationIndex].Rotation)
                         : SerpLocalization.Get(SerpLocalization.AivPlacementAutoDifferent);
             return new AivCandidateVisualState(
                 candidate.Status,
                 description + Environment.NewLine + autoText);
+        }
+
+        private static string FormatRotation(int degrees)
+        {
+            return $"{degrees}°{FormatDirectionSuffix(degrees)}";
+        }
+
+        private static string FormatDirectionSuffix(int degrees)
+        {
+            string direction = CastleRotationOptions.GetDirection(
+                degrees,
+                key => Translate.Instance.GameTexts.TryGetValue(key, out string text)
+                    ? text
+                    : null);
+            return string.IsNullOrEmpty(direction) ? string.Empty : $" ({direction})";
         }
 
         private static string BuildNotEvaluableToolTip(string reason)

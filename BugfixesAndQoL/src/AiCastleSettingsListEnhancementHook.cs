@@ -95,7 +95,6 @@ namespace BugfixesAndQoL
         private bool presetSortAscending;
         private bool activeMpMode;
         private GridViewColumnHeader hoveredSortHeader;
-        private string hoveredSortHelpText;
 
         public AiCastleSettingsListEnhancementHook(
             ManualLogSource log,
@@ -300,6 +299,7 @@ namespace BugfixesAndQoL
             if (!IsActive)
             {
                 ClearSortHeaderHelp();
+                Shared.AiSettingsHelpHover.ClearCurrentHelp();
                 ClosePresetDialog();
                 CloseAicDropdown();
             }
@@ -343,6 +343,7 @@ namespace BugfixesAndQoL
             bool mpMode)
         {
             ClearSortHeaderHelp();
+            Shared.AiSettingsHelpHover.ClearCurrentHelp();
             ClosePresetDialog();
             CloseAicDropdown();
             activeMpMode = mpMode;
@@ -479,12 +480,15 @@ namespace BugfixesAndQoL
             presetListControl = self.FindName("BugfixesAndQoLAivPresetList") as ListView;
             presetNameBox = self.FindName("BugfixesAndQoLAivPresetNameBox") as TextBox;
             okButton = self.FindName("MP_OKSettings") as Button;
+            FrameworkElement helpCard = self.FindName("AiSettingsHelpCard") as FrameworkElement;
             if (aivListControl == null || aicListControl == null || aivSearchBox == null ||
                 aicSearchBox == null || aivHeaderPanel == null || aicHeaderPanel == null ||
                 aicSearchPanel == null || aicDropdownOpenSurface == null || aicDropdownPopup == null ||
                 aicDropdownSearchBox == null || aicDropdownResults == null || presetListControl == null ||
-                presetNameBox == null || okButton == null)
+                presetNameBox == null || okButton == null || helpCard == null)
                 throw new InvalidOperationException("The patched AI-settings controls were not found.");
+
+            Shared.AiSettingsHelpHover.RegisterScope(helpCard, aicDropdownPopup);
 
             // Search focus must not disable Ctrl/Shift input used by Vanilla multi-selection.
             aivListControl.SelectionMode = SelectionMode.Extended;
@@ -547,16 +551,13 @@ namespace BugfixesAndQoL
                 return;
 
             hoveredSortHeader = header;
-            hoveredSortHelpText = help;
-            MainViewModel.Instance.FRONTMultiplayer.hideToolTipTime = DateTime.MinValue;
-            MainViewModel.Instance.AI_Settings_Help = help;
-            MainViewModel.Instance.Show_AI_Settings_Help = true;
+            Shared.AiSettingsHelpHover.ShowHelp(header, help);
         }
 
         private void SortHeaderMouseLeave(object sender, MouseEventArgs e)
         {
             if (ReferenceEquals(sender, hoveredSortHeader))
-                ClearSortHeaderHelp();
+                Shared.AiSettingsHelpHover.ReleaseHover(hoveredSortHeader);
         }
 
         private string GetSortHeaderHelp(string tag)
@@ -579,14 +580,8 @@ namespace BugfixesAndQoL
             if (hoveredSortHeader == null)
                 return;
 
+            Shared.AiSettingsHelpHover.ClearIfOwned(hoveredSortHeader);
             hoveredSortHeader = null;
-            MainViewModel viewModel = MainViewModel.Instance;
-            if (string.Equals(viewModel.AI_Settings_Help, hoveredSortHelpText, StringComparison.Ordinal))
-            {
-                viewModel.AI_Settings_Help = string.Empty;
-                viewModel.Show_AI_Settings_Help = false;
-            }
-            hoveredSortHelpText = null;
         }
 
         private void HeaderClicked(object sender, RoutedEventArgs e)
@@ -666,6 +661,7 @@ namespace BugfixesAndQoL
             if (!presetDialogOpen)
                 return;
             ClearSortHeaderHelp();
+            Shared.AiSettingsHelpHover.ClearCurrentHelp();
             presetDialogOpen = false;
             OnPropertyChanged(nameof(PresetDialogVisibility));
             UpdateDialogKeyboardState();
@@ -1357,6 +1353,7 @@ namespace BugfixesAndQoL
             if (e.NewValue is bool visible && !visible)
             {
                 ClearSortHeaderHelp();
+                Shared.AiSettingsHelpHover.ClearCurrentHelp();
                 CloseAicDropdown();
             }
             UpdateDialogKeyboardState();

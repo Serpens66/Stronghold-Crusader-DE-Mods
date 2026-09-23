@@ -70,8 +70,12 @@ namespace BugfixesAndQoL
 
         public static void ClearStatuses(FRONT_Multiplayer.MPAIVInfo info)
         {
-            if (info != null && Statuses.Remove(info))
+            if (info != null && Statuses.TryGetValue(info, out Dictionary<ulong, AivCandidateStatusInfo> previous))
+            {
+                ClearOwnedStatusHelp(previous);
+                Statuses.Remove(info);
                 StatusChanged?.Invoke(info);
+            }
         }
 
         public static void ReplaceStatuses(
@@ -114,9 +118,17 @@ namespace BugfixesAndQoL
                 return;
             FRONT_Multiplayer.MPAIVInfo[] changed = new FRONT_Multiplayer.MPAIVInfo[Statuses.Count];
             Statuses.Keys.CopyTo(changed, 0);
+            foreach (Dictionary<ulong, AivCandidateStatusInfo> statuses in Statuses.Values)
+                ClearOwnedStatusHelp(statuses);
             Statuses.Clear();
             foreach (FRONT_Multiplayer.MPAIVInfo info in changed)
                 StatusChanged?.Invoke(info);
+        }
+
+        private static void ClearOwnedStatusHelp(Dictionary<ulong, AivCandidateStatusInfo> statuses)
+        {
+            foreach (AivCandidateStatusInfo status in statuses.Values)
+                Shared.AiSettingsHelpHover.ClearIfShowing(status.ToolTip);
         }
 
         public static bool TryGetStatus(

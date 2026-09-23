@@ -133,3 +133,55 @@ though the comparable offline scores matched. Confidence is high only for
 these observed fits; this capture does not establish constructor equivalence,
 managed option provenance, or a later-player prebuild simulation. Later
 prebuilt players remain fail-closed in the lobby.
+
+## 2026-09-23 Crater Lake prebuild observation
+
+The installed native DLL still hashes to
+`FBCB93195FC7EFCA9BDAC5204852EFDD76F9818F59A6711750D77C9CEF2831E2`.
+On map SHA-256 `C5D9906AA37ED96EC1CF9B3EB0C7F6FB5B3E1D8063167FE22337E69C153BB887`,
+seven player build sequences through `0x55F50` / `0x51790` were captured with
+complete, provenance-linked frame snapshots and no pointer or capture errors.
+The first sequence changed 4,230 recorded tile-layer values and 203 building
+records. In an immediately following run on the same map and AI lineup with
+prebuild disabled, 41 common `(player, candidate, orientation)` native fit
+attempts matched the prebuild run in status, raw score, percentage, evaluated
+cells and blocked cells. For all 41 captured fit attempts of later players in
+the prebuild run, the validator's read tile IDs did not intersect tile IDs
+changed by prior captured build sequences. Confidence is high for this observed
+route and measured read/write sets; it does not bound writes of unselected
+random variants or all mapper-specific constructors. The lobby's fail-closed
+handling of later prebuilt players remains justified until a conservative
+all-variant effect bound or an exact sequential simulator is established.
+The 2026-09-23 follow-up re-read the current-hash entry/consumer chain before
+considering a spatial independence rule. `0x57080` (`VA 0x180057080`) scans the
+projected 100x100 candidate grid, resolves each used map coordinate, prepares
+a one-cell footprint, and calls `0x7B060` (`VA 0x18007B060`) with player ID 0
+and mode 0. In this call mode the validator reads the current tile's logic,
+height, building ID and relevant owner/organism values; the entity-owner walk
+is skipped. Confidence is high for the direct fit reads. The writer chain from
+`0x51790` (`VA 0x180051790`) can call `0x5CD90` (`VA 0x18005CD90`) to clear
+existing structure records and `0x6D580` (`VA 0x18006D580`) to dispatch to
+multiple type-specific constructors. Those constructors, footprint helpers and
+cleanup consequences have not yet been bounded for every imported mapper and
+candidate. Local Fixes can relocate the ordered AIV tile-ID buffer, which must
+be included in a production bound. Therefore a zero intersection between
+sampled frame-write tiles and sampled fit-call tiles is an observation, not a
+proof that every possible lobby candidate is unaffected.
+
+The 2026-09-23 variant-coverage follow-up at the same installed hash narrowed
+the first Crater Lake player's unresolved selection to candidate 4
+(`nizar5.aivjson`, captured) or candidate 5 (`nizar6.aivjson`, not yet
+captured), both at orientation 6. The imported files have different frame
+counts (259 versus 291) and distinct occupied plan offsets, so the captured
+candidate 4 build cannot stand in for candidate 5. This is a file-level
+observation, not a native write bound. In the direct constructor chain,
+`0x6D580` (`VA 0x18006D580`) calls `0x77E60` (`VA 0x180077E60`), checks its
+result, then performs per-footprint cleanup and type-specific construction.
+The current Ghidra export reports `Flow exceeded maximum allowable
+instructions` for `0x77E60`; its references include 16 footprint-helper
+calls to `0x69850` and 16 tile-validator calls to `0x7B060`. Confidence is
+high for this direct control flow and the uncovered variant, but medium for
+complete spatial side effects. A fixed AIV-raster padding cannot yet be
+treated as a proven all-constructor write bound. A targeted build capture of
+candidate 5 can close the observed branch gap; a general lobby guarantee
+still requires the native effect bound or equivalent exact state modeling.

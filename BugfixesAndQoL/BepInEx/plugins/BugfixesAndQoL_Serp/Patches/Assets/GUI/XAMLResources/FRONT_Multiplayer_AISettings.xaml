@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
        xmlns:local="clr-namespace:CrusaderDE"
-       xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL"
-       xmlns:seui="clr-namespace:SHCDESE.UI;assembly=SHCDESE">
+       xmlns:shared="clr-namespace:Shared;assembly=BugfixesAndQoL">
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Width='880' and @Height='630' and @Margin='00,43,0,0']"
+             AttributeName="x:Name" Value="AiSettingsHelpCard" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Width='880' and @Height='630' and @Margin='00,43,0,0']"
+             AttributeName="Background" Value="#00000000" />
   <Operation Type="Replace" XPath="//n:RadioButton[@Name='No_Rotation']/parent::n:Grid">
     <Content>
       <Grid Margin="490,115,0,0">
@@ -16,15 +21,15 @@
                       BorderBrush="#FF7B1A0C" />
             <Image Width="24" Height="24" Margin="5,0,0,0"
                    HorizontalAlignment="Left" VerticalAlignment="Center"
-                   Source="{Binding SelectedAicDropdownIcon}"
-                   ToolTip="{Binding SelectedAicDropdownOriginHelp}"
-                   ToolTipService.ShowDuration="60000" />
+                   Source="{Binding SelectedAicDropdownIcon}" />
             <TextBlock Margin="35,0,28,0" HorizontalAlignment="Stretch"
                        VerticalAlignment="Center" Foreground="Black" FontSize="16"
                        TextTrimming="CharacterEllipsis"
                        Text="{Binding SelectedAicDropdownText}" />
             <Border x:Name="BugfixesAndQoLAicDropdownOpenSurface"
-                    Background="#01000000" />
+                    Background="#01000000"
+                    shared:AiSettingsHelpHover.Enabled="True"
+                    shared:AiSettingsHelpHover.Text="{Binding SelectedAicDropdownOriginHelp}" />
             <Popup x:Name="BugfixesAndQoLAicDropdownPopup" Placement="Bottom"
                    PlacementTarget="{Binding ElementName=BugfixesAndQoLAicDropdownSelector}"
                    StaysOpen="False" AllowsTransparency="True">
@@ -48,8 +53,9 @@
                         <Grid Width="340" Height="30">
                           <Image Width="24" Height="24" Margin="3,0,0,0"
                                  HorizontalAlignment="Left" VerticalAlignment="Center"
-                                 Source="{Binding Icon}" ToolTip="{Binding OriginHelp}"
-                                 ToolTipService.ShowDuration="60000" />
+                                 Source="{Binding Icon}"
+                                 shared:AiSettingsHelpHover.Enabled="True"
+                                 shared:AiSettingsHelpHover.Text="{Binding OriginHelp}" />
                           <TextBlock Margin="34,0,5,0" HorizontalAlignment="Stretch"
                                      VerticalAlignment="Center" Foreground="Black" FontSize="16"
                                      TextTrimming="CharacterEllipsis"
@@ -127,25 +133,6 @@
              XPath="//n:Button[@Name='Player1_Kick']/parent::n:Grid/parent::n:StackPanel">
     <Content>
       <Grid x:Name="BugfixesAndQoLAivSelectionListHost" Margin="0" Visibility="Collapsed">
-        <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
-            <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </Grid.Resources>
         <Grid.RowDefinitions>
           <RowDefinition Height="20" />
           <RowDefinition Height="260" />
@@ -165,8 +152,8 @@
                              FlowDirection="{Binding GlobalTextFlowAL2R}" TextTrimming="CharacterEllipsis"
                              FontSize="16" Text="{Binding Name}" />
                   <Grid Width="16" Height="16" Margin="0,6,35,0" HorizontalAlignment="Right"
-                        VerticalAlignment="Top" ToolTip="{Binding StatusToolTip}"
-                        ToolTipService.ShowDuration="60000">
+                        VerticalAlignment="Top" shared:AiSettingsHelpHover.Enabled="True"
+                        shared:AiSettingsHelpHover.Text="{Binding StatusToolTip}">
                     <Border Background="#FF4D83C4" BorderBrush="#FF382A18" BorderThickness="1"
                             CornerRadius="8" Visibility="{Binding PendingVisibility}" />
                     <Border Background="#FF35A853" BorderBrush="#FF382A18" BorderThickness="1"
@@ -182,8 +169,9 @@
                           local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
                           local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
                           Command="{Binding RemoveCommand}" Style="{StaticResource BTN_Building}"
-                          Visibility="{Binding RemoveVisibility}" ToolTip="{Binding RemoveHelpText}"
-                          ToolTipService.ShowDuration="60000" />
+                          Visibility="{Binding RemoveVisibility}"
+                          shared:AiSettingsHelpHover.Enabled="True"
+                          shared:AiSettingsHelpHover.Text="{Binding RemoveHelpText}" />
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -197,30 +185,12 @@
       <Grid x:Name="BugfixesAndQoLAivSearchPanel" Width="300" Height="34" Margin="0,0,130,20"
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
             Visibility="{Binding EnhancementVisibility}">
-        <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
-            <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </Grid.Resources>
         <TextBox x:Name="BugfixesAndQoLAivSearchBox" Width="262" Height="34" MaxLength="64"
                  HorizontalAlignment="Left" VerticalAlignment="Bottom"
                  Text="{Binding AivSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                 TextAlignment="Left" Focusable="True" ToolTip="{Binding SearchHelpText}"
-                 ToolTipService.ShowDuration="60000" />
+                 TextAlignment="Left" Focusable="True"
+                 shared:AiSettingsHelpHover.Enabled="True"
+                 shared:AiSettingsHelpHover.Text="{Binding SearchHelpText}" />
         <TextBlock Width="242" Height="34" Margin="10,0,0,0" HorizontalAlignment="Left"
                    VerticalAlignment="Bottom" IsHitTestVisible="False" Foreground="#FFEFF3C6"
                    FontSize="16" TextTrimming="CharacterEllipsis"
@@ -230,7 +200,8 @@
                 local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
                 local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
                 Command="{Binding ClearAivSearchCommand}" Style="{StaticResource BTN_Building}"
-                ToolTip="{Binding ClearSearchHelpText}" ToolTipService.ShowDuration="60000" />
+                shared:AiSettingsHelpHover.Enabled="True"
+                shared:AiSettingsHelpHover.Text="{Binding ClearSearchHelpText}" />
       </Grid>
     </Content>
   </Operation>
@@ -248,7 +219,8 @@
                   local:PropEx.TextCentre="{Binding PresetButtonText}"
                   local:PropEx.TextLeft="" local:PropEx.TextRight=""
                   Command="{Binding OpenPresetDialogCommand}" Style="{StaticResource BTN_SH_GlowS}"
-                  ToolTip="{Binding PresetButtonHelpText}" ToolTipService.ShowDuration="60000" />
+                  shared:AiSettingsHelpHover.Enabled="True"
+                  shared:AiSettingsHelpHover.Text="{Binding PresetButtonHelpText}" />
         </Grid>
         <Viewbox Width="150" Height="34" Margin="190,0,0,0"
                  HorizontalAlignment="Left" VerticalAlignment="Top">
@@ -303,30 +275,12 @@
       <Grid x:Name="BugfixesAndQoLAicSearchPanel" Width="200" Height="34" Margin="0,0,20,70"
             HorizontalAlignment="Right" VerticalAlignment="Bottom"
             Visibility="{Binding EnhancementVisibility}">
-        <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
-            <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </Grid.Resources>
         <TextBox x:Name="BugfixesAndQoLAicSearchBox" Width="162" Height="34" MaxLength="64"
                  HorizontalAlignment="Left" VerticalAlignment="Bottom"
                  Text="{Binding AicSearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                 TextAlignment="Left" Focusable="True" ToolTip="{Binding SearchHelpText}"
-                 ToolTipService.ShowDuration="60000" />
+                 TextAlignment="Left" Focusable="True"
+                 shared:AiSettingsHelpHover.Enabled="True"
+                 shared:AiSettingsHelpHover.Text="{Binding SearchHelpText}" />
         <TextBlock Width="142" Height="34" Margin="10,0,0,0" HorizontalAlignment="Left"
                    VerticalAlignment="Bottom" IsHitTestVisible="False" Foreground="#FFEFF3C6"
                    FontSize="16" TextTrimming="CharacterEllipsis"
@@ -336,7 +290,8 @@
                 local:PropEx.Sprite1="{StaticResource UI-Buttons L009}"
                 local:PropEx.Sprite2="{StaticResource UI-Buttons L010}"
                 Command="{Binding ClearAicSearchCommand}" Style="{StaticResource BTN_Building}"
-                ToolTip="{Binding ClearSearchHelpText}" ToolTipService.ShowDuration="60000" />
+                shared:AiSettingsHelpHover.Enabled="True"
+                shared:AiSettingsHelpHover.Text="{Binding ClearSearchHelpText}" />
       </Grid>
     </Content>
   </Operation>
@@ -345,25 +300,6 @@
       <Grid x:Name="BugfixesAndQoLAivPresetDialog" Width="880" Height="630"
             HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="#CC000000"
             Visibility="{Binding PresetDialogVisibility}">
-        <Grid.Resources>
-          <Style TargetType="{x:Type ToolTip}">
-            <Setter Property="Background" Value="#FF1D1710" />
-            <Setter Property="Foreground" Value="White" /><Setter Property="seui:ToolTipResolutionScale.Enabled" Value="True"/>
-            <Setter Property="BorderBrush" Value="#FFF2D48A" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="{x:Type ToolTip}">
-                  <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                          BorderThickness="1" CornerRadius="2" Padding="{TemplateBinding Padding}"
-                          MaxWidth="{TemplateBinding MaxWidth}">
-                    <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}" TextWrapping="Wrap" />
-                  </Border>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </Grid.Resources>
         <Grid Width="700" Height="500" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Button Margin="-3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                   IsHitTestVisible="False" Style="{StaticResource BDR_SH1DEa}" />
@@ -373,8 +309,9 @@
           <TextBox x:Name="BugfixesAndQoLAivPresetNameBox" Width="630" Height="38" Margin="0,72,0,0"
                    MaxLength="64" HorizontalAlignment="Center" VerticalAlignment="Top"
                    Text="{Binding PresetName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                   TextAlignment="Left" Focusable="True" ToolTip="{Binding PresetNameHelpText}"
-                   ToolTipService.ShowDuration="60000" />
+                    TextAlignment="Left" Focusable="True"
+                    shared:AiSettingsHelpHover.Enabled="True"
+                    shared:AiSettingsHelpHover.Text="{Binding PresetNameHelpText}" />
           <Grid Width="630" Height="275" Margin="0,122,0,0"
                 HorizontalAlignment="Center" VerticalAlignment="Top">
             <Button Margin="-3" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
@@ -398,7 +335,8 @@
                       SelectedItem="{Binding SelectedPreset, Mode=TwoWay}"
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                       ItemContainerStyle="{StaticResource Standalone_ListViewItem}"
-                      ToolTip="{Binding PresetLoadHelpText}" ToolTipService.ShowDuration="60000">
+                       shared:AiSettingsHelpHover.Enabled="True"
+                       shared:AiSettingsHelpHover.Text="{Binding PresetLoadHelpText}">
               <ListView.View>
                 <GridView ColumnHeaderContainerStyle="{StaticResource HiddenStyle}">
                   <GridViewColumn Width="390">
@@ -431,20 +369,24 @@
             </Grid.ColumnDefinitions>
             <Button Grid.Column="0" Margin="4,0" local:PropEx.TextCentre="{Binding PresetSaveText}"
                     local:PropEx.TextLeft="" local:PropEx.TextRight="" Command="{Binding SavePresetCommand}"
-                    Style="{StaticResource BTN_SH_GlowS}" ToolTip="{Binding PresetSaveHelpText}"
-                    ToolTipService.ShowDuration="60000" />
+                     Style="{StaticResource BTN_SH_GlowS}"
+                     shared:AiSettingsHelpHover.Enabled="True"
+                     shared:AiSettingsHelpHover.Text="{Binding PresetSaveHelpText}" />
             <Button Grid.Column="1" Margin="4,0" local:PropEx.TextCentre="{Binding PresetLoadText}"
                     local:PropEx.TextLeft="" local:PropEx.TextRight="" Command="{Binding LoadPresetCommand}"
-                    Style="{StaticResource BTN_SH_GlowS}" ToolTip="{Binding PresetLoadHelpText}"
-                    ToolTipService.ShowDuration="60000" />
+                     Style="{StaticResource BTN_SH_GlowS}"
+                     shared:AiSettingsHelpHover.Enabled="True"
+                     shared:AiSettingsHelpHover.Text="{Binding PresetLoadHelpText}" />
             <Button Grid.Column="2" Margin="4,0" local:PropEx.TextCentre="{Binding PresetDeleteText}"
                     local:PropEx.TextLeft="" local:PropEx.TextRight="" Command="{Binding DeletePresetCommand}"
-                    Style="{StaticResource BTN_SH_GlowS}" ToolTip="{Binding PresetDeleteHelpText}"
-                    ToolTipService.ShowDuration="60000" />
+                     Style="{StaticResource BTN_SH_GlowS}"
+                     shared:AiSettingsHelpHover.Enabled="True"
+                     shared:AiSettingsHelpHover.Text="{Binding PresetDeleteHelpText}" />
             <Button Grid.Column="3" Margin="4,0" local:PropEx.TextCentre="{Binding PresetCancelText}"
                     local:PropEx.TextLeft="" local:PropEx.TextRight="" Command="{Binding ClosePresetDialogCommand}"
-                    Style="{StaticResource BTN_SH_GlowS}" ToolTip="{Binding PresetCancelHelpText}"
-                    ToolTipService.ShowDuration="60000" />
+                     Style="{StaticResource BTN_SH_GlowS}"
+                     shared:AiSettingsHelpHover.Enabled="True"
+                     shared:AiSettingsHelpHover.Text="{Binding PresetCancelHelpText}" />
           </Grid>
         </Grid>
       </Grid>

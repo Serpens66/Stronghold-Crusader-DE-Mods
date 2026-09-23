@@ -81,6 +81,23 @@ namespace CastlePlanner
                 : 0;
         }
 
+        public static string GetDirection(int degrees, Func<string, string> vanillaTextResolver)
+        {
+            if (vanillaTextResolver == null)
+                throw new ArgumentNullException(nameof(vanillaTextResolver));
+
+            foreach (Definition definition in Definitions)
+            {
+                if (definition.Degrees == degrees)
+                    return ResolveDirection(
+                        vanillaTextResolver,
+                        definition.VanillaTextKey,
+                        definition.EnglishDirection);
+            }
+
+            return string.Empty;
+        }
+
         private static string ResolveDirection(
             Func<string, string> vanillaTextResolver,
             string vanillaTextKey,

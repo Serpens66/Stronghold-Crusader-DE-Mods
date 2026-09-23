@@ -190,6 +190,9 @@
     <Compile Include="..\Shared\SerpLocalization.cs">
       <Link>Shared\SerpLocalization.cs</Link>
     </Compile>
+    <Compile Include="..\Shared\AiSettingsHelpHover.cs">
+      <Link>Shared\AiSettingsHelpHover.cs</Link>
+    </Compile>
     <Compile Include="..\Shared\ToolTipPresentation.cs">
       <Link>Shared\ToolTipPresentation.cs</Link>
     </Compile>

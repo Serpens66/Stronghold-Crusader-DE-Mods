@@ -4040,7 +4040,9 @@ namespace BugfixesAndQoL
             Check(xaml.Contains("ItemsSource=\"{Binding AicDropdownEntries}\"") &&
                     xaml.Contains("MaxHeight=\"390\"") &&
                     xaml.Contains("Source=\"{Binding Icon}\"") &&
-                    xaml.Contains("ToolTip=\"{Binding OriginHelp}\"") &&
+                    xaml.Contains("shared:AiSettingsHelpHover.Text=\"{Binding OriginHelp}\"") &&
+                    !xaml.Contains("ToolTip=\"") &&
+                    !xaml.Contains("<ToolTip") &&
                     xaml.Contains("Text=\"{Binding DisplayText}\""),
                 "AIC dropdown exposes searchable, scrollable icon and power rows");
             Check(xaml.Contains("Margin=\"120,40,0,0\"") &&

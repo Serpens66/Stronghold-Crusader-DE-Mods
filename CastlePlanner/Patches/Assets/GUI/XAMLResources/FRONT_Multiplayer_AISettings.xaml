@@ -1,6 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Patch xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-       xmlns:local="clr-namespace:CrusaderDE">
+       xmlns:local="clr-namespace:CrusaderDE"
+       xmlns:shared="clr-namespace:Shared;assembly=CastlePlanner">
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Width='880' and @Height='630' and @Margin='00,43,0,0']"
+             AttributeName="x:Name" Value="AiSettingsHelpCard" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Width='880' and @Height='630' and @Margin='00,43,0,0']"
+             AttributeName="Background" Value="#00000000" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Visibility='{Binding Show_AI_Settings_Help, Converter={StaticResource booleanToVisibilityConverter}}']"
+             AttributeName="Height" Value="Auto" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Visibility='{Binding Show_AI_Settings_Help, Converter={StaticResource booleanToVisibilityConverter}}']"
+             AttributeName="MinHeight" Value="60" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Visibility='{Binding Show_AI_Settings_Help, Converter={StaticResource booleanToVisibilityConverter}}']/n:Grid[@Width='1150']"
+             AttributeName="Height" Value="Auto" />
   <Operation Type="InsertAfter"
              XPath="//n:Button[@Name='Player1_Kick']/parent::n:Grid/parent::n:StackPanel">
     <Content>
@@ -42,27 +58,9 @@
                         Height="16"
                         Margin="0,6,35,0"
                         HorizontalAlignment="Right"
-                        VerticalAlignment="Top">
-                    <Grid.ToolTip>
-                      <ToolTip Placement="Top"
-                               ToolTipService.ShowDuration="60000"
-                               ToolTipService.InitialShowDelay="300">
-                        <ToolTip.RenderTransform>
-                          <ScaleTransform ScaleX="{Binding ToolTipScale}"
-                                          ScaleY="{Binding ToolTipScale}"/>
-                        </ToolTip.RenderTransform>
-                        <!-- Keep scaled text readable over every lobby background. -->
-                        <Border Background="#FF1D1710"
-                                BorderBrush="#FFF2D48A"
-                                BorderThickness="1"
-                                CornerRadius="2"
-                                Padding="8,5">
-                          <TextBlock Text="{Binding StatusToolTip}"
-                                     Foreground="White"
-                                     FontSize="16"/>
-                        </Border>
-                      </ToolTip>
-                    </Grid.ToolTip>
+                        VerticalAlignment="Top"
+                        shared:AiSettingsHelpHover.Enabled="True"
+                        shared:AiSettingsHelpHover.Text="{Binding StatusToolTip}">
                     <Border Background="#FF35A853"
                             BorderBrush="#FF382A18"
                             BorderThickness="1"
@@ -93,8 +91,8 @@
                           Command="{Binding RemoveCommand}"
                           Style="{StaticResource BTN_Building}"
                           Visibility="{Binding RemoveVisibility}"
-                          ToolTip="{Binding RemoveHelpText}"
-                          ToolTipService.ShowDuration="60000"/>
+                          shared:AiSettingsHelpHover.Enabled="True"
+                          shared:AiSettingsHelpHover.Text="{Binding RemoveHelpText}"/>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

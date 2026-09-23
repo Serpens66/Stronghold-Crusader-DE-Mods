@@ -7,6 +7,12 @@
              XPath="//n:Grid[@Visibility='{Binding Show_MPSettings, Converter={StaticResource booleanToVisibilityConverter}}']"
              AttributeName="Panel.ZIndex"
              Value="1000" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Width='700' and @Height='360' and @Visibility='{Binding Show_AddAIPanel, Converter={StaticResource booleanToVisibilityConverter}}']"
+             AttributeName="x:Name" Value="CustomLordHelpCard" />
+  <Operation Type="SetAttribute"
+             XPath="//n:Grid[@Width='700' and @Height='360' and @Visibility='{Binding Show_AddAIPanel, Converter={StaticResource booleanToVisibilityConverter}}']"
+             AttributeName="Background" Value="#00000000" />
   <Operation Type="Replace" XPath="//n:ListView[@Name='CustomLordList']/n:ListView.View/n:GridView">
     <Content>
       <GridView AllowsColumnReorder="False"

@@ -44,6 +44,7 @@ namespace BugfixesAndQoL
         private GridViewColumnHeader nameHeader;
         private GridViewColumnHeader powerHeader;
         private Grid headerPanel;
+        private Grid helpCard;
         private GridViewColumnHeader hoveredSortHeader;
         private string sortHeaderHelpText = string.Empty;
         private SortField sortField;
@@ -295,18 +296,18 @@ namespace BugfixesAndQoL
                 activeList.SelectionChanged -= CustomLordSelectionChanged;
             if (headerPanel != null)
                 headerPanel.IsVisibleChanged -= HeaderPanelVisibilityChanged;
+            if (helpCard != null)
+            {
+                helpCard.MouseLeave -= HelpCardMouseLeave;
+                helpCard.IsVisibleChanged -= HelpCardVisibilityChanged;
+                helpCard.Unloaded -= HelpCardUnloaded;
+            }
             if (typeHeader != null)
                 typeHeader.MouseEnter -= SortHeaderMouseEnter;
-            if (typeHeader != null)
-                typeHeader.MouseLeave -= SortHeaderMouseLeave;
             if (nameHeader != null)
                 nameHeader.MouseEnter -= SortHeaderMouseEnter;
-            if (nameHeader != null)
-                nameHeader.MouseLeave -= SortHeaderMouseLeave;
             if (powerHeader != null)
                 powerHeader.MouseEnter -= SortHeaderMouseEnter;
-            if (powerHeader != null)
-                powerHeader.MouseLeave -= SortHeaderMouseLeave;
             ClearSortHeaderHelp();
 
             ListView list = self.FindName("CustomLordList") as ListView;
@@ -322,8 +323,9 @@ namespace BugfixesAndQoL
             GridViewColumnHeader newNameHeader = self.FindName("CustomLordNameHeader") as GridViewColumnHeader;
             GridViewColumnHeader newPowerHeader = self.FindName("CustomLordPowerHeader") as GridViewColumnHeader;
             Grid newHeaderPanel = self.FindName("CustomLordHeaderPanel") as Grid;
+            Grid newHelpCard = self.FindName("CustomLordHelpCard") as Grid;
             if (newTypeHeader == null || newNameHeader == null || newPowerHeader == null ||
-                newHeaderPanel == null)
+                newHeaderPanel == null || newHelpCard == null)
                 throw new InvalidOperationException("The patched custom-lord column headers were not found.");
 
             activeView = self;
@@ -333,17 +335,18 @@ namespace BugfixesAndQoL
             nameHeader = newNameHeader;
             powerHeader = newPowerHeader;
             headerPanel = newHeaderPanel;
+            helpCard = newHelpCard;
 
             ((ButtonBase)typeHeader).Click += HeaderClicked;
             ((ButtonBase)nameHeader).Click += HeaderClicked;
             ((ButtonBase)powerHeader).Click += HeaderClicked;
             typeHeader.MouseEnter += SortHeaderMouseEnter;
-            typeHeader.MouseLeave += SortHeaderMouseLeave;
             nameHeader.MouseEnter += SortHeaderMouseEnter;
-            nameHeader.MouseLeave += SortHeaderMouseLeave;
             powerHeader.MouseEnter += SortHeaderMouseEnter;
-            powerHeader.MouseLeave += SortHeaderMouseLeave;
             headerPanel.IsVisibleChanged += HeaderPanelVisibilityChanged;
+            helpCard.MouseLeave += HelpCardMouseLeave;
+            helpCard.IsVisibleChanged += HelpCardVisibilityChanged;
+            helpCard.Unloaded += HelpCardUnloaded;
             activeList.SelectionChanged += CustomLordSelectionChanged;
             activeSearchBox.IsKeyboardFocusedChanged += SearchFocusChanged;
 
@@ -383,11 +386,17 @@ namespace BugfixesAndQoL
             OnPropertyChanged(nameof(SortHeaderHelpVisibility));
         }
 
-        private void SortHeaderMouseLeave(object sender, MouseEventArgs e)
+        private void HelpCardMouseLeave(object sender, MouseEventArgs e) =>
+            ClearSortHeaderHelp();
+
+        private void HelpCardVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            if (ReferenceEquals(sender, hoveredSortHeader))
+            if (e.NewValue is bool visible && !visible)
                 ClearSortHeaderHelp();
         }
+
+        private void HelpCardUnloaded(object sender, RoutedEventArgs e) =>
+            ClearSortHeaderHelp();
 
         private void HeaderPanelVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
